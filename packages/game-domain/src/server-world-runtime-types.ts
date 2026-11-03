@@ -13,8 +13,6 @@ import type {
 import type {
   ClusterDefinition,
   NaturalWonderSiteState,
-  ShardSiteState,
-  StrategicResource,
   TerrainShapeState,
   TownDefinition,
   WatchtowerSiteState,
@@ -127,49 +125,6 @@ export interface ServerWorldgenTownsRuntime {
   initialTownPopulationAt: (x: number, y: number, seed: number) => number;
   minTownSpacing: () => number;
   isFarEnoughFromTowns: (x: number, y: number, minSpacing: number, ignoreTileKey?: TileKey) => boolean;
-}
-
-export interface ServerWorldgenShardsDeps {
-  terrainAt: (x: number, y: number) => Tile["terrain"];
-  key: (x: number, y: number) => TileKey;
-  docksByTile: Map<TileKey, Dock>;
-  clusterByTile: Map<TileKey, string>;
-  townsByTile: Map<TileKey, TownDefinition>;
-  shardSitesByTile: Map<TileKey, ShardSiteState>;
-  now: () => number;
-  INITIAL_SHARD_SCATTER_COUNT: number;
-  seeded01: (x: number, y: number, seed: number) => number;
-  WORLD_WIDTH: number;
-  WORLD_HEIGHT: number;
-  currentShardRainNotice: (nowMs: number, expiresAt: number | undefined, siteCount: number, ttlMs: number) => unknown;
-  SHARD_RAIN_TTL_MS: number;
-  nextShardRainStartAt: (nowMs: number) => number;
-  getLastShardRainWarningSlotKey: () => string | undefined;
-  setLastShardRainWarningSlotKey: (value: string) => void;
-  broadcast: (payload: unknown) => void;
-  hasOnlinePlayers: () => boolean;
-  SHARD_RAIN_SITE_MIN: number;
-  SHARD_RAIN_SITE_MAX: number;
-  broadcastLocalVisionDelta: (centers: Array<{ x: number; y: number }>) => void;
-  SHARD_RAIN_SCHEDULE_HOURS: readonly number[];
-  getLastShardRainSlotKey: () => string | undefined;
-  setLastShardRainSlotKey: (value: string) => void;
-  parseKey: (tileKey: TileKey) => [number, number];
-  markSummaryChunkDirtyAtTile: (x: number, y: number) => void;
-  visible: (player: Player, x: number, y: number) => boolean;
-  getOrInitStrategicStocks: (playerId: string) => Partial<Record<StrategicResource, number>>;
-}
-
-export interface ServerWorldgenShardsRuntime {
-  shardSiteViewAt: (tileKey: TileKey) => Tile["shardSite"] | undefined;
-  seedInitialShardScatter: (seed: number) => void;
-  activeShardRainSummary: () => { siteCount: number; expiresAt: number | undefined };
-  shardRainNoticePayload: () => unknown;
-  maybeBroadcastShardRainWarning: () => void;
-  spawnShardRain: () => void;
-  maybeSpawnScheduledShardRain: () => void;
-  expireShardSites: () => void;
-  collectShardSite: (player: Player, x: number, y: number) => { ok: boolean; amount?: number; reason?: string };
 }
 
 export interface ServerWorldgenWatchtowersDeps {

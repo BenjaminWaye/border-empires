@@ -135,4 +135,16 @@ describe("ClientMessageSchema", () => {
       ClientMessageSchema.parse({ type: "SET_MUSTER", x: 10, y: 10, mode: "MARCH", targetX: 12, targetY: 14 })
     ).toEqual({ type: "SET_MUSTER", x: 10, y: 10, mode: "MARCH", targetX: 12, targetY: 14 });
   });
+
+  // Shards were removed from the game: the old shard commands must be rejected
+  // at the wire instead of reaching the simulation.
+  it("rejects the removed COLLECT_SHARD and SHARD_MOBILIZE commands", () => {
+    expect(ClientMessageSchema.safeParse({ type: "COLLECT_SHARD", x: 1, y: 2 }).success).toBe(false);
+    expect(ClientMessageSchema.safeParse({ type: "SHARD_MOBILIZE" }).success).toBe(false);
+  });
+
+  it("drops a stale shard amount from a diplomacy gift sent by an old client", () => {
+    const parsed = ClientMessageSchema.parse({ type: "DIPLOMACY_GIFT", targetPlayerName: "Elin", gift: { gold: 10, shard: 2 } });
+    expect(parsed).toEqual({ type: "DIPLOMACY_GIFT", targetPlayerName: "Elin", gift: { gold: 10 } });
+  });
 });

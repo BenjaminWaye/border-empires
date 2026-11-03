@@ -105,7 +105,6 @@ describe("prospect clue tile gating", () => {
     expect(prospectCluePropsAllowed(tile({ resource: "UMBRITE" }))).toBe(false);
     expect(prospectCluePropsAllowed(tile({ dockId: "d1" }))).toBe(false);
     expect(prospectCluePropsAllowed(tile({ watchtower: { activated: false } }))).toBe(false);
-    expect(prospectCluePropsAllowed(tile({ shardSite: { kind: "CACHE", amount: 3 } }))).toBe(false);
     expect(prospectCluePropsAllowed(undefined)).toBe(false);
   });
 

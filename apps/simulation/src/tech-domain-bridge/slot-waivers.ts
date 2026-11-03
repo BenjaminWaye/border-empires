@@ -28,6 +28,10 @@ export const maxEffectForPlayer = (
   return max;
 };
 
+/** Relays that need no FOOD slot: the built-in allowance plus Relay Fabrication Line's bonus. */
+export const relayBeaconFreeFoodSlotCountForPlayer = (player: Pick<DomainPlayer, "techIds" | "domainIds">): number =>
+  RELAY_BEACON_FREE_FOOD_SLOT_COUNT + maxEffectForPlayer(player, "relayBeaconFreeFoodSlotBonus");
+
 // §23.2: the player's current resource-slot waivers (Dwarf Kingdom/Fortress
 // Realm/Supply State/Treasury State/Enduring Realm), read from their owned
 // techs/domains and handed to resource-slot-view.ts's demand/dormancy
@@ -39,7 +43,7 @@ export const slotWaiversForPlayer = (player: Pick<DomainPlayer, "techIds" | "dom
   ...(player.afcCoreTownKeys ? { afcCoreTownKeys: player.afcCoreTownKeys } : {}),
   fortTitaniumSlotWaiverCount: maxEffectForPlayer(player, "fortTitaniumSlotWaiverCount"),
   outpostUmbriteSlotWaiverCount: maxEffectForPlayer(player, "outpostUmbriteSlotWaiverCount"),
-  relayBeaconFoodSlotWaiverCount: RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
+  relayBeaconFoodSlotWaiverCount: relayBeaconFreeFoodSlotCountForPlayer(player),
   firstTownsFoodSlotWaiverCount: maxEffectForPlayer(player, "firstTownsFoodSlotWaiverCount"),
   allTownsFoodSlotWaiverPerTown: maxEffectForPlayer(player, "allTownsFoodSlotWaiverPerTown")
 });

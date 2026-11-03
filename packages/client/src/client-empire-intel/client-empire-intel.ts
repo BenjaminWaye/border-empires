@@ -42,7 +42,6 @@ export const revealEmpireStatsDossierHtml = (stats: RevealEmpireStatsView): stri
           ${statCardHtml("Titanium", formatInt(stockpile.TITANIUM))}
           ${statCardHtml("Crystal", formatInt(stockpile.CRYSTAL))}
           ${statCardHtml("Umbrite", formatInt(stockpile.UMBRITE))}
-          ${statCardHtml("Shard", formatInt(stockpile.SHARD))}
         </div>
       </div>
       <div class="intel-actions">

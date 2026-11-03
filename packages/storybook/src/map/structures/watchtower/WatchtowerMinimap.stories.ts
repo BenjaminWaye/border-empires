@@ -87,8 +87,6 @@ const render = (args: Args): HTMLElement => {
         fogDisabled: true,
         tiles,
         dockPairs: [],
-        shardRainPingsByTile: new Map(),
-        shardRainStatus: undefined,
         tilesRevision: 0
       },
       canvas,

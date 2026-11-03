@@ -1,7 +1,7 @@
 import { afcCampaignGuardCounters } from "./afc-diagnostics.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { AFC_CAMPAIGN_RECORD_LIMIT, afcMomentumStacks, afcMomentumAfterVictory, isFortDefending } from "@border-empires/shared";
+import { AFC_CAMPAIGN_RECORD_LIMIT, AFC_SPECIALIZATION_BALANCE, afcMomentumStacks, afcMomentumAfterVictory, isFortDefending } from "@border-empires/shared";
 import { additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import { isAlliedOrTruced } from "../runtime-player-factory.js";
 import type { LockRecord, LockedCombatResolution } from "../runtime-types.js";
@@ -71,10 +71,19 @@ export interface BreakthroughContext {
   isProtected: (attackerId: string, x: number, y: number) => boolean;
   now: number;
 }
-/** Pick once at lock creation. The chosen target is stored with the combat roll for replay. */
-export function pickBreakthroughTarget(context: BreakthroughContext, attacker: DomainPlayer | undefined, primary: DomainTileState | undefined): { key: string; ownerId: string } | undefined {
-  if (!attacker || !primary?.ownerId || primary.ownershipState !== "SETTLED" || additiveEffectForPlayer(attacker, "breakthroughBonusTiles") <= 0) return undefined;
-  if (isAlliedOrTruced(attacker, primary.ownerId)) return undefined;
+/** Breakthrough Protocol tiles for this win: the base grant, plus the full-Momentum bonus when the flag is at max stacks. */
+export function breakthroughTileCount(attacker: DomainPlayer | undefined, flag: DomainTileState["muster"], now: number): number {
+  if (!attacker) return 0;
+  const base = additiveEffectForPlayer(attacker, "breakthroughBonusTiles");
+  if (base <= 0) return 0;
+  const fullMomentum = flag?.ownerId === attacker.id && afcMomentumStacks(flag.momentum, now) >= AFC_SPECIALIZATION_BALANCE.momentumMaxStacks;
+  return base + (fullMomentum ? additiveEffectForPlayer(attacker, "breakthroughMaxMomentumBonusTiles") : 0);
+}
+
+/** Pick once at lock creation. The chosen targets are stored with the combat roll for replay. */
+export function pickBreakthroughTargets(context: BreakthroughContext, attacker: DomainPlayer | undefined, primary: DomainTileState | undefined, count: number): Array<{ key: string; ownerId: string }> {
+  if (!attacker || !primary?.ownerId || primary.ownershipState !== "SETTLED" || count <= 0) return [];
+  if (isAlliedOrTruced(attacker, primary.ownerId)) return [];
   const candidates: string[] = [];
   forEachFrontierNeighbor(primary.x, primary.y, (x, y) => {
     const key = `${x},${y}`;
@@ -82,6 +91,10 @@ export function pickBreakthroughTarget(context: BreakthroughContext, attacker: D
     if (tile?.terrain !== "LAND" || tile.ownerId !== primary.ownerId || context.isLocked(key) || context.isProtected(attacker.id, x, y) || fortWardIsReady(context.players, tile, context.now)) return;
     candidates.push(key);
   });
-  const key = candidates[Math.floor(Math.random() * candidates.length)];
-  return key ? { key, ownerId: primary.ownerId } : undefined;
+  const picked: Array<{ key: string; ownerId: string }> = [];
+  while (picked.length < count && candidates.length > 0) {
+    const [key] = candidates.splice(Math.floor(Math.random() * candidates.length), 1);
+    if (key) picked.push({ key, ownerId: primary.ownerId });
+  }
+  return picked;
 }

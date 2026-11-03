@@ -62,7 +62,8 @@ export type PlannerPlayerView = {
   techIds?: string[];
   domainIds?: string[];
   afcUpgradeRuleset?: "afc-v1";
-  afcDetectedFlags?: readonly { x: number; y: number; ownerId: string }[];
+  /** Resonance Hijack recharge (afcCampaign.hijackReadyAt), so the planner never proposes one the server will refuse. */
+  afcHijackReadyAt?: number;
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   settledTileCount?: number;
   townCount?: number;

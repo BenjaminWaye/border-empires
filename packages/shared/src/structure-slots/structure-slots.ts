@@ -3,8 +3,8 @@
 // TITANIUM/CRYSTAL/UMBRITE/FOOD stop being stockpiled quantities. Each settled
 // resource tile provides a small number of discrete SLOTS; a structure that
 // needs one of these resources permanently occupies a slot for as long as it
-// exists (no stockpile spend, no timer — §5.1). GOLD and SHARD are
-// deliberately untouched by this (§5.5) and stay flow/event-gated.
+// exists (no stockpile spend, no timer — §5.1). GOLD is deliberately
+// untouched by this (§5.5) and stays flow-gated.
 //
 // v1 scope (§5.6): a global pool per resource, not per-tile tapping —
 // `supply = Σ(base + boosts)` over owned settled tiles of that resource,
@@ -31,8 +31,7 @@ export type StructureSlotRequirement = {
 // verbatim. Where a structure has both a build-time resourceCost (in
 // structure-costs.ts) and a listed slot requirement, the slot requirement is
 // authoritative — build-time resourceCost fields for FOOD/TITANIUM/CRYSTAL/UMBRITE
-// are retired by this module (§5 supersedes them; only SHARD build costs
-// still apply, since SHARD stays a real stockpile, §5.5).
+// are retired by this module (§5 supersedes them).
 //
 // One known documentation quirk, preserved intentionally rather than
 // "corrected" by guessing: HARBOR_EXCHANGE lists a 60-CRYSTAL build cost in
@@ -120,8 +119,7 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   SIEGE_TOWER: [{ resource: "UMBRITE", count: 2 }],
   DREAD_TOWER: [{ resource: "UMBRITE", count: 3 }],
 
-  // Monument parts + assemblies (SHARD build cost stays as a flow/stockpile
-  // cost, §5.5 — only the CRYSTAL requirement below is slot-based)
+  // Monument parts + assemblies (manpower plus the CRYSTAL slot below)
   IMPERIAL_EXCHANGE_PART_1: [{ resource: "CRYSTAL", count: 1 }],
   IMPERIAL_EXCHANGE_PART_2: [{ resource: "CRYSTAL", count: 1 }],
   IMPERIAL_EXCHANGE_PART_3: [{ resource: "CRYSTAL", count: 1 }],

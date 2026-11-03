@@ -1,4 +1,4 @@
-import type { ObservatorySiphonMode } from "@border-empires/shared";
+import type { ObservatoryHijack, ObservatorySiphonMode } from "@border-empires/shared";
 
 export type ClientTileObservatory = {
   readonly supportAnchor?: { x: number; y: number } | null;
@@ -6,6 +6,7 @@ export type ClientTileObservatory = {
   status: "under_construction" | "active" | "inactive" | "removing";
   completesAt?: number; startedAt?: number; pausedAt?: number;
   suppressedUntil?: number; cooldownUntil?: number; shotsUsedAt?: number[]; siphon?: ObservatorySiphonMode;
+  hijack?: ObservatoryHijack;
 };
 export type ClientTileSiegeBattery = {
   ownerId: string;

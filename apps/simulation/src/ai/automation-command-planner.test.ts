@@ -20,7 +20,7 @@ const makeTile = (
       name?: string;
       populationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
     } | null;
-    strategicResources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
+    strategicResources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
     techIds: string[];
     settledTileCount: number;
     townCount: number;

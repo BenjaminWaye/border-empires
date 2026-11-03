@@ -23,7 +23,7 @@ const makePlayer = (id: string) => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 5 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
-  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
 });
 
 const makeTownTile = (x: number, y: number, ownerId: string, isFed: boolean) => ({

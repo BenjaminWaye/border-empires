@@ -20,7 +20,7 @@ const makePlayer = (id: string, domainIds: string[] = []) => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
-  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0, SHARD: 0 }
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0 }
 });
 
 const buildRuntime = (clock: { now: number }, domainIds: string[] = []): { runtime: SimulationRuntime; events: SimulationEvent[] } => {

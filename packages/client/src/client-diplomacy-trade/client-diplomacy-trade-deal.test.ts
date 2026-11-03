@@ -5,9 +5,9 @@ import { closeDiplomacyTradeScreen, openDiplomacyTradeScreen, receiveDiplomacySt
 import { dealKind } from "./client-diplomacy-trade-deal.js";
 import type { DiplomacyStanceReply } from "./client-diplomacy-trade-view.js";
 
-const empty = { gold: 0, shard: 0 };
+const empty = { gold: 0 };
 
-const openScreen = (holdings = { gold: 100, shard: 3, resources: { FOOD: 2 } }, kind: "truce" | "trade" = "truce") => {
+const openScreen = (holdings = { gold: 100, resources: { FOOD: 2 } }, kind: "truce" | "trade" = "truce") => {
   const send = vi.fn().mockReturnValue(true);
   openDiplomacyTradeScreen({ targetName: "Milo", targetPlayerId: "p-2", kind, durationHours: 12 }, { send, ownHoldings: () => holdings });
   const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
@@ -21,13 +21,13 @@ const openScreen = (holdings = { gold: 100, shard: 3, resources: { FOOD: 2 } }, 
 
 describe("dealKind", () => {
   it("follows the treaty, else resource supply or asks make a trade and plain giving to an AI is a gift", () => {
-    const terms = { give: { gold: 5, shard: 0 }, ask: empty };
+    const terms = { give: { gold: 5 }, ask: empty };
     expect(dealKind("alliance", terms, true)).toBe("alliance");
     expect(dealKind(undefined, terms, true)).toBe("gift");
     // Humans take no gifts.
     expect(dealKind(undefined, terms, false)).toBe("trade");
     expect(dealKind(undefined, { give: { ...empty, resources: { FOOD: 1 } }, ask: empty }, true)).toBe("trade");
-    expect(dealKind(undefined, { give: empty, ask: { gold: 5, shard: 0 } }, true)).toBe("trade");
+    expect(dealKind(undefined, { give: empty, ask: { gold: 5 } }, true)).toBe("trade");
   });
 });
 
@@ -94,7 +94,7 @@ describe("diplomacy deal table", () => {
     typeAmount("give-FOOD", "1");
     overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.click();
     expect(send).toHaveBeenLastCalledWith(
-      { type: "RESOURCE_TRADE_REQUEST", targetPlayerName: "Milo", targetPlayerId: "p-2", terms: { give: { gold: 0, shard: 0, resources: { FOOD: 1 } }, ask: { gold: 10, shard: 0 } } },
+      { type: "RESOURCE_TRADE_REQUEST", targetPlayerName: "Milo", targetPlayerId: "p-2", terms: { give: { gold: 0, resources: { FOOD: 1 } }, ask: { gold: 10 } } },
       expect.any(String)
     );
   });
@@ -110,7 +110,7 @@ describe("diplomacy deal table", () => {
   it("keeps the treaty in a counter-offer", () => {
     openDiplomacyTradeScreen(
       { targetName: "Milo", targetPlayerId: "p-2", kind: "truce", durationHours: 12, counters: { kind: "truce", requestId: "req-1" } },
-      { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 100, shard: 0 }) }
+      { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 100 }) }
     );
     const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
     expect(overlay.querySelector("[data-deal-treaty='truce']")).not.toBeNull();
@@ -126,7 +126,7 @@ describe("diplomacy deal table", () => {
     overlay.querySelector<HTMLButtonElement>("[data-deal-remove='treaty']")!.click();
     typeAmount("give-gold", "50");
     expect(overlay.querySelector("[data-deal-side='give'] h4")?.textContent).toBe("You give");
-    expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toContain("Coin and Shards change hands with a truce");
+    expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toContain("Coin changes hands with a truce");
     expect(overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.disabled).toBe(true);
   });
 
@@ -137,7 +137,7 @@ describe("diplomacy deal table", () => {
       targetPlayerName: "Milo",
       targetPlayerId: "p-2",
       ai: true,
-      pricing: { required: { truce12: 0, truce24: 0, alliance: 0 }, shardCoinValue: 25, aiHoldings: { gold: 40, shard: 0, resources: { TITANIUM: 3 } } }
+      pricing: { required: { truce12: 0, truce24: 0, alliance: 0 }, aiHoldings: { gold: 40, resources: { TITANIUM: 3 } } }
     };
     receiveDiplomacyStance(ai);
     expect(overlay.querySelector<HTMLElement>("[data-trade-row='ask-TITANIUM']")!.hidden).toBe(false);

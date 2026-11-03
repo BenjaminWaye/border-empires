@@ -25,7 +25,6 @@ const createSpawner = (width: number, fairSpawnSites: readonly FairSpawnSite[] =
     ownership,
     clusterByTile: new Map(),
     clustersById: new Map(),
-    shardSitesByTile: new Map(),
     watchtowersByTile: new Map(),
     waystationsByTile: new Map(),
     naturalWondersByTile: new Map(),

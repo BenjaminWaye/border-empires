@@ -56,7 +56,6 @@ const payloadForCommand = (type: RestartCommandType): Record<string, unknown> =>
     case "PURGE_SIPHON":
     case "CREATE_MOUNTAIN":
     case "REMOVE_MOUNTAIN":
-    case "COLLECT_SHARD":
       return { x: 10, y: 10 };
     case "BUILD_ECONOMIC_STRUCTURE":
       return { x: 10, y: 10, structureType: "MANUFACTORY" };

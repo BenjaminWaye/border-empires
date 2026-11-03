@@ -2,7 +2,7 @@ import type { Group } from "three";
 
 /**
  * Standard per-wonder overlay lifecycle, matching the InstancedMesh
- * lifecycle used by every other client-map-3d overlay (watchtower, shard,
+ * lifecycle used by every other client-map-3d overlay (watchtower, waystation,
  * fort, ...): clear at frame start, addInstance per visible tile, commit
  * once geometry is known, update(nowMs) every frame for animation.
  */

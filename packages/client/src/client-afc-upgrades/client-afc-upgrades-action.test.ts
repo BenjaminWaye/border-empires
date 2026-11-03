@@ -7,9 +7,9 @@ import { renderAfcUpgradePanels } from "./client-afc-upgrades.js";
 function setup(): PlayerActionDeps {
   const state = createInitialState();
   state.me = "me"; state.authSessionReady = true; state.techIds = ["trade"];
-  state.gold = 40; state.strategicResources.SHARD = 1;
+  state.gold = 40; state.strategicResources.CRYSTAL = 1;
   state.domainCatalog = [{ id: "upgrade", tier: 1, name: "Upgrade", description: "Description", mods: {},
-    requiresTechId: "trade", requirements: { gold: 40, resources: { SHARD: 1 }, canResearch: false } }];
+    requiresTechId: "trade", requirements: { gold: 40, resources: { CRYSTAL: 1 }, canResearch: false } }];
   state.domainChoices = ["upgrade"];
   return { state, techPickEl: document.createElement("select"), mobileTechPickEl: document.createElement("select"),
     ws: { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3, readyState: 1, send: vi.fn(),

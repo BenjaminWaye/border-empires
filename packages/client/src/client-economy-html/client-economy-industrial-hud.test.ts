@@ -7,7 +7,7 @@ import { renderEconomyPanelHtml, type EconomyPanelArgs } from "./client-economy-
 afterEach(() => setHudV2Driving(false));
 it("shows industrial supply, occupied slots and bonuses through the desktop HUD v2 branch", () => {
   setHudV2Driving(true);
-  const amounts = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 };
+  const amounts = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 };
   const slots = { FOOD: 6, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 };
   const args: EconomyPanelArgs = {
     focus: "ALL", gold: 0, me: "me", incomePerMinute: 0, strategicResources: amounts,

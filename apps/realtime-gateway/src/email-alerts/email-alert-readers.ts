@@ -122,3 +122,12 @@ export const readAttackAlert = (payload: Record<string, unknown>): IncomingAttac
 
 export const readAetherPurgeAlert = (payload: Record<string, unknown>): IncomingAetherPurgeAlert | undefined =>
   readAttackAlertLikePayload(payload, "AETHER_PURGE_ALERT");
+
+export type IncomingAetherHijackAlert = IncomingAttackAlert & { casterX: number; casterY: number; endsAt: number };
+export const readAetherHijackAlert = (payload: Record<string, unknown>): IncomingAetherHijackAlert | undefined => {
+  if (payload.type !== "AETHER_HIJACK_ALERT") return undefined;
+  const x = readNumberField(payload, "x"), y = readNumberField(payload, "y");
+  const casterX = readNumberField(payload, "casterX"), casterY = readNumberField(payload, "casterY"), endsAt = readNumberField(payload, "endsAt");
+  if (x === undefined || y === undefined || casterX === undefined || casterY === undefined || endsAt === undefined) return undefined;
+  return { attackerName: readStringField(payload, "attackerName") ?? readStringField(payload, "attackerId") ?? "Another empire", x, y, casterX, casterY, endsAt };
+};

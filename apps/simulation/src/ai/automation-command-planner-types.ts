@@ -113,7 +113,7 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   techIds?: readonly string[];
   domainIds?: readonly string[];
   afcUpgradeRuleset?: "afc-v1";
-  afcDetectedFlags?: readonly { x: number; y: number; ownerId: string }[];
+  afcHijackReadyAt?: number;
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   settledTileCount?: number;
   townCount?: number;

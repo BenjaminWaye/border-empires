@@ -8,7 +8,6 @@ import {
   SYNTHESIZER_STRUCTURE_TYPES,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
-  structureCostDefinition,
   structureShowsOnTile,
   structureSlotRequirements,
   TECH_REQUIREMENTS_BY_STRUCTURE,
@@ -224,11 +223,9 @@ export const canAffordStructure = (
     }
   }
   // FOOD/TITANIUM/CRYSTAL/UMBRITE stockpile spending was retired at build
-  // time (stripRetiredStockpileCost). Checking it here prevented legal
-  // FOOD-source builds even though they require no resource slots at all.
-  const resourceCost = structureCostDefinition(structureType).resourceCost;
-  if (!resourceCost || resourceCost.resource !== "SHARD") return true;
-  return resourceStock(player, resourceCost.resource) >= resourceCost.amount;
+  // time (stripRetiredStockpileCost), and no structure has any other
+  // stockpile cost, so slots are the only resource gate.
+  return true;
 };
 
 const foodCoverageLow = (player: StructurePlannerPlayer): boolean =>

@@ -1,5 +1,5 @@
 /* Names under the desktop top-bar panel icons (Manifest, Allies, Ranks,
-   Activity, Sharding, Settings). Playtest feedback: "include the
+   Activity, Settings). Playtest feedback: "include the
    names below each icon, they are not intuitive."
 
    The label is drawn from each button's existing aria-label with ::after
@@ -16,7 +16,7 @@
   min-width: 48px;
   /* Same 40px as the icon-only button, so #top-strip's height is unchanged
      and the panels anchored at top: 72px below it (side panel, capture /
-     targeting / shard overlays) don't end up touching it. */
+     targeting overlays) don't end up touching it. */
   height: 40px;
   padding: 0 6px;
   display: flex;

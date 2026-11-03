@@ -1,4 +1,6 @@
 import type { DomainPlayer } from "@border-empires/game-domain";
+import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { afcPlayerStatePayload } from "./afc-specializations/afc-player-state.js";
 import {
   FORT_TIER_LADDER,
   SIEGE_TIER_LADDER,
@@ -57,7 +59,8 @@ export function applyStructureCancelRefund(context: RuntimeStructureCommandConte
   }
 }
 
-export function fortCancelRefund(actor: DomainPlayer, variant: FortVariant | undefined): StructureCancelRefund {
+/** A Fortification Patterns free Fort charged no manpower, so it refunds none (its free slot is returned by the caller). */
+export function fortCancelRefund(actor: DomainPlayer, variant: FortVariant | undefined, freeFort?: boolean): StructureCancelRefund {
   const tier = FORT_TIER_LADDER[variant ?? "FORT"];
   const goldMult = multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult");
   // Step 5 item 3 (Slice A): TITANIUM is a retired build-time stockpile key (never
@@ -66,9 +69,16 @@ export function fortCancelRefund(actor: DomainPlayer, variant: FortVariant | und
   // that was never taken.
   return {
     gold: Math.max(0, Math.round(tier.gold * goldMult)),
-    manpower: structureManpowerCostForPlayer(actor, tier.variant, tier.manpower),
+    manpower: freeFort ? 0 : structureManpowerCostForPlayer(actor, tier.variant, tier.manpower),
     strategic: stripRetiredStockpileCost({ TITANIUM: tier.titanium })
   };
+}
+
+/** Give a cancelled free Fort's allowance back so the House still gets its full grant. */
+export function returnFreeFortAllowance(context: { emitEvent: (event: SimulationEvent) => void }, actor: DomainPlayer, freeFort: boolean | undefined, commandId: string): void {
+  if (!freeFort || !actor.afcCampaign?.freeFortsUsed) return;
+  actor.afcCampaign.freeFortsUsed -= 1;
+  context.emitEvent({ eventType: "DOMAIN_UPDATE", commandId, playerId: actor.id, payloadJson: JSON.stringify(afcPlayerStatePayload(actor)) });
 }
 
 export function siegeBatteryCancelRefund(actor: DomainPlayer, variant: SiegeBatteryVariant | undefined): StructureCancelRefund {
@@ -98,7 +108,7 @@ export function economicOrObservatoryCancelRefund(
   // (registry cost.strategic wins, falling back to the cost-definitions resourceCost) so
   // this can't drift from what was actually charged if the two tables ever disagree.
   // stripRetiredStockpileCost then drops FOOD/TITANIUM/CRYSTAL/UMBRITE (retired,
-  // never actually spent) while preserving SHARD (monument assembly, still spent).
+  // never actually spent).
   const registryStrategic = STRUCTURE_REGISTRY[structureType]?.cost.strategic as StrategicRefund | undefined;
   const costDef = structureCostDefinition(structureType);
   const strategic: StrategicRefund =

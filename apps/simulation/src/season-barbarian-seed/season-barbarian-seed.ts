@@ -26,7 +26,6 @@ export type BarbarianSeedInput = {
   ownership: Map<TileKey, string>;
   townsByTile: ReadonlyMap<TileKey, unknown>;
   docksByTile: ReadonlyMap<TileKey, unknown>;
-  shardSitesByTile: ReadonlyMap<TileKey, unknown>;
   worldSeed: number;
   terrainAt: (x: number, y: number) => string;
   /** Deterministic [0,1) sampler; same signature as terrainRuntime.seeded01. */
@@ -61,7 +60,6 @@ export const seedBarbarianTiles = (input: BarbarianSeedInput): Set<TileKey> => {
     if (input.ownership.has(tk)) continue;
     if (input.townsByTile.has(tk)) continue;
     if (input.docksByTile.has(tk)) continue;
-    if (input.shardSitesByTile.has(tk)) continue;
     if (!isFarFromAnyPlayerSpawn(x, y)) continue;
     if (!isFarFromOtherBarbs(x, y)) continue;
     input.ownership.set(tk, "barbarian-1");

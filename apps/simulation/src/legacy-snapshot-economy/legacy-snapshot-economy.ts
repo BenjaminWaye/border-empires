@@ -45,7 +45,7 @@ import {
 } from "@border-empires/game-domain";
 import { OBSERVATORY_UPKEEP_PER_MIN, structureDisplayName, terrainAt } from "@border-empires/shared";
 
-type EconomyResourceKey = "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
+type EconomyResourceKey = "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 
 type EconomyBucket = {
   label: string;
@@ -81,8 +81,7 @@ const emptyStrategic = (): Record<DomainStrategicResourceKey, number> => ({
   FOOD: 0,
   TITANIUM: 0,
   CRYSTAL: 0,
-  UMBRITE: 0,
-  SHARD: 0
+  UMBRITE: 0
 });
 
 const sortedBuckets = (buckets: Map<string, EconomyBucket>): EconomyBucket[] =>
@@ -298,7 +297,6 @@ const sourceLabelForTile = (args: {
   const tileResource = inferTileResource(args.tileKey, args.tileYieldEntries, []);
   const resourceLabel = resourceSourceLabel(tileResource);
   if (resourceLabel) return resourceLabel;
-  if (args.strategicKey === "SHARD") return "Shard sites";
   return "Garrisoned land";
 };
 
@@ -414,7 +412,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
   const strategicResourcesByPlayer = new Map<string, Record<DomainStrategicResourceKey, number>>(
     (args.economy.strategicResources ?? []).map(([playerId, resources]) => [
       playerId,
-      { FOOD: resources.FOOD ?? 0, TITANIUM: resources.TITANIUM ?? 0, CRYSTAL: resources.CRYSTAL ?? 0, UMBRITE: resources.UMBRITE ?? 0, SHARD: resources.SHARD ?? 0 }
+      { FOOD: resources.FOOD ?? 0, TITANIUM: resources.TITANIUM ?? 0, CRYSTAL: resources.CRYSTAL ?? 0, UMBRITE: resources.UMBRITE ?? 0 }
     ])
   );
 
@@ -435,8 +433,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
       FOOD: new Map<string, EconomyBucket>(),
       TITANIUM: new Map<string, EconomyBucket>(),
       CRYSTAL: new Map<string, EconomyBucket>(),
-      UMBRITE: new Map<string, EconomyBucket>(),
-      SHARD: new Map<string, EconomyBucket>()
+      UMBRITE: new Map<string, EconomyBucket>()
     };
     store.set(playerId, created);
     return created;
@@ -603,8 +600,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
       FOOD: { sources: sortedBuckets(sourceBuckets.FOOD), sinks: sortedBuckets(sinkBuckets.FOOD) },
       TITANIUM: { sources: sortedBuckets(sourceBuckets.TITANIUM), sinks: sortedBuckets(sinkBuckets.TITANIUM) },
       CRYSTAL: { sources: sortedBuckets(sourceBuckets.CRYSTAL), sinks: sortedBuckets(sinkBuckets.CRYSTAL) },
-      UMBRITE: { sources: sortedBuckets(sourceBuckets.UMBRITE), sinks: sortedBuckets(sinkBuckets.UMBRITE) },
-      SHARD: { sources: sortedBuckets(sourceBuckets.SHARD), sinks: sortedBuckets(sinkBuckets.SHARD) }
+      UMBRITE: { sources: sortedBuckets(sourceBuckets.UMBRITE), sinks: sortedBuckets(sinkBuckets.UMBRITE) }
     };
     const strategicResources = strategicResourcesByPlayer.get(playerId) ?? emptyStrategic();
     const strategicProductionPerMinute = strategicProductionPerMinuteByPlayer.get(playerId) ?? emptyStrategic();
@@ -617,8 +613,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
         FOOD: Number(strategicProductionPerMinute.FOOD.toFixed(4)),
         TITANIUM: Number(strategicProductionPerMinute.TITANIUM.toFixed(4)),
         CRYSTAL: Number(strategicProductionPerMinute.CRYSTAL.toFixed(4)),
-        UMBRITE: Number(strategicProductionPerMinute.UMBRITE.toFixed(4)),
-        SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4))
+        UMBRITE: Number(strategicProductionPerMinute.UMBRITE.toFixed(4))
       },
       upkeepPerMinute: {
         food: Number(upkeepPerMinute.food.toFixed(4)),

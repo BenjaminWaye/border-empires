@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { closeActivePanel, renderMobilePanels } from "./client-panel-nav.js";
 
 describe("closeActivePanel", () => {
-  it("returns domain detail views to shard overview", () => {
+  it("returns domain detail views to the domain overview", () => {
     const state = {
       activePanel: "domains" as const,
       domainDetailOpen: true,

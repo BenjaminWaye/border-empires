@@ -18,8 +18,6 @@ import {
   TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO as SHARED_TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO,
   TITANIUM_LEVY_REGEN_FREEZE_MS as SHARED_TITANIUM_LEVY_REGEN_FREEZE_MS,
   TOWN_MANPOWER_BY_TIER as SHARED_TOWN_MANPOWER_BY_TIER,
-  WORLD_HEIGHT,
-  WORLD_WIDTH,
   manpowerRegenWeightForSettlementIndex as sharedManpowerRegenWeightForSettlementIndex,
   type PopulationTier,
   type TileKey
@@ -39,11 +37,6 @@ export const PASSIVE_INCOME_MULT = 1.0;
 export const GOLD_COST_EPSILON = 1e-6;
 // 12h -> 24h with the gold cap removal (docs/replenishment-update-plan.md D4) so an abandoned account doesn't accrue gold forever offline. A human inactive longer than this stops earning passive income (simulation-service.ts's applyPassiveIncomeAsync), and their converter gold upkeep is netted against income instead of drained from the treasury (runtime-upkeep-accrual.ts).
 export const PASSIVE_INCOME_INACTIVITY_CAP_MS = 24 * 60 * 60 * 1000;
-export const INITIAL_SHARD_SCATTER_COUNT = Math.max(28, Math.floor((WORLD_WIDTH * WORLD_HEIGHT) / 28_000));
-export const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;
-export const SHARD_RAIN_SITE_MIN = 3;
-export const SHARD_RAIN_SITE_MAX = 6;
-export const SHARD_RAIN_TTL_MS = 30 * 60_000;
 // Gold rescope: every passive gold-income
 // source below divides by this to preserve their relative balance while cutting the
 // absolute magnitude — TOWN_BASE_GOLD_PER_MIN's old 2/min (~2,880/day/town) -> ~10/day.

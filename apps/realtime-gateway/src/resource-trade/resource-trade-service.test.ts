@@ -4,7 +4,7 @@ import type { ClientMessage } from "@border-empires/shared";
 import { createSocialState } from "../social-state/social-state.js";
 import type { DiplomacySettlementInput, DiplomacySettlementResult } from "../diplomacy-settlement/diplomacy-settlement.js";
 import { createResourceTradeService, type ResourceTradeServiceDeps } from "./resource-trade-service.js";
-const terms={give:{gold:0,shard:0,resources:{NEURAL_RESIN:1}},ask:{gold:2,shard:0}};
+const terms={give:{gold:0,resources:{NEURAL_RESIN:1}},ask:{gold:2}};
 const request:ClientMessage={type:"RESOURCE_TRADE_REQUEST",targetPlayerName:"B",targetPlayerId:"b",terms};
 function setup(ai=false){
   const social=createSocialState({now:()=>1,players:[{id:"a",name:"A"},{id:"b",name:"B"},{id:"c",name:"C"}]});
@@ -12,7 +12,7 @@ function setup(ai=false){
   const cancel=vi.fn(async(_actor:string,_id:string):Promise<DiplomacySettlementResult>=>({ok:true}));
   const send=vi.fn(),fanout=vi.fn(),socket={} as WebSocket;
   const deps:ResourceTradeServiceDeps={social,settlement:{settle,cancel},now:()=>1,isAutoRespondingAi:id=>ai&&id==="b",
-    aiHoldings:async()=>({gold:10,shard:0,resources:{FOOD:2}}),send,fanout,record:()=>undefined};
+    aiHoldings:async()=>({gold:10,resources:{FOOD:2}}),send,fanout,record:()=>undefined};
   return{deps,social,settle,cancel,send,fanout,socket,service:createResourceTradeService(deps)};
 }
 describe("independent resource trades",()=>{
@@ -54,7 +54,7 @@ describe("independent resource trades",()=>{
   it("uses the same fair-exchange valuation for automatic AI trade acceptance",async()=>{
     const f=setup(true);await f.service.handle(request,"a",f.socket,false);
     expect(f.settle).toHaveBeenCalledOnce();
-    await f.service.handle({...request,terms:{give:{gold:0,shard:0},ask:{gold:0,shard:0,resources:{FOOD:1}}}},"a",f.socket,false);
+    await f.service.handle({...request,terms:{give:{gold:0},ask:{gold:0,resources:{FOOD:1}}}},"a",f.socket,false);
     expect(f.settle).toHaveBeenCalledOnce();
     expect(f.social.resourceTradeOffers.rows(1)).toEqual([]);
   });
@@ -62,7 +62,7 @@ describe("independent resource trades",()=>{
     const f=setup(true);
     let release: (()=>void) | undefined;
     const waiting=new Promise<void>(resolve=>{release=resolve;});
-    f.deps.aiHoldings=async()=>{await waiting;return {gold:10,shard:0,resources:{FOOD:2}};};
+    f.deps.aiHoldings=async()=>{await waiting;return {gold:10,resources:{FOOD:2}};};
     const pending=f.service.handle(request,"a",f.socket,false);
     const row=f.social.resourceTradeOffers.rows(1)[0]!;
     await f.service.handle({type:"RESOURCE_TRADE_REJECT",offerId:row.id},"a",f.socket,false);
@@ -75,7 +75,7 @@ describe("independent resource trades",()=>{
     const f=setup(true);
     let release: (()=>void) | undefined;
     const waiting=new Promise<void>(resolve=>{release=resolve;});
-    f.deps.aiHoldings=async()=>{await waiting;return {gold:10,shard:0,resources:{FOOD:2}};};
+    f.deps.aiHoldings=async()=>{await waiting;return {gold:10,resources:{FOOD:2}};};
     const pending=f.service.handle(request,"a",f.socket,false);
     f.deps.isAutoRespondingAi=()=>false;release!();await pending;
     expect(f.settle).not.toHaveBeenCalled();

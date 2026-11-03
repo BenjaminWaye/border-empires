@@ -95,7 +95,6 @@ panel. Candidates, all derived from existing state:
 | Waystation or town just past your reach edge (candidate beacon target) | reach border + world sites |
 | Exposed FRONTIER bordering an enemy | reach / frontier state |
 | Tech or domain affordable | tech and domain costs |
-| Shard rain in the next hour (08:00 and 21:00 UTC) | `runtime-shard-rain-rules.ts` |
 | Victory hold running, yours or a rival's | `SEASON_VICTORY_*` state |
 
 The onboarding checklist (`client-onboarding-checklist.ts`) already does
@@ -128,7 +127,6 @@ return.
   - "6 settles and 1 beacon will finish in the next 2h"
   - "Manpower full in about 9h"
   - "Rivergate reaches City in about 14h"
-  - "Next shard rain 21:00 UTC"
   - "Your Maritime hold completes in 18h if you hold 55% of docks"
 
   This is the pending outcome in the Anticipate step, made visible. The
@@ -150,7 +148,6 @@ the right moment.
   - A queued plan has finished.
   - A town reached a new tier.
   - A victory hold started or is in danger.
-  - Shard rain is starting soon.
 
   Each of these should be something the player can opt out of. Today only
   alarms (attacks, breaks, offers) have email categories.

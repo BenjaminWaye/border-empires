@@ -608,7 +608,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     Number(process.env.SIMULATION_RUNTIME_BACKGROUND_BATCH_SIZE ?? 1)
   );
   let loginExportsInFlight = 0;
-  let onShardCollectedCallback: (() => void) | undefined;
   let runtime = new SimulationRuntime({
     ...(options.runtimeOptions ?? {}),
     ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
@@ -674,9 +673,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         return true;
       }
       return false;
-    },
-    onShardCollected: () => {
-      onShardCollectedCallback?.();
     },
     onCaptureRevealBuilt: captureRevealBuildSample,
     onMusterRemoteAttack: () => { simulationMetrics.incrementSimMusterRemoteAttack(); },
@@ -753,8 +749,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     log,
     options
   });
-  // Wire the deferred callback so CACHE shard collections trigger an immediate checkpoint.
-  onShardCollectedCallback = () => checkpointSoon(snapshotCheckpointManager, log, "simulation forced checkpoint after shard collect failed");
   const runStartupReplayCompaction = createStartupReplayCompactionRunner({
     checkpointNow: snapshotCheckpointManager.checkpointNow,
     recoveredEventCount: effectiveStartupRecovery.recoveredEventCount,
@@ -924,7 +918,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 5000;
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
-  let shardRainTicker: ReturnType<typeof setInterval> | undefined;
   let manpowerFullAlertTicker: ReturnType<typeof setInterval> | undefined;
   let territoryAutomationTicker: ReturnType<typeof setInterval> | undefined; let waypointDrainTicker: ReturnType<typeof setInterval> | undefined;
   let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
@@ -1071,8 +1064,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...snapshot,
         worldStatus: {
           leaderboard: summary.leaderboard,
-          seasonVictory: summary.seasonVictory,
-          shardRainNotice: runtime.currentShardRainWelcomeNotice()
+          seasonVictory: summary.seasonVictory
         }
       };
     }
@@ -1948,8 +1940,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                       ...cached,
                       worldStatus: {
                         leaderboard: summary.leaderboard,
-                        seasonVictory: summary.seasonVictory,
-                        shardRainNotice: runtime.currentShardRainWelcomeNotice()
+                        seasonVictory: summary.seasonVictory
                       }
                     };
                   }
@@ -2147,7 +2138,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             siege_battery_json?: string;
             economic_structure_json?: string;
             sabotage_json?: string;
-            shard_site_json?: string;
             muster_json?: string; breach_shock_until?: number;
             yield_rate_json?: string;
           }>;
@@ -2287,14 +2277,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
       boundPort = port;
       server.start();
-      shardRainTicker = setInterval(() => {
-        if (currentSeasonState.status === "ended") return;
-        try {
-          trackSyncMainThreadTaskWithMetrics("tick_shard_rain", undefined, () => runtime.tickShardRain(Date.now()));
-        } catch (error) {
-          log.error({ err: error }, "shard rain tick failed");
-        }
-      }, 60_000);
       manpowerFullAlertTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
         // "Manpower full" email -- docs/replenishment-update-plan.md D1/D11, runtime-manpower-full-alert.ts
@@ -2628,7 +2610,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       clearSeasonVictoryTimer();
       if (metricsTicker) clearInterval(metricsTicker);
       if (eventLoopSampler) clearInterval(eventLoopSampler);
-      if (shardRainTicker) clearInterval(shardRainTicker);
       if (manpowerFullAlertTicker) clearInterval(manpowerFullAlertTicker);
       if (territoryAutomationTicker) clearInterval(territoryAutomationTicker); if (waypointDrainTicker) clearInterval(waypointDrainTicker);
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);

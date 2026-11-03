@@ -27,7 +27,6 @@ import {
   parseKey,
   type ClusterDefinition,
   type NaturalWonderSiteState,
-  type ShardSiteState,
   type TerrainShapeState,
   type TownDefinition,
   type WatchtowerSiteState,
@@ -111,7 +110,6 @@ export const createSeasonSeedWorldAsync = async (
   const townsByTile = new Map<TileKey, TownDefinition>();
   const docksByTile = new Map<TileKey, GeneratedDockState>();
   const dockById = new Map<string, GeneratedDockState>();
-  const shardSitesByTile = new Map<TileKey, ShardSiteState>();
   const watchtowersByTile = new Map<TileKey, WatchtowerSiteState>();
   const waystationsByTile = new Map<TileKey, WaystationSiteState>();
   const naturalWondersByTile = new Map<TileKey, NaturalWonderSiteState>();
@@ -301,7 +299,7 @@ export const createSeasonSeedWorldAsync = async (
     WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, isSpawnableLand: (x, y) => landBiomeAt(x, y) === "GRASS", wrapX, wrapY, key,
     chebyshevDistance, seeded01: terrainRuntime.seeded01, fairSpawnSites,
     townsByTile, docksByTile, ownership, clusterByTile, clustersById,
-    shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile,
+    watchtowersByTile, waystationsByTile, naturalWondersByTile,
     createSettlementTown, townTypeAt: townsRuntime.townTypeAt, minTownSpacing: townsRuntime.minTownSpacing
   });
 
@@ -322,14 +320,13 @@ export const createSeasonSeedWorldAsync = async (
     ownership,
     townsByTile,
     docksByTile,
-    shardSitesByTile,
     worldSeed,
     terrainAt,
     seeded01: terrainRuntime.seeded01
   });
   await onYield?.();
 
-    const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, landBiomeAt, townStateFromDefinition };
+    const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, landBiomeAt, townStateFromDefinition };
   const tiles = new Map<string, DomainTileState>();
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     if (y > 0 && y % 50 === 0) await onYield?.();

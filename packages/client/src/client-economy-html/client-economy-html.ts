@@ -25,8 +25,7 @@ type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 // UMBRITE stopped being stockpiled flows once Step 5 shipped — they're now
 // discrete slot capacity, so this panel renders them with a slots-used mode
 // instead of the stock/cap/income/upkeep flow mode. GOLD is the only resource
-// left on the flow mode (§14.1 item 2 / §5.5) — SHARD is event-gated and isn't
-// part of this panel's resource list at all.
+// left on the flow mode (§14.1 item 2 / §5.5).
 const isSlotResource = (resource: EconomyResource): resource is SlotResource => resource !== "GOLD";
 
 export type EconomyPanelArgs = {
@@ -35,10 +34,12 @@ export type EconomyPanelArgs = {
   focus: EconomyFocusKey;
   gold: number;
   me: string;
+  /** Relays that need no FOOD slot (Relay Fabrication Line raises the built-in allowance). */
+  freeRelayBeaconCount?: number;
   incomePerMinute: number;
-  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
+  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
   storageCap: EmpireStorageCap;
-  strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
+  strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
   upkeepPerMinute: { food: number; titanium: number; umbrite: number; crystal: number; gold: number };
   upkeepLastTick: {
     foodCoverage?: number;
@@ -103,10 +104,10 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
     }
     buckets.set(label, { label, amountPerMinute: count, count: 1, ...(dormant ? { dormantCount: 1 } : {}) });
   };
-  // §23.2: the player's first RELAY_BEACON_FREE_FOOD_SLOT_COUNT outposts are
+  // §23.2: the player's first freeRelayBeaconCount outposts are
   // waived server-side (slot-waivers.ts) and never bill a FOOD slot — mirror
   // that here so this breakdown doesn't overcount vs. the demand total above it.
-  let waivedRelayBeaconsRemaining = resource === "FOOD" ? RELAY_BEACON_FREE_FOOD_SLOT_COUNT : 0;
+  let waivedRelayBeaconsRemaining = resource === "FOOD" ? args.freeRelayBeaconCount ?? RELAY_BEACON_FREE_FOOD_SLOT_COUNT : 0;
   for (const tile of args.tiles) {
     if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     if (tile.fogged) continue;

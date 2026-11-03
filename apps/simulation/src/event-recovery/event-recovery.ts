@@ -337,12 +337,6 @@ export const applySimulationEventsToRecoveredAccumulator = (
         const defender = accumulator.players.find(player => player.id === defenderId);
         if (defender) ((defender.afcCampaign ??= {}).fortWardRecharges ??= {})[simulationTileKey(event.targetX, event.targetY)] = event.combatResult.wardRechargesAt;
       }
-      if (defenderId && event.combatResult?.hostileCaptureWarUntil) {
-        for (const [id, other] of [[event.playerId, defenderId], [defenderId, event.playerId]]) {
-          const player = accumulator.players.find(candidate => candidate.id === id);
-          if (player && other) ((player.afcCampaign ??= {}).wars ??= {})[other] = event.combatResult.hostileCaptureWarUntil;
-        }
-      }
       if (accumulator.activeLocks.has(event.commandId)) {
         accumulator.activeLocks.delete(event.commandId);
       }
@@ -380,7 +374,6 @@ export const applySimulationEventsToRecoveredAccumulator = (
               terrain: previousOrigin.terrain,
               ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
               ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
-              ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
               ...(previousOrigin.naturalWonder ? { naturalWonder: previousOrigin.naturalWonder } : {}),
               ...(previousOrigin.sabotage ? { sabotage: previousOrigin.sabotage } : {}),
               // Town survives the flip — mirrors the attacker-wins branch above and the runtime resolveLock path.

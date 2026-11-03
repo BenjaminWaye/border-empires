@@ -277,7 +277,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             territoryTileKeys: ["10,10"],
             points: 5,
             manpower: 3,
-            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
             techIds: [],
             domainIds: []
           }

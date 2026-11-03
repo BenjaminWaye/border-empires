@@ -8,7 +8,7 @@ export type AllianceRequest = {
   expiresAt?: number;
   fromName?: string;
   toName?: string;
-  /** Coin/Shards the deal moves, from the proposer's side. */
+  /** Coin and supply the deal moves, from the proposer's side. */
   terms?: DiplomacyTerms;
   settlementPhase?: "paying" | "refunding";
 };

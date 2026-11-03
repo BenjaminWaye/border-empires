@@ -12,6 +12,7 @@ const EMAIL_NOTIFICATION_CATEGORIES = [
   "truceOffer",
   "attackAlert",
   "aetherPurgeAlert",
+  "aetherHijackAlert",
   "seasonStart",
   "manpowerFull"
 ] as const;
@@ -45,6 +46,7 @@ export const emailNotificationPrefsInitFields = (
   truceOffer: stored?.truceOffer ?? true,
   attackAlert: stored?.attackAlert ?? true,
   aetherPurgeAlert: stored?.aetherPurgeAlert ?? true,
+  aetherHijackAlert: stored?.aetherHijackAlert ?? true,
   seasonStart: stored?.seasonStart ?? true,
   manpowerFull: stored?.manpowerFull ?? true
 });

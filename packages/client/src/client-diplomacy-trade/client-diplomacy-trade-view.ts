@@ -73,7 +73,7 @@ export const warTally = (reply: DiplomacyStanceReply | undefined): { youTook: nu
   return { youTook: tilesTakenFromAi, theyTook: tilesTakenByAi };
 };
 
-/** "gift": coin/Shards for goodwill alone (client-diplomacy-gift-view.ts). "trade": an independent resource supply trade.
+/** "gift": coin for goodwill alone (client-diplomacy-gift-view.ts). "trade": an independent resource supply trade.
  * extendsTruce: a truce with this empire is running, so a truce offer extends it. */
 export type TradeKind = DiplomacyOfferKind | "trade" | "gift";
 export type TradeSelection = { kind: TradeKind; durationHours: 12 | 24; terms: DiplomacyTerms; extendsTruce?: boolean };
@@ -126,8 +126,8 @@ export const tradeVerdict = (input: {
   if (input.cooldownRemainingMs > 0) {
     return { tone: "bad", text: `You recently made ${targetName} this kind of offer.`, canSend: false, sendLabel: `Can offer again in ${formatOfferCooldown(input.cooldownRemainingMs)}` };
   }
-  if (selection.terms.give.gold > own.gold || selection.terms.give.shard > own.shard) {
-    return { tone: "bad", text: `You only have ${own.gold} coin and ${own.shard} Shards.`, canSend: false, sendLabel };
+  if (selection.terms.give.gold > own.gold) {
+    return { tone: "bad", text: `You only have ${own.gold} coin.`, canSend: false, sendLabel };
   }
   const missingResource = TRADABLE_SUPPLY_RESOURCES.find(resource => (selection.terms.give.resources?.[resource] ?? 0) > (own.resources?.[resource] ?? 0));
   if (missingResource) return { tone: "bad", text: `You only have ${own.resources?.[missingResource] ?? 0} spare ${supplyResourceLabel(missingResource)} slots.`, canSend: false, sendLabel };
@@ -161,8 +161,8 @@ export const tradeVerdict = (input: {
   // An extension costs a content AI nothing, and it never pays for one: the shortfall is only what was asked of it.
   if (extendsTruce(selection) && required === 0) return { tone: "bad", text: `${targetName} won't pay anything to extend a truce.`, canSend: true, sendLabel };
   const spareCoin = Math.max(0, own.gold - selection.terms.give.gold);
-  const affordable = spareCoin + Math.max(0, own.shard - selection.terms.give.shard) * reply.pricing.shardCoinValue >= verdict.shortfall;
-  const offered = netValueToAi(selection.terms, reply.pricing.shardCoinValue);
+  const affordable = spareCoin >= verdict.shortfall;
+  const offered = netValueToAi(selection.terms);
   return {
     tone: "bad",
     text: (affordable
@@ -177,7 +177,7 @@ export const tradeVerdict = (input: {
  * Civ's "what would make this deal work?": the best terms for the player that
  * the AI still accepts. An AI that wants peace badly enough to pay is asked
  * for all it would pay; otherwise it is offered the least of the player's
- * coin, then Shards, that covers its price. undefined when no deal is
+ * coin that covers its price. undefined when no deal is
  * possible: a human target, an unread AI, a refusal, or a price the player
  * can't meet.
  */
@@ -188,7 +188,7 @@ export const suggestedDeal = (reply: DiplomacyStanceReply | undefined, selection
   const pricing = pricingFor(reply.pricing, selection);
   const required = requiredForOffer(pricing, kind, selection.durationHours);
   if (required === null) return undefined;
-  if (required < 0) return { give: { gold: 0, shard: 0 }, ask: { gold: Math.min(-required, pricing.aiHoldings.gold), shard: 0 } };
+  if (required < 0) return { give: { gold: 0 }, ask: { gold: Math.min(-required, pricing.aiHoldings.gold) } };
   const counter = aiCounterOffer(pricing, kind, selection.durationHours, emptyDiplomacyTerms(), own);
   return counter.kind === "counter" ? counter.terms : undefined;
 };

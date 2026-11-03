@@ -1,7 +1,7 @@
 import { techGoldCostForResearchedCount } from "@border-empires/shared";
 import type { DomainCatalogEntry, TechCatalogEntry } from "../../../simulation/src/tech-domain-bridge/tech-domain-bridge.js";
 
-type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
+type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 type StrategicAmounts = Partial<Record<StrategicResourceKey, number>>;
 type StatModKey = "attack" | "defense" | "income" | "vision";
 type CatalogRequirements = { gold: number; resources: StrategicAmounts; canResearch: boolean };
@@ -39,12 +39,11 @@ export type InitDomainCatalogEntry = {
 
 type CatalogAffordability = { availableGold: number; availableStrategic: StrategicAmounts };
 
-const toResources = (cost?: Partial<Record<"gold" | "food" | "titanium" | "crystal" | "umbrite" | "shard", number>>): StrategicAmounts => ({
+const toResources = (cost?: Partial<Record<"gold" | "food" | "titanium" | "crystal" | "umbrite", number>>): StrategicAmounts => ({
   ...(typeof cost?.food === "number" && cost.food > 0 ? { FOOD: cost.food } : {}),
   ...(typeof cost?.titanium === "number" && cost.titanium > 0 ? { TITANIUM: cost.titanium } : {}),
   ...(typeof cost?.crystal === "number" && cost.crystal > 0 ? { CRYSTAL: cost.crystal } : {}),
-  ...(typeof cost?.umbrite === "number" && cost.umbrite > 0 ? { UMBRITE: cost.umbrite } : {}),
-  ...(typeof cost?.shard === "number" && cost.shard > 0 ? { SHARD: cost.shard } : {})
+  ...(typeof cost?.umbrite === "number" && cost.umbrite > 0 ? { UMBRITE: cost.umbrite } : {})
 });
 
 const hasResources = (required: StrategicAmounts, available: StrategicAmounts): boolean =>

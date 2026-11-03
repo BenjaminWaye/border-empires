@@ -54,6 +54,8 @@ export const computeAiOpinion = (input: {
   bordersTouch: boolean;
   /** Coin per hour that "one hour of income" means for goodwill. */
   incomePerHour: number;
+  /** Diplomatic Corps (AFC Chancery II): flat opinion the requester's envoys earn with every AI. */
+  diplomaticCorpsBonus?: number;
   now: number;
 }): AiOpinion => {
   const { memory } = input;
@@ -77,6 +79,7 @@ export const computeAiOpinion = (input: {
   add(input.bordersTouch ? "Our borders are contested" : "Our borders don't meet", input.bordersTouch ? -10 : 5);
   if (input.stanceKind === "OUTMATCHED") add("Fears your strength", 10);
   add("Gifts and payments you've made us", goodwillPointsFor(memory.goodwillCoin, input.incomePerHour));
+  if (input.diplomaticCorpsBonus) add("Your diplomatic corps", input.diplomaticCorpsBonus);
 
   const score = modifiers.reduce((sum, modifier) => sum + modifier.value, 0);
   const atWar = memory.lastCombatAt !== undefined && input.now - memory.lastCombatAt < AT_WAR_WINDOW_MS;

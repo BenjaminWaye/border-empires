@@ -59,16 +59,6 @@ export const hudMarkup = `
     <button id="placement-confirm" class="placement-btn placement-confirm-btn" type="button">Confirm</button>
   </div>
 
-  <div id="shard-alert-overlay">
-    <div id="shard-alert-card">
-      <div id="shard-alert-head">
-        <div id="shard-alert-title"></div>
-        <button id="shard-alert-close" class="shard-alert-close-btn" type="button" title="Close shard alert" aria-label="Close shard alert">✕</button>
-      </div>
-      <div id="shard-alert-detail"></div>
-    </div>
-  </div>
-
   <div id="victory-alert-overlay" style="display:none">
     <div id="victory-alert-card">
       <div id="victory-alert-head">

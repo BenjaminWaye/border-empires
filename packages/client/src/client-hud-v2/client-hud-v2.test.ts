@@ -47,13 +47,13 @@ describe("resource bar", () => {
 
   it("renders the used count in amber only when over", () => {
     const slots = { FOOD: 2, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 };
-    const html = resourceBarHtml({ gold: 1200, netPerMinute: 2, slotSupply: slots, slotDemand: { ...slots, TITANIUM: 3 }, shard: 1, integrityPct: 62 });
+    const html = resourceBarHtml({ gold: 1200, netPerMinute: 2, slotSupply: slots, slotDemand: { ...slots, TITANIUM: 3 }, integrityPct: 62 });
     expect(html).toContain('<b class="hud-v2-over">3</b><span class="hud-v2-chip-of">/2</span>');
     expect(html.match(/hud-v2-over/g)).toHaveLength(1);
     // Regression: the coin chip said /h while Economy and the tile panel say /day.
     expect(html).toContain("+2,880/day");
     // Review: the chip showed gross income; it is net of coin upkeep, like Economy, and a loss reads red.
-    const loss = resourceBarHtml({ gold: 0, netPerMinute: -0.5, slotSupply: slots, slotDemand: slots, shard: 0, integrityPct: undefined });
+    const loss = resourceBarHtml({ gold: 0, netPerMinute: -0.5, slotSupply: slots, slotDemand: slots, integrityPct: undefined });
     expect(loss).toContain('hud-v2-chip-rate hud-v2-chip-rate-loss">−720/day');
     expect(html).toContain('data-hud-v2-open="settings"');
   });
@@ -61,10 +61,10 @@ describe("resource bar", () => {
   // Regression: Crystal showed as 0/0 on the bar before it was researched.
   it("leaves unresearched resources off the bar", () => {
     const slots = { FOOD: 2, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 };
-    const html = resourceBarHtml({ gold: 0, netPerMinute: 0, slotSupply: slots, slotDemand: slots, shard: 0, integrityPct: undefined, isRevealed: (r) => r !== "CRYSTAL" });
+    const html = resourceBarHtml({ gold: 0, netPerMinute: 0, slotSupply: slots, slotDemand: slots, integrityPct: undefined, isRevealed: (r) => r !== "CRYSTAL" });
     expect(html).not.toContain('data-hud-v2-chip="crystal"');
     expect(html).toContain('data-hud-v2-chip="titanium"');
-    const inUse = resourceBarHtml({ gold: 0, netPerMinute: 0, slotSupply: slots, slotDemand: { ...slots, CRYSTAL: 1 }, shard: 0, integrityPct: undefined, isRevealed: () => false });
+    const inUse = resourceBarHtml({ gold: 0, netPerMinute: 0, slotSupply: slots, slotDemand: { ...slots, CRYSTAL: 1 }, integrityPct: undefined, isRevealed: () => false });
     expect(inUse).toContain('data-hud-v2-chip="crystal"');
     expect(inUse).toContain('data-hud-v2-chip="food"');
   });
