@@ -15,8 +15,8 @@ const elin: DiplomacyStanceReply = {
   ai: true,
   stance: { kind: "SEEKING_PEACE", reason: "Elin is looking for peace: their armies are spent." },
   attitude: { level: "CAUTIOUS", score: -10, modifiers: [{ label: "Our borders are contested", value: -10 }] },
-  allianceRefusal: "Elin doesn't think well enough of you for an alliance. Offer a gift to win them over.",
-  pricing: { required: { truce12: 0, truce24: 0, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 50, shard: 0 } },
+  // Gifts can still win Elin over, so an alliance is priced as tribute: 196 coin to Pleased plus 24h of income.
+  pricing: { required: { truce12: 0, truce24: 0, alliance: 196 + 1440 }, shardCoinValue: 25, aiHoldings: { gold: 50, shard: 0 } },
   gift: giftView(0, 60) // 10 coin per opinion point
 };
 const giving = (gold: number, shard = 0): TradeSelection => ({ kind: "gift", durationHours: 12, terms: { give: { gold, shard }, ask: { gold: 0, shard: 0 } } });
