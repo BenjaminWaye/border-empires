@@ -1,6 +1,6 @@
 # HUD v2 on mobile: research and plan
 
-Status: proposed (2026-11-03). Nothing here is built yet.
+Status: in progress. Phase 0 (foundations) is built; Phases 1–7 are proposed.
 
 The new HUD (`packages/client/src/client-hud-v2/`) is the default on desktop
 since #2587. Phones still get the legacy HUD: `isHudV2Active()` in
@@ -173,15 +173,19 @@ left rail.
 Each phase is one PR to `develop`, behind a phone opt-in until Phase 7, so
 partial work never reaches phone players by default.
 
-### Phase 0: foundations (no visible change)
+### Phase 0: foundations (no visible change) — built
 
-- Replace the boolean desktop gate with a layout mode:
-  `hudV2Layout(): "desktop" | "compact" | "off"`. Compact when width ≤ 900 px
-  **or** height ≤ 500 px with a coarse pointer (fixes landscape phones).
-  `isHudV2Active` becomes `hudV2Layout() !== "off"`; the frame toggles
-  `body.hud-v2-compact` alongside `body.hud-v2`.
-- Phone opt-in: `?hud=v2` on a phone stores the flag and turns compact mode
-  on; the stored default stays legacy on phones until Phase 7.
+- Replace the boolean desktop gate with a layout mode
+  (`client-hud-v2-layout.ts`, `currentHudV2Layout()` in
+  `client-hud-v2-flag.ts`): `"desktop" | "compact" | "off"`. A viewport is
+  compact when width ≤ 900 px **or** height ≤ 500 px with a coarse pointer
+  (landscape phones). `isHudV2Active` is `layout !== "off"`; the frame toggles
+  `body.hud-v2-compact` alongside `body.hud-v2`. Without the opt-in, narrow
+  phones stay on legacy and landscape phones keep today's desktop HUD.
+- Phone opt-in: `?hud=compact` stores `be.hudV2Compact=1` (and turns the HUD
+  flag on); `?hud=legacy` clears it. A separate key so early `?hud=v2`
+  testers (who stored `be.hudV2=1`) are not pulled into an unfinished phone
+  layout. The default stays legacy on phones until Phase 7.
 - Keep the existing "leaving the HUD closes the screen" logic for desktop ↔
   compact switches (rotation, window resize) so nothing is stranded.
 - Compact CSS goes in new files (`client-hud-v2-compact*.css`), never into
@@ -189,8 +193,11 @@ partial work never reaches phone players by default.
 - A shared sheet primitive (`client-hud-v2-sheet.ts`): detents, grabber, drag
   with pointer events, background interaction at peek/half, `history`
   integration for the back gesture, safe-area padding. All later phases use it.
-- Playwright screenshot harness at 390×844, 360×780 and 932×430 (landscape),
-  against a local `pnpm dev`, for before/after images in every PR.
+  Nothing mounts a sheet yet.
+- Playwright screenshot harness (`pnpm shots:hud-v2-mobile`,
+  `scripts/hud-v2-mobile-screenshots.mjs`) at 390×844, 360×780 and 932×430
+  (landscape) in legacy, compact and default modes, against a local
+  `pnpm dev`, for before/after images in every PR.
 - Turn off `backdrop-filter` in compact mode.
 
 ### Phase 1: map at rest

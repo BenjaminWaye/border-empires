@@ -42,7 +42,9 @@ share a link if you need the editable version.
 
 - Flag: on by default (desktop only, wider than 900px). `?hud=legacy` opts
   the browser back into the old HUD (stored as `be.hudV2=0`); `?hud=v2`
-  switches it back on (stores `be.hudV2=1`).
+  switches it back on (stores `be.hudV2=1`). Phones opt into the compact
+  layout under construction with `?hud=compact` (stores `be.hudV2Compact=1`;
+  `?hud=legacy` clears it). See `../../hud-v2-mobile-plan.md`.
 - Modules: `packages/client/src/client-hud-v2/`. `client-hud-v2.ts` is the
   controller (250 ms frame, writes only regions that changed),
   `client-hud-v2-context.ts` holds shared deps and screen state, and

@@ -15,7 +15,8 @@ import { battleOnBarAction, battleOnMenuView, battleRowPlan, installBattleWatch,
 import { focusCamera, screen, SCREEN_HOST_ID, type HudV2Deps, type HudV2ScreenId } from "./client-hud-v2-context.js";
 import { escapeOpensSettings } from "./client-hud-v2-escape.js";
 import { hudV2GameOnScreen } from "./client-hud-v2-ready.js";
-import { initHudV2Flag, isHudV2Active, setHudV2Driving } from "./client-hud-v2-flag.js";
+import { currentHudV2Layout, initHudV2Flag, isHudV2Active, setHudV2Driving } from "./client-hud-v2-flag.js";
+import type { HudV2Layout } from "./client-hud-v2-layout.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import { orbHtml } from "./client-hud-v2-orb.js";
@@ -34,6 +35,7 @@ import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
 import "./client-hud-v2-profile.css";
 import "./client-hud-v2-economy.css";
+import "./client-hud-v2-compact.css";
 
 export type { HudV2Deps } from "./client-hud-v2-context.js";
 
@@ -314,13 +316,19 @@ export const installHudV2 = (deps: HudV2Deps): void => {
   });
   installBattleWatch(deps);
   let tick = 0;
+  let lastLayout: HudV2Layout | undefined;
   const frame = (): void => {
     // body.hud-v2 (which hides the legacy chrome) follows the flag alone, so the old HUD never flashes during
     // loading; sign-in, map preparation, the first load and the season lobby only hold the new layer back.
-    const flagOn = isHudV2Active(deps.isMobile);
+    const layout = currentHudV2Layout(deps.isMobile);
+    const flagOn = layout !== "off";
     const onScreen = flagOn && hudV2GameOnScreen(deps.state, document.body);
     setHudV2Driving(flagOn);
     document.body.classList.toggle("hud-v2", flagOn);
+    document.body.classList.toggle("hud-v2-compact", layout === "compact");
+    // Desktop <-> compact (rotation, resize): a screen laid out for the other layout closes rather than stranding.
+    if (lastLayout && layout !== lastLayout && flagOn && screen.id) closeScreen(deps, { toMap: true });
+    lastLayout = layout;
     document.body.classList.toggle("hud-v2-waiting", flagOn && !onScreen);
     // The lens button lives in this HUD; without it (phone width) the Diplomacy tint goes too.
     if (!flagOn && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
