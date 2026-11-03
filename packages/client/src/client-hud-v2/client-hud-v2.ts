@@ -31,7 +31,7 @@ import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-ch
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
 import { captureIsBattle, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
-import { closeTreasury, compactLayerClick, compactTrackerHtml, syncScreenBack, syncTreasury } from "./client-hud-v2-compact.js";
+import { closeTreasury, compactLayerClick, compactTrackerHtml, syncScreenBack, syncTreasury, treasuryOpen } from "./client-hud-v2-compact.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
@@ -200,6 +200,11 @@ const onEscape = (deps: HudV2Deps, event: KeyboardEvent): void => {
     event.stopPropagation();
     deps.renderHud();
   };
+  if (treasuryOpen()) {
+    closeTreasury();
+    consume();
+    return;
+  }
   if (state.activePlayerProfileId) {
     state.activePlayerProfileId = undefined;
     consume();

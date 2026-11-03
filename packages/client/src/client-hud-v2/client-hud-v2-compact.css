@@ -49,7 +49,6 @@ body.hud-v2-compact .hud-v2-bar .hud-v2-chip-label { font-size: 9px; letter-spac
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-rate,
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-static,
 body.hud-v2-compact .hud-v2-bar .hud-v2-sep { display: none; }
-body.hud-v2-compact .hud-v2-bar .hud-v2-chip > :not(.hud-v2-chip-label) { display: inline; }
 body.hud-v2-compact .hud-v2-gear { flex: none; width: 36px; height: 34px; margin-left: 2px; }
 
 /* ---- Foot: crest + destinations as a tab bar ---- */
@@ -118,6 +117,14 @@ body.hud-v2-compact .hud-v2-orb-label,
 body.hud-v2-compact .hud-v2-orb-refill { display: none; }
 body.hud-v2-compact .hud-v2-orb-value { font-size: 18px; }
 body.hud-v2-compact .hud-v2-orb-cap { font-size: 10px; }
+
+/* The tutorial guide (a layer above the whole HUD) moves under the top bar, clear of the bottom sheets, and steps
+   aside while a full screen is open. */
+body.hud-v2-compact #tutorial-guide-root { top: calc(var(--v2c-top) + 44px); bottom: auto !important; left: calc(var(--v2c-safe-left) + 6px); }
+body.hud-v2-compact.hud-v2-screen-open #tutorial-guide-root { display: none; }
+body.hud-v2-compact:has(#hud.desktop-side-panel-open) #tutorial-guide-root,
+body.hud-v2-compact:has(.hud-v2-sheet) #tutorial-guide-root { display: none; }
+body.hud-v2-compact:has(.hud-v2-tracker .v2c-track-line-open) #tutorial-guide-root { display: none; }
 
 /* The new-empire checklist launcher sits above the lens button. */
 body.hud-v2-compact .onb-root { bottom: calc(var(--v2c-bottom) + 64px) !important; }
@@ -190,5 +197,5 @@ body.hud-v2-compact #side-panel .panel-btn { min-height: 40px; }
 .v2c-treasury-rows .hud-v2-chip-label { min-width: 84px; font-size: 13px; }
 .v2c-treasury-rows .hud-v2-chip-rate { margin-left: auto; font-size: 13px; }
 .v2c-treasury-rows .hud-v2-sep { display: none; }
-.v2c-treasury-rows .hud-v2-gear { width: 100%; height: 48px; margin: 6px 0 0; font-size: 18px; }
+.v2c-treasury-rows .hud-v2-gear { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 48px; margin: 6px 0 0; font-size: 18px; }
 .v2c-treasury-rows .hud-v2-gear::after { content: " Settings"; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }

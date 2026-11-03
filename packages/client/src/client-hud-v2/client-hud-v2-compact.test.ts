@@ -100,3 +100,20 @@ describe("back gesture", () => {
     expect(backStackDepth()).toBe(depth);
   });
 });
+
+describe("Treasury live updates", () => {
+  it("updates a row in place when its number ticks, so a tap in flight still lands", async () => {
+    const { openTreasury, syncTreasury, closeTreasury } = await import("./client-hud-v2-compact.js");
+    document.body.innerHTML = "";
+    openTreasury(document.body, `<button data-hud-v2-chip="coin"><span>Coin</span><span>1</span></button>`);
+    const before = document.querySelector(".v2c-treasury [data-hud-v2-chip='coin']");
+    syncTreasury(`<button data-hud-v2-chip="coin"><span>Coin</span><span>2</span></button>`);
+    const after = document.querySelector(".v2c-treasury [data-hud-v2-chip='coin']");
+    expect(after).toBe(before);
+    expect(after?.textContent).toContain("2");
+    // A resource appearing rebuilds the list.
+    syncTreasury(`<button data-hud-v2-chip="coin"><span>2</span></button><button data-hud-v2-chip="food"><span>1/2</span></button>`);
+    expect(document.querySelector(".v2c-treasury [data-hud-v2-chip='food']")).not.toBeNull();
+    closeTreasury();
+  });
+});

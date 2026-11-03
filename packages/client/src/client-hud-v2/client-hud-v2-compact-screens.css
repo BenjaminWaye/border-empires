@@ -42,10 +42,19 @@ body.hud-v2-compact .v2d-req { flex-wrap: wrap; }
 body.hud-v2-compact .v2d-deal-nav { flex-wrap: wrap; gap: 6px 12px; }
 body.hud-v2-compact .v2d-terms { padding: 10px 12px; }
 
+/* Profile: the crest card over the details, one scrolling column. */
+body.hud-v2-compact .v2p { grid-template-columns: minmax(0, 1fr); gap: 10px; overflow-y: auto; }
+body.hud-v2-compact .v2p-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+body.hud-v2-compact .v2p-grid { grid-template-columns: minmax(0, 1fr); }
+
 /* Towns: name plus three numbers fit at 360px. */
 body.hud-v2-compact .v2l-table { width: 100%; padding: 8px 10px; }
 body.hud-v2-compact .v2l-head, body.hud-v2-compact .v2l-row { grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)); gap: 8px; }
 body.hud-v2-compact .v2l-row { min-height: var(--v2c-touch); padding: 6px 6px; }
+
+/* The orb and lens would sit on the Chronicle sheet and the town screen's panels. */
+body.hud-v2-compact.hud-v2-screen-chronicle .hud-v2-orb-slot,
+body.hud-v2-compact.hud-v2-screen-town .hud-v2-orb-slot { display: none !important; }
 
 /* ---- Chronicle: a half-height sheet over the map, above the tab bar ---- */
 body.hud-v2-compact .v2c-drawer {

@@ -27,13 +27,30 @@ export const openTreasury = (layer: HTMLElement, barHtml: string): void => {
   treasury.body.innerHTML = treasuryHtml;
 };
 
-/** Keeps an open Treasury live with the bar (same 250 ms frame). */
+/**
+ * Keeps an open Treasury live with the bar (same 250 ms frame). Rows update in place, so a tap that lands while a
+ * number ticks still reaches its button; only a change in which rows exist rebuilds the list.
+ */
 export const syncTreasury = (barHtml: string): void => {
   if (!treasury) return;
   const html = treasuryBody(barHtml);
   if (html === treasuryHtml) return;
   treasuryHtml = html;
-  treasury.body.innerHTML = html;
+  const rows = treasury.body.querySelector(".v2c-treasury-rows");
+  const next = treasury.el.ownerDocument.createElement("div");
+  next.innerHTML = barHtml;
+  const keyOf = (el: Element): string => (el as HTMLElement).dataset.hudV2Chip ?? el.className;
+  const current = rows ? Array.from(rows.children) : [];
+  const incoming = Array.from(next.children);
+  if (!rows || current.length !== incoming.length || current.some((el, i) => keyOf(el) !== keyOf(incoming[i]!))) {
+    treasury.body.innerHTML = html;
+    return;
+  }
+  current.forEach((el, i) => {
+    const fresh = incoming[i]!;
+    if (el.innerHTML !== fresh.innerHTML) el.innerHTML = fresh.innerHTML;
+    if (el.className !== fresh.className) el.className = fresh.className;
+  });
 };
 
 export const closeTreasury = (): void => treasury?.close();
