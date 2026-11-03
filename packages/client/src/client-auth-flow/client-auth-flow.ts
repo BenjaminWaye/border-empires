@@ -29,6 +29,7 @@ import { EMAIL_LINK_STORAGE_KEY, initGuestSave, linkOrSignInWithEmailLink } from
 import { completeGuestEmailLink, syncGuestSaveBadge } from "../client-guest-save/client-guest-save-panel.js";
 import { bindInitTransferProgress } from "../client-init-transfer/client-init-transfer-progress.js";
 import type { AuthSession, AuthFlowDeps, ClientAuthFlow } from "./client-auth-flow-types.js";
+import { isPhoneViewport } from "../client-panel-nav/client-phone-viewport.js";
 
 export type { AuthSession } from "./client-auth-flow-types.js";
 
@@ -55,7 +56,6 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     wsUrl,
     requireAuthedSession,
     renderHud,
-    isMobile,
     devAuthPlayerId
   } = deps;
 
@@ -386,7 +386,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         });
         state.authReady = true;
         state.authSessionReady = false;
-        if (isMobile()) {
+        // The phone screen, not the HUD layout drawn on it (client-phone-viewport.ts).
+        if (isPhoneViewport()) {
           state.zoom = MOBILE_LOGIN_ZOOM;
         }
         setAuthBusy(true);

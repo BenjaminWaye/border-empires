@@ -1,6 +1,9 @@
 # HUD v2 on mobile: research and plan
 
-Status: in progress. Phase 0 (foundations) is built; Phases 1–7 are proposed.
+Status: Phases 0–7 built (2026-11-03); the compact layout is the default on
+phones. Still to do: delete the legacy phone chrome once a release has run
+without regressions (Phase 7, step 3). See **What was built** below for where
+the build differs from the plan.
 
 The new HUD (`packages/client/src/client-hud-v2/`) is the default on desktop
 since #2587. Phones still get the legacy HUD: `isHudV2Active()` in
@@ -13,6 +16,28 @@ Design inputs already in the repo: the **Mobile** section of
 [`design/hud-v2/ui-teardown.html`](design/hud-v2/ui-teardown.html) (phone
 sketches of the map, town and battle screens) and its "Where today's panels
 go" table. This plan builds on those sketches rather than replacing them.
+
+## What was built
+
+| Phase | Built | Differs from the plan |
+|---|---|---|
+| 0 | Layout mode, sheet primitive, screenshot harness | The `?hud=compact` opt-in (and `be.hudV2Compact`) was removed again in Phase 7; the link still switches the HUD on |
+| — | `isMobile()` split (`client-panel-nav/client-phone-viewport.ts`) | New: legacy panels follow `isMobile()`, which is false while the compact HUD drives a phone, so they open in `#side-panel` as on desktop and the compact CSS restyles it as a sheet. Device budgets (frame gap, pixel counts, tile-detail requests, login zoom) use `isPhoneViewport()` |
+| 1 | Treasury sheet from the bar, folded tracker line, season pill, lens button, orb, tab bar | The tab bar keeps all seven entries (crest + Manifest, Towns, AFC, Diplomacy, Ranks, Chronicle) with labels under the icons, rather than five tabs and a More menu: they fit at 360 px and keep every destination one tap away. Rivals are hidden on phones (they're in Diplomacy) |
+| 2 | Tile panel as a bottom sheet over the tab bar; actions ≥ 44 px, primary first; camera offset (`client-hud-v2-compact-camera.ts`) | The tile panel sizes to its content (capped at 62% of the screen, scrolls) instead of three draggable detents; the grabber is a visual mark. The camera offset moves `camY`, which both renderers read, so it needed no renderer-specific code |
+| 3 | Battle: header, both sides on one row, outcome and Confirm at the bottom | — |
+| 4 | Town: full screen, stats over the build list, actions pinned at the foot | Stacked panels rather than Overview / Build / Tiles tabs |
+| 5 | Frame screens between bar and tab bar; Chronicle half sheet; Manifest scrolls both ways; Ranks, Diplomacy, Towns, profile stacked | — |
+| 6 | Tutorial guide under the bar (hidden behind screens, sheets and panels); onboarding launcher above the lens; back gesture (`client-hud-v2-back.ts`) closes the open sheet or screen; `isMobile()` call sites audited | — |
+| 7 | Compact on by default on phones; changelog entry; `?hud=legacy` still opts out | Legacy phone chrome not deleted yet (step 3) |
+
+Landscape phones dock the tile panel, Chronicle and sheets to the right edge
+(`@media (orientation: landscape)` in `client-hud-v2-compact-screens.css`), and
+the camera offset is skipped there.
+
+Checked in local Chromium at 390×844 and 844×390 against `pnpm dev`. The
+battle screen is styled but was not exercised in the browser (it needs a live
+attack).
 
 ## 1. Research: what good 4X / strategy UIs do on a phone
 

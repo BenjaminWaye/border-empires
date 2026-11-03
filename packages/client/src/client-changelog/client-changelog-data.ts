@@ -57,6 +57,7 @@ import { STORM_EDGE_BANDING_CHANGELOG } from "./client-changelog-storm-edge-band
 import { AETHER_TOWER_SHOTS_CHANGELOG } from "./client-changelog-aether-tower-shots.js";
 import { LEGAL_PAGES_CHANGELOG } from "./client-changelog-legal-pages.js";
 import { CAPTURE_AFTERMATH_CHANGELOG } from "./client-changelog-capture-aftermath.js";
+import { HUD_V2_MOBILE_CHANGELOG } from "./client-changelog-hud-v2-mobile.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -467,7 +468,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...AETHER_TOWER_SHOTS_CHANGELOG,
   ...LEGAL_PAGES_CHANGELOG,
-  ...CAPTURE_AFTERMATH_CHANGELOG
+  ...CAPTURE_AFTERMATH_CHANGELOG,
+  ...HUD_V2_MOBILE_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

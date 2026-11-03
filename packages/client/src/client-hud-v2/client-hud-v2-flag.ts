@@ -1,14 +1,13 @@
-// Feature flag for the redesigned HUD (client-hud-v2.ts). On by default on
-// desktop; `?hud=legacy` opts this browser back into the old HUD and `?hud=v2`
-// switches it back on. Phones keep the legacy HUD unless the browser opted into
-// the compact (phone) layout with `?hud=compact` (see client-hud-v2-layout.ts
-// and docs/hud-v2-mobile-plan.md); `?hud=legacy` clears that opt-in too.
+// Feature flag for the redesigned HUD (client-hud-v2.ts). On by default, on
+// desktop and (in its compact layout, client-hud-v2-layout.ts) on phones;
+// `?hud=legacy` opts this browser back into the old HUD and `?hud=v2` switches
+// it back on. `?hud=compact`, the phone opt-in from before the compact layout
+// was the default, also switches it back on so old links keep working.
 
 import { isPhoneViewport } from "../client-panel-nav/client-phone-viewport.js";
 import { selectHudV2Layout, shortTouchViewport, type HudV2Layout } from "./client-hud-v2-layout.js";
 
 export const HUD_V2_STORAGE_KEY = "be.hudV2";
-export const HUD_V2_COMPACT_STORAGE_KEY = "be.hudV2Compact";
 /** Stored when the player opts out with `?hud=legacy`; anything else means the new HUD. */
 const HUD_V2_OPT_OUT = "0";
 
@@ -43,25 +42,10 @@ export const setHudV2Flag = (enabled: boolean, storage: FlagStorage | undefined 
   }
 };
 
-/** Applies a `?hud=` override, then reports whether this browser opted into the compact (phone) layout. */
-export const readHudV2CompactOptIn = (search: string, storage: FlagStorage | undefined = safeStorage()): boolean => {
-  const param = new URLSearchParams(search).get("hud");
-  if (!storage) return param === "compact";
-  try {
-    if (param === "compact") storage.setItem(HUD_V2_COMPACT_STORAGE_KEY, "1");
-    if (param === "legacy") storage.removeItem(HUD_V2_COMPACT_STORAGE_KEY);
-    return storage.getItem(HUD_V2_COMPACT_STORAGE_KEY) === "1";
-  } catch {
-    return param === "compact";
-  }
-};
-
 let enabledForSession = false;
-let compactOptInForSession = false;
 
 export const initHudV2Flag = (search: string): boolean => {
   enabledForSession = readHudV2Flag(search);
-  compactOptInForSession = readHudV2CompactOptIn(search);
   return enabledForSession;
 };
 
@@ -70,7 +54,7 @@ export const initHudV2Flag = (search: string): boolean => {
  * `isMobile()`: that one turns false while the compact layout drives the phone (client-phone-viewport.ts).
  */
 export const currentHudV2Layout = (narrow: () => boolean = isPhoneViewport): HudV2Layout =>
-  selectHudV2Layout({ enabled: enabledForSession, compactOptIn: compactOptInForSession, narrow: narrow(), shortTouch: shortTouchViewport() });
+  selectHudV2Layout({ enabled: enabledForSession, narrow: narrow(), shortTouch: shortTouchViewport() });
 
 /** True when the new HUD should drive this frame, in either layout. */
 export const isHudV2Active = (): boolean => currentHudV2Layout() !== "off";

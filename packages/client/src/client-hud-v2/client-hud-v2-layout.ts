@@ -2,17 +2,15 @@
 // (phone) one, or none (the legacy HUD). See docs/hud-v2-mobile-plan.md.
 //
 // A viewport is compact when it is narrow (the client's 900px phone breakpoint)
-// or short with a coarse pointer (a phone held sideways, e.g. 932x430). The
-// compact layout is opt-in for now (`?hud=compact`): without it, narrow phones
-// keep the legacy HUD and landscape phones keep the desktop HUD, as before.
+// or short with a coarse pointer (a phone held sideways, e.g. 932x430). Phones
+// get the compact layout by default; `?hud=legacy` turns the new HUD off on
+// every device (the flag), which puts phones back on the legacy phone HUD.
 
 export type HudV2Layout = "desktop" | "compact" | "off";
 
 export type HudV2LayoutInput = {
   /** The HUD v2 flag (on by default; `?hud=legacy` turns it off). */
   enabled: boolean;
-  /** The phone opt-in (`?hud=compact`). */
-  compactOptIn: boolean;
   /** The client's phone breakpoint: `(max-width: 900px)`. */
   narrow: boolean;
   /** A short viewport with a touch pointer: a phone in landscape. */
@@ -25,10 +23,7 @@ export const isCompactViewport = (input: Pick<HudV2LayoutInput, "narrow" | "shor
 
 export const selectHudV2Layout = (input: HudV2LayoutInput): HudV2Layout => {
   if (!input.enabled) return "off";
-  if (isCompactViewport(input) && input.compactOptIn) return "compact";
-  // Phones without the opt-in stay on the legacy HUD until the compact layout ships.
-  if (input.narrow) return "off";
-  return "desktop";
+  return isCompactViewport(input) ? "compact" : "desktop";
 };
 
 export const shortTouchViewport = (): boolean => {

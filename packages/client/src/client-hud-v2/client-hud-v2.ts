@@ -1,4 +1,4 @@
-// Controller for the redesigned desktop HUD (flag-gated, see client-hud-v2-flag.ts).
+// Controller for the redesigned HUD, desktop and compact (phone) layouts (flag-gated, see client-hud-v2-flag.ts).
 // It mounts its own layer over the map and re-renders it from ClientState on a
 // short timer, writing each region only when its HTML changed. Tile actions go
 // through the existing handlers; the destination screens live in
