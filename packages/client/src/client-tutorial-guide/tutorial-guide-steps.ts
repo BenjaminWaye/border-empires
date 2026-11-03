@@ -16,7 +16,10 @@
 import type { OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
 import { guideTargetAction, type GuideFootholdTargets, type GuideTargetAction } from "./tutorial-guide-foothold-targets.js";
 
-export type GuideAnchorId = "manpower" | "manifest" | "activity";
+export type GuideAnchorId = "manpower" | "manifest" | "activity" | "diplomacy";
+
+/** The Manifest the guide recommends first: Industrial Tooling Module, which unlocks the Manufactory (tech id "trade"). */
+export const RECOMMENDED_FIRST_MANIFEST_ID = "trade";
 
 /** Grain (the FOOD icon, used on FARM tiles) and fish: the two food sources. */
 export type GuideLookForIcon = "FOOD" | "FISH";
@@ -40,15 +43,24 @@ export type GuideInput = {
   hudV2: boolean;
   /** Manifests the player has commissioned (state.techIds, excluding the tree root). */
   manifestCount: number;
+  /** The Industrial Tooling Module is commissioned, so a Manufactory can be built. */
+  manufactoryUnlocked: boolean;
   ownsBuiltStructure: boolean;
+  /** The player's garrisoned town tiles: where a Manufactory goes. */
   buildTargetTiles: ReadonlyArray<{ x: number; y: number }>;
+  /** The player's AFC tile, for the "tap a tile" step. */
+  afcTile: { x: number; y: number } | undefined;
+  /** The player has seen another House's territory (not Planetary Defense): client-met-players.ts. */
+  rivalHouseMet: boolean;
+  /** Diplomacy panel/screen open, or a truce or alliance offered or in force. */
+  diplomacyUsed: boolean;
   /** Mustering unlocks on first contact with Planetary Defense or a rival House (client-muster-unlock.ts). */
   musterUnlocked: boolean;
   ownsMusterFlag: boolean;
   musterTargetTiles: ReadonlyArray<{ x: number; y: number }>;
 };
 
-export type GuideChapterId = "look" | "foothold" | "manpower" | "manifest" | "build" | "contest" | "turn";
+export type GuideChapterId = "look" | "foothold" | "manpower" | "manifest" | "build" | "contest" | "diplomacy" | "turn";
 
 export type GuideStepDef = {
   id: string;
@@ -75,6 +87,7 @@ export const GUIDE_CHAPTER_TITLES: Record<GuideChapterId, string> = {
   manifest: "Manifests",
   build: "Build",
   contest: "Contest",
+  diplomacy: "Diplomacy",
   turn: "Your turn"
 };
 
@@ -113,7 +126,17 @@ const foodTitle = (input: GuideInput): string => {
 export const GUIDE_STEPS: readonly GuideStepDef[] = [
   { id: "look-pan", chapter: "look", title: () => "Drag the map to look around", why: "Scout before you commit: towns, food and rivals are out there.", isDone: (i) => i.panned },
   { id: "look-zoom", chapter: "look", title: () => "Zoom in and out (scroll or pinch)", why: "Zoom out to plan, zoom in to act.", isDone: (i) => i.zoomed },
-  { id: "look-select", chapter: "look", title: () => "Tap a tile to inspect it", why: "Every tile shows its owner, resources and what you can do there.", isDone: (i) => i.tileSelected },
+  // Tapping your own AFC rather than "any tile": on the new desktop HUD a plain
+  // tap on neutral land touching your border claims it at once (shouldAutoExpand,
+  // client-hud-v2-tile-dock.ts), so "tap a tile" could spend manpower by accident.
+  {
+    id: "look-select",
+    chapter: "look",
+    title: () => "Tap your AFC to see what you can do there",
+    why: "Every tile shows its owner, resources and what you can do there.",
+    isDone: (i) => i.tileSelected,
+    highlight: (i) => (i.afcTile ? [i.afcTile] : [])
+  },
   { id: "foothold-find-town", chapter: "foothold", title: () => "Find a town", why: "Towns earn Coin and raise your manpower.", isDone: (i) => i.checklist.townFound },
   {
     id: "foothold-take-town",
@@ -159,19 +182,19 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "manifest-commission",
     chapter: "manifest",
-    title: () => "Commission your first Manifest",
-    why: "Manifests bring offworld machinery and crews that unlock buildings and abilities.",
+    title: () => "Commission the Industrial Tooling Module",
+    why: "It unlocks the Manufactory, which turns your town's industry into Coin.",
     isDone: (i) => i.manifestCount > 0,
     anchor: "manifest"
   },
   {
     id: "build-first",
     chapter: "build",
-    title: () => "Tap a marked resource tile and Build",
-    why: "Structures turn your land into Coin, food and materials.",
+    title: () => "Tap your marked town and build a Manufactory",
+    why: "A Manufactory goes on a garrisoned town or the tiles around it and adds Coin from the town's industry.",
     isDone: (i) => i.ownsBuiltStructure,
-    isAvailable: (i) => i.manifestCount > 0,
-    waitingNote: "Commission a Manifest first: it unlocks your first buildings.",
+    isAvailable: (i) => i.manufactoryUnlocked,
+    waitingNote: "Commission the Industrial Tooling Module to unlock the Manufactory.",
     highlight: (i) => i.buildTargetTiles
   },
   {
@@ -185,6 +208,16 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     highlight: (i) => i.musterTargetTiles
   },
   {
+    id: "diplomacy-truce",
+    chapter: "diplomacy",
+    title: () => "A rival House is near: open Diplomacy to offer a truce",
+    why: "A truce keeps a neighbour from attacking you while you grow. AI Houses tell you their price.",
+    isDone: (i) => i.diplomacyUsed,
+    isAvailable: (i) => i.rivalHouseMet,
+    waitingNote: "This starts when you meet a rival House.",
+    anchor: "diplomacy"
+  },
+  {
     id: "turn-activity",
     chapter: "turn",
     title: (i) => (i.hudV2 ? "Open the Chronicle" : "Open the Activity dashboard"),
@@ -195,8 +228,8 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "turn-finish",
     chapter: "turn",
-    title: () => "Each visit: spend your manpower, then set up your next move",
-    why: "Manpower refills while you're away. Come back, act, repeat.",
+    title: () => "That's the basics. Your manpower refills every 4 hours.",
+    why: "Come back, spend it on expanding, building and attacking, and check the Activity dashboard for what happened while you were away.",
     isDone: () => false,
     acknowledge: true
   }
@@ -237,9 +270,11 @@ export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>)
   const done = new Set([...completed, ...newlyCompleted]);
   const remaining = GUIDE_STEPS.filter((s) => !done.has(s.id));
   if (remaining.length === 0) return { kind: "done" };
-  // An acknowledge step (Finish) is only offered once it is the last step left,
-  // so Finish never shows while another step (e.g. a waiting Contest) remains.
-  const available = remaining.find((s) => (s.isAvailable?.(input) ?? true) && (!s.acknowledge || remaining.length === 1));
+  // An acknowledge step (Finish) is only offered once every other step left is
+  // waiting on something the player may never meet (no Planetary Defense or
+  // rival House nearby), so the guide can always be finished.
+  const isAvailable = (s: GuideStepDef): boolean => s.isAvailable?.(input) ?? true;
+  const available = remaining.find((s) => isAvailable(s) && (!s.acknowledge || remaining.every((r) => r === s || !isAvailable(r))));
   const step = available ?? remaining[0]!;
   const waiting = !available;
   return {

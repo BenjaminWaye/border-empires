@@ -14,6 +14,10 @@ const baseInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
     highlightTiles: [{ x: 5, y: 5 }]
   },
   footholdTargets: { town: { garrison: [], expand: [] }, food: { garrison: [], expand: [] } },
+  manufactoryUnlocked: false,
+  afcTile: undefined,
+  rivalHouseMet: false,
+  diplomacyUsed: false,
   panned: false,
   zoomed: false,
   tileSelected: false,
@@ -66,7 +70,7 @@ describe("tutorial guide steps", () => {
     // With no Manifest, Build isn't available, so the guide moves on rather than asking for the impossible.
     expect(noManifest.kind === "step" && noManifest.step.id).not.toBe("build-first");
 
-    const withManifest = evaluateGuide(baseInput({ checklist: footholdDone, manifestCount: 1, buildTargetTiles: [{ x: 1, y: 1 }] }), doneBeforeBuild);
+    const withManifest = evaluateGuide(baseInput({ checklist: footholdDone, manifestCount: 1, manufactoryUnlocked: true, buildTargetTiles: [{ x: 1, y: 1 }] }), doneBeforeBuild);
     if (withManifest.kind !== "step") throw new Error("expected a step");
     expect(withManifest.step.id).toBe("build-first");
     expect(withManifest.highlightTiles).toEqual([{ x: 1, y: 1 }]);
@@ -126,12 +130,43 @@ describe("tutorial guide steps", () => {
     expect(beacon).toEqual(expect.objectContaining({ title: "No food in sight: build a Relay Beacon on the marked tile", highlightTiles: [{ x: 1, y: 1 }] }));
   });
 
-  it("never offers Finish while another step remains, even one that is only waiting", () => {
-    const allButContestAndFinish = new Set(GUIDE_STEPS.filter((s) => s.id !== "contest-muster" && s.id !== "turn-finish").map((s) => s.id));
-    const view = evaluateGuide(baseInput({ checklist: footholdDone }), allButContestAndFinish);
-    if (view.kind !== "step") throw new Error("expected a step");
-    expect(view.step.id).toBe("contest-muster");
-    expect(view.waiting).toBe(true);
+  it("offers Finish once every other step left is waiting, but not while one can still be done", () => {
+    const waitingOnly = new Set(GUIDE_STEPS.filter((s) => !["contest-muster", "diplomacy-truce", "turn-finish"].includes(s.id)).map((s) => s.id));
+    const noContact = evaluateGuide(baseInput({ checklist: footholdDone }), waitingOnly);
+    expect(noContact).toEqual(expect.objectContaining({ step: expect.objectContaining({ id: "turn-finish" }), waiting: false }));
+
+    const contact = evaluateGuide(baseInput({ checklist: footholdDone, musterUnlocked: true }), waitingOnly);
+    expect(contact.kind === "step" && contact.step.id).toBe("contest-muster");
+  });
+
+  it("recommends the Industrial Tooling Module, then a Manufactory on the player's town (waiting until it is commissioned)", () => {
+    const beforeManifest = new Set([...ids("look"), ...ids("foothold"), ...ids("manpower"), "manifest-open"]);
+    expect(evaluateGuide(baseInput({ checklist: footholdDone }), beforeManifest)).toEqual(
+      expect.objectContaining({ title: "Commission the Industrial Tooling Module", anchor: "manifest" })
+    );
+    const allButBuild = new Set(GUIDE_STEPS.filter((s) => s.id !== "build-first").map((s) => s.id));
+    // Another Manifest commissioned: the build step waits with a pointer to the right one.
+    expect(evaluateGuide(baseInput({ checklist: footholdDone, manifestCount: 1 }), allButBuild)).toEqual(
+      expect.objectContaining({ waiting: true, title: "Commission the Industrial Tooling Module to unlock the Manufactory." })
+    );
+    expect(evaluateGuide(baseInput({ checklist: footholdDone, manifestCount: 1, manufactoryUnlocked: true, buildTargetTiles: [{ x: 4, y: 4 }] }), allButBuild)).toEqual(
+      expect.objectContaining({ title: "Tap your marked town and build a Manufactory", highlightTiles: [{ x: 4, y: 4 }] })
+    );
+  });
+
+  it("asks the player to tap their AFC, ringing it", () => {
+    const view = evaluateGuide(baseInput({ panned: true, zoomed: true, afcTile: { x: 7, y: 7 } }), new Set());
+    expect(view).toEqual(expect.objectContaining({ title: "Tap your AFC to see what you can do there", highlightTiles: [{ x: 7, y: 7 }] }));
+  });
+
+  it("shows the diplomacy step only after meeting a rival House and completes it on opening Diplomacy", () => {
+    const allButDiplomacy = new Set(GUIDE_STEPS.filter((s) => s.id !== "diplomacy-truce" && s.id !== "turn-finish").map((s) => s.id));
+    expect(evaluateGuide(baseInput({ checklist: footholdDone }), allButDiplomacy)).toEqual(expect.objectContaining({ step: expect.objectContaining({ id: "turn-finish" }) }));
+    expect(evaluateGuide(baseInput({ checklist: footholdDone, rivalHouseMet: true }), allButDiplomacy)).toEqual(
+      expect.objectContaining({ title: "A rival House is near: open Diplomacy to offer a truce", anchor: "diplomacy" })
+    );
+    const opened = evaluateGuide(baseInput({ checklist: footholdDone, rivalHouseMet: true, diplomacyUsed: true }), allButDiplomacy);
+    expect(opened.kind === "step" && opened.newlyCompleted).toContain("diplomacy-truce");
   });
 
   it("names the Chronicle under the new desktop HUD", () => {

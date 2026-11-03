@@ -86,17 +86,24 @@ Hints › **Restart guide** (shown only to enrolled accounts) resets it.
 
 The game requires a commissioned Manifest before any building other than a
 Relay Beacon, so the Manifest chapter comes before Build, and the Build step
-is unavailable until a Manifest exists.
+is unavailable until the recommended Manifest exists.
 
 | # | Chapter | Step (completes when…) | Target |
 |---|---|---|---|
-| 1 | Look around | drag the map; zoom; tap a tile (player input, via `client-map-input.ts`, shared by both renderers) | — |
+| 1 | Look around | drag the map; zoom; tap your AFC (player input, via `client-map-input.ts`, shared by both renderers). Any tap completes it, but the step points at the AFC because, on the new desktop HUD, tapping neutral land next to your border claims it at once | the AFC tile |
 | 2 | A foothold | the four checklist goals (`onboardingChecklistState`): find a town; take it; find food; take 4 food slots | see below |
 | 3 | Manpower | the manpower panel is open | manpower gauge |
-| 4 | Manifests | the Manifest panel is open; first Manifest commissioned (`techIds`) | Manifest button |
-| 5 | Build | owns a structure other than a Relay Beacon (available only after a Manifest) | nearest own garrisoned empty resource tiles |
-| 6 | Contest | owns a muster flag (available once mustering unlocks on first contact with Planetary Defense or a rival House) | own garrisoned tiles touching another owner |
-| 7 | Your turn | the Activity dashboard (or Chronicle) is open; **Finish** | Activity button |
+| 4 | Manifests | the Manifest panel is open; a Manifest commissioned (`techIds`). The step recommends the **Industrial Tooling Module** (`trade`): tier 1, 10 Coin, and it unlocks the Manufactory | Manifest button |
+| 5 | Build | owns a structure other than a Relay Beacon. Available once the Industrial Tooling Module is commissioned, and asks for a **Manufactory**, which goes on a garrisoned town or its support ring and uses one food slot. Until then it waits with a pointer to that Manifest | the player's garrisoned towns |
+| 6 | Contest | owns a muster flag. Available once mustering unlocks on first contact with Planetary Defense or a rival House | own garrisoned tiles touching another owner |
+| 7 | Diplomacy | the Diplomacy panel or screen is open, or a truce or alliance is offered or in force. Available only after the player has seen a rival House's land; Planetary Defense doesn't count (`client-met-players.ts`) | Diplomacy button |
+| 8 | Your turn | the Activity dashboard (or Chronicle) is open; then **Finish** on "That's the basics. Your manpower refills every 4 hours." | Activity button |
+
+**Finish rule:** Finish appears once every other step left is waiting (no
+Planetary Defense or rival House met yet, or a Manifest other than the
+recommended one), so a player with no neighbours can still finish. A step
+whose condition arrives before Finish comes back. After Finish, the existing
+"First Contact!" discovery tip teaches muster flags.
 
 **Taking the town and the food** (`tutorial-guide-foothold-targets.ts`): reach
 auto-claims every neutral tile inside it as the player's FRONTIER, so the

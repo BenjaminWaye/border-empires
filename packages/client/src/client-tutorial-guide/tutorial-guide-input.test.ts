@@ -16,12 +16,14 @@ describe("scanGuideTiles", () => {
     expect(scanGuideTiles(garden, ME, undefined).ownsBuiltStructure).toBe(true);
   });
 
-  it("targets the player's own empty garrisoned resource tiles for building, nearest home first", () => {
+  it("targets the player's own garrisoned towns for the Manufactory, nearest home first", () => {
+    const town = { town: { type: "MARKET", populationTier: "TOWN" } as never };
     const tiles = map([
-      { x: 9, y: 0, ownerId: ME, ownershipState: "SETTLED", resource: "FARM" },
-      { x: 1, y: 0, ownerId: ME, ownershipState: "SETTLED", resource: "FISH" },
-      { x: 2, y: 0, ownerId: ME, ownershipState: "FRONTIER", resource: "FARM" },
-      { x: 3, y: 0, resource: "FARM" }
+      { x: 9, y: 0, ownerId: ME, ownershipState: "SETTLED", ...town },
+      { x: 1, y: 0, ownerId: ME, ownershipState: "SETTLED", ...town },
+      { x: 2, y: 0, ownerId: ME, ownershipState: "FRONTIER", ...town },
+      { x: 3, y: 0, ...town },
+      { x: 4, y: 0, ownerId: ME, ownershipState: "SETTLED", resource: "FARM" }
     ]);
     expect(scanGuideTiles(tiles, ME, { x: 0, y: 0 }).buildTargetTiles).toEqual([
       { x: 1, y: 0 },
@@ -77,5 +79,24 @@ describe("scanGuideFootholdTargets", () => {
       town: { garrison: [{ x: 2, y: 0 }], expand: [{ x: 9, y: 0 }] },
       food: { garrison: [{ x: 1, y: 1 }], expand: [{ x: 3, y: 3 }] }
     });
+  });
+});
+
+describe("rival House contact and diplomacy", () => {
+  it("counts another House's land, not Planetary Defense, and marks diplomacy used once a truce is offered", async () => {
+    const { createInitialState } = await import("../client-state/client-state.js");
+    const { buildGuideInput, resetGuideInputCacheForTests } = await import("./tutorial-guide-input.js");
+    resetGuideInputCacheForTests();
+    const state = createInitialState();
+    state.me = ME;
+    state.tiles.set(tileKey(5, 5), { x: 5, y: 5, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" } as Tile);
+    state.tilesRevision += 1;
+    expect(buildGuideInput(state).rivalHouseMet).toBe(false);
+    state.tiles.set(tileKey(6, 5), { x: 6, y: 5, terrain: "LAND", ownerId: "rival", ownershipState: "SETTLED" } as Tile);
+    state.tilesRevision += 1;
+    expect(buildGuideInput(state).rivalHouseMet).toBe(true);
+    expect(buildGuideInput(state).diplomacyUsed).toBe(false);
+    state.outgoingTruceRequests.push({} as never);
+    expect(buildGuideInput(state).diplomacyUsed).toBe(true);
   });
 });

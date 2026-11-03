@@ -10,12 +10,30 @@ import type { Tile } from "../client-types.js";
 import { onboardingChecklistState, type OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
 import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
 import { guideInputSignals } from "./tutorial-guide-input-signals.js";
-import type { GuideInput } from "./tutorial-guide-steps.js";
+import { RECOMMENDED_FIRST_MANIFEST_ID, type GuideInput } from "./tutorial-guide-steps.js";
+import { findHomeAfcTile } from "../client-afc-locate/client-afc-locate.js";
+import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
 
 export type GuideInputState = Pick<
   ClientState,
-  "tiles" | "tilesRevision" | "chunkFullCount" | "me" | "authEmail" | "activePanel" | "mobilePanel" | "activityDashboard" | "techIds" | "techRootId" | "bridgeDebugSeasonId" | "homeTile"
+  | "tiles"
+  | "tilesRevision"
+  | "chunkFullCount"
+  | "me"
+  | "authEmail"
+  | "activePanel"
+  | "mobilePanel"
+  | "activityDashboard"
+  | "techIds"
+  | "techRootId"
+  | "bridgeDebugSeasonId"
+  | "homeTile"
+  | "metPlayerIds"
+  | "metPlayersScannedRevision"
+  | "outgoingTruceRequests"
+  | "activeTruces"
+  | "allies"
 >;
 
 const MAX_BUILD_TARGETS = 6;
@@ -62,7 +80,8 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
     if (isOwnBuiltStructure(tile, me)) ownsBuiltStructure = true;
     if (tile.muster?.ownerId === me) ownsMusterFlag = true;
     if (!isOwnSettled(tile, me)) continue;
-    if (tile.resource && !tile.economicStructure && !tile.fort && !tile.town) buildCandidates.push({ x: tile.x, y: tile.y });
+    // A Manufactory goes on a garrisoned town tile or its support ring; the town itself is the clearest target.
+    if (tile.town) buildCandidates.push({ x: tile.x, y: tile.y });
     if (!tile.muster && touchesOtherOwner(tiles, tile, me)) musterCandidates.push({ x: tile.x, y: tile.y });
   }
   const byDistance = distanceFrom(home);
@@ -81,7 +100,16 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
 // CHUNK_BATCH) write state.tiles without bumping tilesRevision, and a newly
 // loaded chunk is exactly how "Find a town" / "Find food" complete.
 let cached:
-  | { revision: number; chunks: number; me: string; checklist: OnboardingChecklistState; scan: TileScan; footholdTargets: GuideFootholdTargets; musterUnlocked: boolean }
+  | {
+      revision: number;
+      chunks: number;
+      me: string;
+      checklist: OnboardingChecklistState;
+      scan: TileScan;
+      footholdTargets: GuideFootholdTargets;
+      musterUnlocked: boolean;
+      afcTile: { x: number; y: number } | undefined;
+    }
   | undefined;
 
 /** The new desktop HUD (HUD v2) marks the body; its full-screen views add `hud-v2-screen-<id>` (client-hud-v2-context.ts). */
@@ -93,7 +121,19 @@ const bodyHasClass = (cls: string): boolean => typeof document !== "undefined" &
  * activePanel and is tracked only by its body class), reported as "tech".
  */
 const openPanelOf = (state: GuideInputState): string | null =>
-  state.activePanel ?? (state.mobilePanel !== "core" ? state.mobilePanel : bodyHasClass("hud-v2-screen-manifest") ? "tech" : null);
+  state.activePanel ??
+  (state.mobilePanel !== "core"
+    ? state.mobilePanel
+    : bodyHasClass("hud-v2-screen-manifest")
+      ? "tech"
+      : bodyHasClass("hud-v2-screen-diplomacy")
+        ? "alliance"
+        : null);
+
+const afcTileOf = (state: GuideInputState): { x: number; y: number } | undefined => {
+  const afc = findHomeAfcTile(state);
+  return afc ? { x: afc.x, y: afc.y } : state.homeTile;
+};
 
 export const buildGuideInput = (state: GuideInputState): GuideInput => {
   if (!cached || cached.revision !== state.tilesRevision || cached.chunks !== state.chunkFullCount || cached.me !== state.me) {
@@ -104,20 +144,26 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
       checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail),
       scan: scanGuideTiles(state.tiles, state.me, state.homeTile),
       footholdTargets: scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile)),
-      musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)
+      musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId),
+      afcTile: afcTileOf(state)
     };
   }
   const signals = guideInputSignals();
+  const openPanel = openPanelOf(state);
   return {
     checklist: cached.checklist,
     footholdTargets: cached.footholdTargets,
     panned: signals.panned,
     zoomed: signals.zoomed,
     tileSelected: signals.tileSelected,
-    openPanel: openPanelOf(state),
+    openPanel,
     hudV2: bodyHasClass("hud-v2"),
     activityDashboardOpen: state.activityDashboard.open || state.activityDashboard.chronicleOpen,
     manifestCount: state.techIds.filter((id) => id !== state.techRootId).length,
+    manufactoryUnlocked: state.techIds.includes(RECOMMENDED_FIRST_MANIFEST_ID),
+    afcTile: cached.afcTile,
+    rivalHouseMet: refreshMetPlayerIds(state).size > 0,
+    diplomacyUsed: openPanel === "alliance" || openPanel === "social" || state.outgoingTruceRequests.length > 0 || state.activeTruces.length > 0 || state.allies.length > 0,
     ownsBuiltStructure: cached.scan.ownsBuiltStructure,
     buildTargetTiles: cached.scan.buildTargetTiles,
     musterUnlocked: cached.musterUnlocked,

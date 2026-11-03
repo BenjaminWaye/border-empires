@@ -193,7 +193,7 @@ describe("tutorial guide in the onboarding corner", () => {
     expect(card()?.classList.contains("onb-root")).toBe(true); // picks up HUD v2's corner placement and screen hiding
     document.body.classList.add("hud-v2-screen-manifest");
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(cardTitle()).toBe("Commission your first Manifest");
+    expect(cardTitle()).toBe("Commission the Industrial Tooling Module");
     document.body.className = "";
   });
 
