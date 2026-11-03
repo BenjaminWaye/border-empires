@@ -10,10 +10,10 @@
 import crypto from "node:crypto";
 
 import { diplomacyTermsAreEmpty, swapDiplomacyTerms, hasResourceSupplyOffer, emptyDiplomacyTerms, type DiplomacyTerms } from "@border-empires/shared";
-import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import { DIPLOMACY_SETTLEMENT_COMMAND_PREFIX, type CommandEnvelope } from "@border-empires/sim-protocol";
 
 /** Command-id prefix; the gateway's own COMMAND_REJECTED fan-out skips these (no raw ERROR to players). */
-export const DIPLOMACY_SETTLEMENT_COMMAND_PREFIX = "diplomacy-settle:";
+export { DIPLOMACY_SETTLEMENT_COMMAND_PREFIX };
 /** Generous: once queued, the simulation always answers; this only guards a lost event. */
 export const DIPLOMACY_SETTLEMENT_TIMEOUT_MS = 30_000;
 /** Bound on in-flight settlements (state discipline); each is one player's accept click. */
