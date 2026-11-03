@@ -3,6 +3,8 @@ import { shouldShowTownUnfedWarning, shouldShowTownUpgradeReadyBadge, townGrowth
 import type { Tile } from "../client-types.js";
 
 export type TownNameplateStatus = "unfed" | "upgrade" | "war" | "captured";
+/** Own towns only: growing, or paused by hunger, a nearby war or a recent capture. Absent when neither (e.g. at the tier cap). */
+export type TownNameplateGrowth = "growing" | "paused";
 
 export interface TownNameplate {
   readonly name: string;
@@ -11,6 +13,7 @@ export interface TownNameplate {
   readonly status?: TownNameplateStatus | undefined;
   /** Own towns only: population, rounded for display. */
   readonly population?: number | undefined;
+  readonly growth?: TownNameplateGrowth | undefined;
   /** Bigger towns win overlap fights; own towns always outrank rivals. */
   readonly rank: number;
 }
@@ -20,8 +23,8 @@ const TIER_RANK = { SETTLEMENT: 0, TOWN: 1, CITY: 2, GREAT_CITY: 3, METROPOLIS: 
 export const STATUS_LABEL: Record<TownNameplateStatus, string> = {
   unfed: "Unfed",
   upgrade: "Upgrade ready",
-  war: "Growth paused: nearby war",
-  captured: "Growth paused: recently captured"
+  war: "Nearby war: growth paused",
+  captured: "Recently captured: growth paused"
 };
 
 // Same gates as the tile menu (shouldShowTownUnfedWarning /
@@ -42,12 +45,18 @@ export const townNameplateFor = (tile: Tile | undefined, me: string, nowMs: numb
   const own = Boolean(me) && tile.ownerId === me;
   const status = own ? ownStatus(tile, me, nowMs) : undefined;
   const population = own && typeof tile.town?.population === "number" ? Math.round(tile.town.population) : undefined;
+  const growth: TownNameplateGrowth | undefined = !own
+    ? undefined
+    : status === "unfed" || status === "war" || status === "captured"
+      ? "paused"
+      : (tile.town?.populationGrowthPerMinute ?? 0) > 0 ? "growing" : undefined;
   return {
     name: identity.name || `Town ${tile.x}, ${tile.y}`,
     ownerId: tile.ownerId,
     own,
     status,
     population,
+    growth,
     rank: (own ? 10 : 0) + (status ? 5 : 0) + TIER_RANK[identity.populationTier]
   };
 };

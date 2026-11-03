@@ -50,6 +50,7 @@ import { CLAIM_STRIPED_GROUND_CHANGELOG } from "./client-changelog-claim-striped
 import { CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE } from "./client-changelog-oct-17-19-inline.js";
 import { TOWN_PLATE_ZOOM_CHANGELOG } from "./client-changelog-town-plate-zoom.js";
 import { TOWN_PLATE_GROWTH_PAUSED_CHANGELOG } from "./client-changelog-town-plate-growth-paused.js";
+import { TOWN_PLATE_GROWTH_ARROW_CHANGELOG } from "./client-changelog-town-plate-growth-arrow.js";
 import { TERRITORY_EDGE_GLOW_CHANGELOG } from "./client-changelog-territory-edge-glow.js";
 import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js";
 import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
@@ -397,6 +398,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLAIM_STRIPED_GROUND_CHANGELOG,
   ...TOWN_PLATE_ZOOM_CHANGELOG,
   ...TOWN_PLATE_GROWTH_PAUSED_CHANGELOG,
+  ...TOWN_PLATE_GROWTH_ARROW_CHANGELOG,
   ...FOOD_TILE_ART_CHANGELOG,
   ...MAP_LENS_CHANGELOG,
   ...TERRITORY_EDGE_GLOW_CHANGELOG,

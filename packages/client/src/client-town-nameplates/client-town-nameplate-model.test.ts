@@ -12,12 +12,12 @@ const tile = (overrides: Partial<Record<keyof Tile, unknown>> = {}): Tile =>
 
 describe("townNameplateFor", () => {
   it("names an own town with its population and no status when all is well", () => {
-    expect(townNameplateFor(tile(), "me", 0)).toMatchObject({ name: "Aldmoor", ownerId: "me", own: true, status: undefined, population: 20_000 });
+    expect(townNameplateFor(tile(), "me", 0)).toMatchObject({ name: "Aldmoor", ownerId: "me", own: true, status: undefined, population: 20_000, growth: "growing" });
   });
 
   it("flags an own unfed town, matching the tile-menu unfed gate", () => {
     const unfed = tile({ town: town({ isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 }) });
-    expect(townNameplateFor(unfed, "me", 0)?.status).toBe("unfed");
+    expect(townNameplateFor(unfed, "me", 0)).toMatchObject({ status: "unfed", growth: "paused" });
   });
 
   it("flags upgrade-ready and nearby-war, with war outranking upgrade", () => {
