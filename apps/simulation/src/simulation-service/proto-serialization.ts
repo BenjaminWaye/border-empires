@@ -1,5 +1,5 @@
 import { type FrontierDecayKind, type ProspectSignature } from "@border-empires/shared";
-import type { SimulationEvent, TileOverlayJsonFields, TileOverlayProtoFields } from "@border-empires/sim-protocol";
+import { DIPLOMACY_SETTLEMENT_COMMAND_PREFIX, type SimulationEvent, type TileOverlayJsonFields, type TileOverlayProtoFields } from "@border-empires/sim-protocol";
 import { overlayCamelClearFields, overlaySnakeClearFields, overlaySnakeTruthyFields } from "./proto-overlay-fields.js";
 
 export type TileDeltaBatchTile = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
@@ -96,6 +96,14 @@ export const WIRE_INTERNAL_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]
 
 export const isWireInternalEvent = (event: SimulationEvent): boolean =>
   WIRE_INTERNAL_EVENT_TYPES.has(event.eventType);
+
+// Events normally reach the gateway only for subscribed (connected) players.
+// A deal/gift payment is filed under its target, usually an AI nobody is
+// subscribed to, yet the gateway is waiting on its verdict: dropping it left
+// every gift to an AI hanging until the 30s settlement timeout.
+export const streamsWithoutSubscriber = (event: SimulationEvent): boolean =>
+  (event.eventType === "COMMAND_RESOLVED" || event.eventType === "COMMAND_REJECTED") &&
+  event.commandId.startsWith(DIPLOMACY_SETTLEMENT_COMMAND_PREFIX);
 
 export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
   event_type: value.eventType,

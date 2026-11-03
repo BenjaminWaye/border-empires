@@ -1212,7 +1212,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       }
       const sockets = playerSubscriptions.socketsForPlayer(event.playerId);
       if (sockets.size === 0) {
-        if (!event.commandId.startsWith("bootstrap:")) {
+        if (!event.commandId.startsWith("bootstrap:") && !event.commandId.startsWith(DIPLOMACY_SETTLEMENT_COMMAND_PREFIX)) {
           recordGatewayEvent("warn", "gateway_simulation_event_no_subscribers", {
             commandId: event.commandId,
             playerId: event.playerId,
