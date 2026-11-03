@@ -38,7 +38,7 @@ function synergyLines(state: UpgradeState, upgrade: DomainInfo): string {
     if (!partner) return "";
     const other = state.domainCatalog.find(candidate => candidate.tier === partner.tier && candidate.id !== partner.id && state.domainIds.includes(candidate.id));
     const status = state.domainIds.includes(partner.id) ? "✓ you have it" : other ? `you picked ${other.name} instead` : "not chosen yet";
-    return `<p class="afc-upgrade-synergy">🔗 Works with ${escape(partner.name)} (Tier ${roman(partner.tier)}): ${escape(link.text)} <span>${escape(status)}</span></p>`;
+    return `<p class="afc-upgrade-synergy">Works with ${escape(partner.name)} (Tier ${roman(partner.tier)}): ${escape(link.text)} <span>${escape(status)}</span></p>`;
   }).join("");
 }
 

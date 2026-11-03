@@ -1,6 +1,6 @@
 # AFC v3 — rework plan
 
-Status: in progress (branch `claude/epic-thompson-xo1uas`)
+Status: implemented on branch `claude/epic-thompson-xo1uas` (awaiting review and merge)
 Owner: Benjamin Waye (product decisions); implementing agent (delivery)
 Source: design workshop, 2026-11-02
 
