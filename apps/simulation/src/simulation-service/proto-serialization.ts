@@ -97,10 +97,11 @@ export const WIRE_INTERNAL_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]
 export const isWireInternalEvent = (event: SimulationEvent): boolean =>
   WIRE_INTERNAL_EVENT_TYPES.has(event.eventType);
 
-// Events normally reach the gateway only for subscribed (connected) players.
-// A deal/gift payment is filed under its target, usually an AI nobody is
-// subscribed to, yet the gateway is waiting on its verdict: dropping it left
-// every gift to an AI hanging until the 30s settlement timeout.
+// Events normally reach the gateway only for subscribed (connected) players,
+// and most players, every AI included, are offline at any moment. A deal/gift
+// payment is filed under its target, yet the gateway awaits its verdict
+// whether or not that target is online: dropping it left every payment to an
+// offline empire hanging until the 30s settlement timeout.
 export const streamsWithoutSubscriber = (event: SimulationEvent): boolean =>
   (event.eventType === "COMMAND_RESOLVED" || event.eventType === "COMMAND_REJECTED") &&
   event.commandId.startsWith(DIPLOMACY_SETTLEMENT_COMMAND_PREFIX);
