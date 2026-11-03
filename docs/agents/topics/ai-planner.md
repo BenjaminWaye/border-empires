@@ -102,6 +102,12 @@ policy.
   The `townSupportOrigins` filter reads stored `supportMax`/`supportCurrent` and
   is a cheap bounded filter over `buildCandidateTiles` — **not** a removal
   candidate. (Earlier audits wrongly flagged it; verify before re-flagging.)
+- **Town-economy view** (`ai/build/town-economy-view.ts`, built by
+  `runtime/runtime-town-economy-view.ts`): one support-ring scan per town,
+  memoised per cached town-network object and capped at 64 towns. It feeds
+  economic synergy scoring (`ai/build/economic-synergy-scoring.ts`,
+  `docs/ai-economic-synergy-plan.md`). Keep it on the cached network; don't
+  add a map walk.
 
 ## How to find dead / wasteful AI code
 
