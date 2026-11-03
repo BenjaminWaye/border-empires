@@ -28,6 +28,7 @@ import { structureManpowerCostForPlayer } from "../structure-manpower-cost/struc
 import { economyWeak } from "./ai-economic-heuristics.js";
 import { ECONOMIC_STRUCTURE_CATALOG, economicCatalogScore } from "./build/economic-structure-catalog.js";
 import type { NeedVector } from "./build/build-need-vector.js";
+import type { TownEconomyEntry } from "./build/town-economy-view.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
@@ -47,6 +48,8 @@ export type StructurePlannerPlayer = {
   installedModuleTechIds?: readonly string[] | undefined;
   slotDemandByResource?: Partial<Record<SlotResource, number>>;
   blockedActionKeys?: ReadonlyMap<string, string>;
+  /** Per-town stacking/amplifier state — see build/town-economy-view.ts. */
+  townEconomy?: readonly TownEconomyEntry[];
 };
 
 export type StructurePlannerTile = {

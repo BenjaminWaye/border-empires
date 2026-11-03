@@ -22,6 +22,10 @@ import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
 import { reachBorderOwnerAt } from "./runtime-aether-bridge-reach.js";
 
 import type { RuntimeExportState } from "./runtime-export-state-types.js";
+import type { TownEconomyEntry } from "./ai/build/town-economy-view.js";
+
+const townEconomyField = (view: readonly TownEconomyEntry[] | undefined): { townEconomy?: readonly TownEconomyEntry[] } =>
+  view && view.length > 0 ? { townEconomy: view } : {};
 export type { RuntimeExportState } from "./runtime-export-state-types.js";
 
 export type { RuntimeAiPlayerMetricsRow } from "./runtime-ai-player-metrics-row.js";
@@ -254,6 +258,7 @@ type PlannerExportInput = {
   playerManpowerCap?: (playerId: string) => number;
   playerManpowerRegenPerMinute?: (playerId: string) => number;
   resourceSlotSupplyForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
+  townEconomyViewForPlayer?: (playerId: string) => readonly TownEconomyEntry[] | undefined;
   resourceSlotDemandForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
   // Feeds food-slot-relief.ts's chooseFoodConsumingStructureToDisable — same
   // optional-degrades-gracefully pattern as the four fields above.
@@ -381,7 +386,8 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
           : {}),
         ...(input.foodDormantEconomicStructureKeysForPlayer
           ? { foodDormantEconomicStructureKeys: [...input.foodDormantEconomicStructureKeysForPlayer(playerId)] }
-          : {})
+          : {}),
+        ...townEconomyField(input.townEconomyViewForPlayer?.(playerId))
       });
     });
   }

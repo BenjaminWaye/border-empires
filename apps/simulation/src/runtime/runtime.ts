@@ -262,6 +262,7 @@ import {
   enrichTileWithTownContext as enrichTileWithTownContextImpl,
   type RuntimeTownNetworkContext
 } from "./runtime-town-network.js";
+import { townEconomyViewForPlayer } from "./runtime-town-economy-view.js";
 import { resolveMusterSource as resolveMusterSourceImpl } from "../runtime-muster-source.js";
 import {
   type RuntimeAiPlayerMetricsRow,
@@ -548,6 +549,7 @@ export class SimulationRuntime {
       resourceSlotSupplyForPlayer: (playerId) => runtime.resourceSlotSupplyForPlayer(playerId),
       resourceSlotDemandForPlayer: (playerId) => runtime.resourceSlotDemandForPlayer(playerId),
       resourceSlotDormancyForPlayer: (playerId) => runtime.resourceSlotDormancyForPlayer(playerId),
+      townEconomyViewForPlayer: (playerId) => townEconomyViewForPlayer(runtime.townNetworkContext(), playerId),
       playerManpowerCap: (player) => runtime.playerManpowerCap(player),
       playerManpowerRegenPerMinute: (player) => runtime.playerManpowerRegenPerMinute(player),
       afcDetectedFlagsForPlayer: id => runtime.oracleDetections.cachedFlagsFor(id),
@@ -2003,6 +2005,7 @@ export class SimulationRuntime {
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
       foodDormantEconomicStructureKeysForPlayer: (playerId) => foodDormantEconomicStructureKeysFromDormancy(this.resourceSlotDormancyForPlayer(playerId)),
+      townEconomyViewForPlayer: (playerId) => townEconomyViewForPlayer(this.townNetworkContext(), playerId),
       playerSummaries: this.playerSummaries,
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
     };
@@ -2457,17 +2460,14 @@ export class SimulationRuntime {
   // an actual cache-miss.
   private cachedManpowerStructureBonusForPlayer(player: RuntimePlayer): ManpowerStructureBonus {
     this.resourceSupply?.ledger.advanceTo(this.now());
+    // Reuses townNetworkContext() for the tiles/network-cache/summary/dormancy
+    // inputs both readers share instead of re-listing them here.
     return cachedManpowerStructureBonusForPlayerImpl(
       {
-        tiles: this.state.tiles,
-        networkSitesForPlayer: id => this.resourceSupply?.network(id),
-      manpowerStructureBonusCacheByPlayer: this.economyCaches.manpowerStructureBonusCacheByPlayer,
+        ...this.townNetworkContext(),
+        manpowerStructureBonusCacheByPlayer: this.economyCaches.manpowerStructureBonusCacheByPlayer,
         ...this.ownerIndexes.manpowerIndexes(),
-        townNetworkCacheByPlayer: this.economyCaches.townNetworkCacheByPlayer,
         activeMonumentOwnerByType: this.activeMonumentOwnerByType,
-        dormantEconomicStructureKeysForPlayer: (playerId) => this.dormantEconomicStructureKeysForPlayer(playerId),
-        summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-        settledTilesForPlayer: (playerId) => this.settledTilesForPlayer(playerId),
         rebuildTownNetworkUninstrumented: (p, settledTiles) => this.rebuildTownNetworkUninstrumented(p, settledTiles)
       },
       player

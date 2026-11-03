@@ -20,6 +20,7 @@ import type { WarPostureLatchEntry } from "./ai-war-posture-latch.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
 import type { ReachLookup } from "./frontier-command-planner.js";
+import type { TownEconomyEntry } from "./build/town-economy-view.js";
 
 // Consecutive planner ticks an AI may spend with its narrow/hot-frontier
 // scan alone actionable (broadFallbackSkipped: true — see
@@ -189,6 +190,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   manpowerRegenPerMinute?: number;
   slotSupplyByResource?: Partial<Record<SlotResource, number>>;
   slotDemandByResource?: Partial<Record<SlotResource, number>>;
+  /** Per-town stacking/amplifier state for economic-synergy-scoring.ts (docs/ai-economic-synergy-plan.md). */
+  townEconomy?: readonly TownEconomyEntry[];
   /**
    * "x,y" tile keys of this player's economicStructures currently dormant
    * specifically on FOOD (Runtime.foodDormantEconomicStructureKeysForPlayer)

@@ -267,6 +267,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       ...(input.ownedStructureCounts ? { ownedStructureCounts: input.ownedStructureCounts } : {}),
       ...(input.slotSupplyByResource ? { slotSupplyByResource: input.slotSupplyByResource } : {}),
       ...(input.slotDemandByResource ? { slotDemandByResource: input.slotDemandByResource } : {}),
+      ...(input.townEconomy ? { townEconomy: input.townEconomy } : {}),
       settledTileCount,
       townCount,
       incomePerMinute

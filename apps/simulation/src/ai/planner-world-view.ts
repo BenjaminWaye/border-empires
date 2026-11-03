@@ -5,6 +5,7 @@ import type { DomainStrategicResourceKey, DomainTileState } from "@border-empire
 import type { EconomicStructureType, SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 import type { WorldVictoryProgress } from "./victory-path-scoring.js";
+import type { TownEconomyEntry } from "./build/town-economy-view.js";
 
 /**
  * Serializable world-view snapshot passed to AI and system worker threads via
@@ -152,6 +153,8 @@ export type PlannerPlayerView = {
   slotDemandByResource?: Partial<Record<SlotResource, number>>;
   /** "x,y" keys of economicStructures dormant on FOOD — feeds food-slot-relief.ts. Same optional-degrades-gracefully pattern as the fields above. */
   foodDormantEconomicStructureKeys?: string[];
+  /** Per-town stacking/amplifier state (docs/ai-economic-synergy-plan.md). Optional like the fields above. */
+  townEconomy?: readonly TownEconomyEntry[];
 };
 
 // ─── World view ───────────────────────────────────────────────────────────────
