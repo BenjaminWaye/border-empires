@@ -39,9 +39,9 @@ describe("diplomacy offer dock", () => {
     expect(entry?.remainingMs).toBe(30_000);
   });
 
-  it("flags an offer that would spend your coin or Shards", () => {
+  it("flags an offer that would spend your coin", () => {
     const entries = offerDockEntries(
-      state([truce("pay", { terms: { give: { gold: 0, shard: 0 }, ask: { gold: 0, shard: 2 } } }), truce("paid", { terms: { give: { gold: 50, shard: 0 }, ask: { gold: 0, shard: 0 } } })]),
+      state([truce("pay", { terms: { give: { gold: 0 }, ask: { gold: 20 } } }), truce("paid", { terms: { give: { gold: 50 }, ask: { gold: 0 } } })]),
       new Map(),
       new Set(),
       0,
@@ -49,7 +49,7 @@ describe("diplomacy offer dock", () => {
     );
     expect(Object.fromEntries(entries.map((entry) => [entry.id, entry.costsYou]))).toEqual({ pay: true, paid: false });
     // A resource supply ask commits your slots until cancelled, so it costs you too.
-    const [supply] = offerDockEntries(state([truce("supply", { terms: { give: { gold: 0, shard: 0 }, ask: { gold: 0, shard: 0, resources: { CRYSTAL: 2 } } } })]), new Map(), new Set(), 0, () => undefined);
+    const [supply] = offerDockEntries(state([truce("supply", { terms: { give: { gold: 0 }, ask: { gold: 0, resources: { CRYSTAL: 2 } } } })]), new Map(), new Set(), 0, () => undefined);
     expect(supply?.costsYou).toBe(true);
   });
 
@@ -62,7 +62,7 @@ describe("diplomacy offer dock", () => {
 
   it("shows truce terms and an alliance without an expiry", () => {
     const entries = offerDockEntries(
-      state([truce("t1", { terms: { give: { gold: 0, shard: 0 }, ask: { gold: 60, shard: 0 } } })], [{ id: "a1", fromPlayerId: "p9", toPlayerId: "me", createdAt: 0, fromName: "Milo" }]),
+      state([truce("t1", { terms: { give: { gold: 0 }, ask: { gold: 60 } } })], [{ id: "a1", fromPlayerId: "p9", toPlayerId: "me", createdAt: 0, fromName: "Milo" }]),
       new Map(),
       new Set(["a1"]),
       0,

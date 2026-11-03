@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { ResourceTradeOffer } from "@border-empires/shared";
 import { InMemoryResourceTradeOfferStore, SqliteResourceTradeOfferStore } from "./resource-trade-store.js";
 const offer=(id="offer",from="a",to="b"):ResourceTradeOffer=>({id,fromPlayerId:from,toPlayerId:to,fromPlayerName:from,toPlayerName:to,
-  terms:{give:{gold:0,shard:0,resources:{NEURAL_RESIN:1}},ask:{gold:2,shard:0}},createdAt:1,expiresAt:100,status:"pending"});
+  terms:{give:{gold:0,resources:{NEURAL_RESIN:1}},ask:{gold:2}},createdAt:1,expiresAt:100,status:"pending"});
 describe.each([false,true])("bounded resource trade offers (SQLite=%s)",sqlite=>{
   it("expires pending offers, preserves uncertain settlements and clears campaign state",()=>{
     const db=sqlite?new DatabaseSync(":memory:"):undefined;
@@ -27,5 +27,21 @@ describe.each([false,true])("bounded resource trade offers (SQLite=%s)",sqlite=>
       for(let i=0;i<256;i++)expect(store.insert(offer(String(i),`from-${i}`,`to-${i}`))).toBe(true);
       expect(store.insert(offer("overflow","new-a","new-b"))).toBe(false);
     }finally{db?.close();}
+  });
+});
+// Regression: Shards were removed. A persisted resource-trade offer still
+// paying or asking Shards would parse with the Shards dropped (free supply),
+// so the SQLite store deletes it on load instead.
+describe("resource trade offers persisted before Shards were removed", () => {
+  it("drops an offer whose stored terms still carry Shards", () => {
+    const db=new DatabaseSync(":memory:");
+    try{
+      const store=new SqliteResourceTradeOfferStore(db);
+      expect(store.insert(offer("legacy"))).toBe(true);expect(store.insert(offer("kept"))).toBe(true);
+      const legacy={...offer("legacy"),terms:{give:{gold:0,shard:0,resources:{NEURAL_RESIN:1}},ask:{gold:0,shard:3}}};
+      db.prepare("UPDATE social_resource_trade_offers SET payload_json=? WHERE id=?").run(JSON.stringify(legacy),"legacy");
+      expect(store.rows(2).map(row=>row.id)).toEqual(["kept"]);
+      expect(db.prepare("SELECT COUNT(*) AS n FROM social_resource_trade_offers").get()).toEqual({n:1});
+    }finally{db.close();}
   });
 });

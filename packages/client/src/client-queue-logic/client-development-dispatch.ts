@@ -2,7 +2,7 @@
 // sent straight away or held in the dev queue until a slot -- or, for a
 // garrison, manpower -- frees up. Extracted from client-queue-logic.ts
 // (oversized), which re-exports everything here.
-import { SETTLE_COST, SETTLE_MANPOWER_COST, captureHoldSettleFloorMs } from "@border-empires/shared";
+import { SETTLE_COST, captureHoldSettleFloorMs } from "@border-empires/shared";
 import { canAffordCost, settleDurationMsForTile } from "../client-constants.js";
 import { debugTileLog, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -86,9 +86,9 @@ const queuedSettlementShouldWait = (state: ClientState, tileKey: string): boolea
  * being sent and refused.
  */
 export const queuedSettleAwaitsManpower = (
-  state: Pick<ClientState, "manpower" | "devQueueManpowerReservedTileKeys">,
+  state: Pick<ClientState, "manpower" | "devQueueManpowerReservedTileKeys" | "settleManpowerCost">,
   tileKey: string
-): boolean => !state.devQueueManpowerReservedTileKeys.has(tileKey) && state.manpower < SETTLE_MANPOWER_COST;
+): boolean => !state.devQueueManpowerReservedTileKeys.has(tileKey) && state.manpower < state.settleManpowerCost;
 
 export const requestSettlement = (
   state: ClientState,
@@ -116,8 +116,8 @@ export const requestSettlement = (
   }
   const canQueue = deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue;
   const manpowerReserved = deps.opts?.manpowerReserved === true;
-  const manpowerShort = !manpowerReserved && state.manpower < SETTLE_MANPOWER_COST;
-  if (manpowerShort && !canQueue) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${SETTLE_MANPOWER_COST} manpower to garrison this tile.`); deps.renderHud(); return false; }
+  const manpowerShort = !manpowerReserved && state.manpower < state.settleManpowerCost;
+  if (manpowerShort && !canQueue) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${state.settleManpowerCost} manpower to garrison this tile.`); deps.renderHud(); return false; }
   if (!canAffordCost(state.gold, SETTLE_COST)) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${SETTLE_COST} coin to garrison this tile.`); deps.renderHud(); return false; }
   // Short on manpower: queue it to wait for the next refill batch instead of
   // refusing. The server holds it unreserved until a batch covers it
@@ -163,7 +163,7 @@ export const requestSettlement = (
   // settleDurationMsForState applies the server's floor: a captured tile garrisons no earlier than its hold ends.
   const progress = { startAt, resolvesAt: startAt + settleDurationMsForState(state, tile, startAt), target: { x, y }, awaitingServerConfirm: false };
   state.gold = Math.max(0, state.gold - SETTLE_COST);
-  if (!manpowerReserved) state.manpower = Math.max(0, state.manpower - SETTLE_MANPOWER_COST);
+  if (!manpowerReserved) state.manpower = Math.max(0, state.manpower - state.settleManpowerCost);
   state.settleProgressByTile.set(tileKey, progress);
   state.latestSettleTargetKey = tileKey;
   deps.syncOptimisticSettlementTile(x, y, false);

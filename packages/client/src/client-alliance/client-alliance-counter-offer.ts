@@ -14,7 +14,6 @@ export type CounterOfferDeps = {
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   state: {
     gold: number;
-    strategicResources: { SHARD?: number };
     incomingTruceRequests: readonly TruceRequest[];
     incomingAllianceRequests: readonly AllianceRequest[];
     /** The deal screen offers no second truce while one is running. */

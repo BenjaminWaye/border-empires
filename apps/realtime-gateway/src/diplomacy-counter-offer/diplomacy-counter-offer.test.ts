@@ -22,7 +22,7 @@ describe("rejectCounteredOffer", () => {
     const { social, counterDeps, fanoutPlayerPayloads } = setup();
     expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
     const offerId = social.snapshotForPlayer("player-2").incomingTruceRequests[0]!.id;
-    const terms = { give: { gold: 0, shard: 0 }, ask: { gold: 24, shard: 0 } };
+    const terms = { give: { gold: 0 }, ask: { gold: 24 } };
     const counter: ClientMessage = { type: "TRUCE_REQUEST", targetPlayerName: "Tove", durationHours: 12, terms, counters: { kind: "truce", requestId: offerId } };
 
     // Without the counter step the new offer is blocked by the pending one.

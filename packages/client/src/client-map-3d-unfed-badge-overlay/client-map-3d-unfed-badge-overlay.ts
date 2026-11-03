@@ -68,8 +68,7 @@ const drawBadgeCanvas = (
   if (!ctx) return canvas;
 
   // Shield background: rounded rectangle, warm gold with a darker rim by
-  // default — callers with a cooler icon (e.g. the white/cyan shard glyph)
-  // can pass a different shieldColors pair instead of fighting the default.
+  // default — callers with a cooler icon can pass a different shieldColors pair instead of fighting the default.
   const PAD = 12;
   const RADIUS = 28;
   const left = PAD;
@@ -96,7 +95,7 @@ const drawBadgeCanvas = (
 
   // Icon centred — either the game's per-resource emoji glyph set
   // (client-panel-html.ts's icon row) or, when the caller needs a shape no
-  // emoji covers (e.g. the white shard-rain icon), a custom vector drawer
+  // emoji covers, a custom vector drawer
   // invoked at the same center point instead.
   if (customIconDraw) {
     ctx.save();
@@ -114,7 +113,7 @@ const drawBadgeCanvas = (
 
   // Red diagonal slash from top-right to bottom-left — the universal
   // prohibition slash, signalling "not enough of this resource". Locator
-  // badges (e.g. shard rain sites) reuse this same shield+icon shape to
+  // badges reuse this same shield+icon shape to
   // point at a place worth looking at, not a shortage, so they skip it.
   if (drawProhibitionSlash) {
     const SLASH_MARGIN = 26;

@@ -85,7 +85,6 @@ import {
   buildFortOnSelected as buildFortOnSelectedFromModule,
   buildSiegeBatteryOnSelected as buildSiegeBatteryOnSelectedFromModule,
   cancelOngoingCapture as cancelOngoingCaptureFromModule,
-  collectSelectedShard as collectSelectedShardFromModule,
   hideTileActionMenu as hideTileActionMenuFromModule,
   settleSelected as settleSelectedFromModule,
   uncaptureSelected as uncaptureSelectedFromModule
@@ -147,7 +146,6 @@ import {
   queuedExpandProgressForTile as queuedExpandProgressForTileFromModule,
   queuedAutoSettleNextForTile as queuedAutoSettleNextForTileFromModule
 } from "./client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
-import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
 import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
@@ -721,8 +719,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const buildSiegeBatteryOnSelected = (): void => buildSiegeBatteryOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const cancelOngoingCapture = (): void => cancelOngoingCaptureFromModule(state, sendGameMessage, (message) => pushFeed(message, "combat", "info"));
-  const collectSelectedShard = (): void =>
-    collectSelectedShardFromModule(state, { keyFor, renderHud, sendGameMessage });
 
   const musterWatchGuard = createMusterWatchGuard();
   const sendUnwatchMusterIfWatching = (): void => {
@@ -923,8 +919,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const incomingAttackProgressForTile = (tile: Tile): TileMenuProgressView | undefined => incomingAttackProgressView(state, tile, keyFor, formatCountdownClock);
 
   const tileMenuViewForTile = (tile: Tile): TileMenuView => {
-    const visibleTile = tileWithVisibleShardSite(tile, state.shardRainPingsByTile);
-    const menuTile = visibleTile ?? tile;
+    const menuTile = tile;
     requestTileDetailIfNeeded(menuTile);
     const view = tileMenuViewForTileFromModule(menuTile, {
       menuActionsForSingleTile,
@@ -1253,7 +1248,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (handleAfcTileAction({ actionId, selected, sendGameMessage, hideMenu: hideTileActionMenu, armAfcLanding: () => { state.buildingPlacement = { active: true, structureType: "AFC", x: selected.x, y: selected.y }; renderPlacementOverlay(); renderHud(); } })) return;
-    if (actionId === "collect_shard") collectSelectedShard();
     if (actionId === "grow_settlement_to_town" || actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "UPGRADE_TOWN_TIER", x: selected.x, y: selected.y });
     if (handleGenericBuildAction({ actionId, selected, handleBuildAction, pushFeed, hideMenu: hideTileActionMenu })) return;
     if (actionId === "upgrade_umbrite_works" || actionId === "upgrade_titanium_works" || actionId === "upgrade_aether_condenser" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode" || actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") {
@@ -1617,7 +1611,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     buildSiegeBatteryOnSelected,
     uncaptureSelected,
     cancelOngoingCapture,
-    collectSelectedShard,
     hideTileActionMenu,
     tileActionIsCrystal,
     tileActionIsBuilding,

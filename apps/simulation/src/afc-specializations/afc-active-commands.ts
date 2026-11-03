@@ -1,5 +1,6 @@
 import { handleForcedAncillarification } from "../forced-ancillarification/forced-ancillarification-command.js";
 import { afcPlayerStatePayload } from "./afc-player-state.js";
+import { startResonanceHijack, type AfcHijackDeps } from "./afc-hijack.js";
 import type { DomainPlayer } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { isObservatoryInSiphonMode } from "@border-empires/shared";
@@ -11,6 +12,8 @@ import { grantOverflowManpower } from "../runtime-manpower-ceiling.js";
 
 export interface AfcActiveCommandContext {
   abilities: RuntimeAbilityCommandContext;
+  maxShotsFor: (ownerId: string) => number;
+  hijackDeps: () => AfcHijackDeps;
   playerManpowerCap: (player: DomainPlayer) => number;
   settleEconomy?: (player: DomainPlayer) => void;
   refreshManpower: (player: DomainPlayer) => void;
@@ -38,6 +41,7 @@ export function handleAfcActiveCommand(context: AfcActiveCommandContext, command
     abilities.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
     return;
   }
+  if (command.type === "HIJACK_AETHER_TOWER") return startResonanceHijack(context, command, actor, reject);
   if (command.type !== "SUPPRESS_AETHER_TOWER") return reject("unknown AFC action");
   const duration = additiveEffectForPlayer(actor, "towerSuppressionDurationMs");
   if (duration <= 0) return reject("requires Counterphase Emitter");

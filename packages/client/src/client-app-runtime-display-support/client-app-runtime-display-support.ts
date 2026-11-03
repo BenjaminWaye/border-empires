@@ -44,7 +44,7 @@ export const createClientRuntimeDisplaySupport = (deps: {
   // CRYSTAL/UMBRITE build-time stockpile spend was retired server-side (Step
   // 5 item 4 Slice A) -- structureCostDefinition's resourceCost field for
   // these four keys is stale display copy. This is one-time build cost only
-  // (gold/manpower/an optional shard-style override) -- the real ongoing
+  // (gold/manpower) -- the real ongoing
   // resource-slot/gold-day upkeep is a separate, explicitly labeled "Upkeep:"
   // segment sourced from client-structure-upkeep-text.ts's upkeepDescriptorFor,
   // not folded in here unlabeled.

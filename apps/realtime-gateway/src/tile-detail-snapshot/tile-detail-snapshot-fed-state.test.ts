@@ -29,8 +29,8 @@ describe("buildSnapshotTileDetail — isFed authority", () => {
         manpower: 100,
         manpowerCap: 100,
         incomePerMinute: 0,
-        strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-        strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+        strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+        strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
         upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
         // Legacy stockpile-coverage metric reads "fully covered" even though
         // this town's real FOOD-slot demand is short -- it must not win.

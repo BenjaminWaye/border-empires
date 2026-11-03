@@ -68,7 +68,6 @@ export const bindClientSocketLifecycle = (deps: SocketLifecycleDeps): SocketLife
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
     state.lastChunkSnapshotGeneration = 0;
-    state.pendingShardCollect = undefined;
     if (actionKey) deps.clearOptimisticTileState(actionKey, true);
     deps.pushFeed(feedMessage, "error", "warn");
     if (state.authReady && !state.authSessionReady) {

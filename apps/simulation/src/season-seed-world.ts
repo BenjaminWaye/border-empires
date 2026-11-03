@@ -30,7 +30,6 @@ import {
   key,
   parseKey,
   type ClusterDefinition,
-  type ShardSiteState,
   type TerrainShapeState,
   type TownDefinition,
   type WatchtowerSiteState,
@@ -155,7 +154,6 @@ export const createSeasonSeedWorld = (
   const townsByTile = new Map<TileKey, TownDefinition>();
   const docksByTile = new Map<TileKey, GeneratedDockState>();
   const dockById = new Map<string, GeneratedDockState>();
-  const shardSitesByTile = new Map<TileKey, ShardSiteState>();
   const watchtowersByTile = new Map<TileKey, WatchtowerSiteState>(); const waystationsByTile = new Map<TileKey, WaystationSiteState>();
   const naturalWondersByTile = new Map<TileKey, import("@border-empires/game-domain").NaturalWonderSiteState>();
   const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
@@ -310,7 +308,7 @@ export const createSeasonSeedWorld = (
   const { spawnPositions, spawnPlayerAt } = createSeasonSeedPlayerSpawner({
     WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, isSpawnableLand: (x, y) => landBiomeAt(x, y) === "GRASS", wrapX, wrapY, key,
     chebyshevDistance, seeded01: terrainRuntime.seeded01, fairSpawnSites,
-    townsByTile, docksByTile, ownership, clusterByTile, clustersById, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile,
+    townsByTile, docksByTile, ownership, clusterByTile, clustersById, watchtowersByTile, waystationsByTile, naturalWondersByTile,
     createSettlementTown, townTypeAt: townsRuntime.townTypeAt, minTownSpacing: townsRuntime.minTownSpacing
   });
 
@@ -328,13 +326,12 @@ export const createSeasonSeedWorld = (
     ownership,
     townsByTile,
     docksByTile,
-    shardSitesByTile,
     worldSeed,
     terrainAt,
     seeded01: terrainRuntime.seeded01
   });
 
-  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, landBiomeAt, townStateFromDefinition };
+  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, landBiomeAt, townStateFromDefinition };
   const tiles = new Map<string, DomainTileState>();
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     for (let x = 0; x < WORLD_WIDTH; x += 1) {

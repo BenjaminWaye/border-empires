@@ -148,7 +148,7 @@ export const refreshEconomyCachesForTileChange = (input: {
   // setTileState path so the two tile-write routes can't diverge.
   maintainTownConnectivityForTileChange(input.townConnectivityStateByPlayer, tileKey, previous, next);
   // A write that only touched fields none of these caches read (muster
-  // flags, frontier-decay / heal / breach-shock stamps, shard sites,
+  // flags, frontier-decay / heal / breach-shock stamps,
   // watchtowers) must not invalidate anything: every SET_MUSTER and every
   // muster auto-fire tick used to drop the owner's economy, defensibility,
   // resource-slot and manpower caches and the very next emitPlayerStateUpdate

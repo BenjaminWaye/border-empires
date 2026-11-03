@@ -23,11 +23,11 @@ const plainLand = { x: 0, y: 0, terrain: "LAND", ownerId: "p1", ownershipState: 
 
 describe("startSettlementProcess capture-hold floor", () => {
   it("can't finish garrisoning a captured tile before its hold ends", () => {
-    // Settlement Assembly Line halves the garrison to 30s, but the hold still
+    // Frontier Doctrine's ×1.5 garrison speed cuts it to 40s, but the hold still
     // has 50s left, so the garrison waits for it.
     const held: DomainTileState = { ...plainLand, captureHoldUntil: 1_000 + 50_000 };
-    expect(run(plainLand, ["afc-dominion-4"]).resolvesAt).toBe(1_000 + SETTLE_MS / 2);
-    const fastSettle = run(held, ["afc-dominion-4"]);
+    expect(run(plainLand, ["frontier-doctrine"]).resolvesAt).toBe(1_000 + Math.round(SETTLE_MS / 1.5));
+    const fastSettle = run(held, ["frontier-doctrine"]);
     expect(fastSettle.resolvesAt).toBe(1_000 + 50_000);
     expect(fastSettle.delay).toBe(fastSettle.resolvesAt! - 1_000);
   });

@@ -453,8 +453,7 @@ export function buildRevealEmpireStatsFromSummary(
       FOOD: target.strategicResources?.FOOD ?? 0,
       TITANIUM: target.strategicResources?.TITANIUM ?? 0,
       CRYSTAL: target.strategicResources?.CRYSTAL ?? 0,
-      UMBRITE: target.strategicResources?.UMBRITE ?? 0,
-      SHARD: target.strategicResources?.SHARD ?? 0
+      UMBRITE: target.strategicResources?.UMBRITE ?? 0
     } satisfies Record<StrategicResourceKey, number>
   };
 }

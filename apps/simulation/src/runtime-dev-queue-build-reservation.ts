@@ -7,6 +7,8 @@
 // validated build handler (runtime-structure-command-handlers.ts) always
 // does the final, authoritative charge. See runtime-dev-queue-command-
 // handlers.ts for where these hooks are called.
+import { relayBeaconFreeFoodSlotCountForPlayer } from "./tech-domain-bridge/slot-waivers.js";
+import { settleManpowerCostFor } from "./runtime-settlement-rules.js";
 import {
   STRUCTURE_REGISTRY,
   bestFortTierForTech,
@@ -16,9 +18,7 @@ import {
   siegeTierForFreshBuild,
   structureBuildManpowerCostScaled,
   structureSlotRequirements,
-  RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   SYNTHESIZER_STRUCTURE_TYPES,
-  SETTLE_MANPOWER_COST,
   type BuildableStructureType,
   type StructureSpec,
   type SlotResource,
@@ -28,7 +28,7 @@ import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, emptyReso
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { structureLabel, type RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
-import { structureManpowerCostForPlayer } from "./structure-manpower-cost/structure-manpower-cost.js";
+import { fortBuildManpowerCharge, structureManpowerCostForPlayer } from "./structure-manpower-cost/structure-manpower-cost.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 type StructureTileField = StructureSpec["tileField"];
@@ -120,10 +120,12 @@ function estimateDevQueueBuildReservation(
   const hasTech = (id: string) => actor.techIds.has(id);
   let manpowerCost: number;
   let slotStructureType: SlotStructureType = structureType as BuildableStructureType;
+  let fortVariant: string | undefined;
   if (spec.kind === "FORT") {
     const fortTier = fortTierForBuild(structureType, target.fort?.variant, hasTech) ?? bestFortTierForTech(hasTech);
     manpowerCost = fortTier.manpower;
     slotStructureType = fortTier.variant;
+    fortVariant = fortTier.variant;
   } else if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON") {
     // Mirrors the build handler: a fresh build steps down to the best tier whose UMBRITE slots fit.
     const siegeTier = target.siegeBattery
@@ -134,12 +136,14 @@ function estimateDevQueueBuildReservation(
   } else {
     manpowerCost = structureBuildManpowerCostScaled(structureType as BuildableStructureType, context.ownedStructureCountForPlayer(playerId, structureType as BuildableStructureType));
   }
-  manpowerCost = structureManpowerCostForPlayer(actor, slotStructureType, manpowerCost);
+  manpowerCost = fortVariant
+    ? fortBuildManpowerCharge(actor, fortVariant, target.fort?.variant, manpowerCost).manpower
+    : structureManpowerCostForPlayer(actor, slotStructureType, manpowerCost);
   if (actor.manpower < manpowerCost) {
     return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerCost.toFixed(0)} manpower for ${structureLabel(structureType)}` };
   }
   const skipSlotGate = SYNTHESIZER_STRUCTURE_TYPES.includes(structureType as BuildableStructureType) ||
-    (structureType === "RELAY_BEACON" && context.ownedStructureCountForPlayer(playerId, "RELAY_BEACON") < RELAY_BEACON_FREE_FOOD_SLOT_COUNT);
+    (structureType === "RELAY_BEACON" && context.ownedStructureCountForPlayer(playerId, "RELAY_BEACON") < relayBeaconFreeFoodSlotCountForPlayer(actor));
   const slotRequirements = skipSlotGate ? [] : structureSlotRequirements(slotStructureType);
   const shortfall = firstSlotShortfall(context, playerId, target, spec.tileField, extraSlotDemand, slotRequirements);
   if (shortfall) {
@@ -187,8 +191,9 @@ function estimateDevQueueSettleReservation(context: RuntimeStructureCommandConte
   if (!actor) {
     return { ok: false, code: "UNKNOWN_STRUCTURE", message: "unknown player" };
   }
-  if (actor.manpower < SETTLE_MANPOWER_COST) {
-    return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${SETTLE_MANPOWER_COST} manpower to garrison` };
+  const manpowerCost = settleManpowerCostFor(actor);
+  if (actor.manpower < manpowerCost) {
+    return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerCost} manpower to garrison` };
   }
-  return { ok: true, manpowerCost: SETTLE_MANPOWER_COST, slotRequirements: [] };
+  return { ok: true, manpowerCost, slotRequirements: [] };
 }

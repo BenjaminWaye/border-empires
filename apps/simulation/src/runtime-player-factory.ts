@@ -46,8 +46,8 @@ export const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
   techRootId: "rewrite-runtime",
   allies: new Set<string>(),
   truces: new Set<string>(),
-  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
   // New humans are asked (join prompt) before anything auto-settles on their
   // behalf; AI and repaired legacy records get everything on (see below).
   autoSettle: { ...NEW_PLAYER_AUTO_SETTLE_PREFS }

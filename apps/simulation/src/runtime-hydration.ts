@@ -76,8 +76,7 @@ export const createPlayersFromRecoveredState = (
             FOOD: player.strategicResources?.FOOD ?? 0,
             TITANIUM: player.strategicResources?.TITANIUM ?? 0,
             CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-            UMBRITE: player.strategicResources?.UMBRITE ?? 0,
-            SHARD: player.strategicResources?.SHARD ?? 0
+            UMBRITE: player.strategicResources?.UMBRITE ?? 0
           },
           ...(player.chosenTrickleResource && isChosenTrickleResource(player.chosenTrickleResource)
             ? { chosenTrickleResource: player.chosenTrickleResource }
@@ -96,7 +95,7 @@ export const createPlayersFromRecoveredState = (
             ? { galacticWonderVisionRadiusBonus: player.galacticWonderVisionRadiusBonus }
             : {}),
           ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
-          strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
+          strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
         }
       ] as const;
     })
@@ -162,7 +161,6 @@ const createTilesFromInitialStateUncleared = (
       ...(tile.resource ? { resource: tile.resource } : {}),
       ...((tile.prospectSignature ?? seededTile?.prospectSignature) ? { prospectSignature: tile.prospectSignature ?? seededTile?.prospectSignature } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
-      ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
       ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
       ...(tile.watchtower ? { watchtower: tile.watchtower } : {}),
       ...(tile.waystation ? { waystation: tile.waystation } : {}),

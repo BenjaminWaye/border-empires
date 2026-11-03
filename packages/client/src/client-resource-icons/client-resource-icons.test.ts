@@ -14,7 +14,7 @@ import {
   type ResourceIconPx
 } from "./client-resource-icons.js";
 
-const KEYS: ResourceIconKey[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD", "FISH", ...NETWORK_RESOURCES];
+const KEYS: ResourceIconKey[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "FISH", ...NETWORK_RESOURCES];
 const SIZES: ResourceIconPx[] = [96, 256];
 
 const fakeCtx = () => {
@@ -43,9 +43,9 @@ describe("resourceIconHtml", () => {
   });
 
   it("uses the detailed painted 96/256 exports for large art slots", () => {
-    const html = resourceIconHtml("SHARD", "large");
-    expect(html).toContain('src="/icons/resources/shard-96.png"');
-    expect(html).toContain("/icons/resources/shard-256.png 2x");
+    const html = resourceIconHtml("CRYSTAL", "large");
+    expect(html).toContain('src="/icons/resources/crystal-96.png"');
+    expect(html).toContain("/icons/resources/crystal-256.png 2x");
   });
 
   it("falls back to the text glyph for keys without an icon", () => {
@@ -55,7 +55,7 @@ describe("resourceIconHtml", () => {
 
 describe("resourceIconGlyph", () => {
   it("keeps the plain-text glyphs for canvas and title contexts", () => {
-    expect(KEYS.slice(0, 6).map(resourceIconGlyph)).toEqual(["◉", "🍞", "⛏", "💎", "🟣", "✦"]);
+    expect(KEYS.slice(0, 5).map(resourceIconGlyph)).toEqual(["◉", "🍞", "⛏", "💎", "🟣"]);
     expect(resourceIconGlyph("FARM")).toBe("•");
   });
 });

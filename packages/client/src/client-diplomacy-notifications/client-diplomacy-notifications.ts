@@ -19,7 +19,7 @@ type DiplomacyNotificationDeps = {
 const senderName = (request: { fromName?: string; fromPlayerId: string }): string =>
   request.fromName?.trim() || request.fromPlayerId.slice(0, 8);
 
-// " (Milo pays 50 coin; you pay 2 Shards)" when the offer carries terms.
+// " (Milo pays 50 coin; you pay 20 coin)" when the offer carries terms.
 const termsSuffix = (request: AllianceRequest | TruceRequest): string => {
   const terms = describeDiplomacyTermsForRecipient(request.terms, senderName(request));
   return terms ? ` (${terms})` : "";

@@ -50,10 +50,10 @@ const SYNTHESIZER_GOLD_UPKEEP_PER_DAY: Partial<Record<BuildableStructureType, nu
 // Leaving it undefined for either type falls back to the flat/worst-case
 // requirement (1 CRYSTAL slot for a first Observatory, 1 FOOD slot for a
 // beyond-the-waiver Relay Beacon).
-export const upkeepDescriptorFor = (type: SlotStructureType, ownedCountOfType?: number): string[] => {
+export const upkeepDescriptorFor = (type: SlotStructureType, ownedCountOfType?: number, freeRelayBeaconCount = RELAY_BEACON_FREE_FOOD_SLOT_COUNT): string[] => {
   const bits: string[] = [];
   const relayBeaconWaived =
-    type === "RELAY_BEACON" && ownedCountOfType !== undefined && ownedCountOfType < RELAY_BEACON_FREE_FOOD_SLOT_COUNT;
+    type === "RELAY_BEACON" && ownedCountOfType !== undefined && ownedCountOfType < freeRelayBeaconCount;
   if (!relayBeaconWaived) {
     const requirements: StructureSlotRequirement[] =
       type === "OBSERVATORY"
@@ -70,7 +70,7 @@ export const upkeepDescriptorFor = (type: SlotStructureType, ownedCountOfType?: 
 
 // Convenience wrapper for callers assembling a single "Upkeep: ..." segment
 // (the build-menu action list) rather than a modal's bulleted list.
-export const upkeepSuffixFor = (type: SlotStructureType, ownedCountOfType?: number): string => {
-  const bits = upkeepDescriptorFor(type, ownedCountOfType);
+export const upkeepSuffixFor = (type: SlotStructureType, ownedCountOfType?: number, freeRelayBeaconCount?: number): string => {
+  const bits = upkeepDescriptorFor(type, ownedCountOfType, freeRelayBeaconCount);
   return bits.length > 0 ? ` • Upkeep: ${bits.join(" · ")}` : "";
 };

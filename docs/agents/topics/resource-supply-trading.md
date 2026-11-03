@@ -47,7 +47,7 @@ pause on shortage. Recompute after removing one failing agreement per pass to
 retain oldest-first priority. At most agreement-count+1 passes, capped at 256.
 
 Accepted supply has no expiry. Either House can cancel, releasing both
-directions after old-rate settlement. Coin and Shards settle once; later
+directions after old-rate settlement. Coin settles once; later
 shortage/cancellation does not refund them. Supply survives the accompanying
 pact ending. Legacy expiries and trusted failed-settlement rollback still
 release the original agreement. Pending independent offers expire after 24h;

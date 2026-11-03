@@ -20,6 +20,10 @@ import { createAutomationNoopDiagnostic, planAutomationCommand, type AutomationP
 import type { AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 import { hasPlannerGatingLock } from "./planner-gating-lock.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
+import type { TownEconomyEntry } from "./build/town-economy-view.js";
+
+const townEconomyInput = (view: readonly TownEconomyEntry[] | undefined): { townEconomy?: readonly TownEconomyEntry[] } =>
+  view && view.length > 0 ? { townEconomy: view } : {};
 
 // Throttle per-tick respawn attempts for eliminated AI players. Spawn
 // placement is an O(n-tile) scan; 30 s cooldown keeps it from running
@@ -51,10 +55,10 @@ export interface RuntimeAutomationAdvisorDeps {
   resourceSlotSupplyForPlayer(playerId: string): ResourceSlotTotals;
   resourceSlotDemandForPlayer(playerId: string): ResourceSlotTotals;
   resourceSlotDormancyForPlayer(playerId: string): ResourceSlotDormancy;
+  townEconomyViewForPlayer?(playerId: string): readonly TownEconomyEntry[] | undefined;
   playerManpowerCap(player: RuntimePlayer): number;
   playerManpowerRegenPerMinute(player: RuntimePlayer): number;
   /** Visible aether targets around the focus front; only consulted once the player can cast (crystal-lattices or an Observatory). */
-  afcDetectedFlagsForPlayer?: (playerId: string) => readonly { x: number; y: number; ownerId: string }[];
   tacticalViewForPlayer(playerId: string, focusKeys: readonly string[]): AiTacticalView;
 }
 
@@ -139,6 +143,7 @@ export class RuntimeAutomationAdvisor {
       ...([...player.techIds].length ? { techIds: [...player.techIds] } : {}),
       ...((player.domainIds ? [...player.domainIds] : []).length ? { domainIds: [...(player.domainIds ?? [])] } : {}),
       ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
+      ...(player.afcCampaign?.hijackReadyAt ? { afcHijackReadyAt: player.afcCampaign.hijackReadyAt } : {}),
       ...(Object.keys(player.strategicResources ?? {}).length ? { strategicResources: { ...(player.strategicResources ?? {}) } } : {}),
       settledTileCount: summary.settledTileCount,
       townCount: summary.townCount,
@@ -146,7 +151,6 @@ export class RuntimeAutomationAdvisor {
       hasActiveLock,
       activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
       ...(options?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: options.reservedDevelopmentSlots } : {}),
-      ...(deps.afcDetectedFlagsForPlayer ? { afcDetectedFlags: deps.afcDetectedFlagsForPlayer(playerId) } : {}),
       installedModuleTechIds: activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, state.tiles),
       tacticalView: (player.techIds.has("crystal-lattices") || (deps.ownedStructureCountsForPlayer(playerId).OBSERVATORY ?? 0) > 0)
         ? deps.tacticalViewForPlayer(playerId, [...(spatialFocus?.primaryFront ?? [])])
@@ -166,6 +170,7 @@ export class RuntimeAutomationAdvisor {
       slotSupplyByResource: deps.resourceSlotSupplyForPlayer(playerId),
       slotDemandByResource: deps.resourceSlotDemandForPlayer(playerId),
       foodDormantEconomicStructureKeys: foodDormantEconomicStructureKeysFromDormancy(deps.resourceSlotDormancyForPlayer(playerId)),
+      ...townEconomyInput(deps.townEconomyViewForPlayer?.(playerId)),
       manpowerCapacity: deps.playerManpowerCap(player),
       manpowerRegenPerMinute: deps.playerManpowerRegenPerMinute(player),
       playerScopeKeyCount,

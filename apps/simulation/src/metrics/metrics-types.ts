@@ -10,6 +10,7 @@ import {
 } from "../ai/automation-command-planner.js";
 import { DECISION_CLASSES, type DecisionClass } from "../ai/utility/decisions.js";
 import type { QuantileSample } from "./metrics-format.js";
+import type { EconomicSynergySummary } from "../ai/build/economic-synergy-diagnostics.js";
 
 export { DURABLE_COMMAND_TYPES, DECISION_CLASSES };
 export type {
@@ -102,7 +103,6 @@ export const MAIN_THREAD_TASK_PHASES = [
   "system_get_barb_activation_vision_signature",
   "tick_orphan_lock_sweep",
   "tick_population_growth",
-  "tick_shard_rain",
   "tile_delta_fanout",
   "tile_yield_economy_context_rebuild",
   "town_network_rebuild"
@@ -306,4 +306,6 @@ export type SimulationMetricsSnapshot = {
   simAiPlayerMusterStagedManpowerGauge: Record<string, number>;
   /** Sum of the player's flag caps (gauge); capacity - staged = headroom the muster tick can still pull from the pool. */
   simAiPlayerMusterFlagCapacityGauge: Record<string, number>;
+  /** Stacking/amplifier counts per AI player (gauges) — docs/ai-economic-synergy-plan.md. */
+  simAiPlayerSynergyGauge: Record<string, EconomicSynergySummary>;
 };

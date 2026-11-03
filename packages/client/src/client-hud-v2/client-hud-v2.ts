@@ -239,7 +239,6 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     netPerMinute: state.incomePerMinute - state.upkeepPerMinute.gold,
     slotSupply: state.resourceSlots.supply,
     slotDemand: state.resourceSlots.demand,
-    shard: state.strategicResources.SHARD,
     integrityPct: state.defensibilityPct,
     isRevealed: (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog)
   }));

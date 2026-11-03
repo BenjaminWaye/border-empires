@@ -1,3 +1,4 @@
+import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor } from "@border-empires/shared";
 // Builds the classic Economy panel from client state. Split out of
 // client-hud.ts, which is over the file-line cap.
 
@@ -25,6 +26,7 @@ export const hudEconomyPanelHtml = (state: ClientState, deps: HudEconomyPanelDep
     integrityPct: state.defensibilityPct,
     gold: state.gold,
     me: state.me,
+    freeRelayBeaconCount: relayBeaconFreeFoodSlotCountFor(state.domainIds, RELAY_BEACON_FREE_FOOD_SLOT_COUNT),
     incomePerMinute: state.incomePerMinute,
     strategicResources: state.strategicResources,
     storageCap: state.storageCap,

@@ -14,6 +14,7 @@ import { firstThreeTownKeysForPlayer, firstThreeTownsPopulationGrowthMultiplierF
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
+import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 
 export function incubationEngineGrowthMultForTile(input: {
   tile: DomainTileState;
@@ -90,6 +91,8 @@ export function tickPopulationGrowth(input: {
   }
 
   for (const player of input.players.values()) {
+    // Citadel Reserves (AFC Bastion I): this House's towns keep growing through nearby fighting.
+    const growsThroughWar = additiveEffectForPlayer(player, "townGrowthIgnoresNearbyWar") > 0;
     if (player.id.startsWith("barbarian-")) continue;
     const summary = input.summaryForPlayer(player.id);
     const ownedTowns = summary.ownedTownTierByTile;
@@ -180,7 +183,7 @@ export function tickPopulationGrowth(input: {
       if (typeof town.population !== "number" || typeof town.maxPopulation !== "number") continue;
 
       let isNearActiveWar = false;
-      for (let i = 0; i < attackCoords.length; i += 2) {
+      for (let i = 0; !growsThroughWar && i < attackCoords.length; i += 2) {
         if (
           Math.abs(tile.x - (attackCoords[i] as number)) <= NEARBY_WAR_RADIUS &&
           Math.abs(tile.y - (attackCoords[i + 1] as number)) <= NEARBY_WAR_RADIUS
@@ -203,7 +206,7 @@ export function tickPopulationGrowth(input: {
         townsSkippedWar += 1;
         continue;
       }
-      if (typeof town.nearbyWarPausedUntil === "number" && town.nearbyWarPausedUntil > input.nowMs) {
+      if (!growsThroughWar && typeof town.nearbyWarPausedUntil === "number" && town.nearbyWarPausedUntil > input.nowMs) {
         input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
         pDiag.war += 1;
         townsSkippedWar += 1;

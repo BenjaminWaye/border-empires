@@ -6,6 +6,10 @@ export type RuntimeTruceSyncCommandContext = {
   players: Map<string, DomainPlayer>;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
+  // Envoy Accreditation pays per active truce: settle income at the old rate first, then refresh the HUD.
+  settleEconomy?: (at: number, playerIds: readonly string[]) => void;
+  emitEconomyUpdate?: (command: CommandEnvelope, playerId: string) => void;
+  now?: () => number;
 };
 
 // Truces don't grant shared vision (unlike alliances via
@@ -26,6 +30,8 @@ export function handleSyncTruceCommand(context: RuntimeTruceSyncCommandContext, 
     return;
   }
 
+  const changed = Boolean(actor.truces?.has(target.id)) !== payload.truced;
+  if (changed) context.settleEconomy?.(context.now?.() ?? Date.now(), [actor.id, target.id]);
   if (payload.truced) {
     (actor.truces ??= new Set<string>()).add(target.id);
     (target.truces ??= new Set<string>()).add(actor.id);
@@ -34,6 +40,7 @@ export function handleSyncTruceCommand(context: RuntimeTruceSyncCommandContext, 
     target.truces?.delete(actor.id);
   }
 
+  if (changed) for (const player of [actor, target]) if (!player.isAi) context.emitEconomyUpdate?.(command, player.id);
   context.emitPlayerMessage(
     { commandId: command.commandId, playerId: actor.id },
     { type: "SOCIAL_STATE_SYNCED", playerId: actor.id, targetPlayerId: target.id, truced: payload.truced }

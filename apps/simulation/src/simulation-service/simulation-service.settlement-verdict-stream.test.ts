@@ -61,7 +61,7 @@ describe("simulation streams diplomacy settlement verdicts without a subscriber"
       client.SubmitCommand.call(client, {
         command_id: commandId, session_id: "system-runtime:social", player_id: payeeId, client_seq: 0, issued_at: Date.now(),
         type: "SETTLE_DIPLOMACY_TERMS",
-        payload_json: JSON.stringify({ proposerId: payerId, targetId: payeeId, proposerPays: { gold: 0, shard: 0 }, targetPays: { gold: 0, shard: 0 } })
+        payload_json: JSON.stringify({ proposerId: payerId, targetId: payeeId, proposerPays: { gold: 0 }, targetPays: { gold: 0 } })
       }, (error) => (error ? reject(error) : resolve()));
     });
 

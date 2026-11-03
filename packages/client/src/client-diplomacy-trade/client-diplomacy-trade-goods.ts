@@ -1,6 +1,6 @@
 // The two side columns of the diplomacy trade screen: "Yours" on the left and
 // "Theirs" on the right, each listing what that side can put into the deal
-// (Coin, Shards and spare resource supply slots) as rows. Pressing a row opens
+// (Coin and spare resource supply slots) as rows. Pressing a row opens
 // a slider under it from 0 to what that side holds, with an exact-amount box
 // beside it for amounts the slider can't reach. Only one slider is open at a
 // time; each row always shows the amount in the deal.
@@ -10,7 +10,7 @@ import { resourceIconHtml } from "../client-resource-icons/client-resource-icons
 import type { DiplomacyStanceReply } from "./client-diplomacy-trade-view.js";
 
 export type TradeSide = "give" | "ask";
-export type TradeGood = "gold" | "shard" | TradableSupplyResource;
+export type TradeGood = "gold" | TradableSupplyResource;
 export type TradeGoodKey = `${TradeSide}-${TradeGood}`;
 
 export type TradeGoodSpec = { key: TradeGoodKey; side: TradeSide; good: TradeGood; label: string; icon: string; aria: string; supply: boolean };
@@ -22,7 +22,6 @@ const sideSpecs = (side: TradeSide): TradeGoodSpec[] => {
   const whose = side === "give" ? "you give" : "you ask for";
   return [
     { key: `${side}-gold`, side, good: "gold", label: "Coin", icon: "GOLD", aria: `Coin ${whose}`, supply: false },
-    { key: `${side}-shard`, side, good: "shard", label: "Shards", icon: "SHARD", aria: `Shards ${whose}`, supply: false },
     ...TRADABLE_SUPPLY_RESOURCES.map((resource): TradeGoodSpec => ({
       key: `${side}-${resource}`,
       side,
@@ -42,7 +41,7 @@ export const TRADE_GOODS: readonly TradeGoodSpec[] = [...sideSpecs("give"), ...s
  * yet) still needs a slider end: ask for up to this much, or as much as you
  * hold yourself if that is more.
  */
-export const UNKNOWN_HOLDINGS_ASK_MAX: DiplomacyGoods = { gold: 100, shard: 10 };
+export const UNKNOWN_HOLDINGS_ASK_MAX: DiplomacyGoods = { gold: 100 };
 /** The same for a resource supply slot whose spare count on their side is unknown. */
 export const UNKNOWN_SUPPLY_ASK_MAX = 10;
 
@@ -51,14 +50,14 @@ export type TradeGoodsLimits = Record<TradeGoodKey, number>;
 /** The amount of one good in `terms`. */
 export const tradeAmount = (terms: DiplomacyTerms, spec: TradeGoodSpec): number => {
   const side = terms[spec.side];
-  return spec.good === "gold" ? side.gold : spec.good === "shard" ? side.shard : (side.resources?.[spec.good] ?? 0);
+  return spec.good === "gold" ? side.gold : (side.resources?.[spec.good] ?? 0);
 };
 
 const specFor = (key: TradeGoodKey): TradeGoodSpec => TRADE_GOODS.find((spec) => spec.key === key) ?? TRADE_GOODS[0]!;
 
 /** What that side holds of a good, if known. */
 const heldAmount = (holdings: DiplomacyGoods, spec: TradeGoodSpec): number =>
-  spec.good === "gold" ? holdings.gold : spec.good === "shard" ? holdings.shard : (holdings.resources?.[spec.good] ?? 0);
+  spec.good === "gold" ? holdings.gold : (holdings.resources?.[spec.good] ?? 0);
 
 /** The AI's holdings when its reply carries them; undefined for a human or an unread AI. */
 export const theirHoldings = (reply: DiplomacyStanceReply | undefined): DiplomacyGoods | undefined =>
@@ -82,7 +81,7 @@ export const tradeGoodsLimits = (own: DiplomacyGoods, reply: DiplomacyStanceRepl
           ? heldAmount(theirs, spec)
           : spec.supply
             ? Math.max(UNKNOWN_SUPPLY_ASK_MAX, heldAmount(own, spec))
-            : Math.max(spec.good === "gold" ? UNKNOWN_HOLDINGS_ASK_MAX.gold : UNKNOWN_HOLDINGS_ASK_MAX.shard, heldAmount(own, spec));
+            : Math.max(UNKNOWN_HOLDINGS_ASK_MAX.gold, heldAmount(own, spec));
     limits[spec.key] = Math.max(0, Math.floor(held), tradeAmount(reach, spec));
   }
   return limits;
@@ -97,7 +96,7 @@ export const asTradeGoodKey = (value: string | undefined): TradeGoodKey | undefi
  */
 export const withTradeAmount = (terms: DiplomacyTerms, key: TradeGoodKey, amount: number): DiplomacyTerms => {
   const { side, good } = specFor(key);
-  if (good === "gold" || good === "shard") return { ...terms, [side]: { ...terms[side], [good]: amount } };
+  if (good === "gold") return { ...terms, [side]: { ...terms[side], gold: amount } };
   amount = Math.min(MAX_RESOURCE_TRADE_SLOTS, amount);
   const resources: ResourceSupplyOffer = { ...terms[side].resources };
   if (amount > 0) resources[good] = amount;
@@ -109,8 +108,8 @@ export const withTradeAmount = (terms: DiplomacyTerms, key: TradeGoodKey, amount
 /** The larger of each amount, for growing a screen's slider reach. */
 export const maxTradeTerms = (a: DiplomacyTerms, b: DiplomacyTerms): DiplomacyTerms =>
   TRADE_GOODS.reduce((terms, spec) => withTradeAmount(terms, spec.key, Math.max(tradeAmount(a, spec), tradeAmount(b, spec))), {
-    give: { gold: 0, shard: 0 },
-    ask: { gold: 0, shard: 0 }
+    give: { gold: 0 },
+    ask: { gold: 0 }
   } as DiplomacyTerms);
 
 export const tradeTermsEqual = (a: DiplomacyTerms, b: DiplomacyTerms): boolean => TRADE_GOODS.every((spec) => tradeAmount(a, spec) === tradeAmount(b, spec));
@@ -131,7 +130,7 @@ const goodRowHtml = (spec: TradeGoodSpec): string => `<div class="diplomacy-trad
     </div>
   </div>`;
 
-/** One side's goods: coin and Shards, then the resource supply slots (shown once the server sends spare counts). */
+/** One side's goods: coin, then the resource supply slots (shown once the server sends spare counts). */
 export const tradeGoodsHtml = (side: TradeSide, withSupply: boolean): string => {
   const specs = TRADE_GOODS.filter((spec) => spec.side === side);
   const supply = withSupply

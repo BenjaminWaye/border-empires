@@ -83,7 +83,7 @@ export type LockRecord = {
 
 export type LockedCombatResolution = {
   momentumSource?: { key: string; setAt: number };
-  breakthroughTarget?: { key: string; ownerId: string };
+  breakthroughTargets?: Array<{ key: string; ownerId: string }>;
   result: LockedFrontierCombatResult;
   defenderGoldLoss: number;
   targetRecentlyPillaged: boolean;
@@ -276,8 +276,6 @@ export type SimulationRuntimeOptions = {
     tileCount: number;
     durationMs: number;
   }) => void;
-  /** Called when a non-FALL shard is collected so the runtime can request an immediate checkpoint. */
-  onShardCollected?: () => void;
   /**
    * Phase 4: when this returns true the drain loop skips ai-lane background
    * jobs and yields immediately so that concurrent login exports run uncontested.

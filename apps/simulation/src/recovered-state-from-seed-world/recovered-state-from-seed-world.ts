@@ -22,7 +22,7 @@ export const recoveredStateFromSeedWorld = (
       ...(tile.resource ? { resource: tile.resource } : {}),
       ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
-      ...(tile.shardSite ? { shardSite: tile.shardSite } : {}), ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
+      ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
       ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
       ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
       ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),

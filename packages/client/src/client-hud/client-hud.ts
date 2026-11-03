@@ -93,7 +93,7 @@ type HudDeps = {
   renderTileActionMenu: (view: TileMenuView, clientX: number, clientY: number) => void;
   tileMenuViewForTile: (tile: Tile) => TileMenuView;
   renderCaptureProgress: () => void;
-  renderShardAlert: () => void; renderVictoryHoldAlert: () => void;
+  renderVictoryHoldAlert: () => void;
   renderTechChoiceGrid: () => string;
   techDetailsUseOverlay: () => boolean;
   renderTechDetailPrompt: () => string;
@@ -173,8 +173,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     requestTileDetailIfNeeded,
     renderTileActionMenu,
     tileMenuViewForTile,
-    renderCaptureProgress,
-    renderShardAlert, renderVictoryHoldAlert,
+    renderCaptureProgress, renderVictoryHoldAlert,
     renderTechChoiceGrid,
     bindTechTreeDragScroll,
     chooseTech,
@@ -362,7 +361,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.mobileCoreHelpEl.style.display = "none";
 
   safeValue("renderCaptureProgress", undefined, () => renderCaptureProgress());
-  safeValue("renderShardAlert", undefined, () => renderShardAlert()); safeValue("renderVictoryHoldAlert", undefined, () => renderVictoryHoldAlert());
+  safeValue("renderVictoryHoldAlert", undefined, () => renderVictoryHoldAlert());
   state.replayActive = false;
   state.replayPlaying = false;
   dom.miniMapLabelEl.innerHTML = replayToolbarHtml();

@@ -496,14 +496,6 @@ const stepRevealEmpireStats = async () => {
   return sendAndWait("REVEAL_EMPIRE_STATS", { playerId: enemy.ownerId }, "reveal-empire-stats");
 };
 
-const stepCollectShard = async () => {
-  const tile = [...state.tilesByKey.values()].find(
-    (t) => t.ownerId === state.playerId && t.hasShard
-  );
-  if (!tile) return null;
-  return sendAndWait("COLLECT_SHARD", { x: tile.x, y: tile.y }, "collect-shard");
-};
-
 const stepSetConverterEnabled = async () => {
   const tile = tileWithStructure("CONVERTER") ?? tileWithStructure("ECONOMIC");
   if (!tile) return null;
@@ -614,8 +606,7 @@ const buildPlaybook = () => [
   ["BUILD_SIEGE_BATTERY (then cancel)", stepBuildSiegeBattery],
   ["CANCEL_SIEGE_BATTERY_BUILD", stepCancelSiegeBatteryBuild],
 
-  // Phase 5: Mid-game collection and combat
-  ["COLLECT_SHARD (1)", stepCollectShard],
+  // Phase 5: Mid-game combat
   ["ATTACK (1)", stepAttack],
   ["ATTACK (2)", stepAttack],
   ["ATTACK (3)", stepAttack],
@@ -663,7 +654,6 @@ const buildPlaybook = () => [
   ["ATTACK (4)", stepAttack],
   ["ATTACK (5)", stepAttack],
   ["CHOOSE_TECH (5)", stepChooseTech],
-  ["COLLECT_SHARD (2)", stepCollectShard],
   ["EXPAND (16)", stepExpand],
   ["EXPAND (17)", stepExpand],
 ];

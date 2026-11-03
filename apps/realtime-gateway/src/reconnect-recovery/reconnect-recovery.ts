@@ -90,7 +90,6 @@ export const buildInitMessage = (
     townCount: number;
     dockPairs: Array<{ ax: number; ay: number; bx: number; by: number }>;
   };
-  shardRainNotice?: Record<string, unknown>;
   seasonStartVoteCount?: number;
   seasonStartVoted?: boolean;
   initialState?: PlayerSubscriptionSnapshot;
@@ -202,7 +201,6 @@ export const buildInitMessage = (
       seasonVictory: bootstrap.seasonVictory,
       ...(bootstrap.seasonWinner ? { seasonWinner: bootstrap.seasonWinner } : {}),
       mapMeta: bootstrap.mapMeta,
-      ...(bootstrap.shardRainNotice ? { shardRainNotice: bootstrap.shardRainNotice } : {}),
       ...(initialState ? { initialState } : {}),
       ...(needsSeasonJoin ? { needsSeasonJoin: true } : {}),
       ...(seasonPending

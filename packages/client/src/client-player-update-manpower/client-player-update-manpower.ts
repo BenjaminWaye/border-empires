@@ -7,6 +7,7 @@ export type PlayerUpdateManpowerState = Pick<
   | "manpowerRegenPerMinute"
   | "logisticsThroughputPerMinute"
   | "expandManpowerCost"
+  | "settleManpowerCost"
   | "nextManpowerBatchAmount"
   | "devQueueManpowerReservedTileKeys"
 >;
@@ -38,5 +39,6 @@ export const applyPlayerUpdateManpowerFields = (state: PlayerUpdateManpowerState
   state.manpowerRegenPerMinute = numberOr(msg.manpowerRegenPerMinute, state.manpowerRegenPerMinute);
   state.logisticsThroughputPerMinute = numberOr(msg.logisticsThroughputPerMinute, state.logisticsThroughputPerMinute);
   state.expandManpowerCost = numberOr(msg.expandManpowerCost, state.expandManpowerCost);
+  state.settleManpowerCost = numberOr(msg.settleManpowerCost, state.settleManpowerCost);
   state.devQueueManpowerReservedTileKeys = devQueueManpowerReservedTileKeys(msg.devQueue) ?? state.devQueueManpowerReservedTileKeys;
 };

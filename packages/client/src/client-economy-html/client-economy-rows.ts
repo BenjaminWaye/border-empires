@@ -2,8 +2,7 @@ import { slotSupplyAmountLabel } from "./client-economy-slot-sources.js";
 import { networkSupplyHtml } from "../client-resource-networks/network-supply-html.js";
 // The new HUD's Economy panel: one row per resource (Coin, Food, Titanium,
 // Crystal, Umbrite), each with what you have, where it comes from and what
-// uses it. Integrity has its own panel and Shard is not a slot resource, so
-// neither is here. The numbers come from the same helpers as the classic
+// uses it. Integrity has its own panel, so it is not here. The numbers come from the same helpers as the classic
 // panel (client-economy-html.ts), which hands them in to avoid an import cycle.
 
 import type { NetworkSupplyStatus, SlotResource } from "@border-empires/shared";
@@ -45,7 +44,7 @@ const item = (text: string, amount: string, warn = false): string =>
 
 /** Upkeep on the Coin row is mostly coin; a cost paid in another resource names it, as the classic panel does. */
 const upkeepAmount = (b: EconomyBucket): string =>
-  b.resourceKey && b.resourceKey !== "GOLD" ? `${perDay(-b.amountPerMinute)} ${b.resourceKey === "SHARD" ? "Shards" : NAMES[b.resourceKey]}` : perDay(-b.amountPerMinute);
+  b.resourceKey && b.resourceKey !== "GOLD" ? `${perDay(-b.amountPerMinute)} ${NAMES[b.resourceKey]}` : perDay(-b.amountPerMinute);
 
 const coinRowHtml = (input: EconomyRowsInput): string => {
   const { coin } = input;

@@ -1,7 +1,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import type { Tile } from "../client-types.js";
 import { musterStatusText } from "../client-side-panel-html/client-side-panel-html.js";
 import { pickLocatorSlots } from "./client-persistent-alert-locator-slots.js";
@@ -9,7 +8,7 @@ import { hostileMusterDetail, hostileMusterNearBorder, type HostileMusterAlertSt
 
 export type NotificationCategory = "persistent_alert" | "action_feedback" | "history" | "debug";
 
-export type PersistentAlertKind = "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused" | "shard_rain";
+export type PersistentAlertKind = "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused";
 
 export type PersistentAlert = {
   id: string;
@@ -34,7 +33,6 @@ export type PersistentAlertLocator = {
 };
 
 type PersistentAlertState = Pick<ClientState, "me" | "tiles" | "waypoint" | "persistentAlertLocators"> & {
-  shardRainStatus?: ClientState["shardRainStatus"] | undefined;
 };
 
 const townLabel = (tile: Tile): string => tile.town?.name || tile.townName || `Town ${tile.x}, ${tile.y}`;
@@ -93,30 +91,11 @@ export const notificationCategoryForServerError = (code: string): NotificationCa
   // in-place reconnect); the sign-in flow owns that state, not a toast.
   if (code === "NO_AUTH") return "debug";
   if (code.startsWith("TECH_") || code.startsWith("DOMAIN_")) return "action_feedback";
-  if (code === "COLLECT_EMPTY") return "action_feedback";
   return "action_feedback";
 };
 
-const shardRainSiteLabel = (x: number, y: number): string => `A shard landed here at (${x}, ${y}). It may already be gone.`;
-
-// Shard rain sites are shown for the full life of the event
-// (shardRainStatus.expiresAt, ~30 minutes) rather than the short
-// client-shard-rain-pings reveal window: this is a "something landed here"
-// locator, independent of whether the player has since explored/fogged the
-// tile. Deliberately reads shardRainStatus, not the dismissible shardAlert
-// toast field (client-alerts.ts clears shardAlert on dismissal but leaves
-// shardRainStatus alone) — dismissing the toast shouldn't also blind the
-// player to where the sites are. It does drop once the tile confirms the
-// shard is actually gone (an unfogged read with no shardSite) — an
-// absent/fogged tile just means we haven't heard about it yet, so the
-// locator keeps showing in that case.
-const shardSiteCollected = (tiles: Pick<ClientState, "tiles">["tiles"], x: number, y: number): boolean => {
-  const tile = tiles.get(`${x},${y}`);
-  return tile !== undefined && !tile.fogged && !tile.shardSite;
-};
-
 export const persistentAlertsForState = (
-  state: Pick<ClientState, "me" | "tiles" | "waypoint"> & HostileMusterAlertState & { shardRainStatus?: ClientShardRainAlert | undefined },
+  state: Pick<ClientState, "me" | "tiles" | "waypoint"> & HostileMusterAlertState,
   nowMs: number = Date.now()
 ): PersistentAlert[] => {
   const alerts: PersistentAlert[] = [];
@@ -169,21 +148,6 @@ export const persistentAlertsForState = (
       y: origin.y,
       severity: "warn"
     });
-  }
-  const shardRainStatus = state.shardRainStatus;
-  if (shardRainStatus?.phase === "started" && shardRainStatus.sites && nowMs < shardRainStatus.expiresAt) {
-    for (const site of shardRainStatus.sites) {
-      if (shardSiteCollected(state.tiles, site.x, site.y)) continue;
-      alerts.push({
-        id: `shard_rain:${site.x},${site.y}`,
-        kind: "shard_rain",
-        title: "Shard rain",
-        detail: shardRainSiteLabel(site.x, site.y),
-        x: site.x,
-        y: site.y,
-        severity: "warn"
-      });
-    }
   }
   return alerts;
 };
@@ -318,53 +282,6 @@ const drawCrossedSwordsGlyph = (ctx: CanvasRenderingContext2D, size: number): vo
   ctx.restore();
 };
 
-// A shard, not the CRYSTAL resource's faceted round gem (💎 reads as "you're
-// short on Crystal", the wrong message for "something landed here"). White
-// fill with a pale cyan rim and facet lines — the same palette as the real
-// shard-site model (client-map-3d-shard-overlay.ts: color "#ffffff",
-// emissive "#ccefff", shimmer core rgb(50,210,233)) so the locator/badge
-// reads as the same object, just a 2D silhouette of it. Exported so the 3D
-// badge overlay (client-map-3d.ts's shardRainBadgeOverlay) can paint the
-// identical icon onto its canvas texture instead of duplicating the shape.
-export const drawShardGlyph = (ctx: CanvasRenderingContext2D, size: number): void => {
-  ctx.save();
-  const points: Array<[number, number]> = [
-    [0, -size],
-    [size * 0.55, -size * 0.38],
-    [size * 0.34, size * 0.75],
-    [0, size],
-    [-size * 0.34, size * 0.75],
-    [-size * 0.55, -size * 0.38]
-  ];
-  ctx.beginPath();
-  ctx.moveTo(points[0]![0], points[0]![1]);
-  for (const [px, py] of points.slice(1)) ctx.lineTo(px, py);
-  ctx.closePath();
-  // Dark contrast base first — white-on-gold-shield or white-on-pale-badge
-  // is under 1.2:1 contrast on its own (WCAG wants 3:1+ for graphics), so a
-  // wide dark stroke sits under the fill the same way drawCrossedSwordsGlyph
-  // above lays a black stroke under its bright color on this same shield.
-  ctx.strokeStyle = "rgba(15, 26, 33, 0.75)";
-  ctx.lineWidth = Math.max(3, size * 0.32);
-  ctx.stroke();
-  ctx.fillStyle = "#ffffff";
-  ctx.fill();
-  ctx.strokeStyle = "#8fd9ec";
-  ctx.lineWidth = Math.max(1.5, size * 0.12);
-  ctx.stroke();
-  // Two facet lines through the middle, echoing the shimmer core color of
-  // the real shard-site model.
-  ctx.strokeStyle = "rgba(50, 210, 233, 0.55)";
-  ctx.lineWidth = Math.max(1, size * 0.07);
-  ctx.beginPath();
-  ctx.moveTo(0, -size);
-  ctx.lineTo(0, size);
-  ctx.moveTo(-size * 0.55, -size * 0.38);
-  ctx.lineTo(size * 0.34, size * 0.75);
-  ctx.stroke();
-  ctx.restore();
-};
-
 export const drawPersistentAlertLocators = (
   state: PersistentAlertState & Pick<ClientState, "camX" | "camY">,
   deps: {
@@ -393,8 +310,7 @@ export const drawPersistentAlertLocators = (
   const margin = 34;
   const inset = 30;
   ctx.save();
-  // On-screen alerts get their own in-world indicator (e.g. the 3D
-  // bobbing badge over a shard rain site in client-map-3d.ts, or the
+  // On-screen alerts get their own in-world indicator (e.g. the
   // muster flag model itself) rather than a HUD locator here.
   const offScreen = alerts.flatMap((alert) => {
     const projected = deps.worldToScreen(alert.x, alert.y, deps.size, deps.halfW, deps.halfH);
@@ -431,8 +347,6 @@ export const drawPersistentAlertLocators = (
     ctx.rotate(-edge.angle);
     if (alert.kind === "muster_active" || alert.kind === "hostile_muster") {
       drawCrossedSwordsGlyph(ctx, radius * 0.5);
-    } else if (alert.kind === "shard_rain") {
-      drawShardGlyph(ctx, radius * 0.5);
     } else {
       ctx.font = `700 ${radius * 1.1}px system-ui`;
       ctx.textAlign = "center";

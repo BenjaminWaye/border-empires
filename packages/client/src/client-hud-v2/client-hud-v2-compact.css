@@ -41,7 +41,7 @@ body.hud-v2-compact .hud-v2-bar {
   height: var(--v2c-bar-h); gap: 2px; padding: 0 3px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
 }
 body.hud-v2-compact .hud-v2-bar::-webkit-scrollbar { display: none; }
-/* Label over value, so every resource fits on a 360px screen; the rate and Shard live in the Treasury. */
+/* Label over value, so every resource fits on a 360px screen; the coin rate lives in the Treasury. */
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip {
   flex: 1 0 auto; flex-direction: column; justify-content: center; gap: 0; height: 34px; padding: 0 6px; font-size: 12px; line-height: 1.15;
 }

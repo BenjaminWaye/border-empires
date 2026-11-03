@@ -6,7 +6,7 @@ import { createDiplomacyOfferAcceptance } from "./diplomacy-offer-acceptance.js"
 import { createDiplomacySettlement, DIPLOMACY_SETTLEMENT_COMMAND_PREFIX, MAX_PENDING_DIPLOMACY_SETTLEMENTS } from "./diplomacy-settlement.js";
 import { createSocialState } from "../social-state/social-state.js";
 
-const terms = { give: { gold: 50, shard: 0 }, ask: { gold: 0, shard: 1 } };
+const terms = { give: { gold: 50 }, ask: { gold: 0 } };
 
 const setupSettlement = (submit: (command: CommandEnvelope) => Promise<unknown> = async () => undefined) => {
   const submitted: CommandEnvelope[] = [];
@@ -77,7 +77,7 @@ describe("createDiplomacySettlement", () => {
   it("ignores events that aren't settlements and skips the simulation for empty terms", async () => {
     const { settlement, submitted } = setupSettlement();
     settlement.observe({ eventType: "COMMAND_RESOLVED", commandId: "frontier:1" });
-    await expect(settlement.settle({ proposerId: "p1", targetId: "p2", terms: { give: { gold: 0, shard: 0 }, ask: { gold: 0, shard: 0 } } })).resolves.toEqual({ ok: true });
+    await expect(settlement.settle({ proposerId: "p1", targetId: "p2", terms: { give: { gold: 0 }, ask: { gold: 0 } } })).resolves.toEqual({ ok: true });
     expect(submitted).toEqual([]);
     expect(DIPLOMACY_SETTLEMENT_COMMAND_PREFIX).toBe("diplomacy-settle:");
   });
@@ -151,7 +151,7 @@ describe("createDiplomacyOfferAcceptance", () => {
 
   it("requires a resource-aware client to confirm supply terms before accepting", async () => {
     const social = createSocialState({ now: () => 1_000, players });
-    social.requestTruce("p1", "Milo", 12, { terms: { give: { gold: 0, shard: 0 }, ask: { gold: 0, shard: 0, resources: { FOOD: 1 } } } });
+    social.requestTruce("p1", "Milo", 12, { terms: { give: { gold: 0 }, ask: { gold: 0, resources: { FOOD: 1 } } } });
     const requestId = social.snapshotForPlayer("p2").incomingTruceRequests[0]!.id;
     const settle = vi.fn().mockResolvedValue({ ok: true, settlementId: "supply-deal" });
     const acceptance = createDiplomacyOfferAcceptance({ socialState: social, settlement: { settle }, recordGatewayEvent: () => undefined });

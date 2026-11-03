@@ -47,6 +47,8 @@ import type {
   AutomationPreplanProgressState,
   AutomationSessionPrefix
 } from "./automation-command-planner-types.js";
+import { economicBuildDiagnostics } from "./build/economic-synergy-diagnostics.js";
+import { linkValueTownKeys } from "./build/economic-synergy-scoring.js";
 
 export {
   AUTOMATION_NOOP_REASONS,
@@ -184,6 +186,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const needsFood = foodCoverageLow(input.strategicResources, townCount, input.slotSupplyByResource && input.slotDemandByResource ? { supply: input.slotSupplyByResource.FOOD ?? 0, demand: input.slotDemandByResource.FOOD ?? 0 } : undefined);
   const needsEconomy = economyWeak(input.manpower, settledTileCount);
   const frontierStartedAt = Date.now();
+  const linkValueTowns = input.townEconomy ? linkValueTownKeys(input.townEconomy) : undefined;
   let frontierOrigins = narrowFrontierOrigins;
   let frontierAnalysis =
     canAttack || canExpand
@@ -196,6 +199,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
           ...(input.nonHostilePlayerIds ? { nonHostilePlayerIds: input.nonHostilePlayerIds } : {}),
+          ...(linkValueTowns ? { linkValueTownKeys: linkValueTowns } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -233,6 +237,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
           ...(input.nonHostilePlayerIds ? { nonHostilePlayerIds: input.nonHostilePlayerIds } : {}),
+          ...(linkValueTowns ? { linkValueTownKeys: linkValueTowns } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -267,6 +272,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       ...(input.ownedStructureCounts ? { ownedStructureCounts: input.ownedStructureCounts } : {}),
       ...(input.slotSupplyByResource ? { slotSupplyByResource: input.slotSupplyByResource } : {}),
       ...(input.slotDemandByResource ? { slotDemandByResource: input.slotDemandByResource } : {}),
+      ...(input.townEconomy ? { townEconomy: input.townEconomy } : {}),
       settledTileCount,
       townCount,
       incomePerMinute
@@ -379,12 +385,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       (Boolean(economicBuild) && !buildScanUsedFocusFallback) ||
       (Boolean(fortBuild) && !buildScanUsedFocusFallback) ||
       (Boolean(siegeBatteryBuild) && !buildScanUsedFocusFallback),
-    // Debug-only: what chooseBestEconomicBuild actually picked, so a
-    // repeatedly-rejected BUILD_ECONOMIC_STRUCTURE can be traced to a
-    // specific tile/type via /admin/debug/ai/decisions instead of guessing.
-    ...(economicBuild
-      ? { economicBuildCandidate: `${economicBuild.tile.x},${economicBuild.tile.y}:${economicBuild.structureType}` }
-      : {}),
+    // Debug-only: the economic pick, its score and the synergy state behind it.
+    ...economicBuildDiagnostics(economicBuild, input.townEconomy),
     // Debug-only: what chooseBestRelayBeaconBuild actually picked, so
     // BUILD_BEACON's state can be traced via /admin/debug/ai/decisions
     // instead of inferring it (wrongly) from unrelated fields like

@@ -7,7 +7,7 @@ describe("refreshLiveTechRequirements", () => {
   it("keeps the next domain tier open while showing missing tech requirements", () => {
     const state = createInitialState();
     state.gold = 100_000;
-    state.strategicResources = { FOOD: 10_000, TITANIUM: 10_000, CRYSTAL: 10_000, UMBRITE: 10_000, SHARD: 10_000 };
+    state.strategicResources = { FOOD: 10_000, TITANIUM: 10_000, CRYSTAL: 10_000, UMBRITE: 10_000 };
     state.techIds = ["toolmaking"];
     state.techCatalog = [
       {
@@ -50,7 +50,7 @@ describe("refreshLiveTechRequirements", () => {
         requiresTechId: "logistics",
         mods: {},
         effects: {},
-        requirements: { gold: 14000, resources: { FOOD: 220, SHARD: 1 }, canResearch: false }
+        requirements: { gold: 14000, resources: { FOOD: 220 }, canResearch: false }
       }
     ];
 
