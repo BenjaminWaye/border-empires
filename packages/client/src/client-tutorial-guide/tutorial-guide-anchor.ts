@@ -12,10 +12,12 @@ import type { GuideAnchorId } from "./tutorial-guide-steps.js";
 const OUTLINE_ID = "tutorial-guide-anchor-outline";
 const OUTLINE_PADDING_PX = 4;
 
+// Legacy HUD and mobile buttons first, then the new desktop HUD's (HUD v2 hides
+// #top-strip, so only its [data-hud-v2-open] buttons are laid out there).
 export const GUIDE_ANCHOR_SELECTORS: Record<GuideAnchorId, string> = {
-  manpower: ".stat-chip-manpower",
-  manifest: '[data-panel="tech"], [data-mobile-panel="tech"]',
-  activity: "[data-open-activity-dashboard]"
+  manpower: '.stat-chip-manpower, [data-hud-v2-open="manpower"]',
+  manifest: '[data-panel="tech"], [data-mobile-panel="tech"], [data-hud-v2-open="manifest"]',
+  activity: '[data-open-activity-dashboard], [data-hud-v2-open="chronicle"]'
 };
 
 /** The first matching element that is actually laid out on screen. */

@@ -141,6 +141,61 @@ describe("tutorial guide in the onboarding corner", () => {
     expect(css).toMatch(/#tutorial-guide-anchor-outline \{[^}]*pointer-events: none/);
   });
 
+  it("counts the new desktop HUD's Manifest screen as opening Manifests and outlines its Manifest button", () => {
+    setGuideStatus("active", EMAIL);
+    const state = newPlayerState();
+    setTiles(state, [
+      { x: 2, y: 0, ownerId: ME, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } as never },
+      { x: 1, y: 0, ownerId: ME, ownershipState: "SETTLED", resource: "FISH" },
+      { x: 1, y: 1, ownerId: ME, ownershipState: "SETTLED", resource: "FISH" }
+    ]);
+    document.body.classList.add("hud-v2");
+    const bubble = document.createElement("button");
+    bubble.setAttribute("data-hud-v2-open", "manifest");
+    bubble.getBoundingClientRect = () => ({ left: 300, top: 600, width: 40, height: 40, right: 340, bottom: 640, x: 300, y: 600, toJSON: () => ({}) }) as DOMRect;
+    document.body.appendChild(bubble);
+    noteGuideMapPanned();
+    refreshOnboardingChecklistHighlight(state);
+    click("skip"); // zoom
+    click("skip"); // select
+    click("skip"); // manpower
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toBe("Open Manifests");
+    expect(document.getElementById("tutorial-guide-anchor-outline")?.style.left).toBe("296px");
+    expect(card()?.classList.contains("onb-root")).toBe(true); // picks up HUD v2's corner placement and screen hiding
+    document.body.classList.add("hud-v2-screen-manifest");
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toBe("Commission your first Manifest");
+    document.body.className = "";
+  });
+
+  it("clears the map rings on the next frame after Hide guide", () => {
+    setGuideStatus("active", EMAIL);
+    const state = newPlayerState();
+    refreshOnboardingChecklistHighlight(state);
+    click("skip");
+    click("skip");
+    click("skip");
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(state.onboardingHighlightTiles).toEqual([{ x: 2, y: 0 }]);
+    click("hide");
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(state.onboardingHighlightTiles).toEqual([]);
+  });
+
+  it("does not carry one account's input signals over to the next sign-in", () => {
+    setGuideStatus("active", EMAIL);
+    setGuideStatus("active", "second@example.com");
+    const state = newPlayerState();
+    refreshOnboardingChecklistHighlight(state);
+    noteGuideMapPanned();
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toBe("Zoom in and out (scroll or pinch)");
+    state.authEmail = "second@example.com";
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toBe("Drag the map to look around");
+  });
+
   it("Hide guide turns it off for good and removes the card", () => {
     setGuideStatus("active", EMAIL);
     const state = newPlayerState();

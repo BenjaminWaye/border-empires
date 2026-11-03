@@ -64,6 +64,15 @@ describe("tutorial guide progress", () => {
     expect(sent).toEqual([{ guideStatus: "active", guideSteps: ["look-pan", "look-zoom"] }]);
   });
 
+  it("a device with stale finished progress does not undo a Restart made elsewhere", () => {
+    setGuideStatus("done", EMAIL);
+    markGuideStepsCompleted(["look-pan", "look-zoom"], EMAIL);
+    sent = [];
+    hydrateGuideFromServer("active", [], EMAIL); // restarted on another device
+    expect(readGuideProgress(EMAIL)).toEqual({ status: "active", steps: [] });
+    expect(sent).toEqual([]);
+  });
+
   it("restart clears progress and reactivates", () => {
     setGuideStatus("done", EMAIL);
     markGuideStepsCompleted(["look-pan"], EMAIL);

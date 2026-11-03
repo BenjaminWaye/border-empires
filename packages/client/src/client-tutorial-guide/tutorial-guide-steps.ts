@@ -29,6 +29,8 @@ export type GuideInput = {
   /** The side panel (desktop) or mobile panel currently open, if any. */
   openPanel: string | null;
   activityDashboardOpen: boolean;
+  /** The new desktop HUD is active: the Activity dashboard is its Chronicle. */
+  hudV2: boolean;
   /** Manifests the player has commissioned (state.techIds, excluding the tree root). */
   manifestCount: number;
   ownsBuiltStructure: boolean;
@@ -140,7 +142,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "turn-activity",
     chapter: "turn",
-    title: () => "Open the Activity dashboard",
+    title: (i) => (i.hudV2 ? "Open the Chronicle" : "Open the Activity dashboard"),
     why: "It reports what happened while you were away.",
     isDone: (i) => i.activityDashboardOpen,
     anchor: "activity"
@@ -188,7 +190,9 @@ export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>)
   const done = new Set([...completed, ...newlyCompleted]);
   const remaining = GUIDE_STEPS.filter((s) => !done.has(s.id));
   if (remaining.length === 0) return { kind: "done" };
-  const available = remaining.find((s) => s.isAvailable?.(input) ?? true);
+  // An acknowledge step (Finish) is only offered once it is the last step left,
+  // so Finish never shows while another step (e.g. a waiting Contest) remains.
+  const available = remaining.find((s) => (s.isAvailable?.(input) ?? true) && (!s.acknowledge || remaining.length === 1));
   const step = available ?? remaining[0]!;
   const waiting = !available;
   return {

@@ -17,6 +17,7 @@ import { evaluateGuide, type GuideView } from "./tutorial-guide-steps.js";
 import { isGuideActive, markGuideStepsCompleted, readGuideProgress, setGuideStatus } from "./tutorial-guide-storage.js";
 import { removeGuideCard, renderGuideCard, type GuideCardHandlers } from "./tutorial-guide-card.js";
 import { removeGuideAnchorOutline, syncGuideAnchorOutline } from "./tutorial-guide-anchor.js";
+import { resetGuideInputSignalsForTests } from "./tutorial-guide-input-signals.js";
 import { centerCameraOnDiscoveryTarget } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { setOnboardingRelayBeaconSite } from "../client-onboarding-checklist/client-onboarding-relay-beacon-recommendation.js";
 import { isOnboardingChecklistCompleted, markOnboardingChecklistCompleted } from "../client-onboarding-checklist/client-onboarding-checklist-storage.js";
@@ -56,6 +57,7 @@ const handlers: GuideCardHandlers = {
   },
   onHide: () => {
     setGuideStatus("dismissed", lastAuthEmail);
+    setOnboardingRelayBeaconSite(undefined);
     removeTutorialGuideUi();
   },
   onToggle: () => {
@@ -91,10 +93,20 @@ const signatureOf = (view: StepView): string =>
  * hasn't finished).
  */
 export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): Array<{ x: number; y: number }> => {
+  // A different account signed in on this page: nothing from the previous
+  // one (input signals, minimised card, synced checklist flag) carries over.
+  if (lastState && lastAuthEmail !== state.authEmail) {
+    removeTutorialGuideUi();
+    resetTutorialGuideForTests();
+    resetGuideInputSignalsForTests();
+  }
   lastAuthEmail = state.authEmail;
   lastState = state;
   if (!state.me || !isGuideActive(state.authEmail)) {
-    if (lastView) removeTutorialGuideUi();
+    if (lastView) {
+      setOnboardingRelayBeaconSite(undefined);
+      removeTutorialGuideUi();
+    }
     return [];
   }
   const input = buildGuideInput(state);
@@ -135,7 +147,7 @@ export const reopenTutorialGuideCard = (): void => {
   lastSignature = "";
 };
 
-/** Test-only: resets module state that persists across renders. */
+/** Resets module state that persists across renders (account switch, and tests). */
 export const resetTutorialGuideForTests = (): void => {
   expanded = true;
   lastSignature = "";

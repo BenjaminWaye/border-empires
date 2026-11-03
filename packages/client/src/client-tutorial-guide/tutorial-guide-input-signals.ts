@@ -22,7 +22,7 @@ export const noteGuideTileSelected = (): void => {
 
 export const guideInputSignals = (): GuideInputSignals => signals;
 
-/** Test-only. */
+/** Clears the signals (account switch, and tests). */
 export const resetGuideInputSignalsForTests = (): void => {
   signals.panned = false;
   signals.zoomed = false;

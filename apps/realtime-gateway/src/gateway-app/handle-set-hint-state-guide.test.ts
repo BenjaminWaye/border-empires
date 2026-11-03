@@ -45,6 +45,10 @@ describe("tutorial guide hint state", () => {
   it("keeps guide progress across unrelated profile writes in the in-memory store", async () => {
     const store = new InMemoryGatewayPlayerProfileStore();
     await store.setHintState("p1", { guideStatus: "active", guideSteps: ["look-pan"] });
+    // Enrollment happens at INIT, before first profile setup: setup must not wipe it.
+    await store.setProfile("p1", "Nauticus", "#123456");
+    await store.setTileColor("p1", "#654321");
+    await store.setCountryFlag("p1", "SE");
     await store.setHintState("p1", { hintsMuted: true });
     await store.setEmailNotificationPrefs("p1", { attackAlert: false });
     await store.setActivitySeen("p1", 1, "season-1");

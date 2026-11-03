@@ -4,7 +4,7 @@ import { announceDiscoveryTip, renderDiscoveryTipOverlay } from "../client-disco
 import { removeOnboardingChecklistOverlay, renderOnboardingChecklistOverlay } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
 import { pushDiscoveryTipFeedEntry, type FeedMutableState } from "../client-alerts/client-alerts.js";
 import { createOnboardingUiGateTicker, isOnboardingUiDeferred, type OnboardingUiGateState } from "./client-onboarding-ui-gate.js";
-import { isEnrolledInTutorialGuide, isTutorialGuideRunning, renderTutorialGuide } from "../client-tutorial-guide/tutorial-guide.js";
+import { isEnrolledInTutorialGuide, renderTutorialGuide } from "../client-tutorial-guide/tutorial-guide.js";
 import type { GuideInputState } from "../client-tutorial-guide/tutorial-guide-input.js";
 
 // ClientState-aware entry points for the discovery-tip toast and the
@@ -53,7 +53,9 @@ export const tickOnboardingUiGateForFrame = (state: DiscoveryTipUiState & Onboar
   // The guide also completes steps on input with no tile change (a pan, an
   // opened panel), so it is evaluated every frame; tile scans are cached per
   // tiles revision and the card only re-renders when its content changes.
-  if (state.me && state.firstChunkAt > 0 && isTutorialGuideRunning(state.authEmail)) {
+  // Enrolled rather than running, so the frame after Hide guide / Finish
+  // clears the guide's map rings instead of leaving them until a tile delta.
+  if (state.me && state.firstChunkAt > 0 && isEnrolledInTutorialGuide(state.authEmail)) {
     state.onboardingHighlightTiles = renderTutorialGuide(state, isOnboardingUiDeferred(state));
   }
 };

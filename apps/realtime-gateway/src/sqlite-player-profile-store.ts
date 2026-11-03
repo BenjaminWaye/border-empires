@@ -54,13 +54,25 @@ const parseDismissedHints = (raw: string | null): string[] | undefined => {
   }
 };
 
+// Tutorial step ids are client constants, not hint or structure ids, so no
+// legacy structure-name upgrade (unlike parseDismissedHints).
+const parseGuideSteps = (raw: string | null): string[] | undefined => {
+  if (!raw) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 const parseGuideStatus = (raw: string | null): GuideStatus | undefined =>
   raw === "active" || raw === "done" || raw === "dismissed" ? raw : undefined;
 
 const toProfile = (row: Row): StoredPlayerProfile => {
   const dismissedHints = parseDismissedHints(row.dismissed_hints);
   const guideStatus = parseGuideStatus(row.guide_status);
-  const guideSteps = parseDismissedHints(row.guide_steps);
+  const guideSteps = parseGuideSteps(row.guide_steps);
   const emailNotificationPrefs = parseEmailNotificationPrefs(row.email_notification_prefs);
   return {
     playerId: row.player_id,

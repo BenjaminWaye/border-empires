@@ -17,6 +17,7 @@ const baseInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   zoomed: false,
   tileSelected: false,
   openPanel: null,
+  hudV2: false,
   activityDashboardOpen: false,
   manifestCount: 0,
   ownsBuiltStructure: false,
@@ -92,6 +93,20 @@ describe("tutorial guide steps", () => {
     expect(evaluateGuide(baseInput({ checklist: footholdDone, openPanel: "manpower" }), pastLook)).toEqual(
       expect.objectContaining({ step: expect.objectContaining({ id: "manifest-open" }), anchor: "manifest" })
     );
+  });
+
+  it("never offers Finish while another step remains, even one that is only waiting", () => {
+    const allButContestAndFinish = new Set(GUIDE_STEPS.filter((s) => s.id !== "contest-muster" && s.id !== "turn-finish").map((s) => s.id));
+    const view = evaluateGuide(baseInput({ checklist: footholdDone }), allButContestAndFinish);
+    if (view.kind !== "step") throw new Error("expected a step");
+    expect(view.step.id).toBe("contest-muster");
+    expect(view.waiting).toBe(true);
+  });
+
+  it("names the Chronicle under the new desktop HUD", () => {
+    const allButActivity = new Set(GUIDE_STEPS.filter((s) => s.id !== "turn-activity" && s.id !== "turn-finish").map((s) => s.id));
+    expect(evaluateGuide(baseInput({ checklist: footholdDone, hudV2: true }), allButActivity)).toEqual(expect.objectContaining({ title: "Open the Chronicle" }));
+    expect(evaluateGuide(baseInput({ checklist: footholdDone }), allButActivity)).toEqual(expect.objectContaining({ title: "Open the Activity dashboard" }));
   });
 
   it("only finishes on the acknowledge step's own Finish, then reports done", () => {

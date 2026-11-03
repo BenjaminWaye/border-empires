@@ -159,6 +159,7 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
       ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       ...(resolvedSeasonId ? { colorChangedSeasonId: resolvedSeasonId } : {}),
+      ...guideFields(existing),
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);
@@ -179,6 +180,7 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
       ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       ...(resolvedColorSeasonId ? { colorChangedSeasonId: resolvedColorSeasonId } : {}),
+      ...guideFields(existing),
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);
@@ -197,6 +199,7 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(existing?.colorChangedSeasonId ? { colorChangedSeasonId: existing.colorChangedSeasonId } : {}),
       ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
       ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
+      ...guideFields(existing),
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);

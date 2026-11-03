@@ -14,7 +14,7 @@ import type { GuideInput } from "./tutorial-guide-steps.js";
 
 export type GuideInputState = Pick<
   ClientState,
-  "tiles" | "tilesRevision" | "me" | "authEmail" | "activePanel" | "mobilePanel" | "activityDashboard" | "techIds" | "techRootId" | "bridgeDebugSeasonId" | "homeTile"
+  "tiles" | "tilesRevision" | "chunkFullCount" | "me" | "authEmail" | "activePanel" | "mobilePanel" | "activityDashboard" | "techIds" | "techRootId" | "bridgeDebugSeasonId" | "homeTile"
 >;
 
 const MAX_BUILD_TARGETS = 6;
@@ -76,15 +76,27 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
 
 // Muster unlock is stored in localStorage and flips only when a newly seen tile
 // belongs to someone else, i.e. on a tile change, so it is cached alongside the scan.
-let cached: { revision: number; me: string; checklist: OnboardingChecklistState; scan: TileScan; musterUnlocked: boolean } | undefined;
+// Keyed on chunkFullCount as well as tilesRevision: chunk loads (CHUNK_FULL /
+// CHUNK_BATCH) write state.tiles without bumping tilesRevision, and a newly
+// loaded chunk is exactly how "Find a neutral town" / "Find food" complete.
+let cached: { revision: number; chunks: number; me: string; checklist: OnboardingChecklistState; scan: TileScan; musterUnlocked: boolean } | undefined;
 
-/** The panel the player has open: the desktop side panel, or a mobile panel other than the default "core". */
-const openPanelOf = (state: GuideInputState): string | null => state.activePanel ?? (state.mobilePanel !== "core" ? state.mobilePanel : null);
+/** The new desktop HUD (HUD v2) marks the body; its full-screen views add `hud-v2-screen-<id>` (client-hud-v2-context.ts). */
+const bodyHasClass = (cls: string): boolean => typeof document !== "undefined" && document.body.classList.contains(cls);
+
+/**
+ * The panel the player has open: the desktop side panel, a mobile panel other
+ * than the default "core", or HUD v2's Manifest screen (which clears
+ * activePanel and is tracked only by its body class), reported as "tech".
+ */
+const openPanelOf = (state: GuideInputState): string | null =>
+  state.activePanel ?? (state.mobilePanel !== "core" ? state.mobilePanel : bodyHasClass("hud-v2-screen-manifest") ? "tech" : null);
 
 export const buildGuideInput = (state: GuideInputState): GuideInput => {
-  if (!cached || cached.revision !== state.tilesRevision || cached.me !== state.me) {
+  if (!cached || cached.revision !== state.tilesRevision || cached.chunks !== state.chunkFullCount || cached.me !== state.me) {
     cached = {
       revision: state.tilesRevision,
+      chunks: state.chunkFullCount,
       me: state.me,
       checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail),
       scan: scanGuideTiles(state.tiles, state.me, state.homeTile),
@@ -98,6 +110,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     zoomed: signals.zoomed,
     tileSelected: signals.tileSelected,
     openPanel: openPanelOf(state),
+    hudV2: bodyHasClass("hud-v2"),
     activityDashboardOpen: state.activityDashboard.open || state.activityDashboard.chronicleOpen,
     manifestCount: state.techIds.filter((id) => id !== state.techRootId).length,
     ownsBuiltStructure: cached.scan.ownsBuiltStructure,

@@ -96,15 +96,18 @@ export const restartGuide = (authEmail?: string | null): void => persist({ statu
 
 /**
  * Reconciles the server copy (INIT or the HINT_STATE_SET echo) into local
- * storage. The server status wins; completed steps are unioned so a step
- * finished on this device while the socket was down is not lost (and is
- * re-sent). An empty server status leaves local state alone.
+ * storage. The server status wins. Within the same status, completed steps
+ * are unioned so a step finished on this device while the socket was down is
+ * not lost (and is re-sent). An empty server status leaves local state alone.
  */
 export const hydrateGuideFromServer = (status: unknown, steps: unknown, authEmail?: string | null): void => {
   if (!isGuideStatus(status)) return;
   const local = readGuideProgress(authEmail);
   const serverSteps = sanitizeSteps(steps);
-  const merged = sanitizeSteps([...serverSteps, ...local.steps]);
+  // Union only within the same status: a different server status means the
+  // guide was finished, hidden or restarted elsewhere, so the server copy
+  // replaces local progress (otherwise a stale device would undo a Restart).
+  const merged = local.status === status ? sanitizeSteps([...serverSteps, ...local.steps]) : serverSteps;
   writeLocal({ status, steps: merged }, authEmail);
   if (merged.length !== serverSteps.length) sendHintStateUpdate({ guideStatus: status, guideSteps: merged });
 };
@@ -112,6 +115,8 @@ export const hydrateGuideFromServer = (status: unknown, steps: unknown, authEmai
 /**
  * INIT-time enrollment and hydration. `profileNeedsSetup` marks an account
  * that has not finished its first profile setup, i.e. a brand-new account.
+ * The gateway always reports false for guests ("Play now"), so the caller
+ * passes true for a guest session: guests are new players too.
  */
 export const hydrateTutorialGuideFromInit = (
   player: { guideStatus?: unknown; guideSteps?: unknown; profileNeedsSetup?: unknown; onboardingChecklistCompleted?: unknown },

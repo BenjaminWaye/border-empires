@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import { tileKey } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
@@ -37,5 +38,20 @@ describe("scanGuideTiles", () => {
     const scan = scanGuideTiles(tiles, ME, { x: 0, y: 0 });
     expect(scan.musterTargetTiles).toEqual([{ x: 1, y: 0 }]);
     expect(scan.ownsMusterFlag).toBe(false);
+  });
+});
+
+describe("buildGuideInput", () => {
+  it("rescans tiles after a chunk load, which writes tiles without bumping tilesRevision", async () => {
+    const { createInitialState } = await import("../client-state/client-state.js");
+    const { buildGuideInput, resetGuideInputCacheForTests } = await import("./tutorial-guide-input.js");
+    resetGuideInputCacheForTests();
+    const state = createInitialState();
+    state.me = ME;
+    state.tiles.set(tileKey(0, 0), { x: 0, y: 0, terrain: "LAND", ownerId: ME, ownershipState: "SETTLED" } as Tile);
+    expect(buildGuideInput(state).checklist.townFound).toBe(false);
+    state.tiles.set(tileKey(2, 0), { x: 2, y: 0, terrain: "LAND", town: { type: "MARKET", populationTier: "TOWN" } } as Tile);
+    state.chunkFullCount += 1;
+    expect(buildGuideInput(state).checklist.townFound).toBe(true);
   });
 });

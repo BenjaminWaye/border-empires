@@ -36,9 +36,11 @@ building, mustering or the "every visit is a turn" rhythm (`core-loop.md` §0).
 **Who gets it.** New accounts only. The gateway marks an account that has not
 finished its first profile setup with `profileNeedsSetup` on INIT. An account
 with no stored guide status that is in that state, and has not completed the
-checklist, is enrolled once (`guideStatus: "active"`). Every older account has
-no status and a complete profile, so it keeps the New empire checklist
-unchanged.
+checklist, is enrolled once (`guideStatus: "active"`). Guest ("Play now")
+sessions are enrolled too: the gateway always reports `profileNeedsSetup:
+false` for guests, so the client treats a guest session as new. Every older
+account has no status and a complete profile, so it keeps the New empire
+checklist unchanged.
 
 **What it looks like.** One small card in the bottom-left corner: the same slot
 the checklist bubble uses, measured to clear the Center/AFC button. The card
@@ -61,7 +63,12 @@ element ignores pointer events; only the card and the launcher take clicks.
   `client-map-3d-onboarding-checklist-highlight.ts`. Every map highlight the
   guide shows is therefore in both renderers.
 - **HUD-button targets** get a pulsing outline element drawn over the button
-  (`pointer-events: none`), which is renderer-independent DOM.
+  (`pointer-events: none`), which is renderer-independent DOM. The selectors
+  cover the legacy top strip, the mobile nav and the new desktop HUD's
+  `[data-hud-v2-open]` buttons. Under the new HUD, its Manifest screen counts
+  as opening Manifests and the Activity step names the Chronicle. The card
+  shares the checklist bubble's `.onb-root` class, so the new HUD's rules lift
+  it above the bottom-left minimap and hide it behind full-screen views.
 - **Off-screen targets** get no edge arrow. "Show me" pans the camera to them
   instead.
 

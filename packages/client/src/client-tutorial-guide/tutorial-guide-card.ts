@@ -65,6 +65,11 @@ export const renderGuideCard = (view: StepView, expanded: boolean, handlers: Gui
   if (!root) {
     root = document.createElement("div");
     root.id = ROOT_ID;
+    // Shares the checklist bubble's class so HUD v2's rules for that corner
+    // apply to it too: lifted above the bottom-left minimap
+    // (client-hud-v2.css) and hidden behind full-screen v2 views
+    // (client-hud-v2-screens.css). The id-scoped rules below still win otherwise.
+    root.className = "onb-root";
     document.body.appendChild(root);
     root.addEventListener("click", (ev) => {
       const action = (ev.target as Element | null)?.closest("[data-guide-action]")?.getAttribute("data-guide-action");
