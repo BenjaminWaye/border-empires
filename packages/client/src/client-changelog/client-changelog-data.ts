@@ -463,6 +463,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The last step now says plainly that manpower refills every 4 hours"
     ]
   },
+  {
+    createdAt: 1793744266797, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.03",
+    title: "Fixed: your reach border could stop updating after a server update",
+    why: "If your game stayed open while the server restarted, your client could ignore the new reach borders the server sent, so new Relay Beacons, towns and docks didn't move the border, often until you reloaded the page.",
+    changes: [
+      "Your reach border now updates again right after a reconnect, without reloading the page"
+    ]
+  },
   ...NOVEMBER_CHANGELOG
 ];
 

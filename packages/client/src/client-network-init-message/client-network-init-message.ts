@@ -33,6 +33,7 @@ import { applyInitPendingAction } from "./apply-init-pending-action.js";
 import { applyInitSocialState } from "./apply-init-social-state.js";
 import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { applySeasonChangeOnInit } from "../client-season-rollover/client-season-rollover.js";
+import { resetServerReachForNewConnection } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
 import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 
@@ -133,6 +134,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.tiles.size > 0 &&
     state.discoveredTiles.size > 0;
   const seasonRolledOverInSession = applySeasonChangeOnInit(state, incomingSeason?.seasonId);
+  resetServerReachForNewConnection(state, !seasonRolledOverInSession && incomingPlayerId.length > 0 && state.me === incomingPlayerId); // before state.me is overwritten below
   // Set here, before the initial tile snapshot is applied below -- its muster-unlock pass needs the CURRENT season id, not the previous session's.
   state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
   state.fogDisabled = Boolean(incomingConfig.fogDisabled);
