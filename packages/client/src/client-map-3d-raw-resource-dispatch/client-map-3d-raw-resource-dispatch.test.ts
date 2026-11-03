@@ -25,7 +25,7 @@ const tileWith = (resource: ResourceType, type?: NonNullable<Tile["economicStruc
 
 const dispatch = (resource: ResourceType, tile: Tile | undefined): string[] => {
   const { overlays, drawn } = recordingOverlays();
-  addRawResourceInstance(overlays, resource, tile, { sceneX: 0, sceneZ: 0, surfaceY: 0, worldTileX: 4, worldTileY: 4 }, () => undefined);
+  addRawResourceInstance(overlays, resource, tile, { sceneX: 0, sceneZ: 0, surfaceY: 0, flatOverlayY: 0, worldTileX: 4, worldTileY: 4 }, () => undefined);
   return drawn;
 };
 
@@ -45,7 +45,9 @@ describe("addRawResourceInstance", () => {
     ["TITANIUM", "MINE"],
     ["GEMS", "MINE"],
     ["UMBRITE", "UMBRITE_RIG"],
-    ["FARM", "HYDROGARDEN"]
+    ["FARM", "HYDROGARDEN"],
+    ["FARM", "HYDROWORKS"],
+    ["FARM", "MINISTRY_HALL"]
   ] as const)("draws nothing raw for %s under a %s", (resource, building) => {
     expect(dispatch(resource, tileWith(resource, building))).toEqual([]);
   });

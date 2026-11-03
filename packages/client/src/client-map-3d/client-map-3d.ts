@@ -1,5 +1,5 @@
 import { hideLineMarkerPool } from "./line-marker-pool.js";
-import { relicRemainingUses } from "@border-empires/shared";
+import { isSeaTerrain, relicRemainingUses } from "@border-empires/shared";
 import { createRelicHintOverlay } from "../client-relic-overlay/relic-hints-3d.js";
 import { createCornerSurfaceSampler } from "../client-map-3d-heightfield/client-map-3d-surface-average.js";
 import { createDeferredBuildingOverlay } from "../client-town-district/deferred-building-overlay.js";
@@ -625,7 +625,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     };
     const roadNetworkStartAt = performance.now(); // moved up (was after the heightfield rebuild): hillTerrain.rebuild needs roadDirsAt
     // roadDirsAt: where roads are drawn; hillCutAt: roads + AFC levelled pads, for everything tracing a hill dome
-    const { roadDirsAt, hillCutAt } = buildTerrainCutLookups({ tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, afcJoinDrop: deps.state.afcJoinDrop });
+    const { roadDirsAt, hillCutAt } = buildTerrainCutLookups({ tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, afcJoinDrop: deps.state.afcJoinDrop, isHillsAt: isHillsTile, isWaterAt: (x, y) => isSeaTerrain(terrainForWorldTile(deps.wrapX(x), deps.wrapY(y))) });
     latestHillCutAt = hillCutAt;
     const ownershipTileDeps: OwnershipTilePlacementDeps = {
       overlay: ownershipOverlay, cornerYAt: (x, y) => heightfield.cornerYAt(x, y), isHillsTile, hillCutAt, frontierDecayPulse, barbarianFrontierTint,
@@ -880,7 +880,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           ? resolvedMapResource3D(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, landBiomeAt(wx, wy), forestTile)
           : undefined;
         if (tileResource) {
-          addRawResourceInstance(rawResourceOverlays, tileResource, tile, { sceneX: x, sceneZ: z, surfaceY, worldTileX: wx, worldTileY: wy }, () => fishingWaterDirection((nx, ny) => { const nt = terrainForWorldTile(deps.wrapX(nx), deps.wrapY(ny)); return nt === "SEA" || nt === "COASTAL_SEA"; }, wx, wy));
+          addRawResourceInstance(rawResourceOverlays, tileResource, tile, { sceneX: x, sceneZ: z, surfaceY, flatOverlayY, worldTileX: wx, worldTileY: wy }, () => fishingWaterDirection((nx, ny) => isSeaTerrain(terrainForWorldTile(deps.wrapX(nx), deps.wrapY(ny))), wx, wy));
           contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
         }
         const incomingAttack = deps.state.incomingAttacksByTile.get(deps.keyFor(wx, wy));

@@ -1,7 +1,7 @@
 import type { ResourceType } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import type { ResourceKind } from "../client-map-3d-resource-overlay.js";
-import { structureReplacesFarmlandPlot } from "../client-map-3d-farmland/client-map-3d-farmland.js";
+import { buildingReplacesFarmlandPlot } from "../client-map-3d-farmland/client-map-3d-farmland.js";
 import type { WaterDirection } from "../client-food-tile-placement.js";
 import { shouldRenderRawResource } from "../client-resource-networks/network-resource-3d.js";
 
@@ -25,6 +25,9 @@ export type RawResourcePlacement = {
   readonly sceneX: number;
   readonly sceneZ: number;
   readonly surfaceY: number;
+  // Follows the hill dome (and its fishing-site pad cut) instead of the
+  // hill's prop height; see client-map-3d-tile-surface-y.ts.
+  readonly flatOverlayY: number;
   readonly worldTileX: number;
   readonly worldTileY: number;
 };
@@ -43,11 +46,13 @@ export const addRawResourceInstance = (
 ): void => {
   const { sceneX, sceneZ, surfaceY, worldTileX, worldTileY } = at;
   if (resource === "FARM") {
-    if (!structureReplacesFarmlandPlot(tile?.economicStructure?.type)) overlays.farmland.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY);
+    if (!buildingReplacesFarmlandPlot(tile)) overlays.farmland.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY);
     return;
   }
   if (resource === "FISH") {
-    overlays.fishing.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY, fishingWater());
+    // The fishing pad levels a hill under the site, so seat it on the levelled
+    // ground rather than the hill's prop height (which left a tall apron box).
+    overlays.fishing.addInstance(sceneX, sceneZ, at.flatOverlayY, worldTileX, worldTileY, fishingWater());
     return;
   }
   if (!shouldRenderRawResource(resource, tile)) return;
