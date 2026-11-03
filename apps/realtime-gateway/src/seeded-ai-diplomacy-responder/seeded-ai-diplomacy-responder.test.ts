@@ -362,7 +362,7 @@ describe("createSeededAiDiplomacyResponder alliance offers", () => {
     expect(rejectAlliance).toHaveBeenCalledOnce();
     expect(requestAlliance).toHaveBeenCalledWith(AI_ID, "Human", {
       targetPlayerId: HUMAN_ID,
-      terms: { give: { gold: 0, shard: 0 }, ask: { gold: 46 + 24 * 60, shard: 0 } }
+      terms: { give: { gold: 0 }, ask: { gold: 46 + 24 * 60 } }
     });
   });
 
