@@ -47,6 +47,7 @@ import type {
   AutomationPreplanProgressState,
   AutomationSessionPrefix
 } from "./automation-command-planner-types.js";
+import { economicBuildDiagnostics } from "./build/economic-synergy-diagnostics.js";
 
 export {
   AUTOMATION_NOOP_REASONS,
@@ -380,12 +381,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       (Boolean(economicBuild) && !buildScanUsedFocusFallback) ||
       (Boolean(fortBuild) && !buildScanUsedFocusFallback) ||
       (Boolean(siegeBatteryBuild) && !buildScanUsedFocusFallback),
-    // Debug-only: what chooseBestEconomicBuild actually picked, so a
-    // repeatedly-rejected BUILD_ECONOMIC_STRUCTURE can be traced to a
-    // specific tile/type via /admin/debug/ai/decisions instead of guessing.
-    ...(economicBuild
-      ? { economicBuildCandidate: `${economicBuild.tile.x},${economicBuild.tile.y}:${economicBuild.structureType}` }
-      : {}),
+    // Debug-only: the economic pick, its score and the synergy state behind it.
+    ...economicBuildDiagnostics(economicBuild, input.townEconomy),
     // Debug-only: what chooseBestRelayBeaconBuild actually picked, so
     // BUILD_BEACON's state can be traced via /admin/debug/ai/decisions
     // instead of inferring it (wrongly) from unrelated fields like

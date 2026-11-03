@@ -13,6 +13,7 @@ import {
   MAIN_THREAD_TASK_PHASES,
   type SimulationMetricsSnapshot
 } from "./metrics-types.js";
+import { renderAiSynergyPrometheusLines } from "./metrics-ai-synergy-prometheus.js";
 
 export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   const afcLines = Object.entries(sample.simAfcState ?? {}).map(([key, value]) => {
@@ -332,6 +333,7 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   for (const [playerId, value] of Object.entries(sample.simAiPlayerMusterFlagCapacityGauge)) {
     lines.push(`sim_ai_player_muster_flag_capacity{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
   }
+  lines.push(...renderAiSynergyPrometheusLines(sample.simAiPlayerSynergyGauge));
 
   lines.push(...renderStrandedFrontierPrometheusLines());
   lines.push(...renderEncirclementPrometheusLines());

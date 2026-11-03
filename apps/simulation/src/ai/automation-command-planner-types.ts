@@ -21,6 +21,7 @@ import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-coun
 import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
 import type { ReachLookup } from "./frontier-command-planner.js";
 import type { TownEconomyEntry } from "./build/town-economy-view.js";
+import type { EconomicSynergySummary } from "./build/economic-synergy-diagnostics.js";
 
 // Consecutive planner ticks an AI may spend with its narrow/hot-frontier
 // scan alone actionable (broadFallbackSkipped: true — see
@@ -274,6 +275,10 @@ export type AutomationPlannerDiagnostic = {
   expansionObjectiveKind?: "neutral_value" | "enemy" | "none";
   /** Debug-only: "x,y:STRUCTURE_TYPE" of chooseBestEconomicBuild's pick, if any. */
   economicBuildCandidate?: string;
+  /** Score of economicBuildCandidate (chooseBestEconomicBuild). */
+  economicBuildScore?: number;
+  /** Empire stacking/amplifier counts — build/economic-synergy-diagnostics.ts. */
+  economicSynergy?: EconomicSynergySummary;
   /** Debug-only: "x,y" (+ ":needsSettle") of chooseBestRelayBeaconBuild's pick, if any. */
   relayBeaconBuildCandidate?: string;
   /** Debug-only: that pick's raw newCoverage.score — see decisions.ts's
