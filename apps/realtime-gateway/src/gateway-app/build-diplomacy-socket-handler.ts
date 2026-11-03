@@ -6,11 +6,11 @@ import { createProactiveAiDiplomacy } from "../proactive-ai-diplomacy/proactive-
 // 500-line file-size gate and may not grow further -- see AGENTS.md's
 // file-and-type-discipline rule).
 import { netValueToAi, type ClientMessage } from "@border-empires/shared";
-import type { CommandEnvelope, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import type { CommandEnvelope, CurrentSeasonSummary, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { WebSocket } from "ws";
 
 import { combatFromSimulationEvent, createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
-import type { LeaderboardTiles } from "../ai-diplomacy-stance/ai-alliance-bloc.js";
+import type { SeasonSizes } from "../ai-diplomacy-stance/ai-alliance-bloc.js";
 import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-review.js";
 import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
@@ -50,7 +50,8 @@ export type DiplomacySocketHandlerDeps = {
   submitSimulationCommand: (command: CommandEnvelope) => Promise<unknown>;
   isSimulationConnected: () => boolean;
   /** Every competitive player's tile count, from the simulation's cached season summary. */
-  fetchSeasonLeaderboard: () => Promise<LeaderboardTiles>;
+  /** The simulation's season summary: leaderboard sizes and the world's land count, for the AI alliance-bloc check. */
+  fetchSeasonSummary: () => Promise<Pick<CurrentSeasonSummary, "overall" | "landTileCount">>;
 };
 
 export type DiplomacySocketHandler = {
@@ -131,16 +132,21 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const alliesOf = (playerId: string): readonly string[] => socialState.snapshotForPlayer(playerId).allies;
   // AI snapshots come from a live subscribe without world status, so the bloc
   // check's sizes come from the season leaderboard (cached, bounded wait).
-  const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: deps.fetchSeasonLeaderboard, now: () => Date.now() });
+  const fetchSeasonSizes = async (): Promise<SeasonSizes> => {
+    const summary = await deps.fetchSeasonSummary();
+    return { tiles: summary.overall, ...(summary.landTileCount !== undefined ? { landTileCount: summary.landTileCount } : {}) };
+  };
+  const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: fetchSeasonSizes, now: () => Date.now() });
   const diplomacyContext = async (requesterId: string, aiPlayerId: string): Promise<AiDiplomacyContext> => {
-    const leaderboard = await seasonLeaderboard();
+    const sizes = await seasonLeaderboard();
     const now = Date.now();
     return {
       ...aiDiplomacyGrudges(socialState.snapshotForPlayer(requesterId), requesterId, aiPlayerId, now),
       memory: memory.view(aiPlayerId, requesterId),
       now,
       alliesOf,
-      ...(leaderboard ? { seasonLeaderboard: leaderboard } : {})
+      ...(sizes ? { seasonLeaderboard: sizes.tiles } : {}),
+      ...(sizes?.landTileCount !== undefined ? { landTileCount: sizes.landTileCount } : {})
     };
   };
   const reviewAiAlliances = createAiAllianceReview({
@@ -148,7 +154,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     hasLiveSocket: deps.hasLiveSocket,
     alliesOf,
     pendingBreaksOf: (playerId) => socialState.snapshotForPlayer(playerId).activeAllianceBreaks.map((notice) => notice.otherPlayerId),
-    fetchLeaderboard: deps.fetchSeasonLeaderboard,
+    fetchLeaderboard: fetchSeasonSizes,
     playerName: socialState.playerNameOf,
     breakAlliance: socialState.breakAlliance,
     fanoutPlayerPayloads: deps.fanoutPlayerPayloads,

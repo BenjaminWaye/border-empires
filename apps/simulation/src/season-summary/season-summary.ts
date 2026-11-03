@@ -73,6 +73,7 @@ export const buildCurrentSeasonSummary = ({
       ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
     });
   const townCount = runtimeState.tiles.filter((tile) => typeof tile.townJson === "string" || typeof tile.townType === "string").length;
+  const landTileCount = runtimeState.tiles.filter((tile) => tile.terrain === "LAND").length;
   const totalPlayers = worldStatus.leaderboard.overall.length;
   const seasonStats = buildSeasonStats(seasonState, runtimeState, manpowerLossByTileKey);
 
@@ -100,6 +101,7 @@ export const buildCurrentSeasonSummary = ({
     onlinePlayers,
     totalPlayers,
     townCount,
+    landTileCount,
     updatedAt,
     ...(seasonState.defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId: seasonState.defenseCampaignTargetSeasonId } : {})
   };

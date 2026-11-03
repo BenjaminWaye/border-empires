@@ -37,6 +37,8 @@ export type AiDiplomacyContext = AiDiplomacyGrudges & {
    * snapshot carries none (a live subscribe without world status, the usual case).
    */
   seasonLeaderboard?: LeaderboardTiles;
+  /** The world's land tile count: blocs well short of Dominance don't need the AI to lead. undefined: always strict. */
+  landTileCount?: number;
 };
 
 /** Builds the context for one (requester, AI) pair; async when it has to fetch the season leaderboard. */
@@ -73,11 +75,12 @@ const aiLeads = (input: {
   aiSnapshot: AiDiplomacySnapshot | undefined;
   alliesOf: AllyLookup;
   seasonLeaderboard?: LeaderboardTiles;
+  landTileCount?: number;
 }): boolean | undefined => {
   const tilesOf =
     tileLookupFromSnapshot(input.aiSnapshot, input.aiPlayerId) ??
     (input.seasonLeaderboard ? tileLookupFor(input.seasonLeaderboard, input.aiPlayerId) : undefined);
-  return tilesOf ? aiWouldLeadAlliance(input.aiPlayerId, input.requesterId, input.alliesOf, tilesOf) : undefined;
+  return tilesOf ? aiWouldLeadAlliance(input.aiPlayerId, input.requesterId, input.alliesOf, tilesOf, input.landTileCount) : undefined;
 };
 
 const giftToPleasedField = (coin: number | undefined): { giftToPleased?: number } => (coin === undefined ? {} : { giftToPleased: coin });

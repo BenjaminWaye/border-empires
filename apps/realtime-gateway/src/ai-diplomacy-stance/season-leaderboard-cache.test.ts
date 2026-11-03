@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createSeasonLeaderboardCache } from "./season-leaderboard-cache.js";
 
-const board = (tiles: number) => [{ id: "ai-1", tiles }];
+const board = (tiles: number) => ({ tiles: [{ id: "ai-1", tiles }], landTileCount: 1_000 });
 
 describe("createSeasonLeaderboardCache", () => {
   afterEach(() => vi.useRealTimers());

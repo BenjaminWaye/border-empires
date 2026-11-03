@@ -146,6 +146,8 @@ export type CurrentSeasonSummary = {
   onlinePlayers: number;
   totalPlayers: number;
   townCount: number;
+  /** LAND tiles in the world (the Diplomatic Dominance denominator); absent from summaries saved before it existed. */
+  landTileCount?: number;
   updatedAt: number;
   seasonStats?: SeasonStats;
   // Live in-memory score-history samples for the current season (see

@@ -31,6 +31,24 @@ describe("alliance blocs", () => {
     expect([tilesOf?.("ai"), tilesOf?.("human"), tilesOf?.("inactive")]).toEqual([100, 40, 0]);
   });
 
+  // Regression: an AI only ever allied as the larger partner, so growing players could never ally with one.
+  it("joins as the junior partner while the merged bloc is far from Dominance size", () => {
+    const tilesOf = sizes({ ai: 100, human: 300 });
+    expect(aiWouldLeadAlliance("ai", "human", graph([]), tilesOf)).toBe(false); // land count unknown: strict
+    expect(aiWouldLeadAlliance("ai", "human", graph([]), tilesOf, 1_001)).toBe(true); // 400 < 40% of 1001
+    expect(aiWouldLeadAlliance("ai", "human", graph([]), tilesOf, 1_000)).toBe(false); // 400 = 40%
+    // The requester's existing allies count toward the merged bloc.
+    expect(aiWouldLeadAlliance("ai", "human", graph([["human", "friend"]]), sizes({ ai: 100, human: 300, friend: 200 }), 1_400)).toBe(false);
+  });
+
+  it("only leaves a bloc it doesn't lead once that bloc nears Dominance size", () => {
+    const alliesOf = graph([["ai", "human"]]);
+    const tilesOf = sizes({ ai: 100, human: 300 });
+    expect(alliancesAiShouldLeave("ai", alliesOf, tilesOf, 1_000)).toEqual([]); // 40%: joined fine, no flip-flop
+    expect(alliancesAiShouldLeave("ai", alliesOf, tilesOf, 888)).toEqual(["human"]); // just over 45%
+    expect(alliancesAiShouldLeave("ai", alliesOf, tilesOf)).toEqual(["human"]);
+  });
+
   it("leaves only the allies through whom a larger empire is reached", () => {
     const alliesOf = graph([["ai", "small"], ["ai", "grown"], ["ai", "bridge"], ["bridge", "giant"]]);
     expect(alliancesAiShouldLeave("ai", alliesOf, sizes({ ai: 100, small: 40, grown: 100, bridge: 30, giant: 150 })).sort()).toEqual(["bridge", "grown"]);
@@ -40,10 +58,16 @@ describe("alliance blocs", () => {
 describe("createAiAllianceReview", () => {
   const leaderboard = (tiles: Record<string, number>) => Object.entries(tiles).map(([id, count]) => ({ id, tiles: count }));
 
-  const setup = (tiles: Record<string, number>, pending: string[] = [], ais = ["ai-1"], edges: Array<[string, string]> = [["ai-1", "human"]]) => {
+  const setup = (
+    tiles: Record<string, number>,
+    pending: string[] = [],
+    ais = ["ai-1"],
+    edges: Array<[string, string]> = [["ai-1", "human"]],
+    landTileCount?: number
+  ) => {
     const clock = { now: 0 };
     const breakAlliance = vi.fn().mockReturnValue({ ok: true, payloadsByPlayerId: new Map() });
-    const fetchLeaderboard = vi.fn(async () => leaderboard(tiles));
+    const fetchLeaderboard = vi.fn(async () => ({ tiles: leaderboard(tiles), ...(landTileCount !== undefined ? { landTileCount } : {}) }));
     const review = createAiAllianceReview({
       seededAiPlayerIds: new Set(ais),
       hasLiveSocket: () => false,
@@ -80,9 +104,18 @@ describe("createAiAllianceReview", () => {
     const { review, breakAlliance } = setup({ "ai-1": 100, human: 120 });
     await review();
     expect(breakAlliance).toHaveBeenCalledWith("ai-1", "human", {
-      human: "Milo started a 24h notice to leave your alliance: it is no longer the alliance's largest empire, and won't help a larger partner win Diplomatic Dominance.",
+      human: "Milo started a 24h notice to leave your alliance: the alliance is nearing Diplomatic Dominance and it is no longer the largest empire in it, so it won't help a larger partner win.",
       "ai-1": "You started a 24h notice to leave your alliance with Beejac."
     });
+  });
+
+  it("stays in a bloc it doesn't lead while that bloc is far from Dominance size", async () => {
+    const small = setup({ "ai-1": 100, human: 120 }, [], ["ai-1"], [["ai-1", "human"]], 10_000);
+    await small.review();
+    expect(small.breakAlliance).not.toHaveBeenCalled();
+    const large = setup({ "ai-1": 100, human: 120 }, [], ["ai-1"], [["ai-1", "human"]], 400);
+    await large.review();
+    expect(large.breakAlliance).toHaveBeenCalledTimes(1);
   });
 
   it("stays while it leads, skips allies already given notice, and runs at most every few minutes", async () => {

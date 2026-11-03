@@ -11,8 +11,9 @@
 // also overrides fury: an AI that hates you still wants a war it is losing
 // over -- unless you broke a truce with it, which it never deals past.
 // Alliances need an AI that is at least Pleased, hasn't fought the player for
-// a day, and would be the largest member of the resulting bloc (Diplomatic
-// Dominance victory goes to the bloc's largest member); the AI never pays to
+// a day, and -- when the resulting bloc would hold 40%+ of the world's land --
+// would be its largest member (Diplomatic Dominance victory goes to the bloc's
+// largest member); the AI never pays to
 // join one. An AI below Pleased that payments could still win over (the
 // goodwill cap allows it) asks tribute instead of refusing: the coin that
 // lifts it to Pleased -- deal payments count as goodwill once accepted --
@@ -122,7 +123,7 @@ export const aiDiplomacyPricing = (input: {
   else if (foughtRecently) allianceRefusal = `${aiName} won't ally with an empire it fought within the last day.`;
   else if (belowPleased && tribute === undefined) allianceRefusal = `${aiName} doesn't think well enough of you for an alliance.`;
   else if (input.aiWouldLeadAlliance === undefined) allianceRefusal = `${aiName} can't weigh up an alliance right now. Try again shortly.`;
-  else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance it wouldn't lead: your alliance is too large.`;
+  else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't help a larger empire toward Diplomatic Dominance: together you'd hold too much land for it to join without leading.`;
   const allianceHours = allianceRefusal ? undefined : tribute !== undefined ? ALLIANCE_HOURS.PLEASED : ALLIANCE_HOURS[opinion.attitude];
   const alliance = allianceHours === undefined ? null : hoursToCoin(allianceHours, priceIncome) + (tribute ?? 0);
 

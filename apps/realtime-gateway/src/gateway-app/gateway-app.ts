@@ -981,7 +981,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     onDiplomacyInteraction: (playerId, targetPlayerId, kind) => playerFunnel.onDiplomacyInteraction(playerId, targetPlayerId, kind),
     submitSimulationCommand: (command) => withTimeout(simulationClient.submitCommand(command), simulationSubmitTimeoutMs, "gateway diplomacy settlement"),
     isSimulationConnected: () => simulationHealth.connected,
-    fetchSeasonLeaderboard: async () => (await simulationClient.getCurrentSeasonSummary()).overall
+    fetchSeasonSummary: () => simulationClient.getCurrentSeasonSummary()
   });
   const refreshPlayerFogSnapshot = async (
     playerId: string,
