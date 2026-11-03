@@ -1054,7 +1054,7 @@ export class SimulationRuntime {
       locksByTile: this.state.locksByTile,
       townLastGrowthTickAtByKey: this.townLastGrowthTickAtByKey,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
+      writeTile: (tileKey, tile) => { this.state.tiles.set(tileKey, tile); this.snapshotTileCache.set(tileKey, mapTile(tile)); this.tileDeltaStringifyCache.invalidate(tileKey); },
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       invalidateEconomyCachesForPlayer: (playerId) => this.economyCaches.invalidateEconomySnapshot(playerId),
