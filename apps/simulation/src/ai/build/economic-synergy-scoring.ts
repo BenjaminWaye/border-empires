@@ -148,3 +148,17 @@ export const synergyCandidatesForTown = (town: TownEconomyEntry, ctx: SynergyCon
   ...coinCandidates(town, ctx),
   ...(ctx.needVector ? manpowerCandidates(town, ctx.needVector) : [])
 ].filter((candidate) => candidate.score > 0);
+
+/**
+ * Phase 5: towns that would earn more from one more connected town — they
+ * have a Trade Nexus in reach (the next connection adds the next bonus step)
+ * or enough Manufactories that a Trade Nexus would pay once they connect —
+ * and are still below the 3-town bonus cap. Feeds the EXPAND scorer's
+ * town-link bonus (ai-settlement-priority.ts). O(towns).
+ */
+export const linkValueTownKeys = (view: readonly TownEconomyEntry[]): ReadonlySet<string> =>
+  new Set(
+    view
+      .filter((town) => town.connectedTownCount < 3 && (town.tradeNexusInReach || town.manufactories >= AMPLIFIER_MIN_TARGETS))
+      .map((town) => town.townKey)
+  );

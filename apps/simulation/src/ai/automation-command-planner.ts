@@ -48,6 +48,7 @@ import type {
   AutomationSessionPrefix
 } from "./automation-command-planner-types.js";
 import { economicBuildDiagnostics } from "./build/economic-synergy-diagnostics.js";
+import { linkValueTownKeys } from "./build/economic-synergy-scoring.js";
 
 export {
   AUTOMATION_NOOP_REASONS,
@@ -185,6 +186,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const needsFood = foodCoverageLow(input.strategicResources, townCount, input.slotSupplyByResource && input.slotDemandByResource ? { supply: input.slotSupplyByResource.FOOD ?? 0, demand: input.slotDemandByResource.FOOD ?? 0 } : undefined);
   const needsEconomy = economyWeak(input.manpower, settledTileCount);
   const frontierStartedAt = Date.now();
+  const linkValueTowns = input.townEconomy ? linkValueTownKeys(input.townEconomy) : undefined;
   let frontierOrigins = narrowFrontierOrigins;
   let frontierAnalysis =
     canAttack || canExpand
@@ -197,6 +199,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
           ...(input.nonHostilePlayerIds ? { nonHostilePlayerIds: input.nonHostilePlayerIds } : {}),
+          ...(linkValueTowns ? { linkValueTownKeys: linkValueTowns } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -234,6 +237,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
           ...(input.nonHostilePlayerIds ? { nonHostilePlayerIds: input.nonHostilePlayerIds } : {}),
+          ...(linkValueTowns ? { linkValueTownKeys: linkValueTowns } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
