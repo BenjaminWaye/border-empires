@@ -1,4 +1,4 @@
-import { isNetworkResource, RESOURCE_NETWORKS } from "@border-empires/shared";
+import { isNetworkResource, RESOURCE_NETWORKS, structureStacksPerTown } from "@border-empires/shared";
 import { hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
@@ -337,7 +337,10 @@ export const chooseBestEconomicBuild = (
       // economicStructureForSupportedTown; without this same check here the
       // AI kept proposing a structure type the town already had, on repeat,
       // every rejection-cooldown cycle, forever (see town-support-lookup.ts).
-      if (existingSupportStructureTypes?.has(candidate.type)) {
+      // Stacking types (Manufactory, Ancillary Depot, Aether Condenser) are
+      // exempt, exactly as in the runtime: skipping them capped the AI at one
+      // copy per town (docs/ai-economic-synergy-plan.md).
+      if (!structureStacksPerTown(candidate.type) && existingSupportStructureTypes?.has(candidate.type)) {
         continue;
       }
       const next = { tile, structureType: candidate.type, score: candidate.score };

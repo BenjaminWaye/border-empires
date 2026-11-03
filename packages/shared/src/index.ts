@@ -31,6 +31,7 @@ export * from "./math/math.js";
 export * from "./exposure/exposure.js";
 export * from "./dock-landing/dock-landing.js";
 export * from "./structure-costs/structure-costs.js";
+export * from "./structure-stacking/structure-stacking.js";
 export * from "./structure-slots/structure-slots.js";
 export * from "./resource-slot-sources/resource-slot-sources.js";
 export * from "./siphon-mode/siphon-mode.js";

@@ -1,6 +1,6 @@
 # AI Economic Synergy Plan
 
-Status: proposed (2026-11-02). Nothing here is implemented yet.
+Status: in progress. Phase 1 (stacking fix) delivered 2026-11-03; Phases 0 and 2–5 not started.
 
 Companion docs: [`ai-structure-building-rewrite-plan.md`](ai-structure-building-rewrite-plan.md)
 (need vector and catalog this plan extends; §13.1 has the manpower-building
@@ -26,7 +26,7 @@ already in the town and network, instead of a flat score per type.
 
 | Building | Placement / limit (server) | Effect |
 | --- | --- | --- |
-| Manufactory | `same_tile`, **stacks per town** (`STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES`, `runtime-structure-town-support-target.ts`) | +10% town coin per copy, +35% per copy with a Clearing House in the town or connected network; +1 coin/day flat each (`manufactoryGoldProductionMultiplier`, `server-game-constants.ts`) |
+| Manufactory | `same_tile`, **stacks per town** (`STACKING_SAME_TILE_SUPPORT_STRUCTURE_TYPES`, `packages/shared/src/structure-stacking/`) | +10% town coin per copy, +35% per copy with a Clearing House in the town or connected network; +1 coin/day flat each (`manufactoryGoldProductionMultiplier`, `server-game-constants.ts`) |
 | Clearing House | `town_support`, one per town; one per network is enough | Lifts every Manufactory in the town and connected towns from +10% to +35% (`player-update-economy.ts` `clearingHouseActive`) |
 | Trade Nexus | `town_support`, one per town; one per network is enough | Gates the connected-town bonus: +50% / +40% / +30% for the 1st–3rd connected town, multiplicative with Manufactory (`economy-network.ts` `networkHasTradeNexus`) |
 | Ancillary Depot | `same_tile`, **stacks per town** | Each copy: +150 cap + 10% of the town's terrain-adjusted base cap, or +35% with a Reserve Lattice in the network (`ancillaryFactoryCapacityBonus`, `town-terrain-profile.ts`) |
@@ -73,10 +73,11 @@ All in `apps/simulation/src/ai/structure-command-planner.ts`
 
 ### 1. One shared stacking rule
 
-Move `STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES` and
-`STACKING_TOWN_SUPPORT_STRUCTURE_TYPES` from
-`runtime-structure-town-support-target.ts` into `packages/shared` (a small
-`structure-stacking.ts` exporting `structureStacksPerTown(type)`), and add
+**Delivered (Phase 1):** `STACKING_SAME_TILE_SUPPORT_STRUCTURE_TYPES` (renamed
+from `STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES`) and
+`STACKING_TOWN_SUPPORT_STRUCTURE_TYPES` now live in
+`packages/shared/src/structure-stacking/structure-stacking.ts`, with
+`structureStacksPerTown(type)`. Still to add (Phase 3/4):
 `structureIsNetworkSingleton(type)` for Neural Works / Reserve Lattice (runtime
 enforced) plus "one is enough" types Trade Nexus / Clearing House (AI-only
 avoidance). Runtime and AI both import it, so they can never disagree again.
@@ -186,9 +187,12 @@ with a Clearing House, mean Manufactories per AI town.
    and `/admin/players` for every AI: structure counts per town and
    `incomePerMinute`. (Needs `api.borderempires.com` allowed in the agent
    environment's network settings.) Record the numbers in this doc.
-1. **Stacking fix** (small, ships alone). Shared stacking module; replace the
-   singleton skip with `!structureStacksPerTown(type) && existing.has(type)`.
+1. **Stacking fix** — *delivered.* Shared stacking module; the singleton skip in
+   `chooseBestEconomicBuild` is now `!structureStacksPerTown(type) && existing.has(type)`.
    Fixes Manufactory, Ancillary Depot and Aether Condenser stacking at once.
+   Regression tests: `apps/simulation/src/ai/structure-command-planner-stacking.test.ts`.
+   Scoring is unchanged (Manufactory still a flat 54), so the AI now stacks
+   but still doesn't weigh the multipliers; that is Phases 3–4.
 2. **Town-economy view** + plumbing into the worker input, with a structural
    complexity test (built once per town, no per-tile network walk).
 3. **Coin engine scoring:** Manufactory, Clearing House, Trade Nexus.
