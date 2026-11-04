@@ -7,14 +7,14 @@ const keyFor = (x: number, y: number): string => `${x},${y}`;
 // Records which images were stamped and at what alpha; the pre-rendered tiles
 // themselves are fake canvases (vitest runs without a DOM).
 const fakeCtx = () => {
-  const stamps: Array<{ alpha: number; image: unknown }> = [];
+  const stamps: Array<{ alpha: number; image: unknown; bounds: number[] }> = [];
   const ctx = {
     globalAlpha: 1,
     fillStyle: "",
     save: () => undefined,
     restore: () => undefined,
     fillRect: () => undefined,
-    drawImage: (image: unknown) => void stamps.push({ alpha: ctx.globalAlpha, image })
+    drawImage: (image: unknown, ...bounds: number[]) => void stamps.push({ alpha: ctx.globalAlpha, image, bounds })
   };
   return { ctx: ctx as unknown as CanvasRenderingContext2D, stamps };
 };
@@ -47,6 +47,7 @@ describe("drawReachTileTreatments2D my tiles inside a rival's reach", () => {
     const stamps = draw({ x: 3, y: 3, terrain: "LAND", ownerId: "me", reachOwnerId: "rival" } as Tile);
     expect(stamps).toHaveLength(1);
     expect(stamps[0]!.alpha).toBe(0.6);
+    expect(stamps[0]!.bounds).toEqual([0, 0, 32, 32]);
   });
 
   it("draws nothing on my tile inside my own reach", () => {
