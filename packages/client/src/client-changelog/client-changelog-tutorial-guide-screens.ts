@@ -20,7 +20,8 @@ export const TUTORIAL_GUIDE_SCREENS_CHANGELOG: ClientChangelogEntry[] = [
     why: "The guide sent you to build a Manufactory without mentioning the AFC upgrade your Manifest unlocks, and the build failed when every food slot was already used.",
     changes: [
       "After you commission your first Manifest, the guide points you to the AFC and recommends the Founding Concession (your first three towns earn 50% more Coin and need 2 fewer food slots), marked with a \"Guide pick\" badge. The guide carries on while the upgrade is still docking",
-      "If you have no free food slot when it is time to build a Manufactory, the guide first walks you to the next food tile to garrison, then sends you to build"
+      "If you have no free food slot when it is time to build a Manufactory, the guide first walks you to the next food tile to garrison, then sends you to build",
+      "When the guide sends you to build a Manufactory, Build Manufactory is marked \"Recommended\" and listed first in the marked town's menu. If you commission a different Manifest instead, the guide skips the Manufactory steps",
     ]
   }
 ];

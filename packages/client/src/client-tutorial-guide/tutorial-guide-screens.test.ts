@@ -219,4 +219,24 @@ describe("discovery tips while the guide runs", () => {
     syncGuideAfcPick(undefined);
     expect(card?.querySelector(".tg-manifest-pick-badge")).toBeNull();
   });
+
+  it("recommends Build Manufactory in the tile menu of a marked town, only while the guide's build step is up", async () => {
+    const { setGuideManufactoryTargets, injectGuideManufactoryRecommendation } = await import("./tutorial-guide-manufactory-recommendation.js");
+    const menu = () => {
+      const buildings: Array<{ id: string; recommended?: boolean }> = [{ id: "build_manufactory", recommended: false }, { id: "build_market" }];
+      return { actions: [] as Array<{ id: string; recommended?: boolean }>, buildings, tabs: ["actions", "buildings"] };
+    };
+    setGuideManufactoryTargets([{ x: 4, y: 4 }]);
+    const marked = menu();
+    injectGuideManufactoryRecommendation(marked as never, { x: 4, y: 4 });
+    expect(marked.buildings[0]?.recommended).toBe(true);
+    expect(marked.actions.map((a) => a.id)).toEqual(["build_manufactory"]);
+    const other = menu();
+    injectGuideManufactoryRecommendation(other as never, { x: 9, y: 9 });
+    expect(other.buildings[0]?.recommended).toBe(false);
+    setGuideManufactoryTargets(undefined);
+    const cleared = menu();
+    injectGuideManufactoryRecommendation(cleared as never, { x: 4, y: 4 });
+    expect(cleared.buildings[0]?.recommended).toBe(false);
+  });
 });

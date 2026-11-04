@@ -164,12 +164,11 @@ describe("tutorial guide steps", () => {
     expect(evaluateGuide(baseInput({ checklist: footholdDone }), beforeManifest)).toEqual(
       expect.objectContaining({ title: "Commission the Industrial Tooling Module", anchor: "manifest" })
     );
-    // Another Manifest doesn't complete the recommended one (so Finish isn't offered while it is still a 10-Coin click away).
-    expect(evaluateGuide(baseInput({ checklist: footholdDone, manifestCount: 1 }), beforeManifest)).toEqual(
-      expect.objectContaining({ step: expect.objectContaining({ id: "manifest-commission" }), waiting: false })
-    );
+    // Any Manifest completes the step: choosing another one skips the Manufactory steps (see "choosing a different Manifest").
+    const other = evaluateGuide(baseInput({ checklist: footholdDone, manifestCount: 1 }), beforeManifest);
+    expect(other.kind === "step" && other.newlyCompleted).toContain("manifest-commission");
     const allButBuild = new Set(GUIDE_STEPS.filter((s) => s.id !== "build-first").map((s) => s.id));
-    expect(evaluateGuide(baseInput({ checklist: footholdDone, manifestCount: 1 }), allButBuild)).toEqual(
+    expect(evaluateGuide(baseInput({ checklist: footholdDone }), allButBuild)).toEqual(
       expect.objectContaining({ waiting: true, title: "Commission the Industrial Tooling Module to unlock the Manufactory." })
     );
     // Commissioned but still docking at the AFC: the tile menu has no Manufactory yet.
@@ -259,6 +258,16 @@ describe("tutorial guide steps", () => {
     if (view.kind !== "step") throw new Error("expected a step");
     expect(view.newlyCompleted).toContain("reach-beacon");
     expect(view.step.id).toBe("manifest-open");
+  });
+
+  describe("choosing a different Manifest", () => {
+    it("skips the food slot and Manufactory steps instead of waiting for a module that was never commissioned", () => {
+      const done = new Set([...ids("look"), ...ids("foothold"), ...ids("reach"), ...ids("manpower"), "manifest-open", "afc-upgrade"]);
+      const view = evaluateGuide(baseInput({ checklist: footholdDone, manifestCount: 1, manufactoryResearched: false, foodSlotFree: false }), done);
+      if (view.kind !== "step") throw new Error("expected a step");
+      expect(view.newlyCompleted).toEqual(expect.arrayContaining(["manifest-commission", "build-food-slot", "build-first"]));
+      expect(["build-food-slot", "build-first"]).not.toContain(view.step.id);
+    });
   });
 
   describe("AFC upgrade and food slot before the first Manufactory", () => {

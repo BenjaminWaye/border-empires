@@ -85,12 +85,6 @@ export type GuideStepDef = {
   title: (input: GuideInput) => string;
   why: string | ((input: GuideInput) => string);
   isDone: (input: GuideInput) => boolean;
-  /**
-   * Only counts as done while the step is available. For steps whose condition
-   * can hold early and stop holding later (a free food slot a Relay Beacon then
-   * uses up), so they are not ticked off before the player reaches them.
-   */
-  completeOnlyWhenAvailable?: boolean;
   /** Not yet possible (a prerequisite elsewhere in the game). Defaults to always available. */
   isAvailable?: (input: GuideInput) => boolean;
   /** Shown instead of the title while the step is not available yet. */
@@ -174,6 +168,9 @@ export const guideRecommendsManifest = (stepId: string): boolean => stepId === "
 /** True while the guide is on the AFC upgrade step: the AFC Upgrades panel marks RECOMMENDED_FIRST_AFC_UPGRADE_ID as the guide's pick. */
 export const guideRecommendsAfcUpgrade = (stepId: string): boolean => stepId === "afc-upgrade";
 
+/** The player commissioned a Manifest, but not the Industrial Tooling Module: the Manufactory steps no longer apply. */
+const otherManifestChosen = (i: GuideInput): boolean => i.manifestCount > 0 && !i.manufactoryResearched;
+
 export const GUIDE_STEPS: readonly GuideStepDef[] = [
   { id: "look-pan", chapter: "look", title: () => "Drag the map to look around", why: "Scout before you commit: towns, food and rivals are out there.", isDone: (i) => i.panned },
   { id: "look-zoom", chapter: "look", title: () => "Zoom in and out (scroll or pinch)", why: "Zoom out to plan, zoom in to act.", isDone: (i) => i.zoomed },
@@ -247,9 +244,9 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     chapter: "manifest",
     title: () => "Commission the Industrial Tooling Module",
     why: "It unlocks the Manufactory, which turns your town's industry into Coin.",
-    // Only the recommended Manifest (or already having built something) completes it: another
-    // Manifest doesn't unlock the Manufactory the next step asks for.
-    isDone: (i) => i.manufactoryResearched || i.ownsBuiltStructure,
+    // Any Manifest completes it. Choosing another than the recommended one skips the Manufactory
+    // steps (otherManifestChosen) rather than waiting for a module that was never commissioned.
+    isDone: (i) => i.manifestCount > 0 || i.ownsBuiltStructure,
     anchor: "manifest"
   },
   {
@@ -267,8 +264,9 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     chapter: "build",
     title: (i) => `A Manufactory needs a free food slot. ${FOOD_STEP[foodAction(i)].title}`,
     why: (i) => `All your food slots are in use. ${FOOD_STEP[foodAction(i)].why}`,
-    isDone: (i) => i.foodSlotFree || i.ownsBuiltStructure,
-    completeOnlyWhenAvailable: true,
+    // A free slot only counts once the Manufactory is reachable, so a spare slot a Relay Beacon
+    // later uses up isn't ticked off early. Skipped when the player chose another Manifest.
+    isDone: (i) => (i.manufactoryResearched && i.foodSlotFree) || i.ownsBuiltStructure || otherManifestChosen(i),
     isAvailable: (i) => i.manufactoryResearched,
     waitingNote: "Commission the Industrial Tooling Module to unlock the Manufactory.",
     highlight: targetHighlights("food"),
@@ -282,7 +280,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
         ? "Tap your marked town and build a Manufactory"
         : "Your Industrial Tooling Module is docking at your AFC: then build a Manufactory on your marked town",
     why: "A Manufactory goes on a garrisoned town or the tiles around it and adds Coin from the town's industry.",
-    isDone: (i) => i.ownsBuiltStructure,
+    isDone: (i) => i.ownsBuiltStructure || otherManifestChosen(i),
     isAvailable: (i) => i.manufactoryResearched,
     waitingNote: "Commission the Industrial Tooling Module to unlock the Manufactory.",
     highlight: (i) => i.buildTargetTiles
@@ -362,7 +360,6 @@ export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>)
     (s, index) =>
       !completed.has(s.id) &&
       !s.acknowledge &&
-      (!s.completeOnlyWhenAvailable || (s.isAvailable?.(input) ?? true)) &&
       (s.isDone(input) || (s.doneIfLaterStepDone === true && laterStepDone(index)))
   ).map((s) => s.id);
   const done = new Set([...completed, ...newlyCompleted]);
