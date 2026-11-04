@@ -70,7 +70,8 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     buildSelection: screen.townBuildSelection,
     category: screen.townCategory,
     focusQueuePosition: townQueuePosition(deps.state.developmentQueue, current.focusKey),
-    focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? [])
+    focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? []),
+    autoSettle: deps.state.autoSettle
   });
   writeHtml("v2t-left", regions.left);
   writeHtml("v2t-build", regions.build);
