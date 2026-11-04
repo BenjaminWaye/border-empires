@@ -70,7 +70,7 @@ export type StructurePlannerTile = {
   fort?: { ownerId?: string | undefined; status?: string | undefined } | null | undefined;
   observatory?: { ownerId?: string | undefined; status?: string | undefined } | null | undefined;
   siegeBattery?: { ownerId?: string | undefined; status?: string | undefined } | null | undefined;
-  economicStructure?: { ownerId?: string | undefined; type?: EconomicStructureType | undefined; status?: string | undefined } | null | undefined;
+  economicStructure?: { ownerId?: string | undefined; type?: EconomicStructureType | undefined; status?: string | undefined; inactiveReason?: string | undefined } | null | undefined;
 };
 
 export type TileLookup = ReadonlyMap<string, StructurePlannerTile>;
