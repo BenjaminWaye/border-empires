@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Scene } from "three";
 import { WORLD_WIDTH } from "@border-empires/shared";
-import { dockLandingFor, landingCarrierPose, landingMarinePose, SAIL_MS, RAMP_MS } from "./client-dock-landing.js";
+import { dockLandingFor, landingCarrierPose, landingMarinePose, SAIL_MS, RAMP_MS, sailMsForRoute } from "./client-dock-landing.js";
 import { createDockCarrierOverlay } from "./client-dock-carrier-3d.js";
 import { APPROACH_MS, type MarinePose } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
 import type { BattleOverlaySkirmishEntry } from "./client-battle-render-types.js";
@@ -30,25 +30,34 @@ describe("dock assault landing", () => {
   it("sails before opening the ramp, then holds exactly at the beach throughout combat", () => {
     const l = landing();
     expect(landingCarrierPose(l, START).x).toBe(-3);
-    expect(landingCarrierPose(l, START + SAIL_MS / 2).x).toBeLessThan(-0.72);
-    expect(landingCarrierPose(l, START + SAIL_MS).rampOpen).toBe(0);
-    expect(landingCarrierPose(l, START + SAIL_MS + RAMP_MS).rampOpen).toBe(1);
-    const beached = landingCarrierPose(l, START + APPROACH_MS);
+    expect(landingCarrierPose(l, START + l.sailMs / 2).x).toBeLessThan(-0.72);
+    expect(landingCarrierPose(l, START + l.sailMs).rampOpen).toBe(0);
+    expect(landingCarrierPose(l, START + l.sailMs + RAMP_MS).rampOpen).toBe(1);
+    const beached = landingCarrierPose(l, START + l.approachMs);
     expect(landingCarrierPose(l, START + 60_000)).toEqual(beached);
     expect(beached.x).toBeCloseTo(-0.72);
   });
   it("keeps infantry aboard until the ramp is down and staggers their exit into two files", () => {
     const l = landing();
-    expect(landingMarinePose(base, l, 0, START + SAIL_MS).scale).toBe(0);
-    const now = START + SAIL_MS + RAMP_MS + 50;
+    expect(landingMarinePose(base, l, 0, START + l.sailMs).scale).toBe(0);
+    const now = START + l.sailMs + RAMP_MS + 50;
     const left = landingMarinePose(base, l, 0, now);
     const right = landingMarinePose(base, l, 1, now);
     expect(left.scale).toBe(1); expect(left.stance).toBe("run"); expect(left.flash).toBe(0);
     expect(left.localX).toBeLessThan(-0.46);
     expect(left.localZ).not.toBe(right.localZ);
-    expect(landingMarinePose(base, l, 0, START + 2100).localZ).toBeCloseTo(-0.505);
+    expect(landingMarinePose(base, l, 0, START + l.sailMs + 800).localZ).toBeCloseTo(-0.505);
     expect(landingMarinePose(base, l, 6, now).scale).toBe(0);
-    expect(landingMarinePose(base, l, 0, START + APPROACH_MS)).toBe(base);
+    expect(landingMarinePose(base, l, 0, START + l.approachMs)).toBe(base);
+  });
+  it("sails longer over longer routes, within bounds, and delays the unloading to match", () => {
+    const route = (n: number) => Array.from({ length: n }, (_, i) => ({ x: i, z: 0 }));
+    expect(sailMsForRoute(route(1))).toBe(SAIL_MS);
+    expect(sailMsForRoute(route(30))).toBeGreaterThan(sailMsForRoute(route(10)));
+    expect(sailMsForRoute(route(10_000))).toBeLessThanOrEqual(8000);
+    const l = landing();
+    expect(l.sailMs).toBeGreaterThanOrEqual(SAIL_MS);
+    expect(l.approachMs).toBe(l.sailMs + RAMP_MS + (APPROACH_MS - 1300 - RAMP_MS));
   });
   it("keeps sea routes continuous across the world seam and reverses them for return attacks", () => {
     const wrapped = { dockPairs: [{ ax: WORLD_WIDTH - 2, ay: 1, bx: 1, by: 1,

@@ -58,6 +58,7 @@ import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
 import { STORM_EDGE_BANDING_CHANGELOG } from "./client-changelog-storm-edge-banding.js";
 import { NOVEMBER_CHANGELOG } from "./client-changelog-data-november.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
+import { DOCK_SAIL_PACING_CHANGELOG } from "./client-changelog-dock-sail-pacing.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
 import { RECONNECT_NO_AUTH_CHANGELOG } from "./client-changelog-reconnect-no-auth.js";
@@ -250,6 +251,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...INCURSION_HATCH_HILLS_CHANGELOG,
   ...STORM_EDGE_BANDING_CHANGELOG,
   ...MARCH_ACROSS_WATER_CHANGELOG,
+  ...DOCK_SAIL_PACING_CHANGELOG,
   ...MARCH_UNEXPLORED_CHANGELOG,
   ...MARCH_STOP_SHORT_CHANGELOG,
   ...RECONNECT_NO_AUTH_CHANGELOG,

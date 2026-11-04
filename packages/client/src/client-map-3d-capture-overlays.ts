@@ -159,7 +159,8 @@ export function collectBattleRenderEntries(
       siegeBoosted: !unopposed && battleIsSiegeBoosted(state, keyFor, attackerOwnerId, target.x, target.y),
       ...defenderGarrisonField(state, keyFor, key, defenderOwnerId, nowEpochMs),
       ...squadGearFields(state, attackerOwnerId, defenderOwnerId),
-      ...(unopposed ? { unopposed: true, holdApproachUntilElapsed: Infinity } : holdApproachUntilElapsed !== undefined ? { holdApproachUntilElapsed } : {})
+      // A long sea voyage holds the firefight back until the marines are ashore.
+      ...(unopposed ? { unopposed: true, holdApproachUntilElapsed: Infinity } : holdApproachUntilElapsed !== undefined || landing ? { holdApproachUntilElapsed: Math.max(holdApproachUntilElapsed ?? 0, landing?.approachMs ?? 0) } : {})
     });
   };
 
