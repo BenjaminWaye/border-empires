@@ -164,6 +164,7 @@ describe("tutorial guide in the onboarding corner", () => {
     refreshOnboardingChecklistHighlight(state);
     click("skip"); // zoom
     click("skip"); // select
+    click("skip"); // relay beacon
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(cardTitle()).toBe("Tap your manpower gauge");
     const outline = document.getElementById("tutorial-guide-anchor-outline");
@@ -189,6 +190,7 @@ describe("tutorial guide in the onboarding corner", () => {
     refreshOnboardingChecklistHighlight(state);
     click("skip"); // zoom
     click("skip"); // select
+    click("skip"); // relay beacon
     click("skip"); // manpower
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(cardTitle()).toBe("Open Manifests");

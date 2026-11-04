@@ -12,8 +12,11 @@ describe("scanGuideTiles", () => {
   it("does not count a Relay Beacon as the first building (it needs no Manifest), but counts any other structure", () => {
     const beaconOnly = map([{ x: 0, y: 0, ownerId: ME, ownershipState: "SETTLED", economicStructure: { ownerId: ME, type: "RELAY_BEACON" } as never }]);
     expect(scanGuideTiles(beaconOnly, ME, undefined).ownsBuiltStructure).toBe(false);
+    // It does complete the guide's own Relay Beacon step.
+    expect(scanGuideTiles(beaconOnly, ME, undefined).ownsRelayBeacon).toBe(true);
     const garden = map([{ x: 0, y: 0, ownerId: ME, ownershipState: "SETTLED", economicStructure: { ownerId: ME, type: "HYDROGARDEN" } as never }]);
     expect(scanGuideTiles(garden, ME, undefined).ownsBuiltStructure).toBe(true);
+    expect(scanGuideTiles(garden, ME, undefined).ownsRelayBeacon).toBe(false);
   });
 
   it("targets the player's own garrisoned towns for the Manufactory, nearest home first", () => {
