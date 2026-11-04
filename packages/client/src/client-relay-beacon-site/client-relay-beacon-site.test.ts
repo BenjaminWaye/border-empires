@@ -53,6 +53,15 @@ describe("isRelayBeaconSiteCandidate", () => {
     expect(candidate(owned(0, 0, { ownershipState: "FRONTIER", observatory: { ownerId: ME, status: "active" } }))).toBe(false);
     expect(candidate(land(0, 0, { economicStructure: { ownerId: "old", type: "MINE", status: "inactive" } }))).toBe(false);
   });
+
+  it("never recommends a town or dock the player hasn't garrisoned: taking it extends reach without a beacon", () => {
+    // Playtest regression: the guide ringed a neutral town on the reach edge as the beacon site.
+    expect(candidate(land(0, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never }))).toBe(false);
+    expect(candidate(owned(0, 0, { ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } as never }))).toBe(false);
+    expect(candidate(land(0, 0, { dockId: "d1" }))).toBe(false);
+    // Their own garrisoned town (or starting settlement) is still a valid site.
+    expect(candidate(owned(0, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never }))).toBe(true);
+  });
 });
 
 // A just-landed AFC at (20,20): the AFC tile is the only SETTLED tile, its
