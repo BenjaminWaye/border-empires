@@ -1,7 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, terrainAt } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { toroidDelta } from "../client-map-3d-pointer-pick.js";
-import { APPROACH_MS, clamp01, clampLocal, marineKitFor, stopOffsetFor, type MarinePose } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
+import { clamp01, clampLocal, marineKitFor, stopOffsetFor, type MarinePose } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
 
 export type LandingPoint = { x: number; z: number };
 /** Route and positions are relative to the destination tile's centre. */
@@ -21,7 +21,7 @@ const MAX_SAIL_MS = 8000;
 const SAIL_MS_PER_TILE = 100;
 export const RAMP_MS = 500;
 // Ramp-down plus the walk ashore keeps its original length however far the ship sailed.
-const UNLOAD_MS = APPROACH_MS - 1300 - RAMP_MS;
+export const UNLOAD_MS = 1600;
 export const sailMsForRoute = (route: readonly LandingPoint[]): number => {
   let tiles = 0;
   for (let i = 1; i < route.length; i++) tiles += Math.hypot(route[i]!.x - route[i - 1]!.x, route[i]!.z - route[i - 1]!.z);

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { Scene } from "three";
 import { WORLD_WIDTH } from "@border-empires/shared";
-import { dockLandingFor, landingCarrierPose, landingMarinePose, SAIL_MS, RAMP_MS, sailMsForRoute } from "./client-dock-landing.js";
+import { dockLandingFor, landingCarrierPose, landingMarinePose, SAIL_MS, RAMP_MS, UNLOAD_MS, sailMsForRoute } from "./client-dock-landing.js";
 import { createDockCarrierOverlay } from "./client-dock-carrier-3d.js";
-import { APPROACH_MS, type MarinePose } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
+import { type MarinePose } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
 import type { BattleOverlaySkirmishEntry } from "./client-battle-render-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
@@ -57,7 +57,9 @@ describe("dock assault landing", () => {
     expect(sailMsForRoute(route(10_000))).toBeLessThanOrEqual(8000);
     const l = landing();
     expect(l.sailMs).toBeGreaterThanOrEqual(SAIL_MS);
-    expect(l.approachMs).toBe(l.sailMs + RAMP_MS + (APPROACH_MS - 1300 - RAMP_MS));
+    expect(l.approachMs).toBe(l.sailMs + RAMP_MS + UNLOAD_MS);
+    // The unload must outlast the last marine's staggered departure (up to 1080ms).
+    expect(UNLOAD_MS).toBeGreaterThan(1080 + 300);
   });
   it("keeps sea routes continuous across the world seam and reverses them for return attacks", () => {
     const wrapped = { dockPairs: [{ ax: WORLD_WIDTH - 2, ay: 1, bx: 1, by: 1,
