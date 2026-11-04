@@ -28,8 +28,6 @@ export type TownScreenInput = {
   focusQueuePosition?: number;
   /** The work cards' buttons are locked while a rush or cancel waits on the server. */
   focusWorkLocked?: boolean;
-  /** Clock for the built card's state (recovering, hijacked); defaults to now. */
-  nowMs?: number;
 };
 
 const esc = (text: string): string =>
@@ -100,9 +98,10 @@ const buildPanelHtml = (input: TownScreenInput): string => {
   const placeLabel = supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place";
   const work = input.focusView.work ?? [];
   // A support tile can already hold a building; pressing it shows what that building is and does.
-  const built = supportFocus ? builtCardHtml(builtStructureFacts(input.focus, input.focus.ownerId === input.town.ownerId, input.nowMs)) : "";
+  const built = supportFocus ? builtCardHtml(builtStructureFacts(input.focus, input.focus.ownerId === input.town.ownerId)) : "";
   const workHtml = work.length > 0 ? townWorkHtml(work, keyOf(input.focus), input.focusQueuePosition ?? 0, input.focusWorkLocked ?? false) : "";
-  const lead = `${built}${workHtml}`;
+  // Work first: under the "Built here" heading it would read as part of the building.
+  const lead = `${workHtml}${built}`;
   const list = buildListHtml({
     buildings: input.focusView.buildings,
     focusLabel: supportFocus ? `(${input.focus.x}, ${input.focus.y})` : input.townView.title,

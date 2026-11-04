@@ -82,6 +82,7 @@
 .v2t-structure-v { text-align: right; }
 .v2t-structure-good { color: var(--v2-green); }
 .v2t-structure-warn { color: var(--v2-amber); }
+.v2t-structure + .v2t-h { padding-top: 2px; }
 #v2t-bar.v2t-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(560px, calc(100vw - 880px)); min-width: 380px; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; border-color: var(--v2-edge-strong); }
 .v2t-act {
   flex: 1; display: grid; justify-items: center; align-content: center; gap: 2px; height: 46px; padding: 0 12px; background: var(--v2-well); border: 1px solid var(--v2-edge-strong);

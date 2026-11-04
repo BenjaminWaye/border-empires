@@ -76,11 +76,12 @@ const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number): TileFac
 
 /**
  * The building standing on a tile, as facts (name, state, what it gives, upkeep) -- for the town screen's
- * selected support tile. Builds still under construction are left to the screen's work cards.
+ * selected support tile. A building going up or being removed is left to the screen's work cards, which
+ * already show it with its progress.
  */
 export const builtStructureFacts = (tile: Tile, mine: boolean, nowMs: number = Date.now()): TileFact[] => {
   const structure = structureOn(tile);
-  if (!structure || structure.status === "under_construction") return [];
+  if (!structure || structure.status === "under_construction" || structure.status === "removing") return [];
   return structureFacts(structure, mine, nowMs);
 };
 
