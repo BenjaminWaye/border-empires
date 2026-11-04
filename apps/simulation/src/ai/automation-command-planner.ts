@@ -2,7 +2,7 @@ import { chooseAiAetherCommand } from "./ai-aether-planner.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, expandManpowerCostForFrontierCount, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 
-import { spendableBuildManpowerForPlanner, spendableManpowerForPlanner } from "./automation-command-planner-war-reserve.js";
+import { spendableManpowerForPlanner } from "./automation-command-planner-war-reserve.js";
 
 import { buildScoringNeedVectorFromPlannerInput, needVectorFromPlannerInput } from "./build/build-need-vector.js";
 
@@ -24,6 +24,7 @@ import {
 } from "./structure-command-planner.js";
 import { chooseBestRelayBeaconBuild, relayBeaconAffordable } from "./relay-beacon-command-planner.js";
 import type { RelayBeaconSiteSkips } from "./relay-beacon-site-rules.js";
+import { structurePlayerFromPlannerInput } from "./automation-structure-player.js";
 import { foodSlotReliefFromPlannerInput } from "./food-slot-relief.js";
 import { ownedNetworkInstallationCount } from "./planner-owned-structure-counts.js";
 import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
@@ -261,24 +262,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const relayBeaconSiteSkips: RelayBeaconSiteSkips = { spacing: 0 };
   let beaconAffordable = true;
   if (input.sessionPrefix === "ai-runtime" && effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
-    const structurePlayer = {
-      id: input.playerId,
-      points: input.points,
-      // War reserve applies to structure builds too — not raw input.manpower — except for the pool floor the muster tick leaves for builds (see spendableBuildManpowerForPlanner).
-      manpower: spendableBuildManpowerForPlanner(input),
-      ...(input.techIds ? { techIds: input.techIds } : {}),
-      ...(input.domainIds ? { domainIds: input.domainIds } : {}),
-      ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
-      ...(input.installedModuleTechIds ? { installedModuleTechIds: input.installedModuleTechIds } : {}),
-      ...(input.blockedActionKeys ? { blockedActionKeys: input.blockedActionKeys } : {}),
-      ...(input.ownedStructureCounts ? { ownedStructureCounts: input.ownedStructureCounts } : {}),
-      ...(input.slotSupplyByResource ? { slotSupplyByResource: input.slotSupplyByResource } : {}),
-      ...(input.slotDemandByResource ? { slotDemandByResource: input.slotDemandByResource } : {}),
-      ...(input.townEconomy ? { townEconomy: input.townEconomy } : {}),
-      settledTileCount,
-      townCount,
-      incomePerMinute
-    };
+    const structurePlayer = structurePlayerFromPlannerInput(input, { settledTileCount, townCount, incomePerMinute });
     const structureCandidates = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
     const buildCandidates = restrictToFocus(structureCandidates, () => {
       buildScanUsedFocusFallback = true;
