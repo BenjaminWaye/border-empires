@@ -131,7 +131,7 @@ export const computeCrystalTargets = (
 // Resource slots: FOOD/TITANIUM/
 // CRYSTAL/UMBRITE stockpile spend was retired server-side, and passive income
 // no longer credits those four keys (runtime-empire-storage.ts caps only GOLD/
-// FOOD/SHARD), so every player's CRYSTAL balance sits at 0 forever. The crystal
+// FOOD), so every player's CRYSTAL balance sits at 0 forever. The crystal
 // abilities are gated by tech + slots + cooldown server-side now; a client-side
 // CRYSTAL balance check here just spams the feed and makes them unusable.
 export const beginCrystalTargeting = (
@@ -162,7 +162,7 @@ export const beginCrystalTargeting = (
       return;
     }
     if (cooldown > 0) {
-      deps.pushFeed(`Aether Bridge cooling down for ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
+      deps.pushFeed(`No Aether Tower shot left for Aether Bridge; next in ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
       return;
     }
   }
@@ -173,7 +173,7 @@ export const beginCrystalTargeting = (
       return;
     }
     if (cooldown > 0) {
-      deps.pushFeed(`Siphon cooling down for ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
+      deps.pushFeed(`No Aether Tower shot left for Siphon; next in ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
       return;
     }
   }

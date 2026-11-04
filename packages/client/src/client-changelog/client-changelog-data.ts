@@ -1,9 +1,11 @@
+import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
 import { FOOD_TILE_ART_CHANGELOG } from "./client-changelog-food-tile-art.js";
 import { TOWN_ECONOMY_CHANGELOG } from "./client-changelog-town-economy.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_27 } from "./client-changelog-oct-27.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31.js";
+import { CLIENT_CHANGELOG_ENTRIES_NOV_01_03 } from "./client-changelog-nov-01-03.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
 import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
@@ -49,10 +51,12 @@ import { CLAIM_STRIPED_GROUND_CHANGELOG } from "./client-changelog-claim-striped
 import { CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE } from "./client-changelog-oct-17-19-inline.js";
 import { TOWN_PLATE_ZOOM_CHANGELOG } from "./client-changelog-town-plate-zoom.js";
 import { TOWN_PLATE_GROWTH_PAUSED_CHANGELOG } from "./client-changelog-town-plate-growth-paused.js";
+import { TOWN_PLATE_GROWTH_ARROW_CHANGELOG } from "./client-changelog-town-plate-growth-arrow.js";
 import { TERRITORY_EDGE_GLOW_CHANGELOG } from "./client-changelog-territory-edge-glow.js";
 import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js";
 import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
 import { STORM_EDGE_BANDING_CHANGELOG } from "./client-changelog-storm-edge-banding.js";
+import { NOVEMBER_CHANGELOG } from "./client-changelog-data-november.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -112,6 +116,7 @@ import { CLIENT_CHANGELOG_ENTRIES_RECENT } from "./client-changelog-data-recent.
 import { CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP } from "./client-changelog-muster-save-up.js";
 import { CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE } from "./client-changelog-new-player-experience.js";
 import { CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS } from "./client-changelog-2d-settle-dots.js";
+import { CLIENT_CHANGELOG_ENTRIES_SLOW_3D_PROMPT_WARMUP } from "./client-changelog-slow-3d-prompt-warmup.js";
 import { CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME } from "./client-changelog-garrison-rename.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_LANDING } from "./client-changelog-afc-landing.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
@@ -153,21 +158,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RESTART_MANPOWER_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY,
-  {
-    createdAt: 1792009197862, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.14.3",
-    title: "AI empires weigh your truce and alliance offers",
-    why: "AI empires accepted truces almost instantly, and repeat offers could be spammed at any player.",
-    changes: [
-      "AI empires now judge relative strength, shared borders, food, and past broken truces, and tell you why they accepted or declined",
-      "AI empires now answer alliance offers too",
-      "After an offer is declined or cancelled, you can't send that player the same kind of offer for 30 minutes (10 minutes after an unanswered truce offer expires)"
-    ]
-  },
   ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
   ...OUT_OF_REACH_NO_DECAY_CHANGELOG,
   ...FRONTIER_SUPPLY_LINES_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
+  ...CLIENT_CHANGELOG_ENTRIES_SLOW_3D_PROMPT_WARMUP,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
@@ -209,16 +204,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Empire Integrity now lives in the Economy panel; the top bar only shows it, with a warning, once it drops below 50% and actually reduces your coin and growth",
       "Fixed integrity sometimes showing lower than it really was (e.g. 80% for a small new empire) after changing your profile or colour, toggling auto-garrison, or using an ability"
-    ]
-  },
-  {
-    createdAt: 1791927499454, // frozen Date.now() value for this release
-    introducedIn: "2026.10.13.1",
-    title: "Top bar icons are labelled",
-    why: "Playtesters couldn't tell what the icons in the top-right corner opened without hovering over each one.",
-    changes: [
-      "Manifest, Allies, Ranks, Activity, Sharding and Settings now show their name under the icon on desktop",
-      "The Alerts (bell) button has been removed from the top bar and the mobile menu while the alerts feed is reworked -- the Activity dashboard is where to see what happened"
     ]
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
@@ -416,6 +401,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLAIM_STRIPED_GROUND_CHANGELOG,
   ...TOWN_PLATE_ZOOM_CHANGELOG,
   ...TOWN_PLATE_GROWTH_PAUSED_CHANGELOG,
+  ...TOWN_PLATE_GROWTH_ARROW_CHANGELOG,
   ...FOOD_TILE_ART_CHANGELOG,
   ...MAP_LENS_CHANGELOG,
   ...TERRITORY_EDGE_GLOW_CHANGELOG,
@@ -464,13 +450,46 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Barbarians wandering over empty land no longer push real captures out of the 24-hour activity history"
     ]
   },
+  ...CLIENT_CHANGELOG_ENTRIES_NOV_01_03,
   {
-    createdAt: 1793565464215, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.01",
-    title: "Towns in the new HUD",
-    why: "The new HUD had no way to reach the town list.",
-    changes: ["A Towns button next to Manifest lists your towns, sortable by gold, population or growth", "Press a town to open its town screen"]
-  }
+    createdAt: 1793696822571, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.03",
+    title: "Guide: clearer first steps, a Manufactory, and diplomacy",
+    why: "Playtesting the guide showed steps asking for the wrong action (Expand To on land you already held, Build on tiles you couldn't build on yet) and a last step that didn't say what to do.",
+    changes: [
+      "A town or food tile your reach already claimed: the guide says to Garrison it",
+      "One you can see outside your reach: the guide says to Expand To it",
+      "Nothing in sight: the guide marks a tile for a Relay Beacon",
+      "The food steps show the grain and fish icons to look for on the map",
+      "The guide asks you to tap your AFC rather than any tile, since tapping land next to your border claims it",
+      "It recommends the Industrial Tooling Module as your first Manifest, then, once the module has docked at your AFC, asks for a Manufactory on your town",
+      "A new Diplomacy step appears once you meet a rival House: open Diplomacy to offer a truce",
+      "You can finish the guide even if you haven't met Planetary Defense or a rival yet; Finish closes it for good",
+      "The last step now says plainly that manpower refills every 4 hours"
+    ]
+  },
+  {
+    createdAt: 1793744266797, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.03",
+    title: "Fixed: your reach border could stop updating after a server update",
+    why: "If your game stayed open while the server restarted, your client could ignore the new reach borders the server sent, so new Relay Beacons, towns and docks didn't move the border, often until you reloaded the page.",
+    changes: [
+      "Your reach border now updates again right after a reconnect, without reloading the page"
+    ]
+  },
+  ...NOVEMBER_CHANGELOG,
+  {
+    createdAt: 1793743078716, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.03",
+    title: "Manpower orb shows the size of your next batch",
+    why: "The new HUD's manpower orb only showed a countdown, so you couldn't tell how much manpower was coming.",
+    changes: [
+      "The manpower orb now reads \"+N in 45m\": how much your next batch adds and when it lands",
+      "It says \"paused\" when no manpower is coming, and \"next batch\" instead of \"refill\"",
+      "The orb and the manpower chip stop showing a batch amount that has already landed"
+    ]
+  },
+  ...INCURSION_SHORE_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

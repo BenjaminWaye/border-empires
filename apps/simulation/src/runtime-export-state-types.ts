@@ -20,6 +20,8 @@ export type RuntimeExportState = {
     frontierDecayAt?: number;
     frontierDecayKind?: FrontierDecayKind;
     captureHoldUntil?: number;
+    warScarLevel?: number;
+    warScarUntil?: number;
     townJson?: string;
     townType?: "MARKET" | "FARMING";
     townName?: string;
@@ -45,6 +47,7 @@ export type RuntimeExportState = {
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
     truces: string[];
+    truceEndsAt?: Record<string, number>;
     vision: number;
     visionRadiusBonus: number;
     incomeMultiplier?: number;

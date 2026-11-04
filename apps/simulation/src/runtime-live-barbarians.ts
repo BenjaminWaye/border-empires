@@ -62,7 +62,7 @@ export const seedLiveBarbarians = (input: {
     }
     if (tile.terrain !== "LAND") continue;
     if (tile.ownerId) continue;
-    if (tile.town || tile.dockId || tile.shardSite) continue;
+    if (tile.town || tile.dockId) continue;
     candidates.push(tile);
   }
   result.candidates = candidates.length;

@@ -30,4 +30,12 @@ describe("farmland stand lift", () => {
 
     expect(overlay.standLiftAt(12, 34)).toBe(0);
   });
+
+  it("does not lift a building on a farm tile past maxTiles, where no plot is drawn", () => {
+    const overlay = createFarmlandOverlay(scene, 1);
+    overlay.addInstance(0.5, 0.5, 1, 1, 1);
+    overlay.addInstance(1.5, 0.5, 1, 2, 1);
+    expect(overlay.standLiftAt(1, 1)).toBe(FARMLAND_STAND_LIFT);
+    expect(overlay.standLiftAt(2, 1)).toBe(0);
+  });
 });

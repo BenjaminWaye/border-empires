@@ -3,6 +3,7 @@
 // with an overflow count that opens Diplomacy. Stance is an icon plus text, never colour alone.
 
 import type { ActiveTruceView, SeasonVictoryObjectiveView } from "../client-types.js";
+import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 
 export type RivalInput = {
   me: string;
@@ -34,7 +35,7 @@ export const rivalTokens = (input: RivalInput): { shown: RivalToken[]; hidden: n
   for (const t of truces) {
     if (seen.has(t.otherPlayerId)) continue;
     seen.add(t.otherPlayerId);
-    tokens.push(token(input, t.otherPlayerId, "truce", `TRUCE ${hoursLeft(t.endsAt, input.nowMs)}`));
+    tokens.push(token(input, t.otherPlayerId, "truce", `TRUCE ${socialRemainingLabel(t.endsAt, input.nowMs)}`));
   }
   for (const id of input.allies) {
     if (id === input.me || seen.has(id)) continue;

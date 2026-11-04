@@ -108,5 +108,15 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
       "When the selected tile has a build queued or under construction, the town screen's build panel is titled In progress and shows it: Jump to front and Cancel for a queued build, time left, Rush and Cancel while it builds. Anything the tile can still take is listed below.",
       "The Build on button for the building you pick sits at the bottom of the build panel."
     ]
+  },
+  {
+    createdAt: 1793651969491, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.02",
+    title: "The new HUD is now the default on desktop",
+    why: "The redesigned HUD has been through several rounds of testing and is now the standard HUD on desktop.",
+    changes: [
+      "Desktop players get the new HUD without adding ?hud=v2 to the game URL. Phones keep the current HUD for now.",
+      "To go back to the old HUD, add ?hud=legacy to the game URL; ?hud=v2 switches the new one back on."
+    ]
   }
 ];

@@ -11,14 +11,14 @@ describe("renderEconomyPanelHtml gold display", () => {
       gold: 24.5,
       me: "me",
       incomePerMinute: 1,
-      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
         supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
         demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
       },
       dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
       upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
       upkeepLastTick: { foodCoverage: 1, gold: { contributors: [] } },
       activeRevealTargetsCount: 0,

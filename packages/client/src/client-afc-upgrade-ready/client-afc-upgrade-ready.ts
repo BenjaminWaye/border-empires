@@ -3,7 +3,7 @@ import type { DomainInfo, Tile } from "../client-types.js";
 import { isAfcHiddenForJoinDrop, type AfcJoinDropState } from "../client-afc-join-drop/client-afc-join-drop-state.js";
 import "./client-afc-upgrade-ready.css";
 
-type Resource = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
+type Resource = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 export interface AfcUpgradeReadiness {
   readonly afcUpgradeRuleset?: "afc-v1" | undefined;
   readonly afcUpgradeInstallAllowed?: boolean | undefined;

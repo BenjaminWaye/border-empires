@@ -72,6 +72,9 @@ export type AiDecisionDiagnostic = {
   noCommandReason: string | undefined;
   gates: AutomationPlannerDiagnostic["utilityGates"];
   economicBuildCandidate: string | undefined;
+  economicBuildScore: number | undefined;
+  /** Stacking/amplifier counts (docs/ai-economic-synergy-plan.md); fixed size. */
+  economicSynergy: AutomationPlannerDiagnostic["economicSynergy"];
   relayBeaconBuildCandidate: string | undefined;
   relayBeaconSiteValue: number | undefined;
   /** Most recent COMMAND_REJECTED this player has seen, if any — most
@@ -158,6 +161,8 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     noCommandReason: diagnostic.noCommandReason,
     gates: diagnostic.utilityGates,
     economicBuildCandidate: diagnostic.economicBuildCandidate,
+    economicBuildScore: diagnostic.economicBuildScore,
+    economicSynergy: diagnostic.economicSynergy,
     relayBeaconBuildCandidate: diagnostic.relayBeaconBuildCandidate,
     relayBeaconSiteValue: diagnostic.relayBeaconSiteValue,
     lastRejection: lastRejectionByPlayer.get(diagnostic.playerId),

@@ -70,7 +70,6 @@ const normalizeTile = (tile) => ({
   siegeBattery: parseJson(tile.siege_battery_json) ?? null,
   economicStructure: parseJson(tile.economic_structure_json) ?? null,
   sabotage: parseJson(tile.sabotage_json) ?? null,
-  shardSite: parseJson(tile.shard_site_json) ?? null,
   yieldRate: tile.yieldRate ?? null
 });
 
@@ -84,7 +83,6 @@ const isInterestingTile = (tile) =>
   tile.resource !== null ||
   tile.town !== null ||
   tile.dockId !== null ||
-  tile.shardSite !== null ||
   tile.economicStructure !== null ||
   tile.fort !== null ||
   tile.observatory !== null ||

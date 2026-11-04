@@ -45,4 +45,19 @@ describe("truce simulation reconciliation", () => {
     await sync.syncExpiredTruces();
     expect(submitCommand).toHaveBeenCalledTimes(count);
   });
+
+  it("sends the truce's end time and re-syncs when an extension moves it", async () => {
+    const { deps, submitCommand } = fixture();
+    let endsAt = 5_000;
+    deps.socialState.activeTruceEndsAt = () => endsAt;
+    const sync = createTruceSimulationSync(deps);
+    await sync.syncExpiredTruces();
+    expect(JSON.parse(submitCommand.mock.calls[0]![0].payloadJson)).toEqual({ targetPlayerId: "b", truced: true, endsAt: 5_000 });
+    await sync.syncExpiredTruces();
+    expect(submitCommand).toHaveBeenCalledTimes(1);
+    endsAt = 9_000;
+    await sync.syncExpiredTruces();
+    expect(submitCommand).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(submitCommand.mock.calls[1]![0].payloadJson)).toEqual({ targetPlayerId: "b", truced: true, endsAt: 9_000 });
+  });
 });

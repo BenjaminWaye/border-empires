@@ -4,8 +4,8 @@ import { resourceGlyphsToIconHtml, resourceIconHtml, setTextWithResourceIcons } 
 
 describe("resourceGlyphsToIconHtml", () => {
   it("swaps resource glyphs in already-HTML text for the icon images", () => {
-    expect(resourceGlyphsToIconHtml("Raided. Lost ◉ 12, 🍞 3 Food, ✦ 1 Shard.")).toBe(
-      `Raided. Lost ${resourceIconHtml("GOLD")} 12, ${resourceIconHtml("FOOD")} 3 Food, ${resourceIconHtml("SHARD")} 1 Shard.`
+    expect(resourceGlyphsToIconHtml("Raided. Lost ◉ 12, 🍞 3 Food, 💎 1 Crystal.")).toBe(
+      `Raided. Lost ${resourceIconHtml("GOLD")} 12, ${resourceIconHtml("FOOD")} 3 Food, ${resourceIconHtml("CRYSTAL")} 1 Crystal.`
     );
   });
 

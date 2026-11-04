@@ -47,7 +47,7 @@ pause on shortage. Recompute after removing one failing agreement per pass to
 retain oldest-first priority. At most agreement-count+1 passes, capped at 256.
 
 Accepted supply has no expiry. Either House can cancel, releasing both
-directions after old-rate settlement. Coin and Shards settle once; later
+directions after old-rate settlement. Coin settles once; later
 shortage/cancellation does not refund them. Supply survives the accompanying
 pact ending. Legacy expiries and trusted failed-settlement rollback still
 release the original agreement. Pending independent offers expire after 24h;
@@ -171,8 +171,8 @@ Resource cards link to their required installation without a duplicate research
 box. The installation popup uses `data-view-tech` for its Unlocked by link.
 HUD v2 consumes requested tech details and opens its Manifest tree on that ID,
 unfolding the branch and scrolling to the selected node. Mobile and classic
-HUD keep their existing research detail flow. Local previews use `?hud=v2`;
-the redesigned HUD is opt-in on current develop. Lore reviewed; no canon change.
+HUD keep their existing research detail flow. The redesigned HUD is on by default
+on desktop; `?hud=legacy` opts back into the classic HUD. Lore reviewed; no canon change.
 
 Deposit cards label their potential output After development and explicitly
 name the required installation plus beneficiary. A frontier claim or even a

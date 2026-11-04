@@ -28,6 +28,8 @@ type RecoveredTileState = {
   frontierDecayAt?: DomainTileState["frontierDecayAt"];
   frontierDecayKind?: DomainTileState["frontierDecayKind"];
   captureHoldUntil?: DomainTileState["captureHoldUntil"];
+  warScarLevel?: DomainTileState["warScarLevel"];
+  warScarUntil?: DomainTileState["warScarUntil"];
   town?: DomainTileState["town"];
   // Phase 3 (dormant): Phase 4 will start writing this unified field. Accepted
   // here so post-Phase-4 snapshots can be loaded by a Phase-3-era binary without
@@ -101,6 +103,8 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
   ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
   ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
+  ...(typeof tile.warScarLevel === "number" ? { warScarLevel: tile.warScarLevel } : {}),
+  ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   // Overlays from the shared table: this list was once hand-written with no
   // muster line, so every restart dropped every active muster flag.
@@ -131,6 +135,14 @@ export const createRecoveredSimulationAccumulator = (
     ),
     ...(baseState.reachBorder ? { reachBorder: decodeReachBorder(baseState.reachBorder) } : {})
   };
+};
+
+// Battle scars (shared war-scars.ts): same "absent = unchanged, present but
+// not a number = cleared" rule as captureHoldUntil.
+const recoverWarScars = (tileDelta: TileDelta, existing: RecoveredTileState | undefined): Pick<RecoveredTileState, "warScarLevel" | "warScarUntil"> => {
+  const level = "warScarLevel" in tileDelta ? tileDelta.warScarLevel : existing?.warScarLevel;
+  const until = "warScarUntil" in tileDelta ? tileDelta.warScarUntil : existing?.warScarUntil;
+  return typeof level === "number" && typeof until === "number" ? { warScarLevel: level, warScarUntil: until } : {};
 };
 
 const applyTileDeltaToRecoveredAccumulator = (
@@ -186,6 +198,7 @@ const applyTileDeltaToRecoveredAccumulator = (
       : typeof existing?.captureHoldUntil === "number"
         ? { captureHoldUntil: existing.captureHoldUntil }
         : {}),
+    ...recoverWarScars(tileDelta, existing),
     ...(recoveredTown ? { town: recoveredTown } : {}),
     ...recoverOverlaySubstructures(tileDelta, existing)
   });
@@ -324,12 +337,6 @@ export const applySimulationEventsToRecoveredAccumulator = (
         const defender = accumulator.players.find(player => player.id === defenderId);
         if (defender) ((defender.afcCampaign ??= {}).fortWardRecharges ??= {})[simulationTileKey(event.targetX, event.targetY)] = event.combatResult.wardRechargesAt;
       }
-      if (defenderId && event.combatResult?.hostileCaptureWarUntil) {
-        for (const [id, other] of [[event.playerId, defenderId], [defenderId, event.playerId]]) {
-          const player = accumulator.players.find(candidate => candidate.id === id);
-          if (player && other) ((player.afcCampaign ??= {}).wars ??= {})[other] = event.combatResult.hostileCaptureWarUntil;
-        }
-      }
       if (accumulator.activeLocks.has(event.commandId)) {
         accumulator.activeLocks.delete(event.commandId);
       }
@@ -367,7 +374,6 @@ export const applySimulationEventsToRecoveredAccumulator = (
               terrain: previousOrigin.terrain,
               ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
               ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
-              ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
               ...(previousOrigin.naturalWonder ? { naturalWonder: previousOrigin.naturalWonder } : {}),
               ...(previousOrigin.sabotage ? { sabotage: previousOrigin.sabotage } : {}),
               // Town survives the flip — mirrors the attacker-wins branch above and the runtime resolveLock path.

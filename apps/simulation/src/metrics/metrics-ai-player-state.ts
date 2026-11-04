@@ -1,5 +1,6 @@
 import { EMPIRE_STORAGE_FLOOR, STORAGE_MINUTES } from "../runtime-empire-storage.js";
 import type { RuntimeAiPlayerMetricsRow } from "../runtime-ai-player-metrics-row.js";
+import type { EconomicSynergySummary } from "../ai/build/economic-synergy-diagnostics.js";
 
 // Per-AI-player growth/spend gauges. Bounded to the fixed AI roster for a
 // season (5-ish players, not user input), same cardinality precedent as
@@ -38,6 +39,7 @@ export const createAiPlayerStateMetrics = () => {
   const musterFlagsByPlayer = new Map<string, number>();
   const musterStagedByPlayer = new Map<string, number>();
   const musterCapacityByPlayer = new Map<string, number>();
+  const synergyByPlayer = new Map<string, EconomicSynergySummary>();
 
   return {
     snapshot: () => ({
@@ -51,7 +53,8 @@ export const createAiPlayerStateMetrics = () => {
       simAiPlayerManpowerRegenPerMinuteGauge: Object.fromEntries(manpowerRegenByPlayer),
       simAiPlayerMusterFlagsGauge: Object.fromEntries(musterFlagsByPlayer),
       simAiPlayerMusterStagedManpowerGauge: Object.fromEntries(musterStagedByPlayer),
-      simAiPlayerMusterFlagCapacityGauge: Object.fromEntries(musterCapacityByPlayer)
+      simAiPlayerMusterFlagCapacityGauge: Object.fromEntries(musterCapacityByPlayer),
+      simAiPlayerSynergyGauge: Object.fromEntries(synergyByPlayer)
     }),
     // Called once per AI player per metricsTicker tick (1s cadence) — see
     // simulation-service.ts. All values come from the lean
@@ -69,6 +72,7 @@ export const createAiPlayerStateMetrics = () => {
         musterFlags: number;
         musterStagedManpower: number;
         musterFlagCapacity: number;
+        economicSynergy?: EconomicSynergySummary | undefined;
       }
     ): void {
       goldByPlayer.set(playerId, values.gold);
@@ -81,6 +85,8 @@ export const createAiPlayerStateMetrics = () => {
       musterFlagsByPlayer.set(playerId, values.musterFlags);
       musterStagedByPlayer.set(playerId, values.musterStagedManpower);
       musterCapacityByPlayer.set(playerId, values.musterFlagCapacity);
+      if (values.economicSynergy) synergyByPlayer.set(playerId, values.economicSynergy);
+      else synergyByPlayer.delete(playerId);
     },
     incrementSimAiExpand(playerId: string): void {
       expandTotalByPlayer.set(playerId, (expandTotalByPlayer.get(playerId) ?? 0) + 1);
@@ -108,7 +114,8 @@ export const applyAiPlayerDebugSnapshotToMetrics = (
       manpowerRegenPerMinute: player.manpowerRegenPerMinute,
       musterFlags: player.musterFlagCount,
       musterStagedManpower: player.musterStagedManpower,
-      musterFlagCapacity: player.musterFlagCapacity
+      musterFlagCapacity: player.musterFlagCapacity,
+      economicSynergy: player.economicSynergy
     });
   }
 };

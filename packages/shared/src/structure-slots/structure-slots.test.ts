@@ -65,7 +65,7 @@ describe("structureSlotRequirements", () => {
     expect(structureSlotRequirements("HIGH_YIELD_AETHER_CONDENSER")).toEqual([{ resource: "CRYSTAL", count: 1 }]);
   });
 
-  it("gives every monument component exactly 1 CRYSTAL slot (SHARD stays a separate flow cost, not modeled here)", () => {
+  it("gives every monument component exactly 1 CRYSTAL slot", () => {
     for (const type of [
       "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
       "SOVEREIGN_SIEGE_ENGINE_PART_1", "SOVEREIGN_SIEGE_ENGINE_PART_2", "SOVEREIGN_SIEGE_ENGINE_PART_3",

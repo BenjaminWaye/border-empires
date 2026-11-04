@@ -16,7 +16,7 @@ export const OFFER_DOCK_MAX_ROWS = 3;
 const TICK_MS = 500;
 // An answer the server refuses without dropping the offer (say, terms you can no longer pay) re-enables the buttons after this.
 export const OFFER_DOCK_PENDING_MS = 8_000;
-// A first tap on Accept for an offer that costs you coin or Shards only arms it; it disarms after this.
+// A first tap on Accept for an offer that costs you coin only arms it; it disarms after this.
 export const OFFER_DOCK_CONFIRM_MS = 4_000;
 
 export type OfferDockEntry = {
@@ -28,7 +28,7 @@ export type OfferDockEntry = {
   /** Undefined when the offer has no expiry. */
   remainingMs: number | undefined;
   pending: boolean;
-  /** Accepting moves your own coin or Shards or commits your resource supply, so Accept asks for a second tap. */
+  /** Accepting moves your own coin or commits your resource supply, so Accept asks for a second tap. */
   costsYou: boolean;
 };
 
@@ -69,9 +69,9 @@ const remainingFor = (
   return Math.max(0, onServerClock === undefined ? sinceSeen : Math.min(sinceSeen, onServerClock));
 };
 
-// Coin and Shards, or an ongoing resource supply from your slots.
+// Coin, or an ongoing resource supply from your slots.
 const costsRecipient = (request: AllianceRequest | TruceRequest): boolean =>
-  (request.terms?.ask.gold ?? 0) > 0 || (request.terms?.ask.shard ?? 0) > 0 || hasResourceSupplyOffer(request.terms?.ask.resources);
+  (request.terms?.ask.gold ?? 0) > 0 || hasResourceSupplyOffer(request.terms?.ask.resources);
 
 export const offerDockEntries = (
   state: OfferDockState,
@@ -108,9 +108,15 @@ export const offerDockEntries = (
     .sort((left, right) => (left.remainingMs ?? Infinity) - (right.remainingMs ?? Infinity));
 };
 
+/** "6d 23h" / "4h 05m" for offers that wait days for an offline player, "m:ss" in the last hour. */
 export const formatOfferCountdown = (remainingMs: number): string => {
   const totalSeconds = Math.ceil(remainingMs / 1000);
-  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
+  const days = Math.floor(totalSeconds / 86_400);
+  const hours = Math.floor((totalSeconds % 86_400) / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  return `${minutes}:${String(totalSeconds % 60).padStart(2, "0")}`;
 };
 
 // The HUD's own icon art, not colour emoji: the Allies tab icon for an alliance,
@@ -214,7 +220,7 @@ export const installDiplomacyOfferDock = (deps: {
     }
     const message = offerDockMessage(button.dataset.offerAction, button.dataset.offerKind, id);
     if (!message) return;
-    // The dock sits over the map, so a stray tap must not spend your coin or Shards.
+    // The dock sits over the map, so a stray tap must not spend your coin.
     const entry = button.dataset.offerAction === "accept" ? offerDockEntries(deps.state, firstSeenAtById, new Set(), Date.now()).find((candidate) => candidate.id === id) : undefined;
     if (entry?.costsYou && confirming?.id !== entry.id) {
       confirming = { id: entry.id, until: Date.now() + OFFER_DOCK_CONFIRM_MS };

@@ -16,7 +16,8 @@ import { composeTreeInstance, createTreePlacement } from "./client-map-3d-trees/
 
 export type TropicalForest = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color) => void;
+  /** `keepSlot`: which layout slots still stand (war in a forest); all when omitted. */
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color, keepSlot?: (slot: number) => boolean) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
@@ -44,7 +45,7 @@ export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalFo
     count = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color): void => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color, keepSlot?: (slot: number) => boolean): void => {
     const layoutIdx = tileHash(worldX, worldZ, 7, LAYOUTS.length);
     const layout = LAYOUTS[layoutIdx]!;
     const inRiverBank = riverBankTreeFilter(worldX, worldZ);
@@ -55,7 +56,7 @@ export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalFo
 
     layout.forEach((tree, slot) => {
       if (count >= maxInstances) return;
-      if (inRiverBank?.(tree.ox, tree.oz)) return;
+      if (inRiverBank?.(tree.ox, tree.oz) || (keepSlot && !keepSlot(slot))) return;
       placement.x = sceneX + tree.ox;
       placement.z = sceneZ + tree.oz;
       placement.scale = tree.scale;

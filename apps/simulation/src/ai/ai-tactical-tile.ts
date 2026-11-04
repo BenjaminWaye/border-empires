@@ -1,7 +1,7 @@
 import type { EconomicStructureType } from "@border-empires/shared";
 
 export type AiTacticalTileFields = {
-  observatory?: { ownerId?: string; status?: string; cooldownUntil?: number | undefined; suppressedUntil?: number | undefined; siphon?: { targetX: number; targetY: number } | undefined } | null | undefined;
+  observatory?: { ownerId?: string; status?: string; cooldownUntil?: number | undefined; suppressedUntil?: number | undefined; siphon?: { targetX: number; targetY: number } | undefined; hijack?: { endsAt: number } | undefined } | null | undefined;
   economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string; disabledUntil?: number | undefined; inactiveReason?: string | undefined } | null | undefined;
   muster?: { ownerId?: string; amount?: number } | undefined;
   sabotage?: { ownerId?: string; endsAt?: number } | undefined;
@@ -10,14 +10,15 @@ export type AiTacticalTileFields = {
 export function parsePlannerObservatory(raw: string | undefined): AiTacticalTileFields["observatory"] {
   if (!raw) return undefined;
   try {
-    const data = JSON.parse(raw) as { ownerId?: unknown; status?: unknown; cooldownUntil?: unknown; suppressedUntil?: unknown; siphon?: { targetX?: unknown; targetY?: unknown } };
+    const data = JSON.parse(raw) as { ownerId?: unknown; status?: unknown; cooldownUntil?: unknown; suppressedUntil?: unknown; siphon?: { targetX?: unknown; targetY?: unknown }; hijack?: { endsAt?: unknown } };
     return {
       ...(typeof data.ownerId === "string" ? { ownerId: data.ownerId } : {}),
       ...(typeof data.status === "string" ? { status: data.status } : {}),
       ...(typeof data.suppressedUntil === "number" ? { suppressedUntil: data.suppressedUntil } : {}),
       ...(typeof data.cooldownUntil === "number" ? { cooldownUntil: data.cooldownUntil } : {}),
       ...(data.siphon && typeof data.siphon.targetX === "number" && typeof data.siphon.targetY === "number"
-        ? { siphon: { targetX: data.siphon.targetX, targetY: data.siphon.targetY } } : {})
+        ? { siphon: { targetX: data.siphon.targetX, targetY: data.siphon.targetY } } : {}),
+      ...(data.hijack && typeof data.hijack.endsAt === "number" ? { hijack: { endsAt: data.hijack.endsAt } } : {})
     };
   } catch { return undefined; }
 }

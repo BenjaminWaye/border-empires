@@ -9,11 +9,11 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { playerHasAbilityTech, SIPHON_SHARE } from "@border-empires/game-domain";
-import { SIPHON_UNTIL_CANCELLED_ENDS_AT, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { SIPHON_UNTIL_CANCELLED_ENDS_AT, spendAetherTowerShot, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import type { RuntimeAbilityCommandContext } from "./runtime-ability-command-handlers.js";
+import { observatoryMaxShotsForActor, type RuntimeAbilityCommandContext } from "./runtime-ability-command-handlers.js";
 
 function rejectCommand(
   context: RuntimeAbilityCommandContext,
@@ -111,6 +111,8 @@ export function handleSiphonTileCommand(context: RuntimeAbilityCommandContext, c
     ...observatoryTile,
     observatory: {
       ...observatoryTile.observatory,
+      // Starting a siphon spends one of the tower's shots (aether-tower-shots.ts).
+      ...spendAetherTowerShot(observatoryTile.observatory, observatoryMaxShotsForActor(actor), siphonNow),
       siphon: { targetX: target.x, targetY: target.y, tileKeys, startedAt: siphonNow }
     }
   };

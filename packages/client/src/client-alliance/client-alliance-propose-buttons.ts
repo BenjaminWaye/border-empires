@@ -2,7 +2,7 @@ import { diplomacyTradeDepsFor, openDiplomacyTradeScreen } from "../client-diplo
 import { breakTruceConsequences, showBreakPactSheet } from "../client-break-pact-sheet/client-break-pact-sheet.js";
 import { bindCounterOfferButtons, type CounterOfferDeps } from "./client-alliance-counter-offer.js";
 
-/** state: the player's coin and Shards (the trade screen's "what can I offer") and the offers they can counter. */
+/** state: the player's coin (the trade screen's "what can I offer") and the offers they can counter. */
 type ProposeButtonDeps = CounterOfferDeps;
 
 /**

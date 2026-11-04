@@ -7,14 +7,14 @@ import { createAfcUpgradeReadyBadges, readyAfcUpgradeCount, shouldShowAfcUpgrade
 
 const upgrade = (id: string, tier = 1): DomainInfo => ({
   id, tier, name: id, description: "Test upgrade", requiresTechId: "trade", mods: {},
-  requirements: { gold: 40, resources: { SHARD: 1 }, canResearch: false }
+  requirements: { gold: 40, resources: { CRYSTAL: 1 }, canResearch: false }
 });
 const state = () => {
   const value = createInitialState();
   value.me = "me";
   value.techIds = ["trade"];
   value.gold = 40;
-  value.strategicResources.SHARD = 1;
+  value.strategicResources.CRYSTAL = 1;
   value.domainCatalog = [upgrade("a"), upgrade("b")];
   value.domainChoices = ["a", "b"];
   return value;
@@ -31,7 +31,7 @@ describe("AFC upgrade readiness", () => {
     value.gold = 39;
     expect(readyAfcUpgradeCount(value)).toBe(0);
     value.gold = 40;
-    value.strategicResources.SHARD = 0;
+    value.strategicResources.CRYSTAL = 0;
     expect(readyAfcUpgradeCount(value)).toBe(0);
   });
   it("does not offer another choice in a filled tier or advertise pending installation", () => {
@@ -56,7 +56,7 @@ describe("AFC upgrade readiness", () => {
   it("handles a free choice at zero balance", () => {
     const value = state();
     value.gold = 0;
-    value.strategicResources.SHARD = 0;
+    value.strategicResources.CRYSTAL = 0;
     value.domainCatalog[0]!.requirements = { gold: 0, resources: {} };
     expect(readyAfcUpgradeCount(value)).toBe(1);
   });

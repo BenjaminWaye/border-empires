@@ -154,3 +154,24 @@ export const clearServerReach = (state: ReachAuthoritativeState): void => {
   state.serverReach = undefined;
   state.serverReachRevision = 0;
 };
+
+/**
+ * Call on every INIT (one per socket connection). Revisions only order
+ * messages within one simulation process's count, and the client cannot tell
+ * whether the process behind this new connection is the one that sent its
+ * last revision (a deploy restarts it). Without this, a client left open
+ * through a restart kept its old high revision and dropped every new
+ * REACH_UPDATE as stale, so the border froze while tiles kept updating.
+ *
+ * Same player in the same season: keep drawing the last border until the
+ * first REACH_UPDATE on this connection replaces it, but accept that update
+ * whatever its revision. Different player or a new season: the old border is
+ * not this player's, so drop it outright.
+ */
+export const resetServerReachForNewConnection = (state: ReachAuthoritativeState, samePlayerAndSeason: boolean): void => {
+  if (!samePlayerAndSeason) {
+    clearServerReach(state);
+    return;
+  }
+  state.serverReachRevision = 0;
+};

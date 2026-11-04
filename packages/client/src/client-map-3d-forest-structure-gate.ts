@@ -7,3 +7,6 @@ import type { Tile } from "./client-types.js";
 
 export const shouldDrawForestInstance = (forestTile: boolean, tile: Tile | undefined): boolean =>
   forestTile && !tile?.economicStructure && !isNetworkResource(tile?.resource);
+
+// War in a forest thins a tile's trees as well (see client-forest-war/forest-war.ts).
+export { standingTreeFilter } from "./client-forest-war/forest-war.js";

@@ -51,7 +51,6 @@ describe("TileDeltaStringifyCache", () => {
       void (t.siegeBattery ? JSON.stringify(t.siegeBattery) : undefined);
       void (t.economicStructure ? JSON.stringify(t.economicStructure) : undefined);
       void (t.sabotage ? JSON.stringify(t.sabotage) : undefined);
-      void (t.shardSite ? JSON.stringify(t.shardSite) : undefined);
     }
   });
 

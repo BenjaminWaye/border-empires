@@ -4,10 +4,13 @@ import { applyPlayerUpdateManpowerFields, type PlayerUpdateManpowerState } from 
 const baseState = (): PlayerUpdateManpowerState => ({
   manpower: 100,
   nextManpowerBatchAmount: undefined,
+  nextManpowerBatchAmountAt: undefined,
   manpowerCap: 150,
   manpowerRegenPerMinute: 0.2,
   logisticsThroughputPerMinute: 0.2,
-  expandManpowerCost: 10
+  expandManpowerCost: 10,
+  settleManpowerCost: 20,
+  devQueueManpowerReservedTileKeys: new Set<string>()
 });
 
 describe("applyPlayerUpdateManpowerFields", () => {
@@ -30,8 +33,23 @@ describe("applyPlayerUpdateManpowerFields", () => {
 
 it("keeps a projected batch current through PLAYER_UPDATE", () => {
   const state = baseState();
-  applyPlayerUpdateManpowerFields(state, { nextManpowerBatchAmount: 1 });
+  applyPlayerUpdateManpowerFields(state, { nextManpowerBatchAmount: 1 }, 5_000);
   expect(state.nextManpowerBatchAmount).toBe(1);
+  expect(state.nextManpowerBatchAmountAt).toBe(5_000);
   applyPlayerUpdateManpowerFields(state, { nextManpowerBatchAmount: 0 });
   expect(state.nextManpowerBatchAmount).toBe(0);
+});
+
+it("tracks which queued tiles the server holds manpower for", () => {
+  const state = baseState();
+  applyPlayerUpdateManpowerFields(state, {
+    devQueue: [
+      { tileKey: "1,1", kind: "SETTLE", manpowerReserved: true },
+      { tileKey: "2,2", kind: "SETTLE", awaitingManpower: true }
+    ]
+  });
+  expect([...state.devQueueManpowerReservedTileKeys]).toEqual(["1,1"]);
+  // A message without devQueue keeps the last known set.
+  applyPlayerUpdateManpowerFields(state, { manpower: 5 });
+  expect([...state.devQueueManpowerReservedTileKeys]).toEqual(["1,1"]);
 });

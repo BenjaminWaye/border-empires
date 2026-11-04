@@ -26,7 +26,7 @@ const summary = (overrides: Partial<PlayerRuntimeSummary> = {}): PlayerRuntimeSu
   townCount: 0,
   ownedTownTierByTile: new Map(),
   goldIncomePerMinute: 0,
-  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 60 / 1440, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 60 / 1440, CRYSTAL: 0, UMBRITE: 0 },
   activeDevelopmentProcessCount: 0,
   pendingSettlementsByTile: new Map(),
   fishFoodPerMinute: 0,
@@ -47,7 +47,7 @@ describe("resource capture steal", () => {
     const attacker = makePlayer("attacker", {});
     const defender = makePlayer("defender", { TITANIUM: 90 });
     applyResourceTileSteal(
-      { summaryForPlayer: () => summary({ strategicProductionPerMinute: { FOOD: 0, TITANIUM: 180 / 1440, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } }) },
+      { summaryForPlayer: () => summary({ strategicProductionPerMinute: { FOOD: 0, TITANIUM: 180 / 1440, CRYSTAL: 0, UMBRITE: 0 } }) },
       attacker,
       defender,
       "TITANIUM"

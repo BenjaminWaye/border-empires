@@ -42,7 +42,7 @@ export const DEFAULT_HUD_CHIPS_ARGS: HudChipsArgs = {
 
 const NOW = 1_790_000_000_000;
 const NO_ANIM = { until: 0, dir: 0 as const };
-const RESOURCES = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 };
+const RESOURCES = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 };
 
 export const isMobileViewport = (): boolean => window.matchMedia("(max-width: 900px)").matches;
 
@@ -65,7 +65,7 @@ const ribbonHtml = (): string =>
     RESOURCES,
     RESOURCES,
     { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
-    { FOOD: NO_ANIM, TITANIUM: NO_ANIM, CRYSTAL: NO_ANIM, UMBRITE: NO_ANIM, SHARD: NO_ANIM },
+    { FOOD: NO_ANIM, TITANIUM: NO_ANIM, CRYSTAL: NO_ANIM, UMBRITE: NO_ANIM },
     rateToneClass,
     { supply: { FOOD: 6, TITANIUM: 2, CRYSTAL: 1, UMBRITE: 1 }, demand: { FOOD: 4, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 1 } }
   );

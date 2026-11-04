@@ -120,6 +120,8 @@ describe("diplomacy list", () => {
     };
     expect(diplomacyEmpires(input).map((e) => e.id)).toEqual(["c", "b", "d", "a"]);
     expect(empireStance("c", input)).toEqual({ kind: "truce", label: "Truce 9h" });
+    // Regression: the last hour read "Truce <1h" with no minutes.
+    expect(empireStance("c", { ...input, nowMs: 9 * 3_600_000 - 42 * 60_000 })).toEqual({ kind: "truce", label: "Truce 42m" });
   });
 });
 
@@ -174,6 +176,28 @@ describe("town screen", () => {
     expect(regions.bar).toContain("Raise flag on (6, 5)");
     expect(regions.build).toContain('data-hud-v2-action="build_hydrogarden" data-target-key="6,5"');
     expect(regions.build).toContain("Build on (6, 5)");
+  });
+
+  // Regression: pressing a support tile with a building on it said nothing about that building.
+  it("shows the building standing on the selected support tile", () => {
+    const built: Tile = { ...support, economicStructure: { ownerId: "me", type: "MINE", status: "active" } };
+    const regions = (focus: Tile, focusView = view({})) => townScreenRegions({ town, focus, townView: view({}), focusView, townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined }).build;
+    const html = regions(built);
+    expect(html).toContain("On this tile");
+    expect(html).toContain("Built here");
+    expect(html).toContain('<span class="v2t-structure-k">Building</span><span class="v2t-structure-v">Mine</span>');
+    expect(html).toContain('<span class="v2t-structure-v v2t-structure-good">Active</span>');
+    expect(html).not.toContain("Nothing to build");
+    // An empty support tile, or the town itself, gets no card; a build still going up is left to the work cards.
+    expect(regions(support)).not.toContain("Built here");
+    expect(regions({ ...built, economicStructure: { ownerId: "me", type: "MINE", status: "under_construction" } })).not.toContain("Built here");
+    // A building being removed already has its own work card.
+    expect(regions({ ...built, economicStructure: { ownerId: "me", type: "MINE", status: "removing" } })).not.toContain("Built here");
+    // Queued work leads, so it isn't read as part of the building under the "Built here" heading.
+    const withWork = regions(built, view({ work: [{ title: "Hydrogarden queued", detail: "", remainingLabel: "", progress: 0, note: "", queueState: "queued" }] }));
+    expect(withWork.indexOf("v2t-work")).toBeGreaterThan(-1);
+    expect(withWork.indexOf("v2t-work")).toBeLessThan(withWork.indexOf("Built here"));
+    expect(townScreenRegions({ town, focus: town, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined }).build).not.toContain("Built here");
   });
 
   // Regression (review): with a support tile selected, the town tile's own

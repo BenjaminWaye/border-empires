@@ -17,7 +17,7 @@ export type SocialAllianceRequest = {
   createdAt: number;
   fromName?: string;
   toName?: string;
-  /** Coin/Shards the deal moves, from the proposer's side; settled in the simulation on accept. */
+  /** Coin the deal moves, from the proposer's side; settled in the simulation on accept. */
   terms?: DiplomacyTerms;
   settlementPhase?: TreatySettlementPhase;
 };
@@ -205,7 +205,7 @@ export type SocialState = {
   requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24, options?: SocialOfferOptions) => SocialActionResult;
   /**
    * Locks an incoming offer that carries terms while the simulation moves
-   * the coin/Shards: cancel/reject/expiry leave it alone until endSettlement,
+   * the coin: cancel/reject/expiry leave it alone until endSettlement,
    * so the payment can never land without the agreement it paid for.
    */
   beginSettlement: (
@@ -228,6 +228,10 @@ export type SocialState = {
   /** Recent truce/alliance changes for the Chronicle timeline (social-diplomacy-history.ts). */
   diplomacyActivityCards: (playerId: string, from: number, to: number) => PersonalActivityDiplomacyCard[];
   activeTrucePairs: () => Array<[string, string]>; // non-expired pairs; sweeps first, used to sync natural expirations
+  /** When the running truce between the pair ends, or undefined when there is none. */
+  activeTruceEndsAt: (playerAId: string, playerBId: string) => number | undefined;
+  /** Withdraws pending truce offers between two players who just fought; undefined when there were none. */
+  withdrawTruceOffersOnCombat: (playerAId: string, playerBId: string) => SocialSyncResult | undefined;
   /**
    * Fresh update payloads for every player whose truce offer was dropped
    * without telling them (expiry, or a failed accept that deleted it), then

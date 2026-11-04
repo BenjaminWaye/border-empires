@@ -1,5 +1,5 @@
 import { tileActionAvailability } from "./client-tile-action-availability.js";
-import { manpowerPerBatch, ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY } from "@border-empires/shared";
+import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor, manpowerPerBatch, ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY } from "@border-empires/shared";
 import { resourceBuildActions } from "./client-resource-build-actions.js";
 import { forcedAncillarificationActions } from "../client-forced-ancillarification/client-forced-ancillarification.js";
 export { canPlaceAetherWallFromOrigin, validAetherWallDirectionsForTile, aetherWallDirectionTargetTiles } from "./client-aether-wall-placement.js";
@@ -8,7 +8,7 @@ import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js
 import {
   nextTownGrowthUpgrade,
   type BuildableStructureType,
-  SETTLE_COST, SETTLE_MANPOWER_COST,
+  SETTLE_COST,
   PALISADE_DEFENSE_MULT,
   structureBuildDurationMs,
   terrainAt,
@@ -48,11 +48,10 @@ import type {
 } from "../client-types.js";
 import { buildShowsOnTile, hasAdjacentSeaEightWay, knownTerrainAt, ownedActiveObservatoryWithinRange, ownedActiveOrBuildingObservatoryCount, type ProtectingAetherTower } from "../client-tile-action-support/client-tile-action-support.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
-import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
-import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
+import { ownTowerReadyInMs, ownTowerShotReadyInMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { appendMarchCancelAction } from "../client-muster-march-targeting.js";
-import { nextFortVariantForTile } from "./client-tile-action-fort-siege-variants.js";
+import { hasFortTech, nextFortVariantForTile } from "./client-tile-action-fort-siege-variants.js";
 import { siegeCampAction } from "./client-tile-action-siege-camp.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason, ownedRelayBeaconCount } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
@@ -166,7 +165,7 @@ export const chainedBuildAvailabilityFromModule = (
   // even on a FRONTIER tile.
   if (tile.ownershipState === "FRONTIER" && !structureSkipsSettledRequirement(structureType)) {
     const totalGold = SETTLE_COST + goldCost;
-    const totalManpower = SETTLE_MANPOWER_COST + manpowerCost;
+    const totalManpower = state.settleManpowerCost + manpowerCost;
     return [
       eligibleIgnoringAffordability && state.gold >= totalGold && state.manpower >= totalManpower,
       !eligibleIgnoringAffordability
@@ -205,7 +204,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
   if (tile.terrain === "MOUNTAIN") {
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const inObsRange = ownedActiveObservatoryWithinRange(state, tile);
-    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now(), ownObservatoryRange(state));
+    const obsCooldownMs = ownTowerReadyInMs(state, tile, Date.now());
     const removeCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("remove_mountain"));
     return [
       {
@@ -223,9 +222,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               : !inObsRange
                 ? "Need active Aether Tower in range"
                 : removeCooldown > 0
-                  ? `Cooldown ${deps.formatCooldownShort(removeCooldown)}`
+                  ? `Tower out of shots · next in ${deps.formatCooldownShort(removeCooldown)}`
                   : "",
-          "20m cooldown"
+          "1 tower shot"
         )
       }
     ];
@@ -235,7 +234,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
   const createMountainAction = (): TileActionDef => {
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const inObsRange = ownedActiveObservatoryWithinRange(state, tile);
-    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now(), ownObservatoryRange(state));
+    const obsCooldownMs = ownTowerReadyInMs(state, tile, Date.now());
     const createCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("create_mountain"));
     const blockedBySite = Boolean(tile.town || tile.dockId || tile.fort || tile.siegeBattery || tile.observatory || tile.economicStructure);
     return {
@@ -256,9 +255,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               : blockedBySite
                 ? "Town, dock, or structure blocks terrain shaping"
                 : createCooldown > 0
-                  ? `Cooldown ${deps.formatCooldownShort(createCooldown)}`
+                  ? `Tower out of shots · next in ${deps.formatCooldownShort(createCooldown)}`
                   : "",
-        "20m cooldown"
+        "1 tower shot"
       )
     };
   };
@@ -269,7 +268,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const blockedBySite = Boolean(tile.town || tile.dockId || tile.fort || tile.siegeBattery || tile.observatory || tile.economicStructure);
     const cooldown = Math.max(
-      readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now(), ownObservatoryRange(state)),
+      ownTowerReadyInMs(state, tile, Date.now()),
       deps.abilityCooldownRemainingMs("retort_recasting")
     );
     const canCast =
@@ -287,7 +286,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         : blockedBySite
           ? "Town, dock, or structure blocks recasting"
           : cooldown > 0
-            ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
+            ? `Tower out of shots · next in ${deps.formatCooldownShort(cooldown)}`
             : "";
     const targets: Array<{ id: TileActionDef["id"]; label: string; targetResource: RetortTargetResource; summary: string }> = [
       { id: "retort_recast_food", label: "Recast to Food", targetResource: "FARM", summary: "retune this tile into food" },
@@ -311,10 +310,10 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     out.push(...afcModuleActionsForTile(state, tile, tileActionAvailability));
     const now = Date.now();
     const obsInRange = ownedActiveObservatoryWithinRange(state, tile);
-    const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, now, ownObservatoryRange(state));
+    const obsCooldownMs = ownTowerReadyInMs(state, tile, now);
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const isOwnOrAllyTile = Boolean(tile.ownerId && tile.ownerId === state.me) || deps.isTileOwnedByAlly(tile);
-    out.push(...afcTowerSuppressionAction(tile, { installed: state.domainIds.includes("afc-oracle-4"), hostile: Boolean(tile.ownerId) && !isOwnOrAllyTile && !deps.activeTruceWithPlayer(tile.ownerId), inRange: obsInRange, cooldownMs: obsCooldownMs }));
+    out.push(...afcTowerSuppressionAction(tile, { installed: state.domainIds.includes("afc-oracle-4"), hijackInstalled: state.domainIds.includes("afc-oracle-5"), hijackReadyInMs: state.hijackReadyAt - now, now, hostile: Boolean(tile.ownerId) && !isOwnOrAllyTile && !deps.activeTruceWithPlayer(tile.ownerId), inRange: obsInRange, cooldownMs: obsCooldownMs }));
     const isUnclaimed = !tile.ownerId;
     const targetHasPurgeableOwnership = tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER";
     const economicStructureType = tile.economicStructure?.type;
@@ -338,12 +337,12 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               : observatoryProtection
                 ? "Blocked by Aether Tower field"
                 : lanceCooldown > 0
-                  ? `Cooldown ${deps.formatCooldownShort(lanceCooldown)}`
+                  ? `Tower out of shots · next in ${deps.formatCooldownShort(lanceCooldown)}`
                   : "";
       out.push({
         id: "aether_lance",
         label: "Aether Purge",
-        ...tileActionAvailability(reason === "", reason, "turn enemy control neutral • 10m cooldown")
+        ...tileActionAvailability(reason === "", reason, "turn enemy control neutral • 1 tower shot")
       });
     }
 
@@ -366,12 +365,12 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : observatoryProtection
                   ? "Blocked by Aether Tower field"
                   : empCooldown > 0
-                    ? `Cooldown ${deps.formatCooldownShort(empCooldown)}`
+                    ? `Tower out of shots · next in ${deps.formatCooldownShort(empCooldown)}`
                     : "";
       out.push({
         id: "aether_emp",
         label: "Aether EMP",
-        ...tileActionAvailability(reason === "", reason, "disable one powered enemy structure for 20m")
+        ...tileActionAvailability(reason === "", reason, "disable one powered enemy structure for 20m • 1 tower shot")
       });
     }
 
@@ -384,12 +383,12 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         : !obsInRange
           ? "Need active Aether Tower in range"
           : wallCooldown > 0
-            ? `Cooldown ${deps.formatCooldownShort(wallCooldown)}`
+            ? `Tower out of shots · next in ${deps.formatCooldownShort(wallCooldown)}`
             : "";
       out.push({
         id: "aether_wall",
         label: "Aether Wall",
-        ...tileActionAvailability(reason === "", reason, "Free • 20m duration • up to 3 borders • 8m cooldown")
+        ...tileActionAvailability(reason === "", reason, "Free • 20m duration • up to 3 borders • 1 tower shot")
       });
     }
 
@@ -405,37 +404,17 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             : tile.ownerId && tile.ownerId !== state.me && observatoryProtection
               ? "Landing blocked by enemy Aether Tower"
               : bridgeCooldown > 0
-                ? `Cooldown ${deps.formatCooldownShort(bridgeCooldown)}`
+                ? `Tower out of shots · next in ${deps.formatCooldownShort(bridgeCooldown)}`
                 : "";
       out.push({
         id: "aether_bridge",
         label: "Aether Bridge",
-        ...tileActionAvailability(reason === "", reason, "Free • crosses up to 4 sea tiles • 30m cooldown")
+        ...tileActionAvailability(reason === "", reason, "Free • crosses up to 4 sea tiles • 1 tower shot")
       });
     }
 
     return out;
   };
-  if (tile.shardSite) {
-    const ownsShardTile =
-      tile.ownerId === state.me &&
-      (tile.ownershipState === "FRONTIER" || tile.ownershipState === "SETTLED");
-    if (ownsShardTile) {
-      return [
-        {
-          id: "collect_shard",
-          label: tile.shardSite.kind === "FALL" ? "Collect Shardfall" : "Collect Shards",
-          detail:
-            tile.shardSite.kind === "FALL"
-              ? `${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} from active shard rain`
-              : `${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} recovered from this cache`
-        },
-        ...retortRecastActions(),
-        ...crystalCoreActions(),
-        createMountainAction()
-      ];
-    }
-  }
   if (!tile.ownerId) {
     return neutralTileActions(state, tile, deps, { retortRecastActions, crystalCoreActions, createMountainAction });
   }
@@ -466,7 +445,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     const withReachGate = ([eligible, reason, cost]: [boolean, string, string]): [boolean, string, string] =>
       frontierOutOfReach ? [false, "Outside your reach", cost] : [eligible, reason, cost];
     if (tile.observatory?.ownerId === state.me && tile.observatory.status === "active") {
-      const cooldown = deps.abilityCooldownRemainingMs("survey_sweep");
+      const cooldown = ownTowerShotReadyInMs(state, tile, Date.now());
       out.push({
         id: "survey_sweep",
         label: "Survey Sweep",
@@ -475,9 +454,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           !playerHasAbilityTech(state.techIds, "survey_sweep")
             ? "Requires Augury Office"
             : cooldown > 0
-              ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
+              ? `Tower out of shots · next in ${deps.formatCooldownShort(cooldown)}`
               : "",
-          "Free • pings hidden resources + towns in a 50x50 area • 12m cooldown"
+          "Free • pings hidden resources + towns in a 50x50 area • 1 tower shot"
         )
       });
     }
@@ -686,7 +665,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       // upgrade below, but if a fresh Fort can't actually be built right now
       // (no free TITANIUM slot) keep Palisade visible as the fallback rather
       // than hiding both options.
-      (!state.techIds.includes("masonry") || !hasFreeResourceSlots(state, "FORT"))
+      (!hasFortTech(state) || !hasFreeResourceSlots(state, "FORT"))
     ) {
       out.push({
         id: "build_palisade" as TileActionDef["id"],
@@ -710,7 +689,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     ) {
       const fortVariant = nextFortVariantForTile(state, tile);
       if (fortVariant) {
-        const hasTech = tile.fort && !hasPalisade ? true : state.techIds.includes("masonry"); // a Palisade upgrade still needs masonry
+        const hasTech = tile.fort && !hasPalisade ? true : hasFortTech(state); // a Palisade upgrade still needs masonry (or Fortification Patterns)
         const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "HARBOR_EXCHANGE";
         const hasFreeSlots = hasFreeResourceSlots(state, fortVariant.variant, tile.fort?.variant, tile);
         out.push({
@@ -848,7 +827,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 !imperialExchangeBuilt &&
                 !tile.siegeBattery &&
                 !tile.observatory &&
-                (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "IMPERIAL_EXCHANGE"),
               !state.techIds.includes("urban-mintworks")
                 ? "Requires Imperial Exchange"
@@ -858,9 +836,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                     ? "Build 3 Imperial Exchange parts first"
                     : tile.siegeBattery || tile.observatory
                       ? "Tile already has structure"
-                      : (state.strategicResources.SHARD ?? 0) < 2
-                        ? "Need 2 SHARD"
-                        : missingResourceSlotReason(state, "IMPERIAL_EXCHANGE") ?? "Unavailable",
+                      : missingResourceSlotReason(state, "IMPERIAL_EXCHANGE") ?? "Unavailable",
               `${deps.structureCostText("IMPERIAL_EXCHANGE")} • ${buildTimeLabel(economicBuildMsForState(state, "IMPERIAL_EXCHANGE"))} • build 3 parts first${upkeepSuffixFor("IMPERIAL_EXCHANGE")}`,
               0
             )
@@ -880,7 +856,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 !sovereignSiegeEngineBuilt &&
                 !tile.siegeBattery &&
                 !tile.observatory &&
-                (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "SOVEREIGN_SIEGE_ENGINE"),
               !state.techIds.includes("world-engine")
                 ? "Requires Sovereign Siege Engine"
@@ -890,9 +865,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                     ? "Build 3 Sovereign Siege Engine parts first"
                     : tile.siegeBattery || tile.observatory
                       ? "Tile already has structure"
-                      : (state.strategicResources.SHARD ?? 0) < 2
-                        ? "Need 2 SHARD"
-                        : missingResourceSlotReason(state, "SOVEREIGN_SIEGE_ENGINE") ?? "Unavailable",
+                      : missingResourceSlotReason(state, "SOVEREIGN_SIEGE_ENGINE") ?? "Unavailable",
               `${deps.structureCostText("SOVEREIGN_SIEGE_ENGINE")} • ${buildTimeLabel(economicBuildMsForState(state, "SOVEREIGN_SIEGE_ENGINE"))} • build 3 parts first${upkeepSuffixFor("SOVEREIGN_SIEGE_ENGINE")}`,
               0
             )
@@ -912,7 +885,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 !aegisDomeBuilt &&
                 !tile.siegeBattery &&
                 !tile.observatory &&
-                (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "AEGIS_DOME"),
               !state.techIds.includes("aegis-dome")
                 ? "Requires Aegis Dome"
@@ -922,9 +894,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                     ? "Build 3 Aegis Dome parts first"
                     : tile.siegeBattery || tile.observatory
                       ? "Tile already has structure"
-                      : (state.strategicResources.SHARD ?? 0) < 2
-                        ? "Need 2 SHARD"
-                        : missingResourceSlotReason(state, "AEGIS_DOME") ?? "Unavailable",
+                      : missingResourceSlotReason(state, "AEGIS_DOME") ?? "Unavailable",
               `${deps.structureCostText("AEGIS_DOME")} • ${buildTimeLabel(economicBuildMsForState(state, "AEGIS_DOME"))} • build 3 parts first${upkeepSuffixFor("AEGIS_DOME")}`,
               0
             )
@@ -944,7 +914,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 !astralDockBuilt &&
                 !tile.siegeBattery &&
                 !tile.observatory &&
-                (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "ASTRAL_DOCK"),
               !state.techIds.includes("astral-dock")
                 ? "Requires Astral Dock"
@@ -954,9 +923,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                     ? "Build 3 Astral Dock parts first"
                     : tile.siegeBattery || tile.observatory
                       ? "Tile already has structure"
-                      : (state.strategicResources.SHARD ?? 0) < 2
-                        ? "Need 2 SHARD"
-                        : missingResourceSlotReason(state, "ASTRAL_DOCK") ?? "Unavailable",
+                      : missingResourceSlotReason(state, "ASTRAL_DOCK") ?? "Unavailable",
               `${deps.structureCostText("ASTRAL_DOCK")} • ${buildTimeLabel(economicBuildMsForState(state, "ASTRAL_DOCK"))} • build 3 parts first${upkeepSuffixFor("ASTRAL_DOCK")}`,
               0
             )
@@ -976,7 +943,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 !censusDirectorateBuilt &&
                 !tile.siegeBattery &&
                 !tile.observatory &&
-                (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "CENSUS_DIRECTORATE"),
               !state.techIds.includes("demographic-registry")
                 ? "Requires Demographic Registry"
@@ -986,9 +952,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                     ? "Build 3 Census Directorate parts first"
                     : tile.siegeBattery || tile.observatory
                       ? "Tile already has structure"
-                      : (state.strategicResources.SHARD ?? 0) < 2
-                        ? "Need 2 SHARD"
-                        : missingResourceSlotReason(state, "CENSUS_DIRECTORATE") ?? "Unavailable",
+                      : missingResourceSlotReason(state, "CENSUS_DIRECTORATE") ?? "Unavailable",
               `${deps.structureCostText("CENSUS_DIRECTORATE")} • ${buildTimeLabel(economicBuildMsForState(state, "CENSUS_DIRECTORATE"))} • build 3 parts first${upkeepSuffixFor("CENSUS_DIRECTORATE")}`,
               0
             )
@@ -1008,7 +972,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 !titaniumLevyBuilt &&
                 !tile.siegeBattery &&
                 !tile.observatory &&
-                (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "TITANIUM_LEVY"),
               !state.techIds.includes("grand-levy-doctrine")
                 ? "Requires Grand Levy Doctrine"
@@ -1018,9 +981,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                     ? "Build 3 Titanium Levy parts first"
                     : tile.siegeBattery || tile.observatory
                       ? "Tile already has structure"
-                      : (state.strategicResources.SHARD ?? 0) < 2
-                        ? "Need 2 SHARD"
-                        : missingResourceSlotReason(state, "TITANIUM_LEVY") ?? "Unavailable",
+                      : missingResourceSlotReason(state, "TITANIUM_LEVY") ?? "Unavailable",
               `${deps.structureCostText("TITANIUM_LEVY")} • ${buildTimeLabel(economicBuildMsForState(state, "TITANIUM_LEVY"))} • build 3 parts first${upkeepSuffixFor("TITANIUM_LEVY")}`,
               0
             )
@@ -1166,7 +1127,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             "RELAY_BEACON",
             hasFreeResourceSlotsForRelayBeacon(state),
             missingRelayBeaconSlotReason(state) ?? "Unavailable",
-            `${deps.structureCostText("RELAY_BEACON")} • ${relayBeaconBuildTimeLabel(state)}${upkeepSuffixFor("RELAY_BEACON", ownedRelayBeaconCount(state))}`
+            `${deps.structureCostText("RELAY_BEACON")} • ${relayBeaconBuildTimeLabel(state)}${upkeepSuffixFor("RELAY_BEACON", ownedRelayBeaconCount(state), relayBeaconFreeFoodSlotCountFor(state.domainIds, RELAY_BEACON_FREE_FOOD_SLOT_COUNT))}`
           ))
         )
       });
@@ -1559,7 +1520,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         revealActive ? "Cancel current reveal" : "Free • toggle, no cooldown"
       )
     });
-    const obsCooldownForOther = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, Date.now(), ownObservatoryRange(state));
+    const obsCooldownForOther = ownTowerReadyInMs(state, tile, Date.now());
     const revealStatsCooldown = Math.max(obsCooldownForOther, deps.abilityCooldownRemainingMs("reveal_empire_stats"));
     out.push({
       id: "reveal_empire_stats",
@@ -1573,9 +1534,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           : revealActive
             ? "Cancel reveal first"
             : revealStatsCooldown > 0
-              ? `Cooldown ${deps.formatCooldownShort(revealStatsCooldown)}`
+              ? `Tower out of shots · next in ${deps.formatCooldownShort(revealStatsCooldown)}`
               : "",
-        "Free • one-shot empire intel • 5m cooldown"
+        "Free • one-shot empire intel • 1 tower shot"
       )
     });
     const sabotageCooldown = Math.max(obsCooldownForOther, deps.abilityCooldownRemainingMs("siphon"));
@@ -1597,9 +1558,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               : !(tile.resource || tile.town)
                 ? "Town or resource only"
                 : sabotageCooldown > 0
-                  ? `Cooldown ${deps.formatCooldownShort(sabotageCooldown)}`
+                  ? `Tower out of shots · next in ${deps.formatCooldownShort(sabotageCooldown)}`
                   : "",
-        "Free • drains a 3x3 until you cancel it from your tower • tower locked meanwhile"
+        "Free • 1 tower shot • drains a 3x3 until you cancel it from your tower • tower locked meanwhile"
       )
     });
   }

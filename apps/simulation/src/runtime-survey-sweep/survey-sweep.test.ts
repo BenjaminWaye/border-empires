@@ -19,7 +19,7 @@ const makePlayer = (id: string, techIds: string[] = []) => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
-  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0, SHARD: 0 }
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0 }
 });
 
 describe("survey sweep", () => {
@@ -98,10 +98,12 @@ describe("survey sweep", () => {
     const player = state.players.find((entry) => entry.id === "player-1");
     const observatoryTile = state.tiles.find((tile) => tile.x === 0 && tile.y === 0);
     const observatory = observatoryTile?.observatoryJson
-      ? JSON.parse(observatoryTile.observatoryJson) as { cooldownUntil?: number }
+      ? JSON.parse(observatoryTile.observatoryJson) as { cooldownUntil?: number; shotsUsedAt?: number[] }
       : undefined;
     // §17: Survey Sweep no longer costs CRYSTAL.
     expect(player?.strategicResources.CRYSTAL).toBe(100);
-    expect(observatory?.cooldownUntil).toBe(721_000);
+    // One of the tower's 3 shots spent; it stays ready.
+    expect(observatory?.shotsUsedAt).toEqual([1_000]);
+    expect(observatory?.cooldownUntil).toBeUndefined();
   });
 });

@@ -5,6 +5,7 @@ import type { DomainStrategicResourceKey, DomainTileState } from "@border-empire
 import type { EconomicStructureType, SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 import type { WorldVictoryProgress } from "./victory-path-scoring.js";
+import type { TownEconomyEntry } from "./build/town-economy-view.js";
 
 /**
  * Serializable world-view snapshot passed to AI and system worker threads via
@@ -61,7 +62,8 @@ export type PlannerPlayerView = {
   techIds?: string[];
   domainIds?: string[];
   afcUpgradeRuleset?: "afc-v1";
-  afcDetectedFlags?: readonly { x: number; y: number; ownerId: string }[];
+  /** Resonance Hijack recharge (afcCampaign.hijackReadyAt), so the planner never proposes one the server will refuse. */
+  afcHijackReadyAt?: number;
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   settledTileCount?: number;
   townCount?: number;
@@ -137,6 +139,8 @@ export type PlannerPlayerView = {
    * spendableManpowerForPlanner.
    */
   musterStagedManpower?: number;
+  /** When each of this player's timed truces runs out (ms); one entry per truce partner. */
+  truceEndsAt?: number[];
   /** Total owned tiles (territoryTileKeys.length = settled + frontier). */
   ownedTileCount: number;
   /** Total frontier tiles (frontierTileKeys.length). */
@@ -152,6 +156,8 @@ export type PlannerPlayerView = {
   slotDemandByResource?: Partial<Record<SlotResource, number>>;
   /** "x,y" keys of economicStructures dormant on FOOD — feeds food-slot-relief.ts. Same optional-degrades-gracefully pattern as the fields above. */
   foodDormantEconomicStructureKeys?: string[];
+  /** Per-town stacking/amplifier state (docs/ai-economic-synergy-plan.md). Optional like the fields above. */
+  townEconomy?: readonly TownEconomyEntry[];
 };
 
 // ─── World view ───────────────────────────────────────────────────────────────

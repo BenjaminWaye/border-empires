@@ -1,8 +1,7 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { renderManpowerPanelHtml } from "../client-side-panel-html/client-side-panel-html.js";
 import { buildManpowerPanelMusterFlags, wireManpowerPanel } from "../client-muster-flags-panel/client-muster-flags-panel.js";
-import { nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
-import { bindShardMobilizeButtons } from "../client-shard-mobilize/client-shard-mobilize.js";
+import { freshNextBatchAmount, nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
 
 export type HudManpowerPanelDeps = {
   state: ClientState;
@@ -23,22 +22,20 @@ export type HudManpowerPanelDeps = {
 /** Renders and wires the manpower detail panel (desktop and mobile copies), extracted from client-hud.ts. */
 export const renderHudManpowerPanel = (deps: HudManpowerPanelDeps): void => {
   const { state, dom } = deps;
+  const nowMs = Date.now();
   const html = deps.safeHtml("renderManpowerPanelHtml", deps.fallbackHtml, () =>
     deps.renderManpowerPanelHtml({
       manpower: state.manpower,
       manpowerCap: state.manpowerCap,
       manpowerRegenPerMinute: state.manpowerRegenPerMinute,
-      nextBatchAmount: state.nextManpowerBatchAmount,
+      nextBatchAmount: freshNextBatchAmount(state.me, state.nextManpowerBatchAmount, state.nextManpowerBatchAmountAt, nowMs),
       manpowerBreakdown: state.manpowerBreakdown,
       musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
       formatManpowerAmount: deps.formatManpowerAmount,
       rateToneClass: deps.rateToneClass,
-      nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now()),
-      shards: state.strategicResources.SHARD ?? 0
+      nextRefillAtMs: nextManpowerRefillForPlayer(state.me, nowMs)
     })
   );
   dom.panelManpowerEl.innerHTML = dom.mobilePanelManpowerEl.innerHTML = html;
   wireManpowerPanel(dom.hud, state, { wrapX: deps.wrapX, wrapY: deps.wrapY, requestViewRefresh: deps.requestViewRefresh, rerender: deps.rerender });
-  bindShardMobilizeButtons(dom.panelManpowerEl, deps.sendGameMessage);
-  bindShardMobilizeButtons(dom.mobilePanelManpowerEl, deps.sendGameMessage);
 };

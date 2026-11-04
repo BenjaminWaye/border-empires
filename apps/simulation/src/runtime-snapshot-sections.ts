@@ -48,6 +48,8 @@ export const mapTile = (tile: DomainTileState): SnapshotTile => ({
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
   ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
   ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
+  ...(typeof tile.warScarLevel === "number" ? { warScarLevel: tile.warScarLevel } : {}),
+  ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   // Overlays come from the one shared key list: AFCs were once missing here,
   // so they were never saved and every restart re-placed them elsewhere.
@@ -111,6 +113,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           strategicResources: { ...(player.strategicResources ?? {}) },
           allies: [...player.allies].sort(),
           truces: [...(player.truces ?? [])].sort(),
+          ...(player.truceEndsAt?.size ? { truceEndsAt: Object.fromEntries(player.truceEndsAt) } : {}),
           vision: player.mods?.vision ?? 1,
           visionRadiusBonus: visionRadiusBonusForPlayer(player),
           incomeMultiplier: player.mods?.income ?? 1,

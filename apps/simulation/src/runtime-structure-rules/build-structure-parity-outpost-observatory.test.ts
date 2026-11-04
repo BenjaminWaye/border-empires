@@ -17,7 +17,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         techIds: new Set<string>(["leatherworking"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100 },
       }]]),
       initialState: {
         tiles: [afcModuleFixtureTile("player-1"), 
@@ -48,7 +48,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         techIds: new Set<string>(["leatherworking", "siegecraft"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-        strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 200, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 200 },
       }]]),
       initialState: {
         tiles: [afcModuleFixtureTile("player-1"), 
@@ -81,7 +81,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         techIds: new Set<string>(["leatherworking"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100 },
       }]]),
       initialState: {
         tiles: [
@@ -117,7 +117,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         techIds: new Set<string>(["leatherworking", "siegecraft"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-        strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 200, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 200 },
       }]]),
       initialState: {
         tiles: [afcModuleFixtureTile("player-1"), 
@@ -155,7 +155,7 @@ describe("BUILD_STRUCTURE parity — observatory", () => {
         techIds: new Set<string>(["crystal-lattices"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0 },
       }]]),
       initialState: {
         tiles: [afcModuleFixtureTile("player-1"), 
@@ -186,7 +186,7 @@ describe("BUILD_STRUCTURE parity — observatory", () => {
         techIds: new Set<string>(["crystal-lattices"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0 },
       }]]),
       initialState: {
         tiles: [afcModuleFixtureTile("player-1"), 

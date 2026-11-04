@@ -4,7 +4,7 @@ import { AFC_SPECIALIZATIONS } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { renderAfcUpgradePanels } from "./client-afc-upgrades.js";
-import { applyAfcStateMessage } from "./client-afc-state.js";
+import { AFC_MAP_EFFECT_TTL_MS, applyAfcHijackMessage } from "./client-afc-state.js";
 import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
 import { requiredMusterForFort, FRONTIER_ATTACK_MUSTER_COST } from "@border-empires/shared";
 
@@ -44,11 +44,18 @@ describe("AFC gameplay controls and free progression", () => {
     expect(send).toHaveBeenCalledTimes(2);
     expect(send.mock.calls[0]?.[0]).toEqual({ type: "RECRUIT_ANCILLARIES", coin: 3 });
   });
-  it("accepts only masked coordinates/owner and drops hidden payload fields", () => {
+  it("keeps the hijack list bounded and remembers outcomes and breakthroughs briefly", () => {
     const state = stateFor();
-    applyAfcStateMessage(state, { type: "AFC_FLAG_DETECTIONS", flags: [{ x: 7, y: 8, ownerId: "enemy", amount: 999, resource: "GEMS" }, { x: "bad", y: 8, ownerId: "enemy" }] });
-    expect(state.afcDetectedFlags).toEqual([{ x: 7, y: 8, ownerId: "enemy" }]);
-    expect(state.tiles.size).toBe(0);
+    applyAfcHijackMessage(state, { type: "AFC_HIJACKS", hijacks: [{ targetX: 7, targetY: 8, casterX: 1, casterY: 2, attackerId: "me", victimId: "enemy", startedAt: 1, endsAt: 600_001, secret: 1 }, { targetX: "bad" }] }, 10);
+    expect(state.afcHijacks).toEqual([{ targetX: 7, targetY: 8, casterX: 1, casterY: 2, attackerId: "me", victimId: "enemy", startedAt: 1, endsAt: 600_001 }]);
+    applyAfcHijackMessage(state, { type: "AFC_HIJACK_OUTCOME", targetX: 7, targetY: 8, attackerId: "me", victimId: "enemy", status: "succeeded" }, 20);
+    expect(state.afcHijackOutcomes).toEqual([{ targetX: 7, targetY: 8, casterX: 1, casterY: 2, attackerId: "me", victimId: "enemy", status: "succeeded", at: 20 }]);
+    applyAfcHijackMessage(state, { type: "AFC_BREAKTHROUGH", attackerId: "me", fromX: 1, fromY: 1, tiles: [{ x: 2, y: 1 }] }, 20 + AFC_MAP_EFFECT_TTL_MS);
+    applyAfcHijackMessage(state, { type: "AFC_HIJACK_OUTCOME", targetX: 9, targetY: 9, casterX: 4, casterY: 5, attackerId: "me", victimId: "enemy", status: "failed" }, 20 + AFC_MAP_EFFECT_TTL_MS);
+    expect(state.afcHijackOutcomes.map(outcome => outcome.targetX)).toEqual([9]);
+    // A failed hijack's snap beam needs the caster, which the outcome itself carries.
+    expect(state.afcHijackOutcomes[0]).toMatchObject({ casterX: 4, casterY: 5, status: "failed" });
+    expect(state.afcBreakthroughs).toHaveLength(1);
   });
   it("uses the same fort floor for Sappers and Defensive Depth, and a frontier floor without fort defense", () => {
     const target = { x: 1, y: 1, terrain: "LAND" as const, fogged: false, ownershipState: "SETTLED" as const, fort: { ownerId: "enemy", status: "active" as const, variant: "FORT" as const, attackCommitmentMult: 2 } };

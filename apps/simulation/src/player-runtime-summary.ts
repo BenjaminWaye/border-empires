@@ -50,6 +50,8 @@ export type ServerDevQueueEntry = {
   reservedManpower?: number;
   /** The resource-slot requirement reserved alongside reservedManpower, netted into later enqueue checks so a player can't queue more slot-gated BUILDs than they have supply for. */
   reservedSlotRequirements?: { resource: SlotResource; count: number }[];
+  /** SETTLE queued while the player couldn't cover its manpower: holds no reservation until a refill batch lands -- see runtime-dev-queue-settle-manpower-wait.ts. */
+  awaitingManpower?: true;
   /**
    * Who dispatches this entry while the player is online. "client" (the
    * default, and how entries recovered from snapshots written before this
@@ -148,8 +150,7 @@ const emptyStrategicProduction = (): Record<StrategicResourceKey, number> => ({
   FOOD: 0,
   TITANIUM: 0,
   CRYSTAL: 0,
-  UMBRITE: 0,
-  SHARD: 0
+  UMBRITE: 0
 });
 
 // TITANIUM/CRYSTAL/UMBRITE are slot-based, not produced —
@@ -294,8 +295,7 @@ export const cloneStrategicProduction = (
   FOOD: value.FOOD,
   TITANIUM: value.TITANIUM,
   CRYSTAL: value.CRYSTAL,
-  UMBRITE: value.UMBRITE,
-  SHARD: value.SHARD
+  UMBRITE: value.UMBRITE
 });
 
 export const estimateIncomePerMinuteFromTiles = (playerId: string, tiles: Iterable<EconomyTileLike>): number => {

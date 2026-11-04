@@ -16,7 +16,7 @@ import { hasSupportedStructure } from "./economy-network/economy-network.js";
 import { parseTilePayload } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import type { SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
+import type { SimulationTileWireDelta } from "./runtime-types.js";
 
 type TownPopulationTier = NonNullable<DomainTileState["town"]>["populationTier"];
 type UpgradeTownTier = Exclude<TownPopulationTier, "SETTLEMENT">;
@@ -32,7 +32,6 @@ export type RuntimeProgressionCommandContext = {
   tiles: Map<string, DomainTileState>;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">, playerId?: string) => void;
-  addStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   setTileState: (tileKey: string, tile: DomainTileState) => void;
@@ -57,10 +56,6 @@ export type RuntimeProgressionCommandContext = {
   // resyncVisionRadiusContribution in runtime.ts.
   resyncVisionRadius: (playerId: string) => void;
   incomePerMinuteForPlayer: (playerId: string) => number;
-  decrementShardRainSiteCount: () => number;
-  clearShardRainExpiry: () => void;
-  clearLastShardRainHello: () => void;
-  onShardCollected: (() => void) | undefined;
   // §5.4/user decision: a town tier upgrade permanently adds +1 FOOD slot
   // demand (townFoodSlotDemandForTier), so it needs a free FOOD slot at
   // upgrade time, same "global pool" check hasFreeResourceSlots uses for
@@ -199,61 +194,6 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
     playerId: command.playerId,
     tileDeltas: [context.tileDeltaFromState(updatedTile)]
   });
-  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
-}
-
-export function handleCollectShardCommand(context: RuntimeProgressionCommandContext, command: CommandEnvelope): void {
-  const actor = context.players.get(command.playerId);
-  const payload = parseTilePayload(command.payloadJson);
-  if (!actor || !payload) {
-    rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
-    return;
-  }
-  const targetKey = simulationTileKey(payload.x, payload.y);
-  const target = context.tiles.get(targetKey);
-  const amount = target?.shardSite?.amount ?? 0;
-  if (!target || !target.shardSite || amount <= 0) {
-    rejectCommand(context, command, "COLLECT_EMPTY", "no shard present");
-    return;
-  }
-  if (
-    target.ownerId !== command.playerId ||
-    (target.ownershipState !== "FRONTIER" && target.ownershipState !== "SETTLED")
-  ) {
-    rejectCommand(context, command, "COLLECT_NOT_OWNED", "shard tile must be owned by you");
-    return;
-  }
-  context.addStrategicResource(actor, "SHARD", amount);
-  context.afterResourceSupplyChange?.(actor.id);
-  context.invalidateEconomySnapshot(actor.id);
-  if (target.shardSite.kind === "FALL") {
-    if (context.decrementShardRainSiteCount() === 0) {
-      context.clearShardRainExpiry();
-      context.clearLastShardRainHello();
-    }
-  } else {
-    context.onShardCollected?.();
-  }
-  const updatedTile: DomainTileState = { ...target, shardSite: undefined };
-  context.replaceTileState(targetKey, updatedTile);
-  context.emitEvent({
-    eventType: "TILE_DELTA_BATCH",
-    commandId: command.commandId,
-    playerId: command.playerId,
-    tileDeltas: [{ ...context.tileDeltaFromState(updatedTile), shardSiteJson: "" }]
-  });
-  context.emitEvent({
-    eventType: "COLLECT_RESULT",
-    commandId: command.commandId,
-    playerId: command.playerId,
-    mode: "tile",
-    x: payload.x,
-    y: payload.y,
-    tiles: 1,
-    gold: 0,
-    strategic: { SHARD: amount }
-  });
-  context.emitPlayerStateUpdate(command);
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 

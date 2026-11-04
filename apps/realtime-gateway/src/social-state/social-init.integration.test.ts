@@ -162,8 +162,8 @@ describe("rewrite social integration", () => {
               gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
               foodCoverage: 1
             },
-            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
             stamina: 0,
             manpower: 0,
             manpowerCap: 0,
@@ -275,13 +275,9 @@ describe("rewrite social integration", () => {
     ).toEqual(
       expect.objectContaining({ type: "TRUCE_UPDATE", activeTruces: [expect.objectContaining({ otherPlayerId: "player-1" })] })
     );
-    expect(submittedCommands).toContainEqual(
-      expect.objectContaining({
-        type: "SYNC_TRUCE",
-        playerId: "player-2",
-        payloadJson: JSON.stringify({ targetPlayerId: "player-1", truced: true })
-      })
-    );
+    // The truced sync carries the truce's end time for the AI's pre-expiry muster.
+    const truceSync = submittedCommands.find((command) => command.type === "SYNC_TRUCE" && command.playerId === "player-2");
+    expect(JSON.parse(truceSync?.payloadJson ?? "{}")).toEqual({ targetPlayerId: "player-1", truced: true, endsAt: expect.any(Number) });
 
     second.socket.send(JSON.stringify({ type: "TRUCE_BREAK", targetPlayerId: "player-1" }));
     expect(

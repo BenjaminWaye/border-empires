@@ -118,7 +118,7 @@ const sides = (deps: HudV2Deps, b: Battle): { you: BattleSide; them: BattleSide 
 };
 
 const onSheetOpened = (deps: HudV2Deps): void => {
-  if (!isHudV2Active(deps.isMobile) || !attack || Date.now() - attack.at > ATTACK_CONTEXT_TTL_MS) return;
+  if (!isHudV2Active() || !attack || Date.now() - attack.at > ATTACK_CONTEXT_TTL_MS) return;
   if (screen.id !== null && screen.id !== "battle") return;
   const tile: Tile | undefined = deps.state.tiles.get(attack.tileKey);
   if (!tile?.ownerId) return;

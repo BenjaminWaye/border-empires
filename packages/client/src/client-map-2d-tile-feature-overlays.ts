@@ -7,7 +7,9 @@ import { drawRelicHint2D } from "./client-relic-overlay/relic-map-hints.js";
 // 500-line cap) didn't grow when the capture-hold garrison was added.
 import type { AfcJoinDropState } from "./client-afc-join-drop/client-afc-join-drop-state.js";
 import { drawAfcTile2D } from "./client-afc-join-drop/client-map-2d-afc-join-drop.js";
+import { drawCaptureAftermath2D } from "./client-map-2d-capture-aftermath.js";
 import { drawCaptureHoldGarrison2D } from "./client-map-2d-capture-hold-overlay.js";
+import { drawWarScars2D } from "./client-capture-aftermath/client-map-2d-war-scars.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
 import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js";
@@ -46,12 +48,16 @@ export const drawTileFeatureOverlays2D = (
   }
   if (t && vis === "fogged" && !isTrue3DRendererActive()) drawRememberedStructures2D(deps.ctx, deps.remembered, t, px, py, size);
   if (!t || vis !== "visible" || isTrue3DRendererActive()) return;
+  // Battle scars (shared war-scars.ts) lie under everything else on the tile.
+  if (t.terrain === "LAND" && t.warScarUntil !== undefined) drawWarScars2D(deps.ctx, t, px, py, size, Date.now());
   if (t.terrain === "LAND" && t.watchtower) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
   if (t.terrain === "LAND" && t.waystation) drawWaystation2D(deps.ctx, t, px, py, size, nowMs);
   if (t.terrain === "LAND" && t.afc) drawAfcTile2D(deps.ctx, t, px, py, size, nowMs, deps.afcModuleDeliveryLandedAt.get(tileKey), deps.afcJoinDrop);
   if (t.naturalWonder) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor, t.naturalWonder, t.ownershipState === "SETTLED");
   // Capture-hold garrison: 2D counterpart of the 3D standing squad. Checks
   // the deadline, not just the field, so a long-expired hold costs nothing.
+  // Rubble/smoke the capture left (client-capture-aftermath.ts) sits under the garrison.
+  if (t.terrain === "LAND") drawCaptureAftermath2D(deps.ctx, t, tileKey, px, py, size, Date.now());
   if (t.ownerId && t.captureHoldUntil !== undefined) {
     const nowEpochMs = Date.now();
     if (t.captureHoldUntil > nowEpochMs) drawCaptureHoldGarrison2D(deps.ctx, t, deps.effectiveOverlayColor(t.ownerId), px, py, size, nowEpochMs);

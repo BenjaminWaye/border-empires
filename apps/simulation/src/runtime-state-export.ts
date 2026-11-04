@@ -22,6 +22,10 @@ import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
 import { reachBorderOwnerAt } from "./runtime-aether-bridge-reach.js";
 
 import type { RuntimeExportState } from "./runtime-export-state-types.js";
+import type { TownEconomyEntry } from "./ai/build/town-economy-view.js";
+
+const townEconomyField = (view: readonly TownEconomyEntry[] | undefined): { townEconomy?: readonly TownEconomyEntry[] } =>
+  view && view.length > 0 ? { townEconomy: view } : {};
 export type { RuntimeExportState } from "./runtime-export-state-types.js";
 
 export type { RuntimeAiPlayerMetricsRow } from "./runtime-ai-player-metrics-row.js";
@@ -67,6 +71,8 @@ const toRuntimeExportTile = (
   if (typeof tile.frontierDecayAt === "number") entry.frontierDecayAt = tile.frontierDecayAt;
   if (tile.frontierDecayKind) entry.frontierDecayKind = tile.frontierDecayKind;
   if (typeof tile.captureHoldUntil === "number") entry.captureHoldUntil = tile.captureHoldUntil;
+  if (typeof tile.warScarLevel === "number") entry.warScarLevel = tile.warScarLevel;
+  if (typeof tile.warScarUntil === "number") entry.warScarUntil = tile.warScarUntil;
   if (cached.townJson) entry.townJson = cached.townJson;
   if (tile.town?.type) entry.townType = tile.town.type;
   if (tile.town?.name) entry.townName = tile.town.name;
@@ -115,6 +121,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         strategicResources: { ...(player.strategicResources ?? {}) },
         allies: [...player.allies].sort(),
         truces: [...(player.truces ?? [])].sort(),
+        ...(player.truceEndsAt?.size ? { truceEndsAt: Object.fromEntries(player.truceEndsAt) } : {}),
         vision: player.mods?.vision ?? 1,
         visionRadiusBonus: visionRadiusBonusForPlayer(player),
         incomeMultiplier: player.mods?.income ?? 1,
@@ -240,7 +247,6 @@ type PlannerExportInput = {
   // not optional: without it EXPAND-family planning is reach-blind.
   reachTileKeysForPlayer: (playerId: string) => string[];
   // See PlannerPlayerView.focusFrontTileKeys' doc comment.
-  afcDetectedFlagsForPlayer?: (playerId: string) => readonly { x: number; y: number; ownerId: string }[];
   tacticalViewForPlayer?: (playerId: string, focusKeys: readonly string[]) => AiTacticalView;
   spatialFocusFrontForPlayer: (playerId: string) => string[];
   // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): feed the
@@ -252,6 +258,7 @@ type PlannerExportInput = {
   playerManpowerCap?: (playerId: string) => number;
   playerManpowerRegenPerMinute?: (playerId: string) => number;
   resourceSlotSupplyForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
+  townEconomyViewForPlayer?: (playerId: string, options?: { rebuildOnMiss?: boolean }) => readonly TownEconomyEntry[] | undefined;
   resourceSlotDemandForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
   // Feeds food-slot-relief.ts's chooseFoodConsumingStructureToDisable — same
   // optional-degrades-gracefully pattern as the four fields above.
@@ -330,10 +337,10 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         points: player.points,
         manpower: player.manpower,
         techIds: [...player.techIds].sort(),
-        ...(player.domainIds?.has("afc-oracle-5") && input.afcDetectedFlagsForPlayer ? { afcDetectedFlags: input.afcDetectedFlagsForPlayer(playerId) } : {}),
         installedModuleTechIds: activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, input.tiles),
         domainIds: [...(player.domainIds ?? [])].sort(),
         ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
+        ...(player.afcCampaign?.hijackReadyAt ? { afcHijackReadyAt: player.afcCampaign.hijackReadyAt } : {}),
           ...(player.afcCoreTownKeys ? { afcCoreTownKeys: [...player.afcCoreTownKeys] } : {}),
           ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}),
           ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
@@ -365,6 +372,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
         nonHostilePlayerIds: [...player.allies, ...(player.truces ?? [])],
         musterStagedManpower: musterStagedManpowerForPlayer(playerId, input.musterTilesByOwner.get(playerId), input.tiles),
+        ...(player.truceEndsAt?.size ? { truceEndsAt: [...player.truceEndsAt.values()] } : {}),
         ownedTileCount,
         frontierTileCount,
         ...(input.playerManpowerCap ? { manpowerCapacity: input.playerManpowerCap(playerId) } : {}),
@@ -379,7 +387,8 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
           : {}),
         ...(input.foodDormantEconomicStructureKeysForPlayer
           ? { foodDormantEconomicStructureKeys: [...input.foodDormantEconomicStructureKeysForPlayer(playerId)] }
-          : {})
+          : {}),
+        ...townEconomyField(input.townEconomyViewForPlayer?.(playerId))
       });
     });
   }

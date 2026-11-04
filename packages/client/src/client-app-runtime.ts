@@ -38,7 +38,6 @@ import {
   overlayVariantIndexAt,
   resourceOverlayForTile,
   resourceOverlayScaleForTile,
-  shardOverlayForTile,
   structureOverlayImages
 } from "./client-map-render/client-map-render.js";
 import { createInitialState, storageSet } from "./client-state/client-state.js";
@@ -90,7 +89,6 @@ const {
   drawResourceCornerMarker,
   drawRoadOverlay,
   fortificationOverlayImageFor,
-  drawShardFallback,
   resolveDockSeaRoute,
   markDockDiscovered,
   isDockRouteVisibleForPlayer,
@@ -116,10 +114,6 @@ const { toroidDelta, worldToScreen } = createClientMapMath({ state });
 const {
   pushFeed,
   pushFeedEntry,
-  maybeAnnounceShardSite,
-  shardAlertKeyForPayload,
-  showShardAlert,
-  hideShardAlert,
   showCaptureAlert,
   notifyInsufficientGoldForFrontierAction,
   centerOnOwnedTile,
@@ -265,8 +259,6 @@ bootstrapClientApp({
   drawRoadOverlay,
   fortificationOverlayImageFor,
   resourceColor,
-  shardOverlayForTile,
-  drawShardFallback,
   drawTownOverlay,
   drawDockMarker,
   structureAccentColor,
@@ -284,15 +276,12 @@ bootstrapClientApp({
   clearOptimisticTileState,
   mergeIncomingTileDetail,
   mergeServerTileWithOptimisticState,
-  maybeAnnounceShardSite,
   markDockDiscovered,
   centerOnOwnedTile,
   resetStrategicReplayState,
   setWorldSeed,
   clearRenderCaches,
   buildMiniMapBase,
-  shardAlertKeyForPayload,
-  showShardAlert,
   combatResolutionAlert,
   wasPredictedCombatAlreadyShown,
   showCaptureAlert,
@@ -329,7 +318,6 @@ bootstrapClientApp({
   captureCancelBtn: dom.captureCancelBtn,
   captureCloseBtn: dom.captureCloseBtn,
   captureTimeEl: dom.captureTimeEl,
-  shardAlertCloseBtn: dom.shardAlertCloseBtn,
   victoryAlertCollapseBtn: dom.victoryAlertCollapseBtn,
   victoryAlertBannerBtn: dom.victoryAlertBannerBtn,
   panelCloseBtn: dom.panelCloseBtn,
@@ -342,7 +330,6 @@ bootstrapClientApp({
   terrainLabel,
   displayTownGoldPerMinute,
   tileHistoryLines,
-  hideShardAlert,
   drawPlanetaryDefenseOverlay,
   drawIncomingAttackOverlay
 });

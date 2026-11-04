@@ -1,4 +1,5 @@
-import type { SlotResource } from "@border-empires/shared";
+import { aetherTowerNextRefillAt, aetherTowerShotsRemaining, type SlotResource } from "@border-empires/shared";
+import { formatCooldownShort } from "../client-app-runtime-utils.js";
 import type { Tile } from "../client-types.js";
 import { dormantStructureLineHtml, type DormancyField } from "./client-tile-menu-dormancy-line.js";
 
@@ -14,28 +15,32 @@ export const AETHER_SHIELD_LEGEND_LINE =
 export type ObservatoryOverviewDeps = {
   readonly me: string;
   readonly nowMs: number;
+  // Shots each of the local player's towers holds (aether-tower-shots.ts).
+  readonly ownMaxShots: number;
   readonly hostileObservatoryProtectingTile: (tile: Tile) => { readonly x: number; readonly y: number } | undefined;
   readonly dormantResourcesForTile?: ((tile: Tile, field: DormancyField) => SlotResource[] | undefined) | undefined;
   readonly observatoryCrystalSlotCountForTile?: ((tile: Tile) => number) | undefined;
+};
+
+/** "Shots: 2 of 3 left · next back in 5h 12m" for one of the local player's towers. */
+export const ownTowerShotsLine = (observatory: NonNullable<Tile["observatory"]>, maxShots: number, nowMs: number): string => {
+  const remaining = aetherTowerShotsRemaining(observatory, maxShots, nowMs);
+  const refillAt = aetherTowerNextRefillAt(observatory, nowMs);
+  const refill = refillAt === undefined ? "" : ` · next back in ${formatCooldownShort(refillAt - nowMs)}`;
+  return `Shots: ${remaining} of ${maxShots} left${refill}. Each Aether ability cast from this tower spends one; a shot comes back 24h after it was used.`;
 };
 
 export const observatoryOverviewLines = (tile: Tile, deps: ObservatoryOverviewDeps): string[] => {
   const lines: string[] = [];
   const shieldedBy = tile.ownerId && tile.ownerId !== deps.me ? deps.hostileObservatoryProtectingTile(tile) : undefined;
   if (shieldedBy) {
-    lines.push(`Shielded by an enemy Aether Tower at (${shieldedBy.x}, ${shieldedBy.y}): your Aether abilities can't target this tile until that tower goes on cooldown, loses power or falls.`);
+    lines.push(`Shielded by an enemy Aether Tower at (${shieldedBy.x}, ${shieldedBy.y}): your Aether abilities can't target this tile until that tower runs out of shots, loses power or falls.`);
   }
   if (!tile.observatory) return lines;
   if (tile.observatory.status === "active" && tile.ownerId === tile.observatory.ownerId) {
-    const cooldownRemainingMs = (tile.observatory.cooldownUntil ?? 0) - deps.nowMs;
-    lines.push(cooldownRemainingMs > 0 ? "Aether Tower is active here but on cooldown — it is not protecting its owner's nearby tiles from hostile Aether abilities right now." : "Aether Tower is active here and protects its owner's nearby tiles from hostile Aether abilities.");
-    if (tile.ownerId === deps.me && cooldownRemainingMs > 0) {
-      const totalSeconds = Math.ceil(cooldownRemainingMs / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      const clock = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-      lines.push(`Crystal casting recharging — ready in ${clock}.`);
-    }
+    const outOfShots = (tile.observatory.cooldownUntil ?? 0) > deps.nowMs;
+    lines.push(outOfShots ? "Aether Tower is active here but out of shots — it is not protecting its owner's nearby tiles from hostile Aether abilities right now." : "Aether Tower is active here and protects its owner's nearby tiles from hostile Aether abilities.");
+    if (tile.ownerId === deps.me) lines.push(ownTowerShotsLine(tile.observatory, deps.ownMaxShots, deps.nowMs));
   } else if (tile.observatory.status === "under_construction") {
     lines.push("Aether Tower is under construction on this tile.");
   } else {

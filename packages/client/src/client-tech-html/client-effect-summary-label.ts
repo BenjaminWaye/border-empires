@@ -73,7 +73,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "firstTownsFoodSlotWaiverCount" && typeof value === "number") return `First ${value} towns need 1 fewer FOOD slot`;
   if (key === "resourceOutputMult" && value && typeof value === "object") {
     const ro = value as Record<string, unknown>;
-    const entries: Array<[string, string]> = [["farm", "Farm"], ["fish", "Fish"], ["titanium", "Titanium"], ["crystal", "Crystal"], ["umbrite", "Umbrite"], ["shard", "Shard"]];
+    const entries: Array<[string, string]> = [["farm", "Farm"], ["fish", "Fish"], ["titanium", "Titanium"], ["crystal", "Crystal"], ["umbrite", "Umbrite"]];
     const labels = entries.filter(([k]) => typeof ro[k] === "number" && (ro[k] as number) !== 1).map(([k, name]) => `${name} output +${(((ro[k] as number) - 1) * 100).toFixed(0)}%`);
     return labels.length > 0 ? labels.join(" | ") : null;
   }
@@ -137,8 +137,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "economicStructureBuildSpeedMult" && typeof value === "number") return `Economic build speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "populationCapFirst3TownsMult" && typeof value === "number") return `First 3 towns pop cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "observatoryVisionBonus" && typeof value === "number") return `Aether Tower vision +${value}`;
-  if (key === "observatoryCooldownMult" && typeof value === "number")
-    return `Aether Tower ability cooldowns ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "observatoryShotsMult" && typeof value === "number") return `Aether Tower shots ×${value}`;
   if (key === "attackResolveSpeedReduceMs" && typeof value === "number") return `Attacks resolve ${Math.round(value / 1000)}s faster`;
   return null;
 };

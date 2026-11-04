@@ -3,6 +3,8 @@ import { shouldShowTownUnfedWarning, shouldShowTownUpgradeReadyBadge, townGrowth
 import type { Tile } from "../client-types.js";
 
 export type TownNameplateStatus = "unfed" | "upgrade" | "war" | "captured";
+/** Own towns only: growing, or paused by hunger, a nearby war or a recent capture. Absent when neither (e.g. at the tier cap). */
+export type TownNameplateGrowth = "growing" | "paused";
 
 export interface TownNameplate {
   readonly name: string;
@@ -11,17 +13,19 @@ export interface TownNameplate {
   readonly status?: TownNameplateStatus | undefined;
   /** Own towns only: population, rounded for display. */
   readonly population?: number | undefined;
+  readonly growth?: TownNameplateGrowth | undefined;
   /** Bigger towns win overlap fights; own towns always outrank rivals. */
   readonly rank: number;
 }
 
+const GROWTH_EPSILON = 0.001;
 const TIER_RANK = { SETTLEMENT: 0, TOWN: 1, CITY: 2, GREAT_CITY: 3, METROPOLIS: 4 } as const;
 
 export const STATUS_LABEL: Record<TownNameplateStatus, string> = {
   unfed: "Unfed",
   upgrade: "Upgrade ready",
-  war: "Growth paused: nearby war",
-  captured: "Growth paused: recently captured"
+  war: "Nearby war: growth paused",
+  captured: "Recently captured: growth paused"
 };
 
 // Same gates as the tile menu (shouldShowTownUnfedWarning /
@@ -42,12 +46,22 @@ export const townNameplateFor = (tile: Tile | undefined, me: string, nowMs: numb
   const own = Boolean(me) && tile.ownerId === me;
   const status = own ? ownStatus(tile, me, nowMs) : undefined;
   const population = own && typeof tile.town?.population === "number" ? Math.round(tile.town.population) : undefined;
+  // The mark rides on the population, so it needs one. Paused also covers an unfed
+  // settlement, which has no unfed bubble (shouldShowTownUnfedWarning skips that tier).
+  // "Growing" uses the same 0.001 threshold as the tile menu and unfed gate, so a
+  // rounded near-zero rate at the cap doesn't read as growth.
+  const growth: TownNameplateGrowth | undefined = population === undefined
+    ? undefined
+    : status === "unfed" || status === "war" || status === "captured" || tile.town?.isFed === false
+      ? "paused"
+      : (tile.town?.populationGrowthPerMinute ?? 0) > GROWTH_EPSILON ? "growing" : undefined;
   return {
     name: identity.name || `Town ${tile.x}, ${tile.y}`,
     ownerId: tile.ownerId,
     own,
     status,
     population,
+    growth,
     rank: (own ? 10 : 0) + (status ? 5 : 0) + TIER_RANK[identity.populationTier]
   };
 };

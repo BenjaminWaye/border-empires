@@ -12,12 +12,13 @@ const baseTile: Tile = {
 };
 
 describe("buildDetailTextForAction — build_observatory", () => {
-  it("states the protection radius and that it pauses on cooldown", () => {
+  it("states the protection radius, the 3 daily shots, and that protection pauses when they run out", () => {
     const text = buildDetailTextForAction("build_observatory", baseTile);
     expect(text).toContain("protects your own tiles within");
     expect(text).toContain("never covers unclaimed land or other players' tiles");
     expect(text).toMatch(/within \d+ tiles/);
-    expect(text).toContain("cooldown");
+    expect(text).toContain("3 shots per 24h");
+    expect(text).toContain("out of shots");
   });
 });
 

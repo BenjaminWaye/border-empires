@@ -2,7 +2,7 @@
 // right now -- the treaty (if any), what you give and what they give -- each
 // with a ✕ to take it out again. Also decides what kind of offer the deal is:
 // a truce or alliance when one is picked, otherwise a resource trade, or a
-// gift when you only give an AI coin/Shards.
+// gift when you only give an AI coin.
 import { diplomacyTermsAreEmpty, hasResourceSupplyOffer, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
@@ -15,13 +15,13 @@ export type DealTreaty = DiplomacyOfferKind | undefined;
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
 
-const asksAnything = (terms: DiplomacyTerms): boolean => terms.ask.gold > 0 || terms.ask.shard > 0 || hasResourceSupplyOffer(terms.ask.resources);
+const asksAnything = (terms: DiplomacyTerms): boolean => terms.ask.gold > 0 || hasResourceSupplyOffer(terms.ask.resources);
 
 const hasSupply = (terms: DiplomacyTerms): boolean => hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources);
 
 /**
  * The offer this deal sends. With no treaty: resource supply (or anything
- * asked for) makes it a resource trade; giving an AI only coin/Shards is a
+ * asked for) makes it a resource trade; giving an AI only coin is a
  * gift. Humans take no gifts, so that is a (not yet sendable) trade for them.
  */
 export const dealKind = (treaty: DealTreaty, terms: DiplomacyTerms, targetIsAi: boolean): TradeKind =>
@@ -34,7 +34,7 @@ export const dealVerdictOverride = (treaty: DealTreaty, kind: TradeKind, terms: 
     return { tone: "neutral", text: "Pick a truce or alliance on the left, or add goods from either side.", canSend: false, sendLabel: "Send offer" };
   }
   if (!hasSupply(terms) && kind !== "gift") {
-    return { tone: "neutral", text: "Coin and Shards change hands with a truce, an alliance or a resource supply. Add one to the deal.", canSend: false, sendLabel };
+    return { tone: "neutral", text: "Coin changes hands with a truce, an alliance or a resource supply. Add one to the deal.", canSend: false, sendLabel };
   }
   return undefined;
 };
@@ -77,7 +77,7 @@ export const dealSummaryHtml = (input: { selection: TradeSelection; treaty: Deal
   const sideBlock = (heading: string, items: string, side: TradeSide): string =>
     `<div class="diplomacy-deal-side" data-deal-side="${side}"><h4>${escapeHtml(heading)}</h4>${items ? `<ul>${items}</ul>` : `<p class="diplomacy-deal-none">Nothing</p>`}</div>`;
   const supplyNote = hasSupply(terms)
-    ? `<p class="diplomacy-deal-note">Supply runs until either House cancels. Coin and Shards are paid once when accepted.</p>`
+    ? `<p class="diplomacy-deal-note">Supply runs until either House cancels. Coin is paid once when accepted.</p>`
     : "";
   const isGift = selection.kind === "gift";
   return `${treatyHtml}${sideBlock(isGift ? "Your gift" : "You give", give, "give")}${isGift ? "" : sideBlock(`${targetName} gives`, ask, "ask")}${supplyNote}`;

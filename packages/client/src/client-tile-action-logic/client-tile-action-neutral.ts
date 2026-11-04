@@ -5,8 +5,7 @@
 import {
   FRONTIER_CLAIM_COST,
   RELAY_BEACON_VISION_BONUS,
-  SETTLE_COST,
-  SETTLE_MANPOWER_COST
+  SETTLE_COST
 } from "@border-empires/shared";
 import { canAffordCost, frontierClaimCostLabelForTile } from "../client-constants.js";
 import { economicBuildMsForState } from "../client-build-speed/client-build-speed.js";
@@ -141,7 +140,7 @@ export const neutralTileActions = (
   // same policy as everything below.
   if (targetInReach) {
     const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
-    const totalExploreManpower = state.expandManpowerCost + SETTLE_MANPOWER_COST + relayBeaconManpowerCostForState(state);
+    const totalExploreManpower = state.expandManpowerCost + state.settleManpowerCost + relayBeaconManpowerCostForState(state);
     const totalExploreMs = settleDurationMsForState(state, tile) + relayBeaconBuildDurationMsForState(state);
     const exploreEnabled =
       canAffordCost(state.gold, totalExploreGold) &&

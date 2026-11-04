@@ -36,6 +36,7 @@ export const recordAiPlannerDecision = (
   }
   if (diagnostic.spatialFocusFallback) simulationMetrics.incrementSimAiFocusFallback(diagnostic.playerId);
   if (diagnostic.expansionObjectiveKind) simulationMetrics.observeSimAiExpansionObjective(diagnostic.expansionObjectiveKind);
+  if (diagnostic.relayBeaconSiteSkips) simulationMetrics.observeSimAiRelayBeaconSiteSkips(diagnostic.relayBeaconSiteSkips);
   if (diagnostic.utilityWinner) simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
   if (source === "worker") runtime.recordAiAutomationDiagnosticFeedback(diagnostic.playerId, diagnostic);
   recordAiDecisionDiagnosticFromPlanner(diagnostic);

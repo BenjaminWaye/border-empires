@@ -53,8 +53,6 @@ describe("drawMiniMap content-layer recompute throttle", () => {
         fogDisabled: true,
         tiles: new Map(),
         dockPairs: [],
-        shardRainPingsByTile: new Map(),
-        shardRainStatus: undefined,
         tilesRevision: overrides.tilesRevision ?? 0
       },
       canvas,
@@ -176,8 +174,6 @@ describe("drawMiniMap waystation marker", () => {
         fogDisabled: true,
         tiles,
         dockPairs: [],
-        shardRainPingsByTile: new Map(),
-        shardRainStatus: undefined,
         tilesRevision
       },
       canvas,
@@ -240,8 +236,6 @@ describe("drawMiniMap waystation marker", () => {
         fogDisabled: true,
         tiles,
         dockPairs: [],
-        shardRainPingsByTile: new Map(),
-        shardRainStatus: undefined,
         tilesRevision: 2
       },
       canvas,
@@ -298,8 +292,6 @@ describe("drawMiniMap caller write-back contract", () => {
         fogDisabled: true,
         tiles: new Map(),
         dockPairs: [],
-        shardRainPingsByTile: new Map(),
-        shardRainStatus: undefined,
         tilesRevision
       },
       canvas,

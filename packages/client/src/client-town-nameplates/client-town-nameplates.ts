@@ -3,7 +3,7 @@ import { createSeparatedOwnerColor } from "../client-owner-colors/client-owner-c
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { resourceSimpleIconUrl } from "../client-resource-icons/client-resource-icons.js";
 import type { Tile } from "../client-types.js";
-import { formatPlatePopulation, STATUS_LABEL, townNameplateFor, type TownNameplate, type TownNameplateStatus } from "./client-town-nameplate-model.js";
+import { formatPlatePopulation, STATUS_LABEL, townNameplateFor, type TownNameplate, type TownNameplateGrowth, type TownNameplateStatus } from "./client-town-nameplate-model.js";
 import "./client-town-nameplates.css";
 
 interface NameplateTile { readonly wx: number; readonly wy: number; readonly wk: string; readonly px: number; readonly py: number; readonly vis: string; readonly t?: Tile | undefined }
@@ -17,28 +17,26 @@ export interface TownNameplatesState {
 
 const MAX_PLATES = 160;
 // The game's own simple icons, so unfed is the same food icon as the resource bar.
-// Nearby war and recent capture both pause growth, and the plate says that
-// (a growth line struck through) rather than the cause; the town's details give the reason.
+// The bubble names the cause; whether the town grows rides on its population (GROWTH_MARK).
 const STATUS_ICON: Record<TownNameplateStatus, string> = {
   unfed: resourceSimpleIconUrl("FOOD"),
   upgrade: "/icons/simple/town-upgrade.svg",
-  war: "/icons/simple/town-growth.svg",
-  captured: "/icons/simple/town-growth.svg"
+  war: "/icons/simple/town-war.svg",
+  captured: "/icons/simple/town-captured.svg"
 };
-// A red strike, not a red rim: red next to the owner colour clashed. The growth
-// line rises bottom-left to top-right, so its strike runs the other way to cross it.
-const strike = (path: string): string =>
-  `<svg class="town-plate-slash" viewBox="0 0 24 24"><path d="${path}" stroke="#2a0805" stroke-width="5" stroke-linecap="round"/><path d="${path}" stroke="#e5412c" stroke-width="2.8" stroke-linecap="round"/></svg>`;
-const STATUS_STRIKE: Partial<Record<TownNameplateStatus, string>> = {
-  unfed: strike("M5 19 19 5"),
-  war: strike("M5 5 19 19"),
-  captured: strike("M5 5 19 19")
+// Unfed is the food icon struck through, not a red rim: red next to the owner colour clashed.
+const UNFED_STRIKE =
+  '<svg class="town-plate-slash" viewBox="0 0 24 24"><path d="M5 19 19 5" stroke="#2a0805" stroke-width="5" stroke-linecap="round"/><path d="M5 19 19 5" stroke="#e5412c" stroke-width="2.8" stroke-linecap="round"/></svg>';
+// Inline SVG, not ▲/❚❚ glyphs: those render inconsistently across system fonts.
+const GROWTH_MARK: Record<TownNameplateGrowth, string> = {
+  growing: '<svg class="town-plate-growth" viewBox="0 0 10 10"><path d="M5 1.5 9 8.5H1Z" fill="currentColor"/></svg>',
+  paused: '<svg class="town-plate-growth" viewBox="0 0 10 10"><path d="M2 1.5h2.2v7H2zM5.8 1.5H8v7H5.8z" fill="currentColor"/></svg>'
 };
 // The CSS caps the name at NAME_MAX_W, so these upper-bound footprints in CSS
 // px (at scale 1) hold for the greedy overlap cull below.
 const NAME_MAX_W = 150, NAME_CHAR_W = 9, PLATE_H = 32, PLATE_GAP = 4;
 const plateWidth = (plate: TownNameplate): number =>
-  22 + Math.min(NAME_MAX_W, plate.name.length * NAME_CHAR_W) + (plate.status ? 22 : 0) + (plate.population === undefined ? 0 : 40);
+  22 + Math.min(NAME_MAX_W, plate.name.length * NAME_CHAR_W) + (plate.status ? 22 : 0) + (plate.population === undefined ? 0 : 40) + (plate.growth ? 12 : 0);
 
 /** Like Civ banners, plates grow as you zoom in: base size up to ~48px tiles, then up to 1.6x. */
 export const plateScaleForTile = (tileCssPx: number): number => Math.min(1.6, Math.max(1, 0.7 + tileCssPx / 160));
@@ -63,9 +61,12 @@ export const placeNameplates = (candidates: readonly Placed[]): Placed[] => {
 
 const plateHtml = (plate: TownNameplate): string => {
   const badge = plate.status
-    ? `<span class="town-plate-badge" data-status="${plate.status}"><img src="${STATUS_ICON[plate.status]}" alt="" draggable="false">${STATUS_STRIKE[plate.status] ?? ""}</span>`
+    ? `<span class="town-plate-badge" data-status="${plate.status}"><img src="${STATUS_ICON[plate.status]}" alt="" draggable="false">${plate.status === "unfed" ? UNFED_STRIKE : ""}</span>`
     : "";
-  const population = plate.population === undefined ? "" : `<span class="town-plate-pop">${formatPlatePopulation(plate.population)}</span>`;
+  const growth = plate.growth ? GROWTH_MARK[plate.growth] : "";
+  const population = plate.population === undefined
+    ? ""
+    : `<span class="town-plate-pop"${plate.growth ? ` data-growth="${plate.growth}"` : ""}>${formatPlatePopulation(plate.population)}${growth}</span>`;
   return `${badge}<span class="town-plate-body"><span class="town-plate-name"></span>${population}</span>`;
 };
 

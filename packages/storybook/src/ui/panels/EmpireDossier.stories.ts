@@ -33,8 +33,7 @@ const statsForArgs = (args: Args): RevealEmpireStatsView => ({
     FOOD: 920,
     TITANIUM: 310,
     CRYSTAL: 184,
-    UMBRITE: 540,
-    SHARD: 3
+    UMBRITE: 540
   }
 });
 

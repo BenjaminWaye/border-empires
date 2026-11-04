@@ -24,7 +24,7 @@ describe("client network regression guards — REVEAL_EMPIRE_STATS_RESULT", () =
           gold: 1234,
           manpower: 21_378,
           manpowerCap: 54_000,
-          strategicResources: { FOOD: 10, TITANIUM: 20, CRYSTAL: 30, UMBRITE: 40, SHARD: 1 }
+          strategicResources: { FOOD: 10, TITANIUM: 20, CRYSTAL: 30, UMBRITE: 40 }
         }
       })
     });
@@ -54,7 +54,7 @@ describe("client network regression guards — REVEAL_EMPIRE_STATS_RESULT", () =
           gold: 0,
           manpower: 0,
           manpowerCap: 150,
-          strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
+          strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
         }
       })
     });

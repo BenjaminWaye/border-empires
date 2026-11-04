@@ -17,7 +17,7 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
         techIds: new Set<string>(["masonry"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-        strategicResources: { FOOD: 0, TITANIUM: 100, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 100, CRYSTAL: 0, UMBRITE: 0 },
       }]]),
       initialState: {
         tiles: [afcModuleFixtureTile("player-1"), 
@@ -48,7 +48,7 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
         techIds: new Set<string>(["masonry", "fortified-walls"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-        strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 0 },
       }]]),
       initialState: {
         tiles: [afcModuleFixtureTile("player-1"), 
@@ -81,7 +81,7 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
           techIds: new Set<string>(["masonry"]), domainIds: new Set<string>(),
           mods: { attack: 1, defense: 1, income: 1, vision: 1 },
           techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-          strategicResources: { FOOD: 0, TITANIUM: 100, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+          strategicResources: { FOOD: 0, TITANIUM: 100, CRYSTAL: 0, UMBRITE: 0 },
         }]]),
         initialState: {
           tiles: [afcModuleFixtureTile("player-1"), 
@@ -162,7 +162,7 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
         // SIEGE_TOWER's old stockpile cost was UMBRITE 90 + TITANIUM 60 -- far more
         // than these balances. The build must succeed anyway: slots, not
         // stockpile, are the real gate now.
-        strategicResources: { FOOD: 0, TITANIUM: 100, CRYSTAL: 0, UMBRITE: 10, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 100, CRYSTAL: 0, UMBRITE: 10 },
       }]]),
       initialState: {
         tiles: [afcModuleFixtureTile("player-1"), 
@@ -206,7 +206,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         techIds: new Set<string>(["trade"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
       }]]),
       initialState: {
         tiles: [
@@ -244,7 +244,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         techIds: new Set<string>(["trade"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
       }]]),
       initialState: {
         tiles: [
@@ -281,7 +281,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         techIds: new Set<string>(["workshops", "advanced-synthetication"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100 },
       }]]),
       initialState: {
         tiles: [afcModuleFixtureTile("player-1"), 
@@ -313,7 +313,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         techIds: new Set<string>(["workshops"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100 },
       }]]),
       initialState: {
         tiles: [afcModuleFixtureTile("player-1"), 
@@ -350,7 +350,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         techIds: new Set<string>(["workshops"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
         techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100, SHARD: 0 },
+        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100 },
       }]]),
       initialState: {
         tiles: [afcModuleFixtureTile("player-1"), 
@@ -394,7 +394,7 @@ describe("BUILD_STRUCTURE parity — resource slots free on removal", () => {
           techIds: new Set<string>(["masonry"]), domainIds: new Set<string>(),
           mods: { attack: 1, defense: 1, income: 1, vision: 1 },
           techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-          strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+          strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 0 },
         }]]),
         initialState: {
           tiles: [afcModuleFixtureTile("player-1"), 

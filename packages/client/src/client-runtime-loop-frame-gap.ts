@@ -21,3 +21,6 @@ export const drawLoopMinFrameGapMs = (isTrue3DActive: boolean, isMobile: boolean
   if (isTrue3DActive) return isMobile ? 16 : 8;
   return isMobile ? 40 : 24;
 };
+
+/** Device budgets (frame gaps, pixel counts) follow the phone viewport, not the HUD layout drawn on it. */
+export { isPhoneViewport } from "./client-panel-nav/client-phone-viewport.js";

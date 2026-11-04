@@ -1,8 +1,7 @@
 import type { Tile } from "./client-types.js";
 
 /**
- * 2D (non-3D-renderer) watchtower overlay — the sibling of drawShardFallback
- * in client-map-render.ts, but kept in its own file so the already-oversized
+ * 2D (non-3D-renderer) watchtower overlay, kept in its own file so the already-oversized
  * client-runtime-loop.ts / client-map-render.ts only need a single call site
  * each (see AGENTS.md file-size discipline) instead of growing inline.
  *

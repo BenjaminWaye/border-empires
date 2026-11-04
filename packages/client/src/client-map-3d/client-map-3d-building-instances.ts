@@ -21,7 +21,10 @@ export type BuildingOverlays = {
 };
 
 export type BuildingState = { tiles: Map<string, Tile>; tilesRevision: number; me: string | undefined };
-type BuildingSite = { x: number; z: number; surfaceY: number; wx: number; wy: number };
+// farmLift: how far surfaceY was raised to stand on a farm plot
+// (FarmlandOverlay.standLiftAt); district plinths seat on their own hill-aware
+// height, so they need it separately.
+type BuildingSite = { x: number; z: number; surfaceY: number; wx: number; wy: number; farmLift?: number };
 
 export const buildingAnimationFrozen = (status: string | undefined): boolean =>
   status === "under_construction" || status === "removing";

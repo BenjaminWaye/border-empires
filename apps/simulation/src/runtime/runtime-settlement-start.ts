@@ -1,6 +1,6 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import { SETTLE_COST } from "@border-empires/shared";
+import { SETTLE_COST, captureHoldSettleFloorMs } from "@border-empires/shared";
 import type { PendingSettlementRecord } from "../player-runtime-summary.js";
 import { applySettleCost, settlementBaseDurationMsForTile, settlementDurationMsForPlayer } from "../runtime-settlement-rules.js";
 import type { SettlementResolutionInput } from "./runtime-settlement-resolution.js";
@@ -30,7 +30,14 @@ export const startSettlementProcess = (context: SettlementStartContext, input: S
   const actor = context.players.get(input.playerId);
   if (!actor) return;
   applySettleCost(actor);
-  const settleDurationMs = settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(input.target));
+  // A captured tile can't finish garrisoning while the capturing troops are
+  // still holding it (capture-hold.ts): the garrison lands no earlier than
+  // the hold's end, so a captured fort can't defend and a captured resource
+  // can't pay slots before then, however fast this player settles.
+  const settleDurationMs = Math.max(
+    settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(input.target)),
+    captureHoldSettleFloorMs(input.target, input.startedAt)
+  );
   const resolvesAt = input.startedAt + settleDurationMs;
   context.addPendingSettlement({
     ownerId: input.playerId,

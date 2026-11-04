@@ -1,4 +1,4 @@
-// Gifts: coin or Shards given to an AI for nothing but its goodwill. An AI's
+// Gifts: coin given to an AI for nothing but its goodwill. An AI's
 // attitude is a sum of opinion modifiers (apps/realtime-gateway
 // ai-diplomacy-opinion.ts); gifts and deal payments add one, "Gifts and
 // payments you've made us", worth GOODWILL_POINTS_PER_INCOME_HOUR per hour

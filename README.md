@@ -34,7 +34,6 @@ Each player controls a civilization that starts from a single land tile, expands
 - **Coin** funds Manifest commissions, the actions that carry a coin cost, and *rush-buys* of in-progress builds or garrisons. Its fictional meaning is defined in the [world bible](docs/lore/galactic-lore.md#11-houses-and-the-planetary-economy); current income, costs and town-support rules are in the [economy reference](docs/product/resource-and-manpower-economy.md).
 - **Strategic resources** — Food, Titanium, Crystal, Umbrite — are permanent slot allocations, not stockpiles: a structure or town either has a free slot backed by an owned resource tile (or a synthesizer) or it goes **dormant** (loses its effect, but isn't destroyed) until a slot frees up. A floating badge and detail-panel line flag dormant tiles and which resource they're missing.
 - **Developed deposits** — Neural resin and conductive minerals improve Ancillary Factory batches; catalysts and luxury biota back Trade Nexus credit; precursor salvage improves Manufactory output. Each developed extraction site supplies one eligible building through an exclusive slot. New standard maps target 1,000 tiles per resource in deposits of 1–3 tiles. Resin uses distinct groves; the decorative lone-tree pattern is removed. See the [resource-network plan](docs/resource-networks-plan.md) for balance and map placement.
-- **Shard** remains flow-collected (including from scheduled shard-rain events) and funds monument construction.
 - **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, Sovereign Siege Engine Strike, Sky Dock Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a coin cost.
 - **Synthesizers** (Umbrite/Titanium Works/Crystal) are the one exception that keeps a coin upkeep and a hard 1-slot cap with no upgrade path — the deliberate trade-off that keeps "tall" play (few tiles, deep development) viable against "wide" (raw tile count).
 - **Towns** are the economic backbone. Each town has a population tier (Town → Metropolis), a terrain identity, and a support system: if a town goes unfed, coin income pauses until support recovers. Coastal Town is a separate stackable modifier that improves coin and manpower while coastal geography constrains its support space.
@@ -52,7 +51,7 @@ Each player controls a civilization that starts from a single land tile, expands
 - One structure per tile, placed on garrisoned (SETTLED) owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile). The siege ladder (Siege Battery/Siege Tower/Dread Tower) is the one exception: it builds directly on ungarrisoned (FRONTIER) owned land too, including a tile currently sitting inside another player's reach, and its attack bonus applies there immediately.
 - **Economic**: Hydrogarden, Umbrite Rig, Mine, Incubation Engine, Market, Bank, Synthesizers, Fuel Plant, Trade Nexus, Ore Refinery, Governance structures.
 - **Military**: Fort, Siege Battery, Observatory (extends vision and provides protection against aether abilities).
-- **Monuments** (late-game, four-stage builds costing Shards): Imperial Exchange, Sovereign Siege Engine, Aegis Dome, Astral Dock. Each monument type is globally unique — only one can ever be active, world-wide, at a time. If two players finish a race for the same monument within moments of each other, the loser's investment is refunded rather than silently wasted.
+- **Monuments** (late-game, four-stage builds costing manpower and a Crystal slot): Imperial Exchange, Sovereign Siege Engine, Aegis Dome, Astral Dock. Each monument type is globally unique — only one can ever be active, world-wide, at a time. If two players finish a race for the same monument within moments of each other, the loser's investment is refunded rather than silently wasted.
 - Structure unlocks are tech-gated. Costs scale with how many of that type you already own.
 - A structure that loses its resource-slot backing (e.g. a captured Fort with no Titanium access) goes dormant rather than being destroyed, and resumes automatically once a slot frees up.
 
@@ -72,14 +71,13 @@ Each player controls a civilization that starts from a single land tile, expands
 
 [AFC Specializations](docs/afc-specializations-catalog.md) offer thirty upgrades across six play styles. In new campaigns, each commissioned Manifest tier unlocks one free permanent choice at that tier. Install at an active owned AFC; installed effects survive its loss. AFC Upgrades shows installed choices above current options, active commands, and ready badges above owned AFCs in both renderers. Existing campaigns retain their paid domain rules. [Implementation and verification](docs/afc-specializations-execution.md) records the delivery scope.
 
-- **Forts**: build-timed defensive structures; destroyed on capture.
+- **Forts**: build-timed defensive structures; captured with their tile, but give no defense until the capture hold ends and the tile is garrisoned. Relay Beacons and Siege Batteries are destroyed on capture.
 - **Docks**: paired sea-crossing gateways with cooldown and defensive value. Maritime Supremacy victory path scores from dock control.
 - **Clusters**: regional resource concentrations that grant threshold-based bonuses.
 - **Alliances**: mutual relationships that block friendly-fire and affect diplomatic victory scoring.
-- **Truces**: non-aggression pacts (12h or 24h). Breaking a truce early locks the breaker out of requesting or accepting any new truce for 24h; the other party is unaffected. A rejected or cancelled truce/alliance offer can't be re-sent to the same player for 30 minutes. AI empires answer offers based on their stance toward you and explain why. Independent resource trades and treaty offers can carry Coin, Shards, and spare resource supply until either House cancels through the trade screen, which previews an AI's answer; AIs counter-offer within what you can pay. They can also propose a 12h truce when threatened or an alliance against a shared enemy.
+- **Truces**: non-aggression pacts (12h or 24h). Breaking a truce early locks the breaker out of requesting or accepting any new truce for 24h; the other party is unaffected. A rejected or cancelled truce/alliance offer can't be re-sent to the same player for 30 minutes. AI empires answer offers based on their stance toward you and explain why. Independent resource trades and treaty offers can carry Coin and spare resource supply until either House cancels through the trade screen, which previews an AI's answer; AIs counter-offer within what you can pay. They can also propose a 12h truce when threatened or an alliance against a shared enemy.
 - **AI aether**: AI empires build Aether Towers and use Purge, EMP, Siphon, bridges, walls and terrain shaping against useful visible targets. Worker-mode AIs consume survey clues as expansion objectives. Builds check installed AFC modules and resource-slot capacity.
 - **Concordance relics**: newly seeded worlds select seven surviving installation families. Garrison their shared ziggurats to operate the machinery; finite reserves persist through recapture, and depleted ruins remain marked in both renderers. See [relic rules and compatibility](docs/relics.md).
-- **Shard rain**: scheduled world events scattering high-value shard sites with a 30-minute TTL, feeding monument construction.
 
 ### Victory Conditions
 
@@ -379,6 +377,14 @@ pnpm probe:login-experience --player ai-1 --cpu-throttle 4 --out .local-data/log
 ```
 
 Prints every change of the login overlay (step, text, progress bar) and the client's own login timeline (download, INIT handler, each 3D map-build stage, map ready), and fails on `--max-freeze-ms` / `--max-init-to-ready-ms`. Headless Chromium renders WebGL in software (SwiftShader), so GPU-bound steps (shader linking, buffer uploads, the first frame) are much slower than on a real phone; JS-side timings are representative once CPU-throttled.
+
+**HUD v2 phone screenshots** (same local stack and dev-auth bypass as the login probe):
+
+```bash
+pnpm shots:hud-v2-mobile --out .local-data/hud-v2-mobile
+```
+
+Saves one screenshot per phone viewport (390×844, 360×780, 932×430 landscape) and HUD mode (`?hud=legacy` for the old phone HUD; `?hud=compact` and default both draw the new compact HUD), plus `result.json` with the `hud-v2*` body classes each one ended on. See `docs/hud-v2-mobile-plan.md`.
 
 ## Contributing
 

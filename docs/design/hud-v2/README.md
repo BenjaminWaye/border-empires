@@ -40,8 +40,12 @@ share a link if you need the editable version.
 
 ## Where the code is
 
-- Flag: `?hud=v2` turns it on, `?hud=legacy` turns it off. Desktop only
-  (wider than 900px).
+- Flag: on by default, on desktop and phones. Phones (≤ 900px wide, or a
+  touch screen ≤ 500px tall) get the compact layout (`body.hud-v2-compact`,
+  `client-hud-v2-compact*.css`/`.ts`). `?hud=legacy` opts the browser back
+  into the old HUD (stored as `be.hudV2=0`); `?hud=v2` (or the older
+  `?hud=compact`) switches it back on (stores `be.hudV2=1`). See
+  `../../hud-v2-mobile-plan.md`.
 - Modules: `packages/client/src/client-hud-v2/`. `client-hud-v2.ts` is the
   controller (250 ms frame, writes only regions that changed),
   `client-hud-v2-context.ts` holds shared deps and screen state, and
@@ -57,9 +61,9 @@ share a link if you need the editable version.
 ## Shipped so far
 
 PRs #2498 (screens), #2503 and #2504 (two rounds of staging feedback), all
-merged to `develop` and on staging at
-`https://staging.borderempires.com/?hud=v2`.
+merged to `develop`. Since #2587 it is the default desktop HUD; the classic
+HUD stays reachable with `?hud=legacy`.
 
-Known gaps at export time: no mobile layout; a profile opened from Ranks closes
+Known gaps at export time: no mobile layout (since built, see [`../../hud-v2-mobile-plan.md`](../../hud-v2-mobile-plan.md)); a profile opened from Ranks closes
 to the map; a tile with both a fort and an economic structure only describes
 the economic one; the Economic Hegemony "you" marker sits too far back.

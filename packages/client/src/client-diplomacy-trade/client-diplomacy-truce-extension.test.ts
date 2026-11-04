@@ -8,7 +8,7 @@ import { suggestedDeal, tradeVerdict, type DiplomacyStanceReply, type TradeSelec
 
 const HOUR = 3_600_000;
 // A losing AI: it would pay 50 coin for a new truce.
-const pricing: AiDiplomacyPricing = { required: { truce12: -50, truce24: -50, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 500, shard: 0 } };
+const pricing: AiDiplomacyPricing = { required: { truce12: -50, truce24: -50, alliance: null }, aiHoldings: { gold: 500 } };
 const aiReply: DiplomacyStanceReply = { found: true, targetPlayerName: "Elin", targetPlayerId: "ai-2", ai: true, pricing };
 
 const openInTruce = (hoursLeft: number, durationHours: 12 | 24 = 24, hoursSinceStart = 0) => {
@@ -16,7 +16,7 @@ const openInTruce = (hoursLeft: number, durationHours: 12 | 24 = 24, hoursSinceS
   const truce = { startedAt: Date.now() - hoursSinceStart * HOUR, endsAt: Date.now() + hoursLeft * HOUR };
   openDiplomacyTradeScreen(
     { targetName: "Elin", targetPlayerId: "ai-2", kind: "truce", durationHours },
-    { send, ownHoldings: () => ({ gold: 100, shard: 0 }), runningTruce: (id) => (id === "ai-2" ? truce : undefined) }
+    { send, ownHoldings: () => ({ gold: 100 }), runningTruce: (id) => (id === "ai-2" ? truce : undefined) }
   );
   return { send, overlay: document.querySelector<HTMLElement>(".diplomacy-trade-overlay")! };
 };
@@ -54,7 +54,7 @@ describe("extending a truce from the trade screen", () => {
 
   it("keeps the plain truce buttons with no truce running", () => {
     const send = vi.fn().mockReturnValue(true);
-    openDiplomacyTradeScreen({ targetName: "Elin", targetPlayerId: "ai-2", kind: "truce", durationHours: 12 }, { send, ownHoldings: () => ({ gold: 0, shard: 0 }), runningTruce: () => undefined });
+    openDiplomacyTradeScreen({ targetName: "Elin", targetPlayerId: "ai-2", kind: "truce", durationHours: 12 }, { send, ownHoldings: () => ({ gold: 0 }), runningTruce: () => undefined });
     const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
     expect(overlay.querySelector("[data-trade-current]")).toBeNull();
     expect(overlay.querySelector("[data-trade-kind='truce:12']")?.textContent).toBe("Truce 12h");
@@ -65,16 +65,16 @@ describe("extension pricing in the trade view", () => {
   const selection = (ask: number, extendsTruce: boolean): TradeSelection => ({
     kind: "truce",
     durationHours: 12,
-    terms: { give: { gold: 0, shard: 0 }, ask: { gold: ask, shard: 0 } },
+    terms: { give: { gold: 0 }, ask: { gold: ask } },
     ...(extendsTruce ? { extendsTruce } : {})
   });
-  const verdictFor = (s: TradeSelection) => tradeVerdict({ targetName: "Elin", reply: aiReply, selection: s, own: { gold: 100, shard: 0 }, cooldownRemainingMs: 0 });
+  const verdictFor = (s: TradeSelection) => tradeVerdict({ targetName: "Elin", reply: aiReply, selection: s, own: { gold: 100 }, cooldownRemainingMs: 0 });
 
   it("a losing AI pays for a new truce but not for an extension", () => {
     expect(verdictFor(selection(50, false)).tone).toBe("good");
     expect(verdictFor(selection(50, true))).toMatchObject({ tone: "bad", text: "Elin won't pay anything to extend a truce." });
     expect(verdictFor(selection(0, true)).tone).toBe("good");
-    expect(suggestedDeal(aiReply, selection(0, false), { gold: 100, shard: 0 })).toEqual({ give: { gold: 0, shard: 0 }, ask: { gold: 50, shard: 0 } });
-    expect(suggestedDeal(aiReply, selection(0, true), { gold: 100, shard: 0 })).toEqual({ give: { gold: 0, shard: 0 }, ask: { gold: 0, shard: 0 } });
+    expect(suggestedDeal(aiReply, selection(0, false), { gold: 100 })).toEqual({ give: { gold: 0 }, ask: { gold: 50 } });
+    expect(suggestedDeal(aiReply, selection(0, true), { gold: 100 })).toEqual({ give: { gold: 0 }, ask: { gold: 0 } });
   });
 });

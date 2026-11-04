@@ -382,40 +382,6 @@ describe("client gateway sync", () => {
     expect(deps.state.tiles.get("195,296")?.ownershipState).toBeUndefined();
   });
 
-  it("preserves shard sites when a frontier claim delta explicitly carries an empty shard field", () => {
-    const deps = createDeps();
-    deps.state.me = "me";
-
-    deps.state.tiles.set("10,12", {
-      x: 10,
-      y: 12,
-      terrain: "LAND",
-      fogged: false,
-      shardSite: { kind: "CACHE", amount: 1 }
-    });
-
-    applyGatewayTileDeltaBatch(deps, [
-      {
-        x: 10,
-        y: 12,
-        ownerId: "me",
-        ownershipState: "FRONTIER",
-        shardSiteJson: ""
-      }
-    ]);
-
-    expect(deps.state.tiles.get("10,12")).toEqual(
-      expect.objectContaining({
-        x: 10,
-        y: 12,
-        terrain: "LAND",
-        ownerId: "me",
-        ownershipState: "FRONTIER",
-        shardSite: { kind: "CACHE", amount: 1 }
-      })
-    );
-  });
-
   it("clears stale runtime land context when a gateway tile stops being land", () => {
     const deps = createDeps();
 

@@ -1,5 +1,6 @@
 import type { SimulationRuntime } from "../runtime/runtime.js";
-import { type ResourceType, type SeasonVictoryPathId } from "@border-empires/shared";
+import { diplomaticDominanceWeight } from "../season-summary/season-summary-dominance-sizes.js";
+import { economicHegemonyLeadMultFor, type ResourceType, type SeasonVictoryPathId } from "@border-empires/shared";
 import {
   SEASON_VICTORY_DIPLOMATIC_CONTROL_SHARE,
   SEASON_VICTORY_ECONOMY_LEAD_MULT,
@@ -123,7 +124,8 @@ export const clamp01 = (value: number): number => Math.max(0, Math.min(1, value)
 // function so the leaderboard's "Overall" income and the Economic Hegemony
 // pressure card never disagree for the same player.
 export const buildEconomicHegemonyObjective = (
-  leaderboardOverall: LeaderboardOverallEntry[]
+  leaderboardOverall: LeaderboardOverallEntry[],
+  domainIdsFor: (playerId: string) => Iterable<string> | undefined = () => undefined
 ): SeasonVictoryObjectiveSnapshot => {
   const ranked = leaderboardOverall.slice().sort((a, b) => (b.incomePerMinute - a.incomePerMinute) || a.id.localeCompare(b.id));
   const leader = ranked[0];
@@ -132,13 +134,14 @@ export const buildEconomicHegemonyObjective = (
   const leaderName = leader?.name ?? "No leader";
   const leaderValue = leader?.incomePerMinute ?? 0;
   const progressLabel = `${(leaderValue * 1440).toFixed(1)} coin/day vs ${((runnerUp?.incomePerMinute ?? 0) * 1440).toFixed(1)}`;
-  const thresholdLabel = `Need at least 1000 coin/day and 33% lead`;
+  const leadMult = leaderPlayerId ? economicHegemonyLeadMultFor(domainIdsFor(leaderPlayerId), SEASON_VICTORY_ECONOMY_LEAD_MULT) : SEASON_VICTORY_ECONOMY_LEAD_MULT;
+  const thresholdLabel = `Need at least 1000 coin/day and ${Math.round((leadMult - 1) * 100)}% lead`;
   const conditionMet = Boolean(
     leaderPlayerId &&
       runnerUp &&
       leaderValue >= SEASON_VICTORY_ECONOMY_MIN_INCOME &&
       runnerUp.incomePerMinute > 0 &&
-      leaderValue >= runnerUp.incomePerMinute * SEASON_VICTORY_ECONOMY_LEAD_MULT
+      leaderValue >= runnerUp.incomePerMinute * leadMult
   );
   // Two independent constraints (minimum income, and a lead over the runner-up)
   // both have to clear before the objective is won, so progress is the harder
@@ -147,7 +150,7 @@ export const buildEconomicHegemonyObjective = (
   const incomeFraction = SEASON_VICTORY_ECONOMY_MIN_INCOME > 0 ? leaderValue / SEASON_VICTORY_ECONOMY_MIN_INCOME : 1;
   const leadFraction =
     runnerUp && runnerUp.incomePerMinute > 0
-      ? leaderValue / (runnerUp.incomePerMinute * SEASON_VICTORY_ECONOMY_LEAD_MULT)
+      ? leaderValue / (runnerUp.incomePerMinute * leadMult)
       : 1;
   const progress = clamp01(Math.min(incomeFraction, leadFraction));
   const objective: SeasonVictoryObjectiveSnapshot = {
@@ -236,7 +239,7 @@ const buildSeasonVictoryContext = (
   const controlledCountByPlayerId = new Map<string, number>();
   const dockCountByPlayerId = new Map<string, number>();
   const metricsByPlayerId = new Map<string, VictoryMetrics>();
-  const diplomaticWeightByPlayerId = new Map(players.map(player => [player.id, player.domainIds?.includes("afc-chancery-5") ? 2 : 1]));
+  const diplomaticWeightByPlayerId = new Map(players.map(player => [player.id, diplomaticDominanceWeight(player.domainIds)]));
   const resourceTally = createVictoryResourceTally();
 
   for (const tile of worldTiles) {
@@ -314,7 +317,7 @@ export const computeSeasonVictory = (
   const ctx = buildSeasonVictoryContext(worldTiles, leaderboardOverall, players);
 
   const objectives = VICTORY_PRESSURE_DEFS.map((def) => {
-    if (def.id === "ECONOMIC_HEGEMONY") return buildEconomicHegemonyObjective(leaderboardOverall);
+    if (def.id === "ECONOMIC_HEGEMONY") return buildEconomicHegemonyObjective(leaderboardOverall, id => players.find(player => player.id === id)?.domainIds);
 
     let leaderPlayerId: string | undefined;
     let leaderName = "No leader";

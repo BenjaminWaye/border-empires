@@ -60,6 +60,23 @@ describe("attackPreviewResult", () => {
     expect(expired.winChance).toBe(1);
   });
 
+  it("treats a just-captured fort as no fort while the tile is held", async () => {
+    const fortJson = JSON.stringify({ ownerId: "player-2", status: "active", variant: "FORT" });
+    const tilesWith = (extra: Record<string, unknown>) => [
+      { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
+      { x: 1, y: 0, ownerId: "player-2", ownershipState: "FRONTIER", captureHoldUntil: Date.now() + 60_000, ...extra },
+      ...warIndustryTiles("player-1"),
+      ...warIndustryTiles("player-2")
+    ];
+    const message = { fromX: 0, fromY: 0, toX: 1, toY: 0 };
+
+    const heldFort = await attackPreviewResult("player-1", tilesWith({ fortJson }), undefined, message, [], []);
+    const heldBare = await attackPreviewResult("player-1", tilesWith({}), undefined, message, [], []);
+
+    expect(heldFort.requiredMuster).toBe(heldBare.requiredMuster);
+    expect(heldFort.winChance).toBeCloseTo(heldBare.winChance as number, 6);
+  });
+
   it("scores a non-adjacent target only for a March To preview", async () => {
     const tiles = [
       { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },

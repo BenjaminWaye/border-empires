@@ -58,7 +58,7 @@ export {
   siegeBatteryCancelRefund,
   type StructureCancelRefund
 } from "./runtime-structure-cancel-refund.js";
-import { applyStructureCancelRefund, economicOrObservatoryCancelRefund, fortCancelRefund, siegeBatteryCancelRefund } from "./runtime-structure-cancel-refund.js";
+import { applyStructureCancelRefund, economicOrObservatoryCancelRefund, fortCancelRefund, returnFreeFortAllowance, siegeBatteryCancelRefund } from "./runtime-structure-cancel-refund.js";
 
 export function cancelActiveOutpostAttackLocks(context: RuntimeStructureCommandContext, playerId: string, originKey: string): string[] {
   const cancelled: string[] = [];
@@ -215,7 +215,8 @@ export function handleCancelFortBuildCommand(context: RuntimeStructureCommandCon
     rejectCommand(context, command, "FORT_CANCEL_INVALID", "no fort under construction on tile");
     return;
   }
-  applyStructureCancelRefund(context, actor, fortCancelRefund(actor, target.fort.variant));
+  applyStructureCancelRefund(context, actor, fortCancelRefund(actor, target.fort.variant, target.fort.freeFort));
+  returnFreeFortAllowance(context, actor, target.fort.freeFort, command.commandId);
   const updatedTile: DomainTileState = { ...target, fort: standingFortAfterLostUpgrade(target.fort) };
   context.replaceTileState(targetKey, updatedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
@@ -254,7 +255,7 @@ function cancelStructureActionTile(
   playerId: string
 ): DomainTileState | undefined {
   if (target.fort?.ownerId === playerId && (target.fort.status === "under_construction" || target.fort.status === "removing")) {
-    if (target.fort.status === "under_construction") applyStructureCancelRefund(context, actor, fortCancelRefund(actor, target.fort.variant));
+    if (target.fort.status === "under_construction") { applyStructureCancelRefund(context, actor, fortCancelRefund(actor, target.fort.variant, target.fort.freeFort)); returnFreeFortAllowance(context, actor, target.fort.freeFort, `cancel-fort:${playerId}`); }
     return {
       ...target,
       fort: target.fort.status === "under_construction"

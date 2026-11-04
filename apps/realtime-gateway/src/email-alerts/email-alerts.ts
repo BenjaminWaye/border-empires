@@ -2,8 +2,10 @@ import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding
 import type { EmailNotificationCategory, GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import { sendPlayerReportEmail } from "./bug-report-email-alert.js";
 import { escapeHtml } from "./escape-html.js";
+import type { AetherHijackAlertInput, AetherPurgeAlertInput, AttackAlertInput, ManpowerFullAlertInput, SeasonStartAlertInput, SocialRequestAlertInput, TruceRequestAlertInput } from "./email-alert-inputs.js";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 export {
+  readAetherHijackAlert,
   readAetherPurgeAlert,
   readAttackAlert,
   readIncomingAllianceBreakAlert,
@@ -27,6 +29,7 @@ export type EmailAlertService = {
   sendTruceRequestAlert: (input: TruceRequestAlertInput) => Promise<EmailAlertOutcome>;
   sendAttackAlert: (input: AttackAlertInput) => Promise<EmailAlertOutcome>;
   sendAetherPurgeAlert: (input: AetherPurgeAlertInput) => Promise<EmailAlertOutcome>;
+  sendAetherHijackAlert: (input: AetherHijackAlertInput) => Promise<EmailAlertOutcome>;
   sendSeasonStartAlert: (input: SeasonStartAlertInput) => Promise<EmailAlertOutcome>;
   sendManpowerFullAlert: (input: ManpowerFullAlertInput) => Promise<EmailAlertOutcome>;
   sendBugReportAlert: (report: BugReportInput) => void;
@@ -34,41 +37,6 @@ export type EmailAlertService = {
 };
 
 export type EmailAlertOutcome = "sent" | "disabled" | "recipient_missing" | "throttled" | "send_failed";
-
-type SocialRequestAlertInput = {
-  recipientPlayerId: string;
-  senderName: string;
-};
-
-type TruceRequestAlertInput = SocialRequestAlertInput & {
-  durationHours: 12 | 24;
-};
-
-type AttackAlertInput = {
-  defenderPlayerId: string;
-  attackerName: string;
-  x: number;
-  y: number;
-};
-
-type AetherPurgeAlertInput = {
-  defenderPlayerId: string;
-  attackerName: string;
-  x: number;
-  y: number;
-};
-
-type ManpowerFullAlertInput = {
-  recipientPlayerId: string;
-};
-
-type SeasonStartAlertInput = {
-  recipientPlayerId: string;
-  previousWinnerName?: string;
-  /** True when recipientPlayerId is themself the previous season's winner — folds a victory recap into this same email. */
-  isPreviousWinner?: boolean;
-  objectiveName?: string;
-};
 
 type EmailMessage = {
   to: string;
@@ -422,6 +390,21 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
           linkLabel: "Go to Tile"
         })
       );
+    },
+    sendAetherHijackAlert(input) {
+      // Time-critical (the takeover finishes in minutes), so it skips the hourly throttle like truce offers.
+      const deadline = new Date(input.endsAt).toISOString().slice(11, 16);
+      return send(input.defenderPlayerId, "aetherHijackAlert", (to) =>
+        formatBrandedEmail({
+          to,
+          subject: `${input.attackerName} is hijacking your Aether Tower`,
+          eyebrow: "Border Empires — Tower Hijack",
+          headline: "Your Aether Tower Is Being Taken Over",
+          body: [`${input.attackerName} is seizing your Aether Tower at ${input.x}, ${input.y}. The takeover completes at ${deadline} UTC.`, `Capture, suppress or cut power to their casting tower at ${input.casterX}, ${input.casterY} to stop it.`],
+          highlight: { label: "Casting Tower", value: `${input.casterX}, ${input.casterY}` },
+          linkUrl: `${appUrl}/?x=${input.casterX}&y=${input.casterY}`,
+          linkLabel: "Defend Now"
+        }), { bypassRateLimit: true });
     },
     sendManpowerFullAlert(input) {
       // docs/replenishment-update-plan.md D1/D11: the main "come back" signal

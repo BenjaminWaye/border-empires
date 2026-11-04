@@ -12,6 +12,7 @@ import {
 } from "@border-empires/shared";
 import { dormantStructureLineHtml, type DormancyField } from "./client-tile-menu-dormancy-line.js";
 import { observatoryOverviewLines } from "./client-tile-menu-observatory-lines.js";
+import { ownObservatoryMaxShots } from "../client-observatory-rules/client-observatory-rules.js";
 import { manufactoryGoldProductionMultiplier } from "@border-empires/game-domain";
 import { dockDisplayGoldPerMinute } from "../yield-derivation/yield-derivation.js";
 import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
@@ -23,6 +24,7 @@ import { tileFeatureLeadLines, tileOverviewModifiersForTile } from "../client-ti
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { foreignTileOwnershipLabel, tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
 import { landingGroundMenuLine, type DockLandingState } from "../client-dock-landing-ground/client-dock-landing-ground.js";
+import { captureAftermathMenuLines } from "../client-capture-aftermath/client-capture-aftermath.js";
 import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile, type TileMenuHeaderStatus } from "../client-tile-menu-status/client-tile-menu-status.js";
 import { ownTileHeaderStatus } from "../client-tile-menu-status/client-tile-menu-reach-owners.js";
 import type { ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js";
@@ -33,7 +35,7 @@ import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town
 import { ownTownEconomyFieldsPartial, ownTownGrowthRatePending, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
-import type { TechInfo, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuView, TileOverviewLine } from "../client-types.js";
+import type { DomainInfo, TechInfo, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuView, TileOverviewLine } from "../client-types.js";
 import { tileMenuTitleForTile } from "./client-tile-menu-title.js";
 import { tileMenuTabs } from "./client-tile-menu-tabs.js";
 import { afcModuleTabForTile } from "../client-afc-module-tab/client-afc-module-tab.js";
@@ -57,7 +59,7 @@ export { constructionProgressForTile } from "../client-tile-menu-construction-pr
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
-    state: { me: string; domainIds?: readonly string[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[] } & Partial<DockLandingState>;
+    state: { me: string; domainIds?: readonly string[]; domainCatalog?: readonly DomainInfo[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[] } & Partial<DockLandingState>;
     prettyToken: (value: string) => string;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;
@@ -313,12 +315,13 @@ export const menuOverviewForTile = (
   } else if (supportedTowns.length > 1) {
     pushLine("This support tile touches multiple towns.");
   }
-  for (const line of observatoryOverviewLines(tile, { me: deps.state.me, nowMs: Date.now(), hostileObservatoryProtectingTile: deps.hostileObservatoryProtectingTile, dormantResourcesForTile: deps.dormantResourcesForTile, observatoryCrystalSlotCountForTile: deps.observatoryCrystalSlotCountForTile })) pushLine(line);
+  for (const line of observatoryOverviewLines(tile, { me: deps.state.me, nowMs: Date.now(), ownMaxShots: ownObservatoryMaxShots(deps.state), hostileObservatoryProtectingTile: deps.hostileObservatoryProtectingTile, dormantResourcesForTile: deps.dormantResourcesForTile, observatoryCrystalSlotCountForTile: deps.observatoryCrystalSlotCountForTile })) pushLine(line);
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
   if (isFortDefending(tile.fort) && tile.ownerId && structureRecentlyCaptured) {
     pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
   }
+  for (const line of captureAftermathMenuLines(tile, `${tile.x},${tile.y}`)) pushLine(line);
   if (isFortDefending(tile.fort) && tile.ownerId && !structureRecentlyCaptured) {
     // Same helper the client's own attack gate uses (findClosestMuster in
     // client-muster-attack-gate.ts), so the number shown here always matches

@@ -147,6 +147,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   // Per-player epoch-ms timestamp of last accepted AI command (0 = never).
   const simAiLastCommandAcceptedAtMs = new Map<string, number>();
   const simAiExpansionObjectiveTotalByKind = new Map<string, number>();
+  const simAiRelayBeaconSiteSkippedTotalByReason = { spacing: 0 };
   const simAiUtilityActionClassTotalByClass = new Map<DecisionClass, number>(
     DECISION_CLASSES.map((cls) => [cls, 0])
   );
@@ -251,6 +252,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     ...ownershipChangeAlertMetrics.snapshot(),
     ...authRecoveryMetrics.snapshot(),
     simAiExpansionObjectiveTotalByKind: Object.fromEntries(simAiExpansionObjectiveTotalByKind),
+    simAiRelayBeaconSiteSkippedTotalByReason: { ...simAiRelayBeaconSiteSkippedTotalByReason },
     simAiUtilityActionClassTotalByClass: Object.fromEntries(
       DECISION_CLASSES.map((cls) => [cls, simAiUtilityActionClassTotalByClass.get(cls) ?? 0])
     ) as Record<DecisionClass, number>,
@@ -372,6 +374,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     observeSimAiExpansionObjective(kind: "neutral_value" | "enemy" | "none"): void {
       simAiExpansionObjectiveTotalByKind.set(kind, (simAiExpansionObjectiveTotalByKind.get(kind) ?? 0) + 1);
+    },
+    observeSimAiRelayBeaconSiteSkips(skips: { spacing: number }): void {
+      simAiRelayBeaconSiteSkippedTotalByReason.spacing += skips.spacing;
     },
     observeSimAiUtilityDecision(cls: DecisionClass, playerId: string): void {
       simAiUtilityActionClassTotalByClass.set(cls, (simAiUtilityActionClassTotalByClass.get(cls) ?? 0) + 1);

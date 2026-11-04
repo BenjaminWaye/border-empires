@@ -135,6 +135,8 @@ export type SimulationEvent =
         frontierDecayKind?: FrontierDecayKind | undefined;
         breachShockUntil?: number | undefined;
         captureHoldUntil?: number | undefined;
+        warScarLevel?: number | undefined;
+        warScarUntil?: number | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";
         townName?: string | undefined;

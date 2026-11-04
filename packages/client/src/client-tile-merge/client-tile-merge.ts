@@ -1,6 +1,7 @@
 import { notifyRelicCapture } from "../client-relic-dialog/relic-capture-dialog.js";
 import { clearForestAroundAfcTile, clearForestOnTownOrDockTile, type FrontierDecayKind, type ProspectSignature } from "@border-empires/shared";
 import { keyForTile } from "../client-app-runtime-utils.js";
+import { noteRazedStructuresOnCapture } from "../client-capture-aftermath/client-capture-aftermath.js";
 import { noteCaptureHoldDeadline } from "../client-capture-hold/client-capture-hold.js";
 import type { Tile } from "../client-types.js";
 
@@ -48,7 +49,8 @@ export type CommonTileFieldsUpdate = {
   frontierDecayAt?: number | null | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | null | undefined;
   captureHoldUntil?: number | null | undefined;
-  shardSite?: Tile["shardSite"];
+  warScarLevel?: number | null | undefined;
+  warScarUntil?: number | null | undefined;
   naturalWonder?: Tile["naturalWonder"];
   watchtower?: Tile["watchtower"];
   waystation?: Tile["waystation"];
@@ -103,19 +105,19 @@ export const applyCommonTileFields = (
     else delete merged.captureHoldUntil;
     noteCaptureHoldDeadline(keyForTile(merged.x, merged.y), merged.captureHoldUntil);
   }
+  if ("warScarLevel" in normalizedUpdate) {
+    if (typeof normalizedUpdate.warScarLevel === "number") merged.warScarLevel = normalizedUpdate.warScarLevel;
+    else delete merged.warScarLevel;
+  }
+  if ("warScarUntil" in normalizedUpdate) {
+    if (typeof normalizedUpdate.warScarUntil === "number") merged.warScarUntil = normalizedUpdate.warScarUntil;
+    else delete merged.warScarUntil;
+  }
   if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
 
   if ("reachOwnerId" in normalizedUpdate) {
     if (normalizedUpdate.reachOwnerId) merged.reachOwnerId = normalizedUpdate.reachOwnerId;
     else delete merged.reachOwnerId;
-  }
-
-  const claimedShardSite = !existing?.ownerId && existing?.shardSite ? existing.shardSite : undefined;
-  if ("shardSite" in normalizedUpdate) {
-    if (normalizedUpdate.shardSite) merged.shardSite = normalizedUpdate.shardSite;
-    else if (claimedShardSite && normalizedUpdate.ownerId === ctx.me && normalizedUpdate.ownershipState === "FRONTIER") {
-      merged.shardSite = claimedShardSite;
-    } else delete merged.shardSite;
   }
 
   if ("naturalWonder" in normalizedUpdate) {
@@ -183,6 +185,7 @@ export const applyCommonTileFields = (
   }
 
   notifyRelicCapture(existing, merged, ctx.me);
+  noteRazedStructuresOnCapture(existing, merged, keyForTile(merged.x, merged.y));
   return merged;
 };
 

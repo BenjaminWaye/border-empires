@@ -6,7 +6,7 @@ describe("structureReplacesFarmlandPlot", () => {
     expect(structureReplacesFarmlandPlot("HYDROGARDEN")).toBe(true);
   });
 
-  it("keeps the plot for other structures on a farm tile", () => {
+  it("keeps the plot for other structures on a farm tile (they are lifted onto it)", () => {
     expect(structureReplacesFarmlandPlot("HYDROWORKS")).toBe(false);
     expect(structureReplacesFarmlandPlot("MINE")).toBe(false);
   });

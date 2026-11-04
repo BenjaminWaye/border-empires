@@ -1,9 +1,7 @@
 import { isForestTile } from "../client-constants.js";
-import { formatShardSiteBearing, nearestShardSiteBearing, shardRainAlertDetail, type ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
 import { BATTLE_OVERLAY_TOTAL_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { victoryHoldAlertDetail, victoryHoldAlertTitle } from "../client-victory-alert/client-victory-alert.js";
-import { createPopupBlockedCheck, type PopupGateState } from "../client-map-unobstructed/client-popup-gate.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { setTextWithResourceIcons } from "../client-resource-icons/client-resource-icons.js";
 import { frontierAttackIsUndefended } from "../client-capture-hold/client-capture-hold.js";
@@ -213,49 +211,10 @@ export const renderCaptureProgress = (
   }
 };
 
-// Held (not dropped) while What's New / the dashboard / lobby is open or about
-// to open, so it appears once the player is back on the map.
-const shardAlertGate = createPopupBlockedCheck();
-
-export const renderShardAlert = (
-  state: Pick<ClientState, "shardAlert" | "shardRainFxUntil" | "homeTile"> & PopupGateState,
-  deps: {
-    shardAlertOverlayEl: HTMLElement;
-    shardAlertTitleEl: HTMLElement;
-    shardAlertDetailEl: HTMLElement;
-  }
-): void => {
-  const alert = state.shardAlert as ClientShardRainAlert | undefined;
-  if (!alert) {
-    deps.shardAlertOverlayEl.style.display = "none";
-    deps.shardAlertTitleEl.textContent = "";
-    deps.shardAlertDetailEl.textContent = "";
-    return;
-  }
-  const nowMs = Date.now();
-  if ((alert.phase === "upcoming" && alert.startsAt <= nowMs) || (alert.phase === "started" && alert.expiresAt <= nowMs)) {
-    state.shardAlert = undefined;
-    if (alert.phase === "started") state.shardRainFxUntil = 0;
-    deps.shardAlertOverlayEl.style.display = "none";
-    deps.shardAlertTitleEl.textContent = "";
-    deps.shardAlertDetailEl.textContent = "";
-    return;
-  }
-  if (shardAlertGate.isBlocked(state, nowMs)) {
-    deps.shardAlertOverlayEl.style.display = "none";
-    return;
-  }
-  deps.shardAlertTitleEl.textContent = alert.phase === "upcoming" ? "Shard Rain Incoming" : "Shard Rain Begun";
-  const bearing = alert.phase === "started" ? nearestShardSiteBearing(alert.sites, state.homeTile) : undefined;
-  const bearingLabel = formatShardSiteBearing(bearing);
-  deps.shardAlertDetailEl.textContent = bearingLabel ? `${shardRainAlertDetail(alert, nowMs)} ${bearingLabel}` : shardRainAlertDetail(alert, nowMs);
-  deps.shardAlertOverlayEl.style.display = "block";
-};
-
 // Renders the season-victory hold-timer alert in one of three states:
 // hidden (no hold active), expanded (full card, first time this key is
 // seen), or collapsed (slim tap-to-reopen banner, after acknowledgement).
-// Unlike renderShardAlert above, this never fully hides while a hold is
+// It never fully hides while a hold is
 // active — see client-state.ts victoryHoldAlert doc comment.
 export const renderVictoryHoldAlert = (
   state: Pick<ClientState, "victoryHoldAlert" | "victoryHoldAlertCollapsed">,

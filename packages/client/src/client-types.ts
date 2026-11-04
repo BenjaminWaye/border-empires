@@ -86,6 +86,8 @@ export type Tile = {
   breachShockUntil?: number;
   /** Post-capture hold window end (shared capture-hold.ts): FRONTIER defends, troops stand on it. */
   captureHoldUntil?: number;
+  warScarLevel?: number;
+  warScarUntil?: number;
   frontierDecayAt?: number;
   frontierDecayKind?: FrontierDecayKind;
   clusterId?: string;
@@ -108,11 +110,6 @@ export type Tile = {
       deltaGoldPerMinute: number;
     }>;
   };
-  shardSite?: {
-    kind: "CACHE" | "FALL";
-    amount: number;
-    expiresAt?: number;
-  } | null;
   watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; waystation?: WaystationTileState | null; // Watchtower site (server-worldgen-watchtowers.ts; revealUntil = ~10s post-activation flicker window) and Waystation site (server-worldgen-waystations.ts; permanent activation, no revealUntil -- grantedEffect/detail fields read by client-waystation-activation/'s result popup).
   naturalWonder?: import("@border-empires/shared").NaturalWonderState | null;
   town?: ClientTownWireSummary;
@@ -316,7 +313,7 @@ export type RevealEmpireStatsView = {
   gold: number;
   manpower: number;
   manpowerCap: number;
-  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
+  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
 };
 
 export type StrategicReplayEventType =

@@ -1,9 +1,9 @@
-import { NETWORK_RESOURCES, networkBuildAction } from "@border-empires/shared";
+import { NETWORK_RESOURCES, afcAdditiveEffect, networkBuildAction } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { TileActionDef } from "../client-types.js";
 
 export type TileActionFilterState = Pick<ClientState, "techIds" | "localhostDevAetherWall"> &
-  Partial<Pick<ClientState, "tiles" | "me" | "techCatalog">>;
+  Partial<Pick<ClientState, "tiles" | "me" | "techCatalog" | "domainIds">>;
 
 export const hideTechLockedTileAction = (
   action: TileActionDef,
@@ -12,7 +12,9 @@ export const hideTechLockedTileAction = (
 ): boolean => {
   if (action.id === "aether_wall" && state.localhostDevAetherWall) return false;
   const requiredTech = requiredTechForTileAction(action.id);
-  if (requiredTech && !state.techIds.includes(requiredTech)) return true;
+  // Fortification Patterns (AFC Bastion II) waives the Fort tech, so the Fort row is not tech-locked for its holder.
+  const fortWaived = action.id === "build_fortification" && afcAdditiveEffect(state.domainIds, "fortTechWaiver") > 0;
+  if (requiredTech && !fortWaived && !state.techIds.includes(requiredTech)) return true;
   const isModule = state.techCatalog?.find((tech) => tech.id === requiredTech)?.manifestCategory === "AFC_MODULE";
   if (requiredTech && isModule && state.tiles && state.me) {
     const installed = [...state.tiles.values()].some(

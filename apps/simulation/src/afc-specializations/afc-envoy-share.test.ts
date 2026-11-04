@@ -1,59 +1,41 @@
-import { createEmptyPlayerRuntimeSummary } from "../player-runtime-summary.js";
-import { settleEnvoyDependents, type RuntimeManpowerEconomyContext } from "../runtime/runtime-manpower-economy.js";
 import { describe, expect, it } from "vitest";
 import { createHumanRuntimePlayer } from "../runtime-player-factory.js";
-import { afcEnvoyBenefits } from "./afc-coalition.js";
+import { afcAgreementCount, afcAlliedLevyShare, afcEnvoyIncomeShare } from "./afc-coalition.js";
 
-const player = (id: string, upgrade = true) => ({ ...createHumanRuntimePlayer(id), afcUpgradeRuleset: "afc-v1" as const,
-  domainIds: new Set(upgrade ? ["afc-chancery-1"] : []) });
+const player = (id: string, upgrades: string[] = []) => ({ ...createHumanRuntimePlayer(id), afcUpgradeRuleset: "afc-v1" as const,
+  domainIds: new Set(upgrades), truces: new Set<string>() });
+const ally = (a: ReturnType<typeof player>, b: ReturnType<typeof player>): void => { a.allies.add(b.id); b.allies.add(a.id); };
 
-describe("Envoy Accreditation shares domestic allied prosperity", () => {
-  it("grants 10% of every mutual ally's income, capacity and refill rate without an ally cap", () => {
-    const actor = player("p");
-    const allies = Array.from({ length: 12 }, (_, i) => player(`a${i}`));
+describe("Envoy Accreditation and Allied Levies scale the House's own economy", () => {
+  it("counts each partner once across mutual alliances and active truces, ignoring barbarians and one-sided pacts", () => {
+    const actor = player("p"), a = player("a"), b = player("b"), oneSided = player("c");
+    const peers = new Map([actor, a, b, oneSided].map(p => [p.id, p]));
+    ally(actor, a);
+    actor.truces.add("a"); actor.truces.add("b"); actor.truces.add("barbarian-1");
+    actor.allies.add(oneSided.id);
+    expect(afcAgreementCount(actor, peers)).toBe(2);
+  });
+
+  it("pays 10% per agreement for Envoy Accreditation, capped at +50%, and nothing without the upgrade", () => {
+    const actor = player("p", ["afc-chancery-1"]);
+    const partners = Array.from({ length: 8 }, (_, i) => player(`t${i}`));
+    const peers = new Map([actor, ...partners].map(p => [p.id, p]));
+    partners.slice(0, 2).forEach(p => actor.truces.add(p.id));
+    expect(afcEnvoyIncomeShare(actor, peers)).toEqual({ share: expect.closeTo(0.2, 10), agreements: 2 });
+    partners.forEach(p => actor.truces.add(p.id));
+    expect(afcEnvoyIncomeShare(actor, peers)).toEqual({ share: 0.5, agreements: 8 });
+    expect(afcEnvoyIncomeShare(player("q"), peers).share).toBe(0);
+  });
+
+  it("adds 15% manpower per mutual ally for Allied Levies, counting at most three allies", () => {
+    const actor = player("p", ["afc-chancery-3"]);
+    const allies = Array.from({ length: 5 }, (_, i) => player(`a${i}`));
     const peers = new Map([actor, ...allies].map(p => [p.id, p]));
-    for (const ally of allies) { actor.allies.add(ally.id); ally.allies.add(actor.id); }
-    let reads = 0;
-    const domestic = { goldPerMinute: 100 / 1440, manpowerCap: 1000, manpowerRegenPerMinute: 1 };
-    const benefits = afcEnvoyBenefits(actor, peers, () => { reads++; return domestic; });
-    expect(benefits.allies).toBe(12);
-    expect(benefits.goldPerMinute).toBeCloseTo(120 / 1440);
-    expect(benefits.manpowerCap).toBeCloseTo(1200);
-    expect(benefits.manpowerRegenPerMinute).toBeCloseTo(1.2);
-    expect(reads).toBe(12);
-    expect(domestic).toEqual({ goldPerMinute: 100 / 1440, manpowerCap: 1000, manpowerRegenPerMinute: 1 });
-    allies[0]!.allies.clear();
-    expect(afcEnvoyBenefits(actor, peers, () => domestic).allies).toBe(11);
+    ally(actor, allies[0]!);
+    expect(afcAlliedLevyShare(actor, peers).share).toBeCloseTo(0.15, 10);
+    allies.forEach(a => ally(actor, a));
+    expect(afcAlliedLevyShare(actor, peers)).toEqual({ share: expect.closeTo(0.45, 10), allies: 3 });
+    actor.truces.add("a0");
+    expect(afcAlliedLevyShare(player("q"), peers).share).toBe(0);
   });
-
-  it("does no ally-economy work without the upgrade or for one-sided relations", () => {
-    const actor = player("p", false), ally = player("a");
-    actor.allies.add(ally.id); ally.allies.add(actor.id);
-    let reads = 0;
-    const read = () => { reads++; return { goldPerMinute: 1, manpowerCap: 1000, manpowerRegenPerMinute: 1 }; };
-    expect(afcEnvoyBenefits(actor, new Map([[ally.id, ally]]), read).goldPerMinute).toBe(0);
-    actor.domainIds.add("afc-chancery-1"); ally.allies.clear();
-    expect(afcEnvoyBenefits(actor, new Map([[ally.id, ally]]), read).manpowerCap).toBe(0);
-    expect(reads).toBe(0);
-  });
-
-  it("settles a dense alliance at most once per player per timestamp", () => {
-    const roster = Array.from({ length: 12 }, (_, i) => ({ ...player(`p${i}`), manpower: 0,
-      manpowerUpdatedAt: 0, landingReserveGranted: true }));
-    for (const member of roster) member.allies = new Set(roster.filter(p => p !== member).map(p => p.id));
-    const summary = createEmptyPlayerRuntimeSummary();
-    let summaryReads = 0;
-    const ctx: RuntimeManpowerEconomyContext = {
-      players: new Map(roster.map(p => [p.id, p])), now: () => 1000,
-      summaryForPlayer: () => { summaryReads++; return summary; },
-      cachedManpowerStructureBonusForPlayer: () => ({ ancillaryDepotCount: 0, reserveLatticeNetworkAncillaryDepotCount: 0,
-        neuralWorksNetworkAncillaryFactoryCount: 0, ancillaryFactoryCount: 0, censusDirectorateManpowerBuildingCount: 0 }),
-      wonderCacheByPlayer: new Map(), getAbilityCooldownUntil: () => 0,
-      applyEconomyAccrual: () => { throw new Error("dependent settlement must not scan upkeep"); }
-    };
-    for (const member of roster) settleEnvoyDependents(ctx, [member.id], 1000);
-    expect(summaryReads).toBeLessThanOrEqual(4 * roster.length ** 2);
-    expect(roster.every(p => p.manpowerUpdatedAt === 1000)).toBe(true);
-  });
-
 });

@@ -21,6 +21,17 @@ export const isCaptureHoldActive = (
 ): boolean =>
   tile?.ownershipState === "FRONTIER" && typeof tile.captureHoldUntil === "number" && tile.captureHoldUntil > nowMs;
 
+/**
+ * Shortest garrison (SETTLE) time a tile allows when one starts at `startedAt`:
+ * the time left in its hold window, or 0. A captured tile only becomes
+ * SETTLED once its hold ends, so a captured fort never defends and a captured
+ * resource never pays resource slots while the capturing troops still hold it.
+ */
+export const captureHoldSettleFloorMs = (
+  tile: { ownershipState?: string | undefined; captureHoldUntil?: number | undefined } | undefined,
+  startedAt: number
+): number => (isCaptureHoldActive(tile, startedAt) ? tile!.captureHoldUntil! - startedAt : 0);
+
 /** FRONTIER ground with no hold window: an ATTACK on it is a guaranteed capture with no combat roll. */
 export const isUndefendedFrontierTile = (
   tile: { ownershipState?: string | undefined; captureHoldUntil?: number | undefined } | undefined,

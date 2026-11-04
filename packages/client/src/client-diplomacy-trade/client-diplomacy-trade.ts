@@ -4,7 +4,7 @@ import { activeResourceDealsHtml } from "./client-active-resource-deals.js";
 // truce/alliance treaties on the left, theirs on the right, and only what is in
 // the deal in the middle. Pressing a good opens a slider to set the amount.
 // It shows live whether an AI would accept, then sends. With no treaty, giving
-// an AI only coin/Shards is a gift that raises its opinion of you (the screen
+// an AI only coin is a gift that raises its opinion of you (the screen
 // stays open and shows the new opinion).
 // Opened from "Offer Truce" on an enemy tile and from the Alliances panel.
 // Self-contained like client-occupation-survey.ts: mounts on document.body,
@@ -90,7 +90,7 @@ export const GIFT_RESULT_WAIT_MS = 45_000;
 /** The gateway's answer to DIPLOMACY_GIFT (apps/realtime-gateway diplomacy-gift-message.ts). */
 export type DiplomacyGiftResult = { ok: boolean; targetPlayerName: string; targetPlayerId?: string; message: string };
 
-/** How often an open screen checks the player's coin/Shards (income, spending elsewhere). */
+/** How often an open screen checks the player's coin (income, spending elsewhere). */
 export const TRADE_HOLDINGS_CHECK_MS = 1_000;
 
 /**
@@ -99,7 +99,7 @@ export const TRADE_HOLDINGS_CHECK_MS = 1_000;
  * them sends an offer without terms and the AI's verdict.
  */
 export const diplomacyTradeDepsFor = (
-  state: { resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[]; me?: string; resourceTradeAgreements?: readonly import("@border-empires/shared").ResourceSupplyAgreementStatus[]; gold: number; strategicResources: { SHARD?: number }; resourceTradeHoldings?: import("@border-empires/shared").ResourceSupplyOffer | undefined; activeTruces?: ReadonlyArray<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number }> },
+  state: { resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[]; me?: string; resourceTradeAgreements?: readonly import("@border-empires/shared").ResourceSupplyAgreementStatus[]; gold: number; resourceTradeHoldings?: import("@border-empires/shared").ResourceSupplyOffer | undefined; activeTruces?: ReadonlyArray<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number }> },
   send: DiplomacyTradeDeps["send"]
 ): DiplomacyTradeDeps => ({
   send,
@@ -108,8 +108,7 @@ export const diplomacyTradeDepsFor = (
   activeSupply: () => ({ ownId: state.me ?? "", agreements: state.resourceTradeAgreements ?? [], offers: state.resourceTradeOffers ?? [] }),
   ownHoldings: () => ({
     ...(state.resourceTradeHoldings ? { resources: state.resourceTradeHoldings } : {}),
-    gold: Math.max(0, Math.floor(state.gold)),
-    shard: Math.max(0, Math.floor(state.strategicResources.SHARD ?? 0))
+    gold: Math.max(0, Math.floor(state.gold))
   })
 });
 
@@ -158,7 +157,7 @@ const setDeal = (screen: OpenScreen, treaty: DealTreaty, terms: DiplomacyTerms):
 const haveText = (own: DiplomacyGoods, theirs: DiplomacyGoods | undefined, spec: TradeGoodSpec): string => {
   const holdings = spec.side === "give" ? own : theirs;
   if (!holdings || (spec.supply && !holdings.resources)) return "";
-  const amount = spec.good === "gold" ? holdings.gold : spec.good === "shard" ? holdings.shard : (holdings.resources?.[spec.good] ?? 0);
+  const amount = spec.good === "gold" ? holdings.gold : (holdings.resources?.[spec.good] ?? 0);
   return spec.supply ? `${amount} spare` : `${spec.side === "give" ? "You have" : "Has"} ${amount}`;
 };
 
@@ -258,8 +257,8 @@ const sendGift = (screen: OpenScreen): void => {
       type: "DIPLOMACY_GIFT",
       targetPlayerName: screen.targetName,
       ...(screen.targetPlayerId ? { targetPlayerId: screen.targetPlayerId } : {}),
-      // Coin and Shards only: resource supply is a standing deal, not a gift.
-      gift: { gold: screen.selection.terms.give.gold, shard: screen.selection.terms.give.shard }
+      // Coin only: resource supply is a standing deal, not a gift.
+      gift: { gold: screen.selection.terms.give.gold }
     },
     "Finish sign-in before offering gifts."
   );
@@ -380,7 +379,7 @@ export const openDiplomacyTradeScreen = (
   screen.holdingsWatch = setInterval(() => {
     const own = deps.ownHoldings();
     const supplySignature = JSON.stringify(screen.deps.activeSupply?.() ?? null) + Math.floor(Date.now() / 60_000);
-    if (supplySignature !== screen.shownSupplySignature || own.gold !== screen.shownHoldings.gold || own.shard !== screen.shownHoldings.shard || JSON.stringify(own.resources) !== JSON.stringify(screen.shownHoldings.resources)) render(screen);
+    if (supplySignature !== screen.shownSupplySignature || own.gold !== screen.shownHoldings.gold || JSON.stringify(own.resources) !== JSON.stringify(screen.shownHoldings.resources)) render(screen);
   }, TRADE_HOLDINGS_CHECK_MS);
   // Picking a treaty replaces the one in the deal. Pressing it again does nothing: only the deal's ✕
   // takes it out, so a double-tap never turns a paid truce into a gift.
@@ -473,8 +472,8 @@ export const receiveDiplomacyGiftResult = (result: DiplomacyGiftResult): void =>
   open.notice = { tone: result.ok ? "good" : "bad", text: result.message };
   // Clear what was given, unless the player has already set up another amount.
   const { give } = open.selection.terms;
-  if (result.ok && open.selection.kind === "gift" && give.gold === pending.gift.gold && give.shard === pending.gift.shard) {
-    open.selection = { ...open.selection, terms: { ...open.selection.terms, give: { gold: 0, shard: 0 } } };
+  if (result.ok && open.selection.kind === "gift" && give.gold === pending.gift.gold) {
+    open.selection = { ...open.selection, terms: { ...open.selection.terms, give: { gold: 0 } } };
   }
   render(open);
 };
