@@ -35,6 +35,22 @@ describe("townNameplateFor", () => {
   });
 });
 
+describe("townNameplateFor growth mark", () => {
+  it("leaves a town at its cap, or with a rounded near-zero rate, unmarked", () => {
+    expect(townNameplateFor(tile({ town: town({ populationGrowthPerMinute: 0 }) }), "me", 0)?.growth).toBeUndefined();
+    expect(townNameplateFor(tile({ town: town({ populationGrowthPerMinute: 0.0004 }) }), "me", 0)?.growth).toBeUndefined();
+  });
+
+  it("marks an unfed settlement paused even though it gets no unfed bubble", () => {
+    const settlement = tile({ town: town({ populationTier: "SETTLEMENT", isFed: false, goldPerMinute: 1, populationGrowthPerMinute: 0 }) });
+    expect(townNameplateFor(settlement, "me", 0)).toMatchObject({ status: undefined, growth: "paused" });
+  });
+
+  it("never marks a rival town", () => {
+    expect(townNameplateFor(tile({ ownerId: "rival" }), "me", 0)?.growth).toBeUndefined();
+  });
+});
+
 describe("formatPlatePopulation", () => {
   it("shortens population to fit the end of a plate", () => {
     expect(formatPlatePopulation(940)).toBe("940");

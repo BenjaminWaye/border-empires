@@ -18,6 +18,7 @@ export interface TownNameplate {
   readonly rank: number;
 }
 
+const GROWTH_EPSILON = 0.001;
 const TIER_RANK = { SETTLEMENT: 0, TOWN: 1, CITY: 2, GREAT_CITY: 3, METROPOLIS: 4 } as const;
 
 export const STATUS_LABEL: Record<TownNameplateStatus, string> = {
@@ -45,11 +46,15 @@ export const townNameplateFor = (tile: Tile | undefined, me: string, nowMs: numb
   const own = Boolean(me) && tile.ownerId === me;
   const status = own ? ownStatus(tile, me, nowMs) : undefined;
   const population = own && typeof tile.town?.population === "number" ? Math.round(tile.town.population) : undefined;
-  const growth: TownNameplateGrowth | undefined = !own
+  // The mark rides on the population, so it needs one. Paused also covers an unfed
+  // settlement, which has no unfed bubble (shouldShowTownUnfedWarning skips that tier).
+  // "Growing" uses the same 0.001 threshold as the tile menu and unfed gate, so a
+  // rounded near-zero rate at the cap doesn't read as growth.
+  const growth: TownNameplateGrowth | undefined = population === undefined
     ? undefined
-    : status === "unfed" || status === "war" || status === "captured"
+    : status === "unfed" || status === "war" || status === "captured" || tile.town?.isFed === false
       ? "paused"
-      : (tile.town?.populationGrowthPerMinute ?? 0) > 0 ? "growing" : undefined;
+      : (tile.town?.populationGrowthPerMinute ?? 0) > GROWTH_EPSILON ? "growing" : undefined;
   return {
     name: identity.name || `Town ${tile.x}, ${tile.y}`,
     ownerId: tile.ownerId,
