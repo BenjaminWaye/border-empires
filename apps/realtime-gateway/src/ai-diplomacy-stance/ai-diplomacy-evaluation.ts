@@ -9,9 +9,10 @@ import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-me
 import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type DominanceSizing, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
 import type { AiDiplomacyGrudges } from "./ai-diplomacy-grudges.js";
 import { computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
-import { aiDiplomacyPricing } from "./ai-diplomacy-pricing.js";
+import { aiDiplomacyPricing, TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "./ai-diplomacy-pricing.js";
 import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
 import { buildAiDiplomacyStanceInput, type AiDiplomacySnapshot } from "./ai-diplomacy-stance-input.js";
+import { aiRetaliationReadiness } from "./ai-retaliation-readiness.js";
 
 export type AiDiplomacyEvaluation = {
   stance: AiDiplomacyStance;
@@ -83,6 +84,10 @@ const aiLeads = (input: {
   return tilesOf ? aiWouldLeadAlliance(input.aiPlayerId, input.requesterId, input.alliesOf, tilesOf, input.dominance) : undefined;
 };
 
+/** Time left in the fresh-aggression window after the player's last attack (0 when it has passed). */
+const cooldownRemainingMs = (lastPlayerAttackAt: number | undefined, now: number): number =>
+  lastPlayerAttackAt === undefined ? 0 : Math.max(0, TRUCE_COOLDOWN_AFTER_ATTACK_MS - (now - lastPlayerAttackAt));
+
 const giftToPleasedField = (coin: number | undefined): { giftToPleased?: number } => (coin === undefined ? {} : { giftToPleased: coin });
 
 /** undefined when the AI snapshot is missing: nothing to judge, so callers decline rather than guess. */
@@ -125,6 +130,7 @@ export const evaluateAiDiplomacy = (input: {
     aiWouldLeadAlliance: aiLeads(input),
     ...giftToPleasedField(giftToReach(gift, opinion.score, ATTITUDE_MIN_SCORE.PLEASED)),
     requesterTruceCostMult: afcMultiplicativeEffect(input.requesterSnapshot?.player?.domainIds, "truceCostMult"),
+    retaliation: aiRetaliationReadiness(stanceInput.ai, cooldownRemainingMs(input.memory.lastPlayerAttackAt, input.now)),
     now: input.now
   });
   return {

@@ -72,6 +72,7 @@ export const createPlayersFromRecoveredState = (
           techRootId: "rewrite-recovered",
           allies: new Set(player.allies ?? []),
           truces: new Set(player.truces ?? []),
+          ...(player.truceEndsAt ? { truceEndsAt: new Map(Object.entries(player.truceEndsAt).filter(([id]) => player.truces?.includes(id))) } : {}),
           strategicResources: {
             FOOD: player.strategicResources?.FOOD ?? 0,
             TITANIUM: player.strategicResources?.TITANIUM ?? 0,

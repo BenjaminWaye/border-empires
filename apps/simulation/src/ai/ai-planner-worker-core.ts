@@ -277,6 +277,7 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
       ...(player.nonHostilePlayerIds?.length ? { nonHostilePlayerIds: new Set(player.nonHostilePlayerIds) } : {}),
       ...(player.victoryProgress ? { worldVictoryProgress: player.victoryProgress } : {}),
       ...(typeof player.musterStagedManpower === "number" ? { musterStagedManpower: player.musterStagedManpower } : {}),
+      ...(player.truceEndsAt?.length ? { truceEndsAt: player.truceEndsAt } : {}),
       // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): pass
       // through only if the sync_players payload actually carried them (see
       // PlannerPlayerView's doc comment) — planAutomationCommand's needVector

@@ -47,6 +47,7 @@ export type RuntimeExportState = {
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
     truces: string[];
+    truceEndsAt?: Record<string, number>;
     vision: number;
     visionRadiusBonus: number;
     incomeMultiplier?: number;
