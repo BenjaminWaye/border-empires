@@ -7,7 +7,7 @@ export const OWNERSHIP_HELP_CHANGELOG: ClientChangelogEntry[] = [
     title: "Fixed: tapping \"Your frontier\" explained unclaimed land",
     why: "Tapping the ownership label under a tile's name listed every ownership state with Unclaimed first, so tapping \"Your frontier\" seemed to talk about unclaimed land.",
     changes: [
-      "Tapping the ownership label (\"Your frontier\", \"Unclaimed\", \"Your garrisoned land\") now explains only that tile's state"
+      "Tapping the ownership label (\"Your frontier\", \"Unclaimed\", \"Your garrisoned land\") now explains that tile's state first, with the other states below it"
     ]
   }
 ];
