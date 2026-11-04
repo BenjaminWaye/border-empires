@@ -78,6 +78,9 @@ describe("buildCurrentSeasonSummary", () => {
     expect(summary.totalPlayers).toBe(2);
     expect(summary.overall.map((entry) => entry.id)).toEqual(expect.arrayContaining(["player-1", "ai-1"]));
     expect(summary.townCount).toBe(3);
+    // The gateway's AI alliance-bloc check sizes blocs with these; barbarians aren't competitive.
+    expect(summary.landTileCount).toBe(3);
+    expect(summary.dominanceTilesByPlayerId).toEqual({ "player-1": 1, "ai-1": 1 });
     // Seasons created before world size was stamped report it as unknown.
     expect(summary.worldWidth).toBeUndefined();
     expect(summary.worldHeight).toBeUndefined();

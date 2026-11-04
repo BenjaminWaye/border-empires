@@ -6,7 +6,7 @@ import { afcAdditiveEffect, afcMultiplicativeEffect } from "@border-empires/shar
 import { ATTITUDE_MIN_SCORE, giftToReach, giftView, type AiDiplomacyPricing, type AiGiftView, type DiplomacyGoods } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
-import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
+import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type DominanceSizing, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
 import type { AiDiplomacyGrudges } from "./ai-diplomacy-grudges.js";
 import { computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing } from "./ai-diplomacy-pricing.js";
@@ -37,6 +37,8 @@ export type AiDiplomacyContext = AiDiplomacyGrudges & {
    * snapshot carries none (a live subscribe without world status, the usual case).
    */
   seasonLeaderboard?: LeaderboardTiles;
+  /** The victory check's bloc sizing: blocs well short of Dominance don't need the AI to lead. undefined: always strict. */
+  dominance?: DominanceSizing;
 };
 
 /** Builds the context for one (requester, AI) pair; async when it has to fetch the season leaderboard. */
@@ -73,11 +75,12 @@ const aiLeads = (input: {
   aiSnapshot: AiDiplomacySnapshot | undefined;
   alliesOf: AllyLookup;
   seasonLeaderboard?: LeaderboardTiles;
+  dominance?: DominanceSizing;
 }): boolean | undefined => {
   const tilesOf =
     tileLookupFromSnapshot(input.aiSnapshot, input.aiPlayerId) ??
     (input.seasonLeaderboard ? tileLookupFor(input.seasonLeaderboard, input.aiPlayerId) : undefined);
-  return tilesOf ? aiWouldLeadAlliance(input.aiPlayerId, input.requesterId, input.alliesOf, tilesOf) : undefined;
+  return tilesOf ? aiWouldLeadAlliance(input.aiPlayerId, input.requesterId, input.alliesOf, tilesOf, input.dominance) : undefined;
 };
 
 const giftToPleasedField = (coin: number | undefined): { giftToPleased?: number } => (coin === undefined ? {} : { giftToPleased: coin });

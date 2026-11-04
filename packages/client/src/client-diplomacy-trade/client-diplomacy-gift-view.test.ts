@@ -36,6 +36,16 @@ describe("giftVerdict", () => {
     expect(verdict(giving(195)).text).toBe("Elin's opinion of you: +20 (Cautious → Pleased). Pleased is enough for an alliance. Gifts count for up to +25 in all and lose half their effect each day.");
   });
 
+  // Regression: a gift was sold as "enough for an alliance" while the AI already refused one on bloc size.
+  it("doesn't promise an alliance the AI refuses for reasons opinion can't change", () => {
+    const refusal = "Elin won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.";
+    const refusing = { ...elin, allianceRefusal: refusal };
+    expect(verdict(giving(195), undefined, refusing).text).toBe(
+      `Elin's opinion of you: +20 (Cautious → Pleased). Gifts won't win an alliance right now: ${refusal} Gifts count for up to +25 in all and lose half their effect each day.`
+    );
+    expect(verdict(giving(100), undefined, refusing).text).not.toContain("enough for an alliance");
+  });
+
   it("won't send a gift that changes nothing", () => {
     expect(verdict(giving(0))).toEqual(expect.objectContaining({ canSend: false }));
     expect(verdict(giving(3))).toEqual(expect.objectContaining({ canSend: false, text: "Too small to change Elin's opinion: +1 costs about 10 coin." }));

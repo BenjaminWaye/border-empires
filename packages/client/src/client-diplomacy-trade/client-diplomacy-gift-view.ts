@@ -67,11 +67,13 @@ export const giftVerdict = (input: { targetName: string; reply: DiplomacyStanceR
   const reachesPleased = attitude.score < ATTITUDE_MIN_SCORE.PLEASED && after >= ATTITUDE_MIN_SCORE.PLEASED;
   const target = nextTargetScore(after);
   const more = target === undefined ? undefined : giftToReach({ ...gift, goodwillPoints: Math.min(gift.maxPoints, gift.goodwillPoints + value / gift.coinPerPoint) }, after, target);
-  const next = reachesPleased
+  const allianceHint = reachesPleased
     ? " Pleased is enough for an alliance."
     : target === ATTITUDE_MIN_SCORE.PLEASED && more !== undefined
       ? ` About ${more} more coin would make them Pleased, enough for an alliance.`
       : "";
+  // An alliance refusal opinion can't fix (bloc size, a recent fight, a broken truce) outranks the promise.
+  const next = allianceHint && reply.allianceRefusal ? ` Gifts won't win an alliance right now: ${reply.allianceRefusal}` : allianceHint;
   return { tone: "good", text: `${targetName}'s opinion of you: +${gain} (${change}).${next} ${FADE_NOTE}`, canSend: true, sendLabel: SEND_LABEL };
 };
 
