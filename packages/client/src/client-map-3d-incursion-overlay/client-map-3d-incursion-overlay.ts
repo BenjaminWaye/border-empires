@@ -28,6 +28,10 @@ import type { IncursionEdges, incursionHatchColors } from "../client-reach-incur
 import { createIncursionBreachFx3D, type IncursionBreachFx3D, type IncursionBreachTile } from "./client-map-3d-incursion-breach-fx.js";
 import { tileBorderTopY, type TileDrapeHeightAt } from "./client-map-3d-incursion-hill-drape.js";
 
+import { createIncursionShore, type ShoreHatchColors } from "./client-map-3d-incursion-shore.js";
+import { shoreTintKey } from "../client-map-3d-ownership-shore.js";
+import type { ShoreFringe } from "../client-map-3d-shore/client-map-3d-shore-sand.js";
+
 type IncursionHatchColors = ReturnType<typeof incursionHatchColors>;
 
 const HATCH_OPACITY = 0.6;
@@ -62,6 +66,7 @@ export type IncursionOverlay3D = {
     /** On a hill tile: the surface to drape the hatch and strips over; the breach front line then sits on its border (tileBorderTopY). */
     drape?: TileDrapeHeightAt
   ) => void;
+  readonly extendOntoShore: (fringe: ShoreFringe) => void;
   readonly commit: () => void;
   /** Advances the breach animation; call every frame. */
   readonly update: (nowMs: number) => void;
@@ -228,6 +233,7 @@ const upload = (buf: PatchBuffer): void => {
 
 export const createIncursionOverlay3D = (parent: Group, maxTiles: number): IncursionOverlay3D => {
   const hatchMaterial = createHatchMaterial();
+  const shore = createIncursionShore(parent, hatchMaterial);
   const hatch = createPatchBuffer(maxTiles, 1, 1, hatchMaterial, ["hatchTheirs", "hatchMine"], "hatchUv", 8);
   const edgeMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, transparent: true, opacity: EDGE_OPACITY, depthWrite: false, side: DoubleSide });
   const edges = createPatchBuffer(maxTiles * MAX_EDGE_QUADS_PER_TILE, 1, 1, edgeMaterial, ["color"], undefined, 9);
@@ -290,8 +296,26 @@ export const createIncursionOverlay3D = (parent: Group, maxTiles: number): Incur
     if (strips.east) writePatch(stripBuf, x1 - EDGE_WIDTH, x1, z0, z1, stripY, [edge], true);
   };
 
+  const extendOntoShore = (fringe: ShoreFringe): void => {
+    // Only accepted hatch patches enter this lookup. Its hard maximum is
+    // maxTiles + MAX_HILL_TILES, and it is discarded after every rebuild.
+    const colors = new Map<number, ShoreHatchColors>();
+    for (const buf of [hatch, ...(hill ? [hill.hatch] : [])]) {
+      for (let q = 0; q < buf.count; q += 1) {
+        const v = q * vertsPerPatch(buf) * 3;
+        colors.set(shoreTintKey(Math.round(buf.positions[v]!), Math.round(buf.positions[v + 2]!)), {
+          theirs: [buf.colors[0]![v]!, buf.colors[0]![v + 1]!, buf.colors[0]![v + 2]!],
+          mine: [buf.colors[1]![v]!, buf.colors[1]![v + 1]!, buf.colors[1]![v + 2]!]
+        });
+      }
+    }
+    shore.rebuild(fringe, (gc, gr) => colors.get(shoreTintKey(gc, gr)));
+  };
+
   return {
+    extendOntoShore,
     clear: () => {
+      shore.clear();
       for (const b of buffers) b.count = 0;
       breachFx?.clear();
     },
@@ -302,6 +326,7 @@ export const createIncursionOverlay3D = (parent: Group, maxTiles: number): Incur
     },
     update: (nowMs) => breachFx?.update(nowMs),
     dispose: () => {
+      shore.clear();
       for (const b of buffers) {
         parent.remove(b.mesh);
         b.geometry.dispose();
