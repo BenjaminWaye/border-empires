@@ -42,6 +42,8 @@ describe("alliancePanelHtml", () => {
     expect(html).toContain("Propose Alliance");
     expect(html).toContain("Truce 12h");
     expect(html).toContain("Truce 24h");
+    expect(html).toContain(">War<");
+    expect(html).not.toContain("No agreement");
     expect(html).not.toContain("Allies");
     expect(html).not.toContain("Needs your response");
   });
