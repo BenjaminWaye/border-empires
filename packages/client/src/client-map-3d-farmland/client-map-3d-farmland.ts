@@ -78,6 +78,7 @@ export const createFarmlandOverlay = (scene: Scene, maxTiles: number, envMap?: T
   let plotTiles = new Set<string>();
   let mesh: InstancedMesh | undefined;
   let disposed = false;
+  let loadFailed = false;
 
   const matrix = new Matrix4();
   const quaternion = new Quaternion();
@@ -111,13 +112,16 @@ export const createFarmlandOverlay = (scene: Scene, maxTiles: number, envMap?: T
     apply();
   }, (err: unknown) => {
     // A missing asset must not take down the map; the tile just has no plot.
+    loadFailed = true; plotTiles = new Set();
     console.error("farmland model failed to load", err);
   });
 
   return {
     clear: () => { placements = []; plotTiles = new Set(); },
     addInstance: (sceneX, sceneZ, surfaceY, worldTileX, worldTileY) => {
-      plotTiles.add(`${worldTileX},${worldTileY}`);
+      // Only tiles that really get a plot lift their buildings: none past
+      // maxTiles (apply() drops those) and none if the asset failed to load.
+      if (!loadFailed && placements.length < maxTiles) plotTiles.add(`${worldTileX},${worldTileY}`);
       placements.push({ x: sceneX, y: surfaceY + FARMLAND_BASE_LIFT, z: sceneZ, yaw: farmlandYawAt(worldTileX, worldTileY) });
     },
     commit: apply,

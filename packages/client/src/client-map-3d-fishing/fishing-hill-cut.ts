@@ -45,6 +45,9 @@ export type FishingPadIndexDeps = {
   readonly isHillsAt: (x: number, y: number) => boolean;
   // Same water test the fishing overlay uses to face and offset the site.
   readonly isWaterAt: (x: number, y: number) => boolean;
+  // Whether the live fishing site is drawn there this rebuild (not fogged):
+  // remembered tiles draw no fishing site, so a pad would leave an empty notch.
+  readonly isSiteDrawnAt: (x: number, y: number) => boolean;
 };
 
 /**
@@ -55,7 +58,7 @@ export type FishingPadIndexDeps = {
 export const buildFishingPadIndex = (deps: FishingPadIndexDeps): Map<string, FishingPadOffset[]> => {
   const index = new Map<string, FishingPadOffset[]>();
   for (const tile of deps.tiles) {
-    if (tile.resource !== "FISH" || tile.terrain !== "LAND" || !deps.isHillsAt(tile.x, tile.y)) continue;
+    if (tile.resource !== "FISH" || tile.terrain !== "LAND" || !deps.isHillsAt(tile.x, tile.y) || !deps.isSiteDrawnAt(tile.x, tile.y)) continue;
     const water = fishingWaterDirection(deps.isWaterAt, tile.x, tile.y);
     const offset = fishingSiteOffset(water);
     const siteU = (water?.dx ?? 0) * offset;

@@ -20,6 +20,7 @@ export type TerrainCutLookupDeps = {
   readonly afcJoinDrop: AfcJoinDropState;
   readonly isHillsAt: (x: number, y: number) => boolean;
   readonly isWaterAt: (x: number, y: number) => boolean;
+  readonly isFishingSiteDrawnAt: (x: number, y: number) => boolean;
 };
 
 export type TerrainCutLookups = {
@@ -38,6 +39,6 @@ export const buildTerrainCutLookups = (deps: TerrainCutLookupDeps): TerrainCutLo
     wrapY,
     isAfcHiddenAt: (x, y) => isAfcHiddenForJoinDrop(deps.afcJoinDrop, x, y)
   });
-  const fishingPads = buildFishingPadIndex({ tiles: tiles.values(), keyFor, wrapX, wrapY, isHillsAt: deps.isHillsAt, isWaterAt: deps.isWaterAt });
+  const fishingPads = buildFishingPadIndex({ tiles: tiles.values(), keyFor, wrapX, wrapY, isHillsAt: deps.isHillsAt, isWaterAt: deps.isWaterAt, isSiteDrawnAt: deps.isFishingSiteDrawnAt });
   return { roadDirsAt, hillCutAt: createHillCutLookup(roadDirsAt, afcPads, keyFor, fishingPads) };
 };
