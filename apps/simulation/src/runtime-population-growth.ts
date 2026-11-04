@@ -32,11 +32,15 @@ export function incubationEngineGrowthMultForTile(input: {
 export function tickPopulationGrowth(input: {
   nowMs: number;
   players: ReadonlyMap<string, RuntimePlayer>;
-  tiles: Map<string, DomainTileState>;
+  tiles: ReadonlyMap<string, DomainTileState>;
   locksByTile: CombatLockTileReader;
   townLastGrowthTickAtByKey: Map<string, number>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
-  invalidateTileStringifyCache: (tileKey: string) => void;
+  // Stores a changed town tile everywhere the runtime keeps tile state: the
+  // live map, the snapshot tile cache checkpoints save from, and the delta
+  // stringify cache. Writing only the live map lost every minute of growth on
+  // the next deploy (the shutdown checkpoint saved the stale cached town).
+  writeTile: (tileKey: string, tile: DomainTileState) => void;
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   invalidateEconomyCachesForPlayer: (playerId: string) => void;
@@ -165,8 +169,7 @@ export function tickPopulationGrowth(input: {
         // stamped by the growth branch below in this same iteration.
         town = { ...town, isFed: freshIsFed, ...(freshIsFed ? {} : { populationGrowthPerMinute: 0 }) };
         const healedTile = { ...tile, town };
-        input.tiles.set(tileKey, healedTile);
-        input.invalidateTileStringifyCache(tileKey);
+        input.writeTile(tileKey, healedTile);
         recordTileDelta(tileKey, healedTile);
         dirtyPlayerIds.add(player.id);
       }
@@ -197,8 +200,7 @@ export function tickPopulationGrowth(input: {
         if ((town.nearbyWarPausedUntil ?? 0) < pausedUntil) {
           const updatedTown = { ...town, nearbyWarPausedUntil: pausedUntil, nearbyWarLastAt: input.nowMs, populationGrowthPerMinute: 0 };
           const updatedTile = { ...tile, town: updatedTown };
-          input.tiles.set(tileKey, updatedTile);
-          input.invalidateTileStringifyCache(tileKey);
+          input.writeTile(tileKey, updatedTile);
           recordTileDelta(tileKey, updatedTile);
         }
         input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
@@ -253,8 +255,7 @@ export function tickPopulationGrowth(input: {
       // tile-detail fetch.
       const updatedTown = { ...townWithoutPause, population: newPopulation, populationGrowthPerMinute: Number(growthPerMinute.toFixed(4)) };
       const updatedTile = { ...tile, town: updatedTown };
-      input.tiles.set(tileKey, updatedTile);
-      input.invalidateTileStringifyCache(tileKey);
+      input.writeTile(tileKey, updatedTile);
       input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
       recordTileDelta(tileKey, updatedTile);
       pDiag.grown += 1;

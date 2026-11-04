@@ -643,8 +643,8 @@ export class SimulationRuntime {
   private frontierAutoHealQueue: FrontierAutoHealQueue = createFrontierAutoHealQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted -- see runtime-frontier-auto-heal.ts
   private readonly isLandTileQuery = (x: number, y: number): boolean => { const t = this.state.tiles.get(simulationTileKey(x, y)); return t ? t.terrain === "LAND" : true; }; // land-gates reach anchors, see ReachAnchor.crossesWater
   private readonly lastEmittedStorageCapByPlayer = new Map<string, EmpireStorageCap>();
-  // Phase 3c: pre-serialized snapshot form of every tile, kept in sync with
-  // this.state.tiles via replaceTileState and the two direct tiles.set paths.
+  // Phase 3c: pre-serialized snapshot form of every tile, which checkpoints save.
+  // Every this.state.tiles write must update it (replaceTileState, growth writeTile).
   // Eliminates the O(202k-tile) yield loop from buildRuntimeSnapshotSectionsAsync;
   // checkpoint cost drops from 43-93 s (101 setImmediate waits) to ~50 ms (sort).
   private readonly snapshotTileCache = new Map<string, SnapshotTile>();
@@ -1054,7 +1054,7 @@ export class SimulationRuntime {
       locksByTile: this.state.locksByTile,
       townLastGrowthTickAtByKey: this.townLastGrowthTickAtByKey,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
+      writeTile: (tileKey, tile) => { this.state.tiles.set(tileKey, tile); this.snapshotTileCache.set(tileKey, mapTile(tile)); this.tileDeltaStringifyCache.invalidate(tileKey); },
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       invalidateEconomyCachesForPlayer: (playerId) => this.economyCaches.invalidateEconomySnapshot(playerId),

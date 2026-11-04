@@ -120,6 +120,8 @@ describe("diplomacy list", () => {
     };
     expect(diplomacyEmpires(input).map((e) => e.id)).toEqual(["c", "b", "d", "a"]);
     expect(empireStance("c", input)).toEqual({ kind: "truce", label: "Truce 9h" });
+    // Regression: the last hour read "Truce <1h" with no minutes.
+    expect(empireStance("c", { ...input, nowMs: 9 * 3_600_000 - 42 * 60_000 })).toEqual({ kind: "truce", label: "Truce 42m" });
   });
 });
 
