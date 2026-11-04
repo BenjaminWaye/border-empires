@@ -57,6 +57,7 @@ import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js
 import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
 import { STORM_EDGE_BANDING_CHANGELOG } from "./client-changelog-storm-edge-banding.js";
 import { NOVEMBER_CHANGELOG } from "./client-changelog-data-november.js";
+import { INSTANT_GARRISONS_CHANGELOG } from "./client-changelog-instant-garrisons.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -476,6 +477,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...NOVEMBER_CHANGELOG,
+  ...INSTANT_GARRISONS_CHANGELOG,
   {
     createdAt: 1793743078716, // Date.now() captured once for this entry.
     introducedIn: "2026.11.03",
@@ -487,19 +489,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The orb and the manpower chip stop showing a batch amount that has already landed"
     ]
   },
-  ...INCURSION_SHORE_CHANGELOG,
-  {
-    createdAt: 1793807218299, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.04",
-    title: "Faster garrisons, and your first 10 are instant",
-    why: "Garrisoning took a full minute (two in forests and hills), far longer than claiming the same tile, which made holding new land feel slow.",
-    changes: [
-      "A garrison now takes exactly as long as claiming that tile (7.5s, or about 11s in forests and hills), before settle-speed bonuses",
-      "Your first 10 garrisons ever are instant. The tile menu shows how many free ones you have left",
-      "The count stays with your account when you respawn, so it doesn't refill",
-      "A tile still held after a capture still can't finish garrisoning before its hold ends"
-    ]
-  }
+  ...INCURSION_SHORE_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
