@@ -120,7 +120,7 @@ somewhere in code):
 flowchart LR
     A[Manpower pool<br/>regenerates from towns] -->|30 MP| R[Relay Beacon<br/>on a settled edge tile]
     R -->|radius 5| K[Reach disk<br/>neutral land claimed<br/>as FRONTIER, free]
-    K -->|auto-settle 20 MP, 60s:<br/>towns, docks, resources,<br/>town support ring| C[Settled land]
+    K -->|auto-settle 20 MP, EXPAND time:<br/>towns, docks, resources,<br/>town support ring| C[Settled land]
     C -->|new settled edge| R
     K -->|settle by hand, 20 MP:<br/>plain tiles| C
     C -->|settled corridor links towns:<br/>+50/40/30% town gold| RN[Road network]
@@ -266,7 +266,7 @@ a victory hold.
 3. When it activates, every neutral land tile within radius 5 becomes your
    FRONTIER at once. **FRONTIER has zero defense**, so any adjacent enemy takes
    it without a roll (`frontier-combat.ts`).
-4. Auto-settle (20 MP, 60s each, one per free development slot) works through
+4. Auto-settle (20 MP, same time as an EXPAND each, one per free development slot) works through
    the tiles that qualify: towns, docks, revealed resources, and the town
    support ring, but only in the categories the player has opted into (below). Settle other tiles by hand if you want them defended or need
    one as the next beacon site.

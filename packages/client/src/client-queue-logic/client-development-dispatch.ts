@@ -171,6 +171,8 @@ export const requestSettlement = (
   const progress = { startAt, resolvesAt: startAt + settleDurationMsForState(state, tile, startAt), target: { x, y }, awaitingServerConfirm: false };
   state.gold = Math.max(0, state.gold - SETTLE_COST);
   if (!manpowerReserved) state.manpower = Math.max(0, state.manpower - state.settleManpowerCost);
+  // The server counts every garrison it starts, so spend a free one locally too: a second quick tap must predict the timer.
+  state.instantGarrisonsRemaining = Math.max(0, state.instantGarrisonsRemaining - 1);
   state.settleProgressByTile.set(tileKey, progress);
   state.latestSettleTargetKey = tileKey;
   deps.syncOptimisticSettlementTile(x, y, false);

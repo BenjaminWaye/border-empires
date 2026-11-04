@@ -8,7 +8,7 @@ export const INSTANT_GARRISONS_CHANGELOG: ClientChangelogEntry[] = [
     why: "Garrisoning took a full minute (two in forests and hills), far longer than claiming the same tile, which made holding new land feel slow.",
     changes: [
       "A garrison now takes exactly as long as claiming that tile (7.5s, or about 11s in forests and hills), before settle-speed bonuses",
-      "Your first 10 garrisons ever are instant. The tile menu shows how many free ones you have left",
+      "Your first 10 garrisons each season are instant, including ones auto-garrison places for you. The tile menu shows how many free ones you have left",
       "The count carries over when you respawn, so it doesn't refill",
       "A tile still held after a capture still can't finish garrisoning before its hold ends"
     ]
