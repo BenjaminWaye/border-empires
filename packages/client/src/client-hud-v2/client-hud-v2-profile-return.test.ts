@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import { screen, SCREEN_HOST_ID, type HudV2Deps } from "./client-hud-v2-context.js";
 import { crestClosesProfile } from "./client-hud-v2-profile.js";
-import { closeScreen, openScreen, screenClick } from "./client-hud-v2-screens.js";
+import { closeProfileFromCrest, closeScreen, openScreen, screenClick } from "./client-hud-v2-screens.js";
 
 const depsFor = (state: ReturnType<typeof createInitialState>): HudV2Deps =>
   ({
@@ -87,8 +87,20 @@ describe("profile return", () => {
     openScreen(deps, "manifest");
     state.activePlayerProfileId = "p1";
     openScreen(deps, "profile");
-    expect(crestClosesProfile(state.activePlayerProfileId, state.me, screen.id)).toBe(true);
-    closeScreen(deps, { toMap: true });
+    expect(closeProfileFromCrest(deps)).toBe(true);
     expect(screen.id).toBeNull();
+    expect(state.activePlayerProfileId).toBeUndefined();
+  });
+
+  it("does not close from the crest when the open profile is someone else's", () => {
+    document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
+    const state = createInitialState();
+    state.me = "p1";
+    const deps = depsFor(state);
+    openScreen(deps, "manifest");
+    state.activePlayerProfileId = "p2";
+    openScreen(deps, "profile");
+    expect(closeProfileFromCrest(deps)).toBe(false);
+    expect(screen.id).toBe("profile");
   });
 });
