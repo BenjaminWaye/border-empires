@@ -39,6 +39,7 @@ import "./client-hud-v2-profile.css";
 import "./client-hud-v2-economy.css";
 import "./client-hud-v2-compact.css";
 import "./client-hud-v2-compact-screens.css";
+import "./client-hud-v2-map-overview.css";
 
 export type { HudV2Deps } from "./client-hud-v2-context.js";
 

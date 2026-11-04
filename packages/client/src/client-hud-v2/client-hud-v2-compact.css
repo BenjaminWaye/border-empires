@@ -201,36 +201,4 @@ body.hud-v2-compact #side-panel .panel-btn { min-height: 40px; }
 body.hud-v2-compact .v2c-treasury-rows .hud-v2-gear { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 48px; margin: 6px 0 0; font-size: 18px; }
 body.hud-v2-compact .v2c-treasury-rows .hud-v2-gear::after { content: " Settings"; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }
 
-/* ---- Map overview (client-hud-v2-overlays.ts): the round button opens the minimap full screen, lenses under it ---- */
-body.hud-v2-compact { --v2c-map-size: min(calc(100vw - 24px), calc(100dvh - var(--v2c-safe-top) - var(--v2c-safe-bottom) - 220px)); }
-body.hud-v2-compact.v2c-map-overview #mini-map-wrap {
-  top: 0 !important; right: 0 !important; bottom: 0 !important; left: 0 !important; width: auto !important; height: auto !important; z-index: 60;
-  display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-  padding: calc(var(--v2c-safe-top) + 12px) calc(var(--v2c-safe-right) + 12px) calc(var(--v2c-safe-bottom) + 12px) calc(var(--v2c-safe-left) + 12px) !important;
-  background: rgba(9, 8, 6, 0.97) !important; pointer-events: auto;
-}
-/* The host's header and lens row become rows of the overview around the canvas. */
-body.hud-v2-compact.v2c-map-overview #mini-map-wrap > .hud-v2-overlays { display: contents; }
-body.hud-v2-compact.v2c-map-overview #mini-map-wrap > #mini-map {
-  display: block !important; order: 0; width: var(--v2c-map-size) !important; height: var(--v2c-map-size) !important;
-  border: 1px solid var(--v2-edge-strong); image-rendering: pixelated; touch-action: none; cursor: crosshair;
-}
-body.hud-v2-compact.v2c-map-overview #tutorial-guide-root,
-body.hud-v2-compact.v2c-map-overview .onb-root { display: none !important; }
-.v2c-map-head { order: -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: var(--v2c-map-size); }
-.v2c-map-title { margin: 0; font-family: var(--v2-display); font-size: 18px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); }
-.v2c-map-hint { margin: 2px 0 0; font-size: 13px; color: var(--v2-muted); }
-.v2c-map-close {
-  flex: none; width: var(--v2c-touch); height: var(--v2c-touch); border: 1px solid var(--v2-edge-strong); background: var(--v2-well); color: var(--v2-soft); font-size: 16px;
-}
-.v2c-map-lenses { order: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; width: var(--v2c-map-size); }
-.v2c-map-lens-label { font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); }
-.v2c-map-lenses .hud-v2-lens-item { flex: 1 1 0; justify-content: center; min-height: var(--v2c-touch); border: 1px solid var(--v2-line); border-left-width: 1px; }
-.v2c-map-lenses .hud-v2-lens-item-on { border-color: var(--v2-gold); }
-/* Sideways: header, map and lenses side by side so the map keeps the screen's height. */
-@media (orientation: landscape) {
-  body.hud-v2-compact { --v2c-map-size: min(calc(100dvh - var(--v2c-safe-top) - var(--v2c-safe-bottom) - 24px), 56vw); }
-  body.hud-v2-compact.v2c-map-overview #mini-map-wrap { flex-direction: row; }
-  body.hud-v2-compact.v2c-map-overview .v2c-map-head,
-  body.hud-v2-compact.v2c-map-overview .v2c-map-lenses { flex-direction: column; align-items: stretch; width: min(180px, 20vw); }
-}
+/* The map overview (full-screen minimap with lenses) is styled in client-hud-v2-map-overview.css. */

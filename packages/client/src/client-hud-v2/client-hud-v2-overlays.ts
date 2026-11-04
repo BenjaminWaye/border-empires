@@ -39,8 +39,8 @@ export const activeLens = (diplomacyOn: boolean): MapLens => (diplomacyOn ? "dip
 /** The overview's header and lens row; the minimap canvas itself sits between them (CSS order). */
 const mapOverviewHtml = (active: MapLens): string => {
   const items = LENSES.map((l) => `<button type="button" role="radio" class="hud-v2-lens-item${l.id === active ? " hud-v2-lens-item-on" : ""}" data-hud-v2-lens="${l.id}" aria-checked="${l.id === active}">${lensIcon(`/icons/simple/lens-${l.id}.svg`)}${l.label}</button>`).join("");
-  return `<div class="v2c-map-head"><div><h2 class="v2c-map-title">Map</h2><p class="v2c-map-hint">Tap a place to go there</p></div><button type="button" class="v2c-map-close" data-v2c-map-close aria-label="Close the map">✕</button></div>
-    <div class="v2c-map-lenses" role="radiogroup" aria-label="Map lens"><span class="v2c-map-lens-label">Lens</span>${items}</div>`;
+  return `<div class="v2c-map-head"><div><h2 class="v2c-map-title">Map</h2><p class="v2c-map-hint">Tap a place to go there</p><span class="v2c-map-key">your view</span></div><button type="button" class="v2c-map-close" data-v2c-map-close aria-label="Close the map">✕</button></div>
+    <div class="v2c-map-lenses"><span class="v2c-map-lens-label" id="v2c-map-lens-label">Lens</span><div class="v2c-map-segments" role="radiogroup" aria-labelledby="v2c-map-lens-label">${items}</div></div>`;
 };
 
 export const overlaysHtml = (diplomacyOn: boolean, menuOpen: boolean, overviewOpen = false): string => {
