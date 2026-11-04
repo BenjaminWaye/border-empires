@@ -50,18 +50,19 @@ describe("Manifest commission in flight", () => {
     vi.useRealTimers();
   });
 
-  // Regression: a gateway refusal that isn't a TECH_* error left the commission pending for the
-  // rest of the session, so every later Commission tap did nothing.
-  it("lets the player commission again after the gateway refuses the command", () => {
+  // Regression: a CHOOSE_TECH the gateway turned away (rate limit) gets no TECH_* answer, so the commission stayed
+  // pending for the rest of the connection and every later Commission tap did nothing.
+  it("lets the player commission again once a turned-away order times out", () => {
     const { state, send, commission } = setup();
     commission();
-    expect(send).toHaveBeenCalledTimes(1);
     clearTechCommissionOnError(state, "COMMAND_RATE_LIMITED");
+    commission();
+    expect(send).toHaveBeenCalledTimes(1);
+    vi.setSystemTime(1_000_000 + TECH_COMMISSION_PENDING_TIMEOUT_MS);
     commission();
     expect(send).toHaveBeenCalledTimes(2);
   });
 
-  // Regression: a reply lost with the connection blocked Commission until the next full reload.
   it("stops waiting for a reply that never comes", () => {
     const { state, send, commission } = setup();
     commission();
@@ -77,7 +78,7 @@ describe("Manifest commission in flight", () => {
     commission();
     commission();
     expect(send).toHaveBeenCalledTimes(1);
-    expect(state.captureAlert?.title).toBe("Manifest not commissioned");
+    expect(state.captureAlert?.title).toBe("Already commissioning");
   });
 
   it("alerts instead of failing silently while disconnected", () => {
@@ -87,10 +88,12 @@ describe("Manifest commission in flight", () => {
     expect(state.captureAlert?.detail).toContain("disconnected");
   });
 
-  it("keeps waiting through errors about other actions", () => {
+  // Errors that can't be tied to CHOOSE_TECH must not free a second send: SIMULATION_UNAVAILABLE can follow a command
+  // the simulation still applies, and a rate limit or BAD_COMMAND may be about another action.
+  it("keeps waiting through errors it can't tie to the commission", () => {
     const { state, commission } = setup();
     commission();
-    clearTechCommissionOnError(state, "LOCKED");
+    for (const code of ["LOCKED", "COMMAND_RATE_LIMITED", "BAD_COMMAND", "SIMULATION_UNAVAILABLE"]) clearTechCommissionOnError(state, code);
     expect(state.pendingTechUnlockId).toBe(tooling.id);
     clearTechCommissionOnError(state, "TECH_INVALID");
     expect(state.pendingTechUnlockId).toBe("");

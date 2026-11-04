@@ -67,10 +67,10 @@ export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActi
     return;
   }
   // The new HUD shows no activity feed, so a refused commission also raises an alert: a feed line alone was a dead tap.
-  const refuse = (detail: string, severity: "warn" | "error" = "warn"): void => {
+  const refuse = (detail: string, severity: "warn" | "error" = "warn", title = "Manifest not commissioned"): void => {
     recordClientDebugEvent("warn", "tech", "commission-refused", { techId, detail });
     deps.pushFeed(detail, "tech", severity);
-    showCaptureAlert(deps.state, "Manifest not commissioned", detail, severity);
+    showCaptureAlert(deps.state, title, detail, severity);
     deps.renderHud();
   };
   if (deps.ws.readyState !== websocketOpenReadyState) {
@@ -81,11 +81,11 @@ export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActi
   if (!deps.state.authSessionReady) {
     deps.setAuthStatus("Finish sign-in before choosing a technology.", "error");
     deps.syncAuthOverlay();
-    refuse("Finish sign-in before commissioning a Manifest.", "error");
     return;
   }
   if (pendingTechCommissionId(deps.state, Date.now())) {
-    refuse("Already commissioning a Manifest. Waiting for the server to confirm...");
+    // A double tap lands here while the first commission is on its way: it was sent, so don't say otherwise.
+    refuse("Your Manifest order is on its way. Waiting for the server to confirm...", "warn", "Already commissioning");
     return;
   }
   const tech = deps.state.techCatalog.find((item) => item.id === techId);
