@@ -34,6 +34,10 @@ body.hud-v2-screen-battle .hud-v2-overlays,
 body.hud-v2-screen-battle #capture-overlay,
 body.hud-v2-screen-battle #victory-alert-overlay,
 body.hud-v2-screen-battle .onb-root { display: none !important; }
+/* #hud is position: fixed, so it is its own stacking context: z-index 44 above ranks a screen only inside the HUD,
+   and a body-level toast with any z-index paints over every screen. The discovery tip (z-index 30, the full width
+   of the foot on a phone) sat on Manifest's Commission button and took its taps. It waits until you're back on the map. */
+body.hud-v2-screen-open #discovery-tip-overlay { display: none !important; }
 /* The effort sheet keeps working underneath; the battle screen is its view. */
 body.hud-v2-screen-battle .effort-confirm-overlay { opacity: 0 !important; pointer-events: none !important; }
 /* The new HUD draws its own profile screen (client-hud-v2-profile.ts); the legacy overlay only keeps fetching. */
