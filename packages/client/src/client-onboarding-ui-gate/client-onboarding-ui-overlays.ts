@@ -4,7 +4,7 @@ import { announceDiscoveryTip, renderDiscoveryTipOverlay } from "../client-disco
 import { removeOnboardingChecklistOverlay, renderOnboardingChecklistOverlay } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
 import { pushDiscoveryTipFeedEntry, type FeedMutableState } from "../client-alerts/client-alerts.js";
 import { createOnboardingUiGateTicker, isOnboardingUiDeferred, type OnboardingUiGateState } from "./client-onboarding-ui-gate.js";
-import { isEnrolledInTutorialGuide, isTutorialGuideRunning, renderTutorialGuide } from "../client-tutorial-guide/tutorial-guide.js";
+import { isEnrolledInTutorialGuide, isTutorialGuideHoldingTips, renderTutorialGuide } from "../client-tutorial-guide/tutorial-guide.js";
 import { retireQueuedDiscoveryTips } from "../client-discovery-tips/client-discovery-tips.js";
 import type { GuideInputState } from "../client-tutorial-guide/tutorial-guide-input.js";
 
@@ -15,20 +15,27 @@ import type { GuideInputState } from "../client-tutorial-guide/tutorial-guide-in
 export type DiscoveryTipUiState = OnboardingUiGateState & FeedMutableState & Pick<ClientState, "discoveryTipQueue" | "authEmail">;
 export type OnboardingChecklistUiState = OnboardingUiGateState & GuideInputState & Pick<ClientState, "onboardingHighlightTiles" | "firstChunkAt">;
 
-/** Tips the tutorial guide teaches as steps (find a town, find food, raise a muster flag, first contact). */
-export const GUIDE_TAUGHT_DISCOVERY_TIPS: ReadonlySet<DiscoveryTipId> = new Set<DiscoveryTipId>(["TOWN", "FOOD", "FIRST_MUSTER", "ENEMY_EMPIRE"]);
+/** Tips the tutorial guide's "Find a town" / "Find food" steps already teach: retired while it holds tips. */
+export const GUIDE_TAUGHT_DISCOVERY_TIPS: ReadonlySet<DiscoveryTipId> = new Set<DiscoveryTipId>(["TOWN", "FOOD"]);
+
+/** Feedback on something that just happened (land that can be cut off, first contact, a first flag): never held. */
+const URGENT_DISCOVERY_TIPS: ReadonlySet<DiscoveryTipId> = new Set<DiscoveryTipId>(["OUT_OF_REACH_EXPAND", "ENEMY_EMPIRE", "FIRST_MUSTER"]);
 
 /**
- * While the tutorial guide runs, the discovery-tip toast stays quiet so the
- * corner isn't crowded with two pieces of guidance at once: tips the guide
- * teaches are retired outright, and every other tip (docks, strategic
- * resources, wonders, ...) waits in the queue until the guide is finished or
- * hidden. Returns true while tips are held.
+ * While the tutorial guide's card is up on a step the player can do now, the
+ * discovery-tip toast stays quiet so the corner isn't crowded with two pieces
+ * of guidance at once: tips the guide teaches are retired outright, and other
+ * tips (docks, strategic resources, wonders, ...) wait in the queue until the
+ * guide is minimised, only waiting on a first contact, finished or hidden.
+ * Urgent tips are never held. Returns true while the front tip is held.
  */
 const holdDiscoveryTipsForGuide = (state: DiscoveryTipUiState): boolean => {
-  if (!isTutorialGuideRunning(state.authEmail)) return false;
+  if (!isTutorialGuideHoldingTips(state.authEmail)) return false;
   retireQueuedDiscoveryTips(state.discoveryTipQueue, GUIDE_TAUGHT_DISCOVERY_TIPS, state.authEmail);
-  return true;
+  const urgent = state.discoveryTipQueue.findIndex((id) => URGENT_DISCOVERY_TIPS.has(id));
+  if (urgent > 0) state.discoveryTipQueue.unshift(...state.discoveryTipQueue.splice(urgent, 1));
+  const front = state.discoveryTipQueue[0];
+  return front !== undefined && !URGENT_DISCOVERY_TIPS.has(front);
 };
 
 /** Re-renders the discovery-tip toast for the front of the queue, or hides it while deferred or held by the tutorial guide. */
@@ -39,9 +46,10 @@ export const renderDiscoveryTipOverlayForState = (state: DiscoveryTipUiState, re
 
 /** Enqueues a player-action tip (first Muster Flag, out-of-reach expand) and shows it unless deferred or held, with `target` as the tile its Center button jumps to; a deferred tip stays queued. */
 export const announceDiscoveryTipForState = (state: DiscoveryTipUiState, id: DiscoveryTipId, renderHud: () => void, target?: DiscoveryTipTarget): void => {
-  const running = isTutorialGuideRunning(state.authEmail);
-  announceDiscoveryTip(state.discoveryTipQueue, id, state.authEmail, renderHud, (def) => pushDiscoveryTipFeedEntry(state, def), running || isOnboardingUiDeferred(state), target);
-  if (running) holdDiscoveryTipsForGuide(state);
+  const holding = isTutorialGuideHoldingTips(state.authEmail);
+  announceDiscoveryTip(state.discoveryTipQueue, id, state.authEmail, renderHud, (def) => pushDiscoveryTipFeedEntry(state, def), holding || isOnboardingUiDeferred(state), target);
+  // While the guide holds tips, render through the hold rules: an urgent tip queued behind a held one moves to the front and shows now.
+  if (holding) renderDiscoveryTipOverlayForState(state, renderHud);
 };
 
 /** Recomputes the onboarding checklist state/highlights from `state.tiles` and stores the result. Shared by the tile-delta-batch path and the spawn/initial-snapshot path in client-network.ts, so a fresh empire sees the checklist immediately instead of only after its first tile delta. */
@@ -58,8 +66,13 @@ export const refreshOnboardingChecklistHighlight = (state: OnboardingChecklistUi
 };
 
 const tickGate = createOnboardingUiGateTicker();
-// Whether the tutorial guide was running last frame: tips it held show the frame it ends.
-let guideWasRunning: boolean | undefined;
+// Whether the tutorial guide held tips last frame: they show the frame it stops (minimised, waiting, finished, hidden).
+let guideWasHoldingTips: boolean | undefined;
+
+/** Test-only: forgets last frame's hold state. */
+export const resetOnboardingUiOverlaysForTests = (): void => {
+  guideWasHoldingTips = undefined;
+};
 
 /**
  * Called once per frame, after the AFC join drop has ticked: re-renders the
@@ -74,9 +87,9 @@ export const tickOnboardingUiGateForFrame = (state: DiscoveryTipUiState & Onboar
     if (state.me && state.firstChunkAt > 0) refreshOnboardingChecklistHighlight(state);
     renderHud();
   });
-  const guideRunning = isTutorialGuideRunning(state.authEmail);
-  if (guideWasRunning !== undefined && guideWasRunning !== guideRunning) renderDiscoveryTipOverlayForState(state, renderHud);
-  guideWasRunning = guideRunning;
+  const guideHolding = isTutorialGuideHoldingTips(state.authEmail);
+  if (guideWasHoldingTips !== undefined && guideWasHoldingTips !== guideHolding) renderDiscoveryTipOverlayForState(state, renderHud);
+  guideWasHoldingTips = guideHolding;
   // The guide also completes steps on input with no tile change (a pan, an
   // opened panel), so it is evaluated every frame; tile scans are cached per
   // tiles revision and the card only re-renders when its content changes.

@@ -86,6 +86,12 @@ export type GuideStepDef = {
   lookFor?: ReadonlyArray<GuideLookForIcon>;
   /** Completed by pressing the card's Finish button instead of by game state. */
   acknowledge?: boolean;
+  /**
+   * Added to the guide after players had already progressed past its place:
+   * counts as done once any later step is in their saved progress, so an
+   * update never sends a player back to an earlier chapter.
+   */
+  doneIfLaterStepDone?: boolean;
 };
 
 export const GUIDE_CHAPTER_TITLES: Record<GuideChapterId, string> = {
@@ -191,8 +197,9 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "reach-beacon",
     chapter: "reach",
     title: (i) => (i.beaconSite() ? "Tap the marked tile and build a Relay Beacon" : "Build a Relay Beacon on a tile at the edge of your land"),
-    why: "A beacon pushes your reach and vision outward, so Expand To can claim land further out. It needs no Manifest.",
+    why: "A beacon pushes your reach and vision outward, so Expand To can claim land further out. It needs no Manifest; it costs manpower and uses one food slot.",
     isDone: (i) => i.ownsRelayBeacon,
+    doneIfLaterStepDone: true,
     highlight: (i) => {
       const site = i.beaconSite();
       return site ? [site] : [];
@@ -307,7 +314,10 @@ const CHAPTER_ORDER = Object.keys(GUIDE_CHAPTER_TITLES) as GuideChapterId[];
  * state that satisfied it changes later.
  */
 export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>): GuideView => {
-  const newlyCompleted = GUIDE_STEPS.filter((s) => !completed.has(s.id) && !s.acknowledge && s.isDone(input)).map((s) => s.id);
+  const laterStepDone = (index: number): boolean => GUIDE_STEPS.slice(index + 1).some((later) => completed.has(later.id));
+  const newlyCompleted = GUIDE_STEPS.filter(
+    (s, index) => !completed.has(s.id) && !s.acknowledge && (s.isDone(input) || (s.doneIfLaterStepDone === true && laterStepDone(index)))
+  ).map((s) => s.id);
   const done = new Set([...completed, ...newlyCompleted]);
   const remaining = GUIDE_STEPS.filter((s) => !done.has(s.id));
   if (remaining.length === 0) return { kind: "done" };

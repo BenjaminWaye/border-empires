@@ -68,16 +68,17 @@ element ignores pointer events; only the card and the launcher take clicks.
   `[data-hud-v2-open]` buttons. Under the new HUD, its Manifest screen counts
   as opening Manifests and the Activity step names the Chronicle. The card
   shares the checklist bubble's `.onb-root` class, so the new HUD's rules lift
-  it above the bottom-left minimap and hide it behind the town and battle
-  screens. It stays visible where its steps send the player: while a side
-  panel (Manpower, Manifests, Settings) or a HUD v2 screen is open it is lifted
-  to z-index 48, and on HUD v2 frame screens (Manifests, Diplomacy, ...) it
+  it above the bottom-left minimap and hide it behind the town, battle,
+  Chronicle, AFC, Ranks, Towns and Profile screens. It stays visible where its
+  steps send the player: while a side panel (Manpower, Manifests; not
+  Settings, whose modal dim shares that layer) or a HUD v2 screen is open it
+  is lifted to z-index 48, and on the HUD v2 Manifest and Diplomacy screens it
   overrides their `.onb-root` hiding (`syncGuideCardLayer`).
 - **The recommended Manifest** is marked in both Manifest trees (HUD v2's
   `[data-v2-manifest-select]` nodes and the legacy `[data-tech-card]` cards)
   with a pulsing ring and a "Guide pick" badge while a Manifest step is
-  current (`tutorial-guide-manifest-pick.ts`). The mark is re-applied each
-  frame, since both trees rebuild their markup.
+  current (`tutorial-guide-manifest-pick.ts`). Both trees rebuild their
+  markup, so a MutationObserver re-marks them before paint while the pick shows.
 - **Off-screen targets** get no edge arrow. "Show me" pans the camera to them
   instead.
 
@@ -85,11 +86,13 @@ element ignores pointer events; only the card and the launcher take clicks.
 while a dialog covers the map or the AFC landing is still pending or playing,
 then returns.
 
-**Discovery tips while it runs.** The discovery-tip toast stays quiet so the
-corner isn't crowded with two pieces of guidance. Tips the guide teaches as
-steps (`TOWN`, `FOOD`, `FIRST_MUSTER`, `ENEMY_EMPIRE`) are retired as if
-dismissed; every other tip waits in the queue and shows once the guide is
-finished or hidden (`client-onboarding-ui-overlays.ts`).
+**Discovery tips while it runs.** While the card is expanded on a step the
+player can do now, the discovery-tip toast stays quiet so there aren't two
+pieces of guidance on screen. `TOWN` and `FOOD`, which the find steps teach,
+are retired as if dismissed. Urgent feedback (`OUT_OF_REACH_EXPAND`,
+`ENEMY_EMPIRE`, `FIRST_MUSTER`) is never held. Every other tip waits in the
+queue and shows once the card is minimised, the guide is only waiting on a
+first contact, or it is finished or hidden (`client-onboarding-ui-overlays.ts`).
 
 **Persistence.** `guideStatus` (`active` | `done` | `dismissed`) and
 `guideSteps` (completed step ids, at most 64) are stored on the gateway's
@@ -107,7 +110,7 @@ is unavailable until the recommended Manifest exists.
 |---|---|---|---|
 | 1 | Look around | drag the map; zoom; tap your AFC (player input, via `client-map-input.ts`, shared by both renderers). Any tap completes it, but the step points at the AFC because, on the new desktop HUD, tapping neutral land next to your border claims it at once | the AFC tile |
 | 2 | A foothold | the four checklist goals (`onboardingChecklistState`): find a town; take it; find food; take 4 food slots | see below |
-| 3 | Your reach | owns (or is building) a Relay Beacon. A beacon needs no Manifest, so it comes before the Manifest chapter; one built during the foothold completes it | the tile where a beacon adds the most new reach (`bestRelayBeaconSites`, computed only while this step asks); its build menu badges the beacon Recommended |
+| 3 | Your reach | owns (or is building) a Relay Beacon. A beacon needs no Manifest, so it comes before the Manifest chapter; one built during the foothold completes it. Added after launch, so it also counts as done for a player whose saved progress already has a later step (`doneIfLaterStepDone`) | the tile where a beacon adds the most new reach (`bestRelayBeaconSites`, computed only while this step asks); its build menu badges the beacon Recommended |
 | 4 | Manpower | the manpower panel is open | manpower gauge |
 | 5 | Manifests | the Manifest panel is open; a Manifest commissioned (`techIds`). The step recommends the **Industrial Tooling Module** (`trade`): tier 1, 10 Coin, and it unlocks the Manufactory | Manifest button, and the module's node in the tree |
 | 6 | Build | owns a structure other than a Relay Beacon. Available once the Industrial Tooling Module is commissioned. It asks for a **Manufactory**, which goes on a garrisoned town (never the spawn settlement) or its support ring and uses one food slot. Until the module docks on an active AFC (about a minute; the tile menu hides the Manufactory until then), the step says it is docking. Without the module, the step waits with a pointer to that Manifest. The Manifest step itself completes only on that Manifest, or once anything has been built | the player's garrisoned towns |

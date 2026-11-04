@@ -11,7 +11,13 @@ import type { Tile } from "../client-types.js";
 import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { isDiscoveryTipSeen } from "../client-discovery-tips/client-discovery-tips-storage.js";
 import { resetOnboardingChecklistOverlayForTests } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
-import { refreshOnboardingChecklistHighlight, renderDiscoveryTipOverlayForState, tickOnboardingUiGateForFrame } from "../client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
+import {
+  announceDiscoveryTipForState,
+  refreshOnboardingChecklistHighlight,
+  renderDiscoveryTipOverlayForState,
+  resetOnboardingUiOverlaysForTests,
+  tickOnboardingUiGateForFrame
+} from "../client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import { noteGuideMapPanned, resetGuideInputSignalsForTests } from "./tutorial-guide-input-signals.js";
 import { resetGuideInputCacheForTests } from "./tutorial-guide-input.js";
 import { resetGuideStorageMemoryForTests, setGuideStatus } from "./tutorial-guide-storage.js";
@@ -70,6 +76,7 @@ beforeEach(() => {
   resetGuideInputCacheForTests();
   resetTutorialGuideForTests();
   resetOnboardingChecklistOverlayForTests();
+  resetOnboardingUiOverlaysForTests();
 });
 
 describe("tutorial guide over panels and screens", () => {
@@ -106,7 +113,9 @@ describe("tutorial guide over panels and screens", () => {
     expect(cardTitle()).toBe("Commission the Industrial Tooling Module");
     expect(card()?.classList.contains("tg-raised")).toBe(true);
     // The frame screens hide the corner bubble (.onb-root); the guide overrides that by id.
-    expect(styles()).toMatch(/body\.hud-v2-screen-frame #tutorial-guide-root \{ display: block !important; \}/);
+    expect(styles()).toMatch(/body\.hud-v2-screen-manifest #tutorial-guide-root, body\.hud-v2-screen-diplomacy #tutorial-guide-root \{ display: block !important; \}/);
+    // Frame screens no step points to (AFC, Ranks, Profile, Towns) keep hiding it.
+    expect(styles()).not.toMatch(/hud-v2-screen-frame #tutorial-guide-root/);
     const pick = host.querySelector('[data-v2-manifest-select="trade"]');
     expect(pick?.classList.contains("tg-manifest-pick")).toBe(true);
     expect(pick?.querySelector(".tg-manifest-pick-badge")?.textContent).toBe("Guide pick");
@@ -123,13 +132,34 @@ describe("tutorial guide over panels and screens", () => {
     expect(host.querySelector(".tg-manifest-pick")).toBeNull();
   });
 
-  it("marks the recommended card in the legacy tech tree too", () => {
+  it("marks the recommended card in the legacy tech tree, not the small links that share its data attribute", () => {
+    const state = footholdDoneState();
+    const tree = document.createElement("div");
+    tree.innerHTML = `<button class="tech-card" data-tech-card="trade"></button><button class="manifest-lead__link" data-tech-card="trade"></button>`;
+    document.body.appendChild(tree);
+    startAt(state, 4);
+    expect(tree.querySelector('.tech-card[data-tech-card="trade"]')?.classList.contains("tg-manifest-pick")).toBe(true);
+    expect(tree.querySelector(".manifest-lead__link")?.classList.contains("tg-manifest-pick")).toBe(false);
+  });
+
+  it("re-marks the legacy tree when the HUD rebuilds it, before the next frame", async () => {
     const state = footholdDoneState();
     const tree = document.createElement("div");
     tree.innerHTML = `<button class="tech-card" data-tech-card="trade"></button>`;
     document.body.appendChild(tree);
     startAt(state, 4);
-    expect(tree.querySelector('[data-tech-card="trade"]')?.classList.contains("tg-manifest-pick")).toBe(true);
+    tree.innerHTML = `<button class="tech-card" data-tech-card="trade"></button>`; // renderHud rewrites the grid
+    await Promise.resolve();
+    expect(tree.querySelector(".tech-card")?.classList.contains("tg-manifest-pick")).toBe(true);
+    expect(tree.querySelectorAll(".tg-manifest-pick-badge")).toHaveLength(1);
+  });
+
+  it("does not lift the card over Settings, whose modal dim shares the raised layer", () => {
+    const state = footholdDoneState();
+    startAt(state, 3);
+    state.activePanel = "settings";
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(card()?.classList.contains("tg-raised")).toBe(false);
   });
 });
 
@@ -147,5 +177,31 @@ describe("discovery tips while the guide runs", () => {
     click("hide");
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(toast()?.textContent).toMatch(/Dock Discovered/);
+  });
+
+  it("lets tips through while the card is minimised", () => {
+    const state = footholdDoneState();
+    startAt(state, 0);
+    state.discoveryTipQueue.push("DOCK");
+    renderDiscoveryTipOverlayForState(state, vi.fn());
+    expect(toast()).toBeNull();
+    click("toggle"); // minimise
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(toast()?.textContent).toMatch(/Dock Discovered/);
+  });
+
+  it("never holds urgent feedback, and keeps first contact and muster tips rather than retiring them", () => {
+    const state = footholdDoneState();
+    startAt(state, 0);
+    state.discoveryTipQueue.push("DOCK");
+    renderDiscoveryTipOverlayForState(state, vi.fn());
+    announceDiscoveryTipForState(state, "OUT_OF_REACH_EXPAND", vi.fn(), { x: 9, y: 9 });
+    expect(toast()?.textContent).toMatch(/Beyond Your Reach/);
+    expect(state.discoveryTipQueue).toEqual(["OUT_OF_REACH_EXPAND", "DOCK"]);
+
+    state.discoveryTipQueue.push("ENEMY_EMPIRE");
+    renderDiscoveryTipOverlayForState(state, vi.fn());
+    expect(state.discoveryTipQueue).toContain("ENEMY_EMPIRE");
+    expect(isDiscoveryTipSeen("ENEMY_EMPIRE", EMAIL)).toBe(false);
   });
 });

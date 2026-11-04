@@ -79,6 +79,15 @@ export const removeTutorialGuideUi = (): void => {
   lastView = undefined;
 };
 
+/**
+ * True while the guide card is up, expanded, on a step the player can do now:
+ * discovery tips then wait so the corner isn't crowded. A minimised card, or a
+ * guide only waiting on a first contact (which can take a whole season), lets
+ * them through. Before the first render the guide counts as holding.
+ */
+export const isTutorialGuideHoldingTips = (authEmail: string | null | undefined): boolean =>
+  isGuideActive(authEmail) && (lastView === undefined || (expanded && !lastView.waiting));
+
 /** True while this account has the guide running (enrolled and not finished or hidden). */
 export const isTutorialGuideRunning = (authEmail: string | null | undefined): boolean => isGuideActive(authEmail);
 
@@ -146,7 +155,8 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
     renderGuideCard(view, expanded, handlers);
   }
   syncGuideAnchorOutline(expanded ? view.anchor : undefined);
-  syncGuideCardLayer(input.openPanel !== null || bodyHasScreenOpen());
+  // Not over Settings: on the new HUD its modal dim shares the raised layer.
+  syncGuideCardLayer((input.openPanel !== null && input.openPanel !== "settings") || bodyHasScreenOpen());
   syncGuideManifestPick(!view.waiting && guideRecommendsManifest(view.step.id) ? RECOMMENDED_FIRST_MANIFEST_ID : undefined);
   return [...view.highlightTiles];
 };

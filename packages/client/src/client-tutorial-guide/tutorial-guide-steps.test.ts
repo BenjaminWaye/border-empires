@@ -248,4 +248,13 @@ describe("tutorial guide steps", () => {
     expect(guideRecommendsManifest("manifest-commission")).toBe(true);
     expect(guideRecommendsManifest("build-first")).toBe(false);
   });
+
+  it("does not send a player already past it back to the new Relay Beacon step", () => {
+    // Saved progress from before the step existed: the foothold and Manpower are done, no beacon built.
+    const saved = new Set([...ids("look"), ...ids("foothold"), "manpower-open"]);
+    const view = evaluateGuide(baseInput({ checklist: footholdDone }), saved);
+    if (view.kind !== "step") throw new Error("expected a step");
+    expect(view.newlyCompleted).toContain("reach-beacon");
+    expect(view.step.id).toBe("manifest-open");
+  });
 });
