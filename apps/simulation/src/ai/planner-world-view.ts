@@ -139,6 +139,8 @@ export type PlannerPlayerView = {
    * spendableManpowerForPlanner.
    */
   musterStagedManpower?: number;
+  /** When this player's soonest-ending truce runs out (ms); absent with no timed truce. */
+  soonestTruceEndsAt?: number;
   /** Total owned tiles (territoryTileKeys.length = settled + frontier). */
   ownedTileCount: number;
   /** Total frontier tiles (frontierTileKeys.length). */

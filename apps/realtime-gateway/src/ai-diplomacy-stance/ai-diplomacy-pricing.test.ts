@@ -6,6 +6,7 @@ import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-me
 import { computeAiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing } from "./ai-diplomacy-pricing.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
+import type { AiRetaliationReadiness } from "./ai-retaliation-readiness.js";
 import { answerDiplomacyStanceQuery } from "./diplomacy-stance-query.js";
 
 const NOW = 100 * 60 * 60_000;
@@ -35,6 +36,7 @@ const price = (options: {
   /** Pass undefined explicitly for "sizes unknown". */
   aiWouldLeadAlliance?: boolean | undefined;
   giftToPleased?: number;
+  retaliation?: AiRetaliationReadiness;
 }) => {
   const stanceKind = options.stanceKind ?? "WARY";
   const mem = options.memory ?? memory();
@@ -65,6 +67,7 @@ const price = (options: {
       requesterBrokeTruceWithAi: options.brokeTruce ?? false,
       aiWouldLeadAlliance: "aiWouldLeadAlliance" in options ? options.aiWouldLeadAlliance : true,
       ...(options.giftToPleased !== undefined ? { giftToPleased: options.giftToPleased } : {}),
+      ...(options.retaliation ? { retaliation: options.retaliation } : {}),
       now: NOW
     })
   };
@@ -96,11 +99,55 @@ describe("AI truce pricing", () => {
     expect(price({ memory: repeat }).pricing.required.truce12).toBe((12 * 1.5 + 2) * 1.5 * 60);
   });
 
-  // Civ's "too soon after declaring war": no grabbing land and buying peace to keep it.
-  it("refuses peace talks right after the player attacks", () => {
+  // Without a read on the AI's army it falls back to Civ's "too soon after declaring war".
+  it("refuses peace talks right after the player attacks when it can't judge its readiness", () => {
     const result = price({ memory: memory({ lastPlayerAttackAt: NOW - 5 * 60_000, lastCombatAt: NOW - 5 * 60_000 }) });
     expect(result.pricing.required.truce12).toBeNull();
     expect(result.truceRefusal).toBe("You attacked Milo 5 min ago. They won't talk peace yet.");
+  });
+
+  describe("right after the player attacks", () => {
+    const justAttacked = memory({ lastPlayerAttackAt: NOW - 5 * 60_000, lastCombatAt: NOW - 5 * 60_000 });
+    const spent: AiRetaliationReadiness = { readiness: 0.1, ready: false, boxedIn: true };
+    const readyWithRoom: AiRetaliationReadiness = { readiness: 0.8, ready: true, boxedIn: false };
+    const readyBoxedIn: AiRetaliationReadiness = { readiness: 0.8, ready: true, boxedIn: true };
+
+    // Attack, offer a truce, log off: an AI with no counter-attack in hand takes the deal and turns elsewhere.
+    it("deals at a fresh-aggression surcharge when it has no army ready to strike back", () => {
+      const result = price({ memory: justAttacked, retaliation: spent });
+      expect(result.truceRefusal).toBeUndefined();
+      // At war (24h) x Annoyed (1.5) x fresh aggression (1.5).
+      expect(result.pricing.required.truce12).toBe(Math.round(24 * 1.5 * 1.5 * 60));
+    });
+
+    it("deals when its army is ready but it has other land to grow into", () => {
+      expect(price({ memory: justAttacked, retaliation: readyWithRoom }).truceRefusal).toBeUndefined();
+    });
+
+    it("refuses while it has an army ready and this border is its only way to grow", () => {
+      const result = price({ memory: justAttacked, retaliation: readyBoxedIn });
+      expect(result.pricing.required.truce12).toBeNull();
+      expect(result.truceRefusal).toBe(
+        "You attacked Milo 5 min ago and they have an army ready to strike back. They won't talk peace for another 25 min."
+      );
+    });
+
+    it("refuses while it has an army ready and is winning the war", () => {
+      const winning = memory({ lastPlayerAttackAt: NOW - 5 * 60_000, lastCombatAt: NOW - 5 * 60_000, tilesTakenByAi: 6 });
+      expect(price({ memory: winning, retaliation: readyWithRoom }).truceRefusal).toContain("army ready to strike back");
+    });
+
+    it("never pays the attacker for peace, but asks reparations even when losing", () => {
+      const losing = memory({ lastPlayerAttackAt: NOW - 5 * 60_000, lastCombatAt: NOW - 5 * 60_000, tilesTakenFromAi: 4 });
+      const result = price({ memory: losing, retaliation: spent, aiGold: 100_000 });
+      expect(result.opinion.war.aiLosing).toBe(true);
+      expect(result.pricing.required.truce12).toBe(4 * 60);
+    });
+
+    it("drops the surcharge once the window has passed", () => {
+      const later = memory({ lastPlayerAttackAt: NOW - 31 * 60_000, lastCombatAt: NOW - 31 * 60_000 });
+      expect(price({ memory: later, retaliation: readyBoxedIn }).pricing.required.truce12).toBe(24 * 1.5 * 60);
+    });
   });
 
   it("refuses when furious", () => {

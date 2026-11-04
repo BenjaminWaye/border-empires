@@ -185,13 +185,14 @@ export const parseAllianceSyncPayload = (payloadJson: string): { targetPlayerId:
   }
 };
 
-export const parseTruceSyncPayload = (payloadJson: string): { targetPlayerId: string; truced: boolean } | null => {
+export const parseTruceSyncPayload = (payloadJson: string): { targetPlayerId: string; truced: boolean; endsAt?: number } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (typeof parsed.targetPlayerId !== "string" || parsed.targetPlayerId.length === 0 || typeof parsed.truced !== "boolean") {
       return null;
     }
-    return { targetPlayerId: parsed.targetPlayerId, truced: parsed.truced };
+    const endsAt = typeof parsed.endsAt === "number" && Number.isFinite(parsed.endsAt) ? parsed.endsAt : undefined;
+    return { targetPlayerId: parsed.targetPlayerId, truced: parsed.truced, ...(endsAt !== undefined ? { endsAt } : {}) };
   } catch {
     return null;
   }

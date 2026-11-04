@@ -28,9 +28,13 @@ describe("simulation runtime — truce sync", () => {
       clientSeq: 0,
       issuedAt: 1_000,
       type: "SYNC_TRUCE",
-      payloadJson: JSON.stringify({ targetPlayerId: "player-2", truced: true })
+      payloadJson: JSON.stringify({ targetPlayerId: "player-2", truced: true, endsAt: 50_000 })
     });
     await Promise.resolve();
+
+    // Both sides learn when the truce ends, so AI planners can bank manpower before it does.
+    expect(runtime.exportState().players.find((player) => player.id === "player-1")?.truceEndsAt).toEqual({ "player-2": 50_000 });
+    expect(runtime.exportState().players.find((player) => player.id === "player-2")?.truceEndsAt).toEqual({ "player-1": 50_000 });
 
     expect(runtime.exportState().players.find((player) => player.id === "player-1")?.truces).toEqual(["player-2"]);
     expect(runtime.exportState().players.find((player) => player.id === "player-2")?.truces).toEqual(["player-1"]);
@@ -57,6 +61,7 @@ describe("simulation runtime — truce sync", () => {
 
     expect(runtime.exportState().players.find((player) => player.id === "player-1")?.truces).toEqual([]);
     expect(runtime.exportState().players.find((player) => player.id === "player-2")?.truces).toEqual([]);
+    expect(runtime.exportState().players.find((player) => player.id === "player-1")?.truceEndsAt).toBeUndefined();
   });
 
   it("blocks ATTACK against a truced player's tile", async () => {
