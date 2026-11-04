@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createSocialState, MAX_TRUCE_BREAKS_PER_PLAYER } from "./social-state.js";
+import { TRUCE_REQUEST_TTL_MS } from "@border-empires/game-domain";
 
 describe("social state", () => {
   // Regression: gateways saved every AI as "AI <n>"; a restart restores the listed name.
@@ -180,7 +181,7 @@ describe("social state", () => {
 
     const expiringRequest = social.requestTruce("player-1", "Beejac", 12);
     expect(expiringRequest.ok).toBe(true);
-    currentTime += 5 * 60_000 + 1;
+    currentTime += TRUCE_REQUEST_TTL_MS + 1;
     const expiredRequestId = social.snapshotForPlayer("player-3").incomingTruceRequests[0]?.id;
     expect(expiredRequestId).toBeUndefined();
     expect(social.acceptTruce("player-3", "missing-request").ok).toBe(false);

@@ -5,7 +5,7 @@ import type { TruceRequest } from "../client-types.js";
 type TruceRequestState = Pick<ClientState, "incomingTruceRequests" | "outgoingTruceRequests">;
 
 /**
- * Truce offers expire after TRUCE_REQUEST_TTL_MS (5 min). The gateway tells
+ * Truce offers expire after TRUCE_REQUEST_TTL_MS (a week; fighting withdraws them sooner). The gateway tells
  * both players about an expired offer on its next minute-long maintenance run
  * (socialState.takeStaleOfferSync), so without a local check a dead offer
  * could sit in the Alliances panel and the ally badge for up to a minute, and
