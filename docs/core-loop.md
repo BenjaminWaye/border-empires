@@ -120,7 +120,7 @@ somewhere in code):
 flowchart LR
     A[Manpower pool<br/>regenerates from towns] -->|30 MP| R[Relay Beacon<br/>on a settled edge tile]
     R -->|radius 5| K[Reach disk<br/>neutral land claimed<br/>as FRONTIER, free]
-    K -->|auto-settle 20 MP, 60s:<br/>towns, docks, resources,<br/>town support ring| C[Settled land]
+    K -->|auto-settle 20 MP, EXPAND time:<br/>towns, docks, resources,<br/>town support ring| C[Settled land]
     C -->|new settled edge| R
     K -->|settle by hand, 20 MP:<br/>plain tiles| C
     C -->|settled corridor links towns:<br/>+50/40/30% town gold| RN[Road network]
@@ -236,7 +236,7 @@ growing your economy *means* taking the land around you.
 |---|---|---|---|
 | **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | First five owned: 50 MP, instant, no food slots; later: 100 MP, 100s, one food slot | `relayBeaconManpowerCost`, `relayBeaconBuildDurationMs`, `OUTPOST_REACH_RADIUS` |
 | **Expand To** | Claim an adjacent neutral tile. Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP below 100 frontier tiles, rising to 50 at 1,000 and 100 at 2,000; 7.5s (×1.5 forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
-| **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles, per the player's opt-in (see below) | 20 MP, 60s, uses a development slot | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
+| **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles, per the player's opt-in (see below) | 20 MP, same time as an EXPAND on that tile (first 10 lifetime garrisons instant), uses a development slot | `SETTLE_MANPOWER_COST`, `garrisonBaseDurationMsAt`, `INSTANT_GARRISON_COUNT` |
 | **Build** | Place one structure on a settled tile | MP (e.g. Hydrogarden 80, Fort/Bank 300) plus a resource slot, 1–10 min | `structure-registry*.ts`, `structure-slots.ts` |
 | **Upgrade town** | Raise a town's tier once its population passes the threshold | 20/40/80/160 gold plus 1 FOOD slot | `TOWN_TIER_UPGRADE_GOLD_COST` |
 | **Research** | Buy a tech (instant). Cost rises with the number already owned | 10 gold, then +30/+40/+50 per tech | `techGoldCostForResearchedCount` |
@@ -266,7 +266,7 @@ a victory hold.
 3. When it activates, every neutral land tile within radius 5 becomes your
    FRONTIER at once. **FRONTIER has zero defense**, so any adjacent enemy takes
    it without a roll (`frontier-combat.ts`).
-4. Auto-settle (20 MP, 60s each, one per free development slot) works through
+4. Auto-settle (20 MP, same time as an EXPAND each, one per free development slot) works through
    the tiles that qualify: towns, docks, revealed resources, and the town
    support ring, but only in the categories the player has opted into (below). Settle other tiles by hand if you want them defended or need
    one as the next beacon site.
@@ -523,7 +523,7 @@ town-engine loop at small scale.
 |---|---|---|
 | World | 640×320, toroidal | `config.ts` |
 | Expand | 10 MP (scales with frontier held, see game-mechanics.md), 7.5s (11.25s forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
-| Settle | 20 MP, 60s (90s forest/hills) | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
+| Settle | 20 MP, 7.5s (11.25s forest/hills) = EXPAND time; first 10 lifetime garrisons instant | `SETTLE_MANPOWER_COST`, `garrisonBaseDurationMsAt`, `INSTANT_GARRISON_COUNT` |
 | Relay Beacon | First five: 50 MP, instant, no food slots; later: 100 MP, 100s, one food slot. Radius 5; claims neutral tiles as FRONTIER, free | `relayBeaconManpowerCost`, `OUTPOST_REACH_RADIUS` |
 | Development slots | 3 (+1 each from 4 domains) | `DEVELOPMENT_PROCESS_LIMIT` |
 | Attack | 10–960 MP depending on target (§7), 15s lock | `ATTACK_MANPOWER_LOSS_RANGE`, `COMBAT_LOCK_MS` |

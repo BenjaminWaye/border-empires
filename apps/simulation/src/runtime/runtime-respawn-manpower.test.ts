@@ -84,4 +84,12 @@ describe("respawn manpower", () => {
     expect(respawnPlayerOnUnownedLand(repair.ctx, "player-1", "repair-1")).toBe(true);
     expect(grants).toBe(0);
   });
+
+  it("keeps the lifetime garrison count through a respawn, so instant garrisons don't refill", () => {
+    const { ctx, player } = buildContext(12);
+    player.lifetimeGarrisons = 10;
+    respawnIfEliminated(ctx, "player-1", "eliminated-garrisons");
+    expect(ctx.players.get("player-1")).toBe(player);
+    expect(player.lifetimeGarrisons).toBe(10);
+  });
 });
