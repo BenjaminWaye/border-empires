@@ -75,6 +75,13 @@
 .v2t-job-bar > span { display: block; height: 4px; background: #3fb0a6; }
 .v2t-job-acts { display: flex; gap: 6px; }
 .v2t-job-acts .v2s-btn { flex: 1; }
+/* The building already standing on the selected support tile, above its work cards and the build list. */
+.v2t-structure { display: grid; gap: 4px; margin: 0 18px 12px; padding: 10px 12px; background: var(--v2-well); border: 1px solid var(--v2-line); border-left: 3px solid var(--v2-edge-strong); }
+.v2t-structure-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13px; }
+.v2t-structure-k { flex: none; font-family: var(--v2-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--v2-soft); }
+.v2t-structure-v { text-align: right; }
+.v2t-structure-good { color: var(--v2-green); }
+.v2t-structure-warn { color: var(--v2-amber); }
 #v2t-bar.v2t-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(560px, calc(100vw - 880px)); min-width: 380px; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; border-color: var(--v2-edge-strong); }
 .v2t-act {
   flex: 1; display: grid; justify-items: center; align-content: center; gap: 2px; height: 46px; padding: 0 12px; background: var(--v2-well); border: 1px solid var(--v2-edge-strong);

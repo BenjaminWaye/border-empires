@@ -11,7 +11,7 @@ import type { BuildingCategory } from "../client-tile-menu-building-category/cli
 import { isGarrison } from "./client-hud-v2-action-bar.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
-import { townGrowth } from "./client-hud-v2-tile-facts.js";
+import { builtStructureFacts, townGrowth, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 
@@ -28,6 +28,8 @@ export type TownScreenInput = {
   focusQueuePosition?: number;
   /** The work cards' buttons are locked while a rush or cancel waits on the server. */
   focusWorkLocked?: boolean;
+  /** Clock for the built card's state (recovering, hijacked); defaults to now. */
+  nowMs?: number;
 };
 
 const esc = (text: string): string =>
@@ -87,10 +89,20 @@ const leftPanelHtml = (input: TownScreenInput): string => {
     <div class="v2t-grow-wrap">${growHtml}</div>`;
 };
 
+/** What stands on the selected support tile: name, state, what it gives and its upkeep. */
+const builtCardHtml = (facts: readonly TileFact[]): string =>
+  facts.length === 0
+    ? ""
+    : `<div class="v2t-h">Built here</div><div class="v2t-structure">${facts.map((f) => `<div class="v2t-structure-row"><span class="v2t-structure-k">${esc(f.label)}</span><span class="v2t-structure-v${f.tone ? ` v2t-structure-${f.tone}` : ""}">${esc(f.value)}</span></div>`).join("")}</div>`;
+
 const buildPanelHtml = (input: TownScreenInput): string => {
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
   const placeLabel = supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place";
   const work = input.focusView.work ?? [];
+  // A support tile can already hold a building; pressing it shows what that building is and does.
+  const built = supportFocus ? builtCardHtml(builtStructureFacts(input.focus, input.focus.ownerId === input.town.ownerId, input.nowMs)) : "";
+  const workHtml = work.length > 0 ? townWorkHtml(work, keyOf(input.focus), input.focusQueuePosition ?? 0, input.focusWorkLocked ?? false) : "";
+  const lead = `${built}${workHtml}`;
   const list = buildListHtml({
     buildings: input.focusView.buildings,
     focusLabel: supportFocus ? `(${input.focus.x}, ${input.focus.y})` : input.townView.title,
@@ -100,7 +112,8 @@ const buildPanelHtml = (input: TownScreenInput): string => {
     emptyText: `Nothing to build ${supportFocus ? "on this tile" : "here"}`,
     targetKey: keyOf(input.focus),
     placeLabel,
-    ...(work.length > 0 ? { title: "In progress", leadHtml: townWorkHtml(work, keyOf(input.focus), input.focusQueuePosition ?? 0, input.focusWorkLocked ?? false) } : {})
+    ...(work.length > 0 ? { title: "In progress" } : built ? { title: "On this tile" } : {}),
+    ...(lead ? { leadHtml: lead } : {})
   });
   const place = buildPlaceHtml({ buildings: input.focusView.buildings, selection: input.buildSelection, targetKey: keyOf(input.focus), placeLabel, docked: true });
   return `${list}${place}`;

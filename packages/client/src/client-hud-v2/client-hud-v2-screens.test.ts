@@ -176,6 +176,22 @@ describe("town screen", () => {
     expect(regions.build).toContain("Build on (6, 5)");
   });
 
+  // Regression: pressing a support tile with a building on it said nothing about that building.
+  it("shows the building standing on the selected support tile", () => {
+    const built: Tile = { ...support, economicStructure: { ownerId: "me", type: "MINE", status: "active" } };
+    const regions = (focus: Tile, focusView = view({})) => townScreenRegions({ town, focus, townView: view({}), focusView, townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined }).build;
+    const html = regions(built);
+    expect(html).toContain("On this tile");
+    expect(html).toContain("Built here");
+    expect(html).toContain('<span class="v2t-structure-k">Building</span><span class="v2t-structure-v">Mine</span>');
+    expect(html).toContain('<span class="v2t-structure-v v2t-structure-good">Active</span>');
+    expect(html).not.toContain("Nothing to build");
+    // An empty support tile, or the town itself, gets no card; a build still going up is left to the work cards.
+    expect(regions(support)).not.toContain("Built here");
+    expect(regions({ ...built, economicStructure: { ownerId: "me", type: "MINE", status: "under_construction" } })).not.toContain("Built here");
+    expect(townScreenRegions({ town, focus: town, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined }).build).not.toContain("Built here");
+  });
+
   // Regression (review): with a support tile selected, the town tile's own
   // flag controls vanished from the town screen.
   it("keeps the town's own flag controls, and falls back to raising on the town", () => {
