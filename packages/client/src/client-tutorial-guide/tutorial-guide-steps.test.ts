@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateGuide, guideBeaconSite, guideRecommendsManifest, GUIDE_STEPS, type GuideInput } from "./tutorial-guide-steps.js";
+import { evaluateGuide, guideBeaconSite, guideRecommendsAfcUpgrade, guideRecommendsManifest, RECOMMENDED_FIRST_AFC_UPGRADE_ID, GUIDE_STEPS, type GuideInput } from "./tutorial-guide-steps.js";
 
 const baseInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   checklist: {
@@ -16,6 +16,9 @@ const baseInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   footholdTargets: { town: { pending: [], garrison: [], expand: [] }, food: { pending: [], garrison: [], expand: [] } },
   manufactoryResearched: false,
   manufactoryUnlocked: false,
+  afcUpgradeReady: false,
+  afcUpgradeInstalled: false,
+  foodSlotFree: true,
   afcTile: undefined,
   rivalHouseMet: false,
   diplomacyUsed: false,
@@ -256,5 +259,63 @@ describe("tutorial guide steps", () => {
     if (view.kind !== "step") throw new Error("expected a step");
     expect(view.newlyCompleted).toContain("reach-beacon");
     expect(view.step.id).toBe("manifest-open");
+  });
+
+  describe("AFC upgrade and food slot before the first Manufactory", () => {
+    const beforeAfc = new Set([...ids("look"), ...ids("foothold"), ...ids("reach"), ...ids("manpower"), ...ids("manifest")]);
+    const withManifest = { checklist: footholdDone, manifestCount: 1, manufactoryResearched: true, buildTargetTiles: [{ x: 1, y: 1 }] };
+
+    it("recommends the Founding Concession once a Manifest unlocks an AFC upgrade", () => {
+      expect(RECOMMENDED_FIRST_AFC_UPGRADE_ID).toBe("afc-exchequer-1");
+      const view = evaluateGuide(baseInput({ ...withManifest, afcUpgradeReady: true }), beforeAfc);
+      if (view.kind !== "step") throw new Error("expected a step");
+      expect(view.step.id).toBe("afc-upgrade");
+      expect(view.anchor).toBe("afc");
+      expect(view.title).toMatch(/Founding Concession/);
+      expect(guideRecommendsAfcUpgrade(view.step.id)).toBe(true);
+      expect(guideRecommendsAfcUpgrade("build-first")).toBe(false);
+    });
+
+    it("does not block the guide while the upgrade is not unlocked yet, and ticks off once one is installed", () => {
+      const waiting = evaluateGuide(baseInput({ ...withManifest, foodSlotFree: true }), beforeAfc);
+      expect(waiting.kind === "step" && waiting.step.id).toBe("build-first");
+      const installed = evaluateGuide(baseInput({ ...withManifest, afcUpgradeInstalled: true, afcUpgradeReady: false }), beforeAfc);
+      if (installed.kind !== "step") throw new Error("expected a step");
+      expect(installed.newlyCompleted).toContain("afc-upgrade");
+    });
+
+    it("works the player through finding a food slot before the Manufactory when none is free", () => {
+      const afcDone = new Set([...beforeAfc, "afc-upgrade"]);
+      const food = { pending: [], garrison: [], expand: [{ x: 7, y: 7 }] };
+      const noSlot = evaluateGuide(
+        baseInput({ ...withManifest, foodSlotFree: false, manufactoryUnlocked: true, footholdTargets: { town: food, food } }),
+        afcDone
+      );
+      if (noSlot.kind !== "step") throw new Error("expected a step");
+      expect(noSlot.step.id).toBe("build-food-slot");
+      expect(noSlot.title).toMatch(/free food slot/i);
+      expect(noSlot.highlightTiles).toEqual([{ x: 7, y: 7 }]);
+      expect(noSlot.step.lookFor).toEqual(["FOOD", "FISH"]);
+
+      const slotFree = evaluateGuide(baseInput({ ...withManifest, foodSlotFree: true, manufactoryUnlocked: true }), new Set([...afcDone, "build-food-slot"]));
+      expect(slotFree.kind === "step" && slotFree.step.id).toBe("build-first");
+    });
+
+    it("skips the food-slot step when a slot is already free, and does not tick it early when it is not yet reachable", () => {
+      const free = evaluateGuide(baseInput({ ...withManifest, foodSlotFree: true }), new Set([...beforeAfc, "afc-upgrade"]));
+      if (free.kind !== "step") throw new Error("expected a step");
+      expect(free.newlyCompleted).toContain("build-food-slot");
+      expect(free.step.id).toBe("build-first");
+
+      // Slot free before the Manifest is commissioned (e.g. spare slot, later used by a beacon): not ticked off yet.
+      const early = evaluateGuide(baseInput({ checklist: footholdDone, foodSlotFree: true }), beforeAfc);
+      if (early.kind !== "step") throw new Error("expected a step");
+      expect(early.newlyCompleted).not.toContain("build-food-slot");
+    });
+
+    it("sends the player to a Relay Beacon when no food is in sight for the slot", () => {
+      const input = baseInput({ ...withManifest, foodSlotFree: false, checklist: { ...footholdDone, relayBeaconSite: { x: 3, y: 3 } } });
+      expect(guideBeaconSite("build-food-slot", input)).toEqual({ x: 3, y: 3 });
+    });
   });
 });

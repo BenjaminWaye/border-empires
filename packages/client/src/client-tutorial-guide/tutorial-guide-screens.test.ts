@@ -204,4 +204,19 @@ describe("discovery tips while the guide runs", () => {
     expect(state.discoveryTipQueue).toContain("ENEMY_EMPIRE");
     expect(isDiscoveryTipSeen("ENEMY_EMPIRE", EMAIL)).toBe(false);
   });
+
+  it("marks the recommended AFC upgrade card with a Guide pick badge, and clears only its own mark", async () => {
+    const { syncGuideAfcPick } = await import("./tutorial-guide-afc-pick.js");
+    const { syncGuideManifestPick } = await import("./tutorial-guide-manifest-pick.js");
+    document.body.innerHTML = '<button class="afc-upgrade-card" data-afc-upgrade-card="afc-exchequer-1">Founding Concession</button><button class="afc-upgrade-card" data-afc-upgrade-card="other">Other</button>';
+    syncGuideAfcPick("afc-exchequer-1");
+    const card = document.querySelector('[data-afc-upgrade-card="afc-exchequer-1"]');
+    expect(card?.querySelector(".tg-manifest-pick-badge")?.textContent).toBe("Guide pick");
+    expect(document.querySelector('[data-afc-upgrade-card="other"] .tg-manifest-pick-badge')).toBeNull();
+    // The Manifest marker syncing with nothing must not strip the AFC mark (no flicker).
+    syncGuideManifestPick(undefined);
+    expect(card?.querySelector(".tg-manifest-pick-badge")).not.toBeNull();
+    syncGuideAfcPick(undefined);
+    expect(card?.querySelector(".tg-manifest-pick-badge")).toBeNull();
+  });
 });

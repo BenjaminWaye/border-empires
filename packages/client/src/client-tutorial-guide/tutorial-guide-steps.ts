@@ -18,10 +18,13 @@
 import type { OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
 import { guideTargetAction, type GuideFootholdTargets, type GuideTargetAction } from "./tutorial-guide-foothold-targets.js";
 
-export type GuideAnchorId = "manpower" | "manifest" | "activity" | "diplomacy";
+export type GuideAnchorId = "manpower" | "manifest" | "afc" | "activity" | "diplomacy";
 
 /** The Manifest the guide recommends first: Industrial Tooling Module, which unlocks the Manufactory (tech id "trade"). */
 export const RECOMMENDED_FIRST_MANIFEST_ID = "trade";
+
+/** The AFC upgrade the guide recommends first: Founding Concession (first three towns +50% Coin, 2 fewer FOOD slots each). */
+export const RECOMMENDED_FIRST_AFC_UPGRADE_ID = "afc-exchequer-1";
 
 /** Grain (the FOOD icon, used on FARM tiles) and fish: the two food sources. */
 export type GuideLookForIcon = "FOOD" | "FISH";
@@ -49,6 +52,12 @@ export type GuideInput = {
   manufactoryResearched: boolean;
   /** The Industrial Tooling Module is installed on an active AFC, so a Manufactory can be built (hideTechLockedTileAction). */
   manufactoryUnlocked: boolean;
+  /** An AFC upgrade is ready to install (a Manifest unlocked a tier and nothing is installed there yet): client-afc-upgrade-ready.ts. */
+  afcUpgradeReady: boolean;
+  /** The player has installed at least one AFC upgrade. */
+  afcUpgradeInstalled: boolean;
+  /** At least one FOOD slot is free: the Manufactory needs one (structure-slots.ts). */
+  foodSlotFree: boolean;
   ownsBuiltStructure: boolean;
   /** The player owns (or is building) a Relay Beacon. */
   ownsRelayBeacon: boolean;
@@ -68,7 +77,7 @@ export type GuideInput = {
   musterTargetTiles: ReadonlyArray<{ x: number; y: number }>;
 };
 
-export type GuideChapterId = "look" | "foothold" | "reach" | "manpower" | "manifest" | "build" | "contest" | "diplomacy" | "turn";
+export type GuideChapterId = "look" | "foothold" | "reach" | "manpower" | "manifest" | "afc" | "build" | "contest" | "diplomacy" | "turn";
 
 export type GuideStepDef = {
   id: string;
@@ -76,6 +85,12 @@ export type GuideStepDef = {
   title: (input: GuideInput) => string;
   why: string | ((input: GuideInput) => string);
   isDone: (input: GuideInput) => boolean;
+  /**
+   * Only counts as done while the step is available. For steps whose condition
+   * can hold early and stop holding later (a free food slot a Relay Beacon then
+   * uses up), so they are not ticked off before the player reaches them.
+   */
+  completeOnlyWhenAvailable?: boolean;
   /** Not yet possible (a prerequisite elsewhere in the game). Defaults to always available. */
   isAvailable?: (input: GuideInput) => boolean;
   /** Shown instead of the title while the step is not available yet. */
@@ -100,6 +115,7 @@ export const GUIDE_CHAPTER_TITLES: Record<GuideChapterId, string> = {
   reach: "Your reach",
   manpower: "Manpower",
   manifest: "Manifests",
+  afc: "AFC upgrade",
   build: "Build",
   contest: "Contest",
   diplomacy: "Diplomacy",
@@ -140,7 +156,9 @@ const targetHighlights =
  */
 export const guideBeaconSite = (stepId: string, input: GuideInput): { x: number; y: number } | undefined => {
   if (stepId === "reach-beacon") return input.beaconSite();
-  const footholdBeacon = (stepId === "foothold-take-town" && townAction(input) === "beacon") || (stepId === "foothold-take-food" && foodAction(input) === "beacon");
+  const footholdBeacon =
+    (stepId === "foothold-take-town" && townAction(input) === "beacon") ||
+    ((stepId === "foothold-take-food" || stepId === "build-food-slot") && foodAction(input) === "beacon");
   return footholdBeacon ? input.checklist.relayBeaconSite : undefined;
 };
 
@@ -152,6 +170,9 @@ const foodTitle = (input: GuideInput): string => {
 
 /** True while the guide is on a Manifest step: the Manifest screens mark RECOMMENDED_FIRST_MANIFEST_ID as the guide's pick. */
 export const guideRecommendsManifest = (stepId: string): boolean => stepId === "manifest-open" || stepId === "manifest-commission";
+
+/** True while the guide is on the AFC upgrade step: the AFC Upgrades panel marks RECOMMENDED_FIRST_AFC_UPGRADE_ID as the guide's pick. */
+export const guideRecommendsAfcUpgrade = (stepId: string): boolean => stepId === "afc-upgrade";
 
 export const GUIDE_STEPS: readonly GuideStepDef[] = [
   { id: "look-pan", chapter: "look", title: () => "Drag the map to look around", why: "Scout before you commit: towns, food and rivals are out there.", isDone: (i) => i.panned },
@@ -230,6 +251,28 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     // Manifest doesn't unlock the Manufactory the next step asks for.
     isDone: (i) => i.manufactoryResearched || i.ownsBuiltStructure,
     anchor: "manifest"
+  },
+  {
+    id: "afc-upgrade",
+    chapter: "afc",
+    title: () => "Open AFC and install the Founding Concession",
+    why: "Your Manifest unlocked an AFC upgrade. The Founding Concession gives your first three towns +50% Coin and frees 2 food slots each.",
+    isDone: (i) => i.afcUpgradeInstalled,
+    isAvailable: (i) => i.afcUpgradeReady,
+    waitingNote: "Your Manifest is docking at your AFC: then an upgrade unlocks.",
+    anchor: "afc"
+  },
+  {
+    id: "build-food-slot",
+    chapter: "build",
+    title: (i) => `A Manufactory needs a free food slot. ${FOOD_STEP[foodAction(i)].title}`,
+    why: (i) => `All your food slots are in use. ${FOOD_STEP[foodAction(i)].why}`,
+    isDone: (i) => i.foodSlotFree || i.ownsBuiltStructure,
+    completeOnlyWhenAvailable: true,
+    isAvailable: (i) => i.manufactoryResearched,
+    waitingNote: "Commission the Industrial Tooling Module to unlock the Manufactory.",
+    highlight: targetHighlights("food"),
+    lookFor: FOOD_ICONS
   },
   {
     id: "build-first",
@@ -316,7 +359,11 @@ const CHAPTER_ORDER = Object.keys(GUIDE_CHAPTER_TITLES) as GuideChapterId[];
 export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>): GuideView => {
   const laterStepDone = (index: number): boolean => GUIDE_STEPS.slice(index + 1).some((later) => completed.has(later.id));
   const newlyCompleted = GUIDE_STEPS.filter(
-    (s, index) => !completed.has(s.id) && !s.acknowledge && (s.isDone(input) || (s.doneIfLaterStepDone === true && laterStepDone(index)))
+    (s, index) =>
+      !completed.has(s.id) &&
+      !s.acknowledge &&
+      (!s.completeOnlyWhenAvailable || (s.isAvailable?.(input) ?? true)) &&
+      (s.isDone(input) || (s.doneIfLaterStepDone === true && laterStepDone(index)))
   ).map((s) => s.id);
   const done = new Set([...completed, ...newlyCompleted]);
   const remaining = GUIDE_STEPS.filter((s) => !done.has(s.id));
