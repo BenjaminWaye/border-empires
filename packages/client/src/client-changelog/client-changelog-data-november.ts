@@ -36,5 +36,17 @@ export const NOVEMBER_CHANGELOG: ClientChangelogEntry[] = [
   ...HILL_FISHING_FARM_BUILDINGS_CHANGELOG,
   ...AI_TRUCE_REASONING_CHANGELOG,
   ...TRUCE_OFFERS_WAIT_CHANGELOG,
-  ...TUTORIAL_GUIDE_SCREENS_CHANGELOG
+  ...TUTORIAL_GUIDE_SCREENS_CHANGELOG,
+  {
+    createdAt: 1793809444101, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.04",
+    title: "Fixed: Commission did nothing on phones",
+    why: "On a phone, a discovery tip (such as \"First Contact!\") could sit over the bottom of the Manifest screen and take your taps, so pressing Commission did nothing. Separately, if the server never confirmed a commission, every later Commission press was ignored until you reloaded, and the reason only went to an activity feed the new HUD doesn't show.",
+    changes: [
+      "Discovery tips step aside while Manifest, Towns, Diplomacy or any other full screen is open, and come back when you return to the map",
+      "Commission reads \"Commissioning…\" while the server confirms your order",
+      "If no confirmation comes within 10 seconds, or the server turns the order away, you can press Commission again",
+      "A press that can't go through now says why in an alert, for example when you are disconnected"
+    ]
+  }
 ];

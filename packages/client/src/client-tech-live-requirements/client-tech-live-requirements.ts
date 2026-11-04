@@ -1,4 +1,5 @@
 import type { ClientState } from "../client-state/client-state.js";
+import { expireStaleTechCommission } from "../client-tech-commission/client-tech-commission.js";
 
 type ResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 const RESOURCE_KEYS: readonly ResourceKey[] = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"];
@@ -46,6 +47,7 @@ const isAffordable = (
 };
 
 export const refreshLiveTechRequirements = (state: ClientState): void => {
+  expireStaleTechCommission(state, Date.now());
   const liveGold = state.gold;
   const liveResources = state.strategicResources;
   const techChoices = new Set(state.techChoices);

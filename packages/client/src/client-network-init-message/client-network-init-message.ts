@@ -218,6 +218,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   occupationSurveyController.reconcile(state.eventLog, state.techIds, `${state.me}:${state.bridgeDebugSeasonId}`);
   state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
   state.pendingTechUnlockId = "";
+  state.pendingTechUnlockAt = 0;
   state.domainIds = (player.domainIds as string[]) ?? [];
   applyAfcStateMessage(state, player);
   const initialTrickle = (player as { chosenTrickleResource?: unknown }).chosenTrickleResource;

@@ -5,6 +5,9 @@ import { promptForTrickleResource, type TrickleOption } from "./client-trickle-p
 import type { ActiveTruceView, FeedSeverity, FeedType } from "./client-types.js";
 import { readyAfcUpgradeCount } from "./client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { explainCombatLockRejection } from "./client-muster-siege/client-muster-siege.js";
+import { showCaptureAlert } from "./client-alerts/client-alerts.js";
+import { recordClientDebugEvent } from "./client-debug/client-debug.js";
+import { markTechCommissionPending, pendingTechCommissionId } from "./client-tech-commission/client-tech-commission.js";
 
 /** State the LOCKED / MUSTER_UNDER_SIEGE explanation reads to name the blocked tile and its countdown. */
 export type CombatLockExplainContext = {
@@ -63,27 +66,35 @@ export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActi
     deps.pushFeed("No tech selected.", "tech", "warn");
     return;
   }
+  // The new HUD shows no activity feed, so a refused commission also raises an alert: a feed line alone was a dead tap.
+  const refuse = (detail: string, severity: "warn" | "error" = "warn"): void => {
+    recordClientDebugEvent("warn", "tech", "commission-refused", { techId, detail });
+    deps.pushFeed(detail, "tech", severity);
+    showCaptureAlert(deps.state, "Manifest not commissioned", detail, severity);
+    deps.renderHud();
+  };
   if (deps.ws.readyState !== websocketOpenReadyState) {
     console.error("[tech] choose blocked: websocket not open", { techId, readyState: deps.ws.readyState, wsUrl: deps.wsUrl });
-    deps.pushFeed("Cannot choose tech while disconnected.", "tech", "error");
+    refuse("Cannot commission while disconnected.", "error");
     return;
   }
   if (!deps.state.authSessionReady) {
     deps.setAuthStatus("Finish sign-in before choosing a technology.", "error");
     deps.syncAuthOverlay();
+    refuse("Finish sign-in before commissioning a Manifest.", "error");
     return;
   }
-  if (deps.state.pendingTechUnlockId) {
-    deps.pushFeed("Already unlocking a technology. Waiting for server confirmation...", "tech", "warn");
+  if (pendingTechCommissionId(deps.state, Date.now())) {
+    refuse("Already commissioning a Manifest. Waiting for the server to confirm...");
     return;
   }
   const tech = deps.state.techCatalog.find((item) => item.id === techId);
   if (!tech) {
-    deps.pushFeed("That technology is no longer available.", "tech", "warn");
+    refuse("That Manifest is no longer available.");
     return;
   }
   deps.state.techUiSelectedId = techId;
-  deps.state.pendingTechUnlockId = techId;
+  markTechCommissionPending(deps.state, techId, Date.now());
   console.info("[tech] sending CHOOSE_TECH", { techId });
   deps.ws.send(JSON.stringify({ type: "CHOOSE_TECH", techId }));
   deps.renderHud();
