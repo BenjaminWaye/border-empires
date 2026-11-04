@@ -6,8 +6,9 @@ const context = (changes: Partial<NetworkBiomeContext> = {}): NetworkBiomeContex
   biome: "GRASS", forest: false, hills: false, tropical: false, nearMountains: false, ...changes
 });
 describe("frontier habitats and progression", () => {
-  it("keeps frontier deposits scarce on a 360-town standard map", () => {
-    expect(NETWORK_RESOURCES.map(resource => RESOURCE_NETWORKS[resource].sitesPerStandardMap)).toEqual([160, 160, 160, 70, 90]);
+  it("keeps material and salvage deposits scarce and sizes biota from towns", () => {
+    expect(NETWORK_RESOURCES.map(resource => RESOURCE_NETWORKS[resource].sitesPerStandardMap)).toEqual([160, 160, 160, 540, 90]);
+    expect(RESOURCE_NETWORKS.LUXURY_BIOTA.sitesPerTown).toBe(1.5);
   });
   it("prefers forest resin, rocky/cold conductors, arid catalysts and tropical luxury plants", () => {
     expect(networkBiomePriority("NEURAL_RESIN", context({ forest: true }))).toBe(0);

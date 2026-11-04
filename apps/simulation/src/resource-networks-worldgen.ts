@@ -8,10 +8,23 @@ import {
   isEmptyNetworkSite, networkPlacementHash as hash, networkTileKey as keyFor, protectedNetworkLandingKeys
 } from "./resource-networks/resource-network-placement.js";
 
+const STANDARD_MAP_AREA = 640 * 320;
+
+/**
+ * Tile budget for one resource. A resource with `sitesPerTown` (luxury biota,
+ * whose demand comes from towns) scales with the map's town count; the others,
+ * and any map with no towns yet, scale with area.
+ */
+export const networkSiteTarget = (resource: NetworkResource, width: number, height: number, townCount: number): number => {
+  const spec: { sitesPerStandardMap: number; sitesPerTown?: number } = RESOURCE_NETWORKS[resource];
+  return spec.sitesPerTown !== undefined && townCount > 0
+    ? Math.round(spec.sitesPerTown * townCount)
+    : Math.round(spec.sitesPerStandardMap * width * height / STANDARD_MAP_AREA);
+};
+
 export type NetworkBiomeReader = (tile: DomainTileState) => NetworkBiomeContext;
 export type NetworkPlacementStats = { readonly targets: NetworkSiteCounts; readonly placed: NetworkSiteCounts; readonly clusters: NetworkSiteCounts };
 const CARDINALS = [[0, -1], [1, 0], [0, 1], [-1, 0]] as const;
-const STANDARD_MAP_AREA = 640 * 320;
 export const MIN_DEPOSIT_TILES = 3;
 export const MAX_DEPOSIT_TILES = 6;
 
@@ -41,6 +54,8 @@ export function seedResourceNetworks(tiles: Map<string, DomainTileState>, seed: 
     sector.push(tile); sectors.set(sectorKey, sector);
   }
   const targets = emptyNetworkSiteCounts(), placed = emptyNetworkSiteCounts(), clusters = emptyNetworkSiteCounts();
+  let townCount = 0;
+  for (const tile of tiles.values()) if (tile.town) townCount += 1;
   for (const tile of tiles.values()) if (isNetworkResource(tile.resource)) placed[tile.resource] += 1;
   const available = (tile: DomainTileState, resource: NetworkResource, phase: number, group: ReadonlySet<string>): boolean => {
     const key = keyFor(tile.x, tile.y, width, height), context = contexts.get(key);
@@ -55,7 +70,7 @@ export function seedResourceNetworks(tiles: Map<string, DomainTileState>, seed: 
     return true;
   };
   for (const [resourceIndex, resource] of NETWORK_RESOURCES.entries()) {
-    const target = Math.round(RESOURCE_NETWORKS[resource].sitesPerStandardMap * width * height / STANDARD_MAP_AREA);
+    const target = networkSiteTarget(resource, width, height, townCount);
     targets[resource] = target;
     const resourceSeed = seed ^ Math.imul(resourceIndex + 1, 104729);
     for (const phase of width * height >= STANDARD_MAP_AREA ? [0] : [0, 1]) {

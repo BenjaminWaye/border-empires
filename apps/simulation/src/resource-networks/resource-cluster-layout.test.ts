@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { NETWORK_RESOURCES, RESOURCE_NETWORKS, type NetworkBiomeContext, type NetworkResource } from "@border-empires/shared";
-import { seedResourceNetworks } from "../resource-networks-worldgen.js";
+import { networkSiteTarget, seedResourceNetworks } from "../resource-networks-worldgen.js";
 
 const width = 160, height = 80;
 const biome = (tile: DomainTileState): NetworkBiomeContext => ({
@@ -62,8 +62,10 @@ describe("small resource deposits", () => {
     const tiles = map();
     for (let y = 0; y < height; y += 6) for (let x = 0; x < width; x += 6)
       tiles.get(`${x},${y}`)!.town = { name: "Town", type: "MARKET", populationTier: "TOWN" };
+    const towns = [...tiles.values()].filter(tile => tile.town).length;
     const result = seedResourceNetworks(tiles, 42, width, height, biome);
-    for (const resource of NETWORK_RESOURCES) expect(result.placed[resource]).toBe(Math.round(RESOURCE_NETWORKS[resource].sitesPerStandardMap / 16));
+    for (const resource of NETWORK_RESOURCES) expect(result.placed[resource]).toBe(networkSiteTarget(resource, width, height, towns));
+    expect(result.placed.LUXURY_BIOTA).toBe(Math.round(towns * 1.5));
     for (const town of [...tiles.values()].filter(tile => tile.town)) {
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const key = `${(town.x + dx + width) % width},${(town.y + dy + height) % height}`;

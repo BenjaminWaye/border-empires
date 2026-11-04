@@ -243,9 +243,12 @@ nothing. Site losses invalidate the existing economy caches; network owners
 settle accrued income and manpower at the old rate before a relevant tile
 mutation. No frontier resource pays Coin.
 
-New standard 640×320 maps (about 360 towns) target 160 tiles each of resin,
-conductive minerals and catalyst, 70 of luxury biota and 90 of precursor
-salvage, in separated deposits of 3–6 tiles; smaller maps scale by area. On
+New standard 640×320 maps target 160 tiles each of resin, conductive minerals
+and catalyst and 90 of precursor salvage, scaled by map area. Luxury biota is
+sized from the map's towns instead: 1.5 tiles per town (3 slots of demand per
+town at 2 slots per site), about 550–585 tiles on a continents map of 360–390
+towns and about 200 on an islands map; a map with no towns falls back to 540
+scaled by area. Deposits are separated and hold 3–6 tiles. On
 standard-size maps each type uses only its preferred habitat (resin in
 forested grassland, conductive minerals in hills, near mountains or cold
 ground, catalyst in inland sand, biota in tropical grassland and marsh,

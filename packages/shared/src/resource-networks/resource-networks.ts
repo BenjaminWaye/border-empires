@@ -31,7 +31,8 @@ export const RESOURCE_NETWORKS = {
   LUXURY_BIOTA: {
     name: "Luxury biota", building: "CULTIVATION_ESTATE", buildingName: "Cultivation Estate",
     tech: "frontier-concessions", color: "#e88eae", glyph: "❋", manpowerCost: 33,
-    role: "BIOTA", sitesPerStandardMap: 70,
+    // Sized from towns, not area: 3 biota slots per town ÷ 2 slots per site (fallback 540 on a town-less map).
+    role: "BIOTA", sitesPerStandardMap: 540, sitesPerTown: 1.5,
     description: "House-supplied intoxicants keep the civilians of large towns dependent and in place.",
     effect: "Supplies 2 biota slots. Each slot lets a City, Great City or Metropolis give one more tier of manpower."
   },
@@ -44,7 +45,7 @@ export const RESOURCE_NETWORKS = {
   }
 } as const satisfies Record<string, {
   name: string; building: string; buildingName: string; tech: string; color: string; glyph: string;
-  manpowerCost: number; role: NetworkRole; sitesPerStandardMap: number; description: string; effect: string;
+  manpowerCost: number; role: NetworkRole; sitesPerStandardMap: number; sitesPerTown?: number; description: string; effect: string;
 }>;
 export type NetworkResource = keyof typeof RESOURCE_NETWORKS;
 export type NetworkBuilding = (typeof RESOURCE_NETWORKS)[NetworkResource]["building"];
