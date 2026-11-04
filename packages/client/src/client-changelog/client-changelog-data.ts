@@ -1,3 +1,4 @@
+import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
 import { FOOD_TILE_ART_CHANGELOG } from "./client-changelog-food-tile-art.js";
 import { TOWN_ECONOMY_CHANGELOG } from "./client-changelog-town-economy.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
@@ -486,13 +487,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The orb and the manpower chip stop showing a batch amount that has already landed"
     ]
   },
-  {
-    createdAt: 1793823472000, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.04",
-    title: "Reach stripes reach the waterline",
-    why: "On the 3D map, striped territory stopped at the square tile edge and left the curved beach unstriped.",
-    changes: ["Reach hatching now continues over coastal sand to the water's edge, with the same colours and stripe spacing."]
-  }
+  ...INCURSION_SHORE_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
