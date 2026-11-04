@@ -1,6 +1,6 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import { SETTLE_COST, captureHoldSettleFloorMs } from "@border-empires/shared";
+import { SETTLE_COST, captureHoldSettleFloorMs, nextGarrisonIsInstant } from "@border-empires/shared";
 import type { PendingSettlementRecord } from "../player-runtime-summary.js";
 import { applySettleCost, settlementBaseDurationMsForTile, settlementDurationMsForPlayer } from "../runtime-settlement-rules.js";
 import type { SettlementResolutionInput } from "./runtime-settlement-resolution.js";
@@ -30,12 +30,18 @@ export const startSettlementProcess = (context: SettlementStartContext, input: S
   const actor = context.players.get(input.playerId);
   if (!actor) return;
   applySettleCost(actor);
+  // A player's first INSTANT_GARRISON_COUNT lifetime garrisons take no time;
+  // the counter is on the persisted player record, so respawning doesn't
+  // refill it. SETTLEMENT_STARTED replays the increment on event recovery.
+  const instant = nextGarrisonIsInstant(actor.lifetimeGarrisons);
+  actor.lifetimeGarrisons = (actor.lifetimeGarrisons ?? 0) + 1;
   // A captured tile can't finish garrisoning while the capturing troops are
   // still holding it (capture-hold.ts): the garrison lands no earlier than
   // the hold's end, so a captured fort can't defend and a captured resource
-  // can't pay slots before then, however fast this player settles.
+  // can't pay slots before then, however fast this player settles -- even
+  // an instant garrison waits for it.
   const settleDurationMs = Math.max(
-    settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(input.target)),
+    instant ? 0 : settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(input.target)),
     captureHoldSettleFloorMs(input.target, input.startedAt)
   );
   const resolvesAt = input.startedAt + settleDurationMs;

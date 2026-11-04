@@ -57,6 +57,7 @@ import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js
 import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
 import { STORM_EDGE_BANDING_CHANGELOG } from "./client-changelog-storm-edge-banding.js";
 import { NOVEMBER_CHANGELOG } from "./client-changelog-data-november.js";
+import { INSTANT_GARRISONS_CHANGELOG } from "./client-changelog-instant-garrisons.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -466,6 +467,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...NOVEMBER_CHANGELOG,
+  ...INSTANT_GARRISONS_CHANGELOG,
   {
     createdAt: 1793743078716, // Date.now() captured once for this entry.
     introducedIn: "2026.11.03",
