@@ -24,6 +24,11 @@ export type RendererPromptOverlayDeps = {
   readonly renderHud: () => void;
 };
 
+// Once the slow-3D prompt has appeared it stays up until the player answers
+// it: a later warm-up hold (e.g. the save sheet from "Download Diagnostics"
+// backgrounding the page) must not yank it away mid-read.
+let rendererPromptShown = false;
+
 export const renderRendererPromptOverlay = (deps: RendererPromptOverlayDeps): void => {
   const { state, overlayEl, wsUrl } = deps;
 
@@ -43,13 +48,15 @@ export const renderRendererPromptOverlay = (deps: RendererPromptOverlayDeps): vo
   const canShowRendererPrompt = shouldShowRendererPrompt({
     dismissed: state.rendererPrompt.dismissed,
     true3DActive: isTrue3DRendererActive(),
-    sustainedLowFps: hasSustainedLowFps(RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, performance.now()),
+    sustainedLowFps:
+      rendererPromptShown || hasSustainedLowFps(RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, performance.now()),
     connectionInitialized: state.connection === "initialized",
     authSessionReady: state.authSessionReady,
     profileSetupRequired: state.profileSetupRequired,
     changelogOpen: state.changelog.open,
     activityDashboardOpen: state.activityDashboard.open
   });
+  rendererPromptShown = canShowRendererPrompt;
   overlayEl.style.display = canShowRendererPrompt ? "grid" : "none";
   if (!canShowRendererPrompt) {
     if (overlayEl.innerHTML) overlayEl.innerHTML = "";
