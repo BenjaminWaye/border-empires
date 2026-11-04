@@ -92,6 +92,8 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
     ancillaryFactoryCapacityBonusByTown,
     biotaTownSupply
   );
+  if (biotaTownSupply && biotaTownSupply.size > 0)
+    breakdown.biotaTowns = [...biotaTownSupply].map(([tileKey, supply]) => ({ tileKey, ...supply }));
   const resourceBonus = ctx.cachedManpowerStructureBonusForPlayer(player).resourceNetworkRegenPerMinute ?? 0;
   if (resourceBonus > 0) breakdown.regen.push({ label: "Resin, conductive and catalyst", amount: resourceBonus });
   const levy = alliedLevyShare(ctx, player);

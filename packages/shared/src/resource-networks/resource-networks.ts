@@ -32,7 +32,7 @@ export const RESOURCE_NETWORKS = {
     name: "Luxury biota", building: "CULTIVATION_ESTATE", buildingName: "Cultivation Estate",
     tech: "frontier-concessions", color: "#e88eae", glyph: "❋", manpowerCost: 33,
     role: "BIOTA", sitesPerStandardMap: 70,
-    description: "Intoxicants only the House supplies keep the civilians of large towns dependent and in place.",
+    description: "House-supplied intoxicants keep the civilians of large towns dependent and in place.",
     effect: "Supplies 2 biota slots. Each slot lets a City, Great City or Metropolis give one more tier of manpower."
   },
   PRECURSOR_SALVAGE: {

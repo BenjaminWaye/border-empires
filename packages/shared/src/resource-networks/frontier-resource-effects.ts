@@ -73,9 +73,9 @@ export const SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE = 0.25;
 /** Court Strength the Court regains per load shipped (a Writ gives 3). */
 export const SALVAGE_TRIBUTE_COURT_STRENGTH = 1;
 
-/** Loads left on a salvage tile; absent means untouched. */
-export const salvageLoadsRemaining = (tile: { readonly salvageLoadsShipped?: number }): number =>
-  Math.max(0, SALVAGE_LOADS_PER_SITE - Math.max(0, Math.floor(tile.salvageLoadsShipped ?? 0)));
+/** Loads left at a Reclamation Works; absent means untouched. */
+export const salvageLoadsRemaining = (works: { readonly salvageLoadsShipped?: number | undefined }): number =>
+  Math.max(0, SALVAGE_LOADS_PER_SITE - Math.max(0, Math.floor(works.salvageLoadsShipped ?? 0)));
 
 /** Attack and defense multiplier from developed salvage sites that still hold loads. */
 export const salvageArmsMultiplier = (sites: number): number =>

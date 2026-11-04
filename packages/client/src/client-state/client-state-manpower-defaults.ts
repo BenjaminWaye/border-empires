@@ -9,7 +9,7 @@ export type ManpowerState = {
   logisticsThroughputPerMinute: number;
   expandManpowerCost: number;
   settleManpowerCost: number;
-  manpowerBreakdown: { cap: ManpowerModifier[]; regen: ManpowerModifier[] };
+  manpowerBreakdown: { cap: ManpowerModifier[]; regen: ManpowerModifier[]; biotaTowns?: import("@border-empires/sim-protocol").BiotaTownStatus[] };
   nextManpowerBatchAmount: number | undefined;
   /** Client clock when nextManpowerBatchAmount arrived; the amount is stale once a refill boundary passes after it. */
   nextManpowerBatchAmountAt: number | undefined;

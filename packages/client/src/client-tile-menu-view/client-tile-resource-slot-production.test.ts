@@ -103,7 +103,7 @@ describe("every resource tile explains its role", () => {
     const tile: Tile = {x:1,y:1,terrain:"LAND",resource:"NEURAL_RESIN",ownerId:"me",ownershipState:"SETTLED",
       economicStructure:{ownerId:"me",type:"RESIN_EXTRACTOR",status:"under_construction"}};
     const potential = resourceTileStatsHtml(tile);
-    expect(potential).toContain("+12 Ancillaries/4h for ");
+    expect(potential).toContain("+120 manpower per refill for your first resin site");
     tile.economicStructure!.status="active";
     expect(resourceTileStatsHtml(tile)).toBe(potential);
   });
@@ -123,10 +123,10 @@ it("reports diverted resource supply and explains the Siphon on frontier sites",
   expect(menuOverviewForTile(tile,deps).map(row=>row.html).join(" ")).toContain("Siphoned");
 });
 
-it("shows the conductive amount and two-factory limit", () => {
+it("shows the conductive amount with no recipient building", () => {
   const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "CONDUCTIVE_MINERALS" });
-  expect(html).toContain("+6 Ancillaries/4h for ");
-  expect(html).toContain("each of 2 factories without conductive supply");
+  expect(html).toContain("+120 manpower per refill for your first conductive site, +30 for each extra one.");
+  expect(html).not.toContain("factories");
 });
 
 it.each(NETWORK_RESOURCES)("%s links the required structure without repeating its research requirement", resource => {
@@ -144,29 +144,28 @@ it.each(NETWORK_RESOURCES)("%s makes improvement a condition even after a fronti
     const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource, ...(ownershipState ? { ownershipState } : {}) });
     expect(html).toContain("After development");
     expect(html).toContain(`data-structure-info="${spec.building}"`);
-    expect(html).not.toContain(`Requires ${spec.buildingName} + `);
-    expect(html).not.toContain('tile-stat-label">Bonus<');
-    if (!spec.batchBonus) expect(html).toContain("+1.5 Coin/day");
+    expect(html).toContain(`>${spec.buildingName}</button>`);
+    expect(html).not.toContain("Coin/day");
   }
 });
 
-it.each([
-  ["LUXURY_BIOTA", "luxury", "Trade Nexus"],
-  ["CATALYTIC_DEPOSIT", "catalyst", "Trade Nexus"],
-  ["PRECURSOR_SALVAGE", "salvage", "Manufactory"],
-  ["NEURAL_RESIN", "resin", "Ancillary Depot"],
-  ["CONDUCTIVE_MINERALS", "conductive", "factories"]
-] as const)("%s requires recipients without that resource's supply", (resource, supply, recipient) => {
-  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource });
-  expect(html).toContain(`without ${supply} supply`);
-  expect(html).toContain(recipient);
-  expect(html).not.toContain("unimproved");
-  expect(html).toContain(`data-structure-info="${RESOURCE_NETWORKS[resource].building}"`);
-  expect(html).toContain(`>${RESOURCE_NETWORKS[resource].buildingName}</button>`);
-  expect(html).toContain(" for </strong>");
+it("shows a deposit's value to the viewer: the first site of a type is worth 120, an extra one 30", () => {
+  const held = { NEURAL_RESIN: 4, CONDUCTIVE_MINERALS: 0, CATALYTIC_DEPOSIT: 0, LUXURY_BIOTA: 1, PRECURSOR_SALVAGE: 0 };
+  const view = { me: "me", held };
+  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "CATALYTIC_DEPOSIT" }, view)).toContain("+120 manpower per refill");
+  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "CATALYTIC_DEPOSIT" }, view)).toContain("Your first catalyst site");
+  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "NEURAL_RESIN", ownerId: "rival" }, view)).toContain("+30 manpower per refill");
+  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "LUXURY_BIOTA" }, view)).toContain("+2 biota slots");
+  const ownResin = { x: 1, y: 1, terrain: "LAND" as const, resource: "NEURAL_RESIN" as const, ownerId: "me", ownershipState: "SETTLED" as const,
+    economicStructure: { ownerId: "me", type: "RESIN_EXTRACTOR" as const, status: "active" as const } };
+  const own = resourceTileStatsHtml(ownResin, view);
+  expect(own).toContain("If you lose it");
+  expect(own).toContain("−30 manpower per refill");
+  expect(resourceTileStatsHtml(ownResin, { me: "me", held: { ...held, NEURAL_RESIN: 1 } })).toContain("−120 manpower per refill");
 });
 
-it("connects the luxury bonus to its eligible Nexus in the same value", () => {
-  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "LUXURY_BIOTA" });
-  expect(html).toContain('+1.5 Coin/day for </strong><span class="resource-bonus-recipient">Trade Nexus without luxury supply</span>');
+it("shows the loads left at a Reclamation Works", () => {
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "PRECURSOR_SALVAGE", ownerId: "me", ownershipState: "SETTLED",
+    economicStructure: { ownerId: "me", type: "RECLAMATION_WORKS", status: "active", salvageLoadsShipped: 1 } });
+  expect(html).toContain("2 of 3");
 });
