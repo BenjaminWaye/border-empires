@@ -236,7 +236,7 @@ growing your economy *means* taking the land around you.
 |---|---|---|---|
 | **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | First five owned: 50 MP, instant, no food slots; later: 100 MP, 100s, one food slot | `relayBeaconManpowerCost`, `relayBeaconBuildDurationMs`, `OUTPOST_REACH_RADIUS` |
 | **Expand To** | Claim an adjacent neutral tile. Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP below 100 frontier tiles, rising to 50 at 1,000 and 100 at 2,000; 7.5s (×1.5 forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
-| **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles, per the player's opt-in (see below) | 20 MP, 60s, uses a development slot | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
+| **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles, per the player's opt-in (see below) | 20 MP, same time as an EXPAND on that tile (first 10 lifetime garrisons instant), uses a development slot | `SETTLE_MANPOWER_COST`, `garrisonBaseDurationMsAt`, `INSTANT_GARRISON_COUNT` |
 | **Build** | Place one structure on a settled tile | MP (e.g. Hydrogarden 80, Fort/Bank 300) plus a resource slot, 1–10 min | `structure-registry*.ts`, `structure-slots.ts` |
 | **Upgrade town** | Raise a town's tier once its population passes the threshold | 20/40/80/160 gold plus 1 FOOD slot | `TOWN_TIER_UPGRADE_GOLD_COST` |
 | **Research** | Buy a tech (instant). Cost rises with the number already owned | 10 gold, then +30/+40/+50 per tech | `techGoldCostForResearchedCount` |
@@ -523,7 +523,7 @@ town-engine loop at small scale.
 |---|---|---|
 | World | 640×320, toroidal | `config.ts` |
 | Expand | 10 MP (scales with frontier held, see game-mechanics.md), 7.5s (11.25s forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
-| Settle | 20 MP, 60s (90s forest/hills) | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
+| Settle | 20 MP, 7.5s (11.25s forest/hills) = EXPAND time; first 10 lifetime garrisons instant | `SETTLE_MANPOWER_COST`, `garrisonBaseDurationMsAt`, `INSTANT_GARRISON_COUNT` |
 | Relay Beacon | First five: 50 MP, instant, no food slots; later: 100 MP, 100s, one food slot. Radius 5; claims neutral tiles as FRONTIER, free | `relayBeaconManpowerCost`, `OUTPOST_REACH_RADIUS` |
 | Development slots | 3 (+1 each from 4 domains) | `DEVELOPMENT_PROCESS_LIMIT` |
 | Attack | 10–960 MP depending on target (§7), 15s lock | `ATTACK_MANPOWER_LOSS_RANGE`, `COMBAT_LOCK_MS` |

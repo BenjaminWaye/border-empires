@@ -1,6 +1,6 @@
 import { nextManpowerBatchAmount } from "./runtime-manpower.js";
 import { developmentProcessLimitForPlayer } from "./development-process-limit.js";
-import { afcExpandPricingFrontierCount, empireIntegrity, expandManpowerCostForFrontierCount, normalizeAutoSettlePrefs, type ResourceSlotSources } from "@border-empires/shared";
+import { afcExpandPricingFrontierCount, empireIntegrity, expandManpowerCostForFrontierCount, instantGarrisonsRemaining, normalizeAutoSettlePrefs, type ResourceSlotSources } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { buildModBreakdownForPlayer, multiplicativeEffectForPlayer, recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -86,6 +86,8 @@ export function emitPlayerStateUpdate(
       // EXPAND's current price, so the client's menus and pre-checks match what the sim will charge.
       expandManpowerCost: expandManpowerCostForFrontierCount(afcExpandPricingFrontierCount(summary.frontierTileKeys.size, multiplicativeEffectForPlayer(player, "expandFrontierCountMult"))),
       settleManpowerCost: settleManpowerCostFor(player),
+      // Free (0 ms) garrisons left of the first INSTANT_GARRISON_COUNT, so the client predicts the right time.
+      instantGarrisonsRemaining: instantGarrisonsRemaining(player.lifetimeGarrisons),
       logisticsThroughputPerMinute: context.playerLogisticsThroughputPerMinute(player),
       manpowerBreakdown: context.playerManpowerBreakdown(player),
       incomePerMinute: economy.incomePerMinute,
