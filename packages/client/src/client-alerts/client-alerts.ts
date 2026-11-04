@@ -3,6 +3,7 @@ import { prettyToken } from "../client-app-runtime-utils.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { resourceIconForKey } from "../client-map-display.js";
 import { victoryHoldAlertFor } from "../client-victory-alert/client-victory-alert.js";
+import { compactHudActive } from "../client-panel-nav/client-phone-viewport.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import { getDiscoveryTipTarget, type DiscoveryTipDef } from "../client-discovery-tips/client-discovery-tips.js";
@@ -22,7 +23,8 @@ const mobileFeedPanelVisible = (state: FeedMutableState): boolean =>
   state.mobilePanel === "feed" &&
   typeof window !== "undefined" &&
   typeof window.matchMedia === "function" &&
-  window.matchMedia("(max-width: 900px)").matches;
+  window.matchMedia("(max-width: 900px)").matches &&
+  !compactHudActive();
 
 const markFeedUnread = (state: FeedMutableState, entry: FeedEntry): void => {
   const feedOpen = state.activePanel === "feed" || mobileFeedPanelVisible(state);

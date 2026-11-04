@@ -378,6 +378,14 @@ pnpm probe:login-experience --player ai-1 --cpu-throttle 4 --out .local-data/log
 
 Prints every change of the login overlay (step, text, progress bar) and the client's own login timeline (download, INIT handler, each 3D map-build stage, map ready), and fails on `--max-freeze-ms` / `--max-init-to-ready-ms`. Headless Chromium renders WebGL in software (SwiftShader), so GPU-bound steps (shader linking, buffer uploads, the first frame) are much slower than on a real phone; JS-side timings are representative once CPU-throttled.
 
+**HUD v2 phone screenshots** (same local stack and dev-auth bypass as the login probe):
+
+```bash
+pnpm shots:hud-v2-mobile --out .local-data/hud-v2-mobile
+```
+
+Saves one screenshot per phone viewport (390×844, 360×780, 932×430 landscape) and HUD mode (`?hud=legacy` for the old phone HUD; `?hud=compact` and default both draw the new compact HUD), plus `result.json` with the `hud-v2*` body classes each one ended on. See `docs/hud-v2-mobile-plan.md`.
+
 **Env drift check** (staging Fly secrets vs. checked-in toml):
 
 ```bash

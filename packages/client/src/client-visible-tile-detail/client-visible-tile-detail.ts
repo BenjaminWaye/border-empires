@@ -1,4 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { isPhoneViewport } from "../client-panel-nav/client-phone-viewport.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { tileHasTownIdentity } from "../client-town-identity.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
@@ -14,7 +15,6 @@ type VisibleTileDetailRequesterDeps = {
   state: Pick<ClientState, "me">;
   keyFor: (x: number, y: number) => string;
   requestTileDetailIfNeeded: (tile: Tile | undefined) => void;
-  isMobile: () => boolean;
   now?: () => number;
   minIntervalMs?: number;
 };
@@ -76,7 +76,7 @@ export const createVisibleTileDetailRequester = (deps: VisibleTileDetailRequeste
     if (currentTime - lastRunAt < minIntervalMs) return;
     lastRunAt = currentTime;
     const requestedThisPass = new Set<string>();
-    const maxRequests = deps.isMobile() ? 4 : 8;
+    const maxRequests = isPhoneViewport() ? 4 : 8;
     const candidates = visibleTiles
       .filter((entry) => entry.vis === "visible" && shouldRequestVisibleTileDetail(entry.t))
       .map(({ t }) => t!)

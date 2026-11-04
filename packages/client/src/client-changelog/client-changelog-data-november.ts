@@ -5,6 +5,7 @@ import { CAPTURE_AFTERMATH_CHANGELOG } from "./client-changelog-capture-aftermat
 import { SHARDS_REMOVED_CHANGELOG } from "./client-changelog-shards-removed.js";
 import { AFC_V3_CHANGELOG } from "./client-changelog-afc-v3.js";
 import { AI_STACKED_INDUSTRY_CHANGELOG } from "./client-changelog-ai-stacked-industry.js";
+import { HUD_V2_MOBILE_CHANGELOG } from "./client-changelog-hud-v2-mobile.js";
 
 // November 2026 topic files, grouped so client-changelog-data.ts stays under
 // the 500-line limit. Add new per-topic imports here, not there.
@@ -14,5 +15,6 @@ export const NOVEMBER_CHANGELOG: ClientChangelogEntry[] = [
   ...CAPTURE_AFTERMATH_CHANGELOG,
   ...SHARDS_REMOVED_CHANGELOG,
   ...AFC_V3_CHANGELOG,
-  ...AI_STACKED_INDUSTRY_CHANGELOG
+  ...AI_STACKED_INDUSTRY_CHANGELOG,
+  ...HUD_V2_MOBILE_CHANGELOG
 ];

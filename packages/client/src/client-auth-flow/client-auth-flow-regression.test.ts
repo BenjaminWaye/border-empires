@@ -182,8 +182,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
       wsUrl: "wss://border-empires.fly.dev/ws",
       requireAuthedSession: () => true,
-      renderHud: vi.fn(),
-      isMobile: () => false
+      renderHud: vi.fn()
     });
 
     // Before the fix, an unguarded localStorage.getItem() throw here aborted
@@ -226,8 +225,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
       wsUrl: "wss://border-empires.fly.dev/ws",
       requireAuthedSession: () => true,
-      renderHud: vi.fn(),
-      isMobile: () => false
+      renderHud: vi.fn()
     });
 
     expect(() => authFlow.bindFirebaseAuth()).not.toThrow();
@@ -269,8 +267,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
       wsUrl: "wss://border-empires.fly.dev/ws",
       requireAuthedSession: () => true,
-      renderHud: vi.fn(),
-      isMobile: () => false
+      renderHud: vi.fn()
     });
 
     authFlow.bindFirebaseAuth();
@@ -297,8 +294,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
       wsUrl: "wss://border-empires.fly.dev/ws",
       requireAuthedSession: () => true,
-      renderHud: vi.fn(),
-      isMobile: () => false
+      renderHud: vi.fn()
     });
 
     // onAuthStateChanged is async in real Firebase (it reads persisted state
@@ -332,7 +328,6 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       wsUrl: "ws://127.0.0.1:3101/ws",
       requireAuthedSession: () => true,
       renderHud: vi.fn(),
-      isMobile: () => false,
       devAuthPlayerId: "player-1"
     });
     authFlow.bindFirebaseAuth();
@@ -361,7 +356,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
     const authFlow = createClientAuthFlow({
       state: makeState(), dom: makeDom(), firebaseAuth: fakeFirebaseAuth, ws,
       wsUrl: "ws://127.0.0.1:3101/ws", requireAuthedSession: () => true,
-      renderHud: vi.fn(), isMobile: () => false
+      renderHud: vi.fn()
     });
     authFlow.bindFirebaseAuth();
     const onChange = vi.mocked(onAuthStateChanged).mock.calls[0]?.[1];
@@ -403,8 +398,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
       wsUrl: "wss://border-empires.fly.dev/ws",
       requireAuthedSession: () => true,
-      renderHud: vi.fn(),
-      isMobile: () => false
+      renderHud: vi.fn()
     });
 
     authFlow.bindAuthUi();
@@ -439,8 +433,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
         ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
         wsUrl: "wss://border-empires.fly.dev/ws",
         requireAuthedSession: () => true,
-        renderHud: vi.fn(),
-        isMobile: () => false
+        renderHud: vi.fn()
       });
       authFlow.bindFirebaseAuth();
       const onUser = vi.mocked(onAuthStateChanged).mock.calls[0]![1] as unknown as (user: unknown) => Promise<void>;

@@ -3,7 +3,12 @@ import type { ClientState } from "../client-state/client-state.js";
 import { MANIFEST_PANEL_TITLE } from "../client-manifest-detail/client-manifest-labels.js";
 import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav-icons.js";
 
-export const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").matches;
+import { compactHudActive, isPhoneViewport } from "./client-phone-viewport.js";
+
+/** The legacy phone layout: a phone viewport the new HUD's compact layout is not driving (see client-phone-viewport.ts). */
+export const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").matches && !compactHudActive();
+
+export { isPhoneViewport };
 
 export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): string => {
   if (panel === "tech") return MANIFEST_PANEL_TITLE;
