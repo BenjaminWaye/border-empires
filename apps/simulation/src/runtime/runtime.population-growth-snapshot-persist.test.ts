@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { applySimulationEventsToRecoveredState } from "../event-recovery/event-recovery.js";
 import { SimulationRuntime } from "./runtime.js";
 
 // Fixture conventions mirror runtime.population-growth-rate-stamp.test.ts.
@@ -65,9 +64,13 @@ describe("SimulationRuntime tickPopulationGrowth — snapshot persistence", () =
     expect(saved?.population).toBeGreaterThan(TOWN_POP);
     expect(saved?.populationGrowthPerMinute).toBeGreaterThan(0);
 
-    const restored = applySimulationEventsToRecoveredState(sections.initialState, []);
-    const restoredTown = restored.tiles.find((tile) => tile.x === 10 && tile.y === 10)?.town;
-    expect(restoredTown?.population).toBe(saved?.population);
+    // Boot a fresh runtime from the saved sections, as a restart would.
+    const rebooted = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([["p1", makePlayer("p1")]]),
+      initialState: sections.initialState
+    });
+    expect((await snapshotTown(rebooted, 10, 10))?.population).toBe(saved?.population);
   });
 
   it("saves the isFed self-heal in the snapshot", async () => {
@@ -81,5 +84,33 @@ describe("SimulationRuntime tickPopulationGrowth — snapshot persistence", () =
     runtime.tickPopulationGrowth(1_000);
 
     expect((await snapshotTown(runtime, 10, 10))?.isFed).toBe(false);
+  });
+
+  it("saves the nearby-war pause in the snapshot", async () => {
+    const now = 1_000;
+    // An ATTACK lock 5 tiles from the town pauses its growth.
+    const lockNear = {
+      commandId: "cmd-near-war",
+      playerId: "p2",
+      actionType: "ATTACK" as const,
+      manpowerCost: 0,
+      originX: 15, originY: 15,
+      targetX: 16, targetY: 16,
+      originKey: "15,15",
+      targetKey: "16,16",
+      resolvesAt: now + 30_000,
+      source: "player" as const
+    };
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([["p1", makePlayer("p1")]]),
+      initialState: { tiles: [makeTownTile(10, 10, "p1", true), ...makeFoodTiles("p1")], activeLocks: [lockNear] }
+    });
+
+    runtime.tickPopulationGrowth(now);
+
+    const saved = await snapshotTown(runtime, 10, 10);
+    expect(saved?.nearbyWarPausedUntil).toBeGreaterThan(now);
+    expect(saved?.nearbyWarLastAt).toBe(now);
   });
 });
