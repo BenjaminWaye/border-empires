@@ -437,7 +437,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       tileVisibilityStateAt,
       effectiveOverlayColor,
       isDockRouteVisibleForPlayer,
-      replayCurrentEvent
+      replayCurrentEvent,
+      terrainColorAt: cachedTerrainColorAt
     });
     if (!changed) return;
     miniMapLastDrawCamX = state.camX;

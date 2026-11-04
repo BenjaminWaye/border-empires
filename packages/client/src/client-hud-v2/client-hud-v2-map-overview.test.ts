@@ -64,3 +64,21 @@ describe("phone map overview", () => {
     expect(mapOverview.open).toBe(false);
   });
 });
+
+describe("overview canvas resolution", () => {
+  it("renders at the screen's pixel density, between the 220px corner size and 960px", async () => {
+    const { overviewCanvasPx } = await import("./client-hud-v2-overlays.js");
+    expect(overviewCanvasPx(368, 3)).toBe(960);
+    expect(overviewCanvasPx(300, 2)).toBe(600);
+    expect(overviewCanvasPx(100, 1)).toBe(220);
+  });
+
+  it("puts the minimap back to 220px when the overview closes", () => {
+    document.body.innerHTML = `<canvas id="mini-map" width="220" height="220"></canvas>`;
+    const canvas = document.getElementById("mini-map") as HTMLCanvasElement;
+    setMapOverview(true);
+    canvas.width = canvas.height = 900;
+    setMapOverview(false);
+    expect([canvas.width, canvas.height]).toEqual([220, 220]);
+  });
+});

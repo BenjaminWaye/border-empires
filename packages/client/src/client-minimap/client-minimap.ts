@@ -4,6 +4,7 @@ import { drawAetherBridgeLane, hexWithAlpha } from "../client-map-render/client-
 import { computeMiniMapViewBox } from "../client-minimap-view-box.js";
 import { townIdentityForTile, tileHasTownIdentity } from "../client-town-identity.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
+import { drawMiniMapTileLayer } from "./client-minimap-tile-layer.js";
 import type { DockPair, StrategicReplayEvent, Tile } from "../client-types.js";
 
 type ReplayTileView = { ownerId?: string; ownershipState?: Tile["ownershipState"] };
@@ -105,6 +106,8 @@ export const drawMiniMap = (options: {
   effectiveOverlayColor: (ownerId: string) => string;
   isDockRouteVisibleForPlayer: (pair: DockPair) => boolean;
   replayCurrentEvent: () => StrategicReplayEvent | undefined;
+  /** Terrain colour of a known tile; when given, fog is on and no replay runs, the content is drawn tile by tile (client-minimap-tile-layer.ts). */
+  terrainColorAt?: (x: number, y: number, terrain: Tile["terrain"]) => string;
 }): boolean => {
   // Camera/zoom moves need an immediate redraw of the viewport indicator for input
   // responsiveness, but they must NOT force a recompute of the expensive content layer below —
@@ -119,11 +122,17 @@ export const drawMiniMap = (options: {
     options.state.tilesRevision !== options.miniMapLast.tilesRevision ||
     options.colorKey !== options.miniMapLast.colorKey ||
     (options.state.replayActive && options.state.replayIndex !== options.miniMapLast.replayIndex);
-  if (!cameraMoved && !contentDirty && options.contentCache.computedAt !== 0) return false;
+  // A resized canvas (the phone map overview renders at screen resolution) is blank until redrawn.
+  const sizeChanged = options.miniMapContentEl.width !== options.miniMapEl.width || options.miniMapContentEl.height !== options.miniMapEl.height;
+  if (!cameraMoved && !contentDirty && !sizeChanged && options.contentCache.computedAt !== 0) return false;
 
   const w = options.miniMapEl.width;
   const h = options.miniMapEl.height;
-  if (!options.miniMapBaseReady) {
+  // Tile by tile from known tiles (client-minimap-tile-layer.ts): crisp squares and territory outlines at any
+  // zoom, and no wait for the whole-world base. That base is only needed when fog is off (every tile shows)
+  // or a replay repaints ownership.
+  const perTile = options.terrainColorAt !== undefined && !effectiveFogDisabled(options.state) && !options.state.replayActive;
+  if (!options.miniMapBaseReady && !perTile) {
     options.miniMapCtx.clearRect(0, 0, w, h);
     options.miniMapCtx.fillStyle = "#0b1320";
     options.miniMapCtx.fillRect(0, 0, w, h);
@@ -156,70 +165,82 @@ export const drawMiniMap = (options: {
     const inBox = (x: number, y: number): boolean =>
       x >= box.x0 && y >= box.y0 && x < box.x0 + box.w && y < box.y0 + box.h;
 
-    const baseW = options.miniMapBase.width;
-    const baseH = options.miniMapBase.height;
-    const prevSmoothing = cctx.imageSmoothingEnabled;
-    cctx.imageSmoothingEnabled = false;
-    cctx.drawImage(
-      options.miniMapBase,
-      (box.x0 / WORLD_WIDTH) * baseW,
-      (box.y0 / WORLD_HEIGHT) * baseH,
-      (box.w / WORLD_WIDTH) * baseW,
-      (box.h / WORLD_HEIGHT) * baseH,
-      0,
-      0,
-      w,
-      h
-    );
-    cctx.imageSmoothingEnabled = prevSmoothing;
-    if (options.state.replayActive) {
-      for (const [tileKey, replayTile] of options.state.replayOwnershipByTile) {
-        if (!replayTile.ownerId) continue;
-        const { x, y } = options.parseKey(tileKey);
-        if (x < box.x0 || y < box.y0 || x >= box.x0 + box.w || y >= box.y0 + box.h) continue;
-        const px = Math.floor(wxToPx(x));
-        const py = Math.floor(wyToPy(y));
-        cctx.fillStyle = hexWithAlpha(options.effectiveOverlayColor(replayTile.ownerId), replayTile.ownershipState === "SETTLED" ? 0.9 : 0.6);
-        cctx.fillRect(px, py, 1, 1);
-      }
+    const markerScale = Math.max(1, Math.min(4, w / box.w / 3));
+    if (perTile && options.terrainColorAt) {
+      drawMiniMapTileLayer(cctx, box, w, h, {
+        tiles: options.state.tiles,
+        keyFor: options.keyFor,
+        terrainColorAt: options.terrainColorAt,
+        overlayColor: options.effectiveOverlayColor,
+        tileVisibilityStateAt: options.tileVisibilityStateAt,
+        withAlpha: hexWithAlpha
+      });
     } else {
-      for (const tile of options.state.tiles.values()) {
-        if (!tile.ownerId) continue;
-        if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
-        if (!inBox(tile.x, tile.y)) continue;
-        const ox = Math.floor(wxToPx(tile.x));
-        const oy = Math.floor(wyToPy(tile.y));
-        cctx.fillStyle = hexWithAlpha(options.effectiveOverlayColor(tile.ownerId), tile.ownershipState === "SETTLED" ? 0.9 : 0.6);
-        cctx.fillRect(ox, oy, 1, 1);
-      }
-    }
-
-    if (!effectiveFogDisabled(options.state)) {
-      const fogStyle: Record<"unexplored" | "fogged", string> = {
-        unexplored: "#000000",
-        fogged: "rgba(0,0,0,0.62)"
-      };
-      for (let py = 0; py < h; py += 1) {
-        const wy = Math.floor(box.y0 + (py / h) * box.h);
-        let runVis: "unexplored" | "fogged" | undefined;
-        let runStartPx = 0;
-        const flushRun = (endPx: number): void => {
-          if (runVis === undefined) return;
-          cctx.fillStyle = fogStyle[runVis];
-          cctx.fillRect(runStartPx, py, endPx - runStartPx, 1);
-        };
-        for (let px = 0; px < w; px += 1) {
-          const wx = Math.floor(box.x0 + (px / w) * box.w);
-          const tile = options.state.tiles.get(options.keyFor(wx, wy));
-          const vis = options.tileVisibilityStateAt(wx, wy, tile);
-          const cellVis = vis === "visible" ? undefined : vis;
-          if (cellVis !== runVis) {
-            flushRun(px);
-            runVis = cellVis;
-            runStartPx = px;
-          }
+      const baseW = options.miniMapBase.width;
+      const baseH = options.miniMapBase.height;
+      const prevSmoothing = cctx.imageSmoothingEnabled;
+      cctx.imageSmoothingEnabled = false;
+      cctx.drawImage(
+        options.miniMapBase,
+        (box.x0 / WORLD_WIDTH) * baseW,
+        (box.y0 / WORLD_HEIGHT) * baseH,
+        (box.w / WORLD_WIDTH) * baseW,
+        (box.h / WORLD_HEIGHT) * baseH,
+        0,
+        0,
+        w,
+        h
+      );
+      cctx.imageSmoothingEnabled = prevSmoothing;
+      if (options.state.replayActive) {
+        for (const [tileKey, replayTile] of options.state.replayOwnershipByTile) {
+          if (!replayTile.ownerId) continue;
+          const { x, y } = options.parseKey(tileKey);
+          if (x < box.x0 || y < box.y0 || x >= box.x0 + box.w || y >= box.y0 + box.h) continue;
+          const px = Math.floor(wxToPx(x));
+          const py = Math.floor(wyToPy(y));
+          cctx.fillStyle = hexWithAlpha(options.effectiveOverlayColor(replayTile.ownerId), replayTile.ownershipState === "SETTLED" ? 0.9 : 0.6);
+          cctx.fillRect(px, py, 1, 1);
         }
-        flushRun(w);
+      } else {
+        for (const tile of options.state.tiles.values()) {
+          if (!tile.ownerId) continue;
+          if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
+          if (!inBox(tile.x, tile.y)) continue;
+          const ox = Math.floor(wxToPx(tile.x));
+          const oy = Math.floor(wyToPy(tile.y));
+          cctx.fillStyle = hexWithAlpha(options.effectiveOverlayColor(tile.ownerId), tile.ownershipState === "SETTLED" ? 0.9 : 0.6);
+          cctx.fillRect(ox, oy, 1, 1);
+        }
+      }
+
+      if (!effectiveFogDisabled(options.state)) {
+        const fogStyle: Record<"unexplored" | "fogged", string> = {
+          unexplored: "#000000",
+          fogged: "rgba(0,0,0,0.62)"
+        };
+        for (let py = 0; py < h; py += 1) {
+          const wy = Math.floor(box.y0 + (py / h) * box.h);
+          let runVis: "unexplored" | "fogged" | undefined;
+          let runStartPx = 0;
+          const flushRun = (endPx: number): void => {
+            if (runVis === undefined) return;
+            cctx.fillStyle = fogStyle[runVis];
+            cctx.fillRect(runStartPx, py, endPx - runStartPx, 1);
+          };
+          for (let px = 0; px < w; px += 1) {
+            const wx = Math.floor(box.x0 + (px / w) * box.w);
+            const tile = options.state.tiles.get(options.keyFor(wx, wy));
+            const vis = options.tileVisibilityStateAt(wx, wy, tile);
+            const cellVis = vis === "visible" ? undefined : vis;
+            if (cellVis !== runVis) {
+              flushRun(px);
+              runVis = cellVis;
+              runStartPx = px;
+            }
+          }
+          flushRun(w);
+        }
       }
     }
 
@@ -245,16 +266,16 @@ export const drawMiniMap = (options: {
       if (!tileHasTownIdentity(tile)) continue;
       if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
       if (!inBox(tile.x, tile.y)) continue;
-      const tx = Math.floor(wxToPx(tile.x));
-      const ty = Math.floor(wyToPy(tile.y));
+      const tx = wxToPx(tile.x + 0.5);
+      const ty = wyToPy(tile.y + 0.5);
       const palette = miniMapTownMarkerPalette(tile);
       cctx.fillStyle = palette.outer;
       cctx.beginPath();
-      cctx.arc(tx, ty, palette.radius, 0, Math.PI * 2);
+      cctx.arc(tx, ty, palette.radius * markerScale, 0, Math.PI * 2);
       cctx.fill();
       cctx.fillStyle = palette.inner;
       cctx.beginPath();
-      cctx.arc(tx, ty, 1.8, 0, Math.PI * 2);
+      cctx.arc(tx, ty, 1.8 * markerScale, 0, Math.PI * 2);
       cctx.fill();
     }
 
@@ -300,19 +321,19 @@ export const drawMiniMap = (options: {
       if (!tile.watchtower) continue;
       if (!effectiveFogDisabled(options.state) && tile.fogged && !tile.watchtower.activated) continue;
       if (!inBox(tile.x, tile.y)) continue;
-      const tx = Math.floor(wxToPx(tile.x));
-      const ty = Math.floor(wyToPy(tile.y));
+      const tx = wxToPx(tile.x + 0.5);
+      const ty = wyToPy(tile.y + 0.5);
       const revealing = typeof tile.watchtower.revealUntil === "number" && tile.watchtower.revealUntil > options.nowMs;
       // Brass/amber palette to match the steampunk 3D lantern beacon.
       cctx.fillStyle = tile.watchtower.activated ? "rgba(255, 190, 110, 0.95)" : "rgba(150, 120, 80, 0.75)";
       cctx.beginPath();
-      cctx.arc(tx, ty, 2, 0, Math.PI * 2);
+      cctx.arc(tx, ty, 2 * markerScale, 0, Math.PI * 2);
       cctx.fill();
       if (revealing) {
         cctx.strokeStyle = `rgba(255, 179, 71, ${0.5 + pingPhase * 0.35})`;
         cctx.lineWidth = 1.4;
         cctx.beginPath();
-        cctx.arc(tx, ty, 5 + pingPhase * 3, 0, Math.PI * 2);
+        cctx.arc(tx, ty, (5 + pingPhase * 3) * markerScale, 0, Math.PI * 2);
         cctx.stroke();
       }
     }
@@ -325,11 +346,11 @@ export const drawMiniMap = (options: {
       if (!tile.waystation) continue;
       if (!effectiveFogDisabled(options.state) && tile.fogged && !tile.waystation.activated) continue;
       if (!inBox(tile.x, tile.y)) continue;
-      const tx = Math.floor(wxToPx(tile.x));
-      const ty = Math.floor(wyToPy(tile.y));
+      const tx = wxToPx(tile.x + 0.5);
+      const ty = wyToPy(tile.y + 0.5);
       cctx.fillStyle = tile.waystation.activated ? "rgba(120, 150, 155, 0.7)" : "rgba(90, 220, 235, 0.95)";
       cctx.beginPath();
-      cctx.arc(tx, ty, 2, 0, Math.PI * 2);
+      cctx.arc(tx, ty, 2 * markerScale, 0, Math.PI * 2);
       cctx.fill();
     }
     cctx.restore();
@@ -354,8 +375,10 @@ export const drawMiniMap = (options: {
   const viewTilesH = options.canvas.height / options.state.zoom;
   const camLeft = options.state.camX - viewTilesW / 2;
   const camTop = options.state.camY - viewTilesH / 2;
+  // Line widths and the camera dot are tuned for the 220px canvas; scale them when it renders larger.
+  const uiScale = Math.max(1, w / 220);
   options.miniMapCtx.strokeStyle = "rgba(255, 240, 180, 0.95)";
-  options.miniMapCtx.lineWidth = 1.5;
+  options.miniMapCtx.lineWidth = 1.5 * uiScale;
   options.miniMapCtx.strokeRect(
     wxToPx(camLeft),
     wyToPy(camTop),
@@ -367,7 +390,7 @@ export const drawMiniMap = (options: {
   const py = wyToPy(options.state.camY);
   options.miniMapCtx.fillStyle = "#ffd166";
   options.miniMapCtx.beginPath();
-  options.miniMapCtx.arc(px, py, 2.8, 0, Math.PI * 2);
+  options.miniMapCtx.arc(px, py, 2.8 * uiScale, 0, Math.PI * 2);
   options.miniMapCtx.fill();
 
   return true;
