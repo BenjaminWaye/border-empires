@@ -139,3 +139,24 @@ describe("SimulationRuntime — reach border survives a restart", () => {
     for (const key of OVERLAP) expect(reachOf(runtime, "me").has(key)).toBe(true);
   });
 });
+
+// Regression: REACH_UPDATE revisions restarted from 1 in every new process, so
+// a client left open through a deploy (still holding the old process's high
+// revision) dropped every update from the restarted sim and its border froze.
+// The runtime must number them from its boot wall-clock time -- not its own
+// injected clock, which tests and replays start near zero.
+describe("REACH_UPDATE revisions across a restart", () => {
+  it("numbers a freshly booted runtime's first push above every earlier process's", () => {
+    const bootedAfter = Date.now();
+    const runtime = boot(worldWith());
+    const revisions: number[] = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "REACH_UPDATE") revisions.push(Number((JSON.parse(event.payloadJson) as { revision: unknown }).revision));
+    });
+
+    runtime.resendReachForPlayer("me");
+
+    expect(revisions.length).toBeGreaterThan(0);
+    for (const revision of revisions) expect(revision).toBeGreaterThan(bootedAfter);
+  });
+});
