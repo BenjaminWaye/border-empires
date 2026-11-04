@@ -82,3 +82,36 @@ describe("overview canvas resolution", () => {
     expect([canvas.width, canvas.height]).toEqual([220, 220]);
   });
 });
+
+describe("overview canvas fitting", () => {
+  // Regression: the canvas was sized once from getBoundingClientRect() mid-animation (scaled 0.97, border included)
+  // and never again, so rotating the phone left it at the wrong resolution.
+  it("sizes from the layout size and refits when the screen resizes while open", async () => {
+    const { fitOverviewCanvas } = await import("./client-hud-v2-overlays.js");
+    const canvas = document.createElement("canvas");
+    let side = 300;
+    Object.defineProperty(canvas, "clientWidth", { get: () => side });
+    Object.defineProperty(canvas, "clientHeight", { get: () => side });
+    fitOverviewCanvas(canvas, 2);
+    expect(canvas.width).toBe(600);
+    side = 180;
+    fitOverviewCanvas(canvas, 2);
+    expect([canvas.width, canvas.height]).toEqual([360, 360]);
+    // Not laid out yet (display: none): leave it alone.
+    side = 0;
+    fitOverviewCanvas(canvas, 2);
+    expect(canvas.width).toBe(360);
+  });
+
+  it("listens for resizes only while the overview is open", () => {
+    document.body.innerHTML = `<canvas id="mini-map" width="220" height="220"></canvas>`;
+    const add = vi.spyOn(window, "addEventListener");
+    const remove = vi.spyOn(window, "removeEventListener");
+    setMapOverview(true);
+    expect(add.mock.calls.some(([type]) => type === "resize")).toBe(true);
+    setMapOverview(false);
+    expect(remove.mock.calls.some(([type]) => type === "resize")).toBe(true);
+    add.mockRestore();
+    remove.mockRestore();
+  });
+});

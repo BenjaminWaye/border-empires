@@ -73,7 +73,7 @@ describe("minimap tile layer", () => {
 });
 
 describe("drawMiniMap with the tile layer", () => {
-  const draw = (opts: { baseReady: boolean; contentPx: number; computedAt: number }) => {
+  const draw = (opts: { baseReady: boolean; contentPx: number; computedAt: number; perTileAllowed?: boolean }) => {
     const ctx = makeFakeCtx();
     const contentCtx = makeFakeCtx();
     const tiles = mapOf([tile(10, 10, { ownerId: "me", ownershipState: "SETTLED" })]);
@@ -88,7 +88,7 @@ describe("drawMiniMap with the tile layer", () => {
       miniMapBase: { width: 220, height: 220 } as HTMLCanvasElement,
       miniMapBaseReady: opts.baseReady,
       miniMapLast: { camX: 10, camY: 10, zoom: 1, replayIndex: 0, tileCount: 1, tilesRevision: 0 },
-      contentCache: { computedAt: opts.computedAt },
+      contentCache: { computedAt: opts.computedAt, ...(opts.perTileAllowed === undefined ? {} : { perTileAllowed: opts.perTileAllowed }) },
       parseKey: (key) => { const [x, y] = key.split(",").map(Number); return { x: x ?? 0, y: y ?? 0 }; },
       keyFor: (x, y) => `${x},${y}`,
       tileVisibilityStateAt: () => "visible",
@@ -107,8 +107,82 @@ describe("drawMiniMap with the tile layer", () => {
 
   // Regression: the early return ignored a resized canvas, so the phone overview (which renders the minimap at
   // screen resolution) stayed blank until the camera moved.
+  // Regression: turning map reveal off (or a replay ending) switches drawing modes, but nothing marked the content
+  // dirty, so the other mode's picture stayed until a tile changed.
+  it("repaints when the drawing mode switches, even with the camera and tiles unchanged", () => {
+    expect(draw({ baseReady: true, contentPx: 220, computedAt: 5_000, perTileAllowed: true }).changed).toBe(false);
+    expect(draw({ baseReady: true, contentPx: 220, computedAt: 5_000, perTileAllowed: false }).changed).toBe(true);
+  });
+
   it("redraws when the canvas has been resized, even with the camera and tiles unchanged", () => {
     expect(draw({ baseReady: true, contentPx: 220, computedAt: 5_000 }).changed).toBe(false);
     expect(draw({ baseReady: true, contentPx: 440, computedAt: 5_000 }).changed).toBe(true);
+  });
+});
+
+describe("drawMiniMap fallback path on a large canvas", () => {
+  // Regression: with map reveal (fog off) the whole-world base path still drew owned tiles as 1px dots, so on the
+  // phone overview's ~960px canvas territory all but vanished; and its per-pixel fog scan grew ~19x.
+  it("paints owned tiles at tile size and samples fog in blocks", () => {
+    const contentCtx = makeFakeCtx();
+    const size = 880;
+    const tiles = mapOf([tile(10, 10, { ownerId: "me", ownershipState: "SETTLED" })]);
+    drawMiniMap({
+      nowMs: 10_000,
+      state: { camX: 10, camY: 10, zoom: 1, replayActive: true, replayIndex: 1, replayOwnershipByTile: new Map([["10,10", { ownerId: "me", ownershipState: "SETTLED" }]]), fogDisabled: false, tiles, dockPairs: [], tilesRevision: 0 },
+      canvas: { width: 200, height: 200 } as HTMLCanvasElement,
+      miniMapEl: { width: size, height: size } as HTMLCanvasElement,
+      miniMapCtx: makeFakeCtx(),
+      miniMapContentEl: { width: size, height: size } as HTMLCanvasElement,
+      miniMapContentCtx: contentCtx,
+      miniMapBase: { width: 220, height: 220 } as HTMLCanvasElement,
+      miniMapBaseReady: true,
+      miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1, tilesRevision: -1 },
+      contentCache: { computedAt: 0 },
+      parseKey: (key) => { const [x, y] = key.split(",").map(Number); return { x: x ?? 0, y: y ?? 0 }; },
+      keyFor: (x, y) => `${x},${y}`,
+      tileVisibilityStateAt: (_x, _y, t) => (t ? "visible" : "unexplored"),
+      effectiveOverlayColor: () => "#3366cc",
+      isDockRouteVisibleForPlayer: () => false,
+      replayCurrentEvent: () => undefined,
+      terrainColorAt: () => "#228822"
+    });
+    // A replay keeps the base path even with a terrain colour given.
+    expect(contentCtx.fillRectCalls.some((c) => c.style === "#228822")).toBe(false);
+    const owned = contentCtx.fillRectCalls.filter((c) => c.style.startsWith("rgba(51, 102, 204") || c.style.startsWith("#3366cc"));
+    expect(owned.length).toBeGreaterThan(0);
+    expect(Math.min(...owned.map((c) => c.w))).toBeGreaterThanOrEqual(Math.floor(size / 50) - 1);
+    const fog = contentCtx.fillRectCalls.filter((c) => c.style === "#000000");
+    expect(fog.length).toBeGreaterThan(0);
+    // One run per sampled block row (step 4 at 880px), not per pixel row.
+    expect(fog.every((c) => c.h === 4)).toBe(true);
+    expect(fog.length).toBeLessThanOrEqual(size / 4 * 3);
+  });
+
+  it("falls back to the base path when the frame is too big to draw tile by tile cheaply", () => {
+    const contentCtx = makeFakeCtx();
+    // Known tiles spread across the world: the frame is far over the tile-layer limit.
+    const tiles = mapOf([tile(0, 0), tile(600, 300), tile(300, 150, { ownerId: "me" })]);
+    drawMiniMap({
+      nowMs: 10_000,
+      state: { camX: 10, camY: 10, zoom: 1, replayActive: false, replayIndex: 0, replayOwnershipByTile: new Map(), fogDisabled: false, tiles, dockPairs: [], tilesRevision: 0 },
+      canvas: { width: 200, height: 200 } as HTMLCanvasElement,
+      miniMapEl: { width: 220, height: 220 } as HTMLCanvasElement,
+      miniMapCtx: makeFakeCtx(),
+      miniMapContentEl: { width: 220, height: 220 } as HTMLCanvasElement,
+      miniMapContentCtx: contentCtx,
+      miniMapBase: { width: 220, height: 220 } as HTMLCanvasElement,
+      miniMapBaseReady: true,
+      miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1, tilesRevision: -1 },
+      contentCache: { computedAt: 0 },
+      parseKey: (key) => { const [x, y] = key.split(",").map(Number); return { x: x ?? 0, y: y ?? 0 }; },
+      keyFor: (x, y) => `${x},${y}`,
+      tileVisibilityStateAt: () => "visible",
+      effectiveOverlayColor: () => "#3366cc",
+      isDockRouteVisibleForPlayer: () => false,
+      replayCurrentEvent: () => undefined,
+      terrainColorAt: () => "#228822"
+    });
+    expect(contentCtx.fillRectCalls.some((c) => c.style === "#228822")).toBe(false);
   });
 });
