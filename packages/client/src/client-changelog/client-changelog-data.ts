@@ -1,3 +1,4 @@
+import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
 import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
 import { FOOD_TILE_ART_CHANGELOG } from "./client-changelog-food-tile-art.js";
 import { TOWN_ECONOMY_CHANGELOG } from "./client-changelog-town-economy.js";
@@ -491,7 +492,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The orb and the manpower chip stop showing a batch amount that has already landed"
     ]
   },
-  ...INCURSION_SHORE_CHANGELOG
+  ...INCURSION_SHORE_CHANGELOG,
+  ...TOWN_SCREEN_AUTO_GARRISON_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
