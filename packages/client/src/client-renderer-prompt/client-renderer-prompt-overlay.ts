@@ -4,14 +4,12 @@
 // hands over its state, DOM slot and re-render callback.
 import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
-import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
 import { showTwoDimensionalModeNotice } from "../client-renderer-fallback-notice/client-renderer-fallback-notice.js";
 import { isTrue3DRendererActive, prefers2DRendererMode } from "../client-renderer-mode.js";
 import { switchRenderer } from "../client-renderer-switch/client-renderer-switch.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
 import {
-  RENDERER_PROMPT_FPS_THRESHOLD,
-  RENDERER_PROMPT_LOW_FPS_MS,
+  hasRendererPromptLowFps,
   shouldShowRendererPrompt,
   shouldShowTwoDimensionalNotice
 } from "./client-renderer-prompt.js";
@@ -43,7 +41,7 @@ export const renderRendererPromptOverlay = (deps: RendererPromptOverlayDeps): vo
   const canShowRendererPrompt = shouldShowRendererPrompt({
     dismissed: state.rendererPrompt.dismissed,
     true3DActive: isTrue3DRendererActive(),
-    sustainedLowFps: hasSustainedLowFps(RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, performance.now()),
+    sustainedLowFps: hasRendererPromptLowFps(state.connection === "initialized" && state.authSessionReady, performance.now()),
     connectionInitialized: state.connection === "initialized",
     authSessionReady: state.authSessionReady,
     profileSetupRequired: state.profileSetupRequired,
