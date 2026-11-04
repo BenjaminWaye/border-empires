@@ -9,6 +9,7 @@ import { HUD_V2_MOBILE_CHANGELOG } from "./client-changelog-hud-v2-mobile.js";
 import { AI_JUNIOR_ALLIANCES_CHANGELOG } from "./client-changelog-ai-junior-alliances.js";
 import { PHONE_MAP_OVERVIEW_CHANGELOG } from "./client-changelog-phone-map-overview.js";
 import { TOWN_SCREEN_SUPPORT_STRUCTURE_CHANGELOG } from "./client-changelog-town-screen-support-structure.js";
+import { OWNERSHIP_HELP_CHANGELOG } from "./client-changelog-ownership-help.js";
 
 // November 2026 topic files, grouped so client-changelog-data.ts stays under
 // the 500-line limit. Add new per-topic imports here, not there.
@@ -22,5 +23,6 @@ export const NOVEMBER_CHANGELOG: ClientChangelogEntry[] = [
   ...HUD_V2_MOBILE_CHANGELOG,
   ...AI_JUNIOR_ALLIANCES_CHANGELOG,
   ...PHONE_MAP_OVERVIEW_CHANGELOG,
-  ...TOWN_SCREEN_SUPPORT_STRUCTURE_CHANGELOG
+  ...TOWN_SCREEN_SUPPORT_STRUCTURE_CHANGELOG,
+  ...OWNERSHIP_HELP_CHANGELOG
 ];
