@@ -60,13 +60,20 @@ export const settlementSpeedMultiplierForState = (
   return multiplier;
 };
 
-/** How long garrisoning `tile` takes for this player -- never ending before the tile's capture hold does (as the server floors it). */
+/**
+ * How long garrisoning `tile` takes for this player: 0 while they still have
+ * instant garrisons left (their first INSTANT_GARRISON_COUNT), else the
+ * frontier claim time over their settle speed -- and never ending before the
+ * tile's capture hold does (as the server floors it).
+ */
 export const settleDurationMsForState = (
-  state: Pick<ClientState, "techIds" | "techCatalog" | "domainIds" | "domainCatalog">,
+  state: Pick<ClientState, "techIds" | "techCatalog" | "domainIds" | "domainCatalog"> & Partial<Pick<ClientState, "instantGarrisonsRemaining">>,
   tile: { x: number; y: number; ownershipState?: string | undefined; captureHoldUntil?: number | undefined },
   nowEpochMs: number = Date.now()
 ): number => Math.max(
-  Math.max(1, Math.round(settleDurationMsForTile(tile.x, tile.y) / settlementSpeedMultiplierForState(state))),
+  (state.instantGarrisonsRemaining ?? 0) > 0
+    ? 0
+    : Math.max(1, Math.round(settleDurationMsForTile(tile.x, tile.y) / settlementSpeedMultiplierForState(state))),
   captureHoldSettleFloorMs(tile, nowEpochMs)
 );
 
@@ -164,6 +171,8 @@ export const requestSettlement = (
   const progress = { startAt, resolvesAt: startAt + settleDurationMsForState(state, tile, startAt), target: { x, y }, awaitingServerConfirm: false };
   state.gold = Math.max(0, state.gold - SETTLE_COST);
   if (!manpowerReserved) state.manpower = Math.max(0, state.manpower - state.settleManpowerCost);
+  // The server counts every garrison it starts, so spend a free one locally too: a second quick tap must predict the timer.
+  state.instantGarrisonsRemaining = Math.max(0, state.instantGarrisonsRemaining - 1);
   state.settleProgressByTile.set(tileKey, progress);
   state.latestSettleTargetKey = tileKey;
   deps.syncOptimisticSettlementTile(x, y, false);

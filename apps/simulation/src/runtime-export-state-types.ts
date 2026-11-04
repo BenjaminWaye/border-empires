@@ -59,6 +59,7 @@ export type RuntimeExportState = {
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
     imperialWardCharges?: number;
+    lifetimeGarrisons?: number;
     islandNames?: IslandNameClaim[];
     autoSettle?: AutoSettlePrefs;
     // Waystation activation's pooled resource-slot bump -- see

@@ -15,6 +15,8 @@ export const createInitialProgressionState = () => ({
   relicMapHints: new Map<string, import("@border-empires/shared").RelicMapHint>(),
   wonderLastFreeRushBuyAt: undefined as number | undefined, // Quickforge: ms of last discounted rush-buy (0/undefined = unused) -- rush-buy price preview only, server is price-authoritative
   techChoices: [] as string[],
+  // When the pending Manifest commission (pendingTechUnlockId) was sent; it stops blocking taps after a timeout.
+  pendingTechUnlockAt: 0,
   techCatalog: [] as TechInfo[],
   techAffordableByTechId: new Map<string, boolean>(), techAffordablePulseUntilByTechId: new Map<string, number>(), // §7.3 "reward is ready" pulse tracking
   currentResearch: undefined as PendingResearch | undefined,
