@@ -45,9 +45,7 @@ describe("addRawResourceInstance", () => {
     ["TITANIUM", "MINE"],
     ["GEMS", "MINE"],
     ["UMBRITE", "UMBRITE_RIG"],
-    ["FARM", "HYDROGARDEN"],
-    ["FARM", "HYDROWORKS"],
-    ["FARM", "MINISTRY_HALL"]
+    ["FARM", "HYDROGARDEN"]
   ] as const)("draws nothing raw for %s under a %s", (resource, building) => {
     expect(dispatch(resource, tileWith(resource, building))).toEqual([]);
   });
@@ -55,5 +53,9 @@ describe("addRawResourceInstance", () => {
   it("keeps the raw deposit under a structure that does not replace it", () => {
     expect(dispatch("TITANIUM", tileWith("TITANIUM", "UMBRITE_RIG"))).toEqual(["titaniumDeposit"]);
     expect(dispatch("UMBRITE", tileWith("UMBRITE", "MINE"))).toEqual(["umbriteDeposit"]);
+    // Buildings other than the hydroponic dome keep the farm readable; they
+    // are lifted onto the plot instead (FarmlandOverlay.standLiftAt).
+    expect(dispatch("FARM", tileWith("FARM", "HYDROWORKS"))).toEqual(["farmland"]);
+    expect(dispatch("FARM", tileWith("FARM", "MINISTRY_HALL"))).toEqual(["farmland"]);
   });
 });

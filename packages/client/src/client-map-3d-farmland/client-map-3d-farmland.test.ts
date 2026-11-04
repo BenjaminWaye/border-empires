@@ -1,27 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { buildingReplacesFarmlandPlot, farmlandYawAt, type FarmlandPlotTile } from "./client-map-3d-farmland.js";
+import { farmlandYawAt, structureReplacesFarmlandPlot } from "./client-map-3d-farmland.js";
 
-describe("buildingReplacesFarmlandPlot", () => {
-  const structure = (type: NonNullable<FarmlandPlotTile["economicStructure"]>["type"]): FarmlandPlotTile =>
-    ({ economicStructure: { ownerId: "p", type, status: "active" } });
-
-  it("drops the plot under any economic structure, not just the hydroponic dome", () => {
-    // HYDROWORKS / ORE_REFINERY are district buildings on a low plinth that
-    // the plot's crop beds used to bury.
-    for (const type of ["HYDROGARDEN", "HYDROWORKS", "ORE_REFINERY", "MINISTRY_HALL"] as const) {
-      expect(buildingReplacesFarmlandPlot(structure(type))).toBe(true);
-    }
+describe("structureReplacesFarmlandPlot", () => {
+  it("drops the conventional plot under a built HYDROGARDEN (the hydroponic dome)", () => {
+    expect(structureReplacesFarmlandPlot("HYDROGARDEN")).toBe(true);
   });
 
-  it("drops the plot under a fort, siege battery or observatory", () => {
-    expect(buildingReplacesFarmlandPlot({ fort: { ownerId: "p", status: "active" } })).toBe(true);
-    expect(buildingReplacesFarmlandPlot({ siegeBattery: { ownerId: "p", status: "active" } })).toBe(true);
-    expect(buildingReplacesFarmlandPlot({ observatory: { ownerId: "p", status: "active" } })).toBe(true);
+  it("keeps the plot for other structures on a farm tile (they are lifted onto it)", () => {
+    expect(structureReplacesFarmlandPlot("HYDROWORKS")).toBe(false);
+    expect(structureReplacesFarmlandPlot("MINE")).toBe(false);
   });
 
-  it("keeps the plot on a bare farm tile", () => {
-    expect(buildingReplacesFarmlandPlot({})).toBe(false);
-    expect(buildingReplacesFarmlandPlot(undefined)).toBe(false);
+  it("keeps the plot when no structure is present", () => {
+    expect(structureReplacesFarmlandPlot(undefined)).toBe(false);
   });
 });
 

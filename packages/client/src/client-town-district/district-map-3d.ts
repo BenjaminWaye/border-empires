@@ -13,7 +13,8 @@ import { buildDistrictNetwork, districtOperational, districtRecord, type Distric
 import { createDistrictOverlay } from "./district-overlay.js";
 import { createDistrictLinks3D } from "./district-links-3d.js";
 
-export type DistrictSite = { readonly x: number; readonly z: number; readonly surfaceY: number; readonly wx: number; readonly wy: number };
+// farmLift: raise onto a farm plot's crops (FarmlandOverlay.standLiftAt); surfaceY already includes it.
+export type DistrictSite = { readonly x: number; readonly z: number; readonly surfaceY: number; readonly wx: number; readonly wy: number; readonly farmLift?: number };
 type DistrictMapDeps = {
   readonly state: Pick<ClientState, "tiles" | "tilesRevision" | "selected" | "me" | "dormantStructures">;
   readonly origin: { camX: number; camY: number };
@@ -77,7 +78,7 @@ export const createDistrictMap3D = (scene: Scene, maxTiles: number, deps: Distri
       const record = tile.economicStructure;
       if (!remembered && record?.disabledUntil && record.disabledUntil > Date.now()) nextDisabledExpiry = Math.min(nextDisabledExpiry, record.disabledUntil);
       const hasTown = tileHasTownIdentity(tile);
-      const y = hasTown ? site.surfaceY : seatAt(tile);
+      const y = hasTown ? site.surfaceY : seatAt(tile) + (site.farmLift ?? 0);
       if (!remembered && sites.size < maxTiles) { sites.set(`${tile.x},${tile.y}`, { tile, seat: y }); candidates.push(tile); }
       const combined = Boolean(tile.fort || hasTown || tile.observatory);
       if (combined && !hasTown && economic && !tile.observatory) models.add({ x: site.x, y, z: site.z, foundation: true, operational: !remembered });

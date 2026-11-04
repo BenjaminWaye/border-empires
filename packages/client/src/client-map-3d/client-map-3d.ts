@@ -887,7 +887,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         if (incomingAttack && incomingAttack.resolvesAt > Date.now() && terrain === "LAND") {
           attackOverlay.addInstance(x, z, flatOverlayY, incomingAttack.resolvesAt);
         }
-        if (tile && terrain === "LAND") addBuildingInstancesForTile(tile, { x, z, surfaceY, wx, wy }, buildingInstanceOverlays, deps.state, rebuildStartAt, tileResource);
+        if (tile && terrain === "LAND") addBuildingInstancesForTile(tile, { x, z, surfaceY: surfaceY + farmlandOverlay.standLiftAt(wx, wy), farmLift: farmlandOverlay.standLiftAt(wx, wy), wx, wy }, buildingInstanceOverlays, deps.state, rebuildStartAt, tileResource);
         // ?structuredemo=1: drop each structure kind on a fake row two
         // tiles north of the camera. Only fires when the URL flag is
         // set, so it's harmless in production. The MINE entry passes a
@@ -931,7 +931,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             settleOverlay.addInstance(x, z, surfaceY, settleColor, settleProgress.startAt, settleProgress.resolvesAt, wx, wy);
           }
         }
-        if (tile) addFortificationInstancesForTile(tile, { x, z, surfaceY, wx, wy }, fortificationInstanceOverlays, deps, rebuildStartAt);
+        if (tile) addFortificationInstancesForTile(tile, { x, z, surfaceY: surfaceY + farmlandOverlay.standLiftAt(wx, wy), wx, wy }, fortificationInstanceOverlays, deps, rebuildStartAt);
         const demoFort = fortDemoSpec(wx, wy, window.camX, window.camY);
         if (demoFort && terrain === "LAND") {
           if (demoFort.kind === "RELAY_BEACON") {

@@ -18,7 +18,7 @@ import { Euler, InstancedMesh, Matrix4, Quaternion, Vector3 } from "three";
 import type { BufferGeometry, Material, Scene, Texture } from "three";
 import { loadMergedGlbGeometry } from "../client-map-3d-merged-glb/client-map-3d-merged-glb.js";
 import { createFoodTileMaterial } from "../client-map-3d-merged-glb/client-food-tile-material.js";
-import type { Tile } from "../client-types.js";
+import type { ClientTileEconomicStructure } from "../client-tile-economic-structure-type.js";
 
 export const FARMLAND_MODEL_URL = "/models/farmland-detailed.glb";
 
@@ -29,20 +29,19 @@ export const FARMLAND_BASE_LIFT = 0.0457;
 // Height above the terrain surface of the crop beds' tops once the plot is
 // lifted by FARMLAND_BASE_LIFT (the three raised beds reach ~0.033 above the
 // model origin). Anything that stands ON a farm tile — the battle marines —
-// is raised by this so it walks on the crops instead of being swallowed by
-// the opaque plot, which otherwise hides it entirely.
+// and every building on a farm tile -- is raised by this so it stands on the
+// crops instead of being swallowed by the opaque plot.
 export const FARMLAND_STAND_LIFT = 0.079;
 
-// A FARM resource tile normally draws this conventional farm plot. When any
-// building stands on the tile (a HYDROGARDEN dome, a district building such as
-// HYDROWORKS on its plinth, a fort, siege battery or observatory) the plot is
-// dropped: the plot's opaque crop beds rise ~0.08 above the ground, higher
-// than a district plinth or a fort's footing, so keeping it buried the
-// building's base under the crops. The 2D map draws the structure on top of
-// the farm art, so it never had this problem.
-export type FarmlandPlotTile = Pick<Tile, "economicStructure" | "fort" | "siegeBattery" | "observatory">;
-export const buildingReplacesFarmlandPlot = (tile: FarmlandPlotTile | undefined): boolean =>
-  Boolean(tile?.economicStructure || tile?.fort || tile?.siegeBattery || tile?.observatory);
+// A FARM resource tile always draws this conventional farm plot so the farm
+// stays readable, except under a HYDROGARDEN: the hydroponic dome IS the farm,
+// so the crop-field plot is dropped rather than the dome standing on it. Every
+// other building on a FARM tile (a district building such as HYDROWORKS, a
+// fort, siege battery or observatory) keeps the plot and is lifted onto it by
+// standLiftAt below -- the plot's crop beds otherwise bury the building's base.
+// Typed with the structure-id union so a rename is a type error here.
+export const structureReplacesFarmlandPlot = (structureType: ClientTileEconomicStructure["type"] | undefined): boolean =>
+  structureType === "HYDROGARDEN";
 
 export type FarmlandOverlay = {
   readonly clear: () => void;

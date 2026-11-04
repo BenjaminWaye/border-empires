@@ -1,7 +1,7 @@
 import type { ResourceType } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import type { ResourceKind } from "../client-map-3d-resource-overlay.js";
-import { buildingReplacesFarmlandPlot } from "../client-map-3d-farmland/client-map-3d-farmland.js";
+import { structureReplacesFarmlandPlot } from "../client-map-3d-farmland/client-map-3d-farmland.js";
 import type { WaterDirection } from "../client-food-tile-placement.js";
 import { shouldRenderRawResource } from "../client-resource-networks/network-resource-3d.js";
 
@@ -46,7 +46,7 @@ export const addRawResourceInstance = (
 ): void => {
   const { sceneX, sceneZ, surfaceY, worldTileX, worldTileY } = at;
   if (resource === "FARM") {
-    if (!buildingReplacesFarmlandPlot(tile)) overlays.farmland.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY);
+    if (!structureReplacesFarmlandPlot(tile?.economicStructure?.type)) overlays.farmland.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY);
     return;
   }
   if (resource === "FISH") {
