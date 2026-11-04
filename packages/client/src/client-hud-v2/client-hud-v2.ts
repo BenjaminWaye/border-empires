@@ -20,7 +20,7 @@ import { setCompactHudActive } from "../client-panel-nav/client-phone-viewport.j
 import { navHtml } from "./client-hud-v2-nav.js";
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import { orbHtml, orbInputForState } from "./client-hud-v2-orb.js";
-import { installLens, lensMenu, overlaysHtml } from "./client-hud-v2-overlays.js";
+import { installLens, lensMenu, mapOverview, overlaysHtml, setMapOverview } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
 import { applyResourceChip } from "./client-hud-v2-resource-panel.js";
 import { hasRevealedResourceCategory } from "../client-tech-html/client-tech-html.js";
@@ -39,6 +39,7 @@ import "./client-hud-v2-profile.css";
 import "./client-hud-v2-economy.css";
 import "./client-hud-v2-compact.css";
 import "./client-hud-v2-compact-screens.css";
+import "./client-hud-v2-map-overview.css";
 
 export type { HudV2Deps } from "./client-hud-v2-context.js";
 
@@ -201,6 +202,11 @@ const closeTopmost = (deps: HudV2Deps): boolean => {
     closeTreasury();
     return closed();
   }
+  if (mapOverview.open) {
+    setMapOverview(false);
+    renderLens(state);
+    return closed();
+  }
   if (state.activePlayerProfileId) {
     state.activePlayerProfileId = undefined;
     return closed();
@@ -265,7 +271,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
   writeRegion("orb-slot", orbHtml(orbInputForState(state, nowMs, resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor)))); // Base colour: the Diplomacy view recolours ownerColor.
 };
 
-const renderLens = (state: ClientState): void => writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay, lensMenu.open));
+const renderLens = (state: ClientState): void => writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay, lensMenu.open, mapOverview.open));
 
 /** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */
 const TRACKER_SCAN_MAX_AGE_MS = 5_000;
@@ -347,8 +353,10 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     if (lastLayout && layout !== lastLayout && flagOn && screen.id) closeScreen(deps, { toMap: true });
     lastLayout = layout;
     if (layout !== "compact") closeTreasury();
+    // The map overview is a phone view: rotating to a desktop-sized layout, or leaving the game, closes it.
+    if (mapOverview.open && (layout !== "compact" || !onScreen)) setMapOverview(false);
     // Phone back closes whatever is open: a screen, a profile, a hosted panel (Economy, Settings) or the tile panel.
-    const closable = screen.id !== null || deps.state.activePanel !== null || Boolean(deps.state.activePlayerProfileId) || tilePanelShown();
+    const closable = screen.id !== null || deps.state.activePanel !== null || Boolean(deps.state.activePlayerProfileId) || tilePanelShown() || mapOverview.open;
     syncBackEntry(layout === "compact" && onScreen && closable, () => closeOnBack(deps));
     document.body.classList.toggle("hud-v2-waiting", flagOn && !onScreen);
     // The lens button lives in this HUD; without it (phone width) the Diplomacy tint goes too.

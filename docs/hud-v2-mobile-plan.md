@@ -30,6 +30,7 @@ go" table. This plan builds on those sketches rather than replacing them.
 | 5 | Frame screens between bar and tab bar; Chronicle half sheet; Manifest scrolls both ways; Ranks, Diplomacy, Towns, profile stacked | — |
 | 6 | Tutorial guide under the bar (hidden behind screens, sheets and panels); onboarding launcher above the lens; back gesture (`client-hud-v2-back.ts`) closes the open sheet or screen; `isMobile()` call sites audited | — |
 | 7 | Compact on by default on phones; changelog entry; `?hud=legacy` still opts out | Legacy phone chrome not deleted yet (step 3) |
+| — | Map overview (follow-up): the round lens button opens the minimap full screen with the lenses under it; tapping a place jumps there and closes it (`client-hud-v2-overlays.ts`) | New: Phase 1 hid the minimap behind the button with no way to open it |
 
 Landscape phones dock the tile panel, Chronicle and sheets to the right edge
 (`@media (orientation: landscape)` in `client-hud-v2-compact-screens.css`), and
@@ -181,7 +182,7 @@ left rail.
 | Season clock + rival tokens (top right) | One pill: season day + leader crest; tap → Ranks. Rival tokens move into Diplomacy |
 | Tracker (left aside) | One-line tracker that unfolds into a sheet; rows keep their focus-the-map links |
 | Manpower orb | Same orb, bottom right above the tab bar; tap opens the manpower panel as a half sheet |
-| Lens switcher | Corner button bottom left; menu opens upward |
+| Lens switcher | Corner button bottom left: opens the map overview (minimap full screen, lenses under it) |
 | Tile dock + action bar | Tile sheet with three detents (above) |
 | Battle screen | Full-screen sheet: both sides on one row, modifier breakdowns folded, win chance + effort + **Confirm attack** at the bottom |
 | Town screen | Full screen, tab bar hidden, three tabs: Overview · Build · Tiles; prev/next town arrows in the header; action bar pinned to the bottom |
