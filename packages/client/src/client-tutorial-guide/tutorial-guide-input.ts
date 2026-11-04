@@ -167,7 +167,8 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
       revision: state.tilesRevision,
       chunks: state.chunkFullCount,
       me: state.me,
-      checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail),
+      // Judged from the live tiles, not the checklist's saved completion flag.
+      checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail, { ignoreSavedCompletion: true }),
       scan: scanGuideTiles(state.tiles, state.me, state.homeTile),
       footholdTargets: scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile)),
       musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId),

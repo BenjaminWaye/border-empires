@@ -257,4 +257,19 @@ describe("tutorial guide steps", () => {
     expect(view.newlyCompleted).toContain("reach-beacon");
     expect(view.step.id).toBe("manifest-open");
   });
+
+  it("asks for a town the player can take before a Relay Beacon, then the beacon once none is in sight", () => {
+    const pastFoothold = new Set([...ids("look"), ...ids("foothold")]);
+    const site = { x: 12, y: 3 };
+    const townInSight = { town: { pending: [], garrison: [], expand: [{ x: 4, y: 1 }] }, food: { pending: [], garrison: [], expand: [] } };
+    const input = baseInput({ checklist: footholdDone, beaconSite: () => site, footholdTargets: townInSight });
+    expect(evaluateGuide(input, pastFoothold)).toEqual(
+      expect.objectContaining({ title: "Tap the marked town and Expand To it", chapterTitle: "Your reach", highlightTiles: [{ x: 4, y: 1 }] })
+    );
+    // No beacon badge in the build menu while the step points at the town.
+    expect(guideBeaconSite("reach-beacon", input)).toBeUndefined();
+    expect(evaluateGuide(baseInput({ checklist: footholdDone, beaconSite: () => site }), pastFoothold)).toEqual(
+      expect.objectContaining({ title: "Tap the marked tile and build a Relay Beacon", highlightTiles: [site] })
+    );
+  });
 });

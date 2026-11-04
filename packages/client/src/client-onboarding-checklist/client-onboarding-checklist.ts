@@ -119,9 +119,12 @@ const withSite = (anchors: Array<{ x: number; y: number }>, site: { x: number; y
 export const onboardingChecklistState = (
   tiles: ReadonlyMap<string, Tile>,
   playerId: string,
-  authEmail?: string | null
+  authEmail?: string | null,
+  options: { ignoreSavedCompletion?: boolean } = {}
 ): OnboardingChecklistState => {
-  if (isOnboardingChecklistCompleted(authEmail)) {
+  // The tutorial guide passes ignoreSavedCompletion: the saved flag is account-wide and never
+  // resets (not per season, not on Restart guide), so it must not tick the guide's foothold steps.
+  if (!options.ignoreSavedCompletion && isOnboardingChecklistCompleted(authEmail)) {
     return {
       step: "DONE",
       townFound: true,
