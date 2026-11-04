@@ -7,8 +7,8 @@ import { FRONTIER_ATTACK_MUSTER_COST, MUSTER_ATTACK_COST } from "../config.js";
 // ping-pong back and forth. For CAPTURE_HOLD_MS after the capture the new
 // owner's troops "hold ground" on the tile: it defends with
 // CAPTURE_HOLD_DEFENSE_MULT (the same 1.0x a plain unfortified tile starts
-// from, no fort/town/garrison bonus), long enough to garrison (SETTLE, 60s)
-// it. Ordinary FRONTIER land that was never captured keeps
+// from, no fort/town/garrison bonus), long enough to garrison (SETTLE, which
+// takes the frontier claim time) it. Ordinary FRONTIER land that was never captured keeps
 // zero defense, so normal frontier raiding is unchanged.
 
 export const CAPTURE_HOLD_MS = 60_000;

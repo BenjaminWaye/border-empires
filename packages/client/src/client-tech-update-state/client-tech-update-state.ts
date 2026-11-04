@@ -57,6 +57,7 @@ export const applyTechUpdateToState = (
   state.techRootId = msg.techRootId;
   state.currentResearch = msg.currentResearch ?? undefined;
   state.pendingTechUnlockId = "";
+  state.pendingTechUnlockAt = 0;
   state.techIds = msg.techIds ?? [];
   state.techChoices = msg.nextChoices ?? [];
   state.availableTechPicks = msg.availableTechPicks ?? state.availableTechPicks;

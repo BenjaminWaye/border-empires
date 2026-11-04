@@ -35,6 +35,8 @@ export type RecoveredPlayerState = {
   strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
   chosenTrickleResource?: ChosenTrickleResource;
   imperialWardCharges?: number;
+  // Lifetime garrisons started (DomainPlayer.lifetimeGarrisons); SETTLEMENT_STARTED replays bump it.
+  lifetimeGarrisons?: number;
   islandNames?: IslandNameClaim[];
   autoSettle?: AutoSettlePrefs;
   // Waystation activation's pooled resource-slot bump -- see

@@ -17,6 +17,7 @@ import { AI_TRUCE_REASONING_CHANGELOG } from "./client-changelog-ai-truce-reason
 import { TRUCE_OFFERS_WAIT_CHANGELOG } from "./client-changelog-truce-offers-wait.js";
 import { TUTORIAL_GUIDE_SCREENS_CHANGELOG } from "./client-changelog-tutorial-guide-screens.js";
 import { TUTORIAL_GUIDE_TOWN_FIRST_CHANGELOG } from "./client-changelog-tutorial-guide-town-first.js";
+import { COMMISSION_ON_PHONES_CHANGELOG } from "./client-changelog-commission-on-phones.js";
 import { SHARPER_MINIMAP_CHANGELOG } from "./client-changelog-sharper-minimap.js";
 
 // November 2026 topic files, grouped so client-changelog-data.ts stays under
@@ -39,6 +40,7 @@ export const NOVEMBER_CHANGELOG: ClientChangelogEntry[] = [
   ...AI_TRUCE_REASONING_CHANGELOG,
   ...TRUCE_OFFERS_WAIT_CHANGELOG,
   ...TUTORIAL_GUIDE_SCREENS_CHANGELOG,
+  ...COMMISSION_ON_PHONES_CHANGELOG,
   ...SHARPER_MINIMAP_CHANGELOG,
   ...TUTORIAL_GUIDE_TOWN_FIRST_CHANGELOG
 ];
