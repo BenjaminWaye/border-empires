@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
+import { garrisonVeteranSeedPlayers } from "./runtime.test-helpers.js";
+import { frontierClaimDurationMsAt } from "@border-empires/shared";
 
 type Seen = { eventType: string; commandId: string; playerId: string; code?: string };
 
@@ -34,6 +36,7 @@ describe("claim continuation while the player is online", () => {
         scheduledTasks.push({ delayMs, task });
       },
       isPlayerSubscribed: () => true,
+      initialPlayers: garrisonVeteranSeedPlayers(),
       initialState: {
         tiles: [
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
@@ -65,7 +68,7 @@ describe("claim continuation while the player is online", () => {
     });
     await Promise.resolve();
 
-    const settleResolution = scheduledTasks.find((t) => t.delayMs === 60_000);
+    const settleResolution = scheduledTasks.find((t) => t.delayMs === frontierClaimDurationMsAt(10, 10));
     expect(settleResolution).toBeDefined();
     settleResolution!.task();
     await Promise.resolve();
@@ -93,6 +96,7 @@ describe("claim continuation while the player is online", () => {
         scheduledTasks.push({ delayMs, task });
       },
       isPlayerSubscribed: () => true,
+      initialPlayers: garrisonVeteranSeedPlayers(),
       initialState: {
         tiles: [
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
@@ -130,7 +134,7 @@ describe("claim continuation while the player is online", () => {
     // of the tail in the queue. The server must skip it, not drain it.
     summary.devQueue.unshift({ tileKey: "8,10", x: 8, y: 10, kind: "SETTLE", queuedAt: 1_000 });
 
-    const settleResolution = scheduledTasks.find((t) => t.delayMs === 60_000);
+    const settleResolution = scheduledTasks.find((t) => t.delayMs === frontierClaimDurationMsAt(10, 10));
     expect(settleResolution).toBeDefined();
     settleResolution!.task();
     await Promise.resolve();
@@ -162,6 +166,7 @@ describe("claim continuation while the player is online", () => {
           scheduledTasks.push({ delayMs, task });
         },
         isPlayerSubscribed: () => online,
+        initialPlayers: garrisonVeteranSeedPlayers(),
         initialState: {
           tiles: [
             { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
@@ -196,7 +201,7 @@ describe("claim continuation while the player is online", () => {
       });
       await Promise.resolve();
 
-      const settleResolution = scheduledTasks.find((t) => t.delayMs === 60_000);
+      const settleResolution = scheduledTasks.find((t) => t.delayMs === frontierClaimDurationMsAt(10, 10));
       expect(settleResolution).toBeDefined();
       settleResolution!.task();
       await Promise.resolve();
