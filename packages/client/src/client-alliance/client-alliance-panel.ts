@@ -9,6 +9,8 @@ export type AlliancePanelInput = {
   resourceTradeAgreements?: readonly import("@border-empires/shared").ResourceSupplyAgreementStatus[];
   resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
   metPlayerIds: ReadonlySet<string>;
+  // Met players currently in conflict with us (client-war-status.ts); absent = none.
+  warPlayerIds?: ReadonlySet<string>;
   allies: string[];
   activeAllianceBreaks: ActiveAllianceBreakView[];
   activeTruces: ActiveTruceView[];
@@ -50,6 +52,7 @@ export const noPlayersMetHtml = (): string =>
 const metPlayerRowHtml = (
   playerId: string,
   truce: ActiveTruceView | undefined,
+  atWar: boolean,
   playerNameForOwner: PlayerNameForOwner,
   playerColors: ReadonlyMap<string, string>,
   nowMs: number,
@@ -60,7 +63,9 @@ const metPlayerRowHtml = (
   const status = truce
     ? `<span class="alliance-reference-status alliance-reference-status-truce">Truce</span>
           <span class="alliance-reference-duration-note">· ${socialRemainingLabel(truce.endsAt, nowMs)} left</span>`
-    : `<span class="alliance-reference-status alliance-reference-status-war">War</span>`;
+    : atWar
+      ? `<span class="alliance-reference-status alliance-reference-status-war">War</span>`
+      : `<span class="alliance-reference-duration-note">Met</span>`;
   const breakTruceButton = truce?.origin === "court" ? `<span class="alliance-reference-duration-note">Court mandate · binding</span>` : truce
     ? `<button class="panel-btn alliance-reference-action alliance-reference-action-break break-truce" type="button" data-break-truce-player-id="${safeId}" title="Breaking a truce locks you out of new truces for 24h">Break Truce</button>`
     : "";
@@ -139,7 +144,7 @@ export const alliancePanelHtml = (input: AlliancePanelInput): string => {
     sectionHtml(
       "Players you've met",
       approachable
-        .map(({ id }) => metPlayerRowHtml(id, trucesByPlayerId.get(id), playerNameForOwner, playerColors, nowMs, id === input.expandedPlayerId))
+        .map(({ id }) => metPlayerRowHtml(id, trucesByPlayerId.get(id), Boolean(input.warPlayerIds?.has(id)), playerNameForOwner, playerColors, nowMs, id === input.expandedPlayerId))
         .join(""),
       "alliance-player-stack"
     )
