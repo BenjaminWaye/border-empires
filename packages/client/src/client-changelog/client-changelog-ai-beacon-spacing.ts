@@ -14,8 +14,8 @@ export const AI_BEACON_SPACING_CHANGELOG: ClientChangelogEntry[] = [
     title: "AI relay beacons reach for nearby resources",
     why: "The beacon spacing rule also stopped AI empires from placing a relay close to another one just to bring a few resource tiles, like a strip of fish along the beach, into reach.",
     changes: [
-      "The spacing rule now applies only to AI relays built to explore; a relay that brings resources, towns or docks into reach can go anywhere.",
-      "A relay the AI switched off on a tile it can no longer garrison no longer blocks a replacement nearby."
+      "AI relays that bring new resources, towns or docks into reach no longer have to keep a reach radius from the AI's other active relays; relays built only to explore still do.",
+      "Relays being demolished, or switched off where the AI can't turn them back on, no longer block a replacement nearby."
     ]
   }
 ];

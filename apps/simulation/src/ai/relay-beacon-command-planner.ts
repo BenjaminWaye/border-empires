@@ -20,7 +20,7 @@ import {
   type TileLookup
 } from "./structure-command-planner.js";
 import type { ReachLookup } from "./frontier-command-planner.js";
-import { countsForBeaconSpacing, explorationSiteTooClose, type RelayBeaconSiteSkips } from "./relay-beacon-site-rules.js";
+import { countsForBeaconSpacing, siteTooCloseToOwnBeacon, type RelayBeaconSiteSkips, type SpacedBeacon } from "./relay-beacon-site-rules.js";
 import { boxCellIndex, CELL_FOG, CELL_OTHER, CELL_WATER, FOG_BOX_CELLS, markOceanShadowedFog } from "./relay-beacon-fog-shadow.js";
 
 /**
@@ -124,7 +124,7 @@ const REACH_ANCHOR_SCAN_CAP = 4000;
  * chooseBestRelayBeaconBuild's overlap veto (see PENDING_OUTPOST_OVERLAP_DISTANCE)
  * doesn't need a second full ownedTiles scan just to find them. Likewise
  * `ownBeacons` — own RELAY_BEACON tiles that count for spacing — for
- * explorationSiteTooClose (relay-beacon-site-rules.ts).
+ * siteTooCloseToOwnBeacon (relay-beacon-site-rules.ts).
  */
 const currentReachTileKeys = (
   playerId: string,
@@ -132,11 +132,11 @@ const currentReachTileKeys = (
 ): {
   claimed: ReadonlySet<string>;
   pendingOutposts: Array<{ x: number; y: number }>;
-  ownBeacons: Array<{ x: number; y: number }>;
+  ownBeacons: SpacedBeacon[];
 } => {
   const claimed = new Set<string>();
   const pendingOutposts: Array<{ x: number; y: number }> = [];
-  const ownBeacons: Array<{ x: number; y: number }> = [];
+  const ownBeacons: SpacedBeacon[] = [];
   let scanned = 0;
   for (const tile of ownedTiles) {
     if (scanned >= REACH_ANCHOR_SCAN_CAP) break;
@@ -152,7 +152,7 @@ const currentReachTileKeys = (
     }
     const beacon = tile.economicStructure;
     if (beacon?.ownerId === playerId && beacon.type === "RELAY_BEACON" && countsForBeaconSpacing(beacon, tile.ownershipState)) {
-      ownBeacons.push({ x: tile.x, y: tile.y });
+      ownBeacons.push({ x: tile.x, y: tile.y, claimsReach: Boolean(beacon.status && BEACON_OVERLAP_CLAIMING_STATUSES.has(beacon.status)) });
     }
     if (
       beacon?.ownerId === playerId &&
@@ -399,7 +399,7 @@ export const chooseBestRelayBeaconBuild = (
     // Exploration-only sites (no unowned prize in reach) keep their distance
     // from this player's beacons; prize sites are exempt — see
     // relay-beacon-site-rules.ts.
-    if (explorationSiteTooClose(tile, newCoverage.hasValuable, ownBeacons)) {
+    if (siteTooCloseToOwnBeacon(tile, newCoverage.hasValuable, ownBeacons)) {
       if (skips) skips.spacing += 1;
       continue;
     }

@@ -41,10 +41,21 @@ export const countsForBeaconSpacing = (
  *  away, for sim_ai_relay_beacon_site_skipped_total. */
 export type RelayBeaconSiteSkips = { spacing: number };
 
-/** True when an exploration-only candidate sits too close to one of this player's beacons. */
-export const explorationSiteTooClose = (
+/** An own beacon that counts for spacing. `claimsReach` is true when its box
+ *  is already in the claimed reach set coverage is scored against (active or
+ *  under construction). */
+export type SpacedBeacon = { x: number; y: number; claimsReach: boolean };
+
+/** True when a candidate sits too close to one of this player's beacons.
+ *  The prize exemption only overrides beacons that claim reach: a prize
+ *  inside a FOOD-relief beacon's box scores as new (that box isn't claimed)
+ *  even though re-enabling the beacon would reach it, so it must not justify
+ *  building a second beacon beside the disabled one. */
+export const siteTooCloseToOwnBeacon = (
   tile: { x: number; y: number },
   hasValuable: boolean,
-  ownBeacons: readonly { x: number; y: number }[]
+  ownBeacons: readonly SpacedBeacon[]
 ): boolean =>
-  !hasValuable && ownBeacons.some((b) => chebyshevWithWrap(tile.x, tile.y, b.x, b.y) < MIN_OWN_BEACON_SPACING);
+  ownBeacons.some(
+    (b) => (!hasValuable || !b.claimsReach) && chebyshevWithWrap(tile.x, tile.y, b.x, b.y) < MIN_OWN_BEACON_SPACING
+  );

@@ -17,7 +17,7 @@ const EXISTING = { x: 100, y: 100 };
 // A settled strip owned by ai-1 with an active beacon at its middle. Only
 // the strip is known; everything around it is fog, so any site whose box
 // pokes past the existing beacon's reach scores fresh "unexplored" credit.
-const buildStrip = (beaconStatus: "active" | "inactive" | "removing" = "active", inactiveReason?: string) => {
+const buildStrip = (beaconStatus: "active" | "inactive" | "removing" = "active", inactiveReason?: "manual") => {
   const tiles = new Map<string, StructurePlannerTile>();
   for (let y = 98; y <= 102; y += 1) {
     for (let x = 90; x <= 115; x += 1) {
@@ -63,8 +63,8 @@ describe("relay beacon spacing", () => {
     expect(plan).toBeUndefined();
   });
 
-  it("ignores a beacon disabled for another reason, which the AI never re-enables", () => {
-    const { tiles, owned } = buildStrip("inactive", "upkeep");
+  it("ignores a beacon disabled without the FOOD-relief reason, which the AI never re-enables", () => {
+    const { tiles, owned } = buildStrip("inactive");
     const plan = chooseBestRelayBeaconBuild(player, owned, tiles, [siteAt(tiles, EXISTING.x + 2)]);
     expect(plan?.tile).toMatchObject({ x: EXISTING.x + 2, y: 100 });
   });
@@ -75,7 +75,7 @@ describe("relay beacon spacing", () => {
     expect(plan?.tile).toMatchObject({ x: EXISTING.x + 2, y: 100 });
   });
 
-  it("ignores a FOOD-relief beacon on a FRONTIER tile, which can never be re-enabled", () => {
+  it("ignores a FOOD-relief beacon while its tile is FRONTIER, where re-enabling is rejected", () => {
     const { tiles, owned } = buildStrip("inactive", "manual");
     tiles.get(`${EXISTING.x},${EXISTING.y}`)!.ownershipState = "FRONTIER";
     const plan = chooseBestRelayBeaconBuild(player, owned, tiles, [siteAt(tiles, EXISTING.x + 2)]);
@@ -88,6 +88,20 @@ describe("relay beacon spacing", () => {
     tiles.set("106,104", { x: 106, y: 104, terrain: "LAND", resource: "FISH" });
     const plan = chooseBestRelayBeaconBuild(player, owned, tiles, [siteAt(tiles, EXISTING.x + 2)]);
     expect(plan?.tile).toMatchObject({ x: EXISTING.x + 2, y: 100 });
+  });
+
+  it("does not exempt a prize already inside an active beacon's reach", () => {
+    const { tiles, owned } = buildStrip();
+    tiles.set("103,104", { x: 103, y: 104, terrain: "LAND", resource: "FISH" });
+    const plan = chooseBestRelayBeaconBuild(player, owned, tiles, [siteAt(tiles, EXISTING.x + 2)]);
+    expect(plan).toBeUndefined();
+  });
+
+  it("does not exempt a prize beside a FOOD-relief beacon, whose re-enable would reach it", () => {
+    const { tiles, owned } = buildStrip("inactive", "manual");
+    tiles.set("103,104", { x: 103, y: 104, terrain: "LAND", resource: "FISH" });
+    const plan = chooseBestRelayBeaconBuild(player, owned, tiles, [siteAt(tiles, EXISTING.x + 2)]);
+    expect(plan).toBeUndefined();
   });
 
   it("keeps ringing beacons from filling the strip", () => {
