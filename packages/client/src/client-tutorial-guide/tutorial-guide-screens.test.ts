@@ -82,7 +82,7 @@ beforeEach(() => {
 describe("tutorial guide over panels and screens", () => {
   it("lifts the card above an open side panel, such as Manpower, and drops it back once closed", () => {
     const state = footholdDoneState();
-    startAt(state, 3); // zoom, select, relay beacon -> manpower
+    startAt(state, 2); // zoom, relay beacon -> manpower
     expect(cardTitle()).toBe("Tap your manpower gauge");
     expect(card()?.classList.contains("tg-raised")).toBe(false);
 
@@ -101,7 +101,7 @@ describe("tutorial guide over panels and screens", () => {
   it("stays visible on the new HUD's Manifest screen and marks the recommended Manifest there", () => {
     const state = footholdDoneState();
     document.body.classList.add("hud-v2");
-    startAt(state, 4); // ... manpower -> open Manifests
+    startAt(state, 3); // ... manpower -> open Manifests
     expect(cardTitle()).toBe("Open Manifests");
 
     const host = document.createElement("div");
