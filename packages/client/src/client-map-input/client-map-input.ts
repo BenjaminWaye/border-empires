@@ -1,4 +1,4 @@
-import { noteGuideMapPanned, noteGuideMapZoomed, noteGuideTileSelected } from "../client-tutorial-guide/tutorial-guide-input-signals.js";
+import { noteGuideMapPanned, noteGuideMapZoomed } from "../client-tutorial-guide/tutorial-guide-input-signals.js";
 import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import { deltaYInPixels, zoomStepFor } from "../client-map-zoom-step/client-map-zoom-step.js";
 import type { initClientDom } from "../client-dom.js";
@@ -114,7 +114,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     const focusedAlert = focusPersistentAlertAtPointer(offsetX, offsetY, clientX, clientY);
     if (!focusedAlert) {
       const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
-      noteGuideTileSelected();
       deps.handleTileSelection(wx, wy, clientX, clientY);
     }
     deps.interactionFlags.suppressNextClick = true;
@@ -136,7 +135,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     }
     if (focusPersistentAlertAtPointer(ev.offsetX, ev.offsetY, ev.clientX, ev.clientY)) return;
     const { wx, wy } = worldTileFromPointer(ev.offsetX, ev.offsetY);
-    noteGuideTileSelected();
     deps.handleTileSelection(wx, wy, ev.clientX, ev.clientY);
   });
 

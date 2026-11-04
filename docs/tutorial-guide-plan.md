@@ -90,8 +90,8 @@ is unavailable until the recommended Manifest exists.
 
 | # | Chapter | Step (completes when…) | Target |
 |---|---|---|---|
-| 1 | Look around | drag the map; zoom; tap your AFC (player input, via `client-map-input.ts`, shared by both renderers). Any tap completes it, but the step points at the AFC because, on the new desktop HUD, tapping neutral land next to your border claims it at once | the AFC tile |
-| 2 | A foothold | the four checklist goals (`onboardingChecklistState`): find a town; take it; find food; take 4 food slots | see below |
+| 1 | Look around | drag the map; zoom (player input, via `client-map-input.ts`, shared by both renderers). There is no separate "tap a tile" step: the foothold steps teach tapping with a real objective ("Tap the marked town and …"). A bare tap had no goal, and on the new desktop HUD a tap on neutral land next to your border claims it | — |
+| 2 | A foothold | two of the checklist goals (`onboardingChecklistState`): take a town, then take 4 food slots. There are no separate "find" steps: they could only wait, with no instruction, when nothing was in sight | see below |
 | 3 | Manpower | the manpower panel is open | manpower gauge |
 | 4 | Manifests | the Manifest panel is open; a Manifest commissioned (`techIds`). The step recommends the **Industrial Tooling Module** (`trade`): tier 1, 10 Coin, and it unlocks the Manufactory | Manifest button |
 | 5 | Build | owns a structure other than a Relay Beacon. Available once the Industrial Tooling Module is commissioned. It asks for a **Manufactory**, which goes on a garrisoned town (never the spawn settlement) or its support ring and uses one food slot. Until the module docks on an active AFC (about a minute; the tile menu hides the Manufactory until then), the step says it is docking. Without the module, the step waits with a pointer to that Manifest. The Manifest step itself completes only on that Manifest, or once anything has been built | the player's garrisoned towns |
@@ -114,9 +114,10 @@ the same rule.
 - Otherwise, a neutral target in vision (not fogged), in practice one outside
   reach: "Expand To it". Expand To walks the border across through a waypoint
   chain.
-- Otherwise, nothing in vision: "Build a Relay Beacon at the edge of your
-  land". Only the checklist's recommended beacon site is ringed, when there is
-  one.
+- Otherwise, nothing in vision: "build a Relay Beacon: tap the marked tile,
+  then Build" when the checklist has a recommended beacon site (only that site
+  is ringed). Without a site, the step says "…on a garrisoned tile at the edge
+  of your land".
 - While a claim or garrison on a target is already underway
   (`optimisticPending`, for example right after Expand To), the step says so
   instead of asking for a Garrison that is already queued.

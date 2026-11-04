@@ -11,7 +11,6 @@ import { onboardingChecklistState, type OnboardingChecklistState } from "../clie
 import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
 import { guideInputSignals } from "./tutorial-guide-input-signals.js";
 import { RECOMMENDED_FIRST_MANIFEST_ID, type GuideInput } from "./tutorial-guide-steps.js";
-import { findHomeAfcTile } from "../client-afc-locate/client-afc-locate.js";
 import { isMeetablePlayerId } from "../client-alliance/client-met-players.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
@@ -119,7 +118,6 @@ let cached:
       scan: TileScan;
       footholdTargets: GuideFootholdTargets;
       musterUnlocked: boolean;
-      afcTile: { x: number; y: number } | undefined;
     }
   | undefined;
 
@@ -141,10 +139,6 @@ const openPanelOf = (state: GuideInputState): string | null =>
         ? "alliance"
         : null);
 
-const afcTileOf = (state: GuideInputState): { x: number; y: number } | undefined => {
-  const afc = findHomeAfcTile(state);
-  return afc ? { x: afc.x, y: afc.y } : state.homeTile;
-};
 
 export const buildGuideInput = (state: GuideInputState): GuideInput => {
   if (!cached || cached.revision !== state.tilesRevision || cached.chunks !== state.chunkFullCount || cached.me !== state.me) {
@@ -155,8 +149,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
       checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail),
       scan: scanGuideTiles(state.tiles, state.me, state.homeTile),
       footholdTargets: scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile)),
-      musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId),
-      afcTile: afcTileOf(state)
+      musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)
     };
   }
   const signals = guideInputSignals();
@@ -166,14 +159,12 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     footholdTargets: cached.footholdTargets,
     panned: signals.panned,
     zoomed: signals.zoomed,
-    tileSelected: signals.tileSelected,
     openPanel,
     hudV2: bodyHasClass("hud-v2"),
     activityDashboardOpen: state.activityDashboard.open || state.activityDashboard.chronicleOpen,
     manifestCount: state.techIds.filter((id) => id !== state.techRootId).length,
     manufactoryResearched: state.techIds.includes(RECOMMENDED_FIRST_MANIFEST_ID),
     manufactoryUnlocked: cached.scan.manufactoryInstalled,
-    afcTile: cached.afcTile,
     rivalHouseMet: cached.scan.rivalHouseMet,
     diplomacyUsed: openPanel === "alliance" || openPanel === "social" || state.outgoingTruceRequests.length > 0 || state.activeTruces.length > 0 || state.allies.length > 0,
     ownsBuiltStructure: cached.scan.ownsBuiltStructure,
