@@ -6,8 +6,8 @@ const context = (changes: Partial<NetworkBiomeContext> = {}): NetworkBiomeContex
   biome: "GRASS", forest: false, hills: false, tropical: false, nearMountains: false, ...changes
 });
 describe("frontier habitats and progression", () => {
-  it("gives all five resources the same thousand-tile standard-map budget", () => {
-    for (const resource of NETWORK_RESOURCES) expect(RESOURCE_NETWORKS[resource].sitesPerStandardMap).toBe(1000);
+  it("keeps frontier deposits scarce on a 360-town standard map", () => {
+    expect(NETWORK_RESOURCES.map(resource => RESOURCE_NETWORKS[resource].sitesPerStandardMap)).toEqual([160, 160, 160, 70, 90]);
   });
   it("prefers forest resin, rocky/cold conductors, arid catalysts and tropical luxury plants", () => {
     expect(networkBiomePriority("NEURAL_RESIN", context({ forest: true }))).toBe(0);

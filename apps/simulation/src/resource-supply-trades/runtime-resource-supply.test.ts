@@ -6,7 +6,7 @@ describe("resource trade inventory projection",()=>{
   it("keeps a very large empire's offer inventory within the quantity accepted by the wire schema",()=>{
     const player=buildPlayer("large");
     const supply=new RuntimeResourceSupply({now:()=>1,player:()=>player,ownedTiles:()=>[],
-      physicalUpkeep:()=>({FOOD:20000,TITANIUM:0,CRYSTAL:0,UMBRITE:0}),networkUsed:emptyNetworkSiteCounts,
+      physicalUpkeep:()=>({FOOD:20000,TITANIUM:0,CRYSTAL:0,UMBRITE:0}),
       tileSettledAtByKey:new Map<string,number>(),beforeChange:()=>undefined,invalidate:()=>undefined,changed:()=>undefined});
     expect(supply.available("large").FOOD).toBe(10000);
     expect(ResourceSupplyOfferSchema.safeParse(supply.available("large")).success).toBe(true);
@@ -14,7 +14,7 @@ describe("resource trade inventory projection",()=>{
   it("refuses cancellation by a House outside the agreement, then permits either participant",()=>{
     const player=buildPlayer("large");
     const supply=new RuntimeResourceSupply({now:()=>1,player:()=>player,ownedTiles:()=>[],
-      physicalUpkeep:()=>({FOOD:2,TITANIUM:0,CRYSTAL:0,UMBRITE:0}),networkUsed:emptyNetworkSiteCounts,
+      physicalUpkeep:()=>({FOOD:2,TITANIUM:0,CRYSTAL:0,UMBRITE:0}),
       tileSettledAtByKey:new Map<string,number>(),beforeChange:()=>undefined,invalidate:()=>undefined,changed:()=>undefined},
       [{id:"contract",proposerId:"large",targetId:"other",proposerGives:{FOOD:1},targetGives:{},startedAt:1}]);
     expect(supply.cancel("contract","stranger").ok).toBe(false);
@@ -28,7 +28,7 @@ describe("resource trade inventory projection",()=>{
     let reads=0;
     const player=buildPlayer("new");
     const supply=new RuntimeResourceSupply({now:()=>1,player:()=>player,ownedTiles:()=>{reads++;return [];},
-      physicalUpkeep:()=>({FOOD:0,TITANIUM:0,CRYSTAL:0,UMBRITE:0}),networkUsed:emptyNetworkSiteCounts,
+      physicalUpkeep:()=>({FOOD:0,TITANIUM:0,CRYSTAL:0,UMBRITE:0}),
       tileSettledAtByKey:new Map<string,number>(),beforeChange:()=>undefined,invalidate:()=>undefined,changed:()=>undefined});
     expect(supply.network("new")).toEqual(emptyNetworkSiteCounts());expect(reads).toBe(0);
   });
@@ -38,7 +38,7 @@ describe("resource trade inventory projection",()=>{
     const beforeChange=vi.fn(),invalidate=vi.fn(),publish=vi.fn();
     const supply=new RuntimeResourceSupply({now:()=>10,player:id=>buildPlayer(id),ownedTiles:()=>[],
       physicalUpkeep:id=>({FOOD:id==="caster" ? Number(siphoned) : Number(!siphoned),TITANIUM:0,CRYSTAL:0,UMBRITE:0}),
-      networkUsed:emptyNetworkSiteCounts,tileSettledAtByKey:new Map<string,number>(),beforeChange,invalidate,changed:()=>undefined,publish},
+      tileSettledAtByKey:new Map<string,number>(),beforeChange,invalidate,changed:()=>undefined,publish},
       [{id:"contract",proposerId:"caster",targetId:"buyer",proposerGives:{FOOD:1},targetGives:{},startedAt:1}]);
     expect(supply.ledger.allocation(10).fulfilled.has("contract")).toBe(false);
     const oldTile={x:1,y:1,terrain:"LAND" as const,ownerId:"victim",ownershipState:"SETTLED" as const,resource:"FARM" as const};
@@ -58,7 +58,7 @@ describe("resource trade inventory projection",()=>{
       economicStructure:{ownerId:"victim",type:"RESIN_EXTRACTOR" as const,status:"active" as const},
       sabotage:{ownerId:"caster",observatoryTileKey:"4,4",endsAt:Number.MAX_SAFE_INTEGER,outputMultiplier:0}};
     const supply=new RuntimeResourceSupply({now:()=>10,player:id=>buildPlayer(id),ownedTiles:()=>[],
-      physicalUpkeep:()=>({FOOD:0,TITANIUM:0,CRYSTAL:0,UMBRITE:0}),networkUsed:emptyNetworkSiteCounts,
+      physicalUpkeep:()=>({FOOD:0,TITANIUM:0,CRYSTAL:0,UMBRITE:0}),
       siphonCasterIds:()=>["caster"],siphonedTiles:id=>id==="caster"?[drained]:[],
       tileSettledAtByKey:new Map<string,number>(),beforeChange,invalidate,changed:()=>undefined,publish});
     const food={x:2,y:1,terrain:"LAND" as const,ownerId:"victim",ownershipState:"SETTLED" as const,resource:"FARM" as const};

@@ -1,6 +1,5 @@
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
 import { buildLivePlayerEconomySnapshot } from "../live-economy-snapshot.js";
-import { enrichSnapshotTilesForPlayer } from "../live-snapshot-view/live-snapshot-view.js";
 import { describe, expect, it, vi } from "vitest";
 import { MANPOWER_REFILL_WINDOW_MS, NETWORK_RESOURCES, RESOURCE_NETWORKS, lastManpowerRefillAtMs, structureBuildDurationMs } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
@@ -10,10 +9,10 @@ import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
 const boundary = lastManpowerRefillAtMs("p", 100 * MANPOWER_REFILL_WINDOW_MS);
 const techIds = new Set(NETWORK_RESOURCES.map(resource => RESOURCE_NETWORKS[resource].tech));
 const land = (x: number,y: number): DomainTileState => ({ x,y,terrain:"LAND",ownerId:"p",ownershipState:"SETTLED" });
-function fixture(developed: boolean, now: () => number, manpower = 0, techs: Set<string> = techIds, extraConsumers = false, consumers?: { factories: number; depots: number }): SimulationRuntime {
+function fixture(developed: boolean, now: () => number, manpower = 0, techs: Set<string> = techIds, extraConsumers = false, consumers?: { factories: number; depots: number }, townTier: "TOWN" | "CITY" | "METROPOLIS" = "TOWN"): SimulationRuntime {
   const tiles: DomainTileState[] = [];
   for (let y = 9; y <= 11; y += 1) for (let x = 9; x <= 11; x += 1) tiles.push(land(x,y));
-  tiles.find(tile => tile.x === 10 && tile.y === 10)!.town = { name:"Heartland",type:"MARKET",populationTier:"TOWN",population:50000,maxPopulation:100000 };
+  tiles.find(tile => tile.x === 10 && tile.y === 10)!.town = { name:"Heartland",type:"MARKET",populationTier:townTier,population:50000,maxPopulation:100000 };
   for (const [x,y,type] of [[9,9,"ANCILLARY_FACTORY"],[9,10,"MANUFACTORY"],[9,11,"TRADE_NEXUS"]] as const) {
     tiles.find(tile => tile.x === x && tile.y === y)!.economicStructure = { ownerId:"p", type, status:"active" };
   }
@@ -41,47 +40,27 @@ function fixture(developed: boolean, now: () => number, manpower = 0, techs: Set
 const player = (runtime: SimulationRuntime) => runtime.exportState().players.find(entry => entry.id === "p")!;
 
 describe("resource networks in the real runtime", () => {
-  it.each([[0, 1, 12], [1, 0, 6], [2, 1, 24], [3, 1, 24], [0, 2, 12]])("%i factories and %i depots receive exactly %i resource Ancillaries per cycle", (factories, depots, expected) => {
+  it.each([[0, 0], [1, 0], [0, 2], [3, 1]])("adds 120 per refill for each material type with %i factories and %i depots", (factories, depots) => {
     const baseline = fixture(false, () => boundary, 0, techIds, false, { factories, depots });
     const developed = fixture(true, () => boundary, 0, techIds, false, { factories, depots });
     const base = player(baseline), boosted = player(developed);
-    expect((boosted.manpowerRegenPerMinute! - base.manpowerRegenPerMinute!) * 240).toBeCloseTo(expected);
+    expect((boosted.manpowerRegenPerMinute! - base.manpowerRegenPerMinute!) * 240).toBeCloseTo(360);
     expect(boosted.manpowerCap).toBe(base.manpowerCap);
-    const slots = buildLivePlayerEconomySnapshot("p", developed.exportState()).resourceSlots.bonusSupply!;
-    expect(slots.used.NEURAL_RESIN).toBe(Math.min(1, depots));
-    expect(slots.used.CONDUCTIVE_MINERALS).toBe(Math.min(2, factories));
   });
-  it("pays the actual additional Ancillaries at the batch boundary, without changing capacity", () => {
+  it("pays the additional Ancillaries at the batch boundary and names them in the breakdown", () => {
     let now = boundary;
     const baseline=fixture(false,()=>now), developed=fixture(true,()=>now);
-    const base=player(baseline), boosted=player(developed);
-    expect(boosted.manpowerCap).toBe(base.manpowerCap);
-    expect((boosted.manpowerRegenPerMinute! - base.manpowerRegenPerMinute!) * 240).toBeCloseTo(18);
-    expect(boosted.manpowerBreakdown?.regen.find(row => row.label === "Ancillary resource network")?.amount).toBeCloseTo(18/240);
+    const boosted=player(developed);
+    expect(boosted.manpowerBreakdown?.regen.find(row => row.label === "Resin, conductive and catalyst")?.amount).toBeCloseTo(360/240);
+    player(baseline);
     now += MANPOWER_REFILL_WINDOW_MS;
-    expect(player(developed).manpower! - player(baseline).manpower!).toBeCloseTo(18);
+    expect(player(developed).manpower! - player(baseline).manpower!).toBeCloseTo(360);
   });
-  it("credits real Coin, attributes it in the breakdown and updates displayed town income", () => {
-    let now=boundary;
+  it("no longer pays Coin for biota, catalyst or salvage", () => {
+    const now=boundary;
     const baseline=fixture(false,()=>now),developed=fixture(true,()=>now);
     baseline.applyPassiveIncome(now,Number.MAX_SAFE_INTEGER); developed.applyPassiveIncome(now,Number.MAX_SAFE_INTEGER);
-    const b0=player(baseline),d0=player(developed);
-    expect(d0.incomePerMinute!-b0.incomePerMinute!).toBeCloseTo(4.5/1440,5);
-    now += 60 * 60_000;
-    baseline.applyPassiveIncome(now,Number.MAX_SAFE_INTEGER); developed.applyPassiveIncome(now,Number.MAX_SAFE_INTEGER);
-    expect((player(developed).points!-d0.points!)-(player(baseline).points!-b0.points!)).toBeCloseTo(4.5/24,3);
-    const detailFor = (runtime: SimulationRuntime) => {
-      const state = runtime.exportState();
-      const economy = buildLivePlayerEconomySnapshot("p", state);
-      const enriched = enrichSnapshotTilesForPlayer("p", state, state.tiles, economy);
-      return enriched.find(tile=>tile.x===10&&tile.y===10);
-    };
-    const town=detailFor(developed);
-    const baseTown=detailFor(baseline);
-    expect(town?.townJson).toBeDefined();
-    const detail=JSON.parse(town!.townJson!) as {goldPerMinute:number};
-    const baseDetail=JSON.parse(baseTown!.townJson!) as {goldPerMinute:number};
-    expect((detail.goldPerMinute-baseDetail.goldPerMinute)*1440).toBeCloseTo(4.5,2);
+    expect(player(developed).incomePerMinute).toBeCloseTo(player(baseline).incomePerMinute!, 6);
   });
   it("settles the old rate when a developed site is lost halfway through a batch", async () => {
     let now=boundary;
@@ -95,27 +74,27 @@ describe("resource networks in the real runtime", () => {
       expect(seen.filter(event=>event.eventType==="COMMAND_REJECTED")).toEqual([]);
     }
     now += MANPOWER_REFILL_WINDOW_MS/2;
-    expect(player(developed).manpower!-player(baseline).manpower!).toBeCloseTo(12);
+    expect(player(developed).manpower!-player(baseline).manpower!).toBeCloseTo(360/2 + 240/2);
   });
-  it("does not duplicate supply slots across additional factories or towns", () => {
-    const baseline=fixture(false,()=>boundary,0,techIds,true), developed=fixture(true,()=>boundary,0,techIds,true);
-    const base=player(baseline), boost=player(developed);
-    expect((boost.manpowerRegenPerMinute!-base.manpowerRegenPerMinute!)*240).toBeCloseTo(24);
-    expect((boost.incomePerMinute!-base.incomePerMinute!)*1440).toBeCloseTo(4.5,3);
-    const slots=buildLivePlayerEconomySnapshot("p",developed.exportState()).resourceSlots.bonusSupply;
-    expect(slots?.supply.NEURAL_RESIN).toBe(1);
-    expect(slots?.used.NEURAL_RESIN).toBe(1);
-    expect(slots?.supply.CONDUCTIVE_MINERALS).toBe(2);
-    expect(slots?.used.CONDUCTIVE_MINERALS).toBe(2);
-    expect(slots?.used.CATALYTIC_DEPOSIT).toBe(1);
-    expect(slots?.used.LUXURY_BIOTA).toBe(1);
-    expect(slots?.used.PRECURSOR_SALVAGE).toBe(1);
-    const extraTownCredits = (runtime: SimulationRuntime) => {
-      const state=runtime.exportState(), economy=buildLivePlayerEconomySnapshot("p",state);
-      return enrichSnapshotTilesForPlayer("p",state,state.tiles,economy).filter(tile=>tile.townJson).reduce((sum,tile)=>
-        sum+(JSON.parse(tile.townJson!) as {goldPerMinute:number}).goldPerMinute,0);
-    };
-    expect((extraTownCredits(developed)-extraTownCredits(baseline))*1440).toBeCloseTo(4.5,2);
+  it("reports every material and salvage site as working, and biota only when a large town needs it", () => {
+    const status = (tier: "TOWN" | "CITY") => buildLivePlayerEconomySnapshot("p", fixture(true, () => boundary, 0, techIds, false, undefined, tier).exportState()).resourceSlots.bonusSupply!;
+    for (const resource of NETWORK_RESOURCES) expect(status("TOWN").supply[resource]).toBe(1);
+    expect(status("TOWN").used).toMatchObject({ NEURAL_RESIN: 1, CONDUCTIVE_MINERALS: 1, CATALYTIC_DEPOSIT: 1, PRECURSOR_SALVAGE: 1, LUXURY_BIOTA: 0 });
+    expect(status("CITY").used.LUXURY_BIOTA).toBe(1);
+  });
+  it("a Metropolis without biota gives Town manpower and shows the shortfall", () => {
+    const starving = player(fixture(false, () => boundary, 0, techIds, false, undefined, "METROPOLIS"));
+    const town = player(fixture(false, () => boundary, 0, techIds, false, undefined, "TOWN"));
+    expect(starving.manpowerCap).toBe(town.manpowerCap);
+    expect(starving.manpowerRegenPerMinute).toBeCloseTo(town.manpowerRegenPerMinute!);
+    expect(starving.manpowerBreakdown?.cap.find(row => row.label === "Short of biota (1 town)")?.amount).toBe(-(1350 - 300));
+  });
+  it("one developed biota site lifts a Metropolis from Town to Great City manpower", () => {
+    const supplied = player(fixture(true, () => boundary, 0, techIds, false, undefined, "METROPOLIS"));
+    const starving = player(fixture(false, () => boundary, 0, techIds, false, undefined, "METROPOLIS"));
+    // Town line 300 -> 750, plus the Depot's capacity bonus, which scales with the town's working tier.
+    expect(supplied.manpowerCap! - starving.manpowerCap!).toBeGreaterThanOrEqual(750 - 300);
+    expect(supplied.manpowerBreakdown?.cap.find(row => row.label === "Short of biota (1 town)")?.amount).toBe(-(1350 - 750));
   });
   it("preserves deposits, installations and bonuses across snapshot recovery", () => {
     const runtime=fixture(true,()=>boundary);
@@ -126,20 +105,6 @@ describe("resource networks in the real runtime", () => {
     expect(after.incomePerMinute).toBe(before.incomePerMinute);
     expect(after.manpowerRegenPerMinute).toBe(before.manpowerRegenPerMinute);
     expect(initialState.tiles.filter(tile=>NETWORK_RESOURCES.some(resource=>resource===tile.resource))).toHaveLength(5);
-  });
-  it("settles credit at the old rate when an export concession is lost between income ticks", async () => {
-    let now=boundary;
-    const baseline=fixture(false,()=>now),developed=fixture(true,()=>now);
-    for (const runtime of [baseline,developed]) runtime.applyPassiveIncome(now,Number.MAX_SAFE_INTEGER);
-    const b0=player(baseline).points!,d0=player(developed).points!;
-    now += 60*60_000;
-    for (const runtime of [baseline,developed]) {
-      runtime.submitCommand({commandId:"abandon-catalyst",sessionId:"s",playerId:"p",clientSeq:1,issuedAt:now,type:"UNCAPTURE_TILE",payloadJson:JSON.stringify({x:22,y:20})});
-      await Promise.resolve();
-    }
-    now += 60*60_000;
-    for (const runtime of [baseline,developed]) runtime.applyPassiveIncome(now,Number.MAX_SAFE_INTEGER);
-    expect((player(developed).points!-d0)-(player(baseline).points!-b0)).toBeCloseTo(7.5/24,3);
   });
   it("requires the resource technology and the matching site through the actual build command", async () => {
     let now=boundary;
@@ -154,7 +119,7 @@ describe("resource networks in the real runtime", () => {
     const initialRate = player(runtime).manpowerRegenPerMinute!;
     now += structureBuildDurationMs("RESIN_EXTRACTOR");
     await vi.advanceTimersByTimeAsync(structureBuildDurationMs("RESIN_EXTRACTOR"));
-    expect((player(runtime).manpowerRegenPerMinute! - initialRate) * 240).toBeCloseTo(12);
+    expect((player(runtime).manpowerRegenPerMinute! - initialRate) * 240).toBeCloseTo(120);
     vi.useRealTimers();
     const locked=fixture(false,()=>now,500,new Set());
     const rejected=collectEvents(locked);

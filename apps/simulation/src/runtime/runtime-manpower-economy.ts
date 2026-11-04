@@ -29,9 +29,9 @@ export interface RuntimeManpowerEconomyContext {
 
 function baseManpowerCap(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
   if (player.id === "barbarian-1") return Number.MAX_SAFE_INTEGER;
-  const { ancillaryDepotCount, reserveLatticeNetworkAncillaryDepotCount, ancillaryFactoryCapacityBonusByTown } = ctx.cachedManpowerStructureBonusForPlayer(player);
+  const { ancillaryDepotCount, reserveLatticeNetworkAncillaryDepotCount, ancillaryFactoryCapacityBonusByTown, biotaTownSupply } = ctx.cachedManpowerStructureBonusForPlayer(player);
   return (
-    playerManpowerCapFromSummary(ctx.summaryForPlayer(player.id), ancillaryFactoryCapacityBonusByTown ? 0 : ancillaryDepotCount, ancillaryFactoryCapacityBonusByTown ? 0 : reserveLatticeNetworkAncillaryDepotCount, ancillaryFactoryCapacityBonusByTown) +
+    playerManpowerCapFromSummary(ctx.summaryForPlayer(player.id), ancillaryFactoryCapacityBonusByTown ? 0 : ancillaryDepotCount, ancillaryFactoryCapacityBonusByTown ? 0 : reserveLatticeNetworkAncillaryDepotCount, ancillaryFactoryCapacityBonusByTown, biotaTownSupply) +
     (wonderEffects.playerHasWonderType(ctx.wonderCacheByPlayer, player.id, "CONSCRIPTION_ENGINE") ? 2000 : 0)
   );
 }
@@ -40,14 +40,15 @@ function baseManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext, player: 
   // The Iron Levy (tech-tree redesign): a 2-hour empire-wide manpower
   // regen freeze after triggering the muster ability.
   if (ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now()) return 0;
-  const { neuralWorksNetworkAncillaryFactoryCount, ancillaryFactoryCount, censusDirectorateManpowerBuildingCount, resourceNetworkRegenPerMinute = 0 } =
+  const { neuralWorksNetworkAncillaryFactoryCount, ancillaryFactoryCount, censusDirectorateManpowerBuildingCount, resourceNetworkRegenPerMinute = 0, biotaTownSupply } =
     ctx.cachedManpowerStructureBonusForPlayer(player);
   return playerManpowerRegenPerMinuteFromSummary(
     ctx.summaryForPlayer(player.id),
     neuralWorksNetworkAncillaryFactoryCount,
     ancillaryFactoryCount,
     censusDirectorateManpowerBuildingCount,
-    player.galacticWonderManpowerRegenBonusPerMinute ?? 0
+    player.galacticWonderManpowerRegenBonusPerMinute ?? 0,
+    biotaTownSupply
   ) + resourceNetworkRegenPerMinute;
 }
 
@@ -77,7 +78,8 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
     neuralWorksNetworkAncillaryFactoryCount,
     ancillaryFactoryCount,
     censusDirectorateManpowerBuildingCount,
-    ancillaryFactoryCapacityBonusByTown
+    ancillaryFactoryCapacityBonusByTown,
+    biotaTownSupply
   } = ctx.cachedManpowerStructureBonusForPlayer(player);
   const breakdown = playerManpowerBreakdownFromSummary(
     ctx.summaryForPlayer(player.id),
@@ -87,10 +89,11 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
     ancillaryFactoryCount,
     censusDirectorateManpowerBuildingCount,
     player.galacticWonderManpowerRegenBonusPerMinute ?? 0,
-    ancillaryFactoryCapacityBonusByTown
+    ancillaryFactoryCapacityBonusByTown,
+    biotaTownSupply
   );
   const resourceBonus = ctx.cachedManpowerStructureBonusForPlayer(player).resourceNetworkRegenPerMinute ?? 0;
-  if (resourceBonus > 0) breakdown.regen.push({ label: "Ancillary resource network", amount: resourceBonus });
+  if (resourceBonus > 0) breakdown.regen.push({ label: "Resin, conductive and catalyst", amount: resourceBonus });
   const levy = alliedLevyShare(ctx, player);
   if (levy > 0) {
     breakdown.cap.push({ label: AFC_LEVY_SOURCE_LABEL, amount: baseManpowerCap(ctx, player) * levy });
