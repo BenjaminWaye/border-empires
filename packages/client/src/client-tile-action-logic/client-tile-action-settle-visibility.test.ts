@@ -132,7 +132,7 @@ describe("Settle Land / Settle Connected visibility gate", () => {
     state.me = "me";
     state.gold = 10_000;
     state.manpower = 10_000;
-    state.autoSettle = loadedAutoSettleState({ answered: false, towns: false, food: false, resources: false });
+    state.autoSettle = loadedAutoSettleState({ answered: false, towns: false, food: false, strategic: false, luxury: false });
     const farm = { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
     state.tiles.set(keyFor(1, 0), farm);
 
@@ -142,6 +142,21 @@ describe("Settle Land / Settle Connected visibility gate", () => {
     expect(settle?.autoSettleOption).toMatchObject({ category: "food", checked: false });
     expect(settle?.recommended).toBe(true);
     expect(findAction(actions, "settle_many")).toBeUndefined();
+  });
+
+  it("shows and recommends Garrison on a grown town's support tile before the economy is established", () => {
+    // Regression: support tiles counted as plain tiles, so without a garrisoned
+    // food tile they had no Garrison option at all.
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 10_000;
+    state.manpower = 10_000;
+    state.tiles.set(keyFor(0, 0), { ...settledTownTile, town: { name: "Capital", type: "FARMING", populationTier: "TOWN" } } as Tile);
+    state.tiles.set(keyFor(1, 0), frontierTile);
+
+    const settle = findAction(menuActionsForSingleTile(state, frontierTile, baseDeps as never), "settle_land");
+    expect(settle).toBeDefined();
+    expect(settle?.recommended).toBe(true);
   });
 
   it("also recommends it on a natural wonder, but not on a plain tile", () => {

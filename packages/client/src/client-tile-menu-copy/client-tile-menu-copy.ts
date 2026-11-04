@@ -7,6 +7,7 @@ export type TileMenuOverviewIntroInput = {
   resourceLabel?: string | undefined;
   isDockEndpoint?: boolean;
   hasTown?: boolean;
+  requiresDevelopment?: boolean;
   ownershipState?: Tile["ownershipState"];
 };
 
@@ -20,6 +21,7 @@ export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): s
   if (input.terrain === "MOUNTAIN") {
     return ["Mountains block normal land expansion and attacks."];
   }
+  if (input.requiresDevelopment && input.resourceLabel) return [`Resource node: ${input.resourceLabel}.`];
   if (input.ownerKind === "unclaimed") {
     if (input.hasTown) {
       return input.resourceLabel ? [`Resource node: ${input.resourceLabel}.`] : [];

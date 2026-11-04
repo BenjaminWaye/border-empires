@@ -11,8 +11,8 @@ const snapshot = (): PlayerSubscriptionSnapshot => ({
     manpower: 10,
     manpowerCap: 100,
     incomePerMinute: 1,
-    strategicResources: { FOOD: 0, TITANIUM: 25, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-    strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+    strategicResources: { FOOD: 0, TITANIUM: 25, CRYSTAL: 0, UMBRITE: 0 },
+    strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
     developmentProcessLimit: 2,
     activeDevelopmentProcessCount: 0,
     pendingSettlements: [],
@@ -36,6 +36,15 @@ const snapshot = (): PlayerSubscriptionSnapshot => ({
 // tests cover every regression either copy
 // independently accumulated, now against the single merged implementation.
 describe("applyPlayerMessageToSnapshot", () => {
+  it("refreshes committed resource supply in the cached reconnect snapshot", () => {
+    const agreement = { id: "supply-1", proposerId: "player-1", targetId: "other", proposerGives: { NEURAL_RESIN: 1 }, targetGives: {}, startedAt: 1, expiresAt: 100, fulfilled: true };
+    const updated = applyPlayerMessageToSnapshot(snapshot(), { type: "PLAYER_UPDATE", resourceTradeHoldings: { FOOD: 2 }, resourceTradeAgreements: [agreement] });
+    expect(updated.player?.resourceTradeHoldings).toEqual({ FOOD: 2 });
+    expect(updated.player?.resourceTradeAgreements).toEqual([agreement]);
+    const expired = applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", resourceTradeHoldings: { FOOD: 2, NEURAL_RESIN: 1 }, resourceTradeAgreements: [] });
+    expect(expired.player?.resourceTradeAgreements).toEqual([]);
+    expect(expired.player?.resourceTradeHoldings?.NEURAL_RESIN).toBe(1);
+  });
   // Resource slots: the client
   // build-affordability gate reads resourceSlots off ClientState, sourced
   // from this cached PlayerSubscriptionSnapshot on reconnect -- a merge gap
@@ -106,7 +115,7 @@ describe("applyPlayerMessageToSnapshot", () => {
   });
 
   it("merges autoSettle prefs from a PLAYER_UPDATE and ignores a malformed value", () => {
-    const prefs = { answered: true, towns: true, food: false, resources: false };
+    const prefs = { answered: true, towns: true, food: false, strategic: false, luxury: false };
     const updated = applyPlayerMessageToSnapshot(snapshot(), { type: "PLAYER_UPDATE", autoSettle: prefs });
     expect(updated.player?.autoSettle).toEqual(prefs);
     const untouched = applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", autoSettle: { towns: "yes" } });
@@ -205,4 +214,10 @@ it("retains anonymous relic hints through updates and clears expired survey acce
   expect(updated.player?.relicMapHints).toEqual(hints);
   const cleared = applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", relicMapHints: [] });
   expect(cleared.player?.relicMapHints).toEqual([]);
+});
+
+it("keeps projected manpower batches current in cached reconnect snapshots", () => {
+  const updated = applyPlayerMessageToSnapshot(snapshot(), { type: "PLAYER_UPDATE", nextManpowerBatchAmount: 1 });
+  expect(updated.player?.nextManpowerBatchAmount).toBe(1);
+  expect(applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", nextManpowerBatchAmount: 0 }).player?.nextManpowerBatchAmount).toBe(0);
 });

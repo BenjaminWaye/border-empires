@@ -90,7 +90,7 @@ describe("domain unlock UI", () => {
         name: "Cogwork Foundries",
         tier: 2,
         requiresTechId: "logistics",
-        requirements: { gold: 14000, resources: { SHARD: 1 }, canResearch: false }
+        requirements: { gold: 14000, resources: {}, canResearch: false }
       })
     ];
     state.authSessionReady = true;

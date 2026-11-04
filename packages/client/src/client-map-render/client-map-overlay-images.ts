@@ -12,7 +12,7 @@ import {
 // in packages/client/public/overlays/, cache-busted by
 // overlayAssetVersion — bump it whenever overlay art changes.
 
-const overlayAssetVersion = "20261026-gravity-relay";
+const overlayAssetVersion = "20261029-food-tiles";
 export const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -45,6 +45,11 @@ export const aetherWallPylonImage = loadOverlayImage("aether-wall-pylon-overlay.
 
 export const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock-overlay-2.svg", "dock-overlay-3.svg"]);
 const legacyStructureOverlayImages = {
+  RESIN_EXTRACTOR: loadOverlayImage("resin-extractor-overlay.svg"),
+  IMPLANT_FOUNDRY: loadOverlayImage("implant-foundry-overlay.svg"),
+  CATALYST_REFINERY: loadOverlayImage("catalyst-refinery-overlay.svg"),
+  CULTIVATION_ESTATE: loadOverlayImage("cultivation-estate-overlay.svg"),
+  RECLAMATION_WORKS: loadOverlayImage("reclamation-works-overlay.svg"),
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
   MANUFACTORY: loadOverlayImage("manufactory-overlay.svg"),
   INCUBATION_ENGINE: loadOverlayImage("incubation-engine-overlay.svg"),
@@ -76,7 +81,6 @@ const legacyStructureOverlayImages = {
   ASTRAL_DOCK_PART_3: loadOverlayImage("aether-sail-overlay.svg"),
   IMPERIAL_EXCHANGE: loadOverlayImage("imperial-exchange-overlay.svg"),
   SOVEREIGN_SIEGE_ENGINE: loadOverlayImage("sovereign-siege-engine-overlay.svg"),
-  QUARTERMASTERS_OFFICE: loadOverlayImage("quartermasters-office-overlay.svg"),
   ANCILLARY_FACTORY: loadOverlayImage("ancillary-factory-overlay.svg"),
   RESERVE_LATTICE: loadOverlayImage("reserve-lattice-overlay.svg"),
   CENSUS_DIRECTORATE: loadOverlayImage("census-directorate-overlay.svg"),

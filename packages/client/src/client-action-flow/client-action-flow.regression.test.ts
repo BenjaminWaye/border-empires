@@ -122,19 +122,19 @@ describe("client action flow regressions", () => {
   it("keeps allowAdjacentToDock false at every click site, so a target merely adjacent to a dock does not instant-expand", () => {
     const source = actionFlowSource();
 
-    // A dock crossing (ATTACK or EXPAND) only ever lands you on the linked
-    // dock tile itself -- apps/simulation/src/dock-network/dock-network.ts's
-    // isValidDockCrossingTarget (and the AI planner's own crossing logic)
-    // both enforce that you must capture the dock before claiming or
-    // attacking land beyond it. An earlier change here left
+    // A dock crossing (ATTACK or EXPAND) only lands on the linked dock's
+    // landing ground -- the dock tile or a coastal tile beside it
+    // (packages/shared dock-landing, enforced by the simulation's
+    // isDockCrossingTarget); inland land beside the dock is never a valid
+    // target. Origin selection accepts the landing ground whatever this
+    // flag says, so `false` only keeps inland land out. An earlier change here left
     // allowAdjacentToDock at pickOriginForTarget's default (true), which
     // made the client instant-queue an EXPAND for a target merely adjacent
-    // to a paired dock -- a command the server always rejects with
+    // to a paired dock -- for inland land a command the server rejects with
     // NOT_ADJACENT (verified live), so the click just failed instead of
     // opening the tile menu. Reverted: every click site here passes `false`
-    // explicitly, so only an exact click on the dock's linked tile itself
-    // (still handled by pickOriginForTarget/pickDockOriginForTarget's exact
-    // match, unaffected by this flag) instant-expands.
+    // explicitly, so only a click on the dock's landing ground (handled by
+    // pickDockOriginForTarget, unaffected by this flag) instant-expands.
     expect(source).toContain("const frontierOrigin = pickOriginForTarget(wx, wy, false);");
     expect(source).toContain("const frontierOrigin = pickOriginForTarget(to.x, to.y, false);");
     expect(source).toContain("const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false);");

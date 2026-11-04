@@ -12,6 +12,7 @@ import type { MainThreadTaskTracker } from "./main-thread-task-tracker/main-thre
 import type { OwnershipChangeSample } from "./runtime/runtime-ownership-change-sample.js";
 
 export type RuntimeTileYieldEconomyContext = {
+  networkCreditByTown?: import("./resource-networks/resource-network-credit.js").NetworkCreditAllocation;
   player: DomainPlayer;
   townNetwork: ReturnType<typeof buildConnectedTownNetworkForPlayer>;
   fedTownKeys: Set<string>;
@@ -82,7 +83,7 @@ export type LockRecord = {
 
 export type LockedCombatResolution = {
   momentumSource?: { key: string; setAt: number };
-  breakthroughTarget?: { key: string; ownerId: string };
+  breakthroughTargets?: Array<{ key: string; ownerId: string }>;
   result: LockedFrontierCombatResult;
   defenderGoldLoss: number;
   targetRecentlyPillaged: boolean;
@@ -226,6 +227,11 @@ export type SimulationRuntimeOptions = {
   // playerId spawns territory in the new season, mirroring
   // pendingImperialWard's lifecycle — see ensurePlayerHasSpawnTerritory.
   pendingGalacticWonderBonus?: { playerId: string };
+  // Start time of the season this runtime belongs to, or undefined while it
+  // isn't active (pending/ended) -- drives the late-join landing reserve
+  // (landingManpowerReserve in @border-empires/shared). A getter because a
+  // pending season's start moves when it activates. Omitted: no late-join bonus.
+  seasonStartedAt?: () => number | undefined;
   commandTrace?: (sample: Record<string, unknown>) => void;
   onOwnershipChange?: (sample: OwnershipChangeSample) => void;
   // True while playerId has a live, connected client (a real SubscribePlayer
@@ -270,8 +276,6 @@ export type SimulationRuntimeOptions = {
     tileCount: number;
     durationMs: number;
   }) => void;
-  /** Called when a non-FALL shard is collected so the runtime can request an immediate checkpoint. */
-  onShardCollected?: () => void;
   /**
    * Phase 4: when this returns true the drain loop skips ai-lane background
    * jobs and yields immediately so that concurrent login exports run uncontested.
@@ -312,6 +316,8 @@ export type SimulationTileWireDelta = {
   frontierDecayKind?: FrontierDecayKind | undefined;
   breachShockUntil?: number | undefined;
   captureHoldUntil?: number | undefined;
+  warScarLevel?: number | undefined;
+  warScarUntil?: number | undefined;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;

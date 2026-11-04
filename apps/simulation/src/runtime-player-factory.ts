@@ -46,8 +46,8 @@ export const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
   techRootId: "rewrite-runtime",
   allies: new Set<string>(),
   truces: new Set<string>(),
-  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
   // New humans are asked (join prompt) before anything auto-settles on their
   // behalf; AI and repaired legacy records get everything on (see below).
   autoSettle: { ...NEW_PLAYER_AUTO_SETTLE_PREFS }
@@ -69,3 +69,14 @@ export const isAlliedOrTruced = (
   actor: { allies: ReadonlySet<string>; truces?: ReadonlySet<string> },
   otherPlayerId: string
 ): boolean => actor.allies.has(otherPlayerId) || (actor.truces?.has(otherPlayerId) ?? false);
+
+/** True when targetOwnerId is someone playerId may attack: not themselves, not an ally or truce partner. An unknown actor treats every other owner as hostile. */
+export const isHostileTileOwner = (
+  players: ReadonlyMap<string, { allies: ReadonlySet<string>; truces?: ReadonlySet<string> }>,
+  playerId: string,
+  targetOwnerId: string | undefined
+): boolean => {
+  if (!targetOwnerId || targetOwnerId === playerId) return false;
+  const actor = players.get(playerId);
+  return !actor || !isAlliedOrTruced(actor, targetOwnerId);
+};

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, BoxGeometry, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshStandardMaterial, Scene, ShaderLib, type Material } from "three";
+import { InstancedMesh, BoxGeometry, DataTexture, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshStandardMaterial, Scene, ShaderLib, type Material } from "three";
 import { createTreeMaterial } from "../client-map-3d-trees/client-map-3d-tree-material.js";
 import { markUnexploredStormClip } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 import { FOGGED_MIST_Y, createFoggedMistLayer } from "./client-map-3d-fogged-mist.js";
-import { FOGGED_MIST_HAZE_FRAGMENT_BLEND, applyFoggedMistHaze, applyFoggedMistHazeToScene } from "./client-map-3d-fogged-mist-haze.js";
+import { FOGGED_MIST_HAZE_FRAGMENT_BLEND, FOGGED_MIST_HAZE_FRAGMENT_MULTIPLY, applyFoggedMistHaze, applyFoggedMistHazeToScene, takesFoggedMistHaze } from "./client-map-3d-fogged-mist-haze.js";
+import { createFogOverlays } from "./client-map-3d-fog-overlays.js";
+import { FOGGED_EDGE_COVER_GLSL } from "./client-map-3d-fogged-edge-clip.js";
 import { FOGGED_MIST_FRAGMENT_SHADER, FOGGED_MIST_SHADE_GLSL } from "./client-map-3d-fogged-mist-shader.js";
 
 const isHazed = (material: Material): boolean => material.customProgramCacheKey().includes("foggedMistHaze");
@@ -29,6 +31,20 @@ describe("fogged mist haze on features rising out of the mist (3D)", () => {
     expect(mist.hazeUniforms.uFogMistTime).toBe(mist.material.uniforms.uTime);
     mist.rebuild({ camX: 10, camY: 10, halfW: 2, halfH: 2 }, () => "unexplored");
     expect(mist.hazeUniforms.uFogMistOn.value).toBe(0); // sheet hidden: no haze either
+  });
+
+  it("hazes buildings remembered under fog: every material on the building environment map", () => {
+    // Regression: remembered buildings would otherwise stand crisp on top of the mist, as trees once did.
+    const scene = new Scene();
+    const envMap = new DataTexture();
+    const building = new MeshStandardMaterial({ envMap });
+    const unrelated = new MeshStandardMaterial();
+    scene.add(new Mesh(new BoxGeometry(), [building, unrelated]));
+    const mist = createFoggedMistLayer(scene, () => 0, envMap);
+    mist.rebuild({ camX: 10, camY: 10, halfW: 2, halfH: 2 }, () => "fogged");
+    expect(isHazed(building)).toBe(true);
+    expect(isHazed(unrelated)).toBe(false);
+    expect(takesFoggedMistHaze(building, undefined)).toBe(false);
   });
 
   it("patches each material once across rebuilds", () => {
@@ -68,5 +84,34 @@ describe("fogged mist haze on features rising out of the mist (3D)", () => {
     expect(declared).toBeDefined();
     const calls = [FOGGED_MIST_FRAGMENT_SHADER, FOGGED_MIST_HAZE_FRAGMENT_BLEND].map((source) => /foggedMistShade\(([^;]*)\);/.exec(source)?.[1]);
     for (const call of calls) expect(argCount(call ?? "")).toBe(argCount(declared!));
+  });
+
+  it("hazes the fog overlays draped over hills, after their edge clip, so remembered hills don't break the fog", () => {
+    // Regression: the slate wash draped on a hill dome drew after the dome's own haze, painting it back out, so every
+    // remembered hill rose out of the mist as a dark patch cut off at the sheet's height.
+    const scene = new Scene();
+    const mist = createFoggedMistLayer(scene, () => 0);
+    const { fogDarkenOverlay, fogOwnershipOverlay } = createFogOverlays(scene, 4, mist.edgeUniforms, mist.hazeUniforms);
+    const compile = (material: Material): string => {
+      const shader = { vertexShader: ShaderLib.basic.vertexShader, fragmentShader: ShaderLib.basic.fragmentShader, uniforms: {} as Record<string, unknown> };
+      material.onBeforeCompile(shader as never, undefined as never);
+      expect(shader.uniforms.uFogMistMask).toBe(mist.hazeUniforms.uFogMistMask);
+      expect(shader.uniforms.uFogEdgeMask).toBe(mist.edgeUniforms.uFogEdgeMask); // edge clip kept
+      // Both patches bring the storm field GLSL; unguarded, the second copy fails to compile ("function already has a body").
+      expect(shader.fragmentShader.split("#ifndef FOGGED_EDGE_COVER")).toHaveLength(3);
+      expect(FOGGED_EDGE_COVER_GLSL.trim().startsWith("#ifndef FOGGED_EDGE_COVER\n#define FOGGED_EDGE_COVER")).toBe(true);
+      return shader.fragmentShader;
+    };
+    for (const mesh of [fogDarkenOverlay.settledHillMesh, fogDarkenOverlay.frontierHillMesh, fogDarkenOverlay.settledMesh]) {
+      const fragment = compile(mesh.material as Material);
+      expect(fragment).toContain(FOGGED_MIST_HAZE_FRAGMENT_BLEND.trim());
+      // Mixes the colour only: the wash keeps its alpha, so (wash over hazed dome) hazed == mist over (wash over dome).
+      expect(FOGGED_MIST_HAZE_FRAGMENT_BLEND).not.toContain("gl_FragColor.a");
+    }
+    for (const mesh of [fogOwnershipOverlay.settledHillMesh, fogOwnershipOverlay.frontierHillMesh]) {
+      const fragment = compile(mesh.material as Material);
+      expect(fragment).toContain(FOGGED_MIST_HAZE_FRAGMENT_MULTIPLY.trim()); // multiply tint fades to white, not to mist colour
+      expect(fragment).not.toContain(FOGGED_MIST_HAZE_FRAGMENT_BLEND.trim());
+    }
   });
 });

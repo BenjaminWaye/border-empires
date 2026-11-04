@@ -1,3 +1,4 @@
+import { ResourceSupplyAgreementSchema, MAX_RESOURCE_SUPPLY_AGREEMENTS, type ResourceSupplyAgreement } from "@border-empires/shared";
 import { applyRecoveredDiplomacy } from "./event-recovery-diplomacy.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
@@ -12,6 +13,7 @@ import { applyProgressionUpdateToRecoveredPlayer } from "./event-recovery-progre
 import { cloneRecoveredPlayerState, type RecoveredPlayerState } from "./event-recovery-player-state.js";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { PendingSettlementRecord } from "../player-runtime-summary.js";
+import { applyReachBorderChanges, decodeReachBorder, encodeReachBorder, type ReachBorderSnapshot } from "../reach-border-snapshot/reach-border-snapshot.js";
 
 type RecoveredTileState = {
   x: number;
@@ -26,6 +28,8 @@ type RecoveredTileState = {
   frontierDecayAt?: DomainTileState["frontierDecayAt"];
   frontierDecayKind?: DomainTileState["frontierDecayKind"];
   captureHoldUntil?: DomainTileState["captureHoldUntil"];
+  warScarLevel?: DomainTileState["warScarLevel"];
+  warScarUntil?: DomainTileState["warScarUntil"];
   town?: DomainTileState["town"];
   // Phase 3 (dormant): Phase 4 will start writing this unified field. Accepted
   // here so post-Phase-4 snapshots can be loaded by a Phase-3-era binary without
@@ -59,8 +63,11 @@ export type RecoveredSimulationState = {
   activeLocks: RecoveredLock[];
   season?: SimulationSeasonState;
   players?: RecoveredPlayerState[];
+  resourceSupplyAgreements?: readonly ResourceSupplyAgreement[];
   pendingSettlements?: PendingSettlementRecord[];
   playerYieldCollectionEpochByPlayer?: Array<{ playerId: string; collectedAt: number }>;
+  /** Persisted reach border (reach-border-snapshot.ts). Absent on snapshots written before it was saved. */
+  reachBorder?: ReachBorderSnapshot;
 };
 
 type RecoveredSimulationAccumulator = {
@@ -69,8 +76,16 @@ type RecoveredSimulationAccumulator = {
   activeLocks: Map<string, RecoveredLock>;
   season?: SimulationSeasonState;
   players: NonNullable<RecoveredSimulationState["players"]>;
+  resourceSupplyAgreements: ResourceSupplyAgreement[];
   pendingSettlements: NonNullable<RecoveredSimulationState["pendingSettlements"]>;
   playerYieldCollectionEpochByPlayer: Map<string, number>;
+  /**
+   * Undefined when the base state carries no border (a pre-persistence
+   * snapshot): REACH_BORDER_CHANGED diffs can't be applied to an unknown
+   * base, so they're dropped and the runtime falls back to rebuilding the
+   * border from tile ownership + anchors.
+   */
+  reachBorder?: Map<string, string>;
 };
 
 type TileDelta = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
@@ -88,6 +103,8 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
   ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
   ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
+  ...(typeof tile.warScarLevel === "number" ? { warScarLevel: tile.warScarLevel } : {}),
+  ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   // Overlays from the shared table: this list was once hand-written with no
   // muster line, so every restart dropped every active muster flag.
@@ -111,11 +128,21 @@ export const createRecoveredSimulationAccumulator = (
     activeLocks,
     ...(baseState.season ? { season: { ...baseState.season, ...(baseState.season.winner ? { winner: { ...baseState.season.winner } } : {}), victoryTrackers: baseState.season.victoryTrackers.map((tracker: SimulationSeasonState["victoryTrackers"][number]) => ({ ...tracker })) } } : {}),
     players: baseState.players ? baseState.players.map(cloneRecoveredPlayerState) : [],
+    resourceSupplyAgreements: [...(baseState.resourceSupplyAgreements ?? [])],
     pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
     playerYieldCollectionEpochByPlayer: new Map(
       (baseState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt])
     ),
+    ...(baseState.reachBorder ? { reachBorder: decodeReachBorder(baseState.reachBorder) } : {})
   };
+};
+
+// Battle scars (shared war-scars.ts): same "absent = unchanged, present but
+// not a number = cleared" rule as captureHoldUntil.
+const recoverWarScars = (tileDelta: TileDelta, existing: RecoveredTileState | undefined): Pick<RecoveredTileState, "warScarLevel" | "warScarUntil"> => {
+  const level = "warScarLevel" in tileDelta ? tileDelta.warScarLevel : existing?.warScarLevel;
+  const until = "warScarUntil" in tileDelta ? tileDelta.warScarUntil : existing?.warScarUntil;
+  return typeof level === "number" && typeof until === "number" ? { warScarLevel: level, warScarUntil: until } : {};
 };
 
 const applyTileDeltaToRecoveredAccumulator = (
@@ -171,6 +198,7 @@ const applyTileDeltaToRecoveredAccumulator = (
       : typeof existing?.captureHoldUntil === "number"
         ? { captureHoldUntil: existing.captureHoldUntil }
         : {}),
+    ...recoverWarScars(tileDelta, existing),
     ...(recoveredTown ? { town: recoveredTown } : {}),
     ...recoverOverlaySubstructures(tileDelta, existing)
   });
@@ -223,6 +251,15 @@ export const applySimulationEventsToRecoveredAccumulator = (
   events: SimulationEvent[]
 ): void => {
   for (const event of events) {
+    if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "RESOURCE_SUPPLY_CHANGED") {
+      const payload = JSON.parse(event.payloadJson) as { action?: string; agreement?: ResourceSupplyAgreement };
+      const row = ResourceSupplyAgreementSchema.parse(payload.agreement);
+      accumulator.resourceSupplyAgreements = accumulator.resourceSupplyAgreements.filter(entry => entry.id !== row.id);
+      if (payload.action === "created") {
+        if (accumulator.resourceSupplyAgreements.length >= MAX_RESOURCE_SUPPLY_AGREEMENTS) throw new RangeError("Resource agreement recovery capacity exceeded");
+        accumulator.resourceSupplyAgreements.push(row);
+      }
+    }
     if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "SOCIAL_STATE_SYNCED") {
       applyRecoveredDiplomacy(accumulator.players, event.playerId, event.payloadJson);
       continue;
@@ -239,6 +276,11 @@ export const applySimulationEventsToRecoveredAccumulator = (
           removeRecoveredPendingSettlement(accumulator, tileKey);
         }
       }
+      continue;
+    }
+
+    if (event.eventType === "REACH_BORDER_CHANGED") {
+      if (accumulator.reachBorder) applyReachBorderChanges(accumulator.reachBorder, event.changes);
       continue;
     }
 
@@ -295,12 +337,6 @@ export const applySimulationEventsToRecoveredAccumulator = (
         const defender = accumulator.players.find(player => player.id === defenderId);
         if (defender) ((defender.afcCampaign ??= {}).fortWardRecharges ??= {})[simulationTileKey(event.targetX, event.targetY)] = event.combatResult.wardRechargesAt;
       }
-      if (defenderId && event.combatResult?.hostileCaptureWarUntil) {
-        for (const [id, other] of [[event.playerId, defenderId], [defenderId, event.playerId]]) {
-          const player = accumulator.players.find(candidate => candidate.id === id);
-          if (player && other) ((player.afcCampaign ??= {}).wars ??= {})[other] = event.combatResult.hostileCaptureWarUntil;
-        }
-      }
       if (accumulator.activeLocks.has(event.commandId)) {
         accumulator.activeLocks.delete(event.commandId);
       }
@@ -338,7 +374,6 @@ export const applySimulationEventsToRecoveredAccumulator = (
               terrain: previousOrigin.terrain,
               ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
               ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
-              ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
               ...(previousOrigin.naturalWonder ? { naturalWonder: previousOrigin.naturalWonder } : {}),
               ...(previousOrigin.sabotage ? { sabotage: previousOrigin.sabotage } : {}),
               // Town survives the flip — mirrors the attacker-wins branch above and the runtime resolveLock path.
@@ -368,10 +403,12 @@ export const finalizeRecoveredSimulationAccumulator = (
   activeLocks: [...accumulator.activeLocks.values()].sort((left, right) => left.commandId.localeCompare(right.commandId)),
   ...("season" in accumulator && accumulator.season ? { season: accumulator.season } : {}),
   players: [...accumulator.players],
+  resourceSupplyAgreements: [...accumulator.resourceSupplyAgreements],
   pendingSettlements: [...accumulator.pendingSettlements],
   playerYieldCollectionEpochByPlayer: [...accumulator.playerYieldCollectionEpochByPlayer.entries()]
     .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
     .sort((left, right) => left.playerId.localeCompare(right.playerId)),
+  ...(accumulator.reachBorder ? { reachBorder: encodeReachBorder(accumulator.reachBorder) } : {})
 });
 
 export const recoverSimulationStateFromEvents = (
@@ -387,8 +424,11 @@ export const recoverSimulationStateFromEvents = (
       docks: seedWorld.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
       activeLocks: [],
       players: [],
+      resourceSupplyAgreements: [],
       pendingSettlements: [],
       playerYieldCollectionEpochByPlayer: [],
+      // A fresh seed world has no border yet; every change since is in `events`.
+      reachBorder: []
     },
     events
   );

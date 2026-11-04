@@ -27,6 +27,9 @@ const setup = async (status: DukeStatus | "not-a-duke" = dukeStatus(), apiPatch:
     order: vi.fn(ok),
     answerOffer: vi.fn(ok),
     moveAgainstCourt: vi.fn(ok),
+    declareGrievance: vi.fn(ok),
+    answerWrit: vi.fn(ok),
+    lendFleet: vi.fn(ok),
     ...apiPatch
   };
   const openPanel = vi.fn();
@@ -241,5 +244,48 @@ describe("refresh", () => {
     duke.setStatus(dukeStatus({ attention: [] }));
     await duke.controller.refresh();
     expect(duke.screen.textContent).toContain("All quiet");
+  });
+});
+
+describe("politics (§29)", () => {
+  const politics = (patch: Partial<NonNullable<DukeStatus["politics"]>> = {}): NonNullable<DukeStatus["politics"]> => ({
+    renown: 3,
+    grievance: null,
+    grievancesAgainstMe: [],
+    writ: null,
+    favor: { revoked: false, runawaySince: null },
+    lent: [],
+    rivals: [{ seasonId: "season-b", label: "House Alden", weight: 13, revoked: false, grievanceCost: 5, isAi: true }],
+    ...patch
+  });
+
+  it("declares a grievance against the chosen rival", async () => {
+    const { panel, api, controller } = await setup(dukeStatus({ politics: politics() }));
+    controller.showTab("COURT");
+    expect(panel.querySelector("[data-duke-grievances]")!.textContent).toContain("House Alden (AI)");
+    panel.querySelector<HTMLButtonElement>("[data-duke-declare]")!.click();
+    await flush();
+    expect(api.declareGrievance).toHaveBeenCalledWith("season-b");
+  });
+
+  it("answers a Writ, and a waiting Writ opens the Court tab from the attention list", async () => {
+    const writ = { kind: "STRIKE" as const, expiresAt: NOW + 2 * H, targetLabel: "Kel" };
+    const attention = [{ kind: "WRIT_PENDING" as const, severity: "NOTICE" as const, seasonId: null, label: "A Court envoy", at: null }];
+    const { screen, panel, api } = await setup(dukeStatus({ politics: politics({ writ }), attention }));
+    expect(screen.textContent).toContain("A Court envoy is waiting for your answer.");
+    screen.querySelector<HTMLElement>("[data-duke-attention]")!.click();
+    expect(panel.querySelector("[data-duke-writ]")!.textContent).toContain("raid Kel");
+    panel.querySelector<HTMLButtonElement>("[data-duke-writ-answer='decline']")!.click();
+    await flush();
+    expect(api.answerWrit).toHaveBeenCalledWith(false);
+  });
+
+  it("offers to lend a Fighter when the Court has turned a blind eye", async () => {
+    const status = dukeStatus({ systems: [dukeSystem({ fighters: [100] })], politics: politics({ favor: { revoked: true, runawaySince: NOW - 8 * 24 * H } }) });
+    const { panel, api, controller } = await setup(status);
+    controller.showTab("COURT");
+    panel.querySelector<HTMLButtonElement>("[data-duke-lend]")!.click();
+    await flush();
+    expect(api.lendFleet).toHaveBeenCalledWith("s1");
   });
 });

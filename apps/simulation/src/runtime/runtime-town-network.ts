@@ -1,3 +1,5 @@
+import { allocateNetworkCredit } from "../resource-networks/resource-network-credit.js";
+import { developedNetworkSites } from "../resource-networks/resource-networks.js";
 // Stage 4 town network/connectivity extraction out of runtime.ts (see
 // AGENTS.md / docs/agents/topic-runbooks.md for the god-class breakup plan).
 // These are pure relocations of existing runtime.ts method bodies into free
@@ -13,7 +15,6 @@
 // refreshEconomyCachesForTileChange / runtime-progression-command-context.ts
 // which read/mutate them directly, so ownership must not move here.
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { QUARTERMASTERS_OFFICE_RADIUS } from "@border-empires/game-domain";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -34,11 +35,11 @@ import type { RuntimePlayer, RuntimeTileYieldEconomyContext } from "../runtime-t
 import type { MainThreadTaskTracker } from "../main-thread-task-tracker/main-thread-task-tracker.js";
 
 export interface RuntimeTownNetworkContext {
+  networkSitesForPlayer?: (id: string) => import("@border-empires/shared").NetworkSiteCounts | undefined;
   tiles: Map<string, DomainTileState>;
   townNetworkCacheByPlayer: Map<string, Map<string, ConnectedTownNetworkEntry>>;
   townConnectivityStateByPlayer: Map<string, TownConnectivityState>;
   tileYieldContextCacheByPlayer: Map<string, RuntimeTileYieldEconomyContext>;
-  quartermastersOfficeTilesByOwner: Map<string, Set<string>>;
   trackSyncMainThreadTask?: MainThreadTaskTracker["trackSync"];
   players: Map<string, RuntimePlayer>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -132,23 +133,6 @@ export function reserveLatticeAlreadyInNetworkForPlayer(ctx: RuntimeTownNetworkC
   return reserveLatticeAlreadyInNetwork(playerId, townKey, ctx.tiles, townNetwork);
 }
 
-// Quartermaster's Office (tech-tree redesign): true when the player owns
-// an active Quartermaster's Office within QUARTERMASTERS_OFFICE_RADIUS
-// (Chebyshev) tiles of (x, y). A plain radius scan over the player's own
-// (rare, late-game) Quartermaster's Offices, same cost tradeoff as
-// monumentClaimOwnerId's full scan -- this only runs on a War-branch
-// structure build/upgrade command, not every tick.
-export function hasNearbyQuartermastersOfficeForPlayer(ctx: RuntimeTownNetworkContext, playerId: string, x: number, y: number): boolean {
-  const keys = ctx.quartermastersOfficeTilesByOwner.get(playerId);
-  if (!keys || keys.size === 0) return false;
-  for (const key of keys) {
-    const tile = ctx.tiles.get(key);
-    if (!tile || tile.economicStructure?.status !== "active") continue;
-    if (Math.max(Math.abs(tile.x - x), Math.abs(tile.y - y)) <= QUARTERMASTERS_OFFICE_RADIUS) return true;
-  }
-  return false;
-}
-
 // Census Hall (tech-tree redesign): connected-network Incubation Engine
 // (Incubation Engine) count, for the +20,000 population per connected city bonus.
 export function censusHallConnectedIncubationEngineBonusCountForPlayer(ctx: RuntimeTownNetworkContext, playerId: string, townKey: string): number {
@@ -166,6 +150,8 @@ export function tileYieldEconomyContextForPlayer(ctx: RuntimeTownNetworkContext,
     const settledTiles = ctx.settledTilesForPlayer(player.id);
     const context: RuntimeTileYieldEconomyContext = {
       player,
+      networkCreditByTown: allocateNetworkCredit(player.id, ctx.tiles, fedTownKeysForPlayer(ctx, player), ctx.dormantEconomicStructureKeysForPlayer(player.id),
+        ctx.networkSitesForPlayer?.(player.id) ?? developedNetworkSites(settledTiles, player.id, ctx.dormantEconomicStructureKeysForPlayer(player.id), player.techIds)),
       townNetwork: cachedTownNetworkForPlayer(ctx, player, settledTiles, 16),
       fedTownKeys: fedTownKeysForPlayer(ctx, player),
       // Skip expensive first-three-town key computation if the player has no
@@ -204,7 +190,8 @@ export function enrichTileWithTownContext(
         context.fedTownKeys,
         context.firstThreeTownKeys,
         context.townNetwork?.get(tileKey)?.connectedClearingHouseKeys,
-        context.dormantEconomicStructureKeys
+        context.dormantEconomicStructureKeys,
+        context.networkCreditByTown
       )
     : networkTown;
   return { ...tile, town: refreshedTown };

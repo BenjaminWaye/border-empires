@@ -31,7 +31,7 @@ import { createUmbriteSynthesisModuleOverlay } from "./client-map-3d-umbrite-syn
 
 type ModuleFamilyOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number) => number;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number, frozen?: boolean) => number;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -77,7 +77,8 @@ export type AfcOverlayGroup = {
   readonly dispose: () => void;
   // Docks the AFC itself plus up to AFC_SOCKET_COUNT of moduleTechIds (in
   // order) into their matching family overlay's next socket attachment.
-  readonly addAfc: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[]) => void;
+  // `frozen`: remembered under fog -- every part holds its rest pose.
+  readonly addAfc: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[], frozen?: boolean) => void;
   /** Current scene-space socket for a rendered module. The delivery FX reads
    * this after the visible-terrain rebuild, so a cargo streak lands on the
    * same socket as the permanent module rather than the AFC tile centre. */
@@ -97,15 +98,15 @@ export const createAfcOverlayGroup = (scene: Scene, maxAfcInstances: number, bui
   const attachmentsByModule = new Map<string, { x: number; y: number; z: number }>();
   const attachmentKey = (worldTileX: number, worldTileY: number, techId: string): string => `${worldTileX},${worldTileY}:${techId}`;
 
-  const addAfc = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[]): void => {
-    const index = afc.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY);
+  const addAfc = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[], frozen = false): void => {
+    const index = afc.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY, frozen);
     const attachments = afc.moduleSocketAttachments(index);
     moduleTechIds.slice(0, attachments.length).forEach((techId, i) => {
       const family = families.get(techId) ?? genericFamily;
       const attachment = attachments[i];
       if (!attachment) return;
       attachmentsByModule.set(attachmentKey(worldTileX, worldTileY, techId), attachment);
-      family.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, worldTileX, worldTileY);
+      family.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, worldTileX, worldTileY, frozen);
     });
   };
 

@@ -96,7 +96,7 @@ The shorthand `PART_1/2/3` above represents three separate existing IDs.
 | Category | Types | Treatment |
 |---|---|---|
 | Six active utilities | `HYDROWORKS`, `ORE_REFINERY`, `MINISTRY_HALL`, `RESONANCE_GRID`, `SKY_DOCK`, `AMBARIC_TRANSFORMER` | Remodel to match the family everywhere they occur; use town service sockets when on an assigned support plot. Preserve their independent effects, animations and targeting |
-| Retired saved structures | `WEAPONS_WORKSHOP`, `QUARTERMASTERS_OFFICE` | Supply matching compatibility variants; preserve saved identities/effects and keep them unavailable for new construction |
+| Retired saved structures | `WEAPONS_WORKSHOP` (`QUARTERMASTERS_OFFICE` was removed outright; boot migration drops saved copies) | Supply matching compatibility variants; preserve saved identities/effects and keep them unavailable for new construction |
 | Completed Great Projects | `IMPERIAL_EXCHANGE`, `SOVEREIGN_SIEGE_ENGINE`, `AEGIS_DOME`, `ASTRAL_DOCK`, `CENSUS_DIRECTORATE`, `TITANIUM_LEVY` | Preserve their monumental silhouettes and special footprints; adapt materials/foundations and provide a compatible service endpoint where appropriate, rather than shrinking them into an ordinary workshop |
 | Fortifications and siege assets | `FORT`, `TITANIUM_BASTION`, `THUNDER_BASTION`, `PALISADE`, `SIEGE_BATTERY`, `SIEGE_TOWER`, `DREAD_TOWER` | Preserve military models and placement rules; handle co-location and route clearance explicitly. These do not become town-dependent utility buildings |
 | Resource/dock structures | Mine, Hydrogarden, Umbrite Rig, Harbor Exchange and other non-town-support structures | Preserve terrain/dock-specific placement and appearance; prevent district foundations and links from covering their models or routes |

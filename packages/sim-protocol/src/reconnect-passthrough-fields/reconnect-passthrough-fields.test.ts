@@ -9,8 +9,8 @@ const basePlayer = (overrides: Partial<PlayerStateSnapshot> = {}): PlayerStateSn
   manpower: 10,
   manpowerCap: 100,
   incomePerMinute: 1,
-  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
   developmentProcessLimit: 2,
   activeDevelopmentProcessCount: 0,
   pendingSettlements: [],
@@ -66,7 +66,7 @@ describe("reconnectPassthroughFields", () => {
   });
 
   it("carries autoSettle through so a reconnecting new player is still asked (answered:false)", () => {
-    const prefs = { answered: false, towns: false, food: false, resources: false };
+    const prefs = { answered: false, towns: false, food: false, strategic: false, luxury: false };
     expect(reconnectPassthroughFields(basePlayer({ autoSettle: prefs })).autoSettle).toEqual(prefs);
   });
 
@@ -98,4 +98,9 @@ describe("reconnectPassthroughFields", () => {
     const result = reconnectPassthroughFields(basePlayer({ gold: 999 }));
     expect(result.gold).toBeUndefined();
   });
+});
+
+it("carries a projected batch amount, including zero, through reconnect", () => {
+  expect(reconnectPassthroughFields(basePlayer({ nextManpowerBatchAmount: 1 })).nextManpowerBatchAmount).toBe(1);
+  expect(reconnectPassthroughFields(basePlayer({ nextManpowerBatchAmount: 0 })).nextManpowerBatchAmount).toBe(0);
 });

@@ -10,16 +10,16 @@ const tiles = [
   { x: 0, y: 0, ownerId: "ai-1" }, { x: 0, y: 1, ownerId: "ai-1" },
   { x: 1, y: 0, ownerId: "human" }, { x: 1, y: 1, ownerId: "barbarian-1" }
 ];
-function setup(manpower = 900) {
+function setup(manpower = 900, goodwillCoin = 6000) {
   const social = createSocialState({ players: [{ id: "ai-1", name: "Alden" }, { id: "human", name: "Human" }] });
   const snapshots: Record<string, AiDiplomacySnapshot> = {
     "ai-1": { playerId: "ai-1", player: { name: "Alden", manpower, manpowerCap: 1000 }, tiles },
     human: { playerId: "human", player: { name: "Human", manpower: 800, manpowerCap: 1000 }, tiles }
   };
   const memory = createAiDiplomacyMemory({ now: () => Date.now(), isAi: () => true });
-  memory.recordPayment("ai-1", "human", 6000);
+  memory.recordPayment("ai-1", "human", goodwillCoin);
   const diplomacyContext = (requesterId: string, aiId: string) => ({ requesterBrokeTruceWithAi: false,
-    requesterTruceBreaksWithOthers: 0, memory: memory.view(aiId, requesterId), now: Date.now(),
+    requesterTruceBreaksWithOthers: 0, requesterBrokeAllianceWithAi: false, memory: memory.view(aiId, requesterId), now: Date.now(),
     alliesOf: (id: string) => social.snapshotForPlayer(id).allies });
   for (const snapshot of Object.values(snapshots)) {
     snapshot.worldStatus = { leaderboard: { overall: [{ id: "ai-1", tiles: 2 }, { id: "human", tiles: 1 }] } };
@@ -48,6 +48,12 @@ describe("proactive AI diplomacy", () => {
     const { coordinator, social } = setup();
     await coordinator.tick();
     expect(social.snapshotForPlayer("human").incomingAllianceRequests).toHaveLength(1);
+  });
+  // A Cautious AI would ally for tribute when asked, but doesn't go asking itself.
+  it("does not propose an alliance it would only take for tribute", async () => {
+    const { coordinator, social } = setup(900, 0);
+    await coordinator.tick();
+    expect(social.snapshotForPlayer("human").incomingAllianceRequests).toHaveLength(0);
   });
   it("does not knowingly hand bloc leadership to a larger neighbor", async () => {
     const { coordinator, social, snapshots } = setup();
@@ -98,9 +104,12 @@ describe("proactive AI diplomacy", () => {
   });
   it("runs AI-to-AI acceptance through the responder and syncs before accepted fanout", async () => {
     const { deps, social, snapshots } = setup(10);
-    // Both players are seeded AIs here. The recipient is exhausted, so the
-    // at war and exhausted, and the recipient already paid this war.
-    snapshots.human!.player!.manpower = 10;
+    // Both players are seeded AIs here. The spent offerer asks a strong
+    // rival for peace; the recipient accepts because the offerer outscores
+    // it (OUTMATCHED), and it already paid this war. Two equally spent AIs
+    // no longer truce at all (ai-war-exhaustion.ts RIVAL_ALSO_SPENT).
+    snapshots["ai-1"]!.worldStatus!.leaderboard.selfOverall = { id: "ai-1", tiles: 2, score: 200 };
+    snapshots.human!.worldStatus!.leaderboard.selfOverall = { id: "human", tiles: 1, score: 100 };
     const seeded = new Set(["ai-1", "human"]);
     const order: string[] = [];
     const syncTruce = vi.fn(async () => { order.push("simulation"); return true; });

@@ -20,8 +20,14 @@ describe("3d town rendering regression guard", () => {
     // any mention of the renderer handle.
     const bootstrapSource = clientSource("../client-bootstrap/client-bootstrap.ts");
     expect(bootstrapSource).toContain(
-      "    drawTownOverlay: (tile, px, py, size) => {\n      if (threeRendererHost.current()) {"
+      "    drawTownOverlay: (tile, px, py, size) => {\n      if (threeRendererHost.current()) return;"
     );
+    // The gold-coin town marker is gone on both renderers; the town nameplate marks towns.
+    expect(bootstrapSource).not.toContain("drawTownMarker");
+    const renderSource = clientSource("../client-map-render/client-map-render.ts");
+    expect(renderSource).not.toContain("drawTownMarker");
+    // With the coin gone, the 2D building must draw at every zoom: a culled plate would otherwise leave no mark.
+    expect(renderSource).not.toContain("if (size < 16) return;");
     // The 2D drawing path still calls drawTownOverlay through the dep
     // wrapper, so non-3D renderers keep their SVG town icons.
     const runtimeSource = clientSource("../client-runtime-loop.ts");

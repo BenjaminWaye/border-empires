@@ -1,39 +1,28 @@
 import type { ReachAnchor } from "@border-empires/shared";
 
 /**
- * Boot-time reconstruction of the persistent reach border.
+ * Anchor replay half of the boot-time border restore (see
+ * runtime-reach-border-restore.ts, which seeds the persisted border first and
+ * then calls this).
  *
- * `reachBorder` is deliberately NOT persisted -- it is rebuilt from anchor
- * geometry every boot by replaying each live anchor through the same
- * grantAnchorToBorder path a live activation uses. That replay must keep the
- * rival-SETTLED contest ON (see applyReachAnchorActivationToBorder's doc
- * comment): with it off, an anchor whose disk covered a rival's SETTLED tile
- * silently took the border slot with no `overtaken` entry and therefore no
- * unsettle, leaving `reachOwnerId` = one player and `ownerId`/SETTLED =
- * another. Because the border is rebuilt identically on every restart, that
- * mismatch was permanent and self-renewing rather than self-healing.
+ * Each live anchor is replayed through the same grantAnchorToBorder path a
+ * live activation uses. That replay must keep the rival-SETTLED contest ON
+ * (see applyReachAnchorActivationToBorder's doc comment): with it off, an
+ * anchor whose disk covered a rival's SETTLED tile silently took the border
+ * slot with no `overtaken` entry and therefore no unsettle, leaving
+ * `reachOwnerId` = one player and `ownerId`/SETTLED = another.
  *
  * What the seeding pass does still skip is neutral auto-claim
  * (`skipNeutralAutoClaim`), which would otherwise bulk-flip every neutral
  * tile under every anchor's disk to FRONTIER once at boot.
  *
- * The contest cannot cascade, which is what makes replaying anchors in any
- * order safe: an anchor only counts while its own tile is SETTLED
- * (gatherReachAnchors), and every anchor's disk contains its own tile
- * (tileKeysInReach / landGatedTileKeysInDisk both include it). So a rival's
- * anchor tile is always inside that rival's own live reach, always resolves
- * as defended, and is never overtaken -- the contest can only ever downgrade
- * NON-anchor tiles, so no anchor can deactivate midway through the replay.
- *
- * Anchor geometry alone leaves a second gap: a live empire's border grows
- * past any single anchor's base disk over a session (reach-auto-claim/EXPAND
- * pushes it outward tile by tile), and that accumulated shape isn't anchor
- * geometry, so this replay can't reproduce it. A FRONTIER tile a player still
- * owns can land outside every current anchor's disk after a restart. That is
- * harmless now that out-of-reach frontier no longer decays: the tile simply
- * stays the player's FRONTIER (unsettleable, and lost only if it is cut off
- * from supply -- see encirclement.ts), exactly like any other ground claimed
- * beyond reach.
+ * Replay order decides who gets a tile two players' anchors both cover when
+ * the restored border holds nobody there -- that is why the border itself is
+ * persisted rather than rebuilt from anchors alone. The contest cannot
+ * cascade, though: an anchor only counts while its own tile is SETTLED
+ * (gatherReachAnchors), and every anchor's disk contains its own tile, so a
+ * rival's anchor tile always resolves as defended and is never overtaken --
+ * no anchor can deactivate midway through the replay.
  */
 
 export type BorderSeedTileView = {

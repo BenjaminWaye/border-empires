@@ -5,10 +5,11 @@
 import type { createClientActionFlow } from "../client-action-flow.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { measuredCompactFocusRowOffset } from "./client-hud-v2-compact-camera.js";
 
 export type HudV2ActionFlow = Pick<
   ReturnType<typeof createClientActionFlow>,
-  "chooseTech" | "cancelOngoingCapture" | "openSingleTileActionMenu" | "handleTileAction" | "hideTileActionMenu" | "tileMenuViewForTile"
+  "chooseTech" | "cancelOngoingCapture" | "openSingleTileActionMenu" | "handleTileAction" | "hideTileActionMenu" | "tileMenuViewForTile" | "requestTileDetailIfNeeded"
 >;
 
 export type HudV2Deps = {
@@ -24,10 +25,10 @@ export type HudV2Deps = {
   ownerColor: (ownerId: string) => string;
 };
 
-export type HudV2ScreenId = "manifest" | "afc" | "diplomacy" | "ranks" | "chronicle" | "town" | "battle" | "profile";
+export type HudV2ScreenId = "manifest" | "afc" | "diplomacy" | "ranks" | "towns" | "chronicle" | "town" | "battle" | "profile";
 
 /** Screens drawn in the shared full-screen frame over the darkened map. */
-export const FRAME_SCREENS: ReadonlySet<HudV2ScreenId> = new Set<HudV2ScreenId>(["manifest", "afc", "diplomacy", "ranks", "profile"]);
+export const FRAME_SCREENS: ReadonlySet<HudV2ScreenId> = new Set<HudV2ScreenId>(["manifest", "afc", "diplomacy", "ranks", "towns", "profile"]);
 
 export type HudV2ScreenState = {
   id: HudV2ScreenId | null;
@@ -115,13 +116,15 @@ export const FRAME_SKELETON = `<div class="v2s-backdrop" aria-hidden="true"></di
   <header class="v2s-head"><h1 class="v2s-title" id="v2s-title"></h1><button type="button" class="v2s-back" data-v2-close><span class="v2s-back-arrow" aria-hidden="true">◁</span> <span id="v2s-back-label">Map</span> <kbd>Esc</kbd></button><div class="v2s-head-right" id="v2s-head-right"></div></header>
   <div class="v2s-body" id="v2s-body"></div>`;
 
+/** Centres the map on (x, y) and selects it; on a phone, centred in the map left visible above the bottom panels. */
 export const focusCamera = (deps: Pick<HudV2Deps, "state" | "wrapX" | "wrapY" | "requestViewRefresh">, x: number, y: number): void => {
   const { state } = deps;
-  state.camX = deps.wrapX(x);
-  state.camY = deps.wrapY(y);
+  const selected = { x: deps.wrapX(x), y: deps.wrapY(y) };
+  state.camX = selected.x;
+  state.camY = deps.wrapY(y + measuredCompactFocusRowOffset(state.zoom));
   state.camSubX = 0;
   state.camSubY = 0;
-  state.selected = { x: state.camX, y: state.camY };
+  state.selected = selected;
   deps.requestViewRefresh();
 };
 

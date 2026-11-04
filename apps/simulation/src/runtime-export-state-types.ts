@@ -15,23 +15,26 @@ export type RuntimeExportState = {
     dockId?: string;
     ownerId?: string;
     ownershipState?: string;
-    /** Persistent-border reach owner (Runtime.reachBorder), independent of ownerId — see SimulationTileWireDelta.reachOwnerId. Populated only by the per-player visible-state export (runtime-visible-state.ts); the full-world export below does not currently source it. */
+    /** Persistent-border reach owner (Runtime.reachBorder), independent of ownerId — see SimulationTileWireDelta.reachOwnerId. Sourced by both the per-player visible-state export (runtime-visible-state.ts) and the full-world export (runtime-state-export.ts) so reveal-map/spectator snapshots keep reach borders and rival-reach hatching. */
     reachOwnerId?: string;
     frontierDecayAt?: number;
     frontierDecayKind?: FrontierDecayKind;
     captureHoldUntil?: number;
+    warScarLevel?: number;
+    warScarUntil?: number;
     townJson?: string;
     townType?: "MARKET" | "FARMING";
     townName?: string;
     townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
   } & TileOverlayJsonFields>;
-  players: Array<{
+  players: Array<import("@border-empires/shared").ResourceSupplyPlayerState & {
     id: string;
     name?: string;
     points: number;
     manpower: number;
     manpowerCap?: number;
     manpowerRegenPerMinute?: number;
+    nextManpowerBatchAmount?: number;
     logisticsThroughputPerMinute?: number;
     manpowerBreakdown?: ManpowerBreakdown;
     manpowerCapSnapshot?: number;
@@ -44,6 +47,7 @@ export type RuntimeExportState = {
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
     truces: string[];
+    truceEndsAt?: Record<string, number>;
     vision: number;
     visionRadiusBonus: number;
     incomeMultiplier?: number;

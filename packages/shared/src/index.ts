@@ -3,10 +3,12 @@ export * from "./retort-recast.js";
 export * from "./town-terrain-profile.js";
 export * from "./muster-state.js";
 export * from "./diplomacy-terms/diplomacy-terms.js";
+export * from "./truce-extension/truce-extension.js";
+export * from "./diplomacy-gift/diplomacy-gift.js";
+export * from "./diplomacy-betrayal/diplomacy-betrayal.js";
 export * from "./muster-config.js";
 export * from "./manpower-refill.js";
 export * from "./landing-manpower-reserve.js";
-export * from "./shard-mobilize.js";
 export * from "./tech-economy.js";
 export * from "./afc-build-cost.js";
 export * from "./afc-module-call-down.js";
@@ -26,9 +28,13 @@ export { aetherWallEdgeKey, buildAetherWallSegments } from "./aether-wall/aether
 export type { AetherWallDirection } from "./aether-wall/aether-wall.js";
 export * from "./math/math.js";
 export * from "./exposure/exposure.js";
+export * from "./dock-landing/dock-landing.js";
 export * from "./structure-costs/structure-costs.js";
+export * from "./structure-stacking/structure-stacking.js";
 export * from "./structure-slots/structure-slots.js";
+export * from "./resource-slot-sources/resource-slot-sources.js";
 export * from "./siphon-mode/siphon-mode.js";
+export * from "./aether-tower-shots/aether-tower-shots.js";
 export * from "./rush-buy/rush-buy.js";
 export * from "./structure-placement.js";
 export * from "./trickle-resources.js";
@@ -48,6 +54,7 @@ export * from "./frontier-claim-duration/frontier-claim-duration.js";
 export * from "./expand-manpower-cost/expand-manpower-cost.js";
 export * from "./frontier-combat/frontier-combat.js";
 export * from "./capture-hold/capture-hold.js";
+export * from "./war-scars/war-scars.js";
 export * from "./frontier-combat/frontier-combat-win-chance-paint.js";
 export * from "./outpost-aura/outpost-aura.js";
 export * from "./reach/reach.js";
@@ -77,3 +84,13 @@ export * from "./relics/relic-state.js";
 export * from "./relics/relic-resource-reward.js";
 
 export * from "./relics/relic-map-hints.js";
+
+export * from "./resource-networks/resource-networks.js";
+
+export * from "./resource-networks/resource-network-biomes.js";
+
+export * from "./resource-supply-trades/resource-supply-trades.js";
+
+export type { ResourceSupplyPlayerState, ResourceSupplyAgreementStatus } from "./resource-supply-trades/resource-supply-player-state.js";
+export * from "./resource-supply-trades/resource-trade-offers.js";
+export { resourceSupplyCoinValue } from "./resource-supply-trades/resource-supply-valuation.js";

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { closeActivePanel, renderMobilePanels } from "./client-panel-nav.js";
 
 describe("closeActivePanel", () => {
-  it("returns domain detail views to shard overview", () => {
+  it("returns domain detail views to the domain overview", () => {
     const state = {
       activePanel: "domains" as const,
       domainDetailOpen: true,
@@ -66,7 +66,7 @@ describe("renderMobilePanels", () => {
       panelActionButtons: document.querySelectorAll<HTMLButtonElement>("button"),
       sidePanelBodyEl: el(), sidePanelEl, panelTitleEl: el(), mobileSheetEl: el(), mobileCoreEl: el(), mobilePanelCoreEl: el(),
       mobilePanelMissionsEl: el(), mobilePanelTechEl: el(), mobilePanelDomainsEl: el(), mobilePanelSocialEl: el(),
-      mobilePanelDefensibilityEl: el(), mobilePanelEconomyEl: el(), mobilePanelManpowerEl: el(), mobilePanelDevelopmentEl: el(),
+      mobilePanelDefensibilityEl: el(), mobilePanelEconomyEl: el(), mobilePanelManpowerEl: el(), mobilePanelDevelopmentEl: el(), mobilePanelTownsEl: el(),
       mobilePanelLeaderboardEl: el(), mobilePanelFeedEl: el(), mobilePanelSettingsEl: el(), mobileSheetTitleEl: el()
     };
     const state = {

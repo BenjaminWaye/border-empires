@@ -1,4 +1,4 @@
-import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
+import { usesPlayerCommandSequence, type CommandEnvelope, type SimulationEvent } from "@border-empires/sim-protocol";
 import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
 import { backfillProspectClues } from "./prospect-clue-backfill/prospect-clue-backfill.js";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
@@ -72,12 +72,12 @@ export const createPlayersFromRecoveredState = (
           techRootId: "rewrite-recovered",
           allies: new Set(player.allies ?? []),
           truces: new Set(player.truces ?? []),
+          ...(player.truceEndsAt ? { truceEndsAt: new Map(Object.entries(player.truceEndsAt).filter(([id]) => player.truces?.includes(id))) } : {}),
           strategicResources: {
             FOOD: player.strategicResources?.FOOD ?? 0,
             TITANIUM: player.strategicResources?.TITANIUM ?? 0,
             CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-            UMBRITE: player.strategicResources?.UMBRITE ?? 0,
-            SHARD: player.strategicResources?.SHARD ?? 0
+            UMBRITE: player.strategicResources?.UMBRITE ?? 0
           },
           ...(player.chosenTrickleResource && isChosenTrickleResource(player.chosenTrickleResource)
             ? { chosenTrickleResource: player.chosenTrickleResource }
@@ -96,7 +96,7 @@ export const createPlayersFromRecoveredState = (
             ? { galacticWonderVisionRadiusBonus: player.galacticWonderVisionRadiusBonus }
             : {}),
           ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
-          strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
+          strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
         }
       ] as const;
     })
@@ -162,7 +162,6 @@ const createTilesFromInitialStateUncleared = (
       ...(tile.resource ? { resource: tile.resource } : {}),
       ...((tile.prospectSignature ?? seededTile?.prospectSignature) ? { prospectSignature: tile.prospectSignature ?? seededTile?.prospectSignature } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
-      ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
       ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
       ...(tile.watchtower ? { watchtower: tile.watchtower } : {}),
       ...(tile.waystation ? { waystation: tile.waystation } : {}),
@@ -171,6 +170,8 @@ const createTilesFromInitialStateUncleared = (
       ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
       ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
       ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
+      ...(typeof tile.warScarLevel === "number" ? { warScarLevel: tile.warScarLevel } : {}),
+      ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
       ...(hydratedTown ? { town: hydratedTown } : {}),
       ...(tile.fort ? { fort: tile.fort } : {}),
       ...(tile.observatory ? { observatory: tile.observatory } : {}),
@@ -292,7 +293,7 @@ export const hydrateCommandHistory = ({
   if (!recoveredCommandHistory) return;
 
   for (const command of recoveredCommandHistory.commands) {
-    if (command.type === "SYNC_ALLIANCE" || command.type === "SYNC_TRUCE" || command.type === "SETTLE_DIPLOMACY_TERMS") continue;
+    if (!usesPlayerCommandSequence(command.type)) continue;
     commandIdsByPlayerSeq.set(`${command.playerId}:${command.clientSeq}`, command.commandId);
   }
   for (const [commandId, events] of recoveredCommandHistory.eventsByCommandId.entries()) {
@@ -301,7 +302,9 @@ export const hydrateCommandHistory = ({
     // snapshot after a restart). The requeue-skip check reads
     // recoveredCommandHistory directly, not this cache, so this is safe.
     if (!isReplayTrackedCommandId(commandId)) continue;
-    recordedEventsByCommandId.set(commandId, [...events]);
+    // Same as the live recordEvent gate: a replayed border diff would be
+    // persisted again with a newer event id and re-applied over later diffs.
+    recordedEventsByCommandId.set(commandId, events.filter((event) => event.eventType !== "REACH_BORDER_CHANGED"));
   }
 };
 

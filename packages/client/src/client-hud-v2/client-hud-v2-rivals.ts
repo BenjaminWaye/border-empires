@@ -3,6 +3,7 @@
 // with an overflow count that opens Diplomacy. Stance is an icon plus text, never colour alone.
 
 import type { ActiveTruceView, SeasonVictoryObjectiveView } from "../client-types.js";
+import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 
 export type RivalInput = {
   me: string;
@@ -34,7 +35,7 @@ export const rivalTokens = (input: RivalInput): { shown: RivalToken[]; hidden: n
   for (const t of truces) {
     if (seen.has(t.otherPlayerId)) continue;
     seen.add(t.otherPlayerId);
-    tokens.push(token(input, t.otherPlayerId, "truce", `TRUCE ${hoursLeft(t.endsAt, input.nowMs)}`));
+    tokens.push(token(input, t.otherPlayerId, "truce", `TRUCE ${socialRemainingLabel(t.endsAt, input.nowMs)}`));
   }
   for (const id of input.allies) {
     if (id === input.me || seen.has(id)) continue;
@@ -77,5 +78,5 @@ export const seasonClockHtml = (objectives: readonly SeasonVictoryObjectiveView[
   const holding = holdingObjective(objectives);
   if (!holding) return `<span class="hud-v2-season-title">Victory race</span><span class="hud-v2-season-line">Nobody holding a path</span>`;
   const left = holding.holdRemainingSeconds !== undefined ? ` · ${hoursLeft(Date.now() + holding.holdRemainingSeconds * 1000, Date.now())}` : "";
-  return `<span class="hud-v2-season-title">Victory race</span><span class="hud-v2-season-line hud-v2-season-holding">⌛ <b>${esc(holding.leaderName)}</b> holding ${esc(holding.name)}${left}</span>`;
+  return `<span class="hud-v2-season-title">Victory race</span><span class="hud-v2-season-line hud-v2-season-holding">⧗ <b>${esc(holding.leaderName)}</b> holding ${esc(holding.name)}${left}</span>`;
 };

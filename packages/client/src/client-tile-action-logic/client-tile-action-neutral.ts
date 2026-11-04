@@ -5,15 +5,13 @@
 import {
   FRONTIER_CLAIM_COST,
   RELAY_BEACON_VISION_BONUS,
-  SETTLE_COST,
-  SETTLE_MANPOWER_COST,
-  structureBuildManpowerCost
+  SETTLE_COST
 } from "@border-empires/shared";
 import { canAffordCost, frontierClaimCostLabelForTile } from "../client-constants.js";
 import { economicBuildMsForState } from "../client-build-speed/client-build-speed.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
-import { buildTimeLabel, relayBeaconBuildDurationMsForState, relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
+import { buildManpowerCostForState, buildTimeLabel, relayBeaconBuildDurationMsForState, relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
@@ -142,7 +140,7 @@ export const neutralTileActions = (
   // same policy as everything below.
   if (targetInReach) {
     const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
-    const totalExploreManpower = state.expandManpowerCost + SETTLE_MANPOWER_COST + relayBeaconManpowerCostForState(state);
+    const totalExploreManpower = state.expandManpowerCost + state.settleManpowerCost + relayBeaconManpowerCostForState(state);
     const totalExploreMs = settleDurationMsForState(state, tile) + relayBeaconBuildDurationMsForState(state);
     const exploreEnabled =
       canAffordCost(state.gold, totalExploreGold) &&
@@ -171,7 +169,7 @@ export const neutralTileActions = (
       reachable &&
         state.techIds.includes("industrial-extraction") &&
         state.gold >= deps.structureGoldCost("ORE_REFINERY") &&
-        state.manpower >= structureBuildManpowerCost("ORE_REFINERY") &&
+        state.manpower >= buildManpowerCostForState(state, "ORE_REFINERY") &&
         !tile.resource &&
         !tile.town &&
         !tile.dockId,
@@ -183,7 +181,7 @@ export const neutralTileActions = (
             ? "Needs empty land"
             : state.gold < deps.structureGoldCost("ORE_REFINERY")
               ? `Need ${deps.structureGoldCost("ORE_REFINERY")} coin`
-              : `Need ${structureBuildManpowerCost("ORE_REFINERY")} manpower`,
+              : `Need ${buildManpowerCostForState(state, "ORE_REFINERY")} manpower`,
       `${deps.structureCostText("ORE_REFINERY")} • ${buildTimeLabel(economicBuildMsForState(state, "ORE_REFINERY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("ORE_REFINERY")}`
     )
   });

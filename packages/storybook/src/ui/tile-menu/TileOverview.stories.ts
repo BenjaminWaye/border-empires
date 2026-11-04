@@ -1,3 +1,5 @@
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
+import { resourceLabel } from "@client/client-map-display.js";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import "@client/style.css";
 import "@client/client-town-stat-grid-style.css";
@@ -56,19 +58,21 @@ const stubDeps = (example: Example) => ({
 });
 
 const headerFor = (tile: Tile): { title: string; subtitle: string } => {
-  const name = tile.town?.name ?? (tile.resource ? "Titanium" : tile.fort || tile.siegeBattery || tile.economicStructure ? "Sand" : "Grass");
+  const name = tile.town?.name ?? (tile.resource ? resourceLabel(tile.resource) : tile.fort || tile.siegeBattery || tile.economicStructure ? "Sand" : "Grass");
   const title = `${name} (${tile.x}, ${tile.y})`;
   if (!tile.ownerId) return { title, subtitle: ownershipHelpSubtitleHtml("unclaimed", "Unclaimed") };
   if (tile.ownerId !== ME) return { title, subtitle: "Rival empire" };
   return { title, subtitle: ownershipHelpSubtitleHtml(tile.ownershipState === "FRONTIER" ? "frontier" : "settled", tile.ownershipState === "FRONTIER" ? "Your frontier" : "Your settled land") };
 };
 
-const render = (): HTMLElement => {
+const renderExamples = (examples: readonly Example[]): HTMLElement => {
   const root = document.createElement("main");
-  root.style.cssText = "min-height:100vh;padding:28px;background:radial-gradient(circle at 50% 0,#322414,#100c07 55%,#080604);font-family:var(--sp-font-body,serif);";
+  root.tabIndex = 0;
+  root.setAttribute("aria-label", "Tile overview examples");
+  root.style.cssText = "height:100vh;overflow:auto;box-sizing:border-box;min-height:100vh;padding:28px;background:radial-gradient(circle at 50% 0,#322414,#100c07 55%,#080604);font-family:var(--sp-font-body,serif);";
   const grid = document.createElement("section");
   grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,340px));justify-content:center;gap:22px;align-items:start;";
-  for (const example of EXAMPLES) {
+  for (const example of examples) {
     const lines = menuOverviewForTile(example.tile, stubDeps(example));
     const body = (lines.length === 0 ? `<div class="tile-overview-line">Nothing notable on this tile.</div>` : "") + lines
       .map((line) => `<div class="tile-overview-line${line.kind === "effect" ? " tile-overview-line-effect" : ""}${line.kind === "section" ? " tile-overview-line-section" : ""}${line.kind === "statgrid" ? " tile-overview-line-statgrid" : ""}${line.nested ? " tile-overview-line-nested" : ""}">${line.html}</div>`)
@@ -90,7 +94,14 @@ const render = (): HTMLElement => {
 const meta: Meta = {
   title: "UI/Tile Menu/Tile Overview",
   parameters: { layout: "fullscreen", docs: { description: { component: "The tile overview across the main tile situations, rendered with the real menuOverviewForTile." } } },
-  render
+  render: () => renderExamples(EXAMPLES)
 };
 export default meta;
 export const AllCases: StoryObj = {};
+
+export const Resources: StoryObj = { render: () => renderExamples([
+  ...(["FARM","FISH","TITANIUM","GEMS","UMBRITE",...NETWORK_RESOURCES] as const).map((resource): Example => ({
+    label:resourceLabel(resource),note:"Unclaimed deposit — potential benefit and activation requirements",tile:land({resource})
+  })),
+  ...NETWORK_RESOURCES.map((resource): Example => ({label:RESOURCE_NETWORKS[resource].buildingName,note:"Developed supply site",tile:land({resource,...mine,ownershipState:"SETTLED",economicStructure:{ownerId:ME,type:RESOURCE_NETWORKS[resource].building,status:"active"}})}))
+]) };

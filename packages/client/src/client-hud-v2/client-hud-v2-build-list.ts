@@ -23,6 +23,10 @@ export type BuildListInput = {
   /** Tile the Place button builds on when the action carries no target of its own. */
   targetKey: string;
   placeLabel: string;
+  /** Panel title; "Build" when absent. */
+  title?: string;
+  /** Shown between the title and the tabs (the town screen's work cards); the list then gets its own Build heading, and no empty text. */
+  leadHtml?: string;
 };
 
 const esc = (text: string): string =>
@@ -43,15 +47,18 @@ export const buildListHtml = (input: BuildListInput): string => {
       <span class="v2t-build-text"><span class="v2t-build-name">${esc(b.label)}</span>${b.detail ? `<span class="v2t-build-detail">${esc(b.detail)}</span>` : ""}<span class="v2t-build-cost${b.disabled ? " v2t-warn" : ""}">${esc(b.disabled ? b.disabledReason ?? "Unavailable" : b.cost ?? "")}</span></span>
     </button>`;
   }).join("");
-  const empty = input.buildings.length === 0 ? `<div class="v2s-empty">${esc(input.emptyText)}</div>` : "";
-  return `<div class="v2t-build-head"><span class="v2t-build-title">Build</span><span class="v2t-focus${input.focusHighlighted ? " v2t-focus-on" : ""}">${esc(input.focusLabel)}</span></div>
+  const empty = input.buildings.length === 0 && !input.leadHtml ? `<div class="v2s-empty">${esc(input.emptyText)}</div>` : "";
+  const lead = input.leadHtml ? `${input.leadHtml}${input.buildings.length > 0 ? `<div class="v2t-h">Build</div>` : ""}` : "";
+  return `<div class="v2t-build-head"><span class="v2t-build-title">${esc(input.title ?? "Build")}</span><span class="v2t-focus${input.focusHighlighted ? " v2t-focus-on" : ""}">${esc(input.focusLabel)}</span></div>
+    ${lead}
     ${tabs ? `<div class="v2t-tabs" role="tablist" aria-label="Building categories">${tabs}</div>` : ""}
     <div class="v2t-build-list" data-v2-scroll="build-list">${rows}${empty}</div>`;
 };
 
-export const buildPlaceHtml = (input: Pick<BuildListInput, "buildings" | "selection" | "targetKey" | "placeLabel">): string => {
+/** The picked building's Place button: a box of its own, or `docked` at the foot of the build panel (the town screen). */
+export const buildPlaceHtml = (input: Pick<BuildListInput, "buildings" | "selection" | "targetKey" | "placeLabel"> & { docked?: boolean }): string => {
   const sel = input.buildings.find((b) => b.id === input.selection && !b.disabled);
   if (!sel) return "";
   const target = ` data-target-key="${esc(sel.targetKey ?? input.targetKey)}"${sel.originKey ? ` data-origin-key="${esc(sel.originKey)}"` : ""}`;
-  return `<div class="v2t-place"><span class="v2t-place-name">${esc(sel.label)}</span><button type="button" class="v2s-btn v2s-btn-primary" data-hud-v2-action="${esc(sel.id)}"${target}>${esc(input.placeLabel)}</button></div>`;
+  return `<div class="v2t-place${input.docked ? " v2t-place-docked" : ""}"><span class="v2t-place-name">${esc(sel.label)}</span><button type="button" class="v2s-btn v2s-btn-primary" data-hud-v2-action="${esc(sel.id)}"${target}>${esc(input.placeLabel)}</button></div>`;
 };

@@ -31,6 +31,8 @@ export const buildUpdatePayloads = (
         incomingTruceRequests: snapshot.incomingTruceRequests,
         outgoingTruceRequests: snapshot.outgoingTruceRequests,
         offerCooldowns: snapshot.offerCooldowns,
+        // Lets the client count down an offer's expiresAt on the server's clock (client-server-clock.ts).
+        serverNow: Date.now(),
         ...(truceAnnouncementByPlayerId?.[playerId] ? { announcement: truceAnnouncementByPlayerId[playerId] } : {})
       }
     ]);

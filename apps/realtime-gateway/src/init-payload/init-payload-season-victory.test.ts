@@ -69,4 +69,20 @@ describe("buildSeasonVictoryObjectives (gateway login fallback)", () => {
     expect(resourceMonopoly?.progressLabel).toBe("1/5 UMBRITE");
     expect(resourceMonopoly?.selfProgressLabel).toBe("No resource control");
   });
+
+  it("uses Metropolitan Concession's 20% Economic Hegemony lead after a reconnect, matching the live broadcast", () => {
+    const leader = { ...domainPlayer("player-1", []), domainIds: new Set(["afc-exchequer-5"]) };
+    const snapshotBootstrap: LegacySnapshotBootstrap = {
+      runtimeIdentity: { sourceType: "legacy-snapshot", seasonId: "season-1", worldSeed: 1, snapshotLabel: "test", fingerprint: "test", playerCount: 2, seededTileCount: 0 },
+      players: new Map([["player-1", leader], ["player-2", domainPlayer("player-2", [])]]),
+      playerProfiles: new Map(), authIdentities: [], docks: [], clusters: [], seedTiles: new Map(), initialState: { tiles: [], activeLocks: [] }
+    };
+    const leaderboardOverall = [
+      { id: "player-1", name: "Leader", tiles: 1, incomePerMinute: 1.25, techs: 0, score: 1, rank: 1 },
+      { id: "player-2", name: "Runner Up", tiles: 1, incomePerMinute: 1, techs: 0, score: 1, rank: 2 }
+    ];
+    const hegemony = buildSeasonVictoryObjectives("player-2", snapshotBootstrap, { playerId: "player-2", tiles: [] }, leaderboardOverall, revealCategoryForTech)
+      .find((objective) => objective.id === "ECONOMIC_HEGEMONY");
+    expect(hegemony?.thresholdLabel).toContain("20% lead");
+  });
 });

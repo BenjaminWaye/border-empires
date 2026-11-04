@@ -4,6 +4,7 @@ import {
 import type { StructureInfoKey } from "./client-map-display.js";
 
 export type StructureBaseKey =
+  | import("@border-empires/shared").NetworkBuilding
   | "FORT"
   | "OBSERVATORY"
   | "SIEGE_BATTERY"
@@ -31,7 +32,6 @@ export type StructureBaseKey =
   | "NEURAL_WORKS"
   | "MINISTRY_HALL"
   | "RESONANCE_GRID"
-  | "QUARTERMASTERS_OFFICE"
   | "ANCILLARY_FACTORY"
   | "RESERVE_LATTICE"
   | "ASTRAL_DOCK_PART_1"
@@ -77,7 +77,7 @@ export const structureBaseKey = (key: StructureInfoKey): StructureBaseKey => {
 // rewrite -- apps/simulation/src/runtime-structure-command-handlers.ts strips
 // those four resource keys out of the spend before any build command is
 // validated (RETIRED_STOCKPILE_RESOURCE_KEYS), so they are never actually
-// charged. Only SHARD is still a real, enforced stockpile spend. The FOOD/
+// charged. The FOOD/
 // TITANIUM/CRYSTAL/UMBRITE occupancy cost a structure actually pays is its
 // resource SLOT requirement, already shown separately via upkeepBitsFor.
 // Higher fort/siege tiers aren't in STRUCTURE_COST_DEFINITIONS (only their
@@ -107,8 +107,5 @@ export const costBitsFor = (key: StructureInfoKey): string[] => {
   const bits = costDefinition.baseGoldCost > 0 ? [`${costDefinition.baseGoldCost.toLocaleString()} coin`] : [];
   const manpowerCost = structureBuildManpowerCost(baseKey as BuildableStructureType);
   if (manpowerCost > 0) bits.push(`${manpowerCost.toLocaleString()} manpower`);
-  if (costDefinition.resourceCost?.resource === "SHARD") {
-    bits.push(`${costDefinition.resourceCost.amount.toLocaleString()} shard`);
-  }
   return bits;
 };

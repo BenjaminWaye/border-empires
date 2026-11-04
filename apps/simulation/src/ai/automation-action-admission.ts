@@ -24,12 +24,17 @@ export const applyActionAdmission = <TTile extends AutomationPlannerTile>(option
       }
     };
   }
-  if (input.sessionPrefix !== "ai-runtime" || result.command || result.diagnostic.noCommandReason !== "wait_and_recover") return result;
+  const reason = result.diagnostic.noCommandReason;
+  const namedWait = reason?.startsWith("WAIT_") ?? false;
+  if (input.sessionPrefix !== "ai-runtime" || result.command || (reason !== "wait_and_recover" && !namedWait)) return result;
   if (foodSlotBlocked && !foodSlotReliefTarget) {
     return { ...result, diagnostic: { ...result.diagnostic, noCommandReason: "BLOCKED_NO_FOOD_SLOT_RELIEF" } };
   }
   const noFrontierOrEnemy = input.frontierTiles.length === 0 &&
     result.diagnostic.frontierEnemyTargetCount === 0 && result.diagnostic.frontierNeutralTargetCount === 0;
+  // No frontier at all outranks any beacon reason; otherwise wait-reasons.ts
+  // already named the blocker and the fallback below only labels unexplained waits.
+  if (namedWait && !noFrontierOrEnemy) return result;
   const noActionReason: AutomationNoopReason = noFrontierOrEnemy
     ? "BLOCKED_NO_FRONTIER_OR_ENEMY_TARGET"
     : input.frontierTiles.length > 0

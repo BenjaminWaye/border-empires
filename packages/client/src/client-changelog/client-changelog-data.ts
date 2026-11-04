@@ -1,5 +1,13 @@
+import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
+import { FOOD_TILE_ART_CHANGELOG } from "./client-changelog-food-tile-art.js";
+import { TOWN_ECONOMY_CHANGELOG } from "./client-changelog-town-economy.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_27 } from "./client-changelog-oct-27.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31.js";
+import { CLIENT_CHANGELOG_ENTRIES_NOV_01_03 } from "./client-changelog-nov-01-03.js";
+import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
+import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
 import { ALLIANCES_TAB_CHANGELOG } from "./client-changelog-alliances-tab.js";
@@ -8,6 +16,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_17 } from "./client-changelog-oct-17.js";
 import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
+import { AUTO_GARRISON_SPLIT_RESOURCES_CHANGELOG } from "./client-changelog-auto-garrison-split-resources.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
 import { GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG } from "./client-changelog-gameplay-settings-cleanup.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
@@ -22,26 +31,59 @@ import { SIEGE_REPORTS_CHANGELOG } from "./client-changelog-siege-reports.js";
 import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
 import { SIEGE_FX_GATE_CHANGELOG } from "./client-changelog-siege-fx-gate.js";
 import { INCURSION_HATCH_HILLS_CHANGELOG } from "./client-changelog-incursion-hatch-hills.js";
+import { AI_DOCK_CROSSING_CHANGELOG } from "./client-changelog-ai-dock-crossing.js";
+import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
+import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
+import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
+import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
+import { MAP_LENS_CHANGELOG } from "./client-changelog-map-lens.js";
+import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
+import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
+import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
+import { TRUCE_LIFETIME_CAP_CHANGELOG } from "./client-changelog-truce-lifetime-cap.js";
+import { BREAK_PACT_ATTACK_CHANGELOG } from "./client-changelog-break-pact-attack.js";
+import { FLAG_TAP_CHANGELOG } from "./client-changelog-flag-tap.js";
+import { SIEGE_UMBRITE_ONLY_CHANGELOG } from "./client-changelog-siege-umbrite.js";
+import { MARCH_WIN_CHANCE_CHANGELOG } from "./client-changelog-march-win-chance.js";
+import { SPACE_POLITICS_CHANGELOG } from "./client-changelog-space-politics.js";
+import { AI_RIVALS_CHANGELOG } from "./client-changelog-ai-rivals.js";
+import { CLAIM_STRIPED_GROUND_CHANGELOG } from "./client-changelog-claim-striped-ground.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE } from "./client-changelog-oct-17-19-inline.js";
+import { TOWN_PLATE_ZOOM_CHANGELOG } from "./client-changelog-town-plate-zoom.js";
+import { TOWN_PLATE_GROWTH_PAUSED_CHANGELOG } from "./client-changelog-town-plate-growth-paused.js";
+import { TOWN_PLATE_GROWTH_ARROW_CHANGELOG } from "./client-changelog-town-plate-growth-arrow.js";
+import { TERRITORY_EDGE_GLOW_CHANGELOG } from "./client-changelog-territory-edge-glow.js";
+import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js";
+import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
+import { STORM_EDGE_BANDING_CHANGELOG } from "./client-changelog-storm-edge-banding.js";
+import { NOVEMBER_CHANGELOG } from "./client-changelog-data-november.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
 import { RECONNECT_NO_AUTH_CHANGELOG } from "./client-changelog-reconnect-no-auth.js";
 import { PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG } from "./client-changelog-planetary-defense-muster-flag.js";
 import { YOURS_TILE_COORDS_CHANGELOG } from "./client-changelog-yours-tile-coords.js";
+import { REMEMBERED_BUILDINGS_CHANGELOG } from "./client-changelog-remembered-buildings.js";
 import { MAP_NAMES_CHANGELOG } from "./client-changelog-map-names.js";
 import { REACH_OWNER_NAME_CHANGELOG } from "./client-changelog-reach-owner-name.js";
 import { MUSTER_COMMIT_BADGE_CHANGELOG } from "./client-changelog-muster-commit-badge.js";
 import { ACTIVITY_RESTART_WINDOW_CHANGELOG } from "./client-changelog-activity-restart-window.js";
 import { FOGGED_MIST_FEATURES_CHANGELOG } from "./client-changelog-fogged-mist-features.js";
 import { EXPIRED_TRUCE_OFFERS_CHANGELOG } from "./client-changelog-expired-truce-offers.js";
+import { AI_BEACON_SPACING_CHANGELOG } from "./client-changelog-ai-beacon-spacing.js";
 import { LOST_STRUCTURES_CHANGELOG } from "./client-changelog-lost-structures.js";
 import { CAPTURED_MUSTER_CLEAR_CHANGELOG } from "./client-changelog-captured-muster-clear.js";
 import { ADVANCE_EFFORT_CHANGELOG } from "./client-changelog-advance-effort.js";
 import { FASTER_ATTACKS_FRONTIER_COST_CHANGELOG } from "./client-changelog-faster-attacks-frontier-cost.js";
 import { AFC_MODULE_MODELS_CHANGELOG } from "./client-changelog-afc-module-models.js";
+import { PROFILE_CREST_TOGGLE_CHANGELOG } from "./client-changelog-profile-crest-toggle.js";
+import { GARRISON_BEACON_BUTTONS_CHANGELOG } from "./client-changelog-garrison-beacon-buttons.js";
+import { AUTO_GARRISON_QUEUE_CLOG_CHANGELOG } from "./client-changelog-auto-garrison-queue-clog.js";
+import { TOWN_SCREEN_SUPPORT_GARRISON_CHANGELOG } from "./client-changelog-town-screen-support-garrison.js";
 import { MARCH_ATTACK_DEEP_CHANGELOG } from "./client-changelog-march-attack-deep.js";
 import { WAR_INDUSTRY_SQUADS_CHANGELOG } from "./client-changelog-war-industry-squads.js";
 import { MARCH_ATTACK_ROUTES_CHANGELOG } from "./client-changelog-march-attack-routes.js";
+import { MARCH_TO_UNEXPLORED_CHANGELOG } from "./client-changelog-march-to-unexplored.js";
 import { FORT_WALL_OPENINGS_CHANGELOG } from "./client-changelog-fort-wall-openings.js";
 import { HILL_GARRISON_FILL_CHANGELOG } from "./client-changelog-hill-garrison-fill.js";
 import { SHARD_COMEBACK_CHANGELOG } from "./client-changelog-shard-comeback.js";
@@ -63,6 +105,8 @@ import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { OUT_OF_REACH_NO_DECAY_CHANGELOG } from "./client-changelog-out-of-reach-no-decay.js";
 import { FRONTIER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-frontier-supply-lines.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
+import { AI_VICTORY_STANDINGS_CHANGELOG } from "./client-changelog-ai-victory-standings.js";
+import { VICTORY_RACE_LABELS_CHANGELOG } from "./client-changelog-victory-race-labels.js";
 import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
 import { RESTART_MANPOWER_CHANGELOG } from "./client-changelog-restart-manpower.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
@@ -76,6 +120,7 @@ import { CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME } from "./client-changelog-gar
 import { CLIENT_CHANGELOG_ENTRIES_AFC_LANDING } from "./client-changelog-afc-landing.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
+import { FLAT_BUILD_TIME_CHANGELOG } from "./client-changelog-flat-build-time.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
@@ -85,6 +130,7 @@ import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hi
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-earlier-106.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -94,49 +140,23 @@ export type ClientChangelogEntry = {
 };
 // Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  ...TOWN_ECONOMY_CHANGELOG,
+  ...RESOURCE_NETWORKS_CHANGELOG,
   ...AFC_SPECIALIZATIONS_CHANGELOG,
   ...ALLIANCES_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_17,
   ENEMY_MUSTER_WARNING_CHANGELOG,
   FRONTIER_REACH_WARNING_CHANGELOG,
-  {
-    createdAt: 1791969768256, // Frozen Date.now() timestamp for the changelog gate.
-    introducedIn: "2026.10.14.2",
-    title: "Waystation rewards show current technology names",
-    why: "The tile overview showed old technology names such as Leatherworking instead of their current Manifest names.",
-    changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_106,
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
-  {
-    createdAt: 1791969340091, // Date.now() captured once for this release.
-    introducedIn: "2026.10.14.4",
-    title: "Manifest details stay where you scroll",
-    why: "Live game updates kept rebuilding Manifest details and jumping the menu back to the top.",
-    changes: ["Mobile and desktop Manifest details keep their scroll position while coin and unlock status update"]
-  },
-  {
-    createdAt: 1791970194502,
-    introducedIn: "2026.10.14.2",
-    title: "Hidden dock connections stay hidden",
-    why: "Selecting an enemy dock lit up undiscovered linked docks on the minimap and offered navigation into fog.",
-    changes: ["Selecting a dock no longer reveals hidden connections on the minimap or either map renderer", "Dock navigation only visits discovered destinations; garrisoning a dock reveals its links", "3D dock routes update as soon as linked docks are discovered, even while the same dock stays selected"]
-  },
+  ...AUTO_GARRISON_SPLIT_RESOURCES_CHANGELOG,
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
+  ...AI_VICTORY_STANDINGS_CHANGELOG,
+  ...VICTORY_RACE_LABELS_CHANGELOG,
   ...RESTART_TILE_STATE_CHANGELOG,
   ...RESTART_MANPOWER_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY,
-  {
-    createdAt: 1792009197862, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.14.3",
-    title: "AI empires weigh your truce and alliance offers",
-    why: "AI empires accepted truces almost instantly, and repeat offers could be spammed at any player.",
-    changes: [
-      "AI empires now judge relative strength, shared borders, food, and past broken truces, and tell you why they accepted or declined",
-      "AI empires now answer alliance offers too",
-      "After an offer is declined or cancelled, you can't send that player the same kind of offer for 30 minutes (10 minutes after an unanswered truce offer expires)"
-    ]
-  },
   ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
   ...OUT_OF_REACH_NO_DECAY_CHANGELOG,
   ...FRONTIER_SUPPLY_LINES_CHANGELOG,
@@ -152,6 +172,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
   ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS,
+  ...FLAT_BUILD_TIME_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
@@ -183,16 +204,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Fixed integrity sometimes showing lower than it really was (e.g. 80% for a small new empire) after changing your profile or colour, toggling auto-garrison, or using an ability"
     ]
   },
-  {
-    createdAt: 1791927499454, // frozen Date.now() value for this release
-    introducedIn: "2026.10.13.1",
-    title: "Top bar icons are labelled",
-    why: "Playtesters couldn't tell what the icons in the top-right corner opened without hovering over each one.",
-    changes: [
-      "Manifest, Allies, Ranks, Activity, Sharding and Settings now show their name under the icon on desktop",
-      "The Alerts (bell) button has been removed from the top bar and the mobile menu while the alerts feed is reworked -- the Activity dashboard is where to see what happened"
-    ]
-  },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   ...TILE_YIELD_REMOVAL_CHANGELOG,
   ...AI_PROGRESSION_AETHER_CHANGELOG,
@@ -200,75 +211,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...OVERLAY_PERSISTENCE_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_13_16,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_105,
-  {
-    createdAt: 1792269690926, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.17.2",
-    title: "Manufactories turn town industry into Coin credit",
-    why: "The stackable economic building represents manufactured output backing offworld purchasing credit.",
-    changes: ["Mintworks are now Manufactories, preserving their costs, income, stacking and Clearing House bonuses", "The Industrial Tooling Module fabricates and refurbishes equipment for local Manufactories; new construction requires the module installed on an active AFC", "New factory artwork appears in both the 3D and 2D maps; existing buildings and queued builds carry over"]
-  },
-  {
-    createdAt: 1792274781110, // Date.now() captured once for this release.
-    introducedIn: "2026.10.18.1",
-    title: "Automatic reconnection keeps trying through server updates",
-    why: "Long outages exhausted the retry budget and forced page reloads; a reopened connection could also get stuck before restoring your empire.",
-    changes: [
-      "Long interruptions keep retrying in place without automatically refreshing the page",
-      "A reconnect that makes no progress for a minute automatically starts a fresh connection",
-      "Login queue updates and ongoing map downloads extend that timeout so active recovery can finish",
-      "Recovery pauses after sign-out; signing back in reopens a closed connection"
-    ]
-  },
-  {
-    createdAt: 1792307935274, // Date.now() frozen for this release.
-    introducedIn: "2026.10.18.1",
-    title: "AFC upgrades are easier to find and compare",
-    why: "Upgrade choices were easy to miss, and opening a separate detail screen made comparing them awkward on phones.",
-    changes: [
-      "AFC Upgrades replaces Sharding in navigation, with installed upgrades and their tiers above the current choices, inline details on phones and comparison cards beside details on desktop",
-      "A clickable upgrade-ready badge appears above your active AFCs in both map renderers; the navigation count stays visible when the AFC is offscreen",
-      "Owned AFC overviews link directly to upgrades, and availability follows your current resources and prerequisites; existing upgrade costs and rewards stay the same"
-    ]
-  },
-  {
-    createdAt: 1792399197096, // Date.now() frozen for the changelog gate.
-    introducedIn: "2026.10.19.1",
-    title: "Choose exactly which tiles to garrison",
-    why: "Garrison Connected queued a whole region immediately, making it hard to control where manpower went.",
-    changes: [
-      "Garrison Many lets you tap frontier tiles to select or deselect them, with highlights in both map renderers",
-      "The bottom bar shows the selected count and total cost, with Confirm and Cancel; keep tapping tiles to adjust the selection",
-      "Confirmation checks ownership, reach and resources; unavailable selected tiles turn orange so you can deselect them before spending",
-      "Dragging and pinching still move the map; taps select tiles once",
-    "Alert markers still center on their targets, and deselected tiles lose their outline in both map renderers"
-    ]
-  },
-  {
-    createdAt: 1792418764643, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.19.2",
-    title: "Diplomacy offers say what's offered, and you can counter them",
-    why: "Pending offers in the Alliances tab only showed a name, an internal player ID and a duration, so it wasn't clear whether a card was an alliance or a truce, and the only answers were yes or no.",
-    changes: [
-      "Pending offers now read \"Offers an alliance\" or \"Offers a 12h truce\" under the player's name (\"You offered…\" for your own)",
-      "New Counter button on offers you receive: it opens the trade screen with their offer filled in, so you can change the duration or ask for coin (\"only if you pay 24 coin\") and send it back",
-      "Sending a counter replaces their offer with yours, without the 30-minute wait a plain Reject puts on them offering again",
-      "Internal player IDs are no longer shown on alliance, truce and ally cards"
-    ]
-  },
-  {
-    createdAt: 1792430700163, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.19.3",
-    title: "No more ground poking through the fog beside mountains",
-    why: "In the 3D map, an unexplored mountain at the edge of the fog could push a straight-edged wedge of bare ground up through the storm, cutting a notch in its glowing edge.",
-    changes: ["Ground at the fog's edge now stays under the storm, so the fog and its glowing edge stay unbroken next to mountains"]
-  },
-  {
-    createdAt: 1792444750777, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.19.5",
-    title: "Tidier combat reports on muster flags",
-    why: "The flag's combat report list still used the old blue colours inside the brass tile popup, and its long tab label squeezed onto two lines.",
-    changes: ["The Recent combat tab is now just \"Combat\", with its unread count as a small bubble on the tab's corner, so all the tile popup tabs fit on one row", "Combat reports use the same brass-and-parchment look as the rest of the popup"]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE,
   ...RELIABLE_DIPLOMACY_CHANGELOG,
   ...GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG,
   ...AFC_UPGRADES_ICON_CHANGELOG,
@@ -303,25 +246,51 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RICHER_FORESTS_CHANGELOG,
   ...SIEGE_FX_GATE_CHANGELOG,
   ...INCURSION_HATCH_HILLS_CHANGELOG,
+  ...STORM_EDGE_BANDING_CHANGELOG,
   ...MARCH_ACROSS_WATER_CHANGELOG,
   ...MARCH_UNEXPLORED_CHANGELOG,
   ...MARCH_STOP_SHORT_CHANGELOG,
   ...RECONNECT_NO_AUTH_CHANGELOG,
   ...PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG,
   ...YOURS_TILE_COORDS_CHANGELOG,
+  ...REMEMBERED_BUILDINGS_CHANGELOG,
   ...MAP_NAMES_CHANGELOG,
   ...REACH_OWNER_NAME_CHANGELOG,
   ...MUSTER_COMMIT_BADGE_CHANGELOG,
   ...ACTIVITY_RESTART_WINDOW_CHANGELOG,
   ...FOGGED_MIST_FEATURES_CHANGELOG,
   ...EXPIRED_TRUCE_OFFERS_CHANGELOG,
+  ...AI_BEACON_SPACING_CHANGELOG,
   ...LOST_STRUCTURES_CHANGELOG,
   ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
+  {
+    createdAt: 1793371350853, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.30",
+    title: "Land on the beaches beside a linked dock",
+    why: "A sea crossing could only land on the far dock itself, so a harbour was defended by watching one tile.",
+    changes: [
+      "A crossing from your dock can now land on any coastal tile right next to the dock it links to, not just the dock",
+      "Your coast is marked in orange wherever an enemy-held dock can land troops on it, so you can see which beaches to watch",
+      "Select a dock to see its landing ground highlighted at both ends of its sea routes; the tile panel also names the docks whose crossings can land on a tile",
+      "Every tile a crossing can land on (the dock and the beaches beside it) is marked with a glowing waterline and chevrons pointing ashore",
+      "A beach landing is supplied through the dock you sailed from: lose that dock and the landing is cut off at once",
+      "Supply lines draw the sea leg back to your home dock, with a ring on the dock the landing depends on",
+      "Muster flags on Advance or March use beach landings too",
+      "Barbarians holding a dock can land on those beaches as well",
+      "Docks are redrawn as harbours: a stone quay with a toll house, a steam derrick and a moored paddle steamer, and a landing slipway with a beached landing barge on each beach beside it, so you can see where crossings come ashore without selecting anything",
+      "Docks on east and west coasts now face the sea instead of inland"
+    ]
+  },
   ...ADVANCE_EFFORT_CHANGELOG,
   ...FASTER_ATTACKS_FRONTIER_COST_CHANGELOG,
   ...AFC_MODULE_MODELS_CHANGELOG,
+  ...PROFILE_CREST_TOGGLE_CHANGELOG,
+  ...GARRISON_BEACON_BUTTONS_CHANGELOG,
+  ...AUTO_GARRISON_QUEUE_CLOG_CHANGELOG,
+  ...TOWN_SCREEN_SUPPORT_GARRISON_CHANGELOG,
   ...MARCH_ATTACK_DEEP_CHANGELOG,
   ...MARCH_ATTACK_ROUTES_CHANGELOG,
+  ...MARCH_TO_UNEXPLORED_CHANGELOG,
   {
     createdAt: 1792832339274, // Date.now() captured once for this entry.
     introducedIn: "2026.10.24.1",
@@ -342,6 +311,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...WAR_INDUSTRY_SQUADS_CHANGELOG,
   ...FORT_WALL_OPENINGS_CHANGELOG,
+  {
+    createdAt: 1793219423974, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.28.3",
+    title: "AI empires push reach across their own borderlands",
+    why: "AI empires holding a wide band of unsettled land outside their reach stopped growing, and they never built beacons toward plain unclaimed land.",
+    changes: ["AI empires now build relay beacons that carry reach across their own unsettled borderlands, and toward wide stretches of plain unclaimed land."]
+  },
   ...HILL_GARRISON_FILL_CHANGELOG,
   {
     createdAt: 1792873662311, // Frozen Date.now() timestamp for the changelog gate.
@@ -404,55 +380,114 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1793084624260, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.27.1",
-    title: "Cleaner coastlines",
-    why: "The new curved beaches had a few rough edges: faint dashed lines in territory along the old square coast, small inlets and lakes filling with sand, and occasional straight sand edges.",
+    createdAt: 1793227144948, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.28.5",
+    title: "Win over AI empires with gifts",
+    why: "An AI that didn't think well enough of you for an alliance gave no hint how to change its mind, and the only way to win it over was overpaying in a deal.",
     changes: [
-      "No more faint dashed lines inside territory along the old square coastline",
-      "Narrow inlets, dead-end bays and one-tile lakes keep open water",
-      "Beach edges no longer jump into straight, grid-aligned steps",
-      "Territory colour on narrow beaches fades smoothly from the land instead of starting part-faded",
-      "Coastlines rebuild about twice as fast while panning"
+      "The deal screen has a new Gift option for AI empires: give coin or Shards and ask nothing back. It works during a truce too.",
+      "Before you send it, the screen shows what the gift does, such as \"+20 (Cautious → Pleased)\", and how much more would make them Pleased, which is enough for an alliance. Suggest deal fills in that amount.",
+      "Gifts and payments in deals count for up to +25 opinion in all and lose half their effect each day. A gift too small to move their opinion, or coin past that limit, can't be sent."
+    ]
+  },
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_27,
+  ...RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG,
+  ...AI_DOCK_CROSSING_CHANGELOG,
+  ...REACH_RESTART_CHANGELOG,
+  ...TOWN_NAMEPLATES_CHANGELOG,
+  ...MUSTER_SUPPLY_LINES_CHANGELOG,
+  ...CLAIM_STRIPED_GROUND_CHANGELOG,
+  ...TOWN_PLATE_ZOOM_CHANGELOG,
+  ...TOWN_PLATE_GROWTH_PAUSED_CHANGELOG,
+  ...TOWN_PLATE_GROWTH_ARROW_CHANGELOG,
+  ...FOOD_TILE_ART_CHANGELOG,
+  ...MAP_LENS_CHANGELOG,
+  ...TERRITORY_EDGE_GLOW_CHANGELOG,
+  ...LANDING_RESERVE_CHANGELOG,
+  ...FOG_HILL_HAZE_CHANGELOG,
+  ...DIPLOMACY_DOCK_CHANGELOG,
+  ...DIPLOMACY_DEAL_TABLE_CHANGELOG,
+  ...MARCH_STEERING_CHANGELOG,
+  ...DEV_SLOT_PROGRESS_CHANGELOG,
+  ...TRUCE_LIFETIME_CAP_CHANGELOG,
+  ...BREAK_PACT_ATTACK_CHANGELOG,
+  ...FLAG_TAP_CHANGELOG,
+  ...SIEGE_UMBRITE_ONLY_CHANGELOG,
+  ...MARCH_WIN_CHANCE_CHANGELOG,
+  ...SPACE_POLITICS_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_30_31,
+  {
+    createdAt: 1793483288830,
+    introducedIn: "2026.10.31",
+    title: "Smoother 3D map",
+    why: "The 3D map spent part of every frame updating thousands of hidden objects, which could make the tab freeze or report as unresponsive.",
+    changes: ["Each frame now only updates objects that are on show"]
+  },
+  ...AI_RIVALS_CHANGELOG,
+  {
+    createdAt: 1793544875839, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.01",
+    title: "Towns panel",
+    why: "There was no way to compare towns without opening each one.",
+    changes: [
+      "A new Towns button lists your towns with gold per day, population and growth",
+      "Sort by any column, highest or lowest first",
+      "Press a town to jump to it on the map",
+      "The All view's Food slot list no longer comes out empty"
     ]
   },
   {
-    createdAt: 1793119941423, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.27.2",
-    title: "A more detailed Fabrication Complex",
-    why: "The House’s industrial seed should look like substantial, precision-built machinery.",
-    changes: ["The 3D AFC now has beveled metalwork, brushed surfaces, reactor containment rings, cooling channels, detailed docking hardware and restrained cyan status lights. Its angular legs have layered titanium-coloured armour, offset actuators, illuminated knee rings and grounded stabilizer feet.", "The 2D fallback gains eight service bays, radial braces and brass fasteners. Module positions and gameplay are unchanged."]
-  },
-  {
-    createdAt: 1793127173514, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.27.3",
-    title: "AI empires start on the same ground as players",
-    why: "AI empires used to pick their starting spots with a separate search, so one could start right beside a good opening that a player would later join on, then grow into it.",
+    createdAt: 1793524472421, // Date.now() captured when this entry was written.
+    introducedIn: "2026.11.01",
+    title: "Accurate net territory in the daily story",
+    why: "Roaming barbarians were counted as gaining a tile every time they stepped onto it, so the daily story could claim tens of thousands of tiles gained.",
     changes: [
-      "From next season, AI empires start on the same kind of good sites players join on, each taking the open site farthest from the empires already placed.",
-      "Players who join later pick from the good sites no AI has taken.",
-      "AI empires only fall back to their old search if every good site is taken."
+      "Net territory change now compares who held each tile at the start and end of the day",
+      "Barbarians no longer appear in territory momentum or the Fastest Expansion and Biggest Defeat headlines",
+      "Land you lost through decay no longer counts toward your net gains",
+      "Barbarians wandering over empty land no longer push real captures out of the 24-hour activity history"
+    ]
+  },
+  ...CLIENT_CHANGELOG_ENTRIES_NOV_01_03,
+  {
+    createdAt: 1793696822571, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.03",
+    title: "Guide: clearer first steps, a Manufactory, and diplomacy",
+    why: "Playtesting the guide showed steps asking for the wrong action (Expand To on land you already held, Build on tiles you couldn't build on yet) and a last step that didn't say what to do.",
+    changes: [
+      "A town or food tile your reach already claimed: the guide says to Garrison it",
+      "One you can see outside your reach: the guide says to Expand To it",
+      "Nothing in sight: the guide marks a tile for a Relay Beacon",
+      "The food steps show the grain and fish icons to look for on the map",
+      "The guide asks you to tap your AFC rather than any tile, since tapping land next to your border claims it",
+      "It recommends the Industrial Tooling Module as your first Manifest, then, once the module has docked at your AFC, asks for a Manufactory on your town",
+      "A new Diplomacy step appears once you meet a rival House: open Diplomacy to offer a truce",
+      "You can finish the guide even if you haven't met Planetary Defense or a rival yet; Finish closes it for good",
+      "The last step now says plainly that manpower refills every 4 hours"
     ]
   },
   {
-    createdAt: 1793132797501, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.27.4",
-    title: "Coin and Shard sliders in diplomacy",
-    why: "Setting a deal's terms meant typing into four bare number boxes.",
+    createdAt: 1793744266797, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.03",
+    title: "Fixed: your reach border could stop updating after a server update",
+    why: "If your game stayed open while the server restarted, your client could ignore the new reach borders the server sent, so new Relay Beacons, towns and docks didn't move the border, often until you reloaded the page.",
     changes: [
-      "\"You give\" and \"You ask\" now show Coin and Shards as tiles. Press one to open a slider that runs from 0 to what that side holds, with a box beside it for typing an exact amount.",
-      "When asking an AI for coin or Shards, the slider stops at what it can actually pay."
+      "Your reach border now updates again right after a reconnect, without reloading the page"
     ]
   },
+  ...NOVEMBER_CHANGELOG,
   {
-    createdAt: 1793134506397, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.27.5",
-    title: "Press your badge again to close your profile",
-    why: "With your profile open, pressing your badge in the top bar opened it again instead of closing it.",
+    createdAt: 1793743078716, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.03",
+    title: "Manpower orb shows the size of your next batch",
+    why: "The new HUD's manpower orb only showed a countdown, so you couldn't tell how much manpower was coming.",
     changes: [
-      "Pressing a player's name or badge while that player's profile is open now closes the profile."
+      "The manpower orb now reads \"+N in 45m\": how much your next batch adds and when it lands",
+      "It says \"paused\" when no manpower is coming, and \"next batch\" instead of \"refill\"",
+      "The orb and the manpower chip stop showing a batch amount that has already landed"
     ]
-  }
+  },
+  ...INCURSION_SHORE_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

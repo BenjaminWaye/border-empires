@@ -168,8 +168,9 @@ body.hud-v2-screen-afc #side-panel {
 .v2r-path-line { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
 .v2r-track { position: relative; height: 44px; }
 .v2r-rail { position: absolute; left: 0; right: 0; top: 50%; height: 6px; transform: translateY(-50%); background: #2a241b; border: 1px solid var(--v2-line); }
-.v2r-line { position: absolute; right: 0; top: 0; bottom: 0; width: 3px; background: var(--v2-gold); box-shadow: 0 0 10px rgba(217, 178, 92, 0.6); }
-.v2r-pin { position: absolute; top: 50%; transform: translate(-50%, -50%); }
+.v2r-line { position: absolute; right: 0; top: 0; bottom: 0; width: 3px; background: var(--v2-gold); }
+.v2r-pin { position: absolute; top: 50%; transform: translate(-50%, calc(-50% + var(--v2r-lane, 0px))); }
+.v2r-tick { position: absolute; top: 50%; width: 3px; height: 14px; transform: translate(-50%, -50%); border-radius: 1px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6); }
 .v2r-crest {
   display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; border: 2px solid var(--v2-text);
   font-family: var(--v2-display); font-size: 14px; font-weight: 700; color: #f6ecd4; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
@@ -181,6 +182,7 @@ body.hud-v2-screen-afc #side-panel {
 .v2r-status { font-size: 13px; color: var(--v2-soft); }
 .v2r-status-hold { color: var(--v2-red-hi); }
 .v2r-status-you { color: var(--v2-gold-hi); }
+.v2r-side-you { color: var(--v2-gold-hi); }
 .v2r-aside { display: grid; gap: 16px; align-content: start; }
 .v2r-card { display: grid; gap: 6px; padding: 14px 16px; background: rgba(15, 13, 10, 0.94); border: 1px solid var(--v2-edge); }
 .v2r-closest-name { font-family: var(--v2-display); font-size: 17px; font-weight: 700; color: var(--v2-gold-hi); }
@@ -217,18 +219,10 @@ body.hud-v2-screen-afc #side-panel {
 .v2d-emp-tiles { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
 .v2d-deal-nav { display: flex; align-items: baseline; gap: 14px; margin-bottom: 12px; }
 .v2d-deal-with { font-family: var(--v2-display); font-size: 18px; font-weight: 700; letter-spacing: 0.06em; }
-.v2d-deal { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr) 300px; gap: 16px; }
-.v2d-side, .v2d-terms { min-height: 0; overflow: auto; padding: 16px 18px; background: rgba(15, 13, 10, 0.95); border: 1px solid var(--v2-edge); }
-.v2d-side-you { border-top: 3px solid #3fb0a6; }
-.v2d-side-them { border-top: 3px solid var(--v2-red); }
-.v2d-side-head { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; margin-bottom: 8px; border-bottom: 1px solid var(--v2-line); }
-.v2d-side-head > span { display: grid; }
-.v2d-side-role { font-family: var(--v2-mono); font-size: 11px; letter-spacing: 0.14em; color: var(--v2-soft); }
-.v2d-side-name { font-family: var(--v2-display); font-size: 19px; font-weight: 700; letter-spacing: 0.06em; }
-.v2d-side-row { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; font-size: 14px; }
-.v2d-side-row span { color: var(--v2-soft); }
-.v2d-side-row b { font-family: var(--v2-mono); font-weight: 400; text-align: right; }
-/* The existing trade view, re-hosted in the middle column. */
+.v2d-deal-facts { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-soft); }
+.v2d-deal { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+.v2d-terms { min-height: 0; overflow: auto; padding: 16px 18px; background: rgba(15, 13, 10, 0.95); border: 1px solid var(--v2-edge); }
+/* The trade view (its own yours / deal / theirs columns), re-hosted full width. */
 .v2d-terms .diplomacy-trade-overlay { position: static; inset: auto; display: block; padding: 0; background: none; backdrop-filter: none; }
 .v2d-terms .diplomacy-trade-popup { width: 100%; max-height: none; padding: 0; border: 0; background: none; box-shadow: none; }
 
@@ -243,7 +237,7 @@ body.hud-v2-screen-afc #side-panel {
 .v2c-summary { display: grid; gap: 8px; margin: 0 14px; padding: 10px 12px; background: var(--v2-chip); border: 1px solid var(--v2-edge); }
 .v2c-summary-h { font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
 .v2c-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
-.v2c-chip { display: grid; padding: 6px; background: var(--v2-well); border: 1px solid var(--v2-line); }
+.v2c-chip { display: grid; padding: 6px; background: var(--v2-well); }
 .v2c-chip b { font-family: var(--v2-mono); font-size: 14px; }
 .v2c-chip span { font-size: 10.5px; color: var(--v2-muted); }
 .v2c-gain { color: var(--v2-green-hi); }
@@ -297,10 +291,24 @@ body.hud-v2 #activity-dashboard-overlay { display: none !important; }
 .v2u-row:hover { background: #1b170f; color: var(--v2-text); }
 .v2u-open { background: #221c13; border-left-color: var(--v2-gold); color: var(--v2-text); }
 .v2u-dot { width: 6px; height: 6px; }
-.v2u-new .v2u-dot { background: var(--v2-gold-hi); box-shadow: 0 0 6px rgba(240, 207, 130, 0.6); }
+.v2u-new .v2u-dot { background: var(--v2-gold-hi); }
 .v2u-title { font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.03em; line-height: 1.3; }
 .v2u-new .v2u-title { color: var(--v2-gold-hi); }
 .v2u-caret { font-size: 10px; color: var(--v2-muted); }
 .v2u-changes { margin: 0; padding: 2px 14px 12px 35px; background: #221c13; border-left: 3px solid var(--v2-gold); list-style: none; display: grid; gap: 6px; }
 .v2u-changes li { position: relative; font-size: 13px; line-height: 1.4; color: var(--v2-soft); }
 .v2u-changes li::before { content: ""; position: absolute; left: -12px; top: 0.55em; width: 4px; height: 4px; background: var(--v2-gold); }
+
+/* Towns: your towns in one sortable table (client-hud-v2-towns.ts). */
+.v2l-table { max-height: 100%; min-height: 0; overflow: auto; align-self: center; width: min(820px, 100%); display: grid; align-content: start; gap: 4px; padding: 14px 20px; background: rgba(15, 13, 10, 0.94); border: 1px solid var(--v2-edge); }
+.v2l-head, .v2l-row { display: grid; grid-template-columns: minmax(0, 1.8fr) repeat(3, minmax(0, 1fr)); gap: 16px; align-items: center; }
+.v2l-head { padding: 0 10px 8px; border-bottom: 1px solid var(--v2-line); font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
+.v2l-sort { justify-self: end; padding: 2px 0; border: 0; background: none; color: inherit; font: inherit; white-space: nowrap; }
+.v2l-sort:hover, .v2l-sort-on { color: var(--v2-gold-hi); }
+.v2l-row { padding: 8px 10px; border: 0; background: none; text-align: left; color: var(--v2-text); }
+.v2l-row:hover { background: #221c13; }
+.v2l-name { display: grid; gap: 2px; min-width: 0; font-size: 14px; }
+.v2l-label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.v2l-row small { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
+.v2l-unfed .v2l-name small { color: var(--v2-amber); }
+.v2l-num { justify-self: end; display: grid; justify-items: end; font-family: var(--v2-mono); font-size: 13px; }

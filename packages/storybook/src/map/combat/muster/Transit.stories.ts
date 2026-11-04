@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createMusterOverlay } from "@client/client-map-3d-muster-overlay.js";
 import { createMusterTransitOverlay, type MusterTransit, type MusterTransitHop } from "@client/client-map-3d-muster-transit-overlay.js";
-import { createSupplyLineOverlay } from "@client/client-map-3d-supply-line-overlay.js";
 import { createAttackOverlay } from "@client/client-map-3d-attack-overlay.js";
 import { createBuildingEnvironmentTexture } from "@client/client-map-3d-atmosphere.js";
 import { createStage, createGrassGround, wrapWithCleanup } from "../../../fixtures/three-stage.js";
@@ -65,7 +64,6 @@ const render = (args: Args): HTMLElement => {
   const flagOverlay = createMusterOverlay(stage.scene);
   const envMap = createBuildingEnvironmentTexture(stage.renderer);
   const transitOverlay = createMusterTransitOverlay(stage.scene, envMap);
-  const supplyLine = createSupplyLineOverlay(stage.scene);
   const targetOverlay = createAttackOverlay(stage.scene, 1);
 
   const groundY = 0;
@@ -76,19 +74,10 @@ const render = (args: Args): HTMLElement => {
   flagOverlay.addMuster(flag.x, flag.z, groundY, 1, EMPIRE_COLOR, true, 0, 0);
   flagOverlay.commit();
 
-  // One line segment per hop, so the route itself reads as tile-by-tile too,
-  // not a single beeline from flag to target.
-  for (let i = 0; i < path.length - 1; i++) {
-    const from = path[i]!, to = path[i + 1]!;
-    supplyLine.addLine(from.x, from.z, groundY, to.x, to.z, groundY, "transit", EMPIRE_COLOR);
-  }
-  supplyLine.commit();
-
   const disposers: Array<() => void> = [
     ground.dispose,
     flagOverlay.dispose,
     transitOverlay.dispose,
-    supplyLine.dispose,
     targetOverlay.dispose
   ];
 
@@ -115,7 +104,6 @@ const render = (args: Args): HTMLElement => {
     transitOverlay.commit();
     transitOverlay.tick(now);
 
-    supplyLine.tick(now);
     flagOverlay.tick(now);
 
     targetOverlay.clear();
@@ -138,7 +126,7 @@ const meta: Meta<Args> = {
       description: {
         component:
           "Travel-time concept using real game assets: a company marches hop-by-hop from the muster flag " +
-          "(client-map-3d-muster-overlay banner) along the real tile route (client-map-3d-supply-line-overlay, one segment per hop) " +
+          "(client-map-3d-muster-overlay banner) along the real tile route " +
           "to the attacked tile (client-map-3d-attack-overlay's target X), then loops. The DockCrossing story shows a route with " +
           "one long dock hop, which the company dashes across in the same time as any other single hop, never stretching the " +
           "whole march to account for it. Distance/pacing are illustrative — this is the design review for the visualization " +

@@ -1,4 +1,4 @@
-import type { PersonalActivityTimeline } from "@border-empires/game-domain";
+import type { PersonalActivityDiplomacyCard, PersonalActivityTimeline } from "@border-empires/game-domain";
 
 const ACTIVITY_TIMELINE_WINDOW_MS = 24 * 60 * 60_000;
 
@@ -14,6 +14,9 @@ export type RequestPersonalActivityMessageDeps = {
   playerId: string;
   now: () => number;
   getPersonalActivityTimeline: (playerId: string, from: number, to: number) => Promise<PersonalActivityTimeline>;
+  // Truce/alliance rows owned by the gateway's social state, merged into the
+  // simulation's timeline (social-diplomacy-history.ts).
+  getDiplomacyCards?: (playerId: string, from: number, to: number) => PersonalActivityDiplomacyCard[];
   // Payload-byte gauge for the response, recorded at this WS boundary (see
   // docs/activity-dashboard-plan.md 4.1) -- optional so tests can omit it.
   recordPayloadBytes?: (bytes: number) => void;
@@ -22,12 +25,19 @@ export type RequestPersonalActivityMessageDeps = {
   sendJson: (payload: unknown) => void;
 };
 
+// Newest first, like the simulation's own list: the client reads cards[0] as
+// the newest event for its unread badge.
+export const mergeDiplomacyCards = (timeline: PersonalActivityTimeline, diplomacyCards: PersonalActivityDiplomacyCard[]): PersonalActivityTimeline =>
+  diplomacyCards.length === 0
+    ? timeline
+    : { ...timeline, cards: [...timeline.cards, ...diplomacyCards].sort((left, right) => right.occurredAt - left.occurredAt) };
+
 export const handleRequestPersonalActivityMessage = async (deps: RequestPersonalActivityMessageDeps): Promise<void> => {
-  const { playerId, now, getPersonalActivityTimeline, recordPayloadBytes, recordCardCount, recordTruncated, sendJson } = deps;
+  const { playerId, now, getPersonalActivityTimeline, getDiplomacyCards, recordPayloadBytes, recordCardCount, recordTruncated, sendJson } = deps;
   const to = now();
   const from = to - ACTIVITY_TIMELINE_WINDOW_MS;
   try {
-    const timeline = await getPersonalActivityTimeline(playerId, from, to);
+    const timeline = mergeDiplomacyCards(await getPersonalActivityTimeline(playerId, from, to), getDiplomacyCards?.(playerId, from, to) ?? []);
     const response = { type: "PERSONAL_ACTIVITY_TIMELINE", timeline };
     recordPayloadBytes?.(Buffer.byteLength(JSON.stringify(response), "utf8"));
     recordCardCount?.(timeline.cards.length);

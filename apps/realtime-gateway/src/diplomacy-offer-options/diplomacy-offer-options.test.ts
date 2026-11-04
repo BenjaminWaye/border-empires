@@ -4,7 +4,7 @@ import { createSocialState } from "../social-state/social-state.js";
 import { offerOptionsFor } from "./diplomacy-offer-options.js";
 
 describe("offerOptionsFor", () => {
-  const terms = { give: { gold: 5, shard: 0 }, ask: { gold: 0, shard: 0 } };
+  const terms = { give: { gold: 5 }, ask: { gold: 0 } };
 
   it("carries terms and the target id only when present", () => {
     expect(offerOptionsFor({})).toEqual({});

@@ -13,11 +13,11 @@ export const FLEET_HULL_CLASS_IDS: readonly FleetHullClassId[] = ["SCOUT", "RAID
 type HullInfo = { icon: string; label: string; cost: number; damage: number; speed: number; revealsGarrison: boolean; blurb: string };
 
 const HULL_INFO: Record<FleetHullClassId, HullInfo> = {
-  SCOUT: { icon: "🛰️", label: "Scout", cost: 25, damage: 0, speed: 5, revealsGarrison: true, blurb: "Reveals Garrison, no damage" },
-  RAIDER: { icon: "🗡️", label: "Raider", cost: 80, damage: 50, speed: 4, revealsGarrison: false, blurb: "Fast, moderate damage" },
-  BATTLELINE: { icon: "🚀", label: "Battleline", cost: 200, damage: 200, speed: 3, revealsGarrison: false, blurb: "Balanced main-line hull" },
-  DREADNOUGHT: { icon: "☠️", label: "Dreadnought", cost: 500, damage: 600, speed: 1, revealsGarrison: false, blurb: "Slow, devastating damage" },
-  TANKER: { icon: "⛽", label: "Tanker", cost: 60, damage: 0, speed: 2, revealsGarrison: false, blurb: "No combat effect" }
+  SCOUT: { icon: "◇", label: "Scout", cost: 25, damage: 0, speed: 5, revealsGarrison: true, blurb: "Reveals Garrison, no damage" },
+  RAIDER: { icon: "◆", label: "Raider", cost: 80, damage: 50, speed: 4, revealsGarrison: false, blurb: "Fast, moderate damage" },
+  BATTLELINE: { icon: "▲", label: "Battleline", cost: 200, damage: 200, speed: 3, revealsGarrison: false, blurb: "Balanced main-line hull" },
+  DREADNOUGHT: { icon: "■", label: "Dreadnought", cost: 500, damage: 600, speed: 1, revealsGarrison: false, blurb: "Slow, devastating damage" },
+  TANKER: { icon: "○", label: "Tanker", cost: 60, damage: 0, speed: 2, revealsGarrison: false, blurb: "No combat effect" }
 };
 
 // 2 days at relative speed 1 -- mirrors FLEET_BASE_TRAVEL_TIME_MS in
@@ -90,9 +90,9 @@ export const fleetHullCardHtml = (id: FleetHullClassId, count: number): string =
       <div class="fl-hull-icon">${info.icon}</div>
       <div class="fl-hull-name">${info.label}</div>
       <div class="fl-hull-stats">
-        <span title="Production cost">💰${info.cost} cost</span>
-        <span title="Damage">💥${info.damage} dmg</span>
-        <span title="Relative speed (higher = faster)">⚡${info.speed} spd</span>
+        <span title="Production cost">${info.cost} cost</span>
+        <span title="Damage">${info.damage} dmg</span>
+        <span title="Relative speed (higher = faster)">${info.speed} spd</span>
       </div>
       <div class="fl-hull-blurb">${info.blurb}</div>
       <div class="fl-hull-stepper">
@@ -119,10 +119,10 @@ export const fleetCompositionSummaryHtml = (composition: Partial<Record<FleetHul
   const reconOnly = totalDamage === 0 && activeIds.some((id) => HULL_INFO[id].revealsGarrison);
   return `
     <div class="fl-summary">
-      <div class="fl-summary-stat"><span class="fl-summary-label">Cost</span><span class="fl-summary-value">💰 ${totalCost}</span></div>
-      <div class="fl-summary-stat"><span class="fl-summary-label">Damage</span><span class="fl-summary-value">${reconOnly ? "🔍 Recon only" : `💥 ${totalDamage}`}</span></div>
-      <div class="fl-summary-stat"><span class="fl-summary-label">Build</span><span class="fl-summary-value">🔧 ${formatDuration(buildMs)}</span></div>
-      <div class="fl-summary-stat"><span class="fl-summary-label">Travel</span><span class="fl-summary-value">🕐 ${formatDuration(travelMs)}</span></div>
+      <div class="fl-summary-stat"><span class="fl-summary-label">Cost</span><span class="fl-summary-value">${totalCost}</span></div>
+      <div class="fl-summary-stat"><span class="fl-summary-label">Damage</span><span class="fl-summary-value">${reconOnly ? "Recon only" : totalDamage}</span></div>
+      <div class="fl-summary-stat"><span class="fl-summary-label">Build</span><span class="fl-summary-value">${formatDuration(buildMs)}</span></div>
+      <div class="fl-summary-stat"><span class="fl-summary-label">Travel</span><span class="fl-summary-value">${formatDuration(travelMs)}</span></div>
     </div>`;
 };
 
@@ -148,7 +148,7 @@ export const fleetOrderListHtml = (orders: FleetOrderView[]): string =>
   orders.length > 0
     ? `<ul class="fl-order-list">${orders
         .map((o) => {
-          const icon = o.status === "BUILDING" ? "🔧" : o.status === "TRAVELING" ? (o.garrison ? "🏠" : "🚀") : o.garrison ? "🏠" : o.reconOnly ? "🔍" : "⚔️";
+          const icon = o.status === "BUILDING" ? "⚒\uFE0E" : o.status === "TRAVELING" ? (o.garrison ? "⌂" : "➤") : o.garrison ? "⌂" : o.reconOnly ? "◎" : "⚔\uFE0E";
           const etaLabel = o.status === "BUILDING" ? `builds, then departs ${relativeTimeFromNow(o.departsAt)}` : o.status === "TRAVELING" ? `arrives ${relativeTimeFromNow(o.arrivesAt)}` : "";
           return `
       <li class="fl-order fl-status-${o.status.toLowerCase()}">
@@ -166,7 +166,7 @@ export const fleetBattleLogHtml = (entries: FleetBattleLogEntryView[]): string =
   entries.length > 0
     ? `<ul class="fl-log-list">${entries
         .map((e) => {
-          const icon = e.reconOnly ? "🔍" : "⚔️";
+          const icon = e.reconOnly ? "◎" : "⚔\uFE0E";
           return `
       <li class="fl-log-entry fl-log-${e.reconOnly ? "recon" : "raid"}">
         <span class="fl-log-icon">${icon}</span>
@@ -189,7 +189,7 @@ export const fleetThreatListHtml = (threats: FleetThreatView[]): string =>
         .map(
           (t) => `
       <li class="fl-threat">
-        <span class="fl-threat-icon">⚠️</span>
+        <span class="fl-threat-icon">⚠\uFE0E</span>
         <span class="fl-threat-target">${escapeHtml(t.targetLabel)}</span>
         <span class="fl-threat-eta">arrives ${relativeTimeFromNow(t.arrivesAt)}</span>
       </li>`
@@ -200,10 +200,10 @@ export const fleetThreatListHtml = (threats: FleetThreatView[]): string =>
 export const fleetPanelHtml = (targetOptionsHtml: string, homeOptionsHtml = "", threatsHtml = ""): string => `
   <div class="fl-panel">
     <div class="fl-header">
-      <h3 class="fl-heading">🛡️ Fleets</h3>
+      <h3 class="fl-heading">Fleets</h3>
     </div>
     <div class="fl-section fl-threats-section" data-fleet-threats-section ${threatsHtml ? "" : "hidden"}>
-      <h4>⚠️ Incoming</h4>
+      <h4>Incoming</h4>
       <div data-fleet-threats>${threatsHtml}</div>
     </div>
     <div class="fl-section">
@@ -215,8 +215,8 @@ export const fleetPanelHtml = (targetOptionsHtml: string, homeOptionsHtml = "", 
           <label class="fl-field-label" for="fl-target-select">Target</label>
           <select class="fl-select" id="fl-target-select" data-fleet-target-select>
             <option value="" disabled selected>Choose a target...</option>
-            <optgroup label="🏠 Hold at home (garrison, no combat)" data-fleet-home-optgroup ${homeOptionsHtml ? "" : "hidden"}>${homeOptionsHtml}</optgroup>
-            <optgroup label="⚔️ Raid / recon target">${targetOptionsHtml}</optgroup>
+            <optgroup label="Hold at home (garrison, no combat)" data-fleet-home-optgroup ${homeOptionsHtml ? "" : "hidden"}>${homeOptionsHtml}</optgroup>
+            <optgroup label="Raid / recon target">${targetOptionsHtml}</optgroup>
           </select>
           <select class="fl-select" data-fleet-weapon-select>
             <option value="KINETIC">Kinetic</option>
@@ -226,7 +226,7 @@ export const fleetPanelHtml = (targetOptionsHtml: string, homeOptionsHtml = "", 
         </div>
         <div class="fl-form-row">
           <input type="text" class="fl-select" placeholder="Save as blueprint (optional name)" data-fleet-blueprint-name>
-          <button type="submit" class="sv-btn fl-send-btn">🚀 Send Fleet</button>
+          <button type="submit" class="sv-btn fl-send-btn">Send Fleet</button>
           <button type="button" class="sv-btn" data-fleet-save-blueprint>Save Blueprint Only</button>
         </div>
       </form>

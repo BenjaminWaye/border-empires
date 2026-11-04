@@ -1,4 +1,5 @@
 import type { ProspectSignature } from "@border-empires/shared";
+import { readSurveyDismissals, rememberSurveyDismissal } from "./client-occupation-survey/client-occupation-survey-dismissals.js";
 import { occupationSurveyStyles } from "./client-occupation-survey-style.js";
 
 export type OccupationSurveyResource = "TITANIUM" | "UMBRITE" | "GEMS";
@@ -81,6 +82,10 @@ const dismissPopup = (): void => {
   active = queue.shift();
   if (active && !capturePanelOpen) showPopup(active);
 };
+const acknowledgePopup = (): void => {
+  if (active && reportScope !== undefined) rememberSurveyDismissal(reportScope, active.resource, active.id);
+  dismissPopup();
+};
 const showPopup = (report: OccupationSurveyReport): void => {
   if (typeof document === "undefined" || popupElement?.dataset.reportId === report.id) return;
   removePopup();
@@ -98,9 +103,9 @@ const showPopup = (report: OccupationSurveyReport): void => {
   </section>`;
   overlay.querySelector<HTMLButtonElement>("[data-survey-view]")?.addEventListener("click", () => {
     viewHandler?.(report);
-    dismissPopup();
+    acknowledgePopup();
   });
-  overlay.querySelector<HTMLButtonElement>("[data-survey-dismiss]")?.addEventListener("click", dismissPopup);
+  overlay.querySelector<HTMLButtonElement>("[data-survey-dismiss]")?.addEventListener("click", acknowledgePopup);
   document.body.appendChild(overlay);
   popupElement = overlay;
   overlay.querySelector<HTMLButtonElement>("[data-survey-view]")?.focus();
@@ -125,6 +130,7 @@ export const occupationSurveyController = {
     seenReportIds[report.resource] = report.id;
     if (revealTechIds.includes(TECH_BY_RESOURCE[report.resource])) return;
     reports.set(report.resource, report);
+    if (reportScope !== undefined && readSurveyDismissals(reportScope)[report.resource] === report.id) return;
     presentReports([report]);
   },
   currentReports(techIds: readonly string[] = []): OccupationSurveyReport[] {
@@ -165,7 +171,7 @@ export const occupationSurveyController = {
     if (active && !currentIds.has(active.id)) dismissPopup();
     for (const entry of entries) this.record(entry);
   },
-  dismiss: dismissPopup
+  dismiss: acknowledgePopup
 };
 
 export const occupationSurveyReportsForCapture = (techIds: readonly string[] = []): OccupationSurveyReport[] => occupationSurveyController.currentReports(techIds);
@@ -177,7 +183,7 @@ if (typeof window !== "undefined") window.addEventListener("keydown", (event) =>
   if (event.key === "Escape") {
     event.preventDefault();
     event.stopImmediatePropagation();
-    dismissPopup();
+    acknowledgePopup();
   } else if (event.key === "Tab") {
     const buttons = Array.from(popupElement.querySelectorAll<HTMLButtonElement>("button"));
     const first = buttons[0];

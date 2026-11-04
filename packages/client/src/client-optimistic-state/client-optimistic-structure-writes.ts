@@ -3,11 +3,11 @@
 // player sees before the server answers matches what the server will send.
 // Extracted from client-optimistic-state.ts (500-line cap).
 import {
-  bestSiegeTierForTech,
   defendingFortVariant,
   fortTierForBuild,
   structureBuildDurationMsForManpowerCost,
   nextSiegeTierForUpgrade,
+  siegeTierForFreshBuild,
   type SiegeBatteryVariant
 } from "@border-empires/shared";
 import type { OptimisticStructureKind, Tile } from "../client-types.js";
@@ -22,7 +22,9 @@ export const writeOptimisticStructureBuild = (
   // would have to guess the window from a per-type duration and could show a fresh build part-done.
   startedAt: number,
   // Applies the player's build-speed effects to a fort tier's base duration (client-build-speed).
-  adjustBuildMs: (structureType: string, baseMs: number) => number = (_type, baseMs) => baseMs
+  adjustBuildMs: (structureType: string, baseMs: number) => number = (_type, baseMs) => baseMs,
+  // Whether the player's resource slots fit a siege tier -- a fresh siege build steps down to the best tier that fits, as the sim does.
+  canAffordSiegeVariant: (variant: SiegeBatteryVariant) => boolean = () => true
 ): void => {
   if (kind === "FORT" || kind === "PALISADE") {
     // Don't write a construction the sim will reject (max tier, or a Palisade on a fortified tile).
@@ -51,7 +53,7 @@ export const writeOptimisticStructureBuild = (
     if (tile.siegeBattery && !nextSiegeTierForUpgrade(tile.siegeBattery.variant, hasTech)) return;
     const variant: SiegeBatteryVariant = tile.siegeBattery
       ? nextSiegeTierForUpgrade(tile.siegeBattery.variant, hasTech)!.variant
-      : bestSiegeTierForTech(hasTech).variant;
+      : siegeTierForFreshBuild(hasTech, canAffordSiegeVariant).variant;
     tile.siegeBattery = { ownerId, status: "under_construction", variant, completesAt, startedAt };
     return;
   }

@@ -57,7 +57,6 @@ const bind = (state: any, ws: FakeWebSocket) => {
     applyPendingSettlementsFromServer: vi.fn(),
     mergeIncomingTileDetail: vi.fn((_existing, incoming) => incoming),
     mergeServerTileWithOptimisticState: vi.fn((tile) => tile),
-    maybeAnnounceShardSite: vi.fn(),
     markDockDiscovered: vi.fn(),
     centerOnOwnedTile: vi.fn(),
     authProfileNameEl: { value: "" },
@@ -68,8 +67,6 @@ const bind = (state: any, ws: FakeWebSocket) => {
     setWorldSeed: vi.fn(),
     clearRenderCaches: vi.fn(),
     buildMiniMapBase: vi.fn(),
-    shardAlertKeyForPayload: vi.fn(),
-    showShardAlert: vi.fn(),
     combatResolutionAlert: vi.fn(() => ({ title: "", detail: "", tone: "success" })),
     wasPredictedCombatAlreadyShown: vi.fn(() => false),
     showCaptureAlert: createRuntimeStyleShowCaptureAlert(state),
@@ -82,7 +79,6 @@ const bind = (state: any, ws: FakeWebSocket) => {
     requestAttackPreviewForTarget: vi.fn(),
     openSingleTileActionMenu,
     isTileOwnedByAlly: vi.fn(() => false),
-    hideShardAlert: vi.fn(),
     explainActionFailure: vi.fn(),
     notifyInsufficientGoldForFrontierAction: vi.fn(),
     clearSettlementProgressByKey: vi.fn(),
@@ -215,7 +211,7 @@ describe("client gateway sync regression", () => {
     expect(state.attackPreviewPendingRequestId).toBe("");
   });
 
-  it("shows pending incoming alliance and truce requests when INIT arrives after login", () => {
+  it("records pending incoming alliance and truce requests when INIT arrives after login, without a popup", () => {
     const state = createState();
     const ws = new FakeWebSocket();
     const { pushFeed, renderHud } = bind(state, ws);
@@ -251,15 +247,9 @@ describe("client gateway sync regression", () => {
 
     expect(state.incomingAllianceRequests).toEqual([expect.objectContaining({ id: "alliance-1", fromName: "Valka" })]);
     expect(state.incomingTruceRequests).toEqual([expect.objectContaining({ id: "truce-1", fromName: "Beejac" })]);
-    expect(state.captureAlert).toEqual(
-      expect.objectContaining({
-        title: "Diplomacy requests waiting",
-        detail: "You have 1 alliance request and 1 truce offer. Open Alliances to respond.",
-        tone: "warn"
-      })
-    );
-    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request. Open Alliances to accept or reject.", "alliance", "warn");
-    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 12h truce. Open Alliances to accept or reject.", "alliance", "warn");
+    expect(state.captureAlert).toBeUndefined(); // diplomacy no longer takes over the map: offers wait in the offer dock, news goes to the feed
+    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request.", "alliance", "warn");
+    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 12h truce.", "alliance", "warn");
     expect(renderHud).toHaveBeenCalled();
 
     const feedCallCount = pushFeed.mock.calls.length;
@@ -277,7 +267,7 @@ describe("client gateway sync regression", () => {
     expect(pushFeed.mock.calls.length).toBe(feedCallCount); // repeat INIT must not re-push: persisted dedupe in client-diplomacy-notifications.ts (#571)
   });
 
-  it("shows a prominent alert for live incoming alliance and truce requests", () => {
+  it("feeds live incoming alliance and truce requests to the offer dock without a popup", () => {
     const state = createState();
     const ws = new FakeWebSocket();
     const { pushFeed } = bind(state, ws);
@@ -295,14 +285,8 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(state.captureAlert).toEqual(
-      expect.objectContaining({
-        title: "Alliance request received",
-        detail: "Valka sent an alliance request. Open Alliances to accept or reject.",
-        tone: "warn"
-      })
-    );
-    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request. Open Alliances to accept or reject.", "alliance", "warn");
+    expect(state.captureAlert).toBeUndefined(); // diplomacy no longer takes over the map: offers wait in the offer dock, news goes to the feed
+    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request.", "alliance", "warn");
 
     ws.emit("message", {
       data: JSON.stringify({
@@ -319,17 +303,11 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(state.captureAlert).toEqual(
-      expect.objectContaining({
-        title: "Truce offer received",
-        detail: "Beejac offered a 24h truce. Open Alliances to accept or reject.",
-        tone: "warn"
-      })
-    );
-    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 24h truce. Open Alliances to accept or reject.", "alliance", "warn");
+    expect(state.captureAlert).toBeUndefined(); // diplomacy no longer takes over the map: offers wait in the offer dock, news goes to the feed
+    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 24h truce.", "alliance", "warn");
   });
 
-  it("shows alliance break notices and keeps the active ally visible", () => {
+  it("feeds alliance break notices without a popup and keeps the active ally visible", () => {
     const state = createState();
     const ws = new FakeWebSocket();
     const { pushFeed } = bind(state, ws);
@@ -355,13 +333,7 @@ describe("client gateway sync regression", () => {
 
     expect(state.allies).toEqual(["player-2"]);
     expect(state.activeAllianceBreaks).toEqual([expect.objectContaining({ otherPlayerId: "player-2" })]);
-    expect(state.captureAlert).toEqual(
-      expect.objectContaining({
-        title: "Alliance break notice",
-        detail: "Valka started a 24h notice to break your alliance.",
-        tone: "info"
-      })
-    );
+    expect(state.captureAlert).toBeUndefined(); // diplomacy no longer takes over the map: offers wait in the offer dock, news goes to the feed
     expect(pushFeed).toHaveBeenCalledWith("Valka started a 24h notice to break your alliance.", "alliance", "info");
   });
 
@@ -391,13 +363,7 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(state.captureAlert).toEqual(
-      expect.objectContaining({
-        title: "Alliance break notice",
-        detail: "Valka started a 24h notice to break your alliance.",
-        tone: "info"
-      })
-    );
+    expect(state.captureAlert).toBeUndefined(); // diplomacy no longer takes over the map: offers wait in the offer dock, news goes to the feed
     expect(pushFeed).toHaveBeenCalledWith("Valka started a 24h notice to break your alliance.", "alliance", "info");
     const feedCallCount = pushFeed.mock.calls.length;
 
@@ -444,13 +410,7 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(state.captureAlert).toEqual(
-      expect.objectContaining({
-        title: "Alliance broken",
-        detail: "Your alliance with Valka is now broken.",
-        tone: "warn"
-      })
-    );
+    expect(state.captureAlert).toBeUndefined(); // diplomacy no longer takes over the map: offers wait in the offer dock, news goes to the feed
     expect(pushFeed).toHaveBeenCalledWith("Your alliance with Valka is now broken.", "alliance", "warn");
     const feedCallCount = pushFeed.mock.calls.length;
 
@@ -905,7 +865,6 @@ describe("client gateway sync regression", () => {
       applyPendingSettlementsFromServer: vi.fn(),
       mergeIncomingTileDetail: vi.fn((_existing, incoming) => incoming),
       mergeServerTileWithOptimisticState: vi.fn((tile) => tile),
-      maybeAnnounceShardSite: vi.fn(),
       markDockDiscovered: vi.fn(),
       centerOnOwnedTile: vi.fn(),
       authProfileNameEl: { value: "" },
@@ -916,8 +875,6 @@ describe("client gateway sync regression", () => {
       setWorldSeed: vi.fn(),
       clearRenderCaches: vi.fn(),
       buildMiniMapBase: vi.fn(),
-      shardAlertKeyForPayload: vi.fn(),
-      showShardAlert: vi.fn(),
       combatResolutionAlert: vi.fn(() => ({ title: "Attack Beaten Back", detail: "Lost the fight.", tone: "warn", manpowerLoss: 60 })),
       wasPredictedCombatAlreadyShown: vi.fn(() => false),
       showCaptureAlert: createRuntimeStyleShowCaptureAlert(state),
@@ -930,7 +887,6 @@ describe("client gateway sync regression", () => {
       requestAttackPreviewForTarget: vi.fn(),
       openSingleTileActionMenu: vi.fn(),
       isTileOwnedByAlly: vi.fn(() => false),
-      hideShardAlert: vi.fn(),
       explainActionFailure: vi.fn(),
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       clearSettlementProgressByKey: vi.fn(),
@@ -986,7 +942,6 @@ describe("client gateway sync regression", () => {
       applyPendingSettlementsFromServer: vi.fn(),
       mergeIncomingTileDetail: vi.fn((_existing, incoming) => incoming),
       mergeServerTileWithOptimisticState: vi.fn((tile) => tile),
-      maybeAnnounceShardSite: vi.fn(),
       markDockDiscovered: vi.fn(),
       centerOnOwnedTile: vi.fn(),
       authProfileNameEl: { value: "" },
@@ -997,8 +952,6 @@ describe("client gateway sync regression", () => {
       setWorldSeed: vi.fn(),
       clearRenderCaches: vi.fn(),
       buildMiniMapBase: vi.fn(),
-      shardAlertKeyForPayload: vi.fn(),
-      showShardAlert: vi.fn(),
       combatResolutionAlert,
       wasPredictedCombatAlreadyShown: vi.fn(() => false),
       showCaptureAlert: createRuntimeStyleShowCaptureAlert(state),
@@ -1010,7 +963,6 @@ describe("client gateway sync regression", () => {
       requestAttackPreviewForTarget: vi.fn(),
       openSingleTileActionMenu: vi.fn(),
       isTileOwnedByAlly: vi.fn(() => false),
-      hideShardAlert: vi.fn(),
       explainActionFailure: vi.fn(),
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       clearSettlementProgressByKey: vi.fn(),
@@ -1225,7 +1177,6 @@ describe("client gateway sync regression", () => {
       applyPendingSettlementsFromServer: vi.fn(),
       mergeIncomingTileDetail: vi.fn((_existing, incoming) => incoming),
       mergeServerTileWithOptimisticState: vi.fn((tile) => tile),
-      maybeAnnounceShardSite: vi.fn(),
       markDockDiscovered: vi.fn(),
       centerOnOwnedTile: vi.fn(),
       authProfileNameEl: { value: "" },
@@ -1236,8 +1187,6 @@ describe("client gateway sync regression", () => {
       setWorldSeed: vi.fn(),
       clearRenderCaches: vi.fn(),
       buildMiniMapBase: vi.fn(),
-      shardAlertKeyForPayload: vi.fn(),
-      showShardAlert: vi.fn(),
       combatResolutionAlert: vi.fn(() => ({ title: "", detail: "", tone: "success" })),
       wasPredictedCombatAlreadyShown: vi.fn(() => false),
       showCaptureAlert: createRuntimeStyleShowCaptureAlert(state),
@@ -1249,7 +1198,6 @@ describe("client gateway sync regression", () => {
       requestAttackPreviewForTarget: vi.fn(),
       openSingleTileActionMenu: vi.fn(),
       isTileOwnedByAlly: vi.fn(() => false),
-      hideShardAlert: vi.fn(),
       explainActionFailure: vi.fn(),
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       clearSettlementProgressByKey: vi.fn(),

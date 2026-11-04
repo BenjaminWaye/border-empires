@@ -1,8 +1,7 @@
-import { slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
+import { relayBeaconFreeFoodSlotCountForPlayer, slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
   fortIsWithinSlotWaiver,
-  RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   SYNTHESIZER_STRUCTURE_TYPES,
   structureSlotRequirements, observatoryCrystalSlotCostForOwnedCount,
   type BuildableStructureType,
@@ -24,7 +23,7 @@ import type { RuntimeStructureCommandContext } from "./runtime-structure-command
 // stacked on top of the old one it's replacing.
 // Synthesizers skip this gate entirely (§6.4: a slot *source*, not a
 // consumer — must be buildable even with zero free slots). RELAY_BEACON
-// skips it too below RELAY_BEACON_FREE_FOOD_SLOT_COUNT owned, waived to 0
+// skips it too below the player's free-Relay allowance (relayBeaconFreeFoodSlotCountForPlayer), waived to 0
 // FOOD demand once built (slot-waivers.ts).
 type SlotGateContext = Pick<RuntimeStructureCommandContext, "players" | "tiles" | "ownedStructureCountForPlayer" | "summaryForPlayer" | "resourceSlotSupplyForPlayer" | "resourceSlotDemandForPlayer" | "emitEvent">;
 
@@ -39,30 +38,49 @@ function hasFortWaiver(context: SlotGateContext, target: DomainTileState, player
   return fortIsWithinSlotWaiver(target, tiles, playerId, count);
 }
 
+type SlotTileField = "fort" | "observatory" | "siegeBattery" | "economicStructure";
+
 export function hasFreeResourceSlots(
   context: SlotGateContext,
   command: CommandEnvelope,
   structureType: BuildableStructureType,
   slotStructureType: SlotStructureType,
   target: DomainTileState,
-  tileField: "fort" | "observatory" | "siegeBattery" | "economicStructure"
+  tileField: SlotTileField
 ): boolean {
-  if (SYNTHESIZER_STRUCTURE_TYPES.includes(structureType)) return true;
-  if (structureType === "RELAY_BEACON" && context.ownedStructureCountForPlayer(command.playerId, "RELAY_BEACON") < RELAY_BEACON_FREE_FOOD_SLOT_COUNT) return true;
-  const player = context.players.get(command.playerId);
+  const message = missingResourceSlotMessage(context, command.playerId, structureType, slotStructureType, target, tileField);
+  if (message === undefined) return true;
+  rejectCommand(context, command, "INSUFFICIENT_SLOT", message);
+  return false;
+}
+
+// Same check as hasFreeResourceSlots, without rejecting: undefined when the
+// slots fit, else the player-facing shortfall message. Lets a fresh siege
+// build probe each tier (siegeTierForFreshBuild) before committing to one.
+export function missingResourceSlotMessage(
+  context: SlotGateContext,
+  playerId: string,
+  structureType: BuildableStructureType,
+  slotStructureType: SlotStructureType,
+  target: DomainTileState,
+  tileField: SlotTileField
+): string | undefined {
+  if (SYNTHESIZER_STRUCTURE_TYPES.includes(structureType)) return undefined;
+  const player = context.players.get(playerId);
+  if (structureType === "RELAY_BEACON" && player && context.ownedStructureCountForPlayer(playerId, "RELAY_BEACON") < relayBeaconFreeFoodSlotCountForPlayer(player)) return undefined;
   const waivers = player ? slotWaiversForPlayer(player) : undefined;
-  const fortCount = context.ownedStructureCountForPlayer(command.playerId, "FORT");
-  const towerCount = context.ownedStructureCountForPlayer(command.playerId, "OBSERVATORY");
+  const fortCount = context.ownedStructureCountForPlayer(playerId, "FORT");
+  const towerCount = context.ownedStructureCountForPlayer(playerId, "OBSERVATORY");
   const requirements = (structureType === "OBSERVATORY"
     ? [{ resource: "CRYSTAL" as const, count: observatoryCrystalSlotCostForOwnedCount(towerCount) }]
     : structureSlotRequirements(slotStructureType)).filter(req => !(
-      (tileField === "fort" && req.resource === "TITANIUM" && hasFortWaiver(context, target, command.playerId, waivers?.fortTitaniumSlotWaiverCount ?? 0, fortCount)) ||
+      (tileField === "fort" && req.resource === "TITANIUM" && hasFortWaiver(context, target, playerId, waivers?.fortTitaniumSlotWaiverCount ?? 0, fortCount)) ||
       (tileField === "observatory" && req.resource === "CRYSTAL" && !target.observatory && towerCount < (waivers?.observatoryCrystalSlotWaiverCount ?? 0))
     ));
-  if (requirements.length === 0) return true;
-  const supply = context.resourceSlotSupplyForPlayer(command.playerId);
-  const demand = context.resourceSlotDemandForPlayer(command.playerId);
-  const alreadyOnThisTile = totalsFromSlotRequirements(currentTileFieldSlotRequirements(target, tileField, command.playerId));
+  if (requirements.length === 0) return undefined;
+  const supply = context.resourceSlotSupplyForPlayer(playerId);
+  const demand = context.resourceSlotDemandForPlayer(playerId);
+  const alreadyOnThisTile = totalsFromSlotRequirements(currentTileFieldSlotRequirements(target, tileField, playerId));
   for (const req of requirements) {
     const freeExcludingThisTile = supply[req.resource] - demand[req.resource] + alreadyOnThisTile[req.resource];
     if (freeExcludingThisTile < req.count) {
@@ -71,12 +89,10 @@ export function hasFreeResourceSlots(
       // needs 3) previously always said "no free UMBRITE slot" regardless
       // of how many were missing, so freeing exactly one slot left the
       // message unchanged and looked like nothing had happened.
-      const message = req.count === 1
+      return req.count === 1
         ? `no free ${req.resource} slot for ${structureLabel(structureType)}`
         : `${structureLabel(structureType)} needs ${req.count} free ${req.resource} slots, only ${Math.max(0, freeExcludingThisTile)} free`;
-      rejectCommand(context, command, "INSUFFICIENT_SLOT", message);
-      return false;
     }
   }
-  return true;
+  return undefined;
 }

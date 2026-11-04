@@ -5,7 +5,7 @@ import { createGrassGround, createStage, wrapWithCleanup } from "../../../fixtur
 
 // Close-up of the hand-built tree models (client-map-3d-tree-models.ts): one
 // forest tile per species, left to right pine, spruce, leaf, tropical palm,
-// with a lone light-grass sapling in front. Watch for a few seconds to see
+// Watch for a few seconds to see
 // the wind sway (client-map-3d-tree-material.ts).
 
 type Args = {
@@ -37,7 +37,6 @@ const render = (args: Args): HTMLElement => {
     forest.addInstance(i * 1.1 - 1.65, 0, 0, wx, wz);
   });
   palms.addInstance(1.65, 0, 0, 5, 5);
-  forest.addSparseLeafInstance(0, 1.1, 0, 3, 9);
   forest.commit();
   palms.commit();
   return wrapWithCleanup(stage, [forest.dispose, palms.dispose, ground.dispose]);

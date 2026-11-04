@@ -14,15 +14,32 @@ const tower = (x: number, y: number, ownerId: string, observatory: Record<string
   ({ ...land(x, y, ownerId), observatory: { ownerId, status: "active", ...observatory } }) as DomainTileState;
 const tileMap = (tiles: DomainTileState[]): Map<string, DomainTileState> => new Map(tiles.map((tile) => [key(tile.x, tile.y), tile]));
 const notDormant = (): boolean => false;
+const threeShots = (): number => 3;
 
 describe("isObservatoryShielding", () => {
-  it("shields only while active, held by its owner, off cooldown and not dormant", () => {
-    expect(isObservatoryShielding(tower(5, 5, "a"), NOW, notDormant)).toBe(true);
-    expect(isObservatoryShielding(tower(5, 5, "a", { status: "inactive" }), NOW, notDormant)).toBe(false);
-    expect(isObservatoryShielding(tower(5, 5, "a", { cooldownUntil: NOW + 1 }), NOW, notDormant)).toBe(false);
-    expect(isObservatoryShielding(tower(5, 5, "a", { cooldownUntil: NOW }), NOW, notDormant)).toBe(true);
-    expect(isObservatoryShielding({ ...tower(5, 5, "a"), ownerId: "captor" } as DomainTileState, NOW, notDormant)).toBe(false);
-    expect(isObservatoryShielding(tower(5, 5, "a"), NOW, () => true)).toBe(false);
+  it("shields only while active, held by its owner, with a shot left and not dormant", () => {
+    expect(isObservatoryShielding(tower(5, 5, "a"), NOW, notDormant, threeShots)).toBe(true);
+    expect(isObservatoryShielding(tower(5, 5, "a", { status: "inactive" }), NOW, notDormant, threeShots)).toBe(false);
+    expect(isObservatoryShielding({ ...tower(5, 5, "a"), ownerId: "captor" } as DomainTileState, NOW, notDormant, threeShots)).toBe(false);
+    expect(isObservatoryShielding(tower(5, 5, "a"), NOW, () => true, threeShots)).toBe(false);
+  });
+
+  it("keeps shielding with 1 or 2 shots spent and stops once all are spent", () => {
+    expect(isObservatoryShielding(tower(5, 5, "a", { shotsUsedAt: [NOW - 2] }), NOW, notDormant, threeShots)).toBe(true);
+    expect(isObservatoryShielding(tower(5, 5, "a", { shotsUsedAt: [NOW - 2, NOW - 1] }), NOW, notDormant, threeShots)).toBe(true);
+    expect(isObservatoryShielding(tower(5, 5, "a", { shotsUsedAt: [NOW - 3, NOW - 2, NOW - 1], cooldownUntil: NOW + 1 }), NOW, notDormant, threeShots)).toBe(false);
+  });
+
+  it("reads the owner's current capacity, not the cooldownUntil written at the last shot", () => {
+    // Spent 3 of 3, then the owner gained a x2 shots effect: it can fire (and shields) again.
+    expect(isObservatoryShielding(tower(5, 5, "a", { shotsUsedAt: [NOW - 3, NOW - 2, NOW - 1], cooldownUntil: NOW + 1 }), NOW, notDormant, () => 6)).toBe(true);
+    // Spent 3 of 6 under a x2 owner, then captured by an owner holding 3: empty, so no shield.
+    expect(isObservatoryShielding(tower(5, 5, "a", { shotsUsedAt: [NOW - 3, NOW - 2, NOW - 1] }), NOW, notDormant, threeShots)).toBe(false);
+  });
+
+  it("falls back to the old cooldownUntil for a tower with no shot history", () => {
+    expect(isObservatoryShielding(tower(5, 5, "a", { cooldownUntil: NOW + 1 }), NOW, notDormant, threeShots)).toBe(false);
+    expect(isObservatoryShielding(tower(5, 5, "a", { cooldownUntil: NOW }), NOW, notDormant, threeShots)).toBe(true);
   });
 });
 
@@ -30,7 +47,7 @@ describe("isTileShieldedByOwnersObservatory", () => {
   it("covers only the owner's own land inside the protection square, across the wrap seam", () => {
     const r = OBSERVATORY_PROTECTION_RADIUS;
     const tiles = tileMap([tower(0, 10, "a"), land(WORLD_WIDTH - r, 10, "a"), land(r + 1, 10, "a"), land(3, 10, "b"), land(4, 10)]);
-    const shielding = (candidate: DomainTileState): boolean => isObservatoryShielding(candidate, NOW, notDormant);
+    const shielding = (candidate: DomainTileState): boolean => isObservatoryShielding(candidate, NOW, notDormant, threeShots);
     expect(isTileShieldedByOwnersObservatory(tiles, shielding, "a", WORLD_WIDTH - r, 10)).toBe(true);
     expect(isTileShieldedByOwnersObservatory(tiles, shielding, "a", r + 1, 10)).toBe(false);
     expect(isTileShieldedByOwnersObservatory(tiles, shielding, "b", 3, 10)).toBe(false);
@@ -42,10 +59,10 @@ describe("isTileShieldedByOwnersObservatory", () => {
 });
 
 describe("collectShieldingTowers", () => {
-  it("reads the active-Observatory index and drops towers on cooldown or unpowered", () => {
-    const tiles = tileMap([tower(1, 1, "a"), tower(2, 2, "a", { cooldownUntil: NOW + 1 }), tower(3, 3, "b")]);
+  it("reads the active-Observatory index and drops towers out of shots or unpowered", () => {
+    const tiles = tileMap([tower(1, 1, "a"), tower(2, 2, "a", { shotsUsedAt: [1, 2, NOW] }), tower(3, 3, "b")]);
     const index = new Map([["a", new Set([key(1, 1), key(2, 2)])], ["b", new Set([key(3, 3)])]]);
-    expect(collectShieldingTowers(index, tiles, NOW, (owner) => owner === "b")).toEqual([{ x: 1, y: 1, ownerId: "a" }]);
+    expect(collectShieldingTowers(index, tiles, NOW, (owner) => owner === "b", threeShots)).toEqual([{ x: 1, y: 1, ownerId: "a" }]);
   });
 });
 

@@ -1,7 +1,7 @@
 import { isDistrictBuilding, isDistrictProject, type DistrictVisualKind } from "../client-town-district/district-catalog.js";
 import type { StructureInfoKey } from "../client-map-display.js";
 
-export type GenericReviewKind = "HYDROGARDEN" | "MINE" | "HARBOR_EXCHANGE";
+export type GenericReviewKind = import("@border-empires/shared").NetworkBuilding | "HYDROGARDEN" | "MINE" | "HARBOR_EXCHANGE";
 export type StructureOverlayRoute =
   | { readonly family: "district"; readonly kind: DistrictVisualKind }
   | { readonly family: "relay"; readonly kind: "RELAY_BEACON" }

@@ -1,3 +1,4 @@
+import { nextManpowerBatchAmount } from "./runtime-manpower.js";
 import { afcPlayerExportFields } from "./afc-specializations/afc-player-export.js";
 import { activeAfcModuleTechIds } from "./ai/ai-build-unlocks.js";
 import type { AiTacticalView } from "./ai/ai-tactical-view.js";
@@ -18,8 +19,13 @@ import { selectExpansionObjective, sampleEnemyYieldKeysAcrossPlayers, type Expan
 import { shouldYieldAt } from "./event-loop-yield.js";
 import { musterStagedManpowerForPlayer } from "./runtime-muster-staged-manpower.js";
 import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
+import { reachBorderOwnerAt } from "./runtime-aether-bridge-reach.js";
 
 import type { RuntimeExportState } from "./runtime-export-state-types.js";
+import type { TownEconomyEntry } from "./ai/build/town-economy-view.js";
+
+const townEconomyField = (view: readonly TownEconomyEntry[] | undefined): { townEconomy?: readonly TownEconomyEntry[] } =>
+  view && view.length > 0 ? { townEconomy: view } : {};
 export type { RuntimeExportState } from "./runtime-export-state-types.js";
 
 export type { RuntimeAiPlayerMetricsRow } from "./runtime-ai-player-metrics-row.js";
@@ -27,7 +33,12 @@ export type { RuntimeAiPlayerMetricsRow } from "./runtime-ai-player-metrics-row.
 export { buildRuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
 export type { RuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
 
-type RuntimeExportInput = Omit<SnapshotExportInput, "recordedEventsByCommandId"> & {
+// reachBorder comes from SnapshotExportInput (Runtime.reachBorder). It is read
+// once per export so every tile agrees on the same border, and it feeds
+// reachOwnerId below: reveal-map / season-end / spectator snapshots are built
+// from this full-world export, and clients need reachOwnerId for rival reach
+// borders and incursion hatching.
+type RuntimeExportInput = { supplyStateForPlayer?: (id: string) => import("@border-empires/shared").ResourceSupplyPlayerState } & Omit<SnapshotExportInput, "recordedEventsByCommandId"> & {
   terrainEpoch: number;
   tileDeltaStringifyCache: TileDeltaStringifyCache;
   applyManpowerRegen: (player: DomainPlayer) => void;
@@ -41,7 +52,8 @@ type RuntimeExportInput = Omit<SnapshotExportInput, "recordedEventsByCommandId">
 
 const toRuntimeExportTile = (
   tile: DomainTileState,
-  tileDeltaStringifyCache: TileDeltaStringifyCache
+  tileDeltaStringifyCache: TileDeltaStringifyCache,
+  reachBorder: ReadonlyMap<string, string>
 ): RuntimeExportState["tiles"][number] => {
   const tileKey = simulationTileKey(tile.x, tile.y);
   const cached = tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
@@ -54,9 +66,13 @@ const toRuntimeExportTile = (
   if (tile.dockId) entry.dockId = tile.dockId;
   if (tile.ownerId) entry.ownerId = tile.ownerId;
   if (tile.ownershipState) entry.ownershipState = tile.ownershipState;
+  const reachOwnerId = reachBorderOwnerAt(reachBorder, tile.x, tile.y);
+  if (reachOwnerId) entry.reachOwnerId = reachOwnerId;
   if (typeof tile.frontierDecayAt === "number") entry.frontierDecayAt = tile.frontierDecayAt;
   if (tile.frontierDecayKind) entry.frontierDecayKind = tile.frontierDecayKind;
   if (typeof tile.captureHoldUntil === "number") entry.captureHoldUntil = tile.captureHoldUntil;
+  if (typeof tile.warScarLevel === "number") entry.warScarLevel = tile.warScarLevel;
+  if (typeof tile.warScarUntil === "number") entry.warScarUntil = tile.warScarUntil;
   if (cached.townJson) entry.townJson = cached.townJson;
   if (tile.town?.type) entry.townType = tile.town.type;
   if (tile.town?.name) entry.townName = tile.town.name;
@@ -88,12 +104,14 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
       input.applyManpowerRegen(player);
       const summary = input.summaryForPlayer(player.id);
       return {
+        ...input.supplyStateForPlayer?.(player.id),
         id: player.id,
         ...(player.name ? { name: player.name } : {}),
         points: player.points,
         manpower: player.manpower,
         manpowerCap: input.playerManpowerCap(player),
         manpowerRegenPerMinute: input.playerManpowerRegenPerMinute(player),
+        nextManpowerBatchAmount: nextManpowerBatchAmount(player, input.playerManpowerCap(player), input.playerManpowerRegenPerMinute(player)),
         logisticsThroughputPerMinute: input.playerLogisticsThroughputPerMinute(player),
         manpowerBreakdown: input.playerManpowerBreakdown(player),
         ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
@@ -103,6 +121,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         strategicResources: { ...(player.strategicResources ?? {}) },
         allies: [...player.allies].sort(),
         truces: [...(player.truces ?? [])].sort(),
+        ...(player.truceEndsAt?.size ? { truceEndsAt: Object.fromEntries(player.truceEndsAt) } : {}),
         vision: player.mods?.vision ?? 1,
         visionRadiusBonus: visionRadiusBonusForPlayer(player),
         incomeMultiplier: player.mods?.income ?? 1,
@@ -130,12 +149,13 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
     .sort((left, right) => left.id.localeCompare(right.id));
 
 export function buildRuntimeExportState(input: RuntimeExportInput): RuntimeExportState {
+  const reachBorder = input.reachBorder();
   return {
     tiles: (() => {
       const result = new Array(input.tiles.size) as RuntimeExportState["tiles"];
       let i = 0;
       for (const tile of input.tiles.values()) {
-        result[i] = toRuntimeExportTile(tile, input.tileDeltaStringifyCache);
+        result[i] = toRuntimeExportTile(tile, input.tileDeltaStringifyCache, reachBorder);
         i += 1;
       }
       result.sort((left, right) => left.x - right.x || left.y - right.y);
@@ -166,10 +186,11 @@ export async function buildRuntimeExportStateAsync(
   yieldToEventLoop: () => Promise<void>
 ): Promise<RuntimeExportState> {
   const tiles = new Array(input.tiles.size) as RuntimeExportState["tiles"];
+  const reachBorder = input.reachBorder();
   let i = 0;
   for (const tile of input.tiles.values()) {
     if (shouldYieldAt(i, 2_000)) await yieldToEventLoop();
-    tiles[i] = toRuntimeExportTile(tile, input.tileDeltaStringifyCache);
+    tiles[i] = toRuntimeExportTile(tile, input.tileDeltaStringifyCache, reachBorder);
     i += 1;
   }
   await yieldToEventLoop();
@@ -226,7 +247,6 @@ type PlannerExportInput = {
   // not optional: without it EXPAND-family planning is reach-blind.
   reachTileKeysForPlayer: (playerId: string) => string[];
   // See PlannerPlayerView.focusFrontTileKeys' doc comment.
-  afcDetectedFlagsForPlayer?: (playerId: string) => readonly { x: number; y: number; ownerId: string }[];
   tacticalViewForPlayer?: (playerId: string, focusKeys: readonly string[]) => AiTacticalView;
   spatialFocusFrontForPlayer: (playerId: string) => string[];
   // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): feed the
@@ -238,6 +258,7 @@ type PlannerExportInput = {
   playerManpowerCap?: (playerId: string) => number;
   playerManpowerRegenPerMinute?: (playerId: string) => number;
   resourceSlotSupplyForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
+  townEconomyViewForPlayer?: (playerId: string, options?: { rebuildOnMiss?: boolean }) => readonly TownEconomyEntry[] | undefined;
   resourceSlotDemandForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
   // Feeds food-slot-relief.ts's chooseFoodConsumingStructureToDisable — same
   // optional-degrades-gracefully pattern as the four fields above.
@@ -316,10 +337,10 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         points: player.points,
         manpower: player.manpower,
         techIds: [...player.techIds].sort(),
-        ...(player.domainIds?.has("afc-oracle-5") && input.afcDetectedFlagsForPlayer ? { afcDetectedFlags: input.afcDetectedFlagsForPlayer(playerId) } : {}),
         installedModuleTechIds: activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, input.tiles),
         domainIds: [...(player.domainIds ?? [])].sort(),
         ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
+        ...(player.afcCampaign?.hijackReadyAt ? { afcHijackReadyAt: player.afcCampaign.hijackReadyAt } : {}),
           ...(player.afcCoreTownKeys ? { afcCoreTownKeys: [...player.afcCoreTownKeys] } : {}),
           ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}),
           ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
@@ -351,6 +372,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
         nonHostilePlayerIds: [...player.allies, ...(player.truces ?? [])],
         musterStagedManpower: musterStagedManpowerForPlayer(playerId, input.musterTilesByOwner.get(playerId), input.tiles),
+        ...(player.truceEndsAt?.size ? { truceEndsAt: [...player.truceEndsAt.values()] } : {}),
         ownedTileCount,
         frontierTileCount,
         ...(input.playerManpowerCap ? { manpowerCapacity: input.playerManpowerCap(playerId) } : {}),
@@ -365,7 +387,8 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
           : {}),
         ...(input.foodDormantEconomicStructureKeysForPlayer
           ? { foodDormantEconomicStructureKeys: [...input.foodDormantEconomicStructureKeysForPlayer(playerId)] }
-          : {})
+          : {}),
+        ...townEconomyField(input.townEconomyViewForPlayer?.(playerId))
       });
     });
   }

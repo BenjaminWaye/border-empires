@@ -61,7 +61,6 @@ export function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: L
         ...(defenderTile.prospectSignature ? { prospectSignature: defenderTile.prospectSignature } : {}),
         ...(defenderTile.dockId ? { dockId: defenderTile.dockId } : {}),
         ...(defenderTile.town ? { town: defenderTile.town } : {}),
-        ...(defenderTile.shardSite ? { shardSite: defenderTile.shardSite } : {}),
         ...(defenderTile.naturalWonder ? { naturalWonder: defenderTile.naturalWonder } : {}),
         ...(defenderTile.watchtower ? { watchtower: defenderTile.watchtower } : {}),
         ...(defenderTile.economicStructure ? { economicStructure: defenderTile.economicStructure } : {})

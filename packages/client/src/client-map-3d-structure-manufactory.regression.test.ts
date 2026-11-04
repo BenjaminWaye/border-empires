@@ -64,6 +64,22 @@ describe("manufactory structure overlay", () => {
     overlay.dispose();
   });
 
+  it("keeps a manufactory remembered under fog standing still while a live one spins", () => {
+    const scene = new Scene();
+    const overlay = createStructureOverlay(scene, 3, createContactShadowOverlay(scene, 3));
+    overlay.addInstance(0, 0, 0, "MANUFACTORY", undefined, undefined, true);
+    overlay.addInstance(2, 0, 0, "MANUFACTORY");
+    overlay.commit();
+    const wheel = flywheelMesh(scene)!;
+    expect(wheel.count).toBe(2);
+    const before = Array.from(wheel.instanceMatrix.array.slice(0, 32));
+    overlay.update(1000);
+    overlay.update(2500);
+    expect(Array.from(wheel.instanceMatrix.array.slice(0, 16))).toEqual(before.slice(0, 16));
+    expect(Array.from(wheel.instanceMatrix.array.slice(16, 32))).not.toEqual(before.slice(16, 32));
+    overlay.dispose();
+  });
+
   it("spins the flywheel on update with a partial upload and without disturbing counts", () => {
     const scene = new Scene();
     const overlay = createStructureOverlay(scene, 8, createContactShadowOverlay(scene, 8));

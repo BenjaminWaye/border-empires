@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, relayBeaconBuildDurationMs, relayBeaconManpowerCost, requiredMusterForFort, RELAY_BEACON_FIRST_TIER_COUNT, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, economicStructureBuildDurationMs, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
+import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, relayBeaconBuildDurationMs, relayBeaconManpowerCost, requiredMusterForFort, RELAY_BEACON_FIRST_TIER_COUNT, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, siegeTierForFreshBuild, economicStructureBuildDurationMs, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
 
 // Build gold costs are zeroed across the board (manpower is the sole build
 // cost now; gold only gates a few structures
@@ -70,28 +70,21 @@ describe("structureCostDefinition", () => {
     expect(structureCostDefinition("ANCILLARY_DEPOT").resourceCost).toBeUndefined();
   });
 
-  // Wonders already cost 2 SHARD on final assembly; each of their 3 prerequisite
-  // parts now also costs 1 SHARD, so a completed wonder consumes 5 SHARD total
-  // across the build chain rather than 2.
-  test("charges 1 SHARD for every wonder part, on top of the completed wonder's own SHARD cost", () => {
+  // Shards were removed from the game: monuments cost manpower (plus their
+  // CRYSTAL slot, structure-slots.ts) and no strategic stockpile.
+  test("charges no strategic resource for any wonder part or completed wonder", () => {
     const wonderParts = [
       "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
       "SOVEREIGN_SIEGE_ENGINE_PART_1", "SOVEREIGN_SIEGE_ENGINE_PART_2", "SOVEREIGN_SIEGE_ENGINE_PART_3",
       "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
       "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
       "CENSUS_DIRECTORATE_PART_1", "CENSUS_DIRECTORATE_PART_2", "CENSUS_DIRECTORATE_PART_3",
-      "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"
-    ] as const;
-
-    for (const part of wonderParts) {
-      expect(structureCostDefinition(part).resourceCost, part).toEqual({ resource: "SHARD", amount: 1 });
-    }
-
-    const completedWonders = [
+      "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3",
       "IMPERIAL_EXCHANGE", "SOVEREIGN_SIEGE_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "CENSUS_DIRECTORATE", "TITANIUM_LEVY"
     ] as const;
-    for (const wonder of completedWonders) {
-      expect(structureCostDefinition(wonder).resourceCost, wonder).toEqual({ resource: "SHARD", amount: 2 });
+
+    for (const monument of wonderParts) {
+      expect(structureCostDefinition(monument).resourceCost, monument).toBeUndefined();
     }
   });
 });
@@ -210,20 +203,20 @@ describe("SIEGE_TIER_LADDER", () => {
     expect(tier.attackMult).toBe(1.6);
   });
 
-  test("SIEGE_TOWER costs 0 gold, 90 umbrite, 60 titanium, 120 manpower, 1.8x attack", () => {
+  test("SIEGE_TOWER costs 0 gold, 90 umbrite, no titanium, 120 manpower, 1.8x attack", () => {
     const tier = SIEGE_TIER_LADDER.SIEGE_TOWER;
     expect(tier.gold).toBe(0);
     expect(tier.umbrite).toBe(90);
-    expect(tier.titanium).toBe(60);
+    expect(tier.titanium).toBe(0);
     expect(tier.manpower).toBe(120);
     expect(tier.attackMult).toBe(1.8);
   });
 
-  test("DREAD_TOWER costs 0 gold, 140 umbrite, 120 titanium, 240 manpower, 2.0x attack", () => {
+  test("DREAD_TOWER costs 0 gold, 140 umbrite, no titanium, 240 manpower, 2.0x attack", () => {
     const tier = SIEGE_TIER_LADDER.DREAD_TOWER;
     expect(tier.gold).toBe(0);
     expect(tier.umbrite).toBe(140);
-    expect(tier.titanium).toBe(120);
+    expect(tier.titanium).toBe(0);
     expect(tier.manpower).toBe(240);
     expect(tier.attackMult).toBe(2.0);
   });
@@ -245,6 +238,28 @@ describe("SIEGE_TIER_LADDER", () => {
   test("bestSiegeTierForTech returns DREAD_TOWER when standing-army is researched", () => {
     const hasTech = (id: string) => id === "standing-army" || id === "siegecraft";
     expect(bestSiegeTierForTech(hasTech).variant).toBe("DREAD_TOWER");
+  });
+});
+
+describe("siegeTierForFreshBuild", () => {
+  const siegecraft = (id: string) => id === "siegecraft";
+  const allTech = (id: string) => id === "siegecraft" || id === "standing-army";
+
+  test("builds the best tech tier when it's affordable", () => {
+    expect(siegeTierForFreshBuild(siegecraft, () => true).variant).toBe("SIEGE_TOWER");
+  });
+
+  test("steps down to a Siege Battery when a Siege Tower can't be afforded", () => {
+    expect(siegeTierForFreshBuild(siegecraft, (variant) => variant === "SIEGE_BATTERY").variant).toBe("SIEGE_BATTERY");
+  });
+
+  test("steps down one tier at a time from a Dread Tower", () => {
+    expect(siegeTierForFreshBuild(allTech, (variant) => variant !== "DREAD_TOWER").variant).toBe("SIEGE_TOWER");
+  });
+
+  test("never climbs above the tech tier, and falls back to it when nothing is affordable", () => {
+    expect(siegeTierForFreshBuild(() => false, () => true).variant).toBe("SIEGE_BATTERY");
+    expect(siegeTierForFreshBuild(siegecraft, () => false).variant).toBe("SIEGE_TOWER");
   });
 });
 
@@ -350,7 +365,7 @@ describe("relayBeaconManpowerCost", () => {
 });
 
 // D12: first-tier beacons keep paying manpower but are placed instantly; the
-// 6th+ follow time-follows-cost (100 MP = 100 seconds).
+// 6th+ take the flat build minute.
 describe("relayBeaconBuildDurationMs", () => {
   test("the first 5 beacons a player owns build instantly despite costing manpower", () => {
     for (let owned = 0; owned < RELAY_BEACON_FIRST_TIER_COUNT; owned += 1) {
@@ -360,8 +375,8 @@ describe("relayBeaconBuildDurationMs", () => {
     }
   });
 
-  test("the 6th+ beacon takes 100 seconds (100 MP x 1s)", () => {
-    expect(relayBeaconBuildDurationMs(RELAY_BEACON_FIRST_TIER_COUNT)).toBe(100_000);
-    expect(relayBeaconBuildDurationMs(20)).toBe(100_000);
+  test("the 6th+ beacon takes the flat build minute", () => {
+    expect(relayBeaconBuildDurationMs(RELAY_BEACON_FIRST_TIER_COUNT)).toBe(60_000);
+    expect(relayBeaconBuildDurationMs(20)).toBe(60_000);
   });
 });

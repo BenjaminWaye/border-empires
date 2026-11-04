@@ -6,38 +6,39 @@ export const AFC_CHANCERY = [
     "tier": 1,
     "branch": "chancery",
     "name": "Envoy Accreditation",
-    "description": "Gain a share of each mutual ally’s Coin income, manpower capacity and regeneration. Allies keep their full amounts. Contributions exclude Envoy Accreditation bonuses, so they cannot compound. Accredited envoys coordinate allied credit and reserve facilities.",
-    "mechanicalSummary": "Gain 10% of each ally’s Coin income, manpower cap and regeneration.",
+    "description": "Earn 10% more Coin for each active truce or alliance you hold, up to +50%. Court-imposed truces count too. Accredited envoys turn every standing agreement into trade credit.",
+    "mechanicalSummary": "+10% Coin per active truce or alliance (max +50%).",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "allianceContributionShare": 0.1
+      "truceIncomeShare": 0.1
     }
   },
   {
     "id": "afc-chancery-2",
     "tier": 2,
     "branch": "chancery",
-    "name": "Reciprocal Trade Pact",
-    "description": "Physical links to allied docks count for dock and Harbor Exchange income. Your allied-link bonus increases by 100%; partners gain ordinary access unless they also own this upgrade. No Coin is taken from an ally.",
-    "mechanicalSummary": "Allied dock trade access | +100% income bonus from your allied links.",
+    "name": "Diplomatic Corps",
+    "description": "AI empires start 15 opinion points warmer towards you, and truces you buy from them cost half as much. A permanent diplomatic staff smooths every negotiation.",
+    "mechanicalSummary": "AI opinion +15 | Truces you buy −50% Coin.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "alliedDockIncomeMult": 2
+      "aiOpinionBonus": 15,
+      "truceCostMult": 0.5
     }
   },
   {
     "id": "afc-chancery-3",
     "tier": 3,
     "branch": "chancery",
-    "name": "Coalition Command Accord",
-    "description": "The bonus applies when you and a mutual ally have each captured or lost a tile against the defender within the past 24 hours. It applies once per attack, regardless of ally count. Coalition dispatch coordinates the assault.",
-    "mechanicalSummary": "+15% attack against a shared enemy | 24h war window.",
+    "name": "Allied Levies",
+    "description": "Each mutual ally raises your manpower capacity and regeneration by 15%, counting up to three allies. Allied Houses send ancillary contingents to serve under your command.",
+    "mechanicalSummary": "+15% manpower cap and regeneration per ally (max +45%).",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "coalitionAttackMult": 1.15
+      "alliedLevyShare": 0.15
     }
   },
   {
@@ -45,7 +46,7 @@ export const AFC_CHANCERY = [
     "tier": 4,
     "branch": "chancery",
     "name": "Court Armistice Mandate",
-    "description": "Impose a truce that neither side can refuse or break for 12 hours. Your mandate recharges after 48 hours; attacks already in flight finish normally. The Court enforces the armistice.",
+    "description": "Impose a truce that neither side can refuse or break for 12 hours. Your mandate recharges after 48 hours; attacks already in flight finish normally. With Envoy Accreditation the armistice also pays like any other truce.",
     "mechanicalSummary": "Force a 12h truce | 48h cooldown.",
     "category": "active",
     "requiresTechId": "",

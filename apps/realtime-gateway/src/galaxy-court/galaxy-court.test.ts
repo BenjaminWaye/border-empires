@@ -11,6 +11,10 @@ describe("computeCourtStrength", () => {
   it("capturing every Sector alone reaches exactly zero", () => {
     expect(computeCourtStrength({ totalSectors: 30, capturedSectors: 30, committedInfluence: 0 })).toMatchObject({ current: 0, fallen: true });
   });
+  it("an accepted Writ gives back 3, never lifting the Court above its start (§21.3)", () => {
+    expect(computeCourtStrength({ totalSectors: 30, capturedSectors: 3, committedInfluence: 0, writsAccepted: 2 }).current).toBe(300 - 30 + 6);
+    expect(computeCourtStrength({ totalSectors: 30, capturedSectors: 0, committedInfluence: 0, writsAccepted: 5 }).current).toBe(300);
+  });
   it("never goes below zero", () => {
     expect(computeCourtStrength({ totalSectors: 2, capturedSectors: 2, committedInfluence: 999 }).current).toBe(0);
   });

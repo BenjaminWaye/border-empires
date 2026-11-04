@@ -7,8 +7,10 @@ import { supportPlotAnchorTown } from "../client-town-support-plot-lookup.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
+import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
 import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js";
+import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
 
 type TownContext = { townKey: string; focusKey: string; focusView: TileMenuView };
 
@@ -46,6 +48,11 @@ export const myTowns = (deps: Pick<HudV2Deps, "state">, nowMs = Date.now()): Til
   return out;
 };
 
+/** Drops the cached town list, so the next myTowns call rescans. */
+export const forgetMyTowns = (): void => {
+  townListCache = undefined;
+};
+
 export const renderTownScreen = (deps: HudV2Deps): void => {
   if (screen.id !== "town" || !current) return;
   const town = deps.state.tiles.get(current.townKey);
@@ -61,12 +68,27 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     townIndex: Math.max(0, towns.findIndex((t) => keyOf(t) === current?.townKey)),
     townCount: towns.length,
     buildSelection: screen.townBuildSelection,
-    category: screen.townCategory
+    category: screen.townCategory,
+    focusQueuePosition: townQueuePosition(deps.state.developmentQueue, current.focusKey),
+    focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? [])
   });
   writeHtml("v2t-left", regions.left);
   writeHtml("v2t-build", regions.build);
-  writeHtml("v2t-place", regions.place);
   writeHtml("v2t-bar", regions.bar);
+};
+
+/**
+ * Runs a work card's button on the selected tile, then re-reads its view: a queue change (jump, cancel) lands
+ * before any tile update. Rush and cancel-construction lock the cards until the server's update (markTownWorkSent).
+ */
+export const runTownWork = (deps: HudV2Deps, action: string, tileKey: string): void => {
+  const work = current?.focusKey === tileKey ? current.focusView.work ?? [] : [];
+  if (townWorkLocked(tileKey, work)) return;
+  const ran = runTownWorkAction(deps, action, tileKey);
+  if (ran && (action === "rush_buy" || action === "cancel_structure_build")) markTownWorkSent(tileKey, work);
+  const focus = current ? deps.state.tiles.get(current.focusKey) : undefined;
+  if (current && focus) current.focusView = deps.actionFlow.tileMenuViewForTile(focus);
+  renderTownScreen(deps);
 };
 
 let mapGuardInstalled = false;
@@ -93,12 +115,32 @@ export const installMapGuard = (): void => {
   });
 };
 
+/** First tap on a flagged town tile selects the flag; a second opens the town screen (see client-hud-v2-flag-tap.ts). */
+const flagTaps = createFlagTapTracker();
+/** The town openTownAt is opening: its next menu view opens the town screen without the flag's second tap. */
+let pickedTownKey: string | undefined;
+
+/** Dock listener: the tile bar was hidden, by a press on the map (`byMapPress`) or any other close. */
+export const townOnMenuHidden = (byMapPress: number | undefined): void => {
+  flagTaps.onHidden(byMapPress);
+  if (screen.id === "town") closeTownScreen(true);
+};
+
 /** Dock listener: returns true when the town screen takes this tile. */
-export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: string): boolean => {
+export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: string, tapPress: number | undefined = undefined): boolean => {
+  const tile = deps.state.tiles.get(tileKey);
+  const town = townForTile(deps, tile);
+  // A town picked from the Towns list or the steppers always opens, even with a muster flag on it.
+  const picked = pickedTownKey === tileKey;
+  pickedTownKey = undefined;
+  const openTown = flagTaps.onView({ tileKey, flagged: Boolean(tile?.muster), inTown: Boolean(town), tapPress, townScreenOpen: screen.id === "town" }) || picked;
   if (screen.id !== null && screen.id !== "town") return false;
-  const town = townForTile(deps, deps.state.tiles.get(tileKey));
   if (!town) {
     // Selecting a tile outside the town: zoom back out but stay where the player is looking.
+    if (screen.id === "town") closeTownScreen(true);
+    return false;
+  }
+  if (!openTown) {
     if (screen.id === "town") closeTownScreen(true);
     return false;
   }
@@ -149,9 +191,20 @@ export const stepTown = (deps: HudV2Deps, delta: number): void => {
   const towns = myTowns(deps);
   if (towns.length < 2 || !current) return;
   const at = towns.findIndex((t) => keyOf(t) === current?.townKey);
-  const next = towns[(at + delta + towns.length) % towns.length];
-  if (!next) return;
+  const listed = towns[(at + delta + towns.length) % towns.length];
+  if (listed) openTownAt(deps, listed.x, listed.y);
+};
+
+/** Moves the camera to your town at (x, y) and opens its town screen, the way a press on it would. */
+export const openTownAt = (deps: HudV2Deps, x: number, y: number): void => {
+  // The cached list may predate a tile-detail reply; open the current record.
+  const next = deps.state.tiles.get(keyOf({ x, y }));
+  if (!next?.town || next.ownerId !== deps.state.me) return;
+  pickedTownKey = keyOf(next);
   focusCamera(deps, next.x, next.y);
+  // Match a map press: even a previously full tile can have stale economy
+  // fields, so bypass the ordinary full-detail/freshness shortcut on a step.
+  deps.actionFlow.requestTileDetailIfNeeded(next, { force: true });
   suppressAutoExpand();
   const centre = screenCentre();
   deps.actionFlow.openSingleTileActionMenu(next, centre.x, centre.y);

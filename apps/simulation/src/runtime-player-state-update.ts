@@ -1,7 +1,10 @@
-import { DEVELOPMENT_PROCESS_LIMIT, empireIntegrity, expandManpowerCostForFrontierCount, normalizeAutoSettlePrefs } from "@border-empires/shared";
+import { nextManpowerBatchAmount } from "./runtime-manpower.js";
+import { developmentProcessLimitForPlayer } from "./development-process-limit.js";
+import { afcExpandPricingFrontierCount, empireIntegrity, expandManpowerCostForFrontierCount, normalizeAutoSettlePrefs, type ResourceSlotSources } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import { additiveEffectForPlayer, buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { buildModBreakdownForPlayer, multiplicativeEffectForPlayer, recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { settleManpowerCostFor } from "./runtime-settlement-rules.js";
 import { playerMusterFlagLimit } from "./runtime-muster-tick/muster-auto-fire-shared.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "./runtime-empire-storage.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
@@ -13,6 +16,7 @@ import type { DormantStructureDetail, ResourceSlotTotals } from "./resource-slot
 
 /** Dependencies {@link emitPlayerStateUpdate} needs to build and emit a PLAYER_UPDATE message. */
 export type RuntimePlayerStateUpdateContext = {
+  supplyStateForPlayer?: (id: string) => import("@border-empires/shared").ResourceSupplyPlayerState;
   players: ReadonlyMap<string, RuntimePlayer>;
   relicMapHintsForPlayer?: (id: string) => import("@border-empires/shared").RelicMapHint[];
   hasActiveOwnedAfc?: (playerId: string) => boolean;
@@ -23,6 +27,8 @@ export type RuntimePlayerStateUpdateContext = {
   cachedEconomySnapshot: (player: RuntimePlayer) => PlayerUpdateEconomySnapshot;
   resourceSlotSupplyForPlayer: (playerId: string) => ResourceSlotTotals;
   resourceSlotDemandForPlayer: (playerId: string) => ResourceSlotTotals;
+  // Labelled rows behind the supply total; read after resourceSlotSupplyForPlayer (same cached rebuild).
+  resourceSlotSourcesForPlayer: (playerId: string) => ResourceSlotSources | undefined;
   dormantStructuresForPlayer: (playerId: string) => DormantStructureDetail[];
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
@@ -60,9 +66,9 @@ export function emitPlayerStateUpdate(
   const capChanged =
     !lastCap ||
     lastCap.GOLD !== storageCap.GOLD ||
-    lastCap.FOOD !== storageCap.FOOD ||
-    lastCap.SHARD !== storageCap.SHARD;
+    lastCap.FOOD !== storageCap.FOOD;
   if (capChanged) context.lastEmittedStorageCapByPlayer.set(playerId, storageCap);
+  const supplyState = context.supplyStateForPlayer?.(playerId);
   context.emitPlayerMessage(
     { commandId: command.commandId, playerId },
     {
@@ -76,8 +82,10 @@ export function emitPlayerStateUpdate(
       manpower: player.manpower,
       manpowerCap: context.playerManpowerCap(player),
       manpowerRegenPerMinute: context.playerManpowerRegenPerMinute(player),
+      nextManpowerBatchAmount: nextManpowerBatchAmount(player, context.playerManpowerCap(player), context.playerManpowerRegenPerMinute(player)),
       // EXPAND's current price, so the client's menus and pre-checks match what the sim will charge.
-      expandManpowerCost: expandManpowerCostForFrontierCount(summary.frontierTileKeys.size),
+      expandManpowerCost: expandManpowerCostForFrontierCount(afcExpandPricingFrontierCount(summary.frontierTileKeys.size, multiplicativeEffectForPlayer(player, "expandFrontierCountMult"))),
+      settleManpowerCost: settleManpowerCostFor(player),
       logisticsThroughputPerMinute: context.playerLogisticsThroughputPerMinute(player),
       manpowerBreakdown: context.playerManpowerBreakdown(player),
       incomePerMinute: economy.incomePerMinute,
@@ -85,13 +93,16 @@ export function emitPlayerStateUpdate(
         FOOD: player.strategicResources?.FOOD ?? 0,
         TITANIUM: player.strategicResources?.TITANIUM ?? 0,
         CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-        UMBRITE: player.strategicResources?.UMBRITE ?? 0,
-        SHARD: player.strategicResources?.SHARD ?? 0
+        UMBRITE: player.strategicResources?.UMBRITE ?? 0
       },
       strategicProductionPerMinute: economy.strategicProductionPerMinute,
+      resourceTradeHoldings: supplyState?.resourceTradeHoldings,
+      resourceTradeAgreements: supplyState?.resourceTradeAgreements,
       resourceSlots: {
         supply: context.resourceSlotSupplyForPlayer(playerId),
-        demand: context.resourceSlotDemandForPlayer(playerId)
+        demand: context.resourceSlotDemandForPlayer(playerId),
+        ...(() => { const sources = context.resourceSlotSourcesForPlayer(playerId); return sources ? { sources } : {}; })(),
+        ...(economy.networkSupply ? { bonusSupply: economy.networkSupply } : {})
       },
       // §14.2: which of this player's structures are currently dormant
       // (slot demand not covered by supply), and which resource(s) each one
@@ -123,10 +134,13 @@ export function emitPlayerStateUpdate(
         y: entry.y,
         kind: entry.kind,
         ...(entry.structureType ? { structureType: entry.structureType } : {}),
-        queuedAt: entry.queuedAt
+        queuedAt: entry.queuedAt,
+        // Lets the client dispatch a reserved entry without its own manpower check, and hold a waiting one.
+        ...(entry.reservedManpower ? { manpowerReserved: true } : {}),
+        ...(entry.awaitingManpower ? { awaitingManpower: true } : {})
       })),
       waypointQueue: waypointQueueWireEntries(summary.waypointQueue),
-      developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + (player.relicDevelopmentBonus ?? 0) + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),
+      developmentProcessLimit: developmentProcessLimitForPlayer(player),
       activeDevelopmentProcessCount: context.activeDevelopmentProcessCountForPlayer(playerId),
       // Base MUSTER_MAX_TILES plus tech/domain/wonder bonuses -- the same cap
       // handleSetMusterCommand enforces server-side. Sent down so the client

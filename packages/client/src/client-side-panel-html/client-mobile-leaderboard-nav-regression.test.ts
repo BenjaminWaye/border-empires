@@ -23,7 +23,7 @@ describe("mobile leaderboard navigation regression guard", () => {
     expect(navSource).toContain('if (panel === "leaderboard") {');
     expect(navSource).toContain('navTabIconHtml("leaderboard")');
     expect(navSource).toContain('else if (state.mobilePanel === "feed") deps.mobileSheetTitleEl.textContent = "Alerts";');
-    // 7 visible buttons since the Alerts button moved to Settings > Admin.
-    expect(styleSource).toContain("grid-template-columns: repeat(7, minmax(0, 1fr));");
+    // 8 visible buttons: Alerts moved to Settings > Admin, Towns was added.
+    expect(styleSource).toContain("grid-template-columns: repeat(8, minmax(0, 1fr));");
   });
 });

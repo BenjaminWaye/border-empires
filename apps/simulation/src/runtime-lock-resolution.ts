@@ -1,13 +1,14 @@
-import { recordAfcHostileCapture } from "./afc-specializations/afc-coalition.js";
 import { applyWinningTileCapture } from "./runtime-winning-capture.js";
 import { applyBreakthroughCapture } from "./afc-specializations/afc-breakthrough-capture.js";
 import { awardFlagMomentum, fortWardIsReady, consumeFortWard } from "./afc-specializations/afc-battle-effects.js";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/sim-protocol";
 import {
-  FRONTIER_CLAIM_COST
+  FRONTIER_CLAIM_COST,
+  warScarFieldsAfterBattle
 } from "@border-empires/shared";
-import { afcCapturePlunderGold, withAfcCapturePlunder } from "./afc-capture-plunder/afc-capture-plunder.js";
+import { afcCapturePlunderGold, afcPlanetaryDefenseBounty, withAfcCapturePlunder } from "./afc-capture-plunder/afc-capture-plunder.js";
+import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { resolveLostOrigin } from "./runtime-lock-resolution-lost-origin.js";
 import { applyCombatEncirclement } from "./runtime-lock-resolution-encirclement.js";
@@ -168,9 +169,8 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   const originLost =
     Boolean(combatResult?.changes.some((change) => change.x === lock.originX && change.y === lock.originY)) &&
     (originOwnerId === lock.playerId || (lock.barbarianLaunch !== undefined && originOwnerId === undefined));
-  const hostileCaptureWarUntil = attackerWon || originLost ? recordAfcHostileCapture(context.players, lock.playerId, previousOwnerId, context.now()) : undefined;
-  if (combatResult && hostileCaptureWarUntil) combatResult.hostileCaptureWarUntil = hostileCaptureWarUntil;
-  const reportedResult = withAfcCapturePlunder(combatResult, afcPlunder);
+  const bounty = attacker ? afcPlanetaryDefenseBounty({ attackerWon, actionType: lock.actionType, previousOwnerId, bountyPerTile: additiveEffectForPlayer(attacker, "barbarianCaptureCoinBonus") }) : 0;
+  const reportedResult = withAfcCapturePlunder(combatResult, afcPlunder + bounty);
   // Two opposing forces actually clashed (not an uncontested EXPAND onto
   // neutral land, and not an ATTACK on undefended FRONTIER ground, which
   // defenderBattle in frontier-combat.ts already zeroes the defense
@@ -249,6 +249,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     });
   }
   if (afcPlunder > 0 && attacker && defender) context.applySettledCapturePlunder({ attacker, defender, gold: afcPlunder, defenderGoldLoss: afcPlunder });
+  if (bounty > 0 && attacker) attacker.points += bounty; // Court bounty: minted, not taken from the barbarians
   if (attackerWon && attacker && defender && previousTarget?.resource && !combatResolution?.targetRecentlyPillaged && previousOwnerId && previousOwnerId !== lock.playerId) {
     applyResourceTileSteal(context, attacker, defender, previousTarget.resource, previousTarget.economicStructure?.type);
   }
@@ -265,6 +266,10 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // TILE_DELTA_BATCH would otherwise fire for it — emit a combat-only
     // delta so the defender/bystanders still see the battle overlay FX.
     if (hasDefendingForce && previousTarget) {
+      // A repelled attack still deepens battle scars already on the ground (shared war-scars.ts).
+      const heldTile = context.tiles.get(lock.targetKey) ?? previousTarget;
+      const scars = warScarFieldsAfterBattle(heldTile, { capturedGarrison: false, battle: true }, context.now());
+      if (scars.warScarUntil !== heldTile.warScarUntil) context.replaceTileState(lock.targetKey, { ...heldTile, ...scars }, lock.commandId);
       // tileDeltaFromState, not a hand-built {x,y,combatJson} stub: an absent
       // ownerId/ownershipState reads as an explicit CLEAR downstream (see
       // tile-delta-stringify-cache.ts), which flashed a defended tile neutral

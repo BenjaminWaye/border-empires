@@ -30,10 +30,22 @@ const render = (i: EconomyRowsInput): HTMLElement => {
 describe("Economy rows (new HUD)", () => {
   // Regression: Crystal was missing, Integrity sat among the resources, and the cards overflowed the panel.
   it("shows one row per resource, Crystal included, and no Integrity", () => {
-    const host = render(input());
+    const host = render(input({ isRevealed: () => true }));
     expect(Array.from(host.querySelectorAll<HTMLElement>("[data-v2e-row]")).map((r) => r.dataset.v2eRow)).toEqual(["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"]);
     expect(host.textContent).not.toContain("Integrity");
-    expect(host.querySelector("[data-v2e-row='CRYSTAL']")?.textContent).toContain("Not discovered");
+  });
+
+  // Regression: an unresearched resource showed a "Not discovered" row instead of being hidden.
+  it("leaves out a resource that has not been researched", () => {
+    const host = render(input());
+    expect(host.querySelector("[data-v2e-row='CRYSTAL']")).toBeNull();
+    expect(host.textContent).not.toContain("Not discovered");
+  });
+
+  // Review: hiding an unresearched resource also hid real slots (an upgrade grant) and shortages.
+  it("still shows an unresearched resource that has slots or users", () => {
+    const host = render(input({ slots: { ...input().slots, CRYSTAL: slot(1, 0) } }));
+    expect(host.querySelector("[data-v2e-row='CRYSTAL']")).not.toBeNull();
   });
 
   it("gives used / supply, where supply comes from and what uses it", () => {

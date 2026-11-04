@@ -58,5 +58,65 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
       "Economy shows one row per resource (Coin, Food, Titanium, Crystal, Umbrite): what you have, where it comes from and what uses it. Dev slots open the Development panel.",
       "The deal screen no longer offers a truce while one is already running."
     ]
+  },
+  {
+    createdAt: 1793122776434, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.1",
+    title: "Icons instead of emoji",
+    why: "Emoji clashed with the game's own icon art.",
+    changes: [
+      "Trophies use the game's own icons instead of emoji.",
+      "Fleets, the Senate, Space View, the tile menu, rush-buy, the Imperial Ward and victory alerts use plain symbols instead of emoji. Rush-buy now reads Rush ◉N.",
+      "HUD preview: a profile's season numbers sit in one strip, Economy is a divided list instead of a box per resource, and the Ranks marker and unread dot no longer glow.",
+      "HUD preview: pressing Dev slots unfolds the list under it: what fills each slot, how far along it is, and what waits next. Click a row to jump to the tile."
+    ]
+  },
+  {
+    createdAt: 1793135530835, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.2",
+    title: "HUD preview: coin per day and your colour",
+    why: "Coin read per hour in places while Economy reads per day.",
+    changes: [
+      "Coin income reads per day, like Economy: in the top bar (net of upkeep, red when losing) and on town screens.",
+      "The manpower jar fills with your empire's colour."
+    ]
+  },
+  {
+    createdAt: 1793137601138, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.3",
+    title: "HUD preview: reopening a fight",
+    why: "Pressing a fight in progress sometimes only moved the map.",
+    changes: [
+      "Pressing Battle at in the tracker always reopens the battle view, even when the target tile is out of view."
+    ]
+  },
+  {
+    createdAt: 1793222680819, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.28.3",
+    title: "HUD preview: Aether opens at the side",
+    why: "Aether opened a small list over the tile panel while Build opened at the side.",
+    changes: [
+      "Aether ▸ in the tile panel opens a list at the side, like Build ▸: each ability with its icon and cost, or why it can't be used yet."
+    ]
+  },
+  {
+    createdAt: 1793565462792, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.01.2",
+    title: "HUD preview: builds in progress on the town screen",
+    why: "A tile with a queued or running build opened the town screen on an empty build list, with no way to see the build or move it up the queue.",
+    changes: [
+      "When the selected tile has a build queued or under construction, the town screen's build panel is titled In progress and shows it: Jump to front and Cancel for a queued build, time left, Rush and Cancel while it builds. Anything the tile can still take is listed below.",
+      "The Build on button for the building you pick sits at the bottom of the build panel."
+    ]
+  },
+  {
+    createdAt: 1793651969491, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.02",
+    title: "The new HUD is now the default on desktop",
+    why: "The redesigned HUD has been through several rounds of testing and is now the standard HUD on desktop.",
+    changes: [
+      "Desktop players get the new HUD without adding ?hud=v2 to the game URL. Phones keep the current HUD for now.",
+      "To go back to the old HUD, add ?hud=legacy to the game URL; ?hud=v2 switches the new one back on."
+    ]
   }
 ];

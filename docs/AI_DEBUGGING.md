@@ -141,6 +141,12 @@ Returns detailed decision-scoring history for debugging wait_and_recover loops:
 - `canExpand` / `canAttack` flags
 - `economicBuildCandidate` – The economic structure type (MINTWORKS/BANK/INCUBATION_ENGINE/etc.) the
   planner most recently proposed for this player, if any
+- `economicBuildScore` – score of `economicBuildCandidate`. Coin buildings score 54–150,
+  so a Manufactory near 54 means "first copy, nothing amplifying it".
+- `economicSynergy` – fixed-size empire summary of the stacking/amplifier state the pick was
+  scored against: `towns`, `manufactories`, `ancillaryDepots`, `ancillaryFactories`,
+  `connectedTowns`, and `townsWith{TradeNexus,ClearingHouse,NeuralWorks,ReserveLattice}InReach`.
+  Absent when the player has no TOWN-tier towns. See `docs/ai-economic-synergy-plan.md`.
 - `lastRejection` – `{ commandType, code, message, at }` for the most recent runtime-rejected
   command from this player (e.g. `BUILD_ECONOMIC_STRUCTURE` rejected with "town already has
   incubation engine"). Use this to catch propose-then-reject loops that burn planner cycles without
@@ -209,6 +215,7 @@ Prometheus-format metrics including AI diagnostics:
 - `sim_ai_expand_total{player_id}` – Cumulative accepted `EXPAND` commands per AI player (counter)
 - `sim_ai_player_manpower{player_id}` / `sim_ai_player_manpower_cap{player_id}` / `sim_ai_player_manpower_regen_per_minute{player_id}` – Pool manpower (as last applied), its cap, and regen rate per AI player (gauges)
 - `sim_ai_player_muster_flags{player_id}` / `sim_ai_player_muster_staged_manpower{player_id}` / `sim_ai_player_muster_flag_capacity{player_id}` – Active muster flags, manpower already staged inside them, and the sum of their caps (gauges). `capacity - staged` is the headroom the muster tick can still pull out of the pool
+- `sim_ai_player_synergy{player_id,kind}` – Stacking/amplifier counts per AI player (gauges): `kind` is each `economicSynergy` field above (`manufactories`, `townsWithClearingHouseInReach`, …). Flat `manufactories` with zero `townsWithClearingHouseInReach` means the coin engine never got its amplifier
 - `sim_event_loop_blocked_total` – Main thread blocking events
 - `sim_snapshot_export_ms` – Snapshot export duration
 
@@ -279,9 +286,28 @@ locally) rather than reading a single point:
    `economicBuildCandidate` for why EXPAND/BUILD_ECONOMIC_STRUCTURE keeps
    getting proposed-and-rejected instead of accepted.
 
+### Why WAIT won (`WAIT_*` reasons and `vetoReasons`)
+When WAIT wins, `apps/simulation/src/ai/utility/wait-reasons.ts` names the blocker on
+`sim_ai_noop_total{reason}` and on each decision diagnostic. A reach-capped AI's only way to grow
+is a Relay Beacon, so the reason is the beacon's blocker:
+
+| reason | meaning |
+| --- | --- |
+| `WAIT_BEACON_UNAFFORDABLE` | the next beacon's manpower (50 for the first 5, then 100) can't be paid |
+| `WAIT_NO_BEACON_SITE` | affordable, but no site reaches new land |
+| `WAIT_BOXED_IN_AT_PEACE` | no site, and the only neighbours are truce partners or allies |
+| `WAIT_BEACON_ENEMY_AT_GATE` | a site exists but a hostile borders the frontier (outside WAR) |
+| `WAIT_BEACON_LOW_VALUE` | the best site only reaches about one plain tile |
+
+`/admin/debug/ai/decisions` also carries `vetoReasons` (first failing gate per vetoed class, e.g.
+`ATTACK: "neighbors_at_peace"`, `BUILD_BEACON: "unaffordable"`) and
+`frontierState.nonHostileCount` (bordering tiles held by truce partners or allies).
+`BLOCKED_NO_REACHABLE_BEACON_SITE` is now only the fallback for a WAIT nothing above explains.
+
 ### AI has manpower-costly builds available but never builds (`BLOCKED_NO_REACHABLE_BEACON_SITE` / `WAIT`)
-`BLOCKED_NO_REACHABLE_BEACON_SITE` is a catch-all label for any `wait_and_recover`
-tick with frontier tiles — it does not prove a beacon-specific check failed.
+`BLOCKED_NO_REACHABLE_BEACON_SITE` is the fallback label for a `wait_and_recover`
+tick with frontier tiles that the `WAIT_*` reasons above don't explain — it does not prove a
+beacon-specific check failed.
 Rule out manpower first: planner builds see `manpower - max(0, aiWarReserveManpower(cap) -
 musterStagedManpower)` (reserve is at least `2 * ATTACK_MANPOWER_MIN` = 120; manpower already
 staged in the AI's own muster flags counts toward it). Structure builds may additionally spend

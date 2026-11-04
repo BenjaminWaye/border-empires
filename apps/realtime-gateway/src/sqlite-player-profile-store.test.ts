@@ -107,6 +107,21 @@ describe("SqliteGatewayPlayerProfileStore", () => {
     await expect(store.get("player-1")).resolves.toEqual(expect.objectContaining({ musterUnlockedSeasonId: "season-2" }));
   });
 
+  it("persists tutorial guide status and steps and keeps them across unrelated hint patches", async () => {
+    const store = await createStore();
+    await store.setProfile("player-1", "Nauticus", "#123456");
+    await expect(store.get("player-1")).resolves.not.toHaveProperty("guideStatus");
+
+    await store.setHintState("player-1", { guideStatus: "active", guideSteps: ["look-pan"] });
+    await store.setHintState("player-1", { hintsMuted: true }); // omitted fields must COALESCE to the stored values
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({ guideStatus: "active", guideSteps: ["look-pan"], hintsMuted: true })
+    );
+
+    await store.setHintState("player-1", { guideStatus: "done", guideSteps: ["look-pan", "look-select"] });
+    await expect(store.get("player-1")).resolves.toEqual(expect.objectContaining({ guideStatus: "done", guideSteps: ["look-pan", "look-select"] }));
+  });
+
   it("persists dashboardQuietedSeasonId per season and keeps it across unrelated hint patches", async () => {
     const store = await createStore();
     await store.setProfile("player-1", "Nauticus", "#123456");

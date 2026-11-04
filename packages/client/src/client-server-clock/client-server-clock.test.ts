@@ -49,4 +49,11 @@ describe("server clock alignment", () => {
     expect(msg.resolvesAt).toBe(5_000);
     expect(clock.offsetMs()).toBe(0);
   });
+
+  it("reports whether it has seen a server timestamp yet", () => {
+    const clock = createServerClock();
+    expect(clock.synced()).toBe(false);
+    clock.observe(10_000, 9_000);
+    expect(clock.synced()).toBe(true);
+  });
 });

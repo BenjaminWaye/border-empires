@@ -1,5 +1,5 @@
 import type { PersonalActivityCard } from "@border-empires/game-domain";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SeasonVictoryObjectiveView, TechInfo, Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { parseWinPct } from "./client-hud-v2-battle.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
@@ -120,6 +120,8 @@ describe("diplomacy list", () => {
     };
     expect(diplomacyEmpires(input).map((e) => e.id)).toEqual(["c", "b", "d", "a"]);
     expect(empireStance("c", input)).toEqual({ kind: "truce", label: "Truce 9h" });
+    // Regression: the last hour read "Truce <1h" with no minutes.
+    expect(empireStance("c", { ...input, nowMs: 9 * 3_600_000 - 42 * 60_000 })).toEqual({ kind: "truce", label: "Truce 42m" });
   });
 });
 
@@ -133,21 +135,88 @@ describe("town screen", () => {
   };
   const support: Tile = { x: 6, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
 
+  it.each([
+    { tier: "TOWN" as const, profile: "GRASS" as const, coastal: false, cap: "300", regen: "100" },
+    { tier: "CITY" as const, profile: "DESERT" as const, coastal: false, cap: "270", regen: "90" },
+    { tier: "TOWN" as const, profile: "TUNDRA" as const, coastal: true, cap: "198", regen: "66" }
+  ])("shows base manpower cap and regeneration for $tier/$profile (coastal=$coastal) without optional manpower fields", ({ tier, profile, coastal, cap, regen }) => {
+    const tile: Tile = { ...town, town: { ...town.town!, populationTier: tier, terrainProfile: profile, coastal } };
+    const { left } = townScreenRegions({ town: tile, focus: support, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
+    expect(tile.town?.manpowerCap).toBeUndefined();
+    expect(left).toContain(`MANPOWER CAP</span><span class="v2t-stat-v v2t-gold">+${cap}</span>`);
+    expect(left).toContain(`Base town · +${regen} per batch regen`);
+  });
+
+  it("keeps building bonuses separate from the town's base manpower contribution", () => {
+    const tile: Tile = { ...town, town: { ...town.town!, terrainProfile: "GRASS", coastal: false, manpowerCap: 3150,
+      townModifierTotals: [{ heading: "1 Ancillary Depot", modifiers: [{ statLabel: "Manpower cap", valueText: "+150", tone: "positive" }] }] } };
+    const { left } = townScreenRegions({ town: tile, focus: tile, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
+    expect(left).toContain('MANPOWER CAP</span><span class="v2t-stat-v v2t-gold">+300</span>');
+    expect(left).toContain("Base town · +100 per batch regen");
+    expect(left).toContain("1 Ancillary Depot");
+    expect(left).toContain("Manpower cap +150");
+    expect(left).not.toContain("3,150");
+  });
+
   it("runs town actions on the town and builds on the selected support tile", () => {
     const regions = townScreenRegions({
       town,
       focus: support,
       townView: view({ actions: [act("grow_town_to_city", { label: "Upgrade to City" }), act("muster_hold")] }),
-      focusView: view({ buildings: [act("build_hydrogarden", { label: "Hydrogarden" })] }),
+      focusView: view({ actions: [act("muster_hold")], buildings: [act("build_hydrogarden", { label: "Hydrogarden" })] }),
       townIndex: 0,
       townCount: 1,
       buildSelection: "build_hydrogarden",
       category: undefined
     });
     expect(regions.left).toContain('data-hud-v2-action="grow_town_to_city" data-target-key="5,5"');
+    // Regression: Raise flag with a support tile selected raised it on the town.
+    expect(regions.bar).toContain('data-hud-v2-action="muster_hold" data-target-key="6,5"');
+    expect(regions.bar).not.toContain('data-hud-v2-action="muster_hold" data-target-key="5,5"');
+    expect(regions.bar).toContain("Raise flag on (6, 5)");
+    expect(regions.build).toContain('data-hud-v2-action="build_hydrogarden" data-target-key="6,5"');
+    expect(regions.build).toContain("Build on (6, 5)");
+  });
+
+  // Regression: pressing a support tile with a building on it said nothing about that building.
+  it("shows the building standing on the selected support tile", () => {
+    const built: Tile = { ...support, economicStructure: { ownerId: "me", type: "MINE", status: "active" } };
+    const regions = (focus: Tile, focusView = view({})) => townScreenRegions({ town, focus, townView: view({}), focusView, townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined }).build;
+    const html = regions(built);
+    expect(html).toContain("On this tile");
+    expect(html).toContain("Built here");
+    expect(html).toContain('<span class="v2t-structure-k">Building</span><span class="v2t-structure-v">Mine</span>');
+    expect(html).toContain('<span class="v2t-structure-v v2t-structure-good">Active</span>');
+    expect(html).not.toContain("Nothing to build");
+    // An empty support tile, or the town itself, gets no card; a build still going up is left to the work cards.
+    expect(regions(support)).not.toContain("Built here");
+    expect(regions({ ...built, economicStructure: { ownerId: "me", type: "MINE", status: "under_construction" } })).not.toContain("Built here");
+    // A building being removed already has its own work card.
+    expect(regions({ ...built, economicStructure: { ownerId: "me", type: "MINE", status: "removing" } })).not.toContain("Built here");
+    // Queued work leads, so it isn't read as part of the building under the "Built here" heading.
+    const withWork = regions(built, view({ work: [{ title: "Hydrogarden queued", detail: "", remainingLabel: "", progress: 0, note: "", queueState: "queued" }] }));
+    expect(withWork.indexOf("v2t-work")).toBeGreaterThan(-1);
+    expect(withWork.indexOf("v2t-work")).toBeLessThan(withWork.indexOf("Built here"));
+    expect(townScreenRegions({ town, focus: town, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined }).build).not.toContain("Built here");
+  });
+
+  // Regression (review): with a support tile selected, the town tile's own
+  // flag controls vanished from the town screen.
+  it("keeps the town's own flag controls, and falls back to raising on the town", () => {
+    const regions = townScreenRegions({
+      town,
+      focus: support,
+      townView: view({ actions: [act("muster_hold"), act("muster_march_cancel", { label: "Cancel March" })] }),
+      focusView: view({}),
+      townIndex: 0,
+      townCount: 1,
+      buildSelection: undefined,
+      category: undefined
+    });
+    expect(regions.bar).toContain('data-hud-v2-action="muster_march_cancel" data-target-key="5,5"');
+    expect(regions.bar).toContain("Cancel March (town)");
     expect(regions.bar).toContain('data-hud-v2-action="muster_hold" data-target-key="5,5"');
-    expect(regions.place).toContain('data-target-key="6,5"');
-    expect(regions.place).toContain("Build on (6, 5)");
+    expect(regions.bar).toContain("Raise flag on town");
   });
 
   // Regression: a town still being garrisoned showed "undefined / undefined" support and NaN coin.
@@ -156,6 +225,42 @@ describe("town screen", () => {
     const { left } = townScreenRegions({ town: partial, focus: partial, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
     expect(left).not.toMatch(/NaN|undefined/);
     expect(left).toContain("—");
+  });
+
+  // Regression: selecting an ungarrisoned support tile opened the town screen, which only offered the town's
+  // own Garrison, so the support tile could not be garrisoned from HUD v2 at all.
+  it("offers Garrison on a selected ungarrisoned support tile once the town is garrisoned", () => {
+    const frontierSupport: Tile = { ...support, ownershipState: "FRONTIER" };
+    const regions = (focus: Tile, garrison: TileActionDef) => townScreenRegions({
+      town,
+      focus,
+      townView: view({ actions: [act("muster_hold")] }),
+      focusView: view({ actions: [garrison] }),
+      townIndex: 0,
+      townCount: 1,
+      buildSelection: undefined,
+      category: undefined
+    }).bar;
+    const bar = regions(frontierSupport, act("settle_land", { label: "Garrison", cost: "30 coin, 10 manpower" }));
+    expect(bar.startsWith('<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land" data-target-key="6,5"')).toBe(true);
+    expect(bar).toContain(">Garrison<small>30 coin, 10 manpower</small>");
+    const blocked = regions(frontierSupport, act("settle_land", { label: "Garrison", disabled: true, disabledReason: "Need 10 manpower" }));
+    expect(blocked).toContain('data-target-key="6,5" disabled title="Need 10 manpower">Garrison<small>Need 10 manpower</small>');
+    // With the town itself selected, a stale focus view never puts a Garrison on the bar.
+    expect(regions(town, act("settle_land", { label: "Garrison" }))).not.toContain('data-hud-v2-action="settle_land"');
+  });
+
+  // Regression: an ungarrisoned town's Garrison was a faint text link beside Raise flag, easy to miss.
+  it("leads an ungarrisoned town's bar with Garrison as the main button, saying why when it can't", () => {
+    const ungarrisoned: Tile = { ...town, ownershipState: "FRONTIER" };
+    const regions = (garrison: TileActionDef) => townScreenRegions({ town: ungarrisoned, focus: ungarrisoned, townView: view({ actions: [garrison, act("muster_hold")] }), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
+    const ready = regions(act("settle_land", { label: "Garrison", cost: "30 coin, 10 manpower" })).bar;
+    expect(ready.startsWith('<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land" data-target-key="5,5"')).toBe(true);
+    expect(ready).toContain("<small>30 coin, 10 manpower</small>");
+    expect(ready).not.toContain('class="hud-v2-minor" data-hud-v2-action="settle_land"');
+    const blocked = regions(act("settle_land", { label: "Garrison", disabled: true, disabledReason: "Need 10 manpower" })).bar;
+    expect(blocked).toContain('data-hud-v2-action="settle_land" data-target-key="5,5" disabled');
+    expect(blocked).toContain("<small>Need 10 manpower</small>");
   });
 
   it("only lists categories that have something to build", () => {
@@ -202,5 +307,35 @@ describe("detail-screen close-up camera", () => {
     expect(deps.state.zoom).toBe(150);
     endCloseUp(deps, true);
     expect(deps.state).toMatchObject({ zoom: 150, camX: 30, camY: 40 });
+  });
+
+  // Regression: opening the battle from the town screen remembered the town's close-up zoom (the glide back out had
+  // only just started), so leaving the battle stayed zoomed in.
+  it("a close-up started while gliding back out returns to the original zoom", () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextId = 0;
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => { frames.set(++nextId, cb); return nextId; });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
+    const flush = () => {
+      for (let i = 0; i < 100 && frames.size > 0; i += 1) {
+        const [id, cb] = frames.entries().next().value!;
+        frames.delete(id);
+        cb(performance.now() + 10_000);
+      }
+    };
+    try {
+      const deps = camDeps();
+      closeUpOn(deps, 30, 40, TOWN_ZOOM);
+      flush();
+      endCloseUp(deps);
+      closeUpOn(deps, 31, 41, TOWN_ZOOM + 12);
+      flush();
+      expect(deps.state.zoom).toBe(TOWN_ZOOM + 12);
+      endCloseUp(deps);
+      flush();
+      expect(deps.state).toMatchObject({ zoom: 22, camX: 1, camY: 2 });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

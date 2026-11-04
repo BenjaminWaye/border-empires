@@ -74,12 +74,9 @@ export const tileHash = (worldX: number, worldZ: number, salt: number, mod: numb
 export type Forest = {
   readonly clear: () => void;
   /** `tint`: optional per-instance colour multiply (remembered tiles), see client-map-3d-instance-tint.ts. */
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color) => void;
-  // Decorative-only single sapling (leaf species, smaller scale) for light-
-  // grass "scatter" tiles -- see isLightGrassScatterTile in
-  // client-constants.ts. Shares the leaf instance pool with addInstance; a
-  // tile is only ever real forest or scatter, never both, so this never grows
-  // the mesh's total instance budget beyond maxTiles.
+  /** `keepSlot`: which layout slots still stand (war in a forest, client-forest-war/forest-war.ts); all when omitted. */
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color, keepSlot?: (slot: number) => boolean) => void;
+  // Reference asset placement for species/scale QA; live maps use resource groves.
   readonly addSparseLeafInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
@@ -139,7 +136,7 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     for (const pool of pools) pool.count = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color): void => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color, keepSlot?: (slot: number) => boolean): void => {
     // Hash on the tile's absolute WORLD position, not its scene-relative
     // placement (sceneX/sceneZ) -- the scene anchor (sceneOrigin in
     // client-map-3d.ts) only updates when a terrain rebuild commits, so the
@@ -152,7 +149,7 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     const inRiverBank = riverBankTreeFilter(worldX, worldZ);
     const pool = pools[species]!;
     layout.forEach((tree, slot) => {
-      if (inRiverBank?.(tree.ox, tree.oz)) return;
+      if (inRiverBank?.(tree.ox, tree.oz) || (keepSlot && !keepSlot(slot))) return;
       place(pool, sceneX + tree.ox, surfaceY, sceneZ + tree.oz, tree.scale, worldX, worldZ, slot, tint);
     });
   };

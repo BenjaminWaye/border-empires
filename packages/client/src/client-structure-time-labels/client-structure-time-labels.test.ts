@@ -1,26 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { FORT_TIER_LADDER, SIEGE_TIER_LADDER, structureBuildManpowerCost } from "@border-empires/shared";
+import { STRUCTURE_BUILD_MS, STRUCTURE_REMOVAL_MS } from "@border-empires/shared";
 import { structureInfoBuildMs, structureInfoRemovalMs } from "./client-structure-time-labels.js";
 import { renderStructureInfoOverlay } from "../client-structure-info-overlay/client-structure-info-overlay.js";
 import { buildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 
 describe("structure-info build and removal times", () => {
-  it("gives each fort/siege tier its own build time, not the base Fort's", () => {
-    expect(structureInfoBuildMs("THUNDER_BASTION", 0)).toBe(FORT_TIER_LADDER.THUNDER_BASTION.manpower * 1_000);
-    expect(structureInfoBuildMs("THUNDER_BASTION", 0)).not.toBe(structureInfoBuildMs("FORT", 0));
-    expect(structureInfoBuildMs("DREAD_TOWER", 0)).toBe(SIEGE_TIER_LADDER.DREAD_TOWER.manpower * 1_000);
+  it("gives every fort/siege tier the flat build minute", () => {
+    expect(structureInfoBuildMs("THUNDER_BASTION", 0)).toBe(STRUCTURE_BUILD_MS);
+    expect(structureInfoBuildMs("FORT", 0)).toBe(STRUCTURE_BUILD_MS);
+    expect(structureInfoBuildMs("DREAD_TOWER", 0)).toBe(STRUCTURE_BUILD_MS);
   });
 
-  it("removes at 0.5s per manpower point of the structure", () => {
-    expect(structureInfoRemovalMs("TITANIUM_BASTION")).toBe(FORT_TIER_LADDER.TITANIUM_BASTION.manpower * 500);
-    expect(structureInfoRemovalMs("MANUFACTORY")).toBe(structureBuildManpowerCost("MANUFACTORY") * 500);
+  it("removes in the flat 30 seconds", () => {
+    expect(structureInfoRemovalMs("TITANIUM_BASTION")).toBe(STRUCTURE_REMOVAL_MS);
+    expect(structureInfoRemovalMs("MANUFACTORY")).toBe(STRUCTURE_REMOVAL_MS);
   });
 
   it("shows the removal time on the structure info card", () => {
     const html = renderStructureInfoOverlay("MANUFACTORY", () => ({
-      title: "Manufactory", detail: "", effects: [], modifiers: [], glyph: "", placement: "Town", costBits: [], buildTimeLabel: "2m 30s"
+      title: "Manufactory", detail: "", effects: [], modifiers: [], glyph: "", placement: "Town", costBits: [], buildTimeLabel: "1m"
     }));
-    expect(html).toContain("<span>Removal time</span><strong>1m 15s</strong>");
+    expect(html).toContain("<span>Removal time</span><strong>30s</strong>");
   });
 });
 

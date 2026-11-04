@@ -9,7 +9,7 @@ import {
   resetForestClearings,
   setWorldSeed
 } from "@border-empires/shared";
-import { createDocksFromInitialState, createPlayersFromRecoveredState, createTilesFromInitialState } from "./runtime-hydration.js";
+import { createDocksFromInitialState, createPlayersFromRecoveredState, createTilesFromInitialState, hydrateCommandHistory } from "./runtime-hydration.js";
 import type { RecoveredSimulationState } from "./event-recovery/event-recovery.js";
 import type { SeaRouteTerrainReader } from "./dock-network/dock-sea-routes.js";
 
@@ -84,7 +84,7 @@ describe("createTilesFromInitialState", () => {
   // event-recovery boot/checkpoint restore and by any caller that seeds a
   // runtime with initialState.tiles). watchtower/waystation were both
   // missing from that whitelist -- unlike every sibling site field
-  // (shardSite, naturalWonder, fort, etc.) -- so a Watchtower/Waystation
+  // (naturalWonder, fort, etc.) -- so a Watchtower/Waystation
   // site present in a persisted snapshot was silently dropped on every sim
   // restart, even after the season-worldgen persistence bug that dropped
   // the same two fields at generation time (PR #2005) was fixed.
@@ -102,6 +102,16 @@ describe("createTilesFromInitialState", () => {
     const result = createTilesFromInitialState(state, new Map(), false);
     const tile = result.get("1,2");
     expect(tile?.waystation).toEqual(waystation);
+  });
+
+  // Shards were removed from the game: a snapshot written before that still
+  // carries shardSite on tiles, which must not survive hydration.
+  it("drops a retired shardSite from a recovered snapshot tile", () => {
+    const legacyTile = { ...baseTile, ownerId: "p1", ownershipState: "SETTLED" as const, shardSite: { kind: "CACHE", amount: 2 } };
+    const state = minimalState([legacyTile as typeof baseTile]);
+    const tile = createTilesFromInitialState(state, new Map(), false).get("1,2");
+    expect(tile?.ownerId).toBe("p1");
+    expect(tile).not.toHaveProperty("shardSite");
   });
 
   it("ignores unknown structure field (Phase 3 dormant — Phase 4 unified shape)", () => {
@@ -169,7 +179,7 @@ describe("createPlayersFromRecoveredState", () => {
   });
 
   it("round-trips the per-category auto-settle prefs, and fills legacy snapshots with DEFAULT prefs once at the boundary", () => {
-    const answered = { answered: false, towns: false, food: false, resources: false };
+    const answered = { answered: false, towns: false, food: false, strategic: false, luxury: false };
     const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1", autoSettle: answered }, { id: "legacy" }] };
     const result = createPlayersFromRecoveredState(state);
     expect(result?.get("p1")?.autoSettle).toEqual(answered);
@@ -292,5 +302,29 @@ describe("createTilesFromInitialState AFC forest clearings", () => {
     clearForestAroundAfcTile(forest.x, forest.y);
     createTilesFromInitialState({ tiles: [{ x: forest.x, y: forest.y, terrain: "LAND" }], activeLocks: [] }, new Map(), false);
     expect(isForestTileAt(forest.x, forest.y)).toBe(true);
+  });
+});
+
+describe("hydrateCommandHistory", () => {
+  it("never loads a recovered border diff into the replay cache, so a resend after a restart can't persist it again", () => {
+    // Regression: the live replay cache skipped REACH_BORDER_CHANGED, but the
+    // restart path copied every recovered event in. A client resending its
+    // town SETTLE after a restart then replayed (and re-persisted) the old
+    // diff with a newer event id, so the next recovery handed the tile back.
+    const commandId = "00278e11-369b-4760-8f54-f1887b3467c0";
+    const recordedEventsByCommandId = new Map();
+    hydrateCommandHistory({
+      commandIdsByPlayerSeq: new Map(),
+      recordedEventsByCommandId,
+      recoveredCommandHistory: {
+        commands: [],
+        eventsByCommandId: new Map([[commandId, [
+          { eventType: "COMMAND_ACCEPTED", commandId, playerId: "me", actionType: "SETTLE", originX: 1, originY: 1, targetX: 1, targetY: 1, resolvesAt: 0 },
+          { eventType: "REACH_BORDER_CHANGED", commandId, playerId: "me", changes: [{ tileKey: "1,1", ownerId: "me" }] }
+        ]]])
+      } as never
+    });
+
+    expect(recordedEventsByCommandId.get(commandId)?.map((event: { eventType: string }) => event.eventType)).toEqual(["COMMAND_ACCEPTED"]);
   });
 });

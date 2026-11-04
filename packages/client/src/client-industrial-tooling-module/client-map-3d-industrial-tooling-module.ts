@@ -9,12 +9,13 @@ import { applyBuildingEnvMap } from "../client-map-3d-building-envmap/client-map
 export const INDUSTRIAL_TOOLING_BASE_RADIUS = 0.138;
 type Overlay = {
   clear(): void;
-  addInstance(x: number, z: number, y: number, yaw: number, worldX: number, worldY: number): number;
+  addInstance(x: number, z: number, y: number, yaw: number, worldX: number, worldY: number, frozen?: boolean): number;
   commit(): void;
   update(nowMs: number): void;
   dispose(): void;
 };
-type Dock = { x: number; y: number; z: number; yaw: number; phase: number };
+// frozen: remembered under fog, so the spindle and drive wheel hold their rest pose.
+type Dock = { x: number; y: number; z: number; yaw: number; phase: number; frozen: boolean };
 type Piece = { key: string; x: number; y: number; z: number; sx?: number; sy?: number; sz?: number; rx?: number; rz?: number };
 
 export const createIndustrialToolingModuleOverlay = (
@@ -92,9 +93,9 @@ export const createIndustrialToolingModuleOverlay = (
       write(dock, { key: "spoke", x: -0.045, y: 0.21, z: 0.11, sx: 0.085, sy: 0.008, sz: 0.008, rz: nowMs * 0.0008 + dock.phase + i * Math.PI / 3 }, index * 3 + i);
     }
   };
-  const addInstance: Overlay["addInstance"] = (x, z, y, yaw, worldX, worldY) => {
+  const addInstance: Overlay["addInstance"] = (x, z, y, yaw, worldX, worldY, frozen = false) => {
     if (docks.length >= maxInstances) return -1;
-    const dock: Dock = { x, y, z, yaw, phase: (worldX * 13 + worldY * 7) % 11 };
+    const dock: Dock = { x, y, z, yaw, phase: (worldX * 13 + worldY * 7) % 11, frozen };
     const index = docks.length;
     docks.push(dock);
     add(dock, { key: "seat", x: 0, y: 0.0175, z: 0 });
@@ -143,7 +144,7 @@ export const createIndustrialToolingModuleOverlay = (
     commit: () => upload(slots.keys()),
     update: (nowMs) => {
       if (!docks.length) return;
-      docks.forEach((dock, index) => movingParts(dock, index, nowMs));
+      docks.forEach((dock, index) => movingParts(dock, index, dock.frozen ? 0 : nowMs));
       upload(["spindle", "cutter", "spoke"]);
     },
     dispose: () => {

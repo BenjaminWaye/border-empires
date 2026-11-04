@@ -25,6 +25,10 @@ export const activityCardTone = (card: PersonalActivityCard, playerId: string): 
     case "TOWN_LOST":
     case "DOCK_LOST":
       return "loss";
+    case "DIPLOMACY":
+      // Being betrayed is a loss; a truce or alliance starting is ground held.
+      if (card.event === "TRUCE_BROKEN") return card.byPlayerId === playerId ? "neutral" : "loss";
+      return card.event === "TRUCE_STARTED" || card.event === "ALLIANCE_FORMED" ? "hold" : "neutral";
     default:
       return "neutral";
   }

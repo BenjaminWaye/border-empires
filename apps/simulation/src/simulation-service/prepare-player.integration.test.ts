@@ -331,6 +331,14 @@ describe("prepare player integration", () => {
     );
 
     expect(revealed.tiles.some((tile) => tile.ownerId === farAwayId)).toBe(true);
+
+    // Reach borders and rival-reach incursion hatching are driven by
+    // reachOwnerId on every revealed tile (both 2D canvas and true-3D read it).
+    // The full-world export used to omit it, so reveal-map showed territory but
+    // no reach borders and no hatch from fighting.
+    const farAwayTown = revealed.tiles.find((tile) => tile.ownerId === farAwayId && tile.ownershipState === "SETTLED");
+    expect(farAwayTown?.reachOwnerId).toBe(farAwayId);
+    expect(revealed.tiles.some((tile) => tile.reachOwnerId !== undefined)).toBe(true);
   });
 
   it("still serves bootstrap-only cache hits for non-full-visibility retries", async () => {

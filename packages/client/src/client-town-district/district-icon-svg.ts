@@ -1,4 +1,4 @@
-import { createDistrictGeometry } from "./district-geometry.js";
+import { createDistrictGeometry, type DistrictGeometry } from "./district-geometry.js";
 import { DISTRICT_BUILDING_KINDS, type DistrictBuildingKind } from "./district-catalog.js";
 export { DISTRICT_BUILDING_KINDS };
 
@@ -6,8 +6,11 @@ export { DISTRICT_BUILDING_KINDS };
 // the front. Tiny subpixel triangles and invisible faces are omitted so mobile
 // 2D clients do not download the full mesh as thousands of SVG decorations.
 export const districtIconSvg = (kind: DistrictBuildingKind): string => {
-  const geometry = createDistrictGeometry(kind);
-  const faces: Array<{ depth: number; color: string; path: string }> = [];
+  return modelIconSvg(createDistrictGeometry(kind), kind.replaceAll("_", " "));
+};
+
+export const modelIconSvg = (geometry: DistrictGeometry, title: string, glassOpacity = 1): string => {
+  const faces: Array<{ depth: number; color: string; opacity: number; path: string }> = [];
   for (const [layer, mesh] of Object.entries(geometry.layers)) {
     if (layer === "halo" || layer === "steam") continue;
     const position = mesh.getAttribute("position"), colors = mesh.getAttribute("color");
@@ -30,22 +33,23 @@ export const districtIconSvg = (kind: DistrictBuildingKind): string => {
       const light = layer === "glow" ? 1 : 0.65 + 0.35 * Math.max(0, (-nx * 0.4 + ny * 0.8 + nz * 0.5) / Math.max(1e-8, Math.hypot(nx, ny, nz)));
       const channel = (value: number): number => Math.min(255, Math.max(0, Math.round(Math.pow(Math.max(0, value), 1 / 2.2) * 255 * light / 4) * 4));
       const color = `rgb(${channel((a.r + b.r + c.r) / 3)},${channel((a.g + b.g + c.g) / 3)},${channel((a.b + b.b + c.b) / 3)})`;
-      faces.push({ depth: (a.z + b.z + c.z + (a.y + b.y + c.y) * 0.75) / 3, color,
+      faces.push({ opacity: layer === "glass" ? glassOpacity : 1, depth: (a.z + b.z + c.z + (a.y + b.y + c.y) * 0.75) / 3, color,
         path: `M${p[0].toFixed(1)},${p[1].toFixed(1)}L${q[0].toFixed(1)},${q[1].toFixed(1)} ${r[0].toFixed(1)},${r[1].toFixed(1)}Z` });
     }
   }
   for (const mesh of Object.values(geometry.layers)) mesh.dispose();
   faces.sort((a, b) => a.depth - b.depth);
   const paths: string[] = [];
-  let color = "", path = "";
+  let color = "", path = "", opacity = 1;
+  const flush = (): void => { if (path) paths.push(`<path fill="${color}"${opacity < 1 ? ` fill-opacity="${opacity}"` : ""} d="${path}"/>`); };
   for (const face of faces) {
-    if (color !== face.color) {
-      if (path) paths.push(`<path fill="${color}" d="${path}"/>`);
-      color = face.color; path = face.path;
+    if (color !== face.color || opacity !== face.opacity) {
+      flush();
+      color = face.color; opacity = face.opacity; path = face.path;
     } else path += face.path;
   }
-  if (path) paths.push(`<path fill="${color}" d="${path}"/>`);
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><title>${kind.replaceAll("_", " ")}</title>${paths.join("")}</svg>\n`;
+  flush();
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><title>${title}</title>${paths.join("")}</svg>\n`;
 };
 
 export const districtIconKinds = (): readonly DistrictBuildingKind[] => DISTRICT_BUILDING_KINDS;

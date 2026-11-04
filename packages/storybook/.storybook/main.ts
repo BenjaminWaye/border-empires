@@ -15,7 +15,9 @@ const config: StorybookConfig = {
     // textures, icons), at the same paths.
     "../../client/public",
     // Retired assets kept only for the History stories (e.g. the Oct 2026 town GLBs).
-    { from: "../public/history", to: "/history" }
+    { from: "../public/history", to: "/history" },
+    // Proposals used only by art studies; never shipped with the game client.
+    { from: "../public/studies", to: "/studies" }
   ],
   viteFinal: async (cfg) => {
     cfg.resolve = cfg.resolve ?? {};

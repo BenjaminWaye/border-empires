@@ -1,8 +1,11 @@
-import { mutualAfcAllies, applyAfcEnvoyIncome } from "./afc-specializations/afc-coalition.js";
+import { developedNetworkSites } from "./resource-networks/resource-networks.js";
+import { allocateNetworkCredit, networkSupplyStatus, resourceNetworkTownCredit } from "./resource-networks/resource-network-credit.js";
+import { afcAgreementCount, applyAfcEnvoyIncome } from "./afc-specializations/afc-coalition.js";
 import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "@border-empires/game-domain";
 import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
 import { buildConnectedTownNetworkForPlayer, dockBaseGoldPerMinuteForPlayer } from "./economy-network/economy-network.js";
-import { domainGrantedResourceSlots } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { domainResourceSlotGrant } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { createResourceSlotSourceCollector, type ResourceSlotGrant, type ResourceSlotSources, type SlotResource } from "@border-empires/shared";
 import { techGrantedFishFoodSlotBonus } from "./tech-domain-bridge/fish-food-slot-bonus.js";
 import { slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
 import {
@@ -66,10 +69,14 @@ export const buildLivePlayerEconomySnapshot = (
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, dormancyByPlayer);
   const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
-  const resourceSlots = resourceSlotsForPlayer(playerId, runtimeState);
+  const resourceSlots: LivePlayerEconomySnapshot["resourceSlots"] = resourceSlotsForPlayer(playerId, runtimeState);
   // §14.2: reuses the dormancy already computed above for fedTownKeys/
   // dormantEconomicStructureKeys, so this can never disagree with them.
   const dormantStructures = dormantStructureDetailsFromDormancy(dormancyByPlayer.get(playerId) ?? emptyResourceSlotDormancy());
+  const sites = player?.effectiveNetworkSupply ?? developedNetworkSites(settledDomainTilesByPlayerId.get(playerId) ?? [], playerId, dormantEconomicStructureKeys, economyPlayer?.techIds);
+  const networkCreditByTown = allocateNetworkCredit(playerId, domainTilesByKey, fedTownKeys, dormantEconomicStructureKeys, sites);
+  const bonusSupply = networkSupplyStatus(sites, networkCreditByTown, settledDomainTilesByPlayerId.get(playerId) ?? [], dormantEconomicStructureKeys);
+  if (bonusSupply) resourceSlots.bonusSupply = bonusSupply;
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();
   const foodSources = new Map<string, EconomyBucket>();
@@ -80,7 +87,6 @@ export const buildLivePlayerEconomySnapshot = (
   const crystalSinks = new Map<string, EconomyBucket>();
   const umbriteSources = new Map<string, EconomyBucket>();
   const umbriteSinks = new Map<string, EconomyBucket>();
-  const shardSources = new Map<string, EconomyBucket>();
   const strategicProductionPerMinute = strategicProductionByPlayer.get(playerId) ?? emptyStrategic();
 
   for (const tile of runtimeState.tiles) {
@@ -95,6 +101,7 @@ export const buildLivePlayerEconomySnapshot = (
         umbriteSources;
       addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "TITANIUM" ? "Titanium" : tile.resource === "GEMS" ? "Crystal" : "Umbrite", resourceRate, { count: 1, resourceKey });
     }
+    const networkCredit = resourceNetworkTownCredit(tile, networkCreditByTown);
     const town = buildTownSummary(
       tile,
       player,
@@ -104,9 +111,14 @@ export const buildLivePlayerEconomySnapshot = (
       townNetwork,
       firstThreeTownKeys,
       nearbyWarTownKeys,
-      dormantEconomicStructureKeys
+      dormantEconomicStructureKeys,
+      networkCredit.total
     );
-    if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });
+    if (town && town.goldPerMinute > 0) {
+      addBucket(goldSources, "Towns", town.goldPerMinute - networkCredit.total, { count: 1 });
+      addBucket(goldSources, "Precursor reclamation", networkCredit.salvage);
+      addBucket(goldSources, "Frontier export concessions", networkCredit.exports);
+    }
     if (town && (town.foodUpkeepPerMinute ?? 0) > 0) addBucket(foodSinks, "Town", town.foodUpkeepPerMinute ?? 0, { count: 1 });
     if (tile.dockId) {
       const dockGoldPerMinute = economyPlayer
@@ -156,15 +168,14 @@ export const buildLivePlayerEconomySnapshot = (
     player, strategicProductionPerMinute, resourceSlots, dormantStructures,
     goldSources, goldSinks, foodSources, foodSinks,
     titaniumSources, titaniumSinks, crystalSources, crystalSinks,
-    umbriteSources, umbriteSinks, shardSources,
+    umbriteSources, umbriteSinks,
     fedTownKeys, fedTownKeysByPlayer
   });
   const envoyIncome = player?.afcEnvoyIncomePerMinute ?? 0;
   if (!player || envoyIncome <= 0) return result;
-  const allies = mutualAfcAllies({ id: player.id, allies: new Set(player.allies) },
+  const agreements = afcAgreementCount({ id: player.id, allies: new Set(player.allies), truces: new Set(player.truces ?? []) },
     new Map(runtimeState.players.map(peer => [peer.id, { id: peer.id, allies: new Set(peer.allies) }])));
-  return applyAfcEnvoyIncome(result, { allies: allies.length, goldPerMinute: envoyIncome,
-    manpowerCap: 0, manpowerRegenPerMinute: 0 });
+  return applyAfcEnvoyIncome(result, envoyIncome, agreements);
 };
 
 // §5 (resource slots): the cold/reconnect snapshot path has no live
@@ -185,7 +196,7 @@ type OwnedSlotTile = Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | 
 const resourceSlotsForPlayer = (
   playerId: string,
   runtimeState: RuntimeState
-): { supply: ReturnType<typeof resourceSlotSupplyForPlayer>; demand: ReturnType<typeof resourceSlotDemandForPlayer> } => {
+): { supply: ReturnType<typeof resourceSlotSupplyForPlayer>; demand: ReturnType<typeof resourceSlotDemandForPlayer>; sources?: ResourceSlotSources } => {
   const settledSlotTiles: SettledSlotTile[] = [];
   const ownedSlotTiles: OwnedSlotTile[] = [];
   for (const tile of runtimeState.tiles) {
@@ -219,17 +230,28 @@ const resourceSlotsForPlayer = (
   const waivers = player
     ? slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds) })
     : undefined;
-  const domainGranted = player ? domainGrantedResourceSlots({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource }) : undefined;
+  // Same labelled grants as the live runtime (resource-slot-supply-build.ts), so the
+  // Economy panel's rows on login match what PLAYER_UPDATE sends afterwards.
+  const upgrade = player ? domainResourceSlotGrant({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource, ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}) }) : undefined;
+  // This cold snapshot's player carries no waystation/siphon/relic state; PLAYER_UPDATE adds those.
+  const grants: ResourceSlotGrant[] = upgrade ? [upgrade] : [];
   const fishBonus = player ? techGrantedFishFoodSlotBonus(player) : 0;
-  return {
-    supply: resourceSlotSupplyForPlayer(settledSlotTiles, hydroworksKeys, oreRefineryKeys, domainGranted, fishBonus),
-    demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers)
-  };
+  const { sink, rows } = createResourceSlotSourceCollector();
+  const supply = resourceSlotSupplyForPlayer(settledSlotTiles, hydroworksKeys, oreRefineryKeys, undefined, fishBonus, sink);
+  for (const grant of grants) {
+    for (const resource of Object.keys(grant.supply) as SlotResource[]) {
+      const count = grant.supply[resource] ?? 0;
+      if (count <= 0) continue;
+      supply[resource] += count;
+      sink(resource, grant.kind, grant.id, count);
+    }
+  }
+  return { supply: player?.effectiveResourceSupply ?? supply, demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers), ...(player?.effectiveResourceSources ? { sources: player.effectiveResourceSources } : player?.effectiveResourceSupply ? {} : { sources: rows() }) };
 };
 
 type EconomyResultArgs = {
   player: RuntimeState["players"][number] | undefined;
-  strategicProductionPerMinute: { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number; SHARD: number };
+  strategicProductionPerMinute: { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number };
   resourceSlots: LivePlayerEconomySnapshot["resourceSlots"];
   dormantStructures: DormantStructureDetail[];
   goldSources: Map<string, EconomyBucket>;
@@ -242,7 +264,6 @@ type EconomyResultArgs = {
   crystalSinks: Map<string, EconomyBucket>;
   umbriteSources: Map<string, EconomyBucket>;
   umbriteSinks: Map<string, EconomyBucket>;
-  shardSources: Map<string, EconomyBucket>;
   fedTownKeys: Set<string>;
   fedTownKeysByPlayer: Map<string, Set<string>>;
 };
@@ -273,8 +294,7 @@ const buildEconomyResult = (args: EconomyResultArgs): LivePlayerEconomySnapshot 
       FOOD: Number(strategicProductionPerMinute.FOOD.toFixed(4)),
       TITANIUM: Number(strategicProductionPerMinute.TITANIUM.toFixed(4)),
       CRYSTAL: Number(strategicProductionPerMinute.CRYSTAL.toFixed(4)),
-      UMBRITE: Number(strategicProductionPerMinute.UMBRITE.toFixed(4)),
-      SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4))
+      UMBRITE: Number(strategicProductionPerMinute.UMBRITE.toFixed(4))
     },
     resourceSlots: args.resourceSlots,
     dormantStructures: args.dormantStructures,
@@ -292,8 +312,7 @@ const buildEconomyResult = (args: EconomyResultArgs): LivePlayerEconomySnapshot 
       FOOD: { sources: sortedBuckets(args.foodSources), sinks: sortedBuckets(args.foodSinks) },
       TITANIUM: { sources: sortedBuckets(args.titaniumSources), sinks: sortedBuckets(args.titaniumSinks) },
       CRYSTAL: { sources: sortedBuckets(args.crystalSources), sinks: sortedBuckets(args.crystalSinks) },
-      UMBRITE: { sources: sortedBuckets(args.umbriteSources), sinks: sortedBuckets(args.umbriteSinks) },
-      SHARD: { sources: sortedBuckets(args.shardSources), sinks: [] }
+      UMBRITE: { sources: sortedBuckets(args.umbriteSources), sinks: sortedBuckets(args.umbriteSinks) }
     },
     fedTownKeys: args.fedTownKeys,
     fedTownKeysByPlayer: args.fedTownKeysByPlayer

@@ -1,6 +1,6 @@
 import { grantOverflowManpower } from "./runtime-manpower-ceiling.js";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { consumeRelicUse, isRedesignedRelic, relicOperationalState, RELIC_RULES, RELIC_RESOURCE_CAPACITY, selectRelicResource, WORLD_WIDTH, WORLD_HEIGHT, type NaturalWonderType, type RelicResource } from "@border-empires/shared";
+import { consumeRelicUse, isRedesignedRelic, relicOperationalState, RELIC_RULES, RELIC_RESOURCE_CAPACITY, selectRelicResource, WORLD_WIDTH, WORLD_HEIGHT, type NaturalWonderType, type RelicResource, type ResourceSlotSourceSink } from "@border-empires/shared";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
@@ -75,11 +75,13 @@ export function activateRelic(tile: DomainTileState, player: DomainPlayer | unde
   return next === state ? tile : { ...tile, naturalWonder: next };
 }
 
-export function addRelicResourceSupply(context: RelicReadContext, player: DomainPlayer | undefined, totals: ResourceSlotTotals): void {
+export function addRelicResourceSupply(context: RelicReadContext, player: DomainPlayer | undefined, totals: ResourceSlotTotals, onSource?: ResourceSlotSourceSink): void {
   if (!player) return;
   for (const tile of activeRelicTiles(context, player.id, "FOUNDRY_HEART")) {
     const bonus = tile.naturalWonder?.resourceBonus;
-    if (bonus && hasRevealedResourceForPlayer(player, bonus.resource === "CRYSTAL" ? "GEMS" : bonus.resource)) totals[bonus.resource] += bonus.amount;
+    if (!bonus || !hasRevealedResourceForPlayer(player, bonus.resource === "CRYSTAL" ? "GEMS" : bonus.resource)) continue;
+    totals[bonus.resource] += bonus.amount;
+    onSource?.(bonus.resource, "RELIC", "", bonus.amount);
   }
 }
 

@@ -44,6 +44,13 @@ describe("player profile screen", () => {
     expect(host.querySelector(".intel-modal")).toBeNull();
   });
 
+  // Emoji icons read as generated UI; trophies use the simple SVG icon set.
+  it("draws trophies with the SVG icon set, not emoji", () => {
+    const icon = render(base).querySelector<HTMLImageElement>(".v2p-icon img.trophy-icon");
+    expect(icon?.getAttribute("src")).toBe("/icons/simple/town-support.svg");
+    expect(render(base).querySelector(".v2p-list")?.textContent).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+
   it("shows your own empire without a Diplomacy button, and marks an oathbreaker", () => {
     const host = render({ ...base, relation: { kind: "self" }, truceBreaks: [{ targetPlayerId: "p4", targetPlayerName: "Hollis", brokenAt: 0 }] });
     expect(host.querySelector("[data-v2-profile-diplomacy]")).toBeNull();

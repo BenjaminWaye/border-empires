@@ -196,8 +196,8 @@ describe("client-muster-transit", () => {
 describe("outgoingMusterAttackTransitLines", () => {
   // Regression: this is the marching supply line for an ADVANCE/MARCH
   // auto-fire attack (server-dispatched -- never armed via armMusterTransit,
-  // so musterTransitByTile has nothing for it). Both renderers must draw it
-  // the same way; this pure function is what keeps them in sync.
+  // so musterTransitByTile has nothing for it). The 2D map draws it from
+  // this pure function.
   it("builds a transit-phase line for a still-marching auto-fire attack", () => {
     const state = {
       outgoingMusterAttacksByTile: new Map([

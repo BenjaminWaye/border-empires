@@ -6,8 +6,8 @@ const truce = (otherPlayerId: string) => ({ otherPlayerId, otherPlayerName: othe
 describe("diplomacy overlay stance", () => {
   const stanceOf = diplomacyStanceLookup({ me: "me", allies: ["a"], activeTruces: [truce("t")] });
 
-  it("classes every other owner by your standing with them", () => {
-    expect(["a", "t", "x", "barbarian-1"].map(stanceOf)).toEqual(["ally", "truce", "none", "barbarian"]);
+  it("classes every other owner by your standing with them, barbarians as hostile", () => {
+    expect(["a", "t", "x", "barbarian-1"].map(stanceOf)).toEqual(["ally", "truce", "hostile", "hostile"]);
   });
 
   it("leaves your own and unowned land untinted", () => {
@@ -27,7 +27,7 @@ describe("diplomacy view colours", () => {
     const state = { me: "me", allies: ["a"], activeTruces: [truce("t")], showDiplomacyOverlay: true };
     const colorOf = diplomacyOwnerColor(state);
     expect(["a", "t", "x", "barbarian-1"].map(colorOf)).toEqual([
-      DIPLOMACY_OVERLAY_COLORS.ally, DIPLOMACY_OVERLAY_COLORS.truce, DIPLOMACY_OVERLAY_COLORS.none, DIPLOMACY_OVERLAY_COLORS.barbarian
+      DIPLOMACY_OVERLAY_COLORS.ally, DIPLOMACY_OVERLAY_COLORS.truce, DIPLOMACY_OVERLAY_COLORS.hostile, DIPLOMACY_OVERLAY_COLORS.hostile
     ]);
     // Regression: your own land kept your colour, which could match a stance colour (a green empire read as an ally).
     expect(colorOf("me")).toBe(DIPLOMACY_SELF_COLOR);
@@ -40,7 +40,7 @@ describe("diplomacy view colours", () => {
   it("follows a new alliance as soon as the allies list is replaced", () => {
     const state = { me: "me", allies: [] as string[], activeTruces: [], showDiplomacyOverlay: true };
     const colorOf = diplomacyOwnerColor(state);
-    expect(colorOf("a")).toBe(DIPLOMACY_OVERLAY_COLORS.none);
+    expect(colorOf("a")).toBe(DIPLOMACY_OVERLAY_COLORS.hostile);
     state.allies = ["a"];
     expect(colorOf("a")).toBe(DIPLOMACY_OVERLAY_COLORS.ally);
   });

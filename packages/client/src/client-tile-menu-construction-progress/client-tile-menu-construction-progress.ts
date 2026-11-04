@@ -108,6 +108,7 @@ const activeConstructionProgressForTile = (
       rushBuyLabel: rushBuyLabel(
         remaining,
         rushWindowMs(tile.fort, fortBuildEstimateMs(tile)),
+        tile.fort.variant ?? "FORT",
         FORT_TIER_LADDER[tile.fort.variant ?? "FORT"].manpower,
         quickforge
       ),
@@ -134,7 +135,7 @@ const activeConstructionProgressForTile = (
       progress: exactProgress(tile, "observatory", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, structureBuildDurationMs("OBSERVATORY")))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, rushWindowMs(tile.observatory, structureBuildDurationMs("OBSERVATORY")), structureBuildManpowerCost("OBSERVATORY"), quickforge),
+      rushBuyLabel: rushBuyLabel(remaining, rushWindowMs(tile.observatory, structureBuildDurationMs("OBSERVATORY")), "OBSERVATORY", structureBuildManpowerCost("OBSERVATORY"), quickforge),
       rushBuyActionId: "rush_buy"
     };
   }
@@ -161,6 +162,7 @@ const activeConstructionProgressForTile = (
       rushBuyLabel: rushBuyLabel(
         remaining,
         rushWindowMs(tile.siegeBattery, siegeBuildEstimateMs(tile)),
+        tile.siegeBattery.variant ?? "SIEGE_BATTERY",
         SIEGE_TIER_LADDER[tile.siegeBattery.variant ?? "SIEGE_BATTERY"].manpower,
         quickforge
       ),
@@ -188,7 +190,7 @@ const activeConstructionProgressForTile = (
       progress: exactProgress(tile, "economicStructure", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, buildMs))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, rushWindowMs(tile.economicStructure, buildMs), structureBuildManpowerCost(tile.economicStructure.type), quickforge),
+      rushBuyLabel: rushBuyLabel(remaining, rushWindowMs(tile.economicStructure, buildMs), tile.economicStructure.type, structureBuildManpowerCost(tile.economicStructure.type), quickforge),
       rushBuyActionId: "rush_buy"
     };
   }

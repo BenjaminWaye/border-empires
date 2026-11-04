@@ -1,9 +1,10 @@
+import { emptyResourceCounts } from "@border-empires/game-domain";
 // Login-time season-victory fallback, split out of init-payload.ts to keep that
 // file under the repo's 500-line cap. buildGatewayInitPayload uses this only
 // when no live world-status broadcast has arrived yet; it mirrors the
 // simulation's computeSeasonVictory (apps/simulation/src/season-victory-objectives/).
 
-import type { ResourceType, SeasonVictoryObjectiveView, SeasonVictoryPathId } from "@border-empires/shared";
+import { economicHegemonyLeadMultFor, type ResourceType, type SeasonVictoryObjectiveView, type SeasonVictoryPathId } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import {
   SEASON_VICTORY_DIPLOMATIC_CONTROL_SHARE,
@@ -126,7 +127,7 @@ const objectiveSelfProgressLabel = (
   if (objectiveId === "TOWN_CONTROL") return `${metric.towns}/${townTarget} towns`;
   if (objectiveId === "ECONOMIC_HEGEMONY") return `${(metric.incomePerMinute * 1440).toFixed(1)} coin/day`;
   if (objectiveId === "RESOURCE_MONOPOLY") {
-    const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 };
+    const owned = ownedResourceCountsByPlayerId.get(playerId) ?? emptyResourceCounts();
     let bestResource: ResourceType | undefined;
     let bestOwned = 0;
     let bestTotal = 0;
@@ -226,13 +227,15 @@ export const buildSeasonVictoryObjectives = (
       leaderName = leader?.name ?? "No leader";
       leaderValue = leader?.incomePerMinute ?? 0;
       progressLabel = `${(leaderValue * 1440).toFixed(1)} coin/day vs ${((runnerUp?.incomePerMinute ?? 0) * 1440).toFixed(1)}`;
-      thresholdLabel = `Need at least 1000 coin/day and 33% lead`;
+      // Metropolitan Concession lowers its holder's required lead; the live broadcast uses the same rule.
+      const leadMult = economicHegemonyLeadMultFor(leaderPlayerId ? snapshotBootstrap.players.get(leaderPlayerId)?.domainIds : undefined, SEASON_VICTORY_ECONOMY_LEAD_MULT);
+      thresholdLabel = `Need at least 1000 coin/day and ${Math.round((leadMult - 1) * 100)}% lead`;
       conditionMet = Boolean(
         leaderPlayerId &&
           runnerUp &&
           leaderValue >= SEASON_VICTORY_ECONOMY_MIN_INCOME &&
           runnerUp.incomePerMinute > 0 &&
-          leaderValue >= runnerUp.incomePerMinute * SEASON_VICTORY_ECONOMY_LEAD_MULT
+          leaderValue >= runnerUp.incomePerMinute * leadMult
       );
     } else if (def.id === "RESOURCE_MONOPOLY") {
       const monopoly = resourceMonopolyLeader(ownedResourceCountsByPlayerId, totalResourceCounts);

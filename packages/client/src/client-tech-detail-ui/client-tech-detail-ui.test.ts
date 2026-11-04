@@ -71,7 +71,7 @@ describe("tech detail structure mapping", () => {
       effects: {
         unlockNeuralWorks: true
       },
-      requirements: { gold: 15000, resources: { UMBRITE: 160, CRYSTAL: 220, SHARD: 1 }, checklist: [], canResearch: true }
+      requirements: { gold: 15000, resources: { UMBRITE: 160, CRYSTAL: 220 }, checklist: [], canResearch: true }
     };
     const civilService: TechInfo = {
       id: "civil-service",
@@ -84,7 +84,7 @@ describe("tech detail structure mapping", () => {
         townFoodUpkeepMult: 0.9,
         settledGoldUpkeepMult: 0.9
       },
-      requirements: { gold: 15000, resources: { FOOD: 180, CRYSTAL: 140, SHARD: 1 }, checklist: [], canResearch: true }
+      requirements: { gold: 15000, resources: { FOOD: 180, CRYSTAL: 140 }, checklist: [], canResearch: true }
     };
     const crystalLattices: TechInfo = {
       id: "crystal-lattices",
@@ -107,7 +107,7 @@ describe("tech detail structure mapping", () => {
         unlockAegisDome: true,
         unlockAegisLock: true
       },
-      requirements: { gold: 26000, resources: { CRYSTAL: 300, SHARD: 3 }, checklist: [], canResearch: true }
+      requirements: { gold: 26000, resources: { CRYSTAL: 300 }, checklist: [], canResearch: true }
     };
     const imperialExchange: TechInfo = {
       id: "urban-mintworks",
@@ -118,7 +118,7 @@ describe("tech detail structure mapping", () => {
       effects: {
         unlockImperialExchange: true
       },
-      requirements: { gold: 26000, resources: { CRYSTAL: 320, SHARD: 3 }, checklist: [], canResearch: true }
+      requirements: { gold: 26000, resources: { CRYSTAL: 320 }, checklist: [], canResearch: true }
     };
     const sovereignSiegeEngine: TechInfo = {
       id: "world-engine",
@@ -129,7 +129,7 @@ describe("tech detail structure mapping", () => {
       effects: {
         unlockSovereignSiegeEngine: true
       },
-      requirements: { gold: 26000, resources: { TITANIUM: 260, CRYSTAL: 280, SHARD: 3 }, checklist: [], canResearch: true }
+      requirements: { gold: 26000, resources: { TITANIUM: 260, CRYSTAL: 280 }, checklist: [], canResearch: true }
     };
 
     expect(relatedStructureTypesForTech(globalTradeNetworks)).toEqual(["NEURAL_WORKS"]);
@@ -189,8 +189,8 @@ describe("tech detail structure mapping", () => {
     // cost box — a slot is a permanent ongoing occupation, not a build cost.
     expect(structureInfoForKey("TITANIUM_BASTION", deps).upkeepBits).toEqual(["2 TITANIUM slots"]);
     expect(structureInfoForKey("THUNDER_BASTION", deps).upkeepBits).toEqual(["4 TITANIUM slots"]);
-    expect(structureInfoForKey("SIEGE_TOWER", deps).upkeepBits).toEqual(["2 UMBRITE slots", "1 TITANIUM slot"]);
-    expect(structureInfoForKey("DREAD_TOWER", deps).upkeepBits).toEqual(["3 UMBRITE slots", "2 TITANIUM slots"]);
+    expect(structureInfoForKey("SIEGE_TOWER", deps).upkeepBits).toEqual(["2 UMBRITE slots"]);
+    expect(structureInfoForKey("DREAD_TOWER", deps).upkeepBits).toEqual(["3 UMBRITE slots"]);
   });
 
   it("provides structure art for dedicated economic overlays", () => {

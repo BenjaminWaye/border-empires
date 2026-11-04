@@ -1,4 +1,4 @@
-import { afcMomentumStacks, requiredMusterForFort } from "@border-empires/shared";
+import { AFC_MOMENTUM_ATTACK_PER_STACK, afcMomentumStacks, isCaptureHoldActive, requiredMusterForFort } from "@border-empires/shared";
 import type { AfcCombatFacts, RelicCombatFacts } from "@border-empires/sim-protocol";
 import {
   buildFrontierCombatPreview,
@@ -89,7 +89,7 @@ export const attackPreviewResult = async (
   playerId: string,
   tiles: PreviewTile[] | undefined,
   docks: PlayerSubscriptionDock[] | undefined,
-  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined },
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined; march?: boolean | undefined },
   attackerTechIds?: readonly string[],
   attackerDomainIds?: readonly string[],
   getPlayerTechDomainIds?: (playerId: string) => Promise<{ techIds: readonly string[]; domainIds: readonly string[] } | undefined>,
@@ -115,7 +115,8 @@ export const attackPreviewResult = async (
   if (!target.ownerId || target.ownerId === playerId) {
     return { ...responseBase, valid: false, reason: "target not hostile" };
   }
-  if (!isFrontierAdjacent(from.x, from.y, to.x, to.y) && !previewDockLink(from.x, from.y, to.x, to.y, docks)) {
+  // A March To preview scores a target the flag will march to, not one it borders.
+  if (!message.march && !isFrontierAdjacent(from.x, from.y, to.x, to.y) && !previewDockLink(from.x, from.y, to.x, to.y, docks)) {
     return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
   const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x: number, y: number) => tileMap.get(previewTileKey(x, y)));
@@ -158,7 +159,7 @@ export const attackPreviewResult = async (
   const [attackerRelics, defenderRelics] = await Promise.all([getRelicCombatFacts?.(playerId), getRelicCombatFacts?.(target.ownerId)]);
   const attackerEquivalent = attackerFacts?.factoryEquivalents ?? attackerFactoryCounts;
   const defenderEquivalent = defenderFacts?.factoryEquivalents ?? defenderFactoryCounts;
-  const defenseContribution = defenderPlayerData?.domainIds.includes("afc-bastion-2") ? 2 : 1;
+  const defenseContribution = defenderPlayerData?.domainIds.includes("afc-bastion-3") ? 2 : 1;
   const attackerPresence = { titanium: attackerFactoryCounts.titanium > 0, umbrite: attackerFactoryCounts.umbrite > 0 };
   const defenderPresence = { titanium: defenderFactoryCounts.titanium > 0, umbrite: defenderFactoryCounts.umbrite > 0 };
   const attackEdge = warIndustryEdge("Target", attackerPresence, defenderPresence);
@@ -175,11 +176,11 @@ export const attackPreviewResult = async (
     noWarIndustryDefenseVulnerabilityMult: defenseEdge.mult,
     noWarIndustryDefenseVulnerabilityLabel: defenseEdge.label
   };
-  const targetHasActiveFort = Boolean(target.fort && isFortDefending(target.fort) && target.fort.ownerId === target.ownerId);
+  // Mirrors the sim's targetHasActiveFortFor: a held (just-captured) fort grants nothing.
+  const targetHasActiveFort = Boolean(target.fort && isFortDefending(target.fort) && target.fort.ownerId === target.ownerId && !isCaptureHoldActive(target, Date.now()));
   const flag = parseStructureJson<{ momentum?: { stacks: number; decayAt: number } }>(origin.musterJson);
-  const momentum = attackerDomainIds?.includes("afc-vanguard-3") ? 1 + afcMomentumStacks(flag?.momentum, Date.now()) * 0.05 : 1;
-  const coalition = attackerFacts?.coalitionTargetIds.includes(target.ownerId) ? 1.15 : 1;
-  const citadel = targetHasActiveFort && target.townType && defenderPlayerData?.domainIds.includes("afc-bastion-3") ? 1.25 : 1;
+  const momentum = attackerDomainIds?.includes("afc-vanguard-3") ? 1 + afcMomentumStacks(flag?.momentum, Date.now()) * AFC_MOMENTUM_ATTACK_PER_STACK : 1;
+  const citadel = targetHasActiveFort && target.townType && defenderPlayerData?.domainIds.includes("afc-bastion-1") ? 1.25 : 1;
   const wardReady = defenderFacts?.targetFortWardReady ?? Boolean(targetHasActiveFort && target.fort?.wardEnabled && (target.fort.wardRechargesAt ?? 0) <= Date.now());
   const fort = targetHasActiveFort ? defendingFortVariant(target.fort) : undefined;
   const requiredMuster = Math.max(1, Math.ceil(requiredMusterForFort(fort) * (fort ? (target.fort?.attackCommitmentMult ?? 1) * (attackerDomainIds?.includes("afc-vanguard-4") ? 0.5 : 1) : 1)));
@@ -196,7 +197,7 @@ export const attackPreviewResult = async (
       // capture-hold window is time-based, and breach shock is already gated
       // at its source (the sim only stamps breachShockUntil when enabled).
       ...(techModifiers ?? {}),
-      attackerStatMult: (techModifiers?.attackerStatMult ?? 1) * momentum * coalition,
+      attackerStatMult: (techModifiers?.attackerStatMult ?? 1) * momentum,
       defenderStatMult: (techModifiers?.defenderStatMult ?? 1) * citadel, nowMs: Date.now(),
     }
   );
@@ -310,7 +311,7 @@ export const buildAttackPreviewResponse = (
   } | undefined,
   snapshotForPlayer: SnapshotLookup,
   getPlayerCombatSummaryRaw: PlayerCombatSummaryLookup,
-  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined }
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined; march?: boolean | undefined }
 ): Promise<Record<string, unknown>> => {
   const getPlayerCombatSummary = memoizePlayerCombatSummaryLookup(id => getPlayerCombatSummaryRaw(id, { x: message.toX, y: message.toY }));
   return attackPreviewResult(

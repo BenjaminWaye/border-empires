@@ -24,6 +24,7 @@ remain authoritative for runtime behavior.
 | Documentation review and upkeep | [`agents/documentation-maintenance.md`](agents/documentation-maintenance.md) |
 | AI planning | [`agents/topics/ai-planner.md`](agents/topics/ai-planner.md) |
 | AI progression recovery, aether and proactive diplomacy review | [`ai-progression-improvements-plan.md`](ai-progression-improvements-plan.md) |
+| AI economic synergy: stacking Manufactory/Depot, Clearing House, Trade Nexus, Neural Works, Reserve Lattice (implemented) | [`ai-economic-synergy-plan.md`](ai-economic-synergy-plan.md) |
 | Local gameplay verification | [`agents/topics/agent-gameplay-testing.md`](agents/topics/agent-gameplay-testing.md) |
 | Current gameplay rules | [`game-mechanics.md`](game-mechanics.md) |
 | AFC Specializations: campaign rules, thirty rewards and lore | [`afc-specializations-catalog.md`](afc-specializations-catalog.md) |
@@ -32,10 +33,14 @@ remain authoritative for runtime behavior.
 | Historical relic anchor proposal (superseded) | [`relics-design.md`](relics-design.md) |
 | Reach-vision implementation record | [`reach-border-vision-plan.md`](reach-border-vision-plan.md) |
 | Rivers remake, river heads and river mountains (renderer + worldgen v11/v12) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
+| Tutorial guide for new accounts: research, chapters, renderer coverage | [`tutorial-guide-plan.md`](tutorial-guide-plan.md) |
+| HUD v2 on mobile: 4X UI research, phone layout and phased rollout (built; the default on phones) | [`hud-v2-mobile-plan.md`](hud-v2-mobile-plan.md) |
 | Stacking-building adjacency / industrial districts (proposed) | [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md) |
 | Connected town support buildings: complete remodel and both renderer implementations (planned) | [`town-support-district-plan.md`](town-support-district-plan.md) |
 | Connected town support buildings: renderer, model and anchor contract | [`town-support-districts.md`](town-support-districts.md) |
 | Storybook cleanup: what was removed, the new layout and guardrails | [`storybook-cleanup-plan.md`](storybook-cleanup-plan.md) |
+| Frontier resource networks: balance, map budget, structures and renderer scope | [`resource-networks-plan.md`](resource-networks-plan.md) |
+| Diplomatic resource supply: contracts, settlement and reconnect paths | [`agents/topics/resource-supply-trading.md`](agents/topics/resource-supply-trading.md) |
 | Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
 | Starter-site contract and new-player guidance | [`product/new-player-opening.md`](product/new-player-opening.md) |
 | Completed Great Project models and matching 2D artwork | [`monument-models.md`](monument-models.md) |

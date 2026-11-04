@@ -25,7 +25,7 @@ describe("renderCaptureProgress", () => {
     const captureCancelBtn = makeElement();
     const captureDismissBtn = makeElement();
     const captureCloseBtn = makeElement();
-    const captureDownloadDebugBtn = makeElement();
+    const captureReportBugBtn = makeElement();
     const captureBarEl = makeElement();
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
@@ -68,7 +68,7 @@ describe("renderCaptureProgress", () => {
         captureCancelBtn,
         captureDismissBtn,
         captureCloseBtn,
-        captureDownloadDebugBtn,
+        captureReportBugBtn,
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
@@ -81,7 +81,7 @@ describe("renderCaptureProgress", () => {
     expect(captureWrapEl.style.display).toBe("block");
     expect(captureTitleEl.textContent).toBe("Resolving action...");
     expect(captureTimeEl.textContent).toBe("6.0s");
-    expect(captureDownloadDebugBtn.style.display).toBe("inline-flex");
+    expect(captureReportBugBtn.style.display).toBe("inline-flex");
     expect(captureTargetEl.textContent).toContain("Waiting for result");
   });
 
@@ -92,7 +92,7 @@ describe("renderCaptureProgress", () => {
     const captureCancelBtn = makeElement();
     const captureDismissBtn = makeElement();
     const captureCloseBtn = makeElement();
-    const captureDownloadDebugBtn = makeElement();
+    const captureReportBugBtn = makeElement();
     const captureBarEl = makeElement();
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
@@ -123,7 +123,7 @@ describe("renderCaptureProgress", () => {
         captureCancelBtn,
         captureDismissBtn,
         captureCloseBtn,
-        captureDownloadDebugBtn,
+        captureReportBugBtn,
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
@@ -135,7 +135,7 @@ describe("renderCaptureProgress", () => {
     expect(captureCardEl.style.display).toBe("grid");
     expect(captureTitleEl.textContent).toBe("Capturing Territory...");
     expect(captureTimeEl.textContent).toBe("0.9s");
-    expect(captureDownloadDebugBtn.style.display).toBe("none");
+    expect(captureReportBugBtn.style.display).toBe("none");
     expect(captureCancelBtn.style.display).toBe("inline-flex");
     expect(captureDismissBtn.style.display).toBe("inline-flex");
   });
@@ -147,7 +147,7 @@ describe("renderCaptureProgress", () => {
     const captureCancelBtn = makeElement();
     const captureDismissBtn = makeElement();
     const captureCloseBtn = makeElement();
-    const captureDownloadDebugBtn = makeElement();
+    const captureReportBugBtn = makeElement();
     const captureBarEl = makeElement();
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
@@ -179,7 +179,7 @@ describe("renderCaptureProgress", () => {
         captureCancelBtn,
         captureDismissBtn,
         captureCloseBtn,
-        captureDownloadDebugBtn,
+        captureReportBugBtn,
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
@@ -199,7 +199,7 @@ describe("renderCaptureProgress", () => {
     const captureCancelBtn = makeElement();
     const captureDismissBtn = makeElement();
     const captureCloseBtn = makeElement();
-    const captureDownloadDebugBtn = makeElement();
+    const captureReportBugBtn = makeElement();
     const captureBarEl = makeElement();
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
@@ -231,7 +231,7 @@ describe("renderCaptureProgress", () => {
         captureCancelBtn,
         captureDismissBtn,
         captureCloseBtn,
-        captureDownloadDebugBtn,
+        captureReportBugBtn,
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
@@ -276,7 +276,7 @@ describe("renderCaptureProgress", () => {
         captureCancelBtn,
         captureDismissBtn,
         captureCloseBtn: makeElement(),
-        captureDownloadDebugBtn: makeElement(),
+        captureReportBugBtn: makeElement(),
         captureBarEl: makeElement(),
         captureTitleEl,
         captureTimeEl,
@@ -298,7 +298,7 @@ describe("renderCaptureProgress", () => {
     const captureCancelBtn = makeElement();
     const captureDismissBtn = makeElement();
     const captureCloseBtn = makeElement();
-    const captureDownloadDebugBtn = makeElement();
+    const captureReportBugBtn = makeElement();
     const captureBarEl = makeElement();
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
@@ -326,7 +326,7 @@ describe("renderCaptureProgress", () => {
         captureCancelBtn,
         captureDismissBtn,
         captureCloseBtn,
-        captureDownloadDebugBtn,
+        captureReportBugBtn,
         captureBarEl,
         captureTitleEl,
         captureTimeEl,

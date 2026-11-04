@@ -1,7 +1,6 @@
 // HUD/nav tab icons: simple emoji-style SVGs under public/icons/simple, so
 // they read at 30px. AFC Upgrades uses a drawn AFC (cone cap, aether chamber,
-// arms and docking bays) rather than the headquarters house; Shards remain a
-// resource.
+// arms and docking bays) rather than the headquarters house.
 
 
 export type NavTabIconKey =
@@ -11,6 +10,7 @@ export type NavTabIconKey =
   | "domains"
   | "alliance"
   | "leaderboard"
+  | "towns"
   | "feed"
   | "activity"
   | "settings";

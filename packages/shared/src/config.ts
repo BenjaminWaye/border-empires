@@ -310,8 +310,6 @@ export const AFC_LANDING_GUARANTEED_REACH_RADIUS = 1;
 // version of the same grant for ground that was already held.
 export const FRONTIER_AUTO_HEAL_MS = 30 * 60 * 1000;
 
-export const DOCK_DEFENSE_MULT = 1.5;
-export const DOCK_CROSSING_COOLDOWN_MS = 30_000;
 export const DOCK_PAIRS_MIN = 15;
 export const DOCK_PAIRS_MAX = 45;
 
@@ -439,12 +437,6 @@ export const NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY = 0.1;
 // Census Directorate monument: +0.1/min manpower regen per Manpower-branch
 // building owned, empire-wide, simple linear count.
 export const CENSUS_DIRECTORATE_REGEN_PER_MANPOWER_BUILDING = 0.1;
-// Quartermaster's Office: reduces manpower cost of War-branch structures
-// built within this radius by 33%. Deliberately non-stacking (a boolean
-// "any active Office in range" check, not a per-office count) — user
-// decision, to avoid multiple Offices driving manpower cost toward zero.
-export const QUARTERMASTERS_OFFICE_RADIUS = 20;
-export const QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT = 0.67;
 // Incubation Engine (Incubation Engine): instant one-time population burst on build
 // completion.
 export const INCUBATION_ENGINE_INSTANT_POPULATION_BURST = 10_000;
@@ -496,3 +488,5 @@ export const AUTO_FILL_MAX_REGION_SIZE = 500;
 // wall the pocket, it is capped at this smaller size — you can only snap up a
 // small basin off the back of terrain, not a whole coastline.
 export const AUTO_FILL_NATURAL_BARRIER_MAX_REGION_SIZE = 50;
+
+export { RESOURCE_NETWORKS } from "./resource-networks/resource-networks.js";

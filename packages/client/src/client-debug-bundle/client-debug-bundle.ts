@@ -235,22 +235,3 @@ export const buildClientDebugBundle = async (args: {
     serverBundle: debugBundle
   };
 };
-
-export const downloadClientDebugBundle = async (args: {
-  state: DebugBundleState;
-  wsUrl: string;
-}): Promise<void> => {
-  const bundle = await buildClientDebugBundle(args);
-  const blob = new Blob([`${JSON.stringify(bundle, null, 2)}\n`], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  try {
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `border-empires-debug-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-  } finally {
-    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-  }
-};

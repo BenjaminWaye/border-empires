@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AFC_SPECIALIZATIONS, afcSpecializationProgress, usesAfcSpecializations } from "./afc-specializations.js";
+import { AFC_SPECIALIZATIONS, AFC_SYNERGIES, afcSpecializationProgress, usesAfcSpecializations } from "./afc-specializations.js";
 
 describe("AFC specialization catalogue and free-tier progression", () => {
   it("defines six real paths with exactly one upgrade at each of five tiers", () => {
@@ -33,5 +33,14 @@ describe("AFC specialization catalogue and free-tier progression", () => {
     expect(usesAfcSpecializations({ domainIds: ["mercantile-charter"] })).toBe(false);
     expect(usesAfcSpecializations({ afcUpgradeRuleset: "afc-v1" })).toBe(true);
     expect(usesAfcSpecializations({ domainIds: ["afc-chancery-1"] })).toBe(true);
+  });
+  it("only links a later pick to an earlier one, so no upgrade depends on a choice the player has not reached", () => {
+    const byId = new Map(AFC_SPECIALIZATIONS.map(upgrade => [upgrade.id, upgrade]));
+    for (const link of AFC_SYNERGIES) {
+      const upgrade = byId.get(link.upgradeId), partner = byId.get(link.withId);
+      expect(upgrade && partner).toBeTruthy();
+      expect(partner!.tier).toBeLessThan(upgrade!.tier);
+      expect(link.text.length).toBeGreaterThan(10);
+    }
   });
 });

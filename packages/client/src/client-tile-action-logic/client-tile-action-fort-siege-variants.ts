@@ -4,12 +4,16 @@ import {
   type FortTierInfo,
   bestSiegeTierForTech,
   nextSiegeTierForUpgrade,
+  siegeTierForFreshBuild,
   SIEGE_VARIANT_LABELS,
-  type SiegeTierInfo
+  type SiegeTierInfo,
+  afcAdditiveEffect
 } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
+import { hasFreeResourceSlots } from "./client-resource-slot-gate.js";
+import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
 
 // Extracted from client-tile-action-logic.ts (over the 500-line file-size
 // limit) to keep that file from growing further.
@@ -21,14 +25,21 @@ import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structur
 // not folded unlabeled into `summary`.
 export type FortVariantAction = { label: string; variant: FortTierInfo["variant"]; gold: number; defenseMult: number; summary: string; upkeepSuffix: string };
 
-const fortActionFromTier = (tier: FortTierInfo): FortVariantAction => ({
+/** Fortification Patterns (AFC Bastion II): a fresh Fort (bare ground or over a Palisade) is free until the grant is used. */
+export const freeFortAvailable = (state: Pick<ClientState, "domainIds" | "freeFortsUsed">, variant: string, currentVariant: string | undefined): boolean =>
+  variant !== "PALISADE" && (!currentVariant || currentVariant === "PALISADE") && state.freeFortsUsed < afcAdditiveEffect(state.domainIds, "freeFortCount");
+/** Fortification Patterns also lets a House build Forts without the Titanium Forge Module. */
+export const hasFortTech = (state: Pick<ClientState, "techIds" | "domainIds">): boolean =>
+  state.techIds.includes("masonry") || afcAdditiveEffect(state.domainIds, "fortTechWaiver") > 0;
+
+const fortActionFromTier = (state: ClientState, tier: FortTierInfo, free = false): FortVariantAction => ({
   label: FORT_VARIANT_LABELS[tier.variant],
   variant: tier.variant,
   gold: tier.gold,
   defenseMult: tier.defenseMult,
   summary: [
     ...(tier.gold > 0 ? [`${tier.gold} coin`] : []),
-    `${tier.manpower} manpower`
+    free ? "free (Fortification Patterns)" : `${structureManpowerCostForState(state, tier.variant, tier.manpower)} manpower`
   ].join(" + "),
   upkeepSuffix: upkeepSuffixFor(tier.variant)
 });
@@ -40,25 +51,33 @@ export const nextFortVariantForTile = (
   tile: Tile,
 ): FortVariantAction | undefined => {
   const result = fortTierForBuild("FORT", tile.fort?.variant, (id) => state.techIds.includes(id));
-  return result ? fortActionFromTier(result) : undefined;
+  return result ? fortActionFromTier(state, result, freeFortAvailable(state, result.variant, tile.fort?.variant)) : undefined;
 };
 
 export type SiegeVariantAction = { label: string; variant: SiegeTierInfo["variant"]; gold: number; attackMult: number; summary: string; upkeepSuffix: string };
 
-const siegeActionFromTier = (tier: SiegeTierInfo): SiegeVariantAction => ({
+const siegeActionFromTier = (state: ClientState, tier: SiegeTierInfo): SiegeVariantAction => ({
   label: SIEGE_VARIANT_LABELS[tier.variant],
   variant: tier.variant,
   gold: tier.gold,
   attackMult: tier.attackMult,
   summary: [
     ...(tier.gold > 0 ? [`${tier.gold} coin`] : []),
-    `${tier.manpower} manpower`
+    `${structureManpowerCostForState(state, tier.variant, tier.manpower)} manpower`
   ].join(" + "),
   upkeepSuffix: upkeepSuffixFor(tier.variant)
 });
 
+// Mirrors the server's siegeTierForFreshBuild: a fresh siege build goes to
+// the best tier the tech allows whose UMBRITE slots fit, so a player who
+// can't cover a Siege Tower is offered a Siege Battery instead.
 const siegeBuildVariantForState = (state: ClientState): SiegeVariantAction =>
-  siegeActionFromTier(bestSiegeTierForTech((id) => state.techIds.includes(id)));
+  siegeActionFromTier(state, siegeTierForFreshBuild((id) => state.techIds.includes(id), (variant) => hasFreeResourceSlots(state, variant)));
+
+// The tier the tech alone would build on a fresh tile -- differs from
+// nextSiegeVariantForTile's pick only when that pick stepped down for slots.
+export const bestSiegeVariantForTech = (state: ClientState): SiegeTierInfo["variant"] =>
+  bestSiegeTierForTech((id) => state.techIds.includes(id)).variant;
 
 export const nextSiegeVariantForTile = (
   state: ClientState,
@@ -66,7 +85,7 @@ export const nextSiegeVariantForTile = (
 ): SiegeVariantAction | undefined => {
   if (tile.siegeBattery) {
     const result = nextSiegeTierForUpgrade(tile.siegeBattery.variant, (id) => state.techIds.includes(id));
-    return result ? siegeActionFromTier(result) : undefined;
+    return result ? siegeActionFromTier(state, result) : undefined;
   }
   return siegeBuildVariantForState(state);
 };

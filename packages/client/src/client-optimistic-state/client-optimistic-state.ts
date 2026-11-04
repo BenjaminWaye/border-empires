@@ -1,6 +1,7 @@
 import { fortRemovalDurationMs, siegeBatteryRemovalDurationMs, structureBuildDurationMs, structureRemovalDurationMs } from "@border-empires/shared";
 import { writeOptimisticStructureBuild, writeOptimisticStructureCancel } from "./client-optimistic-structure-writes.js";
 import { buildMsWithSpeedForState } from "../client-build-speed/client-build-speed.js";
+import { hasFreeResourceSlots } from "../client-tile-action-logic/client-resource-slot-gate.js";
 import { shouldPreserveOptimisticExpand } from "../client-frontier-overlay/client-frontier-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile, TileVisibilityState } from "../client-types.js";
@@ -16,9 +17,7 @@ type OptimisticStateDeps = {
 };
 
 // Overlays the delta merge (applyCommonTileFields in client-tile-merge.ts, plus
-// the gateway's town fields) deletes on an explicit wire clear. shardSite is
-// left out: summary chunks that omit it must keep it (see the optimistic-state
-// test "preserves shard sites when a summary chunk omits shard detail").
+// the gateway's town fields) deletes on an explicit wire clear.
 const CLEARABLE_OVERLAY_KEYS = [
   "muster", "fort", "observatory", "siegeBattery", "economicStructure",
   "sabotage", "watchtower", "waystation", "naturalWonder", "afc",
@@ -174,14 +173,14 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     const completesAt = startedAt + adjustBuildMs(kind, structureBuildDurationMs(kind, ownedBeacons));
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_build";
-      writeOptimisticStructureBuild(tile, kind, state.me, (id) => state.techIds.includes(id), completesAt, startedAt, adjustBuildMs);
+      writeOptimisticStructureBuild(tile, kind, state.me, (id) => state.techIds.includes(id), completesAt, startedAt, adjustBuildMs, (variant) => hasFreeResourceSlots(state, variant));
     });
   };
 
   const applyOptimisticStructureRemoval = (x: number, y: number): void => {
     if (!enabled) return;
-    // Mirrors the server's removal window (0.5s per manpower point of the
-    // structure being torn down) so the progress bar doesn't jump on confirm.
+    // Mirrors the server's removal window (STRUCTURE_REMOVAL_MS for anything
+    // that cost manpower) so the progress bar doesn't jump on confirm.
     const startedAt = Date.now();
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_remove";
@@ -456,7 +455,6 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     for (const key of CLEARABLE_OVERLAY_KEYS) {
       if (!(key in incoming)) delete merged[key];
     }
-    if (!("shardSite" in incoming) && existing.shardSite) merged.shardSite = existing.shardSite;
     if (!preservePriorDetail) return merged;
     if (!("dock" in incoming) && existing.dock) merged.dock = existing.dock;
     if (!("yieldRate" in incoming) && existing.yieldRate) merged.yieldRate = existing.yieldRate;

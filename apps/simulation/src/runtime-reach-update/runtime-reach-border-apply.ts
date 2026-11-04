@@ -1,7 +1,7 @@
 import {
-  grantAnchorToBorder,
+  grantAnchorToBorderInPlace,
   liveReachForOwner,
-  reassessBorderOnAnchorDeactivation,
+  reassessBorderOnAnchorDeactivationInPlace,
   tileKeysInReach,
   type LandConnectivityQuery,
   type ReachAnchor
@@ -90,6 +90,24 @@ export type ReachAnchorActivationResult = {
   autoClaimedTileKeys: string[];
 };
 
+/**
+ * Called right after the border is mutated in place and BEFORE any runtime
+ * callback (auto-claim, unsettle) runs, with the disk's prior owners. Those
+ * callbacks can re-enter and change the border again; observers that diff
+ * old vs new (reach vision, the persisted REACH_BORDER_CHANGED diff) must see
+ * each mutation exactly once, so they hook in here rather than after.
+ */
+export type OnBorderMutated = (before: ReadonlyMap<string, string>, diskKeys: readonly string[]) => void;
+
+const ownersBefore = (border: ReadonlyMap<string, string>, keys: readonly string[]): Map<string, string> => {
+  const before = new Map<string, string>();
+  for (const key of keys) {
+    const ownerId = border.get(key);
+    if (ownerId !== undefined) before.set(key, ownerId);
+  }
+  return before;
+};
+
 /** Memoised live-coverage lookup, shared by both apply paths. */
 const liveReachLookup = (
   anchors: ReachAnchor[],
@@ -133,8 +151,8 @@ const settleOvertaken = (
  *
  * The world-init seeding pass used to disable it, on the assumption that
  * "persisted/seeded worlds start from a consistent state" — they don't.
- * `reachBorder` is not persisted; it is rebuilt from anchor geometry on every
- * boot. With the contest off, an anchor whose disk covered a rival's SETTLED
+ * The boot pass replays every live anchor over the restored border (see
+ * runtime-reach-border-restore.ts). With the contest off, an anchor whose disk covered a rival's SETTLED
  * tile took the border slot silently, with no `overtaken` entry and therefore
  * no unsettle — leaving `reachOwnerId` = one player and `ownerId`/SETTLED =
  * another, permanently, and re-created identically on every restart. Keeping
@@ -146,19 +164,27 @@ const settleOvertaken = (
  * see the auto-claim block below.
  */
 export const applyReachAnchorActivationToBorder = (
-  border: ReadonlyMap<string, string>,
+  border: Map<string, string>,
   anchor: ReachAnchor,
   reachUpdateState: ReachUpdateState,
   context: ReachBorderApplyContext,
   causeCommandId: string,
-  options?: { skipNeutralAutoClaim?: boolean }
+  options?: { skipNeutralAutoClaim?: boolean },
+  onBorderMutated?: OnBorderMutated
 ): ReachAnchorActivationResult => {
   const defenderLiveReach = liveReachLookup(context.gatherReachAnchors(), context.isLandTile);
   const settledOwnerAt = (tileKey: string): string | undefined => {
     const tile = context.tileOwnership(tileKey);
     return tile?.ownershipState === "SETTLED" ? tile.ownerId : undefined;
   };
-  const result = grantAnchorToBorder(border, anchor, defenderLiveReach, settledOwnerAt, context.isLandTile);
+  const diskKeys = tileKeysInReach(anchor, context.isLandTile);
+  const before = ownersBefore(border, diskKeys);
+  const overtaken = grantAnchorToBorderInPlace(border, anchor, defenderLiveReach, settledOwnerAt, context.isLandTile);
+  onBorderMutated?.(before, diskKeys);
+  // Scoped to this anchor's own disk (bounded, radius <= OUTPOST_REACH_RADIUS)
+  // rather than a full-border diff -- see markChangedReachTilesDirty's doc
+  // comment. grantAnchorToBorder never touches a key outside this disk.
+  markChangedReachTilesDirty(context.contestedDirtyState, before, border, diskKeys);
   markReachDirty(reachUpdateState, anchor.ownerId);
   // grantAnchorToBorder's "unclaimed slot -> granted outright" branch (see
   // its own doc comment) never appears in `overtaken` — nobody lost the
@@ -169,8 +195,8 @@ export const applyReachAnchorActivationToBorder = (
   // tiles at once -- a fresh town, including a respawn) produces ONE batched
   // claim/event, not one per tile.
   const autoClaimKeys: string[] = [];
-  for (const key of tileKeysInReach(anchor, context.isLandTile)) {
-    if (result.border.get(key) === anchor.ownerId && border.get(key) !== anchor.ownerId) {
+  for (const key of diskKeys) {
+    if (border.get(key) === anchor.ownerId && before.get(key) !== anchor.ownerId) {
       // Reach just grew onto ground nobody owns at all (a plain grant onto
       // empty ground, or the settled-on-unclaimed contest above resolving in
       // anchor.ownerId's favor over truly neutral ground) -- auto-claim it
@@ -197,12 +223,8 @@ export const applyReachAnchorActivationToBorder = (
     }
   }
   const autoClaimedTileKeys = autoClaimKeys.length > 0 ? context.autoClaimFrontier(autoClaimKeys, anchor.ownerId, causeCommandId) : [];
-  settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
-  // Scoped to this anchor's own disk (bounded, radius <= OUTPOST_REACH_RADIUS)
-  // rather than a full-border diff -- see markChangedReachTilesDirty's doc
-  // comment. grantAnchorToBorder never touches a key outside this disk.
-  markChangedReachTilesDirty(context.contestedDirtyState, border, result.border, tileKeysInReach(anchor, context.isLandTile));
-  return { border: result.border, autoClaimedTileKeys };
+  settleOvertaken(overtaken, reachUpdateState, context, causeCommandId);
+  return { border, autoClaimedTileKeys };
 };
 
 /**
@@ -214,16 +236,19 @@ export const applyReachAnchorActivationToBorder = (
  * doc comment.
  */
 export const applyReachAnchorDeactivationToBorder = (
-  border: ReadonlyMap<string, string>,
+  border: Map<string, string>,
   anchor: ReachAnchor,
   reachUpdateState: ReachUpdateState,
   context: ReachBorderApplyContext,
-  causeCommandId: string
+  causeCommandId: string,
+  onBorderMutated?: OnBorderMutated
 ): Map<string, string> => {
   // gatherReachAnchors already reflects the deactivation: the runtime updates
   // its tile state before this hook runs.
   const liveReach = liveReachLookup(context.gatherReachAnchors(), context.isLandTile);
-  const result = reassessBorderOnAnchorDeactivation(
+  const diskKeys = tileKeysInReach(anchor, context.isLandTile);
+  const before = ownersBefore(border, diskKeys);
+  const overtaken = reassessBorderOnAnchorDeactivationInPlace(
     border,
     anchor,
     liveReach(anchor.ownerId),
@@ -231,12 +256,13 @@ export const applyReachAnchorDeactivationToBorder = (
     context.rivalOwnerIds(),
     context.isLandTile
   );
-  markReachDirty(reachUpdateState, anchor.ownerId);
-  settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
+  onBorderMutated?.(before, diskKeys);
   // Scoped to this anchor's own disk -- see the activation path's identical
   // comment above and markChangedReachTilesDirty's doc comment.
-  markChangedReachTilesDirty(context.contestedDirtyState, border, result.border, tileKeysInReach(anchor, context.isLandTile));
-  return result.border;
+  markChangedReachTilesDirty(context.contestedDirtyState, before, border, diskKeys);
+  markReachDirty(reachUpdateState, anchor.ownerId);
+  settleOvertaken(overtaken, reachUpdateState, context, causeCommandId);
+  return border;
 };
 
 /**

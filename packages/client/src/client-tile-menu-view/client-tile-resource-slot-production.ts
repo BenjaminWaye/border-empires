@@ -1,4 +1,4 @@
-import { BASE_SLOTS_BY_TILE_RESOURCE, TILE_SLOT_BOOST_STRUCTURES, type SlotResource } from "@border-empires/shared";
+import { BASE_SLOTS_BY_TILE_RESOURCE, TILE_SLOT_BOOST_STRUCTURES, isSiphonModeSabotage, type SlotResource } from "@border-empires/shared";
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import type { Tile } from "../client-types.js";
 
@@ -19,10 +19,12 @@ export const resourceSlotProductionHtml = (tile: Tile): string => {
   const slotEntry = Object.entries(BASE_SLOTS_BY_TILE_RESOURCE).find(([resource]) => resource === tile.resource);
   const slotInfo = slotEntry?.[1];
   if (!slotInfo) return "";
-  const boost = tile.economicStructure
+  const boost = tile.economicStructure?.status === "active" && tile.economicStructure.inactiveReason !== "manual" &&
+    !(tile.resource === "FISH" && tile.economicStructure.type === "HYDROGARDEN")
     ? Object.entries(TILE_SLOT_BOOST_STRUCTURES).find(([type]) => type === tile.economicStructure?.type)?.[1] ?? 0
     : 0;
-  const totalSlots = slotInfo.baseSlots + boost;
+  const siphoned = isSiphonModeSabotage(tile.sabotage) && tile.sabotage.ownerId !== tile.ownerId;
+  const totalSlots = siphoned ? 0 : slotInfo.baseSlots + boost;
   const label: string = SLOT_RESOURCE_LABEL[slotInfo.slotResource];
-  return `${resourceIconHtml(slotInfo.slotResource)} ${label} +${totalSlots}`;
+  return `${resourceIconHtml(slotInfo.slotResource)} ${label} +${totalSlots}${siphoned ? " (siphoned)" : ""}`;
 };

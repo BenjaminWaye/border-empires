@@ -1,5 +1,6 @@
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
 import { economyRelevantTileFieldsChanged } from "../runtime-economy-cache-invalidation.js";
-import { LANDING_MANPOWER_RESERVE, MANPOWER_EPSILON } from "@border-empires/shared";
+import { landingManpowerReserve, MANPOWER_EPSILON } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { RuntimePlayer } from "../runtime-types.js";
@@ -10,8 +11,8 @@ import { accrueManpower, effectiveManpowerAt as effectiveManpowerAtImpl, playerM
 import { TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
 import { grantOverflowManpower, manpowerCeiling, settleWaystationManpowerOverflow } from "../runtime-manpower-ceiling.js";
 import * as wonderEffects from "../runtime-natural-wonders.js";
-import { afcEnvoyBenefits, mutualAfcAllies, type AfcEnvoyBenefits } from "../afc-specializations/afc-coalition.js";
-import { multiplicativeEffectForPlayer, additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { AFC_LEVY_SOURCE_LABEL, afcAlliedLevyShare } from "../afc-specializations/afc-coalition.js";
+import { multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 
 export interface RuntimeManpowerEconomyContext {
   players?: ReadonlyMap<string, RuntimePlayer>;
@@ -20,6 +21,9 @@ export interface RuntimeManpowerEconomyContext {
   cachedManpowerStructureBonusForPlayer: (player: RuntimePlayer) => ManpowerStructureBonus;
   wonderCacheByPlayer: Map<string, Set<string>>;
   getAbilityCooldownUntil: (playerId: string, abilityKey: string) => number;
+  /** Active season's start time (undefined when not active or unknown) -- sizes the late-join landing reserve. */
+  seasonStartedAt?: () => number | undefined;
+  settlePassiveIncome?: (player: RuntimePlayer, nowMs: number) => void;
   applyEconomyAccrual: (player: RuntimePlayer, nowMs: number) => void;
 }
 
@@ -36,7 +40,7 @@ function baseManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext, player: 
   // The Iron Levy (tech-tree redesign): a 2-hour empire-wide manpower
   // regen freeze after triggering the muster ability.
   if (ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now()) return 0;
-  const { neuralWorksNetworkAncillaryFactoryCount, ancillaryFactoryCount, censusDirectorateManpowerBuildingCount } =
+  const { neuralWorksNetworkAncillaryFactoryCount, ancillaryFactoryCount, censusDirectorateManpowerBuildingCount, resourceNetworkRegenPerMinute = 0 } =
     ctx.cachedManpowerStructureBonusForPlayer(player);
   return playerManpowerRegenPerMinuteFromSummary(
     ctx.summaryForPlayer(player.id),
@@ -44,24 +48,21 @@ function baseManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext, player: 
     ancillaryFactoryCount,
     censusDirectorateManpowerBuildingCount,
     player.galacticWonderManpowerRegenBonusPerMinute ?? 0
-  );
+  ) + resourceNetworkRegenPerMinute;
 }
 
-function envoyManpowerBenefits(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): AfcEnvoyBenefits {
-  if (!ctx.players) return { allies: 0, goldPerMinute: 0, manpowerCap: 0, manpowerRegenPerMinute: 0 };
-  return afcEnvoyBenefits(player, ctx.players, ally => ({
-    goldPerMinute: 0, manpowerCap: baseManpowerCap(ctx, ally),
-    manpowerRegenPerMinute: baseManpowerRegenPerMinute(ctx, ally)
-  }));
+/** Allied Levies scales the player's own capacity, so it never reads (or recurses into) an ally's bonuses. */
+function alliedLevyShare(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
+  return ctx.players ? afcAlliedLevyShare(player, ctx.players).share : 0;
 }
 
 export function playerManpowerCap(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
-  return baseManpowerCap(ctx, player) + envoyManpowerBenefits(ctx, player).manpowerCap;
+  return baseManpowerCap(ctx, player) * (1 + alliedLevyShare(ctx, player));
 }
 
 export function playerManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
   if (ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now()) return 0;
-  return baseManpowerRegenPerMinute(ctx, player) + envoyManpowerBenefits(ctx, player).manpowerRegenPerMinute;
+  return baseManpowerRegenPerMinute(ctx, player) * (1 + alliedLevyShare(ctx, player));
 }
 
 export function playerLogisticsThroughputPerMinute(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
@@ -88,9 +89,13 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
     player.galacticWonderManpowerRegenBonusPerMinute ?? 0,
     ancillaryFactoryCapacityBonusByTown
   );
-  const envoy = envoyManpowerBenefits(ctx, player);
-  if (envoy?.manpowerCap) breakdown.cap.push({ label: "Envoy Accreditation", amount: envoy.manpowerCap });
-  if (envoy?.manpowerRegenPerMinute) breakdown.regen.push({ label: "Envoy Accreditation", amount: ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now() ? 0 : envoy.manpowerRegenPerMinute });
+  const resourceBonus = ctx.cachedManpowerStructureBonusForPlayer(player).resourceNetworkRegenPerMinute ?? 0;
+  if (resourceBonus > 0) breakdown.regen.push({ label: "Ancillary resource network", amount: resourceBonus });
+  const levy = alliedLevyShare(ctx, player);
+  if (levy > 0) {
+    breakdown.cap.push({ label: AFC_LEVY_SOURCE_LABEL, amount: baseManpowerCap(ctx, player) * levy });
+    breakdown.regen.push({ label: AFC_LEVY_SOURCE_LABEL, amount: ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now() ? 0 : baseManpowerRegenPerMinute(ctx, player) * levy });
+  }
   return breakdown;
 }
 
@@ -115,16 +120,30 @@ export function applyManpowerRegenForPlayer(
 // A player's first manpower settle is the start of their empire: a new human
 // just joined, or an AI empire at season start (persisted players already
 // carry manpowerUpdatedAt, so nobody existing gets it). Every new empire lands
-// with the one-time LANDING_MANPOWER_RESERVE, allowed above the cap like a
-// Waystation grant. landingReserveGranted is persisted and also set on records
-// rebuilt from existing territory (runtime-gross-income-repair.ts), so it can
-// never be granted twice. Barbarians are not empires (their cap is
-// effectively unlimited -- see playerManpowerCap).
-const grantLandingManpowerReserve = (player: RuntimePlayer, cap: number): void => {
+// with the one-time landing reserve, allowed above the cap like a Waystation
+// grant; an empire landing after the season started also gets the regen its
+// starting capital would have earned since then (landingManpowerReserve).
+// landingReserveGranted is persisted and also set on records rebuilt from
+// existing territory (runtime-gross-income-repair.ts), so it can never be
+// granted twice. Barbarians are not empires (their cap is effectively
+// unlimited -- see playerManpowerCap).
+const grantLandingManpowerReserve = (ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer, cap: number, nowMs: number): void => {
   if (player.id.startsWith("barbarian-") || player.landingReserveGranted) return;
-  grantOverflowManpower(player, LANDING_MANPOWER_RESERVE, cap);
+  grantOverflowManpower(player, landingManpowerReserve(nowMs, ctx.seasonStartedAt?.()), cap);
   player.landingReserveGranted = true;
 };
+
+/**
+ * A respawn after elimination is a fresh landing: the same one-time reserve
+ * (base + late-join catch-up) a brand-new empire gets, on top of the manpower
+ * the respawn already topped up to the starting amount. Unlike the first
+ * landing it is not gated on landingReserveGranted -- every respawn lands anew.
+ */
+export function grantRespawnLandingReserve(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): void {
+  if (player.id.startsWith("barbarian-")) return;
+  grantOverflowManpower(player, landingManpowerReserve(ctx.now(), ctx.seasonStartedAt?.()), playerManpowerCap(ctx, player));
+  player.landingReserveGranted = true;
+}
 
 /**
  * Manpower-only variant of {@link applyManpowerRegenForPlayer} that skips the
@@ -145,7 +164,7 @@ export function refreshManpowerOnlyForPlayer(
   if (!Number.isFinite(player.manpower)) {
     player.manpower = cap;
     delete player.manpowerBanked;
-    grantLandingManpowerReserve(player, cap);
+    grantLandingManpowerReserve(ctx, player, cap, nowMs);
     player.manpowerUpdatedAt = nowMs;
     player.manpowerCapSnapshot = cap;
     return;
@@ -156,7 +175,7 @@ export function refreshManpowerOnlyForPlayer(
   }
   if (!Number.isFinite(player.manpowerUpdatedAt)) {
     player.manpower = Math.max(0, Math.min(manpowerCeiling(player, cap), player.manpower));
-    grantLandingManpowerReserve(player, cap);
+    grantLandingManpowerReserve(ctx, player, cap, nowMs);
     settleWaystationManpowerOverflow(player, cap);
     player.manpowerUpdatedAt = nowMs;
     player.manpowerCapSnapshot = cap;
@@ -171,23 +190,16 @@ export function refreshManpowerOnlyForPlayer(
   player.manpowerCapSnapshot = cap;
 }
 
-/** Settle only direct Envoy dependents at the old rate before domestic capabilities change. */
-export function settleEnvoyDependents(ctx: RuntimeManpowerEconomyContext, ownerIds: Iterable<string | undefined>, nowMs: number): void {
-  if (!ctx.players) return;
-  const settled = new Set<string>();
-  for (const id of ownerIds) {
-    const owner = id ? ctx.players.get(id) : undefined;
-    if (!owner) continue;
-    for (const ally of mutualAfcAllies(owner, ctx.players)) {
-      if (settled.has(ally.id) || additiveEffectForPlayer(ally, "allianceContributionShare") <= 0) continue;
-      if (ally.manpowerUpdatedAt !== undefined && ally.manpowerUpdatedAt >= nowMs) continue;
-      settled.add(ally.id);
-      refreshManpowerOnlyForPlayer(ctx, ally, nowMs);
+/** Settle resource-network owners at the old rate before a tile write changes their network bonuses. */
+export function settleResourceNetworkOwnersBeforeTileChange(ctx: RuntimeManpowerEconomyContext, previous: DomainTileState | undefined, next: DomainTileState): void {
+  if (previous && !economyRelevantTileFieldsChanged(previous, next)) return;
+  const now = ctx.now();
+  const owners = new Set([previous?.ownerId, next.ownerId]);
+  for (const id of owners) {
+    const owner = id ? ctx.players?.get(id) : undefined;
+    if (owner && NETWORK_RESOURCES.some(resource => owner.techIds.has(RESOURCE_NETWORKS[resource].tech))) {
+      ctx.settlePassiveIncome?.(owner, now);
+      applyManpowerRegenForPlayer(ctx, owner, now);
     }
   }
-}
-
-export function settleEnvoyDependentsBeforeTileChange(ctx: RuntimeManpowerEconomyContext, previous: DomainTileState | undefined, next: DomainTileState): void {
-  if (previous && !economyRelevantTileFieldsChanged(previous, next)) return;
-  settleEnvoyDependents(ctx, [previous?.ownerId, next.ownerId], ctx.now());
 }

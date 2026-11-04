@@ -170,7 +170,6 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   ancillaryDepotTilesByOwner: Map<string, Set<string>>;
   reserveLatticeTilesByOwner: Map<string, Set<string>>;
   ancillaryFactoryTilesByOwner: Map<string, Set<string>>;
-  quartermastersOfficeTilesByOwner: Map<string, Set<string>>;
   incubationEngineTilesByOwner: Map<string, Set<string>>;
   censusHallTilesByOwner: Map<string, Set<string>>;
 }): void => {
@@ -194,7 +193,6 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   refreshAncillaryDepotIndexForTile(input);
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "RESERVE_LATTICE", index: input.reserveLatticeTilesByOwner });
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "ANCILLARY_FACTORY", index: input.ancillaryFactoryTilesByOwner });
-  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "QUARTERMASTERS_OFFICE", index: input.quartermastersOfficeTilesByOwner });
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "INCUBATION_ENGINE", index: input.incubationEngineTilesByOwner });
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "CENSUS_HALL", index: input.censusHallTilesByOwner });
 };
@@ -379,7 +377,7 @@ const refreshAncillaryDepotIndexForTile = (input: {
 // Same shape as refreshNeuralWorksIndexForTile/refreshAncillaryDepotIndexForTile
 // above, parameterized by economicStructure.type instead of a fixed one —
 // used for the tech-tree redesign's new Manpower-branch buildings (Assembly
-// Works, Ancillary Factory, Quartermaster's Office, Incubation Engine,
+// Works, Ancillary Factory, Incubation Engine,
 // Census Hall) so each new per-owner tile-set index doesn't need its own
 // hand-copied isXActive predicate. None of these are tied to a specific town
 // the way Neural Works/Clearing House's "only one per connected-town network"

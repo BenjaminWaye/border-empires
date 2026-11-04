@@ -11,16 +11,29 @@ const setup = () => {
   const map = createDistrictMap3D(scene, 8, { state, origin: { camX: 100, camY: 100 },
     visibilityAt: () => visible ? "visible" : "fogged", cornerYAt: x => (x - 100) * 0.05,
     isHillsAt: () => false, hillCutAt: () => undefined, rise: 0.01 });
-  const rebuild = () => {
+  const rebuild = (farmLift = 0) => {
     map.clear();
     for (const tile of [fixture.town, fixture.building]) map.addTile(tile,
-      { x: tile.x - 100 + 0.5, z: tile.y - 100 + 0.5, wx: tile.x, wy: tile.y, surfaceY: 0 }, 1_000);
+      { x: tile.x - 100 + 0.5, z: tile.y - 100 + 0.5, wx: tile.x, wy: tile.y, surfaceY: farmLift, farmLift }, 1_000);
     map.commit();
   };
   return { ...fixture, scene, map, state, rebuild, hide: () => { visible = false; } };
 };
 
+const bodyY = (scene: Scene): number => {
+  const mesh = scene.children.find((child): child is InstancedMesh => child instanceof InstancedMesh && child.name.endsWith("-body"));
+  const matrix = new Matrix4(); mesh!.getMatrixAt(0, matrix);
+  return new Vector3().setFromMatrixPosition(matrix).y;
+};
+
 describe("live 3D district adapter", () => {
+  it("lifts a district building onto a farm plot instead of burying its plinth in the crops", () => {
+    const fixture = setup(); fixture.rebuild();
+    const groundY = bodyY(fixture.scene);
+    fixture.rebuild(0.079);
+    expect(bodyY(fixture.scene)).toBeCloseTo(groundY + 0.079, 6);
+  });
+
   it("anchors connections to the new committed terrain window after panning", () => {
     const fixture = setup(); fixture.rebuild();
     const link = fixture.scene.children.find((child): child is InstancedMesh => child instanceof InstancedMesh && !child.name);
@@ -55,7 +68,10 @@ describe("live 3D district adapter", () => {
     expect(fixture.map.diagnostics.links.edges).toBe(0);
     expect(fixture.map.diagnostics.models.instances).toBe(1);
     fixture.hide(); fixture.rebuild();
-    expect(fixture.map.diagnostics.models.instances).toBe(0);
+    // Fogged: remembered where it stood, but standing still and out of the live links.
+    expect(fixture.map.diagnostics.models.instances).toBe(1);
+    expect(fixture.map.diagnostics.links.edges).toBe(0);
+    expect(mesh!.geometry.getAttribute("districtState")!.getX(0)).toBe(0);
     fixture.map.dispose(); expect(fixture.scene.children).toHaveLength(0);
   });
   it("leaves a shared Aether Tower to its original renderer and compacts only the support building", () => {

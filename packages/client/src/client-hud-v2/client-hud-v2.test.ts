@@ -22,13 +22,20 @@ const truce = (otherPlayerId: string, endsAt: number): ActiveTruceView => ({ oth
 const act = (id: TileActionDef["id"], extra: Partial<TileActionDef> = {}): TileActionDef => ({ id, label: id, ...extra });
 
 describe("hud v2 flag", () => {
-  it("is off by default, turned on by ?hud=v2 and off again by ?hud=legacy", () => {
+  it("is on by default, opted out by ?hud=legacy and back on with ?hud=v2", () => {
     const storage = memoryStorage();
+    expect(readHudV2Flag("", storage)).toBe(true);
+    expect(readHudV2Flag("?hud=legacy", storage)).toBe(false);
     expect(readHudV2Flag("", storage)).toBe(false);
     expect(readHudV2Flag("?hud=v2", storage)).toBe(true);
     expect(storage.getItem(HUD_V2_STORAGE_KEY)).toBe("1");
     expect(readHudV2Flag("", storage)).toBe(true);
-    expect(readHudV2Flag("?hud=legacy", storage)).toBe(false);
+  });
+
+  it("keeps early ?hud=v2 testers on the new HUD", () => {
+    const storage = memoryStorage();
+    storage.setItem(HUD_V2_STORAGE_KEY, "1");
+    expect(readHudV2Flag("", storage)).toBe(true);
   });
 });
 
@@ -40,16 +47,31 @@ describe("resource bar", () => {
 
   it("renders the used count in amber only when over", () => {
     const slots = { FOOD: 2, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 };
-    const html = resourceBarHtml({ gold: 1200, incomePerMinute: 2, slotSupply: slots, slotDemand: { ...slots, TITANIUM: 3 }, shard: 1, integrityPct: 62 });
+    const html = resourceBarHtml({ gold: 1200, netPerMinute: 2, slotSupply: slots, slotDemand: { ...slots, TITANIUM: 3 }, integrityPct: 62 });
     expect(html).toContain('<b class="hud-v2-over">3</b><span class="hud-v2-chip-of">/2</span>');
     expect(html.match(/hud-v2-over/g)).toHaveLength(1);
-    expect(html).toContain("+120/h");
+    // Regression: the coin chip said /h while Economy and the tile panel say /day.
+    expect(html).toContain("+2,880/day");
+    // Review: the chip showed gross income; it is net of coin upkeep, like Economy, and a loss reads red.
+    const loss = resourceBarHtml({ gold: 0, netPerMinute: -0.5, slotSupply: slots, slotDemand: slots, integrityPct: undefined });
+    expect(loss).toContain('hud-v2-chip-rate hud-v2-chip-rate-loss">−720/day');
     expect(html).toContain('data-hud-v2-open="settings"');
+  });
+
+  // Regression: Crystal showed as 0/0 on the bar before it was researched.
+  it("leaves unresearched resources off the bar", () => {
+    const slots = { FOOD: 2, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 };
+    const html = resourceBarHtml({ gold: 0, netPerMinute: 0, slotSupply: slots, slotDemand: slots, integrityPct: undefined, isRevealed: (r) => r !== "CRYSTAL" });
+    expect(html).not.toContain('data-hud-v2-chip="crystal"');
+    expect(html).toContain('data-hud-v2-chip="titanium"');
+    const inUse = resourceBarHtml({ gold: 0, netPerMinute: 0, slotSupply: slots, slotDemand: { ...slots, CRYSTAL: 1 }, integrityPct: undefined, isRevealed: () => false });
+    expect(inUse).toContain('data-hud-v2-chip="crystal"');
+    expect(inUse).toContain('data-hud-v2-chip="food"');
   });
 });
 
 describe("tracker", () => {
-  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, building: [], nowMs: 0 };
+  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, building: [], queue: [], slotsOpen: true, nowMs: 0 };
 
   it("lists free build slots, AFC upgrades and stalled flags as needs", () => {
     const needs = trackerNeeds({
@@ -64,12 +86,32 @@ describe("tracker", () => {
     expect(needs[1]).toMatchObject({ x: 4, y: 5, sub: "Needs manpower" });
   });
 
-  it("caps each group and shows the overflow count", () => {
-    const building = Array.from({ length: TRACKER_GROUP_CAP + 2 }, (_, i) => ({ tileKey: `${i},0`, x: i, y: 0, label: "Mine", remainingMs: 60_000, totalMs: 60_000 }));
-    const html = trackerHtml({ ...base, building });
-    expect(html.match(/hud-v2-tracker-timed/g)).toHaveLength(TRACKER_GROUP_CAP);
-    expect(html).toContain("+2 more");
+  it("caps the waiting list and shows the overflow count", () => {
+    const queue = Array.from({ length: TRACKER_GROUP_CAP + 2 }, (_, i) => ({ label: "Settle", x: i, y: 0 }));
+    const html = trackerHtml({ ...base, queue });
+    expect(html.match(/hud-v2-slot-waiting/g)).toHaveLength(TRACKER_GROUP_CAP);
+    expect(html).toContain("+2 waiting");
     expect(html).toContain('data-hud-v2-focus-x="0" data-hud-v2-focus-y="0"');
+  });
+
+  // Regression: the dev-slot row opened the Development side panel across the screen; the slots now unfold under the pips.
+  it("unfolds what fills each slot and what waits, under the pips", () => {
+    const building = [{ tileKey: "4,5", x: 4, y: 5, label: "Mine", remainingMs: 15_000, totalMs: 60_000 }];
+    const open = trackerHtml({ ...base, buildSlots: { busy: 1, limit: 3 }, building, queue: [{ label: "Settle", x: 7, y: 8 }] });
+    expect(open).toContain('aria-expanded="true"');
+    expect(open).not.toContain("data-hud-v2-chip");
+    expect(open.indexOf("hud-v2-slot-list")).toBeGreaterThan(open.indexOf("hud-v2-slots"));
+    expect(open).toContain('data-hud-v2-focus-x="4" data-hud-v2-focus-y="5"');
+    expect(open).toContain('style="width:75%"');
+    expect(open).toContain("Next · Settle");
+    // Builds live under Dev slots only, not again under In progress.
+    expect(open).not.toContain("In progress");
+    // Review: an unfolded list sat above Needs you and pushed it below the tracker's scroll fold.
+    const withNeeds = trackerHtml({ ...base, afcReady: 1, building });
+    expect(withNeeds.indexOf("Needs you")).toBeLessThan(withNeeds.indexOf("hud-v2-slots"));
+    const folded = trackerHtml({ ...base, buildSlots: { busy: 1, limit: 3 }, building, slotsOpen: false });
+    expect(folded).toContain('aria-expanded="false"');
+    expect(folded).not.toContain("hud-v2-slot-list");
   });
 
   it("always shows development slots, calling out free ones", () => {
@@ -107,6 +149,19 @@ describe("rivals strip", () => {
     expect(shown.map((t) => [t.id, t.stance])).toEqual([["a", "truce"], ["b", "truce"], ["c", "ally"], ["d", "met"]]);
     expect(shown[0]?.label).toBe("TRUCE 2h");
     expect(hidden).toBe(0);
+  });
+
+  it("shows minutes left on a truce in its last hour", () => {
+    const { shown } = rivalTokens({
+      me: "me",
+      metPlayerIds: new Set(["h"]),
+      allies: [],
+      activeTruces: [truce("h", 37 * 60_000)],
+      nameOf: () => "Hugo",
+      colorOf: () => "#123456",
+      nowMs: 0
+    });
+    expect(shown[0]?.label).toBe("TRUCE 37m");
   });
 
   // Regression: meeting one empire showed "+1" instead of its name and colour.
@@ -166,6 +221,48 @@ describe("action bar", () => {
     expect(buttons.some((b) => b.kind === "panel" && b.panel === "build")).toBe(true);
   });
 
+  // Regression: a Relay Beacon you couldn't build yet (no slot, short manpower) left the main row and only
+  // sat in the Build list, so frontier land looked like it had no beacon at all.
+  const frontierBeacon = (over: Partial<TileActionDef> = {}): TileActionDef =>
+    act("build_relay_beacon", { label: "Build Relay Beacon", detail: "Builds a beacon • garrisons this tile first", disabled: true, disabledReason: "Need 50 manpower", cost: "50 m.p.", ...over });
+
+  it("keeps a blocked Relay Beacon on your frontier as the main action, greyed with its reason", () => {
+    const v = view({
+      actions: [act("settle_land", { label: "Garrison", disabled: true, disabledReason: "Need 10 manpower" }), act("muster_hold", { label: "Raise flag" })],
+      buildings: [frontierBeacon()],
+      tabs: ["actions", "buildings"]
+    });
+    expect(selectBarButtons(v)[0]).toMatchObject({ primary: true, action: { id: "build_relay_beacon" } });
+    const html = actionBarHtml(v);
+    expect(html).toContain('<span class="hud-v2-act-cost">Need 50 manpower</span>');
+    expect(html).toContain('class="hud-v2-act hud-v2-act-primary hud-v2-act-disabled" data-hud-v2-action="build_relay_beacon" disabled');
+  });
+
+  it("keeps a blocked neutral-land beacon only when Expand To isn't there to lead", () => {
+    const beacon = act("build_relay_beacon_frontier", { label: "Build Relay Beacon", disabled: true, disabledReason: "Need 80 manpower" });
+    expect(selectBarButtons(view({ actions: [beacon] }))[0]).toMatchObject({ primary: true, action: { id: "build_relay_beacon_frontier" } });
+    const expand = act("settle_land", { label: "Expand To", disabled: true, disabledReason: "Need 10 coin" });
+    expect(selectBarButtons(view({ actions: [expand, beacon] }))[0]).toMatchObject({ primary: true, action: { label: "Expand To" } });
+  });
+
+  // Review: an interior settled tile also offers a beacon; a blocked one there must not become a dead main button.
+  it("does not lead an interior tile with a blocked Relay Beacon", () => {
+    const interior = act("build_relay_beacon", { label: "Build Relay Beacon", disabled: true, disabledReason: "Need a free FOOD slot" });
+    const buttons = selectBarButtons(view({ actions: [act("muster_hold", { label: "Raise flag" })], buildings: [interior], tabs: ["actions", "buildings"] }));
+    expect(buttons.some((b) => b.kind === "action" && b.primary)).toBe(false);
+  });
+
+  // Review: a Garrison you can do beats a blocked beacon you can't.
+  it("leaves a doable Garrison in charge over a blocked beacon", () => {
+    const buttons = selectBarButtons(view({ actions: [act("settle_land", { label: "Garrison" })], buildings: [frontierBeacon()], tabs: ["actions", "buildings"] }));
+    expect(buttons.some((b) => b.kind === "action" && b.primary)).toBe(false);
+  });
+
+  it("keeps a blocked Garrison on a resource as the main action", () => {
+    const buttons = selectBarButtons(view({ actions: [act("settle_land", { label: "Garrison", recommended: true, disabled: true, disabledReason: "Need 30 coin" })] }));
+    expect(buttons[0]).toMatchObject({ primary: true, action: { id: "settle_land" } });
+  });
+
   it("makes Expand To (settle_land on neutral land) the main action", () => {
     const buttons = selectBarButtons(view({ actions: [act("settle_land", { label: "Expand To" })] }));
     expect(buttons[0]).toMatchObject({ primary: true, action: { label: "Expand To" } });
@@ -189,10 +286,19 @@ describe("action bar", () => {
 });
 
 describe("manpower orb", () => {
-  it("clamps the fill and shows the refill only while below cap", () => {
+  it("clamps the fill and shows the next batch only while below cap", () => {
     expect(orbFill(150, 100)).toBe(1);
     expect(orbFill(-5, 100)).toBe(0);
-    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).toContain("refill 30m");
-    expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain("refill");
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).toContain(">next batch 30m<");
+    expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain("hud-v2-orb-refill");
+  });
+
+  it("fills the jar with your empire colour, darkened, and keeps gold for anything that is not a plain colour", () => {
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0, color: "#3f7fd0" })).toContain('style="fill: color-mix(in srgb, #3f7fd0 75%, #000)"');
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0, color: 'red" onload="x' })).not.toContain("style=");
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0 })).not.toContain("style=");
+    // Review: near-black vanished into the glass and pale colours washed out the numbers.
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0, color: "#141414" })).toContain("#141414 55%, #fff");
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0, color: "#ffff66" })).toContain("#ffff66 55%, #000");
   });
 });

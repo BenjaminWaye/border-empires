@@ -64,7 +64,7 @@ export const SIEGE_LENS_MODULE_HEIGHT = 0.248 * SIEGE_LENS_SCALE;
 
 export type SiegeLensFoundryModuleOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number) => number;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number, frozen?: boolean) => number;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -362,6 +362,8 @@ export const createSiegeLensFoundryModuleOverlay = (scene: Scene, maxInstances: 
     readonly z: number;
     readonly yaw: number;
     readonly phase: number;
+    // Remembered under fog: drawn in its rest pose.
+    readonly frozen: boolean;
   };
   const records: SlfRecord[] = [];
 
@@ -371,12 +373,12 @@ export const createSiegeLensFoundryModuleOverlay = (scene: Scene, maxInstances: 
     records.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number): number => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number, frozen = false): number => {
     if (records.length >= C) return -1;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
     makeYawAboutAnchor(yawMatrix, yaw, sceneX, sceneZ);
-    records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw, phase });
+    records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw, phase, frozen });
     addModule(sceneX, surfaceY, sceneZ);
     yawMatrix.identity();
     return records.length - 1;
@@ -399,7 +401,7 @@ export const createSiegeLensFoundryModuleOverlay = (scene: Scene, maxInstances: 
     for (let i = 0; i < count; i += 1) {
       const rec = records[i]!;
       makeYawAboutAnchor(yawMatrix, rec.yaw, rec.x, rec.z);
-      const breathe = 1 + 0.12 * Math.sin(nowMs * CORE_SPEED + rec.phase);
+      const breathe = 1 + 0.12 * Math.sin((rec.frozen ? 0 : nowMs) * CORE_SPEED + rec.phase);
       position.set(rec.x, rec.y + 0.13 * SIEGE_LENS_SCALE, rec.z);
       scale.set(breathe * SIEGE_LENS_SCALE, breathe * SIEGE_LENS_SCALE, breathe * SIEGE_LENS_SCALE);
       pieceMatrix.compose(position, corePieceQuat, scale);

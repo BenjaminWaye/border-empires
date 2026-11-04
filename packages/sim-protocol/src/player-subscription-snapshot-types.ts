@@ -1,7 +1,7 @@
 // Extracted from index.ts (500-line source budget, see AGENTS.md) to make
 // room for new tile-overlay wire fields without growing that file further.
 
-import type { AutoSettlePrefs, ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
+import type { AutoSettlePrefs, ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, ResourceSlotSources, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
 import type { ManpowerBreakdown, SimulationSeasonState, WorldStatusSnapshot } from "./index.js";
 import type { TileOverlayJsonFields } from "./tile-overlay-fields/tile-overlay-fields.js";
 
@@ -15,18 +15,19 @@ export type PlayerSubscriptionDock = {
 
 export type PlayerSubscriptionSnapshot = {
   playerId: string;
-  player?: {
+  player?: Pick<import("@border-empires/shared").ResourceSupplyPlayerState, "resourceTradeHoldings" | "resourceTradeAgreements"> & {
     id: string;
     name?: string;
     gold: number;
     manpower: number;
     manpowerCap: number;
     manpowerRegenPerMinute?: number;
+    nextManpowerBatchAmount?: number;
     logisticsThroughputPerMinute?: number;
     manpowerBreakdown?: ManpowerBreakdown;
     incomePerMinute: number;
-    strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
-    strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
+    strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
+    strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
     // Resource slots: global
     // per-resource supply/demand pool (§5.6 v1 scope) — the same numbers
     // hasFreeResourceSlots gates BUILD_STRUCTURE on server-side. Lets the
@@ -35,6 +36,9 @@ export type PlayerSubscriptionSnapshot = {
     resourceSlots?: {
       supply: Record<SlotResource, number>;
       demand: Record<SlotResource, number>;
+      // Where the supply comes from, one labelled row per source (adds up to supply).
+      sources?: ResourceSlotSources;
+      bonusSupply?: import("@border-empires/shared").NetworkSupplyStatus;
     };
     // §14.2: per-structure dormancy detail — which tile+field keys
     // ("x,y:fort"/"observatory"/"siegeBattery"/"economicStructure") are
@@ -57,7 +61,18 @@ export type PlayerSubscriptionSnapshot = {
     // disconnected, capped at DEV_QUEUE_SERVER_CAP each. Not restart-durable
     // (in-memory only, see PlayerRuntimeSummary) -- only survives the running
     // process's lifetime, not a process restart.
-    devQueue?: Array<{ tileKey: string; x: number; y: number; kind: "SETTLE" | "BUILD"; structureType?: string; queuedAt: number }>;
+    // manpowerReserved: the server holds this entry's manpower; awaitingManpower:
+    // a garrison waiting for a refill batch (runtime-dev-queue-settle-manpower-wait.ts).
+    devQueue?: Array<{
+      tileKey: string;
+      x: number;
+      y: number;
+      kind: "SETTLE" | "BUILD";
+      structureType?: string;
+      queuedAt: number;
+      manpowerReserved?: true;
+      awaitingManpower?: true;
+    }>;
     // Matches WaypointQueueWireEntry (apps/simulation/src/player-runtime-summary.ts)
     // and ServerWaypointQueueWireEntry (packages/client's client-waypoint-
     // persistence.ts) -- steps/cursor/planId/plannedAt/stalled carry the
@@ -146,6 +161,8 @@ export type PlayerSubscriptionSnapshot = {
     frontierDecayKind?: FrontierDecayKind | undefined;
     breachShockUntil?: number | undefined;
     captureHoldUntil?: number | undefined;
+    warScarLevel?: number | undefined;
+    warScarUntil?: number | undefined;
     townJson?: string | undefined;
     townType?: "MARKET" | "FARMING";
     townName?: string | undefined;

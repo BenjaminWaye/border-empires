@@ -35,7 +35,7 @@ export const hydrateVisibleLiveProfileOverrides = async (
       if (objective.leaderPlayerId) playerIds.add(objective.leaderPlayerId);
     }
   } else if (
-    (payload.type === "ATTACK_ALERT" || payload.type === "AETHER_PURGE_ALERT") &&
+    (payload.type === "ATTACK_ALERT" || payload.type === "AETHER_PURGE_ALERT" || payload.type === "AETHER_HIJACK_ALERT") &&
     typeof payload.attackerId === "string"
   ) {
     playerIds.add(payload.attackerId);
@@ -113,7 +113,7 @@ export const recoverLivePlayerMessage = (
   profileOverrides: PlayerProfileOverrides
 ): Record<string, unknown> => {
   if (
-    (payload.type === "ATTACK_ALERT" || payload.type === "AETHER_PURGE_ALERT") &&
+    (payload.type === "ATTACK_ALERT" || payload.type === "AETHER_PURGE_ALERT" || payload.type === "AETHER_HIJACK_ALERT") &&
     typeof payload.attackerId === "string"
   ) {
     const override = profileOverrides.get(payload.attackerId);

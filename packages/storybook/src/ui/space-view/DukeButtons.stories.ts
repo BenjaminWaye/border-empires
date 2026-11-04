@@ -61,7 +61,10 @@ const render = (): HTMLElement => {
       cancelBuild: async () => ({ ok: true }),
       order: async () => ({ ok: true }),
       answerOffer: async () => ({ ok: true }),
-      moveAgainstCourt: async () => ({ ok: true })
+      moveAgainstCourt: async () => ({ ok: true }),
+      declareGrievance: async () => ({ ok: true }),
+      answerWrit: async () => ({ ok: true }),
+      lendFleet: async () => ({ ok: true })
     }
   });
   void controller.refresh();

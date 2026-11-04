@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createAtmosphere } from "@client/client-map-3d-atmosphere.js";
+import { createResourcePreviewAtmosphere } from "../../fixtures/resource-preview-atmosphere.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "@client/client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createHillTerrain } from "@client/client-map-3d-hills.js";
 import { createFarmlandOverlay } from "@client/client-map-3d-farmland/client-map-3d-farmland.js";
@@ -28,7 +28,7 @@ const tileKindAt = (wx: number, _wy: number): HeightfieldTerrainKind => (wx - CE
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: args.cameraTilt, background: "#1a2030" });
-  const atmosphere = createAtmosphere(stage.scene);
+  const atmosphere = createResourcePreviewAtmosphere(stage.scene);
   const hf = createHeightfield();
   stage.scene.add(hf.mesh, hf.skirtMesh, hf.gridlines);
   hf.setGridlinesVisible(args.showGridlines);

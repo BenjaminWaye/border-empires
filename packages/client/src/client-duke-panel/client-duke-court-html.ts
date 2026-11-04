@@ -2,6 +2,7 @@
 import { escapeHtml } from "./client-duke-escape.js";
 import { COURT_STRENGTH_HELP, DOMAIN_WEIGHT_HELP, WARDEN_HELP, formatAge, formatDuration, plural } from "./client-duke-format.js";
 import { dukeEraHtml, dukeHallHtml } from "./client-duke-hall-html.js";
+import { dukePoliticsHtml } from "./client-duke-politics-html.js";
 import type { DukeStatus } from "./client-duke-types.js";
 
 const offerHtml = (status: DukeStatus): string =>
@@ -30,6 +31,7 @@ export const dukeCourtHtml = (status: DukeStatus, now: number): string => {
   const upkeep = status.economy.developmentUpkeepPerCycle;
   return `
     ${offerHtml(status)}
+    ${dukePoliticsHtml(status, now)}
     <section class="dk-card" data-duke-court>
       <h4>Court Strength <small>${status.court.current} of ${status.court.start}</small></h4>
       ${dukeEraHtml(status)}

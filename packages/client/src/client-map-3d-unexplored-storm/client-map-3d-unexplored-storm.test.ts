@@ -3,6 +3,7 @@ import { DataTexture, Scene, Vector2 } from "three";
 import { HEIGHTFIELD_GRASS_ELEVATION, HEIGHTFIELD_TUNDRA_ELEVATION } from "../client-map-3d-heightfield-terrain.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
 import { UNEXPLORED_REVEAL_MS, UNEXPLORED_STORM_Y, createUnexploredStormLayer } from "./client-map-3d-unexplored-storm.js";
+import { GROUND_SHEET_SEGMENTS } from "./client-map-3d-ground-sheet.js";
 import { STORM_FIELD_GLSL } from "./client-map-3d-unexplored-storm-field-glsl.js";
 import { STORM_FRAGMENT_SHADER } from "./client-map-3d-unexplored-storm-shader.js";
 
@@ -14,6 +15,12 @@ describe("unexplored storm layer (3D)", () => {
     expect(UNEXPLORED_STORM_Y).toBeGreaterThanOrEqual(HEIGHTFIELD_GRASS_ELEVATION);
     expect(UNEXPLORED_STORM_Y).toBeGreaterThanOrEqual(HEIGHTFIELD_TUNDRA_ELEVATION + 0.025 + 0.035); // + max jitter + rolling wave
     expect(UNEXPLORED_STORM_Y).toBeLessThan(0.5);
+  });
+
+  it("is drawn on the subdivided fog sheet, so mobile GPUs interpolate its position without banding", () => {
+    const storm = createUnexploredStormLayer(new Scene(), () => 0);
+    expect(storm.mesh.geometry.getAttribute("position").count).toBe((GROUND_SHEET_SEGMENTS + 1) ** 2);
+    storm.dispose();
   });
 
   it("masks out explored tiles over the window plus a one-tile ring", () => {

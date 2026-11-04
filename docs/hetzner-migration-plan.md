@@ -220,6 +220,8 @@ metrics port 50052); `README.md` deploy section;
    `fly ssh console -a border-empires-combined-staging -C 'printenv NAME'`
    straight into the file, and never into chat, git or CI logs. Fly secrets
    override `[env]`, so check those last four against `deploy/env/staging.env`.
+   (`SIMULATION_MAP_STYLE` now lives in `[env]`/`deploy/env/*.env`; leave it
+   out of `secrets.env`.)
 3. Rehearse the restore before it matters: clone the current staging DB
    (`pnpm ops:prod-shape:clone-snapshot --app border-empires-combined-staging`),
    upload it to `/srv/border-empires/data/`, deploy the current `develop` SHA,

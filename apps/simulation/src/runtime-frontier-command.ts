@@ -7,9 +7,10 @@ import {
 import {
   FRONTIER_CLAIM_COST,
   MUSTER_ATTACK_COST,
-  MUSTER_MARCH_MAX_DISTANCE_TILES,
+  MUSTER_TRANSIT_MAX_TILES,
   MUSTER_TRANSIT_MS_PER_TILE,
   anonymizedEmpireNameForId,
+  afcExpandPricingFrontierCount,
   expandManpowerCostForFrontierCount,
   frontierClaimDurationMsAt,
   isOpaquePlayerId
@@ -23,7 +24,7 @@ import { lockSourceFromSessionId } from "./runtime-types.js";
 import type { LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtime-types.js";
 import type { DockCrossingOrigin } from "./runtime/runtime-crossing.js";
 import type { LockedCombatInput } from "./runtime-combat-support.js";
-import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 import { launchBarbarianAttack, type BarbarianLaunchContext } from "./runtime-barbarian-walk.js";
 
@@ -57,7 +58,6 @@ export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   locksByTile: CombatLockIndex;
   locksByCommandId: Map<string, LockRecord>;
   musterReservedByKey: Map<string, number>;
-  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   rejectCommand: (command: CommandEnvelope, code: string, message: string) => void;
   applyManpowerRegen: (player: RuntimePlayer) => void;
   emitEvent: (event: SimulationEvent) => void;
@@ -86,8 +86,8 @@ export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   requiredMusterForTarget: (target: DomainTileState, attackerId?: string) => number;
   buildLockedCombatResolution: (lock: LockedCombatInput) => LockedCombatResolution | undefined;
   // Fixed-border reach (packages/shared/src/reach/reach.ts): true if (x, y)
-  // is inside playerId's resolved reach set. EXPAND requires this; ATTACK
-  // deliberately does not consult it.
+  // is inside playerId's resolved reach set. Passed to validation, which
+  // deliberately ignores it for both EXPAND and ATTACK (game-domain index).
   isInReach: (playerId: string, x: number, y: number) => boolean;
   // Persistent-border owner at (x, y), if any -- same lookup the Aether
   // Bridge cast handler already uses (runtime-aether-bridge-reach.ts) to
@@ -183,7 +183,7 @@ export const handleFrontierCommandImpl = (
   const expandClaimDurationMs = actionType === "EXPAND" ? frontierClaimDurationMsForCoords(to.x, to.y) : undefined;
   // Barbarians keep the flat base price so their walk/multiply pacing is unchanged.
   const expandManpowerCost = actionType === "EXPAND" && actor.id !== "barbarian-1"
-    ? expandManpowerCostForFrontierCount(ctx.frontierTileCountForPlayer(actor.id))
+    ? expandManpowerCostForFrontierCount(afcExpandPricingFrontierCount(ctx.frontierTileCountForPlayer(actor.id), multiplicativeEffectForPlayer(actor, "expandFrontierCountMult")))
     : undefined;
   const requiredMuster = actionType === "ATTACK"
     ? ctx.requiredMusterForTarget(to, actor.id)
@@ -220,9 +220,7 @@ export const handleFrontierCommandImpl = (
     targetLockedUntil: targetLock?.resolvesAt,
     targetLockOwnerId: targetLock?.playerId,
     actionGoldCost: actor.id === "barbarian-1" ? 0 : FRONTIER_CLAIM_COST,
-    isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y) ||
-      (ctx.dockLinksByDockTileKey.get(simulationTileKey(from.x, from.y)) ?? [])
-        .includes(simulationTileKey(to.x, to.y)),
+    isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y),
     isDockCrossing,
     isBridgeCrossing,
     originIsAlliedDockCrossing,
@@ -283,10 +281,11 @@ export const handleFrontierCommandImpl = (
   // flag firing directly (adjacent to the target) still takes a moment,
   // matching the client's own Math.max(1, dist) floor.
   //
-  // Measured on the wrapping world and capped at the march limit: ADVANCE's
-  // range counts a dock crossing as one hop and MARCH is limited to
-  // MUSTER_MARCH_MAX_DISTANCE_TILES, so no legitimate auto-fire travels
-  // further. Uncapped (and non-wrapping), a flag reaching across a dock or
+  // Measured on the wrapping world and capped at MUSTER_TRANSIT_MAX_TILES:
+  // ADVANCE's range counts a dock crossing as one hop, and a march's travel
+  // time stops growing past that cap however long its route (it is kept
+  // separate from the march range so a longer march never locks a front for
+  // longer). Uncapped (and non-wrapping), a flag reaching across a dock or
   // the map seam was charged its full straight-line distance -- an AI flag
   // ~120 tiles away locked both tiles for 4+ minutes while the defender saw
   // nothing approaching and couldn't counterattack the locked origin.
@@ -303,7 +302,7 @@ export const handleFrontierCommandImpl = (
   if (lockSource === "automation" && payload.musterSourceX != null && payload.musterSourceY != null) {
     musterOrigin = { x: payload.musterSourceX, y: payload.musterSourceY };
     const transitTiles = Math.min(
-      MUSTER_MARCH_MAX_DISTANCE_TILES,
+      MUSTER_TRANSIT_MAX_TILES,
       Math.max(1, chebyshevDistanceToroidal(musterOrigin.x, musterOrigin.y, validation.origin.x, validation.origin.y))
     );
     transitMs = transitTiles * MUSTER_TRANSIT_MS_PER_TILE;

@@ -1,3 +1,4 @@
+import type { RuntimeDiplomacySettlementContext } from "./runtime-diplomacy-settlement-command.js";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
@@ -26,14 +27,14 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { EconomicStructureType } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 
-export type RuntimeMapCommandContext = {
+export type RuntimeMapCommandContext = Pick<RuntimeDiplomacySettlementContext, "resourceSupply" | "settleEconomy" | "emitEconomyUpdate"> & {
   players: Map<string, DomainPlayer>;
   tiles: Map<string, DomainTileState>;
   now: () => number;
   emitEvent: (event: SimulationEvent) => void;
   ownedLandWithinRange: (playerId: string, x: number, y: number, range: number) => boolean;
   pickReadyOwnedObservatoryForTarget: (playerId: string, targetX: number, targetY: number, now: number) => string | undefined;
-  stampObservatoryCooldown: (tileKey: string, durationMs: number, now: number, commandId: string, playerId: string) => void;
+  spendObservatoryShot: (tileKey: string, now: number, commandId: string, playerId: string) => void;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   // Re-checks a victim's frontier connectivity after SKY_DOCK_BOMBARD stripped some of their tiles.
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
@@ -55,8 +56,9 @@ export type RuntimeMapCommandContext = {
     player: DomainPlayer,
     input: { type: "IMPERIAL_EXCHANGE_LEVY_HIT" | "IMPERIAL_EXCHANGE_LEVY_CAST"; text: string; occurredAt: number; x?: number; y?: number }
   ) => void;
-  // Starts settles for tiles the player just opted into (SET_AUTO_SETTLE_PREFS); optional so fixtures stay valid.
-  drainAutoSettleForOwner?: (playerId: string) => void;
+  // SET_AUTO_SETTLE_PREFS follow-up: drops queued tiles in categories switched off and, when one was
+  // switched on, rescans the frontier and starts those settles. Optional so fixtures stay valid.
+  onAutoSettlePrefsChanged?: (playerId: string, switchedOn: boolean) => void;
 };
 
 // CREATE_MOUNTAIN / REMOVE_MOUNTAIN live in their own module (500-line cap);

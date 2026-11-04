@@ -17,7 +17,7 @@ describe("domain card previews", () => {
         canResearch: false,
         checklist: [
           { label: "Requires Cartography", met: false },
-          { label: "SHARD 20", met: true }
+          { label: "Coin 20", met: true }
         ]
       }
     };

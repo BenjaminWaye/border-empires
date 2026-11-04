@@ -135,6 +135,8 @@ export type SimulationEvent =
         frontierDecayKind?: FrontierDecayKind | undefined;
         breachShockUntil?: number | undefined;
         captureHoldUntil?: number | undefined;
+        warScarLevel?: number | undefined;
+        warScarUntil?: number | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";
         townName?: string | undefined;
@@ -156,6 +158,19 @@ export type SimulationEvent =
       startedAt: number;
       resolvesAt: number;
       goldCost: number;
+    }
+  | {
+      /**
+       * Sim-internal: the exact persistent reach-border diff one anchor
+       * activation/deactivation produced (`ownerId: null` = vacated). Never
+       * sent to the gateway (WIRE_INTERNAL_EVENT_TYPES); it exists so startup
+       * recovery can replay border changes made after the last checkpoint
+       * instead of re-deciding contested tiles by anchor order.
+       */
+      eventType: "REACH_BORDER_CHANGED";
+      commandId: string;
+      playerId: string;
+      changes: Array<{ tileKey: string; ownerId: string | null }>;
     }
   | {
       eventType: "TECH_UPDATE";

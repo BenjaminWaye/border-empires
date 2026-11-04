@@ -16,7 +16,7 @@ const stateWithBeacons = (count: number): ClientState => {
       economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
     });
   }
-  return { me: "me", tiles } as unknown as ClientState;
+  return { me: "me", tiles, techIds: [], domainIds: [], techCatalog: [], domainCatalog: [] } as unknown as ClientState;
 };
 
 describe("relay beacon build time in the build menu", () => {
@@ -25,13 +25,26 @@ describe("relay beacon build time in the build menu", () => {
     expect(relayBeaconBuildTimeLabel(stateWithBeacons(4))).toBe("instant");
   });
 
-  it("shows 1m 40s (100 MP = 100s) from the sixth beacon on, not the stale 1m constant", () => {
-    expect(relayBeaconBuildTimeLabel(stateWithBeacons(5))).toBe("1m 40s");
+  it("shows the flat build minute from the sixth beacon on", () => {
+    expect(relayBeaconBuildTimeLabel(stateWithBeacons(5))).toBe("1m");
   });
 
   it("prices the settle-then-build chain with the owned-count-aware beacon cost", () => {
     expect(buildManpowerCostForState(stateWithBeacons(0), "RELAY_BEACON")).toBe(50);
     expect(buildManpowerCostForState(stateWithBeacons(5), "RELAY_BEACON")).toBe(100);
-    expect(buildDurationMsForState(stateWithBeacons(5), "RELAY_BEACON")).toBe(100_000);
+    expect(buildDurationMsForState(stateWithBeacons(5), "RELAY_BEACON")).toBe(60_000);
+  });
+
+  it("applies the AFC Relay Beacon and universal manpower discounts", () => {
+    const state = {
+      ...stateWithBeacons(5),
+      domainIds: ["afc-dominion-1", "afc-dominion-5"],
+      domainCatalog: [
+        { id: "afc-dominion-1", effects: { relayBeaconBuildManpowerCostMult: 1 / 3 } },
+        { id: "afc-dominion-5", effects: { structureBuildManpowerCostMult: 0.5 } }
+      ]
+    } as unknown as ClientState;
+    expect(buildManpowerCostForState(state, "RELAY_BEACON")).toBe(17);
+    expect(buildManpowerCostForState(state, "MANUFACTORY")).toBe(Math.round(buildManpowerCostForState(stateWithBeacons(0), "MANUFACTORY") / 2));
   });
 });

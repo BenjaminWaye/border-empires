@@ -15,10 +15,8 @@ import { requiredTechForTileAction, structureTypeForTileAction } from "./client-
 // client-tile-action-logic.ts (gated on field-logistics / conveyor-networks
 // / remade-concordat respectively) but were never added to this switch
 // either, so those three build buttons were silently broken too.
-// (build_quartermasters_office itself was later retired — see
-// structure-registry-economic.ts — so only Reserve Lattice and Logistics
-// Guild remain below; QUARTERMASTERS_OFFICE stays a legacy structure type,
-// but nothing emits its build action anymore.)
+// (build_quartermasters_office and its structure type were later removed
+// entirely, so only Reserve Lattice and Logistics Guild remain below.)
 describe("Weapons Factory build action dispatch", () => {
   it("maps both Weapons Factory build actions to their structure type", () => {
     expect(structureTypeForTileAction("build_titanium_weapons_factory")).toBe("TITANIUM_WEAPONS_FACTORY");

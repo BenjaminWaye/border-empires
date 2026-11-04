@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, Matrix4, Scene, Vector3 } from "three";
-import { createTownOverlay, TOWN_BASE_LIFT, townQuarterTurnForTile } from "./client-map-3d-town-overlay.js";
+import { InstancedMesh, Matrix4, MeshBasicMaterial, MeshStandardMaterial, Scene, Vector3 } from "three";
+import { createTownOverlay, REMEMBERED_TOWN_GLOW, TOWN_BASE_LIFT, townQuarterTurnForTile } from "./client-map-3d-town-overlay.js";
 
 const instancedMeshes = (scene: Scene): InstancedMesh[] => {
   const meshes: InstancedMesh[] = [];
@@ -72,6 +72,27 @@ describe("town overlay", () => {
     expect(position.x).toBeCloseTo(2);
     expect(position.y).toBeCloseTo(0.5 + TOWN_BASE_LIFT);
     expect(position.z).toBeCloseTo(3);
+
+    overlay.dispose();
+  });
+
+  it("draws a town remembered under fog in its own still meshes: no spin shaders, no steam, lights dimmed", () => {
+    const scene = new Scene();
+    const overlay = createTownOverlay(scene, 16);
+    overlay.addInstance(2, 3, 0.5, "CITY", 40, 17, true);
+    overlay.addInstance(5, 3, 0.25, "CITY", 41, 17);
+    overlay.commit();
+
+    const byName = new Map(instancedMeshes(scene).map((mesh) => [mesh.name, mesh]));
+    expect(byName.get("town-CITY")!.count).toBe(1);
+    const still = byName.get("town-still-CITY")!;
+    expect(still.count).toBe(1);
+    expect(still.onBeforeRender).not.toBe(byName.get("town-CITY")!.onBeforeRender); // no shader clock tick
+    expect((still.material as MeshStandardMaterial).customProgramCacheKey()).not.toContain("town-spin");
+    expect((byName.get("town-CITY")!.material as MeshStandardMaterial).customProgramCacheKey()).toContain("town-spin");
+    expect(byName.has("town-still-CITY-steam")).toBe(false);
+    expect((byName.get("town-still-CITY-glow")!.material as MeshBasicMaterial).color.r).toBeCloseTo(REMEMBERED_TOWN_GLOW);
+    expect(byName.get("town-still-CITY-glow")!.instanceMatrix).toBe(still.instanceMatrix);
 
     overlay.dispose();
   });

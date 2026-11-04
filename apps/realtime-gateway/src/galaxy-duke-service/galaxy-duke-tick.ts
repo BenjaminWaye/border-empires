@@ -12,6 +12,7 @@ import { advanceSystem, applyCompletedBuild, type DukeEffect } from "../galaxy-d
 import { createDukeState, findSystem, planetsOf, replaceSystem, syncSystems } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import type { DukeCounter, DukeState, InFlightOrder } from "../galaxy-duke-engine/galaxy-duke-types.js";
 import type { DukeContext, DukeWorld } from "./galaxy-duke-context.js";
+import { creditRaidThrough, tickPolitics } from "./galaxy-duke-politics-tick.js";
 
 const defenderHullOf = (state: DukeState | undefined, seasonId: string): number | null => {
   const system = state ? findSystem(state, seasonId) : undefined;
@@ -68,7 +69,7 @@ const resolveRaid = async (ctx: DukeContext, world: DukeWorld, state: DukeState,
   const tier = world.tierOfSeason.get(flight.seasonId);
   if (flight.kind !== "RAID" || !owner || !tier || owner === state.authUid) {
     // Target vanished (transferred/lost): the Fighter simply returns home.
-    const home = flight.kind === "RAID" ? findSystem(state, flight.fromSeasonId) : undefined;
+    const home = flight.kind === "RAID" && !flight.courtWrit ? findSystem(state, flight.fromSeasonId) : undefined;
     const back = home && flight.kind === "RAID" ? replaceSystem(dropFlight(state, flight), { ...home, fighters: [...home.fighters, { hull: flight.fighterHull }] }) : dropFlight(state, flight);
     return pushDigest(back, at, "COMBAT", "Your Fighter found nothing to raid and returned.").state;
   }
@@ -92,7 +93,8 @@ const resolveRaid = async (ctx: DukeContext, world: DukeWorld, state: DukeState,
     stabilityAfter: Math.max(0, stability.stability + step.targetStabilityDelta),
     resolvedAt: at
   });
-  return step.attacker;
+  // A Writ strike is the Court's Fighter, never dressed as a grievance (lore §8).
+  return step.targetStabilityDelta < 0 && !flight.courtWrit ? creditRaidThrough(ctx, step.attacker, owner, step.defender, label, at) : step.attacker;
 };
 
 // Advances one Duke to `now`. Returns undefined when the account holds no Planet.
@@ -128,6 +130,11 @@ export const advanceOneDuke = async (ctx: DukeContext, world: DukeWorld, authUid
     for (const flight of arrivedFlights(state, at)) {
       state = flight.kind === "PROBE" ? await resolveProbe(ctx, world, state, flight, acc) : await resolveRaid(ctx, world, state, flight, acc);
     }
+
+    // Grievances that ran out, and Fighters lent to the Court coming home.
+    const politics = tickPolitics(state, at);
+    state = politics.state;
+    acc.counters.push(...politics.counters);
 
     // Wardens: accrue credit, announce, and land what is due.
     const accrued = accrueIncursions(state, world.capturedSectors, labels, at);

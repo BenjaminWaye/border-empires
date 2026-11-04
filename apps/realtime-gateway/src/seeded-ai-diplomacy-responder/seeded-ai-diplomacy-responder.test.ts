@@ -9,7 +9,7 @@ import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-eva
 const NOW = 10_000_000;
 const quietContext = (overrides: Partial<AiDiplomacyContext["memory"]> = {}, context: Partial<AiDiplomacyContext> = {}): AiDiplomacyContext => ({
   requesterBrokeTruceWithAi: false,
-  requesterTruceBreaksWithOthers: 0,
+  requesterTruceBreaksWithOthers: 0, requesterBrokeAllianceWithAi: false,
   memory: {
     tilesTakenFromAi: 0,
     tilesTakenByAi: 0,
@@ -158,7 +158,7 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
     // From the AI's side: it gives nothing and asks the requester for 2160 coin.
     expect(requestTruce).toHaveBeenCalledWith(AI_ID, "Human", 24, {
       targetPlayerId: HUMAN_ID,
-      terms: { give: { gold: 0, shard: 0 }, ask: { gold: 2160, shard: 0 } }
+      terms: { give: { gold: 0 }, ask: { gold: 2160 } }
     });
   });
 
@@ -170,7 +170,7 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce({
       ...baseRequest,
-      terms: { give: { gold: 2160, shard: 0 }, ask: { gold: 0, shard: 0 } }
+      terms: { give: { gold: 2160 }, ask: { gold: 0 } }
     });
 
     expect(acceptTruce).toHaveBeenCalled();
@@ -186,7 +186,7 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce({
       ...baseRequest,
-      terms: { give: { gold: 2160, shard: 0 }, ask: { gold: 0, shard: 0 } }
+      terms: { give: { gold: 2160 }, ask: { gold: 0 } }
     });
 
     expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, {
@@ -347,6 +347,25 @@ describe("createSeededAiDiplomacyResponder alliance offers", () => {
     }));
   });
 
+  // A Cautious AI used to refuse outright; now it counters with the tribute that
+  // wins it over (46 coin to Pleased at 10 coin a point) plus its 24h Pleased price.
+  it("counters a Cautious AI's alliance with the tribute it asks", async () => {
+    const { deps, acceptAlliance, rejectAlliance, requestAlliance } = makeDeps(
+      snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, leaderboardTiles: { [AI_ID]: 100, [HUMAN_ID]: 50 } }),
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 5_000 })
+    );
+
+    await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiAlliance(allianceRequest);
+
+    expect(acceptAlliance).not.toHaveBeenCalled();
+    // The original offer is answered, and the counter goes back as the AI's own offer.
+    expect(rejectAlliance).toHaveBeenCalledOnce();
+    expect(requestAlliance).toHaveBeenCalledWith(AI_ID, "Human", {
+      targetPlayerId: HUMAN_ID,
+      terms: { give: { gold: 0 }, ask: { gold: 46 + 24 * 60 } }
+    });
+  });
+
   it("won't ally with a merely Cautious AI's neighbour", async () => {
     const { deps, acceptAlliance, rejectAlliance } = makeDeps(
       snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100 }),
@@ -408,5 +427,32 @@ describe("memoizeWithTtl", () => {
     await memoized("ai-1");
 
     expect(underlying).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("createSeededAiDiplomacyResponder truce extensions", () => {
+  // A losing AI (3 tiles down, fighting a minute ago) pays for peace, but not to extend a truce already holding.
+  const losingContext = () => quietContext({ tilesTakenFromAi: 3, lastCombatAt: NOW - 60_000 });
+  const askForCoin = { ...baseRequest, terms: { give: { gold: 0 }, ask: { gold: 100 } } };
+  const losingAi = () => snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 1000, incomePerMinute: 2, tiles: touchingTiles });
+
+  it("pays a player for a new truce while losing", async () => {
+    const { deps, acceptTruce } = makeDeps(losingAi(), undefined, losingContext());
+    await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce(askForCoin);
+    expect(acceptTruce).toHaveBeenCalled();
+  });
+
+  it("won't pay to extend a running truce, and names the extension when it accepts one", async () => {
+    const paid = makeDeps(losingAi(), undefined, losingContext());
+    await createSeededAiDiplomacyResponder(paid.deps).maybeAutoRespondToSeededAiTruce({ ...askForCoin, extendsTruce: true });
+    expect(paid.acceptTruce).not.toHaveBeenCalled();
+    expect(paid.rejectTruce).toHaveBeenCalled();
+
+    const free = makeDeps(losingAi(), undefined, losingContext());
+    await createSeededAiDiplomacyResponder(free.deps).maybeAutoRespondToSeededAiTruce({ ...baseRequest, extendsTruce: true });
+    expect(free.acceptTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, {
+      [HUMAN_ID]: expect.stringMatching(/^Alden Vale accepted your 24h truce extension\./),
+      [AI_ID]: "You accepted Human's 24h truce extension."
+    });
   });
 });

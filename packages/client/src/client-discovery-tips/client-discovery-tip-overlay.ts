@@ -18,6 +18,9 @@ export const setDiscoveryTipCenterHandler = (handler: ((target: DiscoveryTipTarg
   centerOnTarget = handler;
 };
 
+/** Moves the camera to `target` the same way the toast's Center button does (also used by the tutorial guide's "Show me"). */
+export const centerCameraOnDiscoveryTarget = (target: DiscoveryTipTarget): void => centerOnTarget?.(target);
+
 const removeDiscoveryTipOverlay = (): void => {
   document.getElementById(OVERLAY_ID)?.remove();
 };

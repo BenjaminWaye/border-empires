@@ -7,7 +7,7 @@ import type { ClientState } from "../client-state/client-state.js";
 type IdleState = Pick<ClientState, "tileActionMenu" | "capture" | "buildingPlacement" | "crystalTargeting" | "garrisonMany" | "photoModeActive">;
 
 /** Open dialogs that handle Esc themselves (trade view, effort sheet, survey, ruins, bug report, …). */
-const OPEN_DIALOG_SELECTOR = '[role="dialog"], [aria-modal="true"], .effort-confirm-overlay, .diplomacy-trade-overlay';
+const OPEN_DIALOG_SELECTOR = '[role="dialog"], [aria-modal="true"], .effort-confirm-overlay, .break-pact-overlay, .diplomacy-trade-overlay';
 
 const isShown = (el: Element): boolean => {
   if (!(el instanceof HTMLElement)) return false;

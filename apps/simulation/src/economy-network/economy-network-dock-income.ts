@@ -9,19 +9,13 @@ export const dockConnectionBonusPerLinkForPlayer = (player: Pick<DomainPlayer, "
   const configured = additiveEffectForPlayer(player, "dockConnectionBonusPerLink");
   return configured > 0 ? configured : DOCK_CONNECTION_BONUS_PER_LINK_DEFAULT;
 };
-/** Weighted direct physical links: each edge once, reciprocal access, no transitive allies. */
+/** Direct physical links to the player's own settled docks, each edge once. */
 export const dockConnectedOwnedSettledCount = (dockTileKey: string, playerId: string, context: DockEconomyContext): number => {
   let connectedCount = 0;
-  const player = context.players?.get(playerId);
   for (const linkedKey of new Set(context.dockLinksByDockTileKey.get(dockTileKey) ?? [])) {
     const linked = context.tiles.get(linkedKey);
     if (!linked?.dockId || linked.ownershipState !== "SETTLED" || !linked.ownerId || linkedKey === dockTileKey) continue;
     if (linked.ownerId === playerId) { connectedCount += 1; continue; }
-    const ally = context.players?.get(linked.ownerId);
-    if (!player?.allies?.has(linked.ownerId) || !ally?.allies?.has(playerId)) continue;
-    const ownerPact = multiplicativeEffectForPlayer(player, "alliedDockIncomeMult");
-    const allyPact = multiplicativeEffectForPlayer(ally, "alliedDockIncomeMult");
-    if (ownerPact > 1 || allyPact > 1) connectedCount += ownerPact;
   }
   return connectedCount;
 };

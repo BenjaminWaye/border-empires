@@ -6,19 +6,28 @@
 //   - plus 1h per tile the player recently took from the AI (reparations)
 //   - scaled by attitude, and up 50% for every truce the player bought recently
 //   - minus the base price entirely when the AI is desperate (armies spent, starving)
+//   - up 50% within 30 min of the player attacking (fresh aggression). In that
+//     window the AI only refuses outright when it has a counter-attack ready
+//     and the border is worth it (ai-retaliation-readiness.ts), and it never
+//     pays for peace with someone who just attacked it.
 // An AI that is losing a war will pay for peace instead (the loser pays),
 // but only once per war and never more than a quarter of its coin. Losing
 // also overrides fury: an AI that hates you still wants a war it is losing
 // over -- unless you broke a truce with it, which it never deals past.
 // Alliances need an AI that is at least Pleased, hasn't fought the player for
-// a day, and would be the largest member of the resulting bloc (Diplomatic
-// Dominance victory goes to the bloc's largest member); the AI never pays to
-// join one.
-import { SHARD_COIN_VALUE, type AiDiplomacyPricing, type DiplomacyGoods } from "@border-empires/shared";
+// a day, and -- when the resulting bloc would hold 40%+ of the world's land --
+// would be its largest member (Diplomatic Dominance victory goes to the bloc's
+// largest member); the AI never pays to
+// join one. An AI below Pleased that payments could still win over (the
+// goodwill cap allows it) asks tribute instead of refusing: the coin that
+// lifts it to Pleased -- deal payments count as goodwill once accepted --
+// plus its Pleased alliance price.
+import { type AiDiplomacyPricing, type DiplomacyGoods } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { ATTITUDE_RANK, type AiAttitude, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
+import type { AiRetaliationReadiness } from "./ai-retaliation-readiness.js";
 
 export const TRUCE_HOURS = { apartAtPeace: 0, neighboursAtPeace: 12, atWar: 24, aiWinning: 48 } as const;
 export const REPARATION_HOURS_PER_TILE = 1;
@@ -30,8 +39,9 @@ export const DESPERATE_DISCOUNT = 0;
 /** Most a losing AI pays for peace: hours of its own income, and share of its coin. */
 export const AI_PEACE_PAYMENT_HOURS = 6;
 export const AI_PEACE_PAYMENT_COIN_SHARE = 0.25;
-/** No peace talks this soon after the player attacks (Civ's "too soon after declaring war"). */
+/** The "fresh aggression" window after the player attacks: surcharged, refused when the AI can strike back. */
 export const TRUCE_COOLDOWN_AFTER_ATTACK_MS = 30 * 60_000;
+export const FRESH_ATTACK_SURCHARGE = 0.5;
 export const ALLIANCE_NO_FIGHTING_MS = 24 * 60 * 60_000;
 export const ALLIANCE_HOURS: Partial<Record<AiAttitude, number>> = { PLEASED: 24, FRIENDLY: 0 };
 
@@ -45,6 +55,10 @@ export type AiDiplomacyPricingResult = {
   allianceRefusal?: string;
 };
 
+/** Inside the fresh-aggression window: refuse only with a counter-attack ready on a border worth fighting for. */
+const strikesBack = (retaliation: AiRetaliationReadiness | undefined, aiWinning: boolean): boolean =>
+  retaliation === undefined || (retaliation.ready && (retaliation.boxedIn || aiWinning));
+
 export const aiDiplomacyPricing = (input: {
   aiName: string;
   stanceKind: AiDiplomacyStanceKind;
@@ -57,6 +71,15 @@ export const aiDiplomacyPricing = (input: {
   requesterBrokeTruceWithAi: boolean;
   /** Diplomatic Dominance goes to a bloc's largest member: the AI only joins blocs it would lead. undefined: sizes unknown right now. */
   aiWouldLeadAlliance: boolean | undefined;
+  /**
+   * Coin of goodwill that would lift the AI to Pleased (shared giftToReach), or
+   * undefined when the goodwill cap stops payments from getting there.
+   */
+  giftToPleased?: number;
+  /** Diplomatic Corps (AFC Chancery II): multiplier on what the requester pays for a truce. */
+  requesterTruceCostMult?: number;
+  /** Whether the AI could hit back right now. undefined: unknown, so it refuses inside the window as before. */
+  retaliation?: AiRetaliationReadiness;
   now: number;
 }): AiDiplomacyPricingResult => {
   const finite = (value: number): number => (Number.isFinite(value) ? value : 0);
@@ -65,28 +88,34 @@ export const aiDiplomacyPricing = (input: {
   const hoursToCoin = (hours: number, perMinute: number): number => Math.round(hours * 60 * perMinute);
   const { opinion, memory, aiName } = input;
   const { war } = opinion;
-  const aiHoldings = { gold: Math.max(0, Math.floor(input.aiHoldings.gold)), shard: Math.max(0, Math.floor(input.aiHoldings.shard)) };
+  const aiHoldings = { ...(input.aiHoldings.resources ? { resources: input.aiHoldings.resources } : {}), gold: Math.max(0, Math.floor(input.aiHoldings.gold)) };
 
   // --- truce ---
   let truceRefusal: string | undefined;
   const minutesSinceAttack = memory.lastPlayerAttackAt === undefined ? undefined : (input.now - memory.lastPlayerAttackAt) / 60_000;
   // Betrayal is the one grudge losing doesn't soften: no paying a truce-breaker for a truce it can break again.
   const furyHolds = !war.aiLosing || input.requesterBrokeTruceWithAi;
+  const freshAttack = minutesSinceAttack !== undefined && minutesSinceAttack * 60_000 < TRUCE_COOLDOWN_AFTER_ATTACK_MS;
   if (opinion.attitude === "FURIOUS" && furyHolds) truceRefusal = `${aiName} is furious with you and won't talk peace.`;
-  else if (minutesSinceAttack !== undefined && minutesSinceAttack * 60_000 < TRUCE_COOLDOWN_AFTER_ATTACK_MS) {
-    truceRefusal = `You attacked ${aiName} ${Math.max(1, Math.round(minutesSinceAttack))} min ago. They won't talk peace yet.`;
+  else if (freshAttack && minutesSinceAttack !== undefined && strikesBack(input.retaliation, war.aiWinning)) {
+    const minutesLeft = Math.max(1, Math.ceil(TRUCE_COOLDOWN_AFTER_ATTACK_MS / 60_000 - minutesSinceAttack));
+    truceRefusal = input.retaliation
+      ? `You attacked ${aiName} ${Math.max(1, Math.round(minutesSinceAttack))} min ago and they have an army ready to strike back. They won't talk peace for another ${minutesLeft} min.`
+      : `You attacked ${aiName} ${Math.max(1, Math.round(minutesSinceAttack))} min ago. They won't talk peace yet.`;
   }
   let truce12: number | null = null;
   let truce24: number | null = null;
   if (!truceRefusal) {
-    if (war.aiLosing && !memory.aiAlreadyPaidThisWar) {
+    if (war.aiLosing && !memory.aiAlreadyPaidThisWar && !freshAttack) {
       // The loser pays: offer up to a capped sum to end a war it is losing.
       const payment = Math.min(hoursToCoin(AI_PEACE_PAYMENT_HOURS, aiIncome), Math.floor(aiHoldings.gold * AI_PEACE_PAYMENT_COIN_SHARE));
       truce12 = -payment;
       truce24 = -payment;
     } else if (war.aiLosing) {
-      truce12 = 0;
-      truce24 = 0;
+      // A losing AI fresh from an attack still wants the war over, but the attacker pays for the ground it took.
+      const reparationHours = freshAttack ? memory.tilesTakenFromAi * REPARATION_HOURS_PER_TILE * (input.requesterTruceCostMult ?? 1) : 0;
+      truce12 = hoursToCoin(reparationHours, priceIncome);
+      truce24 = hoursToCoin(reparationHours * LONG_TRUCE_MULTIPLIER, priceIncome);
     } else {
       const baseHours = war.atWar
         ? war.aiWinning ? TRUCE_HOURS.aiWinning : TRUCE_HOURS.atWar
@@ -94,26 +123,31 @@ export const aiDiplomacyPricing = (input: {
       const reparationHours = memory.tilesTakenFromAi * REPARATION_HOURS_PER_TILE;
       const desperation = input.stanceKind === "SEEKING_PEACE" ? DESPERATE_DISCOUNT : 1;
       const repeat = 1 + REPEAT_TRUCE_SURCHARGE * memory.truceDeals;
-      const hours = (baseHours * ATTITUDE_PRICE_MULTIPLIER[opinion.attitude] * desperation + reparationHours) * repeat;
-      truce12 = hoursToCoin(hours, priceIncome);
-      truce24 = hoursToCoin(hours * LONG_TRUCE_MULTIPLIER, priceIncome);
+      const fresh = freshAttack ? 1 + FRESH_ATTACK_SURCHARGE : 1;
+      const hours = (baseHours * ATTITUDE_PRICE_MULTIPLIER[opinion.attitude] * desperation + reparationHours) * repeat * fresh;
+      const corps = input.requesterTruceCostMult ?? 1;
+      truce12 = hoursToCoin(hours * corps, priceIncome);
+      truce24 = hoursToCoin(hours * LONG_TRUCE_MULTIPLIER * corps, priceIncome);
     }
   }
 
   // --- alliance ---
   let allianceRefusal: string | undefined;
   const foughtRecently = memory.lastCombatAt !== undefined && input.now - memory.lastCombatAt < ALLIANCE_NO_FIGHTING_MS;
+  // Below Pleased, tribute that wins the AI over stands in for the attitude it lacks.
+  const belowPleased = ATTITUDE_RANK[opinion.attitude] < ATTITUDE_RANK.PLEASED;
+  const tribute = belowPleased && input.giftToPleased !== undefined ? Math.max(0, Math.ceil(input.giftToPleased)) : undefined;
   // Refusals that don't depend on bloc sizes come first, so the player hears the real reason.
   if (input.requesterBrokeTruceWithAi) allianceRefusal = `${aiName} will never ally with someone who broke a truce with them.`;
   else if (foughtRecently) allianceRefusal = `${aiName} won't ally with an empire it fought within the last day.`;
-  else if (ATTITUDE_RANK[opinion.attitude] < ATTITUDE_RANK.PLEASED) allianceRefusal = `${aiName} doesn't think well enough of you for an alliance.`;
+  else if (belowPleased && tribute === undefined) allianceRefusal = `${aiName} doesn't think well enough of you for an alliance.`;
   else if (input.aiWouldLeadAlliance === undefined) allianceRefusal = `${aiName} can't weigh up an alliance right now. Try again shortly.`;
-  else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance it wouldn't lead: your alliance is too large.`;
-  const allianceHours = allianceRefusal ? undefined : ALLIANCE_HOURS[opinion.attitude];
-  const alliance = allianceHours === undefined ? null : hoursToCoin(allianceHours, priceIncome);
+  else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.`;
+  const allianceHours = allianceRefusal ? undefined : tribute !== undefined ? ALLIANCE_HOURS.PLEASED : ALLIANCE_HOURS[opinion.attitude];
+  const alliance = allianceHours === undefined ? null : hoursToCoin(allianceHours, priceIncome) + (tribute ?? 0);
 
   return {
-    pricing: { required: { truce12, truce24, alliance }, shardCoinValue: SHARD_COIN_VALUE, aiHoldings },
+    pricing: { required: { truce12, truce24, alliance }, aiHoldings },
     ...(truceRefusal ? { truceRefusal } : {}),
     ...(allianceRefusal ? { allianceRefusal } : {})
   };

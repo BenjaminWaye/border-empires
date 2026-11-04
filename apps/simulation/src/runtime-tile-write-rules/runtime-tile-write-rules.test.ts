@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { describe, expect, it } from "vitest";
-import { updateTileSettledAt, withoutStaleCaptureHold } from "./runtime-tile-write-rules.js";
+import { updateTileSettledAt, withoutFadedWarScars, withoutStaleCaptureHold } from "./runtime-tile-write-rules.js";
 
 const NOW = 1_000_000;
 const tile = (overrides: Partial<DomainTileState> = {}): DomainTileState => ({ x: 1, y: 1, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER", ...overrides });
@@ -33,5 +33,13 @@ describe("updateTileSettledAt", () => {
     expect(map.get("k")).toBe(30);
     updateTileSettledAt(map, "k", tile({ ownershipState: "SETTLED" }), tile(), 40);
     expect(map.has("k")).toBe(false);
+  });
+});
+
+describe("withoutFadedWarScars", () => {
+  it("keeps live scars and drops faded ones", () => {
+    expect(withoutFadedWarScars(tile({ warScarLevel: 2, warScarUntil: NOW + 1 }), NOW)).toMatchObject({ warScarLevel: 2, warScarUntil: NOW + 1 });
+    const faded = withoutFadedWarScars(tile({ warScarLevel: 2, warScarUntil: NOW }), NOW);
+    expect("warScarLevel" in faded || "warScarUntil" in faded).toBe(false);
   });
 });

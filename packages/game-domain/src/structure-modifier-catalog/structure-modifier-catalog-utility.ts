@@ -1,3 +1,4 @@
+import { manpowerPerBatch } from "@border-empires/shared";
 // Power/vision/utility buildings and the six late-game monuments. Most of
 // these are mechanic-driven (radius, cooldown, one-time effects) rather than
 // a stackable "+N stat" — kept as a small number of descriptive modifier
@@ -46,8 +47,8 @@ export const utilityStructureModifiers = (type: ModifierStructureType): Structur
   }
   if (type === "CENSUS_DIRECTORATE") {
     return [{
-      statLabel: "Manpower/min per Manpower-branch building owned",
-      valueText: `+${CENSUS_DIRECTORATE_REGEN_PER_MANPOWER_BUILDING}`,
+      statLabel: "Manpower per batch per Manpower-branch building owned",
+      valueText: `+${manpowerPerBatch(CENSUS_DIRECTORATE_REGEN_PER_MANPOWER_BUILDING)}`,
       tone: "positive",
       isTownWide: false
     }];

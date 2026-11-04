@@ -27,7 +27,7 @@ const REPORT_KIND_CONFIG: Record<ReportKind, ReportKindConfig> = {
   bug: {
     endpoint: "/api/bug-reports",
     title: "Report a Bug",
-    icon: "🐞",
+    icon: "⚠\uFE0E",
     hint: "Describe what went wrong. Recent client and server logs are attached automatically.",
     placeholder: "What happened? What did you expect?",
     submitLabel: "Submit Report",
@@ -37,7 +37,7 @@ const REPORT_KIND_CONFIG: Record<ReportKind, ReportKindConfig> = {
   suggestion: {
     endpoint: "/api/suggestions",
     title: "Suggest an Improvement",
-    icon: "💡",
+    icon: "✦",
     hint: "Share an idea to make the game better. Recent client and server logs are attached automatically.",
     placeholder: "What would you like to see added or improved?",
     submitLabel: "Submit Suggestion",

@@ -23,7 +23,6 @@ const makeObservatory = () => ({ ownerId: "p1", status: "active" as const });
 const makeSiegeBattery = () => ({ ownerId: "p1", status: "active" as const });
 const makeEconomicStructure = () => ({ ownerId: "p1", status: "active" as const, type: "MANUFACTORY" as const });
 const makeSabotage = () => ({ ownerId: "p2", status: "active" as const });
-const makeShardSite = () => ({ kind: "FALL" as const, expiresAt: 9999 });
 
 describe("TileDeltaStringifyCache", () => {
   it("returns undefined for absent substructures", () => {
@@ -36,7 +35,6 @@ describe("TileDeltaStringifyCache", () => {
     expect(result.siegeBatteryJson).toBeUndefined();
     expect(result.economicStructureJson).toBeUndefined();
     expect(result.sabotageJson).toBeUndefined();
-    expect(result.shardSiteJson).toBeUndefined();
   });
 
   it("returns byte-identical JSON strings as inline JSON.stringify", () => {
@@ -54,7 +52,7 @@ describe("TileDeltaStringifyCache", () => {
     const result = cache.getOrComputeAll("1,1", makeBaseTile());
     const fields: (keyof typeof result)[] = [
       "townJson", "fortJson", "observatoryJson", "siegeBatteryJson",
-      "economicStructureJson", "sabotageJson", "shardSiteJson"
+      "economicStructureJson", "sabotageJson"
     ];
     for (const field of fields) {
       expect(result[field], `${field} should be undefined`).toBeUndefined();
@@ -194,7 +192,6 @@ describe("TileDeltaStringifyCache", () => {
     const siege = makeSiegeBattery();
     const econ = makeEconomicStructure();
     const sab = makeSabotage();
-    const shard = makeShardSite();
     const tile: DomainTileState = {
       ...makeBaseTile(),
       fort,
@@ -202,8 +199,7 @@ describe("TileDeltaStringifyCache", () => {
       observatory: obs,
       siegeBattery: siege,
       economicStructure: econ,
-      sabotage: sab,
-      shardSite: shard
+      sabotage: sab
     };
     const result = cache.getOrComputeAll("all,7", tile);
     expect(result.fortJson).toBe(JSON.stringify(fort));
@@ -212,7 +208,6 @@ describe("TileDeltaStringifyCache", () => {
     expect(result.siegeBatteryJson).toBe(JSON.stringify(siege));
     expect(result.economicStructureJson).toBe(JSON.stringify(econ));
     expect(result.sabotageJson).toBe(JSON.stringify(sab));
-    expect(result.shardSiteJson).toBe(JSON.stringify(shard));
   });
 
   it("buildSparseDelta always includes ownerId/ownershipState/dockId, even when unchanged from the last emission", () => {

@@ -1,6 +1,7 @@
+import { RESOURCE_NETWORKS } from "../resource-networks/resource-networks.js";
 import type { EconomicStructureType, FortVariant, SiegeBatteryVariant } from "../types.js";
 
-export type StrategicResourceCostType = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
+export type StrategicResourceCostType = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 export type BuildableStructureType = "FORT" | "OBSERVATORY" | "SIEGE_BATTERY" | EconomicStructureType;
 
 type StructureScaling =
@@ -55,6 +56,11 @@ const RELAY_BEACON_FIRST_TIER_MANPOWER = 50;
 const RELAY_BEACON_MANPOWER = 100;
 
 const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDefinition> = {
+  RESIN_EXTRACTOR: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.NEURAL_RESIN.manpowerCost },
+  IMPLANT_FOUNDRY: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.CONDUCTIVE_MINERALS.manpowerCost },
+  CATALYST_REFINERY: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.CATALYTIC_DEPOSIT.manpowerCost },
+  CULTIVATION_ESTATE: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.LUXURY_BIOTA.manpowerCost },
+  RECLAMATION_WORKS: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.PRECURSOR_SALVAGE.manpowerCost },
   FORT: {
     baseGoldCost: 0,
     manpowerCost: FORT_MANPOWER,
@@ -125,7 +131,6 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   NEURAL_WORKS: { baseGoldCost: 0, manpowerCost: 300 },
   MINISTRY_HALL: { baseGoldCost: 0, manpowerCost: 150 },
   RESONANCE_GRID: { baseGoldCost: 0, manpowerCost: 300 },
-  QUARTERMASTERS_OFFICE: { baseGoldCost: 0, manpowerCost: 150 },
   ANCILLARY_FACTORY: { baseGoldCost: 0, manpowerCost: 150 },
   RESERVE_LATTICE: { baseGoldCost: 0, manpowerCost: 300 },
   // Retired (see structure-registry-economic.ts) — not in ECONOMIC_SPECS so
@@ -140,30 +145,30 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   // discussion in docs/replenishment-update-plan.md).
   TITANIUM_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100 },
   UMBRITE_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100 },
-  IMPERIAL_EXCHANGE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  IMPERIAL_EXCHANGE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  IMPERIAL_EXCHANGE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  SOVEREIGN_SIEGE_ENGINE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  SOVEREIGN_SIEGE_ENGINE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  SOVEREIGN_SIEGE_ENGINE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  AEGIS_DOME_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  AEGIS_DOME_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  AEGIS_DOME_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  ASTRAL_DOCK_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  ASTRAL_DOCK_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  ASTRAL_DOCK_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  CENSUS_DIRECTORATE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  CENSUS_DIRECTORATE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  CENSUS_DIRECTORATE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  TITANIUM_LEVY_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  TITANIUM_LEVY_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  TITANIUM_LEVY_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  IMPERIAL_EXCHANGE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  SOVEREIGN_SIEGE_ENGINE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  AEGIS_DOME: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  ASTRAL_DOCK: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  CENSUS_DIRECTORATE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  TITANIUM_LEVY: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } }
+  IMPERIAL_EXCHANGE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  IMPERIAL_EXCHANGE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  IMPERIAL_EXCHANGE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  SOVEREIGN_SIEGE_ENGINE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  SOVEREIGN_SIEGE_ENGINE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  SOVEREIGN_SIEGE_ENGINE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  AEGIS_DOME_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  AEGIS_DOME_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  AEGIS_DOME_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  ASTRAL_DOCK_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  ASTRAL_DOCK_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  ASTRAL_DOCK_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  CENSUS_DIRECTORATE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  CENSUS_DIRECTORATE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  CENSUS_DIRECTORATE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  TITANIUM_LEVY_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  TITANIUM_LEVY_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  TITANIUM_LEVY_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  IMPERIAL_EXCHANGE: { baseGoldCost: 0, manpowerCost: 1_600 },
+  SOVEREIGN_SIEGE_ENGINE: { baseGoldCost: 0, manpowerCost: 1_600 },
+  AEGIS_DOME: { baseGoldCost: 0, manpowerCost: 1_600 },
+  ASTRAL_DOCK: { baseGoldCost: 0, manpowerCost: 1_600 },
+  CENSUS_DIRECTORATE: { baseGoldCost: 0, manpowerCost: 1_600 },
+  TITANIUM_LEVY: { baseGoldCost: 0, manpowerCost: 1_600 }
 };
 
 // ── Fort tier ladder ───────────────────────────────────────────────
@@ -298,8 +303,8 @@ export type SiegeTierInfo = {
 
 export const SIEGE_TIER_LADDER: Record<SiegeBatteryVariant, SiegeTierInfo> = {
   SIEGE_BATTERY: { variant: "SIEGE_BATTERY", gold: 0, umbrite: 45,  titanium: 0,   manpower: SIEGE_BATTERY_MANPOWER, attackMult: 1.6 },
-  SIEGE_TOWER:   { variant: "SIEGE_TOWER",   gold: 0, umbrite: 90,  titanium: 60,  manpower: SIEGE_TOWER_MANPOWER,   attackMult: 1.8 },
-  DREAD_TOWER:   { variant: "DREAD_TOWER",   gold: 0, umbrite: 140, titanium: 120, manpower: DREAD_TOWER_MANPOWER,   attackMult: 2.0 },
+  SIEGE_TOWER:   { variant: "SIEGE_TOWER",   gold: 0, umbrite: 90,  titanium: 0,   manpower: SIEGE_TOWER_MANPOWER,   attackMult: 1.8 },
+  DREAD_TOWER:   { variant: "DREAD_TOWER",   gold: 0, umbrite: 140, titanium: 0,   manpower: DREAD_TOWER_MANPOWER,   attackMult: 2.0 },
 };
 
 export const SIEGE_VARIANT_LABELS: Record<SiegeBatteryVariant, string> = {
@@ -312,6 +317,23 @@ export const bestSiegeTierForTech = (has: (id: string) => boolean): SiegeTierInf
   if (has("standing-army")) return SIEGE_TIER_LADDER.DREAD_TOWER;
   if (has("siegecraft")) return SIEGE_TIER_LADDER.SIEGE_TOWER;
   return SIEGE_TIER_LADDER.SIEGE_BATTERY;
+};
+
+// A fresh (non-upgrade) siege build: the best tier the tech allows whose
+// cost `canAfford` accepts, stepping down the ladder (Dread Tower -> Siege
+// Tower -> Siege Battery) so a player short on UMBRITE slots for the top
+// tier still gets a cheaper siege structure instead of a rejection. Falls
+// back to the best tech tier when nothing is affordable, so the caller's
+// own gate reports the shortfall against the tier the player expects.
+const SIEGE_LADDER_DESCENDING: readonly SiegeBatteryVariant[] = ["DREAD_TOWER", "SIEGE_TOWER", "SIEGE_BATTERY"];
+
+export const siegeTierForFreshBuild = (
+  has: (id: string) => boolean,
+  canAfford: (variant: SiegeBatteryVariant) => boolean,
+): SiegeTierInfo => {
+  const best = bestSiegeTierForTech(has);
+  const affordable = SIEGE_LADDER_DESCENDING.slice(SIEGE_LADDER_DESCENDING.indexOf(best.variant)).find(canAfford);
+  return affordable ? SIEGE_TIER_LADDER[affordable] : best;
 };
 
 export const nextSiegeTierForUpgrade = (
@@ -361,25 +383,17 @@ export const relayBeaconManpowerCost = (existingOwnedCount: number): number =>
 export const structureBuildManpowerCostScaled = (type: BuildableStructureType, existingCount: number): number =>
   type === "RELAY_BEACON" ? relayBeaconManpowerCost(existingCount) : STRUCTURE_COST_DEFINITIONS[type].manpowerCost ?? 0;
 
-// docs/replenishment-update-plan.md D9: "build time = manpower cost x 1s /
-// build-speed multiplier" -- 100 MP = 100 seconds (was 36s/MP until
-// 2026-10-10; cut so a 15-30 minute session can actually spend a full
-// manpower refill -- manpower, not build time, is the limit). Structures only (settle,
-// expand, attacks and muster keep their own, unrelated timers -- this
-// function family never covered those). Replaces the old flat per-type
-// FORT_BUILD_MS/OBSERVATORY_BUILD_MS/SIEGE_BATTERY_BUILD_MS/
-// ECONOMIC_STRUCTURE_BUILD_MS/PALISADE_BUILD_MS/RELAY_BEACON_BUILD_MS
-// constants (config.js) these two functions used to read.
-export const MANPOWER_COST_MS_PER_POINT = 1_000;
+// Every structure that costs manpower builds in a flat STRUCTURE_BUILD_MS
+// (2026-11-01; was manpower cost x 1s, and 36s/MP before 2026-10-10) and is
+// torn down in STRUCTURE_REMOVAL_MS. Manpower, not build time, is the limit:
+// a refill takes hours, a build one minute. A 0-manpower structure stays
+// instant. Build-speed effects still shorten these (buildDurationWithSpeedMult).
+// Structures only (settle, expand, attacks and muster keep their own timers).
+export const STRUCTURE_BUILD_MS = 60_000;
+export const STRUCTURE_REMOVAL_MS = 30_000;
 
 export const structureBuildDurationMsForManpowerCost = (manpowerCost: number): number =>
-  Math.max(0, Math.round(manpowerCost * MANPOWER_COST_MS_PER_POINT));
-
-// Removal takes half as long as building: 0.5s per manpower point of the
-// structure actually being torn down (its own fort/siege tier, the full
-// non-discounted Relay Beacon price). Replaced the flat per-type removal
-// timers (FORT_BUILD_MS etc.) on 2026-10-10.
-export const MANPOWER_COST_REMOVAL_MS_PER_POINT = 500;
+  manpowerCost > 0 ? STRUCTURE_BUILD_MS : 0;
 
 // Build time of a specific fort/siege tier (an upgrade charges that tier's own
 // manpower, so it builds for that tier's time, not the base Fort's).
@@ -390,7 +404,7 @@ export const siegeBatteryBuildDurationMs = (variant: SiegeBatteryVariant = "SIEG
   structureBuildDurationMsForManpowerCost(SIEGE_TIER_LADDER[variant].manpower);
 
 export const structureRemovalDurationMsForManpowerCost = (manpowerCost: number): number =>
-  Math.max(0, Math.round(manpowerCost * MANPOWER_COST_REMOVAL_MS_PER_POINT));
+  manpowerCost > 0 ? STRUCTURE_REMOVAL_MS : 0;
 
 export const fortRemovalDurationMs = (variant: FortVariant = "FORT"): number =>
   structureRemovalDurationMsForManpowerCost(FORT_TIER_LADDER[variant].manpower);

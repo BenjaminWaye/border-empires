@@ -9,13 +9,14 @@ import {
 import { createCombatManpowerLog, type CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
 import { aggregatePersonalActivity } from "../personal-activity-aggregation/personal-activity-aggregation.js";
 import { createPersonalImpactLog, type PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
-import { createTerritoryFlipLog, type TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
+import { createTerritoryFlipLog, isBarbarianRoamingFlip, type TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
+import { BARBARIAN_PLAYER_ID } from "../ai/system-job-barbarian-planner.js";
 
 // Cohesive ownership of all non-snapshot, rolling activity history. Keeping
 // this state out of runtime.ts both honors the source-file cap and makes the
 // three logs' shared persistence contract impossible to drift at call sites.
 export const createRuntimeActivityLogs = (now: () => number) => {
-  const territory = createTerritoryFlipLog({ now });
+  const territory = createTerritoryFlipLog({ now, ignore: (flip) => isBarbarianRoamingFlip(flip, BARBARIAN_PLAYER_ID) });
   const combat = createCombatManpowerLog({ now });
   const personalImpacts = createPersonalImpactLog({ now });
 

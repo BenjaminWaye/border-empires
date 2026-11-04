@@ -11,7 +11,7 @@ type SocialTruceActionResult =
 export type TruceSocketMessageDeps = {
   requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24, options?: { terms?: DiplomacyTerms }) => SocialTruceActionResult;
   /** Async when the offer carries terms the simulation must pay out first. */
-  acceptTruce: (playerId: string, requestId: string) => SocialTruceActionResult | Promise<SocialTruceActionResult>;
+  acceptTruce: (playerId: string, requestId: string, announcements?: Partial<Record<string, string>>, confirmedResourceSupply?: boolean) => SocialTruceActionResult | Promise<SocialTruceActionResult>;
   rejectTruce: (playerId: string, requestId: string) => SocialTruceActionResult;
   cancelTruce: (playerId: string, requestId: string) => SocialTruceActionResult;
   breakTruce: (playerId: string, targetPlayerId: string) => SocialTruceActionResult;
@@ -82,7 +82,7 @@ export const handleTruceSocketMessage = async (
     return true;
   }
   if (message.type === "TRUCE_ACCEPT") {
-    const result = await deps.acceptTruce(playerId, message.requestId);
+    const result = await deps.acceptTruce(playerId, message.requestId, undefined, message.confirmedResourceSupply === true);
     if (!result.ok) { sendErrorAndResync(deps, socket, result, playerId); return true; }
     deps.onDiplomacyInteraction?.(playerId, result.notifyPlayerIds.find((id) => id !== playerId));
     const targetPlayerId = result.notifyPlayerIds.find((id) => id !== playerId);

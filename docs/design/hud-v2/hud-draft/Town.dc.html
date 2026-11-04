@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Border Empires town screen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&amp;family=Spectral:wght@400;600&amp;family=Space+Mono:wght@400;700&amp;display=swap">
+<style>
+body{margin:0;background:#0b0a08}
+a{color:#d9b25c}a:hover{color:#f0cf82}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #0f2830; font-family: 'Spectral', Georgia, serif; color: #ece2cc">
+
+  <div style="position: absolute; inset: 0; display: grid; grid-template-columns: repeat(18, 80px); grid-auto-rows: 80px" aria-hidden="true">
+    <sc-for list="{{tiles}}" as="t" hint-placeholder-count="18">
+      <div style="position: relative; background: {{t.bg}}; box-shadow: {{t.sh}}">
+        <sc-if value="{{t.slot}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; right: 6px; bottom: 6px; padding: 1px 5px; background: rgba(12,10,8,0.85); border: 1px solid {{t.sc}}; color: {{t.sc}}; font-family: 'Space Mono', monospace; font-size: 10px">{{t.slot}}</span>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+  <div style="position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,7,5,0.82) 0, rgba(8,7,5,0.15) 30%, rgba(8,7,5,0.15) 66%, rgba(8,7,5,0.85) 100%)" aria-hidden="true"></div>
+  <sc-if value="{{support}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; left: 560px; top: 320px; width: 80px; height: 80px; outline: 3px solid #f0cf82; outline-offset: 2px; box-shadow: 0 0 0 10px rgba(240,207,130,0.22), 0 0 28px rgba(240,207,130,0.5)" aria-hidden="true"></div>
+    <div style="position: absolute; left: 560px; top: 292px; width: 80px; text-align: center; font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; color: #120f0b"><span style="background: #f0cf82; padding: 1px 6px">(7, 4)</span></div>
+  </sc-if>
+  <div style="position: absolute; left: 640px; top: 400px; width: 80px; height: 80px; display: grid; place-items: center" aria-hidden="true">
+    <svg width="56" height="50" viewBox="0 0 56 50"><path d="M4 48V22l12-10 12 10 12-10 12 10v26z" fill="#1d1913" stroke="#3fb0a6" stroke-width="2"/><path d="M24 48V34h8v14" fill="none" stroke="#d9b25c" stroke-width="2"/></svg>
+  </div>
+
+  <div style="position: absolute; left: 20px; right: 20px; top: 12px; height: 46px; display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(15,13,10,0.92); border: 1px solid #5a4828; border-bottom-color: #8a6f35">
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Coin</span>1,240<span style="color: #6fbf73; font-size: 11px">+38/h</span></span>
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Food</span>4<span style="color: #a8997c">/6</span></span>
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Titanium</span><b style="color: #e0a845">3</b><span style="color: #a8997c">/2</span></span>
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Crystal</span>1<span style="color: #a8997c">/3</span></span>
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Umbrite</span>0<span style="color: #a8997c">/1</span></span>
+    <span style="width: 1px; height: 24px; background: #3a3125; margin: 0 6px"></span>
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Shard</span>7</span>
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Integrity</span>82%</span>
+  </div>
+
+  <section aria-label="Halveth" style="position: absolute; left: 20px; top: 74px; bottom: 20px; width: 360px; background: rgba(15,13,10,0.95); border: 1px solid #5a4828; border-top: 3px solid #3fb0a6; display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 6px">
+      <button type="button" aria-label="Previous town" style="width: 36px; height: 36px; background: #16130e; border: 1px solid #3a3125; color: #d9b25c; font-size: 16px; cursor: pointer">◁</button>
+      <div style="display: flex; flex-direction: column; align-items: center">
+        <span style="font-family: 'Cinzel', serif; font-size: 26px; font-weight: 700; letter-spacing: 0.08em; color: #f0cf82">Halveth</span>
+        <span style="font-size: 13px; color: #a8997c">City · Market town</span>
+      </div>
+      <button type="button" aria-label="Next town" style="width: 36px; height: 36px; background: #16130e; border: 1px solid #3a3125; color: #d9b25c; font-size: 16px; cursor: pointer">▷</button>
+    </div>
+    <div style="padding: 10px 18px; display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #bda880">Growth to Great City</span><span style="font-family: 'Space Mono', monospace">64%</span></div>
+      <div style="height: 6px; background: #2a241b"><div style="width: 64%; height: 6px; background: #3fb0a6"></div></div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 6px 18px; background: #3a3125; border: 1px solid #3a3125">
+      <sc-for list="{{stats}}" as="s" hint-placeholder-count="4">
+        <div style="background: #16130e; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: #a8997c">{{s.k}}</span>
+          <span style="font-family: 'Space Mono', monospace; font-size: 17px; font-weight: 700; color: {{s.c}}">{{s.v}}</span>
+          <span style="font-size: 12px; color: #a8997c">{{s.n}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="padding: 14px 18px 6px; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: #d9b25c">In this town · 4</div>
+    <sc-for list="{{built}}" as="b" hint-placeholder-count="4">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 18px; font-size: 14px">
+        <span style="width: 26px; height: 26px; flex: none; background: repeating-linear-gradient(45deg, #2a2216 0 4px, #1d1913 4px 8px); border: 1px solid {{b.bd}}"></span>
+        <span style="flex: 1">{{b.n}}<br><span style="font-size: 12px; color: {{b.sc}}">{{b.s}}</span></span>
+      </div>
+    </sc-for>
+    <div style="margin-top: auto; padding: 14px 18px 18px; border-top: 1px solid #3a3125; display: flex; flex-direction: column; gap: 8px">
+      <button type="button" style="height: 50px; background: #d9b25c; border: 0; color: #120f0b; font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer">Upgrade to Great City</button>
+      <span style="font-size: 13px; color: #a8997c; text-align: center">620 Coin · 1 Food slot</span>
+    </div>
+  </section>
+
+  <section aria-label="Build" style="position: absolute; right: 20px; top: 74px; bottom: 236px; width: 420px; background: rgba(15,13,10,0.95); border: 1px solid #5a4828; display: flex; flex-direction: column">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px 10px">
+      <span style="font-family: 'Cinzel', serif; font-size: 18px; font-weight: 700; letter-spacing: 0.08em; color: #d9b25c">Build</span>
+      <span style="font-family: 'Space Mono', monospace; font-size: 12px; color: {{focusC}}">{{focusLabel}}</span>
+    </div>
+    <div role="tablist" aria-label="Building categories" style="display: flex; gap: 4px; padding: 0 18px 10px; border-bottom: 1px solid #3a3125">
+      <button type="button" role="tab" aria-selected="true" style="height: 30px; padding: 0 12px; background: #2a2216; border: 1px solid #d9b25c; color: #f0cf82; font-family: 'Space Mono', monospace; font-size: 11px; cursor: pointer">Economy</button>
+      <button type="button" role="tab" aria-selected="false" style="height: 30px; padding: 0 12px; background: #16130e; border: 1px solid #3a3125; color: #bda880; font-family: 'Space Mono', monospace; font-size: 11px; cursor: pointer">Defense</button>
+      <button type="button" role="tab" aria-selected="false" style="height: 30px; padding: 0 12px; background: #16130e; border: 1px solid #3a3125; color: #bda880; font-family: 'Space Mono', monospace; font-size: 11px; cursor: pointer">Growth</button>
+    </div>
+    <div style="display: flex; flex-direction: column; overflow-y: auto; min-height: 0; line-height: 1.3">
+      <sc-for list="{{builds}}" as="r" hint-placeholder-count="5">
+        <button type="button" onClick="{{r.pick}}" aria-pressed="{{r.on}}" style="display: flex; gap: 12px; padding: 8px 18px; background: {{r.bg}}; border: 0; border-left: 3px solid {{r.bl}}; border-bottom: 1px solid #241f17; color: #ece2cc; text-align: left; cursor: pointer; opacity: {{r.op}}">
+          <span style="width: 48px; height: 48px; flex: none; background: repeating-linear-gradient(45deg, #3a2e1a 0 5px, #2a2216 5px 10px); border: 1px solid #8a6f35"></span>
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+            <span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-family: 'Cinzel', serif; font-size: 14px; font-weight: 700; letter-spacing: 0.04em">{{r.n}}</span><span style="font-family: 'Space Mono', monospace; font-size: 11px; color: #bda880">{{r.t}}</span></span>
+            <span style="font-size: 13px; color: #bda880">{{r.e}}</span>
+            <span style="font-family: 'Space Mono', monospace; font-size: 11px; color: {{r.cc}}">{{r.cost}}</span>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+
+  <div style="position: absolute; right: 20px; bottom: 20px; width: 420px; height: 200px; display: flex; gap: 12px; align-items: flex-end">
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 14px; background: rgba(15,13,10,0.95); border: 1px solid #8a6f35">
+      <span style="font-family: 'Cinzel', serif; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; color: #f0cf82">{{sel.n}}</span>
+      <button type="button" style="height: 42px; background: #d9b25c; border: 0; color: #120f0b; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer">{{placeLabel}}</button>
+    </div>
+    <div style="position: relative; width: 150px; height: 150px; flex: none" role="img" aria-label="Manpower 412 of 720">
+      <svg width="150" height="150" viewBox="0 0 196 196" aria-hidden="true">
+        <defs><clipPath id="orbclip2"><circle cx="98" cy="98" r="80"/></clipPath></defs>
+        <circle cx="98" cy="98" r="94" fill="#0f0d0a" stroke="#5a4828" stroke-width="2"/>
+        <circle cx="98" cy="98" r="86" fill="none" stroke="#d9b25c" stroke-width="5" stroke-dasharray="540.4" stroke-dashoffset="225" transform="rotate(-90 98 98)"/>
+        <circle cx="98" cy="98" r="80" fill="#14110d"/>
+        <g clip-path="url(#orbclip2)"><path d="M10 104 C 50 94, 70 112, 98 104 S 150 94, 190 104 V 190 H 10 Z" fill="#a07a34"/><path d="M10 110 C 50 102, 72 118, 98 110 S 150 100, 190 110 V 190 H 10 Z" fill="#c99a45" opacity="0.85"/></g>
+        <circle cx="98" cy="98" r="80" fill="none" stroke="#d9b25c" stroke-width="1.5"/>
+      </svg>
+      <span style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center">
+        <span style="font-family: 'Cinzel', serif; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; color: #d9b25c">Manpower</span>
+        <span style="font-family: 'Space Mono', monospace; font-size: 20px; font-weight: 700; text-shadow: 0 1px 3px #000">412</span>
+        <span style="font-family: 'Space Mono', monospace; font-size: 10px; text-shadow: 0 1px 3px #000">/ 720</span>
+      </span>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 400px; bottom: 20px; width: 560px; display: flex; gap: 8px; padding: 10px; background: rgba(15,13,10,0.96); border: 1px solid #8a6f35; box-shadow: 0 10px 28px rgba(0,0,0,0.55)">
+    <button type="button" style="flex: 1; height: 46px; background: #16130e; border: 1px solid #8a6f35; color: #ece2cc; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer">Raise flag</button>
+    <button type="button" style="flex: 1; height: 46px; background: #16130e; border: 1px solid #8a6f35; color: #ece2cc; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer">Overclock</button>
+    <button type="button" aria-label="More actions" style="width: 52px; height: 46px; background: #16130e; border: 1px solid #8a6f35; color: #d9b25c; font-size: 18px; cursor: pointer">⋯</button>
+    <button type="button" style="height: 46px; padding: 0 14px; background: none; border: 1px solid #3a3125; color: #bda880; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer">◁ Map · Esc</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"focus":{"editor":"enum","options":["town","support tile"],"default":"town"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sel: 0 }; }
+  renderVals() {
+    const W = 18, H = 12, cx = 8, cy = 5;
+    const support = (this.props.focus ?? 'town') === 'support tile';
+    const fx = 7, fy = 4;
+    const hash = (x, y) => { let n = (x * 374761393 + y * 668265263) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967295; };
+    const hex = (r, g, b) => '#' + [r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+    const slots = { '7,4': 'FOOD 1', '9,4': 'FOOD 1', '7,6': 'Ti 1', '9,6': 'FOOD 2' };
+    const tiles = [];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const j = (hash(x * 3, y * 11) - 0.5) * 12;
+      const sea = y > 9 || (x > 14 && y > 6);
+      let c = sea ? [18, 44, 54] : [66 + j, 78 + j, 46 + j * 0.6];
+      const d = Math.max(Math.abs(x - cx), Math.abs(y - cy));
+      const mine = !sea && Math.hypot(x - cx, y - cy) < 5.5;
+      if (mine) c = c.map((v, n) => v * 0.6 + [47, 150, 141][n] * 0.4);
+      let sh = 'none';
+      if (mine && d === 1) { c = c.map((v) => v * 1.12); sh = 'inset 0 0 0 2px rgba(240,207,130,0.75)'; }
+      if (x === cx && y === cy) sh = support ? 'inset 0 0 0 2px rgba(240,207,130,0.75)' : 'inset 0 0 0 3px #f0cf82';
+      if (support && x === fx && y === fy) { c = c.map((v) => v * 1.3); sh = 'inset 0 0 0 4px #f0cf82, inset 0 0 18px rgba(240,207,130,0.55)'; }
+      const s = slots[x + ',' + y] || '';
+      tiles.push({ bg: hex(...c), sh: sh, slot: s, sc: s.startsWith('Ti') ? '#9fb0b8' : '#c9b26a' });
+    }
+    const list = [
+      { n: 'Hydrogarden', t: '48m', e: '+Food slots on grain', cost: '80 MP', cc: '#bda880', ok: true },
+      { n: 'Manufactory', t: '1h 30m', e: '+Coin', cost: '150 MP', cc: '#bda880', ok: true },
+      { n: 'Trade Nexus', t: '1h 30m', e: 'Road connections', cost: '150 MP', cc: '#bda880', ok: true },
+      { n: 'Clearing House', t: '1h 30m', e: 'Boosts Manufactories', cost: '150 MP · 80 Crystal', cc: '#e0a845', ok: true },
+      { n: 'Census Hall', t: '48m', e: '+25% growth', cost: 'Requires Census Office', cc: '#a8997c', ok: false },
+      { n: 'Incubation Engine', t: '48m', e: 'Boosts Hydrogardens · −food upkeep', cost: 'Requires Incubation Corps', cc: '#a8997c', ok: false }
+    ];
+    return {
+      tiles: tiles,
+      support: support,
+      placeLabel: support ? 'Build on (7, 4)' : 'Place',
+      focusLabel: support ? '(7, 4) · Grain · 2 / 3 slots' : '2 / 3 slots',
+      focusC: support ? '#f0cf82' : '#a8997c',
+      sel: list[this.state.sel],
+      builds: list.map((r, i) => {
+        const on = i === this.state.sel;
+        return { ...r, on: on ? 'true' : 'false', bg: on ? '#221c13' : 'transparent', bl: on ? '#d9b25c' : 'transparent', op: r.ok ? '1' : '0.55', pick: () => { if (r.ok) this.setState({ sel: i }); } };
+      }),
+      stats: [
+        { k: 'COIN', v: '+13/day', n: 'Fed', c: '#ece2cc' },
+        { k: 'MANPOWER CAP', v: '+450', n: '', c: '#f0cf82' },
+        { k: 'FOOD UPKEEP', v: '2 slots', n: '', c: '#ece2cc' },
+        { k: 'SUPPORT RING', v: '8 tiles', n: '', c: '#ece2cc' }
+      ],
+      built: [
+        { n: 'Hydrogarden', s: 'Active', sc: '#6fbf73', bd: '#3a3125' },
+        { n: 'Hydrogarden', s: 'Active', sc: '#6fbf73', bd: '#3a3125' },
+        { n: 'Manufactory', s: 'Active', sc: '#6fbf73', bd: '#3a3125' },
+        { n: 'Fort', s: 'Dormant · no Titanium slot', sc: '#e0a845', bd: '#e0a845' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

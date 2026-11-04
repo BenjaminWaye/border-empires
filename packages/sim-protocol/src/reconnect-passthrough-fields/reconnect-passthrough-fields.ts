@@ -51,6 +51,7 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   manpower: { kind: "handledInline" },
   manpowerCap: { kind: "handledInline" },
   manpowerRegenPerMinute: { kind: "handledInline" },
+  nextManpowerBatchAmount: presentField("nextManpowerBatchAmount"),
   manpowerBreakdown: { kind: "handledInline" },
   incomePerMinute: { kind: "handledInline" },
   strategicResources: { kind: "handledInline" },
@@ -102,6 +103,8 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   // Cheap authoritative Titanium/Umbrite Weapons Factory counts (see
   // player-snapshot.ts) -- no legacy/bootstrap fallback, plain passthrough.
   weaponsFactoryCounts: presentField("weaponsFactoryCounts"),
+  resourceTradeHoldings: presentField("resourceTradeHoldings"),
+  resourceTradeAgreements: presentField("resourceTradeAgreements"),
   autoSettle: presentField("autoSettle")
 } as const satisfies Record<keyof PlayerStateSnapshot, PassthroughEntry>;
 

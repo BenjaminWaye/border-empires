@@ -4,6 +4,7 @@ export type ClientTileEconomicStructure = {
   ownerId: string;
   supportAnchor?: { x: number; y: number } | null;
   type:
+    | import("@border-empires/shared").NetworkBuilding
     | "HYDROGARDEN"
     | "HYDROWORKS"
     | "UMBRITE_RIG"
@@ -29,7 +30,6 @@ export type ClientTileEconomicStructure = {
     | "NEURAL_WORKS"
     | "MINISTRY_HALL"
     | "RESONANCE_GRID"
-    | "QUARTERMASTERS_OFFICE"
     | "ANCILLARY_FACTORY"
     | "RESERVE_LATTICE"
     | "ASTRAL_DOCK_PART_1"

@@ -20,9 +20,9 @@ describe("3d reveal population regression guard", () => {
     // The sprite draw itself lives in the shared 2D helper both tile loops call
     // (it used to be duplicated inline in client-runtime-loop.ts).
     expect(runtimeLoop).toContain("drawResourceOverlay2D(deps, overlayTile, px, py, size, nowMs)");
-    expect(clientSource("../client-resource-overlay-2d/client-resource-overlay-2d.ts")).toContain(
-      "deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, scale,"
-    );
+    const helper = clientSource("../client-resource-overlay-2d/client-resource-overlay-2d.ts");
+    expect(helper).toContain("if (!isTrue3DRendererActive())");
+    expect(helper).toContain("deps.drawCenteredOverlayWithAlpha(overlay,");
     // Narrowed from also asserting a blanket `not.toContain("populationTier")`:
     // that catch-all blocked the unrelated (and legitimate) support-ring 2D
     // highlight reading selected.town.populationTier -- this specific function

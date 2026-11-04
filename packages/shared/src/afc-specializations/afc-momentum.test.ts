@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { afcMomentumAfterVictory, afcMomentumStacks } from "./afc-momentum.js";
 
 describe("flag-local Battlefield Momentum", () => {
-  it("grants stacks only for garrisoned wins and caps at three", () => {
+  it("grants stacks only for garrisoned wins and caps at five", () => {
     expect(afcMomentumAfterVictory(undefined, false, 0)).toBeUndefined();
     let state = afcMomentumAfterVictory(undefined, true, 0);
     expect(state?.stacks).toBe(1);
     for (let i = 0; i < 10; i += 1) state = afcMomentumAfterVictory(state, true, i * 1000);
-    expect(state?.stacks).toBe(3);
+    expect(state?.stacks).toBe(5);
     expect(afcMomentumStacks(undefined, 0)).toBe(0);
   });
   it("frontier captures refresh the timer without granting stacks", () => {

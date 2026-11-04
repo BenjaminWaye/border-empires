@@ -227,6 +227,27 @@ export type PersonalActivityTruncationNoteCard = {
   hiddenCount: number;
 };
 
+// A truce or alliance changing state. Added by the realtime gateway (which
+// owns diplomacy), not the simulation aggregator, and merged into the same
+// timeline response. Diplomacy happens between empires, not on a tile, so
+// these cards carry no coordinates.
+export type PersonalActivityDiplomacyEvent = "TRUCE_STARTED" | "TRUCE_ENDED" | "TRUCE_BROKEN" | "ALLIANCE_FORMED" | "ALLIANCE_BROKEN";
+
+export type PersonalActivityDiplomacyCard = {
+  kind: "DIPLOMACY";
+  id: string;
+  occurredAt: number;
+  event: PersonalActivityDiplomacyEvent;
+  counterpartyPlayerId: string;
+  counterpartyName: string;
+  /** TRUCE_STARTED: the truce length. */
+  durationHours?: number;
+  /** TRUCE_BROKEN: who broke it. */
+  byPlayerId?: string;
+  /** TRUCE_STARTED: a Court armistice rather than a negotiated truce. */
+  court?: boolean;
+};
+
 export type PersonalActivityCard =
   | PersonalActivityTerritoryCard
   | PersonalActivityCombatCard
@@ -236,6 +257,7 @@ export type PersonalActivityCard =
   | PersonalActivityTownCard
   | PersonalActivityDockCard
   | PersonalActivityBuildingCard
+  | PersonalActivityDiplomacyCard
   | PersonalActivityTruncationNoteCard;
 
 export type PersonalActivitySummary = {

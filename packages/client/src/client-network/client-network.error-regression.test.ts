@@ -165,53 +165,6 @@ describe("client network regression guards", () => {
     }
   });
 
-  it("preserves shard sites when a frontier tile delta explicitly clears shard detail during claim confirmation", () => {
-    const state = createState();
-    state.tiles.set("60,302", {
-      x: 60,
-      y: 302,
-      terrain: "LAND",
-      fogged: false,
-      shardSite: { kind: "CACHE", amount: 1 }
-    });
-    const ws = new FakeWebSocket();
-    bindWithDeps(state, ws);
-
-    ws.emit("message", {
-      data: JSON.stringify({
-        type: "TILE_DELTA",
-        updates: [{ x: 60, y: 302, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "FRONTIER", detailLevel: "summary", shardSiteJson: "" }]
-      })
-    });
-
-    expect(state.tiles.get("60,302")?.ownerId).toBe("me");
-    expect(state.tiles.get("60,302")?.ownershipState).toBe("FRONTIER");
-    expect(state.tiles.get("60,302")?.shardSite).toEqual({ kind: "CACHE", amount: 1 });
-  });
-
-  it("does not resurrect a collected shard on later owned-frontier tile deltas", () => {
-    const state = createState();
-    state.tiles.set("60,302", {
-      x: 60,
-      y: 302,
-      terrain: "LAND",
-      fogged: false,
-      ownerId: "me",
-      ownershipState: "FRONTIER"
-    });
-    const ws = new FakeWebSocket();
-    bindWithDeps(state, ws);
-
-    ws.emit("message", {
-      data: JSON.stringify({
-        type: "TILE_DELTA",
-        updates: [{ x: 60, y: 302, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "FRONTIER", detailLevel: "summary", shardSiteJson: "" }]
-      })
-    });
-
-    expect(state.tiles.get("60,302")?.shardSite).toBeUndefined();
-  });
-
   it("falls back to pushFeed when pushFeedEntry is missing during combat resolution", () => {
     const state = createState();
     const ws = new FakeWebSocket();
@@ -313,7 +266,7 @@ describe("client network regression guards", () => {
 
     expect(showCaptureAlert).toHaveBeenCalledWith(
       "Town unfed",
-      "Town is unfed. Check the warning badge on the affected town.",
+      "Town is unfed. Check the town's nameplate on the map.",
       "warn",
       undefined
     );
@@ -406,7 +359,7 @@ describe("client network regression guards", () => {
     expect(deps.pushFeed).not.toHaveBeenCalled();
   });
 
-  it("shows truce result announcements as popups", () => {
+  it("feeds truce results and only pops up when a rival breaks a truce with you", () => {
     const state = createState();
     const ws = new FakeWebSocket();
     const showCaptureAlert = vi.fn();
@@ -423,7 +376,6 @@ describe("client network regression guards", () => {
     });
 
     expect(deps.pushFeed).toHaveBeenCalledWith("AI 2 declined your truce offer.", "alliance", "warn");
-    expect(showCaptureAlert).toHaveBeenCalledWith("Truce declined", "AI 2 declined your truce offer.", "warn", undefined);
 
     ws.emit("message", {
       data: JSON.stringify({
@@ -436,12 +388,7 @@ describe("client network regression guards", () => {
     });
 
     expect(deps.pushFeed).toHaveBeenCalledWith("AI 1 and player-1 agreed to a 12h truce.", "alliance", "success");
-    expect(showCaptureAlert).toHaveBeenCalledWith(
-      "Truce accepted",
-      "AI 1 and player-1 agreed to a 12h truce.",
-      "success",
-      undefined
-    );
+    expect(showCaptureAlert).not.toHaveBeenCalled();
 
     ws.emit("message", {
       data: JSON.stringify({

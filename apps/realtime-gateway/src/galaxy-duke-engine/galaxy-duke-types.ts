@@ -61,7 +61,34 @@ export type DukeIntel = {
 
 export type InFlightOrder =
   | { kind: "PROBE"; fromSeasonId: string; seasonId: string; launchedAt: number; arrivesAt: number }
-  | { kind: "RAID"; fromSeasonId: string; seasonId: string; launchedAt: number; arrivesAt: number; fighterHull: number };
+  | {
+      kind: "RAID";
+      fromSeasonId: string;
+      seasonId: string;
+      launchedAt: number;
+      arrivesAt: number;
+      fighterHull: number;
+      // A Writ strike (§21.3): the Court's own Fighter. It never joins the
+      // Duke's fleet and is not counted against the system's Fighter cap.
+      courtWrit?: boolean;
+    };
+
+// A declared grievance (§29): a public claim against one rival. While it is
+// open, every raid that gets through on that rival pays the declarer Renown.
+export type Grievance = { targetAuthUid: string; declaredAt: number; expiresAt: number; hits: number };
+
+// The Court's covert offer (§21.3). FIGHTER: a free Fighter at home. STRIKE: a
+// Court Fighter raids the named rival's system as an ordinary raid.
+export type WritOffer =
+  | { kind: "FIGHTER"; offeredAt: number; expiresAt: number }
+  | { kind: "STRIKE"; offeredAt: number; expiresAt: number; targetAuthUid: string; targetSeasonId: string };
+
+// Court Favor (§21.6): revoked while this Duke's Domain Weight stays at least
+// 1.5x second place for a full Cycle.
+export type CourtFavor = { leadSince: number | null; revoked: boolean; lastDrainCycle: number };
+
+// A Fighter lent to the Court (§21.6): away for a Cycle, then home again.
+export type LentFighter = { fromSeasonId: string; hull: number; returnsAt: number };
 
 export type DigestKind = "COMBAT" | "ECONOMY" | "INTEL" | "POLITICS" | "COURT";
 export type DigestEntry = { at: number; kind: DigestKind; text: string };
@@ -80,6 +107,13 @@ export type DukeState = {
   // Last global Cycle whose upkeep and Cryo healing have been applied.
   lastCycleApplied: number;
   digest: DigestEntry[];
+  // Politics (§29). Optional so rows written by older builds still load;
+  // read them through politicsOf (galaxy-duke-politics-state.ts).
+  grievance?: Grievance | null;
+  renown?: number;
+  writ?: { offer: WritOffer | null; lastOfferCycle: number } | null;
+  favor?: CourtFavor;
+  lent?: LentFighter[];
 };
 
 // A bounded-structure guard fired; the service turns these into counters.
@@ -89,4 +123,7 @@ export type DukeCounter =
   | "duke_digest_evicted"
   | "duke_build_rejected"
   | "duke_flight_cap_rejected"
-  | "duke_incursion_suppressed_by_court";
+  | "duke_incursion_suppressed_by_court"
+  | "duke_writ_offered"
+  | "duke_writ_accepted"
+  | "duke_ai_action_rejected";

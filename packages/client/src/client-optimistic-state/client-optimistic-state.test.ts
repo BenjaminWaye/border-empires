@@ -158,38 +158,6 @@ describe("client optimistic state", () => {
     expect(merged.upkeepEntries).toEqual(existing.upkeepEntries);
   });
 
-  it("preserves shard sites when a summary chunk omits shard detail after ownership changes", () => {
-    const existing = baseTile({
-      ownerId: "me",
-      ownershipState: "FRONTIER",
-      detailLevel: "summary",
-      shardSite: { kind: "CACHE", amount: 2 }
-    });
-    const state = {
-      me: "me",
-      selected: undefined,
-      tiles: new Map<string, Tile>([["12,18", existing]]),
-      settleProgressByTile: new Map<string, unknown>(),
-      optimisticTileSnapshots: new Map<string, Tile | undefined>(),
-      frontierLateAckUntilByTarget: new Map<string, number>()
-    } as any;
-
-    const { mergeIncomingTileDetail } = createClientOptimisticStateController({
-      state,
-      keyFor: (x, y) => `${x},${y}`,
-      terrainAt: () => "LAND",
-      tileVisibilityStateAt: () => "visible"
-    });
-
-    const merged = mergeIncomingTileDetail(
-      existing,
-      baseTile({ ownerId: "me", ownershipState: "FRONTIER", detailLevel: "summary" })
-    );
-
-    expect(merged.detailLevel).toBe("summary");
-    expect(merged.shardSite).toEqual(existing.shardSite);
-  });
-
   it("clears ownership (does not resurrect it) when a delta omits the deleted ownerId/ownershipState keys", () => {
     // Regression: a barbarian vacating a tile sends ownerId/ownershipState as
     // null; the delta caller resolves that by DELETING both keys from the tile

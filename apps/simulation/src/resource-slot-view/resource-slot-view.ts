@@ -22,6 +22,7 @@ import {
   structureSlotRequirements,
   converterModeOf, isSlotSourceConverter,
   type BuildableStructureType,
+  type ResourceSlotSourceSink,
   type SlotResource,
   type SlotStructureType,
   type StructureSlotRequirement
@@ -125,7 +126,9 @@ export const resourceSlotSupplyForPlayer = (
   oreRefineryKeys: ReadonlySet<string> = new Set(),
   domainGrantedSupply?: Partial<Record<SlotResource, number>>,
   // Agrarian Works flat FOOD-slot bonus per owned FISH tile — see techGrantedFishFoodSlotBonus (tech-domain-bridge/fish-food-slot-bonus.ts).
-  fishFoodSlotBonus = 0
+  fishFoodSlotBonus = 0,
+  // Told about every slot added, labelled by source, for the Economy panel's breakdown.
+  onSource?: ResourceSlotSourceSink
 ): ResourceSlotTotals => {
   // §5.4: deliberately NOT dormancy-aware, for two different reasons per
   // structure family:
@@ -151,7 +154,10 @@ export const resourceSlotSupplyForPlayer = (
     if (structureType) {
       const mode = converterModeOf(tile.economicStructure);
       if (isSlotSourceConverter(structureType, mode)) {
-        for (const req of structureSlotRequirements(structureType as SlotStructureType)) totals[req.resource] += req.count;
+        for (const req of structureSlotRequirements(structureType as SlotStructureType)) {
+          totals[req.resource] += req.count;
+          onSource?.(req.resource, "CONVERTER", structureType, req.count);
+        }
       }
     }
 
@@ -163,7 +169,11 @@ export const resourceSlotSupplyForPlayer = (
     const boostBlockedOnFish = structureType === "HYDROGARDEN" && tile.resource !== "FARM";
     const boost = structureType && !boostBlockedOnFish ? TILE_SLOT_BOOST_STRUCTURES[structureType] : undefined;
     if (boost) slots += boost;
-    if (tile.resource === "FISH" && fishFoodSlotBonus > 0) slots += fishFoodSlotBonus;
+    if (boost && structureType) onSource?.(base.slotResource, "STRUCTURE_BOOST", structureType, boost);
+    if (tile.resource === "FISH" && fishFoodSlotBonus > 0) {
+      slots += fishFoodSlotBonus;
+      onSource?.(base.slotResource, "TECH", "agriculture", fishFoodSlotBonus);
+    }
     if (
       structureType === "HYDROGARDEN" &&
       tile.resource === "FARM" &&
@@ -171,6 +181,7 @@ export const resourceSlotSupplyForPlayer = (
       withinRadiusOfAnyKey(tile.x, tile.y, hydroworksKeys, HYDROWORKS_RADIUS)
     ) {
       slots += HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS;
+      onSource?.(base.slotResource, "STRUCTURE_BOOST", "HYDROWORKS", HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS);
     }
     if (
       structureType === "MINE" &&
@@ -178,8 +189,10 @@ export const resourceSlotSupplyForPlayer = (
       withinRadiusOfAnyKey(tile.x, tile.y, oreRefineryKeys, ORE_REFINERY_RADIUS)
     ) {
       slots += ORE_REFINERY_MINE_SLOT_BONUS;
+      onSource?.(base.slotResource, "STRUCTURE_BOOST", "ORE_REFINERY", ORE_REFINERY_MINE_SLOT_BONUS);
     }
     totals[base.slotResource] += slots;
+    onSource?.(base.slotResource, "TILE", tile.resource, base.baseSlots);
   }
   if (domainGrantedSupply) {
     for (const resource of Object.keys(domainGrantedSupply) as SlotResource[]) {

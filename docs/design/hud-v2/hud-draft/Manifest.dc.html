@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Border Empires Manifest tree</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&amp;family=Spectral:wght@400;600&amp;family=Space+Mono:wght@400;700&amp;display=swap">
+<style>
+body{margin:0;background:#0b0a08}
+a{color:#d9b25c}a:hover{color:#f0cf82}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #0f2830; font-family: 'Spectral', Georgia, serif; color: #ece2cc">
+
+  <div style="position: absolute; inset: -12px; display: grid; grid-template-columns: repeat(61, 24px); grid-auto-rows: 24px; filter: blur(3px); height: 924px; overflow: hidden" aria-hidden="true">
+    <sc-for list="{{bg}}" as="b" hint-placeholder-count="61"><div style="background: {{b}}"></div></sc-for>
+  </div>
+  <div style="position: absolute; inset: 0; background: rgba(9,8,6,0.62)" aria-hidden="true"></div>
+
+  <div style="position: absolute; left: 20px; right: 20px; top: 12px; height: 46px; display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(15,13,10,0.92); border: 1px solid #5a4828; border-bottom-color: #8a6f35">
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #d9b25c; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Coin</span>1,240<span style="color: #6fbf73; font-size: 11px">+38/h</span></span>
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Food</span>4<span style="color: #a8997c">/6</span></span>
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Titanium</span><b style="color: #e0a845">3</b><span style="color: #a8997c">/2</span></span>
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Crystal</span>1<span style="color: #a8997c">/3</span></span>
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Umbrite</span>0<span style="color: #a8997c">/1</span></span>
+    <span style="width: 1px; height: 24px; background: #3a3125; margin: 0 6px"></span>
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Shard</span>7</span>
+    <span style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 13px"><span style="color: #a8997c; font-size: 11px">Integrity</span>82%</span>
+  </div>
+
+  <div style="position: absolute; left: 20px; top: 68px; display: flex; align-items: center; gap: 16px">
+    <button type="button" style="height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 14px 0 10px; background: #16130e; border: 1px solid #8a6f35; color: #ece2cc; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer"><span style="color: #d9b25c; font-size: 14px">◁</span>Map<span style="font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 400; color: #a8997c; border: 1px solid #3a3125; padding: 0 4px">Esc</span></button>
+    <span style="font-family: 'Cinzel', serif; font-size: 24px; font-weight: 700; letter-spacing: 0.12em; color: #d9b25c">Manifest</span>
+  </div>
+  </div>
+
+  <div style="position: absolute; right: 20px; top: 70px; display: flex; align-items: center; gap: 16px">
+    <span style="font-family: 'Space Mono', monospace; font-size: 10px; padding: 3px 7px; border: 1px dashed #e0a845; color: #e0a845">{{variantLabel}}</span>
+    <span style="font-family: 'Space Mono', monospace; font-size: 13px">Next <b style="color: #f0cf82">170 Coin</b> <span style="color: #a8997c">· 5 / 41</span></span>
+  </div>
+
+  <sc-for list="{{tiers}}" as="th" hint-placeholder-count="5">
+    <div style="position: absolute; left: {{th.x}}px; top: 122px; width: 240px; display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 6px; border-bottom: 1px solid #5a4828">
+      <span style="font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700; color: #d9b25c">{{th.r}}</span>
+      <span style="font-family: 'Space Mono', monospace; font-size: 10px; color: {{th.c}}">{{th.afc}}</span>
+    </div>
+  </sc-for>
+
+  <sc-for list="{{lanes}}" as="l" hint-placeholder-count="4">
+    <div style="position: absolute; left: 16px; right: 16px; top: {{l.y}}px; height: {{l.h}}px; background: {{l.band}}; border-top: 1px solid rgba(90,72,40,0.45)" aria-hidden="true"></div>
+    <button type="button" onClick="{{l.toggle}}" aria-expanded="{{l.open}}" style="position: absolute; left: 18px; top: {{l.ty}}px; width: 112px; height: 24px; display: flex; align-items: center; gap: 6px; padding: 0 6px; background: none; border: 0; color: #d9b25c; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-align: left; cursor: pointer"><span style="font-size: 10px; width: 10px">{{l.chev}}</span>{{l.name}}</button>
+    <sc-if value="{{l.closed}}" hint-placeholder-val="{{false}}">
+      <div style="position: absolute; left: 136px; top: {{l.ty}}px; height: 24px; display: flex; align-items: center; gap: 14px; font-family: 'Space Mono', monospace; font-size: 11px; color: #bda880">
+        <span><b style="color: #8fd99a">{{l.own}}</b> / {{l.total}} commissioned</span><span><b style="color: #9fc1ea">{{l.avail}}</b> available</span>
+        <span style="display: flex; gap: 3px"><sc-for list="{{l.pips}}" as="pp" hint-placeholder-count="8"><span style="width: 8px; height: 8px; background: {{pp}}"></span></sc-for></span>
+      </div>
+    </sc-if>
+  </sc-for>
+
+  <sc-for list="{{segs}}" as="s" hint-placeholder-count="20">
+    <div style="position: absolute; left: {{s.x}}px; top: {{s.y}}px; width: {{s.w}}px; height: {{s.h}}px; background: {{s.c}}" aria-hidden="true"></div>
+  </sc-for>
+
+  <sc-for list="{{nodes}}" as="d" hint-placeholder-count="41">
+    <button type="button" onClick="{{d.pick}}" aria-pressed="{{d.on}}" aria-label="{{d.n}}, {{d.stateLabel}}" title="{{d.n}}" style="position: absolute; left: {{d.x}}px; top: {{d.y}}px; width: 240px; height: 36px; display: flex; align-items: stretch; padding: 0; background: {{d.bar}}; border: 1px solid {{d.bd}}; outline: {{d.ol}}; outline-offset: 1px; color: #ece2cc; text-align: left; cursor: pointer; opacity: {{d.op}}">
+      <span style="width: 34px; flex: none; display: grid; place-items: center; background: rgba(0,0,0,0.35); border-right: 1px solid rgba(0,0,0,0.4); font-family: 'Space Mono', monospace; font-size: 8px; color: #bda880">{{d.cat}}</span>
+      <span style="flex: 1; min-width: 0; display: flex; align-items: center; padding: 0 6px; font-family: 'Cinzel', serif; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; white-space: nowrap; overflow: hidden"><span style="overflow: hidden; text-overflow: ellipsis">{{d.short}}</span></span>
+      <span style="display: flex; align-items: center; gap: 2px; padding-right: 5px; flex: none">
+        <sc-for list="{{d.u}}" as="u" hint-placeholder-count="2">
+          <span title="{{u.l}}" style="width: 20px; height: 18px; display: grid; place-items: center; border: 1px solid {{u.c}}; background: rgba(0,0,0,0.35); color: {{u.c}}; font-family: 'Space Mono', monospace; font-size: 8px; font-weight: 700">{{u.a}}</span>
+        </sc-for>
+        <span style="width: 12px; text-align: center; color: #8fd99a; font-size: 12px">{{d.mark}}</span>
+      </span>
+    </button>
+  </sc-for>
+
+  <div style="position: absolute; left: 24px; bottom: 94px; display: flex; gap: 14px; font-family: 'Space Mono', monospace; font-size: 10px; color: #bda880">
+      <span style="display: flex; align-items: center; gap: 4px"><span style="width: 9px; height: 9px; background: #2f5a33; border: 1px solid #6fbf73"></span>Commissioned</span>
+      <span style="display: flex; align-items: center; gap: 4px"><span style="width: 9px; height: 9px; background: #2c4a6b; border: 1px solid #7da7d9"></span>Available</span>
+      <span style="display: flex; align-items: center; gap: 4px"><span style="width: 9px; height: 9px; background: #2a241b; border: 1px solid #5a4828"></span>Locked</span>
+      <span style="display: flex; align-items: center; gap: 4px"><span style="width: 9px; height: 9px; border: 1px solid #d9b25c"></span>Structure</span>
+      <span style="display: flex; align-items: center; gap: 4px"><span style="width: 9px; height: 9px; border: 1px solid #7fc4d6"></span>Ability</span>
+    </div>
+  <div style="position: absolute; left: 20px; right: 20px; bottom: 14px; height: 68px; display: grid; grid-template-columns: 320px minmax(0, 1fr) 240px; gap: 20px; align-items: center; padding: 0 20px; background: rgba(15,13,10,0.96); border: 1px solid #8a6f35; box-shadow: 0 -6px 20px rgba(0,0,0,0.45)">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <span style="font-family: 'Cinzel', serif; font-size: 17px; font-weight: 700; letter-spacing: 0.06em; color: #f0cf82">{{sel.n}}</span>
+      <span style="font-family: 'Space Mono', monospace; font-size: 11px; color: #a8997c">{{sel.meta}}</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+      <div style="display: flex; flex-wrap: wrap; gap: 6px">
+        <sc-for list="{{sel.u}}" as="u" hint-placeholder-count="2">
+          <span style="display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 3px; border: 1px solid #3a3125; background: #16130e; font-size: 13px">
+            <span style="width: 22px; height: 18px; display: grid; place-items: center; border: 1px solid {{u.c}}; color: {{u.c}}; font-family: 'Space Mono', monospace; font-size: 8.5px; font-weight: 700">{{u.a}}</span>{{u.l}}
+          </span>
+        </sc-for>
+      </div>
+      <span style="font-family: 'Space Mono', monospace; font-size: 11px; color: {{sel.reqC}}">{{sel.req}}</span>
+    </div>
+    <button type="button" style="height: 44px; background: {{sel.btnBg}}; border: {{sel.btnBd}}; color: {{sel.btnFg}}; font-family: 'Cinzel', serif; font-size: 14px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer">{{sel.btn}}</button>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"enum","options":["proposed","current"],"default":"proposed"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sel: 'ledger-keeping', closed: {} }; }
+  renderVals() {
+    const RAW = [{"id":"agriculture","n":"Hyperfeed Seedstock Consignment","t":1,"b":"economy","c":"CREW_OFFICE_CONSIGNMENT","p":[],"u":[{"l":"Hydrogarden","k":"st"}]},{"id":"trade","n":"Industrial Tooling Module","t":1,"b":"economy","c":"AFC_MODULE","p":[],"u":[{"l":"Manufactory","k":"st"}]},{"id":"masonry","n":"Titanium Forge Module","t":1,"b":"war","c":"AFC_MODULE","p":[],"u":[{"l":"Fort","k":"st"},{"l":"Titanium Weapons Factory","k":"st"},{"l":"Reveal Titanium","k":"rv"}]},{"id":"leatherworking","n":"Umbrite Rigging Module","t":1,"b":"war","c":"AFC_MODULE","p":[],"u":[{"l":"Umbrite Rig","k":"st"},{"l":"Siege Battery","k":"st"},{"l":"Umbrite Weapons Factory","k":"st"},{"l":"Reveal Umbrite","k":"rv"}]},{"id":"organized-supply","n":"Reserve Custody Cadre","t":1,"b":"manpower","c":"CREW_OFFICE_CONSIGNMENT","p":[],"u":[{"l":"Ancillary Depot","k":"st"}]},{"id":"crystal-lattices","n":"Aether Resonance Core","t":1,"b":"aether","c":"AFC_MODULE","p":[],"u":[{"l":"Observatory","k":"st"},{"l":"Aether Lance","k":"ab"},{"l":"Aether Condenser","k":"st"},{"l":"Reveal Crystal","k":"rv"}]},{"id":"mining","n":"Prospector Crew","t":2,"b":"economy","c":"CREW_OFFICE_CONSIGNMENT","p":["agriculture"],"u":[{"l":"Mine","k":"st"}]},{"id":"irrigation","n":"Hydroworks Engineering Crew","t":2,"b":"economy","c":"CREW_OFFICE_CONSIGNMENT","p":["agriculture"],"u":[{"l":"Hydroworks","k":"st"}]},{"id":"pottery","n":"Incubation Corps","t":2,"b":"manpower","c":"CREW_OFFICE_CONSIGNMENT","p":["organized-supply"],"u":[{"l":"Incubation Engine","k":"st"}]},{"id":"workshops","n":"Umbrite Synthesis Module","t":2,"b":"economy","c":"AFC_MODULE","p":["trade"],"u":[{"l":"Umbrite Works","k":"st"}]},{"id":"ledger-keeping","n":"Trade Circuit Charter","t":2,"b":"economy","c":"CHARTER_WARRANT","p":["trade"],"u":[{"l":"Trade Nexus","k":"st"},{"l":"Harbor Exchange","k":"st"}]},{"id":"coinage","n":"Imperial Tender Warrant","t":3,"b":"economy","c":"CHARTER_WARRANT","p":["ledger-keeping"],"u":[{"l":"Clearing House","k":"st"}]},{"id":"fortified-walls","n":"Bastion Master-Die Module","t":2,"b":"war","c":"AFC_MODULE","p":["masonry"],"u":[{"l":"Titanium Bastion","k":"st"}]},{"id":"siegecraft","n":"Siege Lens Foundry Module","t":2,"b":"war","c":"AFC_MODULE","p":["leatherworking"],"u":[{"l":"Siege Tower","k":"st"}]},{"id":"muster-discipline","n":"Hive Mind Module I","t":2,"b":"war","c":"AFC_MODULE","p":["leatherworking"],"u":[{"l":"+1 muster flag","k":"fx"}]},{"id":"alchemy","n":"Titanium Synthesis Module","t":3,"b":"economy","c":"AFC_MODULE","p":["mining"],"u":[{"l":"Titanium Works","k":"st"}]},{"id":"industrial-extraction","n":"Tuned Separation Process","t":3,"b":"economy","c":"CHARTER_WARRANT","p":["mining"],"u":[{"l":"Ore Refinery","k":"st"}]},{"id":"civil-service","n":"Provincial Stewardship Corps","t":3,"b":"economy","c":"CREW_OFFICE_CONSIGNMENT","p":["coinage"],"u":[{"l":"Ministry Hall","k":"st"}]},{"id":"standing-army","n":"Dread Tower Cadre","t":3,"b":"war","c":"CREW_OFFICE_CONSIGNMENT","p":["siegecraft"],"u":[{"l":"Dread Tower","k":"st"}]},{"id":"steelworking","n":"Thunderplate Induction Module","t":3,"b":"war","c":"AFC_MODULE","p":["fortified-walls"],"u":[{"l":"Thunder Bastion","k":"st"}]},{"id":"muster-command","n":"Hive Mind Module II","t":3,"b":"war","c":"AFC_MODULE","p":["muster-discipline"],"u":[{"l":"+1 muster flag","k":"fx"}]},{"id":"census-records","n":"Census Office","t":3,"b":"manpower","c":"CREW_OFFICE_CONSIGNMENT","p":["pottery"],"u":[{"l":"Census Hall","k":"st"}]},{"id":"global-trade-networks","n":"Neural Assembly Core","t":3,"b":"manpower","c":"AFC_MODULE","p":["remade-concordat"],"u":[{"l":"Neural Works","k":"st"}]},{"id":"conveyor-networks","n":"Reserve Lattice Module","t":2,"b":"manpower","c":"AFC_MODULE","p":["organized-supply"],"u":[{"l":"Reserve Lattice","k":"st"}]},{"id":"remade-concordat","n":"Ancillary Control Core","t":2,"b":"manpower","c":"AFC_MODULE","p":["organized-supply"],"u":[{"l":"Ancillary Factory","k":"st"}]},{"id":"demographic-registry","n":"Population Registry Dossier","t":5,"b":"manpower","c":"DOSSIER","p":["global-trade-networks"],"u":[{"l":"Census Directorate","k":"st"}]},{"id":"grand-levy-doctrine","n":"Titanium Levy Dossier","t":5,"b":"manpower","c":"DOSSIER","p":["global-trade-networks"],"u":[{"l":"Titanium Levy","k":"st"},{"l":"Ambaric Transformer","k":"st"}]},{"id":"cryptography","n":"Counterphase Core Module","t":5,"b":"aether","c":"AFC_MODULE","p":["radar"],"u":[{"l":"Aether EMP","k":"ab"}]},{"id":"logistics","n":"Transposition Array Module","t":2,"b":"aether","c":"AFC_MODULE","p":["crystal-lattices"],"u":[{"l":"Siphon","k":"ab"}]},{"id":"harborcraft","n":"Aetherward Coil Module","t":3,"b":"aether","c":"AFC_MODULE","p":["navigation"],"u":[{"l":"Aether Wall","k":"ab"}]},{"id":"terrain-engineering","n":"Geoform Engine Module","t":3,"b":"aether","c":"AFC_MODULE","p":["logistics"],"u":[{"l":"Create / Remove Mountain","k":"ab"}]},{"id":"beacon-towers","n":"Augury Office","t":2,"b":"aether","c":"CREW_OFFICE_CONSIGNMENT","p":["crystal-lattices"],"u":[{"l":"Survey Sweep","k":"ab"},{"l":"Reveal Empire Stats","k":"ab"}]},{"id":"navigation","n":"Tideway Lattice Module","t":2,"b":"aether","c":"AFC_MODULE","p":["crystal-lattices"],"u":[{"l":"Aether Bridge","k":"ab"}]},{"id":"aeronautics","n":"Stratospheric Dockyard Module","t":4,"b":"aether","c":"AFC_MODULE","p":["beacon-towers","navigation","terrain-engineering"],"u":[{"l":"Sky Dock","k":"st"},{"l":"Ambaric Transformer","k":"st"}]},{"id":"radar","n":"Resonance Grid Module","t":5,"b":"aether","c":"AFC_MODULE","p":["aeronautics"],"u":[{"l":"Resonance Grid","k":"st"},{"l":"Ambaric Transformer","k":"st"}]},{"id":"advanced-synthetication","n":"Catalyst Fabricator Module","t":4,"b":"economy","c":"AFC_MODULE","p":["alchemy","workshops"],"u":[{"l":"Advanced Synthesizers","k":"st"}]},{"id":"urban-mintworks","n":"Imperial Exchange Dossier","t":5,"b":"economy","c":"DOSSIER","p":["coinage"],"u":[{"l":"Imperial Exchange","k":"st"},{"l":"Ambaric Transformer","k":"st"}]},{"id":"world-engine","n":"Sovereign Siege Engine Dossier","t":5,"b":"war","c":"DOSSIER","p":["steelworking"],"u":[{"l":"Sovereign Siege Engine","k":"st"},{"l":"Sovereign Siege Engine Strike","k":"ab"},{"l":"Ambaric Transformer","k":"st"}]},{"id":"aegis-dome","n":"Aegis Dome Dossier","t":5,"b":"war","c":"DOSSIER","p":["standing-army"],"u":[{"l":"Aegis Dome","k":"st"},{"l":"Aegis Lock","k":"ab"},{"l":"Ambaric Transformer","k":"st"}]},{"id":"astral-dock","n":"Astral Dock Dossier","t":5,"b":"aether","c":"DOSSIER","p":["radar"],"u":[{"l":"Astral Dock","k":"st"},{"l":"Astral Dock Launch","k":"ab"},{"l":"Ambaric Transformer","k":"st"}]},{"id":"matterwright-retort","n":"Matterwright Retort Module","t":5,"b":"aether","c":"AFC_MODULE","p":["advanced-synthetication"],"u":[{"l":"Recast","k":"ab"}]}];
+    const variant = this.props.variant ?? 'proposed';
+    const MOVES = {
+      'muster-discipline': { t: 3, p: ['siegecraft'] },
+      'muster-command': { t: 4, p: ['steelworking'] },
+      'standing-army': { t: 4, p: ['muster-discipline'] },
+      'remade-concordat': { t: 3, p: ['conveyor-networks'] },
+      'global-trade-networks': { t: 4, p: ['remade-concordat'] },
+      'demographic-registry': { t: 5, p: ['census-records'] }
+    };
+    const DATA = RAW.map((d) => variant === 'proposed' && MOVES[d.id] ? Object.assign({}, d, MOVES[d.id], { moved: true }) : d);
+    const OWNED = new Set(['agriculture', 'trade', 'mining', 'organized-supply', 'masonry']);
+    const LANES = [['economy', 'Economy'], ['manpower', 'Manpower'], ['war', 'War'], ['aether', 'Aether']];
+    const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
+    const COLX = (t) => 136 + (t - 1) * 258;
+    const ROW = 42, TOP = 148, BANDPAD = 8;
+    const CAT = { AFC_MODULE: 'MOD', CREW_OFFICE_CONSIGNMENT: 'CREW', CHARTER_WARRANT: 'CHTR', DOSSIER: 'DOSS' };
+    const CATNAME = { AFC_MODULE: 'AFC Module', CREW_OFFICE_CONSIGNMENT: 'Crew / Office', CHARTER_WARRANT: 'Charter', DOSSIER: 'Dossier' };
+    const KC = { st: '#d9b25c', ab: '#7fc4d6', rv: '#c9b26a', fx: '#d9b25c' };
+    const abbr = (l) => { const w = l.replace(/[^A-Za-z0-9+ ]/g, ' ').split(/\s+/).filter((x) => x && !/^(of|the)$/i.test(x)); if (l.startsWith('+')) return '+1'; if (l.startsWith('Reveal ')) return 'R' + w[1][0]; return (w.length === 1 ? w[0].slice(0, 2) : w.slice(0, 2).map((x) => x[0]).join('')).toUpperCase(); };
+    const byId = {}; DATA.forEach((d) => { byId[d.id] = d; });
+    const state = (d) => OWNED.has(d.id) ? 'owned' : d.p.every((p) => OWNED.has(p)) ? 'avail' : 'lock';
+    const pos = {}; const lanes = []; let y = TOP;
+    for (const [lane, name] of LANES) {
+      const items = DATA.filter((d) => d.b === lane);
+      const closed = !!this.state.closed[lane];
+      const toggle = () => this.setState({ closed: Object.assign({}, this.state.closed, { [lane]: !closed }) });
+      const sorted = items.slice().sort((a, b) => a.t - b.t);
+      const summary = { own: items.filter((d) => state(d) === 'owned').length, avail: items.filter((d) => state(d) === 'avail').length, total: items.length,
+        pips: sorted.map((d) => state(d) === 'owned' ? '#6fbf73' : state(d) === 'avail' ? '#7da7d9' : '#3a3125') };
+      if (closed) {
+        lanes.push(Object.assign({ name: name, y: y, h: 34, ty: y + 5, band: 'rgba(0,0,0,0.18)', chev: '▸', open: 'false', closed: true, toggle: toggle }, summary));
+        y += 38; continue;
+      }
+      let rows = 0;
+      for (let t = 1; t <= 5; t++) {
+        const col = items.filter((d) => d.t === t);
+        const key = (d) => { const ps = d.p.map((p) => pos[p]).filter(Boolean); return ps.length ? ps.reduce((a, b) => a + b.y, 0) / ps.length : 0; };
+        const sameTierParent = (d) => d.p.find((p) => byId[p].t === t);
+        const resolved = col.filter((d) => !sameTierParent(d)).sort((a, b) => key(a) - key(b));
+        for (const d of col.filter((d) => sameTierParent(d))) {
+          const at = resolved.findIndex((r) => r.id === sameTierParent(d));
+          let i = at + 1; while (i < resolved.length && sameTierParent(resolved[i]) === sameTierParent(d)) i++;
+          resolved.splice(i, 0, d);
+        }
+        resolved.forEach((d, i) => { pos[d.id] = { x: COLX(t), y: y + BANDPAD + i * ROW }; });
+        rows = Math.max(rows, resolved.length);
+      }
+      const h = rows * ROW + BANDPAD * 2 - 6;
+      lanes.push(Object.assign({ name: name, y: y, h: h, ty: y + BANDPAD + 6, band: lanes.length % 2 ? 'rgba(255,240,210,0.025)' : 'rgba(0,0,0,0.12)', chev: '▾', open: 'true', closed: false, toggle: toggle }, summary));
+      y += h + 4;
+    }
+    const segs = [];
+    const line = (x, y2, w, h, c) => segs.push({ x: Math.round(x), y: Math.round(y2), w: Math.max(2, Math.round(w)), h: Math.max(2, Math.round(h)), c: c });
+    for (const d of DATA) for (const p of d.p) {
+      const a = pos[p], b = pos[d.id]; if (!a || !b) continue;
+      const c = OWNED.has(p) && OWNED.has(d.id) ? '#6fbf73' : OWNED.has(p) ? '#d9b25c' : '#4a3f2c';
+      const ay = a.y + 17, by = b.y + 17;
+      if (byId[p].t === d.t) { const x = a.x + 240 + 8; line(a.x + 240, ay, 8, 2, c); line(x, Math.min(ay, by), 2, Math.abs(by - ay) + 2, c); line(b.x + 240, by, 8, 2, c); continue; }
+      const mx = b.x - 12;
+      line(a.x + 240, ay, mx - (a.x + 240), 2, c); line(mx, Math.min(ay, by), 2, Math.abs(by - ay) + 2, c); line(mx, by, b.x - mx, 2, c);
+    }
+    const shortName = (n) => n.replace(/ (Module|Consignment|Dossier)$/, '');
+    const nodes = DATA.filter((d) => pos[d.id]).map((d) => {
+      const s = state(d), on = d.id === this.state.sel;
+      return {
+        n: d.n, short: shortName(d.n), x: pos[d.id].x, y: pos[d.id].y, cat: CAT[d.c],
+        bar: s === 'owned' ? 'rgba(47,90,51,0.96)' : s === 'avail' ? 'rgba(44,74,107,0.96)' : 'rgba(26,22,16,0.96)',
+        bd: s === 'owned' ? '#6fbf73' : s === 'avail' ? '#7da7d9' : '#3a3125',
+        mark: s === 'owned' ? '✓' : s === 'lock' ? '' : '', op: s === 'lock' ? '0.78' : '1',
+        ol: on ? '2px solid #f0cf82' : d.moved ? '2px dashed #e0a845' : 'none', on: on ? 'true' : 'false',
+        stateLabel: s === 'owned' ? 'commissioned' : s === 'avail' ? 'available' : 'locked',
+        u: d.u.map((u) => ({ l: u.l, a: abbr(u.l), c: KC[u.k] })),
+        pick: () => this.setState({ sel: d.id })
+      };
+    });
+    const sd = byId[this.state.sel], ss = state(sd);
+    const missing = sd.p.filter((p) => !OWNED.has(p)).map((p) => shortName(byId[p].n));
+    const sel = {
+      n: sd.n, meta: CATNAME[sd.c] + ' · ' + LANES.find((l) => l[0] === sd.b)[1] + ' · Tier ' + ROMAN[sd.t - 1],
+      u: sd.u.map((u) => ({ l: u.l, a: abbr(u.l), c: KC[u.k] })),
+      req: sd.p.length ? 'Requires ' + sd.p.map((p) => shortName(byId[p].n) + (OWNED.has(p) ? ' ✓' : '')).join(' · ') : 'No requirements',
+      reqC: missing.length ? '#e0a845' : '#a8997c',
+      btn: ss === 'owned' ? 'Commissioned' : ss === 'avail' ? 'Commission · 170 Coin' : 'Locked',
+      btnBg: ss === 'avail' ? '#d9b25c' : '#16130e', btnBd: ss === 'avail' ? '0' : '1px solid #3a3125', btnFg: ss === 'avail' ? '#120f0b' : '#a8997c'
+    };
+    const tiers = [1, 2, 3, 4, 5].map((t) => ({ x: COLX(t), r: ROMAN[t - 1], afc: (t === 1 ? 'AFC I ✓' : t === 2 ? 'AFC II ready' : 'Opens AFC ' + ROMAN[t - 1]) + ' · ' + DATA.filter((d) => d.t === t).length, c: t === 2 ? '#e8907f' : t === 1 ? '#6fbf73' : '#a8997c' }));
+    const hash = (x, yy) => { let n = (x * 374761393 + yy * 668265263) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967295; };
+    const bg = [];
+    for (let yy = 0; yy < 52; yy++) for (let x = 0; x < 61; x++) {
+      const e = hash(Math.floor(x / 6), Math.floor(yy / 6)) * 0.6 + hash(x, yy) * 0.15 + (1 - Math.hypot((x - 30) / 30, (yy - 26) / 26)) * 0.35;
+      const v = e < 0.42 ? [16, 40, 50] : e > 0.78 ? [86, 80, 70] : [62, 76, 44];
+      const own = Math.hypot(x - 26, yy - 30) < 12;
+      bg.push('#' + (own ? v.map((c, i) => c * 0.6 + [47, 150, 141][i] * 0.4) : v).map((c) => Math.round(c).toString(16).padStart(2, '0')).join(''));
+    }
+    const navD = ['M4 4h10l4 4v10H4zM14 4v4h4M7 11h8M7 14h6', 'M11 2l8 4.5v9L11 20l-8-4.5v-9zM11 7v6M8 10h6', 'M11 3v16M5 7h12M5 7l-3 6h6zM17 7l-3 6h6zM8 19h6', 'M4 16l2-9 5 4 5-4 2 9zM4 19h14', 'M5 3h10a2 2 0 012 2v14H7a2 2 0 01-2-2zM5 17a2 2 0 012-2h10M8 7h6M8 10h6'];
+    const navL = ['Manifest', 'AFC', 'Diplomacy', 'Ranks', 'Chronicle'];
+    return {
+      variantLabel: variant === 'proposed' ? 'PROPOSED TIERS' : 'CURRENT TIERS',
+      bg: bg, lanes: lanes, segs: segs, nodes: nodes, sel: sel, tiers: tiers,
+      nav: navL.map((l, i) => ({ label: l, d: navD[i], bg: i === 0 ? '#2a2216' : '#16130e', bd: i === 0 ? '2px solid #d9b25c' : '1px solid #8a6f35', fg: i === 0 ? '#f0cf82' : '#bda880' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

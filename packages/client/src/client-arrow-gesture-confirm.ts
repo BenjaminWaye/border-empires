@@ -26,7 +26,7 @@ export type ArrowGestureConfirmDeps = {
  * / state.arrowGesture on "Go" or cancel.
  */
 export const handleArrowGestureConfirm = (
-  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint">,
+  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey">,
   origin: ArrowGesturePoint,
   target: ArrowGesturePoint,
   deps: ArrowGestureConfirmDeps,

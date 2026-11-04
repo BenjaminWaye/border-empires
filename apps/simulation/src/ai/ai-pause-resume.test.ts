@@ -98,13 +98,13 @@ const makeCommand = (playerId: string): CommandEnvelope => ({
   payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
 });
 
-const makeCollectShardCommand = (playerId: string, clientSeq = 1, issuedAt = 1000): CommandEnvelope => ({
+const makeUpgradeTownTierCommand = (playerId: string, clientSeq = 1, issuedAt = 1000): CommandEnvelope => ({
   commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
   sessionId: `ai-runtime:${playerId}`,
   playerId,
   clientSeq,
   issuedAt,
-  type: "COLLECT_SHARD",
+  type: "UPGRADE_TOWN_TIER",
   payloadJson: JSON.stringify({ x: 1, y: 0 })
 });
 
@@ -437,7 +437,7 @@ describe("worker AI command producer pause/resume", () => {
     expect(submitted).toEqual([expect.objectContaining({ playerId: "ai-1", type: "ATTACK" })]);
   });
 
-  it("backs off a collect command after a rejection in worker mode", async () => {
+  it("backs off a non-frontier command after a rejection in worker mode", async () => {
     let nowMs = 1_000;
     const runtime = makeRuntime(0);
     const submitted: CommandEnvelope[] = [];
@@ -449,11 +449,11 @@ describe("worker AI command producer pause/resume", () => {
           this.emit("message", {
             type: "command",
             playerId: msg.playerId,
-            command: makeCollectShardCommand(msg.playerId as string, msg.clientSeq as number, msg.issuedAt as number),
+            command: makeUpgradeTownTierCommand(msg.playerId as string, msg.clientSeq as number, msg.issuedAt as number),
             diagnostic: {
               playerId: msg.playerId,
               sessionPrefix: "ai-runtime",
-              preplanReason: "collect_shard",
+              preplanReason: "upgrade_town_tier",
               frontierEnemyTargetCount: 0,
               frontierNeutralTargetCount: 0,
               canAttack: false,
@@ -486,7 +486,7 @@ describe("worker AI command producer pause/resume", () => {
       eventType: "COMMAND_REJECTED",
       playerId: "ai-1",
       commandId: "ai-runtime-ai-1-1-1000",
-      code: "COLLECT_EMPTY"
+      code: "UPGRADE_TOWN_TIER_INVALID"
     });
     await firstTick;
     nowMs = 1_001;
@@ -499,15 +499,15 @@ describe("worker AI command producer pause/resume", () => {
       eventType: "COMMAND_REJECTED",
       playerId: "ai-1",
       commandId: "ai-runtime-ai-1-2-21001",
-      code: "COLLECT_EMPTY"
+      code: "UPGRADE_TOWN_TIER_INVALID"
     });
     await thirdTick;
 
     producer.close();
     MockWorker.prototype.postMessage = originalPostMessage;
 
-    expect(submitted.map((command) => command.type)).toEqual(["COLLECT_SHARD", "COLLECT_SHARD"]);
-    expect(decisionReasons).toEqual(["collect_shard", "collect_shard"]);
+    expect(submitted.map((command) => command.type)).toEqual(["UPGRADE_TOWN_TIER", "UPGRADE_TOWN_TIER"]);
+    expect(decisionReasons).toEqual(["upgrade_town_tier", "upgrade_town_tier"]);
   });
 
   it("stagger-syncs a subset of AI players on each periodic sync interval", async () => {

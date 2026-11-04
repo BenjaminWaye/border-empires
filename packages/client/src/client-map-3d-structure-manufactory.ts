@@ -144,7 +144,7 @@ export const registerManufactoryStructures = (builder: StructurePieceBuilder): M
     const moving = (key: string, rotY = 0, phase = 0, ox = 0.30): void => {
       const index = add(key, ox, 0.23, -0.02, 1, 1, 1, rotY, phase, halfPi);
       const mesh = builder.getMesh(key);
-      if (index >= 0 && mesh && !builder.isConstructionGated()) {
+      if (index >= 0 && mesh && !builder.isConstructionGated() && !builder.isStill()) {
         pieces.push({ mesh, index, ox: ox * scale, oy: 0.23 * scale, oz: -0.02 * scale, rotY, phase });
       }
     };

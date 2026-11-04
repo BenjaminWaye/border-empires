@@ -1,35 +1,21 @@
-import {
-  BufferAttribute,
-  BufferGeometry,
-  Color,
-  DoubleSide,
-  Mesh,
-  MeshBasicMaterial,
-  MultiplyBlending,
-  NormalBlending,
-  Scene
-} from "three";
+import { BufferAttribute, Color, Mesh, Scene } from "three";
 import { hillBumpsWithCorridorAt, hillShapeHeight, type HillNeighborFlags, type RoadCutDirections } from "./client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { RENDER_ORDER, type OverlayRenderOrders } from "./client-map-3d-render-order.js";
+import { colorComponentFor, createMesh, type BlendMode } from "./client-map-3d-ownership-overlay-mesh.js";
+import type { FrontierHatch } from "./client-map-3d-settled-edge-glow/client-map-3d-frontier-hatch.js";
+import { commitEdgeGlowBuffers, writeEdgeGlowVertex } from "./client-map-3d-settled-edge-glow/client-map-3d-settled-edge-glow.js";
+import type { SettledEdgeGlow } from "./client-settled-edge-glow/client-settled-edge-glow.js";
 import { createOwnershipShoreTint, shoreTintKey, type ShoreTileTint } from "./client-map-3d-ownership-shore.js";
 import type { ShoreFringe } from "./client-map-3d-shore/client-map-3d-shore-sand.js";
 
-// Blends a fully-saturated owner color toward white by (1 - opacity), so a
-// straight multiply against whatever's already in the framebuffer (the
-// ground mesh's own lit-and-shadowed color, drawn first) reproduces the same
-// look the old alpha blend gave on a FULLY-LIT tile, while a shadowed tile's
-// darker ground color now multiplies through instead of being buried under
-// the flat tint. See the addTile/addHillTile call sites below for why this
-// needs to be baked into the vertex color rather than left to a shader.
-const lerpTowardWhite = (component: number, opacity: number): number => 1 + opacity * (component - 1);
+export { DEFAULT_SETTLED_EDGE_GLOW, settledEdgeMaskForOwner } from "./client-settled-edge-glow/client-settled-edge-glow.js";
 
-// Multiply buckets bake opacity into the vertex color (lerpTowardWhite);
-// normal-blend buckets leave the color untouched and let material.opacity
-// (set at mesh creation) do the transparency work instead, matching how this
-// overlay behaved before the multiply-blend change.
-const colorComponentFor = (target: { opacity: number; blendMode: "multiply" | "normal" }, component: number): number =>
-  target.blendMode === "multiply" ? lerpTowardWhite(component, target.opacity) : component;
+// Per-pixel bucket styles; both default off (flat tint).
+export type OwnershipOverlayStyles = {
+  readonly settledEdgeGlow?: SettledEdgeGlow;
+  readonly frontierHatch?: FrontierHatch;
+};
 
 const VERTS_PER_TILE = 4;
 const INDICES_PER_TILE = 6;
@@ -59,8 +45,11 @@ const HILL_DRAPE_CLEARANCE = 0.012;
 // extra hill tiles rather than crashing).
 const DEFAULT_MAX_HILL_TILES = 2000;
 
-// Settled stays at 0.85 (project owner rule: only frontier opacity is fair
-// game). Restored from 0.6 (2026-09-14): at 0.6, 40% of the dark olive terrain
+// Flat settled opacity, used by buckets without a settled edge glow (the fog
+// overlays pass their own). The live overlay uses the glow instead
+// (client-settled-edge-glow.ts), whose rim keeps this 0.85 at every settled
+// boundary and fades to a fainter interior (owner decision 2026-10-29).
+// Restored from 0.6 (2026-09-14): at 0.6, 40% of the dark olive terrain
 // bled into every empire colour -- measured amber #e0a020 rendering as
 // #a6861e, and a pink/grass border sitting at 1.07 luminance contrast -- which
 // is what made two-empire clashes read as muddy. Terrain relief shows through
@@ -92,7 +81,9 @@ export type OwnershipOverlay = {
     corner01X: number, corner01Y: number, corner01Z: number,
     corner11X: number, corner11Y: number, corner11Z: number,
     color: Color,
-    isFrontier: boolean
+    isFrontier: boolean,
+    // settledEdgeMaskAt bits; only read when the overlay has a settled edge glow.
+    edgeMask?: number
   ) => number;
   // Same footprint as addTile (an axis-aligned tile spanning x0..x1,z0..z1),
   // but corner*Y are *ground* height only (no hill bonus) -- the dome bump
@@ -120,7 +111,8 @@ export type OwnershipOverlay = {
     // A road crossing this hill tile (default: none) carves the same flat
     // cut through the overlay's own surface as the dome mesh's, so it never
     // sits above/below the actual visible terrain along that path.
-    roadDirs?: RoadCutDirections
+    roadDirs?: RoadCutDirections,
+    edgeMask?: number
   ) => number;
   // Partial-update path for animating a single already-committed frontier
   // tile's color every frame (e.g. the out-of-reach decay pulse) without
@@ -141,67 +133,6 @@ export type OwnershipOverlay = {
   readonly dispose: () => void;
 };
 
-// "multiply" reproduces the shadow-visible-through-tint look (see
-// lerpTowardWhite's doc comment) and is what settled/owned territory uses --
-// deliberately near-opaque, so a shadowed patch should darken rather than
-// disappear. "normal" is the original straight alpha blend: the ground shows
-// through at (1 - opacity) regardless of how dark that ground pixel is, which
-// is what frontier tint and both fog-of-war overlays need -- they're meant to
-// read as a translucent wash, not a multiplicative darken. Multiply always
-// pushes the result darker than the ground alone (every lerped-toward-white
-// channel is <= 1), so applying it somewhere meant to look "barely there"
-// instead reads as a heavy, non-transparent tint.
-type BlendMode = "multiply" | "normal";
-
-const createMesh = (vertCount: number, indexCount: number, opacity: number, blendMode: BlendMode): {
-  geometry: BufferGeometry;
-  positions: Float32Array;
-  colors: Float32Array;
-  indices: Uint32Array;
-  mesh: Mesh;
-  material: MeshBasicMaterial;
-  opacity: number;
-  blendMode: BlendMode;
-} => {
-  const geometry = new BufferGeometry();
-  const positions = new Float32Array(vertCount * 3);
-  const colors = new Float32Array(vertCount * 3);
-  const indices = new Uint32Array(indexCount);
-  geometry.setAttribute("position", new BufferAttribute(positions, 3));
-  geometry.setAttribute("color", new BufferAttribute(colors, 3));
-  geometry.setIndex(new BufferAttribute(indices, 1));
-  geometry.setDrawRange(0, 0);
-  const material = new MeshBasicMaterial({ toneMapped: false,
-    color: "#ffffff",
-    vertexColors: true,
-    transparent: true,
-    // See BlendMode's doc comment above for why this varies per bucket.
-    // `opacity` only matters for "normal" -- multiply's vertex colors are
-    // pre-lerped toward white by `opacity` instead (lerpTowardWhite), since
-    // MultiplyBlending's GL blend func doesn't use material.opacity at all.
-    opacity,
-    blending: blendMode === "multiply" ? MultiplyBlending : NormalBlending,
-    // MultiplyBlending's GL blend func ignores alpha, so this has no visual
-    // effect here -- it only silences THREE.WebGLState's per-frame console
-    // warning that MultiplyBlending requires premultipliedAlpha.
-    premultipliedAlpha: blendMode === "multiply",
-    depthWrite: false,
-    // depthTest was previously disabled to keep the overlay visible on
-    // top of hill domes, back when hill tiles used one flat bridging
-    // plane that sank below the dome's peak. addHillTile now drapes the
-    // overlay as a constant-offset parallel of the dome's own mesh (same
-    // SUBDIV, same per-vertex formula, same triangulation — see
-    // HILL_SUBDIV above), so it always sits above the terrain and depth
-    // testing can stay on. With it off, the overlay ignored the depth
-    // buffer entirely and painted over every opaque object on screen —
-    // including towns/structures standing on the tile — tinting them
-    // instead of just the ground beneath them.
-    side: DoubleSide
-  });
-  const mesh = new Mesh(geometry, material);
-  mesh.frustumCulled = false;
-  return { geometry, positions, colors, indices, mesh, material, opacity, blendMode };
-};
 
 export const createOwnershipOverlay = (
   scene: Scene,
@@ -212,21 +143,24 @@ export const createOwnershipOverlay = (
   // look, #1754/#1760) and explicitly un-wanted after live review -- every
   // bucket defaults to the original translucent alpha blend now. Still
   // overridable per-caller (unused today, kept for the same reason
-  // BlendMode itself stays exported: see its doc comment above createMesh).
+  // BlendMode itself stays exported: see its doc comment in
+  // client-map-3d-ownership-overlay-mesh.ts).
   blendModes?: { settled: BlendMode; frontier: BlendMode },
   // Defaults to the live ownership slots; the fog overlays pass their own
   // so they draw above river water (client-map-3d-render-order.ts).
-  renderOrders: OverlayRenderOrders = { settled: RENDER_ORDER.ownershipSettled, frontier: RENDER_ORDER.ownershipFrontier }
+  renderOrders: OverlayRenderOrders = { settled: RENDER_ORDER.ownershipSettled, frontier: RENDER_ORDER.ownershipFrontier },
+  // Live ownership only (client-map-3d.ts); fog overlays keep a flat wash.
+  styles: OwnershipOverlayStyles = {}
 ): OwnershipOverlay => {
   const settledBlend = blendModes?.settled ?? "normal";
   const frontierBlend = blendModes?.frontier ?? "normal";
-  const settled = createMesh(maxTiles * VERTS_PER_TILE, maxTiles * INDICES_PER_TILE, opacities?.settled ?? SETTLED_OPACITY, settledBlend);
+  const settled = createMesh(maxTiles * VERTS_PER_TILE, maxTiles * INDICES_PER_TILE, opacities?.settled ?? SETTLED_OPACITY, settledBlend, styles.settledEdgeGlow);
   settled.mesh.renderOrder = renderOrders.settled;
-  const frontier = createMesh(maxTiles * VERTS_PER_TILE, maxTiles * INDICES_PER_TILE, opacities?.frontier ?? FRONTIER_OPACITY, frontierBlend);
+  const frontier = createMesh(maxTiles * VERTS_PER_TILE, maxTiles * INDICES_PER_TILE, opacities?.frontier ?? FRONTIER_OPACITY, frontierBlend, undefined, styles.frontierHatch);
   frontier.mesh.renderOrder = renderOrders.frontier;
-  const settledHill = createMesh(maxHillTiles * HILL_VERTS_PER_TILE, maxHillTiles * HILL_INDICES_PER_TILE, opacities?.settled ?? SETTLED_OPACITY, settledBlend);
+  const settledHill = createMesh(maxHillTiles * HILL_VERTS_PER_TILE, maxHillTiles * HILL_INDICES_PER_TILE, opacities?.settled ?? SETTLED_OPACITY, settledBlend, styles.settledEdgeGlow);
   settledHill.mesh.renderOrder = renderOrders.settled;
-  const frontierHill = createMesh(maxHillTiles * HILL_VERTS_PER_TILE, maxHillTiles * HILL_INDICES_PER_TILE, opacities?.frontier ?? FRONTIER_OPACITY, frontierBlend);
+  const frontierHill = createMesh(maxHillTiles * HILL_VERTS_PER_TILE, maxHillTiles * HILL_INDICES_PER_TILE, opacities?.frontier ?? FRONTIER_OPACITY, frontierBlend, undefined, styles.frontierHatch);
   frontierHill.mesh.renderOrder = renderOrders.frontier;
   scene.add(settled.mesh, frontier.mesh, settledHill.mesh, frontierHill.mesh);
   const shore = createOwnershipShoreTint(scene, {
@@ -265,7 +199,8 @@ export const createOwnershipOverlay = (
     corner01X: number, corner01Y: number, corner01Z: number,
     corner11X: number, corner11Y: number, corner11Z: number,
     color: Color,
-    isFrontier: boolean
+    isFrontier: boolean,
+    edgeMask = 0
   ): number => {
     const target = isFrontier ? frontier : settled;
     const count = isFrontier ? frontierCount : settledCount;
@@ -292,6 +227,8 @@ export const createOwnershipOverlay = (
       target.colors[baseFloat + v * 3 + 0] = colorComponentFor(target, color.r);
       target.colors[baseFloat + v * 3 + 1] = colorComponentFor(target, color.g);
       target.colors[baseFloat + v * 3 + 2] = colorComponentFor(target, color.b);
+      // Corner order matches the positions above: 00, 10, 01, 11.
+      if (target.edge) writeEdgeGlowVertex(target.edge, baseVertex + v, v & 1, v >> 1, edgeMask);
     }
 
     const baseIndex = count * INDICES_PER_TILE;
@@ -316,7 +253,8 @@ export const createOwnershipOverlay = (
     hillNeighbors: HillNeighborFlags,
     worldTileX: number,
     worldTileY: number,
-    roadDirs?: RoadCutDirections
+    roadDirs?: RoadCutDirections,
+    edgeMask = 0
   ): number => {
     const target = isFrontier ? frontierHill : settledHill;
     const count = isFrontier ? frontierHillCount : settledHillCount;
@@ -346,6 +284,7 @@ export const createOwnershipOverlay = (
         target.colors[p + 0] = colorComponentFor(target, color.r);
         target.colors[p + 1] = colorComponentFor(target, color.g);
         target.colors[p + 2] = colorComponentFor(target, color.b);
+        if (target.edge) writeEdgeGlowVertex(target.edge, vi, fx, fz, edgeMask);
         vi += 1;
       }
     }
@@ -455,6 +394,7 @@ export const createOwnershipOverlay = (
         index.addUpdateRange(0, indexCount);
         index.needsUpdate = true;
       }
+      if (target.edge) commitEdgeGlowBuffers(target.geometry, vertCount);
     }
   };
 

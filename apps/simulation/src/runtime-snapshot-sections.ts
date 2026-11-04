@@ -8,6 +8,7 @@ import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
 import { overlaySubstructuresFrom } from "./tile-overlay-fields/tile-overlay-fields.js";
 import { townSettledAtForSnapshot } from "./recovered-town-state/recovered-town-state.js";
+import { encodeReachBorder } from "./reach-border-snapshot/reach-border-snapshot.js";
 
 export type SnapshotTile = SimulationSnapshotSections["initialState"]["tiles"][number];
 
@@ -15,11 +16,16 @@ export type SnapshotExportInput = {
   tiles: ReadonlyMap<string, DomainTileState>;
   locksByCommandId: ReadonlyMap<string, LockRecord>;
   players: ReadonlyMap<string, DomainPlayer>;
+  resourceSupplyAgreements?: readonly import("@border-empires/shared").ResourceSupplyAgreement[] | undefined;
   pendingSettlementsByTile: ReadonlyMap<string, PendingSettlementRecord>;
   playerYieldCollectionEpochByPlayer: ReadonlyMap<string, number>;
   // Runtime.tileSettledAtByKey; only town stamps are saved (recovered-town-state.ts).
   tileSettledAtByKey?: ReadonlyMap<string, number>;
   docks: readonly DockRouteDefinition[];
+  // Runtime.reachBorder, read when the body is assembled (after the async
+  // tile copy's yields) so it matches players/locks rather than the border as
+  // it stood when the export started.
+  reachBorder: () => ReadonlyMap<string, string>;
   recordedEventsByCommandId: ReadonlyMap<string, SimulationEvent[]>;
   incomePerMinuteForPlayer: (playerId: string) => number;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -42,6 +48,8 @@ export const mapTile = (tile: DomainTileState): SnapshotTile => ({
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
   ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
   ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
+  ...(typeof tile.warScarLevel === "number" ? { warScarLevel: tile.warScarLevel } : {}),
+  ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   // Overlays come from the one shared key list: AFCs were once missing here,
   // so they were never saved and every restart re-placed them elsewhere.
@@ -52,6 +60,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
   return {
     initialState: {
       tiles,
+      ...(input.resourceSupplyAgreements?.length ? { resourceSupplyAgreements: input.resourceSupplyAgreements } : {}),
       activeLocks: [...input.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
@@ -104,6 +113,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           strategicResources: { ...(player.strategicResources ?? {}) },
           allies: [...player.allies].sort(),
           truces: [...(player.truces ?? [])].sort(),
+          ...(player.truceEndsAt?.size ? { truceEndsAt: Object.fromEntries(player.truceEndsAt) } : {}),
           vision: player.mods?.vision ?? 1,
           visionRadiusBonus: visionRadiusBonusForPlayer(player),
           incomeMultiplier: player.mods?.income ?? 1,
@@ -130,6 +140,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
       playerYieldCollectionEpochByPlayer: [...input.playerYieldCollectionEpochByPlayer.entries()]
         .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
         .sort((a, b) => a.playerId.localeCompare(b.playerId)),
+      reachBorder: encodeReachBorder(input.reachBorder()),
       ...(input.docks.length
         ? {
             docks: input.docks.map((dock) => ({

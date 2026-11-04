@@ -17,6 +17,8 @@ type ActiveWatchtower = {
   readonly phase: number;
   readonly activated: boolean;
   readonly revealUntil: number | undefined;
+  // Remembered under fog: drawn in its rest pose, no gear spin or reveal pulse.
+  readonly frozen: boolean;
 };
 
 export type WatchtowerOverlay = {
@@ -28,7 +30,8 @@ export type WatchtowerOverlay = {
     surfaceY: number,
     worldX: number,
     worldZ: number,
-    watchtower: { activated: boolean; revealUntil?: number }
+    watchtower: { activated: boolean; revealUntil?: number },
+    frozen?: boolean
   ) => void;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
@@ -105,11 +108,12 @@ export const createWatchtowerOverlay = (
     surfaceY: number,
     worldX: number,
     worldZ: number,
-    watchtower: { activated: boolean; revealUntil?: number }
+    watchtower: { activated: boolean; revealUntil?: number },
+    frozen = false
   ): void => {
     const hash = (((worldX * 92_821) ^ (worldZ * 68_917)) >>> 0);
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    towers.push({ centerX, centerZ, surfaceY, phase, activated: watchtower.activated, revealUntil: watchtower.revealUntil });
+    towers.push({ centerX, centerZ, surfaceY, phase, activated: watchtower.activated, revealUntil: watchtower.revealUntil, frozen });
   };
 
   const update = (nowMs: number): void => {
@@ -135,7 +139,7 @@ export const createWatchtowerOverlay = (
 
       // Gear plate: slow continuous rotation, phase-offset per instance so a
       // field of towers doesn't spin in lockstep.
-      rot.makeRotationY(nowMs * GEAR_SPEED + t.phase);
+      rot.makeRotationY((t.frozen ? 0 : nowMs * GEAR_SPEED) + t.phase);
       m.copy(rot);
       m.setPosition(t.centerX, t.surfaceY + GEAR_Y, t.centerZ);
       gearMesh.setMatrixAt(i, m);
@@ -145,7 +149,7 @@ export const createWatchtowerOverlay = (
       lanternMesh.setMatrixAt(i, m);
       lanternMaterial.emissiveIntensity = t.activated ? 1.1 : 0.4;
 
-      const revealing = typeof t.revealUntil === "number" && t.revealUntil > nowMs;
+      const revealing = !t.frozen && typeof t.revealUntil === "number" && t.revealUntil > nowMs;
       if (revealing) {
         const elapsed = nowMs * PULSE_SPEED + t.phase;
         const pulse = 0.5 + 0.5 * Math.sin(elapsed);

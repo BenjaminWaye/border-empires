@@ -21,8 +21,8 @@ describe("current structure names and descriptions", () => {
     expect(info.detail).toContain("Reserve Lattice");
     expect(info.detail).not.toContain("+300");
   });
-  it("labels both retired types honestly instead of inviting new construction", () => {
-    for (const key of ["WEAPONS_WORKSHOP", "QUARTERMASTERS_OFFICE"] as const) {
+  it("labels the retired type honestly instead of inviting new construction", () => {
+    for (const key of ["WEAPONS_WORKSHOP"] as const) {
       const info = structureInfoForKey(key, deps);
       expect(info.detail).toMatch(/retired/i);
       expect(info.effects.join(" ")).not.toContain("build as many as you like");

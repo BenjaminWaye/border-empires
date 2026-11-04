@@ -76,3 +76,12 @@ describe("startTruceRequestExpiryTicker", () => {
     vi.clearAllTimers();
   });
 });
+
+it.each(["paying", "refunding"] as const)("keeps %s treaty offers available after their normal expiry", settlementPhase => {
+  const dropExpired = createTruceRequestExpiry();
+  const state = { incomingTruceRequests: [{ ...request("in"), settlementPhase }], outgoingTruceRequests: [{ ...request("out"), settlementPhase }] };
+  expect(dropExpired(state, 0)).toBe(false);
+  expect(dropExpired(state, TTL_MS * 100)).toBe(false);
+  expect(state.incomingTruceRequests).toHaveLength(1);
+  expect(state.outgoingTruceRequests).toHaveLength(1);
+});

@@ -45,9 +45,9 @@ export const createReachChangedTilesDirtyState = (): ReachChangedTilesDirtyState
  * `grantAnchorToBorder`/`reassessBorderOnAnchorDeactivation` only ever
  * mutate keys inside that one anchor's disk — nothing outside it can differ
  * between `oldBorder` and `newBorder`. Without this, the diff was an O(total
- * border size) full-map walk on *every* anchor activation/deactivation, on
- * top of the O(border size) `new Map(border)` clone `grantAnchorToBorder`/
- * `reassessBorderOnAnchorDeactivation` already pay -- and a full empire
+ * border size) full-map walk on *every* anchor activation/deactivation
+ * (the runtime path no longer clones the border either: it mutates it in
+ * place via the *InPlace variants) -- and a full empire
  * elimination can deactivate dozens of anchors in one command as territory
  * is destroyed tile-by-tile, each one re-walking the (potentially
  * tens-of-thousands-of-entries) world border. Scoping to the known-bounded

@@ -35,6 +35,9 @@ type StructureSlot = {
   status: "under_construction" | "active" | "inactive" | "removing";
   inactiveReason?: "manual" | "upkeep";
   disabledUntil?: number;
+  /** Aether Tower only: a Resonance Hijack takeover in progress, and Counterphase suppression. */
+  hijackEndsAt?: number;
+  suppressedUntil?: number;
 };
 
 /** The building on a tile, if any; economic structures first since they carry the tile's purpose. */
@@ -43,7 +46,7 @@ const structureOn = (tile: Tile): StructureSlot | undefined => {
   if (s) return { key: s.type, status: s.status, ...(s.inactiveReason ? { inactiveReason: s.inactiveReason } : {}), ...(s.disabledUntil ? { disabledUntil: s.disabledUntil } : {}) };
   if (tile.fort) return { key: tile.fort.variant ?? "FORT", status: tile.fort.status, ...(tile.fort.disabledUntil ? { disabledUntil: tile.fort.disabledUntil } : {}) };
   if (tile.siegeBattery) return { key: tile.siegeBattery.variant ?? "SIEGE_BATTERY", status: tile.siegeBattery.status };
-  if (tile.observatory) return { key: "OBSERVATORY", status: tile.observatory.status };
+  if (tile.observatory) return { key: "OBSERVATORY", status: tile.observatory.status, ...(tile.observatory.hijack ? { hijackEndsAt: tile.observatory.hijack.endsAt } : {}), ...(tile.observatory.suppressedUntil ? { suppressedUntil: tile.observatory.suppressedUntil } : {}) };
   return undefined;
 };
 
@@ -51,6 +54,8 @@ const stateFact = (s: StructureSlot, nowMs: number): TileFact => {
   if (s.status === "under_construction") return { label: "State", value: "Building" };
   if (s.status === "removing") return { label: "State", value: "Removing", tone: "warn" };
   if (s.disabledUntil && s.disabledUntil > nowMs) return { label: "State", value: "Recovering", tone: "warn" };
+  if (s.hijackEndsAt && s.hijackEndsAt > nowMs) return { label: "State", value: `Being hijacked · ${Math.ceil((s.hijackEndsAt - nowMs) / 60_000)} min`, tone: "warn" };
+  if (s.suppressedUntil && s.suppressedUntil > nowMs) return { label: "State", value: "Suppressed", tone: "warn" };
   if (s.status === "inactive") return { label: "State", value: s.inactiveReason === "upkeep" ? "Off · no upkeep" : "Off", tone: "warn" };
   return { label: "State", value: "Active", tone: "good" };
 };
@@ -67,6 +72,17 @@ const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number): TileFac
     if (upkeep.length > 0) facts.push({ label: "Upkeep", value: upkeep.join(" · ") });
   }
   return facts;
+};
+
+/**
+ * The building standing on a tile, as facts (name, state, what it gives, upkeep) -- for the town screen's
+ * selected support tile. A building going up or being removed is left to the screen's work cards, which
+ * already show it with its progress.
+ */
+export const builtStructureFacts = (tile: Tile, mine: boolean, nowMs: number = Date.now()): TileFact[] => {
+  const structure = structureOn(tile);
+  if (!structure || structure.status === "under_construction" || structure.status === "removing") return [];
+  return structureFacts(structure, mine, nowMs);
 };
 
 const coinPerDay = (goldPerMinute: number): string => `${(goldPerMinute * 1440).toFixed(1)}/day`;

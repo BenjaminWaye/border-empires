@@ -172,6 +172,7 @@ export type ReachOverlay3D = {
   readonly addDormantFrontierTile: (x: number, z: number, surfaceY: number, size: number) => void;
   /** Hatches a rival-held tile inside the viewer's reach and outlines its pocket edges -- see client-reach-incursion.ts. */
   readonly addIncursionTile: IncursionOverlay3D["addTile"];
+  readonly extendIncursionOntoShore: IncursionOverlay3D["extendOntoShore"];
   /** Uploads this frame's live pylon/line pool. Call every frame, paired with clearPylons. */
   readonly commitPylons: () => void;
   /** Uploads the dead-pylon/dormant-frontier tile overlays. Call only from the throttled rebuild, paired with clearTileOverlays. */
@@ -475,6 +476,7 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     addLineSegment,
     addDormantFrontierTile,
     addIncursionTile: incursion.addTile,
+    extendIncursionOntoShore: incursion.extendOntoShore,
     commitPylons,
     commitTileOverlays,
     update,

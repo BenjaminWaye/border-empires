@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
-import { DiplomacyCounterRefSchema, DiplomacyTermsSchema } from "../diplomacy-terms/diplomacy-terms.js";
+import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema } from "../diplomacy-terms/diplomacy-terms.js";
 
 const FrontierCommandMetadataSchema = {
   commandId: z.string().min(1).optional(),
@@ -45,19 +45,29 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     fromY: z.number().int(),
     toX: z.number().int(),
     toY: z.number().int(),
-    requestId: z.string().min(1).optional()
+    requestId: z.string().min(1).optional(),
+    // March To preview: the target needn't border the origin (a muster flag
+    // marches there), so the gateway skips its adjacency check.
+    march: z.boolean().optional()
   }),
   z.object({ type: z.literal("CHOOSE_TECH"), techId: z.string().min(1) }),
   // targetPlayerId (optional): address the target by id, so a name shared by two empires can't misdirect the offer.
   z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
-  z.object({ type: z.literal("ALLIANCE_ACCEPT"), requestId: z.string().min(1) }),
+  z.object({ type: z.literal("ALLIANCE_ACCEPT"), requestId: z.string().min(1), confirmedResourceSupply: z.boolean().optional() }),
   z.object({ type: z.literal("ALLIANCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_CANCEL"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_BREAK"), targetPlayerId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), durationHours: z.union([z.literal(12), z.literal(24)]), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
   // Trade screen: asks how an AI target feels about you, and its prices. Read-only.
+  z.object({ type:z.literal("RESOURCE_TRADE_REQUEST"),targetPlayerName:z.string().min(1),targetPlayerId:z.string().min(1).optional(),terms:DiplomacyTermsSchema }),
+  z.object({ type:z.literal("RESOURCE_TRADE_ACCEPT"),offerId:z.string().min(1).max(128) }),
+  z.object({ type:z.literal("RESOURCE_TRADE_REJECT"),offerId:z.string().min(1).max(128) }),
+  z.object({ type:z.literal("RESOURCE_TRADE_END"),agreementId:z.string().min(1).max(160) }),
+  z.object({ type:z.literal("RESOURCE_TRADE_SYNC") }),
   z.object({ type: z.literal("DIPLOMACY_STANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional() }),
-  z.object({ type: z.literal("TRUCE_ACCEPT"), requestId: z.string().min(1) }),
+  // Trade screen: coin given to an AI for its goodwill alone (raises its opinion of you; diplomacy-gift.ts). No resource supply: a gift is paid once.
+  z.object({ type: z.literal("DIPLOMACY_GIFT"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), gift: DiplomacyGoodsSchema.omit({ resources: true }) }),
+  z.object({ type: z.literal("TRUCE_ACCEPT"), requestId: z.string().min(1), confirmedResourceSupply: z.boolean().optional() }),
   z.object({ type: z.literal("TRUCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_CANCEL"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_BREAK"), targetPlayerId: z.string().min(1) }),
@@ -83,7 +93,12 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // the quiet pass -- the Activity dashboard (What's New / Yours) is not
     // auto-opened on a season's first login. See player-profile-store.ts's
     // dashboardQuietedSeasonId.
-    dashboardQuietedSeasonId: z.string().optional()
+    dashboardQuietedSeasonId: z.string().optional(),
+    // New-account tutorial guide (client-tutorial-guide/): whether it is
+    // running, finished or dismissed, plus the bounded list of completed
+    // step ids. See player-profile-store.ts's guideStatus/guideSteps.
+    guideStatus: z.enum(["active", "done", "dismissed"]).optional(),
+    guideSteps: z.array(z.string().max(48)).max(64).optional()
   }),
   // Server-persisted per-category opt-out for gameplay email alerts (see
   // player-profile-store.ts's emailNotificationPrefs and email-alerts.ts's
@@ -97,6 +112,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       truceOffer: z.boolean().optional(),
       attackAlert: z.boolean().optional(),
       aetherPurgeAlert: z.boolean().optional(),
+      aetherHijackAlert: z.boolean().optional(),
       seasonStart: z.boolean().optional()
     })
   }),
@@ -112,6 +128,11 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     structureType: z.enum([
+      "RESIN_EXTRACTOR",
+      "IMPLANT_FOUNDRY",
+      "CATALYST_REFINERY",
+      "CULTIVATION_ESTATE",
+      "RECLAMATION_WORKS",
       "HYDROGARDEN",
       "HYDROWORKS",
       "UMBRITE_RIG",
@@ -281,10 +302,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // player 10 minutes of total invulnerability on all owned tiles. No anchor
   // tile — a pure per-player toggle, unlike AEGIS_LOCK.
   z.object({ type: z.literal("ACTIVATE_IMPERIAL_WARD"), ...FrontierCommandMetadataSchema }),
-  // Comeback lever: burns one Shard to refill manpower to the cap instantly.
-  // No anchor tile — a per-player action like ACTIVATE_IMPERIAL_WARD.
-  z.object({ type: z.literal("SHARD_MOBILIZE"), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("SUPPRESS_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("HIJACK_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("FORCED_ANCILLARIFICATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("RECRUIT_ANCILLARIES"), coin: z.number().int().positive().safe(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("AETHER_EMP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
@@ -292,7 +311,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("CANCEL_SIEGE_BATTERY_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("CANCEL_CAPTURE" ) }),
   z.object({ type: z.literal("UNCAPTURE_TILE"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
-  z.object({ type: z.literal("COLLECT_SHARD"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("WATCH_MUSTER"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("UNWATCH_MUSTER") }),
   // Server-durable dev/expand queue tail (see
@@ -388,11 +406,15 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   // Per-category auto-settle opt-in (shared auto-settle-prefs.ts). Answering
   // (including "Not now" with everything false) marks the join prompt answered.
+  // Tabs opened before the strategic/luxury split send one `resources` switch
+  // instead; the sim's parseAutoSettleCategoryPrefs requires one of the shapes.
   z.object({
     type: z.literal("SET_AUTO_SETTLE_PREFS"),
     towns: z.boolean(),
     food: z.boolean(),
-    resources: z.boolean()
+    strategic: z.boolean().optional(),
+    luxury: z.boolean().optional(),
+    resources: z.boolean().optional()
   }),
   // Rename the island under (x, y); only its full garrison holder may
   // (shared island-names.ts). The sim re-validates the name and the hold.

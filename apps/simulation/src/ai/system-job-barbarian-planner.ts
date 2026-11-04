@@ -212,7 +212,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
         clientSeq,
         issuedAt,
         "system-runtime",
-        { canAttack, canExpand: true, dockLinksByDockTileKey }
+        { canAttack, canExpand: true, dockLinksByDockTileKey, dockBeachLandings: true }
       );
       if (!command) {
         noCommandUntilByTileKey.set(key, t + NO_COMMAND_RETRY_MS);

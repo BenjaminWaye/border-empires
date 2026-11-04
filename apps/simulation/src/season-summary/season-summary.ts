@@ -3,6 +3,7 @@ import type { CurrentSeasonSummary, ScoreHistorySeries, SeasonArchiveRow, Season
 import { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 import type { SimulationRuntime } from "../runtime/runtime.js";
 import { computeLongestRoad, findMostDeadlyTile } from "../season-stats/season-stats.js";
+import { computeDominanceSizes } from "./season-summary-dominance-sizes.js";
 
 type WorldStatus = ReturnType<typeof buildWorldStatusSnapshot>;
 
@@ -73,6 +74,11 @@ export const buildCurrentSeasonSummary = ({
       ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
     });
   const townCount = runtimeState.tiles.filter((tile) => typeof tile.townJson === "string" || typeof tile.townType === "string").length;
+  const { landTileCount, dominanceTilesByPlayerId } = computeDominanceSizes(
+    runtimeState.tiles,
+    runtimeState.players,
+    new Set(worldStatus.leaderboard.overall.map((entry) => entry.id))
+  );
   const totalPlayers = worldStatus.leaderboard.overall.length;
   const seasonStats = buildSeasonStats(seasonState, runtimeState, manpowerLossByTileKey);
 
@@ -100,6 +106,8 @@ export const buildCurrentSeasonSummary = ({
     onlinePlayers,
     totalPlayers,
     townCount,
+    landTileCount,
+    dominanceTilesByPlayerId,
     updatedAt,
     ...(seasonState.defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId: seasonState.defenseCampaignTargetSeasonId } : {})
   };

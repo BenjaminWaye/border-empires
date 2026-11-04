@@ -1,3 +1,4 @@
+import { applyResourceTradeState } from "../client-diplomacy-trade/client-resource-trade-state.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 // Hydrates alliance/truce state from an INIT message, extracted out of
 // client-network-init-message.ts (already at the repo's 500-line file-size
@@ -7,6 +8,7 @@ import type { ClientState } from "../client-state/client-state.js";
 
 export const applyInitSocialState = (msg: Record<string, unknown>, state: ClientState): void => {
   applyAfcStateMessage(state, msg);
+  applyResourceTradeState(state, msg);
   state.incomingAllianceRequests = (msg.allianceRequests as any[]) ?? [];
   state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
   state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? [];

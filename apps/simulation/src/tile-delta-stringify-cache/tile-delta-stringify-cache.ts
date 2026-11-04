@@ -33,13 +33,14 @@ export type TileLastEmittedRefs = {
   frontierDecayKind: unknown;
   breachShockUntil: unknown;
   captureHoldUntil: unknown;
+  warScarLevel: unknown;
+  warScarUntil: unknown;
   townRef: unknown;
   fortRef: unknown;
   observatoryRef: unknown;
   siegeBatteryRef: unknown;
   economicStructureRef: unknown;
   sabotageRef: unknown;
-  shardSiteRef: unknown;
   naturalWonderRef: unknown;
   watchtowerRef: unknown;
   waystationRef: unknown;
@@ -60,8 +61,6 @@ interface Entry {
   economicStructureRef: unknown;
   sabotageJson: string | undefined;
   sabotageRef: unknown;
-  shardSiteJson: string | undefined;
-  shardSiteRef: unknown;
   naturalWonderJson: string | undefined;
   naturalWonderRef: unknown;
   watchtowerJson: string | undefined;
@@ -82,7 +81,6 @@ export type AllSubstructureJson = {
   siegeBatteryJson: string | undefined;
   economicStructureJson: string | undefined;
   sabotageJson: string | undefined;
-  shardSiteJson: string | undefined;
   naturalWonderJson: string | undefined;
   watchtowerJson: string | undefined;
   waystationJson: string | undefined;
@@ -107,7 +105,6 @@ export class TileDeltaStringifyCache {
         siegeBatteryJson: undefined, siegeBatteryRef: undefined,
         economicStructureJson: undefined, economicStructureRef: undefined,
         sabotageJson: undefined, sabotageRef: undefined,
-        shardSiteJson: undefined, shardSiteRef: undefined,
         naturalWonderJson: undefined, naturalWonderRef: undefined,
         watchtowerJson: undefined, watchtowerRef: undefined,
         waystationJson: undefined, waystationRef: undefined,
@@ -142,10 +139,6 @@ export class TileDeltaStringifyCache {
       entry.sabotageRef = tile.sabotage;
       entry.sabotageJson = tile.sabotage ? JSON.stringify(tile.sabotage) : undefined;
     }
-    if (tile.shardSite !== entry.shardSiteRef) {
-      entry.shardSiteRef = tile.shardSite;
-      entry.shardSiteJson = tile.shardSite ? JSON.stringify(tile.shardSite) : undefined;
-    }
     if (tile.naturalWonder !== entry.naturalWonderRef) {
       entry.naturalWonderRef = tile.naturalWonder;
       entry.naturalWonderJson = tile.naturalWonder ? JSON.stringify(tile.naturalWonder) : undefined;
@@ -174,7 +167,6 @@ export class TileDeltaStringifyCache {
       siegeBatteryJson: entry.siegeBatteryJson,
       economicStructureJson: entry.economicStructureJson,
       sabotageJson: entry.sabotageJson,
-      shardSiteJson: entry.shardSiteJson,
       naturalWonderJson: entry.naturalWonderJson,
       watchtowerJson: entry.watchtowerJson,
       waystationJson: entry.waystationJson,
@@ -268,6 +260,8 @@ export class TileDeltaStringifyCache {
     if (tile.resource !== last.resource) { (delta as Record<string, unknown>).resource = tile.resource; hasFieldChanges = true; }
     if (tile.breachShockUntil !== last.breachShockUntil) { (delta as Record<string, unknown>).breachShockUntil = tile.breachShockUntil; hasFieldChanges = true; }
     if (tile.captureHoldUntil !== last.captureHoldUntil) { (delta as Record<string, unknown>).captureHoldUntil = tile.captureHoldUntil; hasFieldChanges = true; }
+    if (tile.warScarLevel !== last.warScarLevel) { (delta as Record<string, unknown>).warScarLevel = tile.warScarLevel; hasFieldChanges = true; }
+    if (tile.warScarUntil !== last.warScarUntil) { (delta as Record<string, unknown>).warScarUntil = tile.warScarUntil; hasFieldChanges = true; }
 
     if (tile.town !== last.townRef) { (delta as Record<string, unknown>).townJson = fullDelta.townJson; hasFieldChanges = true; }
     if (tile.fort !== last.fortRef) { (delta as Record<string, unknown>).fortJson = fullDelta.fortJson; hasFieldChanges = true; }
@@ -276,7 +270,6 @@ export class TileDeltaStringifyCache {
     if (tile.economicStructure !== last.economicStructureRef) { (delta as Record<string, unknown>).economicStructureJson = fullDelta.economicStructureJson; hasFieldChanges = true; }
     if (tile.sabotage !== last.sabotageRef) { (delta as Record<string, unknown>).sabotageJson = fullDelta.sabotageJson; hasFieldChanges = true; }
     if (tile.muster !== last.musterRef) { (delta as Record<string, unknown>).musterJson = fullDelta.musterJson; hasFieldChanges = true; }
-    if (tile.shardSite !== last.shardSiteRef) { (delta as Record<string, unknown>).shardSiteJson = fullDelta.shardSiteJson; hasFieldChanges = true; }
     if (tile.naturalWonder !== last.naturalWonderRef) { (delta as Record<string, unknown>).naturalWonderJson = fullDelta.naturalWonderJson; hasFieldChanges = true; }
     if (tile.watchtower !== last.watchtowerRef) { (delta as Record<string, unknown>).watchtowerJson = fullDelta.watchtowerJson; hasFieldChanges = true; }
     if (tile.waystation !== last.waystationRef) { (delta as Record<string, unknown>).waystationJson = fullDelta.waystationJson; hasFieldChanges = true; }
@@ -324,7 +317,6 @@ export class TileDeltaStringifyCache {
         siegeBatteryJson: undefined, siegeBatteryRef: undefined,
         economicStructureJson: undefined, economicStructureRef: undefined,
         sabotageJson: undefined, sabotageRef: undefined,
-        shardSiteJson: undefined, shardSiteRef: undefined,
         naturalWonderJson: undefined, naturalWonderRef: undefined,
         watchtowerJson: undefined, watchtowerRef: undefined,
         waystationJson: undefined, waystationRef: undefined,
@@ -345,13 +337,14 @@ export class TileDeltaStringifyCache {
       frontierDecayKind: tile.frontierDecayKind,
       breachShockUntil: tile.breachShockUntil,
       captureHoldUntil: tile.captureHoldUntil,
+      warScarLevel: tile.warScarLevel,
+      warScarUntil: tile.warScarUntil,
       townRef: tile.town,
       fortRef: tile.fort,
       observatoryRef: tile.observatory,
       siegeBatteryRef: tile.siegeBattery,
       economicStructureRef: tile.economicStructure,
       sabotageRef: tile.sabotage,
-      shardSiteRef: tile.shardSite,
       naturalWonderRef: tile.naturalWonder,
       watchtowerRef: tile.watchtower,
       waystationRef: tile.waystation,
@@ -375,7 +368,6 @@ export class TileDeltaStringifyCache {
       entry.siegeBatteryJson = undefined; entry.siegeBatteryRef = undefined;
       entry.economicStructureJson = undefined; entry.economicStructureRef = undefined;
       entry.sabotageJson = undefined; entry.sabotageRef = undefined;
-      entry.shardSiteJson = undefined; entry.shardSiteRef = undefined;
       entry.naturalWonderJson = undefined; entry.naturalWonderRef = undefined;
       entry.watchtowerJson = undefined; entry.watchtowerRef = undefined;
       entry.waystationJson = undefined; entry.waystationRef = undefined;

@@ -1,3 +1,5 @@
+import { developedNetworkSites } from "./resource-networks/resource-networks.js";
+import { networkManpowerRegenPerMinute } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { MonumentalStructureType } from "@border-empires/shared";
 import {
@@ -12,6 +14,7 @@ import type { RuntimePlayer } from "./runtime-types.js";
 
 /** §4.4 manpower structure bonuses for one player. */
 export type ManpowerStructureBonus = {
+  resourceNetworkRegenPerMinute?: number;
   ancillaryDepotCount: number;
   reserveLatticeNetworkAncillaryDepotCount: number;
   neuralWorksNetworkAncillaryFactoryCount: number;
@@ -22,13 +25,13 @@ export type ManpowerStructureBonus = {
 
 /** Dependencies {@link cachedManpowerStructureBonusForPlayer} reads. */
 export type ManpowerStructureBonusContext = {
+  networkSitesForPlayer?: (id: string) => import("@border-empires/shared").NetworkSiteCounts | undefined;
   tiles: ReadonlyMap<string, DomainTileState>;
   manpowerStructureBonusCacheByPlayer: Map<string, ManpowerStructureBonus>;
   ancillaryDepotTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   neuralWorksTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   reserveLatticeTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   ancillaryFactoryTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
-  quartermastersOfficeTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   incubationEngineTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   censusHallTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   townNetworkCacheByPlayer: ReadonlyMap<string, Map<string, ConnectedTownNetworkEntry>>;
@@ -165,7 +168,6 @@ export const cachedManpowerStructureBonusForPlayer = (
       ancillaryFactoryCount +
       (neuralWorksKeys?.size ?? 0) +
       (reserveLatticeKeys?.size ?? 0) +
-      (ctx.quartermastersOfficeTilesByOwner.get(player.id)?.size ?? 0) +
       (ctx.incubationEngineTilesByOwner.get(player.id)?.size ?? 0) +
       (ctx.censusHallTilesByOwner.get(player.id)?.size ?? 0);
   }
@@ -175,6 +177,9 @@ export const cachedManpowerStructureBonusForPlayer = (
     neuralWorksNetworkAncillaryFactoryCount,
     ancillaryFactoryCount,
     censusDirectorateManpowerBuildingCount,
+    resourceNetworkRegenPerMinute: ancillaryFactoryCount + ancillaryDepotCount > 0 ? networkManpowerRegenPerMinute(
+      ctx.networkSitesForPlayer?.(player.id) ?? developedNetworkSites(ctx.settledTilesForPlayer(player.id), player.id, dormantEconomicStructureKeys ?? new Set(), player.techIds), { factoryCount: ancillaryFactoryCount, depotCount: ancillaryDepotCount }
+    ) : 0,
     ...(ancillaryFactoryCapacityBonusByTown.size > 0 ? { ancillaryFactoryCapacityBonusByTown } : {})
   };
   ctx.manpowerStructureBonusCacheByPlayer.set(player.id, result);

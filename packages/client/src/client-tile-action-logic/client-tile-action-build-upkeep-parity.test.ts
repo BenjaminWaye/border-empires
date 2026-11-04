@@ -24,6 +24,7 @@ const readSource = (relativePath: string): string => readFileSync(fileURLToPath(
 const logicSource = readSource("./client-tile-action-logic.ts");
 const neutralSource = readSource("./client-tile-action-neutral.ts");
 const fortSiegeVariantsSource = readSource("./client-tile-action-fort-siege-variants.ts");
+const resourceBuildSource = readSource("./client-resource-build-actions.ts");
 const siegeCampSource = readSource("./client-tile-action-siege-camp.ts");
 
 const hasRealUpkeep = (type: string): boolean =>
@@ -48,7 +49,7 @@ describe("build-menu cost strings always label real upkeep (client-tile-action-l
   const allTypes = [...new Set([...literalCostTextTypes(logicSource), ...literalCostTextTypes(neutralSource)])];
 
   it("found at least the known buildable types (sanity check the scan itself works)", () => {
-    expect(allTypes).toEqual(expect.arrayContaining(["OBSERVATORY", "SKY_DOCK", "RELAY_BEACON", "HYDROGARDEN", "TITANIUM_WORKS"]));
+    expect(allTypes).toEqual(expect.arrayContaining(["OBSERVATORY", "SKY_DOCK", "RELAY_BEACON", "TITANIUM_WORKS"]));
   });
 
   for (const type of allTypes) {
@@ -61,6 +62,11 @@ describe("build-menu cost strings always label real upkeep (client-tile-action-l
       }
     });
   }
+
+  it("the generic same-tile resource build path labels its actual upkeep", () => {
+    expect(resourceBuildSource).toContain('type: "HYDROGARDEN"');
+    expect(resourceBuildSource).toContain("upkeepSuffixFor(build.type)");
+  });
 
   it("the monument-part build loop labels each part's real CRYSTAL-slot upkeep", () => {
     const line = lineContaining(logicSource, "structureCostText(def.structureType)");

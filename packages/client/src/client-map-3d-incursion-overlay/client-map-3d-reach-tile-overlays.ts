@@ -24,6 +24,12 @@ export type ReachTileOverlayDeps = IncursionDeps & {
  * the viewer's reach, and the viewer's own tiles inside a rival's. The breach
  * outline goes on the sides that face the reach owner's land, in the colour
  * of whoever pushed in. Extracted from client-map-3d.ts's tile loop.
+ *
+ * `claimed` marks a tile an undefended FRONTIER claim is sweeping into
+ * (activeFrontierAttackClaimTargetKeys): it gets neither overlay, for the
+ * same reason its ownership tint is hidden -- the tile visibly goes neutral
+ * while the claimant's plate sweeps in, instead of the 60%-opaque stripes
+ * smothering the sweep.
  */
 export const addReachTileOverlays3D = (
   overlay: Pick<ReachOverlay3D, "addDormantFrontierTile" | "addIncursionTile">,
@@ -32,8 +38,10 @@ export const addReachTileOverlays3D = (
   wy: number,
   scene: { readonly x: number; readonly z: number; readonly y: number },
   myReach: ReadonlySet<string>,
-  deps: ReachTileOverlayDeps
+  deps: ReachTileOverlayDeps,
+  claimed = false
 ): void => {
+  if (claimed) return;
   if (tile.ownerId === deps.me && isDormantFrontierTile(tile)) overlay.addDormantFrontierTile(scene.x, scene.z, scene.y, 1);
   const pocket = reachPocketAt(tile, deps.keyFor(wx, wy), deps.me, myReach, deps.tiles);
   if (!pocket) return;

@@ -26,11 +26,10 @@
 // economy-relevant fields — runtime-economy-cache-invalidation.ts), and a
 // player-state update is pushed to each so dormancy flips show immediately.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { SIPHON_COOLDOWN_MS } from "@border-empires/game-domain";
 import { isSiphonModeSabotage } from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { someProtectionSquareKey } from "../aether-shield/aether-shield.js";
-import type { ObservatoryTileWriteDeps } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
+import type { ObservatoryTileWriteDeps } from "../observatory-shots/observatory-shot-spend.js";
 
 export type SiphonEndReason = "cancelled" | "caster_observatory_lost" | "drained_tile_lost" | "victim_observatory";
 
@@ -195,10 +194,9 @@ export class SiphonModeLifecycle {
     // No owner check on the record: a captured tower can carry the old
     // owner's siphon record over (structure fields are spread on capture).
     if (tower?.observatory?.siphon) {
-      // The tower's cast cooldown starts when siphon mode ends, so
-      // cancel-and-recast can't be used to hop the drain between targets.
-      const cooldownUntil = tower.observatory.ownerId === request.casterId ? this.deps.now() + SIPHON_COOLDOWN_MS : tower.observatory.cooldownUntil;
-      const released: DomainTileState = { ...tower, observatory: { ...tower.observatory, siphon: undefined, cooldownUntil } };
+      // Starting the siphon already spent one of the tower's shots, so
+      // cancel-and-recast to hop the drain costs another shot.
+      const released: DomainTileState = { ...tower, observatory: { ...tower.observatory, siphon: undefined } };
       this.deps.replaceTileState(request.observatoryKey, released, commandId);
       updated.push(released);
     }

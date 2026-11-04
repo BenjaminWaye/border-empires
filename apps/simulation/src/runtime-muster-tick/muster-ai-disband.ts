@@ -36,7 +36,7 @@ export const aiFlagHasTargetInReach = (input: MusterTickInput, flag: DomainTileS
     const currentKey = simulationTileKey(current.x, current.y);
     const currentDepth = depthByKey.get(currentKey)!;
     const linkedCoords = [
-      ...(input.dockLinksByDockTileKey.get(currentKey) ?? []),
+      ...(input.dockCrossingTargetsByDockTileKey.get(currentKey) ?? []),
       ...(bridgeLinksByKey.get(currentKey) ?? [])
     ].map((key) => {
       const [x, y] = key.split(",").map(Number);

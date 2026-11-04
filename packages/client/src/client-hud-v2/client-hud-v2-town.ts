@@ -1,12 +1,17 @@
 // Town screen for the new HUD. Opens when you select one of your towns, or a
 // tile in its support ring (that tile stays highlighted and becomes the build
-// target). Town info on the left, the build list on the right, Raise flag /
-// Overclock at the bottom. All actions reuse the tile menu's own definitions.
+// target). Town info on the left, the build list on the right (titled In
+// progress, with a card per build, while the selected tile has work on it; the
+// picked building's Build on button docks at its foot), Raise flag / Overclock
+// at the bottom. All actions reuse the tile menu's own definitions.
 
-import { townFoodSlotDemandForTier } from "@border-empires/shared";
+import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
+import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
+import { isGarrison } from "./client-hud-v2-action-bar.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
-import { townGrowth } from "./client-hud-v2-tile-facts.js";
+import { townWorkHtml } from "./client-hud-v2-town-work.js";
+import { builtStructureFacts, townGrowth, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 
@@ -19,6 +24,10 @@ export type TownScreenInput = {
   townCount: number;
   buildSelection: string | undefined;
   category: BuildingCategory | undefined;
+  /** The selected tile's queued build's 1-based place in its queue tier; 0 or absent when it has none. */
+  focusQueuePosition?: number;
+  /** The work cards' buttons are locked while a rush or cancel waits on the server. */
+  focusWorkLocked?: boolean;
 };
 
 const esc = (text: string): string =>
@@ -52,9 +61,13 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   // A town still being garrisoned (or a partial summary) has no economy fields yet: show a dash, never NaN.
   const known = (v: number | undefined): v is number => typeof v === "number" && Number.isFinite(v);
   const fed = typeof town.isFed === "boolean" ? (town.isFed ? "Fed" : "Unfed") : "";
+  // Match the town overview's base contribution; optional manpowerCap is
+  // not the town's tier-and-terrain contribution. Building bonuses stay below.
+  const { terrainProfile, coastal } = townTerrainForTile(input.town, town);
+  const manpower = terrainAdjustedTownManpower(town.populationTier, terrainProfile, coastal);
   const stats = [
-    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(town.goldPerMinute * 60)}/h` : "—", n: fed, tone: town.isFed === false ? " v2t-warn" : "" },
-    { k: "MANPOWER CAP", v: known(town.manpowerCap) ? `+${fmt(town.manpowerCap)}` : "—", n: "", tone: " v2t-gold" },
+    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(town.goldPerMinute * 1440)}/day` : "—", n: fed, tone: town.isFed === false ? " v2t-warn" : "" },
+    { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: `Base town · +${fmt(manpowerPerBatch(manpower.regenPerMinute))} per batch regen`, tone: " v2t-gold" },
     { k: "FOOD UPKEEP", v: `${townFoodSlotDemandForTier(town.populationTier)} slots`, n: "", tone: "" },
     { k: "SUPPORT RING", v: known(town.supportCurrent) && known(town.supportMax) ? `${town.supportCurrent} / ${town.supportMax}` : "—", n: "", tone: "" }
   ];
@@ -74,9 +87,22 @@ const leftPanelHtml = (input: TownScreenInput): string => {
     <div class="v2t-grow-wrap">${growHtml}</div>`;
 };
 
+/** What stands on the selected support tile: name, state, what it gives and its upkeep. */
+const builtCardHtml = (facts: readonly TileFact[]): string =>
+  facts.length === 0
+    ? ""
+    : `<div class="v2t-h">Built here</div><div class="v2t-structure">${facts.map((f) => `<div class="v2t-structure-row"><span class="v2t-structure-k">${esc(f.label)}</span><span class="v2t-structure-v${f.tone ? ` v2t-structure-${f.tone}` : ""}">${esc(f.value)}</span></div>`).join("")}</div>`;
+
 const buildPanelHtml = (input: TownScreenInput): string => {
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
-  return buildListHtml({
+  const placeLabel = supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place";
+  const work = input.focusView.work ?? [];
+  // A support tile can already hold a building; pressing it shows what that building is and does.
+  const built = supportFocus ? builtCardHtml(builtStructureFacts(input.focus, input.focus.ownerId === input.town.ownerId)) : "";
+  const workHtml = work.length > 0 ? townWorkHtml(work, keyOf(input.focus), input.focusQueuePosition ?? 0, input.focusWorkLocked ?? false) : "";
+  // Work first: under the "Built here" heading it would read as part of the building.
+  const lead = `${workHtml}${built}`;
+  const list = buildListHtml({
     buildings: input.focusView.buildings,
     focusLabel: supportFocus ? `(${input.focus.x}, ${input.focus.y})` : input.townView.title,
     focusHighlighted: supportFocus,
@@ -84,18 +110,12 @@ const buildPanelHtml = (input: TownScreenInput): string => {
     category: input.category,
     emptyText: `Nothing to build ${supportFocus ? "on this tile" : "here"}`,
     targetKey: keyOf(input.focus),
-    placeLabel: supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place"
+    placeLabel,
+    ...(work.length > 0 ? { title: "In progress" } : built ? { title: "On this tile" } : {}),
+    ...(lead ? { leadHtml: lead } : {})
   });
-};
-
-const placeHtml = (input: TownScreenInput): string => {
-  const supportFocus = keyOf(input.focus) !== keyOf(input.town);
-  return buildPlaceHtml({
-    buildings: input.focusView.buildings,
-    selection: input.buildSelection,
-    targetKey: keyOf(input.focus),
-    placeLabel: supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place"
-  });
+  const place = buildPlaceHtml({ buildings: input.focusView.buildings, selection: input.buildSelection, targetKey: keyOf(input.focus), placeLabel, docked: true });
+  return `${list}${place}`;
 };
 
 const barHtml = (input: TownScreenInput): string => {
@@ -103,23 +123,50 @@ const barHtml = (input: TownScreenInput): string => {
     a
       ? `<button type="button" class="v2t-act" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, keyOf(input.town))}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? "" : a.detail ?? "")}">${label}${a.cost ? `<small>${esc(a.cost)}</small>` : ""}</button>`
       : "";
-  // Everything else the town tile offers, as small text buttons (no hidden ⋯ menu).
-  const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS]);
-  const minor = input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) =>
-    `<button type="button" class="hud-v2-minor${a.disabled ? " hud-v2-minor-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, keyOf(input.town))}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? a.label : a.cost ?? a.detail ?? a.label)}">${esc(a.label)}</button>`).join("");
-  return `${btn(actionFor(input.townView, "muster_hold"), "Raise flag")}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
+  // Everything else the town tile offers, as small text buttons (no hidden ⋯ menu). Muster actions belong
+  // to the tile they act on: the selected support tile's come from the focus, and the town's own flag keeps
+  // its controls (marked "(town)") while a support tile is selected.
+  const supportFocus = keyOf(input.focus) !== keyOf(input.town);
+  const isMuster = (a: TileActionDef): boolean => a.id.startsWith("muster_");
+  // An ungarrisoned town's Garrison leads the bar as the gold main button; a text link was easy to miss.
+  // With a support tile selected (the screen only opens on one once its town is garrisoned), that tile's
+  // Garrison takes the slot instead. Touch has no tooltips, so a disabled one says why on the button.
+  const townGarrison = input.townView.actions.find(isGarrison);
+  const focusGarrison = supportFocus && !townGarrison ? input.focusView.actions.find(isGarrison) : undefined;
+  const garrison = townGarrison ?? focusGarrison;
+  const garrisonKey = focusGarrison ? keyOf(input.focus) : keyOf(input.town);
+  // Plain "Garrison": the selected tile is already highlighted, and a longer label crushes on narrow phones.
+  const garrisonLabel = garrison?.label ?? "";
+  const garrisonNote = garrison?.disabled ? garrison.disabledReason : garrison?.cost;
+  const garrisonBtn = garrison
+    ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land"${targetAttrs(garrison, garrisonKey)}${garrison.disabled ? " disabled" : ""} title="${esc(garrison.disabled ? garrison.disabledReason ?? garrisonLabel : garrison.detail ?? garrisonLabel)}">${esc(garrisonLabel)}${garrisonNote ? `<small>${esc(garrisonNote)}</small>` : ""}</button>`
+    : "";
+  const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : [])]);
+  const minorActions = [
+    ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus && isMuster(a) ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
+    ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isMuster(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
+  ];
+  const minor = minorActions.map(({ a, key }) =>
+    `<button type="button" class="hud-v2-minor${a.disabled ? " hud-v2-minor-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, key)}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? a.label : a.cost ?? a.detail ?? a.label)}">${esc(a.label)}</button>`).join("");
+  // Raise flag on the selected tile; when it can't take one, on the town as before.
+  const focusRaise = actionFor(input.focusView, "muster_hold");
+  const raise = focusRaise ?? actionFor(input.townView, "muster_hold");
+  const raiseOn = focusRaise ? input.focus : input.town;
+  const raiseLabel = !supportFocus ? "Raise flag" : focusRaise ? `Raise flag on (${input.focus.x}, ${input.focus.y})` : "Raise flag on town";
+  const raiseBtn = raise
+    ? `<button type="button" class="v2t-act" data-hud-v2-action="muster_hold" data-target-key="${esc(keyOf(raiseOn))}"${raise.disabled ? " disabled" : ""} title="${esc(raise.disabled ? raise.disabledReason ?? "" : raise.detail ?? "")}">${raiseLabel}</button>`
+    : "";
+  return `${garrisonBtn}${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
     ${minor ? `<span class="v2t-minor">${minor}</span>` : ""}
     <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map · Esc</button>`;
 };
 
-export const townScreenRegions = (input: TownScreenInput): { left: string; build: string; place: string; bar: string } => ({
+export const townScreenRegions = (input: TownScreenInput): { left: string; build: string; bar: string } => ({
   left: leftPanelHtml(input),
   build: buildPanelHtml(input),
-  place: placeHtml(input),
   bar: barHtml(input)
 });
 
 export const TOWN_SCREEN_SKELETON = `<section class="v2t-left" id="v2t-left" aria-label="Town"></section>
   <section class="v2t-right" id="v2t-build" aria-label="Build"></section>
-  <div class="v2t-place-slot" id="v2t-place"></div>
   <div class="v2t-bar" id="v2t-bar"></div>`;

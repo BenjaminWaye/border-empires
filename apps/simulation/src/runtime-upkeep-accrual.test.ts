@@ -15,7 +15,7 @@ const testPlayer = (id: string, overrides: Partial<RuntimePlayer> = {}): Runtime
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
-  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
   ...overrides
 });
 
@@ -145,7 +145,7 @@ describe("applyEconomyAccrual", () => {
   });
 
   it("drains gold and strategic upkeep from points/stockpile once 15s have elapsed", () => {
-    const player = testPlayer("player-1", { points: 100, strategicResources: { FOOD: 10, TITANIUM: 10, CRYSTAL: 10, UMBRITE: 10, SHARD: 0 } });
+    const player = testPlayer("player-1", { points: 100, strategicResources: { FOOD: 10, TITANIUM: 10, CRYSTAL: 10, UMBRITE: 10 } });
     const { ctx, playerSummaries, lastActiveAtMsByPlayer } = createHarness({ upkeep: { gold: 2, food: 1, titanium: 1, crystal: 1, umbrite: 1 } });
     playerSummaries.set("player-1", createEmptyPlayerRuntimeSummary());
     lastActiveAtMsByPlayer.set("player-1", 1_000);
@@ -162,7 +162,7 @@ describe("applyEconomyAccrual", () => {
   });
 
   it("never drops points/stockpiles below zero", () => {
-    const player = testPlayer("player-1", { points: 0.1, strategicResources: { FOOD: 0.1, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } });
+    const player = testPlayer("player-1", { points: 0.1, strategicResources: { FOOD: 0.1, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } });
     const { ctx, playerSummaries, lastActiveAtMsByPlayer } = createHarness({ upkeep: { gold: 100, food: 100 } });
     playerSummaries.set("player-1", createEmptyPlayerRuntimeSummary());
     lastActiveAtMsByPlayer.set("player-1", 1_000);

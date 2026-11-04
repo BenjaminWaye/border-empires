@@ -1,5 +1,11 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { structurePlacementMetadata, type BuildableStructureType, type EconomicStructureType } from "@border-empires/shared";
+import {
+  STACKING_SAME_TILE_SUPPORT_STRUCTURE_TYPES,
+  STACKING_TOWN_SUPPORT_STRUCTURE_TYPES,
+  structurePlacementMetadata,
+  type BuildableStructureType,
+  type EconomicStructureType
+} from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
@@ -7,35 +13,17 @@ import { rejectCommand, structureLabel } from "./runtime-structure-command-handl
 
 // User decision: the only structure that belongs directly ON a town tile is
 // a Fort — every other support-ring building clicked on the town tile itself
-// should auto-place onto an open support tile next to it instead. That's
-// already what placementMode "town_support" does (see resolveTownSupportTarget
-// below) for most support-ring buildings, but these four are deliberately
-// uncapped/stacking per town (Manufactory: "stacks additively with every other
-// active Manufactory"; Ancillary Depot/the two Weapons Factories: "same_tile
-// placement, can sit anywhere", "no per-town limit") — routing them through
-// the same town_support path would wrongly reject a 2nd/3rd copy via its
-// "town already has X" singleton check. So they stay placementMode
-// "same_tile" (preserving stacking when built directly on a support tile)
-// and get their own narrower redirect: only when the target IS the town
-// tile, skip straight to an open support tile, with no uniqueness gate.
-const STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES = new Set<BuildableStructureType>([
-  "MANUFACTORY",
-  "ANCILLARY_DEPOT",
-  "TITANIUM_WEAPONS_FACTORY",
-  "UMBRITE_WEAPONS_FACTORY"
-]);
-
-// User decision: unlike the other town_support economics (one of each type
-// per town, forcing sprawl across multiple towns for more supply), the
-// Aether Condenser stacks — a town can host as many as it has open support
-// tiles for. Exempts AETHER_CONDENSER/HIGH_YIELD_AETHER_CONDENSER from
-// the "town already has X" singleton gate below; firstAvailableTownSupportTile
-// still requires an open ring tile, so the town's support-tile count remains
-// the real cap.
-const STACKING_TOWN_SUPPORT_STRUCTURE_TYPES = new Set<BuildableStructureType>([
-  "AETHER_CONDENSER",
-  "HIGH_YIELD_AETHER_CONDENSER"
-]);
+// should auto-place onto an open support tile next to it instead. Most
+// support-ring buildings get that via placementMode "town_support" (below).
+// The uncapped "same_tile" stackers (STACKING_SAME_TILE_SUPPORT_STRUCTURE_TYPES)
+// would be wrongly capped at one copy by that path's "town already has X"
+// singleton check, so they keep "same_tile" and get a narrower redirect: only
+// when the target IS the town tile, skip straight to an open support tile,
+// with no uniqueness gate. The "town_support" stackers
+// (STACKING_TOWN_SUPPORT_STRUCTURE_TYPES, the Aether Condensers) skip the
+// singleton gate; the town's open support tiles remain their real cap. Both
+// lists live in packages/shared/src/structure-stacking/ so the AI planner
+// applies the identical rule.
 
 export function resolveTownSupportTarget(
   context: RuntimeStructureCommandContext,
@@ -45,7 +33,7 @@ export function resolveTownSupportTarget(
 ): DomainTileState | undefined {
   const placement = structurePlacementMetadata(structureType);
   if (placement.placementMode !== "town_support") {
-    if (target.town && STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES.has(structureType)) {
+    if (target.town && STACKING_SAME_TILE_SUPPORT_STRUCTURE_TYPES.has(structureType)) {
       if (target.town.populationTier === "SETTLEMENT") {
         rejectCommand(context, command, "BUILD_INVALID", "settlements cannot support economic structures — grow this town first");
         return undefined;

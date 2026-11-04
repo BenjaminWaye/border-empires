@@ -2,11 +2,10 @@ import { FRONTIER_CLAIM_COST, PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-emp
 import { prettyToken } from "../client-app-runtime-utils.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { resourceIconForKey } from "../client-map-display.js";
-import { maybeRegisterShardRainPing } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { victoryHoldAlertFor } from "../client-victory-alert/client-victory-alert.js";
+import { compactHudActive } from "../client-panel-nav/client-phone-viewport.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
-import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { getDiscoveryTipTarget, type DiscoveryTipDef } from "../client-discovery-tips/client-discovery-tips.js";
 import type { FeedEntry, FeedSeverity, FeedType, SeasonVictoryObjectiveView, Tile } from "../client-types.js";
 
@@ -24,7 +23,8 @@ const mobileFeedPanelVisible = (state: FeedMutableState): boolean =>
   state.mobilePanel === "feed" &&
   typeof window !== "undefined" &&
   typeof window.matchMedia === "function" &&
-  window.matchMedia("(max-width: 900px)").matches;
+  window.matchMedia("(max-width: 900px)").matches &&
+  !compactHudActive();
 
 const markFeedUnread = (state: FeedMutableState, entry: FeedEntry): void => {
   const feedOpen = state.activePanel === "feed" || mobileFeedPanelVisible(state);
@@ -66,41 +66,11 @@ export const pushDiscoveryTipFeedEntry = (state: FeedMutableState, def: Discover
   });
 };
 
-export const maybeAnnounceShardSite = (
-  state: Pick<ClientState, "shardRainPingsByTile" | "shardAlert">,
-  previous: Tile | undefined,
-  next: Tile
-): void => {
-  maybeRegisterShardRainPing(state, previous, next);
-};
-
-export const shardAlertKeyForPayload = (phase: "upcoming" | "started", startsAt: number): string => `${phase}:${startsAt}`;
-
-export const showShardAlert = (
-  state: Pick<ClientState, "dismissedShardAlertKeys" | "shardAlert" | "shardRainStatus">,
-  alert: ClientShardRainAlert
-): void => {
-  // shardRainStatus drives the persistent domain-panel countdown and is never
-  // cleared by dismissing the one-time toast alert below, so it must be kept
-  // in sync regardless of the dismissed-key check.
-  state.shardRainStatus = alert;
-  if (state.dismissedShardAlertKeys.has(alert.key)) return;
-  state.shardAlert = alert;
-};
-
-export const hideShardAlert = (
-  state: Pick<ClientState, "dismissedShardAlertKeys" | "shardAlert" | "shardRainFxUntil">
-): void => {
-  if (state.shardAlert) state.dismissedShardAlertKeys.add(state.shardAlert.key);
-  state.shardAlert = undefined;
-  state.shardRainFxUntil = 0;
-};
-
 // Recomputes the season-victory hold alert whenever seasonVictory data
 // arrives from the server (see client-network.ts call sites). Re-collapses
 // automatically for objectives/leaders already acknowledged this session,
 // but never fully clears the alert while a hold is active — this is meant to
-// stay acutely visible, unlike the dismiss-and-forget shardAlert toast.
+// stay acutely visible.
 export const updateVictoryHoldAlert = (
   state: Pick<ClientState, "victoryHoldAlert" | "victoryHoldAlertCollapsed" | "acknowledgedVictoryHoldAlertKeys">,
   seasonVictory: SeasonVictoryObjectiveView[],
@@ -188,6 +158,14 @@ export const showCaptureAlert = (
     ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {}),
     ...(focus ? { focusX: focus.x, focusY: focus.y, actionLabel: focus.actionLabel ?? "Center" } : {})
   };
+};
+
+// Server-result/acceptance timeouts are the only alerts that offer the
+// "Report bug" button (see renderCaptureProgress) -- other warnings/errors are
+// expected gameplay outcomes, not something to report.
+export const showCaptureTimeoutAlert = (state: Pick<ClientState, "captureAlert">, title: string, detail: string): void => {
+  showCaptureAlert(state, title, detail, "warn");
+  if (state.captureAlert) state.captureAlert.timeout = true;
 };
 
 export const notifyInsufficientGoldForFrontierAction = (
@@ -307,7 +285,7 @@ const pillagedResourceParts = (
   const strategic = (msg.pillagedStrategic as Record<string, number> | undefined) ?? {};
   const parts: string[] = [];
   if (pillagedGold > 0.01) parts.push(`${resourceIconForKey("GOLD")} ${formatGoldAmount(pillagedGold)}`);
-  for (const resource of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
+  for (const resource of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const) {
     const amount = strategic[resource];
     if (typeof amount !== "number" || amount <= 0.01) continue;
     parts.push(`${resourceIconForKey(resource)} ${formatPlunderAmount(amount)} ${deps.prettyToken(resource)}`);

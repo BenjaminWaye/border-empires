@@ -13,7 +13,7 @@ const recoverOverlay = <K extends DomainOverlayKey>(
   const field = overlayJsonField(key);
   if (field in delta) {
     // Present: a JSON value sets the overlay, an empty one is an explicit
-    // clear (a collected shard site, a Siphon ending, a removed structure).
+    // clear (a Siphon ending, a removed structure).
     const json = delta[field];
     if (json) out[key] = parseOptionalJson<DomainTileState[K]>(json);
     return;

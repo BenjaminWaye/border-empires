@@ -211,7 +211,9 @@ export type SiegeMachineOverlay = {
      *  (see siegeBatteryFacingRadiansForTile). Defaults to 0 -- the model's
      *  built-in south-facing pose -- for demo/story callers that don't
      *  track a facing. */
-    facingRad?: number
+    facingRad?: number,
+    /** Remembered under fog: the heads hold their rest pose instead of spinning. */
+    frozen?: boolean
   ) => void;
   readonly commit: () => void;
   readonly tick: (nowMs: number) => void;
@@ -225,6 +227,7 @@ type ActiveMachine = {
   readonly jitter: number;
   readonly facing: number;
   readonly phase: number;
+  readonly frozen: boolean;
 };
 
 export const createSiegeMachineOverlay = (
@@ -315,7 +318,7 @@ export const createSiegeMachineOverlay = (
     machines.length = 0;
   };
 
-  const addInstance = (worldX: number, worldZ: number, surfaceY: number, wx: number, wy: number, facingRad = 0): void => {
+  const addInstance = (worldX: number, worldZ: number, surfaceY: number, wx: number, wy: number, facingRad = 0, frozen = false): void => {
     const index = machines.length;
     if (index >= maxTiles) return;
     const jitter = (tileHash(wx, wy, 13, 49) - 24) * 0.0065;
@@ -327,7 +330,7 @@ export const createSiegeMachineOverlay = (
         slot.count += 1;
       }
     }
-    machines.push({ worldX, worldZ, surfaceY, jitter, facing: facingRad, phase });
+    machines.push({ worldX, worldZ, surfaceY, jitter, facing: facingRad, phase, frozen });
   };
 
   const commit = (): void => {
@@ -347,7 +350,7 @@ export const createSiegeMachineOverlay = (
     const spin = nowMs / 1000 * HEAD_SPIN_RAD_PER_S;
     for (let i = 0; i < count; i += 1) {
       const m = machines[i]!;
-      const headSpin = m.phase + spin;
+      const headSpin = m.phase + (m.frozen ? 0 : spin);
       for (let j = 0; j < HEAD_COUNT; j += 1) {
         const slot = headGroups[j]!;
         const base = i * slot.parts.length;
