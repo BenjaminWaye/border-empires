@@ -92,7 +92,7 @@ const project = JSON.parse(readFileSync(vercelProjectPath, "utf8"));
 if (project.projectName !== vercelClientProject.projectName) {
   throw new Error(`Unexpected Vercel project: ${project.projectName}`);
 }
-// deploy-prod-all.mjs passes GIT_COMMIT_SHA through already; fall back to
+// Callers may pass GIT_COMMIT_SHA; fall back to
 // the local HEAD for a standalone run of this script.
 if (!process.env.GIT_COMMIT_SHA) {
   process.env.GIT_COMMIT_SHA = run("git", ["rev-parse", "HEAD"]);
