@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { combatWithdrawalNotices } from "./social-combat-offer-withdrawal.js";
 import { createSocialState } from "./social-state.js";
+import type { SocialTruceRequest } from "./social-state-types.js";
 
 const HOUR = 60 * 60_000;
 
@@ -43,6 +45,18 @@ describe("truce offers and fighting", () => {
     const p1Payloads = JSON.stringify(result?.payloadsByPlayerId.get("p1"));
     expect(p1Payloads).toContain("Your truce offer to Valka was withdrawn because your empires fought.");
     expect(JSON.stringify(result?.payloadsByPlayerId.get("p2"))).toContain("Nauticus's truce offer was withdrawn because your empires fought.");
+  });
+
+  it("tells a player about every offer withdrawn, not just the last", () => {
+    const { social } = setup();
+    social.requestTruce("p1", "Valka", 12);
+    // Two-way offers can't coexist (one pending per pair), so check the notice builder directly.
+    const notices = combatWithdrawalNotices([
+      { id: "a", fromPlayerId: "p1", toPlayerId: "p2" },
+      { id: "b", fromPlayerId: "p2", toPlayerId: "p1" }
+    ] as SocialTruceRequest[], new Map([["p1", { name: "Nauticus" }], ["p2", { name: "Valka" }]]));
+    expect(notices.p1).toBe("Your truce offer to Valka was withdrawn because your empires fought. Valka's truce offer was withdrawn because your empires fought.");
+    expect(social.withdrawTruceOffersOnCombat("p1", "p2")?.ok).toBe(true);
   });
 
   it("does nothing when there is no offer between the pair", () => {

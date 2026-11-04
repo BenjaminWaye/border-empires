@@ -372,7 +372,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
         nonHostilePlayerIds: [...player.allies, ...(player.truces ?? [])],
         musterStagedManpower: musterStagedManpowerForPlayer(playerId, input.musterTilesByOwner.get(playerId), input.tiles),
-        ...(player.truceEndsAt?.size ? { soonestTruceEndsAt: Math.min(...player.truceEndsAt.values()) } : {}),
+        ...(player.truceEndsAt?.size ? { truceEndsAt: [...player.truceEndsAt.values()] } : {}),
         ownedTileCount,
         frontierTileCount,
         ...(input.playerManpowerCap ? { manpowerCapacity: input.playerManpowerCap(playerId) } : {}),

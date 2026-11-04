@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { createSocialState, MAX_TRUCE_BREAKS_PER_PLAYER } from "./social-state.js";
 import { TRUCE_REQUEST_TTL_MS } from "@border-empires/game-domain";
+
+import { createSocialState, MAX_TRUCE_BREAKS_PER_PLAYER } from "./social-state.js";
 
 describe("social state", () => {
   // Regression: gateways saved every AI as "AI <n>"; a restart restores the listed name.

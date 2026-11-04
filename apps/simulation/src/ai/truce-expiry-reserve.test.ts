@@ -17,23 +17,28 @@ const base = { sessionPrefix: "ai-runtime", manpowerCapacity: CAP, manpower: 700
 
 describe("truce-expiry manpower reserve", () => {
   it("only counts a truce ending inside the prep window", () => {
-    expect(truceExpiringSoon({ issuedAt: NOW, soonestTruceEndsAt: NOW + TRUCE_EXPIRY_PREP_MS })).toBe(true);
-    expect(truceExpiringSoon({ issuedAt: NOW, soonestTruceEndsAt: NOW + TRUCE_EXPIRY_PREP_MS + 1 })).toBe(false);
-    expect(truceExpiringSoon({ issuedAt: NOW, soonestTruceEndsAt: NOW - 1 })).toBe(false);
+    expect(truceExpiringSoon({ issuedAt: NOW, truceEndsAt: [NOW + TRUCE_EXPIRY_PREP_MS] })).toBe(true);
+    expect(truceExpiringSoon({ issuedAt: NOW, truceEndsAt: [NOW + TRUCE_EXPIRY_PREP_MS + 1] })).toBe(false);
+    expect(truceExpiringSoon({ issuedAt: NOW, truceEndsAt: [NOW - 1] })).toBe(false);
     expect(truceExpiringSoon({ issuedAt: NOW })).toBe(false);
+  });
+
+  // A stale end time (expiry sync late or failed) must not hide a truce that really is about to end.
+  it("still sees a truce ending soon next to one already past", () => {
+    expect(truceExpiringSoon({ issuedAt: NOW, truceEndsAt: [NOW - 60_000, NOW + 30 * 60_000] })).toBe(true);
   });
 
   it("raises the reserve to a share of cap while a truce is about to end", () => {
     expect(spendableManpowerForPlanner(base)).toBe(700 - aiWarReserveManpower(CAP));
-    expect(spendableManpowerForPlanner({ ...base, soonestTruceEndsAt: NOW + 30 * 60_000 })).toBe(700 - CAP * TRUCE_EXPIRY_RESERVE_CAP_FRACTION);
+    expect(spendableManpowerForPlanner({ ...base, truceEndsAt: [NOW + 30 * 60_000] })).toBe(700 - CAP * TRUCE_EXPIRY_RESERVE_CAP_FRACTION);
     // Manpower already staged in muster flags counts toward it.
-    expect(spendableManpowerForPlanner({ ...base, soonestTruceEndsAt: NOW + 30 * 60_000, musterStagedManpower: 600 })).toBe(700);
+    expect(spendableManpowerForPlanner({ ...base, truceEndsAt: [NOW + 30 * 60_000], musterStagedManpower: 600 })).toBe(700);
   });
 
   it("stops expanding into the reserve shortly before a truce expires", () => {
     const owned = { x: 10, y: 10, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "FRONTIER" };
     const target = { x: 11, y: 10, terrain: "LAND" as const, resource: "FARM" };
-    const plan = (soonestTruceEndsAt?: number) =>
+    const plan = (endsAt?: number) =>
       planAutomationCommand({
         playerId: "ai-1",
         points: 500,
@@ -47,7 +52,7 @@ describe("truce-expiry manpower reserve", () => {
         clientSeq: 2,
         issuedAt: NOW,
         sessionPrefix: "ai-runtime",
-        ...(soonestTruceEndsAt !== undefined ? { soonestTruceEndsAt } : {})
+        ...(endsAt !== undefined ? { truceEndsAt: [endsAt] } : {})
       });
     expect(plan().command?.type).toBe("EXPAND");
     expect(plan(NOW + 30 * 60_000).command?.type).not.toBe("EXPAND");

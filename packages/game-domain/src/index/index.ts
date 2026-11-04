@@ -111,7 +111,7 @@ export type DomainPlayer = {
   // fixtures across tests don't all need updating.
   truces?: Set<string>;
   // When each truce ends (partner id -> ms), when the gateway sent it. AI
-  // planners bank manpower ahead of an expiry (truce-expiry-muster.ts).
+  // planners bank manpower ahead of an expiry (truceExpiringSoon in apps/simulation/src/ai/automation-command-planner-war-reserve.ts).
   truceEndsAt?: Map<string, number>;
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   strategicProductionPerMinute?: Partial<Record<DomainStrategicResourceKey, number>>;

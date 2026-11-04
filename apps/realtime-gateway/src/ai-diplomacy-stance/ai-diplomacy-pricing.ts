@@ -113,9 +113,9 @@ export const aiDiplomacyPricing = (input: {
       truce24 = -payment;
     } else if (war.aiLosing) {
       // A losing AI fresh from an attack still wants the war over, but the attacker pays for the ground it took.
-      const reparations = freshAttack ? hoursToCoin(memory.tilesTakenFromAi * REPARATION_HOURS_PER_TILE * (input.requesterTruceCostMult ?? 1), priceIncome) : 0;
-      truce12 = reparations;
-      truce24 = reparations;
+      const reparationHours = freshAttack ? memory.tilesTakenFromAi * REPARATION_HOURS_PER_TILE * (input.requesterTruceCostMult ?? 1) : 0;
+      truce12 = hoursToCoin(reparationHours, priceIncome);
+      truce24 = hoursToCoin(reparationHours * LONG_TRUCE_MULTIPLIER, priceIncome);
     } else {
       const baseHours = war.atWar
         ? war.aiWinning ? TRUCE_HOURS.aiWinning : TRUCE_HOURS.atWar

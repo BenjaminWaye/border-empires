@@ -142,6 +142,7 @@ describe("AI truce pricing", () => {
       const result = price({ memory: losing, retaliation: spent, aiGold: 100_000 });
       expect(result.opinion.war.aiLosing).toBe(true);
       expect(result.pricing.required.truce12).toBe(4 * 60);
+      expect(result.pricing.required.truce24).toBe(4 * 60 * 1.5);
     });
 
     it("drops the surcharge once the window has passed", () => {

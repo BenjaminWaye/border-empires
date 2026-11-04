@@ -3,7 +3,7 @@
 // in. What keeps an old offer from becoming a panic button -- accepted
 // mid-war on terms given in peacetime -- is this: any combat between the two
 // players withdraws every pending truce offer between them, in both directions.
-import type { SocialPlayerRecord, SocialStateSink, SocialTruceRequest } from "./social-state-types.js";
+import type { SocialPlayerRecord, SocialStateSink, SocialSyncResult, SocialTruceRequest } from "./social-state-types.js";
 
 export type CombatOfferWithdrawalDeps = {
   truceRequests: Map<string, SocialTruceRequest>;
@@ -34,9 +34,23 @@ export const combatWithdrawalNotices = (
 ): Partial<Record<string, string>> => {
   const nameOf = (playerId: string): string => playersById.get(playerId)?.name ?? playerId;
   const notices: Partial<Record<string, string>> = {};
+  const add = (playerId: string, line: string): void => {
+    notices[playerId] = notices[playerId] ? `${notices[playerId]} ${line}` : line;
+  };
   for (const request of withdrawn) {
-    notices[request.fromPlayerId] = `Your truce offer to ${nameOf(request.toPlayerId)} was withdrawn because your empires fought.`;
-    notices[request.toPlayerId] = `${nameOf(request.fromPlayerId)}'s truce offer was withdrawn because your empires fought.`;
+    add(request.fromPlayerId, `Your truce offer to ${nameOf(request.toPlayerId)} was withdrawn because your empires fought.`);
+    add(request.toPlayerId, `${nameOf(request.fromPlayerId)}'s truce offer was withdrawn because your empires fought.`);
   }
   return notices;
+};
+
+/** social-state's withdrawTruceOffersOnCombat: withdraws, then builds both players' update payloads with the notices. */
+export const createCombatOfferWithdrawal = (
+  deps: CombatOfferWithdrawalDeps & {
+    playersById: ReadonlyMap<string, Pick<SocialPlayerRecord, "name">>;
+    ok: (playerIds: string[], announcementByPlayerId?: Partial<Record<string, string>>) => SocialSyncResult;
+  }
+) => (playerAId: string, playerBId: string): SocialSyncResult | undefined => {
+  const withdrawn = withdrawTruceOffersBetween(deps, playerAId, playerBId);
+  return withdrawn.length > 0 ? deps.ok([playerAId, playerBId], combatWithdrawalNotices(withdrawn, deps.playersById)) : undefined;
 };

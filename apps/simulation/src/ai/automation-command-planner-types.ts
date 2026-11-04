@@ -160,8 +160,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   nonHostilePlayerIds?: ReadonlySet<string>;
   /** Manpower staged inside this player's muster flags; counts toward the AI war reserve (see spendableManpowerForPlanner). */
   musterStagedManpower?: number;
-  /** When this player's soonest-ending truce runs out; raises the war reserve shortly before (truceExpiringSoon). */
-  soonestTruceEndsAt?: number;
+  /** When each of this player's truces runs out; one ending soon raises the war reserve (truceExpiringSoon). */
+  truceEndsAt?: readonly number[];
   /** Per-decision-class rejection cooldowns — true means the class is on cooldown. */
   decisionCooldowns?: DecisionCooldownMap;
   /** Exact rejected action keys and codes, valid only for the current world revision. */

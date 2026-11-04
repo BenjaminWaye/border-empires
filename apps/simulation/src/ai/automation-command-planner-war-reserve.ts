@@ -18,15 +18,19 @@ export const TRUCE_EXPIRY_RESERVE_CAP_FRACTION = 0.6;
 
 type ReserveInput = Pick<
   AutomationPlannerInput<AutomationPlannerTile>,
-  "sessionPrefix" | "manpowerCapacity" | "manpower" | "musterStagedManpower" | "soonestTruceEndsAt"
+  "sessionPrefix" | "manpowerCapacity" | "manpower" | "musterStagedManpower" | "truceEndsAt"
 > & { issuedAt?: number };
 
-/** True while a truce is due to end within TRUCE_EXPIRY_PREP_MS. */
-export const truceExpiringSoon = (input: Pick<ReserveInput, "soonestTruceEndsAt" | "issuedAt">): boolean =>
-  input.soonestTruceEndsAt !== undefined &&
-  input.issuedAt !== undefined &&
-  input.soonestTruceEndsAt > input.issuedAt &&
-  input.soonestTruceEndsAt - input.issuedAt <= TRUCE_EXPIRY_PREP_MS;
+/**
+ * True while any truce is due to end within TRUCE_EXPIRY_PREP_MS. Each end time
+ * is checked on its own: one already past (a late or failed expiry sync) must
+ * not hide another that is about to end.
+ */
+export const truceExpiringSoon = (input: Pick<ReserveInput, "truceEndsAt" | "issuedAt">): boolean => {
+  const issuedAt = input.issuedAt;
+  if (issuedAt === undefined) return false;
+  return (input.truceEndsAt ?? []).some((endsAt) => endsAt > issuedAt && endsAt - issuedAt <= TRUCE_EXPIRY_PREP_MS);
+};
 
 /**
  * War reserve (docs/ai-war-peace-balance-plan.md): a floor on spendable
