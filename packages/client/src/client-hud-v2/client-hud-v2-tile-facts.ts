@@ -74,6 +74,17 @@ const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number): TileFac
   return facts;
 };
 
+/**
+ * The building standing on a tile, as facts (name, state, what it gives, upkeep) -- for the town screen's
+ * selected support tile. A building going up or being removed is left to the screen's work cards, which
+ * already show it with its progress.
+ */
+export const builtStructureFacts = (tile: Tile, mine: boolean, nowMs: number = Date.now()): TileFact[] => {
+  const structure = structureOn(tile);
+  if (!structure || structure.status === "under_construction" || structure.status === "removing") return [];
+  return structureFacts(structure, mine, nowMs);
+};
+
 const coinPerDay = (goldPerMinute: number): string => `${(goldPerMinute * 1440).toFixed(1)}/day`;
 
 export type TownGrowth = { rate: string; eta: string; paused: boolean };

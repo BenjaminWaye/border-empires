@@ -7,6 +7,7 @@ import { AFC_V3_CHANGELOG } from "./client-changelog-afc-v3.js";
 import { AI_STACKED_INDUSTRY_CHANGELOG } from "./client-changelog-ai-stacked-industry.js";
 import { HUD_V2_MOBILE_CHANGELOG } from "./client-changelog-hud-v2-mobile.js";
 import { AI_JUNIOR_ALLIANCES_CHANGELOG } from "./client-changelog-ai-junior-alliances.js";
+import { TOWN_SCREEN_SUPPORT_STRUCTURE_CHANGELOG } from "./client-changelog-town-screen-support-structure.js";
 
 // November 2026 topic files, grouped so client-changelog-data.ts stays under
 // the 500-line limit. Add new per-topic imports here, not there.
@@ -18,5 +19,6 @@ export const NOVEMBER_CHANGELOG: ClientChangelogEntry[] = [
   ...AFC_V3_CHANGELOG,
   ...AI_STACKED_INDUSTRY_CHANGELOG,
   ...HUD_V2_MOBILE_CHANGELOG,
-  ...AI_JUNIOR_ALLIANCES_CHANGELOG
+  ...AI_JUNIOR_ALLIANCES_CHANGELOG,
+  ...TOWN_SCREEN_SUPPORT_STRUCTURE_CHANGELOG
 ];
