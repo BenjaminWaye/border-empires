@@ -5,7 +5,7 @@
 
 import { DIPLOMACY_OVERLAY_LABELS, diplomacyStanceLookup } from "../client-diplomacy-overlay/client-diplomacy-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
-import { truceTimeLeft } from "./client-hud-v2-truce-time.js";
+import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 
 type StanceTagState = Pick<ClientState, "me" | "allies" | "activeTruces">;
 
@@ -14,6 +14,6 @@ export const ownerStanceTagHtml = (ownerId: string | undefined, state: StanceTag
   const stance = diplomacyStanceLookup(state)(ownerId);
   if (!stance) return "";
   const truce = stance === "truce" ? state.activeTruces.find((t) => t.otherPlayerId === ownerId) : undefined;
-  const label = truce ? `${DIPLOMACY_OVERLAY_LABELS.truce} ${truceTimeLeft(truce.endsAt, nowMs)}` : DIPLOMACY_OVERLAY_LABELS[stance];
+  const label = truce ? `${DIPLOMACY_OVERLAY_LABELS.truce} ${socialRemainingLabel(truce.endsAt, nowMs)}` : DIPLOMACY_OVERLAY_LABELS[stance];
   return `<span class="hud-v2-stance-tag hud-v2-stance-${stance}">${label}</span>`;
 };

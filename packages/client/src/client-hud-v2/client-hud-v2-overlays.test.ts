@@ -91,6 +91,6 @@ describe("tile owner stance tag", () => {
   });
 
   it("counts down in minutes in a truce's last hour", () => {
-    expect(ownerStanceTagHtml("t", state, 5.2 * 3_600_000)).toContain(">Truce 18m<");
+    expect(ownerStanceTagHtml("t", state, 5.5 * 3_600_000 - 18 * 60_000)).toContain(">Truce 18m<");
   });
 });
