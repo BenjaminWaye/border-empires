@@ -16,11 +16,11 @@ import { drawLoopMinFrameGapMs, isPhoneViewport } from "./client-runtime-loop-fr
 import { drawVisibleTerrain2D } from "./client-map-render/client-map-render-visible-terrain.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { drawEconomicStructureOverlay2D } from "./client-resource-overlay-2d/client-economic-overlay-2d.js";
-import { getCurrentFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
+import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
 import { paintFpsAndZoomReadouts } from "./client-fps-monitor/client-fps-readouts.js";
 import { tickJoinExperienceForFrame } from "./client-onboarding-ui-gate/client-join-experience-frame.js";
 import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
-import { hasRendererPromptLowFps, shouldShowRendererPrompt } from "./client-renderer-prompt/client-renderer-prompt.js";
+import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "./client-renderer-prompt/client-renderer-prompt.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import { drawTileFortificationOverlays2D } from "./client-fortification-overlays/client-fortification-overlay-2d-draw.js";
 import { renderBuildingPlacementPreview2D } from "./client-placement-preview-2d/client-placement-preview-2d.js";
@@ -213,7 +213,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         shouldShowRendererPrompt({
           dismissed: state.rendererPrompt.dismissed,
           true3DActive: isTrue3DRendererActive(),
-          sustainedLowFps: hasRendererPromptLowFps(state.connection === "initialized" && state.authSessionReady, nowMs),
+          sustainedLowFps: hasSustainedLowFps(RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, nowMs),
           connectionInitialized: state.connection === "initialized",
           authSessionReady: state.authSessionReady,
           profileSetupRequired: state.profileSetupRequired,

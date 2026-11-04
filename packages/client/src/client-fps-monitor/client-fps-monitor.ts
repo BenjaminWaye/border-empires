@@ -1,22 +1,38 @@
 const FRAME_WINDOW_MS = 1000;
 const MAX_FRAMES = 240;
 
-// A gap this long between animation frames means the page was backgrounded
-// (or the main thread was frozen by a resume/re-init burst). The frames right
-// after that are catch-up work, not a measure of how well the device renders.
-const RESUME_FRAME_GAP_MS = 1000;
-/** How long low-fps readings are ignored after a resume or a fresh (re)init. */
+/**
+ * How long low-fps readings are ignored after the page comes back to the
+ * foreground or the world state is (re)loaded. Both trigger seconds of
+ * main-thread catch-up work that tanks the frame rate even on flagship
+ * phones; that is not a measure of how well the device renders 3D.
+ * Driven by explicit events (not frame gaps), so a device that is simply too
+ * slow -- even one stalling for whole seconds -- still accumulates a streak.
+ */
 export const LOW_FPS_WARMUP_MS = 20_000;
 
 const frameTimestamps: number[] = [];
 let lowFpsStreakStart = 0;
-let lastFrameAt: number | undefined;
 let lowFpsHeldUntil = 0;
+let visibilityListenerInstalled = false;
 
-/** Ignore low-fps readings (and drop any running streak) until `untilMs`. */
-export const holdLowFpsStreakUntil = (untilMs: number): void => {
-  lowFpsHeldUntil = Math.max(lowFpsHeldUntil, untilMs);
+/** Ignore low-fps readings (and drop any running streak) for LOW_FPS_WARMUP_MS from `nowMs`. */
+export const holdLowFpsStreakForWarmup = (nowMs: number): void => {
+  lowFpsHeldUntil = Math.max(lowFpsHeldUntil, nowMs + LOW_FPS_WARMUP_MS);
   lowFpsStreakStart = 0;
+};
+
+/** Page visibility hook: returning to the foreground starts a warm-up hold. */
+export const noteFpsMonitorVisibility = (visible: boolean, nowMs: number): void => {
+  if (visible) holdLowFpsStreakForWarmup(nowMs);
+};
+
+const ensureVisibilityListener = (): void => {
+  if (visibilityListenerInstalled || typeof document === "undefined") return;
+  visibilityListenerInstalled = true;
+  document.addEventListener("visibilitychange", () =>
+    noteFpsMonitorVisibility(document.visibilityState === "visible", performance.now())
+  );
 };
 
 const trimWindow = (nowMs: number): void => {
@@ -30,8 +46,7 @@ const trimWindow = (nowMs: number): void => {
 };
 
 export const recordFrame = (nowMs: number): void => {
-  if (lastFrameAt !== undefined && nowMs - lastFrameAt >= RESUME_FRAME_GAP_MS) holdLowFpsStreakUntil(nowMs + LOW_FPS_WARMUP_MS);
-  lastFrameAt = nowMs;
+  ensureVisibilityListener();
   frameTimestamps.push(nowMs);
   trimWindow(nowMs);
 };
@@ -67,6 +82,5 @@ export const hasSustainedLowFps = (threshold: number, requiredMs: number, nowMs:
 export const resetFpsMonitorForTests = (): void => {
   frameTimestamps.length = 0;
   lowFpsStreakStart = 0;
-  lastFrameAt = undefined;
   lowFpsHeldUntil = 0;
 };

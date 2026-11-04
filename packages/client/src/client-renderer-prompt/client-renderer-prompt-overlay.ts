@@ -4,12 +4,14 @@
 // hands over its state, DOM slot and re-render callback.
 import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
+import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
 import { showTwoDimensionalModeNotice } from "../client-renderer-fallback-notice/client-renderer-fallback-notice.js";
 import { isTrue3DRendererActive, prefers2DRendererMode } from "../client-renderer-mode.js";
 import { switchRenderer } from "../client-renderer-switch/client-renderer-switch.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
 import {
-  hasRendererPromptLowFps,
+  RENDERER_PROMPT_FPS_THRESHOLD,
+  RENDERER_PROMPT_LOW_FPS_MS,
   shouldShowRendererPrompt,
   shouldShowTwoDimensionalNotice
 } from "./client-renderer-prompt.js";
@@ -21,6 +23,11 @@ export type RendererPromptOverlayDeps = {
   readonly storageSet: typeof storageSet;
   readonly renderHud: () => void;
 };
+
+// Once the slow-3D prompt has appeared it stays up until the player answers
+// it: a later warm-up hold (e.g. the save sheet from "Download Diagnostics"
+// backgrounding the page) must not yank it away mid-read.
+let rendererPromptShown = false;
 
 export const renderRendererPromptOverlay = (deps: RendererPromptOverlayDeps): void => {
   const { state, overlayEl, wsUrl } = deps;
@@ -41,13 +48,15 @@ export const renderRendererPromptOverlay = (deps: RendererPromptOverlayDeps): vo
   const canShowRendererPrompt = shouldShowRendererPrompt({
     dismissed: state.rendererPrompt.dismissed,
     true3DActive: isTrue3DRendererActive(),
-    sustainedLowFps: hasRendererPromptLowFps(state.connection === "initialized" && state.authSessionReady, performance.now()),
+    sustainedLowFps:
+      rendererPromptShown || hasSustainedLowFps(RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, performance.now()),
     connectionInitialized: state.connection === "initialized",
     authSessionReady: state.authSessionReady,
     profileSetupRequired: state.profileSetupRequired,
     changelogOpen: state.changelog.open,
     activityDashboardOpen: state.activityDashboard.open
   });
+  rendererPromptShown = canShowRendererPrompt;
   overlayEl.style.display = canShowRendererPrompt ? "grid" : "none";
   if (!canShowRendererPrompt) {
     if (overlayEl.innerHTML) overlayEl.innerHTML = "";

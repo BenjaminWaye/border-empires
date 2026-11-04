@@ -3,8 +3,9 @@ import {
   getCurrentFps,
   getSustainedLowFpsDurationMs,
   hasSustainedLowFps,
-  holdLowFpsStreakUntil,
+  holdLowFpsStreakForWarmup,
   LOW_FPS_WARMUP_MS,
+  noteFpsMonitorVisibility,
   recordFrame,
   resetFpsMonitorForTests
 } from "./client-fps-monitor.js";
@@ -70,33 +71,46 @@ describe("client fps monitor", () => {
     expect(getSustainedLowFpsDurationMs(25, f)).toBe(0);
   });
 
-  const recordLowFps = (fromMs: number, toMs: number): number => {
+  const recordFramesAtFps = (fps: number, fromMs: number, toMs: number): number => {
     let t = fromMs;
-    for (; t < toMs; t += 1000 / 10) recordFrame(t);
+    for (; t < toMs; t += 1000 / fps) recordFrame(t);
     return t;
   };
 
-  it("ignores the catch-up frames after the page was backgrounded", () => {
-    recordFrame(0);
-    // App sent to background for a minute, then resumed into a janky burst.
-    const resumedAt = 60_000;
-    let t = recordLowFps(resumedAt, resumedAt + 10_000);
+  it("ignores the catch-up jank after returning to the foreground or a (re)INIT", () => {
+    // Regression: on a flagship phone a resume -> reconnect -> re-INIT produced
+    // ~15s of 100ms+ long tasks, which popped "3D is running slow" every time.
+    noteFpsMonitorVisibility(true, 0);
+    let t = recordFramesAtFps(10, 0, 2_000);
     getSustainedLowFpsDurationMs(25, t);
-    t = recordLowFps(t, t + 6_000);
+    t = recordFramesAtFps(10, t, 15_000);
+    expect(hasSustainedLowFps(25, 5000, t)).toBe(false);
+    holdLowFpsStreakForWarmup(t); // re-INIT after the reconnect restarts the warm-up
+    t = recordFramesAtFps(10, t, t + 15_000);
     expect(hasSustainedLowFps(25, 5000, t)).toBe(false);
     // Past the warm-up, steady low fps still counts.
-    t = recordLowFps(t, resumedAt + LOW_FPS_WARMUP_MS + 100);
+    t = recordFramesAtFps(10, t, t + LOW_FPS_WARMUP_MS);
     getSustainedLowFpsDurationMs(25, t);
-    t = recordLowFps(t, t + 6_000);
+    t = recordFramesAtFps(10, t, t + 6_000);
     expect(hasSustainedLowFps(25, 5000, t)).toBe(true);
   });
 
-  it("drops a running streak when a hold is placed", () => {
-    let t = recordLowFps(0, 2_000);
+  it("hiding the page does not start a hold, only coming back does", () => {
+    let t = recordFramesAtFps(10, 0, 1_000);
+    noteFpsMonitorVisibility(false, t);
     getSustainedLowFpsDurationMs(25, t);
-    t = recordLowFps(t, 8_000);
+    t = recordFramesAtFps(10, t, t + 6_000);
     expect(hasSustainedLowFps(25, 5000, t)).toBe(true);
-    holdLowFpsStreakUntil(t + 1_000);
-    expect(getSustainedLowFpsDurationMs(25, t)).toBe(0);
+  });
+
+  it("a mid-play stall does not suppress the prompt for a slow device", () => {
+    // Multi-second stalls (shader compiles, GC) are what a struggling device
+    // does; they must not be mistaken for a resume and start a 20s hold.
+    let t = recordFramesAtFps(12, 0, 3_000);
+    t += 1_500; // main thread frozen, no frames
+    t = recordFramesAtFps(12, t, t + 1_000);
+    getSustainedLowFpsDurationMs(25, t);
+    t = recordFramesAtFps(12, t, t + 6_000);
+    expect(hasSustainedLowFps(25, 5000, t)).toBe(true);
   });
 });
