@@ -4243,8 +4243,7 @@ describe("simulation runtime", () => {
     await Promise.resolve();
 
     expect(scheduledTasks).toHaveLength(1);
-    // The seeded player-1 has never garrisoned, so this is one of their free instant ones.
-    expect(scheduledTasks[0]?.delayMs).toBe(0);
+    expect(scheduledTasks[0]?.delayMs, "seeded player-1 has never garrisoned: a free instant one").toBe(0);
 
     scheduledTasks[0]?.task();
 
