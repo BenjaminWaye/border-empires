@@ -1,5 +1,5 @@
 export const RENDERER_PROMPT_FPS_THRESHOLD = 25;
-export const RENDERER_PROMPT_LOW_FPS_MS = 5000;
+export const RENDERER_PROMPT_LOW_FPS_MS = 8000;
 
 export type RendererPromptWakeInput = {
   dismissed: boolean;

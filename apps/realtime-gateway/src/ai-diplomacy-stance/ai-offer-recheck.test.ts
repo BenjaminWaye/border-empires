@@ -59,11 +59,11 @@ describe("recheckAiOffer", () => {
   });
 
   // The grab-and-truce exploit: ask, get a counter, attack, then accept the old price.
+  // Even an AI willing to deal after an attack wants more than its pre-attack price.
   it("withdraws the counter when the player attacked since", async () => {
-    await expect(recheck({ lastPlayerAttackAt: NOW - 5 * 60_000, lastCombatAt: NOW - 5 * 60_000 })).resolves.toEqual({
-      reason: "Alden Vale withdrew its offer. You attacked Alden Vale 5 min ago. They won't talk peace yet.",
-      withdraw: true
-    });
+    const result = await recheck({ lastPlayerAttackAt: NOW - 5 * 60_000, lastCombatAt: NOW - 5 * 60_000 });
+    expect(result).toEqual(expect.objectContaining({ withdraw: true }));
+    expect(result?.reason).toContain("those terms no longer suit it");
   });
 
   it("withdraws the counter when its price has gone up since", async () => {

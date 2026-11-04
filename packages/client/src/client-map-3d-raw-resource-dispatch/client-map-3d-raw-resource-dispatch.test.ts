@@ -25,7 +25,7 @@ const tileWith = (resource: ResourceType, type?: NonNullable<Tile["economicStruc
 
 const dispatch = (resource: ResourceType, tile: Tile | undefined): string[] => {
   const { overlays, drawn } = recordingOverlays();
-  addRawResourceInstance(overlays, resource, tile, { sceneX: 0, sceneZ: 0, surfaceY: 0, worldTileX: 4, worldTileY: 4 }, () => undefined);
+  addRawResourceInstance(overlays, resource, tile, { sceneX: 0, sceneZ: 0, surfaceY: 0, flatOverlayY: 0, worldTileX: 4, worldTileY: 4 }, () => undefined);
   return drawn;
 };
 
@@ -53,5 +53,9 @@ describe("addRawResourceInstance", () => {
   it("keeps the raw deposit under a structure that does not replace it", () => {
     expect(dispatch("TITANIUM", tileWith("TITANIUM", "UMBRITE_RIG"))).toEqual(["titaniumDeposit"]);
     expect(dispatch("UMBRITE", tileWith("UMBRITE", "MINE"))).toEqual(["umbriteDeposit"]);
+    // Buildings other than the hydroponic dome keep the farm readable; they
+    // are lifted onto the plot instead (FarmlandOverlay.standLiftAt).
+    expect(dispatch("FARM", tileWith("FARM", "HYDROWORKS"))).toEqual(["farmland"]);
+    expect(dispatch("FARM", tileWith("FARM", "MINISTRY_HALL"))).toEqual(["farmland"]);
   });
 });

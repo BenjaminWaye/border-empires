@@ -200,3 +200,5 @@ body.hud-v2-compact #side-panel .panel-btn { min-height: 40px; }
 /* body-qualified to outrank the compact top-bar gear rule. */
 body.hud-v2-compact .v2c-treasury-rows .hud-v2-gear { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 48px; margin: 6px 0 0; font-size: 18px; }
 body.hud-v2-compact .v2c-treasury-rows .hud-v2-gear::after { content: " Settings"; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }
+
+/* The map overview (full-screen minimap with lenses) is styled in client-hud-v2-map-overview.css. */

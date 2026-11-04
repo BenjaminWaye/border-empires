@@ -12,12 +12,12 @@ const tile = (overrides: Partial<Record<keyof Tile, unknown>> = {}): Tile =>
 
 describe("townNameplateFor", () => {
   it("names an own town with its population and no status when all is well", () => {
-    expect(townNameplateFor(tile(), "me", 0)).toMatchObject({ name: "Aldmoor", ownerId: "me", own: true, status: undefined, population: 20_000 });
+    expect(townNameplateFor(tile(), "me", 0)).toMatchObject({ name: "Aldmoor", ownerId: "me", own: true, status: undefined, population: 20_000, growth: "growing" });
   });
 
   it("flags an own unfed town, matching the tile-menu unfed gate", () => {
     const unfed = tile({ town: town({ isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 }) });
-    expect(townNameplateFor(unfed, "me", 0)?.status).toBe("unfed");
+    expect(townNameplateFor(unfed, "me", 0)).toMatchObject({ status: "unfed", growth: "paused" });
   });
 
   it("flags upgrade-ready and nearby-war, with war outranking upgrade", () => {
@@ -32,6 +32,22 @@ describe("townNameplateFor", () => {
     expect(townNameplateFor(rival, "me", 0)).toMatchObject({ own: false, status: undefined, population: undefined });
     expect(townNameplateFor(tile({ ownerId: undefined }), "me", 0)).toBeUndefined();
     expect(townNameplateFor(tile({ fogged: true }), "me", 0)).toBeUndefined();
+  });
+});
+
+describe("townNameplateFor growth mark", () => {
+  it("leaves a town at its cap, or with a rounded near-zero rate, unmarked", () => {
+    expect(townNameplateFor(tile({ town: town({ populationGrowthPerMinute: 0 }) }), "me", 0)?.growth).toBeUndefined();
+    expect(townNameplateFor(tile({ town: town({ populationGrowthPerMinute: 0.0004 }) }), "me", 0)?.growth).toBeUndefined();
+  });
+
+  it("marks an unfed settlement paused even though it gets no unfed bubble", () => {
+    const settlement = tile({ town: town({ populationTier: "SETTLEMENT", isFed: false, goldPerMinute: 1, populationGrowthPerMinute: 0 }) });
+    expect(townNameplateFor(settlement, "me", 0)).toMatchObject({ status: undefined, growth: "paused" });
+  });
+
+  it("never marks a rival town", () => {
+    expect(townNameplateFor(tile({ ownerId: "rival" }), "me", 0)?.growth).toBeUndefined();
   });
 });
 

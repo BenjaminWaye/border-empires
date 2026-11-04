@@ -23,3 +23,17 @@ it("replays a new truce without changing alliance membership", () => {
   ]);
   expect(result.players).toEqual([{ id: "a", truces: ["b"] }, { id: "b", truces: ["a"] }]);
 });
+
+it("replays when each truce ends, and clears it when the truce ends", () => {
+  const start = applySimulationEventsToRecoveredState({ tiles: [], activeLocks: [], players: [{ id: "a" }, { id: "b" }] }, [
+    { eventType: "PLAYER_MESSAGE", commandId: "truce", playerId: "a", messageType: "SOCIAL_STATE_SYNCED", payloadJson: JSON.stringify({ targetPlayerId: "b", truced: true, endsAt: 5_000 }) }
+  ]);
+  expect(start.players).toEqual([
+    { id: "a", truces: ["b"], truceEndsAt: { b: 5_000 } },
+    { id: "b", truces: ["a"], truceEndsAt: { a: 5_000 } }
+  ]);
+  const ended = applySimulationEventsToRecoveredState(start, [
+    { eventType: "PLAYER_MESSAGE", commandId: "end", playerId: "b", messageType: "SOCIAL_STATE_SYNCED", payloadJson: JSON.stringify({ targetPlayerId: "a", truced: false }) }
+  ]);
+  expect(ended.players).toEqual([{ id: "a", truces: [] }, { id: "b", truces: [] }]);
+});

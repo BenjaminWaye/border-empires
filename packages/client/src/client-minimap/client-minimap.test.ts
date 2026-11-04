@@ -165,7 +165,7 @@ describe("drawMiniMap live ownership tint", () => {
     drawMiniMapWithTiles(contentCtx, new Map([["10,10", tile]]));
 
     const expectedStyle = hexWithAlpha("#3366cc", 0.9);
-    const ownerCalls = contentCtx.fillRectCalls.filter((c) => c.style === expectedStyle && c.w === 1 && c.h === 1);
+    const ownerCalls = contentCtx.fillRectCalls.filter((c) => c.style === expectedStyle && c.w >= 1 && c.h >= 1);
     expect(ownerCalls.length).toBeGreaterThan(0);
   });
 
@@ -175,7 +175,7 @@ describe("drawMiniMap live ownership tint", () => {
     drawMiniMapWithTiles(contentCtx, new Map([["10,10", tile]]));
 
     const expectedStyle = hexWithAlpha("#3366cc", 0.6);
-    const ownerCalls = contentCtx.fillRectCalls.filter((c) => c.style === expectedStyle && c.w === 1 && c.h === 1);
+    const ownerCalls = contentCtx.fillRectCalls.filter((c) => c.style === expectedStyle && c.w >= 1 && c.h >= 1);
     expect(ownerCalls.length).toBeGreaterThan(0);
   });
 

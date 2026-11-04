@@ -282,6 +282,10 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   for (const [kind, count] of Object.entries(sample.simAiExpansionObjectiveTotalByKind)) {
     lines.push(`sim_ai_expansion_objective_total{kind=\"${kind}\"} ${formatMetricValue(count)}`);
   }
+  lines.push(
+    "# TYPE sim_ai_relay_beacon_site_skipped_total counter",
+    `sim_ai_relay_beacon_site_skipped_total{reason=\"spacing\"} ${formatMetricValue(sample.simAiRelayBeaconSiteSkippedTotalByReason.spacing)}`
+  );
   lines.push("# TYPE sim_ai_action_class_total counter");
   for (const cls of DECISION_CLASSES) {
     lines.push(`sim_ai_action_class_total{class=\"${cls}\"} ${formatMetricValue(sample.simAiUtilityActionClassTotalByClass[cls] ?? 0)}`);

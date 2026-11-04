@@ -29,16 +29,17 @@ export const FARMLAND_BASE_LIFT = 0.0457;
 // Height above the terrain surface of the crop beds' tops once the plot is
 // lifted by FARMLAND_BASE_LIFT (the three raised beds reach ~0.033 above the
 // model origin). Anything that stands ON a farm tile — the battle marines —
-// is raised by this so it walks on the crops instead of being swallowed by
-// the opaque plot, which otherwise hides it entirely.
+// and every building on a farm tile -- is raised by this so it stands on the
+// crops instead of being swallowed by the opaque plot.
 export const FARMLAND_STAND_LIFT = 0.079;
 
-// A FARM resource tile normally draws this conventional farm plot. When a
-// HYDROGARDEN (the hydroponic dome) is built on the tile the dome IS the farm,
-// so the old crop-field plot is dropped — otherwise the dome appears to stand
-// on a conventional farm. Other structures that can sit on a FARM tile (a
-// HYDROWORKS water tower) keep the plot. Typed with the structure-id union so
-// a future id rename is a type error here rather than a silent no-op.
+// A FARM resource tile always draws this conventional farm plot so the farm
+// stays readable, except under a HYDROGARDEN: the hydroponic dome IS the farm,
+// so the crop-field plot is dropped rather than the dome standing on it. Every
+// other building on a FARM tile (a district building such as HYDROWORKS, a
+// fort, siege battery or observatory) keeps the plot and is lifted onto it by
+// standLiftAt below -- the plot's crop beds otherwise bury the building's base.
+// Typed with the structure-id union so a rename is a type error here.
 export const structureReplacesFarmlandPlot = (structureType: ClientTileEconomicStructure["type"] | undefined): boolean =>
   structureType === "HYDROGARDEN";
 
@@ -77,6 +78,7 @@ export const createFarmlandOverlay = (scene: Scene, maxTiles: number, envMap?: T
   let plotTiles = new Set<string>();
   let mesh: InstancedMesh | undefined;
   let disposed = false;
+  let loadFailed = false;
 
   const matrix = new Matrix4();
   const quaternion = new Quaternion();
@@ -110,13 +112,16 @@ export const createFarmlandOverlay = (scene: Scene, maxTiles: number, envMap?: T
     apply();
   }, (err: unknown) => {
     // A missing asset must not take down the map; the tile just has no plot.
+    loadFailed = true; plotTiles = new Set();
     console.error("farmland model failed to load", err);
   });
 
   return {
     clear: () => { placements = []; plotTiles = new Set(); },
     addInstance: (sceneX, sceneZ, surfaceY, worldTileX, worldTileY) => {
-      plotTiles.add(`${worldTileX},${worldTileY}`);
+      // Only tiles that really get a plot lift their buildings: none past
+      // maxTiles (apply() drops those) and none if the asset failed to load.
+      if (!loadFailed && placements.length < maxTiles) plotTiles.add(`${worldTileX},${worldTileY}`);
       placements.push({ x: sceneX, y: surfaceY + FARMLAND_BASE_LIFT, z: sceneZ, yaw: farmlandYawAt(worldTileX, worldTileY) });
     },
     commit: apply,

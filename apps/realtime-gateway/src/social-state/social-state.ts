@@ -28,6 +28,7 @@ import { aiNameFromStored, diplomacyTermsAreEmpty, numberedAiNameForId, type Dip
 
 import { buildUpdatePayloads } from "./social-state-payloads.js";
 import { extendTruce, STALE_TRUCE_OFFER, truceExtensionRequestError, truceOfferIsStale } from "./social-truce-extension.js";
+import { createCombatOfferWithdrawal } from "./social-combat-offer-withdrawal.js";
 import { buildSocialSnapshot } from "./social-state-snapshot.js";
 import { createSocialAllianceBreaks } from "./social-state-alliance-breaks.js";
 import { createDiplomacyHistory, diplomacyActivityCards } from "./social-diplomacy-history.js";
@@ -492,6 +493,8 @@ export const createSocialState = (options: {
       return ok(playerIds);
     },
     diplomacyActivityCards: (playerId, from, to) => (sweepExpired(), diplomacyActivityCards(diplomacyHistory.cardsFor(playerId, from, to), completedAllianceBreaks.values(), playerId, playersById, from, to)),
+    withdrawTruceOffersOnCombat: createCombatOfferWithdrawal({ truceRequests, settlingRequestIds, sink, playersById, ok }),
+    activeTruceEndsAt: (playerAId, playerBId) => activeTruceBetween(playerAId, playerBId, trucesByPair, now())?.endsAt,
     activeTrucePairs: () => (sweepExpired(), [...trucesByPair.values()].map((truce): [string, string] => [truce.playerAId, truce.playerBId]))
   };
 };

@@ -14,6 +14,7 @@ import { resourceIconHtml } from "../client-resource-icons/client-resource-icons
 import { bottomOffsetClearingCenterButton } from "../client-onboarding-checklist/client-onboarding-corner-position.js";
 
 const ROOT_ID = "tutorial-guide-root";
+const RAISED_CLASS = "tg-raised";
 
 export type GuideCardHandlers = {
   onShowMe: () => void;
@@ -67,6 +68,16 @@ export const guideCardHtml = (view: StepView, expanded: boolean): string => {
     </button>`;
 };
 
+/**
+ * Lifts the card above an open side panel (Manpower, Manifests) or one of
+ * the new HUD's screens (it is shown on its Manifest and Diplomacy screens), so the step that sent the player there stays in view
+ * while they do it. Called every frame; a class toggle is cheap.
+ */
+export const syncGuideCardLayer = (raised: boolean): void => {
+  if (typeof document === "undefined") return;
+  document.getElementById(ROOT_ID)?.classList.toggle(RAISED_CLASS, raised);
+};
+
 /** Re-renders the card (cheap; callers only call it when the view's signature changes). */
 export const renderGuideCard = (view: StepView, expanded: boolean, handlers: GuideCardHandlers): void => {
   if (typeof document === "undefined") return;
@@ -106,6 +117,10 @@ const injectStyles = (): void => {
 const styles = `
 #${ROOT_ID} { position: fixed; left: 16px; bottom: var(--tg-bottom, 190px); z-index: 23; pointer-events: none; }
 #${ROOT_ID} .tg-card, #${ROOT_ID} .tg-launcher { pointer-events: auto; }
+/* Above the side panel (25, or 47 over a HUD v2 screen) and HUD v2 screens (44); below Settings (49) and info cards (71+). */
+#${ROOT_ID}.${RAISED_CLASS} { z-index: 48; }
+/* HUD v2 frame screens hide the corner bubble (.onb-root); the guide stays on the two its steps send the player into. */
+body.hud-v2-screen-manifest #${ROOT_ID}, body.hud-v2-screen-diplomacy #${ROOT_ID} { display: block !important; }
 #${ROOT_ID} [hidden] { display: none !important; }
 .tg-card {
   width: min(270px, calc(100vw - 32px)); padding: 10px 12px; border-radius: 12px;

@@ -25,6 +25,9 @@ export type RawResourcePlacement = {
   readonly sceneX: number;
   readonly sceneZ: number;
   readonly surfaceY: number;
+  // Follows the hill dome (and its fishing-site pad cut) instead of the
+  // hill's prop height; see client-map-3d-tile-surface-y.ts.
+  readonly flatOverlayY: number;
   readonly worldTileX: number;
   readonly worldTileY: number;
 };
@@ -47,7 +50,9 @@ export const addRawResourceInstance = (
     return;
   }
   if (resource === "FISH") {
-    overlays.fishing.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY, fishingWater());
+    // The fishing pad levels a hill under the site, so seat it on the levelled
+    // ground rather than the hill's prop height (which left a tall apron box).
+    overlays.fishing.addInstance(sceneX, sceneZ, at.flatOverlayY, worldTileX, worldTileY, fishingWater());
     return;
   }
   if (!shouldRenderRawResource(resource, tile)) return;

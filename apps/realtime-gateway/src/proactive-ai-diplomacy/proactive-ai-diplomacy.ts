@@ -3,6 +3,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared"
 import { type AiDiplomacySnapshot } from "../ai-diplomacy-stance/ai-diplomacy-stance-input.js";
 import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { ATTITUDE_RANK } from "../ai-diplomacy-stance/ai-diplomacy-opinion.js";
+import { TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "../ai-diplomacy-stance/ai-diplomacy-pricing.js";
 import type { SocialState } from "../social-state/social-state.js";
 import { extractAllianceRequestFromPayloads, extractTruceRequestFromPayloads, type SeededAiDiplomacyResponder } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 
@@ -105,7 +106,9 @@ export function createProactiveAiDiplomacy(deps: ProactiveAiDiplomacyDeps): { ti
       const alliance = !evaluation.allianceRefusal && ATTITUDE_RANK[evaluation.opinion.attitude] >= ATTITUDE_RANK.PLEASED && social.allies.length < 2 && aiLand >= targetLand && targetLand > 0 &&
         stance.kind !== "SEEKING_PEACE" && stance.kind !== "DISTRUSTFUL" &&
         haveSharedVisibleEnemy(ai.tiles, aiId, targetId, new Set([...friendly, ...targetSocial.allies, ...targetSocial.activeTruces.map(t => t.otherPlayerId)]));
-      const peace = !evaluation.truceRefusal && (stance.kind === "SEEKING_PEACE" || stance.kind === "OUTMATCHED");
+      // The AI may accept a truce right after being attacked, but it doesn't go asking the attacker for one.
+      const freshlyAttacked = context.memory.lastPlayerAttackAt !== undefined && context.now - context.memory.lastPlayerAttackAt < TRUCE_COOLDOWN_AFTER_ATTACK_MS;
+      const peace = !evaluation.truceRefusal && !freshlyAttacked && (stance.kind === "SEEKING_PEACE" || stance.kind === "OUTMATCHED");
       if (!alliance && !peace) return;
       if (peace && ai.player.domainIds?.includes("afc-chancery-4") && deps.syncForcedTruce && (social.forcedTruceCooldownUntil ?? 0) <= Date.now()) {
         const forced = deps.socialState.forceTruce(aiId, targetId);
