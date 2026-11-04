@@ -160,6 +160,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   nonHostilePlayerIds?: ReadonlySet<string>;
   /** Manpower staged inside this player's muster flags; counts toward the AI war reserve (see spendableManpowerForPlanner). */
   musterStagedManpower?: number;
+  /** When each of this player's truces runs out; one ending soon raises the war reserve (truceExpiringSoon). */
+  truceEndsAt?: readonly number[];
   /** Per-decision-class rejection cooldowns — true means the class is on cooldown. */
   decisionCooldowns?: DecisionCooldownMap;
   /** Exact rejected action keys and codes, valid only for the current world revision. */
@@ -284,6 +286,10 @@ export type AutomationPlannerDiagnostic = {
   /** Debug-only: that pick's raw newCoverage.score — see decisions.ts's
    *  scoreBuildBeacon graduated consideration and RELAY_BEACON_SITE_VALUE_FLOOR/CEILING. */
   relayBeaconSiteValue?: number;
+  /** Exploration-only beacon candidates the spacing rule turned away this
+   *  tick (relay-beacon-site-rules.ts); feeds
+   *  sim_ai_relay_beacon_site_skipped_total. Omitted when nothing was skipped. */
+  relayBeaconSiteSkips?: { spacing: number };
   // Utility AI fields — populated on every result from the main planner.
   tacticalOmittedOriginCount?: number | undefined;
   tacticalVisibleTileCount?: number | undefined;

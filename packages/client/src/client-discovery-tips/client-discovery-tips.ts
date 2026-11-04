@@ -193,3 +193,19 @@ export const dismissActiveDiscoveryTip = (queue: DiscoveryTipId[], authEmail?: s
   }
   if (mute) muteDiscoveryTips(authEmail);
 };
+
+/**
+ * Removes every queued tip in `ids` and marks it seen, as if the player had
+ * dismissed it. For tips whose subject another surface already teaches: the
+ * tutorial guide's steps cover the first town, food, muster flag and first
+ * contact, so their toasts would only repeat the guide card.
+ */
+export const retireQueuedDiscoveryTips = (queue: DiscoveryTipId[], ids: ReadonlySet<DiscoveryTipId>, authEmail?: string | null): void => {
+  for (let i = queue.length - 1; i >= 0; i -= 1) {
+    const id = queue[i]!;
+    if (!ids.has(id)) continue;
+    queue.splice(i, 1);
+    markDiscoveryTipSeen(id, authEmail);
+    discoveryTipTargets.delete(id);
+  }
+};

@@ -26,10 +26,55 @@ export const lensMenu = { open: false };
 export const mapOverview = { open: false };
 export const MAP_OVERVIEW_CLASS = "v2c-map-overview";
 
+/** The overview's canvas resolution: its on-screen size at the screen's pixel density, kept between 220 and 960 px. */
+export const overviewCanvasPx = (cssPx: number, devicePixelRatio: number): number =>
+  Math.max(MINIMAP_BASE_PX, Math.min(OVERVIEW_MAX_PX, Math.round(cssPx * Math.max(1, devicePixelRatio))));
+const MINIMAP_BASE_PX = 220;
+const OVERVIEW_MAX_PX = 960;
+
+/**
+ * The minimap canvas is 220px, fine in a corner but blurry stretched full screen. While the overview is open it
+ * renders at screen resolution (the minimap redraws on a size change, client-minimap.ts); closing puts it back.
+ */
+/**
+ * Sizes the open overview's canvas from its layout size (clientWidth: unaffected by the opening animation's scale,
+ * and without the frame's border). Exported for tests.
+ */
+export const fitOverviewCanvas = (canvas: HTMLCanvasElement, devicePixelRatio: number): void => {
+  const cssPx = Math.min(canvas.clientWidth, canvas.clientHeight);
+  if (cssPx <= 0) return;
+  const px = overviewCanvasPx(cssPx, devicePixelRatio);
+  if (canvas.width !== px) canvas.width = canvas.height = px;
+};
+
+let refitOnResize: (() => void) | undefined;
+
+const sizeMinimapCanvas = (open: boolean): void => {
+  const canvas = typeof document === "undefined" ? null : document.getElementById("mini-map");
+  if (!(canvas instanceof HTMLCanvasElement)) return;
+  if (refitOnResize) {
+    window.removeEventListener("resize", refitOnResize);
+    refitOnResize = undefined;
+  }
+  if (!open) {
+    if (canvas.width !== MINIMAP_BASE_PX) canvas.width = canvas.height = MINIMAP_BASE_PX;
+    return;
+  }
+  const fit = (): void => {
+    if (mapOverview.open) fitOverviewCanvas(canvas, window.devicePixelRatio || 1);
+  };
+  // After the overview class has laid the canvas out; again whenever the screen resizes or rotates while open.
+  requestAnimationFrame(fit);
+  refitOnResize = fit;
+  window.addEventListener("resize", fit);
+};
+
 export const setMapOverview = (open: boolean, body: HTMLElement | undefined = typeof document === "undefined" ? undefined : document.body): void => {
+  const changed = mapOverview.open !== open;
   mapOverview.open = open;
   lensMenu.open = false;
   body?.classList.toggle(MAP_OVERVIEW_CLASS, open);
+  if (changed) sizeMinimapCanvas(open);
 };
 
 const lensIcon = (src: string): string => `<img class="hud-v2-lens-icon" src="${src}" alt="" aria-hidden="true" draggable="false">`;

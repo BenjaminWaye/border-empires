@@ -1,3 +1,4 @@
+import { extendMapShoreOverlays } from "./client-map-3d-shore-overlays.js";
 import { hideLineMarkerPool } from "./line-marker-pool.js";
 import { isSeaTerrain, relicRemainingUses } from "@border-empires/shared";
 import { createRelicHintOverlay } from "../client-relic-overlay/relic-hints-3d.js";
@@ -50,7 +51,7 @@ import { type TownSupportLookupDeps } from "../client-town-support-plot-lookup.j
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
 import { createOwnershipOverlay, DEFAULT_SETTLED_EDGE_GLOW } from "../client-map-3d-ownership-overlay.js";
 import { placeOwnershipTile3D, type OwnershipTilePlacementDeps } from "../client-map-3d-ownership-tile/client-map-3d-ownership-tile.js";
-import { OWNERSHIP_RISE_ABOVE_HEIGHTFIELD, OWNERSHIP_SHORE_EDGE_OPACITY } from "../client-map-3d-ownership-shore.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
+import { OWNERSHIP_RISE_ABOVE_HEIGHTFIELD } from "../client-map-3d-ownership-shore.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js"; import { createBarbarianFrontierTintTracker, observeBarbarianFrontierTint } from "../client-map-3d-barbarian-frontier-tint.js";
 import {
   createBendingMarkerGeometry,
@@ -149,11 +150,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES, { isMountainAt: (x, y) => terrainForWorldTile(x, y) === "MOUNTAIN", isColdAt: (x, y) => { const k = heightfieldKindAt(x, y); return k === "TUNDRA" || k === "SNOW"; }, wrapX: deps.wrapX, wrapY: deps.wrapY }); // lambdas: both lookups are declared further down
   const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
   const { waterSurface, riverOverlay } = createMapWater(scene, MAX_VISIBLE_TILES, { heightfield, mountainLookup: mountainMassifs.lookup, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt,
-    // Ownership (fading toward the waterline) and fog tints carry over the beach (client-map-3d-ownership-shore.ts); water commits after them.
-    onShoreFringe: (fringe) => {
-      ownershipOverlay.extendOntoShore(fringe, OWNERSHIP_SHORE_EDGE_OPACITY);
-      fogOverlays.extendOntoShore(fringe);
-    }
+    onShoreFringe: (fringe) => extendMapShoreOverlays(fringe, ownershipOverlay, fogOverlays, reachOverlay3D)
   });
   const villageEffects = createVillageEffects(scene);
   const captureAftermathFx = createCaptureAftermathFx3D(scene, villageEffects, atmosphere.buildingEnvironmentTexture, (wx, wy) => terrainForWorldTile(wx, wy));

@@ -322,7 +322,10 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     observeSimulationEvent: (event) => {
       settlement.observe(event);
       const combat = combatFromSimulationEvent(event);
-      if (combat) memory.observeCombat(combat);
+      if (!combat) return;
+      memory.observeCombat(combat);
+      const withdrawn = socialState.withdrawTruceOffersOnCombat(combat.attackerId, combat.defenderId);
+      if (withdrawn) deps.fanoutPlayerPayloads(withdrawn.payloadsByPlayerId);
     }
   };
 };

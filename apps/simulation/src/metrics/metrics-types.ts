@@ -279,6 +279,8 @@ export type SimulationMetricsSnapshot = {
   simRallySpawnFallbackTotal: number;
   /** Counter per objective kind acted on (neutral_value / enemy / none). */
   simAiExpansionObjectiveTotalByKind: Record<string, number>;
+  /** Exploration-only relay beacon candidates rejected, per rule (ai/relay-beacon-site-rules.ts). */
+  simAiRelayBeaconSiteSkippedTotalByReason: { spacing: number };
   /** Counter per utility DecisionClass acted on. */
   simAiUtilityActionClassTotalByClass: Record<DecisionClass, number>;
   simAiUtilityDecisionRecent: string[];

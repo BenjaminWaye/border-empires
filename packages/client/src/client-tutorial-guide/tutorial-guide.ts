@@ -13,9 +13,10 @@
 // not enrolled -- every account older than the guide -- keep the checklist.
 
 import { buildGuideInput, type GuideInputState } from "./tutorial-guide-input.js";
-import { evaluateGuide, footholdBeaconShowing, type GuideView } from "./tutorial-guide-steps.js";
+import { evaluateGuide, guideBeaconSite, guideRecommendsManifest, RECOMMENDED_FIRST_MANIFEST_ID, type GuideView } from "./tutorial-guide-steps.js";
 import { isGuideActive, markGuideStepsCompleted, readGuideProgress, setGuideStatus } from "./tutorial-guide-storage.js";
-import { removeGuideCard, renderGuideCard, type GuideCardHandlers } from "./tutorial-guide-card.js";
+import { removeGuideCard, renderGuideCard, syncGuideCardLayer, type GuideCardHandlers } from "./tutorial-guide-card.js";
+import { syncGuideManifestPick } from "./tutorial-guide-manifest-pick.js";
 import { removeGuideAnchorOutline, syncGuideAnchorOutline } from "./tutorial-guide-anchor.js";
 import { resetGuideInputSignalsForTests } from "./tutorial-guide-input-signals.js";
 import { centerCameraOnDiscoveryTarget } from "../client-discovery-tips/client-discovery-tip-overlay.js";
@@ -73,9 +74,19 @@ const handlers: GuideCardHandlers = {
 export const removeTutorialGuideUi = (): void => {
   removeGuideCard();
   removeGuideAnchorOutline();
+  syncGuideManifestPick(undefined);
   lastSignature = "";
   lastView = undefined;
 };
+
+/**
+ * True while the guide card is up, expanded, on a step the player can do now:
+ * discovery tips then wait so the corner isn't crowded. A minimised card, or a
+ * guide only waiting on a first contact (which can take a whole season), lets
+ * them through. Before the first render the guide counts as holding.
+ */
+export const isTutorialGuideHoldingTips = (authEmail: string | null | undefined): boolean =>
+  isGuideActive(authEmail) && (lastView === undefined || (expanded && !lastView.waiting));
 
 /** True while this account has the guide running (enrolled and not finished or hidden). */
 export const isTutorialGuideRunning = (authEmail: string | null | undefined): boolean => isGuideActive(authEmail);
@@ -86,6 +97,9 @@ export const isTutorialGuideRunning = (authEmail: string | null | undefined): bo
  * Hide guide the corner stays empty instead of showing a different UI.
  */
 export const isEnrolledInTutorialGuide = (authEmail: string | null | undefined): boolean => readGuideProgress(authEmail).status !== "";
+
+/** A HUD v2 full-screen view is open (client-hud-v2-context.ts sets the body class). */
+const bodyHasScreenOpen = (): boolean => typeof document !== "undefined" && document.body.classList.contains("hud-v2-screen-open");
 
 const signatureOf = (view: StepView): string =>
   [view.step.id, view.title, view.why, view.lookFor?.join(",") ?? "", view.completedCount, view.waiting, view.highlightTiles.length > 0, expanded].join("|");
@@ -128,8 +142,7 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
     removeTutorialGuideUi();
     return [];
   }
-  const beaconStepShowing = !deferred && !view.waiting && footholdBeaconShowing(view.step.id, input);
-  setOnboardingRelayBeaconSite(beaconStepShowing ? input.checklist.relayBeaconSite : undefined);
+  setOnboardingRelayBeaconSite(!deferred && !view.waiting ? guideBeaconSite(view.step.id, input) : undefined);
   if (deferred) {
     if (lastView) removeTutorialGuideUi();
     return [];
@@ -142,6 +155,9 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
     renderGuideCard(view, expanded, handlers);
   }
   syncGuideAnchorOutline(expanded ? view.anchor : undefined);
+  // Not over Settings: on the new HUD its modal dim shares the raised layer.
+  syncGuideCardLayer((input.openPanel !== null && input.openPanel !== "settings") || bodyHasScreenOpen());
+  syncGuideManifestPick(!view.waiting && guideRecommendsManifest(view.step.id) ? RECOMMENDED_FIRST_MANIFEST_ID : undefined);
   return [...view.highlightTiles];
 };
 

@@ -182,12 +182,21 @@ consolidation, planning cadence), not deletion.
   outpost overlap veto only covers beacons still under construction, and a
   build finishes in about a minute; after that a site two tiles along the
   border could win again on fog cells poking past the first beacon's box
-  (staging season-40 ai-18: ~25 beacons ringing a 151-tile island). The floor
-  applies to every own beacon except one being demolished, and is capped at
-  `OUTPOST_REACH_RADIUS`: a FRONTIER site must be inside reach to be settled,
-  so the next beacon in a chain can sit at most one radius from the last.
-  Tests that need overlapping reach next to a relay use a siege battery as
-  the anchor instead. Regression coverage: `relay-beacon-spacing.test.ts`.
+  (staging season-40 ai-18: ~25 beacons ringing a 151-tile island). Rules
+  live in `relay-beacon-site-rules.ts`. The floor applies only to
+  exploration-only sites: one whose new reach holds an unowned prize
+  (resource, town, dock, wonder) is exempt, so a relay that only adds a few
+  fish tiles still gets built. It counts every own beacon except one being
+  demolished or one disabled for any reason other than FOOD relief
+  (`inactiveReason: "manual"` on a SETTLED tile — the only place the AI's
+  re-enable is accepted), and is set to `OUTPOST_REACH_RADIUS`: a FRONTIER
+  site must be inside reach to be settled, so the next beacon in a chain can
+  sit at most one radius from the last. There is deliberately no minimum on
+  how much new ground a site adds — a chain step along a 3-wide isthmus only
+  opens ~15 tiles. Skips show as
+  `sim_ai_relay_beacon_site_skipped_total{reason="spacing"}`. Tests that
+  need overlapping reach next to a relay use a siege battery as the anchor
+  instead. Regression coverage: `relay-beacon-spacing.test.ts`.
 
 - **Out-of-reach dock crossings are a planner fallback.** EXPAND is never
   runtime reach-gated (game-domain validation ignores `isInReach`); the
