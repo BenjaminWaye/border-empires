@@ -12,6 +12,7 @@ import { TOWN_SCREEN_SUPPORT_STRUCTURE_CHANGELOG } from "./client-changelog-town
 import { OWNERSHIP_HELP_CHANGELOG } from "./client-changelog-ownership-help.js";
 import { TOWN_GROWTH_PERSIST_CHANGELOG } from "./client-changelog-town-growth-persist.js";
 import { TRUCE_MINUTES_CHANGELOG } from "./client-changelog-truce-minutes.js";
+import { HILL_FISHING_FARM_BUILDINGS_CHANGELOG } from "./client-changelog-hill-fishing-farm-buildings.js";
 
 // November 2026 topic files, grouped so client-changelog-data.ts stays under
 // the 500-line limit. Add new per-topic imports here, not there.
@@ -28,5 +29,6 @@ export const NOVEMBER_CHANGELOG: ClientChangelogEntry[] = [
   ...TOWN_SCREEN_SUPPORT_STRUCTURE_CHANGELOG,
   ...OWNERSHIP_HELP_CHANGELOG,
   ...TOWN_GROWTH_PERSIST_CHANGELOG,
-  ...TRUCE_MINUTES_CHANGELOG
+  ...TRUCE_MINUTES_CHANGELOG,
+  ...HILL_FISHING_FARM_BUILDINGS_CHANGELOG
 ];
