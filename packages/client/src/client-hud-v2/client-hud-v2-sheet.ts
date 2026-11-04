@@ -52,7 +52,7 @@ export const sheetLetsMapThrough = (detent: SheetDetent): boolean => detent !== 
 import { pushBackEntry, type BackHandle } from "./client-hud-v2-back.js";
 
 type SheetHistory = Pick<History, "pushState" | "back">;
-type SheetWindow = Pick<Window, "addEventListener" | "innerHeight">;
+type SheetWindow = Pick<Window, "addEventListener" | "removeEventListener" | "innerHeight">;
 
 export type HudV2SheetOptions = {
   /** Detents this sheet may rest at (default all three). */
@@ -113,6 +113,7 @@ export const createHudV2Sheet = (host: HTMLElement, options: HudV2SheetOptions):
       openSheets -= 1;
       // Closed from the UI: drop the history entry the sheet pushed, without that pop closing another sheet.
       if (!fromBack) back?.release();
+      win.removeEventListener("resize", onResize);
       el.remove();
       options.onClose?.();
     }
@@ -127,6 +128,9 @@ export const createHudV2Sheet = (host: HTMLElement, options: HudV2SheetOptions):
   };
 
   let drag: { startY: number; startH: number; lastY: number; lastT: number; velocity: number } | undefined;
+  function onResize(): void {
+    if (!drag) apply();
+  }
   grabber.addEventListener("pointerdown", (event) => {
     if (current === "closed") return;
     const startH = detentHeight(current, win.innerHeight);
@@ -157,6 +161,8 @@ export const createHudV2Sheet = (host: HTMLElement, options: HudV2SheetOptions):
   grabber.addEventListener("pointerup", release);
   grabber.addEventListener("pointercancel", release);
 
+  // Re-measure when the viewport changes (rotation, the URL bar collapsing, split screen); not mid-drag.
+  win.addEventListener("resize", onResize);
   back = pushBackEntry(() => entry.close(true), history, win);
   openSheets += 1;
   apply();

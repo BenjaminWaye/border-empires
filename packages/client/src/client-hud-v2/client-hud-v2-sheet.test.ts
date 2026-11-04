@@ -104,3 +104,22 @@ describe("sheet element and back gesture", () => {
     sheet.close();
   });
 });
+
+describe("sheet on a changing viewport", () => {
+  // Regression: the height was measured once at open, so rotating or the URL bar collapsing left a stale height.
+  it("re-measures its detent when the window resizes, and stops listening once closed", () => {
+    const listeners = new Map<string, () => void>();
+    const win = {
+      innerHeight: 800,
+      addEventListener: (type: string, fn: () => void) => void listeners.set(type, fn),
+      removeEventListener: (type: string) => void listeners.delete(type)
+    } as unknown as Window;
+    const sheet = createHudV2Sheet(document.body, { label: "Tile", initial: "half", history: { pushState: () => {}, back: () => {} }, win });
+    expect(sheet.el.style.getPropertyValue("--v2-sheet-h")).toBe("400px");
+    (win as { innerHeight: number }).innerHeight = 600;
+    listeners.get("resize")?.();
+    expect(sheet.el.style.getPropertyValue("--v2-sheet-h")).toBe("300px");
+    sheet.close();
+    expect(listeners.has("resize")).toBe(false);
+  });
+});

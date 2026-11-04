@@ -76,7 +76,6 @@ type StartClientRuntimeLoopDeps = {
   canvas: ClientDom["canvas"];
   ctx: ClientDom["ctx"];
   initTerrainTextures: () => void;
-  isMobile: () => boolean;
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
@@ -190,8 +189,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   const requestVisibleTileDetails = createVisibleTileDetailRequester({
     state,
     keyFor: deps.keyFor,
-    requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded,
-    isMobile: deps.isMobile
+    requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded
   });
 
   const draw = (): void => {

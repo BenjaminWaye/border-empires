@@ -452,7 +452,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     canvas,
     ctx,
     initTerrainTextures,
-    isMobile,
     keyFor,
     wrapX,
     wrapY,

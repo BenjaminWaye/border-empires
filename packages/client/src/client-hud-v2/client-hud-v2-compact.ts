@@ -120,20 +120,23 @@ export const compactLayerClick = (target: Element, ctx: CompactClickContext): bo
   return false;
 };
 
-// ---- Back gesture for screens ----
+// ---- Back gesture ----
 
-let screenBack: BackHandle | undefined;
+let backEntry: BackHandle | undefined;
 
-/** One history entry while a screen is open on a phone, so back closes it like Esc does on desktop. */
-export const syncScreenBack = (screenId: string | null, compact: boolean, closeScreen: () => void): void => {
-  const want = compact && screenId !== null;
-  if (want && !screenBack) {
-    screenBack = pushBackEntry(() => {
-      screenBack = undefined;
-      closeScreen();
+/**
+ * One history entry while anything closable is open on a phone (a screen, a profile, a hosted panel, the tile
+ * panel), so back closes it like Esc does on desktop instead of leaving the game. `onBack` closes the topmost
+ * thing; if something is still open, the next frame pushes a fresh entry for it.
+ */
+export const syncBackEntry = (open: boolean, onBack: () => void): void => {
+  if (open && !backEntry) {
+    backEntry = pushBackEntry(() => {
+      backEntry = undefined;
+      onBack();
     });
-  } else if (!want && screenBack) {
-    screenBack.release();
-    screenBack = undefined;
+  } else if (!open && backEntry) {
+    backEntry.release();
+    backEntry = undefined;
   }
 };

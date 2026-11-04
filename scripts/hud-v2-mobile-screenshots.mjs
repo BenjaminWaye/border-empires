@@ -39,18 +39,27 @@ Environment:
 
 const parseArgs = (argv) => {
   const options = { ...DEFAULTS };
+  const pick = (arg, value, known) => {
+    const picked = value.split(",").filter(Boolean);
+    const unknown = picked.filter((name) => !known.includes(name));
+    if (unknown.length > 0 || picked.length === 0) throw new Error(`${arg}: unknown ${unknown.join(", ") || "(empty)"}; choose from ${known.join(", ")}`);
+    return picked;
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     const value = argv[index + 1];
+    if (arg !== "--help" && arg !== "-h" && (value === undefined || value.startsWith("--"))) throw new Error(`${arg} needs a value`);
     if (arg === "--help" || arg === "-h") {
       usage();
       process.exit(0);
     } else if (arg === "--url") options.url = value;
     else if (arg === "--player") options.player = value;
     else if (arg === "--out") options.out = value;
-    else if (arg === "--modes") options.modes = value.split(",").filter((mode) => mode in MODES);
-    else if (arg === "--timeout-ms") options.timeoutMs = Number(value);
-    else if (arg === "--viewports") options.viewports = value.split(",");
+    else if (arg === "--modes") options.modes = pick(arg, value, Object.keys(MODES));
+    else if (arg === "--timeout-ms") {
+      options.timeoutMs = Number(value);
+      if (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0) throw new Error(`--timeout-ms needs a positive number, got ${value}`);
+    } else if (arg === "--viewports") options.viewports = pick(arg, value, VIEWPORTS.map((v) => v.name));
     else throw new Error(`Unknown option ${arg}`);
     index += 1;
   }

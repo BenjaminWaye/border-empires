@@ -15,7 +15,6 @@ type VisibleTileDetailRequesterDeps = {
   state: Pick<ClientState, "me">;
   keyFor: (x: number, y: number) => string;
   requestTileDetailIfNeeded: (tile: Tile | undefined) => void;
-  isMobile: () => boolean;
   now?: () => number;
   minIntervalMs?: number;
 };

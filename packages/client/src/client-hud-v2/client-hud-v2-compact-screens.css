@@ -141,6 +141,8 @@ body.hud-v2-compact .v2b-panel-actions .v2s-btn:last-child { width: auto; flex: 
     left: auto; width: var(--v2c-side-w); top: var(--v2c-top); bottom: 0; height: auto; max-height: none; border-width: 1px 0 0 1px; border-radius: 14px 0 0 0;
   }
   body.hud-v2-compact .hud-v2-sheet { height: auto !important; }
+  /* Docked to the side at full height: no detents to drag between, so no grabber (a drag could only close it unseen). */
+  body.hud-v2-compact .hud-v2-sheet-grabber { display: none; }
   body.hud-v2-compact .v2c-drawer { bottom: var(--v2c-bottom); }
   body.hud-v2-compact .v2t-left { right: auto; width: 42vw; bottom: calc(var(--v2c-safe-bottom) + var(--v2c-town-bar, 118px)); max-height: none; }
   body.hud-v2-compact .v2t-right { left: auto; width: 56vw; top: var(--v2c-top); }

@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { backStackDepth, pushBackEntry } from "./client-hud-v2-back.js";
 import { COMPACT_MIN_BOTTOM_COVER, compactFocusRowOffset } from "./client-hud-v2-compact-camera.js";
-import { compactLayerClick, compactTracker, compactTrackerHtml, syncScreenBack, trackerSummaryHtml, treasuryOpen } from "./client-hud-v2-compact.js";
+import { compactLayerClick, compactTracker, compactTrackerHtml, syncBackEntry, trackerSummaryHtml, treasuryOpen } from "./client-hud-v2-compact.js";
 import type { TrackerInput } from "./client-hud-v2-tracker.js";
 
 const tracker = (over: Partial<TrackerInput> = {}): TrackerInput => ({
@@ -89,15 +89,22 @@ describe("back gesture", () => {
     expect(backStackDepth()).toBe(depth);
   });
 
-  it("an open screen on a phone closes on back, and closing it from the UI drops its entry", () => {
+  // Regression: only screens pushed an entry, so back from Economy or the tile panel left the game page.
+  it("keeps one entry while anything is open on a phone; back closes it, and closing from the UI drops it", () => {
     const close = vi.fn();
-    syncScreenBack("ranks", true, close);
+    const depth = backStackDepth();
+    syncBackEntry(true, close);
+    syncBackEntry(true, close);
+    expect(backStackDepth()).toBe(depth + 1);
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(close).toHaveBeenCalledTimes(1);
-    // Desktop never pushes an entry.
-    const depth = backStackDepth();
-    syncScreenBack("ranks", false, close);
+    // Something still open after that back: the next frame pushes a fresh entry.
+    syncBackEntry(true, close);
+    expect(backStackDepth()).toBe(depth + 1);
+    // Closed from the UI (or not on a phone): the entry goes.
+    syncBackEntry(false, close);
     expect(backStackDepth()).toBe(depth);
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });
 

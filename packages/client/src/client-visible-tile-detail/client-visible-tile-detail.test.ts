@@ -19,7 +19,6 @@ describe("createVisibleTileDetailRequester", () => {
       state: { me: "me" },
       keyFor: (x, y) => `${x},${y}`,
       requestTileDetailIfNeeded,
-      isMobile: () => false,
       now: () => 1_000
     });
 
@@ -44,7 +43,6 @@ describe("createVisibleTileDetailRequester", () => {
       state: { me: "me" },
       keyFor: (x, y) => `${x},${y}`,
       requestTileDetailIfNeeded,
-      isMobile: () => false,
       now: () => 1_000
     });
 
@@ -71,7 +69,6 @@ describe("createVisibleTileDetailRequester", () => {
       state: { me: "me" },
       keyFor: (x, y) => `${x},${y}`,
       requestTileDetailIfNeeded,
-      isMobile: () => false,
       now: () => nowMs,
       minIntervalMs: 160
     });
@@ -97,7 +94,6 @@ describe("createVisibleTileDetailRequester", () => {
       state: { me: "me" },
       keyFor: (x, y) => `${x},${y}`,
       requestTileDetailIfNeeded,
-      isMobile: () => false,
       now: () => 1_000
     });
 

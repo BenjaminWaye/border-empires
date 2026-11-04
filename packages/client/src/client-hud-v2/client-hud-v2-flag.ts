@@ -59,9 +59,6 @@ export const currentHudV2Layout = (narrow: () => boolean = isPhoneViewport): Hud
 /** True when the new HUD should drive this frame, in either layout. */
 export const isHudV2Active = (): boolean => currentHudV2Layout() !== "off";
 
-/** True when the compact (phone) layout drives this frame. */
-export const isHudV2Compact = (): boolean => currentHudV2Layout() === "compact";
-
 let drivingFrame = false;
 
 /** Set by the new HUD's frame each tick: whether it is the HUD on screen right now (flag on, desktop width). */
