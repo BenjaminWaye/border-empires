@@ -31,7 +31,9 @@ export const parseKey = (k: TileKey): [number, number] => {
 };
 export const BARBARIAN_OWNER_ID = "barbarian";
 export const now = (): number => Date.now();
-export const TRUCE_REQUEST_TTL_MS = 5 * 60_000;
+// Truce offers wait for offline players: fighting between the pair withdraws
+// them (social-combat-offer-withdrawal.ts). This is only a cleanup backstop.
+export const TRUCE_REQUEST_TTL_MS = 7 * 24 * 60 * 60_000;
 export const TRUCE_BREAK_LOCKOUT_MS = 24 * 60 * 60_000;
 export const PASSIVE_INCOME_MULT = 1.0;
 export const GOLD_COST_EPSILON = 1e-6;

@@ -110,6 +110,9 @@ export type DomainPlayer = {
   // grants no shared vision. Optional so existing DomainPlayer/RuntimePlayer
   // fixtures across tests don't all need updating.
   truces?: Set<string>;
+  // When each truce ends (partner id -> ms), when the gateway sent it. AI
+  // planners bank manpower ahead of an expiry (truceExpiringSoon in apps/simulation/src/ai/automation-command-planner-war-reserve.ts).
+  truceEndsAt?: Map<string, number>;
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   strategicProductionPerMinute?: Partial<Record<DomainStrategicResourceKey, number>>;
   // Persistent sub-choice for domains that ask the player to pick a resource

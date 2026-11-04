@@ -2,7 +2,7 @@ import type { RecoveredPlayerState } from "./event-recovery-player-state.js";
 
 /** Apply the durable social sync event to a checkpoint's two-sided relationship. */
 export const applyRecoveredDiplomacy = (players: RecoveredPlayerState[], playerId: string, payloadJson: string): void => {
-  let payload: { targetPlayerId?: unknown; truced?: unknown; allied?: unknown };
+  let payload: { targetPlayerId?: unknown; truced?: unknown; allied?: unknown; endsAt?: unknown };
   try { payload = JSON.parse(payloadJson); } catch { return; }
   if (!payload || typeof payload.targetPlayerId !== "string" || payload.targetPlayerId === playerId) return;
   const actor = players.find(player => player.id === playerId);
@@ -16,5 +16,14 @@ export const applyRecoveredDiplomacy = (players: RecoveredPlayerState[], playerI
       else members.delete(partner.id);
       player[key] = [...members].sort();
     }
+  }
+  if (typeof payload.truced !== "boolean") return;
+  const endsAt = payload.truced && typeof payload.endsAt === "number" && Number.isFinite(payload.endsAt) ? payload.endsAt : undefined;
+  for (const [player, partner] of [[actor, target], [target, actor]] as const) {
+    const ends = { ...player.truceEndsAt };
+    if (endsAt === undefined) delete ends[partner.id];
+    else ends[partner.id] = endsAt;
+    if (Object.keys(ends).length > 0) player.truceEndsAt = ends;
+    else delete player.truceEndsAt;
   }
 };

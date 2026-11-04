@@ -104,5 +104,8 @@ describe("diplomacy offer dock", () => {
     expect(formatOfferCountdown(300_000)).toBe("5:00");
     expect(formatOfferCountdown(61_001)).toBe("1:02");
     expect(formatOfferCountdown(1)).toBe("0:01");
+    // Offers now wait up to a week for an offline player.
+    expect(formatOfferCountdown(7 * 86_400_000)).toBe("7d 0h");
+    expect(formatOfferCountdown(3_600_000 + 5 * 60_000)).toBe("1h 05m");
   });
 });

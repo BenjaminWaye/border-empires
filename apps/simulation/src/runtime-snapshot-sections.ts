@@ -113,6 +113,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           strategicResources: { ...(player.strategicResources ?? {}) },
           allies: [...player.allies].sort(),
           truces: [...(player.truces ?? [])].sort(),
+          ...(player.truceEndsAt?.size ? { truceEndsAt: Object.fromEntries(player.truceEndsAt) } : {}),
           vision: player.mods?.vision ?? 1,
           visionRadiusBonus: visionRadiusBonusForPlayer(player),
           incomeMultiplier: player.mods?.income ?? 1,

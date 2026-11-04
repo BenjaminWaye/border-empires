@@ -7,6 +7,32 @@ import { AI_BUILD_MANPOWER_FLOOR } from "../ai-build-manpower-floor.js";
 import type { AutomationPlannerInput, AutomationPlannerTile } from "./automation-command-planner-types.js";
 
 /**
+ * Truce-expiry muster: within this long of a truce running out the AI banks
+ * manpower instead of spending it on EXPAND/SETTLE/builds, so the partner
+ * can't log in at expiry and walk over an empty border. ATTACK stays exempt,
+ * so fronts with other rivals are unaffected.
+ */
+export const TRUCE_EXPIRY_PREP_MS = 90 * 60_000;
+/** Share of manpower cap the AI holds (pool + muster flags) while a truce is about to run out. */
+export const TRUCE_EXPIRY_RESERVE_CAP_FRACTION = 0.6;
+
+type ReserveInput = Pick<
+  AutomationPlannerInput<AutomationPlannerTile>,
+  "sessionPrefix" | "manpowerCapacity" | "manpower" | "musterStagedManpower" | "truceEndsAt"
+> & { issuedAt?: number };
+
+/**
+ * True while any truce is due to end within TRUCE_EXPIRY_PREP_MS. Each end time
+ * is checked on its own: one already past (a late or failed expiry sync) must
+ * not hide another that is about to end.
+ */
+export const truceExpiringSoon = (input: Pick<ReserveInput, "truceEndsAt" | "issuedAt">): boolean => {
+  const issuedAt = input.issuedAt;
+  if (issuedAt === undefined) return false;
+  return (input.truceEndsAt ?? []).some((endsAt) => endsAt > issuedAt && endsAt - issuedAt <= TRUCE_EXPIRY_PREP_MS);
+};
+
+/**
  * War reserve (docs/ai-war-peace-balance-plan.md): a floor on spendable
  * manpower an AI player must keep in reserve for attacking — EXPAND, SETTLE,
  * and structure builds may not spend below it, but ATTACK is exempt (the
@@ -30,16 +56,18 @@ import type { AutomationPlannerInput, AutomationPlannerTile } from "./automation
  * barbarian pressure. Falls back to 0 reservation when manpowerCapacity
  * isn't supplied (e.g. a direct unit-test call), matching the pattern of
  * every other optional AutomationPlannerInput field.
+ *
+ * While a truce is about to expire the reserve rises to
+ * TRUCE_EXPIRY_RESERVE_CAP_FRACTION of cap (see truceExpiringSoon).
  */
-export const spendableManpowerForPlanner = (
-  input: Pick<
-    AutomationPlannerInput<AutomationPlannerTile>,
-    "sessionPrefix" | "manpowerCapacity" | "manpower" | "musterStagedManpower"
-  >
-): number => {
+export const spendableManpowerForPlanner = (input: ReserveInput): number => {
+  const warReserve =
+    typeof input.manpowerCapacity === "number"
+      ? Math.max(aiWarReserveManpower(input.manpowerCapacity), truceExpiringSoon(input) ? input.manpowerCapacity * TRUCE_EXPIRY_RESERVE_CAP_FRACTION : 0)
+      : 0;
   const reserve =
     input.sessionPrefix === "ai-runtime" && typeof input.manpowerCapacity === "number"
-      ? Math.max(0, aiWarReserveManpower(input.manpowerCapacity) - (input.musterStagedManpower ?? 0))
+      ? Math.max(0, warReserve - (input.musterStagedManpower ?? 0))
       : 0;
   return Math.max(0, input.manpower - reserve);
 };
@@ -51,12 +79,7 @@ export const spendableManpowerForPlanner = (
  * pool for builds (see ai-build-manpower-floor.ts); without this carve-out a
  * flag that never holds the full reserve would leave the floor unspendable.
  */
-export const spendableBuildManpowerForPlanner = (
-  input: Pick<
-    AutomationPlannerInput<AutomationPlannerTile>,
-    "sessionPrefix" | "manpowerCapacity" | "manpower" | "musterStagedManpower"
-  >
-): number => {
+export const spendableBuildManpowerForPlanner = (input: ReserveInput): number => {
   const spendable = spendableManpowerForPlanner(input);
   if (input.sessionPrefix !== "ai-runtime" || typeof input.manpowerCapacity !== "number") return spendable;
   return Math.max(spendable, Math.min(Math.max(0, input.manpower), AI_BUILD_MANPOWER_FLOOR));

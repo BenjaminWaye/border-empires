@@ -2,6 +2,14 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainPlayer } from "@border-empires/game-domain";
 import { parseTruceSyncPayload } from "./runtime-command-parsers.js";
 
+/** Records (or clears) when a player's truce with partnerId ends; drops the map once empty. */
+export const setTruceEndsAt = (player: Pick<DomainPlayer, "truceEndsAt">, partnerId: string, endsAt: number | undefined): void => {
+  if (endsAt === undefined) {
+    player.truceEndsAt?.delete(partnerId);
+    if (player.truceEndsAt?.size === 0) delete player.truceEndsAt;
+  } else (player.truceEndsAt ??= new Map<string, number>()).set(partnerId, endsAt);
+};
+
 export type RuntimeTruceSyncCommandContext = {
   players: Map<string, DomainPlayer>;
   emitEvent: (event: SimulationEvent) => void;
@@ -39,11 +47,14 @@ export function handleSyncTruceCommand(context: RuntimeTruceSyncCommandContext, 
     actor.truces?.delete(target.id);
     target.truces?.delete(actor.id);
   }
+  setTruceEndsAt(actor, target.id, payload.truced ? payload.endsAt : undefined);
+  setTruceEndsAt(target, actor.id, payload.truced ? payload.endsAt : undefined);
 
   if (changed) for (const player of [actor, target]) if (!player.isAi) context.emitEconomyUpdate?.(command, player.id);
   context.emitPlayerMessage(
     { commandId: command.commandId, playerId: actor.id },
-    { type: "SOCIAL_STATE_SYNCED", playerId: actor.id, targetPlayerId: target.id, truced: payload.truced }
+    // endsAt rides along so event recovery (event-recovery-diplomacy.ts) restores it after a restart.
+    { type: "SOCIAL_STATE_SYNCED", playerId: actor.id, targetPlayerId: target.id, truced: payload.truced, ...(payload.truced && payload.endsAt !== undefined ? { endsAt: payload.endsAt } : {}) }
   );
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
