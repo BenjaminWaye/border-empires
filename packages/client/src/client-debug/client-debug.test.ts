@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   debugAuthIdentityKeyForEmail,
@@ -83,6 +83,8 @@ describe("client debug tile controls", () => {
 });
 
 describe("per-account storage scope", () => {
+  afterEach(() => setGuestIdentityUid(""));
+
   it("gives each guest its own scope instead of one shared anonymous key", () => {
     // Regression: every guest on a browser shared "anonymous", so a new guest
     // inherited an earlier guest's checklist completion and skipped "A foothold".

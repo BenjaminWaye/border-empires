@@ -9,8 +9,8 @@ export const TUTORIAL_GUIDE_TOWN_FIRST_CHANGELOG: ClientChangelogEntry[] = [
     changes: [
       "Each guest account now keeps its own hints, guide progress and checklist instead of sharing them with other guests on the same browser",
       "\"A foothold\" now checks the land you actually hold, so it is no longer skipped on accounts that finished the old checklist in an earlier season or before restarting the guide",
-      "The Relay Beacon step asks you to Garrison or Expand To a town you can take first, since a town pushes your reach out by itself, and only then asks for a beacon",
-      "Recommended Relay Beacon tiles are never a town or a dock"
+      "If you don't hold a town yet, the Relay Beacon step asks you to Garrison or Expand To one first, since a town pushes your reach out by itself; once you hold one it asks for the beacon",
+      "The guide no longer recommends building a Relay Beacon on a town or dock you haven't garrisoned yet"
     ]
   }
 ];

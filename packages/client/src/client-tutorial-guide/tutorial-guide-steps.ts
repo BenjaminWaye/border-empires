@@ -124,11 +124,12 @@ const townAction = (input: GuideInput): GuideTargetAction => guideTargetAction(i
 const foodAction = (input: GuideInput): GuideTargetAction => guideTargetAction(input.footholdTargets.food);
 
 /**
- * A town the player can take (Garrison, Expand To, or a claim underway) comes
- * before a Relay Beacon: it extends reach by itself, so the Relay Beacon step
- * points at the town first and only asks for a beacon once none is in sight.
+ * Before the player owns a town (the foothold's town step was skipped), a town
+ * they can take comes before a Relay Beacon: it extends reach by itself, so the
+ * Relay Beacon step points at that town first. Once any town is held the step
+ * asks for the beacon, so towns coming into view can't keep deferring it.
  */
-const townBeforeBeacon = (input: GuideInput): boolean => townAction(input) !== "beacon";
+const townBeforeBeacon = (input: GuideInput): boolean => !input.checklist.townExpanded && townAction(input) !== "beacon";
 
 const targetHighlights =
   (kind: "town" | "food") =>

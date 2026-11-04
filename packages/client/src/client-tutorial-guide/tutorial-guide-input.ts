@@ -10,7 +10,8 @@ import type { Tile } from "../client-types.js";
 import { onboardingChecklistState, type OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
 import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
 import { guideInputSignals } from "./tutorial-guide-input-signals.js";
-import { RECOMMENDED_FIRST_MANIFEST_ID, type GuideInput } from "./tutorial-guide-steps.js";
+import { GUIDE_STEPS, RECOMMENDED_FIRST_MANIFEST_ID, type GuideInput } from "./tutorial-guide-steps.js";
+import { readGuideProgress } from "./tutorial-guide-storage.js";
 import { findHomeAfcTile } from "../client-afc-locate/client-afc-locate.js";
 import { isMeetablePlayerId } from "../client-alliance/client-met-players.js";
 import { townIdentityForTile } from "../client-town-identity.js";
@@ -121,6 +122,7 @@ let cached:
       revision: number;
       chunks: number;
       me: string;
+      footholdSaved: boolean;
       checklist: OnboardingChecklistState;
       scan: TileScan;
       footholdTargets: GuideFootholdTargets;
@@ -161,14 +163,31 @@ const afcTileOf = (state: GuideInputState): { x: number; y: number } | undefined
   return afc ? { x: afc.x, y: afc.y } : state.homeTile;
 };
 
+const FOOTHOLD_STEP_IDS = GUIDE_STEPS.filter((step) => step.chapter === "foothold").map((step) => step.id);
+
+/** Every "A foothold" step is in the guide's own saved progress (done, or skipped). */
+const footholdStepsSaved = (authEmail: string | null | undefined): boolean => {
+  const saved = new Set(readGuideProgress(authEmail).steps);
+  return FOOTHOLD_STEP_IDS.every((id) => saved.has(id));
+};
+
 export const buildGuideInput = (state: GuideInputState): GuideInput => {
-  if (!cached || cached.revision !== state.tilesRevision || cached.chunks !== state.chunkFullCount || cached.me !== state.me) {
+  const footholdSaved = footholdStepsSaved(state.authEmail);
+  if (
+    !cached ||
+    cached.revision !== state.tilesRevision ||
+    cached.chunks !== state.chunkFullCount ||
+    cached.me !== state.me ||
+    cached.footholdSaved !== footholdSaved
+  ) {
     cached = {
       revision: state.tilesRevision,
       chunks: state.chunkFullCount,
       me: state.me,
-      // Judged from the live tiles, not the checklist's saved completion flag.
-      checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail, { ignoreSavedCompletion: true }),
+      footholdSaved,
+      // Judged from the live tiles, not the checklist's account-wide saved flag, until the guide's
+      // own foothold steps are saved; then a constant DONE, so later chapters skip the reach scan.
+      checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail, { completed: footholdSaved }),
       scan: scanGuideTiles(state.tiles, state.me, state.homeTile),
       footholdTargets: scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile)),
       musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId),

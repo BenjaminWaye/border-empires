@@ -120,11 +120,12 @@ export const onboardingChecklistState = (
   tiles: ReadonlyMap<string, Tile>,
   playerId: string,
   authEmail?: string | null,
-  options: { ignoreSavedCompletion?: boolean } = {}
+  options: { completed?: boolean } = {}
 ): OnboardingChecklistState => {
-  // The tutorial guide passes ignoreSavedCompletion: the saved flag is account-wide and never
-  // resets (not per season, not on Restart guide), so it must not tick the guide's foothold steps.
-  if (!options.ignoreSavedCompletion && isOnboardingChecklistCompleted(authEmail)) {
+  // `completed` overrides the saved flag. The tutorial guide passes its own foothold progress: the
+  // flag is account-wide and never resets (not per season, not on Restart guide), so it must not tick
+  // the guide's foothold steps, while a finished foothold still skips the tile and reach scan below.
+  if (options.completed ?? isOnboardingChecklistCompleted(authEmail)) {
     return {
       step: "DONE",
       townFound: true,
