@@ -1,7 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, terrainAt } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { toroidDelta } from "../client-map-3d-pointer-pick.js";
-import { APPROACH_MS, clamp01, clampLocal, marineKitFor, stopOffsetFor, type MarinePose } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
+import { clamp01, clampLocal, marineKitFor, stopOffsetFor, type MarinePose } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
 
 export type LandingPoint = { x: number; z: number };
 /** Route and positions are relative to the destination tile's centre. */
@@ -10,9 +10,23 @@ export type DockLanding = {
   inwardX: number;
   inwardZ: number;
   route: readonly LandingPoint[];
+  /** Voyage time; scales with route length so far crossings read as a long sail. */
+  sailMs: number;
+  /** When the marines reach the firing line: sail + ramp + unloading. */
+  approachMs: number;
 };
-export const SAIL_MS = 1300;
+/** Shortest voyage, for a dock pair that is close together. */
+export const SAIL_MS = 3000;
+const MAX_SAIL_MS = 8000;
+const SAIL_MS_PER_TILE = 100;
 export const RAMP_MS = 500;
+// Ramp-down plus the walk ashore keeps its original length however far the ship sailed.
+export const UNLOAD_MS = 1600;
+export const sailMsForRoute = (route: readonly LandingPoint[]): number => {
+  let tiles = 0;
+  for (let i = 1; i < route.length; i++) tiles += Math.hypot(route[i]!.x - route[i - 1]!.x, route[i]!.z - route[i - 1]!.z);
+  return Math.min(MAX_SAIL_MS, Math.max(SAIL_MS, Math.round(SAIL_MS + tiles * SAIL_MS_PER_TILE)));
+};
 const BERTH_DISTANCE = 0.72;
 
 /** Require a real linked-dock crossing; attacking a dock over land is ordinary combat. */
@@ -66,11 +80,12 @@ export function dockLandingFor(
   points.reverse();
   if (points.length === 0) points.push({ x: sx, z: sz });
   points.push(berth);
-  return { startAt, inwardX, inwardZ, route: points };
+  const sailMs = sailMsForRoute(points);
+  return { startAt, inwardX, inwardZ, route: points, sailMs, approachMs: sailMs + RAMP_MS + UNLOAD_MS };
 }
 
 export function landingCarrierPose(landing: DockLanding, nowMs: number): LandingPoint & { yaw: number; rampOpen: number } {
-  const t = clamp01((nowMs - landing.startAt) / SAIL_MS);
+  const t = clamp01((nowMs - landing.startAt) / landing.sailMs);
   const route = landing.route;
   const lengths = route.slice(1).map((p, i) => Math.hypot(p.x - route[i]!.x, p.z - route[i]!.z));
   let remaining = lengths.reduce((sum, length) => sum + length, 0) * t;
@@ -84,16 +99,16 @@ export function landingCarrierPose(landing: DockLanding, nowMs: number): Landing
   }
   return { x: a.x + (b.x - a.x) * mix, z: a.z + (b.z - a.z) * mix,
     yaw: t >= 1 ? Math.atan2(landing.inwardX, landing.inwardZ) : Math.atan2(b.x - a.x, b.z - a.z),
-    rampOpen: clamp01((nowMs - landing.startAt - SAIL_MS) / RAMP_MS) };
+    rampOpen: clamp01((nowMs - landing.startAt - landing.sailMs) / RAMP_MS) };
 }
 
 /** Walk from the cargo bay in two files, fan out, then join the existing firing line. */
 export function landingMarinePose(base: MarinePose, landing: DockLanding | undefined, index: number, nowMs: number, hashSeed = 0): MarinePose {
   if (!landing) return base;
   const elapsed = nowMs - landing.startAt;
-  if (elapsed >= APPROACH_MS) return base;
-  const departAt = SAIL_MS + RAMP_MS + Math.floor(index / 2) * 180;
-  const t = clamp01((elapsed - departAt) / (APPROACH_MS - departAt));
+  if (elapsed >= landing.approachMs) return base;
+  const departAt = landing.sailMs + RAMP_MS + Math.floor(index / 2) * 180;
+  const t = clamp01((elapsed - departAt) / (landing.approachMs - departAt));
   const lane = (index % 2 === 0 ? -1 : 1) * 0.055;
   const berth = landing.route[landing.route.length - 1]!;
   const fromX = berth.x + landing.inwardX * 0.19 - landing.inwardZ * lane;

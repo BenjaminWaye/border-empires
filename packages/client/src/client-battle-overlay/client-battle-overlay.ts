@@ -176,7 +176,7 @@ export const registerActiveBattleFromTileDelta = (
   // A late observer can still be unloading when the outcome arrives. Finish
   // that existing landing before showing shots/casualties, without delaying
   // authoritative gameplay or replaying the approach for ordinary battles.
-  const clashAt = Math.max(nowMs, landing ? landing.startAt + APPROACH_MS : nowMs);
+  const clashAt = Math.max(nowMs, landing ? landing.startAt + landing.approachMs : nowMs);
   const startAt = clashAt - APPROACH_MS;
   state.activeBattles.set(key, {
     originX: parsed.originX,
