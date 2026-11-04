@@ -443,6 +443,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "\"You give\" and \"You ask\" now show Coin and Shards as tiles. Press one to open a slider that runs from 0 to what that side holds, with a box beside it for typing an exact amount.",
       "When asking an AI for coin or Shards, the slider stops at what it can actually pay."
     ]
+  },
+  {
+    createdAt: 1793134506397, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.5",
+    title: "Press your badge again to close your profile",
+    why: "With your profile open, pressing your badge in the top bar opened it again instead of closing it.",
+    changes: [
+      "Pressing a player's name or badge while that player's profile is open now closes the profile."
+    ]
   }
 ];
 

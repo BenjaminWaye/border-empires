@@ -220,7 +220,8 @@ export const wirePlayerProfileOverlay = (
     el.onclick = () => {
       const playerId = el.dataset.playerNameId;
       if (!playerId) return;
-      state.activePlayerProfileId = playerId;
+      // Pressing the same name/badge again closes the profile.
+      state.activePlayerProfileId = state.activePlayerProfileId === playerId ? undefined : playerId;
       rerender();
     };
   });
