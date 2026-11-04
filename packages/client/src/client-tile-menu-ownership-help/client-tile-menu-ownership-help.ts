@@ -8,13 +8,13 @@ const HELP: Array<{ kind: OwnershipHelpKind; name: string; text: string }> = [
 
 /**
  * Tile-menu subtitle whose ownership label ("Your frontier", "Unclaimed", ...)
- * expands in place to explain the three ownership states, so the overview body
- * doesn't have to repeat that boilerplate on every tile. Native <details>:
- * click/keyboard toggling with no JS wiring.
+ * expands in place to explain that tile's own ownership state only (listing all
+ * three put "Unclaimed" first, so tapping "Your frontier" read as being about
+ * unclaimed land). Native <details>: click/keyboard toggling with no JS wiring.
  */
 export const ownershipHelpSubtitleHtml = (kind: OwnershipHelpKind, ownerLabel: string, regionLabel?: string): string =>
   `<details class="tile-ownership-help"><summary>${ownerLabel}</summary>` +
-  `<div class="tile-ownership-help-body">${HELP.map((h) => `<p${h.kind === kind ? ' class="is-current"' : ""}><strong>${h.name}.</strong> ${h.text}</p>`).join("")}</div></details>` +
+  `<div class="tile-ownership-help-body">${HELP.filter((h) => h.kind === kind).map((h) => `<p class="is-current"><strong>${h.name}.</strong> ${h.text}</p>`).join("")}</div></details>` +
   (regionLabel ? ` · ${regionLabel}` : "");
 
 /**
