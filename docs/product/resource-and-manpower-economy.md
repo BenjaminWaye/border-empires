@@ -222,8 +222,10 @@ real tier, population, Coin and growth. Ancillary Depot capacity bonuses scale
 with the tier the town is working as. Slots go to towns in the order they were
 acquired, oldest first (`Runtime.tileSettledAtByKey`, which resets on capture),
 so a new conquest never takes biota from towns already held. The manpower
-breakdown shows the loss as "Short of biota (N towns)" and lists each large
-town's supply (`ManpowerBreakdown.biotaTowns`).
+breakdown shows the loss as "Unruly towns, short of biota (N)" and lists each large
+town's supply (`ManpowerBreakdown.biotaTowns`). A town short of biota is unruly:
+its nameplate shows the biota icon struck through (the DOM plate layer drawn over
+both the 2D and 3D maps), ranked just below unfed.
 
 **Precursor salvage (finite).** Each salvage tile holds 3 loads, recorded on
 its Reclamation Works (`salvageLoadsShipped`). While a Works stands, it gives

@@ -199,7 +199,7 @@ export const playerManpowerBreakdownFromSummary = (
   // "Base minimum" fallback, it's listed unconditionally alongside any town
   // lines rather than only appearing when there are no towns.
   if (shortfall.count > 0) {
-    const label = `Short of biota (${shortfall.count} ${shortfall.count === 1 ? "town" : "towns"})`;
+    const label = `Unruly ${shortfall.count === 1 ? "town" : "towns"}, short of biota (${shortfall.count})`;
     capLinesWithNeuralWorksNetwork.push({ label, amount: -shortfall.cap });
     regenLines.push({ label, amount: -shortfall.regen });
   }

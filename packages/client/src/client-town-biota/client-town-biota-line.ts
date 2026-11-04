@@ -22,5 +22,5 @@ export function townBiotaLineHtml(
   const full = terrainAdjustedTownManpower(tier, terrain.terrainProfile, terrain.coastal);
   const reduced = terrainAdjustedTownManpower(status.manpowerTier, terrain.terrainProfile, terrain.coastal);
   const perRefill = Math.round((full.regenPerMinute - reduced.regenPerMinute) * MANPOWER_REFILL_WINDOW_MS / 60_000);
-  return escapeHtml(`${head} · working as a ${displayTownPopulationTierLabel(status.manpowerTier)} · −${Math.round(full.cap - reduced.cap).toLocaleString()} manpower cap, −${perRefill} per refill`);
+  return escapeHtml(`Unruly · ${head} · working as a ${displayTownPopulationTierLabel(status.manpowerTier)} · −${Math.round(full.cap - reduced.cap).toLocaleString()} manpower cap, −${perRefill} per refill`);
 }

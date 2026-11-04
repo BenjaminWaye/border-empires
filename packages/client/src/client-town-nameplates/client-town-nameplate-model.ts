@@ -2,7 +2,7 @@ import { townIdentityForTile } from "../client-town-identity.js";
 import { shouldShowTownUnfedWarning, shouldShowTownUpgradeReadyBadge, townGrowthBlocker } from "../client-town-growth/client-town-growth.js";
 import type { Tile } from "../client-types.js";
 
-export type TownNameplateStatus = "unfed" | "upgrade" | "war" | "captured";
+export type TownNameplateStatus = "unfed" | "unruly" | "upgrade" | "war" | "captured";
 /** Own towns only: growing, or paused by hunger, a nearby war or a recent capture. Absent when neither (e.g. at the tier cap). */
 export type TownNameplateGrowth = "growing" | "paused";
 
@@ -23,6 +23,7 @@ const TIER_RANK = { SETTLEMENT: 0, TOWN: 1, CITY: 2, GREAT_CITY: 3, METROPOLIS: 
 
 export const STATUS_LABEL: Record<TownNameplateStatus, string> = {
   unfed: "Unfed",
+  unruly: "Unruly: short of luxury biota, giving a smaller town's manpower",
   upgrade: "Upgrade ready",
   war: "Nearby war: growth paused",
   captured: "Recently captured: growth paused"
@@ -31,8 +32,10 @@ export const STATUS_LABEL: Record<TownNameplateStatus, string> = {
 // Same gates as the tile menu (shouldShowTownUnfedWarning /
 // shouldShowTownUpgradeReadyBadge), so a plate never claims a status the
 // town's own menu doesn't. Unfed outranks everything: it costs coin now.
-const ownStatus = (tile: Tile, me: string, nowMs: number): TownNameplateStatus | undefined => {
+// Unruly (a large town short of biota) comes next: it costs manpower now.
+const ownStatus = (tile: Tile, me: string, nowMs: number, unrulyTownKeys?: ReadonlySet<string>): TownNameplateStatus | undefined => {
   if (shouldShowTownUnfedWarning(tile, me)) return "unfed";
+  if (unrulyTownKeys?.has(`${tile.x},${tile.y}`)) return "unruly";
   const blocker = tile.town ? townGrowthBlocker(tile.town, nowMs) : undefined;
   if (blocker === "Nearby war") return "war";
   if (blocker === "Recently captured") return "captured";
@@ -40,11 +43,12 @@ const ownStatus = (tile: Tile, me: string, nowMs: number): TownNameplateStatus |
   return undefined;
 };
 
-export const townNameplateFor = (tile: Tile | undefined, me: string, nowMs: number): TownNameplate | undefined => {
+/** `unrulyTownKeys`: your towns above Town tier that get less biota than they need (ManpowerBreakdown.biotaTowns). */
+export const townNameplateFor = (tile: Tile | undefined, me: string, nowMs: number, unrulyTownKeys?: ReadonlySet<string>): TownNameplate | undefined => {
   const identity = townIdentityForTile(tile);
   if (!tile || !identity || tile.terrain !== "LAND" || !tile.ownerId || tile.fogged) return undefined;
   const own = Boolean(me) && tile.ownerId === me;
-  const status = own ? ownStatus(tile, me, nowMs) : undefined;
+  const status = own ? ownStatus(tile, me, nowMs, unrulyTownKeys) : undefined;
   const population = own && typeof tile.town?.population === "number" ? Math.round(tile.town.population) : undefined;
   // The mark rides on the population, so it needs one. Paused also covers an unfed
   // settlement, which has no unfed bubble (shouldShowTownUnfedWarning skips that tier).

@@ -524,8 +524,9 @@ Its fragrances and pigments sell in the Core, but on a Sector world its
 intoxicants are a tool of control. The civilians of a large town are the
 people every future Ancillary is taken from, and they know it. Where the House
 is the only supplier of what the town has come to depend on, its people stay
-put and give up their own; where supply runs short they hide and withhold
-them, and a great city yields the bodies of a much smaller one. Each kind of
+put and give up their own; where supply runs short the town turns unruly, its
+people hide and withhold themselves, and a great city yields the bodies of a much
+smaller one. Each kind of
 estate supplies a fixed share of that dependence, and the House serves the
 towns it has held longest first.
 

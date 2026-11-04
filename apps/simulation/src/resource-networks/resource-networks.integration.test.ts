@@ -82,19 +82,19 @@ describe("resource networks in the real runtime", () => {
     expect(status("TOWN").used).toMatchObject({ NEURAL_RESIN: 1, CONDUCTIVE_MINERALS: 1, CATALYTIC_DEPOSIT: 1, PRECURSOR_SALVAGE: 1, LUXURY_BIOTA: 0 });
     expect(status("CITY").used.LUXURY_BIOTA).toBe(1);
   });
-  it("a Metropolis without biota gives Town manpower and shows the shortfall", () => {
-    const starving = player(fixture(false, () => boundary, 0, techIds, false, undefined, "METROPOLIS"));
+  it("an unruly Metropolis without biota gives Town manpower and shows the shortfall", () => {
+    const unruly = player(fixture(false, () => boundary, 0, techIds, false, undefined, "METROPOLIS"));
     const town = player(fixture(false, () => boundary, 0, techIds, false, undefined, "TOWN"));
-    expect(starving.manpowerCap).toBe(town.manpowerCap);
-    expect(starving.manpowerRegenPerMinute).toBeCloseTo(town.manpowerRegenPerMinute!);
-    expect(starving.manpowerBreakdown?.cap.find(row => row.label === "Short of biota (1 town)")?.amount).toBe(-(1350 - 300));
+    expect(unruly.manpowerCap).toBe(town.manpowerCap);
+    expect(unruly.manpowerRegenPerMinute).toBeCloseTo(town.manpowerRegenPerMinute!);
+    expect(unruly.manpowerBreakdown?.cap.find(row => row.label === "Unruly town, short of biota (1)")?.amount).toBe(-(1350 - 300));
   });
   it("one developed biota site lifts a Metropolis from Town to Great City manpower", () => {
     const supplied = player(fixture(true, () => boundary, 0, techIds, false, undefined, "METROPOLIS"));
-    const starving = player(fixture(false, () => boundary, 0, techIds, false, undefined, "METROPOLIS"));
+    const unruly = player(fixture(false, () => boundary, 0, techIds, false, undefined, "METROPOLIS"));
     // Town line 300 -> 750, plus the Depot's capacity bonus, which scales with the town's working tier.
-    expect(supplied.manpowerCap! - starving.manpowerCap!).toBeGreaterThanOrEqual(750 - 300);
-    expect(supplied.manpowerBreakdown?.cap.find(row => row.label === "Short of biota (1 town)")?.amount).toBe(-(1350 - 750));
+    expect(supplied.manpowerCap! - unruly.manpowerCap!).toBeGreaterThanOrEqual(750 - 300);
+    expect(supplied.manpowerBreakdown?.cap.find(row => row.label === "Unruly town, short of biota (1)")?.amount).toBe(-(1350 - 750));
   });
   it("preserves deposits, installations and bonuses across snapshot recovery", () => {
     const runtime=fixture(true,()=>boundary);

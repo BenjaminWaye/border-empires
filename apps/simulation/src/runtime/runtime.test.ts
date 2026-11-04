@@ -355,8 +355,8 @@ describe("simulation runtime", () => {
     const player = runtime.exportState().players.find((entry) => entry.id === "player-1");
     const payload = { manpowerBreakdown: player!.manpowerBreakdown! };
     // No biota is developed, so all four large towns also show the shortfall line.
-    expect(payload.manpowerBreakdown.cap.map((line) => line.label)).toEqual(["Starting Capital", "2 Great Cities", "2 Metropolises", "Short of biota (4 towns)"]);
-    expect(payload.manpowerBreakdown.regen.map((line) => line.label)).toEqual(["Starting Capital", "2 Great Cities", "2 Metropolises", "Short of biota (4 towns)"]);
+    expect(payload.manpowerBreakdown.cap.map((line) => line.label)).toEqual(["Starting Capital", "2 Great Cities", "2 Metropolises", "Unruly towns, short of biota (4)"]);
+    expect(payload.manpowerBreakdown.regen.map((line) => line.label)).toEqual(["Starting Capital", "2 Great Cities", "2 Metropolises", "Unruly towns, short of biota (4)"]);
   });
 
   it("exports only the player's visible tiles for bootstrap snapshots", () => {
