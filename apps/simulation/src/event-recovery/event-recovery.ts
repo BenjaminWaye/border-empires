@@ -215,6 +215,12 @@ const spendRecoveredPlayerGold = (
   player.points -= goldCost;
 };
 
+// Mirrors startSettlementProcess, which bumps the counter as it emits SETTLEMENT_STARTED.
+const countRecoveredLifetimeGarrison = (accumulator: RecoveredSimulationAccumulator, playerId: string): void => {
+  const player = accumulator.players.find((entry) => entry.id === playerId);
+  if (player) player.lifetimeGarrisons = (player.lifetimeGarrisons ?? 0) + 1;
+};
+
 const removeRecoveredPendingSettlement = (
   accumulator: RecoveredSimulationAccumulator,
   tileKey: string
@@ -286,6 +292,7 @@ export const applySimulationEventsToRecoveredAccumulator = (
 
     if (event.eventType === "SETTLEMENT_STARTED") {
       spendRecoveredPlayerGold(accumulator, event.playerId, event.goldCost);
+      countRecoveredLifetimeGarrison(accumulator, event.playerId);
       removeRecoveredPendingSettlement(accumulator, event.tileKey);
       accumulator.pendingSettlements.push({
         ownerId: event.playerId,
@@ -337,12 +344,6 @@ export const applySimulationEventsToRecoveredAccumulator = (
         const defender = accumulator.players.find(player => player.id === defenderId);
         if (defender) ((defender.afcCampaign ??= {}).fortWardRecharges ??= {})[simulationTileKey(event.targetX, event.targetY)] = event.combatResult.wardRechargesAt;
       }
-      if (defenderId && event.combatResult?.hostileCaptureWarUntil) {
-        for (const [id, other] of [[event.playerId, defenderId], [defenderId, event.playerId]]) {
-          const player = accumulator.players.find(candidate => candidate.id === id);
-          if (player && other) ((player.afcCampaign ??= {}).wars ??= {})[other] = event.combatResult.hostileCaptureWarUntil;
-        }
-      }
       if (accumulator.activeLocks.has(event.commandId)) {
         accumulator.activeLocks.delete(event.commandId);
       }
@@ -380,7 +381,6 @@ export const applySimulationEventsToRecoveredAccumulator = (
               terrain: previousOrigin.terrain,
               ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
               ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
-              ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
               ...(previousOrigin.naturalWonder ? { naturalWonder: previousOrigin.naturalWonder } : {}),
               ...(previousOrigin.sabotage ? { sabotage: previousOrigin.sabotage } : {}),
               // Town survives the flip — mirrors the attacker-wins branch above and the runtime resolveLock path.

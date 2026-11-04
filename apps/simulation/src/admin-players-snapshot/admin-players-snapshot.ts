@@ -44,7 +44,6 @@ export const buildAdminPlayerRows = (runtime: SimulationRuntime): AdminPlayerRow
       manpowerCap: player.manpowerCap,
       resourceSlotSupply: player.resourceSlotSupply,
       resourceSlotDemand: player.resourceSlotDemand,
-      shardStockpile: player.shardStockpile,
       reachTiles: runtime.reachTileCountForPlayer(player.id),
       frontierTiles: Math.max(0, player.ownedTileCount - player.settledTileCount),
       // barbActivationVisibleTileCount is only ever undefined when no

@@ -67,6 +67,8 @@ type FrontierAffordability = {
    * so the AI neither attacks nor plants a muster flag against a truce.
    */
   nonHostilePlayerIds?: ReadonlySet<string>;
+  /** Towns that gain from another connection (Phase 5, docs/ai-economic-synergy-plan.md). */
+  linkValueTownKeys?: ReadonlySet<string>;
   /** When set, adds a directional bias toward this tile when scoring neutral expand candidates. */
   expansionObjective?: { x: number; y: number; kind: "neutral_value" | "enemy" };
   /** PR 1 measurement callback — emits per-phase durations from inside
@@ -232,7 +234,8 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
           playerId,
           target as import("@border-empires/game-domain").DomainTileState,
           domainTilesByKey,
-          new Set([targetKey])
+          new Set([targetKey]),
+          affordability.linkValueTownKeys
         );
         neutralEvaluationByTargetKey.set(targetKey, nextEvaluation);
         return nextEvaluation;

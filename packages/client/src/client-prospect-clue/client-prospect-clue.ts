@@ -22,7 +22,7 @@ export const prospectClueResourceLabel = (signature: ProspectSignature): string 
 export const prospectCluePropsAllowed = (tile: Tile | undefined): boolean =>
   Boolean(tile) &&
   !tile?.town && !tile?.dockId && !tile?.fort && !tile?.observatory && !tile?.siegeBattery && !tile?.economicStructure && !tile?.resource &&
-  !tile?.watchtower && !tile?.waystation && !tile?.naturalWonder && !tile?.shardSite;
+  !tile?.watchtower && !tile?.waystation && !tile?.naturalWonder;
 
 const ALL_SIGNATURES: readonly ProspectSignature[] = ["FERROUS_DUST", "BLACKWOOD_CANOPY", "REFRACTIVE_GROUND"];
 const NO_RETIRED_CLUES: ReadonlySet<ProspectSignature> = new Set();

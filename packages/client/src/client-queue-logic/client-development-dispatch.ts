@@ -2,7 +2,7 @@
 // sent straight away or held in the dev queue until a slot -- or, for a
 // garrison, manpower -- frees up. Extracted from client-queue-logic.ts
 // (oversized), which re-exports everything here.
-import { SETTLE_COST, SETTLE_MANPOWER_COST, captureHoldSettleFloorMs } from "@border-empires/shared";
+import { SETTLE_COST, captureHoldSettleFloorMs } from "@border-empires/shared";
 import { canAffordCost, settleDurationMsForTile } from "../client-constants.js";
 import { debugTileLog, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -60,13 +60,20 @@ export const settlementSpeedMultiplierForState = (
   return multiplier;
 };
 
-/** How long garrisoning `tile` takes for this player -- never ending before the tile's capture hold does (as the server floors it). */
+/**
+ * How long garrisoning `tile` takes for this player: 0 while they still have
+ * instant garrisons left (their first INSTANT_GARRISON_COUNT), else the
+ * frontier claim time over their settle speed -- and never ending before the
+ * tile's capture hold does (as the server floors it).
+ */
 export const settleDurationMsForState = (
-  state: Pick<ClientState, "techIds" | "techCatalog" | "domainIds" | "domainCatalog">,
+  state: Pick<ClientState, "techIds" | "techCatalog" | "domainIds" | "domainCatalog"> & Partial<Pick<ClientState, "instantGarrisonsRemaining">>,
   tile: { x: number; y: number; ownershipState?: string | undefined; captureHoldUntil?: number | undefined },
   nowEpochMs: number = Date.now()
 ): number => Math.max(
-  Math.max(1, Math.round(settleDurationMsForTile(tile.x, tile.y) / settlementSpeedMultiplierForState(state))),
+  (state.instantGarrisonsRemaining ?? 0) > 0
+    ? 0
+    : Math.max(1, Math.round(settleDurationMsForTile(tile.x, tile.y) / settlementSpeedMultiplierForState(state))),
   captureHoldSettleFloorMs(tile, nowEpochMs)
 );
 
@@ -86,9 +93,9 @@ const queuedSettlementShouldWait = (state: ClientState, tileKey: string): boolea
  * being sent and refused.
  */
 export const queuedSettleAwaitsManpower = (
-  state: Pick<ClientState, "manpower" | "devQueueManpowerReservedTileKeys">,
+  state: Pick<ClientState, "manpower" | "devQueueManpowerReservedTileKeys" | "settleManpowerCost">,
   tileKey: string
-): boolean => !state.devQueueManpowerReservedTileKeys.has(tileKey) && state.manpower < SETTLE_MANPOWER_COST;
+): boolean => !state.devQueueManpowerReservedTileKeys.has(tileKey) && state.manpower < state.settleManpowerCost;
 
 export const requestSettlement = (
   state: ClientState,
@@ -116,8 +123,8 @@ export const requestSettlement = (
   }
   const canQueue = deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue;
   const manpowerReserved = deps.opts?.manpowerReserved === true;
-  const manpowerShort = !manpowerReserved && state.manpower < SETTLE_MANPOWER_COST;
-  if (manpowerShort && !canQueue) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${SETTLE_MANPOWER_COST} manpower to garrison this tile.`); deps.renderHud(); return false; }
+  const manpowerShort = !manpowerReserved && state.manpower < state.settleManpowerCost;
+  if (manpowerShort && !canQueue) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${state.settleManpowerCost} manpower to garrison this tile.`); deps.renderHud(); return false; }
   if (!canAffordCost(state.gold, SETTLE_COST)) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${SETTLE_COST} coin to garrison this tile.`); deps.renderHud(); return false; }
   // Short on manpower: queue it to wait for the next refill batch instead of
   // refusing. The server holds it unreserved until a batch covers it
@@ -163,7 +170,9 @@ export const requestSettlement = (
   // settleDurationMsForState applies the server's floor: a captured tile garrisons no earlier than its hold ends.
   const progress = { startAt, resolvesAt: startAt + settleDurationMsForState(state, tile, startAt), target: { x, y }, awaitingServerConfirm: false };
   state.gold = Math.max(0, state.gold - SETTLE_COST);
-  if (!manpowerReserved) state.manpower = Math.max(0, state.manpower - SETTLE_MANPOWER_COST);
+  if (!manpowerReserved) state.manpower = Math.max(0, state.manpower - state.settleManpowerCost);
+  // The server counts every garrison it starts, so spend a free one locally too: a second quick tap must predict the timer.
+  state.instantGarrisonsRemaining = Math.max(0, state.instantGarrisonsRemaining - 1);
   state.settleProgressByTile.set(tileKey, progress);
   state.latestSettleTargetKey = tileKey;
   deps.syncOptimisticSettlementTile(x, y, false);

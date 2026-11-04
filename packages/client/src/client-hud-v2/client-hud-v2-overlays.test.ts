@@ -90,7 +90,7 @@ describe("tile owner stance tag", () => {
     expect(ownerStanceTagHtml(undefined, state, 0)).toBe("");
   });
 
-  it("reads 1h for a truce in its last hour", () => {
-    expect(ownerStanceTagHtml("t", state, 5.2 * 3_600_000)).toContain(">Truce 1h<");
+  it("counts down in minutes in a truce's last hour", () => {
+    expect(ownerStanceTagHtml("t", state, 5.5 * 3_600_000 - 18 * 60_000)).toContain(">Truce 18m<");
   });
 });

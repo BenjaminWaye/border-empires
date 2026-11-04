@@ -6,12 +6,14 @@
 // at the bottom. All actions reuse the tile menu's own definitions.
 
 import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
+import type { ClientAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
+import { autoSettleOptionForTile, autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { isGarrison } from "./client-hud-v2-action-bar.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
-import { townGrowth } from "./client-hud-v2-tile-facts.js";
+import { builtStructureFacts, townGrowth, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 
@@ -28,6 +30,8 @@ export type TownScreenInput = {
   focusQueuePosition?: number;
   /** The work cards' buttons are locked while a rush or cancel waits on the server. */
   focusWorkLocked?: boolean;
+  /** Live prefs: the checkbox is read from these each render, not from the view snapshot taken when the screen opened. */
+  autoSettle?: ClientAutoSettleState;
 };
 
 const esc = (text: string): string =>
@@ -87,10 +91,21 @@ const leftPanelHtml = (input: TownScreenInput): string => {
     <div class="v2t-grow-wrap">${growHtml}</div>`;
 };
 
+/** What stands on the selected support tile: name, state, what it gives and its upkeep. */
+const builtCardHtml = (facts: readonly TileFact[]): string =>
+  facts.length === 0
+    ? ""
+    : `<div class="v2t-h">Built here</div><div class="v2t-structure">${facts.map((f) => `<div class="v2t-structure-row"><span class="v2t-structure-k">${esc(f.label)}</span><span class="v2t-structure-v${f.tone ? ` v2t-structure-${f.tone}` : ""}">${esc(f.value)}</span></div>`).join("")}</div>`;
+
 const buildPanelHtml = (input: TownScreenInput): string => {
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
   const placeLabel = supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place";
   const work = input.focusView.work ?? [];
+  // A support tile can already hold a building; pressing it shows what that building is and does.
+  const built = supportFocus ? builtCardHtml(builtStructureFacts(input.focus, input.focus.ownerId === input.town.ownerId)) : "";
+  const workHtml = work.length > 0 ? townWorkHtml(work, keyOf(input.focus), input.focusQueuePosition ?? 0, input.focusWorkLocked ?? false) : "";
+  // Work first: under the "Built here" heading it would read as part of the building.
+  const lead = `${workHtml}${built}`;
   const list = buildListHtml({
     buildings: input.focusView.buildings,
     focusLabel: supportFocus ? `(${input.focus.x}, ${input.focus.y})` : input.townView.title,
@@ -100,7 +115,8 @@ const buildPanelHtml = (input: TownScreenInput): string => {
     emptyText: `Nothing to build ${supportFocus ? "on this tile" : "here"}`,
     targetKey: keyOf(input.focus),
     placeLabel,
-    ...(work.length > 0 ? { title: "In progress", leadHtml: townWorkHtml(work, keyOf(input.focus), input.focusQueuePosition ?? 0, input.focusWorkLocked ?? false) } : {})
+    ...(work.length > 0 ? { title: "In progress" } : built ? { title: "On this tile" } : {}),
+    ...(lead ? { leadHtml: lead } : {})
   });
   const place = buildPlaceHtml({ buildings: input.focusView.buildings, selection: input.buildSelection, targetKey: keyOf(input.focus), placeLabel, docked: true });
   return `${list}${place}`;
@@ -129,6 +145,11 @@ const barHtml = (input: TownScreenInput): string => {
   const garrisonBtn = garrison
     ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land"${targetAttrs(garrison, garrisonKey)}${garrison.disabled ? " disabled" : ""} title="${esc(garrison.disabled ? garrison.disabledReason ?? garrisonLabel : garrison.detail ?? garrisonLabel)}">${esc(garrisonLabel)}${garrisonNote ? `<small>${esc(garrisonNote)}</small>` : ""}</button>`
     : "";
+  // The "garrison these automatically from now on" checkbox the tile dock shows under its Garrison button.
+  // Read from live prefs (a toggle doesn't rebuild focusView, so the snapshot's copy goes stale).
+  const garrisonTile = focusGarrison ? input.focus : input.town;
+  const option = garrison ? autoSettleOptionForTile({ autoSettle: input.autoSettle ?? { status: "unloaded" } }, garrisonTile) : undefined;
+  const garrisonOption = option ? autoSettleOptionHtml({ ...option, label: "Garrison these automatically" }) : "";
   const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : [])]);
   const minorActions = [
     ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus && isMuster(a) ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
@@ -146,7 +167,7 @@ const barHtml = (input: TownScreenInput): string => {
     : "";
   return `${garrisonBtn}${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
     ${minor ? `<span class="v2t-minor">${minor}</span>` : ""}
-    <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map · Esc</button>`;
+    <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map · Esc</button>${garrisonOption}`;
 };
 
 export const townScreenRegions = (input: TownScreenInput): { left: string; build: string; bar: string } => ({

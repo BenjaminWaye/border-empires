@@ -1,4 +1,4 @@
-import { MANPOWER_REFILL_WINDOW_MS, nextManpowerRefillAtMs } from "@border-empires/shared";
+import { MANPOWER_REFILL_WINDOW_MS, lastManpowerRefillAtMs, nextManpowerRefillAtMs } from "@border-empires/shared";
 
 /**
  * Client view of the periodic manpower refill. The schedule is a pure function
@@ -9,6 +9,25 @@ import { MANPOWER_REFILL_WINDOW_MS, nextManpowerRefillAtMs } from "@border-empir
 /** Epoch ms of this player's next refill, or undefined before the player id is known. */
 export const nextManpowerRefillForPlayer = (playerId: string | undefined, nowMs: number): number | undefined =>
   playerId ? nextManpowerRefillAtMs(playerId, nowMs) : undefined;
+
+/**
+ * The server's next-batch amount, or undefined once a refill boundary has
+ * passed since it arrived: that batch has already landed on the server, and
+ * the figure for the following window comes with the next PLAYER_UPDATE.
+ */
+export const freshNextBatchAmount = (
+  playerId: string | undefined,
+  amount: number | undefined,
+  receivedAtMs: number | undefined,
+  nowMs: number
+): number | undefined => {
+  if (!playerId || amount === undefined || receivedAtMs === undefined) return undefined;
+  return receivedAtMs < lastManpowerRefillAtMs(playerId, nowMs) ? undefined : amount;
+};
+
+/** What the next batch adds to the pool: never negative, never more than the room left under the cap. */
+export const nextBatchGain = (manpower: number, manpowerCap: number, amount: number): number =>
+  Math.max(0, Math.min(manpowerCap - manpower, amount));
 
 /** "1h 20m", "45m", "<1m"; callers handle the "refill is due" case themselves. */
 export const formatRefillCountdown = (ms: number): string => {

@@ -1,3 +1,4 @@
+import { afcAdditiveEffect, afcMultiplicativeEffect } from "@border-empires/shared";
 // One AI's full read on one requester: its strength stance, its attitude
 // (with the modifiers behind it), the war between them, what it charges, and
 // what the requester can actually pay. Shared by the offer auto-responder
@@ -5,12 +6,13 @@
 import { ATTITUDE_MIN_SCORE, giftToReach, giftView, type AiDiplomacyPricing, type AiGiftView, type DiplomacyGoods } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
-import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
+import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type DominanceSizing, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
 import type { AiDiplomacyGrudges } from "./ai-diplomacy-grudges.js";
 import { computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
-import { aiDiplomacyPricing } from "./ai-diplomacy-pricing.js";
+import { aiDiplomacyPricing, TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "./ai-diplomacy-pricing.js";
 import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
 import { buildAiDiplomacyStanceInput, type AiDiplomacySnapshot } from "./ai-diplomacy-stance-input.js";
+import { aiRetaliationReadiness } from "./ai-retaliation-readiness.js";
 
 export type AiDiplomacyEvaluation = {
   stance: AiDiplomacyStance;
@@ -36,6 +38,8 @@ export type AiDiplomacyContext = AiDiplomacyGrudges & {
    * snapshot carries none (a live subscribe without world status, the usual case).
    */
   seasonLeaderboard?: LeaderboardTiles;
+  /** The victory check's bloc sizing: blocs well short of Dominance don't need the AI to lead. undefined: always strict. */
+  dominance?: DominanceSizing;
 };
 
 /** Builds the context for one (requester, AI) pair; async when it has to fetch the season leaderboard. */
@@ -49,8 +53,7 @@ export const tileLookupFromSnapshot = (snapshot: AiDiplomacySnapshot | undefined
 
 const holdingsOf = (snapshot: AiDiplomacySnapshot | undefined): DiplomacyGoods => ({
   ...(snapshot?.player?.resourceTradeHoldings ? { resources: snapshot.player.resourceTradeHoldings } : {}),
-  gold: Math.max(0, Math.floor(snapshot?.player?.gold ?? 0)),
-  shard: Math.max(0, Math.floor(snapshot?.player?.strategicResources?.SHARD ?? 0))
+  gold: Math.max(0, Math.floor(snapshot?.player?.gold ?? 0))
 });
 
 const warReason = (aiName: string, opinion: AiOpinion, fallback: string): string => {
@@ -73,12 +76,19 @@ const aiLeads = (input: {
   aiSnapshot: AiDiplomacySnapshot | undefined;
   alliesOf: AllyLookup;
   seasonLeaderboard?: LeaderboardTiles;
+  dominance?: DominanceSizing;
 }): boolean | undefined => {
   const tilesOf =
     tileLookupFromSnapshot(input.aiSnapshot, input.aiPlayerId) ??
     (input.seasonLeaderboard ? tileLookupFor(input.seasonLeaderboard, input.aiPlayerId) : undefined);
-  return tilesOf ? aiWouldLeadAlliance(input.aiPlayerId, input.requesterId, input.alliesOf, tilesOf) : undefined;
+  return tilesOf ? aiWouldLeadAlliance(input.aiPlayerId, input.requesterId, input.alliesOf, tilesOf, input.dominance) : undefined;
 };
+
+/** Time left in the fresh-aggression window after the player's last attack (0 when it has passed). */
+const cooldownRemainingMs = (lastPlayerAttackAt: number | undefined, now: number): number =>
+  lastPlayerAttackAt === undefined ? 0 : Math.max(0, TRUCE_COOLDOWN_AFTER_ATTACK_MS - (now - lastPlayerAttackAt));
+
+const giftToPleasedField = (coin: number | undefined): { giftToPleased?: number } => (coin === undefined ? {} : { giftToPleased: coin });
 
 /** undefined when the AI snapshot is missing: nothing to judge, so callers decline rather than guess. */
 export const evaluateAiDiplomacy = (input: {
@@ -103,6 +113,7 @@ export const evaluateAiDiplomacy = (input: {
     requesterBrokeAllianceWithAi: input.requesterBrokeAllianceWithAi,
     bordersTouch: stanceInput.bordersTouch,
     incomePerHour: goodwillIncomePerHour,
+    diplomaticCorpsBonus: afcAdditiveEffect(input.requesterSnapshot?.player?.domainIds, "aiOpinionBonus"),
     now: input.now
   });
   const gift = giftView(input.memory.goodwillCoin, goodwillIncomePerHour);
@@ -117,7 +128,9 @@ export const evaluateAiDiplomacy = (input: {
     aiHoldings: holdingsOf(input.aiSnapshot),
     requesterBrokeTruceWithAi: input.requesterBrokeTruceWithAi,
     aiWouldLeadAlliance: aiLeads(input),
-    giftCanWinOver: giftToReach(gift, opinion.score, ATTITUDE_MIN_SCORE.PLEASED) !== undefined,
+    ...giftToPleasedField(giftToReach(gift, opinion.score, ATTITUDE_MIN_SCORE.PLEASED)),
+    requesterTruceCostMult: afcMultiplicativeEffect(input.requesterSnapshot?.player?.domainIds, "truceCostMult"),
+    retaliation: aiRetaliationReadiness(stanceInput.ai, cooldownRemainingMs(input.memory.lastPlayerAttackAt, input.now)),
     now: input.now
   });
   return {

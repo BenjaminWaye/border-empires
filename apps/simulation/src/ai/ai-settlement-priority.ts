@@ -56,12 +56,19 @@ const adjacentTownSupportNeed = (
   return need;
 };
 
+// Extra EXPAND pull toward tiles between two of the player's towns when one
+// of them would earn more from the connection (docs/ai-economic-synergy-plan.md
+// Phase 5): with a Trade Nexus each connected town is +50/+40/+30% coin.
+export const TOWN_LINK_VALUE_BONUS = 80;
+
 const nearbyOwnedTownCount = (
   playerId: string,
   tile: DomainTileState,
-  tiles: ReadonlyMap<string, DomainTileState>
-): number => {
+  tiles: ReadonlyMap<string, DomainTileState>,
+  linkValueTownKeys: ReadonlySet<string> | undefined
+): { count: number; linkValueCount: number } => {
   let count = 0;
+  let linkValueCount = 0;
   const visited = new Set<string>([tileKeyOf(tile.x, tile.y)]);
   let frontier = [tileKeyOf(tile.x, tile.y)];
   for (let depth = 0; depth < 2; depth += 1) {
@@ -76,12 +83,15 @@ const nearbyOwnedTownCount = (
         const neighbor = tiles.get(neighborKey);
         if (!neighbor) return;
         nextFrontier.push(neighborKey);
-        if (neighbor.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.town) count += 1;
+        if (neighbor.ownerId === playerId && neighbor.ownershipState === "SETTLED" && neighbor.town) {
+          count += 1;
+          if (linkValueTownKeys?.has(neighborKey)) linkValueCount += 1;
+        }
       });
     }
     frontier = nextFrontier;
   }
-  return count;
+  return { count, linkValueCount };
 };
 
 const ownedAdjacencyMetrics = (
@@ -131,7 +141,9 @@ export const evaluateSettlementCandidate = (
   playerId: string,
   tile: DomainTileState,
   tiles: ReadonlyMap<string, DomainTileState>,
-  assumedFrontierKeys: ReadonlySet<string> = new Set()
+  assumedFrontierKeys: ReadonlySet<string> = new Set(),
+  /** Towns that gain from another connection — see linkValueTownKeys (build/economic-synergy-scoring.ts). */
+  linkValueTownKeys?: ReadonlySet<string>
 ): SettlementCandidateEvaluation => {
   const tileKey = tileKeyOf(tile.x, tile.y);
   const assumedOwned = assumedFrontierKeys.has(tileKey);
@@ -149,7 +161,7 @@ export const evaluateSettlementCandidate = (
   }
 
   const townSupportNeed = adjacentTownSupportNeed(playerId, tile, tiles, assumedFrontierKeys);
-  const nearbyTownCount = nearbyOwnedTownCount(playerId, tile, tiles);
+  const { count: nearbyTownCount, linkValueCount } = nearbyOwnedTownCount(playerId, tile, tiles, linkValueTownKeys);
   const adjacency = ownedAdjacencyMetrics(playerId, tile, tiles, assumedFrontierKeys);
   const intrinsicEconomicValue = Boolean(tile.town || tile.dockId || tile.resource);
   // Frontier tiles have defMult=0 in real combat (packages/shared/src/frontier-combat.ts:21)
@@ -163,7 +175,7 @@ export const evaluateSettlementCandidate = (
     (adjacency.exposedSides <= 1 ? 18 : 0);
   const townConnectionSignal =
     nearbyTownCount >= 2
-      ? 110 + adjacency.settledNeighbors * 16
+      ? 110 + adjacency.settledNeighbors * 16 + (linkValueCount > 0 ? TOWN_LINK_VALUE_BONUS : 0)
       : nearbyTownCount === 1 && adjacency.settledNeighbors >= 2
         ? 45
         : 0;

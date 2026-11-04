@@ -293,15 +293,13 @@ export const buildPlayerSubscriptionSnapshot = (
               FOOD: livePlayer.strategicResources.FOOD ?? 0,
               TITANIUM: livePlayer.strategicResources.TITANIUM ?? 0,
               CRYSTAL: livePlayer.strategicResources.CRYSTAL ?? 0,
-              UMBRITE: livePlayer.strategicResources.UMBRITE ?? 0,
-              SHARD: livePlayer.strategicResources.SHARD ?? 0
+              UMBRITE: livePlayer.strategicResources.UMBRITE ?? 0
             },
             strategicProductionPerMinute: {
               FOOD: strategicProductionPerMinute.FOOD,
               TITANIUM: strategicProductionPerMinute.TITANIUM,
               CRYSTAL: strategicProductionPerMinute.CRYSTAL,
-              UMBRITE: strategicProductionPerMinute.UMBRITE,
-              SHARD: strategicProductionPerMinute.SHARD
+              UMBRITE: strategicProductionPerMinute.UMBRITE
             },
             ...(livePlayer.resourceTradeHoldings ? { resourceTradeHoldings: livePlayer.resourceTradeHoldings } : {}),
             ...(livePlayer.resourceTradeAgreements ? { resourceTradeAgreements: livePlayer.resourceTradeAgreements } : {}),

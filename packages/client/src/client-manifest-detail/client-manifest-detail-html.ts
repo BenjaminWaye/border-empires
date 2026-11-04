@@ -40,7 +40,7 @@ export type ManifestDetailContext = {
 const escapeHtml = (value: string): string =>
   value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 
-const RESOURCE_COST_KEYS = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const;
+const RESOURCE_COST_KEYS = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const;
 
 export const manifestCostLabel = (tech: Pick<TechInfo, "requirements">): string => {
   const bits: string[] = [];

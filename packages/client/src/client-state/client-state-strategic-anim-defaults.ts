@@ -6,6 +6,5 @@ export const createInitialStrategicAnim = () => ({
   FOOD: { until: 0, dir: 0 as -1 | 0 | 1 },
   TITANIUM: { until: 0, dir: 0 as -1 | 0 | 1 },
   CRYSTAL: { until: 0, dir: 0 as -1 | 0 | 1 },
-  UMBRITE: { until: 0, dir: 0 as -1 | 0 | 1 },
-  SHARD: { until: 0, dir: 0 as -1 | 0 | 1 }
+  UMBRITE: { until: 0, dir: 0 as -1 | 0 | 1 }
 });

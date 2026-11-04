@@ -37,10 +37,8 @@ export const createGlobalStatusBroadcastPayload = (
   const perform = async (commandId: string | undefined): Promise<void> => {
     if (deps.subscriptionRegistry.subscribedPlayerIds().length === 0) return;
     if (deps.isPersistenceDegradedOrBacklogged()) return;
-    const globalLeaderboard = buildLeaderboardFromPlayers(
-      deps.runtime.getPlayersForLeaderboard(),
-      deps.nonCompetitivePlayerIds
-    );
+    const leaderboardPlayers = deps.runtime.getPlayersForLeaderboard();
+    const globalLeaderboard = buildLeaderboardFromPlayers(leaderboardPlayers, deps.nonCompetitivePlayerIds);
     let currentSummary = deps.getCurrentSummary();
     if (currentSummary) {
       const refreshed = {
@@ -70,7 +68,7 @@ export const createGlobalStatusBroadcastPayload = (
       );
     }
     const acceptLatencyP95Ms = deps.simulationMetrics.currentAcceptLatencyP95Ms();
-    const liveEconomicHegemony = buildEconomicHegemonyObjective(globalLeaderboard.overall); // once per tick — sorts the leaderboard; do not move into the loop below
+    const liveEconomicHegemony = buildEconomicHegemonyObjective(globalLeaderboard.overall, id => leaderboardPlayers.find(player => player.id === id)?.domainIds); // once per tick — sorts the leaderboard; do not move into the loop below
     const scoreHistory = currentSummary ? deps.scoreHistorySampler.seriesFor(currentSummary.seasonId) : [];
     const selfProgress = deps.getSelfProgress();
     for (const subscribedPlayerId of deps.subscriptionRegistry.subscribedPlayerIds()) {

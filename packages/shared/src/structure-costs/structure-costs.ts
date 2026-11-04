@@ -1,7 +1,7 @@
 import { RESOURCE_NETWORKS } from "../resource-networks/resource-networks.js";
 import type { EconomicStructureType, FortVariant, SiegeBatteryVariant } from "../types.js";
 
-export type StrategicResourceCostType = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
+export type StrategicResourceCostType = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 export type BuildableStructureType = "FORT" | "OBSERVATORY" | "SIEGE_BATTERY" | EconomicStructureType;
 
 type StructureScaling =
@@ -145,30 +145,30 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   // discussion in docs/replenishment-update-plan.md).
   TITANIUM_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100 },
   UMBRITE_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100 },
-  IMPERIAL_EXCHANGE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  IMPERIAL_EXCHANGE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  IMPERIAL_EXCHANGE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  SOVEREIGN_SIEGE_ENGINE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  SOVEREIGN_SIEGE_ENGINE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  SOVEREIGN_SIEGE_ENGINE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  AEGIS_DOME_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  AEGIS_DOME_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  AEGIS_DOME_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  ASTRAL_DOCK_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  ASTRAL_DOCK_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  ASTRAL_DOCK_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  CENSUS_DIRECTORATE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  CENSUS_DIRECTORATE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  CENSUS_DIRECTORATE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  TITANIUM_LEVY_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  TITANIUM_LEVY_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  TITANIUM_LEVY_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  IMPERIAL_EXCHANGE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  SOVEREIGN_SIEGE_ENGINE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  AEGIS_DOME: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  ASTRAL_DOCK: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  CENSUS_DIRECTORATE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  TITANIUM_LEVY: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } }
+  IMPERIAL_EXCHANGE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  IMPERIAL_EXCHANGE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  IMPERIAL_EXCHANGE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  SOVEREIGN_SIEGE_ENGINE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  SOVEREIGN_SIEGE_ENGINE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  SOVEREIGN_SIEGE_ENGINE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  AEGIS_DOME_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  AEGIS_DOME_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  AEGIS_DOME_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  ASTRAL_DOCK_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  ASTRAL_DOCK_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  ASTRAL_DOCK_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  CENSUS_DIRECTORATE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  CENSUS_DIRECTORATE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  CENSUS_DIRECTORATE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  TITANIUM_LEVY_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  TITANIUM_LEVY_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  TITANIUM_LEVY_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  IMPERIAL_EXCHANGE: { baseGoldCost: 0, manpowerCost: 1_600 },
+  SOVEREIGN_SIEGE_ENGINE: { baseGoldCost: 0, manpowerCost: 1_600 },
+  AEGIS_DOME: { baseGoldCost: 0, manpowerCost: 1_600 },
+  ASTRAL_DOCK: { baseGoldCost: 0, manpowerCost: 1_600 },
+  CENSUS_DIRECTORATE: { baseGoldCost: 0, manpowerCost: 1_600 },
+  TITANIUM_LEVY: { baseGoldCost: 0, manpowerCost: 1_600 }
 };
 
 // ── Fort tier ladder ───────────────────────────────────────────────

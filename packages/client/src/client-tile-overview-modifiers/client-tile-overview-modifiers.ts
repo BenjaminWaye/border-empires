@@ -321,7 +321,7 @@ const grantedEffectLabel = (
 
 /**
  * The "what is this tile?" lead of the overview: the special thing on it
- * (structure, waystation, natural wonder, shard site) goes first, ahead of the
+ * (structure, waystation, natural wonder) goes first, ahead of the
  * generic ownership boilerplate ("Frontier land is visible control...") and the
  * economy rows, so the most distinctive fact is the first thing a player reads.
  * Land tiles only; empty when the tile is plain.
@@ -348,11 +348,6 @@ export const tileFeatureLeadLines = (
   const wonderLine = naturalWonderOverviewLine(tile, ownerKind);
   if (wonderLine) lines.push({ html: wonderLine });
   if (tile.naturalWonder && isRedesignedRelic(tile.naturalWonder)) lines.push({ html: `<button type="button" data-relic-state="${encodeURIComponent(JSON.stringify(tile.naturalWonder))}" data-relic-garrisoned="${Boolean(tile.ownerId && tile.ownershipState === "SETTLED")}">View relic installation</button>` });
-  if (tile.shardSite) {
-    const n = tile.shardSite.amount;
-    const shards = `${n} shard${n === 1 ? "" : "s"}`;
-    lines.push({ html: tile.shardSite.kind === "FALL" ? `Shard rain deposit: ${shards} can be collected here for a short time.` : `Shard cache: ${shards} can be recovered here.` });
-  }
   const clueLine = prospectClueOverviewLine(tile, retiredProspectClues(deps.techIds ?? [], deps.techCatalog));
   if (clueLine) lines.push({ html: clueLine });
   return lines;

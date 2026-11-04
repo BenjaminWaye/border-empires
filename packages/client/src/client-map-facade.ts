@@ -29,7 +29,6 @@ import {
   drawDockMarker as drawDockMarkerOnCanvas,
   drawResourceCornerMarker as drawResourceCornerMarkerOnCanvas,
   drawRoadOverlay as drawRoadOverlayOnCanvas,
-  drawShardFallback as drawShardFallbackOnCanvas,
   drawTerrainTile as drawTerrainTileOnCanvas,
   drawTownOverlay as drawTownOverlayOnCanvas,
   effectiveOverlayColor as effectiveOverlayColorFromModule,
@@ -87,7 +86,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   let miniMapLastTilesRevision = Number.NaN;
   let miniMapLastColorKey = "";
   // Offscreen cache for the minimap's camera-independent content (owner tints, fog, docks,
-  // town/shard/watchtower markers) — the expensive part. Recomputed only on tile/replay churn
+  // town/watchtower markers) — the expensive part. Recomputed only on tile/replay churn
   // (throttled), never on a camera/zoom-only change, so panning/zooming stays cheap.
   const miniMapContentEl = document.createElement("canvas");
   const miniMapContentCtx = miniMapContentEl.getContext("2d");
@@ -330,7 +329,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     kind: FortificationOverlayKind,
     opening: FortificationOpening
   ): HTMLImageElement | undefined => fortificationOverlayImageFromModule(kind, opening);
-  const drawShardFallback = (_tile: Tile, px: number, py: number, size: number): void => drawShardFallbackOnCanvas(ctx, px, py, size);
   const drawOwnershipSignature = (ownerId: string, px: number, py: number, size: number): void =>
     drawOwnershipSignatureOnCanvas(ctx, ownerId, px, py, size, visualStyleForOwner);
 
@@ -439,7 +437,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       tileVisibilityStateAt,
       effectiveOverlayColor,
       isDockRouteVisibleForPlayer,
-      replayCurrentEvent
+      replayCurrentEvent,
+      terrainColorAt: cachedTerrainColorAt
     });
     if (!changed) return;
     miniMapLastDrawCamX = state.camX;
@@ -483,7 +482,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawResourceCornerMarker,
     drawRoadOverlay,
     fortificationOverlayImageFor,
-    drawShardFallback,
     drawOwnershipSignature,
     resolveDockSeaRoute,
     markDockDiscovered,

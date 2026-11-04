@@ -80,10 +80,15 @@ const hasNoBlockingStructure = (tile: Tile): boolean =>
  * inside reach the tile menu offers Build Relay Beacon on: settled placement
  * tiles, owned FRONTIER land (garrison, then build), and visible neutral land
  * in reach that no rival's reach holds (expand, garrison, then build --
- * client-tile-action-neutral.ts's build_relay_beacon_frontier).
+ * client-tile-action-neutral.ts's build_relay_beacon_frontier). Town and
+ * dock tiles not yet garrisoned are left out: taking them extends reach.
  */
 export const isRelayBeaconSiteCandidate = (tile: Tile | undefined, playerId: string, reach: ReadonlySet<string>): boolean => {
   if (!tile || !hasNoBlockingStructure(tile)) return false;
+  // Never send a new player to put a beacon on a town or dock they haven't
+  // garrisoned yet: taking it brings its own reach, so it is the target, not a site.
+  const settledByPlayer = tile.ownerId === playerId && tile.ownershipState === "SETTLED";
+  if ((tileHasTownIdentity(tile) || tile.dockId) && !settledByPlayer) return false;
   const inReach = reach.has(tileKey(tile.x, tile.y));
   if (tile.ownerId === playerId) {
     // The menu disables the frontier beacon outside reach ("Outside your reach", withReachGate).

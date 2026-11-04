@@ -38,8 +38,17 @@
   text-overflow: ellipsis;
 }
 .town-plate-pop {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font: 400 10.5px/1 var(--sp-font-mono, "Space Mono", monospace);
   color: #a8997c;
+}
+.town-plate-pop[data-growth="growing"] { color: #8fd99a; }
+.town-plate-pop[data-growth="paused"] { color: #e0a845; }
+.town-plate-growth {
+  width: 8px;
+  height: 8px;
 }
 .town-plate:not(.town-plate-own) .town-plate-body {
   height: 21px;

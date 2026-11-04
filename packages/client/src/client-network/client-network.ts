@@ -1,7 +1,7 @@
 import { applyPlayerResourceState, applyResourceTradeMessage } from "../client-diplomacy-trade/client-player-resource-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { handleIntelResult } from "./client-network-intel-result.js";
-import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
+import { aetherHijackAlertFeedEntry, applyAfcHijackMessage, applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { applyMapPushMessage } from "./client-map-push-messages.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
@@ -44,7 +44,6 @@ import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-au
 import { bindClientSocketLifecycle } from "./client-network-socket-lifecycle.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { notificationCategoryForServerError, serverStartingBusyMessages } from "../client-persistent-alerts/client-persistent-alerts.js";
-import { createShardRainNoticeHandlers } from "../client-shard-rain-notice-apply.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
@@ -59,6 +58,7 @@ import { handleActivityDashboardMessage, requestPersonalActivity } from "../clie
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
 import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
+import { clearTechCommissionOnError } from "../client-tech-commission/client-tech-commission.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -87,7 +87,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     applyPendingSettlementsFromServer,
     mergeIncomingTileDetail,
     mergeServerTileWithOptimisticState,
-    maybeAnnounceShardSite,
     markDockDiscovered,
     centerOnOwnedTile,
     authProfileNameEl,
@@ -97,8 +96,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     setWorldSeed,
     clearRenderCaches,
     buildMiniMapBase,
-    shardAlertKeyForPayload,
-    showShardAlert,
     combatResolutionAlert,
     wasPredictedCombatAlreadyShown,
     showCaptureAlert,
@@ -118,7 +115,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     applyOptimisticTileState
   } = deps;
   let emptyServerErrorWarned = false;
-  const { applyShardRainNotice, applyShardRainNoticeQuiet } = createShardRainNoticeHandlers(state, shardAlertKeyForPayload, showShardAlert);
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
@@ -747,7 +743,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           }
         });
       }
-      maybeAnnounceShardSite(existing, mergedTile);
       if (!mergedTile.optimisticPending) clearOptimisticTileState(keyFor(mergedTile.x, mergedTile.y));
       markDockDiscovered(mergedTile);
       state.discoveredTiles.add(keyFor(mergedTile.x, mergedTile.y));
@@ -972,7 +967,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       clearAuthInFlight?.(); applyInitMessage(msg, {
         ...deps,
         setAuthBusy,
-        applyShardRainNotice: applyShardRainNoticeQuiet,
         logTileSync,
         logIncomingTechPayload,
         showCaptureAlertSafely,
@@ -1014,7 +1008,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; applyJoinSeasonSpawnRecenter(state, parseJoinSeasonAckSpawnTile(msg.spawnTile), requestViewRefreshSafely); } renderHud(); return; }
     if (applyMapPushMessage(state, msg as Record<string, unknown>, renderHud)) return; // REACH_UPDATE / AETHER_SHIELDS / ISLAND_NAMES
-    if (msg.type === "AFC_FLAG_DETECTIONS") { applyAfcStateMessage(state, msg); renderHud(); return; }
+    if (applyAfcHijackMessage(state, msg as Record<string, unknown>)) { renderHud(); return; } // AFC_HIJACKS / AFC_HIJACK_OUTCOME / AFC_BREAKTHROUGH
     if (applyResourceTradeMessage(state, msg)) { renderHud(); return; }
     if (msg.type === "PLAYER_UPDATE") {
       applyAfcStateMessage(state, msg);
@@ -1079,7 +1073,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       } else {
         state.goldAnimDir = 0;
       }
-      for (const resource of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
+      for (const resource of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const) {
         const prev = prevStrategic[resource] ?? 0;
         const next = state.strategicResources[resource] ?? 0;
         if (next > prev) {
@@ -1476,7 +1470,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-    if (msg.type === "RAID_RESULT" || msg.type === "AETHER_PURGE_ALERT") { appendFeedEntry(msg.type === "RAID_RESULT" ? raidResultFeedEntry(msg, { playerNameForOwner }) : aetherPurgeAlertFeedEntry(msg)); renderHud(); return; }
+    if (msg.type === "RAID_RESULT" || msg.type === "AETHER_PURGE_ALERT" || msg.type === "AETHER_HIJACK_ALERT") { appendFeedEntry(msg.type === "RAID_RESULT" ? raidResultFeedEntry(msg, { playerNameForOwner }) : msg.type === "AETHER_HIJACK_ALERT" ? aetherHijackAlertFeedEntry(msg) : aetherPurgeAlertFeedEntry(msg)); renderHud(); return; }
     if (msg.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT") {
       applySovereignSiegeEngineStrikeAnnouncement(msg as Record<string, unknown>, { state, appendFeedEntry, requestViewRefresh });
       renderHud();
@@ -1804,7 +1798,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             }
           });
         }
-        maybeAnnounceShardSite(existing, resolved);
         if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
         markDockDiscovered(resolved);
         state.discoveredTiles.add(updateKey);
@@ -1980,23 +1973,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         return;
       }
       clearAuthInFlight?.(); if (rawCode === "JOIN_SEASON_FAILED") state.joinSeasonPending = false;
-      if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
-        const pending = state.pendingShardCollect;
-        if (pending && msg.code === "COLLECT_NOT_OWNED") {
-          const tile = state.tiles.get(pending.tileKey);
-          if (tile) state.tiles.set(pending.tileKey, { ...tile, shardSite: pending.shardSite });
-          renderHud();
-        }
-        state.pendingShardCollect = undefined;
-      }
       const failedTargetKey = state.actionTargetKey;
       const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
       const errorCode = String(msg.code ?? "");
       const errorMessage = String(msg.message ?? "unknown failure");
-      if (errorCode.startsWith("TECH_") && state.pendingTechUnlockId) {
-        state.pendingTechUnlockId = "";
-        state.currentResearch = undefined;
-      }
+      clearTechCommissionOnError(state, errorCode);
       if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
         state.pendingDomainUnlockId = "";
       }
@@ -2436,7 +2417,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail, state.bridgeDebugSeasonId); return; } if (msg.type === "EMAIL_NOTIFICATION_PREFS_SET") { applyEmailNotificationPrefsFromServer(msg.prefs as Record<string, unknown> | undefined); return; }
 
-    if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { state, pushFeed, renderHud }); return; }
+    if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { pushFeed, renderHud }); return; }
 
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();
@@ -2447,7 +2428,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         clearRenderCaches();
         buildMiniMapBase();
       }
-      state.pendingShardCollect = undefined;
       state.mapLoadStartedAt = Date.now();
       state.firstChunkAt = 0;
       state.chunkFullCount = 0;
@@ -2464,23 +2444,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
-    if (msg.type === "SHARD_RAIN_EVENT") {
-      if (
-        (msg.phase as string | undefined) === "started" &&
-        typeof (msg.startsAt as number | undefined) === "number" &&
-        typeof (msg.expiresAt as number | undefined) === "number"
-      ) {
-        state.shardRainFxUntil = Date.now() + 8_000;
-      }
-      applyShardRainNotice({
-        phase: msg.phase as string | undefined,
-        startsAt: msg.startsAt as number | undefined,
-        expiresAt: msg.expiresAt as number | undefined,
-        siteCount: msg.siteCount as number | undefined,
-        sites: Array.isArray(msg.sites) ? (msg.sites as { x: number; y: number }[]) : undefined
-      });
-      renderHud();
-    }
     if (typeof msg.type === "string" && ABILITY_RESULT_MESSAGE_TYPES.has(msg.type)) {
       applyAbilityResultMessage(state, msg);
       renderHud();

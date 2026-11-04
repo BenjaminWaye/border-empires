@@ -20,6 +20,8 @@ import type { WarPostureLatchEntry } from "./ai-war-posture-latch.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
 import type { ReachLookup } from "./frontier-command-planner.js";
+import type { TownEconomyEntry } from "./build/town-economy-view.js";
+import type { EconomicSynergySummary } from "./build/economic-synergy-diagnostics.js";
 
 // Consecutive planner ticks an AI may spend with its narrow/hot-frontier
 // scan alone actionable (broadFallbackSkipped: true — see
@@ -111,7 +113,7 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   techIds?: readonly string[];
   domainIds?: readonly string[];
   afcUpgradeRuleset?: "afc-v1";
-  afcDetectedFlags?: readonly { x: number; y: number; ownerId: string }[];
+  afcHijackReadyAt?: number;
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   settledTileCount?: number;
   townCount?: number;
@@ -158,6 +160,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   nonHostilePlayerIds?: ReadonlySet<string>;
   /** Manpower staged inside this player's muster flags; counts toward the AI war reserve (see spendableManpowerForPlanner). */
   musterStagedManpower?: number;
+  /** When each of this player's truces runs out; one ending soon raises the war reserve (truceExpiringSoon). */
+  truceEndsAt?: readonly number[];
   /** Per-decision-class rejection cooldowns — true means the class is on cooldown. */
   decisionCooldowns?: DecisionCooldownMap;
   /** Exact rejected action keys and codes, valid only for the current world revision. */
@@ -189,6 +193,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   manpowerRegenPerMinute?: number;
   slotSupplyByResource?: Partial<Record<SlotResource, number>>;
   slotDemandByResource?: Partial<Record<SlotResource, number>>;
+  /** Per-town stacking/amplifier state for economic-synergy-scoring.ts (docs/ai-economic-synergy-plan.md). */
+  townEconomy?: readonly TownEconomyEntry[];
   /**
    * "x,y" tile keys of this player's economicStructures currently dormant
    * specifically on FOOD (Runtime.foodDormantEconomicStructureKeysForPlayer)
@@ -271,11 +277,19 @@ export type AutomationPlannerDiagnostic = {
   expansionObjectiveKind?: "neutral_value" | "enemy" | "none";
   /** Debug-only: "x,y:STRUCTURE_TYPE" of chooseBestEconomicBuild's pick, if any. */
   economicBuildCandidate?: string;
+  /** Score of economicBuildCandidate (chooseBestEconomicBuild). */
+  economicBuildScore?: number;
+  /** Empire stacking/amplifier counts — build/economic-synergy-diagnostics.ts. */
+  economicSynergy?: EconomicSynergySummary;
   /** Debug-only: "x,y" (+ ":needsSettle") of chooseBestRelayBeaconBuild's pick, if any. */
   relayBeaconBuildCandidate?: string;
   /** Debug-only: that pick's raw newCoverage.score — see decisions.ts's
    *  scoreBuildBeacon graduated consideration and RELAY_BEACON_SITE_VALUE_FLOOR/CEILING. */
   relayBeaconSiteValue?: number;
+  /** Exploration-only beacon candidates the spacing rule turned away this
+   *  tick (relay-beacon-site-rules.ts); feeds
+   *  sim_ai_relay_beacon_site_skipped_total. Omitted when nothing was skipped. */
+  relayBeaconSiteSkips?: { spacing: number };
   // Utility AI fields — populated on every result from the main planner.
   tacticalOmittedOriginCount?: number | undefined;
   tacticalVisibleTileCount?: number | undefined;

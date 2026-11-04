@@ -32,7 +32,7 @@ pnpm rewrite:restart:20ai:seed
 Real prod-shaped world (carries real players' structures, including yours):
 
 ```bash
-pnpm ops:prod-shape:clone-snapshot   # prints the SIMULATION_SQLITE_PATH to export
+pnpm ops:prod-shape:clone-snapshot --ssh deploy@188.245.240.42   # prints the SIMULATION_SQLITE_PATH to export
 SIMULATION_SQLITE_PATH=<path from output> pnpm dev
 ```
 
@@ -130,8 +130,8 @@ non-managed runtime, and marks the session as a fog admin.
   ("requires durable state"). If you boot the stack by hand against a new
   SQLite file with a seed profile, pass that flag too.
 
-- `pnpm ops:prod-shape:clone-snapshot` needs `flyctl` access to the source
-  app; it is a real (if read-only) network operation against prod/staging,
+- `pnpm ops:prod-shape:clone-snapshot` needs SSH access (the `snapshot`
+  forced command) to the source server; it is a real (if read-only) network operation against prod/staging,
   not purely local — don't run it reflexively for every small fix.
 - The dev-auth-bypassed session still goes through the same INIT/tile-sync
   path as a real login — a world with a very large tile count can still be

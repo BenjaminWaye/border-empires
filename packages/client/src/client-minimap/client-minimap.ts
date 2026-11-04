@@ -1,12 +1,10 @@
 import { relicRemainingUses } from "@border-empires/shared";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { drawAetherBridgeLane, hexWithAlpha } from "../client-map-render/client-map-render.js";
-import { drawResourceIconOnCanvas } from "../client-resource-icons/client-resource-icons.js";
 import { computeMiniMapViewBox } from "../client-minimap-view-box.js";
 import { townIdentityForTile, tileHasTownIdentity } from "../client-town-identity.js";
-import { visibleShardSiteForTile, type ClientShardRainPing } from "../client-shard-rain-pings/client-shard-rain-pings.js";
-import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
+import { drawMiniMapTileLayer, miniMapTileRect } from "./client-minimap-tile-layer.js";
 import type { DockPair, StrategicReplayEvent, Tile } from "../client-types.js";
 
 type ReplayTileView = { ownerId?: string; ownershipState?: Tile["ownershipState"] };
@@ -14,7 +12,12 @@ type ReplayTileView = { ownerId?: string; ownershipState?: Tile["ownershipState"
 export type MiniMapContentCache = {
   computedAt: number;
   box?: { x0: number; y0: number; w: number; h: number };
+  /** Whether the last recompute could draw tile by tile; a switch (map reveal, a replay) repaints at once. */
+  perTileAllowed?: boolean;
 };
+
+/** Tile-by-tile drawing costs a few fills per known tile, so it is used only while the framed area is at most this many tiles. */
+export const MINIMAP_TILE_LAYER_MAX_TILES = 20_000;
 
 export const miniMapTownMarkerPalette = (tile: Tile): { outer: string; inner: string; radius: number } => {
   const outer = "rgba(6, 10, 18, 0.86)";
@@ -35,10 +38,7 @@ const CONTENT_RECOMPUTE_FLOOR_MS = 140;
 // territory. A coordinate can therefore sit far outside the box in raw terms
 // while actually being close by the wraparound path (e.g. explored land near
 // x=440 and a site at x=10 on a 450-wide world). Shifting the coordinate by a
-// world-size increment toward the box center picks whichever copy is nearest,
-// matching the wraparound-aware bearing used for the shard alert toast text
-// (see nearestShardSiteBearing in client-shard-alert.ts) so the minimap arrow
-// and the toast never disagree about which way to go.
+// world-size increment toward the box center picks whichever copy is nearest.
 const wrapCoordNearBoxCenter = (coord: number, boxMin: number, boxSize: number, worldSize: number): number => {
   const center = boxMin + boxSize / 2;
   const diff = coord - center;
@@ -52,7 +52,7 @@ export type MiniMapEdgeArrow = { x: number; y: number; angle: number };
 // Clamps a pixel point that falls outside the [0,w]x[0,h] minimap canvas onto
 // its border, along the ray from the canvas center through that point,
 // inset by `margin` px — used to draw a direction indicator for things (like
-// a distant shard rain site) that fell outside the minimap's current view
+// a distant relic hint) that fell outside the minimap's current view
 // box rather than just omitting them.
 export const miniMapEdgeArrowPoint = (targetX: number, targetY: number, w: number, h: number, margin = 8): MiniMapEdgeArrow => {
   const cx = w / 2;
@@ -88,18 +88,12 @@ export const drawMiniMap = (options: {
     tilesRevision: number;
     relicMapHints?: ReadonlyMap<string, import("@border-empires/shared").RelicMapHint>;
     dockPairs: DockPair[];
-    shardRainPingsByTile: Map<string, ClientShardRainPing>;
-    // Drives how long the minimap arrow/ring stays up: the "started" phase's
-    // expiresAt is the actual duration of the rain event's impact sites, as
-    // opposed to shardAlert (cleared on toast dismissal) or the ping's own
-    // short activation delay.
-    shardRainStatus: ClientShardRainAlert | undefined;
   };
   canvas: HTMLCanvasElement;
   miniMapEl: HTMLCanvasElement;
   miniMapCtx: CanvasRenderingContext2D;
   // Offscreen layer holding everything that doesn't depend on the camera/zoom (owner tints,
-  // fog, docks, town/shard/watchtower markers). Recomputing this is the expensive part (several
+  // fog, docks, town/watchtower markers). Recomputing this is the expensive part (several
   // full tile-map scans plus a per-pixel fog pass); it's cached here and only redrawn per
   // contentCache's own throttle, never on every camera/zoom-changed frame.
   miniMapContentEl: HTMLCanvasElement;
@@ -117,6 +111,8 @@ export const drawMiniMap = (options: {
   effectiveOverlayColor: (ownerId: string) => string;
   isDockRouteVisibleForPlayer: (pair: DockPair) => boolean;
   replayCurrentEvent: () => StrategicReplayEvent | undefined;
+  /** Terrain colour of a known tile; when given, fog is on and no replay runs, the content is drawn tile by tile (client-minimap-tile-layer.ts). */
+  terrainColorAt?: (x: number, y: number, terrain: Tile["terrain"]) => string;
 }): boolean => {
   // Camera/zoom moves need an immediate redraw of the viewport indicator for input
   // responsiveness, but they must NOT force a recompute of the expensive content layer below —
@@ -126,23 +122,31 @@ export const drawMiniMap = (options: {
     options.state.camX !== options.miniMapLast.camX ||
     options.state.camY !== options.miniMapLast.camY ||
     options.state.zoom !== options.miniMapLast.zoom;
+  // Tile by tile from known tiles (client-minimap-tile-layer.ts) needs fog on and no replay; the whole-world
+  // base is only needed when fog is off (every tile shows) or a replay repaints ownership.
+  const perTileAllowed = options.terrainColorAt !== undefined && !effectiveFogDisabled(options.state) && !options.state.replayActive;
   const contentDirty =
+    perTileAllowed !== (options.contentCache.perTileAllowed ?? perTileAllowed) ||
     options.state.tiles.size !== options.miniMapLast.tileCount ||
     options.state.tilesRevision !== options.miniMapLast.tilesRevision ||
     options.colorKey !== options.miniMapLast.colorKey ||
     (options.state.replayActive && options.state.replayIndex !== options.miniMapLast.replayIndex);
-  if (!cameraMoved && !contentDirty && options.contentCache.computedAt !== 0) return false;
+  // A resized canvas (the phone map overview renders at screen resolution) is blank until redrawn.
+  const sizeChanged = options.miniMapContentEl.width !== options.miniMapEl.width || options.miniMapContentEl.height !== options.miniMapEl.height;
+  if (!cameraMoved && !contentDirty && !sizeChanged && options.contentCache.computedAt !== 0) return false;
 
   const w = options.miniMapEl.width;
   const h = options.miniMapEl.height;
-  if (!options.miniMapBaseReady) {
+  const drawPlaceholder = (): true => {
     options.miniMapCtx.clearRect(0, 0, w, h);
     options.miniMapCtx.fillStyle = "#0b1320";
     options.miniMapCtx.fillRect(0, 0, w, h);
     options.miniMapCtx.strokeStyle = "rgba(255,255,255,0.25)";
     options.miniMapCtx.strokeRect(0.5, 0.5, w - 1, h - 1);
     return true;
-  }
+  };
+  // Drawing tile by tile needs no whole-world base, so with fog on the minimap shows before the base is built.
+  if (!options.miniMapBaseReady && !perTileAllowed) return drawPlaceholder();
 
   if (options.miniMapContentEl.width !== w || options.miniMapContentEl.height !== h) {
     options.miniMapContentEl.width = w;
@@ -168,70 +172,91 @@ export const drawMiniMap = (options: {
     const inBox = (x: number, y: number): boolean =>
       x >= box.x0 && y >= box.y0 && x < box.x0 + box.w && y < box.y0 + box.h;
 
-    const baseW = options.miniMapBase.width;
-    const baseH = options.miniMapBase.height;
-    const prevSmoothing = cctx.imageSmoothingEnabled;
-    cctx.imageSmoothingEnabled = false;
-    cctx.drawImage(
-      options.miniMapBase,
-      (box.x0 / WORLD_WIDTH) * baseW,
-      (box.y0 / WORLD_HEIGHT) * baseH,
-      (box.w / WORLD_WIDTH) * baseW,
-      (box.h / WORLD_HEIGHT) * baseH,
-      0,
-      0,
-      w,
-      h
-    );
-    cctx.imageSmoothingEnabled = prevSmoothing;
-    if (options.state.replayActive) {
-      for (const [tileKey, replayTile] of options.state.replayOwnershipByTile) {
-        if (!replayTile.ownerId) continue;
-        const { x, y } = options.parseKey(tileKey);
-        if (x < box.x0 || y < box.y0 || x >= box.x0 + box.w || y >= box.y0 + box.h) continue;
-        const px = Math.floor(wxToPx(x));
-        const py = Math.floor(wyToPy(y));
-        cctx.fillStyle = hexWithAlpha(options.effectiveOverlayColor(replayTile.ownerId), replayTile.ownershipState === "SETTLED" ? 0.9 : 0.6);
-        cctx.fillRect(px, py, 1, 1);
-      }
+    // Crisp squares and territory outlines while the frame is small enough to be cheap and tiles are at least a
+    // pixel; zoomed far out (late game, a big frame) the whole-world base reads the same and costs a fixed amount.
+    const tilePx = w / box.w;
+    const perTile = perTileAllowed && tilePx >= 1 && box.w * box.h <= MINIMAP_TILE_LAYER_MAX_TILES;
+    if (!perTile && !options.miniMapBaseReady) return drawPlaceholder();
+    // Markers keep their size on the 220px corner minimap's usual frame (~4.4px tiles) and grow with bigger tiles.
+    const markerScale = Math.max(1, Math.min(4, tilePx / 4.4));
+    // Line widths and small marks are tuned for the 220px canvas; scale them when it renders larger.
+    const uiScale = Math.max(1, w / 220);
+    options.contentCache.perTileAllowed = perTileAllowed;
+    if (perTile && options.terrainColorAt) {
+      drawMiniMapTileLayer(cctx, box, w, h, {
+        tiles: options.state.tiles,
+        keyFor: options.keyFor,
+        terrainColorAt: options.terrainColorAt,
+        overlayColor: options.effectiveOverlayColor,
+        tileVisibilityStateAt: options.tileVisibilityStateAt,
+        withAlpha: hexWithAlpha
+      });
     } else {
-      for (const tile of options.state.tiles.values()) {
-        if (!tile.ownerId) continue;
-        if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
-        if (!inBox(tile.x, tile.y)) continue;
-        const ox = Math.floor(wxToPx(tile.x));
-        const oy = Math.floor(wyToPy(tile.y));
-        cctx.fillStyle = hexWithAlpha(options.effectiveOverlayColor(tile.ownerId), tile.ownershipState === "SETTLED" ? 0.9 : 0.6);
-        cctx.fillRect(ox, oy, 1, 1);
-      }
-    }
-
-    if (!effectiveFogDisabled(options.state)) {
-      const fogStyle: Record<"unexplored" | "fogged", string> = {
-        unexplored: "#000000",
-        fogged: "rgba(0,0,0,0.62)"
-      };
-      for (let py = 0; py < h; py += 1) {
-        const wy = Math.floor(box.y0 + (py / h) * box.h);
-        let runVis: "unexplored" | "fogged" | undefined;
-        let runStartPx = 0;
-        const flushRun = (endPx: number): void => {
-          if (runVis === undefined) return;
-          cctx.fillStyle = fogStyle[runVis];
-          cctx.fillRect(runStartPx, py, endPx - runStartPx, 1);
-        };
-        for (let px = 0; px < w; px += 1) {
-          const wx = Math.floor(box.x0 + (px / w) * box.w);
-          const tile = options.state.tiles.get(options.keyFor(wx, wy));
-          const vis = options.tileVisibilityStateAt(wx, wy, tile);
-          const cellVis = vis === "visible" ? undefined : vis;
-          if (cellVis !== runVis) {
-            flushRun(px);
-            runVis = cellVis;
-            runStartPx = px;
-          }
+      const baseW = options.miniMapBase.width;
+      const baseH = options.miniMapBase.height;
+      const prevSmoothing = cctx.imageSmoothingEnabled;
+      cctx.imageSmoothingEnabled = false;
+      cctx.drawImage(
+        options.miniMapBase,
+        (box.x0 / WORLD_WIDTH) * baseW,
+        (box.y0 / WORLD_HEIGHT) * baseH,
+        (box.w / WORLD_WIDTH) * baseW,
+        (box.h / WORLD_HEIGHT) * baseH,
+        0,
+        0,
+        w,
+        h
+      );
+      cctx.imageSmoothingEnabled = prevSmoothing;
+      if (options.state.replayActive) {
+        for (const [tileKey, replayTile] of options.state.replayOwnershipByTile) {
+          if (!replayTile.ownerId) continue;
+          const { x, y } = options.parseKey(tileKey);
+          if (x < box.x0 || y < box.y0 || x >= box.x0 + box.w || y >= box.y0 + box.h) continue;
+          const r = miniMapTileRect(x, y, box, w, h);
+          cctx.fillStyle = hexWithAlpha(options.effectiveOverlayColor(replayTile.ownerId), replayTile.ownershipState === "SETTLED" ? 0.9 : 0.6);
+          cctx.fillRect(r.x, r.y, r.w, r.h);
         }
-        flushRun(w);
+      } else {
+        for (const tile of options.state.tiles.values()) {
+          if (!tile.ownerId) continue;
+          if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
+          if (!inBox(tile.x, tile.y)) continue;
+          const r = miniMapTileRect(tile.x, tile.y, box, w, h);
+          cctx.fillStyle = hexWithAlpha(options.effectiveOverlayColor(tile.ownerId), tile.ownershipState === "SETTLED" ? 0.9 : 0.6);
+          cctx.fillRect(r.x, r.y, r.w, r.h);
+        }
+      }
+
+      if (!effectiveFogDisabled(options.state)) {
+        const fogStyle: Record<"unexplored" | "fogged", string> = {
+          unexplored: "#000000",
+          fogged: "rgba(0,0,0,0.62)"
+        };
+        // Sampled in blocks so a canvas larger than 220px (the phone overview) costs about the same.
+        const step = Math.max(1, Math.floor(w / 220));
+        for (let py = 0; py < h; py += step) {
+          const wy = Math.floor(box.y0 + (py / h) * box.h);
+          let runVis: "unexplored" | "fogged" | undefined;
+          let runStartPx = 0;
+          const flushRun = (endPx: number): void => {
+            if (runVis === undefined) return;
+            cctx.fillStyle = fogStyle[runVis];
+            cctx.fillRect(runStartPx, py, endPx - runStartPx, step);
+          };
+          for (let px = 0; px < w; px += step) {
+            const wx = Math.floor(box.x0 + (px / w) * box.w);
+            const tile = options.state.tiles.get(options.keyFor(wx, wy));
+            const vis = options.tileVisibilityStateAt(wx, wy, tile);
+            const cellVis = vis === "visible" ? undefined : vis;
+            if (cellVis !== runVis) {
+              flushRun(px);
+              runVis = cellVis;
+              runStartPx = px;
+            }
+          }
+          flushRun(w);
+        }
       }
     }
 
@@ -242,14 +267,12 @@ export const drawMiniMap = (options: {
       const bKnown = options.state.tiles.get(options.keyFor(pair.bx, pair.by));
       if (!effectiveFogDisabled(options.state) && ((!aKnown || aKnown.fogged) && (!bKnown || bKnown.fogged))) continue;
       if (inBox(pair.ax, pair.ay)) {
-        const adx = Math.floor(wxToPx(pair.ax));
-        const ady = Math.floor(wyToPy(pair.ay));
-        cctx.fillRect(adx - 1, ady - 1, 3, 3);
+        const d = 3 * markerScale;
+        cctx.fillRect(wxToPx(pair.ax + 0.5) - d / 2, wyToPy(pair.ay + 0.5) - d / 2, d, d);
       }
       if (inBox(pair.bx, pair.by)) {
-        const bdx = Math.floor(wxToPx(pair.bx));
-        const bdy = Math.floor(wyToPy(pair.by));
-        cctx.fillRect(bdx - 1, bdy - 1, 3, 3);
+        const d = 3 * markerScale;
+        cctx.fillRect(wxToPx(pair.bx + 0.5) - d / 2, wyToPy(pair.by + 0.5) - d / 2, d, d);
       }
     }
 
@@ -257,16 +280,16 @@ export const drawMiniMap = (options: {
       if (!tileHasTownIdentity(tile)) continue;
       if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
       if (!inBox(tile.x, tile.y)) continue;
-      const tx = Math.floor(wxToPx(tile.x));
-      const ty = Math.floor(wyToPy(tile.y));
+      const tx = wxToPx(tile.x + 0.5);
+      const ty = wyToPy(tile.y + 0.5);
       const palette = miniMapTownMarkerPalette(tile);
       cctx.fillStyle = palette.outer;
       cctx.beginPath();
-      cctx.arc(tx, ty, palette.radius, 0, Math.PI * 2);
+      cctx.arc(tx, ty, palette.radius * markerScale, 0, Math.PI * 2);
       cctx.fill();
       cctx.fillStyle = palette.inner;
       cctx.beginPath();
-      cctx.arc(tx, ty, 1.8, 0, Math.PI * 2);
+      cctx.arc(tx, ty, 1.8 * markerScale, 0, Math.PI * 2);
       cctx.fill();
     }
 
@@ -276,8 +299,8 @@ export const drawMiniMap = (options: {
         const ex = Math.floor(wxToPx(replayEvent.x));
         const ey = Math.floor(wyToPy(replayEvent.y));
         cctx.strokeStyle = "rgba(255, 244, 171, 0.98)";
-        cctx.lineWidth = 1.6;
-        cctx.strokeRect(ex - 2, ey - 2, 5, 5);
+        cctx.lineWidth = 1.6 * uiScale;
+        cctx.strokeRect(ex - 2 * markerScale, ey - 2 * markerScale, 5 * markerScale, 5 * markerScale);
       }
       if (replayEvent?.from && replayEvent?.to) {
         drawAetherBridgeLane(cctx, wxToPx(replayEvent.from.x), wyToPy(replayEvent.from.y), wxToPx(replayEvent.to.x), wyToPy(replayEvent.to.y), options.nowMs, {
@@ -287,73 +310,21 @@ export const drawMiniMap = (options: {
     }
 
     cctx.save();
-    cctx.textAlign = "center";
-    cctx.textBaseline = "middle";
-    cctx.font = "8px monospace";
-    for (const tile of options.state.tiles.values()) {
-      const shardSite = visibleShardSiteForTile(tile, options.state.shardRainPingsByTile, options.nowMs);
-      if (!shardSite) continue;
-      if (!inBox(tile.x, tile.y)) continue;
-      const tx = Math.floor(wxToPx(tile.x));
-      const ty = Math.floor(wyToPy(tile.y));
-      // The halo keeps the old tint cue: warm for a falling shard, cyan for a landed site.
-      const tint = shardSite.kind === "FALL" ? "255, 244, 176" : "147, 235, 255";
-      cctx.fillStyle = `rgba(${tint}, 0.45)`;
-      cctx.beginPath();
-      cctx.arc(tx, ty, 5, 0, Math.PI * 2);
-      cctx.fill();
-      cctx.fillStyle = `rgba(${tint}, 0.98)`;
-      drawResourceIconOnCanvas(cctx, "SHARD", tx, ty, 11, "8px monospace");
-    }
+    const pingPhase = 0.5 + 0.5 * Math.sin(options.nowMs / 240);
     const drawRelicHint = (hint: import("@border-empires/shared").RelicMapHint): void => {
       const wrappedX = wrapCoordNearBoxCenter(hint.x, box.x0, box.w, WORLD_WIDTH);
       const wrappedY = wrapCoordNearBoxCenter(hint.y, box.y0, box.h, WORLD_HEIGHT);
       if (!inBox(wrappedX, wrappedY) && hint.kind !== "RELIC") return;
       const edge = !inBox(wrappedX, wrappedY) ? miniMapEdgeArrowPoint(wxToPx(wrappedX), wyToPy(wrappedY), w, h) : undefined;
-      const x = edge?.x ?? wxToPx(wrappedX), y = edge?.y ?? wyToPy(wrappedY);
+      const x = edge?.x ?? wxToPx(wrappedX + 0.5), y = edge?.y ?? wyToPy(wrappedY + 0.5);
       const known = options.state.tiles.get(`${hint.x},${hint.y}`)?.naturalWonder;
       const depleted = known && relicRemainingUses(known) === 0;
       cctx.strokeStyle = depleted ? "#aba89c" : hint.kind === "RELIC" ? "#e7d69c" : "#a9d3bd";
-      cctx.lineWidth = 1.5; cctx.strokeRect(x - 2.5, y - 2.5, 5, 5);
+      const k = markerScale; cctx.lineWidth = 1.5 * uiScale; cctx.strokeRect(x - 2.5 * k, y - 2.5 * k, 5 * k, 5 * k);
       if (edge) { cctx.save(); cctx.translate(x, y); cctx.rotate(edge.angle); cctx.beginPath(); cctx.moveTo(7, 0); cctx.lineTo(3, -3); cctx.lineTo(3, 3); cctx.closePath(); cctx.stroke(); cctx.restore(); }
       if (depleted) { cctx.beginPath(); cctx.moveTo(x - 3.5, y + 3.5); cctx.lineTo(x + 3.5, y - 3.5); cctx.stroke(); }
     };
     for (const hint of options.state.relicMapHints?.values() ?? []) drawRelicHint(hint);
-    const rainStatus = options.state.shardRainStatus;
-    const rainOngoing = rainStatus?.phase === "started" && options.nowMs < rainStatus.expiresAt;
-    const pingPhase = 0.5 + 0.5 * Math.sin(options.nowMs / 240);
-    cctx.lineWidth = 1.2;
-    for (const [, ping] of rainOngoing ? options.state.shardRainPingsByTile : []) {
-      if (options.nowMs < ping.activateAt) continue;
-      if (inBox(ping.x, ping.y)) {
-        const tx = Math.floor(wxToPx(ping.x));
-        const ty = Math.floor(wyToPy(ping.y));
-        cctx.strokeStyle = `rgba(255, 236, 170, ${0.55 + pingPhase * 0.25})`;
-        cctx.beginPath();
-        cctx.arc(tx, ty, 3.4 + pingPhase * 2.1, 0, Math.PI * 2);
-        cctx.stroke();
-        continue;
-      }
-      // Off the current minimap view box (typical for a shard rain far from
-      // explored territory) — point at it from the edge instead of dropping it.
-      // Use the wraparound-nearest copy of its coordinates so the arrow points
-      // the same way as the toast's bearing text on a world where the short
-      // path to the site crosses the world edge.
-      const wrappedX = wrapCoordNearBoxCenter(ping.x, box.x0, box.w, WORLD_WIDTH);
-      const wrappedY = wrapCoordNearBoxCenter(ping.y, box.y0, box.h, WORLD_HEIGHT);
-      const arrow = miniMapEdgeArrowPoint(wxToPx(wrappedX), wyToPy(wrappedY), w, h);
-      cctx.save();
-      cctx.translate(arrow.x, arrow.y);
-      cctx.rotate(arrow.angle);
-      cctx.fillStyle = `rgba(255, 236, 170, ${0.75 + pingPhase * 0.25})`;
-      cctx.beginPath();
-      cctx.moveTo(5, 0);
-      cctx.lineTo(-3.5, -3.2);
-      cctx.lineTo(-3.5, 3.2);
-      cctx.closePath();
-      cctx.fill();
-      cctx.restore();
-    }
 
     // Watchtowers: a dim marker while dormant, and — for ~10s right after a
     // player expands onto one — a bright expanding pulse ring over the
@@ -364,19 +335,19 @@ export const drawMiniMap = (options: {
       if (!tile.watchtower) continue;
       if (!effectiveFogDisabled(options.state) && tile.fogged && !tile.watchtower.activated) continue;
       if (!inBox(tile.x, tile.y)) continue;
-      const tx = Math.floor(wxToPx(tile.x));
-      const ty = Math.floor(wyToPy(tile.y));
+      const tx = wxToPx(tile.x + 0.5);
+      const ty = wyToPy(tile.y + 0.5);
       const revealing = typeof tile.watchtower.revealUntil === "number" && tile.watchtower.revealUntil > options.nowMs;
       // Brass/amber palette to match the steampunk 3D lantern beacon.
       cctx.fillStyle = tile.watchtower.activated ? "rgba(255, 190, 110, 0.95)" : "rgba(150, 120, 80, 0.75)";
       cctx.beginPath();
-      cctx.arc(tx, ty, 2, 0, Math.PI * 2);
+      cctx.arc(tx, ty, 2 * markerScale, 0, Math.PI * 2);
       cctx.fill();
       if (revealing) {
         cctx.strokeStyle = `rgba(255, 179, 71, ${0.5 + pingPhase * 0.35})`;
         cctx.lineWidth = 1.4;
         cctx.beginPath();
-        cctx.arc(tx, ty, 5 + pingPhase * 3, 0, Math.PI * 2);
+        cctx.arc(tx, ty, (5 + pingPhase * 3) * markerScale, 0, Math.PI * 2);
         cctx.stroke();
       }
     }
@@ -389,11 +360,11 @@ export const drawMiniMap = (options: {
       if (!tile.waystation) continue;
       if (!effectiveFogDisabled(options.state) && tile.fogged && !tile.waystation.activated) continue;
       if (!inBox(tile.x, tile.y)) continue;
-      const tx = Math.floor(wxToPx(tile.x));
-      const ty = Math.floor(wyToPy(tile.y));
+      const tx = wxToPx(tile.x + 0.5);
+      const ty = wyToPy(tile.y + 0.5);
       cctx.fillStyle = tile.waystation.activated ? "rgba(120, 150, 155, 0.7)" : "rgba(90, 220, 235, 0.95)";
       cctx.beginPath();
-      cctx.arc(tx, ty, 2, 0, Math.PI * 2);
+      cctx.arc(tx, ty, 2 * markerScale, 0, Math.PI * 2);
       cctx.fill();
     }
     cctx.restore();
@@ -418,8 +389,9 @@ export const drawMiniMap = (options: {
   const viewTilesH = options.canvas.height / options.state.zoom;
   const camLeft = options.state.camX - viewTilesW / 2;
   const camTop = options.state.camY - viewTilesH / 2;
+  const uiScale = Math.max(1, w / 220);
   options.miniMapCtx.strokeStyle = "rgba(255, 240, 180, 0.95)";
-  options.miniMapCtx.lineWidth = 1.5;
+  options.miniMapCtx.lineWidth = 1.5 * uiScale;
   options.miniMapCtx.strokeRect(
     wxToPx(camLeft),
     wyToPy(camTop),
@@ -431,7 +403,7 @@ export const drawMiniMap = (options: {
   const py = wyToPy(options.state.camY);
   options.miniMapCtx.fillStyle = "#ffd166";
   options.miniMapCtx.beginPath();
-  options.miniMapCtx.arc(px, py, 2.8, 0, Math.PI * 2);
+  options.miniMapCtx.arc(px, py, 2.8 * uiScale, 0, Math.PI * 2);
   options.miniMapCtx.fill();
 
   return true;

@@ -1196,7 +1196,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 10, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
+        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 10, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1341,7 +1341,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: 0, strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
+        ["player-1", buildPlayer("player-1", { points: 0, strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1387,7 +1387,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 0, manpowerUpdatedAt: 1_000, strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 0, manpowerUpdatedAt: 1_000, strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1410,7 +1410,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1432,7 +1432,7 @@ describe("simulation runtime", () => {
       now: () => 1_000,
       seedTiles: new Map(),
       initialPlayers: new Map([
-        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } })]
       ]),
       initialState: {
         tiles: [
@@ -1548,47 +1548,6 @@ describe("simulation runtime", () => {
           ownershipState: "FRONTIER"
         })
       );
-    } finally {
-      randomSpy.mockRestore();
-      vi.useRealTimers();
-    }
-  });
-
-  it("preserves shardSite on target tile after EXPAND onto a tile that has one", async () => {
-    vi.useFakeTimers();
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-    try {
-      const runtime = new SimulationRuntime({
-        now: () => 1_000,
-        initialState: {
-          tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
-            { x: 11, y: 10, terrain: "LAND", shardSite: { kind: "CACHE", amount: 3 } }
-          ],
-          activeLocks: []
-        }
-      });
-
-      runtime.submitCommand({
-        commandId: "expand-shard-1",
-        sessionId: "session-1",
-        playerId: "player-1",
-        clientSeq: 1,
-        issuedAt: 1_000,
-        type: "EXPAND",
-        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
-      });
-
-      await Promise.resolve();
-      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
-
-      const targetTile = runtime.exportState().tiles.find((t) => t.x === 11 && t.y === 10);
-      expect(targetTile).toBeDefined();
-      expect(targetTile!.ownerId).toBe("player-1");
-      expect(targetTile!.ownershipState).toBe("FRONTIER");
-      expect(targetTile!.shardSiteJson).toEqual(expect.stringContaining("\"kind\":\"CACHE\""));
-      expect(targetTile!.shardSiteJson).toEqual(expect.stringContaining("\"amount\":3"));
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -4284,7 +4243,7 @@ describe("simulation runtime", () => {
     await Promise.resolve();
 
     expect(scheduledTasks).toHaveLength(1);
-    expect(scheduledTasks[0]?.delayMs).toBe(60_000);
+    expect(scheduledTasks[0]?.delayMs, "seeded player-1 has never garrisoned: a free instant one").toBe(0);
 
     scheduledTasks[0]?.task();
 
@@ -4630,7 +4589,7 @@ describe("simulation runtime", () => {
             domainIds: [],
             allies: [],
             incomePerMinute: 0,
-            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
           }
         ]
       }
@@ -4672,7 +4631,6 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             resource: "GEMS",
             dockId: "dock-1",
-            shardSite: { storedShard: 2, capacity: 4, generatedAt: 1_000 },
             town: {
               name: "Seed Town",
               type: "FARMING",
@@ -4717,7 +4675,6 @@ describe("simulation runtime", () => {
     );
     expect(recoveredTile?.resource).toBeUndefined();
     expect(recoveredTile?.dockId).toBeUndefined();
-    expect(recoveredTile?.shardSite).toBeUndefined();
     expect(recoveredTile?.townType).toBeUndefined();
     expect(recoveredTile?.townName).toBeUndefined();
     expect(recoveredTile?.fort).toBeUndefined();
@@ -5004,7 +4961,7 @@ describe("simulation runtime", () => {
         ],
         [
           "player-2",
-          buildPlayer("player-2", { isAi: true, points: 900, manpower: 700, techIds: new Set<string>(["crystal-lattices"]), strategicResources: { FOOD: 4, TITANIUM: 3, CRYSTAL: 2, UMBRITE: 1, SHARD: 0 } })
+          buildPlayer("player-2", { isAi: true, points: 900, manpower: 700, techIds: new Set<string>(["crystal-lattices"]), strategicResources: { FOOD: 4, TITANIUM: 3, CRYSTAL: 2, UMBRITE: 1 } })
         ]
       ]),
       seedTiles: new Map(),
@@ -5065,7 +5022,7 @@ describe("simulation runtime", () => {
           testRuntimePlayer("player-1", {
             points: 20_000,
             techIds: new Set<string>(["logistics"]),
-            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0, SHARD: 0 }
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0 }
           })
         ],
         ["player-2", testRuntimePlayer("player-2", { isAi: true })]
@@ -5131,13 +5088,13 @@ describe("simulation runtime", () => {
     expect(crystalTile?.yieldRate ?? {}).not.toHaveProperty("strategicPerDay");
   });
 
-  it("migrates siphon, purge, shard collection, and terrain shaping through authoritative tile deltas", async () => {
+  it("migrates siphon, purge, and terrain shaping through authoritative tile deltas", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
         [
           "player-1",
-          buildPlayer("player-1", { points: 20_000, manpower: 10_000, techIds: new Set<string>(["logistics", "terrain-engineering"]), strategicResources: { CRYSTAL: 2_000, SHARD: 0 } })
+          buildPlayer("player-1", { points: 20_000, manpower: 10_000, techIds: new Set<string>(["logistics", "terrain-engineering"]), strategicResources: { CRYSTAL: 2_000 } })
         ],
                   ["player-2", buildAiOpponent()]
       ]),
@@ -5171,7 +5128,7 @@ describe("simulation runtime", () => {
           { x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", sabotage: { ownerId: "player-2", endsAt: 2_000, outputMultiplier: 0.5 } },
           { x: 1, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 2, y: 1, terrain: "MOUNTAIN" },
-          { x: 5, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 3 } },
+          { x: 5, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
           // §5.4/user decision: Observatory upkeep is now progressive (1st=1,
           // 2nd=2, 3rd=3 CRYSTAL slots), so 3 Observatories need 1+2+3=6
           // CRYSTAL slots total, not a flat 3, for none of them to go dormant.
@@ -5228,15 +5185,6 @@ describe("simulation runtime", () => {
       type: "REMOVE_MOUNTAIN",
       payloadJson: JSON.stringify({ x: 2, y: 1 })
     });
-    runtime.submitCommand({
-      commandId: "collect-shard-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 5,
-      issuedAt: 1_000,
-      type: "COLLECT_SHARD",
-      payloadJson: JSON.stringify({ x: 5, y: 1 })
-    });
 
     await Promise.resolve();
 
@@ -5244,90 +5192,6 @@ describe("simulation runtime", () => {
     expect(JSON.stringify(seen.get("purge-1"))).not.toContain("sabotageJson");
     expect(runtime.exportState().tiles).toContainEqual(expect.objectContaining({ x: 1, y: 1, terrain: "MOUNTAIN" }));
     expect(runtime.exportState().tiles).toContainEqual(expect.objectContaining({ x: 2, y: 1, terrain: "LAND" }));
-    expect(JSON.stringify(seen.get("collect-shard-1"))).toContain("\"SHARD\":3");
-  });
-
-  it("rejects COLLECT_SHARD on a shard tile the player does not own", async () => {
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 1_000, strategicResources: { SHARD: 0 } })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 1, y: 0, terrain: "LAND", shardSite: { kind: "CACHE", amount: 4 } }
-        ],
-        activeLocks: []
-      }
-    });
-    const seen = collectEvents(runtime);
-
-    runtime.submitCommand({
-      commandId: "collect-unowned",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 1_000,
-      type: "COLLECT_SHARD",
-      payloadJson: JSON.stringify({ x: 1, y: 0 })
-    });
-
-    await Promise.resolve();
-
-    expect(seen).toContainEqual(
-      expect.objectContaining({
-        eventType: "COMMAND_REJECTED",
-        commandId: "collect-unowned",
-        playerId: "player-1",
-        code: "COLLECT_NOT_OWNED"
-      })
-    );
-    expect(runtime.exportState().tiles).toContainEqual(
-      expect.objectContaining({ x: 1, y: 0, shardSiteJson: expect.stringContaining("\"amount\":4") })
-    );
-  });
-
-  it("emits a PLAYER_UPDATE with the new SHARD stock after a successful collect", async () => {
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 1_000, strategicResources: { SHARD: 0 } })]
-      ]),
-      initialState: {
-        tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 5 } }
-        ],
-        activeLocks: []
-      }
-    });
-    const playerMessages: Array<Record<string, unknown>> = [];
-    runtime.onEvent((event) => {
-      if (event.eventType === "PLAYER_MESSAGE" && event.commandId === "collect-owned") {
-        playerMessages.push(JSON.parse(event.payloadJson) as Record<string, unknown>);
-      }
-    });
-
-    runtime.submitCommand({
-      commandId: "collect-owned",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 1_000,
-      type: "COLLECT_SHARD",
-      payloadJson: JSON.stringify({ x: 1, y: 0 })
-    });
-
-    await Promise.resolve();
-
-    expect(playerMessages).toContainEqual(
-      expect.objectContaining({
-        type: "PLAYER_UPDATE",
-        strategicResources: expect.objectContaining({ SHARD: 5 })
-      })
-    );
   });
 
   it("publishes aether bridge and wall updates and blocks frontier crossings through active walls", async () => {
@@ -6502,695 +6366,6 @@ describe("simulation runtime", () => {
   });
 });
 
-describe("simulation runtime — shard rain", () => {
-  const humanPlayer = (id: string) => ({
-    id,
-    isAi: false,
-    points: 0,
-    manpower: 0,
-    techIds: new Set<string>(),
-    domainIds: new Set<string>(),
-    mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-    techRootId: "rewrite-local",
-    allies: new Set<string>()
-  });
-  const aiPlayer = (id: string) => ({ ...humanPlayer(id), isAi: true });
-
-  const localTime = (hour: number, minute = 0): number =>
-    new Date(2026, 4, 11, hour, minute, 0, 0).getTime();
-
-  it("broadcasts an 'upcoming' notice one hour before a scheduled rain", () => {
-    const runtime = new SimulationRuntime({
-      now: () => localTime(7, 0),
-      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
-      seedTiles: new Map(),
-      initialState: { tiles: [], activeLocks: [] }
-    });
-    const seen = collectEvents(runtime);
-
-    runtime.tickShardRain(localTime(7, 0));
-
-    const notices = seen.filter(
-      (event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> =>
-        event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
-    );
-    expect(notices).toHaveLength(1);
-    expect(notices[0]?.playerId).toBe("human-1");
-    const payload = JSON.parse(notices[0]!.payloadJson);
-    expect(payload).toEqual(
-      expect.objectContaining({ type: "SHARD_RAIN_EVENT", phase: "upcoming", startsAt: localTime(8, 0) })
-    );
-  });
-
-  it("spawns FALL shard sites and broadcasts 'started' at a scheduled hour", () => {
-    const tiles = [
-      { x: 0, y: 0, terrain: "LAND" as const },
-      { x: 1, y: 0, terrain: "LAND" as const },
-      { x: 2, y: 0, terrain: "LAND" as const }
-    ];
-    const runtime = new SimulationRuntime({
-      now: () => localTime(8, 0),
-      initialPlayers: new Map([
-        ["human-1", humanPlayer("human-1")],
-        ["ai-1", aiPlayer("ai-1")]
-      ]),
-      seedTiles: new Map(),
-      initialState: { tiles, activeLocks: [] }
-    });
-    const seen = collectEvents(runtime);
-
-    // count = SHARD_RAIN_SITE_MIN + floor(random*4); 0 -> 3 sites.
-    // Per attempt: x random, y random, amount random.
-    const randomValues = [
-      0, // count -> 3
-      0, 0, 0.5, // attempt 1: x=0, y=0, amount=1
-      0.01, 0, 0.5, // attempt 2: x≈4 (miss), y=0 -> miss (no tile)
-      1 / WORLD_WIDTH, 0, 0.5, // attempt 3: x=1, y=0, amount=1
-      2 / WORLD_WIDTH, 0, 0.5 // attempt 4: x=2, y=0, amount=1
-    ];
-    let cursor = 0;
-    const randomSpy = vi.spyOn(Math, "random").mockImplementation(() => {
-      const value = randomValues[cursor] ?? 0;
-      cursor += 1;
-      return value;
-    });
-
-    try {
-      runtime.tickShardRain(localTime(8, 0));
-    } finally {
-      randomSpy.mockRestore();
-    }
-
-    const batches = seen.filter(
-      (event): event is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> =>
-        event.eventType === "TILE_DELTA_BATCH"
-    );
-    expect(batches).toHaveLength(1);
-    expect(batches[0]!.tileDeltas.length).toBeGreaterThanOrEqual(1);
-    for (const delta of batches[0]!.tileDeltas) {
-      expect(delta.shardSiteJson).toEqual(expect.stringContaining("\"kind\":\"FALL\""));
-    }
-
-    const notices = seen.filter(
-      (event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> =>
-        event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
-    );
-    expect(notices.every((notice) => notice.playerId === "human-1")).toBe(true);
-    expect(notices.some((notice) => notice.playerId === "ai-1")).toBe(false);
-    const startedNotice = notices.find((notice) => JSON.parse(notice.payloadJson).phase === "started");
-    expect(startedNotice).toBeDefined();
-    const startedPayload = JSON.parse(startedNotice!.payloadJson);
-    expect(startedPayload).toEqual(
-      expect.objectContaining({
-        type: "SHARD_RAIN_EVENT",
-        phase: "started",
-        startsAt: localTime(8, 0),
-        expiresAt: localTime(8, 0) + 30 * 60_000
-      })
-    );
-  });
-
-  it("scales the site count up with the number of eligible (human, non-barbarian) players", () => {
-    // 8 eligible human players -> bonus = floor(8 * SHARD_RAIN_SITES_PER_PLAYER=0.25) = 2,
-    // so count = SHARD_RAIN_SITE_MIN(3) + 2 = 5 sites, above the un-scaled 3-6 range.
-    const tiles = Array.from({ length: 5 }, (_, i) => ({ x: i, y: 0, terrain: "LAND" as const }));
-    const players = new Map<string, ReturnType<typeof humanPlayer>>();
-    for (let i = 1; i <= 8; i += 1) players.set(`human-${i}`, humanPlayer(`human-${i}`));
-    // A barbarian (isAi: false, but id-prefixed) and an AI player must not count toward the bonus.
-    players.set("barbarian-1", humanPlayer("barbarian-1"));
-    players.set("ai-1", aiPlayer("ai-1"));
-
-    const runtime = new SimulationRuntime({
-      now: () => localTime(8, 0),
-      initialPlayers: players,
-      seedTiles: new Map(),
-      initialState: { tiles, activeLocks: [] }
-    });
-    const seen = collectEvents(runtime);
-
-    const randomValues = [
-      0, // count -> min of the scaled range (5)
-      0, 0, 0.5, // attempt 1: x=0, y=0, amount=1
-      1 / WORLD_WIDTH, 0, 0.5, // attempt 2: x=1, y=0, amount=1
-      2 / WORLD_WIDTH, 0, 0.5, // attempt 3: x=2, y=0, amount=1
-      3 / WORLD_WIDTH, 0, 0.5, // attempt 4: x=3, y=0, amount=1
-      4 / WORLD_WIDTH, 0, 0.5 // attempt 5: x=4, y=0, amount=1
-    ];
-    let cursor = 0;
-    const randomSpy = vi.spyOn(Math, "random").mockImplementation(() => {
-      const value = randomValues[cursor] ?? 0;
-      cursor += 1;
-      return value;
-    });
-
-    try {
-      runtime.tickShardRain(localTime(8, 0));
-    } finally {
-      randomSpy.mockRestore();
-    }
-
-    const batches = seen.filter(
-      (event): event is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> =>
-        event.eventType === "TILE_DELTA_BATCH"
-    );
-    expect(batches).toHaveLength(1);
-    expect(batches[0]!.tileDeltas).toHaveLength(5);
-  });
-
-  it("does not double-spawn when ticked twice in the same slot", () => {
-    const runtime = new SimulationRuntime({
-      now: () => localTime(8, 0),
-      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [{ x: 0, y: 0, terrain: "LAND" as const }],
-        activeLocks: []
-      }
-    });
-    const seen = collectEvents(runtime);
-
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-    try {
-      runtime.tickShardRain(localTime(8, 0));
-      runtime.tickShardRain(localTime(8, 0));
-    } finally {
-      randomSpy.mockRestore();
-    }
-
-    const startedNotices = seen.filter(
-      (event) =>
-        event.eventType === "PLAYER_MESSAGE" &&
-        event.messageType === "SHARD_RAIN_EVENT" &&
-        JSON.parse(event.payloadJson).phase === "started"
-    );
-    expect(startedNotices).toHaveLength(1);
-  });
-
-  it("emits an explicit shardSiteJson clear marker when expiring FALL sites", () => {
-    const expiresAt = localTime(8, 0) + 30 * 60_000;
-    const runtime = new SimulationRuntime({
-      now: () => localTime(8, 0),
-      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          { x: 0, y: 0, terrain: "LAND" as const, shardSite: { kind: "FALL", amount: 1, expiresAt } }
-        ],
-        activeLocks: []
-      }
-    });
-    const seen = collectEvents(runtime);
-
-    runtime.tickShardRain(expiresAt + 1_000);
-
-    const batches = seen.filter(
-      (event): event is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> =>
-        event.eventType === "TILE_DELTA_BATCH"
-    );
-    expect(batches.length).toBeGreaterThanOrEqual(1);
-    const expireBatch = batches.find((batch) =>
-      batch.tileDeltas.some((delta) => delta.x === 0 && delta.y === 0)
-    );
-    expect(expireBatch).toBeDefined();
-    const expireDelta = expireBatch!.tileDeltas.find((delta) => delta.x === 0 && delta.y === 0);
-    expect(expireDelta).toBeDefined();
-    expect(expireDelta).toHaveProperty("shardSiteJson", "");
-  });
-
-  it("spawns shards even with only AI players, but skips human-only broadcasts", () => {
-    const runtime = new SimulationRuntime({
-      now: () => localTime(8, 0),
-      initialPlayers: new Map([["ai-1", aiPlayer("ai-1")]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [{ x: 0, y: 0, terrain: "LAND" as const }],
-        activeLocks: []
-      }
-    });
-    const seen = collectEvents(runtime);
-
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-    try {
-      runtime.tickShardRain(localTime(8, 0));
-    } finally {
-      randomSpy.mockRestore();
-    }
-
-    expect(seen.some((event) => event.eventType === "TILE_DELTA_BATCH")).toBe(true);
-    expect(
-      seen.some(
-        (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
-      )
-    ).toBe(false);
-  });
-
-  it("emitShardRainHelloFor sends a 'started' notice to a player joining mid-rain", () => {
-    const expiresAt = localTime(8, 0) + 30 * 60_000;
-    const runtime = new SimulationRuntime({
-      now: () => localTime(8, 15),
-      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          { x: 0, y: 0, terrain: "LAND" as const, shardSite: { kind: "FALL", amount: 1, expiresAt } },
-          { x: 1, y: 0, terrain: "LAND" as const, shardSite: { kind: "FALL", amount: 2, expiresAt } }
-        ],
-        activeLocks: []
-      }
-    });
-    const seen = collectEvents(runtime);
-
-    runtime.emitShardRainHelloFor("human-1", localTime(8, 15));
-
-    const notices = seen.filter(
-      (event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> =>
-        event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
-    );
-    expect(notices).toHaveLength(1);
-    expect(notices[0]?.playerId).toBe("human-1");
-    const payload = JSON.parse(notices[0]!.payloadJson);
-    expect(payload).toEqual(
-      expect.objectContaining({
-        type: "SHARD_RAIN_EVENT",
-        phase: "started",
-        startsAt: expiresAt - 30 * 60_000,
-        expiresAt,
-        siteCount: 2
-      })
-    );
-  });
-
-  it("clears the rain hello cache after FALL sites are fully collected", async () => {
-    const expiresAt = localTime(8, 0) + 30 * 60_000;
-    const runtime = new SimulationRuntime({
-      now: () => localTime(8, 15),
-      initialPlayers: new Map([
-        [
-          "human-1",
-          {
-            ...humanPlayer("human-1"),
-            strategicResources: { SHARD: 0 }
-          }
-        ]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 0,
-            y: 0,
-            terrain: "LAND" as const,
-            ownerId: "human-1",
-            ownershipState: "SETTLED" as const,
-            shardSite: { kind: "FALL", amount: 1, expiresAt }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-    const seen = collectEvents(runtime);
-
-    runtime.submitCommand({
-      commandId: "collect-rain-1",
-      sessionId: "session-1",
-      playerId: "human-1",
-      clientSeq: 1,
-      issuedAt: 1_000,
-      type: "COLLECT_SHARD",
-      payloadJson: JSON.stringify({ x: 0, y: 0 })
-    });
-    await Promise.resolve();
-
-    expect(
-      seen.some(
-        (event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "collect-rain-1"
-      )
-    ).toBe(false);
-
-    const helloBefore = seen.length;
-    runtime.emitShardRainHelloFor("human-1", localTime(8, 15));
-    const helloNotices = seen
-      .slice(helloBefore)
-      .filter(
-        (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
-      );
-    expect(helloNotices).toHaveLength(0);
-  });
-
-  it("emitShardRainHelloFor only sends one hello per player per rain window", () => {
-    const expiresAt = localTime(8, 0) + 30 * 60_000;
-    const runtime = new SimulationRuntime({
-      now: () => localTime(8, 15),
-      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [{ x: 0, y: 0, terrain: "LAND" as const, shardSite: { kind: "FALL", amount: 1, expiresAt } }],
-        activeLocks: []
-      }
-    });
-    const seen = collectEvents(runtime);
-
-    runtime.emitShardRainHelloFor("human-1", localTime(8, 15));
-    runtime.emitShardRainHelloFor("human-1", localTime(8, 20));
-
-    const notices = seen.filter(
-      (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
-    );
-    expect(notices).toHaveLength(1);
-  });
-
-  it("emitShardRainHelloFor stays silent when no FALL sites are active and rain is not imminent", () => {
-    const runtime = new SimulationRuntime({
-      now: () => localTime(9, 0),
-      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
-      seedTiles: new Map(),
-      initialState: { tiles: [], activeLocks: [] }
-    });
-    const seen = collectEvents(runtime);
-
-    runtime.emitShardRainHelloFor("human-1", localTime(9, 0));
-
-    expect(
-      seen.some(
-        (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
-      )
-    ).toBe(false);
-  });
-
-  it("does not re-spawn shards on tiles used in previous rain events", () => {
-    const tiles = [
-      { x: 0, y: 0, terrain: "LAND" as const },
-      { x: 1, y: 0, terrain: "LAND" as const },
-      { x: 2, y: 0, terrain: "LAND" as const }
-    ];
-    const runtime = new SimulationRuntime({
-      now: () => localTime(8, 0),
-      initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
-      seedTiles: new Map(),
-      initialState: { tiles, activeLocks: [] }
-    });
-    const seen = collectEvents(runtime);
-
-    const randomValues = [
-      0, // count -> SHARD_RAIN_SITE_MIN + 0 = 3
-      0, 0, 0.5, // attempt 1: tile (0,0), amount 1
-      1 / WORLD_WIDTH, 0, 0.5, // attempt 2: tile (1,0), amount 1
-      2 / WORLD_WIDTH, 0, 0.5 // attempt 3: tile (2,0), amount 1
-    ];
-    let cursor = 0;
-    const randomSpy = vi.spyOn(Math, "random").mockImplementation(() => {
-      const value = randomValues[cursor] ?? 0;
-      cursor += 1;
-      return value;
-    });
-
-    try {
-      // First rain at 08:00
-      runtime.tickShardRain(localTime(8, 0));
-
-      // Advance past TTL (30 min) and trigger second rain at 21:00.
-      // expireShardFallSites runs first and clears shardSite; then the
-      // spawn loop finds no eligible tiles because recentShardRainTileKeys
-      // still holds the 3 tiles from the first event.
-      runtime.tickShardRain(localTime(21, 0));
-
-      const startedNotices = seen.filter(
-        (event) =>
-          event.eventType === "PLAYER_MESSAGE" &&
-          event.messageType === "SHARD_RAIN_EVENT" &&
-          JSON.parse(event.payloadJson).phase === "started"
-      );
-      expect(startedNotices).toHaveLength(1);
-    } finally {
-      randomSpy.mockRestore();
-    }
-  });
-
-  describe("SETTLEMENT capture evacuation", () => {
-    const winningAttacker = (id: string) => ({
-      id,
-      isAi: false,
-      points: 1_000,
-      manpower: 10_000,
-      techIds: new Set<string>(),
-      domainIds: new Set<string>(),
-      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-      techRootId: "rewrite-local",
-      allies: new Set<string>()
-    });
-    const weakDefender = (id: string) => ({
-      id,
-      isAi: true,
-      points: 100,
-      manpower: 1,
-      techIds: new Set<string>(),
-      domainIds: new Set<string>(),
-      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-      techRootId: "rewrite-local",
-      allies: new Set<string>()
-    });
-
-    it("evacuates a captured SETTLEMENT onto the oldest remaining town-less tile of the previous owner", async () => {
-      vi.useFakeTimers();
-      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-      try {
-        const runtime = new SimulationRuntime({
-          now: () => 1_000,
-          initialPlayers: new Map([
-            ["player-1", winningAttacker("player-1")],
-            ["player-2", weakDefender("player-2")]
-          ]),
-          seedTiles: new Map(),
-          initialState: {
-            tiles: [
-              { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
-              { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-              {
-                x: 10,
-                y: 10,
-                terrain: "LAND",
-                ownerId: "player-1",
-                ownershipState: "FRONTIER",
-                muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
-              },
-              {
-                x: 10,
-                y: 11,
-                terrain: "LAND",
-                ownerId: "player-2",
-                ownershipState: "SETTLED",
-                town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT", population: 800 }
-              },
-              { x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
-              {
-                x: 30,
-                y: 30,
-                terrain: "LAND",
-                ownerId: "player-2",
-                ownershipState: "SETTLED",
-                town: { name: "Second Town", type: "FARMING", populationTier: "TOWN", population: 2_000 }
-              }
-            ],
-            activeLocks: []
-          }
-        });
-
-        runtime.submitCommand({
-          commandId: "settlement-capture-1",
-          sessionId: "session-1",
-          playerId: "player-1",
-          clientSeq: 1,
-          issuedAt: 1_000,
-          type: "ATTACK",
-          payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
-        });
-
-        await Promise.resolve();
-        vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
-
-        const captured = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
-        expect(captured?.ownerId).toBe("player-1");
-        expect(captured?.ownershipState).toBe("FRONTIER");
-        // SETTLEMENT town has been stripped off the captured tile.
-        expect(captured).not.toHaveProperty("townJson");
-        expect(captured?.townPopulationTier).toBeUndefined();
-
-        // Town re-rooted on the previous owner's remaining settled tile, at the shocked population.
-        const refuge = runtime.exportState().tiles.find((tile) => tile.x === 20 && tile.y === 20);
-        expect(refuge?.ownerId).toBe("player-2");
-        expect(refuge?.townPopulationTier).toBe("SETTLEMENT");
-        const refugeTown = refuge?.townJson ? JSON.parse(refuge.townJson) as { population?: number } : undefined;
-        const refugePop = refugeTown?.population ?? 0;
-        expect(refugePop).toBeGreaterThan(0);
-        expect(refugePop).toBeLessThan(800);
-        const existingTown = runtime.exportState().tiles.find((tile) => tile.x === 30 && tile.y === 30);
-        expect(existingTown?.townPopulationTier).toBe("TOWN");
-      } finally {
-        randomSpy.mockRestore();
-        vi.useRealTimers();
-      }
-    });
-
-    it("respawns on unowned land when the previous owner's only remaining town is not a SETTLEMENT", async () => {
-      vi.useFakeTimers();
-      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-      try {
-        const runtime = new SimulationRuntime({
-          now: () => 1_000,
-          initialPlayers: new Map([
-            ["player-1", winningAttacker("player-1")],
-            ["player-2", { ...weakDefender("player-2"), points: 0 }]
-          ]),
-          seedTiles: new Map(),
-          initialState: {
-            tiles: [
-              { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
-              { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-              {
-                x: 10,
-                y: 10,
-                terrain: "LAND",
-                ownerId: "player-1",
-                ownershipState: "FRONTIER",
-                muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
-              },
-              {
-                x: 10,
-                y: 11,
-                terrain: "LAND",
-                ownerId: "player-2",
-                ownershipState: "SETTLED",
-                town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT", population: 800 }
-              },
-              // Remaining tile already has a CITY — must NOT be overwritten/downgraded.
-              {
-                x: 20,
-                y: 20,
-                terrain: "LAND",
-                ownerId: "player-2",
-                ownershipState: "SETTLED",
-                town: { name: "Capital", type: "FARMING", populationTier: "CITY", population: 5_000 }
-              },
-              { x: 22, y: 20, terrain: "LAND" }
-            ],
-            activeLocks: []
-          }
-        });
-
-        runtime.submitCommand({
-          commandId: "settlement-capture-2",
-          sessionId: "session-1",
-          playerId: "player-1",
-          clientSeq: 1,
-          issuedAt: 1_000,
-          type: "ATTACK",
-          payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
-        });
-
-        await Promise.resolve();
-        vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
-
-        // Captured tile still loses its SETTLEMENT town (evacuation attempted).
-        const captured = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
-        expect(captured?.ownerId).toBe("player-1");
-        expect(captured).not.toHaveProperty("townJson");
-        expect(captured?.townPopulationTier).toBeUndefined();
-
-        // The pre-existing CITY is preserved — no silent downgrade to SETTLEMENT.
-        const city = runtime.exportState().tiles.find((tile) => tile.x === 20 && tile.y === 20);
-        expect(city?.townPopulationTier).toBe("CITY");
-        const cityTown = city?.townJson ? JSON.parse(city.townJson) as { population?: number } : undefined;
-        expect(cityTown?.population).toBe(5_000);
-
-        const respawnedSettlement = runtime.exportState().tiles.find((tile) => tile.x === 22 && tile.y === 20); // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
-        expect(respawnedSettlement).toEqual(expect.objectContaining({ ownerId: "player-2", ownershipState: "SETTLED" }));
-        expect(respawnedSettlement?.afcJson ? JSON.parse(respawnedSettlement.afcJson) : undefined).toEqual(
-          expect.objectContaining({ ownerId: "player-2", status: "active" })
-        );
-        expect(runtime.exportState().players.find((player) => player.id === "player-2")?.incomePerMinute).toBeGreaterThan(0);
-        expect(runtime.exportState().players.find((player) => player.id === "player-2")?.points).toBe(10); // §24.2: floored from 0 to RESPAWN_MINIMUM_GOLD
-      } finally {
-        randomSpy.mockRestore();
-        vi.useRealTimers();
-      }
-    });
-
-    it("re-roots onto owned frontier land when capture would otherwise leave the previous owner with no town income", async () => {
-      vi.useFakeTimers();
-      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-      try {
-        const runtime = new SimulationRuntime({
-          now: () => 1_000,
-          initialPlayers: new Map([
-            ["player-1", winningAttacker("player-1")],
-            ["player-2", weakDefender("player-2")]
-          ]),
-          seedTiles: new Map(),
-          initialState: {
-            tiles: [
-              { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
-              { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-              {
-                x: 10,
-                y: 10,
-                terrain: "LAND",
-                ownerId: "player-1",
-                ownershipState: "FRONTIER",
-                muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
-              },
-              {
-                x: 10,
-                y: 11,
-                terrain: "LAND",
-                ownerId: "player-2",
-                ownershipState: "SETTLED",
-                town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT", population: 800 }
-              },
-              { x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
-            ],
-            activeLocks: []
-          }
-        });
-        runtime.submitCommand({
-          commandId: "settlement-capture-frontier-refuge",
-          sessionId: "session-1",
-          playerId: "player-1",
-          clientSeq: 1,
-          issuedAt: 1_000,
-          type: "ATTACK",
-          payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
-        });
-
-        await Promise.resolve();
-        vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
-
-        const captured = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
-        expect(captured?.ownerId).toBe("player-1");
-        expect(captured).not.toHaveProperty("townJson");
-
-        const refuge = runtime.exportState().tiles.find((tile) => tile.x === 20 && tile.y === 20);
-        expect(refuge).toEqual(
-          expect.objectContaining({
-            ownerId: "player-2",
-            ownershipState: "SETTLED",
-            townPopulationTier: "SETTLEMENT"
-          })
-        );
-
-        // player-2 is AI (#732 suppresses its PLAYER_UPDATE), so read the re-rooted
-        // income from exportState rather than the now-suppressed message.
-        const defenderIncome = runtime
-          .exportState()
-          .players.find((player) => player.id === "player-2")?.incomePerMinute;
-        expect(defenderIncome).toBeGreaterThan(0);
-      } finally {
-        randomSpy.mockRestore();
-        vi.useRealTimers();
-      }
-    });
-  });
-});
-
 describe("aether purge", () => {
   const buildAetherLanceRuntime = (options: { enemyAegisDome?: boolean; crystal?: number; points?: number } = {}): SimulationRuntime => {
     const tiles: Array<Record<string, unknown>> = [
@@ -7672,7 +6847,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             techRootId: "rewrite-local",
             allies: new Set<string>(),
             // Enough food to keep the TOWN-tier town fed for the refresh path.
-            strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
+            strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
           }
         ]
       ]),
@@ -7742,7 +6917,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     const runtime = new SimulationRuntime({
       now: () => nowMs,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
+        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -7812,7 +6987,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 1000, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
+        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 1000, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {

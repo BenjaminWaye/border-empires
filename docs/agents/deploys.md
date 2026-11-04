@@ -2,7 +2,7 @@
 
 Status: canonical runbook
 
-Read this before any deploy or Vercel/Fly CLI work. AGENTS.md links here.
+Read this before any deploy, Hetzner or Vercel CLI work. AGENTS.md links here.
 
 <!-- ci-smoke-test: harmless doc touch to exercise the develop PR + staging auto-deploy flow end to end; safe to remove this line in a later edit. -->
 
@@ -27,8 +27,8 @@ hostnames; these use the existing firebaseapp.com OAuth handler fallback.
 For a client-only release from the environment's intended commit, run
 `pnpm deploy:client:hetzner staging` or `pnpm deploy:client:hetzner production`.
 Set `BE_CLIENT_SSH_TARGET` for a configured SSH alias (CI uses `hetzner-target`).
-The legacy `deploy:*:all` scripts still target Fly/Vercel: do not use them for
-Hetzner releases. Use green CI on `develop`/`main` for full releases.
+Use green CI on `develop`/`main` for full releases (the old Fly-based
+`deploy:*:all` scripts were deleted along with the Fly apps on 2026-11-02).
 
 Existing hosts need the updated `/opt/border-empires/bin/deploy` and
 `/opt/border-empires/publish-client` installed once, plus a deploy-owned
@@ -57,25 +57,25 @@ available for historical rollback, and Hetzner workflows skip its deploy steps.
 
 - `develop` is the default branch and the base for all feature PRs. Every push to `develop` runs `.github/workflows/ci.yml` (lint, `check:file-lines`, build, test); on green, `.github/workflows/deploy-staging.yml` deploys automatically to staging.
 - `main` is production-ready code, only moved by PR from `develop` (or a hotfix branch). Every push to `main` runs CI, then `.github/workflows/deploy-prod.yml` runs the prod-shape gate unattended and, on a pass, deploys to production.
-- Hetzner Actions publish both the backend and the client. Historical Fly/Vercel manual commands below describe rollback infrastructure only; use the current client-hosting procedure above.
+- Hetzner Actions publish both the backend and the client. The Vercel commands below describe historical rollback infrastructure only; use the current client-hosting procedure above.
 - A push to `develop`/`main` directly (not via PR) is blocked by branch protection; land changes through a PR.
 
 ## Stack targets (critical)
 
-- **Staging** (`https://staging.borderempires.com`, backend `api-staging.borderempires.com` on a Hetzner CX23 in Nuremberg; the Fly app `border-empires-combined-staging` is **stopped, kept only as a rollback**) runs the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined` / `fly.combined.staging.toml`.
-- **Production** (`https://play.borderempires.com`, backend `api.borderempires.com` on a Hetzner CX23 in Nuremberg since 2026-10-02; the Fly app `border-empires-combined` is **stopped (machine frozen with `sleep infinity`), kept only as a rollback**) runs the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined` / `fly.combined.toml`.
-- "Deploy to staging" = deploying the rewrite stack. This now happens automatically on every push to `develop` via `.github/workflows/deploy-staging.yml`. For a manual/ad-hoc run, use `pnpm deploy:staging:all` from any worktree on any branch — it fast-forwards `origin/staging` to `origin/develop`, deploys the combined Fly app, then publishes the static client to Hetzner. Fly escape hatch: `fly deploy --config fly.combined.staging.toml --strategy rolling --remote-only`. Piecemeal split gateway/simulation staging deploys are obsolete.
-- Staging deploys hold client publication until `scripts/verify-staging-realtime.mjs` has checked `/health` and a WebSocket upgrade for ten minutes, then used a reusable Firebase anonymous probe account to verify AUTH reaches INIT and the gateway remains healthy. CI gets its refresh token from `STAGING_ANON_PROBE_REFRESH_TOKEN`; manual runs without that token create a temporary Firebase account and delete it afterward (a staging game profile may remain). Fly's initial machine check can pass before a later watchdog kill; `/healthz` always returns HTTP 200 even if the simulation is disconnected, so the Fly service check uses `/health`. If the soak fails, inspect `fly checks list`, `fly logs`, and the bounded `/data/.death-forensics.json.history.json` before trying a new deployment. The workflow fails without publishing the new client; recover the backend from the last known healthy release after checking database compatibility.
-- `auth/admin-restricted-operation` from Play Now means Firebase anonymous sign-in is disabled for the `border-empires` Firebase project; restarting Fly will not fix it. The deployment guest probe catches that configuration drift. A separate AUTH-to-INIT stall can come from the gateway's synchronous SQLite connection contending with simulation writes. Runtime gateway DB connections use 100 ms lock waits and async retries for identity/profile operations; schema setup retains the longer wait before traffic starts. This avoids blocking the gateway event loop without raising Fly CPU or memory allocations.
-- "Deploy to production" = deploying the combined rewrite stack plus the prod client. This now happens automatically on every push to `main` via `.github/workflows/deploy-prod.yml` (which runs the prod-shape gate itself before deploying). For a manual/ad-hoc run, use `pnpm deploy:prod:all` from a clean checkout at `origin/main`; it requires a recent successful prod-shape gate JSON for the exact target SHA, deploys `fly.combined.toml`, tags the release, updates `origin/production`, and publishes the client with the gateway backend default.
-- Historical manual Fly/Vercel commands in this section must not be used against the active Hetzner environments.
+- **Staging** (`https://staging.borderempires.com`, backend `api-staging.borderempires.com` on a Hetzner CX23 in Nuremberg) runs the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined` with env from `deploy/env/staging.env`.
+- **Production** (`https://play.borderempires.com`, backend `api.borderempires.com` on a Hetzner CX23 in Nuremberg since 2026-10-02) runs the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined` with env from `deploy/env/production.env`.
+- The old Fly apps (`border-empires-combined`, `border-empires-combined-staging`, `border-empires-log-shipper`) were destroyed on 2026-11-02, volumes included. There is no Fly rollback.
+- "Deploy to staging" = deploying the rewrite stack. This now happens automatically on every push to `develop` via `.github/workflows/deploy-staging.yml`. For a manual/ad-hoc run, re-run the `Deploy staging` workflow run for the target commit (`gh run rerun <run-id>`). Piecemeal split gateway/simulation staging deploys are obsolete.
+- Staging deploys hold client publication until `scripts/verify-staging-realtime.mjs` has checked `/health` and a WebSocket upgrade for ten minutes, then used a reusable Firebase anonymous probe account to verify AUTH reaches INIT and the gateway remains healthy. CI gets its refresh token from `STAGING_ANON_PROBE_REFRESH_TOKEN`; manual runs without that token create a temporary Firebase account and delete it afterward (a staging game profile may remain). The initial health check can pass before a later watchdog kill; `/healthz` always returns HTTP 200 even if the simulation is disconnected, so deploy health checks use `/health`. If the soak fails, inspect `scripts/ops/backend-logs.sh staging` and the bounded `/data/.death-forensics.json.history.json` before trying a new deployment. The workflow fails without publishing the new client; recover the backend from the last known healthy release after checking database compatibility.
+- `auth/admin-restricted-operation` from Play Now means Firebase anonymous sign-in is disabled for the `border-empires` Firebase project; restarting the backend will not fix it. The deployment guest probe catches that configuration drift. A separate AUTH-to-INIT stall can come from the gateway's synchronous SQLite connection contending with simulation writes. Runtime gateway DB connections use 100 ms lock waits and async retries for identity/profile operations; schema setup retains the longer wait before traffic starts. This avoids blocking the gateway event loop without raising server CPU or memory allocations.
+- "Deploy to production" = deploying the combined rewrite stack plus the prod client. This now happens automatically on every push to `main` via `.github/workflows/deploy-prod.yml` (which runs the prod-shape gate itself before deploying). For a manual/ad-hoc run, re-run the `Deploy production` workflow run for the target commit (`gh run rerun <run-id>`); it re-runs the gate, tags the release, updates `origin/production`, and publishes the client.
 - When a user says "deploy" without naming an environment, treat that as **staging by default**. Do not assume production unless the user explicitly says `production`, `prod`, or otherwise makes it unambiguous.
-- Before any manual production deploy, make sure this checkout is updated to the latest `origin/main`, then run the prod-shape gate against an isolated clone of the latest production map. Set `PROD_SHAPE_GATE_RESULT_JSON` to that result before running `pnpm deploy:prod:all`. Bypass only for emergency rollback with `SKIP_PROD_SHAPE_GATE=1`.
+- For an emergency production rollback, use `ssh deploy@host rollback` (below) rather than skipping the prod-shape gate.
 
 ## Per-environment world size
 
-- `WORLD_WIDTH` / `WORLD_HEIGHT` (standard size 640x320, `packages/shared/src/world-size.ts`) and `WATCHTOWERS_ENABLED` are read from env. Staging explicitly sets the standard 640x320 size and keeps watchtowers off in `fly.combined.staging.toml` (re-render `deploy/env/staging.env` with `pnpm ops:hetzner:render-env`); production uses the defaults.
-- `SIMULATION_MAP_STYLE` is pinned to `continents` in both `fly.combined.toml` and `fly.combined.staging.toml` (rendered into `deploy/env/*.env`). Do not also set it in `/etc/border-empires/secrets.env`: that file is loaded after `env/<env>.env` and overrides it. A stale `islands` value copied there from the old Fly staging secret made staging seasons look like sparse archipelagos instead of the continents worldgen.
+- `WORLD_WIDTH` / `WORLD_HEIGHT` (standard size 640x320, `packages/shared/src/world-size.ts`) and `WATCHTOWERS_ENABLED` are read from env. Staging explicitly sets the standard 640x320 size and keeps watchtowers off in `deploy/env/staging.env`; production uses the defaults.
+- `SIMULATION_MAP_STYLE` is pinned to `continents` in both `deploy/env/*.env` files. Do not also set it in `/etc/border-empires/secrets.env`: that file is loaded after `env/<env>.env` and overrides it. A stale `islands` value copied there from the old Fly staging secret made staging seasons look like sparse archipelagos instead of the continents worldgen.
 - The client bundle bakes the size in at build time (`packages/client/vite.config.ts` `define`). `scripts/deploy-client-staging.mjs` builds with 640x320 unless `WORLD_WIDTH`/`WORLD_HEIGHT` are set. Server and client must match or tile coordinates break.
 - A size change only shows up after a forced season rollover (below), because a restart reloads the persisted season.
 - `GET /admin/world` (read-only admin auth, e.g. `X-Admin-Github-Token: $(gh auth token)`) reports the configured size and watchtowers, the size the current season was generated at, the AI count and `sizeStatus`: `match`, `rollover_pending` (new size deployed, old season still running), or `unknown` (season created before seasons were stamped with their size). `season.victory` lists each win path's leader, 0..1 progress, `conditionMet` and `holdRemainingSeconds` (the 24h hold resets whenever the leader changes or the condition lapses).
@@ -103,11 +103,10 @@ Production deploys must prove the candidate can handle a live-shaped world befor
 
 ```bash
 # 1. Pull a consistent snapshot of the live prod SQLite db.
-#    Runs VACUUM INTO server-side (atomic, single-file, ~30-60s read lock),
-#    then SFTP-pulls the one output file into a timestamped dir under
-#    ./.prod-shape-clones/. Requires `flyctl auth login`.
-pnpm ops:prod-shape:clone-snapshot
-# (or --app border-empires-combined-staging to clone staging instead)
+#    The server's `snapshot` forced command runs VACUUM INTO (atomic,
+#    single-file, ~30-60s read lock) and streams it into a timestamped dir
+#    under ./.prod-shape-clones/. Use deploy@178.105.133.33 for staging.
+pnpm ops:prod-shape:clone-snapshot --ssh deploy@188.245.240.42
 
 # 2. In one shell, boot the candidate combined stack against the cloned db
 #    (replace <CLONE_DIR> with the path the previous step printed). The
@@ -145,24 +144,24 @@ silently `skipped: true`). Check the result JSON's `probe` field and confirm
 gates is not a real pass (see `reference_prod_shape_gate_can_pass_vacuously`
 project memory). Pin `AUTH_TOKEN` explicitly to disable auto-discovery.
 
-The clone script runs `VACUUM INTO` on the remote server to produce a single consistent, defragmented SQLite file — no WAL/SHM coordination needed. The `VACUUM INTO` holds a read lock for ~30-60s on a ~1GB database; the simulation's writes queue during that window and resume after (no user-visible impact). Server-side temp files are cleaned up after the SFTP pull. Cloned snapshots are git-ignored under `.prod-shape-clones/`.
+The clone runs `VACUUM INTO` on the remote server to produce a single consistent, defragmented SQLite file — no WAL/SHM coordination needed. The `VACUUM INTO` holds a read lock for ~30-60s on a ~1GB database; the simulation's writes queue during that window and resume after (no user-visible impact). Cloned snapshots are git-ignored under `.prod-shape-clones/`.
 
-`pnpm deploy:prod:all` runs the same verification internally. The result must be `ok: true`, recent by default within 6 hours, and stamped with the exact deploy SHA.
+`deploy-prod.yml` runs the same verification. The result must be `ok: true`, recent by default within 6 hours, and stamped with the exact deploy SHA.
 
 ## Hetzner backend (live for staging and production)
 
-Status: staging and production run here (`STAGING_BACKEND` / `PROD_BACKEND` = `hetzner`). Production was cut over manually on 2026-10-02 (Fly frozen → DB copy → `deploy <sha>` → probe → client alias); the first fully automatic `main` deploy through this path had not run when this was written, so check that workflow run when it does.
+Status: staging and production run here. Production was cut over manually from Fly on 2026-10-02 (Fly frozen → DB copy → `deploy <sha>` → probe → client alias); the Fly apps were destroyed on 2026-11-02.
 
 Plan, phases and rationale: [`../hetzner-migration-plan.md`](../hetzner-migration-plan.md). The repo-side pieces live in `deploy/` and `.github/actions/hetzner-deploy/`.
 
-- **Switch:** repo variables `STAGING_BACKEND` / `PROD_BACKEND` (`hetzner` selects the VPS; unset or `fly` would deploy to the stopped Fly apps and wake them — leave both set to `hetzner`). Do not set either variable to `hetzner` before plan Phase 1 (stable `api[-staging].borderempires.com` hostnames) and the server provisioning phases are done: the staging soak/probe scripts and client defaults still point at `*.fly.dev`. Image builds use `DEPLOY_PLATFORM` (default `linux/amd64`; `linux/arm64` for CAX11).
+- **Target:** the deploy workflows always deploy to Hetzner; the old `STAGING_BACKEND` / `PROD_BACKEND` repo variables are no longer read. Image builds use `DEPLOY_PLATFORM` (default `linux/amd64`; `linux/arm64` for CAX11).
 - **Deploy:** the workflow builds `Dockerfile.combined`, pushes `ghcr.io/<owner>/border-empires-combined:<sha>`, then runs `ssh deploy@host <sha>`. The CI key is a forced command (`deploy/bin/deploy`), so it can only `<sha>`, `rollback`, `snapshot` or `logs [<since>]`. The server fetches `deploy/compose.yml`, `Caddyfile`, `env/<env>.env` and `bin/backup` at that sha from GitHub, switches, and polls `127.0.0.1:8080/health` for `ok:true` (15 min), then waits for the app to *settle* (container up ≥120s and 8 consecutive fast `/health` checks; tunable via `SETTLE_*`) because staging measured a ~15–20s window of hung requests about 15s after boot that made the CI soak fail; an unhealthy deploy auto-rolls back. Updating `deploy/bin/deploy` itself on an existing server: as root, `curl -fsSL https://raw.githubusercontent.com/BenjaminWaye/border-empires/<sha>/deploy/bin/deploy -o /opt/border-empires/bin/deploy && chmod 755 /opt/border-empires/bin/deploy`. Do not re-run `bootstrap-server.sh` for this: it rewrites `authorized_keys` and re-enables the backup timer that staging and production keep disabled.
-- **Env:** `deploy/env/*.env` are generated from `fly.combined*.toml` (`pnpm ops:hetzner:render-env`; a test fails if stale) until Fly is retired. Secrets live only in `/etc/border-empires/secrets.env` on the server (`pnpm ops:hetzner:copy-fly-secrets`; values never printed).
+- **Env:** `deploy/env/*.env` hold the non-secret container env and are edited directly; `scripts/ops/hetzner-env-files.test.mjs` checks that keys are sorted and unique, values need no quoting, and `SIMULATION_METRICS_HOST=0.0.0.0`. Secrets live only in `/etc/border-empires/secrets.env` on the server (never in the repo).
 - **Logs:** `scripts/ops/backend-logs.sh <staging|production> [--since 6h] [--lines N]`. It uses the read-only logs key (`~/.ssh/be_logs_ed25519`, override with `BE_LOGS_SSH_KEY`), whose `authorized_keys` entry is `command="/opt/border-empires/bin/deploy --logs-only",restrict <pubkey>` (or `LOGS_PUBKEY` at bootstrap), so it can only run `logs <since>`. Host keys are pinned in `deploy/known_hosts` with strict checking; update that file (after checking the fingerprint in the Hetzner console) if a server is rebuilt. Hosts default to the servers below; override with `BE_STAGING_HOST`/`BE_PRODUCTION_HOST`. With the admin key: `ssh deploy@host "cd /opt/border-empires && docker compose logs -f app"`.
-- **Rollback:** `ssh deploy@host rollback` (admin key). Falling back to Fly means restarting the frozen Fly machine, repointing clients/DNS, and accepting that Hetzner-side play is lost (Fly's data is from the cutover moment) — a decision for the owner, not an automatic step.
+- **Rollback:** `ssh deploy@host rollback` (admin key) restores the previous release. There is no Fly fallback any more.
 - **Servers:** staging `178.105.133.33`, production `188.245.240.42` (Nuremberg, Ubuntu 26.04). Staging has no backups (disposable state, backup timer disabled). Production has Hetzner daily server backups enabled; there is **no hourly SQLite snapshot job on prod** (the timer is disabled): two staging watchdog kills coincided with hourly `VACUUM INTO` backups (hypothesis: SQLite lock contention with the synchronous app), so do not re-enable it on prod without measuring first.
 - **Metrics/debug port:** `ssh -L 50052:127.0.0.1:50052 deploy@host`, then `curl 127.0.0.1:50052/metrics`.
-- **Prod-shape clone:** `pnpm ops:prod-shape:clone-snapshot --ssh deploy@host` (uses the `snapshot` forced command; Fly path is `--app`).
+- **Prod-shape clone:** `pnpm ops:prod-shape:clone-snapshot --ssh deploy@host` (uses the `snapshot` forced command).
 - **Backups:** hourly `VACUUM INTO` → zstd → B2 (`deploy/bin/backup`, systemd timer). Restore: download the `.zst` from B2, `zstd -d`, stop the app, copy over `/srv/border-empires/data/border-empires.db` (remove `-wal`/`-shm`, chown `10001:10001`), start the app.
 
 ## Vercel (historical rollback only)
@@ -188,16 +187,9 @@ The active Hetzner client does not use this project. The commands and edge-funct
   - Discord app (discord.com/developers/applications → OAuth2): add the same three `/__/auth/handler` redirect URLs as Twitch, and copy the client ID and secret.
   - Firebase provider: OpenID Connect, code flow, name `discord` (provider id `oidc.discord`, `DISCORD_PROVIDER_ID` in `client-auth-flow-sso.ts`), issuer `https://discord.com`. The client requests scopes `openid identify email`.
 
-## Fly (legacy rollback only)
-
-Both Fly apps are stopped. Do not run `fly deploy` against them.
-
-- Production app name: `border-empires-combined`.
-- Use `fly status -a border-empires-combined`, `fly logs -a border-empires-combined`, and `pnpm deploy:prod:all` for production runtime checks and deploys. Direct Fly escape hatch: `fly deploy --config fly.combined.toml --strategy rolling --remote-only`.
-
 ## Deploy safety
 
-- Treat the following as serialized — only one agent at a time: `git push origin main`, `vercel deploy --prod`, `vercel env rm`/`add`, `vercel alias set`, `fly deploy -a border-empires-combined`, `fly secrets set`, any database migration. If you cannot guarantee you are the only agent running these, surface the deploy to the user.
+- Treat the following as serialized — only one agent at a time: `git push origin main`, `vercel deploy --prod`, `vercel env rm`/`add`, `vercel alias set`, `ssh deploy@host <sha|rollback>`, edits to `/etc/border-empires/secrets.env`, any database migration. If you cannot guarantee you are the only agent running these, surface the deploy to the user.
 - Production env vars are global mutable state. Prefer `printf '<value>' | vercel env add` over interactive prompts (avoids stray newlines), and re-read with `vercel env pull && cat .vercel/.env.production.local` to verify it round-trips clean.
 - After any prod deploy, verify by hitting the live URL: confirm `wss://api.borderempires.com/ws` round-trips a valid handshake (`wsReadyState` reaches `1`) within 5s. A successful build is not a successful deploy.
-- If a deploy fails or smoke check is red, do not roll forward by re-running. Roll back to the previous Vercel/Fly release, then investigate.
+- If a deploy fails or smoke check is red, do not roll forward by re-running. Roll back to the previous release (`ssh deploy@host rollback`, `client-rollback` for the client), then investigate.

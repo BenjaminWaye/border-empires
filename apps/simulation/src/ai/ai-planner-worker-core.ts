@@ -162,7 +162,7 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
         ...(player.techIds ? { techIds: player.techIds } : {}),
         ...(player.domainIds ? { domainIds: player.domainIds } : {}),
       ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
-      ...(player.afcDetectedFlags ? { afcDetectedFlags: player.afcDetectedFlags } : {}),
+      ...(player.afcHijackReadyAt ? { afcHijackReadyAt: player.afcHijackReadyAt } : {}),
         ...(player.strategicResources ? { strategicResources: player.strategicResources } : {}),
         ...(typeof player.settledTileCount === "number" ? { settledTileCount: player.settledTileCount } : {}),
         ...(typeof player.townCount === "number" ? { townCount: player.townCount } : {}),
@@ -234,7 +234,7 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
       ...(player.techIds ? { techIds: player.techIds } : {}),
       ...(player.domainIds ? { domainIds: player.domainIds } : {}),
       ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
-      ...(player.afcDetectedFlags ? { afcDetectedFlags: player.afcDetectedFlags } : {}),
+      ...(player.afcHijackReadyAt ? { afcHijackReadyAt: player.afcHijackReadyAt } : {}),
       ...(player.strategicResources ? { strategicResources: player.strategicResources } : {}),
       ...(typeof player.settledTileCount === "number" ? { settledTileCount: player.settledTileCount } : {}),
       ...(typeof player.townCount === "number" ? { townCount: player.townCount } : {}),
@@ -277,6 +277,7 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
       ...(player.nonHostilePlayerIds?.length ? { nonHostilePlayerIds: new Set(player.nonHostilePlayerIds) } : {}),
       ...(player.victoryProgress ? { worldVictoryProgress: player.victoryProgress } : {}),
       ...(typeof player.musterStagedManpower === "number" ? { musterStagedManpower: player.musterStagedManpower } : {}),
+      ...(player.truceEndsAt?.length ? { truceEndsAt: player.truceEndsAt } : {}),
       // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): pass
       // through only if the sync_players payload actually carried them (see
       // PlannerPlayerView's doc comment) — planAutomationCommand's needVector
@@ -287,6 +288,7 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
         : {}),
       ...(player.slotSupplyByResource ? { slotSupplyByResource: player.slotSupplyByResource } : {}),
       ...(player.slotDemandByResource ? { slotDemandByResource: player.slotDemandByResource } : {}),
+      ...(player.townEconomy ? { townEconomy: player.townEconomy } : {}),
       ...(player.foodDormantEconomicStructureKeys
         ? { foodDormantEconomicStructureKeys: new Set(player.foodDormantEconomicStructureKeys) }
         : {}),

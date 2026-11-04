@@ -10,7 +10,7 @@ export const networkTileKey = (x: number, y: number, width: number, height: numb
 
 export const isEmptyNetworkSite = (tile: DomainTileState): boolean =>
   tile.terrain === "LAND" && !tile.resource && !tile.town && !tile.dockId && !tile.afc &&
-  !tile.naturalWonder && !tile.shardSite && !tile.watchtower && !tile.waystation && !tile.economicStructure;
+  !tile.naturalWonder && !tile.watchtower && !tile.waystation && !tile.economicStructure;
 
 /** Keep town support rings, AFC clearings and fifty future 3x3 landings free. */
 export const protectedNetworkLandingKeys = (tiles: readonly DomainTileState[], width: number, height: number): ReadonlySet<string> => {

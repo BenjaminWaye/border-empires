@@ -35,11 +35,6 @@ export const initClientDom = () => {
   const placementLabelEl = requireElement<HTMLDivElement>("#placement-label");
   const placementCancelBtn = requireElement<HTMLButtonElement>("#placement-cancel");
   const placementConfirmBtn = requireElement<HTMLButtonElement>("#placement-confirm");
-  const shardAlertOverlayEl = requireElement<HTMLDivElement>("#shard-alert-overlay");
-  const shardAlertCardEl = requireElement<HTMLDivElement>("#shard-alert-card");
-  const shardAlertTitleEl = requireElement<HTMLDivElement>("#shard-alert-title");
-  const shardAlertDetailEl = requireElement<HTMLDivElement>("#shard-alert-detail");
-  const shardAlertCloseBtn = requireElement<HTMLButtonElement>("#shard-alert-close");
   const victoryAlertOverlayEl = requireElement<HTMLDivElement>("#victory-alert-overlay");
   const victoryAlertTitleEl = requireElement<HTMLDivElement>("#victory-alert-title");
   const victoryAlertDetailEl = requireElement<HTMLDivElement>("#victory-alert-detail");
@@ -261,11 +256,6 @@ export const initClientDom = () => {
     joinSeasonOverlayEl,
     seasonEndOverlayEl,
     selectedEl,
-    shardAlertCardEl,
-    shardAlertCloseBtn,
-    shardAlertDetailEl,
-    shardAlertOverlayEl,
-    shardAlertTitleEl,
     sidePanelBodyEl,
     sidePanelEl,
     statsChipsEl,

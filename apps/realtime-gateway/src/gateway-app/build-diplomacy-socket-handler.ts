@@ -5,18 +5,18 @@ import { createProactiveAiDiplomacy } from "../proactive-ai-diplomacy/proactive-
 // query, deal settlement, and the seeded-AI diplomacy responder, extracted out of gateway-app.ts (well over the repo's
 // 500-line file-size gate and may not grow further -- see AGENTS.md's
 // file-and-type-discipline rule).
-import { netValueToAi, SHARD_COIN_VALUE, type ClientMessage } from "@border-empires/shared";
-import type { CommandEnvelope, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import { netValueToAi, type ClientMessage } from "@border-empires/shared";
+import type { CommandEnvelope, CurrentSeasonSummary, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { WebSocket } from "ws";
 
 import { combatFromSimulationEvent, createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
-import type { LeaderboardTiles } from "../ai-diplomacy-stance/ai-alliance-bloc.js";
+import { dominanceSizingFor, type SeasonSizes } from "../ai-diplomacy-stance/ai-alliance-bloc.js";
 import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-review.js";
 import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { aiDiplomacyGrudges } from "../ai-diplomacy-stance/ai-diplomacy-grudges.js";
 import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
-import { createSeasonLeaderboardCache } from "../ai-diplomacy-stance/season-leaderboard-cache.js";
+import { createSeasonLeaderboardCache, seasonSizesFromSummary } from "../ai-diplomacy-stance/season-leaderboard-cache.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
 import { rejectCounteredOffer } from "../diplomacy-counter-offer/diplomacy-counter-offer.js";
@@ -50,7 +50,8 @@ export type DiplomacySocketHandlerDeps = {
   submitSimulationCommand: (command: CommandEnvelope) => Promise<unknown>;
   isSimulationConnected: () => boolean;
   /** Every competitive player's tile count, from the simulation's cached season summary. */
-  fetchSeasonLeaderboard: () => Promise<LeaderboardTiles>;
+  /** The simulation's season summary: leaderboard sizes and the world's land count, for the AI alliance-bloc check. */
+  fetchSeasonSummary: () => Promise<Pick<CurrentSeasonSummary, "overall" | "landTileCount" | "dominanceTilesByPlayerId">>;
 };
 
 export type DiplomacySocketHandler = {
@@ -99,7 +100,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       const otherId = aiId === request.toPlayerId ? request.fromPlayerId : request.toPlayerId;
       if (kind === "truce") memory.recordTruceDeal(aiId, otherId);
       if (request.terms) {
-        const toTarget = netValueToAi(request.terms, SHARD_COIN_VALUE);
+        const toTarget = netValueToAi(request.terms);
         memory.recordPayment(aiId, otherId, aiId === request.toPlayerId ? toTarget : -toTarget);
       }
     },
@@ -131,16 +132,19 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const alliesOf = (playerId: string): readonly string[] => socialState.snapshotForPlayer(playerId).allies;
   // AI snapshots come from a live subscribe without world status, so the bloc
   // check's sizes come from the season leaderboard (cached, bounded wait).
-  const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: deps.fetchSeasonLeaderboard, now: () => Date.now() });
+  const fetchSeasonSizes = async (): Promise<SeasonSizes> => seasonSizesFromSummary(await deps.fetchSeasonSummary());
+  const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: fetchSeasonSizes, now: () => Date.now() });
   const diplomacyContext = async (requesterId: string, aiPlayerId: string): Promise<AiDiplomacyContext> => {
-    const leaderboard = await seasonLeaderboard();
+    const sizes = await seasonLeaderboard();
+    const dominance = dominanceSizingFor(sizes);
     const now = Date.now();
     return {
       ...aiDiplomacyGrudges(socialState.snapshotForPlayer(requesterId), requesterId, aiPlayerId, now),
       memory: memory.view(aiPlayerId, requesterId),
       now,
       alliesOf,
-      ...(leaderboard ? { seasonLeaderboard: leaderboard } : {})
+      ...(sizes ? { seasonLeaderboard: sizes.tiles } : {}),
+      ...(dominance ? { dominance } : {})
     };
   };
   const reviewAiAlliances = createAiAllianceReview({
@@ -148,7 +152,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     hasLiveSocket: deps.hasLiveSocket,
     alliesOf,
     pendingBreaksOf: (playerId) => socialState.snapshotForPlayer(playerId).activeAllianceBreaks.map((notice) => notice.otherPlayerId),
-    fetchLeaderboard: deps.fetchSeasonLeaderboard,
+    fetchLeaderboard: fetchSeasonSizes,
     playerName: socialState.playerNameOf,
     breakAlliance: socialState.breakAlliance,
     fanoutPlayerPayloads: deps.fanoutPlayerPayloads,
@@ -198,7 +202,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
 
   const resourceTrades = createResourceTradeService({ social:socialState,settlement,now:()=>Date.now(),
     isAutoRespondingAi:id=>isAi(id)&&!deps.hasLiveSocket(id),
-    aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?{gold:Math.floor(player.gold),shard:Math.floor(player.strategicResources.SHARD??0),...(player.resourceTradeHoldings?{resources:player.resourceTradeHoldings}:{})}:undefined;},
+    aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?{gold:Math.floor(player.gold),...(player.resourceTradeHoldings?{resources:player.resourceTradeHoldings}:{})}:undefined;},
     send:deps.sendJson,fanout:deps.fanoutPlayerPayloads,record:deps.recordGatewayEvent });
   const isAutoRespondingAi = (targetId: string): boolean => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId);
   const giftsInFlight = new Set<string>();
@@ -318,7 +322,10 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     observeSimulationEvent: (event) => {
       settlement.observe(event);
       const combat = combatFromSimulationEvent(event);
-      if (combat) memory.observeCombat(combat);
+      if (!combat) return;
+      memory.observeCombat(combat);
+      const withdrawn = socialState.withdrawTruceOffersOnCombat(combat.attackerId, combat.defenderId);
+      if (withdrawn) deps.fanoutPlayerPayloads(withdrawn.payloadsByPlayerId);
     }
   };
 };

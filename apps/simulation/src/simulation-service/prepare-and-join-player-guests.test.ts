@@ -30,7 +30,6 @@ const buildDeps = (initial: SimulationSeasonState, options: { maxSeasonGuests?: 
       ensurePlayerHasAfc: vi.fn(() => false),
       hasPlayer: (playerId: string) => players.has(playerId),
       humanPlayerCount: () => players.size,
-      emitShardRainHelloFor: vi.fn(),
       resendReachForPlayer: vi.fn(),
       devQueueCommandContext: vi.fn(),
       refreshResourceSlotCachesForPlayer: vi.fn()

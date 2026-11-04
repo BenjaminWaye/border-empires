@@ -17,9 +17,7 @@ type OptimisticStateDeps = {
 };
 
 // Overlays the delta merge (applyCommonTileFields in client-tile-merge.ts, plus
-// the gateway's town fields) deletes on an explicit wire clear. shardSite is
-// left out: summary chunks that omit it must keep it (see the optimistic-state
-// test "preserves shard sites when a summary chunk omits shard detail").
+// the gateway's town fields) deletes on an explicit wire clear.
 const CLEARABLE_OVERLAY_KEYS = [
   "muster", "fort", "observatory", "siegeBattery", "economicStructure",
   "sabotage", "watchtower", "waystation", "naturalWonder", "afc",
@@ -457,7 +455,6 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     for (const key of CLEARABLE_OVERLAY_KEYS) {
       if (!(key in incoming)) delete merged[key];
     }
-    if (!("shardSite" in incoming) && existing.shardSite) merged.shardSite = existing.shardSite;
     if (!preservePriorDetail) return merged;
     if (!("dock" in incoming) && existing.dock) merged.dock = existing.dock;
     if (!("yieldRate" in incoming) && existing.yieldRate) merged.yieldRate = existing.yieldRate;

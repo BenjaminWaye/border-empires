@@ -1,5 +1,5 @@
 import { ATTACK_MANPOWER_MIN, MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
-import { formatRefillCountdown } from "./client-manpower-refill.js";
+import { formatRefillCountdown, nextBatchGain } from "./client-manpower-refill.js";
 
 /**
  * HUD manpower chip as a brass-and-glass gauge: how much is spendable now
@@ -47,7 +47,7 @@ const refillText = (input: ManpowerGaugeInput): RefillText => {
   if (remaining <= 0) return { long: "Installing…", short: "now", quiet: false };
   const eta = formatRefillCountdown(remaining);
   if (input.nextBatchAmount === undefined) return { long: `Next batch in ${eta}`, short: eta, quiet: false };
-  const amount = input.formatAmount(Math.max(0, Math.min(manpowerCap - manpower, input.nextBatchAmount)));
+  const amount = input.formatAmount(nextBatchGain(manpower, manpowerCap, input.nextBatchAmount));
   return { long: `+${amount} in ${eta}`, short: `+${amount} in ${eta}`, quiet: false };
 };
 

@@ -21,7 +21,7 @@ const SimulationCommandTypeSchema = z.union([
   DurableCommandTypeSchema,
   z.literal("SYNC_ALLIANCE"),
   z.literal("SYNC_TRUCE"),
-  // Gateway-issued: moves the coin/Shards a truce or alliance deal promised (runtime-diplomacy-settlement-command.ts).
+  // Gateway-issued: moves the coin a truce or alliance deal promised (runtime-diplomacy-settlement-command.ts).
   z.literal("SETTLE_DIPLOMACY_TERMS"),
   z.literal("CANCEL_RESOURCE_SUPPLY"),
   z.literal("WATCH_MUSTER"),
@@ -48,7 +48,7 @@ export const RESTART_PARITY_COMMAND_TYPES = RESTART_PARITY_COMMAND_TYPES_UNTYPED
 export const ACCEPTANCE_RESOLUTION_COMMAND_TYPES = ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED as readonly DurableCommandType[];
 export const RECONNECT_COMMAND_TYPES = RECONNECT_COMMAND_TYPES_UNTYPED as readonly DurableCommandType[];
 
-export type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
+export type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 export type FrontierCombatActionType = "ATTACK" | "EXPAND";
 export type ManpowerBreakdownLine = {
   label: string;
@@ -70,7 +70,6 @@ export type FrontierCombatResultChange = {
 
 export type LockedFrontierCombatResult = {
   wardRechargesAt?: number;
-  hostileCaptureWarUntil?: number;
   attackType: FrontierCombatActionType;
   attackerWon: boolean;
   winnerId?: string;
@@ -122,7 +121,6 @@ export type WorldStatusSnapshot = {
   seasonVictory: SeasonVictoryObjectiveSnapshot[];
   seasonWinner?: SeasonWinnerSnapshot;
   acceptLatencyP95Ms?: number;
-  shardRainNotice?: Record<string, unknown>;
 };
 
 export type CurrentSeasonSummary = {
@@ -148,6 +146,14 @@ export type CurrentSeasonSummary = {
   onlinePlayers: number;
   totalPlayers: number;
   townCount: number;
+  /** LAND tiles in the world (the Diplomatic Dominance denominator); absent from summaries saved before it existed. */
+  landTileCount?: number;
+  /**
+   * Each competitive player's Diplomatic Dominance tiles: controlled (SETTLED +
+   * FRONTIER) tiles times its diplomatic weight, as the victory check counts
+   * them. Absent from summaries saved before it existed.
+   */
+  dominanceTilesByPlayerId?: Record<string, number>;
   updatedAt: number;
   seasonStats?: SeasonStats;
   // Live in-memory score-history samples for the current season (see

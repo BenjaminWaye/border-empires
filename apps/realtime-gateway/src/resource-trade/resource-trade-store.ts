@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { MAX_PENDING_RESOURCE_TRADE_OFFERS as LIMIT, MAX_PENDING_RESOURCE_TRADE_OFFERS_PER_PLAYER as PLAYER_LIMIT,
-  ResourceTradeOfferSchema, type ResourceTradeOffer } from "@border-empires/shared";
+  ResourceTradeOfferSchema, diplomacyTermsCarryRetiredShards, type ResourceTradeOffer } from "@border-empires/shared";
 export interface ResourceTradeOfferStore {
   rows(now: number): readonly ResourceTradeOffer[];
   insert(row: ResourceTradeOffer): boolean;
@@ -38,9 +38,16 @@ export class SqliteResourceTradeOfferStore implements ResourceTradeOfferStore {
     status TEXT NOT NULL, payload_json TEXT NOT NULL)`);}
   rows(now:number):readonly ResourceTradeOffer[] {
     this.db.prepare("DELETE FROM social_resource_trade_offers WHERE status='pending' AND expires_at<=?").run(now);
-    const rows=this.db.prepare("SELECT payload_json,status FROM social_resource_trade_offers ORDER BY id LIMIT ?").all(LIMIT+1);
+    const rows=this.db.prepare("SELECT id,payload_json,status FROM social_resource_trade_offers ORDER BY id LIMIT ?").all(LIMIT+1);
     if(rows.length>LIMIT)throw new RangeError("Resource trade offer store capacity exceeded");
-    return rows.map(row=>ResourceTradeOfferSchema.parse({...JSON.parse(String(row.payload_json)),status:row.status}));
+    const offers:ResourceTradeOffer[]=[];
+    for(const row of rows){
+      const payload=JSON.parse(String(row.payload_json)) as { terms?: unknown };
+      // Shards were removed: an offer still paying or asking Shards would parse as a cheaper deal, so drop it.
+      if(diplomacyTermsCarryRetiredShards(payload.terms)){this.remove(String(row.id));continue;}
+      offers.push(ResourceTradeOfferSchema.parse({...payload,status:row.status}));
+    }
+    return offers;
   }
   insert(raw:ResourceTradeOffer):boolean {
     const row=clone(raw);this.rows(row.createdAt);

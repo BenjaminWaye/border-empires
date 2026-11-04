@@ -41,7 +41,7 @@ const snapshotFor = (playerId: string, gold: number, incomePerMinute: number): P
   }) as unknown as PlayerSubscriptionSnapshot;
 
 // The AI's 12h truce counter: the player pays 12h x 2 coin/min = 1440 coin (Cautious neighbours at peace).
-const counterFromAi = { give: { gold: 0, shard: 0 }, ask: { gold: 1440, shard: 0 } };
+const counterFromAi = { give: { gold: 0 }, ask: { gold: 1440 } };
 
 const recheck = (memory: Partial<AiDiplomacyContext["memory"]>, aiSnapshot: PlayerSubscriptionSnapshot | null = snapshotFor(AI_ID, 0, 2)) =>
   recheckAiOffer(
@@ -59,11 +59,11 @@ describe("recheckAiOffer", () => {
   });
 
   // The grab-and-truce exploit: ask, get a counter, attack, then accept the old price.
+  // Even an AI willing to deal after an attack wants more than its pre-attack price.
   it("withdraws the counter when the player attacked since", async () => {
-    await expect(recheck({ lastPlayerAttackAt: NOW - 5 * 60_000, lastCombatAt: NOW - 5 * 60_000 })).resolves.toEqual({
-      reason: "Alden Vale withdrew its offer. You attacked Alden Vale 5 min ago. They won't talk peace yet.",
-      withdraw: true
-    });
+    const result = await recheck({ lastPlayerAttackAt: NOW - 5 * 60_000, lastCombatAt: NOW - 5 * 60_000 });
+    expect(result).toEqual(expect.objectContaining({ withdraw: true }));
+    expect(result?.reason).toContain("those terms no longer suit it");
   });
 
   it("withdraws the counter when its price has gone up since", async () => {
@@ -80,7 +80,7 @@ describe("recheckAiOffer", () => {
 
 describe("recheckAiOffer on a truce extension", () => {
   // A losing AI (3 tiles down, fighting a minute ago) offered to pay 50 coin for peace.
-  const aiPays = { give: { gold: 50, shard: 0 }, ask: { gold: 0, shard: 0 } };
+  const aiPays = { give: { gold: 50 }, ask: { gold: 0 } };
   const recheckPaid = (extendsTruce: boolean) =>
     recheckAiOffer(
       {

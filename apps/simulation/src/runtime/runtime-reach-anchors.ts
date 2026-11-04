@@ -251,7 +251,7 @@ export function withAfcReachRadii(anchors: readonly ReachAnchor[], players?: Rea
   return anchors.map(anchor => {
     const player = players?.get(anchor.ownerId);
     if (!player || anchor.radiusOverride !== undefined) return anchor;
-    const key = anchor.kind === "TOWN" ? "townReachRadiusBonus" : anchor.kind === "DOCK" ? "dockReachRadiusBonus" : undefined;
+    const key = anchor.kind === "TOWN" ? "townReachRadiusBonus" : undefined;
     const bonus = key ? additiveEffectForPlayer(player, key) : 0;
     return bonus > 0 ? { ...anchor, radiusOverride: reachRadiusForKind(anchor.kind) + bonus } : anchor;
   });

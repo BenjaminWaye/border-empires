@@ -7,7 +7,10 @@ export type PlayerUpdateManpowerState = Pick<
   | "manpowerRegenPerMinute"
   | "logisticsThroughputPerMinute"
   | "expandManpowerCost"
+  | "settleManpowerCost"
+  | "instantGarrisonsRemaining"
   | "nextManpowerBatchAmount"
+  | "nextManpowerBatchAmountAt"
   | "devQueueManpowerReservedTileKeys"
 >;
 
@@ -30,13 +33,18 @@ export const devQueueManpowerReservedTileKeys = (devQueue: unknown): Set<string>
 
 // PLAYER_UPDATE's manpower numbers (pool, cap, regen, logistics and the
 // frontier-scaled EXPAND price). A field the message omits keeps its last value.
-export const applyPlayerUpdateManpowerFields = (state: PlayerUpdateManpowerState, msg: Record<string, unknown>): void => {
+export const applyPlayerUpdateManpowerFields = (state: PlayerUpdateManpowerState, msg: Record<string, unknown>, nowMs: number = Date.now()): void => {
   const numberOr = (value: unknown, fallback: number): number => (typeof value === "number" ? value : fallback);
-  if (typeof msg.nextManpowerBatchAmount === "number") state.nextManpowerBatchAmount = msg.nextManpowerBatchAmount;
+  if (typeof msg.nextManpowerBatchAmount === "number") {
+    state.nextManpowerBatchAmount = msg.nextManpowerBatchAmount;
+    state.nextManpowerBatchAmountAt = nowMs;
+  }
   state.manpower = numberOr(msg.manpower, state.manpower);
   state.manpowerCap = numberOr(msg.manpowerCap, state.manpowerCap);
   state.manpowerRegenPerMinute = numberOr(msg.manpowerRegenPerMinute, state.manpowerRegenPerMinute);
   state.logisticsThroughputPerMinute = numberOr(msg.logisticsThroughputPerMinute, state.logisticsThroughputPerMinute);
   state.expandManpowerCost = numberOr(msg.expandManpowerCost, state.expandManpowerCost);
+  state.settleManpowerCost = numberOr(msg.settleManpowerCost, state.settleManpowerCost);
+  state.instantGarrisonsRemaining = numberOr(msg.instantGarrisonsRemaining, state.instantGarrisonsRemaining);
   state.devQueueManpowerReservedTileKeys = devQueueManpowerReservedTileKeys(msg.devQueue) ?? state.devQueueManpowerReservedTileKeys;
 };

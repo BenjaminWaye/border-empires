@@ -16,6 +16,7 @@
 // already receives (dome mesh, tile surface Y, roads, ownership/fog/prospect
 // drapes), so all of them trace the same cut surface.
 import type { RoadCutDirections } from "../client-map-3d-hill-shape.js";
+import type { FishingPadOffset } from "../client-map-3d-fishing/fishing-hill-cut.js";
 
 /** Offset (tiles) from a hill tile's centre to an AFC centre whose pad cuts through it. */
 export type AfcPadOffset = { readonly du: number; readonly dv: number };
@@ -85,25 +86,28 @@ export const buildAfcPadIndex = (deps: AfcPadIndexDeps): Map<string, AfcPadOffse
 
 /**
  * The per-tile hill cut every hill drape should use: the tile's road cut
- * directions plus any AFC pads through it. Road *drawing* must keep using the
- * raw road lookup -- a tile with only an AFC pad has no road.
+ * directions plus any AFC / fishing-site pads through it. Road *drawing* must
+ * keep using the raw road lookup -- a tile with only a pad has no road.
  */
 export const createHillCutLookup = (
   roadDirsAt: (x: number, y: number) => RoadCutDirections | undefined,
   afcPads: ReadonlyMap<string, readonly AfcPadOffset[]>,
-  keyFor: (x: number, y: number) => string
+  keyFor: (x: number, y: number) => string,
+  fishingPads: ReadonlyMap<string, readonly FishingPadOffset[]> = new Map()
 ): ((x: number, y: number) => RoadCutDirections | undefined) => {
-  if (afcPads.size === 0) return roadDirsAt;
-  // Hill drapes query per vertex/road point, so merge each footprint tile
-  // once; bounded by the pad index (25 entries per AFC), dropped with it.
+  if (afcPads.size === 0 && fishingPads.size === 0) return roadDirsAt;
+  // Hill drapes query per vertex/road point, so merge each pad tile once;
+  // bounded by the pad indexes (25 entries per AFC, 9 per fishing site),
+  // dropped with them.
   const merged = new Map<string, RoadCutDirections>();
   return (x, y) => {
     const key = keyFor(x, y);
-    const pads = afcPads.get(key);
-    if (!pads) return roadDirsAt(x, y);
+    const afc = afcPads.get(key);
+    const fishing = fishingPads.get(key);
+    if (!afc && !fishing) return roadDirsAt(x, y);
     let cut = merged.get(key);
     if (!cut) {
-      cut = { ...roadDirsAt(x, y), afcPads: pads };
+      cut = { ...roadDirsAt(x, y), ...(afc ? { afcPads: afc } : {}), ...(fishing ? { fishingPads: fishing } : {}) };
       merged.set(key, cut);
     }
     return cut;

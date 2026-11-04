@@ -20,7 +20,7 @@ export type RuntimePassiveIncomeContext = {
   tickAwaitingSettleEntries?: (player: RuntimePlayer, nowMs: number) => void;
 };
 
-const STRATEGIC_INCOME_KEYS = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const;
+const STRATEGIC_INCOME_KEYS = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const;
 
 /**
  * True while a player's passive income is suspended for inactivity: a human

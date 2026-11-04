@@ -38,7 +38,6 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
       ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
       ...(previousTarget?.prospectSignature ? { prospectSignature: previousTarget.prospectSignature } : {}),
       ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
-      ...(previousTarget?.shardSite ? { shardSite: previousTarget.shardSite } : {}),
       ...(previousTarget?.naturalWonder ? { naturalWonder: previousTarget.naturalWonder } : {}),
       ...(previousTarget?.watchtower ? { watchtower: previousTarget.watchtower } : {}),
       ...(previousTarget?.waystation ? { waystation: previousTarget.waystation } : {}),

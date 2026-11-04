@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# backend-logs.sh — capped log fetcher for the Hetzner backend (counterpart of
-# fly-logs-tail.sh). Tees the full output to a file and prints only the last N
+# backend-logs.sh — capped log fetcher for the Hetzner backend. Tees the full
+# output to a file and prints only the last N
 # lines so agents don't pay for the whole history.
 #
 # Usage: scripts/ops/backend-logs.sh <staging|production> [--lines N] [--since 15m]

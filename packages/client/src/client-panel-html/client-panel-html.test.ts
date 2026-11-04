@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { allianceRequestsHtml, alliesHtml, feedAgeLabel, feedHtml, leaderboardHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html.js";
+import { allianceRequestsHtml, alliesHtml, feedAgeLabel, feedHtml, leaderboardHtml, socialRemainingLabel, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html.js";
 
-const emptyStrategic = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 };
+const emptyStrategic = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 };
 const emptyAnim = {
   FOOD: { until: 0, dir: 0 as const },
   TITANIUM: { until: 0, dir: 0 as const },
   CRYSTAL: { until: 0, dir: 0 as const },
-  UMBRITE: { until: 0, dir: 0 as const },
-  SHARD: { until: 0, dir: 0 as const }
+  UMBRITE: { until: 0, dir: 0 as const }
 };
 
 describe("strategicRibbonHtml", () => {
@@ -257,5 +256,20 @@ describe("leaderboardHtml", () => {
     const rows = html.split("</div>").filter((row) => row.includes("KonradsDelikatessKörv"));
     expect(rows[0]).toContain("founding-engineer-name");
     expect(rows[1]).not.toContain("founding-engineer-name");
+  });
+});
+
+describe("socialRemainingLabel", () => {
+  const MIN = 60_000;
+  it("shows whole hours, rounded up, from an hour out", () => {
+    expect(socialRemainingLabel(24 * 60 * MIN, 0)).toBe("24h");
+    expect(socialRemainingLabel(61 * MIN, 0)).toBe("2h");
+    expect(socialRemainingLabel(59 * MIN + 1, 0)).toBe("1h");
+  });
+
+  it("counts down in minutes in the last hour, never below 1m", () => {
+    expect(socialRemainingLabel(42 * MIN, 0)).toBe("42m");
+    expect(socialRemainingLabel(41 * MIN + 1, 0)).toBe("42m");
+    expect(socialRemainingLabel(30_000, 0)).toBe("1m");
   });
 });

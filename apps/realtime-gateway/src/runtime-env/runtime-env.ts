@@ -38,7 +38,7 @@ const parsePort = (value: string | undefined, fallback: number): number => {
 
 const isManagedRuntimeEnv = (env: NodeJS.ProcessEnv): boolean => {
   const nodeEnv = (env.NODE_ENV ?? "").toLowerCase();
-  return nodeEnv === "production" || nodeEnv === "staging" || typeof env.FLY_APP_NAME === "string";
+  return nodeEnv === "production" || nodeEnv === "staging";
 };
 
 const parseBinaryFlag = (value: string | undefined): boolean | undefined => {

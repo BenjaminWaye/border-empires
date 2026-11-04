@@ -1,5 +1,6 @@
 import { musterFlagCap } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
+import type { EconomicSynergySummary } from "./ai/build/economic-synergy-diagnostics.js";
 
 // Lean row shape for the per-second metrics ticker (metrics-ai-player-state.ts).
 // Deliberately not RuntimePlayerDebugSnapshot: that type's builder sorts
@@ -28,6 +29,8 @@ export type RuntimeAiPlayerMetricsRow = {
   musterStagedManpower: number;
   /** Sum of each flag's enforced cap; capacity - staged is the headroom the muster tick can still pull from the pool. */
   musterFlagCapacity: number;
+  /** Stacking/amplifier counts (docs/ai-economic-synergy-plan.md); absent when the player has no towns. */
+  economicSynergy?: EconomicSynergySummary;
 };
 
 export type MusterFlagTotals = Pick<RuntimeAiPlayerMetricsRow, "musterFlagCount" | "musterStagedManpower" | "musterFlagCapacity">;

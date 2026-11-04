@@ -191,11 +191,13 @@ message TileDelta {
   optional string siege_battery_json = 14;
   optional string economic_structure_json = 15;
   optional string sabotage_json = 16;
-  optional string shard_site_json = 17;
   // 18/20 were yield_json / yield_cap_json: the retired per-tile stored-yield
   // buffer (tiles no longer hold yield; income credits the treasury directly).
   reserved 18, 20;
   reserved "yield_json", "yield_cap_json";
+  // 17 was shard_site_json: Shards were removed from the game.
+  reserved 17;
+  reserved "shard_site_json";
   string yield_rate_json = 19;
   uint64 frontier_decay_at = 21;
   string frontier_decay_kind = 22;

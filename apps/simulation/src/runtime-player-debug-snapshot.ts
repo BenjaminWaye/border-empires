@@ -20,10 +20,9 @@ export type RuntimePlayerDebugSnapshot = Array<{
   // tiles vs. demand occupied by existing structures, not a spendable
   // stockpile. `strategicResources` on DomainPlayer stays ~0 for these post-
   // rewrite; report slot supply/demand instead so this reflects how the
-  // game actually works. SHARD is the one resource still a real stockpile.
+  // game actually works.
   resourceSlotSupply: ResourceSlotTotals;
   resourceSlotDemand: ResourceSlotTotals;
-  shardStockpile: number;
   settledTileCount: number;
   ownedTileCount: number;
   townCount: number;
@@ -79,7 +78,6 @@ export function buildRuntimePlayerDebugSnapshot(input: PlayerDebugInput): Runtim
         domainIds: [...(player.domainIds ?? [])].sort(),
         resourceSlotSupply: input.resourceSlotSupplyForPlayer(player.id),
         resourceSlotDemand: input.resourceSlotDemandForPlayer(player.id),
-        shardStockpile: player.strategicResources?.SHARD ?? 0,
         settledTileCount: summary.settledTileCount,
         ownedTileCount: summary.territoryTileKeys.size,
         townCount: summary.townCount,

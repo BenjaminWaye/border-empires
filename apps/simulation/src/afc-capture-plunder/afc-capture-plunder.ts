@@ -21,6 +21,10 @@ export const afcCapturePlunderGold = (input: {
   return Math.floor(Math.max(0, input.defenderPoints - input.regularDefenderGoldLoss) * AFC_CAPTURE_PLUNDER_SHARE);
 };
 
+/** Pacification Routines: flat Coin bounty for each Planetary Defense (barbarian) tile an attack captures. */
+export const afcPlanetaryDefenseBounty = (input: { attackerWon: boolean; actionType: string; previousOwnerId: string | undefined; bountyPerTile: number }): number =>
+  input.attackerWon && input.actionType === "ATTACK" && input.previousOwnerId?.startsWith("barbarian-") && input.bountyPerTile > 0 ? input.bountyPerTile : 0;
+
 /** The combat result as reported to clients, with AFC plunder folded into pillagedGold. */
 export const withAfcCapturePlunder = <T extends { pillagedGold: number }>(result: T | undefined, plunder: number): T | undefined =>
   result && plunder > 0 ? { ...result, pillagedGold: result.pillagedGold + plunder } : result;

@@ -34,11 +34,13 @@ export type RuntimeState = {
     afcScarcityFoodSlots?: number;
     chosenTrickleResource?: "TITANIUM" | "UMBRITE" | "CRYSTAL";
     imperialWardCharges?: number;
+    lifetimeGarrisons?: number;
     autoSettle?: AutoSettlePrefs;
     wonderLastFreeRushBuyAt?: number;
     eventLog?: PlayerEventLogEntry[];
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
+    truces?: string[];
     vision: number;
     visionRadiusBonus: number;
     ownedTownTileKeys?: string[];
@@ -64,7 +66,7 @@ export type RuntimeState = {
   terrainEpoch?: number;
 };
 
-export type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
+export type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 export type EconomyResourceKey = StrategicResourceKey | "GOLD";
 export type EconomyBucket = {
   label: string;

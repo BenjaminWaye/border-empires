@@ -12,7 +12,7 @@ import { drawTileIntelOverlays2D } from "./client-map-2d-tile-intel/client-map-2
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resource-overlay-2d.js";
 import { drawDockEndpoint2D } from "./client-dock-endpoint-2d/client-dock-endpoint-2d.js";
-import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
+import { drawLoopMinFrameGapMs, isPhoneViewport } from "./client-runtime-loop-frame-gap.js";
 import { drawVisibleTerrain2D } from "./client-map-render/client-map-render-visible-terrain.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { drawEconomicStructureOverlay2D } from "./client-resource-overlay-2d/client-economic-overlay-2d.js";
@@ -37,7 +37,6 @@ import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-
 import { drawReachBoundaryLine } from "./client-reach-overlay/client-reach-overlay.js";
 import { drawReachTileTreatments2D } from "./client-reach-incursion/client-reach-incursion-2d.js";
 import { createPersistentAlertsFrame } from "./client-persistent-alerts/client-persistent-alerts-frame.js"; import { showCaptureTimeoutAlert } from "./client-alerts/client-alerts.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
-import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawTileFeatureOverlays2D } from "./client-map-2d-tile-feature-overlays.js";
 import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
 import { createDistrictCanvas } from "./client-town-district/district-canvas.js";
@@ -55,7 +54,6 @@ import { devQueueBadgeIndex } from "./client-dev-queue-badge-index/client-dev-qu
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { drawTileGround2D } from "./client-map-render-2d-tile-ground/client-map-render-2d-tile-ground.js";
-import { drawShardRainFx2D } from "./client-shard-rain-fx-2d/client-shard-rain-fx-2d.js";
 import { drawLandingGroundAndSupply2D } from "./client-dock-landing-ground/client-dock-landing-ground-2d.js";
 import { dockEndpointKeySet } from "./client-harbour-slipways/client-harbour-slipways.js";
 import { drawAetherTowerSprite2D } from "./client-aether-tower-sprite-2d/client-aether-tower-sprite-2d.js";
@@ -78,7 +76,6 @@ type StartClientRuntimeLoopDeps = {
   canvas: ClientDom["canvas"];
   ctx: ClientDom["ctx"];
   initTerrainTextures: () => void;
-  isMobile: () => boolean;
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
@@ -117,8 +114,6 @@ type StartClientRuntimeLoopDeps = {
     opening: FortificationOpening
   ) => HTMLImageElement | undefined;
   resourceColor: (resource: Tile["resource"]) => string | undefined;
-  shardOverlayForTile: (tile: Tile) => HTMLImageElement | undefined;
-  drawShardFallback: (tile: Tile, px: number, py: number, size: number) => void;
   drawTownOverlay: (tile: Tile, px: number, py: number, size: number) => void;
   structureAccentColor: (ownerId: string, fallback: string) => string;
   structureOverlayImages: Record<string, HTMLImageElement>;
@@ -160,7 +155,7 @@ type StartClientRuntimeLoopDeps = {
   requestTileDetailIfNeeded: (tile: Tile | undefined, options?: { force?: boolean }) => void;
   renderHud: () => void; tileMenuViewForTile: (tile: Tile) => TileMenuView; renderTileActionMenu: (view: TileMenuView, clientX: number, clientY: number) => void;
   renderCaptureProgress: () => void;
-  renderShardAlert: () => void; renderVictoryHoldAlert: () => void;
+  renderVictoryHoldAlert: () => void;
   cleanupExpiredSettlementProgress: () => boolean;
   processDevelopmentQueue: () => boolean;
   processAutoSettleTargets: () => void;
@@ -194,15 +189,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   const requestVisibleTileDetails = createVisibleTileDetailRequester({
     state,
     keyFor: deps.keyFor,
-    requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded,
-    isMobile: deps.isMobile
+    requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded
   });
 
   const draw = (): void => {
     if (isSeasonLobbyFullscreenActive(state)) { mapScreenOverlays.render([], { size: 1, project: () => ({ sx: 0, sy: 0 }) }); requestAnimationFrame(draw); return; }
     const nowMs = performance.now();
     recordFpsFrame(nowMs);
-    const minFrameGap = drawLoopMinFrameGapMs(isTrue3DRendererActive(), deps.isMobile());
+    const minFrameGap = drawLoopMinFrameGapMs(isTrue3DRendererActive(), isPhoneViewport());
     if (nowMs - lastDrawAt < minFrameGap) {
       requestAnimationFrame(draw);
       return;
@@ -325,48 +319,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
       if (overlayTile && overlayVisible && overlayTile.resource && overlayTile.terrain === "LAND") {
         if (!drawResourceOverlay2D(deps, overlayTile, px, py, size, nowMs)) return;
-      }
-
-      const visibleShardSite = visibleShardSiteForTile(t, state.shardRainPingsByTile, Date.now());
-      if (t && vis === "visible" && t.terrain === "LAND" && visibleShardSite && !isTrue3DRendererActive()) {
-        const tileWithVisibleShard = visibleShardSite === t.shardSite ? t : { ...t, shardSite: visibleShardSite };
-        const overlay = deps.shardOverlayForTile(tileWithVisibleShard);
-        const pulsePhase = 0.5 + 0.5 * Math.sin(nowMs / 280 + t.x * 0.21 + t.y * 0.17);
-        const pulse = 0.82 + 0.18 * pulsePhase;
-        const glowRadius = size * (0.28 + pulsePhase * (visibleShardSite.kind === "FALL" ? 0.3 : 0.24));
-        deps.ctx.save();
-        deps.ctx.globalCompositeOperation = "screen";
-        deps.ctx.fillStyle =
-          visibleShardSite.kind === "FALL"
-            ? `rgba(255, 220, 112, ${0.16 + pulsePhase * 0.18})`
-            : `rgba(96, 244, 255, ${0.14 + pulsePhase * 0.16})`;
-        deps.ctx.beginPath();
-        deps.ctx.arc(px + size / 2, py + size / 2, glowRadius, 0, Math.PI * 2);
-        deps.ctx.fill();
-        deps.ctx.lineWidth = Math.max(2, size * 0.08);
-        deps.ctx.strokeStyle =
-          visibleShardSite.kind === "FALL"
-            ? `rgba(255, 245, 180, ${0.38 + pulsePhase * 0.34})`
-            : `rgba(184, 255, 255, ${0.34 + pulsePhase * 0.3})`;
-        deps.ctx.beginPath();
-        deps.ctx.arc(px + size / 2, py + size / 2, size * (0.18 + pulsePhase * 0.18), 0, Math.PI * 2);
-        deps.ctx.stroke();
-        deps.ctx.restore();
-        if (overlay?.complete && overlay.naturalWidth) {
-          deps.drawCenteredOverlayWithAlpha(
-            overlay,
-            px,
-            py,
-            size,
-            (visibleShardSite.kind === "FALL" ? 1.1 : 1.02) * (0.98 + pulse * 0.06),
-            0.86 + pulse * 0.18
-          );
-        } else {
-          const prevAlpha = deps.ctx.globalAlpha;
-          deps.ctx.globalAlpha = prevAlpha * (0.88 + pulse * 0.16);
-          deps.drawShardFallback(tileWithVisibleShard, px, py, size * (0.99 + pulse * 0.03));
-          deps.ctx.globalAlpha = prevAlpha;
-        }
       }
 
       if (overlayTile && overlayVisible && tileHasTownIdentity(overlayTile) && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
@@ -523,7 +475,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.globalAlpha = 0.16 + progress * 0.36;
         deps.ctx.fillRect(px + 1, py + 1, fillWidth, size - 2);
         deps.ctx.globalAlpha = 1;
-        const pixelCount = deps.isMobile()
+        const pixelCount = isPhoneViewport()
           ? Math.max(10, Math.min(22, Math.floor(size * 0.78)))
           : Math.max(12, Math.min(28, Math.floor(size * 0.94)));
         const activePixels = Math.max(6, Math.round(4 + progress * pixelCount));
@@ -639,48 +591,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           if (!drawResourceOverlay2D(deps, overlayTile, px, py, size, nowMs)) continue;
         }
 
-        const visibleShardSite = visibleShardSiteForTile(t, state.shardRainPingsByTile, Date.now());
-        if (t && vis === "visible" && t.terrain === "LAND" && visibleShardSite && !isTrue3DRendererActive()) {
-          const tileWithVisibleShard = visibleShardSite === t.shardSite ? t : { ...t, shardSite: visibleShardSite };
-          const overlay = deps.shardOverlayForTile(tileWithVisibleShard);
-          const pulsePhase = 0.5 + 0.5 * Math.sin(nowMs / 280 + t.x * 0.21 + t.y * 0.17);
-          const pulse = 0.82 + 0.18 * pulsePhase;
-          const glowRadius = size * (0.28 + pulsePhase * (visibleShardSite.kind === "FALL" ? 0.3 : 0.24));
-          deps.ctx.save();
-          deps.ctx.globalCompositeOperation = "screen";
-          deps.ctx.fillStyle =
-            visibleShardSite.kind === "FALL"
-              ? `rgba(255, 220, 112, ${0.16 + pulsePhase * 0.18})`
-              : `rgba(96, 244, 255, ${0.14 + pulsePhase * 0.16})`;
-          deps.ctx.beginPath();
-          deps.ctx.arc(px + size / 2, py + size / 2, glowRadius, 0, Math.PI * 2);
-          deps.ctx.fill();
-          deps.ctx.lineWidth = Math.max(2, size * 0.08);
-          deps.ctx.strokeStyle =
-            visibleShardSite.kind === "FALL"
-              ? `rgba(255, 245, 180, ${0.38 + pulsePhase * 0.34})`
-              : `rgba(184, 255, 255, ${0.34 + pulsePhase * 0.3})`;
-          deps.ctx.beginPath();
-          deps.ctx.arc(px + size / 2, py + size / 2, size * (0.18 + pulsePhase * 0.18), 0, Math.PI * 2);
-          deps.ctx.stroke();
-          deps.ctx.restore();
-          if (overlay?.complete && overlay.naturalWidth) {
-            deps.drawCenteredOverlayWithAlpha(
-              overlay,
-              px,
-              py,
-              size,
-              (visibleShardSite.kind === "FALL" ? 1.1 : 1.02) * (0.98 + pulse * 0.06),
-              0.86 + pulse * 0.18
-            );
-          } else {
-            const prevAlpha = deps.ctx.globalAlpha;
-            deps.ctx.globalAlpha = prevAlpha * (0.88 + pulse * 0.16);
-            deps.drawShardFallback(tileWithVisibleShard, px, py, size * (0.99 + pulse * 0.03));
-            deps.ctx.globalAlpha = prevAlpha;
-          }
-        }
-
         if (overlayTile && overlayVisible && tileHasTownIdentity(overlayTile) && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
         drawTileFeatureOverlays2D(tileFeatureDeps2D, t, wk, vis, px, py, size, nowMs);
@@ -787,7 +697,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.globalAlpha = 0.16 + progress * 0.36;
           deps.ctx.fillRect(px + 1, py + 1, fillWidth, size - 2);
           deps.ctx.globalAlpha = 1;
-          const pixelCount = deps.isMobile()
+          const pixelCount = isPhoneViewport()
             ? Math.max(10, Math.min(22, Math.floor(size * 0.78)))
             : Math.max(12, Math.min(28, Math.floor(size * 0.94)));
           const activePixels = Math.max(6, Math.round(4 + progress * pixelCount));
@@ -970,8 +880,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       });
     }
 
-    pruneShardRainPings(state);
-    drawShardRainFx2D(deps.ctx, deps.canvas, state.shardRainFxUntil, nowMs);
     const fxMs = phaseMs();
 
     deps.drawMiniMap();
@@ -1016,7 +924,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   draw();
   deps.renderHud();
   setInterval(deps.renderCaptureProgress, 100);
-  setInterval(deps.renderShardAlert, 250); setInterval(deps.renderVictoryHoldAlert, 1_000); startTileMenuDecayTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu); startMusterMenuRepaintTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu);
+  setInterval(deps.renderVictoryHoldAlert, 1_000); startTileMenuDecayTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu); startMusterMenuRepaintTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu);
   setInterval(() => {
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;
@@ -1210,7 +1118,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (state.connection !== "initialized") return;
     if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;
     if (state.firstChunkAt === 0 && Date.now() - state.lastSubAt > 20_000) deps.requestViewRefresh(2, true);
-  }, deps.isMobile() ? 8_000 : 5_000);
+  }, isPhoneViewport() ? 8_000 : 5_000);
 
   // Waypoint heartbeat: re-poke processActionQueue while a waypoint is
   // active and the queue is idle. The message-driven kicks

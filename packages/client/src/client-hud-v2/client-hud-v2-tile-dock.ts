@@ -294,7 +294,7 @@ export const shouldAutoExpand = (state: Pick<ClientState, "tiles" | "me">, tile:
 /** Called at the end of every floating-menu render. A no-op (and an undo) when the flag is off. */
 export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuView, deps: TileDockDeps, rerender: () => void): void => {
   const menuEl = deps.tileActionMenuEl;
-  if (!isHudV2Active(deps.isMobile)) {
+  if (!isHudV2Active()) {
     // Flag off and never docked: leave the legacy menu completely untouched.
     if (!dock) return;
     menuEl.classList.remove(DOCKED, EXPANDED);

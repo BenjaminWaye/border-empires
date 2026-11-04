@@ -2,7 +2,6 @@ import { createClientAuthFlow } from "../client-auth-flow/client-auth-flow.js";
 import { createClientActionFlow } from "../client-action-flow.js";
 import {
   drawStartingExpansionArrow as drawStartingExpansionArrowFromModule,
-  renderShardAlert as renderShardAlertFromModule,
   settlePixelWanderPoint as settlePixelWanderPointFromModule
 } from "../client-capture-effects/client-capture-effects.js";
 import { createRenderCaptureProgress } from "./client-bootstrap-capture-progress.js";
@@ -82,8 +81,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     drawRoadOverlay,
     fortificationOverlayImageFor,
     resourceColor,
-    shardOverlayForTile,
-    drawShardFallback,
     drawTownOverlay,
     drawDockMarker,
     structureAccentColor,
@@ -100,7 +97,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     clearOptimisticTileState,
     mergeIncomingTileDetail,
     mergeServerTileWithOptimisticState,
-    maybeAnnounceShardSite,
     markDockDiscovered,
     centerOnOwnedTile,
     seedProfileSetupFields: seedProfileSetupFieldsFromMain,
@@ -108,8 +104,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     setWorldSeed,
     clearRenderCaches,
     buildMiniMapBase,
-    shardAlertKeyForPayload,
-    showShardAlert,
     combatResolutionAlert,
     wasPredictedCombatAlreadyShown,
     showCaptureAlert,
@@ -145,7 +139,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     captureCancelBtn,
     captureCloseBtn,
     captureTimeEl,
-    shardAlertCloseBtn,
     panelCloseBtn,
     panelActionButtons,
     miniMapEl,
@@ -165,7 +158,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     wsUrl,
     requireAuthedSession: (message?: string) => requireAuthedSessionImpl(message),
     renderHud: () => renderHudImpl(),
-    isMobile, devAuthPlayerId
+    devAuthPlayerId
   });
 
   const { setAuthStatus, syncAuthPanelState, syncAuthOverlay, seedProfileSetupFields, authenticateSocket, clearAuthInFlight } = authFlow;
@@ -273,12 +266,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   });
 
   const { downloadRespawnReportForNotice } = createBootstrapDownloadHelpers({ state, wsUrl });
-  const renderShardAlert = (): void =>
-    renderShardAlertFromModule(state, {
-      shardAlertOverlayEl: dom.shardAlertOverlayEl,
-      shardAlertTitleEl: dom.shardAlertTitleEl,
-      shardAlertDetailEl: dom.shardAlertDetailEl
-    });
   const { renderVictoryHoldAlert, acknowledgeVictoryHoldAlert } = createVictoryHoldAlertHandlers(state, dom);
   const drawStartingExpansionArrow = (px: number, py: number, size: number, dx: number, dy: number): void =>
     drawStartingExpansionArrowFromModule(ctx, px, py, size, dx, dy);
@@ -314,8 +301,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       requestTileDetailIfNeeded: actionFlow.requestTileDetailIfNeeded,
       renderTileActionMenu: actionFlow.renderTileActionMenu,
       tileMenuViewForTile: actionFlow.tileMenuViewForTile,
-      renderCaptureProgress,
-      renderShardAlert, renderVictoryHoldAlert,
+      renderCaptureProgress, renderVictoryHoldAlert,
       renderTechChoiceGrid: techFlow.renderTechChoiceGrid,
       techDetailsUseOverlay: techFlow.techDetailsUseOverlay,
       renderTechDetailPrompt: techFlow.renderTechDetailPrompt,
@@ -391,8 +377,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     captureReportBugBtn: dom.captureReportBugBtn,
     captureTimeEl,
     placementCancelBtn: dom.placementCancelBtn,
-    placementConfirmBtn: dom.placementConfirmBtn,
-    shardAlertCloseBtn, victoryAlertCollapseBtn: dom.victoryAlertCollapseBtn, victoryAlertBannerBtn: dom.victoryAlertBannerBtn,
+    placementConfirmBtn: dom.placementConfirmBtn, victoryAlertCollapseBtn: dom.victoryAlertCollapseBtn, victoryAlertBannerBtn: dom.victoryAlertBannerBtn,
     panelCloseBtn,
     panelActionButtons,
     authColorPresetButtons,
@@ -404,9 +389,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     actionFlow,
     renderHud,
     centerOnOwnedTile,
-    requestViewRefresh,
-    hideShardAlert: deps.hideShardAlert,
-    renderShardAlert, acknowledgeVictoryHoldAlert, renderVictoryHoldAlert,
+    requestViewRefresh, acknowledgeVictoryHoldAlert, renderVictoryHoldAlert,
     renderCaptureProgress,
     setActivePanel,
     syncAuthPanelState
@@ -431,7 +414,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     applyPendingSettlementsFromServer: actionFlow.applyPendingSettlementsFromServer,
     mergeIncomingTileDetail,
     mergeServerTileWithOptimisticState,
-    maybeAnnounceShardSite,
     markDockDiscovered,
     centerOnOwnedTile,
     authProfileNameEl,
@@ -442,8 +424,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     setWorldSeed,
     clearRenderCaches,
     buildMiniMapBase,
-    shardAlertKeyForPayload,
-    showShardAlert,
     combatResolutionAlert,
     wasPredictedCombatAlreadyShown,
     showCaptureAlert,
@@ -456,7 +436,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     requestAttackPreviewForTarget: actionFlow.requestAttackPreviewForTarget,
     openSingleTileActionMenu: actionFlow.openSingleTileActionMenu,
     isTileOwnedByAlly: actionFlow.isTileOwnedByAlly,
-    hideShardAlert: deps.hideShardAlert,
     explainActionFailure: actionFlow.explainActionFailure,
     notifyInsufficientGoldForFrontierAction,
     clearSettlementProgressByKey: actionFlow.clearSettlementProgressByKey,
@@ -473,7 +452,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     canvas,
     ctx,
     initTerrainTextures,
-    isMobile,
     keyFor,
     wrapX,
     wrapY,
@@ -502,8 +480,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     drawRoadOverlay,
     fortificationOverlayImageFor,
     resourceColor,
-    shardOverlayForTile,
-    drawShardFallback,
     // In 3D mode the 3D town overlay draws the building and the shared
     // town nameplate marks it; in 2D mode draw the full SVG building.
     drawTownOverlay: (tile, px, py, size) => {
@@ -535,8 +511,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     maybeRefreshForCamera,
     requestTileDetailIfNeeded: actionFlow.requestTileDetailIfNeeded,
     renderHud, tileMenuViewForTile: actionFlow.tileMenuViewForTile, renderTileActionMenu: actionFlow.renderTileActionMenu,
-    renderCaptureProgress,
-    renderShardAlert, renderVictoryHoldAlert,
+    renderCaptureProgress, renderVictoryHoldAlert,
     cleanupExpiredSettlementProgress: actionFlow.cleanupExpiredSettlementProgress,
     processDevelopmentQueue: actionFlow.processDevelopmentQueue,
     processAutoSettleTargets: actionFlow.processAutoSettleTargets,

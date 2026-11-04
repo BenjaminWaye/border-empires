@@ -221,7 +221,7 @@ describe("tech benefit summaries", () => {
         unlockStormfront: true,
         visionRadiusBonus: 1
       },
-      requirements: { gold: 24000, resources: { CRYSTAL: 280, SHARD: 2 }, checklist: [], canResearch: true }
+      requirements: { gold: 24000, resources: { CRYSTAL: 280 }, checklist: [], canResearch: true }
     };
     const aegisDome: TechInfo = {
       id: "aegis-dome",
@@ -233,7 +233,7 @@ describe("tech benefit summaries", () => {
         unlockAegisDome: true,
         unlockAegisLock: true
       },
-      requirements: { gold: 26000, resources: { CRYSTAL: 300, SHARD: 3 }, checklist: [], canResearch: true }
+      requirements: { gold: 26000, resources: { CRYSTAL: 300 }, checklist: [], canResearch: true }
     };
 
     expect(formatTechBenefitSummary(resonanceGrid)).toContain("Unlocks Stormfront");

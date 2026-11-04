@@ -8,7 +8,7 @@ import { isNetworkResource, RESOURCE_NETWORKS, type NetworkResource } from "@bor
 // the text glyph until the artwork has decoded. resourceIconGlyph stays the
 // plain-text form for contexts that can't hold markup (canvas text, titles).
 
-export type ResourceIconKey = "GOLD" | "FOOD" | "FISH" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD" | NetworkResource;
+export type ResourceIconKey = "GOLD" | "FOOD" | "FISH" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | NetworkResource;
 export type ResourceIconPx = 96 | 256;
 // "inline" sits in running text (~16-24 px); "large" fills art slots (~40-70 px).
 export type ResourceIconSize = "inline" | "large";
@@ -20,7 +20,6 @@ const RESOURCE_ICON_FILE: Record<ResourceIconKey, string> = {
   TITANIUM: "titanium",
   CRYSTAL: "crystal",
   UMBRITE: "umbrite",
-  SHARD: "shard",
   NEURAL_RESIN: "neural-resin",
   CONDUCTIVE_MINERALS: "conductive-minerals",
   CATALYTIC_DEPOSIT: "catalytic-deposit",
@@ -35,7 +34,6 @@ const RESOURCE_ICON_LABEL: Record<ResourceIconKey, string> = {
   TITANIUM: "Titanium",
   CRYSTAL: "Crystal",
   UMBRITE: "Umbrite",
-  SHARD: "Shard",
   NEURAL_RESIN: RESOURCE_NETWORKS.NEURAL_RESIN.name,
   CONDUCTIVE_MINERALS: RESOURCE_NETWORKS.CONDUCTIVE_MINERALS.name,
   CATALYTIC_DEPOSIT: RESOURCE_NETWORKS.CATALYTIC_DEPOSIT.name,
@@ -50,7 +48,6 @@ const RESOURCE_ICON_GLYPH: Record<ResourceIconKey, string> = {
   TITANIUM: "⛏",
   CRYSTAL: "💎",
   UMBRITE: "🟣",
-  SHARD: "✦",
   NEURAL_RESIN: RESOURCE_NETWORKS.NEURAL_RESIN.glyph,
   CONDUCTIVE_MINERALS: RESOURCE_NETWORKS.CONDUCTIVE_MINERALS.glyph,
   CATALYTIC_DEPOSIT: RESOURCE_NETWORKS.CATALYTIC_DEPOSIT.glyph,

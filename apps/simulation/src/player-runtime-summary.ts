@@ -150,8 +150,7 @@ const emptyStrategicProduction = (): Record<StrategicResourceKey, number> => ({
   FOOD: 0,
   TITANIUM: 0,
   CRYSTAL: 0,
-  UMBRITE: 0,
-  SHARD: 0
+  UMBRITE: 0
 });
 
 // TITANIUM/CRYSTAL/UMBRITE are slot-based, not produced —
@@ -296,8 +295,7 @@ export const cloneStrategicProduction = (
   FOOD: value.FOOD,
   TITANIUM: value.TITANIUM,
   CRYSTAL: value.CRYSTAL,
-  UMBRITE: value.UMBRITE,
-  SHARD: value.SHARD
+  UMBRITE: value.UMBRITE
 });
 
 export const estimateIncomePerMinuteFromTiles = (playerId: string, tiles: Iterable<EconomyTileLike>): number => {

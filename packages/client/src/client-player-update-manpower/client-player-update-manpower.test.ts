@@ -4,10 +4,13 @@ import { applyPlayerUpdateManpowerFields, type PlayerUpdateManpowerState } from 
 const baseState = (): PlayerUpdateManpowerState => ({
   manpower: 100,
   nextManpowerBatchAmount: undefined,
+  nextManpowerBatchAmountAt: undefined,
   manpowerCap: 150,
   manpowerRegenPerMinute: 0.2,
   logisticsThroughputPerMinute: 0.2,
   expandManpowerCost: 10,
+  settleManpowerCost: 20,
+  instantGarrisonsRemaining: 0,
   devQueueManpowerReservedTileKeys: new Set<string>()
 });
 
@@ -31,8 +34,9 @@ describe("applyPlayerUpdateManpowerFields", () => {
 
 it("keeps a projected batch current through PLAYER_UPDATE", () => {
   const state = baseState();
-  applyPlayerUpdateManpowerFields(state, { nextManpowerBatchAmount: 1 });
+  applyPlayerUpdateManpowerFields(state, { nextManpowerBatchAmount: 1 }, 5_000);
   expect(state.nextManpowerBatchAmount).toBe(1);
+  expect(state.nextManpowerBatchAmountAt).toBe(5_000);
   applyPlayerUpdateManpowerFields(state, { nextManpowerBatchAmount: 0 });
   expect(state.nextManpowerBatchAmount).toBe(0);
 });

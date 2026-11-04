@@ -47,6 +47,7 @@ export type RuntimeExportState = {
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
     truces: string[];
+    truceEndsAt?: Record<string, number>;
     vision: number;
     visionRadiusBonus: number;
     incomeMultiplier?: number;
@@ -58,6 +59,7 @@ export type RuntimeExportState = {
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
     imperialWardCharges?: number;
+    lifetimeGarrisons?: number;
     islandNames?: IslandNameClaim[];
     autoSettle?: AutoSettlePrefs;
     // Waystation activation's pooled resource-slot bump -- see

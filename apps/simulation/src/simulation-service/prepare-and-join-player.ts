@@ -82,7 +82,6 @@ const spawnAndAnnounce = (
   if (afcGranted) deps.deleteCachedSnapshot(playerId);
   emitPerConnectHellos(
     {
-      emitShardRainHelloFor: (id) => deps.runtime.emitShardRainHelloFor(id),
       resendReachForPlayer: (id) => deps.runtime.resendReachForPlayer(id),
       drainDevQueueForPlayer: (id) => tryDrainDevQueue(deps.runtime.devQueueCommandContext(), id),
       refreshResourceSlotCachesForPlayer: (id) => deps.runtime.refreshResourceSlotCachesForPlayer(id)

@@ -1,3 +1,4 @@
+import { noteGuideMapPanned, noteGuideMapZoomed, noteGuideTileSelected } from "../client-tutorial-guide/tutorial-guide-input-signals.js";
 import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import { deltaYInPixels, zoomStepFor } from "../client-map-zoom-step/client-map-zoom-step.js";
 import type { initClientDom } from "../client-dom.js";
@@ -113,6 +114,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     const focusedAlert = focusPersistentAlertAtPointer(offsetX, offsetY, clientX, clientY);
     if (!focusedAlert) {
       const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
+      noteGuideTileSelected();
       deps.handleTileSelection(wx, wy, clientX, clientY);
     }
     deps.interactionFlags.suppressNextClick = true;
@@ -134,6 +136,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     }
     if (focusPersistentAlertAtPointer(ev.offsetX, ev.offsetY, ev.clientX, ev.clientY)) return;
     const { wx, wy } = worldTileFromPointer(ev.offsetX, ev.offsetY);
+    noteGuideTileSelected();
     deps.handleTileSelection(wx, wy, ev.clientX, ev.clientY);
   });
 
@@ -165,6 +168,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     const pixels = pendingWheelPixels;
     pendingWheelPixels = 0;
     if (pixels === 0) return;
+    noteGuideMapZoomed();
     state.zoom = zoomStepFor({ zoom: state.zoom, deltaY: pixels, deltaMode: 0, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM });
   };
 
@@ -208,6 +212,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       if (ev.key === "ArrowRight") state.camX = deps.wrapX(state.camX + step);
       state.camSubX = 0;
       state.camSubY = 0;
+      noteGuideMapPanned();
       deps.maybeRefreshForCamera(true);
     }
   });
@@ -265,6 +270,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         state.camY = py.camInt;
         state.camSubX = px.camSub;
         state.camSubY = py.camSub;
+        noteGuideMapPanned();
         deps.maybeRefreshForCamera(false);
       }
       return;
@@ -390,6 +396,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         state.camY = py.camInt;
         state.camSubX = px.camSub;
         state.camSubY = py.camSub;
+        noteGuideMapPanned();
         deps.maybeRefreshForCamera(false);
         return;
       }
@@ -401,6 +408,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         const factor = d / Math.max(1, pinchStart.distance);
         state.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(pinchStart.zoom * factor)));
+        noteGuideMapZoomed();
       }
     },
     { passive: true }
@@ -434,6 +442,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
           // itself should flip this, not the single taps that precede it,
           // otherwise every double-tap gesture would zoom in only.
           lastDoubleTapZoomIn = !lastDoubleTapZoomIn;
+          noteGuideMapZoomed();
           lastTapTime = 0;
           lastTapLocation = undefined;
         } else {

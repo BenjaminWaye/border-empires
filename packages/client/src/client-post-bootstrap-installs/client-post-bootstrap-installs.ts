@@ -27,7 +27,7 @@ type PostBootstrapDeps = {
 export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, actionFlow, wrapX, wrapY, requestViewRefresh, ownerColor }: PostBootstrapDeps): void => {
   installDiscoveryTipCenterBinding({ state, wrapX, wrapY, requestViewRefresh, renderHud });
   installDebugSeasonEndOverlay(state, renderHud);
-  installHudV2({ state, renderHud, requestViewRefresh, wrapX, wrapY, isMobile, sendGameMessage, actionFlow, ownerColor }); // redesigned desktop HUD (?hud=legacy opts out)
+  installHudV2({ state, renderHud, requestViewRefresh, wrapX, wrapY, isMobile, sendGameMessage, actionFlow, ownerColor }); // redesigned HUD, desktop and phone layouts (?hud=legacy opts out)
   installDiplomacyOfferDock({ state, sendGameMessage, isMapLoading: () => isMapLoadingOverlayActive(state) }); // incoming truce/alliance offers, answered in place
   // March To banner + pointer arrow, and dragging a march's destination (read by client-map-input.ts).
   installMarchInteraction({ state, renderHud, sendGameMessage: (payload) => sendGameMessage(payload, "Finish sign-in before changing a march.") });

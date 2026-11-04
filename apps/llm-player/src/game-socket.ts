@@ -18,9 +18,7 @@ import { sleep } from "./sleep.js";
 // global per-resource supply/demand pool. This is the same precomputed pair
 // the server's own hasFreeResourceSlots gates BUILD_STRUCTURE on
 // (packages/sim-protocol/src/index.ts's doc comment on `resourceSlots`).
-// strategicResources itself isn't tracked here -- SHARD is the only key it
-// still governs (monument assembly), and monuments are out of scope for
-// this bot (see structures.ts's doc comment).
+// strategicResources itself isn't tracked here.
 export type ResourceSlots = { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
 
 // Shared by every eligibility check that needs a real free-slot count

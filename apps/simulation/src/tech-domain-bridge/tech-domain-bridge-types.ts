@@ -30,7 +30,7 @@ export type TechCatalogEntry = {
   prereqIds?: string[];
   effects?: Record<string, unknown>;
   mods?: Partial<StatMods>;
-  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>;
+  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply", number>>;
   grantsPowerup?: { id: string; charges: number };
   manifestCategory?: ManifestCategory;
 };
@@ -46,5 +46,5 @@ export type DomainCatalogEntry = {
   category?: "ongoing" | "installation" | "active";
   effects?: Record<string, unknown>;
   mods?: Partial<StatMods>;
-  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>;
+  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply", number>>;
 };

@@ -32,9 +32,11 @@ export type RecoveredPlayerState = {
   afcCoreTownKeys?: string[];
   afcScarcityFoodSlots?: number;
   afcCampaign?: import("@border-empires/shared").AfcCampaignState;
-  strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
+  strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
   chosenTrickleResource?: ChosenTrickleResource;
   imperialWardCharges?: number;
+  // Lifetime garrisons started (DomainPlayer.lifetimeGarrisons); SETTLEMENT_STARTED replays bump it.
+  lifetimeGarrisons?: number;
   islandNames?: IslandNameClaim[];
   autoSettle?: AutoSettlePrefs;
   // Waystation activation's pooled resource-slot bump -- see
@@ -53,6 +55,8 @@ export type RecoveredPlayerState = {
   eventLog?: PlayerEventLogEntry[];
   allies?: string[];
   truces?: string[];
+  /** Partner id -> when that truce ends (see DomainPlayer.truceEndsAt). */
+  truceEndsAt?: Record<string, number>;
   vision?: number;
   incomeMultiplier?: number;
   incomePerMinute?: number;
@@ -74,6 +78,7 @@ export const cloneRecoveredPlayerState = (player: RecoveredPlayerState): Recover
   ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
   ...(player.allies ? { allies: [...player.allies] } : {}),
   ...(player.truces ? { truces: [...player.truces] } : {}),
+  ...(player.truceEndsAt ? { truceEndsAt: { ...player.truceEndsAt } } : {}),
   ...(player.ownedTownTileKeys ? { ownedTownTileKeys: [...player.ownedTownTileKeys] } : {}),
   ...(player.townSettledAt ? { townSettledAt: player.townSettledAt.map((entry) => ({ ...entry })) } : {}),
   ...(player.waypointQueue

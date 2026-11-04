@@ -188,6 +188,8 @@ export type ManifestInput = {
   choices: ReadonlySet<string>;
   /** Highest AFC upgrade tier the owned Manifests open. */
   afcTier: number;
+  /** The Manifest sent to the server and not yet confirmed, if any. */
+  pendingId?: string;
 };
 
 /** The current price: every Manifest costs the same at any moment. */
@@ -265,9 +267,11 @@ export const manifestDetailHtml = (input: ManifestInput): string => {
   const affordable = manifestAffordable(tech, input.gold);
   const button = state === "owned"
     ? `<button type="button" class="v2s-btn" disabled>Commissioned</button>`
-    : state === "available"
-      ? `<button type="button" class="v2s-btn v2s-btn-primary" data-v2-manifest-commission="${esc(tech.id)}"${affordable ? "" : " disabled"} title="${affordable ? "" : `Need ${cost.toLocaleString("en-US")} Coin`}">Commission · ${cost.toLocaleString("en-US")} Coin</button>`
-      : `<button type="button" class="v2s-btn" disabled>Locked</button>`;
+    : input.pendingId === tech.id
+      ? `<button type="button" class="v2s-btn v2s-btn-primary" disabled aria-busy="true">Commissioning…</button>`
+      : state === "available"
+        ? `<button type="button" class="v2s-btn v2s-btn-primary" data-v2-manifest-commission="${esc(tech.id)}"${affordable ? "" : " disabled"} title="${affordable ? "" : `Need ${cost.toLocaleString("en-US")} Coin`}">Commission · ${cost.toLocaleString("en-US")} Coin</button>`
+        : `<button type="button" class="v2s-btn" disabled>Locked</button>`;
   return `<div class="v2m-detail-name"><span class="v2m-detail-title">${esc(tech.name)}</span><span class="v2m-detail-meta">${meta}</span></div>
     <div class="v2m-detail-mid"><div class="v2m-chips">${chips}</div><span class="v2m-req${missing || tech.lockedReason ? " v2m-req-missing" : ""}">${req}</span></div>
     ${button}`;

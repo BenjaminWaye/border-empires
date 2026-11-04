@@ -30,11 +30,11 @@ See `staging-login-cpu-contention.md` for the login-vs-CPU story.
 ## Profiling per-plan cost
 
 `sim_ai_planner_phase_ms{phase=...}` (p50/p95/p99) breaks a plan into phases.
-Scrape it from inside the container:
+Scrape it through an SSH tunnel to the server's loopback metrics port:
 
 ```bash
-flyctl ssh console -a border-empires-combined-staging -C "node -e \"fetch('http://127.0.0.1:50052/metrics').then(r=>r.text()).then(t=>require('fs').writeFileSync('/tmp/m.txt',t))\""
-flyctl ssh console -a border-empires-combined-staging -C "sh -c 'grep sim_ai_planner_phase_ms /tmp/m.txt'"
+ssh -L 50052:127.0.0.1:50052 deploy@178.105.133.33   # staging; leave open
+curl -s http://127.0.0.1:50052/metrics | grep sim_ai_planner_phase_ms
 ```
 
 Load-bearing phases (do NOT cut — each produces real commands):
@@ -102,6 +102,12 @@ policy.
   The `townSupportOrigins` filter reads stored `supportMax`/`supportCurrent` and
   is a cheap bounded filter over `buildCandidateTiles` — **not** a removal
   candidate. (Earlier audits wrongly flagged it; verify before re-flagging.)
+- **Town-economy view** (`ai/build/town-economy-view.ts`, built by
+  `runtime/runtime-town-economy-view.ts`): one support-ring scan per town,
+  memoised per cached town-network object and capped at 64 towns. It feeds
+  economic synergy scoring (`ai/build/economic-synergy-scoring.ts`,
+  `docs/ai-economic-synergy-plan.md`). Keep it on the cached network; don't
+  add a map walk.
 
 ## How to find dead / wasteful AI code
 
@@ -176,12 +182,21 @@ consolidation, planning cadence), not deletion.
   outpost overlap veto only covers beacons still under construction, and a
   build finishes in about a minute; after that a site two tiles along the
   border could win again on fog cells poking past the first beacon's box
-  (staging season-40 ai-18: ~25 beacons ringing a 151-tile island). The floor
-  applies to every own beacon except one being demolished, and is capped at
-  `OUTPOST_REACH_RADIUS`: a FRONTIER site must be inside reach to be settled,
-  so the next beacon in a chain can sit at most one radius from the last.
-  Tests that need overlapping reach next to a relay use a siege battery as
-  the anchor instead. Regression coverage: `relay-beacon-spacing.test.ts`.
+  (staging season-40 ai-18: ~25 beacons ringing a 151-tile island). Rules
+  live in `relay-beacon-site-rules.ts`. The floor applies only to
+  exploration-only sites: one whose new reach holds an unowned prize
+  (resource, town, dock, wonder) is exempt, so a relay that only adds a few
+  fish tiles still gets built. It counts every own beacon except one being
+  demolished or one disabled for any reason other than FOOD relief
+  (`inactiveReason: "manual"` on a SETTLED tile — the only place the AI's
+  re-enable is accepted), and is set to `OUTPOST_REACH_RADIUS`: a FRONTIER
+  site must be inside reach to be settled, so the next beacon in a chain can
+  sit at most one radius from the last. There is deliberately no minimum on
+  how much new ground a site adds — a chain step along a 3-wide isthmus only
+  opens ~15 tiles. Skips show as
+  `sim_ai_relay_beacon_site_skipped_total{reason="spacing"}`. Tests that
+  need overlapping reach next to a relay use a siege battery as the anchor
+  instead. Regression coverage: `relay-beacon-spacing.test.ts`.
 
 - **Out-of-reach dock crossings are a planner fallback.** EXPAND is never
   runtime reach-gated (game-domain validation ignores `isInReach`); the

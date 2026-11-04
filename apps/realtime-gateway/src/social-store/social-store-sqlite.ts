@@ -127,7 +127,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       );
       CREATE INDEX IF NOT EXISTS social_offer_cooldowns_until_idx ON social_offer_cooldowns (until);
     `);
-    // Offer terms (coin/Shards a deal moves) were added after these tables shipped.
+    // Offer terms (coin a deal moves) were added after these tables shipped.
     for (const table of ["social_alliance_requests", "social_truce_requests"]) {
       try {
         this.db.exec(`ALTER TABLE ${table} ADD COLUMN terms_json TEXT;`);

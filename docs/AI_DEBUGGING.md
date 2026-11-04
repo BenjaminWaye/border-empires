@@ -7,7 +7,7 @@ Status: canonical runbook
 Use these endpoints to inspect AI player state, commands, and metrics during development and production debugging.
 
 Start at `GET /admin?token=<ADMIN_API_TOKEN>` on the gateway: it links every
-admin page and endpoint (forwarding the token), shows curl/flyctl snippets for
+admin page and endpoint (forwarding the token), shows curl/ssh snippets for
 ops actions and simulation loopback endpoints, and is kept complete by a test
 against the registered routes. New `/admin/*` routes must be added to
 `apps/realtime-gateway/src/admin-pages/admin-page-catalog.ts`.
@@ -29,7 +29,7 @@ request — no `ADMIN_API_TOKEN` involved at all.
 
 ```bash
 curl -H "X-Admin-Github-Token: $GITHUB_TOKEN" \
-  https://border-empires-combined-staging.fly.dev/admin/debug/ai
+  https://api-staging.borderempires.com/admin/debug/ai
 ```
 
 This is the recommended path for the common case in this project: most
@@ -53,25 +53,24 @@ the read-only `/admin/world`. The rollover procedure is in
 
 ### Option B — the static `ADMIN_API_TOKEN` (needed for destructive endpoints, or as a fallback)
 
-Source of truth is a Fly secret on each app
-(`border-empires-combined-staging` / `border-empires-combined`), set via
-`flyctl secrets set ADMIN_API_TOKEN=... -a <app>`. Since most sessions here
-have no persistent `flyctl` login to fetch it live, the practical way to make
+Source of truth is `/etc/border-empires/secrets.env` on each Hetzner server
+(staging `178.105.133.33`, production `188.245.240.42`). Since most sessions
+here have no root SSH access to fetch it live, the practical way to make
 it available to a sandboxed dev/agent session is for whichever platform
 provisions the sandbox to inject it as an environment variable at container
 boot (e.g. Claude Code on the web: set it once in the environment's
 configuration — every session spawned against that environment picks it up
-automatically). A human with `flyctl` already authenticated locally can also
-read it directly: `flyctl ssh console -a <app> -C "printenv ADMIN_API_TOKEN"`.
+automatically). A human with root SSH access can also read it directly:
+`ssh root@<host> "grep '^ADMIN_API_TOKEN=' /etc/border-empires/secrets.env"`.
 
-Rotation: update the Fly secret, then update the value stored in each
+Rotation: update the server secret (and restart the app), then update the value stored in each
 platform's environment config — there is no automatic propagation between
 the two, so treat it as a manual (if infrequent) two-step rotation.
 
 Use it as a Bearer token:
 ```bash
 curl -H "Authorization: Bearer $ADMIN_API_TOKEN" \
-  https://border-empires-combined-staging.fly.dev/admin/debug/ai
+  https://api-staging.borderempires.com/admin/debug/ai
 ```
 
 ---
@@ -141,6 +140,12 @@ Returns detailed decision-scoring history for debugging wait_and_recover loops:
 - `canExpand` / `canAttack` flags
 - `economicBuildCandidate` – The economic structure type (MINTWORKS/BANK/INCUBATION_ENGINE/etc.) the
   planner most recently proposed for this player, if any
+- `economicBuildScore` – score of `economicBuildCandidate`. Coin buildings score 54–150,
+  so a Manufactory near 54 means "first copy, nothing amplifying it".
+- `economicSynergy` – fixed-size empire summary of the stacking/amplifier state the pick was
+  scored against: `towns`, `manufactories`, `ancillaryDepots`, `ancillaryFactories`,
+  `connectedTowns`, and `townsWith{TradeNexus,ClearingHouse,NeuralWorks,ReserveLattice}InReach`.
+  Absent when the player has no TOWN-tier towns. See `docs/ai-economic-synergy-plan.md`.
 - `lastRejection` – `{ commandType, code, message, at }` for the most recent runtime-rejected
   command from this player (e.g. `BUILD_ECONOMIC_STRUCTURE` rejected with "town already has
   incubation engine"). Use this to catch propose-then-reject loops that burn planner cycles without
@@ -209,6 +214,7 @@ Prometheus-format metrics including AI diagnostics:
 - `sim_ai_expand_total{player_id}` – Cumulative accepted `EXPAND` commands per AI player (counter)
 - `sim_ai_player_manpower{player_id}` / `sim_ai_player_manpower_cap{player_id}` / `sim_ai_player_manpower_regen_per_minute{player_id}` – Pool manpower (as last applied), its cap, and regen rate per AI player (gauges)
 - `sim_ai_player_muster_flags{player_id}` / `sim_ai_player_muster_staged_manpower{player_id}` / `sim_ai_player_muster_flag_capacity{player_id}` – Active muster flags, manpower already staged inside them, and the sum of their caps (gauges). `capacity - staged` is the headroom the muster tick can still pull out of the pool
+- `sim_ai_player_synergy{player_id,kind}` – Stacking/amplifier counts per AI player (gauges): `kind` is each `economicSynergy` field above (`manufactories`, `townsWithClearingHouseInReach`, …). Flat `manufactories` with zero `townsWithClearingHouseInReach` means the coin engine never got its amplifier
 - `sim_event_loop_blocked_total` – Main thread blocking events
 - `sim_snapshot_export_ms` – Snapshot export duration
 

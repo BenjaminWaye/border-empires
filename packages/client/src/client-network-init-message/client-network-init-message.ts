@@ -1,3 +1,4 @@
+import { hydrateTutorialGuideFromInit } from "../client-tutorial-guide/tutorial-guide-storage.js";
 import { applyResourceTradeState } from "../client-diplomacy-trade/client-resource-trade-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
@@ -7,6 +8,7 @@ import { initDefensibilityPct } from "../client-init-defensibility/client-init-d
 import { occupationSurveyController } from "../client-occupation-survey.js";
 import { applyGatewayRecoveryNextClientSeq } from "../client-frontier-command/client-frontier-command.js";
 import { clearServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
+import { holdLowFpsStreakForWarmup } from "../client-fps-monitor/client-fps-monitor.js";
 import { applyGatewayInitialState, refreshAllGatewayDerivedTownSummaries } from "../client-gateway-sync/client-gateway-sync.js";
 import {
   applyAutoSettlementQueueFromServer,
@@ -32,6 +34,7 @@ import { applyInitPendingAction } from "./apply-init-pending-action.js";
 import { applyInitSocialState } from "./apply-init-social-state.js";
 import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { applySeasonChangeOnInit } from "../client-season-rollover/client-season-rollover.js";
+import { resetServerReachForNewConnection } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
 import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 
@@ -68,7 +71,6 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     clearRenderCaches,
     buildMiniMapBase,
     showCaptureAlert,
-    applyShardRainNotice,
     logTileSync,
     logIncomingTechPayload,
     showCaptureAlertSafely,
@@ -91,6 +93,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   const isFirstInitThisSession = !state.hasEverInitialized;
   clearDeferredBootstrapRefreshTimer();
   state.connection = "initialized";
+  holdLowFpsStreakForWarmup(performance.now()); // (re)INIT catch-up jank must not read as "3D is slow"
   state.serverDeploying = false;
   clearServerDeployingSession();
   state.authSessionReady = true;
@@ -133,6 +136,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.tiles.size > 0 &&
     state.discoveredTiles.size > 0;
   const seasonRolledOverInSession = applySeasonChangeOnInit(state, incomingSeason?.seasonId);
+  resetServerReachForNewConnection(state, !seasonRolledOverInSession && incomingPlayerId.length > 0 && state.me === incomingPlayerId); // before state.me is overwritten below
   // Set here, before the initial tile snapshot is applied below -- its muster-unlock pass needs the CURRENT season id, not the previous session's.
   state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
   state.fogDisabled = Boolean(incomingConfig.fogDisabled);
@@ -161,6 +165,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   );
   applyEmailNotificationPrefsFromServer(player.emailNotificationPrefs as Record<string, unknown> | undefined);
   state.profileSetupRequired = Boolean(player.profileNeedsSetup);
+  hydrateTutorialGuideFromInit({ ...player, profileNeedsSetup: player.profileNeedsSetup === true || state.authIsGuest }, state.authEmail);
   state.mapRevealEligible = Boolean(player.canToggleFog);
   syncDesiredFogDisabled();
   setAuthStatus(`Signed in as ${state.authUserLabel || (player.name as string)}.`);
@@ -215,6 +220,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   occupationSurveyController.reconcile(state.eventLog, state.techIds, `${state.me}:${state.bridgeDebugSeasonId}`);
   state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
   state.pendingTechUnlockId = "";
+  state.pendingTechUnlockAt = 0;
   state.domainIds = (player.domainIds as string[]) ?? [];
   applyAfcStateMessage(state, player);
   const initialTrickle = (player as { chosenTrickleResource?: unknown }).chosenTrickleResource;
@@ -415,10 +421,6 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     buildMiniMapBase();
   }
   const mapMeta = (msg.mapMeta as { dockCount?: number; dockPairCount?: number; clusterCount?: number; townCount?: number; dockPairs?: any[] } | undefined) ?? {};
-  const shardRainNotice =
-    (msg.shardRainNotice as
-      | { phase?: "upcoming" | "started"; startsAt?: number; expiresAt?: number; siteCount?: number; sites?: { x: number; y: number }[] }
-      | undefined) ?? undefined;
   const offlineActivity =
     (msg.offlineActivity as
       | Array<{ title?: string; detail?: string; type?: string; severity?: string; at?: number; tileKey?: string; actionLabel?: string }>
@@ -477,7 +479,6 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     pushFeed,
     showCaptureAlert: showCaptureAlertSafely
   });
-  applyShardRainNotice(shardRainNotice);
   applySettlementRepairDiagnostic(msg as Record<string, unknown>);
   syncAuthOverlay();
   renderHud();

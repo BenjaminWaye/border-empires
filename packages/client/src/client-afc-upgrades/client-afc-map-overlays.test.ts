@@ -5,20 +5,20 @@ import { createAfcMapOverlays } from "./client-afc-map-overlays.js";
 let true3D = false;
 vi.mock("../client-renderer-mode.js", () => ({ isTrue3DRendererActive: () => true3D }));
 
-describe("masked AFC signals in both renderers", () => {
-  it.each([false, true])("follows the %s projection through fog and opens Purge without inserting a tile", active => {
+describe("AFC map signals in both renderers", () => {
+  it.each([false, true])("follows the %s projection and opens tower actions from a suppressed tower marker", active => {
     true3D = active;
     document.body.innerHTML = "<div><canvas width='100' height='100'></canvas></div>";
     const canvas = document.querySelector("canvas")!;
     vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 100, width: 100, height: 100, toJSON: () => ({}) });
-    const state = createInitialState(); state.authSessionReady = true; state.me = "p"; state.afcDetectedFlags = [{ x: 4, y: 0, ownerId: "e" }];
+    const state = createInitialState(); state.authSessionReady = true; state.me = "p";
+    const tower = { x: 4, y: 0, terrain: "LAND", ownerId: "e", observatory: { ownerId: "e", status: "active", suppressedUntil: Date.now() + 60_000 } } as const;
     const open = vi.fn(), overlay = createAfcMapOverlays(canvas, state, open);
-    overlay.render([{ wx: 4, wy: 0, wk: "4,0", px: 40, py: 40, vis: "fog", t: undefined }], { size: 10, project: () => ({ sx: 77, sy: 66 }) });
+    overlay.render([{ wx: 4, wy: 0, wk: "4,0", px: 40, py: 40, vis: "visible", t: tower }], { size: 10, project: () => ({ sx: 77, sy: 66 }) });
     const marker = document.querySelector<HTMLButtonElement>(".afc-map-signal")!;
     expect(marker.style.left).toBe(active ? "77px" : "45px");
     marker.click();
-    expect(state.selected).toEqual({ x: 4, y: 0 }); expect(open).toHaveBeenCalledOnce(); expect(state.tiles.size).toBe(0);
-    state.afcDetectedFlags = [];
+    expect(state.selected).toEqual({ x: 4, y: 0 }); expect(open).toHaveBeenCalledOnce();
     overlay.render([], { size: 10, project: () => ({ sx: 77, sy: 66 }) });
     expect(document.querySelector(".afc-map-signal")).toBeNull();
   });
@@ -32,4 +32,16 @@ describe("masked AFC signals in both renderers", () => {
     expect(project).not.toHaveBeenCalled();
   });
 
+  it("does not mark allied or truced towers as hijackable", () => {
+    true3D = false;
+    document.body.innerHTML = "<div><canvas width='100' height='100'></canvas></div>";
+    const canvas = document.querySelector("canvas")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 100, width: 100, height: 100, toJSON: () => ({}) });
+    const state = createInitialState(); state.authSessionReady = true; state.me = "p"; state.domainIds = ["afc-oracle-5"];
+    const emptied = (ownerId: string, x: number) => ({ x, y: 0, terrain: "LAND", ownerId, observatory: { ownerId, status: "active", cooldownUntil: Date.now() + 60_000 } } as const);
+    state.allies = ["ally"]; state.activeTruces = [{ otherPlayerId: "truced", endsAt: Date.now() + 60_000 } as (typeof state.activeTruces)[number]];
+    const overlay = createAfcMapOverlays(canvas, state, () => {});
+    overlay.render([["enemy", 1], ["ally", 3], ["truced", 5]].map(([owner, x]) => ({ wx: Number(x), wy: 0, wk: `${x},0`, px: Number(x) * 10, py: 0, vis: "visible", t: emptied(String(owner), Number(x)) })), { size: 10, project: () => ({ sx: 0, sy: 0 }) });
+    expect(Array.from(document.querySelectorAll(".afc-map-signal.is-hijackable"), el => el.textContent)).toEqual(["Hijackable"]);
+  });
 });

@@ -56,7 +56,7 @@ const ownedStructureTile = (type: string): Tile =>
 
 /**
  * §5 (resource slots): FOOD/TITANIUM/CRYSTAL/UMBRITE stockpiles are never
- * credited any more (runtime-empire-storage.ts caps only GOLD/FOOD/SHARD), so
+ * credited any more (runtime-empire-storage.ts caps only GOLD/FOOD), so
  * a client-side CRYSTAL balance gate permanently blocks these abilities and
  * spams the feed on every click. Each case below fails before the gates were
  * removed — the ability must get past its balance check, not bail earlier on

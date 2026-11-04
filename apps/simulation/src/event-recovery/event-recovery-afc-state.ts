@@ -18,10 +18,11 @@ export function applyRecoveredAfcState(player: RecoveredPlayerState, payload: Re
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     const data = raw as Record<string, unknown>;
     const state: AfcCampaignState = {};
-    const wards = deadlines(data.fortWardRecharges), wars = deadlines(data.wars);
+    const wards = deadlines(data.fortWardRecharges);
     if (wards) state.fortWardRecharges = wards;
-    if (wars) state.wars = wars;
     if (typeof data.forcedTruceCooldownUntil === "number" && Number.isFinite(data.forcedTruceCooldownUntil)) state.forcedTruceCooldownUntil = data.forcedTruceCooldownUntil;
+    if (typeof data.freeFortsUsed === "number" && Number.isInteger(data.freeFortsUsed) && data.freeFortsUsed >= 0) state.freeFortsUsed = data.freeFortsUsed;
+    if (typeof data.hijackReadyAt === "number" && Number.isFinite(data.hijackReadyAt)) state.hijackReadyAt = data.hijackReadyAt;
     player.afcCampaign = state;
   }
   if (typeof payload.gold === "number" && Number.isFinite(payload.gold)) player.points = payload.gold;

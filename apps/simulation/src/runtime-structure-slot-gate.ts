@@ -1,8 +1,7 @@
-import { slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
+import { relayBeaconFreeFoodSlotCountForPlayer, slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
   fortIsWithinSlotWaiver,
-  RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   SYNTHESIZER_STRUCTURE_TYPES,
   structureSlotRequirements, observatoryCrystalSlotCostForOwnedCount,
   type BuildableStructureType,
@@ -24,7 +23,7 @@ import type { RuntimeStructureCommandContext } from "./runtime-structure-command
 // stacked on top of the old one it's replacing.
 // Synthesizers skip this gate entirely (§6.4: a slot *source*, not a
 // consumer — must be buildable even with zero free slots). RELAY_BEACON
-// skips it too below RELAY_BEACON_FREE_FOOD_SLOT_COUNT owned, waived to 0
+// skips it too below the player's free-Relay allowance (relayBeaconFreeFoodSlotCountForPlayer), waived to 0
 // FOOD demand once built (slot-waivers.ts).
 type SlotGateContext = Pick<RuntimeStructureCommandContext, "players" | "tiles" | "ownedStructureCountForPlayer" | "summaryForPlayer" | "resourceSlotSupplyForPlayer" | "resourceSlotDemandForPlayer" | "emitEvent">;
 
@@ -67,8 +66,8 @@ export function missingResourceSlotMessage(
   tileField: SlotTileField
 ): string | undefined {
   if (SYNTHESIZER_STRUCTURE_TYPES.includes(structureType)) return undefined;
-  if (structureType === "RELAY_BEACON" && context.ownedStructureCountForPlayer(playerId, "RELAY_BEACON") < RELAY_BEACON_FREE_FOOD_SLOT_COUNT) return undefined;
   const player = context.players.get(playerId);
+  if (structureType === "RELAY_BEACON" && player && context.ownedStructureCountForPlayer(playerId, "RELAY_BEACON") < relayBeaconFreeFoodSlotCountForPlayer(player)) return undefined;
   const waivers = player ? slotWaiversForPlayer(player) : undefined;
   const fortCount = context.ownedStructureCountForPlayer(playerId, "FORT");
   const towerCount = context.ownedStructureCountForPlayer(playerId, "OBSERVATORY");

@@ -5,9 +5,9 @@
 // tiles in the opening minutes expecting some benefit, when in the early game
 // there's nothing to gain from it. Once shown, manual settling is really only
 // for cheap defense, connecting towns, or consolidating territory.
-import { SETTLE_COST, SETTLE_MANPOWER_COST, settleIgnoresReach } from "@border-empires/shared";
+import { SETTLE_COST, settleIgnoresReach } from "@border-empires/shared";
 import { autoSettleOptionForTile, settleOutcomeText } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
-import { canAffordCost, isForestTile } from "../client-constants.js";
+import { canAffordCost, isForestTile, isHillsTile } from "../client-constants.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { assignedTownForSupportTile } from "../client-support-structures/client-support-structures.js";
@@ -25,6 +25,14 @@ export const hasEstablishedTownAndFoodTile = (state: ClientState): boolean => {
     if (hasTown && hasFoodTile) return true;
   }
   return false;
+};
+
+/** "Instant (N free left)" during the first lifetime garrisons, else the timer with its terrain note. */
+export const settleTimeLabel = (state: ClientState, tile: Tile): string => {
+  const ms = settleDurationMsForState(state, tile);
+  if (ms === 0) return `Instant (${state.instantGarrisonsRemaining} free left)`;
+  const terrain = isForestTile(tile.x, tile.y) ? " (Forest)" : isHillsTile(tile.x, tile.y) ? " (Hills)" : "";
+  return `${Math.round(ms / 1000)}s${terrain}`;
 };
 
 export const settleActionsForFrontierTile = (
@@ -60,9 +68,9 @@ export const settleActionsForFrontierTile = (
       ...(hasPayoff ? { recommended: true } : {}),
       ...tileActionAvailability(
         ...withReachGate([
-          canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
-          state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} coin`,
-          `${SETTLE_COST} coin, ${SETTLE_MANPOWER_COST} manpower • ${Math.round(settleDurationMsForState(state, tile) / 1000)}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`
+          canAffordCost(state.gold, SETTLE_COST) && state.manpower >= state.settleManpowerCost,
+          state.manpower < state.settleManpowerCost ? `Need ${state.settleManpowerCost} manpower` : `Need ${SETTLE_COST} coin`,
+          `${SETTLE_COST} coin, ${state.settleManpowerCost} manpower • ${settleTimeLabel(state, tile)}`
         ])
       )
     }
@@ -74,7 +82,7 @@ export const settleActionsForFrontierTile = (
       label: "Garrison Many…",
       detail: "Select or deselect your frontier tiles on the map, then confirm the total cost.",
       disabled: false,
-      cost: `${SETTLE_MANPOWER_COST} manpower per tile • choose on map`
+      cost: `${state.settleManpowerCost} manpower per tile • choose on map`
     });
   }
   return out;

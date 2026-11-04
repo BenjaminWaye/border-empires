@@ -4,17 +4,17 @@
 // Extracted out of gateway-app.ts to keep that already-oversized file from
 // growing (see AGENTS.md's file-line-limit rule) when AETHER_PURGE_ALERT was
 // added alongside the pre-existing ATTACK_ALERT handling.
-import { readAetherPurgeAlert, readAttackAlert, type EmailAlertService } from "../email-alerts/email-alerts.js";
+import { readAetherHijackAlert, readAetherPurgeAlert, readAttackAlert, type EmailAlertService } from "../email-alerts/email-alerts.js";
 import { hydrateAndRecoverPlayerMessage } from "../live-world-status-recovery.js";
 import { withTimeout } from "../promise-timeout.js";
 import type { SendGameplayEmailAlert } from "../gameplay-email-alert/gameplay-email-alert.js";
 import type { PlayerProfileOverrides } from "../player-profile-overrides.js";
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 
-export type AttackAlertLikeMessageType = "ATTACK_ALERT" | "AETHER_PURGE_ALERT";
+export type AttackAlertLikeMessageType = "ATTACK_ALERT" | "AETHER_PURGE_ALERT" | "AETHER_HIJACK_ALERT";
 
 export const isAttackAlertLikeMessage = (messageType: string): messageType is AttackAlertLikeMessageType =>
-  messageType === "ATTACK_ALERT" || messageType === "AETHER_PURGE_ALERT";
+  messageType === "ATTACK_ALERT" || messageType === "AETHER_PURGE_ALERT" || messageType === "AETHER_HIJACK_ALERT";
 
 /**
  * Hydrates the caster's live display name into `payload` (needed for the
@@ -47,6 +47,9 @@ export const handleAttackAlertLikePlayerMessage = async (
         deps.emailAlerts.sendAttackAlert({ defenderPlayerId: deps.defenderPlayerId, attackerName: attackAlert.attackerName, x: attackAlert.x, y: attackAlert.y })
       );
     }
+  } else if (messageType === "AETHER_HIJACK_ALERT") {
+    const hijack = readAetherHijackAlert(hydratedPayload);
+    if (hijack) deps.sendGameplayEmailAlert("attack", deps.defenderPlayerId, () => deps.emailAlerts.sendAetherHijackAlert({ defenderPlayerId: deps.defenderPlayerId, ...hijack }));
   } else {
     const aetherPurgeAlert = readAetherPurgeAlert(hydratedPayload);
     if (aetherPurgeAlert) {

@@ -1,6 +1,6 @@
 import { developedNetworkSites } from "./resource-networks/resource-networks.js";
 import { allocateNetworkCredit, networkSupplyStatus, resourceNetworkTownCredit } from "./resource-networks/resource-network-credit.js";
-import { mutualAfcAllies, applyAfcEnvoyIncome } from "./afc-specializations/afc-coalition.js";
+import { afcAgreementCount, applyAfcEnvoyIncome } from "./afc-specializations/afc-coalition.js";
 import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "@border-empires/game-domain";
 import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
 import { buildConnectedTownNetworkForPlayer, dockBaseGoldPerMinuteForPlayer } from "./economy-network/economy-network.js";
@@ -87,7 +87,6 @@ export const buildLivePlayerEconomySnapshot = (
   const crystalSinks = new Map<string, EconomyBucket>();
   const umbriteSources = new Map<string, EconomyBucket>();
   const umbriteSinks = new Map<string, EconomyBucket>();
-  const shardSources = new Map<string, EconomyBucket>();
   const strategicProductionPerMinute = strategicProductionByPlayer.get(playerId) ?? emptyStrategic();
 
   for (const tile of runtimeState.tiles) {
@@ -169,15 +168,14 @@ export const buildLivePlayerEconomySnapshot = (
     player, strategicProductionPerMinute, resourceSlots, dormantStructures,
     goldSources, goldSinks, foodSources, foodSinks,
     titaniumSources, titaniumSinks, crystalSources, crystalSinks,
-    umbriteSources, umbriteSinks, shardSources,
+    umbriteSources, umbriteSinks,
     fedTownKeys, fedTownKeysByPlayer
   });
   const envoyIncome = player?.afcEnvoyIncomePerMinute ?? 0;
   if (!player || envoyIncome <= 0) return result;
-  const allies = mutualAfcAllies({ id: player.id, allies: new Set(player.allies) },
+  const agreements = afcAgreementCount({ id: player.id, allies: new Set(player.allies), truces: new Set(player.truces ?? []) },
     new Map(runtimeState.players.map(peer => [peer.id, { id: peer.id, allies: new Set(peer.allies) }])));
-  return applyAfcEnvoyIncome(result, { allies: allies.length, goldPerMinute: envoyIncome,
-    manpowerCap: 0, manpowerRegenPerMinute: 0 });
+  return applyAfcEnvoyIncome(result, envoyIncome, agreements);
 };
 
 // §5 (resource slots): the cold/reconnect snapshot path has no live
@@ -253,7 +251,7 @@ const resourceSlotsForPlayer = (
 
 type EconomyResultArgs = {
   player: RuntimeState["players"][number] | undefined;
-  strategicProductionPerMinute: { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number; SHARD: number };
+  strategicProductionPerMinute: { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number };
   resourceSlots: LivePlayerEconomySnapshot["resourceSlots"];
   dormantStructures: DormantStructureDetail[];
   goldSources: Map<string, EconomyBucket>;
@@ -266,7 +264,6 @@ type EconomyResultArgs = {
   crystalSinks: Map<string, EconomyBucket>;
   umbriteSources: Map<string, EconomyBucket>;
   umbriteSinks: Map<string, EconomyBucket>;
-  shardSources: Map<string, EconomyBucket>;
   fedTownKeys: Set<string>;
   fedTownKeysByPlayer: Map<string, Set<string>>;
 };
@@ -297,8 +294,7 @@ const buildEconomyResult = (args: EconomyResultArgs): LivePlayerEconomySnapshot 
       FOOD: Number(strategicProductionPerMinute.FOOD.toFixed(4)),
       TITANIUM: Number(strategicProductionPerMinute.TITANIUM.toFixed(4)),
       CRYSTAL: Number(strategicProductionPerMinute.CRYSTAL.toFixed(4)),
-      UMBRITE: Number(strategicProductionPerMinute.UMBRITE.toFixed(4)),
-      SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4))
+      UMBRITE: Number(strategicProductionPerMinute.UMBRITE.toFixed(4))
     },
     resourceSlots: args.resourceSlots,
     dormantStructures: args.dormantStructures,
@@ -316,8 +312,7 @@ const buildEconomyResult = (args: EconomyResultArgs): LivePlayerEconomySnapshot 
       FOOD: { sources: sortedBuckets(args.foodSources), sinks: sortedBuckets(args.foodSinks) },
       TITANIUM: { sources: sortedBuckets(args.titaniumSources), sinks: sortedBuckets(args.titaniumSinks) },
       CRYSTAL: { sources: sortedBuckets(args.crystalSources), sinks: sortedBuckets(args.crystalSinks) },
-      UMBRITE: { sources: sortedBuckets(args.umbriteSources), sinks: sortedBuckets(args.umbriteSinks) },
-      SHARD: { sources: sortedBuckets(args.shardSources), sinks: [] }
+      UMBRITE: { sources: sortedBuckets(args.umbriteSources), sinks: sortedBuckets(args.umbriteSinks) }
     },
     fedTownKeys: args.fedTownKeys,
     fedTownKeysByPlayer: args.fedTownKeysByPlayer

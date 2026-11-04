@@ -132,7 +132,7 @@ describe("§16 monument global uniqueness", () => {
   // these two tests supply a support tile and route firstAvailableTownSupportTile
   // to it -- the same shape handleBuildStructureCommand expects in prod.
   it("announces to every player the moment a monument's first part (PART_1) starts construction", () => {
-    const builder = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 500 } });
+    const builder = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const bystander = makePlayer("player-3");
     const { context, tiles, eventLogAppends } = createContext(
       [builder, bystander],
@@ -151,7 +151,7 @@ describe("§16 monument global uniqueness", () => {
   });
 
   it("does not announce a construction-started event for a PART_2 build", () => {
-    const builder = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 500 } });
+    const builder = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, tiles, eventLogAppends } = createContext(
       [builder],
       [
@@ -374,7 +374,7 @@ describe("§16 monument global uniqueness", () => {
   });
 
   it("still allows building the OTHER two parts once one part is already owned", () => {
-    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 5 } });
+    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const supportTile: DomainTileState = { x: 6, y: 6, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" };
     const { context, events, tiles } = createContext(
       [actor],
@@ -417,7 +417,7 @@ describe("§16 monument global uniqueness", () => {
 
 describe("completing a monument consumes its Parts", () => {
   it("clears all 3 owned Astral Dock Parts once the Astral Dock itself completes", () => {
-    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 5 } });
+    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, tiles } = createContext(
       [actor],
       [
@@ -444,7 +444,7 @@ describe("completing a monument consumes its Parts", () => {
   });
 
   it("does not touch another player's Parts of the same monument type", () => {
-    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 5 } });
+    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const rival = makePlayer("player-1", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, tiles } = createContext(
       [actor, rival],
