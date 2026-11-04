@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { WORLD_WIDTH, WORLD_HEIGHT, NETWORK_RESOURCES, RESOURCE_NETWORKS, isSeaTerrain, isNetworkResource, landBiomeAt, wrapX, wrapY, type TileKey, type WorldStyle } from "@border-empires/shared";
 import { createSeasonSeedWorld } from "./season-seed-world.js";
+import { MAX_DEPOSIT_TILES } from "./resource-networks-worldgen.js";
 import { parseTestShard, valuesForTestShard } from "./season-seed-world-coverage-shard.test-support.js";
 import { computeFairSpawnSites, starterSiteQuality } from "@border-empires/game-domain";
 
@@ -74,7 +75,7 @@ const assertFrontierDepositBudgets = (tiles: ReadonlyMap<string, import("@border
           if (remaining.delete(key)) queue.push(key);
         }
       }
-      expect(queue.length, `${label} ${resource} deposit at ${first}`).toBeLessThanOrEqual(3);
+      expect(queue.length, `${label} ${resource} deposit at ${first}`).toBeLessThanOrEqual(MAX_DEPOSIT_TILES);
     }
   }
 };

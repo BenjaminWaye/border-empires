@@ -66,7 +66,7 @@ it("negotiates, pays, delivers and cancels consecutive independent trades over r
     buyer.socket.send(JSON.stringify({ type: "RESOURCE_TRADE_ACCEPT", offerId: offer.id }));
     const delivered = await stateWithDeals(buyer, 1, points => points < 97.01 - round * 3);
     expect(Number(delivered.gold)).toBeCloseTo(97 - round * 3, 2);
-    expect(Number(delivered.manpowerRegenPerMinute) - Number(initialRegen)).toBeCloseTo(12 / 240);
+    expect(Number(delivered.manpowerRegenPerMinute) - Number(initialRegen)).toBeCloseTo(120 / 240);
     const paidSeller = await stateWithDeals(seller, 1, points => points > 102.99 + round * 3);
     expect(Number(paidSeller.gold)).toBeCloseTo(103 + round * 3, 2);
     expect(ResourceSupplyOfferSchema.parse(paidSeller.resourceTradeHoldings).NEURAL_RESIN).toBeUndefined();
