@@ -398,7 +398,7 @@ describe("popup-marine overlay fx", () => {
     const landing: BattleOverlaySkirmishEntry = {
       ...battle, tgtWorldZ: 3, srcWorldZ: 3, unopposed: true,
       holdApproachUntilElapsed: Infinity,
-      landing: { startAt: 0, inwardX: 1, inwardZ: 0, route: [{ x: -1, z: 0 }, { x: -0.72, z: -0.45 }] }
+      landing: { startAt: 0, inwardX: 1, inwardZ: 0, route: [{ x: -1, z: 0 }, { x: -0.72, z: -0.45 }], sailMs: 3000, approachMs: 6400 }
     };
     let observedFire = false;
     for (let t = APPROACH_MS; t < APPROACH_MS + CLASH_MS; t += 50) {
