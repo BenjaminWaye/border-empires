@@ -21,6 +21,11 @@ export const fishingModelFitMatrix = (bounds: Box3): Matrix4 => {
     .multiply(new Matrix4().makeTranslation(-centerX, -bounds.min.y, -centerZ));
 };
 
+// Matches OVERLAY_RISE_ABOVE_HEIGHTFIELD, the rise every tile surface Y gets.
+export const FISHING_SEAT_RISE = 0.012;
+const fishingCornerMaxY = (cornerYAt: (wx: number, wy: number) => number, wx: number, wy: number): number =>
+  Math.max(cornerYAt(wx, wy), cornerYAt(wx + 1, wy), cornerYAt(wx, wy + 1), cornerYAt(wx + 1, wy + 1));
+
 export { fishingWaterDirection, fishingYawFor } from "../client-food-tile-placement.js";
 import { fishingSiteOffset, fishingYawFor, type WaterDirection } from "../client-food-tile-placement.js";
 export type FishingOverlay = {
@@ -80,8 +85,12 @@ export const createFishingOverlay = (scene: Scene, maxTiles: number, envMap?: Te
       const offset = fishingSiteOffset(water);
       const bottom = cornerYAt ? Math.min(cornerYAt(worldTileX, worldTileY), cornerYAt(worldTileX + 1, worldTileY),
         cornerYAt(worldTileX, worldTileY + 1), cornerYAt(worldTileX + 1, worldTileY + 1)) : surfaceY - 0.025;
-      placements.push({ x: sceneX + (water?.dx ?? 0) * offset, y: surfaceY + 0.003,
-        z: sceneZ + (water?.dy ?? 0) * offset, yaw, depth: Math.max(0.028, surfaceY + 0.009 - bottom) });
+      // On a hill the caller passes the dome-following height, and the
+      // fishing pad (fishing-hill-cut.ts) has levelled the dome to the sloped
+      // corner ground; seat on its highest corner so no side is buried.
+      const seatY = cornerYAt ? Math.max(surfaceY, fishingCornerMaxY(cornerYAt, worldTileX, worldTileY) + FISHING_SEAT_RISE) : surfaceY;
+      placements.push({ x: sceneX + (water?.dx ?? 0) * offset, y: seatY + 0.003,
+        z: sceneZ + (water?.dy ?? 0) * offset, yaw, depth: Math.max(0.028, seatY + 0.009 - bottom) });
     },
     commit: apply,
     dispose: () => {
