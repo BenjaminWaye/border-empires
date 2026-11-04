@@ -7,7 +7,9 @@
 // Order matters for one rule of the game: no building (other than a Relay
 // Beacon) can be built until the player has commissioned a Manifest, so the
 // Manifest chapter comes before the Build chapter, and the Build step only
-// becomes available once a Manifest is commissioned.
+// becomes available once a Manifest is commissioned. The Relay Beacon
+// chapter comes right after the foothold, since a beacon is the one building
+// a new House can raise before any Manifest.
 //
 // Copy is deliberately short (about 10 words to do, one line of why) and
 // uses canon terms from docs/lore/galactic-lore.md: Manifests are
@@ -48,6 +50,10 @@ export type GuideInput = {
   /** The Industrial Tooling Module is installed on an active AFC, so a Manufactory can be built (hideTechLockedTileAction). */
   manufactoryUnlocked: boolean;
   ownsBuiltStructure: boolean;
+  /** The player owns (or is building) a Relay Beacon. */
+  ownsRelayBeacon: boolean;
+  /** The best tile for a Relay Beacon that adds the most new reach (client-relay-beacon-site.ts), if any. A function: computed only when a step asks. */
+  beaconSite: () => { x: number; y: number } | undefined;
   /** The player's garrisoned town tiles: where a Manufactory goes. */
   buildTargetTiles: ReadonlyArray<{ x: number; y: number }>;
   /** The player's AFC tile, for the "tap a tile" step. */
@@ -62,7 +68,7 @@ export type GuideInput = {
   musterTargetTiles: ReadonlyArray<{ x: number; y: number }>;
 };
 
-export type GuideChapterId = "look" | "foothold" | "manpower" | "manifest" | "build" | "contest" | "diplomacy" | "turn";
+export type GuideChapterId = "look" | "foothold" | "reach" | "manpower" | "manifest" | "build" | "contest" | "diplomacy" | "turn";
 
 export type GuideStepDef = {
   id: string;
@@ -85,6 +91,7 @@ export type GuideStepDef = {
 export const GUIDE_CHAPTER_TITLES: Record<GuideChapterId, string> = {
   look: "Look around",
   foothold: "A foothold",
+  reach: "Your reach",
   manpower: "Manpower",
   manifest: "Manifests",
   build: "Build",
@@ -120,15 +127,25 @@ const targetHighlights =
     return input.footholdTargets[kind][action];
   };
 
-/** True while the current foothold step tells the player to build a Relay Beacon (drives the build menu's Recommended badge). */
-export const footholdBeaconShowing = (stepId: string, input: GuideInput): boolean =>
-  (stepId === "foothold-take-town" && townAction(input) === "beacon") || (stepId === "foothold-take-food" && foodAction(input) === "beacon");
+/**
+ * The Relay Beacon site the current step asks the player to build on, if any:
+ * the Relay Beacon step's own site, or a foothold step's site when no town or
+ * food is in reach. Drives the build menu's Recommended badge.
+ */
+export const guideBeaconSite = (stepId: string, input: GuideInput): { x: number; y: number } | undefined => {
+  if (stepId === "reach-beacon") return input.beaconSite();
+  const footholdBeacon = (stepId === "foothold-take-town" && townAction(input) === "beacon") || (stepId === "foothold-take-food" && foodAction(input) === "beacon");
+  return footholdBeacon ? input.checklist.relayBeaconSite : undefined;
+};
 
 const foodTitle = (input: GuideInput): string => {
   const action = foodAction(input);
   const progress = ` (${input.checklist.foodSlotsClaimed}/${input.checklist.foodSlotsTarget} slots)`;
   return FOOD_STEP[action].title + (action === "beacon" ? "" : progress);
 };
+
+/** True while the guide is on a Manifest step: the Manifest screens mark RECOMMENDED_FIRST_MANIFEST_ID as the guide's pick. */
+export const guideRecommendsManifest = (stepId: string): boolean => stepId === "manifest-open" || stepId === "manifest-commission";
 
 export const GUIDE_STEPS: readonly GuideStepDef[] = [
   { id: "look-pan", chapter: "look", title: () => "Drag the map to look around", why: "Scout before you commit: towns, food and rivals are out there.", isDone: (i) => i.panned },
@@ -169,6 +186,17 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     isDone: (i) => i.checklist.foodExpanded,
     highlight: targetHighlights("food"),
     lookFor: FOOD_ICONS
+  },
+  {
+    id: "reach-beacon",
+    chapter: "reach",
+    title: (i) => (i.beaconSite() ? "Tap the marked tile and build a Relay Beacon" : "Build a Relay Beacon on a tile at the edge of your land"),
+    why: "A beacon pushes your reach and vision outward, so Expand To can claim land further out. It needs no Manifest.",
+    isDone: (i) => i.ownsRelayBeacon,
+    highlight: (i) => {
+      const site = i.beaconSite();
+      return site ? [site] : [];
+    }
   },
   {
     id: "manpower-open",

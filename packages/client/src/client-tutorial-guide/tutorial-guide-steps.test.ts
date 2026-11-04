@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateGuide, GUIDE_STEPS, type GuideInput } from "./tutorial-guide-steps.js";
+import { evaluateGuide, guideBeaconSite, guideRecommendsManifest, GUIDE_STEPS, type GuideInput } from "./tutorial-guide-steps.js";
 
 const baseInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   checklist: {
@@ -27,6 +27,8 @@ const baseInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   activityDashboardOpen: false,
   manifestCount: 0,
   ownsBuiltStructure: false,
+  ownsRelayBeacon: false,
+  beaconSite: () => undefined,
   buildTargetTiles: [],
   musterUnlocked: false,
   ownsMusterFlag: false,
@@ -67,7 +69,7 @@ describe("tutorial guide steps", () => {
     expect(manifestIndex).toBeLessThan(buildIndex);
 
     // Manifest steps marked done via Skip, but the Industrial Tooling Module never commissioned.
-    const doneBeforeBuild = new Set([...ids("look"), ...ids("foothold"), ...ids("manpower"), ...ids("manifest")]);
+    const doneBeforeBuild = new Set([...ids("look"), ...ids("foothold"), ...ids("reach"), ...ids("manpower"), ...ids("manifest")]);
     const noManifest = evaluateGuide(baseInput({ checklist: footholdDone, buildTargetTiles: [{ x: 1, y: 1 }] }), doneBeforeBuild);
     // Build isn't available, so the guide moves on rather than asking for the impossible.
     expect(noManifest.kind === "step" && noManifest.step.id).not.toBe("build-first");
@@ -101,9 +103,9 @@ describe("tutorial guide steps", () => {
     const town = evaluateGuide(baseInput({ checklist: { ...found, relayBeaconSite: { x: 6, y: 6 } } }), pastLook);
     expect(town.kind === "step" && town.highlightTiles).toEqual([{ x: 6, y: 6 }]);
 
-    const manpower = evaluateGuide(baseInput({ checklist: footholdDone }), pastLook);
+    const manpower = evaluateGuide(baseInput({ checklist: footholdDone, ownsRelayBeacon: true }), pastLook);
     expect(manpower.kind === "step" && manpower.anchor).toBe("manpower");
-    expect(evaluateGuide(baseInput({ checklist: footholdDone, openPanel: "manpower" }), pastLook)).toEqual(
+    expect(evaluateGuide(baseInput({ checklist: footholdDone, ownsRelayBeacon: true, openPanel: "manpower" }), pastLook)).toEqual(
       expect.objectContaining({ step: expect.objectContaining({ id: "manifest-open" }), anchor: "manifest" })
     );
   });
@@ -155,7 +157,7 @@ describe("tutorial guide steps", () => {
   });
 
   it("recommends the Industrial Tooling Module, then a Manufactory once the module is installed", () => {
-    const beforeManifest = new Set([...ids("look"), ...ids("foothold"), ...ids("manpower"), "manifest-open"]);
+    const beforeManifest = new Set([...ids("look"), ...ids("foothold"), ...ids("reach"), ...ids("manpower"), "manifest-open"]);
     expect(evaluateGuide(baseInput({ checklist: footholdDone }), beforeManifest)).toEqual(
       expect.objectContaining({ title: "Commission the Industrial Tooling Module", anchor: "manifest" })
     );
@@ -208,5 +210,42 @@ describe("tutorial guide steps", () => {
     const last = evaluateGuide(baseInput(), allButFinish);
     expect(last.kind === "step" && last.step.acknowledge).toBe(true);
     expect(evaluateGuide(baseInput(), new Set(GUIDE_STEPS.map((s) => s.id)))).toEqual({ kind: "done" });
+  });
+
+  it("teaches a Relay Beacon after the foothold, ringing the best site, and ticks it off once one is built", () => {
+    const footholdIndex = GUIDE_STEPS.findIndex((s) => s.id === "foothold-take-food");
+    const beaconIndex = GUIDE_STEPS.findIndex((s) => s.id === "reach-beacon");
+    const manifestIndex = GUIDE_STEPS.findIndex((s) => s.id === "manifest-open");
+    expect(footholdIndex).toBeLessThan(beaconIndex);
+    // A beacon needs no Manifest, so it is taught before the Manifest chapter.
+    expect(beaconIndex).toBeLessThan(manifestIndex);
+
+    const pastFoothold = new Set([...ids("look"), ...ids("foothold")]);
+    const site = { x: 12, y: 3 };
+    const input = baseInput({ checklist: footholdDone, beaconSite: () => site });
+    const view = evaluateGuide(input, pastFoothold);
+    expect(view).toEqual(expect.objectContaining({ title: "Tap the marked tile and build a Relay Beacon", chapterTitle: "Your reach", highlightTiles: [site] }));
+    // The marked tile's build menu badges the beacon as Recommended.
+    expect(guideBeaconSite("reach-beacon", input)).toEqual(site);
+
+    expect(evaluateGuide(baseInput({ checklist: footholdDone }), pastFoothold)).toEqual(
+      expect.objectContaining({ title: "Build a Relay Beacon on a tile at the edge of your land", highlightTiles: [] })
+    );
+
+    const built = evaluateGuide(baseInput({ checklist: footholdDone, ownsRelayBeacon: true }), pastFoothold);
+    expect(built.kind === "step" && built.newlyCompleted).toContain("reach-beacon");
+    expect(built.kind === "step" && built.step.id).toBe("manpower-open");
+  });
+
+  it("only badges a beacon site while a step asks for a beacon", () => {
+    const input = baseInput({ checklist: { ...footholdDone, relayBeaconSite: { x: 1, y: 1 } }, beaconSite: () => ({ x: 2, y: 2 }) });
+    expect(guideBeaconSite("manpower-open", input)).toBeUndefined();
+    expect(guideBeaconSite("foothold-take-town", input)).toEqual({ x: 1, y: 1 });
+  });
+
+  it("recommends a Manifest only on the Manifest steps", () => {
+    expect(guideRecommendsManifest("manifest-open")).toBe(true);
+    expect(guideRecommendsManifest("manifest-commission")).toBe(true);
+    expect(guideRecommendsManifest("build-first")).toBe(false);
   });
 });

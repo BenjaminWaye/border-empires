@@ -15,6 +15,8 @@ import { findHomeAfcTile } from "../client-afc-locate/client-afc-locate.js";
 import { isMeetablePlayerId } from "../client-alliance/client-met-players.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
+import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
+import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 
 export type GuideInputState = Pick<
   ClientState,
@@ -44,6 +46,7 @@ type TileScan = {
   /** Another House's land (not Planetary Defense) is among the known tiles. */
   rivalHouseMet: boolean;
   ownsBuiltStructure: boolean;
+  ownsRelayBeacon: boolean;
   ownsMusterFlag: boolean;
   buildTargetTiles: Array<{ x: number; y: number }>;
   musterTargetTiles: Array<{ x: number; y: number }>;
@@ -75,6 +78,7 @@ const distanceFrom = (home: { x: number; y: number } | undefined) => (t: { x: nu
 
 export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, home: { x: number; y: number } | undefined): TileScan => {
   let ownsBuiltStructure = false;
+  let ownsRelayBeacon = false;
   let ownsMusterFlag = false;
   let manufactoryInstalled = false;
   let rivalHouseMet = false;
@@ -84,6 +88,7 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
     if (isMeetablePlayerId(tile.ownerId, me)) rivalHouseMet = true;
     if (tile.ownerId !== me) continue;
     if (isOwnBuiltStructure(tile, me)) ownsBuiltStructure = true;
+    if (tile.economicStructure?.type === "RELAY_BEACON") ownsRelayBeacon = true;
     if (tile.muster?.ownerId === me) ownsMusterFlag = true;
     if (!isOwnSettled(tile, me)) continue;
     if (tile.afc?.status === "active" && tile.afc.modules?.includes(RECOMMENDED_FIRST_MANIFEST_ID)) manufactoryInstalled = true;
@@ -99,6 +104,7 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
     manufactoryInstalled,
     rivalHouseMet,
     ownsBuiltStructure,
+    ownsRelayBeacon,
     ownsMusterFlag,
     buildTargetTiles: nearest(buildCandidates, MAX_BUILD_TARGETS),
     musterTargetTiles: nearest(musterCandidates, MAX_MUSTER_TARGETS)
@@ -120,8 +126,17 @@ let cached:
       footholdTargets: GuideFootholdTargets;
       musterUnlocked: boolean;
       afcTile: { x: number; y: number } | undefined;
+      /** Filled on first use: only the Relay Beacon step reads it, so other steps skip the reach scan. */
+      beaconSite?: { value: { x: number; y: number } | undefined };
     }
   | undefined;
+
+/** Best Relay Beacon site for the most new reach; skipped (a reach scan) once the player has a beacon and the step is done. */
+const beaconSiteOf = (tiles: ReadonlyMap<string, Tile>, me: string, ownsRelayBeacon: boolean): { x: number; y: number } | undefined => {
+  if (ownsRelayBeacon) return undefined;
+  const [site] = bestRelayBeaconSites(tiles, me, { reach: computeLocalReachSet(tiles, me), limit: 1 });
+  return site ? { x: site.x, y: site.y } : undefined;
+};
 
 /** The new desktop HUD (HUD v2) marks the body; its full-screen views add `hud-v2-screen-<id>` (client-hud-v2-context.ts). */
 const bodyHasClass = (cls: string): boolean => typeof document !== "undefined" && document.body.classList.contains(cls);
@@ -159,6 +174,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
       afcTile: afcTileOf(state)
     };
   }
+  const current = cached;
   const signals = guideInputSignals();
   const openPanel = openPanelOf(state);
   return {
@@ -177,6 +193,11 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     rivalHouseMet: cached.scan.rivalHouseMet,
     diplomacyUsed: openPanel === "alliance" || openPanel === "social" || state.outgoingTruceRequests.length > 0 || state.activeTruces.length > 0 || state.allies.length > 0,
     ownsBuiltStructure: cached.scan.ownsBuiltStructure,
+    ownsRelayBeacon: cached.scan.ownsRelayBeacon,
+    beaconSite: () => {
+      current.beaconSite ??= { value: beaconSiteOf(state.tiles, state.me, current.scan.ownsRelayBeacon) };
+      return current.beaconSite.value;
+    },
     buildTargetTiles: cached.scan.buildTargetTiles,
     musterUnlocked: cached.musterUnlocked,
     ownsMusterFlag: cached.scan.ownsMusterFlag,

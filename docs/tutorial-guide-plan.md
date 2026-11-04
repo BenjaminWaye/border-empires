@@ -68,13 +68,28 @@ element ignores pointer events; only the card and the launcher take clicks.
   `[data-hud-v2-open]` buttons. Under the new HUD, its Manifest screen counts
   as opening Manifests and the Activity step names the Chronicle. The card
   shares the checklist bubble's `.onb-root` class, so the new HUD's rules lift
-  it above the bottom-left minimap and hide it behind full-screen views.
+  it above the bottom-left minimap and hide it behind the town and battle
+  screens. It stays visible where its steps send the player: while a side
+  panel (Manpower, Manifests, Settings) or a HUD v2 screen is open it is lifted
+  to z-index 48, and on HUD v2 frame screens (Manifests, Diplomacy, ...) it
+  overrides their `.onb-root` hiding (`syncGuideCardLayer`).
+- **The recommended Manifest** is marked in both Manifest trees (HUD v2's
+  `[data-v2-manifest-select]` nodes and the legacy `[data-tech-card]` cards)
+  with a pulsing ring and a "Guide pick" badge while a Manifest step is
+  current (`tutorial-guide-manifest-pick.ts`). The mark is re-applied each
+  frame, since both trees rebuild their markup.
 - **Off-screen targets** get no edge arrow. "Show me" pans the camera to them
   instead.
 
 **When it hides.** The guide uses the existing onboarding UI gate: it is hidden
 while a dialog covers the map or the AFC landing is still pending or playing,
 then returns.
+
+**Discovery tips while it runs.** The discovery-tip toast stays quiet so the
+corner isn't crowded with two pieces of guidance. Tips the guide teaches as
+steps (`TOWN`, `FOOD`, `FIRST_MUSTER`, `ENEMY_EMPIRE`) are retired as if
+dismissed; every other tip waits in the queue and shows once the guide is
+finished or hidden (`client-onboarding-ui-overlays.ts`).
 
 **Persistence.** `guideStatus` (`active` | `done` | `dismissed`) and
 `guideSteps` (completed step ids, at most 64) are stored on the gateway's
@@ -92,12 +107,13 @@ is unavailable until the recommended Manifest exists.
 |---|---|---|---|
 | 1 | Look around | drag the map; zoom; tap your AFC (player input, via `client-map-input.ts`, shared by both renderers). Any tap completes it, but the step points at the AFC because, on the new desktop HUD, tapping neutral land next to your border claims it at once | the AFC tile |
 | 2 | A foothold | the four checklist goals (`onboardingChecklistState`): find a town; take it; find food; take 4 food slots | see below |
-| 3 | Manpower | the manpower panel is open | manpower gauge |
-| 4 | Manifests | the Manifest panel is open; a Manifest commissioned (`techIds`). The step recommends the **Industrial Tooling Module** (`trade`): tier 1, 10 Coin, and it unlocks the Manufactory | Manifest button |
-| 5 | Build | owns a structure other than a Relay Beacon. Available once the Industrial Tooling Module is commissioned. It asks for a **Manufactory**, which goes on a garrisoned town (never the spawn settlement) or its support ring and uses one food slot. Until the module docks on an active AFC (about a minute; the tile menu hides the Manufactory until then), the step says it is docking. Without the module, the step waits with a pointer to that Manifest. The Manifest step itself completes only on that Manifest, or once anything has been built | the player's garrisoned towns |
-| 6 | Contest | owns a muster flag. Available once mustering unlocks on first contact with Planetary Defense or a rival House | own garrisoned tiles touching another owner |
-| 7 | Diplomacy | after a rival House's land has been seen (Planetary Defense doesn't count, `isMeetablePlayerId`), the Allies panel, mobile Social panel or HUD v2 Diplomacy screen is open, or a truce or alliance is offered or in force. Opening the panel before meeting anyone doesn't count | Allies / Social / Diplomacy button |
-| 8 | Your turn | the Activity dashboard (or Chronicle) is open; then **Finish** on "That's the basics. Your manpower refills every 4 hours." | Activity button |
+| 3 | Your reach | owns (or is building) a Relay Beacon. A beacon needs no Manifest, so it comes before the Manifest chapter; one built during the foothold completes it | the tile where a beacon adds the most new reach (`bestRelayBeaconSites`, computed only while this step asks); its build menu badges the beacon Recommended |
+| 4 | Manpower | the manpower panel is open | manpower gauge |
+| 5 | Manifests | the Manifest panel is open; a Manifest commissioned (`techIds`). The step recommends the **Industrial Tooling Module** (`trade`): tier 1, 10 Coin, and it unlocks the Manufactory | Manifest button, and the module's node in the tree |
+| 6 | Build | owns a structure other than a Relay Beacon. Available once the Industrial Tooling Module is commissioned. It asks for a **Manufactory**, which goes on a garrisoned town (never the spawn settlement) or its support ring and uses one food slot. Until the module docks on an active AFC (about a minute; the tile menu hides the Manufactory until then), the step says it is docking. Without the module, the step waits with a pointer to that Manifest. The Manifest step itself completes only on that Manifest, or once anything has been built | the player's garrisoned towns |
+| 7 | Contest | owns a muster flag. Available once mustering unlocks on first contact with Planetary Defense or a rival House | own garrisoned tiles touching another owner |
+| 8 | Diplomacy | after a rival House's land has been seen (Planetary Defense doesn't count, `isMeetablePlayerId`), the Allies panel, mobile Social panel or HUD v2 Diplomacy screen is open, or a truce or alliance is offered or in force. Opening the panel before meeting anyone doesn't count | Allies / Social / Diplomacy button |
+| 9 | Your turn | the Activity dashboard (or Chronicle) is open; then **Finish** on "That's the basics. Your manpower refills every 4 hours." | Activity button |
 
 **Finish rule:** Finish appears once every other step left is waiting (no
 Planetary Defense or rival House met yet), so a player with no neighbours can
@@ -143,7 +159,8 @@ payouts".
 | `…/tutorial-guide-input.ts` | Builds the step input from `ClientState`; tile scans cached per tiles revision |
 | `…/tutorial-guide-input-signals.ts` | Pan, zoom and tap signals set by `client-map-input.ts` |
 | `…/tutorial-guide.ts` | Per-frame controller: persists completions, renders the card and outline, returns map highlights |
-| `…/tutorial-guide-card.ts`, `…/tutorial-guide-anchor.ts` | Card DOM; HUD-button outline |
+| `…/tutorial-guide-card.ts`, `…/tutorial-guide-anchor.ts` | Card DOM and its layer over panels; HUD-button outline |
+| `…/tutorial-guide-manifest-pick.ts` | "Guide pick" mark on the recommended Manifest in both trees |
 | `…/tutorial-guide-storage.ts` | Enrollment, progress, server sync |
 | `…/tutorial-guide-foothold-targets.ts` | Garrison / Expand To / beacon choice for the town and food steps |
 | `client-onboarding-ui-gate/client-onboarding-ui-overlays.ts` | Chooses guide versus checklist; per-frame tick |
@@ -162,8 +179,6 @@ payouts".
    - Fresh-account playtests on desktop and mobile
      ([agent gameplay testing](agents/topics/agent-gameplay-testing.md)).
    - Tune step copy and order where players drop off.
-   - Decide whether discovery tips that repeat the current step should be held
-     back. Today they stay in the opposite corner.
 
 ## Lore
 
