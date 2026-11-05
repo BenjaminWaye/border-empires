@@ -67,4 +67,5 @@ export type DomainEconomicStructureState = {
   bombardCooldownUntil?: number | undefined;
   converterMode?: NonNullable<Tile["economicStructure"]>["converterMode"];
   modeLockedUntil?: NonNullable<Tile["economicStructure"]>["modeLockedUntil"];
+  salvageLoadsShipped?: number | undefined;
 };

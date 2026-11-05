@@ -24,7 +24,9 @@ export function networkSupplyWithSiphon(ctx: NetworkSiphonContext, playerId: str
     const tiles = ctx.ownedTiles(id);
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, id, ctx.effectiveUpkeep(id), player ? slotWaiversForPlayer(player) : undefined, ctx.tileSettledAtByKey);
     const dormant = new Set([...dormancy.FOOD].filter(key => key.endsWith(":economicStructure")).map(key => key.slice(0, -18)));
-    return developedNetworkSites(tiles.filter(tile => selected ? selected.has(`${tile.x},${tile.y}`) : !isResourceTileSiphonedAway(tile,id)), id, dormant, player?.techIds);
+    // Salvage is finite and can't be siphoned: its owner keeps the arms bonus.
+    return developedNetworkSites(tiles.filter(tile => selected ? selected.has(`${tile.x},${tile.y}`) && tile.resource !== "PRECURSOR_SALVAGE"
+      : tile.resource === "PRECURSOR_SALVAGE" || !isResourceTileSiphonedAway(tile,id)), id, dormant, player?.techIds);
   };
   const result = domestic(playerId);
   const byOwner = new Map<string, Set<string>>();

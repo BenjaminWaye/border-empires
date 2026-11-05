@@ -4,6 +4,17 @@ import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "../resource-networks/resou
 export const UPKEEP_TRADE_RESOURCES = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const;
 export const TRADABLE_SUPPLY_RESOURCES = [...UPKEEP_TRADE_RESOURCES, ...NETWORK_RESOURCES] as const;
 export type TradableSupplyResource = typeof TRADABLE_SUPPLY_RESOURCES[number];
+/**
+ * Precursor salvage is finite and can't be traded. It stays in the wire schema
+ * so agreements saved before the change still parse; supply capacity for it is
+ * always 0, so such a deal is suspended, and new offers containing it are refused.
+ */
+export const NON_TRADABLE_SUPPLY_RESOURCES = ["PRECURSOR_SALVAGE"] as const;
+export const OFFERABLE_SUPPLY_RESOURCES = TRADABLE_SUPPLY_RESOURCES.filter(
+  (resource): resource is Exclude<TradableSupplyResource, typeof NON_TRADABLE_SUPPLY_RESOURCES[number]> =>
+    !(NON_TRADABLE_SUPPLY_RESOURCES as readonly string[]).includes(resource));
+export const offerIncludesNonTradableSupply = (offer: { readonly [K in TradableSupplyResource]?: number | undefined } | undefined): boolean =>
+  NON_TRADABLE_SUPPLY_RESOURCES.some(resource => (offer?.[resource] ?? 0) > 0);
 export type ResourceSupplyOffer = z.infer<typeof ResourceSupplyOfferSchema>;
 export type ResourceSupplyAmounts = Record<TradableSupplyResource, number>;
 export const MAX_RESOURCE_TRADE_SLOTS = 10_000;

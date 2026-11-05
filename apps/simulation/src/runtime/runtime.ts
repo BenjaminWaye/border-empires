@@ -2437,7 +2437,7 @@ export class SimulationRuntime {
         manpowerStructureBonusCacheByPlayer: this.economyCaches.manpowerStructureBonusCacheByPlayer,
         ...this.ownerIndexes.manpowerIndexes(),
         activeMonumentOwnerByType: this.activeMonumentOwnerByType,
-        rebuildTownNetworkUninstrumented: (p, settledTiles) => this.rebuildTownNetworkUninstrumented(p, settledTiles)
+        rebuildTownNetworkUninstrumented: (p, settledTiles) => this.rebuildTownNetworkUninstrumented(p, settledTiles), townHeldSince: key => this.tileSettledAtByKey.get(key)
       },
       player
     );

@@ -4,9 +4,9 @@ const pricing: AiDiplomacyPricing = { required:{truce12:2,truce24:4,alliance:0},
 const terms={give:{gold:0,resources:{NEURAL_RESIN:1}},ask:{gold:0},supplyDurationHours:12 as const};
 describe("resource diplomacy terms and AI parity",()=>{
   it("uses a daily negotiation value for open-ended supply and rejects unsupported requested supply",()=>{
-    expect(netValueToAi(terms,25)).toBe(4);
+    expect(netValueToAi(terms,25)).toBe(8);
     expect(evaluateAiOffer(pricing,"truce",12,terms)).toEqual({accepts:true});
-    expect(netValueToAi({...terms,supplyDurationHours:24},25)).toBe(4);
+    expect(netValueToAi({...terms,supplyDurationHours:24},25)).toBe(8);
     expect(evaluateAiOffer(pricing,"truce",12,{...terms,ask:{gold:0,resources:{FOOD:3}}})).toMatchObject({accepts:false,reason:"aiCannotPay"});
   });
   it("retains the supply term and swaps directions in counters and card descriptions",()=>{

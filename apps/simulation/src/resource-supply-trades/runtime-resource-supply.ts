@@ -2,8 +2,8 @@ import { tradedSlotSources } from "./traded-slot-sources.js";
 import type { ResourceSlotSupplyBuild } from "../runtime-economy-caches/runtime-economy-caches.js";
 import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resource-reveal.js";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { isSiphonModeSabotage, NETWORK_RESOURCES, UPKEEP_TRADE_RESOURCES, TRADABLE_SUPPLY_RESOURCES,
-  type NetworkSiteCounts, type ResourceSupplyAgreement, type ResourceSupplyFlow, type ResourceSupplyOffer } from "@border-empires/shared";
+import { emptyNetworkSiteCounts, isSiphonModeSabotage, NETWORK_RESOURCES, OFFERABLE_SUPPLY_RESOURCES, UPKEEP_TRADE_RESOURCES,
+  TRADABLE_SUPPLY_RESOURCES, offerIncludesNonTradableSupply, type NetworkSiteCounts, type ResourceSupplyAgreement, type ResourceSupplyFlow, type ResourceSupplyOffer } from "@border-empires/shared";
 import { networkSupplyWithSiphon } from "./network-supply-with-siphon.js";
 import { resourceSlotDemandForPlayer, type ResourceSlotTotals } from "../resource-slot-view/resource-slot-view.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
@@ -20,7 +20,6 @@ export interface RuntimeResourceSupplyContext {
   physicalUpkeep(id: string): ResourceSlotTotals;
   siphonCasterIds?: () => Iterable<string>;
   siphonedTiles?: (id: string) => readonly DomainTileState[];
-  networkUsed(id: string, sites: NetworkSiteCounts): NetworkSiteCounts;
   tileSettledAtByKey: ReadonlyMap<string, number>;
   beforeChange: ResourceSupplyLedgerContext["beforeChange"];
   invalidate: ResourceSupplyLedgerContext["invalidate"];
@@ -34,8 +33,9 @@ export interface RuntimeResourceSupplyContext {
 export class RuntimeResourceSupply {
   readonly ledger: ResourceSupplyLedger;
   constructor(private readonly ctx: RuntimeResourceSupplyContext, restored: readonly ResourceSupplyAgreement[] = []) {
+    // Salvage is never exported: zero capacity suspends any legacy salvage deal.
     this.ledger = new ResourceSupplyLedger({ ...ctx, capacityFor: (id, phase, flows) =>
-      phase === "upkeep" ? ctx.physicalUpkeep(id) : this.physicalNetwork(id, flows) }, restored);
+      phase === "upkeep" ? ctx.physicalUpkeep(id) : { ...this.physicalNetwork(id, flows), PRECURSOR_SALVAGE: 0 } }, restored);
   }
   private physicalNetwork(id: string, flows: ReadonlyMap<string, ResourceSupplyFlow>): NetworkSiteCounts {
     return networkSupplyWithSiphon({ ...this.ctx,
@@ -64,10 +64,11 @@ export class RuntimeResourceSupply {
     const flows = this.ledger.allocation(this.ctx.now()).flows, flow = flows.get(id), tiles = this.ctx.ownedTiles(id), player = this.ctx.player(id);
     const physical = { ...this.ctx.physicalUpkeep(id), ...this.physicalNetwork(id, flows) };
     const effective = { ...this.applyUpkeep(this.ctx.physicalUpkeep(id), flow), ...this.network(id) };
-    const demand = { ...resourceSlotDemandForPlayer(tiles, id, player ? slotWaiversForPlayer(player) : undefined, this.ctx.tileSettledAtByKey),
-      ...this.ctx.networkUsed(id, this.network(id)) };
+    // Every developed frontier site can be pledged: trading one costs the
+    // supplier that site's marginal value rather than idle spare capacity.
+    const demand = { ...emptyNetworkSiteCounts(), ...resourceSlotDemandForPlayer(tiles, id, player ? slotWaiversForPlayer(player) : undefined, this.ctx.tileSettledAtByKey) };
     const result: ResourceSupplyOffer = {};
-    for (const resource of TRADABLE_SUPPLY_RESOURCES) {
+    for (const resource of OFFERABLE_SUPPLY_RESOURCES) {
       if (resource !== "FOOD" && !revealedResourceValueForPlayer(resource, player)) continue;
       const spare = Math.min(10_000, Math.max(0, Math.floor(Math.min(physical[resource] - (flow?.outgoing[resource] ?? 0), effective[resource] - demand[resource]))));
       if (spare) result[resource] = spare;
@@ -75,6 +76,8 @@ export class RuntimeResourceSupply {
     return result;
   }
   create(row: ResourceSupplyAgreement): SupplyLedgerResult {
+    if (offerIncludesNonTradableSupply(row.proposerGives) || offerIncludesNonTradableSupply(row.targetGives))
+      return { ok: false, message: "Precursor salvage can't be traded." };
     for (const [id, offer] of [[row.proposerId, row.proposerGives], [row.targetId, row.targetGives]] as const) {
       const available = this.available(id);
       if (TRADABLE_SUPPLY_RESOURCES.some(resource => (offer[resource] ?? 0) > (available[resource] ?? 0)))
