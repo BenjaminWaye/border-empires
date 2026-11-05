@@ -39,14 +39,22 @@ const isEngagedFlag = (muster: MusterState): boolean => {
 const fightTile = (state: HostileMusterAlertState, muster: MusterState): Tile | undefined =>
   isInFlight(muster) && muster.fightX !== undefined && muster.fightY !== undefined ? tileAt(state, muster.fightX, muster.fightY) : undefined;
 
-// Whether a hostile tile is within MUSTER_ADVANCE_RANGE_STEPS steps of our
-// flag, where a step moves through our own or neutral land -- the client
-// mirror of the sim's nearestHostileWithinSteps (muster-advance-clear.ts), so
-// barbarians behind a truce partner's land, or across water or mountains, are
-// out of reach. Dock/bridge links aren't modelled here; an attack across one
-// is still caught through fightTile. Fogged hostile tiles are skipped: their
-// owner is a stale snapshot. Unloaded tiles block the walk.
-const hostileTileWithinFlagReach = (state: HostileMusterAlertState, flag: Tile, nowMs: number): boolean => {
+// The owners of the tiles `accept` picks that lie within
+// MUSTER_ADVANCE_RANGE_STEPS steps of `flag`, where a step moves through the
+// flag owner's own or neutral land -- the client mirror of the sim's
+// nearestHostileWithinSteps (muster-advance-clear.ts), so land behind a truce
+// partner's tiles, or across water or mountains, is out of reach. Dock/bridge
+// links aren't modelled here; an attack across one is still caught through
+// fightTile. Unloaded tiles block the walk. `stopAtFirst` ends the walk at the
+// first match, for callers that only need to know whether anyone is in reach.
+const ownersWithinFlagReach = (
+  state: HostileMusterAlertState,
+  flag: Tile,
+  flagOwnerId: string,
+  accept: (tile: Tile) => boolean,
+  stopAtFirst: boolean
+): Set<string> => {
+  const found = new Set<string>();
   const visited = new Set<string>([keyForTile(flag.x, flag.y)]);
   let frontier: Tile[] = [flag];
   for (let depth = 0; depth < MUSTER_ADVANCE_RANGE_STEPS && frontier.length > 0; depth += 1) {
@@ -62,31 +70,69 @@ const hostileTileWithinFlagReach = (state: HostileMusterAlertState, flag: Tile, 
           visited.add(key);
           const tile = state.tiles.get(key);
           if (!tile || tile.terrain !== "LAND") continue;
-          if (!tile.ownerId || tile.ownerId === state.me) {
-            // A road; hostile tiles found from it are depth + 2 steps away, so
-            // stop extending once those would be beyond the cap.
+          if (!tile.ownerId || tile.ownerId === flagOwnerId) {
+            // A road; tiles found from it are depth + 2 steps away, so stop
+            // extending once those would be beyond the cap.
             if (depth + 2 <= MUSTER_ADVANCE_RANGE_STEPS) next.push(tile);
             continue;
           }
-          if (!tile.fogged && isHostileTile(state, tile, nowMs)) return true;
+          if (accept(tile)) {
+            found.add(tile.ownerId);
+            if (stopAtFirst) return found;
+          }
         }
       }
     }
     frontier = next;
   }
-  return false;
+  return found;
 };
 
-// Our own flag is part of a war when its in-flight action is aimed at hostile
-// land, its March target is hostile land, or hostile land is within its reach.
-const ownFlagFacesHostile = (state: HostileMusterAlertState, tile: Tile, muster: MusterState, nowMs: number): boolean => {
+// Fogged hostile tiles are skipped: their owner is a stale snapshot.
+const isLiveHostileTile = (state: HostileMusterAlertState, nowMs: number) => (tile: Tile): boolean =>
+  !tile.fogged && isHostileTile(state, tile, nowMs);
+
+// The hostile owners our own flag is part of a war with: its in-flight action
+// is aimed at their land, its March target is their land, or their land is
+// within its reach. `stopAtFirst` returns as soon as one is known.
+const ownFlagOpponents = (state: HostileMusterAlertState, tile: Tile, muster: MusterState, nowMs: number, stopAtFirst: boolean): Set<string> => {
+  const opponents = new Set<string>();
   const fight = fightTile(state, muster);
-  if (fight && isHostileTile(state, fight, nowMs)) return true;
+  if (fight?.ownerId && isHostileTile(state, fight, nowMs)) opponents.add(fight.ownerId);
+  if (stopAtFirst && opponents.size > 0) return opponents;
   if (muster.mode === "MARCH" && muster.targetX !== undefined && muster.targetY !== undefined) {
     const target = tileAt(state, muster.targetX, muster.targetY);
-    if (target && isHostileTile(state, target, nowMs)) return true;
+    if (target?.ownerId && isHostileTile(state, target, nowMs)) opponents.add(target.ownerId);
   }
-  return hostileTileWithinFlagReach(state, tile, nowMs);
+  if (stopAtFirst && opponents.size > 0) return opponents;
+  for (const owner of ownersWithinFlagReach(state, tile, state.me ?? "", isLiveHostileTile(state, nowMs), stopAtFirst)) opponents.add(owner);
+  return opponents;
+};
+
+const ownFlagFacesHostile = (state: HostileMusterAlertState, tile: Tile, muster: MusterState, nowMs: number): boolean =>
+  ownFlagOpponents(state, tile, muster, nowMs, true).size > 0;
+
+/**
+ * The empires (never us, allies or truce partners) the muster flag on `tile`
+ * puts us in conflict with, by the same tests as musterWarSignal -- the
+ * per-player view of the war-music signal, for labelling who we are at war with.
+ * A hostile flag counts when it fights our land, is staged near our border, or
+ * has our land within its reach.
+ */
+export const musterWarOpponents = (state: HostileMusterAlertState, tile: Tile, muster: MusterState, nowMs: number): string[] => {
+  if (!state.me) return [];
+  if (muster.ownerId === state.me) {
+    const advancing = muster.mode === "ADVANCE" || muster.mode === "MARCH";
+    if (advancing && !isEngagedFlag(muster)) return [];
+    return [...ownFlagOpponents(state, tile, muster, nowMs, false)];
+  }
+  if (tile.fogged || isFriendlyOwner(state, muster.ownerId, nowMs)) return [];
+  const fight = fightTile(state, muster);
+  const fightsUs = fight?.ownerId === state.me;
+  const nearBorder = Boolean(hostileMusterNearBorder(state, tile, nowMs));
+  const ourLandInReach =
+    fightsUs || nearBorder || ownersWithinFlagReach(state, tile, muster.ownerId, (other) => other.ownerId === state.me, true).size > 0;
+  return ourLandInReach ? [muster.ownerId] : [];
 };
 
 /**

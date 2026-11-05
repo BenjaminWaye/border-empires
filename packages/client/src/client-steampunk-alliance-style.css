@@ -219,6 +219,10 @@
   color: var(--sp-brass-300);
 }
 
+.alliance-reference-status-war {
+  color: #d9614f;
+}
+
 /* .alliance-reference-actions is a two-column grid: the alliance / break
  * buttons take a full row, the two truce lengths share the next one. */
 .alliance-propose-actions .propose-alliance,
