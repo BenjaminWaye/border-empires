@@ -16,7 +16,10 @@ export type FortificationRankingEntry = {
 export type WarSummary = {
   playerA: string;
   playerB: string;
+  /** Every flip between the pair in the window -- war intensity. */
   tileFlips24h: number;
+  /** Distinct tiles that changed hands between the pair in the window. */
+  tilesContested24h: number;
   lastFlipAt: number;
 };
 

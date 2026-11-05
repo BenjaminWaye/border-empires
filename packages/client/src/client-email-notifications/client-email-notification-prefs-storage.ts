@@ -14,6 +14,7 @@ export type EmailNotificationCategory =
   | "truceOffer"
   | "attackAlert"
   | "aetherPurgeAlert"
+  | "aetherHijackAlert"
   | "seasonStart"
   | "manpowerFull";
 
@@ -25,6 +26,7 @@ const ALL_ON: EmailNotificationPrefs = {
   truceOffer: true,
   attackAlert: true,
   aetherPurgeAlert: true,
+  aetherHijackAlert: true,
   seasonStart: true,
   manpowerFull: true
 };

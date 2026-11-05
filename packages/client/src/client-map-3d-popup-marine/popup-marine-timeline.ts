@@ -11,7 +11,9 @@
 // anything — attackerWon is already known before the first frame renders;
 // this module only stages the reveal. The whole fight happens on the target
 // tile (the tile under attack), clamped to TILE_LOCAL_MAX same as before.
-import type { GarrisonFacing, GarrisonStart } from "./popup-marine-garrison.js";
+import type { GarrisonStart } from "./popup-marine-garrison.js";
+import type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "../client-dock-landing/client-battle-render-types.js";
+export type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "../client-dock-landing/client-battle-render-types.js";
 
 export const LINEUP_MS = 2500; // "cover" — squad rushes to position, staggered pop-in
 export const MARCH_MS = 900; // "advance" — squad closes from tile edge to the firing line
@@ -23,9 +25,9 @@ export const BATTLE_OVERLAY_TOTAL_MS = APPROACH_MS + CLASH_MS + ROUT_MS;
 export const MARINES_PER_SIDE = 7; // matches the muster-transit march company size (SOLDIERS_PER_COMPANY)
 export const WINNER_DEATHS = 1;
 export const LOSER_DEATHS = 2;
-// Fraction of CLASH_MS a falling marine takes to finish collapsing once its
-// death moment (DeathKit.at) arrives.
-const DEATH_FADE_T = 0.16;
+// How long a killed marine's fall (the rig's Dead clip) takes. Under ROUT_MS,
+// so even a death at the firefight's last moment is down before endAt.
+const DEATH_FALL_MS = 900;
 // Fraction of ROUT_MS spent blending out of the firefight's standing-aim
 // pose rather than snapping straight into the rout pose.
 const ROUT_SETTLE_T = 0.15;
@@ -47,64 +49,6 @@ export function hash01(a: number, b: number, salt: number): number {
   return (h >>> 0) / 0xffffffff;
 }
 
-export type BattleOverlayRenderEntry = {
-  srcWorldX: number;
-  srcWorldZ: number;
-  tgtWorldX: number;
-  tgtWorldZ: number;
-  srcSurfaceY: number;
-  tgtSurfaceY: number;
-  attackerColor: string;
-  defenderColor: string;
-  attackerWon: boolean;
-  startAt: number;
-  clashAt: number;
-  endAt: number;
-  // When true the battle continues a pre-resolution skirmish that already
-  // shed WINNER_DEATHS marines per side during its first firefight cycle —
-  // those marines stay collapsed rather than re-falling, and only the
-  // loser's remaining deaths emerge over the battle's own firefight window.
-  fromSkirmish: boolean;
-  // Stable per-tile hash seed (target tile coordinates), NOT an array index
-  // — must be derived the same way a preceding skirmish's hashSeed was, so a
-  // resolved battle picking up from a skirmish keeps every marine's
-  // offset/perp/fire-schedule identical across the transition.
-  hashSeed: number;
-  // An active siege structure of the attacker's is in range of the target
-  // (client-siege-battle-targets.ts): only then does the opening lance play.
-  siegeBoosted?: boolean;
-  // Target tile is capture-held: its garrison defends (popup-marine-garrison.ts).
-  defenderGarrison?: GarrisonFacing;
-};
-
-// A siege still counting down — outcome unknown. Plays the same cover-
-// >advance approach as a resolved battle, then indefinite firefight-
-// oscillation at the tile center with muzzle flashes and first-cycle
-// casualties (WINNER_DEATHS per side), but no rout phase.
-export type BattleOverlaySkirmishEntry = {
-  srcWorldX: number;
-  srcWorldZ: number;
-  tgtWorldX: number;
-  tgtWorldZ: number;
-  srcSurfaceY: number;
-  tgtSurfaceY: number;
-  attackerColor: string;
-  defenderColor: string;
-  startAt: number;
-  hashSeed: number;
-  // Defender skirmish: hold the approach plateau open past the default
-  // APPROACH_MS until the attacker's REAL (mechanical) transit delay
-  // elapses, so a defender sees "company still approaching" for the actual
-  // travel window rather than the firefight starting before the attacker's
-  // troops have even arrived — see client-map-3d-capture-overlays.ts's
-  // syncBattleOverlayFx for where this is computed.
-  holdApproachUntilElapsed?: number;
-  // See BattleOverlayRenderEntry.siegeBoosted.
-  siegeBoosted?: boolean;
-  // See BattleOverlayRenderEntry.defenderGarrison.
-  defenderGarrison?: GarrisonFacing;
-};
-
 export type MarineKit = {
   offset: number; // lineup pop-in stagger, [0, 0.22)
   perpPos: number; // formation slot along the firing line, roughly [-0.3, 0.3]
@@ -122,7 +66,7 @@ export type DeathKit = { roll: number; at: number };
 
 // Overall marine model scale multiplier — applied both to the rendered mesh
 // (see MARINE_MODEL_SCALE's use in popup-marine-overlay-fx.ts's
-// slot.mesh.scale, and its CROUCH_DROP/FALL_DROP/FLASH_SIZE) and to the
+// slot.mesh.scale, and its FLASH_SIZE) and to the
 // spacing constants below, so the squad's formation footprint grows in
 // lockstep with the model instead of the marines outgrowing their own
 // slots and fusing together.
@@ -253,6 +197,8 @@ export type MarinePose = {
   stance: MarineStance;
   localX: number;
   localZ: number;
+  /** Height above the ground while walking down a landing ramp. */
+  localY?: number;
   yaw: number;
   scale: number;
   crouchT: number; // 0 = down in cover, 1 = standing/firing
@@ -364,15 +310,15 @@ export const computeBattlePose = (
     const t = clamp01((nowMs - b.clashAt) / CLASH_MS);
     const flash = muzzleFlashIntensity(kit, t);
     if (dying && t >= dKit.at) {
-      const fallT = clamp01((t - dKit.at) / DEATH_FADE_T);
-      return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1 - fallT * 0.4, crouchT: 1 - fallT, fallT, flash: 0 };
+      const fallT = clamp01(((t - dKit.at) * CLASH_MS) / DEATH_FALL_MS);
+      return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 1 - fallT, fallT, flash: 0 };
     }
     return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 1, fallT: 0, flash };
   }
 
   if (dying) {
-    // Already fell during the firefight above — stays collapsed through rout.
-    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 0.6, crouchT: 0, fallT: 1, flash: 0 };
+    // Fell during the firefight above — finishes that fall, then stays down through rout.
+    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 0, fallT: clamp01((nowMs - b.clashAt - dKit.at * CLASH_MS) / DEATH_FALL_MS), flash: 0 };
   }
 
   const routT = clamp01(routElapsed / ROUT_MS);
@@ -486,11 +432,12 @@ export const computeSkirmishPose = (
   const flash = muzzleFlashIntensity(kit, cycleT);
 
   if (dying && firstFirefightT >= dKit.at && firstFirefightT < 1) {
-    const fallT = clamp01((firstFirefightT - dKit.at) / DEATH_FADE_T);
-    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1 - fallT * 0.4, crouchT: 1 - fallT, fallT, flash: 0 };
+    const fallT = clamp01(((firstFirefightT - dKit.at) * CLASH_MS) / DEATH_FALL_MS);
+    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 1 - fallT, fallT, flash: 0 };
   }
   if (dying && firstFirefightT >= 1) {
-    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 0.6, crouchT: 0, fallT: 1, flash: 0 };
+    const fallT = clamp01(((firstFirefightT - dKit.at) * CLASH_MS) / DEATH_FALL_MS);
+    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 0, fallT, flash: 0 };
   }
 
   return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 1, fallT: 0, flash };

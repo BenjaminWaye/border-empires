@@ -1,10 +1,11 @@
+import { manpowerPerBatch } from "@border-empires/shared";
 // Economic/support-building modifier entries — split from the military
 // family (structure-modifier-catalog-military.ts) to keep files under the
 // repo's 500-line cap. Numbers come from the existing shared/game-domain
 // constants (no duplicated magic numbers).
 import {
   CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_INCUBATION_ENGINE, CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT,
-  ANCILLARY_DEPOT_MANPOWER_CAP_BONUS, INCUBATION_ENGINE_INSTANT_POPULATION_BURST, QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
+  ANCILLARY_DEPOT_MANPOWER_CAP_BONUS, INCUBATION_ENGINE_INSTANT_POPULATION_BURST,
   TILE_SLOT_BOOST_STRUCTURES, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS
 } from "@border-empires/shared";
 import {
@@ -155,11 +156,10 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
   // playerManpowerCapFromSummary: reserveLatticeNetworkAncillaryDepotCount,
   // "Neural Works no longer touches it"). Don't add a manpower-cap line here.
   if (type === "NEURAL_WORKS") {
-    return [{ statLabel: "Manpower/min per Ancillary Factory in network", valueText: `+${NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY}`, tone: "positive", isTownWide: true }];
+    return [{ statLabel: "Manpower per batch per Ancillary Factory in network", valueText: `+${manpowerPerBatch(NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY)}`, tone: "positive", isTownWide: true }];
   }
-  if (type === "QUARTERMASTERS_OFFICE") return [{ statLabel: "War-structure manpower cost (20-tile radius)", valueText: percentLabel(-(1 - QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT) * 100), tone: "positive", isTownWide: true }];
   if (type === "ANCILLARY_FACTORY") {
-    return [{ statLabel: "Manpower/min empire-wide", valueText: `+${ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE}`, tone: "positive", isTownWide: true, rawValue: ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE }];
+    return [{ statLabel: "Manpower per batch empire-wide", valueText: `+${manpowerPerBatch(ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE)}`, tone: "positive", isTownWide: true, rawValue: manpowerPerBatch(ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE) }];
   }
   if (type === "RESERVE_LATTICE") {
     return [{

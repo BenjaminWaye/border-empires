@@ -35,6 +35,13 @@ import {
   buildRuntimeSnapshotSections,
   buildRuntimeSnapshotSectionsAsync
 } from "../runtime-snapshot-sections.js";
+import { summarizeTownEconomy } from "../ai/build/economic-synergy-diagnostics.js";
+import type { TownEconomyEntry } from "../ai/build/town-economy-view.js";
+
+// rebuildOnMiss: false — the 1s metrics tick reuses the last view rather than
+// forcing a town-network rebuild (runtime-town-economy-view.ts).
+const economicSynergyRow = (view: readonly TownEconomyEntry[] | undefined): Pick<RuntimeAiPlayerMetricsRow, "economicSynergy"> =>
+  view && view.length > 0 ? { economicSynergy: summarizeTownEconomy(view) } : {};
 
 // `playerManpowerCap` / `playerManpowerRegenPerMinute` are excluded here:
 // RuntimeExportInput (feeding exportState) needs a (player: DomainPlayer) =>
@@ -44,7 +51,7 @@ import {
 // derive their playerId-keyed variants from this context's player-keyed
 // ones at the call site instead of the context carrying both.
 export type RuntimeExportContext = Parameters<typeof buildRuntimeExportState>[0] &
-  Pick<Parameters<typeof buildRuntimeSnapshotSections>[0], "recordedEventsByCommandId"> &
+  Pick<Parameters<typeof buildRuntimeSnapshotSections>[0], "recordedEventsByCommandId" | "reachBorder"> &
   Pick<Parameters<typeof buildRuntimeSnapshotSectionsAsync>[0], "prebuiltTiles"> &
   Omit<Parameters<typeof buildRuntimePlannerWorldView>[0], "playerIds" | "playerManpowerCap" | "playerManpowerRegenPerMinute"> &
   Parameters<typeof buildRuntimePlayerDebugSnapshot>[0] & {
@@ -131,7 +138,8 @@ export function aiPlayerMetricsSnapshotForRuntime(ctx: RuntimeExportContext): Ru
         manpower: p.manpower,
         manpowerCap,
         manpowerRegenPerMinute: ctx.playerManpowerRegenPerMinute(p),
-        ...musterFlagTotalsForPlayer(p.id, ctx.musterTilesByOwner.get(p.id), ctx.tiles, manpowerCap)
+        ...musterFlagTotalsForPlayer(p.id, ctx.musterTilesByOwner.get(p.id), ctx.tiles, manpowerCap),
+        ...economicSynergyRow(ctx.townEconomyViewForPlayer?.(p.id, { rebuildOnMiss: false }))
       };
     });
 }

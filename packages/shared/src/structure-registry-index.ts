@@ -70,6 +70,23 @@ export const structureBuildSpeedEffectKey = (structureType: string): StructureBu
   return undefined;
 };
 
+/**
+ * Which AFC manpower-discount effect lowers this structure's build cost, on
+ * top of the universal structureBuildManpowerCostMult. Shared by the
+ * simulation's charge/refund and the client's cost labels so both agree.
+ */
+export type StructureManpowerCostEffectKey = "fortBuildManpowerCostMult" | "relayBeaconBuildManpowerCostMult";
+
+export const structureManpowerCostEffectKey = (structureType: string): StructureManpowerCostEffectKey | undefined => {
+  if (structureType === "RELAY_BEACON") return "relayBeaconBuildManpowerCostMult";
+  if (STRUCTURE_REGISTRY[structureType]?.kind === "FORT") return "fortBuildManpowerCostMult";
+  return undefined;
+};
+
+/** A base manpower cost scaled by a cost multiplier (0.5 = half price). */
+export const discountedStructureManpowerCost = (baseCost: number, costMult: number): number =>
+  Math.max(0, Math.round(baseCost * costMult));
+
 /** A base build duration shortened by a speed multiplier (1.5 = 50% faster). */
 export const buildDurationWithSpeedMult = (baseMs: number, speedMult: number): number =>
   Math.max(1, Math.round(baseMs / speedMult));

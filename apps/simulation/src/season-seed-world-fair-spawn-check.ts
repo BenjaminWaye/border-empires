@@ -1,7 +1,7 @@
 import type { ClusterDefinition } from "@border-empires/game-domain";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { Tile, TileKey } from "@border-empires/shared";
-import { computeFairSpawnSites } from "./spawn-placement/spawn-placement.js";
+import { computeFairSpawnSites, type FairSpawnSite } from "./spawn-placement/spawn-placement.js";
 
 // Kept in sync with FAIR_SPAWN_SITE_TARGET_COUNT in spawn-placement.ts
 // (not exported from there, since that default is an implementation detail
@@ -54,7 +54,12 @@ export const starterTilesForWorldgen = (deps: FairSpawnWorldgenCheckDeps): Domai
   return tiles;
 };
 
-export const countFairSpawnSitesForWorldgenCheck = (deps: FairSpawnWorldgenCheckDeps): number =>
+// The accepted roster is also the one every season-start spawn claims from,
+// so builders keep this result instead of recomputing it for placement.
+export const computeFairSpawnSitesForWorldgen = (deps: FairSpawnWorldgenCheckDeps): FairSpawnSite[] =>
   computeFairSpawnSites(starterTilesForWorldgen(deps), FAIR_SPAWN_SITE_WORLDGEN_MINIMUM, {
     requireStarterEconomy: true, width: deps.WORLD_WIDTH, height: deps.WORLD_HEIGHT
-  }).length;
+  });
+
+export const countFairSpawnSitesForWorldgenCheck = (deps: FairSpawnWorldgenCheckDeps): number =>
+  computeFairSpawnSitesForWorldgen(deps).length;

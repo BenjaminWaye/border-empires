@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { constructionProgressForTile } from "./client-tile-menu-view.js";
+import { rushBuyLabel } from "./client-tile-menu-quickforge-rush-buy.js";
 import type { Tile } from "../client-types.js";
 
 describe("Quickforge rush-buy price preview", () => {
@@ -28,5 +29,15 @@ describe("Quickforge rush-buy price preview", () => {
     const basePrice = priceOf(withoutQuickforge?.rushBuyLabel);
     expect(priceOf(withUnusedQuickforge?.rushBuyLabel)).toBe(Math.max(0, basePrice - 40));
     expect(priceOf(withUsedQuickforge?.rushBuyLabel)).toBe(basePrice);
+  });
+});
+
+describe("rush-buy price preview with AFC manpower discounts", () => {
+  it("prices the rush on the discounted manpower the server charged, not the base cost", () => {
+    const base = { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: 0 };
+    const full = rushBuyLabel(60_000, 60_000, "FORT", 240, base);
+    const halved = rushBuyLabel(60_000, 60_000, "FORT", 240, { ...base, manpowerCostFor: (_type, cost) => Math.round(cost / 2) });
+    expect(halved).toBe(rushBuyLabel(60_000, 60_000, "FORT", 120, base));
+    expect(halved).not.toBe(full);
   });
 });

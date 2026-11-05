@@ -3,7 +3,12 @@ import type { ClientState } from "../client-state/client-state.js";
 import { MANIFEST_PANEL_TITLE } from "../client-manifest-detail/client-manifest-labels.js";
 import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav-icons.js";
 
-export const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").matches;
+import { compactHudActive, isPhoneViewport } from "./client-phone-viewport.js";
+
+/** The legacy phone layout: a phone viewport the new HUD's compact layout is not driving (see client-phone-viewport.ts). */
+export const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").matches && !compactHudActive();
+
+export { isPhoneViewport };
 
 export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): string => {
   if (panel === "tech") return MANIFEST_PANEL_TITLE;
@@ -12,6 +17,7 @@ export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): stri
   if (panel === "economy") return "Economy";
   if (panel === "manpower") return "Manpower";
   if (panel === "development") return "Development";
+  if (panel === "towns") return "Towns";
   if (panel === "defensibility") return "Empire Integrity";
   if (panel === "leaderboard") return "Leaderboard";
   if (panel === "feed") return "Alerts";
@@ -27,6 +33,7 @@ export const panelToMobile = (panel: NonNullable<ClientState["activePanel"]>): C
   if (panel === "economy") return "economy";
   if (panel === "manpower") return "manpower";
   if (panel === "development") return "development";
+  if (panel === "towns") return "towns";
   if (panel === "leaderboard") return "leaderboard";
   if (panel === "settings") return "settings";
   return "feed";
@@ -49,6 +56,7 @@ export const mobileNavLabelHtml = (
       : navTabIconHtml("tech");
   }
   if (panel === "domains") return navTabIconHtml("domains");
+  if (panel === "towns") return navTabIconHtml("towns");
   if (panel === "social") {
     const pendingAllyCount = opts?.pendingAllyCount ?? 0;
     return pendingAllyCount > 0
@@ -145,6 +153,7 @@ export const renderMobilePanels = (
     mobilePanelEconomyEl: HTMLElement;
     mobilePanelManpowerEl: HTMLElement;
     mobilePanelDevelopmentEl: HTMLElement;
+    mobilePanelTownsEl: HTMLElement;
     mobilePanelLeaderboardEl: HTMLElement;
     mobilePanelFeedEl: HTMLElement;
     mobilePanelSettingsEl: HTMLElement;
@@ -169,6 +178,7 @@ export const renderMobilePanels = (
   deps.sidePanelEl.classList.toggle("tech-panel-open", state.activePanel === "tech"); // scopes the Manifest detail no-scroll rule
   deps.sidePanelEl.classList.toggle("domain-panel-active", state.activePanel === "domains" && state.domainDetailOpen && !isMobile());
   deps.sidePanelEl.classList.toggle("afc-upgrades-panel", state.activePanel === "domains" && !isMobile());
+  deps.sidePanelEl.classList.toggle("settings-panel-active", state.activePanel === "settings"); // the new HUD centres Settings from its first frame
   deps.mobileSheetEl.classList.toggle("tech-panel-active", state.mobilePanel === "tech" && state.techTreeExpanded);
   deps.mobileSheetEl.classList.toggle("tech-panel-open", state.mobilePanel === "tech"); // shows the Manifest view toggle in the sheet head
 
@@ -195,6 +205,7 @@ export const renderMobilePanels = (
     [deps.mobilePanelEconomyEl, "economy"],
     [deps.mobilePanelManpowerEl, "manpower"],
     [deps.mobilePanelDevelopmentEl, "development"],
+    [deps.mobilePanelTownsEl, "towns"],
     [deps.mobilePanelLeaderboardEl, "leaderboard"],
     [deps.mobilePanelFeedEl, "feed"],
     [deps.mobilePanelSettingsEl, "settings"]
@@ -210,6 +221,7 @@ export const renderMobilePanels = (
   else if (state.mobilePanel === "economy") deps.mobileSheetTitleEl.textContent = "Economy";
   else if (state.mobilePanel === "manpower") deps.mobileSheetTitleEl.textContent = "Manpower";
   else if (state.mobilePanel === "development") deps.mobileSheetTitleEl.textContent = "Development";
+  else if (state.mobilePanel === "towns") deps.mobileSheetTitleEl.textContent = "Towns";
   else if (state.mobilePanel === "leaderboard") deps.mobileSheetTitleEl.textContent = "Leaderboard";
   else if (state.mobilePanel === "feed") deps.mobileSheetTitleEl.textContent = "Alerts";
   else if (state.mobilePanel === "settings") deps.mobileSheetTitleEl.textContent = "Settings";

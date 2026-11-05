@@ -1,3 +1,4 @@
+import { noteGuideMapPanned, noteGuideMapZoomed } from "../client-tutorial-guide/tutorial-guide-input-signals.js";
 import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import { deltaYInPixels, zoomStepFor } from "../client-map-zoom-step/client-map-zoom-step.js";
 import type { initClientDom } from "../client-dom.js";
@@ -5,6 +6,8 @@ import { bindMinimapDrag } from "../client-map-input-minimap-drag.js";
 import { persistentAlertLocatorAt } from "../client-persistent-alerts/client-persistent-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+import { marchTargetDrag } from "../client-march-interaction/client-march-interaction.js";
+import { cancelMarchOriginPicking } from "../client-march-origin-picking/client-march-origin-picking.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -163,6 +166,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     const pixels = pendingWheelPixels;
     pendingWheelPixels = 0;
     if (pixels === 0) return;
+    noteGuideMapZoomed();
     state.zoom = zoomStepFor({ zoom: state.zoom, deltaY: pixels, deltaMode: 0, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM });
   };
 
@@ -193,6 +197,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       deps.hideTileActionMenu();
       deps.clearCrystalTargeting();
       deps.cancelBuildingPlacement();
+      if (state.marchOriginPicking.active) cancelMarchOriginPicking(state);
       return;
     }
 
@@ -205,6 +210,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       if (ev.key === "ArrowRight") state.camX = deps.wrapX(state.camX + step);
       state.camSubX = 0;
       state.camSubY = 0;
+      noteGuideMapPanned();
       deps.maybeRefreshForCamera(true);
     }
   });
@@ -227,6 +233,8 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     const raw = deps.worldTileRawFromPointer(ev.offsetX, ev.offsetY);
     const pressedTile = state.tiles.get(deps.keyFor(deps.wrapX(raw.gx), deps.wrapY(raw.gy)));
     if (pressedTile) deps.requestAttackPreviewForTarget(pressedTile);
+    // Pressing a march's destination drags it instead of panning the map.
+    if (!boxSelectionMode && marchTargetDrag.begin(deps.wrapX(raw.gx), deps.wrapY(raw.gy), ev.clientX, ev.clientY)) mousePanStart = undefined;
     if (boxSelectionMode) {
       state.boxSelectStart = raw;
       state.boxSelectCurrent = raw;
@@ -241,6 +249,11 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   });
   deps.canvas.addEventListener("mousemove", (ev) => {
     if (!dragActive) return;
+    if (marchTargetDrag.active()) {
+      const at = deps.worldTileRawFromPointer(ev.offsetX, ev.offsetY);
+      marchTargetDrag.move(deps.wrapX(at.gx), deps.wrapY(at.gy), ev.clientX, ev.clientY);
+      return;
+    }
     if (!boxSelectionMode && mousePanStart) {
       const dx = ev.clientX - mousePanStart.x;
       const dy = ev.clientY - mousePanStart.y;
@@ -255,6 +268,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         state.camY = py.camInt;
         state.camSubX = px.camSub;
         state.camSubY = py.camSub;
+        noteGuideMapPanned();
         deps.maybeRefreshForCamera(false);
       }
       return;
@@ -268,7 +282,8 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     deps.computeDragPreview();
   });
   window.addEventListener("mouseup", (ev) => {
-    if (dragActive && shouldCommitMouseSelection({
+    const marchDragMoved = marchTargetDrag.end() === "moved";
+    if (dragActive && !marchDragMoved && shouldCommitMouseSelection({
       button: ev.button,
       boxSelectionMode,
       boxSelectionEngaged,
@@ -333,6 +348,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         const { wx, wy } = worldTileFromPointer(t.clientX - rect.left, t.clientY - rect.top);
         const touchedTile = state.tiles.get(deps.keyFor(wx, wy));
         if (touchedTile) deps.requestAttackPreviewForTarget(touchedTile);
+        if (marchTargetDrag.begin(wx, wy, t.clientX, t.clientY)) touchPanStart = undefined;
         pinchStart = undefined;
       } else if (ev.touches.length === 2) {
         const a = ev.touches[0];
@@ -340,6 +356,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         if (!a || !b) return;
         touchHoldStart = undefined;
         touchTapCandidate = undefined;
+        marchTargetDrag.cancel();
         const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         deps.interactionFlags.suppressNextClick = true;
         pinchStart = { distance: d, zoom: state.zoom };
@@ -352,6 +369,13 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   deps.canvas.addEventListener(
     "touchmove",
     (ev) => {
+      const t0 = ev.touches[0];
+      if (ev.touches.length === 1 && t0 && marchTargetDrag.active()) {
+        const rect = deps.canvas.getBoundingClientRect();
+        const { wx, wy } = worldTileFromPointer(t0.clientX - rect.left, t0.clientY - rect.top);
+        marchTargetDrag.move(wx, wy, t0.clientX, t0.clientY);
+        return;
+      }
       if (ev.touches.length === 1 && touchPanStart) {
         const t = ev.touches[0];
         if (!t) return;
@@ -370,6 +394,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         state.camY = py.camInt;
         state.camSubX = px.camSub;
         state.camSubY = py.camSub;
+        noteGuideMapPanned();
         deps.maybeRefreshForCamera(false);
         return;
       }
@@ -381,6 +406,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         const factor = d / Math.max(1, pinchStart.distance);
         state.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(pinchStart.zoom * factor)));
+        noteGuideMapZoomed();
       }
     },
     { passive: true }
@@ -392,6 +418,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       // Custom gestures already handle taps/pinch. Prevent compatibility mouse
       // events from committing the same tile again after the touch commit.
       ev.preventDefault();
+      if (marchTargetDrag.end() === "moved") touchTapCandidate = undefined;
       if (touchTapCandidate && !pinchStart) {
         const now = Date.now();
         const doubleTapped = !state.garrisonMany.active && isDoubleTap({
@@ -413,6 +440,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
           // itself should flip this, not the single taps that precede it,
           // otherwise every double-tap gesture would zoom in only.
           lastDoubleTapZoomIn = !lastDoubleTapZoomIn;
+          noteGuideMapZoomed();
           lastTapTime = 0;
           lastTapLocation = undefined;
         } else {

@@ -198,6 +198,25 @@ describe("buildLockedCombatResolution against a FRONTIER (undefended) target", (
     expect(resolution?.result.attackerWon).toBe(true);
     expect(resolution?.defendedFrontier).toBeUndefined();
   });
+
+  // Regression: a fort captured along with its tile kept counting as a fort
+  // in the combat roll while the capturing troops held the tile (attacker's
+  // "vs forts" terms, the logged defense variant), though it can't defend.
+  it("gives a just-captured fort no part in combat while the tile is held", () => {
+    const losses: Array<{ defenseVariant?: string }> = [];
+    const tiles = new Map<string, DomainTileState>([
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "FRONTIER", captureHoldUntil: 60_000, fort: { ownerId: DEFENDER_ID, status: "active", variant: "FORT" } }]
+    ]);
+    const context = { ...makeContext(tiles, 100), recordCombatManpowerLoss: (entry: { defenseVariant?: string }) => losses.push(entry) };
+    const resolution = buildLockedCombatResolution(context, {
+      actionType: "ATTACK", commandId: "attack-1", playerId: ATTACKER_ID, manpowerCost: 15,
+      originKey: ORIGIN_KEY, originX: 5, originY: 5, targetX: 6, targetY: 5, targetKey: TARGET_KEY
+    });
+
+    expect(resolution?.result.winChance).toBeCloseTo(0.5, 5);
+    expect(losses).toHaveLength(1);
+    expect(losses[0]?.defenseVariant).toBeUndefined();
+  });
 });
 
 describe("buildLockedCombatResolution against a SETTLED target (plunder wiring)", () => {

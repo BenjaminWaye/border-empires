@@ -1,10 +1,11 @@
+import { farmlandYawAt } from "../client-food-tile-placement.js";
 // Farm plot drawn on every FARM resource tile in the 3D renderer. Replaces
 // the earlier procedural shell-stack barley field.
 //
-// Source: farmland4.glb — a low-poly farm tile (three crop fields, a silo,
-// a hay bale and a few bushes) authored in Blender: 16 small meshes over 10
-// flat-colour materials, ~1.1k triangles, ~0.95 x 0.3 x 0.98 units centred
-// on the origin. No textures.
+// Source: farmland.glb, enriched by scripts/bake-food-tile-models.mjs with
+// irrigation headers, crop clusters, silo bands and barn trim. The detailed
+// asset carries baked ambient occlusion in vertex colours and box-projected
+// UVs for fine surface grain, within the original footprint and height.
 //
 // At load every mesh is baked into ONE geometry (world transform applied,
 // each material's base colour written to a vertex-colour attribute) so all
@@ -13,13 +14,13 @@
 // degrees (stable per world tile) so neighbouring plots don't look alike.
 // The glb loads asynchronously; instances added before it lands are held
 // and applied when it arrives.
-import { Euler, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Vector3 } from "three";
+import { Euler, InstancedMesh, Matrix4, Quaternion, Vector3 } from "three";
 import type { BufferGeometry, Material, Scene, Texture } from "three";
 import { loadMergedGlbGeometry } from "../client-map-3d-merged-glb/client-map-3d-merged-glb.js";
-import { applyBuildingEnvMap } from "../client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import { createFoodTileMaterial } from "../client-map-3d-merged-glb/client-food-tile-material.js";
 import type { ClientTileEconomicStructure } from "../client-tile-economic-structure-type.js";
 
-export const FARMLAND_MODEL_URL = "/models/farmland.glb";
+export const FARMLAND_MODEL_URL = "/models/farmland-detailed.glb";
 
 // The model's lowest point sits this far below its origin; lifted so the
 // plot rests on the terrain instead of sinking into it.
@@ -28,16 +29,17 @@ export const FARMLAND_BASE_LIFT = 0.0457;
 // Height above the terrain surface of the crop beds' tops once the plot is
 // lifted by FARMLAND_BASE_LIFT (the three raised beds reach ~0.033 above the
 // model origin). Anything that stands ON a farm tile — the battle marines —
-// is raised by this so it walks on the crops instead of being swallowed by
-// the opaque plot, which otherwise hides it entirely.
+// and every building on a farm tile -- is raised by this so it stands on the
+// crops instead of being swallowed by the opaque plot.
 export const FARMLAND_STAND_LIFT = 0.079;
 
-// A FARM resource tile normally draws this conventional farm plot. When a
-// HYDROGARDEN (the hydroponic dome) is built on the tile the dome IS the farm,
-// so the old crop-field plot is dropped — otherwise the dome appears to stand
-// on a conventional farm. Other structures that can sit on a FARM tile (a
-// HYDROWORKS water tower) keep the plot. Typed with the structure-id union so
-// a future id rename is a type error here rather than a silent no-op.
+// A FARM resource tile always draws this conventional farm plot so the farm
+// stays readable, except under a HYDROGARDEN: the hydroponic dome IS the farm,
+// so the crop-field plot is dropped rather than the dome standing on it. Every
+// other building on a FARM tile (a district building such as HYDROWORKS, a
+// fort, siege battery or observatory) keeps the plot and is lifted onto it by
+// standLiftAt below -- the plot's crop beds otherwise bury the building's base.
+// Typed with the structure-id union so a rename is a type error here.
 export const structureReplacesFarmlandPlot = (structureType: ClientTileEconomicStructure["type"] | undefined): boolean =>
   structureType === "HYDROGARDEN";
 
@@ -54,14 +56,7 @@ export type FarmlandOverlay = {
 
 type Placement = { readonly x: number; readonly y: number; readonly z: number; readonly yaw: number };
 
-// One of 0, 90, 180, 270 degrees, stable per world tile.
-export const farmlandYawAt = (worldX: number, worldZ: number): number => {
-  let h = (worldX * 374761393) ^ (worldZ * 668265263);
-  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
-  h = (h ^ (h >>> 16)) >>> 0;
-  return ((h % 4) * Math.PI) / 2;
-};
-
+export { farmlandYawAt } from "../client-food-tile-placement.js";
 type LoadedFarmland = { readonly geometry: BufferGeometry };
 
 let cached: Promise<LoadedFarmland> | undefined;
@@ -83,6 +78,7 @@ export const createFarmlandOverlay = (scene: Scene, maxTiles: number, envMap?: T
   let plotTiles = new Set<string>();
   let mesh: InstancedMesh | undefined;
   let disposed = false;
+  let loadFailed = false;
 
   const matrix = new Matrix4();
   const quaternion = new Quaternion();
@@ -108,8 +104,7 @@ export const createFarmlandOverlay = (scene: Scene, maxTiles: number, envMap?: T
 
   void loadFarmland().then(({ geometry }) => {
     if (disposed) return;
-    const material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0, flatShading: true });
-    applyBuildingEnvMap(material, envMap);
+    const material = createFoodTileMaterial(envMap);
     mesh = new InstancedMesh(geometry, material, maxTiles);
     mesh.frustumCulled = false;
     mesh.count = 0;
@@ -117,13 +112,16 @@ export const createFarmlandOverlay = (scene: Scene, maxTiles: number, envMap?: T
     apply();
   }, (err: unknown) => {
     // A missing asset must not take down the map; the tile just has no plot.
+    loadFailed = true; plotTiles = new Set();
     console.error("farmland model failed to load", err);
   });
 
   return {
     clear: () => { placements = []; plotTiles = new Set(); },
     addInstance: (sceneX, sceneZ, surfaceY, worldTileX, worldTileY) => {
-      plotTiles.add(`${worldTileX},${worldTileY}`);
+      // Only tiles that really get a plot lift their buildings: none past
+      // maxTiles (apply() drops those) and none if the asset failed to load.
+      if (!loadFailed && placements.length < maxTiles) plotTiles.add(`${worldTileX},${worldTileY}`);
       placements.push({ x: sceneX, y: surfaceY + FARMLAND_BASE_LIFT, z: sceneZ, yaw: farmlandYawAt(worldTileX, worldTileY) });
     },
     commit: apply,

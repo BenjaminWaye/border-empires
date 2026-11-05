@@ -14,6 +14,7 @@ const baseState = (overrides: Partial<ClientState> = {}): ClientState =>
     allies: [],
     activeTruces: [],
     manpower: 999,
+    expandManpowerCost: EXPAND_MANPOWER_COST,
     feed: [],
     tiles: new Map([
       [keyFor(5, 5), { x: 5, y: 5, ownerId: "player-1", terrain: "LAND" }],

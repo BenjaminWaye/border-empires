@@ -77,6 +77,7 @@ export type ThreeRenderTarget = {
   readonly glCanvas: HTMLCanvasElement;
   readonly renderer: WebGLRenderer;
   readonly contextGuard: WebGLContextGuard;
+  readonly qualityTier: 0 | 1 | 2;
 };
 
 /**
@@ -150,5 +151,5 @@ export const createThreeRenderTarget = (
   // Use the atmosphere's exposure from the first frame, including local tuning.
   renderer.toneMappingExposure = getLightingSettings().exposure;
 
-  return { glCanvas, renderer, contextGuard: installWebGLContextGuard(glCanvas, onContextLost) };
+  return { glCanvas, renderer, qualityTier: quality.tier, contextGuard: installWebGLContextGuard(glCanvas, onContextLost) };
 };

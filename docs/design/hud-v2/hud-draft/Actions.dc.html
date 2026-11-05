@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Border Empires action bar states</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&amp;family=Spectral:wght@400;600&amp;family=Space+Mono:wght@400;700&amp;display=swap">
+<style>
+body{margin:0;background:#0b0a08}
+a{color:#d9b25c}a:hover{color:#f0cf82}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1740px; box-sizing: border-box; padding: 36px 40px; background: #12100c; font-family: 'Spectral', Georgia, serif; color: #ece2cc; display: flex; flex-direction: column; gap: 26px">
+
+  <div style="display: flex; justify-content: space-between; align-items: baseline">
+    <span style="font-family: 'Cinzel', serif; font-size: 26px; font-weight: 700; letter-spacing: 0.1em; color: #d9b25c">Action bar · every tile</span>
+    <span style="font-family: 'Space Mono', monospace; font-size: 12px; color: #a8997c">1 main action · up to 2 more · ⋯ for the rest</span>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 28px">
+    <sc-for list="{{states}}" as="st" hint-placeholder-count="10">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; color: #a8997c">{{st.ctx}}</span>
+        <div style="background: rgba(15,13,10,0.96); border: 1px solid #8a6f35; box-shadow: 0 8px 20px rgba(0,0,0,0.45)">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #3a3125">
+            <span aria-hidden="true" style="width: 26px; height: 26px; border-radius: 6px; background: {{st.c}}; border: 2px solid #ece2cc; display: grid; place-items: center; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; color: #f6ecd4">{{st.init}}</span>
+            <span style="flex: 1; min-width: 0">
+              <span style="display: block; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; letter-spacing: 0.05em">{{st.title}}<sc-if value="{{st.owner}}" hint-placeholder-val="{{false}}"> · <a href="#" style="color: #f0cf82; text-decoration: underline; text-underline-offset: 3px">{{st.owner}}</a></sc-if></span>
+              <span style="display: block; font-size: 12px; color: #a8997c">{{st.sub}}</span>
+            </span>
+            <sc-if value="{{st.tag}}" hint-placeholder-val="{{false}}"><span style="font-family: 'Space Mono', monospace; font-size: 10px; padding: 2px 6px; border: 1px solid {{st.tagC}}; color: {{st.tagC}}">{{st.tag}}</span></sc-if>
+          </div>
+          <div style="display: flex; gap: 6px; padding: 8px 12px">
+            <sc-for list="{{st.btns}}" as="b" hint-placeholder-count="3">
+              <button type="button" style="flex: {{b.flex}}; min-width: 0; height: 42px; display: flex; align-items: center; justify-content: {{b.jc}}; gap: 8px; padding: 0 12px; background: {{b.bg}}; border: {{b.bd}}; color: {{b.fg}}; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; cursor: pointer; opacity: {{b.op}}">
+                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.l}}</span>
+                <sc-if value="{{b.s}}" hint-placeholder-val="{{false}}"><span style="font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; white-space: nowrap">{{b.s}}</span></sc-if>
+                <sc-if value="{{b.k}}" hint-placeholder-val="{{false}}"><span style="font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 400; padding: 0 4px; border: 1px solid currentColor">{{b.k}}</span></sc-if>
+              </button>
+            </sc-for>
+          </div>
+          <sc-if value="{{st.auto}}" hint-placeholder-val="{{false}}">
+            <label style="display: flex; align-items: center; gap: 8px; padding: 0 12px 8px; font-size: 13px; color: #ece2cc; cursor: pointer"><input type="checkbox" style="width: 16px; height: 16px; accent-color: #d9b25c; margin: 0">{{st.auto}}</label>
+          </sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; color: #a8997c">BUILD ▸ · SAME SIDEBAR AS THE TOWN SCREEN · RIGHT HUD HIDES</span>
+      <div style="position: relative; height: 440px; border: 1px solid #5a4828; overflow: hidden; background: repeating-linear-gradient(0deg, #3d4a2c 0 22px, #36422a 22px 44px)">
+        <div style="position: absolute; inset: 0; background: repeating-linear-gradient(90deg, rgba(0,0,0,0) 0 21px, rgba(0,0,0,0.18) 21px 22px)" aria-hidden="true"></div>
+        <div style="position: absolute; left: 120px; top: 170px; width: 22px; height: 22px; outline: 2px solid #f0cf82; outline-offset: 1px; box-shadow: 0 0 0 6px rgba(217,178,92,0.25)" aria-hidden="true"></div>
+        <div style="position: absolute; left: 98px; top: 198px; padding: 2px 6px; background: rgba(12,10,8,0.9); border: 1px solid #c9b26a; font-family: 'Space Mono', monospace; font-size: 10px; color: #c9b26a">+1 Food slot</div>
+        <div style="position: absolute; left: 12px; top: 12px; width: 120px; padding: 6px 8px; background: rgba(15,13,10,0.9); border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 10px; color: #a8997c">Tracker</div>
+        <div style="position: absolute; right: 0; top: 0; bottom: 0; width: 360px; background: rgba(15,13,10,0.97); border-left: 1px solid #8a6f35; display: flex; flex-direction: column">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px 6px">
+            <span style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; letter-spacing: 0.08em; color: #d9b25c">Build</span>
+            <span style="display: flex; gap: 8px; align-items: center"><span style="font-family: 'Space Mono', monospace; font-size: 11px; color: #a8997c">(31, 10) · 2 / 3 slots</span><button type="button" aria-label="Close build" style="width: 26px; height: 26px; background: #16130e; border: 1px solid #8a6f35; color: #d9b25c; cursor: pointer">✕</button></span>
+          </div>
+          <div role="tablist" aria-label="Build categories" style="display: flex; gap: 4px; padding: 0 12px 8px; border-bottom: 1px solid #3a3125">
+            <sc-for list="{{buildTabs}}" as="tb" hint-placeholder-count="4">
+              <button type="button" role="tab" aria-selected="{{tb.on}}" style="height: 26px; padding: 0 8px; background: {{tb.bg}}; border: 1px solid {{tb.bd}}; color: {{tb.fg}}; font-family: 'Space Mono', monospace; font-size: 10px; cursor: pointer">{{tb.l}}</button>
+            </sc-for>
+          </div>
+          <sc-for list="{{builds}}" as="r" hint-placeholder-count="5">
+            <button type="button" style="display: flex; align-items: center; gap: 10px; padding: 7px 12px; background: {{r.bg}}; border: 0; border-left: 3px solid {{r.bl}}; border-bottom: 1px solid #241f17; color: #ece2cc; text-align: left; cursor: pointer; opacity: {{r.op}}">
+              <span aria-hidden="true" style="width: 32px; height: 32px; flex: none; background: repeating-linear-gradient(45deg, #3a2e1a 0 4px, #2a2216 4px 8px); border: 1px solid #8a6f35"></span>
+              <span style="flex: 1; min-width: 0"><span style="display: block; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700">{{r.n}}</span><span style="display: block; font-size: 12px; color: #bda880">{{r.e}}</span></span>
+              <span style="font-family: 'Space Mono', monospace; font-size: 10px; color: {{r.cc}}; text-align: right; white-space: nowrap">{{r.cost}}</span>
+            </button>
+          </sc-for>
+          <div style="margin-top: auto; padding: 10px 12px; border-top: 1px solid #3a3125"><button type="button" style="width: 100%; height: 40px; background: #d9b25c; border: 0; color: #120f0b; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer">Build Hydrogarden · 80 MP</button></div>
+        </div>
+        <div style="position: absolute; left: 20px; bottom: 12px; width: 300px; padding: 8px 10px; background: rgba(15,13,10,0.95); border: 1px solid #8a6f35; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700">Garrisoned · Grain <span style="font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 400; color: #a8997c">(31, 10)</span></div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; color: #a8997c">AETHER ▾ · DRAWER ABOVE THE BAR · ENEMY TOWN TILE</span>
+      <div style="background: rgba(15,13,10,0.97); border: 1px solid #6fa8b8; display: flex; flex-direction: column">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #3a3125">
+          <span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 50%; border: 2px solid #7fc4d6; display: grid; place-items: center; color: #7fc4d6; font-size: 14px">◎</span>
+          <span style="flex: 1"><span style="display: block; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700">Observatory (28, 14)</span><span style="display: block; font-family: 'Space Mono', monospace; font-size: 11px; color: #8fd99a">Powered · in range</span></span>
+          <button type="button" style="height: 26px; padding: 0 8px; background: #16130e; border: 1px solid #3a3125; color: #bda880; font-family: 'Space Mono', monospace; font-size: 10px; cursor: pointer">Change tower ▾</button>
+        </div>
+        <sc-for list="{{aether}}" as="a" hint-placeholder-count="6">
+          <button type="button" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: transparent; border: 0; border-bottom: 1px solid #241f17; color: #ece2cc; text-align: left; cursor: pointer; opacity: {{a.op}}">
+            <span aria-hidden="true" style="width: 30px; height: 30px; flex: none; display: grid; place-items: center; border: 1px solid #7fc4d6; color: #7fc4d6; font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700">{{a.ab}}</span>
+            <span style="flex: 1; min-width: 0"><span style="display: block; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700">{{a.n}}</span><span style="display: block; font-size: 12px; color: #bda880">{{a.e}}</span></span>
+            <span style="font-family: 'Space Mono', monospace; font-size: 11px; color: {{a.sc}}; white-space: nowrap">{{a.s}}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px">
+    <sc-for list="{{modes}}" as="m" hint-placeholder-count="3">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; color: #a8997c">{{m.ctx}}</span>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgba(15,13,10,0.96); border: 1px solid {{m.bd}}">
+          <span style="flex: 1; min-width: 0"><span style="display: block; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700">{{m.t}}</span><span style="display: block; font-family: 'Space Mono', monospace; font-size: 11px; color: #bda880">{{m.s}}</span></span>
+          <button type="button" style="height: 38px; padding: 0 12px; background: {{m.pbg}}; border: 0; color: {{m.pfg}}; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap">{{m.p}}</button>
+          <button type="button" style="height: 38px; padding: 0 10px; background: #16130e; border: 1px solid #8a6f35; color: #ece2cc; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; cursor: pointer">Esc</button>
+        </div>
+      </div>
+    </sc-for>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; color: #a8997c">⋯ OPENED · ENEMY BORDER TILE</span>
+      <div role="menu" aria-label="More actions" style="display: flex; flex-direction: column; background: rgba(15,13,10,0.98); border: 1px solid #8a6f35; box-shadow: 0 8px 20px rgba(0,0,0,0.5)">
+        <button type="button" role="menuitem" style="display: flex; justify-content: space-between; height: 38px; align-items: center; padding: 0 12px; background: none; border: 0; border-bottom: 1px solid #241f17; color: #ece2cc; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; cursor: pointer">Reveal empire<span style="font-family: 'Space Mono', monospace; font-size: 10px; color: #8fd99a">Ready</span></button>
+        <button type="button" role="menuitem" style="display: flex; justify-content: space-between; height: 38px; align-items: center; padding: 0 12px; background: none; border: 0; color: #ece2cc; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; cursor: pointer">Siege camp<span style="font-family: 'Space Mono', monospace; font-size: 10px; color: #bda880">MP · time</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1740}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const P = (l, s, k) => ({ l: l, s: s || '', k: k || '', flex: '1.6', jc: 'space-between', bg: '#d9b25c', bd: '0', fg: '#120f0b', op: '1' });
+    const S = (l, s) => ({ l: l, s: s || '', k: '', flex: '1', jc: 'center', bg: '#16130e', bd: '1px solid #8a6f35', fg: '#ece2cc', op: '1' });
+    const A = (l) => ({ l: l, s: '', k: '', flex: '1', jc: 'center', bg: '#10171a', bd: '1px solid #6fa8b8', fg: '#9fd6e4', op: '1' });
+    const X = (l, s) => ({ l: l, s: s || '', k: '', flex: '1.6', jc: 'space-between', bg: '#1d1913', bd: '1px dashed #e0a845', fg: '#e0a845', op: '1' });
+    const M = { l: '⋯', s: '', k: '', flex: '0.35', jc: 'center', bg: '#16130e', bd: '1px solid #8a6f35', fg: '#d9b25c', op: '1' };
+    const ME = '#2f8f86', ASH = '#7a3fa0', NEU = '#4a4436';
+    return {
+      states: [
+        { ctx: 'NEUTRAL LAND · NEXT TO YOURS · NO BAR', init: '–', c: NEU, title: 'Plains', sub: '(31, 9) · unclaimed', tag: 'INSTANT', tagC: '#8fd99a', btns: [{ l: 'Click expands at once', s: '−10 MP', k: '', flex: '1', jc: 'space-between', bg: 'transparent', bd: '1px dashed #5a4828', fg: '#a8997c', op: '1' }], more: '' },
+        { ctx: 'SHARD SITE', init: '◆', c: '#7a4a6a', title: 'Shard site', sub: '(29, 12) · 18m left', tag: '', btns: [P('Collect', '+1 Shard', 'C'), S('Expand', '10 MP'), M], more: 'Queue as waypoint' },
+        { ctx: 'YOUR FRONTIER · PLAIN LAND · NO MAIN ACTION', init: 'V', c: ME, title: 'Frontier · yours', sub: '(30, 11) · Plains', tag: '', btns: [S('Raise flag'), S('Garrison', '20 MP'), S('Relay Beacon'), M], more: 'Garrison many · Abandon' },
+        { ctx: 'YOUR FRONTIER · RESOURCE, TOWN OR DOCK', init: 'V', c: ME, title: 'Frontier · Titanium', sub: '(26, 17) · 1 Titanium slot when garrisoned', tag: '', auto: 'Auto-garrison resource tiles', btns: [P('Garrison', '20 MP', 'G'), S('Garrison many'), S('Raise flag'), M], more: 'Relay Beacon · Abandon' },
+        { ctx: 'YOUR GARRISONED LAND · GRAIN', init: 'V', c: ME, title: 'Garrisoned · Grain', sub: '(31, 10) · 1 Food slot', tag: '', btns: [P('Build', '▸', 'B'), S('Raise flag'), A('Aether ▾'), M], more: 'Abandon' },
+        { ctx: 'YOUR STRUCTURE', init: 'V', c: ME, title: 'Titanium Works', sub: '(27, 18) · active', tag: '', btns: [P('Upgrade', 'High-yield', 'U'), S('Disable'), M], more: 'Remove · Converter mode' },
+        { ctx: 'YOUR TOWN OR ITS SUPPORT TILES · OPENS THE TOWN SCREEN', init: 'V', c: ME, title: 'Halveth · City', sub: '(27, 21) · fed', tag: 'INSTANT', tagC: '#8fd99a', btns: [{ l: 'Click opens the town screen', s: 'Raise flag · Overclock there', k: '', flex: '1', jc: 'space-between', bg: 'transparent', bd: '1px dashed #5a4828', fg: '#a8997c', op: '1' }], more: '' },
+        { ctx: 'YOUR MUSTER FLAG', init: '⚑', c: ME, title: 'Flag (30, 8) · Advance', sub: '90 / 150 · Extra effort', tag: 'NEEDS MP', tagC: '#e0a845', btns: [S('Hold'), S('Advance'), S('March'), S('+ Capacity'), M], more: 'Clear flag · Cancel queued attack' },
+        { ctx: 'ENEMY LAND · BORDERS YOURS', init: 'A', c: ASH, title: 'Garrisoned', owner: 'Ashford', sub: '(34, 16) · Plains · Grain', tag: 'WAR', tagC: '#e8907f', btns: [P('Attack', '62% · 120 MP', 'A'), S('Diplomacy'), A('Aether ▾'), M], more: 'Reveal empire · Siege camp · Profile' },
+        { ctx: 'ENEMY LAND · DEEP', init: 'A', c: ASH, title: 'Garrisoned', owner: 'Ashford', sub: '(39, 13) · no border with you', tag: '', btns: [P('March attack', 'Flag (33, 16)', 'A'), S('Diplomacy'), A('Aether ▾')], more: '' },
+        { ctx: 'MOUNTAIN NEXT TO YOUR LAND', init: '▲', c: '#5d5548', title: 'Mountain', sub: '(25, 9) · impassable', tag: '', btns: [A('Remove mountain')], more: '' },
+        { ctx: 'TRUCE OR ALLY', init: 'D', c: '#9a5f2e', title: 'Frontier', owner: 'Draymoor', sub: '(18, 25)', tag: 'TRUCE 9h', tagC: '#e0a845', btns: [P('Diplomacy', '', 'D'), X('Attack', 'Truce · 9h'), M], more: 'Break truce · Profile' }
+      ],
+      buildTabs: [['Economy', 1], ['Defense', 0], ['Aether', 0], ['Great Projects', 0]].map(([l, on]) => ({ l: l, on: on ? 'true' : 'false', bg: on ? '#2a2216' : '#16130e', bd: on ? '#d9b25c' : '#3a3125', fg: on ? '#f0cf82' : '#bda880' })),
+      builds: [
+        { n: 'Hydrogarden', e: '+Food slots on grain', cost: '80 MP · 48m', cc: '#bda880', bg: '#221c13', bl: '#d9b25c', op: '1' },
+        { n: 'Manufactory', e: '+Coin', cost: '150 MP · 1h 30m', cc: '#bda880', bg: 'transparent', bl: 'transparent', op: '1' },
+        { n: 'Trade Nexus', e: 'Road connections', cost: '150 MP · 1h 30m', cc: '#bda880', bg: 'transparent', bl: 'transparent', op: '1' },
+        { n: 'Clearing House', e: 'Boosts Manufactories', cost: 'Needs 80 Crystal', cc: '#e0a845', bg: 'transparent', bl: 'transparent', op: '0.6' },
+        { n: 'Census Hall', e: '+25% growth', cost: 'Requires Census Office', cc: '#a8997c', bg: 'transparent', bl: 'transparent', op: '0.5' }
+      ],
+      aether: [
+        { ab: 'AL', n: 'Aether Lance', e: 'Strike one tile', s: 'Ready', sc: '#8fd99a', op: '1' },
+        { ab: 'SI', n: 'Siphon', e: 'Drain this town', s: 'Ready', sc: '#8fd99a', op: '1' },
+        { ab: 'EM', n: 'Aether EMP', e: 'Knock out transformers', s: '31m', sc: '#e0a845', op: '0.7' },
+        { ab: 'RS', n: 'Reveal Empire Stats', e: 'See Ashford’s numbers', s: 'Ready', sc: '#8fd99a', op: '1' },
+        { ab: 'AW', n: 'Aether Wall', e: 'Place a wall line', s: 'Ready', sc: '#8fd99a', op: '1' },
+        { ab: 'CM', n: 'Create Mountain', e: 'Shielded tile', s: 'Blocked', sc: '#e8907f', op: '0.5' }
+      ],
+      modes: [
+        { ctx: 'TARGETING · LINE OR AREA ABILITY', t: 'Aether Wall', s: 'Pick the end tile · 3 tiles', p: 'Place · ↵', pbg: '#7fc4d6', pfg: '#0b1418', bd: '#6fa8b8' },
+        { ctx: 'MULTI-SELECT · GARRISON MANY / SHIFT-DRAG', t: '12 tiles selected', s: 'Garrison · 240 MP · 12 queued', p: 'Confirm · ↵', pbg: '#d9b25c', pfg: '#120f0b', bd: '#8a6f35' },
+        { ctx: 'BLOCKED MAIN ACTION', t: 'Garrison · needs 20 MP', s: 'Refill in 2h 14m', p: 'Donate Shard', pbg: '#e8a3c4', pfg: '#1a0f14', bd: '#e0a845' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

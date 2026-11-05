@@ -23,7 +23,7 @@ export const createRenderCaptureProgress = (
     captureCancelBtn: dom.captureCancelBtn,
     captureDismissBtn: dom.captureDismissBtn,
     captureCloseBtn: dom.captureCloseBtn,
-    captureDownloadDebugBtn: dom.captureDownloadDebugBtn,
+    captureReportBugBtn: dom.captureReportBugBtn,
     captureBarEl: dom.captureBarEl,
     captureTitleEl: dom.captureTitleEl,
     captureTimeEl: dom.captureTimeEl,

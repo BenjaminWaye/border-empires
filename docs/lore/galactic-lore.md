@@ -90,10 +90,20 @@ involved is lying to the other about it.
 personal, permanent rights to that world.** It is not a season's prize —
 it is a real title and a real holding, carried forward.
 
-## 3. Aether, made physical: Crystal and Shard
+Not every House that enters the war games has a sworn heir at its head.
+Some are fielded by lesser branches, regencies or cadet lines that fight
+under the House's name alone. When one of these wins, its world is held in
+the House's name — **House Alden**, **House Sigrid** — and the House acts as
+a Duke in every respect: it builds, scouts, raids, petitions and may even
+inherit the throne. But the Court counts such a world as held *in ward*:
+granted to a House with no sworn heir to answer for it, and so still within
+the Court's reach. Its capture does not loosen the Court's grip the way a
+sworn Duke's does.
 
-Aether does not only exist as the raw, hostile Bleed. It also exists in
-two settled, usable forms, found across every frontier world:
+## 3. Aether, made physical: Crystal
+
+Aether does not only exist as the raw, hostile Bleed. It also exists in a
+settled, usable form, found across every frontier world:
 
 **Crystal** is aether that has gone dormant. Loose in the open, aether is
 volatile; trapped for centuries in stable rock, it crystallizes, the way
@@ -103,17 +113,6 @@ what puts that aether back into active use, powering everything a Duke
 builds. **Mining and refining Crystal is what "activating" a world's
 aether means** — and it is the act that eventually draws the Bleed's
 attention back.
-
-**Shard** is rarer and more dangerous: not settled aether at all, but
-actual drifting fragments of the shattered Sovereign Siege Engine, still loose in
-space since the war that broke it. When local conditions destabilize
-enough, a fall of Shards can precipitate onto a world's surface — far
-more potent than any Crystal deposit, and far less stable, which is why a
-Shard site never lasts long before the aether in it disperses or is
-consumed. Shards are prized above all else for raising the great
-Monuments — most of all the **World Cannon**, because building it is, in
-the most literal sense, turning fragments of the very artifact that broke
-the galaxy back into something that can be aimed and fired.
 
 ## 4. The Wardens and the infestations
 
@@ -147,6 +146,50 @@ and usually at terrible cost, exactly what wakes an infestation or draws
 a Warden's eye. Aether-work is a known danger, not a lost art — the
 townspeople could build it if they had the pieces, and choose, instead,
 not to.
+
+### Surviving relic installations
+
+Relics are fixed remnants of the Concordance's planetary megastructures.
+Their shared ziggurat-shaped surface buildings are access and control
+structures; different installations survive below them and provide different
+capabilities. The installations remain part of the planet after a war game.
+Their physical survival does not establish continued House ownership or
+bonuses between campaigns.
+
+These machines are aether-powered. Active aether-work attracts the Wardens,
+so frontier communities have left the installations dormant. A House can
+establish a garrison and put a surviving installation back into service; it
+is accepting the established danger of aether-work, not discovering that the
+old machinery is harmless. This does not imply a new Warden-spawn rule,
+repair charge or reactivation-risk mechanic; those are gameplay decisions.
+
+Relic remnants can include finite reserves as well as working machinery.
+An **Ancillary Vault** holds ancillary bodies already prepared to connect to
+House control. Those bodies exist before the House opens the vault. An
+aether-powered combat-suit factory can likewise retain a limited stock of
+usable suits and compatible components, while a nanofabrication installation
+can hold a finite reserve of fabrication material and assemblers. Their
+quantities, replenishment, ownership and battlefield effects remain gameplay
+design choices; an installation's survival does not establish an inexhaustible
+supply.
+
+Surviving installations include reclamation works, marine drive works,
+ancillary vaults, combat-suit factories, defensive field generators, industrial
+fabrication coordinators, sealed nanofabrication reserves, long-range aether
+resonators and geological survey arrays. Their common surface structure was a
+standard Concordance access and control interface. A reclamation plant supplies
+material already recognizable to a House; it does not reveal unknown resources.
+A fabrication coordinator coordinates concurrent construction rather than
+making House Manifests cheaper. A survey array detects geological signatures,
+not enemy activity. Marine drive works service freight and naval deployments.
+
+Relics have a separate low-power optical maintenance transponder, driven by a
+sealed conventional standby supply. It can produce a narrow locator column
+while the main aether-powered installation is dormant. Detecting it
+provides a location, not knowledge of who holds the site or whether its main
+machinery still works. This does not exempt operating machinery from the
+established risks of aether-work. Replenishment, signal detection range and
+force-field coverage are numerical rules in the [relic reference](../relics.md).
 
 ## 5. Why arriving is dangerous
 
@@ -212,6 +255,10 @@ Court's grip, and every Duke knows the others have been offered the same.
 That is the coalition's real weakness: not that any one Duke would betray
 it, but that none can be certain the others have not.
 
+A Writ that names a rival arrives as a Court ship flying under the Duke's
+colours. It strikes, and then it is gone back to the Court. The rival sees
+only a raid from that Duke's system.
+
 ## 8. Succession: who inherits the throne
 
 When the coalition at last topples the Court, the throne is not awarded to
@@ -230,6 +277,21 @@ Whoever inherits still makes the choice §6 describes: crown themselves, or
 dissolve the Court. The title of Duke, once won, is written into the
 Court's records permanently; the map is not.
 
+### Grievances and Renown
+
+Between Dukes, open aggression has a form. A Duke may lodge a
+**grievance** against a rival with the Court's heralds: a public, dated
+claim that the rival has wronged them, and notice that they mean to press
+it. While a grievance stands, every blow the Duke lands on that rival is
+read across the Core as justice done, not banditry. It earns the Duke
+**Renown**, the regard of the watching masses and of the nobility, which
+the succession law (§8) reckons as part of a Duke's standing. Some tribute
+is carried off with it. A grievance lodged and never pressed is the
+opposite: the Core remembers the Duke who threatened and then did nothing.
+
+Raids made without a grievance are not forbidden. They simply earn no
+Renown, which is why a Writ's strike (§7) is never dressed as one.
+
 ## 9. The Blind Eye
 
 Section 5 says the frontier pushes back in proportion to a Duke's success.
@@ -246,13 +308,31 @@ behave the way section 5 describes at full strength, with no rival fleet or
 vote to blame — until the lead shrinks, by loss or by the field catching
 up, and the Court's protection quietly returns.
 
-## 10. Relay Beacons: flags of anchored ground
+The Court's heralds also stop hearing that Duke's defence. A grievance
+against them costs nothing to lodge, and the Core cheers twice as loudly
+for every blow landed on them. The one courtesy the Court still accepts
+from such a Duke is service: ships lent to the Court's own patrols for a
+season of duty, which buys back its Favor for a time.
+
+## 10. Relay Beacons: orbital links and anchored ground
 
 Where a Duke's towns are the heart of a claim, the **Relay Beacon** is its
 flag. It is the cheapest and quickest form of the Court's anchor technology:
 a tall, unarmed tower raised on frontier ground to declare, in a way the
 Bleed and every rival can read from miles away, that this stretch of land is
 now anchored to a Duke.
+
+A House AI coordinates its planetary ancillaries and fabrication systems from
+space. Relay Beacons receive its orbital command stream through deliberately
+modulated gravitational waves. Precision sensing frames isolate a suspended
+instrument from local disturbances, while ground projectors maintain a local
+control field for ancillary, fabrication and anchoring systems. The useful
+coverage of that local field is called **reach**; it is not the distance the
+orbital gravitational signal can travel. Compact gravitational transmitters,
+receivers and this control field are established capabilities of the setting.
+The gravitational link carries signals at light speed, not instantaneously.
+A beacon is an unarmed communications and anchoring installation, not an AI
+housed in a tower.
 
 A beacon does not fight. Its work is to mark and to watch:
 
@@ -261,7 +341,7 @@ A beacon does not fight. Its work is to mark and to watch:
   claim is the Duke's to settle and build on. Land outside it is still open
   frontier, and section 5 applies to it in full: it resists quietly until a
   border reaches it, then either yields or reclaims what was pushed into it.
-- **It watches.** A beacon's height and its rotating heliograph give a Duke
+- **It watches.** A beacon's elevated receiver and local sensor links give a Duke
   a long view of the frontier around it, so infestations, Wardens and rival
   banners are seen before they arrive.
 
@@ -270,6 +350,24 @@ strength of its own, and it is quiet where it counts: it does no refining
 and no aether-work beyond holding its anchor. That is why a Duke can plant
 one almost anywhere without waking what section 5 describes, and why the
 Court asks so little of a Duke who raises them.
+
+A beacon cannot be taken intact. Its sensing frames are tuned to the House
+that raised it, so troops who storm a beacon's ground topple the tower
+rather than inherit it, and its wreckage lies where it fell while they hold
+the ground. Fighting leaves the same marks elsewhere: a stormed fort still
+stands, but its walls are breached and it shelters no one until the new
+holders have garrisoned it, and a captured resource site burns until the
+capturing troops have secured it, yielding nothing to its new House before
+then. Houses fight their war games with beam weapons, and ground where a
+garrison has been overrun keeps the marks of them for about a day: furrows
+where beams swept across it, cut and fused to dark glass, glassed pits where
+a beam was held on its target, and charred earth around them. For the first
+hours the cuts still glow and the ground smokes. Ground fought over again and
+again stays scarred longest and worst, so the contested heart of a front
+reads plainly from the air. Woodland burns: a fought-over forest is left as
+blackened trunks, trees sliced through by the beams, and burnt stumps. A harbour taken in battle burns until its captors have
+secured it, and earns nothing in the meantime. The exact timings
+belong in the [gameplay reference](../game-mechanics.md).
 
 Two flags cannot own the same ground. Where a rival's anchor reaches land
 that a Duke's own anchors no longer cover, the rival's claim stands and the
@@ -280,19 +378,45 @@ frontier depends on an unbroken supply route back to established holdings;
 an enemy who cuts the route can strip away the exposed advance. Being
 outside reach alone does not erase the claim. Beacons extend the ground
 that can be settled and watched; supply determines whether an advance
-beyond it can be held. The exact supply and settlement rules belong in
-the [gameplay reference](../game-mechanics.md).
+beyond it can be held. A wide, ungarrisoned frontier also strains the
+towns whose levies hold it: every further claim draws its men across more
+open ground, so each new stretch of frontier costs more manpower until the
+ground behind it is garrisoned. The exact supply, settlement and cost rules
+belong in the [gameplay reference](../game-mechanics.md).
+
+The sea is crossed the same way. A House that holds a harbour can put a
+landing ashore at the harbour it sails to or on the beaches beside it, so a
+defender has to watch a stretch of coast, not only the quay. A landing has
+no road home. It is supplied by sea, through the harbour it sailed from, and
+a rival who takes that harbour strands everything put ashore from it.
+
+### What a harbour looks like
+
+A frontier harbour is ordinary machinery, like everything else a town will
+run: coal, steam, timber and iron, with no aether-work in it. The quay is
+dressed stone with an iron-capped edge and a timber pier on piles. A toll and
+harbourmaster's house keeps the freight and the tolls that back a House's Coin
+(§11), a coal-fired steam derrick swings cargo off the pier, a lamp burns at
+the pier head for the sea lane, and a paddle-steamer ferry lies alongside.
+
+The beaches beside the quay are part of the harbour. Each carries a slipway:
+a timber ramp with iron rails running down into the water, a flat-bottomed
+landing barge hauled up it, a winch, a lantern and stacked supplies brought
+in by sea. They are where the harbour's landings come ashore, which is why a
+defender watches the whole stretch and not only the quay. A harbour is a
+transport hub, not a fortification: it carries no guns and no walls, and a
+Palisade is what defends it.
 
 ### What a beacon looks like
 
-A slender lattice tower of dark iron, with four legs that converge on a
-small enclosed deck. Geared brass periscopes sweep the horizon from the
-deck, and above it a spindle turns a rotating array of brass heliograph
-mirrors that flash light to anyone within sight. Amber signal lamps and a
-small aether-gas tank with brass feed pipes mark it as a working piece of
-anchor machinery rather than a fortress. It has no walls, no crenellations
-and no weapon mounts, so it stands tall, open and unarmoured, and reads at
-a glance against the squat, armed Siege Battery.
+A dark, tapered pedestal rises from a pale stone platform into three nested,
+faceted sensing frames surrounding a small suspended instrument. These are
+precision gravity sensors, not a reflective radio dish. Fine suspension members,
+small calibration blocks and brass edge inlays make the assembly read as an
+instrument; slow calibration movement and restrained status lighting replace
+bright reactor effects. Three outward-facing field projectors maintain the
+local settlement control coverage. The receiver has no weapon mounts and must
+remain visually distinct from the Aether Tower's luminous field machinery.
 
 ### Charting the land
 
@@ -331,6 +455,14 @@ must commission the equipment and personnel needed there. The relationship
 between campaign resets and permanent ducal holdings remains a canon
 question in §14.
 
+### Coastal assault carriers
+
+House armies crossing between linked coastal docks deploy in armored,
+seagoing troop carriers. The carriers beach at the destination, lower their
+bow doors as ramps, and release infantry to fight inland. They remain at
+the beachhead until the engagement ends. These local amphibious transports
+are distinct from the offworld landing equipment used to establish an AFC.
+
 ### Coin and local production
 
 **Coin is offworld purchasing credit backed by planetary output.** It is a
@@ -357,6 +489,77 @@ They do not mint the offworld credit itself. The historical building name
 Mintworks has been replaced by Manufactory; exact income, stacking and
 Clearing House effects are maintained in the economy reference.
 
+### Frontier concessions and ancillary supply
+
+Making an Ancillary takes three frontier inputs. Resin Extractors refine native
+compounds that stabilise the neural controls of newly remade bodies. Implant
+Foundries turn conductive ore into implants, command circuitry and replacement
+components. Catalyst Refineries recover rare catalysts that drive the chemistry
+of remaking itself, the same compounds offworld chemical and fabrication
+industries pay for. Each working site feeds the House's whole Ancillary reserve
+rather than one building. Towns still provide the bodies: these industries
+improve remaking throughput, not the supply of people. Depots still determine
+storage capacity and custody for the reserve. The Reserve Custody Cadre
+authorises both Depots and Implant Foundries.
+
+Resin-bearing broadleaf groves grow in forested grassland, with amber seams
+beneath their bark; ordinary trees are not automatically resin deposits.
+Conductive seams lie in hills, beside mountains and in cold ground. Catalysts
+favour inland sand, never beaches. Each grows only where its terrain allows,
+so a House rarely finds all three inside its first borders.
+
+Frontier deposits sit beyond a town's immediate support ring, giving a House
+reason to develop and defend the surrounding countryside.
+
+A working site provides continuing contracted output, not ore units spent down
+to zero. A House's first site of a kind transforms its remaking lines; further
+sites of the same kind add less, which is why Houses trade surplus sites with
+neighbours who lack that kind. A Siphon can divert a working site's output to
+the caster, without duplicating its supply. Its crews and extraction systems
+must still be authorised at the source; draining an undeveloped deposit creates
+no industry.
+
+Cultivation Estates grow native luxury biota in warm, wet grassland and marsh.
+Its fragrances and pigments sell in the Core, but on a Sector world its
+intoxicants are a tool of control. The civilians of a large town are the
+people every future Ancillary is taken from, and they know it. Where the House
+is the only supplier of what the town has come to depend on, its people stay
+put and give up their own; where supply runs short the town turns unruly, its
+people hide and withhold themselves, and a great city yields the bodies of a much
+smaller one. Each kind of
+estate supplies a fixed share of that dependence, and the House serves the
+towns it has held longest first.
+
+Precursor salvage fields contain recoverable machinery from before the Court,
+exposed mostly in hills and mountain foothills. The Court's own progress has
+long since stalled (§2), and this machinery is one of the few things it cannot
+make for itself. A Reclamation Works can fit recovered components to the
+House's weapons and armour, or ship them offworld to the Court, which repays
+each load with an Imperial delivery of ready-made Ancillaries. Salvage is
+finite: a field holds a few loads, and once the last is shipped the field and
+its Works are gone. Dismantling a Works after a field has been partly stripped
+ruins what is left. Salvage is never pledged to another House. The Industrial
+Tooling Module authorises both Manufactories and Reclamation Works. Salvage
+fields are industrial remains, distinct from the great Monuments; no claim that
+a field is itself an active Concordance construct is implied by the term
+precursor.
+
+Specialised warrants and charters commission the crews, processing standards
+and commercial rights needed to exploit these sites. A discovered deposit is
+an opportunity before it is a working supply industry. Losing a concession
+weakens the industries and credit arrangements it supports across the House's
+holdings. Numerical yields and network limits belong in the economy reference.
+
+Houses may pledge resource output, other than salvage, to one another as
+continuing supply rights negotiated through diplomacy. The supplier retains the land and its
+installations; the recipient gains the exclusive use of the promised output for
+as long as both Houses maintain the arrangement. Either House may end the
+supply agreement; the land remains with its owner. Such contracts can support another House's infrastructure or
+industry without transferring towns, bodies or knowledge. They are distinct from
+a one-time Coin payment. An interrupted concession
+cannot deliver its promise until its output is restored. The cancellation, suspension
+and settlement rules belong in the gameplay references.
+
 ### Manpower and materials
 
 **Manpower** represents bodies under House control, including captured or
@@ -364,11 +567,26 @@ remade bodies. It is the capacity committed to expansion, armies and
 construction. Its numerical pool, regeneration and relationship to town
 population are gameplay rules.
 
+An **Ancillary Factory** remakes local people into bodies under House control.
+**Forced Ancillarification** is a coercive emergency levy: residents are taken
+from the factory's supporting town and remade into an immediate manpower
+reserve. They cease to count among that town's civilian population. The
+population sacrifice and recovery interval belong in the economy reference.
+
 Food supports people and local development. Titanium and Umbrite are
 strategic materials used in machinery, construction and military equipment.
-Crystal is usable aether (§3), and Shards are fragments of the shattered
-Engine. These meanings do not prescribe stockpiles, resource-slot costs or
+Crystal is usable aether (§3). These meanings do not prescribe stockpiles, resource-slot costs or
 per-cast consumption: those details follow the current gameplay reference.
+
+A House's war industry shows on its soldiers. Once a House runs a Titanium
+Weapons Factory, its troops go to war in heavy plate -- thick House-coloured
+plates edged and riveted in polished titanium, stacked pauldrons and a
+sealed helmet -- because titanium is first and foremost an armour material.
+Once it runs an Umbrite Weapons Factory, its rifles fire Umbrite rounds:
+heavier bolts with a violet core in an orange glow that burst into embers
+where they strike. A House with both shows both. The look only reflects the
+industry; the combat effect is whatever the current gameplay reference gives
+each factory.
 
 ## 12. Manifests and AFC modules
 
@@ -433,11 +651,22 @@ a compact commercial core (Exchequer), Aether operations (Oracle), and Court
 representation (Chancery). The [upgrade catalogue](../afc-specializations-catalog.md)
 explains each installation's physical or administrative basis.
 
-Court-facing upgrades equip the AFC's chancery with accredited envoys, trade
-registries, coalition dispatch and authority to invoke a campaign armistice.
-Their power comes from a recognized House commission and local agreements,
-administered through the headquarters. Staff, contracts and authority are part
-of the expedition's configuration alongside its physical machinery.
+Court-facing upgrades equip the AFC's chancery with accredited envoys, a standing
+diplomatic corps, levy agreements under which allied Houses lend ancillary
+contingents, and authority to invoke a campaign armistice. Their power comes from
+a recognized House commission and local agreements, administered through the
+headquarters. Staff, contracts and authority are part of the expedition's
+configuration alongside its physical machinery. Envoys earn trade credit from
+standing truces and alliances; they do not take Coin from the partner House.
+
+Aether operations include a **resonance hijack**: a tower whose resonator is
+exhausted (every shot spent) or jammed by counterphase interference can have its
+control lattice overwritten by a nearby hostile resonator. The takeover is slow
+and loud — the casting tower's position is exposed while it runs — and the
+captured tower is a physical installation that changes hands with its ground,
+like any captured building. Dominion's colonial charters ship a starter
+incubation plant with each new settlement; it is ordinary local infrastructure
+that still draws on the settlement's food supply.
 
 These configurations belong to this expedition. Tower tuning depends on the
 planet's Aether conditions; survey networks, garrisons, towns and formations are
@@ -473,11 +702,11 @@ not infer new gameplay rules from them while implementing unrelated work.
 
 | Question | Established passages that need reconciling |
 |---|---|
-| World Cannon and Sovereign Siege Engine | §3 names the shattered artifact Sovereign Siege Engine but calls the reconstructed weapon World Cannon; the current Great Project is named Sovereign Siege Engine. Clarify whether World Cannon is a historical name, an alias or a distinct object. |
 | Rank before a first victory | §2 says winning grants the rank of Duke, while later passages call campaign participants Dukes. Define first-time contenders' rank and returning Dukes' participation. |
 | Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |
 | Writs and the revolt | §7 says accepting a Writ restores the Court's grip; §8 says a Writ does not weaken the revolt. Clarify the relationship before assigning metagame effects. |
-| Natural wonders as relics (proposed) | [Relics proposal](../relics-design.md) §1 proposes that natural wonders are Concordance Terrain-Shaping anchors, distinct from Shards (§3) and the original of the Relay Beacon's anchor technology (§10). Unreconciled with §1 (Monuments as the surviving Concordance aether constructs), §2 and §10 (the Court's own anchor technology), §4 (the Wardens destroying Concordance aether infrastructure) and §5 (aether-work drawing Wardens); "relic" also already names a Warden ship in the galactic campaign. Not yet accepted canon; accept or revise before the relic look ships. |
+| Houses held in ward | §2 says a world won by a House with no sworn heir is held in ward and does not loosen the Court's grip. Decide whether such a House can ever swear an heir and become a full Duke, and what happens to the ward if a sworn Duke takes the world. |
+| Relic reactivation costs and risks | Installation families, common surface access structures and the low-power locator transponder are established in §4. Repair costs, activation encounters and random breakdowns remain future design ideas; they are not established mechanics. Current quantities and effects belong in the [relic reference](../relics.md). |
 
 ### Consolidation sources
 
@@ -490,3 +719,12 @@ resolved AFC-at-spawn correction. The Manufactory/tooling explanation follows
 the [economy reference](../product/resource-and-manpower-economy.md) and the
 approved Manufactory change. Those plans retain implementation history;
 future accepted lore changes belong here.
+
+### Retired concepts
+
+**Shards** — drifting fragments of the shattered Sovereign Siege Engine that
+fell onto worlds as short-lived "shard rain", paid for Monuments and could be
+donated to the Court for a manpower delivery — were removed from both the
+setting and the game in November 2026. The fiction never settled what they
+were for, so they are not canon. Do not reintroduce them, shard rain or Shard
+Mobilization without a new, explicitly accepted lore decision.

@@ -6,12 +6,13 @@ export const AFC_VANGUARD = [
     "tier": 1,
     "branch": "vanguard",
     "name": "Pacification Routines",
-    "description": "Your attacks are stronger against Planetary Defense, including barbarian holdings. AFC command software supplies assault plans for these positions.",
-    "mechanicalSummary": "+100% attack against Planetary Defense.",
+    "description": "Your attacks are twice as strong against Planetary Defense, including barbarian holdings, and each of their tiles you capture pays a 25 Coin bounty. AFC command software supplies assault plans for these positions, and the Court pays for every one cleared.",
+    "mechanicalSummary": "+100% attack vs Planetary Defense | +25 Coin per tile taken.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "attackVsBarbariansMult": 2
+      "attackVsBarbariansMult": 2,
+      "barbarianCaptureCoinBonus": 25
     }
   },
   {
@@ -19,13 +20,13 @@ export const AFC_VANGUARD = [
     "tier": 2,
     "branch": "vanguard",
     "name": "Assault Command Lattice",
-    "description": "Field one extra muster flag and shorten attack resolution by 10 seconds. Travel time stays the same; the AFC adds command channels for another formation.",
-    "mechanicalSummary": "+1 muster flag | Attack resolution −10 sec.",
+    "description": "Field one extra muster flag, and your fights resolve in 10 seconds instead of 15 — half again as many attacks per minute. Travel time stays the same; the AFC adds command channels for another formation.",
+    "mechanicalSummary": "+1 muster flag | Fights resolve in 10s instead of 15s.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
       "musterMaxTilesAdd": 1,
-      "attackResolveSpeedReduceMs": 10000
+      "attackResolveSpeedReduceMs": 5000
     }
   },
   {
@@ -33,12 +34,12 @@ export const AFC_VANGUARD = [
     "tier": 3,
     "branch": "vanguard",
     "name": "Battlefield Momentum",
-    "description": "The attacking flag gains one stack per garrisoned tile won. Frontier captures refresh the timer; one stack expires every 5 minutes without a capture. Moving or disbanding the flag clears its stacks.",
-    "mechanicalSummary": "Flag: +5% attack per garrison victory, up to +15%.",
+    "description": "The attacking flag gains a stack for each garrisoned tile it wins, up to five. Frontier captures refresh the timer; one stack expires every 5 minutes without a capture. Moving or disbanding the flag clears its stacks.",
+    "mechanicalSummary": "Flag: +10% attack per garrison victory, up to +50%.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "flagMomentumAttackPerStack": 0.05
+      "flagMomentumAttackPerStack": 0.1
     }
   },
   {
@@ -59,12 +60,13 @@ export const AFC_VANGUARD = [
     "tier": 5,
     "branch": "vanguard",
     "name": "Breakthrough Protocol",
-    "description": "After a garrisoned victory, one random adjacent tile of the same defender surrenders for no extra attack. Garrisons can surrender too; protected or contested tiles cannot. The extra capture cannot trigger another.",
-    "mechanicalSummary": "Win a garrisoned tile → capture 1 extra adjacent enemy tile.",
+    "description": "After a garrisoned victory, a random adjacent tile of the same defender surrenders with no extra attack — two tiles if the flag has full Battlefield Momentum. Garrisons can surrender too; protected or contested tiles cannot. Surrendered tiles cannot trigger another Breakthrough.",
+    "mechanicalSummary": "Win a garrisoned tile → capture 1 extra adjacent tile (2 at full Momentum).",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "breakthroughBonusTiles": 1
+      "breakthroughBonusTiles": 1,
+      "breakthroughMaxMomentumBonusTiles": 1
     }
   }
 ] as const satisfies readonly AfcSpecialization[];

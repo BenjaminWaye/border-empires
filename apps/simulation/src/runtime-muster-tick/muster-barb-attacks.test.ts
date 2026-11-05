@@ -6,7 +6,7 @@ vi.hoisted(() => {
 
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { validateFrontierCommand } from "@border-empires/game-domain";
-import { MUSTER_ATTACK_COST } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, MUSTER_ATTACK_COST } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 
 const makePlayer = (id: string, manpower: number) => ({
@@ -18,7 +18,9 @@ const makePlayer = (id: string, manpower: number) => ({
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
-  allies: new Set<string>()
+  allies: new Set<string>(),
+  // Real players always carry auto-settle prefs (runtime-player-factory.ts).
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
 });
 
 const barbPlayer = (manpower: number) => ({ ...makePlayer("barbarian-1", manpower), isAi: true });

@@ -88,6 +88,23 @@ describe("addReachTileOverlays3D my tiles inside a rival's reach", () => {
     expect(dormant).toBe(1);
     expect(calls).toHaveLength(1);
   });
+
+  it("drops the hatch and dormant tint while a frontier claim sweeps into the tile, so the claim plate shows", () => {
+    const dormantTile = { ...pushTiles.get(keyFor(20, 20))!, ownershipState: "FRONTIER", fort: {} } as unknown as Tile;
+    let dormant = 0;
+    let hatched = 0;
+    addReachTileOverlays3D(
+      { addDormantFrontierTile: () => void (dormant += 1), addIncursionTile: () => void (hatched += 1) },
+      dormantTile,
+      20,
+      20,
+      { x: 0, z: 0, y: 0 },
+      new Set<string>([keyFor(19, 20)]),
+      { tiles: pushTiles, keyFor, wrapX: (x) => x, wrapY: (y) => y, me: "me", ownerColor: () => "#ff0000", breachStyle: "spikes" },
+      true
+    );
+    expect({ dormant, hatched }).toEqual({ dormant: 0, hatched: 0 });
+  });
 });
 
 describe("addReachTileOverlays3D on a hill", () => {

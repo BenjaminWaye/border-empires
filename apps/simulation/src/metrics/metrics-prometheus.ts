@@ -1,4 +1,5 @@
 import { formatMetricValue } from "./metrics-format.js";
+import { renderEncirclementPrometheusLines } from "../encirclement/encirclement-metrics.js";
 import { renderStrandedFrontierPrometheusLines } from "../stranded-frontier/stranded-frontier-metrics.js";
 import {
   AI_PLANNER_PHASES,
@@ -12,6 +13,7 @@ import {
   MAIN_THREAD_TASK_PHASES,
   type SimulationMetricsSnapshot
 } from "./metrics-types.js";
+import { renderAiSynergyPrometheusLines } from "./metrics-ai-synergy-prometheus.js";
 
 export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   const afcLines = Object.entries(sample.simAfcState ?? {}).map(([key, value]) => {
@@ -280,6 +282,10 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   for (const [kind, count] of Object.entries(sample.simAiExpansionObjectiveTotalByKind)) {
     lines.push(`sim_ai_expansion_objective_total{kind=\"${kind}\"} ${formatMetricValue(count)}`);
   }
+  lines.push(
+    "# TYPE sim_ai_relay_beacon_site_skipped_total counter",
+    `sim_ai_relay_beacon_site_skipped_total{reason=\"spacing\"} ${formatMetricValue(sample.simAiRelayBeaconSiteSkippedTotalByReason.spacing)}`
+  );
   lines.push("# TYPE sim_ai_action_class_total counter");
   for (const cls of DECISION_CLASSES) {
     lines.push(`sim_ai_action_class_total{class=\"${cls}\"} ${formatMetricValue(sample.simAiUtilityActionClassTotalByClass[cls] ?? 0)}`);
@@ -331,7 +337,9 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   for (const [playerId, value] of Object.entries(sample.simAiPlayerMusterFlagCapacityGauge)) {
     lines.push(`sim_ai_player_muster_flag_capacity{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
   }
+  lines.push(...renderAiSynergyPrometheusLines(sample.simAiPlayerSynergyGauge));
 
   lines.push(...renderStrandedFrontierPrometheusLines());
+  lines.push(...renderEncirclementPrometheusLines());
   return lines.join("\n");
 };

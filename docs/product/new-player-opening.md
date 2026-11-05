@@ -5,7 +5,10 @@ Status: canonical
 ## Design contract
 
 Keep the existing town-first checklist and direct town/resource highlights.
-The main improvement is qualified spawn placement, not a redesigned tutorial.
+The main improvement is qualified spawn placement. Since 2026-11-02, new
+accounts get the non-blocking [tutorial guide](../tutorial-guide-plan.md)
+instead of the checklist bubble. The guide's "A foothold" chapter is these same
+four checklist goals and highlights, and older accounts keep the checklist.
 Existing economic rewards provide the payoff; there are no new payouts,
 compulsory PvP encounters, countdowns, or mandatory special landmarks.
 
@@ -66,7 +69,8 @@ The narrow checklist fixes count only garrisoned food and towns, use
 lightweight town identity (including upgraded tiers), exclude enemy town
 targets, include AFC reach, and suppress actions on pending targets.
 Pending food remains discovered but is not usable supply. Completion keeps
-the existing account-scoped persistence; no new acknowledgement UI is added.
+the existing account-scoped persistence. The checklist itself adds no
+acknowledgement UI; the guide's only acknowledgement is its final Finish step.
 
 ## Implementation and verification
 

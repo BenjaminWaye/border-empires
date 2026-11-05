@@ -23,5 +23,15 @@ export const CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD: ClientChangelogEntry[]
     changes: [
       "Battles and territory changes in Yours now name AI empires the same way the leaderboard does"
     ]
+  },
+  {
+    createdAt: 1792966817522 /* Date.now() frozen for the changelog gate */,
+    introducedIn: "2026.10.25.1",
+    title: "Activity counts each tile once",
+    why: "A tile that changed hands back and forth was counted on every flip, inflating tiles taken and lost.",
+    changes: [
+      "Activity summaries, rival tallies, territory momentum and the open-war story count each tile once",
+      "The timeline still lists every flip, and frontline hotspots still show how often a tile changed hands"
+    ]
   }
 ];

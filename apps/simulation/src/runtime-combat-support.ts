@@ -1,5 +1,5 @@
-import { coalitionAttackMult } from "./afc-specializations/afc-coalition.js";
-import { flagMomentumAttackMult, pickBreakthroughTarget } from "./afc-specializations/afc-battle-effects.js";
+import { activeRelicTiles, fieldGeneratorForTarget } from "./runtime-relics.js";
+import { breakthroughTileCount, flagMomentumAttackMult, pickBreakthroughTargets } from "./afc-specializations/afc-battle-effects.js";
 import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
@@ -31,14 +31,13 @@ import type { LockRecord, LockedCombatResolution, RuntimePlayer, SimulationTileW
 import type { CombatManpowerLoss } from "./combat-manpower-log/combat-manpower-log.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import {
-  noWarIndustryVulnerabilityLabelForAttacker,
-  noWarIndustryVulnerabilityLabelForDefender,
-  noWarIndustryVulnerabilityMultForAttacker,
-  noWarIndustryVulnerabilityMultForDefender,
+  battleWarGearFor,
+  noWarIndustryEdgeForAttacker,
+  noWarIndustryEdgeForDefender,
   titaniumWeaponsFactoryAttackMultForPlayer,
   titaniumWeaponsFactoryDefenseMultForPlayer,
   umbriteWeaponsFactoryAttackMultForPlayer,
-  umbriteWeaponsFactoryDefenseMultForPlayer,
+  umbriteWeaponsFactoryDefenseMultForPlayer, salvageArmsMultForPlayer,
   weaponsWorkshopAttackMultForPlayer,
   weaponsWorkshopDefenseMultForPlayer
 } from "./runtime-weapons-factory-mults.js";
@@ -233,6 +232,9 @@ const targetHasActiveFortFor = (
   Boolean(
     previousTarget?.fort &&
       isFortDefending(previousTarget.fort) &&
+      // A just-captured fort is rubble while the capturing troops hold the
+      // tile (capture-hold.ts): no fort-tier floor, no fort terms either side.
+      !isCaptureHoldActive(previousTarget, ctx.now()) &&
       previousTarget.fort.ownerId === defenderOwnerId &&
       defenderOwnerId &&
       !ctx.isStructureDormant(defenderOwnerId, targetKey, "fort")
@@ -250,7 +252,11 @@ const resolveAttackCombat = (
   const outpostMult = attackerOutpostMult(ctx, lock.playerId, lock.targetX, lock.targetY);
   const attacker = ctx.players.get(lock.playerId); const dockAttackMult = wonderEffects.dockAttackMultiplierForOrigin(attacker, ctx.tiles.get(lock.originKey), lock.playerId);
   const targetHasActiveFort = targetHasActiveFortFor(ctx, previousTarget, defenderOwnerId, lock.targetKey);
+  const attackEdge = noWarIndustryEdgeForAttacker(ctx, lock.playerId, defenderOwnerId);
+  const defenseEdge = noWarIndustryEdgeForDefender(ctx, lock.playerId, defenderOwnerId);
   const combatModifiers = {
+    relicAttackMult: activeRelicTiles(ctx, lock.playerId, "WARPRESS").length ? 1.5 : 1,
+    relicDefenseMult: previousTarget && defenderOwnerId && fieldGeneratorForTarget(ctx, defenderOwnerId, previousTarget) ? 1.5 : 1,
     attackerOutpostMult: outpostMult,
     dockAttackMult,
     attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
@@ -270,14 +276,15 @@ const resolveAttackCombat = (
     titaniumWeaponsFactoryDefenseMult: titaniumWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId),
     umbriteWeaponsFactoryAttackMult: umbriteWeaponsFactoryAttackMultForPlayer(ctx, lock.playerId),
     umbriteWeaponsFactoryDefenseMult: umbriteWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId),
-    noWarIndustryVulnerabilityMult: noWarIndustryVulnerabilityMultForDefender(ctx, defenderOwnerId),
-    noWarIndustryVulnerabilityLabel: defenderOwnerId ? noWarIndustryVulnerabilityLabelForDefender(ctx, defenderOwnerId) : undefined,
-    noWarIndustryDefenseVulnerabilityMult: noWarIndustryVulnerabilityMultForAttacker(ctx, lock.playerId),
-    noWarIndustryDefenseVulnerabilityLabel: noWarIndustryVulnerabilityLabelForAttacker(ctx, lock.playerId),
+    salvageArmsAttackMult: salvageArmsMultForPlayer(ctx, lock.playerId), salvageArmsDefenseMult: salvageArmsMultForPlayer(ctx, defenderOwnerId),
+    noWarIndustryVulnerabilityMult: attackEdge.mult,
+    noWarIndustryVulnerabilityLabel: attackEdge.label,
+    noWarIndustryDefenseVulnerabilityMult: defenseEdge.mult,
+    noWarIndustryDefenseVulnerabilityLabel: defenseEdge.label,
     // General tech/domain "attack"/"defense" stat mods (e.g. Titanium Dominion's
     // +18% attack/defense) — persistent infrastructure, same tier as weapons
     // factories, previously computed but never actually applied to combat.
-    attackerStatMult: (attacker?.mods?.attack ?? 1) * flagMomentumAttackMult(attacker, ctx.tiles.get(lock.musterSourceKey ?? lock.originKey)?.muster, ctx.now()) * coalitionAttackMult(attacker, defenderOwnerId, ctx.players, ctx.now()),
+    attackerStatMult: (attacker?.mods?.attack ?? 1) * flagMomentumAttackMult(attacker, ctx.tiles.get(lock.musterSourceKey ?? lock.originKey)?.muster, ctx.now()),
     defenderStatMult: (defender?.mods?.defense ?? 1) * (targetHasActiveFort && previousTarget?.town && defender ? multiplicativeEffectForPlayer(defender, "fortifiedTownDefenseMult") : 1)
   };
   const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
@@ -333,7 +340,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
   const flagKey = lock.musterSourceKey ?? lock.originKey;
   const flag = ctx.tiles.get(flagKey)?.muster;
-  const breakthroughTarget = combat.attackerWon ? pickBreakthroughTarget({ players: ctx.players, tiles: ctx.tiles, now: ctx.now(), isLocked: key => Boolean(ctx.locksByTile.has(key) || ctx.hasPendingClaim?.(key)), isProtected: (id, x, y) => ctx.isTileShieldedByAegisLock?.(id, x, y) ?? false }, ctx.players.get(lock.playerId), previousTarget) : undefined;
+  const breakthroughTargets = combat.attackerWon ? pickBreakthroughTargets({ players: ctx.players, tiles: ctx.tiles, now: ctx.now(), isLocked: key => Boolean(ctx.locksByTile.has(key) || ctx.hasPendingClaim?.(key)), isProtected: (id, x, y) => ctx.isTileShieldedByAegisLock?.(id, x, y) ?? false }, ctx.players.get(lock.playerId), previousTarget, breakthroughTileCount(ctx.players.get(lock.playerId), flag, ctx.now())) : [];
   const targetRecentlyPillaged = isTownInCaptureShock(previousTarget?.town, ctx.now());
   const defenderTileCountBeforeCapture = defenderOwnerId ? Math.max(1, ctx.summaryForPlayer(defenderOwnerId).settledTileCount) : 0;
   const plunder =
@@ -399,14 +406,18 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     levelDelta: 0
   };
   const defendedFrontier = lock.actionType === "ATTACK" && previousTarget?.ownershipState === "FRONTIER" && combat !== GUARANTEED_CAPTURE_COMBAT_PREVIEW;
+  const attackerGear = battleWarGearFor(ctx, lock.playerId);
+  const defenderGear = battleWarGearFor(ctx, defenderOwnerId);
   return {
     result,
     ...(flag?.ownerId === lock.playerId ? { momentumSource: { key: flagKey, setAt: flag.setAt ?? 0 } } : {}),
-    ...(breakthroughTarget ? { breakthroughTarget } : {}),
+    ...(breakthroughTargets.length ? { breakthroughTargets } : {}),
     defenderGoldLoss: plunder?.defenderGoldLoss ?? 0,
     targetRecentlyPillaged,
     ...(combat.shield ? { shield: combat.shield } : {}),
-    ...(defendedFrontier ? { defendedFrontier: true } : {})
+    ...(defendedFrontier ? { defendedFrontier: true } : {}),
+    ...(attackerGear ? { attackerGear } : {}),
+    ...(defenderGear ? { defenderGear } : {})
   };
 };
 

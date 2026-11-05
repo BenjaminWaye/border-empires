@@ -107,7 +107,7 @@ const resolve = (origin: DomainTileState, target: DomainTileState, attackerWon: 
 // Regression: a player lost a Palisade, a Dock and a wonder and the Activity
 // report never said so, because the ownership log only kept who and where.
 describe("resolveLock records what stood on a tile that changed hands", () => {
-  it("records the captured target's fortification, dock and wonder as they were before capture", () => {
+  it("records the captured target's fortification and wonder as they were before capture (a dock has its own note)", () => {
     const flips = resolve(
       { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" },
       {
@@ -120,7 +120,7 @@ describe("resolveLock records what stood on a tile that changed hands", () => {
     );
     expect(flips).toEqual([expect.objectContaining({
       x: 6, y: 5, fromOwner: DEFENDER_ID, toOwner: ATTACKER_ID,
-      features: [{ kind: "STRUCTURE", structureType: "PALISADE" }, { kind: "DOCK" }, { kind: "NATURAL_WONDER", wonderType: "FOUNDRY_HEART" }]
+      features: [{ kind: "STRUCTURE", structureType: "PALISADE" }, { kind: "NATURAL_WONDER", wonderType: "FOUNDRY_HEART" }]
     })]);
   });
 
@@ -136,8 +136,26 @@ describe("resolveLock records what stood on a tile that changed hands", () => {
     );
     expect(flips).toEqual([expect.objectContaining({
       x: 5, y: 5, fromOwner: ATTACKER_ID, toOwner: DEFENDER_ID,
-      features: [{ kind: "STRUCTURE", structureType: "SIEGE_TOWER" }, { kind: "DOCK" }]
+      features: [{ kind: "STRUCTURE", structureType: "SIEGE_TOWER" }]
     })]);
+  });
+
+  it("records dock notes when a failed attack loses a launch tile holding a dock", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED", dockId: "dock-4" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED" }]
+    ]);
+    const context = createContext(tiles, []);
+    const impacts: unknown[] = [];
+    context.recordPersonalImpact = (impact) => { impacts.push(impact); };
+    const lock = attackLock(false);
+    context.locksByTile.addLock(lock);
+    context.locksByCommandId.set(lock.commandId, lock);
+    resolveLock(context, lock);
+    expect(impacts).toEqual([
+      expect.objectContaining({ kind: "DOCK_CAPTURED", playerId: DEFENDER_ID, counterpartyPlayerId: ATTACKER_ID, x: 5, y: 5 }),
+      expect.objectContaining({ kind: "DOCK_LOST", playerId: ATTACKER_ID, counterpartyPlayerId: DEFENDER_ID, x: 5, y: 5 })
+    ]);
   });
 
   it("leaves a bare tile's flip without a features field", () => {

@@ -10,14 +10,18 @@ import type {
   SocialCompletedAllianceBreak,
   SocialTruceRequest
 } from "../social-state/social-state.js";
-import { DiplomacyTermsSchema, type DiplomacyTerms } from "@border-empires/shared";
+import { DiplomacyTermsSchema, diplomacyTermsCarryRetiredShards, type DiplomacyTerms } from "@border-empires/shared";
 
 // undefined = a corrupt terms blob. The whole offer is then dropped: keeping
 // it without its terms would let the target accept a paid deal for free.
+// Terms written before Shards were removed that still carry a Shard amount
+// are dropped the same way: parsing would silently discard the Shards.
 const termsFromJson = (json: string | null | undefined): { terms?: DiplomacyTerms } | undefined => {
   if (!json) return {};
   try {
-    const parsed = DiplomacyTermsSchema.safeParse(JSON.parse(json));
+    const raw: unknown = JSON.parse(json);
+    if (diplomacyTermsCarryRetiredShards(raw)) return undefined;
+    const parsed = DiplomacyTermsSchema.safeParse(raw);
     return parsed.success ? { terms: parsed.data } : undefined;
   } catch {
     return undefined;
@@ -46,6 +50,7 @@ export type AllianceRequestRow = {
   from_name: string | null;
   to_name: string | null;
   terms_json?: string | null;
+  settlement_phase?: string | null;
 };
 export type TruceRequestRow = {
   id: string;
@@ -57,6 +62,8 @@ export type TruceRequestRow = {
   from_name: string | null;
   to_name: string | null;
   terms_json?: string | null;
+  extends_truce?: number | null;
+  settlement_phase?: string | null;
 };
 export type ActiveTruceRow = {
   origin?: string | null;
@@ -81,6 +88,7 @@ export const allianceRequestFromRow = (row: AllianceRequestRow): SocialAllianceR
       createdAt: row.created_at,
       ...(row.from_name ? { fromName: row.from_name } : {}),
       ...(row.to_name ? { toName: row.to_name } : {}),
+      ...(row.settlement_phase === "paying" || row.settlement_phase === "refunding" ? { settlementPhase: row.settlement_phase } : {}),
       ...terms
     }
   ];
@@ -113,7 +121,9 @@ export const truceRequestFromRow = (row: TruceRequestRow): SocialTruceRequest[] 
       durationHours: row.duration_hours as 12 | 24,
       ...(row.from_name ? { fromName: row.from_name } : {}),
       ...(row.to_name ? { toName: row.to_name } : {}),
-      ...terms
+      ...(row.settlement_phase === "paying" || row.settlement_phase === "refunding" ? { settlementPhase: row.settlement_phase } : {}),
+      ...terms,
+      ...(row.extends_truce ? { extendsTruce: true as const } : {})
     }
   ];
 };

@@ -126,7 +126,7 @@ export const openSession = (wsUrl, token, timeoutMs = 15_000) =>
           // already settling, no free development slot) and MUSTER_INVALID covers
           // "no muster on owned tile" / "owned LAND tile required" — all are
           // per-tile, so learning and skipping the tile (not retrying it every
-          // tick until its 60s SETTLE_MS timer clears) is the right response.
+          // tick until its garrison timer clears) is the right response.
           "SETTLE_INVALID", "MUSTER_INVALID",
           // Safety net for MUSTER_ADVANCE_READY_AMOUNT being an approximation
           // of the server's real (target-dependent) threshold — if a candidate

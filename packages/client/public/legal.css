@@ -99,17 +99,6 @@ body {
   padding: 8px 28px 30px;
 }
 
-.legal-note {
-  margin: 18px 0 0;
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(251, 191, 36, 0.24);
-  background: var(--accent-soft);
-  color: #fde68a;
-  font-size: 15px;
-  line-height: 1.5;
-}
-
 section {
   padding-top: 22px;
 }

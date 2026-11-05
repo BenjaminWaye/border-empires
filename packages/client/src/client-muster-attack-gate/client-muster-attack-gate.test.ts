@@ -26,10 +26,15 @@ describe("isDockCrossingBetween", () => {
     expect(isDockCrossingBetween(state, 5, 5, 200, 200)).toBe(true);
   });
 
-  it("is true when the target is adjacent to the linked dock, not the dock itself", () => {
+  it("is true for a beach beside the linked dock but not for inland ground beside it", () => {
     const state = createInitialState();
     state.dockPairs = [{ ax: 5, ay: 5, bx: 200, by: 200 }];
+    // (201,200) has sea to its north: a beach. (200,201) is surrounded by land.
+    state.tiles.set("201,199", makeTile({ x: 201, y: 199, terrain: "SEA" }));
+    state.tiles.set("201,200", makeTile({ x: 201, y: 200 }));
+    state.tiles.set("200,201", makeTile({ x: 200, y: 201 }));
     expect(isDockCrossingBetween(state, 5, 5, 201, 200)).toBe(true);
+    expect(isDockCrossingBetween(state, 5, 5, 200, 201)).toBe(false);
   });
 
   it("is false when there is no dock pair linking origin and target", () => {

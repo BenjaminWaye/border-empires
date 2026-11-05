@@ -195,7 +195,7 @@ export const SIM_LOOPBACK_ENDPOINTS: SimLoopbackEndpoint[] = [
 
 export type AdminEnvironment = {
   label: string;
-  flyApp: string;
+  sshHost: string;
   gatewayOrigin: string;
   playOrigin: string;
 };
@@ -203,13 +203,13 @@ export type AdminEnvironment = {
 export const ADMIN_ENVIRONMENTS: AdminEnvironment[] = [
   {
     label: "Production",
-    flyApp: "border-empires-combined",
+    sshHost: "deploy@188.245.240.42",
     gatewayOrigin: "https://api.borderempires.com",
     playOrigin: "https://play.borderempires.com"
   },
   {
     label: "Staging",
-    flyApp: "border-empires-combined-staging",
+    sshHost: "deploy@178.105.133.33",
     gatewayOrigin: "https://api-staging.borderempires.com",
     playOrigin: "https://staging.borderempires.com"
   }
@@ -225,6 +225,6 @@ export const EXTERNAL_CONSOLE_LINKS: ExternalConsoleLink[] = [
   { title: "Google Analytics", url: "https://analytics.google.com/", description: "Acquisition funnel (sign_up + UTM)." },
   { title: "Firebase console", url: "https://console.firebase.google.com/project/border-empires/overview", description: "Auth users and analytics property." },
   { title: "GitHub Actions", url: "https://github.com/BenjaminWaye/border-empires/actions", description: "CI and deploy workflows." },
-  { title: "Vercel", url: "https://vercel.com/dashboard", description: "Client deployments." },
-  { title: "Fly.io", url: "https://fly.io/dashboard", description: "Machines, logs, secrets." }
+  { title: "Hetzner Cloud", url: "https://console.hetzner.cloud/", description: "Servers, backups, firewalls." },
+  { title: "Vercel", url: "https://vercel.com/dashboard", description: "Historical client deployments." }
 ];

@@ -27,7 +27,6 @@ export type AuthFlowDeps = {
   wsUrl: string;
   requireAuthedSession: (message?: string) => boolean;
   renderHud: () => void;
-  isMobile: () => boolean;
   devAuthPlayerId?: string;
 };
 

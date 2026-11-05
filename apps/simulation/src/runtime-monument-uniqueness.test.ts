@@ -132,7 +132,7 @@ describe("§16 monument global uniqueness", () => {
   // these two tests supply a support tile and route firstAvailableTownSupportTile
   // to it -- the same shape handleBuildStructureCommand expects in prod.
   it("announces to every player the moment a monument's first part (PART_1) starts construction", () => {
-    const builder = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 500 } });
+    const builder = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const bystander = makePlayer("player-3");
     const { context, tiles, eventLogAppends } = createContext(
       [builder, bystander],
@@ -151,7 +151,7 @@ describe("§16 monument global uniqueness", () => {
   });
 
   it("does not announce a construction-started event for a PART_2 build", () => {
-    const builder = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 500 } });
+    const builder = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, tiles, eventLogAppends } = createContext(
       [builder],
       [
@@ -221,6 +221,23 @@ describe("§16 monument global uniqueness", () => {
     expect(eventLogAppends).toContainEqual(expect.objectContaining({ playerId: "winner", type: "MONUMENT_CLAIMED" }));
     expect(eventLogAppends).toContainEqual(expect.objectContaining({ playerId: "loser", type: "MONUMENT_LOST_TO_RIVAL" }));
     expect(eventLogAppends).toContainEqual(expect.objectContaining({ playerId: "bystander", type: "MONUMENT_CLAIMED" }));
+  });
+
+  it("refunds a discounted loser only the manpower their part actually charged", () => {
+    const winner = makePlayer("winner", { manpower: 0 });
+    // Universal Fabrication Line halves every build's manpower, so the part cost 500, not 1,000.
+    const loser = makePlayer("loser", { manpower: 200, domainIds: new Set(["afc-dominion-5"]) });
+    const { context } = createContext(
+      [winner, loser],
+      [
+        { x: 1, y: 1, terrain: "LAND", ownerId: "winner", ownershipState: "SETTLED", economicStructure: { ownerId: "winner", type: "IMPERIAL_EXCHANGE", status: "under_construction", completesAt: 1_000 } },
+        { x: 2, y: 2, terrain: "LAND", ownerId: "loser", ownershipState: "SETTLED", economicStructure: { ownerId: "loser", type: "IMPERIAL_EXCHANGE_PART_1", status: "active" } }
+      ]
+    );
+
+    completeStructureBuild(context, simulationTileKey(1, 1), "winner", "IMPERIAL_EXCHANGE", "cmd-complete");
+
+    expect(loser.manpower).toBe(700);
   });
 
   it("does not activate a second assembly when two players' builds are both under_construction at once (completion-time race)", () => {
@@ -357,7 +374,7 @@ describe("§16 monument global uniqueness", () => {
   });
 
   it("still allows building the OTHER two parts once one part is already owned", () => {
-    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 5 } });
+    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const supportTile: DomainTileState = { x: 6, y: 6, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" };
     const { context, events, tiles } = createContext(
       [actor],
@@ -400,7 +417,7 @@ describe("§16 monument global uniqueness", () => {
 
 describe("completing a monument consumes its Parts", () => {
   it("clears all 3 owned Astral Dock Parts once the Astral Dock itself completes", () => {
-    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 5 } });
+    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, tiles } = createContext(
       [actor],
       [
@@ -427,7 +444,7 @@ describe("completing a monument consumes its Parts", () => {
   });
 
   it("does not touch another player's Parts of the same monument type", () => {
-    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 5 } });
+    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const rival = makePlayer("player-1", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, tiles } = createContext(
       [actor, rival],

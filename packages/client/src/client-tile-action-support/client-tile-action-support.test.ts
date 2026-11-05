@@ -44,6 +44,10 @@ describe("settlement speed effects", () => {
 
     expect(settlementSpeedMultiplierForState(progressionState)).toBeCloseTo(1.155);
     expect(settleDurationMsForState(progressionState, { x: 10, y: 10 })).toBe(Math.round(settleDurationMsForTile(10, 10) / 1.155));
+    // A tile still held after its capture garrisons no earlier than the hold ends, as on the server.
+    const held = { x: 10, y: 10, ownershipState: "FRONTIER", captureHoldUntil: 1_000 + 120_000 };
+    expect(settleDurationMsForState(progressionState, held, 1_000)).toBe(120_000);
+    expect(settleDurationMsForState(progressionState, held, 1_000 + 120_000)).toBe(Math.round(settleDurationMsForTile(10, 10) / 1.155));
   });
 });
 

@@ -27,7 +27,7 @@ describe("handleDiplomacySocketMessage", () => {
   });
 
   it("routes stance replies and re-offer cooldowns to the open trade screen", () => {
-    openDiplomacyTradeScreen({ targetName: "Milo", kind: "truce", durationHours: 12 }, { send: () => true, ownHoldings: () => ({ gold: 0, shard: 0 }) });
+    openDiplomacyTradeScreen({ targetName: "Milo", kind: "truce", durationHours: 12 }, { send: () => true, ownHoldings: () => ({ gold: 0 }) });
     const handlerDeps = deps();
     expect(
       handleDiplomacySocketMessage(state(), { type: "DIPLOMACY_STANCE", found: true, targetPlayerName: "Milo", targetPlayerId: "ai-1", ai: false }, handlerDeps)
@@ -48,10 +48,17 @@ describe("handleDiplomacySocketMessage", () => {
       expiresAt: 1,
       durationHours: 12,
       fromName: "Milo",
-      terms: { give: { gold: 0, shard: 0 }, ask: { gold: 60, shard: 0 } }
+      terms: { give: { gold: 0 }, ask: { gold: 60 } }
     };
     handleDiplomacySocketMessage(state(), { type: "TRUCE_REQUEST_INCOMING", request }, handlerDeps);
-    expect(handlerDeps.pushFeed).toHaveBeenCalledWith("Milo offered a 12h truce (you pay 60 coin). Open Alliances to accept or reject.", "alliance", "warn");
+    expect(handlerDeps.pushFeed).toHaveBeenCalledWith("Milo offered a 12h truce (you pay 60 coin).", "alliance", "warn");
+  });
+
+  it("words an incoming truce extension as an extension", () => {
+    const handlerDeps = deps();
+    const request = { id: "t2", fromPlayerId: "ai-1", toPlayerId: "p1", createdAt: 0, expiresAt: 1, durationHours: 24, fromName: "Milo", extendsTruce: true };
+    handleDiplomacySocketMessage(state(), { type: "TRUCE_REQUEST_INCOMING", request }, handlerDeps);
+    expect(handlerDeps.pushFeed).toHaveBeenCalledWith("Milo offered to extend your truce by 24h.", "alliance", "warn");
   });
 
   it("leaves other messages alone", () => {

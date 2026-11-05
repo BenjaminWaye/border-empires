@@ -63,7 +63,8 @@ describe.each<Path>(["direct", "worker"])("relay exploration progress through %s
     const site: PlannerTileView = { x: 102, y: 100, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" };
     const existing: PlannerTileView = {
       x: 100, y: 102, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "ai-1", type: "RELAY_BEACON", status: "active" }
+      // A siege battery, not a relay: relays keep MIN_OWN_BEACON_SPACING apart.
+      siegeBattery: { ownerId: "ai-1", status: "active" }
     };
     const tiles = [site, existing];
     for (let dy = -5; dy <= 5; dy += 1) {

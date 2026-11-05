@@ -1,8 +1,10 @@
 import type { PersonalActivityCard, PersonalActivitySummary, PersonalActivityTimeline } from "@border-empires/game-domain";
-import { structureDisplayName } from "@border-empires/shared";
+import { PLANETARY_DEFENSE_DISPLAY_NAME, structureDisplayName } from "@border-empires/shared";
+import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { combatCardText, combatGroupCardText, siegeCardText } from "./client-activity-dashboard-combat-text.js";
 import { featureListLabel, featuresPart } from "./client-activity-dashboard-features.js";
+import { diplomacyCardText } from "./client-activity-dashboard-diplomacy-text.js";
 import { nameOf, roundedAmount, type PlayerNameLookup } from "./client-activity-dashboard-names.js";
 
 export type { PlayerNameLookup };
@@ -26,8 +28,8 @@ const SUMMARY_MIN_COIN = 5;
 /** Line 1: counts and one-off transfers -- never merged with line 2's effects. */
 export const summaryCountsLine = (summary: PersonalActivitySummary, timeline: PersonalActivityTimeline, reportEndManpowerCap: number): string => {
   const parts: string[] = [];
-  if (summary.tilesClaimed > 0) parts.push(`+${summary.tilesClaimed} tiles claimed`);
-  if (summary.tilesLost > 0) parts.push(`−${summary.tilesLost} tiles lost`);
+  if (summary.tilesClaimed > 0) parts.push(`+${summary.tilesClaimed} tile${summary.tilesClaimed === 1 ? "" : "s"} claimed`);
+  if (summary.tilesLost > 0) parts.push(`−${summary.tilesLost} tile${summary.tilesLost === 1 ? "" : "s"} lost`);
   const featuresLost = featureListLabel(summary.featuresLost);
   if (featuresLost) parts.push(`Lost your ${featuresLost}`);
   const featuresCaptured = featureListLabel(summary.featuresCaptured);
@@ -73,7 +75,9 @@ export const activityPlayerNameLookup = (state: Pick<ClientState, "playerNames" 
   for (const entry of [...overall, ...byTiles, ...byIncome, ...byTechs]) {
     if (entry.id.startsWith("ai-") && !aiNames.has(entry.id)) aiNames.set(entry.id, entry.name);
   }
-  return (playerId) => aiNames.get(playerId) ?? state.playerNames.get(playerId);
+  // Barbarians are Planetary Defense everywhere else in the UI; without this a
+  // siege lost to them read "fell to barbarian-1".
+  return (playerId) => (isPlanetaryDefenseOwnerId(playerId) ? PLANETARY_DEFENSE_DISPLAY_NAME : aiNames.get(playerId) ?? state.playerNames.get(playerId));
 };
 
 // Resolves a tech id to its player-facing name (ClientState.techCatalog);
@@ -99,11 +103,20 @@ const waystationCardText = (card: Extract<PersonalActivityCard, { kind: "WAYSTAT
   return "Waystation activated · permanent vision revealed";
 };
 
-const townCardText = (card: Extract<PersonalActivityCard, { kind: "TOWN_CAPTURED" | "TOWN_LOST" }>): string => {
+const townCardText = (card: Extract<PersonalActivityCard, { kind: "TOWN_CAPTURED" | "TOWN_LOST" }>, playerNames: PlayerNameLookup): string => {
   const town = card.townName ?? card.townTier.toLowerCase();
-  const outcome = card.kind === "TOWN_CAPTURED" ? `Captured ${town}` : `Lost ${town}`;
-  const aftermath = card.townSurvived ? `${card.populationAfter} population remaining` : "settlement razed";
+  const counterparty = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : undefined;
+  const outcome = card.kind === "TOWN_CAPTURED"
+    ? `Captured ${town}${counterparty ? ` from ${counterparty}` : ""}`
+    : `Lost ${town}${counterparty ? ` to ${counterparty}` : ""}`;
+  const aftermath = card.townSurvived ? `${roundedAmount(card.populationAfter)} population remaining` : "settlement razed";
   return `${outcome} · ${aftermath}`;
+};
+
+const dockCardText = (card: Extract<PersonalActivityCard, { kind: "DOCK_CAPTURED" | "DOCK_LOST" }>, playerNames: PlayerNameLookup): string => {
+  const counterparty = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : undefined;
+  if (card.kind === "DOCK_CAPTURED") return `Captured a Dock${counterparty ? ` from ${counterparty}` : ""}`;
+  return `Lost your Dock${counterparty ? ` to ${counterparty}` : ""}`;
 };
 
 const buildingCardText = (card: Extract<PersonalActivityCard, { kind: "BUILDING_COMPLETED" }>): string => {
@@ -120,8 +133,10 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
   if (card.kind === "SIEGE") return siegeCardText(card, playerNames);
   if (card.kind === "TERRITORY_FLIP_GROUP") return territoryCardText(card, playerNames);
   if (card.kind === "WAYSTATION_ACTIVATED") return waystationCardText(card, techName);
-  if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return townCardText(card);
+  if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return townCardText(card, playerNames);
+  if (card.kind === "DOCK_CAPTURED" || card.kind === "DOCK_LOST") return dockCardText(card, playerNames);
   if (card.kind === "BUILDING_COMPLETED") return buildingCardText(card);
+  if (card.kind === "DIPLOMACY") return diplomacyCardText(card, playerId, playerNames);
   if (card.kind === "TRUNCATION_NOTE") return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
   // A card kind from a newer server than this client: say something true
   // rather than misreading it as a truncation note.
@@ -130,9 +145,9 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
 
 export const activityCardTimeLabel = (card: PersonalActivityCard): string => timeLabel(card.occurredAt);
 
-/** Every concrete activity card carries a map location; the truncation note never does. */
+/** Map events carry a location; the truncation note and diplomacy rows (between empires, not on a tile) never do. */
 export const activityCardCoordinates = (card: PersonalActivityCard): { x: number; y: number } | undefined =>
-  card.kind === "TRUNCATION_NOTE" ? undefined : { x: card.x, y: card.y };
+  card.kind === "TRUNCATION_NOTE" || card.kind === "DIPLOMACY" ? undefined : { x: card.x, y: card.y };
 
 /** The "(x, y)" tile label shown on a timeline row, matching the feed's coordinate format. */
 export const activityCardCoordinatesLabel = (card: PersonalActivityCard): string | undefined => {

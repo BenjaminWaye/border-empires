@@ -1,3 +1,4 @@
+import { isDistrictBuilding } from "../client-town-district/district-catalog.js";
 // Per-frame sync of the selected town's support-plot hatches (true-3D),
 // extracted from client-map-3d.ts. The 2D renderer draws its own plots from
 // the same lookup (client-town-support-plot-lookup.ts).
@@ -46,6 +47,8 @@ export const createTownSupportTileSync = (deps: TownSupportTileSyncDeps): (() =>
       seatCacheFor = hillCutAt;
     }
     for (const { wx, wy, dx, dy, settled } of townSupportPlotEntries(anchor, lookupDeps)) {
+      const occupied = lookupDeps.tiles.get(lookupDeps.keyFor(wx, wy));
+      if (isDistrictBuilding(occupied?.economicStructure?.type) || occupied?.observatory) continue;
       const sx = deps.toroidDelta(deps.sceneOrigin.camX, wx, deps.worldWidth);
       const sy = deps.toroidDelta(deps.sceneOrigin.camY, wy, deps.worldHeight);
       // On a hill the hatch rim sits on the dome (its collar dropping into it),

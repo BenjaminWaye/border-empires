@@ -68,4 +68,24 @@ describe("planWaypoint dock routing", () => {
     expect(plan.steps[0]!.origin).toEqual({ x: 5, y: 5 });
     expect(plan.steps[0]!.target).toEqual({ x: 40, y: 40 });
   });
+
+  it("lands straight on a beach beside the far dock in one dock-crossing step", () => {
+    // (41,40) has sea to its north: landing ground of dock B, so the crossing
+    // lands there directly instead of taking the dock first.
+    const tiles = [
+      tile(5, 5, { ownerId: "me", dockId: "dockA" }),
+      tile(40, 40, { dockId: "dockB" }),
+      tile(41, 39, { terrain: "SEA" }),
+      tile(41, 40)
+    ];
+    const state = stateWith(tiles, "me", {
+      dockPairs: [{ ax: 5, ay: 5, bx: 40, by: 40 }]
+    });
+    const plan = planWaypoint({ x: 41, y: 40 }, baseDeps(state));
+    expect(plan.reachable).toBe(true);
+    expect(plan.steps.length).toBe(1);
+    expect(plan.steps[0]!.viaDock).toBe(true);
+    expect(plan.steps[0]!.origin).toEqual({ x: 5, y: 5 });
+    expect(plan.steps[0]!.target).toEqual({ x: 41, y: 40 });
+  });
 });

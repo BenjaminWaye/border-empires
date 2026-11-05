@@ -596,27 +596,27 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Observatory:") && line.html.includes("43.2/day"))).toBe(true);
   });
 
-  it("shows a crystal-casting recharge countdown on our own active observatory still on cooldown", () => {
+  it("shows the shots left and the next refill on our own active observatory", () => {
     const tile = settledObservatoryTile("active");
-    tile.observatory!.cooldownUntil = Date.now() + 90_000;
+    tile.observatory!.shotsUsedAt = [Date.now() - 3_600_000, Date.now() - 1_000, Date.now()];
     const lines = menuOverviewForTile(tile, deps);
-    expect(lines.some((line) => line.html.includes("Crystal casting recharging") && line.html.includes("01:3"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Shots: 0 of 3 left · next back in 23h"))).toBe(true);
   });
 
-  it("omits the recharge countdown once the observatory cooldown has elapsed", () => {
+  it("shows a full tower with all its shots and no refill timer", () => {
     const tile = settledObservatoryTile("active");
-    tile.observatory!.cooldownUntil = Date.now() - 1_000;
+    tile.observatory!.shotsUsedAt = [Date.now() - 25 * 3_600_000];
     const lines = menuOverviewForTile(tile, deps);
-    expect(lines.some((line) => line.html.includes("Crystal casting recharging"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("Shots: 3 of 3 left.") && !line.html.includes("next back"))).toBe(true);
   });
 
-  it("omits the recharge countdown for a foreign observatory on cooldown", () => {
+  it("omits the shot count for a foreign observatory", () => {
     const tile = settledObservatoryTile("active");
     tile.ownerId = "enemy";
     tile.observatory!.ownerId = "enemy";
-    tile.observatory!.cooldownUntil = Date.now() + 90_000;
+    tile.observatory!.shotsUsedAt = [Date.now()];
     const lines = menuOverviewForTile(tile, deps);
-    expect(lines.some((line) => line.html.includes("Crystal casting recharging"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("Shots:"))).toBe(false);
   });
 
   it("shows a dedicated upkeep section with one row per active upkeep source", () => {
@@ -915,7 +915,7 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(progress?.rushBuyActionId).toBe("rush_buy");
-    expect(progress?.rushBuyLabel).toMatch(/^⏩ 💰\d+$/);
+    expect(progress?.rushBuyLabel).toMatch(/^Rush ◉\d+$/);
   });
 
   it("omits a rush-buy label for removal progress (only in-progress builds can be rushed)", () => {
@@ -943,17 +943,17 @@ describe("menuOverviewForTile", () => {
           ownerId: "me",
           type: "RELAY_BEACON",
           status: "removing",
-          completesAt: Date.now() + 45_000
+          completesAt: Date.now() + 27_000
         }
       },
-      () => "0:45", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }, "me"
+      () => "0:27", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }, "me"
     );
 
     expect(progress?.title).toBe("Removing Relay Beacon");
-    expect(progress?.remainingLabel).toBe("0:45");
+    expect(progress?.remainingLabel).toBe("0:27");
     expect(progress?.cancelLabel).toBe("Cancel removal");
     expect(progress?.note).toContain("Income, upkeep, and structure effects are paused");
-    expect(progress?.progress).toBeCloseTo(0.1, 2); // no startedAt: beacon removal window, 0.5s x 100 MP = 50s
+    expect(progress?.progress).toBeCloseTo(0.1, 2); // no startedAt: flat 30s removal window
   });
 
   it("shows fort removal progress with disabled-defense copy", () => {

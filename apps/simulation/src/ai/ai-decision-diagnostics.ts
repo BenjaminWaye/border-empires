@@ -23,6 +23,8 @@ export type AiDecisionDiagnostic = {
   canAttack: boolean;
   scores: Record<string, number>;
   vetoedClasses: readonly string[];
+  /** First failing gate per vetoed class when WAIT won — see utility/wait-reasons.ts. */
+  vetoReasons?: Record<string, string>;
   frontierState: {
     neutralCount: number;
     economicCount: number;
@@ -30,6 +32,8 @@ export type AiDecisionDiagnostic = {
     scoutCount: number;
     enemyCount: number;
     barbarianCount: number;
+    /** Bordering tiles owned by allies/truce partners — skipped as targets. */
+    nonHostileCount: number;
   };
   /**
    * Neighbor candidate tiles the frontier scan visited vs how many were
@@ -68,6 +72,9 @@ export type AiDecisionDiagnostic = {
   noCommandReason: string | undefined;
   gates: AutomationPlannerDiagnostic["utilityGates"];
   economicBuildCandidate: string | undefined;
+  economicBuildScore: number | undefined;
+  /** Stacking/amplifier counts (docs/ai-economic-synergy-plan.md); fixed size. */
+  economicSynergy: AutomationPlannerDiagnostic["economicSynergy"];
   relayBeaconBuildCandidate: string | undefined;
   relayBeaconSiteValue: number | undefined;
   /** Most recent COMMAND_REJECTED this player has seen, if any — most
@@ -80,6 +87,8 @@ export type AiDecisionDiagnostic = {
    *  measured need deficits, diagnostic-only — see AutomationPlannerDiagnostic's
    *  needVector doc comment for when this is undefined. */
   needVector: NeedVector | undefined;
+  /** Victory path the plan pursued — see AutomationPlannerDiagnostic.victoryPath. */
+  victoryPath: AutomationPlannerDiagnostic["victoryPath"];
 };
 
 const recentDiagnostics = new Map<string, AiDecisionDiagnostic[]>();
@@ -127,13 +136,15 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     canAttack: diagnostic.canAttack,
     scores: diagnostic.utilityScores,
     vetoedClasses: diagnostic.utilityVetoedClasses ?? [],
+    ...(diagnostic.utilityVetoReasons ? { vetoReasons: diagnostic.utilityVetoReasons } : {}),
     frontierState: {
       neutralCount: diagnostic.frontierNeutralTargetCount,
       economicCount: diagnostic.frontierOpportunityEconomic ?? 0,
       townSupportCount: diagnostic.frontierOpportunityTownSupport ?? 0,
       scoutCount: diagnostic.frontierOpportunityScout ?? 0,
       enemyCount: diagnostic.frontierEnemyTargetCount,
-      barbarianCount: diagnostic.frontierBarbarianTargetCount ?? 0
+      barbarianCount: diagnostic.frontierBarbarianTargetCount ?? 0,
+      nonHostileCount: diagnostic.frontierNonHostileTargetCount ?? 0
     },
     neighborCandidateTotal: diagnostic.neighborCandidateTotal ?? 0,
     missingNeighborTileCount: diagnostic.missingNeighborTileCount ?? 0,
@@ -150,10 +161,13 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     noCommandReason: diagnostic.noCommandReason,
     gates: diagnostic.utilityGates,
     economicBuildCandidate: diagnostic.economicBuildCandidate,
+    economicBuildScore: diagnostic.economicBuildScore,
+    economicSynergy: diagnostic.economicSynergy,
     relayBeaconBuildCandidate: diagnostic.relayBeaconBuildCandidate,
     relayBeaconSiteValue: diagnostic.relayBeaconSiteValue,
     lastRejection: lastRejectionByPlayer.get(diagnostic.playerId),
-    needVector: diagnostic.needVector
+    needVector: diagnostic.needVector,
+    victoryPath: diagnostic.victoryPath
   });
 };
 

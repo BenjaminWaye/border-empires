@@ -82,6 +82,8 @@ export type WaypointPlannerState = {
   dockPairs: ReadonlyArray<{ ax: number; ay: number; bx: number; by: number }>;
   allies: ReadonlyArray<string>;
   activeTruces: ReadonlyArray<{ otherPlayerId?: string | undefined; endsAt?: number | undefined }>;
+  // Player's current frontier-scaled EXPAND price; defaults to EXPAND_MANPOWER_COST.
+  expandManpowerCost?: number;
 };
 
 export type WaypointPlannerDeps = {

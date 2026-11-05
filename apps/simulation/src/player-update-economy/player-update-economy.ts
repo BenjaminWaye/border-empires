@@ -1,3 +1,5 @@
+import { networkSupplyStatus } from "../resource-networks/resource-network-status.js";
+import { developedNetworkSites } from "../resource-networks/resource-networks.js";
 import type { DomainPlayer, DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 
 import {
@@ -53,6 +55,8 @@ type UpkeepLastTick = {
 };
 
 export type PlayerUpdateEconomySnapshot = {
+  resourceTradeProjection?: import("../resource-supply-trades/resource-supply-projection-cache.js").ResourceSupplyProjectionCache;
+  networkSupply?: import("@border-empires/shared").NetworkSupplyStatus | undefined;
   incomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
   upkeepPerMinute: UpkeepPerMinute;
@@ -233,7 +237,8 @@ export const buildPlayerUpdateEconomySnapshot = (
   // Capture resets modeLockedUntil as its shock timer (capture-structures.ts,
   // no separate captureShockUntil field) — EXCHANGE payout is suppressed
   // while mode is locked, from a build, flip, or capture reset alike.
-  now: number = Date.now()
+  now: number = Date.now(),
+  suppliedSites?: import("@border-empires/shared").NetworkSiteCounts
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
   let countedAfcBaseline = false;
@@ -255,6 +260,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   const strategicProductionPerMinute = buildStrategicProductionForSettledTiles(summary, settledTiles, hydroworksKeys);
 
   const fedTownKeys = buildFedTownKeys(player.id, summary, tiles, foodDormantTownKeys);
+  const sites = suppliedSites ?? developedNetworkSites(settledTiles, player.id, dormantEconomicStructureKeys, player.techIds);
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();
   const foodSources = new Map<string, EconomyBucket>();
@@ -265,7 +271,6 @@ export const buildPlayerUpdateEconomySnapshot = (
   const crystalSinks = new Map<string, EconomyBucket>();
   const umbriteSources = new Map<string, EconomyBucket>();
   const umbriteSinks = new Map<string, EconomyBucket>();
-  const shardSources = new Map<string, EconomyBucket>();
   const addUpkeepSinks = (label: string, upkeep: Partial<Record<EconomyResourceKey, number>>): void => {
     if (upkeep.GOLD) addBucket(goldSinks, label, upkeep.GOLD, { count: 1 });
     if (upkeep.FOOD) addBucket(foodSinks, label, upkeep.FOOD, { count: 1 });
@@ -410,12 +415,12 @@ export const buildPlayerUpdateEconomySnapshot = (
 
   return {
     incomePerMinute,
+    networkSupply: networkSupplyStatus(sites, summary.ownedTownTierByTile.values()),
     strategicProductionPerMinute: {
       FOOD: Number((strategicProductionPerMinute.FOOD * integrityEconMult).toFixed(6)),
       TITANIUM: Number((strategicProductionPerMinute.TITANIUM * integrityEconMult).toFixed(6)),
       CRYSTAL: Number((strategicProductionPerMinute.CRYSTAL * integrityEconMult).toFixed(6)),
-      UMBRITE: Number((strategicProductionPerMinute.UMBRITE * integrityEconMult).toFixed(6)),
-      SHARD: Number((strategicProductionPerMinute.SHARD * integrityEconMult).toFixed(6))
+      UMBRITE: Number((strategicProductionPerMinute.UMBRITE * integrityEconMult).toFixed(6))
     },
     upkeepPerMinute,
     upkeepLastTick: {
@@ -431,8 +436,7 @@ export const buildPlayerUpdateEconomySnapshot = (
       FOOD: { sources: sortedBuckets(foodSources), sinks: sortedBuckets(foodSinks) },
       TITANIUM: { sources: sortedBuckets(titaniumSources), sinks: sortedBuckets(titaniumSinks) },
       CRYSTAL: { sources: sortedBuckets(crystalSources), sinks: sortedBuckets(crystalSinks) },
-      UMBRITE: { sources: sortedBuckets(umbriteSources), sinks: sortedBuckets(umbriteSinks) },
-      SHARD: { sources: sortedBuckets(shardSources), sinks: [] }
+      UMBRITE: { sources: sortedBuckets(umbriteSources), sinks: sortedBuckets(umbriteSinks) }
     }
   };
 };

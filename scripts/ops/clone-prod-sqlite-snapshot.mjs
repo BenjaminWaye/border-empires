@@ -1,51 +1,35 @@
 #!/usr/bin/env node
-// Downloads a consistent SQLite snapshot from a live Fly app via server-side
-// VACUUM INTO, producing a single clean file with no WAL/SHM coordination.
+// Downloads a consistent SQLite snapshot from a live Hetzner backend. The
+// server's `snapshot` forced command runs VACUUM INTO (atomic, single-file,
+// no WAL/SHM coordination) and streams the result; see clone-snapshot-ssh.mjs.
 //
-// Previous approach pulled the main .db + .db-wal + .db-shm sequentially via
-// SFTP. That is fundamentally broken against a live WAL-mode database — the
-// main file lands torn because the writer is mid-transaction during every
-// pull. Verified 2026-05-30: PRAGMA integrity_check returned btree errors,
-// .recover dropped the 28MB snapshot_payload BLOBs, making the clone unusable
-// for the prod-shape gate.
-//
-// Fix: run VACUUM INTO server-side (atomic, single-file, defragmented), then
-// SFTP pull the one output file. VACUUM INTO holds a read lock for ~30-60s on
-// a ~1GB DB; writes queue during that window — acceptable for a pre-deploy
-// gate that runs once per deploy.
+// Pulling the live .db + .db-wal + .db-shm separately is fundamentally broken
+// against a WAL-mode database — the main file lands torn because the writer is
+// mid-transaction during every pull (verified 2026-05-30: integrity_check
+// errors, snapshot_payload BLOBs lost). Always snapshot server-side.
 //
 // The 2026-05-18 v6 outage is the reason the gate exists at all — per-tick
 // AI command paths only fail under accumulated prod-shaped state.
 //
 // Usage:
-//   pnpm ops:prod-shape:clone-snapshot
-//   pnpm ops:prod-shape:clone-snapshot --app border-empires-combined-staging
-//   pnpm ops:prod-shape:clone-snapshot --dest ./.prod-shape-clones/manual
-//   pnpm ops:prod-shape:clone-snapshot --force          # overwrite existing
+//   pnpm ops:prod-shape:clone-snapshot --ssh deploy@<host>
+//   pnpm ops:prod-shape:clone-snapshot --ssh deploy@<host> --ssh-opts '-i ~/.ssh/key'
+//   pnpm ops:prod-shape:clone-snapshot --ssh deploy@<host> --dest ./.prod-shape-clones/manual
+//   pnpm ops:prod-shape:clone-snapshot --ssh deploy@<host> --force   # overwrite existing
 //
 // Prints the env block to set before running the candidate stack and the
 // gate. The intended follow-on flow is documented in docs/agents/deploys.md.
 
-import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { cloneSnapshotViaSsh } from "./clone-snapshot-ssh.mjs";
-
-const DEFAULT_APP = "border-empires-combined";
-const REMOTE_DB_PATH = "/data/border-empires.db";
-const REMOTE_SNAPSHOT_PATH = "/tmp/border-empires.snapshot.db";
-// .cjs forces CommonJS so `require("node:sqlite")` works regardless of
-// whether the remote /tmp has a package.json with "type": "module".
-const REMOTE_SNAPSHOT_SCRIPT = "/tmp/border-empires-snapshot.cjs";
 
 const parseArgs = (argv) => {
   const args = { force: false };
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i];
-    if (token === "--app") args.app = argv[++i];
-    else if (token === "--dest") args.dest = argv[++i];
+    if (token === "--dest") args.dest = argv[++i];
     else if (token === "--ssh") args.ssh = argv[++i];
     else if (token === "--ssh-opts") args.sshOpts = argv[++i];
     else if (token === "--force") args.force = true;
@@ -60,9 +44,8 @@ const parseArgs = (argv) => {
 
 const printHelp = () => {
   console.log(
-    `Usage: pnpm ops:prod-shape:clone-snapshot [--app <fly-app> | --ssh <user@host> [--ssh-opts '<opts>']] [--dest <dir>] [--force]\n` +
-      `\nDefault app: ${DEFAULT_APP}\n` +
-      `Default dest: ./.prod-shape-clones/<utc-stamp>\n`
+    `Usage: pnpm ops:prod-shape:clone-snapshot --ssh <user@host> [--ssh-opts '<opts>'] [--dest <dir>] [--force]\n` +
+      `\nDefault dest: ./.prod-shape-clones/<utc-stamp>\n`
   );
 };
 
@@ -78,222 +61,7 @@ const utcStamp = (date = new Date()) => {
   );
 };
 
-const requireFlyctl = () => {
-  const result = spawnSync("flyctl", ["version"], { stdio: "ignore" });
-  if (result.status !== 0) {
-    console.error("flyctl is not installed or not on PATH. Install: https://fly.io/docs/flyctl/install/");
-    process.exit(1);
-  }
-};
-
-const requireFlyAuth = () => {
-  const result = spawnSync("flyctl", ["auth", "whoami"], { encoding: "utf8" });
-  if (result.status !== 0) {
-    console.error(`flyctl is not authenticated. Run: flyctl auth login`);
-    console.error(result.stderr || result.stdout || "");
-    process.exit(1);
-  }
-  return result.stdout.trim();
-};
-
-// Runs a command on the remote Fly app via `flyctl ssh console -C`.
-// Returns { ok: true, stdout } or { ok: false, stderr, status }.
-const sshExec = (app, command) => {
-  const result = spawnSync(
-    "flyctl",
-    ["ssh", "console", "-a", app, "-C", command],
-    { encoding: "utf8" }
-  );
-  if (result.status !== 0) {
-    return { ok: false, stderr: result.stderr, status: result.status };
-  }
-  return { ok: true, stdout: result.stdout };
-};
-
-// Returns size in bytes of remote file, or null if absent.
-const remoteFileSize = (app, remotePath) => {
-  const result = spawnSync(
-    "flyctl",
-    ["ssh", "console", "-a", app, "-C", `stat -c %s ${remotePath}`],
-    { encoding: "utf8" }
-  );
-  if (result.status !== 0) return null;
-  const match = result.stdout.match(/(\d+)/);
-  return match ? Number(match[1]) : null;
-};
-
-const sftpGet = (app, remotePath, localPath) => {
-  console.log(`  → ${remotePath} -> ${localPath}`);
-  const result = spawnSync(
-    "flyctl",
-    ["ssh", "sftp", "get", "-a", app, remotePath, localPath],
-    { stdio: "inherit" }
-  );
-  if (result.status !== 0) {
-    throw new Error(`sftp get failed for ${remotePath} (exit ${result.status})`);
-  }
-  if (!existsSync(localPath)) {
-    throw new Error(`sftp get reported success but ${localPath} is missing`);
-  }
-};
-
-const formatBytes = (n) => {
-  if (n === null || n === undefined) return "?";
-  const units = ["B", "KiB", "MiB", "GiB"];
-  let i = 0;
-  let v = n;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-};
-
-// Run VACUUM INTO on the remote server to produce a consistent snapshot.
-// Returns { ok: true } on success, or throws on failure.
-//
-// Writes a self-cleaning Node script locally, uploads via SFTP, and runs it
-// with a plain `node /tmp/script.cjs` command (no shell metacharacters).
-// flyctl ssh console -C does NOT invoke a shell — it passes arguments directly
-// to SSH exec, so `;`, `&&`, `$?` would be literal characters, not operators.
-// The script cleans up after itself with fs.unlinkSync(__filename).
-const createServerSnapshot = (app) => {
-  // Self-cleaning: unlinks itself in finally so the remote `node` invocation
-  // is the only command needed — no shell-dependent cleanup chain.
-  const nodeScript = [
-    'const{DatabaseSync}=require("node:sqlite")',
-    `const db=new DatabaseSync("${REMOTE_DB_PATH}")`,
-    `try{db.exec(\`VACUUM INTO '${REMOTE_SNAPSHOT_PATH}'\`);db.close();console.log("ok")}finally{try{require("fs").unlinkSync(__filename)}catch{}}`
-  ].join(";");
-
-  // Write locally, upload via SFTP to avoid all shell escaping.
-  const localScript = resolve(tmpdir(), `be-snapshot-${Date.now()}.cjs`);
-  writeFileSync(localScript, nodeScript);
-
-  try {
-    // Upload script to server
-    console.log(`[clone-snapshot] uploading snapshot script to ${app}`);
-    const putResult = spawnSync("flyctl", [
-      "ssh", "sftp", "put", "-a", app,
-      localScript, REMOTE_SNAPSHOT_SCRIPT
-    ], { stdio: "inherit" });
-    if (putResult.status !== 0) {
-      throw new Error(`SFTP upload failed (exit ${putResult.status})`);
-    }
-
-    // Simple command: no `;`, no `&&`, no shell variables.
-    // flyctl ssh console -C does not invoke a shell — just SSH exec.
-    console.log(`[clone-snapshot] creating server-side snapshot via VACUUM INTO (this may take 30-60s on a large database)`);
-    const result = sshExec(app, `node ${REMOTE_SNAPSHOT_SCRIPT}`);
-
-    if (!result.ok) {
-      const stderr = (result.stderr || "").trim();
-      throw new Error(
-        `VACUUM INTO failed on ${app} (exit ${result.status}): ${stderr || "no output"}`
-      );
-    }
-
-    // Confirm the snapshot file exists on the server.
-    const snapSize = remoteFileSize(app, REMOTE_SNAPSHOT_PATH);
-    if (snapSize === null) {
-      throw new Error(
-        `VACUUM INTO completed but ${REMOTE_SNAPSHOT_PATH} not found on ${app}`
-      );
-    }
-
-    console.log(`  Server snapshot: ${REMOTE_SNAPSHOT_PATH} (${formatBytes(snapSize)})`);
-    return { ok: true, size: snapSize };
-  } finally {
-    // Always clean up the local temp script
-    try { rmSync(localScript); } catch { /* best-effort */ }
-  }
-};
-
-// Remove server-side snapshot and temp script. Best-effort — logs a warning
-// on failure but does not throw (the local clone is already safe).
-const cleanupServerSnapshot = (app) => {
-  console.log(`[clone-snapshot] cleaning up server-side files`);
-  const result = sshExec(app, `rm -f ${REMOTE_SNAPSHOT_PATH} ${REMOTE_SNAPSHOT_SCRIPT}`);
-  if (!result.ok) {
-    console.warn(`  Cleanup warning: rm failed (exit ${result.status}) — files may remain on ${app}`);
-    return;
-  }
-  console.log(`  Removed ${REMOTE_SNAPSHOT_PATH}`);
-};
-
-const main = () => {
-  const args = parseArgs(process.argv.slice(2));
-  if (args.help) {
-    printHelp();
-    return;
-  }
-  const dest = resolve(args.dest ?? `./.prod-shape-clones/${utcStamp()}`);
-  if (args.ssh) {
-    // Hetzner backend: the server's forced command streams the snapshot.
-    cloneSnapshotViaSsh({ host: args.ssh, dest, sshOpts: args.sshOpts ? args.sshOpts.split(" ") : [] }).catch((error) => {
-      console.error(`[clone-snapshot] ${error.message}`);
-      process.exit(1);
-    });
-    return;
-  }
-  const app = args.app ?? DEFAULT_APP;
-
-  requireFlyctl();
-  const flyUser = requireFlyAuth();
-  console.log(`[clone-snapshot] app=${app} dest=${dest} fly-user=${flyUser}`);
-
-  if (existsSync(dest)) {
-    if (!args.force) {
-      console.error(`destination already exists: ${dest}\nPass --force to overwrite.`);
-      process.exit(1);
-    }
-    rmSync(dest, { recursive: true, force: true });
-  }
-  mkdirSync(dest, { recursive: true });
-
-  console.log("[clone-snapshot] sizing remote database");
-  const dbSize = remoteFileSize(app, REMOTE_DB_PATH);
-  if (dbSize === null) {
-    console.error(`remote ${REMOTE_DB_PATH} not found on ${app} — wrong app or volume not mounted?`);
-    process.exit(1);
-  }
-  console.log(`  ${REMOTE_DB_PATH}  ${formatBytes(dbSize)}`);
-
-  // Create consistent snapshot server-side, then pull it.
-  try {
-    createServerSnapshot(app);
-  } catch (error) {
-    console.error(`[clone-snapshot] ${error.message}`);
-    // Try to clean up server-side snapshot even on failure.
-    try { cleanupServerSnapshot(app); } catch { /* best-effort */ }
-    process.exit(1);
-  }
-
-  console.log("[clone-snapshot] downloading snapshot");
-  const localDb = resolve(dest, "border-empires.db");
-  try {
-    sftpGet(app, REMOTE_SNAPSHOT_PATH, localDb);
-  } catch (error) {
-    console.error(`[clone-snapshot] ${error.message}`);
-    try { cleanupServerSnapshot(app); } catch { /* best-effort */ }
-    process.exit(1);
-  }
-
-  // Clean up server-side snapshot. Best-effort — the local file is safe.
-  try {
-    cleanupServerSnapshot(app);
-  } catch (error) {
-    console.warn(`[clone-snapshot] server cleanup threw: ${error.message}`);
-  }
-
-  const localSize = statSync(localDb).size;
-  console.log(
-    `\n[clone-snapshot] done. Local db: ${localDb} (${formatBytes(localSize)})\n`
-  );
-  // Machine-readable line for callers (e.g. deploy-prod.yml) to grep for the
-  // exact db file path without re-deriving it — the "Local db:" line above
-  // is for humans and its formatting isn't a stable contract.
-  console.log(`[clone-snapshot] local_db=${localDb}`);
+const printNextSteps = (localDb) => {
   console.log(
     `Next steps:\n` +
       `  1. Boot the candidate combined stack against this clone:\n\n` +
@@ -304,15 +72,39 @@ const main = () => {
       `       PROD_SHAPE_TARGET_SHA="$(git rev-parse HEAD)" \\\n` +
       `       PROD_SHAPE_OUTPUT_PATH="docs/load-results/prod-shape-$(git rev-parse --short HEAD).json" \\\n` +
       `         pnpm ops:prod-shape:gate\n\n` +
-      `  3. Verify and feed into the deploy:\n\n` +
+      `  3. Verify the result:\n\n` +
       `       PROD_SHAPE_GATE_RESULT_JSON="docs/load-results/prod-shape-$(git rev-parse --short HEAD).json" \\\n` +
-      `         pnpm deploy:prod:all\n`
+      `         pnpm ops:prod-shape:verify --target-sha "$(git rev-parse HEAD)"\n`
   );
 };
 
-try {
-  main();
-} catch (error) {
+const main = async () => {
+  const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    printHelp();
+    return;
+  }
+  if (!args.ssh) {
+    printHelp();
+    process.exit(2);
+  }
+  const dest = resolve(args.dest ?? `./.prod-shape-clones/${utcStamp()}`);
+  if (existsSync(dest)) {
+    if (!args.force) {
+      console.error(`destination already exists: ${dest}\nPass --force to overwrite.`);
+      process.exit(1);
+    }
+    rmSync(dest, { recursive: true, force: true });
+  }
+  const localDb = await cloneSnapshotViaSsh({
+    host: args.ssh,
+    dest,
+    sshOpts: args.sshOpts ? args.sshOpts.split(" ") : []
+  });
+  printNextSteps(localDb);
+};
+
+main().catch((error) => {
   console.error(`[clone-snapshot] ${error instanceof Error ? error.message : error}`);
   process.exit(1);
-}
+});

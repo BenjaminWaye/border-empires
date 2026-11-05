@@ -1,4 +1,5 @@
-import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { seedResourceNetworks } from "./resource-networks-worldgen.js";
+import type { DomainPlayer, DomainTileState, FairSpawnSite } from "@border-empires/game-domain";
 import {
   CURRENT_WORLDGEN_VERSION,
   WORLD_HEIGHT,
@@ -26,7 +27,6 @@ import {
   parseKey,
   type ClusterDefinition,
   type NaturalWonderSiteState,
-  type ShardSiteState,
   type TerrainShapeState,
   type TownDefinition,
   type WatchtowerSiteState,
@@ -55,7 +55,7 @@ import {
 import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-seed.js"; import { createSeasonNaturalWondersRuntime } from "./season-seed-natural-wonders.js";
 import { buildSeasonSeedTile } from "./season-seed-world-tile-assembly.js";
 import { createSeasonSeedPlayerSpawner } from "./season-seed-world-player-spawn.js";
-import { countFairSpawnSitesForWorldgenCheck, FAIR_SPAWN_SITE_WORLDGEN_MINIMUM } from "./season-seed-world-fair-spawn-check.js";
+import { computeFairSpawnSitesForWorldgen, FAIR_SPAWN_SITE_WORLDGEN_MINIMUM } from "./season-seed-world-fair-spawn-check.js";
 import { fillMountainRingInteriors } from "./season-seed-world-ring-interiors.js";
 import { finalizeSeasonWorldDocks } from "./dock-network/dock-sea-routes.js";
 
@@ -110,7 +110,6 @@ export const createSeasonSeedWorldAsync = async (
   const townsByTile = new Map<TileKey, TownDefinition>();
   const docksByTile = new Map<TileKey, GeneratedDockState>();
   const dockById = new Map<string, GeneratedDockState>();
-  const shardSitesByTile = new Map<TileKey, ShardSiteState>();
   const watchtowersByTile = new Map<TileKey, WatchtowerSiteState>();
   const waystationsByTile = new Map<TileKey, WaystationSiteState>();
   const naturalWondersByTile = new Map<TileKey, NaturalWonderSiteState>();
@@ -227,7 +226,7 @@ export const createSeasonSeedWorldAsync = async (
   const naturalWondersRuntime = createSeasonNaturalWondersRuntime(terrainRuntime, naturalWondersByTile, docksByTile, clusterByTile, clustersById, townsByTile);
   let worldSeed = seed;
   let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
-  let acceptedStarterWorld = false;
+  let acceptedFairSpawnSites: FairSpawnSite[] | undefined;
   for (let iteration = 0; iteration < 16; iteration += 1) {
     activeSeason.worldSeed = worldSeed;
     setWorldSeed(worldSeed, style, CURRENT_WORLDGEN_VERSION); // generation always uses the latest algorithm
@@ -259,19 +258,20 @@ export const createSeasonSeedWorldAsync = async (
     await onYield?.();
     // Reject (and regenerate, same as a bad island distribution or a bland
     // map) a candidate map that can't secure a full fair-spawn-site roster —
-    // see countFairSpawnSitesForWorldgenCheck.
-    const worldAccepted =
-      islandDistributionAccepted &&
-      !worldLooksBlandResult &&
-      countFairSpawnSitesForWorldgenCheck({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile, docksByTile }) >= FAIR_SPAWN_SITE_WORLDGEN_MINIMUM;
-    if (worldAccepted) { acceptedStarterWorld = true; break; }
+    // see computeFairSpawnSitesForWorldgen.
+    const candidateFairSpawnSites =
+      islandDistributionAccepted && !worldLooksBlandResult
+        ? computeFairSpawnSitesForWorldgen({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile, docksByTile })
+        : undefined;
+    if (candidateFairSpawnSites && candidateFairSpawnSites.length >= FAIR_SPAWN_SITE_WORLDGEN_MINIMUM) { acceptedFairSpawnSites = candidateFairSpawnSites; break; }
     if (iteration < 15) {
       worldSeed = Math.floor(terrainRuntime.seeded01(worldSeed + iteration * 101, worldSeed + iteration * 137, worldSeed + 9001) * 1_000_000_000);
     }
     await onYield?.();
   }
   // Island preferences remain best-effort; the starter economy is mandatory.
-  if (!acceptedStarterWorld && countFairSpawnSitesForWorldgenCheck({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile, docksByTile }) < FAIR_SPAWN_SITE_WORLDGEN_MINIMUM) throw new Error("worldgen could not secure 50 qualified starter sites after 16 seeds");
+  const fairSpawnSites = acceptedFairSpawnSites ?? computeFairSpawnSitesForWorldgen({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile, docksByTile });
+  if (fairSpawnSites.length < FAIR_SPAWN_SITE_WORLDGEN_MINIMUM) throw new Error("worldgen could not secure 50 qualified starter sites after 16 seeds");
   activeSeason.worldSeed = worldSeed;
   // Do NOT re-run setWorldSeed/ensureLandMassesReachSea here -- see the
   // matching comment in season-seed-world.ts (the sync sibling of this
@@ -297,9 +297,9 @@ export const createSeasonSeedWorldAsync = async (
 
   const { spawnPositions, spawnPlayerAt } = createSeasonSeedPlayerSpawner({
     WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, isSpawnableLand: (x, y) => landBiomeAt(x, y) === "GRASS", wrapX, wrapY, key,
-    chebyshevDistance, seeded01: terrainRuntime.seeded01,
+    chebyshevDistance, seeded01: terrainRuntime.seeded01, fairSpawnSites,
     townsByTile, docksByTile, ownership, clusterByTile, clustersById,
-    shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile,
+    watchtowersByTile, waystationsByTile, naturalWondersByTile,
     createSettlementTown, townTypeAt: townsRuntime.townTypeAt, minTownSpacing: townsRuntime.minTownSpacing
   });
 
@@ -320,14 +320,13 @@ export const createSeasonSeedWorldAsync = async (
     ownership,
     townsByTile,
     docksByTile,
-    shardSitesByTile,
     worldSeed,
     terrainAt,
     seeded01: terrainRuntime.seeded01
   });
   await onYield?.();
 
-    const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, landBiomeAt, townStateFromDefinition };
+    const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, landBiomeAt, townStateFromDefinition };
   const tiles = new Map<string, DomainTileState>();
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     if (y > 0 && y % 50 === 0) await onYield?.();
@@ -336,6 +335,8 @@ export const createSeasonSeedWorldAsync = async (
       tiles.set(tk, buildSeasonSeedTile(x, y, tk, tileAssemblyDeps));
     }
   }
+
+  seedResourceNetworks(tiles, worldSeed, WORLD_WIDTH, WORLD_HEIGHT);
 
   const perPlayer = [
     ...Array.from({ length: humanPlayerCount }, (_, index) => ({

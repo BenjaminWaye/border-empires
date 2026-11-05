@@ -29,7 +29,7 @@ export type TileDeltaFromStateDeps = {
  * decides which DomainTileState fields make it to the client for a given
  * tile update (command-triggered deltas; tileDeltaRevealOnly.ts is the
  * fog-of-war reveal counterpart). Overlay/worldgen fields (naturalWonder,
- * shardSite, fort, ...) come from tile-delta-overlay-fields.ts's shared
+ * fort, ...) come from tile-delta-overlay-fields.ts's shared
  * table — add a field there (and its cache entry in
  * tile-delta-stringify-cache.ts), not as a one-off line here.
  */
@@ -93,6 +93,8 @@ export const tileDeltaFromState = (
     ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
     ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
     ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
+    ...(typeof tile.warScarLevel === "number" ? { warScarLevel: tile.warScarLevel } : {}),
+    ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
     ...townWireFields(enrichedTile.town),
     ...(yieldView ? { yieldRate: yieldView.yieldRate } : {})
   };

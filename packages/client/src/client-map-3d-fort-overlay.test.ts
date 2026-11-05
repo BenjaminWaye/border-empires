@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, MeshStandardMaterial, Scene } from "three";
+import { BoxGeometry, InstancedMesh, Matrix4, MeshStandardMaterial, Scene, Vector3 } from "three";
+import type { ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
 import { createFortOverlay } from "./client-map-3d-fort-overlay.js";
 
 const instancedMeshesIn = (scene: Scene): InstancedMesh[] =>
@@ -19,6 +20,40 @@ describe("createFortOverlay variant wiring", () => {
     overlay.commit();
     const pieces = instancedMeshesIn(scene).reduce((total, mesh) => total + mesh.count, 0);
     expect(pieces).toBe(8 + 7);
+    overlay.dispose();
+  });
+
+  it("drops every open wall but keeps the corner towers", () => {
+    const scene = new Scene();
+    const overlay = createFortOverlay(scene, 4);
+    overlay.addInstance(0, 0, 0, "FORT", "EAST_WEST");
+    overlay.addInstance(2, 0, 0, "PALISADE", "NORTH_EAST_SOUTH_WEST");
+    overlay.commit();
+    const pieces = instancedMeshesIn(scene).reduce((total, mesh) => total + mesh.count, 0);
+    expect(pieces).toBe((2 + 4) + (0 + 4));
+    overlay.dispose();
+  });
+
+  it("drops the walls on the open sides, not just the right number of walls", () => {
+    const scene = new Scene();
+    const overlay = createFortOverlay(scene, 4);
+    overlay.addInstance(0, 0, 0, "FORT", "EAST_WEST");
+    overlay.commit();
+    const wallPositions = instancedMeshesIn(scene)
+      .filter((mesh) => mesh.geometry instanceof BoxGeometry && Math.max(mesh.geometry.parameters.width, mesh.geometry.parameters.depth) > 0.5)
+      .flatMap((mesh) =>
+        Array.from({ length: mesh.count }, (_, i) => {
+          const matrix = new Matrix4();
+          mesh.getMatrixAt(i, matrix);
+          return new Vector3().setFromMatrixPosition(matrix);
+        })
+      );
+    // East and west are open, so only the north and south walls remain.
+    expect(wallPositions).toHaveLength(2);
+    for (const position of wallPositions) {
+      expect(Math.abs(position.x)).toBeLessThan(0.01);
+      expect(Math.abs(position.z)).toBeGreaterThan(0.3);
+    }
     overlay.dispose();
   });
 
@@ -84,6 +119,32 @@ describe("createFortOverlay siege battery machine", () => {
     overlay.tick(1000);
     expect(new Float32Array(headMesh!.instanceMatrix.array)).not.toEqual(beforeHead);
     expect(new Float32Array(hullMesh!.instanceMatrix.array)).toEqual(beforeHull);
+    overlay.dispose();
+  });
+});
+describe("createFortOverlay breached fort", () => {
+  it("draws a breached fort from its own pieces: two wall stubs, a snapped tower and its fallen top, spilled stone", () => {
+    const scene = new Scene();
+    const overlay = createFortOverlay(scene, 4);
+    const layout = overlay.addInstance(0, 0, 0, "FORT", "CLOSED", 0, 0, undefined, undefined, false, 9);
+    overlay.commit();
+    expect(layout?.direction).toBeDefined();
+    const stone = instancedMeshesIn(scene).filter((mesh) => (mesh.material as MeshStandardMaterial).color.getHexString() === "aea99c" && mesh.count > 0);
+    const walls = stone.filter((mesh) => mesh.geometry instanceof BoxGeometry && mesh.geometry.parameters.width !== 1 && Math.max(mesh.geometry.parameters.width, mesh.geometry.parameters.depth) > 0.5);
+    // Three whole walls plus the smashed one's two stubs.
+    expect(walls.reduce((total, mesh) => total + mesh.count, 0)).toBe(5);
+    const towers = instancedMeshesIn(scene).find((mesh) => mesh.geometry instanceof BoxGeometry && mesh.geometry.parameters.height > 0.5 && mesh.count > 0);
+    expect(towers?.count).toBe(5);
+    const blocks = stone.find((mesh) => mesh.geometry instanceof BoxGeometry && mesh.geometry.parameters.width === 1);
+    expect(blocks?.count).toBe(layout!.blocks.length);
+    overlay.dispose();
+  });
+
+  it("leaves a fort under construction unbreached", () => {
+    const scene = new Scene();
+    const overlay = createFortOverlay(scene, 4);
+    const site = { visibleBands: 2 } as unknown as ConstructionSite;
+    expect(overlay.addInstance(0, 0, 0, "FORT", "CLOSED", 0, 0, undefined, { site, keepStanding: false }, false, 9)).toBeUndefined();
     overlay.dispose();
   });
 });

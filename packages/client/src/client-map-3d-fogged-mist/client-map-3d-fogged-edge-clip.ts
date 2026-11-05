@@ -27,8 +27,12 @@ export type FoggedEdgeMode = "alpha" | "multiply";
  * at a scene point, as vec2(s, cover). Reads the mist mask's storm layout
  * (client-unexplored-storm-mask.ts) with "explored" meaning "in sight", and
  * cuts it exactly like the storm's coast. Outside the mask counts as fog.
+ * Guarded, since a fog overlay is both fitted to the edge and hazed by the
+ * mist (client-map-3d-fogged-mist-haze.ts), and each brings it along.
  */
 export const FOGGED_EDGE_COVER_GLSL = `
+#ifndef FOGGED_EDGE_COVER
+#define FOGGED_EDGE_COVER
 ${STORM_FIELD_GLSL}
 vec2 foggedEdge(sampler2D mask, vec2 maskMin, vec2 maskSize, vec2 sceneXZ, vec2 worldXZ, float time) {
   vec2 uv = (sceneXZ - maskMin) / maskSize;
@@ -39,6 +43,7 @@ vec2 foggedEdge(sampler2D mask, vec2 maskMin, vec2 maskSize, vec2 sceneXZ, vec2 
   float sw = clamp(fwidth(s), 0.004, 0.04);
   return vec2(s, max(smoothstep(0.97, 0.995, soft), smoothstep(STORM_EDGE - sw, STORM_EDGE + sw * 2.0, s)));
 }
+#endif
 `;
 
 const injectAfter = (source: string, include: string, code: string): string => {

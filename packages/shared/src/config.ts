@@ -67,7 +67,11 @@ export const FOREST_VISION_RANGE = 1;
 // normal effective radius (before forest clamping is applied). See
 // isHillsTileAt in hills-terrain.ts and vision-footprint-table.ts.
 export const HILLS_VISION_BONUS = 1;
-export const COMBAT_LOCK_MS = 30_000;
+// Halved from 30_000 so fronts move faster: a flag runs at most
+// MUSTER_MAX_CONCURRENT_ACTIONS attacks at once, so this lock is what caps how
+// fast it can take frontier ground (settled ground stays capped by muster
+// inflow). attackResolveSpeedReduceMs bonuses were halved to match.
+export const COMBAT_LOCK_MS = 15_000;
 // How long a muster flag's company takes to march one tile before its
 // ATTACK actually fires/resolves. Single source of truth shared by both
 // runtimes: the client's own pre-send march for a manually-clicked attack
@@ -100,7 +104,6 @@ export const FOREST_FRONTIER_CLAIM_MULT = 1.5;
 // See isHillsTileAt usage in runtime-frontier-command.ts.
 export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 3_750;
 export const SETTLE_COST = 0;
-export const SETTLE_MS = 60_000;
 /**
  * AI-only reserve: the automatic per-tick frontier auto-claim (see
  * runtime-territory-automation-tick.ts) stops spending gold on new claims
@@ -306,8 +309,6 @@ export const AFC_LANDING_GUARANTEED_REACH_RADIUS = 1;
 // version of the same grant for ground that was already held.
 export const FRONTIER_AUTO_HEAL_MS = 30 * 60 * 1000;
 
-export const DOCK_DEFENSE_MULT = 1.5;
-export const DOCK_CROSSING_COOLDOWN_MS = 30_000;
 export const DOCK_PAIRS_MIN = 15;
 export const DOCK_PAIRS_MAX = 45;
 
@@ -421,7 +422,8 @@ export const UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING = 0.03;
 export const UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING = 0.015;
 // "Unarmed" vulnerability: a player who owns zero of a given factory type
 // ANYWHERE in their empire (not network-scoped — this is an empire-wide
-// existence check, not a clustering bonus) is markedly easier to attack.
+// existence check, not a clustering bonus) is markedly easier to fight for
+// an opponent who DOES own that type (warIndustryEdge in frontier-combat.ts).
 // Missing one type or both types applies the same flat multiplier (does not
 // stack to a larger number if both are missing — confirmed design decision).
 export const NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT = 2.0;
@@ -434,12 +436,6 @@ export const NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY = 0.1;
 // Census Directorate monument: +0.1/min manpower regen per Manpower-branch
 // building owned, empire-wide, simple linear count.
 export const CENSUS_DIRECTORATE_REGEN_PER_MANPOWER_BUILDING = 0.1;
-// Quartermaster's Office: reduces manpower cost of War-branch structures
-// built within this radius by 33%. Deliberately non-stacking (a boolean
-// "any active Office in range" check, not a per-office count) — user
-// decision, to avoid multiple Offices driving manpower cost toward zero.
-export const QUARTERMASTERS_OFFICE_RADIUS = 20;
-export const QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT = 0.67;
 // Incubation Engine (Incubation Engine): instant one-time population burst on build
 // completion.
 export const INCUBATION_ENGINE_INSTANT_POPULATION_BURST = 10_000;
@@ -491,3 +487,5 @@ export const AUTO_FILL_MAX_REGION_SIZE = 500;
 // wall the pocket, it is capped at this smaller size — you can only snap up a
 // small basin off the back of terrain, not a whole coastline.
 export const AUTO_FILL_NATURAL_BARRIER_MAX_REGION_SIZE = 50;
+
+export { RESOURCE_NETWORKS } from "./resource-networks/resource-networks.js";

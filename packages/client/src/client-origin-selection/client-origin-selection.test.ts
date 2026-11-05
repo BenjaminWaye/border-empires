@@ -302,6 +302,23 @@ describe("createClientOriginSelection", () => {
     expect(origin!.dockId).toBe("dockQ");
   });
 
+  // Beach landings: a click site passes allowAdjacentToDock=false, so only
+  // the server's landing ground (the linked dock or a coastal tile beside
+  // it) may resolve a dock origin -- inland land beside the dock still may not.
+  it("picks a dock origin for a beach beside the far dock even with allowAdjacentToDock off, but not for inland land", () => {
+    const { state, selector } = createSelector();
+    addTile(state, { x: 5, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", dockId: "dockP" });
+    addTile(state, { x: 20, y: 8, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED", dockId: "dockE" });
+    state.dockPairs = [{ ax: 5, ay: 5, bx: 20, by: 8 }];
+    addTile(state, { x: 21, y: 7, terrain: "SEA" });
+    addTile(state, { x: 21, y: 8, terrain: "LAND", ownerId: "enemy", ownershipState: "FRONTIER" }); // beach: sea to its north
+    addTile(state, { x: 20, y: 9, terrain: "LAND" }); // inland: land on every side
+    for (const [x, y] of [[19, 9], [21, 9], [20, 10], [19, 8], [22, 8], [21, 9]] as const) addTile(state, { x, y, terrain: "LAND" });
+
+    expect(selector.pickOriginForTarget(21, 8, false)?.dockId).toBe("dockP");
+    expect(selector.pickOriginForTarget(20, 9, false)).toBeUndefined();
+  });
+
   const townTile = (x: number, y: number, populationTier: NonNullable<Tile["town"]>["populationTier"]): Tile => ({
     x,
     y,

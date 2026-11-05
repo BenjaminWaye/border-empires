@@ -20,7 +20,7 @@ export type TechInfo = {
   effects?: Record<string, unknown>;
   requirements: {
     gold: number;
-    resources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
+    resources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
     checklist?: Array<{ label: string; met: boolean }>;
     canResearch?: boolean;
   };
@@ -45,7 +45,7 @@ export type DomainInfo = {
   effects?: Record<string, unknown>;
   requirements: {
     gold: number;
-    resources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
+    resources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
     checklist?: Array<{ label: string; met: boolean }>;
     canResearch?: boolean;
   };

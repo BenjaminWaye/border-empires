@@ -322,7 +322,7 @@ describe("resourceSlotDemandForPlayer", () => {
     );
     expect(totals.CRYSTAL).toBe(1);
     expect(totals.UMBRITE).toBe(3);
-    expect(totals.TITANIUM).toBe(2);
+    expect(totals.TITANIUM).toBe(0);
   });
 
   it("each additional Observatory costs progressively more CRYSTAL upkeep — 1st=1, 2nd=2, 3rd=3", () => {

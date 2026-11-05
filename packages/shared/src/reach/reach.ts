@@ -129,6 +129,22 @@ export const grantAnchorToBorder = (
   landConnectivity?: LandConnectivityQuery
 ): { border: Map<string, string>; overtaken: OvertakenTile[] } => {
   const next = new Map(border);
+  return { border: next, overtaken: grantAnchorToBorderInPlace(next, anchor, defenderLiveReach, settledOwnerAt, landConnectivity) };
+};
+
+/**
+ * `grantAnchorToBorder`, mutating `border` instead of cloning it. The runtime
+ * holds one live border of up to ~150k entries, and cloning it cost ~20ms of
+ * main-thread time on every anchor activation; this touches only the
+ * anchor's own disk. Returns the `overtaken` list.
+ */
+export const grantAnchorToBorderInPlace = (
+  next: Map<string, string>,
+  anchor: ReachAnchor,
+  defenderLiveReach: (claimantOwnerId: string) => ReadonlySet<string>,
+  settledOwnerAt?: (tileKey: string) => string | undefined,
+  landConnectivity?: LandConnectivityQuery
+): OvertakenTile[] => {
   const overtaken: OvertakenTile[] = [];
   const guaranteedKeys = guaranteedTileKeys(anchor);
   for (const key of tileKeysInReach(anchor, landConnectivity)) {
@@ -161,7 +177,7 @@ export const grantAnchorToBorder = (
       overtaken.push({ tileKey: key, fromOwnerId: existingOwner, toOwnerId: anchor.ownerId });
     }
   }
-  return { border: next, overtaken };
+  return overtaken;
 };
 
 /**
@@ -219,6 +235,19 @@ export const reassessBorderOnAnchorDeactivation = (
   landConnectivity?: LandConnectivityQuery
 ): { border: Map<string, string>; overtaken: OvertakenTile[] } => {
   const next = new Map(border);
+  const overtaken = reassessBorderOnAnchorDeactivationInPlace(next, deactivatedAnchor, ownerLiveReach, rivalLiveReachFor, rivalOwnerIds, landConnectivity);
+  return { border: next, overtaken };
+};
+
+/** `reassessBorderOnAnchorDeactivation`, mutating `border` in place -- see grantAnchorToBorderInPlace. */
+export const reassessBorderOnAnchorDeactivationInPlace = (
+  next: Map<string, string>,
+  deactivatedAnchor: ReachAnchor,
+  ownerLiveReach: ReadonlySet<string>,
+  rivalLiveReachFor: (rivalOwnerId: string) => ReadonlySet<string>,
+  rivalOwnerIds: ReadonlyArray<string>,
+  landConnectivity?: LandConnectivityQuery
+): OvertakenTile[] => {
   const overtaken: OvertakenTile[] = [];
   for (const key of tileKeysInReach(deactivatedAnchor, landConnectivity)) {
     if (next.get(key) !== deactivatedAnchor.ownerId) continue; // not (still) mine in the border
@@ -245,7 +274,7 @@ export const reassessBorderOnAnchorDeactivation = (
       overtaken.push({ tileKey: key, fromOwnerId: deactivatedAnchor.ownerId, toOwnerId: "" });
     }
   }
-  return { border: next, overtaken };
+  return overtaken;
 };
 
 /**

@@ -1,4 +1,11 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
+import {
+  DOCK_INCOME_PER_MIN,
+  PASSIVE_INCOME_MULT,
+  SETTLEMENT_BASE_GOLD_PER_MIN,
+  TOWN_BASE_GOLD_PER_MIN,
+  townPopulationMultiplier
+} from "@border-empires/game-domain";
 import { resolvedTownCoastal, resolvedTownTerrainProfileId, type SlotResource, type WaypointWireStep } from "@border-empires/shared";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
@@ -43,6 +50,8 @@ export type ServerDevQueueEntry = {
   reservedManpower?: number;
   /** The resource-slot requirement reserved alongside reservedManpower, netted into later enqueue checks so a player can't queue more slot-gated BUILDs than they have supply for. */
   reservedSlotRequirements?: { resource: SlotResource; count: number }[];
+  /** SETTLE queued while the player couldn't cover its manpower: holds no reservation until a refill batch lands -- see runtime-dev-queue-settle-manpower-wait.ts. */
+  awaitingManpower?: true;
   /**
    * Who dispatches this entry while the player is online. "client" (the
    * default, and how entries recovered from snapshots written before this
@@ -83,7 +92,7 @@ export type ServerWaypointQueueEntry = {
   /** Index into `steps` of the next unattempted step. Undefined/0 == start. */
   cursor?: number;
   stalled?: boolean;
-  /** Expand To & Attack effort for the final ATTACK leg -- see runtime-waypoint-drain.ts commitManpowerForStep. */
+  /** (Former) Expand To & Attack effort, on waypoints queued before its removal, for the final ATTACK leg -- see runtime-waypoint-drain.ts commitManpowerForStep. */
   commitManpower?: number;
 };
 
@@ -105,6 +114,8 @@ export type ClaimContinuation = {
 
 export type PlayerRuntimeSummary = {
   territoryTileKeys: Set<string>;
+  /** At most nine world-generated sites; rebuilt from tiles on recovery. */
+  relicTileKeys?: Set<string>;
   frontierTileKeys: Set<string>;
   hotFrontierTileKeys: Set<string>;
   strategicFrontierTileKeys: Set<string>;
@@ -139,8 +150,7 @@ const emptyStrategicProduction = (): Record<StrategicResourceKey, number> => ({
   FOOD: 0,
   TITANIUM: 0,
   CRYSTAL: 0,
-  UMBRITE: 0,
-  SHARD: 0
+  UMBRITE: 0
 });
 
 // TITANIUM/CRYSTAL/UMBRITE are slot-based, not produced —
@@ -163,14 +173,15 @@ const strategicResourceForTile = (resource: DomainTileState["resource"] | string
   }
 };
 
+// Same base rates as the authoritative buildPlayerUpdateEconomySnapshot
+// (post GOLD_RESCALE_DIVISOR), without support/feeding/network terms. This
+// used to hard-code the pre-rescale 1/2/3/5/6.4 per tier, so AI planner
+// views and /admin/players read ~288x the gold a player actually earns.
 const townGoldPerMinute = (
   populationTier: NonNullable<NonNullable<DomainTileState["town"]>["populationTier"]> | undefined
 ): number => {
-  if (populationTier === "SETTLEMENT" || populationTier === undefined) return 1;
-  if (populationTier === "CITY") return 3;
-  if (populationTier === "GREAT_CITY") return 5;
-  if (populationTier === "METROPOLIS") return 6.4;
-  return 2;
+  if (populationTier === "SETTLEMENT" || populationTier === undefined) return SETTLEMENT_BASE_GOLD_PER_MIN * PASSIVE_INCOME_MULT;
+  return TOWN_BASE_GOLD_PER_MIN * townPopulationMultiplier(populationTier) * PASSIVE_INCOME_MULT;
 };
 
 const townPopulationTierForTile = (tile: EconomyTileLike): NonNullable<NonNullable<DomainTileState["town"]>["populationTier"]> | undefined =>
@@ -183,10 +194,10 @@ const goldIncomePerMinuteForTile = (tile: EconomyTileLike): number => {
   if (hasTownOnTile(tile)) return townGoldPerMinute(townPopulationTierForTile(tile));
   // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
   // this rough estimate feeds AI planner views / debug snapshots only (the
-  // authoritative figure is buildPlayerUpdateEconomySnapshot); 1 matches
-  // townGoldPerMinute's own SETTLEMENT-tier baseline above.
-  if (tile.afc) return 1;
-  if (tile.dockId) return 0.5;
+  // authoritative figure is buildPlayerUpdateEconomySnapshot); the AFC pays
+  // the SETTLEMENT-tier baseline there too.
+  if (tile.afc) return SETTLEMENT_BASE_GOLD_PER_MIN * PASSIVE_INCOME_MULT;
+  if (tile.dockId) return DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT;
   return 0;
 };
 
@@ -216,6 +227,7 @@ const activeStructureProcessCount = (tile: DomainTileState, ownerId: string): nu
 
 export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   territoryTileKeys: new Set<string>(),
+  relicTileKeys: new Set<string>(),
   frontierTileKeys: new Set<string>(),
   hotFrontierTileKeys: new Set<string>(),
   strategicFrontierTileKeys: new Set<string>(),
@@ -283,8 +295,7 @@ export const cloneStrategicProduction = (
   FOOD: value.FOOD,
   TITANIUM: value.TITANIUM,
   CRYSTAL: value.CRYSTAL,
-  UMBRITE: value.UMBRITE,
-  SHARD: value.SHARD
+  UMBRITE: value.UMBRITE
 });
 
 export const estimateIncomePerMinuteFromTiles = (playerId: string, tiles: Iterable<EconomyTileLike>): number => {
@@ -293,7 +304,7 @@ export const estimateIncomePerMinuteFromTiles = (playerId: string, tiles: Iterab
     if (tile.ownerId !== playerId) continue;
     income += goldIncomePerMinuteForTile(tile);
   }
-  return Math.round(income * 100) / 100;
+  return Math.round(income * 1e6) / 1e6; // 2dp would round post-rescale income to 0
 };
 
 export const estimateStrategicProductionPerMinuteFromTiles = (
@@ -317,6 +328,11 @@ export const applyTileToPlayerSummary = (
 ): void => {
   if (!tile.ownerId) return;
   summary.territoryTileKeys.add(tileKey);
+  if (tile.naturalWonder) {
+    const keys = summary.relicTileKeys ??= new Set<string>();
+    if (!keys.has(tileKey) && keys.size >= 9) throw new RangeError("World relic limit exceeded");
+    keys.add(tileKey);
+  }
   if (tile.ownershipState === "FRONTIER") summary.frontierTileKeys.add(tileKey);
   if (tile.ownershipState === "SETTLED") {
     summary.settledTileCount += 1;
@@ -348,6 +364,7 @@ export const removeTileFromPlayerSummary = (
 ): void => {
   if (!tile.ownerId) return;
   summary.territoryTileKeys.delete(tileKey);
+  summary.relicTileKeys?.delete(tileKey);
   summary.frontierTileKeys.delete(tileKey);
   if (tile.ownershipState === "SETTLED") {
     summary.settledTileCount = Math.max(0, summary.settledTileCount - 1);

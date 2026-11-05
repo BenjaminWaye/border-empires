@@ -61,7 +61,7 @@ regression suite and Storybook stories.
 **Now wired into both map renderers** (2026-09-28, see
 `docs/manifest-afc-overlay-wiring-plan.md` for the design): an AFC tile
 renders its full reactor model in the true-3D renderer, with a docked
-module cartridge in its socket ring for each of the 12 covered families a
+module in its socket ring for each covered family (12 at the time; 21 of 22 since 2026-10-23) a
 player has commissioned (up to the asset's fixed 8-socket cap; anything
 beyond that, or any of the still-uncovered 10 families, docks invisibly —
 not a bug, a known limitation until the socket cap or the remaining art
@@ -84,8 +84,10 @@ Retort), `alchemy` (Titanium Synthesis, wired 2026-09-28 after merging
 remaining-modules branch/PR; picking it up was a one-line registry
 addition, exactly as this file's own header comment promised).
 
-**Still missing a 3D overlay (9 of 22) — in progress on a separate branch/PR,
-not this one:**
+**Wired 2026-10-23 (now 21 of 22 covered):** the models for the eight
+techs below had already landed on `develop` without a registry entry, so they
+docked the generic cartridge until they were added to
+`client-map-3d-afc-module-family.ts`:
 - `advanced-synthetication` — Catalyst Fabricator Module
 - `remade-concordat` — Ancillary Control Core
 - `conveyor-networks` — Reserve Lattice Module
@@ -94,14 +96,12 @@ not this one:**
 - `steelworking` — Thunderplate Induction Module
 - `muster-discipline` — Hive Mind Module I
 - `muster-command` — Hive Mind Module II
-- `cryptography` — Counterphase Core Module
 
-Per user direction (2026-09-28): another agent/PR is building the rest of
-these, to be merged the same way PR #2119 and (per-module, as each lands
-on `develop`) `alchemy` were. Do not duplicate that work here -- when
-`develop` picks up another family's asset, wiring it in is a one-line
-registry addition in `client-map-3d-afc-module-family.ts` plus bumping
-the covered/missing lists here and the registry's own test count.
+**Still missing a 3D model (1 of 22):** `cryptography` — Counterphase Core
+Module, which docks the generic cartridge. When its model lands, add one
+registry entry in `client-map-3d-afc-module-family.ts` and remove it from
+the `modelPending` list in that file's test, which fails if any
+`AFC_MODULE` tech in `tech-tree.json` is missing from the registry.
 
 Verified (2026-09-28): full client suite green at 3300/3300 (494/494 files),
 `tsc --noEmit` clean, `check:file-lines` clean. Wiring the AFC overlay

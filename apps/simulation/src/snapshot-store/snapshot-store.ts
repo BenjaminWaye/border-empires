@@ -18,6 +18,9 @@ import type { RecoveredSimulationState } from "../event-recovery/event-recovery.
  *   `initialState.tiles` (the snapshot is post-event). The event itself is
  *   only useful to re-broadcast a delta to a reconnecting client; recovery
  *   doesn't need it to reconstruct world state.
+ * - REACH_BORDER_CHANGED: the resulting border is already in
+ *   `initialState.reachBorder`; recovery only replays it from the event
+ *   store for events after the snapshot.
  *
  * On staging these three event types accounted for ~99 MB of a 103 MB
  * snapshot. Dropping them at snapshot-write time has no functional impact
@@ -28,7 +31,8 @@ const REDUNDANT_SNAPSHOT_EVENT_TYPES: ReadonlySet<string> = new Set<SimulationEv
   "TILE_YIELD_ANCHOR_UPDATED",
   "TILE_YIELD_ANCHOR_BATCH",
   "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED",
-  "TILE_DELTA_BATCH"
+  "TILE_DELTA_BATCH",
+  "REACH_BORDER_CHANGED"
 ]);
 
 const stripRedundantSnapshotEvents = (events: readonly SimulationEvent[]): SimulationEvent[] =>

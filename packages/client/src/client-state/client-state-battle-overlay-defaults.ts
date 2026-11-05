@@ -1,4 +1,6 @@
+import { DockLandingMemory } from "../client-dock-landing/client-dock-landing-memory.js";
 import type { ActiveBattleOverlay } from "../client-battle-overlay/client-battle-overlay.js";
+import type { SquadGear } from "../client-map-3d-popup-marine/popup-marine-gear.js";
 
 // Server-resolved battle overlays keyed by target tile key. Populated from
 // the combat-broadcast payload riding TILE_DELTA_BATCH deltas (see
@@ -7,6 +9,7 @@ import type { ActiveBattleOverlay } from "../client-battle-overlay/client-battle
 // in-flight action for the HUD) so any number of battles — including ones
 // this player isn't a party to — can animate concurrently.
 export const createInitialBattleOverlayState = () => ({
+  dockLandings: new DockLandingMemory(),
   activeBattles: new Map<string, ActiveBattleOverlay>(),
   // Keyed by target tile key: when this client first rendered a pre-
   // resolution skirmish there (performance.now()-scale), NOT the siege's
@@ -16,5 +19,11 @@ export const createInitialBattleOverlayState = () => ({
   // inherits this timestamp for positioning; see registerActiveBattleFromTileDelta's
   // own comment for why (it always starts already standing at the firing
   // line instead).
-  skirmishSeenAt: new Map<string, number>()
+  skirmishSeenAt: new Map<string, number>(),
+  // Each owner's last-seen war industry (a combat broadcast's
+  // attackerGear/defenderGear), so a later pre-resolution skirmish involving
+  // them already shows its heavy armour / Umbrite rounds. Updated by every
+  // broadcast either way and capped -- see rememberSquadGear in
+  // client-battle-overlay.ts.
+  squadGearByOwner: new Map<string, SquadGear>()
 });

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { InstancedMesh, Matrix4, Scene, Vector3 } from "three";
 import { AFC_SOCKET_COUNT } from "./client-map-3d-fabrication-complex.js";
@@ -28,13 +29,17 @@ describe("AFC module family registry", () => {
   // first module ever docked correctly; every other socket flung its module
   // along an arc around the map origin, far from an AFC that isn't at (0,0).
   it("keeps every docked module beside its AFC, in every socket, when the AFC is far from the world origin", () => {
-    const scene = new Scene();
-    const group = createAfcOverlayGroup(scene, 2);
-    group.addAfc(100, 200, 0, 5, 5, AFC_MODULE_FAMILY_TECH_IDS.slice(0, AFC_SOCKET_COUNT));
-    group.commit();
-    // AFC footprint radius ~1.4 tiles; a docked module reaches < 1.3 + 1 tiles.
-    expect(maxDistanceFrom(scene, 100, 200)).toBeLessThan(3);
-    group.dispose();
+    // Every family, a socket ring at a time.
+    for (let start = 0; start < AFC_MODULE_FAMILY_TECH_IDS.length; start += AFC_SOCKET_COUNT) {
+      const scene = new Scene();
+      const group = createAfcOverlayGroup(scene, 2);
+      const techIds = AFC_MODULE_FAMILY_TECH_IDS.slice(start, start + AFC_SOCKET_COUNT);
+      group.addAfc(100, 200, 0, 5, 5, techIds);
+      group.commit();
+      // AFC footprint radius ~1.4 tiles; a docked module reaches < 1.3 + 1 tiles.
+      expect(maxDistanceFrom(scene, 100, 200), techIds.join(", ")).toBeLessThan(3);
+      group.dispose();
+    }
   });
 
   it("seats a module on its own socket for every socket rotation", () => {
@@ -63,10 +68,22 @@ describe("AFC module family registry", () => {
   });
 
 
-  it("lists the 14 module families, including industrial tooling", () => {
-    expect(AFC_MODULE_FAMILY_TECH_IDS).toHaveLength(14);
-    expect(new Set(AFC_MODULE_FAMILY_TECH_IDS).size).toBe(14);
+  it("lists the 22 module families, including industrial tooling", () => {
+    expect(AFC_MODULE_FAMILY_TECH_IDS).toHaveLength(22);
+    expect(new Set(AFC_MODULE_FAMILY_TECH_IDS).size).toBe(22);
     expect(AFC_MODULE_FAMILY_TECH_IDS).toContain("trade");
+  });
+
+  // Regression: eight finished module models (Bastion Master-Die, Hive Mind
+  // I/II, Thunderplate Induction, ...) sat outside this registry, so their
+  // techs docked the generic cartridge in game.
+  it("gives every AFC_MODULE tech in the tech tree a bespoke model, except the known gaps", () => {
+    const techTree = JSON.parse(readFileSync(new URL("../../game-domain/data/tech-tree.json", import.meta.url), "utf8")) as {
+      techs: ReadonlyArray<{ id: string; manifestCategory?: string }>;
+    };
+    const modelPending = ["cryptography"];
+    const moduleTechIds = techTree.techs.filter((tech) => tech.manifestCategory === "AFC_MODULE").map((tech) => tech.id);
+    expect(moduleTechIds.filter((id) => !AFC_MODULE_FAMILY_TECH_IDS.includes(id))).toEqual(modelPending);
   });
 
   it("docks a known module family and grows the scene's instanced meshes", () => {
@@ -104,7 +121,7 @@ describe("AFC module family registry", () => {
   it("docks at most AFC_SOCKET_COUNT modules even when more are supplied", () => {
     const scene = new Scene();
     const group = createAfcOverlayGroup(scene, 2);
-    // 12 known families, only 8 sockets -- everything past the 8th is
+    // 12 known families supplied, only 8 sockets -- everything past the 8th is
     // silently dropped rather than throwing or wrapping to a 9th socket.
     expect(() => {
       group.addAfc(0, 0, 0, 5, 5, AFC_MODULE_FAMILY_TECH_IDS.slice(0, AFC_SOCKET_COUNT + 4));
@@ -139,7 +156,7 @@ describe("AFC module family registry", () => {
     group.commit();
     const oneModule = totalInstanceCount(scene) - afcOnly;
     group.clear();
-    group.addAfc(0, 0, 0, 5, 5, ["masonry", "fortified-walls", "steelworking"]);
+    group.addAfc(0, 0, 0, 5, 5, ["masonry", "cryptography", "some-unbuilt-module-tech"]);
     group.commit();
     const genericPiecesPerModule = 3;
     expect(totalInstanceCount(scene) - afcOnly).toBe(oneModule + 2 * genericPiecesPerModule);

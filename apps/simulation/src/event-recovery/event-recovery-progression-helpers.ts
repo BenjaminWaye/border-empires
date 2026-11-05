@@ -11,6 +11,11 @@ export const applyProgressionUpdateToRecoveredPlayer = (
   const payload = parseOptionalJson<Record<string, unknown>>(payloadJson);
   if (!payload) return;
   applyRecoveredAfcState(player, payload);
+  // Explicit reserve state also accompanies factory conversions outside AFC campaigns.
+  for (const key of ["manpower", "manpowerUpdatedAt", "manpowerBanked", "waystationManpowerOverflow"] as const) {
+    const value = payload[key];
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) player[key] = value;
+  }
   if (Array.isArray(payload.techIds) && payload.techIds.every((id) => typeof id === "string")) {
     player.techIds = payload.techIds as string[];
   }

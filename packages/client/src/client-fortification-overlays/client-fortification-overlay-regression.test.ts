@@ -1,7 +1,8 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { FORTIFICATION_OPENINGS, fortificationOpeningSides } from "./client-fortification-overlays.js";
 
 const clientSource = (filename: string): string => {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -24,5 +25,17 @@ describe("fortification overlay asset wiring", () => {
     expect(draw2D).toContain("const kind = fortificationOverlayKindForTile(tile);");
     expect(draw2D).toContain("overlayImageFor(kind, fortificationOpeningForTile(tile, deps))");
     expect(draw2D).toContain('overlayImageFor("RELAY_BEACON", "CLOSED")');
+  });
+
+  it("ships a ring sprite for every combination of open sides", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const overlaysDir = resolve(here, "../../public/overlays");
+    for (const prefix of ["fort-ring-overlay", "palisade-ring-overlay"]) {
+      for (const opening of FORTIFICATION_OPENINGS) {
+        const sides = fortificationOpeningSides(opening).map((side) => side.toLowerCase()).join("-");
+        const filename = opening === "CLOSED" ? `${prefix}-closed.svg` : `${prefix}-open-${sides}.svg`;
+        expect(existsSync(resolve(overlaysDir, filename)), filename).toBe(true);
+      }
+    }
   });
 });

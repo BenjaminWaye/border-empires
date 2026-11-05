@@ -17,7 +17,7 @@ import {
   syncAuthPanelState as syncAuthPanelStateFromModule
 } from "../client-auth-ui/client-auth-ui.js";
 import { MOBILE_LOGIN_ZOOM } from "../client-constants.js";
-import { setDebugAuthEmail } from "../client-debug/client-debug.js";
+import { setDebugAuthEmail, setGuestIdentityUid } from "../client-debug/client-debug.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
 import { logSignUpConversion, logSignUpIfNewUser } from "./client-auth-flow-analytics.js";
@@ -29,6 +29,7 @@ import { EMAIL_LINK_STORAGE_KEY, initGuestSave, linkOrSignInWithEmailLink } from
 import { completeGuestEmailLink, syncGuestSaveBadge } from "../client-guest-save/client-guest-save-panel.js";
 import { bindInitTransferProgress } from "../client-init-transfer/client-init-transfer-progress.js";
 import type { AuthSession, AuthFlowDeps, ClientAuthFlow } from "./client-auth-flow-types.js";
+import { isPhoneViewport } from "../client-panel-nav/client-phone-viewport.js";
 
 export type { AuthSession } from "./client-auth-flow-types.js";
 
@@ -55,7 +56,6 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     wsUrl,
     requireAuthedSession,
     renderHud,
-    isMobile,
     devAuthPlayerId
   } = deps;
 
@@ -349,6 +349,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         if (!user && devAuthPlayerId) return;
         if (!user) {
           setDebugAuthEmail("");
+          setGuestIdentityUid("");
           state.mapRevealEligible = false;
           state.mapRevealEnabled = false;
           state.authReady = false;
@@ -371,6 +372,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         authSession.emailLinkSentTo = "";
         const authEmail = user.email ?? undefined;
         setDebugAuthEmail(authEmail);
+        // Before any per-account storage read below: a guest gets its own scope (debugAuthIdentityKeyForEmail).
+        setGuestIdentityUid(user.isAnonymous ? user.uid : "");
         // Force fog admin to re-activate reveal on every sign-in. A stale "1" in
         // localStorage from a prior session caused syncDesiredFogDisabled to
         // auto-resend REQUEST_REVEAL_MAP on connect, which triggers a full-world
@@ -386,7 +389,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         });
         state.authReady = true;
         state.authSessionReady = false;
-        if (isMobile()) {
+        // The phone screen, not the HUD layout drawn on it (client-phone-viewport.ts).
+        if (isPhoneViewport()) {
           state.zoom = MOBILE_LOGIN_ZOOM;
         }
         setAuthBusy(true);

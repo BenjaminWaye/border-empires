@@ -39,3 +39,7 @@ export const lastManpowerRefillAtMs = (playerId: string, nowMs: number, windowMs
 /** The next refill boundary strictly after `nowMs`. */
 export const nextManpowerRefillAtMs = (playerId: string, nowMs: number, windowMs: number = MANPOWER_REFILL_WINDOW_MS): number =>
   lastManpowerRefillAtMs(playerId, nowMs, windowMs) + windowMs;
+
+/** Full-window manpower yield, used to display periodic regeneration. */
+export const manpowerPerBatch = (regenPerMinute: number): number =>
+  regenPerMinute * (MANPOWER_REFILL_WINDOW_MS / 60_000);

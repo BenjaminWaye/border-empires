@@ -2,8 +2,7 @@ import {
   grassShadeAt,
   landBiomeAt,
   structureBuildGoldCost,
-  visualLandBiomeAt,
-  structureBuildManpowerCost
+  visualLandBiomeAt
 } from "@border-empires/shared";
 import { isForestTile } from "../client-constants.js";
 import { ownedActiveOrBuildingObservatoryCount } from "../client-tile-action-support/client-tile-action-support.js";
@@ -14,6 +13,7 @@ import {
   type StructureInfoView
 } from "../client-map-display.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { buildManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import type { Tile } from "../client-types.js";
 
 type BuildableStructureId = "FORT" | "OBSERVATORY" | "SIEGE_BATTERY" | NonNullable<Tile["economicStructure"]>["type"];
@@ -44,7 +44,7 @@ export const createClientRuntimeDisplaySupport = (deps: {
   // CRYSTAL/UMBRITE build-time stockpile spend was retired server-side (Step
   // 5 item 4 Slice A) -- structureCostDefinition's resourceCost field for
   // these four keys is stale display copy. This is one-time build cost only
-  // (gold/manpower/an optional shard-style override) -- the real ongoing
+  // (gold/manpower) -- the real ongoing
   // resource-slot/gold-day upkeep is a separate, explicitly labeled "Upkeep:"
   // segment sourced from client-structure-upkeep-text.ts's upkeepDescriptorFor,
   // not folded in here unlabeled.
@@ -52,7 +52,7 @@ export const createClientRuntimeDisplaySupport = (deps: {
     const goldCost = structureGoldCost(structureType);
     const parts: string[] = [];
     if (goldCost > 0) parts.push(`${goldCost} coin`);
-    const manpowerCost = structureBuildManpowerCost(structureType);
+    const manpowerCost = buildManpowerCostForState(state, structureType);
     if (manpowerCost > 0) parts.push(`${manpowerCost} manpower`);
     if (resourceOverride) parts.push(resourceOverride);
     return parts.join(" + ");

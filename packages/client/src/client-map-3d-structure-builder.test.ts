@@ -9,12 +9,27 @@ import { createStructurePieceBuilder } from "./client-map-3d-structure-builder.j
 // (false), so structures never cast or received a real shadow the way trees
 // now do (client-map-3d-forest.ts), reading as flatly lit by comparison.
 describe("createStructurePieceBuilder shadow wiring", () => {
+  it("does not allocate unused registry instance buffers, including dry-run construction measurements", () => {
+    const scene = new Scene();
+    const { builder, clear, commit, dispose } = createStructurePieceBuilder(scene, 6000);
+    builder.makeSlot("unused", new BoxGeometry(1, 1, 1), new MeshStandardMaterial(), 6000);
+    builder.measure(() => builder.addPiece("unused", 0, 0, 0, 0, 0.5, 0));
+    expect(scene.children).toHaveLength(0);
+    builder.addPiece("unused", 0, 0, 0, 0, 0.5, 0);
+    commit();
+    expect(builder.getMesh("unused")?.count).toBe(1);
+    clear(); commit();
+    expect(builder.getMesh("unused")?.count).toBe(0);
+    dispose();
+    expect(scene.children).toHaveLength(0);
+  });
   it("makeSlot's InstancedMesh casts and receives shadows", () => {
     const scene = new Scene();
     const { builder, dispose } = createStructurePieceBuilder(scene, 4);
     const geo = new BoxGeometry(1, 1, 1);
     const mat = new MeshStandardMaterial();
     builder.makeSlot("test-slot", geo, mat, 4);
+    builder.addPiece("test-slot", 0, 0, 0, 0, 0, 0);
     const mesh = scene.children.find((c): c is InstancedMesh => c instanceof InstancedMesh);
     expect(mesh).toBeDefined();
     expect(mesh!.castShadow).toBe(true);

@@ -4,8 +4,8 @@ import { resourceGlyphsToIconHtml, resourceIconHtml, setTextWithResourceIcons } 
 
 describe("resourceGlyphsToIconHtml", () => {
   it("swaps resource glyphs in already-HTML text for the icon images", () => {
-    expect(resourceGlyphsToIconHtml("Raided. Lost ◉ 12, 🍞 3 Food, ✦ 1 Shard.")).toBe(
-      `Raided. Lost ${resourceIconHtml("GOLD")} 12, ${resourceIconHtml("FOOD")} 3 Food, ${resourceIconHtml("SHARD")} 1 Shard.`
+    expect(resourceGlyphsToIconHtml("Raided. Lost ◉ 12, 🍞 3 Food, 💎 1 Crystal.")).toBe(
+      `Raided. Lost ${resourceIconHtml("GOLD")} 12, ${resourceIconHtml("FOOD")} 3 Food, ${resourceIconHtml("CRYSTAL")} 1 Crystal.`
     );
   });
 
@@ -21,7 +21,7 @@ describe("setTextWithResourceIcons", () => {
     expect(el.querySelector("b")).toBeNull();
     expect(el.textContent).toBe("Conquered from <b>Evil</b>. Plundered  2 Titanium,  1 Crystal.");
     expect(Array.from(el.querySelectorAll("img")).map((img) => img.getAttribute("src"))).toEqual([
-      "/icons/simple/titanium.svg",
+      "/icons/resources/titanium-96.png",
       "/icons/simple/crystal.svg"
     ]);
     expect(Array.from(el.querySelectorAll("img")).map((img) => img.getAttribute("alt"))).toEqual(["Titanium", "Crystal"]);
@@ -40,7 +40,7 @@ describe("setTextWithResourceIcons", () => {
     setTextWithResourceIcons(el, "Plundered ◉ 9.");
     el.textContent = "";
     setTextWithResourceIcons(el, "Plundered ◉ 9.");
-    expect(el.querySelector("img")?.getAttribute("src")).toBe("/icons/simple/gold.svg");
+    expect(el.querySelector("img")?.getAttribute("src")).toBe("/icons/resources/gold-96.png");
     expect(el.textContent).toBe("Plundered  9.");
   });
 });

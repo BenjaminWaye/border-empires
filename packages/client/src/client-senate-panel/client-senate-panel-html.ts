@@ -28,8 +28,8 @@ export type SenateTargetOption = { seasonId: string; label: string };
 // galaxy-senate-tick.ts -- display only, the server is the source of truth
 // and re-validates the real cost on submit.
 const ACTION_INFO: Record<"EMBARGO" | "CONTEST", { icon: string; cost: number; quorumPct: number; summary: string }> = {
-  EMBARGO: { icon: "🚫", cost: 15, quorumPct: 25, summary: "Halves the target's Influence/Production trickle for 2 Cycles." },
-  CONTEST: { icon: "⚔️", cost: 40, quorumPct: 40, summary: "Forces the named territory's Stability to 0 and opens a Defense Campaign." }
+  EMBARGO: { icon: "⊘", cost: 15, quorumPct: 25, summary: "Halves the target's Influence/Production trickle for 2 Cycles." },
+  CONTEST: { icon: "⚔\uFE0E", cost: 40, quorumPct: 40, summary: "Forces the named territory's Stability to 0 and opens a Defense Campaign." }
 };
 
 const escapeHtml = (input: string): string =>
@@ -107,7 +107,7 @@ const actionCardHtml = (type: "EMBARGO" | "CONTEST", selected: boolean): string 
 export const senatePanelHtml = (proposalsHtml: string, targetOptionsHtml: string): string => `
   <div class="sn-panel">
     <div class="sn-header">
-      <h3 class="sn-heading">🏛️ Galactic Senate</h3>
+      <h3 class="sn-heading">Galactic Senate</h3>
     </div>
     <div class="sn-proposals" data-senate-proposals>${proposalsHtml}</div>
     <form class="sn-form" data-senate-propose-form>

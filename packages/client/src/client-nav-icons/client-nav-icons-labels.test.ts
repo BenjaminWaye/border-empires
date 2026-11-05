@@ -28,6 +28,6 @@ describe("desktop top-bar icon names", () => {
     const css = read("./client-nav-icons-labels-style.css");
     expect(css).toContain("#panel-actions .icon-btn.icon-only::after");
     expect(css).toContain("content: attr(aria-label)");
-    expect(read("../main.ts")).toContain('import "./client-nav-icons/client-nav-icons-labels-style.css";');
+    expect(read("../client-styles.ts")).toContain('import "./client-nav-icons/client-nav-icons-labels-style.css";');
   });
 });

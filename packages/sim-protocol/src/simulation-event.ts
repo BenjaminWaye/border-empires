@@ -18,6 +18,17 @@ import type { TileOverlayJsonFields } from "./tile-overlay-fields/tile-overlay-f
 // the fight went worse than their own commit-tab preview suggested, instead
 // of an unexplained bad roll — see docs/replenishment-update-plan.md
 // workstream E's "reactive shield reveal" note.
+//
+// `attackerGear`/`defenderGear` are the cosmetic war industry behind each
+// side's battle squad: `titaniumArmor` once the empire owns a Titanium
+// Weapons Factory (every soldier wears the heavy armour model),
+// `umbriteArms` once it owns an Umbrite Weapons Factory (the whole side
+// fires Umbrite rounds). Omitted when a side has neither. Factory ownership
+// is not a secret -- the attack preview already names a side "missing
+// Titanium Weapons Factory" -- so this reveals nothing the combat UI doesn't
+// already.
+export type BattleWarGear = { titaniumArmor?: true; umbriteArms?: true };
+
 export type CombatBroadcastPayload = {
   attackerOwnerId: string;
   defenderOwnerId: string;
@@ -26,6 +37,8 @@ export type CombatBroadcastPayload = {
   originY: number;
   at: number;
   shield?: { x: number; y: number };
+  attackerGear?: BattleWarGear;
+  defenderGear?: BattleWarGear;
 };
 
 // Extracted from index.ts (which is already over the file-line cap and may
@@ -122,6 +135,8 @@ export type SimulationEvent =
         frontierDecayKind?: FrontierDecayKind | undefined;
         breachShockUntil?: number | undefined;
         captureHoldUntil?: number | undefined;
+        warScarLevel?: number | undefined;
+        warScarUntil?: number | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";
         townName?: string | undefined;
@@ -143,6 +158,19 @@ export type SimulationEvent =
       startedAt: number;
       resolvesAt: number;
       goldCost: number;
+    }
+  | {
+      /**
+       * Sim-internal: the exact persistent reach-border diff one anchor
+       * activation/deactivation produced (`ownerId: null` = vacated). Never
+       * sent to the gateway (WIRE_INTERNAL_EVENT_TYPES); it exists so startup
+       * recovery can replay border changes made after the last checkpoint
+       * instead of re-deciding contested tiles by anchor order.
+       */
+      eventType: "REACH_BORDER_CHANGED";
+      commandId: string;
+      playerId: string;
+      changes: Array<{ tileKey: string; ownerId: string | null }>;
     }
   | {
       eventType: "TECH_UPDATE";

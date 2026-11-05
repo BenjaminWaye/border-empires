@@ -21,6 +21,7 @@ export type ExportedDevQueueEntry = {
   queuedAt: number;
   reservedManpower?: number;
   reservedSlotRequirements?: ReadonlyArray<{ resource: SlotResource; count: number }>;
+  awaitingManpower?: true;
 };
 
 /**
@@ -39,5 +40,6 @@ export const toPersistedDevQueueEntries = (
     ...(entry.reservedManpower ? { reservedManpower: entry.reservedManpower } : {}),
     ...(entry.reservedSlotRequirements?.length
       ? { reservedSlotRequirements: entry.reservedSlotRequirements.map((req) => ({ resource: req.resource, count: req.count })) }
-      : {})
+      : {}),
+    ...(entry.awaitingManpower ? { awaitingManpower: true as const } : {})
   }));

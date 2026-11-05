@@ -22,8 +22,6 @@ export type AdminPlayerRow = {
    */
   resourceSlotSupply: { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number };
   resourceSlotDemand: { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number };
-  /** SHARD is the one strategic resource still a real banked stockpile. */
-  shardStockpile: number;
   /** Persistent reach-border tile count granted to this player (see packages/shared/src/reach/reach.ts). */
   reachTiles: number;
   /** ownedTiles - settledTiles, i.e. FRONTIER-state tiles this player owns. */
@@ -86,6 +84,7 @@ export type GetAiDecisionDiagnosticsResponse = {
  * apps/simulation/src/player-combat-summary-snapshot.ts.
  */
 export type PlayerCombatSummary = {
+  relicCombatFacts?: import("./relic-combat-facts.js").RelicCombatFacts;
   afcCombatFacts?: import("./afc-combat-facts.js").AfcCombatFacts;
   techIds: string[];
   domainIds: string[];

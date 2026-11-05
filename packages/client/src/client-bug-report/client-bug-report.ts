@@ -1,7 +1,7 @@
 import { snapshotClientDebugEvents } from "../client-debug/client-debug.js";
 import { snapshotPerformanceMetrics, initPerformanceMetrics } from "../client-performance-metrics/client-performance-metrics.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
-import { serverHttpOriginFromWsUrl, withTimeout, type JsonFetchResult } from "../client-debug-bundle/client-debug-bundle.js";
+import { serverHttpOriginFromWsUrl, fetchPlayerServerDiagnostics, type JsonFetchResult } from "../client-debug-bundle/client-debug-bundle.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 // ---------------------------------------------------------------------------
@@ -27,7 +27,7 @@ const REPORT_KIND_CONFIG: Record<ReportKind, ReportKindConfig> = {
   bug: {
     endpoint: "/api/bug-reports",
     title: "Report a Bug",
-    icon: "🐞",
+    icon: "⚠\uFE0E",
     hint: "Describe what went wrong. Recent client and server logs are attached automatically.",
     placeholder: "What happened? What did you expect?",
     submitLabel: "Submit Report",
@@ -37,7 +37,7 @@ const REPORT_KIND_CONFIG: Record<ReportKind, ReportKindConfig> = {
   suggestion: {
     endpoint: "/api/suggestions",
     title: "Suggest an Improvement",
-    icon: "💡",
+    icon: "✦",
     hint: "Share an idea to make the game better. Recent client and server logs are attached automatically.",
     placeholder: "What would you like to see added or improved?",
     submitLabel: "Submit Suggestion",
@@ -131,7 +131,7 @@ export const buildReportPayload = async (args: {
 }): Promise<ReportPayload> => {
   initPerformanceMetrics();
   const serverOrigin = serverHttpOriginFromWsUrl(args.wsUrl);
-  const serverBundle = await withTimeout(`${serverOrigin}/admin/runtime/debug-bundle`);
+  const serverBundle = await fetchPlayerServerDiagnostics(serverOrigin);
   return {
     metadata: buildMetadata(args.wsUrl),
     description: args.description.slice(0, MAX_DESCRIPTION_LENGTH),

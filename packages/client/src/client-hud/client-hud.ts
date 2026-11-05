@@ -6,8 +6,7 @@ import { INTEGRITY_PENALTY_PCT, type ChosenTrickleResource } from "@border-empir
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
 import { integrityChipHtml, selfPlayerChipHtml } from "./client-stat-chips.js";
-import { manpowerGaugeChipHtml, ownStagedManpower } from "../client-manpower-gauge/client-manpower-gauge.js";
-import { nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
+import { hudManpowerGaugeHtml } from "./client-hud-manpower-gauge.js";
 import { devGearsChipHtml } from "../client-dev-gears/client-dev-gears.js";
 import { renderPlayerProfileOverlay, wirePlayerProfileOverlay } from "../client-player-profile/client-player-profile.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
@@ -15,7 +14,8 @@ import { renderDefensibilityPanels } from "./client-hud-defensibility-panel.js";
 import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 import type { initClientDom } from "../client-dom.js";
-import { renderEconomyPanelHtml } from "../client-economy-html/client-economy-html.js";
+import { bindHudEconomyPanelControls, hudEconomyPanelHtml } from "./client-hud-economy-panel.js";
+import { renderHudTownsPanel } from "./client-hud-towns-panel.js";
 import { imperialWardChipHtml, bindImperialWardChip } from "../client-imperial-ward/client-imperial-ward.js";
 import type { EconomyFocusKey } from "../client-economy-model.js";
 import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
@@ -23,7 +23,7 @@ import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-dia
 import { buildDisconnectHistoryBundle } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-hud.js";
 import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
-import { buildManpowerPanelMusterFlags, wireManpowerPanel } from "../client-muster-flags-panel/client-muster-flags-panel.js";
+import { renderHudManpowerPanel } from "./client-hud-manpower-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
 import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
@@ -45,7 +45,7 @@ import { syncManifestPanelTabs } from "../client-manifest-tabs/client-manifest-t
 import { sovereignSiegeEngineStrikeRecordToFeedEntry, SOVEREIGN_SIEGE_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-sovereign-siege-engine-strike-history/client-sovereign-siege-engine-strike-history.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
 import { refreshLiveTechRequirements } from "../client-tech-live-requirements/client-tech-live-requirements.js";
-import type { StructureInfoKey } from "../client-map-display.js";
+import { bindStructureInfoActions } from "../client-structure-info-overlay/client-structure-info-actions.js";
 import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { DomainInfo, PlayerRespawnNotice, TechInfo, Tile, TileMenuView } from "../client-types.js";
 import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav-icons.js";
@@ -94,7 +94,7 @@ type HudDeps = {
   renderTileActionMenu: (view: TileMenuView, clientX: number, clientY: number) => void;
   tileMenuViewForTile: (tile: Tile) => TileMenuView;
   renderCaptureProgress: () => void;
-  renderShardAlert: () => void; renderVictoryHoldAlert: () => void;
+  renderVictoryHoldAlert: () => void;
   renderTechChoiceGrid: () => string;
   techDetailsUseOverlay: () => boolean;
   renderTechDetailPrompt: () => string;
@@ -174,8 +174,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     requestTileDetailIfNeeded,
     renderTileActionMenu,
     tileMenuViewForTile,
-    renderCaptureProgress,
-    renderShardAlert, renderVictoryHoldAlert,
+    renderCaptureProgress, renderVictoryHoldAlert,
     renderTechChoiceGrid,
     bindTechTreeDragScroll,
     chooseTech,
@@ -242,7 +241,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.statsChipsEl.innerHTML = `
     ${mobile ? "" : selfPlayerChipHtml(connClass, state.meName, state.leaderboard)}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Coin</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
-    ${manpowerGaugeChipHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, staged: ownStagedManpower(state.tiles.values(), state.me, Date.now()), regenPerMinute: state.manpowerRegenPerMinute, logisticsPerMinute: state.logisticsThroughputPerMinute, nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now()), nowMs: Date.now(), formatAmount: formatManpowerAmount })}
+    ${hudManpowerGaugeHtml(state, formatManpowerAmount)}
     ${integrityChipHtml({ pct: state.defensibilityPct, defClass, showWarning: showIntegrityWarning, mobile })}
     ${devGearsChipHtml({ busy: development.busy, limit: development.limit, mobile })}
     ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-toggle-weak-def="true"><span>Integrity</span><strong>Hide Weak</strong></button>` : ""}
@@ -363,7 +362,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.mobileCoreHelpEl.style.display = "none";
 
   safeValue("renderCaptureProgress", undefined, () => renderCaptureProgress());
-  safeValue("renderShardAlert", undefined, () => renderShardAlert()); safeValue("renderVictoryHoldAlert", undefined, () => renderVictoryHoldAlert());
+  safeValue("renderVictoryHoldAlert", undefined, () => renderVictoryHoldAlert());
   state.replayActive = false;
   state.replayPlaying = false;
   dom.miniMapLabelEl.innerHTML = replayToolbarHtml();
@@ -497,23 +496,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       renderClientHud(deps);
     };
   });
-  const structureInfoButtons = dom.hud.querySelectorAll("[data-structure-info]") as NodeListOf<HTMLButtonElement>;
-  structureInfoButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const type = btn.dataset.structureInfo as StructureInfoKey | undefined;
-      if (!type) return;
-      state.structureInfoKey = type;
-      state.crystalAbilityInfoKey = "";
-      renderClientHud(deps);
-    };
-  });
-  const structureInfoCloseButtons = dom.hud.querySelectorAll("[data-structure-info-close]") as NodeListOf<HTMLElement>;
-  structureInfoCloseButtons.forEach((btn: HTMLElement) => {
-    btn.onclick = () => {
-      state.structureInfoKey = "";
-      renderClientHud(deps);
-    };
-  });
+  bindStructureInfoActions(dom.hud, { state, isMobile, renderHud: () => renderClientHud(deps) });
   const crystalAbilityInfoButtons = dom.hud.querySelectorAll("[data-crystal-ability-info]") as NodeListOf<HTMLButtonElement>;
   crystalAbilityInfoButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
@@ -647,47 +630,16 @@ export const renderClientHud = (deps: HudDeps): void => {
   });
 
   const economyPanelHtml = safeValue("renderEconomyPanelHtml", fallbackCard("Economy"), () =>
-    renderEconomyPanelHtml({
-      focus: state.economyFocus,
-      integrityPct: state.defensibilityPct,
-      gold: state.gold,
-      me: state.me,
-      incomePerMinute: state.incomePerMinute,
-      strategicResources: state.strategicResources,
-      storageCap: state.storageCap,
-      strategicProductionPerMinute: state.strategicProductionPerMinute,
-      resourceSlots: state.resourceSlots, dormantStructures: state.dormantStructures,
-      economyBreakdown: state.economyBreakdown,
-      upkeepPerMinute: state.upkeepPerMinute,
-      upkeepLastTick: state.upkeepLastTick,
-      activeRevealTargetsCount: state.activeRevealTargets.length,
-      tiles: state.tiles.values(),
-      isMobile: window.matchMedia("(max-width: 900px)").matches,
-      prettyToken,
-      resourceIconHtml,
-      rateToneClass,
-      resourceLabel,
-      economicStructureName,
-      isRevealed: (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog)
-    })
+    hudEconomyPanelHtml(state, { prettyToken, resourceIconHtml, rateToneClass, resourceLabel, economicStructureName, hasRevealedResourceCategory })
   );
   dom.panelEconomyEl.innerHTML = dom.mobilePanelEconomyEl.innerHTML = economyPanelHtml;
   dom.panelDevelopmentEl.innerHTML = dom.mobilePanelDevelopmentEl.innerHTML = safeValue("developmentPanelHtml", fallbackCard("Development"), () =>
     renderDevelopmentPanelHtml(deriveDevelopmentPanelData(state.tiles, state.me, state.settleProgressByTile, state.developmentQueue, development.busy, development.limit))
   );
-  const manpowerPanelHtml = safeValue("renderManpowerPanelHtml", fallbackCard("Manpower"), () =>
-    deps.renderManpowerPanelHtml({
-      manpower: state.manpower,
-      manpowerCap: state.manpowerCap,
-      manpowerRegenPerMinute: state.manpowerRegenPerMinute,
-      manpowerBreakdown: state.manpowerBreakdown,
-      musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
-      formatManpowerAmount,
-      rateToneClass, nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now())
-    })
-  );
-  dom.panelManpowerEl.innerHTML = dom.mobilePanelManpowerEl.innerHTML = manpowerPanelHtml;
-  wireManpowerPanel(dom.hud, state, { wrapX, wrapY, requestViewRefresh, rerender: () => renderClientHud(deps) });
+  renderHudManpowerPanel({
+    state, dom, renderManpowerPanelHtml: deps.renderManpowerPanelHtml, formatManpowerAmount, rateToneClass, wrapX, wrapY, requestViewRefresh, sendGameMessage,
+    rerender: () => renderClientHud(deps), safeHtml: safeValue, fallbackHtml: fallbackCard("Manpower")
+  });
   dom.leaderboardEl.innerHTML = dom.mobileLeaderboardEl.innerHTML = safeValue(
     "leaderboardHtml",
     fallbackCard("Leaderboard"),
@@ -772,10 +724,10 @@ export const renderClientHud = (deps: HudDeps): void => {
       };
     });
   };
-  bindRequestActionButtons(".accept-request", "requestId", (id) => ({ type: "ALLIANCE_ACCEPT", requestId: id }), "Finish sign-in before responding to alliance requests.");
+  bindRequestActionButtons(".accept-request", "requestId", (id) => ({ type: "ALLIANCE_ACCEPT", requestId: id, confirmedResourceSupply: true }), "Finish sign-in before responding to alliance requests.");
   bindRequestActionButtons(".reject-request", "requestId", (id) => ({ type: "ALLIANCE_REJECT", requestId: id }), "Finish sign-in before responding to alliance requests.");
   bindRequestActionButtons(".cancel-request", "requestId", (id) => ({ type: "ALLIANCE_CANCEL", requestId: id }), "Finish sign-in before changing alliance requests.");
-  bindRequestActionButtons(".accept-truce", "truceRequestId", (id) => ({ type: "TRUCE_ACCEPT", requestId: id }), "Finish sign-in before responding to truces.");
+  bindRequestActionButtons(".accept-truce", "truceRequestId", (id) => ({ type: "TRUCE_ACCEPT", requestId: id, confirmedResourceSupply: true }), "Finish sign-in before responding to truces.");
   bindRequestActionButtons(".reject-truce", "truceRequestId", (id) => ({ type: "TRUCE_REJECT", requestId: id }), "Finish sign-in before responding to truces.");
   bindRequestActionButtons(".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
 
@@ -787,14 +739,10 @@ export const renderClientHud = (deps: HudDeps): void => {
   bindAccountSettingsControls(dom.hud, firebaseAuth, state, wsUrl, () => renderClientHud(deps));
   renderProfileEditOverlay({ state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud: () => renderClientHud(deps) });
   bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindRendererSettingsControls(dom.hud); bindEmailNotificationsSettingsControls(dom.hud); bindPhotoModeSettingsControls(dom.hud, state, () => renderClientHud(deps)); bindAdminSettingsControls(dom.hud, { state, sendGameMessage, requestViewRefresh, rerender: () => renderClientHud(deps), openPanel: setActivePanel });
-  const economyFocusButtons = dom.hud.querySelectorAll("[data-economy-focus]") as NodeListOf<HTMLButtonElement>;
-  economyFocusButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const focus = btn.dataset.economyFocus as EconomyFocusKey | undefined;
-      if (!focus) return;
-      state.economyFocus = focus;
-      renderClientHud(deps);
-    };
+  bindHudEconomyPanelControls(dom.hud, state, () => renderClientHud(deps));
+  renderHudTownsPanel(state, {
+    root: dom.hud, panelEl: dom.panelTownsEl, mobilePanelEl: dom.mobilePanelTownsEl, rerender: () => renderClientHud(deps),
+    requestViewRefresh, wrapX, wrapY, isMobile, safeHtml: safeValue, fallbackHtml: fallbackCard("Towns")
   });
   const defensibilityButtons = dom.hud.querySelectorAll("[data-defensibility-open]") as NodeListOf<HTMLButtonElement>; // top-bar chip + Economy panel card (wired after the panel HTML is in)
   defensibilityButtons.forEach((btn: HTMLButtonElement) => {

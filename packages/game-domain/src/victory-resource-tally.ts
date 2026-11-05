@@ -1,3 +1,4 @@
+import { emptyNetworkSiteCounts, isNetworkResource } from "@border-empires/shared";
 import type { ResourceType } from "@border-empires/shared";
 
 // tile.resource (FARM/FISH/TITANIUM/GEMS/UMBRITE) is a raw terrain-resource
@@ -28,7 +29,7 @@ export const resourceRevealedByTechs = (
   revealCategoryForTech: (techId: string) => string | undefined
 ): boolean => {
   const category = resourceRevealCategory(resource);
-  if (category === "food") return true;
+  if (category === "food" || isNetworkResource(resource)) return true;
   for (const techId of techIds) {
     if (revealCategoryForTech(techId) === category) return true;
   }
@@ -40,7 +41,7 @@ export type VictoryResourceTally = {
   ownedResourceCountsByPlayerId: Map<string, Record<ResourceType, number>>;
 };
 
-export const emptyResourceCounts = (): Record<ResourceType, number> => ({ FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 });
+export const emptyResourceCounts = (): Record<ResourceType, number> => ({ ...emptyNetworkSiteCounts(), FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 });
 
 export const createVictoryResourceTally = (): VictoryResourceTally => ({
   totalResourceCounts: emptyResourceCounts(),

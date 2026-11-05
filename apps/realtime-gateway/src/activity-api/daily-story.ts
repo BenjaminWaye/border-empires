@@ -69,13 +69,14 @@ const buildBiggestDefeat = (swing: DailyStoryInput["biggestSwing24h"]): DailySto
 
 const buildOpenWar = (wars: DailyStoryInput["wars"]): DailyStoryEvent | undefined => {
   if (wars.length === 0) return undefined;
-  const top = [...wars].sort((a, b) => b.tileFlips24h - a.tileFlips24h)[0];
-  if (!top || top.tileFlips24h <= 0) return undefined;
+  // Ranked and scored on distinct tiles, the same number the text quotes.
+  const top = [...wars].sort((a, b) => b.tilesContested24h - a.tilesContested24h)[0];
+  if (!top || top.tilesContested24h <= 0) return undefined;
   return story({
     type: "OPEN_WAR",
     headline: "Open War",
-    text: `${top.playerAName} and ${top.playerBName} are at war — ${pluralize(top.tileFlips24h, "tile")} changed hands today.`,
-    significance: normalizeSignificance(top.tileFlips24h, SIGNIFICANCE_SCALE.flipCount),
+    text: `${top.playerAName} and ${top.playerBName} are at war — ${pluralize(top.tilesContested24h, "tile")} changed hands today.`,
+    significance: normalizeSignificance(top.tilesContested24h, SIGNIFICANCE_SCALE.tileCount),
     players: [top.playerAName, top.playerBName]
   }, [top.playerA, top.playerB]);
 };

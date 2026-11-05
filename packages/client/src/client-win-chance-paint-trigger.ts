@@ -58,19 +58,22 @@ export const tilesAlongLine = (x0: number, y0: number, x1: number, y1: number): 
 
 /**
  * Client-side win-chance estimate for one enemy tile (the same math as the
- * march arrow's labels) -- the fallback when no server ATTACK_PREVIEW for it
- * is cached yet.
+ * march arrow's labels). `serverBaseWinChance`, when passed, is the cached
+ * server ATTACK_PREVIEW odds and replaces the modifier-less estimate as the
+ * base the commit/shield scaling applies to.
  */
 export const estimateTileWinChance = (
   state: Pick<ClientState, "tiles">,
   tile: Tile,
-  commit: { committedManpower: number; baseMusterCost: number }
+  commit: { committedManpower: number; baseMusterCost: number },
+  serverBaseWinChance?: number
 ): number =>
   winChanceForTile(previewTileFor(tile), {
     knownShieldAmount: tile.ownerId ? findKnownShieldAmount(tile.x, tile.y, tile.ownerId, collectKnownShieldFlags(state.tiles.values())) : 0,
     modifiers: { nowMs: Date.now() },
     committedManpower: commit.committedManpower,
-    baseMusterCost: commit.baseMusterCost
+    baseMusterCost: commit.baseMusterCost,
+    ...(serverBaseWinChance != null ? { baseWinChance: serverBaseWinChance } : {})
   }).winChance;
 
 type WinChanceEntry = { x: number; y: number; winChance: number; color: string };
@@ -78,8 +81,10 @@ type WinChanceEntry = { x: number; y: number; winChance: number; color: string }
 /**
  * The "XX%" label data for every enemy-owned tile the origin->target line
  * crosses (never the player's own origin tile), scored against `commit` when
- * passed -- see triggerWinChancePaintOnMarchArm. Pure: shared by the map
- * paint and the March To sheet's live win-chance line.
+ * passed -- see triggerWinChancePaintOnMarchArm. `targetServerWinChance`
+ * (the march's server ATTACK_PREVIEW odds, client-march-win-chance-preview.ts)
+ * scores the target tile itself; the tiles on the way stay client estimates.
+ * Pure: shared by the map paint and the March To sheet's live win-chance line.
  */
 export const winChanceEntriesAlongLine = (
   state: Pick<ClientState, "tiles" | "me">,
@@ -88,7 +93,8 @@ export const winChanceEntriesAlongLine = (
   targetX: number,
   targetY: number,
   keyFor: (x: number, y: number) => string,
-  commit?: { committedManpower: number; baseMusterCost: number }
+  commit?: { committedManpower: number; baseMusterCost: number },
+  targetServerWinChance?: number
 ): WinChanceEntry[] => {
   const entries: WinChanceEntry[] = [];
   // F3: the same client-known shield flags the shield-area overlay uses
@@ -104,7 +110,8 @@ export const winChanceEntriesAlongLine = (
     const { winChance, color } = winChanceForTile(previewTileFor(tile), {
       knownShieldAmount,
       modifiers: { nowMs: Date.now() },
-      ...(commit ? { committedManpower: commit.committedManpower, baseMusterCost: commit.baseMusterCost } : {})
+      ...(commit ? { committedManpower: commit.committedManpower, baseMusterCost: commit.baseMusterCost } : {}),
+      ...(targetServerWinChance != null && x === targetX && y === targetY ? { baseWinChance: targetServerWinChance } : {})
     });
     entries.push({ x, y, winChance, color });
   }
@@ -131,10 +138,11 @@ export const triggerWinChancePaintOnMarchArm = (
   vis: "visible" | "fogged" | "unexplored",
   keyFor: (x: number, y: number) => string,
   nowMs: number,
-  commit?: { committedManpower: number; baseMusterCost: number }
+  commit?: { committedManpower: number; baseMusterCost: number },
+  targetServerWinChance?: number
 ): void => {
   if (vis === "unexplored" || (targetX === originX && targetY === originY)) return;
-  const entries = winChanceEntriesAlongLine(state, originX, originY, targetX, targetY, keyFor, commit);
+  const entries = winChanceEntriesAlongLine(state, originX, originY, targetX, targetY, keyFor, commit, targetServerWinChance);
   state.winChancePaint = { targetX, targetY, expiresAt: nowMs + WIN_CHANCE_PAINT_DURATION_MS, entries };
 };
 
@@ -148,11 +156,12 @@ export const describeMarchWinChance = (
   state: Pick<ClientState, "tiles" | "me">,
   target: { x: number; y: number },
   keyFor: (x: number, y: number) => string,
-  commit: { committedManpower: number; baseMusterCost: number }
+  commit: { committedManpower: number; baseMusterCost: number },
+  serverBaseWinChance?: number
 ): string => {
   const tile = state.tiles.get(keyFor(target.x, target.y));
   if (!tile?.ownerId || tile.ownerId === state.me) return "The target isn't enemy-held — win chances show on enemy tiles along the arrow";
-  const winChance = Math.round(estimateTileWinChance(state, tile, commit) * 100);
+  const winChance = Math.round(estimateTileWinChance(state, tile, commit, serverBaseWinChance) * 100);
   const effort = isCommitOddsEligibleTarget(tile, Date.now())
     ? `commits ${commit.committedManpower} manpower`
     : "extra manpower doesn't change the odds here";

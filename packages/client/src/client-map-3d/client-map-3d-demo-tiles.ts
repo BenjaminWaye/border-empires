@@ -35,7 +35,7 @@ export const createDemoTileSpecs = () => {
   // Visual-only demo: ?fortdemo=1 fakes a row of 4 fort kinds two tiles
   // south of the camera so you can compare them side-by-side. Demo
   // forts are owned by "demo" so the cardinal-opening rule still
-  // resolves (FORT next to FORT opens its first cardinal); place each
+  // resolves (FORT next to FORT opens the walls they share); place each
   // kind 2 tiles apart so they don't merge walls.
   const fortDemoEnabled =
     typeof window !== "undefined" &&

@@ -62,4 +62,12 @@ describe("arrowGestureConfirmInvalidatedByTileDeltaBatch", () => {
     };
     expect(arrowGestureConfirmInvalidatedByTileDeltaBatch(state as never, [{ x: 5, y: 5 }], keyFor)).toBe(false);
   });
+
+  it("keeps a new-flag march sheet open while its flagless origin tile is still the player's", () => {
+    const pending = { origin: { x: 1, y: 1 }, target: { x: 5, y: 5 }, newFlag: true };
+    const state = { me: "me", tiles: new Map([["1,1", { x: 1, y: 1, ownerId: "me" }]]), pendingArrowGestureConfirm: pending };
+    expect(arrowGestureConfirmInvalidatedByTileDeltaBatch(state as never, [{ x: 1, y: 1 }], keyFor)).toBe(false);
+    state.tiles.set("1,1", { x: 1, y: 1, ownerId: "enemy" });
+    expect(arrowGestureConfirmInvalidatedByTileDeltaBatch(state as never, [{ x: 1, y: 1 }], keyFor)).toBe(true);
+  });
 });

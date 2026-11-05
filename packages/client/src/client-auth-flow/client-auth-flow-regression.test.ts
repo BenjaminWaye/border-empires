@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { RealtimeSocket } from "../client-socket-types.js";
 
 const clientSource = (): string => {
@@ -84,6 +84,12 @@ vi.mock("firebase/analytics", () => ({
 }));
 
 describe("email-link sign-in on Safari with blocked storage", () => {
+  // Cold compilation of the full client import graph belongs to setup, not
+  // the five-second budget for the storage-error behavior being asserted.
+  beforeAll(async (): Promise<void> => {
+    await import("./client-auth-flow.js");
+  });
+
   const makeButton = (): HTMLButtonElement =>
     ({ disabled: false, onclick: null, style: { display: "" }, dataset: {} } as unknown as HTMLButtonElement);
   const makeInput = (): HTMLInputElement => ({ disabled: false, value: "", focus: vi.fn() } as unknown as HTMLInputElement);
@@ -176,8 +182,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
       wsUrl: "wss://border-empires.fly.dev/ws",
       requireAuthedSession: () => true,
-      renderHud: vi.fn(),
-      isMobile: () => false
+      renderHud: vi.fn()
     });
 
     // Before the fix, an unguarded localStorage.getItem() throw here aborted
@@ -220,8 +225,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
       wsUrl: "wss://border-empires.fly.dev/ws",
       requireAuthedSession: () => true,
-      renderHud: vi.fn(),
-      isMobile: () => false
+      renderHud: vi.fn()
     });
 
     expect(() => authFlow.bindFirebaseAuth()).not.toThrow();
@@ -263,8 +267,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
       wsUrl: "wss://border-empires.fly.dev/ws",
       requireAuthedSession: () => true,
-      renderHud: vi.fn(),
-      isMobile: () => false
+      renderHud: vi.fn()
     });
 
     authFlow.bindFirebaseAuth();
@@ -291,8 +294,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
       wsUrl: "wss://border-empires.fly.dev/ws",
       requireAuthedSession: () => true,
-      renderHud: vi.fn(),
-      isMobile: () => false
+      renderHud: vi.fn()
     });
 
     // onAuthStateChanged is async in real Firebase (it reads persisted state
@@ -326,7 +328,6 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       wsUrl: "ws://127.0.0.1:3101/ws",
       requireAuthedSession: () => true,
       renderHud: vi.fn(),
-      isMobile: () => false,
       devAuthPlayerId: "player-1"
     });
     authFlow.bindFirebaseAuth();
@@ -355,7 +356,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
     const authFlow = createClientAuthFlow({
       state: makeState(), dom: makeDom(), firebaseAuth: fakeFirebaseAuth, ws,
       wsUrl: "ws://127.0.0.1:3101/ws", requireAuthedSession: () => true,
-      renderHud: vi.fn(), isMobile: () => false
+      renderHud: vi.fn()
     });
     authFlow.bindFirebaseAuth();
     const onChange = vi.mocked(onAuthStateChanged).mock.calls[0]?.[1];
@@ -397,8 +398,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
       wsUrl: "wss://border-empires.fly.dev/ws",
       requireAuthedSession: () => true,
-      renderHud: vi.fn(),
-      isMobile: () => false
+      renderHud: vi.fn()
     });
 
     authFlow.bindAuthUi();
@@ -433,8 +433,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
         ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
         wsUrl: "wss://border-empires.fly.dev/ws",
         requireAuthedSession: () => true,
-        renderHud: vi.fn(),
-        isMobile: () => false
+        renderHud: vi.fn()
       });
       authFlow.bindFirebaseAuth();
       const onUser = vi.mocked(onAuthStateChanged).mock.calls[0]![1] as unknown as (user: unknown) => Promise<void>;

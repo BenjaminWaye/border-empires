@@ -18,7 +18,8 @@ import type { Tile } from "./client-types.js";
  * this batch's updates AND, per the now-merged tile in `state.tiles`, the
  * local player no longer owns a muster flag there (captured/destroyed, or
  * the muster flag itself was cleared, e.g. by a SET_MUSTER HOLD/cancel
- * racing the same drag). The confirm sheet's target tile is deliberately
+ * racing the same drag). A sheet opened to raise a NEW flag (pending.newFlag)
+ * only goes stale when the tile itself is lost -- it never had a flag. The confirm sheet's target tile is deliberately
  * NOT checked here -- an armed march can legally target any tile (enemy,
  * frontier, unexplored-at-arm-time), so a target-tile ownership change alone
  * is not invalidating; only losing the origin flag is.
@@ -33,5 +34,5 @@ export const arrowGestureConfirmInvalidatedByTileDeltaBatch = (
   const originKey = keyFor(pending.origin.x, pending.origin.y);
   if (!updates.some((update) => keyFor(update.x, update.y) === originKey)) return false;
   const originTile: Tile | undefined = state.tiles.get(originKey);
-  return !originTile?.muster || originTile.ownerId !== state.me;
+  return originTile?.ownerId !== state.me || (!originTile.muster && !pending.newFlag);
 };

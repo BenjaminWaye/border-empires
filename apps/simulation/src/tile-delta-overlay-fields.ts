@@ -5,8 +5,8 @@ import { TILE_OVERLAY_KEYS, overlayJsonField } from "./tile-overlay-fields/tile-
 type OverlayFieldName = keyof AllSubstructureJson & keyof SimulationTileWireDelta;
 
 /**
- * Which "overlay" substructure JSON fields (fort, natural wonder, shard
- * site, ...) belong on a tile wire delta, and how they are copied onto it.
+ * Which "overlay" substructure JSON fields (fort, natural wonder,
+ * observatory, ...) belong on a tile wire delta, and how they are copied onto it.
  *
  * Both tileDeltaFromState (command-triggered deltas, runtime-tile-delta-from-state.ts)
  * and tileDeltaRevealOnly (fog-of-war reveal deltas, tile-delta-reveal-only.ts)
@@ -20,7 +20,7 @@ type OverlayFieldName = keyof AllSubstructureJson & keyof SimulationTileWireDelt
  * `undefined`, so downstream consumers (event-recovery.ts, proto-serialization.ts,
  * ai/planner-tile-delta-merge.ts, ...) can use `"xJson" in delta` to tell
  * "this delta touched the field" (present, possibly undefined = explicit
- * clear -- e.g. a shard site collected, see runtime-shard-rain-tick.ts)
+ * clear -- e.g. a structure removed or a Siphon ending)
  * apart from "field untouched since the subscriber's last update" (absent).
  * Omitting a falsy field instead of including it as `undefined` silently
  * breaks clear-detection for that field -- do not special-case a field to

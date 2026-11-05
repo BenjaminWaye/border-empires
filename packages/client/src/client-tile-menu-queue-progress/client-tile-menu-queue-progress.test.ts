@@ -83,3 +83,32 @@ describe("queuedBuildProgressForTile: queue state", () => {
     expect(queued?.queueState).toBe("queued");
   });
 });
+
+describe("queuedSettlementProgressForTile: waiting for manpower", () => {
+  it("says the garrison needs manpower while it waits for the next batch", () => {
+    const progress = queuedSettlementProgressForTile(tile, {
+      keyFor: (x, y) => `${x},${y}`,
+      queuedDevelopmentEntryForTile: () => ({ kind: "SETTLE", tileKey: "2,2" }),
+      queuedSettlementIndexForTile: () => 0,
+      queuedEntryIndexForTile: () => 0,
+      settleAwaitsManpower: (tileKey) => tileKey === "2,2"
+    });
+    expect(progress?.title).toBe("Garrison queued");
+    expect(progress?.remainingLabel).toBe("Needs manpower");
+    expect(progress?.detail).toBe("Starts after the next manpower batch.");
+  });
+});
+
+it("keeps the planned (local-only) warning on a planned garrison that is also waiting for manpower", () => {
+  const progress = queuedSettlementProgressForTile(tile, {
+    keyFor: (x, y) => `${x},${y}`,
+    queuedDevelopmentEntryForTile: () => ({ kind: "SETTLE", tileKey: "2,2" }),
+    queuedSettlementIndexForTile: () => 0,
+    queuedEntryIndexForTile: () => 30,
+    devQueueStateForTile: () => "planned",
+    settleAwaitsManpower: () => true
+  });
+  expect(progress?.title).toBe("Garrison planned");
+  expect(progress?.detail).toBe("Waiting locally for coin/manpower and a free server queue slot before this is submitted.");
+  expect(progress?.remainingLabel).toBe("Needs manpower");
+});

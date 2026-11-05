@@ -6,6 +6,7 @@ export const hudMarkup = `
     <div id="panel-actions">
       <button class="icon-btn icon-only" hidden data-panel="missions" title="Missions" aria-label="Missions">${navTabIconHtml("missions")}</button>
       <button class="icon-btn icon-only" data-panel="tech" title="Manifest" aria-label="Manifest">${navTabIconHtml("tech")}</button>
+      <button class="icon-btn icon-only" data-panel="towns" title="Towns" aria-label="Towns">${navTabIconHtml("towns")}</button>
       <button class="icon-btn icon-only" data-panel="alliance" title="Allies" aria-label="Allies">${navTabIconHtml("alliance")}</button>
       <button class="icon-btn icon-only" data-panel="leaderboard" title="Ranks" aria-label="Ranks">${navTabIconHtml("leaderboard")}</button>
       <button class="icon-btn icon-only" data-open-activity-dashboard title="Activity" aria-label="Activity">${navTabIconHtml("activity")}</button>
@@ -45,7 +46,7 @@ export const hudMarkup = `
         </div>
         <div id="capture-target"></div>
         <button id="capture-goto" class="capture-goto-btn" type="button" style="display:none">Center</button>
-        <button id="capture-download-debug" class="capture-debug-btn" type="button">Download debug log</button>
+        <button id="capture-report-bug" class="capture-debug-btn" type="button">Report bug</button>
       </div>
       <button id="capture-cancel" class="capture-cancel-btn" title="Cancel capture">Cancel</button>
       <button id="capture-dismiss" class="capture-dismiss-btn" type="button" title="Hide this progress bar">Dismiss</button>
@@ -56,16 +57,6 @@ export const hudMarkup = `
     <span id="placement-label"></span>
     <button id="placement-cancel" class="placement-btn placement-cancel-btn" type="button">Cancel</button>
     <button id="placement-confirm" class="placement-btn placement-confirm-btn" type="button">Confirm</button>
-  </div>
-
-  <div id="shard-alert-overlay">
-    <div id="shard-alert-card">
-      <div id="shard-alert-head">
-        <div id="shard-alert-title"></div>
-        <button id="shard-alert-close" class="shard-alert-close-btn" type="button" title="Close shard alert" aria-label="Close shard alert">✕</button>
-      </div>
-      <div id="shard-alert-detail"></div>
-    </div>
   </div>
 
   <div id="victory-alert-overlay" style="display:none">
@@ -245,6 +236,7 @@ export const hudMarkup = `
     <button data-mobile-panel="core" title="Core" aria-label="Core">${navTabIconHtml("core")}</button>
     <button hidden data-mobile-panel="missions" title="Missions" aria-label="Missions">${navTabIconHtml("missions")}</button>
     <button data-mobile-panel="tech" title="Manifest" aria-label="Manifest">${navTabIconHtml("tech")}</button>
+    <button data-mobile-panel="towns" title="Towns" aria-label="Towns">${navTabIconHtml("towns")}</button>
     <button data-mobile-panel="domains" title="AFC Upgrades" aria-label="AFC Upgrades">${navTabIconHtml("domains")}</button>
     <button data-mobile-panel="leaderboard" title="Leaderboard" aria-label="Leaderboard">${navTabIconHtml("leaderboard")}</button>
     <button data-mobile-panel="social" title="Social" aria-label="Social">${navTabIconHtml("alliance")}</button>
@@ -301,6 +293,7 @@ export const hudMarkup = `
       <section id="panel-economy" class="panel-body"></section>
       <section id="panel-manpower" class="panel-body"></section>
       <section id="panel-development" class="panel-body"></section>
+      <section id="panel-towns" class="panel-body"></section>
       <section id="panel-leaderboard" class="panel-body">
         <div id="leaderboard"></div>
       </section>
@@ -345,6 +338,7 @@ export const hudMarkup = `
     <section id="mobile-panel-economy" class="mobile-panel"></section>
     <section id="mobile-panel-manpower" class="mobile-panel"></section>
     <section id="mobile-panel-development" class="mobile-panel"></section>
+    <section id="mobile-panel-towns" class="mobile-panel"></section>
     <section id="mobile-panel-leaderboard" class="mobile-panel">
       <div id="mobile-leaderboard"></div>
     </section>

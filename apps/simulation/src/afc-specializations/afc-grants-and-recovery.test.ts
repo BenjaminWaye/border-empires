@@ -41,7 +41,7 @@ describe("AFC installation deliveries and durable recovery", () => {
     expect([1, 2, 3, 4].map(x => tiles.get(`${x},0`)?.town?.population)).toEqual([60, 100, 40, 40]);
   });
   it("recovers paid Coin, overflowing recruits, core order and campaign deadlines together", () => {
-    const actor = { ...player(), points: 90, manpower: 900, waystationManpowerOverflow: 700, afcCoreTownKeys: ["3,0", "1,0"], afcScarcityFoodSlots: 1, afcCampaign: { fortWardRecharges: { "2,0": 100_000 }, wars: { enemy: 90_000 } } };
+    const actor = { ...player(), points: 90, manpower: 900, waystationManpowerOverflow: 700, afcCoreTownKeys: ["3,0", "1,0"], afcScarcityFoodSlots: 1, afcCampaign: { fortWardRecharges: { "2,0": 100_000 }, freeFortsUsed: 2, hijackReadyAt: 90_000 } };
     const recovered = applySimulationEventsToRecoveredState({ tiles: [], activeLocks: [], players: [{ id: "p", points: 100, manpower: 5 }] }, [{ eventType: "DOMAIN_UPDATE", playerId: "p", commandId: "recruit", payloadJson: JSON.stringify({ ...afcPlayerStatePayload(actor), gold: actor.points }) }]);
     expect(recovered.players?.[0]).toMatchObject({ points: 90, manpower: 900, waystationManpowerOverflow: 700, afcCoreTownKeys: ["3,0", "1,0"], afcScarcityFoodSlots: 1, afcCampaign: actor.afcCampaign });
   });

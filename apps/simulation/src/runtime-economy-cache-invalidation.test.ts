@@ -7,7 +7,7 @@ import type { RuntimePlayer } from "./runtime-types.js";
 // write dropped the owner's economy / defensibility / resource-slot /
 // manpower caches, including writes that only touched fields none of those
 // caches read (muster flags on SET_MUSTER and every muster auto-fire tick,
-// frontier-decay / heal / breach-shock stamps, shard sites). The next
+// frontier-decay / heal / breach-shock stamps). The next
 // emitPlayerStateUpdate then rebuilt all of them for a 14k-tile empire with
 // no change in any input (7% of sim-worker CPU in the prod profile).
 const player = (id: string): RuntimePlayer => ({
@@ -90,9 +90,16 @@ describe("refreshEconomyCachesForTileChange — field-aware invalidation", () =>
   it("economyRelevantTileFieldsChanged is false for stamp-only writes and true for sub-object replacement", () => {
     const base = settledTile("p1");
     expect(economyRelevantTileFieldsChanged(base, { ...base, frontierDecayAt: 123, breachShockUntil: 456, healAt: 789 })).toBe(false);
-    expect(economyRelevantTileFieldsChanged(base, { ...base, shardSite: { kind: "CACHE", amount: 1 } })).toBe(false);
+    expect(economyRelevantTileFieldsChanged(base, { ...base })).toBe(false);
     const withTown: DomainTileState = { ...base, town: { type: "MARKET", populationTier: "TOWN" } };
     expect(economyRelevantTileFieldsChanged(withTown, { ...withTown })).toBe(false);
     expect(economyRelevantTileFieldsChanged(withTown, { ...withTown, town: { ...withTown.town! } })).toBe(true);
   });
+});
+
+it("does not rebuild empire economy when a relic spends a charge, but does for a new reclamation allocation", () => {
+  const suit = { ...settledTile("p"), naturalWonder: { type: "WARPRESS" as const, relicVersion: 1 as const, remainingUses: 1 } };
+  expect(economyRelevantTileFieldsChanged(suit, { ...suit, naturalWonder: { ...suit.naturalWonder, remainingUses: 0 } })).toBe(false);
+  const foundry = { ...settledTile("p"), naturalWonder: { type: "FOUNDRY_HEART" as const, relicVersion: 1 as const } };
+  expect(economyRelevantTileFieldsChanged(foundry, { ...foundry, naturalWonder: { ...foundry.naturalWonder, resourceBonus: { resource: "TITANIUM", amount: 4 } } })).toBe(true);
 });

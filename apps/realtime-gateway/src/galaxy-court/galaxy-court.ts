@@ -7,6 +7,7 @@ import {
   MOVE_AGAINST_COURT_DIVISOR,
   SECTOR_CAPTURE_REDUCTION
 } from "../galaxy-duke-engine/galaxy-duke-config.js";
+import { WRIT_COURT_STRENGTH_GAIN } from "../galaxy-duke-engine/galaxy-duke-politics-config.js";
 import type { HeldSector } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 
 export type CourtStrength = {
@@ -15,35 +16,40 @@ export type CourtStrength = {
   fallen: boolean;
   capturedSectors: number;
   committedInfluence: number;
+  writsAccepted: number;
 };
 
 // Start = 10 x total Sector count. A captured Sector (a won season) is -10; a
-// passed Move Against the Court is -(Influence / 5). The only increase in the
-// full design is an accepted Writ, which the MVP cuts, so this never rises.
+// passed Move Against the Court is -(Influence / 5). The only increase is an
+// accepted Writ (+3, §21.3), and it never lifts the Court above its start.
 export const computeCourtStrength = (input: {
   totalSectors: number;
   capturedSectors: number;
   committedInfluence: number;
+  writsAccepted?: number;
 }): CourtStrength => {
   const start = input.totalSectors * COURT_STRENGTH_PER_SECTOR;
+  const writsAccepted = input.writsAccepted ?? 0;
   const reduction = input.capturedSectors * SECTOR_CAPTURE_REDUCTION + Math.floor(input.committedInfluence / MOVE_AGAINST_COURT_DIVISOR);
-  const current = Math.max(0, start - reduction);
-  return { start, current, fallen: current === 0, capturedSectors: input.capturedSectors, committedInfluence: input.committedInfluence };
+  const current = Math.min(start, Math.max(0, start - reduction + writsAccepted * WRIT_COURT_STRENGTH_GAIN));
+  return { start, current, fallen: current === 0, capturedSectors: input.capturedSectors, committedInfluence: input.committedInfluence, writsAccepted };
 };
 
 // Domain Weight decides the throne (§21.5): Planet 10 + its Influence output,
 // Outpost 3 + its Influence output, Stability / 100, and Influence committed
-// to Move Against the Court / 5. Wonders and Developments are cut from the MVP.
+// to Move Against the Court / 5, plus Renown from grievances (§29.2). Wonders
+// and Developments are cut from the MVP.
 export const computeDomainWeight = (input: {
   holdings: ReadonlyArray<HeldSector>;
   totalStability: number;
   committedInfluence: number;
+  renown?: number;
 }): number => {
   const holdingsWeight = input.holdings.reduce(
     (sum, h) => sum + (h.tier === "PLANET" ? 10 : 3) + influenceTrickleFor(h.specialization, h.tier),
     0
   );
-  const raw = holdingsWeight + input.totalStability / 100 + input.committedInfluence / MOVE_AGAINST_COURT_DIVISOR;
+  const raw = holdingsWeight + input.totalStability / 100 + input.committedInfluence / MOVE_AGAINST_COURT_DIVISOR + (input.renown ?? 0);
   return Math.round(raw * 10) / 10;
 };
 

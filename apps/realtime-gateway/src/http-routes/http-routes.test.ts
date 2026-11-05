@@ -18,7 +18,7 @@ describe("gateway http routes", () => {
         }
       }),
       snapshotDir: "/tmp/snapshot",
-      supportedMessageTypes: ["ATTACK", "COLLECT_SHARD"],
+      supportedMessageTypes: ["ATTACK", "CHOOSE_TECH"],
       adminApiToken: "secret",
       recentEvents: () => [{ at: 1_200, level: "info", event: "gateway_started", payload: {} }],
       attackDebug: () => ({
@@ -417,8 +417,7 @@ describe("gateway http routes", () => {
           manpower: 300,
           manpowerCap: 500,
           resourceSlotSupply: { FOOD: 120, TITANIUM: 30, CRYSTAL: 5, UMBRITE: 60 },
-          resourceSlotDemand: { FOOD: 100, TITANIUM: 20, CRYSTAL: 5, UMBRITE: 40 },
-          shardStockpile: 2
+          resourceSlotDemand: { FOOD: 100, TITANIUM: 20, CRYSTAL: 5, UMBRITE: 40 }
         },
         {
           id: "ai-1",
@@ -432,8 +431,7 @@ describe("gateway http routes", () => {
           manpower: 40,
           manpowerCap: 150,
           resourceSlotSupply: { FOOD: 10, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 4 },
-          resourceSlotDemand: { FOOD: 8, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 4 },
-          shardStockpile: 0
+          resourceSlotDemand: { FOOD: 8, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 4 }
         }
       ],
       getRecentCommands: async () => ({ commands: [] }),
@@ -452,8 +450,8 @@ describe("gateway http routes", () => {
     expect(authorizedResponse.json()).toEqual({
       ok: true,
       players: [
-        expect.objectContaining({ id: "player-1", gold: 1_250, settledTiles: 40, ownedTiles: 55, manpower: 300, resourceSlotSupply: { FOOD: 120, TITANIUM: 30, CRYSTAL: 5, UMBRITE: 60 }, resourceSlotDemand: { FOOD: 100, TITANIUM: 20, CRYSTAL: 5, UMBRITE: 40 }, shardStockpile: 2 }),
-        expect.objectContaining({ id: "ai-1", isAi: true, gold: 80, settledTiles: 5, ownedTiles: 9, manpower: 40, resourceSlotSupply: { FOOD: 10, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 4 }, resourceSlotDemand: { FOOD: 8, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 4 }, shardStockpile: 0 })
+        expect.objectContaining({ id: "player-1", gold: 1_250, settledTiles: 40, ownedTiles: 55, manpower: 300, resourceSlotSupply: { FOOD: 120, TITANIUM: 30, CRYSTAL: 5, UMBRITE: 60 }, resourceSlotDemand: { FOOD: 100, TITANIUM: 20, CRYSTAL: 5, UMBRITE: 40 } }),
+        expect.objectContaining({ id: "ai-1", isAi: true, gold: 80, settledTiles: 5, ownedTiles: 9, manpower: 40, resourceSlotSupply: { FOOD: 10, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 4 }, resourceSlotDemand: { FOOD: 8, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 4 } })
       ]
     });
 

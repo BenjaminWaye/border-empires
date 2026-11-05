@@ -27,6 +27,12 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   HYDROWORKS: "irrigation",
   UMBRITE_RIG: "leatherworking",
   MINE: "mining",
+  RESIN_EXTRACTOR: "neural-resin-processing",
+  IMPLANT_FOUNDRY: "organized-supply",
+  CATALYST_REFINERY: "frontier-concessions",
+  CULTIVATION_ESTATE: "frontier-concessions",
+  RECLAMATION_WORKS: "trade",
+
   MANUFACTORY: "trade",
   INCUBATION_ENGINE: "pottery",
   CLEARING_HOUSE: "coinage",
@@ -139,6 +145,12 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   HYDROWORKS: econSpec("HYDROWORKS"),
   UMBRITE_RIG: econSpec("UMBRITE_RIG"),
   MINE: econSpec("MINE"),
+  RESIN_EXTRACTOR: econSpec("RESIN_EXTRACTOR"),
+  IMPLANT_FOUNDRY: econSpec("IMPLANT_FOUNDRY"),
+  CATALYST_REFINERY: econSpec("CATALYST_REFINERY"),
+  CULTIVATION_ESTATE: econSpec("CULTIVATION_ESTATE"),
+  RECLAMATION_WORKS: econSpec("RECLAMATION_WORKS"),
+
 
   // Town-support structures
   MANUFACTORY: econSpec("MANUFACTORY"),
@@ -181,13 +193,6 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   RESONANCE_GRID: econSpec("RESONANCE_GRID"),
 
   // Manpower branch — new buildings
-  // QUARTERMASTERS_OFFICE retired (weak payoff: only discounted Fort/Siege
-  // Outpost manpower cost, a one-time build-cost saving that couldn't
-  // compete with the escalating per-tech gold tax); intentionally left out
-  // of this registry so it can never be newly built again, while
-  // types.ts/structure-slots.ts/config.ts/runtime-structure-command-handlers.ts
-  // keep supporting any copies a player already owns from before the
-  // retirement (no data migration for a live game).
   ANCILLARY_FACTORY: econSpec("ANCILLARY_FACTORY"),
   RESERVE_LATTICE: econSpec("RESERVE_LATTICE"),
 

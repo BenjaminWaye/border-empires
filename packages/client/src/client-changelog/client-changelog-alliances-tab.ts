@@ -8,6 +8,17 @@ import { CLIENT_CHANGELOG_ENTRIES_PLAYER_NAME_BUTTONS } from "./client-changelog
 // Every changelog entry about the Alliances tab, in one place so the main
 // index (client-changelog-data.ts) stays under the 500-line cap.
 export const ALLIANCES_TAB_CHANGELOG: ClientChangelogEntry[] = [
+  {
+    createdAt: 1793827094197, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.04",
+    title: "War and Met labels in the Alliances tab",
+    why: "Players you had met but had no truce or alliance with said \"No agreement\", which hid whether you were actually in a fight.",
+    changes: [
+      "In the Alliances tab, a met player now shows War while a battle with them is live, a muster flag of yours is engaged against their land, either side's land is within reach of the other's muster flag, or their flag is staged at your border",
+      "War holds for 2 minutes after the last of those, like the war music, then goes back to Met",
+      "Players you have a truce or alliance with never show War"
+    ]
+  },
   ...ALLIANCES_TAB_TRADE_SCREEN_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN,
   ...CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION,

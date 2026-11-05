@@ -1,9 +1,7 @@
 import { isForestTile } from "../client-constants.js";
-import { formatShardSiteBearing, nearestShardSiteBearing, shardRainAlertDetail, type ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
 import { BATTLE_OVERLAY_TOTAL_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { victoryHoldAlertDetail, victoryHoldAlertTitle } from "../client-victory-alert/client-victory-alert.js";
-import { createPopupBlockedCheck, type PopupGateState } from "../client-map-unobstructed/client-popup-gate.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { setTextWithResourceIcons } from "../client-resource-icons/client-resource-icons.js";
 import { frontierAttackIsUndefended } from "../client-capture-hold/client-capture-hold.js";
@@ -29,7 +27,7 @@ export const renderCaptureProgress = (
     captureCancelBtn: HTMLElement;
     captureDismissBtn: HTMLElement;
     captureCloseBtn: HTMLElement;
-    captureDownloadDebugBtn: HTMLElement;
+    captureReportBugBtn: HTMLElement;
     captureBarEl: HTMLElement;
     captureTitleEl: HTMLElement;
     captureTimeEl: HTMLElement;
@@ -42,7 +40,7 @@ export const renderCaptureProgress = (
     captureGotoBtn: HTMLButtonElement;
   }
 ): void => {
-  const RESULT_WAIT_DEBUG_THRESHOLD_MS = 4000;
+  const RESULT_WAIT_REPORT_BUG_THRESHOLD_MS = 4000;
   if (state.captureAlert && state.captureAlert.until > Date.now()) {
     deps.captureCardEl.dataset.state = state.captureAlert.tone;
     deps.captureCardEl.style.display = "grid";
@@ -50,7 +48,7 @@ export const renderCaptureProgress = (
     deps.captureCancelBtn.style.display = "none";
     deps.captureDismissBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "inline-flex";
-    deps.captureDownloadDebugBtn.style.display = state.captureAlert.tone === "success" ? "none" : "inline-flex";
+    deps.captureReportBugBtn.style.display = state.captureAlert.timeout ? "inline-flex" : "none";
     deps.captureBarEl.style.width = "100%";
     deps.captureTitleEl.textContent = state.captureAlert.title;
     deps.captureTimeEl.textContent = state.captureAlert.manpowerLoss ? `-${state.captureAlert.manpowerLoss} MP` : "";
@@ -84,7 +82,7 @@ export const renderCaptureProgress = (
     deps.captureCancelBtn.style.display = "none";
     deps.captureDismissBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "none";
-    deps.captureDownloadDebugBtn.style.display = "none";
+    deps.captureReportBugBtn.style.display = "none";
     deps.captureBarEl.style.width = "0%";
     deps.captureTitleEl.textContent = "";
     deps.captureTimeEl.textContent = "";
@@ -101,7 +99,7 @@ export const renderCaptureProgress = (
     const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
     const awaitingResult = Date.now() > state.capture.resolvesAt;
     const resolveWaitMs = Math.max(0, Date.now() - state.capture.resolvesAt);
-    const showDebugDownload = awaitingResult && resolveWaitMs >= RESULT_WAIT_DEBUG_THRESHOLD_MS;
+    const showReportBug = awaitingResult && resolveWaitMs >= RESULT_WAIT_REPORT_BUG_THRESHOLD_MS;
     // Don't reveal the result banner until the local battle overlay FX
     // (walking-arrow/skirmish + clash/rout) has actually finished playing at
     // this target tile — resolvesAt is the server's own combat-lock clock and
@@ -172,7 +170,7 @@ export const renderCaptureProgress = (
       deps.captureCancelBtn.style.display = "none";
       deps.captureDismissBtn.style.display = "none";
       deps.captureCloseBtn.style.display = "none";
-      deps.captureDownloadDebugBtn.style.display = "none";
+      deps.captureReportBugBtn.style.display = "none";
       deps.captureBarEl.style.width = "0%";
       deps.captureTitleEl.textContent = "";
       deps.captureTimeEl.textContent = "";
@@ -184,7 +182,7 @@ export const renderCaptureProgress = (
     deps.captureCancelBtn.style.display = "inline-flex";
     deps.captureDismissBtn.style.display = "inline-flex";
     deps.captureCloseBtn.style.display = "none";
-    deps.captureDownloadDebugBtn.style.display = showDebugDownload ? "inline-flex" : "none";
+    deps.captureReportBugBtn.style.display = showReportBug ? "inline-flex" : "none";
     deps.captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
     deps.captureTitleEl.textContent = awaitingResult
       ? "Resolving action..."
@@ -205,7 +203,7 @@ export const renderCaptureProgress = (
     deps.captureCancelBtn.style.display = "none";
     deps.captureDismissBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "none";
-    deps.captureDownloadDebugBtn.style.display = "none";
+    deps.captureReportBugBtn.style.display = "none";
     deps.captureBarEl.style.width = "0%";
     deps.captureTitleEl.textContent = "";
     deps.captureTimeEl.textContent = "";
@@ -213,49 +211,10 @@ export const renderCaptureProgress = (
   }
 };
 
-// Held (not dropped) while What's New / the dashboard / lobby is open or about
-// to open, so it appears once the player is back on the map.
-const shardAlertGate = createPopupBlockedCheck();
-
-export const renderShardAlert = (
-  state: Pick<ClientState, "shardAlert" | "shardRainFxUntil" | "homeTile"> & PopupGateState,
-  deps: {
-    shardAlertOverlayEl: HTMLElement;
-    shardAlertTitleEl: HTMLElement;
-    shardAlertDetailEl: HTMLElement;
-  }
-): void => {
-  const alert = state.shardAlert as ClientShardRainAlert | undefined;
-  if (!alert) {
-    deps.shardAlertOverlayEl.style.display = "none";
-    deps.shardAlertTitleEl.textContent = "";
-    deps.shardAlertDetailEl.textContent = "";
-    return;
-  }
-  const nowMs = Date.now();
-  if ((alert.phase === "upcoming" && alert.startsAt <= nowMs) || (alert.phase === "started" && alert.expiresAt <= nowMs)) {
-    state.shardAlert = undefined;
-    if (alert.phase === "started") state.shardRainFxUntil = 0;
-    deps.shardAlertOverlayEl.style.display = "none";
-    deps.shardAlertTitleEl.textContent = "";
-    deps.shardAlertDetailEl.textContent = "";
-    return;
-  }
-  if (shardAlertGate.isBlocked(state, nowMs)) {
-    deps.shardAlertOverlayEl.style.display = "none";
-    return;
-  }
-  deps.shardAlertTitleEl.textContent = alert.phase === "upcoming" ? "Shard Rain Incoming" : "Shard Rain Begun";
-  const bearing = alert.phase === "started" ? nearestShardSiteBearing(alert.sites, state.homeTile) : undefined;
-  const bearingLabel = formatShardSiteBearing(bearing);
-  deps.shardAlertDetailEl.textContent = bearingLabel ? `${shardRainAlertDetail(alert, nowMs)} ${bearingLabel}` : shardRainAlertDetail(alert, nowMs);
-  deps.shardAlertOverlayEl.style.display = "block";
-};
-
 // Renders the season-victory hold-timer alert in one of three states:
 // hidden (no hold active), expanded (full card, first time this key is
 // seen), or collapsed (slim tap-to-reopen banner, after acknowledgement).
-// Unlike renderShardAlert above, this never fully hides while a hold is
+// It never fully hides while a hold is
 // active — see client-state.ts victoryHoldAlert doc comment.
 export const renderVictoryHoldAlert = (
   state: Pick<ClientState, "victoryHoldAlert" | "victoryHoldAlertCollapsed">,

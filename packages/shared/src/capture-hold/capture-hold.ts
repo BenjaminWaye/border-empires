@@ -7,8 +7,8 @@ import { FRONTIER_ATTACK_MUSTER_COST, MUSTER_ATTACK_COST } from "../config.js";
 // ping-pong back and forth. For CAPTURE_HOLD_MS after the capture the new
 // owner's troops "hold ground" on the tile: it defends with
 // CAPTURE_HOLD_DEFENSE_MULT (the same 1.0x a plain unfortified tile starts
-// from, no fort/town/garrison bonus), long enough to garrison (SETTLE, 60s)
-// it. Ordinary FRONTIER land that was never captured keeps
+// from, no fort/town/garrison bonus), long enough to garrison (SETTLE, which
+// takes the frontier claim time) it. Ordinary FRONTIER land that was never captured keeps
 // zero defense, so normal frontier raiding is unchanged.
 
 export const CAPTURE_HOLD_MS = 60_000;
@@ -20,6 +20,17 @@ export const isCaptureHoldActive = (
   nowMs: number
 ): boolean =>
   tile?.ownershipState === "FRONTIER" && typeof tile.captureHoldUntil === "number" && tile.captureHoldUntil > nowMs;
+
+/**
+ * Shortest garrison (SETTLE) time a tile allows when one starts at `startedAt`:
+ * the time left in its hold window, or 0. A captured tile only becomes
+ * SETTLED once its hold ends, so a captured fort never defends and a captured
+ * resource never pays resource slots while the capturing troops still hold it.
+ */
+export const captureHoldSettleFloorMs = (
+  tile: { ownershipState?: string | undefined; captureHoldUntil?: number | undefined } | undefined,
+  startedAt: number
+): number => (isCaptureHoldActive(tile, startedAt) ? tile!.captureHoldUntil! - startedAt : 0);
 
 /** FRONTIER ground with no hold window: an ATTACK on it is a guaranteed capture with no combat roll. */
 export const isUndefendedFrontierTile = (

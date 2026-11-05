@@ -125,7 +125,7 @@
   color: var(--sp-parchment-muted);
 }
 
-/* ---- Mini-map / replay controls / mobile context card / shard alert ---- */
+/* ---- Mini-map / replay controls / mobile context card ---- */
 
 .mini-map-btn {
   border-color: var(--sp-brass-700);
@@ -154,30 +154,6 @@
 
 .mobile-context-value {
   color: var(--sp-parchment-100);
-}
-
-#shard-alert-card {
-  border-color: var(--sp-brass-700);
-  background: var(--sp-panel-bg);
-}
-
-#shard-alert-title {
-  color: var(--sp-brass-100);
-  font-family: var(--sp-font-display);
-}
-
-#shard-alert-detail {
-  color: var(--sp-parchment-300);
-}
-
-.shard-alert-close-btn {
-  border-color: var(--sp-brass-700);
-  background: rgba(60, 41, 25, 0.6);
-  color: var(--sp-parchment-100);
-}
-
-.shard-alert-close-btn:hover {
-  background: rgba(90, 61, 32, 0.75);
 }
 
 /* ---- Changelog / guide / respawn / intel modal shells ---- */

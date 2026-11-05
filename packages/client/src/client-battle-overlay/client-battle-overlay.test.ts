@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { registerActiveBattleFromTileDelta } from "./client-battle-overlay.js";
+import { knownSquadGearFor, localPlayerSquadGear, registerActiveBattleFromTileDelta, squadGearFields } from "./client-battle-overlay.js";
+import type { SquadGear } from "../client-map-3d-popup-marine/popup-marine-gear.js";
+import type { ClientState } from "../client-state/client-state.js";
 import { APPROACH_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
+
+// Gear lookups also read the local player's own tiles; these fixtures have
+// none, and a spectator's id that matches no owner.
+const gearState = () => ({
+  squadGearByOwner: new Map<string, SquadGear>(),
+  tiles: new Map() as ClientState["tiles"],
+  me: "spectator",
+  tilesRevision: 0
+});
 
 const keyFor = (x: number, y: number) => `${x},${y}`;
 
@@ -13,6 +24,8 @@ const combatJson = (
     originX: number;
     originY: number;
     shield: { x: number; y: number };
+    attackerGear: { titaniumArmor?: boolean; umbriteArms?: boolean };
+    defenderGear: { titaniumArmor?: boolean; umbriteArms?: boolean };
   }> = {}
 ) =>
   JSON.stringify({
@@ -37,8 +50,8 @@ describe("registerActiveBattleFromTileDelta", () => {
   // the firing line, regardless of whether (or how) a skirmish preceded it.
   it("always starts already standing at the firing line, whether or not a skirmish preceded it", () => {
     const nowMs = 5000;
-    const withSkirmish = { activeBattles: new Map(), skirmishSeenAt: new Map([["5,5", 1000]]) };
-    const withoutSkirmish = { activeBattles: new Map(), skirmishSeenAt: new Map() };
+    const withSkirmish = { activeBattles: new Map(), skirmishSeenAt: new Map([["5,5", 1000]]), squadGearByOwner: new Map<string, SquadGear>() };
+    const withoutSkirmish = { activeBattles: new Map(), skirmishSeenAt: new Map(), squadGearByOwner: new Map<string, SquadGear>() };
 
     registerActiveBattleFromTileDelta(withSkirmish, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
     registerActiveBattleFromTileDelta(withoutSkirmish, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
@@ -56,8 +69,8 @@ describe("registerActiveBattleFromTileDelta", () => {
 
   it("still reports fromSkirmish accurately (informational only — no longer affects positioning)", () => {
     const nowMs = 5000;
-    const seen = { activeBattles: new Map(), skirmishSeenAt: new Map([["5,5", 1000]]) };
-    const unseen = { activeBattles: new Map(), skirmishSeenAt: new Map() };
+    const seen = { activeBattles: new Map(), skirmishSeenAt: new Map([["5,5", 1000]]), squadGearByOwner: new Map<string, SquadGear>() };
+    const unseen = { activeBattles: new Map(), skirmishSeenAt: new Map(), squadGearByOwner: new Map<string, SquadGear>() };
 
     registerActiveBattleFromTileDelta(seen, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
     registerActiveBattleFromTileDelta(unseen, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
@@ -67,7 +80,7 @@ describe("registerActiveBattleFromTileDelta", () => {
   });
 
   it("ignores a malformed or missing combatJson", () => {
-    const state = { activeBattles: new Map(), skirmishSeenAt: new Map() };
+    const state = { activeBattles: new Map(), skirmishSeenAt: new Map(), squadGearByOwner: new Map<string, SquadGear>() };
 
     registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5 }, 5000);
     registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: "not json" }, 5000);
@@ -79,7 +92,7 @@ describe("registerActiveBattleFromTileDelta", () => {
   // the server names the defender's shield tile (coordinates only, never the
   // matched amount) instead of correcting the pre-attack odds preview.
   it("carries the shield tile's coordinates through when present", () => {
-    const state = { activeBattles: new Map(), skirmishSeenAt: new Map() };
+    const state = { activeBattles: new Map(), skirmishSeenAt: new Map(), squadGearByOwner: new Map<string, SquadGear>() };
 
     registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson({ shield: { x: 5, y: 8 } }) }, 5000);
 
@@ -89,12 +102,80 @@ describe("registerActiveBattleFromTileDelta", () => {
   });
 
   it("leaves shieldX/shieldY undefined when no shield fired", () => {
-    const state = { activeBattles: new Map(), skirmishSeenAt: new Map() };
+    const state = { activeBattles: new Map(), skirmishSeenAt: new Map(), squadGearByOwner: new Map<string, SquadGear>() };
 
     registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson() }, 5000);
 
     const battle = state.activeBattles.get("5,5")!;
     expect(battle.shieldX).toBeUndefined();
     expect(battle.shieldY).toBeUndefined();
+  });
+
+  // War gear: one flag per weapons factory type an empire owns (server's
+  // CombatBroadcastPayload.attackerGear/defenderGear), which
+  // popup-marine-gear.ts turns into the squad's look.
+  it("reads each side's war gear from the broadcast", () => {
+    const state = { activeBattles: new Map(), skirmishSeenAt: new Map(), squadGearByOwner: new Map<string, SquadGear>() };
+
+    registerActiveBattleFromTileDelta(
+      state,
+      keyFor,
+      { x: 5, y: 5, combatJson: combatJson({ attackerGear: { titaniumArmor: true, umbriteArms: true } }) },
+      5000
+    );
+
+    const battle = state.activeBattles.get("5,5")!;
+    expect(battle.attackerGear).toEqual({ titanium: true, umbrite: true });
+    expect(battle.defenderGear).toEqual({});
+  });
+
+  it("remembers an owner's gear for later skirmishes, and forgets it once a broadcast shows none", () => {
+    const state = { ...gearState(), activeBattles: new Map(), skirmishSeenAt: new Map() };
+
+    registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson({ defenderGear: { umbriteArms: true } }) }, 5000);
+    expect(knownSquadGearFor(state, "victim")).toEqual({ umbrite: true });
+    expect(knownSquadGearFor(state, "attacker")).toEqual({});
+    // A skirmish has no broadcast of its own yet, so it falls back to what is known.
+    expect(squadGearFields(state, "attacker", "victim")).toEqual({ attackerGear: {}, defenderGear: { umbrite: true } });
+
+    // The same empire later fights without a factory (lost its last one).
+    registerActiveBattleFromTileDelta(state, keyFor, { x: 6, y: 6, combatJson: combatJson({ attackerOwnerId: "victim", defenderOwnerId: "other" }) }, 6000);
+    expect(knownSquadGearFor(state, "victim")).toEqual({});
+    expect(state.squadGearByOwner.has("victim")).toBe(false);
+  });
+
+  it("prefers a resolved battle's own gear over the per-owner memory", () => {
+    const state = { ...gearState(), squadGearByOwner: new Map<string, SquadGear>([["attacker", { titanium: true }]]) };
+
+    expect(squadGearFields(state, "attacker", "victim", { attackerGear: {}, defenderGear: { titanium: true } })).toEqual({
+      attackerGear: {},
+      defenderGear: { titanium: true }
+    });
+  });
+
+  // The local player's own factories are on their own tiles, so their
+  // squads show them before any broadcast has said so -- and the march that
+  // precedes a fight never disagrees with the fight itself.
+  it("reads the local player's own gear off their tiles, ahead of any broadcast", () => {
+    const tiles = new Map([
+      ["1,1", { x: 1, y: 1, ownerId: "me", economicStructure: { type: "TITANIUM_WEAPONS_FACTORY" } }],
+      ["2,2", { x: 2, y: 2, ownerId: "rival", economicStructure: { type: "UMBRITE_WEAPONS_FACTORY" } }]
+    ]) as unknown as ClientState["tiles"];
+    const state = { ...gearState(), tiles, me: "me", tilesRevision: 1 };
+
+    expect(knownSquadGearFor(state, "me")).toEqual({ titanium: true });
+    expect(squadGearFields(state, "me", "rival")).toEqual({ attackerGear: { titanium: true }, defenderGear: {} });
+  });
+
+  it("rescans the local player's tiles only when the tile revision moves", () => {
+    const tiles = new Map([["1,1", { x: 1, y: 1, ownerId: "me" }]]) as unknown as ClientState["tiles"];
+    const state = { ...gearState(), tiles, me: "me", tilesRevision: 7 };
+    expect(localPlayerSquadGear(state)).toEqual({});
+
+    tiles.set("1,1", { x: 1, y: 1, ownerId: "me", economicStructure: { type: "TITANIUM_WEAPONS_FACTORY" } } as never);
+    // Same revision: the cached scan stands (no per-frame full-map scan).
+    expect(localPlayerSquadGear(state)).toEqual({});
+    state.tilesRevision = 8;
+    expect(localPlayerSquadGear(state)).toEqual({ titanium: true });
   });
 });

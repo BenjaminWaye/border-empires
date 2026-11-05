@@ -71,7 +71,7 @@ const SUPPORT_STRUCTURE_TYPES: Record<SupportTownStructureKey, ReadonlyArray<Non
 // candidate town is filtered by ITS OWN tier's radius (a Town-tier neighbor
 // at distance 2 doesn't claim this tile even though a Great City neighbor at
 // distance 2 would).
-const assignedTownForSupportTile = (tiles: ReadonlyMap<string, Tile>, supportTile: Tile, ownerId: string): Tile | undefined =>
+export const assignedTownForSupportTile = (tiles: ReadonlyMap<string, Tile>, supportTile: Tile, ownerId: string): Tile | undefined =>
   supportRingCandidates(tiles, supportTile.x, supportTile.y, MAX_SUPPORT_RING_RADIUS)
     .filter(
       ({ tile: candidate, dx, dy }) =>

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { syncMusterTransitOverlay } from "./client-map-3d-capture-overlays.js";
+import { syncMusterTransitOverlay } from "./client-map-3d-muster-transit-sync.js";
 import type { MusterTransit, MusterTransitOverlay } from "./client-map-3d-muster-transit-overlay.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";

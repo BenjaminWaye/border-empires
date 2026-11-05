@@ -2,7 +2,9 @@
 // pausedAt: construction is on hold while the tile is under attack; remaining time is frozen at that instant.
 export type ClientTileEconomicStructure = {
   ownerId: string;
+  supportAnchor?: { x: number; y: number } | null;
   type:
+    | import("@border-empires/shared").NetworkBuilding
     | "HYDROGARDEN"
     | "HYDROWORKS"
     | "UMBRITE_RIG"
@@ -28,7 +30,6 @@ export type ClientTileEconomicStructure = {
     | "NEURAL_WORKS"
     | "MINISTRY_HALL"
     | "RESONANCE_GRID"
-    | "QUARTERMASTERS_OFFICE"
     | "ANCILLARY_FACTORY"
     | "RESERVE_LATTICE"
     | "ASTRAL_DOCK_PART_1"
@@ -65,4 +66,6 @@ export type ClientTileEconomicStructure = {
   disabledUntil?: number;
   inactiveReason?: "manual" | "upkeep";
   converterMode?: "SYNTHESIZE" | "EXCHANGE"; modeLockedUntil?: number; powered?: boolean; bombardCooldownUntil?: number;
+  /** Reclamation Works: salvage loads already shipped to the Court. */
+  salvageLoadsShipped?: number;
 };

@@ -1,4 +1,4 @@
-import { manpowerRegenWeightForSettlementIndex, terrainAdjustedTownManpower, townTerrainModifiers, type TownTerrainProfileId } from "@border-empires/shared";
+import { manpowerPerBatch, manpowerRegenWeightForSettlementIndex, terrainAdjustedTownManpower, townTerrainModifiers, type TownTerrainProfileId } from "@border-empires/shared";
 import { SETTLEMENT_BASE_GOLD_PER_MIN, TOWN_BASE_GOLD_PER_MIN, townPopulationMultiplier } from "@border-empires/game-domain";
 import { occupationSurveyController, type OccupationSurveyReport } from "../client-occupation-survey.js";
 import { townCharacterLabelForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
@@ -108,7 +108,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
           </div>
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Manpower Regen</div>
-            <div class="town-capture-stat-value town-capture-stat-positive">+${manpowerRegenAdded.toFixed(2)}<span class="town-capture-stat-suffix">/m</span></div>
+            <div class="town-capture-stat-value town-capture-stat-positive">+${Math.round(manpowerPerBatch(manpowerRegenAdded))}<span class="town-capture-stat-suffix"> per batch</span></div>
             <div class="town-capture-stat-detail">${terrainPercent(terrain.manpowerRegenerationMultiplier)} terrain</div>
           </div>
         </div>

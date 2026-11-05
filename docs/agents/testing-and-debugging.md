@@ -13,7 +13,7 @@ Status: canonical runbook
   2. Boot the candidate rewrite stack against that clone.
   3. Run `pnpm ops:prod-shape:gate` to authenticate, perform a frontier expansion, run a short frontier soak, and scrape gateway/simulation metrics.
   4. Compare against a baseline JSON captured from the previous production SHA on the same cloned snapshot when the change is performance-sensitive.
-  5. Set `PROD_SHAPE_GATE_RESULT_JSON` to the passing candidate result before `pnpm deploy:prod:all`; the deploy script refuses stale, failed, or wrong-SHA gate output.
+  5. Check the candidate result with `pnpm ops:prod-shape:verify`; it refuses stale, failed, or wrong-SHA gate output. `deploy-prod.yml` runs this gate on every `main` deploy.
 
 Example:
 
@@ -74,6 +74,13 @@ time. Either direction reads to the player as "this bonus doesn't work."
 - In `packages/client/src/client-map-3d/client-map-3d.ts`, `rebuildVisibleTerrain()`/`maybeRebuild()` is throttled on BOTH game-state changes (`tilesRevision`) AND camera pan/zoom (`terrainWindowPanned`/`terrainWindowCovers`/`zoomChanged`). Never sample a wall clock (`Date.now()`/`performance.now()`) inside that rebuild path to drive a continuous animation (pulse, blink, fade) — camera pan will re-sample the clock and make the animation visibly jump/restart on every pan (this happened twice: the frontier-decay pulse and, before it, the encirclement blink it was copied from).
 - Any continuous animation must instead run from an unconditional per-frame call in `renderLoop`, keyed on a `nowMs` parameter, independent of `maybeRebuild`'s throttle — follow `renderReachOverlay3DPylons`/`attackOverlay.tick`/`client-map-3d-frontier-decay-pulse.ts` as the reference pattern. The throttled rebuild should only recompute *which* things need to animate (e.g. the list of currently-decaying tiles), never the animation's clock-driven value itself.
 - One-shot 3D effects (anything positioned once at spawn that then plays out over time: bombard, unsettle, aegis lock, AFC drop, floating text, ...) must be created in `packages/client/src/client-map-3d-anchored-fx/client-map-3d-anchored-fx-layers.ts`, under the world-anchored root, and spawned at anchored-local coordinates (`fxXZ` / `anchoredFx.toLocal` in `client-map-3d-fx-cast-overlays.ts`). The 3D scene origin jumps to the camera whenever a pan forces a terrain rebuild; an effect parented straight to the scene keeps its old coordinates and slides with the viewport (this happened to the 10 s AFC join drop). `client-map-3d-anchored-fx-guard.test.ts` fails if a layer is created against the raw scene or spawns at plain scene-origin coordinates; it lists the few layers allowed outside the root with the reason each cannot drift.
+
+## Sync-delay exports
+
+Use [the sync-delay diagnostics runbook](topics/sync-delay-diagnostics.md) for
+player-scoped server traces, actual socket timing, browser stalls, warning
+retention and reconnect history. A healthy `/health` response at download time
+does not explain an earlier delay.
 
 ## Debugging workflow
 

@@ -12,7 +12,7 @@ import type { Tile } from "../client-types.js";
  *
  * Re-request once a second, but only while a single-tile menu is open on an
  * attackable enemy tile and the current preview has actually gone stale, so
- * this stays as cheap as the other per-second HUD tickers (renderShardAlert,
+ * this stays as cheap as the other per-second HUD tickers (renderVictoryHoldAlert,
  * startTileMenuDecayTicker) it sits alongside. The response handler in
  * client-network.ts (ATTACK_PREVIEW_RESULT) already re-renders the open menu
  * once the fresh preview lands, so this ticker only needs to fire the

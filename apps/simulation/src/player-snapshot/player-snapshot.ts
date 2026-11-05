@@ -188,12 +188,12 @@ export const buildPlayerSubscriptionSnapshot = (
           // except reach anchors and captured buildings (settleIgnoresReach in
           // shared reach-settle-exemption.ts). Skip the rest, or the client
           // would retry a doomed SETTLE forever. Towns/docks stay eligible:
-          // settling one is exactly what gives it reach. reachOwnerId is only
-          // sourced by the per-player visible-state export; the
-          // full-visibility export (season ended / spectator) doesn't carry
-          // it, and nobody settles there anyway.
+          // settling one is exactly what gives it reach. Both the per-player
+          // visible export and the full-world export (reveal-map / spectator /
+          // season end) carry reachOwnerId, so the guard applies under full
+          // visibility too — a revealed live player still settles.
           const isReachAnchor = Boolean(tile.townJson || tile.dockId);
-          if (!isReachAnchor && options?.fullVisibility !== true && tile.reachOwnerId !== playerId) return undefined;
+          if (!isReachAnchor && tile.reachOwnerId !== playerId) return undefined;
           let hasTownSupport = false;
           forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
             if (!hasTownSupport) {
@@ -255,7 +255,7 @@ export const buildPlayerSubscriptionSnapshot = (
   const enrichedTiles =
     options?.fullVisibility === true && options?.sharedFullVisibilityTiles
       ? options.sharedFullVisibilityTiles
-      : enrichSnapshotTilesForPlayer(playerId, runtimeState, tiles, liveEconomy);
+      : enrichSnapshotTilesForPlayer(playerId, runtimeState, tiles, liveEconomy, options?.fullVisibility === true);
   const docks: PlayerSubscriptionDock[] = (runtimeState.docks ?? []).map((dock) => ({
     dockId: dock.dockId,
     tileKey: dock.tileKey,
@@ -277,6 +277,7 @@ export const buildPlayerSubscriptionSnapshot = (
             manpower: livePlayer.manpower,
             manpowerCap: livePlayer.manpowerCap ?? Math.max(livePlayer.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP),
             manpowerRegenPerMinute: livePlayer.manpowerRegenPerMinute ?? MANPOWER_BASE_REGEN_PER_MINUTE,
+            ...(livePlayer.nextManpowerBatchAmount !== undefined ? { nextManpowerBatchAmount: livePlayer.nextManpowerBatchAmount } : {}),
             logisticsThroughputPerMinute: livePlayer.logisticsThroughputPerMinute ?? livePlayer.manpowerRegenPerMinute ?? MANPOWER_BASE_REGEN_PER_MINUTE,
             manpowerBreakdown: livePlayer.manpowerBreakdown ?? {
               cap: [{ label: "Base minimum", amount: MANPOWER_BASE_CAP }],
@@ -286,28 +287,29 @@ export const buildPlayerSubscriptionSnapshot = (
             imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
             autoSettle: normalizeAutoSettlePrefs(livePlayer.autoSettle),
             wonderLastFreeRushBuyAt: livePlayer.wonderLastFreeRushBuyAt ?? 0,
+            relicMapHints: livePlayer.relicMapHints ?? [],
             eventLog: livePlayer.eventLog ?? [],
             strategicResources: {
               FOOD: livePlayer.strategicResources.FOOD ?? 0,
               TITANIUM: livePlayer.strategicResources.TITANIUM ?? 0,
               CRYSTAL: livePlayer.strategicResources.CRYSTAL ?? 0,
-              UMBRITE: livePlayer.strategicResources.UMBRITE ?? 0,
-              SHARD: livePlayer.strategicResources.SHARD ?? 0
+              UMBRITE: livePlayer.strategicResources.UMBRITE ?? 0
             },
             strategicProductionPerMinute: {
               FOOD: strategicProductionPerMinute.FOOD,
               TITANIUM: strategicProductionPerMinute.TITANIUM,
               CRYSTAL: strategicProductionPerMinute.CRYSTAL,
-              UMBRITE: strategicProductionPerMinute.UMBRITE,
-              SHARD: strategicProductionPerMinute.SHARD
+              UMBRITE: strategicProductionPerMinute.UMBRITE
             },
+            ...(livePlayer.resourceTradeHoldings ? { resourceTradeHoldings: livePlayer.resourceTradeHoldings } : {}),
+            ...(livePlayer.resourceTradeAgreements ? { resourceTradeAgreements: livePlayer.resourceTradeAgreements } : {}),
             resourceSlots: liveEconomy.resourceSlots,
             dormantStructures: liveEconomy.dormantStructures,
             economyBreakdown: liveEconomy.economyBreakdown,
             upkeepPerMinute: liveEconomy.upkeepPerMinute,
             upkeepLastTick: liveEconomy.upkeepLastTick,
             developmentProcessLimit:
-              DEVELOPMENT_PROCESS_LIMIT +
+              DEVELOPMENT_PROCESS_LIMIT + (livePlayer?.relicDevelopmentBonus ?? 0) +
               (liveProgressionPlayer
                 ? additiveEffectForPlayer(liveProgressionPlayer, "developmentProcessCapacityAdd")
                 : 0),
@@ -333,8 +335,8 @@ export const buildPlayerSubscriptionSnapshot = (
             // stream (emitPlayerStateUpdate) keeps it current after that.
             // reservedManpower/reservedSlotRequirements are deliberately
             // stripped here: they are server-side refund bookkeeping (see
-            // runtime-dev-queue-build-reservation.ts), not something the
-            // client renders, so the wire shape stays lean.
+            // runtime-dev-queue-build-reservation.ts). Only whether an entry
+            // holds manpower (or is still waiting for it) goes down.
             ...(livePlayer.devQueue?.length
               ? {
                   devQueue: livePlayer.devQueue.map((entry) => ({
@@ -343,7 +345,10 @@ export const buildPlayerSubscriptionSnapshot = (
                     y: entry.y,
                     kind: entry.kind,
                     ...(entry.structureType ? { structureType: entry.structureType } : {}),
-                    queuedAt: entry.queuedAt
+                    queuedAt: entry.queuedAt,
+                    // Same reservation flags PLAYER_UPDATE carries (runtime-player-state-update.ts).
+                    ...(entry.reservedManpower ? { manpowerReserved: true } : {}),
+                    ...(entry.awaitingManpower ? { awaitingManpower: true } : {})
                   }))
                 }
               : {}),

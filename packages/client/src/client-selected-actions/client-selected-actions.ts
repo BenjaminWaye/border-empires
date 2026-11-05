@@ -1,8 +1,6 @@
 import { cancelUnsentMusterTransits } from "../client-muster-transit/client-muster-transit.js";
 import { gatewayBuildWirePayload } from "../client-queue-logic/client-queue-logic.js";
-import { visibleShardSiteForTile } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
-import { showShardCollectOverlay } from "../client-shard-collect/client-shard-collect.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 const notifySelectedActionBlocked = (deps: SelectedActionDepsBase, title: string, detail: string): void => {
@@ -182,30 +180,4 @@ export const cancelOngoingCapture = (
 // badge over its flag, client-muster-flag-badge.ts.)
 export const dismissOngoingCapture = (state: Pick<ClientState, "capture" | "dismissedCaptureStartAt">): void => {
   state.dismissedCaptureStartAt = state.capture?.startAt;
-};
-
-export const collectSelectedShard = (
-  state: Pick<ClientState, "selected" | "tiles" | "shardRainPingsByTile" | "pendingShardCollect">,
-  deps: {
-    keyFor: (x: number, y: number) => string;
-    renderHud: () => void;
-    sendGameMessage: (payload: unknown) => boolean;
-  }
-): void => {
-  const selected = state.selected;
-  if (!selected) return;
-  const tileKey = deps.keyFor(selected.x, selected.y);
-  const tile = state.tiles.get(tileKey);
-  const shardSite = visibleShardSiteForTile(tile, state.shardRainPingsByTile);
-  if (!tile || !shardSite) return;
-  state.pendingShardCollect = { tileKey, shardSite };
-  state.tiles.set(tileKey, { ...tile, shardSite: null });
-  deps.renderHud();
-  if (!deps.sendGameMessage({ type: "COLLECT_SHARD", x: selected.x, y: selected.y })) {
-    state.tiles.set(tileKey, { ...tile, shardSite });
-    state.pendingShardCollect = undefined;
-    deps.renderHud();
-    return;
-  }
-  showShardCollectOverlay({ kind: shardSite.kind, amount: shardSite.amount });
 };

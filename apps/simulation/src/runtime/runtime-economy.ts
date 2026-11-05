@@ -1,4 +1,4 @@
-import { afcEnvoyBenefits, applyAfcEnvoyIncome } from "../afc-specializations/afc-coalition.js";
+import { afcEnvoyIncomeShare, applyAfcEnvoyIncome } from "../afc-specializations/afc-coalition.js";
 // Runtime economy caches use explicit context dependencies. Domestic income
 // stays cached independently of allied Envoy contributions; manpower formulas
 // and settlement live in runtime-manpower-economy.ts and are re-exported here.
@@ -26,10 +26,11 @@ export const AI_DERIVED_CACHE_COALESCE_MS = 5_000;
 export {
   type RuntimeManpowerEconomyContext, playerManpowerCap, playerManpowerRegenPerMinute,
   playerLogisticsThroughputPerMinute, playerManpowerBreakdown, effectiveManpowerAtForPlayer,
-  applyManpowerRegenForPlayer, refreshManpowerOnlyForPlayer
+  applyManpowerRegenForPlayer, refreshManpowerOnlyForPlayer, grantRespawnLandingReserve
 } from "./runtime-manpower-economy.js";
 
 export interface RuntimeEconomyCacheContext {
+  networkSitesForPlayer?: (id: string) => import("@border-empires/shared").NetworkSiteCounts | undefined;
   now: () => number;
   tiles: Map<string, DomainTileState>;
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
@@ -107,7 +108,7 @@ function cachedBaseEconomySnapshot(
       townNetwork,
       ctx.foodDormantTownKeysForPlayer(player.id),
       ctx.dormantEconomicStructureKeysForPlayer(player.id),
-      ctx.now()
+      ctx.now(), ctx.networkSitesForPlayer?.(player.id)
     );
     ctx.economySnapshotCacheByPlayer.set(player.id, snapshot);
     ctx.economySnapshotDirtyPlayerIds.delete(player.id);
@@ -121,17 +122,15 @@ function cachedBaseEconomySnapshot(
     : rebuild();
 }
 
-/** Refresh alliance-derived income on cache hits too, without recursively reading an ally's bonuses. */
+/** Refresh agreement-derived Envoy income on cache hits too, since truces change without any tile write. */
 export function cachedEconomySnapshot(ctx: RuntimeEconomyCacheContext, player: RuntimePlayer): PlayerUpdateEconomySnapshot {
   const base = cachedBaseEconomySnapshot(ctx, player);
-  const benefits = afcEnvoyBenefits(player, ctx.players, ally => ({
-    goldPerMinute: cachedBaseEconomySnapshot(ctx, ally).incomePerMinute,
-    manpowerCap: 0, manpowerRegenPerMinute: 0
-  }));
-  if (benefits.goldPerMinute <= 0) return base;
+  const { share, agreements } = afcEnvoyIncomeShare(player, ctx.players);
+  const goldPerMinute = Math.max(0, base.incomePerMinute) * share;
+  if (goldPerMinute <= 0) return base;
   return applyAfcEnvoyIncome({ ...base, economyBreakdown: { ...base.economyBreakdown,
     GOLD: { ...base.economyBreakdown.GOLD, sources: [...base.economyBreakdown.GOLD.sources] }
-  } }, benefits);
+  } }, goldPerMinute, agreements);
 }
 
 /**

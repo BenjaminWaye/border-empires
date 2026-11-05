@@ -49,9 +49,9 @@ export type RuntimeCommandDispatchHandlers = {
   handleSetAutoSettlePrefsCommand: (command: CommandEnvelope) => void;
   handleNameIslandCommand: (command: CommandEnvelope) => void;
   handleUpgradeTownTierCommand: (command: CommandEnvelope) => void;
-  handleCollectShardCommand: (command: CommandEnvelope) => void;
   handleSyncAllianceCommand: (command: CommandEnvelope) => void;
   handleSyncTruceCommand: (command: CommandEnvelope) => void;
+  handleCancelResourceSupplyCommand: (command: CommandEnvelope) => void;
   handleDiplomacySettlementCommand: (command: CommandEnvelope) => void;
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => void;
   handleDevQueueEnqueueCommand: (command: CommandEnvelope) => void;
@@ -67,6 +67,7 @@ export const commandScheduling = (command: CommandEnvelope): "immediate" | "back
   command.type !== "SYNC_ALLIANCE" &&
   command.type !== "SYNC_TRUCE" &&
   command.type !== "SETTLE_DIPLOMACY_TERMS" &&
+  command.type !== "CANCEL_RESOURCE_SUPPLY" &&
   (command.sessionId.startsWith("ai-runtime:") || command.sessionId.startsWith("system-runtime:"))
     ? "background"
     : "immediate";
@@ -102,7 +103,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "REVEAL_EMPIRE_STATS") return handlers.handleRevealEmpireStatsCommand(command);
   if (command.type === "SURVEY_SWEEP") return handlers.handleSurveySweepCommand(command);
   if (command.type === "AETHER_LANCE") return handlers.handleAetherLanceCommand(command);
-  if (command.type === "SUPPRESS_AETHER_TOWER" || command.type === "RECRUIT_ANCILLARIES") return handlers.handleAfcSpecializationCommand?.(command);
+  if (command.type === "FORCED_ANCILLARIFICATION" || command.type === "SUPPRESS_AETHER_TOWER" || command.type === "HIJACK_AETHER_TOWER" || command.type === "RECRUIT_ANCILLARIES" || command.type === "SHIP_SALVAGE_TO_COURT") return handlers.handleAfcSpecializationCommand?.(command);
   if (command.type === "AETHER_EMP") return handlers.handleAetherEmpCommand(command);
   if (command.type === "CAST_AETHER_BRIDGE") return handlers.handleCastAetherBridgeCommand(command);
   if (command.type === "CAST_AETHER_WALL") return handlers.handleCastAetherWallCommand(command);
@@ -123,9 +124,9 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "SET_AUTO_SETTLE_PREFS") return handlers.handleSetAutoSettlePrefsCommand(command);
   if (command.type === "NAME_ISLAND") return handlers.handleNameIslandCommand(command);
   if (command.type === "UPGRADE_TOWN_TIER") return handlers.handleUpgradeTownTierCommand(command);
-  if (command.type === "COLLECT_SHARD") return handlers.handleCollectShardCommand(command);
   if (command.type === "SYNC_ALLIANCE") return handlers.handleSyncAllianceCommand(command);
   if (command.type === "SYNC_TRUCE") return handlers.handleSyncTruceCommand(command);
+  if (command.type === "CANCEL_RESOURCE_SUPPLY") return handlers.handleCancelResourceSupplyCommand(command);
   if (command.type === "SETTLE_DIPLOMACY_TERMS") return handlers.handleDiplomacySettlementCommand(command);
   if (command.type === "ATTACK" || command.type === "EXPAND") {
     handlers.handleFrontierCommand(command, command.type);
@@ -177,7 +178,10 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "AETHER_LANCE" ||
   command.type === "AETHER_EMP" ||
   command.type === "SUPPRESS_AETHER_TOWER" ||
+  command.type === "HIJACK_AETHER_TOWER" ||
   command.type === "RECRUIT_ANCILLARIES" ||
+  command.type === "SHIP_SALVAGE_TO_COURT" ||
+  command.type === "FORCED_ANCILLARIFICATION" ||
   command.type === "CAST_AETHER_BRIDGE" ||
   command.type === "CAST_AETHER_WALL" ||
   command.type === "SIPHON_TILE" ||
@@ -198,10 +202,10 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "SET_AUTO_SETTLE_PREFS" ||
   command.type === "NAME_ISLAND" ||
   command.type === "UPGRADE_TOWN_TIER" ||
-  command.type === "COLLECT_SHARD" ||
   command.type === "SYNC_ALLIANCE" ||
   command.type === "SYNC_TRUCE" ||
   command.type === "SETTLE_DIPLOMACY_TERMS" ||
+  command.type === "CANCEL_RESOURCE_SUPPLY" ||
   (command.type as string) === "DEV_QUEUE_ENQUEUE" ||
   (command.type as string) === "DEV_QUEUE_CANCEL" ||
   (command.type as string) === "DEV_QUEUE_MOVE_TO_FRONT" ||

@@ -16,7 +16,7 @@ import type { ClientState } from "../client-state/client-state.js";
  * open (desktop or mobile) and the player has at least one muster flag out
  * (HOLD included, now that HOLD flags animate too), so this stays as cheap
  * as the other per-second HUD tickers (startTileMenuDecayTicker,
- * renderShardAlert, renderVictoryHoldAlert) it sits alongside, instead of
+ * renderVictoryHoldAlert) it sits alongside, instead of
  * redoing the whole HUD every second regardless of what's on screen.
  */
 export const startMusterStatusTicker = (state: ClientState, renderHud: () => void): void => {

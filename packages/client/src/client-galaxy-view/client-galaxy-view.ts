@@ -118,7 +118,7 @@ const buildPanel = (): { overlay: HTMLElement; body: HTMLElement; launcher: HTML
   const launcher = document.createElement("button");
   launcher.type = "button";
   launcher.className = "gx-launcher";
-  launcher.textContent = "🪐";
+  launcher.textContent = "✧";
   launcher.setAttribute("aria-label", "Open your galaxy");
   root.append(launcher);
 

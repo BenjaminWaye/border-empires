@@ -4,6 +4,7 @@ import { HEIGHTFIELD_TUNDRA_ELEVATION } from "../client-map-3d-heightfield-terra
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { UNEXPLORED_STORM_Y } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm.js";
+import { GROUND_SHEET_SEGMENTS } from "../client-map-3d-unexplored-storm/client-map-3d-ground-sheet.js";
 import { FOGGED_MIST_Y, createFoggedMistLayer, encodeFoggedMistMask } from "./client-map-3d-fogged-mist.js";
 import { FOGGED_MIST_FRAGMENT_SHADER, FOGGED_MIST_SHADE_GLSL } from "./client-map-3d-fogged-mist-shader.js";
 import { FOGGED_EDGE_COVER_GLSL, applyFoggedEdgeClip } from "./client-map-3d-fogged-edge-clip.js";
@@ -19,6 +20,12 @@ describe("fogged mist layer (3D)", () => {
     expect(RENDER_ORDER.foggedMist).toBeGreaterThan(RENDER_ORDER.shoreFoam);
     expect(RENDER_ORDER.foggedMist).toBeGreaterThan(RENDER_ORDER.fogDarkenFrontier);
     expect(RENDER_ORDER.foggedMist).toBeLessThan(13);
+  });
+
+  it("is drawn on the subdivided fog sheet, so its lip doesn't band under the brass edge on mobile GPUs", () => {
+    const mist = createFoggedMistLayer(new Scene(), () => 0);
+    expect(mist.mesh.geometry.getAttribute("position").count).toBe((GROUND_SHEET_SEGMENTS + 1) ** 2);
+    mist.dispose();
   });
 
   it("masks every tile out of sight, with the storm's blurred field to cut its edge from", () => {

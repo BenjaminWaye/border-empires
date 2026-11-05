@@ -9,28 +9,26 @@ import { resourceSlotDemandForPlayer } from "../resource-slot-view/resource-slot
 import { firstThreeTownKeysForPlayer } from "../economy-network/economy-network-first-three-towns.js";
 import { townGoldPerMinuteForPlayer } from "../player-update-economy/player-update-economy.js";
 import { withAfcReachRadii } from "../runtime/runtime-reach-anchors.js";
-import { buildMsWithSpeedForState } from "../../../../packages/client/src/client-build-speed/client-build-speed.js";
-import { AFC_SPECIALIZATIONS } from "@border-empires/shared";
+import { structureManpowerCostForPlayer } from "../structure-manpower-cost/structure-manpower-cost.js";
 
 const player = (id: string, domains: string[] = []) => ({ ...createHumanRuntimePlayer(id), afcUpgradeRuleset: "afc-v1" as const, domainIds: new Set(domains) });
 const town = (x: number, ownerId = "p"): DomainTileState => ({ x, y: 0, terrain: "LAND", ownerId, ownershipState: "SETTLED",
   town: { type: "MARKET", populationTier: "TOWN", supportCurrent: 5, supportMax: 5, isFed: true, population: 10_000, maxPopulation: 25_000 } });
 
 describe("AFC passive effects change authoritative numbers", () => {
-  it("stacks beacon fabrication ×3 with universal ×2, including ordinary buildings", () => {
-    const state = { techIds: [], domainIds: ["afc-dominion-1", "afc-dominion-5"], techCatalog: [],
-      domainCatalog: AFC_SPECIALIZATIONS.map(upgrade => ({ ...upgrade, mods: {}, requirements: { gold: 0, resources: {} } })) };
-    expect(buildMsWithSpeedForState(state, "RELAY_BEACON", 60_000)).toBe(10_000);
-    expect(buildMsWithSpeedForState(state, "OBSERVATORY", 60_000)).toBe(30_000);
-    expect(buildMsWithSpeedForState(state, "FORT", 60_000)).toBe(30_000);
-    expect(buildMsWithSpeedForState(state, "RELAY_BEACON", 0)).toBe(0);
+  it("stacks the Relay Beacon manpower discount with the universal one, including ordinary buildings", () => {
+    const dominion = { ...player("p"), domainIds: new Set(["afc-dominion-1", "afc-dominion-5"]) };
+    expect(structureManpowerCostForPlayer(dominion, "RELAY_BEACON", 120)).toBe(20);
+    expect(structureManpowerCostForPlayer(dominion, "OBSERVATORY", 100)).toBe(50);
+    expect(structureManpowerCostForPlayer(dominion, "FORT", 300)).toBe(150);
+    expect(structureManpowerCostForPlayer({ ...player("q"), domainIds: new Set(["afc-bastion-2"]) }, "FORT", 300)).toBe(150);
   });
   it("doubles only each factory's defense contribution", () => {
     const defender = player("d");
     const context = { players: new Map([["d", defender]]), ownedStructureCountForPlayer: () => 3 };
     const titanium = titaniumWeaponsFactoryDefenseMultForPlayer(context, "d");
     const umbrite = umbriteWeaponsFactoryDefenseMultForPlayer(context, "d");
-    defender.domainIds.add("afc-bastion-2");
+    defender.domainIds.add("afc-bastion-3");
     expect(titaniumWeaponsFactoryDefenseMultForPlayer(context, "d")).toBeCloseTo(1 + (titanium - 1) * 2);
     expect(umbriteWeaponsFactoryDefenseMultForPlayer(context, "d")).toBeCloseTo(1 + (umbrite - 1) * 2);
   });
@@ -73,11 +71,11 @@ describe("AFC passive effects change authoritative numbers", () => {
     expect(manufactoryGoldProductionMultiplier(2, true, 2)).toBeCloseTo(2.2);
     expect(manufactoryGoldProductionMultiplier(1, false, 2)).toBeCloseTo(1.1);
   });
-  it("extends existing town and dock anchors without changing outpost radius", () => {
+  it("extends existing town anchors without changing dock or outpost radius", () => {
     const actor = player("p", ["afc-dominion-2", "afc-dominion-3"]);
     const anchors = withAfcReachRadii((["TOWN", "DOCK", "OUTPOST"] as const).map(kind => ({ kind, x: 1, y: 1, ownerId: "p", activatedAt: 0 })), new Map([["p", actor]]));
     expect(anchors[0]?.radiusOverride).toBe(4);
-    expect(anchors[1]?.radiusOverride).toBe(2);
+    expect(anchors[1]?.radiusOverride).toBeUndefined();
     expect(anchors[2]?.radiusOverride).toBeUndefined();
   });
   it("waives only the earliest qualifying tower's CRYSTAL demand", () => {

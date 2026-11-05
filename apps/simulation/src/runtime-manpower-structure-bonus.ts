@@ -1,3 +1,6 @@
+import { developedNetworkSites } from "./resource-networks/resource-networks.js";
+import { allocateBiotaSlots, BIOTA_SLOTS_PER_SITE, biotaSlotsNeededForTier, frontierMaterialManpowerRegenPerMinute,
+  type BiotaTownSupply, type NetworkSiteCounts, type PopulationTier } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { MonumentalStructureType } from "@border-empires/shared";
 import {
@@ -12,6 +15,12 @@ import type { RuntimePlayer } from "./runtime-types.js";
 
 /** §4.4 manpower structure bonuses for one player. */
 export type ManpowerStructureBonus = {
+  /** Resin, conductive and catalyst manpower per minute (frontier-resource-effects.ts). */
+  resourceNetworkRegenPerMinute?: number;
+  /** Biota supply for each owned town above Town tier, oldest-held first. */
+  biotaTownSupply?: ReadonlyMap<string, BiotaTownSupply>;
+  /** Developed salvage sites still holding loads (arms bonus). */
+  salvageArmsSites?: number;
   ancillaryDepotCount: number;
   reserveLatticeNetworkAncillaryDepotCount: number;
   neuralWorksNetworkAncillaryFactoryCount: number;
@@ -22,13 +31,15 @@ export type ManpowerStructureBonus = {
 
 /** Dependencies {@link cachedManpowerStructureBonusForPlayer} reads. */
 export type ManpowerStructureBonusContext = {
+  networkSitesForPlayer?: (id: string) => NetworkSiteCounts | undefined;
+  /** When the player took or settled the town on this tile (Runtime.tileSettledAtByKey). */
+  townHeldSince?: (townKey: string) => number | undefined;
   tiles: ReadonlyMap<string, DomainTileState>;
   manpowerStructureBonusCacheByPlayer: Map<string, ManpowerStructureBonus>;
   ancillaryDepotTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   neuralWorksTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   reserveLatticeTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   ancillaryFactoryTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
-  quartermastersOfficeTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   incubationEngineTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   censusHallTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   townNetworkCacheByPlayer: ReadonlyMap<string, Map<string, ConnectedTownNetworkEntry>>;
@@ -146,14 +157,18 @@ export const cachedManpowerStructureBonusForPlayer = (
   let censusDirectorateManpowerBuildingCount = 0;
   const summary = ctx.summaryForPlayer(player.id);
   const localTownNetwork = ctx.townNetworkCacheByPlayer.get(player.id) ?? new Map<string, ConnectedTownNetworkEntry>();
+  const sites = ctx.networkSitesForPlayer?.(player.id) ??
+    developedNetworkSites(ctx.settledTilesForPlayer(player.id), player.id, dormantEconomicStructureKeys ?? new Set(), player.techIds);
+  const biotaTownSupply = biotaSupplyForTowns(summary.ownedTownTierByTile, sites.LUXURY_BIOTA, ctx.townHeldSince);
   const ancillaryFactoryCapacityBonusByTown = new Map<string, number>();
   for (const townKey of summary.ownedTownTierByTile.keys()) {
     const townTile = ctx.tiles.get(townKey);
     if (!townTile?.town) continue;
     const factoryCount = countSupportedStructures(player.id, townTile, "ANCILLARY_DEPOT", ctx.tiles, dormantEconomicStructureKeys ?? new Set());
     if (factoryCount <= 0) continue;
+    // A town short of biota gives a lower tier's manpower (frontier-resource-effects.ts), Depot capacity included.
     const base = terrainAdjustedTownManpower(
-      townTile.town.populationTier,
+      biotaTownSupply?.get(townKey)?.manpowerTier ?? townTile.town.populationTier,
       resolvedTownTerrainProfileId(townTile.town.terrainProfile, townTile.landBiome),
       resolvedTownCoastal(townTile.town.terrainProfile, townTile.landBiome, townTile.town.coastal)
     ).cap;
@@ -165,7 +180,6 @@ export const cachedManpowerStructureBonusForPlayer = (
       ancillaryFactoryCount +
       (neuralWorksKeys?.size ?? 0) +
       (reserveLatticeKeys?.size ?? 0) +
-      (ctx.quartermastersOfficeTilesByOwner.get(player.id)?.size ?? 0) +
       (ctx.incubationEngineTilesByOwner.get(player.id)?.size ?? 0) +
       (ctx.censusHallTilesByOwner.get(player.id)?.size ?? 0);
   }
@@ -175,8 +189,20 @@ export const cachedManpowerStructureBonusForPlayer = (
     neuralWorksNetworkAncillaryFactoryCount,
     ancillaryFactoryCount,
     censusDirectorateManpowerBuildingCount,
+    resourceNetworkRegenPerMinute: frontierMaterialManpowerRegenPerMinute(sites),
+    ...(sites.PRECURSOR_SALVAGE > 0 ? { salvageArmsSites: sites.PRECURSOR_SALVAGE } : {}),
+    ...(biotaTownSupply ? { biotaTownSupply } : {}),
     ...(ancillaryFactoryCapacityBonusByTown.size > 0 ? { ancillaryFactoryCapacityBonusByTown } : {})
   };
   ctx.manpowerStructureBonusCacheByPlayer.set(player.id, result);
   return result;
+};
+
+/** Biota allocation for towns above Town tier; undefined when no owned town needs biota. Bounded by owned towns. */
+const biotaSupplyForTowns = (
+  townTiers: ReadonlyMap<string, PopulationTier>, biotaSites: number, heldSince: ((key: string) => number | undefined) | undefined
+): ReadonlyMap<string, BiotaTownSupply> | undefined => {
+  const towns: { key: string; tier: PopulationTier; heldSince: number }[] = [];
+  for (const [key, tier] of townTiers) if (biotaSlotsNeededForTier(tier) > 0) towns.push({ key, tier, heldSince: heldSince?.(key) ?? 0 });
+  return towns.length > 0 ? allocateBiotaSlots(towns, biotaSites * BIOTA_SLOTS_PER_SITE) : undefined;
 };

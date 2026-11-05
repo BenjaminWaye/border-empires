@@ -2,8 +2,8 @@ import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type Muster
 
 // The effort-level (Normal / Extra / Double, per docs/replenishment-update-
 // plan.md D6) confirm sheet shared by every "commit manpower to a fight"
-// entry point: March To (client-arrow-gesture-confirm-sheet.ts), Launch
-// Attack and Expand To & Attack (client-launch-attack-effort.ts). Self-
+// entry point: March To and March Attack (client-arrow-gesture-confirm-
+// sheet.ts) and Launch Attack (client-launch-attack-effort.ts). Self-
 // contained DOM overlay mounted on document.body and torn down on dismiss --
 // same pattern as client-trickle-pick-modal.ts -- rather than reusing the
 // tile-menu element, since the target tile may be off-screen. At most one

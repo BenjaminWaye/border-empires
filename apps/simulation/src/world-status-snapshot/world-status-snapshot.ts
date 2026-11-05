@@ -104,12 +104,24 @@ export const buildWorldStatusSnapshot = (
       ...(selfByIncome ? { selfByIncome } : {}),
       ...(selfByTechs ? { selfByTechs } : {})
     },
-    seasonVictory: mergeSelfProgress(objectives, selfProgressLabelsByPlayerId.get(playerId)),
+    seasonVictory: mergeSelfProgress(objectives, selfProgressLabelsByPlayerId.get(playerId), selfProgressByPlayerId.get(playerId)),
     allPlayerSelfProgressLabels: selfProgressLabelsByPlayerId,
     allPlayerSelfProgress: selfProgressByPlayerId,
     ...(typeof options?.acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms: options.acceptLatencyP95Ms } : {})
   };
 };
+
+/** Per-player self-progress from the last world-status scan: display labels plus their 0..1 values. */
+export type SelfProgressCache = {
+  labels: Map<string, Map<SeasonVictoryPathId, string>>;
+  values: Map<string, Map<SeasonVictoryPathId, number>>;
+};
+
+export const emptySelfProgressCache = (): SelfProgressCache => ({ labels: new Map(), values: new Map() });
+
+export const selfProgressCacheOf = (
+  worldStatus: Pick<ReturnType<typeof buildWorldStatusSnapshot>, "allPlayerSelfProgressLabels" | "allPlayerSelfProgress">
+): SelfProgressCache => ({ labels: worldStatus.allPlayerSelfProgressLabels, values: worldStatus.allPlayerSelfProgress });
 
 /**
  * Cheap O(n_players) leaderboard build with no tile iteration.

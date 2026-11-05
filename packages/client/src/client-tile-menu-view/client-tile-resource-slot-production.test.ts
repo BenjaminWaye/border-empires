@@ -1,9 +1,11 @@
+import { resourceTileDescriptionLines, resourceTileStatsHtml } from "./client-resource-tile-copy.js";
 import { describe, expect, it } from "vitest";
 
 import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
 import { menuOverviewForTile } from "./client-tile-menu-view.js";
 import type { Tile } from "../client-types.js";
 import type { TileOverviewModifier } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 
 const deps = {
@@ -69,4 +71,101 @@ describe("menuOverviewForTile — settled resource node production line", () => 
     const html = menuOverviewForTile(farmTile, deps).map((line) => line.html).join(" ");
     expect(html).not.toContain(`Production: ${resourceIconHtml("FOOD")} Food`);
   });
+});
+
+describe("every resource tile explains its role", () => {
+  it.each(["FARM", "FISH", "TITANIUM", "GEMS", "UMBRITE", ...NETWORK_RESOURCES] as const)("describes %s in the real tile overview", resource => {
+    for (const ownership of [undefined, "FRONTIER", "SETTLED"] as const) {
+      const tile: Tile = {x:1,y:1,terrain:"LAND",resource,...(ownership ? {ownerId:"me",ownershipState:ownership} : {})};
+      const lines = menuOverviewForTile(tile, deps).map(row => row.html).join(" ");
+      const description = resourceTileDescriptionLines(tile);
+      expect(description).toHaveLength(1);
+      expect(description[0]?.split(/[.!?]+/).filter(Boolean)).toHaveLength(1);
+      expect(description[0]?.split(/\s+/).length).toBeLessThanOrEqual(14);
+      expect(lines).toContain('class="tile-stat-grid resource-stat-grid"');
+      if (NETWORK_RESOURCES.some(kind => kind === resource)) {
+        const spec = RESOURCE_NETWORKS[resource as keyof typeof RESOURCE_NETWORKS];
+        expect(lines).toContain(spec.description);
+        expect(lines).toContain("After development");
+        expect(lines).not.toContain("exclusive slot");
+        expect(lines).not.toContain("Renewable · tradeable");
+        expect(lines).not.toContain("Develop with");
+        expect(lines).not.toContain("Powered site required");
+        expect(lines.match(/class="tile-stat"/g)).toHaveLength(1);
+        expect(lines).not.toMatch(/Claim and garrison this tile to start producing/);
+      } else expect(lines).toContain("Base supply");
+    }
+  });
+  it("describes a visible coastal fishing marker before the sea early return", () => {
+    expect(menuOverviewForTile({x:1,y:1,terrain:"COASTAL_SEA",resource:"FISH"},deps).map(row=>row.html).join(" ")).toContain("Coastal fishing grounds");
+  });
+  it("keeps deposit bonuses separate from the installation's build status", () => {
+    const tile: Tile = {x:1,y:1,terrain:"LAND",resource:"NEURAL_RESIN",ownerId:"me",ownershipState:"SETTLED",
+      economicStructure:{ownerId:"me",type:"RESIN_EXTRACTOR",status:"under_construction"}};
+    const potential = resourceTileStatsHtml(tile);
+    expect(potential).toContain("+120 manpower per refill for your first resin site");
+    tile.economicStructure!.status="active";
+    expect(resourceTileStatsHtml(tile)).toBe(potential);
+  });
+});
+
+it("does not count an unfinished, inactive or legacy fish Hydrogarden as a source boost",()=>{
+  for(const status of ["under_construction","inactive","removing"] as const) {
+    expect(resourceSlotProductionHtml({x:1,y:1,terrain:"LAND",resource:"FARM",economicStructure:{ownerId:"me",type:"HYDROGARDEN",status}})).toContain("Food +1");
+  }
+  expect(resourceSlotProductionHtml({x:1,y:1,terrain:"LAND",resource:"FISH",economicStructure:{ownerId:"me",type:"HYDROGARDEN",status:"active"}})).toContain("Food +2");
+});
+it("reports diverted resource supply and explains the Siphon on frontier sites",()=>{
+  const sabotage={ownerId:"enemy",observatoryTileKey:"5,5",endsAt:Number.MAX_SAFE_INTEGER,outputMultiplier:0};
+  const tile:Tile={x:1,y:1,terrain:"LAND",resource:"FARM",ownerId:"me",ownershipState:"SETTLED",sabotage};
+  expect(resourceSlotProductionHtml(tile)).toContain("Food +0 (siphoned)");
+  tile.resource="NEURAL_RESIN";
+  expect(menuOverviewForTile(tile,deps).map(row=>row.html).join(" ")).toContain("Siphoned");
+});
+
+it("shows the conductive amount with no recipient building", () => {
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "CONDUCTIVE_MINERALS" });
+  expect(html).toContain("+120 manpower per refill for your first conductive site, +30 for each extra one.");
+  expect(html).not.toContain("factories");
+});
+
+it.each(NETWORK_RESOURCES)("%s links the required structure without repeating its research requirement", resource => {
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource });
+  expect(html).toContain(`data-structure-info="${RESOURCE_NETWORKS[resource].building}"`);
+  expect(html).not.toContain("Research required");
+  expect(html).not.toContain("Researched");
+  expect(html).not.toContain("data-view-tech");
+  expect(html).not.toContain("View in tech tree");
+});
+
+it.each(NETWORK_RESOURCES)("%s makes improvement a condition even after a frontier claim", resource => {
+  const spec = RESOURCE_NETWORKS[resource];
+  for (const ownershipState of [undefined, "FRONTIER", "SETTLED"] as const) {
+    const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource, ...(ownershipState ? { ownershipState } : {}) });
+    expect(html).toContain("After development");
+    expect(html).toContain(`data-structure-info="${spec.building}"`);
+    expect(html).toContain(`>${spec.buildingName}</button>`);
+    expect(html).not.toContain("Coin/day");
+  }
+});
+
+it("shows a deposit's value to the viewer: the first site of a type is worth 120, an extra one 30", () => {
+  const held = { NEURAL_RESIN: 4, CONDUCTIVE_MINERALS: 0, CATALYTIC_DEPOSIT: 0, LUXURY_BIOTA: 1, PRECURSOR_SALVAGE: 0 };
+  const view = { me: "me", held };
+  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "CATALYTIC_DEPOSIT" }, view)).toContain("+120 manpower per refill");
+  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "CATALYTIC_DEPOSIT" }, view)).toContain("Your first catalyst site");
+  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "NEURAL_RESIN", ownerId: "rival" }, view)).toContain("+30 manpower per refill");
+  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "LUXURY_BIOTA" }, view)).toContain("+2 biota slots");
+  const ownResin = { x: 1, y: 1, terrain: "LAND" as const, resource: "NEURAL_RESIN" as const, ownerId: "me", ownershipState: "SETTLED" as const,
+    economicStructure: { ownerId: "me", type: "RESIN_EXTRACTOR" as const, status: "active" as const } };
+  const own = resourceTileStatsHtml(ownResin, view);
+  expect(own).toContain("If you lose it");
+  expect(own).toContain("−30 manpower per refill");
+  expect(resourceTileStatsHtml(ownResin, { me: "me", held: { ...held, NEURAL_RESIN: 1 } })).toContain("−120 manpower per refill");
+});
+
+it("shows the loads left at a Reclamation Works", () => {
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "PRECURSOR_SALVAGE", ownerId: "me", ownershipState: "SETTLED",
+    economicStructure: { ownerId: "me", type: "RECLAMATION_WORKS", status: "active", salvageLoadsShipped: 1 } });
+  expect(html).toContain("2 of 3");
 });

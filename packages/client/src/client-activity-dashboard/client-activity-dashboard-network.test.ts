@@ -19,6 +19,7 @@ afterEach(() => registerHintStateSender(() => undefined));
 const makeState = () => ({
   activityDashboard: {
     open: false,
+    chronicleOpen: false,
     loading: false,
     timeline: undefined as any,
     error: undefined as string | undefined,

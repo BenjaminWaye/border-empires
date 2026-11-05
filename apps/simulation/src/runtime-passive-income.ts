@@ -3,6 +3,7 @@ import { computeEmpireStorageCap } from "./runtime-empire-storage.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer, StrategicResourceKey } from "./runtime-types.js";
+import { hasAwaitingSettleEntry } from "./runtime-dev-queue-settle-manpower-wait.js";
 
 type TrackSync = <T>(phase: string, details: Record<string, string> | undefined, task: () => T) => T;
 
@@ -15,9 +16,11 @@ export type RuntimePassiveIncomeContext = {
   addStrategicResource: (player: RuntimePlayer, resource: StrategicResourceKey, amount: number) => void;
   emitPlayerStateUpdate: (input: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
   trackSyncMainThreadTask?: TrackSync;
+  /** Settles manpower (only) and moves queued garrisons that were waiting on it (runtime-dev-queue-settle-manpower-wait.ts). Only called while one is waiting. */
+  tickAwaitingSettleEntries?: (player: RuntimePlayer, nowMs: number) => void;
 };
 
-const STRATEGIC_INCOME_KEYS = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const;
+const STRATEGIC_INCOME_KEYS = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const;
 
 /**
  * True while a player's passive income is suspended for inactivity: a human
@@ -48,8 +51,17 @@ export const applyPassiveIncomeForPlayer = (
   ctx: RuntimePassiveIncomeContext,
   player: RuntimePlayer,
   nowMs: number,
-  inactivityCapMs: number
+  inactivityCapMs: number,
+  emitUpdate = true
 ): void => {
+  // Before the inactivity gate: manpower keeps refilling for an AFK player, so
+  // their waiting garrisons should still go out. The hook settles manpower
+  // only (no economy accrual), so it charges an AFK player nothing. Skipped
+  // on the silent pre-change settles (emitUpdate=false), which must not
+  // dispatch anything.
+  if (emitUpdate && ctx.tickAwaitingSettleEntries && hasAwaitingSettleEntry(ctx.summaryForPlayer(player.id))) {
+    ctx.tickAwaitingSettleEntries(player, nowMs);
+  }
   if (isPassiveIncomePaused(player, ctx.lastActiveAtMsByPlayer.get(player.id), nowMs, inactivityCapMs)) return;
 
   const lastTickAt = ctx.lastIncomeTickAtMsByPlayer.get(player.id);
@@ -95,7 +107,7 @@ export const applyPassiveIncomeForPlayer = (
 
   ctx.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
 
-  if (anyCredited) {
+  if (anyCredited && emitUpdate) {
     ctx.emitPlayerStateUpdate({ commandId: `income-tick:${player.id}:${nowMs}`, playerId: player.id });
   }
 };

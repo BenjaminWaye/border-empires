@@ -1,8 +1,8 @@
 import { chooseAiAetherCommand } from "./ai-aether-planner.js";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
+import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, expandManpowerCostForFrontierCount, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 
-import { spendableBuildManpowerForPlanner, spendableManpowerForPlanner } from "./automation-command-planner-war-reserve.js";
+import { spendableManpowerForPlanner } from "./automation-command-planner-war-reserve.js";
 
 import { buildScoringNeedVectorFromPlannerInput, needVectorFromPlannerInput } from "./build/build-need-vector.js";
 
@@ -22,8 +22,11 @@ import {
   chooseBestFortBuild,
   chooseBestSiegeBatteryBuild
 } from "./structure-command-planner.js";
-import { chooseBestRelayBeaconBuild } from "./relay-beacon-command-planner.js";
+import { chooseBestRelayBeaconBuild, relayBeaconAffordable } from "./relay-beacon-command-planner.js";
+import type { RelayBeaconSiteSkips } from "./relay-beacon-site-rules.js";
+import { structurePlayerFromPlannerInput } from "./automation-structure-player.js";
 import { foodSlotReliefFromPlannerInput } from "./food-slot-relief.js";
+import { ownedNetworkInstallationCount } from "./planner-owned-structure-counts.js";
 import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 import type { AutomationPlannerDecisionContext } from "./automation-command-planner-helpers.js";
@@ -46,6 +49,8 @@ import type {
   AutomationPreplanProgressState,
   AutomationSessionPrefix
 } from "./automation-command-planner-types.js";
+import { economicBuildDiagnostics } from "./build/economic-synergy-diagnostics.js";
+import { linkValueTownKeys } from "./build/economic-synergy-scoring.js";
 
 export {
   AUTOMATION_NOOP_REASONS,
@@ -116,8 +121,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   // spendableManpower below — see automation-command-planner-war-reserve.ts.
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
   const spendableManpower = spendableManpowerForPlanner(input);
-  // SETTLE_COST reserves gold for the eventual SETTLE step (#1055); EXPAND_MANPOWER_COST is the manpower-rewrite's own gate — both fixes combined.
-  const canExpand = input.points >= SETTLE_COST && spendableManpower >= EXPAND_MANPOWER_COST;
+  // SETTLE_COST reserves gold for the eventual SETTLE step (#1055); the frontier-scaled EXPAND price is the manpower gate — both fixes combined.
+  const canExpand = input.points >= SETTLE_COST && spendableManpower >= expandManpowerCostForFrontierCount(input.frontierTiles.length);
   // strategicFrontierTiles (isStrategicFrontierTile: good SETTLE candidates — e.g. interior gaps that improve territory shape) used to sit ahead of
   // frontierTiles here, but there is no SETTLE decision class in the AI's utility policy — the AI never acts on "good to settle" directly. Worse,
   // when hotFrontierTiles is empty this tier fired first and starved the EXPAND/ATTACK scan: analyzeOwnedFrontierTargetsFromLookup only looks for
@@ -183,6 +188,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const needsFood = foodCoverageLow(input.strategicResources, townCount, input.slotSupplyByResource && input.slotDemandByResource ? { supply: input.slotSupplyByResource.FOOD ?? 0, demand: input.slotDemandByResource.FOOD ?? 0 } : undefined);
   const needsEconomy = economyWeak(input.manpower, settledTileCount);
   const frontierStartedAt = Date.now();
+  const linkValueTowns = input.townEconomy ? linkValueTownKeys(input.townEconomy) : undefined;
   let frontierOrigins = narrowFrontierOrigins;
   let frontierAnalysis =
     canAttack || canExpand
@@ -195,6 +201,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
           ...(input.nonHostilePlayerIds ? { nonHostilePlayerIds: input.nonHostilePlayerIds } : {}),
+          ...(linkValueTowns ? { linkValueTownKeys: linkValueTowns } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -232,6 +239,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
           ...(input.nonHostilePlayerIds ? { nonHostilePlayerIds: input.nonHostilePlayerIds } : {}),
+          ...(linkValueTowns ? { linkValueTownKeys: linkValueTowns } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -251,23 +259,10 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   let fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
   let siegeBatteryBuild: ReturnType<typeof chooseBestSiegeBatteryBuild> | undefined;
   let relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
+  const relayBeaconSiteSkips: RelayBeaconSiteSkips = { spacing: 0 };
+  let beaconAffordable = true;
   if (input.sessionPrefix === "ai-runtime" && effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
-    const structurePlayer = {
-      id: input.playerId,
-      points: input.points,
-      // War reserve applies to structure builds too — not raw input.manpower — except for the pool floor the muster tick leaves for builds (see spendableBuildManpowerForPlanner).
-      manpower: spendableBuildManpowerForPlanner(input),
-      ...(input.techIds ? { techIds: input.techIds } : {}),
-      ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
-      ...(input.installedModuleTechIds ? { installedModuleTechIds: input.installedModuleTechIds } : {}),
-      ...(input.blockedActionKeys ? { blockedActionKeys: input.blockedActionKeys } : {}),
-      ...(input.ownedStructureCounts ? { ownedStructureCounts: input.ownedStructureCounts } : {}),
-      ...(input.slotSupplyByResource ? { slotSupplyByResource: input.slotSupplyByResource } : {}),
-      ...(input.slotDemandByResource ? { slotDemandByResource: input.slotDemandByResource } : {}),
-      settledTileCount,
-      townCount,
-      incomePerMinute
-    };
+    const structurePlayer = structurePlayerFromPlannerInput(input, { settledTileCount, townCount, incomePerMinute });
     const structureCandidates = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
     const buildCandidates = restrictToFocus(structureCandidates, () => {
       buildScanUsedFocusFallback = true;
@@ -305,12 +300,14 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         tile.ownershipState === "SETTLED" &&
         (!focusFront || focusFront.has(`${tile.x},${tile.y}`))
     );
+    beaconAffordable = relayBeaconAffordable(structurePlayer, input.ownedTiles);
     relayBeaconBuild = chooseBestRelayBeaconBuild(
       structurePlayer,
       input.ownedTiles,
       input.tilesByKey,
       dedupeTiles([...buildCandidates, ...beaconFrontierCandidates, ...beaconSettledCandidates]),
-      input.reachLookup
+      input.reachLookup,
+      relayBeaconSiteSkips
     );
   }
 
@@ -329,6 +326,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount,
     frontierEnemyPlayerTargetCount: frontierAnalysis.frontierEnemyPlayerTargetCount,
     frontierBarbarianTargetCount: frontierAnalysis.frontierBarbarianTargetCount,
+    frontierNonHostileTargetCount: frontierAnalysis.frontierNonHostileTargetCount ?? 0,
     frontierNeutralTargetCount: frontierAnalysis.frontierNeutralTargetCount,
     frontierOpportunityEconomic: frontierAnalysis.frontierOpportunityEconomic,
     frontierOpportunityTownSupport: frontierAnalysis.frontierOpportunityTownSupport,
@@ -374,12 +372,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       (Boolean(economicBuild) && !buildScanUsedFocusFallback) ||
       (Boolean(fortBuild) && !buildScanUsedFocusFallback) ||
       (Boolean(siegeBatteryBuild) && !buildScanUsedFocusFallback),
-    // Debug-only: what chooseBestEconomicBuild actually picked, so a
-    // repeatedly-rejected BUILD_ECONOMIC_STRUCTURE can be traced to a
-    // specific tile/type via /admin/debug/ai/decisions instead of guessing.
-    ...(economicBuild
-      ? { economicBuildCandidate: `${economicBuild.tile.x},${economicBuild.tile.y}:${economicBuild.structureType}` }
-      : {}),
+    // Debug-only: the economic pick, its score and the synergy state behind it.
+    ...economicBuildDiagnostics(economicBuild, input.townEconomy),
     // Debug-only: what chooseBestRelayBeaconBuild actually picked, so
     // BUILD_BEACON's state can be traced via /admin/debug/ai/decisions
     // instead of inferring it (wrongly) from unrelated fields like
@@ -390,6 +384,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           relayBeaconSiteValue: relayBeaconBuild.siteValue
         }
       : {}),
+    ...(relayBeaconSiteSkips.spacing > 0 ? { relayBeaconSiteSkips } : {}),
     ...(typeof input.playerScopeKeyCount === "number" ? { playerScopeKeyCount: input.playerScopeKeyCount } : {}),
     ...(typeof input.playerScopeTileCount === "number" ? { playerScopeTileCount: input.playerScopeTileCount } : {})
   };
@@ -435,6 +430,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ...(input.previousVictoryPath ? { previousVictoryPath: input.previousVictoryPath } : {}),
     ...(input.previousWarPostureLatch ? { previousWarPostureLatch: input.previousWarPostureLatch } : {}),
     ...(input.pathPopulationCounts ? { pathPopulationCounts: input.pathPopulationCounts } : {}),
+    ...(input.worldVictoryProgress ? { worldVictoryProgress: input.worldVictoryProgress } : {}),
     ...(typeof input.activeMusterCount === "number" ? { activeMusterCount: input.activeMusterCount } : {}),
     ...(input.musterTileKeys ? { musterTileKeys: input.musterTileKeys } : {})
   });
@@ -449,6 +445,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     victoryPathProgress: strategic.primaryVictoryPathProgress
   });
   if (needVector) diagnosticBase.needVector = needVector;
+  diagnosticBase.victoryPath = { path: strategic.primaryVictoryPath, progress: strategic.primaryVictoryPathProgress, source: input.worldVictoryProgress ? "world" : "heuristic" };
   const foodSlotBlocked = !input.slotSupplyByResource && [...(input.blockedActionKeys?.values() ?? [])].some((code) => code === "INSUFFICIENT_SLOT");
   const foodSlotRelief = foodSlotReliefFromPlannerInput(
     input.ownedTiles,
@@ -458,7 +455,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     input.slotSupplyByResource?.FOOD,
     input.slotDemandByResource?.FOOD,
     foodSlotBlocked,
-    input.ownedStructureCounts?.RELAY_BEACON
+    input.ownedStructureCounts?.RELAY_BEACON,
+    ownedNetworkInstallationCount(input.ownedStructureCounts)
   );
   recordPhaseTiming("summarize_frontier", summarizeStartedAt);
   const result = runUtilityPolicy({
@@ -472,6 +470,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     fortBuild,
     siegeBatteryBuild,
     relayBeaconBuild,
+    relayBeaconAffordable: beaconAffordable,
     foodSlotReliefTarget: foodSlotRelief.reliefTarget,
     foodSlotsExhausted: foodSlotRelief.exhausted,
     foodSlotReenableTarget: foodSlotRelief.reenableTarget,

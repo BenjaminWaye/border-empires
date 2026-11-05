@@ -13,11 +13,13 @@ import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from ".
 
 /**
  * Raw runtime resources the progression command context (UPGRADE_TOWN_TIER,
- * COLLECT_SHARD, CHOOSE_TECH, CHOOSE_DOMAIN) needs. This is the "port" the
+ * CHOOSE_TECH, CHOOSE_DOMAIN) needs. This is the "port" the
  * SimulationRuntime composition root fills in with `this.*` closures — see
  * `progressionCommandContext()` in runtime.ts.
  */
 export interface ProgressionCommandContextDeps {
+  readonly beforeResourceSupplyChange?: (id: string) => void;
+  readonly afterResourceSupplyChange?: (id: string) => void;
   readonly settleEconomyBeforeUpgrade?: (player: RuntimePlayer) => void;
   readonly isTileLocked?: (key: string) => boolean;
   readonly reconcileAfcReach?: (playerId: string, commandId: string) => void;
@@ -25,7 +27,6 @@ export interface ProgressionCommandContextDeps {
   readonly tiles: Map<string, DomainTileState>;
   readonly emitEvent: RuntimeProgressionCommandContext["emitEvent"];
   readonly emitPlayerStateUpdate: RuntimeProgressionCommandContext["emitPlayerStateUpdate"];
-  readonly addStrategicResource: RuntimeProgressionCommandContext["addStrategicResource"];
   readonly tileDeltaFromState: RuntimeProgressionCommandContext["tileDeltaFromState"];
   readonly replaceTileState: RuntimeProgressionCommandContext["replaceTileState"];
   readonly autoClaimFrontier: RuntimeProgressionCommandContext["autoClaimFrontier"];
@@ -48,10 +49,6 @@ export interface ProgressionCommandContextDeps {
   readonly upkeepAccrualCacheByPlayer: Map<string, unknown>;
   readonly ownedOutpostTilesForPlayer: (playerId: string) => DomainTileState[];
   readonly incomePerMinuteForPlayer: RuntimeProgressionCommandContext["incomePerMinuteForPlayer"];
-  readonly decrementShardRainSiteCount: () => number;
-  readonly clearShardRainExpiry: () => void;
-  readonly clearLastShardRainHello: () => void;
-  readonly onShardCollected: (() => void) | undefined;
   readonly resourceSlotSupplyForPlayer: RuntimeProgressionCommandContext["resourceSlotSupplyForPlayer"];
   readonly resourceSlotDemandForPlayer: RuntimeProgressionCommandContext["resourceSlotDemandForPlayer"];
   readonly tileDeltaRevealOnly: (tile: DomainTileState, playerId?: string) => SimulationTileWireDelta;
@@ -69,6 +66,8 @@ export interface ProgressionCommandContextDeps {
 
 export function buildProgressionCommandContext(deps: ProgressionCommandContextDeps): RuntimeProgressionCommandContext {
   return {
+    ...(deps.beforeResourceSupplyChange ? { beforeResourceSupplyChange: deps.beforeResourceSupplyChange } : {}),
+    ...(deps.afterResourceSupplyChange ? { afterResourceSupplyChange: deps.afterResourceSupplyChange } : {}),
     ...(deps.settleEconomyBeforeUpgrade ? { settleEconomyBeforeUpgrade: deps.settleEconomyBeforeUpgrade } : {}),
     now: deps.now,
     ...(deps.isTileLocked ? { isTileLocked: deps.isTileLocked } : {}),
@@ -77,7 +76,6 @@ export function buildProgressionCommandContext(deps: ProgressionCommandContextDe
     tiles: deps.tiles,
     emitEvent: (event) => deps.emitEvent(event),
     emitPlayerStateUpdate: (command, playerId) => deps.emitPlayerStateUpdate(command, playerId),
-    addStrategicResource: (player, resource, amount) => deps.addStrategicResource(player, resource, amount),
     tileDeltaFromState: (tile) => deps.tileDeltaFromState(tile),
     replaceTileState: (tileKey, tile, commandId) => deps.replaceTileState(tileKey, tile, commandId),
     autoClaimFrontier: (tileKeys, ownerId, causeCommandId) => deps.autoClaimFrontier(tileKeys, ownerId, causeCommandId),
@@ -130,10 +128,6 @@ export function buildProgressionCommandContext(deps: ProgressionCommandContextDe
       resyncPlayerOutpostVisionBonuses(deps.outpostVisionDeps(), playerId, deps.ownedOutpostTilesForPlayer(playerId));
     },
     incomePerMinuteForPlayer: (playerId) => deps.incomePerMinuteForPlayer(playerId),
-    decrementShardRainSiteCount: () => deps.decrementShardRainSiteCount(),
-    clearShardRainExpiry: () => deps.clearShardRainExpiry(),
-    clearLastShardRainHello: () => deps.clearLastShardRainHello(),
-    onShardCollected: deps.onShardCollected,
     resourceSlotSupplyForPlayer: (playerId) => deps.resourceSlotSupplyForPlayer(playerId),
     resourceSlotDemandForPlayer: (playerId) => deps.resourceSlotDemandForPlayer(playerId),
     // §23.2: a tech/domain choice can change slot waivers, which the

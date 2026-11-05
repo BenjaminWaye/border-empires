@@ -9,7 +9,7 @@ import type {
   MissionKind,
   MissionState,
   MissionStats,
-  NaturalWonderType,
+  NaturalWonderState,
   OwnershipState,
   Player,
   ResourceType,
@@ -183,7 +183,6 @@ export interface SnapshotState {
   aetherWalls?: ActiveAetherWall[];
   docks?: Dock[];
   towns?: TownDefinition[];
-  shardSites?: ShardSiteState[];
   watchtowerSites?: WatchtowerSiteState[];
   firstSpecialSiteCaptureClaimed?: TileKey[];
   clusters?: ClusterDefinition[];
@@ -220,7 +219,6 @@ export interface SnapshotTerritorySection {
   terrainShapes?: [TileKey, TerrainShapeState][];
   docks?: Dock[];
   towns?: TownDefinition[];
-  shardSites?: ShardSiteState[];
   watchtowerSites?: WatchtowerSiteState[];
   firstSpecialSiteCaptureClaimed?: TileKey[];
   clusters?: ClusterDefinition[];
@@ -294,13 +292,6 @@ export interface TownDefinition {
   coastal?: boolean;
 }
 
-export interface ShardSiteState {
-  tileKey: TileKey;
-  kind: "CACHE" | "FALL";
-  amount: number;
-  expiresAt?: number;
-}
-
 export interface WatchtowerSiteState {
   tileKey: TileKey;
   activated: boolean;
@@ -314,9 +305,8 @@ export interface WaystationSiteState {
   activatedByPlayerId?: string;
 }
 
-export interface NaturalWonderSiteState {
+export interface NaturalWonderSiteState extends NaturalWonderState {
   tileKey: TileKey;
-  type: NaturalWonderType;
 }
 
 export interface TileHistoryState {
@@ -335,8 +325,8 @@ export interface TerrainShapeState {
   createdByPlayer: boolean;
 }
 
-export type StrategicResource = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
-export const STRATEGIC_RESOURCE_KEYS: readonly StrategicResource[] = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"];
+export type StrategicResource = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
+export const STRATEGIC_RESOURCE_KEYS: readonly StrategicResource[] = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"];
 
 export interface Observatory {
   observatoryId: string;

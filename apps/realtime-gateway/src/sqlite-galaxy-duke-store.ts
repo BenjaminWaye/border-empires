@@ -30,6 +30,10 @@ export class SqliteGalaxyDukeStore implements GalaxyDukeStore {
         started_at INTEGER NOT NULL,
         baseline_captured INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS galaxy_court_writs (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        accepted INTEGER NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS galaxy_hall_of_fame (
         era INTEGER PRIMARY KEY,
         ended_at INTEGER NOT NULL,
@@ -64,7 +68,16 @@ export class SqliteGalaxyDukeStore implements GalaxyDukeStore {
       record.contributions[r.auth_uid] = r.influence;
       record.totalInfluence += r.influence;
     }
+    const writs = this.db.prepare(`SELECT accepted FROM galaxy_court_writs WHERE id = 1`).get() as { accepted: number } | undefined;
+    record.writsAccepted = writs?.accepted ?? 0;
     return record;
+  }
+
+  async addWritAccepted(): Promise<GalaxyCourtRecord> {
+    this.db
+      .prepare(`INSERT INTO galaxy_court_writs (id, accepted) VALUES (1, 1) ON CONFLICT(id) DO UPDATE SET accepted = accepted + 1`)
+      .run();
+    return this.getCourt();
   }
 
   async addCourtContribution(authUid: string, influence: number): Promise<GalaxyCourtRecord> {
@@ -102,6 +115,7 @@ export class SqliteGalaxyDukeStore implements GalaxyDukeStore {
       this.db.prepare(`INSERT OR REPLACE INTO galaxy_hall_of_fame (era, ended_at, entry_json) VALUES (?, ?, ?)`).run(entry.era, entry.endedAt, JSON.stringify(entry));
       this.db.prepare(`DELETE FROM galaxy_hall_of_fame WHERE era NOT IN (SELECT era FROM galaxy_hall_of_fame ORDER BY era DESC LIMIT ?)`).run(MAX_HALL_OF_FAME);
       this.db.exec(`DELETE FROM galaxy_court_contributions`);
+      this.db.exec(`DELETE FROM galaxy_court_writs`);
       this.writeEra(next);
       this.db.exec("COMMIT");
     } catch (error) {

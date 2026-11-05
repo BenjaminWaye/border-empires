@@ -116,3 +116,14 @@ describe("structureModifiersFor", () => {
     expect(modifiers).toContainEqual({ statLabel: "Refine mode supplies", valueText: "+1 UMBRITE slot", tone: "positive", isTownWide: false });
   });
 });
+
+// Display amounts use the full four-hour batch while economy rates remain per minute.
+describe("manpower batch display", () => {
+  it.each([
+    ["ANCILLARY_FACTORY", "Manpower per batch empire-wide", "+12"],
+    ["NEURAL_WORKS", "Manpower per batch per Ancillary Factory in network", "+24"],
+    ["CENSUS_DIRECTORATE", "Manpower per batch per Manpower-branch building owned", "+24"]
+  ] as const)("shows %s output per batch", (type, statLabel, valueText) => {
+    expect(structureModifiersFor(type)).toContainEqual(expect.objectContaining({ statLabel, valueText }));
+  });
+});

@@ -27,7 +27,7 @@ describe("renderCaptureProgress battle overlay FX gating", () => {
     const captureCancelBtn = makeElement();
     const captureDismissBtn = makeElement();
     const captureCloseBtn = makeElement();
-    const captureDownloadDebugBtn = makeElement();
+    const captureReportBugBtn = makeElement();
     const captureBarEl = makeElement();
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
@@ -77,7 +77,7 @@ describe("renderCaptureProgress battle overlay FX gating", () => {
         captureCancelBtn,
         captureDismissBtn,
         captureCloseBtn,
-        captureDownloadDebugBtn,
+        captureReportBugBtn,
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
@@ -103,7 +103,7 @@ describe("renderCaptureProgress battle overlay FX gating", () => {
     const captureCancelBtn = makeElement();
     const captureDismissBtn = makeElement();
     const captureCloseBtn = makeElement();
-    const captureDownloadDebugBtn = makeElement();
+    const captureReportBugBtn = makeElement();
     const captureBarEl = makeElement();
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
@@ -145,7 +145,7 @@ describe("renderCaptureProgress battle overlay FX gating", () => {
         captureCancelBtn,
         captureDismissBtn,
         captureCloseBtn,
-        captureDownloadDebugBtn,
+        captureReportBugBtn,
         captureBarEl,
         captureTitleEl,
         captureTimeEl,

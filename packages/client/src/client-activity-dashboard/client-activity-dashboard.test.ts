@@ -3,11 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import type { LeaderboardMetricEntry, LeaderboardOverallEntry, WorldPulse } from "@border-empires/game-domain";
 import type { ClientEventLogEntry } from "../client-event-log-html.js";
 import { latestClientChangelogTimestamp } from "../client-changelog/client-changelog.js";
+import { setHudV2Driving } from "../client-hud-v2/client-hud-v2-flag.js";
 import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "./client-activity-dashboard.js";
 
 const makeState = () => ({
   activityDashboard: {
     open: false,
+    chronicleOpen: false,
     loading: false,
     timeline: undefined as any,
     error: undefined as string | undefined,
@@ -286,6 +288,23 @@ describe("renderClientActivityDashboardOverlay", () => {
     expect(state.changelog.seenAt).toBe(latestClientChangelogTimestamp());
     expect(deps.persistSeenAt).toHaveBeenCalled();
     expect(deps.sendGameMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "ACKNOWLEDGE_ACTIVITY_SEEN" }), expect.anything());
+  });
+
+  // Regression: under ?hud=v2 the hidden dashboard marked release notes seen before the Chronicle took over.
+  it("stands down while the new HUD drives, leaving Updates unread and the open flag for the Chronicle", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.activityDashboard.activeView = "UPDATES";
+    const deps = makeDeps(state);
+    setHudV2Driving(true);
+    try {
+      renderClientActivityDashboardOverlay(deps);
+    } finally {
+      setHudV2Driving(false);
+    }
+    expect(state.changelog.seenAt).toBe(1);
+    expect(state.activityDashboard.open).toBe(true);
+    expect(deps.overlayEl.style.display).toBe("none");
   });
 
   it("keeps the same DOM and scroll position when re-rendered with unchanged state (ticker renders)", () => {

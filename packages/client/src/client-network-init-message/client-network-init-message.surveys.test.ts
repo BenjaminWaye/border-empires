@@ -10,6 +10,39 @@ afterEach(() => {
 });
 
 describe("INIT survey restoration", () => {
+  it("keeps an acknowledged clue dismissed when INIT restores it into a fresh scope", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+    const init = { data: JSON.stringify({
+      type: "INIT",
+      player: {
+        id: "dismissed-survey-player", name: "Survey Player", points: 5,
+        homeTile: { x: 10, y: 10 }, techIds: [],
+        eventLog: [{
+          id: "acknowledged-crystal-survey", type: "OCCUPATION_SURVEY", occurredAt: Date.now(),
+          text: "Crystal nearby", surveyResource: "GEMS", surveySignature: "REFRACTIVE_GROUND",
+          surveyX: 17, surveyY: 9, bearing: "north", distanceBand: "NEAR", confidence: "HIGH"
+        }]
+      },
+      config: { season: { seasonId: "dismissed-survey-season", worldSeed: 12345 } },
+      recovery: { nextClientSeq: 1, pendingCommands: [] }
+    }) };
+    const sync = () => occupationSurveyController.sync(
+      { camX: 10, camY: 10, camSubX: 0, camSubY: 0, selected: undefined },
+      () => ({ sx: 0, sy: 0 }), 32, 16, 16
+    );
+    ws.emit("message", init);
+    sync();
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    document.querySelector<HTMLButtonElement>("[data-survey-dismiss]")?.click();
+    occupationSurveyController.reconcile([], [], "temporary-scope");
+    ws.emit("message", init);
+    sync();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(occupationSurveyController.currentForResource("GEMS")?.id).toBe("acknowledged-crystal-survey");
+  });
+
   it("opens an unresolved report older than the retiring feed's 24-hour window", () => {
     const state = createState();
     const ws = new FakeWebSocket();

@@ -41,7 +41,7 @@ type NormalizedGatewayTileUpdate = {
   siegeBattery?: Tile["siegeBattery"] | undefined;
   economicStructure?: Tile["economicStructure"] | undefined;
   sabotage?: Tile["sabotage"] | undefined;
-  shardSite?: Tile["shardSite"] | undefined; naturalWonder?: Tile["naturalWonder"] | undefined;
+  naturalWonder?: Tile["naturalWonder"] | undefined;
   watchtower?: Tile["watchtower"] | undefined;
   waystation?: Tile["waystation"] | undefined;
   muster?: Tile["muster"] | undefined;
@@ -52,6 +52,8 @@ type NormalizedGatewayTileUpdate = {
   frontierDecayAt?: Tile["frontierDecayAt"] | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | undefined;
   captureHoldUntil?: Tile["captureHoldUntil"] | undefined;
+  warScarLevel?: Tile["warScarLevel"] | undefined;
+  warScarUntil?: Tile["warScarUntil"] | undefined;
   yieldRate?: Tile["yieldRate"] | undefined;
   upkeepEntries?: Tile["upkeepEntries"] | undefined;
   history?: Tile["history"] | undefined;
@@ -66,7 +68,6 @@ type NormalizedGatewayTileUpdate = {
 // import sim-protocol at build time, so client-gateway-overlay-fields.test.ts
 // enforces that instead -- a new overlay fails that test until it is added here.
 const GATEWAY_OVERLAY_PARSERS = {
-  shardSiteJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ shardSite: parseGatewayStructureJson<NonNullable<Tile["shardSite"]>>(json) }),
   naturalWonderJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ naturalWonder: parseGatewayStructureJson<NonNullable<Tile["naturalWonder"]>>(json) }),
   fortJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ fort: parseGatewayStructureJson<Tile["fort"]>(json) }),
   observatoryJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ observatory: parseGatewayStructureJson<Tile["observatory"]>(json) }),
@@ -99,6 +100,8 @@ export type GatewayTileUpdate = {
   frontierDecayAt?: number | null;
   frontierDecayKind?: Tile["frontierDecayKind"] | null;
   captureHoldUntil?: number | null;
+  warScarLevel?: number | null;
+  warScarUntil?: number | null;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;
@@ -175,6 +178,8 @@ export const normalizeGatewayTileUpdate = (
   if ("captureHoldUntil" in update) {
     normalized.captureHoldUntil = typeof update.captureHoldUntil === "number" && update.captureHoldUntil > 0 ? update.captureHoldUntil : undefined;
   }
+  if ("warScarLevel" in update) normalized.warScarLevel = typeof update.warScarLevel === "number" && update.warScarLevel > 0 ? update.warScarLevel : undefined;
+  if ("warScarUntil" in update) normalized.warScarUntil = typeof update.warScarUntil === "number" && update.warScarUntil > 0 ? update.warScarUntil : undefined;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
   if ("upkeepEntries" in update) normalized.upkeepEntries = update.upkeepEntries;
   if ("history" in update) normalized.history = update.history;
@@ -277,7 +282,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     else delete merged.dockId;
   }
   // Confirmed-identical fields (ownerId/ownershipState/frontierDecayAt/
-  // frontierDecayKind/shardSite/town/fort/observatory/economicStructure/
+  // frontierDecayKind/town/fort/observatory/economicStructure/
   // siegeBattery/sabotage/muster/yieldRate/upkeepEntries/
   // history) merged via the shared helper -- see client-tile-merge.ts.
   applyCommonTileFields(existing, merged, normalizedGateway, { me: deps.state.me });

@@ -24,11 +24,25 @@ export type CombatFlipMatches = {
   consumedFlips: ReadonlySet<TerritoryFlip>;
   // Failed attacks (entries of `combat`) whose launch tile the defender took.
   originSeized: ReadonlySet<CombatManpowerLoss>;
+  // The flips those seized launch tiles were matched to (a subset of
+  // consumedFlips). A besieged tile lost this way still ends its siege.
+  seizedFlips: ReadonlySet<TerritoryFlip>;
   // What stood on each captured target and each seized launch tile (keyed by
   // entries of `combat`), read off the matched flip, so a combat card can say
   // "your Palisade fell" -- those flips no longer get a territory card.
   tileFeatures: CombatTileFeatures;
 };
+
+// A capture known from somewhere other than the flip log -- a TOWN_LOST or
+// DOCK_LOST impact, which lives in its own (much quieter) log. It
+// lets a win whose flip is missing (e.g. a restart before PR #2463 persisted
+// only the newest flips) stay a win instead of being read as repelled.
+export type KnownCapture = { x: number; y: number; at: number; defenderId: string; attackerId?: string };
+
+const isKnownCapture = (loss: CombatManpowerLoss, capture: KnownCapture): boolean =>
+  capture.x === loss.x && capture.y === loss.y && capture.defenderId === loss.defenderId &&
+  (capture.attackerId === undefined || capture.attackerId === loss.attackerId) &&
+  capture.at >= loss.at && capture.at - loss.at <= COMBAT_FLIP_MATCH_WINDOW_MS;
 
 const isCaptureFlip = (loss: CombatManpowerLoss, flip: TerritoryFlip): boolean =>
   flip.x === loss.x && flip.y === loss.y && flip.fromOwner === loss.defenderId && flip.toOwner === loss.attackerId;
@@ -41,8 +55,14 @@ const isSeizedOriginFlip = (loss: CombatManpowerLoss, flip: TerritoryFlip): bool
   return Math.abs(flip.x - loss.x) <= 1 && Math.abs(flip.y - loss.y) <= 1;
 };
 
-export const matchCombatToFlips = (combat: readonly CombatManpowerLoss[], flips: readonly TerritoryFlip[], now: number): CombatFlipMatches => {
+export const matchCombatToFlips = (
+  combat: readonly CombatManpowerLoss[],
+  flips: readonly TerritoryFlip[],
+  now: number,
+  knownCaptures: readonly KnownCapture[] = []
+): CombatFlipMatches => {
   const consumedFlips = new Set<TerritoryFlip>();
+  const usedKnownCaptures = new Set<KnownCapture>();
   const sortedFlips = [...flips].sort((a, b) => a.at - b.at);
   const sortedCombat = [...combat].sort((a, b) => a.at - b.at);
   const claim = (loss: CombatManpowerLoss, matches: (loss: CombatManpowerLoss, flip: TerritoryFlip) => boolean): TerritoryFlip | undefined => {
@@ -55,24 +75,35 @@ export const matchCombatToFlips = (combat: readonly CombatManpowerLoss[], flips:
   const seizedOrigin = new Map<CombatManpowerLoss, readonly PersonalActivityTileFeature[]>();
   // Captures first, for every entry, so a later fight's capture of a launch
   // tile is never mistaken for an earlier failed attack's seized origin.
+  const claimKnown = (loss: CombatManpowerLoss): KnownCapture | undefined => {
+    const known = knownCaptures.find((entry) => !usedKnownCaptures.has(entry) && isKnownCapture(loss, entry));
+    if (known) usedKnownCaptures.add(known);
+    return known;
+  };
   const confirmed = sortedCombat.map((loss) => {
     if (!loss.attackerWon) return loss;
     const capture = claim(loss, isCaptureFlip);
     if (capture) {
+      // The flip already tells this capture; its note must not confirm a
+      // second, reversed win on the same tile as well.
+      claimKnown(loss);
       if (capture.features?.length) captured.set(loss, capture.features);
       return loss;
     }
     // Still in flight: its flip may simply not have landed yet.
     if (now - loss.at < COMBAT_FLIP_MATCH_WINDOW_MS) return loss;
+    if (claimKnown(loss)) return loss;
     return { ...loss, attackerWon: false, pillagedGold: 0, defenderGoldLoss: 0 };
   });
   const originSeized = new Set<CombatManpowerLoss>();
+  const seizedFlips = new Set<TerritoryFlip>();
   for (const loss of confirmed) {
     if (loss.attackerWon) continue;
     const seized = claim(loss, isSeizedOriginFlip);
     if (!seized) continue;
     originSeized.add(loss);
+    seizedFlips.add(seized);
     if (seized.features?.length) seizedOrigin.set(loss, seized.features);
   }
-  return { combat: confirmed, consumedFlips, originSeized, tileFeatures: { captured, seizedOrigin } };
+  return { combat: confirmed, consumedFlips, originSeized, seizedFlips, tileFeatures: { captured, seizedOrigin } };
 };

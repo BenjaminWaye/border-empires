@@ -39,12 +39,20 @@ type PersonalImpactTownBase = PersonalImpactBase & {
   populationBefore: number;
   populationAfter: number;
   capturedStructureTypes: string[];
+  /** Captor on TOWN_LOST, previous owner on TOWN_CAPTURED. */
+  counterpartyPlayerId?: string;
 };
 
 export type PersonalImpactTown = PersonalImpactTownBase & (
   | { kind: "TOWN_CAPTURED" }
   | { kind: "TOWN_LOST" }
 );
+
+export type PersonalImpactDock = PersonalImpactBase & {
+  kind: "DOCK_CAPTURED" | "DOCK_LOST";
+  /** Captor on DOCK_LOST, previous owner on DOCK_CAPTURED. */
+  counterpartyPlayerId?: string;
+};
 
 export type PersonalImpactBuildingCompleted = PersonalImpactBase & {
   kind: "BUILDING_COMPLETED";
@@ -56,6 +64,7 @@ export type PersonalImpactBuildingCompleted = PersonalImpactBase & {
 export type PersonalImpactEvent =
   | PersonalImpactWaystationActivated
   | PersonalImpactTown
+  | PersonalImpactDock
   | PersonalImpactBuildingCompleted;
 
 export type PersonalImpactLogGauge = {

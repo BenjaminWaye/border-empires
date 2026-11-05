@@ -9,9 +9,13 @@ export type InitialTargetingState = {
   aetherWallTargeting: { active: boolean; validOrigins: Set<string>; direction: "N" | "E" | "S" | "W"; length: 1 | 2 | 3 };
   skyDockTargeting: { active: boolean; originKey: string; validTargets: Set<string> };
   musterMarchTargeting: { active: boolean; originX: number; originY: number };
+  // March To on an unexplored tile: the target is fixed, the next tile tap picks the origin.
+  marchOriginPicking: { active: boolean; targetX: number; targetY: number };
   winChancePaint: { targetX: number; targetY: number; expiresAt: number; entries: { x: number; y: number; winChance: number; color: string }[] } | undefined;
   arrowGesture: ArrowGesture | undefined;
-  pendingArrowGestureConfirm: ArrowGesture | undefined;
+  // newFlag: the origin tile had no flag when the sheet opened -- "Go" raises
+  // one there (March Attack from New Flag), so a missing flag isn't stale.
+  pendingArrowGestureConfirm: (ArrowGesture & { newFlag?: boolean }) | undefined;
   garrisonMany: GarrisonManyState;
 };
 
@@ -21,6 +25,7 @@ export const createInitialTargetingState = (): InitialTargetingState => ({
   aetherWallTargeting: { active: false, validOrigins: new Set<string>(), direction: "N", length: 1 },
   skyDockTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
   musterMarchTargeting: { active: false, originX: 0, originY: 0 },
+  marchOriginPicking: { active: false, targetX: 0, targetY: 0 },
   // Temporary combat-target visuals, never persisted with game state.
   winChancePaint: undefined,
   arrowGesture: undefined,

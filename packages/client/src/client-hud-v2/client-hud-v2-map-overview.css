@@ -1,0 +1,83 @@
+/* Phone map overview (client-hud-v2-overlays.ts): the round map button opens the minimap full screen as a
+   war table, with the lenses as a segmented switch under it. body.hud-v2-compact.v2c-map-overview. */
+
+body.hud-v2-compact {
+  --v2c-map-size: min(calc(100vw - 32px), calc(100dvh - var(--v2c-safe-top) - var(--v2c-safe-bottom) - 250px));
+  /* The table the map lies on: dark leather with a faint survey grid, lit from the middle. */
+  --v2c-table:
+    radial-gradient(ellipse at 50% 45%, rgba(58, 46, 26, 0.55) 0%, rgba(9, 8, 6, 0) 62%),
+    repeating-linear-gradient(0deg, rgba(217, 178, 92, 0.055) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, rgba(217, 178, 92, 0.055) 0 1px, transparent 1px 28px),
+    #0d0b08;
+}
+
+@keyframes v2c-map-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+body.hud-v2-compact.v2c-map-overview #mini-map-wrap {
+  top: 0 !important; right: 0 !important; bottom: 0 !important; left: 0 !important; width: auto !important; height: auto !important; z-index: 60;
+  display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  padding: calc(var(--v2c-safe-top) + 16px) calc(var(--v2c-safe-right) + 16px) calc(var(--v2c-safe-bottom) + 16px) calc(var(--v2c-safe-left) + 16px) !important;
+  background: var(--v2c-table) !important; box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.85) !important; pointer-events: auto;
+  animation: v2c-map-in 0.16s ease-out;
+}
+/* The host's header and lens switch become rows of the overview around the canvas. */
+body.hud-v2-compact.v2c-map-overview #mini-map-wrap > .hud-v2-overlays { display: contents; }
+
+/* The map in a brass frame. Unexplored ground is drawn black; "lighten" lets the table show through it
+   instead of a black void, and leaves the explored colours as they are. */
+body.hud-v2-compact.v2c-map-overview #mini-map-wrap > #mini-map {
+  display: block !important; order: 0; width: var(--v2c-map-size) !important; height: var(--v2c-map-size) !important;
+  border: 2px solid var(--v2-gold); border-radius: 6px; image-rendering: pixelated; touch-action: none; cursor: crosshair;
+  mix-blend-mode: lighten;
+  box-shadow: 0 0 0 4px #1a150d, 0 0 0 5px var(--v2-edge-strong), 0 18px 40px rgba(0, 0, 0, 0.7);
+}
+/* Floating helpers wait behind the overview (a discovery tip is still there when the map closes). */
+body.hud-v2-compact.v2c-map-overview #tutorial-guide-root,
+body.hud-v2-compact.v2c-map-overview #discovery-tip-overlay,
+body.hud-v2-compact.v2c-map-overview .onb-root { display: none !important; }
+
+/* ---- Header: title, how to use it, close ---- */
+.v2c-map-head { order: -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: var(--v2c-map-size); }
+.v2c-map-title {
+  margin: 0; font-family: var(--v2-display); font-size: 20px; font-weight: 700; letter-spacing: 0.16em; color: var(--v2-gold-hi);
+  text-shadow: 0 1px 0 #000, 0 0 18px rgba(217, 178, 92, 0.25);
+}
+.v2c-map-hint { margin: 3px 0 0; font-size: 13px; line-height: 1.35; color: var(--v2-soft); }
+.v2c-map-key { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
+.v2c-map-key::before { content: ""; width: 14px; height: 10px; border: 2px solid #ffd166; border-radius: 2px; }
+.v2c-map-close {
+  flex: none; display: grid; place-items: center; width: var(--v2c-touch); height: var(--v2c-touch); padding: 0;
+  border: 1px solid var(--v2-edge-strong); border-radius: 50%; background: var(--v2-well); color: var(--v2-gold); font-size: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+.v2c-map-close:active { background: #2a2216; }
+
+/* ---- Lens switch: one segmented control, the lens in use lit gold ---- */
+.v2c-map-lenses { order: 1; display: grid; gap: 8px; width: var(--v2c-map-size); }
+.v2c-map-lens-label { font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; color: var(--v2-gold); text-align: center; }
+.v2c-map-segments {
+  display: flex; padding: 3px; gap: 3px; border: 1px solid var(--v2-edge-strong); border-radius: 12px; background: rgba(15, 13, 10, 0.92);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
+}
+.v2c-map-segments .hud-v2-lens-item {
+  flex: 1 1 0; justify-content: center; gap: 8px; min-height: var(--v2c-touch); border: 0; border-radius: 9px; background: transparent;
+  font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; color: var(--v2-soft);
+}
+.v2c-map-segments .hud-v2-lens-item-on { background: linear-gradient(180deg, #3a2e18, #2a2216); color: var(--v2-gold-hi); box-shadow: inset 0 0 0 1px var(--v2-gold); }
+.v2c-map-segments .hud-v2-lens-icon { width: 20px; height: 20px; }
+
+/* Sideways: header, map and lenses side by side so the map keeps the screen's height. */
+@media (orientation: landscape) {
+  body.hud-v2-compact { --v2c-map-size: min(calc(100dvh - var(--v2c-safe-top) - var(--v2c-safe-bottom) - 32px), 56vw); }
+  body.hud-v2-compact.v2c-map-overview #mini-map-wrap { flex-direction: row; gap: 24px; }
+  body.hud-v2-compact.v2c-map-overview .v2c-map-head { flex-direction: column; align-items: flex-start; width: min(190px, 20vw); }
+  body.hud-v2-compact.v2c-map-overview .v2c-map-lenses { width: min(190px, 20vw); }
+  body.hud-v2-compact.v2c-map-overview .v2c-map-segments { flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.hud-v2-compact.v2c-map-overview #mini-map-wrap { animation: none; }
+}

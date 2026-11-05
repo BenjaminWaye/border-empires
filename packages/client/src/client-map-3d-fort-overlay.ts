@@ -1,24 +1,33 @@
 import {
   BoxGeometry,
+  Euler,
   InstancedMesh,
   Matrix4,
   MeshStandardMaterial,
+  Quaternion,
   Scene,
-  Texture
+  Texture,
+  Vector3
 } from "three";
-import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
+import {
+  fortificationOpeningSides,
+  recordForEachFortificationOpening,
+  type FortificationOpening,
+  type FortificationOverlayKind
+} from "./client-fortification-overlays/client-fortification-overlays.js";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import { createSiegeMachineOverlay } from "./client-map-3d-siege-machine-overlay.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
 import { createLazyConstructionPresentation } from "./client-map-3d-construction/client-map-3d-construction-presentation.js";
 import { FORT_CONSTRUCTION_LAYOUT } from "./client-map-3d-construction/client-map-3d-construction-layout.js";
+import { fortBreachLayout, type BreachBlock, type BreachDimensions, type FortBreachLayout } from "./client-map-3d-fort-breach/client-map-3d-fort-breach.js";
 
 // Fort 3D overlay: stone, wood, and the two metal fort-ladder variants
 // (TITANIUM_BASTION, THUNDER_BASTION) each get a 4-wall + 4-corner-tower
-// silhouette (no floor — terrain shows through) with one wall optionally
-// omitted to mirror the `fortificationOpeningForTile` rule (1 cardinal
-// opening max). SIEGE_BATTERY is an armored siege machine with a big
-// forward cannon and a rotating aether targeting head, built by
+// silhouette (no floor — terrain shows through) with every wall that
+// touches a same-owner fort omitted, mirroring `fortificationOpeningForTile`.
+// SIEGE_BATTERY is an armored siege machine with a big forward cannon and
+// a rotating aether targeting head, built by
 // client-map-3d-siege-machine-overlay.ts. RELAY_BEACON has its own dedicated
 // overlay (client-map-3d-relay-beacon-overlay.ts).
 
@@ -34,6 +43,13 @@ const TOWER_SIDE = 0.16;
 const TOWER_HEIGHT = 0.58;
 const TOWER_OFFSET = TILE_HALF - TOWER_SIDE * 0.5;
 const TOWER_Y = TOWER_HEIGHT * 0.5;
+
+const BREACH_DIMENSIONS: BreachDimensions = {
+  wallLength: WALL_LENGTH, wallHeight: WALL_HEIGHT, wallThickness: WALL_THICKNESS, wallOffset: WALL_OFFSET,
+  towerSide: TOWER_SIDE, towerHeight: TOWER_HEIGHT, towerOffset: TOWER_OFFSET
+};
+// Loose wall stone from breached forts (client-map-3d-fort-breach.ts), per material.
+const MAX_BREACH_BLOCKS = 128 * 32;
 
 const STONE_WALL_COLOR = "#aea99c";
 const STONE_TOWER_COLOR = "#b8b3a4";
@@ -64,8 +80,12 @@ export type FortOverlay = {
      *  known rival tile. See siegeBatteryFacingRadiansForTile. */
     facingRad?: number,
     /** Fort tiers only: set while the fort is being built, upgraded or removed. */
-    construction?: FortConstruction
-  ) => void;
+    construction?: FortConstruction,
+    /** Remembered under fog: the siege machine's head holds still. */
+    frozen?: boolean,
+    /** Fort tiers only: draw the fort breached (see client-map-3d-fort-breach.ts), laid out from this seed. */
+    breachSeed?: number
+  ) => FortBreachLayout | undefined;
   /** True once a phase boundary passed that changes what a construction site laid out in the last rebuild shows. */
   readonly constructionBoundaryPassed: () => boolean;
   readonly commit: () => void;
@@ -85,15 +105,16 @@ const wallOffsetFor = (dir: DirectionKey): { dx: number; dz: number } => {
   }
 };
 
-const openingToDirection = (opening: FortificationOpening): DirectionKey | undefined => {
-  if (opening === "CLOSED") return undefined;
-  return opening === "NORTH" ? "N" : opening === "EAST" ? "E" : opening === "SOUTH" ? "S" : "W";
-};
+// Built once: addInstance runs per fort on every rebuild, including camera pans.
+const OPEN_DIRECTIONS: Record<FortificationOpening, ReadonlySet<DirectionKey>> = recordForEachFortificationOpening(
+  (opening) => new Set(fortificationOpeningSides(opening).map((side): DirectionKey => (side === "NORTH" ? "N" : side === "EAST" ? "E" : side === "SOUTH" ? "S" : "W")))
+);
 
 export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): FortOverlay => {
   const wallAlongXGeometry = new BoxGeometry(WALL_LENGTH, WALL_HEIGHT, WALL_THICKNESS);
   const wallAlongZGeometry = new BoxGeometry(WALL_THICKNESS, WALL_HEIGHT, WALL_LENGTH);
   const towerGeometry = new BoxGeometry(TOWER_SIDE, TOWER_HEIGHT, TOWER_SIDE);
+  const blockGeometry = new BoxGeometry(1, 1, 1);
 
   const stoneWallMaterial = new MeshStandardMaterial({ color: STONE_WALL_COLOR, roughness: 0.92, metalness: 0, flatShading: true });
   const stoneTowerMaterial = new MeshStandardMaterial({ color: STONE_TOWER_COLOR, roughness: 0.88, metalness: 0, flatShading: true });
@@ -124,14 +145,15 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     const wallE = new InstancedMesh(wallAlongZGeometry, wallMat, maxTiles);
     const wallW = new InstancedMesh(wallAlongZGeometry, wallMat, maxTiles);
     const towers = new InstancedMesh(towerGeometry, towerMat, maxTiles * 4);
-    const all = [wallN, wallS, wallE, wallW, towers];
+    const blocks = new InstancedMesh(blockGeometry, wallMat, MAX_BREACH_BLOCKS);
+    const all = [wallN, wallS, wallE, wallW, towers, blocks];
     for (const m of all) {
       m.frustumCulled = false;
       m.count = 0;
       m.castShadow = true;
       m.receiveShadow = true;
     }
-    return { wallN, wallS, wallE, wallW, towers };
+    return { wallN, wallS, wallE, wallW, towers, blocks };
   };
 
   const stone = buildKindMeshes(stoneWallMaterial, stoneTowerMaterial);
@@ -140,26 +162,31 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
   const thunder = buildKindMeshes(thunderWallMaterial, thunderTowerMaterial);
 
   scene.add(
-    stone.wallN, stone.wallS, stone.wallE, stone.wallW, stone.towers,
-    wood.wallN, wood.wallS, wood.wallE, wood.wallW, wood.towers,
-    titanium.wallN, titanium.wallS, titanium.wallE, titanium.wallW, titanium.towers,
-    thunder.wallN, thunder.wallS, thunder.wallE, thunder.wallW, thunder.towers
+    stone.wallN, stone.wallS, stone.wallE, stone.wallW, stone.towers, stone.blocks,
+    wood.wallN, wood.wallS, wood.wallE, wood.wallW, wood.towers, wood.blocks,
+    titanium.wallN, titanium.wallS, titanium.wallE, titanium.wallW, titanium.towers, titanium.blocks,
+    thunder.wallN, thunder.wallS, thunder.wallE, thunder.wallW, thunder.towers, thunder.blocks
   );
 
   const matrix = new Matrix4();
+  const position = new Vector3();
+  const rotation = new Quaternion();
+  const scale = new Vector3();
+  const euler = new Euler();
+  /** A breach block (or fallen tower top) at its tile-local transform. */
+  const composeBlock = (worldX: number, worldZ: number, surfaceY: number, b: BreachBlock): Matrix4 =>
+    matrix.compose(position.set(worldX + b.x, surfaceY + b.y, worldZ + b.z), rotation.setFromEuler(euler.set(b.tilt, b.yaw, 0, "YXZ")), scale.set(b.sx, b.sy, b.sz));
 
   type KindMeshes = ReturnType<typeof buildKindMeshes>;
-  type Counters = { wallN: number; wallS: number; wallE: number; wallW: number; towers: number };
-  const stoneCounters: Counters = { wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0 };
-  const woodCounters: Counters = { wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0 };
-  const titaniumCounters: Counters = { wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0 };
-  const thunderCounters: Counters = { wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0 };
+  type Counters = { wallN: number; wallS: number; wallE: number; wallW: number; towers: number; blocks: number };
+  const emptyCounters = (): Counters => ({ wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0, blocks: 0 });
+  const stoneCounters = emptyCounters();
+  const woodCounters = emptyCounters();
+  const titaniumCounters = emptyCounters();
+  const thunderCounters = emptyCounters();
 
   const clear = (): void => {
-    stoneCounters.wallN = 0; stoneCounters.wallS = 0; stoneCounters.wallE = 0; stoneCounters.wallW = 0; stoneCounters.towers = 0;
-    woodCounters.wallN = 0; woodCounters.wallS = 0; woodCounters.wallE = 0; woodCounters.wallW = 0; woodCounters.towers = 0;
-    titaniumCounters.wallN = 0; titaniumCounters.wallS = 0; titaniumCounters.wallE = 0; titaniumCounters.wallW = 0; titaniumCounters.towers = 0;
-    thunderCounters.wallN = 0; thunderCounters.wallS = 0; thunderCounters.wallE = 0; thunderCounters.wallW = 0; thunderCounters.towers = 0;
+    for (const counters of [stoneCounters, woodCounters, titaniumCounters, thunderCounters]) Object.assign(counters, emptyCounters());
     siegeMachine.clear();
     presentation.clear();
   };
@@ -170,16 +197,29 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     worldX: number,
     worldZ: number,
     surfaceY: number,
-    skipDir: DirectionKey | undefined,
-    heightFraction = 1
+    skipDirs: ReadonlySet<DirectionKey>,
+    heightFraction = 1,
+    breach?: FortBreachLayout
   ): void => {
     const directions: DirectionKey[] = ["N", "E", "S", "W"];
     for (const dir of directions) {
-      if (dir === skipDir) continue;
+      if (skipDirs.has(dir)) continue;
       const off = wallOffsetFor(dir);
       const mesh = dir === "N" ? meshes.wallN : dir === "S" ? meshes.wallS : dir === "E" ? meshes.wallE : meshes.wallW;
       const counterKey = dir === "N" ? "wallN" : dir === "S" ? "wallS" : dir === "E" ? "wallE" : "wallW";
       if (counters[counterKey] >= maxTiles) continue;
+      if (breach?.direction === dir) {
+        // The smashed wall: its two broken stubs, cut from the same wall piece.
+        for (const stub of breach.stubs) {
+          if (counters[counterKey] >= maxTiles) break;
+          const lengthScale = stub.length / WALL_LENGTH;
+          matrix.makeScale(dir === "N" || dir === "S" ? lengthScale : 1, stub.heightFraction, dir === "E" || dir === "W" ? lengthScale : 1)
+            .setPosition(worldX + stub.x, surfaceY + WALL_Y * stub.heightFraction, worldZ + stub.z);
+          mesh.setMatrixAt(counters[counterKey], matrix);
+          counters[counterKey] += 1;
+        }
+        continue;
+      }
       // Under construction the wall rises: scaled from its base, not floating at full height.
       matrix.makeScale(1, heightFraction, 1).setPosition(worldX + off.dx, surfaceY + WALL_Y * heightFraction, worldZ + off.dz);
       mesh.setMatrixAt(counters[counterKey], matrix);
@@ -192,11 +232,23 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
       { dx: -TOWER_OFFSET, dz: TOWER_OFFSET },
       { dx: TOWER_OFFSET, dz: TOWER_OFFSET }
     ];
-    for (const corner of cornerOffsets) {
-      if (counters.towers >= maxTiles * 4) break;
-      matrix.makeScale(1, heightFraction, 1).setPosition(worldX + corner.dx, surfaceY + TOWER_Y * heightFraction, worldZ + corner.dz);
+    cornerOffsets.forEach((corner, index) => {
+      if (counters.towers >= maxTiles * 4) return;
+      const towerFraction = breach?.snappedCorner === index ? heightFraction * breach.stumpFraction : heightFraction;
+      matrix.makeScale(1, towerFraction, 1).setPosition(worldX + corner.dx, surfaceY + TOWER_Y * towerFraction, worldZ + corner.dz);
       meshes.towers.setMatrixAt(counters.towers, matrix);
       counters.towers += 1;
+    });
+    if (!breach) return;
+    // The snapped tower's top lies inside the walls; its stone and the wall's lie round the gap.
+    if (counters.towers < maxTiles * 4) {
+      meshes.towers.setMatrixAt(counters.towers, composeBlock(worldX, worldZ, surfaceY, breach.fallenTop));
+      counters.towers += 1;
+    }
+    for (const block of breach.blocks) {
+      if (counters.blocks >= MAX_BREACH_BLOCKS) break;
+      meshes.blocks.setMatrixAt(counters.blocks, composeBlock(worldX, worldZ, surfaceY, block));
+      counters.blocks += 1;
     }
   };
 
@@ -209,23 +261,27 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     wx?: number,
     wy?: number,
     facingRad?: number,
-    construction?: FortConstruction
-  ): void => {
-    const skipDir = openingToDirection(opening);
+    construction?: FortConstruction,
+    frozen = false,
+    breachSeed?: number
+  ): FortBreachLayout | undefined => {
+    const skipDirs = OPEN_DIRECTIONS[opening];
     const heightFraction = construction && !construction.keepStanding ? construction.site.visibleBands / CONSTRUCTION_PHASES : 1;
     const isFortTier = kind === "FORT" || kind === "TITANIUM_BASTION" || kind === "THUNDER_BASTION" || kind === "PALISADE";
     if (construction && isFortTier) presentation.addSite(worldX, worldZ, surfaceY, construction.site, TOWER_HEIGHT, FORT_CONSTRUCTION_LAYOUT);
+    const breach = isFortTier && breachSeed !== undefined && !construction ? fortBreachLayout(BREACH_DIMENSIONS, breachSeed, skipDirs) : undefined;
     if (kind === "FORT") {
-      addFortPieces(stone, stoneCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
+      addFortPieces(stone, stoneCounters, worldX, worldZ, surfaceY, skipDirs, heightFraction, breach);
     } else if (kind === "TITANIUM_BASTION") {
-      addFortPieces(titanium, titaniumCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
+      addFortPieces(titanium, titaniumCounters, worldX, worldZ, surfaceY, skipDirs, heightFraction, breach);
     } else if (kind === "THUNDER_BASTION") {
-      addFortPieces(thunder, thunderCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
+      addFortPieces(thunder, thunderCounters, worldX, worldZ, surfaceY, skipDirs, heightFraction, breach);
     } else if (kind === "PALISADE") {
-      addFortPieces(wood, woodCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
+      addFortPieces(wood, woodCounters, worldX, worldZ, surfaceY, skipDirs, heightFraction, breach);
     } else if (kind === "SIEGE_BATTERY") {
-      siegeMachine.addInstance(worldX, worldZ, surfaceY, wx ?? 0, wy ?? 0, facingRad ?? 0);
+      siegeMachine.addInstance(worldX, worldZ, surfaceY, wx ?? 0, wy ?? 0, facingRad ?? 0, frozen);
     }
+    return breach;
   };
 
   const commitKind = (meshes: KindMeshes, counters: Counters): void => {
@@ -234,6 +290,10 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     meshes.wallE.count = counters.wallE;
     meshes.wallW.count = counters.wallW;
     meshes.towers.count = counters.towers;
+    meshes.blocks.count = counters.blocks;
+    meshes.blocks.instanceMatrix.clearUpdateRanges();
+    meshes.blocks.instanceMatrix.addUpdateRange(0, counters.blocks * 16);
+    meshes.blocks.instanceMatrix.needsUpdate = true;
     meshes.wallN.instanceMatrix.clearUpdateRanges();
     meshes.wallN.instanceMatrix.addUpdateRange(0, meshes.wallN.count * 16);
     meshes.wallN.instanceMatrix.needsUpdate = true;
@@ -262,16 +322,17 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
 
   const dispose = (): void => {
     scene.remove(
-      stone.wallN, stone.wallS, stone.wallE, stone.wallW, stone.towers,
-      wood.wallN, wood.wallS, wood.wallE, wood.wallW, wood.towers,
-      titanium.wallN, titanium.wallS, titanium.wallE, titanium.wallW, titanium.towers,
-      thunder.wallN, thunder.wallS, thunder.wallE, thunder.wallW, thunder.towers
+      stone.wallN, stone.wallS, stone.wallE, stone.wallW, stone.towers, stone.blocks,
+      wood.wallN, wood.wallS, wood.wallE, wood.wallW, wood.towers, wood.blocks,
+      titanium.wallN, titanium.wallS, titanium.wallE, titanium.wallW, titanium.towers, titanium.blocks,
+      thunder.wallN, thunder.wallS, thunder.wallE, thunder.wallW, thunder.towers, thunder.blocks
     );
     siegeMachine.dispose();
     presentation.dispose();
     wallAlongXGeometry.dispose();
     wallAlongZGeometry.dispose();
     towerGeometry.dispose();
+    blockGeometry.dispose();
     stoneWallMaterial.dispose();
     stoneTowerMaterial.dispose();
     woodWallMaterial.dispose();

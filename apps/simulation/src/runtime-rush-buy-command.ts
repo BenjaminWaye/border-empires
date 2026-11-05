@@ -1,6 +1,8 @@
+import type { RelicMutationContext } from "./runtime-relics.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
+  isCaptureHoldActive,
   EXPAND_MANPOWER_COST,
   rushBuyPriceGold,
   SETTLE_MANPOWER_COST,
@@ -8,7 +10,7 @@ import {
   structureBuildManpowerCost,
   type BuildableStructureType
 } from "@border-empires/shared";
-import * as wonderEffects from "./runtime-natural-wonders.js";
+import { quoteRelicRushBuy } from "./runtime-relic-rush-buy.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { economicOrObservatoryCancelRefund, fortCancelRefund, siegeBatteryCancelRefund } from "./runtime-structure-lifecycle-command-handlers.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
@@ -20,6 +22,7 @@ import type { LockRecord, RuntimePlayer } from "./runtime-types.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 
 export type RuntimeRushBuyCommandContext = {
+  relicContext: RelicMutationContext;
   players: Map<string, RuntimePlayer>;
   pendingSettlementsByTile: Map<string, PendingSettlementRecord>;
   locksByTile: CombatLockIndex;
@@ -84,17 +87,24 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
 
   const pendingSettlement = context.pendingSettlementsByTile.get(targetKey);
   if (pendingSettlement && pendingSettlement.ownerId === command.playerId) {
+    // A captured tile garrisons no earlier than its capture hold ends
+    // (runtime-settlement-start.ts); paying can't skip the hold.
+    if (isCaptureHoldActive(context.tiles.get(targetKey), context.now())) {
+      context.rejectCommand(command, "RUSH_BUY_INVALID", "the capturing troops are still holding this tile");
+      return;
+    }
     const totalMs = Math.max(1, pendingSettlement.resolvesAt - pendingSettlement.startedAt);
     const remainingMs = pendingSettlement.resolvesAt - context.now();
     // §6.3's rush price is anchored on the action's *manpower* cost — SETTLE_COST
     // is settle's small nominal gold price (unrelated), SETTLE_MANPOWER_COST is
     // the real anchor (20 manpower -> 10 gold full rush per §6.3's table).
-    const price = wonderEffects.quickforgeAdjustedRushPrice(actor, wonderEffects.playerHasWonderType(context.wonderCacheByPlayer, command.playerId, "QUICKFORGE"), rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST), context.now());
+    const quote = quoteRelicRushBuy(context, actor, rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST), command.commandId);
+    const price = quote.price;
     if (actor.points < price) {
       context.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} coin`);
       return;
     }
-    actor.points -= price; wonderEffects.stampQuickforgeRushUse(actor, context.now());
+    actor.points -= price; quote.commit();
     context.resolvePendingSettlement({
       ownerId: pendingSettlement.ownerId,
       tileKey: pendingSettlement.tileKey,
@@ -111,12 +121,13 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
   if (expandLock && expandLock.actionType === "EXPAND" && expandLock.playerId === command.playerId) {
     const totalMs = Math.max(1, frontierClaimDurationMsForCoords(expandLock.targetX, expandLock.targetY));
     const remainingMs = expandLock.resolvesAt - context.now();
-    const price = wonderEffects.quickforgeAdjustedRushPrice(actor, wonderEffects.playerHasWonderType(context.wonderCacheByPlayer, command.playerId, "QUICKFORGE"), rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST), context.now());
+    const quote = quoteRelicRushBuy(context, actor, rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST), command.commandId);
+    const price = quote.price;
     if (actor.points < price) {
       context.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} coin`);
       return;
     }
-    actor.points -= price; wonderEffects.stampQuickforgeRushUse(actor, context.now());
+    actor.points -= price; quote.commit();
     context.resolveLock(expandLock);
     context.emitPlayerStateUpdate(command);
     context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
@@ -135,8 +146,8 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
     return;
   }
   const refund =
-    tileField === "fort" ? fortCancelRefund(actor, target.fort?.variant) :
-    tileField === "siegeBattery" ? siegeBatteryCancelRefund(target.siegeBattery?.variant) :
+    tileField === "fort" ? fortCancelRefund(actor, target.fort?.variant, target.fort?.freeFort) :
+    tileField === "siegeBattery" ? siegeBatteryCancelRefund(actor, target.siegeBattery?.variant) :
     economicOrObservatoryCancelRefund(context.structureCommandContext(), command.playerId, structureType as BuildableStructureType);
   const spec = STRUCTURE_REGISTRY[structureType];
   if (!spec) {
@@ -160,12 +171,13 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
       ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, speedMultKey)))
       : spec.buildMs;
   const remainingMs = completesAt - context.now();
-  const price = wonderEffects.quickforgeAdjustedRushPrice(actor, wonderEffects.playerHasWonderType(context.wonderCacheByPlayer, command.playerId, "QUICKFORGE"), rushBuyPriceGold(remainingMs, totalMs, refund.manpower || structureBuildManpowerCost(structureType as BuildableStructureType)), context.now());
+  const quote = quoteRelicRushBuy(context, actor, rushBuyPriceGold(remainingMs, totalMs, refund.manpower || structureBuildManpowerCost(structureType as BuildableStructureType)), command.commandId);
+  const price = quote.price;
   if (actor.points < price) {
     context.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} coin`);
     return;
   }
-  actor.points -= price; wonderEffects.stampQuickforgeRushUse(actor, context.now());
+  actor.points -= price; quote.commit();
   context.completeStructureBuild(targetKey, command.playerId, structureType, command.commandId);
   context.emitPlayerStateUpdate(command);
 };

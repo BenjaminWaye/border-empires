@@ -11,7 +11,7 @@ export const createInitialAttackDispatchState = () => ({
   musterTransitByTile: new Map<string, MusterTransitEntry>(),
   deferredAttackByTile: new Map<string, DeferredMusterAttack>(),
   // Keyed by target tile key: the effort level (commitManpower) the player
-  // picked in the Launch Attack / Expand To & Attack dialog, read at every
+  // picked in the Launch Attack dialog, read at every
   // ATTACK send point. Size- and TTL-bounded; see client-attack-commit.ts.
   attackCommitByTargetKey: new Map<string, AttackCommitEntry>()
 });

@@ -69,7 +69,7 @@ const buildInput = (
     },
     locksByTile: new CombatLockIndex(),
     advanceCooldowns: new Map(),
-    dockLinksByDockTileKey: new Map(),
+    dockCrossingTargetsByDockTileKey: new Map(),
     aetherBridgeNeighborKeysForPlayer: () => bridgeLinks,
     isTileVisibleToPlayer: () => true,
     isStructureDormant: () => false,

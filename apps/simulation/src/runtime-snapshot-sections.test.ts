@@ -13,6 +13,7 @@ const baseInput = (overrides: Partial<SnapshotExportInput> = {}): SnapshotExport
   playerYieldCollectionEpochByPlayer: new Map(),
   docks: [],
   recordedEventsByCommandId: new Map(),
+  reachBorder: () => new Map(),
   incomePerMinuteForPlayer: () => 0,
   summaryForPlayer: () => ({ ownedTownTierByTile: new Map(), settledTileCount: 0, territoryTileKeys: new Set() }) as never,
   ...overrides

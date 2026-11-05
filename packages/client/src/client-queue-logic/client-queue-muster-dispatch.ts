@@ -110,7 +110,7 @@ export const dispatchMusterFundedAttack = (
       announcedSiegeByTarget.delete(targetKey);
       // Real travel time: the company doesn't march until it reaches
       // the target, so the ATTACK itself isn't even sent (let alone
-      // its 30s combat lock started) until armMusterTransit's local
+      // its 15s combat lock started) until armMusterTransit's local
       // timer elapses — see client-muster-transit.ts and
       // fireDueMusterTransits, which is what actually sends it once
       // due. Distance is from the *funding flag* to the firing tile

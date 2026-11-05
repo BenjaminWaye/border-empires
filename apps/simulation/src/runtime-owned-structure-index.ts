@@ -88,9 +88,11 @@ export function refreshOwnedStructureCountIndexForTile(input: {
 export function weaponsFactoryCountsFromIndex(
   ownedStructureCountByPlayerByType: ReadonlyMap<string, ReadonlyMap<BuildableStructureType, number>>,
   playerId: string
-): { titanium: number; umbrite: number } {
+): { titanium: number; umbrite: number; salvage: number } {
   return {
     titanium: ownedStructureCountForPlayer(ownedStructureCountByPlayerByType, playerId, "TITANIUM_WEAPONS_FACTORY"),
-    umbrite: ownedStructureCountForPlayer(ownedStructureCountByPlayerByType, playerId, "UMBRITE_WEAPONS_FACTORY")
+    umbrite: ownedStructureCountForPlayer(ownedStructureCountByPlayerByType, playerId, "UMBRITE_WEAPONS_FACTORY"),
+    // Reclamation Works still holding loads (an emptied field loses its Works): drives the salvage arms bonus.
+    salvage: ownedStructureCountForPlayer(ownedStructureCountByPlayerByType, playerId, "RECLAMATION_WORKS")
   };
 }

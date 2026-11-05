@@ -15,7 +15,6 @@ const loadedTile: DomainTileState = {
   terrain: "LAND",
   ownerId: "player-1",
   ownershipState: "SETTLED",
-  shardSite: { kind: "CACHE", amount: 5 },
   naturalWonder: { type: "DEEPWATER_ENGINE" },
   fort: { ownerId: "player-1", status: "active" },
   observatory: { ownerId: "player-1", status: "active" },

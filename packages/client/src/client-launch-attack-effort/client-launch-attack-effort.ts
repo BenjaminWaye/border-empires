@@ -1,5 +1,5 @@
 // Launch Attack (single tile, box-selected bulk, and Attack Connected Region)
-// and Expand To & Attack open the same Normal / Extra / Double effort sheet
+// opens the same Normal / Extra / Double effort sheet
 // March To uses (client-effort-confirm-sheet.ts) before queuing, so a manual
 // attack can commit more than the target's muster floor for better odds
 // (docs/replenishment-update-plan.md D6). The sheet only appears when at

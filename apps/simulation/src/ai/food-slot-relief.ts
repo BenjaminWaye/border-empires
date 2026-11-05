@@ -1,6 +1,6 @@
 // Food-slot relief: when a player is fully out of FOOD slots (demand ≥
 // supply, nothing left over) and has no way to grow FOOD supply directly
-// (no HYDROGARDEN/HYDROWORKS/INCUBATION_ENGINE build available — chooseBestEconomicBuild
+// (no HYDROGARDEN/HYDROWORKS build available — chooseBestEconomicBuild
 // found nothing), the AI was previously just stuck: every FOOD-consuming
 // build stays illegal forever, RELAY_BEACON included (it costs its own FOOD
 // slot once the built-in waiver is used up), so an AI that reaches this
@@ -51,7 +51,13 @@ import {
 
 import type { AutomationPlannerTile } from "./automation-command-planner-types.js";
 
-export type FoodSlotReliefPlan = { x: number; y: number; kind: "disable" | "abandon_town" };
+// FOOD slots a re-enabled RELAY_BEACON takes back (past the free waiver,
+// which is the only case the disable tier ever touches).
+const RELAY_BEACON_FOOD_SLOT_COST = structureSlotRequirements("RELAY_BEACON")
+  .filter((req) => req.resource === "FOOD")
+  .reduce((total, req) => total + req.count, 0);
+
+export type FoodSlotReliefPlan ={ x: number; y: number; kind: "disable" | "abandon_town" };
 
 /** A manually-disabled RELAY_BEACON this player owns, worth flipping back on. */
 export type FoodSlotReenableTarget = { x: number; y: number };
@@ -149,6 +155,11 @@ export const chooseLowValueBeaconToDisable = <TTile extends AutomationPlannerTil
  * FOOD was tight stays dead forever even after the shortage passes — see
  * the file header's Sigrid incident. Deterministic (lowest x, then y) when
  * more than one qualifies.
+ *
+ * Only SETTLED tiles qualify: handleSetConverterStructureEnabledCommand
+ * rejects enabling on any other tile ("structure requires a garrisoned owned
+ * tile"). Picking a FRONTIER beacon here re-proposed the same doomed command
+ * every rejection cooldown, forever — 15 of 20 prod AIs were stuck on it.
  */
 export const chooseManuallyDisabledBeaconToReenable = <TTile extends AutomationPlannerTile>(
   ownedTiles: readonly TTile[],
@@ -160,6 +171,30 @@ export const chooseManuallyDisabledBeaconToReenable = <TTile extends AutomationP
     if (!structure || structure.ownerId !== playerId) continue;
     if (structure.type !== "RELAY_BEACON") continue;
     if (structure.status !== "inactive" || structure.inactiveReason !== "manual") continue;
+    if (tile.ownershipState !== "SETTLED") continue;
+    if (!best || tile.x < best.x || (tile.x === best.x && tile.y < best.y)) best = tile;
+  }
+  return best ? { x: best.x, y: best.y } : undefined;
+};
+
+/**
+ * A structure this player disabled for FOOD relief whose type no longer has
+ * any slot requirement (the frontier resource-network installations lost
+ * their FOOD slot), so it costs nothing to run. Without this, one switched
+ * off before that change would stay dead forever. Same SETTLED-only rule and
+ * deterministic order as the beacon chooser above.
+ */
+export const chooseManuallyDisabledFreeStructureToReenable = <TTile extends AutomationPlannerTile>(
+  ownedTiles: readonly TTile[],
+  playerId: string
+): FoodSlotReenableTarget | undefined => {
+  let best: TTile | undefined;
+  for (const tile of ownedTiles) {
+    const structure = tile.economicStructure;
+    if (!structure?.type || structure.ownerId !== playerId) continue;
+    if (structure.status !== "inactive" || structure.inactiveReason !== "manual") continue;
+    if (structureSlotRequirements(structure.type as SlotStructureType).length > 0) continue;
+    if (tile.ownershipState !== "SETTLED") continue;
     if (!best || tile.x < best.x || (tile.x === best.x && tile.y < best.y)) best = tile;
   }
   return best ? { x: best.x, y: best.y } : undefined;
@@ -333,14 +368,28 @@ export const foodSlotReliefFromPlannerInput = <TTile extends AutomationPlannerTi
   foodSlotSupply: number | undefined,
   foodSlotDemand: number | undefined,
   forceRelief = false,
-  ownedRelayBeaconCount: number | undefined = undefined
+  ownedRelayBeaconCount: number | undefined = undefined,
+  ownedNetworkInstallationCount: number | undefined = undefined
 ): { reliefTarget: FoodSlotReliefPlan | undefined; exhausted: boolean; reenableTarget: FoodSlotReenableTarget | undefined } => {
   const demand = foodSlotDemand ?? 0;
   const supply = foodSlotSupply ?? 0;
   const exhausted = forceRelief || (demand > 0 && supply <= demand);
   if (!exhausted) {
+    // A manually-disabled beacon is already left out of `demand`, so the
+    // headroom seen here includes the very slot that beacon would take back.
+    // Re-enabling at headroom == its own cost lands on supply === demand,
+    // which is `exhausted`, so the next tick disables it again (live staging:
+    // ai-10/ai-19 toggled the same beacon every ~5s for hours). Only re-enable
+    // when FOOD stays above demand afterwards.
+    // With RELAY_BEACON_FREE_FOOD_SLOT_COUNT or fewer beacons owned, every one
+    // is waived (the waiver goes to the earliest-activated), so it costs none.
+    const reenableCost = (ownedRelayBeaconCount ?? Infinity) > RELAY_BEACON_FREE_FOOD_SLOT_COUNT ? RELAY_BEACON_FOOD_SLOT_COST : 0;
+    const beaconHasHeadroom = supply - demand > reenableCost;
     const reenableTarget =
-      (ownedRelayBeaconCount ?? 0) > 0 ? chooseManuallyDisabledBeaconToReenable(ownedTiles, playerId) : undefined;
+      // Count-gated like the beacon scan: walking every owned tile each tick is
+      // only worth it when there is a frontier installation to find.
+      ((ownedNetworkInstallationCount ?? 0) > 0 ? chooseManuallyDisabledFreeStructureToReenable(ownedTiles, playerId) : undefined) ??
+      ((ownedRelayBeaconCount ?? 0) > 0 && beaconHasHeadroom ? chooseManuallyDisabledBeaconToReenable(ownedTiles, playerId) : undefined);
     return { reliefTarget: undefined, exhausted, reenableTarget };
   }
   const reliefTarget =

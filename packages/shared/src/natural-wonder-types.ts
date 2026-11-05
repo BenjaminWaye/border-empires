@@ -12,4 +12,9 @@ export type NaturalWonderType =
 export type NaturalWonderState = {
   type: NaturalWonderType;
   claimedAt?: number;
+  /** Versioned opt-in: old saved worlds keep their existing wonder rules. */
+  relicVersion?: 1;
+  remainingUses?: number;
+  activatedAt?: number;
+  resourceBonus?: { resource: import("./relics/relic-catalog.js").RelicResource; amount: number };
 };

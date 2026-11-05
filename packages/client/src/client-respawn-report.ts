@@ -1,5 +1,5 @@
 import { snapshotClientDebugEvents } from "./client-debug/client-debug.js";
-import { buildClientDebugBundle, serverHttpOriginFromWsUrl } from "./client-debug-bundle/client-debug-bundle.js";
+import { buildClientDebugBundle, serverHttpOriginFromWsUrl, fetchPlayerServerDiagnostics } from "./client-debug-bundle/client-debug-bundle.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { PlayerRespawnNotice } from "./client-types.js";
 
@@ -66,7 +66,7 @@ export const downloadRespawnBugReport = async (args: {
       state: args.state,
       wsUrl: args.wsUrl
     }),
-    withTimeout(`${serverOrigin}/admin/runtime/debug-bundle`),
+    fetchPlayerServerDiagnostics(serverOrigin),
     withTimeout(`${serverOrigin}/admin/runtime/incidents`)
   ]);
   saveJsonFile(`border-empires-respawn-report-${args.notice.id}-${timestampToken()}.json`, {

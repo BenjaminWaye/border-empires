@@ -1,4 +1,4 @@
-import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { usesPlayerCommandSequence, type CommandEnvelope, type SimulationEvent } from "@border-empires/sim-protocol";
 
 import {
   DEFAULT_MAX_RECORDED_COMMAND_HISTORY,
@@ -23,6 +23,26 @@ export class RuntimeReplayCache {
     maxRecordedCommandHistory: number = DEFAULT_MAX_RECORDED_COMMAND_HISTORY
   ) {
     this.maxRecordedCommandHistory = Math.max(1, maxRecordedCommandHistory);
+  }
+
+  /** Replays a durable result, or reserves a real player's sequence before queuing. */
+  replayOrRegister(command: CommandEnvelope, emit: (event: SimulationEvent) => void): boolean {
+    this.pruneReplayCaches();
+    if (this.isTerminalOnlyReplayCommand(command.commandId)) return true;
+    const replay = (id: string): boolean => {
+      const events = this.recordedEventsByCommandId.get(id);
+      if (!events) return false;
+      for (const event of events) emit(event);
+      return true;
+    };
+    if (replay(command.commandId)) return true;
+    if (usesPlayerCommandSequence(command.type) && command.type !== "CHECK_STRANDED_REGION") {
+      const key = `${command.playerId}:${command.clientSeq}`;
+      const existing = this.commandIdsByPlayerSeq.get(key);
+      if (existing && (this.isTerminalOnlyReplayCommand(existing) || replay(existing))) return true;
+      this.commandIdsByPlayerSeq.set(key, command.commandId);
+    }
+    return false;
   }
 
   get serverEventsSkipped(): number {
@@ -110,6 +130,11 @@ export class RuntimeReplayCache {
     // skip replay tracking for them — recording their events leaked unboundedly
     // and bloated the checkpoint snapshot. We still process COMBAT_CANCELLED's
     // cancelledCommandIds below, since those can reference real client commands.
+    // A border diff must never be replayed: a duplicate submit re-emits the
+    // recorded events, the service persists them again with a later event id,
+    // and startup recovery would then re-apply a stale diff over newer ones.
+    // Clients never see this sim-internal event, so there is nothing to replay.
+    if (event.eventType === "REACH_BORDER_CHANGED") return;
     if (isReplayTrackedCommandId(event.commandId)) {
       const existingEvents = this.recordedEventsByCommandId.get(event.commandId) ?? [];
       existingEvents.push(event);

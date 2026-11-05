@@ -1,5 +1,5 @@
 import { type FrontierDecayKind, type ProspectSignature } from "@border-empires/shared";
-import type { SimulationEvent, TileOverlayJsonFields, TileOverlayProtoFields } from "@border-empires/sim-protocol";
+import { DIPLOMACY_SETTLEMENT_COMMAND_PREFIX, type SimulationEvent, type TileOverlayJsonFields, type TileOverlayProtoFields } from "@border-empires/sim-protocol";
 import { overlayCamelClearFields, overlaySnakeClearFields, overlaySnakeTruthyFields } from "./proto-overlay-fields.js";
 
 export type TileDeltaBatchTile = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
@@ -48,6 +48,8 @@ export type ProtoSimulationEvent = {
     town_population_tier?: string | undefined;
     breach_shock_until?: number | undefined;
     capture_hold_until?: number | undefined;
+    war_scar_level?: number | undefined;
+    war_scar_until?: number | undefined;
     visibility_state?: string | undefined;
     ownership_clear_only?: boolean;
     combat_json?: string | undefined;
@@ -70,6 +72,8 @@ export type ProtoSimulationEvent = {
     townPopulationTier?: string | undefined;
     breachShockUntil?: number | null | undefined;
     captureHoldUntil?: number | null | undefined;
+    warScarLevel?: number | null | undefined;
+    warScarUntil?: number | null | undefined;
     yieldRate?: { goldPerMinute?: number } | undefined;
     visibilityState?: string | undefined;
     ownershipClearOnly?: boolean | undefined;
@@ -86,11 +90,21 @@ export type ProtoSimulationEvent = {
 // as empty-code COMMAND_REJECTED. Filter them at the wire boundary so the
 // gateway never sees them in the first place.
 export const WIRE_INTERNAL_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
-  "SETTLEMENT_STARTED"
+  "SETTLEMENT_STARTED",
+  "REACH_BORDER_CHANGED"
 ]);
 
 export const isWireInternalEvent = (event: SimulationEvent): boolean =>
   WIRE_INTERNAL_EVENT_TYPES.has(event.eventType);
+
+// Events normally reach the gateway only for subscribed (connected) players,
+// and most players, every AI included, are offline at any moment. A deal/gift
+// payment is filed under its target, yet the gateway awaits its verdict
+// whether or not that target is online: dropping it left every payment to an
+// offline empire hanging until the 30s settlement timeout.
+export const streamsWithoutSubscriber = (event: SimulationEvent): boolean =>
+  (event.eventType === "COMMAND_RESOLVED" || event.eventType === "COMMAND_REJECTED") &&
+  event.commandId.startsWith(DIPLOMACY_SETTLEMENT_COMMAND_PREFIX);
 
 export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
   event_type: value.eventType,
@@ -153,6 +167,8 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...overlaySnakeClearFields(tile),
           ...("breachShockUntil" in tile ? { breach_shock_until: tile.breachShockUntil ?? 0 } : {}),
           ...("captureHoldUntil" in tile ? { capture_hold_until: tile.captureHoldUntil ?? 0 } : {}),
+          ...("warScarLevel" in tile ? { war_scar_level: tile.warScarLevel ?? 0 } : {}),
+          ...("warScarUntil" in tile ? { war_scar_until: tile.warScarUntil ?? 0 } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibility_state: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownership_clear_only: true } : {}),
           ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
@@ -181,6 +197,8 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...overlayCamelClearFields(tile),
           ...("breachShockUntil" in tile ? { breachShockUntil: tile.breachShockUntil ?? null } : {}),
           ...("captureHoldUntil" in tile ? { captureHoldUntil: tile.captureHoldUntil ?? null } : {}),
+          ...("warScarLevel" in tile ? { warScarLevel: tile.warScarLevel ?? null } : {}),
+          ...("warScarUntil" in tile ? { warScarUntil: tile.warScarUntil ?? null } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibilityState: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownershipClearOnly: true } : {}),
           ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),
@@ -205,6 +223,8 @@ export const toFullSnapshotProtoTile = (tile: {
   townJson?: string | undefined; townType?: string | undefined; townName?: string | undefined; townPopulationTier?: string | undefined;
   breachShockUntil?: number | undefined;
   captureHoldUntil?: number | undefined;
+  warScarLevel?: number | undefined;
+  warScarUntil?: number | undefined;
   yieldRate?: unknown;
 } & TileOverlayJsonFields) => ({
   x: tile.x,
@@ -225,5 +245,7 @@ export const toFullSnapshotProtoTile = (tile: {
   ...overlaySnakeTruthyFields(tile),
   ...(typeof tile.breachShockUntil === "number" ? { breach_shock_until: tile.breachShockUntil } : {}),
   ...(typeof tile.captureHoldUntil === "number" ? { capture_hold_until: tile.captureHoldUntil } : {}),
+  ...(typeof tile.warScarLevel === "number" ? { war_scar_level: tile.warScarLevel } : {}),
+  ...(typeof tile.warScarUntil === "number" ? { war_scar_until: tile.warScarUntil } : {}),
   ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {})
 });

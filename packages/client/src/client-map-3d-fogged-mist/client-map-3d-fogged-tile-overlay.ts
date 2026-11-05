@@ -31,3 +31,21 @@ export const addFoggedOverlayTile = (overlay: OwnershipOverlay, tile: FoggedOver
   }
 };
 
+
+export type FoggedOverlayTileDeps = {
+  readonly cornerYAt: (wx: number, wy: number) => number;
+  readonly rise: number;
+  readonly isHillsAt: (wx: number, wy: number) => boolean;
+  readonly hillNeighborsAt: (wx: number, wy: number) => HillNeighborFlags;
+  readonly hillCutAt: (wx: number, wy: number) => RoadCutDirections | undefined;
+};
+
+/** The footprint of the fogged tile (wx, wy) centred on scene (x, z); (wxNext, wyNext) are its wrapped +1 neighbours. */
+export const foggedOverlayTileAt = (deps: FoggedOverlayTileDeps, x: number, z: number, wx: number, wy: number, wxNext: number, wyNext: number): FoggedOverlayTile => ({
+  x0: x - 0.5, x1: x + 0.5, z0: z - 0.5, z1: z + 0.5,
+  corner00Y: deps.cornerYAt(wx, wy) + deps.rise,
+  corner10Y: deps.cornerYAt(wxNext, wy) + deps.rise,
+  corner01Y: deps.cornerYAt(wx, wyNext) + deps.rise,
+  corner11Y: deps.cornerYAt(wxNext, wyNext) + deps.rise,
+  isHill: deps.isHillsAt(wx, wy), hillNeighbors: deps.hillNeighborsAt(wx, wy), wx, wy, roadDirs: deps.hillCutAt(wx, wy)
+});

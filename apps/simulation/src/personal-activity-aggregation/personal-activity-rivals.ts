@@ -8,25 +8,38 @@ const activity = (rival: PersonalActivityRival): number => rival.tilesTaken + ri
 
 // Head-to-head tallies against each opponent, from the same windowed logs as
 // the timeline. Barbarians are background hazard, not a rival, so they are
-// left out; neutral land has no counterparty to tally.
+// left out; neutral land has no counterparty to tally. Tile counts are
+// distinct tiles, so a tile traded back and forth is one taken + one lost;
+// netTiles counts per flip, which per tile telescopes to who ended up with it.
 export const rivalsForPlayer = (playerId: string, flips: readonly TerritoryFlip[], combat: readonly CombatManpowerLoss[]): PersonalActivityRival[] => {
   const rivals = new Map<string, PersonalActivityRival>();
   const rival = (id: string | undefined): PersonalActivityRival | undefined => {
     if (!id || id === playerId || id === BARBARIAN_PLAYER_ID) return undefined;
     let entry = rivals.get(id);
     if (!entry) {
-      entry = { playerId: id, tilesTaken: 0, tilesLost: 0, attacksRepelled: 0, attacksFailed: 0 };
+      entry = { playerId: id, tilesTaken: 0, tilesLost: 0, netTiles: 0, attacksRepelled: 0, attacksFailed: 0 };
       rivals.set(id, entry);
     }
     return entry;
   };
+  const seen = new Set<string>();
+  const countOnce = (direction: "taken" | "lost", entry: PersonalActivityRival, tileId: string): boolean => {
+    const key = `${direction}:${entry.playerId}:${tileId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  };
   for (const flip of flips) {
     if (flip.toOwner === playerId && flip.fromOwner !== playerId) {
       const entry = rival(flip.fromOwner);
-      if (entry) entry.tilesTaken += 1;
+      if (!entry) continue;
+      entry.netTiles = (entry.netTiles ?? 0) + 1;
+      if (countOnce("taken", entry, flip.tileId)) entry.tilesTaken += 1;
     } else if (flip.fromOwner === playerId && flip.toOwner !== playerId) {
       const entry = rival(flip.toOwner);
-      if (entry) entry.tilesLost += 1;
+      if (!entry) continue;
+      entry.netTiles = (entry.netTiles ?? 0) - 1;
+      if (countOnce("lost", entry, flip.tileId)) entry.tilesLost += 1;
     }
   }
   for (const loss of combat) {

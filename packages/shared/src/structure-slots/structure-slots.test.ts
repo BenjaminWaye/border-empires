@@ -36,16 +36,10 @@ describe("structureSlotRequirements", () => {
     expect(structureSlotRequirements("THUNDER_BASTION")).toEqual([{ resource: "TITANIUM", count: 4 }]);
   });
 
-  it("matches §12's Siege tier ladder exactly", () => {
+  it("matches §12's Siege tier ladder exactly -- UMBRITE only, no TITANIUM", () => {
     expect(structureSlotRequirements("SIEGE_BATTERY")).toEqual([{ resource: "UMBRITE", count: 1 }]);
-    expect(structureSlotRequirements("SIEGE_TOWER")).toEqual([
-      { resource: "UMBRITE", count: 2 },
-      { resource: "TITANIUM", count: 1 }
-    ]);
-    expect(structureSlotRequirements("DREAD_TOWER")).toEqual([
-      { resource: "UMBRITE", count: 3 },
-      { resource: "TITANIUM", count: 2 }
-    ]);
+    expect(structureSlotRequirements("SIEGE_TOWER")).toEqual([{ resource: "UMBRITE", count: 2 }]);
+    expect(structureSlotRequirements("DREAD_TOWER")).toEqual([{ resource: "UMBRITE", count: 3 }]);
   });
 
   it("gives every Tier 3 'crystal fix' structure both a FOOD and a CRYSTAL slot", () => {
@@ -71,7 +65,7 @@ describe("structureSlotRequirements", () => {
     expect(structureSlotRequirements("HIGH_YIELD_AETHER_CONDENSER")).toEqual([{ resource: "CRYSTAL", count: 1 }]);
   });
 
-  it("gives every monument component exactly 1 CRYSTAL slot (SHARD stays a separate flow cost, not modeled here)", () => {
+  it("gives every monument component exactly 1 CRYSTAL slot", () => {
     for (const type of [
       "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
       "SOVEREIGN_SIEGE_ENGINE_PART_1", "SOVEREIGN_SIEGE_ENGINE_PART_2", "SOVEREIGN_SIEGE_ENGINE_PART_3",
@@ -95,6 +89,12 @@ describe("structureSlotRequirements", () => {
     // SKY_DOCK's CRYSTAL slot requirement is 3, not 1 (bumped alongside its
     // bombard ability going free-to-fire — see server-game-constants.ts).
     expect(structureSlotRequirements("SKY_DOCK")).toEqual([{ resource: "CRYSTAL", count: 3 }]);
+  });
+
+  it("charges the frontier resource-network installations no slot upkeep", () => {
+    for (const type of ["RESIN_EXTRACTOR", "IMPLANT_FOUNDRY", "CATALYST_REFINERY", "CULTIVATION_ESTATE", "RECLAMATION_WORKS"] as const) {
+      expect(structureSlotRequirements(type)).toEqual([]);
+    }
   });
 
   it("returns an empty array for a structure with no entry, rather than throwing", () => {

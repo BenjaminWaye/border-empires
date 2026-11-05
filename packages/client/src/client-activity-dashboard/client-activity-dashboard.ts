@@ -1,5 +1,6 @@
 import type { ClientState } from "../client-state/client-state.js";
 import { changelogBodyHtml, latestClientChangelogTimestamp, markClientChangelogSeen, sortedClientChangelogEntries, unseenClientChangelogEntries } from "../client-changelog/client-changelog.js";
+import { hudV2IsDriving } from "../client-hud-v2/client-hud-v2-flag.js";
 import { escapeActivityDashboardHtml } from "./client-activity-dashboard-escape.js";
 import { acknowledgeActivitySeen, requestPersonalActivity, requestWorldPulse } from "./client-activity-dashboard-network.js";
 import { wireActivityDashboardCenterButtons } from "./client-activity-dashboard-center.js";
@@ -74,7 +75,8 @@ const cardRowHtml = (card: Parameters<typeof activityCardText>[0], playerId: str
 
 export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps): void => {
   const { state, overlayEl } = deps;
-  const canShow = state.activityDashboard.open;
+  // Under the new HUD the Chronicle shows this (it reads `open` and the view); rendering here too would mark release notes seen first.
+  const canShow = state.activityDashboard.open && !hudV2IsDriving();
   overlayEl.style.display = canShow ? "grid" : "none";
   if (!canShow) {
     clearActivityDashboard(overlayEl);

@@ -6,9 +6,10 @@ import { readFileSync } from "node:fs";
 // client-hud-*-regression tests, rather than a full renderClientHud() harness.
 describe("client HUD Empire Integrity economy card regression", () => {
   const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
+  const economyPanelSource = readFileSync(new URL("./client-hud-economy-panel.ts", import.meta.url), "utf8");
 
   it("passes integrity to the Economy panel", () => {
-    expect(hudSource).toContain("integrityPct: state.defensibilityPct,");
+    expect(economyPanelSource).toContain("integrityPct: state.defensibilityPct,");
   });
 
   it("wires the open-integrity buttons across the whole HUD, after the Economy panel HTML is in place", () => {

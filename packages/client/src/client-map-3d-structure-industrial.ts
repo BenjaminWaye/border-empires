@@ -1,3 +1,5 @@
+// Completed Great Projects use client-monuments through the live district dispatcher.
+// These generic layouts remain for compatibility fixtures, not the current map art.
 import {
   BoxGeometry,
   ConeGeometry,

@@ -1,0 +1,301 @@
+/* Redesigned desktop HUD (flag-gated by body.hud-v2): flat brass-edged ink
+   panels, Cinzel headings, Space Mono numbers — the approved draft's look.
+   Legacy chrome it replaces is hidden here. Screens live in client-hud-v2-screens.css. */
+
+body.hud-v2 {
+  --v2-ink: rgba(15, 13, 10, 0.94);
+  --v2-ink-solid: #0f0d0a;
+  --v2-chip: #1d1913;
+  --v2-well: #16130e;
+  --v2-line: #3a3125;
+  --v2-edge: #5a4828;
+  --v2-edge-strong: #8a6f35;
+  --v2-gold: #d9b25c;
+  --v2-gold-hi: #f0cf82;
+  --v2-text: #ece2cc;
+  --v2-muted: #a8997c;
+  --v2-soft: #bda880;
+  --v2-amber: #e0a845;
+  --v2-red: #d06a5a;
+  --v2-red-hi: #e8907f;
+  --v2-green: #6fbf73;
+  --v2-green-hi: #8fd99a;
+  --v2-blue: #7da7d9;
+  --v2-aether: #7fc4d6;
+  --v2-display: var(--sp-font-display, "Cinzel", Georgia, serif);
+  --v2-body: var(--sp-font-body, "Spectral", Georgia, serif);
+  --v2-mono: var(--sp-font-mono, "Space Mono", monospace);
+}
+
+#hud-v2 { display: none; color: var(--v2-text); font-family: var(--v2-body); font-variant-numeric: tabular-nums; }
+body.hud-v2 #hud-v2 { display: block; }
+/* Loading / sign-in / season lobby: nothing of the HUD on top (see client-hud-v2-ready.ts). */
+body.hud-v2.hud-v2-waiting #hud-v2 { display: none; }
+body.hud-v2 #top-strip,
+body.hud-v2 #floating-info { display: none !important; }
+/* Zero-specificity resets, so component classes (primary buttons' dark text) win. */
+:where(#hud-v2) button { font: inherit; color: inherit; cursor: pointer; }
+:where(#hud-v2) button:disabled { cursor: not-allowed; }
+#hud-v2 :focus-visible { outline: 2px solid var(--v2-gold-hi); outline-offset: 2px; }
+
+/* Panels are solid to the pointer: #hud lets clicks through to the map, and a click on a panel's
+   padding or text must not select the tile underneath (which closes the tile panel). */
+.hud-v2-bar,
+.hud-v2-season,
+.hud-v2-tracker,
+.hud-v2-tile {
+  background: var(--v2-ink);
+  border: 1px solid var(--v2-edge);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+}
+
+/* ---- Top-left: resource bar, crest + bubbles ---- */
+.hud-v2-top { position: fixed; top: 12px; left: 16px; z-index: 50; display: grid; gap: 10px; justify-items: start; }
+.hud-v2-bar { display: flex; align-items: center; gap: 4px; height: 46px; padding: 0 6px; border-bottom-color: var(--v2-edge-strong); }
+.hud-v2-chip {
+  display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 11px;
+  background: var(--v2-chip); border: 1px solid var(--v2-line); font-family: var(--v2-mono); font-size: 13px;
+}
+.hud-v2-chip:hover { border-color: var(--v2-gold); }
+.hud-v2-chip-static { cursor: default; }
+.hud-v2-chip-static:hover { border-color: var(--v2-line); }
+.hud-v2-chip-label { font-size: 11px; color: var(--v2-muted); }
+.hud-v2-chip-value { font-weight: 700; }
+.hud-v2-chip-of { color: var(--v2-muted); }
+.hud-v2-chip-rate { font-size: 11px; color: var(--v2-green); }
+.hud-v2-chip-rate-loss { color: var(--v2-red); }
+.hud-v2-over { font-weight: 700; color: var(--v2-amber); }
+.hud-v2-sep { width: 1px; height: 24px; margin: 0 4px; background: var(--v2-line); }
+.hud-v2-gear {
+  width: 34px; height: 34px; margin-left: 4px; background: var(--v2-well); border: 1px solid var(--v2-edge-strong);
+  color: var(--v2-gold); font-size: 16px; line-height: 1;
+}
+.hud-v2-gear:hover { color: var(--v2-gold-hi); border-color: var(--v2-gold); }
+
+.hud-v2-nav { display: flex; align-items: center; gap: 10px; }
+.hud-v2-crest {
+  width: 56px; height: 56px; padding: 3px; border: 2px solid var(--v2-gold); border-radius: 12px;
+  background: var(--v2-ink-solid); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+.hud-v2-crest-mark {
+  display: grid; place-items: center; width: 100%; height: 100%; border-radius: 8px;
+  font-family: var(--v2-display); font-weight: 700; font-size: 24px; color: #f6ecd4; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.hud-v2-bubbles { display: flex; gap: 8px; }
+.hud-v2-bubble {
+  position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
+  border: 1px solid var(--v2-edge-strong); border-radius: 50%; background: var(--v2-well); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+.hud-v2-bubble:hover { border-color: var(--v2-gold); }
+.hud-v2-bubble-active { border: 2px solid var(--v2-gold); background: #2a2216; }
+.hud-v2-bubble .tab-icon-img { width: 24px; height: 24px; }
+.hud-v2-bubble-badge {
+  position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px;
+  background: var(--v2-red); color: #fff; font-family: var(--v2-mono); font-size: 10px; font-weight: 700; line-height: 18px;
+}
+.hud-v2-bubble-label {
+  position: absolute; top: 48px; left: 50%; transform: translateX(-50%); padding: 2px 7px;
+  background: var(--v2-ink-solid); border: 1px solid var(--v2-line); font-family: var(--v2-display); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.06em; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.12s;
+}
+.hud-v2-bubble:hover .hud-v2-bubble-label, .hud-v2-bubble:focus-visible .hud-v2-bubble-label { opacity: 1; }
+
+/* ---- Top-right: victory line + rivals ---- */
+.hud-v2-right { position: fixed; top: 12px; right: 16px; z-index: 40; display: grid; gap: 10px; justify-items: end; max-width: 340px; }
+/* The victory line is the way into Ranks. */
+.hud-v2-season { display: grid; gap: 4px; padding: 10px 14px; text-align: right; color: inherit; font: inherit; cursor: pointer; }
+.hud-v2-season:hover { border-color: var(--v2-edge-strong); background: #1b170f; }
+.hud-v2-season-title { font-family: var(--v2-display); font-size: 15px; font-weight: 700; letter-spacing: 0.08em; color: var(--v2-gold); }
+.hud-v2-season-line { font-size: 13px; color: var(--v2-muted); }
+.hud-v2-season-holding { color: var(--v2-text); }
+.hud-v2-season-holding b { color: var(--v2-red-hi); font-weight: 600; }
+.hud-v2-rivals { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; gap: 8px; }
+.hud-v2-rival { display: grid; justify-items: center; gap: 3px; width: 58px; padding: 0; border: 0; background: none; }
+.hud-v2-rival-token {
+  position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 8px; border: 2px solid var(--v2-text);
+  font-family: var(--v2-display); font-weight: 700; font-size: 19px; color: #f6ecd4; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+}
+.hud-v2-rival-truce .hud-v2-rival-token { border-style: dashed; }
+.hud-v2-rival-name { max-width: 58px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--v2-mono); font-size: 10px; text-shadow: 0 1px 2px #000; }
+.hud-v2-rival-stance { font-family: var(--v2-mono); font-size: 9px; color: var(--v2-soft); text-shadow: 0 1px 2px #000; }
+.hud-v2-rival-truce .hud-v2-rival-stance { color: var(--v2-amber); }
+.hud-v2-rival-ally .hud-v2-rival-stance { color: var(--v2-green); }
+.hud-v2-rival-more {
+  width: 40px; height: 40px; border-radius: 8px; background: var(--v2-ink); border: 1px solid var(--v2-edge-strong);
+  color: var(--v2-gold); font-family: var(--v2-mono); font-size: 12px;
+}
+
+/* ---- Left: tracker ---- */
+.hud-v2-tracker {
+  position: fixed; top: 140px; left: 16px; z-index: 38; width: 280px; max-height: calc(100vh - 140px - 300px);
+  overflow-y: auto; display: grid; gap: 0; padding: 4px 0 8px;
+}
+.hud-v2-tracker:empty { display: none; }
+.hud-v2-tracker-head { padding: 10px 14px 4px; font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); }
+.hud-v2-tracker-head-needs { color: var(--v2-amber); }
+.hud-v2-slots { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px 2px; border: 0; background: transparent; font: inherit; font-size: 12px; color: var(--v2-soft); text-align: left; cursor: pointer; }
+.hud-v2-slots:hover .hud-v2-slots-label { color: var(--v2-gold-hi); }
+.hud-v2-slots-label { font-family: var(--v2-display); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--v2-gold); }
+.hud-v2-slot-pips { display: inline-flex; gap: 4px; }
+.hud-v2-slot-pip { width: 10px; height: 10px; border: 1px solid var(--v2-gold); transform: rotate(45deg); }
+.hud-v2-slot-busy { background: var(--v2-gold); }
+.hud-v2-slots-count { font-family: var(--v2-mono); color: var(--v2-text); }
+.hud-v2-slots-free .hud-v2-slots-count { color: var(--v2-amber); }
+.hud-v2-tracker-row { display: grid; gap: 3px; padding: 6px 14px; border: 0; border-left: 3px solid transparent; background: transparent; text-align: left; }
+.hud-v2-tracker-row:hover { background: #221c13; border-left-color: var(--v2-gold); }
+.hud-v2-tracker-title { display: flex; gap: 5px; align-items: baseline; font-size: 14px; }
+.hud-v2-tracker-title b { font-weight: 600; color: var(--v2-gold-hi); }
+.hud-v2-tracker-amt { margin-left: auto; font-family: var(--v2-mono); font-size: 11px; color: var(--v2-soft); }
+.hud-v2-tracker-sub { font-size: 12px; color: var(--v2-muted); }
+.hud-v2-need-flag .hud-v2-tracker-sub { color: var(--v2-amber); }
+.hud-v2-tracker-bar { height: 4px; background: #2a241b; }
+.hud-v2-tracker-bar > span { display: block; height: 100%; background: var(--v2-gold); }
+.hud-v2-tracker-timed { grid-template-columns: 1fr auto; align-items: baseline; }
+.hud-v2-tracker-time { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-soft); }
+.hud-v2-tracker-more { padding: 2px 14px 6px; font-size: 12px; color: var(--v2-muted); }
+/* Dev slots unfold in place: what fills each slot, then what waits for one. */
+.hud-v2-slots-fold { margin-left: auto; font-size: 11px; color: var(--v2-muted); }
+.hud-v2-slot-list { display: grid; padding: 2px 0 4px; }
+.hud-v2-slot-row { width: 100%; }
+.hud-v2-slot-row .hud-v2-tracker-time { margin-left: auto; }
+.hud-v2-tracker-at { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
+.hud-v2-slot-waiting .hud-v2-tracker-title { font-size: 13px; color: var(--v2-soft); }
+
+/* ---- Bottom-left: minimap moves here; the checklist launcher sits above it ---- */
+body.hud-v2 #mini-map-wrap { left: 16px !important; right: auto !important; bottom: 16px; width: 200px; z-index: 36; }
+body.hud-v2 #mini-map { width: 200px; height: 200px; }
+/* The new-empire checklist launcher measures the legacy info block (hidden here), so pin it above the minimap. */
+body.hud-v2 .onb-root { bottom: 266px !important; }
+
+/* Map lens (client-hud-v2-overlays.ts): a round button notched into the minimap's top edge, inside #mini-map-wrap
+   so it moves with the minimap. The list opens beside the minimap, level with its top edge: above it sits the
+   new-empire checklist, which stacks over the whole #hud layer. */
+body:not(.hud-v2) .hud-v2-overlays, body.hud-v2-waiting .hud-v2-overlays { display: none; }
+/* The host spans the minimap's width, so the notch centres on it and the list can anchor to its right edge. */
+#mini-map-wrap > .hud-v2-overlays { position: absolute; left: 0; right: 0; top: -18px; height: 0; z-index: 2; }
+/* Outside #hud-v2, so it takes the HUD's body font and focus ring itself. */
+.hud-v2-overlays { font-family: var(--v2-body); }
+.hud-v2-overlays :focus-visible { outline: 2px solid var(--v2-gold-hi); outline-offset: 2px; }
+/* The open list reaches past the minimap; lift the minimap over the tile panel (z-index 39) meanwhile. */
+body.hud-v2 #mini-map-wrap:has(.hud-v2-lens-menu) { z-index: 40; }
+.hud-v2-lens-btn {
+  position: absolute; left: 50%; top: 0; transform: translateX(-50%); display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 50%;
+  background: var(--v2-chip); border: 2px solid var(--v2-edge-strong); box-shadow: 0 0 0 3px var(--v2-ink-solid); cursor: pointer;
+}
+.hud-v2-lens-btn:hover, .hud-v2-lens-btn[aria-expanded="true"] { border-color: var(--v2-gold); }
+.hud-v2-lens-on { background: #2a2216; border-color: var(--v2-gold-hi); }
+.hud-v2-lens-icon { width: 20px; height: 20px; pointer-events: none; }
+.hud-v2-lens-menu {
+  position: absolute; left: calc(100% + 8px); top: 18px; display: grid; gap: 2px;
+  min-width: 150px; padding: 6px; background: var(--v2-ink); border: 1px solid var(--v2-edge-strong);
+}
+.hud-v2-lens-item {
+  display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 10px; border: 0; border-left: 2px solid transparent;
+  background: transparent; color: var(--v2-soft); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.hud-v2-lens-item:hover { color: var(--v2-text); background: var(--v2-well); }
+.hud-v2-lens-item-on { color: var(--v2-gold-hi); background: #2a2216; border-left-color: var(--v2-gold); }
+.hud-v2-lens-item .hud-v2-lens-icon { width: 18px; height: 18px; }
+
+/* Your standing with the tile's owner, before their name (client-hud-v2-stance-tag.ts). */
+.hud-v2-stance-tag { display: inline-block; margin-right: 6px; padding: 0 5px; border: 1px solid; font-size: 11px; line-height: 16px; vertical-align: 1px; }
+.hud-v2-stance-ally { color: var(--v2-green-hi); border-color: var(--v2-green); }
+.hud-v2-stance-truce { color: var(--v2-amber); border-color: var(--v2-amber); }
+.hud-v2-stance-hostile { color: var(--v2-red-hi); border-color: var(--v2-red); }
+
+/* ---- Bottom-centre: tile panel + action bar ---- */
+.hud-v2-tile {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 39;
+  width: min(660px, calc(100vw - 720px)); display: grid; gap: 10px; padding: 12px 14px;
+  border-color: var(--v2-edge-strong);
+}
+.hud-v2-tile[hidden] { display: none; }
+.hud-v2-tile-head { display: flex; align-items: center; gap: 12px; }
+.hud-v2-tile-text { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.hud-v2-tile-title { font-family: var(--v2-display); font-size: 15px; font-weight: 700; letter-spacing: 0.06em; color: var(--v2-gold-hi); }
+.hud-v2-tile-sub { font-size: 13px; color: var(--v2-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hud-v2-tile-sub [data-player-name-id] { color: var(--v2-text); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.hud-v2-tile-status { font-family: var(--v2-mono); font-size: 11px; padding: 3px 8px; border: 1px solid var(--v2-line); color: var(--v2-soft); }
+.hud-v2-tile-status-warning { color: var(--v2-amber); border-color: var(--v2-amber); }
+.hud-v2-tile-close { width: 28px; height: 28px; border: 1px solid var(--v2-line); background: var(--v2-well); color: var(--v2-soft); }
+.hud-v2-tile-close:hover { color: var(--v2-text); border-color: var(--v2-edge-strong); }
+.hud-v2-act-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.hud-v2-act-row { flex-wrap: nowrap; }
+.hud-v2-act {
+  /* min-height, not height: a long cost line used to spill out of the button. */
+  flex: 1 1 0; min-width: 0; display: grid; gap: 2px; align-content: center; justify-items: center; min-height: 52px; padding: 6px 12px;
+  border: 1px solid var(--v2-edge-strong); background: var(--v2-well);
+}
+.hud-v2-act-label, .hud-v2-act-cost { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hud-v2-act:hover:not(:disabled) { border-color: var(--v2-gold); background: #221c13; }
+.hud-v2-act-label { font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
+.hud-v2-act-cost { font-family: var(--v2-mono); font-size: 10px; color: var(--v2-soft); }
+.hud-v2-act-primary { flex: 1.6; background: var(--v2-gold); border-color: var(--v2-gold); color: #120f0b; }
+.hud-v2-act-primary .hud-v2-act-cost { color: rgba(18, 15, 11, 0.72); }
+.hud-v2-act-primary:hover:not(:disabled) { background: var(--v2-gold-hi); border-color: var(--v2-gold-hi); }
+.hud-v2-act-disabled { opacity: 0.5; }
+.hud-v2-act-aether { color: var(--v2-aether); border-color: rgba(127, 196, 214, 0.55); }
+.hud-v2-act-build, .hud-v2-act-aether { flex: 0 0 auto; min-width: 112px; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
+.hud-v2-act-open { border-color: var(--v2-gold); background: #2a2216; color: var(--v2-gold-hi); }
+/* Everything else: small text buttons, all visible (no hidden menu). */
+.hud-v2-minor-row { display: flex; flex-wrap: wrap; gap: 4px 14px; padding-top: 2px; }
+.hud-v2-minor { padding: 2px 0; border: 0; border-bottom: 1px solid var(--v2-line); background: none; font-family: var(--v2-body); font-size: 13px; color: var(--v2-soft); }
+.hud-v2-minor:hover:not(:disabled) { color: var(--v2-gold-hi); border-bottom-color: var(--v2-gold); }
+.hud-v2-minor-off { opacity: 0.5; }
+.hud-v2-minor-link { color: var(--v2-gold); }
+/* Facts that matter on sight (a waystation's bonus). */
+.hud-v2-tile-facts { display: flex; flex-wrap: wrap; gap: 6px; }
+.hud-v2-fact { display: inline-flex; align-items: baseline; gap: 6px; padding: 3px 9px; border: 1px solid var(--v2-edge-strong); background: #221c13; font-size: 13px; color: var(--v2-text); }
+.hud-v2-fact-label { font-family: var(--v2-display); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--v2-gold); }
+.hud-v2-fact-good { color: #b9dca0; }
+.hud-v2-fact-warn { color: #f0b48a; border-color: rgba(240, 180, 138, 0.45); }
+.hud-v2-act-details { flex: 0 0 auto; min-width: 104px; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
+.hud-v2-details { gap: 4px; max-height: 300px; padding: 8px 10px; font-size: 13px; line-height: 1.4; color: var(--v2-soft); }
+.hud-v2-details .tile-overview-line { color: inherit; }
+.hud-v2-details .tile-overview-line-section { margin-top: 6px; font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--v2-gold); }
+.hud-v2-details .tile-overview-line-section:first-child { margin-top: 0; }
+/* Details ▾ opens above the main row. */
+.hud-v2-pop { display: grid; gap: 2px; max-height: 260px; overflow-y: auto; padding: 6px; background: var(--v2-ink-solid); border: 1px solid var(--v2-edge); }
+/* Build ▸ / Aether ▸ sidebar on the map: same panel as the town screen's build list; the top-right column steps aside. */
+.hud-v2-build-side { top: 128px !important; pointer-events: auto; }
+.hud-v2-build-side[hidden] { display: none; }
+.hud-v2-build-place { padding: 10px 18px 14px; border-top: 1px solid var(--v2-line); }
+.hud-v2-build-place:empty { display: none; }
+.hud-v2-build-place .v2t-place { border: 0; padding: 0; box-shadow: none; background: none; }
+body.hud-v2-building .hud-v2-right { display: none; }
+.hud-v2-aether-title { color: var(--v2-aether); }
+.hud-v2-aether-ico { width: 30px; height: 30px; }
+.hud-v2-aether-row:disabled { cursor: default; }
+.hud-v2-aether-row:disabled:hover { background: transparent; }
+/* A side panel (Economy, Integrity) opens over the right edge; the rival portraits would sit on its header. */
+body.hud-v2:has(#hud.desktop-side-panel-open) .hud-v2-rivals { display: none; }
+.hud-v2-tile .tile-auto-settle-option { font-size: 12px; color: var(--v2-muted); }
+
+/* The floating menu is hidden while docked; Build / Aether / ⋯ expand it as a right-hand sidebar. */
+body.hud-v2 #tile-action-menu.hud-v2-docked:not(.hud-v2-expanded) { display: none !important; }
+body.hud-v2 #tile-action-menu.hud-v2-docked.hud-v2-expanded {
+  left: auto !important; right: 16px; top: 128px !important; bottom: 236px; width: 348px !important; overflow-y: auto; z-index: 55;
+}
+body.hud-v2 #side-panel { top: 128px; bottom: 236px; }
+/* Settings is a centred dialog over the dimmed map, not a side panel. */
+.hud-v2-dim { display: none; position: fixed; inset: 0; z-index: 48; background: rgba(8, 6, 3, 0.62); pointer-events: auto; }
+/* Keyed off the panel's own class, set in the same render that opens it, so Settings never shows at the side first. */
+body.hud-v2:has(#side-panel.settings-panel-active) .hud-v2-dim { display: block; }
+body.hud-v2 #side-panel.settings-panel-active { top: 50%; left: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 32px)); height: min(80vh, 760px); z-index: 49; }
+
+/* ---- Bottom-right: manpower orb ---- */
+.hud-v2-orb-slot { position: fixed; right: 16px; bottom: 16px; z-index: 40; }
+.hud-v2-orb { position: relative; display: block; width: 180px; height: 180px; padding: 0; border: 0; border-radius: 50%; background: transparent; }
+.hud-v2-orb svg { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.55)); }
+.hud-v2-orb-rim { fill: var(--v2-ink-solid); stroke: var(--v2-edge); stroke-width: 2; }
+.hud-v2-orb-glass { fill: #14110d; }
+.hud-v2-orb-liquid { fill: #b8893d; }
+.hud-v2-orb-ring { fill: none; stroke: var(--v2-gold); stroke-width: 1.5; }
+.hud-v2-orb-empty .hud-v2-orb-rim { stroke: var(--v2-red); stroke-width: 3; }
+.hud-v2-orb-text { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; text-shadow: 0 1px 3px #000; }
+.hud-v2-orb-label { font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; color: var(--v2-gold); }
+.hud-v2-orb-value { font-family: var(--v2-mono); font-size: 26px; font-weight: 700; line-height: 1.1; }
+.hud-v2-orb-cap { font-family: var(--v2-mono); font-size: 12px; }
+.hud-v2-orb-refill { margin-top: 4px; font-family: var(--v2-mono); font-size: 11px; color: #f3e6c4; }

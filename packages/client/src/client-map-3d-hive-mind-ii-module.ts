@@ -98,7 +98,7 @@ export const HIVE_MIND_II_MODULE_HEIGHT = HMM2_TOWER_TOP * HIVE_MIND_II_SCALE;
 
 export type HiveMindIiModuleOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number) => number;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number, frozen?: boolean) => number;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -326,6 +326,8 @@ export const createHiveMindIiModuleOverlay = (scene: Scene, maxInstances: number
     readonly y: number;
     readonly z: number;
     readonly yaw: number;
+    // Remembered under fog: drawn in its rest pose.
+    readonly frozen: boolean;
   };
   const records: Hmm2Record[] = [];
 
@@ -335,11 +337,11 @@ export const createHiveMindIiModuleOverlay = (scene: Scene, maxInstances: number
     records.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, _worldTileX: number, _worldTileY: number): number => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, _worldTileX: number, _worldTileY: number, frozen = false): number => {
     if (records.length >= C) return -1;
     yawQuat.setFromEuler(tmpEuler.set(0, -yaw, 0, "XYZ"));
     yawMatrix.makeRotationFromQuaternion(yawQuat);
-    records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw });
+    records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw, frozen });
     addModule(sceneX, surfaceY, sceneZ, HMM2_RING_START_ROLL, 0);
     yawMatrix.identity();
     return records.length - 1;
@@ -368,8 +370,8 @@ export const createHiveMindIiModuleOverlay = (scene: Scene, maxInstances: number
     for (const r of records) {
       yawQuat.setFromEuler(tmpEuler.set(0, -r.yaw, 0, "XYZ"));
       yawMatrix.makeRotationFromQuaternion(yawQuat);
-      addSignalRingTeeth(r.x, r.y, r.z, rollAz);
-      addBridgePulse(r.x, r.y, r.z, nowMs);
+      addSignalRingTeeth(r.x, r.y, r.z, r.frozen ? HMM2_RING_START_ROLL : rollAz);
+      addBridgePulse(r.x, r.y, r.z, r.frozen ? 0 : nowMs);
       yawMatrix.identity();
     }
     commit();

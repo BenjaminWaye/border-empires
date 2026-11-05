@@ -1,6 +1,6 @@
 // Town growth upgrade tile-action split out of client-tile-action-logic.ts to
 // keep that file from growing past the repo's 500-line cap.
-import { supportRingRadiusForTier, TOWN_MANPOWER_BY_TIER, type TownGrowthUpgradeView } from "@border-empires/shared";
+import { manpowerPerBatch, supportRingRadiusForTier, TOWN_MANPOWER_BY_TIER, type TownGrowthUpgradeView } from "@border-empires/shared";
 import { townPopulationMultiplier } from "@border-empires/game-domain";
 import type { ClientState } from "../client-state/client-state.js";
 import type { TileActionDef } from "../client-types.js";
@@ -9,12 +9,12 @@ import { tileActionAvailability } from "./client-tile-action-logic.js";
 const townGrowthUpgradeBonusDetail = (targetTier: "CITY" | "GREAT_CITY" | "METROPOLIS"): string => {
   const incomeBonusPercent = Math.round((townPopulationMultiplier(targetTier) - 1) * 100);
   const manpower = TOWN_MANPOWER_BY_TIER[targetTier];
-  const manpowerRegen = Math.round(manpower.regenPerMinute * 10) / 10;
+  const manpowerRegen = Math.round(manpowerPerBatch(manpower.regenPerMinute));
   const ringBonus =
     targetTier === "GREAT_CITY" && supportRingRadiusForTier(targetTier) > 1
       ? " Adds a second ring of build tiles around the town."
       : "";
-  return `+${incomeBonusPercent}% coin income, ${manpower.cap} manpower cap, +${manpowerRegen} manpower regen/min.${ringBonus}`;
+  return `+${incomeBonusPercent}% coin income, ${manpower.cap} manpower cap, +${manpowerRegen} manpower per batch.${ringBonus}`;
 };
 
 export const townGrowthActionForUpgrade = (

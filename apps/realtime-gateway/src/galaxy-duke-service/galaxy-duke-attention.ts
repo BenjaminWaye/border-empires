@@ -10,7 +10,10 @@ export type AttentionKind =
   | "SLOT_EMPTY"
   | "FIGHTER_DAMAGED"
   | "COURT_OFFER"
-  | "PETITION_READY";
+  | "PETITION_READY"
+  | "GRIEVANCE_AGAINST_YOU"
+  | "FAVOR_REVOKED"
+  | "WRIT_PENDING";
 
 export type AttentionItem = {
   kind: AttentionKind;
@@ -25,17 +28,23 @@ export type AttentionItem = {
 const ORDER: Record<AttentionKind, number> = {
   INCURSION_UNDEFENDED: 0,
   LOW_STABILITY: 1,
-  COURT_OFFER: 2,
-  INCURSION_DEFENDED: 3,
-  FIGHTER_DAMAGED: 4,
-  SLOT_EMPTY: 5,
-  PETITION_READY: 6
+  FAVOR_REVOKED: 2,
+  GRIEVANCE_AGAINST_YOU: 3,
+  COURT_OFFER: 4,
+  WRIT_PENDING: 5,
+  INCURSION_DEFENDED: 6,
+  FIGHTER_DAMAGED: 7,
+  SLOT_EMPTY: 8,
+  PETITION_READY: 9
 };
 
 export const buildAttention = (input: {
   systems: ReadonlyArray<SystemView>;
   courtOfferPending: boolean;
   petitionReady: boolean;
+  writPending?: boolean;
+  favorRevoked?: boolean;
+  grievancesAgainstMe?: number;
 }): AttentionItem[] => {
   const items: AttentionItem[] = [];
   for (const s of input.systems) {
@@ -48,6 +57,9 @@ export const buildAttention = (input: {
     if (s.fighters.some((h) => h > 0 && h < 60)) items.push({ kind: "FIGHTER_DAMAGED", severity: "NOTICE", seasonId: s.seasonId, label: s.label, at: null });
   }
   if (input.courtOfferPending) items.push({ kind: "COURT_OFFER", severity: "URGENT", seasonId: null, label: "The Court", at: null });
+  if (input.favorRevoked) items.push({ kind: "FAVOR_REVOKED", severity: "URGENT", seasonId: null, label: "The Court", at: null });
+  if ((input.grievancesAgainstMe ?? 0) > 0) items.push({ kind: "GRIEVANCE_AGAINST_YOU", severity: "URGENT", seasonId: null, label: "A rival Duke", at: null });
+  if (input.writPending) items.push({ kind: "WRIT_PENDING", severity: "NOTICE", seasonId: null, label: "A Court envoy", at: null });
   if (input.petitionReady) items.push({ kind: "PETITION_READY", severity: "NOTICE", seasonId: null, label: "The Senate", at: null });
   return items.sort((a, b) => ORDER[a.kind] - ORDER[b.kind]);
 };

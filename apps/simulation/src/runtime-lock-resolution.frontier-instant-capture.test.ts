@@ -188,6 +188,26 @@ describe("resolveLock ATTACK on a FRONTIER (undefended) target", () => {
     expect(payload.defenderOwnerId).toBe(DEFENDER_ID);
   });
 
+  it("records dock-captured and dock-lost impacts naming the other player", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", dockId: "dock-1" }]
+    ]);
+    const { context } = createContext(tiles);
+    const impacts: unknown[] = [];
+    context.recordPersonalImpact = (impact) => { impacts.push(impact); };
+    const lock = makeWonAttackLock();
+    context.locksByTile.addLock(lock);
+    context.locksByCommandId.set(lock.commandId, lock);
+
+    resolveLock(context, lock);
+
+    expect(impacts).toEqual([
+      expect.objectContaining({ kind: "DOCK_CAPTURED", playerId: ATTACKER_ID, counterpartyPlayerId: DEFENDER_ID, x: 6, y: 5 }),
+      expect.objectContaining({ kind: "DOCK_LOST", playerId: DEFENDER_ID, counterpartyPlayerId: ATTACKER_ID, x: 6, y: 5 })
+    ]);
+  });
+
   it("records truthful town-captured and town-lost impacts for both players", () => {
     const tiles = new Map<string, DomainTileState>([
       [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
@@ -203,8 +223,8 @@ describe("resolveLock ATTACK on a FRONTIER (undefended) target", () => {
     resolveLock(context, lock);
 
     expect(impacts).toEqual([
-      expect.objectContaining({ kind: "TOWN_CAPTURED", playerId: ATTACKER_ID, townName: "Rivergate", townSurvived: true, populationBefore: 1_000 }),
-      expect.objectContaining({ kind: "TOWN_LOST", playerId: DEFENDER_ID, townName: "Rivergate", townSurvived: true, populationBefore: 1_000 })
+      expect.objectContaining({ kind: "TOWN_CAPTURED", playerId: ATTACKER_ID, counterpartyPlayerId: DEFENDER_ID, townName: "Rivergate", townSurvived: true, populationBefore: 1_000 }),
+      expect.objectContaining({ kind: "TOWN_LOST", playerId: DEFENDER_ID, counterpartyPlayerId: ATTACKER_ID, townName: "Rivergate", townSurvived: true, populationBefore: 1_000 })
     ]);
   });
 

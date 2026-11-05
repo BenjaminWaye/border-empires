@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <filter id="shadow" x="-24%" y="-24%" width="148%" height="148%">
+      <feDropShadow dx="0" dy="1.15" stdDeviation="1.1" flood-color="#403a33" flood-opacity="0.42"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    
+    <g>
+      <path d="M 11 49 L 53 49 L 49 57 L 15 57 Z" fill="#6e6a62" stroke="#403a33" stroke-width="1.1" />
+      <path d="M 14 50.3 L 50 50.3 L 47.2 54.4 L 16.8 54.4 Z" fill="#e7ddc8" opacity="0.82" />
+      <path d="M 15.5 55.2 L 48.5 55.2 L 47.4 57 L 16.6 57 Z" fill="#bdb5a7" opacity="0.75" />
+      
+      <path d="M 18.5 50.4 L 16.8 56.7" stroke="#403a33" stroke-width="0.9" opacity="0.45" />
+      <path d="M 29 49.7 L 27.7 56.3" stroke="#403a33" stroke-width="0.9" opacity="0.45" />
+      <path d="M 39.5 49.7 L 38.6 56.3" stroke="#403a33" stroke-width="0.9" opacity="0.45" />
+      <path d="M 50 50.4 L 49.3 56.7" stroke="#403a33" stroke-width="0.9" opacity="0.45" />
+      <path d="M 14 53.2 L 50 53.2" stroke="#403a33" stroke-width="0.9" opacity="0.34" />
+    
+      <rect x="21.5" y="51.7" width="5.2" height="3.6" rx="1" fill="#786f62" opacity="0.95" />
+      <rect x="37.3" y="51.7" width="5.2" height="3.6" rx="1" fill="#786f62" opacity="0.95" />
+      <circle cx="23.1" cy="53.5" r="0.6" fill="#d2c3a6" />
+      <circle cx="25.1" cy="53.5" r="0.6" fill="#d2c3a6" />
+      <circle cx="38.9" cy="53.5" r="0.6" fill="#d2c3a6" />
+      <circle cx="40.9" cy="53.5" r="0.6" fill="#d2c3a6" />
+    
+    </g>
+  
+    
+    <g><rect x="17" y="59.8" width="5" height="2.2" rx="1" fill="#bdb5a7" opacity="0.95" /><rect x="26" y="59.8" width="5" height="2.2" rx="1" fill="#bdb5a7" opacity="0.95" /><rect x="35" y="59.8" width="5" height="2.2" rx="1" fill="#bdb5a7" opacity="0.95" /><rect x="44" y="59.8" width="5" height="2.2" rx="1" fill="#bdb5a7" opacity="0.95" /></g>
+    
+    <g transform="translate(31.5 48.5) rotate(180)">
+      <rect x="-0.8" y="-4.4" width="1.6" height="8.8" rx="0.8" fill="#403a33" />
+      <path d="M 0 -4 L 6 -2.2 L 2.4 0.8 L 6 4 L 0 4 Z" fill="#b89b67" opacity="0.95" />
+      <path d="M 0 -4 L 4.3 -2.5 L 0 0 Z" fill="#e7ddc8" opacity="0.84" />
+    </g>
+  
+  </g>
+</svg>

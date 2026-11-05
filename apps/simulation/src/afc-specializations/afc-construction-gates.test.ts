@@ -18,12 +18,12 @@ describe("AFC waivers apply before construction is rejected", () => {
     expect(hasFreeResourceSlots(context(["afc-oracle-1"], 1), command, "OBSERVATORY", "OBSERVATORY", target, "observatory")).toBe(false);
   });
   it("waives Titanium for the first three forts without waiving other requirements", () => {
-    expect(hasFreeResourceSlots(context(["afc-bastion-1"], 2), command, "FORT", "FORT", target, "fort")).toBe(true);
-    expect(hasFreeResourceSlots(context(["afc-bastion-1"], 3), command, "FORT", "FORT", target, "fort")).toBe(false);
+    expect(hasFreeResourceSlots(context(["afc-bastion-2"], 2), command, "FORT", "FORT", target, "fort")).toBe(true);
+    expect(hasFreeResourceSlots(context(["afc-bastion-2"], 3), command, "FORT", "FORT", target, "fort")).toBe(false);
   });
   it("keeps an early fort's waiver when upgrading it after a fourth fort exists", () => {
     const forts = [1, 2, 3, 4].map(x => ({ ...target, x, fort: { ownerId: "p", status: "active" as const, variant: "FORT" as const, activatedAt: x } }));
-    const ctx = context(["afc-bastion-1"], 4, new Map(forts.map(tile => [`${tile.x},0`, tile])));
+    const ctx = context(["afc-bastion-2"], 4, new Map(forts.map(tile => [`${tile.x},0`, tile])));
     expect(hasFreeResourceSlots(ctx, command, "FORT", "TITANIUM_BASTION", forts[0]!, "fort")).toBe(true);
     expect(hasFreeResourceSlots(ctx, command, "FORT", "TITANIUM_BASTION", forts[3]!, "fort")).toBe(false);
   });

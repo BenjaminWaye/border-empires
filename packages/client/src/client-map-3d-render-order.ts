@@ -12,6 +12,8 @@ export const RENDER_ORDER = {
   // Wet river bank over the ownership fill, under the water (river-bank-strip).
   riverBank: 7.5,
   riverWater: 8,
+  // Ground ore flecks and crystal clues stay readable over the owner tint.
+  prospectClues: 8.25,
   // Map names inked on the ground (client-map-3d-name-decal): over the
   // ownership tint and rivers, under fog, mist, storm clouds and every
   // overlay; depth-tested so buildings and units stand in front.

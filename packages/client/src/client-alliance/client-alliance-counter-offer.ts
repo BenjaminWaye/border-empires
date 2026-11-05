@@ -6,7 +6,7 @@
 // (apps/realtime-gateway diplomacy-counter-offer.ts).
 import { swapDiplomacyTerms, type DiplomacyCounterRef, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 
-import type { AllianceRequest, TruceRequest } from "../client-types.js";
+import type { ActiveTruceView, AllianceRequest, TruceRequest } from "../client-types.js";
 import { diplomacyTradeDepsFor, openDiplomacyTradeScreen } from "../client-diplomacy-trade/client-diplomacy-trade.js";
 
 export type CounterOfferDeps = {
@@ -14,9 +14,10 @@ export type CounterOfferDeps = {
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   state: {
     gold: number;
-    strategicResources: { SHARD?: number };
     incomingTruceRequests: readonly TruceRequest[];
     incomingAllianceRequests: readonly AllianceRequest[];
+    /** The deal screen offers no second truce while one is running. */
+    activeTruces: readonly ActiveTruceView[];
   };
 };
 

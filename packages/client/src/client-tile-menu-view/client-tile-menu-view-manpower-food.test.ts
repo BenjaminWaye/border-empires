@@ -69,7 +69,7 @@ describe("menuOverviewForTile — town stat grid", () => {
 
     const html = statGridHtml(lines);
     expect(html).toContain("300");
-    expect(html).toContain("+0.42/min base regen");
+    expect(html).toContain("+100 per batch base regen");
   });
 
   // Regression test: a summary-level tile delta can carry isFed (so the grid

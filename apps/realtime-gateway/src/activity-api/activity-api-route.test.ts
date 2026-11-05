@@ -9,7 +9,7 @@ import { InMemoryPlayerGrowthBaselineStore } from "../player-growth-baseline-sto
 const dashboard: ActivityDashboardSnapshot = {
   generatedAt: 1_000_000,
   fortification: [{ playerId: "p1", score: 9.25, forts: 2 }],
-  wars: [{ playerA: "p1", playerB: "p2", tileFlips24h: 3, lastFlipAt: 900_000 }],
+  wars: [{ playerA: "p1", playerB: "p2", tileFlips24h: 3, tilesContested24h: 3, lastFlipAt: 900_000 }],
   territoryMomentum: [{ playerId: "p1", tilesGained24h: 5, tilesLost24h: 1, net24h: 4 }],
   biggestSwing24h: { playerId: "p2", tilesLost: 3, windowStart: 0, windowEnd: 1_000_000 },
   frontlineHotspots: [{ tileId: "t-1", x: 5, y: 5, flips24h: 3, contestedBy: ["p1", "p2"], manpowerLost24h: 15 }],

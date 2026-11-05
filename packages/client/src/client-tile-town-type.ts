@@ -44,6 +44,7 @@ export type ClientTownWireSummary = {
   foodUpkeepPerMinute?: number;
   captureShockUntil?: number;
   populationBeforeCapture?: number;
+  forcedAncillarificationCooldownUntil?: number;
   // Stored-record timers the sim's growth tick sets on a nearby-war pause.
   // They ride every town payload (growthModifiers only ride the full town
   // summary), so the client can explain the pause between tile-detail fetches.

@@ -58,8 +58,12 @@ export type TileObservatoryState = {
   pausedAt?: number;
   activatedAt?: number;
   suppressedUntil?: number | undefined;
+  // Earliest time the tower can fire again; absent while it has a shot (aether-tower-shots.ts).
   cooldownUntil?: number;
+  // Fire times still inside the 24h refill window (aether-tower-shots.ts).
+  shotsUsedAt?: number[];
   siphon?: { targetX: number; targetY: number; tileKeys: string[]; startedAt: number };
+  hijack?: import("./afc-specializations/afc-tower-state.js").ObservatoryHijack;
 };
 
 export type TileAfcState = {
@@ -90,4 +94,6 @@ export type TileEconomicStructureState = {
   inactiveReason?: "manual" | "upkeep";
   converterMode?: ConverterMode;
   modeLockedUntil?: number;
+  /** Reclamation Works only: salvage loads already shipped to the Court from this deposit tile. */
+  salvageLoadsShipped?: number;
 };

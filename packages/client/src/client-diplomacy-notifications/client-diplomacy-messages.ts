@@ -1,9 +1,15 @@
-// The ALLIANCE_* / TRUCE_* / DIPLOMACY_STANCE socket messages, extracted out
+// The ALLIANCE_* / TRUCE_* / DIPLOMACY_STANCE / DIPLOMACY_GIFT_RESULT socket messages, extracted out
 // of client-network.ts (well over the repo's 500-line file-size gate and may
 // not grow further -- see AGENTS.md's file-and-type-discipline rule).
 import type { ClientState } from "../client-state/client-state.js";
 import type { AllianceRequest, TruceRequest } from "../client-types.js";
-import { receiveDiplomacyStance, refreshDiplomacyTradeScreen, setDiplomacyOfferCooldowns } from "../client-diplomacy-trade/client-diplomacy-trade.js";
+import {
+  receiveDiplomacyGiftResult,
+  receiveDiplomacyStance,
+  refreshDiplomacyTradeScreen,
+  setDiplomacyOfferCooldowns,
+  type DiplomacyGiftResult
+} from "../client-diplomacy-trade/client-diplomacy-trade.js";
 import type { DiplomacyStanceReply } from "../client-diplomacy-trade/client-diplomacy-trade-view.js";
 import {
   applyAllianceUpdateMessage,
@@ -82,6 +88,12 @@ export const handleDiplomacySocketMessage = (state: DiplomacyMessageState, msg: 
   }
   if (msg.type === "DIPLOMACY_STANCE") {
     receiveDiplomacyStance(msg as unknown as DiplomacyStanceReply);
+    return true;
+  }
+  if (msg.type === "DIPLOMACY_GIFT_RESULT") {
+    const result = msg as unknown as DiplomacyGiftResult;
+    if (typeof result.message === "string") deps.pushFeed(result.message, "alliance", result.ok ? "success" : "warn");
+    receiveDiplomacyGiftResult(result);
     return true;
   }
   return false;

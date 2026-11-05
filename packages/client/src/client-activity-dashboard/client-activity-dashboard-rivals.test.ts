@@ -12,6 +12,8 @@ describe("rivals section", () => {
     expect(rivalVerdict({ ...rival, tilesLost: 2 })).toBe("even");
     expect(rivalVerdict({ ...rival, tilesTaken: 0 })).toBe("behind");
     expect(rivalVerdict({ ...rival, tilesTaken: 0, tilesLost: 0 })).toBeUndefined();
+    // Took and lost one tile each, but they ended up holding it.
+    expect(rivalVerdict({ ...rival, tilesTaken: 1, tilesLost: 1, netTiles: -1 })).toBe("behind");
   });
 
   it("renders named rivals and nothing when there are none or the field is missing", () => {

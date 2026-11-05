@@ -12,18 +12,17 @@ export function applyRecoveredAfcState(player: RecoveredPlayerState, payload: Re
   if (payload.afcUpgradeRuleset !== "afc-v1") return;
   player.afcUpgradeRuleset = "afc-v1";
   if (Array.isArray(payload.afcCoreTownKeys) && payload.afcCoreTownKeys.length <= 3 && payload.afcCoreTownKeys.every(key => typeof key === "string" && /^\d+,\d+$/.test(key))) player.afcCoreTownKeys = [...payload.afcCoreTownKeys];
-  for (const key of ["afcScarcityFoodSlots", "manpower", "manpowerUpdatedAt", "manpowerBanked", "waystationManpowerOverflow"] as const) {
-    const value = payload[key];
-    if (typeof value === "number" && Number.isFinite(value) && value >= 0) player[key] = value;
-  }
+  const scarcity = payload.afcScarcityFoodSlots;
+  if (typeof scarcity === "number" && Number.isFinite(scarcity) && scarcity >= 0) player.afcScarcityFoodSlots = scarcity;
   const raw = payload.afcCampaign;
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     const data = raw as Record<string, unknown>;
     const state: AfcCampaignState = {};
-    const wards = deadlines(data.fortWardRecharges), wars = deadlines(data.wars);
+    const wards = deadlines(data.fortWardRecharges);
     if (wards) state.fortWardRecharges = wards;
-    if (wars) state.wars = wars;
     if (typeof data.forcedTruceCooldownUntil === "number" && Number.isFinite(data.forcedTruceCooldownUntil)) state.forcedTruceCooldownUntil = data.forcedTruceCooldownUntil;
+    if (typeof data.freeFortsUsed === "number" && Number.isInteger(data.freeFortsUsed) && data.freeFortsUsed >= 0) state.freeFortsUsed = data.freeFortsUsed;
+    if (typeof data.hijackReadyAt === "number" && Number.isFinite(data.hijackReadyAt)) state.hijackReadyAt = data.hijackReadyAt;
     player.afcCampaign = state;
   }
   if (typeof payload.gold === "number" && Number.isFinite(payload.gold)) player.points = payload.gold;

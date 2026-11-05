@@ -1,9 +1,10 @@
 # Fly.io → Hetzner Cloud migration plan
 
-Status: active proposal
+Status: historical (completed)
 Owner: Benjamin (approves each phase; agents implement repo changes)
 Last verified: 2026-10-01
-Progress (2026-10-02): Phases 0-4 and 6 done for both environments. Staging and production run on Hetzner; production was cut over manually the same day, a week ahead of the planned staging trial (owner decision). Fly apps are stopped, not destroyed. Remaining: first automatic `main` deploy through the Hetzner path (incl. the prod-shape gate), Phase 7 (decommission Fly after >=14 days stable). See "Phase 2 implementation notes" at the end.
+Progress (2026-10-02): Phases 0-4 and 6 done for both environments. Staging and production run on Hetzner; production was cut over manually the same day, a week ahead of the planned staging trial (owner decision). Fly apps are stopped, not destroyed. Remaining: first automatic `main` deploy through the Hetzner path (incl. the prod-shape gate), Phase 7 (decommission Fly after >=14 days stable).
+Phase 7 done (2026-11-02): all Fly apps destroyed, and the Fly deploy paths, `fly.combined*.toml`, the env renderer and the Fly-only ops scripts removed from the repo. Commands below that mention Fly no longer work; `docs/agents/deploys.md` is the current runbook. See "Phase 2 implementation notes" at the end.
 Replaces: the Fly sections of `docs/agents/deploys.md` and the Fly entries in
 `README.md` once production has cut over
 
@@ -220,6 +221,8 @@ metrics port 50052); `README.md` deploy section;
    `fly ssh console -a border-empires-combined-staging -C 'printenv NAME'`
    straight into the file, and never into chat, git or CI logs. Fly secrets
    override `[env]`, so check those last four against `deploy/env/staging.env`.
+   (`SIMULATION_MAP_STYLE` now lives in `[env]`/`deploy/env/*.env`; leave it
+   out of `secrets.env`.)
 3. Rehearse the restore before it matters: clone the current staging DB
    (`pnpm ops:prod-shape:clone-snapshot --app border-empires-combined-staging`),
    upload it to `/srv/border-empires/data/`, deploy the current `develop` SHA,

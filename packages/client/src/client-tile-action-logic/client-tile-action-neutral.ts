@@ -3,18 +3,15 @@
 // file's line count from growing past the repo's 500-line new-growth cap
 // (AGENTS.md) -- no logic changes here, just a code move.
 import {
-  EXPAND_MANPOWER_COST,
   FRONTIER_CLAIM_COST,
   RELAY_BEACON_VISION_BONUS,
-  SETTLE_COST,
-  SETTLE_MANPOWER_COST,
-  structureBuildManpowerCost
+  SETTLE_COST
 } from "@border-empires/shared";
 import { canAffordCost, frontierClaimCostLabelForTile } from "../client-constants.js";
 import { economicBuildMsForState } from "../client-build-speed/client-build-speed.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
-import { buildTimeLabel, relayBeaconBuildDurationMsForState, relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
+import { buildManpowerCostForState, buildTimeLabel, relayBeaconBuildDurationMsForState, relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
@@ -80,9 +77,9 @@ export const expandToAction = (
       id,
       label: "Expand To",
       ...tileActionAvailability(
-        state.gold >= FRONTIER_CLAIM_COST && state.manpower >= EXPAND_MANPOWER_COST,
-        state.manpower < EXPAND_MANPOWER_COST ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} coin`,
-        frontierClaimCostLabelForTile(tile.x, tile.y)
+        state.gold >= FRONTIER_CLAIM_COST && state.manpower >= state.expandManpowerCost,
+        state.manpower < state.expandManpowerCost ? `Need ${state.expandManpowerCost} manpower` : `Need ${FRONTIER_CLAIM_COST} coin`,
+        frontierClaimCostLabelForTile(tile.x, tile.y, state.expandManpowerCost)
       )
     };
   }
@@ -107,9 +104,9 @@ export const expandToAction = (
 // (client-action-flow.ts): a live REQUEST_TILE_DETAIL is never sent for one
 // of these tiles by design, so this menu has to work from terrain alone.
 // A known owner (fogged, last-witnessed as someone else's) also returns no
-// actions here -- that's an attack target, offered separately via
-// injectWaypointActions's "Expand To & Attack" (client-waypoint-menu-actions.ts),
-// not this claim action.
+// actions here -- that's an attack target, offered separately as March Attack
+// rows (injectMarchAttackActions, client-march-attack-actions.ts), not this
+// claim action.
 export const foggedTileActions = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId) return [];
   const action = expandToAction(state, tile, deps);
@@ -143,7 +140,7 @@ export const neutralTileActions = (
   // same policy as everything below.
   if (targetInReach) {
     const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
-    const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + relayBeaconManpowerCostForState(state);
+    const totalExploreManpower = state.expandManpowerCost + state.settleManpowerCost + relayBeaconManpowerCostForState(state);
     const totalExploreMs = settleDurationMsForState(state, tile) + relayBeaconBuildDurationMsForState(state);
     const exploreEnabled =
       canAffordCost(state.gold, totalExploreGold) &&
@@ -172,7 +169,7 @@ export const neutralTileActions = (
       reachable &&
         state.techIds.includes("industrial-extraction") &&
         state.gold >= deps.structureGoldCost("ORE_REFINERY") &&
-        state.manpower >= structureBuildManpowerCost("ORE_REFINERY") &&
+        state.manpower >= buildManpowerCostForState(state, "ORE_REFINERY") &&
         !tile.resource &&
         !tile.town &&
         !tile.dockId,
@@ -184,7 +181,7 @@ export const neutralTileActions = (
             ? "Needs empty land"
             : state.gold < deps.structureGoldCost("ORE_REFINERY")
               ? `Need ${deps.structureGoldCost("ORE_REFINERY")} coin`
-              : `Need ${structureBuildManpowerCost("ORE_REFINERY")} manpower`,
+              : `Need ${buildManpowerCostForState(state, "ORE_REFINERY")} manpower`,
       `${deps.structureCostText("ORE_REFINERY")} • ${buildTimeLabel(economicBuildMsForState(state, "ORE_REFINERY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("ORE_REFINERY")}`
     )
   });

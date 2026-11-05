@@ -14,7 +14,7 @@ describe("townModifierTotalsFromCounts", () => {
     const groups = townModifierTotalsFromCounts({ ANCILLARY_FACTORY: 1 });
     expect(groups).toContainEqual({
       heading: "1 Ancillary Factory",
-      modifiers: [{ statLabel: "Manpower/min empire-wide", valueText: "+0.05", tone: "positive" }]
+      modifiers: [{ statLabel: "Manpower per batch empire-wide", valueText: "+12", tone: "positive" }]
     });
   });
 

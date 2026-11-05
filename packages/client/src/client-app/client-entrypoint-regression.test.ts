@@ -11,8 +11,9 @@ const sourceFor = (filename: string): string => {
 describe("client entrypoint regression guard", () => {
   it("loads the global stylesheet before booting the app shell", () => {
     const source = sourceFor("../main.ts");
-    expect(source).toContain('import "./style.css";');
-    expect(source).toContain('import "./client-app/client-app.js";');
+    expect(sourceFor("../client-styles.ts")).toContain('import "./style.css";');
+    expect(source.indexOf('import "./client-styles.js";')).toBeGreaterThan(-1);
+    expect(source.indexOf('import "./client-styles.js";')).toBeLessThan(source.indexOf('import "./client-app/client-app.js";'));
   });
 
   it("loads the runtime through a dynamic import boundary", () => {

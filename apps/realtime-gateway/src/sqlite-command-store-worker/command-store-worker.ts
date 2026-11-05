@@ -1,3 +1,4 @@
+import { CLIENT_SEQUENCE_SQL_PREDICATE as CLIENT_SEQUENCE_PREDICATE, clientSequenceIndexNeedsMigration } from "@border-empires/sim-protocol";
 /**
  * SQLite command-store worker thread.
  *
@@ -5,7 +6,7 @@
  * blocks whichever thread calls it for the query's full duration. Running
  * this on the gateway main thread means a single slow query (large table,
  * WAL contention with the simulation's own sqlite-writer-worker against the
- * same file — see fly.combined.staging.toml, GATEWAY_SQLITE_PATH and
+ * same file — see deploy/env/*.env, GATEWAY_SQLITE_PATH and
  * SIMULATION_SQLITE_PATH both point at /data/border-empires.db — or a disk
  * stall) freezes every WebSocket, every other player's login, and
  * `/healthz` for as long as the query takes. The `withTimeout()` guard
@@ -95,7 +96,6 @@ db.exec(`
 `);
 
 // Keep both SQLite schema owners aligned; the cross-store regression covers boot order.
-const CLIENT_SEQUENCE_PREDICATE = "command_type NOT IN ('SYNC_TRUCE', 'SYNC_ALLIANCE', 'SETTLE_DIPLOMACY_TERMS')";
 
 if (applySchema) {
   db.exec(`
@@ -126,7 +126,7 @@ if (applySchema) {
   db.exec("BEGIN IMMEDIATE");
   try {
     const index = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'commands_player_seq_idx'").get();
-    if (typeof index?.sql === "string" && !/\bwhere\b/i.test(index.sql)) db.exec("DROP INDEX commands_player_seq_idx");
+    if (typeof index?.sql === "string" && clientSequenceIndexNeedsMigration(index.sql)) db.exec("DROP INDEX commands_player_seq_idx");
     db.exec(`
       CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_idx ON commands (player_id, client_seq)
         WHERE ${CLIENT_SEQUENCE_PREDICATE};

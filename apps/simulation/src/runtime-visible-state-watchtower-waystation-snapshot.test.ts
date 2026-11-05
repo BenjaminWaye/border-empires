@@ -5,7 +5,7 @@ import { SimulationRuntime } from "./runtime/runtime.js";
 // Regression: visibleTileProjection (backing SubscribePlayer, i.e. every
 // login and every reconnect, plus the post-season full-visibility export)
 // never included watchtowerJson/waystationJson at all -- unlike every
-// sibling overlay field (shardSiteJson, naturalWonderJson, fortJson, etc.),
+// sibling overlay field (naturalWonderJson, fortJson, etc.),
 // which are all truthy-guarded but present. Watchtower/Waystation sites
 // therefore never reached the client via this path: a dormant site tile
 // that had never been touched by a live TILE_DELTA_BATCH was invisible to a

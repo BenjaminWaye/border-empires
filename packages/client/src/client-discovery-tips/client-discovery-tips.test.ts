@@ -266,3 +266,12 @@ describe("enqueueDiscoveryTipForNewlySeenTile / dismissActiveDiscoveryTip", () =
     expect(queueForB).toEqual(["CRYSTAL"]);
   });
 });
+
+it("uses new installation benefits for versioned relics and never promises a depleted reserve", () => {
+  const live = discoveryTipIdForNewlySeenTile({ naturalWonder: { type: "WARPRESS", relicVersion: 1, remainingUses: 100 } });
+  expect(live).toBe("RELIC_WARPRESS");
+  expect(DISCOVERY_TIPS[live!].title).toContain("Combat-Suit Factory");
+  expect(DISCOVERY_TIPS[live!].body).toContain("100 attack");
+  expect(discoveryTipIdForNewlySeenTile({ naturalWonder: { type: "WARPRESS", relicVersion: 1, remainingUses: 0 } })).toBe("DEPLETED_RELIC");
+  expect(discoveryTipIdForNewlySeenTile({ naturalWonder: { type: "WARPRESS" } })).toBe("WARPRESS");
+});

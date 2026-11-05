@@ -6,6 +6,8 @@ import type { Tile } from "@border-empires/shared";
 
 export type DomainFortState = {
   attackCommitmentMult?: number;
+  // Built with one of Fortification Patterns' free Forts (AFC Bastion II): a cancel refunds no manpower and returns the allowance.
+  freeFort?: boolean | undefined;
   wardEnabled?: boolean;
   wardRechargesAt?: number;
   ownerId: string;
@@ -28,10 +30,15 @@ export type DomainObservatoryState = {
   pausedAt?: number | undefined; // attack-development-hold.ts: set while the tile is under attack
   activatedAt?: number | undefined;
   suppressedUntil?: number | undefined;
+  // Earliest time the tower can fire again; absent while it has a shot (aether-tower-shots.ts).
   cooldownUntil?: number | undefined;
+  // Fire times still inside the 24h refill window (aether-tower-shots.ts).
+  shotsUsedAt?: number[] | undefined;
   previousStatus?: "active" | "inactive" | undefined;
   // Siphon mode (docs/game-mechanics.md "Siphon"): set while this tower is draining a Siphon target.
   siphon?: import("@border-empires/shared").ObservatorySiphonMode | undefined;
+  // Resonance Hijack (AFC Oracle V) in progress against this tower.
+  hijack?: import("@border-empires/shared").ObservatoryHijack | undefined;
 };
 
 export type DomainSiegeBatteryState = {
@@ -60,4 +67,5 @@ export type DomainEconomicStructureState = {
   bombardCooldownUntil?: number | undefined;
   converterMode?: NonNullable<Tile["economicStructure"]>["converterMode"];
   modeLockedUntil?: NonNullable<Tile["economicStructure"]>["modeLockedUntil"];
+  salvageLoadsShipped?: number | undefined;
 };

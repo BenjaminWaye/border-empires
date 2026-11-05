@@ -436,7 +436,7 @@ export const buildTownSummary = (
     baseGoldPerMinute: Number(baseGoldPerMinute.toFixed(4)),
     supportCurrent: support.supportCurrent,
     supportMax: support.supportMax,
-    goldPerMinute: Number(goldPerMinute.toFixed(4)),
+    goldPerMinute: Number(goldPerMinute.toFixed(6)),
     isFed,
     population,
     maxPopulation,
@@ -463,6 +463,7 @@ export const buildTownSummary = (
     foodUpkeepPerMinute: townFoodUpkeepPerMinute(populationTier),
     ...(typeof captureShockUntil === "number" ? { captureShockUntil } : {}),
     ...(typeof townPartial.populationBeforeCapture === "number" ? { populationBeforeCapture: townPartial.populationBeforeCapture } : {}),
+    ...(typeof townPartial.forcedAncillarificationCooldownUntil === "number" ? { forcedAncillarificationCooldownUntil: townPartial.forcedAncillarificationCooldownUntil } : {}),
     ...(growthModifiers.length > 0 ? { growthModifiers } : {}),
     ...(nextPopulationTierUpgrade ? { nextPopulationTierUpgrade } : {}),
     ...(townModifierTotals && townModifierTotals.length > 0 ? { townModifierTotals } : {})

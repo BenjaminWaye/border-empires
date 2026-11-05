@@ -257,7 +257,7 @@ bpy.context.view_layer.update()
 REGION_VALUES = {
     # Armor plates: the big surfaces that should carry the team color.
     "LeftShoulder": 0.95, "RightShoulder": 0.95,
-    "neck": 0.90,  # despite the name this group is the collar/upper chest
+    "neck": 0.90,  # despite the name this group is the backpack: every vertex sits behind the body
     "Spine02": 0.92,
     # Torso underlayer, a step down so the chest plate reads as separate.
     "Spine": 0.74, "Spine01": 0.76, "Hips": 0.72,

@@ -5,7 +5,6 @@ import { TILE_OVERLAY_WIRE_FIELDS } from "@border-empires/sim-protocol";
 import { applySimulationEventsToRecoveredState, type RecoveredSimulationState } from "./event-recovery.js";
 
 const overlays = {
-  shardSite: { kind: "CACHE", amount: 5 },
   naturalWonder: { type: "DEEPWATER_ENGINE" },
   fort: { ownerId: "player-1", status: "active" },
   observatory: { ownerId: "player-1", status: "active" },

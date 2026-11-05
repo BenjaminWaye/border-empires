@@ -15,6 +15,23 @@ describe("countTileFeatures", () => {
   });
 });
 
+describe("summary features on a tile traded more than once", () => {
+  it("names a structure on a tile lost three times once", () => {
+    const palisade = [{ kind: "STRUCTURE" as const, structureType: "PALISADE" }];
+    const flips = [
+      testFlip({ tileId: "7,7", fromOwner: "me", toOwner: "maren", at: 1_000, features: palisade }),
+      testFlip({ tileId: "7,7", fromOwner: "maren", toOwner: "me", at: 2_000, features: palisade }),
+      testFlip({ tileId: "7,7", fromOwner: "me", toOwner: "maren", at: 3_000, features: palisade }),
+      testFlip({ tileId: "7,7", fromOwner: "maren", toOwner: "me", at: 4_000, features: palisade }),
+      testFlip({ tileId: "7,7", fromOwner: "me", toOwner: "maren", at: 5_000, features: palisade })
+    ];
+    const timeline = aggregatePersonalActivity("me", { from: 0, to: 60 * 60_000 }, flips, []);
+    expect(timeline.summary.tilesLost).toBe(1);
+    expect(timeline.summary.featuresLost).toEqual([{ kind: "STRUCTURE", structureType: "PALISADE", count: 1 }]);
+    expect(timeline.summary.featuresCaptured).toEqual([{ kind: "STRUCTURE", structureType: "PALISADE", count: 1 }]);
+  });
+});
+
 describe("personal timeline names what fell with the land", () => {
   // The reported case: Maren's push near (212, 187) took a Palisade tile and a
   // Dock tile in fights, plus a wonder tile with no matching combat entry, and

@@ -76,11 +76,11 @@ describe("constructionProgressForTile rush-buy price", () => {
   it("prices a just-started paid-tier Relay Beacon at full price, not 0", () => {
     // 100 MP beacon (6th+), 1h build: full rush is 100 * 0.5 = 50 coin.
     const label = constructionProgressForTile(beacon({}), () => "59:45", quickforge, "me")?.rushBuyLabel;
-    expect(label).toBe("⏩ 💰50");
+    expect(label).toBe("Rush ◉50");
   });
 
   it("prices against the server-stamped window, so a half-built beacon costs half", () => {
     const label = constructionProgressForTile(beacon({ startedAt: Date.now() - HOUR }), () => "1:00:00", quickforge, "me")?.rushBuyLabel;
-    expect(label).toBe("⏩ 💰25");
+    expect(label).toBe("Rush ◉25");
   });
 });

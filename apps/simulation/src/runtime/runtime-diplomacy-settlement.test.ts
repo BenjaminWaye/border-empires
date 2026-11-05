@@ -25,7 +25,7 @@ describe("simulation runtime — diplomacy settlement", () => {
         clientSeq: 0,
         issuedAt: 1_000,
         type: "SETTLE_DIPLOMACY_TERMS",
-        payloadJson: JSON.stringify({ proposerId: "player-1", targetId: "player-2", proposerPays: { gold: 30, shard: 0 }, targetPays: { gold: 0, shard: 0 } })
+        payloadJson: JSON.stringify({ proposerId: "player-1", targetId: "player-2", proposerPays: { gold: 30 }, targetPays: { gold: 0 } })
       });
       await Promise.resolve();
     }

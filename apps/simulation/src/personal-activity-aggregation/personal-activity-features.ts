@@ -17,7 +17,7 @@ export type CombatTileFeatures = {
 export const NO_COMBAT_TILE_FEATURES: CombatTileFeatures = { captured: new Map(), seizedOrigin: new Map() };
 
 const featureKey = (feature: PersonalActivityTileFeature): string =>
-  feature.kind === "STRUCTURE" ? `STRUCTURE:${feature.structureType}` : feature.kind === "NATURAL_WONDER" ? `NATURAL_WONDER:${feature.wonderType}` : feature.kind;
+  feature.kind === "STRUCTURE" ? `STRUCTURE:${feature.structureType}` : feature.kind === "NATURAL_WONDER" ? `NATURAL_WONDER:${feature.wonderType}${feature.relicVersion === 1 ? ":relic-v1" : ""}` : feature.kind;
 
 /**
  * Counts features by kind, in first-seen order. A card's list is therefore

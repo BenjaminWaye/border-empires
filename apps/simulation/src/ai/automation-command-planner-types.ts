@@ -15,10 +15,13 @@ import type { DecisionClass } from "./utility/decisions.js";
 import type { FrontierOriginExplanation } from "./planner-candidate-index.js";
 import type { NeedVector } from "./build/build-need-vector.js";
 import type { AutomationStrategicSnapshot, AutomationVictoryPath } from "./automation-strategic-snapshot.js";
+import type { WorldVictoryProgress } from "./victory-path-scoring.js";
 import type { WarPostureLatchEntry } from "./ai-war-posture-latch.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
 import type { ReachLookup } from "./frontier-command-planner.js";
+import type { TownEconomyEntry } from "./build/town-economy-view.js";
+import type { EconomicSynergySummary } from "./build/economic-synergy-diagnostics.js";
 
 // Consecutive planner ticks an AI may spend with its narrow/hot-frontier
 // scan alone actionable (broadFallbackSkipped: true — see
@@ -43,7 +46,13 @@ export const AUTOMATION_NOOP_REASONS = [
   "BLOCKED_NO_REACHABLE_BEACON_SITE",
   "BLOCKED_NO_FOOD_SLOT_RELIEF",
   "BLOCKED_NO_FRONTIER_OR_ENEMY_TARGET",
-  "BLOCKED_ACTION_RETRY"
+  "BLOCKED_ACTION_RETRY",
+  // WAIT won and growth is blocked on the relay beacon (wait-reasons.ts):
+  "WAIT_BEACON_UNAFFORDABLE",
+  "WAIT_NO_BEACON_SITE",
+  "WAIT_BOXED_IN_AT_PEACE",
+  "WAIT_BEACON_ENEMY_AT_GATE",
+  "WAIT_BEACON_LOW_VALUE"
 ] as const;
 
 export const AUTOMATION_PREPLAN_REASONS = [
@@ -104,7 +113,7 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   techIds?: readonly string[];
   domainIds?: readonly string[];
   afcUpgradeRuleset?: "afc-v1";
-  afcDetectedFlags?: readonly { x: number; y: number; ownerId: string }[];
+  afcHijackReadyAt?: number;
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   settledTileCount?: number;
   townCount?: number;
@@ -134,6 +143,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
    *  — see ai-war-posture-latch.ts for the hysteresis it backs. */
   previousWarPostureLatch?: WarPostureLatchEntry | undefined;
   pathPopulationCounts?: Partial<Record<AutomationVictoryPath, number>> | undefined;
+  /** Real season-victory standings (PlannerPlayerView.victoryProgress); absent = heuristic path scoring. */
+  worldVictoryProgress?: WorldVictoryProgress | undefined;
   onStrategicSnapshot?: (snapshot: AutomationStrategicSnapshot) => void;
   preplanProgressState?: AutomationPreplanProgressState | undefined;
   // Tile keys this player has been pounding without breakthrough — the
@@ -149,6 +160,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   nonHostilePlayerIds?: ReadonlySet<string>;
   /** Manpower staged inside this player's muster flags; counts toward the AI war reserve (see spendableManpowerForPlanner). */
   musterStagedManpower?: number;
+  /** When each of this player's truces runs out; one ending soon raises the war reserve (truceExpiringSoon). */
+  truceEndsAt?: readonly number[];
   /** Per-decision-class rejection cooldowns — true means the class is on cooldown. */
   decisionCooldowns?: DecisionCooldownMap;
   /** Exact rejected action keys and codes, valid only for the current world revision. */
@@ -180,12 +193,14 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   manpowerRegenPerMinute?: number;
   slotSupplyByResource?: Partial<Record<SlotResource, number>>;
   slotDemandByResource?: Partial<Record<SlotResource, number>>;
+  /** Per-town stacking/amplifier state for economic-synergy-scoring.ts (docs/ai-economic-synergy-plan.md). */
+  townEconomy?: readonly TownEconomyEntry[];
   /**
    * "x,y" tile keys of this player's economicStructures currently dormant
    * specifically on FOOD (Runtime.foodDormantEconomicStructureKeysForPlayer)
    * — feeds food-slot-relief.ts's chooseFoodConsumingStructureToDisable, the
    * FREE_FOOD_SLOT decision class's fallback disable target when FOOD slots
-   * are fully exhausted, no HYDROGARDEN/HYDROWORKS/INCUBATION_ENGINE build can grow
+   * are fully exhausted, no HYDROGARDEN/HYDROWORKS build can grow
    * supply, and no RELAY_BEACON exists to disable instead. Preferred when
    * present, but no longer required — see that function's doc comment.
    */
@@ -198,6 +213,8 @@ export type AutomationPlannerDiagnostic = {
   frontierEnemyTargetCount: number;
   frontierEnemyPlayerTargetCount?: number;
   frontierBarbarianTargetCount?: number;
+  /** Bordering tiles owned by allies/truce partners (not targets). */
+  frontierNonHostileTargetCount?: number;
   frontierNeutralTargetCount: number;
   frontierOpportunityEconomic?: number;
   frontierOpportunityTownSupport?: number;
@@ -260,11 +277,19 @@ export type AutomationPlannerDiagnostic = {
   expansionObjectiveKind?: "neutral_value" | "enemy" | "none";
   /** Debug-only: "x,y:STRUCTURE_TYPE" of chooseBestEconomicBuild's pick, if any. */
   economicBuildCandidate?: string;
+  /** Score of economicBuildCandidate (chooseBestEconomicBuild). */
+  economicBuildScore?: number;
+  /** Empire stacking/amplifier counts — build/economic-synergy-diagnostics.ts. */
+  economicSynergy?: EconomicSynergySummary;
   /** Debug-only: "x,y" (+ ":needsSettle") of chooseBestRelayBeaconBuild's pick, if any. */
   relayBeaconBuildCandidate?: string;
   /** Debug-only: that pick's raw newCoverage.score — see decisions.ts's
    *  scoreBuildBeacon graduated consideration and RELAY_BEACON_SITE_VALUE_FLOOR/CEILING. */
   relayBeaconSiteValue?: number;
+  /** Exploration-only beacon candidates the spacing rule turned away this
+   *  tick (relay-beacon-site-rules.ts); feeds
+   *  sim_ai_relay_beacon_site_skipped_total. Omitted when nothing was skipped. */
+  relayBeaconSiteSkips?: { spacing: number };
   // Utility AI fields — populated on every result from the main planner.
   tacticalOmittedOriginCount?: number | undefined;
   tacticalVisibleTileCount?: number | undefined;
@@ -274,6 +299,8 @@ export type AutomationPlannerDiagnostic = {
   utilityRunnerUp?: DecisionClass;
   utilityRunnerUpScore?: number;
   utilityVetoedClasses?: readonly DecisionClass[];
+  /** First failing gate per vetoed class — see utility/wait-reasons.ts. */
+  utilityVetoReasons?: Partial<Record<DecisionClass, string>>;
   /** Full per-class utility scores. Populated on every main-planner result so
    *  the AI decision diagnostics endpoint can show why every class scored 0. */
   utilityScores?: Record<string, number>;
@@ -322,6 +349,8 @@ export type AutomationPlannerDiagnostic = {
    *  ai-runtime call sites don't supply them yet either (deferred — see the
    *  plan's Phase 1 entry), so this is undefined on every current caller. */
   needVector?: NeedVector;
+  /** The path this plan pursued and its progress; source "world" = real season standings. */
+  victoryPath?: { path: AutomationVictoryPath; progress: number; source: "world" | "heuristic" };
 };
 
 export type AutomationPlannerPhase =

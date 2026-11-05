@@ -258,7 +258,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
         ownedComponentTypes.add(owned.type);
       }
     }
-    return renderStructureInfoOverlayFromModule(state.structureInfoKey, deps.structureInfoForKey, ownedComponentTypes);
+    return renderStructureInfoOverlayFromModule(state.structureInfoKey, deps.structureInfoForKey, ownedComponentTypes, state.techCatalog);
   };
 
   const renderTechDetailModal = (): string => renderManifestDetail("overlay");
@@ -276,13 +276,9 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
 
   const renderDomainProgressCard = (): string =>
     renderDomainProgressCardFromModule({
-      tiles: state.tiles.values(),
-      shardStock: state.strategicResources.SHARD ?? 0,
       domainCatalog: state.domainCatalog,
       domainChoices: state.domainChoices,
-      domainIds: state.domainIds,
-      shardAlert: state.shardRainStatus,
-      nowMs: Date.now()
+      domainIds: state.domainIds
     });
 
   const renderTechDetailOverlay = (): string => {

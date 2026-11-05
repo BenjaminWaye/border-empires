@@ -1,4 +1,4 @@
-import { isAetherTowerSuppressed } from "@border-empires/shared";
+import { aetherTowerShotsRemaining, isAetherTowerSuppressed } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   WORLD_HEIGHT,
@@ -17,11 +17,21 @@ import {
 } from "@border-empires/game-domain";
 import { observatoryCastRadiusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { isObservatoryShielding, isTileShieldedByOwnersIndexedTowers, isTileShieldedByOwnersObservatory } from "./aether-shield/aether-shield.js";
+import { isObservatoryShielding, isTileShieldedByOwnersIndexedTowers, isTileShieldedByOwnersObservatory, type ObservatoryShotCapacity } from "./aether-shield/aether-shield.js";
 import type { ActiveAetherBridgeView, ActiveAetherWallView, AetherWallDirection, StrategicResourceKey } from "./runtime-types.js";
 
 export function revealCapacityForPlayer(player: DomainPlayer, revealTargetCount: number): number {
   return player.techIds.has("beacon-towers") || revealTargetCount > 0 ? 1 : 0;
+}
+
+/** The player's live REVEAL_EMPIRE target set, created empty on first use. */
+export function revealTargetsForPlayer(revealTargetsByPlayer: Map<string, Set<string>>, playerId: string): Set<string> {
+  let targets = revealTargetsByPlayer.get(playerId);
+  if (!targets) {
+    targets = new Set<string>();
+    revealTargetsByPlayer.set(playerId, targets);
+  }
+  return targets;
 }
 
 export function getAbilityCooldownUntil(
@@ -135,6 +145,7 @@ export function isTileShieldedByEnemyAegisDome(
 export function isTileShieldedByEnemyObservatory(
   tiles: ReadonlyMap<string, DomainTileState>,
   isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean,
+  maxShotsFor: ObservatoryShotCapacity,
   actorId: string,
   targetX: number,
   targetY: number,
@@ -148,7 +159,7 @@ export function isTileShieldedByEnemyObservatory(
   // Reads full world state, so a tower the actor can't see still blocks.
   const targetOwnerId = tiles.get(simulationTileKey(targetX, targetY))?.ownerId;
   if (!targetOwnerId || targetOwnerId === actorId) return false;
-  const shielding = (tower: DomainTileState): boolean => isObservatoryShielding(tower, now, isStructureDormant);
+  const shielding = (tower: DomainTileState): boolean => isObservatoryShielding(tower, now, isStructureDormant, maxShotsFor);
   return activeTowerKeysForOwner
     ? isTileShieldedByOwnersIndexedTowers(tiles, activeTowerKeysForOwner(targetOwnerId), shielding, targetOwnerId, targetX, targetY)
     : isTileShieldedByOwnersObservatory(tiles, shielding, targetOwnerId, targetX, targetY);
@@ -222,7 +233,7 @@ export function observatoryCastRadiusFor(player: DomainPlayer | undefined): numb
 export const WATCHTOWER_ENGINE_OBSERVATORY_RANGE = OBSERVATORY_CAST_RADIUS + 10;
 
 const observatoryRangeForTile = (tile: DomainTileState, playerRange: number): number =>
-  tile.naturalWonder?.type === "WATCHTOWER_ENGINE" ? WATCHTOWER_ENGINE_OBSERVATORY_RANGE : playerRange;
+  tile.naturalWonder?.type === "WATCHTOWER_ENGINE" ? (tile.naturalWonder.relicVersion === 1 ? 50 : WATCHTOWER_ENGINE_OBSERVATORY_RANGE) : playerRange;
 
 export function pickReadyOwnedObservatoryForTarget(input: {
   tiles: ReadonlyMap<string, DomainTileState>;
@@ -232,13 +243,18 @@ export function pickReadyOwnedObservatoryForTarget(input: {
   targetY: number;
   now: number;
   range: number;
+  // Shots each of the player's towers holds (aether-tower-shots.ts).
+  maxShots: number;
   // §5.4: an Observatory demands a CRYSTAL slot (STRUCTURE_SLOT_REQUIREMENTS)
   // and can go dormant like any other structure — a dormant one shouldn't be
   // pickable to cast an ability, same as isStructurePowered's Ambaric Transformer
   // check gates the monument abilities.
   isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean;
 }): string | undefined {
+  // Most shots left first, then closest: firing a tower's last shot drops its
+  // shield for up to 24h, so spend from fuller towers while any is in range.
   let bestKey: string | undefined;
+  let bestShotsRemaining = 0;
   let bestDistance = Number.POSITIVE_INFINITY;
   for (const tileKey of input.territoryTileKeys) {
     const tile = input.tiles.get(tileKey);
@@ -247,12 +263,13 @@ export function pickReadyOwnedObservatoryForTarget(input: {
     if (!obs || obs.ownerId !== input.playerId || obs.status !== "active") continue;
     const distance = wrappedChebyshev(tile.x, tile.y, input.targetX, input.targetY);
     if (distance > observatoryRangeForTile(tile, input.range)) continue;
-    const cooldownUntil = obs.cooldownUntil ?? 0;
-    if (cooldownUntil > input.now) continue;
+    const shotsRemaining = aetherTowerShotsRemaining(obs, input.maxShots, input.now);
+    if (shotsRemaining <= 0) continue;
     if (isAetherTowerSuppressed(obs, input.now)) continue;
     if (isObservatoryInSiphonMode(obs)) continue; // locked into Siphon until it ends
     if (input.isStructureDormant(input.playerId, tileKey, "observatory")) continue;
-    if (distance < bestDistance) {
+    if (shotsRemaining > bestShotsRemaining || (shotsRemaining === bestShotsRemaining && distance < bestDistance)) {
+      bestShotsRemaining = shotsRemaining;
       bestDistance = distance;
       bestKey = tileKey;
     }
@@ -265,22 +282,24 @@ export function pickReadyOwnedObservatoryAny(
   territoryTileKeys: ReadonlySet<string>,
   playerId: string,
   now: number,
+  maxShots: number,
   isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean
 ): string | undefined {
+  // Spend from the fullest tower, so the others keep their shots (and shields).
   let bestKey: string | undefined;
-  let bestCooldownUntil = Number.POSITIVE_INFINITY;
+  let bestShotsRemaining = 0;
   for (const tileKey of territoryTileKeys) {
     const tile = tiles.get(tileKey);
     if (!tile || tile.ownerId !== playerId) continue;
     const obs = tile.observatory;
     if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
-    const cooldownUntil = obs.cooldownUntil ?? 0;
-    if (cooldownUntil > now) continue;
+    const shotsRemaining = aetherTowerShotsRemaining(obs, maxShots, now);
+    if (shotsRemaining <= 0) continue;
     if (isAetherTowerSuppressed(obs, now)) continue;
     if (isObservatoryInSiphonMode(obs)) continue; // locked into Siphon until it ends
     if (isStructureDormant(playerId, tileKey, "observatory")) continue;
-    if (cooldownUntil < bestCooldownUntil) {
-      bestCooldownUntil = cooldownUntil;
+    if (shotsRemaining > bestShotsRemaining) {
+      bestShotsRemaining = shotsRemaining;
       bestKey = tileKey;
     }
   }
@@ -434,8 +453,7 @@ export function buildRevealEmpireStatsFromSummary(
       FOOD: target.strategicResources?.FOOD ?? 0,
       TITANIUM: target.strategicResources?.TITANIUM ?? 0,
       CRYSTAL: target.strategicResources?.CRYSTAL ?? 0,
-      UMBRITE: target.strategicResources?.UMBRITE ?? 0,
-      SHARD: target.strategicResources?.SHARD ?? 0
+      UMBRITE: target.strategicResources?.UMBRITE ?? 0
     } satisfies Record<StrategicResourceKey, number>
   };
 }

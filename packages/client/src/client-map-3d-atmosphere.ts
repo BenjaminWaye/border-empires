@@ -120,7 +120,7 @@ export type AtmosphereResources = {
 // rendered near-black regardless of how bright hemi/sun/fill were pushed --
 // which earlier hemi/fill boosts could not fully fix. A cheap generated room
 // environment (no HDR asset, no network fetch) gives them that missing source.
-const createBuildingEnvironmentTexture = (renderer: WebGLRenderer): Texture => {
+export const createBuildingEnvironmentTexture = (renderer: WebGLRenderer): Texture => {
   const pmremGenerator = new PMREMGenerator(renderer);
   const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
   // The generator itself (not the texture it produces) is what's disposable;
@@ -271,7 +271,7 @@ export const createAtmosphere = (
   // Keeps the light rigidly offset from its target along sunOffset's
   // direction so the frustum recenters without changing the sun's angle.
   const unexploredStorm = createUnexploredStormLayer(scene);
-  const foggedMist = createFoggedMistLayer(scene);
+  const foggedMist = createFoggedMistLayer(scene, undefined, buildingEnvironmentTexture); // also hazes buildings remembered under fog
   const updateShadowTarget = (sceneX: number, sceneZ: number): void => {
     unexploredStorm.recenter(sceneX, sceneZ);
     foggedMist.recenter(sceneX, sceneZ);

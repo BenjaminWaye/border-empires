@@ -406,7 +406,7 @@ describe("automation command planner strategic parity", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("BLOCKED_NO_REACHABLE_BEACON_SITE");
+    expect(result.diagnostic.noCommandReason).toBe("WAIT_BEACON_UNAFFORDABLE");
   });
 
   it("uses goap to fortify threatened town-control fronts before generic growth", () => {

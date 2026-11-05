@@ -15,10 +15,10 @@ const truce: TruceRequest = {
   createdAt: 1_000,
   expiresAt: 2_000,
   durationHours: 12,
-  terms: { give: { gold: 10, shard: 0 }, ask: { gold: 0, shard: 1 } }
+  terms: { give: { gold: 10 }, ask: { gold: 0 } }
 };
 const alliance: AllianceRequest = { id: "alliance-1", fromPlayerId: "ai-10", toPlayerId: "me", createdAt: 1_000 };
-const state = { gold: 500, strategicResources: { SHARD: 3 }, incomingTruceRequests: [truce], incomingAllianceRequests: [alliance] };
+const state = { gold: 500, incomingTruceRequests: [truce], incomingAllianceRequests: [alliance], activeTruces: [] };
 
 const mountCards = () => {
   const root = document.createElement("div");
@@ -45,9 +45,9 @@ describe("counter-offers", () => {
 
     expect(overlay().querySelector("h2")?.textContent).toBe("Counter Tove's offer");
     expect(overlay().querySelector("[data-trade-kind][aria-pressed='true']")?.getAttribute("data-trade-kind")).toBe("truce:12");
-    // Tove gives 10 coin and asks 1 Shard -> you ask 10 coin and give 1 Shard.
-    expect([field("data-trade-give-gold").value, field("data-trade-give-shard").value]).toEqual(["0", "1"]);
-    expect([field("data-trade-ask-gold").value, field("data-trade-ask-shard").value]).toEqual(["10", "0"]);
+    // Tove gives 10 coin -> you ask 10 coin.
+    expect(field("data-trade-give-gold").value).toBe("0");
+    expect(field("data-trade-ask-gold").value).toBe("10");
   });
 
   // "I'll take the truce if you pay 24 coin."
@@ -65,7 +65,7 @@ describe("counter-offers", () => {
         targetPlayerName: "Tove",
         targetPlayerId: "ai-10",
         durationHours: 24,
-        terms: { give: { gold: 0, shard: 0 }, ask: { gold: 24, shard: 0 } },
+        terms: { give: { gold: 0 }, ask: { gold: 24 } },
         counters: { kind: "alliance", requestId: "alliance-1" }
       },
       expect.any(String)

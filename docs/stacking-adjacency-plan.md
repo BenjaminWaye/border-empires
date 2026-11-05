@@ -22,9 +22,9 @@ spatial and readable:
 ## What runs today (grounded)
 
 Stacking families are the uncapped repeatables in a town's support ring
-(`STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES` and
+(`STACKING_SAME_TILE_SUPPORT_STRUCTURE_TYPES` and
 `STACKING_TOWN_SUPPORT_STRUCTURE_TYPES` in
-`apps/simulation/src/runtime-structure-town-support-target.ts`):
+`packages/shared/src/structure-stacking/structure-stacking.ts`):
 
 | Family | Types | Current stacking rule | Code |
 |---|---|---|---|

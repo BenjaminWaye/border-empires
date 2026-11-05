@@ -1,9 +1,10 @@
-// Build menus show what a build will actually take: the base time (1s per
-// manpower point) shortened by the player's tech/domain build-speed effects,
+// Build menus show what a build will actually take: the base time (a flat
+// 60s for any manpower-costing build) shortened by the player's tech/domain build-speed effects,
 // using the same structure -> effect rule and formula the simulation uses to
 // stamp completesAt (structureBuildSpeedEffectKey / buildDurationWithSpeedMult
 // in shared, multiplicativeEffectForPlayer in apps/simulation).
 import {
+  afcInstantBuildFor,
   buildDurationWithSpeedMult,
   economicStructureBuildDurationMs,
   fortBuildDurationMs,
@@ -36,6 +37,7 @@ export const buildSpeedMultForState = (state: BuildSpeedState, key: StructureBui
 export const buildMsWithSpeedForState = (state: BuildSpeedState, structureType: string, baseMs: number): number => {
   const key = structureBuildSpeedEffectKey(structureType);
   if (baseMs <= 0) return baseMs;
+  if (afcInstantBuildFor(state.domainIds, structureType)) return 0;
   const specific = key ? buildSpeedMultForState(state, key) : 1;
   return buildDurationWithSpeedMult(baseMs, specific * buildSpeedMultForState(state, "structureBuildSpeedMult"));
 };

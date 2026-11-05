@@ -1,5 +1,6 @@
 import { tileHash } from "./client-map-3d-forest.js";
 import { afcHillCutMask, type AfcPadOffset } from "./client-map-3d-afc-hill-cut/client-map-3d-afc-hill-cut.js";
+import { fishingHillCutMask, type FishingPadOffset } from "./client-map-3d-fishing/fishing-hill-cut.js";
 
 // Hills render as a small cluster of 3 irregularly placed, low bumps per
 // tile instead of one perfectly centered symmetric dome, so a hill tile
@@ -229,13 +230,15 @@ export const hillBumpsWithCorridorAt = (wx: number, wy: number, neighbors: HillN
 // ROAD_CUT_FADE_WIDTH. Diagonal road segments (northeast, etc.) aren't
 // covered -- only whichever of north/south/east/west this tile's road uses.
 // `afcPads` adds an AFC's levelled pad (client-map-3d-afc-hill-cut.ts) when
-// this hill tile lies within AFC_HILL_CUT_TILE_RADIUS of an AFC.
+// this hill tile lies within AFC_HILL_CUT_TILE_RADIUS of an AFC;
+// `fishingPads` a fishing site's levelled pad (client-map-3d-fishing/fishing-hill-cut.ts).
 export type RoadCutDirections = {
   readonly north?: boolean;
   readonly south?: boolean;
   readonly east?: boolean;
   readonly west?: boolean;
   readonly afcPads?: readonly AfcPadOffset[];
+  readonly fishingPads?: readonly FishingPadOffset[];
 };
 
 const ROAD_CUT_FULL_WIDTH = 0.09;
@@ -267,7 +270,7 @@ const distanceToRoadArms = (u: number, v: number, dirs: RoadCutDirections): numb
 
 export const hillRoadCutMask = (u: number, v: number, dirs: RoadCutDirections | undefined): number => {
   if (!dirs) return 0;
-  const afcCut = afcHillCutMask(u, v, dirs.afcPads);
+  const afcCut = Math.max(afcHillCutMask(u, v, dirs.afcPads), fishingHillCutMask(u, v, dirs.fishingPads));
   if (afcCut >= 1 || !(dirs.north || dirs.south || dirs.east || dirs.west)) return afcCut;
   const d = distanceToRoadArms(u, v, dirs);
   if (d <= ROAD_CUT_FULL_WIDTH) return 1;

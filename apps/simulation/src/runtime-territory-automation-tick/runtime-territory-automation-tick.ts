@@ -129,6 +129,9 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
           if (!isAutoClaimTarget(target)) continue;
           autoClaimedKeys.add(targetKey);
           actor.points -= FRONTIER_CLAIM_COST;
+          // Flat base price, not the frontier-scaled EXPAND price: this ring
+          // around a town is involuntary, and scaling it would drain a big
+          // empire's manpower (up to 8 claims a sweep) before it could garrison.
           actor.manpower -= EXPAND_MANPOWER_COST;
           claimCommandId ??= input.nextTerritoryAutomationCommandId("frontier", playerId, "batch", input.nowMs);
           const claimedTile: DomainTileState = {

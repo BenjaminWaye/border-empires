@@ -23,7 +23,7 @@ export const initClientDom = () => {
   const captureCancelBtn = requireElement<HTMLButtonElement>("#capture-cancel");
   const captureDismissBtn = requireElement<HTMLButtonElement>("#capture-dismiss");
   const captureCloseBtn = requireElement<HTMLButtonElement>("#capture-close");
-  const captureDownloadDebugBtn = requireElement<HTMLButtonElement>("#capture-download-debug");
+  const captureReportBugBtn = requireElement<HTMLButtonElement>("#capture-report-bug");
   const captureCardEl = requireElement<HTMLDivElement>("#capture-card");
   const captureWrapEl = requireElement<HTMLDivElement>("#capture-wrap");
   const captureBarEl = requireElement<HTMLDivElement>("#capture-bar");
@@ -35,11 +35,6 @@ export const initClientDom = () => {
   const placementLabelEl = requireElement<HTMLDivElement>("#placement-label");
   const placementCancelBtn = requireElement<HTMLButtonElement>("#placement-cancel");
   const placementConfirmBtn = requireElement<HTMLButtonElement>("#placement-confirm");
-  const shardAlertOverlayEl = requireElement<HTMLDivElement>("#shard-alert-overlay");
-  const shardAlertCardEl = requireElement<HTMLDivElement>("#shard-alert-card");
-  const shardAlertTitleEl = requireElement<HTMLDivElement>("#shard-alert-title");
-  const shardAlertDetailEl = requireElement<HTMLDivElement>("#shard-alert-detail");
-  const shardAlertCloseBtn = requireElement<HTMLButtonElement>("#shard-alert-close");
   const victoryAlertOverlayEl = requireElement<HTMLDivElement>("#victory-alert-overlay");
   const victoryAlertTitleEl = requireElement<HTMLDivElement>("#victory-alert-title");
   const victoryAlertDetailEl = requireElement<HTMLDivElement>("#victory-alert-detail");
@@ -91,6 +86,7 @@ export const initClientDom = () => {
     panelDefensibilityEl = requireElement<HTMLDivElement>("#panel-defensibility"), panelEconomyEl = requireElement<HTMLDivElement>("#panel-economy"), panelManpowerEl = requireElement<HTMLDivElement>("#panel-manpower"),
     panelDevelopmentEl = requireElement<HTMLDivElement>("#panel-development"), panelLeaderboardEl = requireElement<HTMLDivElement>("#panel-leaderboard"), panelFeedEl = requireElement<HTMLDivElement>("#panel-feed");
   const panelDomainsEl = requireElement<HTMLDivElement>("#panel-domains");
+  const panelTownsEl = requireElement<HTMLDivElement>("#panel-towns"), mobilePanelTownsEl = requireElement<HTMLDivElement>("#mobile-panel-towns");
   const panelDomainsContentEl = requireElement<HTMLDivElement>("#panel-domains-content"), panelSettingsEl = requireElement<HTMLDivElement>("#panel-settings");
   const feedEl = requireElement<HTMLDivElement>("#feed");
   const techPickEl = requireElement<HTMLSelectElement>("#tech-pick");
@@ -176,7 +172,7 @@ export const initClientDom = () => {
     captureCancelBtn,
     captureDismissBtn,
     captureCloseBtn,
-    captureDownloadDebugBtn,
+    captureReportBugBtn,
     captureCardEl,
     captureTargetEl,
     captureGotoBtn,
@@ -223,6 +219,7 @@ export const initClientDom = () => {
     mobilePanelCoreEl,
     mobilePanelEconomyEl,
     mobilePanelDevelopmentEl,
+    mobilePanelTownsEl,
     mobilePanelLeaderboardEl,
     mobilePanelManpowerEl,
     mobilePanelMissionsEl,
@@ -246,6 +243,7 @@ export const initClientDom = () => {
     panelEconomyEl,
     panelManpowerEl,
     panelDevelopmentEl,
+    panelTownsEl,
     panelFeedEl,
     panelLeaderboardEl,
     panelDomainsContentEl,
@@ -258,11 +256,6 @@ export const initClientDom = () => {
     joinSeasonOverlayEl,
     seasonEndOverlayEl,
     selectedEl,
-    shardAlertCardEl,
-    shardAlertCloseBtn,
-    shardAlertDetailEl,
-    shardAlertOverlayEl,
-    shardAlertTitleEl,
     sidePanelBodyEl,
     sidePanelEl,
     statsChipsEl,

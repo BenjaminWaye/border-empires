@@ -1,3 +1,4 @@
+import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { describe, expect, it } from "vitest";
 import { lastManpowerRefillAtMs, MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
 import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
@@ -27,6 +28,16 @@ describe("periodic manpower refill (runtime)", () => {
     const player = runtime.exportState().players.find((entry) => entry.id === "player-1");
     // One minute of regen sat before the boundary; the 10s after it is still pending.
     expect(player?.manpower).toBeCloseTo(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, 10);
+  });
+
+  it("exports the partial upcoming batch into the subscription snapshot", () => {
+    const boundary = lastManpowerRefillAtMs("player-1", NOW);
+    const now = boundary + MANPOWER_REFILL_WINDOW_MS - MINUTE;
+    const runtime = runtimeAt(() => now, { manpower: 10, manpowerUpdatedAt: now, manpowerBanked: 0 });
+    const state = runtime.exportState();
+    const expected = STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE;
+    expect(state.players.find((p) => p.id === "player-1")?.nextManpowerBatchAmount).toBeCloseTo(expected);
+    expect(buildPlayerSubscriptionSnapshot("player-1", state).player?.nextManpowerBatchAmount).toBeCloseTo(expected);
   });
 
   it("pays nothing mid-window: manpower holds until the next boundary", () => {

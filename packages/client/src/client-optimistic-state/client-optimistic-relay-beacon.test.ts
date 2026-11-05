@@ -54,14 +54,14 @@ describe("optimistic Relay Beacon build time", () => {
     expect(completesAt - now).toBeLessThan(1_000);
   });
 
-  it("shows the full 100 MP build time for the 6th beacon", () => {
+  it("shows the flat build minute for the 6th beacon", () => {
     const { completesAt, now } = completesAtFor(5);
-    expect(completesAt - now).toBeGreaterThanOrEqual(100_000);
+    expect(completesAt - now).toBeGreaterThanOrEqual(60_000);
   });
 });
 
 describe("optimistic structure removal window", () => {
-  it("predicts the server's 0.5s-per-manpower removal window, starting now", () => {
+  it("predicts the server's flat 30-second removal window, starting now", () => {
     const tiles = new Map<string, Tile>([["12,18", baseTile({
       ownerId: "me", ownershipState: "SETTLED",
       economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "active" }

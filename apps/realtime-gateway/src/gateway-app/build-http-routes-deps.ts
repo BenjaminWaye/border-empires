@@ -50,6 +50,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   };
   snapshotDir?: string;
   legacySnapshotBootstrap?: ReturnType<typeof loadLegacySnapshotBootstrap>;
+  playerSyncDiagnosticSnapshot?: RegisterGatewayHttpRoutesDeps["playerSyncDiagnosticSnapshot"];
   recentGatewayEvents: GatewayDebugEvent[];
   buildAttackDebug: () => GatewayAttackDebug;
   buildAttackTraces: () => GatewayAttackTrace[];
@@ -123,6 +124,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     recentEvents: () => [...ctx.recentGatewayEvents],
     attackDebug: ctx.buildAttackDebug,
     attackTraces: ctx.buildAttackTraces,
+    ...(ctx.playerSyncDiagnosticSnapshot ? { playerSyncDiagnosticSnapshot: ctx.playerSyncDiagnosticSnapshot } : {}),
     metrics: () => ctx.gatewayMetrics.renderPrometheus(),
     ...(ctx.simMetricsUrl
       ? {

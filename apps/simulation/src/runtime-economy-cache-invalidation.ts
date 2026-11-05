@@ -19,6 +19,11 @@ import {
   type TownConnectivityState
 } from "./economy-network/town-connectivity-incremental.js";
 
+/** Reserve consumption affects battles/rushes, not resource supply or settlement income. */
+const wonderEconomyChanged = (a: DomainTileState["naturalWonder"], b: DomainTileState["naturalWonder"]): boolean =>
+  a?.type !== b?.type || a?.relicVersion !== b?.relicVersion ||
+  a?.resourceBonus?.resource !== b?.resourceBonus?.resource || a?.resourceBonus?.amount !== b?.resourceBonus?.amount;
+
 /**
  * Keeps the per-player economy snapshot, tile-yield context, town network,
  * defensibility metrics, and upkeep accrual caches in sync with a tile
@@ -61,7 +66,7 @@ export const economyRelevantTileFieldsChanged = (previous: DomainTileState, next
   previous.siegeBattery !== next.siegeBattery ||
   previous.economicStructure !== next.economicStructure ||
   previous.sabotage !== next.sabotage ||
-  previous.naturalWonder !== next.naturalWonder;
+  wonderEconomyChanged(previous.naturalWonder, next.naturalWonder);
 
 export const refreshEconomyCachesForTileChange = (input: {
   tileKey: string;
@@ -143,7 +148,7 @@ export const refreshEconomyCachesForTileChange = (input: {
   // setTileState path so the two tile-write routes can't diverge.
   maintainTownConnectivityForTileChange(input.townConnectivityStateByPlayer, tileKey, previous, next);
   // A write that only touched fields none of these caches read (muster
-  // flags, frontier-decay / heal / breach-shock stamps, shard sites,
+  // flags, frontier-decay / heal / breach-shock stamps,
   // watchtowers) must not invalidate anything: every SET_MUSTER and every
   // muster auto-fire tick used to drop the owner's economy, defensibility,
   // resource-slot and manpower caches and the very next emitPlayerStateUpdate

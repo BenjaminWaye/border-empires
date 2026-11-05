@@ -101,7 +101,7 @@ export const recordSocketDisconnect = (
     debugPayload: Record<string, unknown>;
   }
 ): void => {
-  attackSyncLog(kind === "close" ? "ws-close" : "ws-error", details.debugPayload);
+  attackSyncLog(kind === "close" ? "ws-close" : "ws-error", { ...details.debugPayload, code: details.code, reason: details.reason, wasClean: details.wasClean, connectionUptimeMs: details.connectionUptimeMs });
   const entries = recordDisconnectHistory({
     kind,
     code: details.code,

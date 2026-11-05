@@ -70,7 +70,23 @@ export const musterCapLevelToFit = (manpowerCap: number, capLevel: number | unde
 // than raising a muster flag next to the fight, and a long march also makes
 // the route search expensive (it floods the map out to the flag), so a longer
 // order is advice rather than a feature: raise a flag closer instead.
-export const MUSTER_MARCH_MAX_DISTANCE_TILES = 15;
+export const MUSTER_MARCH_MAX_DISTANCE_TILES = 30;
+
+// Longest real route a MARCH may take, in tile steps through passable land
+// (a dock link or aether bridge counts as one step). The straight-line cap
+// above can't see that a target 5 tiles across a strait is 25 steps away
+// through the nearest dock, so the server's route search floods this far
+// (plus its local candidate radius) instead of only the straight-line
+// distance, and the client only offers March Attack origins whose route to
+// the target fits within it.
+export const MUSTER_MARCH_MAX_ROUTE_STEPS = 2 * MUSTER_MARCH_MAX_DISTANCE_TILES;
+
+// Longest distance (in tiles) a muster-funded automated ATTACK/EXPAND is
+// charged travel time for (MUSTER_TRANSIT_MS_PER_TILE each). Deliberately not
+// tied to MUSTER_MARCH_MAX_DISTANCE_TILES: raising the march range must not
+// lengthen how long a far-flung front locks both tiles (see
+// runtime-frontier-command.ts).
+export const MUSTER_TRANSIT_MAX_TILES = 15;
 
 /** Toroidal Chebyshev distance in tiles between two points on the wrapping world. */
 export const musterMarchDistanceTiles = (ax: number, ay: number, bx: number, by: number): number => {

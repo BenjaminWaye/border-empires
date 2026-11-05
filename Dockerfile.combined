@@ -14,7 +14,7 @@ COPY apps/simulation/package.json apps/simulation/package.json
 RUN pnpm install --frozen-lockfile
 
 # Busts the build cache for every COPY/RUN below this point, keyed to the
-# commit being deployed. Docker/Fly's remote builder layer cache is
+# commit being deployed. The Docker builder layer cache is
 # supposed to invalidate on content changes, but a stale cache hit here
 # has shipped stale compiled output to production while BUILD_SHA (an env
 # var, not a build input) correctly reported the new commit -- see

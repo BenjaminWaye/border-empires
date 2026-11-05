@@ -1,4 +1,4 @@
-import type { IUniform, Material, Object3D, WebGLProgramParametersWithUniforms, WebGLRenderer } from "three";
+import type { IUniform, Material, Object3D, Texture, WebGLProgramParametersWithUniforms, WebGLRenderer } from "three";
 import { unexploredStormClipKindOf } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 import { FOGGED_MIST_SHADE_GLSL } from "./client-map-3d-fogged-mist-shader.js";
 
@@ -11,6 +11,8 @@ import { FOGGED_MIST_SHADE_GLSL } from "./client-map-3d-fogged-mist-shader.js";
 // sheet itself draws at that spot (foggedMistShade), mixed in after lighting
 // and scene fog just as the sheet's normal blend would. Below the sheet the sheet already
 // covers them, so nothing is hazed twice. Tiles in sight are never touched.
+// Buildings remembered on fogged tiles (client-map-3d-remembered-buildings.ts)
+// get it too: every material wired to the shared building environment map.
 
 export type FoggedMistHazeUniforms = {
   readonly uFogMistMask: IUniform;
@@ -62,12 +64,27 @@ ${FOGGED_MIST_SHADE_GLSL}`;
 // never covers them), so the edge maths only runs on remembered and
 // unexplored land. Gated per fragment, so the edge's fwidth is only
 // unreliable on quads straddling a gate, where it is clamped anyway.
-export const FOGGED_MIST_HAZE_FRAGMENT_BLEND = `
+const hazeBlend = (blend: string): string => `
 if (uFogMistOn > 0.5 && vFogMistScene.y > uFogMistPlaneY && texture2D(uFogMistMask, (floor(vFogMistScene.xz) + 0.5 - uFogMistMaskMin) / uFogMistMaskSize).r > 0.002) {
   vec4 fogMist = foggedMistShade(uFogMistMask, uFogMistMaskMin, uFogMistMaskSize, vFogMistScene.xz, vFogMistScene.xz + uFogMistOrigin, uFogMistTime, uFogMistHaze, uFogMistLight, uFogMistMinOpacity, uFogMistMaxOpacity);
-  gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(fogMist.rgb, 1.0)).rgb, fogMist.a);
+  ${blend}
 }
 `;
+
+export const FOGGED_MIST_HAZE_FRAGMENT_BLEND = hazeBlend("gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(fogMist.rgb, 1.0)).rgb, fogMist.a);");
+
+// A multiply-blend overlay (the fog's last-known-owner tint) can't be mixed
+// toward the mist's colour, since its output scales what lies under it; it
+// eases to white (no effect) as the mist thickens instead.
+export const FOGGED_MIST_HAZE_FRAGMENT_MULTIPLY = hazeBlend("gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), fogMist.a);");
+
+/**
+ * How a patched material's fragments take the mist: "normal" mixes in its
+ * colour (opaque features, and normal-blend overlays, whose alpha is kept so
+ * the haze lands exactly as the sheet's would over them), "multiply" fades a
+ * multiply-blend overlay out under it.
+ */
+export type FoggedMistHazeMode = "normal" | "multiply";
 
 const injectAfter = (source: string, include: string, code: string): string => {
   if (!source.includes(include)) throw new Error(`fogged mist haze: shader has no ${include}`);
@@ -75,7 +92,7 @@ const injectAfter = (source: string, include: string, code: string): string => {
 };
 
 /** Patches one material (keeping any onBeforeCompile it already has). */
-export const applyFoggedMistHaze = (material: Material, uniforms: FoggedMistHazeUniforms): void => {
+export const applyFoggedMistHaze = (material: Material, uniforms: FoggedMistHazeUniforms, mode: FoggedMistHazeMode = "normal"): void => {
   const previousOnBeforeCompile = material.onBeforeCompile;
   const previousCacheKey = material.customProgramCacheKey;
   material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms, renderer: WebGLRenderer): void => {
@@ -84,23 +101,27 @@ export const applyFoggedMistHaze = (material: Material, uniforms: FoggedMistHaze
     shader.vertexShader = injectAfter(shader.vertexShader, "#include <common>", VERTEX_DECL);
     shader.vertexShader = injectAfter(shader.vertexShader, "#include <project_vertex>", VERTEX_POSITION);
     shader.fragmentShader = injectAfter(shader.fragmentShader, "#include <common>", FRAGMENT_DECL);
-    shader.fragmentShader = injectAfter(shader.fragmentShader, "#include <fog_fragment>", FOGGED_MIST_HAZE_FRAGMENT_BLEND);
+    shader.fragmentShader = injectAfter(shader.fragmentShader, "#include <fog_fragment>", mode === "multiply" ? FOGGED_MIST_HAZE_FRAGMENT_MULTIPLY : FOGGED_MIST_HAZE_FRAGMENT_BLEND);
   };
-  material.customProgramCacheKey = (): string => `${previousCacheKey.call(material)}|foggedMistHaze`;
+  material.customProgramCacheKey = (): string => `${previousCacheKey.call(material)}|foggedMistHaze:${mode}`;
   material.needsUpdate = true;
 };
 
+/** Natural terrain (storm-clip flagged) and building materials (wired to the building environment map). */
+export const takesFoggedMistHaze = (material: Material, buildingEnvMap: Texture | undefined): boolean =>
+  Boolean(unexploredStormClipKindOf(material)) || (buildingEnvMap !== undefined && "envMap" in material && material.envMap === buildingEnvMap);
+
 /**
- * Patches every storm-clip-flagged material in the scene not patched yet.
+ * Patches every hazed material (takesFoggedMistHaze) in the scene not patched yet.
  * Cheap to call on each terrain rebuild: layers create their materials once,
  * so after the first pass this is just a scene walk.
  */
-export const applyFoggedMistHazeToScene = (root: Object3D, uniforms: FoggedMistHazeUniforms, patched: WeakSet<Material>): void => {
+export const applyFoggedMistHazeToScene = (root: Object3D, uniforms: FoggedMistHazeUniforms, patched: WeakSet<Material>, buildingEnvMap?: Texture): void => {
   root.traverse((object) => {
     const material = (object as Object3D & { material?: Material | Material[] }).material;
     if (!material) return;
     for (const entry of Array.isArray(material) ? material : [material]) {
-      if (!unexploredStormClipKindOf(entry) || patched.has(entry)) continue;
+      if (patched.has(entry) || !takesFoggedMistHaze(entry, buildingEnvMap)) continue;
       patched.add(entry);
       applyFoggedMistHaze(entry, uniforms);
     }

@@ -4,10 +4,10 @@ type OverflowHolder = Pick<DomainPlayer, "waystationManpowerOverflow">;
 
 /**
  * The most manpower a player may currently hold: their manpower cap plus any
- * unspent Waystation MANPOWER overflow. Only waystation manpower is allowed
- * above the cap -- every other source (regen, refunds, cap growth) still stops
+ * unspent one-time reserve overflow (Waystations, landing reserves, ancillary
+ * recovery and conversion). Ordinary sources (regen, refunds, cap growth) stop
  * at the cap, so a player who loses towns doesn't keep manpower above their
- * new, lower cap unless it came from a waystation.
+ * new, lower cap unless covered by an unspent reserve.
  */
 export const manpowerCeiling = (player: OverflowHolder, cap: number): number =>
   cap + Math.max(0, player.waystationManpowerOverflow ?? 0);

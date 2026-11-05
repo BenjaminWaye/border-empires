@@ -109,6 +109,12 @@ export const buildMusterActions = (
       });
     } else {
       out.push({
+        id: "muster_march",
+        label: "Change Target…",
+        detail: `${status} (${staged}/${cap} staged) · tap a new tile to march to, or drag the march target on the map.`,
+        ...siegeLock()
+      });
+      out.push({
         id: "muster_march_cancel",
         label: "Cancel March",
         detail: `${status} (${staged}/${cap} staged) · switch back to HOLD.`,

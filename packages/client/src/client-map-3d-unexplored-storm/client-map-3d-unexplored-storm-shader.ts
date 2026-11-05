@@ -21,21 +21,21 @@
 
 import { STORM_FIELD_GLSL } from "./client-map-3d-unexplored-storm-field-glsl.js";
 
+// Only the scene position is interpolated (small values near the camera);
+// world coords are added per fragment, so the varying never carries the
+// world origin's magnitude.
 export const STORM_VERTEX_SHADER = `
 varying vec2 vSceneXZ;
-varying vec2 vWorldXZ;
-uniform vec2 uWorldOrigin;
 void main() {
   vec4 wp = modelMatrix * vec4(position, 1.0);
   vSceneXZ = wp.xz;
-  vWorldXZ = wp.xz + uWorldOrigin;
   gl_Position = projectionMatrix * viewMatrix * wp;
 }
 `;
 
 export const STORM_FRAGMENT_SHADER = `
 varying vec2 vSceneXZ;
-varying vec2 vWorldXZ;
+uniform vec2 uWorldOrigin;
 uniform float uTime;
 uniform vec3 uDark;
 uniform vec3 uMid;
@@ -59,7 +59,7 @@ float lines(float x, float halfWidth) {
 }
 
 void main() {
-  vec2 w = vWorldXZ;
+  vec2 w = vSceneXZ + uWorldOrigin;
   vec2 drift = vec2(uTime * 0.09, uTime * 0.035);
   float body = stormFbm(w * 0.17 + drift * 0.17);
   float mass = stormFbm(w * 0.08 - drift * 0.05 + body * 0.6);

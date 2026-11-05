@@ -1,9 +1,8 @@
 name: Deploy production
 
-# Fires on every push to main, after CI is green. Mirrors
-# scripts/deploy-prod-all.mjs, but non-interactively: the typed confirmation
-# prompt is skipped (CI has no TTY) and the prod-shape gate runs unattended
-# in this job instead of being a separate manual pre-deploy step. See
+# Fires on every push to main, after CI is green. Runs the prod-shape gate
+# against an SSH clone of the live Hetzner database, then deploys the combined
+# sim+gateway and the static client to the Hetzner production server. See
 # docs/agents/deploys.md for the full gate rationale and manual fallback.
 on:
   workflow_run:
@@ -47,13 +46,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # PROD_BACKEND (repo variable) selects the deploy target: unset or "fly"
-      # keeps the Fly path; "hetzner" uses the VPS (and gates against an SSH
-      # clone of it). See docs/hetzner-migration-plan.md.
-      - name: Install flyctl
-        if: vars.PROD_BACKEND != 'hetzner'
-        uses: superfly/flyctl-actions/setup-flyctl@master
-
       - name: Build workspace internal packages
         run: |
           pnpm --filter @border-empires/shared \
@@ -69,18 +61,14 @@ jobs:
       - name: Clone prod SQLite snapshot
         id: clone
         run: |
-          if [ "${PROD_BACKEND}" = "hetzner" ]; then
-            install -m 700 -d ~/.ssh
-            printf '%s\n' "${PROD_SSH_KEY}" > ~/.ssh/hetzner_deploy
-            chmod 600 ~/.ssh/hetzner_deploy
-            printf '%s\n' "${PROD_SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
-            pnpm ops:prod-shape:clone-snapshot \
-              --ssh "deploy@${PROD_SSH_HOST}" \
-              --ssh-opts "-i ${HOME}/.ssh/hetzner_deploy -o StrictHostKeyChecking=yes" \
-              | tee /tmp/clone-output.txt
-          else
-            pnpm ops:prod-shape:clone-snapshot | tee /tmp/clone-output.txt
-          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${PROD_SSH_KEY}" > ~/.ssh/hetzner_deploy
+          chmod 600 ~/.ssh/hetzner_deploy
+          printf '%s\n' "${PROD_SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+          pnpm ops:prod-shape:clone-snapshot \
+            --ssh "deploy@${PROD_SSH_HOST}" \
+            --ssh-opts "-i ${HOME}/.ssh/hetzner_deploy -o StrictHostKeyChecking=yes" \
+            | tee /tmp/clone-output.txt
           LOCAL_DB="$(grep -oE 'local_db=.*' /tmp/clone-output.txt | tail -1 | sed 's/^local_db=//')"
           if [ -z "${LOCAL_DB}" ]; then
             echo "::error::could not find local_db= line in clone-snapshot output"
@@ -88,8 +76,6 @@ jobs:
           fi
           echo "local_db=${LOCAL_DB}" >> "$GITHUB_OUTPUT"
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          PROD_BACKEND: ${{ vars.PROD_BACKEND }}
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
@@ -184,7 +170,6 @@ jobs:
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy merged sim+gateway to Hetzner (production)
-        if: vars.PROD_BACKEND == 'hetzner'
         uses: ./.github/actions/hetzner-deploy
         with:
           sha: ${{ github.event.workflow_run.head_sha }}
@@ -194,19 +179,6 @@ jobs:
           ghcr-token: ${{ secrets.GITHUB_TOKEN }}
           platform: ${{ vars.DEPLOY_PLATFORM || 'linux/amd64' }}
 
-      - name: Deploy merged sim+gateway to Fly (production)
-        if: vars.PROD_BACKEND != 'hetzner'
-        run: |
-          flyctl deploy \
-            --config fly.combined.toml \
-            --strategy rolling \
-            --remote-only \
-            --build-arg "CACHE_BUST=${DEPLOY_SHA}" \
-            --env "BUILD_SHA=${DEPLOY_SHA}"
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
-
       - name: Write build SHA marker
         run: |
           mkdir -p packages/client/public
@@ -215,22 +187,10 @@ jobs:
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy client to Hetzner
-        if: vars.PROD_BACKEND == 'hetzner'
         run: node ./scripts/deploy-client-hetzner.mjs production
         env:
           GIT_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
           BE_CLIENT_SSH_TARGET: hetzner-target
-
-      - name: Deploy client to Vercel production alias
-        if: vars.PROD_BACKEND != 'hetzner'
-        run: node ./scripts/deploy-client-prod.mjs
-        env:
-          GIT_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
-          VITE_GATEWAY_WS_URL: "wss://api.borderempires.com/ws"
-          VITE_WS_URL: "wss://api.borderempires.com/ws"
-          VITE_BACKEND_DEFAULT: "gateway"
-          ALLOW_NON_MAIN_PROD_DEPLOY: "1"
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
       - name: Dump stack logs on failure
         if: failure()

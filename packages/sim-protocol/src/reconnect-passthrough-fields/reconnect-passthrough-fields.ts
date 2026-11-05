@@ -51,6 +51,7 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   manpower: { kind: "handledInline" },
   manpowerCap: { kind: "handledInline" },
   manpowerRegenPerMinute: { kind: "handledInline" },
+  nextManpowerBatchAmount: presentField("nextManpowerBatchAmount"),
   manpowerBreakdown: { kind: "handledInline" },
   incomePerMinute: { kind: "handledInline" },
   strategicResources: { kind: "handledInline" },
@@ -90,6 +91,7 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   logisticsThroughputPerMinute: numberField("logisticsThroughputPerMinute"),
   imperialWardCharges: numberField("imperialWardCharges"),
   wonderLastFreeRushBuyAt: numberField("wonderLastFreeRushBuyAt"),
+  relicMapHints: presentField("relicMapHints"),
   // Confirmed missing from init-payload.ts entirely until this fix (see
   // docs/player-wire-refactor-plan-phase3.md): real, durable player state
   // (granted once at spawn to the previous season's Planet winner, read
@@ -101,6 +103,8 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   // Cheap authoritative Titanium/Umbrite Weapons Factory counts (see
   // player-snapshot.ts) -- no legacy/bootstrap fallback, plain passthrough.
   weaponsFactoryCounts: presentField("weaponsFactoryCounts"),
+  resourceTradeHoldings: presentField("resourceTradeHoldings"),
+  resourceTradeAgreements: presentField("resourceTradeAgreements"),
   autoSettle: presentField("autoSettle")
 } as const satisfies Record<keyof PlayerStateSnapshot, PassthroughEntry>;
 

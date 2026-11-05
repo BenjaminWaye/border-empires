@@ -2,7 +2,7 @@
 // (/admin/runtime/metrics, /admin/runtime/dashboard, /admin/players,
 // /admin/debug/ai*). Two independent ways in, either is sufficient:
 //
-//   1. The static ADMIN_API_TOKEN (Fly secret) as a Bearer header or
+//   1. The static ADMIN_API_TOKEN (server secret) as a Bearer header or
 //      ?token= query param — unchanged from before.
 //   2. A GitHub token (personal access token or OAuth token) proving the
 //      caller has at least read access to this repo, passed via the

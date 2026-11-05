@@ -42,6 +42,8 @@ describe("alliancePanelHtml", () => {
     expect(html).toContain("Propose Alliance");
     expect(html).toContain("Truce 12h");
     expect(html).toContain("Truce 24h");
+    expect(html).toContain(">Met<");
+    expect(html).not.toContain(">War<");
     expect(html).not.toContain("Allies");
     expect(html).not.toContain("Needs your response");
   });
@@ -154,7 +156,7 @@ describe("alliancePanelHtml", () => {
 
 describe("bindProposeButtons", () => {
   afterEach(() => closeDiplomacyTradeScreen());
-  const state = { gold: 500, strategicResources: { SHARD: 2 }, incomingTruceRequests: [], incomingAllianceRequests: [] };
+  const state = { gold: 500, incomingTruceRequests: [], incomingAllianceRequests: [], activeTruces: [] };
   const tradeTitle = (): string | null | undefined => document.querySelector(".diplomacy-trade-overlay h2")?.textContent;
   const pressedKind = (): string | undefined =>
     document.querySelector<HTMLButtonElement>(".diplomacy-trade-overlay [data-trade-kind][aria-pressed='true']")?.dataset.tradeKind;
@@ -171,7 +173,7 @@ describe("bindProposeButtons", () => {
     expect(tradeTitle()).toBe("Deal with SteamLord");
     expect(pressedKind()).toBe("alliance:0");
     expect(sendGameMessage).toHaveBeenLastCalledWith({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: "SteamLord", targetPlayerId: "p-1" }, expect.any(String));
-    expect(document.querySelector("[data-trade-holdings]")?.textContent).toBe("You have 500 coin and 2 Shards.");
+    expect(document.querySelector("[data-trade-have='give-gold']")?.textContent).toBe("You have 500");
 
     root.querySelectorAll<HTMLButtonElement>(".propose-truce")[1]!.click();
     expect(pressedKind()).toBe("truce:24");
@@ -189,6 +191,16 @@ describe("bindProposeButtons", () => {
     });
     bindProposeButtons(trucedRoot, { playerNameForOwner: (id) => (id ? names[id] : undefined), sendGameMessage, state });
     trucedRoot.querySelector<HTMLButtonElement>(".break-truce")!.click();
+    // Break Truce first shows what breaking costs; nothing is sent until confirmed.
+    expect(sendGameMessage).not.toHaveBeenCalledWith({ type: "TRUCE_BREAK", targetPlayerId: "p-2" }, expect.any(String));
+    expect(document.querySelector(".break-pact-consequences")?.textContent).toContain("−10 opinion for 7 days");
+    document.querySelector<HTMLButtonElement>("[data-pact-go]")!.click();
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "TRUCE_BREAK", targetPlayerId: "p-2" }, expect.any(String));
+  });
+
+  it("labels a met player War only while they are in the war set", () => {
+    const html = panel({ metPlayerIds: new Set(["p-1", "ai-3"]), warPlayerIds: new Set(["ai-3"]) });
+    expect(html.match(/>War</g)).toHaveLength(1);
+    expect(html.match(/>Met</g)).toHaveLength(1);
   });
 });

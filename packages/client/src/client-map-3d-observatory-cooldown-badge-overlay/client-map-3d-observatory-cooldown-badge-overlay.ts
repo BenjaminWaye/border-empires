@@ -14,7 +14,7 @@ import {
 } from "three";
 import { TOWER } from "../client-map-3d-ambaric-transformer-body.js";
 
-// Floats a small crystal-blue badge with an hourglass (⏳) above an owned
+// Floats a small crystal-blue badge with an hourglass (⧗) above an owned
 // observatory whose crystal-casting is still on cooldown
 // (`tile.observatory.cooldownUntil > now`). It mirrors the unfed-town
 // badge (see client-map-3d-unfed-badge-overlay.ts): one shared canvas
@@ -72,13 +72,17 @@ const drawBadgeCanvas = (): HTMLCanvasElement | null => {
   ctx.fill();
   ctx.stroke();
 
-  // ⏳ hourglass centred — the universal "recharging / wait" glyph.
-  ctx.font = `${Math.round(CANVAS_SIZE * 0.6)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif`;
+  paintCooldownGlyph(ctx, center);
+  return canvas;
+};
+
+/** ⧗ hourglass centred — the universal "recharging / wait" glyph. It is a one-colour text symbol, so it takes the rim's dark blue; left on the disc's fill it vanished into the disc. */
+export const paintCooldownGlyph = (ctx: Pick<CanvasRenderingContext2D, "font" | "textAlign" | "textBaseline" | "fillStyle" | "fillText">, center: number): void => {
+  ctx.font = `${Math.round(CANVAS_SIZE * 0.6)}px "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "DejaVu Sans", sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("⏳", center, center + CANVAS_SIZE * 0.02);
-
-  return canvas;
+  ctx.fillStyle = "#1f5d7a";
+  ctx.fillText("⧗", center, center + CANVAS_SIZE * 0.02);
 };
 
 const drawSiphonBadgeCanvas = (): HTMLCanvasElement | null => {

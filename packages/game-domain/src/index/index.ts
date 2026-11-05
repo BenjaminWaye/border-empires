@@ -14,7 +14,6 @@ export * from "../server-worldgen-fair-spawn-sites.js";
 export * from "../starter-site-quality.js";
 export * from "../server-worldgen-island-connectivity.js";
 export * from "../server-worldgen-natural-wonders.js";
-export * from "../server-worldgen-shards.js";
 export * from "../server-worldgen-terrain.js";
 export * from "../server-worldgen-towns.js";
 export * from "../server-worldgen-watchtowers.js";
@@ -56,7 +55,7 @@ export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort">
 };
 
 export type FrontierCommandType = "ATTACK" | "EXPAND";
-export type DomainStrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
+export type DomainStrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 
 export type DomainPlayer = {
   id: string;
@@ -79,6 +78,7 @@ export type DomainPlayer = {
   wonderMusterExtraFlag?: number;
   wonderFortDefenseBonus?: number;
   wonderTechGoldDiscount?: number;
+  relicDevelopmentBonus?: number;
   wonderLastFreeRushBuyAt?: number;
   // Galactic meta-layer v0 (docs/galactic-campaign-design.md §5, §12): a
   // simplified stand-in for the full Wonder system, which needs a persistent
@@ -110,12 +110,15 @@ export type DomainPlayer = {
   // grants no shared vision. Optional so existing DomainPlayer/RuntimePlayer
   // fixtures across tests don't all need updating.
   truces?: Set<string>;
+  // When each truce ends (partner id -> ms), when the gateway sent it. AI
+  // planners bank manpower ahead of an expiry (truceExpiringSoon in apps/simulation/src/ai/automation-command-planner-war-reserve.ts).
+  truceEndsAt?: Map<string, number>;
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   strategicProductionPerMinute?: Partial<Record<DomainStrategicResourceKey, number>>;
   // Persistent sub-choice for domains that ask the player to pick a resource
   // (Clockwork Stipend). Locked on pick; null/undefined means no choice yet.
-  // Narrowed to the trickle subset (TITANIUM / UMBRITE / CRYSTAL) — FOOD and SHARD
-  // are intentionally excluded because no trickle domain offers them.
+  // Narrowed to the trickle subset (TITANIUM / UMBRITE / CRYSTAL) — FOOD is
+  // intentionally excluded because no trickle domain offers them.
   chosenTrickleResource?: ChosenTrickleResource | undefined;
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1): remaining Imperial
   // Ward activations. Granted once when an endorsed player first spawns
@@ -124,6 +127,10 @@ export type DomainPlayer = {
   // ephemeral runtime state (Runtime.abilityCooldowns), not persisted here —
   // same convention as Aegis Lock.
   imperialWardCharges?: number;
+  // Garrisons (SETTLE) this player has ever started; the first
+  // INSTANT_GARRISON_COUNT are instant (shared garrison-duration.ts).
+  // Persisted with the player and never reset on respawn; missing = 0.
+  lifetimeGarrisons?: number;
   // Islands this player renamed (shared island-names.ts). Persisted with the
   // player; the sim drops a claim when its fade runs out or a rival renames.
   islandNames?: IslandNameClaim[];
@@ -164,7 +171,6 @@ export type DomainTileState = {
   resource?: Tile["resource"] | undefined;
   prospectSignature?: ProspectSignature | undefined;
   dockId?: string | undefined;
-  shardSite?: { kind: "CACHE" | "FALL"; amount: number; expiresAt?: number | undefined } | undefined;
   watchtower?: { activated: boolean; activatedByPlayerId?: string | undefined; revealUntil?: number | undefined } | undefined;
   waystation?: WaystationTileState | undefined;
   ownerId?: string | undefined;
@@ -181,6 +187,8 @@ export type DomainTileState = {
   // Post-capture hold window end (shared capture-hold.ts): a freshly captured
   // FRONTIER tile defends until then instead of being a free retake.
   captureHoldUntil?: number | undefined;
+  warScarLevel?: number | undefined;
+  warScarUntil?: number | undefined;
   town?:
     | (Pick<NonNullable<Tile["town"]>, "type" | "populationTier"> &
         Partial<
@@ -212,6 +220,8 @@ export type DomainTileState = {
             | "foodUpkeepPerMinute"
             | "captureShockUntil"
             | "populationBeforeCapture"
+            | "forcedAncillarificationCooldownUntil"
+            | "colonialIncubationGrantedTo"
             | "nearbyWarPausedUntil"
             | "nearbyWarLastAt"
             | "growthModifiers"
@@ -237,12 +247,7 @@ export type DomainTileState = {
       }
     | undefined;
   muster?: MusterState | undefined;
-  naturalWonder?:
-    | {
-        type: import("@border-empires/shared").NaturalWonderType;
-        claimedAt?: number;
-      }
-    | undefined;
+  naturalWonder?: import("@border-empires/shared").NaturalWonderState | undefined;
 };
 
 export type ValidateFrontierCommandInput = {
@@ -275,6 +280,8 @@ export type ValidateFrontierCommandInput = {
    */
   originIsAlliedDockCrossing?: boolean;
   expandClaimDurationMs?: number | undefined;
+  /** EXPAND's manpower price for this actor (scales with frontier held); defaults to EXPAND_MANPOWER_COST. */
+  expandManpowerCost?: number | undefined;
   /** Manpower currently mustered on the origin tile — attacks consume this. */
   originMuster?: number | undefined;
   /** Required muster for this attack (defaults to MUSTER_ATTACK_COST). */
@@ -321,13 +328,14 @@ export type ValidateFrontierCommandResult =
 
 const manpowerRequirements = (
   actionType: FrontierCommandType,
-  target: DomainTileState
+  target: DomainTileState,
+  expandManpowerCost: number
 ): { manpowerMin: number; manpowerCost: number } => {
   const attackMultiplier = actionType === "ATTACK" ? fortAttackManpowerMultiplier(target) : 1;
   if (actionType === "EXPAND") {
     // Manpower-economy rewrite:
     // claiming a frontier tile is the cheapest manpower-gated action.
-    return { manpowerMin: EXPAND_MANPOWER_COST, manpowerCost: EXPAND_MANPOWER_COST };
+    return { manpowerMin: expandManpowerCost, manpowerCost: expandManpowerCost };
   }
   return {
     manpowerMin: actionType === "ATTACK" ? ATTACK_MANPOWER_MIN * attackMultiplier : 0,
@@ -338,7 +346,7 @@ const manpowerRequirements = (
 export const validateFrontierCommand = (
   input: ValidateFrontierCommandInput
 ): ValidateFrontierCommandResult => {
-  const legacy = manpowerRequirements(input.actionType, input.to);
+  const legacy = manpowerRequirements(input.actionType, input.to, input.expandManpowerCost ?? EXPAND_MANPOWER_COST);
   const musterAttack = input.actionType === "ATTACK";
   const requiredMuster = input.requiredMuster ?? MUSTER_ATTACK_COST;
   const isBarbarianAttack = musterAttack && input.actor.id === "barbarian-1";

@@ -90,7 +90,7 @@ describe("queued waypoint progress + reducers", () => {
     const view: TileMenuView = { title: "", subtitle: "", tabs: [], overviewLines: [], actions: [], buildings: [], crystal: [] };
     const tile = { x: 9, y: 9, terrain: "LAND", fogged: false } as never;
 
-    injectWaypointActions(view, tile, state, { keyFor, pickOriginForTarget: () => undefined });
+    injectWaypointActions(view, tile, state);
 
     // Cancel All Waypoints is still offered (it's appended regardless of
     // which tile menu is open, see client-waypoint-menu-actions.ts), but

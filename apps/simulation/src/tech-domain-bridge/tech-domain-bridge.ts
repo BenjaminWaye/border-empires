@@ -3,7 +3,7 @@ import { afcPlayerStatePayload, afcInstallAllowed } from "../afc-specializations
 import { usesAfcSpecializations, TRICKLE_RESOURCE_KEYS, techGoldCostForResearchedCount, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { techCatalogIdentityMetadata } from "./tech-catalog-identity-metadata.js";
-import { VISION_RADIUS, type SlotResource } from "@border-empires/shared";
+import { VISION_RADIUS, type ResourceSlotGrant, type SlotResource } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
 import { weaponsFactoryCountsForPlayer, appendWeaponsFactoryBreakdownEntries } from "./weapons-factory-mod-breakdown.js";
@@ -15,7 +15,7 @@ import type { ModBreakdown, StatMods } from "./tech-domain-bridge-types.js";
 
 export type { DomainCatalogEntry, ManifestCategory, ModBreakdown, TechCatalogEntry } from "./tech-domain-bridge-types.js";
 
-export type StrategicCounts = Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
+export type StrategicCounts = Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
 type TileResource = NonNullable<DomainTileState["resource"]>;
 type RawResourceCounts = Partial<Record<TileResource, number>>;
 
@@ -46,13 +46,12 @@ export type AiProgressionChoice = {
 };
 
 export const toResources = (
-  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>
+  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply", number>>
 ): StrategicCounts => ({
   ...(typeof cost?.food === "number" && cost.food > 0 ? { FOOD: cost.food } : {}),
   ...(typeof cost?.iron === "number" && cost.iron > 0 ? { TITANIUM: cost.iron } : {}),
   ...(typeof cost?.crystal === "number" && cost.crystal > 0 ? { CRYSTAL: cost.crystal } : {}),
-  ...(typeof cost?.supply === "number" && cost.supply > 0 ? { UMBRITE: cost.supply } : {}),
-  ...(typeof cost?.shard === "number" && cost.shard > 0 ? { SHARD: cost.shard } : {})
+  ...(typeof cost?.supply === "number" && cost.supply > 0 ? { UMBRITE: cost.supply } : {})
 });
 
 export const rawResourceCountsForPlayer = (playerId: string, tiles: Iterable<AiProgressionPlannerTile>): RawResourceCounts => {
@@ -316,21 +315,27 @@ export const domainHasResourceSubChoice = (domainId: string): boolean => {
   return typeof domain?.effects?.chosenResourceSlotGrant === "number" && (domain.effects.chosenResourceSlotGrant as number) > 0;
 };
 
-export const domainGrantedResourceSlots = (
+/** The installed upgrade's slot grant, with the upgrade it comes from (named in the Economy panel). */
+export const domainResourceSlotGrant = (
   player: Pick<DomainPlayer, "domainIds" | "chosenTrickleResource" | "afcScarcityFoodSlots">
-): Partial<Record<SlotResource, number>> | undefined => {
-  if (player.afcScarcityFoodSlots) return { FOOD: player.afcScarcityFoodSlots };
+): ResourceSlotGrant | undefined => {
+  // Exchequer II's scarcity fallback (afc-installation-grants.ts) is the only source of afcScarcityFoodSlots.
+  if (player.afcScarcityFoodSlots) return { kind: "UPGRADE", id: "afc-exchequer-2", supply: { FOOD: player.afcScarcityFoodSlots } };
   const chosen = player.chosenTrickleResource;
   if (chosen !== "TITANIUM" && chosen !== "UMBRITE" && chosen !== "CRYSTAL") return undefined;
   for (const domainId of player.domainIds ?? []) {
     const domain = domainEntryById.get(domainId);
     const grant = domain?.effects?.chosenResourceSlotGrant;
     if (typeof grant === "number" && grant > 0) {
-      return { [chosen]: grant };
+      return { kind: "UPGRADE", id: domainId, supply: { [chosen]: grant } };
     }
   }
   return undefined;
 };
+
+export const domainGrantedResourceSlots = (
+  player: Pick<DomainPlayer, "domainIds" | "chosenTrickleResource" | "afcScarcityFoodSlots">
+): Partial<Record<SlotResource, number>> | undefined => domainResourceSlotGrant(player)?.supply;
 
 export const chooseDomainForPlayer = (
   player: DomainPlayer,
@@ -396,8 +401,7 @@ export const buildTechUpdatePayload = (
     FOOD: available.FOOD ?? 0,
     TITANIUM: available.TITANIUM ?? 0,
     CRYSTAL: available.CRYSTAL ?? 0,
-    UMBRITE: available.UMBRITE ?? 0,
-    SHARD: available.SHARD ?? 0
+    UMBRITE: available.UMBRITE ?? 0
   };
   return {
     ...afcPlayerStatePayload(player),

@@ -13,14 +13,13 @@
 
 import { FOGGED_EDGE_COVER_GLSL } from "./client-map-3d-fogged-edge-clip.js";
 
+// As on the storm sheet, only the scene position is interpolated; world
+// coords are added per fragment.
 export const FOGGED_MIST_VERTEX_SHADER = `
 varying vec2 vSceneXZ;
-varying vec2 vWorldXZ;
-uniform vec2 uWorldOrigin;
 void main() {
   vec4 wp = modelMatrix * vec4(position, 1.0);
   vSceneXZ = wp.xz;
-  vWorldXZ = wp.xz + uWorldOrigin;
   gl_Position = projectionMatrix * viewMatrix * wp;
 }
 `;
@@ -52,7 +51,7 @@ vec4 foggedMistShade(sampler2D mask, vec2 maskMin, vec2 maskSize, vec2 sceneXZ, 
 
 export const FOGGED_MIST_FRAGMENT_SHADER = `
 varying vec2 vSceneXZ;
-varying vec2 vWorldXZ;
+uniform vec2 uWorldOrigin;
 uniform float uTime;
 uniform vec3 uHaze;
 uniform vec3 uLight;
@@ -64,7 +63,7 @@ uniform vec2 uMaskSize;
 
 ${FOGGED_MIST_SHADE_GLSL}
 void main() {
-  vec4 mist = foggedMistShade(uMask, uMaskMin, uMaskSize, vSceneXZ, vWorldXZ, uTime, uHaze, uLight, uMinOpacity, uMaxOpacity);
+  vec4 mist = foggedMistShade(uMask, uMaskMin, uMaskSize, vSceneXZ, vSceneXZ + uWorldOrigin, uTime, uHaze, uLight, uMinOpacity, uMaxOpacity);
   if (mist.a <= 0.0) discard;
   gl_FragColor = mist;
   #include <colorspace_fragment>

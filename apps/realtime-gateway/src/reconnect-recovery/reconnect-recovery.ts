@@ -68,6 +68,7 @@ export const buildInitMessage = (
   techCatalog: unknown[];
   domainChoices: string[];
   domainCatalog: unknown[];
+  resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
   allianceRequests: unknown[];
   outgoingAllianceRequests: unknown[];
   activeAllianceBreaks: unknown[];
@@ -89,7 +90,6 @@ export const buildInitMessage = (
     townCount: number;
     dockPairs: Array<{ ax: number; ay: number; bx: number; by: number }>;
   };
-  shardRainNotice?: Record<string, unknown>;
   seasonStartVoteCount?: number;
   seasonStartVoted?: boolean;
   initialState?: PlayerSubscriptionSnapshot;
@@ -183,11 +183,14 @@ export const buildInitMessage = (
       techCatalog: bootstrap.techCatalog,
       domainChoices: bootstrap.domainChoices,
       domainCatalog: bootstrap.domainCatalog,
+      ...(socialSnapshot?.resourceTradeOffers ? {resourceTradeOffers:socialSnapshot.resourceTradeOffers} : {}),
       allianceRequests: socialSnapshot?.incomingAllianceRequests ?? [],
       outgoingAllianceRequests: socialSnapshot?.outgoingAllianceRequests ?? [],
       activeAllianceBreaks: socialSnapshot?.activeAllianceBreaks ?? [],
       recentAllianceBreaks: socialSnapshot?.recentAllianceBreaks ?? [],
       truceRequests: socialSnapshot?.incomingTruceRequests ?? [],
+      // Lets the client count down an offer's expiresAt on the server's clock (client-server-clock.ts).
+      serverNow: Date.now(),
       outgoingTruceRequests: socialSnapshot?.outgoingTruceRequests ?? [],
       activeTruces: socialSnapshot?.activeTruces ?? [],
       truceBreaksThisSeason: socialSnapshot?.truceBreaksThisSeason ?? [],
@@ -198,7 +201,6 @@ export const buildInitMessage = (
       seasonVictory: bootstrap.seasonVictory,
       ...(bootstrap.seasonWinner ? { seasonWinner: bootstrap.seasonWinner } : {}),
       mapMeta: bootstrap.mapMeta,
-      ...(bootstrap.shardRainNotice ? { shardRainNotice: bootstrap.shardRainNotice } : {}),
       ...(initialState ? { initialState } : {}),
       ...(needsSeasonJoin ? { needsSeasonJoin: true } : {}),
       ...(seasonPending

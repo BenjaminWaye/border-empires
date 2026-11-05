@@ -167,35 +167,58 @@ export const syncTownSupportRingForTileChange = (input: {
  * Cheap, bounded reconciliation safety net (Design §6/plan Open Items):
  * hooks should keep eligibleFrontierByOwner correct at every real trigger,
  * but population-growth tile writes bypass replaceTileState entirely (see
- * runtime-population-growth.ts), and any future direct-write path could too.
- * Rather than a periodic full O(frontier) sweep, this only scans when a
- * player's queue is completely empty -- the one cheap, unambiguous signal
- * that something might have been missed (a correctly-hooked player with any
- * eligible tile always has at least one queued entry) -- and even then caps
- * the scan at `scanBudget` frontier tiles, not the whole frontier. Intended
- * to be called once per player per territory-automation tick (~30s), so a
- * missed hook self-heals within a bounded number of tiles per tick rather
- * than a full-frontier rescan.
+ * runtime-population-growth.ts), tiles past the queue cap are dropped at
+ * insert time, and any future direct-write path could miss a hook too.
+ * Rather than a periodic full O(frontier) sweep, this scans at most
+ * `scanBudget` frontier tiles per call, only while the queue has room, and
+ * resumes where the previous call stopped (`cursorByOwner`) so successive
+ * ticks walk the whole frontier instead of re-checking the same first
+ * `scanBudget` tiles forever. The budget bounds tile evaluations; reaching
+ * the cursor still walks up to one frontier's worth of Set keys (no tile
+ * reads), which is cheap next to an evaluation. The cursor is a position, so
+ * frontier churn shifts it a little: a lap is approximate, never lossy.
+ * Intended to be called once per player per territory-automation tick (~30s).
  */
 export const RECONCILE_SCAN_BUDGET = 50;
+
+/** Per-player resume position for reconcileEligibleFrontierQueueForOwner; one number per player. */
+export type ReconcileCursorByOwner = Map<string, number>;
 
 export const reconcileEligibleFrontierQueueForOwner = (
   eligibleFrontierByOwner: EligibleFrontierByOwner,
   ownerId: string,
-  frontierTileKeys: Iterable<string>,
+  frontierTileKeys: ReadonlySet<string> | readonly string[],
   deps: EvaluateTileEligibilityDeps,
-  scanBudget = RECONCILE_SCAN_BUDGET
+  scanBudget = RECONCILE_SCAN_BUDGET,
+  cursorByOwner?: ReconcileCursorByOwner
 ): number => {
-  if (eligibleFrontierCountForOwner(eligibleFrontierByOwner, ownerId) > 0) return 0;
+  const isFull = (): boolean => eligibleFrontierCountForOwner(eligibleFrontierByOwner, ownerId) >= AUTO_SETTLE_ELIGIBLE_FRONTIER_CAP_PER_PLAYER;
+  if (isFull()) return 0;
+  const total = "size" in frontierTileKeys ? frontierTileKeys.size : frontierTileKeys.length;
+  if (total === 0) return 0;
+  const savedStart = cursorByOwner?.get(ownerId) ?? 0;
+  const start = savedStart < total ? savedStart : 0;
   let scanned = 0;
   let inserted = 0;
-  for (const tileKey of frontierTileKeys) {
-    if (scanned >= scanBudget) break;
-    scanned += 1;
-    if (evaluateTileEligibility(tileKey, ownerId, deps) && insertEligibleFrontierTile(eligibleFrontierByOwner, ownerId, tileKey)) {
-      inserted += 1;
+  let nextCursor = start;
+  // Walks [from, to) of the frontier in iteration order; called for [start, total) then wraps to [0, start).
+  const scanRange = (from: number, to: number): void => {
+    let index = 0;
+    for (const tileKey of frontierTileKeys) {
+      if (index >= to || scanned >= scanBudget || isFull()) return;
+      if (index >= from) {
+        scanned += 1;
+        nextCursor = index + 1;
+        if (evaluateTileEligibility(tileKey, ownerId, deps) && insertEligibleFrontierTile(eligibleFrontierByOwner, ownerId, tileKey)) {
+          inserted += 1;
+        }
+      }
+      index += 1;
     }
-  }
+  };
+  scanRange(start, total);
+  scanRange(0, start);
+  cursorByOwner?.set(ownerId, nextCursor % total);
   return inserted;
 };
 
@@ -241,12 +264,20 @@ export type EvaluateTileEligibilityDeps = {
   isInReach: (tile: DomainTileState) => boolean;
   isRevealedToPlayer: (tile: DomainTileState) => boolean;
   hasTownSupport: (tile: DomainTileState) => boolean;
+  /**
+   * The player's per-category opt-in (auto-settle-prefs.ts). A tile in a
+   * category they haven't opted into is not eligible, so it never takes one of
+   * the capped queue slots; switching the category on rescans the frontier
+   * (refillForOwner). Optional so existing fixtures stay valid; omitted means allowed.
+   */
+  isAutoSettleAllowed?: (tile: DomainTileState) => boolean;
 };
 
 export const evaluateTileEligibility = (tileKey: string, playerId: string, deps: EvaluateTileEligibilityDeps): boolean => {
   if (deps.isBlocked(tileKey)) return false;
   const tile = deps.getTile(tileKey);
-  return isAutoSettlementEligibleTarget(tile, playerId, deps.hasTownSupport, deps.isRevealedToPlayer, deps.isInReach);
+  if (!isAutoSettlementEligibleTarget(tile, playerId, deps.hasTownSupport, deps.isRevealedToPlayer, deps.isInReach)) return false;
+  return deps.isAutoSettleAllowed?.(tile) ?? true;
 };
 
 // ---------------------------------------------------------------------------
@@ -297,10 +328,12 @@ export const attemptImmediateSettle = (
     return;
   }
   if (!(target.town || target.dockId) && !ctx.isInReach(ownerId, target)) return;
-  // A category the player hasn't opted into stays queued (so the join prompt and
-  // settings can see it, and flipping the toggle on drains it) but never spends.
+  // A category the player hasn't opted into is never queued: those tiles used to
+  // sit in the capped queue forever and, once it was full, crowded out towns and
+  // support tiles the player had opted into. Switching the category on rescans
+  // the frontier instead (refillForOwner).
   if (ctx.isAutoSettleAllowed && !ctx.isAutoSettleAllowed(ownerId, target)) {
-    insertEligibleFrontierTile(eligibleFrontierByOwner, ownerId, tileKey);
+    removeEligibleFrontierTile(eligibleFrontierByOwner, ownerId, tileKey);
     return;
   }
   if (ctx.settleRejectionForActor(ownerId) || !ctx.hasAvailableDevelopmentSlot(ownerId)) {
@@ -341,18 +374,21 @@ export const drainEligibleFrontierQueue = (
   ctx: SettleAttemptContext
 ): number => {
   let settled = 0;
+  // Count real starts: a popped tile that is no longer eligible is dropped, not settled.
+  const countingCtx: SettleAttemptContext = {
+    ...ctx,
+    startSettlementProcess: (input) => {
+      settled += 1;
+      ctx.startSettlementProcess(input);
+    }
+  };
   const set = eligibleFrontierByOwner.get(ownerId);
   const maxAttempts = set ? set.size : 0;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (ctx.settleRejectionForActor(ownerId) || !ctx.hasAvailableDevelopmentSlot(ownerId)) break;
     const tileKey = popNextEligibleFrontierTile(eligibleFrontierByOwner, ownerId);
     if (!tileKey) break;
-    const before = eligibleFrontierCountForOwner(eligibleFrontierByOwner, ownerId);
-    attemptImmediateSettle(eligibleFrontierByOwner, ownerId, tileKey, ctx);
-    // attemptImmediateSettle only re-inserts tileKey (net queue size
-    // unchanged) when it's still blocked/ineligible for settling right now --
-    // otherwise it started settlement, so count it.
-    if (eligibleFrontierCountForOwner(eligibleFrontierByOwner, ownerId) === before) settled += 1;
+    attemptImmediateSettle(eligibleFrontierByOwner, ownerId, tileKey, countingCtx);
   }
   return settled;
 };

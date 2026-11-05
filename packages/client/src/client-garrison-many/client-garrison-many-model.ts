@@ -1,4 +1,4 @@
-import { DEV_QUEUE_TOTAL_CAP, SETTLE_COST, SETTLE_MANPOWER_COST, settleIgnoresReach } from "@border-empires/shared";
+import { DEV_QUEUE_TOTAL_CAP, SETTLE_COST, settleIgnoresReach } from "@border-empires/shared";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -45,9 +45,9 @@ export const buildGarrisonManyPlan = (state: ClientState): GarrisonManyPlan => {
     else tiles.push(tile);
   }
   const queuedSettlements = state.developmentQueue.filter((entry) => entry.kind === "SETTLE").length;
-  const manpower = state.garrisonMany.keys.length * SETTLE_MANPOWER_COST;
+  const manpower = state.garrisonMany.keys.length * state.settleManpowerCost;
   const coin = state.garrisonMany.keys.length * SETTLE_COST;
-  const reservedManpower = queuedSettlements * SETTLE_MANPOWER_COST;
+  const reservedManpower = queuedSettlements * state.settleManpowerCost;
   let blocked = "";
   if (!state.authSessionReady) blocked = "Waiting for connection";
   else if (!state.garrisonMany.keys.length) blocked = "Select frontier tiles";

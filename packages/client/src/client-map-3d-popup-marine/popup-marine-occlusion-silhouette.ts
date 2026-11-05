@@ -19,9 +19,9 @@
 // part — the silhouette survives only where the body is truly hidden, and a
 // marine's own limbs never tint its torso.
 //
-// A killed marine deliberately topples and sinks into the ground to leave
-// the fight, so the caller hides its silhouette while it falls — otherwise
-// the sinking body would glow through the terrain instead of disappearing.
+// A killed marine falls flat onto the ground (the rig's Dead clip), so the
+// caller hides its silhouette once it falls — otherwise the body lying on
+// uneven terrain would glow through it.
 import { GreaterDepth, MeshBasicMaterial, SkinnedMesh, type BufferGeometry } from "three";
 
 export const MARINE_RENDER_ORDER = 37;

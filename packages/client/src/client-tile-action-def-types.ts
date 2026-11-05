@@ -3,6 +3,7 @@
 
 export type TileActionDef = {
   id:
+    | import("@border-empires/shared").NetworkBuildAction
     | "settle_land"
     | "settle_many"
     | "launch_attack"
@@ -10,7 +11,6 @@ export type TileActionDef = {
     | "reveal_empire"
     | "reveal_empire_stats"
     | "survey_sweep"
-    | "collect_shard"
     | "build_fortification"
     | "build_palisade"
     | "build_observatory"
@@ -65,7 +65,6 @@ export type TileActionDef = {
     | "build_titanium_levy"
     | "build_ministry_hall"
     | "build_resonance_grid"
-    | "build_quartermasters_office"
     | "build_ancillary_factory"
     | "build_reserve_lattice"
     | "build_weapons_workshop"
@@ -89,6 +88,9 @@ export type TileActionDef = {
     | "break_truce"
     | "aether_lance"
     | "suppress_aether_tower"
+    | "hijack_aether_tower"
+    | "forced_ancillarification"
+    | "ship_salvage_to_court"
     | "retort_recast_food"
     | "retort_recast_titanium"
     | "retort_recast_crystal"
@@ -109,6 +111,8 @@ export type TileActionDef = {
     | "cancel_waypoint"
     | "cancel_all_waypoints" | "clear_waypoint_and_expand_here"
     | "expand_here"
+    | "march_attack_flag" | "march_attack_flag_2" | "march_attack_flag_3" | "march_attack_new_flag"
+    | "march_to_pick_origin"
     | `redeploy_afc_module:${string}`;
   label: string;
   cost?: string;

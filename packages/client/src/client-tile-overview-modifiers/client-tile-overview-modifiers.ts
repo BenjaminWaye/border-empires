@@ -1,3 +1,4 @@
+import { isRedesignedRelic, relicOperationalState, relicReserveLabel, RELIC_DEFINITIONS } from "@border-empires/shared";
 import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, defendingFortVariant, FORT_VARIANT_LABELS, isFortDefending, type EconomicStructureType } from "@border-empires/shared";
 import { prospectClueOverviewLine, retiredProspectClues } from "../client-prospect-clue/client-prospect-clue.js";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
@@ -16,6 +17,13 @@ type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "
 // Conscription Engine latch, not a general activation flag).
 export const naturalWonderOverviewLine = (tile: Tile, ownerKind: TileOwnerKind): string | undefined => {
   if (!tile.naturalWonder) return undefined;
+  if (isRedesignedRelic(tile.naturalWonder)) {
+    const definition = RELIC_DEFINITIONS[tile.naturalWonder.type];
+    const status = relicOperationalState(tile.naturalWonder, Boolean(tile.ownerId && tile.ownershipState === "SETTLED"));
+    const reserve = relicReserveLabel(tile.naturalWonder);
+    const bonus = tile.naturalWonder.resourceBonus;
+    return `Relic: ${definition.name} — ${status}. ${status === "depleted" ? "The reserve is exhausted; capture does not replenish it." : definition.benefit}${bonus ? ` Allocation: +${bonus.amount} ${bonus.resource} capacity.` : ""}${reserve ? ` ${reserve}.` : ""}`;
+  }
   const { name, boon } = NATURAL_WONDER_LABELS[tile.naturalWonder.type];
   if (ownerKind === "mine-settled") return `Natural wonder: ${name} — active. Boon: ${boon}.`;
   if (ownerKind === "mine-frontier") return `Natural wonder: ${name}. Garrison this tile to activate: ${boon}.`;
@@ -313,7 +321,7 @@ const grantedEffectLabel = (
 
 /**
  * The "what is this tile?" lead of the overview: the special thing on it
- * (structure, waystation, natural wonder, shard site) goes first, ahead of the
+ * (structure, waystation, natural wonder) goes first, ahead of the
  * generic ownership boilerplate ("Frontier land is visible control...") and the
  * economy rows, so the most distinctive fact is the first thing a player reads.
  * Land tiles only; empty when the tile is plain.
@@ -339,11 +347,7 @@ export const tileFeatureLeadLines = (
   }));
   const wonderLine = naturalWonderOverviewLine(tile, ownerKind);
   if (wonderLine) lines.push({ html: wonderLine });
-  if (tile.shardSite) {
-    const n = tile.shardSite.amount;
-    const shards = `${n} shard${n === 1 ? "" : "s"}`;
-    lines.push({ html: tile.shardSite.kind === "FALL" ? `Shard rain deposit: ${shards} can be collected here for a short time.` : `Shard cache: ${shards} can be recovered here.` });
-  }
+  if (tile.naturalWonder && isRedesignedRelic(tile.naturalWonder)) lines.push({ html: `<button type="button" data-relic-state="${encodeURIComponent(JSON.stringify(tile.naturalWonder))}" data-relic-garrisoned="${Boolean(tile.ownerId && tile.ownershipState === "SETTLED")}">View relic installation</button>` });
   const clueLine = prospectClueOverviewLine(tile, retiredProspectClues(deps.techIds ?? [], deps.techCatalog));
   if (clueLine) lines.push({ html: clueLine });
   return lines;

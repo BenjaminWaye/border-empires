@@ -11,10 +11,12 @@ describe("coastline polish: calm shore and foam", () => {
     HTMLCanvasElement.prototype.getContext = (() => fakeCtx) as unknown as typeof HTMLCanvasElement.prototype.getContext;
   });
 
-  it("calms waves fully at corners touching land, easing back in over two rings", () => {
+  it("calms waves fully at corners touching land, nearly so one ring out, easing back in over two more", () => {
     // Regression: sea corners at the coast bobbed ~0.22, flickering the square sea-tile edges.
     const calm = computeShoreCalm(6, 1, (c) => c === 0); // land tile at column 0
-    expect(Array.from(calm)).toEqual([1, 1, 0.6000000238418579, 0.25, 0, 0]);
+    // Ring 1 stays nearly flat: the beach fringe's outer lip sits just above
+    // calm water there, and waves rising through it showed as slivers.
+    expect(Array.from(calm)).toEqual([1, 1, Math.fround(0.95), 0.5, Math.fround(0.2), 0]);
   });
 
   it("lays foam only near land, strongest at the waterline and rounded around corners", () => {

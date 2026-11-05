@@ -1,5 +1,6 @@
+import { NETWORK_RESOURCES } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
-import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "./client-map-3d-forest-structure-gate.js";
+import { shouldDrawForestInstance } from "./client-map-3d-forest-structure-gate.js";
 import type { Tile } from "./client-types.js";
 
 const baseTile = { x: 0, y: 0, terrain: "LAND" } as Tile;
@@ -26,20 +27,8 @@ describe("shouldDrawForestInstance", () => {
   });
 });
 
-describe("shouldDrawLightGrassScatterInstance", () => {
-  it("draws the scatter sapling on a scatter tile with no structure", () => {
-    expect(shouldDrawLightGrassScatterInstance(true, baseTile)).toBe(true);
-  });
 
-  it("skips the scatter sapling once a structure is built on the tile", () => {
-    const built: Tile = {
-      ...baseTile,
-      economicStructure: { ownerId: "p1", type: "MINE", status: "active" }
-    };
-    expect(shouldDrawLightGrassScatterInstance(true, built)).toBe(false);
-  });
-
-  it("skips when the tile isn't a scatter tile at all, structure or not", () => {
-    expect(shouldDrawLightGrassScatterInstance(false, baseTile)).toBe(false);
-  });
+it("keeps frontier resource plots readable through forest canopy", () => {
+  for (const resource of NETWORK_RESOURCES)
+    expect(shouldDrawForestInstance(true, { ...baseTile, resource })).toBe(false);
 });

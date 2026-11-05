@@ -1,4 +1,6 @@
-import type { DiplomacyTerms, FrontierDecayKind, MusterState, NaturalWonderType, ObservatorySiphonMode, ProspectSignature, Terrain, WaystationTileState } from "@border-empires/shared";
+export type { AllianceRequest, TruceRequest } from "./client-diplomacy-trade/client-treaty-requests.js";
+import type { ClientTileObservatory, ClientTileSiegeBattery } from "./client-tile-defense-types.js";
+import type { FrontierDecayKind, MusterState, ProspectSignature, Terrain, WaystationTileState } from "@border-empires/shared";
 import type { ClientTileEconomicStructure } from "./client-tile-economic-structure-type.js";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 import type { ClientTileFort } from "./client-tile-fort-type.js";
@@ -11,6 +13,7 @@ export type OptimisticStructureKind =
   | "ASTRAL_DOCK_PART_2"
   | "ASTRAL_DOCK_PART_3"
   | "ASTRAL_DOCK"
+  | import("@border-empires/shared").NetworkBuilding
   | "HYDROGARDEN"
   | "HYDROWORKS"
   | "UMBRITE_RIG"
@@ -36,7 +39,6 @@ export type OptimisticStructureKind =
   | "NEURAL_WORKS"
   | "MINISTRY_HALL"
   | "RESONANCE_GRID"
-  | "QUARTERMASTERS_OFFICE"
   | "ANCILLARY_FACTORY"
   | "RESERVE_LATTICE"
   | "IMPERIAL_EXCHANGE_PART_1"
@@ -84,6 +86,8 @@ export type Tile = {
   breachShockUntil?: number;
   /** Post-capture hold window end (shared capture-hold.ts): FRONTIER defends, troops stand on it. */
   captureHoldUntil?: number;
+  warScarLevel?: number;
+  warScarUntil?: number;
   frontierDecayAt?: number;
   frontierDecayKind?: FrontierDecayKind;
   clusterId?: string;
@@ -106,24 +110,12 @@ export type Tile = {
       deltaGoldPerMinute: number;
     }>;
   };
-  shardSite?: {
-    kind: "CACHE" | "FALL";
-    amount: number;
-    expiresAt?: number;
-  } | null;
   watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; waystation?: WaystationTileState | null; // Watchtower site (server-worldgen-watchtowers.ts; revealUntil = ~10s post-activation flicker window) and Waystation site (server-worldgen-waystations.ts; permanent activation, no revealUntil -- grantedEffect/detail fields read by client-waystation-activation/'s result popup).
-  naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
+  naturalWonder?: import("@border-empires/shared").NaturalWonderState | null;
   town?: ClientTownWireSummary;
   fort?: ClientTileFort;
-  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; startedAt?: number; pausedAt?: number; suppressedUntil?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };
-  siegeBattery?: {
-    ownerId: string;
-    status: "under_construction" | "active" | "removing";
-    variant?: "SIEGE_BATTERY" | "SIEGE_TOWER" | "DREAD_TOWER";
-    completesAt?: number;
-    startedAt?: number;
-    pausedAt?: number;
-  };
+  observatory?: ClientTileObservatory;
+  siegeBattery?: ClientTileSiegeBattery;
   economicStructure?: ClientTileEconomicStructure;
   upkeepEntries?: TileUpkeepEntry[];
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number; observatoryTileKey?: string };
@@ -136,6 +128,7 @@ export type Tile = {
       | "FORT"
       | "SIEGE_BATTERY"
       | "OBSERVATORY"
+      | import("@border-empires/shared").NetworkBuilding
       | "HYDROGARDEN"
       | "HYDROWORKS"
       | "UMBRITE_RIG"
@@ -169,6 +162,7 @@ export type Tile = {
       | "FORT"
       | "SIEGE_BATTERY"
       | "OBSERVATORY"
+      | import("@border-empires/shared").NetworkBuilding
       | "HYDROGARDEN"
       | "HYDROWORKS"
       | "UMBRITE_RIG"
@@ -221,6 +215,11 @@ export type SeasonVictoryObjectiveView = {
   holdRemainingSeconds?: number;
   statusLabel: string;
   conditionMet: boolean;
+  /** Leader's and the viewer's own 0..1 progress to the win line (Ranks race tracks). */
+  progress?: number;
+  selfProgress?: number;
+  /** Up to two runners-up behind the leader, best first (progress means the same as selfProgress). */
+  contenders?: Array<{ playerId: string; name: string; progress: number }>;
 };
 
 export type TileTimedProgress = {
@@ -238,17 +237,7 @@ export type EmpireVisualStyle = {
   structureAccent: "TITANIUM" | "UMBRITE" | "FOOD" | "CRYSTAL" | "NEUTRAL";
 };
 
-export type AllianceRequest = {
-  id: string;
-  fromPlayerId: string;
-  toPlayerId: string;
-  createdAt: number;
-  expiresAt?: number;
-  fromName?: string;
-  toName?: string;
-  /** Coin/Shards the deal moves, from the proposer's side. */
-  terms?: DiplomacyTerms;
-};
+
 
 export type ActiveAllianceBreakView = {
   otherPlayerId: string;
@@ -262,17 +251,6 @@ export type RecentAllianceBreakView = ActiveAllianceBreakView & {
   finalizedAt: number;
 };
 
-export type TruceRequest = {
-  id: string;
-  fromPlayerId: string;
-  toPlayerId: string;
-  createdAt: number;
-  expiresAt: number;
-  durationHours: 12 | 24;
-  fromName?: string;
-  toName?: string;
-  terms?: DiplomacyTerms;
-};
 
 export type ActiveTruceView = {
   origin?: "court" | "negotiated";
@@ -335,7 +313,7 @@ export type RevealEmpireStatsView = {
   gold: number;
   manpower: number;
   manpowerCap: number;
-  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
+  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
 };
 
 export type StrategicReplayEventType =
@@ -367,6 +345,7 @@ export type StrategicReplayEvent = {
     | "FORT"
     | "SIEGE_BATTERY"
     | "OBSERVATORY"
+    | import("@border-empires/shared").NetworkBuilding
     | "HYDROGARDEN"
     | "UMBRITE_RIG"
     | "MINE"

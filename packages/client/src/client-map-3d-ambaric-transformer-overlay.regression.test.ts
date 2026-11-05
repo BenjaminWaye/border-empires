@@ -151,7 +151,8 @@ describe("aether tower overlay", () => {
       const ranges = mesh.instanceMatrix.updateRanges;
       expect(ranges).toHaveLength(1);
       expect(ranges[0]).toEqual({ start: 0, count: mesh.count * 16 });
-      expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
+      expect(ranges[0]!.count).toBeLessThanOrEqual(mesh.instanceMatrix.array.length);
+      if (!mesh.geometry.hasAttribute("districtState")) expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
     }
 
     overlay.dispose();
@@ -174,7 +175,8 @@ describe("aether tower overlay", () => {
       const ranges = mesh.instanceMatrix.updateRanges;
       expect(ranges).toHaveLength(1);
       expect(ranges[0]!.count).toBe(mesh.count * 16);
-      expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
+      expect(ranges[0]!.count).toBeLessThanOrEqual(mesh.instanceMatrix.array.length);
+      if (!mesh.geometry.hasAttribute("districtState")) expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
       expect(mesh.instanceMatrix.version).toBeGreaterThan(0);
     }
 
@@ -185,7 +187,9 @@ describe("aether tower overlay", () => {
     const scene = new Scene();
     const overlay = createAmbaricTransformerOverlay(scene, 8);
 
+    overlay.addInstance(0, 0, 0, 0, 0); overlay.commit();
     const emptySlotCount = instancedMeshes(scene).length;
+    overlay.clear();
     expect(emptySlotCount).toBeGreaterThan(0);
 
     for (let i = 0; i < 6; i += 1) overlay.addInstance(i * 2, 0, 0, i, 0);
@@ -224,7 +228,7 @@ describe("aether tower overlay", () => {
     // Lit and dimmed core slots share the core geometry; the dimmed one is
     // the only populated slot and glows at a fraction of the lit emissive.
     const cores = instancedMeshes(scene).filter(
-      (mesh) => mesh.geometry.type === "SphereGeometry" && (mesh.geometry as SphereGeometry).parameters.radius === 0.17
+      (mesh) => mesh.geometry.type === "CylinderGeometry" && (mesh.geometry as CylinderGeometry).parameters.radiusTop === 0.13 && (mesh.geometry as CylinderGeometry).parameters.height === 0.36
     );
     expect(cores).toHaveLength(2);
     const [litCore, dimCore] = cores as [InstancedMesh, InstancedMesh];
@@ -233,7 +237,7 @@ describe("aether tower overlay", () => {
     const litIntensity = (litCore.material as MeshStandardMaterial).emissiveIntensity;
     expect((dimCore.material as MeshStandardMaterial).emissiveIntensity).toBeLessThan(litIntensity * 0.5);
     const [litMote, dimMote] = instancedMeshes(scene).filter(
-      (mesh) => mesh.material instanceof MeshBasicMaterial && (mesh.geometry as SphereGeometry).parameters.radius === 0.014
+      (mesh) => mesh.material instanceof MeshBasicMaterial && mesh.geometry instanceof SphereGeometry && mesh.geometry.parameters.radius === 0.014
     ) as [InstancedMesh, InstancedMesh];
     expect(dimMote.count).toBe(2);
     expect((dimMote.material as MeshBasicMaterial).opacity).toBeLessThan((litMote.material as MeshBasicMaterial).opacity * 0.5);

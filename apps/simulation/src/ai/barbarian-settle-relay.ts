@@ -3,11 +3,11 @@ import { BARBARIAN_INFLIGHT_TIMEOUT_MS } from "@border-empires/shared";
 /**
  * Tells the barbarian planner (in the worker) when a command it issued has
  * finished, so the tile's rest period can start from that moment instead of
- * from when the command was issued (combat locks for 30s, so counting from
+ * from when the command was issued (combat locks for 15s, so counting from
  * issue leaves no rest between fights).
  *
  * Settle events seen in the simulation event stream:
- *   ATTACK / EXPAND   -> COMBAT_RESOLVED (7.5s for a claim, 30s for a fight)
+ *   ATTACK / EXPAND   -> COMBAT_RESOLVED (7.5s for a claim, 15s for a fight)
  *   UNCAPTURE_TILE    -> COMMAND_RESOLVED
  *   any invalid input -> COMMAND_REJECTED
  *   cancelled locks   -> COMBAT_CANCELLED (carries cancelledCommandIds)

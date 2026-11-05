@@ -93,8 +93,7 @@ export const emptyStrategic = (): Record<StrategicResourceKey, number> => ({
   FOOD: 0,
   TITANIUM: 0,
   CRYSTAL: 0,
-  UMBRITE: 0,
-  SHARD: 0
+  UMBRITE: 0
 });
 
 export const addBucket = (
@@ -284,7 +283,7 @@ export const buildResourceSlotDormancyByPlayer = (runtimeState: RuntimeState): M
     }
     const { hydroworksKeys, oreRefineryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
     const domainGranted = domainGrantedResourceSlots({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource, ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}) });
-    const supply = resourceSlotSupplyForPlayer(settledTiles, hydroworksKeys, oreRefineryKeys, domainGranted, techGrantedFishFoodSlotBonus(player));
+    const supply = player.effectiveResourceSupply ?? resourceSlotSupplyForPlayer(settledTiles, hydroworksKeys, oreRefineryKeys, domainGranted, techGrantedFishFoodSlotBonus(player));
     // §23.2: apply the same slot waivers the live runtime does, or a
     // reconnect could show a structure dormant that the live path considers
     // waived (Dwarf Kingdom/Fortress Realm/Supply State/Treasury State/

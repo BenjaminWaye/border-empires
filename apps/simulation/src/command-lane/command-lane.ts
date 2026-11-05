@@ -34,7 +34,10 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "AETHER_LANCE":
     case "AETHER_EMP":
     case "SUPPRESS_AETHER_TOWER":
+    case "HIJACK_AETHER_TOWER":
     case "RECRUIT_ANCILLARIES":
+    case "SHIP_SALVAGE_TO_COURT":
+    case "FORCED_ANCILLARIFICATION":
     case "CAST_AETHER_BRIDGE":
     case "CAST_AETHER_WALL":
     case "SIPHON_TILE":
@@ -53,7 +56,6 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "SOVEREIGN_SIEGE_ENGINE_STRIKE":
     case "TITANIUM_LEVY_MUSTER":
       return "human_interactive";
-    case "COLLECT_SHARD":
     case "CHOOSE_TECH":
     case "CHOOSE_DOMAIN":
     case "SET_AUTO_SETTLE_PREFS":

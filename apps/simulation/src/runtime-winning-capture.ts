@@ -1,11 +1,12 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { CAPTURE_HOLD_MS } from "@border-empires/shared";
+import { CAPTURE_HOLD_MS, warScarFieldsAfterBattle } from "@border-empires/shared";
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
 import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
 import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-auto-settle/runtime-out-of-reach-auto-settle.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import { flipFeatures } from "./territory-flip-log/territory-flip-features.js";
+import { recordDockChangeImpacts } from "./personal-impact-log/dock-change-impacts.js";
 import type { SimulationTileWireDelta, LockRecord } from "./runtime-types.js";
 import type { RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 /** One capture pipeline for regular wins and non-recursive Breakthrough capitulation. */
@@ -37,7 +38,6 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
       ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
       ...(previousTarget?.prospectSignature ? { prospectSignature: previousTarget.prospectSignature } : {}),
       ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
-      ...(previousTarget?.shardSite ? { shardSite: previousTarget.shardSite } : {}),
       ...(previousTarget?.naturalWonder ? { naturalWonder: previousTarget.naturalWonder } : {}),
       ...(previousTarget?.watchtower ? { watchtower: previousTarget.watchtower } : {}),
       ...(previousTarget?.waystation ? { waystation: previousTarget.waystation } : {}),
@@ -53,7 +53,14 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
       // defends for a while instead of being a free 100% retake.
       ...(lock.actionType === "ATTACK" && lock.playerId !== "barbarian-1" && previousOwnerId && previousOwnerId !== lock.playerId && previousOwnerId !== "barbarian-1"
         ? { captureHoldUntil: context.now() + CAPTURE_HOLD_MS }
-        : {})
+        : {}),
+      // Battle scars (shared war-scars.ts) stay on the ground through a
+      // change of owner; taking a garrison in battle adds to them.
+      ...warScarFieldsAfterBattle(previousTarget, {
+        // Only a garrison taken in an actual fight (not a Breakthrough capitulation, which has none).
+        capturedGarrison: Boolean(combatBroadcastJson) && previousTarget?.ownershipState === "SETTLED" && Boolean(previousOwnerId) && previousOwnerId !== lock.playerId && previousOwnerId !== "barbarian-1",
+        battle: Boolean(combatBroadcastJson)
+      }, context.now())
     };
     // Capturing a tile destroys any muster flag staged on it — the accumulated
     // manpower is lost, not refunded to the previous owner's pool. resolvedTarget
@@ -77,9 +84,10 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
         capturedStructureTypes
       };
       const occurredAt = context.now();
-      context.recordPersonalImpact?.({ id: `town-captured:${lock.commandId}`, kind: "TOWN_CAPTURED", playerId: lock.playerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact });
-      context.recordPersonalImpact?.({ id: `town-lost:${lock.commandId}`, kind: "TOWN_LOST", playerId: previousOwnerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact });
+      context.recordPersonalImpact?.({ id: `town-captured:${lock.commandId}`, kind: "TOWN_CAPTURED", playerId: lock.playerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact, counterpartyPlayerId: previousOwnerId });
+      context.recordPersonalImpact?.({ id: `town-lost:${lock.commandId}`, kind: "TOWN_LOST", playerId: previousOwnerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact, counterpartyPlayerId: lock.playerId });
     }
+    recordDockChangeImpacts(context, previousTarget, lock.playerId, lock.commandId);
     if (previousOwnerId !== resolvedTarget.ownerId) {
       context.recordTileFlip?.({
         tileId: lock.targetKey,

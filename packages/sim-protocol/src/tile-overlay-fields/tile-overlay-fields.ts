@@ -28,7 +28,6 @@
  * derived from this table.
  */
 export const TILE_OVERLAY_WIRE_FIELDS = [
-  { key: "shardSite", camel: "shardSiteJson", snake: "shard_site_json" },
   { key: "naturalWonder", camel: "naturalWonderJson", snake: "natural_wonder_json" },
   { key: "fort", camel: "fortJson", snake: "fort_json" },
   { key: "observatory", camel: "observatoryJson", snake: "observatory_json" },

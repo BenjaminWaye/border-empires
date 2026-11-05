@@ -1,12 +1,8 @@
 import {
-  hideShardAlert as hideShardAlertFromModule,
-  maybeAnnounceShardSite as maybeAnnounceShardSiteFromModule,
   notifyInsufficientGoldForFrontierAction as notifyInsufficientGoldForFrontierActionFromModule,
   pushFeed as pushFeedFromModule,
   pushFeedEntry as pushFeedEntryFromModule,
-  shardAlertKeyForPayload as shardAlertKeyForPayloadFromModule,
-  showCaptureAlert as showCaptureAlertFromModule,
-  showShardAlert as showShardAlertFromModule
+  showCaptureAlert as showCaptureAlertFromModule
 } from "./client-alerts/client-alerts.js";
 import { createMultiplexWebSocket } from "./client-multiplex-websocket/client-multiplex-websocket.js";
 import {
@@ -18,14 +14,13 @@ import {
   viewportSize as viewportSizeFromModule
 } from "./client-panel-nav/client-panel-nav.js";
 import type { ClientState } from "./client-state/client-state.js";
-import type { FeedEntry, FeedSeverity, FeedType, Tile } from "./client-types.js";
+import type { FeedEntry, FeedSeverity, FeedType } from "./client-types.js";
 import {
   centerOnOwnedTile as centerOnOwnedTileFromModule,
   maybeRefreshForCamera as maybeRefreshForCameraFromModule,
   requestViewRefresh as requestViewRefreshFromModule
 } from "./client-view-refresh.js";
 import type { ClientAppDom } from "./client-app-runtime-dom.js";
-import type { ClientShardRainAlert } from "./client-shard-alert/client-shard-alert.js";
 
 export const createClientViewSupport = (deps: {
   state: ClientState;
@@ -38,11 +33,6 @@ export const createClientViewSupport = (deps: {
   const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void =>
     pushFeedFromModule(state, msg, type, severity);
   const pushFeedEntry = (entry: FeedEntry): void => pushFeedEntryFromModule(state, entry);
-  const maybeAnnounceShardSite = (previous: Tile | undefined, next: Tile): void => maybeAnnounceShardSiteFromModule(state, previous, next);
-  const shardAlertKeyForPayload = (phase: "upcoming" | "started", startsAt: number): string =>
-    shardAlertKeyForPayloadFromModule(phase, startsAt);
-  const showShardAlert = (alert: ClientShardRainAlert): void => showShardAlertFromModule(state, alert);
-  const hideShardAlert = (): void => hideShardAlertFromModule(state);
   const showCaptureAlert = (
     title: string,
     detail: string,
@@ -82,6 +72,7 @@ export const createClientViewSupport = (deps: {
       mobilePanelEconomyEl: dom.mobilePanelEconomyEl,
       mobilePanelManpowerEl: dom.mobilePanelManpowerEl,
       mobilePanelDevelopmentEl: dom.mobilePanelDevelopmentEl,
+      mobilePanelTownsEl: dom.mobilePanelTownsEl,
       mobilePanelLeaderboardEl: dom.mobilePanelLeaderboardEl,
       mobilePanelFeedEl: dom.mobilePanelFeedEl,
       mobilePanelSettingsEl: dom.mobilePanelSettingsEl,
@@ -93,10 +84,6 @@ export const createClientViewSupport = (deps: {
   return {
     pushFeed,
     pushFeedEntry,
-    maybeAnnounceShardSite,
-    shardAlertKeyForPayload,
-    showShardAlert,
-    hideShardAlert,
     showCaptureAlert,
     notifyInsufficientGoldForFrontierAction,
     centerOnOwnedTile,

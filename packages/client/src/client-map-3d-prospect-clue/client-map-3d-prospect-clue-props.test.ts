@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, Matrix4, Scene, Vector3 } from "three";
+import { InstancedMesh, Matrix4, MeshStandardMaterial, Scene, Vector3 } from "three";
 import { createProspectClueProps } from "./client-map-3d-prospect-clue-props.js";
+import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js";
+import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createProspectClueLayer } from "./client-map-3d-prospect-clue-layer.js";
 import { prospectCluePropCount, prospectCluePropsAllowed } from "../client-prospect-clue/client-prospect-clue.js";
 import type { TechInfo, Tile } from "../client-types.js";
@@ -52,6 +54,27 @@ describe("createProspectClueProps", () => {
     props.dispose();
   });
 
+  it("draws low ground clues after every ownership bucket, while preserving terrain occlusion", () => {
+    const scene = new Scene();
+    const props = createProspectClueProps(scene, 4);
+    const ownership = createOwnershipOverlay(scene, 4);
+    for (const mesh of meshesOf(scene).slice(1)) {
+      // renderOrder alone cannot move an opaque mesh past transparent ownership.
+      expect(mesh.material).toBeInstanceOf(MeshStandardMaterial);
+      const material = mesh.material as MeshStandardMaterial;
+      expect(material.transparent).toBe(true);
+      expect(material.opacity).toBe(1);
+      expect(material.depthTest).toBe(true);
+      expect(material.depthWrite).toBe(true);
+      for (const tint of [ownership.settledMesh, ownership.frontierMesh, ownership.settledHillMesh, ownership.frontierHillMesh]) {
+        expect(mesh.renderOrder).toBeGreaterThan(tint.renderOrder);
+      }
+      expect(mesh.renderOrder).toBeLessThan(RENDER_ORDER.fogDarkenSettled);
+    }
+    ownership.dispose();
+    props.dispose();
+  });
+
   it("stops at the instance budget instead of overflowing", () => {
     const counts = countsAfter((p) => {
       for (let i = 0; i < 50; i += 1) p.addTile(0, 0, 0, flat, i, i * 3, "FERROUS_DUST", false);
@@ -82,7 +105,6 @@ describe("prospect clue tile gating", () => {
     expect(prospectCluePropsAllowed(tile({ resource: "UMBRITE" }))).toBe(false);
     expect(prospectCluePropsAllowed(tile({ dockId: "d1" }))).toBe(false);
     expect(prospectCluePropsAllowed(tile({ watchtower: { activated: false } }))).toBe(false);
-    expect(prospectCluePropsAllowed(tile({ shardSite: { kind: "CACHE", amount: 3 } }))).toBe(false);
     expect(prospectCluePropsAllowed(undefined)).toBe(false);
   });
 

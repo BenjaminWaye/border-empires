@@ -38,8 +38,8 @@ export const feedAgeLabel = (atMs: number, nowMs: number): string => {
 const feedIcon = (type: FeedType): string => {
   if (type === "combat") return "⚔";
   if (type === "mission") return "✓";
-  if (type === "alliance") return "🤝";
-  if (type === "tech") return "⚡";
+  if (type === "alliance") return "⚖\uFE0E";
+  if (type === "tech") return "ϟ";
   if (type === "error") return "!";
   return "i";
 };
@@ -257,6 +257,7 @@ export const alliesHtml = (
       </div>`
           : `<button class="panel-btn alliance-reference-action alliance-reference-action-break break-alliance" type="button" data-alliance-break-player-id="${id}">Break Alliance</button>`
       }
+      <button type="button" class="panel-btn propose-resource-trade" data-propose-player-id="${escapeHtml(id)}">Trade resources</button>
     </article>`;
     })
     .join("");
@@ -286,7 +287,7 @@ export const truceRequestsHtml = (
       <div class="alliance-reference-top">
         <div class="alliance-reference-copy">
           ${allianceNameButtonHtml(playerId, playerName, playerColors)}
-          ${socialOfferLineHtml(kind, `a ${request.durationHours}h truce`)}
+          ${socialOfferLineHtml(kind, `a ${request.durationHours}h truce${request.extendsTruce ? " extension" : ""}`)}
         </div>
         <div class="alliance-reference-right">
           <div class="alliance-reference-duration">${socialClockIcon()}<span>${request.durationHours}h</span></div>
@@ -310,10 +311,10 @@ export const truceRequestsHtml = (
 };
 
 export const strategicRibbonHtml = (
-  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
-  strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
+  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>,
+  strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>,
   upkeepPerMinute: { food: number; titanium: number; umbrite: number; crystal: number; gold: number },
-  strategicAnim: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", { until: number; dir: -1 | 0 | 1 }>,
+  strategicAnim: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", { until: number; dir: -1 | 0 | 1 }>,
   rateToneClass: (rate: number) => string,
   resourceSlots?: { supply: Record<string, number>; demand: Record<string, number> },
   isRevealed?: (key: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE") => boolean

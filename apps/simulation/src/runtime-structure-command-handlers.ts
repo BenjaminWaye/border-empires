@@ -1,7 +1,7 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   STRUCTURE_REGISTRY,
-  bestSiegeTierForTech,
+  siegeTierForFreshBuild,
   defendingFortVariant,
   fortTierForBuild,
   nextSiegeTierForUpgrade,
@@ -13,9 +13,9 @@ import {
   structureBuildManpowerCostScaled,
   structureCostDefinition,
   structureShowsOnTile,
-  QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
   type BuildableStructureType,
   type EconomicStructureType,
+  type SiegeTierInfo,
   type SlotStructureType
 } from "@border-empires/shared";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
@@ -30,10 +30,12 @@ import { activeOrInactive, rejectCommand, structureLabel } from "./runtime-struc
 import { resolveTownSupportTarget } from "./runtime-structure-town-support-target.js";
 import { announceMonumentConstructionStarted } from "./runtime-monument-claim.js";
 import { handleBuildAfcCommand } from "./runtime-build-afc-command-handler.js";
+import { afcPlayerStatePayload } from "./afc-specializations/afc-player-state.js";
+import { afcInstantBuild, fortBuildManpowerCharge, fortTechWaived, structureManpowerCostForPlayer } from "./structure-manpower-cost/structure-manpower-cost.js";
 import { handleRedeployAfcModuleCommand } from "./runtime-redeploy-afc-module-command-handler.js";
 import type { PersonalImpactBuildingCompleted } from "./personal-impact-log/personal-impact-log.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
-import { hasFreeResourceSlots } from "./runtime-structure-slot-gate.js";
+import { hasFreeResourceSlots, missingResourceSlotMessage } from "./runtime-structure-slot-gate.js";
 import { scheduleStructureCompletion } from "./attack-development-hold/attack-development-hold.js";
 
 export { structureLabel } from "./runtime-structure-command-handlers-reject.js";
@@ -82,11 +84,6 @@ export type RuntimeStructureCommandContext = {
   // Same shape, retargeted at Reserve Lattice (tech-tree redesign): "only one
   // Reserve Lattice may be built per connected-town network."
   reserveLatticeAlreadyInNetwork: (playerId: string, townKey: string) => boolean;
-  // Quartermaster's Office (tech-tree redesign): true when the player has an
-  // active Quartermaster's Office within QUARTERMASTERS_OFFICE_RADIUS tiles
-  // of (x, y) -- reduces manpower cost for War-branch structures built
-  // there.
-  hasNearbyQuartermastersOffice: (playerId: string, x: number, y: number) => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   bumpTerrainEpoch: () => void;
@@ -138,9 +135,7 @@ function strategicCostForStructure(
 
 // Step 5 item 3 (Slice A): FOOD/TITANIUM/CRYSTAL/UMBRITE are retired as a
 // spendable build-time stockpile -- hasFreeResourceSlots (§5.1) is the real
-// gate for those four keys now. SHARD stays a real spend (monument
-// assembly, §5.5 -- event-gated, not slot-shaped, never a stockpile in the
-// first place). Exported so applyStructureCancelRefund's refund builders
+// gate for those four keys now. Exported so applyStructureCancelRefund's refund builders
 // (runtime-structure-lifecycle-command-handlers.ts) apply the identical
 // filter and can never refund a key that build time never actually spent.
 const RETIRED_STOCKPILE_RESOURCE_KEYS: ReadonlySet<StrategicResourceKey> = new Set(["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"]);
@@ -200,7 +195,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     return;
   }
   for (const techId of spec.techIds) {
-    if (!actor.techIds.has(techId)) {
+    if (!actor.techIds.has(techId) && !(spec.kind === "FORT" && fortTechWaived(actor, techId))) {
       rejectCommand(context, command, "BUILD_INVALID", `unlock ${structureLabel(structureType)} first`);
       return;
     }
@@ -346,13 +341,17 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   let manpowerCost: number;
   let strategicCost = spec.cost.strategic as StrategicCost | undefined;
   let slotStructureType: SlotStructureType = structureType;
+  let siegeTier: SiegeTierInfo | undefined;
   if (fortTier) {
     goldCost = Math.max(0, Math.round(fortTier.gold * multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult")));
     manpowerCost = fortTier.manpower;
     strategicCost = { TITANIUM: fortTier.titanium };
     slotStructureType = fortTier.variant;
   } else if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON") {
-    const siegeTier = target.siegeBattery ? nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech)! : bestSiegeTierForTech(hasTech);
+    // A fresh build steps down to the best tier the player's UMBRITE slots can cover (Siege Battery if a Tower won't fit).
+    siegeTier = target.siegeBattery
+      ? nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech)!
+      : siegeTierForFreshBuild(hasTech, (variant) => missingResourceSlotMessage(context, command.playerId, structureType, variant, target, spec.tileField) === undefined);
     goldCost = siegeTier.gold;
     manpowerCost = siegeTier.manpower;
     strategicCost = { UMBRITE: siegeTier.umbrite, ...(siegeTier.titanium > 0 ? { TITANIUM: siegeTier.titanium } : {}) };
@@ -365,14 +364,8 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     // (structure-costs.ts).
     manpowerCost = structureBuildManpowerCostScaled(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
   }
-  // Quartermaster's Office (tech-tree redesign): reduces manpower cost for
-  // War-branch structures (Fort ladder, Siege ladder) built within its
-  // radius. Checked after the base cost is resolved above so it applies to
-  // fort/siege tier upgrades too, not just the first tier.
-  const isWarBranchStructure = spec.kind === "FORT" || spec.kind === "OUTPOST";
-  if (isWarBranchStructure && context.hasNearbyQuartermastersOffice(command.playerId, target.x, target.y)) {
-    manpowerCost = Math.round(manpowerCost * QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT);
-  }
+  const fortCharge = fortTier ? fortBuildManpowerCharge(actor, fortTier.variant, target.fort?.variant, manpowerCost) : undefined;
+  manpowerCost = fortCharge ? fortCharge.manpower : structureManpowerCostForPlayer(actor, slotStructureType, manpowerCost);
   if (actor.points < goldCost) {
     rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient coin for ${structureLabel(structureType)}`);
     return;
@@ -385,28 +378,25 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   // Step 5 item 3 (Slice A): hasFreeResourceSlots above is now the ONLY gate
   // for FOOD/TITANIUM/CRYSTAL/UMBRITE at build time -- stripRetiredStockpileCost
   // strips those keys out before spendStrategicCost ever sees them, so the
-  // build-time stockpile check/spend is fully retired for them. SHARD still
-  // spends normally (monument assembly). The stockpile *fields themselves*
+  // build-time stockpile check/spend is fully retired for them. The stockpile *fields themselves*
   // (production, storage caps, ability/tech spend paths) are untouched here
   // — that's the larger, separate remainder of plan item 4.
   if (!spendStrategicCost(context, actor, command, structureType, stripRetiredStockpileCost(strategicCostForStructure(structureType, strategicCost)))) return;
 
   actor.points -= goldCost;
   actor.manpower = Math.max(0, actor.manpower - manpowerCost);
+  if (fortCharge?.freeFort) {
+    (actor.afcCampaign ??= {}).freeFortsUsed = (actor.afcCampaign.freeFortsUsed ?? 0) + 1;
+    context.emitEvent({ eventType: "DOMAIN_UPDATE", commandId: command.commandId, playerId: actor.id, payloadJson: JSON.stringify(afcPlayerStatePayload(actor)) });
+  }
 
-  // docs/replenishment-update-plan.md D9: build time follows manpower cost
-  // (100 MP = 100 seconds) instead of spec's old flat per-type buildMs -- reuses
-  // manpowerCost, already resolved above for the exact tier/count this build
-  // actually charges, so a Fort-family upgrade or a scaling structure's Nth
-  // copy gets a duration that matches what it paid, not a flat per-type
-  // number. RELAY_BEACON keeps today's "no speed-mult lever" behavior (its
-  // spec.kind is "OUTPOST" but it's excluded from the OUTPOST branch below,
-  // same exclusion the cost-resolution branch above already used) -- and its
+  // Every structure that costs manpower builds in a flat STRUCTURE_BUILD_MS
+  // (structure-costs.ts); a 0-manpower one is instant. RELAY_BEACON's
   // first-tier beacons build instantly (D12) while still paying manpower, so
   // its duration comes from relayBeaconBuildDurationMs, not the cost.
-  const structureDurationMs = structureType === "RELAY_BEACON"
+  const structureDurationMs = afcInstantBuild(actor, structureType) ? 0 : structureType === "RELAY_BEACON"
     ? relayBeaconBuildDurationMs(context.ownedStructureCountForPlayer(command.playerId, structureType))
-    : structureBuildDurationMsForManpowerCost(manpowerCost);
+    : structureBuildDurationMsForManpowerCost(fortCharge?.freeFort ? 1 : manpowerCost); // a free Fort still takes the normal build time
   // Shared with the client's build menus (structureBuildSpeedEffectKey) so
   // the time a menu shows is the time this stamps.
   const speedEffectKey = structureBuildSpeedEffectKey(structureType);
@@ -421,7 +411,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   if (fortTier) {
     resolvedVariant = fortTier.variant;
   } else if (isSiegeFamily) {
-    resolvedVariant = target.siegeBattery ? nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech)?.variant : bestSiegeTierForTech(hasTech).variant;
+    resolvedVariant = siegeTier?.variant;
   }
 
   // A fort upgrade leaves the current fort standing (and defending) until the
@@ -434,6 +424,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
       status: "under_construction",
       ...(resolvedVariant ? { variant: resolvedVariant } : {}),
       ...(isEcoStruct ? { type: structureType } : {}),
+      ...(fortCharge?.freeFort ? { freeFort: true } : {}),
       ...(standingFort
         ? {
             upgradingFrom: defendingFortVariant(standingFort),

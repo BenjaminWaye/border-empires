@@ -1,15 +1,18 @@
+import { applyPlayerResourceState, applyResourceTradeMessage } from "../client-diplomacy-trade/client-player-resource-state.js";
+import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { handleIntelResult } from "./client-network-intel-result.js";
-import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
+import { aetherHijackAlertFeedEntry, applyAfcHijackMessage, applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { applyMapPushMessage } from "./client-map-push-messages.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
-import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
+import { applyPlayerUpdateManpowerFields } from "../client-player-update-manpower/client-player-update-manpower.js";
+import { COMBAT_LOCK_MS, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
-import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
+import { ABILITY_RESULT_MESSAGE_TYPES, applyAbilityResultMessage } from "../client-ability-result-messages/client-ability-result-messages.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
-import { parseIncomingMessage } from "../client-init-transfer/client-login-timeline.js";
+import { parseServerMessage } from "../client-server-clock/client-server-clock.js";
 import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
 import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -41,7 +44,6 @@ import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-au
 import { bindClientSocketLifecycle } from "./client-network-socket-lifecycle.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { notificationCategoryForServerError, serverStartingBusyMessages } from "../client-persistent-alerts/client-persistent-alerts.js";
-import { createShardRainNoticeHandlers } from "../client-shard-rain-notice-apply.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
@@ -56,6 +58,7 @@ import { handleActivityDashboardMessage, requestPersonalActivity } from "../clie
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
 import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
+import { clearTechCommissionOnError } from "../client-tech-commission/client-tech-commission.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -84,7 +87,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     applyPendingSettlementsFromServer,
     mergeIncomingTileDetail,
     mergeServerTileWithOptimisticState,
-    maybeAnnounceShardSite,
     markDockDiscovered,
     centerOnOwnedTile,
     authProfileNameEl,
@@ -94,8 +96,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     setWorldSeed,
     clearRenderCaches,
     buildMiniMapBase,
-    shardAlertKeyForPayload,
-    showShardAlert,
     combatResolutionAlert,
     wasPredictedCombatAlreadyShown,
     showCaptureAlert,
@@ -115,7 +115,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     applyOptimisticTileState
   } = deps;
   let emptyServerErrorWarned = false;
-  const { applyShardRainNotice, applyShardRainNoticeQuiet } = createShardRainNoticeHandlers(state, shardAlertKeyForPayload, showShardAlert);
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
@@ -744,7 +743,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           }
         });
       }
-      maybeAnnounceShardSite(existing, mergedTile);
       if (!mergedTile.optimisticPending) clearOptimisticTileState(keyFor(mergedTile.x, mergedTile.y));
       markDockDiscovered(mergedTile);
       state.discoveredTiles.add(keyFor(mergedTile.x, mergedTile.y));
@@ -856,7 +854,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     // still have their own more specific handling on top of this.
     let msg: Record<string, unknown> | undefined;
     try {
-    msg = parseIncomingMessage(ev.data as string);
+    msg = parseServerMessage(ev.data as string);
     const msgType = typeof msg.type === "string" ? msg.type : "UNKNOWN";
     // CHUNK_FULL/CHUNK_BATCH are recorded explicitly below, after the
     // generation check, so their `applied` flag is accurate — skip them
@@ -969,7 +967,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       clearAuthInFlight?.(); applyInitMessage(msg, {
         ...deps,
         setAuthBusy,
-        applyShardRainNotice: applyShardRainNoticeQuiet,
         logTileSync,
         logIncomingTechPayload,
         showCaptureAlertSafely,
@@ -1011,7 +1008,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; applyJoinSeasonSpawnRecenter(state, parseJoinSeasonAckSpawnTile(msg.spawnTile), requestViewRefreshSafely); } renderHud(); return; }
     if (applyMapPushMessage(state, msg as Record<string, unknown>, renderHud)) return; // REACH_UPDATE / AETHER_SHIELDS / ISLAND_NAMES
-    if (msg.type === "AFC_FLAG_DETECTIONS") { applyAfcStateMessage(state, msg); renderHud(); return; }
+    if (applyAfcHijackMessage(state, msg as Record<string, unknown>)) { renderHud(); return; } // AFC_HIJACKS / AFC_HIJACK_OUTCOME / AFC_BREAKTHROUGH
+    if (applyResourceTradeMessage(state, msg)) { renderHud(); return; }
     if (msg.type === "PLAYER_UPDATE") {
       applyAfcStateMessage(state, msg);
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);
@@ -1026,13 +1024,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
       if (state.incomePerMinute === 0 && !state.needsSeasonJoin && !state.seasonPending) maybeShowRuinsPrompt();
       state.strategicResources = (msg.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
-      if (msg.storageCap && typeof msg.storageCap === "object") {
-        state.storageCap = msg.storageCap as typeof state.storageCap;
-      }
       state.strategicProductionPerMinute =
         (msg.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
-      state.resourceSlots = (msg.resourceSlots as typeof state.resourceSlots | undefined) ?? state.resourceSlots;
-      state.dormantStructures = (msg.dormantStructures as typeof state.dormantStructures | undefined) ?? state.dormantStructures;
+      applyPlayerResourceState(state, msg);
       if (msg.eventLog) {
         const incomingEventLog = msg.eventLog as typeof state.eventLog;
         if (!state.eventLogFeedSeenIds) {
@@ -1049,10 +1043,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.eventLog = incomingEventLog; occupationSurveyController.reconcile(incomingEventLog); notifyWaystationActivationsFromEventLog(incomingEventLog, state, eventLogDepsFromClientState(state, requestViewRefresh, renderHud));
       }
       state.economyBreakdown = (msg.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
-      state.manpower = (msg.manpower as number | undefined) ?? state.manpower;
-      state.manpowerCap = (msg.manpowerCap as number | undefined) ?? state.manpowerCap;
-      state.manpowerRegenPerMinute = (msg.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
-      state.logisticsThroughputPerMinute = (msg.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
+      applyPlayerUpdateManpowerFields(state, msg);
       state.upkeepPerMinute = (msg.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
       state.upkeepLastTick = (msg.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
       refreshAllGatewayDerivedTownSummaries({ state, keyFor });
@@ -1072,17 +1063,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
-      if (state.upkeepLastTick.foodCoverage < 0.999 && !state.foodCoverageWarned) {
-        pushFeed(
-          `Town support underfed: FOOD upkeep coverage ${(state.upkeepLastTick.foodCoverage * 100).toFixed(0)}%. Unfed towns stop producing coin.`,
-          "info",
-          "warn"
-        );
-        state.foodCoverageWarned = true;
-      } else if (state.upkeepLastTick.foodCoverage >= 0.999 && state.foodCoverageWarned) {
-        pushFeed("FOOD upkeep recovered. Town income back to normal.", "info", "success");
-        state.foodCoverageWarned = false;
-      }
+      // Unfed towns show on their map nameplate (client-town-nameplates) and as off-screen locator pins, not a feed toast.
       if (state.gold > prevGold) {
         state.goldAnimUntil = Date.now() + 350;
         state.goldAnimDir = 1;
@@ -1092,7 +1073,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       } else {
         state.goldAnimDir = 0;
       }
-      for (const resource of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
+      for (const resource of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const) {
         const prev = prevStrategic[resource] ?? 0;
         const next = state.strategicResources[resource] ?? 0;
         if (next > prev) {
@@ -1128,9 +1109,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof msg.canToggleFog === "boolean") state.mapRevealEligible = msg.canToggleFog;
       applyIncomingRespawnNotice((msg as { respawnNotice?: unknown }).respawnNotice);
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
-      const techMsgTrickle = (msg as { chosenTrickleResource?: unknown }).chosenTrickleResource;
-      if (isChosenTrickleResource(techMsgTrickle)) state.chosenTrickleResource = techMsgTrickle;
-      if (typeof (msg as { imperialWardCharges?: unknown }).imperialWardCharges === "number") state.imperialWardCharges = (msg as { imperialWardCharges: number }).imperialWardCharges; if (typeof (msg as { wonderLastFreeRushBuyAt?: unknown }).wonderLastFreeRushBuyAt === "number") state.wonderLastFreeRushBuyAt = (msg as { wonderLastFreeRushBuyAt: number }).wonderLastFreeRushBuyAt;
+      applyRelicAndProgressionUpdate(state, msg);
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
       if (
@@ -1491,7 +1470,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-    if (msg.type === "RAID_RESULT" || msg.type === "AETHER_PURGE_ALERT") { appendFeedEntry(msg.type === "RAID_RESULT" ? raidResultFeedEntry(msg, { playerNameForOwner }) : aetherPurgeAlertFeedEntry(msg)); renderHud(); return; }
+    if (msg.type === "RAID_RESULT" || msg.type === "AETHER_PURGE_ALERT" || msg.type === "AETHER_HIJACK_ALERT") { appendFeedEntry(msg.type === "RAID_RESULT" ? raidResultFeedEntry(msg, { playerNameForOwner }) : msg.type === "AETHER_HIJACK_ALERT" ? aetherHijackAlertFeedEntry(msg) : aetherPurgeAlertFeedEntry(msg)); renderHud(); return; }
     if (msg.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT") {
       applySovereignSiegeEngineStrikeAnnouncement(msg as Record<string, unknown>, { state, appendFeedEntry, requestViewRefresh });
       renderHud();
@@ -1819,7 +1798,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             }
           });
         }
-        maybeAnnounceShardSite(existing, resolved);
         if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
         markDockDiscovered(resolved);
         state.discoveredTiles.add(updateKey);
@@ -1995,23 +1973,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         return;
       }
       clearAuthInFlight?.(); if (rawCode === "JOIN_SEASON_FAILED") state.joinSeasonPending = false;
-      if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
-        const pending = state.pendingShardCollect;
-        if (pending && msg.code === "COLLECT_NOT_OWNED") {
-          const tile = state.tiles.get(pending.tileKey);
-          if (tile) state.tiles.set(pending.tileKey, { ...tile, shardSite: pending.shardSite });
-          renderHud();
-        }
-        state.pendingShardCollect = undefined;
-      }
       const failedTargetKey = state.actionTargetKey;
       const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
       const errorCode = String(msg.code ?? "");
       const errorMessage = String(msg.message ?? "unknown failure");
-      if (errorCode.startsWith("TECH_") && state.pendingTechUnlockId) {
-        state.pendingTechUnlockId = "";
-        state.currentResearch = undefined;
-      }
+      clearTechCommissionOnError(state, errorCode);
       if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
         state.pendingDomainUnlockId = "";
       }
@@ -2279,7 +2245,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         showCaptureAlertSafely(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
         if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (errorCode === "TOWN_UNFED") {
-        const townUnfedDetail = `${errorMessage.replace(/[.。]\s*$/, "")}. Check the warning badge on the affected town.`;
+        const townUnfedDetail = `${errorMessage.replace(/[.。]\s*$/, "")}. Check the town's nameplate on the map.`;
         showCaptureAlertSafely("Town unfed", townUnfedDetail, "warn");
       } else if (errorCode === "OUT_OF_REACH") {
         // Terminal, not retryable: reach only grows when the player builds a
@@ -2451,7 +2417,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail, state.bridgeDebugSeasonId); return; } if (msg.type === "EMAIL_NOTIFICATION_PREFS_SET") { applyEmailNotificationPrefsFromServer(msg.prefs as Record<string, unknown> | undefined); return; }
 
-    if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { state, pushFeed, renderHud }); return; }
+    if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { pushFeed, renderHud }); return; }
 
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();
@@ -2462,7 +2428,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         clearRenderCaches();
         buildMiniMapBase();
       }
-      state.pendingShardCollect = undefined;
       state.mapLoadStartedAt = Date.now();
       state.firstChunkAt = 0;
       state.chunkFullCount = 0;
@@ -2479,25 +2444,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
-    if (msg.type === "SHARD_RAIN_EVENT") {
-      if (
-        (msg.phase as string | undefined) === "started" &&
-        typeof (msg.startsAt as number | undefined) === "number" &&
-        typeof (msg.expiresAt as number | undefined) === "number"
-      ) {
-        state.shardRainFxUntil = Date.now() + 8_000;
-      }
-      applyShardRainNotice({
-        phase: msg.phase as string | undefined,
-        startsAt: msg.startsAt as number | undefined,
-        expiresAt: msg.expiresAt as number | undefined,
-        siteCount: msg.siteCount as number | undefined,
-        sites: Array.isArray(msg.sites) ? (msg.sites as { x: number; y: number }[]) : undefined
-      });
-      renderHud();
-    }
-    if (msg.type === "IMPERIAL_WARD_ACTIVATED") {
-      applyImperialWardActivatedMessage(state, msg);
+    if (typeof msg.type === "string" && ABILITY_RESULT_MESSAGE_TYPES.has(msg.type)) {
+      applyAbilityResultMessage(state, msg);
       renderHud();
     }
     } catch (error) {

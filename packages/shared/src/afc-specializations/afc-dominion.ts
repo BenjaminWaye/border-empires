@@ -6,25 +6,27 @@ export const AFC_DOMINION = [
     "tier": 1,
     "branch": "dominion",
     "name": "Relay Fabrication Line",
-    "description": "Relay Beacons take one-third of the usual time to build. The AFC supplies prefabricated relay assemblies to its field crews.",
-    "mechanicalSummary": "+200% Relay Beacon build speed.",
+    "description": "Relay Beacons cost one-third of the usual manpower and finish instantly, and your first ten Relays need no FOOD slot instead of five. The AFC supplies prefabricated relay assemblies to its field crews.",
+    "mechanicalSummary": "Relays: −67% manpower | Instant | 10 FOOD-free instead of 5.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "relayBeaconBuildSpeedMult": 3
+      "relayBeaconBuildManpowerCostMult": 1 / 3,
+      "relayBeaconInstantBuild": 1,
+      "relayBeaconFreeFoodSlotBonus": 5
     }
   },
   {
     "id": "afc-dominion-2",
     "tier": 2,
     "branch": "dominion",
-    "name": "Harbor Survey Array",
-    "description": "Existing and new docks administer land up to 2 tiles away instead of 1. Coastal survey crews extend each dock’s reach.",
-    "mechanicalSummary": "Dock reach: 1 → 2 tiles.",
+    "name": "Colonial Charter",
+    "description": "Every town you garrison gets a free Incubation Engine on an open support tile — no Coin, manpower or Incubation Corps needed. It still uses its FOOD slot. Towns you already hold receive theirs when the charter is installed.",
+    "mechanicalSummary": "Free Incubation Engine in every garrisoned town.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "dockReachRadiusBonus": 1
+      "colonialIncubationEngine": 1
     }
   },
   {
@@ -44,13 +46,14 @@ export const AFC_DOMINION = [
     "id": "afc-dominion-4",
     "tier": 4,
     "branch": "dominion",
-    "name": "Settlement Assembly Line",
-    "description": "Finish garrisoning tiles in half the usual time. Prepared settlement packages and coordinated crews shorten the work.",
-    "mechanicalSummary": "Garrisoning takes 50% less time.",
+    "name": "Expansion Doctrine",
+    "description": "Expanding is priced as if you held half as many frontier tiles, and garrisoning costs half the usual manpower. Prepared settlement packages let crews secure new ground quickly.",
+    "mechanicalSummary": "Expand priced on half your frontier | Garrison −50% manpower.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "settlementSpeedMult": 2
+      "expandFrontierCountMult": 0.5,
+      "settleManpowerCostMult": 0.5
     }
   },
   {
@@ -58,12 +61,13 @@ export const AFC_DOMINION = [
     "tier": 5,
     "branch": "dominion",
     "name": "Universal Fabrication Line",
-    "description": "Buildings take half the usual time to finish. With Relay Fabrication Line, the combined Relay Beacon speed bonus is +500%. Shared assembly and dispatch systems accelerate construction.",
-    "mechanicalSummary": "+100% build speed for all buildings.",
+    "description": "Buildings cost half the usual manpower and finish instantly. With Relay Fabrication Line, Relay Beacons cost one-sixth of the usual manpower. Shared assembly and dispatch systems stretch every work crew further.",
+    "mechanicalSummary": "All buildings: −50% manpower | Instant construction.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "structureBuildSpeedMult": 2
+      "structureBuildManpowerCostMult": 0.5,
+      "instantStructureBuild": 1
     }
   }
 ] as const satisfies readonly AfcSpecialization[];

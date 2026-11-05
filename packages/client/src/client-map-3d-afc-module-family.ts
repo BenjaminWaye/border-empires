@@ -9,12 +9,20 @@ import { createAfcGenericModuleOverlay } from "./client-map-3d-afc-generic-modul
 import { createIndustrialToolingModuleOverlay } from "./client-industrial-tooling-module/client-map-3d-industrial-tooling-module.js";
 import { createAetherResonanceModuleOverlay } from "./client-map-3d-aether-resonance-module.js";
 import { createAetherwardCoilModuleOverlay } from "./client-map-3d-aetherward-coil-module.js";
+import { createAncillaryControlCoreModuleOverlay } from "./client-map-3d-ancillary-control-core-module.js";
+import { createBastionMasterDieModuleOverlay } from "./client-map-3d-bastion-master-die-module.js";
+import { createCatalystFabricatorModuleOverlay } from "./client-map-3d-catalyst-fabricator-module.js";
 import { createGeoformEngineModuleOverlay } from "./client-map-3d-geoform-engine-module.js";
+import { createHiveMindIiModuleOverlay } from "./client-map-3d-hive-mind-ii-module.js";
+import { createHiveMindModuleOverlay } from "./client-map-3d-hive-mind-module.js";
 import { createMatterwrightRetortModuleOverlay } from "./client-map-3d-matterwright-retort-module.js";
+import { createNeuralAssemblyCoreModuleOverlay } from "./client-map-3d-neural-assembly-core-module.js";
+import { createReserveLatticeModuleOverlay } from "./client-map-3d-reserve-lattice-module.js";
 import { createResonanceGridModuleOverlay } from "./client-map-3d-resonance-grid-module.js";
 import { createRiggingWorksModuleOverlay } from "./client-map-3d-rigging-works-module.js";
 import { createSiegeLensFoundryModuleOverlay } from "./client-map-3d-siege-lens-foundry-module.js";
 import { createStratosphericDockyardModuleOverlay } from "./client-map-3d-stratospheric-dockyard-module.js";
+import { createThunderplateInductionModuleOverlay } from "./client-map-3d-thunderplate-induction-module.js";
 import { createTidewayLatticeModuleOverlay } from "./client-map-3d-tideway-lattice-module.js";
 import { createTitaniumForgeModuleOverlay } from "./client-map-3d-titanium-forge-module.js";
 import { createTitaniumSynthesisModuleOverlay } from "./client-map-3d-titanium-synthesis-module.js";
@@ -23,7 +31,7 @@ import { createUmbriteSynthesisModuleOverlay } from "./client-map-3d-umbrite-syn
 
 type ModuleFamilyOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number) => number;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number, frozen?: boolean) => number;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -31,10 +39,10 @@ type ModuleFamilyOverlay = {
 
 type ModuleFamilyFactory = (scene: Scene, maxInstances: number, buildingEnvironmentTexture?: Texture) => ModuleFamilyOverlay;
 
-// Tech id -> module family factory, for the families built so far. A tech
-// id docked on a player's AFC with no entry here (one of the remaining
-// families, being built on a separate branch) has no bespoke model yet and
-// docks a generic cartridge instead, see docs/manifest-afc-overlay-wiring-plan.md.
+// Tech id -> module family factory. Every AFC_MODULE tech in tech-tree.json
+// has an entry except `cryptography` (Counterphase Core), which has no model
+// yet; a tech docked with no entry here gets a generic cartridge instead,
+// see docs/manifest-afc-overlay-wiring-plan.md.
 const MODULE_FAMILY_FACTORIES: Readonly<Record<string, ModuleFamilyFactory>> = {
   trade: createIndustrialToolingModuleOverlay,
   masonry: createTitaniumForgeModuleOverlay,
@@ -49,7 +57,15 @@ const MODULE_FAMILY_FACTORIES: Readonly<Record<string, ModuleFamilyFactory>> = {
   aeronautics: createStratosphericDockyardModuleOverlay,
   radar: createResonanceGridModuleOverlay,
   "matterwright-retort": createMatterwrightRetortModuleOverlay,
-  alchemy: createTitaniumSynthesisModuleOverlay
+  alchemy: createTitaniumSynthesisModuleOverlay,
+  "fortified-walls": createBastionMasterDieModuleOverlay,
+  steelworking: createThunderplateInductionModuleOverlay,
+  "muster-discipline": createHiveMindModuleOverlay,
+  "muster-command": createHiveMindIiModuleOverlay,
+  "global-trade-networks": createNeuralAssemblyCoreModuleOverlay,
+  "conveyor-networks": createReserveLatticeModuleOverlay,
+  "remade-concordat": createAncillaryControlCoreModuleOverlay,
+  "advanced-synthetication": createCatalystFabricatorModuleOverlay
 };
 
 export const AFC_MODULE_FAMILY_TECH_IDS: readonly string[] = Object.keys(MODULE_FAMILY_FACTORIES);
@@ -61,7 +77,8 @@ export type AfcOverlayGroup = {
   readonly dispose: () => void;
   // Docks the AFC itself plus up to AFC_SOCKET_COUNT of moduleTechIds (in
   // order) into their matching family overlay's next socket attachment.
-  readonly addAfc: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[]) => void;
+  // `frozen`: remembered under fog -- every part holds its rest pose.
+  readonly addAfc: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[], frozen?: boolean) => void;
   /** Current scene-space socket for a rendered module. The delivery FX reads
    * this after the visible-terrain rebuild, so a cargo streak lands on the
    * same socket as the permanent module rather than the AFC tile centre. */
@@ -81,15 +98,15 @@ export const createAfcOverlayGroup = (scene: Scene, maxAfcInstances: number, bui
   const attachmentsByModule = new Map<string, { x: number; y: number; z: number }>();
   const attachmentKey = (worldTileX: number, worldTileY: number, techId: string): string => `${worldTileX},${worldTileY}:${techId}`;
 
-  const addAfc = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[]): void => {
-    const index = afc.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY);
+  const addAfc = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[], frozen = false): void => {
+    const index = afc.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY, frozen);
     const attachments = afc.moduleSocketAttachments(index);
     moduleTechIds.slice(0, attachments.length).forEach((techId, i) => {
       const family = families.get(techId) ?? genericFamily;
       const attachment = attachments[i];
       if (!attachment) return;
       attachmentsByModule.set(attachmentKey(worldTileX, worldTileY, techId), attachment);
-      family.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, worldTileX, worldTileY);
+      family.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, worldTileX, worldTileY, frozen);
     });
   };
 
