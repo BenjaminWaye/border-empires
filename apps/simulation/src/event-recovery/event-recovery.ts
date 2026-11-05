@@ -215,6 +215,12 @@ const spendRecoveredPlayerGold = (
   player.points -= goldCost;
 };
 
+// Mirrors startSettlementProcess, which bumps the counter as it emits SETTLEMENT_STARTED.
+const countRecoveredLifetimeGarrison = (accumulator: RecoveredSimulationAccumulator, playerId: string): void => {
+  const player = accumulator.players.find((entry) => entry.id === playerId);
+  if (player) player.lifetimeGarrisons = (player.lifetimeGarrisons ?? 0) + 1;
+};
+
 const removeRecoveredPendingSettlement = (
   accumulator: RecoveredSimulationAccumulator,
   tileKey: string
@@ -286,6 +292,7 @@ export const applySimulationEventsToRecoveredAccumulator = (
 
     if (event.eventType === "SETTLEMENT_STARTED") {
       spendRecoveredPlayerGold(accumulator, event.playerId, event.goldCost);
+      countRecoveredLifetimeGarrison(accumulator, event.playerId);
       removeRecoveredPendingSettlement(accumulator, event.tileKey);
       accumulator.pendingSettlements.push({
         ownerId: event.playerId,

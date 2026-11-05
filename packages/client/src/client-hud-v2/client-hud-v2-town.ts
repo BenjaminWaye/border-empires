@@ -6,8 +6,10 @@
 // at the bottom. All actions reuse the tile menu's own definitions.
 
 import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
+import type { ClientAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
+import { autoSettleOptionForTile, autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { isGarrison } from "./client-hud-v2-action-bar.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
@@ -28,6 +30,8 @@ export type TownScreenInput = {
   focusQueuePosition?: number;
   /** The work cards' buttons are locked while a rush or cancel waits on the server. */
   focusWorkLocked?: boolean;
+  /** Live prefs: the checkbox is read from these each render, not from the view snapshot taken when the screen opened. */
+  autoSettle?: ClientAutoSettleState;
 };
 
 const esc = (text: string): string =>
@@ -141,6 +145,11 @@ const barHtml = (input: TownScreenInput): string => {
   const garrisonBtn = garrison
     ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land"${targetAttrs(garrison, garrisonKey)}${garrison.disabled ? " disabled" : ""} title="${esc(garrison.disabled ? garrison.disabledReason ?? garrisonLabel : garrison.detail ?? garrisonLabel)}">${esc(garrisonLabel)}${garrisonNote ? `<small>${esc(garrisonNote)}</small>` : ""}</button>`
     : "";
+  // The "garrison these automatically from now on" checkbox the tile dock shows under its Garrison button.
+  // Read from live prefs (a toggle doesn't rebuild focusView, so the snapshot's copy goes stale).
+  const garrisonTile = focusGarrison ? input.focus : input.town;
+  const option = garrison ? autoSettleOptionForTile({ autoSettle: input.autoSettle ?? { status: "unloaded" } }, garrisonTile) : undefined;
+  const garrisonOption = option ? autoSettleOptionHtml({ ...option, label: "Garrison these automatically" }) : "";
   const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : [])]);
   const minorActions = [
     ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus && isMuster(a) ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
@@ -158,7 +167,7 @@ const barHtml = (input: TownScreenInput): string => {
     : "";
   return `${garrisonBtn}${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
     ${minor ? `<span class="v2t-minor">${minor}</span>` : ""}
-    <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map · Esc</button>`;
+    <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map · Esc</button>${garrisonOption}`;
 };
 
 export const townScreenRegions = (input: TownScreenInput): { left: string; build: string; bar: string } => ({

@@ -104,7 +104,6 @@ export const FOREST_FRONTIER_CLAIM_MULT = 1.5;
 // See isHillsTileAt usage in runtime-frontier-command.ts.
 export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 3_750;
 export const SETTLE_COST = 0;
-export const SETTLE_MS = 60_000;
 /**
  * AI-only reserve: the automatic per-tick frontier auto-claim (see
  * runtime-territory-automation-tick.ts) stops spending gold on new claims

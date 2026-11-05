@@ -1,4 +1,4 @@
-import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, frontierClaimDurationMsAt } from "@border-empires/shared";
 import { loadedAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
@@ -508,7 +508,7 @@ describe("development queue helpers", () => {
       expect(state.settleProgressByTile.get("2,2")).toEqual(
         expect.objectContaining({
           startAt: 10_000,
-          resolvesAt: 10_000 + Math.round(60_000 / 1.05),
+          resolvesAt: 10_000 + Math.round(frontierClaimDurationMsAt(2, 2) / 1.05),
           target: { x: 2, y: 2 }
         })
       );

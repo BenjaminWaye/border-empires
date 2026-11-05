@@ -1,5 +1,7 @@
-import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, INSTANT_GARRISON_COUNT } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import type { DomainPlayer } from "@border-empires/game-domain";
+import { createSeedPlayers } from "../seed-state/seed-state.js";
 import type { RuntimePlayer } from "../runtime-types.js";
 import type { SimulationRuntime } from "./runtime.js";
 
@@ -24,8 +26,22 @@ export const buildPlayer = (id: string, overrides: Partial<RuntimePlayer> = {}):
   techRootId: "rewrite-local",
   allies: new Set<string>(),
   autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
+  // Past the first INSTANT_GARRISON_COUNT free garrisons, so a fixture's
+  // garrisons run on the normal timer; pass lifetimeGarrisons: 0 to test those.
+  lifetimeGarrisons: INSTANT_GARRISON_COUNT,
   ...overrides
 });
+
+/**
+ * The default seed players (what a runtime with no initialPlayers gets), past
+ * their free instant garrisons, so tests that drive a garrison's timer still
+ * see one. Pair with frontierClaimDurationMsAt for the delay.
+ */
+export const garrisonVeteranSeedPlayers = (): Map<string, DomainPlayer> => {
+  const players = createSeedPlayers("default");
+  for (const player of players.values()) player.lifetimeGarrisons = INSTANT_GARRISON_COUNT;
+  return players;
+};
 
 /** `buildPlayer()` plus a zeroed strategicResources block, for tests that read/mutate resources. */
 export const testRuntimePlayer = (id: string, overrides: Partial<RuntimePlayer> = {}): RuntimePlayer =>
