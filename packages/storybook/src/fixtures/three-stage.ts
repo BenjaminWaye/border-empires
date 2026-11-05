@@ -1,5 +1,6 @@
 import {
   AmbientLight,
+  Color,
   DirectionalLight,
   Group,
   HemisphereLight,
@@ -9,8 +10,14 @@ import {
   PerspectiveCamera,
   PlaneGeometry,
   Scene,
-  WebGLRenderer
+  WebGLRenderer,
+  Vector2
 } from "three";
+
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 export type Stage = {
   readonly canvas: HTMLCanvasElement;
@@ -28,6 +35,8 @@ export type StageOptions = {
   readonly background?: string;
   readonly camera?: "perspective" | "orthographic";
   readonly orthoHalfHeight?: number;
+  /** Optional HDR glow for emissive asset studies. */
+  readonly bloom?: boolean;
 };
 
 export const createStage = (opts: StageOptions = {}): Stage => {
@@ -49,6 +58,7 @@ export const createStage = (opts: StageOptions = {}): Stage => {
   }
 
   const scene = new Scene();
+  if (opts.bloom && opts.background !== undefined) scene.background = new Color(opts.background);
 
   // Perspective for gameplay-context stories; orthographic (with a fixed
   // frustum height) for asset-presentation stories that want an isometric
@@ -81,15 +91,28 @@ export const createStage = (opts: StageOptions = {}): Stage => {
   fill.position.set(-10, 6, -8);
   scene.add(hemisphere, ambient, sun, fill);
 
+  const composer = opts.bloom ? new EffectComposer(renderer) : undefined;
+  const bloom = composer ? new UnrealBloomPass(new Vector2(width, height), 0.6, 0.3, 0.65) : undefined;
+  const output = composer ? new OutputPass() : undefined;
+  if (composer && bloom && output) {
+    composer.addPass(new RenderPass(scene, camera));
+    composer.addPass(bloom);
+    composer.addPass(output);
+  }
+
   let rafId = 0;
   const tick = (): void => {
-    renderer.render(scene, camera);
+    if (composer) composer.render();
+    else renderer.render(scene, camera);
     rafId = requestAnimationFrame(tick);
   };
   tick();
 
   const dispose = (): void => {
     cancelAnimationFrame(rafId);
+    bloom?.dispose();
+    output?.dispose();
+    composer?.dispose();
     renderer.dispose();
   };
 
