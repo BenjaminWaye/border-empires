@@ -18,7 +18,7 @@
 import type { OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
 import { guideTargetAction, type GuideFootholdTargets, type GuideTargetAction } from "./tutorial-guide-foothold-targets.js";
 
-export type GuideAnchorId = "manpower" | "manifest" | "activity" | "diplomacy";
+export type GuideAnchorId = "manpower" | "manifest" | "activity" | "diplomacy" | "manufactory";
 
 /** The Manifest the guide recommends first: Industrial Tooling Module, which unlocks the Manufactory (tech id "trade"). */
 export const RECOMMENDED_FIRST_MANIFEST_ID = "trade";
@@ -48,6 +48,7 @@ export type GuideInput = {
   manufactoryResearched: boolean;
   /** The Industrial Tooling Module is installed on an active AFC, so a Manufactory can be built (hideTechLockedTileAction). */
   manufactoryUnlocked: boolean;
+  freeFoodSlots: number;
   ownsBuiltStructure: boolean;
   /** The player owns (or is building) a Relay Beacon. */
   ownsRelayBeacon: boolean;
@@ -237,14 +238,18 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "build-first",
     chapter: "build",
     title: (i) =>
-      i.manufactoryUnlocked
+      i.freeFoodSlots < 1
+        ? "Free a food slot before building your Manufactory"
+        : i.manufactoryUnlocked
         ? "Tap your marked town and build a Manufactory"
         : "Your Industrial Tooling Module is docking at your AFC: then build a Manufactory on your marked town",
-    why: "A Manufactory goes on a garrisoned town or the tiles around it and adds Coin from the town's industry.",
+    why: (i) => i.freeFoodSlots < 1
+      ? "Garrison more grain or fish, or deactivate a building using food. Your Manufactory needs one free food slot."
+      : "A Manufactory goes on a garrisoned town or the tiles around it and adds Coin from the town's industry.",
     isDone: (i) => i.ownsBuiltStructure,
     isAvailable: (i) => i.manufactoryResearched,
     waitingNote: "Commission the Industrial Tooling Module to unlock the Manufactory.",
-    highlight: (i) => i.buildTargetTiles
+    highlight: (i) => i.freeFoodSlots < 1 ? [...i.footholdTargets.food.garrison, ...i.footholdTargets.food.expand] : i.buildTargetTiles
   },
   {
     id: "contest-muster",

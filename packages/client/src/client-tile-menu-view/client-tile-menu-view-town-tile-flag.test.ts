@@ -3,10 +3,7 @@ import { tileMenuViewForTile } from "./client-tile-menu-view.js";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
-// isTownTile decides which building category the Buildings tab opens on
-// (Town Support on support-ring tiles, the first non-empty category on the
-// town itself -- see initialBuildingCategory), so the view builder has to
-// set it from tile.town.
+// The view identifies the town tile itself, separately from its support ring.
 const menuFor = (tile: Tile) => {
   const state = createInitialState();
   state.me = "me";

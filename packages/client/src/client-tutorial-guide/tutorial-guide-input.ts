@@ -21,6 +21,7 @@ import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-b
 export type GuideInputState = Pick<
   ClientState,
   | "tiles"
+  | "resourceSlots"
   | "tilesRevision"
   | "chunkFullCount"
   | "me"
@@ -199,6 +200,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     hudV2: bodyHasClass("hud-v2"),
     activityDashboardOpen: state.activityDashboard.open || state.activityDashboard.chronicleOpen,
     manifestCount: state.techIds.filter((id) => id !== state.techRootId).length,
+    freeFoodSlots: state.resourceSlots.supply.FOOD - state.resourceSlots.demand.FOOD,
     manufactoryResearched: state.techIds.includes(RECOMMENDED_FIRST_MANIFEST_ID),
     manufactoryUnlocked: cached.scan.manufactoryInstalled,
     rivalHouseMet: cached.scan.rivalHouseMet,

@@ -119,7 +119,7 @@ const slotsFold = { open: true };
 
 const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
-  if (!target || target.closest("#hud-v2-tile")) return;
+  if (!target || (target.closest("#hud-v2-tile") && !target.closest("[data-hud-v2-open]"))) return;
   // Settings opens centred over a dimmed map; clicking the dim closes it.
   if (target.closest("[data-hud-v2-dim]")) {
     deps.state.activePanel = null;

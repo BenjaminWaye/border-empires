@@ -111,7 +111,7 @@ const buildPanelHtml = (input: TownScreenInput): string => {
     focusLabel: supportFocus ? `(${input.focus.x}, ${input.focus.y})` : input.townView.title,
     focusHighlighted: supportFocus,
     selection: input.buildSelection,
-    category: input.category,
+    category: input.category ?? "town_support",
     emptyText: `Nothing to build ${supportFocus ? "on this tile" : "here"}`,
     targetKey: keyOf(input.focus),
     placeLabel,

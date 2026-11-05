@@ -16,6 +16,7 @@ const baseInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   footholdTargets: { town: { pending: [], garrison: [], expand: [] }, food: { pending: [], garrison: [], expand: [] } },
   manufactoryResearched: false,
   manufactoryUnlocked: false,
+  freeFoodSlots: 1,
   rivalHouseMet: false,
   diplomacyUsed: false,
   panned: false,
@@ -273,5 +274,20 @@ describe("tutorial guide steps", () => {
     const held = baseInput({ checklist: footholdDone, beaconSite: () => site, footholdTargets: townInSight });
     expect(evaluateGuide(held, pastFoothold)).toEqual(expect.objectContaining({ title: "Tap the marked tile and build a Relay Beacon", highlightTiles: [site] }));
     expect(guideBeaconSite("reach-beacon", held)).toEqual(site);
+  });
+});
+
+
+it("asks for food capacity instead of a Manufactory when food is full or over capacity", () => {
+  const completed = new Set(GUIDE_STEPS.filter(s => s.id !== "build-first" && !s.acknowledge).map(s => s.id));
+  const input = baseInput({ manufactoryResearched: true, manufactoryUnlocked: true, buildTargetTiles: [{ x: 4, y: 4 }],
+    footholdTargets: { town: { pending: [], garrison: [], expand: [] }, food: { pending: [], garrison: [{ x: 7, y: 4 }], expand: [] } } });
+  for (const freeFoodSlots of [0, -1]) {
+    expect(evaluateGuide({ ...input, freeFoodSlots }, completed)).toMatchObject({
+      title: "Free a food slot before building your Manufactory", highlightTiles: [{ x: 7, y: 4 }]
+    });
+  }
+  expect(evaluateGuide({ ...input, freeFoodSlots: 1 }, completed)).toMatchObject({
+    title: "Tap your marked town and build a Manufactory", highlightTiles: [{ x: 4, y: 4 }]
   });
 });
