@@ -2180,10 +2180,7 @@ export class SimulationRuntime {
   // --- Fixed-border reach (packages/shared/src/reach/reach.ts) ---
 
   // Every reach anchor world-wide, right now: every player's town tiles,
-  // every active outpost-family structure tile (RELAY_BEACON /
-  // SIEGE_BATTERY / SIEGE_TOWER / DREAD_TOWER — same "active" predicate
-  // outpost-aura.ts uses, sourced from the already-maintained
-  // activeRelayBeaconsByOwner / activeSiegeBatteriesByOwner indexes), and
+  // every active RELAY_BEACON tile (siege batteries hold no reach), and
   // every owned dock tile. Used both for `liveReachForOwner`'s "can this
   // owner currently defend this tile" check during a contest, and once at
   // startup to reconcile `reachBorder`. Live contests resolve via coverage,
@@ -2196,7 +2193,6 @@ export class SimulationRuntime {
       playerSummaries: this.playerSummaries,
       tiles: this.state.tiles,
       activeRelayBeaconsByOwner: this.ownerIndexes.activeRelayBeaconsByOwner,
-      activeSiegeBatteriesByOwner: this.ownerIndexes.activeSiegeBatteriesByOwner,
       docks: this.state.docks,
       tileSettledAtByKey: this.tileSettledAtByKey,
       now: this.now()

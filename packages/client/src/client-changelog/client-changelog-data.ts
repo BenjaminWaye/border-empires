@@ -1,3 +1,4 @@
+import { SIEGE_BATTERY_NO_REACH_CHANGELOG } from "./client-changelog-siege-battery-no-reach.js";
 import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
 import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
 import { FOOD_TILE_ART_CHANGELOG } from "./client-changelog-food-tile-art.js";
@@ -473,17 +474,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...NOVEMBER_CHANGELOG,
   ...FRONTIER_RESOURCES_REWORK_CHANGELOG,
   ...INSTANT_GARRISONS_CHANGELOG,
-  {
-    createdAt: 1793743078716, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.03",
-    title: "Manpower orb shows the size of your next batch",
-    why: "The new HUD's manpower orb only showed a countdown, so you couldn't tell how much manpower was coming.",
-    changes: [
-      "The manpower orb now reads \"+N in 45m\": how much your next batch adds and when it lands",
-      "It says \"paused\" when no manpower is coming, and \"next batch\" instead of \"refill\"",
-      "The orb and the manpower chip stop showing a batch amount that has already landed"
-    ]
-  },
+  ...SIEGE_BATTERY_NO_REACH_CHANGELOG,
   ...INCURSION_SHORE_CHANGELOG,
   ...TOWN_SCREEN_AUTO_GARRISON_CHANGELOG
 ];

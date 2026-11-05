@@ -37,25 +37,26 @@ export interface GatherReachAnchorsDeps {
   playerSummaries: ReadonlyMap<string, PlayerRuntimeSummary>;
   tiles: ReadonlyMap<string, DomainTileState>;
   activeRelayBeaconsByOwner: ReadonlyMap<string, ReadonlySet<string>>;
-  activeSiegeBatteriesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   docks: readonly DockRouteDefinition[];
   tileSettledAtByKey: ReadonlyMap<string, number>;
   now: number;
 }
 
 // Every reach anchor world-wide, right now: every player's town tiles,
-// every active outpost-family structure tile (RELAY_BEACON /
-// SIEGE_BATTERY / SIEGE_TOWER / DREAD_TOWER — same "active" predicate
-// outpost-aura.ts uses, sourced from the already-maintained
-// activeRelayBeaconsByOwner / activeSiegeBatteriesByOwner indexes), and
-// every owned dock tile. Used both for `liveReachForOwner`'s "can this
-// owner currently defend this tile" check during a contest, and once at
+// every active RELAY_BEACON tile (sourced from the already-maintained
+// activeRelayBeaconsByOwner index), and every owned dock tile. Siege
+// batteries (and their Siege Tower / Dread Tower upgrades) are combat
+// structures only and deliberately hold NO reach: a battery parked on the
+// edge of a fight must not keep a rival's ground pinned under its owner's
+// border after every beacon around it has fallen. Used both for
+// `liveReachForOwner`'s "can this owner currently defend this tile" check
+// during a contest, and once at
 // startup to reconcile `reachBorder`. Live contests resolve via coverage,
 // not build order; `activatedAt` only orders the boot replay (earliest
 // first), and only towns' stamps survive a restart (others fall back to
 // `now`), so it is a tiebreak for unclaimed slots, not history.
 export function gatherReachAnchors(deps: GatherReachAnchorsDeps): ReachAnchor[] {
-  const { playerSummaries, tiles, activeRelayBeaconsByOwner, activeSiegeBatteriesByOwner, docks, tileSettledAtByKey, now } = deps;
+  const { playerSummaries, tiles, activeRelayBeaconsByOwner, docks, tileSettledAtByKey, now } = deps;
   const anchors: ReachAnchor[] = [];
   for (const [playerId, summary] of playerSummaries) {
     if (isBarbarianOwner(playerId)) continue;
@@ -87,14 +88,6 @@ export function gatherReachAnchors(deps: GatherReachAnchorsDeps): ReachAnchor[] 
       const tile = tiles.get(tileKey);
       if (!tile || tile.ownershipState !== "SETTLED") continue;
       anchors.push({ x: tile.x, y: tile.y, ownerId, activatedAt: tile.economicStructure?.activatedAt ?? now, kind: "OUTPOST" });
-    }
-  }
-  for (const [ownerId, keys] of activeSiegeBatteriesByOwner) {
-    if (isBarbarianOwner(ownerId)) continue;
-    for (const tileKey of keys) {
-      const tile = tiles.get(tileKey);
-      if (!tile || tile.ownershipState !== "SETTLED") continue;
-      anchors.push({ x: tile.x, y: tile.y, ownerId, activatedAt: tile.siegeBattery?.activatedAt ?? now, kind: "OUTPOST" });
     }
   }
   for (const dock of docks) {
@@ -136,11 +129,6 @@ export function newlyActivatedReachAnchors(previous: DomainTileState | undefined
   if (isActiveTown && isActiveTown !== wasActiveTown) {
     anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveTown, activatedAt: now, kind: "TOWN", ...landedAfcGuarantee(tile) });
   }
-  const wasActiveSiege = wasSettled && previous?.siegeBattery?.status === "active" ? previous.siegeBattery.ownerId : undefined;
-  const isActiveSiege = isSettled && tile.siegeBattery?.status === "active" ? tile.siegeBattery.ownerId : undefined;
-  if (isActiveSiege && isActiveSiege !== wasActiveSiege) {
-    anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveSiege, activatedAt: tile.siegeBattery?.activatedAt ?? now, kind: "OUTPOST" });
-  }
   const wasActiveBeacon =
     wasSettled && previous?.economicStructure?.status === "active" && previous.economicStructure.type === "RELAY_BEACON"
       ? previous.economicStructure.ownerId
@@ -181,11 +169,6 @@ export function newlyDeactivatedReachAnchors(previous: DomainTileState | undefin
   const isActiveTown = isSettled && (tile.town || tile.afc) ? tile.ownerId : undefined;
   if (wasActiveTown && wasActiveTown !== isActiveTown) {
     anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveTown, activatedAt: now, kind: "TOWN" });
-  }
-  const wasActiveSiege = wasSettled && previous?.siegeBattery?.status === "active" ? previous.siegeBattery.ownerId : undefined;
-  const isActiveSiege = isSettled && tile.siegeBattery?.status === "active" ? tile.siegeBattery.ownerId : undefined;
-  if (wasActiveSiege && wasActiveSiege !== isActiveSiege) {
-    anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveSiege, activatedAt: now, kind: "OUTPOST" });
   }
   const wasActiveBeacon =
     wasSettled && previous?.economicStructure?.status === "active" && previous.economicStructure.type === "RELAY_BEACON"

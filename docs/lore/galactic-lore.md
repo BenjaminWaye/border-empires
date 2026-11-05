@@ -369,6 +369,10 @@ blackened trunks, trees sliced through by the beams, and burnt stumps. A harbour
 secured it, and earns nothing in the meantime. The exact timings
 belong in the [gameplay reference](../game-mechanics.md).
 
+Siege guns are not anchors. A Siege Battery, and the Siege Towers and Dread
+Towers raised from it, carry no control field: they strike at ground but
+never claim it, so a front held only by siege guns is not a claim at all.
+
 Two flags cannot own the same ground. Where a rival's anchor reaches land
 that a Duke's own anchors no longer cover, the rival's claim stands and the
 Duke's hold there thins from settled ground back to open frontier.

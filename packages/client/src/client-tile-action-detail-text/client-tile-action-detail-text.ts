@@ -10,7 +10,6 @@ import {
   FORT_TIER_LADDER,
   OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS,
-  OUTPOST_REACH_RADIUS,
   SIEGE_TIER_LADDER,
   TILE_SLOT_BOOST_STRUCTURES,
   HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS
@@ -60,7 +59,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     }
     return tile.economicStructure?.type === "RELAY_BEACON"
       ? `Upgrade this Relay Beacon into a full Siege Battery. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_BATTERY.attackMult}x.`
-      : `Adds an offensive staging point, granting attack reach to tiles within ${OUTPOST_REACH_RADIUS} tiles of it. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_BATTERY.attackMult}x.`;
+      : `Adds an offensive staging point. Does not extend reach. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_BATTERY.attackMult}x.`;
   }
   if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons build instantly (50 manpower each, no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full Siege Battery.";
   if (actionId === "build_hydrogarden") return tile.resource === "FARM" ? `Adds +${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slots on grain resource tiles.` : "Hydrogardens do not boost fish output.";
