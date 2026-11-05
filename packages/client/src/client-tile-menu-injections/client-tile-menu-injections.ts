@@ -9,6 +9,7 @@ import { injectWaypointActions } from "../client-waypoint-menu-actions/client-wa
 import { injectDebugDownloadRow } from "../client-tile-menu-debug-row/client-tile-menu-debug-row.js";
 import { injectDockNavigatorRow } from "../client-dock-navigator/client-dock-navigator.js";
 import { injectOnboardingRelayBeaconRecommendation } from "../client-onboarding-checklist/client-onboarding-relay-beacon-recommendation.js";
+import { injectGuideManufactoryRecommendation } from "../client-tutorial-guide/tutorial-guide-manufactory-recommendation.js";
 import { injectMarchAttackActions } from "../client-march-attack-actions/client-march-attack-actions.js";
 import { injectMusterCombatReports } from "../client-muster-combat-reports/client-muster-combat-reports-ui.js";
 
@@ -19,4 +20,5 @@ export const injectTileMenuExtras = (view: TileMenuView, tile: Tile, state: Clie
   injectDockNavigatorRow(view, tile, state);
   injectMusterCombatReports(view, tile, state);
   injectOnboardingRelayBeaconRecommendation(view, tile);
+  injectGuideManufactoryRecommendation(view, tile);
 };
