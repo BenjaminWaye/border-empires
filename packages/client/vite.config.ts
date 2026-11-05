@@ -26,13 +26,24 @@ const resolveBuildVersion = (): string => {
   }
 };
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  plugins: mode === "native" ? [{
+    name: "native-entry",
+    transformIndexHtml: {
+      order: "pre" as const,
+      handler: (html: string) => html
+        .replace("/src/main.ts", "/src/client-native/client-native-entry.ts")
+        .replace("<head>", '<head><meta name="be-native-bundle" content="true">')
+    }
+  }] : [],
   build: {
+    outDir: mode === "native" ? "dist-native" : "dist",
     rollupOptions: {
       // admin.html is a separate, tiny entry (admin-app/) so /admin never loads the game client.
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
-        admin: fileURLToPath(new URL("./admin.html", import.meta.url))
+        deletion: fileURLToPath(new URL("./delete-account.html", import.meta.url)),
+        ...(mode !== "native" ? { admin: fileURLToPath(new URL("./admin.html", import.meta.url)) } : {})
       },
       output: {
         manualChunks: manualChunkFor
@@ -66,4 +77,4 @@ export default defineConfig({
       }
     }
   }
-});
+}));
