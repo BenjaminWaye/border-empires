@@ -3,7 +3,7 @@
 // The server-side forced command (`deploy/bin/deploy snapshot`) runs VACUUM INTO
 // and streams the resulting file on stdout; we write it straight to disk and
 // integrity-check it. No scp, no remote temp-file bookkeeping, and it works with
-// the restricted CI key. The Fly path (--app) stays in clone-prod-sqlite-snapshot.mjs.
+// the restricted CI key. Entry point: clone-prod-sqlite-snapshot.mjs.
 
 import { spawn } from "node:child_process";
 import { createWriteStream, mkdirSync, statSync } from "node:fs";

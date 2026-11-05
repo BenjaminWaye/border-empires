@@ -1,4 +1,5 @@
 import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
+import { townBiotaLineHtml } from "../client-town-biota/client-town-biota-line.js";
 import { manpowerPerBatch, isNetworkResource } from "@border-empires/shared";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
@@ -59,7 +60,7 @@ export { constructionProgressForTile } from "../client-tile-menu-construction-pr
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
-    state: { me: string; domainIds?: readonly string[]; domainCatalog?: readonly DomainInfo[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[] } & Partial<DockLandingState>;
+    state: { me: string; domainIds?: readonly string[]; domainCatalog?: readonly DomainInfo[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[]; resourceSlots?: { bonusSupply?: import("@border-empires/shared").NetworkSupplyStatus }; manpowerBreakdown?: { biotaTowns?: import("@border-empires/sim-protocol").BiotaTownStatus[] } } & Partial<DockLandingState>;
     prettyToken: (value: string) => string;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;
@@ -141,7 +142,7 @@ export const menuOverviewForTile = (
     hasTown: Boolean(tile.town),
     ownershipState: tile.ownershipState
   }).forEach(pushLine);
-  lines.push(...resourceTileOverviewLines(tile));
+  lines.push(...resourceTileOverviewLines(tile, { me: deps.state.me, held: deps.state.resourceSlots?.bonusSupply?.supply }));
   if (!isLand) return lines;
   const { dockPairs, tiles } = deps.state;
   const landingLine = dockPairs && tiles ? landingGroundMenuLine({ dockPairs, tiles, me: deps.state.me }, tile.x, tile.y) : undefined;
@@ -232,6 +233,8 @@ export const menuOverviewForTile = (
           ...(foodDemand > 0 ? { food: { satisfied: tile.town.isFed ? foodDemand : 0, demand: foodDemand, fed: Boolean(tile.town.isFed) } } : {})
         })
       });
+      const biotaLine = townBiotaLineHtml(`${tile.x},${tile.y}`, tile.town.populationTier, deps.state.manpowerBreakdown?.biotaTowns, { terrainProfile, coastal });
+      if (biotaLine) pushLine(biotaLine);
     } else if (ownTownEconomyPartial) {
       pushOwnTownLoadingRow("Support");
       pushOwnTownLoadingRow("Food");

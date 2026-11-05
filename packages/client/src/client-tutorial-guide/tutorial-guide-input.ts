@@ -12,7 +12,6 @@ import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-s
 import { guideInputSignals } from "./tutorial-guide-input-signals.js";
 import { GUIDE_STEPS, RECOMMENDED_FIRST_MANIFEST_ID, type GuideInput } from "./tutorial-guide-steps.js";
 import { readGuideProgress } from "./tutorial-guide-storage.js";
-import { findHomeAfcTile } from "../client-afc-locate/client-afc-locate.js";
 import { isMeetablePlayerId } from "../client-alliance/client-met-players.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
@@ -127,7 +126,6 @@ let cached:
       scan: TileScan;
       footholdTargets: GuideFootholdTargets;
       musterUnlocked: boolean;
-      afcTile: { x: number; y: number } | undefined;
       /** Filled on first use: only the Relay Beacon step reads it, so other steps skip the reach scan. */
       beaconSite?: { value: { x: number; y: number } | undefined };
     }
@@ -158,10 +156,6 @@ const openPanelOf = (state: GuideInputState): string | null =>
         ? "alliance"
         : null);
 
-const afcTileOf = (state: GuideInputState): { x: number; y: number } | undefined => {
-  const afc = findHomeAfcTile(state);
-  return afc ? { x: afc.x, y: afc.y } : state.homeTile;
-};
 
 const FOOTHOLD_STEP_IDS = GUIDE_STEPS.filter((step) => step.chapter === "foothold").map((step) => step.id);
 
@@ -190,8 +184,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
       checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail, { completed: footholdSaved }),
       scan: scanGuideTiles(state.tiles, state.me, state.homeTile),
       footholdTargets: scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile)),
-      musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId),
-      afcTile: afcTileOf(state)
+      musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)
     };
   }
   const current = cached;
@@ -202,14 +195,12 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     footholdTargets: cached.footholdTargets,
     panned: signals.panned,
     zoomed: signals.zoomed,
-    tileSelected: signals.tileSelected,
     openPanel,
     hudV2: bodyHasClass("hud-v2"),
     activityDashboardOpen: state.activityDashboard.open || state.activityDashboard.chronicleOpen,
     manifestCount: state.techIds.filter((id) => id !== state.techRootId).length,
     manufactoryResearched: state.techIds.includes(RECOMMENDED_FIRST_MANIFEST_ID),
     manufactoryUnlocked: cached.scan.manufactoryInstalled,
-    afcTile: cached.afcTile,
     rivalHouseMet: cached.scan.rivalHouseMet,
     diplomacyUsed: openPanel === "alliance" || openPanel === "social" || state.outgoingTruceRequests.length > 0 || state.activeTruces.length > 0 || state.allies.length > 0,
     ownsBuiltStructure: cached.scan.ownsBuiltStructure,

@@ -9,6 +9,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31
 import { CLIENT_CHANGELOG_ENTRIES_NOV_01_03 } from "./client-changelog-nov-01-03.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
 import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
+import { FRONTIER_RESOURCES_REWORK_CHANGELOG } from "./client-changelog-frontier-resources.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
 import { ALLIANCES_TAB_CHANGELOG } from "./client-changelog-alliances-tab.js";
@@ -182,33 +183,10 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
   ...AETHER_ABILITY_ICONS_CHANGELOG,
-  {
-    createdAt: 1791920134069, // Date.now() frozen for this entry.
-    introducedIn: "2026.10.13.1",
-    title: "New towns on the 3D map",
-    why: "Towns on the 3D map looked out of place next to the bright terrain and the AFC.",
-    changes: [
-      "Every town tier on the 3D map has new art: clockwork skyscrapers of glass and grey stone banded in brass, with lamplit windows and crowns of brass cog clocks, needle spires, glowing alien bulbs and finned crystals, on an octagonal base plate",
-      "Towns and cities are laid out on street grids with lamplit crossings, parks and skybridges between their towers, and cities rise to a downtown of sheer glass skyscrapers",
-      "Towns grow visibly through their tiers, from a few low towers round a cog lamp to a metropolis round a brass-haloed megatower crowned with an aether crystal",
-      "Towns are alive: steam rises from rooftop stacks, windows flicker with lamplight, clock cogs and orreries turn, crystals spin, and airships circle the bigger cities",
-      "Neighbouring towns of the same tier now face different ways, so they no longer look like copies"
-    ]
-  },
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_12,
   ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
-  {
-    createdAt: 1791921253260, // frozen Date.now() value for this release
-    introducedIn: "2026.10.13.1",
-    title: "Empire Integrity moves to the Economy panel",
-    why: "Playtesters watched Empire Integrity fall as they expanded and read it as being punished. In fact it was still a bonus, and some updates briefly showed it lower than it really was.",
-    changes: [
-      "Empire Integrity now lives in the Economy panel; the top bar only shows it, with a warning, once it drops below 50% and actually reduces your coin and growth",
-      "Fixed integrity sometimes showing lower than it really was (e.g. 80% for a small new empire) after changing your profile or colour, toggling auto-garrison, or using an ability"
-    ]
-  },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   ...TILE_YIELD_REMOVAL_CHANGELOG,
   ...AI_PROGRESSION_AETHER_CHANGELOG,
@@ -481,7 +459,19 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Your reach border now updates again right after a reconnect, without reloading the page"
     ]
   },
+  {
+    createdAt: 1793776991902, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.04",
+    title: "Guide: every first step says what to do",
+    why: "With no town in sight, the guide's \"Find a town\" step gave no instruction, and the separate \"tap a tile\" step had no real goal.",
+    changes: [
+      "The \"Find a town\" and \"Find food\" steps are gone: the town and food steps now say Garrison, Expand To or build a Relay Beacon straight away",
+      "With nothing in sight, the step tells you to tap the marked tile and build a Relay Beacon there",
+      "The separate \"tap your AFC\" step is gone: the town step teaches tapping with a real goal"
+    ]
+  },
   ...NOVEMBER_CHANGELOG,
+  ...FRONTIER_RESOURCES_REWORK_CHANGELOG,
   ...INSTANT_GARRISONS_CHANGELOG,
   {
     createdAt: 1793743078716, // Date.now() captured once for this entry.

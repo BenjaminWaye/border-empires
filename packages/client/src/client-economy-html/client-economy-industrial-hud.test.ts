@@ -27,9 +27,8 @@ it("shows industrial supply, occupied slots and bonuses through the desktop HUD 
   const html = renderEconomyPanelHtml(args);
   expect(html).toContain('class="v2e"');
   expect(html).toContain("Neural resin");
-  expect(html).toContain("1 / 2 slots used · +12 Ancillaries/cycle");
-  expect(html).toContain("1 / 1 slots used · +1.5 Coin/day");
-  expect(html).toContain("1 free");
+  expect(html).toContain("+150 manpower per refill");
+  expect(html).toContain("+1% attack and defense");
   for (const markup of [html, renderEconomyPanelHtml({ ...args, isMobile: true, focus: "FOOD" })]) {
     expect(markup).toContain("Trade imports");
     expect(markup).toContain("Committed exports");

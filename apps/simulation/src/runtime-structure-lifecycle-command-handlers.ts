@@ -379,7 +379,9 @@ export function completeStructureRemoval(context: RuntimeStructureCommandContext
   } else if (latest.siegeBattery?.ownerId === ownerId && latest.siegeBattery.status === "removing") {
     completedTile = { ...latest, siegeBattery: undefined };
   } else if (latest.economicStructure?.ownerId === ownerId && latest.economicStructure.status === "removing") {
-    completedTile = { ...latest, economicStructure: undefined };
+    // Dismantling a partly stripped salvage field ruins it, so a rebuild can't restore its loads.
+    const stripped = latest.economicStructure.type === "RECLAMATION_WORKS" && (latest.economicStructure.salvageLoadsShipped ?? 0) > 0;
+    completedTile = { ...latest, economicStructure: undefined, ...(stripped ? { resource: undefined } : {}) };
   }
   if (!completedTile) return;
   context.replaceTileState(targetKey, completedTile);

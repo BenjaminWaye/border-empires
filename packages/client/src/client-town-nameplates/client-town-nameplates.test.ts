@@ -5,19 +5,20 @@ import type { Tile } from "../client-types.js";
 let threeActive = false;
 vi.mock("../client-renderer-mode.js", () => ({ isTrue3DRendererActive: () => threeActive }));
 const { createTownNameplates, placeNameplates } = await import("./client-town-nameplates.js");
+import type { BiotaTownStatus } from "@border-empires/sim-protocol";
 
 const townTile = (x: number, overrides: Partial<NonNullable<Tile["town"]>> = {}): Tile => ({
   x, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED",
   town: { name: `Town${x}`, type: "FARMING", isFed: true, goldPerMinute: 1, population: 20_000, maxPopulation: 100_000, populationGrowthPerMinute: 5, populationTier: "TOWN", ...overrides }
 }) as Tile;
 
-const mount = (profileSetupRequired = false) => {
+const mount = (profileSetupRequired = false, biotaTowns?: BiotaTownStatus[]) => {
   const host = document.createElement("div");
   const canvas = document.createElement("canvas");
   canvas.width = 800; canvas.height = 600;
   host.append(canvas); document.body.append(host);
   canvas.getBoundingClientRect = () => ({ width: 800, height: 600, left: 0, top: 0, right: 800, bottom: 600, x: 0, y: 0, toJSON: () => ({}) });
-  return { host, plates: createTownNameplates(canvas, { me: "me", authSessionReady: true, profileSetupRequired, playerColors: new Map([["me", "#e3b92b"]]) }) };
+  return { host, plates: createTownNameplates(canvas, { me: "me", authSessionReady: true, profileSetupRequired, playerColors: new Map([["me", "#e3b92b"]]), manpowerBreakdown: { biotaTowns } }) };
 };
 const at = (t: Tile, px: number, py: number) => ({ wx: t.x, wy: t.y, wk: `${t.x},${t.y}`, px, py, vis: "visible", t });
 const project = () => ({ sx: 0, sy: 0 });
@@ -34,6 +35,19 @@ describe("createTownNameplates (2D path)", () => {
     expect(plate?.querySelector(".town-plate-pop")?.textContent).toBe("20k");
     expect(plate?.style.getPropertyValue("--town-plate-owner")).toBe("#e3b92b");
     expect(plate?.getAttribute("title")).toBe("Town1: Unfed");
+  });
+
+  it("strikes through the biota icon on an unruly town short of biota", () => {
+    const { host, plates } = mount(false, [
+      { tileKey: "1,0", received: 1, needed: 3, manpowerTier: "CITY" },
+      { tileKey: "2,0", received: 2, needed: 2, manpowerTier: "GREAT_CITY" }
+    ]);
+    plates.render([at(townTile(1, { populationTier: "METROPOLIS" }), 100, 200), at(townTile(2, { populationTier: "GREAT_CITY" }), 400, 200)], { size: 40, project });
+    const [unruly, supplied] = Array.from(host.querySelectorAll<HTMLElement>(".town-plate"));
+    expect(unruly?.querySelector('[data-status="unruly"] img')?.getAttribute("src")).toBe("/icons/resources/luxury-biota-96.png");
+    expect(unruly?.querySelector('[data-status="unruly"] .town-plate-slash')).not.toBeNull();
+    expect(unruly?.getAttribute("title")).toContain("Unruly");
+    expect(supplied?.querySelector(".town-plate-badge")).toBeNull();
   });
 
   it("keeps plates up when zoomed far out, like Civ banners, so calm towns stay marked", () => {
