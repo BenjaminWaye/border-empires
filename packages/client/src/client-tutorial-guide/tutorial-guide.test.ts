@@ -10,6 +10,7 @@ import { resetGuideInputCacheForTests } from "./tutorial-guide-input.js";
 import { markGuideStepsCompleted, readGuideProgress, resetGuideStorageMemoryForTests, setGuideStatus } from "./tutorial-guide-storage.js";
 import { GUIDE_STEPS } from "./tutorial-guide-steps.js";
 import { resetTutorialGuideForTests } from "./tutorial-guide.js";
+import { setGuestIdentityUid } from "../client-debug/client-debug.js";
 
 const ME = "p1";
 const EMAIL = "new@example.com";
@@ -97,7 +98,6 @@ describe("tutorial guide in the onboarding corner", () => {
     refreshOnboardingChecklistHighlight(state);
     click("skip");
     click("skip");
-    click("skip");
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(cardTitle()).toBe("Tap the marked town and Expand To it");
     expect(state.onboardingHighlightTiles).toEqual([{ x: 2, y: 0 }]);
@@ -109,7 +109,6 @@ describe("tutorial guide in the onboarding corner", () => {
     const state = newPlayerState();
     setTiles(state, [{ x: 2, y: 0, ownerId: ME, ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } as never }]);
     refreshOnboardingChecklistHighlight(state);
-    click("skip");
     click("skip");
     click("skip");
     tickOnboardingUiGateForFrame(state, vi.fn());
@@ -124,14 +123,25 @@ describe("tutorial guide in the onboarding corner", () => {
     noteGuideMapPanned();
     refreshOnboardingChecklistHighlight(state);
     click("skip"); // zoom
-    click("skip"); // select
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(cardTitle()).toMatch(/^Find food: grain or fish/);
+    expect(cardTitle()).toMatch(/^No food in sight: build a Relay Beacon/); // no grain or fish on this tiny test map
     const icons = Array.from(card()?.querySelectorAll(".tg-lookfor img") ?? []);
     expect(icons).toHaveLength(2);
     // The visible "Grain" / "Fish" label names each icon, so the image is decorative to screen readers.
     expect(icons.every((img) => img.closest('[aria-hidden="true"]'))).toBe(true);
     expect(card()?.querySelector(".tg-lookfor")?.textContent).toContain("Grain");
+  });
+
+  it("with no town in sight, goes straight from Look around to building a Relay Beacon (no instruction-less 'Find a town' step)", () => {
+    setGuideStatus("active", EMAIL);
+    const state = newPlayerState();
+    state.tiles.delete("2,0"); // the only town
+    state.tilesRevision += 1;
+    noteGuideMapPanned();
+    refreshOnboardingChecklistHighlight(state);
+    click("skip"); // zoom
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toMatch(/^No town in sight: build a Relay Beacon/);
   });
 
   it("hides while a dialog covers the map, then comes back", () => {
@@ -163,7 +173,6 @@ describe("tutorial guide in the onboarding corner", () => {
     noteGuideMapPanned();
     refreshOnboardingChecklistHighlight(state);
     click("skip"); // zoom
-    click("skip"); // select
     click("skip"); // relay beacon
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(cardTitle()).toBe("Tap your manpower gauge");
@@ -189,7 +198,6 @@ describe("tutorial guide in the onboarding corner", () => {
     noteGuideMapPanned();
     refreshOnboardingChecklistHighlight(state);
     click("skip"); // zoom
-    click("skip"); // select
     click("skip"); // relay beacon
     click("skip"); // manpower
     tickOnboardingUiGateForFrame(state, vi.fn());
@@ -206,7 +214,6 @@ describe("tutorial guide in the onboarding corner", () => {
     setGuideStatus("active", EMAIL);
     const state = newPlayerState();
     refreshOnboardingChecklistHighlight(state);
-    click("skip");
     click("skip");
     click("skip");
     tickOnboardingUiGateForFrame(state, vi.fn());
@@ -227,6 +234,26 @@ describe("tutorial guide in the onboarding corner", () => {
     state.authEmail = "second@example.com";
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(cardTitle()).toBe("Drag the map to look around");
+  });
+
+  it("treats a second guest on the same page as a different account (guests share an empty email)", () => {
+    setGuestIdentityUid("guest-a");
+    try {
+      setGuideStatus("active", "");
+      const state = newPlayerState();
+      state.authEmail = "";
+      refreshOnboardingChecklistHighlight(state);
+      noteGuideMapPanned();
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      expect(cardTitle()).toBe("Zoom in and out (scroll or pinch)");
+      setGuestIdentityUid("guest-b");
+      setGuideStatus("active", "");
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      // Guest A's pan doesn't tick guest B's first step.
+      expect(cardTitle()).toBe("Drag the map to look around");
+    } finally {
+      setGuestIdentityUid("");
+    }
   });
 
   it("Finish ends the guide even while Contest and Diplomacy are still waiting for a first contact", () => {

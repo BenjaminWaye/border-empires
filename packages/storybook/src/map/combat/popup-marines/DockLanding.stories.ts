@@ -22,7 +22,8 @@ const render = (args: Args): HTMLElement => {
   const b: BattleOverlaySkirmishEntry = {
     srcWorldX: -1, srcWorldZ: 0, tgtWorldX: 0, tgtWorldZ: 0, srcSurfaceY: 0, tgtSurfaceY: 0,
     attackerColor: "#378ff2", defenderColor: "#e45749", startAt: 0, hashSeed: 100,
-    landing: { startAt: 0, inwardX: 1, inwardZ: 0, route: [{ x: -2.3, z: 0 }, { x: -0.72, z: -0.45 }] }
+    landing: { startAt: 0, inwardX: 1, inwardZ: 0, route: [{ x: -2.3, z: 0 }, { x: -0.72, z: -0.45 }], sailMs: 3000, approachMs: 6400 },
+    holdApproachUntilElapsed: 6400
   };
   const resolvedAt = 8000; const endAt = resolvedAt + CLASH_MS + ROUT_MS;
   const label = document.createElement("div");
@@ -34,8 +35,8 @@ const render = (args: Args): HTMLElement => {
     else if (elapsed < endAt) fx.tick(elapsed, [{ ...b, startAt: resolvedAt - APPROACH_MS,
       clashAt: resolvedAt, endAt, attackerWon: args.attackerWon, fromSkirmish: true }]);
     else fx.clear();
-    label.textContent = elapsed < 1300 ? "Carrier approaching" : elapsed < 1800 ? "Bow ramp lowering" :
-      elapsed < APPROACH_MS ? "Infantry disembarking" : elapsed < endAt ? "Carrier holds the beach during combat" : "Battle over";
+    label.textContent = elapsed < 3000 ? "Carrier approaching" : elapsed < 3500 ? "Bow ramp lowering" :
+      elapsed < 6400 ? "Infantry disembarking" : elapsed < endAt ? "Carrier holds the beach during combat" : "Battle over";
     raf = requestAnimationFrame(animate);
   };
   animate();
@@ -47,12 +48,12 @@ const render = (args: Args): HTMLElement => {
 };
 const meta: Meta<Args> = {
   title: "Map/Combat/Popup Marines/Dock Landing", render,
-  args: { seconds: 2.9, play: true, attackerWon: true },
+  args: { seconds: 3.8, play: true, attackerWon: true },
   argTypes: { seconds: { control: { type: "range", min: 0, max: 12, step: 0.05 } },
     play: { control: "boolean" }, attackerWon: { control: "boolean" } }
 };
 export default meta;
 type Story = StoryObj<Args>;
 export const Landing: Story = {};
-export const RampUnloading: Story = { args: { play: false, seconds: 2.9 } };
-export const BeachedDuringBattle: Story = { args: { play: false, seconds: 6 } };
+export const RampUnloading: Story = { args: { play: false, seconds: 3.8 } };
+export const BeachedDuringBattle: Story = { args: { play: false, seconds: 7 } };

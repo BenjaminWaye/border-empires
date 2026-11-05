@@ -34,10 +34,9 @@ export type GuideInput = {
   >;
   /** Towns and food tiles to Garrison (own frontier) or Expand To (neutral, in vision): tutorial-guide-foothold-targets.ts. */
   footholdTargets: GuideFootholdTargets;
-  /** Input signals (client-map-input.ts): the player dragged / zoomed / selected a tile themselves. */
+  /** Input signals (client-map-input.ts): the player dragged / zoomed the map themselves. */
   panned: boolean;
   zoomed: boolean;
-  tileSelected: boolean;
   /** The side panel (desktop) or mobile panel currently open, if any. */
   openPanel: string | null;
   activityDashboardOpen: boolean;
@@ -56,8 +55,6 @@ export type GuideInput = {
   beaconSite: () => { x: number; y: number } | undefined;
   /** The player's garrisoned town tiles: where a Manufactory goes. */
   buildTargetTiles: ReadonlyArray<{ x: number; y: number }>;
-  /** The player's AFC tile, for the "tap a tile" step. */
-  afcTile: { x: number; y: number } | undefined;
   /** The player has seen another House's territory (not Planetary Defense): client-met-players.ts. */
   rivalHouseMet: boolean;
   /** Diplomacy panel/screen open, or a truce or alliance offered or in force. */
@@ -110,18 +107,26 @@ const TOWN_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
   pending: { title: "Your claim on the marked town is underway", why: "Once your claim lands, it garrisons itself." },
   garrison: { title: "Tap the marked town and Garrison it", why: "Your reach already claimed it as frontier; a garrison makes it count and grow." },
   expand: { title: "Tap the marked town and Expand To it", why: "It's outside your reach: Expand To claims the land across to it." },
-  beacon: { title: "No town in sight: build a Relay Beacon at the edge of your land", why: "A beacon pushes your reach and vision outward until a town comes into view." }
+  beacon: { title: "No town in sight: build a Relay Beacon", why: "Its reach and vision push outward until a town comes into view." }
 };
 
 const FOOD_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
   pending: { title: "Your claim on the marked food tile is underway", why: "Once your claim lands, it garrisons itself." },
   garrison: { title: "Tap a marked food tile and Garrison it", why: "Your reach already claimed it; only garrisoned food counts, and fish is worth two slots." },
   expand: { title: "Tap a marked food tile and Expand To it", why: "It's outside your reach: Expand To claims the land across to it." },
-  beacon: { title: "No food in sight: build a Relay Beacon at the edge of your land", why: "A beacon pushes your reach and vision out to more food." }
+  beacon: { title: "No food in sight: build a Relay Beacon", why: "Its reach and vision push outward to more grain and fish." }
 };
 
 const townAction = (input: GuideInput): GuideTargetAction => guideTargetAction(input.footholdTargets.town);
 const foodAction = (input: GuideInput): GuideTargetAction => guideTargetAction(input.footholdTargets.food);
+
+/**
+ * Before the player owns a town (the foothold's town step was skipped), a town
+ * they can take comes before a Relay Beacon: it extends reach by itself, so the
+ * Relay Beacon step points at that town first. Once any town is held the step
+ * asks for the beacon, so towns coming into view can't keep deferring it.
+ */
+const townBeforeBeacon = (input: GuideInput): boolean => !input.checklist.townExpanded && townAction(input) !== "beacon";
 
 const targetHighlights =
   (kind: "town" | "food") =>
@@ -139,15 +144,24 @@ const targetHighlights =
  * food is in reach. Drives the build menu's Recommended badge.
  */
 export const guideBeaconSite = (stepId: string, input: GuideInput): { x: number; y: number } | undefined => {
-  if (stepId === "reach-beacon") return input.beaconSite();
+  if (stepId === "reach-beacon") return townBeforeBeacon(input) ? undefined : input.beaconSite();
   const footholdBeacon = (stepId === "foothold-take-town" && townAction(input) === "beacon") || (stepId === "foothold-take-food" && foodAction(input) === "beacon");
   return footholdBeacon ? input.checklist.relayBeaconSite : undefined;
+};
+
+/** Where to build the beacon: the marked recommended site when there is one, otherwise any garrisoned border tile. */
+const beaconWhere = (input: GuideInput): string =>
+  input.checklist.relayBeaconSite ? ": tap the marked tile, then Build" : " on a garrisoned tile at the edge of your land";
+
+const townTitle = (input: GuideInput): string => {
+  const action = townAction(input);
+  return TOWN_STEP[action].title + (action === "beacon" ? beaconWhere(input) : "");
 };
 
 const foodTitle = (input: GuideInput): string => {
   const action = foodAction(input);
   const progress = ` (${input.checklist.foodSlotsClaimed}/${input.checklist.foodSlotsTarget} slots)`;
-  return FOOD_STEP[action].title + (action === "beacon" ? "" : progress);
+  return FOOD_STEP[action].title + (action === "beacon" ? beaconWhere(input) : progress);
 };
 
 /** True while the guide is on a Manifest step: the Manifest screens mark RECOMMENDED_FIRST_MANIFEST_ID as the guide's pick. */
@@ -156,33 +170,17 @@ export const guideRecommendsManifest = (stepId: string): boolean => stepId === "
 export const GUIDE_STEPS: readonly GuideStepDef[] = [
   { id: "look-pan", chapter: "look", title: () => "Drag the map to look around", why: "Scout before you commit: towns, food and rivals are out there.", isDone: (i) => i.panned },
   { id: "look-zoom", chapter: "look", title: () => "Zoom in and out (scroll or pinch)", why: "Zoom out to plan, zoom in to act.", isDone: (i) => i.zoomed },
-  // Tapping your own AFC rather than "any tile": on the new desktop HUD a plain
-  // tap on neutral land touching your border claims it at once (shouldAutoExpand,
-  // client-hud-v2-tile-dock.ts), so "tap a tile" could spend manpower by accident.
-  {
-    id: "look-select",
-    chapter: "look",
-    title: () => "Tap your AFC to see what you can do there",
-    why: "Every tile shows its owner, resources and what you can do there.",
-    isDone: (i) => i.tileSelected,
-    highlight: (i) => (i.afcTile ? [i.afcTile] : [])
-  },
-  { id: "foothold-find-town", chapter: "foothold", title: () => "Find a town", why: "Towns earn Coin and raise your manpower.", isDone: (i) => i.checklist.townFound },
+  // No separate "tap a tile" or "find a town / food" steps: tapping is taught by
+  // the foothold steps' own objective ("Tap the marked town and ..."), and each
+  // foothold step already says what to do when nothing is in sight (build a Relay
+  // Beacon), which a bare "find" step could not.
   {
     id: "foothold-take-town",
     chapter: "foothold",
-    title: (i) => TOWN_STEP[townAction(i)].title,
+    title: townTitle,
     why: (i) => TOWN_STEP[townAction(i)].why,
     isDone: (i) => i.checklist.townExpanded,
     highlight: targetHighlights("town")
-  },
-  {
-    id: "foothold-find-food",
-    chapter: "foothold",
-    title: (i) => `Find food: grain or fish (${i.checklist.foodSlotsFound}/${i.checklist.foodSlotsTarget})`,
-    why: "Food keeps your towns growing.",
-    isDone: (i) => i.checklist.foodFound,
-    lookFor: FOOD_ICONS
   },
   {
     id: "foothold-take-food",
@@ -196,11 +194,15 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "reach-beacon",
     chapter: "reach",
-    title: (i) => (i.beaconSite() ? "Tap the marked tile and build a Relay Beacon" : "Build a Relay Beacon on a tile at the edge of your land"),
-    why: "A beacon pushes your reach and vision outward, so Expand To can claim land further out. It needs no Manifest; it costs manpower and uses one food slot.",
+    title: (i) => (townBeforeBeacon(i) ? TOWN_STEP[townAction(i)].title : i.beaconSite() ? "Tap the marked tile and build a Relay Beacon" : "Build a Relay Beacon on a tile at the edge of your land"),
+    why: (i) =>
+      townBeforeBeacon(i)
+        ? "A town pushes your reach out by itself, so take it before spending manpower on a beacon."
+        : "A beacon pushes your reach and vision outward, so Expand To can claim land further out. It needs no Manifest; it costs manpower and uses one food slot.",
     isDone: (i) => i.ownsRelayBeacon,
     doneIfLaterStepDone: true,
     highlight: (i) => {
+      if (townBeforeBeacon(i)) return targetHighlights("town")(i);
       const site = i.beaconSite();
       return site ? [site] : [];
     }

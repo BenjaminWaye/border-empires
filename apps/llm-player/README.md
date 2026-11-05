@@ -203,9 +203,9 @@ means you get those emails whenever the bot's empire is attacked, even while
 the bot process isn't running — no code needed here.
 
 This is gated server-side by `GATEWAY_EMAIL_ALERTS_RESEND_API_KEY` on the
-target environment; if that Fly secret isn't set on staging/prod, alerts
-silently no-op regardless of the bot's email. Worth a quick
-`fly secrets list -a border-empires-combined-staging` to confirm.
+target environment; if that secret isn't set in
+`/etc/border-empires/secrets.env` on staging/prod, alerts silently no-op
+regardless of the bot's email. Check it on the server to confirm.
 
 Note this only gets a *human* notified — the bot itself can't react while
 its process isn't running. During its own sessions, though, it does now see

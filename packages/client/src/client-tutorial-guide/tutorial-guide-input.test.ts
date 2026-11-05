@@ -61,6 +61,50 @@ describe("buildGuideInput", () => {
     state.chunkFullCount += 1;
     expect(buildGuideInput(state).checklist.townFound).toBe(true);
   });
+
+  it("judges the foothold from live tiles, not the checklist's account-wide completed flag", async () => {
+    // Regression: an account that once finished the New empire checklist (a past
+    // season, or before Restart guide) had every foothold step ticked on load.
+    const { createInitialState } = await import("../client-state/client-state.js");
+    const { buildGuideInput, resetGuideInputCacheForTests } = await import("./tutorial-guide-input.js");
+    const { markOnboardingChecklistCompleted } = await import("../client-onboarding-checklist/client-onboarding-checklist-storage.js");
+    resetGuideInputCacheForTests();
+    const state = createInitialState();
+    state.me = ME;
+    state.authEmail = "veteran@example.com";
+    markOnboardingChecklistCompleted(state.authEmail);
+    state.tiles.set(tileKey(0, 0), { x: 0, y: 0, terrain: "LAND", ownerId: ME, ownershipState: "SETTLED" } as Tile);
+    state.tiles.set(tileKey(2, 0), { x: 2, y: 0, terrain: "LAND", town: { type: "MARKET", populationTier: "TOWN" } } as Tile);
+    state.tilesRevision += 1;
+    try {
+      const { checklist } = buildGuideInput(state);
+      expect(checklist.townFound).toBe(true);
+      expect(checklist.townExpanded).toBe(false);
+      expect(checklist.foodExpanded).toBe(false);
+    } finally {
+      window.localStorage.clear();
+    }
+  });
+
+  it("stops scanning the foothold once the guide's own foothold steps are saved", async () => {
+    const { createInitialState } = await import("../client-state/client-state.js");
+    const { buildGuideInput, resetGuideInputCacheForTests } = await import("./tutorial-guide-input.js");
+    const { markGuideStepsCompleted, resetGuideStorageMemoryForTests } = await import("./tutorial-guide-storage.js");
+    resetGuideInputCacheForTests();
+    const state = createInitialState();
+    state.me = ME;
+    state.authEmail = "player@example.com";
+    state.tiles.set(tileKey(0, 0), { x: 0, y: 0, terrain: "LAND", ownerId: ME, ownershipState: "SETTLED" } as Tile);
+    try {
+      expect(buildGuideInput(state).checklist.step).not.toBe("DONE");
+      markGuideStepsCompleted(["foothold-find-town", "foothold-take-town", "foothold-find-food", "foothold-take-food"], state.authEmail);
+      // Same tiles revision: the saved progress alone refreshes the cache.
+      expect(buildGuideInput(state).checklist.step).toBe("DONE");
+    } finally {
+      window.localStorage.clear();
+      resetGuideStorageMemoryForTests();
+    }
+  });
 });
 
 describe("scanGuideFootholdTargets", () => {

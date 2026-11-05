@@ -6,6 +6,7 @@ import {
   WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING,
   WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
   arsenalMultiplierForFactoryCount,
+  salvageArmsMultiplier,
   warIndustryEdge,
   type BuildableStructureType,
   type WarIndustryPresence
@@ -128,3 +129,7 @@ export const noWarIndustryEdgeForAttacker = (ctx: WeaponsFactoryMultContext, att
 // the defender owns a factory type the attacker lacks.
 export const noWarIndustryEdgeForDefender = (ctx: WeaponsFactoryMultContext, attackerOwnerId: string, defenderOwnerId: string | undefined): { mult: number; label: string | undefined } =>
   defenderOwnerId ? warIndustryEdge("Attacker", warIndustryPresence(ctx, defenderOwnerId), warIndustryPresence(ctx, attackerOwnerId)) : { mult: 1, label: undefined };
+
+/** Precursor salvage arms bonus, both attack and defense (frontier-resource-effects.ts). */
+export const salvageArmsMultForPlayer = (ctx: WeaponsFactoryMultContext, playerId: string | undefined): number =>
+  playerId ? salvageArmsMultiplier(ctx.ownedStructureCountForPlayer(playerId, "RECLAMATION_WORKS")) : 1;

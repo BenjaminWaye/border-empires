@@ -20,6 +20,15 @@ describe("townNameplateFor", () => {
     expect(townNameplateFor(unfed, "me", 0)).toMatchObject({ status: "unfed", growth: "paused" });
   });
 
+  it("flags an own large town short of biota as unruly, below unfed", () => {
+    const city = tile({ town: town({ populationTier: "CITY" }) });
+    expect(townNameplateFor(city, "me", 0, new Set(["4,5"]))?.status).toBe("unruly");
+    expect(townNameplateFor(city, "me", 0, new Set())?.status).toBeUndefined();
+    const unfedCity = tile({ town: town({ populationTier: "CITY", isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 }) });
+    expect(townNameplateFor(unfedCity, "me", 0, new Set(["4,5"]))?.status).toBe("unfed");
+    expect(townNameplateFor(city, "rival", 0, new Set(["4,5"]))?.status).toBeUndefined();
+  });
+
   it("flags upgrade-ready and nearby-war, with war outranking upgrade", () => {
     const ready = town({ nextPopulationTierUpgrade: { available: true } } as Partial<NonNullable<Tile["town"]>>);
     expect(townNameplateFor(tile({ town: ready }), "me", 0)?.status).toBe("upgrade");

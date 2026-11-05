@@ -112,9 +112,22 @@ const debugAuthEmail = (): string => {
   }
 };
 
+// The signed-in guest's Firebase uid (anonymous auth), or "" for an email
+// account / signed out. Guests have no email, so without this every guest
+// on a browser shared one "anonymous" storage scope and inherited the last
+// guest's hints, guide progress and checklist completion.
+let guestIdentityUid = "";
+
+/** Set on every auth change: the uid for an anonymous (guest) user, "" otherwise. */
+export const setGuestIdentityUid = (uid: string | undefined | null): void => {
+  guestIdentityUid = (uid ?? "").trim();
+};
+
+/** Per-account storage scope: the email, else `guest:<uid>` for a guest, else "anonymous" (signed out / dev login). */
 export const debugAuthIdentityKeyForEmail = (email: string | undefined | null): string => {
   const normalized = (email ?? "").trim().toLowerCase();
-  return normalized || "anonymous";
+  if (normalized) return normalized;
+  return guestIdentityUid ? `guest:${guestIdentityUid}` : "anonymous";
 };
 
 export const isDebugAccountEmail = (email: string | undefined | null): boolean => {

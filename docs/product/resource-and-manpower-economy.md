@@ -202,40 +202,63 @@ manpower to build:
 Resin Extractor 40, Implant Foundry 50, Catalyst Refinery 50, Cultivation
 Estate 33, Reclamation Works 60. Base construction seconds equal manpower.
 
-Each active developed site supplies one renewable bonus slot, except an Implant
-Foundry which supplies two conductive slots for two separate factories. One slot can
-supply one eligible building; each building uses at most one slot of each
-applicable resource. A supplied Ancillary Depot gains 12 Ancillaries per four-hour cycle from resin;
-a supplied Ancillary Factory gains 6 per batch from conductive minerals. Conductive slots equal
-twice the number of active supplied Implant Foundries. The actual empire bonus is 12×min(resin slots, active depots) + 6×min(mineral slots, active
-factories), banked over the 240-minute refill interval. Extra factories cannot
-reuse a slot. Unsupported factories retain normal output; there is no resource
-stockpile, permanent depletion, diminishing tier or six-site cap. Storage cap
-is unchanged and towns remain the source of bodies.
+Every active developed tile counts as one site; there are no recipient
+buildings and no per-building slot caps. Formulas live in
+`packages/shared/src/resource-networks/frontier-resource-effects.ts`.
 
-One catalyst or luxury-biota slot adds 1.5 Coin/day at one eligible Trade
-Nexus; one salvage slot adds 1.5 Coin/day at one eligible Manufactory. A Nexus
-may use one of each export slot. Existing fed-town and non-Settlement-tier
-industry gates apply, as do applicable town-output modifiers. Slots allocate
-once in stable town-key order, avoiding duplicated credit across towns.
-Unused slots earn nothing until a beneficiary becomes available. Coin
-breakdowns attribute the actual allocated credit to Frontier export concessions
-and Precursor reclamation; town displays use the same allocation as income.
+**Resin, conductive minerals, catalyst (manpower).** Each type adds manpower
+regen, paid at the four-hour refill: +120 per refill for your first site of
+that type and +30 for each further site of the same type. One site of each
+type gives +360 per refill (1.5/min). The bonus raises regen only, never the
+manpower cap. Ancillary Depots, Neural Works and Ancillary Factories keep their
+own cap and regen effects; they no longer receive frontier supply.
+
+**Luxury biota (large towns' manpower).** Each developed biota site supplies 2
+biota slots. A City needs 1 slot, a Great City 2, a Metropolis 3; Settlements
+and Towns need none. A town above Town tier gives Town-level manpower with no
+biota, and each slot it receives raises its manpower by one tier, up to its
+real tier (so a Metropolis with 1 slot gives City manpower). The town keeps its
+real tier, population, Coin and growth. Ancillary Depot capacity bonuses scale
+with the tier the town is working as. Slots go to towns in the order they were
+acquired, oldest first (`Runtime.tileSettledAtByKey`, which resets on capture),
+so a new conquest never takes biota from towns already held. The manpower
+breakdown shows the loss as "Unruly towns, short of biota (N)" and lists each large
+town's supply (`ManpowerBreakdown.biotaTowns`). A town short of biota is unruly:
+its nameplate shows the biota icon struck through (the DOM plate layer drawn over
+both the 2D and 3D maps), ranked just below unfed.
+
+**Precursor salvage (finite).** Each salvage tile holds 3 loads, recorded on
+its Reclamation Works (`salvageLoadsShipped`). While a Works stands, it gives
++1% attack and +1% defense to all the owner's troops, up to +10% (combat
+breakdown label "Precursor salvage"). The `SHIP_SALVAGE_TO_COURT` command
+spends one load: the Court sends an Imperial delivery of ancillaries worth 25%
+of the manpower cap, never above it, and is refused when manpower is full. The
+last load removes the deposit and its Works, ending that site's arms bonus.
+Dismantling a Works that has shipped any load also removes the deposit, so a
+rebuild cannot restore loads. A captured Works keeps its remaining loads.
+Salvage cannot be traded or siphoned. Court Strength in the space layer is not
+changed by shipments yet.
 
 A site needs its owning House's required Manifest even after capture. Dormant,
 inactive, unfinished, neutral and ungarrisoned installations contribute
-nothing. Site and beneficiary losses invalidate the existing economy caches;
-network owners settle accrued income and manpower at the old rate before a
-relevant tile mutation. These exclusive supply slots reward concentrated
-investment without requiring continent-wide collection.
+nothing. Site losses invalidate the existing economy caches; network owners
+settle accrued income and manpower at the old rate before a relevant tile
+mutation. No frontier resource pays Coin.
 
-New standard 640×320 maps target 1,000 tiles of each of the five resources,
-in separated deposits of 1–3 tiles. Habitat preferences and secondary biomes
-are documented in [the resource-network plan](../resource-networks-plan.md).
-New frontier deposits avoid towns and all eight adjacent support tiles; their
-installations do not require town support. Catalysts exclude coastal sand.
-The decorative lone-tree pattern is removed; resin appears as distinct groves.
-Saved campaigns preserve their existing geography on recovery.
+New standard 640×320 maps target 160 tiles each of resin, conductive minerals
+and catalyst and 90 of precursor salvage, scaled by map area. Luxury biota is
+sized from the map's towns instead: 1.5 tiles per town (3 slots of demand per
+town at 2 slots per site), about 550–585 tiles on a continents map of 360–390
+towns and about 200 on an islands map; a map with no towns falls back to 540
+scaled by area. Deposits are separated and hold 3–6 tiles. On
+standard-size maps each type uses only its preferred habitat (resin in
+forested grassland, conductive minerals in hills, near mountains or cold
+ground, catalyst in inland sand, biota in tropical grassland and marsh,
+salvage in hills and near mountains), so most start regions lack some types;
+smaller maps also use the secondary habitat. New frontier deposits avoid towns
+and all eight adjacent support tiles; their installations do not require town
+support. Catalysts exclude coastal sand. Saved campaigns preserve their
+existing geography on recovery.
 
 Implant Foundry shares Reserve Custody Cadre (`organized-supply`) with the
 Ancillary Depot. Reclamation Works shares Industrial Tooling Module (`trade`)
@@ -247,11 +270,16 @@ Sources: `packages/shared/src/resource-networks/`,
 
 ## Diplomatic resource supply
 
-All four upkeep resources and all five frontier resources can be negotiated in
-independent Resource trade offers or alongside a truce/alliance. These are
-exclusive renewable slots, not a new inventory of mined stockpiles. Coin remains
-a one-time transfer. Only surplus beyond current domestic use and existing export
-commitments may be newly promised. Received slots cannot back another export. Accepted exports
+All four upkeep resources and four of the frontier resources (not precursor
+salvage) can be negotiated in independent Resource trade offers or alongside a
+truce/alliance. These are exclusive renewable slots or developed sites, not a
+new inventory of mined stockpiles. Coin remains a one-time transfer. For upkeep
+resources only surplus beyond current domestic use and existing export
+commitments may be newly promised; any developed resin, conductive, catalyst or
+biota site may be pledged, and the supplier loses that site's marginal value
+(−30 or −120 manpower per refill, or 2 biota slots) while the receiver gains it.
+Offers containing salvage are refused, and agreements saved with salvage are
+suspended. Received slots cannot back another export. Accepted exports
 take priority over later domestic building demand.
 
 Supply continues until either participating House ends the agreement. Both
@@ -268,8 +296,9 @@ truce or alliance. Unaccepted offers expire after 24 hours. A payment already
 being resolved cannot be withdrawn: either party finishes/retries the same accepted
 payment identity before deciding whether to end its resulting supply agreement.
 
-Starting AI negotiation values per slot are FOOD 4 Coin, Titanium 4, Crystal 6,
-Umbrite 4, resin 4, conductive minerals 2, and each credit resource 1.5. These are
+Starting AI negotiation values per slot or site are FOOD 4 Coin, Titanium 4,
+Crystal 6, Umbrite 4, resin, conductive minerals and catalyst 8, and luxury
+biota 10. These are
 one-day-equivalent negotiation weights for an open-ended promise, not recurring
 charges, guaranteed market prices or playtest-proven balance. Human offers can
 use other prices. Limits: 16 active supply agreements per House, 256 per world;

@@ -80,6 +80,9 @@ export type FrontierCombatModifiers = {
   // empire-wide sum — see TITANIUM_WEAPONS_FACTORY_*_MULT_PER_BUILDING /
   // UMBRITE_WEAPONS_FACTORY_*_MULT_PER_BUILDING in config.ts.
   titaniumWeaponsFactoryAttackMult?: number | undefined;
+  /** Precursor salvage fitted to House arms: +1% per developed salvage site, up to +10% (frontier-resource-effects.ts). */
+  salvageArmsAttackMult?: number | undefined;
+  salvageArmsDefenseMult?: number | undefined;
   titaniumWeaponsFactoryDefenseMult?: number | undefined;
   umbriteWeaponsFactoryAttackMult?: number | undefined;
   umbriteWeaponsFactoryDefenseMult?: number | undefined;
@@ -180,6 +183,7 @@ const attackerInfrastructure = (modifiers: FrontierCombatModifiers): SideMultBre
   mult *= foldMult(entries, "Weapons Workshop", modifiers.weaponsWorkshopAttackMult);
   mult *= foldMult(entries, "Titanium Weapons Factory", modifiers.titaniumWeaponsFactoryAttackMult);
   mult *= foldMult(entries, "Umbrite Weapons Factory", modifiers.umbriteWeaponsFactoryAttackMult);
+  mult *= foldMult(entries, "Precursor salvage", modifiers.salvageArmsAttackMult);
   mult *= foldMult(entries, "Tech & Domains", modifiers.attackerStatMult);
   return { entries, mult };
 };
@@ -190,6 +194,7 @@ const defenderInfrastructure = (modifiers: FrontierCombatModifiers): SideMultBre
   mult *= foldMult(entries, "Weapons Workshop", modifiers.weaponsWorkshopDefenseMult);
   mult *= foldMult(entries, "Titanium Weapons Factory", modifiers.titaniumWeaponsFactoryDefenseMult);
   mult *= foldMult(entries, "Umbrite Weapons Factory", modifiers.umbriteWeaponsFactoryDefenseMult);
+  mult *= foldMult(entries, "Precursor salvage", modifiers.salvageArmsDefenseMult);
   mult *= foldMult(entries, "Tech & Domains", modifiers.defenderStatMult);
   return { entries, mult };
 };

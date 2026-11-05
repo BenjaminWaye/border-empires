@@ -51,6 +51,7 @@ export * from "./forest-terrain/forest-terrain.js";
 export * from "./forest-terrain/forest-clearing.js";
 export * from "./hills-terrain/hills-terrain.js";
 export * from "./frontier-claim-duration/frontier-claim-duration.js";
+export * from "./garrison-duration/garrison-duration.js";
 export * from "./expand-manpower-cost/expand-manpower-cost.js";
 export * from "./frontier-combat/frontier-combat.js";
 export * from "./capture-hold/capture-hold.js";
@@ -86,6 +87,7 @@ export * from "./relics/relic-resource-reward.js";
 export * from "./relics/relic-map-hints.js";
 
 export * from "./resource-networks/resource-networks.js";
+export * from "./resource-networks/frontier-resource-effects.js";
 
 export * from "./resource-networks/resource-network-biomes.js";
 

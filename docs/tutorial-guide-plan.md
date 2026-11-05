@@ -38,7 +38,10 @@ finished its first profile setup with `profileNeedsSetup` on INIT. An account
 with no stored guide status that is in that state, and has not completed the
 checklist, is enrolled once (`guideStatus: "active"`). Guest ("Play now")
 sessions are enrolled too: the gateway always reports `profileNeedsSetup:
-false` for guests, so the client treats a guest session as new. Every older
+false` for guests, so the client treats a guest session as new. Each guest's
+local storage is scoped by its Firebase uid (`guest:<uid>`,
+`debugAuthIdentityKeyForEmail`), not one shared `anonymous` key, so a new
+guest doesn't inherit an earlier guest's progress on the same browser. Every older
 account has no status and a complete profile, so it keeps the New empire
 checklist unchanged.
 
@@ -108,11 +111,11 @@ is unavailable until the recommended Manifest exists.
 
 | # | Chapter | Step (completes when…) | Target |
 |---|---|---|---|
-| 1 | Look around | drag the map; zoom; tap your AFC (player input, via `client-map-input.ts`, shared by both renderers). Any tap completes it, but the step points at the AFC because, on the new desktop HUD, tapping neutral land next to your border claims it at once | the AFC tile |
-| 2 | A foothold | the four checklist goals (`onboardingChecklistState`): find a town; take it; find food; take 4 food slots | see below |
-| 3 | Your reach | owns (or is building) a Relay Beacon. A beacon needs no Manifest, so it comes before the Manifest chapter; one built during the foothold completes it. Added after launch, so it also counts as done for a player whose saved progress already has a later step (`doneIfLaterStepDone`) | the tile where a beacon adds the most new reach (`bestRelayBeaconSites`, computed only while this step asks); its build menu badges the beacon Recommended |
+| 1 | Look around | drag the map; zoom (player input, via `client-map-input.ts`, shared by both renderers). There is no separate "tap a tile" step: the foothold steps teach tapping with a real objective ("Tap the marked town and …"). A bare tap had no goal, and on the new desktop HUD a tap on neutral land next to your border claims it | — |
+| 2 | A foothold | two of the checklist goals (`onboardingChecklistState`): take a town, then take 4 food slots (judged from live tiles until the guide's own foothold steps are saved, then a constant DONE so later chapters skip the reach scan; never from the checklist's saved completion flag, which is account-wide and never resets). There are no separate "find" steps: they could only wait, with no instruction, when nothing was in sight | see below |
+| 3 | Your reach | owns (or is building) a Relay Beacon. A beacon needs no Manifest, so it comes before the Manifest chapter; one built during the foothold completes it. Added after launch, so it also counts as done for a player whose saved progress already has a later step (`doneIfLaterStepDone`). It completes only on a beacon. Before the player holds any town (the foothold's town step was skipped), a town they can take (Garrison, Expand To, or a claim underway) is pointed at first; once a town is held it always asks for the beacon | the town; otherwise the tile where a beacon adds the most new reach (`bestRelayBeaconSites`, computed only while this step asks; never a town or dock the player hasn't garrisoned); its build menu badges the beacon Recommended |
 | 4 | Manpower | the manpower panel is open | manpower gauge |
-| 5 | Manifests | the Manifest panel is open; a Manifest commissioned (`techIds`). The step recommends the **Industrial Tooling Module** (`trade`): tier 1, 10 Coin, and it unlocks the Manufactory | Manifest button, and the module's node in the tree |
+| 5 | Manifests | the Manifest panel is open; a Manifest commissioned (`techIds`). The step recommends the **Industrial Tooling Module** (`trade`): tier 1, 10 Coin, and it unlocks the Manufactory | Manifest button |
 | 6 | Build | owns a structure other than a Relay Beacon. Available once the Industrial Tooling Module is commissioned. It asks for a **Manufactory**, which goes on a garrisoned town (never the spawn settlement) or its support ring and uses one food slot. Until the module docks on an active AFC (about a minute; the tile menu hides the Manufactory until then), the step says it is docking. Without the module, the step waits with a pointer to that Manifest. The Manifest step itself completes only on that Manifest, or once anything has been built | the player's garrisoned towns |
 | 7 | Contest | owns a muster flag. Available once mustering unlocks on first contact with Planetary Defense or a rival House | own garrisoned tiles touching another owner |
 | 8 | Diplomacy | after a rival House's land has been seen (Planetary Defense doesn't count, `isMeetablePlayerId`), the Allies panel, mobile Social panel or HUD v2 Diplomacy screen is open, or a truce or alliance is offered or in force. Opening the panel before meeting anyone doesn't count | Allies / Social / Diplomacy button |
@@ -133,9 +136,10 @@ the same rule.
 - Otherwise, a neutral target in vision (not fogged), in practice one outside
   reach: "Expand To it". Expand To walks the border across through a waypoint
   chain.
-- Otherwise, nothing in vision: "Build a Relay Beacon at the edge of your
-  land". Only the checklist's recommended beacon site is ringed, when there is
-  one.
+- Otherwise, nothing in vision: "build a Relay Beacon: tap the marked tile,
+  then Build" when the checklist has a recommended beacon site (only that site
+  is ringed). Without a site, the step says "…on a garrisoned tile at the edge
+  of your land".
 - While a claim or garrison on a target is already underway
   (`optimisticPending`, for example right after Expand To), the step says so
   instead of asking for a Garrison that is already queued.

@@ -1,9 +1,8 @@
 name: Deploy staging
 
-# Fires on every push to develop, after CI is green. Mirrors what
-# `pnpm deploy:staging:all` does locally (see scripts/deploy-staging-all.mjs)
-# but non-interactively, using GitHub-held tokens instead of a local
-# `fly`/`vercel` login. See docs/agents/deploys.md.
+# Fires on every push to develop, after CI is green. Deploys the combined
+# sim+gateway and the static client to the Hetzner staging server using
+# GitHub-held SSH credentials. See docs/agents/deploys.md.
 on:
   workflow_run:
     workflows: ["CI"]
@@ -45,13 +44,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # STAGING_BACKEND (repo variable) selects the deploy target: unset or
-      # "fly" keeps the Fly path; "hetzner" uses the VPS. Flipping the variable
-      # is the rollback during the Hetzner trial. docs/hetzner-migration-plan.md
-      - name: Install flyctl
-        if: vars.STAGING_BACKEND != 'hetzner'
-        uses: superfly/flyctl-actions/setup-flyctl@master
-
       # DEPLOY_SHA (not GITHUB_SHA) deliberately: GITHUB_SHA is a reserved
       # Actions context name, and for a workflow_run-triggered job the
       # runner injects its own value for it (which for this event resolves
@@ -79,7 +71,6 @@ jobs:
             build
 
       - name: Deploy merged sim+gateway to Hetzner (staging)
-        if: vars.STAGING_BACKEND == 'hetzner'
         uses: ./.github/actions/hetzner-deploy
         with:
           sha: ${{ github.event.workflow_run.head_sha }}
@@ -88,19 +79,6 @@ jobs:
           ssh-known-hosts: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
           ghcr-token: ${{ secrets.GITHUB_TOKEN }}
           platform: ${{ vars.DEPLOY_PLATFORM || 'linux/amd64' }}
-
-      - name: Deploy merged sim+gateway to Fly (staging)
-        if: vars.STAGING_BACKEND != 'hetzner'
-        run: |
-          flyctl deploy \
-            --config fly.combined.staging.toml \
-            --strategy rolling \
-            --remote-only \
-            --build-arg "CACHE_BUST=${DEPLOY_SHA}" \
-            --env "BUILD_SHA=${DEPLOY_SHA}"
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
       - name: Verify sustained staging gateway and WebSocket health
         run: node ./scripts/verify-staging-realtime.mjs
@@ -115,19 +93,7 @@ jobs:
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy client to Hetzner
-        if: vars.STAGING_BACKEND == 'hetzner'
         run: node ./scripts/deploy-client-hetzner.mjs staging
         env:
           GIT_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
           BE_CLIENT_SSH_TARGET: hetzner-target
-
-      - name: Deploy client to Vercel staging alias
-        if: vars.STAGING_BACKEND != 'hetzner'
-        run: node ./scripts/deploy-client-staging.mjs
-        env:
-          GIT_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
-          ALLOW_NON_STAGING_BRANCH_DEPLOY: "1"
-          # scripts/vercel-deploy-guards.mjs hardcodes the org/project ids
-          # for border-empires-client; only the auth token needs to come
-          # from a secret.
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

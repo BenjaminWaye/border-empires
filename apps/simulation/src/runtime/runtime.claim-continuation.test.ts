@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
+import { garrisonVeteranSeedPlayers } from "./runtime.test-helpers.js";
+import { frontierClaimDurationMsAt } from "@border-empires/shared";
 import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
 
 type Seen = { eventType: string; commandId: string; playerId: string; code?: string };
@@ -18,6 +20,7 @@ describe("claim continuation (server-durable settle+build tail)", () => {
       scheduleAfter: (delayMs, task) => {
         scheduledTasks.push({ delayMs, task });
       },
+      initialPlayers: garrisonVeteranSeedPlayers(),
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
@@ -69,7 +72,8 @@ describe("claim continuation (server-durable settle+build tail)", () => {
     // 3. The EXPAND landing should have queued (and, since a dev slot was
     // free, immediately dispatched) the SETTLE -- find and fire its
     // scheduled completion, again with no client involvement.
-    const settleResolution = scheduledTasks.find((t) => t.delayMs === 60_000);
+    // Garrison and claim take the same time, so skip past the EXPAND task already run.
+    const settleResolution = scheduledTasks.find((t) => t !== expandResolution && t.delayMs === frontierClaimDurationMsAt(11, 10));
     expect(settleResolution).toBeDefined();
     settleResolution!.task();
     await Promise.resolve();
@@ -94,6 +98,7 @@ describe("claim continuation (server-durable settle+build tail)", () => {
       scheduleAfter: (delayMs, task) => {
         scheduledTasks.push({ delayMs, task });
       },
+      initialPlayers: garrisonVeteranSeedPlayers(),
       initialState: {
         tiles: [
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
@@ -118,7 +123,7 @@ describe("claim continuation (server-durable settle+build tail)", () => {
 
     expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "claim-continuation-owned" }));
 
-    const settleResolution = scheduledTasks.find((t) => t.delayMs === 60_000);
+    const settleResolution = scheduledTasks.find((t) => t.delayMs === frontierClaimDurationMsAt(10, 10));
     expect(settleResolution).toBeDefined();
     settleResolution!.task();
     await Promise.resolve();
@@ -200,6 +205,7 @@ describe("claim continuation (server-durable settle+build tail)", () => {
       scheduleAfter: (delayMs, task) => {
         scheduledTasks.push({ delayMs, task });
       },
+      initialPlayers: garrisonVeteranSeedPlayers(),
       initialState: {
         tiles: [
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
@@ -236,7 +242,7 @@ describe("claim continuation (server-durable settle+build tail)", () => {
     });
     await Promise.resolve();
 
-    const settleResolution = scheduledTasks.find((t) => t.delayMs === 60_000);
+    const settleResolution = scheduledTasks.find((t) => t.delayMs === frontierClaimDurationMsAt(10, 10));
     expect(settleResolution).toBeDefined();
     settleResolution!.task();
     await Promise.resolve();
@@ -272,6 +278,7 @@ describe("claim continuation (server-durable settle+build tail)", () => {
       scheduleAfter: (delayMs, task) => {
         scheduledTasks.push({ delayMs, task });
       },
+      initialPlayers: garrisonVeteranSeedPlayers(),
       initialState: {
         tiles: [
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
@@ -295,6 +302,7 @@ describe("claim continuation (server-durable settle+build tail)", () => {
       summaryForPlayer: (playerId: string) => { claimContinuations: Map<string, { structureType?: string }> };
     }).summaryForPlayer("player-1").claimContinuations.set("10,10", { structureType: "RELAY_BEACON" });
 
+    // The recovered pending settlement keeps its saved resolvesAt (70s - now 10s).
     const recoveredSettleResolution = scheduledTasks.find((t) => t.delayMs === 60_000);
     expect(recoveredSettleResolution).toBeDefined();
     recoveredSettleResolution!.task();
