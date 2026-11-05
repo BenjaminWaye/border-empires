@@ -173,3 +173,5 @@
 .v2b-result-title { font-family: var(--v2-display); font-size: 22px; font-weight: 700; letter-spacing: 0.08em; color: #f0c46e; }
 .v2b-panel-won .v2b-result-title { color: var(--v2-green-hi); }
 .v2b-result-body { font-size: 14px; color: var(--v2-soft); }
+/* Auto-garrison checkbox under the bar's Garrison button. */
+.v2t-bar .tile-auto-settle-option { flex: 1 0 100%; margin: 0; font-size: 12px; color: var(--v2-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -1,3 +1,4 @@
+import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
 import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
 import { FOOD_TILE_ART_CHANGELOG } from "./client-changelog-food-tile-art.js";
 import { TOWN_ECONOMY_CHANGELOG } from "./client-changelog-town-economy.js";
@@ -57,7 +58,9 @@ import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js
 import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
 import { STORM_EDGE_BANDING_CHANGELOG } from "./client-changelog-storm-edge-banding.js";
 import { NOVEMBER_CHANGELOG } from "./client-changelog-data-november.js";
+import { INSTANT_GARRISONS_CHANGELOG } from "./client-changelog-instant-garrisons.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
+import { DOCK_SAIL_PACING_CHANGELOG } from "./client-changelog-dock-sail-pacing.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
 import { RECONNECT_NO_AUTH_CHANGELOG } from "./client-changelog-reconnect-no-auth.js";
@@ -227,6 +230,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...INCURSION_HATCH_HILLS_CHANGELOG,
   ...STORM_EDGE_BANDING_CHANGELOG,
   ...MARCH_ACROSS_WATER_CHANGELOG,
+  ...DOCK_SAIL_PACING_CHANGELOG,
   ...MARCH_UNEXPLORED_CHANGELOG,
   ...MARCH_STOP_SHORT_CHANGELOG,
   ...RECONNECT_NO_AUTH_CHANGELOG,
@@ -466,6 +470,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...NOVEMBER_CHANGELOG,
+  ...INSTANT_GARRISONS_CHANGELOG,
   {
     createdAt: 1793743078716, // Date.now() captured once for this entry.
     introducedIn: "2026.11.03",
@@ -477,7 +482,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The orb and the manpower chip stop showing a batch amount that has already landed"
     ]
   },
-  ...INCURSION_SHORE_CHANGELOG
+  ...INCURSION_SHORE_CHANGELOG,
+  ...TOWN_SCREEN_AUTO_GARRISON_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

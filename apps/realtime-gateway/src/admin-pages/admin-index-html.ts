@@ -70,16 +70,17 @@ ${section.note ? `<p class="note">${escapeHtml(section.note)}</p>` : ""}
 const renderSimLoopbackSection = (): string => {
   const items = SIM_LOOPBACK_ENDPOINTS.map((endpoint) => {
     const url = `http://127.0.0.1:${SIM_LOOPBACK_PORT}${endpoint.path}`;
-    const command = `flyctl ssh console -a {flyApp} -C "node -e \\"fetch('${url}').then(r=>r.text()).then(console.log)\\""`;
+    const command = `curl -s ${url}`;
     return `<li>
   <div class="path">GET ${escapeHtml(endpoint.path)}</div>
   <div class="desc">${escapeHtml(endpoint.description)}</div>
-  <code class="snippet" data-fly-snippet>${escapeHtml(command)}</code>
+  <code class="snippet">${escapeHtml(command)}</code>
 </li>`;
   }).join("");
   return `<section>
 <h2>Simulation loopback</h2>
-<p class="note">Not reachable from the browser: 127.0.0.1:${SIM_LOOPBACK_PORT} inside the container, and the container has no curl.</p>
+<p class="note">Not reachable from the browser: 127.0.0.1:${SIM_LOOPBACK_PORT} on the server only. Open a tunnel with the admin key first:</p>
+<code class="snippet" data-ssh-snippet>${escapeHtml(`ssh -L ${SIM_LOOPBACK_PORT}:127.0.0.1:${SIM_LOOPBACK_PORT} {sshHost}`)}</code>
 <ul>${items}</ul>
 </section>`;
 };
@@ -87,8 +88,8 @@ const renderSimLoopbackSection = (): string => {
 const renderLinksSection = (): string => {
   const envItems = ADMIN_ENVIRONMENTS.map(
     (env) => `<li>
-  <div class="row"><a href="${escapeHtml(env.gatewayOrigin)}/admin">${escapeHtml(env.label)} admin</a><a href="${escapeHtml(env.playOrigin)}">play</a><a href="https://fly.io/apps/${escapeHtml(env.flyApp)}">fly</a></div>
-  <div class="path">${escapeHtml(env.flyApp)}</div>
+  <div class="row"><a href="${escapeHtml(env.gatewayOrigin)}/admin">${escapeHtml(env.label)} admin</a><a href="${escapeHtml(env.playOrigin)}">play</a></div>
+  <div class="path">${escapeHtml(env.sshHost)}</div>
 </li>`
   ).join("");
   const consoleItems = EXTERNAL_CONSOLE_LINKS.map(
@@ -126,14 +127,14 @@ const PAGE_SCRIPT = `
       location.href = withToken(url.pathname + url.search);
     });
   }
-  const env = ${JSON.stringify(ADMIN_ENVIRONMENTS.map((env) => ({ label: env.label, flyApp: env.flyApp, origin: env.gatewayOrigin })))};
+  const env = ${JSON.stringify(ADMIN_ENVIRONMENTS.map((env) => ({ label: env.label, sshHost: env.sshHost, origin: env.gatewayOrigin })))};
   const current = env.find((e) => e.origin === location.origin);
   const badge = document.getElementById("env");
   badge.textContent = current ? current.label : location.host;
   if (current) badge.dataset.env = current.label.toLowerCase();
-  const flyApp = current ? current.flyApp : "<fly-app>";
+  const sshHost = current ? current.sshHost : "deploy@<host>";
   for (const el of document.querySelectorAll("[data-origin-snippet]")) el.textContent = el.textContent.replace("{origin}", location.origin);
-  for (const el of document.querySelectorAll("[data-fly-snippet]")) el.textContent = el.textContent.replace("{flyApp}", flyApp);
+  for (const el of document.querySelectorAll("[data-ssh-snippet]")) el.textContent = el.textContent.replace("{sshHost}", sshHost);
   if (!token) document.getElementById("token-hint").hidden = false;
   for (const el of document.querySelectorAll("code.snippet")) {
     el.title = "click to copy";

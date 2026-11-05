@@ -5,8 +5,8 @@ import {
   OBSERVATORY_CAST_RADIUS as SHARED_OBSERVATORY_CAST_RADIUS,
   OBSERVATORY_PROTECTION_RADIUS as SHARED_OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS as SHARED_OBSERVATORY_VISION_BONUS,
-  SETTLE_MS,
   frontierClaimDurationMsAt,
+  garrisonBaseDurationMsAt,
   isForestTileAt,
   isHillsTileAt,
   isTropicalForestLatitudeAt
@@ -70,13 +70,8 @@ export const isTropicalForestLatitude = isTropicalForestLatitudeAt;
 // Was previously reimplemented locally -- now delegates to the shared
 // formula so it can't drift out of sync with the sim's authoritative one.
 export const frontierClaimDurationMsForTile = frontierClaimDurationMsAt;
-export const settleDurationMsForTile = (x: number, y: number): number => {
-  // Matches the 1.5x forest/hills penalty used by frontierClaimDurationMsForTile —
-  // this used to be a flat 2x, which didn't get the memo when claim was retuned.
-  if (isForestTile(x, y)) return SETTLE_MS * 1.5;
-  if (isHillsTile(x, y)) return SETTLE_MS * 1.5;
-  return SETTLE_MS;
-};
+// Garrison time is the frontier claim time on the same tile (shared garrison-duration.ts).
+export const settleDurationMsForTile = garrisonBaseDurationMsAt;
 
 export const frontierClaimCostLabelForTile = (x: number, y: number, expandManpowerCost = EXPAND_MANPOWER_COST): string => {
   const seconds = Math.round(frontierClaimDurationMsForTile(x, y) / 1000);

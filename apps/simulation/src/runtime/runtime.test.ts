@@ -4243,7 +4243,7 @@ describe("simulation runtime", () => {
     await Promise.resolve();
 
     expect(scheduledTasks).toHaveLength(1);
-    expect(scheduledTasks[0]?.delayMs).toBe(60_000);
+    expect(scheduledTasks[0]?.delayMs, "seeded player-1 has never garrisoned: a free instant one").toBe(0);
 
     scheduledTasks[0]?.task();
 

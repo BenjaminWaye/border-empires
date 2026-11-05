@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { frontierClaimDurationMsAt } from "@border-empires/shared";
 import { SimulationRuntime } from "./runtime.js";
+import { garrisonVeteranSeedPlayers } from "./runtime.test-helpers.js";
 
 type Seen = { eventType: string; commandId: string; playerId: string; code?: string; tileDeltas?: unknown[] };
 
@@ -12,6 +14,7 @@ describe("dev queue (server-durable)", () => {
       scheduleAfter: (delayMs, task) => {
         scheduledTasks.push({ delayMs, task });
       },
+      initialPlayers: garrisonVeteranSeedPlayers(),
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
@@ -45,7 +48,7 @@ describe("dev queue (server-durable)", () => {
     // The queued SETTLE was dispatched immediately (a slot was free) without
     // the client ever sending a SETTLE command.
     expect(scheduledTasks).toHaveLength(1);
-    expect(scheduledTasks[0]?.delayMs).toBe(60_000);
+    expect(scheduledTasks[0]?.delayMs).toBe(frontierClaimDurationMsAt(10, 10));
 
     scheduledTasks[0]!.task();
 

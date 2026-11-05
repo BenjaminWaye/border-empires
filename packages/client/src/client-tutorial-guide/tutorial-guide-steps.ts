@@ -120,6 +120,14 @@ const FOOD_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
 const townAction = (input: GuideInput): GuideTargetAction => guideTargetAction(input.footholdTargets.town);
 const foodAction = (input: GuideInput): GuideTargetAction => guideTargetAction(input.footholdTargets.food);
 
+/**
+ * Before the player owns a town (the foothold's town step was skipped), a town
+ * they can take comes before a Relay Beacon: it extends reach by itself, so the
+ * Relay Beacon step points at that town first. Once any town is held the step
+ * asks for the beacon, so towns coming into view can't keep deferring it.
+ */
+const townBeforeBeacon = (input: GuideInput): boolean => !input.checklist.townExpanded && townAction(input) !== "beacon";
+
 const targetHighlights =
   (kind: "town" | "food") =>
   (input: GuideInput): ReadonlyArray<{ x: number; y: number }> => {
@@ -136,7 +144,7 @@ const targetHighlights =
  * food is in reach. Drives the build menu's Recommended badge.
  */
 export const guideBeaconSite = (stepId: string, input: GuideInput): { x: number; y: number } | undefined => {
-  if (stepId === "reach-beacon") return input.beaconSite();
+  if (stepId === "reach-beacon") return townBeforeBeacon(input) ? undefined : input.beaconSite();
   const footholdBeacon = (stepId === "foothold-take-town" && townAction(input) === "beacon") || (stepId === "foothold-take-food" && foodAction(input) === "beacon");
   return footholdBeacon ? input.checklist.relayBeaconSite : undefined;
 };
@@ -186,11 +194,15 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "reach-beacon",
     chapter: "reach",
-    title: (i) => (i.beaconSite() ? "Tap the marked tile and build a Relay Beacon" : "Build a Relay Beacon on a tile at the edge of your land"),
-    why: "A beacon pushes your reach and vision outward, so Expand To can claim land further out. It needs no Manifest; it costs manpower and uses one food slot.",
+    title: (i) => (townBeforeBeacon(i) ? TOWN_STEP[townAction(i)].title : i.beaconSite() ? "Tap the marked tile and build a Relay Beacon" : "Build a Relay Beacon on a tile at the edge of your land"),
+    why: (i) =>
+      townBeforeBeacon(i)
+        ? "A town pushes your reach out by itself, so take it before spending manpower on a beacon."
+        : "A beacon pushes your reach and vision outward, so Expand To can claim land further out. It needs no Manifest; it costs manpower and uses one food slot.",
     isDone: (i) => i.ownsRelayBeacon,
     doneIfLaterStepDone: true,
     highlight: (i) => {
+      if (townBeforeBeacon(i)) return targetHighlights("town")(i);
       const site = i.beaconSite();
       return site ? [site] : [];
     }

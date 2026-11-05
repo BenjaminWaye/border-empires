@@ -10,6 +10,7 @@ import { resetGuideInputCacheForTests } from "./tutorial-guide-input.js";
 import { markGuideStepsCompleted, readGuideProgress, resetGuideStorageMemoryForTests, setGuideStatus } from "./tutorial-guide-storage.js";
 import { GUIDE_STEPS } from "./tutorial-guide-steps.js";
 import { resetTutorialGuideForTests } from "./tutorial-guide.js";
+import { setGuestIdentityUid } from "../client-debug/client-debug.js";
 
 const ME = "p1";
 const EMAIL = "new@example.com";
@@ -233,6 +234,26 @@ describe("tutorial guide in the onboarding corner", () => {
     state.authEmail = "second@example.com";
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(cardTitle()).toBe("Drag the map to look around");
+  });
+
+  it("treats a second guest on the same page as a different account (guests share an empty email)", () => {
+    setGuestIdentityUid("guest-a");
+    try {
+      setGuideStatus("active", "");
+      const state = newPlayerState();
+      state.authEmail = "";
+      refreshOnboardingChecklistHighlight(state);
+      noteGuideMapPanned();
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      expect(cardTitle()).toBe("Zoom in and out (scroll or pinch)");
+      setGuestIdentityUid("guest-b");
+      setGuideStatus("active", "");
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      // Guest A's pan doesn't tick guest B's first step.
+      expect(cardTitle()).toBe("Drag the map to look around");
+    } finally {
+      setGuestIdentityUid("");
+    }
   });
 
   it("Finish ends the guide even while Contest and Diplomacy are still waiting for a first contact", () => {

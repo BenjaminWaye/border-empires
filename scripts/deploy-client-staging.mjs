@@ -60,12 +60,12 @@ await verifyProjectDomainBranchBinding({
   expectedGitBranch: vercelClientProject.stagingBranch
 });
 ensureTrackedProjectLink(rootDir);
-// deploy-staging-all.mjs passes GIT_COMMIT_SHA through already; fall back to
+// Callers may pass GIT_COMMIT_SHA; fall back to
 // the local HEAD for a standalone run of this script.
 if (!process.env.GIT_COMMIT_SHA) {
   process.env.GIT_COMMIT_SHA = run("git", ["rev-parse", "HEAD"]);
 }
-// Staging runs at the standard map size (fly.combined.staging.toml WORLD_WIDTH/HEIGHT);
+// Staging runs at the standard map size (deploy/env/staging.env WORLD_WIDTH/HEIGHT);
 // the client bundle must be built with the same dimensions.
 const stagingWorldWidth = process.env.WORLD_WIDTH ?? "640";
 const stagingWorldHeight = process.env.WORLD_HEIGHT ?? "320";

@@ -127,6 +127,10 @@ export type DomainPlayer = {
   // ephemeral runtime state (Runtime.abilityCooldowns), not persisted here —
   // same convention as Aegis Lock.
   imperialWardCharges?: number;
+  // Garrisons (SETTLE) this player has ever started; the first
+  // INSTANT_GARRISON_COUNT are instant (shared garrison-duration.ts).
+  // Persisted with the player and never reset on respawn; missing = 0.
+  lifetimeGarrisons?: number;
   // Islands this player renamed (shared island-names.ts). Persisted with the
   // player; the sim drops a claim when its fade runs out or a rival renames.
   islandNames?: IslandNameClaim[];

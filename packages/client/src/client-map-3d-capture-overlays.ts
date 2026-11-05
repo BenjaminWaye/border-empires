@@ -89,7 +89,9 @@ export function collectBattleRenderEntries(
     const tgtDx = toroidDelta(originX, battle.targetX, WORLD_WIDTH);
     const tgtDy = toroidDelta(originY, battle.targetY, WORLD_HEIGHT);
     const candidate = dockLandingFor(state, battle.originX, battle.originY, battle.targetX, battle.targetY, state.skirmishSeenAt.get(keyFor(battle.targetX, battle.targetY)) ?? battle.startAt);
-    const landing = candidate && (state.dockLandings?.remember(keyFor(battle.targetX, battle.targetY), keyFor(battle.originX, battle.originY), candidate, nowMs, true) ?? candidate);
+    // Without the original skirmish start, a rebuilt landing must still end exactly at the clash.
+    const aligned = candidate && (state.skirmishSeenAt.has(keyFor(battle.targetX, battle.targetY)) ? candidate : { ...candidate, startAt: battle.clashAt - candidate.approachMs });
+    const landing = aligned && (state.dockLandings?.remember(keyFor(battle.targetX, battle.targetY), keyFor(battle.originX, battle.originY), aligned, nowMs, true) ?? aligned);
     entries.push({
       ...(landing ? { landing } : {}),
       srcWorldX: srcDx + TILE_CENTER_OFFSET,
@@ -159,7 +161,8 @@ export function collectBattleRenderEntries(
       siegeBoosted: !unopposed && battleIsSiegeBoosted(state, keyFor, attackerOwnerId, target.x, target.y),
       ...defenderGarrisonField(state, keyFor, key, defenderOwnerId, nowEpochMs),
       ...squadGearFields(state, attackerOwnerId, defenderOwnerId),
-      ...(unopposed ? { unopposed: true, holdApproachUntilElapsed: Infinity } : holdApproachUntilElapsed !== undefined ? { holdApproachUntilElapsed } : {})
+      // A long sea voyage holds the firefight back until the marines are ashore.
+      ...(unopposed ? { unopposed: true, holdApproachUntilElapsed: Infinity } : holdApproachUntilElapsed !== undefined || landing ? { holdApproachUntilElapsed: Math.max(holdApproachUntilElapsed ?? 0, landing?.approachMs ?? 0) } : {})
     });
   };
 
