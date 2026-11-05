@@ -78,6 +78,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   galaxyExplorationStore?: GalaxyExplorationStore;
   galaxyDukeService?: GalaxyDukeService;
   authBindingStore: GatewayAuthBindingStore;
+  disconnectDeletedPlayer?: (playerId: string) => void;
   sovereignSiegeEngineStrikeStore: SovereignSiegeEngineStrikeStore;
   // Static admin token (ADMIN_API_TOKEN) and the one admin identity
   // (ADMIN_EMAIL). The email enables Google sign-in on the read-only admin
@@ -103,6 +104,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
   }
   registerBugReportRoutes(app);
   return {
+    ...(ctx.disconnectDeletedPlayer ? { disconnectDeletedPlayer: ctx.disconnectDeletedPlayer } : {}),
     startupStartedAt: ctx.startupStartedAt,
     simulationAddress: ctx.simulationAddress ?? "127.0.0.1:50051",
     simulationSeedProfile: ctx.simulationSeedProfile,

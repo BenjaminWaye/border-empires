@@ -712,6 +712,15 @@ not infer new gameplay rules from them while implementing unrelated work.
 | Houses held in ward | §2 says a world won by a House with no sworn heir is held in ward and does not loosen the Court's grip. Decide whether such a House can ever swear an heir and become a full Duke, and what happens to the ward if a sworn Duke takes the world. |
 | Relic reactivation costs and risks | Installation families, common surface access structures and the low-power locator transponder are established in §4. Repair costs, activation encounters and random breakdowns remain future design ideas; they are not established mechanics. Current quantities and effects belong in the [relic reference](../relics.md). |
 
+### Proposed Umbrite forest appearance
+
+The Storybook **Sandbox / Umbrite Forest / Concepts** studies depict violet,
+faintly luminous Umbrite exposed within forest roots and dead wood. This is an
+art proposal, not an established biological origin for Umbrite. Whether the
+mineral replaces wood, accumulates within it, or is exposed by surrounding
+root growth remains an open canon decision. The studies do not change deposit
+locations, discovery rules, harvesting or the live map renderers.
+
 ### Consolidation sources
 
 The setting and character of §§1–10 are retained from the existing Galactic

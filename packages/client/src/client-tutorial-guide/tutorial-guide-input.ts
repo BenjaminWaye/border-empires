@@ -12,6 +12,8 @@ import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-s
 import { guideInputSignals } from "./tutorial-guide-input-signals.js";
 import { GUIDE_STEPS, RECOMMENDED_FIRST_MANIFEST_ID, type GuideInput } from "./tutorial-guide-steps.js";
 import { readGuideProgress } from "./tutorial-guide-storage.js";
+import { structureSlotRequirements } from "@border-empires/shared";
+import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { isMeetablePlayerId } from "../client-alliance/client-met-players.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
@@ -35,6 +37,16 @@ export type GuideInputState = Pick<
   | "outgoingTruceRequests"
   | "activeTruces"
   | "allies"
+  | "resourceSlots"
+  | "domainIds"
+  | "domainCatalog"
+  | "domainChoices"
+  | "afcUpgradeRuleset"
+  | "afcUpgradeInstallAllowed"
+  | "techCatalog"
+  | "gold"
+  | "strategicResources"
+  | "pendingDomainUnlockId"
 >;
 
 const MAX_BUILD_TARGETS = 6;
@@ -165,6 +177,12 @@ const footholdStepsSaved = (authEmail: string | null | undefined): boolean => {
   return FOOTHOLD_STEP_IDS.every((id) => saved.has(id));
 };
 
+/** A free FOOD slot for the Manufactory (the supply/demand gate in client-resource-slot-gate.ts). */
+const foodSlotFreeFor = (state: GuideInputState): boolean => {
+  const needed = structureSlotRequirements("MANUFACTORY").find((r) => r.resource === "FOOD")?.count ?? 1;
+  return (state.resourceSlots?.supply.FOOD ?? 0) - (state.resourceSlots?.demand.FOOD ?? 0) >= needed;
+};
+
 export const buildGuideInput = (state: GuideInputState): GuideInput => {
   const footholdSaved = footholdStepsSaved(state.authEmail);
   if (
@@ -201,6 +219,9 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     manifestCount: state.techIds.filter((id) => id !== state.techRootId).length,
     manufactoryResearched: state.techIds.includes(RECOMMENDED_FIRST_MANIFEST_ID),
     manufactoryUnlocked: cached.scan.manufactoryInstalled,
+    afcUpgradeReady: readyAfcUpgradeCount(state) > 0,
+    afcUpgradeInstalled: state.domainIds.length > 0,
+    foodSlotFree: foodSlotFreeFor(state),
     rivalHouseMet: cached.scan.rivalHouseMet,
     diplomacyUsed: openPanel === "alliance" || openPanel === "social" || state.outgoingTruceRequests.length > 0 || state.activeTruces.length > 0 || state.allies.length > 0,
     ownsBuiltStructure: cached.scan.ownsBuiltStructure,

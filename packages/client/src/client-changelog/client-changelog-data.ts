@@ -1,4 +1,5 @@
 import { SIEGE_BATTERY_NO_REACH_CHANGELOG } from "./client-changelog-siege-battery-no-reach.js";
+import { MOBILE_APP_CHANGELOG } from "./client-changelog-mobile-app.js";
 import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
 import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
 import { FOOD_TILE_ART_CHANGELOG } from "./client-changelog-food-tile-art.js";
@@ -248,6 +249,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AI_BEACON_SPACING_CHANGELOG,
   ...LOST_STRUCTURES_CHANGELOG,
   ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
+  ...MOBILE_APP_CHANGELOG,
   {
     createdAt: 1793371350853, // Date.now() captured once for this entry.
     introducedIn: "2026.10.30",
