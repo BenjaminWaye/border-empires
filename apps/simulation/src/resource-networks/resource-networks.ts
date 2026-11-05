@@ -12,7 +12,7 @@ export function developedNetworkSites(
     const spec = RESOURCE_NETWORKS[tile.resource];
     if (tile.economicStructure?.type !== spec.building || tile.economicStructure.status !== "active" || tile.economicStructure.ownerId !== ownerId ||
         dormant.has(`${tile.x},${tile.y}`) || (techIds && !techIds.has(spec.tech))) continue;
-    counts[tile.resource] += spec.slotsPerSite;
+    counts[tile.resource] += 1;
   }
   return counts;
 }

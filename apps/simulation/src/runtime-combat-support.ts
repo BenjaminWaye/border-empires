@@ -37,7 +37,7 @@ import {
   titaniumWeaponsFactoryAttackMultForPlayer,
   titaniumWeaponsFactoryDefenseMultForPlayer,
   umbriteWeaponsFactoryAttackMultForPlayer,
-  umbriteWeaponsFactoryDefenseMultForPlayer,
+  umbriteWeaponsFactoryDefenseMultForPlayer, salvageArmsMultForPlayer,
   weaponsWorkshopAttackMultForPlayer,
   weaponsWorkshopDefenseMultForPlayer
 } from "./runtime-weapons-factory-mults.js";
@@ -276,6 +276,7 @@ const resolveAttackCombat = (
     titaniumWeaponsFactoryDefenseMult: titaniumWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId),
     umbriteWeaponsFactoryAttackMult: umbriteWeaponsFactoryAttackMultForPlayer(ctx, lock.playerId),
     umbriteWeaponsFactoryDefenseMult: umbriteWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId),
+    salvageArmsAttackMult: salvageArmsMultForPlayer(ctx, lock.playerId), salvageArmsDefenseMult: salvageArmsMultForPlayer(ctx, defenderOwnerId),
     noWarIndustryVulnerabilityMult: attackEdge.mult,
     noWarIndustryVulnerabilityLabel: attackEdge.label,
     noWarIndustryDefenseVulnerabilityMult: defenseEdge.mult,

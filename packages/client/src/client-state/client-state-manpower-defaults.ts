@@ -11,7 +11,7 @@ export type ManpowerState = {
   settleManpowerCost: number;
   /** Lifetime instant (0 ms) garrisons the player has left; real value arrives via PLAYER_UPDATE. */
   instantGarrisonsRemaining: number;
-  manpowerBreakdown: { cap: ManpowerModifier[]; regen: ManpowerModifier[] };
+  manpowerBreakdown: { cap: ManpowerModifier[]; regen: ManpowerModifier[]; biotaTowns?: import("@border-empires/sim-protocol").BiotaTownStatus[] };
   nextManpowerBatchAmount: number | undefined;
   /** Client clock when nextManpowerBatchAmount arrived; the amount is stale once a refill boundary passes after it. */
   nextManpowerBatchAmountAt: number | undefined;

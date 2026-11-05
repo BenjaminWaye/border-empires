@@ -103,7 +103,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "REVEAL_EMPIRE_STATS") return handlers.handleRevealEmpireStatsCommand(command);
   if (command.type === "SURVEY_SWEEP") return handlers.handleSurveySweepCommand(command);
   if (command.type === "AETHER_LANCE") return handlers.handleAetherLanceCommand(command);
-  if (command.type === "FORCED_ANCILLARIFICATION" || command.type === "SUPPRESS_AETHER_TOWER" || command.type === "HIJACK_AETHER_TOWER" || command.type === "RECRUIT_ANCILLARIES") return handlers.handleAfcSpecializationCommand?.(command);
+  if (command.type === "FORCED_ANCILLARIFICATION" || command.type === "SUPPRESS_AETHER_TOWER" || command.type === "HIJACK_AETHER_TOWER" || command.type === "RECRUIT_ANCILLARIES" || command.type === "SHIP_SALVAGE_TO_COURT") return handlers.handleAfcSpecializationCommand?.(command);
   if (command.type === "AETHER_EMP") return handlers.handleAetherEmpCommand(command);
   if (command.type === "CAST_AETHER_BRIDGE") return handlers.handleCastAetherBridgeCommand(command);
   if (command.type === "CAST_AETHER_WALL") return handlers.handleCastAetherWallCommand(command);
@@ -180,6 +180,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "SUPPRESS_AETHER_TOWER" ||
   command.type === "HIJACK_AETHER_TOWER" ||
   command.type === "RECRUIT_ANCILLARIES" ||
+  command.type === "SHIP_SALVAGE_TO_COURT" ||
   command.type === "FORCED_ANCILLARIFICATION" ||
   command.type === "CAST_AETHER_BRIDGE" ||
   command.type === "CAST_AETHER_WALL" ||

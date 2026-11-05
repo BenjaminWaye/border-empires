@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { NETWORK_RESOURCES, RESOURCE_NETWORKS, emptyNetworkSiteCounts, networkManpowerRegenPerMinute, type NetworkBiomeContext } from "@border-empires/shared";
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS, emptyNetworkSiteCounts, type NetworkBiomeContext } from "@border-empires/shared";
 import { developedNetworkSites } from "./resource-networks.js";
 import { seedResourceNetworks } from "../resource-networks-worldgen.js";
 
@@ -13,13 +13,9 @@ const site = (overrides: Partial<DomainTileState> = {}): DomainTileState => ({
   economicStructure: { ownerId: "p", type: "RESIN_EXTRACTOR", status: "active" }, ...overrides
 });
 describe("developed resource eligibility", () => {
-  it("one Implant Foundry equips two distinct factories, with no second slot on a single factory", () => {
+  it("counts each developed tile once, Implant Foundries included", () => {
     const foundry = site({ resource: "CONDUCTIVE_MINERALS", economicStructure: { ownerId: "p", type: "IMPLANT_FOUNDRY", status: "active" } });
-    const slots = developedNetworkSites([foundry], "p", new Set(), new Set(["organized-supply"]));
-    expect(slots.CONDUCTIVE_MINERALS).toBe(2);
-    expect(networkManpowerRegenPerMinute(slots, { factoryCount: 1, depotCount: 1 }) * 240).toBe(6);
-    expect(networkManpowerRegenPerMinute(slots, { factoryCount: 2, depotCount: 2 }) * 240).toBe(12);
-    expect(networkManpowerRegenPerMinute(slots, { factoryCount: 3, depotCount: 3 }) * 240).toBe(12);
+    expect(developedNetworkSites([foundry], "p", new Set(), new Set(["organized-supply"])).CONDUCTIVE_MINERALS).toBe(1);
   });
   it("needs settlement, matching active extraction, ownership, slots and the owner's technology", () => {
     const tech = new Set(["neural-resin-processing"]);
