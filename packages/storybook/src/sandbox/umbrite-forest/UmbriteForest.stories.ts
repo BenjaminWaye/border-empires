@@ -4,7 +4,7 @@ import { createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
 import { attachSceneLabels } from "../../fixtures/scene-labels.js";
 import {
   CONCEPT_NAMES, FOREST_CONCEPTS, FOREST_SPECIES, SPECIES_NAMES, createForestConcept, type ForestConcept, type ForestSpecies
-} from "./umbrite-forest/umbrite-forest-models.js";
+} from "./umbrite-forest-models.js";
 
 type Args = { revealed: boolean; rotation: number; zoom: number; overhead: boolean; species: ForestSpecies; forestContext: boolean };
 
@@ -95,7 +95,7 @@ export default meta;
 type Story = StoryObj<Args>;
 export const ThreeVariations: Story = {};
 export const RootBearingElder: Story = { render: (args) => render(args, ["roots"]) };
-export const SplitHeartwood: Story = { name: "Umbrite Rootbed", render: (args) => render(args, ["heartwood"]) };
+export const UmbriteRootbed: Story = { name: "Umbrite Rootbed", render: (args) => render(args, ["rootbed"]) };
 export const FallenUmberwood: Story = { render: (args) => render(args, ["fallen"]) };
 export const BeforeDiscovery: Story = { args: { revealed: false } };
 // Approximate screen-space checks, not the live game's camera/LOD pipeline.
@@ -114,5 +114,5 @@ export const ElderDetail: Story = { args: { zoom: 1.4, rotation: -35 }, render: 
 
 export const AlternativesDetail: Story = {
   args: { zoom: 1.25, rotation: -15 },
-  render: (args) => render(args, ["heartwood", "fallen"])
+  render: (args) => render(args, ["rootbed", "fallen"])
 };

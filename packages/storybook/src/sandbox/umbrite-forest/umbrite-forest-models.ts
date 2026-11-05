@@ -17,11 +17,11 @@ export const FOREST_SPECIES: readonly ForestSpecies[] = ["pine", "spruce", "broa
 export const SPECIES_NAMES: Readonly<Record<ForestSpecies, string>> = {
   pine: "Pine forest", spruce: "Spruce forest", broadleaf: "Broadleaf forest", palm: "Tropical palm forest"
 };
-export type ForestConcept = "roots" | "heartwood" | "fallen";
-export const FOREST_CONCEPTS: readonly ForestConcept[] = ["roots", "heartwood", "fallen"];
+export type ForestConcept = "roots" | "rootbed" | "fallen";
+export const FOREST_CONCEPTS: readonly ForestConcept[] = ["roots", "rootbed", "fallen"];
 export const CONCEPT_NAMES: Readonly<Record<ForestConcept, string>> = {
   roots: "A · Root-Bearing Elder",
-  heartwood: "B · Umbrite Rootbed",
+  rootbed: "B · Umbrite Rootbed",
   fallen: "C · Fallen Umberwood"
 };
 
@@ -129,7 +129,7 @@ export const createForestConcept = (
     const layouts: Readonly<Record<ForestConcept, readonly Point[]>> = {
       roots: [[-0.28, -0.23, 0.88], [-0.025, -0.29, 0.72], [0.26, -0.22, 0.95],
         [-0.32, 0.045, 0.67], [0.32, 0.065, 0.65], [-0.34, 0.28, 0.47]],
-      heartwood: [[-0.31, -0.28, 0.72], [-0.09, -0.19, 0.94], [0.2, -0.32, 0.79],
+      rootbed: [[-0.31, -0.28, 0.72], [-0.09, -0.19, 0.94], [0.2, -0.32, 0.79],
         [0.34, -0.045, 0.9], [-0.32, 0.15, 0.64], [0.28, 0.28, 0.48]],
       fallen: [[-0.29, -0.31, 0.97], [0.07, -0.29, 0.81], [0.32, -0.2, 0.67],
         [-0.33, -0.045, 0.59], [0.32, 0.055, 0.8], [-0.35, 0.31, 0.43]]
@@ -234,7 +234,7 @@ export const createForestConcept = (
       branch([0.19, 0.017, 0.31], [0.24, 0.008, 0.4], 0.005, 0.001, bark);
       splinter(0.18, 0.28, 0.037, 0.012, 1.1);
       splinter(-0.13, 0.37, 0.025, 0.01, 2.2, true);
-    } else if (concept === "heartwood") {
+    } else if (concept === "rootbed") {
       // A ground-level discovery: living forest above an exposed network
       // of mineralized roots. Every main run begins at a living tree base.
       // Each root is narrower than those trees' native trunks.
