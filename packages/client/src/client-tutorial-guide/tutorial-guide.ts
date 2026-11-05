@@ -21,6 +21,7 @@ import { setGuideManufactoryTargets } from "./tutorial-guide-manufactory-recomme
 import { syncGuideAfcPick } from "./tutorial-guide-afc-pick.js";
 import { removeGuideAnchorOutline, syncGuideAnchorOutline } from "./tutorial-guide-anchor.js";
 import { resetGuideInputSignalsForTests } from "./tutorial-guide-input-signals.js";
+import { debugAuthIdentityKeyForEmail } from "../client-debug/client-debug.js";
 import { centerCameraOnDiscoveryTarget } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { setOnboardingRelayBeaconSite } from "../client-onboarding-checklist/client-onboarding-relay-beacon-recommendation.js";
 import { isOnboardingChecklistCompleted, markOnboardingChecklistCompleted } from "../client-onboarding-checklist/client-onboarding-checklist-storage.js";
@@ -31,6 +32,7 @@ let expanded = true;
 let lastSignature = "";
 let lastView: StepView | undefined;
 let lastAuthEmail: string | null | undefined;
+let lastIdentityKey: string | undefined;
 // The last state rendered for, so a card button can re-render immediately
 // instead of waiting for the next frame tick.
 let lastState: GuideInputState | undefined;
@@ -117,12 +119,14 @@ const signatureOf = (view: StepView): string =>
 export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): Array<{ x: number; y: number }> => {
   // A different account signed in on this page: nothing from the previous
   // one (input signals, minimised card, synced checklist flag) carries over.
-  if (lastState && lastAuthEmail !== state.authEmail) {
+  // Compared by storage scope, not email: every guest's email is "", but each guest has its own scope.
+  if (lastState && lastIdentityKey !== debugAuthIdentityKeyForEmail(state.authEmail)) {
     removeTutorialGuideUi();
     resetTutorialGuideForTests();
     resetGuideInputSignalsForTests();
   }
   lastAuthEmail = state.authEmail;
+  lastIdentityKey = debugAuthIdentityKeyForEmail(state.authEmail);
   lastState = state;
   if (!state.me || !isGuideActive(state.authEmail)) {
     if (lastView) {
@@ -179,6 +183,7 @@ export const resetTutorialGuideForTests = (): void => {
   lastSignature = "";
   lastView = undefined;
   lastAuthEmail = undefined;
+  lastIdentityKey = undefined;
   lastState = undefined;
   showMeIndex = 0;
   checklistFlagSynced = false;

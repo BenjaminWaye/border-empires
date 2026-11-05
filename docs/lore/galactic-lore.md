@@ -491,47 +491,58 @@ Clearing House effects are maintained in the economy reference.
 
 ### Frontier concessions and ancillary supply
 
-A House may develop neural resin groves and conductive mineral seams into
-suppliers for its Ancillary reserves and factories. Resin-bearing broadleaf groves favour
-forested grassland, with amber seams beneath their bark; ordinary trees are
-not automatically resin deposits. Conductive seams favour rocky grassland
-and tundra. Resin Extractors refine native compounds that stabilise neural
-controls during reserve preparation, letting supplied Ancillary Depots ready
-more remade Ancillaries for service. Implant Foundries turn conductive ore into
-implants, command circuitry and replacement components for factory lines.
-Towns provide the bodies. These industries improve reserve readiness and
-remaking throughput, not the supply of people. Depots still determine storage
-capacity and custody for the resulting reserve. The Reserve Custody Cadre authorises both
-Depots and Implant Foundries, supplying the custody and implant expertise
-needed to maintain an Ancillary reserve.
+Making an Ancillary takes three frontier inputs. Resin Extractors refine native
+compounds that stabilise the neural controls of newly remade bodies. Implant
+Foundries turn conductive ore into implants, command circuitry and replacement
+components. Catalyst Refineries recover rare catalysts that drive the chemistry
+of remaking itself, the same compounds offworld chemical and fabrication
+industries pay for. Each working site feeds the House's whole Ancillary reserve
+rather than one building. Towns still provide the bodies: these industries
+improve remaking throughput, not the supply of people. Depots still determine
+storage capacity and custody for the reserve. The Reserve Custody Cadre
+authorises both Depots and Implant Foundries.
 
-Frontier deposits sit beyond a town’s immediate support ring, giving a House
+Resin-bearing broadleaf groves grow in forested grassland, with amber seams
+beneath their bark; ordinary trees are not automatically resin deposits.
+Conductive seams lie in hills, beside mountains and in cold ground. Catalysts
+favour inland sand, never beaches. Each grows only where its terrain allows,
+so a House rarely finds all three inside its first borders.
+
+Frontier deposits sit beyond a town's immediate support ring, giving a House
 reason to develop and defend the surrounding countryside.
 
-A working site provides continuing contracted output divided into exclusive
-commitments to recipient industries. Implant Foundries can divide their output
-between separately equipped factory production lines. Opening more factories
-does not duplicate a commitment: each line needs its own reserved supply. Supply
-slots represent this exclusive commitment, not ore units spent down to zero.
-An idle or lost recipient releases the commitment for another eligible
-building; the physical deposit remains. A Siphon can divert a working site’s output to the caster, without duplicating its supply. Its crews and extraction systems must still be authorised at the source; draining an undeveloped deposit creates no industry.
+A working site provides continuing contracted output, not ore units spent down
+to zero. A House's first site of a kind transforms its remaking lines; further
+sites of the same kind add less, which is why Houses trade surplus sites with
+neighbours who lack that kind. A Siphon can divert a working site's output to
+the caster, without duplicating its supply. Its crews and extraction systems
+must still be authorised at the source; draining an undeveloped deposit creates
+no industry.
 
-Catalyst Refineries develop rare catalyst-bearing deposits for offworld
-chemical and fabrication industries. These deposits favour inland sandy ground
-and exposed tundra, rather than beaches. Cultivation Estates grow native luxury
-biota for fragrances, pigments and intoxicants sought in the Core. These
-plants favour warm, wet grasslands, with temperate varieties also cultivated. Trade Nexuses
-secure commercial arrangements against these concessions, increasing the
-campaign credit the House factor can advance against future output.
+Cultivation Estates grow native luxury biota in warm, wet grassland and marsh.
+Its fragrances and pigments sell in the Core, but on a Sector world its
+intoxicants are a tool of control. The civilians of a large town are the
+people every future Ancillary is taken from, and they know it. Where the House
+is the only supplier of what the town has come to depend on, its people stay
+put and give up their own; where supply runs short the town turns unruly, its
+people hide and withhold themselves, and a great city yields the bodies of a much
+smaller one. Each kind of
+estate supplies a fixed share of that dependence, and the House serves the
+towns it has held longest first.
 
-Precursor salvage fields contain recoverable pre-Court industrial machinery.
-Reclamation Works supply tools and components that improve Manufactory output;
-the resulting goods provide additional backing for campaign credit. These
-fields occur across the planet, often exposed in hills and mountain
-foothills. The Industrial Tooling Module authorises both Manufactories and
-Reclamation Works. Salvage fields are industrial remains, distinct from the great
-Monuments. No claim that a field is itself an active Concordance construct is
-implied by the term precursor.
+Precursor salvage fields contain recoverable machinery from before the Court,
+exposed mostly in hills and mountain foothills. The Court's own progress has
+long since stalled (§2), and this machinery is one of the few things it cannot
+make for itself. A Reclamation Works can fit recovered components to the
+House's weapons and armour, or ship them offworld to the Court, which repays
+each load with an Imperial delivery of ready-made Ancillaries. Salvage is
+finite: a field holds a few loads, and once the last is shipped the field and
+its Works are gone. Dismantling a Works after a field has been partly stripped
+ruins what is left. Salvage is never pledged to another House. The Industrial
+Tooling Module authorises both Manufactories and Reclamation Works. Salvage
+fields are industrial remains, distinct from the great Monuments; no claim that
+a field is itself an active Concordance construct is implied by the term
+precursor.
 
 Specialised warrants and charters commission the crews, processing standards
 and commercial rights needed to exploit these sites. A discovered deposit is
@@ -539,8 +550,8 @@ an opportunity before it is a working supply industry. Losing a concession
 weakens the industries and credit arrangements it supports across the House's
 holdings. Numerical yields and network limits belong in the economy reference.
 
-Houses may pledge spare resource output to one another as continuing supply
-rights negotiated through diplomacy. The supplier retains the land and its
+Houses may pledge resource output, other than salvage, to one another as
+continuing supply rights negotiated through diplomacy. The supplier retains the land and its
 installations; the recipient gains the exclusive use of the promised output for
 as long as both Houses maintain the arrangement. Either House may end the
 supply agreement; the land remains with its owner. Such contracts can support another House's infrastructure or

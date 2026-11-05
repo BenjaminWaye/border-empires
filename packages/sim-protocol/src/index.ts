@@ -59,6 +59,16 @@ export type ManpowerBreakdownLine = {
 export type ManpowerBreakdown = {
   cap: ManpowerBreakdownLine[];
   regen: ManpowerBreakdownLine[];
+  /** Towns above Town tier and the biota they receive (frontier-resource-effects.ts); omitted when none. */
+  biotaTowns?: BiotaTownStatus[];
+};
+
+export type BiotaTownStatus = {
+  tileKey: string;
+  received: number;
+  needed: number;
+  /** The tier whose manpower the town gives right now. */
+  manpowerTier: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 };
 
 export type FrontierCombatResultChange = {

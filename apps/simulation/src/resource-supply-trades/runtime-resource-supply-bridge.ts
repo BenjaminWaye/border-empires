@@ -1,10 +1,6 @@
 import { siphonedResourceTilesForPlayer } from "../siphon-mode/siphon-slot-transfer.js";
 import { runtimeLogInfo } from "../runtime-log/runtime-log.js";
-import { type ResourceSupplyAgreement, NETWORK_RESOURCES, emptyNetworkSiteCounts } from "@border-empires/shared";
-import { allocateNetworkCredit, networkSupplyStatus } from "../resource-networks/resource-network-credit.js";
-import { buildFedTownKeys } from "../economy-network/economy-network.js";
-import { resourceSlotDormantContributorsForPlayer } from "../resource-slot-view/resource-slot-view.js";
-import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
+import type { ResourceSupplyAgreement } from "@border-empires/shared";
 import { RuntimeResourceSupply } from "./runtime-resource-supply.js";
 import { cachedResourceSlots, ownedResourceTiles, physicalResourceSlots, type RuntimeResourceSlotsContext } from "./runtime-resource-slots.js";
 import type { ResourceSupplyLedgerContext } from "./resource-supply-ledger.js";
@@ -48,17 +44,6 @@ export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, re
         caches.resourceSlotSupplyCacheByPlayer.delete(id); caches.resourceSlotDormancyCacheByPlayer.delete(id);
         caches.manpowerStructureBonusCacheByPlayer.delete(id); caches.upkeepAccrualCacheByPlayer.delete(id);
       }
-    },
-    networkUsed: (id, sites) => {
-      if (!NETWORK_RESOURCES.some(resource=>sites[resource]>0)) return emptyNetworkSiteCounts();
-      const slots = ctx.slots(), tiles = ownedResourceTiles(slots, id), player = slots.players.get(id);
-      const supply = slots.tradedSupply?.(id) ?? physicalResourceSlots(slots, id);
-      const dormancy = resourceSlotDormantContributorsForPlayer(tiles, id, supply, player ? slotWaiversForPlayer(player) : undefined, slots.tileSettledAtByKey);
-      const dormant = new Set([...dormancy.FOOD].filter(key => key.endsWith(":economicStructure")).map(key => key.slice(0, -18)));
-      const dormantTowns = new Set([...dormancy.FOOD].filter(key => key.endsWith(":town")).map(key => key.slice(0, -5)));
-      const fed = buildFedTownKeys(id, slots.summaryForPlayer(id), slots.tiles, dormantTowns);
-      return networkSupplyStatus(sites, allocateNetworkCredit(id, slots.tiles, fed, dormant, sites),
-        tiles.filter(tile => tile.ownershipState === "SETTLED"), dormant)?.used ?? emptyNetworkSiteCounts();
     }
   }, restored);
   runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size }, "resource_supply_restored");

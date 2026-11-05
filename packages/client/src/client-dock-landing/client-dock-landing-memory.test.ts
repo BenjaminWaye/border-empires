@@ -4,7 +4,7 @@ import { DockLandingMemory } from "./client-dock-landing-memory.js";
 import type { DockLanding } from "./client-dock-landing.js";
 
 const landing: DockLanding = { startAt: 100, inwardX: 1, inwardZ: 0,
-  route: [{ x: -1, z: 0 }, { x: -0.72, z: -0.45 }] };
+  route: [{ x: -1, z: 0 }, { x: -0.72, z: -0.45 }], sailMs: 3000, approachMs: 6400 };
 
 describe("bounded dock landing continuity", () => {
   it("inherits only the matching origin across a result gap and expires forgotten entries", () => {

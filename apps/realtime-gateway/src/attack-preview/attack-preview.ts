@@ -1,4 +1,4 @@
-import { AFC_MOMENTUM_ATTACK_PER_STACK, afcMomentumStacks, isCaptureHoldActive, requiredMusterForFort } from "@border-empires/shared";
+import { AFC_MOMENTUM_ATTACK_PER_STACK, afcMomentumStacks, isCaptureHoldActive, requiredMusterForFort, salvageArmsMultiplier } from "@border-empires/shared";
 import type { AfcCombatFacts, RelicCombatFacts } from "@border-empires/sim-protocol";
 import {
   buildFrontierCombatPreview,
@@ -171,6 +171,8 @@ export const attackPreviewResult = async (
     titaniumWeaponsFactoryDefenseMult: 1 + defenderEquivalent.titanium * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * defenseContribution,
     umbriteWeaponsFactoryAttackMult: 1 + attackerEquivalent.umbrite * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
     umbriteWeaponsFactoryDefenseMult: 1 + defenderEquivalent.umbrite * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * defenseContribution,
+    salvageArmsAttackMult: salvageArmsMultiplier(salvageCount(attackerFactoryCounts)),
+    salvageArmsDefenseMult: salvageArmsMultiplier(salvageCount(defenderFactoryCounts)),
     noWarIndustryVulnerabilityMult: attackEdge.mult,
     noWarIndustryVulnerabilityLabel: attackEdge.label,
     noWarIndustryDefenseVulnerabilityMult: defenseEdge.mult,
@@ -221,7 +223,7 @@ type SnapshotLookup = (playerId: string) => {
   player?: {
     techIds: readonly string[];
     domainIds: readonly string[];
-    weaponsFactoryCounts?: { titanium: number; umbrite: number };
+    weaponsFactoryCounts?: { titanium: number; umbrite: number; salvage?: number };
   };
 } | undefined;
 
@@ -327,3 +329,6 @@ export const buildAttackPreviewResponse = (
     async id => (await safeGetPlayerCombatSummary(getPlayerCombatSummary, id))?.relicCombatFacts
   );
 };
+
+/** Salvage sites with loads (player snapshot); older snapshots and the combat-summary RPC omit it. */
+const salvageCount = (counts: { titanium: number; umbrite: number; salvage?: number }): number => counts.salvage ?? 0;

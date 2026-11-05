@@ -6,7 +6,7 @@ import { CLIENT_SEQUENCE_SQL_PREDICATE as CLIENT_SEQUENCE_PREDICATE, clientSeque
  * blocks whichever thread calls it for the query's full duration. Running
  * this on the gateway main thread means a single slow query (large table,
  * WAL contention with the simulation's own sqlite-writer-worker against the
- * same file — see fly.combined.staging.toml, GATEWAY_SQLITE_PATH and
+ * same file — see deploy/env/*.env, GATEWAY_SQLITE_PATH and
  * SIMULATION_SQLITE_PATH both point at /data/border-empires.db — or a disk
  * stall) freezes every WebSocket, every other player's login, and
  * `/healthz` for as long as the query takes. The `withTimeout()` guard

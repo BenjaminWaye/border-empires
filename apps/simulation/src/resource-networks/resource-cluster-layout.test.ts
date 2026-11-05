@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { NETWORK_RESOURCES, type NetworkBiomeContext, type NetworkResource } from "@border-empires/shared";
-import { seedResourceNetworks } from "../resource-networks-worldgen.js";
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS, type NetworkBiomeContext, type NetworkResource } from "@border-empires/shared";
+import { networkSiteTarget, seedResourceNetworks } from "../resource-networks-worldgen.js";
 
 const width = 160, height = 80;
 const biome = (tile: DomainTileState): NetworkBiomeContext => ({
@@ -31,25 +31,41 @@ const clusterSizes = (tiles: ReadonlyMap<string, DomainTileState>, resource: Net
 };
 
 describe("small resource deposits", () => {
-  it("hits the area-scaled 1,000-tile budgets and never merges adjacent deposits beyond three tiles", () => {
+  it("hits the area-scaled budgets in 3–6 tile deposits that never merge", () => {
     const tiles = map();
     tiles.get("1,1")!.resource = "FARM";
     const result = seedResourceNetworks(tiles, 42, width, height, biome);
     for (const resource of NETWORK_RESOURCES) {
-      expect(result.placed[resource]).toBe(63);
+      const target = Math.round(RESOURCE_NETWORKS[resource].sitesPerStandardMap / 16);
+      expect(result.placed[resource]).toBe(target);
       const sizes = clusterSizes(tiles, resource);
-      expect(sizes.reduce((sum, value) => sum + value, 0)).toBe(63);
-      expect(sizes.every(value => value >= 1 && value <= 3)).toBe(true);
-      expect(new Set(sizes)).toEqual(new Set([1, 2, 3]));
+      expect(sizes.reduce((sum, value) => sum + value, 0)).toBe(target);
+      expect(sizes.every(value => value >= 1 && value <= 6)).toBe(true);
+      // Only the last deposit can be cut short by the remaining budget.
+      expect(sizes.filter(value => value < 3).length).toBeLessThanOrEqual(1);
     }
     expect(tiles.get("1,1")!.resource).toBe("FARM");
+  });
+  it("uses only the preferred habitat on a standard-size map", () => {
+    const w = 640, h = 320;
+    const tiles = new Map(Array.from({ length: w * h }, (_, i) => {
+      const tile: DomainTileState = { x: i % w, y: Math.floor(i / w), terrain: "LAND" };
+      return [`${tile.x},${tile.y}`, tile] as const;
+    }));
+    // Open grassland: secondary habitat for resin and biota, preferred for neither.
+    seedResourceNetworks(tiles, 7, w, h, () => ({ biome: "GRASS", forest: false, hills: false, tropical: false, nearMountains: false }));
+    const placed = (resource: NetworkResource): number => [...tiles.values()].filter(tile => tile.resource === resource).length;
+    expect(placed("NEURAL_RESIN")).toBe(0);
+    expect(placed("LUXURY_BIOTA")).toBe(0);
   });
   it("preserves all eight support tiles around towns, including across world edges", () => {
     const tiles = map();
     for (let y = 0; y < height; y += 6) for (let x = 0; x < width; x += 6)
       tiles.get(`${x},${y}`)!.town = { name: "Town", type: "MARKET", populationTier: "TOWN" };
+    const towns = [...tiles.values()].filter(tile => tile.town).length;
     const result = seedResourceNetworks(tiles, 42, width, height, biome);
-    for (const resource of NETWORK_RESOURCES) expect(result.placed[resource]).toBe(63);
+    for (const resource of NETWORK_RESOURCES) expect(result.placed[resource]).toBe(networkSiteTarget(resource, width, height, towns));
+    expect(result.placed.LUXURY_BIOTA).toBe(Math.round(towns * 1.5));
     for (const town of [...tiles.values()].filter(tile => tile.town)) {
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const key = `${(town.x + dx + width) % width},${(town.y + dy + height) % height}`;

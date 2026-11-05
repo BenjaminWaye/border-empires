@@ -1,4 +1,8 @@
-import { MANPOWER_REFILL_WINDOW_MS, BASE_SLOTS_BY_TILE_RESOURCE, RESOURCE_NETWORKS, isNetworkResource, isSiphonModeSabotage, type ResourceType } from "@border-empires/shared";
+import {
+  BASE_SLOTS_BY_TILE_RESOURCE, BIOTA_SLOTS_PER_SITE, RESOURCE_NETWORKS, SALVAGE_ARMS_BONUS_MAX, SALVAGE_ARMS_BONUS_PER_SITE, SALVAGE_LOADS_PER_SITE,
+  frontierSiteCaptureValue, isNetworkResource, isSiphonModeSabotage, materialMarginalManpowerPerWindow, salvageLoadsRemaining,
+  type NetworkResource, type ResourceType
+} from "@border-empires/shared";
 import type { Tile, TileOverviewLine } from "../client-types.js";
 
 type BaseResource = Exclude<ResourceType, keyof typeof RESOURCE_NETWORKS>;
@@ -15,7 +19,7 @@ const NETWORK_SUPPLY_NAMES = {
   NEURAL_RESIN: "resin",
   CONDUCTIVE_MINERALS: "conductive",
   CATALYTIC_DEPOSIT: "catalyst",
-  LUXURY_BIOTA: "luxury",
+  LUXURY_BIOTA: "biota",
   PRECURSOR_SALVAGE: "salvage"
 } as const;
 const escapeHtml = (value: string): string => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -31,7 +35,7 @@ export function resourceTileDescriptionLines(tile: Tile): readonly string[] {
 }
 
 /** Public potential, never a claim that an undeveloped or foreign site is producing. */
-export function resourceTileStatsHtml(tile: Tile): string {
+export function resourceTileStatsHtml(tile: Tile, view: FrontierSiteViewer = {}): string {
   const resource = tile.resource;
   if (!resource) return "";
   const siphoned = isSiphonModeSabotage(tile.sabotage) && tile.sabotage.ownerId !== tile.ownerId;
@@ -43,19 +47,38 @@ export function resourceTileStatsHtml(tile: Tile): string {
     return `<div class="tile-stat-grid resource-stat-grid">${card("Base supply", `+${slots.baseSlots} ${label}`, "Renewable slots")}${card("Requires", "Garrison", siphoned ? "Siphoned" : "Owned tile")}</div>`;
   }
   const spec = RESOURCE_NETWORKS[resource];
-  const target = spec.target === "ANCILLARY_DEPOT" ? "Ancillary Depot" : spec.target === "ANCILLARY_FACTORY" ? "Ancillary Factory" : spec.target === "TRADE_NEXUS" ? "Trade Nexus" : "Manufactory";
-  const bonus = spec.batchBonus ? `+${spec.batchBonus} Ancillaries/${MANPOWER_REFILL_WINDOW_MS / 3_600_000}h` : `+${spec.creditPerDay} Coin/day`;
-  const supply = NETWORK_SUPPLY_NAMES[resource];
-  const recipient = spec.slotsPerSite > 1
-    ? `each of ${spec.slotsPerSite} factories without ${supply} supply`
-    : `${target} without ${supply} supply`;
   const installation = `<button type="button" class="inline-info-link" data-structure-info="${escapeHtml(spec.building)}" aria-label="About ${escapeHtml(spec.buildingName)}">${escapeHtml(spec.buildingName)}</button>`;
-  const bonusCard = `<div class="tile-stat"><span class="tile-stat-label">After development</span><span class="tile-stat-value"><strong>${escapeHtml(bonus)} for </strong><span class="resource-bonus-recipient">${escapeHtml(recipient)}</span></span><span class="tile-stat-sub">${siphoned ? "Siphoned · " : ""}Requires ${installation}</span></div>`;
-  return `<div class="tile-stat-grid resource-stat-grid">${bonusCard}</div>`;
+  const effectCard = `<div class="tile-stat"><span class="tile-stat-label">After development</span><span class="tile-stat-value">${escapeHtml(spec.effect)}</span><span class="tile-stat-sub">${siphoned ? "Siphoned · " : ""}Requires ${installation}</span></div>`;
+  const value = frontierSiteValueForViewer(tile, resource, view);
+  const works = tile.economicStructure?.type === spec.building ? tile.economicStructure : undefined;
+  const loadsCard = resource === "PRECURSOR_SALVAGE" && works
+    ? card("Loads left", `${salvageLoadsRemaining(works)} of ${SALVAGE_LOADS_PER_SITE}`, "Each load can go to the Court") : "";
+  return `<div class="tile-stat-grid resource-stat-grid">${effectCard}${value ? card(value.label, value.value, value.sub) : ""}${loadsCard}</div>`;
 }
 
-export function resourceTileOverviewLines(tile: Tile): TileOverviewLine[] {
+/** Who is looking and which frontier sites they already hold (after trades), so a deposit can show its value to them. */
+export type FrontierSiteViewer = { readonly me?: string | undefined; readonly held?: Readonly<Record<NetworkResource, number>> | undefined };
+
+/** What capturing this site adds for the viewer, or what losing it costs if it is already theirs and working. */
+const frontierSiteValueForViewer = (tile: Tile, resource: NetworkResource, view: FrontierSiteViewer): { label: string; value: string; sub: string } | undefined => {
+  if (!view.me || !view.held) return undefined;
+  const held = view.held[resource] ?? 0;
+  const spec = RESOURCE_NETWORKS[resource];
+  const working = tile.ownerId === view.me && tile.economicStructure?.type === spec.building && tile.economicStructure.status === "active";
+  const name = NETWORK_SUPPLY_NAMES[resource];
+  if (working) {
+    const others = Math.max(0, held - 1);
+    const loss = resource === "LUXURY_BIOTA" ? `−${BIOTA_SLOTS_PER_SITE} biota slots`
+      : resource === "PRECURSOR_SALVAGE" ? (others >= SALVAGE_ARMS_BONUS_MAX / SALVAGE_ARMS_BONUS_PER_SITE ? "No change (bonus at +10%)" : "−1% attack and defense")
+      : `−${materialMarginalManpowerPerWindow(others)} manpower per refill`;
+    return { label: "If you lose it", value: loss, sub: `You hold ${held} ${name} ${held === 1 ? "site" : "sites"}` };
+  }
+  const first = resource !== "LUXURY_BIOTA" && resource !== "PRECURSOR_SALVAGE" && held === 0;
+  return { label: "Capturing it adds", value: frontierSiteCaptureValue(resource, held), sub: first ? `Your first ${name} site` : `You hold ${held} ${name} ${held === 1 ? "site" : "sites"}` };
+};
+
+export function resourceTileOverviewLines(tile: Tile, view: FrontierSiteViewer = {}): TileOverviewLine[] {
   const descriptions = resourceTileDescriptionLines(tile);
   if (!descriptions.length) return [];
-  return [...descriptions.map(html => ({ html })), { kind: "statgrid", html: resourceTileStatsHtml(tile) }];
+  return [...descriptions.map(html => ({ html })), { kind: "statgrid", html: resourceTileStatsHtml(tile, view) }];
 }

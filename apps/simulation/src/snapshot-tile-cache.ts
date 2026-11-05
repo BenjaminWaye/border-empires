@@ -34,6 +34,7 @@ export type RuntimeState = {
     afcScarcityFoodSlots?: number;
     chosenTrickleResource?: "TITANIUM" | "UMBRITE" | "CRYSTAL";
     imperialWardCharges?: number;
+    lifetimeGarrisons?: number;
     autoSettle?: AutoSettlePrefs;
     wonderLastFreeRushBuyAt?: number;
     eventLog?: PlayerEventLogEntry[];

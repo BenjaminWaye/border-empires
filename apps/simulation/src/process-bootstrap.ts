@@ -31,11 +31,11 @@ const stripIpv6Brackets = (value: string): string =>
 
 const isManagedRuntime = (): boolean => {
   const nodeEnv = (process.env.NODE_ENV ?? "").toLowerCase();
-  return nodeEnv === "production" || nodeEnv === "staging" || typeof process.env.FLY_APP_NAME === "string";
+  return nodeEnv === "production" || nodeEnv === "staging";
 };
 
 const preferredRoutableProbeHost = (): string | undefined => {
-  const envCandidates = [process.env.FLY_PRIVATE_IP, process.env.PRIVATE_IP]
+  const envCandidates = [process.env.PRIVATE_IP]
     .map((value) => (typeof value === "string" ? stripIpv6Brackets(value.trim()) : ""))
     .filter(Boolean);
   return envCandidates[0];

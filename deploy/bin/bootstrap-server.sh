@@ -99,7 +99,7 @@ BACKUP_BUCKET=${BACKUP_BUCKET:-}
 CONFEOF
 chown deploy:deploy /etc/border-empires/host.conf
 # Secrets: deploy-owned (the deploy script's `docker compose` reads env_file as
-# `deploy`), mode 600. Filled by `pnpm ops:hetzner:copy-fly-secrets`.
+# `deploy`), mode 600. Filled by hand on the server; values never live in the repo.
 [ -f /etc/border-empires/secrets.env ] || install -m 600 -o deploy -g deploy /dev/null /etc/border-empires/secrets.env
 
 # --- hourly backup timer ---

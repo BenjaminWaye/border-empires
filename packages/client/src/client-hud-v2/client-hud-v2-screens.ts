@@ -24,7 +24,8 @@ import {
 } from "./client-hud-v2-context.js";
 import { dealSkeletonHtml, diplomacyListHtml, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
-import { profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
+import { crestClosesProfile, profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
+import { pendingTechCommissionId } from "../client-tech-commission/client-tech-commission.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { expandDockedMenu, suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, renderTownScreen, runTileActionOn, runTownWork, stepTown } from "./client-hud-v2-town-runtime.js";
@@ -93,6 +94,13 @@ export const closeScreen = (deps: HudV2Deps, options: { toMap?: boolean } = {}):
   else deps.renderHud();
 };
 
+/** Your crest toggles your profile like a bubble toggles its screen. Straight to the map, not back to the screen (e.g. Manifest) the profile was opened over. */
+export const closeProfileFromCrest = (deps: HudV2Deps): boolean => {
+  if (!crestClosesProfile(deps.state.activePlayerProfileId, deps.state.me, screen.id)) return false;
+  closeScreen(deps, { toMap: true });
+  return true;
+};
+
 const ownedTechs = (deps: HudV2Deps): Set<string> => new Set(deps.state.techIds);
 
 /** Shared tile links request a tech detail; desktop HUD v2 owns its destination. */
@@ -116,13 +124,14 @@ let manifestKey = "";
 
 const renderManifest = (deps: HudV2Deps): void => {
   const nextCost = deps.state.techCatalog.find((t) => !deps.state.techIds.includes(t.id))?.requirements.gold ?? 0;
-  const key = [deps.state.techIds.join(","), deps.state.techChoices.join(","), deps.state.techCatalog.filter((t) => t.requirements.canResearch).length, deps.state.techCatalog.length, screen.manifestSelectedId, [...screen.manifestClosedLanes].join(","), deps.state.gold >= nextCost, nextCost, bodyMode].join("|");
+  const pendingId = pendingTechCommissionId(deps.state, Date.now());
+  const key = [pendingId, deps.state.techIds.join(","), deps.state.techChoices.join(","), deps.state.techCatalog.filter((t) => t.requirements.canResearch).length, deps.state.techCatalog.length, screen.manifestSelectedId, [...screen.manifestClosedLanes].join(","), deps.state.gold >= nextCost, nextCost, bodyMode].join("|");
   if (key === manifestKey) return;
   manifestKey = key;
   const owned = ownedTechs(deps);
   const techs = deps.state.techCatalog;
   const afcTier = Math.max(0, ...techs.filter((t) => owned.has(t.id)).map((t) => t.tier));
-  const input = { techs, owned, selectedId: screen.manifestSelectedId, closedLanes: screen.manifestClosedLanes, gold: deps.state.gold, afcTier, choices: new Set(deps.state.techChoices) };
+  const input = { techs, owned, selectedId: screen.manifestSelectedId, closedLanes: screen.manifestClosedLanes, gold: deps.state.gold, afcTier, choices: new Set(deps.state.techChoices), pendingId };
   writeHtml("v2s-head-right", manifestHeadRightHtml(input));
   if (bodyMode !== "manifest") {
     writeHtml("v2s-body", `<div class="v2m-scroll" id="v2m-scroll" data-v2-scroll="manifest"></div>${MANIFEST_LEGEND_HTML}<div class="v2m-detail" id="v2m-detail"></div>`);

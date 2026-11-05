@@ -8,6 +8,7 @@ import { initDefensibilityPct } from "../client-init-defensibility/client-init-d
 import { occupationSurveyController } from "../client-occupation-survey.js";
 import { applyGatewayRecoveryNextClientSeq } from "../client-frontier-command/client-frontier-command.js";
 import { clearServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
+import { holdLowFpsStreakForWarmup } from "../client-fps-monitor/client-fps-monitor.js";
 import { applyGatewayInitialState, refreshAllGatewayDerivedTownSummaries } from "../client-gateway-sync/client-gateway-sync.js";
 import {
   applyAutoSettlementQueueFromServer,
@@ -92,6 +93,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   const isFirstInitThisSession = !state.hasEverInitialized;
   clearDeferredBootstrapRefreshTimer();
   state.connection = "initialized";
+  holdLowFpsStreakForWarmup(performance.now()); // (re)INIT catch-up jank must not read as "3D is slow"
   state.serverDeploying = false;
   clearServerDeployingSession();
   state.authSessionReady = true;
@@ -218,6 +220,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   occupationSurveyController.reconcile(state.eventLog, state.techIds, `${state.me}:${state.bridgeDebugSeasonId}`);
   state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
   state.pendingTechUnlockId = "";
+  state.pendingTechUnlockAt = 0;
   state.domainIds = (player.domainIds as string[]) ?? [];
   applyAfcStateMessage(state, player);
   const initialTrickle = (player as { chosenTrickleResource?: unknown }).chosenTrickleResource;

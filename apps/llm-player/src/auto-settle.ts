@@ -23,9 +23,10 @@ export type AutoSettlementQueueEntry = GameInitState["autoSettlementQueue"][numb
 // single drain never queues more than the player can currently afford.
 //
 // pendingTileKeys excludes a tile we already fired a SETTLE for in an
-// earlier turn that hasn't resolved yet (SETTLE_DURATION_MS is 60s
-// server-side -- apps/simulation/src/runtime-settlement-rules.ts -- which can
-// span several turns at the bot's default turn interval). The tile still
+// earlier turn that hasn't resolved yet (a garrison takes as long as a
+// frontier claim, 7.5s+, after the first 10 instant ones --
+// packages/shared/src/garrison-duration/garrison-duration.ts -- which can
+// span a turn at the bot's default turn interval). The tile still
 // reads as FRONTIER in the meantime since no delta marks "settle in
 // progress" client-side, so without this it would get re-selected and
 // re-sent every turn until it resolves. The real client's equivalent guard

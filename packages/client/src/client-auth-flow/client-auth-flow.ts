@@ -17,7 +17,7 @@ import {
   syncAuthPanelState as syncAuthPanelStateFromModule
 } from "../client-auth-ui/client-auth-ui.js";
 import { MOBILE_LOGIN_ZOOM } from "../client-constants.js";
-import { setDebugAuthEmail } from "../client-debug/client-debug.js";
+import { setDebugAuthEmail, setGuestIdentityUid } from "../client-debug/client-debug.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
 import { logSignUpConversion, logSignUpIfNewUser } from "./client-auth-flow-analytics.js";
@@ -349,6 +349,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         if (!user && devAuthPlayerId) return;
         if (!user) {
           setDebugAuthEmail("");
+          setGuestIdentityUid("");
           state.mapRevealEligible = false;
           state.mapRevealEnabled = false;
           state.authReady = false;
@@ -371,6 +372,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         authSession.emailLinkSentTo = "";
         const authEmail = user.email ?? undefined;
         setDebugAuthEmail(authEmail);
+        // Before any per-account storage read below: a guest gets its own scope (debugAuthIdentityKeyForEmail).
+        setGuestIdentityUid(user.isAnonymous ? user.uid : "");
         // Force fog admin to re-activate reveal on every sign-in. A stale "1" in
         // localStorage from a prior session caused syncDesiredFogDisabled to
         // auto-resend REQUEST_REVEAL_MAP on connect, which triggers a full-world

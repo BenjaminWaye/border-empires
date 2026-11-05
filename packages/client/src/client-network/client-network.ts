@@ -58,6 +58,7 @@ import { handleActivityDashboardMessage, requestPersonalActivity } from "../clie
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
 import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
+import { clearTechCommissionOnError } from "../client-tech-commission/client-tech-commission.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -1976,10 +1977,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
       const errorCode = String(msg.code ?? "");
       const errorMessage = String(msg.message ?? "unknown failure");
-      if (errorCode.startsWith("TECH_") && state.pendingTechUnlockId) {
-        state.pendingTechUnlockId = "";
-        state.currentResearch = undefined;
-      }
+      clearTechCommissionOnError(state, errorCode);
       if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
         state.pendingDomainUnlockId = "";
       }

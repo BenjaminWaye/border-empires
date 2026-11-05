@@ -1,7 +1,7 @@
 import { tileActionAvailability } from "./client-tile-action-availability.js";
 import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor, manpowerPerBatch, ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY } from "@border-empires/shared";
 import { resourceBuildActions } from "./client-resource-build-actions.js";
-import { forcedAncillarificationActions } from "../client-forced-ancillarification/client-forced-ancillarification.js";
+import { structureCommandActions } from "../client-structure-command-actions.js";
 export { canPlaceAetherWallFromOrigin, validAetherWallDirectionsForTile, aetherWallDirectionTargetTiles } from "./client-aether-wall-placement.js";
 import { afcTowerSuppressionAction } from "../client-afc-upgrades/client-afc-tower-action.js";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
@@ -196,7 +196,7 @@ const frontierBuildDetailSuffix = (tile: Tile): string =>
 
 // Also appends "Cancel March" on an own March-To order's destination tile (client-muster-march-targets.ts).
 export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] =>
-  appendMarchCancelAction([...menuActionsForSingleTileInner(state, tile, deps), ...forcedAncillarificationActions(state, tile)], state, tile);
+  appendMarchCancelAction([...menuActionsForSingleTileInner(state, tile, deps), ...structureCommandActions(state, tile)], state, tile);
 
 const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
   if (tile.fogged) return foggedTileActions(state, tile, deps);

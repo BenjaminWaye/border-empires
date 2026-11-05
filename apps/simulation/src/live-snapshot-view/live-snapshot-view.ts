@@ -1,6 +1,3 @@
-import type { NetworkCreditAllocation } from "../resource-networks/resource-network-credit.js";
-import { snapshotNetworkCredit } from "../resource-networks/resource-network-snapshot.js";
-import { resourceNetworkTownCredit } from "../resource-networks/resource-network-credit.js";
 import { districtOverlayProjection } from "../town-district/town-district-projection.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { buildDockLinksByDockTileKey } from "../dock-network/dock-network.js";
@@ -28,7 +25,6 @@ import {
 export { buildLivePlayerEconomySnapshot } from "../live-economy-snapshot.js";
 
 type EnrichmentContext = {
-  networkCreditByPlayer: Map<string, NetworkCreditAllocation>;
   tilesByKey: Map<string, RuntimeState["tiles"][number]>;
   domainTilesByKey: Map<string, DomainTileState>;
   dockLinksByDockTileKey: ReturnType<typeof buildDockLinksByDockTileKey>;
@@ -110,7 +106,6 @@ export const enrichSnapshotTilesForGlobalVisibility = (
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, dormancyByPlayer);
-  const networkCreditByPlayer = snapshotNetworkCredit(settledDomainTilesByPlayerId, runtimeState.players, dormantEconomicStructureKeysByPlayer, domainTilesByKey, fedTownKeysByPlayer);
   return [...runtimeState.tiles]
     .sort((left, right) => (left.x - right.x) || (left.y - right.y))
     .map((tile) => {
@@ -126,8 +121,7 @@ export const enrichSnapshotTilesForGlobalVisibility = (
         tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined,
         tile.ownerId ? firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined,
         nearbyWarTownKeys,
-        (tile.ownerId ? dormantEconomicStructureKeysByPlayer.get(tile.ownerId) : undefined) ?? new Set<string>(),
-        tile.ownerId ? resourceNetworkTownCredit(tile, networkCreditByPlayer.get(tile.ownerId) ?? new Map()).total : 0
+        (tile.ownerId ? dormantEconomicStructureKeysByPlayer.get(tile.ownerId) : undefined) ?? new Set<string>()
       );
       const town = toSharedVisibilityTownSummary(fullTown);
       const yieldFields = buildSnapshotTileYieldFields(tile, fullTown, {
@@ -191,7 +185,6 @@ const buildEnrichmentContext = (
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
   return {
-    networkCreditByPlayer: snapshotNetworkCredit(settledDomainTilesByPlayerId, runtimeState.players, dormantEconomicStructureKeysByPlayer, domainTilesByKey, playerEconomy.fedTownKeysByPlayer),
     tilesByKey,
     domainTilesByKey,
     dormantEconomicStructureKeysByPlayer,
@@ -223,8 +216,7 @@ const buildEnrichedTile = (
     tile.ownerId ? ctx.townNetworksByPlayerId.get(tile.ownerId) : undefined,
     tile.ownerId ? ctx.firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined,
     ctx.nearbyWarTownKeys,
-    (tile.ownerId ? ctx.dormantEconomicStructureKeysByPlayer.get(tile.ownerId) : undefined) ?? new Set<string>(),
-    tile.ownerId ? resourceNetworkTownCredit(tile, ctx.networkCreditByPlayer.get(tile.ownerId) ?? new Map()).total : 0
+    (tile.ownerId ? ctx.dormantEconomicStructureKeysByPlayer.get(tile.ownerId) : undefined) ?? new Set<string>()
   );
   const yieldFields = buildSnapshotTileYieldFields(tile, town, {
     ...(economyPlayer ? { player: economyPlayer } : {}),
