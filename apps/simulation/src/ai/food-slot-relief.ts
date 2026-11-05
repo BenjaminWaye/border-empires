@@ -67,7 +67,7 @@ export type FoodSlotReenableTarget = { x: number; y: number };
  * uniquely-held FOOD-producing reach to disable.
  *
  * A beacon's reach can overlap a TOWN's, a DOCK's, or another active
- * beacon's/siege battery's — losing this one specific anchor doesn't cost
+ * beacon's — losing this one specific anchor doesn't cost
  * anything real if every FARM/FISH tile it reaches is *also* covered by one
  * of the player's other active anchors (that tile stays claimed either way,
  * see reassessBorderOnAnchorDeactivation in reach.ts). Only a FARM/FISH tile
@@ -221,9 +221,6 @@ const anchorCoverCount = <TTile extends AutomationPlannerTile>(
     if (tile.dockId) addReach({ x: tile.x, y: tile.y, ownerId: "", activatedAt: 0, kind: "DOCK" });
     const beacon = tile.economicStructure;
     if (beacon && beacon.ownerId === playerId && beacon.type === "RELAY_BEACON" && beacon.status === "active") {
-      addReach({ x: tile.x, y: tile.y, ownerId: "", activatedAt: 0, kind: "OUTPOST" });
-    }
-    if (tile.siegeBattery?.ownerId === playerId && tile.siegeBattery.status === "active") {
       addReach({ x: tile.x, y: tile.y, ownerId: "", activatedAt: 0, kind: "OUTPOST" });
     }
   }
