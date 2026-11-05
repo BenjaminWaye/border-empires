@@ -204,4 +204,39 @@ describe("discovery tips while the guide runs", () => {
     expect(state.discoveryTipQueue).toContain("ENEMY_EMPIRE");
     expect(isDiscoveryTipSeen("ENEMY_EMPIRE", EMAIL)).toBe(false);
   });
+
+  it("marks the recommended AFC upgrade card with a Guide pick badge, and clears only its own mark", async () => {
+    const { syncGuideAfcPick } = await import("./tutorial-guide-afc-pick.js");
+    const { syncGuideManifestPick } = await import("./tutorial-guide-manifest-pick.js");
+    document.body.innerHTML = '<button class="afc-upgrade-card" data-afc-upgrade-card="afc-exchequer-1">Founding Concession</button><button class="afc-upgrade-card" data-afc-upgrade-card="other">Other</button>';
+    syncGuideAfcPick("afc-exchequer-1");
+    const card = document.querySelector('[data-afc-upgrade-card="afc-exchequer-1"]');
+    expect(card?.querySelector(".tg-manifest-pick-badge")?.textContent).toBe("Guide pick");
+    expect(document.querySelector('[data-afc-upgrade-card="other"] .tg-manifest-pick-badge')).toBeNull();
+    // The Manifest marker syncing with nothing must not strip the AFC mark (no flicker).
+    syncGuideManifestPick(undefined);
+    expect(card?.querySelector(".tg-manifest-pick-badge")).not.toBeNull();
+    syncGuideAfcPick(undefined);
+    expect(card?.querySelector(".tg-manifest-pick-badge")).toBeNull();
+  });
+
+  it("recommends Build Manufactory in the tile menu of a marked town, only while the guide's build step is up", async () => {
+    const { setGuideManufactoryTargets, injectGuideManufactoryRecommendation } = await import("./tutorial-guide-manufactory-recommendation.js");
+    const menu = () => {
+      const buildings: Array<{ id: string; recommended?: boolean }> = [{ id: "build_manufactory", recommended: false }, { id: "build_market" }];
+      return { actions: [] as Array<{ id: string; recommended?: boolean }>, buildings, tabs: ["actions", "buildings"] };
+    };
+    setGuideManufactoryTargets([{ x: 4, y: 4 }]);
+    const marked = menu();
+    injectGuideManufactoryRecommendation(marked as never, { x: 4, y: 4 });
+    expect(marked.buildings[0]?.recommended).toBe(true);
+    expect(marked.actions.map((a) => a.id)).toEqual(["build_manufactory"]);
+    const other = menu();
+    injectGuideManufactoryRecommendation(other as never, { x: 9, y: 9 });
+    expect(other.buildings[0]?.recommended).toBe(false);
+    setGuideManufactoryTargets(undefined);
+    const cleared = menu();
+    injectGuideManufactoryRecommendation(cleared as never, { x: 4, y: 4 });
+    expect(cleared.buildings[0]?.recommended).toBe(false);
+  });
 });

@@ -34,6 +34,15 @@ each other, so a missing renderer is visible at a glance.
 | `sandbox` | Sandbox | Proposals that are not shipped yet |
 | `fixtures` | — | Shared stages, lighting, labels and demo worlds; no stories |
 
+## Umbrite forest exploration
+
+**Sandbox / Umbrite Forest / Concepts** compares Root-Bearing Elder, Umbrite
+Rootbed and Fallen Umberwood using the native forest species. The studies
+include reveal comparisons, forest context and approximate map-scale views.
+Exposed mineral uses emissive materials and an optional bloom stage.
+These are proposed 3D visuals only; neither live map renderer is changed.
+Mineralized wood remains proposed fiction rather than an accepted canon update.
+
 ## Current structure identity review
 
 **Map / Structures / All Structures / All Kinds** derives every buildable choice
