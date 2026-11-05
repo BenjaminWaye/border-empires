@@ -11,7 +11,7 @@ import { dockTileActionMenuForHudV2 } from "./client-hud-v2-tile-dock.js";
 // stops the HUD's layer handler, which used to make screen links here inert.
 afterEach(() => { vi.useRealTimers(); clearScreen(); document.body.innerHTML = ""; });
 
-it("opens AFC upgrades from the yellow action and keeps the shortcut with no ready upgrade", () => {
+it("opens AFC upgrades from the yellow action and keeps the shortcut beside a town with no ready upgrade", () => {
   vi.useFakeTimers();
   document.body.innerHTML = '<div id="hud"></div><div id="tile-action-menu"></div>';
   const state = createInitialState();
@@ -24,6 +24,11 @@ it("opens AFC upgrades from the yellow action and keeps the shortcut with no rea
   state.domainChoices = state.domainCatalog.filter(upgrade => upgrade.tier === 1).map(upgrade => upgrade.id);
   state.tiles.set("4,4", { x: 4, y: 4, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED",
     afc: { ownerId: "me", status: "active" } });
+  state.tiles.set("5,4", { x: 5, y: 4, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED",
+    town: { type: "MARKET", populationTier: "TOWN", population: 10000, maxPopulation: 100000,
+      baseGoldPerMinute: 1, goldPerMinute: 1, cap: 300, isFed: true, supportCurrent: 0, supportMax: 8,
+      connectedTownCount: 0, connectedTownBonus: 0, hasManufactory: false, manufactoryActive: false,
+      hasIncubationEngine: false, incubationEngineActive: false } });
   state.tileActionMenu.mode = "single";
   state.tileActionMenu.currentTileKey = "4,4";
   const view: TileMenuView = { title: "AFC", subtitle: "Your garrisoned land", tabs: ["modules"], overviewLines: [],

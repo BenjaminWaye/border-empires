@@ -22,12 +22,29 @@ export const GUIDE_ANCHOR_SELECTORS: Record<GuideAnchorId, string> = {
   diplomacy: '[data-panel="alliance"], [data-mobile-panel="social"], .hud-v2-bubble[data-hud-v2-open="diplomacy"]'
 };
 
+/** A fixed outline must stay inside the viewport and every clipping panel. */
+const anchorFullyVisible = (element: Element): boolean => {
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0 || rect.left < 0 || rect.top < 0 || rect.right > window.innerWidth || rect.bottom > window.innerHeight) return false;
+  // Root overflow clips the viewport, already checked above; a fixed HUD can
+  // sit outside the body's layout bounds, so only inspect inner containers.
+  for (let parent = element.parentElement; parent && parent !== document.body && parent !== document.documentElement; parent = parent.parentElement) {
+    const style = getComputedStyle(parent);
+    const clipX = /^(auto|scroll|hidden|clip)$/.test(style.overflowX || style.overflow);
+    const clipY = /^(auto|scroll|hidden|clip)$/.test(style.overflowY || style.overflow);
+    if (!clipX && !clipY) continue;
+    const bounds = parent.getBoundingClientRect();
+    if (clipX && (rect.left < bounds.left || rect.right > bounds.right)) return false;
+    if (clipY && (rect.top < bounds.top || rect.bottom > bounds.bottom)) return false;
+  }
+  return true;
+};
+
 /** The first matching element that is actually laid out on screen. */
 export const findGuideAnchorElement = (anchor: GuideAnchorId, root: ParentNode = document): Element | undefined => {
   for (const selector of GUIDE_ANCHOR_SELECTORS[anchor].split(",")) {
     for (const el of Array.from(root.querySelectorAll(selector))) {
-      const rect = el.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) return el;
+      if (anchorFullyVisible(el)) return el;
     }
   }
   return undefined;

@@ -25,6 +25,8 @@ export const townForTile = (deps: Pick<HudV2Deps, "state" | "wrapX" | "wrapY">, 
   const { state } = deps;
   if (!tile || tile.ownerId !== state.me) return undefined;
   if (tile.town) return tile;
+  // An AFC has its own modules and upgrades panel, even inside a town ring.
+  if (tile.afc) return undefined;
   return supportPlotAnchorTown(tile, {
     tiles: state.tiles,
     wrapX: deps.wrapX,
