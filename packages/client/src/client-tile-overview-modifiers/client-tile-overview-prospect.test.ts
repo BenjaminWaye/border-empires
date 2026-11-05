@@ -48,3 +48,16 @@ describe("tileFeatureLeadLines prospect clue", () => {
     expect(html).not.toContain(BLACKWOOD_LINE);
   });
 });
+
+
+it.each([
+  ["FERROUS_DUST", "titanium"], ["BLACKWOOD_CANOPY", "umbrite"], ["REFRACTIVE_GROUND", "crystal"]
+] as const)("links %s to the catalog's resource-revealing Manifest", (prospectSignature, resource) => {
+  const forest = findTile((x, y) => isForestTile(x, y));
+  const manifest: TechInfo = { id: `${resource}-survey`, name: "Survey crew", tier: 1, description: "", mods: {},
+    requirements: { gold: 0, resources: {} }, effects: { revealResource: resource } };
+  const html = tileFeatureLeadLines(tile({ ...forest, prospectSignature }), "unclaimed", { ...deps, techCatalog: [manifest] })
+    .map(line => line.html).join("");
+  expect(html).toContain(`data-view-tech="${manifest.id}"`);
+  expect(html).toContain("View required Manifest");
+});

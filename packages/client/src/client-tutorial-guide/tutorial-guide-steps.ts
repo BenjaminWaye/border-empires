@@ -18,7 +18,7 @@
 import type { OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
 import { guideTargetAction, type GuideFootholdTargets, type GuideTargetAction } from "./tutorial-guide-foothold-targets.js";
 
-export type GuideAnchorId = "manpower" | "manifest" | "afc" | "activity" | "diplomacy";
+export type GuideAnchorId = "manpower" | "manifest" | "afc" | "manufactory" | "activity" | "diplomacy";
 
 /** The Manifest the guide recommends first: Industrial Tooling Module, which unlocks the Manufactory (tech id "trade"). */
 export const RECOMMENDED_FIRST_MANIFEST_ID = "trade";

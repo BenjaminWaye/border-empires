@@ -98,6 +98,22 @@ describe("tutorial guide over panels and screens", () => {
     expect(card()?.classList.contains("tg-raised")).toBe(false);
   });
 
+  it("keeps the guide visible over compact Manpower without showing it over Settings", () => {
+    const state = footholdDoneState();
+    document.body.classList.add("hud-v2", "hud-v2-compact");
+    document.body.innerHTML = '<div id="hud" class="desktop-side-panel-open"></div>';
+    startAt(state, 2);
+    state.activePanel = "manpower";
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toBe("Open Manifests");
+    expect(card()?.classList.contains("tg-raised")).toBe(true);
+    expect(styles()).toContain("body.hud-v2-compact #tutorial-guide-root.tg-over-manpower { display: block !important; }");
+    state.activePanel = "settings";
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(card()?.classList.contains("tg-raised")).toBe(false);
+    expect(card()?.classList.contains("tg-over-manpower")).toBe(false);
+  });
+
   it("stays visible on the new HUD's Manifest screen and marks the recommended Manifest there", () => {
     const state = footholdDoneState();
     document.body.classList.add("hud-v2");

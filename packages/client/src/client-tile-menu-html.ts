@@ -48,7 +48,7 @@ const battleOddsBarHtml = (battle: NonNullable<TileMenuProgressView["battle"]>):
 // switch categories. A category with nothing buildable here is shown
 // disabled with a reason grounded in why it's empty (resourceTypes /
 // placementMode -- see client-tile-menu-building-category.ts).
-const groupedBuildingActionListHtml = (actions: TileActionDef[], isTownTile: boolean): string => {
+const groupedBuildingActionListHtml = (actions: TileActionDef[]): string => {
   const byCategory = new Map<BuildingCategory, TileActionDef[]>();
   for (const action of actions) {
     const category = buildingActionCategory(action);
@@ -61,8 +61,7 @@ const groupedBuildingActionListHtml = (actions: TileActionDef[], isTownTile: boo
     (category) => (byCategory.get(category)?.length ?? 0) > 0 || !BUILDING_CATEGORIES_HIDDEN_WHEN_EMPTY.has(category)
   );
   const initialCategory = initialBuildingCategory(
-    visibleCategories.filter((category) => (byCategory.get(category)?.length ?? 0) > 0),
-    isTownTile
+    visibleCategories.filter((category) => (byCategory.get(category)?.length ?? 0) > 0)
   );
   // Radios live as direct siblings of .tile-building-category-panels (not
   // nested inside the squares row) so the plain CSS sibling combinator
@@ -282,7 +281,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
     }
     const listHtml =
       activeTab === "buildings" && actionsForTab.length > BUILDING_GROUP_THRESHOLD
-        ? groupedBuildingActionListHtml(actionsForTab, Boolean(view.isTownTile))
+        ? groupedBuildingActionListHtml(actionsForTab)
         : `<div class="tile-action-list">${recommendedFirst(actionsForTab).map(tileActionButtonHtml).join("")}</div>`;
     return `${listHtml}${view.combatBreakdown ? combatBreakdownHtml(view.combatBreakdown) : ""}`;
   }

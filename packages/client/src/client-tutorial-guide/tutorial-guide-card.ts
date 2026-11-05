@@ -73,9 +73,11 @@ export const guideCardHtml = (view: StepView, expanded: boolean): string => {
  * the new HUD's screens (it is shown on its Manifest and Diplomacy screens), so the step that sent the player there stays in view
  * while they do it. Called every frame; a class toggle is cheap.
  */
-export const syncGuideCardLayer = (raised: boolean): void => {
+export const syncGuideCardLayer = (raised: boolean, overManpower = false): void => {
   if (typeof document === "undefined") return;
-  document.getElementById(ROOT_ID)?.classList.toggle(RAISED_CLASS, raised);
+  const root = document.getElementById(ROOT_ID);
+  root?.classList.toggle(RAISED_CLASS, raised);
+  root?.classList.toggle("tg-over-manpower", overManpower);
 };
 
 /** Re-renders the card (cheap; callers only call it when the view's signature changes). */
@@ -121,6 +123,7 @@ const styles = `
 #${ROOT_ID}.${RAISED_CLASS} { z-index: 48; }
 /* HUD v2 frame screens hide the corner bubble (.onb-root); the guide stays on the two its steps send the player into. */
 body.hud-v2-screen-manifest #${ROOT_ID}, body.hud-v2-screen-diplomacy #${ROOT_ID} { display: block !important; }
+body.hud-v2-compact #${ROOT_ID}.tg-over-manpower { display: block !important; }
 #${ROOT_ID} [hidden] { display: none !important; }
 .tg-card {
   width: min(270px, calc(100vw - 32px)); padding: 10px 12px; border-radius: 12px;

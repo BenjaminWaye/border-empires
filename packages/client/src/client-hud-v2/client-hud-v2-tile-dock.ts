@@ -6,6 +6,7 @@
 // (town, battle) hook in through a listener; neutral land next to yours
 // expands on the click, with no bar.
 
+import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { isSeaTerrain } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
@@ -318,7 +319,9 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
   dock.deps = deps;
   dock.state = state;
   dock.rerender = rerender;
-  dock.lastView = view;
+  const selectedTile = state.tiles.get(state.tileActionMenu.currentTileKey);
+  dock.lastView = state.tileActionMenu.mode === "single" && selectedTile?.ownerId === state.me && selectedTile.afc?.ownerId === state.me
+    ? { ...view, afcUpgradesReady: readyAfcUpgradeCount(state) } : view;
   const key = state.tileActionMenu.mode === "single" ? state.tileActionMenu.currentTileKey : "";
   const fresh = key !== dock.lastKey;
   dock.lastKey = key;

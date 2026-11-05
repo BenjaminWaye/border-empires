@@ -23,6 +23,7 @@ import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-b
 export type GuideInputState = Pick<
   ClientState,
   | "tiles"
+  | "resourceSlots"
   | "tilesRevision"
   | "chunkFullCount"
   | "me"

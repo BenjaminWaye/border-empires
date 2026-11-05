@@ -184,7 +184,7 @@ describe("action bar", () => {
 
   it("makes attack the main action with Raise flag next, and keeps Garrison off the main row", () => {
     const buttons = selectBarButtons(view({ actions: [act("settle_land", { label: "Garrison" }), act("launch_attack"), act("diplomacy"), act("muster_hold")] }));
-    expect(buttons.map((b) => (b.kind === "action" ? b.action.id : b.panel))).toEqual(["launch_attack", "muster_hold", "diplomacy"]);
+    expect(buttons.map((b) => (b.kind === "action" ? b.action.id : b.kind === "panel" ? b.panel : b.kind))).toEqual(["launch_attack", "muster_hold", "diplomacy"]);
   });
 
   // The order asked for on your own tiles: Relay Beacon, Raise flag, Build, then Garrison (and Garrison many) below.
@@ -195,7 +195,7 @@ describe("action bar", () => {
       tabs: ["actions", "buildings"]
     });
     const buttons = selectBarButtons(v);
-    expect(buttons.map((b) => (b.kind === "action" ? b.action.id : b.panel))).toEqual(["build_relay_beacon", "muster_hold", "build"]);
+    expect(buttons.map((b) => (b.kind === "action" ? b.action.id : b.kind === "panel" ? b.panel : b.kind))).toEqual(["build_relay_beacon", "muster_hold", "build"]);
     expect(moreActions(v, buttons).map((a) => a.id)).toEqual(["settle_land", "settle_many"]);
     const html = actionBarHtml(v);
     expect(html).toContain('class="hud-v2-minor-row"');
