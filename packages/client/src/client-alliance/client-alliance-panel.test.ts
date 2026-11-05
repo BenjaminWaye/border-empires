@@ -42,6 +42,8 @@ describe("alliancePanelHtml", () => {
     expect(html).toContain("Propose Alliance");
     expect(html).toContain("Truce 12h");
     expect(html).toContain("Truce 24h");
+    expect(html).toContain(">Met<");
+    expect(html).not.toContain(">War<");
     expect(html).not.toContain("Allies");
     expect(html).not.toContain("Needs your response");
   });
@@ -194,5 +196,11 @@ describe("bindProposeButtons", () => {
     expect(document.querySelector(".break-pact-consequences")?.textContent).toContain("−10 opinion for 7 days");
     document.querySelector<HTMLButtonElement>("[data-pact-go]")!.click();
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "TRUCE_BREAK", targetPlayerId: "p-2" }, expect.any(String));
+  });
+
+  it("labels a met player War only while they are in the war set", () => {
+    const html = panel({ metPlayerIds: new Set(["p-1", "ai-3"]), warPlayerIds: new Set(["ai-3"]) });
+    expect(html.match(/>War</g)).toHaveLength(1);
+    expect(html.match(/>Met</g)).toHaveLength(1);
   });
 });
