@@ -57,6 +57,13 @@ describe("computeLocalReachSet", () => {
     expect(reach.has(keyFor(5, 5))).toBe(true);
   });
 
+  it("projects no reach from an active settled siege battery (siege batteries hold no reach, matching the server)", () => {
+    const tiles = new Map<string, Tile>([
+      [keyFor(10, 10), { x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", siegeBattery: { ownerId: "me", status: "active" } } as unknown as Tile]
+    ]);
+    expect(computeLocalReachSet(tiles, "me").size).toBe(0);
+  });
+
   it("projects a TOWN_REACH_RADIUS disk around a settled town tile", () => {
     const tiles = new Map<string, Tile>([
       [

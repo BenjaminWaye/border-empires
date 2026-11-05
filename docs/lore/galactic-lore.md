@@ -369,6 +369,10 @@ blackened trunks, trees sliced through by the beams, and burnt stumps. A harbour
 secured it, and earns nothing in the meantime. The exact timings
 belong in the [gameplay reference](../game-mechanics.md).
 
+Siege guns are not anchors. A Siege Battery, and the Siege Towers and Dread
+Towers raised from it, carry no control field: they strike at ground but
+never claim it, so a front held only by siege guns is not a claim at all.
+
 Two flags cannot own the same ground. Where a rival's anchor reaches land
 that a Duke's own anchors no longer cover, the rival's claim stands and the
 Duke's hold there thins from settled ground back to open frontier.
@@ -707,6 +711,15 @@ not infer new gameplay rules from them while implementing unrelated work.
 | Writs and the revolt | §7 says accepting a Writ restores the Court's grip; §8 says a Writ does not weaken the revolt. Clarify the relationship before assigning metagame effects. |
 | Houses held in ward | §2 says a world won by a House with no sworn heir is held in ward and does not loosen the Court's grip. Decide whether such a House can ever swear an heir and become a full Duke, and what happens to the ward if a sworn Duke takes the world. |
 | Relic reactivation costs and risks | Installation families, common surface access structures and the low-power locator transponder are established in §4. Repair costs, activation encounters and random breakdowns remain future design ideas; they are not established mechanics. Current quantities and effects belong in the [relic reference](../relics.md). |
+
+### Proposed Umbrite forest appearance
+
+The Storybook **Sandbox / Umbrite Forest / Concepts** studies depict violet,
+faintly luminous Umbrite exposed within forest roots and dead wood. This is an
+art proposal, not an established biological origin for Umbrite. Whether the
+mineral replaces wood, accumulates within it, or is exposed by surrounding
+root growth remains an open canon decision. The studies do not change deposit
+locations, discovery rules, harvesting or the live map renderers.
 
 ### Consolidation sources
 

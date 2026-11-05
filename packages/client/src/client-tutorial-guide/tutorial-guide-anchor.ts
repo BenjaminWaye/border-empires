@@ -18,6 +18,7 @@ export const GUIDE_ANCHOR_SELECTORS: Record<GuideAnchorId, string> = {
   manufactory: '[data-hud-v2-action="build_manufactory"], [data-v2-build-pick="build_manufactory"], [data-action="build_manufactory"], [data-v2-build-category="town_support"]',
   manpower: '.stat-chip-manpower, [data-hud-v2-open="manpower"]',
   manifest: '[data-panel="tech"], [data-mobile-panel="tech"], [data-hud-v2-open="manifest"]',
+  afc: '[data-panel="domains"], [data-mobile-panel="domains"], [data-hud-v2-open="afc"]',
   activity: '[data-open-activity-dashboard], [data-hud-v2-open="chronicle"]',
   diplomacy: '[data-panel="alliance"], [data-mobile-panel="social"], .hud-v2-bubble[data-hud-v2-open="diplomacy"]'
 };

@@ -13,10 +13,12 @@
 // not enrolled -- every account older than the guide -- keep the checklist.
 
 import { buildGuideInput, type GuideInputState } from "./tutorial-guide-input.js";
-import { evaluateGuide, guideBeaconSite, guideRecommendsManifest, RECOMMENDED_FIRST_MANIFEST_ID, type GuideView } from "./tutorial-guide-steps.js";
+import { evaluateGuide, guideBeaconSite, guideRecommendsAfcUpgrade, guideRecommendsManifest, RECOMMENDED_FIRST_AFC_UPGRADE_ID, RECOMMENDED_FIRST_MANIFEST_ID, type GuideView } from "./tutorial-guide-steps.js";
 import { isGuideActive, markGuideStepsCompleted, readGuideProgress, setGuideStatus } from "./tutorial-guide-storage.js";
 import { removeGuideCard, renderGuideCard, syncGuideCardLayer, type GuideCardHandlers } from "./tutorial-guide-card.js";
 import { syncGuideManifestPick } from "./tutorial-guide-manifest-pick.js";
+import { setGuideManufactoryTargets } from "./tutorial-guide-manufactory-recommendation.js";
+import { syncGuideAfcPick } from "./tutorial-guide-afc-pick.js";
 import { removeGuideAnchorOutline, syncGuideAnchorOutline } from "./tutorial-guide-anchor.js";
 import { resetGuideInputSignalsForTests } from "./tutorial-guide-input-signals.js";
 import { debugAuthIdentityKeyForEmail } from "../client-debug/client-debug.js";
@@ -77,6 +79,8 @@ export const removeTutorialGuideUi = (): void => {
   removeGuideCard();
   removeGuideAnchorOutline();
   syncGuideManifestPick(undefined);
+  syncGuideAfcPick(undefined);
+  setGuideManufactoryTargets(undefined);
   lastSignature = "";
   lastView = undefined;
 };
@@ -158,11 +162,13 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
     lastSignature = signature;
     renderGuideCard(view, expanded, handlers);
   }
-  const buildAnchor = view.step.id === "build-first" && input.manufactoryUnlocked && input.freeFoodSlots >= 1 ? "manufactory" : undefined;
+  const buildAnchor = view.step.id === "build-first" && input.manufactoryUnlocked ? "manufactory" : undefined;
   syncGuideAnchorOutline(expanded ? buildAnchor ?? view.anchor : undefined);
   // Not over Settings: on the new HUD its modal dim shares the raised layer.
   syncGuideCardLayer((input.openPanel !== null && input.openPanel !== "settings") || bodyHasScreenOpen(), input.openPanel === "manpower");
   syncGuideManifestPick(!view.waiting && guideRecommendsManifest(view.step.id) ? RECOMMENDED_FIRST_MANIFEST_ID : undefined);
+  setGuideManufactoryTargets(view.step.id === "build-first" && !view.waiting ? view.highlightTiles : undefined);
+  syncGuideAfcPick(!view.waiting && guideRecommendsAfcUpgrade(view.step.id) ? RECOMMENDED_FIRST_AFC_UPGRADE_ID : undefined);
   return [...view.highlightTiles];
 };
 

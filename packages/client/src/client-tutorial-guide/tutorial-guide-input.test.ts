@@ -174,21 +174,3 @@ describe("rival House contact on chunk loads", () => {
     expect(buildGuideInput(state).rivalHouseMet).toBe(true);
   });
 });
-
-
-describe("guide food capacity", () => {
-  it("reads current capacity even without a tile revision", async () => {
-    const { createInitialState } = await import("../client-state/client-state.js");
-    const { buildGuideInput, resetGuideInputCacheForTests } = await import("./tutorial-guide-input.js");
-    resetGuideInputCacheForTests();
-    const state = createInitialState();
-    state.me = ME;
-    state.resourceSlots.supply.FOOD = 4;
-    state.resourceSlots.demand.FOOD = 4;
-    expect(buildGuideInput(state).freeFoodSlots).toBe(0);
-    state.resourceSlots.supply.FOOD = 5;
-    expect(buildGuideInput(state).freeFoodSlots).toBe(1);
-    state.resourceSlots.demand.FOOD = 6;
-    expect(buildGuideInput(state).freeFoodSlots).toBe(-1);
-  });
-});

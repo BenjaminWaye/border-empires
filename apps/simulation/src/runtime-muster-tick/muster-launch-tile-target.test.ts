@@ -47,16 +47,22 @@ const buildRuntime = (mode: "ADVANCE" | "MARCH", lock: ReturnType<typeof attackL
     }
   });
 
-const firedTargets = (mode: "ADVANCE" | "MARCH", lock: ReturnType<typeof attackLock>): string[] => {
+const firedTargets = (mode: "ADVANCE" | "MARCH", lock: ReturnType<typeof attackLock>, observe?: (event: SimulationEvent) => void): string[] => {
   const runtime = buildRuntime(mode, lock);
   const seen: SimulationEvent[] = [];
-  runtime.onEvent((event) => seen.push(event));
-  runtime.tickMuster(1_000);
-  return seen.flatMap((event) =>
-    event.eventType === "COMMAND_ACCEPTED" && event.actionType === "ATTACK" && event.commandId.includes(`:muster-${mode.toLowerCase()}:`)
-      ? [`${event.targetX},${event.targetY}`]
-      : []
-  );
+  runtime.onEvent((event) => { seen.push(event); observe?.(event); });
+  try {
+    runtime.tickMuster(1_000);
+    return seen.flatMap((event) =>
+      event.eventType === "COMMAND_ACCEPTED" && event.actionType === "ATTACK" && event.commandId.includes(`:muster-${mode.toLowerCase()}:`)
+        ? [`${event.targetX},${event.targetY}`]
+        : []
+    );
+  } finally {
+    // This fixture tests launch selection, not combat resolution. Leave no
+    // live callback that can mutate its state during a later test file.
+    runtime.freezeScheduledTasks();
+  }
 };
 
 describe.each(["ADVANCE", "MARCH"] as const)("%s flag and a pending enemy attack", (mode) => {
@@ -78,4 +84,16 @@ describe.each(["ADVANCE", "MARCH"] as const)("%s flag and its own launch tile", 
   it("does not fire from a tile that is itself under attack", () => {
     expect(firedTargets(mode, attackLock("player-2", "10,11", "10,10"))).toEqual([]);
   });
+});
+
+it("does not leave combat callbacks running after the launch-only fixture returns", () => {
+  vi.useFakeTimers();
+  vi.spyOn(Math, "random").mockReturnValue(0);
+  try {
+    const observe = vi.fn<(event: SimulationEvent) => void>();
+    expect(firedTargets("ADVANCE", attackLock("player-2", "10,11", "10,12"), observe)).toEqual(["10,11"]);
+    const initialEvents = observe.mock.calls.length;
+    expect(() => vi.runOnlyPendingTimers()).not.toThrow();
+    expect(observe).toHaveBeenCalledTimes(initialEvents);
+  } finally { vi.useRealTimers(); vi.restoreAllMocks(); }
 });

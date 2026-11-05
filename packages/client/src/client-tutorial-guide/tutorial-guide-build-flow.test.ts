@@ -56,8 +56,4 @@ it("opens town support and moves the guide outline from Manufactory to Place", (
   expect(screenClick(deps, document.querySelector<HTMLElement>('[data-v2-build-pick="build_manufactory"]')!)).toBe(true);
   renderTutorialGuide(state, false);
   expect(findGuideAnchorElement("manufactory")?.getAttribute("data-hud-v2-action")).toBe("build_manufactory");
-  state.resourceSlots.demand.FOOD = 5;
-  renderTutorialGuide(state, false);
-  expect(document.querySelector(".tg-title")?.textContent).toBe("Free a food slot before building your Manufactory");
-  expect(document.getElementById("tutorial-guide-anchor-outline")).toBeNull();
 });

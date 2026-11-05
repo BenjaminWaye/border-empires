@@ -2,7 +2,10 @@ import { tileHasTownIdentity } from "../client-town-identity.js";
 import type { Tile } from "../client-types.js";
 import type { LocalAnchor } from "./client-reach-overlay-anchor-disk.js";
 
-export const OUTPOST_STRUCTURE_TYPES = new Set(["RELAY_BEACON", "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]);
+// Only Relay Beacons project OUTPOST reach. Siege batteries (and their Siege
+// Tower / Dread Tower upgrades) are combat-only and hold no reach, matching
+// the server's gatherReachAnchors.
+export const OUTPOST_STRUCTURE_TYPES = new Set(["RELAY_BEACON"]);
 
 /**
  * The reach anchors (town / dock / outpost-family structure) this tile
@@ -47,7 +50,6 @@ export const localAnchorsForTile = (tile: Tile): LocalAnchor[] => {
     tile.economicStructure?.status === "active" &&
     outpostType !== undefined &&
     OUTPOST_STRUCTURE_TYPES.has(outpostType);
-  const isActiveSiegeBattery = isSettled && tile.siegeBattery?.ownerId === tile.ownerId && tile.siegeBattery?.status === "active";
-  if (isActiveOutpostEconomic || isActiveSiegeBattery) anchors.push({ x: tile.x, y: tile.y, kind: "OUTPOST" });
+  if (isActiveOutpostEconomic) anchors.push({ x: tile.x, y: tile.y, kind: "OUTPOST" });
   return anchors;
 };

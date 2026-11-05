@@ -92,11 +92,11 @@ const REACH_ANCHOR_SCAN_CAP = 4000;
 
 /**
  * Every tile within this player's REAL, currently-held reach — from every
- * TOWN, DOCK, and OUTPOST-kind (RELAY_BEACON, siege battery) anchor they
- * own, not just RELAY_BEACON. This is the actual border EXPAND/SETTLE are
+ * TOWN, DOCK, and OUTPOST-kind (RELAY_BEACON) anchor they own, not just
+ * RELAY_BEACON (siege batteries hold no reach). This is the actual border EXPAND/SETTLE are
  * legal inside (packages/shared/src/reach/reach.ts's fixed-border model):
  * TOWN_REACH_RADIUS (3) around a town, DOCK_REACH_RADIUS (1) around a dock,
- * OUTPOST_REACH_RADIUS (5) around a beacon/siege battery — NOT simply
+ * OUTPOST_REACH_RADIUS (5) around a beacon — NOT simply
  * "Chebyshev distance 1 from any owned tile", which was an earlier, wrong
  * approximation of this: a resource 2-3 tiles from a town is already
  * legally EXPAND-able (inside TOWN_REACH_RADIUS) even though it isn't
@@ -163,12 +163,6 @@ const currentReachTileKeys = (
       const anchor: ReachAnchor = { x: tile.x, y: tile.y, ownerId: playerId, activatedAt: 0, kind: "OUTPOST" };
       for (const key of tileKeysInReach(anchor)) claimed.add(key);
       if (beacon.status === "under_construction") pendingOutposts.push({ x: tile.x, y: tile.y });
-    }
-    const siege = tile.siegeBattery;
-    if (siege?.ownerId === playerId && siege.status && BEACON_OVERLAP_CLAIMING_STATUSES.has(siege.status)) {
-      const anchor: ReachAnchor = { x: tile.x, y: tile.y, ownerId: playerId, activatedAt: 0, kind: "OUTPOST" };
-      for (const key of tileKeysInReach(anchor)) claimed.add(key);
-      if (siege.status === "under_construction") pendingOutposts.push({ x: tile.x, y: tile.y });
     }
   }
   return { claimed, pendingOutposts, ownBeacons };

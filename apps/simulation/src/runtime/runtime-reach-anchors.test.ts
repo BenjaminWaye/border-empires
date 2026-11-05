@@ -30,7 +30,6 @@ describe("AFC reach anchors", () => {
       playerSummaries: new Map([["player-1", summary]]),
       tiles,
       activeRelayBeaconsByOwner: new Map(),
-      activeSiegeBatteriesByOwner: new Map(),
       docks: [],
       tileSettledAtByKey: new Map(),
       now: 1000
@@ -48,7 +47,6 @@ describe("AFC reach anchors", () => {
       playerSummaries: new Map([["player-1", summary]]),
       tiles,
       activeRelayBeaconsByOwner: new Map(),
-      activeSiegeBatteriesByOwner: new Map(),
       docks: [],
       tileSettledAtByKey: new Map(),
       now: 1000
@@ -90,7 +88,6 @@ describe("barbarian-owned tiles hold no reach anchors", () => {
       playerSummaries: new Map(),
       tiles: new Map(),
       activeRelayBeaconsByOwner: new Map(),
-      activeSiegeBatteriesByOwner: new Map(),
       docks: [],
       tileSettledAtByKey: new Map(),
       now: 1000,
@@ -115,16 +112,14 @@ describe("barbarian-owned tiles hold no reach anchors", () => {
     expect(anchors.map((anchor) => anchor.ownerId)).toEqual(["player-1"]);
   });
 
-  it("gatherReachAnchors skips barbarian-owned beacons, siege batteries and docks", () => {
+  it("gatherReachAnchors skips barbarian-owned beacons and docks", () => {
     const tiles = new Map<string, DomainTileState>([
       ["20,20", { x: 20, y: 20, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }],
-      ["21,20", { x: 21, y: 20, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }],
       ["22,20", { x: 22, y: 20, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED", dockId: "dock-1" }]
     ]);
     const anchors = gather({
       tiles,
       activeRelayBeaconsByOwner: new Map([["barbarian-1", new Set(["20,20"])]]),
-      activeSiegeBatteriesByOwner: new Map([["barbarian-1", new Set(["21,20"])]]),
       docks: [{ dockId: "dock-1", tileKey: "22,20", pairedDockId: "dock-2", connectedDockIds: [] }]
     });
     expect(anchors).toEqual([]);
@@ -146,5 +141,33 @@ describe("barbarian-owned tiles hold no reach anchors", () => {
       { x: 14, y: 12, ownerId: "player-1", activatedAt: 5000, kind: "TOWN" }
     ]);
     expect(newlyDeactivatedReachAnchors(heldByBarb, recaptured, 5000)).toEqual([]);
+  });
+});
+
+// Siege batteries (and their Siege Tower / Dread Tower upgrades) are combat
+// structures only: they must never hold reach. Before this, an active battery
+// kept a rival's ground under its owner's border after every beacon around it
+// had been destroyed.
+describe("siege batteries hold no reach", () => {
+  const siegeTile = (overrides: Partial<DomainTileState> = {}): DomainTileState => ({
+    x: 30,
+    y: 30,
+    terrain: "LAND",
+    ownerId: "player-1",
+    ownershipState: "SETTLED",
+    ...overrides
+  });
+
+  it.each(["SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"] as const)("activating a settled %s grants no anchor", (variant) => {
+    const building = siegeTile({ siegeBattery: { ownerId: "player-1", status: "under_construction", variant } });
+    const active = siegeTile({ siegeBattery: { ownerId: "player-1", status: "active", variant } });
+    expect(newlyActivatedReachAnchors(building, active, 1000)).toEqual([]);
+    expect(newlyActivatedReachAnchors(siegeTile({ ownershipState: "FRONTIER", siegeBattery: active.siegeBattery! }), active, 1000)).toEqual([]);
+  });
+
+  it("losing an active siege battery reports no anchor deactivation", () => {
+    const active = siegeTile({ siegeBattery: { ownerId: "player-1", status: "active" } });
+    const captured: DomainTileState = { x: 30, y: 30, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" };
+    expect(newlyDeactivatedReachAnchors(active, captured, 2000)).toEqual([]);
   });
 });
