@@ -219,6 +219,15 @@ describe("town screen", () => {
     expect(regions.bar).toContain("Raise flag on town");
   });
 
+  it("shows the real terrain and coastal modifiers instead of the Market label", () => {
+    const coastalTown: Tile = { ...town, town: { ...town.town!, terrainProfile: "DESERT", coastal: true } };
+    const { left } = townScreenRegions({ town: coastalTown, focus: coastalTown, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
+    expect(left).toContain("Trade Town · Coastal Town");
+    expect(left).toContain("Coin +60% · Manpower cap -40% · Regen -40%");
+    expect(left).toContain("Coin +20% · Manpower cap +20% · Regen +20%");
+    expect(left).not.toContain("Market town");
+  });
+
   // Regression: a town still being garrisoned showed "undefined / undefined" support and NaN coin.
   it("shows dashes, not NaN or undefined, before the town's economy arrives", () => {
     const partial = { ...town, ownershipState: "FRONTIER", town: { ...town.town, goldPerMinute: undefined, supportCurrent: undefined, supportMax: undefined, isFed: undefined } } as unknown as Tile;

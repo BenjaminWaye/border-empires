@@ -275,3 +275,12 @@ it("uses new installation benefits for versioned relics and never promises a dep
   expect(discoveryTipIdForNewlySeenTile({ naturalWonder: { type: "WARPRESS", relicVersion: 1, remainingUses: 0 } })).toBe("DEPLETED_RELIC");
   expect(discoveryTipIdForNewlySeenTile({ naturalWonder: { type: "WARPRESS" } })).toBe("WARPRESS");
 });
+
+describe("reach explanation", () => {
+  it("stays short and states the garrison exceptions", () => {
+    const body = DISCOVERY_TIPS.OUT_OF_REACH_EXPAND.body;
+    expect(body.split(/\s+/).length).toBeLessThan(45);
+    expect(body).toContain("Towns, Docks and captured buildings can still be garrisoned");
+    expect(body).not.toContain("can't Garrison");
+  });
+});

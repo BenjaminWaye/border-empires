@@ -21,8 +21,8 @@ const noop = (): void => {};
  * Regression coverage for the OUT_OF_REACH_EXPAND discovery tip firing at the
  * moment a player queues a waypoint outside their reach -- see
  * client-waypoint-action-handlers.ts::setWaypointForSelected. EXPAND is not
- * reach-gated server-side (an out-of-reach claim still lands, it just decays
- * in two minutes unless reach is extended to it), so this is the client's
+ * reach-gated server-side (an out-of-reach claim still lands but depends
+ * on its supply route), so this is the client's
  * only chance to warn the player before the round trip to the server.
  */
 describe("queuing a waypoint outside reach announces the OUT_OF_REACH_EXPAND tip", () => {
@@ -55,6 +55,22 @@ describe("queuing a waypoint outside reach announces the OUT_OF_REACH_EXPAND tip
     expect(handled).toBe(true);
     expect(state.waypoint).toHaveLength(1);
     expect(state.discoveryTipQueue).toContain("OUT_OF_REACH_EXPAND");
+  });
+
+  it.each(["town", "dockId", "fort", "economicStructure"])("does not warn for a %s that can be garrisoned outside reach", (field) => {
+    stubWindowStorage();
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 10_000;
+    state.manpower = 10_000;
+    state.serverReach = new Set(["0,0"]);
+    state.serverReachRevision = 1;
+    state.tiles.set("0,0", { x: 0, y: 0, terrain: "LAND", ownerId: "me" });
+    state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", [field]: field === "dockId" ? "dock-1" : {} } as never);
+    handleWaypointAction({ state, selected: { x: 9, y: 9 }, actionId: "expand_here", keyFor,
+      pushFeed: noop, renderHud: noop, hideTileActionMenu: noop, showCaptureAlert: noop, processActionQueue: () => false });
+    expect(state.waypoint).toHaveLength(1);
+    expect(state.discoveryTipQueue).not.toContain("OUT_OF_REACH_EXPAND");
   });
 
   it("does not enqueue the discovery tip when the queued target is inside the player's reach", () => {
