@@ -137,6 +137,8 @@ export type SimulationEvent =
         captureHoldUntil?: number | undefined;
         warScarLevel?: number | undefined;
         warScarUntil?: number | undefined;
+        razedWreckUntil?: number | undefined;
+        razedWreck?: string | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";
         townName?: string | undefined;

@@ -195,8 +195,8 @@ consolidation, planning cadence), not deletion.
   how much new ground a site adds — a chain step along a 3-wide isthmus only
   opens ~15 tiles. Skips show as
   `sim_ai_relay_beacon_site_skipped_total{reason="spacing"}`. Tests that
-  need overlapping reach next to a relay use a siege battery as the anchor
-  instead. Regression coverage: `relay-beacon-spacing.test.ts`.
+  need overlapping reach next to a relay use a town as the anchor instead
+  (siege batteries hold no reach). Regression coverage: `relay-beacon-spacing.test.ts`.
 
 - **Out-of-reach dock crossings are a planner fallback.** EXPAND is never
   runtime reach-gated (game-domain validation ignores `isInReach`); the

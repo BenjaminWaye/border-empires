@@ -15,17 +15,38 @@ const OUTLINE_PADDING_PX = 4;
 // Legacy HUD and mobile buttons first, then the new desktop HUD's (HUD v2 hides
 // #top-strip, so only its [data-hud-v2-open] buttons are laid out there).
 export const GUIDE_ANCHOR_SELECTORS: Record<GuideAnchorId, string> = {
+  manufactory: '[data-hud-v2-action="build_manufactory"], [data-v2-build-pick="build_manufactory"], [data-action="build_manufactory"], [data-v2-build-category="town_support"]',
   manpower: '.stat-chip-manpower, [data-hud-v2-open="manpower"]',
   manifest: '[data-panel="tech"], [data-mobile-panel="tech"], [data-hud-v2-open="manifest"]',
+  afc: '[data-panel="domains"], [data-mobile-panel="domains"], [data-hud-v2-open="afc"]',
   activity: '[data-open-activity-dashboard], [data-hud-v2-open="chronicle"]',
   diplomacy: '[data-panel="alliance"], [data-mobile-panel="social"], .hud-v2-bubble[data-hud-v2-open="diplomacy"]'
 };
 
+/** A fixed outline must stay inside the viewport and every clipping panel. */
+const anchorFullyVisible = (element: Element): boolean => {
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0 || rect.left < 0 || rect.top < 0 || rect.right > window.innerWidth || rect.bottom > window.innerHeight) return false;
+  // Root overflow clips the viewport, already checked above; a fixed HUD can
+  // sit outside the body's layout bounds, so only inspect inner containers.
+  for (let parent = element.parentElement; parent && parent !== document.body && parent !== document.documentElement; parent = parent.parentElement) {
+    const style = getComputedStyle(parent);
+    const clipX = /^(auto|scroll|hidden|clip)$/.test(style.overflowX || style.overflow);
+    const clipY = /^(auto|scroll|hidden|clip)$/.test(style.overflowY || style.overflow);
+    if (!clipX && !clipY) continue;
+    const bounds = parent.getBoundingClientRect();
+    if (clipX && (rect.left < bounds.left || rect.right > bounds.right)) return false;
+    if (clipY && (rect.top < bounds.top || rect.bottom > bounds.bottom)) return false;
+  }
+  return true;
+};
+
 /** The first matching element that is actually laid out on screen. */
 export const findGuideAnchorElement = (anchor: GuideAnchorId, root: ParentNode = document): Element | undefined => {
-  for (const el of Array.from(root.querySelectorAll(GUIDE_ANCHOR_SELECTORS[anchor]))) {
-    const rect = el.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) return el;
+  for (const selector of GUIDE_ANCHOR_SELECTORS[anchor].split(",")) {
+    for (const el of Array.from(root.querySelectorAll(selector))) {
+      if (anchorFullyVisible(el)) return el;
+    }
   }
   return undefined;
 };

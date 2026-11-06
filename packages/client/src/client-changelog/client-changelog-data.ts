@@ -1,3 +1,12 @@
+import { GUIDE_AND_RECOVERY_CHANGELOG } from "./client-changelog-nov-03-04-guide-recovery.js";
+import { AI_FREE_TRUCE_CHANGELOG } from "./client-changelog-ai-free-truce.js";
+import { MOBILE_UI_CONSISTENCY_CHANGELOG } from "./client-changelog-mobile-ui-consistency.js";
+import { SALVAGE_TRIBUTE_UI_CHANGELOG } from "./client-changelog-salvage-tribute-ui.js";
+import { TUTORIAL_BUILD_AFC_FLOWS_CHANGELOG } from "./client-changelog-tutorial-build-afc-flows.js";
+import { HUD_V2_COMBAT_STATS_CHANGELOG } from "./client-changelog-hud-v2-combat-stats.js";
+import { SIEGE_BATTERY_NO_REACH_CHANGELOG } from "./client-changelog-siege-battery-no-reach.js";
+import { CAPTURE_WRECK_FIX_CHANGELOG } from "./client-changelog-capture-wreck-fix.js";
+import { MOBILE_APP_CHANGELOG } from "./client-changelog-mobile-app.js";
 import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
 import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
 import { FOOD_TILE_ART_CHANGELOG } from "./client-changelog-food-tile-art.js";
@@ -9,6 +18,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31
 import { CLIENT_CHANGELOG_ENTRIES_NOV_01_03 } from "./client-changelog-nov-01-03.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
 import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
+import { FRONTIER_RESOURCES_REWORK_CHANGELOG } from "./client-changelog-frontier-resources.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
 import { ALLIANCES_TAB_CHANGELOG } from "./client-changelog-alliances-tab.js";
@@ -89,6 +99,7 @@ import { MARCH_ATTACK_ROUTES_CHANGELOG } from "./client-changelog-march-attack-r
 import { MARCH_TO_UNEXPLORED_CHANGELOG } from "./client-changelog-march-to-unexplored.js";
 import { FORT_WALL_OPENINGS_CHANGELOG } from "./client-changelog-fort-wall-openings.js";
 import { HILL_GARRISON_FILL_CHANGELOG } from "./client-changelog-hill-garrison-fill.js";
+import { NAME_DECAL_HILLS_CHANGELOG } from "./client-changelog-name-decal-hills.js";
 import { SHARD_COMEBACK_CHANGELOG } from "./client-changelog-shard-comeback.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
@@ -182,33 +193,10 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
   ...AETHER_ABILITY_ICONS_CHANGELOG,
-  {
-    createdAt: 1791920134069, // Date.now() frozen for this entry.
-    introducedIn: "2026.10.13.1",
-    title: "New towns on the 3D map",
-    why: "Towns on the 3D map looked out of place next to the bright terrain and the AFC.",
-    changes: [
-      "Every town tier on the 3D map has new art: clockwork skyscrapers of glass and grey stone banded in brass, with lamplit windows and crowns of brass cog clocks, needle spires, glowing alien bulbs and finned crystals, on an octagonal base plate",
-      "Towns and cities are laid out on street grids with lamplit crossings, parks and skybridges between their towers, and cities rise to a downtown of sheer glass skyscrapers",
-      "Towns grow visibly through their tiers, from a few low towers round a cog lamp to a metropolis round a brass-haloed megatower crowned with an aether crystal",
-      "Towns are alive: steam rises from rooftop stacks, windows flicker with lamplight, clock cogs and orreries turn, crystals spin, and airships circle the bigger cities",
-      "Neighbouring towns of the same tier now face different ways, so they no longer look like copies"
-    ]
-  },
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_12,
   ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
-  {
-    createdAt: 1791921253260, // frozen Date.now() value for this release
-    introducedIn: "2026.10.13.1",
-    title: "Empire Integrity moves to the Economy panel",
-    why: "Playtesters watched Empire Integrity fall as they expanded and read it as being punished. In fact it was still a bonus, and some updates briefly showed it lower than it really was.",
-    changes: [
-      "Empire Integrity now lives in the Economy panel; the top bar only shows it, with a warning, once it drops below 50% and actually reduces your coin and growth",
-      "Fixed integrity sometimes showing lower than it really was (e.g. 80% for a small new empire) after changing your profile or colour, toggling auto-garrison, or using an ability"
-    ]
-  },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   ...TILE_YIELD_REMOVAL_CHANGELOG,
   ...AI_PROGRESSION_AETHER_CHANGELOG,
@@ -269,6 +257,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AI_BEACON_SPACING_CHANGELOG,
   ...LOST_STRUCTURES_CHANGELOG,
   ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
+  ...MOBILE_APP_CHANGELOG,
   {
     createdAt: 1793371350853, // Date.now() captured once for this entry.
     introducedIn: "2026.10.30",
@@ -325,6 +314,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["AI empires now build relay beacons that carry reach across their own unsettled borderlands, and toward wide stretches of plain unclaimed land."]
   },
   ...HILL_GARRISON_FILL_CHANGELOG,
+  ...NAME_DECAL_HILLS_CHANGELOG,
   {
     createdAt: 1792873662311, // Frozen Date.now() timestamp for the changelog gate.
     introducedIn: "2026.10.24.3",
@@ -455,47 +445,26 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...CLIENT_CHANGELOG_ENTRIES_NOV_01_03,
-  {
-    createdAt: 1793696822571, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.03",
-    title: "Guide: clearer first steps, a Manufactory, and diplomacy",
-    why: "Playtesting the guide showed steps asking for the wrong action (Expand To on land you already held, Build on tiles you couldn't build on yet) and a last step that didn't say what to do.",
-    changes: [
-      "A town or food tile your reach already claimed: the guide says to Garrison it",
-      "One you can see outside your reach: the guide says to Expand To it",
-      "Nothing in sight: the guide marks a tile for a Relay Beacon",
-      "The food steps show the grain and fish icons to look for on the map",
-      "The guide asks you to tap your AFC rather than any tile, since tapping land next to your border claims it",
-      "It recommends the Industrial Tooling Module as your first Manifest, then, once the module has docked at your AFC, asks for a Manufactory on your town",
-      "A new Diplomacy step appears once you meet a rival House: open Diplomacy to offer a truce",
-      "You can finish the guide even if you haven't met Planetary Defense or a rival yet; Finish closes it for good",
-      "The last step now says plainly that manpower refills every 4 hours"
-    ]
-  },
-  {
-    createdAt: 1793744266797, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.03",
-    title: "Fixed: your reach border could stop updating after a server update",
-    why: "If your game stayed open while the server restarted, your client could ignore the new reach borders the server sent, so new Relay Beacons, towns and docks didn't move the border, often until you reloaded the page.",
-    changes: [
-      "Your reach border now updates again right after a reconnect, without reloading the page"
-    ]
-  },
+  ...GUIDE_AND_RECOVERY_CHANGELOG,
   ...NOVEMBER_CHANGELOG,
+  ...FRONTIER_RESOURCES_REWORK_CHANGELOG,
   ...INSTANT_GARRISONS_CHANGELOG,
-  {
-    createdAt: 1793743078716, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.03",
-    title: "Manpower orb shows the size of your next batch",
-    why: "The new HUD's manpower orb only showed a countdown, so you couldn't tell how much manpower was coming.",
-    changes: [
-      "The manpower orb now reads \"+N in 45m\": how much your next batch adds and when it lands",
-      "It says \"paused\" when no manpower is coming, and \"next batch\" instead of \"refill\"",
-      "The orb and the manpower chip stop showing a batch amount that has already landed"
-    ]
-  },
+  ...SIEGE_BATTERY_NO_REACH_CHANGELOG,
   ...INCURSION_SHORE_CHANGELOG,
-  ...TOWN_SCREEN_AUTO_GARRISON_CHANGELOG
+  ...MOBILE_UI_CONSISTENCY_CHANGELOG,
+  ...TOWN_SCREEN_AUTO_GARRISON_CHANGELOG,
+  ...TUTORIAL_BUILD_AFC_FLOWS_CHANGELOG,
+  ...HUD_V2_COMBAT_STATS_CHANGELOG,
+  ...SALVAGE_TRIBUTE_UI_CHANGELOG,
+  ...AI_FREE_TRUCE_CHANGELOG,
+  ...CAPTURE_WRECK_FIX_CHANGELOG,
+  {
+    createdAt: 1793991860190, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.06",
+    title: "Depleted salvage fields clear correctly",
+    why: "The map could restore an empty salvage field after removing its Reclamation Works.",
+    changes: ["Shipping the final salvage load removes both the field and its Works in the 2D and 3D maps"]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

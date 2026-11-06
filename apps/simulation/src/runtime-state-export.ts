@@ -73,6 +73,8 @@ const toRuntimeExportTile = (
   if (typeof tile.captureHoldUntil === "number") entry.captureHoldUntil = tile.captureHoldUntil;
   if (typeof tile.warScarLevel === "number") entry.warScarLevel = tile.warScarLevel;
   if (typeof tile.warScarUntil === "number") entry.warScarUntil = tile.warScarUntil;
+  if (typeof tile.razedWreckUntil === "number") entry.razedWreckUntil = tile.razedWreckUntil;
+  if (typeof tile.razedWreck === "string") entry.razedWreck = tile.razedWreck;
   if (cached.townJson) entry.townJson = cached.townJson;
   if (tile.town?.type) entry.townType = tile.town.type;
   if (tile.town?.name) entry.townName = tile.town.name;

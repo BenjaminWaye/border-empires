@@ -1,4 +1,6 @@
 import { onAuthStateChanged, type Auth } from "firebase/auth";
+import { Capacitor } from "@capacitor/core";
+import { isLocalDevHostname } from "../client-app-runtime-env/client-dev-auth-bypass.js";
 import { isStagingHostname } from "../client-backend-selector/client-backend-selector.js";
 import { serverHttpOriginFromWsUrl } from "../client-debug-bundle/client-debug-bundle.js";
 
@@ -26,6 +28,11 @@ type RallyRuntimeEnv = {
   VITE_RALLY_API_ORIGIN?: string;
 };
 
+const defaultRallyEnv = (): RallyRuntimeEnv => {
+  const origin = import.meta.env.VITE_RALLY_API_ORIGIN;
+  return typeof origin === "string" ? { VITE_RALLY_API_ORIGIN: origin } : {};
+};
+
 const normalizedOrigin = (value: string | undefined): string | undefined => {
   const trimmed = value?.trim();
   return trimmed ? trimmed.replace(/\/$/, "") : undefined;
@@ -35,13 +42,13 @@ export const rallyApiOrigin = (
   wsUrl: string,
   locationLike: Pick<Location, "hostname" | "protocol"> | undefined =
     typeof window !== "undefined" ? window.location : undefined,
-  env: RallyRuntimeEnv = import.meta.env as unknown as RallyRuntimeEnv
+  env: RallyRuntimeEnv = defaultRallyEnv()
 ): string => {
   const configured = normalizedOrigin(env.VITE_RALLY_API_ORIGIN);
   if (configured) return configured;
 
   const hostname = locationLike?.hostname.toLowerCase() ?? "";
-  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0") {
+  if (isLocalDevHostname(hostname)) {
     return `${locationLike?.protocol === "https:" ? "https" : "http"}://127.0.0.1:3101`;
   }
   if (isStagingHostname(hostname)) return "https://api-staging.borderempires.com";
@@ -71,7 +78,9 @@ export const rallyShareUrl = (
   link: Pick<RallyLinkView, "code" | "url">,
   locationLike: Pick<Location, "origin"> | undefined = typeof window !== "undefined" ? window.location : undefined
 ): string => {
-  const origin = normalizedOrigin(locationLike?.origin);
+  const origin = Capacitor.isNativePlatform()
+    ? normalizedOrigin(import.meta.env.VITE_NATIVE_PUBLIC_ORIGIN as string | undefined) ?? "https://play.borderempires.com"
+    : normalizedOrigin(locationLike?.origin);
   if (!origin || origin === "null") return link.url;
   return `${origin}/r/${encodeURIComponent(link.code)}`;
 };

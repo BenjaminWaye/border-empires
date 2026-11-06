@@ -30,7 +30,7 @@ function fixture(allResources = false, buyerFarms = 12) {
   return { runtime,pay,setNow:(at:number)=>{now=at;}, player:(id:string)=>runtime.exportState().players.find(p=>p.id===id)! };
 }
 describe("resource trades in the production runtime",()=>{
-  it("commits a supplier once, pays Coin, and adds the recipient's depot bonus",async()=>{
+  it("commits a supplier once, pays Coin, and gives the recipient a first resin site's manpower",async()=>{
     const f=fixture(), events=collectEvents(f.runtime);
     expect(f.player("seller").resourceTradeHoldings?.NEURAL_RESIN).toBe(1);
     const before=f.player("buyer");
@@ -38,7 +38,7 @@ describe("resource trades in the production runtime",()=>{
     expect(events.some(e=>e.eventType==="COMMAND_REJECTED")).toBe(false);
     expect(f.player("seller").points).toBeCloseTo(103);
     expect(f.player("seller").resourceTradeHoldings?.NEURAL_RESIN).toBeUndefined();
-    expect((f.player("buyer").manpowerRegenPerMinute!-before.manpowerRegenPerMinute!)*240).toBeCloseTo(12);
+    expect((f.player("buyer").manpowerRegenPerMinute!-before.manpowerRegenPerMinute!)*240).toBeCloseTo(120);
     await f.pay("duplicate-supply");
     expect(events.some(e=>e.eventType==="COMMAND_REJECTED"&&e.commandId==="duplicate-supply")).toBe(true);
     expect(f.player("seller").points).toBeCloseTo(103);
@@ -112,28 +112,24 @@ describe("resource trades in the production runtime",()=>{
     expect(actual.points).toBeCloseTo(expected.points);
   });
 
-  it("imports all five frontier resources into actual Ancillary and Coin production",async()=>{
-    const f=fixture(true),baseline=fixture(true),before=f.player("buyer");
-    const resources=Object.fromEntries(NETWORK_RESOURCES.map(resource=>[resource,1]));
+  it("imports the four tradable frontier resources and refuses salvage",async()=>{
+    const f=fixture(true),before=f.player("buyer"),events=collectEvents(f.runtime);
+    const resources=Object.fromEntries(NETWORK_RESOURCES.filter(resource=>resource!=="PRECURSOR_SALVAGE").map(resource=>[resource,1]));
     await f.pay("trade",resources);
     const boosted=f.player("buyer");
-    expect((boosted.manpowerRegenPerMinute!-before.manpowerRegenPerMinute!)*240).toBeCloseTo(18);
-    expect(boosted.incomePerMinute!-before.incomePerMinute!).toBeCloseTo(4.5/1440,5);
-    expect(boosted.effectiveNetworkSupply).toEqual(resources);
-    f.runtime.applyPassiveIncome(start,Number.MAX_SAFE_INTEGER);baseline.runtime.applyPassiveIncome(start,Number.MAX_SAFE_INTEGER);
-    const startPaid=f.player("buyer").points, startBase=baseline.player("buyer").points;
-    f.setNow(start+3_600_000);baseline.setNow(start+3_600_000);
-    f.runtime.applyPassiveIncome(start+3_600_000,Number.MAX_SAFE_INTEGER);baseline.runtime.applyPassiveIncome(start+3_600_000,Number.MAX_SAFE_INTEGER);
-    const paid=f.player("buyer").points-startPaid,base=baseline.player("buyer").points-startBase;
-    expect(paid-base).toBeCloseTo(4.5/24,5);
+    expect((boosted.manpowerRegenPerMinute!-before.manpowerRegenPerMinute!)*240).toBeCloseTo(360);
+    expect(boosted.effectiveNetworkSupply).toEqual({...resources,PRECURSOR_SALVAGE:0});
+    expect(f.player("seller").resourceTradeHoldings?.PRECURSOR_SALVAGE).toBeUndefined();
+    await f.pay("salvage",{PRECURSOR_SALVAGE:1});
+    expect(events.some(event=>event.eventType==="COMMAND_REJECTED"&&event.commandId==="salvage")).toBe(true);
   });
-  it("an imported resin slot cannot replenish an unpowered depot", async () => {
+  it("an imported resin site pays even with no Depot or Factory", async () => {
     const f = fixture(false, 0), before = f.player("buyer").manpowerRegenPerMinute!;
     await f.pay();
-    expect(f.player("buyer").manpowerRegenPerMinute).toBe(before);
+    expect((f.player("buyer").manpowerRegenPerMinute! - before) * 240).toBeCloseTo(120);
     const slots = buildPlayerSubscriptionSnapshot("buyer", f.runtime.exportVisibleStateForPlayer("buyer"), { tilesAlreadyVisible: true }).player!.resourceSlots!.bonusSupply!;
     expect(slots.supply.NEURAL_RESIN).toBe(1);
-    expect(slots.used.NEURAL_RESIN).toBe(0);
+    expect(slots.used.NEURAL_RESIN).toBe(1);
   });
   it("uses imported FOOD to wake dormant domestic industry without creating a stockpile",async()=>{
     const f=fixture(false,5),before=f.player("buyer");
@@ -155,7 +151,7 @@ describe("resource trades in the production runtime",()=>{
     expect(events.some(event=>event.eventType==="COMMAND_REJECTED")).toBe(false);
     expect(f.player("buyer").resourceTradeAgreements).toEqual([]);
     expect(f.player("seller").resourceTradeHoldings?.NEURAL_RESIN).toBe(1);
-    expect((before.manpowerRegenPerMinute!-f.player("buyer").manpowerRegenPerMinute!)*240).toBeCloseTo(12);
+    expect((before.manpowerRegenPerMinute!-f.player("buyer").manpowerRegenPerMinute!)*240).toBeCloseTo(120);
     expect(f.player("buyer").points).toBeCloseTo(before.points);
   });
 
@@ -184,11 +180,14 @@ describe("resource trades in the production runtime",()=>{
     for(const tile of initial.tiles)if(siteKeys.includes(`${tile.x},${tile.y}`))tile.sabotage={ownerId:"buyer",observatoryTileKey:"40,39",endsAt:Number.MAX_SAFE_INTEGER,outputMultiplier:0};
     const runtime=new SimulationRuntime({now:()=>start,seedTiles:new Map(),initialState:initial,mergeSeedTilesWithInitialState:false});
     const own=(id:string)=>runtime.exportState().players.find(player=>player.id===id)!;
-    for(const resource of NETWORK_RESOURCES){expect(own("seller").effectiveNetworkSupply?.[resource]).toBe(0);expect(own("buyer").effectiveNetworkSupply?.[resource]).toBe(RESOURCE_NETWORKS[resource].slotsPerSite);}
-    expect((own("buyer").manpowerRegenPerMinute!-base.player("buyer").manpowerRegenPerMinute!)*240).toBeCloseTo(18);
+    // Salvage can't be siphoned: the seller keeps it.
+    const siphonable=NETWORK_RESOURCES.filter(resource=>resource!=="PRECURSOR_SALVAGE");
+    for(const resource of siphonable){expect(own("seller").effectiveNetworkSupply?.[resource]).toBe(0);expect(own("buyer").effectiveNetworkSupply?.[resource]).toBe(1);}
+    expect(own("seller").effectiveNetworkSupply?.PRECURSOR_SALVAGE).toBe(1);
+    expect((own("buyer").manpowerRegenPerMinute!-base.player("buyer").manpowerRegenPerMinute!)*240).toBeCloseTo(360);
     runtime.submitCommand({commandId:"end-siphon",sessionId:"buyer",playerId:"buyer",clientSeq:100,issuedAt:start,type:"CANCEL_SIPHON",payloadJson:JSON.stringify({x:40,y:39})});
     await Promise.resolve();
-    for(const resource of NETWORK_RESOURCES){expect(own("seller").effectiveNetworkSupply?.[resource]).toBe(RESOURCE_NETWORKS[resource].slotsPerSite);expect(own("buyer").effectiveNetworkSupply?.[resource]).toBe(0);}
+    for(const resource of NETWORK_RESOURCES){expect(own("seller").effectiveNetworkSupply?.[resource]).toBe(1);expect(own("buyer").effectiveNetworkSupply?.[resource]).toBe(0);}
   });
 
   it("keeps another House's spare inventory and supply agreements private in visible snapshots",async()=>{

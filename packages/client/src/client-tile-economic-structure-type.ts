@@ -66,4 +66,6 @@ export type ClientTileEconomicStructure = {
   disabledUntil?: number;
   inactiveReason?: "manual" | "upkeep";
   converterMode?: "SYNTHESIZE" | "EXCHANGE"; modeLockedUntil?: number; powered?: boolean; bombardCooldownUntil?: number;
+  /** Reclamation Works: salvage loads already shipped to the Court. */
+  salvageLoadsShipped?: number;
 };

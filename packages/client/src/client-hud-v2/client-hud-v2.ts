@@ -25,8 +25,8 @@ import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
 import { applyResourceChip } from "./client-hud-v2-resource-panel.js";
 import { hasRevealedResourceCategory } from "../client-tech-html/client-tech-html.js";
 import { rivalsHtml, seasonClockHtml } from "./client-hud-v2-rivals.js";
-import { closeScreen, openRequestedTechDetail, openScreen, renderScreen, screenClick, screenEscape } from "./client-hud-v2-screens.js";
-import { crestClosesProfile, profileScreenStep } from "./client-hud-v2-profile.js";
+import { closeProfileFromCrest, closeScreen, openRequestedTechDetail, openScreen, renderScreen, screenClick, screenEscape } from "./client-hud-v2-screens.js";
+import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
@@ -100,11 +100,7 @@ const openTarget = (deps: HudV2Deps, open: string): void => {
     }
     return;
   }
-  // Your crest toggles your profile the way a bubble toggles its screen.
-  if (open === "self" && crestClosesProfile(deps.state.activePlayerProfileId, deps.state.me, screen.id)) {
-    closeScreen(deps);
-    return;
-  }
+  if (open === "self" && closeProfileFromCrest(deps)) return;
   if (screen.id === "town") closeTownScreen(true);
   if (open === "manpower") legacyButton('#stats-chips [data-panel="manpower"]')?.click();
   else if (open === "self") legacyButton("#stats-chips .stat-chip-player")?.click();
@@ -123,7 +119,7 @@ const slotsFold = { open: true };
 
 const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
-  if (!target || target.closest("#hud-v2-tile")) return;
+  if (!target || (target.closest("#hud-v2-tile") && !target.closest("[data-hud-v2-open]"))) return;
   // Settings opens centred over a dimmed map; clicking the dim closes it.
   if (target.closest("[data-hud-v2-dim]")) {
     deps.state.activePanel = null;
@@ -131,12 +127,12 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
     return;
   }
   if (target.closest(`#${SCREEN_HOST_ID}`) && screenClick(deps, target)) return;
-  // Phone: the bar opens the Treasury, the tracker folds to one line (client-hud-v2-compact.ts).
+  // Phone: resource chips open their breakdown, the tracker folds to one line (client-hud-v2-compact.ts).
   if (document.body.classList.contains("hud-v2-compact") && event.currentTarget instanceof HTMLElement && compactLayerClick(target, {
     layer: event.currentTarget,
     barHtml: () => written.get("bar") ?? "",
-    // A Treasury row always shows that breakdown, even when Economy is already open on it.
-    openChip: (chip) => openResourcePanel(deps, chip, "open"),
+    // Bar chips toggle; Treasury rows always show their breakdown.
+    openChip: (chip, mode) => openResourcePanel(deps, chip, mode),
     repaintTracker: () => renderTracker(deps.state, Date.now())
   })) return;
   const open = target.closest<HTMLElement>("[data-hud-v2-open]");

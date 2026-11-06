@@ -94,4 +94,6 @@ export type TileEconomicStructureState = {
   inactiveReason?: "manual" | "upkeep";
   converterMode?: ConverterMode;
   modeLockedUntil?: number;
+  /** Reclamation Works only: salvage loads already shipped to the Court from this deposit tile. */
+  salvageLoadsShipped?: number;
 };

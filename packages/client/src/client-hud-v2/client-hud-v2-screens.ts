@@ -24,7 +24,7 @@ import {
 } from "./client-hud-v2-context.js";
 import { dealSkeletonHtml, diplomacyListHtml, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
-import { profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
+import { crestClosesProfile, profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { pendingTechCommissionId } from "../client-tech-commission/client-tech-commission.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { expandDockedMenu, suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
@@ -92,6 +92,13 @@ export const closeScreen = (deps: HudV2Deps, options: { toMap?: boolean } = {}):
   clearScreen();
   if (back) openScreen(deps, back);
   else deps.renderHud();
+};
+
+/** Your crest toggles your profile like a bubble toggles its screen. Straight to the map, not back to the screen (e.g. Manifest) the profile was opened over. */
+export const closeProfileFromCrest = (deps: HudV2Deps): boolean => {
+  if (!crestClosesProfile(deps.state.activePlayerProfileId, deps.state.me, screen.id)) return false;
+  closeScreen(deps, { toMap: true });
+  return true;
 };
 
 const ownedTechs = (deps: HudV2Deps): Set<string> => new Set(deps.state.techIds);
@@ -256,7 +263,8 @@ const renderProfile = (deps: HudV2Deps): void => {
     pacts: self ? { allies: state.allies, activeTruces: state.activeTruces } : social,
     truceBreaks: self ? state.truceBreaksThisSeason : social === "loading" || social === undefined ? social : social.truceBreaksThisSeason,
     nameOf: (other) => nameOf(deps, other) || undefined,
-    nowMs: Date.now()
+    nowMs: Date.now(),
+    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] } } : {})
   }));
 };
 

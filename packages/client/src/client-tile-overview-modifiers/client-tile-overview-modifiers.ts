@@ -1,7 +1,7 @@
-import { isRedesignedRelic, relicOperationalState, relicReserveLabel, RELIC_DEFINITIONS } from "@border-empires/shared";
+import { prospectSignatureResource, isRedesignedRelic, relicOperationalState, relicReserveLabel, RELIC_DEFINITIONS } from "@border-empires/shared";
 import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, defendingFortVariant, FORT_VARIANT_LABELS, isFortDefending, type EconomicStructureType } from "@border-empires/shared";
 import { prospectClueOverviewLine, retiredProspectClues } from "../client-prospect-clue/client-prospect-clue.js";
-import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
+import { resourceRevealCategory, structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 import type { TechInfo } from "../client-tech-info-types.js";
 import type { TileOverviewLine } from "../client-tile-menu-types.js";
@@ -349,6 +349,11 @@ export const tileFeatureLeadLines = (
   if (wonderLine) lines.push({ html: wonderLine });
   if (tile.naturalWonder && isRedesignedRelic(tile.naturalWonder)) lines.push({ html: `<button type="button" data-relic-state="${encodeURIComponent(JSON.stringify(tile.naturalWonder))}" data-relic-garrisoned="${Boolean(tile.ownerId && tile.ownershipState === "SETTLED")}">View relic installation</button>` });
   const clueLine = prospectClueOverviewLine(tile, retiredProspectClues(deps.techIds ?? [], deps.techCatalog));
-  if (clueLine) lines.push({ html: clueLine });
+  if (clueLine && tile.prospectSignature) {
+    const resource = resourceRevealCategory(prospectSignatureResource(tile.prospectSignature));
+    const manifest = deps.techCatalog.find((tech) => typeof tech.effects?.revealResource === "string" && tech.effects.revealResource.toLowerCase() === resource);
+    const link = manifest ? ` <button type="button" data-view-tech="${manifest.id}">View required Manifest →</button>` : "";
+    lines.push({ html: `${clueLine}${link}` });
+  }
   return lines;
 };

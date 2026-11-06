@@ -7,6 +7,7 @@
 
 import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
 import type { ClientAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
+import { townCharacterLabelForProfile, townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { autoSettleOptionForTile, autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
@@ -68,6 +69,11 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   // Match the town overview's base contribution; optional manpowerCap is
   // not the town's tier-and-terrain contribution. Building bonuses stay below.
   const { terrainProfile, coastal } = townTerrainForTile(input.town, town);
+  const character = townCharacterLabelForProfile(terrainProfile, coastal);
+  const signed = (n: number): string => `${n >= 0 ? "+" : ""}${n}%`;
+  const modifiers = townStatModifiersForProfile(terrainProfile, coastal).map((m) =>
+    `<div class="v2t-built"><span><span class="v2t-built-name">${esc(m.label)}</span><span class="v2t-built-mods">Coin ${signed(m.goldOutputPercent)} · Manpower cap ${signed(m.manpowerCapacityPercent)} · Regen ${signed(m.manpowerRegenPercent)}</span></span></div>`
+  ).join("");
   const manpower = terrainAdjustedTownManpower(town.populationTier, terrainProfile, coastal);
   const stats = [
     { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(town.goldPerMinute * 1440)}/day` : "—", n: fed, tone: town.isFed === false ? " v2t-warn" : "" },
@@ -82,11 +88,12 @@ const leftPanelHtml = (input: TownScreenInput): string => {
     : "";
   return `<div class="v2t-name-row">
       <button type="button" class="v2t-step" data-v2-town-step="-1" aria-label="Previous town"${input.townCount > 1 ? "" : " disabled"}>◁</button>
-      <span class="v2t-name"><span class="v2t-title">${esc(name)}</span><span class="v2t-sub">${displayTownPopulationTierLabel(town.populationTier)} · ${town.type === "MARKET" ? "Market town" : "Farming town"}</span></span>
+      <span class="v2t-name"><span class="v2t-title">${esc(name)}</span><span class="v2t-sub">${displayTownPopulationTierLabel(town.populationTier)} · ${esc(character)}</span></span>
       <button type="button" class="v2t-step" data-v2-town-step="1" aria-label="Next town"${input.townCount > 1 ? "" : " disabled"}>▷</button>
     </div>
     <div class="v2t-growth"><div class="v2t-growth-row"><span>${growthLabel}</span><span>${fmt(town.population)}${target ? ` / ${fmt(target)}` : ""}</span></div><div class="v2t-bar"><span style="width:${growthPct}%"></span></div>${growth ? `<div class="v2t-growth-row v2t-growth-rate${growth.paused ? " v2t-warn" : ""}"><span>${esc(growth.eta)}</span><span>${esc(growth.rate)}</span></div>` : ""}</div>
     <div class="v2t-stats">${stats.map((s) => `<div class="v2t-stat"><span class="v2t-stat-k">${s.k}</span><span class="v2t-stat-v${s.tone}">${s.v}</span>${s.n ? `<span class="v2t-stat-n">${s.n}</span>` : ""}</div>`).join("")}</div>
+    <div class="v2t-h">Town bonuses</div>${modifiers}
     ${built ? `<div class="v2t-h">In this town</div><div class="v2t-built-list" data-v2-scroll="town-built">${built}</div>` : ""}
     <div class="v2t-grow-wrap">${growHtml}</div>`;
 };
@@ -111,7 +118,7 @@ const buildPanelHtml = (input: TownScreenInput): string => {
     focusLabel: supportFocus ? `(${input.focus.x}, ${input.focus.y})` : input.townView.title,
     focusHighlighted: supportFocus,
     selection: input.buildSelection,
-    category: input.category,
+    category: input.category ?? "town_support",
     emptyText: `Nothing to build ${supportFocus ? "on this tile" : "here"}`,
     targetKey: keyOf(input.focus),
     placeLabel,

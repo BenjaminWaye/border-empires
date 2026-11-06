@@ -361,7 +361,7 @@ import {
   ownedStructureCountForPlayer as ownedStructureCountForPlayerImpl,
   ownedStructureCountsForPlayer as ownedStructureCountsForPlayerImpl,
   refreshOwnedStructureCountIndexForTile as refreshOwnedStructureCountIndexForTileImpl,
-  weaponsFactoryCountsFromIndex
+  weaponsBreakdownCountsForPlayer, weaponsFactoryCountsFromIndex
 } from "../runtime-owned-structure-index.js";
 import { RuntimeEconomyCaches } from "../runtime-economy-caches/runtime-economy-caches.js";
 import { createPlayerUpdateEmitter, type PlayerUpdateEmitter } from "../runtime-player-update-emitter/runtime-player-update-emitter.js";
@@ -487,7 +487,7 @@ import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js
 import { holdDevelopmentForAttack, releaseDevelopmentHold, type AttackDevelopmentHoldContext } from "../attack-development-hold/attack-development-hold.js";
 import { installAttackReleaseHandler } from "./runtime-attack-release-handler.js";
 import { rescheduleRecoveredStructureTimers } from "../structure-timer-recovery/structure-timer-recovery.js";
-import { updateTileSettledAt, withoutFadedWarScars, withoutStaleCaptureHold } from "../runtime-tile-write-rules/runtime-tile-write-rules.js";
+import { updateTileSettledAt, withoutClearedRazedWreck, withoutFadedWarScars, withoutStaleCaptureHold } from "../runtime-tile-write-rules/runtime-tile-write-rules.js";
 import { ORPHAN_LOCK_GRACE_MS, RESPAWN_MINIMUM_GOLD } from "./runtime-lifecycle-constants.js";
 
 export type { VisibilityAuditSample };
@@ -1678,7 +1678,7 @@ export class SimulationRuntime {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.state.tiles.get(tileKey);
     this.resourceSupply?.sourceWillChange(previous, nextTile);
-    let tile = withAfcFortFacts(withoutFadedWarScars(withoutStaleCaptureHold(previous, nextTile, this.now()), this.now()), this.state.players);
+    let tile = withAfcFortFacts(withoutClearedRazedWreck(withoutFadedWarScars(withoutStaleCaptureHold(previous, nextTile, this.now()), this.now()), this.now()), this.state.players);
     const relicOwner = tile.ownerId ? this.state.players.get(tile.ownerId) : undefined;
     const relicTotals = tile.naturalWonder?.relicVersion === 1 && tile.naturalWonder.type === "FOUNDRY_HEART" && !tile.naturalWonder.resourceBonus && relicOwner ? { supply: this.resourceSlotSupplyForPlayer(relicOwner.id), demand: this.resourceSlotDemandForPlayer(relicOwner.id) } : undefined;
     tile = activateRelic(tile, relicOwner, this.now(), tile.naturalWonder?.relicVersion === 1 && tile.naturalWonder.type === "CONSCRIPTION_ENGINE" && relicOwner ? this.playerManpowerCap(relicOwner) : 0, relicTotals, { commandId, emitEvent: event => this.emitEvent(event) });
@@ -2180,10 +2180,7 @@ export class SimulationRuntime {
   // --- Fixed-border reach (packages/shared/src/reach/reach.ts) ---
 
   // Every reach anchor world-wide, right now: every player's town tiles,
-  // every active outpost-family structure tile (RELAY_BEACON /
-  // SIEGE_BATTERY / SIEGE_TOWER / DREAD_TOWER — same "active" predicate
-  // outpost-aura.ts uses, sourced from the already-maintained
-  // activeRelayBeaconsByOwner / activeSiegeBatteriesByOwner indexes), and
+  // every active RELAY_BEACON tile (siege batteries hold no reach), and
   // every owned dock tile. Used both for `liveReachForOwner`'s "can this
   // owner currently defend this tile" check during a contest, and once at
   // startup to reconcile `reachBorder`. Live contests resolve via coverage,
@@ -2196,7 +2193,6 @@ export class SimulationRuntime {
       playerSummaries: this.playerSummaries,
       tiles: this.state.tiles,
       activeRelayBeaconsByOwner: this.ownerIndexes.activeRelayBeaconsByOwner,
-      activeSiegeBatteriesByOwner: this.ownerIndexes.activeSiegeBatteriesByOwner,
       docks: this.state.docks,
       tileSettledAtByKey: this.tileSettledAtByKey,
       now: this.now()
@@ -2437,7 +2433,7 @@ export class SimulationRuntime {
         manpowerStructureBonusCacheByPlayer: this.economyCaches.manpowerStructureBonusCacheByPlayer,
         ...this.ownerIndexes.manpowerIndexes(),
         activeMonumentOwnerByType: this.activeMonumentOwnerByType,
-        rebuildTownNetworkUninstrumented: (p, settledTiles) => this.rebuildTownNetworkUninstrumented(p, settledTiles)
+        rebuildTownNetworkUninstrumented: (p, settledTiles) => this.rebuildTownNetworkUninstrumented(p, settledTiles), townHeldSince: key => this.tileSettledAtByKey.get(key)
       },
       player
     );
@@ -2567,7 +2563,7 @@ export class SimulationRuntime {
       pendingSettlementsSnapshotForPlayer: (playerId) => pendingSettlementsSnapshotForPlayer(this.summaryForPlayer(playerId)),
       autoSettlementQueueForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId),
       activeDevelopmentProcessCountForPlayer: (playerId) => this.activeDevelopmentProcessCountForPlayer(playerId),
-      weaponsFactoryCountsForPlayer: (playerId) => weaponsFactoryCountsFromIndex(this.ownedStructureCountByPlayerByType, playerId)
+      weaponsFactoryCountsForPlayer: (playerId) => weaponsBreakdownCountsForPlayer(this.combatSupportContext(), playerId)
     };
   }
 

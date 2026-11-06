@@ -1,4 +1,4 @@
-import { isNetworkResource, RESOURCE_NETWORKS, structureStacksPerTown } from "@border-empires/shared";
+import { isNetworkResource, RESOURCE_NETWORKS, SALVAGE_ARMS_BONUS_MAX, SALVAGE_ARMS_BONUS_PER_SITE, structureStacksPerTown } from "@border-empires/shared";
 import { hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
@@ -277,9 +277,11 @@ export const chooseBestEconomicBuild = (
     const townKey = tileKeyOf(tile.x, tile.y);
     if (isNetworkResource(tile.resource)) {
       const spec = RESOURCE_NETWORKS[tile.resource];
+      // Every developed frontier site pays out (frontier-resource-effects.ts); the
+      // first site of a type is worth most, so it outranks routine builds.
       const developed = plannedOwnedStructureCount(player, counts, spec.building);
-      const beneficiaries = plannedOwnedStructureCount(player, counts, spec.target);
-      if (developed * spec.slotsPerSite < beneficiaries) candidates.push({ type: spec.building, score: 84 + Math.min(12, beneficiaries * 2) });
+      if (spec.role !== "SALVAGE" || developed < SALVAGE_ARMS_BONUS_MAX / SALVAGE_ARMS_BONUS_PER_SITE)
+        candidates.push({ type: spec.building, score: developed === 0 ? 120 : 72 });
     } else if (tile.resource === "FARM") {
       // HYDROGARDEN is FARM-only (structure-placement-metadata.json's
       // resourceTypes) — it has no effect on fish production (§5.3), so a

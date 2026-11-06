@@ -30,6 +30,8 @@ type RecoveredTileState = {
   captureHoldUntil?: DomainTileState["captureHoldUntil"];
   warScarLevel?: DomainTileState["warScarLevel"];
   warScarUntil?: DomainTileState["warScarUntil"];
+  razedWreckUntil?: DomainTileState["razedWreckUntil"];
+  razedWreck?: DomainTileState["razedWreck"];
   town?: DomainTileState["town"];
   // Phase 3 (dormant): Phase 4 will start writing this unified field. Accepted
   // here so post-Phase-4 snapshots can be loaded by a Phase-3-era binary without
@@ -105,6 +107,8 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
   ...(typeof tile.warScarLevel === "number" ? { warScarLevel: tile.warScarLevel } : {}),
   ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
+  ...(typeof tile.razedWreckUntil === "number" ? { razedWreckUntil: tile.razedWreckUntil } : {}),
+  ...(typeof tile.razedWreck === "string" ? { razedWreck: tile.razedWreck } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   // Overlays from the shared table: this list was once hand-written with no
   // muster line, so every restart dropped every active muster flag.
@@ -143,6 +147,13 @@ const recoverWarScars = (tileDelta: TileDelta, existing: RecoveredTileState | un
   const level = "warScarLevel" in tileDelta ? tileDelta.warScarLevel : existing?.warScarLevel;
   const until = "warScarUntil" in tileDelta ? tileDelta.warScarUntil : existing?.warScarUntil;
   return typeof level === "number" && typeof until === "number" ? { warScarLevel: level, warScarUntil: until } : {};
+};
+
+// Razed wreck (shared razed-wreck.ts): the same rule again.
+const recoverRazedWreck = (tileDelta: TileDelta, existing: RecoveredTileState | undefined): Pick<RecoveredTileState, "razedWreck" | "razedWreckUntil"> => {
+  const kind = "razedWreck" in tileDelta ? tileDelta.razedWreck : existing?.razedWreck;
+  const until = "razedWreckUntil" in tileDelta ? tileDelta.razedWreckUntil : existing?.razedWreckUntil;
+  return typeof kind === "string" && kind && typeof until === "number" ? { razedWreck: kind, razedWreckUntil: until } : {};
 };
 
 const applyTileDeltaToRecoveredAccumulator = (
@@ -199,6 +210,7 @@ const applyTileDeltaToRecoveredAccumulator = (
         ? { captureHoldUntil: existing.captureHoldUntil }
         : {}),
     ...recoverWarScars(tileDelta, existing),
+    ...recoverRazedWreck(tileDelta, existing),
     ...(recoveredTown ? { town: recoveredTown } : {}),
     ...recoverOverlaySubstructures(tileDelta, existing)
   });

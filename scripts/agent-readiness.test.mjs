@@ -31,3 +31,24 @@ test("local stack boots from a clean checkout and an empty DB", () => {
     assert.match(text(file), /SIMULATION_REQUIRE_DURABLE_STARTUP_STATE=0 \\/, `${file} must allow seeding an empty DB`);
   }
 });
+
+test("routine questions have a small entrypoint and no implementation setup", () => {
+  const agents = text("AGENTS.md");
+  assert.ok(Buffer.byteLength(agents, "utf8") <= 6000, "keep always-loaded instructions below 6 KB; move conditional detail to runbooks");
+  assert.match(agents, /Read-only questions.*do not create worktrees/);
+  assert.match(agents, /implementation-rules\.md/);
+  const implementation = text("docs/agents/implementation-rules.md");
+  for (const requirement of [/500-line/, /noUnusedLocals/, /isTrue3DRendererActive/, /CLIENT_CHANGELOG_ENTRIES/, /regression test/, /galactic-lore\.md/]) {
+    assert.match(implementation, requirement);
+  }
+  assert.match(text("docs/agents/codex-token-budget.md"), /one narrow discovery batch/);
+});
+
+
+test("context savings never replace gameplay grounding or correctness", () => {
+  const agents = text("AGENTS.md");
+  assert.match(agents, /Before assessing or proposing gameplay mechanics/);
+  assert.match(agents, /verify the affected source contracts\/tests/);
+  assert.match(agents, /Context budgets are soft targets/);
+  assert.match(text("docs/agents/codex-token-budget.md"), /Do not claim feasibility or incompatibility from an unsuccessful narrow search alone/);
+});

@@ -33,7 +33,7 @@ const GROUND_LIFT = 0.008;
 export type CaptureAftermathFx3D = {
   readonly clear: () => void;
   /** Wrecks, resource fires and battle scars for one visible land tile; `forest` when trees stand on it. */
-  readonly addTile: (tile: Tile, tileKey: string, x: number, z: number, surfaceY: number, worldX: number, worldZ: number, forest?: "TEMPERATE" | "TROPICAL") => void;
+  readonly addTile: (tile: Tile, x: number, z: number, surfaceY: number, worldX: number, worldZ: number, forest?: "TEMPERATE" | "TROPICAL") => void;
   /** Scorched, smoking ground under a breached fort; `facing` turns local +x toward the smashed wall. */
   readonly addFortBreachGround: (x: number, z: number, surfaceY: number, facing: number, seed: number) => void;
   /** Captured-town smoke plus a one-off "-N pop" when a new capture shock is first seen. */
@@ -66,7 +66,7 @@ export const createCaptureAftermathFx3D = (
     nextBoundary = Number.POSITIVE_INFINITY;
   };
 
-  const addTile = (tile: Tile, tileKey: string, x: number, z: number, surfaceY: number, worldX: number, worldZ: number, forest?: "TEMPERATE" | "TROPICAL"): void => {
+  const addTile = (tile: Tile, x: number, z: number, surfaceY: number, worldX: number, worldZ: number, forest?: "TEMPERATE" | "TROPICAL"): void => {
     const y = surfaceY + GROUND_LIFT;
     // A proper spatial hash: nearby tiles and mirrored coordinates get unrelated variants and turns.
     const seed = ((worldX * 73856093) ^ (worldZ * 19349663)) >>> 0;
@@ -83,7 +83,7 @@ export const createCaptureAftermathFx3D = (
       else wrecks.add({ kind: "BATTLE_SCARS", level: scarLevel, fresh }, x, y, z, seed);
       nextBoundary = Math.min(nextBoundary, fresh ? warScarFreshUntil(tile)! : tile.warScarUntil!);
     }
-    const aftermath = captureAftermathForTile(tile, tileKey);
+    const aftermath = captureAftermathForTile(tile);
     if (!aftermath) return;
     nextBoundary = Math.min(nextBoundary, aftermath.until);
     if (aftermath.smoke) wrecks.add({ kind: "RESOURCE_FIRE" }, x, y, z, seed + 1);

@@ -12,12 +12,12 @@ const tile = (x: number, y: number, extra: Partial<StructurePlannerTile> = {}): 
 // must still use those cells to recognize ocean behind its existing reach.
 const coast = (x: number, y: number, inlandFog = false, prize = false) => {
   const candidate = tile(x, y);
-  // The existing reach comes from a siege battery (same OUTPOST reach radius)
-  // rather than a second relay: relays may not sit within
-  // MIN_OWN_BEACON_SPACING of each other, and this fixture needs reach that
-  // overlaps the candidate's first water cells.
+  // The existing reach comes from a town (TOWN_REACH_RADIUS, 3) rather than a
+  // second relay: relays may not sit within MIN_OWN_BEACON_SPACING of each
+  // other, and siege batteries hold no reach. Two tiles inland, its disk still
+  // covers the candidate's first column of water.
   const existing = tile(wrapX(x - 2, WORLD_WIDTH), wrapY(y + (inlandFog ? 2 : 0), WORLD_HEIGHT), {
-    siegeBattery: { ownerId: player.id, status: "active" }
+    town: { populationTier: "TOWN" }
   });
   const tiles = new Map<string, StructurePlannerTile>();
   for (let dy = -OUTPOST_REACH_RADIUS; dy <= OUTPOST_REACH_RADIUS; dy += 1) {
@@ -59,7 +59,10 @@ describe("relay coastal fog scoring across existing reach", () => {
     for (const cell of fixture.tiles.values()) {
       if (cell.x >= 103 && cell.x <= 105) cell.terrain = "LAND";
     }
-    expect(choose(fixture)?.siteValue).toBe(16);
+    // Valued, not vetoed. (It was 16 when this fixture's existing reach came
+    // from a radius-5 siege battery; the town's radius-3 disk leaves more of
+    // the strait land counting as new.)
+    expect(choose(fixture)?.siteValue).toBe(42);
   });
 
   it("still values a visible neutral prize beyond the water", () => {

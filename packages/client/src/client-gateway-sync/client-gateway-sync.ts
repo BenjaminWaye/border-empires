@@ -28,7 +28,7 @@ const logOwnershipChangeIfAny = (x: number, y: number, before: Tile | undefined,
 type NormalizedGatewayTileUpdate = {
   detailLevel?: Tile["detailLevel"];
   terrain?: Tile["terrain"];
-  resource?: Tile["resource"] | undefined;
+  resource?: Tile["resource"] | null | undefined;
   prospectSignature?: ProspectSignature | undefined;
   dockId?: string | undefined;
   town?: Tile["town"] | undefined;
@@ -54,6 +54,8 @@ type NormalizedGatewayTileUpdate = {
   captureHoldUntil?: Tile["captureHoldUntil"] | undefined;
   warScarLevel?: Tile["warScarLevel"] | undefined;
   warScarUntil?: Tile["warScarUntil"] | undefined;
+  razedWreck?: Tile["razedWreck"] | undefined;
+  razedWreckUntil?: Tile["razedWreckUntil"] | undefined;
   yieldRate?: Tile["yieldRate"] | undefined;
   upkeepEntries?: Tile["upkeepEntries"] | undefined;
   history?: Tile["history"] | undefined;
@@ -91,7 +93,7 @@ export type GatewayTileUpdate = {
   y: number;
   terrain?: Tile["terrain"];
   detailLevel?: Tile["detailLevel"];
-  resource?: string;
+  resource?: string | null;
   prospectSignature?: ProspectSignature;
   dockId?: string;
   ownerId?: string | null;
@@ -102,6 +104,8 @@ export type GatewayTileUpdate = {
   captureHoldUntil?: number | null;
   warScarLevel?: number | null;
   warScarUntil?: number | null;
+  razedWreck?: string | null;
+  razedWreckUntil?: number | null;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;
@@ -180,6 +184,8 @@ export const normalizeGatewayTileUpdate = (
   }
   if ("warScarLevel" in update) normalized.warScarLevel = typeof update.warScarLevel === "number" && update.warScarLevel > 0 ? update.warScarLevel : undefined;
   if ("warScarUntil" in update) normalized.warScarUntil = typeof update.warScarUntil === "number" && update.warScarUntil > 0 ? update.warScarUntil : undefined;
+  if ("razedWreck" in update) normalized.razedWreck = typeof update.razedWreck === "string" && update.razedWreck ? update.razedWreck : undefined;
+  if ("razedWreckUntil" in update) normalized.razedWreckUntil = typeof update.razedWreckUntil === "number" && update.razedWreckUntil > 0 ? update.razedWreckUntil : undefined;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
   if ("upkeepEntries" in update) normalized.upkeepEntries = update.upkeepEntries;
   if ("history" in update) normalized.history = update.history;
@@ -266,9 +272,8 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     if (!("landBiome" in normalizedGateway)) delete merged.landBiome;
     if (!("regionType" in normalizedGateway)) delete merged.regionType;
   }
-  // resource/dockId stay inline: this path deletes on an explicit falsy
-  // value, unlike the TILE_DELTA handler which only ever sets them -- see
-  // client-tile-merge.ts for the full explanation of why these aren't shared.
+  // Resource/dock clears stay inline: unlike TILE_DELTA, this path clears
+  // explicit falsy values.
   if ("resource" in normalizedGateway) {
     if (normalizedGateway.resource) merged.resource = normalizedGateway.resource;
     else delete merged.resource;
@@ -320,6 +325,9 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   }
 
   const detailMerged = deps.mergeIncomingTileDetail(existing, merged);
+  // The detail-preserving merge spreads existing fields back into summary
+  // tiles. Reapply an explicit resource clear so depleted salvage stays gone.
+  if ("resource" in normalizedGateway && !normalizedGateway.resource) delete detailMerged.resource;
   const resolved = deps.mergeServerTileWithOptimisticState(detailMerged);
   if (tileMatchesDebugKey(update.x, update.y, 1)) {
     debugTileLog("apply-gateway-tile-update", {

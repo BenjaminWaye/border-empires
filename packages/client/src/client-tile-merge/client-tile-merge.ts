@@ -1,7 +1,6 @@
 import { notifyRelicCapture } from "../client-relic-dialog/relic-capture-dialog.js";
 import { clearForestAroundAfcTile, clearForestOnTownOrDockTile, type FrontierDecayKind, type ProspectSignature } from "@border-empires/shared";
 import { keyForTile } from "../client-app-runtime-utils.js";
-import { noteRazedStructuresOnCapture } from "../client-capture-aftermath/client-capture-aftermath.js";
 import { noteCaptureHoldDeadline } from "../client-capture-hold/client-capture-hold.js";
 import type { Tile } from "../client-types.js";
 
@@ -51,6 +50,8 @@ export type CommonTileFieldsUpdate = {
   captureHoldUntil?: number | null | undefined;
   warScarLevel?: number | null | undefined;
   warScarUntil?: number | null | undefined;
+  razedWreck?: string | null | undefined;
+  razedWreckUntil?: number | null | undefined;
   naturalWonder?: Tile["naturalWonder"];
   watchtower?: Tile["watchtower"];
   waystation?: Tile["waystation"];
@@ -112,6 +113,14 @@ export const applyCommonTileFields = (
   if ("warScarUntil" in normalizedUpdate) {
     if (typeof normalizedUpdate.warScarUntil === "number") merged.warScarUntil = normalizedUpdate.warScarUntil;
     else delete merged.warScarUntil;
+  }
+  if ("razedWreck" in normalizedUpdate) {
+    if (typeof normalizedUpdate.razedWreck === "string" && normalizedUpdate.razedWreck) merged.razedWreck = normalizedUpdate.razedWreck;
+    else delete merged.razedWreck;
+  }
+  if ("razedWreckUntil" in normalizedUpdate) {
+    if (typeof normalizedUpdate.razedWreckUntil === "number") merged.razedWreckUntil = normalizedUpdate.razedWreckUntil;
+    else delete merged.razedWreckUntil;
   }
   if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
 
@@ -185,7 +194,6 @@ export const applyCommonTileFields = (
   }
 
   notifyRelicCapture(existing, merged, ctx.me);
-  noteRazedStructuresOnCapture(existing, merged, keyForTile(merged.x, merged.y));
   return merged;
 };
 

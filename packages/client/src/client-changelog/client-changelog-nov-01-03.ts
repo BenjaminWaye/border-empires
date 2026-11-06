@@ -45,5 +45,16 @@ export const CLIENT_CHANGELOG_ENTRIES_NOV_01_03: ClientChangelogEntry[] = [
       "AIs still refuse outright after recent fighting, a broken truce, when you have hurt them too much for payments to win them over, or when they wouldn't lead the alliance",
       "AIs only propose alliances themselves when they are already Pleased with you"
     ]
+  },
+  {
+    createdAt: 1793743078716, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.03",
+    title: "Manpower orb shows the size of your next batch",
+    why: "The new HUD's manpower orb only showed a countdown, so you couldn't tell how much manpower was coming.",
+    changes: [
+      "The manpower orb now reads \"+N in 45m\": how much your next batch adds and when it lands",
+      "It says \"paused\" when no manpower is coming, and \"next batch\" instead of \"refill\"",
+      "The orb and the manpower chip stop showing a batch amount that has already landed"
+    ]
   }
 ];

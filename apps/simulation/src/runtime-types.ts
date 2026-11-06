@@ -12,7 +12,6 @@ import type { MainThreadTaskTracker } from "./main-thread-task-tracker/main-thre
 import type { OwnershipChangeSample } from "./runtime/runtime-ownership-change-sample.js";
 
 export type RuntimeTileYieldEconomyContext = {
-  networkCreditByTown?: import("./resource-networks/resource-network-credit.js").NetworkCreditAllocation;
   player: DomainPlayer;
   townNetwork: ReturnType<typeof buildConnectedTownNetworkForPlayer>;
   fedTownKeys: Set<string>;
@@ -305,7 +304,8 @@ export type SimulationTileWireDelta = {
   x: number;
   y: number;
   terrain?: Terrain;
-  resource?: string;
+  /** Present-but-undefined is an explicit clear (last salvage load, unrevealed for this viewer). */
+  resource?: string | undefined;
   prospectSignature?: "BLACKWOOD_CANOPY" | "FERROUS_DUST" | "REFRACTIVE_GROUND";
   dockId?: string;
   ownerId?: string | undefined;
@@ -318,6 +318,8 @@ export type SimulationTileWireDelta = {
   captureHoldUntil?: number | undefined;
   warScarLevel?: number | undefined;
   warScarUntil?: number | undefined;
+  razedWreckUntil?: number | undefined;
+  razedWreck?: string | undefined;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;

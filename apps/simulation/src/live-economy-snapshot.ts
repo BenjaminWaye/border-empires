@@ -1,5 +1,5 @@
 import { developedNetworkSites } from "./resource-networks/resource-networks.js";
-import { allocateNetworkCredit, networkSupplyStatus, resourceNetworkTownCredit } from "./resource-networks/resource-network-credit.js";
+import { networkSupplyStatus } from "./resource-networks/resource-network-status.js";
 import { afcAgreementCount, applyAfcEnvoyIncome } from "./afc-specializations/afc-coalition.js";
 import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "@border-empires/game-domain";
 import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
@@ -74,8 +74,7 @@ export const buildLivePlayerEconomySnapshot = (
   // dormantEconomicStructureKeys, so this can never disagree with them.
   const dormantStructures = dormantStructureDetailsFromDormancy(dormancyByPlayer.get(playerId) ?? emptyResourceSlotDormancy());
   const sites = player?.effectiveNetworkSupply ?? developedNetworkSites(settledDomainTilesByPlayerId.get(playerId) ?? [], playerId, dormantEconomicStructureKeys, economyPlayer?.techIds);
-  const networkCreditByTown = allocateNetworkCredit(playerId, domainTilesByKey, fedTownKeys, dormantEconomicStructureKeys, sites);
-  const bonusSupply = networkSupplyStatus(sites, networkCreditByTown, settledDomainTilesByPlayerId.get(playerId) ?? [], dormantEconomicStructureKeys);
+  const bonusSupply = networkSupplyStatus(sites, (settledDomainTilesByPlayerId.get(playerId) ?? []).map(tile => tile.town?.populationTier));
   if (bonusSupply) resourceSlots.bonusSupply = bonusSupply;
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();
@@ -101,7 +100,6 @@ export const buildLivePlayerEconomySnapshot = (
         umbriteSources;
       addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "TITANIUM" ? "Titanium" : tile.resource === "GEMS" ? "Crystal" : "Umbrite", resourceRate, { count: 1, resourceKey });
     }
-    const networkCredit = resourceNetworkTownCredit(tile, networkCreditByTown);
     const town = buildTownSummary(
       tile,
       player,
@@ -111,14 +109,9 @@ export const buildLivePlayerEconomySnapshot = (
       townNetwork,
       firstThreeTownKeys,
       nearbyWarTownKeys,
-      dormantEconomicStructureKeys,
-      networkCredit.total
+      dormantEconomicStructureKeys
     );
-    if (town && town.goldPerMinute > 0) {
-      addBucket(goldSources, "Towns", town.goldPerMinute - networkCredit.total, { count: 1 });
-      addBucket(goldSources, "Precursor reclamation", networkCredit.salvage);
-      addBucket(goldSources, "Frontier export concessions", networkCredit.exports);
-    }
+    if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });
     if (town && (town.foodUpkeepPerMinute ?? 0) > 0) addBucket(foodSinks, "Town", town.foodUpkeepPerMinute ?? 0, { count: 1 });
     if (tile.dockId) {
       const dockGoldPerMinute = economyPlayer

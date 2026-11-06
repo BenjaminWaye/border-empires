@@ -57,7 +57,7 @@ export const drawTileFeatureOverlays2D = (
   // Capture-hold garrison: 2D counterpart of the 3D standing squad. Checks
   // the deadline, not just the field, so a long-expired hold costs nothing.
   // Rubble/smoke the capture left (client-capture-aftermath.ts) sits under the garrison.
-  if (t.terrain === "LAND") drawCaptureAftermath2D(deps.ctx, t, tileKey, px, py, size, Date.now());
+  if (t.terrain === "LAND") drawCaptureAftermath2D(deps.ctx, t, px, py, size, Date.now());
   if (t.ownerId && t.captureHoldUntil !== undefined) {
     const nowEpochMs = Date.now();
     if (t.captureHoldUntil > nowEpochMs) drawCaptureHoldGarrison2D(deps.ctx, t, deps.effectiveOverlayColor(t.ownerId), px, py, size, nowEpochMs);

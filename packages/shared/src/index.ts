@@ -56,6 +56,7 @@ export * from "./expand-manpower-cost/expand-manpower-cost.js";
 export * from "./frontier-combat/frontier-combat.js";
 export * from "./capture-hold/capture-hold.js";
 export * from "./war-scars/war-scars.js";
+export * from "./razed-wreck/razed-wreck.js";
 export * from "./frontier-combat/frontier-combat-win-chance-paint.js";
 export * from "./outpost-aura/outpost-aura.js";
 export * from "./reach/reach.js";
@@ -87,6 +88,7 @@ export * from "./relics/relic-resource-reward.js";
 export * from "./relics/relic-map-hints.js";
 
 export * from "./resource-networks/resource-networks.js";
+export * from "./resource-networks/frontier-resource-effects.js";
 
 export * from "./resource-networks/resource-network-biomes.js";
 

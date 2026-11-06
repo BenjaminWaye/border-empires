@@ -1,6 +1,6 @@
 import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
 import { authoritativeIsInReach } from "./client-reach-authoritative/client-reach-authoritative.js";
-import { wireStepsForPlan } from "@border-empires/shared";
+import { settleIgnoresReach, wireStepsForPlan } from "@border-empires/shared";
 import {
   persistWaypointQueueForPlayer,
   waypointCancelAllWirePayload,
@@ -63,13 +63,11 @@ const setWaypointForSelected = (
     renderHud();
     return true;
   }
-  // EXPAND isn't reach-gated server-side -- this waypoint's destination can
-  // still land outside the player's reach, where it can't be garrisoned and
-  // is lost if its supply line is cut. Warn them now, at the moment they
-  // queue it, rather than only once the claim lands (client-action-flow.ts's
-  // combat-result handler) -- by then the "why" is easy to miss.
-  if (!isInReach(selected.x, selected.y) && state.discoveryTipQueue) announceDiscoveryTipForState(state, "OUT_OF_REACH_EXPAND", renderHud, { x: selected.x, y: selected.y });
   const selectedTile = state.tiles.get(keyFor(selected.x, selected.y));
+  // Anchors and captured structures can be garrisoned without existing reach.
+  if (!isInReach(selected.x, selected.y) && !settleIgnoresReach(selectedTile ?? {}) && state.discoveryTipQueue) {
+    announceDiscoveryTipForState(state, "OUT_OF_REACH_EXPAND", renderHud, { x: selected.x, y: selected.y });
+  }
   const trackBarbarian = selectedTile?.ownerId === "barbarian-1";
   const planId = `plan-${state.me}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const plannedAt = Date.now();

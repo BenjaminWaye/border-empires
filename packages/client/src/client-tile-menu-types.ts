@@ -86,10 +86,11 @@ export type TileCombatBreakdown = {
 export type TileMenuView = {
   musterReports?: MusterReportsView;
   modules?: AfcModuleTabView;
+  /** Present on an owned AFC, including when no upgrade is ready. */
+  afcUpgradesReady?: number;
   title: string;
   townCharacter?: string;
-  // True when the tile is a town itself (not one of its support-ring tiles);
-  // decides which building category the Buildings tab opens on.
+  // True when the tile is a town itself rather than one of its support-ring tiles.
   isTownTile?: boolean;
   subtitle: string;
   subtitleHtml?: string;
