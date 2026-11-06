@@ -179,7 +179,11 @@ message TileDelta {
   string owner_id = 3;
   string ownership_state = 4;
   string terrain = 5;
-  string resource = 6;
+  // optional: a sparse delta that omits it means "unchanged", while an
+  // explicit "" clears it (the last salvage load shipped, a stripped
+  // Reclamation Works). A plain string decoded "" on every delta, so the
+  // gateway could never tell a clear from an omission and dropped both.
+  optional string resource = 6;
   string prospect_signature = 32;
   string town_type = 7;
   string town_name = 8;

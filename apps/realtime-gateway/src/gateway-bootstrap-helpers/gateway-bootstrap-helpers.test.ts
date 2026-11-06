@@ -80,4 +80,15 @@ describe("jsonSafeTileDeltaBatch overlay clears", () => {
     expect(json?.fortJson).toBe("{}");
     for (const { camel } of TILE_OVERLAY_WIRE_FIELDS) if (camel !== "fortJson") expect(json && camel in json).toBe(false);
   });
+
+  // Regression: the last salvage load clears the tile's resource. JSON drops
+  // undefined, so without an explicit null the client kept the depleted field.
+  it("sends a cleared resource as null and leaves an untouched one out", () => {
+    const [cleared, untouched] = jsonSafeTileDeltaBatch([
+      { x: 1, y: 2, resource: undefined } as unknown as Parameters<typeof jsonSafeTileDeltaBatch>[0][number],
+      { x: 3, y: 4 }
+    ]);
+    expect(JSON.parse(JSON.stringify(cleared))).toEqual({ x: 1, y: 2, resource: null });
+    expect(untouched && "resource" in untouched).toBe(false);
+  });
 });

@@ -19,6 +19,7 @@ export const jsonSafeTileDeltaBatch = (
   tileDeltas.map((tileDelta) => {
     const safe: Record<string, unknown> & TileOverlayJsonFields = {
       ...tileDelta,
+      ...("resource" in tileDelta && tileDelta.resource === undefined ? { resource: null } : {}),
       ...("ownerId" in tileDelta && tileDelta.ownerId === undefined ? { ownerId: null } : {}),
       ...("reachOwnerId" in tileDelta && tileDelta.reachOwnerId === undefined ? { reachOwnerId: null } : {}),
       ...("ownershipState" in tileDelta && tileDelta.ownershipState === undefined ? { ownershipState: null } : {}),
