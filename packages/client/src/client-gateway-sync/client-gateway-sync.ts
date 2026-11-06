@@ -28,7 +28,7 @@ const logOwnershipChangeIfAny = (x: number, y: number, before: Tile | undefined,
 type NormalizedGatewayTileUpdate = {
   detailLevel?: Tile["detailLevel"];
   terrain?: Tile["terrain"];
-  resource?: Tile["resource"] | undefined;
+  resource?: Tile["resource"] | null | undefined;
   prospectSignature?: ProspectSignature | undefined;
   dockId?: string | undefined;
   town?: Tile["town"] | undefined;
@@ -93,7 +93,7 @@ export type GatewayTileUpdate = {
   y: number;
   terrain?: Tile["terrain"];
   detailLevel?: Tile["detailLevel"];
-  resource?: string;
+  resource?: string | null;
   prospectSignature?: ProspectSignature;
   dockId?: string;
   ownerId?: string | null;
@@ -272,9 +272,8 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     if (!("landBiome" in normalizedGateway)) delete merged.landBiome;
     if (!("regionType" in normalizedGateway)) delete merged.regionType;
   }
-  // resource/dockId stay inline: this path deletes on an explicit falsy
-  // value, unlike the TILE_DELTA handler which only ever sets them -- see
-  // client-tile-merge.ts for the full explanation of why these aren't shared.
+  // Resource/dock clears stay inline: unlike TILE_DELTA, this path clears
+  // explicit falsy values.
   if ("resource" in normalizedGateway) {
     if (normalizedGateway.resource) merged.resource = normalizedGateway.resource;
     else delete merged.resource;
@@ -326,6 +325,9 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   }
 
   const detailMerged = deps.mergeIncomingTileDetail(existing, merged);
+  // The detail-preserving merge spreads existing fields back into summary
+  // tiles. Reapply an explicit resource clear so depleted salvage stays gone.
+  if ("resource" in normalizedGateway && !normalizedGateway.resource) delete detailMerged.resource;
   const resolved = deps.mergeServerTileWithOptimisticState(detailMerged);
   if (tileMatchesDebugKey(update.x, update.y, 1)) {
     debugTileLog("apply-gateway-tile-update", {

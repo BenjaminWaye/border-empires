@@ -455,7 +455,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...HUD_V2_COMBAT_STATS_CHANGELOG,
   ...SALVAGE_TRIBUTE_UI_CHANGELOG,
   ...AI_FREE_TRUCE_CHANGELOG,
-  ...CAPTURE_WRECK_FIX_CHANGELOG
+  ...CAPTURE_WRECK_FIX_CHANGELOG,
+  {
+    createdAt: 1793991860190, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.06",
+    title: "Depleted salvage fields clear correctly",
+    why: "The map could restore an empty salvage field after removing its Reclamation Works.",
+    changes: ["Shipping the final salvage load removes both the field and its Works in the 2D and 3D maps"]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
