@@ -304,7 +304,8 @@ export type SimulationTileWireDelta = {
   x: number;
   y: number;
   terrain?: Terrain;
-  resource?: string;
+  /** Present-but-undefined is an explicit clear (last salvage load, unrevealed for this viewer). */
+  resource?: string | undefined;
   prospectSignature?: "BLACKWOOD_CANOPY" | "FERROUS_DUST" | "REFRACTIVE_GROUND";
   dockId?: string;
   ownerId?: string | undefined;
