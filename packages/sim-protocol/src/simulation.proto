@@ -243,6 +243,10 @@ message TileDelta {
   // reason as capture_hold_until.
   optional uint32 war_scar_level = 35;
   optional uint64 war_scar_until = 36;
+  // Wreck of a Relay Beacon or siege engine razed when the tile was taken
+  // (shared razed-wreck.ts): its kind ("" = none) and when it clears.
+  optional string razed_wreck = 37;
+  optional uint64 razed_wreck_until = 38;
 }
 
 message DockRouteWaypoint {

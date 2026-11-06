@@ -88,6 +88,8 @@ export type Tile = {
   captureHoldUntil?: number;
   warScarLevel?: number;
   warScarUntil?: number;
+  razedWreck?: string;
+  razedWreckUntil?: number;
   frontierDecayAt?: number;
   frontierDecayKind?: FrontierDecayKind;
   clusterId?: string;

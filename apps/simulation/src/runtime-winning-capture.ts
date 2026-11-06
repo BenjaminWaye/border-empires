@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { CAPTURE_HOLD_MS, warScarFieldsAfterBattle } from "@border-empires/shared";
+import { CAPTURE_HOLD_MS, razedWreckFieldsOnCapture, warScarFieldsAfterBattle } from "@border-empires/shared";
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
 import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
 import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-auto-settle/runtime-out-of-reach-auto-settle.js";
@@ -60,7 +60,9 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
         // Only a garrison taken in an actual fight (not a Breakthrough capitulation, which has none).
         capturedGarrison: Boolean(combatBroadcastJson) && previousTarget?.ownershipState === "SETTLED" && Boolean(previousOwnerId) && previousOwnerId !== lock.playerId && previousOwnerId !== "barbarian-1",
         battle: Boolean(combatBroadcastJson)
-      }, context.now())
+      }, context.now()),
+      // A razed Relay Beacon or siege engine leaves its wreck for 24h (shared razed-wreck.ts).
+      ...razedWreckFieldsOnCapture(previousTarget, context.now())
     };
     // Capturing a tile destroys any muster flag staged on it — the accumulated
     // manpower is lost, not refunded to the previous owner's pool. resolvedTarget

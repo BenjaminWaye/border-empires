@@ -353,8 +353,8 @@ Court asks so little of a Duke who raises them.
 
 A beacon cannot be taken intact. Its sensing frames are tuned to the House
 that raised it, so troops who storm a beacon's ground topple the tower
-rather than inherit it, and its wreckage lies where it fell while they hold
-the ground. Fighting leaves the same marks elsewhere: a stormed fort still
+rather than inherit it, and its wreckage lies where it fell for a day
+afterwards, whoever holds the ground by then. Fighting leaves the same marks elsewhere: a stormed fort still
 stands, but its walls are breached and it shelters no one until the new
 holders have garrisoned it, and a captured resource site burns until the
 capturing troops have secured it, yielding nothing to its new House before

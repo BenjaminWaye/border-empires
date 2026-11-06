@@ -1,11 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { InstancedMesh, Scene } from "three";
-import { CAPTURE_HOLD_MS } from "@border-empires/shared";
-import { noteRazedStructuresOnCapture, resetCaptureAftermathIndex } from "./client-capture-aftermath.js";
+import { CAPTURE_HOLD_MS, RAZED_WRECK_DURATION_MS } from "@border-empires/shared";
 import { createCaptureAftermathFx3D } from "./client-map-3d-capture-aftermath-fx.js";
 import type { Tile } from "../client-types.js";
 
-afterEach(() => { vi.useRealTimers(); resetCaptureAftermathIndex(); });
+afterEach(() => { vi.useRealTimers(); });
 
 const wreckMeshes = (scene: Scene): InstancedMesh[] =>
   scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh && child.name.startsWith("wreck-") && child.count > 0);
@@ -17,13 +16,12 @@ describe("createCaptureAftermathFx3D", () => {
     const scene = new Scene();
     const fx = createCaptureAftermathFx3D(scene, { addCapturedTownSmoke: () => {} });
     const held = { terrain: "LAND", ownerId: "p2", ownershipState: "FRONTIER", captureHoldUntil: Date.now() + CAPTURE_HOLD_MS } as const;
-    const beacon = { x: 1, y: 1, ...held } as Tile;
-    noteRazedStructuresOnCapture({ ...beacon, ownerId: "p1", economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" } } as Tile, beacon, "1,1");
+    const beacon = { x: 1, y: 1, ...held, razedWreck: "RELAY_BEACON", razedWreckUntil: Date.now() + RAZED_WRECK_DURATION_MS } as Tile;
 
     fx.clear();
-    fx.addTile(beacon, "1,1", 0, 0, 0, 1, 1);
-    fx.addTile({ x: 2, y: 1, ...held, resource: "IRON" } as Tile, "2,1", 1, 0, 0, 2, 1);
-    fx.addTile({ x: 3, y: 1, terrain: "LAND", ownerId: "p2", ownershipState: "SETTLED", warScarLevel: 3, warScarUntil: Date.now() + 5 * CAPTURE_HOLD_MS } as Tile, "3,1", 2, 0, 0, 3, 1);
+    fx.addTile(beacon, 0, 0, 0, 1, 1);
+    fx.addTile({ x: 2, y: 1, ...held, resource: "IRON" } as Tile, 1, 0, 0, 2, 1);
+    fx.addTile({ x: 3, y: 1, terrain: "LAND", ownerId: "p2", ownershipState: "SETTLED", warScarLevel: 3, warScarUntil: Date.now() + 5 * CAPTURE_HOLD_MS } as Tile, 2, 0, 0, 3, 1);
     fx.commit();
 
     const names = wreckMeshes(scene).map((mesh) => mesh.name);
@@ -48,7 +46,7 @@ describe("createCaptureAftermathFx3D", () => {
     const scene = new Scene();
     const fx = createCaptureAftermathFx3D(scene, { addCapturedTownSmoke: () => {} });
     fx.clear();
-    fx.addTile({ x: 5, y: 5, terrain: "LAND", warScarLevel: 4, warScarUntil: Date.now() + 60_000 } as Tile, "5,5", 0, 0, 0, 5, 5, "TEMPERATE");
+    fx.addTile({ x: 5, y: 5, terrain: "LAND", warScarLevel: 4, warScarUntil: Date.now() + 60_000 } as Tile, 0, 0, 0, 5, 5, "TEMPERATE");
     fx.commit();
     const names = wreckMeshes(scene).map((mesh) => mesh.name);
     expect(names.some((name) => name.startsWith("wreck-FOREST_WAR-4-"))).toBe(true);
@@ -61,7 +59,7 @@ describe("createCaptureAftermathFx3D", () => {
     // Water to the east of (10, 10): the quay faces +x.
     const fx = createCaptureAftermathFx3D(scene, { addCapturedTownSmoke: () => {} }, undefined, (x) => (x === 11 ? "SEA" : "LAND"));
     fx.clear();
-    fx.addTile({ x: 10, y: 10, terrain: "LAND", ownerId: "p2", ownershipState: "FRONTIER", captureHoldUntil: Date.now() + CAPTURE_HOLD_MS, dockId: "d1" } as Tile, "10,10", 0, 0, 0, 10, 10);
+    fx.addTile({ x: 10, y: 10, terrain: "LAND", ownerId: "p2", ownershipState: "FRONTIER", captureHoldUntil: Date.now() + CAPTURE_HOLD_MS, dockId: "d1" } as Tile, 0, 0, 0, 10, 10);
     fx.commit();
     const fire = wreckMeshes(scene).filter((mesh) => mesh.name.startsWith("wreck-DOCK_FIRE-"));
     expect(fire.some((mesh) => mesh.name.endsWith("-glow"))).toBe(true);

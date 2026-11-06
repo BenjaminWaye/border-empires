@@ -1,4 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import { razedWreckFieldsOnCapture } from "@border-empires/shared";
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import { flipFeatures } from "./territory-flip-log/territory-flip-features.js";
@@ -22,7 +23,8 @@ export function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: L
     ownershipState: originOwnershipState,
     frontierDecayAt: undefined,
     frontierDecayKind: undefined,
-    ...capturedStructureFields(previousOrigin, previousOwnerId, context.now())
+    ...capturedStructureFields(previousOrigin, previousOwnerId, context.now()),
+    ...razedWreckFieldsOnCapture(previousOrigin, context.now())
   };
   context.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
   if (previousOrigin.ownerId !== resolvedOrigin.ownerId) {

@@ -44,6 +44,8 @@ export const tileDeltaRevealOnly = (
     captureHoldUntil: tile.captureHoldUntil ?? undefined,
     warScarLevel: tile.warScarLevel ?? undefined,
     warScarUntil: tile.warScarUntil ?? undefined,
+    razedWreckUntil: tile.razedWreckUntil ?? undefined,
+    razedWreck: tile.razedWreck ?? undefined,
     ...townWireFields(tile.town)
   };
   // Always full, never sparse-diffed: this path fires for tiles entering a
