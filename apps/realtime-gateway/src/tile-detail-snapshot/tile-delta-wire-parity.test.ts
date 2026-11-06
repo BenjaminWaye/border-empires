@@ -76,7 +76,7 @@ const TILE_FIELD_SPECS: TileFieldSpec[] = [
   { protoField: "ownership_state", wireValue: "FRONTIER", camelField: "ownershipState", normalized: "FRONTIER" },
   { protoField: "reach_owner_id", wireValue: "player-sentinel-rival", camelField: "reachOwnerId", normalized: "player-sentinel-rival" },
   { protoField: "terrain", wireValue: "LAND", camelField: "terrain", normalized: "LAND" },
-  { protoField: "resource", wireValue: "TITANIUM", camelField: "resource", normalized: "TITANIUM" },
+  { protoField: "resource", wireValue: "TITANIUM", camelField: "resource", normalized: "TITANIUM", presenceSensitive: true },
   { protoField: "prospect_signature", wireValue: "FERROUS_DUST", camelField: "prospectSignature", normalized: "FERROUS_DUST" },
   { protoField: "town_type", wireValue: "MARKET", camelField: "townType", normalized: "MARKET" },
   { protoField: "town_name", wireValue: "Sentinel City", camelField: "townName", normalized: "Sentinel City" },

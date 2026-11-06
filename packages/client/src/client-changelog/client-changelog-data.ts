@@ -1,4 +1,5 @@
 import { MOBILE_UI_CONSISTENCY_CHANGELOG } from "./client-changelog-mobile-ui-consistency.js";
+import { SALVAGE_TRIBUTE_UI_CHANGELOG } from "./client-changelog-salvage-tribute-ui.js";
 import { TUTORIAL_BUILD_AFC_FLOWS_CHANGELOG } from "./client-changelog-tutorial-build-afc-flows.js";
 import { HUD_V2_COMBAT_STATS_CHANGELOG } from "./client-changelog-hud-v2-combat-stats.js";
 import { SIEGE_BATTERY_NO_REACH_CHANGELOG } from "./client-changelog-siege-battery-no-reach.js";
@@ -484,7 +485,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MOBILE_UI_CONSISTENCY_CHANGELOG,
   ...TOWN_SCREEN_AUTO_GARRISON_CHANGELOG,
   ...TUTORIAL_BUILD_AFC_FLOWS_CHANGELOG,
-  ...HUD_V2_COMBAT_STATS_CHANGELOG
+  ...HUD_V2_COMBAT_STATS_CHANGELOG,
+  ...SALVAGE_TRIBUTE_UI_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

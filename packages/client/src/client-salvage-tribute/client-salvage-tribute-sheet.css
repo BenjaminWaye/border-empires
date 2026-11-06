@@ -1,0 +1,94 @@
+/*
+ * "Ship salvage to the Court" popup (client-salvage-tribute-sheet.ts). The
+ * card, title, subtitle and Cancel reuse the effort sheet's classes
+ * (client-effort-confirm-sheet-style.css); this file centres it over a dim
+ * backdrop and gives the confirm button the HUD's gold primary look.
+ */
+.salvage-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(8, 6, 4, 0.55);
+}
+
+.salvage-sheet-card {
+  width: 320px;
+}
+
+.salvage-sheet-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.salvage-sheet-facts div {
+  padding: 6px 8px;
+  border: 1px solid rgba(217, 173, 82, 0.25);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.salvage-sheet-facts dt {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sp-parchment-300, #c9b98f);
+}
+
+.salvage-sheet-facts dd {
+  margin: 2px 0 0;
+  font-family: var(--sp-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--sp-parchment-100);
+}
+
+.salvage-sheet-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--sp-parchment-100);
+}
+
+.salvage-sheet-note:empty {
+  display: none;
+}
+
+.salvage-sheet-note.is-blocked {
+  color: #e9a08a;
+}
+
+/* Gold primary, same tokens as the HUD bar's primary action (client-hud-v2.css). */
+.salvage-sheet-go {
+  min-height: 34px;
+  padding: 0 16px;
+  border-radius: 4px;
+  border: 1px solid #d9b25c;
+  background: #d9b25c;
+  color: #120f0b;
+  font-family: var(--sp-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.salvage-sheet-go:hover:not(:disabled) {
+  background: #f0cf82;
+  border-color: #f0cf82;
+}
+
+.salvage-sheet-go:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.salvage-sheet-go:focus-visible {
+  outline: 2px solid var(--sp-parchment-100, #f2e8d3);
+  outline-offset: 2px;
+}

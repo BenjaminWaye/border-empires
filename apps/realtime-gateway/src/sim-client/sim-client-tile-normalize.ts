@@ -87,7 +87,8 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
     y: tile.y
   };
   if (tile.terrain === "LAND" || tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA" || tile.terrain === "MOUNTAIN") normalized.terrain = tile.terrain;
-  if (typeof tile.resource === "string" && tile.resource.length > 0) normalized.resource = tile.resource;
+  // Present-but-empty is an explicit clear (optional proto field); absent means unchanged.
+  if ("resource" in tile && typeof tile.resource === "string") normalized.resource = tile.resource || undefined;
   const prospectSignature = tile.prospect_signature ?? tile.prospectSignature;
   if (prospectSignature === "BLACKWOOD_CANOPY" || prospectSignature === "FERROUS_DUST" || prospectSignature === "REFRACTIVE_GROUND") {
     normalized.prospectSignature = prospectSignature;

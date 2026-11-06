@@ -210,6 +210,8 @@ export class TileDeltaStringifyCache {
       (seededFullDelta as Record<string, unknown>).frontierDecayAt = tile.frontierDecayAt;
       (seededFullDelta as Record<string, unknown>).frontierDecayKind = tile.frontierDecayKind;
       (seededFullDelta as Record<string, unknown>).reachOwnerId = reachOwnerId;
+      // A cleared resource (last salvage load) must reach clients even as the first emission after a restart.
+      (seededFullDelta as Record<string, unknown>).resource = tile.resource;
       return seededFullDelta;
     }
 
