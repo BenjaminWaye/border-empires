@@ -14,6 +14,10 @@ Use this for Codex-agent context discipline. It is about reducing agent token us
 - Inspect declarations and call sites before implementations. Stop gathering context when the requested answer is supported.
 - Do not perform browser QA for wording-only changes unless layout or behavior needs verification. Never skip required regression, CI, or pre-PR checks to reduce tokens.
 
+## Gameplay proposal quality
+
+A small context budget never replaces game knowledge. Before reviewing or suggesting a mechanic, read the relevant gameplay reference and verify the affected source contract or tests. Check compatibility with current resources, progression, territory and renderer constraints. Distinguish current capabilities, changes supported by existing systems, and proposals requiring new systems or rule changes. Expand discovery when evidence is missing. Do not claim feasibility or incompatibility from an unsuccessful narrow search alone.
+
 ## What to measure
 
 Input per call includes automatically supplied instructions/tools and accumulated context. Input per message is the sum across all calls that message triggers. Keep those separate from typed-message size, cached input, and plan-limit percentages. Reduce redundant reads and rounds first; do not promise a particular allowance saving from raw token counts. Existing chats retain already-loaded context; revised instructions reduce future work, not past usage.

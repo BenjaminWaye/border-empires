@@ -4,6 +4,7 @@
 
 - Start with the user's question, not a full repository survey. For short explanations, make one narrow discovery batch and one bounded evidence read when needed; expand only for a concrete unresolved correctness issue. See `docs/agents/codex-token-budget.md` for complex investigations.
 - Read-only questions and feasibility reviews do not create worktrees, fetch, install dependencies, run builds/tests, or change files. Use an existing checkout. Once edits are needed, follow the worktree rules below. Do not turn a question into implementation or PR work without a request.
+- Before assessing or proposing gameplay mechanics, read the relevant `docs/game-mechanics.md` sections and verify the affected source contracts/tests. Ground suggestions in existing resources, progression, territory and renderer constraints. Label ideas needing new systems or rule changes explicitly; do not present them as existing capabilities. Context budgets are soft targets: gather enough evidence for correctness.
 - Prefer symbol searches and small excerpts over full files. Batch independent reads in one tool call. Do not repeatedly load the documentation map, rules, or unrelated runbooks. Keep command output bounded; summarize failures.
 
 ## Runtime and source

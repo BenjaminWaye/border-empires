@@ -43,3 +43,12 @@ test("routine questions have a small entrypoint and no implementation setup", ()
   }
   assert.match(text("docs/agents/codex-token-budget.md"), /one narrow discovery batch/);
 });
+
+
+test("context savings never replace gameplay grounding or correctness", () => {
+  const agents = text("AGENTS.md");
+  assert.match(agents, /Before assessing or proposing gameplay mechanics/);
+  assert.match(agents, /verify the affected source contracts\/tests/);
+  assert.match(agents, /Context budgets are soft targets/);
+  assert.match(text("docs/agents/codex-token-budget.md"), /Do not claim feasibility or incompatibility from an unsuccessful narrow search alone/);
+});
