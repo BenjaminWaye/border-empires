@@ -93,6 +93,7 @@ import { MARCH_ATTACK_ROUTES_CHANGELOG } from "./client-changelog-march-attack-r
 import { MARCH_TO_UNEXPLORED_CHANGELOG } from "./client-changelog-march-to-unexplored.js";
 import { FORT_WALL_OPENINGS_CHANGELOG } from "./client-changelog-fort-wall-openings.js";
 import { HILL_GARRISON_FILL_CHANGELOG } from "./client-changelog-hill-garrison-fill.js";
+import { NAME_DECAL_HILLS_CHANGELOG } from "./client-changelog-name-decal-hills.js";
 import { SHARD_COMEBACK_CHANGELOG } from "./client-changelog-shard-comeback.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
@@ -307,6 +308,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["AI empires now build relay beacons that carry reach across their own unsettled borderlands, and toward wide stretches of plain unclaimed land."]
   },
   ...HILL_GARRISON_FILL_CHANGELOG,
+  ...NAME_DECAL_HILLS_CHANGELOG,
   {
     createdAt: 1792873662311, // Frozen Date.now() timestamp for the changelog gate.
     introducedIn: "2026.10.24.3",
