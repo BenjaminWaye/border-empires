@@ -1,3 +1,4 @@
+import { AI_FREE_TRUCE_CHANGELOG } from "./client-changelog-ai-free-truce.js";
 import { MOBILE_UI_CONSISTENCY_CHANGELOG } from "./client-changelog-mobile-ui-consistency.js";
 import { SALVAGE_TRIBUTE_UI_CHANGELOG } from "./client-changelog-salvage-tribute-ui.js";
 import { TUTORIAL_BUILD_AFC_FLOWS_CHANGELOG } from "./client-changelog-tutorial-build-afc-flows.js";
@@ -486,7 +487,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...TOWN_SCREEN_AUTO_GARRISON_CHANGELOG,
   ...TUTORIAL_BUILD_AFC_FLOWS_CHANGELOG,
   ...HUD_V2_COMBAT_STATS_CHANGELOG,
-  ...SALVAGE_TRIBUTE_UI_CHANGELOG
+  ...SALVAGE_TRIBUTE_UI_CHANGELOG,
+  ...AI_FREE_TRUCE_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
