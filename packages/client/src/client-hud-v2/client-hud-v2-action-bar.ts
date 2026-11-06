@@ -25,7 +25,9 @@ const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   "launch_attack",
   "march_attack_flag",
   "expand_here",
-  "march_to_pick_origin"
+  "march_to_pick_origin",
+  // Only offered on your own Reclamation Works; gold while there is salvage to ship.
+  "ship_salvage_to_court"
 ];
 
 const RELAY_BEACON_IDS: ReadonlyArray<TileActionDef["id"]> = ["build_relay_beacon", "build_relay_beacon_frontier"];
