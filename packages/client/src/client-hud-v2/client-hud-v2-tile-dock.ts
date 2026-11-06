@@ -223,6 +223,18 @@ const onBarClick = (event: MouseEvent): void => {
     deps.renderHud();
     return;
   }
+  const progress = target.closest<HTMLButtonElement>("[data-v2-progress-action]");
+  if (progress) {
+    // Bind the hidden Progress tab before forwarding; the menu may still be on Actions.
+    state.tileActionMenu.activeTab = "progress";
+    state.tileActionMenu.renderSignature = "";
+    dock.rerender();
+    // Reuse the bound controller for queue, garrison, capture and rush actions.
+    const original = Array.from(deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("[data-progress-action]"))
+      .find((button) => button.dataset.progressAction === progress.dataset.v2ProgressAction);
+    if (original && !original.disabled) original.click();
+    return;
+  }
   const action = target.closest<HTMLButtonElement>("[data-hud-v2-action]");
   if (action && !action.disabled) {
     const id = action.dataset.hudV2Action as TileActionDef["id"];

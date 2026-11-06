@@ -127,7 +127,7 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
     return;
   }
   if (target.closest(`#${SCREEN_HOST_ID}`) && screenClick(deps, target)) return;
-  // Phone: the bar opens the Treasury, the tracker folds to one line (client-hud-v2-compact.ts).
+  // Phone: resource chips open their breakdown, the tracker folds to one line (client-hud-v2-compact.ts).
   if (document.body.classList.contains("hud-v2-compact") && event.currentTarget instanceof HTMLElement && compactLayerClick(target, {
     layer: event.currentTarget,
     barHtml: () => written.get("bar") ?? "",

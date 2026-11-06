@@ -59,16 +59,13 @@ describe("compact tracker", () => {
   });
 });
 
-describe("Treasury sheet", () => {
-  it("opens from any chip on the bar, and a row in it opens that resource's breakdown", () => {
-    document.body.innerHTML = `<div id="hud-v2-bar"><button data-hud-v2-chip="food">Food</button></div>`;
+describe("direct resource breakdown", () => {
+  it.each(["coin", "food", "umbrite", "integrity"])("opens %s in one tap without a Treasury sheet", (chip) => {
+    document.body.innerHTML = `<div id="hud-v2-bar"><button data-hud-v2-chip="${chip}"><span>Resource</span></button></div>`;
     const openChip = vi.fn();
-    const ctx = { layer: document.body, barHtml: () => `<button data-hud-v2-chip="food">Food</button>`, openChip, repaintTracker: vi.fn() };
-    expect(compactLayerClick(document.querySelector("#hud-v2-bar [data-hud-v2-chip]")!, ctx)).toBe(true);
-    expect(treasuryOpen()).toBe(true);
-    expect(openChip).not.toHaveBeenCalled();
-    expect(compactLayerClick(document.querySelector(".v2c-treasury [data-hud-v2-chip]")!, ctx)).toBe(true);
-    expect(openChip).toHaveBeenCalledWith("food");
+    const ctx = { layer: document.body, barHtml: () => "", openChip, repaintTracker: vi.fn() };
+    expect(compactLayerClick(document.querySelector("#hud-v2-bar span")!, ctx)).toBe(true);
+    expect(openChip).toHaveBeenCalledWith(chip);
     expect(treasuryOpen()).toBe(false);
   });
 });

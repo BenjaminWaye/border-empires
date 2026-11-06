@@ -1,7 +1,7 @@
 // Compact (phone) behaviour of the new HUD's map screen (Phase 1 of
 // docs/hud-v2-mobile-plan.md). The layout itself is CSS on body.hud-v2-compact
 // (client-hud-v2-compact*.css); this module holds what behaves differently on a
-// phone: the resource bar is one target that opens a Treasury sheet, the
+// phone: resource chips open their breakdown directly, the
 // tracker folds to one summary line, and the back gesture closes the open
 // screen.
 
@@ -104,7 +104,9 @@ export const compactLayerClick = (target: Element, ctx: CompactClickContext): bo
     return false;
   }
   if (target.closest("#hud-v2-bar [data-hud-v2-chip], #hud-v2-bar .hud-v2-chip-static")) {
-    openTreasury(ctx.layer, ctx.barHtml());
+    const chip = target.closest<HTMLElement>("[data-hud-v2-chip]")?.dataset.hudV2Chip;
+    if (!chip) return false;
+    ctx.openChip(chip);
     return true;
   }
   if (target.closest("[data-v2c-tracker-toggle]")) {
