@@ -41,25 +41,30 @@ const sweepExpired = (nowEpochMs: number): void => {
   for (const [key, entry] of razedByKey) if (entry.until <= nowEpochMs) razedByKey.delete(key);
 };
 
+// A structure keeps its builder's ownerId, so "the tile changed hands" is read
+// off the structure rather than the tile: COMBAT_RESULT (and a predicted
+// combat outcome) flips the tile's owner before the TILE_DELTA that drops the
+// razed structure arrives, so by then the cached tile already has the new owner.
 const razedKindsDropped = (existing: Tile, merged: Tile): RazedKind[] => {
   const kinds: RazedKind[] = [];
+  const takenFrom = (structureOwnerId: string | undefined): boolean => Boolean(structureOwnerId) && structureOwnerId !== merged.ownerId;
   const beacon = existing.economicStructure;
-  if (beacon?.type === "RELAY_BEACON" && beacon.status !== "under_construction" && merged.economicStructure?.type !== "RELAY_BEACON") kinds.push("RELAY_BEACON");
+  if (beacon?.type === "RELAY_BEACON" && beacon.status !== "under_construction" && takenFrom(beacon.ownerId) && merged.economicStructure?.type !== "RELAY_BEACON") kinds.push("RELAY_BEACON");
   const battery = existing.siegeBattery;
-  if (battery && battery.status !== "under_construction" && !merged.siegeBattery) kinds.push(battery.variant === "SIEGE_TOWER" || battery.variant === "DREAD_TOWER" ? battery.variant : "SIEGE_BATTERY");
+  if (battery && battery.status !== "under_construction" && takenFrom(battery.ownerId) && !merged.siegeBattery) kinds.push(battery.variant === "SIEGE_TOWER" || battery.variant === "DREAD_TOWER" ? battery.variant : "SIEGE_BATTERY");
   return kinds;
 };
 
 /**
  * Called by the tile merge with the tile before and after an update: when a
  * standing Relay Beacon or Siege Battery the client was watching disappears
- * because the tile was just captured (it changed hands into a live capture
- * hold), remember its wreck until the hold ends. A tile last seen under fog,
+ * because the tile was just captured (it is now someone else's, in a live
+ * capture hold), remember its wreck until the hold ends. A tile last seen under fog,
  * or one resynced after a reconnect, may have changed hands long ago: that
  * leaves no wreck, so neither does a capture with no hold (e.g. by barbarians).
  */
 export const noteRazedStructuresOnCapture = (existing: Tile | undefined, merged: Tile, tileKey: string, nowEpochMs: number = Date.now()): void => {
-  if (!existing?.ownerId || existing.fogged || !merged.ownerId || existing.ownerId === merged.ownerId) return;
+  if (!existing || existing.fogged || !merged.ownerId) return;
   if (!isCaptureHoldActive(merged, nowEpochMs)) return;
   const kinds = razedKindsDropped(existing, merged);
   if (kinds.length === 0) return;

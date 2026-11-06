@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { WORLD_HEIGHT, WORLD_WIDTH, isForestTileAt, resetForestClearings, setWorldSeed } from "@border-empires/shared";
+import { afterEach, describe, expect, it } from "vitest";
+import { CAPTURE_HOLD_MS, WORLD_HEIGHT, WORLD_WIDTH, isForestTileAt, resetForestClearings, setWorldSeed } from "@border-empires/shared";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange, TILES_REVISION_CHANGED_KEYS_CAP } from "./client-tile-merge.js";
 import type { Tile, TileUpkeepEntry } from "../client-types.js";
+import { captureAftermathForTile, resetCaptureAftermathIndex } from "../client-capture-aftermath/client-capture-aftermath.js";
 
 const baseTile: Tile = {
   x: 5,
@@ -163,5 +164,32 @@ describe("applyCommonTileFields — captureHoldUntil", () => {
   it("keeps the existing deadline when the update omits it", () => {
     const held = { ...baseTile, captureHoldUntil: 123_456 };
     expect(applyCommonTileFields(held, { ...held }, {}, {}).captureHoldUntil).toBe(123_456);
+  });
+});
+
+// Regression: a captured Relay Beacon never left wreckage in the live game.
+// COMBAT_RESULT flips the tile's owner first (combatResultIncomingTile keeps
+// the old beacon), so when the TILE_DELTA that drops the beacon reaches
+// applyCommonTileFields the cached tile already had the new owner and the
+// wreck check read it as "same owner, nothing captured".
+describe("Relay Beacon wreck on capture", () => {
+  afterEach(() => resetCaptureAftermathIndex());
+
+  it("leaves the wreck when COMBAT_RESULT changed the owner before the TILE_DELTA drops the beacon", () => {
+    const now = Date.now();
+    const holdUntil = now + CAPTURE_HOLD_MS;
+    const beaconTile: Tile = { ...baseTile, ownerId: "rival", economicStructure: { ownerId: "rival", type: "RELAY_BEACON", status: "active" } };
+    const afterCombat = combatResultIncomingTile(beaconTile, { x: 5, y: 5, ownerId: "me", ownershipState: "FRONTIER" }, () => "LAND");
+    expect(afterCombat.economicStructure?.type).toBe("RELAY_BEACON");
+    const merged = applyCommonTileFields(afterCombat, { ...afterCombat, captureHoldUntil: holdUntil }, { ownerId: "me", ownershipState: "FRONTIER", economicStructure: undefined }, { me: "me" });
+    expect(merged.economicStructure).toBeUndefined();
+    expect(captureAftermathForTile(merged, "5,5", now)?.rubble).toEqual(["RELAY_BEACON"]);
+  });
+
+  it("leaves no wreck when the new owner's own beacon is removed during the hold", () => {
+    const now = Date.now();
+    const ownBeacon: Tile = { ...baseTile, ownershipState: "FRONTIER", captureHoldUntil: now + CAPTURE_HOLD_MS, economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" } };
+    const merged = applyCommonTileFields(ownBeacon, { ...ownBeacon }, { ownerId: "me", ownershipState: "FRONTIER", economicStructure: undefined }, { me: "me" });
+    expect(captureAftermathForTile(merged, "5,5", now)).toBeUndefined();
   });
 });
