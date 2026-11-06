@@ -1,4 +1,4 @@
-import type { ClientChangelogEntry } from "./client-changelog-types.js";
+import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const AI_FREE_TRUCE_CHANGELOG: ClientChangelogEntry[] = [
   {
