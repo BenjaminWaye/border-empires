@@ -2,13 +2,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const SALVAGE_TRIBUTE_UI_CHANGELOG: ClientChangelogEntry[] = [
   {
-    createdAt: Date.now(),
-    introducedIn: "2026.11.06",
-    title: "Depleted salvage fields clear correctly",
-    why: "The map could restore an empty salvage field after removing its Reclamation Works.",
-    changes: ["Shipping the final salvage load removes both the field and its Works in the 2D and 3D maps"]
-  },
-  {
     createdAt: 1793955099378, // Date.now() captured once for this entry.
     introducedIn: "2026.11.06",
     title: "Shipping salvage to the Court",

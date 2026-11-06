@@ -28,7 +28,7 @@ const logOwnershipChangeIfAny = (x: number, y: number, before: Tile | undefined,
 type NormalizedGatewayTileUpdate = {
   detailLevel?: Tile["detailLevel"];
   terrain?: Tile["terrain"];
-  resource?: Tile["resource"] | undefined;
+  resource?: Tile["resource"] | null | undefined;
   prospectSignature?: ProspectSignature | undefined;
   dockId?: string | undefined;
   town?: Tile["town"] | undefined;
@@ -147,7 +147,7 @@ export const normalizeGatewayTileUpdate = (
   const normalized: NormalizedGatewayTileUpdate = {};
   if (update.detailLevel) normalized.detailLevel = update.detailLevel;
   if (update.terrain) normalized.terrain = update.terrain;
-  if ("resource" in update) normalized.resource = update.resource || undefined;
+  if ("resource" in update) normalized.resource = update.resource;
   if ("prospectSignature" in update) normalized.prospectSignature = update.prospectSignature;
   if ("dockId" in update) normalized.dockId = update.dockId;
   if ("townJson" in update || "townType" in update || "townName" in update || "townPopulationTier" in update) {

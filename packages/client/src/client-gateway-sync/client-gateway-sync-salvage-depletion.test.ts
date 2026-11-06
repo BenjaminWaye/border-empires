@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyGatewayTileDeltaBatch } from "./client-gateway-sync.js";
+import { applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate } from "./client-gateway-sync.js";
 import { createClientOptimisticStateController } from "../client-optimistic-state/client-optimistic-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -26,6 +26,13 @@ const createDeps = () => {
 };
 
 describe("depleted precursor salvage", () => {
+  it.each([null, ""])("preserves the %s clear for the TILE_DELTA consumer", (resource) => {
+    const update = { x: 4, y: 7, resource, economicStructureJson: "" };
+    const normalized = normalizeGatewayTileUpdate(update, {
+      existing: undefined, tiles: new Map(), keyFor: (x, y) => `${x},${y}`, foodCoverage: undefined
+    });
+    expect(normalized.resource).toBe(resource);
+  });
   for (const detailLevel of ["summary", "full"] as const) {
     it(`clears the field through the real detail merge for ${detailLevel} tiles`, () => {
       const deps = createDeps();
