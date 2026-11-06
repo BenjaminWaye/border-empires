@@ -75,4 +75,12 @@ describe("tileDeltaRevealOnly", () => {
     const delta = tileDeltaRevealOnly(tile, cache, { techIds: new Set() });
     expect(delta.prospectSignature).toBe("FERROUS_DUST");
   });
+
+  // Regression: a tile that re-enters vision after its last salvage load was
+  // shipped out of sight must clear the resource the viewer still remembers.
+  it("sends a missing resource as an explicit clear, not an omission", () => {
+    const delta = tileDeltaRevealOnly(makeTile(), new TileDeltaStringifyCache());
+    expect("resource" in delta).toBe(true);
+    expect(delta.resource).toBeUndefined();
+  });
 });

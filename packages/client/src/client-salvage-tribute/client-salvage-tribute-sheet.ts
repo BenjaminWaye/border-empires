@@ -28,7 +28,7 @@ export const showSalvageTributeSheet = (at: { x: number; y: number }, send: Send
   const status = salvageTributeStatus(state, state.tiles.get(keyForTile(at.x, at.y)));
   if (!status) return false;
   hideSalvageTributeSheet();
-  const { loads, delivered, reason } = status;
+  let shown = status;
   let closed = false;
   const overlay = document.createElement("div");
   overlay.className = "salvage-sheet-overlay";
@@ -51,12 +51,16 @@ export const showSalvageTributeSheet = (at: { x: number; y: number }, send: Send
     </div>
   `;
   const set = (selector: string, text: string): void => { const node = card.querySelector(selector); if (node) node.textContent = text; };
-  set("[data-salvage-delivered]", `+${delivered} manpower`);
-  set("[data-salvage-loads]", `${loads} of ${SALVAGE_LOADS_PER_SITE}`);
-  set("[data-salvage-note]", reason || (loads === 1 ? SALVAGE_LAST_LOAD_NOTE : ""));
   const go = card.querySelector<HTMLButtonElement>("[data-salvage-go]");
-  if (go && reason) go.disabled = true;
-  card.querySelector("[data-salvage-note]")?.classList.toggle("is-blocked", Boolean(reason));
+  const paint = (): void => {
+    const { loads, delivered, reason } = shown;
+    set("[data-salvage-delivered]", `+${delivered} manpower`);
+    set("[data-salvage-loads]", `${loads} of ${SALVAGE_LOADS_PER_SITE}`);
+    set("[data-salvage-note]", reason || (loads === 1 ? SALVAGE_LAST_LOAD_NOTE : ""));
+    if (go) go.disabled = Boolean(reason);
+    card.querySelector("[data-salvage-note]")?.classList.toggle("is-blocked", Boolean(reason));
+  };
+  paint();
   overlay.appendChild(card);
   const onKey = (event: KeyboardEvent): void => { if (event.key === "Escape") teardown(); };
   const teardown = (): void => {
@@ -69,6 +73,13 @@ export const showSalvageTributeSheet = (at: { x: number; y: number }, send: Send
   card.querySelector<HTMLButtonElement>("[data-salvage-cancel]")?.addEventListener("click", teardown);
   go?.addEventListener("click", () => {
     if (closed) return;
+    // Manpower refills, loads ship elsewhere and tiles change hands while this is open:
+    // re-check, and show the new numbers instead of spending a load on stale ones.
+    const now = salvageTributeStatus(state, state.tiles.get(keyForTile(at.x, at.y)));
+    if (!now) { teardown(); return; }
+    const changed = now.loads !== shown.loads || now.delivered !== shown.delivered || now.reason !== shown.reason;
+    shown = now;
+    if (changed || now.reason) { paint(); return; }
     teardown();
     send({ type: "SHIP_SALVAGE_TO_COURT", x: at.x, y: at.y }, "Finish sign-in before shipping salvage.");
   });

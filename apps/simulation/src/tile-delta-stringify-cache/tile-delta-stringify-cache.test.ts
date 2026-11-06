@@ -350,4 +350,17 @@ describe("TileDeltaStringifyCache", () => {
     const second = cache.buildSparseDelta("1,1", tile, cached, fullDelta, "player-2");
     expect(second.reachOwnerId).toBe("player-2");
   });
+
+  // Regression: shipping the last salvage load clears the tile's resource. If
+  // that is the tile's first emission since a sim restart (no baseline), the
+  // seeded full delta must still carry the clear, or every client keeps the
+  // emptied field.
+  it("buildSparseDelta seeds a cleared resource on the no-baseline path", () => {
+    const cache = new TileDeltaStringifyCache();
+    const emptied: DomainTileState = { ...makeBaseTile(), ownerId: "p1", ownershipState: "SETTLED" };
+    const cached = cache.getOrComputeAll("1,1", emptied);
+    const first = cache.sparseEmit("1,1", emptied, cached, { x: 1, y: 1, terrain: "LAND", ownerId: "p1", ownershipState: "SETTLED" }, undefined);
+    expect("resource" in first).toBe(true);
+    expect(first.resource).toBeUndefined();
+  });
 });

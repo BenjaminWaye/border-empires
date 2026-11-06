@@ -75,6 +75,19 @@ describe("ship salvage popup", () => {
     expect(isSalvageTributeSheetOpen()).toBe(false);
   });
 
+  it("re-checks on confirm and shows new numbers instead of shipping stale ones", () => {
+    const send = vi.fn(() => true);
+    const state = { ...player(0), tiles: new Map([["20,20", works()]]) };
+    installSalvageTributeSheet(state, send);
+    showSalvageTributeSheet({ x: 20, y: 20 });
+    state.manpower = 997; // refilled while the popup was open: shipping now would deliver 3
+    document.querySelector<HTMLButtonElement>(".salvage-sheet-go")!.click();
+    expect(send).not.toHaveBeenCalled();
+    expect(document.querySelector("[data-salvage-delivered]")?.textContent).toBe("+3 manpower");
+    document.querySelector<HTMLButtonElement>(".salvage-sheet-go")!.click();
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
   it("doesn't open on a tile that isn't your salvage Works", () => {
     expect(open(0, { ...works(), ownerId: "rival" } as Tile).shown).toBe(false);
   });
