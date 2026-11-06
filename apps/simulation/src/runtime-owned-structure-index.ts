@@ -96,3 +96,7 @@ export function weaponsFactoryCountsFromIndex(
     salvage: ownedStructureCountForPlayer(ownedStructureCountByPlayerByType, playerId, "RECLAMATION_WORKS")
   };
 }
+
+// The PLAYER_UPDATE weapons rows need factory equivalents, not just these
+// index counts; re-exported here so runtime.ts reads both from one import.
+export { weaponsBreakdownCountsForPlayer } from "./runtime-weapons-factory-mults.js";

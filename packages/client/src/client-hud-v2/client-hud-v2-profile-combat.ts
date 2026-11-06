@@ -2,8 +2,9 @@
 // Manifest panel showed these as ATK/DEF chips; HUD v2 had no home for them.
 // The number is the same base power the battle screen and win-chance formula
 // start from: BASE_COMBAT_POWER times every lasting multiplier the server
-// lists in modBreakdown (manifests, AFC domains, weapons factories). Forts,
-// siege, terrain and effort apply per battle and stay on the battle screen.
+// lists in modBreakdown (manifests, AFC domains, weapons industry, precursor
+// salvage). Forts, siege, terrain, effort and the no-war-industry edge apply
+// per battle against a specific rival and stay on the battle screen.
 
 import { BASE_COMBAT_POWER } from "@border-empires/shared";
 
@@ -14,9 +15,9 @@ export type ProfileCombat = { attack: readonly CombatModRow[]; defense: readonly
 const esc = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-/** The server lists a neutral "Base" row; it's the starting number, not a source. */
+/** The server's neutral { label: "Base", mult: 1 } row is the starting number, not a source. */
 const sourceRows = (rows: readonly CombatModRow[]): CombatModRow[] =>
-  rows.filter((row) => row.label.trim().toLowerCase() !== "base" && Number.isFinite(row.mult));
+  rows.filter((row) => Number.isFinite(row.mult) && !(row.label === "Base" && row.mult === 1));
 
 export const combatPower = (rows: readonly CombatModRow[]): number =>
   sourceRows(rows).reduce((acc, row) => acc * row.mult, BASE_COMBAT_POWER);
@@ -26,10 +27,12 @@ export const formatCombatPower = (value: number): string => {
   return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
 };
 
+/** One decimal like the battle breakdown, so small sources (+0.4%) still read as non-zero. */
 const pctOf = (mult: number): { text: string; tone: "good" | "bad" | "flat" } => {
-  const delta = Math.round((mult - 1) * 100);
+  const delta = Math.round((mult - 1) * 1000) / 10;
   if (delta === 0) return { text: "±0%", tone: "flat" };
-  return { text: `${delta > 0 ? "+" : "−"}${Math.abs(delta)}%`, tone: delta > 0 ? "good" : "bad" };
+  const abs = Math.abs(delta);
+  return { text: `${delta > 0 ? "+" : "−"}${Number.isInteger(abs) ? abs : abs.toFixed(1)}%`, tone: delta > 0 ? "good" : "bad" };
 };
 
 export const combatStatCardsHtml = (combat: ProfileCombat): string =>
@@ -55,4 +58,4 @@ const sidePanelHtml = (title: string, rows: readonly CombatModRow[]): string => 
 export const combatPanelsHtml = (combat: ProfileCombat): string =>
   `${sidePanelHtml("Attack", combat.attack)}${sidePanelHtml("Defense", combat.defense)}`;
 
-export const COMBAT_FOOTNOTE_HTML = `<p class="v2p-none v2p-combat-note">Forts, siege, terrain and effort count per battle.</p>`;
+export const COMBAT_FOOTNOTE_HTML = `<p class="v2p-none v2p-combat-note">Forts, siege, terrain, effort and a rival lacking a weapons factory count per battle.</p>`;

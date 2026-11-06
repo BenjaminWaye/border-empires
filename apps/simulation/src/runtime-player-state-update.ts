@@ -12,6 +12,7 @@ import { waypointQueueWireEntries } from "./player-runtime-summary.js";
 import type { PlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { RuntimePlayer } from "./runtime-types.js";
+import type { WeaponsFactoryBreakdownCounts } from "./tech-domain-bridge/weapons-factory-mod-breakdown.js";
 import type { DormantStructureDetail, ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 
 /** Dependencies {@link emitPlayerStateUpdate} needs to build and emit a PLAYER_UPDATE message. */
@@ -38,7 +39,7 @@ export type RuntimePlayerStateUpdateContext = {
   pendingSettlementsSnapshotForPlayer: (playerId: string) => Array<{ x: number; y: number; startedAt: number; resolvesAt: number }>;
   autoSettlementQueueForPlayer: (playerId: string) => Array<{ x: number; y: number }>;
   activeDevelopmentProcessCountForPlayer: (playerId: string) => number;
-  weaponsFactoryCountsForPlayer: (playerId: string) => { titanium: number; umbrite: number };
+  weaponsFactoryCountsForPlayer: (playerId: string) => WeaponsFactoryBreakdownCounts;
 };
 
 /**

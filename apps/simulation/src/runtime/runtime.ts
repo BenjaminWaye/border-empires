@@ -361,7 +361,7 @@ import {
   ownedStructureCountForPlayer as ownedStructureCountForPlayerImpl,
   ownedStructureCountsForPlayer as ownedStructureCountsForPlayerImpl,
   refreshOwnedStructureCountIndexForTile as refreshOwnedStructureCountIndexForTileImpl,
-  weaponsFactoryCountsFromIndex
+  weaponsBreakdownCountsForPlayer, weaponsFactoryCountsFromIndex
 } from "../runtime-owned-structure-index.js";
 import { RuntimeEconomyCaches } from "../runtime-economy-caches/runtime-economy-caches.js";
 import { createPlayerUpdateEmitter, type PlayerUpdateEmitter } from "../runtime-player-update-emitter/runtime-player-update-emitter.js";
@@ -2563,7 +2563,7 @@ export class SimulationRuntime {
       pendingSettlementsSnapshotForPlayer: (playerId) => pendingSettlementsSnapshotForPlayer(this.summaryForPlayer(playerId)),
       autoSettlementQueueForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId),
       activeDevelopmentProcessCountForPlayer: (playerId) => this.activeDevelopmentProcessCountForPlayer(playerId),
-      weaponsFactoryCountsForPlayer: (playerId) => weaponsFactoryCountsFromIndex(this.ownedStructureCountByPlayerByType, playerId)
+      weaponsFactoryCountsForPlayer: (playerId) => weaponsBreakdownCountsForPlayer(this.combatSupportContext(), playerId)
     };
   }
 
