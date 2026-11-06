@@ -40,7 +40,8 @@ describe("salvage toasts", () => {
     expect(salvageToastFor(player(), "20,20", works(0, "under_construction"))).toBeUndefined();
     expect(salvageToastFor({ ...player(), me: "rival" }, "20,20", works())).toBeUndefined();
     // After the last load the server clears the resource and the Works.
-    expect(salvageToastFor(player(), "20,20", { ...works(), resource: undefined, economicStructure: undefined } as Tile)).toBeUndefined();
+    const { resource: _resource, economicStructure: _works, ...depleted } = works();
+    expect(salvageToastFor(player(), "20,20", depleted as Tile)).toBeUndefined();
   });
 });
 
