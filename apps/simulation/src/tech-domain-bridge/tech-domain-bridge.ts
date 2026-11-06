@@ -6,7 +6,7 @@ import { techCatalogIdentityMetadata } from "./tech-catalog-identity-metadata.js
 import { VISION_RADIUS, type ResourceSlotGrant, type SlotResource } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
-import { weaponsFactoryCountsForPlayer, appendWeaponsFactoryBreakdownEntries } from "./weapons-factory-mod-breakdown.js";
+import { weaponsFactoryCountsForPlayer, appendWeaponsFactoryBreakdownEntries, type WeaponsFactoryBreakdownCounts } from "./weapons-factory-mod-breakdown.js";
 import { grantAmbaricTransformerUnlockIfLinked } from "./tech-ambaric-transformer-unlock.js";
 import { claimedMonumentUnlockTechIds, monumentAlreadyBuiltRejectReason } from "./tech-monument-unlock-lock.js";
 import { techTree, techEntryById, domainEntryById, domainCatalogForPlayer, openDomainChoices, reachableDomainChoices } from "./tech-domain-catalogs.js";
@@ -147,7 +147,7 @@ const addModBreakdownEntry = (
 
 export const buildModBreakdownForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">,
-  weaponsFactoryCounts?: { titanium: number; umbrite: number }
+  weaponsFactoryCounts?: WeaponsFactoryBreakdownCounts
 ): ModBreakdown => {
   const breakdown = emptyModBreakdown();
   for (const techId of player.techIds) {
