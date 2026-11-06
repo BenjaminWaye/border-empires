@@ -85,7 +85,7 @@ export const compactTrackerHtml = (input: TrackerInput): string => {
 export type CompactClickContext = {
   layer: HTMLElement;
   barHtml: () => string;
-  openChip: (chip: string) => void;
+  openChip: (chip: string, mode: "toggle" | "open") => void;
   repaintTracker: () => void;
 };
 
@@ -96,7 +96,7 @@ export const compactLayerClick = (target: Element, ctx: CompactClickContext): bo
     const chip = target.closest<HTMLElement>("[data-hud-v2-chip]")?.dataset.hudV2Chip;
     if (chip) {
       closeTreasury();
-      ctx.openChip(chip);
+      ctx.openChip(chip, "open");
       return true;
     }
     // The gear (and anything else that opens something) closes the Treasury first, then opens as usual.
@@ -106,7 +106,7 @@ export const compactLayerClick = (target: Element, ctx: CompactClickContext): bo
   if (target.closest("#hud-v2-bar [data-hud-v2-chip], #hud-v2-bar .hud-v2-chip-static")) {
     const chip = target.closest<HTMLElement>("[data-hud-v2-chip]")?.dataset.hudV2Chip;
     if (!chip) return false;
-    ctx.openChip(chip);
+    ctx.openChip(chip, "toggle");
     return true;
   }
   if (target.closest("[data-v2c-tracker-toggle]")) {

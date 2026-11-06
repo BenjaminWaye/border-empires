@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { backStackDepth, pushBackEntry } from "./client-hud-v2-back.js";
 import { COMPACT_MIN_BOTTOM_COVER, compactFocusRowOffset } from "./client-hud-v2-compact-camera.js";
 import { compactLayerClick, compactTracker, compactTrackerHtml, syncBackEntry, trackerSummaryHtml, treasuryOpen } from "./client-hud-v2-compact.js";
+import { applyResourceChip, type ResourcePanelState } from "./client-hud-v2-resource-panel.js";
 import type { TrackerInput } from "./client-hud-v2-tracker.js";
 
 const tracker = (over: Partial<TrackerInput> = {}): TrackerInput => ({
@@ -65,8 +66,24 @@ describe("direct resource breakdown", () => {
     const openChip = vi.fn();
     const ctx = { layer: document.body, barHtml: () => "", openChip, repaintTracker: vi.fn() };
     expect(compactLayerClick(document.querySelector("#hud-v2-bar span")!, ctx)).toBe(true);
-    expect(openChip).toHaveBeenCalledWith(chip);
+    expect(openChip).toHaveBeenCalledWith(chip, "toggle");
     expect(treasuryOpen()).toBe(false);
+  });
+});
+
+describe("compact resource toggle", () => {
+  it("closes a resource on the second bar tap and switches on a different chip", () => {
+    document.body.innerHTML = `<div id="hud-v2-bar"><button data-hud-v2-chip="coin">Coin</button><button data-hud-v2-chip="food">Food</button></div>`;
+    const state: ResourcePanelState = { activePanel: null, economyFocus: "ALL" };
+    const ctx = { layer: document.body, barHtml: () => "", openChip: (chip: string, mode: "toggle" | "open" = "open") => applyResourceChip(state, chip, mode), repaintTracker: vi.fn() };
+    const coin = document.querySelector('[data-hud-v2-chip="coin"]')!;
+    compactLayerClick(coin, ctx);
+    expect(state.activePanel).toBe("economy");
+    compactLayerClick(coin, ctx);
+    expect(state.activePanel).toBeNull();
+    compactLayerClick(coin, ctx);
+    compactLayerClick(document.querySelector('[data-hud-v2-chip="food"]')!, ctx);
+    expect(state).toEqual({ activePanel: "economy", economyFocus: "FOOD" });
   });
 });
 

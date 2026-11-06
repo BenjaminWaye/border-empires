@@ -131,8 +131,8 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   if (document.body.classList.contains("hud-v2-compact") && event.currentTarget instanceof HTMLElement && compactLayerClick(target, {
     layer: event.currentTarget,
     barHtml: () => written.get("bar") ?? "",
-    // A Treasury row always shows that breakdown, even when Economy is already open on it.
-    openChip: (chip) => openResourcePanel(deps, chip, "open"),
+    // Bar chips toggle; Treasury rows always show their breakdown.
+    openChip: (chip, mode) => openResourcePanel(deps, chip, mode),
     repaintTracker: () => renderTracker(deps.state, Date.now())
   })) return;
   const open = target.closest<HTMLElement>("[data-hud-v2-open]");
