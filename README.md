@@ -13,6 +13,9 @@ The [world bible](docs/lore/galactic-lore.md) is the authoritative home for
 the game's fiction. Start with the [lore index and maintenance policy](docs/lore/README.md)
 before gameplay or narrative changes; update affected lore in the same branch.
 The [documentation map](docs/README.md) points to current rules and runbooks.
+For agent work, [context discipline](docs/agents/codex-token-budget.md) keeps
+read-only questions lightweight; edits still require isolated worktrees and
+the [implementation gates](docs/agents/implementation-rules.md).
 
 ## Game Overview
 

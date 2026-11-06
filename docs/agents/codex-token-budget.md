@@ -4,6 +4,20 @@ Status: canonical runbook
 
 Use this for Codex-agent context discipline. It is about reducing agent token usage while working in this repo, not gameplay/API token usage.
 
+## Short questions and read-only reviews
+
+- Answer at the requested depth. A short explanation or feasibility question is not permission to start implementation, prepare a PR, or deploy.
+- Read-only work uses an existing checkout: no new worktree, fetch, dependency installation, build, or test run. Set up an isolated worktree when edits become necessary.
+- Aim for one narrow discovery batch and one bounded evidence read. Expand when the answer depends on a concrete missing fact; this is not a correctness ceiling.
+- Read the directly relevant runbook section only. Do not preload testing, deploy, lore, and architecture guides for every question. Source-change requirements remain mandatory when that work starts.
+- Batch independent commands to avoid a model call between every predictable read. Target 100 relevant lines or less per excerpt and avoid returning installer/build output when only exit status matters.
+- Inspect declarations and call sites before implementations. Stop gathering context when the requested answer is supported.
+- Do not perform browser QA for wording-only changes unless layout or behavior needs verification. Never skip required regression, CI, or pre-PR checks to reduce tokens.
+
+## What to measure
+
+Input per call includes automatically supplied instructions/tools and accumulated context. Input per message is the sum across all calls that message triggers. Keep those separate from typed-message size, cached input, and plan-limit percentages. Reduce redundant reads and rounds first; do not promise a particular allowance saving from raw token counts. Existing chats retain already-loaded context; revised instructions reduce future work, not past usage.
+
 ## Default workflow
 
 1. Start narrow:
