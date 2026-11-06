@@ -35,6 +35,8 @@ export type TileLastEmittedRefs = {
   captureHoldUntil: unknown;
   warScarLevel: unknown;
   warScarUntil: unknown;
+  razedWreckUntil: unknown;
+  razedWreck: unknown;
   townRef: unknown;
   fortRef: unknown;
   observatoryRef: unknown;
@@ -264,6 +266,8 @@ export class TileDeltaStringifyCache {
     if (tile.captureHoldUntil !== last.captureHoldUntil) { (delta as Record<string, unknown>).captureHoldUntil = tile.captureHoldUntil; hasFieldChanges = true; }
     if (tile.warScarLevel !== last.warScarLevel) { (delta as Record<string, unknown>).warScarLevel = tile.warScarLevel; hasFieldChanges = true; }
     if (tile.warScarUntil !== last.warScarUntil) { (delta as Record<string, unknown>).warScarUntil = tile.warScarUntil; hasFieldChanges = true; }
+    if (tile.razedWreckUntil !== last.razedWreckUntil) { (delta as Record<string, unknown>).razedWreckUntil = tile.razedWreckUntil; hasFieldChanges = true; }
+    if (tile.razedWreck !== last.razedWreck) { (delta as Record<string, unknown>).razedWreck = tile.razedWreck; hasFieldChanges = true; }
 
     if (tile.town !== last.townRef) { (delta as Record<string, unknown>).townJson = fullDelta.townJson; hasFieldChanges = true; }
     if (tile.fort !== last.fortRef) { (delta as Record<string, unknown>).fortJson = fullDelta.fortJson; hasFieldChanges = true; }
@@ -341,6 +345,8 @@ export class TileDeltaStringifyCache {
       captureHoldUntil: tile.captureHoldUntil,
       warScarLevel: tile.warScarLevel,
       warScarUntil: tile.warScarUntil,
+      razedWreckUntil: tile.razedWreckUntil,
+      razedWreck: tile.razedWreck,
       townRef: tile.town,
       fortRef: tile.fort,
       observatoryRef: tile.observatory,

@@ -54,6 +54,8 @@ type NormalizedGatewayTileUpdate = {
   captureHoldUntil?: Tile["captureHoldUntil"] | undefined;
   warScarLevel?: Tile["warScarLevel"] | undefined;
   warScarUntil?: Tile["warScarUntil"] | undefined;
+  razedWreck?: Tile["razedWreck"] | undefined;
+  razedWreckUntil?: Tile["razedWreckUntil"] | undefined;
   yieldRate?: Tile["yieldRate"] | undefined;
   upkeepEntries?: Tile["upkeepEntries"] | undefined;
   history?: Tile["history"] | undefined;
@@ -102,6 +104,8 @@ export type GatewayTileUpdate = {
   captureHoldUntil?: number | null;
   warScarLevel?: number | null;
   warScarUntil?: number | null;
+  razedWreck?: string | null;
+  razedWreckUntil?: number | null;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;
@@ -180,6 +184,8 @@ export const normalizeGatewayTileUpdate = (
   }
   if ("warScarLevel" in update) normalized.warScarLevel = typeof update.warScarLevel === "number" && update.warScarLevel > 0 ? update.warScarLevel : undefined;
   if ("warScarUntil" in update) normalized.warScarUntil = typeof update.warScarUntil === "number" && update.warScarUntil > 0 ? update.warScarUntil : undefined;
+  if ("razedWreck" in update) normalized.razedWreck = typeof update.razedWreck === "string" && update.razedWreck ? update.razedWreck : undefined;
+  if ("razedWreckUntil" in update) normalized.razedWreckUntil = typeof update.razedWreckUntil === "number" && update.razedWreckUntil > 0 ? update.razedWreckUntil : undefined;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
   if ("upkeepEntries" in update) normalized.upkeepEntries = update.upkeepEntries;
   if ("history" in update) normalized.history = update.history;

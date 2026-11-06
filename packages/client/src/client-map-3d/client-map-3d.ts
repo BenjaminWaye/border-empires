@@ -863,7 +863,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           if (dormantStructureResource) resourceBadgeOverlays[dormantStructureResource].addInstance(x, z, surfaceY);
         }
         // Rubble of a razed/wrecked structure and smoke over a captured resource, until the hold ends (both renderers).
-        if (tile && terrain === "LAND" && visibility === "visible") captureAftermathFx.addTile(tile, tileKey, x, z, surfaceY, wx, wy, shouldDrawForestInstance(forestTile, tile) ? (tropicalForestTile ? "TROPICAL" : "TEMPERATE") : undefined);
+        if (tile && terrain === "LAND" && visibility === "visible") captureAftermathFx.addTile(tile, x, z, surfaceY, wx, wy, shouldDrawForestInstance(forestTile, tile) ? (tropicalForestTile ? "TROPICAL" : "TEMPERATE") : undefined);
         if (tile && ownerId === "barbarian-1" && terrain === "LAND") {
           barbarianOverlay.addInstance(tileKey, x, z, surfaceY, wx, wy);
           contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);

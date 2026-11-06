@@ -173,6 +173,8 @@ const createTilesFromInitialStateUncleared = (
       ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
       ...(typeof tile.warScarLevel === "number" ? { warScarLevel: tile.warScarLevel } : {}),
       ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
+      ...(typeof tile.razedWreckUntil === "number" ? { razedWreckUntil: tile.razedWreckUntil } : {}),
+      ...(typeof tile.razedWreck === "string" ? { razedWreck: tile.razedWreck } : {}),
       ...(hydratedTown ? { town: hydratedTown } : {}),
       ...(tile.fort ? { fort: tile.fort } : {}),
       ...(tile.observatory ? { observatory: tile.observatory } : {}),

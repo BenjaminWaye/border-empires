@@ -23,6 +23,8 @@ export type SimClientTileDelta = {
   captureHoldUntil?: number | undefined;
   warScarLevel?: number | undefined;
   warScarUntil?: number | undefined;
+  razedWreckUntil?: number | undefined;
+  razedWreck?: string | undefined;
   townJson?: string | undefined;
   townType?: "MARKET" | "FARMING";
   townName?: string | undefined;
@@ -60,9 +62,13 @@ export type ProtoTileDelta = {
   capture_hold_until?: number;
   war_scar_level?: number;
   war_scar_until?: number;
+  razed_wreck_until?: number;
+  razed_wreck?: string;
   captureHoldUntil?: number;
   warScarLevel?: number;
   warScarUntil?: number;
+  razedWreckUntil?: number;
+  razedWreck?: string;
   town_json?: string;
   townJson?: string;
   town_type?: string;
@@ -121,6 +127,14 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   if ("war_scar_until" in tile || "warScarUntil" in tile) {
     const warScarUntil = tile.war_scar_until ?? tile.warScarUntil;
     normalized.warScarUntil = typeof warScarUntil === "number" && warScarUntil > 0 ? warScarUntil : undefined;
+  }
+  if ("razed_wreck" in tile || "razedWreck" in tile) {
+    const razedWreck = tile.razed_wreck ?? tile.razedWreck;
+    normalized.razedWreck = typeof razedWreck === "string" && razedWreck ? razedWreck : undefined;
+  }
+  if ("razed_wreck_until" in tile || "razedWreckUntil" in tile) {
+    const razedWreckUntil = tile.razed_wreck_until ?? tile.razedWreckUntil;
+    normalized.razedWreckUntil = typeof razedWreckUntil === "number" && razedWreckUntil > 0 ? razedWreckUntil : undefined;
   }
   if ("town_json" in tile || "townJson" in tile) normalized.townJson = tile.town_json || tile.townJson || undefined;
   if (typeof tile.town_type === "string" && (tile.town_type === "MARKET" || tile.town_type === "FARMING")) {

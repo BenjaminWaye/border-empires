@@ -189,6 +189,8 @@ export type DomainTileState = {
   captureHoldUntil?: number | undefined;
   warScarLevel?: number | undefined;
   warScarUntil?: number | undefined;
+  razedWreckUntil?: number | undefined;
+  razedWreck?: string | undefined;
   town?:
     | (Pick<NonNullable<Tile["town"]>, "type" | "populationTier"> &
         Partial<

@@ -265,9 +265,9 @@ const resourceFire = (ctx: Ctx, seed: number, px: number, py: number, s: number,
   smoke(ctx, seed + 7, px + s * 0.38, py + s * 0.5, s, now, 4, 0.8);
 };
 
-export const drawCaptureAftermath2D = (ctx: Ctx, tile: Tile, tileKey: string, px: number, py: number, size: number, nowEpochMs: number): void => {
+export const drawCaptureAftermath2D = (ctx: Ctx, tile: Tile, px: number, py: number, size: number, nowEpochMs: number): void => {
   if (size < 8) return;
-  const aftermath = captureAftermathForTile(tile, tileKey, nowEpochMs);
+  const aftermath = captureAftermathForTile(tile, nowEpochMs);
   if (!aftermath) return;
   const seed = tile.x * 17 + tile.y * 31;
   ctx.save();
