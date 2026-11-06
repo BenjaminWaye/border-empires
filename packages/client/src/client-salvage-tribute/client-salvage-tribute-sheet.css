@@ -43,8 +43,9 @@
 .salvage-sheet-facts dd {
   margin: 2px 0 0;
   font-family: var(--sp-font-display);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
+  white-space: nowrap;
   color: var(--sp-parchment-100);
 }
 
