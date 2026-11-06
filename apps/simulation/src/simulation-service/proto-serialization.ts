@@ -182,7 +182,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           x: tile.x,
           y: tile.y,
           ...(tile.terrain ? { terrain: tile.terrain } : {}),
-          ...("resource" in tile ? { resource: tile.resource ?? null } : {}),
+          ...("resource" in tile ? { resource: tile.resource } : {}),
           ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
           ...(tile.dockId ? { dockId: tile.dockId } : {}),
           ...("ownerId" in tile ? { ownerId: tile.ownerId ?? null } : {}),
