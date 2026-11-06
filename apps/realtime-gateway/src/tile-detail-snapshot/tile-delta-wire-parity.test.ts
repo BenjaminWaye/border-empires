@@ -100,6 +100,8 @@ const TILE_FIELD_SPECS: TileFieldSpec[] = [
   { protoField: "capture_hold_until", wireValue: 1_893_456_120_000, camelField: "captureHoldUntil", normalized: 1_893_456_120_000 },
   { protoField: "war_scar_level", wireValue: 3, camelField: "warScarLevel", normalized: 3 },
   { protoField: "war_scar_until", wireValue: 1_893_456_180_000, camelField: "warScarUntil", normalized: 1_893_456_180_000 },
+  { protoField: "razed_wreck", wireValue: "RELAY_BEACON", camelField: "razedWreck", normalized: "RELAY_BEACON" },
+  { protoField: "razed_wreck_until", wireValue: 1_893_456_180_000, camelField: "razedWreckUntil", normalized: 1_893_456_180_000 },
   { protoField: "visibility_state", wireValue: "FOG", camelField: "visibilityState", normalized: "FOG" },
   { protoField: "ownership_clear_only", wireValue: true, camelField: "ownershipClearOnly", normalized: true },
   { protoField: "combat_json", wireValue: "{\"attackerOwnerId\":\"p1\",\"defenderOwnerId\":\"p2\",\"attackerWon\":true,\"originX\":1,\"originY\":2,\"at\":1000}", camelField: "combatJson", normalized: "{\"attackerOwnerId\":\"p1\",\"defenderOwnerId\":\"p2\",\"attackerWon\":true,\"originX\":1,\"originY\":2,\"at\":1000}", presenceSensitive: true }
