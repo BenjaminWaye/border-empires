@@ -1,0 +1,54 @@
+# Implementation Rules
+
+Status: canonical runbook
+
+Read only the sections matching the change. These requirements were moved from the always-loaded root instructions; they remain mandatory for applicable work. Read-only questions do not require loading this file.
+
+## Renderer parity (2D canvas + true-3D map)
+
+- The client has two map renderers gated by `isTrue3DRendererActive()`: the 2D canvas path and the true-3D (Three.js, `client-map-3d.ts` and friends) path. **The 2D path is not legacy or secondary** — it is the accessibility fallback for players whose devices can't run the 3D renderer (older/lower-end phones, broken WebGL). Most players are on 3D.
+- Any new map-tile overlay, highlight, or selection visualization must be implemented for **both** renderers in the same branch, or the PR description and final summary must say explicitly, in plain language, which renderer(s) it's missing from and why — never let a "done" report imply full coverage when only one renderer got the feature. Silence on this is treated as a false completion claim.
+- Before reporting a rendering feature complete, grep the target behavior's guard (`isTrue3DRendererActive()`) to confirm you touched both branches, not just the one that happened to match existing nearby code.
+
+## File and type discipline
+
+- Source files have a hard 500-line limit for new growth. Local CI enforces this with `pnpm check:file-lines`: new source files must be 500 lines or fewer, files at or below 500 may not cross 500, and files already over 500 may not increase in line count. If an oversized file must change, split/extract first so the file is net smaller in the same branch — pull a cohesive piece (a type of logic, a class, a set of related helpers) out into its own file with clear ownership and update call sites/imports accordingly. Do not satisfy the check by compacting, minifying, or otherwise shrinking existing code in place (denser formatting, dropped comments, merged statements) — that is not extraction and defeats the point of the limit.
+- If a branch touches a large integration file, review the diff for nearby regressions and extract helpers first, so later branches don't overwrite unrelated code paths.
+- Treat strict TypeScript as a hard requirement (`noUnusedLocals` is on: delete unused imports/locals/private members instead of silencing them). No `Record<string, any>`, no untyped dependency bags, no broad `unknown`/`any` casts for module wiring. Factories must declare explicit dependency interfaces and return types. No `as any` at composition roots — fix the contract.
+- When touching loosely typed legacy areas, tighten the boundary you are working in as part of the change.
+
+## Changelog gate (client-visible changes)
+
+- Any user-visible gameplay, client, shared-rules, or server behavior change must add a new entry to `packages/client/src/client-changelog/client-changelog-data.ts` (`CLIENT_CHANGELOG_ENTRIES`) in the same branch, with `createdAt` set to a frozen Unix-ms value captured once from `Date.now()`.
+- Entries are unordered and timestamp-sorted at render time — append your entry anywhere (the end is easiest) instead of inserting at the top, and there's no shared `version` field to bump. This is deliberate: it avoids merge conflicts between agents landing changelog entries in parallel.
+- Do not ship, merge, or deploy a user-visible update if the changelog check fails.
+
+## Testing and debugging
+
+- `.github/workflows/ci.yml` runs lint, `check:file-lines`, build, and test on every PR and on pushes to `develop`/`main` — check its status rather than assuming CI is empty. `.github/workflows/deploy-staging.yml` and `deploy-prod.yml` deploy automatically on green pushes to `develop`/`main` respectively (see `docs/agents/deploys.md`). `.github/workflows/nightly-load-harness.yml` is separate and only triggers on `schedule`/`workflow_dispatch`. Run `pnpm ci:local` before opening a PR rather than waiting on CI to find problems.
+- For every bug fix, add or update a regression test that fails before the fix and passes after.
+- Failing regression tests are merge blockers, even if the feature seems unrelated.
+- Full regression + debugging-instrumentation patterns: `docs/agents/testing-and-debugging.md`. Sync-delay exports: `docs/agents/topics/sync-delay-diagnostics.md`.
+- AI planner / snapshot / selector rules (heavy selectors banned in snapshot builders, etc.): `docs/agents/ai-guardrails.md`.
+- State/cache/persistence discipline (bound every growable map, snapshots carry state not logs, gauge growable structures): `docs/agents/state-and-persistence-discipline.md`. Read before adding any cache/map or anything written into a snapshot.
+- Codex token budget and context-loading rules: `docs/agents/codex-token-budget.md`.
+
+## Documentation maintenance
+
+- Keep `AGENTS.md` limited to always-on operating rules and pointers. Do not expand it into architecture or gameplay docs.
+- **Every gameplay update requires a lore consistency check.** Before changing gameplay or player-facing fiction, read [`docs/lore/README.md`](../lore/README.md) and the affected sections of the canonical world bible at [`docs/lore/galactic-lore.md`](../lore/galactic-lore.md). Update the world bible in the same branch whenever the change affects the meaning of resources, structures, capabilities, territory, progression or campaigns; do not leave accepted lore only in a chat, PR or implementation plan.
+- Follow the lore index's maintenance policy: keep numerical balance and shipped behavior in the gameplay references, label proposed fiction explicitly, and record unresolved canon questions in the world bible. If a gameplay update has no fictional impact, state "Lore reviewed; no canon change" in its PR or final summary.
+- Use `docs/README.md` as the documentation map and lifecycle policy. Read the matching operational or topic runbook before broad repo discovery: deploys → `docs/agents/deploys.md`; tests/debugging → `docs/agents/testing-and-debugging.md`; AI → `docs/agents/topics/ai-planner.md`; local gameplay checks → `docs/agents/topics/agent-gameplay-testing.md`; gameplay rules → `docs/game-mechanics.md`; structures → `docs/adding-a-structure-playbook.md`; completed Great Project artwork → `docs/monument-models.md`.
+- When workflow rules, repo entrypoints, or package layout change, update `AGENTS.md`, `README.md`, and affected docs in the same branch.
+- Use per-topic runbooks/task notes for recurring work so agents do not rediscover the same files and commands every session: `docs/agents/topic-runbooks.md`.
+- Before opening a PR, read through `README.md` and check whether your diff makes any part of it stale (setup steps, scripts, package layout, stack description, etc.). Update it in the same branch if so.
+
+## Repo reference
+
+- Workspace packages: `packages/shared` (constants/formulas/schemas/types), `packages/game-domain` (rewrite domain logic), `packages/sim-protocol` (gateway↔sim wire), `packages/client-protocol` (gateway↔client wire), `packages/client` (browser client), `packages/storybook` (3D/UI component stories).
+- Rewrite-stack apps (staging today): `apps/realtime-gateway`, `apps/simulation`.
+- Tests live beside the source module they cover; do not add new flat test files directly under package or app `src/` roots. Simulation AI/planner/automation code lives under `apps/simulation/src/ai/`.
+- Root scripts: `pnpm dev` (shared + simulation + realtime gateway + client), `pnpm build`, `pnpm test`, `pnpm lint`.
+- Native app wrappers: `apps/mobile`; sync, iOS archive/export, signing, and store runbook: `docs/agents/mobile-apps.md`. Run `pnpm mobile:sync` before opening either native project; never ship a wrapper with a remote `server.url`.
+- Account deletion and backup restore operations: `docs/agents/account-deletion.md`. Stop both runtime processes before offline erasure; reapply the current deletion ledger before restoring service from a backup.
+- Architecture/AI/design notes live in `docs/`. Load on demand; do not inline into this file.

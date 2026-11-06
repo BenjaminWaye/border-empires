@@ -10,6 +10,8 @@ remain authoritative for runtime behavior.
 
 | Need | Read |
 |---|---|
+| Agent context budget and read-only reviews | [`agents/codex-token-budget.md`](agents/codex-token-budget.md) |
+| Conditional source-change requirements | [`agents/implementation-rules.md`](agents/implementation-rules.md) |
 | Repository-wide operating rules | [`../AGENTS.md`](../AGENTS.md) |
 | Relic mechanics, reserves, discovery and legacy compatibility | [`relics.md`](relics.md) |
 | Lore entrypoint and required gameplay-change lore check | [`lore/README.md`](lore/README.md) |
