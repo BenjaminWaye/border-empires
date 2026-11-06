@@ -99,6 +99,7 @@ import { MARCH_ATTACK_ROUTES_CHANGELOG } from "./client-changelog-march-attack-r
 import { MARCH_TO_UNEXPLORED_CHANGELOG } from "./client-changelog-march-to-unexplored.js";
 import { FORT_WALL_OPENINGS_CHANGELOG } from "./client-changelog-fort-wall-openings.js";
 import { HILL_GARRISON_FILL_CHANGELOG } from "./client-changelog-hill-garrison-fill.js";
+import { NAME_DECAL_HILLS_CHANGELOG } from "./client-changelog-name-decal-hills.js";
 import { SHARD_COMEBACK_CHANGELOG } from "./client-changelog-shard-comeback.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
@@ -313,6 +314,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["AI empires now build relay beacons that carry reach across their own unsettled borderlands, and toward wide stretches of plain unclaimed land."]
   },
   ...HILL_GARRISON_FILL_CHANGELOG,
+  ...NAME_DECAL_HILLS_CHANGELOG,
   {
     createdAt: 1792873662311, // Frozen Date.now() timestamp for the changelog gate.
     introducedIn: "2026.10.24.3",
@@ -455,7 +457,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...HUD_V2_COMBAT_STATS_CHANGELOG,
   ...SALVAGE_TRIBUTE_UI_CHANGELOG,
   ...AI_FREE_TRUCE_CHANGELOG,
-  ...CAPTURE_WRECK_FIX_CHANGELOG
+  ...CAPTURE_WRECK_FIX_CHANGELOG,
+  {
+    createdAt: 1793991860190, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.06",
+    title: "Depleted salvage fields clear correctly",
+    why: "The map could restore an empty salvage field after removing its Reclamation Works.",
+    changes: ["Shipping the final salvage load removes both the field and its Works in the 2D and 3D maps"]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

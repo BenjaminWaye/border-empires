@@ -28,19 +28,17 @@ import {
 } from "three";
 import { drawNameAlongPath } from "../client-map-name-labels/client-map-name-label-draw.js";
 import { createMapNameLabelSource, type MapNameLabelSource, type MapNameLabelSourceDeps } from "../client-map-name-labels/client-map-name-labels.js";
-import type { RoadCutDirections } from "../client-map-3d-hill-shape.js";
+import { hillBumpsWithCorridorAt, hillNeighborFlagsAt, hillShapeHeight, type RoadCutDirections } from "../client-map-3d-hill-shape.js";
+import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield-terrain.js";
 import { tileSurfaceHeights, type TileSurfaceHeightfield } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
+import { buildDecalMeshArrays, type HillDomeSampler } from "./client-map-3d-name-decal-mesh.js";
 
 /** Tiles of canvas kept around the camera window, so small pans don't redraw the texture. */
 const CANVAS_MARGIN_TILES = 12;
 /** Hard cap on either canvas dimension; pixels per tile shrink to stay under it. */
 const MAX_CANVAS_PX = 2048;
 const MAX_PX_PER_TILE = 40;
-/** Corner lift above the heightfield; matches client-map-3d.ts's OVERLAY_RISE_ABOVE_HEIGHTFIELD. */
-const CORNER_RISE = 0.012;
-/** Ground-mesh vertices per tile edge (corners, edge midpoints, centres). */
-const SUBDIVISIONS = 2;
 const TERRAIN_RESAMPLE_MIN_INTERVAL_MS = 1_000;
 /** Smallest glyph height, in tiles, before a name stops shrinking to fit. */
 const MIN_GLYPH_TILES = 0.3;
@@ -52,6 +50,8 @@ export type NameDecalDeps = {
   readonly cornerYAt: (wx: number, wy: number) => number;
   /** Rendered height of a tile's centre, overlay lift included (tileSurfaceHeights' flatOverlayY). */
   readonly tileCenterY: (wx: number, wy: number) => number;
+  /** Dome sampler for a hill tile (undefined elsewhere): hill tiles get a finer ground mesh that follows the dome. */
+  readonly hillDomeAt?: ((wx: number, wy: number) => HillDomeSampler | undefined) | undefined;
   readonly wrapX: (x: number) => number;
   readonly wrapY: (y: number) => number;
   readonly worldWidth: number;
@@ -179,57 +179,18 @@ export const createNameDecal = (deps: NameDecalDeps): NameDecal => {
     const tilesZ = 2 * halfH + 3;
     const originDx = -halfW - 1;
     const originDy = -halfH - 1;
-    const cols = tilesX * SUBDIVISIONS + 1;
-    const rows = tilesZ * SUBDIVISIONS + 1;
-    const positions = new Float32Array(cols * rows * 3);
-    const uvs = new Float32Array(cols * rows * 2);
-    const areaOffsetX = toroidDelta(current.x0, frame.camX + originDx, deps.worldWidth);
-    const areaOffsetY = toroidDelta(current.y0, frame.camY + originDy, deps.worldHeight);
-    for (let row = 0; row < rows; row += 1) {
-      for (let col = 0; col < cols; col += 1) {
-        const localX = col / SUBDIVISIONS;
-        const localZ = row / SUBDIVISIONS;
-        const tileX = Math.floor(localX);
-        const tileZ = Math.floor(localZ);
-        const wx = frame.camX + originDx + tileX;
-        const wy = frame.camY + originDy + tileZ;
-        const onCornerX = col % SUBDIVISIONS === 0;
-        const onCornerZ = row % SUBDIVISIONS === 0;
-        let y: number;
-        if (onCornerX && onCornerZ) {
-          y = deps.cornerYAt(deps.wrapX(wx), deps.wrapY(wy)) + CORNER_RISE;
-        } else if (!onCornerX && !onCornerZ) {
-          y = deps.tileCenterY(deps.wrapX(wx), deps.wrapY(wy));
-        } else if (onCornerX) {
-          y = (deps.cornerYAt(deps.wrapX(wx), deps.wrapY(wy)) + deps.cornerYAt(deps.wrapX(wx), deps.wrapY(wy + 1))) / 2 + CORNER_RISE;
-        } else {
-          y = (deps.cornerYAt(deps.wrapX(wx), deps.wrapY(wy)) + deps.cornerYAt(deps.wrapX(wx + 1), deps.wrapY(wy))) / 2 + CORNER_RISE;
-        }
-        const vertex = row * cols + col;
-        positions[vertex * 3] = originDx + localX;
-        positions[vertex * 3 + 1] = y;
-        positions[vertex * 3 + 2] = originDy + localZ;
-        uvs[vertex * 2] = (areaOffsetX + localX) / current.widthTiles;
-        uvs[vertex * 2 + 1] = 1 - (areaOffsetY + localZ) / current.heightTiles;
-      }
-    }
-    const indices = new Uint32Array((cols - 1) * (rows - 1) * 6);
-    let index = 0;
-    for (let row = 0; row < rows - 1; row += 1) {
-      for (let col = 0; col < cols - 1; col += 1) {
-        const a = row * cols + col;
-        const b = a + 1;
-        const c = a + cols;
-        const d = c + 1;
-        indices[index] = a;
-        indices[index + 1] = c;
-        indices[index + 2] = b;
-        indices[index + 3] = b;
-        indices[index + 4] = c;
-        indices[index + 5] = d;
-        index += 6;
-      }
-    }
+    const { positions, uvs, indices } = buildDecalMeshArrays(deps, {
+      firstTileX: frame.camX + originDx,
+      firstTileY: frame.camY + originDy,
+      tilesX,
+      tilesZ,
+      originDx,
+      originDy,
+      areaOffsetX: toroidDelta(current.x0, frame.camX + originDx, deps.worldWidth),
+      areaOffsetY: toroidDelta(current.y0, frame.camY + originDy, deps.worldHeight),
+      areaWidthTiles: current.widthTiles,
+      areaHeightTiles: current.heightTiles
+    });
     // A fresh geometry, and the old one disposed: replacing attributes in place
     // would leave the previous GL buffers allocated until the context dies.
     const next = new BufferGeometry();
@@ -312,6 +273,12 @@ export const createNameDecalForMap = (deps: NameDecalForMapDeps): NameDecal =>
         heightfield: deps.heightfield, wx, wy, wxNext: deps.wrapX(wx + 1), wyNext: deps.wrapY(wy + 1), rise: deps.rise,
         isHillsAt: deps.isHillsAt, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt: deps.hillCutAt()
       }).flatOverlayY,
+    hillDomeAt: (wx, wy) => {
+      if (!deps.isHillsAt(wx, wy)) return undefined;
+      const bumps = hillBumpsWithCorridorAt(wx, wy, hillNeighborFlagsAt(wx, wy, deps.isHillsAt, deps.wrapX, deps.wrapY));
+      const roadDirs = deps.hillCutAt()(wx, wy);
+      return (u, v) => HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, wx, wy, roadDirs);
+    },
     wrapX: deps.wrapX,
     wrapY: deps.wrapY,
     worldWidth: deps.worldWidth,
