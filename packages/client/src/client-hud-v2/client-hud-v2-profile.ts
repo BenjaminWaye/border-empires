@@ -8,6 +8,7 @@ import type { LeaderboardOverallEntry } from "@border-empires/game-domain";
 import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakView } from "../client-player-profile/client-player-profile-types.js";
 import { sectorOrSeasonLabel, specializationLabel, trophyIconHtml } from "../client-player-profile/client-player-profile-galaxy.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
+import { COMBAT_FOOTNOTE_HTML, combatPanelsHtml, combatStatCardsHtml, type ProfileCombat } from "./client-hud-v2-profile-combat.js";
 
 type Loadable<T> = T | "loading" | undefined;
 
@@ -26,6 +27,8 @@ export type ProfileInput = {
   truceBreaks: Loadable<TruceBreakView[]>;
   nameOf: (id: string) => string | undefined;
   nowMs: number;
+  /** Your own Attack/Defense sources; only set on your own profile, so rivals' strength never shows. */
+  combat?: ProfileCombat;
 };
 
 const esc = (text: string): string =>
@@ -66,15 +69,16 @@ const heroHtml = (input: ProfileInput): string => {
   </aside>`;
 };
 
-const statsHtml = (entry: LeaderboardOverallEntry | undefined): string => {
+const statsHtml = (entry: LeaderboardOverallEntry | undefined, combat: ProfileCombat | undefined): string => {
   const card = (label: string, value: string): string => `<div class="v2p-stat"><span>${label}</span><b>${value}</b></div>`;
   const v = (fn: (e: LeaderboardOverallEntry) => string): string => (entry ? fn(entry) : "—");
-  return `<div class="v2p-stats">
+  return `<div class="v2p-stats${combat ? " v2p-stats-combat" : ""}">
     ${card("Score", v((e) => int(e.score)))}
     ${card("Garrisoned tiles", v((e) => int(e.tiles)))}
     ${card("Coin / day", v((e) => (e.incomePerMinute * 1440).toFixed(1)))}
     ${card("Techs", v((e) => int(e.techs)))}
     ${card("Manpower cap", v((e) => int(e.manpowerCap)))}
+    ${combat ? combatStatCardsHtml(combat) : ""}
   </div>`;
 };
 
@@ -132,7 +136,8 @@ const breaksHtml = (breaks: Loadable<TruceBreakView[]>): string => {
 export const profileHtml = (input: ProfileInput): string =>
   `<div class="v2p">${heroHtml(input)}<div class="v2p-main" data-v2-scroll="profile">
     <h3 class="v2p-h">This season</h3>
-    ${statsHtml(input.entry)}
+    ${statsHtml(input.entry, input.combat)}
+    ${input.combat ? `<div class="v2p-grid">${combatPanelsHtml(input.combat)}</div>${COMBAT_FOOTNOTE_HTML}` : ""}
     <div class="v2p-grid">${careerHtml(input.career)}${trophiesHtml(input.holdings)}${holdingsHtml(input.holdings)}${pactsHtml(input)}${breaksHtml(input.truceBreaks)}</div>
   </div></div>`;
 
