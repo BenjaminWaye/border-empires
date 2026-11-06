@@ -4,6 +4,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
 import { salvageArmsMultForPlayer } from "../runtime-weapons-factory-mults.js";
+import { toProtoEvent } from "../simulation-service/proto-serialization.js";
 
 const now = lastManpowerRefillAtMs("p", 100 * MANPOWER_REFILL_WINDOW_MS);
 const land = (x: number, y: number): DomainTileState => ({ x, y, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED" });
@@ -37,6 +38,10 @@ describe("shipping precursor salvage to the Court", () => {
     expect(f.player().manpower).toBeCloseTo(cap * 0.75);
     expect(f.site().resource).toBeUndefined();
     expect(f.site().economicStructureJson).toBeUndefined();
+    // The emptied field must reach clients as an explicit clear ("" on the wire), not an omission.
+    const lastDelta = f.events.filter(event => event.eventType === "TILE_DELTA_BATCH" && event.commandId === "load-3").at(-1)!;
+    const wireTile = toProtoEvent(lastDelta).tile_deltas.find(tile => tile.x === 20 && tile.y === 20);
+    expect(wireTile && "resource" in wireTile ? wireTile.resource : "omitted").toBe("");
     await f.ship("load-4");
     expect(f.events.some(event => event.eventType === "COMMAND_REJECTED" && event.commandId === "load-4")).toBe(true);
   });

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { DEFAULT_AUTO_SETTLE_PREFS, COMBAT_LOCK_MS } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, COMBAT_LOCK_MS, RAZED_WRECK_DURATION_MS } from "@border-empires/shared";
 import { CONVERTER_MODE_FLIP_COOLDOWN_MS } from "@border-empires/game-domain";
 import { SimulationRuntime } from "../runtime/runtime.js";
 
@@ -356,6 +356,8 @@ describe("capture structure survival", () => {
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
       expect(capturedTile).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "FRONTIER" }));
       expect(capturedTile?.economicStructureJson).toBeUndefined();
+      // Its wreck lies on the tile for 24h (shared razed-wreck.ts).
+      expect(capturedTile).toEqual(expect.objectContaining({ razedWreck: "RELAY_BEACON", razedWreckUntil: 1_000 + RAZED_WRECK_DURATION_MS }));
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

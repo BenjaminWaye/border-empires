@@ -9,22 +9,25 @@ import { autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-s
 import { isFrontierRelayBeacon } from "../client-tile-action-support/client-tile-action-support.js";
 import type { TileActionDef, TileMenuView } from "../client-types.js";
 import { plainText, type TileFact } from "./client-hud-v2-tile-facts.js";
+import { tileProgressHtml } from "./client-hud-v2-tile-progress.js";
 import { detailLinesBeyondFacts } from "./client-hud-v2-tile-details.js";
 
-export type BarPanel = "aether" | "build" | "details";
+export type BarPanel = "aether" | "build" | "details" | "progress";
 
 export type BarButton =
   | { kind: "action"; action: TileActionDef; primary: boolean }
   | { kind: "afc"; primary: boolean }
   | { kind: "panel"; panel: BarPanel; label: string };
 
-type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs"> & Partial<Pick<TileMenuView, "overviewLines" | "afcUpgradesReady">>;
+type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs"> & Partial<Pick<TileMenuView, "overviewLines" | "afcUpgradesReady" | "progress">>;
 
 const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   "launch_attack",
   "march_attack_flag",
   "expand_here",
-  "march_to_pick_origin"
+  "march_to_pick_origin",
+  // Only offered on your own Reclamation Works; gold while there is salvage to ship.
+  "ship_salvage_to_court"
 ];
 
 const RELAY_BEACON_IDS: ReadonlyArray<TileActionDef["id"]> = ["build_relay_beacon", "build_relay_beacon_frontier"];
@@ -40,8 +43,8 @@ const SECONDARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
 
 const MAX_SECONDARY = 2;
 
-/** Legacy tabs with no new-style view yet (AFC modules, muster commit/reports, progress) stay reachable from ⋯. */
-const LEGACY_ONLY_TABS: ReadonlyArray<TileMenuView["tabs"][number]> = ["modules", "commit", "reports", "progress"];
+/** Legacy tabs with no new-style view yet (AFC modules, muster commit/reports) stay reachable from ⋯. */
+const LEGACY_ONLY_TABS: ReadonlyArray<TileMenuView["tabs"][number]> = ["modules", "commit", "reports"];
 
 /**
  * settle_land is both "Expand To" on neutral land (client-tile-action-neutral.ts) and "Garrison" on your
@@ -131,15 +134,16 @@ const actionButtonHtml = (b: Extract<BarButton, { kind: "action" }>): string => 
   return `<button type="button" class="${cls}" data-hud-v2-action="${esc(a.id)}"${targets(a)}${a.disabled ? " disabled" : ""} title="${esc(title)}"><span class="hud-v2-act-label">${esc(a.label)}</span>${note ? `<span class="hud-v2-act-cost">${esc(note)}</span>` : ""}</button>`;
 };
 
-/** The minor row: small text buttons for everything else, plus a link to legacy-only views (progress, modules, reports). */
-const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[]): string => {
+/** The minor row: small text buttons for everything else, plus a link to legacy-only views (modules, reports). */
+const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[], panel?: BarPanel): string => {
   const minor = moreActions(view, buttons).map((a) => {
     const title = a.disabled ? a.disabledReason ?? a.label : [a.cost, a.detail].filter(Boolean).join(" · ") || a.label;
     return `<button type="button" class="hud-v2-minor${a.disabled ? " hud-v2-minor-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targets(a)}${a.disabled ? " disabled" : ""} title="${esc(title)}">${esc(a.label)}</button>`;
   });
   if (view.afcUpgradesReady === 0) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-open="afc">AFC upgrades ▸</button>`);
+  if (view.progress) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-panel="progress" aria-expanded="${panel === "progress"}">Progress ${panel === "progress" ? "▾" : "▸"}</button>`);
   const legacyTab = view.tabs.find((t) => LEGACY_ONLY_TABS.includes(t));
-  if (legacyTab) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-tab="${legacyTab}">${legacyTab === "progress" ? "Progress" : legacyTab === "modules" ? "Modules" : "Reports"} ▸</button>`);
+  if (legacyTab) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-tab="${legacyTab}">${legacyTab === "modules" ? "Modules" : "Reports"} ▸</button>`);
   return minor.length > 0 ? `<div class="hud-v2-minor-row">${minor.join("")}</div>` : "";
 };
 
@@ -175,5 +179,5 @@ export const actionBarHtml = (fullView: TileMenuView, panel?: BarPanel, facts: r
   const autoSettle = primary?.action.autoSettleOption;
   // A Garrison checkbox belongs with whichever Garrison button is showing (main or minor row).
   const garrisonOption = autoSettle ?? moreActions(view, buttons).find((a) => a.autoSettleOption)?.autoSettleOption;
-  return `${head}${factsHtml(facts)}${panel === "details" ? detailsHtml(view) : ""}${row ? `<div class="hud-v2-act-row">${row}</div>` : ""}${minorRowHtml(view, buttons)}${garrisonOption ? autoSettleOptionHtml(garrisonOption) : ""}`;
+  return `${head}${factsHtml(facts)}${panel === "details" ? detailsHtml(view) : panel === "progress" ? tileProgressHtml(view.progress) : ""}${row ? `<div class="hud-v2-act-row">${row}</div>` : ""}${minorRowHtml(view, buttons, panel)}${garrisonOption ? autoSettleOptionHtml(garrisonOption) : ""}`;
 };

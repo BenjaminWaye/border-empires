@@ -22,6 +22,8 @@ export type RuntimeExportState = {
     captureHoldUntil?: number;
     warScarLevel?: number;
     warScarUntil?: number;
+    razedWreckUntil?: number;
+    razedWreck?: string;
     townJson?: string;
     townType?: "MARKET" | "FARMING";
     townName?: string;

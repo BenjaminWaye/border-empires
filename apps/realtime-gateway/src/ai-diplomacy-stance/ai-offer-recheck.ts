@@ -1,8 +1,7 @@
-// An AI's offer (its counter-offer to a player) is a standing offer the
-// player accepts later. Before it is paid and recorded, the AI weighs it
-// again with what it knows *now*: a player who attacked since, outgrew the
-// AI's bloc, or made the AI furious must not lock in yesterday's price.
-import { emptyDiplomacyTerms, evaluateAiOffer, extensionPricing, swapDiplomacyTerms, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
+// Free AI peace offers stand until expiry or combat withdraws them from
+// SocialState. Paid counters and alliances are rechecked before settlement:
+// an AI may no longer afford a payment or qualify for the resulting bloc.
+import { diplomacyTermsAreEmpty, emptyDiplomacyTerms, evaluateAiOffer, extensionPricing, swapDiplomacyTerms, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "./ai-diplomacy-evaluation.js";
@@ -20,6 +19,12 @@ export const recheckAiOffer = async (
   deps: AiOfferRecheckDeps,
   offer: { aiPlayerId: string; aiName: string; playerId: string; kind: DiplomacyOfferKind; durationHours: 12 | 24; termsFromAi: DiplomacyTerms | undefined; extendsTruce?: boolean }
 ): Promise<AiOfferRecheck> => {
+  // Proactive peace is an offer of peace for free, not an invitation to
+  // recalculate what the player should pay later. This also honors restored
+  // offers after login, even if the AI has recovered or snapshots are unavailable.
+  // Combat invalidation belongs to withdrawTruceOffersOnCombat, which removes
+  // the offer and updates both clients when fighting resumes.
+  if (offer.kind === "truce" && diplomacyTermsAreEmpty(offer.termsFromAi)) return undefined;
   const [aiSnapshot, requesterSnapshot] = await Promise.all([
     deps.fetchAiSnapshot(offer.aiPlayerId),
     deps.requesterSnapshot(offer.playerId).catch(() => undefined)

@@ -249,6 +249,8 @@ export interface Tile {
   captureHoldUntil?: number;
   warScarLevel?: number;
   warScarUntil?: number;
+  razedWreckUntil?: number;
+  razedWreck?: string;
   frontierDecayAt?: number;
   frontierDecayKind?: FrontierDecayKind;
   continentId?: number;

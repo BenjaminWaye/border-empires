@@ -1,0 +1,49 @@
+/* Salvage toasts over your Reclamation Works (client-salvage-ready-toasts.ts).
+   Shaped like the AFC upgrade badge; gold while a load can ship now. */
+.salvage-toast-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+.salvage-toast {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  min-height: 32px;
+  padding: 5px 11px;
+  border: 1px solid var(--sp-brass-300, #d9ad52);
+  border-radius: 5px;
+  color: var(--sp-brass-100, #f4dfa6);
+  background: #241812f0;
+  box-shadow: 0 3px 8px #0008;
+  font: 700 12px var(--sp-font-body, Georgia, serif);
+  white-space: nowrap;
+  pointer-events: auto;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+.salvage-toast::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 4px);
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  border-right: 1px solid var(--sp-brass-300, #d9ad52);
+  border-bottom: 1px solid var(--sp-brass-300, #d9ad52);
+  background: #241812;
+  transform: rotate(45deg);
+}
+.salvage-toast:hover { background: #3c2919; }
+.salvage-toast.is-ready {
+  border-color: #d9b25c;
+  background: #d9b25c;
+  color: #120f0b;
+}
+.salvage-toast.is-ready::after { background: #d9b25c; border-color: #d9b25c; }
+.salvage-toast.is-ready:hover { background: #f0cf82; border-color: #f0cf82; }
+.salvage-toast:focus-visible {
+  outline: 2px solid var(--sp-parchment-100, #f2e8d3);
+  outline-offset: 3px;
+}

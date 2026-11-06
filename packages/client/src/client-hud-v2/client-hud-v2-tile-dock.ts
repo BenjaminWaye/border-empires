@@ -17,6 +17,7 @@ import { ownerStanceTagHtml } from "./client-hud-v2-stance-tag.js";
 import { aetherListHtml } from "./client-hud-v2-aether-list.js";
 import { buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { tileFactsFor, wonderName } from "./client-hud-v2-tile-facts.js";
+import { syncTileProgress } from "./client-hud-v2-tile-progress-live.js";
 import { isHudV2Active } from "./client-hud-v2-flag.js";
 
 export type TileDockDeps = {
@@ -158,7 +159,7 @@ const paintBar = (): void => {
     // The ownership explainer ("Your frontier") is a <details>: keep it open across repaints of the same tile.
     const key = dock.state.tileActionMenu.currentTileKey;
     const helpOpen = bar.dataset.tileKey === key && Boolean(bar.querySelector<HTMLDetailsElement>(OWNERSHIP_HELP)?.open);
-    bar.innerHTML = html;
+    if (!syncTileProgress(bar, dock.lastHtml, html)) bar.innerHTML = html;
     bar.dataset.tileKey = key;
     if (helpOpen) bar.querySelector<HTMLDetailsElement>(OWNERSHIP_HELP)?.setAttribute("open", "");
     dock.lastHtml = html;
@@ -221,6 +222,18 @@ const onBarClick = (event: MouseEvent): void => {
     openTechDetailFromTileMenu(state, tech.dataset.viewTech, deps.isMobile());
     deps.hideTileActionMenu();
     deps.renderHud();
+    return;
+  }
+  const progress = target.closest<HTMLButtonElement>("[data-v2-progress-action]");
+  if (progress) {
+    // Bind the hidden Progress tab before forwarding; the menu may still be on Actions.
+    state.tileActionMenu.activeTab = "progress";
+    state.tileActionMenu.renderSignature = "";
+    dock.rerender();
+    // Reuse the bound controller for queue, garrison, capture and rush actions.
+    const original = Array.from(deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("[data-progress-action]"))
+      .find((button) => button.dataset.progressAction === progress.dataset.v2ProgressAction);
+    if (original && !original.disabled) original.click();
     return;
   }
   const action = target.closest<HTMLButtonElement>("[data-hud-v2-action]");

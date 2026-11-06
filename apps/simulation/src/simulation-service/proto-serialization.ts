@@ -50,6 +50,8 @@ export type ProtoSimulationEvent = {
     capture_hold_until?: number | undefined;
     war_scar_level?: number | undefined;
     war_scar_until?: number | undefined;
+    razed_wreck_until?: number | undefined;
+    razed_wreck?: string | undefined;
     visibility_state?: string | undefined;
     ownership_clear_only?: boolean;
     combat_json?: string | undefined;
@@ -74,6 +76,8 @@ export type ProtoSimulationEvent = {
     captureHoldUntil?: number | null | undefined;
     warScarLevel?: number | null | undefined;
     warScarUntil?: number | null | undefined;
+    razedWreckUntil?: number | null | undefined;
+    razedWreck?: string | null | undefined;
     yieldRate?: { goldPerMinute?: number } | undefined;
     visibilityState?: string | undefined;
     ownershipClearOnly?: boolean | undefined;
@@ -152,7 +156,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           x: tile.x,
           y: tile.y,
           ...(tile.terrain ? { terrain: tile.terrain } : {}),
-          ...(tile.resource ? { resource: tile.resource } : {}),
+          ...("resource" in tile ? { resource: tile.resource ?? "" } : {}),
           ...(tile.prospectSignature ? { prospect_signature: tile.prospectSignature } : {}),
           ...(tile.dockId ? { dock_id: tile.dockId } : {}),
           ...("ownerId" in tile ? { owner_id: tile.ownerId ?? "" } : {}),
@@ -169,6 +173,8 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("captureHoldUntil" in tile ? { capture_hold_until: tile.captureHoldUntil ?? 0 } : {}),
           ...("warScarLevel" in tile ? { war_scar_level: tile.warScarLevel ?? 0 } : {}),
           ...("warScarUntil" in tile ? { war_scar_until: tile.warScarUntil ?? 0 } : {}),
+          ...("razedWreckUntil" in tile ? { razed_wreck_until: tile.razedWreckUntil ?? 0 } : {}),
+          ...("razedWreck" in tile ? { razed_wreck: tile.razedWreck ?? "" } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibility_state: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownership_clear_only: true } : {}),
           ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
@@ -182,7 +188,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           x: tile.x,
           y: tile.y,
           ...(tile.terrain ? { terrain: tile.terrain } : {}),
-          ...(tile.resource ? { resource: tile.resource } : {}),
+          ...("resource" in tile ? { resource: tile.resource } : {}),
           ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
           ...(tile.dockId ? { dockId: tile.dockId } : {}),
           ...("ownerId" in tile ? { ownerId: tile.ownerId ?? null } : {}),
@@ -199,6 +205,8 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("captureHoldUntil" in tile ? { captureHoldUntil: tile.captureHoldUntil ?? null } : {}),
           ...("warScarLevel" in tile ? { warScarLevel: tile.warScarLevel ?? null } : {}),
           ...("warScarUntil" in tile ? { warScarUntil: tile.warScarUntil ?? null } : {}),
+          ...("razedWreckUntil" in tile ? { razedWreckUntil: tile.razedWreckUntil ?? null } : {}),
+          ...("razedWreck" in tile ? { razedWreck: tile.razedWreck ?? null } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibilityState: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownershipClearOnly: true } : {}),
           ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),
@@ -225,6 +233,8 @@ export const toFullSnapshotProtoTile = (tile: {
   captureHoldUntil?: number | undefined;
   warScarLevel?: number | undefined;
   warScarUntil?: number | undefined;
+  razedWreckUntil?: number | undefined;
+  razedWreck?: string | undefined;
   yieldRate?: unknown;
 } & TileOverlayJsonFields) => ({
   x: tile.x,
@@ -247,5 +257,7 @@ export const toFullSnapshotProtoTile = (tile: {
   ...(typeof tile.captureHoldUntil === "number" ? { capture_hold_until: tile.captureHoldUntil } : {}),
   ...(typeof tile.warScarLevel === "number" ? { war_scar_level: tile.warScarLevel } : {}),
   ...(typeof tile.warScarUntil === "number" ? { war_scar_until: tile.warScarUntil } : {}),
+  ...(typeof tile.razedWreckUntil === "number" ? { razed_wreck_until: tile.razedWreckUntil } : {}),
+  ...(typeof tile.razedWreck === "string" ? { razed_wreck: tile.razedWreck } : {}),
   ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {})
 });

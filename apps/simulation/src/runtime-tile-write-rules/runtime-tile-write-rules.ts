@@ -1,7 +1,7 @@
 // Per-write tile bookkeeping applied by Runtime.replaceTileState, split out
 // of runtime.ts (over the 500-line cap) so each rule is unit-testable.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { isCaptureHoldActive, liveWarScarLevel } from "@border-empires/shared";
+import { isCaptureHoldActive, liveRazedWreck, liveWarScarLevel } from "@border-empires/shared";
 
 /**
  * Drops a capture hold (shared capture-hold.ts) that no longer applies, so
@@ -28,6 +28,14 @@ export const withoutFadedWarScars = (next: DomainTileState, nowMs: number): Doma
   if (next.warScarLevel === undefined && next.warScarUntil === undefined) return next;
   if (liveWarScarLevel(next, nowMs) > 0) return next;
   const { warScarLevel: _level, warScarUntil: _until, ...rest } = next;
+  return rest;
+};
+
+/** Drops a razed wreck (shared razed-wreck.ts) once it has cleared, so the fields never linger. */
+export const withoutClearedRazedWreck = (next: DomainTileState, nowMs: number): DomainTileState => {
+  if (next.razedWreck === undefined && next.razedWreckUntil === undefined) return next;
+  if (liveRazedWreck(next, nowMs)) return next;
+  const { razedWreck: _kind, razedWreckUntil: _until, ...rest } = next;
   return rest;
 };
 

@@ -324,7 +324,7 @@ export const menuOverviewForTile = (
   if (isFortDefending(tile.fort) && tile.ownerId && structureRecentlyCaptured) {
     pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
   }
-  for (const line of captureAftermathMenuLines(tile, `${tile.x},${tile.y}`)) pushLine(line);
+  for (const line of captureAftermathMenuLines(tile)) pushLine(line);
   if (isFortDefending(tile.fort) && tile.ownerId && !structureRecentlyCaptured) {
     // Same helper the client's own attack gate uses (findClosestMuster in
     // client-muster-attack-gate.ts), so the number shown here always matches

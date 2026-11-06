@@ -24,7 +24,7 @@ import type { TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenu
 // as "am I winning this fight". A defender-viewed card always renders a
 // neutral 50/50 split (attackerShare fixed at 0.5 by the caller) since the
 // defender doesn't get to see the attacker's real odds.
-const battleOddsBarHtml = (battle: NonNullable<TileMenuProgressView["battle"]>): string => {
+export const battleOddsBarHtml = (battle: NonNullable<TileMenuProgressView["battle"]>): string => {
   const attackerPct = Math.round(battle.attackerShare * 100);
   return `
     <div class="tile-progress-battle">

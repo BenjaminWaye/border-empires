@@ -17,13 +17,24 @@ Design inputs already in the repo: the **Mobile** section of
 sketches of the map, town and battle screens) and its "Where today's panels
 go" table. This plan builds on those sketches rather than replacing them.
 
+## November 6 follow-up
+
+Resource chips now open their Economy breakdown directly on phones; the
+intermediate Treasury sheet is no longer part of the tap flow. Progress opens
+inside the tile panel with the existing Rush/Cancel handlers, rather than
+opening the legacy tile dialog. Town summaries use the terrain/coastal
+character and show its Coin and manpower modifiers; Market/Farming labels do
+not describe the active economy. The original sketches below remain historical.
+
+Lore reviewed; no canon change.
+
 ## What was built
 
 | Phase | Built | Differs from the plan |
 |---|---|---|
 | 0 | Layout mode, sheet primitive, screenshot harness | The `?hud=compact` opt-in (and `be.hudV2Compact`) was removed again in Phase 7; the link still switches the HUD on |
 | — | `isMobile()` split (`client-panel-nav/client-phone-viewport.ts`) | New: legacy panels follow `isMobile()`, which is false while the compact HUD drives a phone, so they open in `#side-panel` as on desktop and the compact CSS restyles it as a sheet. Device budgets (frame gap, pixel counts, tile-detail requests, login zoom) use `isPhoneViewport()` |
-| 1 | Treasury sheet from the bar, folded tracker line, season pill, lens button, orb, tab bar | The tab bar keeps all seven entries (crest + Manifest, Towns, AFC, Diplomacy, Ranks, Chronicle) with labels under the icons, rather than five tabs and a More menu: they fit at 360 px and keep every destination one tap away. Rivals are hidden on phones (they're in Diplomacy) |
+| 1 | Direct resource breakdowns from the bar (updated November 6), folded tracker line, season pill, lens button, orb, tab bar | The tab bar keeps all seven entries (crest + Manifest, Towns, AFC, Diplomacy, Ranks, Chronicle) with labels under the icons, rather than five tabs and a More menu: they fit at 360 px and keep every destination one tap away. Rivals are hidden on phones (they're in Diplomacy) |
 | 2 | Tile panel as a bottom sheet over the tab bar; actions ≥ 44 px, primary first; camera offset (`client-hud-v2-compact-camera.ts`) | The tile panel sizes to its content (capped at 62% of the screen, scrolls) instead of three draggable detents; the grabber is a visual mark. The camera offset moves `camY`, which both renderers read, so it needed no renderer-specific code |
 | 3 | Battle: header, both sides on one row, outcome and Confirm at the bottom | — |
 | 4 | Town: full screen, stats over the build list, actions pinned at the foot | Stacked panels rather than Overview / Build / Tiles tabs |

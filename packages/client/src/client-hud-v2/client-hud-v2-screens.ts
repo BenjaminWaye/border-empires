@@ -263,7 +263,8 @@ const renderProfile = (deps: HudV2Deps): void => {
     pacts: self ? { allies: state.allies, activeTruces: state.activeTruces } : social,
     truceBreaks: self ? state.truceBreaksThisSeason : social === "loading" || social === undefined ? social : social.truceBreaksThisSeason,
     nameOf: (other) => nameOf(deps, other) || undefined,
-    nowMs: Date.now()
+    nowMs: Date.now(),
+    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] } } : {})
   }));
 };
 

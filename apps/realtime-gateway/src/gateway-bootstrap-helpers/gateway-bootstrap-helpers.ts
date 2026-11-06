@@ -19,6 +19,7 @@ export const jsonSafeTileDeltaBatch = (
   tileDeltas.map((tileDelta) => {
     const safe: Record<string, unknown> & TileOverlayJsonFields = {
       ...tileDelta,
+      ...("resource" in tileDelta && tileDelta.resource === undefined ? { resource: null } : {}),
       ...("ownerId" in tileDelta && tileDelta.ownerId === undefined ? { ownerId: null } : {}),
       ...("reachOwnerId" in tileDelta && tileDelta.reachOwnerId === undefined ? { reachOwnerId: null } : {}),
       ...("ownershipState" in tileDelta && tileDelta.ownershipState === undefined ? { ownershipState: null } : {}),
@@ -28,6 +29,8 @@ export const jsonSafeTileDeltaBatch = (
       ...("captureHoldUntil" in tileDelta && tileDelta.captureHoldUntil === undefined ? { captureHoldUntil: null } : {}),
       ...("warScarLevel" in tileDelta && tileDelta.warScarLevel === undefined ? { warScarLevel: null } : {}),
       ...("warScarUntil" in tileDelta && tileDelta.warScarUntil === undefined ? { warScarUntil: null } : {}),
+      ...("razedWreckUntil" in tileDelta && tileDelta.razedWreckUntil === undefined ? { razedWreckUntil: null } : {}),
+      ...("razedWreck" in tileDelta && tileDelta.razedWreck === undefined ? { razedWreck: null } : {}),
       ...("townJson" in tileDelta && tileDelta.townJson === undefined ? { townJson: "" } : {}),
       ...("ownershipClearOnly" in tileDelta && tileDelta.ownershipClearOnly ? { ownershipClearOnly: true } : {})
     };

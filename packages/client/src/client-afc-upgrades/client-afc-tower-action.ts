@@ -1,6 +1,7 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import { formatCooldownShort } from "../client-app-runtime-utils.js";
+import { showSalvageTributeSheet } from "../client-salvage-tribute/client-salvage-tribute-sheet.js";
 
 interface AfcTowerActionOptions { installed: boolean; hostile: boolean; inRange: boolean; cooldownMs: number; hijackInstalled?: boolean; hijackReadyInMs?: number; now?: number }
 
@@ -26,7 +27,8 @@ export function afcTowerSuppressionAction(tile: Tile, options: AfcTowerActionOpt
 /** Shared tile-targeted actions; suppression uses its own command and preserves ordinary Purge effects. */
 export function dispatchTileAetherAction(actionId: string, selected: Pick<Tile, "x" | "y">, state: Pick<ClientState, "aetherLanceFxQueue">, send: (payload: unknown) => boolean): void {
   if (actionId === "forced_ancillarification") send({ type: "FORCED_ANCILLARIFICATION", x: selected.x, y: selected.y });
-  if (actionId === "ship_salvage_to_court") send({ type: "SHIP_SALVAGE_TO_COURT", x: selected.x, y: selected.y });
+  // Opens the confirm popup; the command is sent from its gold "Ship 1 load" button.
+  if (actionId === "ship_salvage_to_court") showSalvageTributeSheet(selected, send);
   if (actionId === "suppress_aether_tower") send({ type: "SUPPRESS_AETHER_TOWER", x: selected.x, y: selected.y });
   if (actionId === "hijack_aether_tower") send({ type: "HIJACK_AETHER_TOWER", x: selected.x, y: selected.y });
   if (actionId === "aether_lance" && send({ type: "AETHER_LANCE", x: selected.x, y: selected.y })) state.aetherLanceFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });

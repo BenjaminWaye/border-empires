@@ -23,7 +23,6 @@ export const tileDeltaRevealOnly = (
     x: tile.x,
     y: tile.y,
     ...(tile.terrain ? { terrain: tile.terrain } : {}),
-    ...(resourceValue ? { resource: resourceValue } : {}),
     // Public terrain clue, never resource-gated (see prospect-signatures.ts).
     ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
@@ -34,6 +33,8 @@ export const tileDeltaRevealOnly = (
     // This path also fires for a tile's first-ever exposure to a given
     // subscriber (fog-of-war reveal), so omitting these fields here would
     // recreate the #791 bug class -- see tile-delta-stringify-cache.ts.
+    // A resource the viewer hasn't revealed, or one that is gone (last salvage load), is an explicit clear.
+    resource: resourceValue ?? undefined,
     ownerId: tile.ownerId ?? undefined,
     ownershipState: tile.ownershipState ?? undefined,
     reachOwnerId: reachOwnerId ?? undefined,
@@ -43,6 +44,8 @@ export const tileDeltaRevealOnly = (
     captureHoldUntil: tile.captureHoldUntil ?? undefined,
     warScarLevel: tile.warScarLevel ?? undefined,
     warScarUntil: tile.warScarUntil ?? undefined,
+    razedWreckUntil: tile.razedWreckUntil ?? undefined,
+    razedWreck: tile.razedWreck ?? undefined,
     ...townWireFields(tile.town)
   };
   // Always full, never sparse-diffed: this path fires for tiles entering a

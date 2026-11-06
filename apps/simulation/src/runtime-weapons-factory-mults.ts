@@ -15,6 +15,7 @@ import type { BattleWarGear } from "@border-empires/sim-protocol";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { countSupportedStructures } from "./economy-network/economy-network.js";
+import type { WeaponsFactoryBreakdownCounts } from "./tech-domain-bridge/weapons-factory-mod-breakdown.js";
 
 // Weapons Workshop/Titanium/Umbrite Weapons Factory combat-mult helpers and
 // the "no war industry" vulnerability check, split out of
@@ -133,3 +134,18 @@ export const noWarIndustryEdgeForDefender = (ctx: WeaponsFactoryMultContext, att
 /** Precursor salvage arms bonus, both attack and defense (frontier-resource-effects.ts). */
 export const salvageArmsMultForPlayer = (ctx: WeaponsFactoryMultContext, playerId: string | undefined): number =>
   playerId ? salvageArmsMultiplier(ctx.ownedStructureCountForPlayer(playerId, "RECLAMATION_WORKS")) : 1;
+
+/**
+ * Everything the profile's Attack/Defense rows need, with the factory
+ * equivalents combat actually uses (concentratedFactoryEquivalent), so the
+ * PLAYER_UPDATE modBreakdown matches the battle screen's base strength.
+ * Walks the player's own towns (ownedTownKeys), never the whole world.
+ */
+export const weaponsBreakdownCountsForPlayer = (ctx: WeaponsFactoryMultContext, playerId: string): WeaponsFactoryBreakdownCounts => ({
+  titanium: ctx.ownedStructureCountForPlayer(playerId, "TITANIUM_WEAPONS_FACTORY"),
+  umbrite: ctx.ownedStructureCountForPlayer(playerId, "UMBRITE_WEAPONS_FACTORY"),
+  titaniumEquivalent: concentratedFactoryEquivalent(ctx, playerId, "TITANIUM_WEAPONS_FACTORY"),
+  umbriteEquivalent: concentratedFactoryEquivalent(ctx, playerId, "UMBRITE_WEAPONS_FACTORY"),
+  workshop: ctx.ownedStructureCountForPlayer(playerId, "WEAPONS_WORKSHOP"),
+  salvage: ctx.ownedStructureCountForPlayer(playerId, "RECLAMATION_WORKS")
+});
