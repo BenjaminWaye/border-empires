@@ -5,6 +5,7 @@
 // Details ▾ (the full tile overview), then every remaining action as a row of
 // smaller text buttons underneath. A fact strip above says what the tile is.
 
+import { buildingActionCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { isFrontierRelayBeacon } from "../client-tile-action-support/client-tile-action-support.js";
 import type { TileActionDef, TileMenuView } from "../client-types.js";
@@ -56,8 +57,9 @@ const relayBeacon = (view: BarView): TileActionDef | undefined =>
   [...view.actions, ...view.buildings].find((a) => RELAY_BEACON_IDS.includes(a.id) && !a.disabled);
 
 /**
- * Attack-type actions first, then a Garrison worth it (recommended: resources, towns, docks), then a Relay
- * Beacon, then Expand To. On plain frontier the beacon leads and Garrison sits in the minor row.
+ * Attack-type actions first, then a Garrison worth it (recommended: resources, towns, docks),
+ * then an available resource improvement, Relay Beacon, then Expand To.
+ * On plain frontier the beacon leads and Garrison sits in the minor row.
  */
 const primaryAction = (view: BarView): TileActionDef | undefined => {
   for (const id of PRIMARY_ORDER) {
@@ -65,6 +67,7 @@ const primaryAction = (view: BarView): TileActionDef | undefined => {
     if (hit) return hit;
   }
   return view.actions.find((a) => isGarrison(a) && a.recommended && !a.disabled)
+    ?? [...view.actions, ...view.buildings].find((a) => buildingActionCategory(a) === "resource" && !a.disabled)
     ?? relayBeacon(view)
     ?? view.actions.find((a) => a.id === "settle_land" && !a.disabled && !isGarrison(a))
     ?? blockedPrimaryAction(view);
@@ -109,9 +112,9 @@ export const selectBarButtons = (view: BarView): BarButton[] => {
 export const hasDetails = (view: Partial<Pick<TileMenuView, "overviewLines">>): boolean =>
   (view.overviewLines ?? []).some((l) => l.kind !== "loading" && plainText(l.html) !== "");
 
-/** The build list, without a Relay Beacon already on the bar as the main action. */
+/** Resource improvements remain discoverable in Build even when also the main action. */
 export const barBuildings = (view: Pick<TileMenuView, "buildings">, primary: TileActionDef | undefined): TileActionDef[] =>
-  view.buildings.filter((b) => b !== primary);
+  view.buildings.filter((b) => b !== primary || buildingActionCategory(b) === "resource");
 
 /** Every action the main row doesn't show (Garrison, Garrison many, Abandon, …): drawn as the minor row. */
 export const moreActions = (view: Pick<TileMenuView, "actions">, buttons: readonly BarButton[]): TileActionDef[] => {

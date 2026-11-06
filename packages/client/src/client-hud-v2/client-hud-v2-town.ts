@@ -9,7 +9,7 @@ import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTie
 import type { ClientAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { townCharacterLabelForProfile, townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
-import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
+import { initialBuildingCategory, type BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { autoSettleOptionForTile, autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { isGarrison } from "./client-hud-v2-action-bar.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
@@ -118,7 +118,7 @@ const buildPanelHtml = (input: TownScreenInput): string => {
     focusLabel: supportFocus ? `(${input.focus.x}, ${input.focus.y})` : input.townView.title,
     focusHighlighted: supportFocus,
     selection: input.buildSelection,
-    category: input.category ?? "town_support",
+    category: input.category ?? initialBuildingCategory(buildCategories(input.focusView.buildings).map((c) => c.category)),
     emptyText: `Nothing to build ${supportFocus ? "on this tile" : "here"}`,
     targetKey: keyOf(input.focus),
     placeLabel,
