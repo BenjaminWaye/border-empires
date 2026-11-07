@@ -90,7 +90,16 @@ export class VisionFootprintTable {
     this.worldWidth = worldWidth;
     this.worldHeight = worldHeight;
     this.deps = deps;
-    this.forestAt = deps.forestAt ?? isForestTileAt;
+    const staticForestAt = deps.forestAt ?? isForestTileAt;
+    // isForestTileAt reads the static worldgen map only. Season worldgen can
+    // carve SEA channels through tiles that map still calls forest
+    // (server-worldgen-island-connectivity.ts), so the live terrain must
+    // veto it: water never occludes vision. Sea never changes in play, so
+    // this doesn't affect the permanent/epoch cache split below.
+    this.forestAt = (x, y) => {
+      const terrain = this.deps.terrainAt(((x % worldWidth) + worldWidth) % worldWidth, ((y % worldHeight) + worldHeight) % worldHeight);
+      return terrain !== "SEA" && terrain !== "COASTAL_SEA" && staticForestAt(x, y);
+    };
   }
 
   /**
