@@ -73,6 +73,12 @@ describe("recheckAiOffer", () => {
     expect(result?.reason).toContain("those terms no longer suit it");
   });
 
+  // Prices follow live income, so a counter must survive the drift of ordinary growth.
+  it("stands by its counter when income has only drifted, not when it has jumped", async () => {
+    await expect(recheck({}, snapshotFor(AI_ID, 0, 2.1))).resolves.toBeUndefined();
+    await expect(recheck({}, snapshotFor(AI_ID, 0, 3))).resolves.toEqual(expect.objectContaining({ withdraw: true }));
+  });
+
   it("refuses without withdrawing when the AI can't be read right now", async () => {
     await expect(recheck({}, null)).resolves.toEqual(expect.objectContaining({ withdraw: false }));
   });
