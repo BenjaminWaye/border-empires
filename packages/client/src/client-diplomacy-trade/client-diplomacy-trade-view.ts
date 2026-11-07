@@ -40,6 +40,8 @@ export type DiplomacyStanceReply =
       pricing?: AiDiplomacyPricing;
       /** Absent from a gateway older than gifts. */
       gift?: AiGiftView;
+      /** Absent from a gateway older than temperaments. */
+      temperament?: { label: string; traits: string };
     };
 
 export type DiplomacyAttitude = "FURIOUS" | "ANNOYED" | "CAUTIOUS" | "PLEASED" | "FRIENDLY";
@@ -58,6 +60,10 @@ export const attitudeSummary = (reply: DiplomacyStanceReply | undefined): string
   const war = reply.war?.atWar ? ` · At war${reply.war.aiWinning ? " (they're winning)" : reply.war.aiLosing ? " (they're losing)" : ""}` : "";
   return `${ATTITUDE_LABEL[reply.attitude.level]}${war}`;
 };
+
+/** "Merchant · Cheaper truces, gifts go further" under the trade screen's header line. */
+export const temperamentLine = (reply: DiplomacyStanceReply | undefined): string =>
+  reply?.found && reply.ai && reply.temperament ? `${reply.temperament.label} · ${reply.temperament.traits}` : "";
 
 /**
  * The tiles each side has taken in this war, as the AI counts them (recent

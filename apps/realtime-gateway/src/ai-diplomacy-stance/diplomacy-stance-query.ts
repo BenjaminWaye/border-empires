@@ -30,6 +30,8 @@ export type DiplomacyStancePayload =
       pricing?: AiDiplomacyPricing;
       /** For the gift preview: coin per opinion point and the goodwill already paid. */
       gift?: AiGiftView;
+      /** The AI's fixed personality, for the trade screen. */
+      temperament?: { label: string; traits: string };
     };
 
 export type DiplomacyStanceQueryDeps = {
@@ -80,6 +82,7 @@ export const answerDiplomacyStanceQuery = async (
     ...(evaluation.truceRefusal ? { truceRefusal: evaluation.truceRefusal } : {}),
     ...(evaluation.allianceRefusal ? { allianceRefusal: evaluation.allianceRefusal } : {}),
     pricing: evaluation.pricing,
-    gift: evaluation.gift
+    gift: evaluation.gift,
+    temperament: { label: evaluation.temperament.label, traits: evaluation.temperament.traits }
   };
 };

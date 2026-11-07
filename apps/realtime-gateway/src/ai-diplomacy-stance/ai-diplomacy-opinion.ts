@@ -16,6 +16,7 @@ import {
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
+import { AI_TEMPERAMENTS, type AiTemperament } from "./ai-diplomacy-temperament.js";
 
 export type AiAttitude = AiAttitudeLevel;
 export type AiOpinionModifier = { label: string; value: number };
@@ -56,9 +57,12 @@ export const computeAiOpinion = (input: {
   incomePerHour: number;
   /** Diplomatic Corps (AFC Chancery II): flat opinion the requester's envoys earn with every AI. */
   diplomaticCorpsBonus?: number;
+  /** The AI's fixed personality; Measured when omitted. */
+  temperament?: AiTemperament;
   now: number;
 }): AiOpinion => {
   const { memory } = input;
+  const temperament = input.temperament ?? AI_TEMPERAMENTS.MEASURED;
   const modifiers: AiOpinionModifier[] = [];
   const add = (label: string, value: number): void => {
     const rounded = Math.round(value);
@@ -74,12 +78,13 @@ export const computeAiOpinion = (input: {
   }
   if (input.requesterBrokeAllianceWithAi) add("You broke our alliance", -BROKEN_ALLIANCE_OPINION_PENALTY);
   const tilesTaken = Math.round(memory.tilesTakenFromAi);
-  if (tilesTaken > 0) add(`You took ${tilesTaken} of our ${tilesTaken === 1 ? "tile" : "tiles"}`, -Math.min(40, 4 * memory.tilesTakenFromAi));
+  if (tilesTaken > 0) add(`You took ${tilesTaken} of our ${tilesTaken === 1 ? "tile" : "tiles"}`, -Math.min(40, 4 * memory.tilesTakenFromAi * temperament.tileGrudge));
   else if (memory.lastPlayerAttackAt !== undefined && input.now - memory.lastPlayerAttackAt < 24 * 60 * 60_000) add("You attacked us", -10);
   add(input.bordersTouch ? "Our borders are contested" : "Our borders don't meet", input.bordersTouch ? -10 : 5);
   if (input.stanceKind === "OUTMATCHED") add("Fears your strength", 10);
   add("Gifts and payments you've made us", goodwillPointsFor(memory.goodwillCoin, input.incomePerHour));
   if (input.diplomaticCorpsBonus) add("Your diplomatic corps", input.diplomaticCorpsBonus);
+  add(`${temperament.label} temperament`, temperament.opinionBaseline);
 
   const score = modifiers.reduce((sum, modifier) => sum + modifier.value, 0);
   const atWar = memory.lastCombatAt !== undefined && input.now - memory.lastCombatAt < AT_WAR_WINDOW_MS;

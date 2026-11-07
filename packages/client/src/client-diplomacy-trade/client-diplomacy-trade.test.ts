@@ -33,6 +33,25 @@ const selection = (giveGold = 0, kind: TradeSelection["kind"] = "truce", duratio
 const verdict = (overrides: Partial<Parameters<typeof tradeVerdict>[0]>) =>
   tradeVerdict({ targetName: "Milo", reply: aiReply, selection: selection(), own: { gold: 100 }, cooldownRemainingMs: 0, ...overrides });
 
+describe("temperament line", () => {
+  afterEach(() => closeDiplomacyTradeScreen());
+  const line = (): HTMLElement => document.querySelector<HTMLElement>("[data-trade-temperament]")!;
+
+  it("shows an AI's temperament once the stance arrives", () => {
+    openDiplomacyTradeScreen({ targetName: "Milo", kind: "truce", durationHours: 12 }, { send: vi.fn(), ownHoldings: () => ({ gold: 0 }) });
+    expect(line().hidden).toBe(true);
+    receiveDiplomacyStance({ ...aiReply, temperament: { label: "Merchant", traits: "Cheaper truces, gifts go further" } } as DiplomacyStanceReply);
+    expect(line().hidden).toBe(false);
+    expect(line().textContent).toBe("Merchant · Cheaper truces, gifts go further");
+  });
+
+  it("stays hidden for a gateway that sends none", () => {
+    openDiplomacyTradeScreen({ targetName: "Milo", kind: "truce", durationHours: 12 }, { send: vi.fn(), ownHoldings: () => ({ gold: 0 }) });
+    receiveDiplomacyStance(aiReply);
+    expect(line().hidden).toBe(true);
+  });
+});
+
 describe("tradeVerdict", () => {
   it("previews an AI's answer with the shared pricing rules", () => {
     expect(verdict({ selection: selection(40) })).toEqual(expect.objectContaining({ tone: "good", text: "Milo would accept a 12h truce on these terms." }));

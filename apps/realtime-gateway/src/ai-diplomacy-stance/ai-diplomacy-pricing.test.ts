@@ -6,6 +6,7 @@ import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-me
 import { computeAiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing, MIN_INCOME_PER_MINUTE } from "./ai-diplomacy-pricing.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
+import { AI_TEMPERAMENTS, type AiTemperament } from "./ai-diplomacy-temperament.js";
 import type { AiRetaliationReadiness } from "./ai-retaliation-readiness.js";
 import { answerDiplomacyStanceQuery } from "./diplomacy-stance-query.js";
 
@@ -37,6 +38,7 @@ const price = (options: {
   aiWouldLeadAlliance?: boolean | undefined;
   giftToPleased?: number;
   retaliation?: AiRetaliationReadiness;
+  temperament?: AiTemperament;
 }) => {
   const stanceKind = options.stanceKind ?? "WARY";
   const mem = options.memory ?? memory();
@@ -51,6 +53,7 @@ const price = (options: {
     requesterBrokeAllianceWithAi: options.brokeAlliance ?? false,
     bordersTouch,
     incomePerHour: Math.max(MIN_INCOME_PER_MINUTE, aiIncome, requesterIncome) * 60,
+    ...(options.temperament ? { temperament: options.temperament } : {}),
     now: NOW
   });
   return {
@@ -68,6 +71,7 @@ const price = (options: {
       aiWouldLeadAlliance: "aiWouldLeadAlliance" in options ? options.aiWouldLeadAlliance : true,
       ...(options.giftToPleased !== undefined ? { giftToPleased: options.giftToPleased } : {}),
       ...(options.retaliation ? { retaliation: options.retaliation } : {}),
+      ...(options.temperament ? { temperament: options.temperament } : {}),
       now: NOW
     })
   };
@@ -284,6 +288,57 @@ describe("AI alliance pricing", () => {
   });
 });
 
+describe("AI temperaments", () => {
+  const { MERCHANT, WARLIKE, PEACEABLE, VENGEFUL } = AI_TEMPERAMENTS;
+  const atWar = (overrides: Partial<DiplomacyMemoryView> = {}): DiplomacyMemoryView =>
+    memory({ lastCombatAt: NOW - HOUR, lastPlayerAttackAt: NOW - 2 * HOUR, ...overrides });
+
+  it("leaves a Measured AI's prices alone", () => {
+    expect(price({ temperament: AI_TEMPERAMENTS.MEASURED }).pricing.required).toEqual(price({}).pricing.required);
+  });
+
+  it("scales only the base truce price, not reparations", () => {
+    expect(price({ temperament: MERCHANT }).pricing.required.truce12).toBe(9 * 60);
+    const fair = atWar({ tilesTakenFromAi: 1, tilesTakenByAi: 1 });
+    const baseline = price({ memory: fair }).pricing.required.truce12!;
+    const discount = price({ memory: fair, temperament: MERCHANT }).pricing.required.truce12!;
+    expect(discount).toBeGreaterThan(baseline * 0.75);
+    expect(discount).toBeLessThan(baseline);
+  });
+
+  // -10 for contested borders plus -5 crosses into Annoyed, where prices are 1.5x again.
+  it("makes a Warlike neighbour colder and dearer", () => {
+    const result = price({ temperament: WARLIKE });
+    expect(result.opinion.modifiers).toContainEqual({ label: "Warlike temperament", value: -5 });
+    expect(result.opinion.attitude).toBe("ANNOYED");
+    expect(result.pricing.required.truce12).toBe(12 * 1.25 * 1.5 * 60);
+  });
+
+  it("warms a Peaceable AI enough to ally without tribute when borders don't meet", () => {
+    const result = price({ temperament: PEACEABLE, bordersTouch: false });
+    expect(result.opinion.attitude).toBe("PLEASED");
+    expect(result.allianceRefusal).toBeUndefined();
+  });
+
+  it("weighs taken tiles by grudge, in opinion and in reparations", () => {
+    const took = memory({ tilesTakenFromAi: 2 });
+    const modifier = (temperament?: AiTemperament) =>
+      price({ memory: took, ...(temperament ? { temperament } : {}) }).opinion.modifiers.find((entry) => entry.label.startsWith("You took"))?.value;
+    expect(modifier()).toBe(-8);
+    expect(modifier(VENGEFUL)).toBe(-12);
+    expect(modifier(PEACEABLE)).toBe(-6);
+    const peacefulBorders = { bordersTouch: false, memory: took };
+    expect(price({ ...peacefulBorders, temperament: VENGEFUL }).pricing.required.truce12).toBe(3 * 60);
+  });
+
+  it("has a Warlike AI pay half as much to end a war it is losing", () => {
+    const losing = atWar({ tilesTakenFromAi: 5 });
+    const withCoin = { memory: losing, aiIncome: 100, aiGold: 1000, requesterIncome: 1 };
+    expect(price(withCoin).pricing.required.truce12).toBe(-250);
+    expect(price({ ...withCoin, temperament: WARLIKE }).pricing.required.truce12).toBe(-125);
+  });
+});
+
 describe("AI attitude modifiers", () => {
   it("lists what drives the attitude", () => {
     const { opinion } = price({ breaksWithOthers: 2, memory: memory({ tilesTakenFromAi: 5 }) });
@@ -327,8 +382,18 @@ describe("answerDiplomacyStanceQuery", () => {
       attitude: { level: "CAUTIOUS", score: 5, modifiers: [{ label: "Our borders don't meet", value: 5 }] },
       war: { atWar: false, aiWinning: false, aiLosing: false, tilesTakenFromAi: 0, tilesTakenByAi: 0 },
       pricing: { required: { truce12: 0, truce24: 0, alliance: 92 + 24 * 60 * 2 }, aiHoldings: { gold: 40 } },
-      gift: { coinPerPoint: 20, goodwillPoints: 0, maxPoints: 25 }
+      gift: { coinPerPoint: 20, goodwillPoints: 0, maxPoints: 25 },
+      temperament: { label: "Measured", traits: "No strong leanings" }
     });
+  });
+
+  it("tells the trade screen the AI's temperament and prices gifts by it", async () => {
+    const merchant = { ...deps, isAutoRespondingAi: (id: string) => id === "ai-2", resolvePlayerByName: (name: string) => (name === "Sigrid" ? { id: "ai-2", name: "Sigrid" } : undefined) };
+    const result = await answerDiplomacyStanceQuery(merchant, "p1", "Sigrid");
+    expect(result).toEqual(expect.objectContaining({
+      temperament: { label: "Merchant", traits: "Cheaper truces, gifts go further" },
+      gift: expect.objectContaining({ coinPerPoint: 20 / 1.5 })
+    }));
   });
 
   // Goodwill's "hour of income" uses the same floor as prices.

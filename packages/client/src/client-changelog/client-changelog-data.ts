@@ -89,7 +89,6 @@ import { MUSTER_COMMIT_BADGE_CHANGELOG } from "./client-changelog-muster-commit-
 import { ACTIVITY_RESTART_WINDOW_CHANGELOG } from "./client-changelog-activity-restart-window.js";
 import { FOGGED_MIST_FEATURES_CHANGELOG } from "./client-changelog-fogged-mist-features.js";
 import { EXPIRED_TRUCE_OFFERS_CHANGELOG } from "./client-changelog-expired-truce-offers.js";
-import { AI_TRUCE_PRICES_CHANGELOG } from "./client-changelog-ai-truce-prices.js";
 import { AI_BEACON_SPACING_CHANGELOG } from "./client-changelog-ai-beacon-spacing.js";
 import { LOST_STRUCTURES_CHANGELOG } from "./client-changelog-lost-structures.js";
 import { CAPTURED_MUSTER_CLEAR_CHANGELOG } from "./client-changelog-captured-muster-clear.js";
@@ -219,30 +218,10 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MUSTER_BANNER_CHANGELOG,
   ...ADVANCE_VISIBLE_ONLY_CHANGELOG,
   ...AI_DEAL_SUGGEST_CHANGELOG,
-  {
-    createdAt: 1792442407428, // Date.now() captured for this entry.
-    introducedIn: "2026.10.19.4",
-    title: "Free AFC upgrades appear correctly after login",
-    why: "New-campaign players could see the old paid catalogue before choosing their first upgrade.",
-    changes: [
-      "Login and reconnect show free AFC choices unlocked by your Manifest tiers",
-      "All 30 upgrade cards use short effect lines with percentages; expanded details explain conditions"
-    ]
-  },
   ...CLIENT_CHANGELOG_ENTRIES_OCT_19_20,
   ...HETZNER_CLIENT_HOSTING_CHANGELOG,
   ...CAPTURE_HOLD_EFFORT_CHANGELOG,
   ...TOWN_MARBLE_CHANGELOG,
-  {
-    createdAt: 1792528401682, // Date.now() captured for this entry.
-    introducedIn: "2026.10.21.2",
-    title: "Muster flag bases no longer look black",
-    why: "On the 3D map, the base under a muster flag was dark iron that showed as a black band wherever the ground sloped away from it.",
-    changes: [
-      "In the 3D map, muster flags stand on a stone foundation that widens towards the ground and catches the light",
-      "Town bases widen towards the ground the same way, so their stone walls catch more light on sloping tiles"
-    ]
-  },
   ...SIEGE_REPORTS_CHANGELOG,
   ...RICHER_FORESTS_CHANGELOG,
   ...SIEGE_FX_GATE_CHANGELOG,
@@ -262,7 +241,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...ACTIVITY_RESTART_WINDOW_CHANGELOG,
   ...FOGGED_MIST_FEATURES_CHANGELOG,
   ...EXPIRED_TRUCE_OFFERS_CHANGELOG,
-  ...AI_TRUCE_PRICES_CHANGELOG,
   ...AI_BEACON_SPACING_CHANGELOG,
   ...LOST_STRUCTURES_CHANGELOG,
   ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
@@ -485,6 +463,26 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Available resource improvements now appear as the yellow primary button on the town screen too.",
       "Selecting a different town plot resets Build to its relevant category, including Resource for farms and deposits."
+    ]
+  },
+  {
+    createdAt: 1794075196542, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.07.1",
+    title: "AI truce and alliance prices now follow real income",
+    why: "AI empires priced deals as if everyone earned at least 1 coin a minute, far above real income, so a neighbour truce cost 720 to 1,080 coin or more.",
+    changes: [
+      "AI prices are based on what the richer empire really earns, with a minimum of 10 coin a day",
+      "Gifts and payments win AI goodwill in proportion to that same income"
+    ]
+  },
+  {
+    createdAt: 1794075703761, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.07.1",
+    title: "AI empires have temperaments",
+    why: "Every AI empire haggled the same way, so it made no difference who you were dealing with.",
+    changes: [
+      "Each AI empire is Measured, Merchant, Warlike, Peaceable or Vengeful, shown on the trade screen and the same every season",
+      "Temperament changes truce prices, how much lost land angers them, how far gifts go, and how readily they seek or pay for peace"
     ]
   }
 ];

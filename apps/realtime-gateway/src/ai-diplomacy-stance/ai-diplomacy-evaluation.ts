@@ -12,6 +12,7 @@ import { computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing, MIN_INCOME_PER_MINUTE, TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "./ai-diplomacy-pricing.js";
 import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
 import { buildAiDiplomacyStanceInput, type AiDiplomacySnapshot } from "./ai-diplomacy-stance-input.js";
+import { aiTemperamentForId, type AiTemperament } from "./ai-diplomacy-temperament.js";
 import { aiRetaliationReadiness } from "./ai-retaliation-readiness.js";
 
 export type AiDiplomacyEvaluation = {
@@ -25,6 +26,7 @@ export type AiDiplomacyEvaluation = {
   requesterHoldings: DiplomacyGoods;
   /** What a gift buys: coin per opinion point and the goodwill already paid. */
   gift: AiGiftView;
+  temperament: AiTemperament;
 };
 
 /** What the gateway knows about the pair beyond the snapshots: grudges and memory. */
@@ -104,7 +106,9 @@ export const evaluateAiDiplomacy = (input: {
   const stance = computeAiDiplomacyStance(stanceInput);
   const aiIncome = aiPlayer.incomePerMinute ?? 0;
   const requesterIncome = input.requesterSnapshot?.player?.incomePerMinute ?? 0;
-  const goodwillIncomePerHour = Math.max(MIN_INCOME_PER_MINUTE, aiIncome, requesterIncome) * 60;
+  const temperament = aiTemperamentForId(input.aiPlayerId);
+  // Gifts go further with a lower "hour of income": the trade screen's preview reads the same rate from `gift`.
+  const goodwillIncomePerHour = (Math.max(MIN_INCOME_PER_MINUTE, aiIncome, requesterIncome) * 60) / temperament.giftValue;
   const opinion = computeAiOpinion({
     stanceKind: stance.kind,
     memory: input.memory,
@@ -114,6 +118,7 @@ export const evaluateAiDiplomacy = (input: {
     bordersTouch: stanceInput.bordersTouch,
     incomePerHour: goodwillIncomePerHour,
     diplomaticCorpsBonus: afcAdditiveEffect(input.requesterSnapshot?.player?.domainIds, "aiOpinionBonus"),
+    temperament,
     now: input.now
   });
   const gift = giftView(input.memory.goodwillCoin, goodwillIncomePerHour);
@@ -131,6 +136,7 @@ export const evaluateAiDiplomacy = (input: {
     ...giftToPleasedField(giftToReach(gift, opinion.score, ATTITUDE_MIN_SCORE.PLEASED)),
     requesterTruceCostMult: afcMultiplicativeEffect(input.requesterSnapshot?.player?.domainIds, "truceCostMult"),
     retaliation: aiRetaliationReadiness(stanceInput.ai, cooldownRemainingMs(input.memory.lastPlayerAttackAt, input.now)),
+    temperament,
     now: input.now
   });
   return {
@@ -141,6 +147,7 @@ export const evaluateAiDiplomacy = (input: {
     ...(priced.truceRefusal ? { truceRefusal: priced.truceRefusal } : {}),
     ...(priced.allianceRefusal ? { allianceRefusal: priced.allianceRefusal } : {}),
     requesterHoldings: holdingsOf(input.requesterSnapshot),
-    gift
+    gift,
+    temperament
   };
 };
