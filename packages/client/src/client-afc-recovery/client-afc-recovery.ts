@@ -48,6 +48,7 @@ export function renderAfcRecovery(deps: AfcRecoveryUiDeps): void {
     root.id = "afc-recovery-ui";
     document.body.append(root);
   }
+  root.classList.toggle("afc-recovery-ui--modal", Boolean(state.afcRecoveryPopupOpen && !recovery.pending));
   const cost = afcReplacementCost(recovery.globalLosses);
   const pending = recovery.pending;
   const renderKey = `${recoveryPopupKey(state)}:${pending?.commandId ?? ""}:${state.afcRecoveryPopupOpen}:${cost}:${Math.floor(state.gold)}`;
@@ -68,23 +69,33 @@ export function renderAfcRecovery(deps: AfcRecoveryUiDeps): void {
   }
   const affordable = state.gold >= cost;
   root.innerHTML = `<div class="afc-recovery-shade"></div>
-    <section class="afc-recovery-modal card" role="dialog" aria-modal="true" aria-labelledby="afc-recovery-title" tabindex="-1">
-      <div class="afc-recovery-kicker">Fabrication offline</div>
-      <h2 id="afc-recovery-title">Your last AFC has been lost</h2>
-      <p>Call down a new AFC to continue construction. Until it lands, your AFC provides no gold or manpower. Your surviving forces and other holdings remain operational.</p>
-      <p data-afc-cancellation class="afc-recovery-cancellation"></p>
-      <div class="afc-recovery-quote"><strong>${cost} gold</strong><span>60-second landing</span></div>
-      <p class="afc-recovery-supply">Losses across the planet strain offworld supply. Replacement prices rise by 10 gold with each global AFC loss.</p>
-      ${affordable ? "" : `<p>You need ${Math.ceil(cost - state.gold)} more gold. Continue fighting, earn income from surviving holdings, or withdraw and redeploy.</p>`}
-      <div class="afc-recovery-actions">
-        <button data-afc-choose class="panel-btn" type="button" ${affordable ? "" : "disabled"}>Choose landing site</button>
-        <button data-afc-fight class="panel-btn" type="button">Continue fighting</button>
-        <button data-afc-withdraw class="panel-btn" type="button">Withdraw and redeploy</button>
+    <section class="afc-recovery-modal" role="dialog" aria-modal="true" aria-labelledby="afc-recovery-title" tabindex="-1">
+      <header class="afc-recovery-head">
+        <div class="afc-recovery-kicker">House recovery · Fabrication offline</div>
+        <h2 id="afc-recovery-title">Your last AFC has been lost</h2>
+      </header>
+      <div class="afc-recovery-body">
+        <p class="afc-recovery-lead">Call down a new AFC to continue construction.</p>
+        <p>Until it lands, your AFC provides no gold or manpower. Your surviving forces and other holdings remain operational.</p>
+        <p data-afc-cancellation class="afc-recovery-cancellation"></p>
+        <div class="afc-recovery-quote">
+          <div><span>Replacement cost</span><strong>${cost} gold</strong></div>
+          <div><span>Delivery time</span><strong>60 seconds</strong></div>
+        </div>
+        <p class="afc-recovery-supply">Losses across the planet strain offworld supply. Each further AFC loss adds 10 gold to the replacement price.</p>
+        ${affordable ? "" : `<p class="afc-recovery-cancellation">You need ${Math.ceil(cost - state.gold)} more gold. Earn income from surviving holdings, continue fighting, or withdraw and redeploy.</p>`}
       </div>
-      <div data-afc-withdraw-confirm hidden>
-        <p>Withdraw from all your territory, leaving buildings behind. Your treasury and fielded manpower reset to the opening package. House knowledge is retained. You receive a fresh landing elsewhere.</p>
-        <button data-afc-confirm class="panel-btn" type="button">Confirm withdrawal and redeploy</button>
-      </div>
+      <footer class="afc-recovery-footer">
+        <div class="afc-recovery-actions">
+          <button data-afc-choose class="panel-btn" type="button" ${affordable ? "" : "disabled"}>Choose landing site</button>
+          <button data-afc-fight class="panel-btn" type="button">Continue fighting</button>
+          <button data-afc-withdraw class="panel-btn" type="button">Withdraw and redeploy</button>
+        </div>
+        <div data-afc-withdraw-confirm hidden>
+          <p>Withdraw from all your territory, leaving buildings behind. Your treasury and fielded manpower reset to the opening package. House knowledge is retained. You receive a fresh landing elsewhere.</p>
+          <button data-afc-confirm class="panel-btn" type="button">Confirm withdrawal and redeploy</button>
+        </div>
+      </footer>
     </section>`;
   const modal = root.querySelector<HTMLElement>("[role=dialog]");
   modal?.focus();
