@@ -144,6 +144,24 @@ describe("VisionFootprintTable", () => {
     epoch += 1;
   });
 
+  it("ignoreForest keeps mountain occlusion, drops forest occlusion, and memoizes separately", () => {
+    const { table } = makeTable(new Set(["50,52"]), 200, 200, new Set(["51,50", "52,50"]));
+    const plain = new Set(table.getOffsets(50, 50, 4).map(([dx, dy]) => `${dx},${dy}`));
+    const beacon = new Set(table.getOffsets(50, 50, 4, true).map(([dx, dy]) => `${dx},${dy}`));
+    expect(plain.has("3,0")).toBe(false); // forest-occluded for ordinary vision
+    expect(beacon.has("3,0")).toBe(true);
+    expect(beacon.has("4,0")).toBe(true);
+    expect(beacon.has("0,2")).toBe(true); // the mountain itself
+    expect(beacon.has("0,3")).toBe(false); // behind the mountain
+    // Asking again in the other mode must not return the first mode's memo.
+    expect(new Set(table.getOffsets(50, 50, 4).map(([dx, dy]) => `${dx},${dy}`)).has("3,0")).toBe(false);
+  });
+
+  it("ignoreForest with forest only (no mountain) returns the full square", () => {
+    const { table } = makeTable(new Set(), 200, 200, new Set(["51,50"]));
+    expect(table.getOffsets(50, 50, 3, true).length).toBe(7 * 7);
+  });
+
   it("does NOT clamp a source tile's own vision when the source tile is itself forest", () => {
     // The source's own terrain never occludes its own vision (see
     // vision-line-of-sight.ts) — standing in a forest doesn't blur your own

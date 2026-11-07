@@ -84,6 +84,50 @@ describe("VisibilityCoverageCache", () => {
   });
 });
 
+describe("Relay Beacon vision over forest", () => {
+  // Forest on every tile south of row 10, one mountain two tiles east of (10,10).
+  const makeTracker = () => {
+    const footprintTable = new VisionFootprintTable(200, 200, {
+      terrainAt: (x, y) => (x === 12 && y === 10 ? "MOUNTAIN" : "LAND"),
+      getTerrainEpoch: () => 0,
+      forestAt: (_x, y) => y > 10
+    });
+    return new VisibilityCoverageTracker(
+      200,
+      200,
+      {
+        visionRadiusForPlayer: () => 3,
+        getPlayer: (id) => ({ id, allies: new Set<string>() }),
+        territoryTileKeysForPlayer: () => new Set<string>(),
+        settledTileKeysForPlayer: () => new Set<string>(),
+        frontierTileKeysForPlayer: () => new Set<string>()
+      },
+      footprintTable
+    );
+  };
+
+  it("sees its full ring through forest while mountains still block it", () => {
+    const tracker = makeTracker();
+    tracker.setOutpostVisionBonus("viewer-1", 10, 10, 5);
+    expect(tracker.isVisible("viewer-1", "10,15")).toBe(true); // 5 rows into forest
+    expect(tracker.isVisible("viewer-1", "13,14")).toBe(true);
+    expect(tracker.isVisible("viewer-1", "12,10")).toBe(true); // the mountain itself
+    expect(tracker.isVisible("viewer-1", "13,10")).toBe(false); // behind it
+    tracker.removeOutpostVisionBonus("viewer-1", 10, 10);
+    expect(tracker.isVisible("viewer-1", "10,15")).toBe(false); // removal releases the same cells
+    expect(tracker.isVisible("viewer-1", "12,10")).toBe(false);
+  });
+
+  it("leaves forest occlusion in place for territory and Aether Tower vision", () => {
+    const tracker = makeTracker();
+    tracker.tileOwnershipChanged(undefined, "viewer-1", 10, 10);
+    tracker.setObservatoryVisionBonus("viewer-1", 10, 10, 5);
+    expect(tracker.isVisible("viewer-1", "10,12")).toBe(true); // forest tile + 1 past it
+    expect(tracker.isVisible("viewer-1", "10,13")).toBe(false);
+    expect(tracker.isVisible("viewer-1", "10,15")).toBe(false);
+  });
+});
+
 describe("VisibilityCoverageTracker town +1 reveal", () => {
   const makeTracker = (radius: () => number) =>
     new VisibilityCoverageTracker(200, 200, {

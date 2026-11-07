@@ -23,6 +23,7 @@ import { FRONTIER_STANDING_VISION_RADIUS } from "@border-empires/shared";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { VisionFootprintTable } from "./vision-footprint-table.js";
 import { SourceBonusRadiusTracker } from "./visibility-source-bonus-tracker.js";
+import { addReasonCount, removeReasonCount, type VisibilityReasonCounts } from "./visibility-reason-counts.js";
 
 const EMPTY_REASONS: ReadonlySet<string> = new Set();
 
@@ -46,7 +47,7 @@ export class VisibilityCoverageCache {
   // way `coverage` is: a cell can be reached by the same reason from two
   // different sources (e.g. two owned tiles both dilating into it), and the
   // tag must survive until every such contribution is withdrawn.
-  private readonly reasons = new Map<string, Map<string, Map<string, number>>>();
+  private readonly reasons: VisibilityReasonCounts = new Map();
   private readonly worldWidth: number;
   private readonly worldHeight: number;
   private readonly footprintTable: VisionFootprintTable | undefined;
@@ -89,39 +90,13 @@ export class VisibilityCoverageCache {
     return byReason ? new Set(byReason.keys()) : EMPTY_REASONS;
   }
 
-  private addReason(viewerId: string, tileKey: string, reason: string): void {
-    let byTile = this.reasons.get(viewerId);
-    if (!byTile) {
-      byTile = new Map();
-      this.reasons.set(viewerId, byTile);
-    }
-    let byReason = byTile.get(tileKey);
-    if (!byReason) {
-      byReason = new Map();
-      byTile.set(tileKey, byReason);
-    }
-    byReason.set(reason, (byReason.get(reason) ?? 0) + 1);
-  }
-
-  private removeReason(viewerId: string, tileKey: string, reason: string): void {
-    const byTile = this.reasons.get(viewerId);
-    const byReason = byTile?.get(tileKey);
-    if (!byReason) return;
-    const next = (byReason.get(reason) ?? 0) - 1;
-    if (next <= 0) {
-      byReason.delete(reason);
-      if (byReason.size === 0) byTile!.delete(tileKey);
-      if (byTile!.size === 0) this.reasons.delete(viewerId);
-    } else {
-      byReason.set(reason, next);
-    }
-  }
-
   /**
    * `onEnter`, if supplied, fires exactly once per cell whose refcount
    * crosses 0→1 for this viewer (a genuine "this tile just entered vision"
    * edge, not every refcount increment). Kept allocation-free on the hot
    * O(radius²) path — no per-cell closures beyond the one passed in.
+   * `ignoreForest` (Relay Beacon rings) skips forest occlusion; a remove must
+   * pass the same value as its add so the same cells are released.
    */
   addFootprint(
     viewerId: string,
@@ -129,13 +104,14 @@ export class VisibilityCoverageCache {
     y: number,
     radius: number,
     onEnter?: (viewerId: string, tileKey: string) => void,
-    reason?: string
+    reason?: string,
+    ignoreForest = false
   ): void {
     const map = this.mapFor(viewerId);
-    this.forEachDilatedCell(x, y, radius, (key) => {
+    this.forEachDilatedCell(x, y, radius, ignoreForest, (key) => {
       const next = (map.get(key) ?? 0) + 1;
       map.set(key, next);
-      if (reason) this.addReason(viewerId, key, reason);
+      if (reason) addReasonCount(this.reasons, viewerId, key, reason);
       if (next === 1 && onEnter) onEnter(viewerId, key);
     });
   }
@@ -151,12 +127,13 @@ export class VisibilityCoverageCache {
     y: number,
     radius: number,
     onLeave?: (viewerId: string, tileKey: string) => void,
-    reason?: string
+    reason?: string,
+    ignoreForest = false
   ): void {
     const map = this.coverage.get(viewerId);
     if (!map) return;
-    this.forEachDilatedCell(x, y, radius, (key) => {
-      if (reason) this.removeReason(viewerId, key, reason);
+    this.forEachDilatedCell(x, y, radius, ignoreForest, (key) => {
+      if (reason) removeReasonCount(this.reasons, viewerId, key, reason);
       const next = (map.get(key) ?? 0) - 1;
       if (next <= 0) {
         map.delete(key);
@@ -207,11 +184,11 @@ export class VisibilityCoverageCache {
     return map;
   }
 
-  private forEachDilatedCell(x: number, y: number, radius: number, cb: (key: string) => void): void {
+  private forEachDilatedCell(x: number, y: number, radius: number, ignoreForest: boolean, cb: (key: string) => void): void {
     const W = this.worldWidth;
     const H = this.worldHeight;
     if (this.footprintTable) {
-      for (const [dx, dy] of this.footprintTable.getOffsets(x, y, radius)) {
+      for (const [dx, dy] of this.footprintTable.getOffsets(x, y, radius, ignoreForest)) {
         const nx = ((x + dx) % W + W) % W;
         const ny = ((y + dy) % H + H) % H;
         cb(simulationTileKey(nx, ny));
@@ -302,7 +279,7 @@ export class VisibilityCoverageTracker {
     this.deps = deps;
     const isBarbarian = (id: string) => this.isBarbarian(id);
     const viewersForSource = (id: string) => this.viewersForSource(id);
-    this.outpostBonusTracker = new SourceBonusRadiusTracker(this.cache, "relay-beacon", isBarbarian, viewersForSource);
+    this.outpostBonusTracker = new SourceBonusRadiusTracker(this.cache, "relay-beacon", isBarbarian, viewersForSource, true); // beacons see over forest
     this.observatoryBonusTracker = new SourceBonusRadiusTracker(this.cache, "observatory", isBarbarian, viewersForSource);
   }
 

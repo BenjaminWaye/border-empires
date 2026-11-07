@@ -9,6 +9,7 @@ import { CAPTURE_WRECK_FIX_CHANGELOG } from "./client-changelog-capture-wreck-fi
 import { TOWN_STAT_BONUSES_CHANGELOG } from "./client-changelog-town-stat-bonuses.js";
 import { TOWN_TIER_GROWTH_CHANGELOG } from "./client-changelog-town-tier-growth.js";
 import { SEA_VISION_CHANGELOG } from "./client-changelog-sea-vision.js";
+import { BEACON_FOREST_VISION_CHANGELOG } from "./client-changelog-beacon-forest-vision.js";
 import { MOBILE_APP_CHANGELOG } from "./client-changelog-mobile-app.js";
 import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
 import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
@@ -481,7 +482,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The Place button offers a checkbox to improve all eligible garrisoned tiles of the same resource.", "Town support builds keep the build menu and building selection open. Pick an empty support tile for exact placement, or press Place again to use another available plot."],
     why: "Develop several deposits or town plots without reopening the build menu for every building."
   },
-  ...SEA_VISION_CHANGELOG
+  ...SEA_VISION_CHANGELOG,
+  ...SEA_VISION_CHANGELOG,
+  ...BEACON_FOREST_VISION_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

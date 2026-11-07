@@ -108,8 +108,12 @@ export class VisionFootprintTable {
    * ray occlusion, and mountain occlusion. Callers wrap (x + dx, y + dy)
    * into world bounds themselves — this mirrors the existing
    * forEachDilatedCell contract.
+   *
+   * `ignoreForest` drops forest occlusion (mountains still block): Relay
+   * Beacon vision rings see over the canopy (runtime-outpost-vision.ts).
+   * It is part of the memo key, so the two footprints never share an entry.
    */
-  getOffsets(x: number, y: number, radius: number): ReadonlyArray<[number, number]> {
+  getOffsets(x: number, y: number, radius: number, ignoreForest = false): ReadonlyArray<[number, number]> {
     this.invalidateIfEpochChanged();
     // radius 0 means "self-tile only, no standing halo" (a FRONTIER claim —
     // see visibility-coverage-cache.ts's tileOwnershipChanged) — the hills
@@ -117,20 +121,20 @@ export class VisionFootprintTable {
     // nothing, so it's skipped entirely at radius 0 rather than bumping it
     // to 1 and silently reintroducing the halo FRONTIER isn't meant to have.
     const effectiveRadius = radius > 0 && isHillsTileAt(x, y) ? radius + HILLS_VISION_BONUS : radius;
-    const key = this.packKey(x, y, effectiveRadius);
+    const key = this.packKey(x, y, effectiveRadius) * 2 + (ignoreForest ? 1 : 0);
 
     const permanent = this.permanentByKey.get(key);
     if (permanent !== undefined) return permanent ?? this.plainSquare(effectiveRadius);
     const epochScoped = this.epochScopedByKey.get(key);
     if (epochScoped !== undefined) return epochScoped;
 
-    const { hasMountain, hasForest } = this.scanOccluders(x, y, effectiveRadius);
+    const { hasMountain, hasForest } = this.scanOccluders(x, y, effectiveRadius, ignoreForest);
     if (!hasMountain && !hasForest) {
       this.permanentByKey.set(key, null);
       return this.plainSquare(effectiveRadius);
     }
 
-    const offsets = computeLosOffsets(x, y, effectiveRadius, (mx, my) => this.mountainAt(mx, my), this.forestAt);
+    const offsets = computeLosOffsets(x, y, effectiveRadius, (mx, my) => this.mountainAt(mx, my), ignoreForest ? () => false : this.forestAt);
     if (hasMountain) {
       this.epochScopedByKey.set(key, offsets);
     } else {
@@ -161,18 +165,19 @@ export class VisionFootprintTable {
   }
 
   /** Single O(radius²) pass detecting both occluder types, with an early exit once both are found. The source tile itself is excluded — its own terrain never occludes its own vision (see vision-line-of-sight.ts). */
-  private scanOccluders(x: number, y: number, radius: number): { hasMountain: boolean; hasForest: boolean } {
+  private scanOccluders(x: number, y: number, radius: number, ignoreForest: boolean): { hasMountain: boolean; hasForest: boolean } {
     let hasMountain = false;
-    let hasForest = false;
+    // Forest that can't occlude counts as already found, so the scan stops on the first mountain.
+    let hasForest = ignoreForest;
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
         if (dx === 0 && dy === 0) continue;
         if (!hasMountain && this.mountainAt(x + dx, y + dy)) hasMountain = true;
         if (!hasForest && this.forestAt(x + dx, y + dy)) hasForest = true;
-        if (hasMountain && hasForest) return { hasMountain, hasForest };
+        if (hasMountain && hasForest) return { hasMountain, hasForest: hasForest && !ignoreForest };
       }
     }
-    return { hasMountain, hasForest };
+    return { hasMountain, hasForest: hasForest && !ignoreForest };
   }
 
   private invalidateIfEpochChanged(): void {
