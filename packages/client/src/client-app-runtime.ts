@@ -120,7 +120,7 @@ const {
   requestViewRefresh,
   maybeRefreshForCamera,
   viewportSize,
-  renderMobilePanels,
+  renderSidePanel,
   setActivePanel,
   bindTechTreeDragScroll
 } = createClientViewSupport({
@@ -231,7 +231,7 @@ bootstrapClientApp({
   economicStructureName,
   leaderboardHtml,
   feedHtml,
-  renderMobilePanels,
+  renderSidePanel,
   renderManpowerPanelHtml,
   viewportSize,
   drawMiniMap,

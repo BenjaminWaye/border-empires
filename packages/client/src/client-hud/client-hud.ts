@@ -116,7 +116,7 @@ type HudDeps = {
   economicStructureName: (structureType: string) => string;
   leaderboardHtml: typeof import("../client-panel-html/client-panel-html.js").leaderboardHtml;
   feedHtml: typeof import("../client-panel-html/client-panel-html.js").feedHtml;
-  renderMobilePanels: () => void;
+  renderSidePanel: () => void;
   effectiveTechChoices: () => string[];
   renderManpowerPanelHtml: typeof import("../client-side-panel-html/client-side-panel-html.js").renderManpowerPanelHtml;
   retryBootstrapNow: () => void;
@@ -624,10 +624,10 @@ export const renderClientHud = (deps: HudDeps): void => {
   });
 
   syncAuthOverlay();
-  deps.renderMobilePanels();
+  deps.renderSidePanel();
   // Wired last: player names (leaderboard, alliances) are
   // rendered at various points above and into dom.hud, so this needs to run
-  // after everything (including renderMobilePanels) has set its innerHTML.
+  // after everything (including renderSidePanel) has set its innerHTML.
   wirePlayerNameLinks(dom, state, () => renderClientHud(deps));
 };
 

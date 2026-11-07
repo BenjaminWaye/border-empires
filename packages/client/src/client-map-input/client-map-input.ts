@@ -27,7 +27,7 @@ type BindClientMapInputDeps = {
   hideTileActionMenu: () => void;
   clearCrystalTargeting: () => void;
   cancelBuildingPlacement: () => void;
-  renderMobilePanels: () => void;
+  renderSidePanel: () => void;
   openBulkTileActionMenu: (targetKeys: string[], clientX: number, clientY: number) => void;
   requestAttackPreviewForHover: () => void;
   requestAttackPreviewForTarget: (tile: Tile) => void;
@@ -220,7 +220,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     if (deps.tileActionMenuEl.contains(target)) return;
     deps.hideTileActionMenu();
   });
-  window.addEventListener("resize", () => deps.renderMobilePanels());
+  window.addEventListener("resize", () => deps.renderSidePanel());
 
   deps.canvas.addEventListener("mousedown", (ev) => {
     if (ev.button !== 0) return;

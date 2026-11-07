@@ -17,7 +17,6 @@ const domain = (overrides: Partial<DomainInfo> & Pick<DomainInfo, "id" | "name">
 const chooseDeps = (state: ReturnType<typeof createInitialState>, send = vi.fn(), pushFeed = vi.fn(), renderHud = vi.fn()) => ({
   state,
   techPickEl: { value: "" } as HTMLSelectElement,
-  mobileTechPickEl: { value: "" } as HTMLSelectElement,
   ws: { readyState: 1, send } as unknown as RealtimeSocket,
   wsUrl: "ws://example.test/game",
   setAuthStatus: vi.fn(),

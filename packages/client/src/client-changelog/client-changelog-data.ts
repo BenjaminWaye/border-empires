@@ -9,7 +9,6 @@ import { MOBILE_UI_CONSISTENCY_CHANGELOG } from "./client-changelog-mobile-ui-co
 import { SALVAGE_TRIBUTE_UI_CHANGELOG } from "./client-changelog-salvage-tribute-ui.js";
 import { TUTORIAL_BUILD_AFC_FLOWS_CHANGELOG } from "./client-changelog-tutorial-build-afc-flows.js";
 import { HUD_V2_COMBAT_STATS_CHANGELOG } from "./client-changelog-hud-v2-combat-stats.js";
-import { HUD_V2_ONLY_CHANGELOG } from "./client-changelog-hud-v2-only.js";
 import { SIEGE_BATTERY_NO_REACH_CHANGELOG } from "./client-changelog-siege-battery-no-reach.js";
 import { CAPTURE_WRECK_FIX_CHANGELOG } from "./client-changelog-capture-wreck-fix.js";
 import { TOWN_STAT_BONUSES_CHANGELOG } from "./client-changelog-town-stat-bonuses.js";
@@ -438,7 +437,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...TOWN_SCREEN_AUTO_GARRISON_CHANGELOG,
   ...TUTORIAL_BUILD_AFC_FLOWS_CHANGELOG,
   ...HUD_V2_COMBAT_STATS_CHANGELOG,
-  ...HUD_V2_ONLY_CHANGELOG,
   ...SALVAGE_TRIBUTE_UI_CHANGELOG,
   ...AI_FREE_TRUCE_CHANGELOG,
   ...CAPTURE_WRECK_FIX_CHANGELOG,

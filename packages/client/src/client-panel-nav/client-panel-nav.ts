@@ -31,12 +31,12 @@ export const setActivePanel = (
   state: Pick<ClientState, "activePanel" | "unreadAttackAlerts" | "feedUnreadCount" | "feedAttentionUntil" | "feed">,
   panel: ClientState["activePanel"],
   deps: {
-    renderMobilePanels: () => void;
+    renderSidePanel: () => void;
   }
 ): void => {
   if (state.activePanel === panel) {
     state.activePanel = null;
-    deps.renderMobilePanels();
+    deps.renderSidePanel();
     return;
   }
   state.activePanel = panel;
@@ -46,7 +46,7 @@ export const setActivePanel = (
     state.feedAttentionUntil = 0;
     markAllFeedEntriesRead(state);
   }
-  deps.renderMobilePanels();
+  deps.renderSidePanel();
 };
 
 export const closeActivePanel = (state: Pick<ClientState, "activePanel" | "domainDetailOpen" | "settingsSubPage">): void => {
@@ -61,7 +61,7 @@ export const closeActivePanel = (state: Pick<ClientState, "activePanel" | "domai
   state.activePanel = null;
 };
 
-export const renderMobilePanels = (
+export const renderSidePanel = (
   state: Pick<ClientState, "activePanel" | "techTreeExpanded" | "domainDetailOpen">,
   deps: {
     sidePanelBodyEl: HTMLElement;

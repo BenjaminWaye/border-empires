@@ -7,7 +7,7 @@ import {
 import { createMultiplexWebSocket } from "./client-multiplex-websocket/client-multiplex-websocket.js";
 import {
   bindTechTreeDragScroll as bindTechTreeDragScrollFromModule,
-  renderMobilePanels as renderMobilePanelsFromModule,
+  renderSidePanel as renderSidePanelFromModule,
   setActivePanel as setActivePanelFromModule,
   viewportSize as viewportSizeFromModule
 } from "./client-panel-nav/client-panel-nav.js";
@@ -46,13 +46,13 @@ export const createClientViewSupport = (deps: {
   const maybeRefreshForCamera = (force = false): void =>
     maybeRefreshForCameraFromModule(state, { ws, requestViewRefresh, force });
   const viewportSize = (): { width: number; height: number } => viewportSizeFromModule();
-  const renderMobilePanels = (): void =>
-    renderMobilePanelsFromModule(state, {
+  const renderSidePanel = (): void =>
+    renderSidePanelFromModule(state, {
       sidePanelBodyEl: dom.sidePanelBodyEl,
       sidePanelEl: dom.sidePanelEl,
       panelTitleEl: dom.panelTitleEl
     });
-  const setActivePanel = (panel: typeof state.activePanel): void => setActivePanelFromModule(state, panel, { renderMobilePanels });
+  const setActivePanel = (panel: typeof state.activePanel): void => setActivePanelFromModule(state, panel, { renderSidePanel });
   const bindTechTreeDragScroll = (): void => bindTechTreeDragScrollFromModule(state, dom.hud);
 
   return {
@@ -64,7 +64,7 @@ export const createClientViewSupport = (deps: {
     requestViewRefresh,
     maybeRefreshForCamera,
     viewportSize,
-    renderMobilePanels,
+    renderSidePanel,
     setActivePanel,
     bindTechTreeDragScroll
   };
