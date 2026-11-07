@@ -9,7 +9,7 @@ import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-me
 import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type DominanceSizing, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
 import type { AiDiplomacyGrudges } from "./ai-diplomacy-grudges.js";
 import { computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
-import { aiDiplomacyPricing, TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "./ai-diplomacy-pricing.js";
+import { aiDiplomacyPricing, MIN_INCOME_PER_MINUTE, TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "./ai-diplomacy-pricing.js";
 import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
 import { buildAiDiplomacyStanceInput, type AiDiplomacySnapshot } from "./ai-diplomacy-stance-input.js";
 import { aiRetaliationReadiness } from "./ai-retaliation-readiness.js";
@@ -104,7 +104,7 @@ export const evaluateAiDiplomacy = (input: {
   const stance = computeAiDiplomacyStance(stanceInput);
   const aiIncome = aiPlayer.incomePerMinute ?? 0;
   const requesterIncome = input.requesterSnapshot?.player?.incomePerMinute ?? 0;
-  const goodwillIncomePerHour = Math.max(1, aiIncome, requesterIncome) * 60;
+  const goodwillIncomePerHour = Math.max(MIN_INCOME_PER_MINUTE, aiIncome, requesterIncome) * 60;
   const opinion = computeAiOpinion({
     stanceKind: stance.kind,
     memory: input.memory,

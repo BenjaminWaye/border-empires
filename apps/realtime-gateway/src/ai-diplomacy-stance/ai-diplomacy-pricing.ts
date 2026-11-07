@@ -45,8 +45,8 @@ export const FRESH_ATTACK_SURCHARGE = 0.5;
 export const ALLIANCE_NO_FIGHTING_MS = 24 * 60 * 60_000;
 export const ALLIANCE_HOURS: Partial<Record<AiAttitude, number>> = { PLEASED: 24, FRIENDLY: 0 };
 
-/** Income floor (coin/min) so prices never collapse to zero. */
-const MIN_INCOME_PER_MINUTE = 1;
+/** Income floor so prices never collapse to zero: 10 coin a day, in coin/min. */
+export const MIN_INCOME_PER_MINUTE = 10 / (24 * 60);
 
 export type AiDiplomacyPricingResult = {
   pricing: AiDiplomacyPricing;

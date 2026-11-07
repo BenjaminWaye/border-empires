@@ -4,7 +4,7 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { computeAiOpinion } from "./ai-diplomacy-opinion.js";
-import { aiDiplomacyPricing } from "./ai-diplomacy-pricing.js";
+import { aiDiplomacyPricing, MIN_INCOME_PER_MINUTE } from "./ai-diplomacy-pricing.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
 import type { AiRetaliationReadiness } from "./ai-retaliation-readiness.js";
 import { answerDiplomacyStanceQuery } from "./diplomacy-stance-query.js";
@@ -50,7 +50,7 @@ const price = (options: {
     requesterTruceBreaksWithOthers: options.breaksWithOthers ?? 0,
     requesterBrokeAllianceWithAi: options.brokeAlliance ?? false,
     bordersTouch,
-    incomePerHour: Math.max(1, aiIncome, requesterIncome) * 60,
+    incomePerHour: Math.max(MIN_INCOME_PER_MINUTE, aiIncome, requesterIncome) * 60,
     now: NOW
   });
   return {
@@ -80,6 +80,16 @@ describe("AI truce pricing", () => {
 
   it("charges neighbours at peace 12h of income, 1.5x for a 24h truce", () => {
     expect(price({}).pricing.required).toEqual(expect.objectContaining({ truce12: 12 * 60, truce24: 18 * 60 }));
+  });
+
+  // Real incomes are well under 1 coin/min: a floor of 1 priced every neighbour truce at 720+ coin.
+  it("prices low incomes on what the richer empire really earns", () => {
+    expect(price({ aiIncome: 0.24, requesterIncome: 0.01 }).pricing.required).toEqual(expect.objectContaining({ truce12: 173, truce24: 259 }));
+  });
+
+  it("floors income at 10 coin a day", () => {
+    expect(MIN_INCOME_PER_MINUTE * 24 * 60).toBeCloseTo(10);
+    expect(price({ aiIncome: 0, requesterIncome: 0 }).pricing.required.truce12).toBe(5);
   });
 
   // A rich player can't buy peace cheaply from a poor AI.
@@ -319,6 +329,13 @@ describe("answerDiplomacyStanceQuery", () => {
       pricing: { required: { truce12: 0, truce24: 0, alliance: 92 + 24 * 60 * 2 }, aiHoldings: { gold: 40 } },
       gift: { coinPerPoint: 20, goodwillPoints: 0, maxPoints: 25 }
     });
+  });
+
+  // Goodwill's "hour of income" uses the same floor as prices.
+  it("measures goodwill against real incomes below 1 coin/min", async () => {
+    const lowIncome = { ...aiSnapshot, player: { ...aiSnapshot.player, incomePerMinute: 0.1 } } as unknown as PlayerSubscriptionSnapshot;
+    const result = await answerDiplomacyStanceQuery({ ...deps, fetchAiSnapshot: async () => lowIncome }, "p1", "Milo");
+    expect(result).toEqual(expect.objectContaining({ gift: expect.objectContaining({ coinPerPoint: 1 }) }));
   });
 
   // A display name can be shared (a human who kept an AI's name): the id the client sends wins.

@@ -89,6 +89,7 @@ import { MUSTER_COMMIT_BADGE_CHANGELOG } from "./client-changelog-muster-commit-
 import { ACTIVITY_RESTART_WINDOW_CHANGELOG } from "./client-changelog-activity-restart-window.js";
 import { FOGGED_MIST_FEATURES_CHANGELOG } from "./client-changelog-fogged-mist-features.js";
 import { EXPIRED_TRUCE_OFFERS_CHANGELOG } from "./client-changelog-expired-truce-offers.js";
+import { AI_TRUCE_PRICES_CHANGELOG } from "./client-changelog-ai-truce-prices.js";
 import { AI_BEACON_SPACING_CHANGELOG } from "./client-changelog-ai-beacon-spacing.js";
 import { LOST_STRUCTURES_CHANGELOG } from "./client-changelog-lost-structures.js";
 import { CAPTURED_MUSTER_CLEAR_CHANGELOG } from "./client-changelog-captured-muster-clear.js";
@@ -261,6 +262,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...ACTIVITY_RESTART_WINDOW_CHANGELOG,
   ...FOGGED_MIST_FEATURES_CHANGELOG,
   ...EXPIRED_TRUCE_OFFERS_CHANGELOG,
+  ...AI_TRUCE_PRICES_CHANGELOG,
   ...AI_BEACON_SPACING_CHANGELOG,
   ...LOST_STRUCTURES_CHANGELOG,
   ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
