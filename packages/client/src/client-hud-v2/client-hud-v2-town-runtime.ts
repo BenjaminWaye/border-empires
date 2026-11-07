@@ -1,3 +1,4 @@
+import { townBuildTarget } from "./client-hud-v2-town-build-target.js";
 import { preserveResourceBuildChoice } from "./client-resource-improvement-action.js";
 import { structureRequiresTownOrSupportTile } from "@border-empires/shared";
 import { structureTypeForTileAction } from "../client-tile-action-support/client-tile-action-support.js";
@@ -152,7 +153,7 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
     if (screen.id === "town") closeTownScreen(true);
     return false;
   }
-  if (current?.focusKey !== tileKey) screen.townBuildSelection = undefined;
+  if (current?.townKey !== keyOf(town)) screen.townBuildSelection = undefined;
   if (screen.id !== "town") screen.townCategory = undefined;
   // Close in on the town when the screen opens or moves to another town; picking support tiles doesn't move the camera.
   if (screen.id !== "town" || current?.townKey !== keyOf(town)) closeUpOn(deps, town.x, town.y, TOWN_ZOOM);
@@ -185,6 +186,14 @@ export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], 
   const type = structureTypeForTileAction(actionId);
   const repeat = screen.id === "town" && current && type && structureRequiresTownOrSupportTile(type);
   const saved = repeat ? current : undefined;
+  if (repeat && saved) {
+    const town = deps.state.tiles.get(saved.townKey);
+    if (town && (!targetKey || targetKey === saved.townKey)) {
+      const target = townBuildTarget(deps, town, actionId);
+      if (!target) return;
+      targetKey = keyOf(target);
+    }
+  }
   const selection = screen.townBuildSelection;
   const category = screen.townCategory;
   const run = (): void => {
@@ -204,7 +213,7 @@ export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], 
   try { run(); } finally { placingTownBuild = false; }
   if (saved) {
     // Return to town placement after consuming an explicitly picked support tile.
-    // Subsequent presses let the server choose another empty support plot.
+    // Subsequent presses reserve another empty support plot before dispatch.
     const town = deps.state.tiles.get(saved.townKey);
     if (town) {
       deps.state.selected = { x: town.x, y: town.y };

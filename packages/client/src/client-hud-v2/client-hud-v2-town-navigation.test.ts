@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { queueDevelopmentAction } from "../client-development-queue/client-development-queue.js";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile, TileMenuView } from "../client-types.js";
 import { screen, SCREEN_HOST_ID, type HudV2Deps } from "./client-hud-v2-context.js";
@@ -70,8 +71,9 @@ describe("town arrow detail refresh", () => {
     state.me = "me";
     const hub = town(5, "Alder");
     const first: Tile = { x: 6, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
-    const second: Tile = { ...first, x: 4 };
-    for (const tile of [hub, first, second]) state.tiles.set(`${tile.x},${tile.y}`, tile);
+    const second: Tile = { ...first, x: 6, y: 6 };
+    const automatic: Tile = { ...first, x: 4 };
+    for (const tile of [hub, first, second, automatic]) state.tiles.set(`${tile.x},${tile.y}`, tile);
     const buildView: TileMenuView = { ...view, buildings: [{ id: "build_manufactory", label: "Manufactory" }] };
     const sent: string[] = [];
     const deps: HudV2Deps = {
@@ -87,7 +89,11 @@ describe("town arrow detail refresh", () => {
           townOnMenuView(deps, buildView, state.tileActionMenu.currentTileKey);
         },
         handleTileAction: () => {
-          sent.push(state.tileActionMenu.currentTileKey);
+          const key = state.tileActionMenu.currentTileKey;
+          const tile = state.tiles.get(key)!;
+          if (queueDevelopmentAction(state, { kind: "BUILD", tileKey: key, x: tile.x, y: tile.y,
+            label: "Manufactory", optimisticKind: "MANUFACTORY", payload: { type: "BUILD_STRUCTURE", x: tile.x, y: tile.y, structureType: "MANUFACTORY" } },
+            { renderHud: vi.fn(), pushFeed: vi.fn() })) sent.push(key);
           state.tileActionMenu.visible = false;
           townOnMenuHidden(undefined);
         }
@@ -104,10 +110,12 @@ describe("town arrow detail refresh", () => {
     expect(screen.townBuildSelection).toBe("build_manufactory");
     expect(state.tileActionMenu.visible).toBe(true);
     place();
-    pick(second);
-    place();
-    expect(sent).toEqual(["6,5", "5,5", "4,5"]);
+    deps.actionFlow.openSingleTileActionMenu(second, 0, 0);
     expect(screen.townBuildSelection).toBe("build_manufactory");
+    place();
+    expect(sent).toEqual(["6,5", "4,5", "6,6"]);
+    expect(screen.townBuildSelection).toBe("build_manufactory");
+    expect(state.developmentQueue.map((entry) => entry.tileKey)).toEqual(sent);
   });
 
 });

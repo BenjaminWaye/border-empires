@@ -1,6 +1,8 @@
+import { createInitialState } from "../client-state/client-state.js";
+import { processAutoBuilds } from "../client-structure-build-trigger/client-process-auto-builds.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 const actionFlowSource = (): string =>
   readFileSync(fileURLToPath(new URL("../client-action-flow.ts", import.meta.url)), "utf8");
@@ -194,11 +196,20 @@ describe("client action flow regressions", () => {
     // the server's claim-continuation tail reads too: it's the single source
     // of truth for which side dispatches a queued build, so the two can't
     // drift back into both firing (or neither).
-    const fnStart = source.indexOf("const processAutoBuildTargets = ()");
-    expect(fnStart).toBeGreaterThan(-1);
-    const fnBody = source.slice(fnStart, source.indexOf("\n  };", fnStart));
-    expect(fnBody).not.toContain("        triggerBuildForStructureType(structureType, tile);\n");
-    expect(fnBody).toContain("if (structureRequiresClientPlacement(structureType)) triggerBuildForStructureType(structureType, tile);");
+    expect(source).toContain("processAutoBuilds(state, triggerBuildForStructureType)");
+    const state = createInitialState();
+    state.me = "me";
+    for (const [x, type] of [[1, "HYDROGARDEN"], [2, "ORE_REFINERY"], [3, "HYDROWORKS"]] as const) {
+      const key = `${x},0`;
+      state.tiles.set(key, { x, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" });
+      state.autoBuildTargets.set(key, type);
+    }
+    const trigger = vi.fn<(type: string) => void>();
+    processAutoBuilds(state, trigger);
+    expect(trigger.mock.calls.map(([type]) => type)).toEqual(["ORE_REFINERY", "HYDROWORKS"]);
+    expect(state.autoBuildTargets.size).toBe(0);
+    processAutoBuilds(state, trigger);
+    expect(trigger).toHaveBeenCalledTimes(2);
   });
 
   it("delegates settle_land on a non-adjacent-but-in-reach neutral tile into the waypoint machinery instead of a doomed direct claim", () => {

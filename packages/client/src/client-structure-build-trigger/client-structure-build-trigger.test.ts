@@ -7,13 +7,18 @@ describe("town support build optimism", () => {
     const applyOptimisticStructureBuild = vi.fn();
     const sendDevelopmentBuild: BuildDispatchDeps["sendDevelopmentBuild"] = vi.fn((_payload, optimistic) => { optimistic(); return true; });
     const deps: BuildDispatchDeps = { sendDevelopmentBuild, applyOptimisticStructureBuild, structureDisplayLabel: () => "Manufactory" };
-    // Only town presence matters at this dispatch boundary.
-    const town: Tile = { x: 5, y: 5, terrain: "LAND", town: { name: "Hub" } as NonNullable<Tile["town"]> };
+    const town: Tile = { x: 5, y: 5, terrain: "LAND", town: {
+      name: "Hub", type: "FARMING", terrainProfile: "GRASS", coastal: false, populationTier: "TOWN",
+      population: 25000, maxPopulation: 100000, populationGrowthPerMinute: 10,
+      baseGoldPerMinute: 0, goldPerMinute: 0, cap: 0, supportCurrent: 0, supportMax: 8, isFed: true,
+      connectedTownCount: 0, connectedTownBonus: 0, hasManufactory: false, manufactoryActive: false,
+      hasIncubationEngine: false, incubationEngineActive: false
+    } };
     dispatchGenericBuild("MANUFACTORY", town, deps);
     dispatchGenericBuild("MANUFACTORY", town, deps);
     expect(sendDevelopmentBuild).toHaveBeenCalledTimes(2);
     expect(applyOptimisticStructureBuild).not.toHaveBeenCalled();
-    dispatchGenericBuild("MANUFACTORY", { ...town, x: 6, town: undefined }, deps);
+    dispatchGenericBuild("MANUFACTORY", { x: 6, y: 5, terrain: "LAND" }, deps);
     expect(applyOptimisticStructureBuild).toHaveBeenCalledWith(6, 5, "MANUFACTORY");
   });
 });
