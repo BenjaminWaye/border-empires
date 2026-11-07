@@ -95,8 +95,8 @@ export class VisibilityCoverageCache {
    * crosses 0→1 for this viewer (a genuine "this tile just entered vision"
    * edge, not every refcount increment). Kept allocation-free on the hot
    * O(radius²) path — no per-cell closures beyond the one passed in.
-   * `ignoreForest` (Relay Beacon rings) skips forest occlusion; a remove must
-   * pass the same value as its add so the same cells are released.
+   * `ignoreForest` (outpost rings) skips forest occlusion; pass the same value to the
+   * matching remove (a mountain edit in range between the two still shifts the cells).
    */
   addFootprint(
     viewerId: string,

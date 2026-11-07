@@ -483,7 +483,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Develop several deposits or town plots without reopening the build menu for every building."
   },
   ...SEA_VISION_CHANGELOG,
-  ...SEA_VISION_CHANGELOG,
   ...BEACON_FOREST_VISION_CHANGELOG
 ];
 

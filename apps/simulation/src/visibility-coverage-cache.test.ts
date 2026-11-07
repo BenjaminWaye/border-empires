@@ -118,6 +118,27 @@ describe("Relay Beacon vision over forest", () => {
     expect(tracker.isVisible("viewer-1", "12,10")).toBe(false);
   });
 
+  it("mirrors the forest-ignoring ring to an ally and withdraws exactly it", () => {
+    const tracker = makeTracker();
+    tracker.setOutpostVisionBonus("viewer-1", 10, 10, 5);
+    const callbacks = { onEnter: () => {}, onLeave: () => {} };
+    tracker.syncAllianceChange("viewer-1", "ally-1", true, callbacks);
+    expect(tracker.isVisible("ally-1", "10,15")).toBe(true);
+    tracker.syncAllianceChange("viewer-1", "ally-1", false, callbacks);
+    expect(tracker.isVisible("ally-1", "10,15")).toBe(false);
+    expect(tracker.isVisible("ally-1", "10,11")).toBe(false);
+  });
+
+  it("re-sets a new radius (Survey Corps) without leaking the old ring", () => {
+    const tracker = makeTracker();
+    tracker.setOutpostVisionBonus("viewer-1", 10, 10, 5);
+    tracker.setOutpostVisionBonus("viewer-1", 10, 10, 2);
+    expect(tracker.isVisible("viewer-1", "10,12")).toBe(true);
+    expect(tracker.isVisible("viewer-1", "10,15")).toBe(false);
+    tracker.removeOutpostVisionBonus("viewer-1", 10, 10);
+    expect(tracker.isVisible("viewer-1", "10,12")).toBe(false);
+  });
+
   it("leaves forest occlusion in place for territory and Aether Tower vision", () => {
     const tracker = makeTracker();
     tracker.tileOwnershipChanged(undefined, "viewer-1", 10, 10);

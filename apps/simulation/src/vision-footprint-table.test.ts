@@ -141,7 +141,8 @@ describe("VisionFootprintTable", () => {
     expect(offsetSet.has("0,3")).toBe(true); // 2 past the channel: would be occluded if the sea counted as forest
     expect(offsetSet.has("0,4")).toBe(true);
     expect(table.getOffsets(50, 50, 4).length).toBe(9 * 9);
-    epoch += 1;
+    epoch += 1; // a mountain edit elsewhere must not bring the sea's forest back
+    expect(table.getOffsets(50, 50, 4).length).toBe(9 * 9);
   });
 
   it("ignoreForest keeps mountain occlusion, drops forest occlusion, and memoizes separately", () => {
