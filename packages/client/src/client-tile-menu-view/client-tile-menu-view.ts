@@ -229,7 +229,7 @@ export const menuOverviewForTile = (
           goldPerDayLabel: goldPerDay.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
           manpowerCapLabel: tierManpower.cap.toLocaleString(),
           manpowerRegenLabel: `+${Math.round(manpowerPerBatch(tierManpower.regenPerMinute))} per batch base regen`,
-          ...townStatGridModifiers(tile.town, terrainProfile, coastal),
+          ...townStatGridModifiers(townForGrowth, terrainProfile, coastal),
           ...(tile.town.populationTier !== "SETTLEMENT" ? { support: { current: supportCurrent, max: supportMax } } : {}),
           ...(foodDemand > 0 ? { food: { satisfied: tile.town.isFed ? foodDemand : 0, demand: foodDemand, fed: Boolean(tile.town.isFed) } } : {})
         })
@@ -373,7 +373,7 @@ export const menuOverviewForTile = (
       if (ownBonusLine) pushLine(ownBonusLine);
     }
   }
-  for (const modifier of tileOverviewModifiersForTile(tile)) {
+  for (const modifier of tileOverviewModifiersForTile(tile, { omitTownCoinLines: showsTownStatGrid })) {
     pushEffectLine(modifier.reason, modifier.effect, modifier.tone);
   }
   for (const modifier of deps.areaEffectModifiersForTile(tile)) {

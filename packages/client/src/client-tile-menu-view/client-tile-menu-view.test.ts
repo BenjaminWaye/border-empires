@@ -542,7 +542,7 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(lines.some((line) => line.html === "Connected towns 2")).toBe(false);
-    expect(lines.some((line) => line.html.includes("2 connected towns:"))).toBe(true);
+    expect(lines.some((line) => line.kind === "statgrid" && line.html.includes("2 connected towns</strong> · +90%"))).toBe(true);
   });
 
   it("calls out inactive support structures", () => {
@@ -757,8 +757,8 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.kind === "section" && line.html === "Modifiers")).toBe(true);
     expect(lines.some((line) => line.html.includes("Long-term peace:"))).toBe(true);
     expect(lines.some((line) => line.html.includes("+100% population growth"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("2 connected towns:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+90% coin production"))).toBe(true);
+    // Coin lines live in the stat grid's Coin card, not the Modifiers section.
+    expect(lines.some((line) => line.kind === "statgrid" && line.html.includes("2 connected towns</strong> · +90%"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Connected dock route:"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Harbor Exchange:"))).toBe(true);
   });

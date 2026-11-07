@@ -18,7 +18,7 @@ describe("buildTownSummary — tradeNexusTownNames", () => {
     const beta = townTile(11, 10, "Beta");
     const tilesByKey = new Map([alpha, beta].map((t) => [keyFor(t.x, t.y), t as never]));
     const network = new Map<string, ConnectedTownNetworkEntry>([
-      ["11,10", { connectedTownCount: 1, connectedTownBonus: 0.5, connectedTradeNexusKeys: ["10,10"] }]
+      ["11,10", { connectedTownCount: 1, connectedTownBonus: 0.5, connectedTradeNexusTownNames: ["Alpha"] }]
     ]);
     const summary = buildTownSummary(beta as never, undefined, tilesByKey, new Set(), true, network);
     expect(summary?.connectedTownBonus).toBe(0.5);

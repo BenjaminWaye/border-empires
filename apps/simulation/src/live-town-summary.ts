@@ -218,13 +218,6 @@ const clearingHouseSourceTownNames = (
       : []
   );
 
-// Names of the network towns whose Trade Nexus switches on connectedTownBonus.
-const tradeNexusSourceTownNames = (tileKey: string, tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>, townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>): string[] =>
-  (townNetwork?.get(tileKey)?.connectedTradeNexusKeys ?? []).map((sourceKey) => {
-    const sourceTile = tilesByKey.get(sourceKey);
-    return (sourceTile ? parseTown(sourceTile)?.name ?? sourceTile.townName : undefined) ?? `town at ${sourceKey}`;
-  });
-
 export const supportTileBelongsToTown = (
   supportTile: RuntimeState["tiles"][number],
   townX: number,
@@ -425,7 +418,6 @@ export const buildTownSummary = (
     tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
       ? townModifierTotalsForTown(tileKey, tile.ownerId, tilesByKey, dormantEconomicStructureKeys, clearingHouseActive, converterSupport.countsByType, economyPlayer ? multiplicativeEffectForPlayer(economyPlayer, "clearingHouseUpliftMult") : 1)
       : undefined;
-  const tradeNexusTownNames = tradeNexusSourceTownNames(tileKey, tilesByKey, townNetwork);
   const titaniumFactoryCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "TITANIUM_WEAPONS_FACTORY", tilesByKey, dormantEconomicStructureKeys) : 0;
   const umbriteFactoryCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "UMBRITE_WEAPONS_FACTORY", tilesByKey, dormantEconomicStructureKeys) : 0;
   const arsenalFactoryCount = titaniumFactoryCount + umbriteFactoryCount;
@@ -453,7 +445,7 @@ export const buildTownSummary = (
     connectedTownCount: typeof townPartial.connectedTownCount === "number" ? townPartial.connectedTownCount : 0,
     connectedTownBonus: typeof townPartial.connectedTownBonus === "number" ? townPartial.connectedTownBonus : 0,
     ...(Array.isArray(townPartial.connectedTownNames) ? { connectedTownNames: townPartial.connectedTownNames } : {}),
-    ...(tradeNexusTownNames.length > 0 ? { tradeNexusTownNames } : {}),
+    ...(Array.isArray(townPartial.tradeNexusTownNames) ? { tradeNexusTownNames: townPartial.tradeNexusTownNames } : {}),
     // Mercantile Charter (and any future firstThreeTowns* domain/tech):
     // firstThreeTownMult/firstThreeTownPopGrowthMult are already folded into
     // goldPerMinute/populationGrowthPerMinute above, but were never surfaced

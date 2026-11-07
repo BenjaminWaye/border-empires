@@ -36,7 +36,7 @@ describe("townGoldBonuses", () => {
 
   it("explains a 0% connected-town bonus as a missing Trade Nexus", () => {
     const bonuses = townGoldBonuses(town({ connectedTownBonus: 0 }));
-    expect(bonuses.find((b) => b.label === "2 connected towns")?.effect).toContain("build a Trade Nexus");
+    expect(bonuses.find((b) => b.label === "2 connected towns")?.effect).toContain("needs an active Trade Nexus");
   });
 
   it("includes support shortfall, Mercantile Charter and per-building coin lines", () => {

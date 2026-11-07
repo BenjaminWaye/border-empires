@@ -2,9 +2,10 @@
 // Manpower contribution cards, written out under the card itself so the
 // player can see *why* the number is what it is — connected-town bonus (and
 // which town's Trade Nexus switches it on), tier multiplier, support ring,
-// Mercantile Charter and per-building totals. Mirrors the factors in
-// apps/simulation/src/live-town-summary.ts's goldPerMinute product; terrain
-// and coastal modifiers are rendered separately by townStatGridHtml.
+// Mercantile Charter and per-building totals. Each line is that factor's own
+// effect from apps/simulation/src/live-town-summary.ts's goldPerMinute
+// product (factors multiply; empire-wide income multipliers aren't listed);
+// terrain and coastal modifiers are rendered separately by townStatGridHtml.
 import { townPopulationMultiplier } from "@border-empires/game-domain";
 import type { TownTerrainProfileId } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
@@ -35,7 +36,7 @@ const connectedTownBonus = (town: Town): TownStatBonus | undefined => {
   if (town.populationTier === "SETTLEMENT" || town.connectedTownCount <= 0) return undefined;
   const label = `${town.connectedTownCount} connected ${town.connectedTownCount === 1 ? "town" : "towns"}`;
   if (town.connectedTownBonus === 0) {
-    return { label, effect: "+0% — build a Trade Nexus in this network to enable", tone: "neutral" };
+    return { label, effect: "+0% — needs an active Trade Nexus in a connected town", tone: "neutral" };
   }
   const nexusNames = town.tradeNexusTownNames ?? [];
   const source = nexusNames.length > 0 ? ` (Trade Nexus in ${listNames(nexusNames)})` : "";
