@@ -1,7 +1,8 @@
+import { processAutoBuilds } from "./client-structure-build-trigger/client-process-auto-builds.js";
 import { dispatchTileAetherAction } from "./client-afc-upgrades/client-afc-tower-action.js";
 import { createGarrisonManyFlow } from "./client-garrison-many/client-garrison-many.js";
 import { openDiplomacyForPlayer } from "./client-tile-action-diplomacy/client-tile-action-diplomacy.js";
-import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureRequiresClientPlacement, structureSkipsSettledRequirement, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureSkipsSettledRequirement, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
 import {
   enqueueAdjacentExpandWaypoint,
   enqueueRelayBeaconFrontierWaypoint,
@@ -495,20 +496,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     hideTileActionMenu();
   };
 
-  // Once a queued tile lands SETTLED (or, for the settle-free siege ladder, as soon as it's owned), clear its bookkeeping.
-  // The BUILD itself is not sent from here -- CLAIM_CONTINUATION_SET's server-side tail fires it (sending it here too raced that: BUILD_INVALID "tile already has structure"). ORE_REFINERY/HYDROWORKS need player-picked placement, so still fire here.
-  const processAutoBuildTargets = (): void => {
-    if (state.autoBuildTargets.size === 0) return;
-    for (const [targetKey, structureType] of [...state.autoBuildTargets]) {
-      const tile = state.tiles.get(targetKey);
-      if (!tile) continue;
-      const readyForCleanup = tile.ownerId === state.me && !tile.optimisticPending &&
-        (structureSkipsSettledRequirement(structureType) || tile.ownershipState === "SETTLED");
-      if (!readyForCleanup) continue;
-      state.autoBuildTargets.delete(targetKey);
-      if (structureRequiresClientPlacement(structureType)) triggerBuildForStructureType(structureType, tile);
-    }
-  };
+  const processAutoBuildTargets = (): void => processAutoBuilds(state, triggerBuildForStructureType);
 
   // Runtime loop's periodic tick: once a waypoint target is owned, settle it if queued.
   const processAutoSettleTargets = (): void => {
@@ -1139,7 +1127,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     keyFor, hideTileActionMenu, renderHud, requestSettlement, processDevelopmentQueue, pushFeed
   });
 
-  const handleTileAction = (actionId: string, _targetKeyOverride?: string, _originKeyOverride?: string): void => {
+  const handleTileAction = (actionId: string, _targetKeyOverride?: string, _originKeyOverride?: string, buildAllResources = false): void => {
     if (state.garrisonMany.active) garrisonMany.cancel();
     const singleTargetKey = state.tileActionMenu.mode === "single" ? state.tileActionMenu.currentTileKey : "";
     const selectedKey = singleTargetKey || (state.selected ? keyFor(state.selected.x, state.selected.y) : "");
@@ -1249,7 +1237,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (handleAfcTileAction({ actionId, selected, sendGameMessage, hideMenu: hideTileActionMenu, armAfcLanding: () => { state.buildingPlacement = { active: true, structureType: "AFC", x: selected.x, y: selected.y }; renderPlacementOverlay(); renderHud(); } })) return;
     if (actionId === "grow_settlement_to_town" || actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "UPGRADE_TOWN_TIER", x: selected.x, y: selected.y });
-    if (handleGenericBuildAction({ actionId, selected, handleBuildAction, pushFeed, hideMenu: hideTileActionMenu })) return;
+    if (handleGenericBuildAction({ actionId, selected, handleBuildAction, pushFeed, hideMenu: hideTileActionMenu, state, buildAllResources, viewForTile: tileMenuViewForTile, queueDevelopmentAction })) return;
     if (actionId === "upgrade_umbrite_works" || actionId === "upgrade_titanium_works" || actionId === "upgrade_aether_condenser" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode" || actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") {
       handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);
     }
