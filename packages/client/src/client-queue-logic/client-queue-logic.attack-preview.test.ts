@@ -35,6 +35,8 @@ const expectAttackPreviewRequest = (
   });
   expect(typeof parsed.requestId).toBe("string");
   expect(parsed.requestId).not.toBe("");
+  // Terrain facts from the client's own worldgen (the gateway can't build terrain).
+  expect(parsed).toMatchObject({ hillsDefense: expect.any(Boolean), riverCrossing: expect.any(Boolean) });
   if (expected.requestId) expect(parsed.requestId).toBe(expected.requestId);
   return parsed.requestId ?? "";
 };

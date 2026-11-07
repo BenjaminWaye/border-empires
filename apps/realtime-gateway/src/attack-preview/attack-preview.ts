@@ -5,6 +5,8 @@ import {
   defendingFortVariant,
   isFortDefending,
   scanOutpostMult,
+  terrainCombatModifiersFromFacts,
+  type TerrainCombatFacts,
   warIndustryEdge,
   TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
   TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
@@ -89,7 +91,7 @@ export const attackPreviewResult = async (
   playerId: string,
   tiles: PreviewTile[] | undefined,
   docks: PlayerSubscriptionDock[] | undefined,
-  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined; march?: boolean | undefined },
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined; march?: boolean | undefined } & TerrainCombatFacts,
   attackerTechIds?: readonly string[],
   attackerDomainIds?: readonly string[],
   getPlayerTechDomainIds?: (playerId: string) => Promise<{ techIds: readonly string[]; domainIds: readonly string[] } | undefined>,
@@ -201,6 +203,10 @@ export const attackPreviewResult = async (
       ...(techModifiers ?? {}),
       attackerStatMult: (techModifiers?.attackerStatMult ?? 1) * momentum,
       defenderStatMult: (techModifiers?.defenderStatMult ?? 1) * citadel, nowMs: Date.now(),
+      // Hills defense / river crossing, from the client's own worldgen (the
+      // gateway can't build terrain; terrain-combat.ts). A March To target
+      // doesn't border the origin, so a river term can't apply to it.
+      ...terrainCombatModifiersFromFacts({ hillsDefense: message.hillsDefense, riverCrossing: message.riverCrossing && !message.march }),
     }
   );
   return {
@@ -313,7 +319,7 @@ export const buildAttackPreviewResponse = (
   } | undefined,
   snapshotForPlayer: SnapshotLookup,
   getPlayerCombatSummaryRaw: PlayerCombatSummaryLookup,
-  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined; march?: boolean | undefined }
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined; march?: boolean | undefined } & TerrainCombatFacts
 ): Promise<Record<string, unknown>> => {
   const getPlayerCombatSummary = memoizePlayerCombatSummaryLookup(id => getPlayerCombatSummaryRaw(id, { x: message.toX, y: message.toY }));
   return attackPreviewResult(

@@ -15,7 +15,7 @@ describe("march win-chance preview", () => {
     now = 5_000;
     poller.poll();
     expect(send).toHaveBeenCalledTimes(2);
-    expect(send).toHaveBeenCalledWith({ type: "ATTACK_PREVIEW", fromX: 0, fromY: 0, toX: 4, toY: 0, march: true });
+    expect(send).toHaveBeenCalledWith({ type: "ATTACK_PREVIEW", fromX: 0, fromY: 0, toX: 4, toY: 0, march: true, hillsDefense: expect.any(Boolean) });
   });
 
   it("reads the cached server odds for the origin->target pair, ignoring invalid previews", () => {

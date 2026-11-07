@@ -1,4 +1,5 @@
 import { activeRelicTiles, fieldGeneratorForTarget } from "./runtime-relics.js";
+import { targetHasActiveFortFor } from "./runtime-combat-target-fort/runtime-combat-target-fort.js";
 import { breakthroughTileCount, flagMomentumAttackMult, pickBreakthroughTargets } from "./afc-specializations/afc-battle-effects.js";
 import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
@@ -9,6 +10,7 @@ import {
   defendingFortVariant,
   isFortDefending,
   isCaptureHoldActive,
+  terrainCombatModifiers,
   isCommitOddsEligibleTarget,
   isUndefendedFrontierTile,
   rollFrontierCombat,
@@ -218,28 +220,6 @@ const GUARANTEED_CAPTURE_COMBAT_PREVIEW: FrontierCombatPreview & { attackerWon: 
 };
 
 
-// Whether the target's fort actually grants its combat bonus: active,
-// owned by the defender, and not resource-dormant (§5.4). Shared between
-// resolveAttackCombat (combat-power calculation) and
-// buildLockedCombatResolution (manpower-loss-range lookup) so the two
-// can't drift on what counts as "has an active fort" for the same attack.
-const targetHasActiveFortFor = (
-  ctx: RuntimeCombatSupportContext,
-  previousTarget: DomainTileState | undefined,
-  defenderOwnerId: string | undefined,
-  targetKey: string
-): boolean =>
-  Boolean(
-    previousTarget?.fort &&
-      isFortDefending(previousTarget.fort) &&
-      // A just-captured fort is rubble while the capturing troops hold the
-      // tile (capture-hold.ts): no fort-tier floor, no fort terms either side.
-      !isCaptureHoldActive(previousTarget, ctx.now()) &&
-      previousTarget.fort.ownerId === defenderOwnerId &&
-      defenderOwnerId &&
-      !ctx.isStructureDormant(defenderOwnerId, targetKey, "fort")
-  );
-
 export type ShieldConsumption = { tileKey: string; x: number; y: number; matched: number };
 
 const resolveAttackCombat = (
@@ -285,7 +265,9 @@ const resolveAttackCombat = (
     // +18% attack/defense) — persistent infrastructure, same tier as weapons
     // factories, previously computed but never actually applied to combat.
     attackerStatMult: (attacker?.mods?.attack ?? 1) * flagMomentumAttackMult(attacker, ctx.tiles.get(lock.musterSourceKey ?? lock.originKey)?.muster, ctx.now()),
-    defenderStatMult: (defender?.mods?.defense ?? 1) * (targetHasActiveFort && previousTarget?.town && defender ? multiplicativeEffectForPlayer(defender, "fortifiedTownDefenseMult") : 1)
+    defenderStatMult: (defender?.mods?.defense ?? 1) * (targetHasActiveFort && previousTarget?.town && defender ? multiplicativeEffectForPlayer(defender, "fortifiedTownDefenseMult") : 1),
+    // Hills defense / river crossing (terrain-combat.ts), mirrored by the gateway's attack preview.
+    ...terrainCombatModifiers({ x: lock.originX, y: lock.originY }, { x: lock.targetX, y: lock.targetY })
   };
   const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
     ? {

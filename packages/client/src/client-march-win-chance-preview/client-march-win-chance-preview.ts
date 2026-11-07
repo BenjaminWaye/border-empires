@@ -1,3 +1,4 @@
+import { terrainCombatFacts } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 
 // The March To sheet's server-side odds: an ATTACK_PREVIEW from the march
@@ -15,7 +16,9 @@ const MARCH_PREVIEW_REFRESH_MS = 5_000;
 type Point = { x: number; y: number };
 
 export const requestMarchWinChancePreview = (origin: Point, target: Point, sendGameMessage: (payload: unknown) => boolean): void => {
-  sendGameMessage({ type: "ATTACK_PREVIEW", fromX: origin.x, fromY: origin.y, toX: target.x, toY: target.y, march: true });
+  // Only the target's hills term applies to a march (it doesn't border the origin).
+  const { hillsDefense } = terrainCombatFacts(origin, target);
+  sendGameMessage({ type: "ATTACK_PREVIEW", fromX: origin.x, fromY: origin.y, toX: target.x, toY: target.y, march: true, hillsDefense });
 };
 
 /** The cached server win chance for this march (base, before commit/shield scaling), or undefined when none has arrived. */

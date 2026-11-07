@@ -48,7 +48,11 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     requestId: z.string().min(1).optional(),
     // March To preview: the target needn't border the origin (a muster flag
     // marches there), so the gateway skips its adjacency check.
-    march: z.boolean().optional()
+    march: z.boolean().optional(),
+    // Terrain facts (terrain-combat.ts terrainCombatFacts) from the client's
+    // own worldgen: the gateway can't derive them. Preview-only.
+    hillsDefense: z.boolean().optional(),
+    riverCrossing: z.boolean().optional()
   }),
   z.object({ type: z.literal("CHOOSE_TECH"), techId: z.string().min(1) }),
   // targetPlayerId (optional): address the target by id, so a name shared by two empires can't misdirect the offer.

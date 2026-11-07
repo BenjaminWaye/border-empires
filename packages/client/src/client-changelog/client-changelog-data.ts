@@ -11,6 +11,7 @@ import { CAPTURE_WRECK_FIX_CHANGELOG } from "./client-changelog-capture-wreck-fi
 import { TOWN_STAT_BONUSES_CHANGELOG } from "./client-changelog-town-stat-bonuses.js";
 import { TOWN_TIER_GROWTH_CHANGELOG } from "./client-changelog-town-tier-growth.js";
 import { SEA_VISION_CHANGELOG } from "./client-changelog-sea-vision.js";
+import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
 import { BEACON_FOREST_VISION_CHANGELOG } from "./client-changelog-beacon-forest-vision.js";
 import { MANIFEST_WORDING_CHANGELOG } from "./client-changelog-manifest-wording.js";
 import { VICTORY_HOLD_TIME_CHANGELOG } from "./client-changelog-victory-hold-time.js";
@@ -487,6 +488,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...VICTORY_HOLD_TIME_CHANGELOG,
   ...RANKS_TRACK_PROFILES_CHANGELOG,
   { ...BATTLE_VARIETY_ENTRY, createdAt: 1794073665467, },
+  ...TERRAIN_COMBAT_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
