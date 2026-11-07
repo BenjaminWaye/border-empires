@@ -105,12 +105,12 @@ export function renderAfcUpgradesHtml(state: UpgradeState, view: UpgradeView, pr
   </section>`;
 }
 
-/** Single-level inline details on desktop and mobile; no tab-within-tab or modal. */
+/** Single-level inline details; no tab-within-tab or modal. */
 export function renderAfcUpgradePanels(
-  state: UpgradeState, desktop: HTMLElement, mobile: HTMLElement, install: (id: string) => void, actions?: AfcActionDependencies
+  state: UpgradeState, root: HTMLElement, install: (id: string) => void, actions?: AfcActionDependencies
 ): void {
   state.domainDetailOpen = false;
-  for (const [index, root] of [desktop, mobile].entries()) {
+  {
     const identity = `${state.me}/${state.joinSeasonId}/${currentTier(state) ?? "complete"}`;
     const remembered = views.get(root);
     const view = remembered?.identity === identity
@@ -119,7 +119,7 @@ export function renderAfcUpgradePanels(
     if (state.domainCatalog.length) views.set(root, view);
     else views.delete(root);
     const repaint = (): void => {
-      const html = renderAfcUpgradesHtml(state, view, `afc-upgrade-${index}`);
+      const html = renderAfcUpgradesHtml(state, view, `afc-upgrade-0`);
       // Routine HUD ticks must not interrupt touch scrolling or keyboard focus.
       if (view.html === html && root.firstElementChild) return;
       const scrollTop = root.scrollTop;

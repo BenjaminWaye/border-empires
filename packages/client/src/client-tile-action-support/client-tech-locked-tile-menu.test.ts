@@ -9,7 +9,7 @@ const techEntry = (id: string, name: string, manifestCategory: "AFC_MODULE" | "C
 const buildingsHtml = (actions: TileActionDef[], state: Parameters<typeof splitTileActionsIntoTabs>[1]): { tabs: ReturnType<typeof splitTileActionsIntoTabs>; html: string } => {
   const tabs = splitTileActionsIntoTabs(actions, state);
   const view: TileMenuView = { title: "Deposit", subtitle: "", tabs: ["buildings"], overviewLines: [], ...tabs };
-  return { tabs, html: tileActionMenuHtml(view, "buildings", false) };
+  return { tabs, html: tileActionMenuHtml(view, "buildings") };
 };
 
 describe("tech-locked resource builds in the tile menu", () => {

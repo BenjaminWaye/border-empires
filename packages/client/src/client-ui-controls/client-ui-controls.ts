@@ -1,5 +1,4 @@
 import type { createClientActionFlow } from "../client-action-flow.js";
-import { locateHomeAfc } from "../client-afc-locate/client-afc-locate.js";
 import { openBugReportFromCaptureAlert } from "../client-capture-effects/client-capture-report-bug.js";
 import type { initClientDom } from "../client-dom.js";
 import { closeActivePanel } from "../client-panel-nav/client-panel-nav.js";
@@ -16,11 +15,7 @@ type UiControlsDeps = {
   state: ClientState;
   hud: ClientDom["hud"];
   techChooseBtn: ClientDom["techChooseBtn"];
-  mobileTechChooseBtn: ClientDom["mobileTechChooseBtn"];
   techPickEl: ClientDom["techPickEl"];
-  mobileTechPickEl: ClientDom["mobileTechPickEl"];
-  centerMeBtn: ClientDom["centerMeBtn"];
-  centerMeDesktopBtn: ClientDom["centerMeDesktopBtn"];
   captureCancelBtn: ClientDom["captureCancelBtn"];
   captureDismissBtn: ClientDom["captureDismissBtn"];
   captureCloseBtn: ClientDom["captureCloseBtn"];
@@ -31,7 +26,6 @@ type UiControlsDeps = {
   victoryAlertCollapseBtn: ClientDom["victoryAlertCollapseBtn"];
   victoryAlertBannerBtn: ClientDom["victoryAlertBannerBtn"];
   panelCloseBtn: ClientDom["panelCloseBtn"];
-  panelActionButtons: ClientDom["panelActionButtons"];
   authColorPresetButtons: ClientDom["authColorPresetButtons"];
   authProfileColorEl: ClientDom["authProfileColorEl"];
   authEmailEl: ClientDom["authEmailEl"];
@@ -52,13 +46,8 @@ type UiControlsDeps = {
 export const bindClientUiControls = (deps: UiControlsDeps): void => {
   const {
     state,
-    hud,
     techChooseBtn,
-    mobileTechChooseBtn,
     techPickEl,
-    mobileTechPickEl,
-    centerMeBtn,
-    centerMeDesktopBtn,
     captureCancelBtn,
     captureDismissBtn,
     captureCloseBtn,
@@ -69,7 +58,6 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     victoryAlertCollapseBtn,
     victoryAlertBannerBtn,
     panelCloseBtn,
-    panelActionButtons,
     authColorPresetButtons,
     authProfileColorEl,
     authEmailEl,
@@ -78,8 +66,6 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     authProfileSaveBtn,
     actionFlow,
     renderHud,
-    centerOnOwnedTile,
-    requestViewRefresh,
     acknowledgeVictoryHoldAlert,
     renderVictoryHoldAlert,
     renderCaptureProgress,
@@ -91,30 +77,10 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
   techChooseBtn.onclick = () => {
     chooseTech();
   };
-  mobileTechChooseBtn.onclick = () => {
-    chooseTech();
-  };
   techPickEl.onchange = () => {
     state.techUiSelectedId = techPickEl.value;
-    mobileTechPickEl.value = techPickEl.value;
     renderHud();
   };
-  mobileTechPickEl.onchange = () => {
-    state.techUiSelectedId = mobileTechPickEl.value;
-    techPickEl.value = mobileTechPickEl.value;
-    renderHud();
-  };
-  // The AFC button (ids kept from the old Center button) jumps to the home AFC
-  // and opens its Modules tab (the AFC's overview), falling back to centering on the empire.
-  [centerMeBtn, centerMeDesktopBtn].forEach((btn) => {
-    btn.onclick = () => {
-      const openTileMenu = (tile: Parameters<UiActionFlow["openSingleTileActionMenu"]>[0], x: number, y: number): void =>
-        actionFlow.openSingleTileActionMenu(tile, x, y, { requestAttackPreview: false, openTab: "modules" });
-      if (!locateHomeAfc(state, openTileMenu, { x: window.innerWidth / 2, y: window.innerHeight / 2 })) centerOnOwnedTile();
-      requestViewRefresh(2, true);
-      renderHud();
-    };
-  });
   captureCancelBtn.onclick = () => cancelOngoingCapture();
   captureDismissBtn.onclick = () => {
     dismissOngoingCapture(state);
@@ -140,15 +106,6 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     closeActivePanel(state);
     renderHud();
   };
-
-  panelActionButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      if (btn.hidden) return;
-      const panel = btn.dataset.panel as typeof state.activePanel;
-      if (!panel) return;
-      setActivePanel(panel);
-    };
-  });
 
   authColorPresetButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
@@ -177,19 +134,4 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     }
   };
 
-  const mobileNavButtons = hud.querySelectorAll<HTMLButtonElement>("#mobile-nav button[data-mobile-panel]");
-  mobileNavButtons.forEach((btn) => {
-    btn.onclick = () => {
-      if (btn.hidden) return;
-      const panel = btn.dataset.mobilePanel as typeof state.mobilePanel | undefined;
-      if (!panel) return;
-      state.mobilePanel = panel;
-      if (panel === "feed") {
-        state.unreadAttackAlerts = 0;
-        state.feedUnreadCount = 0;
-        state.feedAttentionUntil = 0;
-      }
-      renderHud();
-    };
-  });
 };

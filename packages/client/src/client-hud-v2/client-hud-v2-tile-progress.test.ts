@@ -2,14 +2,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import type { TileMenuView } from "../client-types.js";
-import { initHudV2Flag } from "./client-hud-v2-flag.js";
 import { renderTileActionMenu } from "../client-tile-action-menu-ui/client-tile-action-menu-ui.js";
 
 const click = (selector: string): void => document.querySelector<HTMLElement>(selector)!.click();
 
 describe("tile progress navigation", () => {
   it("keeps garrison progress inline and forwards rush and cancel to the existing controllers", () => {
-    initHudV2Flag("?hud=v2");
     document.body.innerHTML = `<div id="tile-action-menu"><button data-progress-action="rush_buy"></button><button data-progress-action="cancel_settle"></button></div><section id="hud-v2-tile"></section><section id="hud-v2-build" hidden></section>`;
     const menu = document.querySelector<HTMLDivElement>("#tile-action-menu")!;
 
@@ -24,7 +22,7 @@ describe("tile progress navigation", () => {
     const sendGameMessage = vi.fn(() => true);
     const clearSettlementProgressByKey = vi.fn();
     const deps: Parameters<typeof renderTileActionMenu>[4] = {
-      tileActionMenuEl: menu, isMobile: () => true, handleTileAction: vi.fn(), hideTileActionMenu: vi.fn(), renderHud: vi.fn(),
+      tileActionMenuEl: menu, handleTileAction: vi.fn(), hideTileActionMenu: vi.fn(), renderHud: vi.fn(),
       viewportSize: () => ({ width: 390, height: 844 }), tileMenuViewForTile: () => view,
       cancelQueuedSettlement: vi.fn(), cancelQueuedBuild: vi.fn(), cancelQueuedAutoSettle: vi.fn(), moveQueuedEntryToFront: vi.fn(),
       cancelQueuedWaypointEntry: vi.fn(), moveWaypointToFront: vi.fn(), cancelQueuedExpandEntry: vi.fn(), moveActionQueueEntryToFront: vi.fn(),

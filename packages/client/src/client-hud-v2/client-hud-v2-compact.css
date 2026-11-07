@@ -22,9 +22,6 @@ body.hud-v2-compact {
 }
 
 /* The new HUD's own destinations replace the legacy phone tab bar and its core card. */
-body.hud-v2-compact #mobile-nav,
-body.hud-v2-compact #mobile-core,
-body.hud-v2-compact #mobile-sheet { display: none !important; }
 
 /* Backdrop blur is expensive on the low-end phones most likely to be on the 2D renderer. */
 body.hud-v2-compact .v2s-backdrop,

@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import { ownershipHelpSubtitleHtml } from "../client-tile-menu-ownership-help/client-tile-menu-ownership-help.js";
 import { createInitialState } from "../client-state/client-state.js";
 import type { TileMenuView } from "../client-types.js";
-import { initHudV2Flag } from "./client-hud-v2-flag.js";
 import { dockTileActionMenuForHudV2, setDockListener, type TileDockDeps } from "./client-hud-v2-tile-dock.js";
 
 const view = (title: string): TileMenuView =>
@@ -15,14 +14,12 @@ const view = (title: string): TileMenuView =>
 describe("docked tile panel", () => {
   // Regression: "Your frontier" opened its explainer, then the next repaint of the panel shut it again.
   it("keeps the ownership explainer open while the same tile repaints", () => {
-    initHudV2Flag("?hud=v2");
     document.body.innerHTML = `<div id="tile-action-menu"></div><section id="hud-v2-tile" hidden></section><aside id="hud-v2-build" hidden></aside>`;
     const state = createInitialState();
     state.tileActionMenu.mode = "single";
     state.tileActionMenu.currentTileKey = "102,174";
     const deps: TileDockDeps = {
       tileActionMenuEl: document.getElementById("tile-action-menu") as HTMLElement,
-      isMobile: () => false,
       handleTileAction: () => undefined,
       hideTileActionMenu: () => undefined,
       renderHud: () => undefined
@@ -40,7 +37,6 @@ describe("docked tile panel", () => {
   // Regression: tap tracking was installed with the dock on the first menu render, after that render's own
   // pointer-up, so the first tap of a session never counted (a flagged town needed three taps).
   it("counts the very first map tap of a session", () => {
-    initHudV2Flag("?hud=v2");
     document.body.innerHTML = `<canvas id="game"></canvas><div id="tile-action-menu"></div><section id="hud-v2-tile" hidden></section><aside id="hud-v2-build" hidden></aside>`;
     const taps: boolean[] = [];
     setDockListener({ onMenuView: (_view, _key, tapPress) => { taps.push(tapPress !== undefined); return false; }, onMenuHidden: () => undefined, onBarAction: () => undefined });
@@ -52,7 +48,6 @@ describe("docked tile panel", () => {
     state.tileActionMenu.currentTileKey = "5,5";
     const deps: TileDockDeps = {
       tileActionMenuEl: document.getElementById("tile-action-menu") as HTMLElement,
-      isMobile: () => false,
       handleTileAction: () => undefined,
       hideTileActionMenu: () => undefined,
       renderHud: () => undefined
@@ -67,9 +62,7 @@ describe("docked tile panel", () => {
   it("reports the map press that hid the menu, and the same press on the tap that follows", async () => {
     // A fresh module: the dock (and the menu it watches) is created once per page, by the first render.
     vi.resetModules();
-    const { initHudV2Flag } = await import("./client-hud-v2-flag.js");
     const { dockTileActionMenuForHudV2, setDockListener } = await import("./client-hud-v2-tile-dock.js");
-    initHudV2Flag("?hud=v2");
     document.body.innerHTML = `<canvas id="game"></canvas><div id="tile-action-menu"></div><section id="hud-v2-tile" hidden></section><aside id="hud-v2-build" hidden></aside>`;
     const hidden: (number | undefined)[] = [];
     const presses: (number | undefined)[] = [];
@@ -78,7 +71,7 @@ describe("docked tile panel", () => {
     const state = createInitialState();
     state.tileActionMenu.mode = "single";
     state.tileActionMenu.currentTileKey = "5,5";
-    const deps: TileDockDeps = { tileActionMenuEl: menu, isMobile: () => false, handleTileAction: () => undefined, hideTileActionMenu: () => undefined, renderHud: () => undefined };
+    const deps: TileDockDeps = { tileActionMenuEl: menu, handleTileAction: () => undefined, hideTileActionMenu: () => undefined, renderHud: () => undefined };
     dockTileActionMenuForHudV2(state, view("Town (5, 5)"), deps, () => undefined);
     const game = document.getElementById("game") as HTMLElement;
     // A press on the map: the map hides the menu on mousedown, the tap reopens it on mouseup.

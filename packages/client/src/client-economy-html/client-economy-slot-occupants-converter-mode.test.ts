@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import { EMPIRE_STORAGE_FLOOR } from "@border-empires/shared";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 
+/** One resource's row in the Economy panel. */
+const rowOf = (html: string, resource: string): string => html.match(new RegExp(`<section[^>]*data-v2e-row="${resource}"[\\s\\S]*?</section>`))?.[0] ?? "";
+
 // Regression: a converter in SYNTHESIZE/Refine mode is a slot SOURCE for its
 // own family resource (listed under "Slot Sources"), not an occupant — it
 // only starts occupying the slot once it's flipped to EXCHANGE/Sell Off mode.
@@ -24,7 +27,6 @@ describe("renderEconomyPanelHtml — converter mode gates slot occupancy", () =>
     upkeepLastTick: { foodCoverage: 1 },
     activeRevealTargetsCount: 0,
     economyBreakdown: undefined,
-    isMobile: true,
     prettyToken: (value: string) => value,
     resourceIconHtml: (resource: string) => resource,
     rateToneClass: () => "positive",
@@ -32,7 +34,7 @@ describe("renderEconomyPanelHtml — converter mode gates slot occupancy", () =>
     economicStructureName: () => "Aether Condenser"
   };
 
-  it("omits a Refine-mode Aether Condenser from Occupied by", () => {
+  it("omits a Refine-mode Aether Condenser from Used by", () => {
     const html = renderEconomyPanelHtml({
       ...baseArgs,
       resourceSlots: {
@@ -51,11 +53,11 @@ describe("renderEconomyPanelHtml — converter mode gates slot occupancy", () =>
       ]
     });
 
-    expect(html).toContain("No structures using a CRYSTAL slot yet");
-    expect(html).not.toMatch(/Occupied by[\s\S]*Aether Condenser/);
+    expect(rowOf(html, "CRYSTAL")).toContain("Nothing yet");
+    expect(rowOf(html, "CRYSTAL")).not.toContain("Aether Condenser");
   });
 
-  it("lists a Sell Off-mode Aether Condenser under Occupied by", () => {
+  it("lists a Sell Off-mode Aether Condenser under Used by", () => {
     const html = renderEconomyPanelHtml({
       ...baseArgs,
       resourceSlots: {
@@ -75,7 +77,7 @@ describe("renderEconomyPanelHtml — converter mode gates slot occupancy", () =>
     });
 
     expect(html).toContain("Aether Condenser");
-    expect(html).toContain("1 slot");
-    expect(html).not.toContain("No structures using a CRYSTAL slot yet");
+    expect(rowOf(html, "CRYSTAL")).toContain("<b>1</b>");
+    expect(rowOf(html, "CRYSTAL")).not.toContain("Nothing yet");
   });
 });

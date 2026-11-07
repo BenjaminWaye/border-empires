@@ -2,42 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { ActiveTruceView, TileActionDef, TileMenuView } from "../client-types.js";
 import { actionBarHtml, moreActions, selectBarButtons } from "./client-hud-v2-action-bar.js";
 import { waystationFacts } from "./client-hud-v2-tile-facts.js";
-import { HUD_V2_STORAGE_KEY, readHudV2Flag } from "./client-hud-v2-flag.js";
 import { orbFill, orbHtml } from "./client-hud-v2-orb.js";
 import { resourceBarHtml, slotChipState } from "./client-hud-v2-resource-bar.js";
 import { RIVAL_STRIP_CAP, rivalTokens } from "./client-hud-v2-rivals.js";
 import { TRACKER_GROUP_CAP, trackerHtml, trackerNeeds } from "./client-hud-v2-tracker.js";
 
-const memoryStorage = () => {
-  const map = new Map<string, string>();
-  return {
-    getItem: (k: string) => map.get(k) ?? null,
-    setItem: (k: string, v: string) => void map.set(k, v),
-    removeItem: (k: string) => void map.delete(k)
-  };
-};
-
 const truce = (otherPlayerId: string, endsAt: number): ActiveTruceView => ({ otherPlayerId, otherPlayerName: otherPlayerId, startedAt: 0, endsAt, createdByPlayerId: "me" });
 
 const act = (id: TileActionDef["id"], extra: Partial<TileActionDef> = {}): TileActionDef => ({ id, label: id, ...extra });
-
-describe("hud v2 flag", () => {
-  it("is on by default, opted out by ?hud=legacy and back on with ?hud=v2", () => {
-    const storage = memoryStorage();
-    expect(readHudV2Flag("", storage)).toBe(true);
-    expect(readHudV2Flag("?hud=legacy", storage)).toBe(false);
-    expect(readHudV2Flag("", storage)).toBe(false);
-    expect(readHudV2Flag("?hud=v2", storage)).toBe(true);
-    expect(storage.getItem(HUD_V2_STORAGE_KEY)).toBe("1");
-    expect(readHudV2Flag("", storage)).toBe(true);
-  });
-
-  it("keeps early ?hud=v2 testers on the new HUD", () => {
-    const storage = memoryStorage();
-    storage.setItem(HUD_V2_STORAGE_KEY, "1");
-    expect(readHudV2Flag("", storage)).toBe(true);
-  });
-});
 
 describe("resource bar", () => {
   it("warns only when a slot is over capacity, not when full", () => {

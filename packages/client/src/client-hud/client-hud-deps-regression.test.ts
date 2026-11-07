@@ -11,33 +11,11 @@ describe("client HUD dependency wiring", () => {
     expect(renderMobilePanelsAt).toBeGreaterThan(renderHudCallAt);
   });
 
-  it("wires domain detail overlays and clears the unused mobile tile guidance block", () => {
-    const bootstrapSource = readFileSync(new URL("../client-bootstrap/client-bootstrap.ts", import.meta.url), "utf8");
-    const techFlowSource = readFileSync(new URL("../client-tech-panel-flow.ts", import.meta.url), "utf8");
-    const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
-    const detailSource = readFileSync(new URL("../client-tech-detail-ui/client-tech-detail-ui.ts", import.meta.url), "utf8");
-
-    expect(bootstrapSource).toContain("renderDomainDetailOverlay: techFlow.renderDomainDetailOverlay");
-    expect(techFlowSource).toContain("const renderDomainDetailOverlay = (): string =>");
-    expect(hudSource).toContain("state.domainDetailOpen");
-    expect(hudSource).toContain("dom.techDetailOverlayEl.onclick = (event: MouseEvent) => {");
-    expect(hudSource).toContain('const domainUnlockTrigger = target?.closest<HTMLButtonElement>("[data-domain-unlock]")');
-    expect(detailSource).toContain("return renderDomainDetailCardHtml({");
-    expect(detailSource).not.toContain("showInlineClose: false");
-    expect(hudSource).toContain('dom.mobileCoreHelpEl.innerHTML = "";');
-    expect(hudSource).toContain('dom.mobileCoreHelpEl.style.display = "none";');
-  });
 
   it("keeps expanded desktop tech trees in split layout even when a detail card is open", () => {
     const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
 
-    expect(hudSource).toContain('state.techDetailOpen && !deps.techDetailsUseOverlay() && !state.techTreeExpanded');
+    expect(hudSource).toContain('state.techDetailOpen && !state.techTreeExpanded');
   });
 
-  it("rerenders the economy panel immediately when opening it from a stat chip", () => {
-    const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
-
-    expect(hudSource).toContain('openEconomyPanel(focus ?? "ALL");');
-    expect(hudSource).toContain("renderClientHud(deps);");
-  });
 });

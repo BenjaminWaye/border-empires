@@ -10,14 +10,10 @@ const panelHtml = `
 
 const makeDom = () => {
   const panelTechEl = document.createElement("section");
-  const mobilePanelTechEl = document.createElement("section");
   panelTechEl.innerHTML = panelHtml;
-  mobilePanelTechEl.innerHTML = panelHtml;
   return {
     panelTechEl,
-    mobilePanelTechEl,
-    techViewToggleEl: document.createElement("button"),
-    mobileTechViewToggleEl: document.createElement("button")
+    techViewToggleEl: document.createElement("button")
   };
 };
 
@@ -25,11 +21,11 @@ const tabButton = (panel: HTMLElement, tab: ManifestTab): HTMLButtonElement =>
   panel.querySelector(`[data-manifest-tab-btn="${tab}"]`) as HTMLButtonElement;
 
 describe("syncManifestPanelTabs", () => {
-  it("marks the active tab on both panels and shows the owned count", () => {
+  it("marks the active tab and shows the owned count", () => {
     const dom = makeDom();
     const state = { techSection: "owned" as ManifestTab, techTreeExpanded: false };
     syncManifestPanelTabs(dom, state, 7, () => undefined);
-    for (const panel of [dom.panelTechEl, dom.mobilePanelTechEl]) {
+    for (const panel of [dom.panelTechEl]) {
       expect(panel.dataset.manifestTab).toBe("owned");
       expect(tabButton(panel, "owned").classList.contains("active")).toBe(true);
       expect(tabButton(panel, "owned").getAttribute("aria-selected")).toBe("true");
@@ -43,10 +39,10 @@ describe("syncManifestPanelTabs", () => {
     const state = { techSection: "available" as ManifestTab, techTreeExpanded: false };
     const rerender = vi.fn();
     syncManifestPanelTabs(dom, state, 2, rerender);
-    tabButton(dom.mobilePanelTechEl, "owned").click();
+    tabButton(dom.panelTechEl, "owned").click();
     expect(state.techSection).toBe("owned");
     expect(rerender).toHaveBeenCalledTimes(1);
-    tabButton(dom.mobilePanelTechEl, "owned").click();
+    tabButton(dom.panelTechEl, "owned").click();
     expect(rerender).toHaveBeenCalledTimes(1);
   });
 
@@ -56,7 +52,7 @@ describe("syncManifestPanelTabs", () => {
     const rerender = vi.fn();
     syncManifestPanelTabs(dom, state, 0, rerender);
     expect(dom.techViewToggleEl.textContent).toBe("Tree view");
-    dom.mobileTechViewToggleEl.click();
+    dom.techViewToggleEl.click();
     expect(state.techTreeExpanded).toBe(true);
     syncManifestPanelTabs(dom, state, 0, rerender);
     expect(dom.panelTechEl.dataset.manifestTab).toBe("tree");
@@ -66,7 +62,7 @@ describe("syncManifestPanelTabs", () => {
     dom.techViewToggleEl.click();
     syncManifestPanelTabs(dom, state, 0, rerender);
     expect(state.techTreeExpanded).toBe(false);
-    expect(dom.mobilePanelTechEl.dataset.manifestTab).toBe("owned");
+    expect(dom.panelTechEl.dataset.manifestTab).toBe("owned");
     expect(rerender).toHaveBeenCalledTimes(2);
   });
 });

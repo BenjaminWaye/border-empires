@@ -29,7 +29,6 @@ export type GuideInputState = Pick<
   | "me"
   | "authEmail"
   | "activePanel"
-  | "mobilePanel"
   | "activityDashboard"
   | "techIds"
   | "techRootId"
@@ -155,19 +154,12 @@ const beaconSiteOf = (tiles: ReadonlyMap<string, Tile>, me: string, ownsRelayBea
 const bodyHasClass = (cls: string): boolean => typeof document !== "undefined" && document.body.classList.contains(cls);
 
 /**
- * The panel the player has open: the desktop side panel, a mobile panel other
- * than the default "core", or HUD v2's Manifest screen (which clears
+ * The panel the player has open: the side panel, or HUD v2's Manifest screen (which clears
  * activePanel and is tracked only by its body class), reported as "tech".
  */
 const openPanelOf = (state: GuideInputState): string | null =>
   state.activePanel ??
-  (state.mobilePanel !== "core"
-    ? state.mobilePanel
-    : bodyHasClass("hud-v2-screen-manifest")
-      ? "tech"
-      : bodyHasClass("hud-v2-screen-diplomacy")
-        ? "alliance"
-        : null);
+  (bodyHasClass("hud-v2-screen-manifest") ? "tech" : bodyHasClass("hud-v2-screen-diplomacy") ? "alliance" : null);
 
 
 const FOOTHOLD_STEP_IDS = GUIDE_STEPS.filter((step) => step.chapter === "foothold").map((step) => step.id);

@@ -40,19 +40,20 @@ share a link if you need the editable version.
 
 ## Where the code is
 
-- Flag: on by default, on desktop and phones. Phones (≤ 900px wide, or a
-  touch screen ≤ 500px tall) get the compact layout (`body.hud-v2-compact`,
-  `client-hud-v2-compact*.css`/`.ts`). `?hud=legacy` opts the browser back
-  into the old HUD (stored as `be.hudV2=0`); `?hud=v2` (or the older
-  `?hud=compact`) switches it back on (stores `be.hudV2=1`). See
-  `../../hud-v2-mobile-plan.md`.
+- The only HUD, on desktop and phones (the classic HUD and its `?hud=legacy`
+  opt-out were removed on 2026-11-07). Phones (≤ 900px wide, or a touch screen
+  ≤ 500px tall) get the compact layout (`body.hud-v2-compact`,
+  `client-hud-v2-compact*.css`/`.ts`, chosen by `client-hud-v2-layout.ts`).
+  See `../../hud-v2-mobile-plan.md`.
 - Modules: `packages/client/src/client-hud-v2/`. `client-hud-v2.ts` is the
   controller (250 ms frame, writes only regions that changed),
   `client-hud-v2-context.ts` holds shared deps and screen state, and
   `client-hud-v2-screens.ts` routes full screens.
-- Some screens host or restyle legacy DOM rather than rewriting it: the trade
-  view, player profile, AFC panel and Settings panel.
-- Chronicle replaces the legacy activity dashboard and What's New under v2.
+- Some screens host or restyle older panel DOM rather than rewriting it: the
+  trade view, AFC panel, Economy, Settings and the rest of `#side-panel`, and
+  the floating tile menu (docked into the tile bar; its Modules, Commit and
+  Reports tabs have no v2 view yet).
+- Chronicle replaced the old activity dashboard and What's New.
 - HUD changelog notes live in
   `packages/client/src/client-changelog/client-changelog-hud-v2-preview.ts`.
 - Ranks top three come from `contenders` on the season victory objective
@@ -62,7 +63,7 @@ share a link if you need the editable version.
 
 PRs #2498 (screens), #2503 and #2504 (two rounds of staging feedback), all
 merged to `develop`. Since #2587 it is the default desktop HUD; the classic
-HUD stays reachable with `?hud=legacy`.
+HUD was removed on 2026-11-07.
 
 Known gaps at export time: no mobile layout (since built, see [`../../hud-v2-mobile-plan.md`](../../hud-v2-mobile-plan.md)); a profile opened from Ranks closes
 to the map; a tile with both a fort and an economic structure only describes

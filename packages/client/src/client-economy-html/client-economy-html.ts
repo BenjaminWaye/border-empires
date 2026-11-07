@@ -1,4 +1,3 @@
-import { networkSupplyHtml } from "../client-resource-networks/network-supply-html.js";
 import {
   townFoodSlotDemandForTier,
   structureSlotRequirements,
@@ -9,10 +8,8 @@ import {
   type ResourceSlotSources,
   type SlotResource
 } from "@border-empires/shared";
-import { economyIntegrityCardHtml } from "./client-economy-integrity-card.js";
 import { economyRowsFromPanelArgs } from "./client-economy-rows.js";
-import { hudV2IsDriving } from "../client-hud-v2/client-hud-v2-flag.js";
-import { slotSupplyAmountLabel, slotSourcesForResource, type SlotSourceNames } from "./client-economy-slot-sources.js";
+import { slotSourcesForResource, type SlotSourceNames } from "./client-economy-slot-sources.js";
 import { STRUCTURE_DISPLAY_NAMES } from "../client-structure-display-names.js";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
@@ -26,11 +23,7 @@ type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 // discrete slot capacity, so this panel renders them with a slots-used mode
 // instead of the stock/cap/income/upkeep flow mode. GOLD is the only resource
 // left on the flow mode (§14.1 item 2 / §5.5).
-const isSlotResource = (resource: EconomyResource): resource is SlotResource => resource !== "GOLD";
-
 export type EconomyPanelArgs = {
-  /** Empire Integrity 0-100 -- shown as its own summary card (client-economy-integrity-card.ts) when given. */
-  integrityPct?: number;
   focus: EconomyFocusKey;
   gold: number;
   me: string;
@@ -52,7 +45,6 @@ export type EconomyPanelArgs = {
   activeRevealTargetsCount: number;
   tiles: Iterable<Tile>;
   economyBreakdown: EconomyBreakdown | undefined;
-  isMobile: boolean;
   prettyToken: (value: string) => string;
   resourceIconHtml: (resource: string) => string;
   rateToneClass: (rate: number) => string;
@@ -69,7 +61,6 @@ export type EconomyPanelArgs = {
   isRevealed?: (key: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE") => boolean;
 };
 
-const resources: EconomyResource[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"];
 
 // §14.1 item 2 / §14.2: which structures/towns are occupying a slot of this
 // resource right now, for the "Occupied by" column of the detail card. Reuses
@@ -149,25 +140,6 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
   return [...buckets.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
 };
 
-const slotStatusLine = (supply: number, demand: number): { text: string; tone: number } => {
-  if (supply <= 0) return { text: "No access to this resource yet", tone: -1 };
-  if (demand > supply) return { text: `Short by ${demand - supply}`, tone: -1 };
-  if (demand === supply) return { text: "Fully committed", tone: 0 };
-  return { text: `${supply - demand} free`, tone: 1 };
-};
-
-const formatUpkeepSummary = (
-  upkeep: EconomyPanelArgs["upkeepPerMinute"],
-  resourceIconHtml: EconomyPanelArgs["resourceIconHtml"]
-): string => {
-  // §5/§12.1: FOOD/TITANIUM/CRYSTAL/UMBRITE stopped being stockpiled flows — their
-  // upkeep is the slot occupancy shown in the per-resource cards, so only the
-  // GOLD flow upkeep belongs in this summary line.
-  const parts: string[] = [];
-  if (upkeep.gold > 0.001) parts.push(`${resourceIconHtml("GOLD")} ${(upkeep.gold * 1440).toFixed(1)}/day`);
-  return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
-};
-
 const economySourceLabelForTile = (
   tile: Tile,
   resource: EconomyResource,
@@ -200,25 +172,6 @@ const accumulateEconomyBucket = (map: Map<string, EconomyBucket>, label: string,
 const setEconomyBucketNote = (map: Map<string, EconomyBucket>, label: string, note: string): void => {
   const bucket = map.get(label);
   if (bucket) bucket.note = note;
-};
-
-const resourceUpkeepPerMinute = (resource: EconomyResource, upkeepPerMinute: EconomyPanelArgs["upkeepPerMinute"]): number => {
-  if (resource === "GOLD") return upkeepPerMinute.gold;
-  if (resource === "FOOD") return upkeepPerMinute.food;
-  if (resource === "TITANIUM") return upkeepPerMinute.titanium;
-  if (resource === "CRYSTAL") return upkeepPerMinute.crystal;
-  if (resource === "UMBRITE") return upkeepPerMinute.umbrite;
-  return 0;
-};
-
-const resourceNetPerMinute = (
-  resource: EconomyResource,
-  incomePerMinute: number,
-  strategicProductionPerMinute: EconomyPanelArgs["strategicProductionPerMinute"],
-  upkeepPerMinute: EconomyPanelArgs["upkeepPerMinute"]
-): number => {
-  if (resource === "GOLD") return incomePerMinute - upkeepPerMinute.gold;
-  return strategicProductionPerMinute[resource] - resourceUpkeepPerMinute(resource, upkeepPerMinute);
 };
 
 const upkeepBreakdownForResource = (
@@ -294,128 +247,5 @@ const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResou
   };
 };
 
-const economySummaryCardHtml = (args: EconomyPanelArgs, resource: EconomyResource, selected: boolean): string => {
-  const icon = args.resourceIconHtml(resource);
-  const label = economyResourceName(args, resource);
-  const head = `<div class="economy-summary-head"><span>${icon}</span><strong>${label}</strong></div>`;
-  if (isSlotResource(resource)) {
-    const supply = args.resourceSlots.supply[resource];
-    const demand = args.resourceSlots.demand[resource];
-    const status = slotStatusLine(supply, demand);
-    return `<button class="economy-summary-card${selected ? " is-active" : ""}" type="button" data-economy-focus="${resource}">
-    ${head}
-    <div class="economy-summary-stock">${demand}<span class="economy-summary-cap"> / ${supply} slots</span></div>
-    <div class="economy-summary-rates">
-      <span class="economy-rate ${args.rateToneClass(status.tone)}">${status.text}</span>
-    </div>
-  </button>`;
-  }
-  const stock = args.gold;
-  const gross = args.incomePerMinute;
-  const upkeep = resourceUpkeepPerMinute(resource, args.upkeepPerMinute);
-  const net = resourceNetPerMinute(resource, args.incomePerMinute, args.strategicProductionPerMinute, args.upkeepPerMinute);
-  return `<button class="economy-summary-card${selected ? " is-active" : ""}" type="button" data-economy-focus="${resource}">
-    ${head}
-    <div class="economy-summary-stock">${stock.toFixed(1)}</div>
-    <div class="economy-summary-rates">
-      <span>Gross ${(gross * 1440).toFixed(1)}/day</span>
-      <span>Upkeep ${(upkeep * 1440).toFixed(1)}/day</span>
-      <span class="economy-rate ${args.rateToneClass(net)}">Net ${net >= 0 ? "+" : ""}${(net * 1440).toFixed(1)}/day</span>
-    </div>
-  </button>`;
-};
-
-const economyBucketAmountLabel = (
-  args: EconomyPanelArgs,
-  bucket: EconomyBucket,
-  resource: EconomyResource,
-  positive: boolean
-): string => {
-  const prefix = positive ? "+" : "-";
-  const perDay = bucket.amountPerMinute * 1440;
-  if (bucket.resourceKey && bucket.resourceKey !== resource) {
-    return `${prefix}${perDay.toFixed(1)} ${economyResourceName(args, bucket.resourceKey)}/day`;
-  }
-  return `${prefix}${perDay.toFixed(1)}/day`;
-};
-
-export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
-  // The new desktop HUD shows one row per resource instead (client-economy-rows.ts); phones keep this layout.
-  if (hudV2IsDriving() && !args.isMobile) return economyRowsFromPanelArgs(args, { slotSources: slotSourcesForResource, slotOccupants: slotOccupantsForResource, coinDetail: economyDetailForResource });
-  const isResourceRevealed = (resource: EconomyResource): boolean =>
-    resource === "GOLD" || !args.isRevealed || args.isRevealed(resource);
-  const revealedResources = resources.filter(isResourceRevealed);
-  const visibleResources = (
-    args.isMobile ? [args.focus === "ALL" ? "GOLD" : args.focus] : args.focus === "ALL" ? resources : [args.focus]
-  ).filter(isResourceRevealed);
-  const totals = formatUpkeepSummary(args.upkeepPerMinute, args.resourceIconHtml);
-  return `
-    <div class="economy-panel">
-      <div class="economy-summary-grid">
-        ${revealedResources.map((resource) => economySummaryCardHtml(args, resource, resource === args.focus)).join("")}
-        ${args.integrityPct === undefined ? "" : economyIntegrityCardHtml(args.integrityPct, args.rateToneClass)}
-      </div>
-      ${totals ? `<div class="economy-overview-note">${args.isMobile ? "Tap a resource above to switch the breakdown." : totals}</div>` : args.isMobile ? `<div class="economy-overview-note">Tap a resource above to switch the breakdown.</div>` : ""}
-      ${networkSupplyHtml(args.resourceSlots.bonusSupply)}
-      ${visibleResources
-        .map((resource) => {
-          const foodFootnote = resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((args.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : "";
-          if (isSlotResource(resource)) {
-            const supply = args.resourceSlots.supply[resource];
-            const demand = args.resourceSlots.demand[resource];
-            const status = slotStatusLine(supply, demand);
-            const occupants = slotOccupantsForResource(args, resource);
-            const sources = slotSourcesForResource(args, resource);
-            // §12.1: a slot resource's upkeep IS the slot occupancy, so the card
-            // has no separate Upkeep column — instead it has two columns: where
-            // the slots come from ("Slot Sources", mirroring GOLD's Income
-            // Sources) and who occupies them ("Occupied by"). Any cross-resource
-            // flow upkeep (e.g. a synthesizer's GOLD upkeep) is not repeated
-            // here; it's on the GOLD card's own Upkeep column instead.
-            return `<section class="economy-detail-card card">
-            <div class="economy-detail-head">
-              <div>
-                <div class="economy-detail-kicker">${args.resourceIconHtml(resource)} ${economyResourceName(args, resource)}</div>
-                <strong>${demand} / ${supply} slots used</strong>
-              </div>
-              <div class="economy-rate ${args.rateToneClass(status.tone)}">${status.text}</div>
-            </div>
-            <div class="economy-detail-columns">
-              <div class="economy-detail-column">
-                <h4>Slot Sources</h4>
-                ${sources.length > 0 ? sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}</span><strong>${slotSupplyAmountLabel(bucket.amountPerMinute)} slot${bucket.amountPerMinute === 1 ? "" : "s"}</strong></div>`).join("") : `<div class="economy-line muted"><span>No ${economyResourceName(args, resource)} slots yet</span></div>`}
-              </div>
-              <div class="economy-detail-column">
-                <h4>Occupied by</h4>
-                ${occupants.length > 0 ? occupants.map((bucket) => `<div class="economy-line${bucket.dormantCount ? " is-dormant" : ""}"><span>${bucket.label}${bucket.dormantCount ? ` <small class="economy-dormant-flag">⚠ ${bucket.dormantCount > 1 ? `${bucket.dormantCount} dormant` : "dormant"}</small>` : ""}</span><strong>${bucket.amountPerMinute} slot${bucket.amountPerMinute === 1 ? "" : "s"}</strong></div>`).join("") : `<div class="economy-line muted"><span>No structures using a ${economyResourceName(args, resource)} slot yet</span></div>`}
-              </div>
-            </div>
-            ${foodFootnote}
-          </section>`;
-          }
-          const detail = economyDetailForResource(args, resource);
-          const net = resourceNetPerMinute(resource, args.incomePerMinute, args.strategicProductionPerMinute, args.upkeepPerMinute);
-          return `<section class="economy-detail-card card">
-            <div class="economy-detail-head">
-              <div>
-                <div class="economy-detail-kicker">${args.resourceIconHtml(resource)} ${economyResourceName(args, resource)}</div>
-                <strong>${args.gold.toFixed(1)} in reserve</strong>
-              </div>
-              <div class="economy-rate ${args.rateToneClass(net)}">${net >= 0 ? "+" : ""}${(net * 1440).toFixed(1)}/day</div>
-            </div>
-            <div class="economy-detail-columns">
-              <div class="economy-detail-column">
-                <h4>Income Sources</h4>
-                ${detail.sources.length > 0 ? detail.sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>${economyBucketAmountLabel(args, bucket, resource, true)}</strong></div>`).join("") : '<div class="economy-line muted"><span>No current income</span></div>'}
-              </div>
-              <div class="economy-detail-column">
-                <h4>Upkeep</h4>
-                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>${economyBucketAmountLabel(args, bucket, resource, false)}</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
-              </div>
-            </div>
-          </section>`;
-        })
-        .join("")}
-    </div>
-  `;
-};
+export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string =>
+  economyRowsFromPanelArgs(args, { slotSources: slotSourcesForResource, slotOccupants: slotOccupantsForResource, coinDetail: economyDetailForResource });

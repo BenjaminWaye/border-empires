@@ -77,8 +77,8 @@ describe("tech-locked resource builds", () => {
   });
 
   it("opens the Manifest on the linked tech", () => {
-    const state = { activePanel: null, mobilePanel: "core", techUiSelectedId: "", techDetailOpen: false, domainDetailOpen: true } as Parameters<typeof openTechDetailFromTileMenu>[0];
-    openTechDetailFromTileMenu(state, "mining", true);
-    expect(state).toMatchObject({ activePanel: "tech", mobilePanel: "tech", techUiSelectedId: "mining", techDetailOpen: true, domainDetailOpen: false });
+    const state = { activePanel: null, techUiSelectedId: "", techDetailOpen: false, domainDetailOpen: true } as Parameters<typeof openTechDetailFromTileMenu>[0];
+    openTechDetailFromTileMenu(state, "mining");
+    expect(state).toMatchObject({ activePanel: "tech", techUiSelectedId: "mining", techDetailOpen: true, domainDetailOpen: false });
   });
 });

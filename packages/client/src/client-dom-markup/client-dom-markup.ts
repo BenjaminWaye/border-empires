@@ -1,31 +1,4 @@
-import { navTabIconHtml } from "../client-nav-icons/client-nav-icons.js";
-
 export const hudMarkup = `
-  <div id="top-strip">
-    <div id="stats-chips"></div>
-    <div id="panel-actions">
-      <button class="icon-btn icon-only" hidden data-panel="missions" title="Missions" aria-label="Missions">${navTabIconHtml("missions")}</button>
-      <button class="icon-btn icon-only" data-panel="tech" title="Manifest" aria-label="Manifest">${navTabIconHtml("tech")}</button>
-      <button class="icon-btn icon-only" data-panel="towns" title="Towns" aria-label="Towns">${navTabIconHtml("towns")}</button>
-      <button class="icon-btn icon-only" data-panel="alliance" title="Allies" aria-label="Allies">${navTabIconHtml("alliance")}</button>
-      <button class="icon-btn icon-only" data-panel="leaderboard" title="Ranks" aria-label="Ranks">${navTabIconHtml("leaderboard")}</button>
-      <button class="icon-btn icon-only" data-open-activity-dashboard title="Activity" aria-label="Activity">${navTabIconHtml("activity")}</button>
-      <button class="icon-btn icon-only" data-panel="domains" title="AFC Upgrades" aria-label="AFC Upgrades">${navTabIconHtml("domains")}</button> <button class="icon-btn icon-only" data-panel="settings" title="Settings" aria-label="Settings">${navTabIconHtml("settings")}</button>
-    </div>
-  </div>
-
-  <div id="floating-info">
-    <div id="selected"></div>
-    <div id="hover"></div>
-    <div class="row">
-      <!-- Former "Center" button, kept under its id for layout/onboarding; now jumps to the home AFC. -->
-      <button id="center-me-desktop" class="panel-btn utility-btn" type="button">
-        <span class="utility-btn-icon" aria-hidden="true">⬢</span>
-        <span class="utility-btn-copy"><strong>AFC</strong><small>Open your fabrication complex</small></span>
-      </button>
-    </div>
-  </div>
-
   <div id="mini-map-wrap">
     <canvas id="mini-map" width="220" height="220"></canvas>
     <div id="mini-map-label">Minimap</div>
@@ -222,37 +195,12 @@ export const hudMarkup = `
 
   <div id="tile-action-menu" style="display:none;"></div>
   <div id="targeting-overlay" style="display:none;"></div>
-  <div id="activity-dashboard-overlay" style="display:none;"></div>
   <div id="respawn-overlay" style="display:none;"></div>
   <div id="join-season-overlay" style="display:none;"></div>
   <div id="season-end-overlay" style="display:none;"></div>
   <div id="intel-overlay" style="display:none;"></div>
-  <div id="player-profile-overlay" style="display:none;"></div>
   <div id="renderer-prompt-overlay" style="display:none;"></div>
   <div id="structure-info-overlay" style="display:none;"></div>
-  <div id="tech-detail-overlay" style="display:none;"></div>
-
-  <div id="mobile-nav">
-    <button data-mobile-panel="core" title="Core" aria-label="Core">${navTabIconHtml("core")}</button>
-    <button hidden data-mobile-panel="missions" title="Missions" aria-label="Missions">${navTabIconHtml("missions")}</button>
-    <button data-mobile-panel="tech" title="Manifest" aria-label="Manifest">${navTabIconHtml("tech")}</button>
-    <button data-mobile-panel="towns" title="Towns" aria-label="Towns">${navTabIconHtml("towns")}</button>
-    <button data-mobile-panel="domains" title="AFC Upgrades" aria-label="AFC Upgrades">${navTabIconHtml("domains")}</button>
-    <button data-mobile-panel="leaderboard" title="Leaderboard" aria-label="Leaderboard">${navTabIconHtml("leaderboard")}</button>
-    <button data-mobile-panel="social" title="Social" aria-label="Social">${navTabIconHtml("alliance")}</button>
-    <button data-open-activity-dashboard title="Activity" aria-label="Activity">${navTabIconHtml("activity")}</button>
-    <button data-mobile-panel="settings" title="Settings" aria-label="Settings">${navTabIconHtml("settings")}</button>
-  </div>
-
-  <div id="mobile-core" class="mobile-panel">
-    <div id="mobile-core-help" class="card mobile-context-card"></div>
-    <div class="row mobile-utility-row">
-      <button id="center-me" class="panel-btn utility-btn utility-btn-mobile" type="button">
-        <span class="utility-btn-icon" aria-hidden="true">⬢</span>
-        <span class="utility-btn-copy"><strong>AFC</strong><small>Modules</small></span>
-      </button>
-    </div>
-  </div>
 
   <aside id="side-panel">
     <div id="side-panel-head">
@@ -302,49 +250,4 @@ export const hudMarkup = `
       </section> <section id="panel-settings" class="panel-body"></section>
     </div>
   </aside>
-
-  <div id="mobile-sheet">
-    <div id="mobile-sheet-head">
-      <span id="mobile-sheet-title">Panel</span>
-      <button id="mobile-tech-view-toggle" class="panel-btn manifest-view-toggle" type="button">Tree view</button>
-    </div>
-    <section id="mobile-panel-missions" class="mobile-panel" hidden></section>
-    <section id="mobile-panel-tech" class="mobile-panel" data-manifest-tab="available">
-      <div class="tech-section-tabs manifest-tabs" role="tablist">
-        <button class="panel-btn manifest-tab active" type="button" role="tab" aria-selected="true" data-manifest-tab-btn="available">Available</button>
-        <button class="panel-btn manifest-tab" type="button" role="tab" aria-selected="false" data-manifest-tab-btn="owned">Owned</button>
-      </div>
-      <div id="mobile-tech-research-section" class="tech-section-panel">
-        <div id="mobile-tech-current-mods"></div>
-        <div class="card tech-legacy-controls">
-          <div id="mobile-tech-points"></div>
-          <div class="row">
-            <select id="mobile-tech-pick"></select>
-            <button id="mobile-tech-choose" class="panel-btn">Choose</button>
-          </div>
-          <div id="mobile-tech-choice-details"></div>
-        </div>
-        <div id="mobile-tech-choices-grid"></div>
-        <div id="mobile-tech-detail-card"></div>
-        <div id="mobile-tech-owned"></div>
-      </div>
-    </section>
-    <section id="mobile-panel-domains" class="mobile-panel"></section>
-    <section id="mobile-panel-social" class="mobile-panel alliance-panel">
-      <div id="mobile-allies-list" class="alliance-section-stack"></div>
-      <div id="mobile-alliance-player-inspect" class="alliance-player-inspect-slot"></div>
-    </section>
-    <section id="mobile-panel-defensibility" class="mobile-panel"></section>
-    <section id="mobile-panel-economy" class="mobile-panel"></section>
-    <section id="mobile-panel-manpower" class="mobile-panel"></section>
-    <section id="mobile-panel-development" class="mobile-panel"></section>
-    <section id="mobile-panel-towns" class="mobile-panel"></section>
-    <section id="mobile-panel-leaderboard" class="mobile-panel">
-      <div id="mobile-leaderboard"></div>
-    </section>
-    <section id="mobile-panel-feed" class="mobile-panel">
-      <div id="mobile-feed"></div>
-    </section> <section id="mobile-panel-settings" class="mobile-panel"></section>
-    <section id="mobile-panel-core" class="mobile-panel"></section>
-  </div>
 `;

@@ -1,5 +1,4 @@
-// The one Manifest detail view, shared by the desktop side panel ("inline")
-// and the mobile overlay ("overlay"). Layout: an optional Good pick band, a
+// The Manifest detail view in the side panel. Layout: an optional Good pick band, a
 // fixed header (type, name, status), one scrolling body (what you get, why it fits,
 // what it leads to), and a fixed footer with the unlock button -- replacing
 // the old card-inside-a-card that scrolled the whole side panel and pushed
@@ -17,11 +16,9 @@ import { manifestGainRows, type ManifestGainRow } from "./client-manifest-gains.
 import { manifestFlavorLine, manifestKicker } from "./client-manifest-labels.js";
 import { manifestLeadsTo, type ManifestLeadsTo } from "./client-manifest-leads-to.js";
 
-export type ManifestDetailMode = "inline" | "overlay";
 
 export type ManifestDetailContext = {
   tech: TechInfo;
-  mode: ManifestDetailMode;
   techCatalog: readonly TechInfo[];
   ownedTechIds: readonly string[];
   pendingTechUnlockId: string;
@@ -149,7 +146,7 @@ export const renderManifestDetailHtml = (context: ManifestDetailContext): string
     techPrereqIds: context.techPrereqIds,
     techTier: context.techTier
   });
-  const article = `<article class="manifest-detail manifest-detail--${context.mode}${goodPick ? GOOD_PICK_CARD_CLASS : ""}" data-manifest-detail="${escapeHtml(tech.id)}">
+  return `<article class="manifest-detail manifest-detail--inline${goodPick ? GOOD_PICK_CARD_CLASS : ""}" data-manifest-detail="${escapeHtml(tech.id)}">
     ${goodPick ? GOOD_PICK_BAND_HTML : ""}
     <header class="manifest-detail__head">
       <div class="manifest-detail__titles">
@@ -169,7 +166,4 @@ export const renderManifestDetailHtml = (context: ManifestDetailContext): string
     </div>
     ${footerHtml(context, status)}
   </article>`;
-  if (context.mode === "inline") return article;
-  return `<div class="tech-detail-backdrop" data-tech-detail-close="backdrop"></div>
-    <div class="manifest-detail-modal">${article}</div>`;
 };

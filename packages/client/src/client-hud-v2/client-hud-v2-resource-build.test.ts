@@ -3,7 +3,6 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import type { TileActionDef, TileMenuView } from "../client-types.js";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
-import { initHudV2Flag } from "./client-hud-v2-flag.js";
 import { dockTileActionMenuForHudV2, type TileDockDeps } from "./client-hud-v2-tile-dock.js";
 
 const act = (id: TileActionDef["id"], extra: Partial<TileActionDef> = {}): TileActionDef => ({ id, label: id, ...extra });
@@ -22,14 +21,12 @@ describe("resource tile building flow", () => {
   const state = createInitialState();
   const fired: Array<[string, string | undefined]> = [];
   const deps: TileDockDeps = {
-    tileActionMenuEl: document.createElement("div"), isMobile: () => false,
-    handleTileAction: (id, target) => { fired.push([id, target]); },
+    tileActionMenuEl: document.createElement("div"), handleTileAction: (id, target) => { fired.push([id, target]); },
     hideTileActionMenu: () => undefined, renderHud: () => undefined
   };
   let tileX = 0;
   const render = (v: TileMenuView): void => dockTileActionMenuForHudV2(state, v, deps, () => undefined);
   beforeAll(() => {
-    initHudV2Flag("?hud=v2");
     document.body.innerHTML = '<div id="tile-action-menu"></div><section id="hud-v2-tile"></section><section id="hud-v2-build" hidden></section>';
     deps.tileActionMenuEl = document.getElementById("tile-action-menu")!;
     state.tileActionMenu.mode = "single";
@@ -79,7 +76,7 @@ describe("resource tile building flow", () => {
 
   it("also opens Resource first in the floating build menu", () => {
     const root = document.createElement("div");
-    root.innerHTML = tileActionMenuHtml(view([act("build_fortification"), act("build_mine"), act("build_manufactory"), act("build_relay_beacon"), act("build_hydroworks"), act("build_sky_dock"), act("build_observatory")]), "buildings", false);
+    root.innerHTML = tileActionMenuHtml(view([act("build_fortification"), act("build_mine"), act("build_manufactory"), act("build_relay_beacon"), act("build_hydroworks"), act("build_sky_dock"), act("build_observatory")]), "buildings");
     expect(root.querySelector<HTMLInputElement>(".tile-building-category-radio[checked]")?.classList.contains("cat-resource")).toBe(true);
   });
 });

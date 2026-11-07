@@ -2,8 +2,8 @@ import { slotSupplyAmountLabel } from "./client-economy-slot-sources.js";
 import { networkSupplyHtml } from "../client-resource-networks/network-supply-html.js";
 // The new HUD's Economy panel: one row per resource (Coin, Food, Titanium,
 // Crystal, Umbrite), each with what you have, where it comes from and what
-// uses it. Integrity has its own panel, so it is not here. The numbers come from the same helpers as the classic
-// panel (client-economy-html.ts), which hands them in to avoid an import cycle.
+// uses it. Integrity has its own panel, so it is not here. The numbers come from the helpers in
+// client-economy-html.ts, which hands them in to avoid an import cycle.
 
 import type { NetworkSupplyStatus, SlotResource } from "@border-empires/shared";
 import type { EconomyBucket, EconomyFocusKey } from "../client-economy-model.js";
@@ -42,7 +42,7 @@ const listHtml = (label: string, items: string[], empty: string): string => {
 const item = (text: string, amount: string, warn = false): string =>
   `<span class="v2e-item${warn ? " v2e-warn" : ""}"><span>${text}</span><b>${amount}</b></span>`;
 
-/** Upkeep on the Coin row is mostly coin; a cost paid in another resource names it, as the classic panel does. */
+/** Upkeep on the Coin row is mostly coin; a cost paid in another resource names it. */
 const upkeepAmount = (b: EconomyBucket): string =>
   b.resourceKey && b.resourceKey !== "GOLD" ? `${perDay(-b.amountPerMinute)} ${NAMES[b.resourceKey]}` : perDay(-b.amountPerMinute);
 
@@ -88,7 +88,7 @@ const showsSlotRow = (input: EconomyRowsInput, r: SlotResource): boolean =>
 export const renderEconomyRowsHtml = (input: EconomyRowsInput): string =>
   `<div class="v2e">${ROWS.map((r) => (r === "GOLD" ? coinRowHtml(input) : showsSlotRow(input, r) ? slotRowHtml(input, r) : "")).join("")}${networkSupplyHtml(input.bonusSupply)}</div>`;
 
-/** The classic panel's own calculations, handed in by client-economy-html.ts. */
+/** The economy calculations, handed in by client-economy-html.ts. */
 export type EconomyRowsHelpers = {
   slotSources: (args: EconomyPanelArgs, resource: SlotResource) => EconomyBucket[];
   slotOccupants: (args: EconomyPanelArgs, resource: SlotResource) => EconomyBucket[];
@@ -97,7 +97,7 @@ export type EconomyRowsHelpers = {
 
 const SLOT_ROWS: readonly SlotResource[] = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"];
 
-/** Builds the rows from the classic panel's arguments. */
+/** Builds the rows from the Economy panel arguments. */
 export const economyRowsFromPanelArgs = (args: EconomyPanelArgs, helpers: EconomyRowsHelpers): string => {
   const coin = helpers.coinDetail(args, "GOLD");
   const slots = Object.fromEntries(SLOT_ROWS.map((r) => [r, {

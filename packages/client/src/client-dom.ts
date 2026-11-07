@@ -13,10 +13,6 @@ export const initClientDom = () => {
   if (!ctx) throw new Error("missing 2d context");
   hud.innerHTML = hudMarkup;
 
-  const statsChipsEl = requireElement<HTMLDivElement>("#stats-chips");
-  const selectedEl = requireElement<HTMLDivElement>("#selected");
-  const hoverEl = requireElement<HTMLDivElement>("#hover");
-  const mobileCoreHelpEl = requireElement<HTMLDivElement>("#mobile-core-help");
   const miniMapWrapEl = requireElement<HTMLDivElement>("#mini-map-wrap");
   const miniMapEl = requireElement<HTMLCanvasElement>("#mini-map");
   const miniMapLabelEl = requireElement<HTMLDivElement>("#mini-map-label");
@@ -81,12 +77,11 @@ export const initClientDom = () => {
   const sidePanelBodyEl = requireElement<HTMLDivElement>("#side-panel-body");
   const panelTitleEl = requireElement<HTMLHeadingElement>("#panel-title");
   const panelCloseBtn = requireElement<HTMLButtonElement>("#panel-close");
-  const panelActionButtons = document.querySelectorAll<HTMLButtonElement>("#panel-actions button[data-panel]");
   const panelMissionsEl = requireElement<HTMLDivElement>("#panel-missions"), panelTechEl = requireElement<HTMLDivElement>("#panel-tech"), panelAllianceEl = requireElement<HTMLDivElement>("#panel-alliance"),
     panelDefensibilityEl = requireElement<HTMLDivElement>("#panel-defensibility"), panelEconomyEl = requireElement<HTMLDivElement>("#panel-economy"), panelManpowerEl = requireElement<HTMLDivElement>("#panel-manpower"),
     panelDevelopmentEl = requireElement<HTMLDivElement>("#panel-development"), panelLeaderboardEl = requireElement<HTMLDivElement>("#panel-leaderboard"), panelFeedEl = requireElement<HTMLDivElement>("#panel-feed");
   const panelDomainsEl = requireElement<HTMLDivElement>("#panel-domains");
-  const panelTownsEl = requireElement<HTMLDivElement>("#panel-towns"), mobilePanelTownsEl = requireElement<HTMLDivElement>("#mobile-panel-towns");
+  const panelTownsEl = requireElement<HTMLDivElement>("#panel-towns");
   const panelDomainsContentEl = requireElement<HTMLDivElement>("#panel-domains-content"), panelSettingsEl = requireElement<HTMLDivElement>("#panel-settings");
   const feedEl = requireElement<HTMLDivElement>("#feed");
   const techPickEl = requireElement<HTMLSelectElement>("#tech-pick");
@@ -101,39 +96,13 @@ export const initClientDom = () => {
   const missionsEl = requireElement<HTMLDivElement>("#panel-missions");
   const leaderboardEl = requireElement<HTMLDivElement>("#leaderboard");
   const techChooseBtn = requireElement<HTMLButtonElement>("#tech-choose");
-  const mobileSheetEl = requireElement<HTMLDivElement>("#mobile-sheet");
-  const mobileSheetTitleEl = requireElement<HTMLSpanElement>("#mobile-sheet-title");
   const techViewToggleEl = requireElement<HTMLButtonElement>("#tech-view-toggle");
-  const mobileTechViewToggleEl = requireElement<HTMLButtonElement>("#mobile-tech-view-toggle");
-  const mobileCoreEl = requireElement<HTMLDivElement>("#mobile-core");
-  const mobilePanelCoreEl = requireElement<HTMLDivElement>("#mobile-panel-core");
-  const mobilePanelMissionsEl = requireElement<HTMLDivElement>("#mobile-panel-missions"), mobilePanelTechEl = requireElement<HTMLDivElement>("#mobile-panel-tech"), mobilePanelDomainsEl = requireElement<HTMLDivElement>("#mobile-panel-domains"),
-    mobilePanelSocialEl = requireElement<HTMLDivElement>("#mobile-panel-social"), mobilePanelDefensibilityEl = requireElement<HTMLDivElement>("#mobile-panel-defensibility"), mobilePanelEconomyEl = requireElement<HTMLDivElement>("#mobile-panel-economy"),
-    mobilePanelManpowerEl = requireElement<HTMLDivElement>("#mobile-panel-manpower"), mobilePanelDevelopmentEl = requireElement<HTMLDivElement>("#mobile-panel-development"), mobilePanelLeaderboardEl = requireElement<HTMLDivElement>("#mobile-panel-leaderboard"),
-    mobilePanelFeedEl = requireElement<HTMLDivElement>("#mobile-panel-feed"), mobilePanelSettingsEl = requireElement<HTMLDivElement>("#mobile-panel-settings");
-  const mobileFeedEl = requireElement<HTMLDivElement>("#mobile-feed");
-  const mobileLeaderboardEl = requireElement<HTMLDivElement>("#mobile-leaderboard");
-  const mobileTechPickEl = requireElement<HTMLSelectElement>("#mobile-tech-pick");
-  const mobileTechChooseBtn = requireElement<HTMLButtonElement>("#mobile-tech-choose");
-  const mobileTechPointsEl = requireElement<HTMLDivElement>("#mobile-tech-points");
-  const mobileTechCurrentModsEl = requireElement<HTMLDivElement>("#mobile-tech-current-mods");
-  const mobileTechChoicesGridEl = requireElement<HTMLDivElement>("#mobile-tech-choices-grid");
-  const mobileTechDetailCardEl = requireElement<HTMLDivElement>("#mobile-tech-detail-card");
-  const mobileTechOwnedEl = requireElement<HTMLDivElement>("#mobile-tech-owned");
-  const mobileTechChoiceDetailsEl = requireElement<HTMLDivElement>("#mobile-tech-choice-details");
-  const mobileAlliesListEl = requireElement<HTMLDivElement>("#mobile-allies-list");
-  const mobileAlliancePlayerInspectEl = requireElement<HTMLDivElement>("#mobile-alliance-player-inspect");
-  const centerMeBtn = requireElement<HTMLButtonElement>("#center-me");
-  const centerMeDesktopBtn = requireElement<HTMLButtonElement>("#center-me-desktop");
-  const activityDashboardOverlayEl = requireElement<HTMLDivElement>("#activity-dashboard-overlay");
   const respawnOverlayEl = requireElement<HTMLDivElement>("#respawn-overlay");
   const joinSeasonOverlayEl = requireElement<HTMLDivElement>("#join-season-overlay");
   const seasonEndOverlayEl = requireElement<HTMLDivElement>("#season-end-overlay");
   const intelOverlayEl = requireElement<HTMLDivElement>("#intel-overlay");
-  const playerProfileOverlayEl = requireElement<HTMLDivElement>("#player-profile-overlay");
   const rendererPromptOverlayEl = requireElement<HTMLDivElement>("#renderer-prompt-overlay");
   const structureInfoOverlayEl = requireElement<HTMLDivElement>("#structure-info-overlay");
-  const techDetailOverlayEl = requireElement<HTMLDivElement>("#tech-detail-overlay");
   const miniMapCtx = miniMapEl.getContext("2d");
   if (!miniMapCtx) throw new Error("missing minimap context");
   const miniMapBase = document.createElement("canvas");
@@ -183,15 +152,10 @@ export const initClientDom = () => {
     placementLabelEl,
     placementCancelBtn,
     placementConfirmBtn,
-    centerMeBtn,
-    centerMeDesktopBtn,
-    activityDashboardOverlayEl,
     ctx,
     feedEl,
-    hoverEl,
     hud,
     intelOverlayEl,
-    playerProfileOverlayEl,
     leaderboardEl,
     mapLoadingMetaEl,
     mapLoadingOverlayEl,
@@ -208,35 +172,6 @@ export const initClientDom = () => {
     miniMapLabelEl,
     miniMapWrapEl,
     missionsEl,
-    mobileAlliancePlayerInspectEl,
-    mobileAlliesListEl,
-    mobileCoreEl,
-    mobileCoreHelpEl,
-    mobilePanelDefensibilityEl,
-    mobilePanelFeedEl, mobilePanelSettingsEl,
-    mobileFeedEl,
-    mobileLeaderboardEl,
-    mobilePanelCoreEl,
-    mobilePanelEconomyEl,
-    mobilePanelDevelopmentEl,
-    mobilePanelTownsEl,
-    mobilePanelLeaderboardEl,
-    mobilePanelManpowerEl,
-    mobilePanelMissionsEl,
-    mobilePanelSocialEl,
-    mobilePanelTechEl,
-    mobilePanelDomainsEl,
-    mobileSheetEl,
-    mobileSheetTitleEl,
-    mobileTechChoiceDetailsEl,
-    mobileTechChoicesGridEl,
-    mobileTechChooseBtn,
-    mobileTechCurrentModsEl,
-    mobileTechDetailCardEl,
-    mobileTechOwnedEl,
-    mobileTechPickEl,
-    mobileTechPointsEl,
-    panelActionButtons,
     panelAllianceEl,
     panelCloseBtn,
     panelDefensibilityEl,
@@ -255,17 +190,14 @@ export const initClientDom = () => {
     respawnOverlayEl,
     joinSeasonOverlayEl,
     seasonEndOverlayEl,
-    selectedEl,
     sidePanelBodyEl,
     sidePanelEl,
-    statsChipsEl,
     structureInfoOverlayEl,
     victoryAlertOverlayEl,
     victoryAlertTitleEl,
     victoryAlertDetailEl,
     victoryAlertCollapseBtn,
     victoryAlertBannerBtn,
-    techDetailOverlayEl,
     targetingOverlayEl,
     techChoiceDetailsEl,
     techChoicesGridEl,
@@ -277,6 +209,5 @@ export const initClientDom = () => {
     techPointsEl,
     techViewToggleEl,
     tileActionMenuEl,
-    mobileTechViewToggleEl
   };
 };

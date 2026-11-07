@@ -1,18 +1,3 @@
-/*
- * Steampunk-futuristic reskin layer.
- *
- * Loaded AFTER style.css (and the other feature -style.css files) in
- * main.ts, so it overrides the earlier "sci-fi/AI corporate" palette via
- * normal cascade order rather than by editing the already-oversized
- * style.css in place (style.css is already over the 500-line
- * check:file-lines cap and must not grow — see AGENTS.md). This file
- * defines the design-token layer plus a focused reskin of the highest-
- * leverage shared chrome: base body/#hud background, the auth overlay
- * (panel-language testbed), .icon-btn, #top-strip / .resource-pill, the
- * side-panel shell, and progress/meter bars restyled as analog brass
- * gauges.
- */
-
 @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cinzel+Decorative:wght@700&family=Spectral:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap");
 
 :root {
@@ -76,17 +61,12 @@ body {
   color: var(--sp-parchment-100);
 }
 
-h1, h2, h3,
-.auth-panel-title,
-#side-panel-head h3,
-#mobile-sheet-title,
-.auth-brand-text {
+h1, h2, h3, .auth-panel-title, #side-panel-head h3, .auth-brand-text {
   font-family: var(--sp-font-display);
   letter-spacing: 0.01em;
 }
 
 /* Numeric / gauge readouts read as engraved-dial mono */
-.resource-value,
 .resource-rate,
 .tile-progress-meta strong,
 .domain-progress-metric strong {
@@ -192,7 +172,6 @@ h1, h2, h3,
 
 /* ---- Shared buttons ---- */
 
-.icon-btn,
 .panel-btn,
 .se-btn,
 #panel-close,
@@ -208,7 +187,6 @@ h1, h2, h3,
   transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.icon-btn:hover,
 .panel-btn:hover,
 .se-btn:hover {
   background: linear-gradient(180deg, rgba(90, 61, 32, 0.95), rgba(40, 28, 16, 0.96));
@@ -216,17 +194,9 @@ h1, h2, h3,
   box-shadow: inset 0 1px 0 rgba(244, 223, 166, 0.14), 0 0 10px rgba(217, 173, 82, 0.18);
 }
 
-.icon-btn.active {
-  background: linear-gradient(180deg, rgba(184, 134, 47, 0.55), rgba(90, 61, 32, 0.6));
-  border-color: var(--sp-brass-100);
-  color: var(--sp-brass-100);
-}
-
 /* ---- Top strip / resource gauges ---- */
 
-#top-strip,
-#side-panel,
-#mobile-sheet {
+#side-panel {
   border-radius: 6px;
   border: 1px solid var(--sp-brass-700);
   background: var(--sp-panel-bg);
@@ -235,24 +205,11 @@ h1, h2, h3,
     inset 0 0 0 1px rgba(217, 173, 82, 0.1);
 }
 
-#side-panel-head,
-#mobile-sheet-head {
+#side-panel-head {
   border-bottom: 1px solid var(--sp-brass-700);
 }
 
-#side-panel-head h3,
-#mobile-sheet-title {
-  color: var(--sp-brass-100);
-}
-
-.resource-pill {
-  border-radius: 4px;
-  border: 1px solid var(--sp-brass-700);
-  background: linear-gradient(180deg, rgba(60, 41, 25, 0.85), rgba(28, 20, 12, 0.85));
-  color: var(--sp-parchment-100);
-}
-
-.resource-value {
+#side-panel-head h3 {
   color: var(--sp-brass-100);
 }
 

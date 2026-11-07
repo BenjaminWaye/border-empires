@@ -47,13 +47,11 @@ export const diplomacyActionForOwner = (
  * while the panel is already open does not close it. The caller re-renders.
  */
 export const openDiplomacyForPlayer = (
-  state: Pick<ClientState, "activePanel" | "mobilePanel" | "socialFocus" | "expandedSocialPlayerId">,
+  state: Pick<ClientState, "activePanel" | "socialFocus" | "expandedSocialPlayerId">,
   playerId: string,
-  isMobileViewport: boolean,
   nowMs: number = Date.now()
 ): void => {
   state.activePanel = "alliance";
-  if (isMobileViewport) state.mobilePanel = "social";
   state.socialFocus = { playerId, until: nowMs + SOCIAL_FOCUS_HIGHLIGHT_MS, scrollPending: true };
   // Open the player's row so its Propose / Truce buttons are ready to tap.
   state.expandedSocialPlayerId = playerId;

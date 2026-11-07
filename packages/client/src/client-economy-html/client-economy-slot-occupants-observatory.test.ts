@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import { EMPIRE_STORAGE_FLOOR } from "@border-empires/shared";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 
+/** One resource's row in the Economy panel. */
+const rowOf = (html: string, resource: string): string => html.match(new RegExp(`<section[^>]*data-v2e-row="${resource}"[\\s\\S]*?</section>`))?.[0] ?? "";
+
 // Regression: slotOccupantsForResource only inspected tile.fort,
 // tile.siegeBattery, and tile.economicStructure — Observatory ("Aether
 // Tower" in the UI) lives on its own tile.observatory field (mirroring
@@ -10,7 +13,7 @@ import { renderEconomyPanelHtml } from "./client-economy-html.js";
 // breakdown even though it bills 1 CRYSTAL slot per instance
 // (structure-slots.ts OBSERVATORY entry). This left the breakdown's total
 // visibly short of the authoritative resourceSlots.demand figure.
-describe("renderEconomyPanelHtml — Observatory counts toward Occupied by", () => {
+describe("renderEconomyPanelHtml — Observatory counts toward Used by", () => {
   const baseArgs = {
     focus: "CRYSTAL" as const,
     gold: 0,
@@ -24,7 +27,6 @@ describe("renderEconomyPanelHtml — Observatory counts toward Occupied by", () 
     upkeepLastTick: { foodCoverage: 1 },
     activeRevealTargetsCount: 0,
     economyBreakdown: undefined,
-    isMobile: true,
     prettyToken: (value: string) => value,
     resourceIconHtml: (resource: string) => resource,
     rateToneClass: () => "positive",
@@ -32,7 +34,7 @@ describe("renderEconomyPanelHtml — Observatory counts toward Occupied by", () 
     economicStructureName: () => "Aether Condenser"
   };
 
-  it("lists an active Observatory as \"Aether Tower\" under Occupied by", () => {
+  it("lists an active Observatory as \"Aether Tower\" under Used by", () => {
     const html = renderEconomyPanelHtml({
       ...baseArgs,
       resourceSlots: {
@@ -52,8 +54,8 @@ describe("renderEconomyPanelHtml — Observatory counts toward Occupied by", () 
     });
 
     expect(html).toContain("Aether Tower");
-    expect(html).toMatch(/Occupied by[\s\S]*Aether Tower/);
-    expect(html).not.toContain("No structures using a CRYSTAL slot yet");
+    expect(rowOf(html, "CRYSTAL")).toMatch(/Used by[\s\S]*Aether Tower/);
+    expect(rowOf(html, "CRYSTAL")).not.toContain("Nothing yet");
   });
 
   it("sums two Observatories into a single 2-slot Aether Tower row", () => {
@@ -83,10 +85,10 @@ describe("renderEconomyPanelHtml — Observatory counts toward Occupied by", () 
       ]
     });
 
-    expect(html).toMatch(/Aether Tower[\s\S]*2 slots/);
+    expect(rowOf(html, "CRYSTAL")).toMatch(/Aether Tower[\s\S]*<b>2<\/b>/);
   });
 
-  it("excludes a removing or inactive Observatory from Occupied by", () => {
+  it("excludes a removing or inactive Observatory from Used by", () => {
     const html = renderEconomyPanelHtml({
       ...baseArgs,
       resourceSlots: {
@@ -113,6 +115,6 @@ describe("renderEconomyPanelHtml — Observatory counts toward Occupied by", () 
       ]
     });
 
-    expect(html).toContain("No structures using a CRYSTAL slot yet");
+    expect(rowOf(html, "CRYSTAL")).toContain("Nothing yet");
   });
 });

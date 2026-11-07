@@ -8,16 +8,14 @@
 //
 // Which sections show is pure CSS keyed off the panel's data-manifest-tab
 // attribute (client-manifest-tabs.css); this module only syncs state onto the
-// desktop and mobile panels and wires the buttons.
+// panel and wires the buttons.
 import type { ClientState } from "../client-state/client-state.js";
 
 export type ManifestTab = ClientState["techSection"];
 
 export type ManifestTabsDom = {
   panelTechEl: HTMLElement;
-  mobilePanelTechEl: HTMLElement;
   techViewToggleEl: HTMLButtonElement;
-  mobileTechViewToggleEl: HTMLButtonElement;
 };
 
 type ManifestTabsState = Pick<ClientState, "techSection" | "techTreeExpanded">;
@@ -36,7 +34,8 @@ export const syncManifestPanelTabs = (
   ownedCount: number,
   rerender: () => void
 ): void => {
-  for (const panel of [dom.panelTechEl, dom.mobilePanelTechEl]) {
+  {
+    const panel = dom.panelTechEl;
     panel.dataset.manifestTab = state.techTreeExpanded ? "tree" : state.techSection;
     panel.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
     panel.querySelectorAll<HTMLButtonElement>("[data-manifest-tab-btn]").forEach((btn) => {
@@ -52,7 +51,8 @@ export const syncManifestPanelTabs = (
       };
     });
   }
-  for (const toggle of [dom.techViewToggleEl, dom.mobileTechViewToggleEl]) {
+  {
+    const toggle = dom.techViewToggleEl;
     toggle.textContent = manifestViewToggleLabel(state.techTreeExpanded);
     toggle.setAttribute("aria-pressed", String(state.techTreeExpanded));
     toggle.onclick = () => {

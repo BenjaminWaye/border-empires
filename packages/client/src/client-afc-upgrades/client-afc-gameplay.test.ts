@@ -17,31 +17,31 @@ const stateFor = () => {
   return state;
 };
 describe("AFC gameplay controls and free progression", () => {
-  beforeEach(() => { document.body.innerHTML = '<div id="desktop"></div><div id="mobile"></div>'; });
+  beforeEach(() => { document.body.innerHTML = '<div id="panel"></div>'; });
   it("shows five banked free picks at zero Coin, but no install while the AFC is lost", () => {
     const state = stateFor(); state.gold = 0;
     expect(readyAfcUpgradeCount(state)).toBe(5);
     state.afcUpgradeInstallAllowed = false;
     expect(readyAfcUpgradeCount(state)).toBe(0);
-    const root = document.getElementById("mobile")!;
-    renderAfcUpgradePanels(state, document.getElementById("desktop")!, root, vi.fn());
+    const root = document.getElementById("panel")!;
+    renderAfcUpgradePanels(state, root, vi.fn());
     root.querySelector<HTMLButtonElement>('[data-afc-upgrade-card="afc-vanguard-1"]')!.click();
     expect(root.querySelector<HTMLButtonElement>("[data-domain-unlock]")?.disabled).toBe(true);
     expect(root.textContent).toContain("An active owned AFC is required");
     expect(root.querySelectorAll("[data-afc-upgrade-card]")).toHaveLength(6);
   });
-  it("keeps installed history above choices and exposes recruitment and Court controls on both layouts", () => {
+  it("keeps installed history above choices and exposes recruitment and Court controls", () => {
     const state = stateFor(); state.gold = 10; state.domainIds = ["afc-exchequer-4", "afc-chancery-1"];
-    const roots = [document.getElementById("desktop")!, document.getElementById("mobile")!];
+    const roots = [document.getElementById("panel")!];
     const send = vi.fn((_payload: unknown, _message?: string) => true);
-    renderAfcUpgradePanels(state, roots[0]!, roots[1]!, vi.fn(), { send });
+    renderAfcUpgradePanels(state, roots[0]!, vi.fn(), { send });
     for (const root of roots) {
       expect(root.querySelector(".afc-upgrades")?.children[1]).toBe(root.querySelector(".afc-upgrade-history"));
       const form = root.querySelector<HTMLFormElement>("[data-afc-recruit]")!;
       form.querySelector<HTMLInputElement>("input")!.value = "3";
       form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     }
-    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0]?.[0]).toEqual({ type: "RECRUIT_ANCILLARIES", coin: 3 });
   });
   it("keeps the hijack list bounded and remembers outcomes and breakthroughs briefly", () => {
@@ -66,13 +66,13 @@ describe("AFC gameplay controls and free progression", () => {
 });
 
 it("preserves the recruitment amount and keyboard focus during a live economy repaint", () => {
-  document.body.innerHTML = '<div id="desktop"></div><div id="mobile"></div>';
+  document.body.innerHTML = '<div id="panel"></div>';
   const state = stateFor(); state.gold = 20; state.domainIds = ["afc-exchequer-4"];
-  const desktop = document.getElementById("desktop")!, mobile = document.getElementById("mobile")!;
-  renderAfcUpgradePanels(state, desktop, mobile, vi.fn(), { send: () => true });
-  const input = mobile.querySelector<HTMLInputElement>("[data-afc-recruit] input")!; input.value = "7"; input.focus();
+  const panel = document.getElementById("panel")!;
+  renderAfcUpgradePanels(state, panel, vi.fn(), { send: () => true });
+  const input = panel.querySelector<HTMLInputElement>("[data-afc-recruit] input")!; input.value = "7"; input.focus();
   state.gold = 21;
-  renderAfcUpgradePanels(state, desktop, mobile, vi.fn(), { send: () => true });
-  const next = mobile.querySelector<HTMLInputElement>("[data-afc-recruit] input")!;
+  renderAfcUpgradePanels(state, panel, vi.fn(), { send: () => true });
+  const next = panel.querySelector<HTMLInputElement>("[data-afc-recruit] input")!;
   expect(next.value).toBe("7"); expect(document.activeElement).toBe(next);
 });

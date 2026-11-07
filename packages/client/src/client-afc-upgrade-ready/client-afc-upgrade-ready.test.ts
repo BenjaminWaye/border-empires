@@ -111,12 +111,12 @@ describe("projected AFC upgrade badge", () => {
     badges.dispose();
   });
   it("keeps a ready count in global navigation even when the AFC is offscreen", () => {
-    document.body.insertAdjacentHTML("beforeend", '<button data-panel="domains">AFC Upgrades</button><button data-mobile-panel="domains">AFC Upgrades</button><button class="afc-upgrades-cta" data-open-afc-upgrades>AFC upgrades</button>');
+    document.body.insertAdjacentHTML("beforeend", '<button class="afc-upgrades-cta" data-open-afc-upgrades>AFC upgrades</button>');
     const open = vi.fn();
     const badges = createAfcUpgradeReadyBadges(canvasForTest(), open);
     badges.render([], 2);
-    // Both nav buttons plus the Modules-tab upgrades button carry the live count.
-    expect(document.querySelectorAll('[data-afc-upgrade-ready="2"]')).toHaveLength(3);
+    // The Modules-tab upgrades button carries the live count.
+    expect(document.querySelectorAll('[data-afc-upgrade-ready="2"]')).toHaveLength(1);
     document.querySelector<HTMLButtonElement>("[data-open-afc-upgrades]")!.click();
     expect(open).toHaveBeenCalledTimes(1);
     badges.render([], 0);

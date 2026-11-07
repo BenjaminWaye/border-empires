@@ -415,7 +415,7 @@ Prints every change of the login overlay (step, text, progress bar) and the clie
 pnpm shots:hud-v2-mobile --out .local-data/hud-v2-mobile
 ```
 
-Saves one screenshot per phone viewport (390×844, 360×780, 932×430 landscape) and HUD mode (`?hud=legacy` for the old phone HUD; `?hud=compact` and default both draw the new compact HUD), plus `result.json` with the `hud-v2*` body classes each one ended on. See `docs/hud-v2-mobile-plan.md`.
+Saves one screenshot per phone viewport (390×844, 360×780, 932×430 landscape), plus `result.json` with the `hud-v2*` body classes each one ended on. See `docs/hud-v2-mobile-plan.md`.
 
 ## Contributing
 

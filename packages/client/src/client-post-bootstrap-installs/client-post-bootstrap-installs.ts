@@ -12,7 +12,6 @@ import { installDebugSeasonEndOverlay } from "../client-debug-season-end-overlay
 import { createLandmassNamePrompt } from "../client-map-name-labels/client-landmass-name-prompt.js";
 import { installHudV2 } from "../client-hud-v2/client-hud-v2.js";
 import type { HudV2ActionFlow } from "../client-hud-v2/client-hud-v2-context.js";
-import { isMobile } from "../client-panel-nav/client-panel-nav.js";
 import { installDiplomacyOfferDock } from "../client-diplomacy-offer-dock/client-diplomacy-offer-dock.js";
 import { installMarchInteraction } from "../client-march-interaction/client-march-interaction.js";
 import { installSalvageTributeSheet } from "../client-salvage-tribute/client-salvage-tribute-sheet.js";
@@ -21,14 +20,15 @@ type PostBootstrapDeps = {
   state: ClientState;
   renderHud: () => void;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
+  setActivePanel: (panel: ClientState["activePanel"]) => void;
   actionFlow: HudV2ActionFlow;
   ownerColor: (ownerId: string) => string;
 } & Pick<DiscoveryTipCenterDeps, "wrapX" | "wrapY" | "requestViewRefresh">;
 
-export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, actionFlow, wrapX, wrapY, requestViewRefresh, ownerColor }: PostBootstrapDeps): void => {
+export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, setActivePanel, actionFlow, wrapX, wrapY, requestViewRefresh, ownerColor }: PostBootstrapDeps): void => {
   installDiscoveryTipCenterBinding({ state, wrapX, wrapY, requestViewRefresh, renderHud });
   installDebugSeasonEndOverlay(state, renderHud);
-  installHudV2({ state, renderHud, requestViewRefresh, wrapX, wrapY, isMobile, sendGameMessage, actionFlow, ownerColor }); // redesigned HUD, desktop and phone layouts (?hud=legacy opts out)
+  installHudV2({ state, renderHud, requestViewRefresh, wrapX, wrapY, setActivePanel, sendGameMessage, actionFlow, ownerColor }); // the HUD, desktop and phone layouts
   installDiplomacyOfferDock({ state, sendGameMessage, isMapLoading: () => isMapLoadingOverlayActive(state) }); // incoming truce/alliance offers, answered in place
   // March To banner + pointer arrow, and dragging a march's destination (read by client-map-input.ts).
   installMarchInteraction({ state, renderHud, sendGameMessage: (payload) => sendGameMessage(payload, "Finish sign-in before changing a march.") });

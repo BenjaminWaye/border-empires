@@ -342,11 +342,6 @@
 }
 
 /* Mobile overlay: same view, sized to the screen. */
-.manifest-detail-modal {
-  position: relative;
-  width: min(560px, calc(100vw - 24px));
-  height: min(720px, calc(100dvh - 40px));
-}
 
 /* "Your Manifests" */
 .manifest-owned {

@@ -4,14 +4,12 @@ import { createInitialState } from "../client-state/client-state.js";
 import type { TechInfo, Tile, TileMenuView } from "../client-types.js";
 import { tileFeatureLeadLines } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { clearScreen, screen, type HudV2Deps } from "./client-hud-v2-context.js";
-import { initHudV2Flag } from "./client-hud-v2-flag.js";
 import { openRequestedTechDetail } from "./client-hud-v2-screens.js";
 import { dockTileActionMenuForHudV2 } from "./client-hud-v2-tile-dock.js";
 
 afterEach(() => { clearScreen(); document.body.innerHTML = ""; });
 
 it("opens the revealing Manifest when the player follows a prospect clue", () => {
-  initHudV2Flag("?hud=v2");
   document.body.innerHTML = '<div id="tile-action-menu"></div><section id="hud-v2-tile" hidden></section><aside id="hud-v2-build" hidden></aside><div id="hud-v2-screen"></div>';
   const state = createInitialState();
   state.me = "me";
@@ -27,14 +25,13 @@ it("opens the revealing Manifest when the player follows a prospect clue", () =>
     overviewLines: tileFeatureLeadLines(tile, "unclaimed", { me: state.me, techCatalog: state.techCatalog,
       prettyToken: value => value, structureInfoButtonHtml: key => key }) };
   const deps: HudV2Deps = {
-    state, renderHud: vi.fn(), requestViewRefresh: vi.fn(), wrapX: x => x, wrapY: y => y,
-    isMobile: () => true, sendGameMessage: () => true, ownerColor: () => "#888",
+    state, renderHud: vi.fn(), requestViewRefresh: vi.fn(), wrapX: x => x, wrapY: y => y, setActivePanel: vi.fn(),
+    sendGameMessage: () => true, ownerColor: () => "#888",
     actionFlow: { chooseTech: vi.fn(), cancelOngoingCapture: vi.fn(), handleTileAction: vi.fn(), hideTileActionMenu: vi.fn(),
       requestTileDetailIfNeeded: vi.fn(), tileMenuViewForTile: () => view, openSingleTileActionMenu: vi.fn() }
   };
   dockTileActionMenuForHudV2(state, view, {
-    tileActionMenuEl: document.getElementById("tile-action-menu")!, isMobile: deps.isMobile,
-    handleTileAction: deps.actionFlow.handleTileAction, hideTileActionMenu: deps.actionFlow.hideTileActionMenu, renderHud: deps.renderHud
+    tileActionMenuEl: document.getElementById("tile-action-menu")!, handleTileAction: deps.actionFlow.handleTileAction, hideTileActionMenu: deps.actionFlow.hideTileActionMenu, renderHud: deps.renderHud
   }, vi.fn());
   document.querySelector<HTMLButtonElement>('[data-hud-v2-panel="details"]')!.click();
   document.querySelector<HTMLButtonElement>('#hud-v2-tile [data-view-tech="titanium-survey"]')!.click();

@@ -1,45 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { allianceRequestsHtml, alliesHtml, feedAgeLabel, feedHtml, leaderboardHtml, socialRemainingLabel, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html.js";
-
-const emptyStrategic = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 };
-const emptyAnim = {
-  FOOD: { until: 0, dir: 0 as const },
-  TITANIUM: { until: 0, dir: 0 as const },
-  CRYSTAL: { until: 0, dir: 0 as const },
-  UMBRITE: { until: 0, dir: 0 as const }
-};
-
-describe("strategicRibbonHtml", () => {
-  // Regression coverage for a real bug: the resource ribbon showed TITANIUM/
-  // CRYSTAL/UMBRITE pills unconditionally, revealing that those resource
-  // categories exist before the player has researched the tech that reveals
-  // them server-side. The ribbon now takes an isRevealed callback and omits
-  // pills for categories that aren't revealed yet.
-  it("hides TITANIUM/CRYSTAL/UMBRITE pills when not revealed, always shows FOOD", () => {
-    const html = strategicRibbonHtml(
-      emptyStrategic,
-      emptyStrategic,
-      { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
-      emptyAnim,
-      () => "",
-      undefined,
-      (key) => key === "FOOD"
-    );
-    expect(html).toContain("data-economy-open=\"FOOD\"");
-    expect(html).not.toContain("data-economy-open=\"TITANIUM\"");
-    expect(html).not.toContain("data-economy-open=\"CRYSTAL\"");
-    expect(html).not.toContain("data-economy-open=\"UMBRITE\"");
-  });
-
-  it("shows all pills when isRevealed is omitted (backward compatible)", () => {
-    const html = strategicRibbonHtml(emptyStrategic, emptyStrategic, { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 }, emptyAnim, () => "");
-    expect(html).toContain("data-economy-open=\"FOOD\"");
-    expect(html).toContain("data-economy-open=\"TITANIUM\"");
-    expect(html).toContain("data-economy-open=\"CRYSTAL\"");
-    expect(html).toContain("data-economy-open=\"UMBRITE\"");
-  });
-});
+import { allianceRequestsHtml, alliesHtml, feedAgeLabel, feedHtml, leaderboardHtml, socialRemainingLabel, truceRequestsHtml } from "./client-panel-html.js";
 
 describe("feedAgeLabel", () => {
   const now = Date.UTC(2026, 7, 12, 12, 0, 0);

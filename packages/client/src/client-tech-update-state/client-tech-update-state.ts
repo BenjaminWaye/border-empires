@@ -95,7 +95,6 @@ export const applyTechUpdateToState = (
   // so its delivery animation is seen, instead of switching to the tech panel.
   const focusedAfc = completedTech?.manifestCategory === "AFC_MODULE" && !moduleWaiting && completedTechId && focusAfcForResearchedModule(state, completedTechId);
   state.activePanel = focusedAfc ? null : "tech";
-  state.mobilePanel = focusedAfc ? "core" : "tech";
 
   const preferredSelection =
     (previousSelectedTechId && state.techChoices.includes(previousSelectedTechId) && previousSelectedTechId) ||

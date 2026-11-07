@@ -23,7 +23,7 @@ import { wasPredictedCombatAlreadyShown } from "./client-predicted-combat/client
 import { busyDevelopmentProcessCount } from "./client-development-queue/client-development-queue.js";
 import { renderManpowerPanelHtml, renderSocialInspectCardHtml } from "./client-side-panel-html/client-side-panel-html.js";
 import { populationPerMinuteLabel, townNextGrowthEtaLabel } from "./client-town-growth/client-town-growth.js";
-import { feedHtml, leaderboardHtml, missionCardsHtml, strategicRibbonHtml } from "./client-panel-html/client-panel-html.js";
+import { feedHtml, leaderboardHtml, missionCardsHtml } from "./client-panel-html/client-panel-html.js";
 import {
   economicStructureName,
   resourceColor,
@@ -119,8 +119,6 @@ const {
   centerOnOwnedTile,
   requestViewRefresh,
   maybeRefreshForCamera,
-  isMobile,
-  mobileNavLabelHtml,
   viewportSize,
   renderMobilePanels,
   setActivePanel,
@@ -160,7 +158,6 @@ const {
   terrainLabel,
   resourceLabel,
   viewportSize,
-  isMobile,
   formatCooldownShort,
   structureInfoForKey,
   structureInfoButtonHtml
@@ -204,16 +201,13 @@ bootstrapClientApp({
   analytics,
   devAuthPlayerId,
   storageSet,
-  isMobile,
   rateToneClass,
   formatGoldAmount,
   formatManpowerAmount,
   structureInfoButtonHtml,
-  strategicRibbonHtml,
   hasRevealedResourceCategory,
   openEconomyPanel,
   setActivePanel,
-  mobileNavLabelHtml,
   keyFor: key,
   parseKey,
   selectedTile,
@@ -302,7 +296,6 @@ bootstrapClientApp({
   townNextGrowthEtaLabel,
   tileVisibilityStateAt,
   techPickEl: dom.techPickEl,
-  mobileTechPickEl: dom.mobileTechPickEl,
   canvas: dom.canvas,
   tileActionMenuEl: dom.tileActionMenuEl,
   authColorPresetButtons: dom.authColorPresetButtons,
@@ -312,16 +305,12 @@ bootstrapClientApp({
   authProfileNameEl: dom.authProfileNameEl,
   authProfileSaveBtn: dom.authProfileSaveBtn,
   techChooseBtn: dom.techChooseBtn,
-  mobileTechChooseBtn: dom.mobileTechChooseBtn,
-  centerMeBtn: dom.centerMeBtn,
-  centerMeDesktopBtn: dom.centerMeDesktopBtn,
   captureCancelBtn: dom.captureCancelBtn,
   captureCloseBtn: dom.captureCloseBtn,
   captureTimeEl: dom.captureTimeEl,
   victoryAlertCollapseBtn: dom.victoryAlertCollapseBtn,
   victoryAlertBannerBtn: dom.victoryAlertBannerBtn,
   panelCloseBtn: dom.panelCloseBtn,
-  panelActionButtons: dom.panelActionButtons,
   miniMapEl: dom.miniMapEl,
   ctx: dom.ctx,
   initTerrainTextures,

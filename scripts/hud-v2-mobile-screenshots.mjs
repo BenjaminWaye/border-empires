@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // HUD v2 phone screenshots: signs in to a local rewrite stack (the localhost
 // dev-auth bypass, as in login-experience-probe.mjs) at phone viewports and
-// saves one screenshot per viewport and HUD mode, plus the body classes that
+// saves one screenshot per viewport, plus the body classes that
 // decided the layout. Used for before/after images in the HUD v2 mobile PRs
 // (docs/hud-v2-mobile-plan.md).
 //
@@ -15,10 +15,7 @@ const VIEWPORTS = [
   { name: "small-360x780", width: 360, height: 780 },
   { name: "landscape-932x430", width: 932, height: 430 }
 ];
-/** `?hud=` value per mode; each mode gets a fresh browser context, so nothing carries over. */
-const MODES = { legacy: "legacy", compact: "compact", default: undefined };
-
-const DEFAULTS = { url: "http://localhost:5173/", player: "ai-1", out: ".local-data/hud-v2-mobile", timeoutMs: 180_000, modes: Object.keys(MODES), settleMs: 2_500 };
+const DEFAULTS = { url: "http://localhost:5173/", player: "ai-1", out: ".local-data/hud-v2-mobile", timeoutMs: 180_000, settleMs: 2_500 };
 
 const usage = () => {
   console.log(`Usage: node scripts/hud-v2-mobile-screenshots.mjs [options]
@@ -27,7 +24,6 @@ Options:
   --url <url>          Client URL (default: ${DEFAULTS.url})
   --player <id>        Player id for the dev bypass (default: ${DEFAULTS.player})
   --out <dir>          Where screenshots and result.json go (default: ${DEFAULTS.out})
-  --modes <list>       Comma-separated HUD modes: ${Object.keys(MODES).join(", ")} (default: all)
   --viewports <list>   Comma-separated viewport names (default: ${VIEWPORTS.map((v) => v.name).join(", ")})
   --timeout-ms <ms>    Give up on a viewport if the map isn't up by then (default: ${DEFAULTS.timeoutMs})
   --help               Show help
@@ -55,7 +51,6 @@ const parseArgs = (argv) => {
     } else if (arg === "--url") options.url = value;
     else if (arg === "--player") options.player = value;
     else if (arg === "--out") options.out = value;
-    else if (arg === "--modes") options.modes = pick(arg, value, Object.keys(MODES));
     else if (arg === "--timeout-ms") {
       options.timeoutMs = Number(value);
       if (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0) throw new Error(`--timeout-ms needs a positive number, got ${value}`);
@@ -75,7 +70,7 @@ const gameUp = () => {
   return !body.classList.contains("hud-v2") && auth instanceof HTMLElement && auth.style.display === "none";
 };
 
-const shoot = async (browser, options, viewport, mode) => {
+const shoot = async (browser, options, viewport) => {
   const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   try {
     const page = await context.newPage();
@@ -83,7 +78,6 @@ const shoot = async (browser, options, viewport, mode) => {
     page.on("pageerror", (error) => errors.push(error.message));
     const url = new URL(options.url);
     url.searchParams.set("devPlayerId", options.player);
-    if (MODES[mode]) url.searchParams.set("hud", MODES[mode]);
     await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
     const deadline = Date.now() + options.timeoutMs;
     let up = false;
@@ -95,10 +89,10 @@ const shoot = async (browser, options, viewport, mode) => {
       if (!up) await page.waitForTimeout(1_000);
     }
     await page.waitForTimeout(options.settleMs);
-    const file = `${options.out}/${viewport.name}-${mode}.png`;
+    const file = `${options.out}/${viewport.name}.png`;
     await page.screenshot({ path: file });
     const bodyClasses = await page.evaluate(() => [...document.body.classList].filter((name) => name.startsWith("hud-v2")));
-    return { viewport: viewport.name, mode, up, file, bodyClasses, errors };
+    return { viewport: viewport.name, up, file, bodyClasses, errors };
   } finally {
     await context.close();
   }
@@ -113,11 +107,9 @@ const browser = await chromium.launch({
 const results = [];
 try {
   for (const viewport of VIEWPORTS.filter((v) => !options.viewports || options.viewports.includes(v.name))) {
-    for (const mode of options.modes) {
-      const result = await shoot(browser, options, viewport, mode);
-      results.push(result);
-      console.log(`${result.up ? "ok  " : "FAIL"} ${viewport.name} ${mode}: [${result.bodyClasses.join(" ")}] -> ${result.file}${result.errors.length ? ` (${result.errors.length} page errors)` : ""}`);
-    }
+    const result = await shoot(browser, options, viewport);
+    results.push(result);
+    console.log(`${result.up ? "ok  " : "FAIL"} ${viewport.name}: [${result.bodyClasses.join(" ")}] -> ${result.file}${result.errors.length ? ` (${result.errors.length} page errors)` : ""}`);
   }
 } finally {
   await browser.close();

@@ -370,7 +370,7 @@ const tileOverviewCardHtml = (lines: TileMenuView["overviewLines"]): string => `
     </div>
   `;
 
-export const tileActionMenuHtml = (view: TileMenuView, activeTab: TileMenuTab, mobile: boolean): string => {
+export const tileActionMenuHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
   const tabsHtml =
     view.tabs.length > 1
       ? `<div class="tile-menu-tabs">${view.tabs
@@ -388,7 +388,7 @@ export const tileActionMenuHtml = (view: TileMenuView, activeTab: TileMenuTab, m
       </div>
       ${tabsHtml}
       <div class="tile-menu-body" data-tile-menu-scroll>${tileMenuBodyHtml(view, activeTab)}</div>
-      <div class="tile-action-hint">${mobile ? "Tap outside to close" : "Right-click or ESC to close"}</div>
+      <div class="tile-action-hint">Right-click or ESC to close</div>
     </div>
   `;
 };

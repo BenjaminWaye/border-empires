@@ -44,7 +44,6 @@ type TechTreeArgs = {
   formatCooldownShort: (ms: number) => string;
   titleCaseFromId: (id: string) => string;
   viewportHeight: number;
-  isMobile: boolean;
   techTreeZoom?: number;
   pulseUntilByTechId?: ReadonlyMap<string, number>; // "reward is ready" pulse, §7.3 — tech id -> pulse-expiry ms
 };
@@ -277,7 +276,7 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
     leafRow += 1;
   }
 
-  const stageHeight = Math.max(420, args.viewportHeight - (args.isMobile ? 220 : 190));
+  const stageHeight = Math.max(420, args.viewportHeight - 190);
   const headerBandBottom = TECH_TREE_PADDING_Y + TECH_TREE_HEADER_BAND_H;
   const usableHeight = Math.max(220, stageHeight - headerBandBottom - TECH_TREE_PADDING_Y);
   const techsByTier = new Map<number, TechInfo[]>();

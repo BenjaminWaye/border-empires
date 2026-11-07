@@ -20,7 +20,6 @@ export const createClientRuntimeFlowSupport = (deps: {
   terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
   resourceLabel: (resource: string | undefined) => string;
   viewportSize: () => { width: number; height: number };
-  isMobile: () => boolean;
   formatCooldownShort: (remainingMs: number) => string;
   structureInfoForKey: (type: StructureInfoKey) => StructureInfoView;
   structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string;
@@ -38,7 +37,6 @@ export const createClientRuntimeFlowSupport = (deps: {
     terrainLabel,
     resourceLabel,
     viewportSize,
-    isMobile,
     formatCooldownShort,
     structureInfoForKey,
     structureInfoButtonHtml
@@ -71,9 +69,7 @@ export const createClientRuntimeFlowSupport = (deps: {
   const techFlow = createClientTechPanelFlow({
     state,
     techPickEl: dom.techPickEl,
-    mobileTechPickEl: dom.mobileTechPickEl,
     viewportSize,
-    isMobile,
     formatCooldownShort,
     structureInfoForKey,
     structureInfoButtonHtml
