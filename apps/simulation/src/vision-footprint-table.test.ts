@@ -126,6 +126,24 @@ describe("VisionFootprintTable", () => {
     expect(offsetSet.has("-1,0")).toBe(true); // unrelated bearing, unaffected
   });
 
+  it("never treats a sea tile as forest, even where the procedural forest map says forest (worldgen-carved sea channels)", () => {
+    // Season worldgen's ensureLandMassesReachSea carves SEA channels through
+    // tiles the static isForestTileAt still reports as forest. A beacon beside
+    // such a channel lost its view across the water (prod, season 13, (525,297)).
+    let epoch = 0;
+    const table = new VisionFootprintTable(200, 200, {
+      terrainAt: (x, y) => (y === 51 ? "SEA" : "LAND"),
+      getTerrainEpoch: () => epoch,
+      forestAt: (_x, y) => y === 51
+    });
+    const offsetSet = new Set(table.getOffsets(50, 50, 4).map(([dx, dy]) => `${dx},${dy}`));
+    expect(offsetSet.has("0,1")).toBe(true);
+    expect(offsetSet.has("0,3")).toBe(true); // 2 past the channel: would be occluded if the sea counted as forest
+    expect(offsetSet.has("0,4")).toBe(true);
+    expect(table.getOffsets(50, 50, 4).length).toBe(9 * 9);
+    epoch += 1;
+  });
+
   it("does NOT clamp a source tile's own vision when the source tile is itself forest", () => {
     // The source's own terrain never occludes its own vision (see
     // vision-line-of-sight.ts) — standing in a forest doesn't blur your own
