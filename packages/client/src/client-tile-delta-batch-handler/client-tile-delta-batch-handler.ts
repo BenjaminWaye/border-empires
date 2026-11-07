@@ -13,6 +13,7 @@ import { triggerSiegeBombardmentForNewBattle } from "../client-battle-overlay/cl
 import { wrapTileX, wrapTileY } from "../client-app-runtime-utils.js";
 import { detectAfcModuleDeliveries, recordAfcModuleDeliveries, snapshotAfcModules } from "../client-afc-module-delivery/client-afc-module-delivery-detect.js";
 import { notifyIfLastAfcLost } from "../client-afc-slot-notices/client-afc-slot-notices.js";
+import { emitTownTierUpgrades } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-detect.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
 
@@ -56,7 +57,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       updates: tileUpdates?.map((update) => ({ key: keyFor(update.x, update.y), ownerId: update.ownerId, ownershipState: update.ownershipState }))
     });
   }
-  const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"]; ownershipState?: Tile["ownershipState"] } | undefined>();
+  const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"]; townPopulationTier?: Tile["townPopulationTier"]; ownershipState?: Tile["ownershipState"] } | undefined>();
   const previousWaystationByKey = new Map<string, { activated?: boolean } | undefined>();
   const previousAfcModulesByKey = new Map<string, ReadonlySet<string> | undefined>();
   const myAfcKeysBefore = new Set<string>();
@@ -72,6 +73,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
           ? {
               ...(existing.ownerId ? { ownerId: existing.ownerId } : {}),
               ...(existing.town ? { town: existing.town } : {}),
+              ...(existing.townPopulationTier ? { townPopulationTier: existing.townPopulationTier } : {}),
               ...(existing.ownershipState ? { ownershipState: existing.ownershipState } : {})
             }
           : undefined
@@ -166,6 +168,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     }
     const lostAnAfc = [...myAfcKeysBefore].some((key) => state.tiles.get(key)?.afc?.ownerId !== state.me || state.tiles.get(key)?.ownerId !== state.me);
     if (lostAnAfc) notifyIfLastAfcLost(state, deps.pushFeed);
+    emitTownTierUpgrades({ state, tileUpdates, previousTileByKey, keyFor, nowMs, pushFeed: deps.pushFeed });
     recordAfcModuleDeliveries(
       state,
       detectAfcModuleDeliveries({ tileUpdates, previousAfcModulesByKey, tiles: state.tiles, me: state.me, keyFor, nowMs: performance.now() }),

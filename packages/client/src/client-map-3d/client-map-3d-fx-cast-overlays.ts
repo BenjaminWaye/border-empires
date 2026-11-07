@@ -22,6 +22,9 @@ import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-
 import type { AfcModuleDeliveryFxLayer } from "../client-map-3d-afc-module-delivery-fx.js";
 import type { AfcDropFxLayer } from "../client-map-3d-afc-drop-fx/client-map-3d-afc-drop-fx.js";
 import type { AfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
+import type { TownTierUpgradeFxLayer } from "../client-town-tier-upgrade-fx/client-map-3d-town-tier-upgrade-fx.js";
+import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
+import type { FloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import type { AnchoredFxRoot } from "../client-map-3d-anchored-fx/client-map-3d-anchored-fx-root.js";
 
 const TILE_CENTER_OFFSET = 0.5;
@@ -47,6 +50,9 @@ export type FxCastOverlayLayers = {
   unsettleFx: ReturnType<typeof createUnsettleFxLayer>;
   afcModuleDeliveryFx: AfcModuleDeliveryFxLayer;
   afcDropFx: AfcDropFxLayer;
+  townTierUpgradeFx: TownTierUpgradeFxLayer;
+  /** Gold "City!"-style label above an upgraded town. */
+  floatingText: FloatingTextLayer;
 };
 
 export type FxCastOverlayDeps = {
@@ -79,6 +85,7 @@ export type FxCastOverlaySyncs = {
   readonly syncAfcDropFxQueue: () => void;
   readonly syncAstralDockLaunchFxQueue: () => void;
   readonly syncAegisLockFxQueue: () => void;
+  readonly syncTownTierUpgradeFxQueue: () => void;
 };
 
 export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlaySyncs => {
@@ -258,7 +265,19 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     }
   };
 
+  const syncTownTierUpgradeFxQueue = (): void => {
+    while (state.townTierUpgradeFxQueue.length > 0) {
+      const upgrade = state.townTierUpgradeFxQueue.shift()!;
+      const { sceneX, sceneZ } = fxXZ(upgrade.x, upgrade.y);
+      const surfaceY = aetherBridgeTileSurfaceY(upgrade.x, upgrade.y) + MARKER_RISE_ABOVE_HEIGHTFIELD;
+      // startedAt is wall-clock (shared with the 2D painter); the layer ticks on performance.now().
+      layers.townTierUpgradeFx.spawn(sceneX, sceneZ, surfaceY, upgrade.tier, performance.now() - Math.max(0, Date.now() - upgrade.startedAt));
+      layers.floatingText.spawn(sceneX, sceneZ, surfaceY, `${displayTownPopulationTierLabel(upgrade.tier)}!`, "#ffd166");
+    }
+  };
+
   return {
+    syncTownTierUpgradeFxQueue,
     syncAetherLanceFxQueue,
     syncSurveySweepFxQueue,
     syncSurveySweepPings,
