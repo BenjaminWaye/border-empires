@@ -80,10 +80,10 @@ export const buildingActionCategory = (action: TileActionDef): BuildingCategory 
   return structureType ? structureBuildingCategory(structureType) : "infrastructure";
 };
 
-// Prefer Town Support on towns and their support-ring tiles, with the first
+// Prefer Resource on resource tiles, then Town Support, with the first
 // non-empty category as fallback. `nonEmpty` is in display order.
 export const initialBuildingCategory = (nonEmpty: readonly BuildingCategory[]): BuildingCategory | undefined =>
-  nonEmpty.includes("town_support") ? "town_support" : nonEmpty[0];
+  nonEmpty.includes("resource") ? "resource" : nonEmpty.includes("town_support") ? "town_support" : nonEmpty[0];
 
 // Categories whose square is omitted entirely (rather than grayed out) when
 // nothing in them is available -- Monuments only appear once you've
