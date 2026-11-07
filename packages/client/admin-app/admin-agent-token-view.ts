@@ -12,6 +12,8 @@ export const AGENT_TOKEN_TTL_OPTIONS = [
   { hours: 720, label: "30 days" }
 ] as const;
 
+export const STALE_SIGN_IN_MESSAGE = "Not allowed: creating a token needs the admin account, signed in within the last 10 minutes. Sign out, sign in again, then retry.";
+
 export type MintedAgentToken = { token: string; expiresAt: number };
 
 export const parseMintedAgentToken = (body: string): MintedAgentToken | undefined => {
@@ -39,26 +41,32 @@ export const renderAgentTokenPanel = (api: AdminApi, gatewayOrigin: string): HTM
       create.disabled = false;
       const minted = response.ok ? parseMintedAgentToken(response.body) : undefined;
       if (!minted) {
-        result.replaceChildren(el("p", { class: "error", text: response.ok ? "Unexpected response from the server." : response.message }));
+        // The gateway only mints for a Google sign-in from the last 10 minutes;
+        // the page's ID token keeps refreshing long after that.
+        const message = response.ok ? "Unexpected response from the server." : response.status === 401 ? STALE_SIGN_IN_MESSAGE : response.message;
+        result.replaceChildren(el("p", { class: "error", text: message }));
         return;
       }
       const field = el("textarea", { class: "agent-token", readonly: "", rows: "3", spellcheck: "false" });
       field.value = minted.token;
       const copy = el("button", { text: "Copy" });
       copy.addEventListener("click", () => {
-        field.select();
-        void navigator.clipboard?.writeText(minted.token).then(() => { copy.textContent = "Copied"; });
+        field.focus();
+        field.setSelectionRange(0, minted.token.length);
+        const manual = () => { copy.textContent = "Selected: copy it manually"; };
+        if (!navigator.clipboard) return manual();
+        navigator.clipboard.writeText(minted.token).then(() => { copy.textContent = "Copied"; }, manual);
       });
       result.replaceChildren(
         field,
         el("div", { class: "toolbar" }, [copy, el("span", { class: "meta", text: `expires ${formatWhen(minted.expiresAt)}` })]),
-        el("p", { class: "meta", text: `Save it as a network secret for ${gatewayHost} (type: Bearer, header: Authorization) — in Claude Code, ask Claude to "add the admin agent token" and paste it into the secure form, not the chat.` })
+        el("p", { class: "meta", text: `Save it as a network secret for ${gatewayHost} (type: Bearer, header: Authorization) on a personal environment: in Claude Code, ask Claude to "add the admin agent token" and paste it into the secure form, not the chat. Every session in that environment gets this access.` })
       );
     });
   });
 
   return el("div", { class: "agent-token-panel" }, [
-    el("p", { text: `Creates a read-only token for ${gatewayHost}'s admin endpoints (players, AI, metrics, debug bundle, world). It can't run ops actions or create more tokens.` }),
+    el("p", { text: `Creates a read-only token for every read-only admin endpoint on ${gatewayHost}, including player data (players, player insights and sessions, AI, metrics, debug bundle, world). It can't run ops actions or create more tokens.` }),
     el("p", { class: "meta", text: "To revoke every token at once, rotate ADMIN_API_TOKEN on the server." }),
     el("div", { class: "toolbar" }, [el("label", { class: "meta" }, ["valid for ", select]), create]),
     result

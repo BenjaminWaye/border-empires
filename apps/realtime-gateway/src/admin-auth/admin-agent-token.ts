@@ -12,8 +12,8 @@
 //   - no new server secret or deploy config is needed;
 //   - rotating ADMIN_API_TOKEN revokes every token ever minted;
 //   - a deployment without ADMIN_API_TOKEN can neither mint nor accept them.
-// Each environment has its own ADMIN_API_TOKEN, so a staging token never
-// works on production.
+// Staging and production are kept apart only by having different
+// ADMIN_API_TOKEN values -- never copy one environment's secret to the other.
 //
 // Agent tokens are accepted only by the read-only check
 // (adminRequestAuthorized), never by the static-only check that guards
@@ -27,9 +27,13 @@ const KEY_LABEL = "border-empires/admin-agent-token/v1";
 export const ADMIN_AGENT_TOKEN_TTL_HOURS = [1, 24, 168, 720] as const;
 export const DEFAULT_ADMIN_AGENT_TOKEN_TTL_HOURS = 24;
 const MAX_TTL_MS = Math.max(...ADMIN_AGENT_TOKEN_TTL_HOURS) * 60 * 60 * 1000;
+/** A Google sign-in older than this can't mint (see createAdminIdTokenCheck's maxAuthAgeMs). */
+export const ADMIN_AGENT_TOKEN_MAX_SIGN_IN_AGE_MS = 10 * 60 * 1000;
 
 export type AdminAgentTokens = {
-  mint: (ttlHours: number, now?: number) => { token: string; expiresAt: number } | undefined;
+  /** False when ADMIN_API_TOKEN is unset: nothing can be minted or verified. */
+  enabled: boolean;
+  mint: (ttlHours: number, now?: number) => { token: string; expiresAt: number; nonce: string } | undefined;
   verify: (token: string, now?: number) => boolean;
 };
 
@@ -40,8 +44,9 @@ export const createAdminAgentTokens = (adminApiToken: string | undefined): Admin
   const mint: AdminAgentTokens["mint"] = (ttlHours, now = Date.now()) => {
     if (!key || !(ADMIN_AGENT_TOKEN_TTL_HOURS as readonly number[]).includes(ttlHours)) return undefined;
     const expiresAt = now + ttlHours * 60 * 60 * 1000;
-    const payload = `${PREFIX}.${expiresAt}.${randomBytes(9).toString("base64url")}`;
-    return { token: `${payload}.${sign(payload).toString("base64url")}`, expiresAt };
+    const nonce = randomBytes(9).toString("base64url");
+    const payload = `${PREFIX}.${expiresAt}.${nonce}`;
+    return { token: `${payload}.${sign(payload).toString("base64url")}`, expiresAt, nonce };
   };
 
   const verify: AdminAgentTokens["verify"] = (token, now = Date.now()) => {
@@ -52,10 +57,13 @@ export const createAdminAgentTokens = (adminApiToken: string | undefined): Admin
     // The upper bound rejects a forged far-future expiry even if the signature
     // check were ever weakened; real tokens never exceed the longest TTL.
     if (!Number.isSafeInteger(expiresAt) || expiresAt <= now || expiresAt - now > MAX_TTL_MS) return false;
-    const given = Buffer.from(parts[3]!, "base64url");
-    const expected = sign(parts.slice(0, 3).join("."));
+    // Compare the canonical encodings, not decoded bytes: Node's base64url
+    // decoder skips invalid characters, so `<sig>!!` would decode to the same
+    // bytes and a token would have many accepted spellings.
+    const given = Buffer.from(parts[3]!);
+    const expected = Buffer.from(sign(parts.slice(0, 3).join(".")).toString("base64url"));
     return given.length === expected.length && timingSafeEqual(given, expected);
   };
 
-  return { mint, verify };
+  return { enabled: Boolean(key), mint, verify };
 };

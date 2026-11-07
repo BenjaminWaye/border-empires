@@ -5,7 +5,7 @@ import type { AdminPlayerRow, CurrentSeasonSummary, GetRecentCommandsResponse, S
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
 import { createAdminAuthorizer, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
 import { createAdminIdTokenCheck, type AdminFirebaseAuthConfig } from "../admin-auth/admin-firebase-auth.js";
-import { createAdminAgentTokens } from "../admin-auth/admin-agent-token.js";
+import { ADMIN_AGENT_TOKEN_MAX_SIGN_IN_AGE_MS, createAdminAgentTokens } from "../admin-auth/admin-agent-token.js";
 import { registerAdminAgentTokenRoute } from "./register-admin-agent-token-route.js";
 import { registerAdminPageRoutes } from "../admin-pages/admin-page-routes.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
@@ -123,6 +123,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     ...(deps.adminApiToken ? { adminApiToken: deps.adminApiToken } : {}),
     ...(deps.adminGithubAuth ? { githubAuth: deps.adminGithubAuth } : {}),
     ...(deps.adminFirebaseAuth ? { isAdminIdToken: createAdminIdTokenCheck(deps.adminFirebaseAuth) } : {}),
+    ...(deps.adminFirebaseAuth ? { isFreshAdminIdToken: createAdminIdTokenCheck(deps.adminFirebaseAuth, { maxAuthAgeMs: ADMIN_AGENT_TOKEN_MAX_SIGN_IN_AGE_MS }) } : {}),
     isAgentToken: (token) => agentTokens.verify(token)
   });
   registerAdminAgentTokenRoute(app, { adminMintAuthorized, agentTokens });

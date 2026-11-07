@@ -120,4 +120,14 @@ describe("admin navigation page", () => {
     expect((await app.inject({ method: "POST", url: "/admin/season/start-next", headers: agent })).statusCode).toBe(401);
     expect((await app.inject({ method: "POST", url: "/admin/agent-token", headers: agent })).statusCode).toBe(401);
   });
+
+  it("reports a server without ADMIN_API_TOKEN as 503, not a client error", async () => {
+    const app = Fastify();
+    registerGatewayHttpRoutes(app, baseDeps({
+      adminApiToken: undefined,
+      adminFirebaseAuth: { adminEmail: "admin@example.com", verifyIdToken: async () => ({ uid: "u1", email: "admin@example.com", emailVerified: true, authTime: Math.floor(Date.now() / 1000) }) }
+    }));
+    const response = await app.inject({ method: "POST", url: "/admin/agent-token", headers: { authorization: "Bearer google-id-token" } });
+    expect(response.statusCode).toBe(503);
+  });
 });

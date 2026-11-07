@@ -55,20 +55,23 @@ the read-only `/admin/world`. The rollover procedure is in
 
 Sign in with Google (the `ADMIN_EMAIL` account) at
 `https://play.borderempires.com/admin` (or `staging.borderempires.com/admin`),
-open **Agent token**, pick a lifetime (1h, 24h, 7d or 30d) and copy the token.
+open **Agent token** (minting needs a sign-in from the last 10 minutes), pick a lifetime (1h, 24h, 7d or 30d) and copy the token.
 Hand it to the agent as a network secret for that environment's gateway host
-(`api.borderempires.com` / `api-staging.borderempires.com`), type Bearer — never
-paste it into chat or commit it. The agent then just calls:
+(`api.borderempires.com` / `api-staging.borderempires.com`), type Bearer, on a
+personal agent environment (every session there gets the access) — never paste
+it into chat or commit it. The agent then just calls:
 
 ```bash
 curl -H "Authorization: Bearer $AGENT_TOKEN" https://api.borderempires.com/admin/world
 ```
 
-Agent tokens are read-only (the same endpoints as Option A), cannot mint more
-tokens, and are signed with a key derived from `ADMIN_API_TOKEN`: a staging
-token never works on production, and rotating `ADMIN_API_TOKEN` revokes every
-token ever minted. Minting itself (`POST /admin/agent-token?ttlHours=24`)
-accepts only the Google sign-in or the static token. Implementation:
+Agent tokens reach every read-only endpoint (the same set as Option A,
+including player insights), cannot mint more tokens, and are signed with a key
+derived from `ADMIN_API_TOKEN`: rotating it revokes every token ever minted
+(there is no per-token revocation), and staging tokens fail on production as
+long as the two environments keep different `ADMIN_API_TOKEN` values. Minting
+(`POST /admin/agent-token?ttlHours=24`) accepts only a recent Google sign-in or
+the static token, and logs each token's nonce and expiry. Implementation:
 `apps/realtime-gateway/src/admin-auth/admin-agent-token.ts`.
 
 ### Option B — the static `ADMIN_API_TOKEN` (needed for destructive endpoints, or as a fallback)

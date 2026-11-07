@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AdminApi } from "./admin-api.js";
-import { parseMintedAgentToken, renderAgentTokenPanel } from "./admin-agent-token-view.js";
+import { parseMintedAgentToken, renderAgentTokenPanel, STALE_SIGN_IN_MESSAGE } from "./admin-agent-token-view.js";
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -25,11 +25,19 @@ describe("agent token view", () => {
   });
 
   it("shows the server's refusal instead of a token", async () => {
-    const post = vi.fn<AdminApi["post"]>(async () => ({ ok: false, status: 401, message: "not the admin" }));
+    const post = vi.fn<AdminApi["post"]>(async () => ({ ok: false, status: 503, message: "disabled" }));
     const panel = renderAgentTokenPanel({ get: vi.fn(), post }, "https://api.borderempires.com");
     panel.querySelector<HTMLButtonElement>("button.primary")!.click();
     await flush();
     expect(panel.querySelector("textarea")).toBeNull();
-    expect(panel.querySelector(".error")!.textContent).toBe("not the admin");
+    expect(panel.querySelector(".error")!.textContent).toBe("disabled");
+  });
+
+  it("asks for a fresh sign-in when the gateway refuses to mint (401)", async () => {
+    const post = vi.fn<AdminApi["post"]>(async () => ({ ok: false, status: 401, message: "not the admin" }));
+    const panel = renderAgentTokenPanel({ get: vi.fn(), post }, "https://api.borderempires.com");
+    panel.querySelector<HTMLButtonElement>("button.primary")!.click();
+    await flush();
+    expect(panel.querySelector(".error")!.textContent).toBe(STALE_SIGN_IN_MESSAGE);
   });
 });

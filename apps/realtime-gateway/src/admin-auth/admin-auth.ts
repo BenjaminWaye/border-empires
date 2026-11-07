@@ -92,6 +92,8 @@ export type CreateAdminAuthorizerDeps = {
   isAdminIdToken?: (token: string) => Promise<boolean>;
   // Path (4): resolves true for an unexpired agent token (admin-agent-token.ts).
   isAgentToken?: (token: string) => boolean;
+  // Minting only: like isAdminIdToken but also requires a recent sign-in.
+  isFreshAdminIdToken?: (token: string) => Promise<boolean>;
 };
 
 export type AdminAuthorizer = {
@@ -102,7 +104,7 @@ export type AdminAuthorizer = {
   // diagnostic endpoints.
   adminRequestAuthorized: (request: AdminHttpRequest) => Promise<boolean>;
   // Who may mint agent tokens: the static token or the admin's own Google
-  // sign-in. Deliberately excludes agent tokens (no self-renewal) and the
+  // sign-in, made within ADMIN_AGENT_TOKEN_MAX_SIGN_IN_AGE_MS. Deliberately excludes agent tokens (no self-renewal) and the
   // GitHub path (any repo reader must not be able to mint long-lived access).
   adminMintAuthorized: (request: AdminHttpRequest) => Promise<boolean>;
 };
@@ -142,7 +144,7 @@ export const createAdminAuthorizer = (deps: CreateAdminAuthorizerDeps): AdminAut
     const headerAuth = typeof request.headers.authorization === "string" ? request.headers.authorization : undefined;
     if (adminAuthorized(headerAuth)) return true;
     const bearerToken = bearerTokenOf(headerAuth);
-    return Boolean(bearerToken && deps.isAdminIdToken && (await deps.isAdminIdToken(bearerToken)));
+    return Boolean(bearerToken && deps.isFreshAdminIdToken && (await deps.isFreshAdminIdToken(bearerToken)));
   };
 
   return { adminAuthorized, adminRequestAuthorized, adminMintAuthorized };
