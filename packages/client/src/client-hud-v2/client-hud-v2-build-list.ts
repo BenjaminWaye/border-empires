@@ -38,7 +38,8 @@ export const buildCategories = (buildings: readonly TileActionDef[]): Array<{ ca
 
 export const buildListHtml = (input: BuildListInput): string => {
   const cats = buildCategories(input.buildings);
-  const category = cats.some((c) => c.category === input.category) ? input.category : cats[0]?.category;
+  const category = cats.some((c) => c.category === input.category) ? input.category
+    : cats.find((c) => c.category === "resource")?.category ?? cats[0]?.category;
   const tabs = cats.map((c) => `<button type="button" role="tab" class="v2t-tab${c.category === category ? " v2t-tab-on" : ""}" aria-selected="${c.category === category}" data-v2-build-category="${c.category}">${esc(BUILDING_CATEGORY_LABELS[c.category].replace(/­/g, ""))} · ${c.count}</button>`).join("");
   const rows = input.buildings.filter((b) => buildingActionCategory(b) === category).map((b) => {
     const on = b.id === input.selection;

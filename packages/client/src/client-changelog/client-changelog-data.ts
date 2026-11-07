@@ -464,6 +464,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Depleted salvage fields clear correctly",
     why: "The map could restore an empty salvage field after removing its Reclamation Works.",
     changes: ["Shipping the final salvage load removes both the field and its Works in the 2D and 3D maps"]
+  },
+  {
+    createdAt: 1793991666851, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.06",
+    title: "Resource improvements at your fingertips",
+    why: "Resource improvements were buried behind other tile actions and building categories.",
+    changes: [
+      "Available Hydrogardens, Mines and Umbrite Rigs take the yellow primary action ahead of Relay Beacons.",
+      "Build opens the Resource category first when resource improvements are listed on the selected tile."
+    ]
   }
 ];
 

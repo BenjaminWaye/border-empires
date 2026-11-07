@@ -66,3 +66,27 @@ describe("createAdminAuthorizer with Google sign-in", () => {
     expect(authorizer.adminAuthorized("Bearer static-secret")).toBe(true);
   });
 });
+
+describe("createAdminIdTokenCheck with maxAuthAgeMs (agent-token minting)", () => {
+  const NOW = 1_800_000_000_000;
+  const fresh = createAdminIdTokenCheck(
+    {
+      verifyIdToken: verifierFor({
+        recent: { uid: "u1", email: "admin@example.com", emailVerified: true, authTime: NOW / 1000 - 60 },
+        old: { uid: "u1", email: "admin@example.com", emailVerified: true, authTime: NOW / 1000 - 3600 },
+        "no-auth-time": { uid: "u1", email: "admin@example.com", emailVerified: true }
+      }),
+      adminEmail: "admin@example.com"
+    },
+    { maxAuthAgeMs: 10 * 60 * 1000, now: () => NOW }
+  );
+
+  it("accepts a sign-in made within the window", async () => {
+    await expect(fresh("recent")).resolves.toBe(true);
+  });
+
+  it("rejects an hour-old sign-in and a token without auth_time, even for the admin", async () => {
+    await expect(fresh("old")).resolves.toBe(false);
+    await expect(fresh("no-auth-time")).resolves.toBe(false);
+  });
+});

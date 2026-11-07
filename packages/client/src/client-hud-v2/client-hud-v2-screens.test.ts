@@ -158,6 +158,18 @@ describe("town screen", () => {
     expect(left).not.toContain("3,150");
   });
 
+  it("opens Resource first on a resource tile in a town support ring", () => {
+    const input = {
+      town, focus: { ...support, resource: "FARM" as const }, townView: view({}),
+      focusView: view({ buildings: [act("build_fortification"), act("build_manufactory"), act("build_hydrogarden")] }),
+      townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined
+    };
+    const selectedTab = (build: string): string | undefined => /aria-selected="true" data-v2-build-category="(\w+)"/.exec(build)?.[1];
+    expect(selectedTab(townScreenRegions(input).build)).toBe("resource");
+    expect(selectedTab(townScreenRegions({ ...input, category: "military" }).build)).toBe("military");
+    expect(selectedTab(townScreenRegions({ ...input, focusView: view({ buildings: [act("build_fortification"), act("build_manufactory")] }) }).build)).toBe("town_support");
+  });
+
   it("runs town actions on the town and builds on the selected support tile", () => {
     const regions = townScreenRegions({
       town,

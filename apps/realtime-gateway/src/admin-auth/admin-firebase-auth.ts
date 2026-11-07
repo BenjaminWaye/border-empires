@@ -16,12 +16,23 @@ export type AdminFirebaseAuthConfig = {
   onReject?: () => void;
 };
 
-export const createAdminIdTokenCheck = (config: AdminFirebaseAuthConfig): ((token: string) => Promise<boolean>) => {
+// `maxAuthAgeMs` additionally requires the Google sign-in itself (auth_time,
+// not the token's own issue time -- ID tokens refresh hourly without a new
+// sign-in) to be that recent. Used to mint agent tokens, so a stolen or
+// long-lived session's ID token can't be upgraded into a 30-day credential.
+export const createAdminIdTokenCheck = (
+  config: AdminFirebaseAuthConfig,
+  options: { maxAuthAgeMs?: number; now?: () => number } = {}
+): ((token: string) => Promise<boolean>) => {
   const adminEmail = config.adminEmail.trim().toLowerCase();
+  const now = options.now ?? Date.now;
   return async (token) => {
     const verified = adminEmail ? await config.verifyIdToken(token) : undefined;
     const isAdmin = Boolean(verified?.emailVerified && verified.email?.trim().toLowerCase() === adminEmail);
-    if (!isAdmin) config.onReject?.();
-    return isAdmin;
+    const isFresh =
+      options.maxAuthAgeMs === undefined ||
+      (typeof verified?.authTime === "number" && now() - verified.authTime * 1000 <= options.maxAuthAgeMs);
+    if (!isAdmin || !isFresh) config.onReject?.();
+    return isAdmin && isFresh;
   };
 };

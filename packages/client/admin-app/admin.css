@@ -54,3 +54,7 @@ tr.detail td > * { position: sticky; left: 8px; max-width: min(720px, calc(100vw
 .tag.new { background: #1d2d1d; color: var(--good); }
 .timeline { margin: 4px 0 8px; padding-left: 20px; }
 pre.raw { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.agent-token-panel { display: grid; gap: 10px; max-width: 640px; }
+.agent-token-panel p { margin: 0; }
+.agent-token-result { display: grid; gap: 8px; }
+textarea.agent-token { width: 100%; box-sizing: border-box; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 8px; overflow-wrap: anywhere; resize: none; }
