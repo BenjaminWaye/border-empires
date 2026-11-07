@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { queueDevelopmentAction } from "../client-development-queue/client-development-queue.js";
 import { createInitialState } from "../client-state/client-state.js";
-import type { Tile, TileMenuView } from "../client-types.js";
+import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { screen, SCREEN_HOST_ID, type HudV2Deps } from "./client-hud-v2-context.js";
 import { closeTownScreen, renderTownScreen, stepTown, townOnMenuView, townOnMenuHidden } from "./client-hud-v2-town-runtime.js";
 
@@ -116,6 +116,55 @@ describe("town arrow detail refresh", () => {
     expect(sent).toEqual(["6,5", "4,5", "6,6"]);
     expect(screen.townBuildSelection).toBe("build_manufactory");
     expect(state.developmentQueue.map((entry) => entry.tileKey)).toEqual(sent);
+  });
+
+  it.each([
+    ["FARM", "build_hydrogarden"], ["TITANIUM", "build_mine"], ["UMBRITE", "build_umbrite_rig"]
+  ] as const)("offers the yellow improvement on a %s in the town support ring", (resource, id) => {
+    document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
+    const state = createInitialState();
+    state.me = "me";
+    const hub = town(5, "Alder");
+    const farm: Tile = { x: 6, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource };
+    state.tiles.set("5,5", hub);
+    state.tiles.set("6,5", farm);
+    const improvement: TileActionDef = { id, label: `Build ${resource}`, cost: "100 coin" };
+    const focusView: TileMenuView = { ...view, buildings: [
+      { id: "build_fortification", label: "Fort" }, improvement,
+      { id: "build_relay_beacon", label: "Relay Beacon" }
+    ] };
+    const handleTileAction = vi.fn();
+    const deps: HudV2Deps = {
+      state, renderHud: vi.fn(), requestViewRefresh: vi.fn(), wrapX: x => x, wrapY: y => y,
+      isMobile: () => false, sendGameMessage: () => true, ownerColor: () => "#888",
+      actionFlow: { chooseTech: vi.fn(), cancelOngoingCapture: vi.fn(), handleTileAction,
+        hideTileActionMenu: vi.fn(), requestTileDetailIfNeeded: vi.fn(),
+        tileMenuViewForTile: tile => tile === hub ? view : focusView, openSingleTileActionMenu: vi.fn() }
+    };
+    expect(townOnMenuView(deps, focusView, "6,5")).toBe(true);
+    const primary = () => document.querySelector<HTMLButtonElement>("#v2t-bar .v2t-act-primary");
+    expect(primary()?.dataset.hudV2Action).toBe(id);
+    expect(primary()?.dataset.targetKey).toBe("6,5");
+    expect(document.querySelector('[data-v2-build-category][aria-selected="true"]')?.getAttribute("data-v2-build-category")).toBe("resource");
+    screenClick(deps, primary()!);
+    expect(handleTileAction).toHaveBeenCalledWith(id, "6,5", undefined, false);
+
+    // A manually chosen category persists on ticks, but not when selecting a different plot.
+    screenClick(deps, document.querySelector<HTMLElement>('[data-v2-build-category="military"]')!);
+    renderTownScreen(deps);
+    expect(screen.townCategory).toBe("military");
+    townOnMenuView(deps, view, "5,5");
+    townOnMenuView(deps, focusView, "6,5");
+    expect(document.querySelector('[data-v2-build-category][aria-selected="true"]')?.getAttribute("data-v2-build-category")).toBe("resource");
+
+    improvement.disabled = true;
+    improvement.disabledReason = "Need 100 coin";
+    townOnMenuView(deps, focusView, "6,5");
+    expect(primary()).toBeNull();
+    improvement.disabled = false;
+    const garrison: TileActionDef = { id: "settle_land", label: "Garrison", recommended: true };
+    townOnMenuView(deps, { ...focusView, actions: [garrison] }, "6,5");
+    expect(primary()?.dataset.hudV2Action).toBe("settle_land");
   });
 
 });

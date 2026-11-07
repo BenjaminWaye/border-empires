@@ -5,7 +5,8 @@ import {
   computeSeasonVictory,
   economicHegemonySelfProgressLabel,
   mergeSelfProgress,
-  seasonVictoryForBroadcast
+  seasonVictoryForBroadcast,
+  seasonVictoryWithCurrentHolds
 } from "./season-victory-objectives.js";
 
 type WorldTileFixture = Parameters<typeof computeSeasonVictory>[0][number];
@@ -289,6 +290,108 @@ describe("seasonVictoryForBroadcast", () => {
     const result = seasonVictoryForBroadcast(cachedObjectives, undefined, liveEconomicHegemony, "player-1", 265);
 
     expect(result.find((o) => o.id === "ECONOMIC_HEGEMONY")?.selfProgressLabel).toBeUndefined();
+  });
+
+  describe("hold countdown on the live ECONOMIC_HEGEMONY objective", () => {
+    // Regression: on prod the summary tracked Astrid's hold (18599s left) but every
+    // broadcast swapped in the live objective, which has no hold fields, so clients
+    // rendered "Astrid holding ·  left" and the victory alert never fired.
+    const holdingLeaderboard: LeaderboardFixture = [
+      { id: "player-1", name: "Astrid", tiles: 1, incomePerMinute: 265, techs: 0, score: 265, rank: 1 },
+      { id: "player-2", name: "Runner Up", tiles: 1, incomePerMinute: 100, techs: 0, score: 100, rank: 2 }
+    ];
+    const cachedHold = (leaderPlayerId: string): typeof cachedObjectives =>
+      cachedObjectives.map((objective) =>
+        objective.id === "ECONOMIC_HEGEMONY"
+          ? { ...objective, leaderPlayerId, conditionMet: true, statusLabel: "Holding pressure", holdRemainingSeconds: 18599 }
+          : objective
+      );
+    const economicFrom = (cached: typeof cachedObjectives, leaderboard: LeaderboardFixture) =>
+      seasonVictoryForBroadcast(cached, undefined, buildEconomicHegemonyObjective(leaderboard), "player-2", 100).find(
+        (o) => o.id === "ECONOMIC_HEGEMONY"
+      );
+
+    it("keeps the tracked hold while the same leader still meets the condition", () => {
+      const economic = economicFrom(cachedHold("player-1"), holdingLeaderboard);
+      expect(economic?.conditionMet).toBe(true);
+      expect(economic?.holdRemainingSeconds).toBe(18599);
+      expect(economic?.statusLabel).toBe("Holding pressure");
+    });
+
+    it("drops the hold when a different player now leads", () => {
+      const economic = economicFrom(cachedHold("player-2"), holdingLeaderboard);
+      expect(economic?.conditionMet).toBe(true);
+      expect(economic?.holdRemainingSeconds).toBeUndefined();
+      expect(economic?.statusLabel).toBe("Threshold met");
+    });
+
+    it("drops the hold when the live condition has lapsed", () => {
+      const lapsed = holdingLeaderboard.map((entry) => ({ ...entry, incomePerMinute: 1 }));
+      const economic = economicFrom(cachedHold("player-1"), lapsed);
+      expect(economic?.conditionMet).toBe(false);
+      expect(economic?.holdRemainingSeconds).toBeUndefined();
+    });
+  });
+});
+
+describe("seasonVictoryWithCurrentHolds", () => {
+  const holding = {
+    id: "ECONOMIC_HEGEMONY" as const,
+    name: "Economic Ascendancy",
+    description: "",
+    leaderName: "Astrid",
+    leaderPlayerId: "player-1",
+    progressLabel: "",
+    thresholdLabel: "",
+    holdDurationSeconds: 86_400,
+    holdRemainingSeconds: 300,
+    holdEndsAt: 1_300_000,
+    statusLabel: "Holding pressure",
+    conditionMet: true
+  };
+
+  it("counts down between summary recomputes instead of repeating the cached seconds", () => {
+    // Regression: the client restarts its countdown from every broadcast, so a repeated
+    // cached 300 kept snapping the victory alert back to 5m until the crown fired.
+    const [objective] = seasonVictoryWithCurrentHolds([holding], 1_240_000, false);
+    expect(objective?.holdRemainingSeconds).toBe(60);
+  });
+
+  it("never reports a negative time once the deadline has passed", () => {
+    const [objective] = seasonVictoryWithCurrentHolds([holding], 1_400_000, false);
+    expect(objective?.holdRemainingSeconds).toBe(0);
+  });
+
+  it("leaves a cached hold from before holdEndsAt existed as it is", () => {
+    const { holdEndsAt: _holdEndsAt, ...older } = holding;
+    const [objective] = seasonVictoryWithCurrentHolds([older], 1_240_000, false);
+    expect(objective?.holdRemainingSeconds).toBe(300);
+  });
+
+  it("drops every hold once the season is decided, so a crowned season cannot re-raise the alert", () => {
+    // Regression: after a crown the summary stops updating, and each broadcast re-raised
+    // "will win in 0s", or a countdown for a path that can no longer win.
+    const decided = seasonVictoryWithCurrentHolds([holding], 1_240_000, true);
+    expect(decided[0]?.holdRemainingSeconds).toBeUndefined();
+
+    const leaderboard: LeaderboardFixture = [
+      { id: "player-1", name: "Astrid", tiles: 1, incomePerMinute: 265, techs: 0, score: 265, rank: 1 },
+      { id: "player-2", name: "Runner Up", tiles: 1, incomePerMinute: 100, techs: 0, score: 100, rank: 2 }
+    ];
+    const live = buildEconomicHegemonyObjective(leaderboard);
+    expect(live.conditionMet).toBe(true);
+    const [economic] = seasonVictoryForBroadcast(decided, undefined, live, "player-2", 100);
+    expect(economic?.holdRemainingSeconds).toBeUndefined();
+  });
+
+  it("feeds the refreshed time through the live Economic Hegemony swap", () => {
+    const leaderboard: LeaderboardFixture = [
+      { id: "player-1", name: "Astrid", tiles: 1, incomePerMinute: 265, techs: 0, score: 265, rank: 1 },
+      { id: "player-2", name: "Runner Up", tiles: 1, incomePerMinute: 100, techs: 0, score: 100, rank: 2 }
+    ];
+    const current = seasonVictoryWithCurrentHolds([holding], 1_240_000, false);
+    const [economic] = seasonVictoryForBroadcast(current, undefined, buildEconomicHegemonyObjective(leaderboard), "player-2", 100);
+    expect(economic?.holdRemainingSeconds).toBe(60);
   });
 });
 

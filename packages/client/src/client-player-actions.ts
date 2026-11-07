@@ -63,7 +63,7 @@ export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActi
       mobileValue: deps.mobileTechPickEl.value,
       choices: deps.state.techChoices
     });
-    deps.pushFeed("No tech selected.", "tech", "warn");
+    deps.pushFeed("No Manifest selected.", "tech", "warn");
     return;
   }
   // The new HUD shows no activity feed, so a refused commission also raises an alert: a feed line alone was a dead tap.
@@ -79,7 +79,7 @@ export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActi
     return;
   }
   if (!deps.state.authSessionReady) {
-    deps.setAuthStatus("Finish sign-in before choosing a technology.", "error");
+    deps.setAuthStatus("Finish sign-in before choosing a Manifest.", "error");
     deps.syncAuthOverlay();
     return;
   }

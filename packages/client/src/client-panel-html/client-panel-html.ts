@@ -393,9 +393,9 @@ export const leaderboardHtml = (
   dukePlayers: ReadonlySet<string> = new Set()
 ): string => {
   const overallLineText = (entry: LeaderboardOverallEntry): string =>
-    `${entry.name} | score ${entry.score.toFixed(1)} | garrisoned tiles ${entry.tiles} | income ${entry.incomePerMinute.toFixed(1)} | tech ${entry.techs} | manpower cap ${entry.manpowerCap}`;
+    `${entry.name} | score ${entry.score.toFixed(1)} | garrisoned tiles ${entry.tiles} | income ${entry.incomePerMinute.toFixed(1)} | manifests ${entry.techs} | manpower cap ${entry.manpowerCap}`;
   const overallLineHtml = (entry: LeaderboardOverallEntry): string =>
-    `${playerNameBadgeHtml(entry.id, entry.name, playerColors, dukePlayers)} | score ${entry.score.toFixed(1)} | garrisoned tiles ${entry.tiles} | income ${(entry.incomePerMinute * 1440).toFixed(1)}/day | tech ${entry.techs} | manpower cap ${entry.manpowerCap}`;
+    `${playerNameBadgeHtml(entry.id, entry.name, playerColors, dukePlayers)} | score ${entry.score.toFixed(1)} | garrisoned tiles ${entry.tiles} | income ${(entry.incomePerMinute * 1440).toFixed(1)}/day | manifests ${entry.techs} | manpower cap ${entry.manpowerCap}`;
   const metricLineText = (entry: LeaderboardMetricEntry): string => `${entry.name} (${entry.value.toFixed(1)})`;
   const metricLineHtml = (entry: LeaderboardMetricEntry): string => `${playerNameBadgeHtml(entry.id, entry.name, playerColors, dukePlayers)} (${entry.value.toFixed(1)})`;
   const includesOverallEntry = (entries: LeaderboardOverallEntry[], selfEntry: LeaderboardOverallEntry | undefined): boolean => {
@@ -466,7 +466,7 @@ export const leaderboardHtml = (
       ${leaderboard.overall.map((entry) => `<div class="lb-row">${entry.rank}. ${overallLineHtml(entry)}</div>`).join("")}
       ${
         leaderboard.selfOverall && leaderboard.selfOverall.rank !== 1 && !includesOverallEntry(leaderboard.overall, leaderboard.selfOverall)
-          ? `<div class="lb-row">${leaderboard.selfOverall.rank}. ${playerNameBadgeHtml(leaderboard.selfOverall.id, "You", playerColors, dukePlayers)} | score ${leaderboard.selfOverall.score.toFixed(1)} | garrisoned tiles ${leaderboard.selfOverall.tiles} | income ${(leaderboard.selfOverall.incomePerMinute * 1440).toFixed(1)}/day | tech ${leaderboard.selfOverall.techs} | manpower cap ${leaderboard.selfOverall.manpowerCap}</div>`
+          ? `<div class="lb-row">${leaderboard.selfOverall.rank}. ${playerNameBadgeHtml(leaderboard.selfOverall.id, "You", playerColors, dukePlayers)} | score ${leaderboard.selfOverall.score.toFixed(1)} | garrisoned tiles ${leaderboard.selfOverall.tiles} | income ${(leaderboard.selfOverall.incomePerMinute * 1440).toFixed(1)}/day | manifests ${leaderboard.selfOverall.techs} | manpower cap ${leaderboard.selfOverall.manpowerCap}</div>`
           : ""
       }
     </article>
@@ -479,7 +479,7 @@ export const leaderboardHtml = (
       ${metricRows(leaderboard.byIncome, leaderboard.selfByIncome)}
     </article>
     <article class="card">
-      <strong>Most Techs</strong>
+      <strong>Most Manifests</strong>
       ${metricRows(leaderboard.byTechs, leaderboard.selfByTechs)}
     </article>
   `;

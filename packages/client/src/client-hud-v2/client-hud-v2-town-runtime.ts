@@ -154,7 +154,7 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
     return false;
   }
   if (current?.townKey !== keyOf(town)) screen.townBuildSelection = undefined;
-  if (screen.id !== "town") screen.townCategory = undefined;
+  if (screen.id !== "town" || current?.focusKey !== tileKey) screen.townCategory = undefined;
   // Close in on the town when the screen opens or moves to another town; picking support tiles doesn't move the camera.
   if (screen.id !== "town" || current?.townKey !== keyOf(town)) closeUpOn(deps, town.x, town.y, TOWN_ZOOM);
   lastDeps = deps;

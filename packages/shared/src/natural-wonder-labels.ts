@@ -32,7 +32,7 @@ export const NATURAL_WONDER_LABELS: Record<NaturalWonderType, { name: string; fl
   CALCULATING_ENGINE: {
     name: "the Calculating Engine",
     flavor: "brass rings turn in silence, scrolling data across glass panels lit from within",
-    boon: "tech research coin costs -10%"
+    boon: "Manifest commission coin costs -10%"
   },
   QUICKFORGE: {
     name: "the Quickforge",

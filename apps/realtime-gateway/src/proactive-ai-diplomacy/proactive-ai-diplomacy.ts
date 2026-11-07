@@ -4,6 +4,7 @@ import { type AiDiplomacySnapshot } from "../ai-diplomacy-stance/ai-diplomacy-st
 import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { ATTITUDE_RANK } from "../ai-diplomacy-stance/ai-diplomacy-opinion.js";
 import { TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "../ai-diplomacy-stance/ai-diplomacy-pricing.js";
+import { aiAsksForPeace } from "../ai-diplomacy-stance/ai-diplomacy-temperament.js";
 import type { SocialState } from "../social-state/social-state.js";
 import { extractAllianceRequestFromPayloads, extractTruceRequestFromPayloads, type SeededAiDiplomacyResponder } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 
@@ -108,7 +109,7 @@ export function createProactiveAiDiplomacy(deps: ProactiveAiDiplomacyDeps): { ti
         haveSharedVisibleEnemy(ai.tiles, aiId, targetId, new Set([...friendly, ...targetSocial.allies, ...targetSocial.activeTruces.map(t => t.otherPlayerId)]));
       // The AI may accept a truce right after being attacked, but it doesn't go asking the attacker for one.
       const freshlyAttacked = context.memory.lastPlayerAttackAt !== undefined && context.now - context.memory.lastPlayerAttackAt < TRUCE_COOLDOWN_AFTER_ATTACK_MS;
-      const peace = !evaluation.truceRefusal && !freshlyAttacked && (stance.kind === "SEEKING_PEACE" || stance.kind === "OUTMATCHED");
+      const peace = !evaluation.truceRefusal && !freshlyAttacked && aiAsksForPeace(stance.kind, evaluation.temperament);
       if (!alliance && !peace) return;
       if (peace && ai.player.domainIds?.includes("afc-chancery-4") && deps.syncForcedTruce && (social.forcedTruceCooldownUntil ?? 0) <= Date.now()) {
         const forced = deps.socialState.forceTruce(aiId, targetId);

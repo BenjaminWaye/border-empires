@@ -95,7 +95,7 @@ const territoryCardText = (card: Extract<PersonalActivityCard, { kind: "TERRITOR
 };
 
 const waystationCardText = (card: Extract<PersonalActivityCard, { kind: "WAYSTATION_ACTIVATED" }>, techName: TechNameLookup): string => {
-  if (card.grantedEffect === "TECH") return card.grantedTechId ? `Waystation activated · ${techName(card.grantedTechId) ?? card.grantedTechId} granted` : "Waystation activated · no unowned technology remained";
+  if (card.grantedEffect === "TECH") return card.grantedTechId ? `Waystation activated · ${techName(card.grantedTechId) ?? card.grantedTechId} granted` : "Waystation activated · no unowned Manifest remained";
   if (card.grantedEffect === "RESOURCE_SLOT") return `Waystation activated · +1 ${card.grantedResource?.toLowerCase() ?? "resource"} slot`;
   if (card.grantedEffect === "GOLD") return `Waystation activated · +${roundedAmount(card.grantedGold ?? 0)} Coin`;
   if (card.grantedEffect === "MANPOWER") return `Waystation activated · +${roundedAmount(card.grantedManpower ?? 0)} manpower`;

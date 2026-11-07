@@ -12,7 +12,7 @@ import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town
 import { townGoldBonuses } from "../client-town-stat-bonuses/client-town-stat-bonuses.js";
 import { initialBuildingCategory, type BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { autoSettleOptionForTile, autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
-import { isGarrison } from "./client-hud-v2-action-bar.js";
+import { availableResourceImprovement, isGarrison } from "./client-hud-v2-action-bar.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
 import { builtStructureFacts, townGrowth, type TileFact } from "./client-hud-v2-tile-facts.js";
@@ -155,12 +155,16 @@ const barHtml = (input: TownScreenInput): string => {
   const garrisonBtn = garrison
     ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land"${targetAttrs(garrison, garrisonKey)}${garrison.disabled ? " disabled" : ""} title="${esc(garrison.disabled ? garrison.disabledReason ?? garrisonLabel : garrison.detail ?? garrisonLabel)}">${esc(garrisonLabel)}${garrisonNote ? `<small>${esc(garrisonNote)}</small>` : ""}</button>`
     : "";
+  const improvement = garrison ? undefined : availableResourceImprovement(input.focusView);
+  const improvementBtn = improvement
+    ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="${esc(improvement.id)}"${targetAttrs(improvement, keyOf(input.focus))} title="${esc(improvement.detail ?? improvement.label)}">${esc(improvement.label)}${improvement.cost ? `<small>${esc(improvement.cost)}</small>` : ""}</button>`
+    : "";
   // The "garrison these automatically from now on" checkbox the tile dock shows under its Garrison button.
   // Read from live prefs (a toggle doesn't rebuild focusView, so the snapshot's copy goes stale).
   const garrisonTile = focusGarrison ? input.focus : input.town;
   const option = garrison ? autoSettleOptionForTile({ autoSettle: input.autoSettle ?? { status: "unloaded" } }, garrisonTile) : undefined;
   const garrisonOption = option ? autoSettleOptionHtml({ ...option, label: "Garrison these automatically" }) : "";
-  const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : [])]);
+  const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : []), ...(improvement ? [improvement.id] : [])]);
   const minorActions = [
     ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus && isMuster(a) ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
     ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isMuster(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
@@ -175,7 +179,7 @@ const barHtml = (input: TownScreenInput): string => {
   const raiseBtn = raise
     ? `<button type="button" class="v2t-act" data-hud-v2-action="muster_hold" data-target-key="${esc(keyOf(raiseOn))}"${raise.disabled ? " disabled" : ""} title="${esc(raise.disabled ? raise.disabledReason ?? "" : raise.detail ?? "")}">${raiseLabel}</button>`
     : "";
-  return `${garrisonBtn}${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
+  return `${garrisonBtn}${improvementBtn}${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
     ${minor ? `<span class="v2t-minor">${minor}</span>` : ""}
     <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map · Esc</button>${garrisonOption}`;
 };

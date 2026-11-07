@@ -56,6 +56,9 @@ export const isGarrison = (a: TileActionDef): boolean => a.id === "settle_land" 
 const relayBeacon = (view: BarView): TileActionDef | undefined =>
   [...view.actions, ...view.buildings].find((a) => RELAY_BEACON_IDS.includes(a.id) && !a.disabled);
 
+export const availableResourceImprovement = (view: Pick<BarView, "actions" | "buildings">): TileActionDef | undefined =>
+  [...view.actions, ...view.buildings].find((a) => buildingActionCategory(a) === "resource" && !a.disabled);
+
 /**
  * Attack-type actions first, then a Garrison worth it (recommended: resources, towns, docks),
  * then an available resource improvement, Relay Beacon, then Expand To.
@@ -67,7 +70,7 @@ const primaryAction = (view: BarView): TileActionDef | undefined => {
     if (hit) return hit;
   }
   return view.actions.find((a) => isGarrison(a) && a.recommended && !a.disabled)
-    ?? [...view.actions, ...view.buildings].find((a) => buildingActionCategory(a) === "resource" && !a.disabled)
+    ?? availableResourceImprovement(view)
     ?? relayBeacon(view)
     ?? view.actions.find((a) => a.id === "settle_land" && !a.disabled && !isGarrison(a))
     ?? blockedPrimaryAction(view);

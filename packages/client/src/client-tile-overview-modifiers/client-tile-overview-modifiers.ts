@@ -1,6 +1,7 @@
 import { prospectSignatureResource, isRedesignedRelic, relicOperationalState, relicReserveLabel, RELIC_DEFINITIONS } from "@border-empires/shared";
 import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, defendingFortVariant, FORT_VARIANT_LABELS, isFortDefending, type EconomicStructureType } from "@border-empires/shared";
-import { prospectClueOverviewLine, retiredProspectClues } from "../client-prospect-clue/client-prospect-clue.js";
+import { prospectClueOverviewLine, prospectClueResourceLabel, retiredProspectClues } from "../client-prospect-clue/client-prospect-clue.js";
+import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import { resourceRevealCategory, structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 import type { TechInfo } from "../client-tech-info-types.js";
@@ -289,7 +290,7 @@ export const waystationOverviewLines = (
   const lines: TileOverviewLine[] = [{ html: "Waystation", kind: "section" }];
   if (!waystation.activated) {
     lines.push(effectLine("Status", "Dormant", "neutral"));
-    if (tile.ownerId !== deps.me) lines.push({ html: "Claim or capture this tile to activate it. It grants one random bonus: vision, a population burst in a nearby town, a free tech, +1 resource slot, Coin, or manpower." });
+    if (tile.ownerId !== deps.me) lines.push({ html: "Claim or capture this tile to activate it. It grants one random bonus: vision, a population burst in a nearby town, a free Manifest, +1 resource slot, Coin, or manpower." });
     return lines;
   }
   lines.push(effectLine("Status", "Active", "positive"));
@@ -356,7 +357,9 @@ export const tileFeatureLeadLines = (
   if (clueLine && tile.prospectSignature) {
     const resource = resourceRevealCategory(prospectSignatureResource(tile.prospectSignature));
     const manifest = deps.techCatalog.find((tech) => typeof tech.effects?.revealResource === "string" && tech.effects.revealResource.toLowerCase() === resource);
-    const link = manifest ? ` <button type="button" data-view-tech="${manifest.id}">View required Manifest →</button>` : "";
+    const link = manifest
+      ? ` ${prospectClueResourceLabel(tile.prospectSignature)} is revealed by <button type="button" class="inline-info-link" data-view-tech="${escapeHtml(manifest.id)}">${escapeHtml(manifest.name)}</button>.`
+      : "";
     lines.push({ html: `${clueLine}${link}` });
   }
   return lines;

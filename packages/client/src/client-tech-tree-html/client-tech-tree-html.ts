@@ -62,7 +62,7 @@ const estimateTechNodeHeight = (tech: TechInfo, args: Pick<TechTreeArgs, "techPr
   const titleLines = Math.max(1, Math.ceil(tech.name.length / 14));
   const highlightCount = techHighlightTags(tech).length;
   const payoffRows = highlightCount > 0 ? Math.max(1, Math.ceil(Math.min(highlightCount, 3) / 2)) : 0;
-  const prereqText = args.techPrereqIds(tech).length > 0 ? `Requires ${args.techNameList(args.techPrereqIds(tech))}` : "Entry technology";
+  const prereqText = args.techPrereqIds(tech).length > 0 ? `Requires ${args.techNameList(args.techPrereqIds(tech))}` : "Entry Manifest";
   const costText = techCardStatusLine(tech, prereqText, args.formatTechCost).text;
   const costLines = Math.max(1, Math.ceil(costText.length / 30));
   const estimate = (goodPick ? 30 : 0) + 28 + titleLines * 24 + payoffRows * 26 + 12 + costLines * 20 + 26;
@@ -109,7 +109,7 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
         (techLayoutOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (techLayoutOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER) ||
         a.name.localeCompare(b.name)
     );
-  if (choices.length === 0) return `<article class="card"><p>No available technologies right now.</p></article>`;
+  if (choices.length === 0) return `<article class="card"><p>No available Manifests right now.</p></article>`;
   const grouped = new Map<number, TechInfo[]>();
   for (const tech of choices) {
     const tier = args.techTier(tech.id, byId, tierMemo);
@@ -139,7 +139,7 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
             researchingThis && typeof args.currentResearch?.completesAt === "number"
               ? Math.max(0, args.currentResearch.completesAt - Date.now())
               : 0;
-          const prereqText = args.techPrereqIds(tech).length > 0 ? `Requires ${args.techNameList(args.techPrereqIds(tech))}` : "Entry technology";
+          const prereqText = args.techPrereqIds(tech).length > 0 ? `Requires ${args.techNameList(args.techPrereqIds(tech))}` : "Entry Manifest";
           const blockedStatus = techCardStatusLine(tech, prereqText, args.formatTechCost);
           const missingResources = techMissingResourceSummary(tech);
           const missingResourcesHtml = techMissingResourceSummaryHtml(tech);
@@ -191,7 +191,7 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
   const choicesSet = new Set(args.effectiveTechChoices);
   const showsGoodPick = createGoodPickLookup(ownedSet, args.isPendingTechUnlock, args.isGoodPick);
   const rootMemo = new Map<string, string>();
-  if (args.techCatalog.length === 0) return `<article class="card"><p>No technologies are available this season.</p></article>`;
+  if (args.techCatalog.length === 0) return `<article class="card"><p>No Manifests are available this season.</p></article>`;
 
   const childrenByTech = new Map<string, string[]>();
   for (const tech of args.techCatalog) {
@@ -433,8 +433,8 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
           ? `Researching • ${args.formatCooldownShort(researchRemaining)}`
           : isPending
             ? "Waiting for server confirmation..."
-            : techCardStatusLine(tech, prereqs.length > 0 ? `Requires ${args.techNameList(prereqs)}` : "Entry technology", args.formatTechCost).text;
-      const blockedStatus = techCardStatusLine(tech, prereqs.length > 0 ? `Requires ${args.techNameList(prereqs)}` : "Entry technology", args.formatTechCost);
+            : techCardStatusLine(tech, prereqs.length > 0 ? `Requires ${args.techNameList(prereqs)}` : "Entry Manifest", args.formatTechCost).text;
+      const blockedStatus = techCardStatusLine(tech, prereqs.length > 0 ? `Requires ${args.techNameList(prereqs)}` : "Entry Manifest", args.formatTechCost);
       const missingResources = techMissingResourceSummary(tech);
       const missingResourcesHtml = techMissingResourceSummaryHtml(tech);
       const costToneClass =

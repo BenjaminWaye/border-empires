@@ -10,6 +10,7 @@ import { AI_JUNIOR_ALLIANCES_CHANGELOG } from "./client-changelog-ai-junior-alli
 import { PHONE_MAP_OVERVIEW_CHANGELOG } from "./client-changelog-phone-map-overview.js";
 import { TOWN_SCREEN_SUPPORT_STRUCTURE_CHANGELOG } from "./client-changelog-town-screen-support-structure.js";
 import { OWNERSHIP_HELP_CHANGELOG } from "./client-changelog-ownership-help.js";
+import { PROSPECT_MANIFEST_LINK_CHANGELOG } from "./client-changelog-prospect-manifest-link.js";
 import { TOWN_GROWTH_PERSIST_CHANGELOG } from "./client-changelog-town-growth-persist.js";
 import { TRUCE_MINUTES_CHANGELOG } from "./client-changelog-truce-minutes.js";
 import { HILL_FISHING_FARM_BUILDINGS_CHANGELOG } from "./client-changelog-hill-fishing-farm-buildings.js";
@@ -60,5 +61,6 @@ export const NOVEMBER_CHANGELOG: ClientChangelogEntry[] = [
   ...TUTORIAL_GUIDE_SCREENS_CHANGELOG,
   ...COMMISSION_ON_PHONES_CHANGELOG,
   ...SHARPER_MINIMAP_CHANGELOG,
-  ...TUTORIAL_GUIDE_TOWN_FIRST_CHANGELOG
+  ...TUTORIAL_GUIDE_TOWN_FIRST_CHANGELOG,
+  ...PROSPECT_MANIFEST_LINK_CHANGELOG
 ];

@@ -38,6 +38,7 @@ import {
 import { dealKind, dealSummaryHtml, dealVerdictOverride, type DealTreaty } from "./client-diplomacy-trade-deal.js";
 import {
   attitudeSummary,
+  temperamentLine,
   suggestedDeal,
   tradeVerdict,
   warTally,
@@ -174,6 +175,11 @@ const render = (screen: OpenScreen): void => {
       reply?.found && reply.ai && reply.stance
         ? [attitudeSummary(reply), reply.stance.reason].filter(Boolean).join(". ")
         : reply?.found && !reply.ai ? "Another player." : "";
+  }
+  const temperamentEl = overlay.querySelector<HTMLElement>("[data-trade-temperament]");
+  if (temperamentEl) {
+    temperamentEl.textContent = temperamentLine(reply);
+    temperamentEl.hidden = !temperamentEl.textContent;
   }
   // Civ-style breakdown of the attitude: what pleases or angers this empire.
   const modifiersEl = overlay.querySelector<HTMLElement>("[data-trade-modifiers]");
@@ -327,6 +333,7 @@ export const openDiplomacyTradeScreen = (
       <span class="diplomacy-trade-kicker">Diplomacy</span>
       <h2 id="diplomacy-trade-title" tabindex="-1">${input.counters ? `Counter ${name}'s offer` : `Deal with ${name}`}</h2>
       <p class="diplomacy-trade-stance" data-trade-stance></p>
+      <p class="diplomacy-trade-stance" data-trade-temperament hidden></p>
       <ul class="diplomacy-trade-modifiers" data-trade-modifiers hidden></ul>
       <div class="diplomacy-trade-war" data-trade-war hidden></div>
       ${inTruce ? `<p class="diplomacy-trade-stance" data-trade-current>Truce · ${socialRemainingLabel(running.endsAt, now)} left</p>` : ""}

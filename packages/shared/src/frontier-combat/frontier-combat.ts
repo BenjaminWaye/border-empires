@@ -184,7 +184,7 @@ const attackerInfrastructure = (modifiers: FrontierCombatModifiers): SideMultBre
   mult *= foldMult(entries, "Titanium Weapons Factory", modifiers.titaniumWeaponsFactoryAttackMult);
   mult *= foldMult(entries, "Umbrite Weapons Factory", modifiers.umbriteWeaponsFactoryAttackMult);
   mult *= foldMult(entries, "Precursor salvage", modifiers.salvageArmsAttackMult);
-  mult *= foldMult(entries, "Tech & Domains", modifiers.attackerStatMult);
+  mult *= foldMult(entries, "Manifests & Domains", modifiers.attackerStatMult);
   return { entries, mult };
 };
 
@@ -195,7 +195,7 @@ const defenderInfrastructure = (modifiers: FrontierCombatModifiers): SideMultBre
   mult *= foldMult(entries, "Titanium Weapons Factory", modifiers.titaniumWeaponsFactoryDefenseMult);
   mult *= foldMult(entries, "Umbrite Weapons Factory", modifiers.umbriteWeaponsFactoryDefenseMult);
   mult *= foldMult(entries, "Precursor salvage", modifiers.salvageArmsDefenseMult);
-  mult *= foldMult(entries, "Tech & Domains", modifiers.defenderStatMult);
+  mult *= foldMult(entries, "Manifests & Domains", modifiers.defenderStatMult);
   return { entries, mult };
 };
 
@@ -206,9 +206,9 @@ const attackerBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   mult *= foldMult(entries, modifiers.noWarIndustryVulnerabilityLabel ?? "Target has no war industry", modifiers.noWarIndustryVulnerabilityMult);
   mult *= foldMult(entries, "Dock crossing", modifiers.dockAttackMult);
   mult *= foldMult(entries, "Combat suits", modifiers.relicAttackMult);
-  if (target.ownershipState === "SETTLED") mult *= foldMult(entries, "Tech vs garrisoned tiles", modifiers.attackVsSettledMult);
-  if (target.fortVariant) mult *= foldMult(entries, "Tech vs forts", modifiers.attackVsFortsMult);
-  if (modifiers.defenderOwnerId?.startsWith("barbarian")) mult *= foldMult(entries, "Tech vs Planetary Defense", modifiers.attackVsBarbariansMult);
+  if (target.ownershipState === "SETTLED") mult *= foldMult(entries, "Manifests vs garrisoned tiles", modifiers.attackVsSettledMult);
+  if (target.fortVariant) mult *= foldMult(entries, "Manifests vs forts", modifiers.attackVsFortsMult);
+  if (modifiers.defenderOwnerId?.startsWith("barbarian")) mult *= foldMult(entries, "Manifests vs Planetary Defense", modifiers.attackVsBarbariansMult);
   return { entries, mult };
 };
 

@@ -11,6 +11,6 @@ describe("client gateway capabilities", () => {
     expect(
       rewriteGatewaySupportsMessageType({ serverSupportedMessageTypes: new Set<string>(["ATTACK", "EXPAND"]) } as any, "SETTLE")
     ).toBe(false);
-    expect(unsupportedRewriteMessageDetail("CHOOSE_TECH")).toContain("Technology unlocks");
+    expect(unsupportedRewriteMessageDetail("CHOOSE_TECH")).toContain("Manifest unlocks");
   });
 });

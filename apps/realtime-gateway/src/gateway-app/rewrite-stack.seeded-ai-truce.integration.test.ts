@@ -256,11 +256,11 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
         targetName: "Sigrid"
       })
     );
-    // The player holds no coin, so the AI declines naming its price (720 coin:
-    // a neighbour at peace pays 12 hours of the 1 coin/min income floor)
+    // The player holds no coin, so the AI declines naming its price (4 coin:
+    // 12 hours of the 10 coin/day income floor, at ai-2's Merchant 0.75x)
     // instead of counter-offering.
     const declined =
-      "Sigrid declined your 12h truce offer. Sigrid is wary of you and won't lower their guard on a contested border. Sigrid wants about 720 coin more than you can offer.";
+      "Sigrid declined your 12h truce offer. Sigrid is wary of you and won't lower their guard on a contested border. Sigrid wants about 4 coin more than you can offer.";
     expect(
       await nextMatchingMessage(playerOne, "ai truce declined", (message) => message.type === "TRUCE_UPDATE" && message.announcement === declined)
     ).toEqual(expect.objectContaining({ type: "TRUCE_UPDATE", outgoingTruceRequests: [], announcement: declined }));
