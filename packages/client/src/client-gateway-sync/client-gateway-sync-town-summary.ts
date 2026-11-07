@@ -79,6 +79,7 @@ export const isRenderableTownSummary = (town: PartialTownSummary | undefined): t
       isFiniteOptionalNumber(town.firstThreeTownGoldMult) &&
       isFiniteOptionalNumber(town.firstThreeTownPopGrowthMult) &&
       (town.connectedTownNames === undefined || hasStringArray(town.connectedTownNames)) &&
+      (town.tradeNexusTownNames === undefined || hasStringArray(town.tradeNexusTownNames)) &&
       isFiniteOptionalNumber(town.manpowerCurrent) &&
       isFiniteOptionalNumber(town.manpowerCap) &&
       isOptionalBoolean(town.hasManufactory) &&

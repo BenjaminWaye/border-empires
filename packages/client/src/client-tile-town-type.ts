@@ -25,6 +25,7 @@ export type ClientTownWireSummary = {
   connectedTownCount: number;
   connectedTownBonus: number;
   connectedTownNames?: string[];
+  tradeNexusTownNames?: string[];
   // Mercantile Charter's firstThreeTownsGoldOutputMult/
   // firstThreeTownsPopulationGrowthMult, when this town is one of the
   // owner's first three and a domain/tech grants either. Omitted (not 1)
