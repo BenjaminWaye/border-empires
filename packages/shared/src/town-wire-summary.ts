@@ -26,6 +26,9 @@ export type TownWireSummary = {
   connectedTownCount: number;
   connectedTownBonus: number;
   connectedTownNames?: string[];
+  // Network towns whose built Trade Nexus switches on connectedTownBonus
+  // (self-inclusive). Omitted when the network has no Trade Nexus.
+  tradeNexusTownNames?: string[];
   // Mercantile Charter's firstThreeTownsGoldOutputMult/
   // firstThreeTownsPopulationGrowthMult, when this town is one of the
   // owner's first three and a domain/tech grants either. Omitted (not 1)

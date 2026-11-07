@@ -32,7 +32,7 @@ import { ownTileHeaderStatus } from "../client-tile-menu-status/client-tile-menu
 import type { ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js"; import type { MusterCommitView } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
-import { townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
+import { townModifierGroupsOutsideStatCards, townStatGridModifiers } from "../client-town-stat-bonuses/client-town-stat-bonuses.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import { ownTownEconomyFieldsPartial, ownTownGrowthRatePending, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
@@ -229,7 +229,7 @@ export const menuOverviewForTile = (
           goldPerDayLabel: goldPerDay.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
           manpowerCapLabel: tierManpower.cap.toLocaleString(),
           manpowerRegenLabel: `+${Math.round(manpowerPerBatch(tierManpower.regenPerMinute))} per batch base regen`,
-          townModifiers: townStatModifiersForProfile(terrainProfile, coastal),
+          ...townStatGridModifiers(tile.town, terrainProfile, coastal),
           ...(tile.town.populationTier !== "SETTLEMENT" ? { support: { current: supportCurrent, max: supportMax } } : {}),
           ...(foodDemand > 0 ? { food: { satisfied: tile.town.isFed ? foodDemand : 0, demand: foodDemand, fed: Boolean(tile.town.isFed) } } : {})
         })
@@ -250,7 +250,7 @@ export const menuOverviewForTile = (
     // stat lines nested under it (e.g. "3 Ancillary Depots" → Manpower cap:
     // +450) — see pushModifierGroup above.
     if (isSettled && hasOwnerEconomyData) {
-      for (const group of tile.town.townModifierTotals ?? []) {
+      for (const group of showsTownStatGrid ? townModifierGroupsOutsideStatCards(tile.town) : tile.town.townModifierTotals ?? []) {
         pushModifierGroup(group.heading, group.modifiers);
       }
     }
