@@ -10,7 +10,7 @@ describe("createAdminApi", () => {
     const fetchImpl = vi.fn(async () => response(200, '{"ok":true}'));
     const api = createAdminApi("https://gw.example.test", async () => "id-token", fetchImpl as unknown as typeof fetch);
     await expect(api.get("/admin/players")).resolves.toEqual({ ok: true, contentType: "application/json", body: '{"ok":true}' });
-    expect(fetchImpl).toHaveBeenCalledWith("https://gw.example.test/admin/players", expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer id-token" }) }));
+    expect(fetchImpl).toHaveBeenCalledWith("https://gw.example.test/admin/players", expect.objectContaining({ method: "GET", headers: expect.objectContaining({ Authorization: "Bearer id-token" }) }));
   });
 
   it("explains a 401 as 'not the admin account' and never calls out when signed out", async () => {
@@ -27,5 +27,12 @@ describe("createAdminApi", () => {
   it("reports network failures instead of throwing", async () => {
     const api = createAdminApi("https://gw.example.test", async () => "t", (async () => { throw new Error("offline"); }) as unknown as typeof fetch);
     await expect(api.get("/admin/players")).resolves.toEqual(expect.objectContaining({ ok: false, status: 0 }));
+  });
+
+  it("sends POSTs with the same Bearer header", async () => {
+    const fetchImpl = vi.fn(async () => response(200, '{"ok":true}'));
+    const api = createAdminApi("https://gw.example.test", async () => "id-token", fetchImpl as unknown as typeof fetch);
+    await api.post("/admin/agent-token?ttlHours=24");
+    expect(fetchImpl).toHaveBeenCalledWith("https://gw.example.test/admin/agent-token?ttlHours=24", expect.objectContaining({ method: "POST", headers: expect.objectContaining({ Authorization: "Bearer id-token" }) }));
   });
 });

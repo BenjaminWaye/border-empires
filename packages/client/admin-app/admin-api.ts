@@ -9,15 +9,17 @@ export type AdminFetchResult =
 
 export type AdminApi = {
   get: (path: string) => Promise<AdminFetchResult>;
+  post: (path: string) => Promise<AdminFetchResult>;
 };
 
-export const createAdminApi = (gatewayOrigin: string, getIdToken: () => Promise<string | undefined>, fetchImpl: typeof fetch = fetch): AdminApi => ({
-  get: async (path) => {
+export const createAdminApi = (gatewayOrigin: string, getIdToken: () => Promise<string | undefined>, fetchImpl: typeof fetch = fetch): AdminApi => {
+  const request = async (method: "GET" | "POST", path: string): Promise<AdminFetchResult> => {
     const token = await getIdToken();
     if (!token) return { ok: false, status: 401, message: "Not signed in." };
     let response: Response;
     try {
       response = await fetchImpl(`${gatewayOrigin}${path}`, {
+        method,
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json, text/plain" },
         credentials: "omit"
       });
@@ -30,5 +32,6 @@ export const createAdminApi = (gatewayOrigin: string, getIdToken: () => Promise<
     }
     if (!response.ok) return { ok: false, status: response.status, message: `Server returned ${response.status}: ${body.slice(0, 200)}` };
     return { ok: true, contentType: response.headers.get("content-type") ?? "", body };
-  }
-});
+  };
+  return { get: (path) => request("GET", path), post: (path) => request("POST", path) };
+};

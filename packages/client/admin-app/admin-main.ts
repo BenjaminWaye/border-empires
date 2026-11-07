@@ -11,6 +11,7 @@ import { renderDataView } from "./admin-data-view.js";
 import { el } from "./admin-dom.js";
 import { resolveAdminEnvironment } from "./admin-environment.js";
 import { renderPlayerInsights, type PlayerInsightsResponse } from "./admin-insights.js";
+import { renderAgentTokenPanel } from "./admin-agent-token-view.js";
 import "./admin.css";
 
 type View = {
@@ -20,6 +21,8 @@ type View = {
   path: (params: URLSearchParams) => string;
   param?: { name: string; hint: string };
   windowDays?: boolean;
+  // Renders its own panel instead of GETting `path` on open.
+  panel?: (api: AdminApi) => HTMLElement;
 };
 
 const VIEWS: View[] = [
@@ -28,7 +31,8 @@ const VIEWS: View[] = [
   { id: "ai", title: "AI players", description: "AI economy, manpower vs cap, territory and last commands.", path: () => "/admin/debug/ai" },
   { id: "decisions", title: "AI decisions", description: "Recent planner decisions (about the last minute).", path: (p) => `/admin/debug/ai/decisions${p.get("playerId") ? `?playerId=${encodeURIComponent(p.get("playerId")!)}` : ""}`, param: { name: "playerId", hint: "ai-2 (optional)" } },
   { id: "metrics", title: "Runtime metrics", description: "Gateway + simulation Prometheus text.", path: () => "/admin/runtime/metrics" },
-  { id: "bundle", title: "Debug bundle", description: "Health, recent server events, attack traces.", path: () => "/admin/runtime/debug-bundle" }
+  { id: "bundle", title: "Debug bundle", description: "Health, recent server events, attack traces.", path: () => "/admin/runtime/debug-bundle" },
+  { id: "token", title: "Agent token", description: "Create a read-only token to give a coding agent access to these endpoints.", path: () => "/admin/agent-token", panel: (api) => renderAgentTokenPanel(api, environment.gatewayOrigin) }
 ];
 
 const root = document.getElementById("admin-root")!;
@@ -94,6 +98,10 @@ const renderView = async (api: AdminApi, user: User, auth: Auth): Promise<void> 
     const go = el("button", { text: "load" });
     go.addEventListener("click", () => { window.location.hash = `${view.id}${input.value ? `?${view.param!.name}=${encodeURIComponent(input.value)}` : ""}`; });
     controls.push(el("label", { class: "meta" }, [`${view.param.name} `, input]), go);
+  }
+  if (view.panel) {
+    root.replaceChildren(header(user, auth), nav, el("main", {}, [el("div", { class: "toolbar" }, [el("h2", { text: view.title })]), view.panel(api)]));
+    return;
   }
   const refresh = el("button", { text: "refresh" });
   refresh.addEventListener("click", () => void renderView(api, user, auth));

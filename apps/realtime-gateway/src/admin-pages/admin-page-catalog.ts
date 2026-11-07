@@ -7,7 +7,8 @@
 // gateway routes, so they're listed by hand below.
 
 // "read"   — adminRequestAuthorized: ADMIN_API_TOKEN (Bearer or ?token=) or a
-//            GitHub token with repo access (X-Admin-Github-Token header).
+//            GitHub token with repo access (X-Admin-Github-Token header), the
+//            admin's Google sign-in, or a minted agent token (Bearer).
 // "static" — adminAuthorized: Bearer ADMIN_API_TOKEN header only (destructive).
 // "none"   — public.
 export type AdminRouteAuth = "read" | "static" | "none";
@@ -139,6 +140,21 @@ export const ADMIN_ROUTE_SECTIONS: AdminRouteSection[] = [
         auth: "read",
         title: "Debug bundle",
         description: "Health, recent server events, attack traces and sim phase diagnostics."
+      }
+    ]
+  },
+  {
+    heading: "Agent access",
+    note: "Easiest from a phone: sign in with Google on play.borderempires.com/admin, open Agent token. Or Bearer ADMIN_API_TOKEN. Agent tokens can't mint more.",
+    routes: [
+      {
+        method: "POST",
+        path: "/admin/agent-token",
+        kind: "action",
+        auth: "static",
+        title: "Mint agent token",
+        description: "Issues a read-only Bearer token for a coding agent (1, 24, 168 or 720 hours). Rotating ADMIN_API_TOKEN revokes all of them.",
+        params: [{ name: "ttlHours", hint: "24" }]
       }
     ]
   },

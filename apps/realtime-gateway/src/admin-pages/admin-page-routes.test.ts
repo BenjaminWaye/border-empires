@@ -103,4 +103,31 @@ describe("admin navigation page", () => {
     const unauthorized = await app.inject({ method: "GET", url: "/admin/runtime/metrics" });
     expect(unauthorized.statusCode).toBe(401);
   });
+
+  it("mints a read-only agent token that opens read endpoints but not ops actions or more minting", async () => {
+    const app = Fastify();
+    registerGatewayHttpRoutes(app, baseDeps());
+    const unauthorized = await app.inject({ method: "POST", url: "/admin/agent-token" });
+    expect(unauthorized.statusCode).toBe(401);
+    const badTtl = await app.inject({ method: "POST", url: "/admin/agent-token?ttlHours=5", headers: { authorization: `Bearer ${TOKEN}` } });
+    expect(badTtl.statusCode).toBe(400);
+    const minted = await app.inject({ method: "POST", url: "/admin/agent-token?ttlHours=1", headers: { authorization: `Bearer ${TOKEN}` } });
+    expect(minted.statusCode).toBe(200);
+    expect(minted.headers["cache-control"]).toBe("no-store");
+    const { token } = minted.json() as { token: string };
+    const agent = { authorization: `Bearer ${token}` };
+    expect((await app.inject({ method: "GET", url: "/admin/runtime/metrics", headers: agent })).statusCode).toBe(200);
+    expect((await app.inject({ method: "POST", url: "/admin/season/start-next", headers: agent })).statusCode).toBe(401);
+    expect((await app.inject({ method: "POST", url: "/admin/agent-token", headers: agent })).statusCode).toBe(401);
+  });
+
+  it("reports a server without ADMIN_API_TOKEN as 503, not a client error", async () => {
+    const app = Fastify();
+    registerGatewayHttpRoutes(app, baseDeps({
+      adminApiToken: undefined,
+      adminFirebaseAuth: { adminEmail: "admin@example.com", verifyIdToken: async () => ({ uid: "u1", email: "admin@example.com", emailVerified: true, authTime: Math.floor(Date.now() / 1000) }) }
+    }));
+    const response = await app.inject({ method: "POST", url: "/admin/agent-token", headers: { authorization: "Bearer google-id-token" } });
+    expect(response.statusCode).toBe(503);
+  });
 });
