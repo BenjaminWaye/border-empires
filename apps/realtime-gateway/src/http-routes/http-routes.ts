@@ -5,6 +5,8 @@ import type { AdminPlayerRow, CurrentSeasonSummary, GetRecentCommandsResponse, S
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
 import { createAdminAuthorizer, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
 import { createAdminIdTokenCheck, type AdminFirebaseAuthConfig } from "../admin-auth/admin-firebase-auth.js";
+import { createAdminAgentTokens } from "../admin-auth/admin-agent-token.js";
+import { registerAdminAgentTokenRoute } from "./register-admin-agent-token-route.js";
 import { registerAdminPageRoutes } from "../admin-pages/admin-page-routes.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import { registerGalaxyHttpRoutes } from "./register-galaxy-http-routes.js";
@@ -116,11 +118,14 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   registerPlayerSyncDiagnostics(app, deps);
   const playOrigin = deps.playOrigin ?? process.env.PLAY_ORIGIN ?? "https://play.borderempires.com";
 
-  const { adminAuthorized, adminRequestAuthorized } = createAdminAuthorizer({
+  const agentTokens = createAdminAgentTokens(deps.adminApiToken);
+  const { adminAuthorized, adminRequestAuthorized, adminMintAuthorized } = createAdminAuthorizer({
     ...(deps.adminApiToken ? { adminApiToken: deps.adminApiToken } : {}),
     ...(deps.adminGithubAuth ? { githubAuth: deps.adminGithubAuth } : {}),
-    ...(deps.adminFirebaseAuth ? { isAdminIdToken: createAdminIdTokenCheck(deps.adminFirebaseAuth) } : {})
+    ...(deps.adminFirebaseAuth ? { isAdminIdToken: createAdminIdTokenCheck(deps.adminFirebaseAuth) } : {}),
+    isAgentToken: (token) => agentTokens.verify(token)
   });
+  registerAdminAgentTokenRoute(app, { adminMintAuthorized, agentTokens });
 
   // NOTE: /health is intentionally O(1) — it only reads cached structs and never
   // touches the event loop, sim RPC, or AI state, so it stays responsive even while

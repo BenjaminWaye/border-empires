@@ -19,6 +19,9 @@
 //   3. A Google sign-in: a Firebase ID token as `Authorization: Bearer`,
 //      verified and matching ADMIN_EMAIL (see admin-firebase-auth.ts). Used by
 //      the /admin page on play/staging.borderempires.com. Read-only only, like (2).
+//
+//   4. An agent token minted from that /admin page (admin-agent-token.ts) as
+//      `Authorization: Bearer`. Read-only only, like (2) and (3).
 export type AdminGithubAuthConfig = {
   repoOwner: string;
   repoName: string;
@@ -87,6 +90,8 @@ export type CreateAdminAuthorizerDeps = {
   fetchImpl?: typeof fetch;
   // Path (3): resolves true for a verified admin Firebase ID token.
   isAdminIdToken?: (token: string) => Promise<boolean>;
+  // Path (4): resolves true for an unexpired agent token (admin-agent-token.ts).
+  isAgentToken?: (token: string) => boolean;
 };
 
 export type AdminAuthorizer = {
@@ -96,6 +101,10 @@ export type AdminAuthorizer = {
   // Full check (static token, ?token=, or GitHub identity), for read-only
   // diagnostic endpoints.
   adminRequestAuthorized: (request: AdminHttpRequest) => Promise<boolean>;
+  // Who may mint agent tokens: the static token or the admin's own Google
+  // sign-in. Deliberately excludes agent tokens (no self-renewal) and the
+  // GitHub path (any repo reader must not be able to mint long-lived access).
+  adminMintAuthorized: (request: AdminHttpRequest) => Promise<boolean>;
 };
 
 export const createAdminAuthorizer = (deps: CreateAdminAuthorizerDeps): AdminAuthorizer => {
@@ -115,7 +124,8 @@ export const createAdminAuthorizer = (deps: CreateAdminAuthorizerDeps): AdminAut
     const queryToken = (request.query as { token?: string } | undefined)?.token;
     if (Boolean(deps.adminApiToken) && queryToken === deps.adminApiToken) return true;
 
-    const bearerToken = headerAuth?.startsWith("Bearer ") ? headerAuth.slice("Bearer ".length).trim() : "";
+    const bearerToken = bearerTokenOf(headerAuth);
+    if (bearerToken && deps.isAgentToken?.(bearerToken)) return true;
     if (bearerToken && deps.isAdminIdToken && (await deps.isAdminIdToken(bearerToken))) return true;
 
     if (checkGithubAccess) {
@@ -128,5 +138,15 @@ export const createAdminAuthorizer = (deps: CreateAdminAuthorizerDeps): AdminAut
     return false;
   };
 
-  return { adminAuthorized, adminRequestAuthorized };
+  const adminMintAuthorized = async (request: AdminHttpRequest): Promise<boolean> => {
+    const headerAuth = typeof request.headers.authorization === "string" ? request.headers.authorization : undefined;
+    if (adminAuthorized(headerAuth)) return true;
+    const bearerToken = bearerTokenOf(headerAuth);
+    return Boolean(bearerToken && deps.isAdminIdToken && (await deps.isAdminIdToken(bearerToken)));
+  };
+
+  return { adminAuthorized, adminRequestAuthorized, adminMintAuthorized };
 };
+
+const bearerTokenOf = (headerAuth: string | undefined): string =>
+  headerAuth?.startsWith("Bearer ") ? headerAuth.slice("Bearer ".length).trim() : "";

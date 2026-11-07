@@ -16,8 +16,8 @@ against the registered routes. New `/admin/*` routes must be added to
 
 The read-only diagnostic endpoints (`/admin/players`, `/admin/debug/ai`,
 `/admin/debug/ai/decisions`, `/admin/debug/ai/recording-status`,
-`/admin/runtime/metrics`, `/admin/runtime/dashboard`, `/admin`) accept **either** of
-two credentials — pick whichever you actually have:
+`/admin/runtime/metrics`, `/admin/runtime/dashboard`, `/admin`) accept any of
+these credentials — pick whichever you actually have:
 
 ### Option A — your GitHub identity (works for any dev/agent with repo access, no provisioning needed)
 
@@ -50,6 +50,26 @@ never mutate game state. To check what map an environment is on (configured
 size, the current season's generated size, AI count, rollover pending?), use
 the read-only `/admin/world`. The rollover procedure is in
 `docs/agents/deploys.md` ("Season rollover").
+
+### Option A2 — an agent token minted from the /admin page (easiest from a phone)
+
+Sign in with Google (the `ADMIN_EMAIL` account) at
+`https://play.borderempires.com/admin` (or `staging.borderempires.com/admin`),
+open **Agent token**, pick a lifetime (1h, 24h, 7d or 30d) and copy the token.
+Hand it to the agent as a network secret for that environment's gateway host
+(`api.borderempires.com` / `api-staging.borderempires.com`), type Bearer — never
+paste it into chat or commit it. The agent then just calls:
+
+```bash
+curl -H "Authorization: Bearer $AGENT_TOKEN" https://api.borderempires.com/admin/world
+```
+
+Agent tokens are read-only (the same endpoints as Option A), cannot mint more
+tokens, and are signed with a key derived from `ADMIN_API_TOKEN`: a staging
+token never works on production, and rotating `ADMIN_API_TOKEN` revokes every
+token ever minted. Minting itself (`POST /admin/agent-token?ttlHours=24`)
+accepts only the Google sign-in or the static token. Implementation:
+`apps/realtime-gateway/src/admin-auth/admin-agent-token.ts`.
 
 ### Option B — the static `ADMIN_API_TOKEN` (needed for destructive endpoints, or as a fallback)
 
