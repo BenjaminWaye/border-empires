@@ -153,6 +153,7 @@ import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-earlier-106.js";
+import { PROSPECT_MANIFEST_LINK_CHANGELOG } from "./client-changelog-prospect-manifest-link.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -486,7 +487,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Temperament changes truce prices, how much lost land angers them, how far gifts go, and how readily they seek or pay for peace"
     ]
   },
-  ...VICTORY_HOLD_TIME_CHANGELOG
+  ...VICTORY_HOLD_TIME_CHANGELOG,
+  ...PROSPECT_MANIFEST_LINK_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
