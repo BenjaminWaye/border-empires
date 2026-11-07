@@ -5,6 +5,9 @@
 // (client-map-3d-popup-marine/popup-marine-garrison.ts). The 2D renderer's
 // counterpart is client-map-2d-capture-hold-overlay.ts.
 import { WORLD_HEIGHT, WORLD_WIDTH, isCaptureHoldActive } from "@border-empires/shared";
+import { recordClientDebugEvent } from "./client-debug/client-debug.js";
+import { singleSurvivorFromMask } from "./client-map-3d-popup-marine/popup-marine-full-casualties.js";
+import { dramaHero } from "./client-map-3d-popup-marine/popup-marine-drama.js";
 import { knownSquadGearFor } from "./client-battle-overlay/client-battle-overlay.js";
 import { isHoldingCapturedGround, liveCaptureHoldKeys } from "./client-capture-hold/client-capture-hold.js";
 import type { GarrisonFacing, GarrisonRenderEntry } from "./client-map-3d-popup-marine/popup-marine-garrison.js";
@@ -24,10 +27,20 @@ const DEFAULT_FACING: GarrisonFacing = { fwdX: 0, fwdZ: 1 };
 const NEIGHBOR_STEPS: ReadonlyArray<readonly [number, number]> = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]];
 
 // Per held tile: the facing chosen when its hold began, keyed by the hold's
-// own deadline so a fresh capture of the same tile re-picks it. Pruned every
-// frame to tiles still held (or still mid-fight), so it never outgrows the
-// handful of tiles inside a 60s hold window.
-const facingByTile = new Map<string, GarrisonFacing & { holdUntil: number }>();
+// own deadline so a fresh capture of the same tile re-picks it. The 3D frame
+// prunes it to live holds/fights; the hard cap also bounds 2D-only sessions.
+type CachedGarrisonFacing = GarrisonFacing & { holdUntil: number };
+const facingByTile = new Map<string, CachedGarrisonFacing>();
+const MAX_REMEMBERED_GARRISONS = 512;
+let facingEvictions = 0;
+const storeFacing = (key: string, value: CachedGarrisonFacing): void => {
+  facingByTile.set(key, value);
+  if (facingByTile.size <= MAX_REMEMBERED_GARRISONS) return;
+  const oldest = facingByTile.keys().next().value;
+  if (oldest !== undefined) facingByTile.delete(oldest);
+  facingEvictions += 1;
+  recordClientDebugEvent("warn", "capture-hold-garrison", "cache-cap", { evictions: facingEvictions, entries: facingByTile.size });
+};
 
 const normalized = (dx: number, dy: number): GarrisonFacing | undefined => {
   const len = Math.hypot(dx, dy);
@@ -57,7 +70,7 @@ const facingFor = (state: GarrisonState, keyFor: (x: number, y: number) => strin
   const cached = facingByTile.get(key);
   if (cached && cached.holdUntil === holdUntil) return cached;
   const facing = pickFacing(state, keyFor, key, tile);
-  facingByTile.set(key, { ...facing, holdUntil });
+  storeFacing(key, { ...facing, holdUntil });
   return facing;
 };
 
@@ -78,6 +91,29 @@ export const defenderGarrisonField = (
   const cached = facingByTile.get(key);
   if (!isCaptureHoldActive(tile, nowEpochMs) && cached?.holdUntil !== tile.captureHoldUntil) return {};
   return { defenderGarrison: facingFor(state, keyFor, key, tile) };
+};
+
+/** Preserve the finished comeback before its transient battle entry is pruned.
+ * Reuse the existing hold-scoped cache; no battle history or extra store. */
+export const rememberCompletedComebackGarrisons = (
+  state: GarrisonState, keyFor: (x: number, y: number) => string, nowMs: number
+): void => {
+  for (const [key, battle] of state.activeBattles) {
+    if (nowMs < battle.endAt) continue;
+    const winnerSide = battle.attackerWon ? 0 : 1;
+    const mask = battle.fallenBeforeResolution?.[winnerSide === 0 ? "attacker" : "defender"];
+    const survivingIndex = mask === undefined ? undefined : singleSurvivorFromMask(mask);
+    if (battle.presentation !== "comeback" && survivingIndex === undefined) continue;
+    const tile = state.tiles.get(key);
+    const winnerId = battle.attackerWon ? battle.attackerOwnerId : battle.defenderOwnerId;
+    if (!tile || tile.ownerId !== winnerId || tile.ownershipState !== "FRONTIER" || !tile.captureHoldUntil) continue;
+    const facing = facingFor(state, keyFor, key, tile);
+    const side = battle.attackerWon ? 0 : 1;
+    const survivorIndex = survivingIndex ?? dramaHero({ ...battle, hashSeed: tile.x * 92821 + tile.y,
+      ...(side === 1 ? { defenderGarrison: battle.defenderGarrison ?? facing } : {}) }, side);
+    storeFacing(key, { ...facing, survivorIndex, holdUntil: tile.captureHoldUntil });
+    recordClientDebugEvent("info", "capture-hold-garrison", "survivor", { entries: facingByTile.size });
+  }
 };
 
 /** Standing squads on every visible capture-held tile with no fight on it. */
@@ -131,4 +167,5 @@ export function buildCaptureHoldGarrisons(
 /** Test-only: drop the module-level caches between cases. */
 export const resetCaptureHoldGarrisonCache = (): void => {
   facingByTile.clear();
+  facingEvictions = 0;
 };

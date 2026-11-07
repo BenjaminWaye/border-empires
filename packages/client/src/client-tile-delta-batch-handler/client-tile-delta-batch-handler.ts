@@ -1,3 +1,5 @@
+import { defenderGarrisonField } from "../client-map-3d-capture-hold-garrison.js";
+import type { GarrisonFacing } from "../client-map-3d-popup-marine/popup-marine-garrison.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { applyGatewayTileDeltaBatch } from "../client-gateway-sync/client-gateway-sync.js";
@@ -57,7 +59,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       updates: tileUpdates?.map((update) => ({ key: keyFor(update.x, update.y), ownerId: update.ownerId, ownershipState: update.ownershipState }))
     });
   }
-  const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"]; townPopulationTier?: Tile["townPopulationTier"]; ownershipState?: Tile["ownershipState"] } | undefined>();
+  const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"]; townPopulationTier?: Tile["townPopulationTier"]; defenderGarrison?: GarrisonFacing; ownershipState?: Tile["ownershipState"] } | undefined>();
   const previousWaystationByKey = new Map<string, { activated?: boolean } | undefined>();
   const previousAfcModulesByKey = new Map<string, ReadonlySet<string> | undefined>();
   const myAfcKeysBefore = new Set<string>();
@@ -65,6 +67,8 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     for (const update of tileUpdates) {
       const updateKey = keyFor(update.x, update.y);
       const existing = state.tiles.get(updateKey);
+      const garrison = update.combatJson && existing?.ownerId
+        ? defenderGarrisonField(state, keyFor, updateKey, existing.ownerId, Date.now()).defenderGarrison : undefined;
       previousAfcModulesByKey.set(updateKey, snapshotAfcModules(existing));
       if (existing?.afc?.ownerId === state.me && existing.ownerId === state.me) myAfcKeysBefore.add(updateKey);
       previousTileByKey.set(
@@ -72,6 +76,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
         existing
           ? {
               ...(existing.ownerId ? { ownerId: existing.ownerId } : {}),
+              ...(garrison ? { defenderGarrison: garrison } : {}),
               ...(existing.town ? { town: existing.town } : {}),
               ...(existing.townPopulationTier ? { townPopulationTier: existing.townPopulationTier } : {}),
               ...(existing.ownershipState ? { ownershipState: existing.ownershipState } : {})
@@ -96,7 +101,9 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     for (const update of tileUpdates) {
       const updateKey = keyFor(update.x, update.y);
       const wasNewBattle = !state.activeBattles.has(updateKey);
-      registerActiveBattleFromTileDelta(state, keyFor, update, nowMs);
+      const previous = previousTileByKey.get(updateKey);
+      registerActiveBattleFromTileDelta(state, keyFor, update, nowMs,
+        previous?.ownerId && previous.defenderGarrison ? { ownerId: previous.ownerId, facing: previous.defenderGarrison } : undefined);
       const battle = wasNewBattle ? state.activeBattles.get(updateKey) : undefined;
       if (battle) triggerSiegeBombardmentForNewBattle(state, fortDeps, battle, nowMs);
     }

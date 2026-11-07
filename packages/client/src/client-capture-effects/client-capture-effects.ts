@@ -99,7 +99,6 @@ export const renderCaptureProgress = (
     const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
     const awaitingResult = Date.now() > state.capture.resolvesAt;
     const resolveWaitMs = Math.max(0, Date.now() - state.capture.resolvesAt);
-    const showReportBug = awaitingResult && resolveWaitMs >= RESULT_WAIT_REPORT_BUG_THRESHOLD_MS;
     // Don't reveal the result banner until the local battle overlay FX
     // (walking-arrow/skirmish + clash/rout) has actually finished playing at
     // this target tile — resolvesAt is the server's own combat-lock clock and
@@ -120,12 +119,14 @@ export const renderCaptureProgress = (
     // resolvesAt, same as this progress bar.
     const targetIsKnownFrontier = frontierAttackIsUndefended(state.tiles.get(captureTargetKey), state.capture.combatSnapshot?.winChance);
     const activeBattle = state.activeBattles.get(captureTargetKey);
+    // Active battle timestamps use page uptime; capture/reveal uses epoch ms.
     const battleFxDoneAt = activeBattle
-      ? activeBattle.endAt
+      ? Date.now() + activeBattle.endAt - performance.now()
       : targetIsKnownFrontier
         ? state.capture.resolvesAt
         : state.capture.resolvesAt + BATTLE_OVERLAY_TOTAL_MS;
     const awaitingBattleFx = awaitingResult && Date.now() < battleFxDoneAt;
+    const showReportBug = awaitingResult && resolveWaitMs >= RESULT_WAIT_REPORT_BUG_THRESHOLD_MS && !(activeBattle && awaitingBattleFx);
     if (
       !awaitingBattleFx &&
       shouldFinalizePredictedCombat({

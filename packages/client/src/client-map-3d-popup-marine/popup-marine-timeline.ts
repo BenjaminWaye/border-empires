@@ -11,8 +11,12 @@
 // anything — attackerWon is already known before the first frame renders;
 // this module only stages the reveal. The whole fight happens on the target
 // tile (the tile under attack), clamped to TILE_LOCAL_MAX same as before.
+import { battleClashMs } from "@border-empires/shared";
+import { choreographExchange, choreographyMarineKitFor } from "./popup-marine-choreography.js";
+export { computeSkirmishPose } from "./popup-marine-skirmish.js";
+import { dramaDeathMs, dramaFlash } from "./popup-marine-drama.js";
 import type { GarrisonStart } from "./popup-marine-garrison.js";
-import type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "../client-dock-landing/client-battle-render-types.js";
+import type { BattleOverlayRenderEntry } from "../client-dock-landing/client-battle-render-types.js";
 export type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "../client-dock-landing/client-battle-render-types.js";
 
 export const LINEUP_MS = 2500; // "cover" — squad rushes to position, staggered pop-in
@@ -27,7 +31,7 @@ export const WINNER_DEATHS = 1;
 export const LOSER_DEATHS = 2;
 // How long a killed marine's fall (the rig's Dead clip) takes. Under ROUT_MS,
 // so even a death at the firefight's last moment is down before endAt.
-const DEATH_FALL_MS = 900;
+export const DEATH_FALL_MS = 900;
 // Fraction of ROUT_MS spent blending out of the firefight's standing-aim
 // pose rather than snapping straight into the rout pose.
 const ROUT_SETTLE_T = 0.15;
@@ -60,7 +64,7 @@ export type MarineKit = {
 /** Which animation a marine should be playing this frame. The renderer maps
  * these to the model's real captured clips (PistolRun / PistolIdle /
  * PistolKneelingIdle) rather than posing bones by hand. */
-export type MarineStance = "run" | "stand" | "kneel";
+export type MarineStance = "run" | "stand" | "kneel" | "walkBack";
 
 export type DeathKit = { roll: number; at: number };
 
@@ -216,7 +220,7 @@ export const hiddenMarinePose = (yaw: number): MarinePose => ({ stance: "stand",
  * `perpX/Z`/`fwdX/Z` are the firing-line's perpendicular/forward axes (see
  * popup-marine-overlay-fx.ts for how those are derived from the attacker-
  * defender direction). */
-export const computeBattlePose = (
+const computeBattlePoseBase = (
   b: BattleOverlayRenderEntry,
   side: 0 | 1,
   i: number,
@@ -238,18 +242,21 @@ export const computeBattlePose = (
   // the garrison already standing there, so it starts from its own spot.
   garrisonStart?: GarrisonStart
 ): MarinePose => {
-  const kit = marineKitFor(b.hashSeed, side, i);
+  const kit = choreographyMarineKitFor(b, side, i);
   const rolledDKit = deathKitFor(b.hashSeed, side, i);
   const dKit = side === 1 && i === siegeVictimIndex ? { ...rolledDKit, at: 0 } : rolledDKit;
   const isAttacker = side === 0;
   const winning = isAttacker ? b.attackerWon : !b.attackerWon;
-  const clashEndAt = b.clashAt + CLASH_MS;
+  const clashMs = battleClashMs(b.presentation);
+  const clashEndAt = b.clashAt + clashMs;
   const routElapsed = nowMs - clashEndAt;
   const yaw = facingYaw(fwdX, fwdZ);
-  const dying = dyingIndicesFor((s, j) => deathKitFor(b.hashSeed, s, j), side, winning).has(i);
-  const preDead =
+  const deathMs = b.presentation ? (side === 1 && i === siegeVictimIndex ? 0 : dramaDeathMs(b, side, i)) : dKit.at * CLASH_MS;
+  const dying = b.presentation ? Number.isFinite(deathMs) : dyingIndicesFor((s, j) => deathKitFor(b.hashSeed, s, j), side, winning).has(i);
+  const preDead = b.fallenBeforeResolution ? Boolean((side === 0 ? b.fallenBeforeResolution.attacker : b.fallenBeforeResolution.defender) & (1 << i)) :
     b.fromSkirmish &&
-    nowMs >= b.startAt + APPROACH_MS + CLASH_MS &&
+    (b.skirmishCasualties ?? (b.presentation !== undefined || nowMs >= b.startAt + APPROACH_MS + CLASH_MS)) &&
+    !(side === 1 && b.defenderGarrison?.survivorIndex !== undefined) &&
     dyingIndicesFor((s, j) => deathKitFor(b.hashSeed, s, j), side, true).has(i);
 
   // Where this marine WAITS: its own slot in the line, spread along the perp
@@ -307,10 +314,11 @@ export const computeBattlePose = (
   }
 
   if (nowMs < clashEndAt) {
-    const t = clamp01((nowMs - b.clashAt) / CLASH_MS);
-    const flash = muzzleFlashIntensity(kit, t);
-    if (dying && t >= dKit.at) {
-      const fallT = clamp01(((t - dKit.at) * CLASH_MS) / DEATH_FALL_MS);
+    const elapsed = nowMs - b.clashAt;
+    const t = clamp01(elapsed / clashMs);
+    const flash = dramaFlash(b, side, i, elapsed) ?? muzzleFlashIntensity(kit, t);
+    if (dying && elapsed >= deathMs) {
+      const fallT = clamp01((elapsed - deathMs) / DEATH_FALL_MS);
       return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 1 - fallT, fallT, flash: 0 };
     }
     return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 1, fallT: 0, flash };
@@ -318,7 +326,7 @@ export const computeBattlePose = (
 
   if (dying) {
     // Fell during the firefight above — finishes that fall, then stays down through rout.
-    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 0, fallT: clamp01((nowMs - b.clashAt - dKit.at * CLASH_MS) / DEATH_FALL_MS), flash: 0 };
+    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 0, fallT: clamp01((nowMs - b.clashAt - deathMs) / DEATH_FALL_MS), flash: 0 };
   }
 
   const routT = clamp01(routElapsed / ROUT_MS);
@@ -327,8 +335,8 @@ export const computeBattlePose = (
   let crouchT: number;
   if (winning) {
     const push = routT * 0.3;
-    routX = fwdX * push + perpX * kit.perpPos;
-    routZ = fwdZ * push + perpZ * kit.perpPos;
+    routX = garrisonStart && b.presentation === "comeback" ? firingX * (1 - routT) + garrisonStart.localX * routT : fwdX * push + perpX * kit.perpPos;
+    routZ = garrisonStart && b.presentation === "comeback" ? firingZ * (1 - routT) + garrisonStart.localZ * routT : fwdZ * push + perpZ * kit.perpPos;
     crouchT = 1;
   } else {
     const retreat = routT * 0.5;
@@ -344,101 +352,18 @@ export const computeBattlePose = (
   const blendedCrouch = settleT < 1 ? preCrouch * (1 - settleT) + crouchT * settleT : crouchT;
   // Both sides are on the move during the rout (winner pushing through,
   // loser falling back), so both run rather than holding a firing stance.
-  return { stance: "run", localX, localZ, yaw, scale: winning ? 1 : 1 - routT * 0.15, crouchT: blendedCrouch, fallT: 0, flash: 0 };
+  return { stance: "run", localX, localZ, yaw: winning ? yaw : yaw + Math.PI, scale: winning ? 1 : 1 - routT * 0.15, crouchT: blendedCrouch, fallT: 0, flash: 0 };
 };
 
-/** Same pose math as computeBattlePose but for the indefinite pre-resolution
- * skirmish loop — one-time cover/advance, then a looping firefight with no
- * rout phase. Shares the exact cover/advance formulas (via the same
- * kit-derived offsets) so a resolved battle picking up from this skirmish's
- * startAt never pops. */
-export const computeSkirmishPose = (
-  b: BattleOverlaySkirmishEntry,
-  side: 0 | 1,
-  i: number,
-  nowMs: number,
-  entryLocalX: number,
-  entryLocalZ: number,
-  perpX: number,
-  perpZ: number,
-  fwdX: number,
-  fwdZ: number,
-  // See computeBattlePose's own siegeVictimIndex/garrisonStart.
-  siegeVictimIndex?: number,
-  garrisonStart?: GarrisonStart
-): MarinePose => {
-  const kit = marineKitFor(b.hashSeed, side, i);
-  const rolledDKit = deathKitFor(b.hashSeed, side, i);
-  const dKit = side === 1 && i === siegeVictimIndex ? { ...rolledDKit, at: 0 } : rolledDKit;
-  const yaw = facingYaw(fwdX, fwdZ);
-  const elapsed = nowMs - b.startAt;
-  // Normally the firefight starts exactly APPROACH_MS after this skirmish
-  // was first seen — but a DEFENDER's skirmish holds that plateau open past
-  // APPROACH_MS until the attacker's real (mechanical) transit delay
-  // elapses, so the fight doesn't start visually before the attacker's
-  // troops have actually arrived. See BattleOverlaySkirmishEntry's comment.
-  const approachMs = Math.max(APPROACH_MS, b.holdApproachUntilElapsed ?? 0);
-  const firstFirefightT = (nowMs - (b.startAt + approachMs)) / CLASH_MS;
-  const dying = dyingIndicesFor((s, j) => deathKitFor(b.hashSeed, s, j), side, true).has(i);
-
-  // See computeBattlePose: the advance starts from this waiting slot, not
-  // from the bare entry point.
-  if (garrisonStart?.absent) return hiddenMarinePose(yaw);
-  const lineupX = garrisonStart ? garrisonStart.localX : entryLocalX + perpX * kit.perpPos;
-  const lineupZ = garrisonStart ? garrisonStart.localZ : entryLocalZ + perpZ * kit.perpPos;
-
-  if (elapsed < LINEUP_MS) {
-    const t = clamp01(elapsed / LINEUP_MS);
-    // A garrison is already standing there -- no pop-in.
-    const scale = garrisonStart ? 1 : clamp01((t - kit.offset * 0.6) / 0.25);
-    return {
-      // Holding at the entry point, not advancing: a run clip here reads as
-      // running on the spot, so wait in the firing stance instead.
-      stance: garrisonStart ? garrisonStart.stance : kit.kneels ? "kneel" : "stand",
-      // Dead still. This used to add a per-marine sine "sway" to the
-      // formation slot; because the battle camera looks at the tile
-      // obliquely, sideways drift read on screen as the whole squad
-      // hovering up and down before the fight started. A marine waiting to
-      // advance holds its stance and its position.
-      localX: lineupX,
-      localZ: lineupZ,
-      yaw, scale, crouchT: 1, fallT: 0, flash: 0
-    };
-  }
-
-  const firingX = perpX * kit.perpPos - fwdX * stopOffsetFor(kit);
-  const firingZ = perpZ * kit.perpPos - fwdZ * stopOffsetFor(kit);
-  const firingStance: MarineStance = kit.kneels ? "kneel" : "stand";
-
-  if (elapsed < approachMs) {
-    const marchT = clamp01((elapsed - LINEUP_MS) / MARCH_MS);
-    const localT = clamp01((marchT - kit.offset) / (0.7 - kit.offset));
-    // Only play the run clip while the marine is actually translating.
-    // localT sits at 0 through this marine's staggered start delay and at 1
-    // after it halts; running in place at either end looks broken. Once
-    // localT reaches 1 the marine holds at the firing line for the rest of
-    // approachMs (which, for a defender's held plateau, can run well past
-    // the normal march duration above) rather than continuing to "march".
-    const moving = localT > 0 && localT < 1;
-    return {
-      stance: moving ? "run" : firingStance,
-      localX: lineupX * (1 - localT) + firingX * localT,
-      localZ: lineupZ * (1 - localT) + firingZ * localT,
-      yaw, scale: 1, crouchT: 1, fallT: 0, flash: 0
-    };
-  }
-
-  const cycleT = clamp01(((elapsed - approachMs) % CLASH_MS) / CLASH_MS);
-  const flash = muzzleFlashIntensity(kit, cycleT);
-
-  if (dying && firstFirefightT >= dKit.at && firstFirefightT < 1) {
-    const fallT = clamp01(((firstFirefightT - dKit.at) * CLASH_MS) / DEATH_FALL_MS);
-    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 1 - fallT, fallT, flash: 0 };
-  }
-  if (dying && firstFirefightT >= 1) {
-    const fallT = clamp01(((firstFirefightT - dKit.at) * CLASH_MS) / DEATH_FALL_MS);
-    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 0, fallT, flash: 0 };
-  }
-
-  return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 1, fallT: 0, flash };
+export const computeBattlePose = (...args: Parameters<typeof computeBattlePoseBase>): MarinePose => {
+  const [b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, siegeVictimIndex] = args;
+  const pose = computeBattlePoseBase(...args);
+  if (!b.choreography || pose.scale <= 0) return pose;
+  const axes = { entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ };
+  if (nowMs < b.clashAt) return pose;
+  const deathMs = side === 1 && i === siegeVictimIndex ? 0 : b.presentation ? dramaDeathMs(b, side, i) : deathKitFor(b.hashSeed, side, i).at * CLASH_MS;
+  return choreographExchange(pose, b, side, i, nowMs, axes, {
+    startAt: (b.choreographyStartAt ?? b.startAt) + APPROACH_MS,
+    endAt: b.endAt, ...(Number.isFinite(deathMs) ? { deathAt: b.clashAt + deathMs } : {})
+  });
 };

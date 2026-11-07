@@ -14,13 +14,15 @@
 // Each of a marine's three fireAt pulses drives the whole chain: the muzzle
 // flash (muzzleFlashIntensity), then a bolt crossing for BOLT_TRAVEL_T, then
 // a spark burst at the target for SPARK_LINGER_T.
+import { scriptedSkirmishShots, soleSkirmishTarget } from "./popup-marine-full-casualties.js";
+import { choreographyApproachMs, choreographyMarineKitFor } from "./popup-marine-choreography.js";
+import { battleClashMs } from "@border-empires/shared";
+import { comebackShots, DRAMA_BOLT_MS, DRAMA_SPARK_MS } from "./popup-marine-drama.js";
 import {
-  APPROACH_MS,
   CLASH_MS,
   MARINES_PER_SIDE,
   clamp01,
-  hash01,
-  marineKitFor
+  hash01
 } from "./popup-marine-timeline.js";
 import type {
   BattleOverlayRenderEntry,
@@ -59,24 +61,24 @@ export type LaserImpact = {
 const targetIndexFor = (seed: number, side: 0 | 1, i: number, pulse: number): number =>
   Math.min(MARINES_PER_SIDE - 1, Math.floor(hash01(seed * 31 + i, side, 50 + pulse) * MARINES_PER_SIDE));
 
-const boltsForKit = (kit: MarineKit, seed: number, side: 0 | 1, i: number, firefightT: number): LaserBolt[] => {
+const boltsForKit = (kit: MarineKit, seed: number, side: 0 | 1, i: number, firefightT: number, targetOverride?: number): LaserBolt[] => {
   const bolts: LaserBolt[] = [];
   for (let pulse = 0; pulse < kit.fireAt.length; pulse++) {
     const elapsed = firefightT - kit.fireAt[pulse]!;
     if (elapsed < 0 || elapsed > BOLT_TRAVEL_T) continue;
-    bolts.push({ progress: elapsed / BOLT_TRAVEL_T, targetIndex: targetIndexFor(seed, side, i, pulse) });
+    bolts.push({ progress: elapsed / BOLT_TRAVEL_T, targetIndex: targetOverride ?? targetIndexFor(seed, side, i, pulse) });
   }
   return bolts;
 };
 
-const impactsForKit = (kit: MarineKit, seed: number, side: 0 | 1, i: number, firefightT: number): LaserImpact[] => {
+const impactsForKit = (kit: MarineKit, seed: number, side: 0 | 1, i: number, firefightT: number, targetOverride?: number): LaserImpact[] => {
   const impacts: LaserImpact[] = [];
   for (let pulse = 0; pulse < kit.fireAt.length; pulse++) {
     // The spark window begins exactly where the bolt window ends, so the
     // streak never disappears a frame before its sparks appear.
     const sinceHit = firefightT - kit.fireAt[pulse]! - BOLT_TRAVEL_T;
     if (sinceHit < 0 || sinceHit > SPARK_LINGER_T) continue;
-    impacts.push({ targetIndex: targetIndexFor(seed, side, i, pulse), age: sinceHit / SPARK_LINGER_T });
+    impacts.push({ targetIndex: targetOverride ?? targetIndexFor(seed, side, i, pulse), age: sinceHit / SPARK_LINGER_T });
   }
   return impacts;
 };
@@ -109,9 +111,14 @@ export const sparkShard = (
 
 /** Bolts in flight for one marine of a resolved battle at `nowMs`. */
 export const computeBattleBolts = (b: BattleOverlayRenderEntry, side: 0 | 1, i: number, nowMs: number): LaserBolt[] => {
-  if (nowMs < b.clashAt || nowMs >= b.clashAt + CLASH_MS) return [];
-  const t = clamp01((nowMs - b.clashAt) / CLASH_MS);
-  return boltsForKit(marineKitFor(b.hashSeed, side, i), b.hashSeed, side, i, t);
+  const duration = battleClashMs(b.presentation);
+  if (nowMs < b.clashAt || nowMs >= b.clashAt + duration) return [];
+  const shots = comebackShots(b, side, i);
+  const elapsed = nowMs - b.clashAt;
+  if (shots) return shots.filter((s) => elapsed >= s.atMs && elapsed <= s.atMs + DRAMA_BOLT_MS)
+    .map((s) => ({ progress: (elapsed - s.atMs) / DRAMA_BOLT_MS, targetIndex: s.targetIndex }));
+  const t = clamp01(elapsed / duration);
+  return boltsForKit(choreographyMarineKitFor(b, side, i), b.hashSeed, side, i, t, side === 0 ? b.defenderGarrison?.survivorIndex : undefined);
 };
 
 /** Impact spark bursts for one marine's shots of a resolved battle. */
@@ -121,9 +128,14 @@ export const computeBattleImpacts = (
   i: number,
   nowMs: number
 ): LaserImpact[] => {
-  if (nowMs < b.clashAt || nowMs >= b.clashAt + CLASH_MS) return [];
-  const t = clamp01((nowMs - b.clashAt) / CLASH_MS);
-  return impactsForKit(marineKitFor(b.hashSeed, side, i), b.hashSeed, side, i, t);
+  const duration = battleClashMs(b.presentation);
+  if (nowMs < b.clashAt || nowMs >= b.clashAt + duration) return [];
+  const shots = comebackShots(b, side, i);
+  const elapsed = nowMs - b.clashAt;
+  if (shots) return shots.filter((s) => elapsed >= s.atMs + DRAMA_BOLT_MS && elapsed <= s.atMs + DRAMA_BOLT_MS + DRAMA_SPARK_MS)
+    .map((s) => ({ age: (elapsed - s.atMs - DRAMA_BOLT_MS) / DRAMA_SPARK_MS, targetIndex: s.targetIndex }));
+  const t = clamp01(elapsed / duration);
+  return impactsForKit(choreographyMarineKitFor(b, side, i), b.hashSeed, side, i, t, side === 0 ? b.defenderGarrison?.survivorIndex : undefined);
 };
 
 const skirmishCycleT = (b: BattleOverlaySkirmishEntry, nowMs: number): number | undefined => {
@@ -132,7 +144,7 @@ const skirmishCycleT = (b: BattleOverlaySkirmishEntry, nowMs: number): number | 
   // must delay the first shot exactly as long as it delays the firefight
   // itself, or bolts would start crossing before the marines visually stop
   // marching and raise their weapons.
-  const approachMs = Math.max(APPROACH_MS, b.holdApproachUntilElapsed ?? 0);
+  const approachMs = Math.max(choreographyApproachMs(b), b.holdApproachUntilElapsed ?? 0);
   const elapsed = nowMs - b.startAt;
   if (elapsed < approachMs) return undefined;
   return clamp01(((elapsed - approachMs) % CLASH_MS) / CLASH_MS);
@@ -140,24 +152,26 @@ const skirmishCycleT = (b: BattleOverlaySkirmishEntry, nowMs: number): number | 
 
 /** Bolts in flight for one marine of the pre-resolution skirmish loop. */
 export const computeSkirmishBolts = (
-  b: BattleOverlaySkirmishEntry,
-  side: 0 | 1,
-  i: number,
-  nowMs: number
+  b: BattleOverlaySkirmishEntry, side: 0 | 1, i: number, nowMs: number
 ): LaserBolt[] => {
   const cycleT = skirmishCycleT(b, nowMs);
   if (cycleT === undefined) return [];
-  return boltsForKit(marineKitFor(b.hashSeed, side, i), b.hashSeed, side, i, cycleT);
+  const shots = scriptedSkirmishShots(b, side, i, nowMs);
+  if (shots) return shots.filter((s) => nowMs >= s.at && nowMs <= s.at + DRAMA_BOLT_MS)
+    .map((s) => ({ progress: (nowMs - s.at) / DRAMA_BOLT_MS, targetIndex: s.targetIndex }));
+  return boltsForKit(choreographyMarineKitFor(b, side, i), b.hashSeed, side, i, cycleT,
+    soleSkirmishTarget(b, side, nowMs) ?? (side === 0 ? b.defenderGarrison?.survivorIndex : undefined));
 };
 
-/** Impact spark bursts for one marine's shots of the skirmish loop. */
+/** The same scheduled shots land on the same soldier that falls. */
 export const computeSkirmishImpacts = (
-  b: BattleOverlaySkirmishEntry,
-  side: 0 | 1,
-  i: number,
-  nowMs: number
+  b: BattleOverlaySkirmishEntry, side: 0 | 1, i: number, nowMs: number
 ): LaserImpact[] => {
   const cycleT = skirmishCycleT(b, nowMs);
   if (cycleT === undefined) return [];
-  return impactsForKit(marineKitFor(b.hashSeed, side, i), b.hashSeed, side, i, cycleT);
+  const shots = scriptedSkirmishShots(b, side, i, nowMs);
+  if (shots) return shots.filter((s) => nowMs >= s.at + DRAMA_BOLT_MS && nowMs <= s.at + DRAMA_BOLT_MS + DRAMA_SPARK_MS)
+    .map((s) => ({ age: (nowMs - s.at - DRAMA_BOLT_MS) / DRAMA_SPARK_MS, targetIndex: s.targetIndex }));
+  return impactsForKit(choreographyMarineKitFor(b, side, i), b.hashSeed, side, i, cycleT,
+    soleSkirmishTarget(b, side, nowMs) ?? (side === 0 ? b.defenderGarrison?.survivorIndex : undefined));
 };

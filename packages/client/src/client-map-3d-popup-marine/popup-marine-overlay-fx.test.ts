@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 // mixers, and "which animation is this marine playing" is exactly the
 // behaviour worth pinning now that stance comes from real clips rather than
 // hand-rolled bone math.
-const HIPS_X_BY_CLIP: Record<string, number> = { PistolRun: 1, PistolIdle: 2, PistolKneelingIdle: 3, Dead: 4 };
+const HIPS_X_BY_CLIP: Record<string, number> = { PistolRun: 1, PistolIdle: 2, PistolKneelingIdle: 3, PistolWalk: 5, Dead: 4 };
 
 vi.mock("./popup-marine-asset.js", async () => {
   const THREE = await import("three");
@@ -44,7 +44,7 @@ vi.mock("./popup-marine-asset.js", async () => {
     return { root, clips };
   };
   return {
-    MARINE_CLIP_NAMES: { run: "PistolRun", stand: "PistolIdle", kneel: "PistolKneelingIdle", dead: "Dead" },
+    MARINE_CLIP_NAMES: { run: "PistolRun", stand: "PistolIdle", kneel: "PistolKneelingIdle", walkBack: "PistolWalk", dead: "Dead" },
     firstSkinnedMesh: (root: Object3D): SkinnedMesh => {
       let found: SkinnedMesh | undefined;
       root.traverse((child) => {
