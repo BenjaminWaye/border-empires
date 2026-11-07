@@ -60,7 +60,7 @@ export const closestPath = (objectives: readonly SeasonVictoryObjectiveView[], m
 const crest = (name: string, color: string | undefined, extra: string): string =>
   `<span class="v2r-crest ${extra}" style="background:${esc(color ?? "#5a4828")}">${esc((name.trim()[0] ?? "?").toUpperCase())}</span>`;
 
-type TrackPin = { share: number; priority: number; title: string; color: string | undefined; classes: string; crest: string };
+type TrackPin = { playerId: string; share: number; priority: number; title: string; color: string | undefined; classes: string; crest: string };
 
 const pinsHtml = (pins: readonly TrackPin[]): { html: string; lanes: number } => {
   const lanes = assignLanes(pins);
@@ -72,7 +72,8 @@ const pinsHtml = (pins: readonly TrackPin[]): { html: string; lanes: number } =>
     const z = `z-index:${10 - Math.abs(lane)}`;
     const shift = lane === 0 ? "" : `;--v2r-lane:${lane * LANE_STEP_PX}px`;
     const tick = lane === 0 ? "" : `<span class="v2r-tick" style="${left};background:${esc(pin.color ?? "#5a4828")}" aria-hidden="true"></span>`;
-    return `${tick}<span class="${pin.classes}" style="${left};${z}${shift}" title="${pin.title}">${pin.crest}</span>`;
+    // Each crest opens that player's profile, like the Standings rows.
+    return `${tick}<button type="button" class="${pin.classes}" style="${left};${z}${shift}" title="${pin.title}" data-hud-v2-profile="${esc(pin.playerId)}">${pin.crest}</button>`;
   }).join("");
   return { html, lanes: deepest };
 };
@@ -86,7 +87,7 @@ const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => 
   const pins: TrackPin[] = [];
   if (lead !== undefined && o.leaderPlayerId && !iLead) {
     const color = input.colorOf(o.leaderPlayerId);
-    pins.push({ share: lead, priority: 3, color, classes: "v2r-pin", title: `${esc(leaderName)} · ${esc(o.progressLabel)}`, crest: crest(leaderName, color, holding ? "v2r-holding" : "") });
+    pins.push({ playerId: o.leaderPlayerId, share: lead, priority: 3, color, classes: "v2r-pin", title: `${esc(leaderName)} · ${esc(o.progressLabel)}`, crest: crest(leaderName, color, holding ? "v2r-holding" : "") });
   }
   // Runners-up (2nd and 3rd); the viewer is drawn by their own pin instead.
   for (const c of (o.contenders ?? []).filter((entry) => entry.playerId !== input.me)) {
@@ -94,19 +95,22 @@ const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => 
     if (share === undefined) continue;
     const name = input.nameOf(c.playerId) || c.name;
     const color = input.colorOf(c.playerId);
-    pins.push({ share, priority: 1, color, classes: "v2r-pin v2r-pin-rival", title: esc(name), crest: crest(name, color, "v2r-rival") });
+    pins.push({ playerId: c.playerId, share, priority: 1, color, classes: "v2r-pin v2r-pin-rival", title: esc(name), crest: crest(name, color, "v2r-rival") });
   }
   if (mine !== undefined) {
     const color = input.colorOf(input.me);
-    pins.push({ share: mine, priority: 2, color, classes: "v2r-pin v2r-pin-you", title: `You · ${esc(iLead ? o.progressLabel : o.selfProgressLabel ?? "")}`, crest: crest(input.nameOf(input.me) || "You", color, `v2r-you${iLead && holding ? " v2r-holding" : ""}`) });
+    pins.push({ playerId: input.me, share: mine, priority: 2, color, classes: "v2r-pin v2r-pin-you", title: `You · ${esc(iLead ? o.progressLabel : o.selfProgressLabel ?? "")}`, crest: crest(input.nameOf(input.me) || "You", color, `v2r-you${iLead && holding ? " v2r-holding" : ""}`) });
   }
   const laid = pinsHtml(pins);
+  const leaderLink = o.leaderPlayerId
+    ? `<button type="button" class="v2r-name-link" data-hud-v2-profile="${esc(o.leaderPlayerId)}">${esc(leaderName)}</button>`
+    : esc(leaderName);
   const status = holding
-    ? `<span class="v2r-status v2r-status-hold">⧗ ${esc(iLead ? "You" : leaderName)} holding${o.holdRemainingSeconds === undefined ? "" : ` · ${formatHold(o.holdRemainingSeconds)} left`}</span>`
+    ? `<span class="v2r-status v2r-status-hold">⧗ ${iLead ? "You" : leaderLink} holding${o.holdRemainingSeconds === undefined ? "" : ` · ${formatHold(o.holdRemainingSeconds)} left`}</span>`
     : iLead
       ? `<span class="v2r-status v2r-status-you">★ You lead</span>`
       : o.leaderName
-        ? `<span class="v2r-status">${esc(leaderName)} leads</span>`
+        ? `<span class="v2r-status">${leaderLink} leads</span>`
         : `<span class="v2r-status">No contender</span>`;
   // The leader's figure sits under their name; yours gets its own line when you trail.
   const leaderLine = o.leaderName ? `<span class="v2r-path-line">${esc(o.progressLabel)}</span>` : "";
@@ -114,7 +118,7 @@ const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => 
   const trackStyle = laid.lanes > 0 ? ` style="height:${44 + laid.lanes * 2 * LANE_STEP_PX}px"` : "";
   return `<div class="v2r-row">
     <div class="v2r-path"><span class="v2r-path-name">${esc(o.name)}</span><span class="v2r-path-line">${esc(o.thresholdLabel)}</span></div>
-    <div class="v2r-track"${trackStyle} role="img" aria-label="${esc(o.name)}: ${esc(o.progressLabel)}"><span class="v2r-rail"></span><span class="v2r-line" aria-hidden="true"></span>${laid.html}</div>
+    <div class="v2r-track"${trackStyle} role="group" aria-label="${esc(o.name)}: ${esc(o.progressLabel)}"><span class="v2r-rail"></span><span class="v2r-line" aria-hidden="true"></span>${laid.html}</div>
     <div class="v2r-side">${status}${leaderLine}${youLine}</div>
   </div>`;
 };
