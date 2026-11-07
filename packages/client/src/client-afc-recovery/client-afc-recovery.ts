@@ -50,7 +50,7 @@ export function renderAfcRecovery(deps: AfcRecoveryUiDeps): void {
   }
   const cost = afcReplacementCost(recovery.globalLosses);
   const pending = recovery.pending;
-  const renderKey = `${recoveryPopupKey(state)}:${pending?.commandId ?? ""}:${state.afcRecoveryPopupOpen}:${cost}:${Math.ceil(state.gold)}`;
+  const renderKey = `${recoveryPopupKey(state)}:${pending?.commandId ?? ""}:${state.afcRecoveryPopupOpen}:${cost}:${Math.floor(state.gold)}`;
   const unchanged = root.dataset.renderKey === renderKey;
   root.dataset.renderKey = renderKey;
   if (!pending) stopCountdown();

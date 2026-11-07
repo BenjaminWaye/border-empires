@@ -39,7 +39,7 @@ export const buildAfcActionForTile = (state: ClientState, tile: Tile, availabili
 };
 
 /** Empty land you own; SETTLED only, except a replacement may also use FRONTIER (settled on landing).
- * Per-tile callers (the placement overlays) pass freeRebuild once per session so this never re-scans every tile. */
+ * Per-tile callers (the placement overlays) pass replacement once per session so this never re-scans every tile. */
 export const isValidAfcLandingTile = (state: ClientState, tile: Tile | undefined, replacement?: boolean): boolean =>
   Boolean(
     tile &&

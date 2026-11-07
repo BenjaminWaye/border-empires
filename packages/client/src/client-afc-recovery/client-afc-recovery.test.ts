@@ -42,6 +42,14 @@ describe("AFC recovery popup", () => {
     expect(document.body.textContent).toContain("Landing site lost");
   });
 
+  it("updates affordability when income reaches the exact replacement price", () => {
+    const f = fixture(19.5); f.update({ globalLosses: 1, requiredSince: 1000 });
+    expect(document.querySelector<HTMLButtonElement>("[data-afc-choose]")?.disabled).toBe(true);
+    f.state.gold = 20;
+    f.render();
+    expect(document.querySelector<HTMLButtonElement>("[data-afc-choose]")?.disabled).toBe(false);
+  });
+
   it("requires a second explicit action to withdraw and keeps confirmation through HUD updates", () => {
     const f = fixture(); f.update({ globalLosses: 1, requiredSince: 1000 });
     document.querySelector<HTMLButtonElement>("[data-afc-withdraw]")!.click();

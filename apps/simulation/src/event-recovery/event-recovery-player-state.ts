@@ -72,7 +72,7 @@ export type RecoveredPlayerState = {
 export const cloneRecoveredPlayerState = (player: RecoveredPlayerState): RecoveredPlayerState => ({
   ...player,
   ...(player.afcRecovery ? { afcRecovery: structuredClone(player.afcRecovery) } : {}),
-          ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
+  ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
   ...(player.afcCoreTownKeys ? { afcCoreTownKeys: [...player.afcCoreTownKeys] } : {}),
   ...(player.techIds ? { techIds: [...player.techIds] } : {}),
   ...(player.domainIds ? { domainIds: [...player.domainIds] } : {}),
