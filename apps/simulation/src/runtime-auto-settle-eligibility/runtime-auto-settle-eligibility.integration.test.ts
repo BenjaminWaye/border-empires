@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "../runtime/runtime.test-helpers.js";
 import { describe, expect, it, vi } from "vitest";
 import { structureBuildDurationMs } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
@@ -22,7 +23,7 @@ describe("event-driven auto-settle eligibility (integration)", () => {
         initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000, manpowerUpdatedAt: 1_000 })]]),
         seedTiles: new Map(),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"),
             { x: 40, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             // Relay Beacon site, already settled so the test isolates build-completion reach activation.
             { x: 41, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
@@ -67,7 +68,7 @@ describe("event-driven auto-settle eligibility (integration)", () => {
       initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000, manpowerUpdatedAt: 1_000 })]]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 37, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
           { x: 40, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "FARMING", populationTier: "TOWN" } },
           { x: 38, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }, // EXPAND origin (out of the town's ring)
@@ -100,7 +101,7 @@ describe("event-driven auto-settle eligibility (integration)", () => {
       initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000, manpowerUpdatedAt: 1_000 })]]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 40, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "FARMING", populationTier: "SETTLEMENT", population: 50_000 } },
           // Plain support tile, already FRONTIER, adjacent to the town -- NOT
           // eligible while the town is SETTLEMENT tier (no support ring yet).
@@ -136,7 +137,7 @@ describe("event-driven auto-settle eligibility (integration)", () => {
       initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 100_000, manpower: 100_000, manpowerUpdatedAt: 1_000 })]]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 50, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "FARMING", populationTier: "GREAT_CITY", population: 2_000_000 } },
           // 4 plain support tiles within the GREAT_CITY's radius-2 ring: 3 fill
           // DEVELOPMENT_PROCESS_LIMIT immediately at boot, the 4th queues.
@@ -190,7 +191,7 @@ describe("event-driven auto-settle eligibility (integration)", () => {
       now: () => 1_000,
       initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000 })]]),
       seedTiles: new Map(),
-      initialState: { tiles: initialTiles, activeLocks: [] }
+      initialState: { tiles: [afcModuleFixtureTile("player-1"), ...initialTiles], activeLocks: [] }
     });
     const bootMs = performance.now() - start;
 

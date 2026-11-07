@@ -445,6 +445,7 @@ export const buildTownSummary = (
     connectedTownCount: typeof townPartial.connectedTownCount === "number" ? townPartial.connectedTownCount : 0,
     connectedTownBonus: typeof townPartial.connectedTownBonus === "number" ? townPartial.connectedTownBonus : 0,
     ...(Array.isArray(townPartial.connectedTownNames) ? { connectedTownNames: townPartial.connectedTownNames } : {}),
+    ...(Array.isArray(townPartial.tradeNexusTownNames) ? { tradeNexusTownNames: townPartial.tradeNexusTownNames } : {}),
     // Mercantile Charter (and any future firstThreeTowns* domain/tech):
     // firstThreeTownMult/firstThreeTownPopGrowthMult are already folded into
     // goldPerMinute/populationGrowthPerMinute above, but were never surfaced

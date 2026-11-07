@@ -1,12 +1,9 @@
-// Coverage for the automatic replacement-AFC grant (AI players only): an AI
-// that holds territory but owns no AFC gets one on its own land, falling back
-// to neutral land touching its territory.
+// Reconnect repairs modules, but never grants a free replacement AFC.
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { SimulationRuntime } from "./runtime/runtime.js";
 
-// AI players: only they get a replacement AFC placed automatically; a human
-// builds their own for free (see the human case at the end).
+// AI and human players use the same paid replacement rules.
 const makePlayer = (id: string) => ({
   id,
   isAi: true,
@@ -34,57 +31,12 @@ const emptyLandGrid = (excludeKeys: ReadonlySet<string> = new Set()): DomainTile
 };
 
 describe("ensurePlayerHasAfc — AFC settlement migration", () => {
-  it("lands the AFC on the player's own empty settled tile", () => {
-    const anchor = { x: 15, y: 15 };
-    const settledTile: DomainTileState = { x: anchor.x, y: anchor.y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" };
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
+  it("does not grant a free AFC to an AI on reconnect", () => {
+    const runtime = new SimulationRuntime({ now: () => 1000, scheduleAfter: () => undefined,
       initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
-      initialState: { tiles: [settledTile, ...emptyLandGrid(new Set([`${anchor.x},${anchor.y}`]))], activeLocks: [] }
-    });
-
-    const granted = runtime.ensurePlayerHasAfc("player-1");
-    expect(granted).toBe(true);
-
-    const afcTiles = runtime.exportState().tiles.filter((tile) => tile.ownerId === "player-1" && tile.afcJson);
-    expect(afcTiles.map((tile) => `${tile.x},${tile.y}`)).toEqual(["15,15"]);
-    expect(JSON.parse(afcTiles[0]!.afcJson!)).toEqual(expect.objectContaining({ ownerId: "player-1", status: "active", activatedAt: 1_000 }));
-  });
-
-  it("picks the empty owned tile nearest the territory's centre, FRONTIER included, and settles it", () => {
-    const owned: DomainTileState[] = [
-      { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-      { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: 99_999, frontierDecayKind: "OUT_OF_REACH" },
-      { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
-    ];
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
-      initialState: { tiles: [...owned, ...emptyLandGrid(new Set(owned.map((tile) => `${tile.x},${tile.y}`)))], activeLocks: [] }
-    });
-
-    expect(runtime.ensurePlayerHasAfc("player-1")).toBe(true);
-    const afcTile = runtime.exportState().tiles.find((tile) => tile.ownerId === "player-1" && tile.afcJson);
-    expect(afcTile).toEqual(expect.objectContaining({ x: 11, y: 10, ownershipState: "SETTLED" }));
-    expect(afcTile?.frontierDecayAt).toBeUndefined();
-  });
-
-  it("skips owned tiles holding a town or structure and falls back to neutral land touching the territory", () => {
-    const owned: DomainTileState[] = [
-      { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } },
-      { x: 21, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: { ownerId: "player-1", status: "active", variant: "FORT" } }
-    ];
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
-      initialState: { tiles: [...owned, ...emptyLandGrid(new Set(owned.map((tile) => `${tile.x},${tile.y}`)))], activeLocks: [] }
-    });
-
-    expect(runtime.ensurePlayerHasAfc("player-1")).toBe(true);
-    const afcTile = runtime.exportState().tiles.find((tile) => tile.ownerId === "player-1" && tile.afcJson)!;
-    expect(owned.some((tile) => tile.x === afcTile.x && tile.y === afcTile.y)).toBe(false);
-    const touchesTerritory = owned.some((tile) => Math.max(Math.abs(tile.x - afcTile.x), Math.abs(tile.y - afcTile.y)) === 1);
-    expect(touchesTerritory).toBe(true);
+      initialState: { tiles: [{ x: 15, y: 15, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }], activeLocks: [] } });
+    expect(runtime.ensurePlayerHasAfc("player-1")).toBe(false);
+    expect(runtime.exportState().tiles.some(tile => tile.afcJson)).toBe(false);
   });
 
   it("is a no-op for a player who already has an AFC", () => {
@@ -186,40 +138,7 @@ describe("ensurePlayerHasAfc — AFC settlement migration", () => {
   // those, the grant would race a live expansion for the same land (caught by apps/realtime-gateway's
   // rewrite-stack-muster-march-expand-transit.integration.test.ts, whose tiny
   // fixture world has only one nearby free tile, which is FRONTIER).
-  it("never lands on an ownerless FRONTIER tile", () => {
-    const anchor = { x: 15, y: 15 };
-    const settledTile: DomainTileState = { x: anchor.x, y: anchor.y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } };
-    const nearestFrontierTile: DomainTileState = { x: anchor.x, y: anchor.y + 1, terrain: "LAND", ownershipState: "FRONTIER" };
-    const excluded = new Set([`${anchor.x},${anchor.y}`, `${nearestFrontierTile.x},${nearestFrontierTile.y}`]);
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
-      initialState: { tiles: [settledTile, nearestFrontierTile, ...emptyLandGrid(excluded)], activeLocks: [] }
-    });
-
-    const granted = runtime.ensurePlayerHasAfc("player-1");
-    expect(granted).toBe(true);
-    const afcTile = runtime.exportState().tiles.find((tile) => tile.ownerId === "player-1" && tile.afcJson);
-    expect(afcTile).toBeDefined();
-    expect(afcTile!.x === nearestFrontierTile.x && afcTile!.y === nearestFrontierTile.y).toBe(false);
-  });
-
-  it("is idempotent across repeated calls", () => {
-    const anchor = { x: 15, y: 15 };
-    const settledTile: DomainTileState = { x: anchor.x, y: anchor.y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" };
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
-      initialState: { tiles: [settledTile, ...emptyLandGrid(new Set([`${anchor.x},${anchor.y}`]))], activeLocks: [] }
-    });
-
-    expect(runtime.ensurePlayerHasAfc("player-1")).toBe(true);
-    expect(runtime.ensurePlayerHasAfc("player-1")).toBe(false);
-    const afcTiles = runtime.exportState().tiles.filter((tile) => tile.ownerId === "player-1" && tile.afcJson);
-    expect(afcTiles).toHaveLength(1);
-  });
-
-  it("never places an AFC for a human: they build their own, for free", () => {
+  it("never places an AFC for a human: they commission their own", () => {
     const settledTile: DomainTileState = { x: 15, y: 15, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" };
     const runtime = new SimulationRuntime({
       now: () => 1_000,

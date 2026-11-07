@@ -53,6 +53,7 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "RETORT_RECAST",
   "REDEPLOY_AFC_MODULE",
   "BUILD_AFC",
+  "WITHDRAW_AND_REDEPLOY",
   "SKY_DOCK_BOMBARD",
   "IMPERIAL_EXCHANGE_LEVY",
   "SOVEREIGN_SIEGE_ENGINE_STRIKE",

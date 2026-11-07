@@ -19,21 +19,21 @@ const reasonCopy = (
 ): Pick<PlayerRespawnNotice, "title" | "summary" | "detail"> => {
   if (context.reasonCode === "eliminated") {
     return {
-      title: "Your empire was respawned after elimination",
-      summary: "The simulation detected that your empire no longer had a surviving foothold and moved you to a fresh starting settlement.",
+      title: "Your House has redeployed after elimination",
+      summary: "The simulation detected that your empire no longer had a surviving foothold and moved you to a fresh AFC landing.",
       detail: `${playerName}'s previous empire state had ${context.previousTerritoryTiles} territory tiles when elimination recovery triggered.`
     };
   }
   if (context.reasonCode === "auth_recovery") {
     return {
       title: "Your empire was recovered during sign-in",
-      summary: "Your account loaded into a non-playable empire state, so the simulation created a fresh starting settlement instead of leaving you stuck without a foothold.",
-      detail: `${playerName}'s saved empire record did not contain a playable foothold at login time, so account recovery forced a respawn.`
+      summary: "Your account loaded into a non-playable empire state, so the simulation created a fresh AFC landing instead of leaving you stuck without a foothold.",
+      detail: `${playerName}'s saved empire record did not contain a playable foothold at login time, so account recovery required redeployment.`
     };
   }
   return {
     title: "Your empire was recovered during simulation startup",
-    summary: "The simulation found your empire in a non-playable state while rebuilding the world and forced a respawn to keep the empire usable.",
+    summary: "The simulation found your empire in a non-playable state while rebuilding the world and required redeployment to keep the empire usable.",
     detail: `${playerName}'s saved empire record was repaired during startup because the world loaded without a playable foothold for this player.`
   };
 };

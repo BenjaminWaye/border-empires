@@ -1,14 +1,12 @@
 import type { EconomyPlayer } from "./economy-network-contracts.js";
 export type { EconomyPlayer, DockEconomyContext } from "./economy-network-contracts.js";
-import {
-  type DomainPlayer,
-  type DomainTileState
-} from "@border-empires/game-domain";
+import { type DomainTileState } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH, supportRingCandidates, supportRingRadiusForTier, wrapX, wrapY } from "@border-empires/shared";
 export { dockBaseGoldPerMinuteForPlayer, dockSupportedByHarborExchange, HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK } from "./economy-network-dock-income.js";
 
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
-import { additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { connectedTownBonusForPlayer } from "./economy-network-connected-town-bonus.js";
+export { connectedTownBonusForPlayer };
 import {
   findConnectivityRoot,
   isCorridorTileForPlayer,
@@ -44,6 +42,9 @@ export type ConnectedTownNetworkEntry = {
   // (+0.1/min manpower regen per connected Ancillary Factory, on top of that
   // Guild's own standalone +0.05/min).
   connectedAncillaryFactoryKeys?: string[];
+  // Names of the network's towns (self-inclusive) whose Trade Nexus switches
+  // on connectedTownBonus, capped like connectedTownNames.
+  connectedTradeNexusTownNames?: string[];
   connectedTownNames?: string[];
   // Titanium/Umbrite Weapons Factory (design doc "network-clustered combat bonus"):
   // unlike every field above, this is a plain COUNT, not a town-key list, and
@@ -110,20 +111,6 @@ export type ConnectedTownNetworkOptions = {
 };
 
 const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
-
-const connectedTownStepCount = (connectedTownCount: number): number => Math.max(0, Math.min(3, connectedTownCount));
-
-export const connectedTownBonusForPlayer = (
-  connectedTownCount: number,
-  player: Pick<DomainPlayer, "techIds" | "domainIds">
-): number => {
-  const stepCount = connectedTownStepCount(connectedTownCount);
-  if (stepCount <= 0) return 0;
-  const stepBonusAdd = additiveEffectForPlayer(player, "connectedTownStepBonusAdd");
-  return [0.5, 0.4, 0.3]
-    .slice(0, stepCount)
-    .reduce((total, baseStep) => total + baseStep + stepBonusAdd, 0);
-};
 
 export const buildConnectedTownNetworkForPlayer = (
   player: EconomyPlayer,
@@ -474,12 +461,13 @@ export const buildConnectedTownNetworkForPlayer = (
     let titaniumWeaponsFactoryCount: number;
     let umbriteWeaponsFactoryCount: number;
 
-    let networkHasTradeNexus: boolean;
+    // Self-inclusive: every town in this network with a built Trade Nexus.
+    let tradeNexusTownKeys: string[];
 
     if (direct.size === 0 && groups && groups.length === 1) {
       const group = groups[0]!;
       connectedTownCount = group.members.length - 1;
-      networkHasTradeNexus = group.tradeNexusKeys.length > 0;
+      tradeNexusTownKeys = group.tradeNexusKeys;
       // Self-inclusive total (unlike the *Keys fields below) — group.members
       // already includes townKey, so group.titaniumWeaponsFactoryCount/
       // umbriteWeaponsFactoryCount already count its own copies. No filtering
@@ -510,7 +498,7 @@ export const buildConnectedTownNetworkForPlayer = (
           : undefined;
     } else if (direct.size === 0 && (!groups || groups.length === 0)) {
       connectedTownCount = 0;
-      networkHasTradeNexus = false;
+      tradeNexusTownKeys = [];
       clearingHouseKeys = [];
       ancillaryDepotKeys = [];
       neuralWorksKeys = [];
@@ -530,10 +518,7 @@ export const buildConnectedTownNetworkForPlayer = (
         }
       }
       connectedTownCount = unionSet.size;
-      networkHasTradeNexus =
-        hasTradeNexusAt(townKey) ||
-        [...direct].some(hasTradeNexusAt) ||
-        (groups ?? []).some((group) => group.tradeNexusKeys.length > 0);
+      tradeNexusTownKeys = [...new Set([...[townKey, ...direct].filter(hasTradeNexusAt), ...(groups ?? []).flatMap((group) => group.tradeNexusKeys)])];
       const clearingHouseSet = new Set<string>();
       for (const key of direct) if (hasClearingHouseAt(key)) clearingHouseSet.add(key);
       for (const group of groups ?? []) {
@@ -599,13 +584,19 @@ export const buildConnectedTownNetworkForPlayer = (
           .sort((l, r) => l.localeCompare(r))
       : [];
 
+    const tradeNexusTownNames = tradeNexusTownKeys
+      .map((k) => tiles.get(k)?.town?.name)
+      .filter((n): n is string => typeof n === "string" && n.length > 0)
+      .sort((l, r) => l.localeCompare(r))
+      .slice(0, maxConnectedTownNames);
     out.set(townKey, {
       connectedTownCount,
       // Trade Nexus redesign: connectedTownCount/connectedTownNames stay a
       // pure geometric fact (used by tile-detail UI, visibility exports,
       // etc.), but the actual gold bonus only flows if the road network has
       // a Trade Nexus built somewhere in it.
-      connectedTownBonus: networkHasTradeNexus ? connectedTownBonusForPlayer(connectedTownCount, player) : 0,
+      connectedTownBonus: tradeNexusTownKeys.length > 0 ? connectedTownBonusForPlayer(connectedTownCount, player) : 0,
+      ...(tradeNexusTownNames.length ? { connectedTradeNexusTownNames: tradeNexusTownNames } : {}),
       ...(clearingHouseKeys.length ? { connectedClearingHouseKeys: clearingHouseKeys } : {}),
       ...(ancillaryDepotKeys.length ? { connectedAncillaryDepotKeys: ancillaryDepotKeys } : {}),
       ...(neuralWorksKeys.length ? { connectedNeuralWorksKeys: neuralWorksKeys } : {}),
@@ -777,23 +768,27 @@ export const enrichTownWithConnectedNetwork = (
       tile.town.connectedTownCount === 0 &&
       tile.town.connectedTownBonus === 0 &&
       !tile.town.connectedTownNames &&
+      !tile.town.tradeNexusTownNames &&
       !tile.town.connectedTitaniumWeaponsFactoryCount &&
       !tile.town.connectedUmbriteWeaponsFactoryCount
     ) {
       return tile.town;
     }
-    const { connectedTownNames: _drop, ...rest } = tile.town;
+    const { connectedTownNames: _drop, tradeNexusTownNames: _dropNexus, ...rest } = tile.town;
     return { ...rest, connectedTownCount: 0, connectedTownBonus: 0, connectedTitaniumWeaponsFactoryCount: 0, connectedUmbriteWeaponsFactoryCount: 0 };
   }
   const entry = townNetwork?.get(keyFor(tile.x, tile.y));
   if (!entry) return tile.town;
+  // Strip the previous names so a destroyed/dormant Nexus never lingers.
+  const { tradeNexusTownNames: _staleNexusNames, ...town } = tile.town;
   return {
-    ...tile.town,
+    ...town,
     connectedTownCount: entry.connectedTownCount,
     connectedTownBonus: entry.connectedTownBonus,
     connectedTitaniumWeaponsFactoryCount: entry.connectedTitaniumWeaponsFactoryCount ?? 0,
     connectedUmbriteWeaponsFactoryCount: entry.connectedUmbriteWeaponsFactoryCount ?? 0,
-    ...(entry.connectedTownNames ? { connectedTownNames: entry.connectedTownNames } : {})
+    ...(entry.connectedTownNames ? { connectedTownNames: entry.connectedTownNames } : {}),
+    ...(entry.connectedTradeNexusTownNames ? { tradeNexusTownNames: entry.connectedTradeNexusTownNames } : {})
   };
 };
 

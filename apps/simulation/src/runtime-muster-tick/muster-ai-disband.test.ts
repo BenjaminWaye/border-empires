@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "../runtime/runtime.test-helpers.js";
 import { describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
@@ -19,7 +20,7 @@ const buildRuntime = (clock: { nowMs: number }, neighbor: { ownerId: string; own
     ]),
     seedTiles: new Map(),
     initialState: {
-      tiles: [
+      tiles: [afcModuleFixtureTile("ai-1"),
         { x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" },
         { x: 11, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" },
         { x: 12, y: 10, terrain: "LAND", ...neighbor }
@@ -117,7 +118,7 @@ describe("AI muster flag disband", () => {
       ]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("ai-1"),
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 12, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
         ],

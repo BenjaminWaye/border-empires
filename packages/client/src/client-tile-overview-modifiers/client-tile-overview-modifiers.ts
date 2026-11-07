@@ -116,7 +116,10 @@ const economicStructureModifiersForTile = (tile: NonNullable<Tile["economicStruc
   return toTileOverviewModifiers(label, modifiers);
 };
 
-export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[] => {
+// omitTownCoinLines: the town stat grid's Coin card already lists the
+// connected-town, support and Mercantile Charter coin lines.
+export const tileOverviewModifiersForTile = (tile: Tile, options: { omitTownCoinLines?: boolean } = {}): TileOverviewModifier[] => {
+  const withCoinLines = options.omitTownCoinLines !== true;
   const modifiers: TileOverviewModifier[] = [];
   const nowMs = Date.now();
 
@@ -140,9 +143,9 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
         tone: "negative"
       });
     }
-    if (tile.town.populationTier !== "SETTLEMENT" && tile.town.connectedTownCount > 0) {
+    if (withCoinLines && tile.town.populationTier !== "SETTLEMENT" && tile.town.connectedTownCount > 0) {
       // connectedTownBonus is 0 whenever no town in this network has a
-      // built Trade Nexus yet (networkHasTradeNexus gate,
+      // built Trade Nexus yet (tradeNexusTownKeys gate,
       // apps/simulation/src/economy-network/economy-network.ts) — the
       // network still exists (connectedTownCount > 0) but pays nothing.
       // Surfacing that as its own neutral line, instead of staying silent,
@@ -166,6 +169,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
     // production (supportRatio multiplier, apps/simulation/src/
     // live-town-summary.ts) — real and worth naming, not cosmetic.
     if (
+      withCoinLines &&
       tile.town.populationTier !== "SETTLEMENT" &&
       Number.isFinite(tile.town.supportMax) &&
       tile.town.supportMax > 0 &&
@@ -202,7 +206,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
     // carries the bonus (folded into goldPerMinute/populationGrowthPerMinute
     // upstream) — surface it here so the player can see why, instead of the
     // boost applying invisibly.
-    if (tile.town.firstThreeTownGoldMult && tile.town.firstThreeTownGoldMult !== 1) {
+    if (withCoinLines && tile.town.firstThreeTownGoldMult && tile.town.firstThreeTownGoldMult !== 1) {
       modifiers.push({
         reason: "Mercantile Charter",
         effect: `${percentLabel((tile.town.firstThreeTownGoldMult - 1) * 100)} coin production`,

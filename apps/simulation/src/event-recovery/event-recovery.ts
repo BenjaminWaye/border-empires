@@ -63,6 +63,7 @@ export type RecoveredSimulationState = {
   tiles: RecoveredTileState[];
   docks?: DockRouteDefinition[];
   activeLocks: RecoveredLock[];
+  afcGlobalLosses?: number;
   season?: SimulationSeasonState;
   players?: RecoveredPlayerState[];
   resourceSupplyAgreements?: readonly ResourceSupplyAgreement[];
@@ -76,6 +77,7 @@ type RecoveredSimulationAccumulator = {
   tiles: Map<string, RecoveredTileState>;
   docks: DockRouteDefinition[];
   activeLocks: Map<string, RecoveredLock>;
+  afcGlobalLosses?: number;
   season?: SimulationSeasonState;
   players: NonNullable<RecoveredSimulationState["players"]>;
   resourceSupplyAgreements: ResourceSupplyAgreement[];
@@ -130,6 +132,7 @@ export const createRecoveredSimulationAccumulator = (
     tiles,
     docks: baseState.docks ? baseState.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })) : [],
     activeLocks,
+    afcGlobalLosses: baseState.afcGlobalLosses ?? 0,
     ...(baseState.season ? { season: { ...baseState.season, ...(baseState.season.winner ? { winner: { ...baseState.season.winner } } : {}), victoryTrackers: baseState.season.victoryTrackers.map((tracker: SimulationSeasonState["victoryTrackers"][number]) => ({ ...tracker })) } } : {}),
     players: baseState.players ? baseState.players.map(cloneRecoveredPlayerState) : [],
     resourceSupplyAgreements: [...(baseState.resourceSupplyAgreements ?? [])],
@@ -319,7 +322,10 @@ export const applySimulationEventsToRecoveredAccumulator = (
 
     if (event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE") {
       const player = accumulator.players.find((entry) => entry.id === event.playerId);
-      if (player) applyProgressionUpdateToRecoveredPlayer(player, event.payloadJson);
+      if (player) {
+        applyProgressionUpdateToRecoveredPlayer(player, event.payloadJson);
+        accumulator.afcGlobalLosses = Math.max(accumulator.afcGlobalLosses ?? 0, player.afcRecovery?.globalLosses ?? 0);
+      }
       const payload = parseOptionalJson<{ afcInstallationTileDeltas?: TileDelta[] }>(event.payloadJson);
       for (const delta of payload?.afcInstallationTileDeltas ?? []) applyTileDeltaToRecoveredAccumulator(accumulator, delta);
       continue;
@@ -421,6 +427,7 @@ export const finalizeRecoveredSimulationAccumulator = (
   ...(accumulator.docks.length ? { docks: accumulator.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })) } : {}),
   activeLocks: [...accumulator.activeLocks.values()].sort((left, right) => left.commandId.localeCompare(right.commandId)),
   ...("season" in accumulator && accumulator.season ? { season: accumulator.season } : {}),
+  afcGlobalLosses: accumulator.afcGlobalLosses ?? 0,
   players: [...accumulator.players],
   resourceSupplyAgreements: [...accumulator.resourceSupplyAgreements],
   pendingSettlements: [...accumulator.pendingSettlements],

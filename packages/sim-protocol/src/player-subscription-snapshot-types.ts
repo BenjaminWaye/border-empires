@@ -93,6 +93,7 @@ export type PlayerSubscriptionSnapshot = {
     }>;
     techIds: string[];
     domainIds: string[];
+    afcRecovery?: import("@border-empires/shared").AfcRecoveryState;
     afcUpgradeRuleset?: "afc-v1";
     afcUpgradeInstallAllowed?: boolean;
     afcInstallationPreviews?: Record<string, string>;

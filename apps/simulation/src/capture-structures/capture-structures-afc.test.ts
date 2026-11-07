@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { AI_AFC_REPLACEMENT_DELAY_MS } from "../runtime-respawn-helpers.js";
 
 const makePlayer = (id: string) => ({
   id,
@@ -150,10 +149,11 @@ describe("capture structure survival — AFC", () => {
   });
 
   // Losing the last AFC while still holding ground: a human rebuilds it
-  // themselves for free; an AI gets one placed automatically ten minutes later.
+  // themselves through the same paid, timed call-down used by AI.
   const captureLastAfc = async (defenderIsAi: boolean) => {
+    let now = 1000;
     const runtime = new SimulationRuntime({
-      now: () => 1_000,
+      now: () => now,
       initialPlayers: new Map([
         ["player-1", makePlayer("player-1")],
         ["player-2", { ...makePlayer("player-2"), isAi: defenderIsAi }]
@@ -165,7 +165,7 @@ describe("capture structure survival — AFC", () => {
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 } },
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", afc: { ownerId: "player-2", status: "active", activatedAt: 0 } },
           { x: 14, y: 14, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } },
-          { x: 15, y: 14, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          { x: 20, y: 14, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
         ],
         activeLocks: []
       }
@@ -179,46 +179,51 @@ describe("capture structure survival — AFC", () => {
     await Promise.resolve();
     vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
     const player2Afcs = () => runtime.exportState().tiles.filter((tile) => tile.ownerId === "player-2" && tile.afcJson).map((tile) => `${tile.x},${tile.y}`);
-    return { runtime, events, player2Afcs };
+    return { runtime, events, player2Afcs, advance: (at: number) => { now = at; runtime.tickAetherShields(at); } };
   };
 
-  it("lets a human who lost their last AFC build a new one for free, with no automatic replacement", async () => {
+  it("lets a human commission a paid replacement after capture without any automatic grant", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
-      const { runtime, events, player2Afcs } = await captureLastAfc(false);
+      const { runtime, events, player2Afcs, advance } = await captureLastAfc(false);
       expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11)?.ownerId).toBe("player-1");
       // AFC capture plunder: 33% of the defender's remaining 10,000 Coin on top of the normal pillage.
       const resolved = events.flatMap((event) => (event.eventType === "COMBAT_RESOLVED" && event.commandId === "capture-last-afc-1" ? [event] : []));
       expect(resolved[0]?.pillagedGold ?? 0).toBeGreaterThanOrEqual(3_000);
-      vi.advanceTimersByTime(AI_AFC_REPLACEMENT_DELAY_MS + 1_000);
+      vi.advanceTimersByTime(600_000);
       expect(player2Afcs()).toEqual([]);
 
-      // Free rebuild, on an owned FRONTIER tile (settled on landing).
+      // Paid replacement, on an owned FRONTIER tile with a clear footprint.
       runtime.submitCommand({
         commandId: "rebuild-afc", sessionId: "session-2", playerId: "player-2", clientSeq: 1, issuedAt: 1_000,
-        type: "BUILD_AFC", payloadJson: JSON.stringify({ x: 15, y: 14 })
+        type: "BUILD_AFC", payloadJson: JSON.stringify({ x: 20, y: 14 })
       });
       await Promise.resolve();
       expect(events.some((event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "rebuild-afc")).toBe(false);
-      expect(player2Afcs()).toEqual(["15,14"]);
-      expect(runtime.exportState().tiles.find((tile) => tile.x === 15 && tile.y === 14)?.ownershipState).toBe("SETTLED");
+      expect(player2Afcs()).toEqual([]);
+      expect(runtime.exportState().players.find(p => p.id === "player-2")?.afcRecovery?.pending?.cost).toBe(20);
+      advance(61000);
+      expect(player2Afcs()).toEqual(["20,14"]);
+      expect(runtime.exportState().tiles.find((tile) => tile.x === 20 && tile.y === 14)?.ownershipState).toBe("SETTLED");
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
     }
   });
 
-  it("places an AI's replacement AFC ten minutes after it lost its last one", async () => {
+  it("has the AI choose and pay for its replacement, then wait 60 seconds", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
-      const { player2Afcs } = await captureLastAfc(true);
+      const { runtime, player2Afcs, advance } = await captureLastAfc(true);
       expect(player2Afcs()).toEqual([]);
-      vi.advanceTimersByTime(AI_AFC_REPLACEMENT_DELAY_MS - 60_000);
+      advance(1000);
+      expect(runtime.exportState().players.find(p => p.id === "player-2")?.afcRecovery?.pending?.cost).toBe(20);
+      advance(60999);
       expect(player2Afcs()).toEqual([]);
-      vi.advanceTimersByTime(60_000);
-      expect(player2Afcs()).toEqual(["15,14"]);
+      advance(61000);
+      expect(player2Afcs()).toEqual(["20,14"]);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

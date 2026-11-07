@@ -73,6 +73,7 @@ export function emitPlayerStateUpdate(
   context.emitPlayerMessage(
     { commandId: command.commandId, playerId },
     {
+      ...(player.afcRecovery ? { afcRecovery: structuredClone(player.afcRecovery) } : {}),
       ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
       ...(player.afcUpgradeRuleset && context.hasActiveOwnedAfc ? { afcUpgradeInstallAllowed: context.hasActiveOwnedAfc(player.id) } : {}),
       type: "PLAYER_UPDATE",

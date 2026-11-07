@@ -143,6 +143,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     getSeasonParticipationForPlayer: (playerId: string) => ctx.simulationClient.getSeasonParticipationForPlayer(playerId),
     getSocialSnapshotForPlayer: (playerId: string) => toPublicSocialView(ctx.snapshotForPlayer(playerId)),
     getAdminPlayers: () => ctx.simulationClient.getAdminPlayers(),
+    ...(ctx.simulationClient.fetchTileDetail ? { fetchTileDetail: ctx.simulationClient.fetchTileDetail.bind(ctx.simulationClient) } : {}),
     getRecentCommands: (limit?: number) => ctx.simulationClient.getRecentCommands(limit),
     getAiDecisionDiagnostics: async (playerId?: string) => {
       const result = await ctx.simulationClient.getAiDecisionDiagnostics(playerId);

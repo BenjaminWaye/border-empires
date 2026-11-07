@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LANDING_MANPOWER_RESERVE, lastManpowerRefillAtMs, MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
+import { LANDING_MANPOWER_RESERVE, MANPOWER_REGEN_GLOBAL_FLOOR, lastManpowerRefillAtMs, MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
 import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE } from "@border-empires/game-domain";
 import { SimulationRuntime } from "./runtime.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
@@ -79,7 +79,7 @@ describe("landing manpower reserve", () => {
     now = boundary + MANPOWER_REFILL_WINDOW_MS + 1_000; // a full refill window later, nothing spent
     expect(manpowerOf(runtime, "human-1")).toBe(720 + LANDING_MANPOWER_RESERVE);
     const regen = (runtime as unknown as { playerManpowerRegenPerMinute(player: RuntimePlayer): number; state: { players: Map<string, RuntimePlayer> } });
-    expect(regen.playerManpowerRegenPerMinute(regen.state.players.get("human-1")!)).toBeCloseTo(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, 10);
+    expect(regen.playerManpowerRegenPerMinute(regen.state.players.get("human-1")!)).toBeCloseTo(MANPOWER_REGEN_GLOBAL_FLOOR, 10);
   });
 
   it("survives a snapshot round trip without being granted a second time", () => {

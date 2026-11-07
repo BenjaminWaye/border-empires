@@ -6,6 +6,7 @@ import { TUTORIAL_BUILD_AFC_FLOWS_CHANGELOG } from "./client-changelog-tutorial-
 import { HUD_V2_COMBAT_STATS_CHANGELOG } from "./client-changelog-hud-v2-combat-stats.js";
 import { SIEGE_BATTERY_NO_REACH_CHANGELOG } from "./client-changelog-siege-battery-no-reach.js";
 import { CAPTURE_WRECK_FIX_CHANGELOG } from "./client-changelog-capture-wreck-fix.js";
+import { TOWN_STAT_BONUSES_CHANGELOG } from "./client-changelog-town-stat-bonuses.js";
 import { TOWN_TIER_GROWTH_CHANGELOG } from "./client-changelog-town-tier-growth.js";
 import { MOBILE_APP_CHANGELOG } from "./client-changelog-mobile-app.js";
 import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
@@ -156,6 +157,19 @@ export type ClientChangelogEntry = {
 };
 // Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1793991829210,
+    introducedIn: "2026.11.06.1",
+    title: "Choose your replacement AFC landing",
+    why: "Losing your last fabrication complex should create a recovery decision instead of automatically crowding the front with new AFCs.",
+    changes: [
+      "Losing your last AFC suspends construction and its gold and manpower contributions. A popup helps you choose your next move.",
+      "Players and AI commission replacement AFCs with a 60-second landing. The first global loss quotes 20 gold; each later AFC loss on the planet adds 10 gold to the shared replacement price.",
+      "Lost or obstructed landing sites cancel and refund the delivery. Pending landings and prices survive server updates.",
+      "Choose a clear landing footprint, keep fighting with surviving holdings, or withdraw and redeploy with a fresh opening package. Withdrawal forfeits your territory, treasury and fielded manpower while retaining House knowledge.",
+      "Pending AFC landing footprints appear in both 2D and 3D. Replacement deliveries grant no fresh manpower reserve."
+    ]
+  },
   ...TOWN_ECONOMY_CHANGELOG,
   ...RESOURCE_NETWORKS_CHANGELOG,
   ...AFC_SPECIALIZATIONS_CHANGELOG,
@@ -459,23 +473,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...SALVAGE_TRIBUTE_UI_CHANGELOG,
   ...AI_FREE_TRUCE_CHANGELOG,
   ...CAPTURE_WRECK_FIX_CHANGELOG,
-  {
-    createdAt: 1793991860190, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.06",
-    title: "Depleted salvage fields clear correctly",
-    why: "The map could restore an empty salvage field after removing its Reclamation Works.",
-    changes: ["Shipping the final salvage load removes both the field and its Works in the 2D and 3D maps"]
-  },
-  {
-    createdAt: 1793991666851, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.06",
-    title: "Resource improvements at your fingertips",
-    why: "Resource improvements were buried behind other tile actions and building categories.",
-    changes: [
-      "Available Hydrogardens, Mines and Umbrite Rigs take the yellow primary action ahead of Relay Beacons.",
-      "Build opens the Resource category first when resource improvements are listed on the selected tile."
-    ]
-  },
+  ...TOWN_STAT_BONUSES_CHANGELOG,
   ...TOWN_TIER_GROWTH_CHANGELOG
 ];
 

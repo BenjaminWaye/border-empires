@@ -66,6 +66,12 @@
   font-size: 10px;
   line-height: 1.35;
 }
+.tile-stat-context.is-positive {
+  color: var(--sp-verdigris-300, #7fb8a4);
+}
+.tile-stat-context.is-negative {
+  color: var(--sp-ember-400, #e2793a);
+}
 .tile-stat-context strong {
   color: var(--sp-parchment-100, #f2e8d3);
   font-weight: 700;

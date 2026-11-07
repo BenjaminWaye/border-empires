@@ -45,6 +45,7 @@ export type RuntimeExportState = {
     afcUpgradeRuleset?: "afc-v1";
   afcCoreTownKeys?: string[];
   afcScarcityFoodSlots?: number;
+  afcRecovery?: import("@border-empires/shared").AfcRecoveryState;
   afcCampaign?: import("@border-empires/shared").AfcCampaignState;
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];

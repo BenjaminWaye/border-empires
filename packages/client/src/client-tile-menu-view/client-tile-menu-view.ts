@@ -1,3 +1,4 @@
+import { gateAfcConstructionActions } from "../client-afc-recovery/client-afc-recovery-actions.js";
 import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
 import { townBiotaLineHtml } from "../client-town-biota/client-town-biota-line.js";
 import { manpowerPerBatch, isNetworkResource } from "@border-empires/shared";
@@ -31,7 +32,7 @@ import { ownTileHeaderStatus } from "../client-tile-menu-status/client-tile-menu
 import type { ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js"; import type { MusterCommitView } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
-import { townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
+import { townModifierGroupsOutsideStatCards, townStatGridModifiers } from "../client-town-stat-bonuses/client-town-stat-bonuses.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import { ownTownEconomyFieldsPartial, ownTownGrowthRatePending, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
@@ -228,7 +229,7 @@ export const menuOverviewForTile = (
           goldPerDayLabel: goldPerDay.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
           manpowerCapLabel: tierManpower.cap.toLocaleString(),
           manpowerRegenLabel: `+${Math.round(manpowerPerBatch(tierManpower.regenPerMinute))} per batch base regen`,
-          townModifiers: townStatModifiersForProfile(terrainProfile, coastal),
+          ...townStatGridModifiers(townForGrowth, terrainProfile, coastal),
           ...(tile.town.populationTier !== "SETTLEMENT" ? { support: { current: supportCurrent, max: supportMax } } : {}),
           ...(foodDemand > 0 ? { food: { satisfied: tile.town.isFed ? foodDemand : 0, demand: foodDemand, fed: Boolean(tile.town.isFed) } } : {})
         })
@@ -249,7 +250,7 @@ export const menuOverviewForTile = (
     // stat lines nested under it (e.g. "3 Ancillary Depots" → Manpower cap:
     // +450) — see pushModifierGroup above.
     if (isSettled && hasOwnerEconomyData) {
-      for (const group of tile.town.townModifierTotals ?? []) {
+      for (const group of showsTownStatGrid ? townModifierGroupsOutsideStatCards(tile.town) : tile.town.townModifierTotals ?? []) {
         pushModifierGroup(group.heading, group.modifiers);
       }
     }
@@ -372,7 +373,7 @@ export const menuOverviewForTile = (
       if (ownBonusLine) pushLine(ownBonusLine);
     }
   }
-  for (const modifier of tileOverviewModifiersForTile(tile)) {
+  for (const modifier of tileOverviewModifiersForTile(tile, { omitTownCoinLines: showsTownStatGrid })) {
     pushEffectLine(modifier.reason, modifier.effect, modifier.tone);
   }
   for (const modifier of deps.areaEffectModifiersForTile(tile)) {
@@ -416,7 +417,7 @@ export const tileMenuViewForTile = (
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined; musterCommit?: MusterCommitView | undefined;
-    state: { me: string; dukePlayers?: ReadonlySet<string>; techCatalog?: readonly TechInfo[] } & Partial<ReachAuthoritativeState>;
+    state: { me: string; afcRecovery?: import("@border-empires/shared").AfcRecoveryState | undefined; dukePlayers?: ReadonlySet<string>; techCatalog?: readonly TechInfo[] } & Partial<ReachAuthoritativeState>;
     /**
      * True when this tile is the target of the player's own in-progress
      * frontier expansion — not owned yet, but about to be. Actions/tabs are
@@ -429,7 +430,7 @@ export const tileMenuViewForTile = (
   }
 ): TileMenuView => {
   const actionSourceTile: Tile = deps.pendingOwnershipTile ? { ...tile, ownerId: deps.state.me, ownershipState: "FRONTIER" } : tile;
-  const actions = deps.menuActionsForSingleTile(actionSourceTile);
+  const actions = gateAfcConstructionActions(deps.menuActionsForSingleTile(actionSourceTile), deps.state.afcRecovery);
   const actionTabs = deps.splitTileActionsIntoTabs(actions);
   const combatBreakdown = actionTabs.actions.some((action) => action.id === "launch_attack")
     ? deps.combatBreakdownForTile?.(tile)

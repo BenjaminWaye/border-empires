@@ -2,6 +2,7 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { FrontierCommandType } from "@border-empires/game-domain";
 
 export type RuntimeCommandDispatchHandlers = {
+  handleWithdrawAndRedeployCommand?: (command: CommandEnvelope) => void;
   handleAfcSpecializationCommand?: (command: CommandEnvelope) => void;
   emitUnsupported: (command: CommandEnvelope) => void;
   handleCheckStrandedRegionCommand: (command: CommandEnvelope) => void;
@@ -77,6 +78,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
     handlers.emitUnsupported(command);
     return;
   }
+  if (command.type === "WITHDRAW_AND_REDEPLOY") return handlers.handleWithdrawAndRedeployCommand?.(command);
   if (command.type === "SETTLE") return handlers.handleSettleCommand(command);
   if ((command.type as string) === "BUILD_STRUCTURE") return handlers.handleBuildStructureCommand(command);
   if (isLegacyBuildCommand(command)) return handlers.handleBuildStructureCommand(handlers.normalizeLegacyBuildCommand(command));
@@ -191,6 +193,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "REMOVE_MOUNTAIN" ||
   command.type === "RETORT_RECAST" ||
   command.type === "REDEPLOY_AFC_MODULE" ||
+  command.type === "WITHDRAW_AND_REDEPLOY" ||
   command.type === "BUILD_AFC" ||
   command.type === "SKY_DOCK_BOMBARD" ||
   command.type === "IMPERIAL_EXCHANGE_LEVY" ||

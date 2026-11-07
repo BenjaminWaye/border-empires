@@ -95,6 +95,7 @@ export type DomainPlayer = {
   afcUpgradeRuleset?: "afc-v1";
   afcCoreTownKeys?: string[];
   afcScarcityFoodSlots?: number;
+  afcRecovery?: import("@border-empires/shared").AfcRecoveryState;
   afcCampaign?: import("@border-empires/shared").AfcCampaignState;
   mods?: {
     attack: number;
@@ -208,6 +209,7 @@ export type DomainTileState = {
             | "connectedTownCount"
             | "connectedTownBonus"
             | "connectedTownNames"
+            | "tradeNexusTownNames"
             | "firstThreeTownGoldMult"
             | "firstThreeTownPopGrowthMult"
             | "connectedTitaniumWeaponsFactoryCount"

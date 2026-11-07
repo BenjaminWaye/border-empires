@@ -1,4 +1,5 @@
 export interface AfcStateStats {
+  aiRecoverySearches?: number; pendingDeliveries?: number; globalLosses?: number;
   wardEntries: number; wardEvictions: number; activeHijacks: number;
 }
 export const createAfcStateMetrics = () => {

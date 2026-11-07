@@ -9,6 +9,20 @@ function deadlines(value: unknown): Record<string, number> | undefined {
   return Object.fromEntries(entries);
 }
 export function applyRecoveredAfcState(player: RecoveredPlayerState, payload: Record<string, unknown>): void {
+  if (payload.afcRecovery && typeof payload.afcRecovery === "object") {
+    const raw = payload.afcRecovery as Record<string, unknown>;
+    if (typeof raw.globalLosses === "number" && Number.isSafeInteger(raw.globalLosses) && raw.globalLosses >= 0) {
+      const state: import("@border-empires/shared").AfcRecoveryState = { globalLosses: raw.globalLosses };
+      if (typeof raw.requiredSince === "number" && Number.isFinite(raw.requiredSince)) state.requiredSince = raw.requiredSince;
+      if (typeof raw.cancellation === "string") state.cancellation = raw.cancellation.slice(0, 200);
+      const pending = raw.pending;
+      if (pending && typeof pending === "object") {
+        const p = pending as Record<string, unknown>;
+        if (typeof p.x === "number" && Number.isInteger(p.x) && typeof p.y === "number" && Number.isInteger(p.y) && typeof p.arrivesAt === "number" && Number.isFinite(p.arrivesAt) && typeof p.cost === "number" && Number.isFinite(p.cost) && p.cost >= 0 && typeof p.commandId === "string") state.pending = { x: p.x, y: p.y, arrivesAt: p.arrivesAt, cost: p.cost, commandId: p.commandId };
+      }
+      player.afcRecovery = state;
+    }
+  }
   if (payload.afcUpgradeRuleset !== "afc-v1") return;
   player.afcUpgradeRuleset = "afc-v1";
   if (Array.isArray(payload.afcCoreTownKeys) && payload.afcCoreTownKeys.length <= 3 && payload.afcCoreTownKeys.every(key => typeof key === "string" && /^\d+,\d+$/.test(key))) player.afcCoreTownKeys = [...payload.afcCoreTownKeys];

@@ -6,6 +6,8 @@
 // Kept presentation-only and unit-testable: every number is precomputed by
 // the caller, this module only knows how to lay them out.
 
+export type TownStatBonusLine = { label: string; effect: string; tone: "positive" | "negative" | "neutral" };
+
 export type TownStatGridInput = {
   population: number;
   maxPopulation: number;
@@ -28,6 +30,11 @@ export type TownStatGridInput = {
     manpowerCapacityPercent: number;
     manpowerRegenPercent: number;
   }>;
+  // Every other factor feeding the Coin / Manpower cards (connected towns +
+  // Trade Nexus source, tier, support, buildings…) — see
+  // client-town-stat-bonuses.ts.
+  goldBonuses?: TownStatBonusLine[];
+  manpowerBonuses?: TownStatBonusLine[];
   // Omitted entirely for SETTLEMENT-tier towns (no support ring / no FOOD
   // slot demand — townFoodSlotDemandForTier("SETTLEMENT") is 0).
   support?: { current: number; max: number };
@@ -38,6 +45,11 @@ const escapeHtml = (value: string): string =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const signedPercent = (value: number): string => `${value >= 0 ? "+" : "−"}${Math.abs(value)}%`;
+
+const bonusLinesHtml = (bonuses: readonly TownStatBonusLine[] | undefined): string =>
+  (bonuses ?? [])
+    .map((bonus) => `<span class="tile-stat-context is-${bonus.tone}"><strong>${escapeHtml(bonus.label)}</strong> · ${escapeHtml(bonus.effect)}</span>`)
+    .join("");
 
 export const townStatGridHtml = (input: TownStatGridInput): string => {
   const populationTarget = input.nextTierPopulation ?? input.maxPopulation;
@@ -76,12 +88,14 @@ export const townStatGridHtml = (input: TownStatGridInput): string => {
         `<span class="tile-stat-label">Coin production</span>` +
         `<span class="tile-stat-value">${escapeHtml(input.goldPerDayLabel)}<span class="tile-stat-unit">/ day</span></span>` +
         goldTerrainContext +
+        bonusLinesHtml(input.goldBonuses) +
       `</div>` +
       `<div class="tile-stat tile-stat-span2">` +
         `<span class="tile-stat-label">Manpower contribution</span>` +
         `<span class="tile-stat-value">${escapeHtml(input.manpowerCapLabel)}<span class="tile-stat-unit">cap</span></span>` +
         `<span class="tile-stat-sub">${escapeHtml(input.manpowerRegenLabel)}</span>` +
         manpowerTerrainContext +
+        bonusLinesHtml(input.manpowerBonuses) +
       `</div>` +
     `</div>` +
     (miniRow.length > 0 ? `<div class="tile-stat-mini-row">${miniRow.join("")}</div>` : "")

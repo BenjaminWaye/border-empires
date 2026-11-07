@@ -13,6 +13,7 @@ import { encodeReachBorder } from "./reach-border-snapshot/reach-border-snapshot
 export type SnapshotTile = SimulationSnapshotSections["initialState"]["tiles"][number];
 
 export type SnapshotExportInput = {
+  afcGlobalLosses?: () => number;
   tiles: ReadonlyMap<string, DomainTileState>;
   locksByCommandId: ReadonlyMap<string, LockRecord>;
   players: ReadonlyMap<string, DomainPlayer>;
@@ -61,6 +62,7 @@ export const mapTile = (tile: DomainTileState): SnapshotTile => ({
 function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): SimulationSnapshotSections {
   return {
     initialState: {
+      afcGlobalLosses: input.afcGlobalLosses?.() ?? 0,
       tiles,
       ...(input.resourceSupplyAgreements?.length ? { resourceSupplyAgreements: input.resourceSupplyAgreements } : {}),
       activeLocks: [...input.locksByCommandId.values()]
@@ -97,6 +99,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
           ...(player.afcCoreTownKeys ? { afcCoreTownKeys: [...player.afcCoreTownKeys] } : {}),
           ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}),
+          ...(player.afcRecovery ? { afcRecovery: structuredClone(player.afcRecovery) } : {}),
           ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
           ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),

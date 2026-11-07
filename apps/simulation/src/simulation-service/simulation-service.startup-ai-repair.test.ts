@@ -144,7 +144,7 @@ describe("simulation service startup recovery — zero-gross-income repair", () 
 
 
 describe("simulation startup — AFCs for AI empires that never log in", () => {
-  it("persists an AFC grant for an existing AI with a productive settlement", async () => {
+  it("persists a paid delivery for an AFC-less AI instead of a free startup grant", async () => {
     const eventStore = new InMemorySimulationEventStore();
     const snapshotStore = new InMemorySimulationSnapshotStore();
     const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
@@ -155,7 +155,7 @@ describe("simulation startup — AFCs for AI empires that never log in", () => {
       lastAppliedEventId: 0,
       snapshotSections: buildSimulationSnapshotSections({
         initialState: {
-          tiles: [...tiles, {
+          tiles: [...tiles, { x: 22, y: 15, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }, {
             x: 15, y: 15, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED",
             town: { name: "AI Home", type: "FARMING", populationTier: "SETTLEMENT" }
           }],
@@ -174,12 +174,13 @@ describe("simulation startup — AFCs for AI empires that never log in", () => {
     });
     try {
       const ownedAfcs = service.runtime.exportState().tiles.filter((tile) => tile.ownerId === "ai-1" && tile.afcJson);
-      expect(ownedAfcs).toHaveLength(1);
-      expect(JSON.parse(ownedAfcs[0]!.afcJson!)).toMatchObject({ ownerId: "ai-1", status: "active" });
+      expect(ownedAfcs).toHaveLength(0);
+      service.runtime.tickAetherShields(Date.now());
+      expect(service.runtime.exportState().players.find(p => p.id === "ai-1")?.afcRecovery?.pending?.cost).toBe(20);
       expect(service.runtime.exportState().tiles.find((tile) => tile.x === 15 && tile.y === 15)?.townName).toBe("AI Home");
     } finally {
       await service.close();
     }
-    expect((await eventStore.loadAllEvents()).some((event) => event.commandId.startsWith("afc-migration:ai-1:"))).toBe(true);
+    expect((await eventStore.loadAllEvents()).some((event) => event.commandId.startsWith("ai-runtime:afc-recovery:ai-1:"))).toBe(true);
   });
 });

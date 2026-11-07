@@ -4,6 +4,10 @@ type GatewayCommandMessage = { type: string; x?: number; y?: number; techId?: st
 type DispatchDurableCommand = (type: DurableCommandType, payload: Record<string, unknown>, withMetadata?: boolean) => Promise<void>;
 
 export const dispatchAfcOrRevealCommand = async (message: GatewayCommandMessage, dispatch: DispatchDurableCommand): Promise<boolean> => {
+  if (message.type === "WITHDRAW_AND_REDEPLOY") {
+    await dispatch("WITHDRAW_AND_REDEPLOY", {});
+    return true;
+  }
   if (message.type === "RECRUIT_ANCILLARIES" && typeof message.coin === "number") {
     await dispatch("RECRUIT_ANCILLARIES", { coin: message.coin }, true);
     return true;

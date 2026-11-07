@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "./runtime.test-helpers.js";
 import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
 
@@ -32,7 +33,7 @@ describe("exportAiPlayerMetricsSnapshot", () => {
       ]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("ai-1"),
           { x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" },
           { x: 11, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
           // A muster flag holding 40 manpower on an AI-owned tile, plus one on the human's tile
