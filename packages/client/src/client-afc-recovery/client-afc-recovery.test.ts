@@ -17,7 +17,7 @@ const fixture = (gold = 500) => {
   const update = (recovery: object) => { applyAfcStateMessage(state, { afcRecovery: recovery }); render(); };
   return { state, send, update, render, placementOverlayEl };
 };
-afterEach(() => { document.body.innerHTML = ""; vi.restoreAllMocks(); vi.useRealTimers(); });
+afterEach(() => { document.body.innerHTML = ""; document.body.className = ""; vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("AFC recovery popup", () => {
   it("opens on AFC loss with the global quote and arms a landing site", () => {
@@ -40,6 +40,14 @@ describe("AFC recovery popup", () => {
     f.update({ globalLosses: 6, requiredSince: 2000, cancellation: "Landing site lost" });
     expect(document.querySelector("[role=dialog]")).not.toBeNull();
     expect(document.body.textContent).toContain("Landing site lost");
+  });
+
+  it("uses the shared V2 action buttons when the V2 HUD is active", () => {
+    document.body.classList.add("hud-v2");
+    const f = fixture(); f.update({ globalLosses: 1, requiredSince: 1000 });
+    expect(document.querySelector("[data-afc-choose]")?.classList.contains("v2s-btn-primary")).toBe(true);
+    expect(document.querySelector("[data-afc-fight]")?.classList.contains("v2s-btn")).toBe(true);
+    expect(document.querySelector("[data-afc-confirm]")?.classList.contains("v2s-btn-danger")).toBe(true);
   });
 
   it("updates affordability when income reaches the exact replacement price", () => {

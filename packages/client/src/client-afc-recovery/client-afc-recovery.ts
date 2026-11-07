@@ -51,19 +51,21 @@ export function renderAfcRecovery(deps: AfcRecoveryUiDeps): void {
   root.classList.toggle("afc-recovery-ui--modal", Boolean(state.afcRecoveryPopupOpen && !recovery.pending));
   const cost = afcReplacementCost(recovery.globalLosses);
   const pending = recovery.pending;
-  const renderKey = `${recoveryPopupKey(state)}:${pending?.commandId ?? ""}:${state.afcRecoveryPopupOpen}:${cost}:${Math.floor(state.gold)}`;
+  const hudV2 = document.body.classList.contains("hud-v2");
+  const buttonClass = hudV2 ? "v2s-btn" : "panel-btn";
+  const renderKey = `${hudV2}:${recoveryPopupKey(state)}:${pending?.commandId ?? ""}:${state.afcRecoveryPopupOpen}:${cost}:${Math.floor(state.gold)}`;
   const unchanged = root.dataset.renderKey === renderKey;
   root.dataset.renderKey = renderKey;
   if (!pending) stopCountdown();
   if (!pending && unchanged) return;
   if (pending) {
     state.afcRecoveryPopupOpen = false;
-    if (!unchanged) root.innerHTML = `<div class="afc-recovery-status panel-btn" role="status">AFC inbound · <span data-afc-countdown></span> · (${pending.x}, ${pending.y})</div>`;
+    if (!unchanged) root.innerHTML = `<div class="afc-recovery-status ${buttonClass}" role="status">AFC inbound · <span data-afc-countdown></span> · (${pending.x}, ${pending.y})</div>`;
     syncCountdown(root, pending.arrivesAt);
     return;
   }
   if (!state.afcRecoveryPopupOpen) {
-    root.innerHTML = `<button class="afc-recovery-status panel-btn" type="button">Construction suspended · Call down AFC · ${cost} gold</button>`;
+    root.innerHTML = `<button class="afc-recovery-status ${buttonClass}" type="button">Construction suspended · Call down AFC · ${cost} gold</button>`;
     root.querySelector("button")?.addEventListener("click", () => { state.afcRecoveryPopupOpen = true; deps.rerender(); });
     return;
   }
@@ -87,13 +89,13 @@ export function renderAfcRecovery(deps: AfcRecoveryUiDeps): void {
       </div>
       <footer class="afc-recovery-footer">
         <div class="afc-recovery-actions">
-          <button data-afc-choose class="panel-btn" type="button" ${affordable ? "" : "disabled"}>Choose landing site</button>
-          <button data-afc-fight class="panel-btn" type="button">Continue fighting</button>
-          <button data-afc-withdraw class="panel-btn" type="button">Withdraw and redeploy</button>
+          <button data-afc-choose class="${buttonClass}${hudV2 ? " v2s-btn-primary" : ""}" type="button" ${affordable ? "" : "disabled"}>Choose landing site</button>
+          <button data-afc-fight class="${buttonClass}" type="button">Continue fighting</button>
+          <button data-afc-withdraw class="${buttonClass}${hudV2 ? " v2s-btn-ghost" : ""}" type="button">Withdraw and redeploy</button>
         </div>
         <div data-afc-withdraw-confirm hidden>
           <p>Withdraw from all your territory, leaving buildings behind. Your treasury and fielded manpower reset to the opening package. House knowledge is retained. You receive a fresh landing elsewhere.</p>
-          <button data-afc-confirm class="panel-btn" type="button">Confirm withdrawal and redeploy</button>
+          <button data-afc-confirm class="${buttonClass}${hudV2 ? " v2s-btn-danger" : ""}" type="button">Confirm withdrawal and redeploy</button>
         </div>
       </footer>
     </section>`;
