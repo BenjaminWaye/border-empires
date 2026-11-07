@@ -12,6 +12,7 @@ import { TOWN_TIER_GROWTH_CHANGELOG } from "./client-changelog-town-tier-growth.
 import { SEA_VISION_CHANGELOG } from "./client-changelog-sea-vision.js";
 import { BEACON_FOREST_VISION_CHANGELOG } from "./client-changelog-beacon-forest-vision.js";
 import { MANIFEST_WORDING_CHANGELOG } from "./client-changelog-manifest-wording.js";
+import { VICTORY_HOLD_TIME_CHANGELOG } from "./client-changelog-victory-hold-time.js";
 import { MOBILE_APP_CHANGELOG } from "./client-changelog-mobile-app.js";
 import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
 import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
@@ -484,7 +485,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Each AI empire is Measured, Merchant, Warlike, Peaceable or Vengeful, shown on the trade screen and the same every season",
       "Temperament changes truce prices, how much lost land angers them, how far gifts go, and how readily they seek or pay for peace"
     ]
-  }
+  },
+  ...VICTORY_HOLD_TIME_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SeasonVictoryObjectiveView } from "../client-types.js";
-import { nonLeaderShare, ranksBodyHtml } from "./client-hud-v2-ranks.js";
+import { formatHold, nonLeaderShare, ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { assignLanes } from "./client-hud-v2-ranks-lanes.js";
 
 const objective = (patch: Partial<SeasonVictoryObjectiveView>): SeasonVictoryObjectiveView => ({
@@ -51,6 +51,40 @@ describe("ranks race side column", () => {
     const html = render(objective({ leaderPlayerId: "me", progressLabel: "22/189 towns", selfProgressLabel: "22/189 towns" }));
     expect(html).toContain("★ You lead");
     expect(html).not.toContain("v2r-side-you");
+  });
+
+  it("shows the time left while someone is holding", () => {
+    expect(render(objective({ conditionMet: true, holdRemainingSeconds: 18599 }))).toContain("LEAD holding · 5h 10m left");
+  });
+
+  it("leaves the time out rather than an empty gap when the hold time is unknown", () => {
+    expect(render(objective({ conditionMet: true }))).toMatch(/LEAD holding<\/span>/);
+  });
+});
+
+describe("ranks banner", () => {
+  const banner = (o: SeasonVictoryObjectiveView): string =>
+    ranksBannerHtml({ me: "me", objectives: [o], overall: [], selfOverall: undefined, nameOf: (id) => id.toUpperCase(), colorOf: () => undefined });
+
+  it("names the time to win while someone is holding", () => {
+    expect(banner(objective({ conditionMet: true, holdRemainingSeconds: 18599 }))).toContain("LEAD is holding Town Control · 5h 10m to win");
+  });
+
+  it("leaves the time out when the hold time is unknown", () => {
+    expect(banner(objective({ conditionMet: true }))).toMatch(/LEAD is holding Town Control<\/span>/);
+  });
+});
+
+describe("formatHold", () => {
+  it("rolls a full 60 minutes into the hour", () => {
+    expect(formatHold(7199)).toBe("2h");
+    expect(formatHold(3599)).toBe("1h");
+  });
+
+  it("keeps minutes under 10h, whole hours above, and never shows 0m", () => {
+    expect(formatHold(18599)).toBe("5h 10m");
+    expect(formatHold(40000)).toBe("11h");
+    expect(formatHold(0)).toBe("1m");
   });
 });
 

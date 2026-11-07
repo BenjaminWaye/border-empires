@@ -7,7 +7,7 @@
 import { applyPlayerMessageToSnapshot, type CurrentSeasonSummary } from "@border-empires/sim-protocol";
 import { toProtoEvent, type ProtoSimulationEvent } from "../simulation-service/proto-serialization.js";
 import { buildLeaderboardFromPlayers, type SelfProgressCache } from "../world-status-snapshot/world-status-snapshot.js";
-import { buildEconomicHegemonyObjective, seasonVictoryForBroadcast } from "../season-victory-objectives/season-victory-objectives.js";
+import { buildEconomicHegemonyObjective, seasonVictoryForBroadcast, seasonVictoryWithCurrentHolds } from "../season-victory-objectives/season-victory-objectives.js";
 import { leaderboardSignature } from "../season-summary/season-summary.js";
 import type { PlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
 import type { PlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
@@ -71,6 +71,7 @@ export const createGlobalStatusBroadcastPayload = (
     const liveEconomicHegemony = buildEconomicHegemonyObjective(globalLeaderboard.overall, id => leaderboardPlayers.find(player => player.id === id)?.domainIds); // once per tick — sorts the leaderboard; do not move into the loop below
     const scoreHistory = currentSummary ? deps.scoreHistorySampler.seriesFor(currentSummary.seasonId) : [];
     const selfProgress = deps.getSelfProgress();
+    const cachedObjectives = seasonVictoryWithCurrentHolds(currentSummary?.seasonVictory ?? [], Date.now(), Boolean(currentSummary?.seasonWinner));
     for (const subscribedPlayerId of deps.subscriptionRegistry.subscribedPlayerIds()) {
       const selfOverall = globalLeaderboard.overall.find((e) => e.id === subscribedPlayerId);
       const selfByTiles = globalLeaderboard.byTiles.find((e) => e.id === subscribedPlayerId);
@@ -83,7 +84,7 @@ export const createGlobalStatusBroadcastPayload = (
         ...(selfByIncome ? { selfByIncome } : {}),
         ...(selfByTechs ? { selfByTechs } : {})
       };
-      const seasonVictory = seasonVictoryForBroadcast(currentSummary?.seasonVictory ?? [], selfProgress.labels.get(subscribedPlayerId), liveEconomicHegemony, subscribedPlayerId, selfOverall?.incomePerMinute, selfProgress.values.get(subscribedPlayerId));
+      const seasonVictory = seasonVictoryForBroadcast(cachedObjectives, selfProgress.labels.get(subscribedPlayerId), liveEconomicHegemony, subscribedPlayerId, selfOverall?.incomePerMinute, selfProgress.values.get(subscribedPlayerId));
       const seasonWinner = currentSummary?.seasonWinner;
       const payload = {
         type: "GLOBAL_STATUS_UPDATE" as const,
