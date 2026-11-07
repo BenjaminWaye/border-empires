@@ -9,14 +9,15 @@ const identities = () => new Map([
 ]);
 
 describe("AI AFC infrastructure repair", () => {
-  it("grants an AFC without login even when income repair is skipped", () => {
+  it("does not grant a free AFC during repair; the AI commissions a paid delivery", () => {
     const tiles: DomainTileState[] = [];
     for (let x = 0; x < 40; x++) {
       for (let y = 0; y < 40; y++) tiles.push({ x, y, terrain: "LAND" });
     }
     tiles.push({ x: 15, y: 15, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" });
+    let now = 1000;
     const runtime = new SimulationRuntime({
-      now: () => 1000,
+      now: () => now,
       initialPlayers: new Map([["ai-1", {
         id: "ai-1", isAi: true, points: 1000, manpower: 1000,
         techIds: new Set<string>(), domainIds: new Set<string>(),
@@ -27,8 +28,13 @@ describe("AI AFC infrastructure repair", () => {
     });
     repairPlayerInfrastructure(runtime, identities());
     const afcs = () => runtime.exportState().tiles.filter((tile) => tile.ownerId === "ai-1" && tile.afcJson);
-    expect(afcs()).toHaveLength(1);
+    expect(afcs()).toHaveLength(0);
+    runtime.tickAetherShields(now);
+    expect(runtime.exportState().players.find(p => p.id === "ai-1")?.afcRecovery?.pending?.cost).toBe(20);
     repairPlayerInfrastructure(runtime, identities());
+    expect(afcs()).toHaveLength(0);
+    now = 61000;
+    runtime.tickAetherShields(now);
     expect(afcs()).toHaveLength(1);
   });
 

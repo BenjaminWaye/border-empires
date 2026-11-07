@@ -142,14 +142,16 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
     benefitFill.visible = false;
     benefitFill.count = 0;
     beaconOverlay.sync(deps);
-    if (!deps.state.buildingPlacement.active) return;
-    const { x, y, structureType } = deps.state.buildingPlacement;
+    const pending = deps.state.afcRecovery?.pending;
+    const placement = deps.state.buildingPlacement.active ? deps.state.buildingPlacement : pending ? { x: pending.x, y: pending.y, structureType: "AFC" as const } : undefined;
+    if (!placement) return;
+    const { x, y, structureType } = placement;
     if (structureType === "") return;
     const tile = deps.state.tiles.get(deps.keyFor(x, y));
     if (deps.tileVisibilityStateAt(x, y, tile) !== "visible") return;
-    const valid = deps.isPlacementValidForTile(tile);
+    const valid = Boolean(pending) || deps.isPlacementValidForTile(tile);
     const radius =
-      structureType === "AFC" ? 0.5 : structureType === "RELAY_BEACON" ? REACH_RADIUS_BY_KIND.OUTPOST : placementRadius(structureType);
+      structureType === "AFC" ? 1.5 : structureType === "RELAY_BEACON" ? REACH_RADIUS_BY_KIND.OUTPOST : placementRadius(structureType);
 
     if (structureType === "HYDROWORKS" || structureType === "ORE_REFINERY") syncBeneficiaryHighlights(deps, structureType, x, y, radius);
 

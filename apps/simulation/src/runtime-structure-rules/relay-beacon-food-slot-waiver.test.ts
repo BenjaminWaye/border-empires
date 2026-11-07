@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "../runtime/runtime.test-helpers.js";
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { structureBuildDurationMs } from "@border-empires/shared";
@@ -28,7 +29,7 @@ describe("BUILD_STRUCTURE parity — RELAY_BEACON FOOD-slot waiver", () => {
           techRootId: "rewrite-local", allies: new Set<string>(),
           strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
         }]]),
-        initialState: { tiles, activeLocks: [] },
+        initialState: { tiles: [afcModuleFixtureTile("player-1"), ...tiles], activeLocks: [] },
       });
 
       const rejections: Array<{ code: string }> = [];
@@ -80,7 +81,7 @@ describe("BUILD_STRUCTURE parity — RELAY_BEACON FOOD-slot waiver", () => {
           strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
         }]]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"),
             {
               x: 10, y: 10, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const,
               // First (and only) Relay Beacon owned -- fully within the free

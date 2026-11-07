@@ -11,7 +11,7 @@ export type MapUnobstructedState = Pick<
   | "respawnOverlayOpen"
   | "seasonWinner"
   | "seasonEndDismissed"
-> & { activityDashboard: { open: boolean; chronicleOpen?: boolean } };
+> & { afcRecoveryPopupOpen?: boolean; activityDashboard: { open: boolean; chronicleOpen?: boolean } };
 
 /**
  * True when no auto-opening dialog covers the map, i.e. the player's eyes can
@@ -28,4 +28,5 @@ export const isMapUnobstructed = (state: MapUnobstructedState): boolean =>
   !state.activityDashboard.chronicleOpen &&
   !isSeasonLobbyFullscreenActive(state) &&
   !state.respawnOverlayOpen &&
+  !state.afcRecoveryPopupOpen &&
   !(Boolean(state.seasonWinner) && !state.seasonEndDismissed);

@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "./runtime.test-helpers.js";
 import { describe, expect, it } from "vitest";
 
 import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE } from "@border-empires/game-domain";
@@ -22,7 +23,7 @@ describe("exportPlannerPlayerViews — needVector plumbing (§9)", () => {
       initialPlayers: new Map([["player-1", testRuntimePlayer("player-1", { points: 500, manpower: 100 })]]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [{ x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+        tiles: [afcModuleFixtureTile("player-1"), { x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
         activeLocks: []
       }
     });
@@ -34,8 +35,8 @@ describe("exportPlannerPlayerViews — needVector plumbing (§9)", () => {
     // config.ts §4.3) — the same figures playerManpowerCap/
     // playerManpowerRegenPerMinute would report directly, confirming the
     // closures reach the real methods rather than defaulting to 0.
-    expect(view?.manpowerCapacity).toBe(STARTING_CAPITAL_MANPOWER_CAP);
-    expect(view?.manpowerRegenPerMinute).toBe(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE);
+    expect(view?.manpowerCapacity).toBe(STARTING_CAPITAL_MANPOWER_CAP + 150);
+    expect(view?.manpowerRegenPerMinute).toBe(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + 150 / 720);
   });
 
   it("populates slot supply from an owned FARM tile and zero demand with no structures", () => {

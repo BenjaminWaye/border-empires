@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "../runtime/runtime.test-helpers.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
 import { buildLivePlayerEconomySnapshot } from "../live-economy-snapshot.js";
 import { describe, expect, it, vi } from "vitest";
@@ -35,7 +36,7 @@ function fixture(developed: boolean, now: () => number, manpower = 0, techs: Set
   }
   return new SimulationRuntime({ now, initialPlayers:new Map([["p",buildPlayer("p",{
     points:500,manpower,manpowerUpdatedAt:boundary,manpowerCapSnapshot:10000,landingReserveGranted:true,techIds:techs
-  })]]), seedTiles:new Map(), initialState:{tiles,activeLocks:[]} });
+  })]]), seedTiles:new Map(), initialState:{tiles: [afcModuleFixtureTile("p"), ...tiles],activeLocks:[]} });
 }
 const player = (runtime: SimulationRuntime) => runtime.exportState().players.find(entry => entry.id === "p")!;
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createSimulationService } from "./simulation-service.js";
 import { InMemorySimulationCommandStore } from "../command-store/command-store.js";
 import { InMemorySimulationEventStore } from "../event-store/event-store.js";
@@ -77,6 +77,7 @@ const payloadForCommand = (type: RestartCommandType): Record<string, unknown> =>
     case "WAYPOINT_ENQUEUE":
     case "WAYPOINT_CANCEL":
       return { x: 10, y: 10 };
+    case "WITHDRAW_AND_REDEPLOY":
     case "WAYPOINT_CANCEL_ALL":
       return {};
     case "NAME_ISLAND":
@@ -109,6 +110,9 @@ describe("restart parity (in-memory stores)", () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 30));
 
+    if (type === "WITHDRAW_AND_REDEPLOY") {
+      await vi.waitFor(() => expect(serviceBeforeRestart.runtime.exportState().pendingSettlements.filter(entry => entry.resolvesAt <= FIXED_NOW_MS)).toEqual([]));
+    }
     const beforeRestartState = serviceBeforeRestart.runtime.exportState();
     const persistedRuntimeSnapshot = serviceBeforeRestart.runtime.snapshot();
     await serviceBeforeRestart.close();

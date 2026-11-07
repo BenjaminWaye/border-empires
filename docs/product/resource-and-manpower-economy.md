@@ -25,8 +25,17 @@ defines what these systems mean in the fiction; follow the
 
 ## Manpower
 
-- Manpower is capped and regenerates. The always-present starting capital adds
-  **720 cap** and **0.4/minute**; it is additive with towns.
+- Manpower is capped and regenerates. An operational owned AFC backs the starting
+  capital's **720 cap** and **0.4/minute**, additive with towns and the existing
+  once-per-House AFC settlement baseline. Losing the last AFC removes both AFC
+  contributions until a replacement lands. Previously available reserves are
+  preserved as spendable overflow; replacement landing does not refill the
+  restored capacity or grant another opening reserve. The global regeneration
+  floor and independent town/structure contributions retain their own rules.
+- Replacement AFCs reserve **20 + 10 × max(0, global AFC losses − 1) Coin** and
+  take **60 seconds** to land. The campaign counter includes every captured or
+  destroyed AFC and survives restart. An invalidated site or another AFC secured
+  cancels and refunds the delivery. Additional AFC expansion pricing is separate.
 - Every new empire (a human on join, an AI empire at season start; not
   barbarians) lands with a one-time **+2,000** manpower reserve
   (`LANDING_MANPOWER_RESERVE`), granted at the player's first manpower settle

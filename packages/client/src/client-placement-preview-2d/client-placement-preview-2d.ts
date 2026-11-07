@@ -114,22 +114,24 @@ export const renderBuildingPlacementPreview2D = (
   halfW: number,
   halfH: number
 ): void => {
-  if (!state.buildingPlacement.active) return;
-  const st = state.buildingPlacement.structureType;
+  const pending = state.afcRecovery?.pending;
+  const placement = state.buildingPlacement.active ? state.buildingPlacement : pending ? { x: pending.x, y: pending.y, structureType: "AFC" as const } : undefined;
+  if (!placement) return;
+  const st = placement.structureType;
   if (OUTPOST_FAMILY_STRUCTURE_TYPES.has(st)) {
     renderOutpostReachGhostPreview(state, deps, size, halfW, halfH);
     return;
   }
   if (st === "AFC") {
-    const { x, y } = state.buildingPlacement;
+    const { x, y } = placement;
     const placementTile = state.tiles.get(deps.keyFor(x, y));
     if (deps.tileVisibilityStateAt(x, y, placementTile) !== "visible") return;
     const center = deps.worldToScreen(x, y, size, halfW, halfH);
-    const valid = deps.isPlacementValidForTile(placementTile);
+    const valid = Boolean(pending) || deps.isPlacementValidForTile(placementTile);
     deps.ctx.save();
     deps.ctx.strokeStyle = valid ? "rgba(102, 220, 255, 0.95)" : "rgba(220, 80, 80, 0.9)";
     deps.ctx.lineWidth = 3;
-    deps.ctx.strokeRect(center.sx - size / 2 + 2, center.sy - size / 2 + 2, size - 4, size - 4);
+    deps.ctx.strokeRect(center.sx - size * 1.5 + 2, center.sy - size * 1.5 + 2, size * 3 - 4, size * 3 - 4);
     deps.ctx.restore();
     return;
   }

@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "./runtime.test-helpers.js";
 import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
 import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
@@ -12,7 +13,7 @@ describe("auto-garrison completion with a mirrored queue entry", () => {
       initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 100_000, manpower: 100_000, manpowerUpdatedAt: 1_000 })]]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 50, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "FARMING", populationTier: "GREAT_CITY", population: 2_000_000 } },
           ...[48, 49, 51].map((x) => ({ x, y: 50, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "FRONTIER" as const }))
         ],

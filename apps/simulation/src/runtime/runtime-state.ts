@@ -18,6 +18,7 @@ import { CombatLockIndex } from "../combat-lock-index/combat-lock-index.js";
  * (see Stage 7 process notes) rather than all at once.
  */
 export class RuntimeState {
+  afcGlobalLosses = 0;
   readonly players: Map<string, RuntimePlayer>;
   readonly tiles: Map<string, DomainTileState>;
   readonly docks: DockRouteDefinition[];
