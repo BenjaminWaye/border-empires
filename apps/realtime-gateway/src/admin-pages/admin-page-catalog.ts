@@ -72,6 +72,15 @@ export const ADMIN_ROUTE_SECTIONS: AdminRouteSection[] = [
     routes: [
       {
         method: "GET",
+        path: "/admin/tile",
+        kind: "json",
+        auth: "read",
+        title: "Tile inspector",
+        description: "Server-side tiles around a coordinate (terrain, owner, every structure overlay) as a grid plus details; with playerId, what that player's live vision filter shows (full / redacted / none). Radius 0-6, one request at a time.",
+        params: [{ name: "x", hint: "524" }, { name: "y", hint: "298" }, { name: "radius", hint: "3" }, { name: "playerId", hint: "optional" }]
+      },
+      {
+        method: "GET",
         path: "/admin/players",
         kind: "json",
         auth: "read",

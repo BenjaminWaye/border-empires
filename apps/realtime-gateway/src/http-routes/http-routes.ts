@@ -7,6 +7,7 @@ import { createAdminAuthorizer, type AdminGithubAuthConfig } from "../admin-auth
 import { createAdminIdTokenCheck, type AdminFirebaseAuthConfig } from "../admin-auth/admin-firebase-auth.js";
 import { ADMIN_AGENT_TOKEN_MAX_SIGN_IN_AGE_MS, createAdminAgentTokens } from "../admin-auth/admin-agent-token.js";
 import { registerAdminAgentTokenRoute } from "./register-admin-agent-token-route.js";
+import { registerAdminTileRoute, type RegisterAdminTileRouteDeps } from "./register-admin-tile-route.js";
 import { registerAdminPageRoutes } from "../admin-pages/admin-page-routes.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import { registerGalaxyHttpRoutes } from "./register-galaxy-http-routes.js";
@@ -86,6 +87,8 @@ export type RegisterGatewayHttpRoutesDeps = {
   getSeasonParticipationForPlayer?: (playerId: string) => Promise<SeasonParticipationRow[]>;
   getSocialSnapshotForPlayer?: (playerId: string) => PublicSocialView;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
+  // GET /admin/tile (register-admin-tile-route.ts); the raw sim client RPC, not the per-player snapshot-merging path.
+  fetchTileDetail?: RegisterAdminTileRouteDeps["fetchTileDetail"];
   getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
   getAiDecisionDiagnostics?: (playerId?: string) => Promise<unknown[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
@@ -127,6 +130,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     isAgentToken: (token) => agentTokens.verify(token)
   });
   registerAdminAgentTokenRoute(app, { adminMintAuthorized, agentTokens });
+  registerAdminTileRoute(app, { adminRequestAuthorized, fetchTileDetail: deps.fetchTileDetail, getAdminPlayers: deps.getAdminPlayers, getCurrentSeasonSummary: deps.getCurrentSeasonSummary });
 
   // NOTE: /health is intentionally O(1) — it only reads cached structs and never
   // touches the event loop, sim RPC, or AI state, so it stays responsive even while
