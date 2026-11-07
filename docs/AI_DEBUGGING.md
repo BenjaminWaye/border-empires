@@ -74,6 +74,23 @@ long as the two environments keep different `ADMIN_API_TOKEN` values. Minting
 the static token, and logs each token's nonce and expiry. Implementation:
 `apps/realtime-gateway/src/admin-auth/admin-agent-token.ts`.
 
+### Inspecting tiles: `GET /admin/tile`
+
+`/admin/tile?x=524&y=298&radius=3&playerId=<id>` (read auth, so an agent token
+works) returns the server's authoritative tiles around a coordinate: a
+character grid (`T` town, `A` AFC, `F` fort, `O` observatory, `S` siege battery,
+`B` relay beacon, `E` other economic structure, `*` other overlay, `~` sea,
+`c` coastal sea, `^` mountain, `.` land) plus each tile's terrain, owner and
+parsed structure overlays. With `playerId` it also runs the sim's live-vision
+filter for that player and marks every tile `full`, `redacted` (returned but
+stripped, e.g. a lock-target stub; see `hiddenFromPlayer`) or `none`, with a
+matching `visibilityGrid`. That is the server's current vision, not the client's
+fog memory; after a season ends the sim forces full visibility. Radius is 0-6;
+it issues up to 50 sequential `FetchTileDetail` calls, so the gateway serves one
+inspection at a time (429 otherwise). Failed or timed-out blocks show as `?`
+with an `errors` entry. Implementation:
+`apps/realtime-gateway/src/http-routes/register-admin-tile-route.ts`.
+
 ### Option B — the static `ADMIN_API_TOKEN` (needed for destructive endpoints, or as a fallback)
 
 Source of truth is `/etc/border-empires/secrets.env` on each Hetzner server
