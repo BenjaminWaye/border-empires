@@ -343,7 +343,9 @@ A beacon does not fight. Its work is to mark and to watch:
   border reaches it, then either yields or reclaims what was pushed into it.
 - **It watches.** A beacon's elevated receiver and local sensor links give a Duke
   a long view of the frontier around it, so infestations, Wardens and rival
-  banners are seen before they arrive.
+  banners are seen before they arrive. The receiver stands above the forest
+  canopy, so woodland hides nothing from it; only a mountain's bulk cuts its
+  view.
 
 Because a beacon is a claim and not a weapon, it carries no offensive
 strength of its own, and it is quiet where it counts: it does no refining
