@@ -6,6 +6,9 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "./ai-diplomacy-evaluation.js";
 
+/** How far past the agreed coin the AI's price may drift before it withdraws: prices follow live income. */
+const COUNTER_PRICE_TOLERANCE = 0.1;
+
 export type AiOfferRecheckDeps = {
   fetchAiSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
   requesterSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
@@ -46,5 +49,6 @@ export const recheckAiOffer = async (
   const pricing = offer.extendsTruce ? extensionPricing(evaluation.pricing) : evaluation.pricing;
   const verdict = evaluateAiOffer(pricing, offer.kind, offer.durationHours, playerTerms);
   if (verdict.accepts) return undefined;
+  if (verdict.reason === "shortfall" && verdict.shortfall <= playerTerms.give.gold * COUNTER_PRICE_TOLERANCE) return undefined;
   return { reason: `${offer.aiName} withdrew its offer: those terms no longer suit it. Open a new deal to see its price.`, withdraw: true };
 };

@@ -50,6 +50,13 @@ export const ALLIANCE_HOURS: Partial<Record<AiAttitude, number>> = { PLEASED: 24
 
 /** Income floor so prices never collapse to zero: 10 coin a day, in coin/min. */
 export const MIN_INCOME_PER_MINUTE = 10 / (24 * 60);
+/**
+ * What "an hour of income" means for goodwill, deliberately far above the price
+ * floor: real incomes are under this, so gifts cost a steady 10 coin a point
+ * rather than getting cheaper the poorer the empires are. On the price floor,
+ * about 2 coin would buy capped goodwill and a free alliance at season start.
+ */
+export const GOODWILL_MIN_INCOME_PER_MINUTE = 1;
 
 export type AiDiplomacyPricingResult = {
   pricing: AiDiplomacyPricing;

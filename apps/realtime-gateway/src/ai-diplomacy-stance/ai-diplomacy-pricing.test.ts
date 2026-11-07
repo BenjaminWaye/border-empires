@@ -4,7 +4,7 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { computeAiOpinion } from "./ai-diplomacy-opinion.js";
-import { aiDiplomacyPricing, MIN_INCOME_PER_MINUTE } from "./ai-diplomacy-pricing.js";
+import { aiDiplomacyPricing, GOODWILL_MIN_INCOME_PER_MINUTE, MIN_INCOME_PER_MINUTE } from "./ai-diplomacy-pricing.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
 import { AI_TEMPERAMENTS, type AiTemperament } from "./ai-diplomacy-temperament.js";
 import type { AiRetaliationReadiness } from "./ai-retaliation-readiness.js";
@@ -52,7 +52,7 @@ const price = (options: {
     requesterTruceBreaksWithOthers: options.breaksWithOthers ?? 0,
     requesterBrokeAllianceWithAi: options.brokeAlliance ?? false,
     bordersTouch,
-    incomePerHour: Math.max(MIN_INCOME_PER_MINUTE, aiIncome, requesterIncome) * 60,
+    incomePerHour: Math.max(GOODWILL_MIN_INCOME_PER_MINUTE, aiIncome, requesterIncome) * 60,
     ...(options.temperament ? { temperament: options.temperament } : {}),
     now: NOW
   });
@@ -396,11 +396,14 @@ describe("answerDiplomacyStanceQuery", () => {
     }));
   });
 
-  // Goodwill's "hour of income" uses the same floor as prices.
-  it("measures goodwill against real incomes below 1 coin/min", async () => {
-    const lowIncome = { ...aiSnapshot, player: { ...aiSnapshot.player, incomePerMinute: 0.1 } } as unknown as PlayerSubscriptionSnapshot;
-    const result = await answerDiplomacyStanceQuery({ ...deps, fetchAiSnapshot: async () => lowIncome }, "p1", "Milo");
-    expect(result).toEqual(expect.objectContaining({ gift: expect.objectContaining({ coinPerPoint: 1 }) }));
+  // Prices floor at 10 coin a day, which on goodwill's scale would let about 2 coin buy
+  // capped goodwill, and so a free Friendly alliance on day one. Gifts keep their own floor.
+  it("keeps goodwill's cost at low incomes, whatever the price floor", async () => {
+    for (const incomePerMinute of [0, 0.1]) {
+      const lowIncome = { ...aiSnapshot, player: { ...aiSnapshot.player, incomePerMinute } } as unknown as PlayerSubscriptionSnapshot;
+      const result = await answerDiplomacyStanceQuery({ ...deps, fetchAiSnapshot: async () => lowIncome }, "p1", "Milo");
+      expect(result).toEqual(expect.objectContaining({ gift: expect.objectContaining({ coinPerPoint: 10 }) }));
+    }
   });
 
   // A display name can be shared (a human who kept an AI's name): the id the client sends wins.

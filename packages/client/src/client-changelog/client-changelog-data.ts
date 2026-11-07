@@ -472,7 +472,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "AI empires priced deals as if everyone earned at least 1 coin a minute, far above real income, so a neighbour truce cost 720 to 1,080 coin or more.",
     changes: [
       "AI prices are based on what the richer empire really earns, with a minimum of 10 coin a day",
-      "Gifts and payments win AI goodwill in proportion to that same income"
+      "AI empires losing a war pay for peace from their real income too, so those payments are smaller"
     ]
   },
   {
