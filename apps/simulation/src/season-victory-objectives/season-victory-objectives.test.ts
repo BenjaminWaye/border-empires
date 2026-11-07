@@ -290,6 +290,47 @@ describe("seasonVictoryForBroadcast", () => {
 
     expect(result.find((o) => o.id === "ECONOMIC_HEGEMONY")?.selfProgressLabel).toBeUndefined();
   });
+
+  describe("hold countdown on the live ECONOMIC_HEGEMONY objective", () => {
+    // Regression: on prod the summary tracked Astrid's hold (18599s left) but every
+    // broadcast swapped in the live objective, which has no hold fields, so clients
+    // rendered "Astrid holding ·  left" and the victory alert never fired.
+    const holdingLeaderboard: LeaderboardFixture = [
+      { id: "player-1", name: "Astrid", tiles: 1, incomePerMinute: 265, techs: 0, score: 265, rank: 1 },
+      { id: "player-2", name: "Runner Up", tiles: 1, incomePerMinute: 100, techs: 0, score: 100, rank: 2 }
+    ];
+    const cachedHold = (leaderPlayerId: string): typeof cachedObjectives =>
+      cachedObjectives.map((objective) =>
+        objective.id === "ECONOMIC_HEGEMONY"
+          ? { ...objective, leaderPlayerId, conditionMet: true, statusLabel: "Holding pressure", holdRemainingSeconds: 18599 }
+          : objective
+      );
+    const economicFrom = (cached: typeof cachedObjectives, leaderboard: LeaderboardFixture) =>
+      seasonVictoryForBroadcast(cached, undefined, buildEconomicHegemonyObjective(leaderboard), "player-2", 100).find(
+        (o) => o.id === "ECONOMIC_HEGEMONY"
+      );
+
+    it("keeps the tracked hold while the same leader still meets the condition", () => {
+      const economic = economicFrom(cachedHold("player-1"), holdingLeaderboard);
+      expect(economic?.conditionMet).toBe(true);
+      expect(economic?.holdRemainingSeconds).toBe(18599);
+      expect(economic?.statusLabel).toBe("Holding pressure");
+    });
+
+    it("drops the hold when a different player now leads", () => {
+      const economic = economicFrom(cachedHold("player-2"), holdingLeaderboard);
+      expect(economic?.conditionMet).toBe(true);
+      expect(economic?.holdRemainingSeconds).toBeUndefined();
+      expect(economic?.statusLabel).toBe("Threshold met");
+    });
+
+    it("drops the hold when the live condition has lapsed", () => {
+      const lapsed = holdingLeaderboard.map((entry) => ({ ...entry, incomePerMinute: 1 }));
+      const economic = economicFrom(cachedHold("player-1"), lapsed);
+      expect(economic?.conditionMet).toBe(false);
+      expect(economic?.holdRemainingSeconds).toBeUndefined();
+    });
+  });
 });
 
 describe("selfProgressByPlayerId (numeric companion to selfProgressLabelsByPlayerId)", () => {

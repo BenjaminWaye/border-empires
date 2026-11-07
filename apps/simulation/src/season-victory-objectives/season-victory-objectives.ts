@@ -184,6 +184,17 @@ export const buildEconomicHegemonyObjective = (
 export const economicHegemonySelfProgressLabel = (incomePerMinute: number): string =>
   `${(incomePerMinute * 1440).toFixed(1)} coin/day`;
 
+// The live objective is rebuilt from the leaderboard and knows nothing about holds; those come
+// from updateSeasonVictoryTrackers via the cached summary. Keep the hold only while the same
+// leader still meets the condition, since the tracker restarts it for anyone else.
+const withTrackedHold = (
+  live: SeasonVictoryObjectiveSnapshot,
+  cached: SeasonVictoryObjectiveSnapshot
+): SeasonVictoryObjectiveSnapshot =>
+  live.conditionMet && live.leaderPlayerId === cached.leaderPlayerId && typeof cached.holdRemainingSeconds === "number"
+    ? { ...live, holdRemainingSeconds: cached.holdRemainingSeconds, statusLabel: cached.statusLabel }
+    : live;
+
 // Refreshes the ECONOMIC_HEGEMONY entry of an otherwise-cached seasonVictory array with
 // the already-computed live objective, and refreshes/overrides that one player's
 // self-progress label to match. Callers must compute `liveEconomicHegemony` via
@@ -199,7 +210,7 @@ export const seasonVictoryForBroadcast = (
   cachedSelfProgressValues?: Map<SeasonVictoryPathId, number>
 ): SeasonVictoryObjectiveSnapshot[] => {
   const objectives = cachedObjectives.map((objective) =>
-    objective.id === "ECONOMIC_HEGEMONY" ? liveEconomicHegemony : objective
+    objective.id === "ECONOMIC_HEGEMONY" ? withTrackedHold(liveEconomicHegemony, objective) : objective
   );
   const selfProgressLabels =
     liveEconomicHegemony.leaderPlayerId !== playerId && typeof playerIncomePerMinute === "number"

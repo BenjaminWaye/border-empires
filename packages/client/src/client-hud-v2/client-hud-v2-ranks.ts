@@ -45,8 +45,9 @@ export const nonLeaderShare = (o: SeasonVictoryObjectiveView, progress: number):
 
 export const formatHold = (seconds: number | undefined): string => {
   if (seconds === undefined) return "";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.ceil((seconds % 3600) / 60);
+  const totalMinutes = Math.ceil(seconds / 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
   return h > 0 ? `${h}h${m > 0 && h < 10 ? ` ${m}m` : ""}` : `${Math.max(1, m)}m`;
 };
 
@@ -101,7 +102,7 @@ const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => 
   }
   const laid = pinsHtml(pins);
   const status = holding
-    ? `<span class="v2r-status v2r-status-hold">⧗ ${esc(iLead ? "You" : leaderName)} holding · ${formatHold(o.holdRemainingSeconds)} left</span>`
+    ? `<span class="v2r-status v2r-status-hold">⧗ ${esc(iLead ? "You" : leaderName)} holding${o.holdRemainingSeconds === undefined ? "" : ` · ${formatHold(o.holdRemainingSeconds)} left`}</span>`
     : iLead
       ? `<span class="v2r-status v2r-status-you">★ You lead</span>`
       : o.leaderName
@@ -122,7 +123,7 @@ export const ranksBannerHtml = (input: RanksInput): string => {
   const holding = input.objectives.filter((o) => o.conditionMet && o.leaderName).sort((a, b) => (a.holdRemainingSeconds ?? Infinity) - (b.holdRemainingSeconds ?? Infinity))[0];
   if (!holding) return `<span class="v2r-banner">Hold any path past the line for 24h</span>`;
   const who = holding.leaderPlayerId === input.me ? "You are" : `${esc(holding.leaderPlayerId ? input.nameOf(holding.leaderPlayerId) || holding.leaderName : holding.leaderName)} is`;
-  return `<span class="v2r-banner v2r-banner-hold">⧗ ${who} holding ${esc(holding.name)} · ${formatHold(holding.holdRemainingSeconds)} to win</span>`;
+  return `<span class="v2r-banner v2r-banner-hold">⧗ ${who} holding ${esc(holding.name)}${holding.holdRemainingSeconds === undefined ? "" : ` · ${formatHold(holding.holdRemainingSeconds)} to win`}</span>`;
 };
 
 const standingsHtml = (input: RanksInput): string => {
