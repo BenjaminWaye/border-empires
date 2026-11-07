@@ -22,7 +22,7 @@ describe("claim continuation (server-durable settle+build tail)", () => {
       },
       initialPlayers: garrisonVeteranSeedPlayers(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 11, y: 10, terrain: "LAND" } // unowned frontier target of the EXPAND
         ],
@@ -100,7 +100,7 @@ describe("claim continuation (server-durable settle+build tail)", () => {
       },
       initialPlayers: garrisonVeteranSeedPlayers(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
         ],
@@ -207,7 +207,7 @@ describe("claim continuation (server-durable settle+build tail)", () => {
       },
       initialPlayers: garrisonVeteranSeedPlayers(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
         ],
@@ -280,7 +280,7 @@ describe("claim continuation (server-durable settle+build tail)", () => {
       },
       initialPlayers: garrisonVeteranSeedPlayers(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
         ],

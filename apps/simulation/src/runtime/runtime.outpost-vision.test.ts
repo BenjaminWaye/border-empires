@@ -36,7 +36,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
       initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           ...tiles,
           {
             x: 10,
@@ -125,7 +125,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
         initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
         seedTiles: new Map(),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"),
             ...tiles,
             {
               x: 10,
@@ -186,7 +186,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
       ]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           ...tiles,
           {
             x: 30,
@@ -242,7 +242,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
       initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           ...tiles,
           {
             x: 10,
@@ -326,7 +326,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
       initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           ...tiles,
           ...freeOutposts,
           {

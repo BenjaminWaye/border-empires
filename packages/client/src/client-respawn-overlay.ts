@@ -49,14 +49,14 @@ export const renderRespawnOverlay = (deps: RespawnOverlayDeps): void => {
         <h2 id="respawn-title" class="respawn-title">${notice.title}</h2>
         <p class="respawn-summary">${notice.summary}</p>
         <section class="respawn-section respawn-reason-card">
-          <h3>Reason for respawn</h3>
+          <h3>Reason for redeployment</h3>
           <p>${reasonLabel(notice)}</p>
           <p>${notice.detail}</p>
         </section>
         <section class="respawn-section">
           <h3>What the server did</h3>
           <p>
-            Respawns are a safety path. If the server sees that your empire no longer has a playable origin, it gives you a fresh settlement instead of leaving you logged in with zero territory and no way to recover.
+            A House without a surviving foothold redeploys with a fresh AFC landing.
           </p>
           <p>
             This can be expected after a real elimination, but it can also happen during account recovery or startup repair when saved ownership data does not match a playable empire state.
@@ -71,7 +71,7 @@ export const renderRespawnOverlay = (deps: RespawnOverlayDeps): void => {
         <section class="respawn-section">
           <h3>If you think this was a bug</h3>
           <p>
-            The reason for the respawn is written above. If it still looks wrong, download one respawn report with the written reason, the recent client and server event stream, and the debug log bundled together.
+            The reason for the redeployment is written above. If it still looks wrong, download one recovery report with the written reason, the recent client and server event stream, and the debug log bundled together.
           </p>
           <div class="respawn-actions">
             <button id="respawn-center" class="panel-btn" type="button">Center on new capital</button>

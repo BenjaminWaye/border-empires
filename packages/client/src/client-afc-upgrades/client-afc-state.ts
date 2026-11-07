@@ -1,3 +1,4 @@
+import type { AfcRecoveryState } from "@border-empires/shared";
 import type { DomainInfo } from "../client-types.js";
 export { aetherHijackAlertFeedEntry } from "./client-afc-alerts.js";
 
@@ -8,6 +9,9 @@ export interface AfcHijackOutcomeView { targetX: number; targetY: number; caster
 /** Breakthrough Protocol surrender, kept briefly for the map effect. */
 export interface AfcBreakthroughView { attackerId: string; fromX: number; fromY: number; tiles: Array<{ x: number; y: number }>; at: number }
 export interface AfcClientState {
+  afcRecovery?: AfcRecoveryState | undefined;
+  afcRecoveryPopupOpen?: boolean;
+  afcRecoveryDismissedKey?: string;
   afcUpgradeRuleset: "afc-v1" | undefined;
   afcUpgradeInstallAllowed: boolean | undefined;
   afcInstallationOutcome: string;
@@ -19,9 +23,22 @@ export interface AfcClientState {
   afcHijackOutcomes: AfcHijackOutcomeView[];
   afcBreakthroughs: AfcBreakthroughView[];
 }
-export const createInitialAfcState = (): AfcClientState => ({ afcUpgradeRuleset: undefined, afcUpgradeInstallAllowed: undefined, afcInstallationOutcome: "", afcInstallationPreviews: {}, forcedTruceCooldownUntil: 0, hijackReadyAt: 0, freeFortsUsed: 0, afcHijacks: [], afcHijackOutcomes: [], afcBreakthroughs: [] });
+export const createInitialAfcState = (): AfcClientState => ({ afcRecovery: undefined, afcRecoveryPopupOpen: false, afcRecoveryDismissedKey: "", afcUpgradeRuleset: undefined, afcUpgradeInstallAllowed: undefined, afcInstallationOutcome: "", afcInstallationPreviews: {}, forcedTruceCooldownUntil: 0, hijackReadyAt: 0, freeFortsUsed: 0, afcHijacks: [], afcHijackOutcomes: [], afcBreakthroughs: [] });
 const object = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
 export function applyAfcStateMessage(state: Partial<AfcClientState>, payload: Record<string, unknown>): void {
+  if (object(payload.afcRecovery)) {
+    const raw = payload.afcRecovery;
+    if (typeof raw.globalLosses === "number" && Number.isSafeInteger(raw.globalLosses) && raw.globalLosses >= 0) {
+      const next: AfcRecoveryState = { globalLosses: raw.globalLosses };
+      if (typeof raw.requiredSince === "number" && Number.isFinite(raw.requiredSince)) next.requiredSince = raw.requiredSince;
+      if (typeof raw.cancellation === "string") next.cancellation = raw.cancellation.slice(0, 200);
+      const p = raw.pending;
+      if (object(p) && typeof p.x === "number" && Number.isInteger(p.x) && typeof p.y === "number" && Number.isInteger(p.y) && typeof p.cost === "number" && Number.isFinite(p.cost) && typeof p.arrivesAt === "number" && Number.isFinite(p.arrivesAt) && typeof p.commandId === "string") next.pending = { x: p.x, y: p.y, cost: p.cost, arrivesAt: p.arrivesAt, commandId: p.commandId };
+      state.afcRecovery = next;
+      const key = `${next.requiredSince}:${next.cancellation ?? ""}`;
+      state.afcRecoveryPopupOpen = next.requiredSince !== undefined && !next.pending && key !== state.afcRecoveryDismissedKey;
+    }
+  }
   if (payload.afcUpgradeRuleset === "afc-v1") state.afcUpgradeRuleset = payload.afcUpgradeRuleset;
   if (typeof payload.afcUpgradeInstallAllowed === "boolean") state.afcUpgradeInstallAllowed = payload.afcUpgradeInstallAllowed;
   if (typeof payload.forcedTruceCooldownUntil === "number") state.forcedTruceCooldownUntil = payload.forcedTruceCooldownUntil;

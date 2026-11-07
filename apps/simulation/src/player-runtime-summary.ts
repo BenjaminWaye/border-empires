@@ -131,6 +131,10 @@ export type PlayerRuntimeSummary = {
   // NOT a town, so it must not participate in manpowerRegenWeightForSettlementIndex
   // or dock/network adjacency. Its flat cap/regen/gold contribution is added
   // as a separate special case in runtime-manpower.ts and player-update-economy.ts.
+  /** Includes captured AFCs waiting to be garrisoned; separate from operational anchors. */
+  controlledAfcCount: number;
+  /** Bounded AI recovery scan cursor; derived planning cache, never snapshotted. */
+  afcRecoverySiteCursor?: Iterator<string, undefined>;
   ownedAfcTileKeys: Set<string>;
   goldIncomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
@@ -237,6 +241,7 @@ export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   ownedTownTierByTile: new Map<string, TownPopulationTier>(),
   ownedTownProfileByTile: new Map(),
   ownedTownCoastalByTile: new Map(),
+  controlledAfcCount: 0,
   ownedAfcTileKeys: new Set<string>(),
   goldIncomePerMinute: 0,
   strategicProductionPerMinute: emptyStrategicProduction(),
@@ -350,7 +355,8 @@ export const applyTileToPlayerSummary = (
     summary.ownedTownProfileByTile?.set(tileKey, resolvedTownTerrainProfileId(tile.town?.terrainProfile, tile.landBiome));
     summary.ownedTownCoastalByTile?.set(tileKey, resolvedTownCoastal(tile.town?.terrainProfile, tile.landBiome, tile.town?.coastal));
   }
-  if (tile.ownershipState === "SETTLED" && tile.afc?.ownerId === tile.ownerId) {
+  if (tile.afc?.ownerId === tile.ownerId) summary.controlledAfcCount++;
+  if (tile.ownershipState === "SETTLED" && tile.afc?.ownerId === tile.ownerId && tile.afc.status === "active") {
     summary.ownedAfcTileKeys.add(tileKey);
   }
   summary.goldIncomePerMinute += goldIncomePerMinuteForTile(tile);
@@ -385,6 +391,7 @@ export const removeTileFromPlayerSummary = (
     summary.ownedTownProfileByTile?.delete(tileKey);
     summary.ownedTownCoastalByTile?.delete(tileKey);
   }
+  if (tile.afc?.ownerId === tile.ownerId) summary.controlledAfcCount = Math.max(0, summary.controlledAfcCount - 1);
   summary.ownedAfcTileKeys.delete(tileKey);
   summary.goldIncomePerMinute = Math.max(0, summary.goldIncomePerMinute - goldIncomePerMinuteForTile(tile));
   summary.structureProcessCount = Math.max(0, summary.structureProcessCount - activeStructureProcessCount(tile, tile.ownerId));

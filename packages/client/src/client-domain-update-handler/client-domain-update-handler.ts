@@ -31,6 +31,11 @@ export const applyDomainUpdateMessage = (
   deps: { clearQueuedDevelopmentDispatchPending: () => void; renderHud: () => void }
 ): void => {
   applyAfcStateMessage(state, msg);
+  if (msg.afcRecoveryOnly === true) {
+    if (typeof msg.gold === "number") state.gold = msg.gold;
+    deps.renderHud();
+    return;
+  }
   state.pendingDomainUnlockId = "";
   state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
   if (typeof msg.activeDevelopmentProcessCount === "number") deps.clearQueuedDevelopmentDispatchPending();

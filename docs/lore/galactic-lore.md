@@ -631,6 +631,26 @@ AFC's crown. Nothing is fabricated in orbit or dropped from it. The drones are
 presentation of that supply chain, not a separately modelled unit or
 logistics system.
 
+### Replacement supply and withdrawal
+
+Losing the last AFC leaves a House without the industrial seed needed to
+fabricate new structures. Surviving forces and independently productive
+holdings remain in the field, but the missing complex cannot provide its
+own revenue or ancillary capacity. The House must commission a replacement
+and secure its landing site until delivery is complete.
+
+AFC losses anywhere on the planet strain the same offworld supply chain.
+House factors quote a shared replacement price that rises with campaign
+losses, reflecting increasing demand for imported machinery and transport.
+An aborted landing returns the reserved purchasing credit; no complex has
+been lost in that cancelled delivery.
+
+A Duke may instead **withdraw and redeploy**: relinquish the expedition's
+territory and fielded reserves, surrender its remaining campaign treasury,
+and establish a fresh foothold elsewhere with an opening landing package.
+The House retains its knowledge. This is a withdrawal from its position on
+the current planet, not a new seasonal expedition.
+
 ### House copies and captured machinery
 
 A commissioned House module is a physical asset assigned to an AFC. House

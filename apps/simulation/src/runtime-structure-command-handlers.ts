@@ -41,6 +41,7 @@ import { scheduleStructureCompletion } from "./attack-development-hold/attack-de
 export { structureLabel } from "./runtime-structure-command-handlers-reject.js";
 
 export type RuntimeStructureCommandContext = {
+  afcGlobalLosses?: () => number;
   players: Map<string, DomainPlayer>;
   tiles: Map<string, DomainTileState>;
   musterTilesByOwner: Map<string, Set<string>>;
@@ -187,13 +188,14 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     rejectCommand(context, command, "UNKNOWN_STRUCTURE", `unknown structure type: ${payload.structureType}`);
     return;
   }
+  let target = context.tiles.get(simulationTileKey(payload.x, payload.y));
+  if (!target) return rejectCommand(context, command, "UNKNOWN_TILE", "tile not found");
+  if (target.ownerId !== actor.id) return rejectCommand(context, command, "BUILD_INVALID", "tile must be owned");
+  if (context.summaryForPlayer && context.summaryForPlayer(actor.id).ownedAfcTileKeys.size === 0) {
+    return rejectCommand(context, command, "AFC_REQUIRED", "An operational AFC is required to continue construction. Call down a replacement or garrison your captured AFC.");
+  }
   context.applyManpowerRegen(actor);
 
-  let target = context.tiles.get(simulationTileKey(payload.x, payload.y));
-  if (!target) {
-    rejectCommand(context, command, "UNKNOWN_TILE", "tile not found");
-    return;
-  }
   for (const techId of spec.techIds) {
     if (!actor.techIds.has(techId) && !(spec.kind === "FORT" && fortTechWaived(actor, techId))) {
       rejectCommand(context, command, "BUILD_INVALID", `unlock ${structureLabel(structureType)} first`);

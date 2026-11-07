@@ -1,0 +1,126 @@
+/* Match the shared steampunk panels and Manifest detail chrome. */
+#afc-recovery-ui {
+  position: relative;
+  z-index: 45;
+  --afc-edge: var(--sp-brass-700);
+  --afc-line: var(--sp-walnut-600);
+  --afc-text: var(--sp-parchment-100);
+  --afc-muted: var(--sp-parchment-muted);
+  --afc-highlight: var(--sp-brass-100);
+  --afc-gold: var(--sp-brass-300);
+  --afc-well: var(--sp-iron-900);
+  --afc-warning: var(--sp-ember-400);
+  --afc-danger: var(--sp-ember-600);
+}
+body.hud-v2 #afc-recovery-ui {
+  --afc-edge: var(--v2-edge);
+  --afc-line: var(--v2-line);
+  --afc-text: var(--v2-text);
+  --afc-muted: var(--v2-muted);
+  --afc-highlight: var(--v2-gold-hi);
+  --afc-gold: var(--v2-gold);
+  --afc-well: var(--v2-well);
+  --afc-warning: var(--v2-amber);
+  --afc-danger: var(--v2-red);
+}
+
+#afc-recovery-ui.afc-recovery-ui--modal { z-index: 9999; }
+.afc-recovery-shade {
+  position: fixed;
+  inset: 0;
+  background: rgb(12 9 6 / 76%);
+  backdrop-filter: blur(4px);
+}
+.afc-recovery-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--afc-edge);
+  border-radius: 6px;
+  background: var(--sp-glass-sheen), var(--sp-panel-bg);
+  color: var(--afc-text);
+  font: 15px/1.5 var(--sp-font-body);
+  box-shadow: 0 18px 44px rgb(0 0 0 / 60%), inset 0 0 0 1px rgb(217 173 82 / 12%);
+}
+.afc-recovery-head {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--afc-edge);
+}
+.afc-recovery-kicker {
+  color: var(--afc-muted);
+  font: 600 11px/1.4 var(--sp-font-mono);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.afc-recovery-modal h2 {
+  margin: 8px 0 0;
+  color: var(--afc-highlight);
+  font: 600 22px/1.25 var(--sp-font-display);
+}
+.afc-recovery-body { overflow-y: auto; padding: 16px 24px; }
+.afc-recovery-modal p { margin: 0 0 12px; color: var(--afc-muted); }
+.afc-recovery-modal p:last-child { margin-bottom: 0; }
+.afc-recovery-modal .afc-recovery-lead { color: var(--afc-text); font-weight: 600; }
+.afc-recovery-quote {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 16px 0 12px;
+  border: 1px solid var(--afc-line);
+  border-radius: 4px;
+  background: var(--afc-well);
+}
+.afc-recovery-quote > div { display: grid; gap: 4px; padding: 12px 16px; }
+.afc-recovery-quote > div + div { border-left: 1px solid var(--afc-line); }
+.afc-recovery-quote span {
+  color: var(--afc-muted);
+  font: 11px/1.4 var(--sp-font-mono);
+}
+.afc-recovery-quote strong { color: var(--afc-highlight); font: 700 16px/1.4 var(--sp-font-mono); }
+.afc-recovery-supply { font-size: 13px; }
+.afc-recovery-modal .afc-recovery-cancellation { color: var(--afc-warning); }
+.afc-recovery-cancellation:empty { display: none; }
+.afc-recovery-footer { padding: 16px 24px 20px; border-top: 1px solid var(--afc-edge); }
+.afc-recovery-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.afc-recovery-actions [data-afc-choose] { grid-column: 1 / -1; }
+.afc-recovery-actions [data-afc-choose].panel-btn { border-color: var(--afc-gold); color: var(--afc-highlight); }
+.afc-recovery-actions .panel-btn,
+.afc-recovery-footer [data-afc-confirm].panel-btn { min-height: 44px; padding: 10px 12px; font-size: 14px; }
+.afc-recovery-footer [data-afc-withdraw-confirm] { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--afc-line); }
+.afc-recovery-footer [data-afc-confirm] { width: 100%; }
+.afc-recovery-footer [data-afc-confirm].panel-btn { border-color: var(--afc-danger); }
+.afc-recovery-actions .panel-btn:disabled { opacity: .4; cursor: not-allowed; }
+.afc-recovery-modal:focus { outline: none; }
+.afc-recovery-modal button:focus-visible { outline: 2px solid var(--afc-gold); outline-offset: 3px; }
+.afc-recovery-status {
+  position: fixed;
+  bottom: max(110px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 24px);
+  padding: 10px 16px;
+}
+@media (max-width: 480px) {
+  .afc-recovery-modal { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); }
+  .afc-recovery-head { padding: 16px; }
+  .afc-recovery-body { padding: 16px; }
+  .afc-recovery-footer { padding: 12px 16px 16px; }
+  .afc-recovery-modal h2 { font-size: 20px; }
+  .afc-recovery-quote > div { padding: 12px; }
+}
+
+/* V2 uses flat ink panels and its shared screen buttons, without the older bevels. */
+body.hud-v2 .afc-recovery-modal {
+  border-radius: 0;
+  background: var(--v2-ink-solid);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 50%);
+  font-family: var(--v2-body);
+}
+body.hud-v2 .afc-recovery-quote { border-radius: 0; }
+body.hud-v2 .afc-recovery-status { border-radius: 0; }

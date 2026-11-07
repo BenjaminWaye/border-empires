@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "../runtime/runtime.test-helpers.js";
 import { describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
@@ -70,7 +71,7 @@ describe("muster accumulation tick", () => {
       initialState: {
         // Second tile is a TOWN (cap=300) so the player's manpower cap exceeds
         // MUSTER_BASE_RATE_PER_MIN (180), making throughput the bottleneck.
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } }
         ],
@@ -96,7 +97,7 @@ describe("muster accumulation tick", () => {
       now: () => nowMs,
       initialPlayers: new Map([["player-1", makePlayer("player-1", 10_000)]]),
       initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+        tiles: [afcModuleFixtureTile("player-1"),{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
         activeLocks: []
       }
     });
@@ -126,7 +127,7 @@ describe("muster accumulation tick", () => {
         // can't soak up the pool. (Uses GREAT_CITY rather than TOWN so this
         // stays well above the floor regardless of §upgrade-bonus-rebalance's
         // halved per-tier manpower increases.)
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "GREAT_CITY" as const } },
           { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "GREAT_CITY" as const } },
@@ -153,7 +154,7 @@ describe("muster accumulation tick", () => {
       now: () => nowMs,
       initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
       initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+        tiles: [afcModuleFixtureTile("player-1"),{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
         activeLocks: []
       }
     });
@@ -173,7 +174,7 @@ describe("muster accumulation tick", () => {
       now: () => nowMs,
       initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } },
           { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } },
@@ -209,7 +210,7 @@ describe("muster accumulation tick", () => {
       now: () => nowMs,
       initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
       initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+        tiles: [afcModuleFixtureTile("player-1"),{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
         activeLocks: []
       }
     });
@@ -233,7 +234,7 @@ describe("muster accumulation tick", () => {
       initialState: {
         // TOWN tile (cap=300) ensures player cap exceeds total throughput (2 × 90 = 180)
         // so each flag is throughput-limited, not pool-limited.
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 14, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } }
@@ -265,7 +266,7 @@ describe("muster accumulation tick", () => {
       now: () => nowMs,
       initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 200, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 201, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", siegeBattery: { ownerId: "player-1", status: "active" } },
           { x: 205, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", siegeBattery: { ownerId: "player-1", status: "active" } },
@@ -309,7 +310,7 @@ describe("muster accumulation tick", () => {
         // A TOWN tile keeps the player's manpower cap comfortably above the
         // total throughput (4 flags splitting MUSTER_BASE_RATE_PER_MIN), so
         // every flag is throughput-limited, not pool- or cap-limited.
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", muster: { ownerId: "player-1", amount: 0, mode: "HOLD", setAt: 1_000, updatedAt: 1_000 } },
           { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", muster: { ownerId: "player-1", amount: 0, mode: "HOLD", setAt: 1_000, updatedAt: 1_000 } },
           { x: 14, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", muster: { ownerId: "player-1", amount: 0, mode: "HOLD", setAt: 1_000, updatedAt: 1_000 } },
@@ -346,7 +347,7 @@ describe("muster accumulation tick", () => {
     const runtime = new SimulationRuntime({
       now: () => nowMs,
       initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
-      initialState: { tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }], activeLocks: [] }
+      initialState: { tiles: [afcModuleFixtureTile("player-1"),{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }], activeLocks: [] }
     });
 
     await setMuster(runtime, 10, 10, 1);
@@ -364,7 +365,7 @@ describe("muster accumulation tick", () => {
       now: () => nowMs,
       initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
         ],

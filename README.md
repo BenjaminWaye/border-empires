@@ -25,6 +25,10 @@ Border Empires is a persistent-world 2D tile conquest game built around territor
 
 Each player controls a civilization that starts from a single land tile, expands into adjacent neutral land, and attacks neighboring enemy tiles. Combat resolves through ownership transitions, not unit battles.
 
+Losing your last Automated Fabrication Complex suspends new construction.
+Commission a replacement on owned land, keep fighting with surviving holdings,
+or withdraw and redeploy. See [AFC recovery](docs/afc-recovery-plan.md).
+
 ### World and Terrain
 
 - The world is a toroidal grid (wrap-around edges) seeded fresh each season with a unique world seed.

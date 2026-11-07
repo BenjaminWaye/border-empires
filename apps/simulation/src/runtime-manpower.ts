@@ -23,7 +23,7 @@ type BiotaSupply = ReadonlyMap<string, BiotaTownSupply> | undefined;
 const manpowerTier = (tileKey: string, tier: TownTier, biota: BiotaSupply): TownTier => biota?.get(tileKey)?.manpowerTier ?? tier;
 
 // Starting capital is a separate,
-// always-present manpower source — distinct from TOWN_MANPOWER_BY_TIER.SETTLEMENT
+// AFC-backed manpower source — distinct from TOWN_MANPOWER_BY_TIER.SETTLEMENT
 // — and is added on top of every owned town's contribution rather than acting
 // as a Math.max floor. A floor would mask a captured town's own contribution
 // (e.g. a first SETTLEMENT town would add nothing if its regen sat under the
@@ -57,7 +57,7 @@ export const playerManpowerCapFromSummary = (
   // flat SETTLEMENT-tier baseline once per House, not terrain-scaled -- deliberately
   // NOT part of the ownedTownTierByTile loop above (an AFC is not a town).
   cap += Math.min(summary.ownedAfcTileKeys.size, 1) * TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap;
-  return STARTING_CAPITAL_MANPOWER_CAP + cap;
+  return (summary.ownedAfcTileKeys.size > 0 ? STARTING_CAPITAL_MANPOWER_CAP : 0) + cap;
 };
 
 export const playerManpowerRegenPerMinuteFromSummary = (
@@ -89,7 +89,7 @@ export const playerManpowerRegenPerMinuteFromSummary = (
   const afcBonus = Math.min(summary.ownedAfcTileKeys.size, 1) * TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute;
   return Math.max(
     MANPOWER_REGEN_GLOBAL_FLOOR,
-    STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE +
+    (summary.ownedAfcTileKeys.size > 0 ? STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE : 0) +
       regen +
       ancillaryFactoryStandaloneBonus +
       neuralWorksNetworkBonus +
@@ -204,8 +204,8 @@ export const playerManpowerBreakdownFromSummary = (
     regenLines.push({ label, amount: -shortfall.regen });
   }
   return {
-    cap: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_CAP }, ...capLinesWithNeuralWorksNetwork],
-    regen: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE }, ...regenLines]
+    cap: [...(summary.ownedAfcTileKeys.size > 0 ? [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_CAP }] : []), ...capLinesWithNeuralWorksNetwork],
+    regen: [...(summary.ownedAfcTileKeys.size > 0 ? [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE }] : []), ...regenLines]
   };
 };
 

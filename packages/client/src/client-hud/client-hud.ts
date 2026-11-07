@@ -1,3 +1,5 @@
+import { renderAfcRecovery } from "../client-afc-recovery/client-afc-recovery.js";
+import { bindRequestActionButtons } from "./client-hud-request-actions.js";
 import { renderAfcUpgradePanels } from "../client-afc-upgrades/client-afc-upgrades.js";
 import { updateManifestDetail, renderMobileManifestOverlay } from "../client-manifest-detail/client-manifest-detail-dom.js";
 import type { Auth } from "firebase/auth";
@@ -147,6 +149,7 @@ type HudDeps = {
 };
 
 export const renderClientHud = (deps: HudDeps): void => {
+  renderAfcRecovery({ state: deps.state, send: deps.sendGameMessage, rerender: () => renderClientHud(deps), placementOverlayEl: deps.dom.placementOverlayEl, placementLabelEl: deps.dom.placementLabelEl });
   const {
     state,
     dom,
@@ -707,29 +710,12 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.panelSettingsEl.innerHTML = settingsPanelHtml(state, wsUrl, firebaseAuth);
   dom.mobilePanelSettingsEl.innerHTML = dom.panelSettingsEl.innerHTML;
 
-  // Shared binder for the near-identical accept/reject/cancel request-action
-  // buttons below (alliance + truce), which previously duplicated the same
-  // querySelectorAll/forEach/onclick shape six times.
-  const bindRequestActionButtons = (
-    selector: string,
-    datasetKey: "requestId" | "truceRequestId",
-    buildMessage: (id: string) => Record<string, unknown>,
-    failureMessage: string
-  ): void => {
-    (dom.hud.querySelectorAll(selector) as NodeListOf<HTMLButtonElement>).forEach((btn: HTMLButtonElement) => {
-      btn.onclick = () => {
-        const id = btn.dataset[datasetKey];
-        if (!id) return;
-        sendGameMessage(buildMessage(id), failureMessage);
-      };
-    });
-  };
-  bindRequestActionButtons(".accept-request", "requestId", (id) => ({ type: "ALLIANCE_ACCEPT", requestId: id, confirmedResourceSupply: true }), "Finish sign-in before responding to alliance requests.");
-  bindRequestActionButtons(".reject-request", "requestId", (id) => ({ type: "ALLIANCE_REJECT", requestId: id }), "Finish sign-in before responding to alliance requests.");
-  bindRequestActionButtons(".cancel-request", "requestId", (id) => ({ type: "ALLIANCE_CANCEL", requestId: id }), "Finish sign-in before changing alliance requests.");
-  bindRequestActionButtons(".accept-truce", "truceRequestId", (id) => ({ type: "TRUCE_ACCEPT", requestId: id, confirmedResourceSupply: true }), "Finish sign-in before responding to truces.");
-  bindRequestActionButtons(".reject-truce", "truceRequestId", (id) => ({ type: "TRUCE_REJECT", requestId: id }), "Finish sign-in before responding to truces.");
-  bindRequestActionButtons(".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
+  bindRequestActionButtons(dom.hud, sendGameMessage, ".accept-request", "requestId", (id) => ({ type: "ALLIANCE_ACCEPT", requestId: id, confirmedResourceSupply: true }), "Finish sign-in before responding to alliance requests.");
+  bindRequestActionButtons(dom.hud, sendGameMessage, ".reject-request", "requestId", (id) => ({ type: "ALLIANCE_REJECT", requestId: id }), "Finish sign-in before responding to alliance requests.");
+  bindRequestActionButtons(dom.hud, sendGameMessage, ".cancel-request", "requestId", (id) => ({ type: "ALLIANCE_CANCEL", requestId: id }), "Finish sign-in before changing alliance requests.");
+  bindRequestActionButtons(dom.hud, sendGameMessage, ".accept-truce", "truceRequestId", (id) => ({ type: "TRUCE_ACCEPT", requestId: id, confirmedResourceSupply: true }), "Finish sign-in before responding to truces.");
+  bindRequestActionButtons(dom.hud, sendGameMessage, ".reject-truce", "truceRequestId", (id) => ({ type: "TRUCE_REJECT", requestId: id }), "Finish sign-in before responding to truces.");
+  bindRequestActionButtons(dom.hud, sendGameMessage, ".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
 
   bindProposeButtons(dom.hud, { playerNameForOwner, sendGameMessage, state });
   bindMetPlayerRowToggles(dom.hud, state);

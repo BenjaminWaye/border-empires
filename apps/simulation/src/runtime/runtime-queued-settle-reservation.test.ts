@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "./runtime.test-helpers.js";
 import { describe, expect, it } from "vitest";
 import { MANPOWER_REFILL_WINDOW_MS, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
@@ -22,7 +23,7 @@ const setup = (manpower: number) => {
     initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 10_000, manpower, landingReserveGranted: true, manpowerUpdatedAt: 1_000_000 })]]),
     seedTiles: new Map(),
     initialState: {
-      tiles: [
+      tiles: [afcModuleFixtureTile("player-1"),
         { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "TOWN" } },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
       ],

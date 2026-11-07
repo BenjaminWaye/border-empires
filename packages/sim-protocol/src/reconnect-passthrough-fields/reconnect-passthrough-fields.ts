@@ -66,6 +66,7 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   upkeepPerMinute: { kind: "handledInline" },
   techIds: { kind: "handledInline" },
   domainIds: { kind: "handledInline" },
+  afcRecovery: presentField("afcRecovery"),
   afcUpgradeRuleset: presentField("afcUpgradeRuleset"),
   afcUpgradeInstallAllowed: presentField("afcUpgradeInstallAllowed"),
   afcInstallationPreviews: presentField("afcInstallationPreviews"),

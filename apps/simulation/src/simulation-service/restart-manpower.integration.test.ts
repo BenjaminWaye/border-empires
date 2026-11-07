@@ -1,3 +1,4 @@
+import { buildSimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { InMemorySimulationCommandStore } from "../command-store/command-store.js";
@@ -36,6 +37,18 @@ describe("manpower across a graceful restart", () => {
       eventStore: new InMemorySimulationEventStore(),
       snapshotStore: new InMemorySimulationSnapshotStore()
     };
+    await stores.snapshotStore.saveSnapshot({
+      lastAppliedEventId: 0, createdAt: FIXED_NOW_MS,
+      snapshotSections: buildSimulationSnapshotSections({
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "SETTLED", afc: { ownerId: PLAYER_ID, status: "active" } },
+            { x: 11, y: 10, terrain: "LAND" }
+          ], activeLocks: [],
+          players: [{ id: PLAYER_ID, points: 100, manpower: 500, manpowerUpdatedAt: FIXED_NOW_MS, landingReserveGranted: true }]
+        }, commands: [], eventsByCommandId: new Map()
+      })
+    });
     const before = await bootSim(stores);
     const startingManpower = manpowerOf(before.runtime.exportState());
     before.runtime.submitCommand({
