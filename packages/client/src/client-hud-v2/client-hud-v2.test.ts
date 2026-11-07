@@ -103,7 +103,8 @@ describe("tracker", () => {
         { x: 2, y: 2, amount: 10, mode: "ADVANCE", insufficientManpower: true, unfundableTarget: { x: 3, y: 3, required: 900 } }
       ]
     });
-    expect(needs.map((n) => n.sub)).toEqual(["No target in range", "Target too costly"]);
+    expect(needs.map((n) => n.title)).toEqual(["Flag (1, 1) stalled", "Flag (2, 2) needs higher capacity"]);
+    expect(needs.map((n) => n.sub)).toEqual(["No target in range", "Target needs 900"]);
   });
 
   it("caps the waiting list and shows the overflow count", () => {

@@ -53,7 +53,12 @@ export const trackerNeeds = (input: TrackerInput): TrackerNeed[] => {
   for (const flag of input.flags) {
     const starved = Boolean(flag.insufficientManpower) && poolEmpty;
     if (!starved && !flag.noTargetInRange && !flag.unfundableTarget) continue;
-    const sub = starved ? "Needs manpower" : flag.unfundableTarget ? "Target too costly" : "No target in range";
+    // Its target needs more than the flag can hold: Expand Capacity fixes it, not waiting.
+    if (!starved && flag.unfundableTarget) {
+      needs.push({ kind: "flag", title: `Flag (${flag.x}, ${flag.y}) needs higher capacity`, sub: `Target needs ${Math.ceil(flag.unfundableTarget.required)}`, x: flag.x, y: flag.y });
+      continue;
+    }
+    const sub = starved ? "Needs manpower" : "No target in range";
     needs.push({ kind: "flag", title: `Flag (${flag.x}, ${flag.y}) stalled`, sub, x: flag.x, y: flag.y });
   }
   return needs;
