@@ -13,6 +13,7 @@ import { SEA_VISION_CHANGELOG } from "./client-changelog-sea-vision.js";
 import { BEACON_FOREST_VISION_CHANGELOG } from "./client-changelog-beacon-forest-vision.js";
 import { MANIFEST_WORDING_CHANGELOG } from "./client-changelog-manifest-wording.js";
 import { VICTORY_HOLD_TIME_CHANGELOG } from "./client-changelog-victory-hold-time.js";
+import { RANKS_TRACK_PROFILES_CHANGELOG } from "./client-changelog-ranks-track-profiles.js";
 import { MOBILE_APP_CHANGELOG } from "./client-changelog-mobile-app.js";
 import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
 import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
@@ -153,7 +154,6 @@ import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-earlier-106.js";
-import { PROSPECT_MANIFEST_LINK_CHANGELOG } from "./client-changelog-prospect-manifest-link.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -488,7 +488,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...VICTORY_HOLD_TIME_CHANGELOG,
-  ...PROSPECT_MANIFEST_LINK_CHANGELOG
+  ...RANKS_TRACK_PROFILES_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
