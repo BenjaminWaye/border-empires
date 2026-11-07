@@ -51,8 +51,8 @@ export const applyRespawnNoticeToState = (
   state.lastSeenRespawnNoticeId = notice.id;
   state.respawnOverlayOpen = true;
   pushFeedEntry?.({
-    title: "Empire Respawned",
-    text: `${notice.summary} Open the respawn notice for details and diagnostics.`,
+    title: "House redeployed",
+    text: `${notice.summary} Open the recovery notice for details and diagnostics.`,
     type: "error",
     severity: "warn",
     at: notice.at

@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "./runtime.test-helpers.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
@@ -59,7 +60,7 @@ describe("development hold while a tile is under attack", () => {
       ]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [{ ...afcModuleFixtureTile("player-2"), x: 200, y: 200 }, afcModuleFixtureTile("player-1"),
           ...attackerTiles,
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
           defenderTown
@@ -101,7 +102,7 @@ describe("development hold while a tile is under attack", () => {
       ]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [{ ...afcModuleFixtureTile("player-2"), x: 200, y: 200 }, afcModuleFixtureTile("player-1"),
           ...attackerTiles,
           {
             x: 10,
@@ -153,7 +154,7 @@ describe("development hold while a tile is under attack", () => {
       ]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [{ ...afcModuleFixtureTile("player-2"), x: 200, y: 200 }, afcModuleFixtureTile("player-1"),
           ...attackerTiles,
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "HYDROGARDEN", status: "under_construction", completesAt: START + 600_000 } },
           defenderTown
@@ -186,7 +187,7 @@ describe("development hold while a tile is under attack", () => {
       ]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [{ ...afcModuleFixtureTile("player-2"), x: 200, y: 200 }, afcModuleFixtureTile("player-1"),
           ...attackerTiles,
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "HYDROGARDEN", status: "under_construction", completesAt: START + 600_000 } },
           defenderTown
@@ -214,7 +215,7 @@ describe("development hold while a tile is under attack", () => {
       initialPlayers: new Map([["player-2", buildPlayer("player-2", { isAi: true })]]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [{ ...afcModuleFixtureTile("player-2"), x: 200, y: 200 }, afcModuleFixtureTile("player-1"),
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "HYDROGARDEN", status: "under_construction", completesAt: START + 60_000, pausedAt: START } }
         ],
         activeLocks: []
@@ -242,7 +243,7 @@ describe("development hold while a tile is under attack", () => {
       ]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [{ ...afcModuleFixtureTile("player-2"), x: 200, y: 200 }, afcModuleFixtureTile("player-1"),
           ...attackerTiles,
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "HYDROGARDEN", status: "under_construction", completesAt: START + 10_000 } },
           defenderTown
@@ -272,7 +273,7 @@ describe("development hold while a tile is under attack", () => {
       ]),
       seedTiles: new Map(),
       initialState: {
-        tiles: [
+        tiles: [{ ...afcModuleFixtureTile("player-2"), x: 200, y: 200 }, afcModuleFixtureTile("player-1"),
           ...attackerTiles,
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "HYDROGARDEN", status: "under_construction", completesAt: START + 600_000 } },
           defenderTown
@@ -302,7 +303,7 @@ describe("development hold while a tile is under attack", () => {
         ["player-3", buildPlayer("player-3", { points: 10_000, manpower: 1_000 })]
       ]),
       seedTiles: new Map(),
-      initialState: { tiles: [...attackerTiles, { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }, defenderTown], activeLocks: [] }
+      initialState: { tiles: [{ ...afcModuleFixtureTile("player-2"), x: 200, y: 200 }, afcModuleFixtureTile("player-1"),...attackerTiles, { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }, defenderTown], activeLocks: [] }
     });
     const seen = collectEvents(runtime);
     runtime.submitCommand(command("attack-1", "player-1", "ATTACK", { fromX: 10, fromY: 10, toX: 10, toY: 11 }, 1));

@@ -1,3 +1,4 @@
+import { gateAfcConstructionActions } from "../client-afc-recovery/client-afc-recovery-actions.js";
 import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
 import { townBiotaLineHtml } from "../client-town-biota/client-town-biota-line.js";
 import { manpowerPerBatch, isNetworkResource } from "@border-empires/shared";
@@ -416,7 +417,7 @@ export const tileMenuViewForTile = (
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined; musterCommit?: MusterCommitView | undefined;
-    state: { me: string; dukePlayers?: ReadonlySet<string>; techCatalog?: readonly TechInfo[] } & Partial<ReachAuthoritativeState>;
+    state: { me: string; afcRecovery?: import("@border-empires/shared").AfcRecoveryState | undefined; dukePlayers?: ReadonlySet<string>; techCatalog?: readonly TechInfo[] } & Partial<ReachAuthoritativeState>;
     /**
      * True when this tile is the target of the player's own in-progress
      * frontier expansion — not owned yet, but about to be. Actions/tabs are
@@ -429,7 +430,7 @@ export const tileMenuViewForTile = (
   }
 ): TileMenuView => {
   const actionSourceTile: Tile = deps.pendingOwnershipTile ? { ...tile, ownerId: deps.state.me, ownershipState: "FRONTIER" } : tile;
-  const actions = deps.menuActionsForSingleTile(actionSourceTile);
+  const actions = gateAfcConstructionActions(deps.menuActionsForSingleTile(actionSourceTile), deps.state.afcRecovery);
   const actionTabs = deps.splitTileActionsIntoTabs(actions);
   const combatBreakdown = actionTabs.actions.some((action) => action.id === "launch_attack")
     ? deps.combatBreakdownForTile?.(tile)

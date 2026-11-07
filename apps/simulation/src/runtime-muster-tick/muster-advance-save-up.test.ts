@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "../runtime/runtime.test-helpers.js";
 import { describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
@@ -52,7 +53,7 @@ const scenario = (amount: number, settledFort?: "PALISADE" | "FORT" | "THUNDER_B
       ["player-1", makePlayer("player-1")],
       ["player-2", makePlayer("player-2")]
     ]),
-    initialState: { tiles, activeLocks: [] }
+    initialState: { tiles: [afcModuleFixtureTile("player-1"), ...tiles], activeLocks: [] }
   });
 };
 

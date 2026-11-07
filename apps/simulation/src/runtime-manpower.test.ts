@@ -5,6 +5,7 @@ import {
   STARTING_CAPITAL_MANPOWER_CAP,
   STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE,
   GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE,
+  MANPOWER_REGEN_GLOBAL_FLOOR,
   TOWN_MANPOWER_BY_TIER
 } from "@border-empires/shared";
 
@@ -16,13 +17,13 @@ describe("playerManpowerRegenPerMinuteFromSummary — galactic Wonder bonus (v0)
     const summary = createEmptyPlayerRuntimeSummary();
     const withoutBonus = playerManpowerRegenPerMinuteFromSummary(summary, 0, 0, 0, 0);
     const withBonus = playerManpowerRegenPerMinuteFromSummary(summary, 0, 0, 0, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE);
-    expect(withoutBonus).toBe(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE);
-    expect(withBonus).toBe(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE);
+    expect(withoutBonus).toBe(MANPOWER_REGEN_GLOBAL_FLOOR);
+    expect(withBonus).toBe(Math.max(MANPOWER_REGEN_GLOBAL_FLOOR, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE));
   });
 
   it("defaults to no bonus when the parameter is omitted", () => {
     const summary = createEmptyPlayerRuntimeSummary();
-    expect(playerManpowerRegenPerMinuteFromSummary(summary)).toBe(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE);
+    expect(playerManpowerRegenPerMinuteFromSummary(summary)).toBe(MANPOWER_REGEN_GLOBAL_FLOOR);
   });
 });
 

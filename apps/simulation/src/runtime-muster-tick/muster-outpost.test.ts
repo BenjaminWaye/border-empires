@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "../runtime/runtime.test-helpers.js";
 import { describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
@@ -26,7 +27,7 @@ const buildRuntime = () =>
       ["player-2", makePlayer("player-2")]
     ]),
     initialState: {
-      tiles: [
+      tiles: [afcModuleFixtureTile("player-1"),
         // Player-1 owns a settled tile with an active siege battery.
         {
           x: 10,
@@ -63,7 +64,7 @@ describe("outpost auto-attack removed", () => {
       now: () => nowFn.t,
       initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           // Siege Battery at (10,10) — depot zone covers (8–12, 8–12).
           {
             x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",

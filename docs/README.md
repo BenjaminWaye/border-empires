@@ -31,6 +31,7 @@ remain authoritative for runtime behavior.
 | AI economic synergy: stacking Manufactory/Depot, Clearing House, Trade Nexus, Neural Works, Reserve Lattice (implemented) | [`ai-economic-synergy-plan.md`](ai-economic-synergy-plan.md) |
 | Local gameplay verification | [`agents/topics/agent-gameplay-testing.md`](agents/topics/agent-gameplay-testing.md) |
 | Current gameplay rules | [`game-mechanics.md`](game-mechanics.md) |
+| AFC loss, replacement deliveries and withdrawal | [`afc-recovery-plan.md`](afc-recovery-plan.md) |
 | AFC Specializations: campaign rules, thirty rewards and lore | [`afc-specializations-catalog.md`](afc-specializations-catalog.md) |
 | AFC Specializations: implementation and verification | [`afc-specializations-execution.md`](afc-specializations-execution.md) |
 | AFC Specializations: original design and UI decisions | [`afc-specializations-plan.md`](afc-specializations-plan.md) |

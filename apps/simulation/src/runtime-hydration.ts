@@ -64,6 +64,7 @@ export const createPlayersFromRecoveredState = (
           ...(player.landingReserveGranted ? { landingReserveGranted: true } : {}),
           techIds,
           domainIds,
+          ...(player.afcRecovery ? { afcRecovery: structuredClone(player.afcRecovery) } : {}),
           ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
           ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}),
           ...(player.afcCoreTownKeys ? { afcCoreTownKeys: player.afcCoreTownKeys.slice(0, 3) } : {}),

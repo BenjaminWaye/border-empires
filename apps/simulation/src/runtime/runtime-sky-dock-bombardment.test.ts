@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "./runtime.test-helpers.js";
 // Split out of runtime.test.ts to keep that file from crossing the repo's
 // 500-line cap further (it was already well over before this split).
 import { describe, expect, it, vi } from "vitest";
@@ -15,7 +16,7 @@ describe("simulation runtime", () => {
         ["player-2", buildAiOpponent()]
       ]),
       initialState: {
-        tiles: [
+        tiles: [{ ...afcModuleFixtureTile("player-2"), x: 200, y: 200 },
           {
             x: 0,
             y: 0,

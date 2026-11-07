@@ -1,4 +1,4 @@
-import { AFC_MODULE_CALL_DOWN_MS, AFC_MODULE_SLOTS, afcBuildCost } from "@border-empires/shared";
+import { AFC_MODULE_CALL_DOWN_MS, AFC_MODULE_SLOTS, afcBuildCost, afcReplacementCost, isAfcFootprintClear } from "@border-empires/shared";
 import { afcIsFull } from "./client-afc-slot-notices/client-afc-slot-notices.js";
 import { formatCooldownShort } from "./client-app-runtime-utils.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -24,31 +24,35 @@ export const afcModuleActionsForTile = (state: ClientState, tile: Tile, availabi
 export const ownedAfcCount = (state: Pick<ClientState, "tiles" | "me">): number =>
   [...state.tiles.values()].filter((candidate) => candidate.ownerId === state.me && candidate.afc?.ownerId === state.me).length;
 
-/** "Build AFC" sits on an owned AFC and costs Coin -- except after losing the
- * last one, when it is offered free on every owned tile (the server waives the
- * cost when the player owns no AFC). */
+/** Replacing a lost AFC uses the campaign-wide supply quote. */
 export const buildAfcActionForTile = (state: ClientState, tile: Tile, availability: Availability): TileActionDef | undefined => {
   if (tile.ownerId !== state.me) return undefined;
   const owned = ownedAfcCount(state);
-  if (owned === 0) return { id: "build_afc", label: "Build AFC", ...availability(true, "", "Free: your last AFC was lost") };
+  if (owned === 0) {
+    const pending = state.afcRecovery?.pending;
+    const cost = afcReplacementCost(state.afcRecovery?.globalLosses ?? 0);
+    return { id: "build_afc", label: pending ? "AFC inbound" : "Call down replacement AFC", ...availability(!pending && state.gold >= cost, pending ? "AFC delivery in progress" : state.gold < cost ? `Need ${cost} gold` : "", `${cost} gold · 60-second landing`) };
+  }
   if (tile.afc?.status !== "active") return undefined;
   const cost = afcBuildCost(owned);
   return { id: "build_afc", label: "Build AFC", ...availability(state.gold >= cost, state.gold >= cost ? "" : `Need ${cost} coin`, `${cost} Coin`) };
 };
 
-/** Empty land you own; SETTLED only, except a free rebuild may also use FRONTIER (settled on landing).
+/** Empty land you own; SETTLED only, except a replacement may also use FRONTIER (settled on landing).
  * Per-tile callers (the placement overlays) pass freeRebuild once per session so this never re-scans every tile. */
-export const isValidAfcLandingTile = (state: ClientState, tile: Tile | undefined, freeRebuild?: boolean): boolean =>
+export const isValidAfcLandingTile = (state: ClientState, tile: Tile | undefined, replacement?: boolean): boolean =>
   Boolean(
     tile &&
       tile.terrain === "LAND" &&
       tile.ownerId === state.me &&
-      (tile.ownershipState === "SETTLED" || (tile.ownershipState === "FRONTIER" && (freeRebuild ?? ownedAfcCount(state) === 0))) &&
+      (tile.ownershipState === "SETTLED" || (tile.ownershipState === "FRONTIER" && (replacement ?? ownedAfcCount(state) === 0))) &&
       !tile.town &&
       !tile.dockId &&
       !tile.afc &&
       !tile.fort &&
       !tile.siegeBattery &&
       !tile.observatory &&
-      !tile.economicStructure
+      !tile.economicStructure &&
+      !state.afcRecovery?.pending &&
+      isAfcFootprintClear((x, y) => state.tiles.get(`${x},${y}`), tile.x, tile.y)
   );

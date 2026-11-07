@@ -23,3 +23,14 @@ describe("resetClientForNewSeason", () => {
     expect(refreshMetPlayerIds(state).size).toBe(0);
   });
 });
+
+it("clears the previous campaign's AFC recovery prompt and delivery", () => {
+  const state = createInitialState();
+  state.afcRecovery = { globalLosses: 20, requiredSince: 1000, pending: { x: 10, y: 10, cost: 210, arrivesAt: 61000, commandId: "order" } };
+  state.afcRecoveryPopupOpen = true;
+  state.afcRecoveryDismissedKey = "previous-loss";
+  resetClientForNewSeason(state);
+  expect(state.afcRecovery).toBeUndefined();
+  expect(state.afcRecoveryPopupOpen).toBe(false);
+  expect(state.afcRecoveryDismissedKey).toBe("");
+});

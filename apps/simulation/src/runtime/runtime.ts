@@ -1,3 +1,7 @@
+import { withdrawAndRedeploy } from "../afc-owned-site/afc-withdraw.js";
+import { createAfcRecoveryTicker } from "../afc-owned-site/afc-recovery-ticker.js";
+import { createVisibleStateContext } from "./runtime-visible-state-context.js";
+import { createAfcTileObserver, preserveAfclessReserves } from "../afc-owned-site/afc-loss.js";
 import { createRuntimeResourceSupply } from "../resource-supply-trades/runtime-resource-supply-bridge.js";
 import { dormantContributorTiles, cachedResourceSlots, cachedResourceDemand, cachedResourceDormancy, type RuntimeResourceSlotsContext } from "../resource-supply-trades/runtime-resource-slots.js";
 import { RuntimeResourceSupply } from "../resource-supply-trades/runtime-resource-supply.js";
@@ -6,7 +10,7 @@ import { activateUnallocatedFoundries, activateRelic } from "../runtime-relics.j
 import { settleResourceNetworkOwnersBeforeTileChange } from "./runtime-manpower-economy.js";
 import { afcEnvoyIncomeInSnapshot } from "../afc-specializations/afc-coalition.js";
 import { settleBootstrapManpower } from "./runtime-bootstrap-manpower.js";
-import { afcCampaignGuardCounters, afcCampaignStateGauges } from "../afc-specializations/afc-diagnostics.js";
+import { afcCampaignGuardCounters, afcCampaignStateGauges, afcRecoverySearchCount } from "../afc-specializations/afc-diagnostics.js";
 import { buildPlayerCombatSummary } from "../afc-specializations/afc-player-combat-facts.js";
 import type { PlayerCombatSummary } from "@border-empires/sim-protocol";
 import { withAfcFortFacts, refreshAfcFortFacts } from "../afc-specializations/afc-fort-facts.js";
@@ -295,7 +299,6 @@ import {
 } from "./runtime-export.js";
 import {
   classifyVisibilityForPlayerForRuntime,
-  emitVisibilityAuditForRuntime,
   exportTilesInAreaForPlayerForRuntime,
   exportVisibleStateForPlayerAsyncForRuntime,
   exportVisibleStateForPlayerForRuntime,
@@ -505,6 +508,9 @@ export class SimulationRuntime {
   private readonly strandedFrontier = createStrandedFrontierCleanup(() => this.encirclementApplicationContext());
   private readonly now: () => number;
   private readonly state: RuntimeState;
+  private readonly observeAfcTileChange = createAfcTileObserver(
+    () => this.state, () => this.structureCommandContext()
+  );
   private readonly siphonModeLifecycle: SiphonModeLifecycle; // Siphon siphon-mode end rules — siphon-mode/siphon-mode-lifecycle.ts
   private readonly aetherShieldTicker: AetherShieldTicker; // Siphon tower-comes-back-online sweep + AETHER_SHIELDS push — aether-shield/aether-shield-tick.ts
   // Non-snapshot rolling history for public and personal activity views.
@@ -807,6 +813,11 @@ export class SimulationRuntime {
       sweepShieldReturns: (towerKeys, commandId) => this.siphonModeLifecycle.sweepShieldReturns(towerKeys, commandId),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
     });
+    this.state.afcGlobalLosses = options.initialState?.afcGlobalLosses ?? 0;
+    for (const player of this.state.players.values()) {
+      player.afcRecovery ??= { globalLosses: this.state.afcGlobalLosses };
+      player.afcRecovery.globalLosses = this.state.afcGlobalLosses;
+    }
     for (const [key, sourceTile] of this.state.tiles) { const tile = withAfcFortFacts(sourceTile, this.state.players); this.state.tiles.set(key, tile); this.snapshotTileCache.set(key, mapTile(tile)); }
     // applyManpowerRegen (which calls playerManpowerCap ->
     // cachedManpowerStructureBonusForPlayer under the hood) used to run in a
@@ -930,6 +941,7 @@ export class SimulationRuntime {
     for (const player of options.initialState?.players ?? []) {
       if (player.ownedTownTileKeys?.length) restoreRecoveredTownOrder(this.summaryForPlayer(player.id), player.ownedTownTileKeys);
     }
+    preserveAfclessReserves(this.state.players.values(), id => this.summaryForPlayer(id).ownedAfcTileKeys.size > 0, player => this.playerManpowerCap(player));
     this.manpowerCapBootstrapRestampedCount += settleBootstrapManpower(this.state.players.values(), player => this.applyManpowerRegen(player));
     this.manpowerReady = true;
     for (const playerId of this.state.players.keys()) {
@@ -1109,7 +1121,9 @@ export class SimulationRuntime {
   }
 
   /** Throttled inside; see aether-shield/aether-shield-tick.ts. */
+  private readonly tickAfcRecovery = createAfcRecoveryTicker(() => this.structureCommandContext());
   tickAetherShields(nowMs: number = this.now()): void {
+    this.tickAfcRecovery(nowMs);
     this.aetherShieldTicker.tick(nowMs);
     this.activeHijackCount = tickResonanceHijacks(this.hijackDeps(), nowMs); // walks the active-tower index only
     this.tickAfcGrants(nowMs); // Colonial Charter, throttled to 15s inside
@@ -1217,6 +1231,7 @@ export class SimulationRuntime {
 
   private respawnContext(): RuntimeRespawnContext {
     return {
+      afcGlobalLosses: () => this.state.afcGlobalLosses,
       afcUpgradeRuleset: this.afcUpgradeRuleset,
       now: this.now,
       players: this.state.players,
@@ -1237,6 +1252,7 @@ export class SimulationRuntime {
       runtimeLogInfo: (payload, message) => runtimeLogInfo(payload, message),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       respawnMinimumGold: RESPAWN_MINIMUM_GOLD,
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
       grantLandingReserve: (player) => grantRespawnLandingReserveImpl(this.manpowerEconomyContext(), player),
       incrementAuthRecoveryRespawn: () => this.onAuthRecoveryRespawn?.(),
       incrementAuthRecoveryRespawnGuarded: () => this.onAuthRecoveryRespawnGuarded?.(),
@@ -1739,6 +1755,7 @@ export class SimulationRuntime {
     // tracked by the STRUCTURE's ownerId (not the tile's), to match the
     // ownedStructureCountForPlayer contract used by structureBuildGoldCost.
     this.refreshOwnedStructureCountIndexForTile(previous, tile);
+    this.observeAfcTileChange(previous, tile, commandId);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
     wonderEffects.refreshWonderOwners(tile, previous, id => this.settledTilesForPlayer(id), this.wonderCacheByPlayer, this.state.players, this.now());
     flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.state.tiles, dockLinksByDockTileKey: this.state.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
@@ -1933,6 +1950,7 @@ export class SimulationRuntime {
   // silent drift.
   private exportContext(): RuntimeExportContext {
     return {
+      afcGlobalLosses: () => this.state.afcGlobalLosses,
       now: () => this.now(),
       tiles: this.state.tiles,
       locksByCommandId: this.locksByCommandId,
@@ -2061,7 +2079,7 @@ export class SimulationRuntime {
   }
 
   /** Sizes of growable barbarian state, for gauges (docs/agents/state-and-persistence-discipline.md). */
-  afcStateStats() { return { ...afcCampaignStateGauges(this.state.players.values()), ...afcCampaignGuardCounters, activeHijacks: this.activeHijackCount }; }
+  afcStateStats() { return { ...afcCampaignStateGauges(this.state.players.values()), ...afcCampaignGuardCounters, activeHijacks: this.activeHijackCount, globalLosses: this.state.afcGlobalLosses, aiRecoverySearches: afcRecoverySearchCount(this.playerSummaries.values()) }; }
 
   barbarianStateSizes(): { tiles: number; progressEntries: number } {
     return { tiles: this.summaryForPlayer("barbarian-1").territoryTileKeys.size, progressEntries: this.barbarianTileProgress.size };
@@ -2076,29 +2094,12 @@ export class SimulationRuntime {
     });
   }
 
-  private emitVisibilityAudit(
-    playerId: string,
-    tile: { x: number; y: number; ownerId?: string | undefined },
-    tileKey: string,
-    redacted: boolean,
-    classification: ReturnType<SimulationRuntime["classifyVisibilityForPlayer"]>
-  ): void {
-    emitVisibilityAuditForRuntime({
-      onVisibilityAudit: this.onVisibilityAudit,
-      playerId,
-      tile,
-      tileKey,
-      redacted,
-      classification
-    });
-  }
-
   exportVisibleStateForPlayer(playerId: string): ReturnType<SimulationRuntime["exportState"]> {
     return exportVisibleStateForPlayerForRuntime(this.visibleStateDeps(), playerId);
   }
 
   private visibleStateDeps(): RuntimeVisibleStateContext {
-    return {
+    return createVisibleStateContext({
       supplyStateForPlayer: id => this.resourceSupply?.playerState(id) ?? {},
       ...this.playerStateUpdateContext(),
       tiles: this.state.tiles,
@@ -2108,13 +2109,7 @@ export class SimulationRuntime {
       playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
       terrainEpoch: this.terrainEpoch,
       classifyVisibilityForPlayer: (visiblePlayerId: string) => this.classifyVisibilityForPlayer(visiblePlayerId),
-      emitVisibilityAudit: (
-        visiblePlayerId: string,
-        tile: { x: number; y: number; ownerId?: string | undefined },
-        tileKey: string,
-        redacted: boolean,
-        classification: RuntimeVisibilityClassification
-      ) => this.emitVisibilityAudit(visiblePlayerId, tile, tileKey, redacted, classification),
+      onVisibilityAudit: this.onVisibilityAudit,
       refreshManpowerOnly: (player: RuntimePlayer) => this.refreshManpowerOnly(player),
       incomePerMinuteForPlayer: (incomePlayerId: string) => this.incomePerMinuteForPlayer(incomePlayerId),
       // Seeds the sparse-delta cache's baseline for every tile a player sees
@@ -2125,7 +2120,7 @@ export class SimulationRuntime {
       // see the comment there for why this alone isn't sufficient.
       seedLastEmitted: (tileKey: string, tile: DomainTileState) => this.tileDeltaStringifyCache.setLastEmitted(tileKey, tile, reachBorderOwnerAtImpl(this.reachBorder, tile.x, tile.y)),
       reachBorderOwnerAt: (x: number, y: number) => reachBorderOwnerAtImpl(this.reachBorder, x, y)
-    };
+    });
   }
 
   // Async variant that yields between heavy sections so a big-territory
@@ -3058,6 +3053,8 @@ export class SimulationRuntime {
 
   private structureCommandContext(): RuntimeStructureCommandContext {
     return buildStructureCommandContext({
+      summaryForPlayer: (id) => this.summaryForPlayer(id),
+      afcGlobalLosses: () => this.state.afcGlobalLosses,
       players: this.state.players,
       tiles: this.state.tiles,
       musterTilesByOwner: this.ownerIndexes.musterTilesByOwner,
@@ -3241,6 +3238,7 @@ export class SimulationRuntime {
         this.rejectCommand(command, "UNSUPPORTED", `${command.type} not yet migrated to the new simulation service`);
       },
       handleSettleCommand: (command) => this.handleSettleCommand(command),
+      handleWithdrawAndRedeployCommand: (command) => withdrawAndRedeploy(this.respawnContext(), command),
       handleBuildStructureCommand: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
       normalizeLegacyBuildCommand,
       handleSetMusterCommand: (command) => { handleSetMusterCommandImpl(this.structureCommandContext(), command); this.musterTicker.tickMusterForPlayer(command.playerId, this.now()); },

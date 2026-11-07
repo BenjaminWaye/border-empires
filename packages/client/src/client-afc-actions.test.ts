@@ -55,14 +55,14 @@ describe("afcModuleActionsForTile", () => {
   });
 });
 
-describe("free AFC rebuild after losing the last one", () => {
+describe("paid AFC recovery after losing the last one", () => {
   const plain = (ownershipState: "SETTLED" | "FRONTIER", x = 2): Tile => ({ x, y: 1, terrain: "LAND", ownerId: "me", ownershipState }) as Tile;
   const stateOf = (tiles: Tile[]): ClientState => ({ me: "me", gold: 0, tiles: new Map(tiles.map((tile) => [`${tile.x},${tile.y}`, tile])) }) as unknown as ClientState;
 
-  it("offers Build AFC for free on any owned tile, even with no Coin, and accepts FRONTIER landing tiles", () => {
+  it("quotes the shared replacement price, disables unaffordable orders, and accepts FRONTIER sites", () => {
     const frontier = plain("FRONTIER");
     const state = stateOf([frontier]);
-    expect(buildAfcActionForTile(state, frontier, availability)).toEqual({ id: "build_afc", label: "Build AFC", disabled: false, detail: "Free: your last AFC was lost" });
+    expect(buildAfcActionForTile(state, frontier, availability)).toEqual({ id: "build_afc", label: "Call down replacement AFC", disabled: true, disabledReason: "Need 20 gold", detail: "20 gold · 60-second landing" });
     expect(isValidAfcLandingTile(state, frontier)).toBe(true);
   });
 

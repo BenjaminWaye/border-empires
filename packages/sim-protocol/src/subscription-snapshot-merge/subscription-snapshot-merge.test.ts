@@ -221,3 +221,13 @@ it("keeps projected manpower batches current in cached reconnect snapshots", () 
   expect(updated.player?.nextManpowerBatchAmount).toBe(1);
   expect(applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", nextManpowerBatchAmount: 0 }).player?.nextManpowerBatchAmount).toBe(0);
 });
+
+it("preserves AFC delivery recovery through both live updates and domain events", () => {
+  const afcRecovery = { globalLosses: 10, requiredSince: 1000, pending: { x: 10, y: 10, cost: 110, arrivesAt: 61000, commandId: "order" } };
+  const live = applyPlayerMessageToSnapshot(snapshot(), { type: "PLAYER_UPDATE", afcRecovery });
+  expect(live.player?.afcRecovery).toEqual(afcRecovery);
+  const cancelled = { globalLosses: 11, requiredSince: 2000, cancellation: "Landing site lost" };
+  const updated = applyPlayerMessageToSnapshot(live, { type: "DOMAIN_UPDATE", afcRecovery: cancelled, gold: 100 });
+  expect(updated.player?.afcRecovery).toEqual(cancelled);
+  expect(updated.player?.afcRecovery?.pending).toBeUndefined();
+});

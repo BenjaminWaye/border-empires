@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "./runtime.test-helpers.js";
 import { describe, expect, it } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
@@ -38,7 +39,7 @@ describe("claim continuation while the player is online", () => {
       isPlayerSubscribed: () => true,
       initialPlayers: garrisonVeteranSeedPlayers(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
         ],
@@ -98,7 +99,7 @@ describe("claim continuation while the player is online", () => {
       isPlayerSubscribed: () => true,
       initialPlayers: garrisonVeteranSeedPlayers(),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"),
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
@@ -168,7 +169,7 @@ describe("claim continuation while the player is online", () => {
         isPlayerSubscribed: () => online,
         initialPlayers: garrisonVeteranSeedPlayers(),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"),
             { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" }
           ],

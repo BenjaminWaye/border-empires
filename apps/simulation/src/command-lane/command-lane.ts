@@ -25,6 +25,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "CANCEL_SIEGE_BATTERY_BUILD":
     case "CANCEL_CAPTURE":
     case "UNCAPTURE_TILE":
+    case "WITHDRAW_AND_REDEPLOY":
     case "SET_CONVERTER_STRUCTURE_ENABLED":
     case "SET_CONVERTER_STRUCTURE_MODE":
     case "SET_OBSERVATORY_ENABLED":

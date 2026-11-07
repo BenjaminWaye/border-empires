@@ -1,5 +1,5 @@
 import { TOWN_REACH_RADIUS, WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY, type PlayerRespawnNotice, type PlayerRespawnReasonCode } from "@border-empires/shared";
-import { STARTING_CAPITAL_MANPOWER_CAP, hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite, starterSiteQuality, type DomainTileState } from "@border-empires/game-domain";
+import { STARTING_CAPITAL_MANPOWER_CAP, TOWN_MANPOWER_BY_TIER, hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite, starterSiteQuality, type DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { buildRewritePlayerRespawnNotice, type PendingRespawnNoticeContext } from "./player-respawn-notice.js";
 import { chooseLegacySpawnPlacement, RALLY_SPAWN_RADIUS, type LegacySpawnPlacementInput } from "./spawn-placement/spawn-placement.js";
@@ -9,14 +9,13 @@ import type { SpawnSearchLookups } from "./spawn-placement/spawn-placement-index
 import { prepareAfcLandingFootprint } from "./afc-landing-footprint/afc-landing-footprint.js";
 import { clearBarbariansAroundAfcLanding } from "./afc-landing-footprint/afc-landing-barbarian-clear.js";
 import { backfillMissingHouseModules, rebalanceOverfullAfcs } from "./afc-module-commissioning.js";
-import { chooseReplacementAfcSite } from "./afc-owned-site/afc-owned-site.js";
-import { BARBARIAN_PLAYER_ID } from "./ai/system-job-barbarian-planner.js";
 import { createHumanRuntimePlayer } from "./runtime-player-factory.js";
 import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 export type RuntimeRespawnContext = SpawnSearchLookups & {
+  afcGlobalLosses?: () => number;
   afcUpgradeRuleset?: "afc-v1" | undefined;
   now: () => number;
   players: Map<string, RuntimePlayer>;
@@ -39,6 +38,7 @@ export type RuntimeRespawnContext = SpawnSearchLookups & {
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
   incomePerMinuteForPlayer: (playerId: string) => number;
   respawnMinimumGold: number;
+  playerManpowerCap?: (player: RuntimePlayer) => number;
   incrementAuthRecoveryRespawn: () => void;
   incrementAuthRecoveryRespawnGuarded: () => void;
   /** Grants the one-time landing reserve (base + late-join catch-up) a respawned empire lands with, same as a brand-new one. */
@@ -235,51 +235,15 @@ export const ensurePlayerHasSpawnTerritory = (
   return true;
 };
 
-// A human who holds territory but owns no AFC (last one captured, or an empire
-// settled before AFCs existed) builds a replacement themselves, for free
-// (handleBuildAfcCommand). AI players never issue BUILD_AFC, so they get one
-// placed automatically instead: here from the startup/rollover repair
-// (repairPlayerInfrastructure), and AI_AFC_REPLACEMENT_DELAY_MS after a loss
-// (respawnIfEliminated -> scheduleAiReplacementAfc). The ownedAfcTileKeys
-// guard makes every call after the first a fast no-op. Unlike a genuine
-// respawn this grants no manpower/Coin floor and no respawn notice. Also calls
-// down House module copies the player researched but has on no AFC (see
-// backfillMissingHouseModules), for humans and AI alike. Returns true when
-// anything changed.
+// Infrastructure repair never manufactures an AFC. Humans and AI must commission one.
 export const ensurePlayerHasAfc = (ctx: RuntimeRespawnContext, playerId: string): boolean => {
-  const granted = ctx.players.get(playerId)?.isAi === true && grantReplacementAfcIfMissing(ctx, playerId, `afc-migration:${playerId}:${ctx.now()}`);
-  return backfillHouseModules(ctx, playerId) || granted;
-};
-
-/** How long an AI that lost its last AFC goes without one before a replacement lands. */
-export const AI_AFC_REPLACEMENT_DELAY_MS = 10 * 60_000;
-
-/** After a loss: if an AI player is now AFC-less, queue its replacement for
- * AI_AFC_REPLACEMENT_DELAY_MS later. The fire-time re-check makes a duplicate
- * or stale timer a no-op. Not persisted: after a restart the startup repair
- * (repairPlayerInfrastructure) places the AFC instead. */
-export const scheduleAiReplacementAfc = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): void => {
-  if (ctx.players.get(playerId)?.isAi !== true || ctx.summaryForPlayer(playerId).ownedAfcTileKeys.size > 0) return;
-  // One pending timer per AI: an AFC-less AI losing more tiles must not queue
-  // another timer per capture. Keyed on the (stable) players map; bounded by player count.
-  let pending = pendingAiAfcReplacements.get(ctx.players);
-  if (!pending) pendingAiAfcReplacements.set(ctx.players, (pending = new Set()));
-  if (pending.has(playerId)) return;
-  pending.add(playerId);
-  ctx.scheduleAfter(AI_AFC_REPLACEMENT_DELAY_MS, () => {
-    pending.delete(playerId);
-    ensureReplacementAfcAfterLoss(ctx, playerId, commandId);
-  });
-};
-const pendingAiAfcReplacements = new WeakMap<Map<string, RuntimePlayer>, Set<string>>();
-
-/** AI players only: an O(1) AFC-count check, and the module backfill only
- * runs when a replacement actually landed. */
-export const ensureReplacementAfcAfterLoss = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): boolean => {
-  if (ctx.players.get(playerId)?.isAi !== true || ctx.summaryForPlayer(playerId).ownedAfcTileKeys.size > 0) return false;
-  if (!grantReplacementAfcIfMissing(ctx, playerId, `${commandId}:afc-replacement:${playerId}`)) return false;
-  backfillHouseModules(ctx, playerId);
-  return true;
+  const player = ctx.players.get(playerId);
+  if (player) {
+    const state = player.afcRecovery ??= { globalLosses: ctx.afcGlobalLosses?.() ?? 0 };
+    state.globalLosses = ctx.afcGlobalLosses?.() ?? state.globalLosses;
+    if (ctx.summaryForPlayer(playerId).controlledAfcCount === 0 && ctx.summaryForPlayer(playerId).territoryTileKeys.size > 0) state.requiredSince ??= ctx.now();
+  }
+  return backfillHouseModules(ctx, playerId);
 };
 
 // Also moves House copies off an AFC still holding more than AFC_MODULE_SLOTS
@@ -293,48 +257,11 @@ const backfillHouseModules = (ctx: RuntimeRespawnContext, playerId: string): boo
   return rebalanced || backfilled;
 };
 
-const grantReplacementAfcIfMissing = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): boolean => {
-  const player = ctx.players.get(playerId);
-  if (!player || playerId === BARBARIAN_PLAYER_ID) return false; // barbarians never hold an AFC
-  const summary = ctx.summaryForPlayer(playerId);
-  if (summary.territoryTileKeys.size === 0) return false; // full elimination: respawnIfEliminated's path, not this one
-  if (summary.ownedAfcTileKeys.size > 0) return false; // already has one
-  // Same world-sanity guard as ensurePlayerHasSpawnTerritory: a genuine
-  // zero here is only trustworthy once the world has actually loaded.
-  if (ctx.tiles.size === 0) return false;
-  const site = chooseReplacementAfcSite({
-    playerId,
-    tiles: ctx.tiles,
-    isBlocked: (tileKey) => ctx.pendingSettlementsByTile.has(tileKey) || ctx.locksByTile.has(tileKey)
-  });
-  if (!site) {
-    ctx.runtimeLogInfo({ type: "afc_replacement_no_site", playerId, commandId }, "no valid landing site for a replacement AFC");
-    return false;
-  }
-  const { frontierDecayAt: _decayAt, frontierDecayKind: _decayKind, ...siteTile } = site.tile;
-  const tileKey = simulationTileKey(siteTile.x, siteTile.y);
-  // An AFC always sits on SETTLED ground (commissioning and the build rule
-  // both require it), so a FRONTIER or neutral site is settled on landing.
-  const afcTile: DomainTileState = {
-    ...siteTile,
-    ownerId: playerId,
-    ownershipState: "SETTLED",
-    afc: { ownerId: playerId, status: "active", activatedAt: ctx.now() }
-  };
-  const flattenedTiles = prepareAfcLandingFootprint(ctx, siteTile.x, siteTile.y, commandId);
-  ctx.replaceTileState(tileKey, afcTile, commandId);
-  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [afcTile, ...flattenedTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
-  ctx.emitPlayerStateUpdate({ commandId, playerId });
-  ctx.runtimeLogInfo({ type: "afc_replacement_granted", playerId, commandId, tileKey, placement: site.placement }, "granted replacement AFC");
-  return true;
-};
-
-// Not a landing: this also repairs players who still hold land (failed settlement
-// relocation, zero-income repair at startup and after captures), so it never
-// grants the landing reserve -- only a true elimination does (respawnIfEliminated).
+// Recovery may establish a foothold only for an empire with no surviving land.
+// A failed town relocation must never manufacture a replacement AFC for an existing empire.
 export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): boolean => {
   const actor = ctx.players.get(playerId);
-  if (!actor) return false;
+  if (!actor || ctx.summaryForPlayer(playerId).territoryTileKeys.size > 0) return false;
   if (!actor.isAi && !ctx.pendingRespawnNoticeByPlayerId.has(playerId)) preparePlayerRespawnNotice(ctx, playerId, "auth_recovery", commandId, { wasOnline: true });
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
   const spawn = chooseStarterSpawn(ctx, playerId, blockedTileKeys);
@@ -376,13 +303,8 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
 export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): void => {
   const actor = ctx.players.get(playerId);
   if (!actor) return;
-  // Still holding ground: not eliminated, but the loss that triggered this
-  // call may have taken their last AFC. AI players get a replacement ten
-  // minutes later; humans build their own, for free (handleBuildAfcCommand).
-  if (ctx.summaryForPlayer(playerId).territoryTileKeys.size > 0) {
-    scheduleAiReplacementAfc(ctx, playerId, commandId);
-    return;
-  }
+  // Holding ground: commission a replacement or explicitly withdraw.
+  if (ctx.summaryForPlayer(playerId).territoryTileKeys.size > 0) return;
   if (!actor.isAi && !ctx.pendingRespawnNoticeByPlayerId.has(playerId)) {
     preparePlayerRespawnNotice(ctx, playerId, "eliminated", commandId, { wasOnline: true });
   }
@@ -409,11 +331,16 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   };
   actor.manpower = Math.max(actor.manpower, STARTING_CAPITAL_MANPOWER_CAP);
   ctx.grantLandingReserve?.(actor);
+  const landingManpower = actor.manpower;
   actor.points = Math.max(actor.points, ctx.respawnMinimumGold);
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, respawnCommandId);
   const clearedBarbarianTiles = clearBarbariansAroundAfcLanding(ctx, spawn.x, spawn.y, respawnCommandId);
   ctx.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
+  // Tile/reach callbacks may refresh capacity while the landing is written.
+  // An opening package includes the AFC baseline once, never another starting-capital refill.
+  actor.manpower = landingManpower + (ctx.playerManpowerCap ? TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap : 0);
+  actor.manpowerCapSnapshot = ctx.playerManpowerCap?.(actor) ?? STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap;
   finalizeRespawnNotice(ctx, playerId, respawnedTileKey);
   ctx.emitEvent({
     eventType: "TILE_DELTA_BATCH",

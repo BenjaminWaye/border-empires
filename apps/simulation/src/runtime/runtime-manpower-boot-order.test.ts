@@ -58,6 +58,7 @@ const TEST_PLAYER_ID = "boot-order-test-player";
 // (along with everything else under test here) silently doesn't apply. Mirrors
 // runtime-manpower-structure-bonus.test.ts's own setup for the same reason.
 const ancillaryDepotOwnerTiles = [
+  { x: 1, y: 1, terrain: "LAND" as const, ownerId: TEST_PLAYER_ID, ownershipState: "SETTLED" as const, afc: { ownerId: TEST_PLAYER_ID, status: "active" as const } },
   {
     x: 16,
     y: 16,
@@ -71,7 +72,7 @@ const ancillaryDepotOwnerTiles = [
 
 describe("manpower boot-order regression", () => {
   it("does not snap a recovered player's manpower to cap once post-boot tile mutations invalidate the structure-bonus cache", () => {
-    const trueCap = STARTING_CAPITAL_MANPOWER_CAP + ANCILLARY_DEPOT_MANPOWER_CAP_BONUS;
+    const trueCap = STARTING_CAPITAL_MANPOWER_CAP + 150 + ANCILLARY_DEPOT_MANPOWER_CAP_BONUS;
     // Well below the true (structure-inclusive) cap, but ABOVE what a
     // structure-bonus-free boot-time read would compute
     // (STARTING_CAPITAL_MANPOWER_CAP) — this is exactly the shape that
@@ -177,6 +178,6 @@ describe("manpower boot-order regression", () => {
     const bootPlayer = runtime.exportState().players.find((p) => p.id === TEST_PLAYER_ID)!;
     // Untouched apart from the one-time landing reserve every new empire gets.
     expect(bootPlayer.manpower).toBe(150 + LANDING_MANPOWER_RESERVE);
-    expect(bootPlayer.manpowerCapSnapshot).toBe(STARTING_CAPITAL_MANPOWER_CAP);
+    expect(bootPlayer.manpowerCapSnapshot).toBe(0);
   });
 });

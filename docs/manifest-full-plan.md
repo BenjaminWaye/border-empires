@@ -279,18 +279,16 @@ proposal detail; they do not provide an alternate account of the fiction.
   before the cap move their newest House copies to the player's other AFCs
   with room (on connect and after building an AFC); what fits nowhere stays.
   Captured copies count toward the captor's slots.
-- **Losing the last AFC while holding land:** the captured AFC transfers to
-  the captor and nothing spawns automatically for a human, so AFCs don't pile
-  up on the map. The player rebuilds it themselves for free: BUILD_AFC costs
-  nothing while they own zero AFCs and may land on any empty owned land tile,
-  FRONTIER included (settled on landing). The zero-income repair
-  (`ensureGrossIncomeSettlementForPlayer`) no longer drops an AFC on neutral
-  land for an AFC-less player. AI players never issue BUILD_AFC, so an AI
-  gets its replacement placed automatically 10 minutes after the loss
-  (`AI_AFC_REPLACEMENT_DELAY_MS`), on its empty owned tile nearest its
-  territory's centroid, else empty neutral land touching it
-  (`apps/simulation/src/afc-owned-site/`). The timer is not persisted: after a
-  restart, the startup AI repair places it straight away.
+- **Losing the last AFC while holding land:** humans and AI explicitly commission
+  a replacement through `BUILD_AFC`. It costs 20 Coin after the first global AFC
+  loss, plus 10 per subsequent loss planet-wide in this campaign. The quote is
+  reserved at ordering and a clear owned landing site must remain valid for
+  60 seconds. No fabrication or AFC income/manpower is available before landing;
+  existing forces and independent holdings remain. A lost/obstructed site or
+  another AFC secured cancels and refunds the order. Reconnect and startup never
+  grant a replacement. Delivery state and the global loss counter are persisted.
+  The popup offers another landing site, continued fighting, or withdrawal and
+  redeployment. See [AFC recovery](afc-recovery-plan.md) for the full contract.
 - **Re-delivery:** missing House copies land one per 60s call-down, Economy
   first, then Manpower, War, Aether.
 - **Capture plunder:** taking another player's AFC also plunders 33% of the
@@ -299,10 +297,9 @@ proposal detail; they do not provide an alternate account of the fiction.
 
 ### Building additional AFCs (authority implemented 2026-10-02)
 
-Today no player can choose to build an AFC. They are only created by a
-fresh spawn, an elimination-respawn, or the pre-AFC migration grant
-(`apps/simulation/src/runtime-respawn-helpers.ts`), or acquired by
-capturing an enemy's. Since 2026-10-06 each AFC holds 8 modules, so
+Players can build additional AFCs through `BUILD_AFC`; their expansion price
+remains separate from the global replacement quote. AFCs also arrive through
+fresh opening landings or full-elimination recovery, or transfer on capture. Since 2026-10-06 each AFC holds 8 modules, so
 building another AFC is also how a player gets more module slots.
 
 #### Player flow

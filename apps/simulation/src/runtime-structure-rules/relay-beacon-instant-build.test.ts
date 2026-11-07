@@ -1,3 +1,4 @@
+import { afcModuleFixtureTile } from "../runtime/runtime.test-helpers.js";
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { relayBeaconBuildDurationMs, relayBeaconManpowerCost } from "@border-empires/shared";
@@ -16,7 +17,7 @@ const buildRuntime = () =>
       strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
     }]]),
     initialState: {
-      tiles: [
+      tiles: [afcModuleFixtureTile("player-1"),
         ...Array.from({ length: 6 }, (_, i) => ({
           x: 10 + i, y: 10, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const
         })),

@@ -110,7 +110,7 @@ describe("SETTLEMENT capture evacuation", () => {
     }
   });
 
-  it("respawns on unowned land when the previous owner's only remaining town is not a SETTLEMENT", async () => {
+  it("preserves the remaining city without granting an AFC when settlement relocation fails", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
@@ -181,13 +181,11 @@ describe("SETTLEMENT capture evacuation", () => {
       const cityTown = city?.townJson ? JSON.parse(city.townJson) as { population?: number } : undefined;
       expect(cityTown?.population).toBe(5_000);
 
-      const respawnedSettlement = runtime.exportState().tiles.find((tile) => tile.x === 22 && tile.y === 20); // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
-      expect(respawnedSettlement).toEqual(expect.objectContaining({ ownerId: "player-2", ownershipState: "SETTLED" }));
-      expect(respawnedSettlement?.afcJson ? JSON.parse(respawnedSettlement.afcJson) : undefined).toEqual(
-        expect.objectContaining({ ownerId: "player-2", status: "active" })
-      );
-      expect(runtime.exportState().players.find((player) => player.id === "player-2")?.incomePerMinute).toBeGreaterThan(0);
-      expect(runtime.exportState().players.find((player) => player.id === "player-2")?.points).toBe(10); // §24.2: floored from 0 to RESPAWN_MINIMUM_GOLD
+      const untouchedLand = runtime.exportState().tiles.find((tile) => tile.x === 22 && tile.y === 20);
+      expect(untouchedLand?.ownerId).toBeUndefined();
+      expect(untouchedLand?.afcJson).toBeUndefined();
+      expect(runtime.exportState().tiles.some(tile => tile.ownerId === "player-2" && tile.afcJson)).toBe(false);
+      expect(runtime.exportState().players.find(player => player.id === "player-2")?.points).toBe(0);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
