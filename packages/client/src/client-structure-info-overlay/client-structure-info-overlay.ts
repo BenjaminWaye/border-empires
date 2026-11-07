@@ -38,7 +38,7 @@ export const renderStructureInfoOverlay = (
   });
   const unlockHtml = unlocks.length
     ? `<div class="structure-info-meta-card"><span>Unlocked by</span><strong>${unlocks.map(tech =>
-      `<button type="button" class="inline-info-link" data-view-tech="${escapeHtml(tech.id)}" aria-label="Open ${escapeHtml(tech.name)} in tech tree">${escapeHtml(tech.name)}</button>`
+      `<button type="button" class="inline-info-link" data-view-tech="${escapeHtml(tech.id)}" aria-label="Open ${escapeHtml(tech.name)} in Manifest tree">${escapeHtml(tech.name)}</button>`
     ).join(" · ")}</strong></div>`
     : "";
   const costHtml = info.costBits.length

@@ -285,7 +285,7 @@ export const chooseTechForPlayer = (
   tiles: Iterable<DomainTileState>
 ): { ok: true } | { ok: false; reason: string } => {
   const tech = techTree.techs.find((entry) => entry.id === techId);
-  if (!tech) return { ok: false, reason: "tech not found" };
+  if (!tech) return { ok: false, reason: "Manifest not found" };
   const monumentAlreadyBuiltReason = monumentAlreadyBuiltRejectReason(techId, player.techIds.has(techId), tiles);
   if (monumentAlreadyBuiltReason) return { ok: false, reason: monumentAlreadyBuiltReason };
   const choices = reachableTechChoices([...player.techIds]);

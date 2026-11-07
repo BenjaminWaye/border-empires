@@ -8,7 +8,8 @@ export const MANIFEST_WORDING_CHANGELOG: ClientChangelogEntry[] = [
     why: "Profiles, leaderboards and several hints still said tech instead of Manifests.",
     changes: [
       "Player profiles, the season-end screen and leaderboards count Manifests",
-      "Hints, tooltips and error messages now refer to Manifests instead of tech"
+      "Hints, tooltips, the attack win-chance breakdown and error messages now refer to Manifests instead of tech",
+      "The locked Aether Bridge warning names the Manifest that actually unlocks it"
     ]
   }
 ];

@@ -32,7 +32,7 @@ export const revealEmpireStatsDossierHtml = (stats: RevealEmpireStatsView): stri
       <div class="intel-stat-grid">
         ${statCardHtml("Economy", `${(stats.incomePerMinute * 1440).toFixed(1)}/day`, `${formatInt(stats.gold)} coin held`)}
         ${statCardHtml("Territory", formatInt(stats.tiles), `${formatInt(stats.settledTiles)} garrisoned • ${formatInt(stats.frontierTiles)} frontier`)}
-        ${statCardHtml("Towns", formatInt(stats.controlledTowns), `${formatInt(stats.techCount)} manifests known`)}
+        ${statCardHtml("Towns", formatInt(stats.controlledTowns), `${formatInt(stats.techCount)} Manifests known`)}
         ${statCardHtml("Manpower", `${formatInt(stats.manpower)}/${formatInt(stats.manpowerCap)}`)}
       </div>
       <div class="intel-stockpile">
