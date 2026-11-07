@@ -140,7 +140,7 @@ const combatBreakdownHtml = (breakdown: TileCombatBreakdown): string => {
   return `
   <div class="tile-combat-breakdown">
     <div class="tile-combat-breakdown-title">How this win chance is calculated</div>
-    <div class="tile-combat-breakdown-hint">Base power matches your tech tab Attack/Defense — modifiers below are specific to this fight.</div>
+    <div class="tile-combat-breakdown-hint">Base power matches your Manifest tab Attack/Defense — modifiers below are specific to this fight.</div>
     ${combatBreakdownSideHtml("Attack", breakdown.attacker)}
     ${combatBreakdownSideHtml("Defense", breakdown.defender)}
     <div class="tile-combat-breakdown-formula">Win chance = Attack<sup>${COMBAT_WIN_CHANCE_EXPONENT}</sup> ÷ (Attack<sup>${COMBAT_WIN_CHANCE_EXPONENT}</sup> + Defense<sup>${COMBAT_WIN_CHANCE_EXPONENT}</sup>) = ${formatCombatPowerNumber(atkPow)} ÷ (${formatCombatPowerNumber(atkPow)} + ${formatCombatPowerNumber(defPow)}) = ${Math.round(breakdown.winChance * 100)}%</div>

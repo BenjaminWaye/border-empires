@@ -149,7 +149,7 @@ export function handleRevealEmpireCommand(context: RuntimeAbilityCommandContext,
     return;
   }
   if (!playerHasAbilityTech(actor.techIds, "reveal_empire") && context.revealTargetsForPlayer(actor.id).size === 0) {
-    rejectCommand(context, command, "REVEAL_EMPIRE_INVALID", "unlock reveal capability via tech/domain first");
+    rejectCommand(context, command, "REVEAL_EMPIRE_INVALID", "unlock reveal capability via Manifests or Domains first");
     return;
   }
   if (payload.targetPlayerId === actor.id) {

@@ -103,7 +103,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   WAYSTATION: {
     id: "WAYSTATION",
     title: "Waystation Discovered!",
-    body: "Expand onto a Waystation to activate it, permanently: it grants ONE of four possible rewards, chosen at random -- a map reveal near a nearby town, a population burst to your nearest town, a tech unlocked outright, or an extra resource slot for your empire. Unlike a watchtower's pulse, the reward is permanent and fires once."
+    body: "Expand onto a Waystation to activate it, permanently: it grants ONE of four possible rewards, chosen at random -- a map reveal near a nearby town, a population burst to your nearest town, a Manifest unlocked outright, or an extra resource slot for your empire. Unlike a watchtower's pulse, the reward is permanent and fires once."
   },
   ...NATURAL_WONDER_DISCOVERY_TIPS
 };

@@ -76,7 +76,7 @@ const statsHtml = (entry: LeaderboardOverallEntry | undefined, combat: ProfileCo
     ${card("Score", v((e) => int(e.score)))}
     ${card("Garrisoned tiles", v((e) => int(e.tiles)))}
     ${card("Coin / day", v((e) => (e.incomePerMinute * 1440).toFixed(1)))}
-    ${card("Techs", v((e) => int(e.techs)))}
+    ${card("Manifests", v((e) => int(e.techs)))}
     ${card("Manpower cap", v((e) => int(e.manpowerCap)))}
     ${combat ? combatStatCardsHtml(combat) : ""}
   </div>`;

@@ -125,7 +125,7 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
         ${statCardHtml("Score", entry ? entry.score.toFixed(0) : "?")}
         ${statCardHtml("Garrisoned Tiles", entry ? formatInt(entry.tiles) : "?")}
         ${statCardHtml("Income", entry ? `${(entry.incomePerMinute * 1440).toFixed(1)}/day` : "?")}
-        ${statCardHtml("Techs", entry ? formatInt(entry.techs) : "?")}
+        ${statCardHtml("Manifests", entry ? formatInt(entry.techs) : "?")}
       </div>
       ${truceStatusHtml}
       ${careerStatsHtml(careerStats)}

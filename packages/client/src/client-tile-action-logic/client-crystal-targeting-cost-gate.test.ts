@@ -103,4 +103,15 @@ describe("crystal targeting cost gates", () => {
 
     expect(feed).toContain("Worldbreaker Shot needs 1,000 coin.");
   });
+
+  // Regression: the warning named a non-existent "Aether Bridge" Manifest instead of the unlocking catalog entry.
+  it("names the unlocking Manifest from the catalog when Aether Bridge is locked", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.techIds = [];
+    state.techCatalog = [{ id: "navigation", name: "Tideway Lattice Module" } as never];
+    const feed: string[] = [];
+    beginCrystalTargeting(state, "aether_bridge", depsWithFeed(feed));
+    expect(feed).toContain("Aether Bridge requires the Tideway Lattice Module Manifest.");
+  });
 });

@@ -206,7 +206,7 @@ export const renderSocialInspectCardHtml = (args: {
       </div>
       <div class="economy-detail-column">
         <div class="economy-line"><span>Income</span><strong>${entry ? `${(entry.incomePerMinute * 1440).toFixed(1)}/day` : "?"}</strong></div>
-        <div class="economy-line"><span>Techs</span><strong>${entry ? entry.techs.toFixed(0) : "?"}</strong></div>
+        <div class="economy-line"><span>Manifests</span><strong>${entry ? entry.techs.toFixed(0) : "?"}</strong></div>
       </div>
     </div>
   </article>`;

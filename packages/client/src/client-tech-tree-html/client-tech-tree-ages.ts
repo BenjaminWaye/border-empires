@@ -42,5 +42,5 @@ const TECH_AGE_BY_TIER: Record<number, TechAgeMeta> = {
   }
 };
 
-export const techAgeMetaForTier = (tier: number): TechAgeMeta => TECH_AGE_BY_TIER[tier] ?? { name: `Tier ${tier}`, blurb: "Advanced empire technology.", stageBlurb: "Advanced unlocks." };
+export const techAgeMetaForTier = (tier: number): TechAgeMeta => TECH_AGE_BY_TIER[tier] ?? { name: `Tier ${tier}`, blurb: "Advanced empire Manifests.", stageBlurb: "Advanced unlocks." };
 
