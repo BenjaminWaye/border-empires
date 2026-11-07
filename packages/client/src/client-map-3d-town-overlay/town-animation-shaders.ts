@@ -24,7 +24,7 @@ export const loopSpeed = (speed: number): number => {
 export const loopRate = (rate: number): number => Math.round(rate * TOWN_TIME_PERIOD) / TOWN_TIME_PERIOD;
 
 /** Seconds, wrapped at TOWN_TIME_PERIOD. */
-const townTime = { value: 0 };
+export const townTime = { value: 0 };
 
 export const tickTownTime = (): void => {
   townTime.value = (performance.now() / 1000) % TOWN_TIME_PERIOD;

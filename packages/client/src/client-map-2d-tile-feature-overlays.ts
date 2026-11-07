@@ -16,6 +16,8 @@ import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js";
 import { isTrue3DRendererActive } from "./client-renderer-mode.js";
 import { drawRememberedStructures2D, type RememberedStructures2DDeps } from "./client-remembered-structures-2d/client-remembered-structures-2d.js";
 import type { Tile } from "./client-types.js";
+import { drawTownTierUpgrade2D } from "./client-town-tier-upgrade-fx/client-map-2d-town-tier-upgrade.js";
+import type { TownTierUpgradeFxEntry } from "./client-town-tier-upgrade-fx/client-town-tier-upgrade-fx.js";
 
 export type TileFeatureOverlayDeps2D = {
   ctx: CanvasRenderingContext2D;
@@ -27,6 +29,8 @@ export type TileFeatureOverlayDeps2D = {
   afcModuleDeliveryLandedAt: ReadonlyMap<string, number>;
   /** Buildings on fogged tiles, drawn as last seen and standing still. */
   remembered: RememberedStructures2DDeps;
+  /** Town tier-upgrade celebrations by tile key (client-town-tier-upgrade-fx/). */
+  townTierUpgradeFxByKey: ReadonlyMap<string, TownTierUpgradeFxEntry>;
 };
 
 /** Draws a tile's 2D feature overlays (a fogged tile's remembered buildings too); a no-op in the 3D renderer, which has its own. */
@@ -62,4 +66,6 @@ export const drawTileFeatureOverlays2D = (
     const nowEpochMs = Date.now();
     if (t.captureHoldUntil > nowEpochMs) drawCaptureHoldGarrison2D(deps.ctx, t, deps.effectiveOverlayColor(t.ownerId), px, py, size, nowEpochMs);
   }
+  const townUpgrade = deps.townTierUpgradeFxByKey.size > 0 ? deps.townTierUpgradeFxByKey.get(tileKey) : undefined;
+  if (townUpgrade) drawTownTierUpgrade2D(deps.ctx, townUpgrade, px, py, size, Date.now());
 };
