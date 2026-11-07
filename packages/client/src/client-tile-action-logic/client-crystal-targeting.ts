@@ -158,7 +158,7 @@ export const beginCrystalTargeting = (
   if (ability === "aether_bridge") {
     const cooldown = deps.abilityCooldownRemainingMs("aether_bridge");
     if (!hasAetherBridgeCapability(state)) {
-      deps.pushFeed("Aether Bridge requires the Aether Bridge tech.", "combat", "warn");
+      deps.pushFeed("Aether Bridge requires the Aether Bridge manifest.", "combat", "warn");
       return;
     }
     if (cooldown > 0) {

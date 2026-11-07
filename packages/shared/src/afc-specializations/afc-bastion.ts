@@ -21,7 +21,7 @@ export const AFC_BASTION = [
     "branch": "bastion",
     "name": "Fortification Patterns",
     "description": "Build Forts without the Titanium Forge Module. Your first three Forts cost no manpower and need no Titanium slot; later Forts cost half the usual manpower. Prefabricated plans and starter stores support the works.",
-    "mechanicalSummary": "Forts without the tech | First 3 Forts free | −50% Fort manpower.",
+    "mechanicalSummary": "Forts without the manifest | First 3 Forts free | −50% Fort manpower.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {

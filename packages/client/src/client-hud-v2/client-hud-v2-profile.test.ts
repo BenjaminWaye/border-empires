@@ -38,6 +38,8 @@ describe("player profile screen", () => {
     expect(host.querySelector(".v2p-rank b")?.textContent).toBe("#2");
     expect(host.querySelectorAll(".v2p-stat").length).toBe(5);
     expect(host.querySelector(".v2p-stats")?.textContent).toContain("720.0");
+    expect(host.querySelector(".v2p-stats")?.textContent).toContain("Manifests");
+    expect(host.querySelector(".v2p-stats")?.textContent).not.toContain("Techs");
     expect(host.textContent).toContain("Town Control");
     expect(host.textContent).toContain("Orla");
     expect(host.querySelector("[data-v2-profile-diplomacy='p2']")).not.toBeNull();

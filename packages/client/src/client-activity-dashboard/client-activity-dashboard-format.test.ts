@@ -137,7 +137,7 @@ describe("activityCardText / activityCardCoordinates", () => {
   it("does not claim a population or technology reward that did not resolve", () => {
     const tech = { kind: "WAYSTATION_ACTIVATED" as const, grantedEffect: "TECH" as const, x: 5, y: 9 };
     const population = { kind: "WAYSTATION_ACTIVATED" as const, grantedEffect: "POPULATION" as const, x: 5, y: 9 };
-    expect(activityCardText(tech as any, "me", noNames)).toContain("no unowned technology remained");
+    expect(activityCardText(tech as any, "me", noNames)).toContain("no unowned manifest remained");
     expect(activityCardText(population as any, "me", noNames)).toContain("no eligible town received population");
   });
 
