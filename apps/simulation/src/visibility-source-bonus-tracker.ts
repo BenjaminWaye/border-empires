@@ -28,7 +28,9 @@ export class SourceBonusRadiusTracker {
     private readonly cache: VisibilityCoverageCache,
     private readonly reason: string,
     private readonly isBarbarian: (sourceId: string) => boolean,
-    private readonly viewersForSource: (sourceId: string) => Iterable<string>
+    private readonly viewersForSource: (sourceId: string) => Iterable<string>,
+    // Relay Beacon/Siege Battery rings see over forest; mountains still block.
+    private readonly ignoreForest = false
   ) {}
 
   set(sourceId: string, x: number, y: number, bonusRadius: number, callbacks?: VisibilityTransitionCallbacks): void {
@@ -37,8 +39,8 @@ export class SourceBonusRadiusTracker {
     const existing = this.radiusBySourceAndTile.get(sourceId)?.get(tileKey);
     if (existing === bonusRadius) return;
     for (const viewerId of this.viewersForSource(sourceId)) {
-      if (existing !== undefined) this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave, this.reason);
-      this.cache.addFootprint(viewerId, x, y, bonusRadius, callbacks?.onEnter, this.reason);
+      if (existing !== undefined) this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave, this.reason, this.ignoreForest);
+      this.cache.addFootprint(viewerId, x, y, bonusRadius, callbacks?.onEnter, this.reason, this.ignoreForest);
     }
     let byTile = this.radiusBySourceAndTile.get(sourceId);
     if (!byTile) {
@@ -55,7 +57,7 @@ export class SourceBonusRadiusTracker {
     const existing = byTile?.get(tileKey);
     if (existing === undefined) return;
     for (const viewerId of this.viewersForSource(sourceId)) {
-      this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave, this.reason);
+      this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave, this.reason, this.ignoreForest);
     }
     byTile!.delete(tileKey);
     if (byTile!.size === 0) this.radiusBySourceAndTile.delete(sourceId);
@@ -78,8 +80,8 @@ export class SourceBonusRadiusTracker {
     for (const [tileKey, radius] of byTile) {
       const parsed = parseTileKey(tileKey);
       if (!parsed) continue;
-      if (onEnter) this.cache.addFootprint(viewerId, parsed.x, parsed.y, radius, onEnter, this.reason);
-      if (onLeave) this.cache.removeFootprint(viewerId, parsed.x, parsed.y, radius, onLeave, this.reason);
+      if (onEnter) this.cache.addFootprint(viewerId, parsed.x, parsed.y, radius, onEnter, this.reason, this.ignoreForest);
+      if (onLeave) this.cache.removeFootprint(viewerId, parsed.x, parsed.y, radius, onLeave, this.reason, this.ignoreForest);
     }
   }
 }

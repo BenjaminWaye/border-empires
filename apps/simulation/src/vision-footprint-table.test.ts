@@ -126,6 +126,43 @@ describe("VisionFootprintTable", () => {
     expect(offsetSet.has("-1,0")).toBe(true); // unrelated bearing, unaffected
   });
 
+  it("never treats a sea tile as forest, even where the procedural forest map says forest (worldgen-carved sea channels)", () => {
+    // Season worldgen's ensureLandMassesReachSea carves SEA channels through
+    // tiles the static isForestTileAt still reports as forest. A beacon beside
+    // such a channel lost its view across the water (prod, season 13, (525,297)).
+    let epoch = 0;
+    const table = new VisionFootprintTable(200, 200, {
+      terrainAt: (x, y) => (y === 51 ? "SEA" : "LAND"),
+      getTerrainEpoch: () => epoch,
+      forestAt: (_x, y) => y === 51
+    });
+    const offsetSet = new Set(table.getOffsets(50, 50, 4).map(([dx, dy]) => `${dx},${dy}`));
+    expect(offsetSet.has("0,1")).toBe(true);
+    expect(offsetSet.has("0,3")).toBe(true); // 2 past the channel: would be occluded if the sea counted as forest
+    expect(offsetSet.has("0,4")).toBe(true);
+    expect(table.getOffsets(50, 50, 4).length).toBe(9 * 9);
+    epoch += 1; // a mountain edit elsewhere must not bring the sea's forest back
+    expect(table.getOffsets(50, 50, 4).length).toBe(9 * 9);
+  });
+
+  it("ignoreForest keeps mountain occlusion, drops forest occlusion, and memoizes separately", () => {
+    const { table } = makeTable(new Set(["50,52"]), 200, 200, new Set(["51,50", "52,50"]));
+    const plain = new Set(table.getOffsets(50, 50, 4).map(([dx, dy]) => `${dx},${dy}`));
+    const beacon = new Set(table.getOffsets(50, 50, 4, true).map(([dx, dy]) => `${dx},${dy}`));
+    expect(plain.has("3,0")).toBe(false); // forest-occluded for ordinary vision
+    expect(beacon.has("3,0")).toBe(true);
+    expect(beacon.has("4,0")).toBe(true);
+    expect(beacon.has("0,2")).toBe(true); // the mountain itself
+    expect(beacon.has("0,3")).toBe(false); // behind the mountain
+    // Asking again in the other mode must not return the first mode's memo.
+    expect(new Set(table.getOffsets(50, 50, 4).map(([dx, dy]) => `${dx},${dy}`)).has("3,0")).toBe(false);
+  });
+
+  it("ignoreForest with forest only (no mountain) returns the full square", () => {
+    const { table } = makeTable(new Set(), 200, 200, new Set(["51,50"]));
+    expect(table.getOffsets(50, 50, 3, true).length).toBe(7 * 7);
+  });
+
   it("does NOT clamp a source tile's own vision when the source tile is itself forest", () => {
     // The source's own terrain never occludes its own vision (see
     // vision-line-of-sight.ts) — standing in a forest doesn't blur your own

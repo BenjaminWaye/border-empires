@@ -205,7 +205,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // One-shot effects live under a world-anchored root so they stay on their tile while the camera pans (client-map-3d-anchored-fx-layers.ts).
   const anchoredFx = createAnchoredFxLayers(scene, atmosphere.buildingEnvironmentTexture);
   const { floatingText, aetherLanceFx, surveySweepFx, siphonFx, retortRecastFx, revealEmpireFx, revealEmpireStatsFx, bombardFx, siegeBombardFx } = anchoredFx;
-  const { sovereignSiegeEngineStrikeFx, imperialExchangeLevyFx, astralDockLaunchFx, aegisLockFx, unsettleFx, afcModuleDeliveryFx, afcDropFx } = anchoredFx;
+  const { sovereignSiegeEngineStrikeFx, imperialExchangeLevyFx, astralDockLaunchFx, aegisLockFx, unsettleFx, afcModuleDeliveryFx, afcDropFx, townTierUpgradeFx } = anchoredFx;
   const surveySweepPingOverlay = createSurveySweepPingOverlay(scene); const onboardingChecklistHighlightOverlay = createOnboardingChecklistHighlightOverlay(scene);
   const sovereignSiegeEngineShakeFx = createCameraShakeFx(camera);
   const borderDustFx = createBorderDustFxLayer(scene);
@@ -516,7 +516,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     syncSovereignSiegeEngineStrikeFxQueue,
     syncSovereignSiegeEngineStrikeShakeQueue,
     syncImperialExchangeLevyFxQueue,
-    syncUnsettleFxQueue, syncAfcModuleDeliveryFxQueue, syncAfcDropFxQueue,
+    syncUnsettleFxQueue, syncAfcModuleDeliveryFxQueue, syncAfcDropFxQueue, syncTownTierUpgradeFxQueue,
     syncAstralDockLaunchFxQueue,
     syncAegisLockFxQueue
   } = createFxCastOverlaySyncs({
@@ -538,7 +538,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       imperialExchangeLevyFx,
       astralDockLaunchFx,
       aegisLockFx,
-      unsettleFx, afcModuleDeliveryFx, afcDropFx
+      unsettleFx, afcModuleDeliveryFx, afcDropFx, townTierUpgradeFx
     }
   });
   const syncAetherBridgePylons = createAetherBridgePylonSync(aetherBridgePylonOverlay, { tileCenterOffset: TILE_CENTER_OFFSET, markerRise: MARKER_RISE_ABOVE_HEIGHTFIELD, tileSurfaceY: aetherBridgeTileSurfaceY, sceneOrigin });
@@ -839,7 +839,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const demoTier = isTownDemoTile(wx, wy, window.camX, window.camY);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
         if (renderedTier && terrain === "LAND") {
-          townOverlay.addInstance(x, z, surfaceY, renderedTier, wx, wy);
+          townOverlay.addInstanceWithUpgrade(x, z, surfaceY, renderedTier, wx, wy, deps.state.townTierUpgradeFxByKey.get(tileKey)); // mid tier-upgrade: old tier sinks, new tier grows
           // LARGE, not DEFAULT: a town's own foundation slab runs up to 0.92
           // tiles wide (see the radius comments in
           // client-map-3d-contact-shadow.ts) — DEFAULT's 0.84 diameter was
@@ -1198,7 +1198,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     syncSovereignSiegeEngineStrikeShakeQueue(nowMs);
     syncImperialExchangeLevyFxQueue();
     syncAstralDockLaunchFxQueue();
-    anchoredFx.root.follow(sceneOrigin); syncAegisLockFxQueue(); syncUnsettleFxQueue(); syncAfcModuleDeliveryFxQueue(); syncAfcDropFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs); syncArrowOverlayFrame(arrowOverlay, deps.state.arrowGesture, (t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) })); // F1: driven every frame (not just on terrain rebuild) so the arrow tracks the mouse smoothly mid-drag
+    anchoredFx.root.follow(sceneOrigin); syncAegisLockFxQueue(); syncUnsettleFxQueue(); syncAfcModuleDeliveryFxQueue(); syncAfcDropFxQueue(); syncTownTierUpgradeFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs); syncArrowOverlayFrame(arrowOverlay, deps.state.arrowGesture, (t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) })); // F1: driven every frame (not just on terrain rebuild) so the arrow tracks the mouse smoothly mid-drag
     crystalTargetingOverlay.sync({ ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected, keyFor: deps.keyFor, camX: sceneOrigin.camX, camY: sceneOrigin.camY, cornerYAt: heightfield.cornerYAt.bind(heightfield), toroidDelta });
     villageEffects.update(nowMs);
     district.update(nowMs);
@@ -1216,7 +1216,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     sovereignSiegeEngineShakeFx.update(nowMs);
     imperialExchangeLevyFx.update(nowMs);
     astralDockLaunchFx.update(nowMs);
-    aegisLockFx.update(nowMs); unsettleFx.update(nowMs); afcModuleDeliveryFx.update(nowMs); afcDropFx.update(nowMs); borderDustFx.update(nowMs);
+    aegisLockFx.update(nowMs); unsettleFx.update(nowMs); afcModuleDeliveryFx.update(nowMs); afcDropFx.update(nowMs); townTierUpgradeFx.update(nowMs); borderDustFx.update(nowMs);
     floatingText.update(nowMs); nameDecal.tick(nowMs);
     attackOverlay.tick(Date.now()); // epoch ms: pulses off server resolvesAt, not uptime — see client-map-3d-attack-overlay.ts
     settleOverlay.tick(nowMs);
@@ -1303,7 +1303,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     sovereignSiegeEngineStrikeFx.dispose();
     imperialExchangeLevyFx.dispose();
     astralDockLaunchFx.dispose();
-    aegisLockFx.dispose(); unsettleFx.dispose(); afcModuleDeliveryFx.dispose(); afcDropFx.dispose(); borderDustFx.dispose();
+    aegisLockFx.dispose(); unsettleFx.dispose(); afcModuleDeliveryFx.dispose(); afcDropFx.dispose(); townTierUpgradeFx.dispose(); borderDustFx.dispose();
     dockOverlay.dispose(); dockRouteOverlay.dispose();
     barbarianOverlay.dispose();
     watchtowerOverlay.dispose(); waystationOverlay.dispose(); naturalWonderOverlays.dispose(); afcOverlayGroup.dispose();

@@ -98,25 +98,25 @@ describe("menuOverviewForTile", () => {
                 { statLabel: "Coin", valueText: "+6", tone: "positive" },
                 { statLabel: "Coin production", valueText: "+210%", tone: "positive" }
               ]
-            }
+            },
+            { heading: "1 Weapons Workshop", modifiers: [{ statLabel: "Empire attack", valueText: "+5%", tone: "positive" }] }
           ]
         }
       },
       deps
     );
 
-    const groupIndex = lines.findIndex((line) => line.kind === "group" && line.html === "6 Manufactories");
+    const groupIndex = lines.findIndex((line) => line.kind === "group" && line.html === "1 Weapons Workshop");
     expect(groupIndex).toBeGreaterThanOrEqual(0);
-    const goldLine = lines[groupIndex + 1];
-    const goldProductionLine = lines[groupIndex + 2];
-    expect(goldLine?.kind).toBe("effect");
-    expect(goldLine?.nested).toBe(true);
-    expect(goldLine?.html).toContain("Coin:");
-    expect(goldLine?.html).toContain("+6");
-    expect(goldProductionLine?.kind).toBe("effect");
-    expect(goldProductionLine?.nested).toBe(true);
-    expect(goldProductionLine?.html).toContain("Coin production:");
-    expect(goldProductionLine?.html).toContain("+210%");
+    const attackLine = lines[groupIndex + 1];
+    expect(attackLine?.kind).toBe("effect");
+    expect(attackLine?.nested).toBe(true);
+    expect(attackLine?.html).toContain("Empire attack:");
+    expect(attackLine?.html).toContain("+5%");
+    expect(lines.some((line) => line.kind === "group" && line.html === "6 Manufactories")).toBe(false);
+    const grid = lines.find((line) => line.kind === "statgrid")?.html ?? "";
+    expect(grid).toContain("6 Manufactories");
+    expect(grid).toContain("Coin production +210%");
   });
 
   it("avoids repeating fed town production in prose and shows connection guidance when isolated", () => {
@@ -542,7 +542,7 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(lines.some((line) => line.html === "Connected towns 2")).toBe(false);
-    expect(lines.some((line) => line.html.includes("2 connected towns:"))).toBe(true);
+    expect(lines.some((line) => line.kind === "statgrid" && line.html.includes("2 connected towns</strong> · +90%"))).toBe(true);
   });
 
   it("calls out inactive support structures", () => {
@@ -757,8 +757,8 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.kind === "section" && line.html === "Modifiers")).toBe(true);
     expect(lines.some((line) => line.html.includes("Long-term peace:"))).toBe(true);
     expect(lines.some((line) => line.html.includes("+100% population growth"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("2 connected towns:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+90% coin production"))).toBe(true);
+    // Coin lines live in the stat grid's Coin card, not the Modifiers section.
+    expect(lines.some((line) => line.kind === "statgrid" && line.html.includes("2 connected towns</strong> · +90%"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Connected dock route:"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Harbor Exchange:"))).toBe(true);
   });

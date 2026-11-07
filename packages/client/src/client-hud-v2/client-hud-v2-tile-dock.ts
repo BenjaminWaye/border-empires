@@ -1,3 +1,4 @@
+import { preserveResourceBuildChoice, resourceBuildChecked } from "./client-resource-improvement-action.js";
 // Bridges the legacy floating tile menu into the new HUD. With the flag on,
 // every render of the floating menu also renders the bottom action bar and
 // hides the floating menu itself. Build ▸ and Aether ▸ open a right-hand
@@ -23,7 +24,7 @@ import { isHudV2Active } from "./client-hud-v2-flag.js";
 export type TileDockDeps = {
   tileActionMenuEl: HTMLElement;
   isMobile: () => boolean;
-  handleTileAction: (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string) => void;
+  handleTileAction: (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string, buildAllResources?: boolean) => void;
   hideTileActionMenu: () => void;
   renderHud: () => void;
 };
@@ -176,7 +177,7 @@ const paintBar = (): void => {
   side.setAttribute("aria-label", dock.panel === "aether" ? "Aether" : "Build");
   const sideHtml = dock.panel === "aether" ? aetherListHtml({ abilities: view.crystal, focusLabel: `(${x}, ${y})` }) : buildSideHtml(view, key, `(${x}, ${y})`);
   if (sideHtml !== dock.lastSideHtml) {
-    side.innerHTML = sideHtml;
+    preserveResourceBuildChoice(side, () => { side.innerHTML = sideHtml; });
     dock.lastSideHtml = sideHtml;
   }
   side.hidden = false;
@@ -241,7 +242,7 @@ const onBarClick = (event: MouseEvent): void => {
     const id = action.dataset.hudV2Action as TileActionDef["id"];
     if (dock.lastView) listener?.onBarAction(id, dock.lastView, state.tileActionMenu.currentTileKey);
     dock.panel = undefined;
-    deps.handleTileAction(id, action.dataset.targetKey, action.dataset.originKey);
+    deps.handleTileAction(id, action.dataset.targetKey, action.dataset.originKey, resourceBuildChecked(action));
     paintBar();
     return;
   }

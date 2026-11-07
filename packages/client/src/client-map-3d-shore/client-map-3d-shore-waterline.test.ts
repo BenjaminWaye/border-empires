@@ -41,6 +41,17 @@ describe("shore waterline", () => {
     for (const z of [0.45, 0.5, 0.55, 1.5]) expect(waterline(0.5, z)).toBeLessThan(0);
   });
 
+  it("keeps most of a one-tile strait open water, not a hairline between two beaches", () => {
+    // Season worldgen carves straight 1-tile SEA channels (ensureLandMassesReachSea);
+    // with each bank's beach reaching 0.35 in, the channel read as a thin line
+    // between two owned shores (prod season 13, row 298).
+    const strait: Land = (_x, z) => z !== 0;
+    const waterline = waterlineOf(strait);
+    for (const x of [0.5, 3.5, 7.5]) {
+      for (const z of [0.25, 0.5, 0.75]) expect(waterline(x, z)).toBeLessThan(0);
+    }
+  });
+
   it("keeps a one-tile lake a lake", () => {
     // ~90% sand once, leaving a tiny square pool.
     const lake: Land = (x, z) => !(x === 0 && z === 0);

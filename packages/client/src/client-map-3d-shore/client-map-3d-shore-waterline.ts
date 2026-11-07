@@ -35,8 +35,11 @@ const SHORE_FIELD_SLOPE = 0.66;
 // across-water cap instead (SHORE_SAND_OPEN_HALF_WIDTH).
 export const SHORE_SAND_MAX_REACH = 0.9;
 // Half the open water kept down the middle of water with land on both
-// sides (a one-tile inlet keeps ~0.37 of a tile).
-const SHORE_SAND_OPEN_HALF_WIDTH = 0.15;
+// sides: a one-tile strait or inlet keeps ~0.6 of a tile. At 0.15 (~0.3
+// open) the straight 1-tile channels season worldgen carves
+// (ensureLandMassesReachSea) read as a hairline between two beaches, so a
+// SEA tile looked like land.
+const SHORE_SAND_OPEN_HALF_WIDTH = 0.3;
 // Sand always rings land at least this deep. Kept thin: with the warp
 // outward-only it rarely binds, and a wider band (0.12) itself pushed the
 // beach out round every outer corner of a diagonal coast into teeth.

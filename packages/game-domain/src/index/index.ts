@@ -209,6 +209,7 @@ export type DomainTileState = {
             | "connectedTownCount"
             | "connectedTownBonus"
             | "connectedTownNames"
+            | "tradeNexusTownNames"
             | "firstThreeTownGoldMult"
             | "firstThreeTownPopGrowthMult"
             | "connectedTitaniumWeaponsFactoryCount"
