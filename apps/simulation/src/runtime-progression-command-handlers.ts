@@ -211,7 +211,7 @@ export function handleChooseTechCommand(context: RuntimeProgressionCommandContex
     techId = "";
   }
   if (!techId) {
-    rejectCommand(context, command, "TECH_INVALID", "missing tech id");
+    rejectCommand(context, command, "TECH_INVALID", "missing manifest id");
     return;
   }
   context.beforeResourceSupplyChange?.(actor.id);

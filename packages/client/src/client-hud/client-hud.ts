@@ -422,8 +422,8 @@ export const renderClientHud = (deps: HudDeps): void => {
         state.pendingTechUnlockId
           ? "Unlock pending..."
           : state.techIds.length > 0
-            ? "No further techs in your current branch this season"
-            : "No available tech choices";
+            ? "No further manifests in your current branch this season"
+            : "No available manifest choices";
       dom.techPickEl.append(opt);
       dom.mobileTechPickEl.append(opt.cloneNode(true));
     }

@@ -171,7 +171,7 @@ export const structureInfoForKey = (
     if (key === "FORT") return ["Prevents failed attacks from immediately flipping the fortified origin tile"];
     if (key === "TITANIUM_BASTION") return ["Upgrades Forts into Titanium Bastions", "Also keeps the +10% garrisoned defense from Bastion Walls"];
     if (key === "THUNDER_BASTION") return ["Upgrades Titanium Bastions into Thunder Bastions", "Improves resistance to siege and lance pressure"];
-    if (key === "OBSERVATORY") return ["Crystal range grows with tech"];
+    if (key === "OBSERVATORY") return ["Crystal range grows with manifests"];
     if (key === "PALISADE") return ["Light defensive fortification", "No iron upkeep"];
     if (key === "RELAY_BEACON") return ["Receives the House AI’s gravitational command signal", "Maintains local settlement control coverage and frontier vision", "Supplied frontier can advance beyond reach"];
     if (key === "SIEGE_BATTERY") return ["Improves attacks launched from this tile"];

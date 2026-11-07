@@ -99,5 +99,5 @@ export const BUILDING_CATEGORY_EMPTY_REASON: Record<BuildingCategory, string> = 
   resource: "Requires a farm, fish, titanium, gem, or umbrite resource tile.",
   town_support: "Requires an available town-support tile in this town's ring.",
   infrastructure: "No infrastructure structures available on this tile.",
-  monument: "Requires a Great City or Monumental City and the monument's tech."
+  monument: "Requires a Great City or Monumental City and the monument's manifest."
 };

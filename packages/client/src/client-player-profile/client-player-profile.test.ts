@@ -22,6 +22,8 @@ describe("playerProfileHtml", () => {
     expect(html).toContain("Nauticus");
     expect(html).toContain("Rank #3");
     expect(html).toContain("42");
+    expect(html).toContain("Manifests");
+    expect(html).not.toContain(">Techs<");
   });
 
   it("shows a self-profile's oathbreaker badge/list from the live truceBreaksThisSeason prop", () => {
