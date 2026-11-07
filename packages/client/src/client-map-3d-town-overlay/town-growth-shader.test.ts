@@ -1,8 +1,9 @@
-import { MeshStandardMaterial, Scene, type InstancedMesh, type WebGLProgramParametersWithUniforms, type WebGLRenderer } from "three";
+import { MeshDepthMaterial, MeshStandardMaterial, Scene, type InstancedMesh, type WebGLProgramParametersWithUniforms, type WebGLRenderer } from "three";
 import { describe, expect, it } from "vitest";
 import { createTownOverlay } from "../client-map-3d-town-overlay.js";
 import { applyTownGrowth, TOWN_GROW_RISE, townClockSecondsAt } from "./town-growth-shader.js";
 import { TOWN_TIME_PERIOD } from "./town-animation-shaders.js";
+import { getTownTierGeometry } from "./town-tier-geometry.js";
 
 const fakeShader = (): WebGLProgramParametersWithUniforms =>
   ({ uniforms: {}, vertexShader: "void main() {\n#include <begin_vertex>\n#include <project_vertex>\n}", fragmentShader: "" }) as unknown as WebGLProgramParametersWithUniforms;
@@ -45,5 +46,48 @@ describe("town overlay growth attribute", () => {
     const still = scene.getObjectByName("town-still-CITY") as InstancedMesh;
     expect(still.geometry.getAttribute("townGrow")).toBeUndefined();
     overlay.dispose();
+  });
+});
+
+describe("town overlay growth lifecycle", () => {
+  it("routes an upgrading town through growth and plain towns through addInstance", () => {
+    const scene = new Scene();
+    const overlay = createTownOverlay(scene, 4);
+    overlay.addInstanceWithUpgrade(0, 0, 0, "CITY", 1, 1, { x: 1, y: 1, fromTier: "TOWN", tier: "CITY", startedAt: Date.now() });
+    overlay.addInstanceWithUpgrade(1, 0, 0, "CITY", 2, 1, undefined);
+    overlay.commit();
+    expect((scene.getObjectByName("town-TOWN") as InstancedMesh).count).toBe(1);
+    expect((scene.getObjectByName("town-CITY") as InstancedMesh).count).toBe(2);
+    overlay.dispose();
+  });
+
+  it("casts the base plate's shadow with its own growth, not the buildings'", () => {
+    const scene = new Scene();
+    const overlay = createTownOverlay(scene, 2);
+    const body = scene.getObjectByName("town-CITY") as InstancedMesh;
+    const plinth = scene.getObjectByName("town-CITY-plinth") as InstancedMesh;
+    expect(plinth.customDepthMaterial).toBeInstanceOf(MeshDepthMaterial);
+    expect(plinth.customDepthMaterial).not.toBe(body.customDepthMaterial);
+    expect(plinth.customDepthMaterial!.customProgramCacheKey()).toContain("town-grow-plinth");
+    overlay.dispose();
+  });
+
+  it("frees its growth copies on dispose without touching the shared tier geometry", () => {
+    const scene = new Scene();
+    const overlay = createTownOverlay(scene, 2);
+    const copy = (scene.getObjectByName("town-CITY") as InstancedMesh).geometry;
+    const shared = getTownTierGeometry("CITY").body;
+    const sharedAttributeNames = Object.keys(shared.attributes);
+    const sharedIndex = shared.index;
+    let sharedDisposed = false;
+    shared.addEventListener("dispose", () => { sharedDisposed = true; });
+    let copyDisposed = false;
+    copy.addEventListener("dispose", () => { copyDisposed = true; });
+    overlay.dispose();
+    expect(copyDisposed).toBe(true);
+    expect(sharedDisposed).toBe(false);
+    expect(Object.keys(shared.attributes)).toEqual(sharedAttributeNames);
+    expect(shared.index).toBe(sharedIndex);
+    expect(Object.keys(copy.attributes)).toEqual(["townGrow"]);
   });
 });

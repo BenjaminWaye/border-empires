@@ -16,8 +16,8 @@ type Entry = {
 
 export type TownTierUpgradeFxLayer = {
   readonly group: Group;
-  /** startedAt is performance.now() ms of when the transition began (may be in the past). */
-  readonly spawn: (sceneX: number, sceneZ: number, surfaceY: number, tier: TownPopulationTier, startedAt: number) => void;
+  /** startedAt is performance.now() ms of when the transition began (may be in the past); seed from townGrowthDustSeed, so 2D and 3D lay the dust out alike. */
+  readonly spawn: (sceneX: number, sceneZ: number, surfaceY: number, tier: TownPopulationTier, startedAt: number, seed: number) => void;
   readonly update: (nowMs: number) => void;
   readonly clear: () => void;
   readonly dispose: () => void;
@@ -38,7 +38,7 @@ export const createTownTierUpgradeFxLayer = (scene: Object3D): TownTierUpgradeFx
     for (const material of entry.materials) material.dispose();
   };
 
-  const spawn = (sceneX: number, sceneZ: number, surfaceY: number, tier: TownPopulationTier, startedAt: number): void => {
+  const spawn = (sceneX: number, sceneZ: number, surfaceY: number, tier: TownPopulationTier, startedAt: number, seed: number): void => {
     const entryGroup = new Group();
     entryGroup.position.set(sceneX, surfaceY + 0.02, sceneZ);
     const materials: MeshStandardMaterial[] = [];
@@ -53,7 +53,7 @@ export const createTownTierUpgradeFxLayer = (scene: Object3D): TownTierUpgradeFx
       puffs.push(puff);
     }
     group.add(entryGroup);
-    entries.push({ group: entryGroup, seed: Math.round(sceneX * 131 + sceneZ * 17), puffs, materials, startedAt });
+    entries.push({ group: entryGroup, seed, puffs, materials, startedAt });
     while (entries.length > MAX_ACTIVE) disposeEntry(entries.shift()!);
   };
 

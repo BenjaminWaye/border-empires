@@ -1,4 +1,4 @@
-import { townGrowthDustPuffAt, townGrowthDustPuffs, TOWN_GROWTH_DUST_MS, type TownTierUpgradeFxEntry } from "./client-town-tier-upgrade-fx.js";
+import { townGrowthDustPuffAt, townGrowthDustPuffs, townGrowthDustSeed, TOWN_GROWTH_DUST_MS, type TownTierUpgradeFxEntry } from "./client-town-tier-upgrade-fx.js";
 
 // 2D canvas counterpart of the true-3D growth dust
 // (client-map-3d-town-tier-upgrade-fx.ts), sampled from the same puff
@@ -21,7 +21,7 @@ export const drawTownTierUpgrade2D = (
   if (age < 0 || age >= TOWN_GROWTH_DUST_MS) return;
   const cx = px + size / 2;
   const cy = py + size * 0.78;
-  const seed = Math.round(entry.x * 131 + entry.y * 17);
+  const seed = townGrowthDustSeed(entry.x, entry.y);
   ctx.save();
   for (let i = 0; i < townGrowthDustPuffs(entry.tier); i += 1) {
     const dust = townGrowthDustPuffAt(seed, i, age);

@@ -64,10 +64,11 @@ export const drawTownGrowthSprites2D = (
     const rise = townGrowthRise(age, Math.abs(centre - 0.5) * 2);
     if (rise <= 0) continue;
     const sx = (i / TOWN_GROWTH_STRIPS_2D) * sourceWidth;
-    const sw = sourceWidth / TOWN_GROWTH_STRIPS_2D;
     const dx = rect.x + (i / TOWN_GROWTH_STRIPS_2D) * rect.size;
-    // Overlap strips by a pixel so no seams show between them.
+    // Overlap strips by a pixel so no seams show between them, widening the
+    // source slice to match so the strip is not stretched.
     const dw = rect.size / TOWN_GROWTH_STRIPS_2D + 1;
+    const sw = Math.min(sourceWidth - sx, dw * (sourceWidth / rect.size));
     const standing = (ground - rect.y) * rise;
     // The part above the ground line rises; the margin below it stays put.
     ctx.drawImage(sprite, sx, 0, sw, sourceGround, dx, ground - standing, dw, standing);

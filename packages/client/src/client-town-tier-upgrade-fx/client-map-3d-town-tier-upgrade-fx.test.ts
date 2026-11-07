@@ -30,7 +30,7 @@ describe("createTownTierUpgradeFxLayer", () => {
   it("kicks up dust while the town grows and clears it once settled", () => {
     const parent = new Group();
     const layer = createTownTierUpgradeFxLayer(parent);
-    layer.spawn(0, 0, 0, "METROPOLIS", 0);
+    layer.spawn(0, 0, 0, "METROPOLIS", 0, 7);
     layer.update(TOWN_GROWTH_START_MS + 1000);
     const visible = layer.group.children[0]!.children.filter((child) => child.visible).length;
     expect(visible).toBeGreaterThan(0);

@@ -58,7 +58,7 @@ import {
   writeBendingMarkerCorners
 } from "../client-map-3d-bending-marker-geometry/client-map-3d-bending-marker-geometry.js";
 import { logOwnershipRenderChange } from "../client-debug/client-debug.js";
-import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.js"; import { addTownInstanceWithGrowth } from "../client-town-tier-upgrade-fx/client-map-3d-town-growth.js";
+import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.js";
 import { createDemoTileSpecs } from "./client-map-3d-demo-tiles.js";
 import { compileSceneShaders, createFirstFrameSignal, renderSkippingEmptyInstances } from "./client-map-3d-compile-shaders.js";
 import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
@@ -839,7 +839,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const demoTier = isTownDemoTile(wx, wy, window.camX, window.camY);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
         if (renderedTier && terrain === "LAND") {
-          addTownInstanceWithGrowth(townOverlay, deps.state.townTierUpgradeFxByKey.get(tileKey), x, z, surfaceY, renderedTier, wx, wy); // mid tier-upgrade: old tier sinks, new tier grows
+          townOverlay.addInstanceWithUpgrade(x, z, surfaceY, renderedTier, wx, wy, deps.state.townTierUpgradeFxByKey.get(tileKey)); // mid tier-upgrade: old tier sinks, new tier grows
           // LARGE, not DEFAULT: a town's own foundation slab runs up to 0.92
           // tiles wide (see the radius comments in
           // client-map-3d-contact-shadow.ts) — DEFAULT's 0.84 diameter was

@@ -117,6 +117,9 @@ export const recordTownTierUpgrade = (state: TownTierUpgradeFxState, key: string
   if (state.townTierUpgradeFxQueue.length > FX_QUEUE_CAP) state.townTierUpgradeFxQueue.shift();
 };
 
+/** Dust layout seed for a town tile, shared by both renderers. */
+export const townGrowthDustSeed = (tileX: number, tileY: number): number => tileX * 131 + tileY * 17;
+
 export const townTierUpgradeFeedMessage = (townName: string | undefined, tierLabel: string): string =>
   townName ? `${townName} has grown into a ${tierLabel}!` : `Your town has grown into a ${tierLabel}!`;
 

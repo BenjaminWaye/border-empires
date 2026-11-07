@@ -66,5 +66,6 @@ export const drawTileFeatureOverlays2D = (
     const nowEpochMs = Date.now();
     if (t.captureHoldUntil > nowEpochMs) drawCaptureHoldGarrison2D(deps.ctx, t, deps.effectiveOverlayColor(t.ownerId), px, py, size, nowEpochMs);
   }
-  if (deps.townTierUpgradeFxByKey.size > 0) drawTownTierUpgrade2D(deps.ctx, deps.townTierUpgradeFxByKey.get(tileKey), px, py, size, Date.now());
+  const townUpgrade = deps.townTierUpgradeFxByKey.size > 0 ? deps.townTierUpgradeFxByKey.get(tileKey) : undefined;
+  if (townUpgrade) drawTownTierUpgrade2D(deps.ctx, townUpgrade, px, py, size, Date.now());
 };

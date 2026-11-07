@@ -13,6 +13,7 @@ import {
   townGrowthSink,
   townTierUpgradeStep
 } from "./client-town-tier-upgrade-fx.js";
+import { expireTownTierUpgrades } from "./client-town-tier-upgrade-detect.js";
 
 const townTile = (ownerId: string, populationTier: NonNullable<Tile["townPopulationTier"]>): Tile =>
   ({ x: 1, y: 2, terrain: "LAND", ownerId, ownershipState: "SETTLED", town: { populationTier } }) as unknown as Tile;
@@ -70,5 +71,22 @@ describe("recordTownTierUpgrade", () => {
     recordTownTierUpgrade(state, "3,4", { x: 3, y: 4, fromTier: "SETTLEMENT", tier: "TOWN", startedAt: 1_000 + TOWN_GROWTH_DUST_MS });
     expect([...state.townTierUpgradeFxByKey.keys()]).toEqual(["3,4"]);
     expect(state.townTierUpgradeFxQueue.map((entry) => entry.tier)).toEqual(["CITY", "TOWN"]);
+  });
+});
+
+describe("expireTownTierUpgrades", () => {
+  // Regression: a finished transition used to stay in the 3D town buffers
+  // (growing + collapsed sinking instances) until an unrelated rebuild, and
+  // replayed when the town shader clock wrapped an hour later.
+  it("drops finished transitions and marks their tiles changed so the 3D map rebuilds them plain", () => {
+    const state = { ...createInitialTownTierUpgradeFxState(), tilesRevision: 5, tilesRevisionChangedKeys: new Set<string>(), tilesRevisionOverflowed: false };
+    recordTownTierUpgrade(state, "1,2", { x: 1, y: 2, fromTier: "TOWN", tier: "CITY", startedAt: 1_000 });
+    recordTownTierUpgrade(state, "3,4", { x: 3, y: 4, fromTier: "CITY", tier: "GREAT_CITY", startedAt: 3_000 });
+    expireTownTierUpgrades(state, 1_000 + TOWN_GROWTH_DUST_MS);
+    expect([...state.townTierUpgradeFxByKey.keys()]).toEqual(["3,4"]);
+    expect(state.tilesRevision).toBe(6);
+    expect([...state.tilesRevisionChangedKeys]).toEqual(["1,2"]);
+    expireTownTierUpgrades(state, 1_000 + TOWN_GROWTH_DUST_MS);
+    expect(state.tilesRevision).toBe(6);
   });
 });

@@ -6,7 +6,7 @@ import { TUTORIAL_BUILD_AFC_FLOWS_CHANGELOG } from "./client-changelog-tutorial-
 import { HUD_V2_COMBAT_STATS_CHANGELOG } from "./client-changelog-hud-v2-combat-stats.js";
 import { SIEGE_BATTERY_NO_REACH_CHANGELOG } from "./client-changelog-siege-battery-no-reach.js";
 import { CAPTURE_WRECK_FIX_CHANGELOG } from "./client-changelog-capture-wreck-fix.js";
-import { TOWN_TIER_CELEBRATION_CHANGELOG } from "./client-changelog-town-tier-celebration.js";
+import { TOWN_TIER_GROWTH_CHANGELOG } from "./client-changelog-town-tier-growth.js";
 import { MOBILE_APP_CHANGELOG } from "./client-changelog-mobile-app.js";
 import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
 import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
@@ -476,7 +476,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Build opens the Resource category first when resource improvements are listed on the selected tile."
     ]
   },
-  ...TOWN_TIER_CELEBRATION_CHANGELOG
+  ...TOWN_TIER_GROWTH_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

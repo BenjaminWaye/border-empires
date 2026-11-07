@@ -1,6 +1,6 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
-export const TOWN_TIER_CELEBRATION_CHANGELOG: ClientChangelogEntry[] = [
+export const TOWN_TIER_GROWTH_CHANGELOG: ClientChangelogEntry[] = [
   {
     createdAt: 1794040803550, // Date.now() captured once for this entry.
     introducedIn: "2026.11.07",

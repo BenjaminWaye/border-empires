@@ -21,6 +21,7 @@
 import {
   AdditiveBlending,
   BufferGeometry,
+  DynamicDrawUsage,
   FrontSide,
   InstancedBufferAttribute,
   InstancedMesh,
@@ -41,6 +42,8 @@ import { applyMarbleFinish } from "./client-map-3d-muster-banner/muster-banner-m
 import { TOWN_PLINTH_LEDGES } from "./client-map-3d-town-overlay/town-parts.js";
 import { getTownTierGeometry, TOWN_TIERS, type TownTier } from "./client-map-3d-town-overlay/town-tier-geometry.js";
 import { applyTownGrowth, TOWN_GROW_NONE, type TownGrowMode } from "./client-map-3d-town-overlay/town-growth-shader.js";
+import { addTownInstanceWithGrowth } from "./client-town-tier-upgrade-fx/client-map-3d-town-growth.js";
+import type { TownTierUpgradeFxEntry } from "./client-town-tier-upgrade-fx/client-town-tier-upgrade-fx.js";
 
 export { TOWN_TIERS, type TownTier } from "./client-map-3d-town-overlay/town-tier-geometry.js";
 
@@ -64,6 +67,8 @@ type TierSlot = {
   readonly capacity: number;
   /** Live towns only: per-instance tier-upgrade growth (start on the town clock, mode); see town-growth-shader.ts. */
   readonly grow: InstancedBufferAttribute | undefined;
+  /** The slot's own geometry copies carrying `grow` (empty for remembered towns). */
+  readonly growGeometries: readonly BufferGeometry[];
   count: number;
 };
 
@@ -76,6 +81,8 @@ export type TownOverlay = {
    * `still`: remembered under fog -- drawn without animation, lights dimmed.
    * `growth`: live towns only -- the town is mid tier-upgrade (rising or sinking). */
   readonly addInstance: (centerX: number, centerZ: number, surfaceY: number, tier: TownTier, tileX?: number, tileY?: number, still?: boolean, growth?: TownInstanceGrowth) => void;
+  /** A live town; mid tier-upgrade it is drawn growing out of its old tier (client-map-3d-town-growth.ts). */
+  readonly addInstanceWithUpgrade: (centerX: number, centerZ: number, surfaceY: number, tier: TownTier, tileX: number, tileY: number, upgrade: TownTierUpgradeFxEntry | undefined) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
@@ -96,6 +103,8 @@ type TownMaterials = {
   readonly steam: MeshStandardMaterial | undefined;
   readonly plinth: MeshStandardMaterial;
   readonly depth: MeshDepthMaterial;
+  /** Shadow pass for the base plate: follows the plate's own growth (it spreads, not rises). */
+  readonly plinthDepth: MeshDepthMaterial;
   readonly all: readonly Material[];
 };
 
@@ -132,6 +141,7 @@ const createTownMaterials = (envMap: Texture | undefined, animated: boolean): To
   applyBuildingEnvMap(plinth, envMap);
   // Shadow pass: spins like the visible meshes, so a circling airship's shadow follows it.
   const depth = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
+  const plinthDepth = animated ? new MeshDepthMaterial({ depthPacking: RGBADepthPacking }) : depth;
   // The tier geometry drops the undersides of static parts, which three's
   // shadow pass would otherwise draw (it renders a FrontSide material's back
   // faces), so these cast from their front faces instead.
@@ -147,13 +157,14 @@ const createTownMaterials = (envMap: Texture | undefined, animated: boolean): To
     // Tier-upgrade growth rides on top of the spin/steam/marble hooks.
     for (const material of [body, metal, glass, glow, halo, depth, ...(steam ? [steam] : [])]) applyTownGrowth(material);
     applyTownGrowth(plinth, true);
+    applyTownGrowth(plinthDepth, true);
   } else {
     // Every spinning part already sits in its rest pose in the baked geometry.
     glow.color.setScalar(REMEMBERED_TOWN_GLOW);
     halo.opacity = HALO_OPACITY * REMEMBERED_TOWN_GLOW;
   }
-  const all = [body, metal, glass, glow, halo, plinth, depth, ...(steam ? [steam] : [])];
-  return { body, metal, glass, glow, halo, steam, plinth, depth, all };
+  const all = [body, metal, glass, glow, halo, plinth, depth, ...(plinthDepth !== depth ? [plinthDepth] : []), ...(steam ? [steam] : [])];
+  return { body, metal, glass, glow, halo, steam, plinth, depth, plinthDepth, all };
 };
 
 const createTierSlots = (scene: Scene, materials: TownMaterials, capacity: number, namePrefix: string, animated: boolean): Map<TownTier, TierSlot> => {
@@ -163,7 +174,7 @@ const createTierSlots = (scene: Scene, materials: TownMaterials, capacity: numbe
     // Live towns read a per-instance growth attribute. The tier geometry is
     // shared (with the remembered-town slots too), so each live slot draws
     // through its own light copies that reuse the shared vertex buffers.
-    const grow = animated ? new InstancedBufferAttribute(new Float32Array(capacity * 2), 2) : undefined;
+    const grow = animated ? new InstancedBufferAttribute(new Float32Array(capacity * 2), 2).setUsage(DynamicDrawUsage) : undefined;
     const part = (source: BufferGeometry | undefined): BufferGeometry | undefined => (source && grow ? withGrowAttribute(source, grow) : source);
     const geometry = { body: part(shared.body)!, metal: part(shared.metal), glass: part(shared.glass), glow: part(shared.glow), halo: part(shared.halo), steam: part(shared.steam), plinth: part(shared.plinth) };
     const body = new InstancedMesh(geometry.body, materials.body, capacity);
@@ -193,18 +204,18 @@ const createTierSlots = (scene: Scene, materials: TownMaterials, capacity: numbe
       mesh.frustumCulled = false;
       mesh.castShadow = shadowed;
       mesh.receiveShadow = shadowed;
-      if (shadowed) mesh.customDepthMaterial = materials.depth;
+      if (shadowed) mesh.customDepthMaterial = suffix === "plinth" ? materials.plinthDepth : materials.depth;
       mesh.count = 0;
       scene.add(mesh);
       followers.push(mesh);
     }
-    slots.set(tier, { body, followers, capacity, grow, count: 0 });
+    slots.set(tier, { body, followers, capacity, grow, growGeometries: grow ? [geometry.body, ...followers.map((mesh) => mesh.geometry)] : [], count: 0 });
   }
   return slots;
 };
 
 /** A geometry sharing `source`'s buffers plus the slot's growth attribute.
- * Never disposed: disposing it would free the shared tier buffers. */
+ * Dispose through releaseGrowGeometry, never directly: that would free the shared tier buffers. */
 const withGrowAttribute = (source: BufferGeometry, grow: InstancedBufferAttribute): BufferGeometry => {
   const copy = new BufferGeometry();
   copy.setIndex(source.index);
@@ -213,6 +224,13 @@ const withGrowAttribute = (source: BufferGeometry, grow: InstancedBufferAttribut
   copy.boundingSphere = source.boundingSphere;
   copy.setAttribute("townGrow", grow);
   return copy;
+};
+
+/** Frees only a growth copy's own buffer: the shared tier attributes and index are detached first, so the renderer keeps them. */
+const releaseGrowGeometry = (copy: BufferGeometry): void => {
+  for (const name of Object.keys(copy.attributes)) if (name !== "townGrow") copy.deleteAttribute(name);
+  copy.setIndex(null);
+  copy.dispose();
 };
 
 export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Texture): TownOverlay => {
@@ -238,6 +256,9 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
     slot.grow?.setXY(slot.count, growth?.startSeconds ?? 0, growth?.mode ?? TOWN_GROW_NONE);
     slot.count += 1;
   };
+
+  const addInstanceWithUpgrade: TownOverlay["addInstanceWithUpgrade"] = (centerX, centerZ, surfaceY, tier, tileX, tileY, upgrade) =>
+    addTownInstanceWithGrowth({ addInstance }, upgrade, centerX, centerZ, surfaceY, tier, tileX, tileY);
 
   const clear = (): void => {
     for (const slot of allSlots) slot.count = 0;
@@ -269,11 +290,12 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
       scene.remove(slot.body);
       slot.body.dispose();
       for (const follower of slot.followers) scene.remove(follower);
+      for (const geometry of slot.growGeometries) releaseGrowGeometry(geometry);
     }
     slots.clear();
     stillSlots.clear();
     for (const material of [...liveMaterials.all, ...stillMaterials.all]) material.dispose();
   };
 
-  return { clear, addInstance, commit, dispose };
+  return { clear, addInstance, addInstanceWithUpgrade, commit, dispose };
 };

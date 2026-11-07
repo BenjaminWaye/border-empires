@@ -536,8 +536,8 @@ export const drawTownOverlay = (
     return;
   }
   // Mid tier-upgrade: the old town sinks and the new one rises (client-map-2d-town-growth.ts).
-  const spriteFor = (tier: typeof town.populationTier) => (overlaySet[tier].complete && overlaySet[tier].naturalWidth ? overlaySet[tier] : undefined);
-  if (!drawTownGrowthSprites2D(ctx, upgrade, town.populationTier, spriteFor, px, py, size, Date.now())) {
+  const grew = upgrade !== undefined && drawTownGrowthSprites2D(ctx, upgrade, town.populationTier, (tier) => (overlaySet[tier].complete && overlaySet[tier].naturalWidth ? overlaySet[tier] : undefined), px, py, size, Date.now());
+  if (!grew) {
     const rect = townSpriteRect(town.populationTier, px, py, size);
     ctx.drawImage(overlay, rect.x, rect.y, rect.size, rect.size);
   }

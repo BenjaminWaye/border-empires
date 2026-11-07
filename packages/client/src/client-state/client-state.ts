@@ -15,7 +15,7 @@ import { createInitialReachState } from "./client-reach-state-defaults.js";
 import { createInitialTileActionMenuState } from "./client-tile-action-menu-state-defaults.js";
 import { createInitialAetherShieldState } from "../client-aether-tower-protection/client-aether-shield-state.js";
 import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js";
-import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js"; import { createInitialTownTierUpgradeFxState } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-fx.js";
+import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialMapFxQueueState } from "./client-state-map-fx-queue-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MUSTER_MAX_TILES, type BuildableStructureType, type FrontierCombatSideBreakdown } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
@@ -196,10 +196,7 @@ export const createInitialState = () => ({
   // Most-recent-first, capped list backing the Activity Feed's world-events
   // history section — populated both live and from the 12h history fetch.
   sovereignSiegeEngineStrikeAnnouncements: [] as SovereignSiegeEngineStrikeHistoryRecord[],
-  imperialExchangeLevyFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
-  aegisLockFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
-  astralDockLaunchFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
-  unsettleFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>, ...createInitialAfcDeliveryState(), ...createInitialTownTierUpgradeFxState(), // "unsettle" transition (SETTLED -> FRONTIER, same owner); see client-map-3d-unsettle-fx.ts
+  ...createInitialMapFxQueueState(), // levy/aegis/astral-dock/unsettle FX queues, AFC delivery, town tier-upgrade growth
   activeRevealEmpireStatsPopup: undefined as RevealEmpireStatsView | undefined,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
