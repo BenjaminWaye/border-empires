@@ -1,4 +1,5 @@
 import { GUIDE_AND_RECOVERY_CHANGELOG } from "./client-changelog-nov-03-04-guide-recovery.js";
+import { AFC_REPLACEMENT_CHANGELOG } from "./client-changelog-afc-replacement.js";
 import { AI_FREE_TRUCE_CHANGELOG } from "./client-changelog-ai-free-truce.js";
 import { MOBILE_UI_CONSISTENCY_CHANGELOG } from "./client-changelog-mobile-ui-consistency.js";
 import { SALVAGE_TRIBUTE_UI_CHANGELOG } from "./client-changelog-salvage-tribute-ui.js";
@@ -160,19 +161,7 @@ export type ClientChangelogEntry = {
 };
 // Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
-  {
-    createdAt: 1793991829210,
-    introducedIn: "2026.11.06.1",
-    title: "Choose your replacement AFC landing",
-    why: "Losing your last fabrication complex should create a recovery decision instead of automatically crowding the front with new AFCs.",
-    changes: [
-      "Losing your last AFC suspends construction and its gold and manpower contributions. A popup helps you choose your next move.",
-      "Players and AI commission replacement AFCs with a 60-second landing. The first global loss quotes 20 gold; each later AFC loss on the planet adds 10 gold to the shared replacement price.",
-      "Lost or obstructed landing sites cancel and refund the delivery. Pending landings and prices survive server updates.",
-      "Choose a clear landing footprint, keep fighting with surviving holdings, or withdraw and redeploy with a fresh opening package. Withdrawal forfeits your territory, treasury and fielded manpower while retaining House knowledge.",
-      "Pending AFC landing footprints appear in both 2D and 3D. Replacement deliveries grant no fresh manpower reserve."
-    ]
-  },
+  ...AFC_REPLACEMENT_CHANGELOG,
   ...TOWN_ECONOMY_CHANGELOG,
   ...RESOURCE_NETWORKS_CHANGELOG,
   ...AFC_SPECIALIZATIONS_CHANGELOG,
@@ -485,7 +474,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...SEA_VISION_CHANGELOG,
   ...BEACON_FOREST_VISION_CHANGELOG,
-  ...MANIFEST_WORDING_CHANGELOG
+  ...MANIFEST_WORDING_CHANGELOG,
+  {
+    createdAt: 1794075638607, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.07",
+    title: "Resource improvements in town support rings",
+    why: "Selecting a farm beside a town opened a different action bar that omitted the yellow improvement button.",
+    changes: [
+      "Available resource improvements now appear as the yellow primary button on the town screen too.",
+      "Selecting a different town plot resets Build to its relevant category, including Resource for farms and deposits."
+    ]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
