@@ -99,7 +99,7 @@ import type { SimulationServiceOptions } from "./simulation-service-options.js";
 import { createSimRequestTracer } from "../request-tracer.js";
 import { createCommandApplyTracker } from "../command-apply-tracker.js";
 import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
-import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
+import { startGcPauseObserver } from "../gc-pause-observer/gc-pause-observer.js";
 import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
 import { buildEventLoopBlockedPayload, eventLoopBlockWarnMs } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
 import { resolveSeasonCaps } from "../season-caps/season-caps.js";
@@ -251,22 +251,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // thread so both watchdog-kill and sim-exit write paths have the sim's last known state (lag-diagnostics.ts).
   const { recordLagDiagnostic, getLagDiagRing } = createLagDiagnostics({ emitLog });
   // GC observer; "warn" so recordLagDiagnostic retains it for death forensics.
-  let gcPauseObserver: PerformanceObserver | undefined;
-  try {
-    gcPauseObserver = new PerformanceObserver((list) => {
-      for (const entry of list.getEntries()) {
-        if (entry.entryType === "gc" && "duration" in entry && entry.duration > 100) {
-          recordLagDiagnostic("warn", "gc_pause_detected", {
-            durationMs: (entry.duration as number),
-            gcKind: decodeGcKind((entry as unknown as Record<string, unknown>).kind as number | undefined)
-          });
-        }
-      }
-    });
-    gcPauseObserver.observe({ entryTypes: ["gc"], buffered: false });
-  } catch (_err) {
-    // PerformanceObserver for 'gc' requires --expose-gc; silently skip if unavailable
-  }
+  // Disconnected in close(), or it keeps this whole service alive (gc-pause-observer.ts).
+  const gcPauseObserver = startGcPauseObserver(recordLagDiagnostic);
   const commandTraceSample = (sample: Record<string, unknown>): void => {
     if (!commandTraceEnabled) return;
     log.info({ ...sample }, "simulation command trace");
@@ -509,12 +495,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...(legacySnapshotBootstrap ? { bootstrapState: legacySnapshotBootstrap.initialState } : {}),
         requireDurableState: requireDurableStartupState
       });
+      // Cleared once the race settles: a pending timer's closure keeps this
+      // whole service scope (runtime, world) alive until it fires.
+      let recoveryTimeout: ReturnType<typeof setTimeout> | undefined;
       const recovery = await Promise.race([
         recoveryPromise,
         new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error(`simulation startup recovery timed out after ${timeoutMs}ms`)), timeoutMs);
+          recoveryTimeout = setTimeout(() => reject(new Error(`simulation startup recovery timed out after ${timeoutMs}ms`)), timeoutMs);
         })
-      ]);
+      ]).finally(() => clearTimeout(recoveryTimeout));
       log.info(
         {
           durationMs: Date.now() - startupRecoveryStartedAt,
@@ -2618,6 +2607,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (populationGrowthTicker) clearInterval(populationGrowthTicker);
       if (passiveIncomeTicker) clearInterval(passiveIncomeTicker);
       gcObserver?.disconnect();
+      gcPauseObserver.disconnect();
       globalStatusBroadcaster.dispose();
       if (startupReplayCompactionPromise) {
         await startupReplayCompactionPromise;
