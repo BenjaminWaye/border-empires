@@ -204,8 +204,10 @@ export const attackPreviewResult = async (
       attackerStatMult: (techModifiers?.attackerStatMult ?? 1) * momentum,
       defenderStatMult: (techModifiers?.defenderStatMult ?? 1) * citadel, nowMs: Date.now(),
       // Hills defense / river crossing, from the client's own worldgen (the
-      // gateway can't build terrain; terrain-combat.ts). A March To target
-      // doesn't border the origin, so a river term can't apply to it.
+      // gateway can't build terrain; terrain-combat.ts). A March To preview
+      // can't know which tile the flag's final hop launches from, so its
+      // river term is unknown and left out -- the sim may still roll one.
+      // An older client sends no facts at all; its preview omits both terms.
       ...terrainCombatModifiersFromFacts({ hillsDefense: message.hillsDefense, riverCrossing: message.riverCrossing && !message.march }),
     }
   );

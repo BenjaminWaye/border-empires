@@ -23,13 +23,18 @@ describe("frontier combat terrain terms", () => {
     expect(hills.defMult).toBeCloseTo(flat.defMult * HILLS_DEFENSE_MULT);
   });
 
-  it("never makes undefended frontier defend", () => {
+  it("never makes undefended frontier defend, and shows no Hills row there", () => {
     const frontier = buildFrontierCombatPreview({ ownershipState: "FRONTIER" }, terrain);
     expect(frontier.defMult).toBe(0);
     expect(frontier.winChance).toBe(1);
+    expect(frontier.defender.battle.map((e) => e.label)).not.toContain("Hills");
   });
 
   it("adds no breakdown rows when no terrain fact applies", () => {
-    expect(terrainCombatModifiersFromFacts({ hillsDefense: false, riverCrossing: false })).toEqual({});
+    const none = terrainCombatModifiersFromFacts({ hillsDefense: false, riverCrossing: false });
+    expect(none).toEqual({});
+    const preview = buildFrontierCombatPreview({ ownershipState: "SETTLED" }, none);
+    expect(preview.defender.battle.map((e) => e.label)).not.toContain("Hills");
+    expect(preview.attacker.battle.map((e) => e.label)).not.toContain("River crossing");
   });
 });

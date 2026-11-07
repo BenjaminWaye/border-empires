@@ -16,6 +16,8 @@ describe("march win-chance preview", () => {
     poller.poll();
     expect(send).toHaveBeenCalledTimes(2);
     expect(send).toHaveBeenCalledWith({ type: "ATTACK_PREVIEW", fromX: 0, fromY: 0, toX: 4, toY: 0, march: true, hillsDefense: expect.any(Boolean) });
+    // The launch tile a march attacks from isn't known yet, so no river fact is sent.
+    expect((send.mock.calls as unknown[][])[0]?.[0]).not.toHaveProperty("riverCrossing");
   });
 
   it("reads the cached server odds for the origin->target pair, ignoring invalid previews", () => {

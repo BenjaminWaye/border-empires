@@ -12,6 +12,7 @@ import { isHillsTileAt } from "../hills-terrain/hills-terrain.js";
 import { wrapX, wrapY } from "../math/math.js";
 import { riverEdgeKey } from "../worldgen/worldgen-rivers-edge.js";
 import { riverEdgeKeysForCurrentSeed } from "../worldgen/worldgen-rivers.js";
+import { terrainAt } from "../worldgen/worldgen.js";
 
 type Point = { x: number; y: number };
 
@@ -34,9 +35,11 @@ const sharedEdgeKey = (a: Point, dx: number, dy: number): number =>
 /**
  * True when an attack from `origin` into the 8-neighbour `target` crosses a
  * river. An orthogonal attack crosses when a river runs along the shared
- * edge. A diagonal attack crosses only when both L-shaped routes around the
- * shared corner cross a river edge, so a river can't be dodged by attacking
- * diagonally, and a river merely touching the corner doesn't count. Non-
+ * edge. A diagonal attack crosses when a river edge touches the shared
+ * corner and neither L-shaped route around it is a dry land way round (a
+ * route either crosses a river edge or passes through sea/mountain), so a
+ * river can't be dodged by attacking diagonally, while a river that merely
+ * touches the corner with dry ground round the other side doesn't count. Non-
  * adjacent pairs (dock crossings, aether bridges) never count as river
  * crossings. Always false before edge rivers (worldgen v9), since the
  * river-edge set is empty there.
@@ -48,13 +51,22 @@ export const attackCrossesRiver = (origin: Point, target: Point): boolean => {
   const dy = unitStep(origin.y, target.y, WORLD_HEIGHT);
   if (dx === undefined || dy === undefined || (dx === 0 && dy === 0)) return false;
   if (dx === 0 || dy === 0) return rivers.has(sharedEdgeKey(origin, dx, dy));
-  // Diagonal: route A goes horizontal first, route B vertical first.
+  // Diagonal: route A goes horizontal first, route B vertical first. A route
+  // whose middle tile isn't land (sea at a river mouth, the mountain at a
+  // headwater) offers no dry way round, so it doesn't clear the attack --
+  // otherwise every river would have a penalty-free diagonal at each end.
   const viaX = { x: wrapX(origin.x + dx, WORLD_WIDTH), y: origin.y };
   const viaY = { x: origin.x, y: wrapY(origin.y + dy, WORLD_HEIGHT) };
   const routeACrosses = rivers.has(sharedEdgeKey(origin, dx, 0)) || rivers.has(sharedEdgeKey(viaX, 0, dy));
   const routeBCrosses = rivers.has(sharedEdgeKey(origin, 0, dy)) || rivers.has(sharedEdgeKey(viaY, dx, 0));
-  return routeACrosses && routeBCrosses;
+  if (!routeACrosses && !routeBCrosses) return false;
+  return (routeACrosses || !isWorldgenLand(viaX)) && (routeBCrosses || !isWorldgenLand(viaY));
 };
+
+// Rivers are generated against worldgen terrain, so the "is there a dry way
+// round" check reads the same (never live tile terrain, which aether
+// abilities can change and the gateway/client may not know).
+const isWorldgenLand = (p: Point): boolean => terrainAt(p.x, p.y) === "LAND";
 
 export type TerrainCombatModifiers = {
   /** Defender stands on hills (HILLS_DEFENSE_MULT); only counts where the tile defends at all. */
