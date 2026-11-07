@@ -276,13 +276,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MARCH_ATTACK_ROUTES_CHANGELOG,
   ...MARCH_TO_UNEXPLORED_CHANGELOG,
   {
-    createdAt: 1792832339274, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.24.1",
-    title: "Forced Ancillarification",
-    why: "A flat population sacrifice becomes trivial in large towns. The cost should grow with the population at stake.",
-    changes: ["Active Ancillary Factories can convert residents from their supported town into 100 immediate manpower, even above the cap. The menu shows exactly how many people will be taken.", "Each town can be forced once every four hours and must retain at least 10,000 residents. The factory menu shows the exact population cost."]
-  },
-  {
     createdAt: 1792870664672, // Date.now() captured once when this entry was created.
     introducedIn: "2026.10.24.1",
     title: "Towns and their support buildings now form connected districts",
@@ -323,13 +316,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Killed soldiers, in standard or heavy armour, now play a real fall and lie full size on the battlefield",
       "On the 2D map, soldiers killed during a dock landing now fade out over about a second instead of vanishing almost at once"
     ]
-  },
-  {
-    createdAt: 1792854395082, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.24.relics",
-    title: "Concordance relic installations",
-    why: "Relics are surviving planetary machinery, with useful installations and finite reserves worth fighting over.",
-    changes: ["New planets select seven installation families, represented by weathered ziggurats with House banners. Nearby anonymous light columns and minimap markers guide exploration.", "Garrison relics to use their installations. Combat suits, defensive field cells, ancillary bodies and nanofabrication material have persistent finite reserves; recapture never refills them.", "Capture artwork explains the buried installation and its benefit. Depleted sites remain on the map with an empty-reserve marker. Existing campaigns retain their original wonder rules."]
   },
   ...SHARD_COMEBACK_CHANGELOG,
   {
@@ -473,7 +459,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "AI truce and alliance prices now follow real income",
     why: "AI empires priced deals as if everyone earned at least 1 coin a minute, far above real income, so a neighbour truce cost 720 to 1,080 coin or more.",
     changes: [
-      "AI prices are based on what the richer empire really earns, with a minimum of 10 coin a day",
+      "AI prices are based on real income, with a minimum of 10 coin a day",
       "AI empires losing a war pay for peace from their real income too, so those payments are smaller"
     ]
   },
@@ -485,6 +471,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Each AI empire is Measured, Merchant, Warlike, Peaceable or Vengeful, shown on the trade screen and the same every season",
       "Temperament changes truce prices, how much lost land angers them, how far gifts go, and how readily they seek or pay for peace"
+    ]
+  },
+  {
+    createdAt: 1794087791822, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.07.2",
+    title: "AI prices follow the AI's own income",
+    why: "AI empires charged more when you were richer, even a poor AI that had no reason to.",
+    changes: [
+      "Truce and alliance prices depend only on the AI's income, so a strong economy can buy off weak neighbours cheaply",
+      "Gifts win goodwill at 10 minutes of the AI's income per point, never less than 2 coin a point"
     ]
   },
   ...VICTORY_HOLD_TIME_CHANGELOG,

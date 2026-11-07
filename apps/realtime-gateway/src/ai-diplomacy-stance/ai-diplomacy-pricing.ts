@@ -1,6 +1,6 @@
 // What an AI wants for a truce or alliance with one player, Civ-style. Prices
-// are hours of income, and "income" is the richer of the two empires so a
-// poor AI can't be bought cheaply by a rich player. A truce costs:
+// are hours of the AI's own income: a poor AI asks little whoever is buying,
+// so a strong economy can buy off weak neighbours cheaply. A truce costs:
 //   - nothing between empires whose borders don't meet and who aren't fighting
 //   - 12h between neighbours at peace, 24h at war, 48h if the AI is winning
 //   - plus 1h per tile the player recently took from the AI (reparations)
@@ -24,7 +24,7 @@
 // goodwill cap allows it) asks tribute instead of refusing: the coin that
 // lifts it to Pleased -- deal payments count as goodwill once accepted --
 // plus its Pleased alliance price.
-import { type AiDiplomacyPricing, type DiplomacyGoods } from "@border-empires/shared";
+import { GOODWILL_POINTS_PER_INCOME_HOUR, type AiDiplomacyPricing, type DiplomacyGoods } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { ATTITUDE_RANK, type AiAttitude, type AiOpinion } from "./ai-diplomacy-opinion.js";
@@ -51,12 +51,15 @@ export const ALLIANCE_HOURS: Partial<Record<AiAttitude, number>> = { PLEASED: 24
 /** Income floor so prices never collapse to zero: 10 coin a day, in coin/min. */
 export const MIN_INCOME_PER_MINUTE = 10 / (24 * 60);
 /**
- * What "an hour of income" means for goodwill, deliberately far above the price
- * floor: real incomes are under this, so gifts cost a steady 10 coin a point
- * rather than getting cheaper the poorer the empires are. On the price floor,
- * about 2 coin would buy capped goodwill and a free alliance at season start.
+ * Least coin one goodwill point costs. A point is 10 minutes of the AI's
+ * income, which on the price floor would be under a tenth of a coin: capped
+ * goodwill, and so a free alliance, for 2 coin at season start.
  */
-export const GOODWILL_MIN_INCOME_PER_MINUTE = 1;
+export const MIN_COIN_PER_GOODWILL_POINT = 2;
+
+/** What "an hour of income" means for goodwill: the AI's own, so a point costs at least MIN_COIN_PER_GOODWILL_POINT. */
+export const goodwillIncomePerHour = (aiIncomePerMinute: number): number =>
+  Math.max(MIN_COIN_PER_GOODWILL_POINT * GOODWILL_POINTS_PER_INCOME_HOUR, (Number.isFinite(aiIncomePerMinute) ? aiIncomePerMinute : 0) * 60);
 
 export type AiDiplomacyPricingResult = {
   pricing: AiDiplomacyPricing;
@@ -76,7 +79,6 @@ export const aiDiplomacyPricing = (input: {
   memory: DiplomacyMemoryView;
   bordersTouch: boolean;
   aiIncomePerMinute: number;
-  requesterIncomePerMinute: number;
   aiHoldings: DiplomacyGoods;
   requesterBrokeTruceWithAi: boolean;
   /** Diplomatic Dominance goes to a bloc's largest member: the AI only joins blocs it would lead. undefined: sizes unknown right now. */
@@ -97,7 +99,6 @@ export const aiDiplomacyPricing = (input: {
   const temperament = input.temperament ?? AI_TEMPERAMENTS.MEASURED;
   const finite = (value: number): number => (Number.isFinite(value) ? value : 0);
   const aiIncome = Math.max(MIN_INCOME_PER_MINUTE, finite(input.aiIncomePerMinute));
-  const priceIncome = Math.max(aiIncome, finite(input.requesterIncomePerMinute));
   const hoursToCoin = (hours: number, perMinute: number): number => Math.round(hours * 60 * perMinute);
   const { opinion, memory, aiName } = input;
   const { war } = opinion;
@@ -130,8 +131,8 @@ export const aiDiplomacyPricing = (input: {
     } else if (war.aiLosing) {
       // A losing AI fresh from an attack still wants the war over, but the attacker pays for the ground it took.
       const reparationHours = freshAttack ? memory.tilesTakenFromAi * REPARATION_HOURS_PER_TILE * temperament.tileGrudge * (input.requesterTruceCostMult ?? 1) : 0;
-      truce12 = hoursToCoin(reparationHours, priceIncome);
-      truce24 = hoursToCoin(reparationHours * LONG_TRUCE_MULTIPLIER, priceIncome);
+      truce12 = hoursToCoin(reparationHours, aiIncome);
+      truce24 = hoursToCoin(reparationHours * LONG_TRUCE_MULTIPLIER, aiIncome);
     } else {
       const baseHours = war.atWar
         ? war.aiWinning ? TRUCE_HOURS.aiWinning : TRUCE_HOURS.atWar
@@ -142,8 +143,8 @@ export const aiDiplomacyPricing = (input: {
       const fresh = freshAttack ? 1 + FRESH_ATTACK_SURCHARGE : 1;
       const hours = (baseHours * temperament.trucePrice * ATTITUDE_PRICE_MULTIPLIER[opinion.attitude] * desperation + reparationHours) * repeat * fresh;
       const corps = input.requesterTruceCostMult ?? 1;
-      truce12 = hoursToCoin(hours * corps, priceIncome);
-      truce24 = hoursToCoin(hours * LONG_TRUCE_MULTIPLIER * corps, priceIncome);
+      truce12 = hoursToCoin(hours * corps, aiIncome);
+      truce24 = hoursToCoin(hours * LONG_TRUCE_MULTIPLIER * corps, aiIncome);
     }
   }
 
@@ -160,7 +161,7 @@ export const aiDiplomacyPricing = (input: {
   else if (input.aiWouldLeadAlliance === undefined) allianceRefusal = `${aiName} can't weigh up an alliance right now. Try again shortly.`;
   else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.`;
   const allianceHours = allianceRefusal ? undefined : tribute !== undefined ? ALLIANCE_HOURS.PLEASED : ALLIANCE_HOURS[opinion.attitude];
-  const alliance = allianceHours === undefined ? null : hoursToCoin(allianceHours, priceIncome) + (tribute ?? 0);
+  const alliance = allianceHours === undefined ? null : hoursToCoin(allianceHours, aiIncome) + (tribute ?? 0);
 
   return {
     pricing: { required: { truce12, truce24, alliance }, aiHoldings },

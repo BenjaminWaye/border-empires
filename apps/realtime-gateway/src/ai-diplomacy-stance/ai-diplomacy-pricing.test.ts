@@ -4,7 +4,7 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { computeAiOpinion } from "./ai-diplomacy-opinion.js";
-import { aiDiplomacyPricing, GOODWILL_MIN_INCOME_PER_MINUTE, MIN_INCOME_PER_MINUTE } from "./ai-diplomacy-pricing.js";
+import { aiDiplomacyPricing, goodwillIncomePerHour, MIN_INCOME_PER_MINUTE } from "./ai-diplomacy-pricing.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
 import { AI_TEMPERAMENTS, type AiTemperament } from "./ai-diplomacy-temperament.js";
 import type { AiRetaliationReadiness } from "./ai-retaliation-readiness.js";
@@ -29,7 +29,6 @@ const price = (options: {
   memory?: DiplomacyMemoryView;
   bordersTouch?: boolean;
   aiIncome?: number;
-  requesterIncome?: number;
   aiGold?: number;
   brokeTruce?: boolean;
   breaksWithOthers?: number;
@@ -44,7 +43,6 @@ const price = (options: {
   const mem = options.memory ?? memory();
   const bordersTouch = options.bordersTouch ?? true;
   const aiIncome = options.aiIncome ?? 1;
-  const requesterIncome = options.requesterIncome ?? 1;
   const opinion = computeAiOpinion({
     stanceKind,
     memory: mem,
@@ -52,7 +50,7 @@ const price = (options: {
     requesterTruceBreaksWithOthers: options.breaksWithOthers ?? 0,
     requesterBrokeAllianceWithAi: options.brokeAlliance ?? false,
     bordersTouch,
-    incomePerHour: Math.max(GOODWILL_MIN_INCOME_PER_MINUTE, aiIncome, requesterIncome) * 60,
+    incomePerHour: goodwillIncomePerHour(aiIncome),
     ...(options.temperament ? { temperament: options.temperament } : {}),
     now: NOW
   });
@@ -65,7 +63,6 @@ const price = (options: {
       memory: mem,
       bordersTouch,
       aiIncomePerMinute: aiIncome,
-      requesterIncomePerMinute: requesterIncome,
       aiHoldings: { gold: options.aiGold ?? 0 },
       requesterBrokeTruceWithAi: options.brokeTruce ?? false,
       aiWouldLeadAlliance: "aiWouldLeadAlliance" in options ? options.aiWouldLeadAlliance : true,
@@ -86,19 +83,22 @@ describe("AI truce pricing", () => {
     expect(price({}).pricing.required).toEqual(expect.objectContaining({ truce12: 12 * 60, truce24: 18 * 60 }));
   });
 
-  // Real incomes are well under 1 coin/min: a floor of 1 priced every neighbour truce at 720+ coin.
-  it("prices low incomes on what the richer empire really earns", () => {
-    expect(price({ aiIncome: 0.24, requesterIncome: 0.01 }).pricing.required).toEqual(expect.objectContaining({ truce12: 173, truce24: 259 }));
+  // Real incomes are a few hundred coin a day: a floor of 1,440 a day priced every neighbour truce at 720+ coin.
+  it("prices low incomes on what the AI really earns", () => {
+    expect(price({ aiIncome: 0.24 }).pricing.required).toEqual(expect.objectContaining({ truce12: 173, truce24: 259 }));
   });
 
   it("floors income at 10 coin a day", () => {
     expect(MIN_INCOME_PER_MINUTE * 24 * 60).toBeCloseTo(10);
-    expect(price({ aiIncome: 0, requesterIncome: 0 }).pricing.required.truce12).toBe(5);
+    expect(price({ aiIncome: 0 }).pricing.required.truce12).toBe(5);
   });
 
-  // A rich player can't buy peace cheaply from a poor AI.
-  it("prices in the richer empire's income", () => {
-    expect(price({ aiIncome: 1, requesterIncome: 10 }).pricing.required.truce12).toBe(12 * 60 * 10);
+  // A strong economy buys off weak neighbours cheaply: only the AI's own income sets its price.
+  it("prices on the AI's own income, however rich the player", () => {
+    const smallAi = { aiIncome: 72 / 1440 }; // 72 coin a day
+    expect(price(smallAi).pricing.required.truce12).toBe(36);
+    expect(price({ aiIncome: 533 / 1440 }).pricing.required.truce12).toBe(267);
+    expect(price({ ...smallAi, bordersTouch: false, stanceKind: "OUTMATCHED", memory: memory({ goodwillCoin: 600 }) }).pricing.required.alliance).toBe(0);
   });
 
   it("charges more at war, most when the AI is winning, plus reparations and a repeat-buyer surcharge", () => {
@@ -333,7 +333,7 @@ describe("AI temperaments", () => {
 
   it("has a Warlike AI pay half as much to end a war it is losing", () => {
     const losing = atWar({ tilesTakenFromAi: 5 });
-    const withCoin = { memory: losing, aiIncome: 100, aiGold: 1000, requesterIncome: 1 };
+    const withCoin = { memory: losing, aiIncome: 100, aiGold: 1000 };
     expect(price(withCoin).pricing.required.truce12).toBe(-250);
     expect(price({ ...withCoin, temperament: WARLIKE }).pricing.required.truce12).toBe(-125);
   });
@@ -398,12 +398,29 @@ describe("answerDiplomacyStanceQuery", () => {
 
   // Prices floor at 10 coin a day, which on goodwill's scale would let about 2 coin buy
   // capped goodwill, and so a free Friendly alliance on day one. Gifts keep their own floor.
-  it("keeps goodwill's cost at low incomes, whatever the price floor", async () => {
-    for (const incomePerMinute of [0, 0.1]) {
-      const lowIncome = { ...aiSnapshot, player: { ...aiSnapshot.player, incomePerMinute } } as unknown as PlayerSubscriptionSnapshot;
-      const result = await answerDiplomacyStanceQuery({ ...deps, fetchAiSnapshot: async () => lowIncome }, "p1", "Milo");
-      expect(result).toEqual(expect.objectContaining({ gift: expect.objectContaining({ coinPerPoint: 10 }) }));
-    }
+  // A point is 10 minutes of the AI's own income, never under 2 coin; the player's income doesn't count.
+  it("prices goodwill on the AI's own income, at least 2 coin a point", async () => {
+    const richPlayer = { ...aiSnapshot, playerId: "p1", player: { ...aiSnapshot.player, incomePerMinute: 50 } } as unknown as PlayerSubscriptionSnapshot;
+    const gift = async (incomePerMinute: number) => {
+      const ai = { ...aiSnapshot, player: { ...aiSnapshot.player, incomePerMinute } } as unknown as PlayerSubscriptionSnapshot;
+      const result = await answerDiplomacyStanceQuery({ ...deps, fetchAiSnapshot: async () => ai, requesterSnapshot: async () => richPlayer }, "p1", "Milo");
+      return result.found && result.ai ? result.gift?.coinPerPoint : undefined;
+    };
+    expect(await gift(0)).toBe(2);
+    expect(await gift(0.1)).toBe(2);
+    expect(await gift(533 / 1440)).toBeCloseTo(3.7);
+  });
+
+  // The old rule priced on whichever empire earned more, so a rich player paid more.
+  it("charges a rich player the same as anyone else", async () => {
+    const richPlayer = { ...aiSnapshot, playerId: "p1", player: { ...aiSnapshot.player, incomePerMinute: 50 } } as unknown as PlayerSubscriptionSnapshot;
+    const pricingFor = async (requesterSnapshot: () => Promise<PlayerSubscriptionSnapshot | undefined>) => {
+      const result = await answerDiplomacyStanceQuery({ ...deps, requesterSnapshot }, "p1", "Milo");
+      return result.found && result.ai ? result.pricing : undefined;
+    };
+    const unknown = await pricingFor(async () => undefined);
+    expect(unknown?.required.alliance).toBeGreaterThan(0);
+    expect(await pricingFor(async () => richPlayer)).toEqual(unknown);
   });
 
   // A display name can be shared (a human who kept an AI's name): the id the client sends wins.
