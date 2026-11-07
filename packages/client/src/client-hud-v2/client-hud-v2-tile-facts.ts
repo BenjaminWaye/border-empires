@@ -10,9 +10,16 @@ import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { displayTownPopulationTierLabel, isTownGrowthPaused, populationPerMinuteLabel, townNextGrowthEtaLabel } from "../client-town-growth/client-town-growth.js";
 import { ownTownGrowthRatePending } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { upkeepDescriptorFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
+import type { DormancyField } from "../client-tile-menu-view/client-tile-menu-dormancy-line.js";
+import type { SlotResource } from "@border-empires/shared";
 import type { Tile, TileMenuView } from "../client-types.js";
 
 export type TileFact = { label: string; value: string; tone?: "good" | "warn" };
+
+/** Which resources a structure on this tile is dormant for lacking (state.dormantStructures); undefined when it isn't. */
+export type DormantResourcesFor = (tile: Tile, field: DormancyField) => readonly SlotResource[] | undefined;
+
+const SLOT_RESOURCE_NAME: Record<SlotResource, string> = { FOOD: "Food", TITANIUM: "Titanium", CRYSTAL: "Crystal", UMBRITE: "Umbrite" };
 
 const MAX_FACTS = 4;
 const MAX_GIVES = 2;
@@ -32,6 +39,7 @@ const COUNT_DEPENDENT_UPKEEP: ReadonlySet<StructureKey> = new Set<StructureKey>(
 
 type StructureSlot = {
   key: StructureKey;
+  field: DormancyField;
   status: "under_construction" | "active" | "inactive" | "removing";
   inactiveReason?: "manual" | "upkeep";
   disabledUntil?: number;
@@ -43,10 +51,10 @@ type StructureSlot = {
 /** The building on a tile, if any; economic structures first since they carry the tile's purpose. */
 const structureOn = (tile: Tile): StructureSlot | undefined => {
   const s = tile.economicStructure;
-  if (s) return { key: s.type, status: s.status, ...(s.inactiveReason ? { inactiveReason: s.inactiveReason } : {}), ...(s.disabledUntil ? { disabledUntil: s.disabledUntil } : {}) };
-  if (tile.fort) return { key: tile.fort.variant ?? "FORT", status: tile.fort.status, ...(tile.fort.disabledUntil ? { disabledUntil: tile.fort.disabledUntil } : {}) };
-  if (tile.siegeBattery) return { key: tile.siegeBattery.variant ?? "SIEGE_BATTERY", status: tile.siegeBattery.status };
-  if (tile.observatory) return { key: "OBSERVATORY", status: tile.observatory.status, ...(tile.observatory.hijack ? { hijackEndsAt: tile.observatory.hijack.endsAt } : {}), ...(tile.observatory.suppressedUntil ? { suppressedUntil: tile.observatory.suppressedUntil } : {}) };
+  if (s) return { key: s.type, field: "economicStructure", status: s.status, ...(s.inactiveReason ? { inactiveReason: s.inactiveReason } : {}), ...(s.disabledUntil ? { disabledUntil: s.disabledUntil } : {}) };
+  if (tile.fort) return { key: tile.fort.variant ?? "FORT", field: "fort", status: tile.fort.status, ...(tile.fort.disabledUntil ? { disabledUntil: tile.fort.disabledUntil } : {}) };
+  if (tile.siegeBattery) return { key: tile.siegeBattery.variant ?? "SIEGE_BATTERY", field: "siegeBattery", status: tile.siegeBattery.status };
+  if (tile.observatory) return { key: "OBSERVATORY", field: "observatory", status: tile.observatory.status, ...(tile.observatory.hijack ? { hijackEndsAt: tile.observatory.hijack.endsAt } : {}), ...(tile.observatory.suppressedUntil ? { suppressedUntil: tile.observatory.suppressedUntil } : {}) };
   return undefined;
 };
 
@@ -60,13 +68,20 @@ const stateFact = (s: StructureSlot, nowMs: number): TileFact => {
   return { label: "State", value: "Active", tone: "good" };
 };
 
-const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number): TileFact[] => {
+const capitalized = (text: string): string => `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+
+const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number, dormant: readonly SlotResource[] = []): TileFact[] => {
   const facts: TileFact[] = [];
   const name = structureDisplayName(s.key);
   if (name && plainText(name) !== "") facts.push({ label: "Building", value: name });
-  facts.push(stateFact(s, nowMs));
-  const gives = structureModifiersFor(s.key).slice(0, MAX_GIVES).map((m) => `${m.statLabel.charAt(0).toUpperCase()}${m.statLabel.slice(1)} ${m.valueText}`);
-  if (gives.length > 0) facts.push({ label: "Gives", value: gives.join(" · ") });
+  // Dormant (no free upkeep slot) still reports status "active" on the wire; it gives nothing until a slot frees up.
+  const isDormant = dormant.length > 0 && s.status === "active";
+  facts.push(isDormant ? { label: "State", value: `Dormant · no ${dormant.map((r) => SLOT_RESOURCE_NAME[r]).join(" / ")} slot`, tone: "warn" } : stateFact(s, nowMs));
+  const modifiers = structureModifiersFor(s.key).slice(0, MAX_GIVES);
+  const gives = isDormant
+    ? modifiers.length > 0 ? [`No ${[...new Set(modifiers.map((m) => capitalized(m.statLabel)))].join(" / ")} bonus`] : []
+    : modifiers.map((m) => `${capitalized(m.statLabel)} ${m.valueText}`);
+  if (gives.length > 0) facts.push({ label: "Gives", value: gives.join(" · "), ...(isDormant ? { tone: "warn" as const } : {}) });
   if (mine && !COUNT_DEPENDENT_UPKEEP.has(s.key)) {
     const upkeep = upkeepDescriptorFor(s.key);
     if (upkeep.length > 0) facts.push({ label: "Upkeep", value: upkeep.join(" · ") });
@@ -79,10 +94,10 @@ const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number): TileFac
  * selected support tile. A building going up or being removed is left to the screen's work cards, which
  * already show it with its progress.
  */
-export const builtStructureFacts = (tile: Tile, mine: boolean, nowMs: number = Date.now()): TileFact[] => {
+export const builtStructureFacts = (tile: Tile, mine: boolean, nowMs: number = Date.now(), dormantResourcesFor?: DormantResourcesFor): TileFact[] => {
   const structure = structureOn(tile);
   if (!structure || structure.status === "under_construction" || structure.status === "removing") return [];
-  return structureFacts(structure, mine, nowMs);
+  return structureFacts(structure, mine, nowMs, dormantResourcesFor?.(tile, structure.field) ?? []);
 };
 
 const coinPerDay = (goldPerMinute: number): string => `${(goldPerMinute * 1440).toFixed(1)}/day`;
@@ -203,7 +218,8 @@ export const tileFactsFor = (
   tile: Tile | undefined,
   view: Pick<TileMenuView, "combatBreakdown" | "overviewLines">,
   me: string,
-  nowMs: number = Date.now()
+  nowMs: number = Date.now(),
+  dormantResourcesFor?: DormantResourcesFor
 ): TileFact[] => {
   const waystation = waystationFacts(view);
   if (waystation.length > 0) return waystation.slice(0, MAX_FACTS);
@@ -214,7 +230,7 @@ export const tileFactsFor = (
   const facts = [
     ...wonderFacts(tile, mine),
     ...(!mine ? fightFacts(view) : []),
-    ...(structure ? structureFacts(structure, mine, nowMs) : []),
+    ...(structure ? structureFacts(structure, mine, nowMs, dormantResourcesFor?.(tile, structure.field) ?? []) : []),
     ...townFacts(tile, mine, nowMs),
     ...dockFacts(tile, mine),
     ...(!structure && !tile.town && !tile.naturalWonder ? landFacts(tile, mine) : [])

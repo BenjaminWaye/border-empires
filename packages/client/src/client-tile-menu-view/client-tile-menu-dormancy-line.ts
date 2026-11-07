@@ -48,5 +48,7 @@ export const dormantStructureLineHtml = (
   const parts = needed.map(
     (req) => `${req.count} ${req.resource === "FOOD" ? "Food" : req.resource === "TITANIUM" ? "Titanium" : req.resource === "CRYSTAL" ? "Crystal" : "Umbrite"} slot${req.count === 1 ? "" : "s"} (garrison or capture ${SLOT_RESOURCE_TILE_HINT[req.resource]})`
   );
-  return `<span class="tile-overview-dormant">⚠ Dormant — no free resource slot. Needs ${parts.join(" and ")}.</span>`;
+  // A dormant Fort counts as no fort in combat (runtime-combat-support.ts), so say so outright.
+  const fortNote = field === "fort" ? " No defense bonus until then." : "";
+  return `<span class="tile-overview-dormant">⚠ Dormant — no free resource slot. Needs ${parts.join(" and ")}.${fortNote}</span>`;
 };
