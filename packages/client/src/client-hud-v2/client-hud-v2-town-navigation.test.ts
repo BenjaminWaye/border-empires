@@ -2,8 +2,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile, TileMenuView } from "../client-types.js";
-import { SCREEN_HOST_ID, type HudV2Deps } from "./client-hud-v2-context.js";
-import { closeTownScreen, renderTownScreen, stepTown, townOnMenuView } from "./client-hud-v2-town-runtime.js";
+import { screen, SCREEN_HOST_ID, type HudV2Deps } from "./client-hud-v2-context.js";
+import { closeTownScreen, renderTownScreen, stepTown, townOnMenuView, townOnMenuHidden } from "./client-hud-v2-town-runtime.js";
+
+import { screenClick } from "./client-hud-v2-screens.js";
 
 const view: TileMenuView = { title: "Town", subtitle: "", tabs: ["overview"], overviewLines: [], actions: [], buildings: [], crystal: [] };
 const town = (x: number, name: string): Tile => ({
@@ -62,4 +64,50 @@ describe("town arrow detail refresh", () => {
     // The short-lived town list still holds the old record; navigation must use the latest tile.
     expect(requestTileDetailIfNeeded).toHaveBeenLastCalledWith(updated, { force: true });
   });
+  it("keeps the building selected after a support build and honors the next explicit tile pick", () => {
+    document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
+    const state = createInitialState();
+    state.me = "me";
+    const hub = town(5, "Alder");
+    const first: Tile = { x: 6, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
+    const second: Tile = { ...first, x: 4 };
+    for (const tile of [hub, first, second]) state.tiles.set(`${tile.x},${tile.y}`, tile);
+    const buildView: TileMenuView = { ...view, buildings: [{ id: "build_manufactory", label: "Manufactory" }] };
+    const sent: string[] = [];
+    const deps: HudV2Deps = {
+      state, renderHud: vi.fn(), requestViewRefresh: vi.fn(), wrapX: (x) => x, wrapY: (y) => y,
+      isMobile: () => false, sendGameMessage: () => true, ownerColor: () => "#888",
+      actionFlow: {
+        chooseTech: vi.fn(), cancelOngoingCapture: vi.fn(), hideTileActionMenu: vi.fn(), requestTileDetailIfNeeded: vi.fn(),
+        tileMenuViewForTile: () => buildView,
+        openSingleTileActionMenu: (tile) => {
+          state.tileActionMenu.mode = "single";
+          state.tileActionMenu.visible = true;
+          state.tileActionMenu.currentTileKey = `${tile.x},${tile.y}`;
+          townOnMenuView(deps, buildView, state.tileActionMenu.currentTileKey);
+        },
+        handleTileAction: () => {
+          sent.push(state.tileActionMenu.currentTileKey);
+          state.tileActionMenu.visible = false;
+          townOnMenuHidden(undefined);
+        }
+      }
+    };
+    const pick = (tile: Tile) => {
+      deps.actionFlow.openSingleTileActionMenu(tile, 0, 0);
+      screenClick(deps, document.querySelector<HTMLElement>('[data-v2-build-pick="build_manufactory"]')!);
+    };
+    const place = () => screenClick(deps, document.querySelector<HTMLElement>('[data-hud-v2-action="build_manufactory"]')!);
+    pick(first);
+    place();
+    expect(screen.id).toBe("town");
+    expect(screen.townBuildSelection).toBe("build_manufactory");
+    expect(state.tileActionMenu.visible).toBe(true);
+    place();
+    pick(second);
+    place();
+    expect(sent).toEqual(["6,5", "5,5", "4,5"]);
+    expect(screen.townBuildSelection).toBe("build_manufactory");
+  });
+
 });

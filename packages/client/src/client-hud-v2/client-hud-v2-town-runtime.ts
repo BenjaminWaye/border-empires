@@ -1,3 +1,6 @@
+import { preserveResourceBuildChoice } from "./client-resource-improvement-action.js";
+import { structureRequiresTownOrSupportTile } from "@border-empires/shared";
+import { structureTypeForTileAction } from "../client-tile-action-support/client-tile-action-support.js";
 // Runtime for the town screen: decides when a selected tile opens it (your
 // town, or a tile in its support ring), renders it from the tile menu views,
 // and runs town actions on the town even while a support tile is selected.
@@ -15,6 +18,7 @@ import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked 
 type TownContext = { townKey: string; focusKey: string; focusView: TileMenuView };
 
 let current: TownContext | undefined;
+let placingTownBuild = false;
 /** Kept so closing from places without deps (menu hidden, another screen) can still restore the camera. */
 let lastDeps: HudV2Deps | undefined;
 
@@ -76,7 +80,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     autoSettle: deps.state.autoSettle
   });
   writeHtml("v2t-left", regions.left);
-  writeHtml("v2t-build", regions.build);
+  preserveResourceBuildChoice(document.getElementById("v2t-build"), () => writeHtml("v2t-build", regions.build));
   writeHtml("v2t-bar", regions.bar);
 };
 
@@ -125,6 +129,7 @@ let pickedTownKey: string | undefined;
 
 /** Dock listener: the tile bar was hidden, by a press on the map (`byMapPress`) or any other close. */
 export const townOnMenuHidden = (byMapPress: number | undefined): void => {
+  if (placingTownBuild) return;
   flagTaps.onHidden(byMapPress);
   if (screen.id === "town") closeTownScreen(true);
 };
@@ -176,18 +181,40 @@ export const closeTownScreen = (keepPosition = false): void => {
  * first, so the action -- and anything it opens that reads the selection later -- targets the town. The town
  * screen then shows the town itself as the build target.
  */
-export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], targetKey: string | undefined, originKey: string | undefined): void => {
-  const menu = deps.state.tileActionMenu;
-  const target = targetKey ? deps.state.tiles.get(targetKey) : undefined;
-  if (!target || targetKey === menu.currentTileKey || menu.mode !== "single") {
-    deps.actionFlow.handleTileAction(actionId, targetKey, originKey);
-    return;
+export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], targetKey: string | undefined, originKey: string | undefined, buildAllResources = false): void => {
+  const type = structureTypeForTileAction(actionId);
+  const repeat = screen.id === "town" && current && type && structureRequiresTownOrSupportTile(type);
+  const saved = repeat ? current : undefined;
+  const selection = screen.townBuildSelection;
+  const category = screen.townCategory;
+  const run = (): void => {
+    const menu = deps.state.tileActionMenu;
+    const target = targetKey ? deps.state.tiles.get(targetKey) : undefined;
+    if (!target || targetKey === menu.currentTileKey || menu.mode !== "single") {
+      deps.actionFlow.handleTileAction(actionId, targetKey, originKey, buildAllResources);
+      return;
+    }
+    suppressAutoExpand();
+    deps.state.selected = { x: target.x, y: target.y };
+    const centre = screenCentre();
+    deps.actionFlow.openSingleTileActionMenu(target, centre.x, centre.y);
+    deps.actionFlow.handleTileAction(actionId, targetKey, originKey, buildAllResources);
+  };
+  placingTownBuild = Boolean(repeat);
+  try { run(); } finally { placingTownBuild = false; }
+  if (saved) {
+    // Return to town placement after consuming an explicitly picked support tile.
+    // Subsequent presses let the server choose another empty support plot.
+    const town = deps.state.tiles.get(saved.townKey);
+    if (town) {
+      deps.state.selected = { x: town.x, y: town.y };
+      const centre = screenCentre();
+      deps.actionFlow.openSingleTileActionMenu(town, centre.x, centre.y);
+      screen.townBuildSelection = selection;
+      screen.townCategory = category;
+      renderTownScreen(deps);
+    }
   }
-  suppressAutoExpand();
-  deps.state.selected = { x: target.x, y: target.y };
-  const centre = screenCentre();
-  deps.actionFlow.openSingleTileActionMenu(target, centre.x, centre.y);
-  deps.actionFlow.handleTileAction(actionId, targetKey, originKey);
 };
 
 /** ◁ ▷: open the previous / next town and move the camera there. */

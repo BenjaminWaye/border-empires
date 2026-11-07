@@ -474,7 +474,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AI_FREE_TRUCE_CHANGELOG,
   ...CAPTURE_WRECK_FIX_CHANGELOG,
   ...TOWN_STAT_BONUSES_CHANGELOG,
-  ...TOWN_TIER_GROWTH_CHANGELOG
+  ...TOWN_TIER_GROWTH_CHANGELOG,
+  {
+    createdAt: 1793992103118, introducedIn: "2026.11.06", title: "Build improvements with fewer clicks",
+    changes: ["The Place button offers a checkbox to improve all eligible garrisoned tiles of the same resource.", "Town support builds keep the build menu and building selection open. Pick an empty support tile for exact placement, or press Place again to use another available plot."],
+    why: "Develop several deposits or town plots without reopening the build menu for every building."
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

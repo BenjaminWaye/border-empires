@@ -175,3 +175,7 @@
 .v2b-result-body { font-size: 14px; color: var(--v2-soft); }
 /* Auto-garrison checkbox under the bar's Garrison button. */
 .v2t-bar .tile-auto-settle-option { flex: 1 0 100%; margin: 0; font-size: 12px; color: var(--v2-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.v2t-build-all { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.4; }
+.v2t-place-docked:has(.v2t-build-all) { flex-wrap: wrap; }
+.v2t-place-docked .v2t-build-all { flex-basis: 100%; }
