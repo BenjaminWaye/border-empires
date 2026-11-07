@@ -13,6 +13,8 @@ export type TrackerInput = {
   afcReady: number;
   flags: ManpowerPanelMusterFlag[];
   flagCap: number;
+  /** The player's free manpower pool, which refills every flag. */
+  manpower: number;
   building: DevelopmentSlotOccupant[];
   /** Settles and builds waiting for a free slot, in order. */
   queue: Array<{ label: string; x: number; y: number }>;
@@ -46,9 +48,12 @@ export const formatRemaining = (ms: number): string => {
 export const trackerNeeds = (input: TrackerInput): TrackerNeed[] => {
   const needs: TrackerNeed[] = [];
   if (input.afcReady > 0) needs.push({ kind: "afc", title: "AFC upgrade ready", sub: "" });
+  // A flag short of its next target is normally just filling from the pool; it is stuck only when the pool is empty.
+  const poolEmpty = input.manpower < 1;
   for (const flag of input.flags) {
-    if (!flag.insufficientManpower && !flag.noTargetInRange && !flag.unfundableTarget) continue;
-    const sub = flag.insufficientManpower ? "Needs manpower" : flag.unfundableTarget ? "Target too costly" : "No target in range";
+    const starved = Boolean(flag.insufficientManpower) && poolEmpty;
+    if (!starved && !flag.noTargetInRange && !flag.unfundableTarget) continue;
+    const sub = starved ? "Needs manpower" : flag.unfundableTarget ? "Target too costly" : "No target in range";
     needs.push({ kind: "flag", title: `Flag (${flag.x}, ${flag.y}) stalled`, sub, x: flag.x, y: flag.y });
   }
   return needs;
