@@ -56,10 +56,14 @@ describe("tile description and visibility", () => {
     expect(describeTile(full)).toEqual({ x: 1, y: 2, terrain: "LAND", ownerId: "p2", resource: "FARM", economicStructure: JSON.parse(beacon), fort: "{bad" });
   });
 
-  it("distinguishes not returned, returned but stripped, and fully visible", () => {
+  it("distinguishes not returned, unknown (failed block), stripped or altered, and fully visible", () => {
     expect(classifyVisibility(full, undefined)).toEqual({ visibility: "none", hiddenFields: [] });
-    expect(classifyVisibility(full, { x: 1, y: 2, terrain: "LAND", ownerId: "p2" })).toEqual({ visibility: "redacted", hiddenFields: ["resource", "fortJson", "economicStructureJson"] });
-    expect(classifyVisibility(full, full)).toEqual({ visibility: "full", hiddenFields: [] });
+    expect(classifyVisibility(full, undefined, true)).toEqual({ visibility: "unknown", hiddenFields: [] });
+    expect(classifyVisibility(full, { x: 1, y: 2, terrain: "LAND", ownerId: "p2" })).toEqual({ visibility: "redacted", hiddenFields: ["resource", "economicStructure", "fort"] });
+    // Same keys, different value (e.g. a district overlay whose anchor is hidden from the player).
+    const altered = { ...full, economicStructureJson: JSON.stringify({ type: "RELAY_BEACON", status: "active", ownerId: "p1", supportAnchor: { x: 9, y: 9 } }) };
+    expect(classifyVisibility(altered, full)).toEqual({ visibility: "redacted", hiddenFields: ["economicStructure"] });
+    expect(classifyVisibility(full, { ...full })).toEqual({ visibility: "full", hiddenFields: [] });
   });
 
   it("picks grid characters by structure precedence, then terrain", () => {
@@ -68,6 +72,7 @@ describe("tile description and visibility", () => {
     expect(tileGridChar({ x: 0, y: 0, terrain: "LAND", townType: "MARKET", fortJson: "{}" })).toBe("T");
     expect(tileGridChar({ x: 0, y: 0, terrain: "MOUNTAIN", watchtowerJson: "{}" })).toBe("*");
     expect(["SEA", "COASTAL_SEA", "MOUNTAIN", "LAND"].map((terrain) => tileGridChar({ x: 0, y: 0, terrain: terrain as WireTile["terrain"] }))).toEqual(["~", "c", "^", "."]);
+    expect(tileGridChar({ x: 0, y: 0 })).toBe("x");
   });
 
   it("renders rows north to south with wrapped y labels and ? for missing tiles", () => {

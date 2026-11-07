@@ -9,7 +9,7 @@
 import { TILE_OVERLAY_WIRE_FIELDS, type PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 export type WireTile = PlayerSubscriptionSnapshot["tiles"][number];
-export type TileVisibility = "full" | "redacted" | "none";
+export type TileVisibility = "full" | "redacted" | "none" | "unknown";
 
 export const ADMIN_TILE_MAX_RADIUS = 6;
 
@@ -65,15 +65,24 @@ export const describeTile = (tile: WireTile): Record<string, unknown> => {
 
 /**
  * How much of `full` the player's own filtered copy carries. The sim's player
- * filter can return a tile but strip it (a lock-target stub without
- * structures, an unresearched resource hidden), so "returned" alone isn't
- * "visible".
+ * filter can return a tile but strip or alter it (a lock-target stub without
+ * structures, an unresearched resource hidden, a district overlay whose anchor
+ * the player can't see), so "returned" alone isn't "visible": every described
+ * field is compared, and the ones that differ are listed under the same names
+ * describeTile uses. `blockFailed` means the player-pass call for this tile's
+ * block errored or timed out, so absence proves nothing.
  */
-export const classifyVisibility = (full: WireTile, seen: WireTile | undefined): { visibility: TileVisibility; hiddenFields: string[] } => {
-  if (!seen) return { visibility: "none", hiddenFields: [] };
-  const fullRecord = full as Record<string, unknown>;
-  const seenRecord = seen as Record<string, unknown>;
-  const hiddenFields = ["resource", "townJson", ...OVERLAY_FIELDS].filter((field) => fullRecord[field] !== undefined && seenRecord[field] === undefined);
+export const classifyVisibility = (
+  full: WireTile,
+  seen: WireTile | undefined,
+  blockFailed = false
+): { visibility: TileVisibility; hiddenFields: string[] } => {
+  if (!seen) return { visibility: blockFailed ? "unknown" : "none", hiddenFields: [] };
+  const fullDescribed = describeTile(full);
+  const seenDescribed = describeTile(seen);
+  const hiddenFields = [...new Set([...Object.keys(fullDescribed), ...Object.keys(seenDescribed)])].filter(
+    (field) => JSON.stringify(fullDescribed[field]) !== JSON.stringify(seenDescribed[field])
+  );
   return { visibility: hiddenFields.length > 0 ? "redacted" : "full", hiddenFields };
 };
 
@@ -86,7 +95,8 @@ const economicStructureType = (tile: WireTile): string | undefined => {
  * One grid character per tile, highest precedence first: T town, A AFC,
  * F fort, O observatory (Aether Tower), S siege battery, B relay beacon,
  * E other economic structure, * any other overlay; else terrain: ~ sea,
- * c coastal sea, ^ mountain, . land.
+ * c coastal sea, ^ mountain, . land, and x when the sim sent no terrain (so
+ * a terrain disagreement can't hide as land).
  */
 export const tileGridChar = (tile: WireTile): string => {
   if (tile.townJson || tile.townType) return "T";
@@ -99,10 +109,11 @@ export const tileGridChar = (tile: WireTile): string => {
   if (tile.terrain === "SEA") return "~";
   if (tile.terrain === "COASTAL_SEA") return "c";
   if (tile.terrain === "MOUNTAIN") return "^";
-  return ".";
+  if (tile.terrain === "LAND") return ".";
+  return "x";
 };
 
-export const VISIBILITY_GRID_CHAR: Readonly<Record<TileVisibility, string>> = { full: "#", redacted: "r", none: "-" };
+export const VISIBILITY_GRID_CHAR: Readonly<Record<TileVisibility, string>> = { full: "#", redacted: "r", none: "-", unknown: "?" };
 
 /** Rows north to south, columns west to east, each prefixed with its y; `?` for a tile the sim didn't return. */
 export const renderGrid = (

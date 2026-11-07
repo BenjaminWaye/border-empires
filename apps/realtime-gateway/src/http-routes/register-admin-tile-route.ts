@@ -8,7 +8,9 @@
 // The visibility pass is the sim's *current* live-vision filter, not the
 // client's fog memory, and it feeds the sim's visibility audit like any other
 // player export. After a season ends the sim forces full visibility for
-// everyone, which the response notes.
+// everyone, which the response notes. A timed-out call only stops being
+// awaited (the sim client has no per-call deadline), so a stalled sim can
+// still finish orphaned calls later.
 import type { FastifyInstance } from "fastify";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
@@ -89,38 +91,60 @@ export const registerAdminTileRoute = (app: FastifyInstance, deps: RegisterAdmin
       }
       const x = ((rawX % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
       const y = ((rawY % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
-      const deadline = now() + REQUEST_BUDGET_MS;
+      const startedAt = now();
+      const deadline = startedAt + REQUEST_BUDGET_MS;
       const errors: string[] = [];
-      const collect = async (viewer: string, fullVisibility: boolean): Promise<Map<string, WireTile>> => {
-        const found = new Map<string, WireTile>();
-        for (const centre of blockCentres(x, y, radius, WORLD_WIDTH, WORLD_HEIGHT)) {
-          const remaining = deadline - now();
-          if (remaining <= 0) {
-            errors.push(`budget exhausted before block (${centre.x},${centre.y}) ${fullVisibility ? "full" : "player"} pass`);
-            continue;
-          }
-          try {
-            const result = await withTimeout(fetchTileDetail(viewer, centre.x, centre.y, fullVisibility), Math.min(CALL_TIMEOUT_MS, remaining));
-            for (const tile of result.tiles) {
-              if (isInSquare(tile, x, y, radius, WORLD_WIDTH, WORLD_HEIGHT)) found.set(tileKey(tile.x, tile.y), tile);
-            }
-          } catch (error) {
-            errors.push(`block (${centre.x},${centre.y}) ${fullVisibility ? "full" : "player"} pass: ${error instanceof Error ? error.message : String(error)}`);
-          }
+      // Fetched first so a finished season's forced full visibility is always
+      // known before the visibility pass is read.
+      const seasonStatus = await withTimeout(deps.getCurrentSeasonSummary(), CALL_TIMEOUT_MS).then(
+        (summary) => summary.status,
+        (error: unknown) => {
+          errors.push(`season status: ${error instanceof Error ? error.message : String(error)}`);
+          return undefined;
         }
-        return found;
+      );
+      const fetchBlock = async (centre: { x: number; y: number }, viewer: string, fullVisibility: boolean): Promise<WireTile[] | undefined> => {
+        const pass = fullVisibility ? "full" : "player";
+        const remaining = deadline - now();
+        if (remaining <= 0) {
+          errors.push(`budget exhausted before block (${centre.x},${centre.y}) ${pass} pass`);
+          return undefined;
+        }
+        try {
+          const result = await withTimeout(fetchTileDetail(viewer, centre.x, centre.y, fullVisibility), Math.min(CALL_TIMEOUT_MS, remaining));
+          return result.tiles.filter((tile) => isInSquare(tile, x, y, radius, WORLD_WIDTH, WORLD_HEIGHT));
+        } catch (error) {
+          errors.push(`block (${centre.x},${centre.y}) ${pass} pass: ${error instanceof Error ? error.message : String(error)}`);
+          return undefined;
+        }
       };
 
-      const fullTiles = await collect(playerId ?? FULL_VIEW_PLAYER_ID, true);
-      const playerTiles = playerId ? await collect(playerId, false) : undefined;
-      const seasonStatus = await deps.getCurrentSeasonSummary().then((summary) => summary.status, () => undefined);
+      // Both passes for a block run back to back, so a tick between them can
+      // only skew one 3x3 block rather than the whole comparison.
+      const fullTiles = new Map<string, WireTile>();
+      const playerTiles = playerId ? new Map<string, WireTile>() : undefined;
+      const playerFailedKeys = new Set<string>();
+      for (const centre of blockCentres(x, y, radius, WORLD_WIDTH, WORLD_HEIGHT)) {
+        const full = await fetchBlock(centre, playerId ?? FULL_VIEW_PLAYER_ID, true);
+        for (const tile of full ?? []) fullTiles.set(tileKey(tile.x, tile.y), tile);
+        if (!playerId || !playerTiles) continue;
+        const seen = await fetchBlock(centre, playerId, false);
+        if (seen) {
+          for (const tile of seen) playerTiles.set(tileKey(tile.x, tile.y), tile);
+        } else {
+          for (let dy = -1; dy <= 1; dy += 1) {
+            for (let dx = -1; dx <= 1; dx += 1) playerFailedKeys.add(tileKey((centre.x + dx + WORLD_WIDTH) % WORLD_WIDTH, (centre.y + dy + WORLD_HEIGHT) % WORLD_HEIGHT));
+          }
+        }
+      }
 
       const visibilityByKey = new Map<string, TileVisibility>();
       const tiles = [...fullTiles.values()]
         .sort((a, b) => a.y - b.y || a.x - b.x)
         .map((tile) => {
           if (!playerTiles) return describeTile(tile);
-          const { visibility, hiddenFields } = classifyVisibility(tile, playerTiles.get(tileKey(tile.x, tile.y)));
+          const key = tileKey(tile.x, tile.y);
+          const { visibility, hiddenFields } = classifyVisibility(tile, playerTiles.get(key), playerFailedKeys.has(key));
           visibilityByKey.set(tileKey(tile.x, tile.y), visibility);
           return { ...describeTile(tile), visibleToPlayer: visibility, ...(hiddenFields.length > 0 ? { hiddenFromPlayer: hiddenFields } : {}) };
         });
@@ -139,13 +163,14 @@ export const registerAdminTileRoute = (app: FastifyInstance, deps: RegisterAdmin
         ok: true,
         center: { x, y },
         radius,
+        tookMs: now() - startedAt,
         world: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
         ...(seasonStatus ? { seasonStatus } : {}),
         ...(playerId ? { playerId } : {}),
         ...(playerId && seasonStatus === "ended" ? { visibilityNote: "season ended: the sim forces full visibility for every player" } : {}),
         legend: {
-          grid: "rows north->south prefixed by y; columns west->east from x-radius. T town, A AFC, F fort, O observatory, S siege battery, B relay beacon, E other economic structure, * other overlay, ~ sea, c coastal sea, ^ mountain, . land, ? not returned",
-          ...(visibilityGrid ? { visibilityGrid: "# fully visible, r visible but redacted (see hiddenFromPlayer), - not visible, ? not returned" } : {})
+          grid: "rows north->south prefixed by y; columns west->east from x-radius. T town, A AFC, F fort, O observatory, S siege battery, B relay beacon, E other economic structure, * other overlay, ~ sea, c coastal sea, ^ mountain, . land, x no terrain sent, ? not returned (failed, timed out or over budget: see errors)",
+          ...(visibilityGrid ? { visibilityGrid: "# fully visible, r returned but differs from the full view (see hiddenFromPlayer), - not visible, ? unknown (that block's player call failed: see errors)" } : {})
         },
         grid: terrainGrid,
         ...(visibilityGrid ? { visibilityGrid } : {}),

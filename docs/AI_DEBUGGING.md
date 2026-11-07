@@ -80,11 +80,15 @@ the static token, and logs each token's nonce and expiry. Implementation:
 works) returns the server's authoritative tiles around a coordinate: a
 character grid (`T` town, `A` AFC, `F` fort, `O` observatory, `S` siege battery,
 `B` relay beacon, `E` other economic structure, `*` other overlay, `~` sea,
-`c` coastal sea, `^` mountain, `.` land) plus each tile's terrain, owner and
-parsed structure overlays. With `playerId` it also runs the sim's live-vision
-filter for that player and marks every tile `full`, `redacted` (returned but
-stripped, e.g. a lock-target stub; see `hiddenFromPlayer`) or `none`, with a
-matching `visibilityGrid`. That is the server's current vision, not the client's
+`c` coastal sea, `^` mountain, `.` land, `x` no terrain sent) plus each tile's
+terrain, owner and parsed structure overlays. With `playerId` it also runs the
+sim's live-vision filter for that player (block by block, right after the full
+view of the same block) and marks every tile `full`, `redacted` (returned but
+some field differs from the full view, e.g. a lock-target stub; see
+`hiddenFromPlayer`), `none`, or `unknown` (that block's player call failed),
+with a matching `visibilityGrid`. `yieldRate` is only filled in for tiles owned
+by whoever owns each 3x3 block's centre (sim behaviour), so don't read its
+absence as zero income. That is the server's current vision, not the client's
 fog memory; after a season ends the sim forces full visibility. Radius is 0-6;
 it issues up to 50 sequential `FetchTileDetail` calls, so the gateway serves one
 inspection at a time (429 otherwise). Failed or timed-out blocks show as `?`

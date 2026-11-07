@@ -86,7 +86,7 @@ describe("GET /admin/tile", () => {
     const response = await appWith({ fetchTileDetail: fakeSim(forestWithBeacon, visibleTo) }).inject({ method: "GET", url: "/admin/tile?x=524&y=298&radius=2&playerId=p1", headers: AUTH });
     const body = response.json() as { visibilityGrid: string[]; tiles: Array<Record<string, unknown>> };
     expect(body.visibilityGrid).toEqual(["296 #####", "297 #####", "298 ##r##", "299 #####", "300 -----"]);
-    expect(body.tiles.find((tile) => tile.x === 524 && tile.y === 298)).toMatchObject({ visibleToPlayer: "redacted", hiddenFromPlayer: ["economicStructureJson"] });
+    expect(body.tiles.find((tile) => tile.x === 524 && tile.y === 298)).toMatchObject({ visibleToPlayer: "redacted", hiddenFromPlayer: ["ownershipState", "economicStructure"] });
   });
 
   it("reports a failing block instead of failing the request, and notes forced visibility after season end", async () => {
@@ -100,6 +100,25 @@ describe("GET /admin/tile", () => {
     expect(body.errors.some((error) => error.includes("sim down"))).toBe(true);
     expect(body.visibilityNote).toContain("season ended");
     expect(body.grid[0]).toBe("296 ?????");
+  });
+
+  it("marks tiles unknown, not invisible, when only the player-vision call for their block fails", async () => {
+    const sim = fakeSim(forestWithBeacon, (_id, tile) => tile);
+    const fetchTileDetail = vi.fn(async (playerId: string, cx: number, cy: number, fullVisibility?: boolean) => {
+      if (!fullVisibility && cx === 523) throw new Error("timed out");
+      return sim(playerId, cx, cy, fullVisibility);
+    });
+    const response = await appWith({ fetchTileDetail }).inject({ method: "GET", url: "/admin/tile?x=524&y=298&radius=2&playerId=p1", headers: AUTH });
+    const body = response.json() as { visibilityGrid: string[]; errors: string[] };
+    expect(body.visibilityGrid).toEqual(["296 ???##", "297 ???##", "298 ???##", "299 ???##", "300 ???##"]);
+    expect(body.errors.every((error) => error.includes("player pass"))).toBe(true);
+  });
+
+  it("reports a failed season-status call as an error", async () => {
+    const response = await appWith({ getCurrentSeasonSummary: async () => { throw new Error("sim busy"); } }).inject({ method: "GET", url: "/admin/tile?x=1&y=1&radius=0", headers: AUTH });
+    const body = response.json() as { errors: string[]; seasonStatus?: string };
+    expect(body.seasonStatus).toBeUndefined();
+    expect(body.errors).toEqual(["season status: sim busy"]);
   });
 
   it("serves one inspection at a time", async () => {
