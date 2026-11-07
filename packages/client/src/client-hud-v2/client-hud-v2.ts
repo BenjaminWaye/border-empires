@@ -300,7 +300,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     afcReady: readyAfcUpgradeCount(state),
     flags: trackerScan.flags,
     flagCap: musterFlagCap(state.manpowerCap, 0),
-    manpower: state.manpower,
+    manpowerCap: state.manpowerCap,
     // Timers count down between scans without rescanning the tiles.
     building: tickSlots(trackerScan.building, elapsed),
     queue: trackerScan.queue,

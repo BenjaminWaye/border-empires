@@ -13,8 +13,8 @@ export type TrackerInput = {
   afcReady: number;
   flags: ManpowerPanelMusterFlag[];
   flagCap: number;
-  /** The player's free manpower pool, which refills every flag. */
-  manpower: number;
+  /** The player's manpower cap: the most any flag can ever be expanded to hold. */
+  manpowerCap: number;
   building: DevelopmentSlotOccupant[];
   /** Settles and builds waiting for a free slot, in order. */
   queue: Array<{ label: string; x: number; y: number }>;
@@ -48,18 +48,19 @@ export const formatRemaining = (ms: number): string => {
 export const trackerNeeds = (input: TrackerInput): TrackerNeed[] => {
   const needs: TrackerNeed[] = [];
   if (input.afcReady > 0) needs.push({ kind: "afc", title: "AFC upgrade ready", sub: "" });
-  // A flag short of its next target is normally just filling from the pool; it is stuck only when the pool is empty.
-  const poolEmpty = input.manpower < 1;
   for (const flag of input.flags) {
-    const starved = Boolean(flag.insufficientManpower) && poolEmpty;
-    if (!starved && !flag.noTargetInRange && !flag.unfundableTarget) continue;
-    // Its target needs more than the flag can hold: Expand Capacity fixes it, not waiting.
-    if (!starved && flag.unfundableTarget) {
-      needs.push({ kind: "flag", title: `Flag (${flag.x}, ${flag.y}) needs higher capacity`, sub: `Target needs ${Math.ceil(flag.unfundableTarget.required)}`, x: flag.x, y: flag.y });
-      continue;
+    // A flag saving up (insufficientManpower) keeps filling from the pool, and a fighting flag is busy: neither needs you.
+    if (flag.mode === "HOLD" || flag.inFlight) continue;
+    const at = { x: flag.x, y: flag.y };
+    const required = flag.unfundableTarget?.required;
+    if (required !== undefined) {
+      // Expand Capacity only helps up to the manpower cap.
+      needs.push(required <= input.manpowerCap
+        ? { kind: "flag", title: `Flag (${flag.x}, ${flag.y}) needs higher capacity`, sub: `Target needs ${Math.ceil(required)}`, ...at }
+        : { kind: "flag", title: `Flag (${flag.x}, ${flag.y}) stalled`, sub: `Target needs ${Math.ceil(required)}, over manpower cap`, ...at });
+    } else if (flag.noTargetInRange) {
+      needs.push({ kind: "flag", title: `Flag (${flag.x}, ${flag.y}) stalled`, sub: "No target in range", ...at });
     }
-    const sub = starved ? "Needs manpower" : "No target in range";
-    needs.push({ kind: "flag", title: `Flag (${flag.x}, ${flag.y}) stalled`, sub, x: flag.x, y: flag.y });
   }
   return needs;
 };

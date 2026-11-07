@@ -7,7 +7,7 @@ import { applyResourceChip, type ResourcePanelState } from "./client-hud-v2-reso
 import type { TrackerInput } from "./client-hud-v2-tracker.js";
 
 const tracker = (over: Partial<TrackerInput> = {}): TrackerInput => ({
-  buildSlots: { busy: 2, limit: 3 }, afcReady: 0, flags: [], flagCap: 0, manpower: 0, building: [], queue: [], slotsOpen: true, nowMs: 0, ...over
+  buildSlots: { busy: 2, limit: 3 }, afcReady: 0, flags: [], flagCap: 0, manpowerCap: 1000, building: [], queue: [], slotsOpen: true, nowMs: 0, ...over
 });
 
 // Like a browser, back() fires popstate (asynchronously there; synchronously here).
