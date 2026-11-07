@@ -25,6 +25,9 @@ type Args = {
   // Two empires' territory over the coast (west settled, east with a
   // frontier rim), to judge how ownership meets the beach fringe.
   ownership: boolean;
+  // A straight 1-tile sea channel cut across the island (row CENTER+3),
+  // the shape season worldgen's ensureLandMassesReachSea carves.
+  channel: boolean;
 };
 
 const WEST_OWNER = new Color("#d0453a");
@@ -40,9 +43,11 @@ const hash = (x: number, y: number): number => {
 const islandRadiusAt = (x: number, y: number): number =>
   Math.hypot(x, y * 1.15) + Math.sin(x * 0.45) * 1.6 + Math.cos(y * 0.38 + 1.2) * 1.4;
 
+let carveChannel = false;
 const tileKindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
   const x = wx - CENTER;
   const y = wy - CENTER;
+  if (carveChannel && y === 3 && x >= -16) return "SEA";
   const r = islandRadiusAt(x, y);
   if (r > 15) return "SEA";
   if (r > 13) return "COASTAL_SEA";
@@ -109,6 +114,7 @@ const applyGameLighting = (stage: ReturnType<typeof createStage>): (() => void) 
 };
 
 const render = (args: Args): HTMLElement => {
+  carveChannel = args.channel;
   const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: args.cameraTilt, background: "#3a3e44" });
   const removeLighting = applyGameLighting(stage);
   stage.camera.position.x += args.focusX;
@@ -199,7 +205,7 @@ const meta: Meta<Args> = {
     focusX: { control: { type: "range", min: -HALF, max: HALF, step: 1 } },
     focusZ: { control: { type: "range", min: -HALF, max: HALF, step: 1 } }
   },
-  args: { cameraDistance: 30, cameraTilt: 0.6, focusX: 0, focusZ: 0, ownership: false },
+  args: { cameraDistance: 30, cameraTilt: 0.6, focusX: 0, focusZ: 0, ownership: false, channel: false },
   render
 };
 
@@ -210,3 +216,4 @@ export const Island: Story = {};
 export const CloseUp: Story = { args: { cameraDistance: 11, cameraTilt: 0.75 } };
 export const Shoreline: Story = { args: { cameraDistance: 8, cameraTilt: 0.75, focusX: -12, focusZ: 3 } };
 export const OwnedCoast: Story = { args: { cameraDistance: 14, cameraTilt: 0.8, focusX: 0, focusZ: 8, ownership: true } };
+export const NarrowChannel: Story = { args: { cameraDistance: 9, cameraTilt: 0.8, focusX: 3, focusZ: 3, ownership: true, channel: true } };
