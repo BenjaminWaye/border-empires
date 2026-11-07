@@ -94,7 +94,7 @@ describe("AI truce pricing", () => {
   });
 
   // A strong economy buys off weak neighbours cheaply: only the AI's own income sets its price.
-  it("prices on the AI's own income, however rich the player", () => {
+  it("prices on the AI's own income", () => {
     const smallAi = { aiIncome: 72 / 1440 }; // 72 coin a day
     expect(price(smallAi).pricing.required.truce12).toBe(36);
     expect(price({ aiIncome: 533 / 1440 }).pricing.required.truce12).toBe(267);
@@ -387,6 +387,14 @@ describe("answerDiplomacyStanceQuery", () => {
     });
   });
 
+  // The 2 coin minimum applies after a Merchant's discount, not before it.
+  it("keeps a Merchant's goodwill at 2 coin a point or more", async () => {
+    const poorMerchant = { ...aiSnapshot, playerId: "ai-2", player: { ...aiSnapshot.player, incomePerMinute: 0 } } as unknown as PlayerSubscriptionSnapshot;
+    const merchant = { ...deps, isAutoRespondingAi: (id: string) => id === "ai-2", fetchAiSnapshot: async () => poorMerchant, resolvePlayerByName: (name: string) => (name === "Sigrid" ? { id: "ai-2", name: "Sigrid" } : undefined) };
+    const result = await answerDiplomacyStanceQuery(merchant, "p1", "Sigrid");
+    expect(result).toEqual(expect.objectContaining({ gift: expect.objectContaining({ coinPerPoint: 2 }) }));
+  });
+
   it("tells the trade screen the AI's temperament and prices gifts by it", async () => {
     const merchant = { ...deps, isAutoRespondingAi: (id: string) => id === "ai-2", resolvePlayerByName: (name: string) => (name === "Sigrid" ? { id: "ai-2", name: "Sigrid" } : undefined) };
     const result = await answerDiplomacyStanceQuery(merchant, "p1", "Sigrid");
@@ -396,8 +404,6 @@ describe("answerDiplomacyStanceQuery", () => {
     }));
   });
 
-  // Prices floor at 10 coin a day, which on goodwill's scale would let about 2 coin buy
-  // capped goodwill, and so a free Friendly alliance on day one. Gifts keep their own floor.
   // A point is 10 minutes of the AI's own income, never under 2 coin; the player's income doesn't count.
   it("prices goodwill on the AI's own income, at least 2 coin a point", async () => {
     const richPlayer = { ...aiSnapshot, playerId: "p1", player: { ...aiSnapshot.player, incomePerMinute: 50 } } as unknown as PlayerSubscriptionSnapshot;

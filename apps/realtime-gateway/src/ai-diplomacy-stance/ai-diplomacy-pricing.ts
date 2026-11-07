@@ -57,9 +57,13 @@ export const MIN_INCOME_PER_MINUTE = 10 / (24 * 60);
  */
 export const MIN_COIN_PER_GOODWILL_POINT = 2;
 
-/** What "an hour of income" means for goodwill: the AI's own, so a point costs at least MIN_COIN_PER_GOODWILL_POINT. */
-export const goodwillIncomePerHour = (aiIncomePerMinute: number): number =>
-  Math.max(MIN_COIN_PER_GOODWILL_POINT * GOODWILL_POINTS_PER_INCOME_HOUR, (Number.isFinite(aiIncomePerMinute) ? aiIncomePerMinute : 0) * 60);
+/**
+ * What "an hour of income" means for goodwill: the AI's own, divided by its
+ * temperament's gift value, so a point costs at least MIN_COIN_PER_GOODWILL_POINT
+ * even for a Merchant.
+ */
+export const goodwillIncomePerHour = (aiIncomePerMinute: number, giftValue = 1): number =>
+  Math.max(MIN_COIN_PER_GOODWILL_POINT * GOODWILL_POINTS_PER_INCOME_HOUR, ((Number.isFinite(aiIncomePerMinute) ? aiIncomePerMinute : 0) * 60) / giftValue);
 
 export type AiDiplomacyPricingResult = {
   pricing: AiDiplomacyPricing;

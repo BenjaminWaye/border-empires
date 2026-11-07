@@ -107,7 +107,7 @@ export const evaluateAiDiplomacy = (input: {
   const aiIncome = aiPlayer.incomePerMinute ?? 0;
   const temperament = aiTemperamentForId(input.aiPlayerId);
   // Gifts go further with a lower "hour of income": the trade screen's preview reads the same rate from `gift`.
-  const goodwillHourCoin = goodwillIncomePerHour(aiIncome) / temperament.giftValue;
+  const goodwillHourCoin = goodwillIncomePerHour(aiIncome, temperament.giftValue);
   const opinion = computeAiOpinion({
     stanceKind: stance.kind,
     memory: input.memory,
