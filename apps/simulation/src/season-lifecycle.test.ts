@@ -110,6 +110,32 @@ describe("status predicates treat absent status as active (historical default)",
   });
 });
 
+describe("updateSeasonVictoryTrackers hold deadline", () => {
+  it("records when a running hold ends so broadcasts can refresh the time left", () => {
+    const seasonState = createInitialSeasonState({ seasonSequence: 1, rulesetId: "standard", worldSeed: 1, startedAt: 1_000 });
+    const result = updateSeasonVictoryTrackers({
+      seasonState,
+      objectives: [
+        {
+          id: "TOWN_CONTROL",
+          name: "Town control",
+          description: "",
+          leaderPlayerId: "player-1",
+          leaderName: "Player One",
+          progressLabel: "",
+          thresholdLabel: "",
+          holdDurationSeconds: 60,
+          statusLabel: "",
+          conditionMet: true
+        }
+      ],
+      now: 2_000
+    });
+    expect(result.objectives[0]?.holdEndsAt).toBe(62_000);
+    expect(result.objectives[0]?.holdRemainingSeconds).toBe(60);
+  });
+});
+
 describe("updateSeasonVictoryTrackers no-ops while pending", () => {
   it("does not accrue hold timers for a pending season", () => {
     const pendingState = createInitialSeasonState({

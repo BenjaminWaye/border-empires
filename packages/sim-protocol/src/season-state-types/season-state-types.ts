@@ -23,6 +23,9 @@ export type SeasonVictoryObjectiveSnapshot = {
   thresholdLabel: string;
   holdDurationSeconds: number;
   holdRemainingSeconds?: number;
+  /** When the tracked hold completes (ms epoch). Lets each broadcast refresh
+   *  holdRemainingSeconds between the ~5-min summary recomputes. */
+  holdEndsAt?: number;
   statusLabel: string;
   conditionMet: boolean;
   /** The current leader's progress toward this objective's win threshold, as a

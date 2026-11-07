@@ -198,6 +198,7 @@ export const updateSeasonVictoryTrackers = ({
     return {
       ...objective,
       holdRemainingSeconds: Math.max(0, Math.ceil((holdEndsAt - now) / 1_000)),
+      holdEndsAt,
       statusLabel:
         holdEndsAt > now
           ? `Holding ${(holdEndsAt - now) > 60_000 ? "pressure" : "for victory"}`

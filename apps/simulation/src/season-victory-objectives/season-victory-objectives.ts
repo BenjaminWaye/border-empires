@@ -184,6 +184,26 @@ export const buildEconomicHegemonyObjective = (
 export const economicHegemonySelfProgressLabel = (incomePerMinute: number): string =>
   `${(incomePerMinute * 1440).toFixed(1)} coin/day`;
 
+// The cached summary is recomputed about every 5 minutes, and not at all once a winner is
+// crowned. Clients restart their countdown from each broadcast, so send the true remaining
+// time, and no hold at all once the season is decided. Call once per broadcast tick.
+export const seasonVictoryWithCurrentHolds = (
+  objectives: readonly SeasonVictoryObjectiveSnapshot[],
+  now: number,
+  seasonDecided: boolean
+): SeasonVictoryObjectiveSnapshot[] =>
+  objectives.map((objective) => {
+    if (seasonDecided) {
+      const decided = { ...objective };
+      delete decided.holdRemainingSeconds;
+      delete decided.holdEndsAt;
+      return decided;
+    }
+    return typeof objective.holdEndsAt === "number"
+      ? { ...objective, holdRemainingSeconds: Math.max(0, Math.ceil((objective.holdEndsAt - now) / 1_000)) }
+      : objective;
+  });
+
 // The live objective is rebuilt from the leaderboard and knows nothing about holds; those come
 // from updateSeasonVictoryTrackers via the cached summary. Keep the hold only while the same
 // leader still meets the condition, since the tracker restarts it for anyone else.
