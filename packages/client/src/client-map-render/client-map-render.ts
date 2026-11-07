@@ -4,6 +4,8 @@ import { terrainTextures } from "./client-map-render-terrain-textures.js";
 import { drawReliefTerrainTile } from "./client-map-render-relief-tile.js";
 import { drawMountainPeaks2D } from "./client-map-render-mountain-peaks.js";
 import { drawRiverEdges } from "./client-map-render-river-edges.js";
+import { drawTownGrowthSprites2D, townSpriteRect } from "../client-town-tier-upgrade-fx/client-map-2d-town-growth.js";
+import type { TownTierUpgradeFxEntry } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-fx.js";
 
 export { initTerrainTextures } from "./client-map-render-terrain-textures.js";
 import type { FortificationOpening, FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
@@ -512,7 +514,8 @@ export const drawTownOverlay = (
   px: number,
   py: number,
   size: number,
-  ownerColor = "#C44937"
+  ownerColor = "#C44937",
+  upgrade?: TownTierUpgradeFxEntry
 ): void => {
   const town = townIdentityForTile(tile);
   if (!town) return;
@@ -532,21 +535,12 @@ export const drawTownOverlay = (
     ctx.fillRect(mx, my, marker, marker);
     return;
   }
-  const scaleByTier =
-    town.populationTier === "SETTLEMENT" ? 0.94
-    : town.populationTier === "TOWN" ? 1.46
-    : town.populationTier === "CITY" ? 1.58
-    : town.populationTier === "GREAT_CITY" ? 1.72
-    : 1.86;
-  const drawSize = size * scaleByTier;
-  const offsetX = (drawSize - size) / 2;
-  const offsetY =
-    town.populationTier === "SETTLEMENT" ? drawSize * 0.06
-    : town.populationTier === "TOWN" ? drawSize * 0.28
-    : town.populationTier === "CITY" ? drawSize * 0.32
-    : town.populationTier === "GREAT_CITY" ? drawSize * 0.35
-    : drawSize * 0.39;
-  ctx.drawImage(overlay, px - offsetX, py - offsetY, drawSize, drawSize);
+  // Mid tier-upgrade: the old town sinks and the new one rises (client-map-2d-town-growth.ts).
+  const spriteFor = (tier: typeof town.populationTier) => (overlaySet[tier].complete && overlaySet[tier].naturalWidth ? overlaySet[tier] : undefined);
+  if (!drawTownGrowthSprites2D(ctx, upgrade, town.populationTier, spriteFor, px, py, size, Date.now())) {
+    const rect = townSpriteRect(town.populationTier, px, py, size);
+    ctx.drawImage(overlay, rect.x, rect.y, rect.size, rect.size);
+  }
   if (town.populationTier === "SETTLEMENT") {
     drawSettlementFlag(ctx, px, py, size, ownerColor);
   }

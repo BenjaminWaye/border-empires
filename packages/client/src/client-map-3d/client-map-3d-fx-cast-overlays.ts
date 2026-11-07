@@ -23,8 +23,6 @@ import type { AfcModuleDeliveryFxLayer } from "../client-map-3d-afc-module-deliv
 import type { AfcDropFxLayer } from "../client-map-3d-afc-drop-fx/client-map-3d-afc-drop-fx.js";
 import type { AfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
 import type { TownTierUpgradeFxLayer } from "../client-town-tier-upgrade-fx/client-map-3d-town-tier-upgrade-fx.js";
-import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
-import type { FloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import type { AnchoredFxRoot } from "../client-map-3d-anchored-fx/client-map-3d-anchored-fx-root.js";
 
 const TILE_CENTER_OFFSET = 0.5;
@@ -51,8 +49,6 @@ export type FxCastOverlayLayers = {
   afcModuleDeliveryFx: AfcModuleDeliveryFxLayer;
   afcDropFx: AfcDropFxLayer;
   townTierUpgradeFx: TownTierUpgradeFxLayer;
-  /** Gold "City!"-style label above an upgraded town. */
-  floatingText: FloatingTextLayer;
 };
 
 export type FxCastOverlayDeps = {
@@ -270,9 +266,8 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
       const upgrade = state.townTierUpgradeFxQueue.shift()!;
       const { sceneX, sceneZ } = fxXZ(upgrade.x, upgrade.y);
       const surfaceY = aetherBridgeTileSurfaceY(upgrade.x, upgrade.y) + MARKER_RISE_ABOVE_HEIGHTFIELD;
-      // startedAt is wall-clock (shared with the 2D painter); the layer ticks on performance.now().
+      // startedAt is wall-clock (shared with the 2D painter and the town growth); the layer ticks on performance.now().
       layers.townTierUpgradeFx.spawn(sceneX, sceneZ, surfaceY, upgrade.tier, performance.now() - Math.max(0, Date.now() - upgrade.startedAt));
-      layers.floatingText.spawn(sceneX, sceneZ, surfaceY, `${displayTownPopulationTierLabel(upgrade.tier)}!`, "#ffd166");
     }
   };
 

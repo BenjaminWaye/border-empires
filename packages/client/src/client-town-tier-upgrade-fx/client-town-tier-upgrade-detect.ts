@@ -2,8 +2,8 @@ import { displayTownPopulationTierLabel } from "../client-town-growth/client-tow
 import type { Tile } from "../client-types.js";
 import {
   recordTownTierUpgrade,
-  townTierUpgradedTo,
   townTierUpgradeFeedMessage,
+  townTierUpgradeStep,
   type TownTierUpgradeFxState
 } from "./client-town-tier-upgrade-fx.js";
 
@@ -11,7 +11,7 @@ type PreviousTownSnapshot = { ownerId?: string; town?: Tile["town"]; townPopulat
 
 /**
  * Scans a merged TILE_DELTA_BATCH for the local player's towns that stepped
- * up a population tier, starts each one's map celebration (3D + 2D) and
+ * up a population tier, starts each one's growth transition (3D + 2D) and
  * announces it in the feed. Tile snapshots must be taken before the merge.
  */
 export const emitTownTierUpgrades = (input: {
@@ -26,9 +26,9 @@ export const emitTownTierUpgrades = (input: {
   for (const update of input.tileUpdates) {
     const key = keyFor(update.x, update.y);
     const resolved = state.tiles.get(key);
-    const tier = townTierUpgradedTo(input.previousTileByKey.get(key), resolved, state.me);
-    if (!tier || !resolved) continue;
-    recordTownTierUpgrade(state, key, { x: update.x, y: update.y, tier, startedAt: input.nowMs });
-    input.pushFeed(townTierUpgradeFeedMessage(resolved.town?.name, displayTownPopulationTierLabel(tier)), "info", "success");
+    const step = townTierUpgradeStep(input.previousTileByKey.get(key), resolved, state.me);
+    if (!step || !resolved) continue;
+    recordTownTierUpgrade(state, key, { x: update.x, y: update.y, ...step, startedAt: input.nowMs });
+    input.pushFeed(townTierUpgradeFeedMessage(resolved.town?.name, displayTownPopulationTierLabel(step.tier)), "info", "success");
   }
 };

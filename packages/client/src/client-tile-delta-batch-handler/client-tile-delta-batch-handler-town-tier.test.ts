@@ -31,14 +31,14 @@ const ownedTown = (ownerId: string, populationTier: Tier): Tile =>
 const tierDelta = (populationTier: Tier) => ({ x: 4, y: 5, ownerId: "p1", ownershipState: "SETTLED", townJson: JSON.stringify(townSummary(populationTier)) });
 
 describe("handleTileDeltaBatchMessage town tier upgrade", () => {
-  it("starts a celebration for both renderers and announces it when the viewer's town reaches a new tier", () => {
+  it("starts the growth transition for both renderers and announces it when the viewer's town reaches a new tier", () => {
     const state = createInitialState();
     state.me = "p1";
     state.tiles.set("4,5", ownedTown("p1", "TOWN"));
     const deps = makeDeps(state);
     handleTileDeltaBatchMessage({ tiles: [tierDelta("CITY")] }, deps);
     expect(state.townTierUpgradeFxQueue.map((entry) => entry.tier)).toEqual(["CITY"]);
-    expect(state.townTierUpgradeFxByKey.get("4,5")?.tier).toBe("CITY");
+    expect(state.townTierUpgradeFxByKey.get("4,5")).toMatchObject({ fromTier: "TOWN", tier: "CITY" });
     expect(deps.pushFeed).toHaveBeenCalledWith("Ravenford has grown into a City!", "info", "success");
   });
 

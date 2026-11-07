@@ -20,7 +20,9 @@
 // neighbouring towns of the same tier don't read as stamped copies.
 import {
   AdditiveBlending,
+  BufferGeometry,
   FrontSide,
+  InstancedBufferAttribute,
   InstancedMesh,
   type Material,
   Matrix4,
@@ -38,6 +40,7 @@ import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-
 import { applyMarbleFinish } from "./client-map-3d-muster-banner/muster-banner-marble-material.js";
 import { TOWN_PLINTH_LEDGES } from "./client-map-3d-town-overlay/town-parts.js";
 import { getTownTierGeometry, TOWN_TIERS, type TownTier } from "./client-map-3d-town-overlay/town-tier-geometry.js";
+import { applyTownGrowth, TOWN_GROW_NONE, type TownGrowMode } from "./client-map-3d-town-overlay/town-growth-shader.js";
 
 export { TOWN_TIERS, type TownTier } from "./client-map-3d-town-overlay/town-tier-geometry.js";
 
@@ -59,14 +62,20 @@ type TierSlot = {
   /** Metal, glass, glow, halo, steam and marble plinth meshes drawing with the body's instance matrices. */
   readonly followers: readonly InstancedMesh[];
   readonly capacity: number;
+  /** Live towns only: per-instance tier-upgrade growth (start on the town clock, mode); see town-growth-shader.ts. */
+  readonly grow: InstancedBufferAttribute | undefined;
   count: number;
 };
+
+/** A tier-upgrade growth phase for one town instance. */
+export type TownInstanceGrowth = { readonly mode: TownGrowMode; readonly startSeconds: number };
 
 export type TownOverlay = {
   readonly clear: () => void;
   /** (tileX, tileY) are the world tile coords, used only to pick the town's rotation.
-   * `still`: remembered under fog -- drawn without animation, lights dimmed. */
-  readonly addInstance: (centerX: number, centerZ: number, surfaceY: number, tier: TownTier, tileX?: number, tileY?: number, still?: boolean) => void;
+   * `still`: remembered under fog -- drawn without animation, lights dimmed.
+   * `growth`: live towns only -- the town is mid tier-upgrade (rising or sinking). */
+  readonly addInstance: (centerX: number, centerZ: number, surfaceY: number, tier: TownTier, tileX?: number, tileY?: number, still?: boolean, growth?: TownInstanceGrowth) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
@@ -135,6 +144,9 @@ const createTownMaterials = (envMap: Texture | undefined, animated: boolean): To
     applyTownSpin(halo, true);
     applyTownSpin(depth);
     if (steam) applyTownSteam(steam);
+    // Tier-upgrade growth rides on top of the spin/steam/marble hooks.
+    for (const material of [body, metal, glass, glow, halo, depth, ...(steam ? [steam] : [])]) applyTownGrowth(material);
+    applyTownGrowth(plinth, true);
   } else {
     // Every spinning part already sits in its rest pose in the baked geometry.
     glow.color.setScalar(REMEMBERED_TOWN_GLOW);
@@ -147,7 +159,13 @@ const createTownMaterials = (envMap: Texture | undefined, animated: boolean): To
 const createTierSlots = (scene: Scene, materials: TownMaterials, capacity: number, namePrefix: string, animated: boolean): Map<TownTier, TierSlot> => {
   const slots = new Map<TownTier, TierSlot>();
   for (const tier of TOWN_TIERS) {
-    const geometry = getTownTierGeometry(tier);
+    const shared = getTownTierGeometry(tier);
+    // Live towns read a per-instance growth attribute. The tier geometry is
+    // shared (with the remembered-town slots too), so each live slot draws
+    // through its own light copies that reuse the shared vertex buffers.
+    const grow = animated ? new InstancedBufferAttribute(new Float32Array(capacity * 2), 2) : undefined;
+    const part = (source: BufferGeometry | undefined): BufferGeometry | undefined => (source && grow ? withGrowAttribute(source, grow) : source);
+    const geometry = { body: part(shared.body)!, metal: part(shared.metal), glass: part(shared.glass), glow: part(shared.glow), halo: part(shared.halo), steam: part(shared.steam), plinth: part(shared.plinth) };
     const body = new InstancedMesh(geometry.body, materials.body, capacity);
     body.name = `${namePrefix}-${tier}`;
     body.frustumCulled = false;
@@ -180,9 +198,21 @@ const createTierSlots = (scene: Scene, materials: TownMaterials, capacity: numbe
       scene.add(mesh);
       followers.push(mesh);
     }
-    slots.set(tier, { body, followers, capacity, count: 0 });
+    slots.set(tier, { body, followers, capacity, grow, count: 0 });
   }
   return slots;
+};
+
+/** A geometry sharing `source`'s buffers plus the slot's growth attribute.
+ * Never disposed: disposing it would free the shared tier buffers. */
+const withGrowAttribute = (source: BufferGeometry, grow: InstancedBufferAttribute): BufferGeometry => {
+  const copy = new BufferGeometry();
+  copy.setIndex(source.index);
+  for (const [name, attribute] of Object.entries(source.attributes)) copy.setAttribute(name, attribute);
+  copy.boundingBox = source.boundingBox;
+  copy.boundingSphere = source.boundingSphere;
+  copy.setAttribute("townGrow", grow);
+  return copy;
 };
 
 export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Texture): TownOverlay => {
@@ -199,12 +229,13 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   const unitScale = new Vector3(1, 1, 1);
   const yAxis = new Vector3(0, 1, 0);
 
-  const addInstance: TownOverlay["addInstance"] = (centerX, centerZ, surfaceY, tier, tileX = 0, tileY = 0, still = false) => {
+  const addInstance: TownOverlay["addInstance"] = (centerX, centerZ, surfaceY, tier, tileX = 0, tileY = 0, still = false, growth) => {
     const slot = (still ? stillSlots : slots).get(tier);
     if (!slot || slot.count >= slot.capacity) return;
     quaternion.setFromAxisAngle(yAxis, townQuarterTurnForTile(tileX, tileY) * (Math.PI / 2));
     position.set(centerX, surfaceY + TOWN_BASE_LIFT, centerZ);
     slot.body.setMatrixAt(slot.count, matrix.compose(position, quaternion, unitScale));
+    slot.grow?.setXY(slot.count, growth?.startSeconds ?? 0, growth?.mode ?? TOWN_GROW_NONE);
     slot.count += 1;
   };
 
@@ -226,6 +257,10 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
       if (slot.count === 0) continue;
       slot.body.instanceMatrix.addUpdateRange(0, slot.count * 16);
       slot.body.instanceMatrix.needsUpdate = true;
+      if (!slot.grow) continue;
+      slot.grow.clearUpdateRanges();
+      slot.grow.addUpdateRange(0, slot.count * 2);
+      slot.grow.needsUpdate = true;
     }
   };
 
