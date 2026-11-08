@@ -16,7 +16,7 @@ const makeState = (tilesRevision: number) => ({
   showWeakDefensibility: false
 });
 
-const dom = () => ({ panelDefensibilityEl: { innerHTML: "" } as HTMLElement, mobilePanelDefensibilityEl: { innerHTML: "" } as HTMLElement });
+const dom = () => ({ panelDefensibilityEl: { innerHTML: "" } as HTMLElement });
 const deps = {
   keyFor: (x: number, y: number) => `${x},${y}`,
   wrapX: (x: number) => x,
@@ -39,7 +39,6 @@ describe("renderDefensibilityPanels", () => {
     renderDefensibilityPanels(makeState(1), target, deps);
     expect(spy).toHaveBeenCalledTimes(1);
     expect(target.panelDefensibilityEl.innerHTML).toBe("<p>panel</p>");
-    expect(target.mobilePanelDefensibilityEl.innerHTML).toBe("<p>panel</p>");
     renderDefensibilityPanels(makeState(2), target, deps);
     expect(spy).toHaveBeenCalledTimes(2);
   });

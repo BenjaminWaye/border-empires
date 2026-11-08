@@ -4,17 +4,16 @@ import type { ActionGateState } from "../galaxy-action-gate/galaxy-action-gate.j
 import type { CourtOfferState } from "../galaxy-court-offer/galaxy-court-offer.js";
 import type { DevelopmentKind } from "./galaxy-duke-config.js";
 
-// What a system's one build slot can be working on (§26).
-export type DukeBuildKind = "FIGHTER" | "PROBE" | "FORTIFY" | "REFIT" | "DEVELOP";
+// What a system's one build slot can be working on (§26). Each build is one
+// order and finishes on a fixed timer of at most a day (§30).
+export type DukeBuildKind = "FIGHTER" | "PROBE" | "REFIT" | "BASE" | "DEVELOP";
 
 export type DukeBuild = {
   kind: DukeBuildKind;
   label: string;
-  cost: number;
-  progress: number;
-  // FORTIFY: Stability points restored.
-  points?: number;
-  // DEVELOP: which orbiting body, and what is being built on it.
+  startedAt: number;
+  completesAt: number;
+  // BASE / DEVELOP: which orbiting body, and (DEVELOP) what is built on it.
   bodyIndex?: number;
   development?: DevelopmentKind;
 };
@@ -38,7 +37,15 @@ export type SystemState = {
   seasonId: string;
   specialization: GalaxySpecialization;
   slot: DukeBuild | null;
-  idleBank: number;
+  // The system's one order a day (§30). Optional: rows from older builds lack it.
+  orderGate?: ActionGateState;
+  // Bodies with a base established (§31): a body needs one to be developed.
+  // A developed body always counts as based, so older rows need no migration.
+  bases?: number[];
+  // When a raid or Warden last got through here (§31: the planet smokes).
+  lastHitAt?: number;
+  // What got through: a rival's raid or a Warden incursion.
+  lastHitBy?: "RAID" | "WARDEN";
   fighters: DukeFighter[];
   probeStock: number;
   developments: SystemDevelopment[];
@@ -101,7 +108,8 @@ export type DukeState = {
   orbiting: OrbitingProbe[];
   intel: DukeIntel[];
   flights: InFlightOrder[];
-  // One Petition per Duke per Cycle (the only weekly gate left).
+  // The Duke's one decree a day (§30). Named for the Petition it replaced, so
+  // stored rows keep their value.
   petitionGate: ActionGateState;
   courtOffer: CourtOfferState;
   // Last global Cycle whose upkeep and Cryo healing have been applied.

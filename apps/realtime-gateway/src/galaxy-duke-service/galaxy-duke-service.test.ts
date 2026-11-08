@@ -12,7 +12,7 @@ describe("first contact and the Docket", () => {
     expect(status?.systems).toHaveLength(1);
     expect(status?.systems[0]).toMatchObject({ seasonId: "season-a", ratePerDay: 6, stability: 100, hitsRemaining: 5, incursionArrivesAt: T0 + 3 * DAY, slot: null });
     expect(status?.court).toMatchObject({ start: 300, current: 280, offer: { status: "PENDING" } });
-    expect(status?.attention.map((a) => a.kind)).toEqual(["INCURSION_UNDEFENDED", "COURT_OFFER", "SLOT_EMPTY"]);
+    expect(status?.attention.map((a) => a.kind)).toEqual(["INCURSION_UNDEFENDED", "COURT_OFFER", "ORDER_READY", "DECREE_READY"]);
     expect(status?.digest[0]?.text).toMatch(/Arrival in 3 days/);
   });
   it("an account with no Planet is not a Duke", async () => {
@@ -46,7 +46,10 @@ describe("one build slot per planetary system, no weekly gate", () => {
     const h = await harness();
     await h.service.build("uid-a", "season-a", { kind: "FIGHTER" });
     const sys = (await h.service.status("uid-a"))?.systems[0];
-    expect(sys?.options.find((o) => o.kind === "FIGHTER")).toMatchObject({ cost: 40, daysAtCurrentRate: 7, blockedBy: "SLOT_BUSY" });
+    // A blocked option still says how long it would take, never "0".
+    expect(sys?.options.find((o) => o.kind === "FIGHTER")).toMatchObject({ blockedBy: "SLOT_BUSY", durationMs: 8 * HOUR });
+    // The day's order is spent until it recharges (§30).
+    expect(sys?.order).toEqual({ ready: false, readyAt: T0 + DAY });
     expect(sys?.options.find((o) => o.kind === "REFIT")?.blockedBy).toBe("SLOT_BUSY");
   });
 });
@@ -57,12 +60,17 @@ describe("developments: press a planet, develop a body", () => {
     const h = await harness([{ seasonId, player: "a" }, { seasonId: "season-b", player: "b" }]);
     const before = (await h.service.status("uid-a"))?.systems[0];
     const body = before?.bodies[bodyIndex];
-    expect(body).toMatchObject({ kind: "GAS_GIANT", development: null, option: { label: "Gas Harvester", cost: 80, blockedBy: null } });
+    expect(body).toMatchObject({ kind: "GAS_GIANT", development: null, base: false, baseOption: { durationMs: 8 * HOUR, blockedBy: null }, option: { label: "Gas Harvester", blockedBy: "NO_BASE" } });
+    // A base first (§31), then the Harvester with the next day's order.
+    expect((await h.service.build("uid-a", seasonId, { kind: "BASE", bodyIndex })).ok).toBe(true);
+    await h.run(DAY);
+    expect((await h.service.status("uid-a"))?.systems[0]?.bodies[bodyIndex]).toMatchObject({ base: true, baseOption: null, option: { blockedBy: null } });
     expect((await h.service.build("uid-a", seasonId, { kind: "DEVELOP", bodyIndex })).ok).toBe(true);
-    await h.run(15 * DAY);
+    await h.run(DAY);
     const after = (await h.service.status("uid-a"))?.systems[0];
-    expect(after?.bodies[bodyIndex]).toMatchObject({ development: { label: "Gas Harvester", summary: "+8 Production per Cycle" }, option: null });
-    expect(after?.ratePerDay).toBeCloseTo(6 + 8 / 7, 1);
+    expect(after?.bodies[bodyIndex]).toMatchObject({ development: { label: "Gas Harvester", summary: "+3 Production: builds here go faster" }, option: null });
+    expect(after?.ratePerDay).toBe(9);
+    expect(after?.options.find((o) => o.kind === "FIGHTER")?.durationMs).toBeLessThan(8 * HOUR);
     expect(await h.service.build("uid-a", seasonId, { kind: "DEVELOP", bodyIndex })).toEqual({ ok: false, code: "BODY_ALREADY_DEVELOPED" });
   });
   it("the first development is free; a second one charges 1 Influence a Cycle", async () => {
@@ -117,8 +125,8 @@ describe("Wardens are hardest at the start", () => {
   });
 });
 
-describe("Petition: one per Duke per Cycle", () => {
-  it("Move Against the Court spends Influence, lowers Court Strength, lifts Domain Weight; a second one waits a Cycle", async () => {
+describe("Decrees: one per Duke per day (§30)", () => {
+  it("Move Against the Court spends Influence, lowers Court Strength, lifts Domain Weight; the next decree waits a day", async () => {
     const h = await harness();
     await h.service.status("uid-a");
     await h.stores.galaxyEconomyStore.upsertBalance({ authUid: "uid-a", influence: 30, production: 0, lastCycleAt: T0 });
@@ -131,8 +139,9 @@ describe("Petition: one per Duke per Cycle", () => {
     expect(after?.court.myContribution).toBe(20);
     expect(after?.influence).toBe(10);
     expect((after?.meters.domainWeight ?? 0) - (before?.meters.domainWeight ?? 0)).toBeCloseTo(4, 1);
-    expect(after?.petition.available).toBe(false);
-    expect(await h.service.moveAgainstCourt("uid-a", 5)).toMatchObject({ ok: false, code: "PETITION_ALREADY_MADE_THIS_CYCLE" });
+    expect(after?.decree).toEqual({ ready: false, readyAt: T0 + DAY });
+    expect(await h.service.moveAgainstCourt("uid-a", 5)).toMatchObject({ ok: false, code: "DECREE_NOT_READY", availableAt: T0 + DAY });
+    expect(await h.service.holdCourt("uid-a")).toMatchObject({ ok: false, code: "DECREE_NOT_READY" });
     expect((await h.service.court()).committedInfluence).toBe(20);
   });
   it("accepting the Court's offer locks Move Against the Court", async () => {
@@ -197,7 +206,8 @@ describe("Probes and raids launch from a system", () => {
     await h.patch("uid-a", (s) => ({ ...s, intel: [{ seasonId: "season-b", label: "B", stability: 100, defenderHull: null, at: T0, live: false }] }));
     for (let hit = 1; hit <= 5; hit += 1) {
       expect((await h.service.order("uid-a", "season-a", { kind: "RAID", targetSeasonId: "season-b" })).ok).toBe(true);
-      h.advance(13 * HOUR);
+      // One order a day: the next raid can launch once the order recharges.
+      h.advance(DAY);
       await h.service.tick();
       expect(await h.stability("uid-b", "season-b")).toBe(100 - 20 * hit);
     }

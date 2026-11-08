@@ -18,7 +18,7 @@ const HAND_BONE_NAME = "RightHand";
 // 0 -> 1) runs through just this window. A kneeling marine joins it later, at
 // ~1.2s, where the clip's hips have already dropped to kneeling height, so it
 // doesn't pop up into the stagger's standing pose first.
-const DEAD_FALL_START_S: Record<MarineStance, number> = { run: 1.0, stand: 1.0, kneel: 1.2 };
+const DEAD_FALL_START_S: Record<MarineStance, number> = { run: 1.0, stand: 1.0, kneel: 1.2, walkBack: 1.0 };
 const DEAD_FALL_END_S = 2.0;
 // Share of the fall over which the firing clip cross-fades into the Dead clip,
 // so the fall's first frame doesn't snap the body (and rifle) into a new pose.
@@ -69,7 +69,8 @@ export const createMarineSlot = (
   const actions: Record<MarineStance, AnimationAction> = {
     run: actionFor(MARINE_CLIP_NAMES.run),
     stand: actionFor(MARINE_CLIP_NAMES.stand),
-    kneel: actionFor(MARINE_CLIP_NAMES.kneel)
+    kneel: actionFor(MARINE_CLIP_NAMES.kneel),
+    walkBack: actionFor(MARINE_CLIP_NAMES.walkBack)
   };
   scene.add(root);
   return {
@@ -112,14 +113,15 @@ export const playMarineStance = (slot: MarineSlot, stance: MarineStance, nowMs: 
     const start = DEAD_FALL_START_S[stance];
     slot.deadAction.time = start + Math.min(1, fallT) * (DEAD_FALL_END_S - start);
   }
-  for (const name of ["run", "stand", "kneel"] as const) {
+  for (const name of ["run", "stand", "kneel", "walkBack"] as const) {
     const action = slot.actions[name];
     const live = name === stance && deadWeight < 1;
     action.enabled = live;
     action.setEffectiveWeight(live ? 1 - deadWeight : 0);
     if (!live) continue;
     const duration = action.getClip().duration;
-    action.time = duration > 0 ? (nowMs * 0.001 + slot.phase) % duration : 0;
+    const phase = duration > 0 ? (nowMs * 0.001 + slot.phase) % duration : 0;
+    action.time = stance === "walkBack" && duration > 0 ? (duration - phase) % duration : phase;
   }
   slot.mixer.update(0);
 };

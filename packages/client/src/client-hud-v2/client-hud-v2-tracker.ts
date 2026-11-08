@@ -13,6 +13,8 @@ export type TrackerInput = {
   afcReady: number;
   flags: ManpowerPanelMusterFlag[];
   flagCap: number;
+  /** The player's manpower cap: the most any flag can ever be expanded to hold. */
+  manpowerCap: number;
   building: DevelopmentSlotOccupant[];
   /** Settles and builds waiting for a free slot, in order. */
   queue: Array<{ label: string; x: number; y: number }>;
@@ -47,9 +49,18 @@ export const trackerNeeds = (input: TrackerInput): TrackerNeed[] => {
   const needs: TrackerNeed[] = [];
   if (input.afcReady > 0) needs.push({ kind: "afc", title: "AFC upgrade ready", sub: "" });
   for (const flag of input.flags) {
-    if (!flag.insufficientManpower && !flag.noTargetInRange && !flag.unfundableTarget) continue;
-    const sub = flag.insufficientManpower ? "Needs manpower" : flag.unfundableTarget ? "Target too costly" : "No target in range";
-    needs.push({ kind: "flag", title: `Flag (${flag.x}, ${flag.y}) stalled`, sub, x: flag.x, y: flag.y });
+    // A flag saving up (insufficientManpower) keeps filling from the pool, and a fighting flag is busy: neither needs you.
+    if (flag.mode === "HOLD" || flag.inFlight) continue;
+    const at = { x: flag.x, y: flag.y };
+    const required = flag.unfundableTarget?.required;
+    if (required !== undefined) {
+      // Expand Capacity only helps up to the manpower cap.
+      needs.push(required <= input.manpowerCap
+        ? { kind: "flag", title: `Flag (${flag.x}, ${flag.y}) needs higher capacity`, sub: `Target needs ${Math.ceil(required)}`, ...at }
+        : { kind: "flag", title: `Flag (${flag.x}, ${flag.y}) stalled`, sub: `Target needs ${Math.ceil(required)}, over manpower cap`, ...at });
+    } else if (flag.noTargetInRange) {
+      needs.push({ kind: "flag", title: `Flag (${flag.x}, ${flag.y}) stalled`, sub: "No target in range", ...at });
+    }
   }
   return needs;
 };

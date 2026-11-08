@@ -2,7 +2,7 @@ import { formatHoldCountdown } from "../client-victory-alert/client-victory-aler
 import { diplomacyTermsLineHtml } from "../client-diplomacy-trade/client-diplomacy-terms-html.js";
 import { foundingEngineerNameHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import { dukeNameHtml } from "../client-duke-title/client-duke-title.js";
-import { resourceGlyphsToIconHtml, resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
+import { resourceGlyphsToIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import type {
   ActiveAllianceBreakView,
   AllianceRequest,
@@ -308,45 +308,6 @@ export const truceRequestsHtml = (
       }
     )
     .join("");
-};
-
-export const strategicRibbonHtml = (
-  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>,
-  strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>,
-  upkeepPerMinute: { food: number; titanium: number; umbrite: number; crystal: number; gold: number },
-  strategicAnim: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", { until: number; dir: -1 | 0 | 1 }>,
-  rateToneClass: (rate: number) => string,
-  resourceSlots?: { supply: Record<string, number>; demand: Record<string, number> },
-  isRevealed?: (key: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE") => boolean
-): string => {
-  const nowMs = Date.now();
-  const allEntries: Array<{
-    key: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
-    label: string;
-    source: string;
-    className: string;
-  }> = [
-    { key: "FOOD", label: "Food", source: "From Farms + Fish", className: "res-food" },
-    { key: "TITANIUM", label: "Titanium", source: "From Titanium nodes", className: "res-titanium" },
-    { key: "CRYSTAL", label: "Crystal", source: "From Gem nodes", className: "res-crystal" },
-    { key: "UMBRITE", label: "Umbrite", source: "From Umbrite deposits", className: "res-umbrite" }
-  ];
-  const entries = allEntries.filter((entry) => (isRevealed ? isRevealed(entry.key) : true));
-  return `<div class="resource-ribbon">${entries
-    .map((entry) => {
-      const demand = resourceSlots?.demand[entry.key] ?? 0;
-      const supply = resourceSlots?.supply[entry.key] ?? 0;
-      const anim = strategicAnim[entry.key];
-      const deltaClass =
-        nowMs < anim.until ? (anim.dir > 0 ? "delta-up" : anim.dir < 0 ? "delta-down" : "") : "";
-      return `<button class="resource-pill ${entry.className} ${deltaClass}" type="button" data-economy-open="${entry.key}" title="${entry.label} · ${entry.source}">
-        <span class="resource-icon" aria-hidden="true">${resourceIconHtml(entry.key)}</span>
-        <span class="resource-value-row">
-          <span class="resource-value">${demand}/${supply}</span>
-        </span>
-      </button>`;
-    })
-    .join("")}</div>`;
 };
 
 export const missionCardsHtml = (missions: MissionState[]): string =>

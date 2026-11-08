@@ -1,19 +1,21 @@
-// §26.5: the one weekly limit left on a Duke is a single Petition (Move Against
-// the Court) per Cycle. Builds and orders are limited by each system's own slot
-// and ships instead. Pure logic.
-export const ACTION_CYCLE_MS = 7 * 24 * 60 * 60 * 1000;
+// The daily rhythm (design doc §30): every system has one order and every Duke
+// one decree, each usable once and recharging a day after it is used. Nothing
+// banks, so the screen can always say "ready" or "next in Xh". Pure logic.
+export const ACTION_PERIOD_MS = 24 * 60 * 60 * 1000;
 
 export type ActionGateState = { lastGatedActionAt: number | null };
 
 export type ActionGateResult =
   | { ok: true; state: ActionGateState }
-  | { ok: false; code: "ACTION_ALREADY_TAKEN_THIS_CYCLE"; availableAt: number };
+  | { ok: false; code: "ACTION_NOT_READY"; availableAt: number };
 
-export const nextActionAvailableAt = (state: ActionGateState): number =>
-  state.lastGatedActionAt === null ? 0 : state.lastGatedActionAt + ACTION_CYCLE_MS;
+export const nextActionAvailableAt = (state: ActionGateState | undefined): number =>
+  !state || state.lastGatedActionAt === null ? 0 : state.lastGatedActionAt + ACTION_PERIOD_MS;
 
-export const tryTakeAction = (state: ActionGateState, now: number): ActionGateResult => {
+export const isActionReady = (state: ActionGateState | undefined, now: number): boolean => now >= nextActionAvailableAt(state);
+
+export const tryTakeAction = (state: ActionGateState | undefined, now: number): ActionGateResult => {
   const availableAt = nextActionAvailableAt(state);
-  if (now < availableAt) return { ok: false, code: "ACTION_ALREADY_TAKEN_THIS_CYCLE", availableAt };
+  if (now < availableAt) return { ok: false, code: "ACTION_NOT_READY", availableAt };
   return { ok: true, state: { lastGatedActionAt: now } };
 };

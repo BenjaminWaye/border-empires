@@ -1,6 +1,11 @@
+import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
+import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
+import { SEASON_REVEAL_LOADING_CHANGELOG } from "./client-changelog-season-reveal-loading.js";
+import { BATTLE_VARIETY_ENTRY } from "./client-changelog-battle-variety.js";
 import { GUIDE_AND_RECOVERY_CHANGELOG } from "./client-changelog-nov-03-04-guide-recovery.js";
 import { AFC_REPLACEMENT_CHANGELOG } from "./client-changelog-afc-replacement.js";
 import { AI_FREE_TRUCE_CHANGELOG } from "./client-changelog-ai-free-truce.js";
+import { AI_PRICING_TEMPERAMENTS_CHANGELOG } from "./client-changelog-ai-pricing-temperaments.js";
 import { MOBILE_UI_CONSISTENCY_CHANGELOG } from "./client-changelog-mobile-ui-consistency.js";
 import { SALVAGE_TRIBUTE_UI_CHANGELOG } from "./client-changelog-salvage-tribute-ui.js";
 import { TUTORIAL_BUILD_AFC_FLOWS_CHANGELOG } from "./client-changelog-tutorial-build-afc-flows.js";
@@ -10,10 +15,13 @@ import { CAPTURE_WRECK_FIX_CHANGELOG } from "./client-changelog-capture-wreck-fi
 import { TOWN_STAT_BONUSES_CHANGELOG } from "./client-changelog-town-stat-bonuses.js";
 import { TOWN_TIER_GROWTH_CHANGELOG } from "./client-changelog-town-tier-growth.js";
 import { SEA_VISION_CHANGELOG } from "./client-changelog-sea-vision.js";
+import { TOWN_RING_IMPROVEMENTS_CHANGELOG } from "./client-changelog-town-ring-improvements.js";
 import { BEACON_FOREST_VISION_CHANGELOG } from "./client-changelog-beacon-forest-vision.js";
 import { MANIFEST_WORDING_CHANGELOG } from "./client-changelog-manifest-wording.js";
 import { VICTORY_HOLD_TIME_CHANGELOG } from "./client-changelog-victory-hold-time.js";
 import { RANKS_TRACK_PROFILES_CHANGELOG } from "./client-changelog-ranks-track-profiles.js";
+import { RIVER_MOUTHS_CHANGELOG } from "./client-changelog-river-mouths.js";
+import { AI_STOP_THE_LEADER_CHANGELOG } from "./client-changelog-ai-stop-the-leader.js";
 import { MOBILE_APP_CHANGELOG } from "./client-changelog-mobile-app.js";
 import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
 import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
@@ -64,7 +72,7 @@ import { BREAK_PACT_ATTACK_CHANGELOG } from "./client-changelog-break-pact-attac
 import { FLAG_TAP_CHANGELOG } from "./client-changelog-flag-tap.js";
 import { SIEGE_UMBRITE_ONLY_CHANGELOG } from "./client-changelog-siege-umbrite.js";
 import { MARCH_WIN_CHANCE_CHANGELOG } from "./client-changelog-march-win-chance.js";
-import { SPACE_POLITICS_CHANGELOG } from "./client-changelog-space-politics.js";
+import { SPACE_CHANGELOG } from "./client-changelog-space.js";
 import { AI_RIVALS_CHANGELOG } from "./client-changelog-ai-rivals.js";
 import { CLAIM_STRIPED_GROUND_CHANGELOG } from "./client-changelog-claim-striped-ground.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE } from "./client-changelog-oct-17-19-inline.js";
@@ -276,13 +284,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MARCH_ATTACK_ROUTES_CHANGELOG,
   ...MARCH_TO_UNEXPLORED_CHANGELOG,
   {
-    createdAt: 1792832339274, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.24.1",
-    title: "Forced Ancillarification",
-    why: "A flat population sacrifice becomes trivial in large towns. The cost should grow with the population at stake.",
-    changes: ["Active Ancillary Factories can convert residents from their supported town into 100 immediate manpower, even above the cap. The menu shows exactly how many people will be taken.", "Each town can be forced once every four hours and must retain at least 10,000 residents. The factory menu shows the exact population cost."]
-  },
-  {
     createdAt: 1792870664672, // Date.now() captured once when this entry was created.
     introducedIn: "2026.10.24.1",
     title: "Towns and their support buildings now form connected districts",
@@ -323,13 +324,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Killed soldiers, in standard or heavy armour, now play a real fall and lie full size on the battlefield",
       "On the 2D map, soldiers killed during a dock landing now fade out over about a second instead of vanishing almost at once"
     ]
-  },
-  {
-    createdAt: 1792854395082, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.24.relics",
-    title: "Concordance relic installations",
-    why: "Relics are surviving planetary machinery, with useful installations and finite reserves worth fighting over.",
-    changes: ["New planets select seven installation families, represented by weathered ziggurats with House banners. Nearby anonymous light columns and minimap markers guide exploration.", "Garrison relics to use their installations. Combat suits, defensive field cells, ancillary bodies and nanofabrication material have persistent finite reserves; recapture never refills them.", "Capture artwork explains the buried installation and its benefit. Depleted sites remain on the map with an empty-reserve marker. Existing campaigns retain their original wonder rules."]
   },
   ...SHARD_COMEBACK_CHANGELOG,
   {
@@ -399,7 +393,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...FLAG_TAP_CHANGELOG,
   ...SIEGE_UMBRITE_ONLY_CHANGELOG,
   ...MARCH_WIN_CHANCE_CHANGELOG,
-  ...SPACE_POLITICS_CHANGELOG,
+  ...SPACE_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_30_31,
   {
     createdAt: 1793483288830,
@@ -457,38 +451,37 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...SEA_VISION_CHANGELOG,
   ...BEACON_FOREST_VISION_CHANGELOG,
   ...MANIFEST_WORDING_CHANGELOG,
+  ...TOWN_RING_IMPROVEMENTS_CHANGELOG,
+  ...AI_PRICING_TEMPERAMENTS_CHANGELOG,
   {
-    createdAt: 1794075638607, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.07",
-    title: "Resource improvements in town support rings",
-    why: "Selecting a farm beside a town opened a different action bar that omitted the yellow improvement button.",
+    createdAt: 1794089657552, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.08",
+    title: "Launch several attacks at once",
+    why: "Only one attack could be under way at a time, even with several muster flags and plenty of manpower.",
     changes: [
-      "Available resource improvements now appear as the yellow primary button on the town screen too.",
-      "Selecting a different town plot resets Build to its relevant category, including Resource for farms and deposits."
+      "Attacks no longer wait for each other: launch as many as your flags have manpower for",
+      "One flag can send several companies, as long as it holds enough manpower for each",
+      "The Capturing Territory banner and timer are gone; each attack shows its progress on the map"
     ]
   },
   {
-    createdAt: 1794075196542, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.07.1",
-    title: "AI truce and alliance prices now follow real income",
-    why: "AI empires priced deals as if everyone earned at least 1 coin a minute, far above real income, so a neighbour truce cost 720 to 1,080 coin or more.",
+    createdAt: 1794087791822, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.07.2",
+    title: "AI prices follow the AI's own income",
+    why: "AI empires charged more when you were richer, even a poor AI that had no reason to.",
     changes: [
-      "AI prices are based on what the richer empire really earns, with a minimum of 10 coin a day",
-      "AI empires losing a war pay for peace from their real income too, so those payments are smaller"
-    ]
-  },
-  {
-    createdAt: 1794075703761, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.07.1",
-    title: "AI empires have temperaments",
-    why: "Every AI empire haggled the same way, so it made no difference who you were dealing with.",
-    changes: [
-      "Each AI empire is Measured, Merchant, Warlike, Peaceable or Vengeful, shown on the trade screen and the same every season",
-      "Temperament changes truce prices, how much lost land angers them, how far gifts go, and how readily they seek or pay for peace"
+      "Truce and alliance prices depend only on the AI's income, so a strong economy can buy off weak neighbours cheaply",
+      "Gifts win goodwill at 10 minutes of the AI's income per point, never less than 2 coin a point"
     ]
   },
   ...VICTORY_HOLD_TIME_CHANGELOG,
-  ...RANKS_TRACK_PROFILES_CHANGELOG
+  ...RANKS_TRACK_PROFILES_CHANGELOG,
+  { ...BATTLE_VARIETY_ENTRY, createdAt: 1794073665467, },
+  ...TERRAIN_COMBAT_CHANGELOG,
+  ...SEASON_REVEAL_LOADING_CHANGELOG,
+  ...RIVER_MOUTHS_CHANGELOG,
+  ...NOV_07_STANDINGS_CHANGELOG,
+  ...AI_STOP_THE_LEADER_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

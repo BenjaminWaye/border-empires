@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
-import { focusCameraOnTile, wireActivityDashboardCenterButtons } from "./client-activity-dashboard-center.js";
+import { focusCameraOnTile } from "./client-activity-dashboard-center.js";
 
 const makeDeps = () => ({
   wrapX: (x: number) => x,
@@ -23,34 +23,5 @@ describe("focusCameraOnTile", () => {
     focusCameraOnTile(state, 5, 5, deps);
     expect(state.camX).toBe(-995);
     expect(state.camY).toBe(1005);
-  });
-});
-
-describe("wireActivityDashboardCenterButtons", () => {
-  it("wires each Center button's click to focus its own tile and rerender", () => {
-    const root = document.createElement("div");
-    root.innerHTML = `<button data-activity-focus-x="7" data-activity-focus-y="8">Center</button>`;
-    const state = { camX: 0, camY: 0, camSubX: 0, camSubY: 0, selected: undefined as { x: number; y: number } | undefined };
-    const rerender = vi.fn();
-    wireActivityDashboardCenterButtons(root, state, { ...makeDeps(), rerender });
-
-    (root.querySelector("button") as HTMLButtonElement).click();
-
-    expect(state.camX).toBe(7);
-    expect(state.camY).toBe(8);
-    expect(rerender).toHaveBeenCalledTimes(1);
-  });
-
-  it("ignores a button with non-finite coordinates instead of moving the camera", () => {
-    const root = document.createElement("div");
-    root.innerHTML = `<button data-activity-focus-x="not-a-number" data-activity-focus-y="8">Center</button>`;
-    const state = { camX: 1, camY: 1, camSubX: 0, camSubY: 0, selected: undefined as { x: number; y: number } | undefined };
-    const rerender = vi.fn();
-    wireActivityDashboardCenterButtons(root, state, { ...makeDeps(), rerender });
-
-    (root.querySelector("button") as HTMLButtonElement).click();
-
-    expect(state.camX).toBe(1);
-    expect(rerender).not.toHaveBeenCalled();
   });
 });

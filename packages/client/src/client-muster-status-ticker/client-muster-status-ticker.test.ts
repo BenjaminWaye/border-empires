@@ -5,7 +5,6 @@ import type { ClientState } from "../client-state/client-state.js";
 const makeState = (overrides: Partial<ClientState> = {}): ClientState =>
   ({
     activePanel: "manpower",
-    mobilePanel: "core",
     me: "me",
     tiles: new Map(),
     ...overrides
@@ -35,7 +34,6 @@ describe("startMusterStatusTicker", () => {
   it("does not re-render when the panel isn't open", () => {
     const state = makeState({
       activePanel: null,
-      mobilePanel: "core",
       tiles: new Map([["5,5", { x: 5, y: 5, terrain: "LAND", ownerId: "me", muster: { ownerId: "me", amount: 10, mode: "HOLD", updatedAt: 0 } }]])
     });
     const renderHud = vi.fn();

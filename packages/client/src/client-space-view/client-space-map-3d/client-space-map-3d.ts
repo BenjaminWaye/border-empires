@@ -11,6 +11,8 @@ import { createFleetOverlay, disposeFleetOverlay, animateFleetOverlay, type Flee
 import { createClickTracker, createSpacePointerPick } from "./client-space-pointer-pick.js";
 import { createSpaceBloomPipeline, type SpaceBloomPipeline } from "./client-space-bloom.js";
 import { galaxyLayoutPosition, type SpacePlanetViewModel } from "../client-space-view-state.js";
+import type { SystemMarkers } from "../client-space-view-markers.js";
+import { animateSystemMarkers, createSystemMarkers, disposeSystemMarkers, planetRadiusOf, type SystemMarkerObjects } from "./client-space-system-markers.js";
 
 export type SpaceSceneDeps = {
   container: HTMLElement;
@@ -38,6 +40,9 @@ export type SpaceScene = {
   // setSolarSystemThreat) -- lighter than a full setPlanets() rebuild for a
   // periodic "did anything change" poll.
   setThreats: (threatenedSeasonIds: ReadonlySet<string>) => void;
+  // Map markers per system (§31): smoke after a hit, builds, watching Probes,
+  // and each body's base and development. Kept across a setPlanets rebuild.
+  setMarkers: (markers: ReadonlyMap<string, SystemMarkers>) => void;
   // Flies the camera back out to the default wide galaxy view -- the
   // "zoom out" counterpart to clicking a system to fly in to it. Exposed
   // so the chrome's "Galaxy View" button can trigger it directly, in
@@ -107,7 +112,29 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
     }
   }
 
+  let markers: ReadonlyMap<string, SystemMarkers> = new Map();
+  const markerObjects = new Map<string, SystemMarkerObjects>();
+  const applyMarkers = (): void => {
+    for (const objects of markerObjects.values()) disposeSystemMarkers(objects);
+    markerObjects.clear();
+    for (const entry of systemEntries) {
+      const m = markers.get(entry.seasonId);
+      if (m) markerObjects.set(entry.seasonId, createSystemMarkers(entry, m));
+    }
+  };
+  // Rebuilt only when something changed: the status is polled every 30s.
+  let markersKey = "";
+  const setMarkers = (next: ReadonlyMap<string, SystemMarkers>): void => {
+    const key = JSON.stringify([...next.entries()]);
+    if (key === markersKey) return;
+    markersKey = key;
+    markers = next;
+    applyMarkers();
+  };
+
   const setPlanets = (planets: ReadonlyArray<SpacePlanetViewModel>): void => {
+    for (const objects of markerObjects.values()) disposeSystemMarkers(objects);
+    markerObjects.clear();
     for (const entry of systemEntries) {
       planetsGroup.remove(entry.group);
       disposeSolarSystem(entry);
@@ -118,6 +145,7 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
       planetsGroup.add(entry.group);
       return entry;
     });
+    applyMarkers();
   };
 
   const setThreats = (threatenedSeasonIds: ReadonlySet<string>): void => {
@@ -216,7 +244,11 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
   const animate = (): void => {
     animationFrame = requestAnimationFrame(animate);
     const elapsedSeconds = (performance.now() - clock.start) / 1000;
-    for (const entry of systemEntries) animateSolarSystem(entry, elapsedSeconds);
+    for (const entry of systemEntries) {
+      animateSolarSystem(entry, elapsedSeconds);
+      const objects = markerObjects.get(entry.seasonId);
+      if (objects) animateSystemMarkers(objects, planetRadiusOf(entry), elapsedSeconds);
+    }
     const nowMs = Date.now();
     for (const entry of fleetEntries) animateFleetOverlay(entry, nowMs);
     cameraRig.tick();
@@ -243,6 +275,7 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
     setPlanets,
     setFleetOrders,
     setThreats,
+    setMarkers,
     resetView,
     focusSystem,
     onZoomedOut: (callback) => {
@@ -256,6 +289,7 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
       cancelAnimationFrame(animationFrame);
       canvas.removeEventListener("pointerdown", handlePointerDown);
       canvas.removeEventListener("pointerup", handlePointerUp);
+      for (const objects of markerObjects.values()) disposeSystemMarkers(objects);
       for (const entry of systemEntries) disposeSolarSystem(entry);
       for (const entry of fleetEntries) disposeFleetOverlay(entry);
       starfield.dispose();

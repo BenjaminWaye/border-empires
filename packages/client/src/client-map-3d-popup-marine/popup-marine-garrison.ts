@@ -22,7 +22,12 @@ export const GARRISON_FADE_MS = 600;
 const GARRISON_FWD_OFFSET = 0.3;
 
 /** Unit direction (scene X/Z) the capturing squad advanced in. */
-export type GarrisonFacing = { fwdX: number; fwdZ: number };
+export type GarrisonFacing = {
+  fwdX: number;
+  fwdZ: number;
+  /** A comeback's only living soldier; the rest stay absent during the hold. */
+  survivorIndex?: number;
+};
 
 export type GarrisonRenderEntry = GarrisonFacing & {
   tgtWorldX: number;
@@ -48,7 +53,7 @@ const fellTakingTile = (seed: number, i: number): boolean =>
 
 export const garrisonStartFor = (facing: GarrisonFacing | undefined, seed: number, i: number): GarrisonStart | undefined => {
   if (!facing) return undefined;
-  if (fellTakingTile(seed, i)) return { absent: true };
+  if (facing.survivorIndex !== undefined ? i !== facing.survivorIndex : fellTakingTile(seed, i)) return { absent: true };
   const kit = marineKitFor(seed, 0, i);
   const perpX = -facing.fwdZ;
   const perpZ = facing.fwdX;

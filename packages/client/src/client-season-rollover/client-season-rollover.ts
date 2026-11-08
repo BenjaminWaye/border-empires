@@ -1,3 +1,4 @@
+import { clearOwnAttackTracking } from "../client-detached-attacks/client-detached-attacks.js";
 import { createInitialAfcState } from "../client-afc-upgrades/client-afc-state.js";
 import { resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { resetMetPlayers } from "../client-alliance/client-met-players.js";
@@ -7,6 +8,10 @@ import { clearCameraLocation } from "../client-view-refresh.js";
 
 type RolloverState = Pick<
   ClientState,
+  | "detachedAttacksByCommandId"
+  | "outgoingMusterAttacksByTile"
+  | "musterTransitByCommand"
+  | "deferredAttackByCommand"
   | "tiles"
   | "discoveredTiles"
   | "metPlayerIds"
@@ -65,6 +70,7 @@ export const resetClientForNewSeason = (state: RolloverState): void => {
   state.seasonStartVoted = false;
   state.actionQueue = [];
   state.queuedTargetKeys.clear();
+  clearOwnAttackTracking(state);
   state.waypoint = [];
   state.selected = undefined;
   state.tileActionMenu.visible = false;

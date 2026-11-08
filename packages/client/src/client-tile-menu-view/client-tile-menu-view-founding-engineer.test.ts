@@ -89,8 +89,8 @@ describe("battle state in the overview tab", () => {
     expect(menu.subtitle).toContain("Garrisoned territory");
     expect(menu.subtitleHtml).toContain("Garrisoned territory");
     expect(menu.overviewLines).toContainEqual({ html: "Combat (0:02)" });
-    expect(tileActionMenuHtml(menu, "overview", false)).toContain(title);
-    expect(tileActionMenuHtml(menu, "overview", true)).toContain("Combat (0:02)");
+    expect(tileActionMenuHtml(menu, "overview")).toContain(title);
+    expect(tileActionMenuHtml(menu, "overview")).toContain("Combat (0:02)");
   });
 });
 

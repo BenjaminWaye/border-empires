@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { careerStatsHtml, fetchCareerStats } from "./client-player-profile-career.js";
+import { fetchCareerStats } from "./client-player-profile-career.js";
 
 describe("fetchCareerStats", () => {
   it("fetches and normalizes career stats from the gateway route", async () => {
@@ -36,33 +36,5 @@ describe("fetchCareerStats", () => {
       peakScore: null,
       peakTiles: null
     });
-  });
-});
-
-describe("careerStatsHtml", () => {
-  it("renders nothing while loading or unset", () => {
-    expect(careerStatsHtml("loading")).toBe("");
-    expect(careerStatsHtml(undefined)).toBe("");
-  });
-
-  it("renders nothing when the player has never finished a season", () => {
-    expect(careerStatsHtml({ seasonsPlayed: 0, bestRank: null, peakScore: null, peakTiles: null })).toBe("");
-  });
-
-  it("renders seasons played, best rank, and peak stats", () => {
-    const html = careerStatsHtml({ seasonsPlayed: 5, bestRank: 1, peakScore: 300, peakTiles: 42 });
-    expect(html).toContain("Career Stats");
-    expect(html).toContain("Seasons played: <strong>5</strong>");
-    expect(html).toContain("Best rank finish: <strong>#1</strong>");
-    expect(html).toContain("Peak score: <strong>300</strong>");
-    expect(html).toContain("Peak tiles held: <strong>42</strong>");
-  });
-
-  it("omits fields that are null", () => {
-    const html = careerStatsHtml({ seasonsPlayed: 2, bestRank: null, peakScore: null, peakTiles: null });
-    expect(html).toContain("Seasons played: <strong>2</strong>");
-    expect(html).not.toContain("Best rank finish");
-    expect(html).not.toContain("Peak score");
-    expect(html).not.toContain("Peak tiles held");
   });
 });

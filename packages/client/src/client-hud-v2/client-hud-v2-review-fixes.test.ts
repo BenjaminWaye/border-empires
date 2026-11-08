@@ -5,7 +5,6 @@ import type { SeasonVictoryObjectiveView } from "../client-types.js";
 import { diplomacyStanceLookup } from "../client-diplomacy-overlay/client-diplomacy-overlay.js";
 import { battleOutcomeFromAlert } from "./client-hud-v2-battle-runtime.js";
 import { escapeOpensSettings } from "./client-hud-v2-escape.js";
-import { readHudV2Flag } from "./client-hud-v2-flag.js";
 import { selfShare } from "./client-hud-v2-ranks.js";
 
 describe("Esc opens Settings only when nothing else wants it", () => {
@@ -79,10 +78,4 @@ describe("review fixes: Ranks, overlay and flag", () => {
     expect([stanceOf("barbarian"), stanceOf("barbarian-1")]).toEqual(["hostile", "hostile"]);
   });
 
-  it("defaults on and honours ?hud=legacy when storage is unavailable", () => {
-    const blocked = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); }, removeItem: () => undefined };
-    expect(readHudV2Flag("?hud=v2", blocked)).toBe(true);
-    expect(readHudV2Flag("", blocked)).toBe(true);
-    expect(readHudV2Flag("?hud=legacy", blocked)).toBe(false);
-  });
 });

@@ -1,3 +1,4 @@
+import { battleChoreographyFor } from "./client-map-3d-popup-marine/popup-marine-choreography.js";
 import { dockLandingFor, landingBattleSource } from "./client-dock-landing/client-dock-landing.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
@@ -9,7 +10,7 @@ import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import type { ClientState } from "./client-state/client-state.js";
 import { squadColorForOwner } from "./client-planetary-defense-style.js";
 import { frontierAttackIsUndefended } from "./client-capture-hold/client-capture-hold.js";
-import { buildCaptureHoldGarrisons, defenderGarrisonField } from "./client-map-3d-capture-hold-garrison.js";
+import { buildCaptureHoldGarrisons, defenderGarrisonField, rememberCompletedComebackGarrisons } from "./client-map-3d-capture-hold-garrison.js";
 
 export const TILE_CENTER_OFFSET = 0.5;
 
@@ -72,6 +73,7 @@ export function collectBattleRenderEntries(
 ): { entries: BattleOverlayRenderEntry[]; skirmishes: BattleOverlaySkirmishEntry[]; garrisons: ReturnType<typeof buildCaptureHoldGarrisons> } {
   state.dockLandings?.syncRoutes(state.dockPairs);
   state.dockLandings?.prune(nowMs);
+  rememberCompletedComebackGarrisons(state, keyFor, nowMs);
   pruneExpiredActiveBattles(state, nowMs);
   // `nowMs` is performance.now() (page uptime) — the clock every battle/FX
   // timestamp is stamped in. Siege countdowns (`resolvesAt`) are server epoch
@@ -107,12 +109,16 @@ export function collectBattleRenderEntries(
       clashAt: battle.clashAt,
       endAt: battle.endAt,
       fromSkirmish: battle.fromSkirmish,
+      ...(battle.fallenBeforeResolution ? { fallenBeforeResolution: battle.fallenBeforeResolution } : {}),
+      choreography: battleChoreographyFor(battle.targetX * 92821 + battle.targetY),
+      ...(battle.choreographyStartAt !== undefined ? { choreographyStartAt: battle.choreographyStartAt } : {}),
+      ...(battle.presentation ? { presentation: battle.presentation, skirmishCasualties: battle.skirmishCasualties } : {}),
       // Same formula as the skirmish hashSeed below — keeps dot identity
       // (offset/perp/freq/phase) continuous when a battle picks up from a
       // preceding skirmish on the same tile.
       hashSeed: battle.targetX * 92821 + battle.targetY,
       siegeBoosted: battleIsSiegeBoosted(state, keyFor, battle.attackerOwnerId, battle.targetX, battle.targetY),
-      ...defenderGarrisonField(state, keyFor, keyFor(battle.targetX, battle.targetY), battle.defenderOwnerId, nowEpochMs),
+      ...(battle.defenderGarrison ? { defenderGarrison: battle.defenderGarrison } : defenderGarrisonField(state, keyFor, keyFor(battle.targetX, battle.targetY), battle.defenderOwnerId, nowEpochMs)),
       ...squadGearFields(state, battle.attackerOwnerId, battle.defenderOwnerId, battle)
     });
   }
@@ -158,6 +164,7 @@ export function collectBattleRenderEntries(
       defenderColor: squadColorForOwner(defenderOwnerId, playerColorFor),
       startAt,
       hashSeed: target.x * 92821 + target.y,
+      choreography: battleChoreographyFor(target.x * 92821 + target.y),
       siegeBoosted: !unopposed && battleIsSiegeBoosted(state, keyFor, attackerOwnerId, target.x, target.y),
       ...defenderGarrisonField(state, keyFor, key, defenderOwnerId, nowEpochMs),
       ...squadGearFields(state, attackerOwnerId, defenderOwnerId),

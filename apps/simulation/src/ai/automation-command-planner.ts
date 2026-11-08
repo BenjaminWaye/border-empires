@@ -201,6 +201,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
           ...(input.nonHostilePlayerIds ? { nonHostilePlayerIds: input.nonHostilePlayerIds } : {}),
+          ...(input.victoryFocusTargets ? { victoryFocusTargets: input.victoryFocusTargets, ...(input.attackStalemateTargetTileKeys ? { attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys } : {}) } : {}),
           ...(linkValueTowns ? { linkValueTownKeys: linkValueTowns } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
@@ -239,6 +240,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
           ...(input.nonHostilePlayerIds ? { nonHostilePlayerIds: input.nonHostilePlayerIds } : {}),
+          ...(input.victoryFocusTargets ? { victoryFocusTargets: input.victoryFocusTargets, ...(input.attackStalemateTargetTileKeys ? { attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys } : {}) } : {}),
           ...(linkValueTowns ? { linkValueTownKeys: linkValueTowns } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
@@ -466,6 +468,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     canExpand,
     devSlotAvailable: effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT,
     preferredEnemyAttack,
+    victoryFocusTargets: input.victoryFocusTargets,
     economicBuild,
     fortBuild,
     siegeBatteryBuild,

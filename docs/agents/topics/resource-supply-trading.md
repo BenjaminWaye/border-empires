@@ -170,9 +170,7 @@ world edges), and catalysts reject coastal sand. Existing saves are not moved.
 Resource cards link to their required installation without a duplicate research
 box. The installation popup uses `data-view-tech` for its Unlocked by link.
 HUD v2 consumes requested tech details and opens its Manifest tree on that ID,
-unfolding the branch and scrolling to the selected node. Mobile and classic
-HUD keep their existing research detail flow. The redesigned HUD is on by default
-on desktop; `?hud=legacy` opts back into the classic HUD. Lore reviewed; no canon change.
+unfolding the branch and scrolling to the selected node. The classic HUD has since been removed. Lore reviewed; no canon change.
 
 Deposit cards label their potential output After development and explicitly
 name the required installation plus beneficiary. A frontier claim or even a

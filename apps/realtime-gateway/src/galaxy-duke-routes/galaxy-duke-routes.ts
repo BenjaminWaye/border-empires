@@ -16,8 +16,7 @@ const bodyOf = (request: FastifyRequest): Body => (request.body && typeof reques
 
 const parseBuildSpec = (body: Body): BuildSpec | undefined => {
   if (body.kind === "FIGHTER" || body.kind === "PROBE" || body.kind === "REFIT") return { kind: body.kind };
-  if (body.kind === "FORTIFY" && typeof body.points === "number") return { kind: "FORTIFY", points: body.points };
-  if (body.kind === "DEVELOP" && typeof body.bodyIndex === "number") return { kind: "DEVELOP", bodyIndex: body.bodyIndex };
+  if ((body.kind === "DEVELOP" || body.kind === "BASE") && typeof body.bodyIndex === "number") return { kind: body.kind, bodyIndex: body.bodyIndex };
   return undefined;
 };
 
@@ -76,8 +75,11 @@ export const registerGalaxyDukeRoutes = (app: FastifyInstance, deps: RegisterGal
   app.post("/hq/galaxy/duke/systems/:seasonId/build", async (request, reply) => {
     const authUid = await authed(request, reply);
     if (!authUid) return { ok: false, error: "unavailable or unauthorized" };
-    const spec = parseBuildSpec(bodyOf(request));
+    const body = bodyOf(request);
     const seasonId = seasonIdParam(request);
+    // Fortify is an instant order (§30), kept on this route for older clients.
+    if (body.kind === "FORTIFY" && seasonId) return respond(reply, await service!.fortify(authUid, seasonId));
+    const spec = parseBuildSpec(body);
     if (!spec || !seasonId) {
       reply.code(400);
       return { ok: false, code: "INVALID" };
@@ -146,6 +148,13 @@ export const registerGalaxyDukeRoutes = (app: FastifyInstance, deps: RegisterGal
       return { ok: false, code: "INVALID" };
     }
     return respond(reply, await service!.lendFleet(authUid, seasonId));
+  });
+
+  // Decree: Hold Court (+1 Influence), the decree that is always worth taking.
+  app.post("/hq/galaxy/duke/court/hold", async (request, reply) => {
+    const authUid = await authed(request, reply);
+    if (!authUid) return { ok: false, error: "unavailable or unauthorized" };
+    return respond(reply, await service!.holdCourt(authUid));
   });
 
   app.post("/hq/galaxy/duke/court/move", async (request, reply) => {

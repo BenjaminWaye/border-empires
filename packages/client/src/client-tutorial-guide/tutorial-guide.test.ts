@@ -166,7 +166,7 @@ describe("tutorial guide in the onboarding corner", () => {
       { x: 1, y: 1, ownerId: ME, ownershipState: "SETTLED", resource: "FISH" }
     ]);
     const chip = document.createElement("button");
-    chip.className = "stat-chip stat-chip-manpower";
+    chip.dataset.hudV2Open = "manpower";
     chip.getBoundingClientRect = () => ({ left: 100, top: 10, width: 80, height: 30, right: 180, bottom: 40, x: 100, y: 10, toJSON: () => ({}) }) as DOMRect;
     document.body.appendChild(chip);
     setGuideStatus("active", EMAIL);

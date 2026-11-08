@@ -73,12 +73,10 @@ export const presentTechLockedTileAction = (
  * caller re-renders.
  */
 export const openTechDetailFromTileMenu = (
-  state: Pick<ClientState, "activePanel" | "mobilePanel" | "techUiSelectedId" | "techDetailOpen" | "domainDetailOpen">,
-  techId: string,
-  isMobileViewport: boolean
+  state: Pick<ClientState, "activePanel" | "techUiSelectedId" | "techDetailOpen" | "domainDetailOpen">,
+  techId: string
 ): void => {
   state.activePanel = "tech";
-  if (isMobileViewport) state.mobilePanel = "tech";
   state.techUiSelectedId = techId;
   state.techDetailOpen = true;
   state.domainDetailOpen = false;

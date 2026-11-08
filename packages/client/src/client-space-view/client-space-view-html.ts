@@ -76,7 +76,7 @@ export const spaceViewStyle = `
      client-galaxy-view.ts) so its z-index compares correctly against the
      galaxy overlay (.gx-overlay, z-index:29), once opened from a
      "Manage Planet" button on this screen (since removed) -- 23 sits above the regular HUD chrome
-     it's meant to cover (mini-map-wrap:20, mobile-sheet:21, mobile-nav:22)
+     it's meant to cover (mini-map-wrap:20)
      but below .sv-launcher (24, bumped up from its old shared tier of 23
      -- see the comment above) so the "return to season" launcher stays
      clickable on top of the full-screen map, and below that overlay,

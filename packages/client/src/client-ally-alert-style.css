@@ -2,23 +2,6 @@
    under the repo's 500-line cap (see client-victory-alert-style.css for the
    same pattern). */
 
-.social-alert-dot {
-  display: inline-grid;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-  margin-left: 6px;
-  border-radius: 999px;
-  background: radial-gradient(circle at 50% 35%, var(--sp-brass-100, #f4dfa6) 0%, var(--sp-verdigris-500, #4c8d76) 58%, var(--sp-verdigris-300, #7fb8a4) 100%);
-  box-shadow: 0 0 14px rgba(76, 141, 118, 0.65);
-  color: var(--sp-leather-900, #241812);
-  font-size: 10px;
-  font-family: var(--sp-font-mono, monospace);
-  line-height: 1;
-  vertical-align: middle;
-  animation: ally-request-pulse 1.6s ease-in-out infinite;
-}
-
 @keyframes ally-request-pulse {
   0%,
   100% {

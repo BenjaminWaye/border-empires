@@ -3,7 +3,7 @@ import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floo
 // (already over the repo's 500-line file cap) to keep that file from
 // growing further. Handles requesting, caching, and reading back the
 // server's ATTACK_PREVIEW response for hover/selection/launch-button UI.
-import { applyOddsScale, commitOddsMultiplier, defendingFortVariant, estimatedAttackManpowerLoss, estimatedSettledAttackManpowerLoss, isCommitOddsEligibleTarget } from "@border-empires/shared";
+import { applyOddsScale, commitOddsMultiplier, defendingFortVariant, estimatedAttackManpowerLoss, estimatedSettledAttackManpowerLoss, isCommitOddsEligibleTarget, terrainCombatFacts } from "@border-empires/shared";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { CaptureCombatSnapshot, Tile, TileCombatBreakdown } from "../client-types.js";
@@ -78,7 +78,9 @@ const requestAttackPreview = (
     state.attackPreviewCacheByKey.delete(previewKey);
     if (state.attackPreview?.fromKey === args.fromKey && state.attackPreview.toKey === args.toKey) state.attackPreview = undefined;
   }
-  deps.ws.send(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: args.fromX, fromY: args.fromY, toX: args.toX, toY: args.toY, requestId }));
+  // The gateway can't build terrain, so the client supplies its hills/river facts (terrain-combat.ts).
+  const terrain = terrainCombatFacts({ x: args.fromX, y: args.fromY }, { x: args.toX, y: args.toY });
+  deps.ws.send(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: args.fromX, fromY: args.fromY, toX: args.toX, toY: args.toY, requestId, ...terrain }));
   globalThis.setTimeout(() => {
     if (state.attackPreviewPendingKey !== previewKey) return;
     if (state.attackPreviewPendingRequestId !== requestId) return;

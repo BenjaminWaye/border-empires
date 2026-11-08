@@ -18,7 +18,6 @@ export type CombatLockExplainContext = {
 export type PlayerActionDeps = {
   state: ClientState;
   techPickEl: HTMLSelectElement;
-  mobileTechPickEl: HTMLSelectElement;
   ws: RealtimeSocket;
   wsUrl: string;
   setAuthStatus: (message: string, tone?: "normal" | "error") => void;
@@ -43,24 +42,21 @@ export const breakTruceFromUi = (targetPlayerId: string, deps: PlayerActionDeps)
 export const activeTruceWithPlayerFromState = (state: ClientState, playerId?: string | null): ActiveTruceView | undefined =>
   playerId ? state.activeTruces.find((truce) => truce.otherPlayerId === playerId && truce.endsAt > Date.now()) : undefined;
 
-export const currentTechPickIdFromUi = (state: ClientState, techPickEl: HTMLSelectElement, mobileTechPickEl: HTMLSelectElement): string => {
+export const currentTechPickIdFromUi = (state: ClientState, techPickEl: HTMLSelectElement): string => {
   const byState = state.techUiSelectedId?.trim();
   if (byState) return byState;
   const byDesktop = techPickEl.value?.trim();
   if (byDesktop) return byDesktop;
-  const byMobile = mobileTechPickEl.value?.trim();
-  if (byMobile) return byMobile;
   return "";
 };
 
 export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActionDeps): void => {
   const websocketOpenReadyState = typeof WebSocket !== "undefined" ? WebSocket.OPEN : 1;
-  const techId = (techIdRaw ?? "").trim() || currentTechPickIdFromUi(deps.state, deps.techPickEl, deps.mobileTechPickEl);
+  const techId = (techIdRaw ?? "").trim() || currentTechPickIdFromUi(deps.state, deps.techPickEl);
   if (!techId) {
     console.error("[tech] choose blocked: empty tech id", {
       stateTechUiSelectedId: deps.state.techUiSelectedId,
       desktopValue: deps.techPickEl.value,
-      mobileValue: deps.mobileTechPickEl.value,
       choices: deps.state.techChoices
     });
     deps.pushFeed("No Manifest selected.", "tech", "warn");

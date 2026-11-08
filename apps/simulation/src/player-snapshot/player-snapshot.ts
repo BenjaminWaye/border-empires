@@ -34,6 +34,7 @@ type BuildOptions = {
   tilesAlreadyVisible?: boolean;
   sharedFullVisibilityTiles?: PlayerSubscriptionSnapshot["tiles"];
   worldStatusRuntimeState?: RuntimeState;
+  worldStatusSnapshot?: PlayerSubscriptionSnapshot["worldStatus"];
   seasonState?: PlayerSubscriptionSnapshot["season"];
   respawnNotice?: PlayerRespawnNotice;
   nonCompetitivePlayerIds?: ReadonlySet<string>;
@@ -377,7 +378,7 @@ export const buildPlayerSubscriptionSnapshot = (
     ...(options?.includeWorldStatus === false
       ? {}
       : {
-          worldStatus: buildWorldStatusSnapshot(
+          worldStatus: options?.worldStatusSnapshot ?? buildWorldStatusSnapshot(
             playerId,
             options?.worldStatusRuntimeState ?? runtimeState,
             options?.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : undefined

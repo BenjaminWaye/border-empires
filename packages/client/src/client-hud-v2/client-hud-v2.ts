@@ -1,11 +1,13 @@
-// Controller for the redesigned HUD, desktop and compact (phone) layouts (flag-gated, see client-hud-v2-flag.ts).
+// Controller for the HUD, desktop and compact (phone) layouts (see client-hud-v2-layout.ts).
 // It mounts its own layer over the map and re-renders it from ClientState on a
 // short timer, writing each region only when its HTML changed. Tile actions go
 // through the existing handlers; the destination screens live in
 // client-hud-v2-screens.ts, the town and battle screens in their runtimes.
 
+import { latestOwnFight } from "../client-detached-attacks/client-detached-attacks.js";
 import { musterFlagCap } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import { activateImperialWard, imperialWardButtonHtml } from "../client-imperial-ward/client-imperial-ward.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
 import { busyDevelopmentProcessCount } from "../client-development-queue/client-development-queue.js";
@@ -14,9 +16,7 @@ import { battleOnBarAction, battleOnMenuView, battleRowPlan, installBattleWatch,
 import { focusCamera, screen, SCREEN_HOST_ID, type HudV2Deps, type HudV2ScreenId } from "./client-hud-v2-context.js";
 import { escapeOpensSettings } from "./client-hud-v2-escape.js";
 import { hudV2GameOnScreen } from "./client-hud-v2-ready.js";
-import { currentHudV2Layout, initHudV2Flag, isHudV2Active, setHudV2Driving } from "./client-hud-v2-flag.js";
-import type { HudV2Layout } from "./client-hud-v2-layout.js";
-import { setCompactHudActive } from "../client-panel-nav/client-phone-viewport.js";
+import { currentHudV2Layout, type HudV2Layout } from "./client-hud-v2-layout.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import { orbHtml, orbInputForState } from "./client-hud-v2-orb.js";
@@ -49,7 +49,7 @@ const TRACKER_EVERY_TICKS = 4;
 
 const shellHtml = `
   <div class="hud-v2-top"><div id="hud-v2-bar" class="hud-v2-bar"></div><div id="hud-v2-nav" class="hud-v2-nav"></div></div>
-  <div class="hud-v2-right"><button type="button" id="hud-v2-season" class="hud-v2-season" data-hud-v2-open="ranks" title="Ranks" aria-label="Victory race: open Ranks"></button><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
+  <div class="hud-v2-right"><button type="button" id="hud-v2-season" class="hud-v2-season" data-hud-v2-open="ranks" title="Ranks" aria-label="Victory race: open Ranks"></button><div id="hud-v2-ward" class="hud-v2-ward-slot"></div><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
   <aside id="hud-v2-tracker" class="hud-v2-tracker" aria-label="Tracker"></aside>
   <section id="hud-v2-tile" class="hud-v2-tile" hidden aria-label="Selected tile"></section>
   <section id="hud-v2-build" class="v2t-right hud-v2-build-side" hidden aria-label="Build"></section>
@@ -58,7 +58,7 @@ const shellHtml = `
   <div id="hud-v2-orb-slot" class="hud-v2-orb-slot"></div>
   <div class="hud-v2-dim" data-hud-v2-dim aria-hidden="true"></div>`;
 
-type Region = "bar" | "nav" | "season" | "rivals" | "tracker" | "orb-slot" | "overlays";
+type Region = "bar" | "nav" | "season" | "ward" | "rivals" | "tracker" | "orb-slot" | "overlays";
 
 const written = new Map<Region, string>();
 
@@ -79,9 +79,10 @@ const SCREEN_TARGETS: Readonly<Record<string, HudV2ScreenId>> = {
   chronicle: "chronicle"
 };
 
-const legacyButton = (selector: string): HTMLElement | null => document.querySelector<HTMLElement>(selector);
+/** HUD targets that open a side panel rather than a screen. */
+const SIDE_PANEL_TARGETS: Readonly<Record<string, NonNullable<HudV2Deps["state"]["activePanel"]>>> = { manpower: "manpower", settings: "settings" };
 
-/** Opens a screen, or a panel the way its legacy button would (so every side effect of that button still happens). */
+/** Opens a screen, a profile or a side panel. */
 const openTarget = (deps: HudV2Deps, open: string): void => {
   const id = SCREEN_TARGETS[open];
   if (id) {
@@ -91,7 +92,7 @@ const openTarget = (deps: HudV2Deps, open: string): void => {
   }
   if (open === "battle") {
     // Attacks reopen the live battle (over whatever screen is up); an expansion in progress just centres the map on it.
-    const c = deps.state.capture;
+    const c = latestOwnFight(deps.state);
     const live = liveBattleTarget(deps.state);
     if (live && battleRowPlan(screen.id, shownBattleTileKey(), `${live.x},${live.y}`) === "close") closeScreen(deps, { toMap: true });
     if (!reopenLiveBattle(deps) && c) {
@@ -102,9 +103,9 @@ const openTarget = (deps: HudV2Deps, open: string): void => {
   }
   if (open === "self" && closeProfileFromCrest(deps)) return;
   if (screen.id === "town") closeTownScreen(true);
-  if (open === "manpower") legacyButton('#stats-chips [data-panel="manpower"]')?.click();
-  else if (open === "self") legacyButton("#stats-chips .stat-chip-player")?.click();
-  else legacyButton(`#panel-actions [data-panel="${open}"]`)?.click();
+  const panel = SIDE_PANEL_TARGETS[open];
+  if (open === "self") deps.state.activePlayerProfileId = deps.state.me || undefined;
+  else if (panel) deps.setActivePanel(panel);
   deps.renderHud();
 };
 
@@ -124,6 +125,10 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   if (target.closest("[data-hud-v2-dim]")) {
     deps.state.activePanel = null;
     deps.renderHud();
+    return;
+  }
+  if (target.closest("[data-imperial-ward-activate]")) {
+    activateImperialWard(deps.sendGameMessage);
     return;
   }
   if (target.closest(`#${SCREEN_HOST_ID}`) && screenClick(deps, target)) return;
@@ -174,7 +179,7 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
  * Runs in the capture phase so it sees the state before the map's own Esc handler clears the selection.
  */
 const onEscape = (deps: HudV2Deps, event: KeyboardEvent): void => {
-  if (event.key !== "Escape" || !isHudV2Active()) return;
+  if (event.key !== "Escape") return;
   const el = event.target instanceof HTMLElement ? event.target : null;
   if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
   if (document.querySelector(".break-pact-overlay") || (document.querySelector(".effort-confirm-overlay, .diplomacy-trade-overlay") && screen.id !== "diplomacy")) return;
@@ -254,6 +259,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     active: screen.id ? NAV_ACTIVE[screen.id] : undefined
   }));
   writeRegion("season", seasonClockHtml(state.seasonVictory));
+  writeRegion("ward", imperialWardButtonHtml(state, nowMs));
   writeRegion("rivals", rivalsHtml({
     me: state.me,
     metPlayerIds: state.metPlayerIds,
@@ -292,14 +298,17 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     };
   }
   const elapsed = nowMs - trackerScan.at;
-  const capture = state.capture && !state.capture.silent
-    ? { x: state.capture.target.x, y: state.capture.target.y, resolvesAt: state.capture.resolvesAt, battle: captureIsBattle(state.capture) }
+  // The slot's capture, or a running attack that already left the slot.
+  const fight = latestOwnFight(state, nowMs);
+  const capture = fight && !fight.silent
+    ? { x: fight.target.x, y: fight.target.y, resolvesAt: fight.resolvesAt, battle: captureIsBattle(fight) }
     : undefined;
   const input: TrackerInput = {
     buildSlots: trackerScan.buildSlots,
     afcReady: readyAfcUpgradeCount(state),
     flags: trackerScan.flags,
     flagCap: musterFlagCap(state.manpowerCap, 0),
+    manpowerCap: state.manpowerCap,
     // Timers count down between scans without rescanning the tiles.
     building: tickSlots(trackerScan.building, elapsed),
     queue: trackerScan.queue,
@@ -314,8 +323,8 @@ let started = false;
 
 export const installHudV2 = (deps: HudV2Deps): void => {
   if (started || typeof document === "undefined") return;
-  if (!initHudV2Flag(window.location.search)) return;
   started = true;
+  document.body.classList.add("hud-v2");
   const layer = document.createElement("div");
   layer.id = "hud-v2";
   layer.innerHTML = shellHtml;
@@ -336,17 +345,12 @@ export const installHudV2 = (deps: HudV2Deps): void => {
   let tick = 0;
   let lastLayout: HudV2Layout | undefined;
   const frame = (): void => {
-    // body.hud-v2 (which hides the legacy chrome) follows the flag alone, so the old HUD never flashes during
-    // loading; sign-in, map preparation, the first load and the season lobby only hold the new layer back.
+    // Sign-in, map preparation, the first load and the season lobby hold the layer back.
     const layout = currentHudV2Layout();
-    const flagOn = layout !== "off";
-    const onScreen = flagOn && hudV2GameOnScreen(deps.state, document.body);
-    setHudV2Driving(flagOn);
-    document.body.classList.toggle("hud-v2", flagOn);
+    const onScreen = hudV2GameOnScreen(deps.state, document.body);
     document.body.classList.toggle("hud-v2-compact", layout === "compact");
-    setCompactHudActive(layout === "compact");
     // Desktop <-> compact (rotation, resize): a screen laid out for the other layout closes rather than stranding.
-    if (lastLayout && layout !== lastLayout && flagOn && screen.id) closeScreen(deps, { toMap: true });
+    if (lastLayout && layout !== lastLayout && screen.id) closeScreen(deps, { toMap: true });
     lastLayout = layout;
     if (layout !== "compact") closeTreasury();
     // The map overview is a phone view: rotating to a desktop-sized layout, or leaving the game, closes it.
@@ -354,19 +358,15 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     // Phone back closes whatever is open: a screen, a profile, a hosted panel (Economy, Settings) or the tile panel.
     const closable = screen.id !== null || deps.state.activePanel !== null || Boolean(deps.state.activePlayerProfileId) || tilePanelShown() || mapOverview.open;
     syncBackEntry(layout === "compact" && onScreen && closable, () => closeOnBack(deps));
-    document.body.classList.toggle("hud-v2-waiting", flagOn && !onScreen);
-    // The lens button lives in this HUD; without it (phone width) the Diplomacy tint goes too.
-    if (!flagOn && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
+    document.body.classList.toggle("hud-v2-waiting", !onScreen);
     if (!onScreen) lensMenu.open = false;
-    // Leaving the new HUD (phone width) must not strand a screen: a hosted profile, or a Chronicle that popups wait on.
-    if (!flagOn && screen.id) closeScreen(deps, { toMap: true });
     deps.state.activityDashboard.chronicleOpen = onScreen && screen.id === "chronicle";
     if (!onScreen || !deps.state.me) return;
     openRequestedTechDetail(deps);
     const nowMs = Date.now();
     renderFast(deps.state, deps.ownerColor, nowMs);
     if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);
-    // The legacy activity dashboard (login briefing, release notes) opens as the Chronicle on the same tab.
+    // The login briefing and release notes open as the Chronicle on the matching tab.
     const dashboardTab = takeOverLegacyDashboard(deps.state, screen.id);
     if (dashboardTab) {
       screen.chronicleTab = dashboardTab;

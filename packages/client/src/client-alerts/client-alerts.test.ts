@@ -237,11 +237,10 @@ describe("combatResolutionAlert", () => {
 });
 
 describe("feed attention state", () => {
-  it("tracks unread noteworthy history without requiring another mobile icon", () => {
+  it("tracks unread noteworthy history without requiring another nav icon", () => {
     const state = {
       feed: [],
       activePanel: null,
-      mobilePanel: "core" as const,
       feedUnreadCount: 0,
       feedAttentionUntil: 0
     };
@@ -252,26 +251,10 @@ describe("feed attention state", () => {
     expect(state.feedAttentionUntil).toBeGreaterThan(Date.now());
   });
 
-  it("still tracks unread history when a stale mobile feed panel is hidden on desktop", () => {
-    const state = {
-      feed: [],
-      activePanel: null,
-      mobilePanel: "feed" as const,
-      feedUnreadCount: 0,
-      feedAttentionUntil: 0
-    };
-
-    pushFeed(state, "Research completed: Masonry.", "tech", "success");
-
-    expect(state.feedUnreadCount).toBe(1);
-    expect(state.feedAttentionUntil).toBeGreaterThan(Date.now());
-  });
-
   it("does not track unread history when the desktop feed panel is open", () => {
     const state = {
       feed: [],
       activePanel: "feed" as const,
-      mobilePanel: "core" as const,
       feedUnreadCount: 0,
       feedAttentionUntil: 0
     };
@@ -288,7 +271,6 @@ describe("feed attention state", () => {
       captureAlert: undefined as ClientState["captureAlert"],
       feed: [],
       activePanel: null,
-      mobilePanel: "core" as const,
       feedUnreadCount: 0,
       feedAttentionUntil: 0
     };

@@ -1,21 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { ACTION_CYCLE_MS, nextActionAvailableAt, tryTakeAction } from "./galaxy-action-gate.js";
+import { ACTION_PERIOD_MS, isActionReady, nextActionAvailableAt, tryTakeAction } from "./galaxy-action-gate.js";
 
 describe("tryTakeAction", () => {
-  it("allows the first Petition and records it", () => {
+  it("allows the first action and records it", () => {
     expect(tryTakeAction({ lastGatedActionAt: null }, 1_000)).toEqual({ ok: true, state: { lastGatedActionAt: 1_000 } });
   });
-  it("blocks a second inside the same Cycle and says when it frees up", () => {
-    expect(tryTakeAction({ lastGatedActionAt: 1_000 }, 1_000 + ACTION_CYCLE_MS - 1)).toEqual({
+  it("blocks a second within a day and says when it is ready again", () => {
+    expect(tryTakeAction({ lastGatedActionAt: 1_000 }, 1_000 + ACTION_PERIOD_MS - 1)).toEqual({
       ok: false,
-      code: "ACTION_ALREADY_TAKEN_THIS_CYCLE",
-      availableAt: 1_000 + ACTION_CYCLE_MS
+      code: "ACTION_NOT_READY",
+      availableAt: 1_000 + ACTION_PERIOD_MS
     });
   });
-  it("frees up exactly one Cycle later", () => {
-    expect(tryTakeAction({ lastGatedActionAt: 1_000 }, 1_000 + ACTION_CYCLE_MS).ok).toBe(true);
+  it("is ready again exactly one day later, and never banks a second", () => {
+    expect(tryTakeAction({ lastGatedActionAt: 1_000 }, 1_000 + ACTION_PERIOD_MS).ok).toBe(true);
+    const later = tryTakeAction({ lastGatedActionAt: 1_000 }, 1_000 + 5 * ACTION_PERIOD_MS);
+    expect(later.ok && isActionReady(later.state, 1_000 + 5 * ACTION_PERIOD_MS + 1)).toBe(false);
   });
-  it("a new Duke is available immediately", () => {
+  it("a new Duke or system is ready immediately", () => {
     expect(nextActionAvailableAt({ lastGatedActionAt: null })).toBe(0);
+    expect(isActionReady(undefined, 0)).toBe(true);
   });
 });

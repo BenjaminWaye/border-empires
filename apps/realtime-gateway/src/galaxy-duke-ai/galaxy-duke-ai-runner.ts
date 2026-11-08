@@ -3,13 +3,15 @@
 // never do something a person could not.
 import { rankDomainWeights } from "../galaxy-court/galaxy-court.js";
 import { isMoveAgainstCourtLocked } from "../galaxy-court-offer/galaxy-court-offer.js";
-import { nextActionAvailableAt } from "../galaxy-action-gate/galaxy-action-gate.js";
+import { isDecreeReady, isOrderReady } from "../galaxy-duke-engine/galaxy-duke-daily.js";
 import { pendingWrit } from "../galaxy-duke-engine/galaxy-duke-court-favor.js";
 import { openGrievance } from "../galaxy-duke-engine/galaxy-duke-grievance.js";
 import { planetsOf } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import {
   answerCourtOfferAction,
   buildAction,
+  fortifyAction,
+  holdCourtAction,
   moveAgainstCourtAction,
   orderAction,
   type DukeActionResult
@@ -28,6 +30,10 @@ const perform = (ctx: DukeContext, authUid: string, action: AiAction): Promise<D
       return answerWritAction(ctx, authUid, action.accept);
     case "BUILD":
       return buildAction(ctx, authUid, action.seasonId, action.spec);
+    case "FORTIFY":
+      return fortifyAction(ctx, authUid, action.seasonId);
+    case "HOLD_COURT":
+      return holdCourtAction(ctx, authUid);
     case "PROBE":
       return orderAction(ctx, authUid, action.fromSeasonId, { kind: "PROBE", targetSeasonId: action.targetSeasonId });
     case "RAID":
@@ -62,7 +68,7 @@ export const runAiDukes = async (ctx: DukeContext): Promise<void> => {
       const now = ctx.now();
       const sectors = await heldSectors(ctx, world, authUid);
       const influence = (await ctx.deps.galaxyEconomyStore.getBalance(authUid))?.influence ?? 0;
-      const petitionReady = !strength.fallen && now >= nextActionAvailableAt(state.petitionGate) && !isMoveAgainstCourtLocked(state.courtOffer, now);
+      const canMoveAgainstCourt = !strength.fallen && !isMoveAgainstCourtLocked(state.courtOffer, now);
       const actions = planAiTurn({
         state,
         now,
@@ -70,7 +76,9 @@ export const runAiDukes = async (ctx: DukeContext): Promise<void> => {
         myWeight: weights.get(authUid) ?? 0,
         stabilityBySeason: new Map([...sectors.entries()].map(([id, s]) => [id, s.stability])),
         rivals: rivalsBase.filter((r) => r.authUid !== authUid),
-        petitionReady,
+        ordersReady: new Set(state.systems.filter((s) => isOrderReady(state, s.seasonId, now)).map((s) => s.seasonId)),
+        decreeReady: isDecreeReady(state, now),
+        canMoveAgainstCourt,
         grievanceOpenAgainst: openGrievance(state, now)?.targetAuthUid ?? null,
         writ: pendingWrit(state, now)?.kind ?? null,
         courtOfferPending: state.courtOffer.status === "PENDING",

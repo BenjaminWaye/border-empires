@@ -50,10 +50,10 @@ const makeState = (
     camY: 0,
     me: "attacker",
     dockPairs: [],
-    musterTransitByTile: new Map(),
+    musterTransitByCommand: new Map(),
     outgoingMusterAttacksByTile: new Map(),
     incomingAttacksByTile: new Map(),
-    deferredAttackByTile: new Map(),
+    deferredAttackByCommand: new Map(),
     tiles: new Map(),
     squadGearByOwner,
     activeBattles

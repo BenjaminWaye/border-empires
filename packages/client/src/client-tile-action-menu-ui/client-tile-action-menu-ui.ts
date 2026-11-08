@@ -27,7 +27,6 @@ type ClientDom = ReturnType<typeof initClientDom>;
 type TileActionMenuUiDeps = {
   tileActionMenuEl: ClientDom["tileActionMenuEl"];
   viewportSize: () => { width: number; height: number };
-  isMobile: () => boolean;
   hideTileActionMenu: () => void;
   tileMenuViewForTile: (tile: Tile) => TileMenuView;
   handleTileAction: (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string) => void;
@@ -78,7 +77,7 @@ export const renderTileActionMenu = (
   const afcPickerState = !shouldReuseRenderedMenu && state.tileActionMenu.visible && activeTab === "modules" ? afcModulePickerStateForTitle(deps.tileActionMenuEl, view.title) : undefined;
   if (!shouldReuseRenderedMenu) {
     const openReportIds = openMusterReportIds(deps.tileActionMenuEl);
-    deps.tileActionMenuEl.innerHTML = tileActionMenuHtml(view, activeTab, deps.isMobile());
+    deps.tileActionMenuEl.innerHTML = tileActionMenuHtml(view, activeTab);
     restoreOpenMusterReports(deps.tileActionMenuEl, openReportIds);
     state.tileActionMenu.renderSignature = signature;
   }
@@ -153,7 +152,7 @@ export const renderTileActionMenu = (
       btn.onclick = () => {
         const techId = btn.dataset.viewTech;
         if (!techId) return;
-        openTechDetailFromTileMenu(state, techId, deps.isMobile());
+        openTechDetailFromTileMenu(state, techId);
         deps.hideTileActionMenu();
         deps.renderHud();
       };

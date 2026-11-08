@@ -1,3 +1,4 @@
+import { createFullVisibilitySource } from "./full-visibility-source.js";
 import { recoveredSeasonFallback } from "./recovered-season-fallback.js";
 import { fileURLToPath } from "node:url";
 import { PerformanceObserver } from "node:perf_hooks";
@@ -48,7 +49,6 @@ import { handlePersistenceConstraintViolation } from "../persistence-constraint-
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { buildSnapshotBuildOptions } from "./snapshot-build-options.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
-import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
 import { createSeedPlayers, createSeedWorld } from "../seed-state/seed-state.js";
 import { createPlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
@@ -99,7 +99,7 @@ import type { SimulationServiceOptions } from "./simulation-service-options.js";
 import { createSimRequestTracer } from "../request-tracer.js";
 import { createCommandApplyTracker } from "../command-apply-tracker.js";
 import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
-import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
+import { startGcPauseObserver } from "../gc-pause-observer/gc-pause-observer.js";
 import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
 import { buildEventLoopBlockedPayload, eventLoopBlockWarnMs } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
 import { resolveSeasonCaps } from "../season-caps/season-caps.js";
@@ -251,22 +251,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // thread so both watchdog-kill and sim-exit write paths have the sim's last known state (lag-diagnostics.ts).
   const { recordLagDiagnostic, getLagDiagRing } = createLagDiagnostics({ emitLog });
   // GC observer; "warn" so recordLagDiagnostic retains it for death forensics.
-  let gcPauseObserver: PerformanceObserver | undefined;
-  try {
-    gcPauseObserver = new PerformanceObserver((list) => {
-      for (const entry of list.getEntries()) {
-        if (entry.entryType === "gc" && "duration" in entry && entry.duration > 100) {
-          recordLagDiagnostic("warn", "gc_pause_detected", {
-            durationMs: (entry.duration as number),
-            gcKind: decodeGcKind((entry as unknown as Record<string, unknown>).kind as number | undefined)
-          });
-        }
-      }
-    });
-    gcPauseObserver.observe({ entryTypes: ["gc"], buffered: false });
-  } catch (_err) {
-    // PerformanceObserver for 'gc' requires --expose-gc; silently skip if unavailable
-  }
+  // Disconnected in close(), or it keeps this whole service alive (gc-pause-observer.ts).
+  const gcPauseObserver = startGcPauseObserver(recordLagDiagnostic);
   const commandTraceSample = (sample: Record<string, unknown>): void => {
     if (!commandTraceEnabled) return;
     log.info({ ...sample }, "simulation command trace");
@@ -509,12 +495,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...(legacySnapshotBootstrap ? { bootstrapState: legacySnapshotBootstrap.initialState } : {}),
         requireDurableState: requireDurableStartupState
       });
+      // Cleared once the race settles: a pending timer's closure keeps this
+      // whole service scope (runtime, world) alive until it fires.
+      let recoveryTimeout: ReturnType<typeof setTimeout> | undefined;
       const recovery = await Promise.race([
         recoveryPromise,
         new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error(`simulation startup recovery timed out after ${timeoutMs}ms`)), timeoutMs);
+          recoveryTimeout = setTimeout(() => reject(new Error(`simulation startup recovery timed out after ${timeoutMs}ms`)), timeoutMs);
         })
-      ]);
+      ]).finally(() => clearTimeout(recoveryTimeout));
       log.info(
         {
           durationMs: Date.now() - startupRecoveryStartedAt,
@@ -802,27 +791,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const scoreHistorySampler = createScoreHistorySampler();
   // Post-season proto-tile cache: tiles freeze after season end, so the marshalled array is an immutable per-seasonId constant, shareable across all concurrent SubscribePlayer RPCs.
   let postSeasonProtoTilesCache: { seasonId: string; tiles: ReturnType<typeof toFullSnapshotProtoTile>[] } | undefined;
-  let sharedFullVisibilityTilesCache: PlayerSubscriptionSnapshot["tiles"] | undefined;
-  const invalidateSharedFullVisibilityTilesCache = (): void => { sharedFullVisibilityTilesCache = undefined; };
-  const sharedFullVisibilityTiles = (runtimeState: ReturnType<SimulationRuntime["exportState"]>): PlayerSubscriptionSnapshot["tiles"] => {
-    if (!sharedFullVisibilityTilesCache) sharedFullVisibilityTilesCache = enrichSnapshotTilesForGlobalVisibility(runtimeState);
-    return sharedFullVisibilityTilesCache;
-  };
-  // Batch coalescing for full-visibility exports (season-ended / spectator).
-  // Each 202k-tile exportStateAsync produces a fresh runtimeState object, which
-  // busts the WeakMap-keyed economy caches inside buildLivePlayerEconomySnapshot.
-  // Sharing one in-flight promise means all concurrent full-vis logins get the
-  // same runtimeState → economy caches hit for every player after the first.
-  type FullVisExport = ReturnType<SimulationRuntime["exportState"]>;
-  let inFlightFullVisExportPromise: Promise<FullVisExport> | undefined;
-  const getOrStartFullVisExport = (): Promise<FullVisExport> => {
-    if (!inFlightFullVisExportPromise) {
-      inFlightFullVisExportPromise = runtime.exportStateAsync(yieldToEventLoop).finally(() => {
-        inFlightFullVisExportPromise = undefined;
-      });
-    }
-    return inFlightFullVisExportPromise;
-  };
+  const fullVisibilitySource = createFullVisibilitySource({
+    exportState: () => runtime.exportStateAsync(yieldToEventLoop),
+    yieldToEventLoop,
+    nonCompetitivePlayerIds
+  });
   const refreshSnapshotCacheMetrics = () => {
     const cacheSummary = summarizePlayerSubscriptionSnapshotCache(snapshotCache.entries());
     simulationMetrics.setSimSnapshotCache({
@@ -842,12 +815,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const clearCachedSnapshots = () => {
     snapshotCache.clear();
     postSeasonProtoTilesCache = undefined;
+    fullVisibilitySource.invalidate();
     return refreshSnapshotCacheMetrics();
   };
   // Proactively build and cache full-vis snapshots for all subscribed players
   // immediately after season end. Tiles are frozen post-season so cached
-  // snapshots stay valid indefinitely. Concurrent logins share one runtimeState
-  // via getOrStartFullVisExport + sharedFullVisibilityTiles batch coalescing.
+  // snapshots stay valid indefinitely. Concurrent logins share one lightweight
+  // overview through fullVisibilitySource; detail is requested by viewport.
   const warmSeasonEndSnapshots = (): void => {
     const playerIds = subscriptionRegistry.subscribedPlayerIds();
     if (playerIds.length === 0) return;
@@ -962,23 +936,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const seasonEnded = currentSeasonState.status === "ended";
     const useFullVisibility = options?.fullVisibility === true || seasonEnded;
     const runtimeExportStartedAt = Date.now();
-    // Phase 3a: a normal bootstrap no longer pays the ~10s full-world
-    // exportStateAsync. We serve the player's visible tiles and attach the
-    // leaderboard / season-victory from the cached season summary below. Only
-    // the full-visibility paths (season-ended / admin spectator) still need the
-    // whole world materialised.
+    // Reveal preparation is shared across players. Ended seasons retain one
+    // immutable export; live spectator requests coalesce only while in flight.
     const needsFullWorldExport = useFullVisibility;
-    // Use the shared coalesced export so all concurrent full-vis logins
-    // share one runtimeState object — hits WeakMap economy caches for all.
-    const worldStatusRuntimeState = needsFullWorldExport
-      ? await getOrStartFullVisExport()
-      : undefined;
-    // Route through the async chunked path when we lack a full-world state.
-    // The vision raster expansion here is still sync for a large empire; it's
-    // wrapped via trackSyncMainThreadTask (mainThreadTasks above) so it shows
-    // up as classify_visibility_for_player instead of an unattributed gap.
-    const runtimeState =
-      worldStatusRuntimeState ?? (await runtime.exportVisibleStateForPlayerAsync(playerId, yieldToEventLoop));
+    const fullSource = useFullVisibility ? await fullVisibilitySource.get(seasonEnded) : undefined;
+    const runtimeState = await runtime.exportVisibleStateForPlayerAsync(playerId, yieldToEventLoop);
     recordSnapshotBuildTiming("runtime_export_async", Date.now() - runtimeExportStartedAt, {
       playerId,
       trigger: options?.trigger ?? "",
@@ -990,24 +952,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const buildOpts = buildSnapshotBuildOptions({
       useFullVisibility,
       needsFullWorldExport,
-      runtimeState,
       respawnNotice,
       currentSeasonState,
       nonCompetitivePlayerIds,
-      sharedFullVisibilityTiles,
+      fullVisibilityTiles: fullSource?.tiles,
+      worldStatusSnapshot: fullSource?.worldStatusForPlayer(playerId),
     });
-    // Full-visibility builds (season-ended / spectator) bypass the worker pool.
-    // For full-vis the per-tile enrichment is already memoised on the main
-    // thread via sharedFullVisibilityTiles (passed in buildOpts and reused by
-    // reference in player-snapshot.ts), so the worker has nothing to compute —
-    // it would only structured-clone the entire 202k-tile runtimeState across
-    // the boundary and clone the 202k-tile snapshot back. That clone was a ~4s
-    // synchronous block on the sim event loop per login (prod snapshot_materialize
-    // 4134ms), which stacked across bootstrap retries and killed the sim worker,
-    // wedging post-season logins. Inline reuses the cached tiles by reference and
-    // does only the cheap per-player economy/worldStatus work (~100ms). The
-    // worker still serves fog-of-war logins, where enrichment is per-player and
-    // the returned tile set is small.
+    // The shared source owns enrichment and world-status scans. Inline builds
+    // reuse its tiles and indexes instead of cloning the entire world to workers.
     const useWorkerBuild = snapshotBuildPool !== undefined && !useFullVisibility;
     if (useFullVisibility) simulationMetrics.incrementSimFullVisInlineBuild();
     const snapshot = useWorkerBuild
@@ -1211,7 +1163,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       clientSeq: command.clientSeq,
       type: command.type
     });
-    invalidateSharedFullVisibilityTilesCache();
+    fullVisibilitySource.invalidate();
     const runtimeSubmitStartedAt = Date.now();
     // WATCH_MUSTER/UNWATCH_MUSTER only toggle in-memory view state
     // (watchedMusterTileByPlayer) that is meaningless after a restart, so
@@ -2110,7 +2062,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       callback(null, { ok: true });
     },
     FetchTileDetail(
-      call: { request: { player_id: string; x: number; y: number; full_visibility?: boolean } },
+      call: { request: { player_id: string; x: number; y: number; full_visibility?: boolean; radius?: number } },
       callback: (
         error: Error | null,
         response: {
@@ -2151,7 +2103,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         call.request.player_id,
         Math.floor(Number(call.request.x) || 0),
         Math.floor(Number(call.request.y) || 0),
-        1,
+        Math.min(64, Math.max(1, Math.floor(Number(call.request.radius) || 1))),
         { fullVisibility }
       );
       const cached = snapshotCache.peek(call.request.player_id);
@@ -2618,6 +2570,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (populationGrowthTicker) clearInterval(populationGrowthTicker);
       if (passiveIncomeTicker) clearInterval(passiveIncomeTicker);
       gcObserver?.disconnect();
+      gcPauseObserver.disconnect();
       globalStatusBroadcaster.dispose();
       if (startupReplayCompactionPromise) {
         await startupReplayCompactionPromise;

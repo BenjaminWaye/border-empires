@@ -46,7 +46,7 @@ describe("dispatchMusterFundedAttack", () => {
   it("holds the attack until a besieged flag is free instead of firing into a LOCKED rejection", () => {
     const { state, deps, input, feed } = setup(true);
     dispatchMusterFundedAttack(state, input, deps);
-    expect(state.musterTransitByTile.size).toBe(0);
+    expect(state.musterTransitByCommand.size).toBe(0);
     expect(state.actionInFlight).toBe(false);
     expect(state.actionCurrent).toBeUndefined();
     expect(state.actionQueue).toEqual([input.entry]);
@@ -66,8 +66,8 @@ describe("dispatchMusterFundedAttack", () => {
   it("marches from the flag as before when nothing is attacking it", () => {
     const { state, deps, input } = setup(false);
     dispatchMusterFundedAttack(state, input, deps);
-    expect(state.musterTransitByTile.has("5,5")).toBe(true);
-    expect(state.deferredAttackByTile.get("5,5")).toMatchObject({ fromX: 5, fromY: 5, toX: 6, toY: 5 });
+    expect(state.musterTransitByCommand.has(input.commandId)).toBe(true);
+    expect(state.deferredAttackByCommand.get(input.commandId)).toMatchObject({ fromX: 5, fromY: 5, toX: 6, toY: 5 });
     expect(state.actionQueue).toEqual([]);
   });
 });

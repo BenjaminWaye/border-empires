@@ -1,61 +1,13 @@
-import type { PersonalActivityCard, PersonalActivitySummary, PersonalActivityTimeline } from "@border-empires/game-domain";
+import type { PersonalActivityCard } from "@border-empires/game-domain";
 import { PLANETARY_DEFENSE_DISPLAY_NAME, structureDisplayName } from "@border-empires/shared";
 import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { combatCardText, combatGroupCardText, siegeCardText } from "./client-activity-dashboard-combat-text.js";
-import { featureListLabel, featuresPart } from "./client-activity-dashboard-features.js";
+import { featuresPart } from "./client-activity-dashboard-features.js";
 import { diplomacyCardText } from "./client-activity-dashboard-diplomacy-text.js";
 import { nameOf, roundedAmount, type PlayerNameLookup } from "./client-activity-dashboard-names.js";
 
 export type { PlayerNameLookup };
-
-// Materiality gate for the manpower-spent-attacking headline (plan §2.3):
-// only surface it up top when it's both a large absolute number and a
-// meaningful share of the player's current manpower cap -- otherwise it
-// stays folded into the per-combat card detail, never the summary line.
-const MANPOWER_HEADLINE_MIN_ABSOLUTE = 250;
-const MANPOWER_HEADLINE_MIN_CAP_SHARE = 0.05;
-
-export const shouldShowManpowerHeadline = (manpowerSpentAttacking: number, reportEndManpowerCap: number): boolean =>
-  manpowerSpentAttacking >= MANPOWER_HEADLINE_MIN_ABSOLUTE &&
-  reportEndManpowerCap > 0 &&
-  manpowerSpentAttacking / reportEndManpowerCap >= MANPOWER_HEADLINE_MIN_CAP_SHARE;
-
-// Coin amounts this small aren't worth headline space (and a sub-coin
-// amount would otherwise round to a meaningless "−0 coin raided").
-const SUMMARY_MIN_COIN = 5;
-
-/** Line 1: counts and one-off transfers -- never merged with line 2's effects. */
-export const summaryCountsLine = (summary: PersonalActivitySummary, timeline: PersonalActivityTimeline, reportEndManpowerCap: number): string => {
-  const parts: string[] = [];
-  if (summary.tilesClaimed > 0) parts.push(`+${summary.tilesClaimed} tile${summary.tilesClaimed === 1 ? "" : "s"} claimed`);
-  if (summary.tilesLost > 0) parts.push(`−${summary.tilesLost} tile${summary.tilesLost === 1 ? "" : "s"} lost`);
-  const featuresLost = featureListLabel(summary.featuresLost);
-  if (featuresLost) parts.push(`Lost your ${featuresLost}`);
-  const featuresCaptured = featureListLabel(summary.featuresCaptured);
-  if (featuresCaptured) parts.push(`Captured their ${featuresCaptured}`);
-  if (roundedAmount(timeline.goldRaidedFromYou) >= SUMMARY_MIN_COIN) parts.push(`−${roundedAmount(timeline.goldRaidedFromYou)} coin raided`);
-  if (roundedAmount(timeline.goldPlundered) >= SUMMARY_MIN_COIN) parts.push(`+${roundedAmount(timeline.goldPlundered)} coin plundered`);
-  if (summary.waystationsActivated > 0) parts.push(`${summary.waystationsActivated} waystation${summary.waystationsActivated === 1 ? "" : "s"} activated`);
-  if (summary.townsCaptured > 0) parts.push(`+${summary.townsCaptured} town${summary.townsCaptured === 1 ? "" : "s"} captured`);
-  if (summary.townsLost > 0) parts.push(`−${summary.townsLost} town${summary.townsLost === 1 ? "" : "s"} lost`);
-  if (summary.buildingsCompleted > 0) parts.push(`${summary.buildingsCompleted} building${summary.buildingsCompleted === 1 ? "" : "s"} completed`);
-  if (shouldShowManpowerHeadline(timeline.manpowerSpentAttacking, reportEndManpowerCap)) {
-    parts.push(`${roundedAmount(timeline.manpowerSpentAttacking)} manpower spent attacking`);
-  }
-  return parts.join(" · ");
-};
-
-const AWAY_TRUNCATION_LABEL = (awayMs: number): string => {
-  const days = Math.max(1, Math.round(awayMs / (24 * 60 * 60_000)));
-  return `You were away ${days} day${days === 1 ? "" : "s"}. This activity history covers the latest 24 hours.`;
-};
-
-/** Truncation label (plan §4.2) -- never "since you were away" for a truncated report. */
-export const truncationLabel = (timeline: Pick<PersonalActivityTimeline, "truncated" | "from" | "to">): string | undefined => {
-  if (!timeline.truncated) return undefined;
-  return AWAY_TRUNCATION_LABEL(timeline.to - timeline.from);
-};
 
 const timeLabel = (occurredAt: number): string => {
   const date = new Date(occurredAt);

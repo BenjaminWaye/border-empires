@@ -27,11 +27,11 @@ export type DukeIntelView = {
 export type GalaxyBodyKind = "GAS_GIANT" | "ASTEROID_BELT" | "ICE_MOON";
 
 export type DukeBuildOption = {
-  kind: "FIGHTER" | "PROBE" | "REFIT" | "DEVELOP";
+  kind: "FIGHTER" | "PROBE" | "REFIT" | "BASE" | "DEVELOP";
   label: string;
   summary: string;
-  cost: number;
-  daysAtCurrentRate: number | null;
+  // How long the build takes in this system (at most a day, §30).
+  durationMs: number;
   // Null when it can be started now; otherwise the server's reason code.
   blockedBy: string | null;
 };
@@ -40,6 +40,9 @@ export type DukeBodyView = {
   index: number;
   kind: GalaxyBodyKind;
   development: { label: string; summary: string } | null;
+  // A base must be established before the body can be developed (§31).
+  base: boolean;
+  baseOption: DukeBuildOption | null;
   option: DukeBuildOption | null;
 };
 
@@ -49,14 +52,17 @@ export type DukeSystemView = {
   specialization: string;
   stability: number;
   hitsRemaining: number;
+  // Production: how fast this system builds.
   ratePerDay: number;
-  slot: { kind: string; label: string; cost: number; progress: number; daysLeft: number | null } | null;
-  idleBank: number;
+  // The system's one order a day (§30).
+  order: { ready: boolean; readyAt: number | null };
+  slot: { kind: string; label: string; startedAt: number; completesAt: number; bodyIndex?: number | null } | null;
+  // When a raid or Warden last got through here, or null.
+  lastHitAt: number | null;
   fighters: number[];
   probeStock: number;
   options: DukeBuildOption[];
-  fortifyMaxPoints: number;
-  fortifyBlockedBy: string | null;
+  fortify: { stability: number; blockedBy: string | null };
   bodies: DukeBodyView[];
   incursionArrivesAt: number | null;
   developmentsOnline: number;
@@ -67,10 +73,10 @@ export type DukeAttentionKind =
   | "INCURSION_UNDEFENDED"
   | "INCURSION_DEFENDED"
   | "LOW_STABILITY"
-  | "SLOT_EMPTY"
+  | "ORDER_READY"
   | "FIGHTER_DAMAGED"
   | "COURT_OFFER"
-  | "PETITION_READY"
+  | "DECREE_READY"
   | "GRIEVANCE_AGAINST_YOU"
   | "FAVOR_REVOKED"
   | "WRIT_PENDING";
@@ -106,7 +112,8 @@ export type DukeStatus = {
   flights: { kind: "PROBE" | "RAID"; fromSeasonId: string; seasonId: string; arrivesAt: number }[];
   orbiting: { seasonId: string; label: string }[];
   intel: DukeIntelView[];
-  petition: { available: boolean; availableAt: number | null };
+  // The Duke's one decree a day (§30).
+  decree: { ready: boolean; readyAt: number | null };
   court: {
     start: number;
     current: number;
@@ -127,6 +134,8 @@ export type DukeStatus = {
   // Optional: a gateway older than §29 sends neither.
   politics?: DukePoliticsView;
   raids?: DukePublicRaid[];
+  // Systems hit lately, any Duke's: they smoke on the map (§31).
+  recentHits?: { seasonId: string; at: number; by: "RAID" | "WARDEN" }[];
 };
 
 export type DukeActionFailure = { ok: false; code: string; availableAt?: number };

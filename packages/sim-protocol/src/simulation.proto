@@ -215,7 +215,9 @@ message TileDelta {
   optional string watchtower_json = 27;
   optional string natural_wonder_json = 28;
   // One-shot combat-broadcast payload (JSON: attackerOwnerId, defenderOwnerId,
-  // attackerWon, originX, originY, at). Set only on the target tile's delta at
+  // attackerWon, originX, originY, at; optional presentation/gear/shield).
+  // presentation is a cosmetic ending category, never exact odds or strength.
+  // Set only on the target tile's delta at
   // the moment an ATTACK resolves against a defended tile — never persisted
   // as tile state, purely a visual event signal for the client's battle
   // overlay FX. See runtime-lock-resolution.ts.
@@ -288,6 +290,8 @@ message FetchTileDetailRequest {
   uint32 x = 2;
   uint32 y = 3;
   bool full_visibility = 4;
+  // Bounded camera-area fetch; omitted/zero retains the existing 3x3 detail response.
+  uint32 radius = 5;
 }
 
 message FetchTileDetailAck {

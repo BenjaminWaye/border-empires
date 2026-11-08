@@ -21,7 +21,7 @@ describe("join-season overlay style regression", () => {
 
   it("opts #join-season-overlay back into pointer events under #hud (which is pointer-events: none by default)", () => {
     const source = readFileSync(new URL("./style.css", import.meta.url), "utf8");
-    const groupMatch = source.match(/#hud #mobile-nav,[\s\S]*?\{[\s\S]*?\}/);
+    const groupMatch = source.match(/#hud #mini-map-wrap,[\s\S]*?\{[\s\S]*?\}/);
     expect(groupMatch).toBeTruthy();
     expect(groupMatch![0]).toContain("#hud #join-season-overlay");
   });

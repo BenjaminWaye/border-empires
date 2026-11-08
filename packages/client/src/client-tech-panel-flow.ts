@@ -7,12 +7,10 @@ import { renderDomainProgressCard as renderDomainProgressCardFromModule } from "
 import {
   renderDomainChoiceGrid as renderDomainChoiceGridFromModule,
   renderDomainDetailCard as renderDomainDetailCardFromModule,
-  renderDomainDetailOverlay as renderDomainDetailOverlayFromModule,
   renderTechChoiceGrid as renderTechChoiceGridFromModule,
-  renderTechDetailPrompt as renderTechDetailPromptFromModule,
   selectedTechInfo as selectedTechInfoFromModule
 } from "./client-tech-detail-ui/client-tech-detail-ui.js";
-import { renderManifestDetailHtml, type ManifestDetailMode } from "./client-manifest-detail/client-manifest-detail-html.js";
+import { renderManifestDetailHtml } from "./client-manifest-detail/client-manifest-detail-html.js";
 import { manifestFit, hasProspectClueNearTerritory, type ManifestFitInput } from "./client-manifest-detail/client-manifest-fit.js";
 import { occupationSurveyController } from "./client-occupation-survey.js";
 import { renderStructureInfoOverlay as renderStructureInfoOverlayFromModule } from "./client-structure-info-overlay/client-structure-info-overlay.js";
@@ -23,9 +21,7 @@ import { MONUMENT_COMPONENT_KEYS, type StructureInfoKey } from "./client-map-dis
 type TechPanelDeps = {
   state: ClientState;
   techPickEl: HTMLSelectElement;
-  mobileTechPickEl: HTMLSelectElement;
   viewportSize: () => { width: number; height: number };
-  isMobile: () => boolean;
   formatCooldownShort: (ms: number) => string;
   structureInfoForKey: (type: StructureInfoKey) => {
     title: string;
@@ -43,7 +39,7 @@ type TechPanelDeps = {
 };
 
 export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
-  const { state, techPickEl, mobileTechPickEl } = deps;
+  const { state, techPickEl } = deps;
   const clampTechTier = (tier: number): number => Math.max(1, Math.min(7, Math.round(tier)));
 
   const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): number =>
@@ -189,7 +185,6 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       formatCooldownShort: deps.formatCooldownShort,
       titleCaseFromId,
       viewportHeight: deps.viewportSize().height,
-      isMobile: deps.isMobile()
     });
   };
 
@@ -197,11 +192,8 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
     selectedTechInfoFromModule({
       techUiSelectedId: state.techUiSelectedId,
       desktopPickValue: techPickEl.value,
-      mobilePickValue: mobileTechPickEl.value,
       techCatalog: state.techCatalog
     });
-
-  const renderTechDetailPrompt = (): string => renderTechDetailPromptFromModule();
 
   // The clue scan walks every known tile, and the HUD re-renders often while
   // a detail is open -- one cached answer per (tile revision, player, clue).
@@ -226,14 +218,11 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
     surveyReportFor: (resource) => occupationSurveyController.currentForResource(resource)
   });
 
-  // One Manifest detail view for both layouts: the desktop side panel
-  // ("inline") and the mobile overlay ("overlay").
-  const renderManifestDetail = (mode: ManifestDetailMode): string => {
+  const renderManifestDetail = (): string => {
     const tech = selectedTechInfo();
     if (!tech) return "";
     return renderManifestDetailHtml({
       tech,
-      mode,
       techCatalog: state.techCatalog,
       ownedTechIds: state.techIds,
       pendingTechUnlockId: state.pendingTechUnlockId,
@@ -248,7 +237,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
     });
   };
 
-  const renderTechDetailCard = (): string => (state.techDetailOpen ? renderManifestDetail("inline") : "");
+  const renderTechDetailCard = (): string => (state.techDetailOpen ? renderManifestDetail() : "");
 
   const renderStructureInfoOverlay = (): string => {
     const ownedComponentTypes = new Set<string>();
@@ -260,10 +249,6 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
     }
     return renderStructureInfoOverlayFromModule(state.structureInfoKey, deps.structureInfoForKey, ownedComponentTypes, state.techCatalog);
   };
-
-  const renderTechDetailModal = (): string => renderManifestDetail("overlay");
-
-  const techDetailsUseOverlay = (): boolean => deps.isMobile();
 
   const renderDomainChoiceGrid = (): string =>
     renderDomainChoiceGridFromModule({
@@ -281,24 +266,8 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       domainIds: state.domainIds
     });
 
-  const renderTechDetailOverlay = (): string => {
-    if (!state.techDetailOpen) return "";
-    return renderTechDetailModal();
-  };
-
   const renderDomainDetailCard = (): string =>
     renderDomainDetailCardFromModule({
-      domainCatalog: state.domainCatalog,
-      domainUiSelectedId: state.domainUiSelectedId,
-      domainIds: state.domainIds,
-      domainChoices: state.domainChoices,
-      pendingDomainUnlockId: state.pendingDomainUnlockId,
-      ...(state.chosenTrickleResource ? { chosenTrickleResource: state.chosenTrickleResource } : {}),
-      techNameList
-    });
-
-  const renderDomainDetailOverlay = (): string =>
-    renderDomainDetailOverlayFromModule({
       domainCatalog: state.domainCatalog,
       domainUiSelectedId: state.domainUiSelectedId,
       domainIds: state.domainIds,
@@ -334,16 +303,11 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
     isPendingTechUnlock,
     renderTechChoiceGrid,
     selectedTechInfo,
-    renderTechDetailPrompt,
     renderTechDetailCard,
     renderStructureInfoOverlay,
-    renderTechDetailModal,
-    techDetailsUseOverlay,
     renderDomainChoiceGrid,
     renderDomainProgressCard,
-    renderTechDetailOverlay,
     renderDomainDetailCard,
-    renderDomainDetailOverlay,
     renderTechChoiceDetails,
     affordableTechChoicesCount
   };

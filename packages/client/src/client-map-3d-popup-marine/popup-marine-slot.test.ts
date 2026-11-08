@@ -6,7 +6,7 @@ import { createMarineSlot, playMarineStance, type MarineSlot } from "./popup-mar
 // the Hips' y with clip time (x = 0), so the Hips position read back after
 // playMarineStance says exactly which clips are playing, how heavily, and at
 // what point of the Dead clip.
-const STANCE_X = { PistolRun: 1, PistolIdle: 2, PistolKneelingIdle: 3 };
+const STANCE_X = { PistolRun: 1, PistolIdle: 2, PistolKneelingIdle: 3, PistolWalk: 4 };
 
 const makeSlot = (): MarineSlot => {
   const hips = new Bone();
@@ -22,6 +22,7 @@ const makeSlot = (): MarineSlot => {
   const clips = new Map<string, AnimationClip>(
     Object.entries(STANCE_X).map(([name, x]) => [name, new AnimationClip(name, 1, [new VectorKeyframeTrack("Hips.position", [0, 1], [x, 0, 0, x, 0, 0])])])
   );
+  clips.set("PistolWalk", new AnimationClip("PistolWalk", 1, [new VectorKeyframeTrack("Hips.position", [0, 1], [0, 0, 0, 1, 0, 0])]));
   clips.set("Dead", new AnimationClip("Dead", 2.4, [new VectorKeyframeTrack("Hips.position", [0, 2.4], [0, 0, 0, 0, 2.4, 0])]));
   return createMarineSlot(new Scene(), { root, clips }, 0);
 };
@@ -55,4 +56,15 @@ describe("playMarineStance: a killed marine's Dead clip", () => {
     expect(early.x).toBeCloseTo(1, 5); // half the standing clip's x = 2
     expect(early.y).toBeCloseTo(0.5 * 1.1, 5); // half the Dead clip at 1.1s
   });
+});
+
+
+it("plays the walking gait backwards for backsteps, without enabling the run clip", () => {
+  const slot = makeSlot();
+  playMarineStance(slot, "walkBack", 200);
+  expect(slot.root.getObjectByName("Hips")!.position.x).toBeCloseTo(0.8);
+  playMarineStance(slot, "walkBack", 400);
+  expect(slot.root.getObjectByName("Hips")!.position.x).toBeCloseTo(0.6);
+  expect(slot.actions.run.enabled).toBe(false);
+  expect(slot.actions.walkBack.enabled).toBe(true);
 });

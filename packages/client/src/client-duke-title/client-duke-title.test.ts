@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dukeNameHtml, dukeTagHtml, isDukeFromHoldings } from "./client-duke-title.js";
+import { dukeNameHtml, dukeTagHtml } from "./client-duke-title.js";
 
 describe("dukeNameHtml", () => {
   it("wraps the name and appends the crown tag when isDuke is true", () => {
@@ -21,19 +21,5 @@ describe("dukeTagHtml", () => {
     const html = dukeTagHtml();
     expect(html).toContain("Duke");
     expect(html).toContain("<svg");
-  });
-});
-
-describe("isDukeFromHoldings", () => {
-  it("is true when the holdings view has at least one planet", () => {
-    expect(isDukeFromHoldings({ planets: [{}] })).toBe(true);
-  });
-
-  it("is false when the holdings view has no planets", () => {
-    expect(isDukeFromHoldings({ planets: [] })).toBe(false);
-  });
-
-  it("is false when holdings is undefined", () => {
-    expect(isDukeFromHoldings(undefined)).toBe(false);
   });
 });

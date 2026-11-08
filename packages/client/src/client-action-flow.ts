@@ -26,7 +26,7 @@ import {
 } from "./client-player-actions.js";
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { ensureClientCommandEnvelope } from "./client-command-envelope/client-command-envelope.js";
-import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
+import { clearMusterTransitForAttack } from "./client-muster-transit/client-muster-transit.js";
 import { handleMarchPickClick } from "./client-march-origin-picking/client-march-origin-picking.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
@@ -178,7 +178,6 @@ type ActionFlowDeps = Record<string, any> & {
   wsUrl: string;
   canvas: HTMLCanvasElement;
   techPickEl: HTMLSelectElement;
-  mobileTechPickEl: HTMLSelectElement;
   tileActionMenuEl: HTMLDivElement;
   placementOverlayEl: HTMLDivElement;
   placementLabelEl: HTMLDivElement;
@@ -192,7 +191,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     ws,
     wsUrl,
     techPickEl,
-    mobileTechPickEl,
     tileActionMenuEl,
     keyFor,
     parseKey,
@@ -220,7 +218,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     computeDragPreview,
     showCaptureAlert,
     notifyInsufficientGoldForFrontierAction,
-    isMobile,
     supportedOwnedTownsForTile,
     supportedOwnedDocksForTile,
     townHasSupportStructure,
@@ -350,7 +347,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   };
 
   const { sendAllianceRequest, sendTruceRequest, breakAlliance, breakTruce, chooseTech, chooseDomain } =
-    createPlayerActionShortcuts({ state, techPickEl, mobileTechPickEl, ws, wsUrl, setAuthStatus, syncAuthOverlay, pushFeed, renderHud, sendGameMessage });
+    createPlayerActionShortcuts({ state, techPickEl, ws, wsUrl, setAuthStatus, syncAuthOverlay, pushFeed, renderHud, sendGameMessage });
   const activeTruceWithPlayer = (playerId?: string | null): ActiveTruceView | undefined =>
     activeTruceWithPlayerFromState(state, playerId);
 
@@ -657,7 +654,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (!handedOffToSettle) state.autoBuildTargets.delete(targetKey);
     state.capture = undefined;
     // Only this attack's flag entry — other flags may still be marching.
-    if (target) clearMusterTransitForTarget(state, target.x, target.y);
+    clearMusterTransitForAttack(state, msg.commandId, target);
     if (!handedOffToSettle) {
       state.actionInFlight = false;
       state.actionAcceptedAck = false;
@@ -1081,7 +1078,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const tileActionMenuUiDeps = () => ({
     tileActionMenuEl,
     viewportSize,
-    isMobile,
     hideTileActionMenu,
     tileMenuViewForTile,
     handleTileAction,
@@ -1285,7 +1281,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
     if (actionId === "diplomacy" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
-      openDiplomacyForPlayer(state, selected.ownerId, isMobile());
+      openDiplomacyForPlayer(state, selected.ownerId);
       renderHud();
     }
     if (actionId === "reveal_empire" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {

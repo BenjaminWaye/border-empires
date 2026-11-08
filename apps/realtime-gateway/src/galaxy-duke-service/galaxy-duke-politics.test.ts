@@ -44,7 +44,8 @@ describe("AI Dukes (§29.1)", () => {
     const h = await withAi();
     await h.run(HOUR);
     await h.patch("ai:season-c", withSystem("season-c", { probeStock: 1, fighters: [{ hull: 100 }] }));
-    await h.run(HOUR);
+    // Its order for the day went on the first build; the Probe launches with the next.
+    await h.run(DAY);
     const ai = await h.stores.dukeStore.get("ai:season-c");
     expect(ai?.flights).toEqual([expect.objectContaining({ kind: "PROBE", seasonId: "season-a" })]);
   });
@@ -88,6 +89,8 @@ describe("grievances (§29.2)", () => {
     await giveInfluence(h, "uid-a", 20);
     expect(await h.service.declareGrievance("uid-a", "season-a")).toMatchObject({ ok: false, code: "OWN_SECTOR" });
     expect((await h.service.declareGrievance("uid-a", "season-b")).ok).toBe(true);
+    expect(await h.service.declareGrievance("uid-a", "season-b")).toMatchObject({ ok: false, code: "DECREE_NOT_READY" });
+    h.advance(DAY);
     expect(await h.service.declareGrievance("uid-a", "season-b")).toMatchObject({ ok: false, code: "GRIEVANCE_ALREADY_OPEN" });
   });
 
@@ -226,5 +229,35 @@ describe("the Blind Eye (§21.6)", () => {
     expect((await h.stores.galaxyEconomyStore.getBalance("uid-a"))?.influence).toBe(influence + 4);
     h.advance(CYCLE_MS);
     expect((await h.service.status("uid-a"))?.politics.lent).toEqual([]);
+  });
+});
+
+describe("smoke after a hit (§31)", () => {
+  it("a raid that gets through marks the system as hit, for everyone, for a day", async () => {
+    const h = await harness();
+    await h.service.status("uid-a");
+    await h.service.status("uid-b");
+    await h.patch("uid-a", (s) => surveyed("season-b")(withSystem("season-a", { fighters: [{ hull: 100 }] })(s)));
+    expect((await h.service.order("uid-a", "season-a", { kind: "RAID", targetSeasonId: "season-b" })).ok).toBe(true);
+    h.advance(FIGHTER_TRAVEL_MS);
+    await h.service.status("uid-a");
+    const hitAt = T0 + FIGHTER_TRAVEL_MS;
+    expect((await h.service.status("uid-b"))?.systems[0]?.lastHitAt).toBe(hitAt);
+    expect((await h.service.court()).recentHits).toEqual([{ seasonId: "season-b", at: hitAt, by: "RAID" }]);
+    expect((await h.service.status("uid-a"))?.recentHits).toEqual([{ seasonId: "season-b", at: hitAt, by: "RAID" }]);
+    h.advance(DAY);
+    expect((await h.service.court()).recentHits).toEqual([]);
+  });
+});
+
+describe("listRecentHits", () => {
+  it("lists a system once, at its latest hit, even when an old owner's row still has it", async () => {
+    const { listRecentHits } = await import("./galaxy-duke-politics-view.js");
+    const h = await harness();
+    await h.service.status("uid-a");
+    await h.service.status("uid-b");
+    await h.patch("uid-a", withSystem("season-a", { lastHitAt: T0 - 2 * HOUR, lastHitBy: "WARDEN" }));
+    await h.patch("uid-b", (s) => ({ ...s, systems: [...s.systems, { ...s.systems[0]!, seasonId: "season-a", lastHitAt: T0 - HOUR, lastHitBy: "RAID" }] }));
+    expect(listRecentHits(await h.stores.dukeStore.getAll(), T0)).toEqual([{ seasonId: "season-a", at: T0 - HOUR, by: "RAID" }]);
   });
 });

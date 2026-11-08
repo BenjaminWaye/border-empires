@@ -20,7 +20,6 @@ const tooling: TechInfo = {
 const depsFor = (state: ReturnType<typeof createInitialState>, ws: Pick<RealtimeSocket, "readyState" | "send">): PlayerActionDeps => ({
   state,
   techPickEl: { value: "" } as HTMLSelectElement,
-  mobileTechPickEl: { value: "" } as HTMLSelectElement,
   ws: ws as RealtimeSocket,
   wsUrl: "ws://example.test/game",
   setAuthStatus: vi.fn(),

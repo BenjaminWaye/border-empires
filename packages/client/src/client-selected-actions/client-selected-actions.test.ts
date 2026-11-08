@@ -58,6 +58,20 @@ describe("selected action helpers", () => {
 });
 
 describe("cancelOngoingCapture", () => {
+  // Regression (review): Esc runs this on every press, and the server's
+  // CANCEL_CAPTURE drops every lock the player holds, so counting attacks that
+  // already left the dispatch slot cancelled all of them on closing a menu.
+  it("does not cancel attacks the server has already locked", () => {
+    const state = createInitialState();
+    state.detachedAttacksByCommandId.set("cmd-1", { targetX: 4, targetY: 5, startAt: 0, resolvesAt: 15_000 });
+    const sendGameMessage = vi.fn(() => true);
+
+    cancelOngoingCapture(state, sendGameMessage);
+
+    expect(sendGameMessage).not.toHaveBeenCalled();
+    expect(state.detachedAttacksByCommandId.has("cmd-1")).toBe(true);
+  });
+
   it("drops only the most recently queued pending muster attack, leaving the flag and other targets alone", () => {
     const state = createInitialState();
     state.pendingMusterAttacks = [

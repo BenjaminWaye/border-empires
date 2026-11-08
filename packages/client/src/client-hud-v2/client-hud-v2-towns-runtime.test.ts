@@ -31,7 +31,7 @@ const setup = () => {
   const openSingleTileActionMenu = vi.fn((tile: Tile) => { townOnMenuView(deps, view, `${tile.x},${tile.y}`); });
   const deps: HudV2Deps = {
     state, renderHud: vi.fn(), requestViewRefresh: vi.fn(), wrapX: (x) => x, wrapY: (y) => y,
-    isMobile: () => false, sendGameMessage: () => true, ownerColor: () => "#888",
+    setActivePanel: vi.fn(), sendGameMessage: () => true, ownerColor: () => "#888",
     actionFlow: {
       chooseTech: vi.fn(), cancelOngoingCapture: vi.fn(), handleTileAction: vi.fn(), hideTileActionMenu: vi.fn(),
       requestTileDetailIfNeeded: vi.fn(), tileMenuViewForTile: () => view, openSingleTileActionMenu

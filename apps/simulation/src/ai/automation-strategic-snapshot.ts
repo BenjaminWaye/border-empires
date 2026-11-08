@@ -2,6 +2,7 @@ import { GOLD_RESCALE_DIVISOR, type DomainStrategicResourceKey } from "@border-e
 import { ATTACK_MANPOWER_MIN, MUSTER_MAX_TILES } from "@border-empires/shared";
 
 import type { FrontierAnalysis } from "./frontier-command-planner.js";
+import { threatScoreOf } from "./frontier-scoring.js";
 import { hasLandConnectedThreat, nextWarPostureLatch, type WarPostureLatchEntry } from "./ai-war-posture-latch.js";
 import {
   chooseVictoryPath,
@@ -123,7 +124,8 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
       input.frontierAnalysis.frontierOpportunityScaffold > 0
     );
   const pressureAttackScore =
-    (input.frontierAnalysis.attack?.score ?? 0) +
+    // threatScoreOf: a victory-focus target preference is not pressure on this AI.
+    threatScoreOf(input.frontierAnalysis.attack) +
     input.frontierAnalysis.frontierEnemyTargetCount * 85 +
     (input.frontierAnalysis.frontierEnemyTargetCount > 0 && hasActiveTown ? 40 : 0);
   const strainedGrowth = input.needsFood || input.needsEconomy;

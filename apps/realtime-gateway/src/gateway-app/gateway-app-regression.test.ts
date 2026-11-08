@@ -43,7 +43,7 @@ describe("gateway fog capability regression guard", () => {
   it("streams reveal-map snapshots through the chunk cache without retaining them as per-player diagnostics", () => {
     const source = sourceFor("./gateway-app.ts");
     const revealStart = source.indexOf("const revealMapPayloadSet = async");
-    const revealEnd = source.indexOf("const streamRevealMapToSocket = async");
+    const revealEnd = source.indexOf("const streamRevealMapToSocket = createRevealMapStreamer");
     const revealBuildSource = source.slice(revealStart, revealEnd);
 
     expect(source).toContain("const revealMapChunkCache = createRevealMapChunkCache({");
@@ -79,8 +79,8 @@ describe("gateway fog capability regression guard", () => {
     expect(source).toContain("gatewayMetrics.observeRevealSnapshotBytes(payloadSet.payloadJsonBytes);");
     expect(source).toContain("gatewayMetrics.setRevealCacheEntries(1);");
     expect(source).toContain("gatewayMetrics.setRevealCacheEntries(0);");
-    expect(source).toContain("gatewayMetrics.setRevealActiveStreams(activeRevealStreamSockets.size);");
-    expect(source).toContain("gatewayMetrics.incrementRevealChunksSent(1);");
+    expect(source).toContain("onActiveStreams: (count) => gatewayMetrics.setRevealActiveStreams(count)");
+    expect(source).toContain("onChunk: () => gatewayMetrics.incrementRevealChunksSent(1)");
   });
 
   it("rate-limits reveal requests per player and caps concurrent reveal streams", () => {
@@ -98,8 +98,8 @@ describe("gateway fog capability regression guard", () => {
     expect(revealHandlerSource).toContain("activeRevealStreamSockets.size >= MAX_CONCURRENT_REVEAL_STREAMS");
     expect(revealHandlerSource).toContain('code: "REVEAL_MAP_BUSY"');
     expect(revealHandlerSource).toContain("lastRevealRequestMsByPlayerId.set(session.playerId, now);");
-    expect(source).toContain("activeRevealStreamSockets.add(socket);");
-    expect(source).toContain("activeRevealStreamSockets.delete(socket);");
+    expect(sourceFor("../reveal-map-stream/reveal-map-stream.ts")).toContain("deps.activeSockets.add(socket);");
+    expect(sourceFor("../reveal-map-stream/reveal-map-stream.ts")).toContain("deps.activeSockets.delete(socket);");
   });
 
   // Regression for "why did the websocket reply take so long" — the gateway

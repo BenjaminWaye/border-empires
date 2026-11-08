@@ -127,7 +127,7 @@ const render = (): HTMLElement => {
     const menuWrap = document.createElement("div");
     menuWrap.style.position = "relative";
     menuWrap.style.width = "330px";
-    menuWrap.innerHTML = tileActionMenuHtml(col.view, "progress", false);
+    menuWrap.innerHTML = tileActionMenuHtml(col.view, "progress");
     colEl.appendChild(menuWrap);
 
     row.appendChild(colEl);

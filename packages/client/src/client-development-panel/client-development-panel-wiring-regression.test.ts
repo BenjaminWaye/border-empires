@@ -9,34 +9,22 @@ const sourceOf = (relativePath: string): string => {
 };
 
 describe("development panel wiring regression guard", () => {
-  it("exposes the development stat-chip as a clickable data-panel button", () => {
+  it("renders the development panel from the HUD", () => {
     const source = sourceOf("../client-hud/client-hud.ts");
-    // The chip's markup lives in the gear-train module; the HUD must render it.
-    expect(source).toContain("devGearsChipHtml(");
-    expect(sourceOf("../client-dev-gears/client-dev-gears.ts")).toContain('data-panel="development"');
     expect(source).toContain("renderDevelopmentPanelHtml(deriveDevelopmentPanelData(");
-    expect(source).toContain("dom.panelDevelopmentEl.innerHTML = dom.mobilePanelDevelopmentEl.innerHTML");
+    expect(source).toContain("dom.panelDevelopmentEl.innerHTML = safeValue(\"developmentPanelHtml\"");
   });
 
-  it("registers desktop and mobile development panel containers in the DOM shell", () => {
-    const markupSource = sourceOf("../client-dom-markup/client-dom-markup.ts");
-    const domSource = sourceOf("../client-dom.ts");
-    expect(markupSource).toContain('<section id="panel-development" class="panel-body"></section>');
-    expect(markupSource).toContain('<section id="mobile-panel-development" class="mobile-panel"></section>');
-    expect(domSource).toContain("panelDevelopmentEl");
-    expect(domSource).toContain("mobilePanelDevelopmentEl");
+  it("registers the development panel container in the DOM shell", () => {
+    expect(sourceOf("../client-dom-markup/client-dom-markup.ts")).toContain('<section id="panel-development" class="panel-body"></section>');
+    expect(sourceOf("../client-dom.ts")).toContain("panelDevelopmentEl");
   });
 
-  it("registers the development panel title and mobile sheet header", () => {
-    const source = sourceOf("../client-panel-nav/client-panel-nav.js".replace(".js", ".ts"));
-    expect(source).toContain('if (panel === "development") return "Development";');
-    expect(source).toContain('else if (state.mobilePanel === "development") deps.mobileSheetTitleEl.textContent = "Development";');
-    expect(source).toContain('[deps.mobilePanelDevelopmentEl, "development"]');
+  it("registers the development panel title", () => {
+    expect(sourceOf("../client-panel-nav/client-panel-nav.ts")).toContain('if (panel === "development") return "Development";');
   });
 
-  it("includes 'development' in the client state activePanel and mobilePanel unions", () => {
-    const source = sourceOf("../client-state/client-state.ts");
-    expect(source).toMatch(/mobilePanel: "core" as [^,]*"development"/);
-    expect(source).toMatch(/activePanel: null as [^,]*"development"/);
+  it("includes 'development' in the client state activePanel union", () => {
+    expect(sourceOf("../client-state/client-state.ts")).toMatch(/activePanel: null as [^,]*"development"/);
   });
 });

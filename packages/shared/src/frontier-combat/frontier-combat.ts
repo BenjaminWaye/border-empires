@@ -110,6 +110,10 @@ export type FrontierCombatModifiers = {
   // supplies its own side's field.
   attackerStatMult?: number | undefined;
   defenderStatMult?: number | undefined;
+  // Terrain (terrain-combat.ts terrainCombatModifiers): the target stands on
+  // hills / the attack crosses a river edge. Omitted when they don't apply.
+  hillsDefenseMult?: number | undefined;
+  riverCrossingAttackMult?: number | undefined;
 };
 
 // Builds the "missing X Weapons Factory" war-industry breakdown label from
@@ -205,6 +209,7 @@ const attackerBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   mult *= foldMult(entries, "Siege/outpost proximity", modifiers.attackerOutpostMult);
   mult *= foldMult(entries, modifiers.noWarIndustryVulnerabilityLabel ?? "Target has no war industry", modifiers.noWarIndustryVulnerabilityMult);
   mult *= foldMult(entries, "Dock crossing", modifiers.dockAttackMult);
+  mult *= foldMult(entries, "River crossing", modifiers.riverCrossingAttackMult);
   mult *= foldMult(entries, "Combat suits", modifiers.relicAttackMult);
   if (target.ownershipState === "SETTLED") mult *= foldMult(entries, "Manifests vs garrisoned tiles", modifiers.attackVsSettledMult);
   if (target.fortVariant) mult *= foldMult(entries, "Manifests vs forts", modifiers.attackVsFortsMult);
@@ -237,6 +242,9 @@ const defenderBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
       mult *= combinedMult;
     }
   }
+  // High ground holds for garrisons and capture-holders alike (undefended
+  // frontier already returned 0 above, so hills never make it defend).
+  mult *= foldMult(entries, "Hills", modifiers.hillsDefenseMult);
   if (target.breachShockUntil != null && modifiers.nowMs != null && target.breachShockUntil > modifiers.nowMs) {
     mult *= foldMult(entries, "Breach shock", BREAKTHROUGH_DEBUFF_MULT);
   }

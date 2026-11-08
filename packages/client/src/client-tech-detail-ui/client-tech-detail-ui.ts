@@ -47,7 +47,6 @@ export const renderTechChoiceGrid = (deps: {
   formatCooldownShort: (ms: number) => string;
   titleCaseFromId: (id: string) => string;
   viewportHeight: number;
-  isMobile: boolean;
 }): string =>
   deps.state.techTreeExpanded
     ? renderExpandedTechChoiceTreeHtml({
@@ -67,7 +66,6 @@ export const renderTechChoiceGrid = (deps: {
         formatCooldownShort: deps.formatCooldownShort,
         titleCaseFromId: deps.titleCaseFromId,
         viewportHeight: deps.viewportHeight,
-        isMobile: deps.isMobile,
         techTreeZoom: deps.state.techTreeZoom, pulseUntilByTechId: deps.state.techAffordablePulseUntilByTechId
       })
     : renderCompactTechChoiceGridHtml({
@@ -87,21 +85,17 @@ export const renderTechChoiceGrid = (deps: {
         formatCooldownShort: deps.formatCooldownShort,
         titleCaseFromId: deps.titleCaseFromId,
         viewportHeight: deps.viewportHeight,
-        isMobile: deps.isMobile,
         techTreeZoom: deps.state.techTreeZoom, pulseUntilByTechId: deps.state.techAffordablePulseUntilByTechId
       });
 
 export const selectedTechInfo = (deps: {
   techUiSelectedId: string;
   desktopPickValue: string;
-  mobilePickValue: string;
   techCatalog: TechInfo[];
 }): TechInfo | undefined => {
-  const selectedId = deps.techUiSelectedId || deps.desktopPickValue || deps.mobilePickValue || deps.techCatalog[0]?.id;
+  const selectedId = deps.techUiSelectedId || deps.desktopPickValue || deps.techCatalog[0]?.id;
   return deps.techCatalog.find((tech) => tech.id === selectedId);
 };
-
-export const renderTechDetailPrompt = (): string => "";
 
 export const renderDomainChoiceGrid = (deps: {
   domainCatalog: DomainInfo[];
@@ -142,30 +136,3 @@ export const renderDomainDetailCard = (deps: {
   });
 };
 
-export const renderDomainDetailOverlay = (deps: {
-  domainCatalog: DomainInfo[];
-  domainUiSelectedId: string;
-  domainIds: string[];
-  domainChoices: string[];
-  pendingDomainUnlockId: string;
-  chosenTrickleResource?: ChosenTrickleResource;
-  techNameList: (ids: string[]) => string;
-}): string => {
-  const domain = deps.domainCatalog.find((item) => item.id === deps.domainUiSelectedId);
-  if (!domain) return "";
-  return `<div class="tech-detail-backdrop" data-domain-detail-close="backdrop"></div>
-    <div class="tech-detail-modal">
-      <button class="tech-detail-close" type="button" aria-label="Close domain details" data-domain-detail-close="button">×</button>
-      <div class="tech-detail-scroll">
-        ${renderDomainDetailCard({
-          domainCatalog: deps.domainCatalog,
-          domainUiSelectedId: deps.domainUiSelectedId,
-          domainIds: deps.domainIds,
-          domainChoices: deps.domainChoices,
-          pendingDomainUnlockId: deps.pendingDomainUnlockId,
-          ...(deps.chosenTrickleResource ? { chosenTrickleResource: deps.chosenTrickleResource } : {}),
-          techNameList: deps.techNameList
-        })}
-      </div>
-    </div>`;
-};

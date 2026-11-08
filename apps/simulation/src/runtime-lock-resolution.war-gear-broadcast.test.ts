@@ -19,7 +19,7 @@ function makePlayer(id: string): DomainPlayer {
 // flags, rolled into LockedCombatResolution by buildLockedCombatResolution,
 // must reach the client on the combat broadcast -- otherwise those empires'
 // squads render in standard kit (no heavy armour, no Umbrite rounds).
-const resolveWithGear = (gear: Pick<LockedCombatResolution, "attackerGear" | "defenderGear">): Record<string, unknown> => {
+const resolveWithGear = (gear: Pick<LockedCombatResolution, "attackerGear" | "defenderGear">, resultOverrides: Partial<LockedCombatResolution["result"]> = {}): Record<string, unknown> => {
   const tiles = new Map<string, DomainTileState>([
     [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
     [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED" }]
@@ -94,7 +94,8 @@ const resolveWithGear = (gear: Pick<LockedCombatResolution, "attackerGear" | "de
         atkEff: 1,
         defEff: 2,
         winChance: 0.1,
-        levelDelta: 0
+        levelDelta: 0,
+        ...resultOverrides
       },
       defenderGoldLoss: 0,
       targetRecentlyPillaged: false,
@@ -106,7 +107,7 @@ const resolveWithGear = (gear: Pick<LockedCombatResolution, "attackerGear" | "de
   resolveLock(context, lock);
   const combatBatch = events.find(
     (event): event is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> =>
-      event.eventType === "TILE_DELTA_BATCH" && event.commandId === "attack-geared:combat"
+      event.eventType === "TILE_DELTA_BATCH" && event.tileDeltas.some((tile) => tile.x === 6 && tile.y === 5 && tile.combatJson !== undefined)
   );
   const combatJson = (combatBatch?.tileDeltas.find((d) => d.x === 6 && d.y === 5) as { combatJson?: string } | undefined)?.combatJson;
   expect(combatJson).toBeDefined();
@@ -116,6 +117,9 @@ const resolveWithGear = (gear: Pick<LockedCombatResolution, "attackerGear" | "de
 describe("resolveLock combat broadcast war gear", () => {
   it("carries each side's war gear onto the combat broadcast", () => {
     const payload = resolveWithGear({ attackerGear: { umbriteArms: true }, defenderGear: { titaniumArmor: true } });
+    expect(payload.presentation).toBe("last-stand");
+    expect(payload).not.toHaveProperty("winChance");
+    expect(payload).not.toHaveProperty("atkEff");
     expect(payload.attackerGear).toEqual({ umbriteArms: true });
     expect(payload.defenderGear).toEqual({ titaniumArmor: true });
   });
@@ -124,5 +128,18 @@ describe("resolveLock combat broadcast war gear", () => {
     const payload = resolveWithGear({});
     expect(payload).not.toHaveProperty("attackerGear");
     expect(payload).not.toHaveProperty("defenderGear");
+  });
+});
+
+
+describe("resolved battle presentation", () => {
+  it("uses an ordinary exchange for a ward-forced loss instead of inventing an upset", () => {
+    expect(resolveWithGear({}, { winChance: 0.95, attackerWon: false, wardRechargesAt: 10000 }).presentation).toBe("contested");
+  });
+  it.each([
+    [0.1, true, "comeback"], [0.9, false, "comeback"],
+    [0.1, false, "last-stand"], [0.9, true, "decisive"], [0.5, true, "contested"]
+  ] as const)("broadcasts the ending for odds %s, attackerWon %s", (winChance, attackerWon, presentation) => {
+    expect(resolveWithGear({}, { winChance, attackerWon }).presentation).toBe(presentation);
   });
 });

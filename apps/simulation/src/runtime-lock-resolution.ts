@@ -5,6 +5,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/sim-protocol";
 import {
   FRONTIER_CLAIM_COST,
+  battlePresentationFor,
   warScarFieldsAfterBattle
 } from "@border-empires/shared";
 import { afcCapturePlunderGold, afcPlanetaryDefenseBounty, withAfcCapturePlunder } from "./afc-capture-plunder/afc-capture-plunder.js";
@@ -198,6 +199,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
         attackerOwnerId: lock.playerId,
         defenderOwnerId: previousOwnerId,
         attackerWon,
+        presentation: battlePresentationFor(blockedByAegisLock || combatResult?.wardRechargesAt ? undefined : combatResult?.winChance, attackerWon),
         originX: lock.originX,
         originY: lock.originY,
         at: context.now(),

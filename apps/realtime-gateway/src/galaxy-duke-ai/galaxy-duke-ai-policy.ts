@@ -1,10 +1,12 @@
 // AI Dukes (§29.1): the decisions an AI-held Duke makes on each tick. Pure and
 // deterministic, so the runner only has to carry the choices out through the
-// same actions a player uses (no AI-only rules, no AI-only shortcuts).
-import { HULL_MAX, MAX_FIGHTERS_PER_SYSTEM } from "../galaxy-duke-engine/galaxy-duke-config.js";
-import { fightersOwned, type BuildSpec } from "../galaxy-duke-engine/galaxy-duke-production.js";
+// same actions a player uses (no AI-only rules, no AI-only shortcuts). Like a
+// player, an AI has one order per system and one decree a day (§30), so it
+// picks at most one of each; answering offers is free.
+import { MAX_FIGHTERS_PER_SYSTEM } from "../galaxy-duke-engine/galaxy-duke-config.js";
+import { fightersOwned, hasBase, type BuildSpec } from "../galaxy-duke-engine/galaxy-duke-production.js";
 import { systemBodyKinds } from "../galaxy-duke-engine/galaxy-duke-systems.js";
-import type { DukeState } from "../galaxy-duke-engine/galaxy-duke-types.js";
+import type { DukeState, SystemState } from "../galaxy-duke-engine/galaxy-duke-types.js";
 import { GRIEVANCE_COST_INFLUENCE } from "../galaxy-duke-engine/galaxy-duke-politics-config.js";
 
 export { isAiDukeUid as isAiDuke } from "../galaxy-holdings/galaxy-holdings.js";
@@ -24,7 +26,11 @@ export type AiTurnInput = {
   myWeight: number;
   stabilityBySeason: ReadonlyMap<string, number>;
   rivals: ReadonlyArray<AiRival>;
-  petitionReady: boolean;
+  // Systems whose order for the day is still unused.
+  ordersReady: ReadonlySet<string>;
+  decreeReady: boolean;
+  // Move Against the Court is open (the Court stands and no offer locks it).
+  canMoveAgainstCourt: boolean;
   grievanceOpenAgainst: string | null;
   // The kind of Writ waiting for an answer, if any.
   writ: "FIGHTER" | "STRIKE" | null;
@@ -36,35 +42,50 @@ export type AiAction =
   | { kind: "ANSWER_COURT_OFFER"; accept: boolean }
   | { kind: "ANSWER_WRIT"; accept: boolean }
   | { kind: "BUILD"; seasonId: string; spec: BuildSpec }
+  | { kind: "FORTIFY"; seasonId: string }
   | { kind: "PROBE"; fromSeasonId: string; targetSeasonId: string }
-  | { kind: "DECLARE"; targetSeasonId: string }
   | { kind: "RAID"; fromSeasonId: string; targetSeasonId: string }
+  | { kind: "DECLARE"; targetSeasonId: string }
   | { kind: "LEND"; fromSeasonId: string }
-  | { kind: "MOVE_AGAINST_COURT"; influence: number };
+  | { kind: "MOVE_AGAINST_COURT"; influence: number }
+  | { kind: "HOLD_COURT" };
 
 // Keep enough Influence in reserve that a wager never tips upkeep into deficit.
 const INFLUENCE_RESERVE = 6;
 const RAID_FIGHTERS_TO_KEEP_HOME = 1;
+const FORTIFY_BELOW = 60;
 const DEVELOPMENT_ORDER = ["GAS_GIANT", "ASTEROID_BELT", "ICE_MOON"] as const;
 
-const nextBuild = (input: AiTurnInput, system: DukeState["systems"][number], unsurveyed: boolean): BuildSpec | null => {
-  const stability = input.stabilityBySeason.get(system.seasonId) ?? 100;
+const nextBuild = (input: AiTurnInput, system: SystemState, unsurveyed: boolean): BuildSpec | null => {
+  if (system.slot) return null;
   const owned = fightersOwned(input.state, system);
   if (owned === 0) return { kind: "FIGHTER" };
   if (system.fighters.some((f) => f.hull < 60)) return { kind: "REFIT" };
-  if (stability <= 40) return { kind: "FORTIFY", points: Math.min(40, HULL_MAX - stability) };
   const bodies = systemBodyKinds(system.seasonId);
   const free = system.developments.length === 0;
   for (const kind of DEVELOPMENT_ORDER) {
     const index = bodies.findIndex((b, i) => b === kind && !system.developments.some((d) => d.bodyIndex === i));
     // Only the first development in a system is free of upkeep; later ones
     // wait until Influence can carry them.
-    if (index >= 0 && (free || input.influence >= INFLUENCE_RESERVE + 4)) return { kind: "DEVELOP", bodyIndex: index };
+    // A body needs a base first (§31).
+    if (index >= 0 && (free || input.influence >= INFLUENCE_RESERVE + 4)) return hasBase(system, index) ? { kind: "DEVELOP", bodyIndex: index } : { kind: "BASE", bodyIndex: index };
   }
   if (system.probeStock === 0 && unsurveyed) return { kind: "PROBE" };
   if (owned < MAX_FIGHTERS_PER_SYSTEM) return { kind: "FIGHTER" };
-  if (stability < 100) return { kind: "FORTIFY", points: HULL_MAX - stability };
   return null;
+};
+
+// The one order for a system: raid if this is the raiding system, else launch
+// a Probe, else fortify a shaken world, else build.
+const orderFor = (input: AiTurnInput, system: SystemState, raidFrom: string | null, raidTarget: string | null, probeTarget: string | null): AiAction | null => {
+  if (raidTarget && raidFrom === system.seasonId) return { kind: "RAID", fromSeasonId: system.seasonId, targetSeasonId: raidTarget };
+  // An undefended system builds its first Fighter before anything else: a
+  // Fortify is undone by the very next hit a Fighter would have blocked.
+  if (!system.slot && fightersOwned(input.state, system) === 0) return { kind: "BUILD", seasonId: system.seasonId, spec: { kind: "FIGHTER" } };
+  if (probeTarget && system.probeStock > 0) return { kind: "PROBE", fromSeasonId: system.seasonId, targetSeasonId: probeTarget };
+  if ((input.stabilityBySeason.get(system.seasonId) ?? 100) < FORTIFY_BELOW) return { kind: "FORTIFY", seasonId: system.seasonId };
+  const spec = nextBuild(input, system, probeTarget !== null);
+  return spec ? { kind: "BUILD", seasonId: system.seasonId, spec } : null;
 };
 
 export const planAiTurn = (input: AiTurnInput): AiAction[] => {
@@ -81,53 +102,52 @@ export const planAiTurn = (input: AiTurnInput): AiAction[] => {
   // has none at all. The leader never takes one.
   if (input.writ) {
     const defenceless = state.systems.every((s) => s.fighters.length === 0);
-    const accept = !leader && (input.writ === "STRIKE" || defenceless);
-    actions.push({ kind: "ANSWER_WRIT", accept });
+    actions.push({ kind: "ANSWER_WRIT", accept: !leader && (input.writ === "STRIKE" || defenceless) });
   }
 
   const surveyed = new Set(state.intel.map((i) => i.seasonId));
   const inFlight = new Set(state.flights.map((f) => f.seasonId));
-  const unsurveyed = input.rivals.filter((r) => !surveyed.has(r.seasonId) && !inFlight.has(r.seasonId));
+  const probeTarget = input.rivals.find((r) => !surveyed.has(r.seasonId) && !inFlight.has(r.seasonId))?.seasonId ?? null;
 
-  for (const system of state.systems) {
-    if (system.slot) continue;
-    const spec = nextBuild(input, system, unsurveyed.length > 0);
-    if (spec) actions.push({ kind: "BUILD", seasonId: system.seasonId, spec });
+  // A raid on the grievance target, from a system that keeps a defender home,
+  // never into a healthy defender.
+  const grievanceTarget = input.grievanceOpenAgainst ? input.rivals.find((r) => r.authUid === input.grievanceOpenAgainst) : undefined;
+  let raidFrom: string | null = null;
+  if (grievanceTarget) {
+    const intel = state.intel.find((i) => i.seasonId === grievanceTarget.seasonId);
+    const underway = state.flights.some((f) => f.kind === "RAID" && f.seasonId === grievanceTarget.seasonId);
+    const raider = state.systems.find((s) => input.ordersReady.has(s.seasonId) && s.fighters.filter((f) => f.hull >= 80).length > RAID_FIGHTERS_TO_KEEP_HOME);
+    if (raider && intel && !underway && (intel.defenderHull === null || intel.defenderHull <= 60)) raidFrom = raider.seasonId;
   }
 
-  const prober = state.systems.find((s) => s.probeStock > 0);
-  const probeTarget = unsurveyed[0];
-  if (prober && probeTarget) actions.push({ kind: "PROBE", fromSeasonId: prober.seasonId, targetSeasonId: probeTarget.seasonId });
+  let probeClaimed = false;
+  for (const system of state.systems) {
+    if (!input.ordersReady.has(system.seasonId)) continue;
+    const order = orderFor(input, system, raidFrom, grievanceTarget?.seasonId ?? null, probeClaimed ? null : probeTarget);
+    if (!order) continue;
+    if (order.kind === "PROBE") probeClaimed = true;
+    actions.push(order);
+  }
 
-  // Grievances go to a Duke the Court has abandoned, else the strongest Duke
-  // ahead of this one. Only once the target has been surveyed.
+  if (input.decreeReady) actions.push(decreeFor(input, surveyed));
+  return actions;
+};
+
+// The one decree: win back the Court's Favor, else declare on a target, else
+// weaken the Court with spare Influence, else hold court.
+const decreeFor = (input: AiTurnInput, surveyed: ReadonlySet<string>): AiAction => {
+  if (input.favorRevoked) {
+    const lender = input.state.systems.find((s) => s.fighters.length > RAID_FIGHTERS_TO_KEEP_HOME);
+    if (lender) return { kind: "LEND", fromSeasonId: lender.seasonId };
+  }
   const target = [...input.rivals]
     .filter((r) => surveyed.has(r.seasonId))
     .sort((a, b) => Number(b.revoked) - Number(a.revoked) || b.weight - a.weight)
     .find((r) => r.revoked || r.weight > input.myWeight);
-  const canAfford = (r: AiRival): boolean => r.revoked || input.influence >= GRIEVANCE_COST_INFLUENCE + INFLUENCE_RESERVE;
-  let influence = input.influence;
-  if (!input.grievanceOpenAgainst && target && canAfford(target)) {
-    actions.push({ kind: "DECLARE", targetSeasonId: target.seasonId });
-    if (!target.revoked) influence -= GRIEVANCE_COST_INFLUENCE;
+  if (!input.grievanceOpenAgainst && target && (target.revoked || input.influence >= GRIEVANCE_COST_INFLUENCE + INFLUENCE_RESERVE)) {
+    return { kind: "DECLARE", targetSeasonId: target.seasonId };
   }
-
-  const grievanceTarget = input.grievanceOpenAgainst ? input.rivals.find((r) => r.authUid === input.grievanceOpenAgainst) : undefined;
-  if (grievanceTarget) {
-    const intel = state.intel.find((i) => i.seasonId === grievanceTarget.seasonId);
-    const raider = state.systems.find((s) => s.fighters.filter((f) => f.hull >= 80).length > RAID_FIGHTERS_TO_KEEP_HOME);
-    const raidUnderway = state.flights.some((f) => f.kind === "RAID" && f.seasonId === grievanceTarget.seasonId);
-    if (raider && intel && !raidUnderway && (intel.defenderHull === null || intel.defenderHull <= 60)) {
-      actions.push({ kind: "RAID", fromSeasonId: raider.seasonId, targetSeasonId: grievanceTarget.seasonId });
-    }
-  }
-
-  if (input.favorRevoked) {
-    const lender = state.systems.find((s) => s.fighters.length > RAID_FIGHTERS_TO_KEEP_HOME);
-    if (lender) actions.push({ kind: "LEND", fromSeasonId: lender.seasonId });
-  }
-
-  const spare = Math.floor(influence - INFLUENCE_RESERVE);
-  if (input.petitionReady && spare >= 5) actions.push({ kind: "MOVE_AGAINST_COURT", influence: Math.min(20, spare) });
-  return actions;
+  const spare = Math.floor(input.influence - INFLUENCE_RESERVE);
+  if (input.canMoveAgainstCourt && spare >= 5) return { kind: "MOVE_AGAINST_COURT", influence: Math.min(20, spare) };
+  return { kind: "HOLD_COURT" };
 };

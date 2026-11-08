@@ -5,7 +5,7 @@ import { freshNextBatchAmount, nextManpowerRefillForPlayer } from "../client-man
 
 export type HudManpowerPanelDeps = {
   state: ClientState;
-  dom: { hud: HTMLElement; panelManpowerEl: HTMLElement; mobilePanelManpowerEl: HTMLElement };
+  dom: { hud: HTMLElement; panelManpowerEl: HTMLElement };
   renderManpowerPanelHtml: typeof renderManpowerPanelHtml;
   formatManpowerAmount: (value: number) => string;
   rateToneClass: (rate: number) => string;
@@ -19,7 +19,7 @@ export type HudManpowerPanelDeps = {
   fallbackHtml: string;
 };
 
-/** Renders and wires the manpower detail panel (desktop and mobile copies), extracted from client-hud.ts. */
+/** Renders and wires the manpower detail panel extracted from client-hud.ts. */
 export const renderHudManpowerPanel = (deps: HudManpowerPanelDeps): void => {
   const { state, dom } = deps;
   const nowMs = Date.now();
@@ -36,6 +36,6 @@ export const renderHudManpowerPanel = (deps: HudManpowerPanelDeps): void => {
       nextRefillAtMs: nextManpowerRefillForPlayer(state.me, nowMs)
     })
   );
-  dom.panelManpowerEl.innerHTML = dom.mobilePanelManpowerEl.innerHTML = html;
+  dom.panelManpowerEl.innerHTML = html;
   wireManpowerPanel(dom.hud, state, { wrapX: deps.wrapX, wrapY: deps.wrapY, requestViewRefresh: deps.requestViewRefresh, rerender: deps.rerender });
 };

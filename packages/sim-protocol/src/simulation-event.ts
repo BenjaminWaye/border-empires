@@ -1,4 +1,4 @@
-import type { FrontierDecayKind, VisibilityState } from "@border-empires/shared";
+import type { BattlePresentation, FrontierDecayKind, VisibilityState } from "@border-empires/shared";
 import type { FrontierCombatActionType, LockedFrontierCombatResult, StrategicResourceKey } from "./index.js";
 import type { TileOverlayJsonFields } from "./tile-overlay-fields/tile-overlay-fields.js";
 
@@ -30,6 +30,8 @@ import type { TileOverlayJsonFields } from "./tile-overlay-fields/tile-overlay-f
 export type BattleWarGear = { titaniumArmor?: true; umbriteArms?: true };
 
 export type CombatBroadcastPayload = {
+  /** Cosmetic ending category; no exact odds, strength or casualty counts. */
+  presentation?: BattlePresentation;
   attackerOwnerId: string;
   defenderOwnerId: string;
   attackerWon: boolean;

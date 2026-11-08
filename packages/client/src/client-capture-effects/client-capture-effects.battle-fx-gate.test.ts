@@ -21,7 +21,8 @@ describe("renderCaptureProgress battle overlay FX gating", () => {
   // walking-arrow/skirmish animation was still mid-approach, or hadn't even
   // started rendering yet.
   it("holds the result banner until the registered battle overlay FX finishes, even after resolvesAt passes", () => {
-    vi.spyOn(Date, "now").mockReturnValue(6_000);
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_010_000);
+    vi.spyOn(performance, "now").mockReturnValue(6_000);
     const captureCardEl = makeElement();
     const captureWrapEl = makeElement();
     const captureCancelBtn = makeElement();
@@ -51,8 +52,8 @@ describe("renderCaptureProgress battle overlay FX gating", () => {
           ]
         ]),
         capture: {
-          startAt: 1_000,
-          resolvesAt: 5_000,
+          startAt: 1_700_000_001_000,
+          resolvesAt: 1_700_000_005_000,
           target: { x: 10, y: 20 }
         },
         me: "player-1",
@@ -86,8 +87,9 @@ describe("renderCaptureProgress battle overlay FX gating", () => {
       }
     );
 
+    expect(captureReportBugBtn.style.display).toBe("none");
     expect(showCaptureAlert).not.toHaveBeenCalled();
-    expect(captureTitleEl.textContent).toBe("Resolving action...");
+    expect(captureCardEl.style.display).toBe("none");
   });
 
   // Regression: an ATTACK on a known-FRONTIER (undefended) tile never gets a

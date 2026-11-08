@@ -27,6 +27,7 @@ const setup = async (status: DukeStatus | "not-a-duke" = dukeStatus(), apiPatch:
     order: vi.fn(ok),
     answerOffer: vi.fn(ok),
     moveAgainstCourt: vi.fn(ok),
+    holdCourt: vi.fn(ok),
     declareGrievance: vi.fn(ok),
     answerWrit: vi.fn(ok),
     lendFleet: vi.fn(ok),
@@ -70,12 +71,12 @@ describe("HUD", () => {
     const status = dukeStatus({
       systems: [dukeSystem(), dukeSystem({ seasonId: "s2", label: "Vex" })],
       attention: [
-        { kind: "SLOT_EMPTY", severity: "NOTICE", seasonId: "s2", label: "Vex", at: null },
+        { kind: "ORDER_READY", severity: "NOTICE", seasonId: "s2", label: "Vex", at: null },
         { kind: "COURT_OFFER", severity: "URGENT", seasonId: null, label: "The Court", at: null }
       ]
     });
     const { screen, panel, openPanel } = await setup(status);
-    click(screen, '[data-duke-attention="SLOT_EMPTY"]');
+    click(screen, '[data-duke-attention="ORDER_READY"]');
     expect(openPanel).toHaveBeenCalledTimes(1);
     expect(panel.textContent).toContain("Vex");
     expect(panel.querySelector('[data-duke-system="s2"]')).not.toBeNull();
@@ -132,18 +133,14 @@ describe("actions send exactly what was pressed, for the planet shown", () => {
     await flush();
     expect(api.build).toHaveBeenCalledWith("s1", { kind: "DEVELOP", bodyIndex: 0 });
   });
-  it("Fortify sends the slider's points, and the readout follows the slider", async () => {
+  it("Fortify is an instant order", async () => {
     const { panel, api } = await setup();
-    const slider = panel.querySelector<HTMLInputElement>("[data-duke-fortify-points]")!;
-    slider.value = "15";
-    slider.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(panel.querySelector("[data-duke-fortify-output]")!.textContent).toBe("+15");
     click(panel, "[data-duke-fortify]");
     await flush();
-    expect(api.build).toHaveBeenCalledWith("s1", { kind: "FORTIFY", points: 15 });
+    expect(api.build).toHaveBeenCalledWith("s1", { kind: "FORTIFY" });
   });
   it("cancel", async () => {
-    const busy = dukeStatus({ systems: [dukeSystem({ slot: { kind: "FIGHTER", label: "Fighter", cost: 80, progress: 10, daysLeft: 12 } })] });
+    const busy = dukeStatus({ systems: [dukeSystem({ slot: { kind: "FIGHTER", label: "Fighter", startedAt: NOW - H, completesAt: NOW + 3 * H } })] });
     const { panel, api } = await setup(busy);
     click(panel, "[data-duke-cancel-build]");
     await flush();
@@ -197,7 +194,7 @@ describe("failures", () => {
     expect(message.textContent).not.toContain("SLOT_BUSY");
   });
   it("the Petition limit says when it opens again", async () => {
-    const { panel, controller } = await setup(dukeStatus(), { moveAgainstCourt: async () => ({ ok: false, code: "PETITION_ALREADY_MADE_THIS_CYCLE", availableAt: NOW + 26 * H }) });
+    const { panel, controller } = await setup(dukeStatus(), { moveAgainstCourt: async () => ({ ok: false, code: "DECREE_NOT_READY", availableAt: NOW + 26 * H }) });
     controller.showTab("COURT");
     click(panel, "[data-duke-court-move]");
     await flush();
@@ -287,5 +284,25 @@ describe("politics (§29)", () => {
     panel.querySelector<HTMLButtonElement>("[data-duke-lend]")!.click();
     await flush();
     expect(api.lendFleet).toHaveBeenCalledWith("s1");
+  });
+});
+
+describe("refresh ordering", () => {
+  it("drops a status response that arrives after a newer one", async () => {
+    type Fetched = { status?: DukeStatus; notADuke?: boolean; message?: string };
+    let releaseOld: () => void = () => undefined;
+    let calls = 0;
+    const { controller, seen } = await setup(dukeStatus(), {
+      fetchStatus: vi.fn((): Promise<Fetched> => {
+        calls += 1;
+        if (calls === 2) return new Promise((resolve) => (releaseOld = () => resolve({ status: dukeStatus({ influence: 1 }) })));
+        return Promise.resolve({ status: dukeStatus({ influence: 99 }) });
+      })
+    });
+    const slow = controller.refresh();
+    await controller.refresh();
+    releaseOld();
+    await slow;
+    expect(seen.at(-1)?.influence).toBe(99);
   });
 });

@@ -1,3 +1,4 @@
+import { PerformanceObserver } from "node:perf_hooks";
 import { describe, expect, it, vi } from "vitest";
 
 import { InMemorySimulationCommandStore } from "../command-store/command-store.js";
@@ -47,6 +48,7 @@ describe("simulation service startup recovery", () => {
         (tile) => tile.ownerId === "player-1" && typeof tile.ownershipState === "string"
       )
     ).toBe(true);
+    await service.close();
   }, 90_000);
 
   it("does not fall back to a seed world for db-backed startup recovery failure", async () => {
@@ -105,6 +107,13 @@ describe("simulation service startup recovery", () => {
   });
 
   it("allows explicit local seeded startup against an empty db-backed store", async () => {
+    // Regression: a GC PerformanceObserver left connected after close() keeps
+    // the closed service (runtime + world) alive for the rest of the process.
+    // Same for the startup-recovery race timer once recovery wins it.
+    const observe = vi.spyOn(PerformanceObserver.prototype, "observe");
+    const disconnect = vi.spyOn(PerformanceObserver.prototype, "disconnect");
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore = new InMemorySimulationEventStore();
     const snapshotStore = new InMemorySimulationSnapshotStore();
@@ -115,6 +124,7 @@ describe("simulation service startup recovery", () => {
       eventStore,
       snapshotStore,
       seasonSummaryStore: new InMemorySeasonSummaryStore(),
+      startupRecoveryTimeoutMs: 87_654,
       allowSeedRecoveryFallback: true,
       requireDurableStartupState: false,
       log: {
@@ -132,6 +142,12 @@ describe("simulation service startup recovery", () => {
       )
     ).toBe(true);
     await service.close();
+    expect(observe.mock.calls.length).toBeGreaterThan(0);
+    expect(disconnect).toHaveBeenCalledTimes(observe.mock.calls.length);
+    const recoveryTimerIndex = setTimeoutSpy.mock.calls.findIndex((call) => call[1] === 87_654);
+    expect(recoveryTimerIndex).toBeGreaterThanOrEqual(0);
+    expect(clearTimeoutSpy).toHaveBeenCalledWith(setTimeoutSpy.mock.results[recoveryTimerIndex]?.value);
+    vi.restoreAllMocks();
   }, 90_000);
 
   it("normalizes truthy autopilot flags when callers pass string values at runtime", async () => {

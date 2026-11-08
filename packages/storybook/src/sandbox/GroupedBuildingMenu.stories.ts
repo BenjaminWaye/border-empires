@@ -80,7 +80,7 @@ const render = (): HTMLElement => {
 
     const menuWrap = document.createElement("div");
     menuWrap.style.cssText = "position:relative;width:340px;max-height:640px;overflow:auto";
-    menuWrap.innerHTML = tileActionMenuHtml(col.view, "buildings", false);
+    menuWrap.innerHTML = tileActionMenuHtml(col.view, "buildings");
     colEl.appendChild(menuWrap);
 
     row.appendChild(colEl);

@@ -9,8 +9,7 @@ export const buildOption = (patch: Partial<DukeBuildOption> = {}): DukeBuildOpti
   kind: "FIGHTER",
   label: "Fighter",
   summary: "Defends this system, and can raid",
-  cost: 80,
-  daysAtCurrentRate: 14,
+  durationMs: 8 * H,
   blockedBy: null,
   ...patch
 });
@@ -23,19 +22,27 @@ export const dukeSystem = (patch: Partial<DukeSystemView> = {}): DukeSystemView 
   hitsRemaining: 4,
   ratePerDay: 6,
   slot: null,
-  idleBank: 12,
+  lastHitAt: null,
+  order: { ready: true, readyAt: null },
   fighters: [],
   probeStock: 0,
   options: [
     buildOption(),
-    buildOption({ kind: "PROBE", label: "Probe", summary: "Surveys a system, then watches it", cost: 25, daysAtCurrentRate: 5 }),
-    buildOption({ kind: "REFIT", label: "Refit", summary: "Repairs your most damaged Fighter", cost: 0, blockedBy: "NOTHING_TO_REPAIR" })
+    buildOption({ kind: "PROBE", label: "Probe", summary: "Surveys a system, then watches it", durationMs: 4 * H }),
+    buildOption({ kind: "REFIT", label: "Refit", summary: "Repairs every Fighter here", durationMs: 0, blockedBy: "NOTHING_TO_REPAIR" })
   ],
-  fortifyMaxPoints: 20,
-  fortifyBlockedBy: null,
+  fortify: { stability: 15, blockedBy: null },
   bodies: [
-    { index: 0, kind: "GAS_GIANT", development: null, option: buildOption({ kind: "DEVELOP", label: "Gas Harvester", summary: "+8 Production per Cycle", cost: 80, daysAtCurrentRate: 14 }) },
-    { index: 1, kind: "ICE_MOON", development: { label: "Cryo Refinery", summary: "+6 Stability per Cycle here" }, option: null }
+    { index: 0, kind: "GAS_GIANT", development: null, base: true, baseOption: null, option: buildOption({ kind: "DEVELOP", label: "Gas Harvester", summary: "+3 Production: builds here go faster", durationMs: 16 * H }) },
+    { index: 1, kind: "ICE_MOON", development: { label: "Cryo Refinery", summary: "+6 Stability per Cycle here" }, base: true, baseOption: null, option: null },
+    {
+      index: 2,
+      kind: "ASTEROID_BELT",
+      development: null,
+      base: false,
+      baseOption: buildOption({ kind: "BASE", label: "Establish base", summary: "Lets you build a Mining Station here", durationMs: 8 * H }),
+      option: buildOption({ kind: "DEVELOP", label: "Mining Station", summary: "+2 Production: builds here go faster", durationMs: 16 * H, blockedBy: "NO_BASE" })
+    }
   ],
   incursionArrivesAt: NOW + 2 * D,
   developmentsOnline: 1,
@@ -49,12 +56,12 @@ export const dukeStatus = (patch: Partial<DukeStatus> = {}): DukeStatus => ({
   systems: [dukeSystem()],
   attention: [
     { kind: "INCURSION_UNDEFENDED", severity: "URGENT", seasonId: "s1", label: "Aurelia", at: NOW + 2 * D },
-    { kind: "SLOT_EMPTY", severity: "NOTICE", seasonId: "s1", label: "Aurelia", at: null }
+    { kind: "ORDER_READY", severity: "NOTICE", seasonId: "s1", label: "Aurelia", at: null }
   ],
   flights: [],
   orbiting: [],
   intel: [],
-  petition: { available: true, availableAt: null },
+  decree: { ready: true, readyAt: null },
   court: {
     start: 300,
     current: 280,

@@ -29,7 +29,7 @@ let cachedHtml = "";
  */
 export const renderDefensibilityPanels = (
   state: DefensibilityPanelState,
-  dom: { readonly panelDefensibilityEl: HTMLElement; readonly mobilePanelDefensibilityEl: HTMLElement },
+  dom: { readonly panelDefensibilityEl: HTMLElement },
   deps: DefensibilityPanelDeps
 ): void => {
   const key = [state.tilesRevision, state.tiles.size, state.me, state.defensibilityPct, state.settledT, state.settledE, state.showWeakDefensibility].join("|");
@@ -55,7 +55,6 @@ export const renderDefensibilityPanels = (
   }
   const panelHtml = cachedHtml || deps.fallbackCard("Empire Integrity");
   dom.panelDefensibilityEl.innerHTML = panelHtml;
-  dom.mobilePanelDefensibilityEl.innerHTML = panelHtml;
 };
 
 /** Test-only: forget the memoized panel. */

@@ -1,20 +1,8 @@
-// Per-system Production (§21.8, §26): each Planet has its own daily rate feeding
-// its own one build slot. Pure logic; the service supplies stability and applies
+// Per-system builds (§26, §30). Starting a build is a system's order for the
+// day; it finishes on a fixed timer of at most a day, faster where the system's
+// Production is higher. Pure logic; the service supplies stability and applies
 // the returned effects.
-import { MS_PER_DAY } from "../galaxy-production-queue/galaxy-production-queue.js";
-import {
-  CYCLE_DAYS,
-  DEVELOPMENTS,
-  DEVELOPMENT_FOR_BODY,
-  FIGHTER_COST,
-  FORTIFY_COST_PER_POINT,
-  HULL_MAX,
-  IDLE_BANK_CYCLES,
-  MAX_FIGHTERS_PER_SYSTEM,
-  MAX_PROBES_PER_SYSTEM,
-  PROBE_COST,
-  refitCost
-} from "./galaxy-duke-config.js";
+import { HULL_MAX, MAX_FIGHTERS_PER_SYSTEM, MAX_PROBES_PER_SYSTEM, DEVELOPMENTS, DEVELOPMENT_FOR_BODY, buildDurationMs } from "./galaxy-duke-config.js";
 import { pushDigest } from "./galaxy-duke-digest.js";
 import { findSystem, replaceSystem, systemBodyKinds, systemDailyRate } from "./galaxy-duke-systems.js";
 import type { DukeBuild, DukeCounter, DukeState, SystemState } from "./galaxy-duke-types.js";
@@ -25,33 +13,13 @@ export type DukeEffect =
 
 export type DukeStep = { state: DukeState; counters: DukeCounter[]; effects: DukeEffect[] };
 
-const cycleBankCap = (ratePerDay: number): number => ratePerDay * CYCLE_DAYS * IDLE_BANK_CYCLES;
-
-// Advances one system's slot (or idle bank) by `elapsedMs`.
-export const advanceSystem = (system: SystemState, elapsedMs: number): { system: SystemState; completed: DukeBuild | null } => {
-  const ratePerDay = systemDailyRate(system);
-  if (ratePerDay <= 0 || elapsedMs <= 0) return { system, completed: null };
-  const perMs = ratePerDay / MS_PER_DAY;
-  if (!system.slot) {
-    return { system: { ...system, idleBank: Math.min(cycleBankCap(ratePerDay), system.idleBank + elapsedMs * perMs) }, completed: null };
-  }
-  const msNeeded = (system.slot.cost - system.slot.progress) / perMs;
-  if (elapsedMs >= msNeeded) {
-    const leftover = (elapsedMs - msNeeded) * perMs;
-    return {
-      system: { ...system, slot: null, idleBank: Math.min(cycleBankCap(ratePerDay), system.idleBank + leftover) },
-      completed: { ...system.slot, progress: system.slot.cost }
-    };
-  }
-  return { system: { ...system, slot: { ...system.slot, progress: system.slot.progress + elapsedMs * perMs } }, completed: null };
+// Finishes the system's build once its timer is up.
+export const advanceSystem = (system: SystemState, now: number): { system: SystemState; completed: DukeBuild | null } => {
+  if (!system.slot || now < system.slot.completesAt) return { system, completed: null };
+  return { system: { ...system, slot: null }, completed: system.slot };
 };
 
-export type BuildSpec =
-  | { kind: "FIGHTER" }
-  | { kind: "PROBE" }
-  | { kind: "REFIT" }
-  | { kind: "FORTIFY"; points: number }
-  | { kind: "DEVELOP"; bodyIndex: number };
+export type BuildSpec = { kind: "FIGHTER" } | { kind: "PROBE" } | { kind: "REFIT" } | { kind: "BASE"; bodyIndex: number } | { kind: "DEVELOP"; bodyIndex: number };
 
 export type PlanBuildErrorCode =
   | "NO_SUCH_SYSTEM"
@@ -61,8 +29,12 @@ export type PlanBuildErrorCode =
   | "NOTHING_TO_REPAIR"
   | "INVALID"
   | "NO_SUCH_BODY"
-  | "BODY_ALREADY_DEVELOPED";
-export type PlanBuildResult = { ok: true; build: Omit<DukeBuild, "progress"> } | { ok: false; code: PlanBuildErrorCode };
+  | "BODY_ALREADY_DEVELOPED"
+  | "NO_BASE"
+  | "BASE_ALREADY_THERE";
+
+export type PlannedBuild = Omit<DukeBuild, "startedAt" | "completesAt"> & { durationMs: number };
+export type PlanBuildResult = { ok: true; build: PlannedBuild } | { ok: false; code: PlanBuildErrorCode };
 
 // Fighters away on a raid or lent to the Court still count toward the cap; a
 // Court Fighter on a Writ strike is the Court's, not this system's.
@@ -71,48 +43,50 @@ export const fightersOwned = (state: DukeState, system: SystemState): number =>
   state.flights.filter((f) => f.kind === "RAID" && !f.courtWrit && f.fromSeasonId === system.seasonId).length +
   (state.lent ?? []).filter((l) => l.fromSeasonId === system.seasonId).length;
 
-export const planBuild = (state: DukeState, seasonId: string, spec: BuildSpec, stability: number): PlanBuildResult => {
+// A body has a base once one is established on it, or once it is developed.
+export const hasBase = (system: SystemState, bodyIndex: number): boolean =>
+  (system.bases ?? []).includes(bodyIndex) || system.developments.some((d) => d.bodyIndex === bodyIndex);
+
+export const planBuild = (state: DukeState, seasonId: string, spec: BuildSpec): PlanBuildResult => {
   const system = findSystem(state, seasonId);
   if (!system) return { ok: false, code: "NO_SUCH_SYSTEM" };
   if (system.slot) return { ok: false, code: "SLOT_BUSY" };
+  const rate = systemDailyRate(system);
   switch (spec.kind) {
     case "FIGHTER":
       return fightersOwned(state, system) >= MAX_FIGHTERS_PER_SYSTEM
         ? { ok: false, code: "FIGHTER_CAP" }
-        : { ok: true, build: { kind: "FIGHTER", label: "Fighter", cost: FIGHTER_COST } };
+        : { ok: true, build: { kind: "FIGHTER", label: "Fighter", durationMs: buildDurationMs("FIGHTER", rate) } };
     case "PROBE":
       return system.probeStock >= MAX_PROBES_PER_SYSTEM
         ? { ok: false, code: "PROBE_STOCK_CAP" }
-        : { ok: true, build: { kind: "PROBE", label: "Probe", cost: PROBE_COST } };
-    case "REFIT": {
-      const weakest = system.fighters.reduce<number | null>((min, f) => (min === null || f.hull < min ? f.hull : min), null);
-      return weakest === null || weakest >= HULL_MAX
+        : { ok: true, build: { kind: "PROBE", label: "Probe", durationMs: buildDurationMs("PROBE", rate) } };
+    case "REFIT":
+      return system.fighters.every((f) => f.hull >= HULL_MAX)
         ? { ok: false, code: "NOTHING_TO_REPAIR" }
-        : { ok: true, build: { kind: "REFIT", label: "Refit", cost: refitCost(HULL_MAX - weakest) } };
-    }
-    case "FORTIFY": {
-      const points = Math.floor(spec.points);
-      if (!Number.isFinite(points) || points < 1 || points > HULL_MAX - stability) return { ok: false, code: "INVALID" };
-      return { ok: true, build: { kind: "FORTIFY", label: `Fortify +${points}`, cost: points * FORTIFY_COST_PER_POINT, points } };
+        : { ok: true, build: { kind: "REFIT", label: "Refit", durationMs: buildDurationMs("REFIT", rate) } };
+    case "BASE": {
+      const body = systemBodyKinds(seasonId)[spec.bodyIndex];
+      if (!Number.isInteger(spec.bodyIndex) || body === undefined) return { ok: false, code: "NO_SUCH_BODY" };
+      if (hasBase(system, spec.bodyIndex)) return { ok: false, code: "BASE_ALREADY_THERE" };
+      return { ok: true, build: { kind: "BASE", label: "Base", bodyIndex: spec.bodyIndex, durationMs: buildDurationMs("BASE", rate) } };
     }
     case "DEVELOP": {
-      const bodies = systemBodyKinds(seasonId);
-      const body = bodies[spec.bodyIndex];
+      const body = systemBodyKinds(seasonId)[spec.bodyIndex];
       if (!Number.isInteger(spec.bodyIndex) || body === undefined) return { ok: false, code: "NO_SUCH_BODY" };
       if (system.developments.some((d) => d.bodyIndex === spec.bodyIndex)) return { ok: false, code: "BODY_ALREADY_DEVELOPED" };
+      if (!hasBase(system, spec.bodyIndex)) return { ok: false, code: "NO_BASE" };
       const dev = DEVELOPMENTS[DEVELOPMENT_FOR_BODY[body]];
-      return { ok: true, build: { kind: "DEVELOP", label: dev.label, cost: dev.cost, bodyIndex: spec.bodyIndex, development: dev.kind } };
+      return { ok: true, build: { kind: "DEVELOP", label: dev.label, bodyIndex: spec.bodyIndex, development: dev.kind, durationMs: buildDurationMs("DEVELOP", rate) } };
     }
   }
 };
 
-// Banked Production from an idle slot carries into the new build (capped at its
-// cost), so an empty slot only wastes what exceeds one Cycle.
-export const startPlannedBuild = (state: DukeState, seasonId: string, planned: Omit<DukeBuild, "progress">): DukeState => {
+export const startPlannedBuild = (state: DukeState, seasonId: string, planned: PlannedBuild, now: number): DukeState => {
   const system = findSystem(state, seasonId);
   if (!system) return state;
-  const carried = Math.min(planned.cost, system.idleBank);
-  return replaceSystem(state, { ...system, slot: { ...planned, progress: carried }, idleBank: system.idleBank - carried });
+  const { durationMs, ...rest } = planned;
+  return replaceSystem(state, { ...system, slot: { ...rest, startedAt: now, completesAt: now + durationMs } });
 };
 
 export const cancelBuild = (state: DukeState, seasonId: string): DukeState => {
@@ -124,7 +98,6 @@ export const cancelBuild = (state: DukeState, seasonId: string): DukeState => {
 export const applyCompletedBuild = (state: DukeState, seasonId: string, build: DukeBuild, now: number): DukeStep => {
   const system = findSystem(state, seasonId);
   if (!system) return { state, counters: [], effects: [] };
-  const effects: DukeEffect[] = [];
   let next: SystemState = system;
   let text = "";
   if (build.kind === "FIGHTER") {
@@ -134,16 +107,15 @@ export const applyCompletedBuild = (state: DukeState, seasonId: string, build: D
     next = { ...next, probeStock: Math.min(MAX_PROBES_PER_SYSTEM, next.probeStock + 1) };
     text = "Probe complete and ready to launch.";
   } else if (build.kind === "REFIT") {
-    const idx = next.fighters.reduce((best, f, i) => (best === -1 || f.hull < next.fighters[best]!.hull ? i : best), -1);
-    if (idx >= 0) next = { ...next, fighters: next.fighters.map((f, i) => (i === idx ? { hull: HULL_MAX } : f)) };
-    text = "Refit complete. Fighter hull restored to 100%.";
-  } else if (build.kind === "FORTIFY" && build.points !== undefined) {
-    effects.push({ kind: "STABILITY_DELTA", seasonId, delta: build.points });
-    text = `Fortify complete. Stability +${build.points}.`;
+    next = { ...next, fighters: next.fighters.map(() => ({ hull: HULL_MAX })) };
+    text = "Refit complete. Every Fighter here is back to 100%.";
+  } else if (build.kind === "BASE" && build.bodyIndex !== undefined) {
+    next = { ...next, bases: [...(next.bases ?? []).filter((b) => b !== build.bodyIndex), build.bodyIndex] };
+    text = "Base established. That body can now be developed.";
   } else if (build.kind === "DEVELOP" && build.bodyIndex !== undefined && build.development) {
     next = { ...next, developments: [...next.developments, { bodyIndex: build.bodyIndex, kind: build.development }] };
     text = `${DEVELOPMENTS[build.development].label} online: ${DEVELOPMENTS[build.development].summary}.`;
   }
   const pushed = pushDigest(replaceSystem(state, next), now, "ECONOMY", text);
-  return { state: pushed.state, counters: pushed.counters, effects };
+  return { state: pushed.state, counters: pushed.counters, effects: [] };
 };

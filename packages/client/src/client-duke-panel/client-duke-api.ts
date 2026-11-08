@@ -9,7 +9,7 @@ export type DukeApiDeps = {
 
 export type DukeActionOutcome = { ok: true } | (DukeActionFailure & { message?: string });
 
-export type DukeBuildBody = { kind: "FIGHTER" | "PROBE" | "REFIT" } | { kind: "FORTIFY"; points: number } | { kind: "DEVELOP"; bodyIndex: number };
+export type DukeBuildBody = { kind: "FIGHTER" | "PROBE" | "REFIT" | "FORTIFY" } | { kind: "BASE" | "DEVELOP"; bodyIndex: number };
 
 export type DukeApi = {
   fetchStatus: () => Promise<{ status?: DukeStatus; notADuke?: boolean; message?: string }>;
@@ -18,6 +18,7 @@ export type DukeApi = {
   order: (fromSeasonId: string, body: { kind: "PROBE" | "RAID"; targetSeasonId: string }) => Promise<DukeActionOutcome>;
   answerOffer: (accept: boolean) => Promise<DukeActionOutcome>;
   moveAgainstCourt: (influence: number) => Promise<DukeActionOutcome>;
+  holdCourt: () => Promise<DukeActionOutcome>;
   declareGrievance: (targetSeasonId: string) => Promise<DukeActionOutcome>;
   answerWrit: (accept: boolean) => Promise<DukeActionOutcome>;
   lendFleet: (fromSeasonId: string) => Promise<DukeActionOutcome>;
@@ -70,6 +71,7 @@ export const createDukeApi = (deps: DukeApiDeps): DukeApi => {
     order: (fromSeasonId, body) => post(systemPath(fromSeasonId, "order"), body),
     answerOffer: (accept) => post("/hq/galaxy/duke/court-offer", { accept }),
     moveAgainstCourt: (influence) => post("/hq/galaxy/duke/court/move", { influence }),
+    holdCourt: () => post("/hq/galaxy/duke/court/hold"),
     declareGrievance: (targetSeasonId) => post("/hq/galaxy/duke/grievance", { targetSeasonId }),
     answerWrit: (accept) => post("/hq/galaxy/duke/writ", { accept }),
     lendFleet: (fromSeasonId) => post(systemPath(fromSeasonId, "lend"))

@@ -115,6 +115,27 @@ does not explain an earlier delay.
   incident against deployment logs/build SHA before claiming its cause; live
   deployment verification follows [deploys.md](deploys.md).
 
+## Revealed-map loading
+
+A revealed world needs a whole-world terrain/territory overview, not whole-world
+per-player town/economy enrichment. `simulation-service/full-visibility-source.ts`
+shares one detached ended-season export and overview until invalidation/rollover.
+Personal economy still uses the player's visible export. Live admin reveals
+retain their existing rich tile payload for server-side combat previews. `viewport-detail/` in
+the gateway services camera chunk subscriptions with bounded detail queries,
+coalesces rapid panning, and drops responses from a previous season or identity.
+The overview preserves minimap town, dock, watchtower, waystation and relic markers. Both map
+renderers and the minimap consume the same tile stream.
+
+For regressions, run the simulation's `full-visibility-source.test.ts` and the
+gateway's `viewport-detail/` tests. Measure uninterrupted event-loop stalls and
+AUTH-to-INIT on a clone of the ended season; a successful health response alone
+is insufficient. Keep full-map coverage and verify tile-detail/economy parity.
+The gateway gRPC client has a finite 64 MiB receive cap: the default 4 MiB
+rejects real ended-season snapshots (`RESOURCE_EXHAUSTED`), even with healthy pings.
+The general separation of tiled detail from overview data follows
+[MapLibre's tiled sources](https://maplibre.org/maplibre-style-spec/sources/).
+
 ## Main-thread stalls on the rewrite stack
 
 The event-loop watchdog (`apps/realtime-gateway/src/event-loop-watchdog.ts`) captures the gateway main thread's JavaScript stack once it has been silent for `WATCHDOG_STACK_CAPTURE_MS` (default 10s, `0` disables), up to three times per stall, by pausing it through the inspector from the watchdog worker (`main-thread-stack-capture/`). Look for `event_loop_stall_stack` and `event_loop_stall_recovered` in the server logs (`scripts/ops/backend-logs.sh`), or `stallStacks` in the kill log and in `previous_death_forensics` after a watchdog kill. `ok: false, reason: "pause_timeout"` means the thread was inside native code (e.g. a synchronous SQLite call) rather than JS.

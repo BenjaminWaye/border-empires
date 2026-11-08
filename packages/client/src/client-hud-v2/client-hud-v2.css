@@ -31,8 +31,6 @@ body.hud-v2 {
 body.hud-v2 #hud-v2 { display: block; }
 /* Loading / sign-in / season lobby: nothing of the HUD on top (see client-hud-v2-ready.ts). */
 body.hud-v2.hud-v2-waiting #hud-v2 { display: none; }
-body.hud-v2 #top-strip,
-body.hud-v2 #floating-info { display: none !important; }
 /* Zero-specificity resets, so component classes (primary buttons' dark text) win. */
 :where(#hud-v2) button { font: inherit; color: inherit; cursor: pointer; }
 :where(#hud-v2) button:disabled { cursor: not-allowed; }
@@ -104,6 +102,10 @@ body.hud-v2 #floating-info { display: none !important; }
 /* ---- Top-right: victory line + rivals ---- */
 .hud-v2-right { position: fixed; top: 12px; right: 16px; z-index: 40; display: grid; gap: 10px; justify-items: end; max-width: 340px; }
 /* The victory line is the way into Ranks. */
+.hud-v2-ward-slot:empty { display: none; }
+.hud-v2-ward { display: inline-block; min-height: 34px; padding: 6px 12px; border: 1px solid rgba(240, 200, 120, 0.55); border-radius: 8px; background: rgba(24, 20, 14, 0.88); color: #f3dfb2; font: inherit; font-size: 13px; font-weight: 600; }
+button.hud-v2-ward { cursor: pointer; }
+button.hud-v2-ward:hover { background: rgba(58, 45, 24, 0.94); }
 .hud-v2-season { display: grid; gap: 4px; padding: 10px 14px; text-align: right; color: inherit; font: inherit; cursor: pointer; }
 .hud-v2-season:hover { border-color: var(--v2-edge-strong); background: #1b170f; }
 .hud-v2-season-title { font-family: var(--v2-display); font-size: 15px; font-weight: 700; letter-spacing: 0.08em; color: var(--v2-gold); }

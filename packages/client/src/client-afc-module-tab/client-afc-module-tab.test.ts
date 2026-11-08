@@ -32,7 +32,7 @@ describe("graphical AFC modules tab", () => {
     const overlay = createFabricationComplexOverlay(new Scene(), 1);
     overlay.addInstance(0, 0, 0, target.x, target.y);
     const root = document.createElement("div");
-    root.innerHTML = tileActionMenuHtml(viewFor(), "modules", false);
+    root.innerHTML = tileActionMenuHtml(viewFor(), "modules");
     const sockets = Array.from(root.querySelectorAll<HTMLElement>(".afc-socket-cell"));
     const gridOffset = (coordinate: number): number => Math.abs(coordinate) < 0.000001 ? 0 : Math.sign(coordinate);
     try {
@@ -77,7 +77,7 @@ describe("graphical AFC modules tab", () => {
     expect(view.modules?.slots[0]).toMatchObject({ name: "Titanium Forge", state: "house" });
     expect(view.modules?.actions.map((action) => action.id)).toEqual(["redeploy_afc_module:workshops", "redeploy_afc_module:radar"]);
     const root = document.createElement("div");
-    root.innerHTML = tileActionMenuHtml(view, "modules", true);
+    root.innerHTML = tileActionMenuHtml(view, "modules");
     expect(root.querySelectorAll(".afc-socket")).toHaveLength(8);
     // AFC upgrades lead the tab, above the socket diagram.
     expect(root.querySelector(".afc-module-panel")?.firstElementChild?.matches("button.afc-upgrades-cta[data-open-afc-upgrades]")).toBe(true);
@@ -110,7 +110,7 @@ describe("graphical AFC modules tab", () => {
   it("switches to the clicked slot and dismisses on toggle, close, Escape or outside click", () => {
     const root = document.createElement("div");
     document.body.append(root);
-    root.innerHTML = tileActionMenuHtml(viewFor(), "modules", true);
+    root.innerHTML = tileActionMenuHtml(viewFor(), "modules");
     const picker = root.querySelector<HTMLElement>(".afc-slot-picker")!;
     picker.scrollIntoView = vi.fn();
     bindAfcModulePicker(root);
@@ -141,7 +141,7 @@ describe("graphical AFC modules tab", () => {
   it("preserves an open picker through a same-tile refresh, but not a filled slot or another tile", () => {
     const root = document.createElement("div");
     document.body.append(root);
-    root.innerHTML = tileActionMenuHtml(viewFor(), "modules", false);
+    root.innerHTML = tileActionMenuHtml(viewFor(), "modules");
     const picker = root.querySelector<HTMLElement>(".afc-slot-picker")!;
     picker.scrollIntoView = vi.fn();
     bindAfcModulePicker(root);
@@ -152,14 +152,14 @@ describe("graphical AFC modules tab", () => {
     const previous = afcModulePickerStateForTitle(root, "AFC");
     expect(previous).toMatchObject({ slot: "2", scrollTop: 40, focusedActionId: "redeploy_afc_module:radar" });
     expect(afcModulePickerStateForTitle(root, "AFC (other tile)")).toBeUndefined();
-    root.innerHTML = tileActionMenuHtml(viewFor(), "modules", false);
+    root.innerHTML = tileActionMenuHtml(viewFor(), "modules");
     bindAfcModulePicker(root, previous);
     const restored = root.querySelector<HTMLElement>(".afc-slot-picker")!;
     expect(restored.hidden).toBe(false);
     expect(restored.scrollTop).toBe(40);
     expect(document.activeElement?.getAttribute("data-action")).toBe("redeploy_afc_module:radar");
     const filled = { ...target, afc: { ...target.afc!, modules: ["masonry", "workshops"], houseModules: ["masonry", "workshops"] } };
-    root.innerHTML = tileActionMenuHtml(viewFor(filled), "modules", false);
+    root.innerHTML = tileActionMenuHtml(viewFor(filled), "modules");
     bindAfcModulePicker(root, previous);
     expect(root.querySelector<HTMLElement>(".afc-slot-picker")!.hidden).toBe(true);
   });
@@ -178,7 +178,7 @@ describe("graphical AFC modules tab", () => {
     for (const action of view.modules!.actions) { action.disabled = true; action.disabledReason = "Unavailable right now"; }
     const root = document.createElement("div");
     document.body.append(root);
-    root.innerHTML = tileActionMenuHtml(view, "modules", true);
+    root.innerHTML = tileActionMenuHtml(view, "modules");
     const picker = root.querySelector<HTMLElement>(".afc-slot-picker")!;
     picker.scrollIntoView = vi.fn();
     bindAfcModulePicker(root);
@@ -190,7 +190,7 @@ describe("graphical AFC modules tab", () => {
   it("offers no call-down controls when full, foreign, dormant, or all unlocked types are present", () => {
     const full = viewFor({ ...target, afc: { ...target.afc!, modules: Array(8).fill("masonry") } });
     expect(full.modules?.actions).toEqual([]);
-    expect(tileActionMenuHtml(full, "modules", false)).toContain("All sockets are full");
+    expect(tileActionMenuHtml(full, "modules")).toContain("All sockets are full");
     for (const afc of [{ ...target.afc!, ownerId: "other" }, { ...target.afc!, status: "inactive" as const }, { ...target.afc!, modules: catalog.map((entry) => entry.id) }]) {
       expect(viewFor({ ...target, afc }).modules?.actions).toEqual([]);
     }
@@ -199,13 +199,13 @@ describe("graphical AFC modules tab", () => {
   });
 
   it("only shows the AFC upgrades button on AFCs the player owns", () => {
-    expect(tileActionMenuHtml(viewFor({ ...target, afc: { ...target.afc!, status: "inactive" } }), "modules", false)).toContain("data-open-afc-upgrades");
-    expect(tileActionMenuHtml(viewFor({ ...target, ownerId: "other", afc: { ...target.afc!, ownerId: "other" } }), "modules", false)).not.toContain("data-open-afc-upgrades");
+    expect(tileActionMenuHtml(viewFor({ ...target, afc: { ...target.afc!, status: "inactive" } }), "modules")).toContain("data-open-afc-upgrades");
+    expect(tileActionMenuHtml(viewFor({ ...target, ownerId: "other", afc: { ...target.afc!, ownerId: "other" } }), "modules")).not.toContain("data-open-afc-upgrades");
   });
 
   it("renders the tile's overview details beneath the socket diagram", () => {
     const root = document.createElement("div");
-    root.innerHTML = tileActionMenuHtml({ ...viewFor(), overviewLines: [{ html: "Upkeep: 2 gold/m" }] }, "modules", true);
+    root.innerHTML = tileActionMenuHtml({ ...viewFor(), overviewLines: [{ html: "Upkeep: 2 gold/m" }] }, "modules");
     const panel = root.querySelector(".afc-module-panel");
     const overview = root.querySelector(".tile-overview-card");
     expect(overview?.textContent).toContain("Upkeep: 2 gold/m");
@@ -213,9 +213,9 @@ describe("graphical AFC modules tab", () => {
   });
 
   it("shows the dormant warning for a captured (inactive) AFC", () => {
-    const html = tileActionMenuHtml(viewFor({ ...target, afc: { ...target.afc!, status: "inactive" } }), "modules", false);
+    const html = tileActionMenuHtml(viewFor({ ...target, afc: { ...target.afc!, status: "inactive" } }), "modules");
     expect(html).toContain("tile-overview-dormant");
     expect(html).toContain("inactive until this AFC is reclaimed");
-    expect(tileActionMenuHtml(viewFor(), "modules", false)).not.toContain("tile-overview-dormant");
+    expect(tileActionMenuHtml(viewFor(), "modules")).not.toContain("tile-overview-dormant");
   });
 });

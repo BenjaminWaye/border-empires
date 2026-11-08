@@ -25,8 +25,8 @@ const run = (
     capture,
     tiles: new Map(targetOwnership ? [[keyFor(5, 5), { ownershipState: targetOwnership }]] : []),
     dockPairs: [],
-    musterTransitByTile: new Map(),
-    deferredAttackByTile: new Map(),
+    musterTransitByCommand: new Map(),
+    deferredAttackByCommand: new Map(),
     outgoingMusterAttacksByTile: new Map(outgoing ? [[keyFor(5, 5), outgoing]] : []),
     incomingAttacksByTile: new Map(),
     activeBattles: new Map()

@@ -2,42 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { ActiveTruceView, TileActionDef, TileMenuView } from "../client-types.js";
 import { actionBarHtml, moreActions, selectBarButtons } from "./client-hud-v2-action-bar.js";
 import { waystationFacts } from "./client-hud-v2-tile-facts.js";
-import { HUD_V2_STORAGE_KEY, readHudV2Flag } from "./client-hud-v2-flag.js";
 import { orbFill, orbHtml } from "./client-hud-v2-orb.js";
 import { resourceBarHtml, slotChipState } from "./client-hud-v2-resource-bar.js";
 import { RIVAL_STRIP_CAP, rivalTokens } from "./client-hud-v2-rivals.js";
 import { TRACKER_GROUP_CAP, trackerHtml, trackerNeeds } from "./client-hud-v2-tracker.js";
 
-const memoryStorage = () => {
-  const map = new Map<string, string>();
-  return {
-    getItem: (k: string) => map.get(k) ?? null,
-    setItem: (k: string, v: string) => void map.set(k, v),
-    removeItem: (k: string) => void map.delete(k)
-  };
-};
-
 const truce = (otherPlayerId: string, endsAt: number): ActiveTruceView => ({ otherPlayerId, otherPlayerName: otherPlayerId, startedAt: 0, endsAt, createdByPlayerId: "me" });
 
 const act = (id: TileActionDef["id"], extra: Partial<TileActionDef> = {}): TileActionDef => ({ id, label: id, ...extra });
-
-describe("hud v2 flag", () => {
-  it("is on by default, opted out by ?hud=legacy and back on with ?hud=v2", () => {
-    const storage = memoryStorage();
-    expect(readHudV2Flag("", storage)).toBe(true);
-    expect(readHudV2Flag("?hud=legacy", storage)).toBe(false);
-    expect(readHudV2Flag("", storage)).toBe(false);
-    expect(readHudV2Flag("?hud=v2", storage)).toBe(true);
-    expect(storage.getItem(HUD_V2_STORAGE_KEY)).toBe("1");
-    expect(readHudV2Flag("", storage)).toBe(true);
-  });
-
-  it("keeps early ?hud=v2 testers on the new HUD", () => {
-    const storage = memoryStorage();
-    storage.setItem(HUD_V2_STORAGE_KEY, "1");
-    expect(readHudV2Flag("", storage)).toBe(true);
-  });
-});
 
 describe("resource bar", () => {
   it("warns only when a slot is over capacity, not when full", () => {
@@ -71,19 +43,47 @@ describe("resource bar", () => {
 });
 
 describe("tracker", () => {
-  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, building: [], queue: [], slotsOpen: true, nowMs: 0 };
+  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, manpowerCap: 1000, building: [], queue: [], slotsOpen: true, nowMs: 0 };
 
   it("lists free build slots, AFC upgrades and stalled flags as needs", () => {
     const needs = trackerNeeds({
       ...base,
       afcReady: 1,
       flags: [
-        { x: 4, y: 5, amount: 10, mode: "ADVANCE", insufficientManpower: true },
+        { x: 4, y: 5, amount: 10, mode: "ADVANCE", noTargetInRange: true },
         { x: 6, y: 7, amount: 50, mode: "HOLD" }
       ]
     });
     expect(needs.map((n) => n.kind)).toEqual(["afc", "flag"]);
-    expect(needs[1]).toMatchObject({ x: 4, y: 5, sub: "Needs manpower" });
+    expect(needs[1]).toMatchObject({ x: 4, y: 5, sub: "No target in range" });
+  });
+
+  // Regression: an Advance flag saving up for its next target (37/207, still fighting) was listed as "stalled".
+  // Flags drain the pool as they fill, so the pool sits near 0 while saving up: an empty pool is not a stall either.
+  it("does not list a flag that is only saving up or still fighting", () => {
+    const flags = [
+      { x: 464, y: 17, amount: 37, mode: "ADVANCE" as const, insufficientManpower: true, inFlight: true },
+      { x: 465, y: 17, amount: 37, mode: "ADVANCE" as const, insufficientManpower: true },
+      { x: 466, y: 17, amount: 37, mode: "MARCH" as const, insufficientManpower: true },
+      { x: 467, y: 17, amount: 20, mode: "ADVANCE" as const, inFlight: true, unfundableTarget: { x: 1, y: 1, required: 900 } },
+      { x: 468, y: 17, amount: 20, mode: "HOLD" as const, noTargetInRange: true }
+    ];
+    expect(trackerNeeds({ ...base, flags })).toEqual([]);
+    expect(trackerHtml({ ...base, flags })).not.toContain("Needs you");
+  });
+
+  it("lists idle flags with no target, or a target beyond what the flag can hold", () => {
+    const needs = trackerNeeds({
+      ...base,
+      manpowerCap: 600,
+      flags: [
+        { x: 1, y: 1, amount: 10, mode: "ADVANCE", noTargetInRange: true },
+        { x: 2, y: 2, amount: 150, mode: "ADVANCE", insufficientManpower: true, unfundableTarget: { x: 3, y: 3, required: 300 } },
+        { x: 4, y: 4, amount: 150, mode: "MARCH", insufficientManpower: true, unfundableTarget: { x: 5, y: 5, required: 900 } }
+      ]
+    });
+    expect(needs.map((n) => n.title)).toEqual(["Flag (1, 1) stalled", "Flag (2, 2) needs higher capacity", "Flag (4, 4) stalled"]);
+    expect(needs.map((n) => n.sub)).toEqual(["No target in range", "Target needs 300", "Target needs 900, over manpower cap"]);
   });
 
   it("caps the waiting list and shows the overflow count", () => {

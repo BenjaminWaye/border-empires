@@ -16,7 +16,7 @@ describe("Diplomatic Corps (AFC Chancery II) in AI diplomacy", () => {
 
   it("halves what the requester pays for a truce, but not what a losing AI pays for peace", () => {
     const opinion = opinionWith();
-    const priced = (requesterTruceCostMult?: number) => aiDiplomacyPricing({ aiName: "Milo", stanceKind: "WARY", opinion, memory, bordersTouch: true, aiIncomePerMinute: 1, requesterIncomePerMinute: 1,
+    const priced = (requesterTruceCostMult?: number) => aiDiplomacyPricing({ aiName: "Milo", stanceKind: "WARY", opinion, memory, bordersTouch: true, aiIncomePerMinute: 1,
       aiHoldings: { gold: 0, shard: 0 }, requesterBrokeTruceWithAi: false, aiWouldLeadAlliance: true, now: 1, ...(requesterTruceCostMult !== undefined ? { requesterTruceCostMult } : {}) }).pricing.required;
     expect(priced(0.5).truce12).toBe(Math.round(priced().truce12! / 2));
     expect(priced(0.5).truce24).toBe(Math.round(priced().truce24! / 2));

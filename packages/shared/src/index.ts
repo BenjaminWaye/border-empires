@@ -1,4 +1,5 @@
 export * from "./config.js";
+export * from "./battle-presentation/battle-presentation.js";
 export * from "./retort-recast.js";
 export * from "./town-terrain-profile.js";
 export * from "./muster-state.js";
@@ -51,6 +52,7 @@ export * from "./worldgen/worldgen-visual-biome.js";
 export * from "./forest-terrain/forest-terrain.js";
 export * from "./forest-terrain/forest-clearing.js";
 export * from "./hills-terrain/hills-terrain.js";
+export * from "./terrain-combat/terrain-combat.js";
 export * from "./frontier-claim-duration/frontier-claim-duration.js";
 export * from "./garrison-duration/garrison-duration.js";
 export * from "./expand-manpower-cost/expand-manpower-cost.js";

@@ -25,22 +25,3 @@ export const focusCameraOnTile = (
   state.selected = { x: wrappedX, y: wrappedY };
   deps.requestViewRefresh();
 };
-
-/** Wires every rendered Center button's click handler inside the dashboard overlay root. */
-export const wireActivityDashboardCenterButtons = (
-  root: ParentNode,
-  state: { camX: number; camY: number; camSubX: number; camSubY: number; selected?: { x: number; y: number } | undefined },
-  deps: { wrapX: (x: number) => number; wrapY: (y: number) => number; requestViewRefresh: () => void; rerender: () => void; onSurveyFocused?: () => void }
-): void => {
-  const buttons = root.querySelectorAll("[data-activity-focus-x][data-activity-focus-y]") as NodeListOf<HTMLButtonElement>;
-  buttons.forEach((btn) => {
-    btn.onclick = () => {
-      const x = Number(btn.dataset.activityFocusX);
-      const y = Number(btn.dataset.activityFocusY);
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-      focusCameraOnTile(state, x, y, deps);
-      if (btn.dataset.activitySurvey === "true") deps.onSurveyFocused?.();
-      deps.rerender();
-    };
-  });
-};

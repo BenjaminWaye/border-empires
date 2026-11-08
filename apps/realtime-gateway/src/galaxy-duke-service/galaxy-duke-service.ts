@@ -7,6 +7,8 @@ import {
   answerCourtOfferAction,
   buildAction,
   cancelBuildAction,
+  fortifyAction,
+  holdCourtAction,
   moveAgainstCourtAction,
   orderAction,
   type DukeActionResult,
@@ -21,6 +23,8 @@ export type GalaxyDukeService = {
   court: () => Promise<CourtPublicView>;
   build: (authUid: string, seasonId: string, spec: BuildSpec) => Promise<DukeActionResult>;
   cancelBuild: (authUid: string, seasonId: string) => Promise<DukeActionResult>;
+  fortify: (authUid: string, seasonId: string) => Promise<DukeActionResult>;
+  holdCourt: (authUid: string) => Promise<DukeActionResult>;
   order: (authUid: string, fromSeasonId: string, spec: OrderSpec) => Promise<DukeActionResult>;
   answerCourtOffer: (authUid: string, accept: boolean) => Promise<DukeActionResult>;
   moveAgainstCourt: (authUid: string, influence: number) => Promise<DukeActionResult>;
@@ -37,6 +41,8 @@ export const createGalaxyDukeService = (deps: GalaxyDukeDeps): GalaxyDukeService
     court: () => buildCourtPublicStatus(ctx),
     build: (authUid, seasonId, spec) => buildAction(ctx, authUid, seasonId, spec),
     cancelBuild: (authUid, seasonId) => cancelBuildAction(ctx, authUid, seasonId),
+    fortify: (authUid, seasonId) => fortifyAction(ctx, authUid, seasonId),
+    holdCourt: (authUid) => holdCourtAction(ctx, authUid),
     order: (authUid, fromSeasonId, spec) => orderAction(ctx, authUid, fromSeasonId, spec),
     answerCourtOffer: (authUid, accept) => answerCourtOfferAction(ctx, authUid, accept),
     moveAgainstCourt: (authUid, influence) => moveAgainstCourtAction(ctx, authUid, influence),

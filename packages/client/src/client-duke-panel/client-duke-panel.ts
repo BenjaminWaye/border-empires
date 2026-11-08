@@ -37,7 +37,7 @@ export type DukeController = {
 };
 
 // Attention items that are answered on the Court tab, not on a planet.
-const COURT_ATTENTION: ReadonlySet<string> = new Set(["COURT_OFFER", "PETITION_READY", "GRIEVANCE_AGAINST_YOU", "FAVOR_REVOKED", "WRIT_PENDING"]);
+const COURT_ATTENTION: ReadonlySet<string> = new Set(["COURT_OFFER", "DECREE_READY", "GRIEVANCE_AGAINST_YOU", "FAVOR_REVOKED", "WRIT_PENDING"]);
 
 export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, deps: DukeControllerDeps): DukeController => {
   const now = deps.now ?? (() => Date.now());
@@ -87,8 +87,15 @@ export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, dep
     renderPanel(forcePanel);
   };
 
+  // A response older than one already applied is dropped: the 30s poll and an
+  // action's own refresh can overlap, and a stale status would undo the action.
+  let requested = 0;
+  let applied = 0;
   const refresh = async (): Promise<void> => {
+    const seq = (requested += 1);
     const result = await api.fetchStatus();
+    if (seq < applied) return;
+    applied = seq;
     if (result.status) status = result.status;
     else if (result.notADuke) status = undefined;
     render();
@@ -123,22 +130,15 @@ export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, dep
     if (d.dukeLend) return void api.lendFleet(d.dukeLend).then(report);
     if (button.hasAttribute("data-duke-declare")) return void api.declareGrievance(value("[data-duke-grievance-target]")).then(report);
     if (d.dukeBuild === "FIGHTER" || d.dukeBuild === "PROBE" || d.dukeBuild === "REFIT") return void api.build(seasonId(), { kind: d.dukeBuild }).then(report);
+    if (d.dukeBase !== undefined) return void api.build(seasonId(), { kind: "BASE", bodyIndex: Number(d.dukeBase) }).then(report);
     if (d.dukeDevelop !== undefined) return void api.build(seasonId(), { kind: "DEVELOP", bodyIndex: Number(d.dukeDevelop) }).then(report);
-    if (button.hasAttribute("data-duke-fortify")) return void api.build(seasonId(), { kind: "FORTIFY", points: Number(value("[data-duke-fortify-points]")) }).then(report);
+    if (button.hasAttribute("data-duke-fortify")) return void api.build(seasonId(), { kind: "FORTIFY" }).then(report);
     if (button.hasAttribute("data-duke-cancel-build")) return void api.cancelBuild(seasonId()).then(report);
     if (button.hasAttribute("data-duke-court-move")) return void api.moveAgainstCourt(Number(value("[data-duke-court-wager]"))).then(report);
     if (d.dukeOrderLaunch === "PROBE" || d.dukeOrderLaunch === "RAID") {
       const target = value(d.dukeOrderLaunch === "PROBE" ? "[data-duke-probe-target]" : "[data-duke-raid-target]");
       selectedShip = null;
       return void api.order(seasonId(), { kind: d.dukeOrderLaunch, targetSeasonId: target }).then(report);
-    }
-  });
-
-  panel.addEventListener("input", (event) => {
-    const target = event.target as HTMLInputElement;
-    if (target.matches("[data-duke-fortify-points]")) {
-      const output = panel.querySelector<HTMLElement>("[data-duke-fortify-output]");
-      if (output) output.textContent = `+${target.value}`;
     }
   });
 

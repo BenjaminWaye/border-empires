@@ -14,6 +14,7 @@
 import { GOLD_RESCALE_DIVISOR, type DomainTileState } from "@border-empires/game-domain";
 
 import type { FrontierAnalysis } from "./frontier-command-planner.js";
+import { threatScoreOf } from "./frontier-scoring.js";
 
 export type AutomationVictoryPath =
   | "TOWN_CONTROL"
@@ -213,7 +214,7 @@ const scoreVictoryPathsHeuristic = <TTile extends StrategicTile>(
   const townControlScore =
     input.townCount * 140 +
     input.frontierAnalysis.frontierEnemyTargetCount * 22 +
-    (input.frontierAnalysis.attack ? Math.min(140, Math.max(0, input.frontierAnalysis.attack.score - 120) * 0.35) : 0) +
+    (input.frontierAnalysis.attack ? Math.min(140, Math.max(0, threatScoreOf(input.frontierAnalysis.attack) - 120) * 0.35) : 0) +
     (!input.needsFood && !input.needsEconomy ? 24 : -30);
   const economicHegemonyScore =
     input.incomePerMinute * 18 * GOLD_RESCALE_DIVISOR +

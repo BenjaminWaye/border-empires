@@ -179,7 +179,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
   const mapScreenOverlays = createMapScreenOverlays(deps.canvas, state, () => {
-    state.activePanel = "domains"; state.mobilePanel = "domains"; state.domainDetailOpen = false; state.techDetailOpen = false; deps.renderHud();
+    state.activePanel = "domains"; state.domainDetailOpen = false; state.techDetailOpen = false; deps.renderHud();
   });
   const drawPersistentAlertsFrame = createPersistentAlertsFrame(state);
   const districtCanvas = createDistrictCanvas({ state, ctx: deps.ctx, visibilityAt: deps.tileVisibilityStateAt, terrainAt, worldToScreen: deps.worldToScreen });

@@ -30,7 +30,6 @@ const setup = (): PickerHarness => {
   const deps: Parameters<typeof renderTileActionMenu>[4] = {
     tileActionMenuEl: root,
     viewportSize: () => ({ width: 390, height: 900 }),
-    isMobile: () => true,
     hideTileActionMenu: hide,
     tileMenuViewForTile: () => menuView(),
     handleTileAction: (actionId) => { handleAfcTileAction({ actionId, selected: tile, sendGameMessage: send, hideMenu: hide, armAfcLanding: vi.fn() }); },
