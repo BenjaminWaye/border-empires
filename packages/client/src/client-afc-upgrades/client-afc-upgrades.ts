@@ -119,7 +119,7 @@ export function renderAfcUpgradePanels(
     if (state.domainCatalog.length) views.set(root, view);
     else views.delete(root);
     const repaint = (): void => {
-      const html = renderAfcUpgradesHtml(state, view, `afc-upgrade-0`);
+      const html = renderAfcUpgradesHtml(state, view, "afc-upgrade-0");
       // Routine HUD ticks must not interrupt touch scrolling or keyboard focus.
       if (view.html === html && root.firstElementChild) return;
       const scrollTop = root.scrollTop;

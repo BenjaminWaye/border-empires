@@ -78,6 +78,9 @@ const SCREEN_TARGETS: Readonly<Record<string, HudV2ScreenId>> = {
   chronicle: "chronicle"
 };
 
+/** HUD targets that open a side panel rather than a screen. */
+const SIDE_PANEL_TARGETS: Readonly<Record<string, NonNullable<HudV2Deps["state"]["activePanel"]>>> = { manpower: "manpower", settings: "settings" };
+
 /** Opens a screen, a profile or a side panel. */
 const openTarget = (deps: HudV2Deps, open: string): void => {
   const id = SCREEN_TARGETS[open];
@@ -99,8 +102,9 @@ const openTarget = (deps: HudV2Deps, open: string): void => {
   }
   if (open === "self" && closeProfileFromCrest(deps)) return;
   if (screen.id === "town") closeTownScreen(true);
+  const panel = SIDE_PANEL_TARGETS[open];
   if (open === "self") deps.state.activePlayerProfileId = deps.state.me || undefined;
-  else deps.setActivePanel(open as NonNullable<HudV2Deps["state"]["activePanel"]>);
+  else if (panel) deps.setActivePanel(panel);
   deps.renderHud();
 };
 
