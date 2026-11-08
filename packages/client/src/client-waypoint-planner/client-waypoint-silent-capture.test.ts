@@ -69,15 +69,13 @@ describe("silent waypoint capture flow", () => {
     expect(source).toMatch(/silent: Boolean\(existingCapture\?\.silent\)/);
   });
 
-  it("renderCaptureProgress hides the big overlay when state.capture.silent is set", () => {
+  it("renderCaptureProgress never reveals a result banner for a silent capture", () => {
     const source = clientSource("../client-capture-effects/client-capture-effects.ts");
-    expect(source).toContain("if (state.capture && state.capture.silent) {");
-    // The silent branch must hide the card and return BEFORE the visible
-    // capture-progress branch runs.
-    const silentIdx = source.indexOf("if (state.capture && state.capture.silent) {");
-    const visibleIdx = source.indexOf("if (state.capture) {", silentIdx);
-    expect(silentIdx).toBeGreaterThan(-1);
-    expect(visibleIdx).toBeGreaterThan(silentIdx);
+    // No in-progress banner exists any more (hideCaptureCard runs for every
+    // capture); the only capture-driven popup left is the locked-result
+    // reveal, which silent waypoint claims must skip.
+    expect(source).toContain("hideCaptureCard(deps);");
+    expect(source).toContain("if (state.capture && !state.capture.silent) revealLockedCombatResult(state, deps);");
   });
 
   it("FRONTIER_RESULT success path skips the popup and feed entry when silent", () => {
