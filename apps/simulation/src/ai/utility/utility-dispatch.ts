@@ -29,6 +29,7 @@ import type { DecisionClass, DecisionInputs } from "./decisions.js";
 import { evaluateUtilityPolicy } from "./utility-policy.js";
 import { primaryWaitReason, vetoReasonsFor, type WaitContext } from "./wait-reasons.js";
 import type { DecisionCooldownMap } from "../ai-rejection-cooldown.js";
+import { victoryFocusWeightOf, type VictoryFocusTargets } from "../ai-victory-focus.js";
 
 // ── State type ───────────────────────────────────────────────────────────────
 
@@ -40,6 +41,8 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   canExpand: boolean;
   devSlotAvailable: boolean;
   preferredEnemyAttack: FrontierAnalysis["attack"] | undefined;
+  /** Rivals near/holding a season win (ai-victory-focus.ts); undefined = nobody. */
+  victoryFocusTargets?: VictoryFocusTargets | undefined;
   economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
   fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
   siegeBatteryBuild: ReturnType<typeof chooseBestSiegeBatteryBuild> | undefined;
@@ -144,7 +147,10 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     techAffordable: false,
     momentumTicks: {},
     cooldown: state.decisionCooldowns ?? {},
-    stalemated: targetStalemated(state.preferredEnemyAttack, state)
+    stalemated: targetStalemated(state.preferredEnemyAttack, state),
+    // preferredEnemyAttack is fa.enemyAttack whenever an enemy player borders
+    // (MUSTER's target too); otherwise it can only be a barbarian (weight 0).
+    victoryFocusWeight: victoryFocusWeightOf(state.preferredEnemyAttack?.target.ownerId, state.victoryFocusTargets)
   };
 };
 

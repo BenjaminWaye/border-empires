@@ -45,7 +45,8 @@ const baseInputs: DecisionInputs = {
   techAffordable: false,
   momentumTicks: {},
   cooldown: {},
-  stalemated: false
+  stalemated: false,
+  victoryFocusWeight: 0
 };
 
 describe("scoreFreeFoodSlot", () => {

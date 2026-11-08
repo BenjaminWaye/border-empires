@@ -14,7 +14,7 @@
  */
 
 import type { AutomationNoopReason } from "../automation-command-planner-types.js";
-import { RELAY_BEACON_SITE_VALUE_FLOOR, type DecisionClass, type DecisionInputs } from "./decisions.js";
+import { RELAY_BEACON_SITE_VALUE_FLOOR, victoryFocusOverridesPosture, type DecisionClass, type DecisionInputs } from "./decisions.js";
 
 export type WaitContext = {
   /** False when the next RELAY_BEACON's manpower (or other) cost can't be paid. */
@@ -42,7 +42,7 @@ const attackVeto = (inp: DecisionInputs, ctx: WaitContext): string | undefined =
   if (!inp.attackReady) return "not_ready";
   if (!inp.hasAnyAttackCandidate) return atPeace(inp, ctx) ? "neighbors_at_peace" : "no_target";
   if (inp.musterReady && inp.hasWeakEnemyBorder) return "muster_handles_it";
-  if (!(inp.frontPosture === "BREAK" || inp.frontPosture === "WAR" || inp.hasBarbTarget)) return `posture_${inp.frontPosture.toLowerCase()}`;
+  if (!(inp.frontPosture === "BREAK" || inp.frontPosture === "WAR" || inp.hasBarbTarget || victoryFocusOverridesPosture(inp))) return `posture_${inp.frontPosture.toLowerCase()}`;
   return undefined;
 };
 

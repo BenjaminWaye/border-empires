@@ -15,6 +15,7 @@ import type { SimulationRuntime } from "../runtime/runtime.js";
 import type { MainThreadTaskTracker } from "../main-thread-task-tracker/main-thread-task-tracker.js";
 import type { PlannerPlayerView } from "./planner-world-view.js";
 import type { WorldVictoryProgress } from "./victory-path-scoring.js";
+import { victoryFocusTargetsFor, victoryFocusWeights } from "./ai-victory-focus.js";
 
 export type VictoryStandingsSource = {
   objectives: readonly SeasonVictoryObjectiveSnapshot[];
@@ -51,32 +52,49 @@ export const victoryProgressByPlayer = (source: VictoryStandingsSource): Map<str
   return byPlayer;
 };
 
-export type VictoryStandingsLookup = (playerId: string) => WorldVictoryProgress | undefined;
+export type VictoryStandingsLookup = ((playerId: string) => WorldVictoryProgress | undefined) & {
+  /** Rivals this player should gang up on (ai-victory-focus.ts); absent = nobody threatens a win. */
+  focusTargets?: (playerId: string) => Record<string, number> | undefined;
+};
 
 /** Recomputes only when the source objects change (the summary refresh replaces them). */
 export const createVictoryStandingsLookup = (readSource: () => VictoryStandingsSource): VictoryStandingsLookup => {
   let cachedObjectives: VictoryStandingsSource["objectives"] | undefined;
   let cachedSelfProgress: VictoryStandingsSource["selfProgress"] | undefined;
   let cached = new Map<string, WorldVictoryProgress>();
-  return (playerId) => {
+  let cachedFocus = new Map<string, number>();
+  const refresh = (): VictoryStandingsSource => {
     const source = readSource();
     if (source.objectives !== cachedObjectives || source.selfProgress !== cachedSelfProgress) {
       cachedObjectives = source.objectives;
       cachedSelfProgress = source.selfProgress;
       cached = victoryProgressByPlayer(source);
+      cachedFocus = victoryFocusWeights(source.objectives);
     }
+    return source;
+  };
+  const lookup = (playerId: string): WorldVictoryProgress | undefined => {
+    const source = refresh();
     // No objectives yet (cold start before the first summary), or a player the
     // season doesn't rank (non-competitive): leave the planner on its
     // heuristic rather than tell it it has 0 progress everywhere.
     if (source.objectives.length === 0) return undefined;
     return cached.get(playerId);
   };
+  return Object.assign(lookup, {
+    focusTargets: (playerId: string) => {
+      refresh();
+      return victoryFocusTargetsFor(cachedFocus, playerId);
+    }
+  });
 };
 
 export const withVictoryStandings = (players: PlannerPlayerView[], lookup: VictoryStandingsLookup): PlannerPlayerView[] =>
   players.map((player) => {
     const victoryProgress = lookup(player.id);
-    return victoryProgress ? { ...player, victoryProgress } : player;
+    const victoryFocusTargets = lookup.focusTargets?.(player.id);
+    if (!victoryProgress && !victoryFocusTargets) return player;
+    return { ...player, ...(victoryProgress ? { victoryProgress } : {}), ...(victoryFocusTargets ? { victoryFocusTargets } : {}) };
   });
 
 export type AiProducerRuntime = Pick<SimulationRuntime, "queueDepths" | "onEvent" | "exportPlannerWorldView" | "exportPlannerPlayerViews" | "exportTilesForKeys">;

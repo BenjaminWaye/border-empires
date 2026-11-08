@@ -145,6 +145,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   pathPopulationCounts?: Partial<Record<AutomationVictoryPath, number>> | undefined;
   /** Real season-victory standings (PlannerPlayerView.victoryProgress); absent = heuristic path scoring. */
   worldVictoryProgress?: WorldVictoryProgress | undefined;
+  /** Rivals to gang up on, weight 0..1 (ai-victory-focus.ts): biases enemy targets and ATTACK/MUSTER. */
+  victoryFocusTargets?: ReadonlyMap<string, number>;
   onStrategicSnapshot?: (snapshot: AutomationStrategicSnapshot) => void;
   preplanProgressState?: AutomationPreplanProgressState | undefined;
   // Tile keys this player has been pounding without breakthrough — the

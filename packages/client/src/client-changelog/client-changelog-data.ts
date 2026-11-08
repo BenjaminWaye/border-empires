@@ -20,6 +20,7 @@ import { MANIFEST_WORDING_CHANGELOG } from "./client-changelog-manifest-wording.
 import { VICTORY_HOLD_TIME_CHANGELOG } from "./client-changelog-victory-hold-time.js";
 import { RANKS_TRACK_PROFILES_CHANGELOG } from "./client-changelog-ranks-track-profiles.js";
 import { RIVER_MOUTHS_CHANGELOG } from "./client-changelog-river-mouths.js";
+import { AI_STOP_THE_LEADER_CHANGELOG } from "./client-changelog-ai-stop-the-leader.js";
 import { MOBILE_APP_CHANGELOG } from "./client-changelog-mobile-app.js";
 import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
 import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
@@ -486,7 +487,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...TERRAIN_COMBAT_CHANGELOG,
   ...SEASON_REVEAL_LOADING_CHANGELOG,
   ...RIVER_MOUTHS_CHANGELOG,
-  ...NOV_07_STANDINGS_CHANGELOG
+  ...NOV_07_STANDINGS_CHANGELOG,
+  ...AI_STOP_THE_LEADER_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
