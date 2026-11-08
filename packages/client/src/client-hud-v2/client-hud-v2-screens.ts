@@ -47,7 +47,7 @@ export const openScreen = (deps: HudV2Deps, id: HudV2ScreenId, options: { diplom
   if (screen.id === "town") deps.actionFlow.hideTileActionMenu();
   const from = screen.id;
   if (screen.id && screen.id !== id) closeScreen(deps, { toMap: true });
-  if (id === "profile") profileReturn = from && PROFILE_RETURNS.has(from) ? from : undefined;
+  if (id === "profile") profileReturn = deps.state.activePlayerProfileId !== deps.state.me && from && PROFILE_RETURNS.has(from) ? from : undefined;
   if (id === "chronicle") {
     setScreen("chronicle", `<aside class="v2c-drawer" id="v2c-drawer" aria-label="Chronicle"></aside>`);
     screen.chronicleUpdatesBaseline = undefined;
@@ -82,7 +82,7 @@ export const closeScreen = (deps: HudV2Deps, options: { toMap?: boolean } = {}):
     return;
   }
   if (id === "afc" && deps.state.activePanel === "domains") deps.state.activePanel = null;
-  const back = id === "profile" && !options.toMap ? profileReturn : undefined;
+  const back = id === "profile" && deps.state.activePlayerProfileId !== deps.state.me && !options.toMap ? profileReturn : undefined;
   if (id === "profile") {
     deps.state.activePlayerProfileId = undefined;
     profileReturn = undefined;
@@ -248,6 +248,7 @@ const renderProfile = (deps: HudV2Deps): void => {
   const id = state.activePlayerProfileId;
   if (!id) return;
   const self = id === state.me;
+  if (self) profileReturn = undefined;
   const social = state.socialViewByPlayerId.get(id);
   const name = nameOf(deps, id) || "Empire";
   writeHtml("v2s-title", self ? "Your Empire" : "Profile");

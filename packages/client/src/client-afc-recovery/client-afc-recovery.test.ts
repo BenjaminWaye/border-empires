@@ -36,7 +36,7 @@ describe("AFC recovery popup", () => {
     document.querySelector<HTMLButtonElement>("[data-afc-fight]")!.click();
     f.update({ globalLosses: 6, requiredSince: 1000 });
     expect(document.querySelector("[role=dialog]")).toBeNull();
-    expect(document.body.textContent).toContain("Construction suspended");
+    expect(document.querySelector(".afc-recovery-status")?.getAttribute("aria-label")).toContain("Construction suspended");
     f.update({ globalLosses: 6, requiredSince: 2000, cancellation: "Landing site lost" });
     expect(document.querySelector("[role=dialog]")).not.toBeNull();
     expect(document.body.textContent).toContain("Landing site lost");
@@ -48,6 +48,23 @@ describe("AFC recovery popup", () => {
     expect(document.querySelector("[data-afc-choose]")?.classList.contains("v2s-btn-primary")).toBe(true);
     expect(document.querySelector("[data-afc-fight]")?.classList.contains("v2s-btn")).toBe(true);
     expect(document.querySelector("[data-afc-confirm]")?.classList.contains("v2s-btn-danger")).toBe(true);
+  });
+
+  it("keeps recovery at the edge after Continue fighting and updates affordability", () => {
+    const f = fixture(10); f.update({ globalLosses: 1, requiredSince: 1000 });
+    document.querySelector<HTMLButtonElement>("[data-afc-fight]")!.click();
+    f.render();
+    expect(document.querySelector(".afc-recovery-status")?.textContent).toContain("Requires 20 gold");
+    expect(document.querySelector("[role=dialog]")).toBeNull();
+    expect(document.querySelector(".afc-recovery-status-minimized")).not.toBeNull();
+    expect(document.querySelector(".afc-recovery-cost-unaffordable")).not.toBeNull();
+    f.state.gold = 20;
+    f.render();
+    expect(document.querySelector(".afc-recovery-cost-unaffordable")).toBeNull();
+    expect(document.querySelector(".afc-recovery-status")?.textContent).toContain("Requires 20 gold");
+    document.querySelector<HTMLButtonElement>(".afc-recovery-status")!.click();
+    f.render();
+    expect(document.querySelector("[role=dialog]")).not.toBeNull();
   });
 
   it("updates affordability when income reaches the exact replacement price", () => {
