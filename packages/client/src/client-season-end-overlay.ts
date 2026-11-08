@@ -74,7 +74,7 @@ const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: Seas
     starting: state.seasonEndStarting,
     voteCount: state.seasonStartVoteCount,
     voted: state.seasonStartVoted,
-    self: leaderboard.selfOverall?.id,
+    self: [leaderboard.selfOverall?.id, leaderboard.selfOverall?.name],
     overall: leaderboard.overall.map((e) => [e.id, e.name, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
     victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.progressLabel, o.conditionMet]),
     stats: state.seasonStats ?? state.seasonWinner?.seasonStats,

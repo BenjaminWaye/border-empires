@@ -56,6 +56,37 @@ describe.each(stores)("deadliest tiles persistence ($name)", ({ create }) => {
     expect((await store.loadDeadliestTiles("season-1"))![0]!.playerLosses![0]!.manpowerLost).toBe(450);
   });
 
+  it("does not crown a new player from a tile omitted at restart, including after another save", async () => {
+    const store = await create();
+    const before = new Map<string, number>();
+    for (let i = 0; i < 200; i++) recordSeasonTileLoss(before, `${i},0`, "retained", 5000);
+    recordSeasonTileLoss(before, "500,1", "original-leader", 4000);
+    await persistDeadliestTiles(store, "season-1", before);
+    const restarted = new Map<string, number>();
+    await restoreDeadliestTiles(store, "season-1", restarted);
+    recordSeasonTileLoss(restarted, "500,1", "p2", 3000);
+    recordSeasonTileLoss(restarted, "500,1", "p3", 2500);
+    expect(findMostDeadlyTile(restarted)).toEqual({ x: 500, y: 1, manpowerLost: 5500 });
+    await persistDeadliestTiles(store, "season-1", restarted);
+    const again = new Map<string, number>();
+    await restoreDeadliestTiles(store, "season-1", again);
+    recordSeasonTileLoss(again, "500,1", "p2", 100);
+    expect(findMostDeadlyTile(again)?.mostLossesPlayer).toBeUndefined();
+    // Kept tiles retain their complete player histories.
+    recordSeasonTileLoss(again, "0,0", "retained", 1000);
+    expect(findMostDeadlyTile(again)?.mostLossesPlayer?.playerId).toBe("retained");
+  });
+
+  it("does not assume a legacy full top-K save has complete history", async () => {
+    const store = await create();
+    await store.saveDeadliestTiles("season-1", Array.from({ length: 200 }, (_, x) => ({
+      x, y: 0, manpowerLost: 5000, playerLosses: [{ playerId: "recent-only", manpowerLost: 5000 }]
+    })));
+    const totals = new Map<string, number>();
+    await restoreDeadliestTiles(store, "season-1", totals);
+    expect(findMostDeadlyTile(totals)?.mostLossesPlayer).toBeUndefined();
+  });
+
   it("survives a process restart — the season stat is unchanged", async () => {
     const store = await create();
     const beforeRestart = new Map<string, number>([

@@ -1,4 +1,5 @@
-import { tilePlayerLosses, restoreTilePlayerLosses, type TilePlayerLoss } from "./season-tile-player-losses.js";
+import { DEADLIEST_TILE_PERSIST_LIMIT } from "./deadliest-tile-limits.js";
+import { tilePlayerLosses, restoreTilePlayerLosses, restoreSeasonTileHistory, hasCompleteSeasonTileHistory, seasonTileHistoryWasTruncated, type TilePlayerLoss } from "./season-tile-player-losses.js";
 // Durable backing for the season "deadliest tile" stat (season-stats.ts's
 // findMostDeadlyTile). The live source of truth is runtime.manpowerLossByTileKey
 // -- a per-tile running total accumulated by buildLockedCombatResolution
@@ -30,6 +31,10 @@ import { tilePlayerLosses, restoreTilePlayerLosses, type TilePlayerLoss } from "
 /** One tile's season-to-date combat manpower total. */
 export type DeadliestTileEntry = {
   playerLosses?: TilePlayerLoss[];
+  /** The saved top-K omitted other tiles; absent from older save formats. */
+  historyTruncated?: boolean;
+  /** False when this tile already lost earlier season history. */
+  historyComplete?: boolean;
   x: number;
   y: number;
   manpowerLost: number;
@@ -40,7 +45,7 @@ export type DeadliestTileEntry = {
  * entries is a few KB) while leaving deep headroom below the single tile the
  * stat actually reports.
  */
-export const DEADLIEST_TILE_PERSIST_LIMIT = 200;
+export { DEADLIEST_TILE_PERSIST_LIMIT } from "./deadliest-tile-limits.js";
 
 const parseTileKey = (key: string): { x: number; y: number } | undefined => {
   const comma = key.indexOf(",");
@@ -73,12 +78,17 @@ export const topDeadliestTiles = (
     if (!coords) continue;
     let insertAt = top.length;
     while (insertAt > 0 && top[insertAt - 1]!.manpowerLost < manpowerLost) insertAt -= 1;
-    const playerLosses = tilePlayerLosses(manpowerLossByTileKey, key);
-    top.splice(insertAt, 0, { x: coords.x, y: coords.y, manpowerLost,
-      ...(playerLosses.length > 0 ? { playerLosses } : {}) });
+    top.splice(insertAt, 0, { x: coords.x, y: coords.y, manpowerLost });
     if (top.length > limit) top.pop();
   }
-  return top;
+  const historyTruncated = seasonTileHistoryWasTruncated(manpowerLossByTileKey) || top.length === limit;
+  return top.map((tile) => {
+    const key = `${tile.x},${tile.y}`;
+    const playerLosses = tilePlayerLosses(manpowerLossByTileKey, key);
+    return { ...tile,
+      ...(historyTruncated ? { historyTruncated: true, historyComplete: hasCompleteSeasonTileHistory(manpowerLossByTileKey, key) } : {}),
+      ...(playerLosses.length > 0 ? { playerLosses } : {}) };
+  });
 };
 
 /**
@@ -94,6 +104,10 @@ export const seedDeadliestTiles = (
   entries: readonly DeadliestTileEntry[] | undefined
 ): void => {
   if (!entries) return;
+  const truncated = entries.length >= DEADLIEST_TILE_PERSIST_LIMIT || entries.some((entry) => entry.historyTruncated === true || entry.historyComplete === false);
+  restoreSeasonTileHistory(manpowerLossByTileKey,
+    entries.filter((entry) => Number.isFinite(entry.x) && Number.isFinite(entry.y) && Number.isFinite(entry.manpowerLost) && entry.manpowerLost > 0)
+      .map((entry) => ({ key: `${entry.x},${entry.y}`, historyComplete: entry.historyComplete ?? !truncated })), truncated);
   for (const entry of entries) {
     if (!Number.isFinite(entry.manpowerLost) || entry.manpowerLost <= 0) continue;
     if (!Number.isFinite(entry.x) || !Number.isFinite(entry.y)) continue;

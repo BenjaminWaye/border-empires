@@ -1,4 +1,4 @@
-import { tilePlayerLosses } from "../deadliest-tiles/season-tile-player-losses.js";
+import { tilePlayerLosses, hasCompleteSeasonTileHistory } from "../deadliest-tiles/season-tile-player-losses.js";
 import type { SeasonStats } from "@border-empires/sim-protocol";
 import type { RuntimeExportState } from "../runtime-state-export.js";
 import { WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY } from "@border-empires/shared";
@@ -44,7 +44,7 @@ export const findMostDeadlyTile = (manpowerLossByTileKey: Map<string, number>, p
   const losses = tilePlayerLosses(manpowerLossByTileKey, best.key);
   const attributedTotal = losses.reduce((sum, loss) => sum + loss.manpowerLost, 0);
   // Never crown a player from a partial history (old saves or a capacity hit).
-  const complete = Math.abs(attributedTotal - best.manpowerLost) < 0.000001;
+  const complete = hasCompleteSeasonTileHistory(manpowerLossByTileKey, best.key) && Math.abs(attributedTotal - best.manpowerLost) < 0.000001;
   const leading = complete ? losses.sort((a, b) => b.manpowerLost - a.manpowerLost || a.playerId.localeCompare(b.playerId))[0] : undefined;
   return { x: coords[0]!, y: coords[1]!, manpowerLost: Math.round(best.manpowerLost),
     ...(leading ? { mostLossesPlayer: {

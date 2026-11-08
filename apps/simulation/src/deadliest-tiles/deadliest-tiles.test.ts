@@ -29,9 +29,9 @@ describe("topDeadliestTiles", () => {
     const top = topDeadliestTiles(map, 3);
 
     expect(top).toEqual([
-      { x: 499, y: 0, manpowerLost: 499 },
-      { x: 498, y: 0, manpowerLost: 498 },
-      { x: 497, y: 0, manpowerLost: 497 }
+      { x: 499, y: 0, manpowerLost: 499, historyTruncated: true, historyComplete: true },
+      { x: 498, y: 0, manpowerLost: 498, historyTruncated: true, historyComplete: true },
+      { x: 497, y: 0, manpowerLost: 497, historyTruncated: true, historyComplete: true }
     ]);
   });
 

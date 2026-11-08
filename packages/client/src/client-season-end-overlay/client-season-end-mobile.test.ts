@@ -78,6 +78,18 @@ describe("season summary recovery", () => {
     expect(overlay.querySelector(".se-victor-name")?.textContent).toBe("Renamed");
   });
 
+  it("refreshes a detached self-player name used in the record details", () => {
+    const state = stateForSummary();
+    const self = { ...state.leaderboard.overall[0]!, id: "detached", name: "Before", rank: 30 };
+    state.leaderboard.selfOverall = self;
+    state.seasonStats = { longestRoad: { tileCount: 12, playerId: self.id, playerName: "Old" } };
+    const overlay = render(state);
+    expect(overlay.querySelector(".se-misc")?.textContent).toContain("Before");
+    state.leaderboard.selfOverall = { ...self, name: "After" };
+    render(state, overlay);
+    expect(overlay.querySelector(".se-misc")?.textContent).toContain("After");
+  });
+
   it("keeps statistics and timeline accessible when an older season has no saved data", () => {
     const overlay = render(stateForSummary());
     expect(overlay.querySelector('.se-tab[data-tab="misc"]')).toBeTruthy();

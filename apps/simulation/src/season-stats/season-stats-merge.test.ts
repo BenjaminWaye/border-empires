@@ -15,4 +15,17 @@ describe("enrichSavedSeasonStats", () => {
     const captured = { mostDeadlyTile: attributed };
     expect(enrichSavedSeasonStats(captured, { mostDeadlyTile: { ...attributed, mostLossesPlayer: { playerId: "other", playerName: "Other", manpowerLost: 99 } } })).toEqual(captured);
   });
+  it("does not replace a captured road with details for a different length", () => {
+    const saved = { longestRoad: { tileCount: 3 } };
+    const derived = { longestRoad: { tileCount: 4, playerId: "p", playerName: "Waypoint",
+      fromCity: { x: 1, y: 2, name: "A" }, toCity: { x: 3, y: 4, name: "B" } } };
+    expect(enrichSavedSeasonStats(saved, derived)).toEqual(saved);
+  });
+  it("fills missing sibling records while preserving already captured values", () => {
+    const road = { tileCount: 12 };
+    const derived = { longestRoad: { tileCount: 42 }, mostDeadlyTile: attributed };
+    expect(enrichSavedSeasonStats({ longestRoad: road }, derived)).toEqual({ longestRoad: road, mostDeadlyTile: attributed });
+    expect(enrichSavedSeasonStats({ mostDeadlyTile: attributed }, derived)).toEqual(derived);
+  });
+
 });

@@ -1,3 +1,4 @@
+import { DEADLIEST_TILE_PERSIST_LIMIT } from "./deadliest-tile-limits.js";
 /** Season-scoped attribution kept beside, never inside, the world snapshot.
  * Weak keys give this exactly the lifetime of the runtime's existing totals.
  * Persistence only saves attribution for the existing bounded top-K tiles. */
@@ -11,12 +12,14 @@ interface Attribution {
   tiles: Map<string, Map<string, number>>;
   playerEntries: number;
   capHits: number;
+  historyTruncated: boolean;
+  completeHistoryTiles: Set<string>;
 }
 const byTotals = new WeakMap<ReadonlyMap<string, number>, Attribution>();
 const trackerFor = (totals: ReadonlyMap<string, number>): Attribution => {
   let tracker = byTotals.get(totals);
   if (!tracker) {
-    tracker = { tiles: new Map(), playerEntries: 0, capHits: 0 };
+    tracker = { tiles: new Map(), playerEntries: 0, capHits: 0, historyTruncated: false, completeHistoryTiles: new Set() };
     byTotals.set(totals, tracker);
   }
   return tracker;
@@ -59,7 +62,35 @@ export const restoreTilePlayerLosses = (totals: ReadonlyMap<string, number>, til
   }
 };
 
-export const seasonTilePlayerLossGauge = (totals: ReadonlyMap<string, number>): { tileEntries: number; playerEntries: number; capHits: number } => {
+/** A dropped tile's restarted aggregate cannot prove a complete season. */
+export const hasCompleteSeasonTileHistory = (totals: ReadonlyMap<string, number>, key: string): boolean => {
   const tracker = byTotals.get(totals);
-  return { tileEntries: tracker?.tiles.size ?? 0, playerEntries: tracker?.playerEntries ?? 0, capHits: tracker?.capHits ?? 0 };
+  return !tracker?.historyTruncated || tracker.completeHistoryTiles.has(key);
+};
+
+export const seasonTileHistoryWasTruncated = (totals: ReadonlyMap<string, number>): boolean =>
+  byTotals.get(totals)?.historyTruncated ?? false;
+
+export const restoreSeasonTileHistory = (
+  totals: ReadonlyMap<string, number>,
+  entries: readonly { key: string; historyComplete?: boolean }[],
+  truncated: boolean
+): void => {
+  const tracker = trackerFor(totals);
+  tracker.historyTruncated ||= truncated;
+  if (!tracker.historyTruncated) return;
+  for (const entry of entries) {
+    if (entry.historyComplete === false) { tracker.completeHistoryTiles.delete(entry.key); continue; }
+    if (tracker.completeHistoryTiles.has(entry.key)) continue;
+    if (tracker.completeHistoryTiles.size >= DEADLIEST_TILE_PERSIST_LIMIT) { tracker.capHits += 1; continue; }
+    tracker.completeHistoryTiles.add(entry.key);
+  }
+};
+
+export const seasonTilePlayerLossGauge = (totals: ReadonlyMap<string, number>): {
+  tileEntries: number; playerEntries: number; capHits: number; completeHistoryTiles: number; historyTruncated: boolean;
+} => {
+  const tracker = byTotals.get(totals);
+  return { tileEntries: tracker?.tiles.size ?? 0, playerEntries: tracker?.playerEntries ?? 0, capHits: tracker?.capHits ?? 0,
+    completeHistoryTiles: tracker?.completeHistoryTiles.size ?? 0, historyTruncated: tracker?.historyTruncated ?? false };
 };

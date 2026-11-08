@@ -55,7 +55,7 @@ describe("season records on login", () => {
   it("preserves the captured crowning records over a later summary", () => {
     const crownedStats = { longestRoad: { tileCount: 12 } };
     const crownedSeason = { ...season, winner: { ...season.winner!, seasonStats: crownedStats, scoreHistory: [] } };
-    expect(build(summary, crownedSeason).seasonState?.winner?.seasonStats).toEqual(crownedStats);
+    expect(build(summary, crownedSeason).seasonState?.winner?.seasonStats).toEqual({ ...summary.seasonStats, ...crownedStats });
     expect(build(summary, crownedSeason).seasonState?.winner?.scoreHistory).toEqual([]);
   });
 });

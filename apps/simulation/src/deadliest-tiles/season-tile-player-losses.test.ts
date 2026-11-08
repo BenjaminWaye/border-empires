@@ -33,7 +33,7 @@ describe("season-wide per-player tile losses", () => {
     const totals = new Map<string, number>();
     for (let i = 0; i <= MAX_SEASON_TILE_PLAYER_ENTRIES; i++) recordSeasonTileLoss(totals, `${i},0`, "p1", 1);
     expect(seasonTilePlayerLossGauge(totals)).toEqual({
-      tileEntries: MAX_SEASON_TILE_PLAYER_ENTRIES, playerEntries: MAX_SEASON_TILE_PLAYER_ENTRIES, capHits: 1
+      tileEntries: MAX_SEASON_TILE_PLAYER_ENTRIES, playerEntries: MAX_SEASON_TILE_PLAYER_ENTRIES, capHits: 1, completeHistoryTiles: 0, historyTruncated: false
     });
   });
 });
