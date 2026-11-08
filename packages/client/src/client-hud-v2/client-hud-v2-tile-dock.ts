@@ -7,6 +7,7 @@ import { preserveResourceBuildChoice, resourceBuildChecked } from "./client-reso
 // (town, battle) hook in through a listener; neutral land next to yours
 // expands on the click, with no bar.
 
+import { dormantResourcesForTile } from "../client-tile-action-support/client-tile-action-support.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { isSeaTerrain } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
@@ -148,7 +149,8 @@ const paintBar = (): void => {
   // Aether ▸ disappears from the bar when the tile loses its abilities; its sidebar goes with it.
   if (dock.panel === "aether" && view.crystal.length === 0) dock.panel = undefined;
   const tile = dock.state.tiles.get(dock.state.tileActionMenu.currentTileKey);
-  const facts = tileFactsFor(tile, view, dock.state.me);
+  const state = dock.state;
+  const facts = tileFactsFor(tile, view, state.me, Date.now(), (t, field) => dormantResourcesForTile(state, t, field));
   // A wonder's tile only knows its terrain ("Sand"); name the wonder instead.
   const wonder = wonderName(tile);
   // Tagged wherever the panel names a foreign owner (any non-sea tile); your own tiles have no stance.
