@@ -573,7 +573,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     syncAuthOverlay();
   };
 
-  const applyCombatOutcomeMessage = (msg: Record<string, unknown>, opts?: { predicted?: boolean; detached?: boolean }): void => {
+  const applyCombatOutcomeMessage = (msg: Record<string, unknown>, opts?: { predicted?: boolean; detached?: boolean; commandId?: unknown }): void => {
     const target = msg.target as { x: number; y: number } | undefined;
     const targetBefore = (() => (target ? state.tiles.get(keyFor(target.x, target.y)) : undefined))();
     const originBefore = (() => {
@@ -613,10 +613,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }, reportFlagKey, { keyFor, combatResolutionAlert, wasPredictedCombatAlreadyShown, appendFeedEntry, showCaptureAlert });
     if (opts?.detached || !isMusterAdvanceCommandId(msg.commandId)) {
       settleCombatResultSlot(state, {
-        attackType: msg.attackType, target, resultTargetKey, resultAlert, resolvedCaptureTargetKey,
+        attackType: msg.attackType, commandId: opts?.commandId ?? msg.commandId, target, resultTargetKey, resultAlert, resolvedCaptureTargetKey,
         predicted: Boolean(opts?.predicted), detached: Boolean(opts?.detached)
       }, { keyFor, requestSettlement, pushFeed, dropQueuedTargetKeyIfAbsent, resumeQueuedFrontierActionsAfter, processActionQueue });
-      resetAttackPreviewState(state);
+      if (!opts?.detached) resetAttackPreviewState(state); // a detached result must not drop the preview the player is waiting on elsewhere
     }
     for (const change of changes) {
       if (change.ownerId === state.me && change.ownershipState === "SETTLED") {
@@ -1319,7 +1319,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const detachedAttack = takeDetachedAttack(state, msg.commandId);
       applyCombatOutcomeMessage(detachedAttack ? detachedCombatResultPayload(msg as Record<string, unknown>, detachedAttack, commitOnlyResult) : isMusterAdvanceCommandId(msg.commandId)
         ? msg as Record<string, unknown>
-        : resolveCombatResultPayload(state, keyFor, msg as Record<string, unknown>, commitOnlyResult), { detached: Boolean(detachedAttack) });
+        : resolveCombatResultPayload(state, keyFor, msg as Record<string, unknown>, commitOnlyResult), { detached: Boolean(detachedAttack), commandId: msg.commandId });
       return;
     }
       if (msg.type === "COMBAT_START") {
@@ -1483,7 +1483,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const cancelledCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
       clearFrontierStatusAlert(state);
       if (state.pendingCombatReveal?.targetKey === cancelledCurrentKey) state.pendingCombatReveal = undefined;
-      clearAllAttacksAfterCancel(state, keyFor);
+      clearAllAttacksAfterCancel(state);
       clearLateFrontierAck(cancelledCurrentKey);
       if (cancelledCurrentKey) { state.queuedTargetKeys.delete(cancelledCurrentKey); clearOptimisticTileState(cancelledCurrentKey, true); }
       state.autoSettleTargets.clear(); state.autoBuildTargets.clear();

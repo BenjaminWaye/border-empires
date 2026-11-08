@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
-import { clearAllAttacksAfterCancel, detachedCombatResultPayload, detachLockedAttack, isDetachedAttackCommandId, pruneDetachedAttacks, takeDetachedAttack } from "./client-detached-attacks.js";
+import { clearAllAttacksAfterCancel, clearOwnAttackTracking, latestOwnFight, ownFightAt, detachedCombatResultPayload, detachLockedAttack, isDetachedAttackCommandId, pruneDetachedAttacks, takeDetachedAttack } from "./client-detached-attacks.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
@@ -33,7 +33,7 @@ describe("detachLockedAttack", () => {
     expect(state.capture).toBeUndefined();
     expect(state.pendingCombatReveal).toBeUndefined();
     expect(isDetachedAttackCommandId(state, "cmd-1")).toBe(true);
-    expect(state.detachedAttacksByCommandId.get("cmd-1")).toEqual({ targetX: 5, targetY: 5, resolvesAt: 20_000, lockedResult: { attackerWon: true } });
+    expect(state.detachedAttacksByCommandId.get("cmd-1")).toEqual({ targetX: 5, targetY: 5, startAt: 1_000, resolvesAt: 20_000, lockedResult: { attackerWon: true } });
     expect(state.outgoingMusterAttacksByTile.get("5,5")).toMatchObject({ originX: 4, originY: 5, targetX: 5, targetY: 5, resolvesAt: 20_000 });
   });
 
@@ -90,11 +90,35 @@ describe("detachLockedAttack", () => {
     state.actionCurrent = { x: 5, y: 5, retries: 0, actionType: "ATTACK", commandId: "cmd-1", clientSeq: 1 };
     detachLockedAttack(state, keyFor, lockedMsg, 2_000);
 
-    clearAllAttacksAfterCancel(state, keyFor);
+    clearAllAttacksAfterCancel(state);
 
     expect(state.detachedAttacksByCommandId.size).toBe(0);
     expect(state.outgoingMusterAttacksByTile.has("5,5")).toBe(false);
     expect(state.musterTransitByCommand.has("cmd-1")).toBe(false);
     expect(state.musterTransitByCommand.has("cmd-marching")).toBe(true);
+  });
+
+  // Regression (review): the next queued attack now goes out at COMBAT_START,
+  // when the tile behind the locked target has no owned origin yet, so the
+  // queue dropped it instead of waiting for the first fight.
+  it("holds queued tiles reachable only through the locked target until it resolves", () => {
+    const state = stateWithLockedAttack();
+    state.me = "me";
+    state.tiles.set("4,5", { x: 4, y: 5, terrain: "LAND", ownerId: "me" });
+    state.actionQueue = [{ x: 6, y: 5, retries: 0 }, { x: 5, y: 4, retries: 0 }];
+    detachLockedAttack(state, keyFor, lockedMsg, 2_000);
+    expect(state.frontierSyncWaitUntilByTarget.get("6,5")).toBe(20_250);
+    // (5,4) borders the owned (4,5), so it can launch now.
+    expect(state.frontierSyncWaitUntilByTarget.has("5,4")).toBe(false);
+  });
+
+  it("exposes detached fights to HUD lookups until they should have resolved", () => {
+    const state = stateWithLockedAttack();
+    detachLockedAttack(state, keyFor, lockedMsg, 2_000);
+    expect(ownFightAt(state, 5, 5, 3_000)).toMatchObject({ target: { x: 5, y: 5 }, startAt: 1_000, resolvesAt: 20_000, actionType: "ATTACK" });
+    expect(latestOwnFight(state, 3_000)?.target).toEqual({ x: 5, y: 5 });
+    expect(ownFightAt(state, 5, 5, 31_000)).toBeUndefined();
+    clearOwnAttackTracking(state);
+    expect(latestOwnFight(state, 3_000)).toBeUndefined();
   });
 });

@@ -26,7 +26,7 @@ import {
 } from "./client-player-actions.js";
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { ensureClientCommandEnvelope } from "./client-command-envelope/client-command-envelope.js";
-import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
+import { clearMusterTransitForAttack } from "./client-muster-transit/client-muster-transit.js";
 import { handleMarchPickClick } from "./client-march-origin-picking/client-march-origin-picking.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
@@ -654,7 +654,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (!handedOffToSettle) state.autoBuildTargets.delete(targetKey);
     state.capture = undefined;
     // Only this attack's flag entry — other flags may still be marching.
-    if (target) clearMusterTransitForTarget(state, target.x, target.y);
+    clearMusterTransitForAttack(state, msg.commandId, target);
     if (!handedOffToSettle) {
       state.actionInFlight = false;
       state.actionAcceptedAck = false;

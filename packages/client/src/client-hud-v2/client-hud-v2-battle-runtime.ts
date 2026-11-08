@@ -5,6 +5,7 @@
 // capture, then shows whether the tile fell. Frontier attacks never get here:
 // the sheet only opens for garrisoned targets.
 
+import { latestOwnFight, ownFightAt } from "../client-detached-attacks/client-detached-attacks.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { CaptureCombatSnapshot, Tile, TileActionDef, TileCombatBreakdown, TileMenuView } from "../client-types.js";
 import { battleLiveHtml, battlePreviewHtml, battleResultHtml, parseWinPct, type BattleEffort, type BattleSide } from "./client-hud-v2-battle.js";
@@ -174,10 +175,13 @@ const sheetEfforts = (): BattleEffort[] =>
     active: btn.classList.contains("is-active")
   }));
 
-const captureMatches = (deps: HudV2Deps, b: Battle): boolean => {
-  const c = deps.state.capture;
-  return Boolean(c && `${c.target.x},${c.target.y}` === b.tileKey);
-};
+// The fight on the battle screen's tile: the attack in the dispatch slot, or
+// one that already left it once the server locked it (several attacks can
+// resolve at once; see client-detached-attacks.ts).
+const fightFor = (deps: HudV2Deps, b: Battle): NonNullable<ClientState["capture"]> | undefined =>
+  ownFightAt(deps.state, b.coords.x, b.coords.y);
+
+const captureMatches = (deps: HudV2Deps, b: Battle): boolean => Boolean(fightFor(deps, b));
 
 const settle = (deps: HudV2Deps, b: Battle): void => {
   const outcome = battleOutcomeFromAlert(deps.state.captureAlert, b.alertBefore, Date.now());
@@ -193,7 +197,8 @@ export const renderBattle = (deps: HudV2Deps): void => {
     if (captureMatches(deps, b)) {
       b.mode = "live";
       b.alertBefore = deps.state.captureAlert;
-      b.winPct = deps.state.capture?.combatSnapshot ? Math.round(deps.state.capture.combatSnapshot.winChance * 100) : b.winPct;
+      const fight = fightFor(deps, b);
+      b.winPct = fight?.combatSnapshot ? Math.round(fight.combatSnapshot.winChance * 100) : b.winPct;
     } else if (now - b.since > PENDING_TIMEOUT_MS) {
       closeBattle();
       return;
@@ -222,7 +227,7 @@ export const renderBattle = (deps: HudV2Deps): void => {
     return;
   }
   if (b.mode === "live" || b.mode === "settling") {
-    const c = deps.state.capture;
+    const c = fightFor(deps, b);
     if (b.fromSnapshot && c?.combatSnapshot) {
       b.breakdown = liveBattleBreakdown(c.combatSnapshot) ?? b.breakdown;
       b.winPct = Math.round(c.combatSnapshot.winChance * 100);
@@ -248,9 +253,9 @@ export const closeBattle = (keepPosition = false): void => {
  * not be loaded; the view then names the defender generically.
  */
 export const liveBattleTarget = (
-  state: Pick<ClientState, "capture" | "tiles" | "me">
+  state: Pick<ClientState, "capture" | "detachedAttacksByCommandId" | "tiles" | "me">
 ): { x: number; y: number; tile: Tile | undefined } | undefined => {
-  const c = state.capture;
+  const c = latestOwnFight(state);
   if (!c || !captureIsBattle(c)) return undefined;
   const tile = state.tiles.get(`${c.target.x},${c.target.y}`);
   if (tile?.ownerId === state.me) return undefined;
@@ -260,7 +265,7 @@ export const liveBattleTarget = (
 /** Re-open the live view from the tracker's battle row; the caller closes any other screen first. */
 export const reopenLiveBattle = (deps: HudV2Deps): boolean => {
   const target = liveBattleTarget(deps.state);
-  const c = deps.state.capture;
+  const c = target ? ownFightAt(deps.state, target.x, target.y) : undefined;
   if (!target || !c) return false;
   const plan = battleRowPlan(screen.id, battle?.tileKey, `${target.x},${target.y}`);
   if (plan !== "open") return plan === "keep";

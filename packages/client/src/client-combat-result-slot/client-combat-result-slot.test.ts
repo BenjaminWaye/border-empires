@@ -14,6 +14,7 @@ const deps = (): CombatResultSlotDeps => ({
 
 const input = (detached: boolean) => ({
   attackType: "ATTACK",
+  commandId: "cmd-1",
   target: { x: 5, y: 5 },
   resultTargetKey: "5,5",
   resultAlert: { title: "Victory", detail: "won" },
@@ -58,5 +59,19 @@ describe("settleCombatResultSlot", () => {
     expect(state.capture).toBeUndefined();
     expect(state.actionCurrent).toBeUndefined();
     expect(d.processActionQueue).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression (review): clearing by target let one attack's result delete a
+  // second attack's march to the same tile, and its flag reservation.
+  it("clears only the resolved attack's march, not another one aimed at the same tile", () => {
+    const state = createInitialState();
+    armMusterTransit(state, { musterX: 3, musterY: 5, fromX: 4, fromY: 5, toX: 5, toY: 5, transitTiles: 1, manpower: 30, commandId: "cmd-1", clientSeq: 1 });
+    armMusterTransit(state, { musterX: 7, musterY: 5, fromX: 6, fromY: 5, toX: 5, toY: 5, transitTiles: 9, manpower: 30, commandId: "cmd-later", clientSeq: 2 });
+
+    settleCombatResultSlot(state, input(true), deps());
+
+    expect(state.musterTransitByCommand.has("cmd-1")).toBe(false);
+    expect(state.musterTransitByCommand.has("cmd-later")).toBe(true);
+    expect(state.deferredAttackByCommand.has("cmd-later")).toBe(true);
   });
 });

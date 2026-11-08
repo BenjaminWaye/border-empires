@@ -44,6 +44,7 @@ const createState = () =>
     tiles: new Map(),
     incomingAttacksByTile: new Map(),
     musterTransitByCommand: new Map(),
+    detachedAttacksByCommandId: new Map(),
     deferredAttackByCommand: new Map(),
     outgoingMusterAttacksByTile: new Map(),
     revealedPredictedCombatByKey: new Map(),

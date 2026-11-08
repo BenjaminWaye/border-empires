@@ -7,6 +7,7 @@ import { battleRowPlan, liveBattleBreakdown, liveBattleTarget } from "./client-h
 type Input = Parameters<typeof liveBattleTarget>[0];
 const state = (capture: Partial<NonNullable<ClientState["capture"]>> | undefined, tiles: Tile[] = []): Input => ({
   me: "me",
+  detachedAttacksByCommandId: new Map(),
   tiles: new Map(tiles.map((t) => [`${t.x},${t.y}`, t])),
   capture: capture ? ({ startAt: 0, resolvesAt: 60_000, target: { x: 4, y: 5 }, ...capture } as NonNullable<ClientState["capture"]>) : undefined
 });
@@ -21,6 +22,14 @@ describe("reopening the live battle from the tracker", () => {
 
   it("still opens when the target tile is not loaded", () => {
     expect(liveBattleTarget(state({ actionType: "ATTACK" }))).toEqual({ x: 4, y: 5, tile: undefined });
+  });
+
+  // Regression (review): once the server locks an attack it leaves state.capture
+  // (several attacks can resolve at once), so the tracker found no fight.
+  it("finds an attack that has left the dispatch slot", () => {
+    const input = state(undefined, [enemyTile]);
+    input.detachedAttacksByCommandId.set("cmd-1", { targetX: 4, targetY: 5, startAt: Date.now(), resolvesAt: Date.now() + 15_000 });
+    expect(liveBattleTarget(input)).toMatchObject({ x: 4, y: 5, tile: enemyTile });
   });
 
   it("does not open for an expansion, no capture, or a tile already yours", () => {

@@ -1,5 +1,5 @@
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
-import { clearMusterTransitForTarget } from "../client-muster-transit/client-muster-transit.js";
+import { clearMusterTransitForAttack } from "../client-muster-transit/client-muster-transit.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 // Split out of client-network.ts's applyCombatOutcomeMessage (over the repo's
@@ -24,6 +24,7 @@ export type CombatResultSlotDeps = {
 
 export type CombatResultSlotInput = {
   attackType: unknown;
+  commandId: unknown;
   target: { x: number; y: number } | undefined;
   resultTargetKey: string;
   resultAlert: { title: string; detail: string };
@@ -56,7 +57,7 @@ export const settleCombatResultSlot = (state: ClientState, input: CombatResultSl
   }
   if (state.pendingCombatReveal && state.pendingCombatReveal.targetKey === resultTargetKey) state.pendingCombatReveal = undefined;
   // Only this attack's march/reservation -- other flags' attacks keep theirs.
-  if (input.target) clearMusterTransitForTarget(state, input.target.x, input.target.y);
+  clearMusterTransitForAttack(state, input.commandId, input.target);
   if (input.detached) {
     if (!handOffAutoSettle(state, resultTargetKey, deps) && resultTargetKey) state.autoBuildTargets.delete(resultTargetKey);
     if (resultTargetKey) deps.dropQueuedTargetKeyIfAbsent(resultTargetKey);

@@ -15,7 +15,10 @@ const stateWithFiredMusterAttack = (): ClientState =>
     actionCurrent: { x: 156, y: 12, retries: 0, actionType: "ATTACK", commandId: "c-1", clientSeq: 2 },
     // Fired ("locked" phase): transit entry with no deferred send left.
     musterTransitByCommand: new Map([
-      ["156,11", { musterX: 156, musterY: 11, marchToX: 156, marchToY: 11, targetX: 156, targetY: 12, transitStartAt: 0, transitEndsAt: 2_000 }]
+      ["c-1", { musterX: 156, musterY: 11, marchToX: 156, marchToY: 11, targetX: 156, targetY: 12, transitStartAt: 0, transitEndsAt: 2_000, manpower: 30 }],
+      // An earlier attack on the same tile, already locked: the rejection of
+      // c-1 (LOCKED, the tile is taken) must not free its reservation.
+      ["c-0", { musterX: 150, musterY: 11, marchToX: 156, marchToY: 11, targetX: 156, targetY: 12, transitStartAt: 0, transitEndsAt: 2_000, manpower: 30 }]
     ]),
     deferredAttackByCommand: new Map(),
     frontierSyncWaitUntilByTarget: new Map()
@@ -34,7 +37,8 @@ describe("resetFrontierActionStateAfterError", () => {
       failedTargetKey: "156,12",
       clearLateFrontierAck: () => {}
     });
-    expect(state.musterTransitByCommand.has("156,11")).toBe(false);
+    expect(state.musterTransitByCommand.has("c-1")).toBe(false);
+    expect(state.musterTransitByCommand.has("c-0")).toBe(true);
     expect(state.actionInFlight).toBe(false);
     expect(state.actionCurrent).toBeUndefined();
     expect(state.frontierSyncWaitUntilByTarget.has("156,12")).toBe(true);

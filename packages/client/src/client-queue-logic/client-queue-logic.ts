@@ -3,7 +3,7 @@ import { frontierClaimDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
 import { findClosestMuster, holdUnfundedPendingMusterAttack, isDockCrossingBetween, isPendingAttackFundedFromOrigin } from "../client-muster-attack-gate/client-muster-attack-gate.js";
-import { dispatchMusterFundedAttack } from "./client-queue-muster-dispatch.js"; import { musterAvailableAt } from "../client-muster-transit/client-muster-transit.js";
+import { dispatchMusterFundedAttack } from "./client-queue-muster-dispatch.js";
 import { requiredMusterWithCommit, noteWaypointStepEnqueued } from "../client-attack-commit/client-attack-commit.js";
 import { enqueueTarget } from "./client-queue-enqueue-target.js"; export { enqueueTarget };
 import { pauseWaypointForManpowerIfNeeded } from "./client-waypoint-manpower-pause.js";
@@ -561,7 +561,6 @@ export const processPendingMusterAttacks = (
       required,
       closest: closest ? { x: closest.tile.x, y: closest.tile.y, amount: closest.tile.muster?.amount, dist: closest.dist } : undefined,
       closestIsAdjacentOrLinked,
-      musterTileAvailable: musterTile ? musterAvailableAt(state, musterTile) : undefined,
       alreadyQueued: state.queuedTargetKeys.has(targetKey),
       musterRequestedAt: entry.musterRequestedAt
     };

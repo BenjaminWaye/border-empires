@@ -197,10 +197,27 @@ export const musterAvailableAt = (state: Pick<ClientState, "musterTransitByComma
 
 // Record when the server will resolve a locked attack, so the stale-entry
 // prune above keeps its reservation alive for the whole combat lock.
-export const stampMusterTransitResolvesAt = (state: Pick<ClientState, "musterTransitByCommand">, targetX: number, targetY: number, resolvesAt: number): void => {
-  for (const transit of state.musterTransitByCommand.values()) {
-    if (transit.targetX === targetX && transit.targetY === targetY) transit.resolvesAt = resolvesAt;
+export const stampMusterTransitResolvesAt = (state: Pick<ClientState, "musterTransitByCommand">, commandId: string, resolvesAt: number): void => {
+  const transit = state.musterTransitByCommand.get(commandId);
+  if (transit) transit.resolvesAt = resolvesAt;
+};
+
+// Drop one finished or rejected attack's march and reservation. Matching by
+// commandId keeps a second attack on the same tile (still marching, or
+// refused because the tile is locked) from taking the first one's
+// reservation with it; the target is only a fallback for a message that
+// carries no commandId we know.
+export const clearMusterTransitForAttack = (
+  state: MusterTransitMaps,
+  commandId: unknown,
+  target: { x: number; y: number } | undefined
+): void => {
+  if (typeof commandId === "string" && state.musterTransitByCommand.has(commandId)) {
+    state.musterTransitByCommand.delete(commandId);
+    state.deferredAttackByCommand.delete(commandId);
+    return;
   }
+  if (target) clearMusterTransitForTarget(state, target.x, target.y);
 };
 
 // Drop the tracked transit/deferred state for a specific resolved target

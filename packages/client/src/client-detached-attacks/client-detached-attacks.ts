@@ -1,3 +1,4 @@
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { attackSyncLog } from "../client-debug/client-debug.js";
 import { stampMusterTransitResolvesAt } from "../client-muster-transit/client-muster-transit.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -20,7 +21,10 @@ import type { ClientState } from "../client-state/client-state.js";
 export type DetachedAttack = {
   targetX: number;
   targetY: number;
+  /** When the fight was first shown (state.capture.startAt), for countdowns. */
+  startAt: number;
   resolvesAt: number;
+  combatSnapshot?: NonNullable<ClientState["capture"]>["combatSnapshot"];
   /** The server's locked prediction from COMBAT_START, used when the result
    *  arrives as a bare commit (see resolveCombatResultPayload). */
   lockedResult?: Record<string, unknown>;
@@ -47,6 +51,10 @@ type DetachState = Pick<
   | "actionStartedAt"
   | "actionCurrent"
   | "actionTargetKey"
+  | "actionQueue"
+  | "frontierSyncWaitUntilByTarget"
+  | "tiles"
+  | "me"
 >;
 
 type LockedAttackMessage = { commandId?: unknown; target?: unknown; origin?: unknown; resolvesAt?: unknown };
@@ -90,7 +98,9 @@ export const detachLockedAttack = (
   state.detachedAttacksByCommandId.set(commandId, {
     targetX: target.x,
     targetY: target.y,
+    startAt: capture.startAt,
     resolvesAt,
+    ...(capture.combatSnapshot ? { combatSnapshot: capture.combatSnapshot } : {}),
     ...(reveal?.result ? { lockedResult: reveal.result } : {})
   });
   if (reveal) state.pendingCombatReveal = undefined;
@@ -102,7 +112,8 @@ export const detachLockedAttack = (
       ...(typeof winChance === "number" ? { winChance } : {})
     });
   }
-  stampMusterTransitResolvesAt(state, target.x, target.y, resolvesAt);
+  stampMusterTransitResolvesAt(state, commandId, resolvesAt);
+  holdQueuedAttacksBehindLockedTarget(state, keyFor, target, resolvesAt);
   state.capture = undefined;
   state.actionInFlight = false;
   state.actionAcceptedAck = false;
@@ -113,6 +124,89 @@ export const detachLockedAttack = (
   state.actionTargetKey = "";
   attackSyncLog("attack-detached-from-slot", { commandId, target, resolvesAt, concurrent: state.detachedAttacksByCommandId.size });
   return true;
+};
+
+const wrappedDelta = (a: number, b: number, size: number): number => Math.min(Math.abs(a - b), size - Math.abs(a - b));
+const isNeighbour = (ax: number, ay: number, bx: number, by: number): boolean => {
+  const dx = wrappedDelta(ax, bx, WORLD_WIDTH);
+  const dy = wrappedDelta(ay, by, WORLD_HEIGHT);
+  return dx <= 1 && dy <= 1 && (dx !== 0 || dy !== 0);
+};
+
+/**
+ * The next queued attack now goes out while this one is still resolving. A
+ * queued tile whose only way in is through the tile being fought over has
+ * no owned origin yet (an ATTACK claims nothing until it resolves), and the
+ * queue would drop it as unreachable. Hold such tiles until the fight ends
+ * (the queue retries a held target once its frontierSyncWaitUntil passes),
+ * the way the whole queue used to wait for the attack's result.
+ */
+const holdQueuedAttacksBehindLockedTarget = (
+  state: DetachState,
+  keyFor: (x: number, y: number) => string,
+  target: { x: number; y: number },
+  resolvesAt: number
+): void => {
+  for (const entry of state.actionQueue) {
+    if (!isNeighbour(entry.x, entry.y, target.x, target.y)) continue;
+    let hasOwnedNeighbour = false;
+    for (let dy = -1; dy <= 1 && !hasOwnedNeighbour; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const x = (entry.x + dx + WORLD_WIDTH) % WORLD_WIDTH;
+        const y = (entry.y + dy + WORLD_HEIGHT) % WORLD_HEIGHT;
+        if (state.tiles.get(keyFor(x, y))?.ownerId === state.me) { hasOwnedNeighbour = true; break; }
+      }
+    }
+    if (hasOwnedNeighbour) continue;
+    const entryKey = keyFor(entry.x, entry.y);
+    const waitUntil = resolvesAt + 250;
+    if ((state.frontierSyncWaitUntilByTarget.get(entryKey) ?? 0) < waitUntil) state.frontierSyncWaitUntilByTarget.set(entryKey, waitUntil);
+  }
+};
+
+// A detached attack whose result never arrived stops counting as a live
+// fight this long after it should have resolved.
+const LIVE_FIGHT_GRACE_MS = 10_000;
+
+const detachedAsFight = (attack: DetachedAttack): NonNullable<ClientState["capture"]> => ({
+  startAt: attack.startAt,
+  resolvesAt: attack.resolvesAt,
+  target: { x: attack.targetX, y: attack.targetY },
+  actionType: "ATTACK",
+  ...(attack.combatSnapshot ? { combatSnapshot: attack.combatSnapshot } : {})
+});
+
+type OwnFightState = Pick<ClientState, "capture" | "detachedAttacksByCommandId">;
+
+/** This player's own fight on a tile: the attack in the slot, or one that already left it. */
+export const ownFightAt = (state: OwnFightState, x: number, y: number, nowMs: number = Date.now()): NonNullable<ClientState["capture"]> | undefined => {
+  if (state.capture && state.capture.target.x === x && state.capture.target.y === y) return state.capture;
+  for (const attack of state.detachedAttacksByCommandId.values()) {
+    if (attack.targetX === x && attack.targetY === y && nowMs <= attack.resolvesAt + LIVE_FIGHT_GRACE_MS) return detachedAsFight(attack);
+  }
+  return undefined;
+};
+
+/** The fight a single-row HUD summary should show: the slot's, else the detached one resolving soonest. */
+export const latestOwnFight = (state: OwnFightState, nowMs: number = Date.now()): NonNullable<ClientState["capture"]> | undefined => {
+  if (state.capture) return state.capture;
+  let soonest: DetachedAttack | undefined;
+  for (const attack of state.detachedAttacksByCommandId.values()) {
+    if (nowMs > attack.resolvesAt + LIVE_FIGHT_GRACE_MS) continue;
+    if (!soonest || attack.resolvesAt < soonest.resolvesAt) soonest = attack;
+  }
+  return soonest ? detachedAsFight(soonest) : undefined;
+};
+
+/** Season rollover: none of the old season's attacks, marches or reservations carry over. */
+export const clearOwnAttackTracking = (
+  state: Pick<ClientState, "detachedAttacksByCommandId" | "outgoingMusterAttacksByTile" | "musterTransitByCommand" | "deferredAttackByCommand">
+): void => {
+  state.detachedAttacksByCommandId.clear();
+  state.outgoingMusterAttacksByTile.clear();
+  state.musterTransitByCommand.clear();
+  state.deferredAttackByCommand.clear();
 };
 
 export const isDetachedAttackCommandId = (state: Pick<ClientState, "detachedAttacksByCommandId">, commandId: unknown): boolean =>
@@ -140,8 +234,10 @@ export const detachedCombatResultPayload = (
  * the player holds, so drop the attack in the dispatch slot and every
  * detached one, along with their map tracking and flag reservations.
  */
-export const clearAllAttacksAfterCancel = (state: DetachState & Pick<ClientState, "deferredAttackByCommand">, keyFor: (x: number, y: number) => string): void => {
-  for (const attack of state.detachedAttacksByCommandId.values()) state.outgoingMusterAttacksByTile.delete(keyFor(attack.targetX, attack.targetY));
+export const clearAllAttacksAfterCancel = (state: Omit<DetachState, "actionQueue" | "frontierSyncWaitUntilByTarget" | "tiles" | "me"> & Pick<ClientState, "deferredAttackByCommand">): void => {
+  // Every outgoing fight was this player's, flag auto-fire included, and the
+  // server just removed all of them.
+  state.outgoingMusterAttacksByTile.clear();
   state.detachedAttacksByCommandId.clear();
   // Fired marches (no deferred send left) were funding the cancelled locks;
   // still-marching ones were never sent and stay armed.
