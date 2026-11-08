@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchPlayerSocialView, playerSocialHtml } from "./client-player-profile-social.js";
+import { fetchPlayerSocialView } from "./client-player-profile-social.js";
 
 describe("fetchPlayerSocialView", () => {
   it("fetches and normalizes a player's social view from the gateway route", async () => {
@@ -38,37 +38,5 @@ describe("fetchPlayerSocialView", () => {
   it("defaults missing fields to empty arrays", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }) as unknown as typeof fetch;
     expect(await fetchPlayerSocialView("p1", "ws://localhost:3101/ws")).toEqual({ allies: [], activeTruces: [], truceBreaksThisSeason: [] });
-  });
-});
-
-describe("playerSocialHtml", () => {
-  const playerNameForOwner = (id?: string | null) => (id === "ally-1" ? "Alden" : undefined);
-
-  it("renders nothing while loading, unset, or empty", () => {
-    expect(playerSocialHtml("loading", playerNameForOwner, 0)).toBe("");
-    expect(playerSocialHtml(undefined, playerNameForOwner, 0)).toBe("");
-    expect(playerSocialHtml({ allies: [], activeTruces: [], truceBreaksThisSeason: [] }, playerNameForOwner, 0)).toBe("");
-  });
-
-  it("lists active alliances, resolving names via playerNameForOwner", () => {
-    const html = playerSocialHtml({ allies: ["ally-1"], activeTruces: [], truceBreaksThisSeason: [] }, playerNameForOwner, 0);
-    expect(html).toContain("Active Alliances");
-    expect(html).toContain("Alden");
-  });
-
-  it("falls back to a shortened id label when the name can't be resolved", () => {
-    const html = playerSocialHtml({ allies: ["unknown-player-id"], activeTruces: [], truceBreaksThisSeason: [] }, playerNameForOwner, 0);
-    expect(html).toContain("ID: unknown-");
-  });
-
-  it("lists active truces with remaining time", () => {
-    const html = playerSocialHtml(
-      { allies: [], activeTruces: [{ otherPlayerId: "p2", otherPlayerName: "Valka", endsAt: 60_000 }], truceBreaksThisSeason: [] },
-      playerNameForOwner,
-      0
-    );
-    expect(html).toContain("Active Truces");
-    expect(html).toContain("Valka");
-    expect(html).toContain("1m remaining");
   });
 });

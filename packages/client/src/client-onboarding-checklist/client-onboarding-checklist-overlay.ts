@@ -6,38 +6,14 @@
 // short detail card without competing for screen space the way an
 // always-open panel would.
 //
-// Positioned bottom-left, stacked above #floating-info (the "Center / Jump
-// to your banner" panel, also fixed to left:12/bottom:12 in style.css) so it
-// doesn't collide with the discovery-tip toast (bottom-right) or the
-// galaxy-view launcher (right, above the minimap).
-//
-// A fixed "bottom: 190px" guess used to place this, tuned against one
-// specific #floating-info layout -- on any other viewport size/zoom/content
-// state it could visually collide with #center-me-desktop (the "Center /
-// Jump to your banner" button) instead of clearing it. Now measured
-// directly: each render, whichever of #center-me-desktop (desktop) /
-// #center-me (mobile) is actually on screen has its top edge cleared by
-// CLEARANCE_ABOVE_CENTER_BUTTON instead of guessing a constant.
-// (Deliberately targets that one button, not the whole #floating-info
-// block -- #floating-info's height grows upward from #selected/#hover
-// showing variable-length tile info, which moves #floating-info's own top
-// edge but not the "Center" row's position, so measuring the whole block
-// would overcorrect and make the bubble jump around on every tile click.)
-//
-// The mobile case needed its own real fix, not just a wider guess: below
-// the 900px breakpoint (see style.css's #mobile-nav/#mobile-core rules)
-// #center-me sits inside #mobile-core, the DEFAULT-visible mobile home
-// panel (`state.mobilePanel` starts as `"core"`, client-state.ts) -- not a
-// rarely-opened one, and it's the thing actually overlapping this bubble
-// the previous fixed mobile offset never accounted for it at all, only for
-// the nav bar beneath it (#mobile-core has its own variable-height content
-// above the nav, up to ~248px).
+// Positioned bottom-left, clear of the discovery-tip toast (bottom-right) and
+// the galaxy-view launcher (right, above the minimap).
 
 import type { Tile } from "../client-types.js";
 import { onboardingChecklistState, completeOnboardingChecklist, type OnboardingChecklistState } from "./client-onboarding-checklist.js";
 import { setOnboardingRelayBeaconSite } from "./client-onboarding-relay-beacon-recommendation.js";
 import { hasOnboardingChecklistAutoOpened, markOnboardingChecklistAutoOpened } from "./client-onboarding-checklist-storage.js";
-import { bottomOffsetClearingCenterButton } from "./client-onboarding-corner-position.js";
+import { ONBOARDING_CORNER_BOTTOM_PX } from "./client-onboarding-corner-position.js";
 
 const BUBBLE_ID = "onboarding-checklist-bubble";
 const PANEL_ID = "onboarding-checklist-panel";
@@ -122,10 +98,7 @@ const render = (state: OnboardingChecklistState): void => {
   const root = document.createElement("div");
   root.id = BUBBLE_ID;
   root.className = "onb-root";
-  // Only the desktop layout's default needs this -- the mobile media query
-  // sets its own literal `bottom` that always wins the cascade regardless
-  // of this custom property (see the styles block below).
-  root.style.setProperty("--onb-bottom", `${bottomOffsetClearingCenterButton()}px`);
+  root.style.setProperty("--onb-bottom", `${ONBOARDING_CORNER_BOTTOM_PX}px`);
   const remaining = remainingSteps(state);
   const note = relayBeaconNote(state);
   root.innerHTML = `
@@ -253,12 +226,6 @@ const styles = `
 .onb-goal-done .onb-goal-label { color: rgba(240,224,200,0.45); text-decoration: line-through; }
 .onb-goal-note { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(126, 224, 138, 0.18); font-size: 12px; line-height: 1.4; color: #d6ac6a; }
 @media (max-width: 520px) {
-  /* No mobile-specific "bottom" override here anymore -- --onb-bottom is
-     measured against whichever Center button is actually on screen (see
-     bottomOffsetClearingCenterButton), which already covers the mobile
-     #mobile-core layout correctly. A hardcoded formula here previously
-     only cleared the nav bar and ignored #mobile-core's own height above
-     it, which is what was actually overlapping this bubble. */
   .onb-root { left: 10px; }
   .onb-launcher { width: 40px; height: 40px; font-size: 18px; }
 }`;

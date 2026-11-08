@@ -6,7 +6,7 @@ import { applySocialFocus } from "../client-alliance/client-alliance-focus.js";
 import { alliancePanelHtml } from "../client-alliance/client-alliance-panel.js";
 import { alliancePanelInputFromState } from "../client-alliance/client-alliance-panel-input.js";
 
-type AllianceDom = Pick<ReturnType<typeof initClientDom>, "alliesListEl" | "mobileAlliesListEl">;
+type AllianceDom = Pick<ReturnType<typeof initClientDom>, "alliesListEl">;
 type SafeValue = <T>(label: string, fallback: T, render: () => T) => T;
 
 const displayRequestNames = <T extends AllianceRequest | TruceRequest>(state: ClientState, requests: T[]): T[] =>
@@ -31,6 +31,5 @@ export const renderAllianceLists = (
       outgoingTruceRequests: displayRequestNames(state, state.outgoingTruceRequests)
     })
   );
-  dom.mobileAlliesListEl.innerHTML = dom.alliesListEl.innerHTML;
-  applySocialFocus([dom.alliesListEl, dom.mobileAlliesListEl], state);
+  applySocialFocus([dom.alliesListEl], state);
 };

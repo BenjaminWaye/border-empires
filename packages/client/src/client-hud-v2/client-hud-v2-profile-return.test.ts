@@ -14,7 +14,6 @@ const depsFor = (state: ReturnType<typeof createInitialState>): HudV2Deps =>
     requestViewRefresh: () => undefined,
     wrapX: (x: number) => x,
     wrapY: (y: number) => y,
-    isMobile: () => false,
     actionFlow: { hideTileActionMenu: () => undefined }
   }) as unknown as HudV2Deps;
 

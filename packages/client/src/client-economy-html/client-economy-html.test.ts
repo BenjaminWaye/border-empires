@@ -4,6 +4,9 @@ import { EMPIRE_STORAGE_FLOOR } from "@border-empires/shared";
 import { emptyEconomyBreakdown } from "../client-economy-model.js";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 
+/** One resource's row in the Economy panel. */
+const rowOf = (html: string, resource: string): string => html.match(new RegExp(`<section[^>]*data-v2e-row="${resource}"[\\s\\S]*?</section>`))?.[0] ?? "";
+
 describe("renderEconomyPanelHtml", () => {
   it("renders shared server breakdown counts and upkeep without depending on cached tiles", () => {
     const economyBreakdown = emptyEconomyBreakdown();
@@ -31,7 +34,6 @@ describe("renderEconomyPanelHtml", () => {
       activeRevealTargetsCount: 0,
       tiles: [],
       economyBreakdown,
-      isMobile: true,
       prettyToken: (value) => value,
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
@@ -39,11 +41,10 @@ describe("renderEconomyPanelHtml", () => {
       economicStructureName: (type) => type
     });
 
-    expect(html).toContain("Towns · 10");
+    expect(html).toContain("Towns ×10");
     expect(html).toContain("+14400.0/day");
-    expect(html).toContain("Fur Synthesizer upkeep · 2");
-    expect(html).toContain("-2016.0/day");
-    expect(html).not.toContain("No upkeep on this resource");
+    expect(html).toContain("Fur Synthesizer upkeep ×2");
+    expect(html).toContain("−2016.0/day");
   });
 
   it("does not show synthesizer gold upkeep on the output resource slot tab", () => {
@@ -69,7 +70,6 @@ describe("renderEconomyPanelHtml", () => {
       activeRevealTargetsCount: 0,
       tiles: [],
       economyBreakdown,
-      isMobile: true,
       prettyToken: (value) => value,
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
@@ -105,7 +105,6 @@ describe("renderEconomyPanelHtml", () => {
       activeRevealTargetsCount: 0,
       tiles: [],
       economyBreakdown,
-      isMobile: true,
       prettyToken: (value) => value,
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
@@ -113,8 +112,7 @@ describe("renderEconomyPanelHtml", () => {
       economicStructureName: (type) => type
     });
 
-    expect(html).toContain("Towns · 7");
-    expect(html).toContain("Paused until manpower is full (3135/3300)");
+    expect(html).toContain("Towns ×7");
     expect(html).toContain("+0.0/day");
   });
 
@@ -137,7 +135,6 @@ describe("renderEconomyPanelHtml", () => {
       activeRevealTargetsCount: 0,
       tiles: [],
       economyBreakdown: undefined,
-      isMobile: true,
       prettyToken: (value) => value,
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
@@ -146,9 +143,8 @@ describe("renderEconomyPanelHtml", () => {
     });
 
     expect(html).toContain("Live empire income");
-    expect(html).toContain("Detailed source rows are still catching up on this session.");
     expect(html).toContain("+15552.0/day");
-    expect(html).not.toContain("No current income");
+    expect(html).not.toContain("No income yet");
   });
 
   it("renders TITANIUM as slots-used, not a stock/cap flow, and lists the Fort occupying one", () => {
@@ -179,7 +175,6 @@ describe("renderEconomyPanelHtml", () => {
         }
       ],
       economyBreakdown: undefined,
-      isMobile: true,
       prettyToken: (value) => value,
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
@@ -187,10 +182,10 @@ describe("renderEconomyPanelHtml", () => {
       economicStructureName: (type) => type
     });
 
-    expect(html).toContain("1 / 2 slots used");
-    expect(html).toContain("1 free");
-    expect(html).toContain("Fort");
-    expect(html).not.toContain("Income Sources");
+    expect(rowOf(html, "TITANIUM")).toContain("1 / 2");
+    expect(rowOf(html, "TITANIUM")).toContain("1 free");
+    expect(rowOf(html, "TITANIUM")).toContain("Fort");
+    expect(rowOf(html, "TITANIUM")).not.toContain("Earned");
     expect(html).not.toContain("in reserve");
   });
 
@@ -213,7 +208,6 @@ describe("renderEconomyPanelHtml", () => {
       activeRevealTargetsCount: 0,
       tiles: [],
       economyBreakdown: undefined,
-      isMobile: true,
       prettyToken: (value) => value,
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
@@ -221,7 +215,7 @@ describe("renderEconomyPanelHtml", () => {
       economicStructureName: (type) => type
     });
 
-    expect(zeroAccessHtml).toContain("No access to this resource yet");
+    expect(rowOf(zeroAccessHtml, "TITANIUM")).toContain("None yet");
 
     const fullyCommittedHtml = renderEconomyPanelHtml({
       focus: "CRYSTAL",
@@ -241,7 +235,6 @@ describe("renderEconomyPanelHtml", () => {
       activeRevealTargetsCount: 0,
       tiles: [],
       economyBreakdown: undefined,
-      isMobile: true,
       prettyToken: (value) => value,
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
@@ -249,10 +242,10 @@ describe("renderEconomyPanelHtml", () => {
       economicStructureName: (type) => type
     });
 
-    expect(fullyCommittedHtml).toContain("Fully committed");
+    expect(rowOf(fullyCommittedHtml, "CRYSTAL")).toContain(">Full<");
   });
 
-  it("flags a dormant occupant in the 'Occupied by' column, matching the tile detail view's indicator", () => {
+  it("flags a dormant occupant in the Used by list, matching the tile detail view's indicator", () => {
     const html = renderEconomyPanelHtml({
       focus: "TITANIUM",
       gold: 0,
@@ -280,7 +273,6 @@ describe("renderEconomyPanelHtml", () => {
         }
       ],
       economyBreakdown: undefined,
-      isMobile: true,
       prettyToken: (value) => value,
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
@@ -288,9 +280,8 @@ describe("renderEconomyPanelHtml", () => {
       economicStructureName: (type) => type
     });
 
-    expect(html).toContain("is-dormant");
-    expect(html).toContain("economy-dormant-flag");
-    expect(html).toContain("⚠ dormant");
+    expect(html).toContain("1 dormant");
+    expect(html).toContain("v2e-warn");
   });
 
   it("does not double-report Relay Beacon food upkeep as a daily flow on the FOOD slot tab", () => {
@@ -324,7 +315,6 @@ describe("renderEconomyPanelHtml", () => {
         { x: 5, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "me" } }
       ],
       economyBreakdown,
-      isMobile: true,
       prettyToken: (value) => value,
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
@@ -333,9 +323,8 @@ describe("renderEconomyPanelHtml", () => {
     });
 
     expect(html).toContain("RELAY_BEACON");
-    expect(html).toContain("1 slot<");
-    expect(html).not.toContain("6 slots");
-    expect(html).not.toContain("No upkeep beyond the slots above");
+    expect(rowOf(html, "FOOD")).toContain("<b>1</b>");
+    expect(rowOf(html, "FOOD")).not.toContain("<b>6</b>");
     expect(html).not.toContain("RELAY_BEACON · 4");
     expect(html).not.toContain("-576.0/day");
     expect(html).not.toContain("576.0/day");
@@ -365,7 +354,6 @@ describe("renderEconomyPanelHtml", () => {
         { x: 3, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "me" } }
       ],
       economyBreakdown: undefined,
-      isMobile: true,
       prettyToken: (value) => value,
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
@@ -374,10 +362,10 @@ describe("renderEconomyPanelHtml", () => {
     });
 
     expect(html).not.toContain("RELAY_BEACON");
-    expect(html).toContain("No structures using a FOOD slot yet");
+    expect(rowOf(html, "FOOD")).toContain("Nothing yet");
   });
 
-  it("keeps cross-resource flow upkeep (gold) on the GOLD card, not the slot tab", () => {
+  it("keeps cross-resource flow upkeep (gold) on the Coin row, not the slot row", () => {
     const economyBreakdown = emptyEconomyBreakdown();
     economyBreakdown.FOOD.sinks = [
       { label: "RELAY_BEACON", amountPerMinute: 0.4, count: 4 },
@@ -403,7 +391,6 @@ describe("renderEconomyPanelHtml", () => {
       activeRevealTargetsCount: 0,
       tiles: [],
       economyBreakdown,
-      isMobile: false,
       prettyToken: (value) => value,
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
@@ -412,7 +399,7 @@ describe("renderEconomyPanelHtml", () => {
     });
 
     expect(html).toContain("Fur Synthesizer upkeep");
-    expect(html).toContain("-17280.0/day");
+    expect(rowOf(html, "GOLD")).toContain("−17280.0/day");
     expect(html).not.toContain("RELAY_BEACON · 4");
     expect(html).not.toContain("-576.0/day");
   });
@@ -422,7 +409,7 @@ describe("renderEconomyPanelHtml", () => {
   // revealing those resource categories exist before the player has
   // researched the tech that reveals them server-side (same bug already
   // fixed for the toolbar ribbon in client-panel-html.ts).
-  it("hides TITANIUM/CRYSTAL/UMBRITE summary cards and detail sections when not revealed", () => {
+  it("hides TITANIUM/CRYSTAL/UMBRITE rows when not revealed", () => {
     const html = renderEconomyPanelHtml({
       focus: "ALL",
       gold: 0,
@@ -441,7 +428,6 @@ describe("renderEconomyPanelHtml", () => {
       activeRevealTargetsCount: 0,
       tiles: [],
       economyBreakdown: emptyEconomyBreakdown(),
-      isMobile: false,
       prettyToken: (value) => value,
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
@@ -450,11 +436,11 @@ describe("renderEconomyPanelHtml", () => {
       isRevealed: (key) => key === "FOOD"
     });
 
-    expect(html).toContain("data-economy-focus=\"GOLD\"");
-    expect(html).toContain("data-economy-focus=\"FOOD\"");
-    expect(html).not.toContain("data-economy-focus=\"TITANIUM\"");
-    expect(html).not.toContain("data-economy-focus=\"CRYSTAL\"");
-    expect(html).not.toContain("data-economy-focus=\"UMBRITE\"");
+    expect(html).toContain("data-v2e-row=\"GOLD\"");
+    expect(html).toContain("data-v2e-row=\"FOOD\"");
+    expect(html).not.toContain("data-v2e-row=\"TITANIUM\"");
+    expect(html).not.toContain("data-v2e-row=\"CRYSTAL\"");
+    expect(html).not.toContain("data-v2e-row=\"UMBRITE\"");
   });
 
   // Regression coverage: an Aether Condenser flipped into Sell Off (EXCHANGE)
@@ -485,7 +471,6 @@ describe("renderEconomyPanelHtml", () => {
       activeRevealTargetsCount: 0,
       tiles: [],
       economyBreakdown,
-      isMobile: true,
       prettyToken: (value) => value,
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",

@@ -25,22 +25,6 @@ export const findHomeAfcTile = (state: Pick<ClientState, "tiles" | "me">): Tile 
 /** Jumps the camera to the home AFC, selects it and opens its tile menu on
  * the overview tab (which lists the docked modules). Returns false when no
  * owned AFC is loaded so the caller can fall back to centering on the empire. */
-export const locateHomeAfc = (
-  state: AfcLocateState,
-  openTileMenu: (tile: Tile, clientX: number, clientY: number) => void,
-  viewportCenter: { x: number; y: number }
-): boolean => {
-  const tile = findHomeAfcTile(state);
-  if (!tile) return false;
-  state.camX = tile.x;
-  state.camY = tile.y;
-  state.camSubX = 0;
-  state.camSubY = 0;
-  state.selected = { x: tile.x, y: tile.y };
-  openTileMenu(tile, viewportCenter.x, viewportCenter.y);
-  return true;
-};
-
 /** The owned AFC a module docks on (or is incoming to), else the home AFC --
  * where a freshly researched module is commissioned. */
 export const afcTileForModule = (state: Pick<ClientState, "tiles" | "me">, techId: string): Tile | undefined => {

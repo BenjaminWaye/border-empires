@@ -1,5 +1,5 @@
 // Chronicle tabs for the new HUD. Chronicle replaces the legacy activity
-// dashboard under ?hud=v2: Yours (the personal timeline, with Show buttons),
+// dashboard: Yours (the personal timeline, with Show buttons),
 // World (the daily world pulse) and Updates (release notes, in
 // client-hud-v2-chronicle-updates.ts). The dashboard's
 // own auto-open is routed here with the tab it would have shown.

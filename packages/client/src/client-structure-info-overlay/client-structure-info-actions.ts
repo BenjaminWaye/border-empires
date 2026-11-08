@@ -6,7 +6,6 @@ type StructureInfoActionState = Parameters<typeof openTechDetailFromTileMenu>[0]
 
 export interface StructureInfoActionsDeps {
   state: StructureInfoActionState;
-  isMobile: () => boolean;
   renderHud: () => void;
 }
 
@@ -34,7 +33,7 @@ export function bindStructureInfoActions(root: HTMLElement, deps: StructureInfoA
       if (!techId) return;
       state.structureInfoKey = "";
       state.crystalAbilityInfoKey = "";
-      openTechDetailFromTileMenu(state, techId, deps.isMobile());
+      openTechDetailFromTileMenu(state, techId);
       renderHud();
     };
   });

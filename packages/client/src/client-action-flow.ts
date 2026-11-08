@@ -178,7 +178,6 @@ type ActionFlowDeps = Record<string, any> & {
   wsUrl: string;
   canvas: HTMLCanvasElement;
   techPickEl: HTMLSelectElement;
-  mobileTechPickEl: HTMLSelectElement;
   tileActionMenuEl: HTMLDivElement;
   placementOverlayEl: HTMLDivElement;
   placementLabelEl: HTMLDivElement;
@@ -192,7 +191,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     ws,
     wsUrl,
     techPickEl,
-    mobileTechPickEl,
     tileActionMenuEl,
     keyFor,
     parseKey,
@@ -220,7 +218,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     computeDragPreview,
     showCaptureAlert,
     notifyInsufficientGoldForFrontierAction,
-    isMobile,
     supportedOwnedTownsForTile,
     supportedOwnedDocksForTile,
     townHasSupportStructure,
@@ -350,7 +347,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   };
 
   const { sendAllianceRequest, sendTruceRequest, breakAlliance, breakTruce, chooseTech, chooseDomain } =
-    createPlayerActionShortcuts({ state, techPickEl, mobileTechPickEl, ws, wsUrl, setAuthStatus, syncAuthOverlay, pushFeed, renderHud, sendGameMessage });
+    createPlayerActionShortcuts({ state, techPickEl, ws, wsUrl, setAuthStatus, syncAuthOverlay, pushFeed, renderHud, sendGameMessage });
   const activeTruceWithPlayer = (playerId?: string | null): ActiveTruceView | undefined =>
     activeTruceWithPlayerFromState(state, playerId);
 
@@ -1081,7 +1078,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const tileActionMenuUiDeps = () => ({
     tileActionMenuEl,
     viewportSize,
-    isMobile,
     hideTileActionMenu,
     tileMenuViewForTile,
     handleTileAction,
@@ -1285,7 +1281,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
     if (actionId === "diplomacy" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
-      openDiplomacyForPlayer(state, selected.ownerId, isMobile());
+      openDiplomacyForPlayer(state, selected.ownerId);
       renderHud();
     }
     if (actionId === "reveal_empire" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {

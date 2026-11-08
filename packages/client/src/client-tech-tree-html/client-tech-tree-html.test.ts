@@ -62,8 +62,7 @@ describe("expanded tech tree rendering", () => {
       isPendingTechUnlock: () => false,
       formatCooldownShort: () => "0s",
       titleCaseFromId: (id) => id,
-      viewportHeight: 700,
-      isMobile: false
+      viewportHeight: 700
     });
 
     expect(html).toContain(">Alchemy<");
@@ -96,8 +95,7 @@ describe("expanded tech tree rendering", () => {
       isPendingTechUnlock: () => false,
       formatCooldownShort: () => "0s",
       titleCaseFromId: (id) => id,
-      viewportHeight: 700,
-      isMobile: false
+      viewportHeight: 700
     });
 
     expect(html).toContain("Monument Age");
@@ -142,8 +140,7 @@ describe("expanded tech tree rendering", () => {
       isPendingTechUnlock: () => false,
       formatCooldownShort: () => "0s",
       titleCaseFromId: (id) => id,
-      viewportHeight: 700,
-      isMobile: false
+      viewportHeight: 700
     });
 
     expect(html).toContain('<span class="tech-tree-card-badge">Available</span>');

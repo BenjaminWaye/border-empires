@@ -19,11 +19,9 @@ import { aetherListHtml } from "./client-hud-v2-aether-list.js";
 import { buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { tileFactsFor, wonderName } from "./client-hud-v2-tile-facts.js";
 import { syncTileProgress } from "./client-hud-v2-tile-progress-live.js";
-import { isHudV2Active } from "./client-hud-v2-flag.js";
 
 export type TileDockDeps = {
   tileActionMenuEl: HTMLElement;
-  isMobile: () => boolean;
   handleTileAction: (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string, buildAllResources?: boolean) => void;
   hideTileActionMenu: () => void;
   renderHud: () => void;
@@ -220,7 +218,7 @@ const onBarClick = (event: MouseEvent): void => {
   }
   const tech = target.closest<HTMLButtonElement>("button[data-view-tech]");
   if (tech?.dataset.viewTech) {
-    openTechDetailFromTileMenu(state, tech.dataset.viewTech, deps.isMobile());
+    openTechDetailFromTileMenu(state, tech.dataset.viewTech);
     deps.hideTileActionMenu();
     deps.renderHud();
     return;
@@ -306,16 +304,9 @@ export const shouldAutoExpand = (state: Pick<ClientState, "tiles" | "me">, tile:
   return NEIGHBOURS.some(([dx, dy]) => state.tiles.get(`${tile.x + dx},${tile.y + dy}`)?.ownerId === state.me);
 };
 
-/** Called at the end of every floating-menu render. A no-op (and an undo) when the flag is off. */
+/** Called at the end of every floating-menu render. */
 export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuView, deps: TileDockDeps, rerender: () => void): void => {
   const menuEl = deps.tileActionMenuEl;
-  if (!isHudV2Active()) {
-    // Flag off and never docked: leave the legacy menu completely untouched.
-    if (!dock) return;
-    menuEl.classList.remove(DOCKED, EXPANDED);
-    hideBar();
-    return;
-  }
   const bar = barEl();
   if (!bar) return;
   if (!dock) {

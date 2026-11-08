@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { relatedStructureTypesForTech, renderTechDetailPrompt } from "./client-tech-detail-ui.js";
+import { relatedStructureTypesForTech } from "./client-tech-detail-ui.js";
 import { structureInfoForKey } from "../client-map-display.js";
 import type { TechInfo } from "../client-types.js";
 
 describe("tech detail structure mapping", () => {
-  it("does not render the tech detail helper placeholder", () => {
-    expect(renderTechDetailPrompt()).toBe("");
-  });
 
   // Regression: the catalog's key is unlockUmbriteRig, but this mapper only
   // knew the retired unlockCamp, so Rigging Works never listed its rig.

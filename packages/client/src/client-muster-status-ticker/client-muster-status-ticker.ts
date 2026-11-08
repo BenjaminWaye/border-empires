@@ -13,7 +13,7 @@ import type { ClientState } from "../client-state/client-state.js";
  * panel opened.
  *
  * Re-render once a second, but only while the manpower panel is actually
- * open (desktop or mobile) and the player has at least one muster flag out
+ * open and the player has at least one muster flag out
  * (HOLD included, now that HOLD flags animate too), so this stays as cheap
  * as the other per-second HUD tickers (startTileMenuDecayTicker,
  * renderVictoryHoldAlert) it sits alongside, instead of
@@ -21,7 +21,7 @@ import type { ClientState } from "../client-state/client-state.js";
  */
 export const startMusterStatusTicker = (state: ClientState, renderHud: () => void): void => {
   setInterval(() => {
-    if (state.activePanel !== "manpower" && state.mobilePanel !== "manpower") return;
+    if (state.activePanel !== "manpower") return;
     let hasLiveMusterFlag = false;
     for (const tile of state.tiles.values()) {
       if (tile.muster?.ownerId === state.me) {

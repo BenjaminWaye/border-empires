@@ -11,36 +11,6 @@
 
 /* ---- Economy panel ---- */
 
-.economy-summary-card {
-  border-color: var(--sp-brass-700);
-  background: linear-gradient(180deg, rgba(60, 41, 25, 0.72), rgba(28, 20, 12, 0.82));
-  color: var(--sp-parchment-100);
-  font-family: var(--sp-font-body);
-}
-
-.economy-summary-card.is-active {
-  border-color: var(--sp-brass-300);
-  background: linear-gradient(180deg, rgba(184, 134, 47, 0.32), rgba(40, 28, 16, 0.86));
-}
-
-.economy-summary-head strong {
-  font-family: var(--sp-font-display);
-  color: var(--sp-brass-100);
-}
-
-.economy-summary-stock {
-  color: var(--sp-brass-100);
-  font-family: var(--sp-font-mono);
-}
-
-.economy-summary-rates {
-  color: var(--sp-parchment-muted);
-}
-
-.economy-overview-note {
-  color: var(--sp-parchment-muted);
-}
-
 .economy-detail-kicker {
   color: var(--sp-parchment-muted);
   font-family: var(--sp-font-display);
@@ -72,10 +42,6 @@
 
 .economy-line.muted {
   color: var(--sp-parchment-muted);
-}
-
-.economy-dormant-flag {
-  color: var(--sp-ember-400);
 }
 
 .economy-line.muster-flag-row.panel-btn {

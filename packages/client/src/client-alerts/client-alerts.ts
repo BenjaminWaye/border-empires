@@ -3,14 +3,13 @@ import { prettyToken } from "../client-app-runtime-utils.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { resourceIconForKey } from "../client-map-display.js";
 import { victoryHoldAlertFor } from "../client-victory-alert/client-victory-alert.js";
-import { compactHudActive } from "../client-panel-nav/client-phone-viewport.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import { getDiscoveryTipTarget, type DiscoveryTipDef } from "../client-discovery-tips/client-discovery-tips.js";
 import type { FeedEntry, FeedSeverity, FeedType, SeasonVictoryObjectiveView, Tile } from "../client-types.js";
 
 export type FeedMutableState = Pick<ClientState, "feed"> &
-  Partial<Pick<ClientState, "activePanel" | "mobilePanel" | "feedUnreadCount" | "feedAttentionUntil">>;
+  Partial<Pick<ClientState, "activePanel" | "feedUnreadCount" | "feedAttentionUntil">>;
 
 const shouldPulseFeedButton = (entry: FeedEntry): boolean =>
   entry.severity === "warn" ||
@@ -19,15 +18,8 @@ const shouldPulseFeedButton = (entry: FeedEntry): boolean =>
   (entry.type === "combat" && entry.severity === "success") ||
   (entry.type === "tech" && entry.severity === "success");
 
-const mobileFeedPanelVisible = (state: FeedMutableState): boolean =>
-  state.mobilePanel === "feed" &&
-  typeof window !== "undefined" &&
-  typeof window.matchMedia === "function" &&
-  window.matchMedia("(max-width: 900px)").matches &&
-  !compactHudActive();
-
 const markFeedUnread = (state: FeedMutableState, entry: FeedEntry): void => {
-  const feedOpen = state.activePanel === "feed" || mobileFeedPanelVisible(state);
+  const feedOpen = state.activePanel === "feed";
   if (feedOpen) return;
   entry.unread = true;
   state.feedUnreadCount = (state.feedUnreadCount ?? 0) + 1;

@@ -9,7 +9,7 @@ const args = {
   orderedTechIdsByTier: (catalog: TechInfo[]) => catalog.map((entry) => entry.id),
   techTier: () => 1, techPrereqIds: () => [], techNameList: () => "", formatTechCost: () => "0 coin",
   isPendingTechUnlock: () => false, formatCooldownShort: () => "", titleCaseFromId: (id: string) => id,
-  viewportHeight: 700, isMobile: false, isGoodPick: () => true
+  viewportHeight: 700, isGoodPick: () => true
 };
 
 for (const render of [renderCompactTechChoiceGridHtml, renderExpandedTechChoiceTreeHtml]) {

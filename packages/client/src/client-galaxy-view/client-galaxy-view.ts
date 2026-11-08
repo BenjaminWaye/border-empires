@@ -28,7 +28,7 @@ const galaxyStyle = `
      safe-area inset). Also nudges left when the desktop side panel is open,
      mirroring how #mini-map-wrap itself avoids the side panel.
      z-index is chosen relative to #hud's own stacking order (mini-map-wrap:20,
-     mobile-sheet:21, mobile-nav:22, side-panel:25, targeting-overlay:27,
+     side-panel:25, targeting-overlay:27,
      auth-overlay:30) — the launcher sits above regular HUD chrome, and the
      modal below auth-overlay so a re-auth prompt is never hidden behind it.
      These elements are mounted as children of #hud (see ensureMounted below),

@@ -16,7 +16,7 @@ const titaniumArgs = (supply: number, sources: ResourceSlotSources | undefined, 
   },
   dormantStructures: [], strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
   upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 }, upkeepLastTick: { foodCoverage: 1 },
-  activeRevealTargetsCount: 0, tiles, economyBreakdown: undefined, isMobile: true,
+  activeRevealTargetsCount: 0, tiles, economyBreakdown: undefined,
   prettyToken: (value) => value, resourceIconHtml: (resource) => resource,
   rateToneClass: () => "positive", resourceLabel: (resource) => resource, economicStructureName: (type) => type,
   slotSourceNames: { domainName: (id) => (id === "afc-exchequer-2" ? "Exchequer II" : undefined), playerName: (id) => (id === "p2" ? "<b>Rival" : undefined) }

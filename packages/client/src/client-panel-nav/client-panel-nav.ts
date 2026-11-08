@@ -1,12 +1,8 @@
 import { markAllFeedEntriesRead } from "../client-alerts/client-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { MANIFEST_PANEL_TITLE } from "../client-manifest-detail/client-manifest-labels.js";
-import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav-icons.js";
 
-import { compactHudActive, isPhoneViewport } from "./client-phone-viewport.js";
-
-/** The legacy phone layout: a phone viewport the new HUD's compact layout is not driving (see client-phone-viewport.ts). */
-export const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").matches && !compactHudActive();
+import { isPhoneViewport } from "./client-phone-viewport.js";
 
 export { isPhoneViewport };
 
@@ -25,56 +21,6 @@ export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): stri
   return "Player Identity";
 };
 
-export const panelToMobile = (panel: NonNullable<ClientState["activePanel"]>): ClientState["mobilePanel"] => {
-  if (panel === "tech") return "tech";
-  if (panel === "domains") return "domains";
-  if (panel === "alliance") return "social";
-  if (panel === "defensibility") return "defensibility";
-  if (panel === "economy") return "economy";
-  if (panel === "manpower") return "manpower";
-  if (panel === "development") return "development";
-  if (panel === "towns") return "towns";
-  if (panel === "leaderboard") return "leaderboard";
-  if (panel === "settings") return "settings";
-  return "feed";
-};
-
-export const mobileNavLabelHtml = (
-  panel: ClientState["mobilePanel"],
-  opts?: {
-    techReady?: boolean;
-    attackAlertUnread?: boolean;
-    feedUnreadCount?: number;
-    victoryHoldAlertUnacknowledged?: boolean;
-    pendingAllyCount?: number;
-  }
-): string => {
-  if (panel === "core") return navTabIconHtml("core");
-  if (panel === "tech") {
-    return opts?.techReady
-      ? navTabIconHtml("tech") + '<span class="tech-ready-dot" aria-label="upgrade available"></span>'
-      : navTabIconHtml("tech");
-  }
-  if (panel === "domains") return navTabIconHtml("domains");
-  if (panel === "towns") return navTabIconHtml("towns");
-  if (panel === "social") {
-    const pendingAllyCount = opts?.pendingAllyCount ?? 0;
-    return pendingAllyCount > 0
-      ? `${navTabIconHtml("alliance")}<span class="social-alert-dot" aria-label="${pendingAllyCount} pending alliance/truce request${pendingAllyCount === 1 ? "" : "s"}">${Math.min(9, pendingAllyCount)}</span>`
-      : navTabIconHtml("alliance");
-  }
-  if (panel === "leaderboard") {
-    return opts?.victoryHoldAlertUnacknowledged
-      ? navTabIconHtml("leaderboard") + '<span class="feed-alert-dot" aria-label="season victory pressure">!</span>'
-      : navTabIconHtml("leaderboard");
-  }
-  if (panel === "settings") return navTabIconHtml("settings");
-  const feedUnreadCount = opts?.feedUnreadCount ?? 0;
-  return opts?.attackAlertUnread || feedUnreadCount > 0
-    ? `${navTabIconHtml("feed")}<span class="feed-alert-dot" aria-label="${opts?.attackAlertUnread ? "under attack" : "new activity"}">${opts?.attackAlertUnread ? "!" : Math.min(9, feedUnreadCount)}</span>`
-    : navTabIconHtml("feed");
-};
-
 export const viewportSize = (): { width: number; height: number } => {
   const vv = window.visualViewport;
   if (vv) return { width: Math.round(vv.width), height: Math.round(vv.height) };
@@ -82,15 +28,15 @@ export const viewportSize = (): { width: number; height: number } => {
 };
 
 export const setActivePanel = (
-  state: Pick<ClientState, "activePanel" | "mobilePanel" | "unreadAttackAlerts" | "feedUnreadCount" | "feedAttentionUntil" | "feed">,
+  state: Pick<ClientState, "activePanel" | "unreadAttackAlerts" | "feedUnreadCount" | "feedAttentionUntil" | "feed">,
   panel: ClientState["activePanel"],
   deps: {
-    renderMobilePanels: () => void;
+    renderSidePanel: () => void;
   }
 ): void => {
   if (state.activePanel === panel) {
     state.activePanel = null;
-    deps.renderMobilePanels();
+    deps.renderSidePanel();
     return;
   }
   state.activePanel = panel;
@@ -100,16 +46,7 @@ export const setActivePanel = (
     state.feedAttentionUntil = 0;
     markAllFeedEntriesRead(state);
   }
-  if (isMobile() && panel) {
-    state.mobilePanel = panelToMobile(panel);
-    if (state.mobilePanel === "feed") {
-      state.unreadAttackAlerts = 0;
-      state.feedUnreadCount = 0;
-      state.feedAttentionUntil = 0;
-      markAllFeedEntriesRead(state);
-    }
-  }
-  deps.renderMobilePanels();
+  deps.renderSidePanel();
 };
 
 export const closeActivePanel = (state: Pick<ClientState, "activePanel" | "domainDetailOpen" | "settingsSubPage">): void => {
@@ -124,121 +61,25 @@ export const closeActivePanel = (state: Pick<ClientState, "activePanel" | "domai
   state.activePanel = null;
 };
 
-export const renderMobilePanels = (
-  state: Pick<
-    ClientState,
-    | "activePanel"
-    | "mobilePanel"
-    | "techTreeExpanded"
-    | "domainDetailOpen"
-    | "unreadAttackAlerts"
-    | "feedUnreadCount"
-    | "incomingAllianceRequests"
-    | "incomingTruceRequests"
-  >,
+export const renderSidePanel = (
+  state: Pick<ClientState, "activePanel" | "techTreeExpanded" | "domainDetailOpen">,
   deps: {
-    hud: HTMLElement;
-    panelActionButtons: NodeListOf<HTMLButtonElement>;
     sidePanelBodyEl: HTMLElement;
     sidePanelEl: HTMLElement;
     panelTitleEl: HTMLElement;
-    mobileSheetEl: HTMLElement;
-    mobileCoreEl: HTMLElement;
-    mobilePanelCoreEl: HTMLElement;
-    mobilePanelMissionsEl: HTMLElement;
-    mobilePanelTechEl: HTMLElement;
-    mobilePanelDomainsEl: HTMLElement;
-    mobilePanelSocialEl: HTMLElement;
-    mobilePanelDefensibilityEl: HTMLElement;
-    mobilePanelEconomyEl: HTMLElement;
-    mobilePanelManpowerEl: HTMLElement;
-    mobilePanelDevelopmentEl: HTMLElement;
-    mobilePanelTownsEl: HTMLElement;
-    mobilePanelLeaderboardEl: HTMLElement;
-    mobilePanelFeedEl: HTMLElement;
-    mobilePanelSettingsEl: HTMLElement;
-    mobileSheetTitleEl: HTMLElement;
   }
 ): void => {
-  const nav = deps.hud.querySelector<HTMLDivElement>("#mobile-nav");
-  if (!nav) return;
-
-  const pendingAllyCount = state.incomingAllianceRequests.length + state.incomingTruceRequests.length;
-
-  deps.panelActionButtons.forEach((btn) => {
-    const panel = btn.dataset.panel as ClientState["activePanel"];
-    btn.classList.toggle("active", panel === state.activePanel);
-  });
-
   const sideSections = deps.sidePanelBodyEl.querySelectorAll<HTMLElement>(".panel-body");
   sideSections.forEach((section) => {
     section.style.display = section.id === `panel-${state.activePanel}` ? "grid" : "none";
   });
   deps.sidePanelEl.classList.toggle("tech-panel-active", state.activePanel === "tech" && state.techTreeExpanded);
   deps.sidePanelEl.classList.toggle("tech-panel-open", state.activePanel === "tech"); // scopes the Manifest detail no-scroll rule
-  deps.sidePanelEl.classList.toggle("domain-panel-active", state.activePanel === "domains" && state.domainDetailOpen && !isMobile());
-  deps.sidePanelEl.classList.toggle("afc-upgrades-panel", state.activePanel === "domains" && !isMobile());
-  deps.sidePanelEl.classList.toggle("settings-panel-active", state.activePanel === "settings"); // the new HUD centres Settings from its first frame
-  deps.mobileSheetEl.classList.toggle("tech-panel-active", state.mobilePanel === "tech" && state.techTreeExpanded);
-  deps.mobileSheetEl.classList.toggle("tech-panel-open", state.mobilePanel === "tech"); // shows the Manifest view toggle in the sheet head
-
-  if (!isMobile()) {
-    nav.style.display = "none";
-    deps.mobileSheetEl.style.display = "none";
-    deps.mobileCoreEl.style.display = "none";
-    deps.sidePanelEl.style.display = state.activePanel ? "grid" : "none";
-    if (state.activePanel) deps.panelTitleEl.textContent = panelTitle(state.activePanel);
-    return;
-  }
-
-  deps.sidePanelEl.style.display = "none";
-  nav.style.display = "grid";
-  deps.mobileCoreEl.style.display = state.mobilePanel === "core" ? "grid" : "none";
-  deps.mobileSheetEl.style.display = state.mobilePanel === "core" ? "none" : "grid";
-
-  const mobileSections: Array<[HTMLElement, ClientState["mobilePanel"]]> = [
-    [deps.mobilePanelCoreEl, "core"],
-    [deps.mobilePanelTechEl, "tech"],
-    [deps.mobilePanelDomainsEl, "domains"],
-    [deps.mobilePanelSocialEl, "social"],
-    [deps.mobilePanelDefensibilityEl, "defensibility"],
-    [deps.mobilePanelEconomyEl, "economy"],
-    [deps.mobilePanelManpowerEl, "manpower"],
-    [deps.mobilePanelDevelopmentEl, "development"],
-    [deps.mobilePanelTownsEl, "towns"],
-    [deps.mobilePanelLeaderboardEl, "leaderboard"],
-    [deps.mobilePanelFeedEl, "feed"],
-    [deps.mobilePanelSettingsEl, "settings"]
-  ];
-  for (const [element, panel] of mobileSections) {
-    element.style.display = panel === state.mobilePanel ? "grid" : "none";
-  }
-
-  if (state.mobilePanel === "tech") deps.mobileSheetTitleEl.textContent = MANIFEST_PANEL_TITLE;
-  else if (state.mobilePanel === "domains") deps.mobileSheetTitleEl.textContent = "AFC Upgrades";
-  else if (state.mobilePanel === "social") deps.mobileSheetTitleEl.textContent = "Alliances";
-  else if (state.mobilePanel === "defensibility") deps.mobileSheetTitleEl.textContent = "Empire Integrity";
-  else if (state.mobilePanel === "economy") deps.mobileSheetTitleEl.textContent = "Economy";
-  else if (state.mobilePanel === "manpower") deps.mobileSheetTitleEl.textContent = "Manpower";
-  else if (state.mobilePanel === "development") deps.mobileSheetTitleEl.textContent = "Development";
-  else if (state.mobilePanel === "towns") deps.mobileSheetTitleEl.textContent = "Towns";
-  else if (state.mobilePanel === "leaderboard") deps.mobileSheetTitleEl.textContent = "Leaderboard";
-  else if (state.mobilePanel === "feed") deps.mobileSheetTitleEl.textContent = "Alerts";
-  else if (state.mobilePanel === "settings") deps.mobileSheetTitleEl.textContent = "Settings";
-  else deps.mobileSheetTitleEl.textContent = "Core";
-
-  const buttons = nav.querySelectorAll<HTMLButtonElement>("button[data-mobile-panel]");
-  buttons.forEach((button) => {
-    const panel = button.dataset.mobilePanel as ClientState["mobilePanel"] | undefined;
-    if (panel) {
-      setTabButtonHtml(button, mobileNavLabelHtml(panel, {
-        attackAlertUnread: state.unreadAttackAlerts > 0,
-        feedUnreadCount: state.feedUnreadCount,
-        pendingAllyCount
-      }));
-    }
-    button.classList.toggle("active", panel === state.mobilePanel);
-  });
+  deps.sidePanelEl.classList.toggle("domain-panel-active", state.activePanel === "domains" && state.domainDetailOpen);
+  deps.sidePanelEl.classList.toggle("afc-upgrades-panel", state.activePanel === "domains");
+  deps.sidePanelEl.classList.toggle("settings-panel-active", state.activePanel === "settings"); // centres Settings from its first frame
+  deps.sidePanelEl.style.display = state.activePanel ? "grid" : "none";
+  if (state.activePanel) deps.panelTitleEl.textContent = panelTitle(state.activePanel);
 };
 
 export const bindTechTreeDragScroll = (

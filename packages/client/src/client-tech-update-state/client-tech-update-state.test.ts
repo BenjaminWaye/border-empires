@@ -11,7 +11,6 @@ describe("applyTechUpdateToState", () => {
       techUiSelectedId: "coinage",
       techDetailOpen: true,
       activePanel: null,
-      mobilePanel: "core",
       structureInfoKey: "CLEARING_HOUSE",
       crystalAbilityInfoKey: "reveal_empire",
       techChoices: ["coinage"],
@@ -58,7 +57,6 @@ describe("applyTechUpdateToState", () => {
     expect(state.pendingTechUnlockId).toBe("");
     expect(state.techDetailOpen).toBe(false);
     expect(state.activePanel).toBe("tech");
-    expect(state.mobilePanel).toBe("tech");
     expect(state.developmentProcessLimit).toBe(4);
     expect(state.activeDevelopmentProcessCount).toBe(3);
     expect(state.structureInfoKey).toBe("");
@@ -81,7 +79,6 @@ describe("applyTechUpdateToState", () => {
       techUiSelectedId: "masonry",
       techDetailOpen: false,
       activePanel: "tech",
-      mobilePanel: "tech",
       techChoices: [],
       techIds: [],
       techCatalog: [],
@@ -95,7 +92,7 @@ describe("applyTechUpdateToState", () => {
       vi.fn()
     );
 
-    expect(state).toMatchObject({ camX: 40, camY: 22, camSubX: 0, camSubY: 0, selected: { x: 40, y: 22 }, activePanel: null, mobilePanel: "core" });
+    expect(state).toMatchObject({ camX: 40, camY: 22, camSubX: 0, camSubY: 0, selected: { x: 40, y: 22 }, activePanel: null });
   });
 
   it("clamps incoming tech catalog tiers to the 7-tier tree", () => {
@@ -104,7 +101,6 @@ describe("applyTechUpdateToState", () => {
       techUiSelectedId: "",
       techDetailOpen: false,
       activePanel: null,
-      mobilePanel: "core",
       structureInfoKey: "",
       crystalAbilityInfoKey: "",
       techChoices: [],
@@ -193,7 +189,6 @@ describe("updateTechAffordabilityPulses", () => {
       techUiSelectedId: "",
       techDetailOpen: false,
       activePanel: null,
-      mobilePanel: "core",
       structureInfoKey: "",
       crystalAbilityInfoKey: "",
       techChoices: [],

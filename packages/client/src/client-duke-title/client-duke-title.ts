@@ -31,5 +31,3 @@ export const dukeNameHtml = (escapedName: string, isDuke: boolean): string => {
 // Planet (Outposts alone don't qualify -- matches the server's
 // holdsPlanetTier / proposerHoldsPlanet precedent). Used by the player
 // profile modal, which already fetches a single player's GalaxyHoldingsView.
-export const isDukeFromHoldings = (holdings: { planets: readonly unknown[] } | undefined): boolean =>
-  Boolean(holdings && holdings.planets.length > 0);

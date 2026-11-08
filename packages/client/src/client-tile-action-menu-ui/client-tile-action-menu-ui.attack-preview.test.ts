@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import { openSingleTileActionMenu } from "./client-tile-action-menu-ui.js";
@@ -28,7 +29,6 @@ const viewForTile = (tile: Tile): TileMenuView => ({
 const deps = (requestAttackPreviewForTarget: (tile: Tile) => void) => ({
   tileActionMenuEl: makeMenuEl(),
   viewportSize: () => ({ width: 1200, height: 900 }),
-  isMobile: () => false,
   hideTileActionMenu: vi.fn(),
   tileMenuViewForTile: viewForTile,
   handleTileAction: vi.fn(),

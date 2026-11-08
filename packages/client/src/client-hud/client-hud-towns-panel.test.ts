@@ -32,52 +32,46 @@ const town = (x: number, name: string, goldPerMinute: number): Tile => ({
   }
 });
 
-const setup = (mobile: boolean, open = true) => {
+const setup = (open = true) => {
   const state = createInitialState();
   state.me = "me";
   if (open) {
     state.activePanel = "towns";
-    state.mobilePanel = "towns";
   }
   state.tiles.set("2,7", town(2, "Ashford", 1));
   state.tiles.set("9,7", town(9, "Brimvale", 3));
   const root = document.createElement("div");
   const panelEl = document.createElement("section");
-  const mobilePanelEl = document.createElement("section");
-  root.append(panelEl, mobilePanelEl);
+  root.append(panelEl);
   const requestViewRefresh = vi.fn();
   const rerender = vi.fn();
   renderHudTownsPanel(state, {
-    root, panelEl, mobilePanelEl, rerender, requestViewRefresh,
+    root, panelEl, rerender, requestViewRefresh,
     wrapX: (x) => x,
     wrapY: (y) => y,
-    isMobile: () => mobile,
     safeHtml: (_label, _fallback, render) => render(),
     fallbackHtml: ""
   });
-  return { state, panelEl, mobilePanelEl, requestViewRefresh };
+  return { state, panelEl, requestViewRefresh };
 };
 
 describe("renderHudTownsPanel", () => {
-  it("fills the desktop and mobile Towns panels", () => {
-    const { panelEl, mobilePanelEl } = setup(false);
+  it("fills the Towns panel", () => {
+    const { panelEl } = setup();
     expect(panelEl.textContent).toContain("2 towns");
-    expect(mobilePanelEl.innerHTML).toBe(panelEl.innerHTML);
   });
 
   it("skips building the list while the Towns panel is closed", () => {
-    const { panelEl } = setup(false, false);
+    const { panelEl } = setup(false);
     expect(panelEl.innerHTML).toBe("");
   });
 
-  it("jumps the camera to a town and closes the mobile sheet", () => {
-    const { state, panelEl, requestViewRefresh } = setup(true);
+  it("jumps the camera to a town", () => {
+    const { state, panelEl, requestViewRefresh } = setup();
     panelEl.querySelector<HTMLButtonElement>('[data-town-list-jump="9,7"]')?.click();
     expect(state.camX).toBe(9);
     expect(state.camY).toBe(7);
     expect(state.selected).toEqual({ x: 9, y: 7 });
-    expect(state.mobilePanel).toBe("core");
-    expect(state.activePanel).toBeNull();
     expect(requestViewRefresh).toHaveBeenCalled();
   });
 });

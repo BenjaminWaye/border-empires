@@ -27,7 +27,7 @@ it("centers alert markers before committing mouse or consecutive touch selection
       committed(x, y);
     },
     cancelOngoingCapture: vi.fn(), hideTileActionMenu: vi.fn(), clearCrystalTargeting: vi.fn(), cancelBuildingPlacement: vi.fn(),
-    renderMobilePanels: vi.fn(), openBulkTileActionMenu: vi.fn(), requestAttackPreviewForHover: vi.fn(), requestAttackPreviewForTarget: vi.fn(), interactionFlags: flags
+    renderSidePanel: vi.fn(), openBulkTileActionMenu: vi.fn(), requestAttackPreviewForHover: vi.fn(), requestAttackPreviewForTarget: vi.fn(), interactionFlags: flags
   });
   canvas.dispatchEvent(new MouseEvent("mousedown", { clientX: 40, clientY: 40, button: 0 }));
   window.dispatchEvent(new MouseEvent("mouseup", { clientX: 40, clientY: 40, button: 0 }));

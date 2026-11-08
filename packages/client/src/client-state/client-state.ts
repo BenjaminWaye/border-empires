@@ -107,7 +107,6 @@ export const createInitialState = () => ({
   activeDevelopmentProcessCount: 0,
   musterFlagLimit: MUSTER_MAX_TILES, // real value (with tech/domain/wonder bonuses) arrives via PLAYER_UPDATE/INIT
   defensibilityPct: 100,
-  integrityWarningDismissed: false,
   settledT: 1,
   settledE: 4,
   // Opens straight on a deep-linked tile (e.g. an attack alert email's "Go to tile" link — see readUrlTileFocus() in client-camera-storage.ts).
@@ -270,7 +269,6 @@ export const createInitialState = () => ({
   seasonStats: undefined as SeasonStatsView | undefined, seasonScoreHistory: [] as ScoreHistorySeriesView[],
   seasonStartVoteCount: 0, seasonStartVoted: false,
   missions: [] as MissionState[],
-  mobilePanel: "core" as "core" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "settings",
   activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "settings" | null,
   ...createInitialSpaceViewState(),
   showWeakDefensibility: false,

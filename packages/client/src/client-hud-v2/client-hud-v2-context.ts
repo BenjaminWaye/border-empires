@@ -18,7 +18,7 @@ export type HudV2Deps = {
   requestViewRefresh: () => void;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
-  isMobile: () => boolean;
+  setActivePanel: (panel: ClientState["activePanel"]) => void;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   actionFlow: HudV2ActionFlow;
   /** The colour the map paints an owner's land (rivals are hue-shifted away from yours); badges must match it. */

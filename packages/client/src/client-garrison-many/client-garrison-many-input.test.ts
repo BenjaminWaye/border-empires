@@ -34,7 +34,7 @@ it("commits each mouse/touch tap once through the action-flow suppression guard;
       flow.select(x, y);
     },
     cancelOngoingCapture: vi.fn(), hideTileActionMenu: vi.fn(), clearCrystalTargeting: vi.fn(), cancelBuildingPlacement: vi.fn(),
-    renderMobilePanels: vi.fn(), openBulkTileActionMenu: bulkMenu, requestAttackPreviewForHover: vi.fn(), requestAttackPreviewForTarget: vi.fn(), interactionFlags: flags
+    renderSidePanel: vi.fn(), openBulkTileActionMenu: bulkMenu, requestAttackPreviewForHover: vi.fn(), requestAttackPreviewForTarget: vi.fn(), interactionFlags: flags
   });
   flow.begin(state.tiles.get("0,0")!);
   const mouse = (type: string, x = 1, shiftKey = false): void => {

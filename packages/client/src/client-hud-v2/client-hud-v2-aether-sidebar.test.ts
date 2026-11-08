@@ -2,7 +2,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import type { TileActionDef, TileMenuView } from "../client-types.js";
-import { initHudV2Flag } from "./client-hud-v2-flag.js";
 import { dockTileActionMenuForHudV2, type TileDockDeps } from "./client-hud-v2-tile-dock.js";
 
 const act = (id: string, extra: Partial<TileActionDef> = {}): TileActionDef =>
@@ -31,7 +30,6 @@ describe("Aether ▸ sidebar", () => {
   const state = createInitialState();
   const deps: TileDockDeps = {
     tileActionMenuEl: document.createElement("div"),
-    isMobile: () => false,
     handleTileAction: (id, targetKey, originKey) => { fired.push([id, targetKey, originKey]); },
     hideTileActionMenu: () => undefined,
     renderHud: () => undefined
@@ -40,7 +38,6 @@ describe("Aether ▸ sidebar", () => {
   let tileX = 0;
 
   beforeAll(() => {
-    initHudV2Flag("?hud=v2");
     document.body.innerHTML = `<div id="tile-action-menu"></div><section id="hud-v2-tile" hidden></section><section id="hud-v2-build" hidden></section>`;
     deps.tileActionMenuEl = document.getElementById("tile-action-menu") as HTMLElement;
     state.tileActionMenu.mode = "single";

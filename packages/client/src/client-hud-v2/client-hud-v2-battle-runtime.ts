@@ -10,7 +10,6 @@ import type { CaptureCombatSnapshot, Tile, TileActionDef, TileCombatBreakdown, T
 import { battleLiveHtml, battlePreviewHtml, battleResultHtml, parseWinPct, type BattleEffort, type BattleSide } from "./client-hud-v2-battle.js";
 import { BATTLE_ZOOM, closeUpOn, endCloseUp } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
-import { isHudV2Active } from "./client-hud-v2-flag.js";
 import { captureIsBattle } from "./client-hud-v2-tracker.js";
 
 type BattleMode = "preview" | "pending" | "live" | "settling" | "result";
@@ -118,7 +117,7 @@ const sides = (deps: HudV2Deps, b: Battle): { you: BattleSide; them: BattleSide 
 };
 
 const onSheetOpened = (deps: HudV2Deps): void => {
-  if (!isHudV2Active() || !attack || Date.now() - attack.at > ATTACK_CONTEXT_TTL_MS) return;
+  if (!attack || Date.now() - attack.at > ATTACK_CONTEXT_TTL_MS) return;
   if (screen.id !== null && screen.id !== "battle") return;
   const tile: Tile | undefined = deps.state.tiles.get(attack.tileKey);
   if (!tile?.ownerId) return;

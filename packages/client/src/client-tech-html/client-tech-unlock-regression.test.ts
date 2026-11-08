@@ -18,7 +18,6 @@ describe("tech unlock UI", () => {
     chooseTechFromUi("coinage", {
       state,
       techPickEl: { value: "" } as HTMLSelectElement,
-      mobileTechPickEl: { value: "" } as HTMLSelectElement,
       ws: { readyState: 1, send } as unknown as RealtimeSocket,
       wsUrl: "ws://example.test/game",
       setAuthStatus: vi.fn(),

@@ -11,7 +11,7 @@
 
 import type { GuideLookForIcon, GuideView } from "./tutorial-guide-steps.js";
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
-import { bottomOffsetClearingCenterButton } from "../client-onboarding-checklist/client-onboarding-corner-position.js";
+import { ONBOARDING_CORNER_BOTTOM_PX } from "../client-onboarding-checklist/client-onboarding-corner-position.js";
 
 const ROOT_ID = "tutorial-guide-root";
 const RAISED_CLASS = "tg-raised";
@@ -103,7 +103,7 @@ export const renderGuideCard = (view: StepView, expanded: boolean, handlers: Gui
       else if (action === "toggle") handlers.onToggle();
     });
   }
-  root.style.setProperty("--tg-bottom", `${bottomOffsetClearingCenterButton()}px`);
+  root.style.setProperty("--tg-bottom", `${ONBOARDING_CORNER_BOTTOM_PX}px`);
   root.innerHTML = guideCardHtml(view, expanded);
 };
 

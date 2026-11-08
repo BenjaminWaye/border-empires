@@ -40,7 +40,7 @@ it("opens town support and moves the guide outline from Manufactory to Place", (
   document.body.innerHTML = '<div id="hud-v2-screen"></div>';
   const deps: HudV2Deps = {
     state, renderHud: vi.fn(), requestViewRefresh: vi.fn(), wrapX: x => x, wrapY: y => y,
-    isMobile: () => false, sendGameMessage: () => true, ownerColor: () => "#888",
+    setActivePanel: vi.fn(), sendGameMessage: () => true, ownerColor: () => "#888",
     actionFlow: { chooseTech: vi.fn(), cancelOngoingCapture: vi.fn(), handleTileAction: vi.fn(), hideTileActionMenu: vi.fn(),
       requestTileDetailIfNeeded: vi.fn(), tileMenuViewForTile: () => view, openSingleTileActionMenu: vi.fn() }
   };

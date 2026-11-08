@@ -7,9 +7,7 @@ import {
 import { createMultiplexWebSocket } from "./client-multiplex-websocket/client-multiplex-websocket.js";
 import {
   bindTechTreeDragScroll as bindTechTreeDragScrollFromModule,
-  isMobile as isMobileFromModule,
-  mobileNavLabelHtml as mobileNavLabelHtmlFromModule,
-  renderMobilePanels as renderMobilePanelsFromModule,
+  renderSidePanel as renderSidePanelFromModule,
   setActivePanel as setActivePanelFromModule,
   viewportSize as viewportSizeFromModule
 } from "./client-panel-nav/client-panel-nav.js";
@@ -47,38 +45,14 @@ export const createClientViewSupport = (deps: {
     requestViewRefreshFromModule(state, { ws, fullMapChunkRadius, radius, force });
   const maybeRefreshForCamera = (force = false): void =>
     maybeRefreshForCameraFromModule(state, { ws, requestViewRefresh, force });
-  const isMobile = (): boolean => isMobileFromModule();
-  const mobileNavLabelHtml = (
-    panel: typeof state.mobilePanel,
-    opts?: { techReady?: boolean; attackAlertUnread?: boolean; feedUnreadCount?: number }
-  ): string =>
-    mobileNavLabelHtmlFromModule(panel, opts);
   const viewportSize = (): { width: number; height: number } => viewportSizeFromModule();
-  const renderMobilePanels = (): void =>
-    renderMobilePanelsFromModule(state, {
-      hud: dom.hud,
-      panelActionButtons: dom.panelActionButtons,
+  const renderSidePanel = (): void =>
+    renderSidePanelFromModule(state, {
       sidePanelBodyEl: dom.sidePanelBodyEl,
       sidePanelEl: dom.sidePanelEl,
-      panelTitleEl: dom.panelTitleEl,
-      mobileSheetEl: dom.mobileSheetEl,
-      mobileCoreEl: dom.mobileCoreEl,
-      mobilePanelCoreEl: dom.mobilePanelCoreEl,
-      mobilePanelMissionsEl: dom.mobilePanelMissionsEl,
-      mobilePanelTechEl: dom.mobilePanelTechEl,
-      mobilePanelDomainsEl: dom.mobilePanelDomainsEl,
-      mobilePanelSocialEl: dom.mobilePanelSocialEl,
-      mobilePanelDefensibilityEl: dom.mobilePanelDefensibilityEl,
-      mobilePanelEconomyEl: dom.mobilePanelEconomyEl,
-      mobilePanelManpowerEl: dom.mobilePanelManpowerEl,
-      mobilePanelDevelopmentEl: dom.mobilePanelDevelopmentEl,
-      mobilePanelTownsEl: dom.mobilePanelTownsEl,
-      mobilePanelLeaderboardEl: dom.mobilePanelLeaderboardEl,
-      mobilePanelFeedEl: dom.mobilePanelFeedEl,
-      mobilePanelSettingsEl: dom.mobilePanelSettingsEl,
-      mobileSheetTitleEl: dom.mobileSheetTitleEl
+      panelTitleEl: dom.panelTitleEl
     });
-  const setActivePanel = (panel: typeof state.activePanel): void => setActivePanelFromModule(state, panel, { renderMobilePanels });
+  const setActivePanel = (panel: typeof state.activePanel): void => setActivePanelFromModule(state, panel, { renderSidePanel });
   const bindTechTreeDragScroll = (): void => bindTechTreeDragScrollFromModule(state, dom.hud);
 
   return {
@@ -89,10 +63,8 @@ export const createClientViewSupport = (deps: {
     centerOnOwnedTile,
     requestViewRefresh,
     maybeRefreshForCamera,
-    isMobile,
-    mobileNavLabelHtml,
     viewportSize,
-    renderMobilePanels,
+    renderSidePanel,
     setActivePanel,
     bindTechTreeDragScroll
   };

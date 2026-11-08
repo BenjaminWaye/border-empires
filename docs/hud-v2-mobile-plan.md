@@ -1,14 +1,14 @@
 # HUD v2 on mobile: research and plan
 
-Status: Phases 0–7 built (2026-11-03); the compact layout is the default on
-phones. Still to do: delete the legacy phone chrome once a release has run
-without regressions (Phase 7, step 3). See **What was built** below for where
-the build differs from the plan.
+Status: done. Phases 0–7 built (2026-11-03); the legacy phone chrome and the
+`?hud=legacy` opt-out were deleted on 2026-11-07 (Phase 7, step 3). See **What
+was built** below for where the build differs from the plan. The research and
+plan sections below are historical.
 
-The new HUD (`packages/client/src/client-hud-v2/`) is the default on desktop
-since #2587. Phones still get the legacy HUD: `isHudV2Active()` in
-`client-hud-v2-flag.ts` returns false whenever `isMobile()` matches
-`(max-width: 900px)`. This plan covers bringing the new HUD to phones and then
+At the time this plan was written (historical): the new HUD (`packages/client/src/client-hud-v2/`) was the default on desktop
+since #2587, and phones still got the legacy HUD: `isHudV2Active()` in
+`client-hud-v2-flag.ts` returned false whenever `isMobile()` matched
+`(max-width: 900px)`. This plan covered bringing the new HUD to phones and then
 retiring the legacy mobile chrome (`#mobile-nav`, `#mobile-sheet`,
 `#mobile-core`, the mobile `#tile-action-menu` styles).
 
@@ -33,14 +33,14 @@ Lore reviewed; no canon change.
 | Phase | Built | Differs from the plan |
 |---|---|---|
 | 0 | Layout mode, sheet primitive, screenshot harness | The `?hud=compact` opt-in (and `be.hudV2Compact`) was removed again in Phase 7; the link still switches the HUD on |
-| — | `isMobile()` split (`client-panel-nav/client-phone-viewport.ts`) | New: legacy panels follow `isMobile()`, which is false while the compact HUD drives a phone, so they open in `#side-panel` as on desktop and the compact CSS restyles it as a sheet. Device budgets (frame gap, pixel counts, tile-detail requests, login zoom) use `isPhoneViewport()` |
+| — | `isMobile()` split (`client-panel-nav/client-phone-viewport.ts`) | Since removed with the legacy phone chrome: panels always open in `#side-panel`, which the compact CSS restyles as a sheet. Was: legacy panels follow `isMobile()`, which is false while the compact HUD drives a phone, so they open in `#side-panel` as on desktop and the compact CSS restyles it as a sheet. Device budgets (frame gap, pixel counts, tile-detail requests, login zoom) use `isPhoneViewport()` |
 | 1 | Direct resource breakdowns from the bar (updated November 6), folded tracker line, season pill, lens button, orb, tab bar | The tab bar keeps all seven entries (crest + Manifest, Towns, AFC, Diplomacy, Ranks, Chronicle) with labels under the icons, rather than five tabs and a More menu: they fit at 360 px and keep every destination one tap away. Rivals are hidden on phones (they're in Diplomacy) |
 | 2 | Tile panel as a bottom sheet over the tab bar; actions ≥ 44 px, primary first; camera offset (`client-hud-v2-compact-camera.ts`) | The tile panel sizes to its content (capped at 62% of the screen, scrolls) instead of three draggable detents; the grabber is a visual mark. The camera offset moves `camY`, which both renderers read, so it needed no renderer-specific code |
 | 3 | Battle: header, both sides on one row, outcome and Confirm at the bottom | — |
 | 4 | Town: full screen, stats over the build list, actions pinned at the foot | Stacked panels rather than Overview / Build / Tiles tabs |
 | 5 | Frame screens between bar and tab bar; Chronicle half sheet; Manifest scrolls both ways; Ranks, Diplomacy, Towns, profile stacked | — |
 | 6 | Tutorial guide under the bar (hidden behind screens, sheets and panels); onboarding launcher above the lens; back gesture (`client-hud-v2-back.ts`) closes the open sheet or screen; `isMobile()` call sites audited | — |
-| 7 | Compact on by default on phones; changelog entry; `?hud=legacy` still opts out | Legacy phone chrome not deleted yet (step 3) |
+| 7 | Compact on by default on phones; changelog entry; legacy phone chrome and `?hud=legacy` deleted (step 3, 2026-11-07) | — |
 | — | Map overview (follow-up): the round lens button opens the minimap full screen with the lenses under it; tapping a place jumps there and closes it (`client-hud-v2-overlays.ts`) | New: Phase 1 hid the minimap behind the button with no way to open it |
 
 Landscape phones dock the tile panel, Chronicle and sheets to the right edge

@@ -14,7 +14,7 @@ it("keeps the report being read at the same position when new results arrive", (
   const view = (): TileMenuView => ({ title: "Flag", subtitle: "Your land", tabs: ["overview"], overviewLines: [], actions: [], buildings: [], crystal: [] });
   const no = () => false; const noop = () => {};
   const deps: Parameters<typeof renderTileActionMenu>[4] = {
-    tileActionMenuEl: root, viewportSize: () => ({ width: 390, height: 844 }), isMobile: () => true,
+    tileActionMenuEl: root, viewportSize: () => ({ width: 390, height: 844 }),
     hideTileActionMenu: noop, tileMenuViewForTile: view, handleTileAction: noop,
     cancelQueuedSettlement: no, cancelQueuedBuild: no, cancelQueuedAutoSettle: no, moveQueuedEntryToFront: no,
     cancelQueuedWaypointEntry: no, moveWaypointToFront: no, cancelQueuedExpandEntry: no, moveActionQueueEntryToFront: no,

@@ -6,7 +6,7 @@ export type ClientAppDom = ReturnType<typeof initClientDom>;
 
 const toggleExpandedModKey = (
   state: ClientState,
-  dom: Pick<ClientAppDom, "techCurrentModsEl" | "mobileTechCurrentModsEl">,
+  dom: Pick<ClientAppDom, "techCurrentModsEl">,
   modKey: "attack" | "defense" | "income" | "vision"
 ): void => {
   state.expandedModKey = state.expandedModKey === modKey ? null : modKey;
@@ -17,10 +17,9 @@ const toggleExpandedModKey = (
     domainIds: state.domainIds
   });
   dom.techCurrentModsEl.innerHTML = modsHtml;
-  dom.mobileTechCurrentModsEl.innerHTML = modsHtml;
 };
 
-const bindTechModChipClick = (state: ClientState, dom: Pick<ClientAppDom, "techCurrentModsEl" | "mobileTechCurrentModsEl">): void => {
+const bindTechModChipClick = (state: ClientState, dom: Pick<ClientAppDom, "techCurrentModsEl">): void => {
   const handleTechModChipClick = (ev: Event): void => {
     const target = ev.target;
     if (!(target instanceof HTMLElement)) return;
@@ -33,7 +32,6 @@ const bindTechModChipClick = (state: ClientState, dom: Pick<ClientAppDom, "techC
   };
 
   dom.techCurrentModsEl.addEventListener("click", handleTechModChipClick);
-  dom.mobileTechCurrentModsEl.addEventListener("click", handleTechModChipClick);
 };
 
 export const createClientAppRuntimeDom = (state: ClientState): { dom: ClientAppDom; miniMapReplayEl: HTMLDivElement } => {

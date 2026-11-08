@@ -34,7 +34,6 @@ const catalog = [titaniumForge, bastion, thunder, mining];
 
 const context = (overrides: Partial<ManifestDetailContext> = {}): ManifestDetailContext => ({
   tech: titaniumForge,
-  mode: "inline",
   techCatalog: catalog,
   ownedTechIds: [],
   pendingTechUnlockId: "",
@@ -156,11 +155,4 @@ describe("renderManifestDetailHtml", () => {
     expect(renderManifestDetailHtml(context())).not.toContain("Good pick");
   });
 
-  it("wraps the same view in a backdrop for the mobile overlay", () => {
-    const inline = renderManifestDetailHtml(context());
-    const overlay = renderManifestDetailHtml(context({ mode: "overlay" }));
-    expect(inline).not.toContain("tech-detail-backdrop");
-    expect(overlay).toContain('data-tech-detail-close="backdrop"');
-    expect(overlay).toContain("manifest-detail--overlay");
-  });
 });

@@ -35,13 +35,13 @@ it("opens AFC upgrades from the yellow action and keeps the shortcut beside a to
     actions: [], buildings: [{ id: "build_relay_beacon", label: "Build Relay Beacon" }], crystal: [] };
   const deps: HudV2Deps = {
     state, renderHud: vi.fn(), requestViewRefresh: vi.fn(), wrapX: x => x, wrapY: y => y,
-    isMobile: () => false, sendGameMessage: () => true, ownerColor: () => "#888",
+    setActivePanel: vi.fn(), sendGameMessage: () => true, ownerColor: () => "#888",
     actionFlow: { chooseTech: vi.fn(), cancelOngoingCapture: vi.fn(), handleTileAction: vi.fn(), hideTileActionMenu: vi.fn(),
       requestTileDetailIfNeeded: vi.fn(), tileMenuViewForTile: () => view, openSingleTileActionMenu: vi.fn() }
   };
   installHudV2(deps);
   const render = () => dockTileActionMenuForHudV2(state, view, {
-    tileActionMenuEl: document.getElementById("tile-action-menu")!, isMobile: deps.isMobile,
+    tileActionMenuEl: document.getElementById("tile-action-menu")!,
     handleTileAction: deps.actionFlow.handleTileAction, hideTileActionMenu: deps.actionFlow.hideTileActionMenu, renderHud: deps.renderHud
   }, vi.fn());
   render();

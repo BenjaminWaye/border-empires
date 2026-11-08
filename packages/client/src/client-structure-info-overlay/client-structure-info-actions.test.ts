@@ -23,9 +23,9 @@ const fixture = () => {
 describe("structure info navigation", () => {
   afterEach(() => { document.body.innerHTML = ""; });
 
-  it.each([false, true])("dismisses structure details and selects their unlock, mobile=%s", mobile => {
+  it("dismisses structure details and selects their unlock", () => {
     const f = fixture();
-    bindStructureInfoActions(f.root, { state: f.state, renderHud: f.renderHud, isMobile: () => mobile });
+    bindStructureInfoActions(f.root, { state: f.state, renderHud: f.renderHud });
     const link = f.root.querySelector<HTMLButtonElement>('[data-view-tech="frontier-concessions"]');
     expect(link?.textContent).toBe("Frontier Export Charter");
     link!.click();
@@ -35,7 +35,6 @@ describe("structure info navigation", () => {
     expect(f.state.techUiSelectedId).toBe("frontier-concessions");
     expect(f.state.techDetailOpen).toBe(true);
     expect(f.state.domainDetailOpen).toBe(false);
-    if (mobile) expect(f.state.mobilePanel).toBe("tech");
     expect(f.renderHud).toHaveBeenCalledOnce();
   });
 
@@ -44,7 +43,7 @@ describe("structure info navigation", () => {
     const source = document.createElement("button");
     source.dataset.structureInfo = "RESIN_EXTRACTOR";
     f.root.append(source);
-    bindStructureInfoActions(f.root, { state: f.state, renderHud: f.renderHud, isMobile: () => false });
+    bindStructureInfoActions(f.root, { state: f.state, renderHud: f.renderHud });
     source.click();
     expect(f.state.structureInfoKey).toBe("RESIN_EXTRACTOR");
     f.root.querySelector<HTMLButtonElement>('[data-structure-info-close="button"]')!.click();

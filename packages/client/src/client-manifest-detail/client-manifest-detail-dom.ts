@@ -19,16 +19,3 @@ export const updateManifestDetail = (host: HTMLElement, html: string): void => {
   }
 };
 
-export const renderMobileManifestOverlay = (
-  host: HTMLElement,
-  useOverlay: boolean,
-  state: { techDetailOpen: boolean; domainDetailOpen: boolean },
-  renderTech: () => string,
-  renderDomain: () => string
-): void => {
-  const html = useOverlay
-    ? state.techDetailOpen ? renderTech() : state.domainDetailOpen ? renderDomain() : ""
-    : "";
-  updateManifestDetail(host, html);
-  host.style.display = html ? "grid" : "none";
-};

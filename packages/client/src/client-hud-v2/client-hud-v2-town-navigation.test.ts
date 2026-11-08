@@ -40,7 +40,7 @@ describe("town arrow detail refresh", () => {
     const requestTileDetailIfNeeded = vi.fn();
     const deps: HudV2Deps = {
       state, renderHud: vi.fn(), requestViewRefresh: vi.fn(), wrapX: (x) => x, wrapY: (y) => y,
-      isMobile: () => false, sendGameMessage: () => true, ownerColor: () => "#888",
+      setActivePanel: vi.fn(), sendGameMessage: () => true, ownerColor: () => "#888",
       actionFlow: {
         chooseTech: vi.fn(), cancelOngoingCapture: vi.fn(), handleTileAction: vi.fn(), hideTileActionMenu: vi.fn(),
         requestTileDetailIfNeeded, tileMenuViewForTile: () => view,
@@ -78,7 +78,7 @@ describe("town arrow detail refresh", () => {
     const sent: string[] = [];
     const deps: HudV2Deps = {
       state, renderHud: vi.fn(), requestViewRefresh: vi.fn(), wrapX: (x) => x, wrapY: (y) => y,
-      isMobile: () => false, sendGameMessage: () => true, ownerColor: () => "#888",
+      setActivePanel: vi.fn(), sendGameMessage: () => true, ownerColor: () => "#888",
       actionFlow: {
         chooseTech: vi.fn(), cancelOngoingCapture: vi.fn(), hideTileActionMenu: vi.fn(), requestTileDetailIfNeeded: vi.fn(),
         tileMenuViewForTile: () => buildView,
@@ -136,7 +136,7 @@ describe("town arrow detail refresh", () => {
     const handleTileAction = vi.fn();
     const deps: HudV2Deps = {
       state, renderHud: vi.fn(), requestViewRefresh: vi.fn(), wrapX: x => x, wrapY: y => y,
-      isMobile: () => false, sendGameMessage: () => true, ownerColor: () => "#888",
+      setActivePanel: vi.fn(), sendGameMessage: () => true, ownerColor: () => "#888",
       actionFlow: { chooseTech: vi.fn(), cancelOngoingCapture: vi.fn(), handleTileAction,
         hideTileActionMenu: vi.fn(), requestTileDetailIfNeeded: vi.fn(),
         tileMenuViewForTile: tile => tile === hub ? view : focusView, openSingleTileActionMenu: vi.fn() }

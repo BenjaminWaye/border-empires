@@ -203,21 +203,11 @@ describe("openDiplomacyForPlayer", () => {
     const state = createInitialState();
     state.activePanel = "alliance";
 
-    openDiplomacyForPlayer(state, "ai-1", false, 1_000);
+    openDiplomacyForPlayer(state, "ai-1", 1_000);
 
     expect(state.activePanel).toBe("alliance");
     expect(state.socialFocus).toEqual({ playerId: "ai-1", until: 1_000 + SOCIAL_FOCUS_HIGHLIGHT_MS, scrollPending: true });
     expect(state.expandedSocialPlayerId).toBe("ai-1");
   });
 
-  it("switches the mobile sheet to Alliances only on a mobile viewport", () => {
-    const desktop = createInitialState();
-    const before = desktop.mobilePanel;
-    openDiplomacyForPlayer(desktop, "ai-1", false);
-    expect(desktop.mobilePanel).toBe(before);
-
-    const mobile = createInitialState();
-    openDiplomacyForPlayer(mobile, "ai-1", true);
-    expect(mobile.mobilePanel).toBe("social");
-  });
 });

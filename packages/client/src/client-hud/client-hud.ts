@@ -1,25 +1,19 @@
 import { renderAfcRecovery } from "../client-afc-recovery/client-afc-recovery.js";
 import { bindRequestActionButtons } from "./client-hud-request-actions.js";
 import { renderAfcUpgradePanels } from "../client-afc-upgrades/client-afc-upgrades.js";
-import { updateManifestDetail, renderMobileManifestOverlay } from "../client-manifest-detail/client-manifest-detail-dom.js";
+import { updateManifestDetail } from "../client-manifest-detail/client-manifest-detail-dom.js";
 import type { Auth } from "firebase/auth";
 import { bindAccountSettingsControls } from "./client-account-settings-controls.js";
-import { INTEGRITY_PENALTY_PCT, type ChosenTrickleResource } from "@border-empires/shared";
+import { type ChosenTrickleResource } from "@border-empires/shared";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
-import { integrityChipHtml, selfPlayerChipHtml } from "./client-stat-chips.js";
-import { hudManpowerGaugeHtml } from "./client-hud-manpower-gauge.js";
-import { devGearsChipHtml } from "../client-dev-gears/client-dev-gears.js";
-import { renderPlayerProfileOverlay, wirePlayerProfileOverlay } from "../client-player-profile/client-player-profile.js";
+import { fetchActivePlayerProfileData, wirePlayerNameLinks } from "../client-player-profile/client-player-profile.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { renderDefensibilityPanels } from "./client-hud-defensibility-panel.js";
-import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 import type { initClientDom } from "../client-dom.js";
 import { bindHudEconomyPanelControls, hudEconomyPanelHtml } from "./client-hud-economy-panel.js";
 import { renderHudTownsPanel } from "./client-hud-towns-panel.js";
-import { imperialWardChipHtml, bindImperialWardChip } from "../client-imperial-ward/client-imperial-ward.js";
-import type { EconomyFocusKey } from "../client-economy-model.js";
 import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
 import { buildDisconnectHistoryBundle } from "../client-connection-diagnostics/client-connection-diagnostics.js";
@@ -27,7 +21,6 @@ import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-h
 import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
 import { renderHudManpowerPanel } from "./client-hud-manpower-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
-import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
 import { bindAdminSettingsControls } from "./client-hud-admin-settings.js"; import { bindPhotoModeSettingsControls } from "../client-photo-mode/client-photo-mode.js"; // combined onto one line: client-hud.ts is already over the file-line cap and must not grow (AGENTS.md)
@@ -41,8 +34,6 @@ import { renderRendererPromptOverlay } from "../client-renderer-prompt/client-re
 import { renderAllianceLists } from "./client-hud-alliance-lists.js";
 import { bindProposeButtons } from "../client-alliance/client-alliance-propose-buttons.js";
 import { bindMetPlayerRowToggles } from "../client-alliance/client-alliance-row-toggle.js";
-import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
-import { applyAllyAlertNavBadges } from "../client-alliance/client-ally-alert-badge.js";
 import { syncManifestPanelTabs } from "../client-manifest-tabs/client-manifest-tabs.js";
 import { sovereignSiegeEngineStrikeRecordToFeedEntry, SOVEREIGN_SIEGE_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-sovereign-siege-engine-strike-history/client-sovereign-siege-engine-strike-history.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
@@ -50,8 +41,6 @@ import { refreshLiveTechRequirements } from "../client-tech-live-requirements/cl
 import { bindStructureInfoActions } from "../client-structure-info-overlay/client-structure-info-actions.js";
 import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { DomainInfo, PlayerRespawnNotice, TechInfo, Tile, TileMenuView } from "../client-types.js";
-import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav-icons.js";
-import { applyHudTabBadges } from "./client-hud-tab-badges.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -64,28 +53,15 @@ type HudDeps = {
   syncAuthOverlay: () => void;
   storageSet: typeof storageSet;
   developmentSlotSummary: () => DevelopmentSlotSummary;
-  isMobile: () => boolean;
   rateToneClass: (value: number) => string;
-  formatGoldAmount: (value: number) => string;
   formatManpowerAmount: (value: number) => string;
-  strategicRibbonHtml: (
-    strategicResources: ClientState["strategicResources"],
-    strategicProductionPerMinute: ClientState["strategicProductionPerMinute"],
-    upkeepPerMinute: ClientState["upkeepPerMinute"],
-    strategicAnim: ClientState["strategicAnim"],
-    rateToneClass: (value: number) => string,
-    resourceSlots?: ClientState["resourceSlots"],
-    isRevealed?: (key: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE") => boolean
-  ) => string;
   hasRevealedResourceCategory: (
     category: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
     techIds: readonly string[],
     techCatalog: readonly ClientState["techCatalog"][number][]
   ) => boolean;
   formatCooldownShort: (ms: number) => string;
-  openEconomyPanel: (focus?: EconomyFocusKey) => void;
   setActivePanel: (panel: ClientState["activePanel"]) => void;
-  affordableTechChoicesCount: () => number;
   crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => string;
   crystalTargetingTitle: (ability: ClientState["crystalTargeting"]["ability"]) => string;
   clearCrystalTargeting: () => void;
@@ -98,12 +74,8 @@ type HudDeps = {
   renderCaptureProgress: () => void;
   renderVictoryHoldAlert: () => void;
   renderTechChoiceGrid: () => string;
-  techDetailsUseOverlay: () => boolean;
-  renderTechDetailPrompt: () => string;
   renderTechDetailCard: () => string;
   renderStructureInfoOverlay: () => string;
-  renderTechDetailOverlay: () => string;
-  renderDomainDetailOverlay: () => string;
   techOwnedHtml: (catalog: TechInfo[], ownedIds: string[], isPendingTechUnlock?: (techId: string) => boolean) => string;
   effectiveOwnedTechIds: () => string[];
   isPendingTechUnlock: (techId: string) => boolean;
@@ -140,7 +112,7 @@ type HudDeps = {
   economicStructureName: (structureType: string) => string;
   leaderboardHtml: typeof import("../client-panel-html/client-panel-html.js").leaderboardHtml;
   feedHtml: typeof import("../client-panel-html/client-panel-html.js").feedHtml;
-  renderMobilePanels: () => void;
+  renderSidePanel: () => void;
   effectiveTechChoices: () => string[];
   renderManpowerPanelHtml: typeof import("../client-side-panel-html/client-side-panel-html.js").renderManpowerPanelHtml;
   retryBootstrapNow: () => void;
@@ -157,17 +129,11 @@ export const renderClientHud = (deps: HudDeps): void => {
     firebaseAuth,
     syncAuthOverlay,
     storageSet,
-    developmentSlotSummary,
-    isMobile,
     rateToneClass,
-    formatGoldAmount,
     formatManpowerAmount,
-    strategicRibbonHtml,
     hasRevealedResourceCategory,
     formatCooldownShort,
-    openEconomyPanel,
     setActivePanel,
-    affordableTechChoicesCount,
     crystalTargetingTone,
     crystalTargetingTitle,
     clearCrystalTargeting,
@@ -222,78 +188,6 @@ export const renderClientHud = (deps: HudDeps): void => {
   };
 
   const replayPanelHtml = (): string => "";
-
-  const development = safeValue("developmentSlotSummary", { busy: 0, limit: 0, available: 0 }, () => developmentSlotSummary());
-  const mobile = isMobile();
-  const connClass = state.connection === "disconnected" ? "warning" : "normal";
-  const pointsClass =
-    Date.now() < state.goldAnimUntil ? (state.goldAnimDir > 0 ? " delta-up" : state.goldAnimDir < 0 ? " delta-down" : "") : "";
-  const defClass =
-    Date.now() < state.defensibilityAnimUntil
-      ? state.defensibilityAnimDir > 0
-        ? " delta-up"
-        : state.defensibilityAnimDir < 0
-          ? " delta-down"
-          : ""
-      : "";
-  const netGoldPerDay = (state.incomePerMinute - state.upkeepPerMinute.gold) * 1440;
-  const goldRateText = `${netGoldPerDay > 0 ? "+" : ""}${netGoldPerDay.toFixed(1)}/day`;
-  const mobileGoldRateText = `${netGoldPerDay > 0 ? "+" : ""}${netGoldPerDay.toFixed(0)}/day`;
-  const goldRateClass = rateToneClass(netGoldPerDay);
-  const showIntegrityWarning = state.defensibilityPct < INTEGRITY_PENALTY_PCT && !state.integrityWarningDismissed && !isIntegrityWarningDismissed(state.authEmail);
-  dom.statsChipsEl.innerHTML = `
-    ${mobile ? "" : selfPlayerChipHtml(connClass, state.meName, state.leaderboard)}
-    <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Coin</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
-    ${hudManpowerGaugeHtml(state, formatManpowerAmount)}
-    ${integrityChipHtml({ pct: state.defensibilityPct, defClass, showWarning: showIntegrityWarning, mobile })}
-    ${devGearsChipHtml({ busy: development.busy, limit: development.limit, mobile })}
-    ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-toggle-weak-def="true"><span>Integrity</span><strong>Hide Weak</strong></button>` : ""}
-    ${imperialWardChipHtml(state)}
-    ${strategicRibbonHtml(
-      state.strategicResources,
-      state.strategicProductionPerMinute,
-      state.upkeepPerMinute,
-      state.strategicAnim,
-      rateToneClass,
-      state.resourceSlots,
-      (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog)
-    )}
-  `;
-  const economyButtons = dom.statsChipsEl.querySelectorAll("[data-economy-open]") as NodeListOf<HTMLButtonElement>;
-  economyButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const focus = btn.dataset.economyOpen as EconomyFocusKey | undefined;
-      openEconomyPanel(focus ?? "ALL");
-      renderClientHud(deps);
-    };
-  });
-  bindImperialWardChip(dom.statsChipsEl, sendGameMessage);
-  const statPanelButtons = dom.statsChipsEl.querySelectorAll("[data-panel]") as NodeListOf<HTMLButtonElement>;
-  statPanelButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const panel = btn.dataset.panel as typeof state.activePanel;
-      if (!panel) return;
-      setActivePanel(panel);
-    };
-  });
-  const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
-  const attackAlertUnread = state.unreadAttackAlerts > 0;
-  const feedUnreadCount = state.feedUnreadCount;
-  const feedAttentionActive = state.feedAttentionUntil > Date.now();
-  applyHudTabBadges(dom.hud, dom.panelActionButtons, { techReady, attackAlertUnread, feedUnreadCount, feedAttentionActive });
-  applyVictoryHoldAlertNavBadges(state, dom.hud, dom.panelActionButtons);
-  applyAllyAlertNavBadges(state, dom.hud, dom.panelActionButtons);
-  const activityUnread = activityDashboardUnreadCount(state);
-  const activityButtons = dom.hud.querySelectorAll("[data-open-activity-dashboard]") as NodeListOf<HTMLButtonElement>;
-  activityButtons.forEach((btn: HTMLButtonElement) => {
-    setTabButtonHtml(btn, activityUnread > 0
-      ? `${navTabIconHtml("activity")}<span class="feed-alert-dot" aria-label="new activity">${Math.min(9, activityUnread)}</span>`
-      : navTabIconHtml("activity"));
-    btn.onclick = () => toggleActivityDashboard({
-      state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,
-      renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh, persistSeenAt: storageSet
-    });
-  });
 
   if (state.aetherWallTargeting.active) {
     const status = state.selected ? `Origin ${state.selected.x}, ${state.selected.y}` : `Valid origins in view: ${state.aetherWallTargeting.validOrigins.size}`;
@@ -353,16 +247,11 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   const selected = selectedTile();
   if (selected) requestTileDetailIfNeeded(selected);
-  dom.selectedEl.innerHTML = "";
   if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
     const menuTile = state.tiles.get(state.tileActionMenu.currentTileKey);
     if (menuTile) renderTileActionMenu(tileMenuViewForTile(menuTile), state.tileActionMenu.x, state.tileActionMenu.y);
   }
-  dom.hoverEl.innerHTML = "";
-  dom.hoverEl.style.display = "none";
 
-  dom.mobileCoreHelpEl.innerHTML = "";
-  dom.mobileCoreHelpEl.style.display = "none";
 
   safeValue("renderCaptureProgress", undefined, () => renderCaptureProgress());
   safeValue("renderVictoryHoldAlert", undefined, () => renderVictoryHoldAlert());
@@ -401,19 +290,17 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   const visibleTechChoices = deps.effectiveTechChoices();
   const choicesSig = `${state.availableTechPicks}|${visibleTechChoices.join("|")}|${state.techCatalog.length}|${state.pendingTechUnlockId}`;
-  const focused = document.activeElement === dom.techPickEl || document.activeElement === dom.mobileTechPickEl;
+  const focused = document.activeElement === dom.techPickEl;
   const catalogById = new Map(state.techCatalog.map((tech) => [tech.id, tech] as const));
   if (choicesSig !== state.techChoicesSig && !focused) {
-    const previous = state.techUiSelectedId?.trim() || dom.techPickEl.value || dom.mobileTechPickEl.value;
+    const previous = state.techUiSelectedId?.trim() || dom.techPickEl.value;
     dom.techPickEl.innerHTML = "";
-    dom.mobileTechPickEl.innerHTML = "";
     for (const choice of visibleTechChoices) {
       const opt = document.createElement("option");
       opt.value = choice;
       const info = catalogById.get(choice);
       opt.textContent = info ? `${info.name}${info.requirements.canResearch ? "" : " (blocked)"}` : choice;
       dom.techPickEl.append(opt);
-      dom.mobileTechPickEl.append(opt.cloneNode(true));
     }
     if (visibleTechChoices.length === 0) {
       const opt = document.createElement("option");
@@ -425,22 +312,19 @@ export const renderClientHud = (deps: HudDeps): void => {
             ? "No further Manifests in your current branch this season"
             : "No available Manifest choices";
       dom.techPickEl.append(opt);
-      dom.mobileTechPickEl.append(opt.cloneNode(true));
     }
     const fallback = state.pendingTechUnlockId || visibleTechChoices[0] || state.techCatalog[0]?.id || "";
     const nextSelected = previous && catalogById.has(previous) ? previous : fallback;
     const nextPickerValue = visibleTechChoices.includes(nextSelected) ? nextSelected : state.pendingTechUnlockId || visibleTechChoices[0] || "";
     dom.techPickEl.value = nextPickerValue;
-    dom.mobileTechPickEl.value = nextPickerValue;
     state.techUiSelectedId = nextSelected;
     state.techChoicesSig = choicesSig;
   } else if (!focused) {
-    const selectedTechValue = state.techUiSelectedId || dom.techPickEl.value || dom.mobileTechPickEl.value;
+    const selectedTechValue = state.techUiSelectedId || dom.techPickEl.value;
     if (selectedTechValue && catalogById.has(selectedTechValue)) state.techUiSelectedId = selectedTechValue;
   }
 
   dom.techPointsEl.textContent = "Manifests cost coin + strategic resources";
-  dom.mobileTechPointsEl.textContent = "Manifests cost coin + strategic resources";
   dom.techCurrentModsEl.innerHTML = safeValue(
     "techCurrentModsHtml",
     fallbackCard("Manifest bonuses"),
@@ -452,15 +336,12 @@ export const renderClientHud = (deps: HudDeps): void => {
         domainIds: state.domainIds
       })
   );
-  dom.mobileTechCurrentModsEl.innerHTML = dom.techCurrentModsEl.innerHTML;
   dom.techChoicesGridEl.innerHTML = safeValue("renderTechChoiceGrid", fallbackCard("Manifest choices"), () => renderTechChoiceGrid());
-  dom.mobileTechChoicesGridEl.innerHTML = dom.techChoicesGridEl.innerHTML;
   updateManifestDetail(dom.techDetailCardEl, safeValue(
     "renderTechDetailCard",
     fallbackCard("Manifest details"),
-    () => (deps.techDetailsUseOverlay() ? deps.renderTechDetailPrompt() : deps.renderTechDetailCard())
+    () => deps.renderTechDetailCard()
   ));
-  dom.mobileTechDetailCardEl.innerHTML = safeValue("renderTechDetailPrompt", fallbackCard("Manifest details"), () => deps.renderTechDetailPrompt());
   dom.structureInfoOverlayEl.innerHTML = state.structureInfoKey
     ? deps.renderStructureInfoOverlay()
     : state.crystalAbilityInfoKey
@@ -469,25 +350,20 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.structureInfoOverlayEl.style.display = state.structureInfoKey || state.crystalAbilityInfoKey ? "grid" : "none";
   dom.intelOverlayEl.innerHTML = state.activeRevealEmpireStatsPopup ? revealEmpireStatsDossierHtml(state.activeRevealEmpireStatsPopup) : "";
   dom.intelOverlayEl.style.display = state.activeRevealEmpireStatsPopup ? "grid" : "none";
-  renderPlayerProfileOverlay(dom, state, playerNameForOwner, wsUrl, () => renderClientHud(deps));
-  renderMobileManifestOverlay(dom.techDetailOverlayEl, deps.techDetailsUseOverlay(), state, deps.renderTechDetailOverlay, deps.renderDomainDetailOverlay);
+  fetchActivePlayerProfileData(state, wsUrl, () => renderClientHud(deps));
   dom.techOwnedEl.innerHTML = safeValue(
     "techOwnedHtml",
     fallbackCard("Your Manifests"),
     () => deps.techOwnedHtml(state.techCatalog, deps.effectiveOwnedTechIds(), deps.isPendingTechUnlock)
   );
-  dom.mobileTechOwnedEl.innerHTML = dom.techOwnedEl.innerHTML;
   dom.techChoiceDetailsEl.innerHTML = safeValue("renderTechChoiceDetails", "", () => deps.renderTechChoiceDetails());
-  dom.mobileTechChoiceDetailsEl.innerHTML = dom.techChoiceDetailsEl.innerHTML;
   const techResearchSectionEl = document.querySelector("#tech-research-section") as HTMLDivElement | null;
-  const mobileTechResearchSectionEl = document.querySelector("#mobile-tech-research-section") as HTMLDivElement | null;
   if (techResearchSectionEl) techResearchSectionEl.style.display = "grid";
-  if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = "grid";
   syncManifestPanelTabs(dom, state, deps.effectiveOwnedTechIds().length, () => renderClientHud(deps));
-  dom.panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !deps.techDetailsUseOverlay() && !state.techTreeExpanded);
+  dom.panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !state.techTreeExpanded);
   dom.panelDomainsEl.classList.remove("domain-detail-open");
-  dom.hud.classList.toggle("desktop-side-panel-open", !isMobile() && state.activePanel !== null);
-  dom.hud.classList.toggle("tech-tree-overlay-active", !isMobile() && state.activePanel === "tech" && state.techTreeExpanded);
+  dom.hud.classList.toggle("desktop-side-panel-open", state.activePanel !== null);
+  dom.hud.classList.toggle("tech-tree-overlay-active", state.activePanel === "tech" && state.techTreeExpanded);
   bindTechTreeDragScroll();
   const techTreeZoomButtons = dom.hud.querySelectorAll("[data-tech-tree-zoom]") as NodeListOf<HTMLButtonElement>;
   techTreeZoomButtons.forEach((btn: HTMLButtonElement) => {
@@ -499,7 +375,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       renderClientHud(deps);
     };
   });
-  bindStructureInfoActions(dom.hud, { state, isMobile, renderHud: () => renderClientHud(deps) });
+  bindStructureInfoActions(dom.hud, { state, renderHud: () => renderClientHud(deps) });
   const crystalAbilityInfoButtons = dom.hud.querySelectorAll("[data-crystal-ability-info]") as NodeListOf<HTMLButtonElement>;
   crystalAbilityInfoButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
@@ -528,7 +404,6 @@ export const renderClientHud = (deps: HudDeps): void => {
   const selectedTech = state.techCatalog.find((tech) => tech.id === state.techUiSelectedId);
   const canPick = Boolean(selectedTech && selectedTech.requirements.canResearch && !state.pendingTechUnlockId);
   dom.techChooseBtn.disabled = !canPick;
-  dom.mobileTechChooseBtn.disabled = !canPick;
 
   const techCardButtons = dom.hud.querySelectorAll("[data-tech-card]") as NodeListOf<HTMLButtonElement>;
   techCardButtons.forEach((btn: HTMLButtonElement) => {
@@ -540,7 +415,6 @@ export const renderClientHud = (deps: HudDeps): void => {
       state.domainDetailOpen = false;
       if (visibleTechChoices.includes(id)) {
         dom.techPickEl.value = id;
-        dom.mobileTechPickEl.value = id;
       }
       renderClientHud(deps);
     };
@@ -554,30 +428,12 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
   const upgradesRendered = safeValue("renderAfcUpgradePanels", false, () => {
-    renderAfcUpgradePanels(state, dom.panelDomainsContentEl, dom.mobilePanelDomainsEl, chooseDomain, { send: sendGameMessage });
+    renderAfcUpgradePanels(state, dom.panelDomainsContentEl, chooseDomain, { send: sendGameMessage });
     return true;
   });
   if (!upgradesRendered) {
-    dom.panelDomainsContentEl.innerHTML = dom.mobilePanelDomainsEl.innerHTML = fallbackCard("AFC upgrades");
+    dom.panelDomainsContentEl.innerHTML = fallbackCard("AFC upgrades");
   }
-  dom.techDetailOverlayEl.onclick = (event: MouseEvent) => {
-    const target = event.target as HTMLElement | null;
-    const domainCloseTrigger = target?.closest<HTMLElement>("[data-domain-detail-close]");
-    if (domainCloseTrigger) {
-      event.preventDefault();
-      state.domainDetailOpen = false;
-      renderClientHud(deps);
-      return;
-    }
-    const domainUnlockTrigger = target?.closest<HTMLButtonElement>("[data-domain-unlock]");
-    if (domainUnlockTrigger) {
-      event.preventDefault();
-      const id = domainUnlockTrigger.dataset.domainUnlock;
-      if (!id) return;
-      chooseDomain(id);
-      return;
-    }
-  };
   renderAllianceLists(state, dom, safeValue, fallbackCard("Alliances"));
   // Single Copy button for the merged connection + account debug card (was
   // two separate cards each with their own Copy button/payload).
@@ -591,10 +447,8 @@ export const renderClientHud = (deps: HudDeps): void => {
     })
   );
   dom.alliancePlayerInspectEl.innerHTML = socialInspectCardHtml;
-  dom.mobileAlliancePlayerInspectEl.innerHTML = socialInspectCardHtml;
 
   dom.missionsEl.innerHTML = "";
-  dom.mobilePanelMissionsEl.innerHTML = "";
   renderDefensibilityPanels(state, dom, { keyFor, wrapX, wrapY, terrainAt, safeValue, fallbackCard });
   const weakDefButtons = dom.hud.querySelectorAll("[data-toggle-weak-def]") as NodeListOf<HTMLButtonElement>;
   weakDefButtons.forEach((btn: HTMLButtonElement) => {
@@ -618,37 +472,29 @@ export const renderClientHud = (deps: HudDeps): void => {
         "info",
         "info"
       );
-      if (isMobile() && state.mobilePanel === "defensibility") {
-        state.mobilePanel = "core";
-        state.activePanel = null;
-      }
       requestViewRefresh();
       renderClientHud(deps);
     };
   });
 
-  wireIntegrityWarningDismissButtons(dom.hud, state.authEmail, () => {
-    state.integrityWarningDismissed = true;
-    renderClientHud(deps);
-  });
-
   const economyPanelHtml = safeValue("renderEconomyPanelHtml", fallbackCard("Economy"), () =>
     hudEconomyPanelHtml(state, { prettyToken, resourceIconHtml, rateToneClass, resourceLabel, economicStructureName, hasRevealedResourceCategory })
   );
-  dom.panelEconomyEl.innerHTML = dom.mobilePanelEconomyEl.innerHTML = economyPanelHtml;
-  dom.panelDevelopmentEl.innerHTML = dom.mobilePanelDevelopmentEl.innerHTML = safeValue("developmentPanelHtml", fallbackCard("Development"), () =>
-    renderDevelopmentPanelHtml(deriveDevelopmentPanelData(state.tiles, state.me, state.settleProgressByTile, state.developmentQueue, development.busy, development.limit))
-  );
+  dom.panelEconomyEl.innerHTML = economyPanelHtml;
+  dom.panelDevelopmentEl.innerHTML = safeValue("developmentPanelHtml", fallbackCard("Development"), () => {
+    const development = deps.developmentSlotSummary();
+    return renderDevelopmentPanelHtml(deriveDevelopmentPanelData(state.tiles, state.me, state.settleProgressByTile, state.developmentQueue, development.busy, development.limit));
+  });
   renderHudManpowerPanel({
     state, dom, renderManpowerPanelHtml: deps.renderManpowerPanelHtml, formatManpowerAmount, rateToneClass, wrapX, wrapY, requestViewRefresh, sendGameMessage,
     rerender: () => renderClientHud(deps), safeHtml: safeValue, fallbackHtml: fallbackCard("Manpower")
   });
-  dom.leaderboardEl.innerHTML = dom.mobileLeaderboardEl.innerHTML = safeValue(
+  dom.leaderboardEl.innerHTML = safeValue(
     "leaderboardHtml",
     fallbackCard("Leaderboard"),
     () => leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner, state.playerColors, state.dukePlayers)
   );
-  dom.feedEl.innerHTML = dom.mobileFeedEl.innerHTML = safeValue("feedHtml", fallbackCard("Activity feed"), () => {
+  dom.feedEl.innerHTML = safeValue("feedHtml", fallbackCard("Activity feed"), () => {
     const liveFeedHtml = feedHtml(state.feed, {
       visible: debugEnabledForAccount(),
       enabled: debugTileLoggingEnabled(),
@@ -708,7 +554,6 @@ export const renderClientHud = (deps: HudDeps): void => {
   // own overlay (renderProfileEditOverlay below), so nothing here is typed
   // into between renders and no focus-preserving guard is needed.
   dom.panelSettingsEl.innerHTML = settingsPanelHtml(state, wsUrl, firebaseAuth);
-  dom.mobilePanelSettingsEl.innerHTML = dom.panelSettingsEl.innerHTML;
 
   bindRequestActionButtons(dom.hud, sendGameMessage, ".accept-request", "requestId", (id) => ({ type: "ALLIANCE_ACCEPT", requestId: id, confirmedResourceSupply: true }), "Finish sign-in before responding to alliance requests.");
   bindRequestActionButtons(dom.hud, sendGameMessage, ".reject-request", "requestId", (id) => ({ type: "ALLIANCE_REJECT", requestId: id }), "Finish sign-in before responding to alliance requests.");
@@ -727,14 +572,8 @@ export const renderClientHud = (deps: HudDeps): void => {
   bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindRendererSettingsControls(dom.hud); bindEmailNotificationsSettingsControls(dom.hud); bindPhotoModeSettingsControls(dom.hud, state, () => renderClientHud(deps)); bindAdminSettingsControls(dom.hud, { state, sendGameMessage, requestViewRefresh, rerender: () => renderClientHud(deps), openPanel: setActivePanel });
   bindHudEconomyPanelControls(dom.hud, state, () => renderClientHud(deps));
   renderHudTownsPanel(state, {
-    root: dom.hud, panelEl: dom.panelTownsEl, mobilePanelEl: dom.mobilePanelTownsEl, rerender: () => renderClientHud(deps),
-    requestViewRefresh, wrapX, wrapY, isMobile, safeHtml: safeValue, fallbackHtml: fallbackCard("Towns")
-  });
-  const defensibilityButtons = dom.hud.querySelectorAll("[data-defensibility-open]") as NodeListOf<HTMLButtonElement>; // top-bar chip + Economy panel card (wired after the panel HTML is in)
-  defensibilityButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      setActivePanel("defensibility");
-    };
+    root: dom.hud, panelEl: dom.panelTownsEl, rerender: () => renderClientHud(deps),
+    requestViewRefresh, wrapX, wrapY, safeHtml: safeValue, fallbackHtml: fallbackCard("Towns")
   });
   // Shared binder for the settings panel's JSON-bundle download buttons.
   // Wrapped in try/catch: an uncaught exception inside an onclick handler is
@@ -764,11 +603,6 @@ export const renderClientHud = (deps: HudDeps): void => {
   // Bug report overlay
   renderBugReportOverlay({ state, dom, wsUrl, renderHud: () => renderClientHud(deps) });
 
-  renderClientActivityDashboardOverlay({
-    state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,
-    renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh, persistSeenAt: storageSet
-  });
-
   renderRendererPromptOverlay({ state, overlayEl: dom.rendererPromptOverlayEl, wsUrl, storageSet, renderHud: () => renderClientHud(deps) });
 
   renderRespawnOverlay({
@@ -786,11 +620,11 @@ export const renderClientHud = (deps: HudDeps): void => {
   });
 
   syncAuthOverlay();
-  deps.renderMobilePanels();
-  // Wired last: player names (leaderboard, alliances, mobile panels) are
+  deps.renderSidePanel();
+  // Wired last: player names (leaderboard, alliances) are
   // rendered at various points above and into dom.hud, so this needs to run
-  // after everything (including renderMobilePanels) has set its innerHTML.
-  wirePlayerProfileOverlay(dom, state, () => renderClientHud(deps));
+  // after everything (including renderSidePanel) has set its innerHTML.
+  wirePlayerNameLinks(dom, state, () => renderClientHud(deps));
 };
 
 export const resizeClientViewport = (deps: { dom: Pick<ClientDom, "canvas">; viewportSize: () => { width: number; height: number } }): void => {

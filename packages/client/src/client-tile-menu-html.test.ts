@@ -20,22 +20,22 @@ const baseView: TileMenuView = {
 
 describe("tileActionMenuHtml overview line rendering", () => {
   it("renders a town character between the town name and ownership subtitle", () => {
-    const html = tileActionMenuHtml(baseView, "overview", false);
+    const html = tileActionMenuHtml(baseView, "overview");
     expect(html).toContain('<div class="tile-action-town-character">Town character · <strong>Fertile Town</strong></div>');
   });
 
   it("renders a 'group' kind line with the group heading class", () => {
-    const html = tileActionMenuHtml(baseView, "overview", false);
+    const html = tileActionMenuHtml(baseView, "overview");
     expect(html).toContain('<div class="tile-overview-line tile-overview-line-group">6 Manufactories</div>');
   });
 
   it("renders a nested effect line with both the effect and nested classes", () => {
-    const html = tileActionMenuHtml(baseView, "overview", false);
+    const html = tileActionMenuHtml(baseView, "overview");
     expect(html).toContain('<div class="tile-overview-line tile-overview-line-effect tile-overview-line-nested"><span>Gold production</span></div>');
   });
 
   it("does not add the nested class to a non-nested effect line", () => {
-    const html = tileActionMenuHtml(baseView, "overview", false);
+    const html = tileActionMenuHtml(baseView, "overview");
     expect(html).toContain('<div class="tile-overview-line tile-overview-line-effect"><span>6 connected towns</span></div>');
   });
 });
@@ -65,39 +65,39 @@ describe("tileActionMenuHtml commit tab rendering", () => {
   };
 
   it("renders the slider bounded by the floor and the manpower cap, at the current commitment", () => {
-    const html = tileActionMenuHtml(commitView, "commit", false);
+    const html = tileActionMenuHtml(commitView, "commit");
     expect(html).toContain('min="60"');
     expect(html).toContain('max="720"');
     expect(html).toContain('value="120"');
   });
 
   it("renders all three presets with their computed amounts", () => {
-    const html = tileActionMenuHtml(commitView, "commit", false);
+    const html = tileActionMenuHtml(commitView, "commit");
     expect(html).toContain("Normal (60)");
     expect(html).toContain("Extra (90)");
     expect(html).toContain("Double (120)");
   });
 
   it("shows the cached win chance when one is available", () => {
-    const html = tileActionMenuHtml(commitView, "commit", false);
+    const html = tileActionMenuHtml(commitView, "commit");
     expect(html).toContain("74% win chance");
   });
 
   it("prompts to preview odds when no preview is cached yet but a target is set", () => {
     const view: TileMenuView = { ...commitView, commit: { ...commitView.commit!, winChancePercent: undefined } };
-    const html = tileActionMenuHtml(view, "commit", false);
+    const html = tileActionMenuHtml(view, "commit");
     expect(html).toContain("open Launch Attack on the target tile once to preview odds");
   });
 
   it("prompts to set a march target when the flag has none", () => {
     const view: TileMenuView = { ...commitView, commit: { ...commitView.commit!, hasTarget: false, winChancePercent: undefined, targetX: undefined, targetY: undefined } };
-    const html = tileActionMenuHtml(view, "commit", false);
+    const html = tileActionMenuHtml(view, "commit");
     expect(html).toContain("Set a march target to preview odds");
   });
 
   it("shows an empty state when the tile has no muster flag at all", () => {
     const view: TileMenuView = { ...baseView, tabs: ["commit"], commit: undefined };
-    const html = tileActionMenuHtml(view, "commit", false);
+    const html = tileActionMenuHtml(view, "commit");
     expect(html).toContain("No muster flag here.");
   });
 });
@@ -116,19 +116,19 @@ describe("tileActionMenuHtml building category squares", () => {
   const viewWith = (buildings: TileMenuView["buildings"]): TileMenuView => ({ ...baseView, tabs: ["buildings"], buildings });
 
   it("omits the Monuments square entirely when no monument action is available", () => {
-    const html = tileActionMenuHtml(viewWith(sevenBuildings), "buildings", false);
+    const html = tileActionMenuHtml(viewWith(sevenBuildings), "buildings");
     expect(html).not.toContain("cat-monument");
     expect(html).toContain("repeat(4,");
   });
 
   it("shows the Monuments square once a monument action is available", () => {
-    const html = tileActionMenuHtml(viewWith([...sevenBuildings, building("build_sovereign_siege_engine_part_1", "Build The Long Barrel")]), "buildings", false);
+    const html = tileActionMenuHtml(viewWith([...sevenBuildings, building("build_sovereign_siege_engine_part_1", "Build The Long Barrel")]), "buildings");
     expect(html).toContain("cat-monument");
     expect(html).toContain("repeat(5,");
   });
 
   it("still shows other empty categories as disabled rather than hiding them", () => {
-    const html = tileActionMenuHtml(viewWith(sevenBuildings), "buildings", false);
+    const html = tileActionMenuHtml(viewWith(sevenBuildings), "buildings");
     expect(html).toContain("tile-building-category-square cat-resource is-empty");
     expect(html).toContain("tile-building-category-square cat-town_support is-empty");
   });
@@ -137,15 +137,15 @@ describe("tileActionMenuHtml building category squares", () => {
   const withManufactory = [...sevenBuildings, building("build_manufactory", "Build Manufactory")];
 
   it("opens on Town Support on a support-ring tile that offers a Town Support building", () => {
-    expect(checkedCategory(tileActionMenuHtml(viewWith(withManufactory), "buildings", false))).toBe("town_support");
+    expect(checkedCategory(tileActionMenuHtml(viewWith(withManufactory), "buildings"))).toBe("town_support");
   });
 
   it("opens on Town Support on the town tile itself", () => {
-    expect(checkedCategory(tileActionMenuHtml({ ...viewWith(withManufactory), isTownTile: true }, "buildings", false))).toBe("town_support");
+    expect(checkedCategory(tileActionMenuHtml({ ...viewWith(withManufactory), isTownTile: true }, "buildings"))).toBe("town_support");
   });
 
   it("keeps opening on the first non-empty category when Town Support is empty", () => {
-    expect(checkedCategory(tileActionMenuHtml(viewWith(sevenBuildings), "buildings", false))).toBe("military");
+    expect(checkedCategory(tileActionMenuHtml(viewWith(sevenBuildings), "buildings"))).toBe("military");
   });
 });
 
@@ -159,7 +159,7 @@ describe("recommended actions", () => {
         { id: "settle_land", label: "Garrison", recommended: true, autoSettleOption: { category: "food", checked: false, label: "Garrison farms and fish automatically from now on" } }
       ]
     };
-    const html = tileActionMenuHtml(view, "actions", false);
+    const html = tileActionMenuHtml(view, "actions");
     expect(html.indexOf('data-action="settle_land"')).toBeLessThan(html.indexOf('data-action="build_relay_beacon"'));
     expect(html).toContain('class="tile-action-btn is-recommended"');
     expect(html).toContain("★ Recommended");
@@ -183,13 +183,13 @@ describe("tileActionMenuHtml battle progress card", () => {
   });
 
   it("shows each side's percentage on the versus bar", () => {
-    const html = tileActionMenuHtml(battleView(), "progress", false);
+    const html = tileActionMenuHtml(battleView(), "progress");
     expect(html).toContain("You 30%");
     expect(html).toContain("&lt;b&gt;Evil&lt;/b&gt; 70%");
   });
 
   it("escapes player names in the progress detail and bar labels", () => {
-    const html = tileActionMenuHtml(battleView(), "progress", false);
+    const html = tileActionMenuHtml(battleView(), "progress");
     expect(html).not.toContain("<img src=x");
     expect(html).not.toContain("<b>Evil</b>");
     expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");

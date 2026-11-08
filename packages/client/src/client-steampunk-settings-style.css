@@ -125,8 +125,6 @@
   color: var(--sp-parchment-muted);
 }
 
-/* ---- Mini-map / replay controls / mobile context card ---- */
-
 .mini-map-btn {
   border-color: var(--sp-brass-700);
   background: rgba(60, 41, 25, 0.6);
@@ -146,14 +144,6 @@
   border-color: var(--sp-brass-300);
   background: rgba(20, 16, 10, 0.85);
   color: var(--sp-brass-100);
-}
-
-.mobile-context-label {
-  color: var(--sp-parchment-muted);
-}
-
-.mobile-context-value {
-  color: var(--sp-parchment-100);
 }
 
 /* ---- Changelog / guide / respawn / intel modal shells ---- */
