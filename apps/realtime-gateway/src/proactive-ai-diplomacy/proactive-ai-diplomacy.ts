@@ -52,6 +52,11 @@ export type ProactiveAiDiplomacyDeps = {
   syncForcedTruce?: (playerId: string, targetPlayerId: string) => Promise<void>;
   fanout: (payloads: Map<string, unknown[]>) => void;
   recordEvent: (level: "info" | "warn" | "error", name: string, payload?: Record<string, unknown>) => void;
+  /**
+   * True once the season has ended: there is no diplomacy left to do, and an
+   * ended season's snapshot is the full map, too big to fetch every tick.
+   */
+  seasonEnded?: () => Promise<boolean>;
 };
 
 /** One AI and at most one offer per tick. No per-player timers/caches;
@@ -60,10 +65,18 @@ export function createProactiveAiDiplomacy(deps: ProactiveAiDiplomacyDeps): { ti
   let cursor = 0;
   let running = false;
   let stopped = false;
+  // Logged on change only, so an ended season doesn't flood the event buffer.
+  let pausedForEndedSeason = false;
   return { stop: () => { stopped = true; }, tick: async () => {
     if (stopped || running || deps.aiPlayerIds.size === 0) return;
     running = true;
     try {
+      const ended = deps.seasonEnded ? await deps.seasonEnded() : false;
+      if (ended !== pausedForEndedSeason) {
+        pausedForEndedSeason = ended;
+        deps.recordEvent("info", ended ? "gateway_ai_diplomacy_paused_season_ended" : "gateway_ai_diplomacy_resumed");
+      }
+      if (ended || stopped) return;
       const ids = [...deps.aiPlayerIds];
       const round = Math.floor(cursor / ids.length);
       const aiId = ids[cursor % ids.length]!;

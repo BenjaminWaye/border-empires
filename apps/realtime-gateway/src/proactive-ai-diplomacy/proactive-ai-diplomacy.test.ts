@@ -34,6 +34,23 @@ function setup(manpower = 900, goodwillCoin = 6000) {
 }
 
 describe("proactive AI diplomacy", () => {
+  // An ended season's snapshot is the full map (5 MB on staging, over gRPC's 4 MB limit):
+  // fetching one every tick only failed, and there is no diplomacy left to do.
+  it("skips the snapshot fetch while the season has ended, logging only the pause and the resume", async () => {
+    const { deps, social } = setup(10);
+    let ended = true;
+    const coordinator = createProactiveAiDiplomacy({ ...deps, seasonEnded: async () => ended });
+    await coordinator.tick();
+    await coordinator.tick();
+    expect(deps.fetchSnapshot).not.toHaveBeenCalled();
+    expect(social.snapshotForPlayer("human").incomingTruceRequests).toHaveLength(0);
+    expect(deps.recordEvent.mock.calls.map(([, name]) => name)).toEqual(["gateway_ai_diplomacy_paused_season_ended"]);
+    ended = false;
+    await coordinator.tick();
+    expect(deps.fetchSnapshot).toHaveBeenCalled();
+    expect(deps.recordEvent.mock.calls.map(([, name]) => name)).toContain("gateway_ai_diplomacy_resumed");
+  });
+
   it("offers one 12h truce when armies are spent and does not spam outstanding offers", async () => {
     const { coordinator, social, deps } = setup(10);
     await coordinator.tick();
