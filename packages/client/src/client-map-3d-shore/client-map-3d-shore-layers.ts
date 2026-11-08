@@ -11,7 +11,8 @@ import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/c
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createShoreFoamLayer, FOAM_LIFT_Y } from "./client-map-3d-shore.js";
 import { createShoreSandLayer, EMPTY_SHORE_FRINGE, SHORE_SAND_SUBDIV, SHORE_SAND_SUBDIV_FAR, type ShoreFringe } from "./client-map-3d-shore-sand.js";
-import { withSeaDirections } from "./client-map-3d-shore-river-mouth.js";
+import { riverBankColor } from "../client-map-3d-rivers/client-map-3d-river-valley.js";
+import { riverMouthBankDepth, withSeaDirections, type ShoreRiverMouth } from "./client-map-3d-shore-river-mouth.js";
 import { createShoreWaterline } from "./client-map-3d-shore-waterline.js";
 
 // Foam would be sub-pixel this far out (window wider than this many tiles).
@@ -36,6 +37,12 @@ const MOUTH_TILE_REACH = 1.6;
 
 const isNearMouth = (gc: number, gr: number, mouths: ReadonlyArray<{ readonly x: number; readonly z: number }>): boolean =>
   mouths.some((m) => Math.abs(m.x - gc - 0.5) < MOUTH_TILE_REACH && Math.abs(m.z - gr - 0.5) < MOUTH_TILE_REACH);
+
+/** Colours beach round a river mouth like the river's bank it carries on from the land. */
+const tintRiverBank = (x: number, z: number, rgb: [number, number, number], mouths: ReadonlyArray<ShoreRiverMouth>): void => {
+  const depth = riverMouthBankDepth(x, z, mouths);
+  if (depth > 0) riverBankColor(rgb, depth, rgb);
+};
 
 export type ShoreSandWiring = {
   /** The heightfield's own material, so the fringe continues the beach exactly. */
@@ -78,7 +85,8 @@ export const createShoreLayers = (scene: Scene, sandWiring: ShoreSandWiring | un
       return;
     }
     const { tiles, isLandTile, worldOffsetX, worldOffsetZ, waterY, mouths } = commit;
-    const waterline = sand ? createShoreWaterline(isLandTile, worldOffsetX, worldOffsetZ, withSeaDirections(mouths, isLandTile)) : undefined;
+    const seaMouths = withSeaDirections(mouths, isLandTile);
+    const waterline = sand ? createShoreWaterline(isLandTile, worldOffsetX, worldOffsetZ, seaMouths) : undefined;
     const foamEnabled = commit.windowTiles <= SHORE_FOAM_MAX_WINDOW_TILES;
     foam.rebuild(tiles, isLandTile, waterY + FOAM_LIFT_Y, foamEnabled, mouths, waterline);
     if (!sand || !sandWiring || !waterline) return;
@@ -90,6 +98,7 @@ export const createShoreLayers = (scene: Scene, sandWiring: ShoreSandWiring | un
       worldOffsetZ,
       waterY,
       waterline,
+      ...(seaMouths.length > 0 ? { tintAt: (x: number, z: number, rgb: [number, number, number]) => tintRiverBank(x, z, rgb, seaMouths) } : {}),
       cornerAt: (x, z, out) => {
         const wx = (((x + worldOffsetX) % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
         const wz = (((z + worldOffsetZ) % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;

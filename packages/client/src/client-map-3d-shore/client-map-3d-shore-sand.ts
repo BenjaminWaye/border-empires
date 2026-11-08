@@ -71,6 +71,8 @@ export type ShoreSandTileInputs = {
   readonly cornerAt: (sceneCornerX: number, sceneCornerZ: number, out: HeightfieldCornerAttributes) => boolean;
   /** Sample grid per side (default SHORE_SAND_SUBDIV). */
   readonly subdiv?: number;
+  /** Adjusts the colour (in place, 0..1 rgb) of a fringe vertex at scene (x, z); e.g. a river's bank carried onto the beach. */
+  readonly tintAt?: (x: number, z: number, rgb: [number, number, number]) => void;
 };
 
 /**
@@ -112,6 +114,9 @@ const vertexKey = (x: number, z: number): number =>
 
 // `owner`: index (in the tile's land list) of the land square nearest it.
 type Sample = { s: number; x: number; z: number; owner: number };
+
+// Scratch colour for ShoreSandTileInputs.tintAt.
+const tint: [number, number, number] = [0, 0, 0];
 
 const newCorner = (): HeightfieldCornerAttributes => ({ y: 0, r: 0, g: 0, b: 0, forestZone: 0, tundraZone: 0 });
 
@@ -213,9 +218,12 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
         pz += (tz / len) * LAND_EDGE_TUCK;
       }
     }
+    tint[0] = ok ? lerp("r") : 244 / 255;
+    tint[1] = ok ? lerp("g") : 232 / 255;
+    tint[2] = ok ? lerp("b") : 198 / 255;
+    inputs.tintAt?.(px, pz, tint);
     buffers.positions.push(px, y, pz);
-    if (ok) buffers.colors.push(lerp("r"), lerp("g"), lerp("b"));
-    else buffers.colors.push(244 / 255, 232 / 255, 198 / 255);
+    buffers.colors.push(tint[0], tint[1], tint[2]);
     buffers.tundra.push(ok ? lerp("tundraZone") : 0);
     // Ramps with s, and the fringe is cut along the s = SHORE_SEAWARD_BAND
     // contour (clipTriangle), so the fade runs between two lines that both

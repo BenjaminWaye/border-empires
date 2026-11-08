@@ -8,16 +8,28 @@
 // mouth corner toward the sea and opening a little as it goes, so the river
 // carries on across the beach at its own width, between rounded sand banks.
 
+import { ESTUARY_FLARE } from "../client-map-3d-rivers/client-map-3d-river-edge-water.js";
+import { BANK_WIDTH, MAX_CHANNEL_HALF_WIDTH, riverTrenchDepth } from "../client-map-3d-rivers/client-map-3d-rivers-channel.js";
+
 /** A river mouth corner (scene coords) and the unit direction out to sea from it. */
 export type ShoreRiverMouth = { readonly x: number; readonly z: number; readonly dx: number; readonly dz: number };
 
-// Half-width (tiles) of the cut where it leaves the land: where the land's
-// own river banks reach dry ground at the coast (the channel,
-// MAX_CHANNEL_HALF_WIDTH 0.18 flared by withMouthDescent's estuary to
-// ~0.29, plus BANK_WIDTH 0.12), so the beach carries those banks straight
-// on. At 0.3 the beach stuck out past them into the river as a sharp tooth
-// on each side.
-const MOUTH_CUT_HALF_WIDTH = 0.4;
+// The cut reaches out to where the land's own river bank meets dry ground
+// at the coast (the channel's half-width plus BANK_WIDTH), so the beach's
+// edge carries the land bank's edge straight on; the river's water widens
+// under both near the coast (appendWater), and the beach beside the cut is
+// coloured like the bank (riverMouthBankDepth). Narrower, and the beach
+// stuck into the river as a sand tooth; wider, and the bank stopped dead
+// at the coast edge against a strip of open sea.
+// Over this distance (tiles) out from the coast the carried-on bank fades
+// back to plain beach, so the mud ends in the bank's rounded seaward end.
+const MOUTH_BANK_FADE = 0.7;
+/** The river channel's half-width at the coast: the widest channel, flared into its estuary (withMouthDescent). */
+const coastChannelHalfWidth = (): number => MAX_CHANNEL_HALF_WIDTH * (1 + ESTUARY_FLARE);
+// Read on use, not at load: this module sits on an import cycle through the
+// water surface, so the river modules may not have run yet when it loads.
+const mouthCutHalfWidth = (): number => coastChannelHalfWidth() + BANK_WIDTH;
+
 // Extra half-width per tile out to sea: the banks part a little, like a
 // real river mouth, rather than running out in dead parallel lines.
 const MOUTH_CUT_SPREAD = 0.15;
@@ -77,9 +89,30 @@ export const riverMouthCutDistance = (x: number, z: number, mouths: ReadonlyArra
     if (rx * rx + rz * rz > MOUTH_CUT_RANGE * MOUTH_CUT_RANGE) continue;
     const along = rx * m.dx + rz * m.dz;
     const across = Math.abs(rx * m.dz - rz * m.dx);
-    const beside = across - (MOUTH_CUT_HALF_WIDTH + Math.max(0, along) * MOUTH_CUT_SPREAD);
+    const beside = across - (mouthCutHalfWidth() + Math.max(0, along) * MOUTH_CUT_SPREAD);
     // Outside the channel if beside it, behind its start (inland) or past its end.
     best = Math.min(best, Math.max(beside, -along - MOUTH_CUT_BACK, along - MOUTH_CUT_LENGTH));
   }
   return best;
+};
+
+/**
+ * How deep (tiles, as riverTrenchDepth) the river's bank would be at (x, z)
+ * on the beach round a mouth: the land's bank profile across the river,
+ * carried out to sea and faded to nothing by MOUTH_BANK_FADE. The beach
+ * there is coloured like that bank (riverBankColor), so the bank runs on
+ * from the land with no break at the coast edge. 0 away from any mouth.
+ */
+export const riverMouthBankDepth = (x: number, z: number, mouths: ReadonlyArray<ShoreRiverMouth>): number => {
+  let depth = 0;
+  for (const m of mouths) {
+    const rx = x - m.x;
+    const rz = z - m.z;
+    const along = rx * m.dx + rz * m.dz;
+    if (along < -MOUTH_CUT_BACK || along > MOUTH_BANK_FADE) continue;
+    const across = Math.abs(rx * m.dz - rz * m.dx) - Math.max(0, along) * MOUTH_CUT_SPREAD;
+    const fade = 1 - Math.max(0, along) / MOUTH_BANK_FADE;
+    depth = Math.max(depth, riverTrenchDepth(across, coastChannelHalfWidth()) * fade * fade);
+  }
+  return depth;
 };

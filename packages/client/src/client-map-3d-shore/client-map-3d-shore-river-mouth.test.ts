@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NO_MOUTH_CUT, riverMouthCutDistance, withSeaDirections } from "./client-map-3d-shore-river-mouth.js";
+import { NO_MOUTH_CUT, riverMouthBankDepth, riverMouthCutDistance, withSeaDirections } from "./client-map-3d-shore-river-mouth.js";
 import { createShoreWaterline } from "./client-map-3d-shore-waterline.js";
 
 // Land west of x = 0, sea east of it; a river reaches the coast along the
@@ -77,5 +77,14 @@ describe("river mouth through the beach fringe", () => {
     const across = createShoreWaterline(inlet, 100, 100, withSeaDirections([{ x: 0, z: 0 }], inlet));
     const plain = createShoreWaterline(inlet, 100, 100, []);
     expect(across(1.9, 0)).toBe(plain(1.9, 0));
+  });
+  it("carries the land's river bank onto the beach beside the river, fading out to sea", () => {
+    // The bank used to stop dead at the coast edge, with plain beach beyond.
+    const nearCoast = riverMouthBankDepth(0.05, 0.36, mouths);
+    expect(nearCoast).toBeGreaterThan(0);
+    expect(riverMouthBankDepth(0.05, -0.36, mouths)).toBeCloseTo(nearCoast, 6);
+    expect(riverMouthBankDepth(0.4, 0.36, mouths)).toBeLessThan(nearCoast);
+    expect(riverMouthBankDepth(0.8, 0.36, mouths)).toBe(0);
+    expect(riverMouthBankDepth(0.05, 1, mouths)).toBe(0); // dry ground
   });
 });
