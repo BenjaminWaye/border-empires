@@ -112,10 +112,9 @@ export const advanceOneDuke = async (ctx: DukeContext, world: DukeWorld, authUid
     const labels = new Map<string, string>();
     for (const system of state.systems) labels.set(system.seasonId, await ctx.labelFor(system.seasonId));
 
-    // Production, per system.
-    const elapsed = Math.max(0, at - state.lastAdvancedAt);
+    // Builds whose timer is up, per system.
     for (const system of [...state.systems]) {
-      const advanced = advanceSystem(system, elapsed);
+      const advanced = advanceSystem(system, at);
       state = replaceSystem(state, advanced.system);
       if (advanced.completed) {
         const done = applyCompletedBuild(state, system.seasonId, advanced.completed, at);

@@ -1,16 +1,12 @@
 // §26 MVP constants for the Duke layer. Every number here is first-pass and
 // lives in one place so a balance pass can retune it without touching logic.
-import { FLEET_HULL_CLASSES, STABILITY_HIT_CAP, computeFleetTravelTimeMs } from "../galaxy-fleet-config/galaxy-fleet-config.js";
+import { STABILITY_HIT_CAP, computeFleetTravelTimeMs } from "../galaxy-fleet-config/galaxy-fleet-config.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const CYCLE_DAYS = 7;
 
 // Ships (§26.2). The Fighter is the shipped RAIDER hull; the Probe is the
 // shipped SCOUT hull (ids stay RAIDER/SCOUT in code).
-// Cheaper than the legacy RAIDER hull (80): a Trade/Capital planet making 2 a day
-// needed 40 days for its first Fighter, with Wardens arriving in about 3.
-export const FIGHTER_COST = 40;
-export const PROBE_COST = FLEET_HULL_CLASSES.SCOUT.prodCost;
 export const FIGHTER_WEAPONS = 3;
 export const FIGHTER_ARMOR = 2;
 export const HULL_MAX = 100;
@@ -29,9 +25,20 @@ export const WARDEN_WEAPONS = 2;
 export const WARDEN_ARMOR = 1;
 export const WARDEN_HULL = 50;
 
-// Repairs (§23).
-export const FORTIFY_COST_PER_POINT = 2;
-export const refitCost = (missingHullPercent: number): number => Math.ceil((FIGHTER_COST / 100) * missingHullPercent);
+// The daily rhythm (§30). A build is one order and finishes within a day. Its
+// time is its base hours at the reference rate (6 Production a day, an
+// Industrial world), scaled by the system's own rate and capped at a day:
+// Production is how fast a system builds, not a wallet.
+const HOUR_MS = 60 * 60 * 1000;
+export const REFERENCE_RATE_PER_DAY = 6;
+export const MAX_BUILD_MS = 24 * HOUR_MS;
+export const BUILD_BASE_HOURS = { FIGHTER: 8, PROBE: 4, REFIT: 4, DEVELOP: 16 } as const;
+export const buildDurationMs = (kind: keyof typeof BUILD_BASE_HOURS, ratePerDay: number): number =>
+  ratePerDay <= 0 ? MAX_BUILD_MS : Math.min(MAX_BUILD_MS, Math.round((BUILD_BASE_HOURS[kind] * HOUR_MS * REFERENCE_RATE_PER_DAY) / ratePerDay));
+// Fortify is an order that takes effect at once.
+export const FORTIFY_STABILITY = 15;
+// Hold Court: the decree that is always worth taking.
+export const HOLD_COURT_INFLUENCE = 1;
 
 // Hard bounds on everything that grows (state-and-persistence-discipline.md).
 export const MAX_FIGHTERS_PER_SYSTEM = 3;
@@ -43,9 +50,6 @@ export const MAX_DIGEST = 40;
 // Convergence (§27): eras kept in the Hall of Fame, and standings kept per era.
 export const MAX_HALL_OF_FAME = 50;
 export const HALL_STANDINGS = 5;
-
-// An empty build slot banks at most one Cycle of Production (§26.2).
-export const IDLE_BANK_CYCLES = 1;
 
 // Wardens (§21.10): a finite pool per region, split across every Planet in it.
 // They are hardest at the start, when few Planets share the pool: 1 Planet takes
@@ -60,7 +64,6 @@ export const MAX_INCURSION_CREDIT = 2;
 // Probe derelicts (§17.4, §26.7).
 export const DERELICT_CHANCE_PERCENT = 8;
 export const DERELICT_INFLUENCE = 15;
-export const DERELICT_PRODUCTION = 40;
 
 // Court Strength (§21.2, §23).
 export const COURT_STRENGTH_PER_SECTOR = 10;
@@ -76,17 +79,16 @@ export type DevelopmentSpec = {
   kind: DevelopmentKind;
   body: import("@border-empires/shared").GalaxyBodyKind;
   label: string;
-  cost: number;
-  // Production added to this system's daily rate, expressed per Cycle.
-  productionPerCycle: number;
+  // Production added to this system's daily rate: it builds faster.
+  productionPerDay: number;
   // Stability restored to this system each Cycle.
   stabilityPerCycle: number;
   summary: string;
 };
 export const DEVELOPMENTS: Record<DevelopmentKind, DevelopmentSpec> = {
-  HARVESTER: { kind: "HARVESTER", body: "GAS_GIANT", label: "Gas Harvester", cost: 80, productionPerCycle: 8, stabilityPerCycle: 0, summary: "+8 Production per Cycle" },
-  MINING: { kind: "MINING", body: "ASTEROID_BELT", label: "Mining Station", cost: 50, productionPerCycle: 5, stabilityPerCycle: 0, summary: "+5 Production per Cycle" },
-  CRYO: { kind: "CRYO", body: "ICE_MOON", label: "Cryo Refinery", cost: 70, productionPerCycle: 0, stabilityPerCycle: 6, summary: "+6 Stability per Cycle here" }
+  HARVESTER: { kind: "HARVESTER", body: "GAS_GIANT", label: "Gas Harvester", productionPerDay: 3, stabilityPerCycle: 0, summary: "+3 Production: builds here go faster" },
+  MINING: { kind: "MINING", body: "ASTEROID_BELT", label: "Mining Station", productionPerDay: 2, stabilityPerCycle: 0, summary: "+2 Production: builds here go faster" },
+  CRYO: { kind: "CRYO", body: "ICE_MOON", label: "Cryo Refinery", productionPerDay: 0, stabilityPerCycle: 6, summary: "+6 Stability per Cycle here" }
 };
 export const DEVELOPMENT_FOR_BODY: Record<import("@border-empires/shared").GalaxyBodyKind, DevelopmentKind> = {
   GAS_GIANT: "HARVESTER",

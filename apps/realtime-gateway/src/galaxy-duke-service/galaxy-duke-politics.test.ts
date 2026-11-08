@@ -44,7 +44,8 @@ describe("AI Dukes (§29.1)", () => {
     const h = await withAi();
     await h.run(HOUR);
     await h.patch("ai:season-c", withSystem("season-c", { probeStock: 1, fighters: [{ hull: 100 }] }));
-    await h.run(HOUR);
+    // Its order for the day went on the first build; the Probe launches with the next.
+    await h.run(DAY);
     const ai = await h.stores.dukeStore.get("ai:season-c");
     expect(ai?.flights).toEqual([expect.objectContaining({ kind: "PROBE", seasonId: "season-a" })]);
   });
@@ -88,6 +89,8 @@ describe("grievances (§29.2)", () => {
     await giveInfluence(h, "uid-a", 20);
     expect(await h.service.declareGrievance("uid-a", "season-a")).toMatchObject({ ok: false, code: "OWN_SECTOR" });
     expect((await h.service.declareGrievance("uid-a", "season-b")).ok).toBe(true);
+    expect(await h.service.declareGrievance("uid-a", "season-b")).toMatchObject({ ok: false, code: "DECREE_NOT_READY" });
+    h.advance(DAY);
     expect(await h.service.declareGrievance("uid-a", "season-b")).toMatchObject({ ok: false, code: "GRIEVANCE_ALREADY_OPEN" });
   });
 

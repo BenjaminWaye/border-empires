@@ -7,10 +7,10 @@ export type AttentionKind =
   | "INCURSION_UNDEFENDED"
   | "INCURSION_DEFENDED"
   | "LOW_STABILITY"
-  | "SLOT_EMPTY"
+  | "ORDER_READY"
   | "FIGHTER_DAMAGED"
   | "COURT_OFFER"
-  | "PETITION_READY"
+  | "DECREE_READY"
   | "GRIEVANCE_AGAINST_YOU"
   | "FAVOR_REVOKED"
   | "WRIT_PENDING";
@@ -34,14 +34,14 @@ const ORDER: Record<AttentionKind, number> = {
   WRIT_PENDING: 5,
   INCURSION_DEFENDED: 6,
   FIGHTER_DAMAGED: 7,
-  SLOT_EMPTY: 8,
-  PETITION_READY: 9
+  ORDER_READY: 8,
+  DECREE_READY: 9
 };
 
 export const buildAttention = (input: {
   systems: ReadonlyArray<SystemView>;
   courtOfferPending: boolean;
-  petitionReady: boolean;
+  decreeReady: boolean;
   writPending?: boolean;
   favorRevoked?: boolean;
   grievancesAgainstMe?: number;
@@ -53,13 +53,13 @@ export const buildAttention = (input: {
       items.push({ kind: defended ? "INCURSION_DEFENDED" : "INCURSION_UNDEFENDED", severity: defended ? "NOTICE" : "URGENT", seasonId: s.seasonId, label: s.label, at: s.incursionArrivesAt });
     }
     if (hitsRemaining(s.stability) <= 2) items.push({ kind: "LOW_STABILITY", severity: "URGENT", seasonId: s.seasonId, label: s.label, at: null });
-    if (s.slot === null) items.push({ kind: "SLOT_EMPTY", severity: "NOTICE", seasonId: s.seasonId, label: s.label, at: null });
+    if (s.order.ready) items.push({ kind: "ORDER_READY", severity: "NOTICE", seasonId: s.seasonId, label: s.label, at: null });
     if (s.fighters.some((h) => h > 0 && h < 60)) items.push({ kind: "FIGHTER_DAMAGED", severity: "NOTICE", seasonId: s.seasonId, label: s.label, at: null });
   }
   if (input.courtOfferPending) items.push({ kind: "COURT_OFFER", severity: "URGENT", seasonId: null, label: "The Court", at: null });
   if (input.favorRevoked) items.push({ kind: "FAVOR_REVOKED", severity: "URGENT", seasonId: null, label: "The Court", at: null });
   if ((input.grievancesAgainstMe ?? 0) > 0) items.push({ kind: "GRIEVANCE_AGAINST_YOU", severity: "URGENT", seasonId: null, label: "A rival Duke", at: null });
   if (input.writPending) items.push({ kind: "WRIT_PENDING", severity: "NOTICE", seasonId: null, label: "A Court envoy", at: null });
-  if (input.petitionReady) items.push({ kind: "PETITION_READY", severity: "NOTICE", seasonId: null, label: "The Senate", at: null });
+  if (input.decreeReady) items.push({ kind: "DECREE_READY", severity: "NOTICE", seasonId: null, label: "Your decree", at: null });
   return items.sort((a, b) => ORDER[a.kind] - ORDER[b.kind]);
 };

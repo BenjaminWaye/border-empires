@@ -72,7 +72,7 @@ describe("galaxy duke routes", () => {
     const app = await build();
     const res = await app.inject({ method: "GET", url: "/hq/galaxy/duke", headers: auth("player-1") });
     expect(res.statusCode).toBe(200);
-    expect(res.json().duke).toMatchObject({ systems: [{ seasonId: "season-1", ratePerDay: 6 }], petition: { available: true }, court: { offer: { status: "PENDING" } } });
+    expect(res.json().duke).toMatchObject({ systems: [{ seasonId: "season-1", ratePerDay: 6 }], decree: { ready: true }, court: { offer: { status: "PENDING" } } });
   });
 
   it("a build starts on the named system, a second build there is a 409 SLOT_BUSY, and there is no weekly gate", async () => {
@@ -93,11 +93,22 @@ describe("galaxy duke routes", () => {
     expect(res.json()).toMatchObject({ code: "NO_SUCH_SYSTEM" });
   });
 
+  it("Fortify is an instant order, and Hold Court a decree, once a day each (§30)", async () => {
+    const app = await build();
+    const fortify = await app.inject({ method: "POST", url: "/hq/galaxy/duke/systems/season-1/build", headers: auth("player-1"), payload: { kind: "FORTIFY" } });
+    expect(fortify.statusCode).toBe(409);
+    expect(fortify.json()).toMatchObject({ ok: false, code: "ALREADY_STABLE" });
+    const hold = await app.inject({ method: "POST", url: "/hq/galaxy/duke/court/hold", headers: auth("player-1") });
+    expect(hold.json()).toEqual({ ok: true });
+    const again = await app.inject({ method: "POST", url: "/hq/galaxy/duke/court/hold", headers: auth("player-1") });
+    expect(again.statusCode).toBe(409);
+    expect(again.json()).toMatchObject({ ok: false, code: "DECREE_NOT_READY" });
+  });
+
   it("rejects malformed bodies with 400 INVALID", async () => {
     const app = await build();
     for (const [url, payload] of [
       ["/hq/galaxy/duke/systems/season-1/build", { kind: "DREADNOUGHT" }],
-      ["/hq/galaxy/duke/systems/season-1/build", { kind: "FORTIFY" }],
       ["/hq/galaxy/duke/systems/season-1/build", { kind: "DEVELOP" }],
       ["/hq/galaxy/duke/systems/season-1/order", { kind: "PROBE" }],
       ["/hq/galaxy/duke/systems/season-1/order", { kind: "BOMBARD", targetSeasonId: "x" }],

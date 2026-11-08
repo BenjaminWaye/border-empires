@@ -4,7 +4,6 @@
 import {
   DERELICT_CHANCE_PERCENT,
   DERELICT_INFLUENCE,
-  DERELICT_PRODUCTION,
   FIGHTER_TRAVEL_MS,
   MAX_FLIGHTS,
   MAX_INTEL,
@@ -63,10 +62,11 @@ const hash = (input: string): number => {
   return h >>> 0;
 };
 
-// Deterministic so a replayed tick can never re-roll a different find.
-export const derelictRoll = (authUid: string, seasonId: string): { found: boolean; reward: "INFLUENCE" | "PRODUCTION" } => {
+// Deterministic so a replayed tick can never re-roll a different find. Since
+// §30 Production is a rate, not a wallet, so a derelict always pays Influence.
+export const derelictRoll = (authUid: string, seasonId: string): { found: boolean } => {
   const h = hash(`${authUid}:${seasonId}`);
-  return { found: h % 100 < DERELICT_CHANCE_PERCENT, reward: (h >>> 8) & 1 ? "INFLUENCE" : "PRODUCTION" };
+  return { found: h % 100 < DERELICT_CHANCE_PERCENT };
 };
 
 const describeDefender = (hull: number | null): string => (hull === null ? "undefended" : `defended by a Fighter (hull ${hull}%)`);
@@ -104,13 +104,9 @@ export const arriveProbe = (state: DukeState, flight: InFlightOrder, target: Tar
   let text = `Probe reached ${target.label} and is now in orbit. Stability ${target.stability}, ${describeDefender(target.defenderHull)}.`;
   if (firstLook) {
     const roll = derelictRoll(state.authUid, target.seasonId);
-    if (roll.found && roll.reward === "INFLUENCE") {
+    if (roll.found) {
       effects.push({ kind: "INFLUENCE_DELTA", delta: DERELICT_INFLUENCE });
       text += ` The Probe found a derelict: +${DERELICT_INFLUENCE} Influence.`;
-    } else if (roll.found) {
-      const home = findSystem(next, flight.fromSeasonId) ?? next.systems[0];
-      if (home) next = replaceSystem(next, { ...home, idleBank: home.idleBank + DERELICT_PRODUCTION });
-      text += ` The Probe found a derelict: +${DERELICT_PRODUCTION} Production.`;
     }
   }
   const pushed = pushDigest(next, now, "INTEL", text);

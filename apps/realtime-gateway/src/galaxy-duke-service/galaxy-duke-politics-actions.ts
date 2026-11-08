@@ -1,6 +1,8 @@
-// Political actions (§29): declare a grievance, answer a Writ, lend a Fighter
-// to the Court. Like every Duke action they first advance the Duke to "now".
+// Political actions (§29): declare a grievance and lend a Fighter to the Court
+// (each the Duke's decree for the day, §30), and answer a Writ (free). Like
+// every Duke action they first advance the Duke to "now".
 import { answerWrit, pendingWrit, resetFavorClock } from "../galaxy-duke-engine/galaxy-duke-court-favor.js";
+import { takeDecree } from "../galaxy-duke-engine/galaxy-duke-daily.js";
 import { pushDigest } from "../galaxy-duke-engine/galaxy-duke-digest.js";
 import { declareGrievance, lendFighter } from "../galaxy-duke-engine/galaxy-duke-grievance.js";
 import { GRIEVANCE_COST_INFLUENCE, LEND_INFLUENCE_STIPEND, WRIT_COURT_STRENGTH_GAIN } from "../galaxy-duke-engine/galaxy-duke-politics-config.js";
@@ -39,7 +41,9 @@ export const declareGrievanceAction = (ctx: DukeContext, authUid: string, target
     const cost = await grievanceCostAgainst(ctx, targetUid);
     const influence = (await ctx.deps.galaxyEconomyStore.getBalance(authUid))?.influence ?? 0;
     if (influence < cost) return { ok: false, code: "INSUFFICIENT_INFLUENCE" };
-    const declared = declareGrievance(state, targetUid, await dukeLabel(ctx, world, targetUid), at);
+    const decreed = takeDecree(state, at);
+    if (!decreed.ok) return decreed;
+    const declared = declareGrievance(decreed.state, targetUid, await dukeLabel(ctx, world, targetUid), at);
     if (!declared.ok) return declared;
     if (cost > 0) await addInfluence(ctx, authUid, -cost);
     const target = await ctx.deps.dukeStore.get(targetUid);
@@ -84,7 +88,9 @@ export const lendFleetAction = (ctx: DukeContext, authUid: string, fromSeasonId:
     // Only a Duke the Court is watching (in the lead, or already out of Favor)
     // may lend: otherwise lending is a free Influence tap.
     if (state.favor?.leadSince == null && !state.favor?.revoked) return { ok: false, code: "NOT_NEEDED_BY_COURT" };
-    const lent = lendFighter(state, fromSeasonId, at);
+    const decreed = takeDecree(state, at);
+    if (!decreed.ok) return decreed;
+    const lent = lendFighter(decreed.state, fromSeasonId, at);
     if (!lent.ok) return lent;
     await addInfluence(ctx, authUid, LEND_INFLUENCE_STIPEND);
     const wasRevoked = state.favor?.revoked === true;

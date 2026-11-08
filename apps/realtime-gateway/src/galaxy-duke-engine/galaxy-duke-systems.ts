@@ -6,24 +6,23 @@ import type { GalaxySpecialization } from "@border-empires/sim-protocol";
 import { initialCourtOffer, presentCourtOffer } from "../galaxy-court-offer/galaxy-court-offer.js";
 import { dailyProductionRate } from "../galaxy-production-queue/galaxy-production-queue.js";
 import {
-  CYCLE_DAYS,
+  buildDurationMs,
   DEVELOPMENTS,
   DEVELOPMENT_UPKEEP_INFLUENCE,
   FIRST_CONTACT_WARNING_MS,
   FREE_DEVELOPMENTS_PER_SYSTEM
 } from "./galaxy-duke-config.js";
 import { pushDigest } from "./galaxy-duke-digest.js";
-import type { DukeState, SystemState } from "./galaxy-duke-types.js";
+import type { DukeBuild, DukeState, SystemState } from "./galaxy-duke-types.js";
 
 export type HeldSector = { seasonId: string; tier: "PLANET" | "OUTPOST"; specialization: GalaxySpecialization };
 
 export const planetsOf = (holdings: ReadonlyArray<HeldSector>): HeldSector[] => holdings.filter((h) => h.tier === "PLANET");
 
 // Production per day for one system: its Planet's own rate plus its Harvesters
-// and Mining Stations (§26.8). Outposts have no slot and yield nothing here.
+// and Mining Stations (§26.8). Since §30 it sets how fast the system builds.
 export const systemDailyRate = (system: SystemState): number =>
-  dailyProductionRate(system.specialization, "PLANET") +
-  system.developments.reduce((sum, d) => sum + DEVELOPMENTS[d.kind].productionPerCycle / CYCLE_DAYS, 0);
+  dailyProductionRate(system.specialization, "PLANET") + system.developments.reduce((sum, d) => sum + DEVELOPMENTS[d.kind].productionPerDay, 0);
 
 export const systemBodyKinds = (seasonId: string): GalaxyBodyKind[] => galaxySystemBodies(seasonId);
 
@@ -31,7 +30,6 @@ export const newSystemState = (planet: HeldSector, now: number, arrivesAt: numbe
   seasonId: planet.seasonId,
   specialization: planet.specialization,
   slot: null,
-  idleBank: 0,
   fighters: [],
   probeStock: 0,
   developments: [],
@@ -71,6 +69,28 @@ export const createDukeState = (authUid: string, planets: ReadonlyArray<HeldSect
 // drops its system and everything stationed there.
 export const syncSystems = (state: DukeState, planets: ReadonlyArray<HeldSector>, now: number): DukeState => {
   const held = new Map(planets.map((p) => [p.seasonId, p]));
+  const normalized = state.systems.some((s) => s.slot && typeof s.slot.completesAt !== "number") ? { ...state, systems: state.systems.map((s) => normalizeSlot(s, now)) } : state;
+  return syncHeld(normalized, held, planets, now);
+};
+
+// A slot written before §30 counted Production, not time: it restarts on the
+// new timer (an old Fortify slot, now an instant order, is simply dropped).
+const normalizeSlot = (system: SystemState, now: number): SystemState => {
+  const slot = system.slot as (Partial<DukeBuild> & { kind: string }) | null;
+  if (!slot || typeof slot.completesAt === "number") return system;
+  if (slot.kind !== "FIGHTER" && slot.kind !== "PROBE" && slot.kind !== "REFIT" && slot.kind !== "DEVELOP") return { ...system, slot: null };
+  const restarted: DukeBuild = {
+    kind: slot.kind,
+    label: slot.label ?? slot.kind,
+    startedAt: now,
+    completesAt: now + buildDurationMs(slot.kind, systemDailyRate(system)),
+    ...(slot.bodyIndex !== undefined ? { bodyIndex: slot.bodyIndex } : {}),
+    ...(slot.development !== undefined ? { development: slot.development } : {})
+  };
+  return { ...system, slot: restarted };
+};
+
+const syncHeld = (state: DukeState, held: ReadonlyMap<string, HeldSector>, planets: ReadonlyArray<HeldSector>, now: number): DukeState => {
   const kept = state.systems.filter((s) => held.has(s.seasonId));
   const known = new Set(kept.map((s) => s.seasonId));
   const added = planets.filter((p) => !known.has(p.seasonId)).map((p) => newSystemState(p, now));

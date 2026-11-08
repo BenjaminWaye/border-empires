@@ -1,6 +1,6 @@
 // Read model for the client (§24.4): everything Space View needs to render the
 // attention list, the three meters, the planet panel, the Court tab and the log.
-import { nextActionAvailableAt } from "../galaxy-action-gate/galaxy-action-gate.js";
+import { decreeReadyAt, isDecreeReady } from "../galaxy-duke-engine/galaxy-duke-daily.js";
 import { COURT_PROTECTION_MS, MOVE_AGAINST_COURT_LOCK_MS } from "../galaxy-court-offer/galaxy-court-offer.js";
 import { rankDomainWeights, type CourtStrength } from "../galaxy-court/galaxy-court.js";
 import type { HallEntry } from "../galaxy-duke-engine/galaxy-duke-convergence.js";
@@ -23,7 +23,8 @@ export type DukeStatusView = {
   flights: { kind: "PROBE" | "RAID"; fromSeasonId: string; seasonId: string; arrivesAt: number }[];
   orbiting: { seasonId: string; label: string }[];
   intel: DukeIntel[];
-  petition: { available: boolean; availableAt: number | null };
+  // The Duke's one decree a day (§30).
+  decree: { ready: boolean; readyAt: number | null };
   court: CourtStrength & {
     myContribution: number;
     offer: { status: string; protectedUntil: number | null; moveLockedUntil: number | null };
@@ -56,10 +57,9 @@ export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promis
   const balance = await ctx.deps.galaxyEconomyStore.getBalance(authUid);
   const influence = balance?.influence ?? 0;
   const sectors = await heldSectors(ctx, world, authUid);
-  const systems = state.systems.map((s) => buildSystemView(state, s, sectors.get(s.seasonId)?.label ?? "an unnamed world", sectors.get(s.seasonId)?.stability ?? 100));
+  const systems = state.systems.map((s) => buildSystemView(state, s, sectors.get(s.seasonId)?.label ?? "an unnamed world", sectors.get(s.seasonId)?.stability ?? 100, now));
 
-  const availableAt = nextActionAvailableAt(state.petitionGate);
-  const petitionAvailable = now >= availableAt;
+  const decreeReady = isDecreeReady(state, now);
   const offer = state.courtOffer;
   const acceptedAt = offer.status === "ACCEPTED" ? offer.acceptedAt : null;
   const moveLockedUntil = acceptedAt === null ? null : acceptedAt + MOVE_AGAINST_COURT_LOCK_MS;
@@ -74,7 +74,7 @@ export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promis
     attention: buildAttention({
       systems,
       courtOfferPending: offer.status === "PENDING",
-      petitionReady: petitionAvailable && canMove && influence >= MIN_MOVE_AGAINST_COURT_WAGER,
+      decreeReady,
       writPending: politics.writ !== null,
       favorRevoked: politics.favor.revoked,
       grievancesAgainstMe: politics.grievancesAgainstMe.length
@@ -82,7 +82,7 @@ export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promis
     flights: state.flights.map((f) => ({ kind: f.kind, fromSeasonId: f.fromSeasonId, seasonId: f.seasonId, arrivesAt: f.arrivesAt })),
     orbiting: state.orbiting.map((o) => ({ seasonId: o.seasonId, label: labels.get(o.seasonId) ?? "an unnamed world" })),
     intel: state.intel,
-    petition: { available: petitionAvailable, availableAt: petitionAvailable ? null : availableAt },
+    decree: { ready: decreeReady, readyAt: decreeReady ? null : decreeReadyAt(state) },
     court: {
       ...strength,
       myContribution: contributions[authUid] ?? 0,
