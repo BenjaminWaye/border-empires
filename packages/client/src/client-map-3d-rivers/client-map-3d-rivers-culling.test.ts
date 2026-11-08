@@ -82,7 +82,10 @@ describe("river culling and look (phase 1a)", () => {
     expect(last.mouth).toBe(1);
     expect(last.x).toBeLessThan(-0.4);
     expect(last.z).toBeLessThan(-0.4);
-    expect(last.halfWidth).toBeGreaterThan(end.halfWidth * 2);
+    // Widens a little, not into a trumpet: at 2.4x the river's width it
+    // spread out over the sea past the beach's cut round the river.
+    expect(last.halfWidth).toBeGreaterThan(end.halfWidth * 1.2);
+    expect(last.halfWidth).toBeLessThan(end.halfWidth * 1.6);
     const buffers: WaterBuffers = { positions: [], colors: [], indices: [] };
     appendWater(buffers, plume, () => 0);
     const alphas = buffers.colors.filter((_, i) => i % 4 === 3);
