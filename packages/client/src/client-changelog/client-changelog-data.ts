@@ -1,3 +1,4 @@
+import { COMMAND_NAVIGATION_ENTRY } from "./client-changelog-command-navigation.js";
 import { CONNECTED_DISTRICTS_CHANGELOG } from "./client-changelog-connected-districts.js";
 import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
 import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
@@ -473,17 +474,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RIVER_MOUTHS_CHANGELOG,
   ...NOV_07_STANDINGS_CHANGELOG,
   ...AI_STOP_THE_LEADER_CHANGELOG,
-  {
-    createdAt: 1794153241666, // Date.now() captured once for this release.
-    introducedIn: "2026.11.08.1",
-    title: "Clearer command navigation and manpower feedback",
-    why: "Navigation needs readable destinations, and the map should stay usable while your AFC is offline.",
-    changes: [
-      "Navigation uses flat amber glyphs with persistent names. Your Profile closes directly to the map.",
-      "A full manpower orb fills to its rim; excess manpower adds rolling liquid and bubbles without changing your empire colour.",
-      "Continue fighting folds AFC recovery into a small edge button. Unaffordable replacement costs are red, and the minimap matches the HUD."
-    ]
-  }
+  { ...COMMAND_NAVIGATION_ENTRY, createdAt: 1794153241666 }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
