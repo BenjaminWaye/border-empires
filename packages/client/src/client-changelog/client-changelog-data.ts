@@ -1,3 +1,4 @@
+import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
 import { SEASON_REVEAL_LOADING_CHANGELOG } from "./client-changelog-season-reveal-loading.js";
 import { BATTLE_VARIETY_ENTRY } from "./client-changelog-battle-variety.js";
 import { GUIDE_AND_RECOVERY_CHANGELOG } from "./client-changelog-nov-03-04-guide-recovery.js";
@@ -480,17 +481,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...VICTORY_HOLD_TIME_CHANGELOG,
   ...RANKS_TRACK_PROFILES_CHANGELOG,
   { ...BATTLE_VARIETY_ENTRY, createdAt: 1794073665467, },
-  {
-    createdAt: 1794081806137, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.07",
-    title: "Hills and rivers shape battles",
-    changes: [
-      "Garrisoned and freshly captured tiles on hills defend at +20%, shown on the tile's overview.",
-      "Attacking across a river attacks at -20%. A diagonal attack crosses when there is no dry way round the river. Attacks now launch from your strongest neighbour counting this penalty.",
-      "The attack odds breakdown shows Hills and River crossing rows when they apply. Undefended frontier is still captured outright."
-    ],
-    why: "High ground and rivers now make natural defensive lines worth holding and planning around."
-  },
+  ...TERRAIN_COMBAT_CHANGELOG,
   ...SEASON_REVEAL_LOADING_CHANGELOG,
 ];
 
