@@ -22,8 +22,7 @@ export const MISSING_HISTORY_REPORT_CHANGELOG: ClientChangelogEntry = {
   changes: ["Missing statistics and timelines now offer a bug-report button with the affected records and winner details filled in"]
 };
 
-export const SEASON_RECORD_DETAILS_CHANGELOG: ClientChangelogEntry = {
-  createdAt: 1794152918767,
+export const SEASON_RECORD_DETAILS_CHANGELOG: Omit<ClientChangelogEntry, "createdAt"> = {
   introducedIn: "2026.11.08",
   title: "The empires behind the season records",
   why: "Road lengths and battlefield losses needed the players and places behind them.",
