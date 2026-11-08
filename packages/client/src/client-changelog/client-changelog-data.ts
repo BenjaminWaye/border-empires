@@ -1,3 +1,4 @@
+import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
 import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
 import { SEASON_REVEAL_LOADING_CHANGELOG } from "./client-changelog-season-reveal-loading.js";
 import { BATTLE_VARIETY_ENTRY } from "./client-changelog-battle-variety.js";
@@ -484,7 +485,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...BATTLE_VARIETY_ENTRY, createdAt: 1794073665467, },
   ...TERRAIN_COMBAT_CHANGELOG,
   ...SEASON_REVEAL_LOADING_CHANGELOG,
-  ...RIVER_MOUTHS_CHANGELOG
+  ...RIVER_MOUTHS_CHANGELOG,
+  ...NOV_07_STANDINGS_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

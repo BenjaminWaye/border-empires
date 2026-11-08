@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SeasonVictoryObjectiveView } from "../client-types.js";
+import type { LeaderboardOverallEntry, SeasonVictoryObjectiveView } from "../client-types.js";
 import { formatHold, nonLeaderShare, ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { assignLanes } from "./client-hud-v2-ranks-lanes.js";
 
@@ -119,5 +119,34 @@ describe("ranks race profile links", () => {
 
   it("leaves your own lead as plain text", () => {
     expect(render(objective({ leaderPlayerId: "me" }))).not.toContain("v2r-name-link");
+  });
+});
+
+describe("ranks standings power score", () => {
+  const entry = (id: string, rank: number, score: number, tiles: number): LeaderboardOverallEntry => ({
+    id, name: id, rank, score, tiles, incomePerMinute: 0, techs: 0, manpowerCap: 0
+  });
+
+  it("shows scores and scales bars by score, including the viewer outside the top ten", () => {
+    const html = ranksBodyHtml({
+      me: "me", objectives: [],
+      overall: [entry("leader", 1, 2400, 100), entry("rival", 2, 1200, 800)],
+      selfOverall: entry("me", 20, 600, 50), nameOf: (id) => id, colorOf: () => undefined
+    });
+    expect(html).toContain('Standings <span class="v2s-meta">power score</span>');
+    const rows = html.match(/<button[^>]*class="v2r-stand[^>]*>[\s\S]*?<\/button>/g) ?? [];
+    expect(rows).toHaveLength(3);
+    for (const [i, [score, width]] of [["2,400", "100.0"], ["1,200", "50.0"], ["600", "25.0"]].entries()) {
+      expect(rows[i]).toContain(`class="v2r-stand-val">${score}</span>`);
+      expect(rows[i]).toContain(`style="width:${width}%"`);
+    }
+    expect(rows[2]).toContain('class="v2r-rank">20</span>');
+  });
+
+  it("keeps zero-score bars finite", () => {
+    const html = ranksBodyHtml({ me: "me", objectives: [], overall: [entry("me", 1, 0, 50)],
+      selfOverall: undefined, nameOf: (id) => id, colorOf: () => undefined });
+    expect(html).toContain('style="width:0.0%"');
+    expect(html).toContain('class="v2r-stand-val">0</span>');
   });
 });
