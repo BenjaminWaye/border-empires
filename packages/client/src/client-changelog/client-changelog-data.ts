@@ -6,7 +6,6 @@ import { GUIDE_AND_RECOVERY_CHANGELOG } from "./client-changelog-nov-03-04-guide
 import { AFC_REPLACEMENT_CHANGELOG } from "./client-changelog-afc-replacement.js";
 import { AI_FREE_TRUCE_CHANGELOG } from "./client-changelog-ai-free-truce.js";
 import { AI_PRICING_TEMPERAMENTS_CHANGELOG } from "./client-changelog-ai-pricing-temperaments.js";
-import { CONCURRENT_ATTACKS_CHANGELOG } from "./client-changelog-concurrent-attacks.js";
 import { MOBILE_UI_CONSISTENCY_CHANGELOG } from "./client-changelog-mobile-ui-consistency.js";
 import { SALVAGE_TRIBUTE_UI_CHANGELOG } from "./client-changelog-salvage-tribute-ui.js";
 import { TUTORIAL_BUILD_AFC_FLOWS_CHANGELOG } from "./client-changelog-tutorial-build-afc-flows.js";
@@ -454,7 +453,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MANIFEST_WORDING_CHANGELOG,
   ...TOWN_RING_IMPROVEMENTS_CHANGELOG,
   ...AI_PRICING_TEMPERAMENTS_CHANGELOG,
-  ...CONCURRENT_ATTACKS_CHANGELOG,
+  {
+    createdAt: 1794089657552, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.08",
+    title: "Launch several attacks at once",
+    why: "Only one attack could be under way at a time, even with several muster flags and plenty of manpower.",
+    changes: [
+      "Attacks no longer wait for each other: launch as many as your flags have manpower for",
+      "One flag can send several companies, as long as it holds enough manpower for each",
+      "The Capturing Territory banner and timer are gone; each attack shows its progress on the map"
+    ]
+  },
   {
     createdAt: 1794087791822, // Date.now() captured once for this entry.
     introducedIn: "2026.11.07.2",
