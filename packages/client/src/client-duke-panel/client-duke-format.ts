@@ -9,7 +9,10 @@ const DAY = 24 * HOUR;
 export const formatDuration = (ms: number): string => {
   if (ms <= 0) return "any moment now";
   if (ms < HOUR) return `${Math.max(1, Math.round(ms / MINUTE))}m`;
-  if (ms < DAY) return `${Math.floor(ms / HOUR)}h ${Math.round((ms % HOUR) / MINUTE)}m`;
+  if (ms < DAY) {
+    const minutes = Math.round((ms % HOUR) / MINUTE);
+    return minutes === 0 ? `${Math.floor(ms / HOUR)}h` : `${Math.floor(ms / HOUR)}h ${minutes}m`;
+  }
   const days = Math.floor(ms / DAY);
   const hours = Math.round((ms % DAY) / HOUR);
   return hours === 0 ? `${days}d` : `${days}d ${hours}h`;
@@ -37,14 +40,14 @@ export const attentionText = (item: DukeAttentionItem, now: number): string => {
       return `Craft arriving at ${item.label} in ${formatDuration((item.at ?? now) - now)}. Your Fighter will meet it.`;
     case "LOW_STABILITY":
       return `${item.label} is one or two hits from being contested.`;
-    case "SLOT_EMPTY":
-      return `${item.label} has nothing building.`;
+    case "ORDER_READY":
+      return `${item.label} has an order ready.`;
     case "FIGHTER_DAMAGED":
       return `A Fighter at ${item.label} is badly damaged.`;
     case "COURT_OFFER":
       return "The Court has an offer for you.";
-    case "PETITION_READY":
-      return "You can Move Against the Court.";
+    case "DECREE_READY":
+      return "Your decree for the day is ready.";
     case "GRIEVANCE_AGAINST_YOU":
       return "A rival Duke has declared a grievance against you. Station Fighters at home.";
     case "FAVOR_REVOKED":
@@ -79,14 +82,14 @@ export const ERROR_MESSAGES: Record<string, string> = {
   NO_ROOM: "Every one of your systems already has 3 Fighters, counting those away on raids or lent to the Court.",
   TOO_MANY_LENT: "You already have a Fighter serving the Court.",
   COURT_AT_FULL_STRENGTH: "The Court is already at full strength and has nothing to gain from a Writ.",
+  ALREADY_STABLE: "Stability is already full here.",
   NOT_NEEDED_BY_COURT: "The Court only takes Fighters from a Duke whose lead it is watching."
 };
 
 export const errorMessage = (failure: { code: string; availableAt?: number }, now: number, moveLockedUntil?: number | null): string => {
-  if (failure.code === "PETITION_ALREADY_MADE_THIS_CYCLE") {
-    return failure.availableAt === undefined
-      ? "You've already petitioned this Cycle."
-      : `You've already petitioned this Cycle. You can again in ${formatDuration(failure.availableAt - now)}.`;
+  if (failure.code === "ORDER_NOT_READY" || failure.code === "DECREE_NOT_READY") {
+    const what = failure.code === "ORDER_NOT_READY" ? "This system's order" : "Your decree";
+    return failure.availableAt === undefined ? `${what} for today is used.` : `${what} for today is used. Next in ${formatDuration(failure.availableAt - now)}.`;
   }
   if (failure.code === "LOCKED_BY_COURT_OFFER") {
     return moveLockedUntil

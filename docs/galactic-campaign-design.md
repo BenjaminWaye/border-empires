@@ -2815,3 +2815,56 @@ the same course through the existing fleet overlay. Probes stay private.
   under a grievance.
 - The Space View redesign (design-first) should give grievances, Writs and the
   Blind Eye their own place instead of a card on the Court tab.
+
+## 30. The daily rhythm: orders, decrees and action cards
+
+*Supersedes the per-system Production timers of §26.2 and the weekly Petition
+gate of §26.5. Numbers live in `galaxy-duke-engine/galaxy-duke-config.ts`.*
+
+### 30.1 Rules
+
+- **One order per system per day.** An order is: start a build (Fighter,
+  Probe, Refit, a development), Fortify, launch a Probe, or launch a raid.
+- **One decree per Duke per day.** A decree is: Hold Court (+1 Influence),
+  Move Against the Court, declare a grievance, or lend a Fighter to the Court.
+- **Each recharges 24 hours after it is used and never banks**, so the screen
+  can always say "ready" or "next in Xh" (`galaxy-action-gate.ts`,
+  `galaxy-duke-daily.ts`). The decree reuses the stored `petitionGate`.
+- **Free:** answering the Court's offer or a Writ, and cancelling a build
+  (cancelling does not give the day's order back).
+- **Every build finishes within a day.** Its time is its base hours at an
+  Industrial world's rate (6 Production a day), scaled by the system's own
+  Production and capped at 24 hours: Fighter 8h, Probe 4h, Refit 4h,
+  development 16h at 6 a day; a Capital world (2 a day) takes the full day.
+  **Production is build speed, not a wallet.** Gas Harvester +3 and Mining
+  Station +2 Production; Cryo Refinery unchanged.
+- **Fortify is instant:** +15 Stability.
+- Refit repairs every Fighter in the system. Probe derelicts always pay
+  Influence (there is no Production to pay out).
+- Old stored build slots (counted in Production) restart on the new timer;
+  an old Fortify slot is dropped.
+- AI Dukes play under the same limits: one order per system and one decree a
+  day.
+
+### 30.2 Why it works with the telegraphs
+
+Raids fly for 2 days and Warden incursions are announced at least a day
+ahead, so a defender always gets at least one order (recall, build, fortify)
+between seeing a threat and its landing.
+
+### 30.3 The action cards
+
+`packages/client/src/client-space-cards/`, on by default (`?space=legacy`
+turns it off for that browser). The galaxy view shows the **decree hand**; a
+system's view shows that **system's order hand**. Each card has an icon, a
+short title, a green gain chip, a gold cost chip, an optional badge (threat
+timer or build time) and one button; free answers are dashed and stay
+playable when the day's order or decree is spent. Urgent cards come first.
+After an order or decree lands the view moves on by itself: to the next
+system with an order ready, then back to the galaxy. The top bar shows the
+race for the throne (you against the leader), Court Strength, Influence and
+Production; a system's view adds the systems strip with each one's
+Stability and an "order ready" dot. The styling uses HUD v2's tokens and
+type. The cards are DOM over whichever map is showing, so they are the same
+on the 3D galaxy and the 2D strategic map. The older Duke panel stays for
+the Log, the Court detail and rival systems.

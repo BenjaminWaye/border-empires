@@ -13,13 +13,13 @@ export type SystemViewOptions = {
 
 const reasonFor = (code: string | null): string => (code === null ? "" : (ERROR_MESSAGES[code] ?? "Not available right now."));
 const disabled = (code: string | null): string => (code === null ? "" : ` disabled title="${escapeHtml(reasonFor(code))}"`);
-const timeText = (days: number | null): string => (days === null ? "no Production" : plural(days, "day"));
+const hoursText = (ms: number): string => `${Math.max(1, Math.round(ms / 3_600_000))}h`;
 
 const optionButton = (o: DukeBuildOption, attrs: string): string =>
   `<button type="button" class="dk-btn dk-build" ${attrs}${disabled(o.blockedBy)}>
      <span class="dk-build-name">${escapeHtml(o.label)}</span>
      <small>${escapeHtml(o.summary)}</small>
-     <small class="dk-build-cost">${o.cost} Production, ${timeText(o.daysAtCurrentRate)}</small>
+     ${o.blockedBy === null ? `<small class="dk-build-cost">ready in ${hoursText(o.durationMs)}</small>` : ""}
    </button>`;
 
 const targetLabel = (status: DukeStatus, targets: ReadonlyArray<DukeTargetOption>, seasonId: string): string => {
@@ -45,12 +45,15 @@ const headerHtml = (s: DukeSystemView, now: number): string => {
     <div class="dk-stab" title="Stability ${s.stability} of 100"><div class="dk-stab-fill" style="width:${s.stability}%"></div></div>
     <p class="dk-line"><b>Stability ${s.stability}</b> · ${plural(s.hitsRemaining, "more hit")} before it is contested</p>
     ${incursion}
-    <p class="dk-line">Production <b>${s.ratePerDay}/day</b> · ${
-      s.slot
-        ? `building <b>${escapeHtml(s.slot.label)}</b>, ${s.slot.daysLeft === null ? "stalled" : `${plural(s.slot.daysLeft, "day")} left`} (${Math.round((s.slot.progress / s.slot.cost) * 100)}%)`
-        : `slot empty, ${s.idleBank} banked (at most one Cycle's worth)`
-    }</p>
-    ${s.slot ? `<div class="dk-row"><div class="dk-progress"><div style="width:${Math.round((s.slot.progress / s.slot.cost) * 100)}%"></div></div><button type="button" class="dk-btn dk-btn-quiet" data-duke-cancel-build>Cancel build</button></div>` : ""}`;
+    <p class="dk-line">Production <b>${s.ratePerDay}</b> · ${
+      s.order.ready ? "<b>order ready</b>" : `next order in ${formatDuration((s.order.readyAt ?? now) - now)}`
+    } · ${s.slot ? `building <b>${escapeHtml(s.slot.label)}</b>, ready in ${formatDuration(s.slot.completesAt - now)}` : "nothing building"}</p>
+    ${s.slot ? `<div class="dk-row"><div class="dk-progress"><div style="width:${slotPercent(s.slot, now)}%"></div></div><button type="button" class="dk-btn dk-btn-quiet" data-duke-cancel-build>Cancel build</button></div>` : ""}`;
+};
+
+const slotPercent = (slot: NonNullable<DukeSystemView["slot"]>, now: number): number => {
+  const span = slot.completesAt - slot.startedAt;
+  return span <= 0 ? 100 : Math.round(Math.min(1, Math.max(0, (now - slot.startedAt) / span)) * 100);
 };
 
 const shipsHtml = (status: DukeStatus, s: DukeSystemView, o: SystemViewOptions): string => {
@@ -96,12 +99,10 @@ const orderFormHtml = (status: DukeStatus, s: DukeSystemView, o: SystemViewOptio
 
 const buildHtml = (s: DukeSystemView, status: DukeStatus): string => {
   const shipyard = s.options.map((o) => optionButton(o, `data-duke-build="${o.kind}"`)).join("");
-  const points = Math.min(20, Math.max(1, s.fortifyMaxPoints));
   const fortify =
-    s.fortifyMaxPoints === 0
+    s.fortify.blockedBy !== null
       ? `<p class="dk-note">Stability is full: nothing to Fortify.</p>`
-      : `<div class="dk-row"><input type="range" min="1" max="${s.fortifyMaxPoints}" value="${points}" data-duke-fortify-points aria-label="Stability points to restore" /><output data-duke-fortify-output>+${points}</output>
-         <button type="button" class="dk-btn" data-duke-fortify${disabled(s.fortifyBlockedBy)}>Fortify <small>2 Production per point</small></button></div>`;
+      : `<div class="dk-row"><button type="button" class="dk-btn" data-duke-fortify>Fortify <small>+${s.fortify.stability} Stability now</small></button></div>`;
   const bodies = s.bodies
     .map((b) =>
       b.development
@@ -111,7 +112,7 @@ const buildHtml = (s: DukeSystemView, status: DukeStatus): string => {
     .join("");
   const upkeep = status.economy.developmentUpkeepPerCycle;
   return `<section class="dk-card" data-duke-build>
-      <h4>Build here <small>one thing at a time</small></h4>
+      <h4>Build here <small>one order a day</small></h4>
       <div class="dk-builds">${shipyard}</div>
       ${fortify}
       <h4 class="dk-sub">Bodies in this system</h4>

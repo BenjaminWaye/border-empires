@@ -70,6 +70,7 @@ import { FLAG_TAP_CHANGELOG } from "./client-changelog-flag-tap.js";
 import { SIEGE_UMBRITE_ONLY_CHANGELOG } from "./client-changelog-siege-umbrite.js";
 import { MARCH_WIN_CHANCE_CHANGELOG } from "./client-changelog-march-win-chance.js";
 import { SPACE_POLITICS_CHANGELOG } from "./client-changelog-space-politics.js";
+import { SPACE_DAILY_CHANGELOG } from "./client-changelog-space-daily.js";
 import { AI_RIVALS_CHANGELOG } from "./client-changelog-ai-rivals.js";
 import { CLAIM_STRIPED_GROUND_CHANGELOG } from "./client-changelog-claim-striped-ground.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE } from "./client-changelog-oct-17-19-inline.js";
@@ -484,7 +485,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...BATTLE_VARIETY_ENTRY, createdAt: 1794073665467, },
   ...TERRAIN_COMBAT_CHANGELOG,
   ...SEASON_REVEAL_LOADING_CHANGELOG,
-  ...RIVER_MOUTHS_CHANGELOG
+  ...RIVER_MOUTHS_CHANGELOG,
+  ...SPACE_DAILY_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

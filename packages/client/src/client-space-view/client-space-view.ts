@@ -20,13 +20,17 @@ import { ownsSpaceViewEligiblePlanet, publicPlanetLabel, toSpacePlanetViewModels
 import { isDiscoveryTipSeen, markDiscoveryTipSeen } from "../client-discovery-tips/client-discovery-tips-storage.js";
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
 import { createFleetOverlayFeed } from "./client-space-view-raid-feed.js";
+import { createSpaceFleetFetcher } from "./client-space-view-fleet-fetch.js";
 import { mountPanelDismissal } from "./client-space-view-panels.js";
 import { createStrategicMapController, type StrategicMapController } from "./client-strategic-map/client-strategic-map-controller.js";
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
 import { senateStyle, type SenateTargetOption } from "../client-senate-panel/client-senate-panel-html.js";
 import { mountDukeController, type DukeController } from "../client-duke-panel/client-duke-panel.js";
 import { dukeStyle } from "../client-duke-panel/client-duke-style.js";
-import type { FleetHullClassId } from "../client-fleet-panel/client-fleet-panel-html.js";
+import { createDukeApi } from "../client-duke-panel/client-duke-api.js";
+import { mountSpaceCards, type SpaceCards } from "../client-space-cards/space-cards.js";
+import { readSpaceCardsFlag } from "../client-space-cards/space-cards-flag.js";
+import { spaceCardsStyle } from "../client-space-cards/space-cards-style.js";
 
 type GalaxyMeMinimal = {
   planets?: Array<{ seasonId: string; planetName?: string | null; named?: boolean; sectorNumber?: number }>;
@@ -37,17 +41,6 @@ type GalaxyMeMinimal = {
   economy?: { influence: number; production: number };
 };
 type GalaxyPublicListing = { planets?: PublicGalaxyPlanet[]; outposts?: PublicGalaxyPlanet[] };
-type RawFleetOrderForOverlay = {
-  id: string;
-  ownerAuthUid: string;
-  originSeasonId?: string;
-  targetSeasonId: string;
-  composition: Partial<Record<FleetHullClassId, number>>;
-  sentAt: number;
-  departsAt?: number;
-  arrivesAt: number;
-  status: "TRAVELING" | "RESOLVED";
-};
 
 export type SpaceViewDeps = {
   state: ClientState;
@@ -73,7 +66,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   const ensureStyle = (): void => {
     if (styleEl) return;
     styleEl = document.createElement("style");
-    styleEl.textContent = spaceViewStyle + spaceViewIntroStyle + spaceViewWelcomeStyle + senateStyle + dukeStyle;
+    styleEl.textContent = spaceViewStyle + spaceViewIntroStyle + spaceViewWelcomeStyle + senateStyle + dukeStyle + spaceCardsStyle;
     document.head.appendChild(styleEl);
   };
 
@@ -83,61 +76,20 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   let senateTargetOptions: SenateTargetOption[] = [];
   let senatePanel: { refresh: () => Promise<void> } | undefined;
   let duke: DukeController | undefined;
+  // The action cards (§30): decrees in the galaxy view, orders in a system's.
+  let cards: SpaceCards | undefined;
   // Systems this account holds, so pressing one opens its panel.
   let ownedSeasonIds: ReadonlySet<string> = new Set();
   let modelsBySeasonId: ReadonlyMap<string, SpacePlanetViewModel> = new Map();
   // Pressing a system tells you about it: your own opens its planet panel, anyone else's what is known.
   const openSystemPanel = (seasonId: string): void => {
     const model = modelsBySeasonId.get(seasonId);
-    if (ownedSeasonIds.has(seasonId)) duke?.showSystem(seasonId);
+    if (ownedSeasonIds.has(seasonId) && cards) cards.showSystem(seasonId);
+    else if (ownedSeasonIds.has(seasonId)) duke?.showSystem(seasonId);
     else if (model) duke?.showTarget(systemInfoFor(model));
   };
 
-  // Drives the 3D scene's in-flight ship overlay (client-space-fleet-overlay.ts).
-  // Only the caller's own orders are shown as actual ships -- composition
-  // and origin are still just for you. Refreshed on every load() cycle and
-  // periodically while mounted, since a fleet can be sent from the still-open
-  // panel without a full page reload.
-  const refreshFleetOverlay = async (): Promise<void> => {
-    const user = deps.firebaseAuth?.currentUser;
-    if (!user || !scene) return;
-    try {
-      const token = await user.getIdToken();
-      const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/fleets`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
-      });
-      if (!response.ok) return;
-      const body = (await response.json().catch(() => undefined)) as { orders?: RawFleetOrderForOverlay[] } | undefined;
-      const traveling = (body?.orders ?? []).filter((o) => o.status === "TRAVELING");
-      fleetFeed.setLegacy(traveling);
-    } catch {
-      // Network hiccup: the overlay just keeps showing its last-known state.
-    }
-  };
-
-  // Enemy fleets aren't shown as actual ships (composition/origin stay
-  // hidden -- see GET /hq/galaxy/fleets/incoming's comment on the gateway)
-  // but a territory with a RAID inbound gets a pulsing red threat ring in
-  // its solar system, so "someone is coming" is at least visible. Kept as
-  // its own fetch/state rather than folded into `load()`'s listing so the
-  // 20s periodic refresh can update it without re-fetching the whole galaxy.
-  let threatenedSeasonIds = new Set<string>();
-  const refreshThreats = async (): Promise<void> => {
-    const user = deps.firebaseAuth?.currentUser;
-    if (!user || !scene) return;
-    try {
-      const token = await user.getIdToken();
-      const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/fleets/incoming`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
-      });
-      if (!response.ok) return;
-      const body = (await response.json().catch(() => undefined)) as { threats?: Array<{ targetSeasonId: string }> } | undefined;
-      threatenedSeasonIds = new Set((body?.threats ?? []).map((t) => t.targetSeasonId));
-      scene.setThreats(threatenedSeasonIds);
-    } catch {
-      // Network hiccup: threat rings just keep showing their last-known state.
-    }
-  };
+  const fleets = createSpaceFleetFetcher({ firebaseAuth: deps.firebaseAuth, wsUrl: deps.wsUrl, getScene: () => scene, feed: fleetFeed });
 
   const renderSettingsPanel = (): void => {
     const panel = screen?.querySelector<HTMLDivElement>("[data-space-view-settings-panel]");
@@ -261,6 +213,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     });
     scene.onFocusChange((focused) => {
       systemFocused = focused;
+      if (!focused) cards?.showGalaxy();
       relabelMapButton();
     });
     scene.onZoomedOut(() => strategicMap?.show());
@@ -271,9 +224,23 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     // The one-choice banner and three meters stay on screen; every Duke action
     // lives in the Duke panel (design doc §24.4, §26).
     const dukePanel = screen.querySelector<HTMLDivElement>("[data-space-view-duke-panel]")!;
+    const getIdToken = async () => deps.firebaseAuth?.currentUser?.getIdToken();
+    const dukeApi = createDukeApi({ wsUrl: deps.wsUrl, getIdToken });
+    if (readSpaceCardsFlag(window.location.search)) {
+      cards = mountSpaceCards(screen, {
+        api: dukeApi,
+        refresh: () => duke?.refresh() ?? Promise.resolve(),
+        focusSystem: (id) => {
+          strategicMap?.hide();
+          scene?.focusSystem(id);
+        },
+        showGalaxy: () => scene?.resetView()
+      });
+    }
     duke = mountDukeController(screen, dukePanel, {
       wsUrl: deps.wsUrl,
-      getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken(),
+      getIdToken,
+      api: dukeApi,
       getTargetOptions: () => senateTargetOptions,
       openPanel: () => openDukePanel(),
       onStatus: (status) => {
@@ -281,10 +248,11 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         // Every raid in the air, on both maps (§29.4).
         strategicMap?.setRaids(status?.raids ?? []);
         fleetFeed.setRaids(status?.raids ?? []);
+        cards?.setStatus(status);
         showDukeStats(status);
         // A red dot on the Court button when the Court offer or a Petition is waiting.
         const courtButton = screen?.querySelector<HTMLButtonElement>("[data-space-view-court]");
-        if (courtButton) courtButton.toggleAttribute("data-alert", !!status && (status.court.offer.status === "PENDING" || status.attention.some((a) => a.kind === "PETITION_READY")));
+        if (courtButton) courtButton.toggleAttribute("data-alert", !!status && (status.court.offer.status === "PENDING" || status.attention.some((a) => a.kind === "DECREE_READY")));
       }
     });
 
@@ -389,8 +357,8 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     // real wall-clock time regardless of when this last fired. Same for
     // threats -- "a raid just started/landed."
     setInterval(() => {
-      void refreshFleetOverlay();
-      void refreshThreats();
+      void fleets.refreshFleetOverlay();
+      void fleets.refreshThreats();
     }, 20_000);
   };
 
@@ -406,7 +374,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   const applyGalaxyListing = (listing: GalaxyPublicListing, mySeasonIds: ReadonlySet<string>): void => {
     const planets = [...(listing.planets ?? []), ...(listing.outposts ?? [])];
     const isCharted = chartedSeasonIds ? (seasonId: string) => chartedSeasonIds!.has(seasonId) : undefined;
-    const isUnderThreat = (seasonId: string) => threatenedSeasonIds.has(seasonId);
+    const isUnderThreat = fleets.isUnderThreat;
     const models = toSpacePlanetViewModels(planets, mySeasonIds, undefined, isCharted, isUnderThreat);
     ownedSeasonIds = mySeasonIds;
     scene?.setPlanets(models);
@@ -483,9 +451,9 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       // not just cosmetic, since the whole point of the state coloring is
       // "what do I hold."
       const mySeasonIds = new Set([...myPlanets, ...myOutposts].map((holding) => holding.seasonId));
-      await refreshThreats();
+      await fleets.refreshThreats();
       applyGalaxyListing(listing, mySeasonIds);
-      await refreshFleetOverlay();
+      await fleets.refreshFleetOverlay();
     } catch {
       // Network hiccup: Space View just stays unmounted until the next auth event.
     }
