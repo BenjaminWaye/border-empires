@@ -5,10 +5,10 @@ Status: done. Phases 0–7 built (2026-11-03); the legacy phone chrome and the
 was built** below for where the build differs from the plan. The research and
 plan sections below are historical.
 
-The new HUD (`packages/client/src/client-hud-v2/`) is the default on desktop
-since #2587. Phones still get the legacy HUD: `isHudV2Active()` in
-`client-hud-v2-flag.ts` returns false whenever `isMobile()` matches
-`(max-width: 900px)`. This plan covers bringing the new HUD to phones and then
+At the time this plan was written (historical): the new HUD (`packages/client/src/client-hud-v2/`) was the default on desktop
+since #2587, and phones still got the legacy HUD: `isHudV2Active()` in
+`client-hud-v2-flag.ts` returned false whenever `isMobile()` matched
+`(max-width: 900px)`. This plan covered bringing the new HUD to phones and then
 retiring the legacy mobile chrome (`#mobile-nav`, `#mobile-sheet`,
 `#mobile-core`, the mobile `#tile-action-menu` styles).
 

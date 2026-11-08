@@ -14,7 +14,6 @@ import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibi
 import type { initClientDom } from "../client-dom.js";
 import { bindHudEconomyPanelControls, hudEconomyPanelHtml } from "./client-hud-economy-panel.js";
 import { renderHudTownsPanel } from "./client-hud-towns-panel.js";
-import type { EconomyFocusKey } from "../client-economy-model.js";
 import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
 import { buildDisconnectHistoryBundle } from "../client-connection-diagnostics/client-connection-diagnostics.js";
@@ -55,7 +54,6 @@ type HudDeps = {
   storageSet: typeof storageSet;
   developmentSlotSummary: () => DevelopmentSlotSummary;
   rateToneClass: (value: number) => string;
-  formatGoldAmount: (value: number) => string;
   formatManpowerAmount: (value: number) => string;
   hasRevealedResourceCategory: (
     category: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
@@ -63,9 +61,7 @@ type HudDeps = {
     techCatalog: readonly ClientState["techCatalog"][number][]
   ) => boolean;
   formatCooldownShort: (ms: number) => string;
-  openEconomyPanel: (focus?: EconomyFocusKey) => void;
   setActivePanel: (panel: ClientState["activePanel"]) => void;
-  affordableTechChoicesCount: () => number;
   crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => string;
   crystalTargetingTitle: (ability: ClientState["crystalTargeting"]["ability"]) => string;
   clearCrystalTargeting: () => void;

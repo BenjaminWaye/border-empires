@@ -13,7 +13,6 @@ type UiActionFlow = Pick<
 
 type UiControlsDeps = {
   state: ClientState;
-  hud: ClientDom["hud"];
   techChooseBtn: ClientDom["techChooseBtn"];
   techPickEl: ClientDom["techPickEl"];
   captureCancelBtn: ClientDom["captureCancelBtn"];
@@ -34,8 +33,6 @@ type UiControlsDeps = {
   authProfileSaveBtn: ClientDom["authProfileSaveBtn"];
   actionFlow: UiActionFlow;
   renderHud: () => void;
-  centerOnOwnedTile: () => void;
-  requestViewRefresh: (priorityBoost?: number, immediate?: boolean) => void;
   acknowledgeVictoryHoldAlert: () => void;
   renderVictoryHoldAlert: () => void;
   renderCaptureProgress: () => void;

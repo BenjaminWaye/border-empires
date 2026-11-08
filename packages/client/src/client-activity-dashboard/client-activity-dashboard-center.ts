@@ -25,5 +25,3 @@ export const focusCameraOnTile = (
   state.selected = { x: wrappedX, y: wrappedY };
   deps.requestViewRefresh();
 };
-
-/** Wires every rendered Center button's click handler inside the dashboard overlay root. */

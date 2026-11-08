@@ -61,14 +61,8 @@ const parseArgs = (argv) => {
   return options;
 };
 
-/** The game is up once the first map chunk has drawn: the new HUD's layer shows, or the legacy HUD's chrome does. */
-const gameUp = () => {
-  const body = document.body;
-  if (body.classList.contains("hud-v2") && !body.classList.contains("hud-v2-waiting")) return true;
-  // The legacy HUD has no "waiting" class: wait for the sign-in overlay to go (client-auth-ui.ts hides it with display: none).
-  const auth = document.getElementById("auth-overlay");
-  return !body.classList.contains("hud-v2") && auth instanceof HTMLElement && auth.style.display === "none";
-};
+/** The game is up once the first map chunk has drawn and the HUD layer shows. */
+const gameUp = () => document.body.classList.contains("hud-v2") && !document.body.classList.contains("hud-v2-waiting");
 
 const shoot = async (browser, options, viewport) => {
   const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });

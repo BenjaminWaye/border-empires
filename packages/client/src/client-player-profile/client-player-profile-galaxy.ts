@@ -14,8 +14,6 @@ import { sectorNumberLabel } from "../client-galaxy-view/galaxy-sector-label.js"
 export const sectorOrSeasonLabel = (holding: GalaxyHoldingsPlanetView | GalaxyHoldingsOutpostView): string =>
   holding.sectorNumber !== undefined ? sectorNumberLabel(holding.sectorNumber) : `Season ${holding.seasonSequence}`;
 
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char] ?? char);
 
 export const specializationLabel = (specialization: string): string => {
   const label = specialization.charAt(0) + specialization.slice(1).toLowerCase();
@@ -52,45 +50,3 @@ export const fetchGalaxyHoldings = async (playerId: string, wsUrl: string): Prom
   }
 };
 
-export const trophyCaseHtml = (holdings: GalaxyHoldingsView | "loading" | undefined): string => {
-  if (holdings === "loading" || holdings === undefined) return "";
-  const trophies = holdings.trophyCase ?? [];
-  if (trophies.length === 0) return "";
-  const items = trophies
-    .map(
-      (trophy) =>
-        `<span class="intel-trophy" title="${escapeHtml(trophy.objectiveName)}">${trophyIconHtml(trophy.objectiveId)} ${escapeHtml(
-          trophy.objectiveName
-        )} ×${trophy.count}</span>`
-    )
-    .join("");
-  return `<div class="intel-stockpile">
-    <div class="intel-section-label">Career Trophy Case</div>
-    <div class="intel-trophy-row">${items}</div>
-  </div>`;
-};
-
-export const galaxyHoldingsHtml = (holdings: GalaxyHoldingsView | "loading" | undefined): string => {
-  if (holdings === "loading" || holdings === undefined) {
-    return `<div class="intel-stockpile">
-      <div class="intel-section-label">Galactic Holdings</div>
-      <p class="intel-summary" style="opacity:0.6">Loading…</p>
-    </div>`;
-  }
-  if (holdings.planets.length === 0 && holdings.outposts.length === 0) return "";
-  const planetItems = holdings.planets
-    .map(
-      (planet) =>
-        `<li>${planet.planetName ? `<strong>${escapeHtml(planet.planetName)}</strong>` : "Unnamed Planet"} — ${escapeHtml(
-          specializationLabel(planet.specialization)
-        )} (won ${escapeHtml(planet.objectiveName)}, ${escapeHtml(sectorOrSeasonLabel(planet))})</li>`
-    )
-    .join("");
-  const outpostItems = holdings.outposts
-    .map((outpost) => `<li>Outpost — ${escapeHtml(specializationLabel(outpost.specialization))} (${escapeHtml(sectorOrSeasonLabel(outpost))})</li>`)
-    .join("");
-  return `<div class="intel-stockpile">
-    <div class="intel-section-label">Galactic Holdings</div>
-    <ul class="intel-simple-list">${planetItems}${outpostItems}</ul>
-  </div>`;
-};

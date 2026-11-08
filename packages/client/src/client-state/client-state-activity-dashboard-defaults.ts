@@ -13,7 +13,7 @@ export type ActivityDashboardView = "YOURS" | "WORLD_PULSE" | "UPDATES";
 export const createInitialActivityDashboardState = () => ({
   activityDashboard: {
     open: false,
-    /** The new HUD's Chronicle, which replaces this dashboard under ?hud=v2, is open (popups wait for it the same way). */
+    /** The new HUD's Chronicle, which replaces this dashboard, is open (popups wait for it the same way). */
     chronicleOpen: false,
     loading: false,
     timeline: undefined as PersonalActivityTimeline | undefined,

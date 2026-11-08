@@ -14,8 +14,7 @@ export const HUD_V2_MOBILE_CHANGELOG: ClientChangelogEntry[] = [
       "Chronicle opens as a half-height sheet over the map; Show centres the map above it",
       "Town and battle screens fill the screen, with their buttons at the bottom",
       "Your phone's back gesture closes the open screen or sheet",
-      "Turned sideways, panels dock to the right so the map keeps its height",
-      "Prefer the old phone HUD? Open the game with ?hud=legacy"
+      "Turned sideways, panels dock to the right so the map keeps its height"
     ]
   }
 ];

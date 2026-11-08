@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchGalaxyHoldings, trophyCaseHtml, galaxyHoldingsHtml } from "./client-player-profile-galaxy.js";
+import { fetchGalaxyHoldings } from "./client-player-profile-galaxy.js";
 
 const originalFetch = global.fetch;
 
@@ -29,62 +29,5 @@ describe("fetchGalaxyHoldings", () => {
     global.fetch = vi.fn().mockRejectedValue(new Error("network down")) as unknown as typeof fetch;
     const result = await fetchGalaxyHoldings("player-1", "ws://localhost:3101/ws");
     expect(result).toBeUndefined();
-  });
-});
-
-describe("trophyCaseHtml", () => {
-  it("renders nothing while loading, undefined, or with an empty trophy case", () => {
-    expect(trophyCaseHtml("loading")).toBe("");
-    expect(trophyCaseHtml(undefined)).toBe("");
-    expect(trophyCaseHtml({ planets: [], outposts: [], trophyCase: [] })).toBe("");
-  });
-
-  it("renders a trophy per victory condition with its win count", () => {
-    const html = trophyCaseHtml({
-      planets: [],
-      outposts: [],
-      trophyCase: [
-        { objectiveId: "TOWN_CONTROL", objectiveName: "Town Control", count: 2 },
-        { objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance", count: 1 }
-      ]
-    });
-    expect(html).toContain("Career Trophy Case");
-    expect(html).toContain("Town Control ×2");
-    expect(html).toContain("Diplomatic Dominance ×1");
-    expect(html).toContain("/icons/simple/town-support.svg");
-    expect(html).toContain("/icons/simple/alliance.svg");
-    expect(html).not.toMatch(/\p{Extended_Pictographic}/u);
-  });
-
-  it("falls back to the trophy cup icon for an unknown objective", () => {
-    const html = trophyCaseHtml({
-      planets: [],
-      outposts: [],
-      trophyCase: [{ objectiveId: "SOMETHING_NEW", objectiveName: "Something New", count: 1 }, { objectiveId: "constructor", objectiveName: "Odd", count: 1 }]
-    });
-    expect(html.match(/\/icons\/simple\/leaderboard\.svg/g)).toHaveLength(2);
-  });
-});
-
-describe("galaxyHoldingsHtml", () => {
-  it("falls back to the raw season label when the gateway hasn't sent sectorNumber yet", () => {
-    const html = galaxyHoldingsHtml({
-      planets: [{ seasonSequence: 4, objectiveName: "Conquest", specialization: "CAPITAL", planetName: null }],
-      outposts: [{ seasonSequence: 6, specialization: "EXTRACTION" }]
-    });
-    expect(html).toContain("Season 4");
-    expect(html).toContain("Season 6");
-  });
-
-  it("prefers the Sector NNN label once sectorNumber is present", () => {
-    const html = galaxyHoldingsHtml({
-      planets: [
-        { seasonSequence: 4, sectorNumber: 2, campaign: { kind: "FRONTIER" }, objectiveName: "Conquest", specialization: "CAPITAL", planetName: null }
-      ],
-      outposts: [{ seasonSequence: 6, sectorNumber: 2, campaign: { kind: "CONTESTATION", ordinal: 1 }, specialization: "EXTRACTION" }]
-    });
-    expect(html).toContain("Sector 002");
-    expect(html).not.toContain("Season 4");
-    expect(html).not.toContain("Season 6");
   });
 });

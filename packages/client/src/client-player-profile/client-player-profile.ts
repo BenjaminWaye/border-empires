@@ -1,13 +1,7 @@
-// Player profile modal, opened by clicking a player's name anywhere it's
-// rendered via playerNameBadgeHtml (leaderboard, alliance lists, etc.).
-// Reuses the .intel-* modal classes from client-empire-intel.ts's dossier so
-// this fits the existing visual language without new CSS.
-//
-// Scope note: the season snapshot (rank/tiles/income/techs) comes from the
-// leaderboard, which is broadcast to every client, so it works for any
-// player. The oathbreaker section (broken truces this season) uses the
-// live per-viewer truceBreaksThisSeason for a self-profile (instant, no
-// fetch delay), and the fetched public socialView for anyone else's.
+// Player profile data and links. Clicking a player's name anywhere it is
+// rendered via playerNameBadgeHtml (leaderboard, alliance lists, etc.) opens
+// that player's profile, which the HUD draws as its profile screen; this
+// module loads the galactic holdings, career stats and social view it shows.
 import type { ClientDom } from "../client-auth-flow/client-auth-flow-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { fetchGalaxyHoldings } from "./client-player-profile-galaxy.js";
@@ -16,10 +10,6 @@ import { fetchPlayerSocialView } from "./client-player-profile-social.js";
 
 const MAX_CACHED_GALAXY_HOLDINGS = 50;
 
-// render + click wiring for the profile overlay, kept together here (rather
-// than inline in client-hud.ts, which is already over the repo's 500-line
-// file-size gate) since renderClientHud re-attaches these listeners on every
-// re-render, same as its other overlay bindings.
 // Generic "fetch once per profile, cache for the session, cap the cache
 // size" helper shared by the galactic-holdings and career-stats fetches
 // below -- both need identical semantics (loading placeholder, cache a

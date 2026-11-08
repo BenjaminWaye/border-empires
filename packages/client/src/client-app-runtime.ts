@@ -2,14 +2,12 @@ import {
   setWorldSeed,
   terrainAt
 } from "@border-empires/shared";
-import { formatGoldAmount } from "./client-constants.js";
 import { bootstrapClientApp } from "./client-bootstrap/client-bootstrap.js";
 import { createClientRuntimeDisplaySupport } from "./client-app-runtime-display-support/client-app-runtime-display-support.js";
 import {
   computeDragPreview as computeDragPreviewFromModule,
   worldTileRawFromPointer as worldTileRawFromPointerFromModule
 } from "./client-drag-selection.js";
-import type { EconomyFocusKey } from "./client-economy-model.js";
 import { createClientAppRuntimeDom } from "./client-app-runtime-dom.js";
 import { createClientFirebaseSetup, createClientSocketSetup } from "./client-app-runtime-env/client-app-runtime-env.js";
 import { startClientAcquisitionFunnel } from "./client-acquisition-funnel/client-acquisition-funnel.js";
@@ -130,10 +128,6 @@ const {
   fullMapChunkRadius: FULL_MAP_CHUNK_RADIUS
 });
 
-const openEconomyPanel = (focus: EconomyFocusKey = "ALL"): void => {
-  state.economyFocus = focus;
-  setActivePanel("economy");
-};
 const { structureGoldCost, structureCostText, structureInfoForKey, structureInfoButtonHtml, terrainLabel } =
   createClientRuntimeDisplaySupport({
     state,
@@ -202,11 +196,9 @@ bootstrapClientApp({
   devAuthPlayerId,
   storageSet,
   rateToneClass,
-  formatGoldAmount,
   formatManpowerAmount,
   structureInfoButtonHtml,
   hasRevealedResourceCategory,
-  openEconomyPanel,
   setActivePanel,
   keyFor: key,
   parseKey,

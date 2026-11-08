@@ -110,56 +110,54 @@ export function renderAfcUpgradePanels(
   state: UpgradeState, root: HTMLElement, install: (id: string) => void, actions?: AfcActionDependencies
 ): void {
   state.domainDetailOpen = false;
-  {
-    const identity = `${state.me}/${state.joinSeasonId}/${currentTier(state) ?? "complete"}`;
-    const remembered = views.get(root);
-    const view = remembered?.identity === identity
-      ? remembered : { selectedId: "", expanded: false, identity };
-    // HUD renders before INIT. Do not remember an empty catalogue's provisional tier.
-    if (state.domainCatalog.length) views.set(root, view);
-    else views.delete(root);
-    const repaint = (): void => {
-      const html = renderAfcUpgradesHtml(state, view, "afc-upgrade-0");
-      // Routine HUD ticks must not interrupt touch scrolling or keyboard focus.
-      if (view.html === html && root.firstElementChild) return;
-      const scrollTop = root.scrollTop;
-      const focused = root.contains(document.activeElement) ? document.activeElement as HTMLElement : null;
-      const focusSelector = focused?.hasAttribute("data-afc-upgrade-current-tier") ? "[data-afc-upgrade-current-tier]"
-        : focused?.dataset.domainUnlock ? `[data-domain-unlock="${CSS.escape(focused.dataset.domainUnlock)}"]`
-        : focused?.dataset.afcUpgradeCard ? `[data-afc-upgrade-card="${CSS.escape(focused.dataset.afcUpgradeCard)}"]` : "";
-      const restoreFormInputs = rememberAfcFormInputs(root);
-      root.innerHTML = html;
-      restoreFormInputs();
-      view.html = html;
-      root.scrollTop = scrollTop;
-      if (focusSelector) {
-        const control = root.querySelector<HTMLElement>(focusSelector);
-        if (control) control.focus({ preventScroll: true });
-        else root.querySelector<HTMLElement>(".afc-upgrade-current h3")?.focus();
-      }
-    };
+  const identity = `${state.me}/${state.joinSeasonId}/${currentTier(state) ?? "complete"}`;
+  const remembered = views.get(root);
+  const view = remembered?.identity === identity
+    ? remembered : { selectedId: "", expanded: false, identity };
+  // HUD renders before INIT. Do not remember an empty catalogue's provisional tier.
+  if (state.domainCatalog.length) views.set(root, view);
+  else views.delete(root);
+  const repaint = (): void => {
+    const html = renderAfcUpgradesHtml(state, view, "afc-upgrade-0");
+    // Routine HUD ticks must not interrupt touch scrolling or keyboard focus.
+    if (view.html === html && root.firstElementChild) return;
+    const scrollTop = root.scrollTop;
+    const focused = root.contains(document.activeElement) ? document.activeElement as HTMLElement : null;
+    const focusSelector = focused?.hasAttribute("data-afc-upgrade-current-tier") ? "[data-afc-upgrade-current-tier]"
+      : focused?.dataset.domainUnlock ? `[data-domain-unlock="${CSS.escape(focused.dataset.domainUnlock)}"]`
+      : focused?.dataset.afcUpgradeCard ? `[data-afc-upgrade-card="${CSS.escape(focused.dataset.afcUpgradeCard)}"]` : "";
+    const restoreFormInputs = rememberAfcFormInputs(root);
+    root.innerHTML = html;
+    restoreFormInputs();
+    view.html = html;
+    root.scrollTop = scrollTop;
+    if (focusSelector) {
+      const control = root.querySelector<HTMLElement>(focusSelector);
+      if (control) control.focus({ preventScroll: true });
+      else root.querySelector<HTMLElement>(".afc-upgrade-current h3")?.focus();
+    }
+  };
+  repaint();
+  if (actions) bindAfcActions(root, actions);
+  root.onclick = event => {
+    const target = event.target as HTMLElement;
+    if (actions && handleAfcActionClick(target, actions)) return;
+    const button = target.closest<HTMLButtonElement>("[data-afc-upgrade-card]");
+    if (button?.dataset.afcUpgradeCard) {
+      const id = button.dataset.afcUpgradeCard;
+      view.expanded = view.selectedId !== id || !view.expanded;
+      view.selectedId = id; state.domainUiSelectedId = id;
+      repaint(); root.querySelector<HTMLButtonElement>(`[data-afc-upgrade-card="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+      return;
+    }
+    const action = target.closest<HTMLButtonElement>("[data-domain-unlock]");
+    if (action?.dataset.domainUnlock && !action.disabled) install(action.dataset.domainUnlock);
+  };
+  root.onkeydown = event => {
+    if (event.key !== "Escape" || !view.expanded) return;
+    event.stopPropagation(); event.preventDefault();
+    view.expanded = false;
     repaint();
-    if (actions) bindAfcActions(root, actions);
-    root.onclick = event => {
-      const target = event.target as HTMLElement;
-      if (actions && handleAfcActionClick(target, actions)) return;
-      const button = target.closest<HTMLButtonElement>("[data-afc-upgrade-card]");
-      if (button?.dataset.afcUpgradeCard) {
-        const id = button.dataset.afcUpgradeCard;
-        view.expanded = view.selectedId !== id || !view.expanded;
-        view.selectedId = id; state.domainUiSelectedId = id;
-        repaint(); root.querySelector<HTMLButtonElement>(`[data-afc-upgrade-card="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
-        return;
-      }
-      const action = target.closest<HTMLButtonElement>("[data-domain-unlock]");
-      if (action?.dataset.domainUnlock && !action.disabled) install(action.dataset.domainUnlock);
-    };
-    root.onkeydown = event => {
-      if (event.key !== "Escape" || !view.expanded) return;
-      event.stopPropagation(); event.preventDefault();
-      view.expanded = false;
-      repaint();
-      root.querySelector<HTMLButtonElement>(`[data-afc-upgrade-card="${CSS.escape(view.selectedId)}"]`)?.focus({ preventScroll: true });
-    };
-  }
+    root.querySelector<HTMLButtonElement>(`[data-afc-upgrade-card="${CSS.escape(view.selectedId)}"]`)?.focus({ preventScroll: true });
+  };
 }

@@ -9,8 +9,6 @@
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 import type { CareerStatsView } from "./client-player-profile-types.js";
 
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char] ?? char);
 
 export const fetchCareerStats = async (playerId: string, wsUrl: string): Promise<CareerStatsView | undefined> => {
   try {
@@ -31,16 +29,3 @@ export const fetchCareerStats = async (playerId: string, wsUrl: string): Promise
   }
 };
 
-export const careerStatsHtml = (stats: CareerStatsView | "loading" | undefined): string => {
-  if (stats === "loading" || stats === undefined) return "";
-  if (stats.seasonsPlayed === 0) return "";
-  return `<div class="intel-stockpile">
-    <div class="intel-section-label">Career Stats</div>
-    <ul class="intel-simple-list">
-      <li>Seasons played: <strong>${escapeHtml(String(stats.seasonsPlayed))}</strong></li>
-      ${stats.bestRank !== null ? `<li>Best rank finish: <strong>#${escapeHtml(String(stats.bestRank))}</strong></li>` : ""}
-      ${stats.peakScore !== null ? `<li>Peak score: <strong>${escapeHtml(stats.peakScore.toFixed(0))}</strong></li>` : ""}
-      ${stats.peakTiles !== null ? `<li>Peak tiles held: <strong>${escapeHtml(String(Math.round(stats.peakTiles)))}</strong></li>` : ""}
-    </ul>
-  </div>`;
-};

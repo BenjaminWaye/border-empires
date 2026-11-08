@@ -34,30 +34,26 @@ export const syncManifestPanelTabs = (
   ownedCount: number,
   rerender: () => void
 ): void => {
-  {
-    const panel = dom.panelTechEl;
-    panel.dataset.manifestTab = state.techTreeExpanded ? "tree" : state.techSection;
-    panel.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
-    panel.querySelectorAll<HTMLButtonElement>("[data-manifest-tab-btn]").forEach((btn) => {
-      const tab = tabFromButton(btn);
-      const active = tab === state.techSection;
-      btn.classList.toggle("active", active);
-      btn.setAttribute("aria-selected", String(active));
-      btn.textContent = manifestTabLabel(tab, ownedCount);
-      btn.onclick = () => {
-        if (state.techSection === tab) return;
-        state.techSection = tab;
-        rerender();
-      };
-    });
-  }
-  {
-    const toggle = dom.techViewToggleEl;
-    toggle.textContent = manifestViewToggleLabel(state.techTreeExpanded);
-    toggle.setAttribute("aria-pressed", String(state.techTreeExpanded));
-    toggle.onclick = () => {
-      state.techTreeExpanded = !state.techTreeExpanded;
+  const panel = dom.panelTechEl;
+  panel.dataset.manifestTab = state.techTreeExpanded ? "tree" : state.techSection;
+  panel.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
+  panel.querySelectorAll<HTMLButtonElement>("[data-manifest-tab-btn]").forEach((btn) => {
+    const tab = tabFromButton(btn);
+    const active = tab === state.techSection;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-selected", String(active));
+    btn.textContent = manifestTabLabel(tab, ownedCount);
+    btn.onclick = () => {
+      if (state.techSection === tab) return;
+      state.techSection = tab;
       rerender();
     };
-  }
+  });
+  const toggle = dom.techViewToggleEl;
+  toggle.textContent = manifestViewToggleLabel(state.techTreeExpanded);
+  toggle.setAttribute("aria-pressed", String(state.techTreeExpanded));
+  toggle.onclick = () => {
+    state.techTreeExpanded = !state.techTreeExpanded;
+    rerender();
+  };
 };
