@@ -68,19 +68,20 @@ const seasonEndVisible = (state: SeasonEndOverlayDeps["state"]): boolean =>
 
 const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: SeasonEndLeaderboard): string =>
   JSON.stringify({
-    winner: state.seasonWinner?.playerId,
+    winner: [state.seasonWinner?.playerId, state.seasonWinner?.playerName, state.seasonWinner?.crownedAt],
     objective: state.seasonWinner?.objectiveName,
     starting: state.seasonEndStarting,
     voteCount: state.seasonStartVoteCount,
     voted: state.seasonStartVoted,
     self: leaderboard.selfOverall?.id,
-    overall: leaderboard.overall.map((e) => [e.id, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
+    overall: leaderboard.overall.map((e) => [e.id, e.name, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
     victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.progressLabel, o.conditionMet]),
-    stats: state.seasonStats ? { mostDeadlyTile: state.seasonStats.mostDeadlyTile, longestRoad: state.seasonStats.longestRoad } : undefined,
+    stats: state.seasonStats ?? state.seasonWinner?.seasonStats,
     // Cheap-but-sufficient signature for a per-player time series: point
     // count + last value catches "a new sample arrived" without hashing the
     // whole (small, capped) series every render.
-    scoreHistory: state.seasonScoreHistory.map((s) => [s.playerId, s.points.length, s.points[s.points.length - 1]?.score ?? 0])
+    scoreHistory: (state.seasonScoreHistory.length > 0 ? state.seasonScoreHistory : state.seasonWinner?.scoreHistory ?? [])
+      .map((s) => [s.playerId, s.playerName, s.points.length, s.points[s.points.length - 1]?.score ?? 0])
   });
 
 const victorMedallion = (
@@ -182,20 +183,22 @@ const victoryGauges = (
     </section>`;
 };
 
-const miscPanel = (seasonStats: SeasonStatsView): string => {
+const miscPanel = (seasonStats: SeasonStatsView | undefined): string => {
   const items: string[] = [];
-  if (seasonStats.mostDeadlyTile) {
+  if (seasonStats?.mostDeadlyTile) {
     items.push(`<div class="se-misc-item">
       <span class="se-misc-label">Most Deadly Tile</span>
       <span class="se-misc-value"><strong>${num(seasonStats.mostDeadlyTile.manpowerLost)}</strong> manpower lost on tile (${seasonStats.mostDeadlyTile.x}, ${seasonStats.mostDeadlyTile.y})</span>
     </div>`);
   }
-  if (seasonStats.longestRoad) {
+  if (seasonStats?.longestRoad) {
     items.push(`<div class="se-misc-item">
       <span class="se-misc-label">Longest Road</span>
       <span class="se-misc-value"><strong>${num(seasonStats.longestRoad.tileCount)}</strong> tiles long</span>
     </div>`);
   }
+  if (!seasonStats?.mostDeadlyTile) items.push(`<div class="se-misc-item"><span class="se-misc-label">Most Deadly Tile</span><span class="se-misc-value">No combat record available.</span></div>`);
+  if (!seasonStats?.longestRoad) items.push(`<div class="se-misc-item"><span class="se-misc-label">Longest Road</span><span class="se-misc-value">No connected road recorded.</span></div>`);
   return `
     <section class="se-panel se-misc">
       <h3 class="se-panel-title">Season Miscellany</h3>
@@ -228,9 +231,13 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
 
   const victoryHtml = victoryGauges(state.seasonVictory, colors, selfId);
   const hasVictory = victoryHtml.length > 0;
-  const hasStats = Boolean(state.seasonStats && (state.seasonStats.mostDeadlyTile || state.seasonStats.longestRoad));
-  const scoreGraphHtml = scoreGraphPanel(state.seasonScoreHistory, colors, selfId, state.seasonWinner.playerId);
-  const hasScoreHistory = scoreGraphHtml.length > 0;
+  const seasonStats = state.seasonStats ?? state.seasonWinner.seasonStats;
+  const scoreHistory = state.seasonScoreHistory.length > 0 ? state.seasonScoreHistory : state.seasonWinner.scoreHistory ?? [];
+  const scoreGraphHtml = scoreGraphPanel(scoreHistory, colors, selfId, state.seasonWinner.playerId)
+    || `<section class="se-panel se-graph"><h3 class="se-panel-title">Score Over Time</h3><p>No score timeline was saved for this season.</p></section>`;
+  const winnerEntry = leaderboard.overall.find((entry) => entry.id === state.seasonWinner?.playerId)
+    ?? (leaderboard.selfOverall?.id === state.seasonWinner.playerId ? leaderboard.selfOverall : undefined);
+  const winner = { ...state.seasonWinner, playerName: winnerEntry?.name ?? state.seasonWinner.playerName };
   const activeTab = overlayEl.dataset.seTab || "standings";
 
   overlayEl.innerHTML = `
@@ -253,13 +260,13 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             <span class="se-filigree se-filigree-r" aria-hidden="true"></span>
           </header>
 
-          ${victorMedallion(state.seasonWinner, colors, isSelfWinner)}
+          ${victorMedallion(winner, colors, isSelfWinner)}
 
           <nav class="se-tab-bar" role="tablist">
             <button class="se-tab${activeTab === "standings" ? " is-active" : ""}" role="tab" data-tab="standings">Final Standings</button>
             ${hasVictory ? `<button class="se-tab${activeTab === "victory" ? " is-active" : ""}" role="tab" data-tab="victory">Victory Paths</button>` : ""}
-            ${hasStats ? `<button class="se-tab${activeTab === "misc" ? " is-active" : ""}" role="tab" data-tab="misc">Misc</button>` : ""}
-            ${hasScoreHistory ? `<button class="se-tab${activeTab === "score-graph" ? " is-active" : ""}" role="tab" data-tab="score-graph">Score Graph</button>` : ""}
+            <button class="se-tab${activeTab === "misc" ? " is-active" : ""}" role="tab" data-tab="misc">Statistics</button>
+            <button class="se-tab${activeTab === "score-graph" ? " is-active" : ""}" role="tab" data-tab="score-graph">Score Graph</button>
           </nav>
           <div class="se-tab-panels">
             <div class="se-tab-panel${activeTab === "standings" ? " is-active" : ""}" data-tab="standings" role="tabpanel">
@@ -268,12 +275,12 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             ${hasVictory ? `<div class="se-tab-panel${activeTab === "victory" ? " is-active" : ""}" data-tab="victory" role="tabpanel">
               ${victoryHtml}
             </div>` : ""}
-            ${hasStats && state.seasonStats ? `<div class="se-tab-panel${activeTab === "misc" ? " is-active" : ""}" data-tab="misc" role="tabpanel">
-              ${miscPanel(state.seasonStats)}
-            </div>` : ""}
-            ${hasScoreHistory ? `<div class="se-tab-panel${activeTab === "score-graph" ? " is-active" : ""}" data-tab="score-graph" role="tabpanel">
+            <div class="se-tab-panel${activeTab === "misc" ? " is-active" : ""}" data-tab="misc" role="tabpanel">
+              ${miscPanel(seasonStats)}
+            </div>
+            <div class="se-tab-panel${activeTab === "score-graph" ? " is-active" : ""}" data-tab="score-graph" role="tabpanel">
               ${scoreGraphHtml}
-            </div>` : ""}
+            </div>
           </div>
         </div>
         <div class="se-scroll-footer">

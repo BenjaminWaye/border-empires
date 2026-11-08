@@ -1,7 +1,4 @@
 import type { InitTransferProgress, RealtimeSocket } from "../client-socket-types.js";
-import { estimateInitBuildMs } from "./client-init-transfer-build-estimate.js";
-import { prefersTrue3DRendererMode } from "../client-renderer-mode.js";
-import { estimateMapPrepMs } from "../client-map-prep/client-map-prep-estimate.js";
 
 type InitTransferProgressState = {
   authSessionReady: boolean;
@@ -36,7 +33,7 @@ export type InitTransferView = {
   detail: string;
   /** 0–100, for the progress bar. */
   percent: number;
-  /** Estimated time until the map is up (download + build), or null while still measuring. */
+  /** Remaining transfer time plus any supplied build estimate; null when unmeasured. */
   remainingMs: number | null;
 };
 
@@ -63,12 +60,15 @@ const estimateDownloadRemainingMs = (progress: InitTransferProgress, now: number
 export const describeInitTransfer = (
   progress: InitTransferProgress,
   now: number = Date.now(),
-  buildEstimateMs: number = estimateInitBuildMs(progress.totalChars) + (prefersTrue3DRendererMode ? estimateMapPrepMs() : 0)
+  // Payload size does not reliably predict map preparation time. Only show
+  // a build ETA when the caller supplies a known estimate.
+  buildEstimateMs: number | null = null
 ): InitTransferView => {
   if (progress.phase === "building") {
     return {
       title: "Building your map...",
-      detail: `World downloaded. Laying out your territory. ${formatTimeLeft(buildEstimateMs)}`,
+      detail: buildEstimateMs === null ? "World downloaded. Laying out your territory..."
+        : `World downloaded. Laying out your territory. ${formatTimeLeft(buildEstimateMs)}`,
       percent: 100,
       remainingMs: buildEstimateMs
     };
@@ -76,7 +76,7 @@ export const describeInitTransfer = (
   const total = Math.max(1, progress.totalChars);
   const percent = Math.min(100, Math.max(0, Math.round((progress.receivedChars / total) * 100)));
   const downloadRemainingMs = estimateDownloadRemainingMs(progress, now);
-  const remainingMs = downloadRemainingMs === null ? null : downloadRemainingMs + buildEstimateMs;
+  const remainingMs = downloadRemainingMs === null ? null : downloadRemainingMs + (buildEstimateMs ?? 0);
   const received = `${formatKb(progress.receivedChars)} of ${formatKb(progress.totalChars)} received.`;
   return {
     title: "Downloading your world...",
