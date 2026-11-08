@@ -1,3 +1,4 @@
+import { tilePlayerLosses } from "../deadliest-tiles/season-tile-player-losses.js";
 import type { SeasonStats } from "@border-empires/sim-protocol";
 import type { RuntimeExportState } from "../runtime-state-export.js";
 import { WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY } from "@border-empires/shared";
@@ -29,7 +30,9 @@ const isRoadTown = (tile: RuntimeExportState["tiles"][number]): boolean =>
 
 const tileKey = (x: number, y: number): string => `${x},${y}`;
 
-export const findMostDeadlyTile = (manpowerLossByTileKey: Map<string, number>): SeasonStats["mostDeadlyTile"] => {
+type NamedPlayers = ReadonlyArray<{ id: string; name?: string }>;
+
+export const findMostDeadlyTile = (manpowerLossByTileKey: Map<string, number>, players: NamedPlayers = []): SeasonStats["mostDeadlyTile"] => {
   let best: { key: string; manpowerLost: number } | undefined;
   for (const [key, manpowerLost] of manpowerLossByTileKey) {
     if (!best || manpowerLost > best.manpowerLost) {
@@ -38,10 +41,21 @@ export const findMostDeadlyTile = (manpowerLossByTileKey: Map<string, number>): 
   }
   if (!best) return undefined;
   const coords = best.key.split(",").map(Number);
-  return { x: coords[0]!, y: coords[1]!, manpowerLost: Math.round(best.manpowerLost) };
+  const losses = tilePlayerLosses(manpowerLossByTileKey, best.key);
+  const attributedTotal = losses.reduce((sum, loss) => sum + loss.manpowerLost, 0);
+  // Never crown a player from a partial history (old saves or a capacity hit).
+  const complete = Math.abs(attributedTotal - best.manpowerLost) < 0.000001;
+  const leading = complete ? losses.sort((a, b) => b.manpowerLost - a.manpowerLost || a.playerId.localeCompare(b.playerId))[0] : undefined;
+  return { x: coords[0]!, y: coords[1]!, manpowerLost: Math.round(best.manpowerLost),
+    ...(leading ? { mostLossesPlayer: {
+      playerId: leading.playerId,
+      playerName: players.find((player) => player.id === leading.playerId)?.name ?? leading.playerId,
+      manpowerLost: Math.round(leading.manpowerLost)
+    } } : {}) };
+
 };
 
-export const computeLongestRoad = (tiles: RuntimeExportState["tiles"]): SeasonStats["longestRoad"] => {
+export const computeLongestRoad = (tiles: RuntimeExportState["tiles"], players: NamedPlayers = []): SeasonStats["longestRoad"] => {
   const tileMap = new Map<string, RuntimeExportState["tiles"][number]>();
   const roadTowns: RoadTown[] = [];
   for (const tile of tiles) {
@@ -52,6 +66,7 @@ export const computeLongestRoad = (tiles: RuntimeExportState["tiles"]): SeasonSt
   }
 
   let longest = 0;
+  let bestRoad: SeasonStats["longestRoad"];
 
   const visited = new Set<string>();
   for (const startTown of roadTowns) {
@@ -129,6 +144,7 @@ export const computeLongestRoad = (tiles: RuntimeExportState["tiles"]): SeasonSt
     const nodes = [...roadGraph.keys()];
     if (nodes.length < 2) continue;
 
+    const townKeys = new Set(componentTowns.map((town) => town.key));
     const bfsDist = (startKey: string): { farthestKey: string; maxDist: number } => {
       const dist = new Map<string, number>();
       const q: string[] = [startKey];
@@ -143,7 +159,7 @@ export const computeLongestRoad = (tiles: RuntimeExportState["tiles"]): SeasonSt
           if (dist.has(edge.to)) continue;
           const d = dist.get(cur)! + edge.tiles;
           dist.set(edge.to, d);
-          if (d > maxDist) {
+          if (townKeys.has(edge.to) && d > maxDist) {
             maxDist = d;
             farthestKey = edge.to;
           }
@@ -153,13 +169,21 @@ export const computeLongestRoad = (tiles: RuntimeExportState["tiles"]): SeasonSt
       return { farthestKey, maxDist };
     };
 
-    const first = bfsDist(nodes[0]!);
+    const first = bfsDist(componentTowns[0]!.key);
     const second = bfsDist(first.farthestKey);
     if (second.maxDist > longest) {
       longest = second.maxDist;
+      const from = tileMap.get(first.farthestKey)!;
+      const to = tileMap.get(second.farthestKey)!;
+      bestRoad = {
+        tileCount: longest + 1, playerId: ownerId,
+        playerName: players.find((player) => player.id === ownerId)?.name ?? ownerId,
+        fromCity: { x: from.x, y: from.y, name: from.townName ?? `Town at (${from.x}, ${from.y})` },
+        toCity: { x: to.x, y: to.y, name: to.townName ?? `Town at (${to.x}, ${to.y})` }
+      };
     }
   }
 
   if (longest === 0) return undefined;
-  return { tileCount: longest + 1 };
+  return bestRoad;
 };

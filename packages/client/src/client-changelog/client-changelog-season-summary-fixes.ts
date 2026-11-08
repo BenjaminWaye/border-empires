@@ -21,3 +21,15 @@ export const MISSING_HISTORY_REPORT_CHANGELOG: ClientChangelogEntry = {
   why: "Missing historical statistics should be easy to report for investigation.",
   changes: ["Missing statistics and timelines now offer a bug-report button with the affected records and winner details filled in"]
 };
+
+export const SEASON_RECORD_DETAILS_CHANGELOG: ClientChangelogEntry = {
+  createdAt: 1794152918767,
+  introducedIn: "2026.11.08",
+  title: "The empires behind the season records",
+  why: "Road lengths and battlefield losses needed the players and places behind them.",
+  changes: [
+    "Longest Road names its empire and both endpoint cities, with their coordinates",
+    "Most Deadly Tile shows where the fighting happened and which empire lost the most manpower there",
+    "Player loss records persist across restarts; missing older details can be reported as a bug"
+  ]
+};

@@ -1,3 +1,4 @@
+import { recordSeasonTileLoss } from "./season-tile-player-losses.js";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
@@ -34,6 +35,27 @@ const stores: Array<{ name: string; create: () => Promise<SeasonSummaryStore> }>
 ];
 
 describe.each(stores)("deadliest tiles persistence ($name)", ({ create }) => {
+  it("preserves each player's full-season losses across restarts and repeated restores", async () => {
+    const store = await create();
+    const totals = new Map<string, number>();
+    recordSeasonTileLoss(totals, "10,20", "p1", 200);
+    recordSeasonTileLoss(totals, "10,20", "p2", 300);
+    recordSeasonTileLoss(totals, "10,20", "p1", 250);
+    await persistDeadliestTiles(store, "season-1", totals);
+    const restored = new Map<string, number>();
+    await restoreDeadliestTiles(store, "season-1", restored);
+    await restoreDeadliestTiles(store, "season-1", restored);
+    expect(findMostDeadlyTile(restored, [{ id: "p1", name: "Waypoint" }])).toEqual({
+      x: 10, y: 20, manpowerLost: 750,
+      mostLossesPlayer: { playerId: "p1", playerName: "Waypoint", manpowerLost: 450 }
+    });
+    recordSeasonTileLoss(restored, "10,20", "p2", 200);
+    expect(findMostDeadlyTile(restored)?.mostLossesPlayer).toMatchObject({ playerId: "p2", manpowerLost: 500 });
+    const loaded = (await store.loadDeadliestTiles("season-1"))!;
+    loaded[0]!.playerLosses![0]!.manpowerLost = 99999;
+    expect((await store.loadDeadliestTiles("season-1"))![0]!.playerLosses![0]!.manpowerLost).toBe(450);
+  });
+
   it("survives a process restart — the season stat is unchanged", async () => {
     const store = await create();
     const beforeRestart = new Map<string, number>([

@@ -1,3 +1,4 @@
+import { tilePlayerLosses, restoreTilePlayerLosses, type TilePlayerLoss } from "./season-tile-player-losses.js";
 // Durable backing for the season "deadliest tile" stat (season-stats.ts's
 // findMostDeadlyTile). The live source of truth is runtime.manpowerLossByTileKey
 // -- a per-tile running total accumulated by buildLockedCombatResolution
@@ -28,6 +29,7 @@
 
 /** One tile's season-to-date combat manpower total. */
 export type DeadliestTileEntry = {
+  playerLosses?: TilePlayerLoss[];
   x: number;
   y: number;
   manpowerLost: number;
@@ -71,7 +73,9 @@ export const topDeadliestTiles = (
     if (!coords) continue;
     let insertAt = top.length;
     while (insertAt > 0 && top[insertAt - 1]!.manpowerLost < manpowerLost) insertAt -= 1;
-    top.splice(insertAt, 0, { x: coords.x, y: coords.y, manpowerLost });
+    const playerLosses = tilePlayerLosses(manpowerLossByTileKey, key);
+    top.splice(insertAt, 0, { x: coords.x, y: coords.y, manpowerLost,
+      ...(playerLosses.length > 0 ? { playerLosses } : {}) });
     if (top.length > limit) top.pop();
   }
   return top;
@@ -96,5 +100,11 @@ export const seedDeadliestTiles = (
     const key = `${entry.x},${entry.y}`;
     const existing = manpowerLossByTileKey.get(key) ?? 0;
     if (entry.manpowerLost > existing) manpowerLossByTileKey.set(key, entry.manpowerLost);
+    if (entry.playerLosses) restoreTilePlayerLosses(manpowerLossByTileKey, key, entry.playerLosses);
   }
 };
+
+export const cloneDeadliestTile = (tile: DeadliestTileEntry): DeadliestTileEntry => ({
+  ...tile,
+  ...(tile.playerLosses ? { playerLosses: tile.playerLosses.map((loss) => ({ ...loss })) } : {})
+});

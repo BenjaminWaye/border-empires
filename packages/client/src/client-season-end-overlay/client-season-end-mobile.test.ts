@@ -89,12 +89,35 @@ describe("season summary recovery", () => {
     expect(overlay.querySelector('.se-tab-panel[data-tab="misc"]')?.classList.contains("is-active")).toBe(true);
   });
 
+  it("offers a bug report for older records missing player and city details", () => {
+    const state = stateForSummary();
+    state.seasonStats = undefined;
+    state.seasonWinner!.seasonStats = { longestRoad: { tileCount: 20 }, mostDeadlyTile: { x: 1, y: 2, manpowerLost: 100 } };
+    const overlay = render(state);
+    expect(overlay.textContent).toContain("Player loss history unavailable.");
+    expect(overlay.textContent).toContain("City details unavailable.");
+    const button = overlay.querySelector<HTMLButtonElement>('[data-se-report-missing="statistics"]');
+    expect(button?.dataset.seMissingRecords).toContain("Longest Road owner and cities");
+    expect(button?.dataset.seMissingRecords).toContain("Deadliest tile player losses");
+  });
+
   it("reads saved records from the winner on a fresh login", () => {
     const state = stateForSummary();
-    state.seasonWinner!.seasonStats = { longestRoad: { tileCount: 33 }, mostDeadlyTile: { x: 2, y: 3, manpowerLost: 222 } };
+    state.seasonWinner!.seasonStats = {
+      longestRoad: { tileCount: 33, playerId: "winner", playerName: "Old name",
+        fromCity: { x: 5, y: 6, name: "Port Brass" }, toCity: { x: 9, y: 10, name: "Northgate" } },
+      mostDeadlyTile: { x: 2, y: 3, manpowerLost: 222,
+        mostLossesPlayer: { playerId: "winner", playerName: "Old name", manpowerLost: 150 } }
+    };
     state.seasonWinner!.scoreHistory = [{ playerId: "winner", playerName: "Waypoint", points: [{ t: 1, score: 1 }, { t: 2, score: 100 }] }];
     const overlay = render(state);
-    expect(overlay.querySelector(".se-misc")?.textContent).toContain("33");
+    const records = overlay.querySelector(".se-misc")?.textContent;
+    expect(records).toContain("33");
+    expect(records).toContain("Port Brass (5, 6) ↔ Northgate (9, 10)");
+    expect(records).toContain("Waypoint");
+    expect(records).toContain("150");
+    expect(records).toContain("tile (2, 3)");
+    expect(records).not.toContain("Old name");
     expect(overlay.querySelector(".se-graph-svg")).toBeTruthy();
     expect(overlay.querySelector("[data-se-report-missing]")).toBeNull();
   });

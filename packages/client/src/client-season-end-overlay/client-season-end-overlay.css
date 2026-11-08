@@ -352,7 +352,7 @@
 .se-misc-items { display: flex; flex-direction: column; gap: 10px; }
 .se-misc-item { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 14px; background: rgba(0, 0, 0, 0.3); border-radius: 6px; border: 1px solid rgba(201, 162, 75, 0.15); }
 .se-misc-label { font-size: 13px; color: var(--se-brass-hi); font-weight: 700; white-space: nowrap; }
-.se-misc-value { font-size: 14px; color: var(--se-parch); text-align: right; }
+.se-misc-value { min-width: 0; overflow-wrap: anywhere; font-size: 14px; color: var(--se-parch); text-align: right; }
 .se-misc-value strong { color: var(--se-copper); }
 
 @media (max-width: 560px) {
@@ -369,6 +369,8 @@
   .se-gauge { min-width: 0; flex: 1; }
   .se-gauge em { font-size: 14px; }
   .se-dials { grid-template-columns: 1fr; }
+  .se-misc-item { flex-direction: column; align-items: stretch; gap: 6px; }
+  .se-misc-value { text-align: left; }
   .se-filigree { display: none; }
   .se-actions { gap: 10px; }
   .se-btn { padding: 12px 18px; flex: 1 1 auto; justify-content: center; }

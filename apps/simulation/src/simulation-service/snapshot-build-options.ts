@@ -1,3 +1,4 @@
+import { enrichSavedSeasonStats } from "../season-stats/season-stats-merge.js";
 import type { CurrentSeasonSummary, SimulationSeasonState } from "@border-empires/sim-protocol";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice } from "@border-empires/shared";
@@ -19,7 +20,7 @@ const withSavedSeasonRecords = (
   summary: SnapshotBuildOptionsInput["currentSummary"]
 ): SimulationSeasonState => {
   if (!season.winner || summary?.seasonId !== season.seasonId) return season;
-  const seasonStats = season.winner.seasonStats ?? summary.seasonStats;
+  const seasonStats = enrichSavedSeasonStats(season.winner.seasonStats, summary.seasonStats);
   const scoreHistory = season.winner.scoreHistory ?? summary.scoreHistory;
   return {
     ...season,

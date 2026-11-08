@@ -187,31 +187,50 @@ const victoryGauges = (
 const missingHistoryReportButton = (section: "statistics" | "timeline", missing: string[]): string =>
   `<button type="button" class="se-btn se-btn-secondary" data-se-report-missing="${section}" data-se-missing-records="${escapeHtml(missing.join(", "))}">Report a bug</button>`;
 
-const miscPanel = (seasonStats: SeasonStatsView | undefined): string => {
+const miscPanel = (
+  stats: SeasonStatsView | undefined,
+  colors: ReadonlyMap<string, string>,
+  leaderboard: SeasonEndLeaderboard
+): string => {
   const items: string[] = [];
-  if (seasonStats?.mostDeadlyTile) {
+  const missing: string[] = [];
+  const namedPlayer = (id: string, name: string | undefined): string => {
+    const current = leaderboard.overall.find((entry) => entry.id === id)
+      ?? (leaderboard.selfOverall?.id === id ? leaderboard.selfOverall : undefined);
+    return playerBadge(id, current?.name ?? name ?? id, colors);
+  };
+  const deadly = stats?.mostDeadlyTile;
+  const road = stats?.longestRoad;
+  if (deadly) {
+    const player = deadly.mostLossesPlayer;
     items.push(`<div class="se-misc-item">
       <span class="se-misc-label">Most Deadly Tile</span>
-      <span class="se-misc-value"><strong>${num(seasonStats.mostDeadlyTile.manpowerLost)}</strong> manpower lost on tile (${seasonStats.mostDeadlyTile.x}, ${seasonStats.mostDeadlyTile.y})</span>
+      <span class="se-misc-value"><strong>${num(deadly.manpowerLost)}</strong> manpower lost on tile (${deadly.x}, ${deadly.y})<br>
+      ${player ? `Most losses: ${namedPlayer(player.playerId, player.playerName)} · <strong>${num(player.manpowerLost)}</strong> manpower` : "Player loss history unavailable."}</span>
     </div>`);
+    if (!player) missing.push("Deadliest tile player losses");
+  } else {
+    items.push(`<div class="se-misc-item"><span class="se-misc-label">Most Deadly Tile</span><span class="se-misc-value">No combat record available.</span></div>`);
+    missing.push("Most Deadly Tile");
   }
-  if (seasonStats?.longestRoad) {
+  if (road) {
+    const hasDetails = road.playerId && road.fromCity && road.toCity;
+    const city = (value: NonNullable<typeof road.fromCity>): string => `${escapeHtml(value.name)} (${value.x}, ${value.y})`;
     items.push(`<div class="se-misc-item">
       <span class="se-misc-label">Longest Road</span>
-      <span class="se-misc-value"><strong>${num(seasonStats.longestRoad.tileCount)}</strong> tiles long</span>
+      <span class="se-misc-value">${road.playerId ? `${namedPlayer(road.playerId, road.playerName)} · ` : ""}<strong>${num(road.tileCount)}</strong> tiles long<br>
+      ${road.fromCity && road.toCity ? `${city(road.fromCity)} ↔ ${city(road.toCity)}` : "City details unavailable."}</span>
     </div>`);
+    if (!hasDetails) missing.push("Longest Road owner and cities");
+  } else {
+    items.push(`<div class="se-misc-item"><span class="se-misc-label">Longest Road</span><span class="se-misc-value">No connected road recorded.</span></div>`);
+    missing.push("Longest Road");
   }
-  if (!seasonStats?.mostDeadlyTile) items.push(`<div class="se-misc-item"><span class="se-misc-label">Most Deadly Tile</span><span class="se-misc-value">No combat record available.</span></div>`);
-  if (!seasonStats?.longestRoad) items.push(`<div class="se-misc-item"><span class="se-misc-label">Longest Road</span><span class="se-misc-value">No connected road recorded.</span></div>`);
-  return `
-    <section class="se-panel se-misc">
-      <h3 class="se-panel-title">Season Miscellany</h3>
-      <div class="se-misc-items">${items.join("")}</div>
-      ${!seasonStats?.mostDeadlyTile || !seasonStats?.longestRoad ? missingHistoryReportButton("statistics", [
-        ...(!seasonStats?.mostDeadlyTile ? ["Most Deadly Tile"] : []),
-        ...(!seasonStats?.longestRoad ? ["Longest Road"] : [])
-      ]) : ""}
-    </section>`;
+  return `<section class="se-panel se-misc">
+    <h3 class="se-panel-title">Season Miscellany</h3>
+    <div class="se-misc-items">${items.join("")}</div>
+    ${missing.length > 0 ? missingHistoryReportButton("statistics", missing) : ""}
+  </section>`;
 };
 
 export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
@@ -284,7 +303,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
               ${victoryHtml}
             </div>` : ""}
             <div class="se-tab-panel${activeTab === "misc" ? " is-active" : ""}" data-tab="misc" role="tabpanel">
-              ${miscPanel(seasonStats)}
+              ${miscPanel(seasonStats, colors, leaderboard)}
             </div>
             <div class="se-tab-panel${activeTab === "score-graph" ? " is-active" : ""}" data-tab="score-graph" role="tabpanel">
               ${scoreGraphHtml}

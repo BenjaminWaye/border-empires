@@ -1,7 +1,7 @@
 import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonParticipationRow } from "@border-empires/sim-protocol";
 
 import type { PersistedActivityLogs } from "./activity-dashboard/activity-log-persistence.js";
-import type { DeadliestTileEntry } from "./deadliest-tiles/deadliest-tiles.js";
+import { cloneDeadliestTile, type DeadliestTileEntry } from "./deadliest-tiles/deadliest-tiles.js";
 import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
 
 // The Season archive list shown to players is the newest 12; the galaxy layer
@@ -67,11 +67,11 @@ export class InMemorySeasonSummaryStore implements SeasonSummaryStore {
   }
 
   async saveDeadliestTiles(seasonId: string, tiles: readonly DeadliestTileEntry[]): Promise<void> {
-    this.deadliestTilesBySeasonId.set(seasonId, tiles.map((tile) => ({ ...tile })));
+    this.deadliestTilesBySeasonId.set(seasonId, tiles.map(cloneDeadliestTile));
   }
 
   async loadDeadliestTiles(seasonId: string): Promise<DeadliestTileEntry[] | undefined> {
-    return this.deadliestTilesBySeasonId.get(seasonId)?.map((tile) => ({ ...tile }));
+    return this.deadliestTilesBySeasonId.get(seasonId)?.map(cloneDeadliestTile);
   }
 
   async saveActivityLogs(seasonId: string, logs: PersistedActivityLogs): Promise<void> {

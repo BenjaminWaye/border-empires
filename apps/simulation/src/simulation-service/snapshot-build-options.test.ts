@@ -42,6 +42,16 @@ describe("season records on login", () => {
     expect(build({ ...summary, seasonId: "previous" }).seasonState?.winner?.seasonStats).toBeUndefined();
   });
 
+  it("enriches an older crowned road with owner and city details on fresh login", () => {
+    const road = {
+      tileCount: 42, playerId: "p", playerName: "Waypoint",
+      fromCity: { x: 1, y: 2, name: "Port Brass" }, toCity: { x: 3, y: 4, name: "Northgate" }
+    };
+    const oldCrown = { ...season, winner: { ...season.winner!, seasonStats: { longestRoad: { tileCount: 42 } } } };
+    const enriched = build({ ...summary, seasonStats: { longestRoad: road } }, oldCrown);
+    expect(enriched.seasonState?.winner?.seasonStats?.longestRoad).toEqual(road);
+  });
+
   it("preserves the captured crowning records over a later summary", () => {
     const crownedStats = { longestRoad: { tileCount: 12 } };
     const crownedSeason = { ...season, winner: { ...season.winner!, seasonStats: crownedStats, scoreHistory: [] } };
