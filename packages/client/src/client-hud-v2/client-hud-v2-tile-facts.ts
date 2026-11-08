@@ -48,14 +48,27 @@ type StructureSlot = {
   suppressedUntil?: number;
 };
 
-/** The building on a tile, if any; economic structures first since they carry the tile's purpose. */
-const structureOn = (tile: Tile): StructureSlot | undefined => {
+/** Every building on a tile, economic structures first since they carry the tile's purpose. */
+const structuresOn = (tile: Tile): StructureSlot[] => {
+  const slots: StructureSlot[] = [];
   const s = tile.economicStructure;
-  if (s) return { key: s.type, field: "economicStructure", status: s.status, ...(s.inactiveReason ? { inactiveReason: s.inactiveReason } : {}), ...(s.disabledUntil ? { disabledUntil: s.disabledUntil } : {}) };
-  if (tile.fort) return { key: tile.fort.variant ?? "FORT", field: "fort", status: tile.fort.status, ...(tile.fort.disabledUntil ? { disabledUntil: tile.fort.disabledUntil } : {}) };
-  if (tile.siegeBattery) return { key: tile.siegeBattery.variant ?? "SIEGE_BATTERY", field: "siegeBattery", status: tile.siegeBattery.status };
-  if (tile.observatory) return { key: "OBSERVATORY", field: "observatory", status: tile.observatory.status, ...(tile.observatory.hijack ? { hijackEndsAt: tile.observatory.hijack.endsAt } : {}), ...(tile.observatory.suppressedUntil ? { suppressedUntil: tile.observatory.suppressedUntil } : {}) };
-  return undefined;
+  if (s) slots.push({ key: s.type, field: "economicStructure", status: s.status, ...(s.inactiveReason ? { inactiveReason: s.inactiveReason } : {}), ...(s.disabledUntil ? { disabledUntil: s.disabledUntil } : {}) });
+  if (tile.fort) slots.push({ key: tile.fort.variant ?? "FORT", field: "fort", status: tile.fort.status, ...(tile.fort.disabledUntil ? { disabledUntil: tile.fort.disabledUntil } : {}) });
+  if (tile.siegeBattery) slots.push({ key: tile.siegeBattery.variant ?? "SIEGE_BATTERY", field: "siegeBattery", status: tile.siegeBattery.status });
+  if (tile.observatory) slots.push({ key: "OBSERVATORY", field: "observatory", status: tile.observatory.status, ...(tile.observatory.hijack ? { hijackEndsAt: tile.observatory.hijack.endsAt } : {}), ...(tile.observatory.suppressedUntil ? { suppressedUntil: tile.observatory.suppressedUntil } : {}) });
+  return slots;
+};
+
+type ShownStructure = { slot: StructureSlot; dormant: readonly SlotResource[] };
+
+/**
+ * The building the fact strip describes. A Fort may share its tile with a Relay Beacon or Harbor Exchange
+ * (runtime-structure-command-handlers.ts), so a dormant one wins over the economic structure: it's the one
+ * giving nothing, and the map's shortage badge points at it.
+ */
+const structureToShow = (tile: Tile, dormantResourcesFor?: DormantResourcesFor): ShownStructure | undefined => {
+  const shown = structuresOn(tile).map((slot) => ({ slot, dormant: dormantResourcesFor?.(tile, slot.field) ?? [] }));
+  return shown.find((s) => s.dormant.length > 0 && s.slot.status === "active") ?? shown[0];
 };
 
 const stateFact = (s: StructureSlot, nowMs: number): TileFact => {
@@ -74,9 +87,11 @@ const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number, dormant:
   const facts: TileFact[] = [];
   const name = structureDisplayName(s.key);
   if (name && plainText(name) !== "") facts.push({ label: "Building", value: name });
-  // Dormant (no free upkeep slot) still reports status "active" on the wire; it gives nothing until a slot frees up.
+  // Dormant (no free upkeep slot) still reports status "active" on the wire; it gives nothing until a slot
+  // frees up. A more pressing state (Recovering, hijacked, suppressed) keeps the State line; Gives still says none.
   const isDormant = dormant.length > 0 && s.status === "active";
-  facts.push(isDormant ? { label: "State", value: `Dormant · no ${dormant.map((r) => SLOT_RESOURCE_NAME[r]).join(" / ")} slot`, tone: "warn" } : stateFact(s, nowMs));
+  const state = stateFact(s, nowMs);
+  facts.push(isDormant && state.value === "Active" ? { label: "State", value: `Dormant · no ${dormant.map((r) => SLOT_RESOURCE_NAME[r]).join(" / ")} slot`, tone: "warn" } : state);
   const modifiers = structureModifiersFor(s.key).slice(0, MAX_GIVES);
   const gives = isDormant
     ? modifiers.length > 0 ? [`No ${[...new Set(modifiers.map((m) => capitalized(m.statLabel)))].join(" / ")} bonus`] : []
@@ -95,9 +110,9 @@ const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number, dormant:
  * already show it with its progress.
  */
 export const builtStructureFacts = (tile: Tile, mine: boolean, nowMs: number = Date.now(), dormantResourcesFor?: DormantResourcesFor): TileFact[] => {
-  const structure = structureOn(tile);
-  if (!structure || structure.status === "under_construction" || structure.status === "removing") return [];
-  return structureFacts(structure, mine, nowMs, dormantResourcesFor?.(tile, structure.field) ?? []);
+  const shown = structureToShow(tile, dormantResourcesFor);
+  if (!shown || shown.slot.status === "under_construction" || shown.slot.status === "removing") return [];
+  return structureFacts(shown.slot, mine, nowMs, shown.dormant);
 };
 
 const coinPerDay = (goldPerMinute: number): string => `${(goldPerMinute * 1440).toFixed(1)}/day`;
@@ -225,12 +240,12 @@ export const tileFactsFor = (
   if (waystation.length > 0) return waystation.slice(0, MAX_FACTS);
   if (!tile) return fightFacts(view).slice(0, MAX_FACTS);
   const mine = Boolean(me) && tile.ownerId === me;
-  const structure = structureOn(tile);
+  const structure = structureToShow(tile, dormantResourcesFor);
   // On someone else's tile the fight comes first; the cap then trims what their building gives.
   const facts = [
     ...wonderFacts(tile, mine),
     ...(!mine ? fightFacts(view) : []),
-    ...(structure ? structureFacts(structure, mine, nowMs, dormantResourcesFor?.(tile, structure.field) ?? []) : []),
+    ...(structure ? structureFacts(structure.slot, mine, nowMs, structure.dormant) : []),
     ...townFacts(tile, mine, nowMs),
     ...dockFacts(tile, mine),
     ...(!structure && !tile.town && !tile.naturalWonder ? landFacts(tile, mine) : [])

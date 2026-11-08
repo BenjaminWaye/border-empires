@@ -30,8 +30,28 @@ describe("dormant structures in the HUD", () => {
   it("town screen shows a Fort standing on the town tile, and that it's dormant", () => {
     const { build } = townScreenRegions({ town: fortTown, focus: fortTown, townView: view(), focusView: view(), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined, dormantResourcesFor: titaniumShort });
     expect(build).toContain("Built here");
-    expect(build).toContain("Fort");
+    expect(build).toContain('<span class="v2t-structure-k">Building</span><span class="v2t-structure-v">Fort</span>');
     expect(build).toContain("Dormant · no Titanium slot");
     expect(build).toContain("No Defense bonus");
+  });
+
+  // Review: a Fort can share its tile with a Relay Beacon or Harbor Exchange; the economic structure used to
+  // win, hiding the dormant Fort entirely.
+  it("shows a dormant Fort sharing its tile with a Relay Beacon", () => {
+    const shared = { ...fortTown, economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" } } as Tile;
+    const { build } = townScreenRegions({ town: shared, focus: shared, townView: view(), focusView: view(), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined, dormantResourcesFor: titaniumShort });
+    expect(build).toContain('<span class="v2t-structure-v">Fort</span>');
+    expect(build).toContain("Dormant · no Titanium slot");
+    // Not dormant: the economic structure still leads, as before.
+    const healthy = townScreenRegions({ town: shared, focus: shared, townView: view(), focusView: view(), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined, dormantResourcesFor: () => undefined }).build;
+    expect(healthy).not.toContain('<span class="v2t-structure-v">Fort</span>');
+  });
+
+  it("keeps a more pressing state over Dormant, but still says the bonus is gone", () => {
+    const now = 1_000_000;
+    const recovering = { x: 5, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", fort: { ownerId: "me", status: "active", disabledUntil: now + 60_000 } } as Tile;
+    const facts = tileFactsFor(recovering, { overviewLines: [] }, "me", now, titaniumShort);
+    expect(facts).toContainEqual({ label: "State", value: "Recovering", tone: "warn" });
+    expect(facts).toContainEqual({ label: "Gives", value: "No Defense bonus", tone: "warn" });
   });
 });
