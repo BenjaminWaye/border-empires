@@ -21,6 +21,7 @@ import { isDiscoveryTipSeen, markDiscoveryTipSeen } from "../client-discovery-ti
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
 import { createFleetOverlayFeed } from "./client-space-view-raid-feed.js";
 import { createSpaceFleetFetcher } from "./client-space-view-fleet-fetch.js";
+import { systemMarkersFromStatus } from "./client-space-view-markers.js";
 import { mountPanelDismissal } from "./client-space-view-panels.js";
 import { createStrategicMapController, type StrategicMapController } from "./client-strategic-map/client-strategic-map-controller.js";
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
@@ -249,6 +250,10 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         strategicMap?.setRaids(status?.raids ?? []);
         fleetFeed.setRaids(status?.raids ?? []);
         cards?.setStatus(status);
+        // Smoke, builds, Probes and bases on both maps (§31).
+        const markers = systemMarkersFromStatus(status);
+        scene?.setMarkers(markers);
+        strategicMap?.setMarkers(markers);
         showDukeStats(status);
         // A red dot on the Court button when the Court offer or a Petition is waiting.
         const courtButton = screen?.querySelector<HTMLButtonElement>("[data-space-view-court]");

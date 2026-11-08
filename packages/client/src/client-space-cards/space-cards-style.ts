@@ -37,6 +37,13 @@ export const spaceCardsStyle = `
 .sc-stab span { display: block; height: 6px; }
 .sc-stab-ok span { background: var(--v2-green); } .sc-stab-warn span { background: var(--v2-amber); } .sc-stab-bad span { background: var(--v2-red); }
 .sc-num { font-family: var(--v2-mono); font-size: 12px; font-weight: 400; }
+.sc-bodies { display: flex; flex-wrap: wrap; gap: 6px; pointer-events: auto; }
+.sc-body { display: flex; gap: 6px; align-items: center; padding: 4px 9px; background: var(--v2-ink); border: 1px solid var(--v2-line); font-size: 12px; color: var(--v2-soft); }
+.sc-body b { font-family: var(--v2-display); color: var(--v2-text); }
+.sc-body-base { border-color: var(--v2-edge); }
+.sc-body-dev { border-color: var(--v2-gold); color: var(--v2-gold-hi); }
+.sc-body-building { box-shadow: 0 0 0 1px var(--v2-gold) inset; }
+.sc-body-hit { border-color: var(--v2-red); color: var(--v2-red-hi); }
 .sc-hand-wrap { position: absolute; left: 0; right: 0; bottom: 18px; display: grid; justify-items: center; gap: 8px; padding: 0 16px; }
 .sc-turn { margin: 0; padding: 5px 12px; background: var(--v2-ink); border: 1px solid var(--v2-line); font-size: 13px; color: var(--v2-soft); }
 .sc-turn b { color: var(--v2-gold-hi); font-family: var(--v2-display); }

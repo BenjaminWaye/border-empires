@@ -10,6 +10,7 @@ vi.mock("firebase/auth", () => ({ onAuthStateChanged: vi.fn() }));
 const setPlanets = vi.fn();
 const setFleetOrders = vi.fn();
 const setThreats = vi.fn();
+const setMarkers = vi.fn();
 const resetView = vi.fn();
 const resize = vi.fn();
 const dispose = vi.fn();
@@ -17,7 +18,7 @@ const focusSystem = vi.fn();
 const onFocusChange = vi.fn((_callback: (focused: boolean) => void) => {});
 const onZoomedOut = vi.fn((_callback: () => void) => {});
 vi.mock("./client-space-map-3d/client-space-map-3d.js", () => ({
-  createSpaceScene: vi.fn(() => ({ setPlanets, setFleetOrders, setThreats, resetView, focusSystem, onZoomedOut, onFocusChange, resize, dispose }))
+  createSpaceScene: vi.fn(() => ({ setPlanets, setFleetOrders, setThreats, setMarkers, resetView, focusSystem, onZoomedOut, onFocusChange, resize, dispose }))
 }));
 
 const { mountSpaceView } = await import("./client-space-view.js");

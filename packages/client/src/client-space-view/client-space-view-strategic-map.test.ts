@@ -23,6 +23,7 @@ vi.mock("./client-space-map-3d/client-space-map-3d.js", () => ({
     setPlanets,
     setFleetOrders: vi.fn(),
     setThreats: vi.fn(),
+    setMarkers: vi.fn(),
     resetView,
     focusSystem,
     onZoomedOut,

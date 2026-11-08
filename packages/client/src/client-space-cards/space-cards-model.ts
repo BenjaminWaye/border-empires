@@ -97,11 +97,26 @@ export const decreeCards = (status: DukeStatus, now: number): SpaceCard[] => {
 const withReactions = (cards: ReadonlyArray<SpaceCard>, reactions: ReadonlyArray<SpaceCard>): SpaceCard[] =>
   [...cards.filter((c) => c.urgent), ...reactions, ...cards.filter((c) => !c.urgent)].slice(0, MAX_HAND);
 
+const BODY_LABEL = { GAS_GIANT: "gas giant", ASTEROID_BELT: "belt", ICE_MOON: "ice moon" } as const;
+
+// One card per undeveloped body: establish a base first (§31), then develop.
 const developCards = (s: DukeSystemView, notReady: string | null): SpaceCard[] =>
   s.bodies
     .filter((b) => b.option)
-    .map((b) =>
-      card({
+    .map((b) => {
+      if (b.baseOption) {
+        return card({
+          id: `base:${b.index}`,
+          icon: "flag",
+          title: `Base on the ${BODY_LABEL[b.kind]}`,
+          gain: `Unlocks ${b.option!.label}`,
+          cost: hours(b.baseOption.durationMs),
+          verb: "Establish",
+          action: { kind: "BUILD", seasonId: s.seasonId, body: { kind: "BASE", bodyIndex: b.index } },
+          disabledReason: notReady ?? (b.baseOption.blockedBy ? blocked(b.baseOption.blockedBy) : null)
+        });
+      }
+      return card({
         id: `develop:${b.index}`,
         icon: "planet",
         title: b.option!.label,
@@ -111,8 +126,8 @@ const developCards = (s: DukeSystemView, notReady: string | null): SpaceCard[] =
         verb: "Build",
         action: { kind: "BUILD", seasonId: s.seasonId, body: { kind: "DEVELOP", bodyIndex: b.index } },
         disabledReason: notReady ?? (b.option!.blockedBy ? blocked(b.option!.blockedBy) : null)
-      })
-    );
+      });
+    });
 
 const blocked = (code: string): string =>
   ({ SLOT_BUSY: "Already building", FIGHTER_CAP: "3 Fighters is the most", PROBE_STOCK_CAP: "3 Probes is the most", NOTHING_TO_REPAIR: "Nothing to repair" })[code] ?? "Not available";

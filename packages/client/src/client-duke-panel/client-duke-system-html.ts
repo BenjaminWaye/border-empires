@@ -107,7 +107,9 @@ const buildHtml = (s: DukeSystemView, status: DukeStatus): string => {
     .map((b) =>
       b.development
         ? `<li class="dk-body dk-body-built"><span class="dk-body-name">${BODY_NAMES[b.kind]}</span><span>${escapeHtml(b.development.label)} online: ${escapeHtml(b.development.summary)}</span></li>`
-        : `<li class="dk-body"><span class="dk-body-name">${BODY_NAMES[b.kind]}</span>${b.option ? optionButton(b.option, `data-duke-develop="${b.index}"`) : ""}</li>`
+        : b.baseOption
+          ? `<li class="dk-body"><span class="dk-body-name">${BODY_NAMES[b.kind]}</span>${optionButton(b.baseOption, `data-duke-base="${b.index}"`)}</li>`
+          : `<li class="dk-body"><span class="dk-body-name">${BODY_NAMES[b.kind]} <small>base</small></span>${b.option ? optionButton(b.option, `data-duke-develop="${b.index}"`) : ""}</li>`
     )
     .join("");
   const upkeep = status.economy.developmentUpkeepPerCycle;

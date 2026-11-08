@@ -4,6 +4,7 @@
 // hides it again. The map is flat, so it doubles as the 2D accessibility path
 // for devices that can't run the 3D scene.
 import type { SpacePlanetViewModel } from "../client-space-view-state.js";
+import type { SystemMarkers } from "../client-space-view-markers.js";
 import { drawStrategicMap, type MapRaid, type StrategicMapModel } from "./client-strategic-map-renderer.js";
 import {
   buildStarlanes,
@@ -35,6 +36,8 @@ export type StrategicMapController = {
   setOrbiting: (seasonIds: ReadonlySet<string>) => void;
   // Every raid in the air, drawn on the map (§29.4).
   setRaids: (raids: ReadonlyArray<MapRaid>) => void;
+  // Smoke after a hit and builds in progress (§31).
+  setMarkers: (markers: ReadonlyMap<string, SystemMarkers>) => void;
   show: () => void;
   hide: () => void;
   // Recentres and zooms on the Court landmark at the middle of the map.
@@ -72,6 +75,7 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
 
   let orbiting: ReadonlySet<string> = new Set();
   let raids: ReadonlyArray<MapRaid> = [];
+  let markers: ReadonlyMap<string, SystemMarkers> = new Map();
   let model: StrategicMapModel = buildStrategicMapModel([]);
   let frame = 0;
   let visible = false;
@@ -189,7 +193,11 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
 
   return {
     setPlanets: (models) => {
-      model = { ...buildStrategicMapModel(models, orbiting), raids };
+      model = { ...buildStrategicMapModel(models, orbiting), raids, markers };
+    },
+    setMarkers: (next) => {
+      markers = next;
+      model = { ...model, markers };
     },
     setRaids: (next) => {
       raids = next;

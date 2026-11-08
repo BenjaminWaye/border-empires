@@ -27,7 +27,7 @@ export type DukeIntelView = {
 export type GalaxyBodyKind = "GAS_GIANT" | "ASTEROID_BELT" | "ICE_MOON";
 
 export type DukeBuildOption = {
-  kind: "FIGHTER" | "PROBE" | "REFIT" | "DEVELOP";
+  kind: "FIGHTER" | "PROBE" | "REFIT" | "BASE" | "DEVELOP";
   label: string;
   summary: string;
   // How long the build takes in this system (at most a day, §30).
@@ -40,6 +40,9 @@ export type DukeBodyView = {
   index: number;
   kind: GalaxyBodyKind;
   development: { label: string; summary: string } | null;
+  // A base must be established before the body can be developed (§31).
+  base: boolean;
+  baseOption: DukeBuildOption | null;
   option: DukeBuildOption | null;
 };
 
@@ -53,7 +56,9 @@ export type DukeSystemView = {
   ratePerDay: number;
   // The system's one order a day (§30).
   order: { ready: boolean; readyAt: number | null };
-  slot: { kind: string; label: string; startedAt: number; completesAt: number } | null;
+  slot: { kind: string; label: string; startedAt: number; completesAt: number; bodyIndex?: number | null } | null;
+  // When a raid or Warden last got through here, or null.
+  lastHitAt: number | null;
   fighters: number[];
   probeStock: number;
   options: DukeBuildOption[];
@@ -129,6 +134,8 @@ export type DukeStatus = {
   // Optional: a gateway older than §29 sends neither.
   politics?: DukePoliticsView;
   raids?: DukePublicRaid[];
+  // Systems hit lately, any Duke's: they smoke on the map (§31).
+  recentHits?: { seasonId: string; at: number }[];
 };
 
 export type DukeActionFailure = { ok: false; code: string; availableAt?: number };

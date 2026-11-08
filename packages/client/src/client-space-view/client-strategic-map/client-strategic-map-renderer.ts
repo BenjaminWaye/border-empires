@@ -4,6 +4,7 @@
 // bigger blob with no authored borders. Uses the same brass/amber palette as
 // the rest of Space View chrome.
 import type { SpacePlanetState } from "../client-space-view-state.js";
+import type { SystemMarkers } from "../client-space-view-markers.js";
 import {
   fitTransform,
   type MapView,
@@ -21,6 +22,9 @@ export type StrategicMapModel = {
   orbiting: ReadonlySet<string>;
   // Every raid in the air (§29.4), drawn as a course with the raider on it.
   raids?: ReadonlyArray<MapRaid>;
+  // Markers per system (§31): smoke after a hit, a gold arc while building.
+  // The 3D view draws the same in client-space-system-markers.ts.
+  markers?: ReadonlyMap<string, SystemMarkers>;
 };
 
 export type MapRaid = { fromSeasonId: string; seasonId: string; launchedAt: number; arrivesAt: number };
@@ -169,6 +173,7 @@ export const drawStrategicMap = (
   ctx.setLineDash([]);
 
   drawRaids(ctx, model, nowMs, toScreen);
+  drawMarkers(ctx, model, nowMs, toScreen);
 
   // Labels: only notable systems (§22.2).
   ctx.font = "600 12px system-ui, sans-serif";
@@ -214,5 +219,44 @@ const drawRaids = (
     ctx.beginPath();
     ctx.arc(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, 4, 0, Math.PI * 2);
     ctx.fill();
+  }
+};
+
+// Smoke puffs drift up and fade above a system that was hit lately; a gold arc
+// turns around one of your systems while it builds.
+const SMOKE_PUFFS = 5;
+const drawMarkers = (
+  ctx: CanvasRenderingContext2D,
+  model: StrategicMapModel,
+  nowMs: number,
+  toScreen: (p: { x: number; y: number }) => { x: number; y: number }
+): void => {
+  if (!model.markers || model.markers.size === 0) return;
+  const t = nowMs / 1000;
+  for (const node of model.nodes) {
+    const m = model.markers.get(node.model.seasonId);
+    if (!m) continue;
+    const p = toScreen(node.point);
+    if (m.smoking) {
+      for (let i = 0; i < SMOKE_PUFFS; i += 1) {
+        const phase = i / SMOKE_PUFFS;
+        const k = (t * 0.3 + phase) % 1;
+        ctx.fillStyle = `rgba(120,112,104,${(0.55 * (1 - k)).toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(p.x + Math.sin(phase * 6.283 + t * 0.6) * 4 * k, p.y - 6 - k * 22, 2.5 + k * 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = `rgba(255,106,61,${(0.5 + 0.3 * Math.sin(t * 7)).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - 4, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (m.building) {
+      ctx.strokeStyle = "rgba(217,178,92,0.9)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 11, t * 1.2, t * 1.2 + Math.PI * 1.2);
+      ctx.stroke();
+    }
   }
 };

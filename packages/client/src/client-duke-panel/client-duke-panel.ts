@@ -123,6 +123,7 @@ export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, dep
     if (d.dukeLend) return void api.lendFleet(d.dukeLend).then(report);
     if (button.hasAttribute("data-duke-declare")) return void api.declareGrievance(value("[data-duke-grievance-target]")).then(report);
     if (d.dukeBuild === "FIGHTER" || d.dukeBuild === "PROBE" || d.dukeBuild === "REFIT") return void api.build(seasonId(), { kind: d.dukeBuild }).then(report);
+    if (d.dukeBase !== undefined) return void api.build(seasonId(), { kind: "BASE", bodyIndex: Number(d.dukeBase) }).then(report);
     if (d.dukeDevelop !== undefined) return void api.build(seasonId(), { kind: "DEVELOP", bodyIndex: Number(d.dukeDevelop) }).then(report);
     if (button.hasAttribute("data-duke-fortify")) return void api.build(seasonId(), { kind: "FORTIFY" }).then(report);
     if (button.hasAttribute("data-duke-cancel-build")) return void api.cancelBuild(seasonId()).then(report);

@@ -115,10 +115,20 @@ describe("escaping", () => {
   it("escapes planet, target and development names", () => {
     const evil = "<img src=x onerror=alert(1)>";
     const html = render(
-      dukeSystem({ label: evil, bodies: [{ index: 0, kind: "GAS_GIANT", development: { label: evil, summary: evil }, option: null }] }),
+      dukeSystem({ label: evil, bodies: [{ index: 0, kind: "GAS_GIANT", development: { label: evil, summary: evil }, base: true, baseOption: null, option: null }] }),
       dukeStatus({ flights: [{ kind: "PROBE", fromSeasonId: "s1", seasonId: evil, arrivesAt: NOW + D }], intel: [{ seasonId: evil, label: evil, stability: 1, defenderHull: null, at: NOW, live: true }] }),
       "PROBE"
     );
     expect(html).not.toContain("<img");
+  });
+});
+
+describe("bases (§31)", () => {
+  it("a body without a base offers Establish base; once based, its development", () => {
+    const html = dukeSystemHtml(dukeStatus(), dukeSystem(), { now: NOW, targets: [], selectedShip: null });
+    expect(html).toContain('data-duke-base="2"');
+    expect(html).toContain("Lets you build a Mining Station here");
+    expect(html).not.toContain('data-duke-develop="2"');
+    expect(html).toContain('data-duke-develop="0"');
   });
 });

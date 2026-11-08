@@ -22,6 +22,7 @@ export const dukeSystem = (patch: Partial<DukeSystemView> = {}): DukeSystemView 
   hitsRemaining: 4,
   ratePerDay: 6,
   slot: null,
+  lastHitAt: null,
   order: { ready: true, readyAt: null },
   fighters: [],
   probeStock: 0,
@@ -32,8 +33,16 @@ export const dukeSystem = (patch: Partial<DukeSystemView> = {}): DukeSystemView 
   ],
   fortify: { stability: 15, blockedBy: null },
   bodies: [
-    { index: 0, kind: "GAS_GIANT", development: null, option: buildOption({ kind: "DEVELOP", label: "Gas Harvester", summary: "+3 Production: builds here go faster", durationMs: 16 * H }) },
-    { index: 1, kind: "ICE_MOON", development: { label: "Cryo Refinery", summary: "+6 Stability per Cycle here" }, option: null }
+    { index: 0, kind: "GAS_GIANT", development: null, base: true, baseOption: null, option: buildOption({ kind: "DEVELOP", label: "Gas Harvester", summary: "+3 Production: builds here go faster", durationMs: 16 * H }) },
+    { index: 1, kind: "ICE_MOON", development: { label: "Cryo Refinery", summary: "+6 Stability per Cycle here" }, base: true, baseOption: null, option: null },
+    {
+      index: 2,
+      kind: "ASTEROID_BELT",
+      development: null,
+      base: false,
+      baseOption: buildOption({ kind: "BASE", label: "Establish base", summary: "Lets you build a Mining Station here", durationMs: 8 * H }),
+      option: buildOption({ kind: "DEVELOP", label: "Mining Station", summary: "+2 Production: builds here go faster", durationMs: 16 * H, blockedBy: "NO_BASE" })
+    }
   ],
   incursionArrivesAt: NOW + 2 * D,
   developmentsOnline: 1,

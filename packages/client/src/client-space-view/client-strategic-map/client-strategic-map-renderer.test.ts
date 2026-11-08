@@ -91,3 +91,16 @@ describe("raids on the strategic map (§29.4)", () => {
     expect(count([{ ...raid, seasonId: "elsewhere" }])).toBe(none);
   });
 });
+
+describe("map markers on the strategic map (§31)", () => {
+  const arcs = (markers: Map<string, { smoking: boolean; building: boolean; watched: boolean; bodies: never[] }>): number => {
+    const { ctx, calls } = recordingContext();
+    drawStrategicMap(ctx, { ...buildStrategicMapModel([planet("a")]), markers }, 400, 400, 1_000);
+    return calls.filter((c) => c === "arc").length;
+  };
+  it("draws smoke puffs over a recently hit system and an arc around one that is building", () => {
+    const none = arcs(new Map());
+    expect(arcs(new Map([["a", { smoking: true, building: false, watched: false, bodies: [] }]]))).toBeGreaterThan(none + 3);
+    expect(arcs(new Map([["a", { smoking: false, building: true, watched: false, bodies: [] }]]))).toBe(none + 1);
+  });
+});

@@ -81,3 +81,14 @@ describe("hand order", () => {
     expect(ids.slice(0, 2)).toEqual(["fighter", "writ"]);
   });
 });
+
+describe("bases (§31)", () => {
+  it("a body with no base offers a base card first; a based body offers its development", () => {
+    const status = dukeStatus({ systems: [dukeSystem({ incursionArrivesAt: null, fighters: [100], stability: 100 })] });
+    const ids = orderCards(status, "s1", NOW).map((c) => c.id);
+    expect(ids).toContain("develop:0");
+    expect(ids).toContain("base:2");
+    expect(ids).not.toContain("develop:2");
+    expect(orderCards(status, "s1", NOW).find((c) => c.id === "base:2")).toMatchObject({ title: "Base on the belt", gain: "Unlocks Mining Station", cost: "8h", action: { kind: "BUILD", body: { kind: "BASE", bodyIndex: 2 } } });
+  });
+});

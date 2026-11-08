@@ -2868,3 +2868,29 @@ Stability and an "order ready" dot. The styling uses HUD v2's tokens and
 type. The cards are DOM over whichever map is showing, so they are the same
 on the 3D galaxy and the 2D strategic map. The older Duke panel stays for
 the Log, the Court detail and rival systems.
+
+## 31. Bases on bodies, and what the map shows
+
+### 31.1 Bases
+
+- An orbiting body (gas giant, asteroid belt, ice moon) needs a **base**
+  before it can be developed. Establishing one is a system order and a build
+  (base 8 hours at an Industrial world's rate, so up to a day elsewhere).
+- A body developed before this rule counts as based; stored rows need no
+  migration (`hasBase` in `galaxy-duke-production.ts`). AI Dukes establish a
+  base first.
+
+### 31.2 Map markers
+
+`client-space-view-markers.ts` derives them from the Duke status; both
+renderers draw them.
+
+| Marker | Who sees it | 3D (`client-space-system-markers.ts`) | 2D strategic map |
+|---|---|---|---|
+| Smoke: a raid or Warden got through in the last 24h (`recentHits`, public) | Everyone | Rising, fading puffs and a flickering ember on the planet | Drifting puffs and an ember over the system |
+| Building | Owner | A slow gold ring around the planet | A turning gold arc |
+| Probe watching | Owner | A small blue Probe circling the planet | The existing dashed orbit marker |
+| Raid inbound | Everyone | Existing threat ring and flying Fighter | Existing raid course |
+| Base / development / build on a body | Owner | Gold ring on the body; developed bodies glow; a pulse while building | Not drawn: the 2D map has no system view. The card UI shows the same per body in a strip above the cards. |
+
+Each system records `lastHitAt` when a raid or incursion gets through.

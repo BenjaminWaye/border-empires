@@ -9,7 +9,7 @@ export type DukeApiDeps = {
 
 export type DukeActionOutcome = { ok: true } | (DukeActionFailure & { message?: string });
 
-export type DukeBuildBody = { kind: "FIGHTER" | "PROBE" | "REFIT" | "FORTIFY" } | { kind: "DEVELOP"; bodyIndex: number };
+export type DukeBuildBody = { kind: "FIGHTER" | "PROBE" | "REFIT" | "FORTIFY" } | { kind: "BASE" | "DEVELOP"; bodyIndex: number };
 
 export type DukeApi = {
   fetchStatus: () => Promise<{ status?: DukeStatus; notADuke?: boolean; message?: string }>;

@@ -82,6 +82,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   NO_ROOM: "Every one of your systems already has 3 Fighters, counting those away on raids or lent to the Court.",
   TOO_MANY_LENT: "You already have a Fighter serving the Court.",
   COURT_AT_FULL_STRENGTH: "The Court is already at full strength and has nothing to gain from a Writ.",
+  NO_BASE: "Establish a base on that body first.",
+  BASE_ALREADY_THERE: "There is already a base on that body.",
   ALREADY_STABLE: "Stability is already full here.",
   NOT_NEEDED_BY_COURT: "The Court only takes Fighters from a Duke whose lead it is watching."
 };

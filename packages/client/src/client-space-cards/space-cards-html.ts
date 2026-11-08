@@ -71,7 +71,27 @@ const systemsHtml = (status: DukeStatus, stop: SpaceStop): string => {
       </button>`;
     })
     .join("");
-  return `<nav class="sc-systems" aria-label="Your systems">${tabs}</nav>`;
+  return `<nav class="sc-systems" aria-label="Your systems">${tabs}</nav>${bodiesHtml(status, stop.seasonId)}`;
+};
+
+const BODY_NAMES = { GAS_GIANT: "Gas giant", ASTEROID_BELT: "Belt", ICE_MOON: "Ice moon" } as const;
+
+// What sits on each body of this system (§31), matching the 3D markers.
+const bodiesHtml = (status: DukeStatus, seasonId: string): string => {
+  const s = status.systems.find((x) => x.seasonId === seasonId);
+  if (!s || s.bodies.length === 0) return "";
+  const chips = s.bodies
+    .map((b) => {
+      const building = s.slot?.bodyIndex === b.index;
+      const state = b.development ? escapeHtml(b.development.label) : b.base ? "Base" : "No base";
+      const tone = b.development ? "sc-body-dev" : b.base ? "sc-body-base" : "sc-body-none";
+      return `<span class="sc-body ${tone}${building ? " sc-body-building" : ""}"><b>${BODY_NAMES[b.kind]}</b>${state}${building ? " · building" : ""}</span>`;
+    })
+    .join("");
+  // Smoking only while the hit is recent (the server's public 24h window).
+  const smoking = (status.recentHits ?? []).some((h) => h.seasonId === seasonId);
+  const hit = smoking ? `<span class="sc-body sc-body-hit"><b>Hit</b>smoking</span>` : "";
+  return `<div class="sc-bodies" aria-label="Bodies in this system">${chips}${hit}</div>`;
 };
 
 // The one line above the hand: whose turn it is, or when the next one comes.
