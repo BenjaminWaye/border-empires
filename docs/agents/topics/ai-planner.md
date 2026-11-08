@@ -162,6 +162,15 @@ consolidation, planning cadence), not deletion.
   now attaches real progress (`ai-victory-standings.ts`); check a decision
   diagnostic's `victoryPath.source` is `"world"` before trusting its
   progress. The direct (non-worker) planner still uses the heuristic.
+- **AIs gang up on a season-victory threat (`ai-victory-focus.ts`).** From
+  the same objectives, each leader holding a condition gets focus weight 1
+  and one at >=70% progress up to 0.6; every other AI's planner view gets
+  that map (never itself) as `victoryFocusTargets`. The frontier scorer adds
+  `450 * weight` to that player's tiles, and ATTACK/MUSTER get `+0.35 *
+  weight` after the consideration product (never reviving a veto). Weight 1
+  also lifts ATTACK's CONTAIN/TRUCE posture veto (mirrored in
+  `wait-reasons.ts`). Truce partners and allies are still skipped. Worker
+  planner only, like the standings.
 - **Food-relief re-enable must target SETTLED tiles.** The runtime refuses
   to enable a structure on any other tile, and the rejection only cools the
   class down for 10s, so a FRONTIER beacon was retried forever (15 of 20 prod

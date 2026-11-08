@@ -276,6 +276,7 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
       ...(player.musterTileKeys ? { musterTileKeys: new Set(player.musterTileKeys) } : {}),
       ...(player.nonHostilePlayerIds?.length ? { nonHostilePlayerIds: new Set(player.nonHostilePlayerIds) } : {}),
       ...(player.victoryProgress ? { worldVictoryProgress: player.victoryProgress } : {}),
+      ...(player.victoryFocusTargets ? { victoryFocusTargets: new Map(Object.entries(player.victoryFocusTargets)) } : {}),
       ...(typeof player.musterStagedManpower === "number" ? { musterStagedManpower: player.musterStagedManpower } : {}),
       ...(player.truceEndsAt?.length ? { truceEndsAt: player.truceEndsAt } : {}),
       // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): pass

@@ -5,6 +5,7 @@ import type { SettlementCandidateEvaluation } from "./ai-settlement-priority.js"
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import { isFrontierAdjacent } from "../frontier-adjacency/frontier-adjacency.js";
+import { VICTORY_FOCUS_TARGET_BONUS, victoryFocusWeightOf, type VictoryFocusTargets } from "./ai-victory-focus.js";
 import {
   candidateKeysForOrigin,
   dockCrossingTargetKeysForOrigin,
@@ -67,6 +68,8 @@ type FrontierAffordability = {
    * so the AI neither attacks nor plants a muster flag against a truce.
    */
   nonHostilePlayerIds?: ReadonlySet<string>;
+  /** Rivals near/holding a season win (ai-victory-focus.ts): their tiles score higher as enemy targets. */
+  victoryFocusTargets?: VictoryFocusTargets;
   /** Towns that gain from another connection (Phase 5, docs/ai-economic-synergy-plan.md). */
   linkValueTownKeys?: ReadonlySet<string>;
   /** When set, adds a directional bias toward this tile when scoring neutral expand candidates. */
@@ -341,7 +344,8 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
               // Only undefended frontier is a free capture; a capture-held tile rolls real combat.
               (isUndefendedFrontierTile(target, nowMs) ? 120 : 0) +
               neighborOwned * 95 +
-              neighborCoastline * 0.35;
+              neighborCoastline * 0.35 +
+              victoryFocusWeightOf(target.ownerId, affordability.victoryFocusTargets) * VICTORY_FOCUS_TARGET_BONUS;
             const scoreMs = performance.now() - scoreStartedAt;
             scoreCalcTotalMs += scoreMs;
             emitTiming?.("analyze_score_calc", scoreMs);

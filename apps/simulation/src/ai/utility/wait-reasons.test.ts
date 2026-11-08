@@ -42,7 +42,8 @@ const stuck: DecisionInputs = {
   techAffordable: false,
   momentumTicks: {},
   cooldown: {},
-  stalemated: false
+  stalemated: false,
+  victoryFocusWeight: 0
 };
 
 const broke: WaitContext = { relayBeaconAffordable: false, frontierNonHostileTargetCount: 0 };
