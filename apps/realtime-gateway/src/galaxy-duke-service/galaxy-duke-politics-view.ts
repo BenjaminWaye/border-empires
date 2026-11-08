@@ -39,11 +39,17 @@ export const listPublicRaids = (states: ReadonlyArray<DukeState>, now: number): 
 // on the map for everyone (§31), like the raid that caused it was public.
 export type RecentHitView = { seasonId: string; at: number; by: "RAID" | "WARDEN" };
 
-export const listRecentHits = (states: ReadonlyArray<DukeState>, now: number): RecentHitView[] =>
-  states
-    .flatMap((s) => (Array.isArray(s.systems) ? s.systems : []))
-    .filter((sys) => typeof sys.lastHitAt === "number" && now - sys.lastHitAt < RECENT_HIT_MS)
-    .map((sys) => ({ seasonId: sys.seasonId, at: sys.lastHitAt!, by: sys.lastHitBy ?? "RAID" }));
+// One entry per system, the latest: after a system changes hands, an old
+// owner's stale row can still list it.
+export const listRecentHits = (states: ReadonlyArray<DukeState>, now: number): RecentHitView[] => {
+  const latest = new Map<string, RecentHitView>();
+  for (const sys of states.flatMap((s) => (Array.isArray(s.systems) ? s.systems : []))) {
+    if (typeof sys.lastHitAt !== "number" || now - sys.lastHitAt >= RECENT_HIT_MS) continue;
+    const known = latest.get(sys.seasonId);
+    if (!known || sys.lastHitAt > known.at) latest.set(sys.seasonId, { seasonId: sys.seasonId, at: sys.lastHitAt, by: sys.lastHitBy ?? "RAID" });
+  }
+  return [...latest.values()];
+};
 
 export const buildPoliticsView = async (
   ctx: DukeContext,

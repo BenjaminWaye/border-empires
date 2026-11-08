@@ -62,6 +62,12 @@ export const saveDuke = async (ctx: DukeContext, state: DukeState): Promise<Duke
   return { ok: true, state };
 };
 
+// Writes the spent order or decree before any side effect lands, so a failure
+// midway can cost the player that action but never hand it out twice.
+export const commitGate = async (ctx: DukeContext, state: DukeState): Promise<void> => {
+  await ctx.deps.dukeStore.put(state);
+};
+
 const hoursText = (ms: number): string => {
   const hours = Math.max(1, Math.round(ms / 3_600_000));
   return `${hours} hour${hours === 1 ? "" : "s"}`;
@@ -104,6 +110,7 @@ export const fortifyAction = (ctx: DukeContext, authUid: string, seasonId: strin
     const at = ctx.now();
     const ordered = takeOrder(state, seasonId, at);
     if (!ordered.ok) return ordered;
+    await commitGate(ctx, ordered.state);
     await ctx.applyEffects(authUid, [{ kind: "STABILITY_DELTA", seasonId, delta: FORTIFY_STABILITY }], world);
     const after = Math.min(100, stability + FORTIFY_STABILITY);
     return saveDuke(ctx, pushDigest(ordered.state, at, "ECONOMY", `Fortified ${await ctx.labelFor(seasonId)}: Stability ${stability} to ${after}.`).state);
@@ -145,6 +152,7 @@ export const holdCourtAction = (ctx: DukeContext, authUid: string): Promise<Duke
     const at = ctx.now();
     const decreed = takeDecree(state, at);
     if (!decreed.ok) return decreed;
+    await commitGate(ctx, decreed.state);
     await addInfluence(ctx, authUid, HOLD_COURT_INFLUENCE);
     return saveDuke(ctx, pushDigest(decreed.state, at, "POLITICS", `You held court: +${HOLD_COURT_INFLUENCE} Influence.`).state);
   });
@@ -164,6 +172,7 @@ export const moveAgainstCourtAction = (ctx: DukeContext, authUid: string, influe
     if ((balance?.influence ?? 0) < wager) return { ok: false, code: "INSUFFICIENT_INFLUENCE" };
     const decreed = takeDecree(state, at);
     if (!decreed.ok) return decreed;
+    await commitGate(ctx, decreed.state);
     await addInfluence(ctx, authUid, -wager);
     await ctx.deps.dukeStore.addCourtContribution(authUid, wager);
     const { strength: now } = await courtNow(ctx, world);

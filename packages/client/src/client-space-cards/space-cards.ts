@@ -51,6 +51,8 @@ const run = (api: DukeApi, action: CardAction): Promise<DukeActionOutcome> => {
 
 // Free answers (offers, Writs) leave the player where they are; a spent order
 // or decree moves the view on.
+const TICK_MS = 30_000;
+
 const movesOn = (action: CardAction): boolean => action.kind !== "ANSWER_WRIT" && action.kind !== "ANSWER_OFFER";
 
 export const mountSpaceCards = (screen: HTMLElement, deps: SpaceCardsDeps): SpaceCards => {
@@ -78,12 +80,13 @@ export const mountSpaceCards = (screen: HTMLElement, deps: SpaceCardsDeps): Spac
     root.hidden = false;
     const at = now();
     hand = stop.mode === "galaxy" ? decreeCards(status, at) : orderCards(status, stop.seasonId, at);
-    root.innerHTML = spaceCardsHtml(status, stop, hand, at, message);
+    root.innerHTML = spaceCardsHtml(status, stop, hand, at, message, confirmingCancel);
   };
 
   const go = (next: SpaceStop): void => {
     stop = next;
     message = "";
+    confirmingCancel = false;
     if (next.mode === "system") deps.focusSystem(next.seasonId);
     else deps.showGalaxy();
     render();
@@ -100,20 +103,50 @@ export const mountSpaceCards = (screen: HTMLElement, deps: SpaceCardsDeps): Spac
       await deps.refresh();
     } finally {
       busy = false;
+      // Only this action's refresh may move the view: if it failed, or the
+      // status did not come back, stay put rather than jump on a later poll.
+      advanceFrom = null;
     }
     render();
   };
+
+  // Cancelling keeps the day's order spent, so it takes a second press.
+  let confirmingCancel = false;
+  const cancel = async (seasonId: string): Promise<void> => {
+    if (busy) return;
+    busy = true;
+    try {
+      const outcome = await deps.api.cancelBuild(seasonId);
+      message = outcome.ok ? "" : (outcome.message ?? errorMessage(outcome, now()));
+      await deps.refresh();
+    } finally {
+      busy = false;
+      confirmingCancel = false;
+    }
+    render();
+  };
+
+  // Timers ("next order in 3h", build countdowns) tick between status polls,
+  // and a card comes alive when its order is ready again.
+  const ticker = setInterval(() => {
+    if (!busy) render();
+  }, TICK_MS);
 
   root.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
     const button = target.closest<HTMLButtonElement>("button");
     if (!button || button.disabled) return;
+    // While an action is in flight the view is about to move on by itself.
+    if (busy) return;
     const d = button.dataset;
     if (button.hasAttribute("data-sc-galaxy")) return go({ mode: "galaxy" });
     if (d.scSystem) return go({ mode: "system", seasonId: d.scSystem });
     if (button.hasAttribute("data-sc-cancel") && stop.mode === "system") {
-      const seasonId = stop.seasonId;
-      void deps.api.cancelBuild(seasonId).then(() => deps.refresh());
+      if (!confirmingCancel) {
+        confirmingCancel = true;
+        return render();
+      }
+      void cancel(stop.seasonId);
       return;
     }
     const id = d.scPlay ?? d.scAlt;
@@ -148,6 +181,7 @@ export const mountSpaceCards = (screen: HTMLElement, deps: SpaceCardsDeps): Spac
     },
     stop: () => stop,
     dispose: () => {
+      clearInterval(ticker);
       root.remove();
       screen.classList.remove("sv-cards-on");
     }

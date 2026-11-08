@@ -73,17 +73,22 @@ export const syncSystems = (state: DukeState, planets: ReadonlyArray<HeldSector>
   return syncHeld(normalized, held, planets, now);
 };
 
-// A slot written before §30 counted Production, not time: it restarts on the
-// new timer (an old Fortify slot, now an instant order, is simply dropped).
+// A slot written before §30 counted Production, not time. It keeps its share of
+// progress on the new timer: a build 90% done needs only the last 10% of its
+// new duration. An old Fortify slot is dropped (Fortify is now instant, and the
+// Fortify order is free to use straight away).
+type LegacySlot = Partial<DukeBuild> & { kind: string; cost?: number; progress?: number };
 const normalizeSlot = (system: SystemState, now: number): SystemState => {
-  const slot = system.slot as (Partial<DukeBuild> & { kind: string }) | null;
+  const slot = system.slot as LegacySlot | null;
   if (!slot || typeof slot.completesAt === "number") return system;
   if (slot.kind !== "FIGHTER" && slot.kind !== "PROBE" && slot.kind !== "REFIT" && slot.kind !== "BASE" && slot.kind !== "DEVELOP") return { ...system, slot: null };
+  const done = typeof slot.cost === "number" && slot.cost > 0 && typeof slot.progress === "number" ? Math.min(1, Math.max(0, slot.progress / slot.cost)) : 0;
+  const duration = buildDurationMs(slot.kind, systemDailyRate(system));
   const restarted: DukeBuild = {
     kind: slot.kind,
     label: slot.label ?? slot.kind,
-    startedAt: now,
-    completesAt: now + buildDurationMs(slot.kind, systemDailyRate(system)),
+    startedAt: now - Math.round(duration * done),
+    completesAt: now + Math.round(duration * (1 - done)),
     ...(slot.bodyIndex !== undefined ? { bodyIndex: slot.bodyIndex } : {}),
     ...(slot.development !== undefined ? { development: slot.development } : {})
   };

@@ -87,8 +87,15 @@ export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, dep
     renderPanel(forcePanel);
   };
 
+  // A response older than one already applied is dropped: the 30s poll and an
+  // action's own refresh can overlap, and a stale status would undo the action.
+  let requested = 0;
+  let applied = 0;
   const refresh = async (): Promise<void> => {
+    const seq = (requested += 1);
     const result = await api.fetchStatus();
+    if (seq < applied) return;
+    applied = seq;
     if (result.status) status = result.status;
     else if (result.notADuke) status = undefined;
     render();

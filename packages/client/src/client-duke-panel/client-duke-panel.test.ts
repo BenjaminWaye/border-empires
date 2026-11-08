@@ -286,3 +286,23 @@ describe("politics (§29)", () => {
     expect(api.lendFleet).toHaveBeenCalledWith("s1");
   });
 });
+
+describe("refresh ordering", () => {
+  it("drops a status response that arrives after a newer one", async () => {
+    type Fetched = { status?: DukeStatus; notADuke?: boolean; message?: string };
+    let releaseOld: () => void = () => undefined;
+    let calls = 0;
+    const { controller, seen } = await setup(dukeStatus(), {
+      fetchStatus: vi.fn((): Promise<Fetched> => {
+        calls += 1;
+        if (calls === 2) return new Promise((resolve) => (releaseOld = () => resolve({ status: dukeStatus({ influence: 1 }) })));
+        return Promise.resolve({ status: dukeStatus({ influence: 99 }) });
+      })
+    });
+    const slow = controller.refresh();
+    await controller.refresh();
+    releaseOld();
+    await slow;
+    expect(seen.at(-1)?.influence).toBe(99);
+  });
+});

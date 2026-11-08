@@ -79,6 +79,9 @@ const nextBuild = (input: AiTurnInput, system: SystemState, unsurveyed: boolean)
 // a Probe, else fortify a shaken world, else build.
 const orderFor = (input: AiTurnInput, system: SystemState, raidFrom: string | null, raidTarget: string | null, probeTarget: string | null): AiAction | null => {
   if (raidTarget && raidFrom === system.seasonId) return { kind: "RAID", fromSeasonId: system.seasonId, targetSeasonId: raidTarget };
+  // An undefended system builds its first Fighter before anything else: a
+  // Fortify is undone by the very next hit a Fighter would have blocked.
+  if (!system.slot && fightersOwned(input.state, system) === 0) return { kind: "BUILD", seasonId: system.seasonId, spec: { kind: "FIGHTER" } };
   if (probeTarget && system.probeStock > 0) return { kind: "PROBE", fromSeasonId: system.seasonId, targetSeasonId: probeTarget };
   if ((input.stabilityBySeason.get(system.seasonId) ?? 100) < FORTIFY_BELOW) return { kind: "FORTIFY", seasonId: system.seasonId };
   const spec = nextBuild(input, system, probeTarget !== null);

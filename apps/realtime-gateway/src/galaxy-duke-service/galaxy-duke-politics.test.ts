@@ -249,3 +249,15 @@ describe("smoke after a hit (§31)", () => {
     expect((await h.service.court()).recentHits).toEqual([]);
   });
 });
+
+describe("listRecentHits", () => {
+  it("lists a system once, at its latest hit, even when an old owner's row still has it", async () => {
+    const { listRecentHits } = await import("./galaxy-duke-politics-view.js");
+    const h = await harness();
+    await h.service.status("uid-a");
+    await h.service.status("uid-b");
+    await h.patch("uid-a", withSystem("season-a", { lastHitAt: T0 - 2 * HOUR, lastHitBy: "WARDEN" }));
+    await h.patch("uid-b", (s) => ({ ...s, systems: [...s.systems, { ...s.systems[0]!, seasonId: "season-a", lastHitAt: T0 - HOUR, lastHitBy: "RAID" }] }));
+    expect(listRecentHits(await h.stores.dukeStore.getAll(), T0)).toEqual([{ seasonId: "season-a", at: T0 - HOUR, by: "RAID" }]);
+  });
+});

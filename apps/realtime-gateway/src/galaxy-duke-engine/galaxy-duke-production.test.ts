@@ -157,17 +157,18 @@ describe("syncSystems", () => {
     expect(findSystem(synced, "c")?.incursion.arrivesAt).toBeNull();
     expect(syncSystems(synced, [planet("a"), planet("c")], 6)).toBe(synced);
   });
-  it("restarts a slot stored before §30 (counted in Production) on the new timer, and drops an old Fortify", () => {
+  it("keeps an old slot's share of progress on the new timer (§30), and drops an old Fortify", () => {
     const old = duke([planet("a"), planet("b")]);
     const legacy = {
       ...old,
       systems: [
-        { ...old.systems[0]!, slot: { kind: "FIGHTER", label: "Fighter", cost: 40, progress: 10 } },
+        { ...old.systems[0]!, slot: { kind: "FIGHTER", label: "Fighter", cost: 40, progress: 30 } },
         { ...old.systems[1]!, slot: { kind: "FORTIFY", label: "Fortify +20", cost: 40, progress: 5, points: 20 } }
       ]
     } as unknown as typeof old;
     const synced = syncSystems(legacy, [planet("a"), planet("b")], 100);
-    expect(findSystem(synced, "a")?.slot).toMatchObject({ kind: "FIGHTER", startedAt: 100, completesAt: 100 + 8 * 60 * 60 * 1000 });
+    // 30 of 40 done: a quarter of the 8h left.
+    expect(findSystem(synced, "a")?.slot).toMatchObject({ kind: "FIGHTER", startedAt: 100 - 6 * 60 * 60 * 1000, completesAt: 100 + 2 * 60 * 60 * 1000 });
     expect(findSystem(synced, "b")?.slot).toBeNull();
   });
 });

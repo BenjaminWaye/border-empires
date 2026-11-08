@@ -110,3 +110,49 @@ describe("a smoking planet (§31)", () => {
     expect(screen.querySelector(".sc-bodies")?.textContent).not.toMatch(/Hit|smok/i);
   });
 });
+
+describe("review fixes", () => {
+  const two = dukeStatus({ systems: [dukeSystem(), dukeSystem({ seasonId: "s2", label: "Vesk", incursionArrivesAt: null })] });
+
+  it("Cancel takes a second press, and warns that the day's order stays used", async () => {
+    const busy = dukeStatus({ systems: [dukeSystem({ slot: { kind: "FIGHTER", label: "Fighter", startedAt: NOW - H, completesAt: NOW + H } })] });
+    const { screen, cards, api, press } = setup(busy, busy);
+    cards.showSystem("s1");
+    press("[data-sc-cancel]");
+    await flush();
+    expect(api.cancelBuild).not.toHaveBeenCalled();
+    expect(screen.querySelector("[data-sc-cancel]")?.textContent).toContain("Today's order stays used");
+    press("[data-sc-cancel]");
+    await flush();
+    expect(api.cancelBuild).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores navigation while an action is in flight, so the view only moves once", async () => {
+    let finish: () => void = () => undefined;
+    const { press, api, focusSystem } = setup(two, { ...two, decree: { ready: false, readyAt: NOW + 24 * H } });
+    (api.holdCourt as ReturnType<typeof vi.fn>).mockImplementationOnce(() => new Promise((resolve) => (finish = () => resolve({ ok: true }))));
+    press("[data-sc-play='hold']");
+    await flush();
+    press("[data-sc-play='wager']");
+    // Every API method shares one mock here: still one call means the wager was ignored.
+    expect(api.moveAgainstCourt).toHaveBeenCalledTimes(1);
+    finish();
+    await flush();
+    expect(focusSystem).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not move the view later if the action's refresh brought no status", async () => {
+    const screen = document.createElement("div");
+    document.body.append(screen);
+    const ok = vi.fn(async () => ({ ok: true as const }));
+    const api = { fetchStatus: vi.fn(), build: ok, cancelBuild: ok, order: ok, answerOffer: ok, moveAgainstCourt: ok, holdCourt: ok, declareGrievance: ok, answerWrit: ok, lendFleet: ok } as DukeApi;
+    const focusSystem = vi.fn();
+    const cards = mountSpaceCards(screen, { api, refresh: async () => undefined, focusSystem, showGalaxy: vi.fn(), now: () => NOW });
+    cards.setStatus(two);
+    screen.querySelector<HTMLButtonElement>("[data-sc-play='hold']")!.click();
+    await flush();
+    // A later poll arrives: it must not be taken as the action's result.
+    cards.setStatus(two);
+    expect(focusSystem).not.toHaveBeenCalled();
+  });
+});

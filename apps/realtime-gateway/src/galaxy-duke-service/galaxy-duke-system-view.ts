@@ -4,10 +4,10 @@
 import type { GalaxyBodyKind } from "@border-empires/shared";
 
 import { hitsRemaining } from "../galaxy-duke-engine/galaxy-duke-combat.js";
-import { DEVELOPMENTS, DEVELOPMENT_FOR_BODY, FORTIFY_STABILITY } from "../galaxy-duke-engine/galaxy-duke-config.js";
+import { DEVELOPMENTS, DEVELOPMENT_FOR_BODY, FORTIFY_STABILITY, buildDurationMs } from "../galaxy-duke-engine/galaxy-duke-config.js";
 import { isOrderReady, orderReadyAt } from "../galaxy-duke-engine/galaxy-duke-daily.js";
 import { hasBase, planBuild, type BuildSpec, type PlanBuildErrorCode } from "../galaxy-duke-engine/galaxy-duke-production.js";
-import { systemBodyKinds, systemDailyRate } from "../galaxy-duke-engine/galaxy-duke-systems.js";
+import { findSystem, systemBodyKinds, systemDailyRate } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import type { DukeState, SystemState } from "../galaxy-duke-engine/galaxy-duke-types.js";
 
 export type BuildOptionView = {
@@ -59,7 +59,8 @@ const option = (state: DukeState, seasonId: string, spec: BuildSpec, label: stri
     kind: spec.kind,
     label,
     summary,
-    durationMs: plan.ok ? plan.build.durationMs : 0,
+    // Shown even when blocked, so a card never reads a wrong time.
+    durationMs: plan.ok ? plan.build.durationMs : buildDurationMs(spec.kind, systemDailyRate(findSystem(state, seasonId) ?? state.systems[0]!)),
     blockedBy: plan.ok ? null : plan.code
   };
 };

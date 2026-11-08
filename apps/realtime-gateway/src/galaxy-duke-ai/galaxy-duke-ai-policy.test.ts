@@ -87,6 +87,12 @@ describe("planAiTurn", () => {
     expect(planAiTurn(input(state, { ordersReady: new Set() })).filter((a) => a.kind === "PROBE" || a.kind === "BUILD")).toEqual([]);
   });
 
+  it("an undefended system builds its first Fighter even when shaken or holding a Probe", () => {
+    const shaken = { ...duke(), systems: [{ ...duke().systems[0]!, probeStock: 1 }] };
+    const orders = planAiTurn(input(shaken, { stabilityBySeason: new Map([["s1", 40]]) })).filter((a) => a.kind !== "ANSWER_WRIT" && a.kind !== "ANSWER_COURT_OFFER");
+    expect(orders).toEqual([{ kind: "BUILD", seasonId: "s1", spec: { kind: "FIGHTER" } }]);
+  });
+
   it("fortifies a shaken world instead of building", () => {
     const state = withFighters(duke(), [100]);
     expect(planAiTurn(input(state, { stabilityBySeason: new Map([["s1", 40]]) }))).toContainEqual({ kind: "FORTIFY", seasonId: "s1" });

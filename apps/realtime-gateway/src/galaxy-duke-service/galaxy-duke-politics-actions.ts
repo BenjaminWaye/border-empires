@@ -9,7 +9,7 @@ import { GRIEVANCE_COST_INFLUENCE, LEND_INFLUENCE_STIPEND, WRIT_COURT_STRENGTH_G
 import { courtNow } from "./galaxy-duke-court.js";
 import { planetsOf } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import type { DukeContext, DukeWorld } from "./galaxy-duke-context.js";
-import { saveDuke, withDuke, type DukeActionResult } from "./galaxy-duke-actions.js";
+import { commitGate, saveDuke, withDuke, type DukeActionResult } from "./galaxy-duke-actions.js";
 
 const addInfluence = async (ctx: DukeContext, authUid: string, delta: number): Promise<void> => {
   const balance = await ctx.deps.galaxyEconomyStore.getBalance(authUid);
@@ -45,6 +45,7 @@ export const declareGrievanceAction = (ctx: DukeContext, authUid: string, target
     if (!decreed.ok) return decreed;
     const declared = declareGrievance(decreed.state, targetUid, await dukeLabel(ctx, world, targetUid), at);
     if (!declared.ok) return declared;
+    await commitGate(ctx, declared.state);
     if (cost > 0) await addInfluence(ctx, authUid, -cost);
     const target = await ctx.deps.dukeStore.get(targetUid);
     if (target) {
@@ -92,6 +93,7 @@ export const lendFleetAction = (ctx: DukeContext, authUid: string, fromSeasonId:
     if (!decreed.ok) return decreed;
     const lent = lendFighter(decreed.state, fromSeasonId, at);
     if (!lent.ok) return lent;
+    await commitGate(ctx, lent.state);
     await addInfluence(ctx, authUid, LEND_INFLUENCE_STIPEND);
     const wasRevoked = state.favor?.revoked === true;
     const text = `You lent a Fighter to the Court for 7 days: +${LEND_INFLUENCE_STIPEND} Influence.${wasRevoked ? " The Court's Favor is restored." : ""}`;

@@ -122,7 +122,12 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
       if (m) markerObjects.set(entry.seasonId, createSystemMarkers(entry, m));
     }
   };
+  // Rebuilt only when something changed: the status is polled every 30s.
+  let markersKey = "";
   const setMarkers = (next: ReadonlyMap<string, SystemMarkers>): void => {
+    const key = JSON.stringify([...next.entries()]);
+    if (key === markersKey) return;
+    markersKey = key;
     markers = next;
     applyMarkers();
   };

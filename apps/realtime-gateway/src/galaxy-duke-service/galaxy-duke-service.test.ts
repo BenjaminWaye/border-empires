@@ -46,7 +46,8 @@ describe("one build slot per planetary system, no weekly gate", () => {
     const h = await harness();
     await h.service.build("uid-a", "season-a", { kind: "FIGHTER" });
     const sys = (await h.service.status("uid-a"))?.systems[0];
-    expect(sys?.options.find((o) => o.kind === "FIGHTER")).toMatchObject({ blockedBy: "SLOT_BUSY" });
+    // A blocked option still says how long it would take, never "0".
+    expect(sys?.options.find((o) => o.kind === "FIGHTER")).toMatchObject({ blockedBy: "SLOT_BUSY", durationMs: 8 * HOUR });
     // The day's order is spent until it recharges (§30).
     expect(sys?.order).toEqual({ ready: false, readyAt: T0 + DAY });
     expect(sys?.options.find((o) => o.kind === "REFIT")?.blockedBy).toBe("SLOT_BUSY");

@@ -94,21 +94,22 @@ const bodiesHtml = (status: DukeStatus, seasonId: string): string => {
 };
 
 // The one line above the hand: whose turn it is, or when the next one comes.
-const turnHtml = (status: DukeStatus, stop: SpaceStop, now: number): string => {
+const turnHtml = (status: DukeStatus, stop: SpaceStop, now: number, confirmingCancel: boolean): string => {
   if (stop.mode === "galaxy") {
     const ready = status.decree.ready;
     return `<p class="sc-turn">${ready ? "<b>Decree ready</b> · one a day, for your whole empire" : `Decree used · next in ${formatDuration((status.decree.readyAt ?? now) - now)}`}</p>`;
   }
   const s = status.systems.find((x) => x.seasonId === stop.seasonId);
   if (!s) return "";
-  const building = s.slot ? ` · building ${escapeHtml(s.slot.label)}, ${formatDuration(s.slot.completesAt - now)} <button type="button" class="sc-link" data-sc-cancel>Cancel</button>` : "";
+  const cancelText = confirmingCancel ? "Really cancel? Today's order stays used" : "Cancel";
+  const building = s.slot ? ` · building ${escapeHtml(s.slot.label)}, ${formatDuration(s.slot.completesAt - now)} <button type="button" class="sc-link" data-sc-cancel>${cancelText}</button>` : "";
   return `<p class="sc-turn">${s.order.ready ? `<b>${escapeHtml(s.label)}: order ready</b>` : `${escapeHtml(s.label)}: next order in ${formatDuration((s.order.readyAt ?? now) - now)}`}${building}</p>`;
 };
 
-export const spaceCardsHtml = (status: DukeStatus, stop: SpaceStop, hand: ReadonlyArray<SpaceCard>, now: number, message: string): string =>
+export const spaceCardsHtml = (status: DukeStatus, stop: SpaceStop, hand: ReadonlyArray<SpaceCard>, now: number, message: string, confirmingCancel = false): string =>
   `<div class="sc-top">${barHtml(status, stop)}${systemsHtml(status, stop)}</div>
    <section class="sc-hand-wrap" aria-label="${stop.mode === "galaxy" ? "Your decrees" : "This system's orders"}">
-     ${turnHtml(status, stop, now)}
+     ${turnHtml(status, stop, now, confirmingCancel)}
      ${stop.mode === "system" && smokeReason(status, stop.seasonId, now) ? `<p class="sc-hit" role="status">${escapeHtml(smokeReason(status, stop.seasonId, now)!)}</p>` : ""}
      ${message ? `<p class="sc-message" role="status">${escapeHtml(message)}</p>` : ""}
      <div class="sc-hand">${hand.map(cardHtml).join("")}</div>
