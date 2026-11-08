@@ -31,7 +31,13 @@ export type FrontierSelection = {
   target: PlannerTile;
   score: number;
   frontierClass?: FrontierClass;
+  /** Part of score that is only a "stop the leader" target preference (ai-victory-focus.ts). */
+  victoryFocusBonus?: number;
 };
+
+/** A selection's score as a measure of real pressure: without the victory-focus preference. */
+export const threatScoreOf = (selection: FrontierSelection | undefined): number =>
+  selection ? selection.score - (selection.victoryFocusBonus ?? 0) : 0;
 
 export const sortTiles = (left: { x: number; y: number }, right: { x: number; y: number }): number =>
   (left.x - right.x) || (left.y - right.y);

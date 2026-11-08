@@ -166,7 +166,11 @@ consolidation, planning cadence), not deletion.
   the same objectives, each leader holding a condition gets focus weight 1
   and one at >=70% progress up to 0.6; every other AI's planner view gets
   that map (never itself) as `victoryFocusTargets`. The frontier scorer adds
-  `450 * weight` to that player's tiles, and ATTACK/MUSTER get `+0.35 *
+  `450 * weight` to that player's tiles for selection only: it is recorded
+  as `victoryFocusBonus` and removed by `threatScoreOf` before the score is
+  read as pressure (`pressureAttackScore`, path scoring), otherwise a
+  leader's lone tile read as a core threat and latched BREAK/WAR. Stalemated
+  tiles get no bonus, so they can't pin `enemyAttack`. ATTACK/MUSTER get `+0.35 *
   weight` after the consideration product (never reviving a veto). Weight 1
   also lifts ATTACK's CONTAIN/TRUCE posture veto (mirrored in
   `wait-reasons.ts`). Truce partners and allies are still skipped. Worker

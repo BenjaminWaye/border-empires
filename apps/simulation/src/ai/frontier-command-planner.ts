@@ -70,6 +70,8 @@ type FrontierAffordability = {
   nonHostilePlayerIds?: ReadonlySet<string>;
   /** Rivals near/holding a season win (ai-victory-focus.ts): their tiles score higher as enemy targets. */
   victoryFocusTargets?: VictoryFocusTargets;
+  /** Tile keys (tileKeyOf) the attack-stalemate tracker has given up on; they get no focus bonus. */
+  attackStalemateTargetTileKeys?: ReadonlySet<string>;
   /** Towns that gain from another connection (Phase 5, docs/ai-economic-synergy-plan.md). */
   linkValueTownKeys?: ReadonlySet<string>;
   /** When set, adds a directional bias toward this tile when scoring neutral expand candidates. */
@@ -344,15 +346,20 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
               // Only undefended frontier is a free capture; a capture-held tile rolls real combat.
               (isUndefendedFrontierTile(target, nowMs) ? 120 : 0) +
               neighborOwned * 95 +
-              neighborCoastline * 0.35 +
-              victoryFocusWeightOf(target.ownerId, affordability.victoryFocusTargets) * VICTORY_FOCUS_TARGET_BONUS;
+              neighborCoastline * 0.35;
             const scoreMs = performance.now() - scoreStartedAt;
             scoreCalcTotalMs += scoreMs;
             emitTiming?.("analyze_score_calc", scoreMs);
             return result;
           })();
         scoreByTargetKey.set(targetKey, score);
-        const candidate = { from, target, score };
+        // Selection-only: victoryFocusBonus is subtracted again wherever the
+        // score is read as a threat (threatScoreOf), and a stalemated tile
+        // gets none so it can't pin enemyAttack and veto ATTACK/MUSTER.
+        const focusBonus = affordability.attackStalemateTargetTileKeys?.has(targetKey)
+          ? 0
+          : victoryFocusWeightOf(target.ownerId, affordability.victoryFocusTargets) * VICTORY_FOCUS_TARGET_BONUS;
+        const candidate = focusBonus > 0 ? { from, target, score: score + focusBonus, victoryFocusBonus: focusBonus } : { from, target, score };
         if (isBetterSelection(candidate, bestAttack)) bestAttack = candidate;
         if (target.ownerId === "barbarian-1" || target.ownershipState === "BARBARIAN") {
           if (isBetterSelection(candidate, bestBarbarianAttack)) bestBarbarianAttack = candidate;

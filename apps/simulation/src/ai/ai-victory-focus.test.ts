@@ -9,7 +9,9 @@ import type { SeasonVictoryObjectiveSnapshot } from "@border-empires/sim-protoco
 
 import { VICTORY_FOCUS_NEAR_WIN_MAX_WEIGHT, victoryFocusTargetsFor, victoryFocusWeights } from "./ai-victory-focus.js";
 import { createVictoryStandingsLookup, withVictoryStandings } from "./ai-victory-standings.js";
+import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 import { analyzeOwnedFrontierTargetsFromLookup } from "./frontier-command-planner.js";
+import { threatScoreOf } from "./frontier-scoring.js";
 import type { PlannerPlayerView } from "./planner-world-view.js";
 import { type DecisionInputs, scoreDecision } from "./utility/decisions.js";
 import { vetoReasonsFor } from "./utility/wait-reasons.js";
@@ -76,6 +78,82 @@ describe("frontier enemy target bias", () => {
     expect(plain.enemyAttack?.target.ownerId).toBe("enemy-1");
     const focused = analyzeOwnedFrontierTargetsFromLookup(tiles, owned, "ai-1", { nowMs: 0, victoryFocusTargets: new Map([["leader-1", 1]]) });
     expect(focused.enemyAttack?.target.ownerId).toBe("leader-1");
+  });
+
+  // Regression (review of #2664): the bonus sat inside attack.score, which is
+  // also pressureAttackScore, so a holding leader's lone border tile read as
+  // a core threat (>=420), flipped BREAK/WAR and unlocked starving attacks.
+  it("is a target preference only, never extra pressure on the AI's own core", () => {
+    const tiles = new Map([
+      ["10,10", { x: 10, y: 10, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["9,9", { x: 9, y: 9, terrain: "LAND" as const, ownerId: "leader-1", ownershipState: "SETTLED" }]
+    ]);
+    const owned = [tiles.get("10,10")!];
+    const plain = analyzeOwnedFrontierTargetsFromLookup(tiles, owned, "ai-1", { nowMs: 0 });
+    const focused = analyzeOwnedFrontierTargetsFromLookup(tiles, owned, "ai-1", { nowMs: 0, victoryFocusTargets: new Map([["leader-1", 1]]) });
+    expect(focused.attack!.score).toBeGreaterThan(plain.attack!.score);
+    expect(threatScoreOf(focused.attack)).toBe(threatScoreOf(plain.attack));
+    const snapshotOf = (attack: NonNullable<typeof plain.attack>) =>
+      buildAutomationStrategicSnapshot({
+        playerId: "ai-1",
+        points: 500,
+        manpower: 100,
+        settledTileCount: 4,
+        controlledTileCount: 4,
+        townCount: 1,
+        incomePerMinute: 5 / 288,
+        ownedTiles: owned,
+        tilesByKey: tiles,
+        canAttack: true,
+        canExpand: true,
+        economicBuildAvailable: false,
+        fortBuildAvailable: false,
+        siegeBatteryBuildAvailable: false,
+        needsFood: false,
+        needsEconomy: false,
+        frontierAnalysis: {
+          attack,
+          enemyAttack: attack,
+          frontierEnemyTargetCount: 1,
+          frontierEnemyPlayerTargetCount: 1,
+          frontierBarbarianTargetCount: 0,
+          frontierNeutralTargetCount: 5,
+          frontierOpportunityEconomic: 1,
+          frontierOpportunityTownSupport: 0,
+          frontierOpportunityScout: 0,
+          frontierOpportunityScaffold: 0,
+          frontierOpportunityWaste: 0,
+          narrowAnalyzeCapped: false,
+          neighborCandidateTotal: 0,
+          missingNeighborTileCount: 0
+        }
+      });
+    const plainSnapshot = snapshotOf(plain.attack!);
+    const focusedSnapshot = snapshotOf(focused.attack!);
+    expect(focusedSnapshot.pressureAttackScore).toBe(plainSnapshot.pressureAttackScore);
+    expect(focusedSnapshot.pressureThreatensCore).toBe(false);
+    expect(focusedSnapshot.frontPosture).toBe(plainSnapshot.frontPosture);
+  });
+
+  // Regression (review of #2664): a stalemated leader tile kept the bonus,
+  // pinned enemyAttack and vetoed ATTACK/MUSTER against every other rival.
+  it("gives a stalemated leader tile no bonus so another rival can still be attacked", () => {
+    const tiles = new Map([
+      ["10,10", { x: 10, y: 10, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["11,11", { x: 11, y: 11, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      // enemy-1 touches both of ai-1's tiles: the better target on merit.
+      ["11,10", { x: 11, y: 10, terrain: "LAND" as const, ownerId: "enemy-1", ownershipState: "SETTLED" }],
+      ["9,9", { x: 9, y: 9, terrain: "LAND" as const, ownerId: "leader-1", ownershipState: "SETTLED" }]
+    ]);
+    const owned = [tiles.get("10,10")!, tiles.get("11,11")!];
+    const focus = new Map([["leader-1", 1]]);
+    expect(analyzeOwnedFrontierTargetsFromLookup(tiles, owned, "ai-1", { nowMs: 0, victoryFocusTargets: focus }).enemyAttack?.target.ownerId).toBe("leader-1");
+    const stalemated = analyzeOwnedFrontierTargetsFromLookup(tiles, owned, "ai-1", {
+      nowMs: 0,
+      victoryFocusTargets: focus,
+      attackStalemateTargetTileKeys: new Set(["9,9"])
+    });
+    expect(stalemated.enemyAttack?.target.ownerId).toBe("enemy-1");
   });
 });
 

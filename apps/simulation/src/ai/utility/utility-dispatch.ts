@@ -148,12 +148,9 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     momentumTicks: {},
     cooldown: state.decisionCooldowns ?? {},
     stalemated: targetStalemated(state.preferredEnemyAttack, state),
-    // MUSTER advances on fa.enemyAttack, ATTACK on preferredEnemyAttack; both
-    // carry the focus bonus, so take whichever reaches the stronger threat.
-    victoryFocusWeight: Math.max(
-      victoryFocusWeightOf(state.preferredEnemyAttack?.target.ownerId, state.victoryFocusTargets),
-      victoryFocusWeightOf(fa.enemyAttack?.target.ownerId, state.victoryFocusTargets)
-    )
+    // preferredEnemyAttack is fa.enemyAttack whenever an enemy player borders
+    // (MUSTER's target too); otherwise it can only be a barbarian (weight 0).
+    victoryFocusWeight: victoryFocusWeightOf(state.preferredEnemyAttack?.target.ownerId, state.victoryFocusTargets)
   };
 };
 
