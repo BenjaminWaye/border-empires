@@ -20,11 +20,11 @@ describe("formatDuration / formatAge", () => {
 describe("attentionText", () => {
   const item = (kind: DukeAttentionKind, at: number | null = null) => ({ kind, severity: "URGENT" as const, seasonId: "s1", label: "Aurelia", at });
   it("says what is coming and whether anything will meet it", () => {
-    expect(attentionText(item("INCURSION_UNDEFENDED", NOW + 22 * H), NOW)).toBe("Craft arriving at Aurelia in 22h 0m. No Fighter there.");
+    expect(attentionText(item("INCURSION_UNDEFENDED", NOW + 22 * H), NOW)).toBe("Craft arriving at Aurelia in 22h. No Fighter there.");
     expect(attentionText(item("INCURSION_DEFENDED", NOW + 2 * D), NOW)).toBe("Craft arriving at Aurelia in 2d. Your Fighter will meet it.");
   });
   it("every kind reads as a sentence, never a code", () => {
-    const kinds: DukeAttentionKind[] = ["INCURSION_UNDEFENDED", "INCURSION_DEFENDED", "LOW_STABILITY", "SLOT_EMPTY", "FIGHTER_DAMAGED", "COURT_OFFER", "PETITION_READY"];
+    const kinds: DukeAttentionKind[] = ["INCURSION_UNDEFENDED", "INCURSION_DEFENDED", "LOW_STABILITY", "ORDER_READY", "FIGHTER_DAMAGED", "COURT_OFFER", "DECREE_READY"];
     for (const kind of kinds) {
       const text = attentionText(item(kind, NOW + H), NOW);
       expect(text).toMatch(/[.]$/);
@@ -46,7 +46,7 @@ describe("errorMessage", () => {
     for (const code of codes) expect(ERROR_MESSAGES[code], code).toBeTruthy();
   });
   it("the Petition limit says when it opens again; the Court lock says how long remains", () => {
-    expect(errorMessage({ code: "PETITION_ALREADY_MADE_THIS_CYCLE", availableAt: NOW + 26 * H }, NOW)).toMatch(/1d 2h/);
+    expect(errorMessage({ code: "DECREE_NOT_READY", availableAt: NOW + 26 * H }, NOW)).toMatch(/1d 2h/);
     expect(errorMessage({ code: "LOCKED_BY_COURT_OFFER" }, NOW, NOW + 2 * D)).toMatch(/2d/);
   });
   it("an unknown code never leaks to the player", () => {

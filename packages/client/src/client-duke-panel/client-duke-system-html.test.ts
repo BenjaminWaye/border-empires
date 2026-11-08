@@ -17,19 +17,22 @@ describe("the planet panel header", () => {
     expect(html).toContain("Industrial planet");
     expect(html).toContain("Stability 80");
     expect(html).toContain("4 more hits before it is contested");
-    expect(html).toContain("Production <b>6/day</b>");
+    expect(html).toContain("Production <b>6</b>");
   });
   it("warns what an incoming craft will do, and says when a Fighter will meet it", () => {
     expect(render(dukeSystem())).toContain("No Fighter here: this system will lose 20 Stability.");
     expect(render(dukeSystem({ fighters: [100] }))).toContain("Your Fighter here will meet it.");
     expect(render(dukeSystem({ incursionArrivesAt: null }))).not.toContain("Craft arriving");
   });
-  it("shows the build in progress with a cancel, or the banked Production when idle", () => {
-    const busy = render(dukeSystem({ slot: { kind: "FIGHTER", label: "Fighter", cost: 80, progress: 40, daysLeft: 7 } }));
-    expect(busy).toContain("building <b>Fighter</b>, 7 days left (50%)");
+  it("shows the build in progress with a cancel and the time left, and whether today's order is ready", () => {
+    const busy = render(dukeSystem({ slot: { kind: "FIGHTER", label: "Fighter", startedAt: NOW - 4 * H, completesAt: NOW + 4 * H }, order: { ready: false, readyAt: NOW + 20 * H } }));
+    expect(busy).toContain("building <b>Fighter</b>, ready in 4h");
+    expect(busy).toContain("next order in 20h");
+    expect(busy).toContain('style="width:50%"');
     expect(busy).toContain("data-duke-cancel-build");
     const idle = render(dukeSystem());
-    expect(idle).toContain("slot empty, 12 banked");
+    expect(idle).toContain("<b>order ready</b>");
+    expect(idle).toContain("nothing building");
     expect(idle).not.toContain("data-duke-cancel-build");
   });
 });
@@ -73,16 +76,16 @@ describe("ships are how you give an order", () => {
   it("lists orders in flight from this system", () => {
     const status = dukeStatus({ flights: [{ kind: "PROBE", fromSeasonId: "s1", seasonId: "season-b", arrivesAt: NOW + 6 * H }, { kind: "RAID", fromSeasonId: "elsewhere", seasonId: "season-c", arrivesAt: NOW + H }] });
     const html = render(dukeSystem(), status);
-    expect(html).toContain("Probe on its way to Unknown system 1, arriving in 6h 0m");
+    expect(html).toContain("Probe on its way to Unknown system 1, arriving in 6h");
     expect(html).not.toContain("Fighter on its way");
   });
 });
 
 describe("the build menu", () => {
-  it("shows cost and time at this system's own rate for each option", () => {
+  it("shows how long each option takes at this system's own Production", () => {
     const html = render(dukeSystem());
-    expect(html).toContain("80 Production, 14 days");
-    expect(html).toContain("25 Production, 5 days");
+    expect(html).toContain("ready in 8h");
+    expect(html).toContain("ready in 4h");
     expect(html).toContain("Defends this system, and can raid");
   });
   it("an unavailable option is disabled and says why", () => {
@@ -93,15 +96,13 @@ describe("the build menu", () => {
     const html = render(dukeSystem());
     expect(html).toContain("Gas giant");
     expect(html).toContain("data-duke-develop=\"0\"");
-    expect(html).toContain("+8 Production per Cycle");
+    expect(html).toContain("+3 Production: builds here go faster");
     expect(html).toContain("Ice moon");
     expect(html).toContain("Cryo Refinery online: +6 Stability per Cycle here");
   });
-  it("Fortify is a slider up to the missing Stability, or a note when Stability is full", () => {
-    const html = render(dukeSystem({ stability: 60, fortifyMaxPoints: 40 }));
-    expect(html).toContain('max="40"');
-    expect(html).toContain("2 Production per point");
-    expect(render(dukeSystem({ stability: 100, fortifyMaxPoints: 0 }))).toContain("Stability is full: nothing to Fortify.");
+  it("Fortify is one press for +15 Stability now, or a note when Stability is full", () => {
+    expect(render(dukeSystem({ stability: 60 }))).toContain("+15 Stability now");
+    expect(render(dukeSystem({ stability: 100, fortify: { stability: 15, blockedBy: "ALREADY_STABLE" } }))).toContain("Stability is full: nothing to Fortify.");
   });
   it("explains the upkeep rule and what you pay now", () => {
     const html = render(dukeSystem(), dukeStatus({ economy: { developmentUpkeepPerCycle: 2, incursionsPerCyclePerSystem: 1.5, wardenPoolPerCycle: 3 } }));
@@ -114,10 +115,20 @@ describe("escaping", () => {
   it("escapes planet, target and development names", () => {
     const evil = "<img src=x onerror=alert(1)>";
     const html = render(
-      dukeSystem({ label: evil, bodies: [{ index: 0, kind: "GAS_GIANT", development: { label: evil, summary: evil }, option: null }] }),
+      dukeSystem({ label: evil, bodies: [{ index: 0, kind: "GAS_GIANT", development: { label: evil, summary: evil }, base: true, baseOption: null, option: null }] }),
       dukeStatus({ flights: [{ kind: "PROBE", fromSeasonId: "s1", seasonId: evil, arrivesAt: NOW + D }], intel: [{ seasonId: evil, label: evil, stability: 1, defenderHull: null, at: NOW, live: true }] }),
       "PROBE"
     );
     expect(html).not.toContain("<img");
+  });
+});
+
+describe("bases (§31)", () => {
+  it("a body without a base offers Establish base; once based, its development", () => {
+    const html = dukeSystemHtml(dukeStatus(), dukeSystem(), { now: NOW, targets: [], selectedShip: null });
+    expect(html).toContain('data-duke-base="2"');
+    expect(html).toContain("Lets you build a Mining Station here");
+    expect(html).not.toContain('data-duke-develop="2"');
+    expect(html).toContain('data-duke-develop="0"');
   });
 });

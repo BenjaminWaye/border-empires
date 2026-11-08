@@ -20,7 +20,7 @@ const offerHtml = (status: DukeStatus): string =>
 const petitionReason = (status: DukeStatus, now: number): string | null => {
   if (status.court.fallen) return "The Court has fallen.";
   if (!status.court.canMoveAgainstCourt) return "Locked by the Court's offer.";
-  if (!status.petition.available && status.petition.availableAt !== null) return `You've already petitioned this Cycle. You can again in ${formatDuration(status.petition.availableAt - now)}.`;
+  if (!status.decree.ready && status.decree.readyAt !== null) return `You've used today's decree. Next in ${formatDuration(status.decree.readyAt - now)}.`;
   if (status.influence < status.court.minWager) return `You need at least ${status.court.minWager} Influence.`;
   return null;
 };
@@ -41,7 +41,7 @@ export const dukeCourtHtml = (status: DukeStatus, now: number): string => {
       <p class="dk-note">${escapeHtml(DOMAIN_WEIGHT_HELP)}</p>
     </section>
     <section class="dk-card" data-duke-petition>
-      <h4>Petition the Senate <small>once per Cycle</small></h4>
+      <h4>Move Against the Court <small>your decree for the day</small></h4>
       <p class="dk-note">Move Against the Court: wager Influence. Every 5 Influence lowers Court Strength by 1 and raises your Domain Weight by 1. It is spent either way.</p>
       <p class="dk-line">You have <b>${status.influence} Influence</b>. It also pays for development upkeep${upkeep > 0 ? ` (${upkeep} per Cycle now)` : ""}, and if it runs out Stability starts to drain.</p>
       <div class="dk-row">

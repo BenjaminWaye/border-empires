@@ -23,7 +23,7 @@ describe("dukeHudHtml", () => {
     expect(dukeHudHtml(dukeStatus({ attention: [] }), NOW)).toContain("All quiet. Tap your planet to build.");
   });
   it("caps the list and counts the rest", () => {
-    const many = Array.from({ length: 7 }, (_, i) => ({ kind: "SLOT_EMPTY" as const, severity: "NOTICE" as const, seasonId: `s${i}`, label: `P${i}`, at: null }));
+    const many = Array.from({ length: 7 }, (_, i) => ({ kind: "ORDER_READY" as const, severity: "NOTICE" as const, seasonId: `s${i}`, label: `P${i}`, at: null }));
     const html = dukeHudHtml(dukeStatus({ attention: many }), NOW);
     expect(html.match(/data-duke-attention=/g)).toHaveLength(4);
     expect(html).toContain("+3 more");
@@ -35,7 +35,7 @@ describe("dukeHudHtml", () => {
   });
   it("escapes every player-derived string", () => {
     const evil = "<img src=x onerror=alert(1)>";
-    const html = dukeHudHtml(dukeStatus({ attention: [{ kind: "SLOT_EMPTY", severity: "NOTICE", seasonId: evil, label: evil, at: null }] }), NOW);
+    const html = dukeHudHtml(dukeStatus({ attention: [{ kind: "ORDER_READY", severity: "NOTICE", seasonId: evil, label: evil, at: null }] }), NOW);
     expect(html).not.toContain("<img");
     expect(html).toContain("&lt;img");
   });
@@ -47,6 +47,6 @@ describe("dukeHudHtml", () => {
 describe("attention ordering is the server's; the HUD keeps it", () => {
   it("renders items in the order given", () => {
     const html = dukeHudHtml(dukeStatus(), NOW);
-    expect(html.indexOf("INCURSION_UNDEFENDED")).toBeLessThan(html.indexOf("SLOT_EMPTY"));
+    expect(html.indexOf("INCURSION_UNDEFENDED")).toBeLessThan(html.indexOf("ORDER_READY"));
   });
 });

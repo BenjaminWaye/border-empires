@@ -71,7 +71,7 @@ import { BREAK_PACT_ATTACK_CHANGELOG } from "./client-changelog-break-pact-attac
 import { FLAG_TAP_CHANGELOG } from "./client-changelog-flag-tap.js";
 import { SIEGE_UMBRITE_ONLY_CHANGELOG } from "./client-changelog-siege-umbrite.js";
 import { MARCH_WIN_CHANCE_CHANGELOG } from "./client-changelog-march-win-chance.js";
-import { SPACE_POLITICS_CHANGELOG } from "./client-changelog-space-politics.js";
+import { SPACE_CHANGELOG } from "./client-changelog-space.js";
 import { AI_RIVALS_CHANGELOG } from "./client-changelog-ai-rivals.js";
 import { CLAIM_STRIPED_GROUND_CHANGELOG } from "./client-changelog-claim-striped-ground.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE } from "./client-changelog-oct-17-19-inline.js";
@@ -392,7 +392,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...FLAG_TAP_CHANGELOG,
   ...SIEGE_UMBRITE_ONLY_CHANGELOG,
   ...MARCH_WIN_CHANCE_CHANGELOG,
-  ...SPACE_POLITICS_CHANGELOG,
+  ...SPACE_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_30_31,
   {
     createdAt: 1793483288830,

@@ -10,8 +10,8 @@ const STATE_TEXT: Record<SpacePlanetViewModel["state"], string> = {
   owned: "Yours."
 };
 
-export const systemInfoFor = (model: SpacePlanetViewModel): DukeTargetInfo => ({
-  seasonId: model.seasonId,
-  label: model.label,
-  stateText: model.ownerKey?.startsWith("duke:") ? `Held by ${model.ownerKey.slice(5)}.` : STATE_TEXT[model.state]
-});
+// `smoke` is why the planet is smoking, when it is (§31).
+export const systemInfoFor = (model: SpacePlanetViewModel, smoke?: string): DukeTargetInfo => {
+  const held = model.ownerKey?.startsWith("duke:") ? `Held by ${model.ownerKey.slice(5)}.` : STATE_TEXT[model.state];
+  return { seasonId: model.seasonId, label: model.label, stateText: smoke ? `${held} ${smoke}` : held };
+};

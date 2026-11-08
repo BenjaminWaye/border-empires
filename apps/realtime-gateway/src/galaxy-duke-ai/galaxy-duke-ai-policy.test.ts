@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { duke, planet, seasonWithBody } from "../galaxy-duke-engine/galaxy-duke-fixtures.js";
-import { findSystem, replaceSystem } from "../galaxy-duke-engine/galaxy-duke-systems.js";
+import { replaceSystem } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import type { DukeState } from "../galaxy-duke-engine/galaxy-duke-types.js";
 import { planAiTurn, type AiRival, type AiTurnInput } from "./galaxy-duke-ai-policy.js";
 
@@ -14,7 +14,9 @@ const input = (state: DukeState, over: Partial<AiTurnInput> = {}): AiTurnInput =
   myWeight: 10,
   stabilityBySeason: new Map(),
   rivals: [rival()],
-  petitionReady: false,
+  ordersReady: new Set(state.systems.map((s) => s.seasonId)),
+  decreeReady: false,
+  canMoveAgainstCourt: true,
   grievanceOpenAgainst: null,
   writ: null,
   courtOfferPending: false,
@@ -30,10 +32,12 @@ describe("planAiTurn", () => {
     expect(planAiTurn(input(duke([planet("s1")])))).toContainEqual({ kind: "BUILD", seasonId: "s1", spec: { kind: "FIGHTER" } });
   });
 
-  it("develops its first body once it has a defender", () => {
+  it("establishes a base on its first body once it has a defender, then develops it", () => {
     const { seasonId, bodyIndex } = seasonWithBody("GAS_GIANT");
     const state = withFighters(duke([planet(seasonId)]), [100]);
-    expect(planAiTurn(input(state))).toContainEqual({ kind: "BUILD", seasonId, spec: { kind: "DEVELOP", bodyIndex } });
+    expect(planAiTurn(input(state))).toContainEqual({ kind: "BUILD", seasonId, spec: { kind: "BASE", bodyIndex } });
+    const based = replaceSystem(state, { ...state.systems[0]!, bases: [bodyIndex] });
+    expect(planAiTurn(input(based))).toContainEqual({ kind: "BUILD", seasonId, spec: { kind: "DEVELOP", bodyIndex } });
   });
 
   it("accepts the Court's protection only when it has no rivals", () => {
@@ -55,7 +59,7 @@ describe("planAiTurn", () => {
   it("declares against a surveyed rival ahead of it, then raids it while keeping a defender home", () => {
     const base = withFighters(duke(), [100, 100]);
     const surveyed: DukeState = { ...base, intel: [{ seasonId: "season-b", label: "B", stability: 100, defenderHull: null, at: 0, live: true }] };
-    expect(planAiTurn(input(surveyed, { influence: 20 }))).toContainEqual({ kind: "DECLARE", targetSeasonId: "season-b" });
+    expect(planAiTurn(input(surveyed, { influence: 20, decreeReady: true }))).toContainEqual({ kind: "DECLARE", targetSeasonId: "season-b" });
     const actions = planAiTurn(input(surveyed, { grievanceOpenAgainst: "uid-b" }));
     expect(actions).toContainEqual({ kind: "RAID", fromSeasonId: "s1", targetSeasonId: "season-b" });
     expect(planAiTurn(input(withFighters(surveyed, [100]), { grievanceOpenAgainst: "uid-b" })).some((a) => a.kind === "RAID")).toBe(false);
@@ -67,11 +71,30 @@ describe("planAiTurn", () => {
     expect(planAiTurn(input(state, { grievanceOpenAgainst: "uid-b" })).some((a) => a.kind === "RAID")).toBe(false);
   });
 
-  it("lends a spare Fighter when the Court looks away, and wagers spare Influence", () => {
+  it("takes one decree a day: lend when the Court looks away, else wager spare Influence, else hold court", () => {
     const state = withFighters(duke(), [100, 100]);
-    const actions = planAiTurn(input(state, { favorRevoked: true, petitionReady: true, influence: 16 }));
-    expect(actions).toContainEqual({ kind: "LEND", fromSeasonId: "s1" });
-    expect(actions).toContainEqual({ kind: "MOVE_AGAINST_COURT", influence: 10 });
-    expect(findSystem(state, "s1")).toBeDefined();
+    const decrees = (over: Partial<AiTurnInput>) => planAiTurn(input(state, { decreeReady: true, rivals: [], ...over })).filter((a) => ["LEND", "MOVE_AGAINST_COURT", "HOLD_COURT", "DECLARE"].includes(a.kind));
+    expect(decrees({ favorRevoked: true, influence: 16 })).toEqual([{ kind: "LEND", fromSeasonId: "s1" }]);
+    expect(decrees({ influence: 16 })).toEqual([{ kind: "MOVE_AGAINST_COURT", influence: 10 }]);
+    expect(decrees({ influence: 2 })).toEqual([{ kind: "HOLD_COURT" }]);
+    expect(planAiTurn(input(state, { decreeReady: false })).some((a) => a.kind === "HOLD_COURT")).toBe(false);
+  });
+
+  it("takes at most one order per system, and none for a system whose order is spent", () => {
+    const state = { ...withFighters(duke(), [100]), systems: [{ ...withFighters(duke(), [100]).systems[0]!, probeStock: 1 }] };
+    const actions = planAiTurn(input(state));
+    expect(actions.filter((a) => "seasonId" in a || "fromSeasonId" in a)).toEqual([{ kind: "PROBE", fromSeasonId: "s1", targetSeasonId: "season-b" }]);
+    expect(planAiTurn(input(state, { ordersReady: new Set() })).filter((a) => a.kind === "PROBE" || a.kind === "BUILD")).toEqual([]);
+  });
+
+  it("an undefended system builds its first Fighter even when shaken or holding a Probe", () => {
+    const shaken = { ...duke(), systems: [{ ...duke().systems[0]!, probeStock: 1 }] };
+    const orders = planAiTurn(input(shaken, { stabilityBySeason: new Map([["s1", 40]]) })).filter((a) => a.kind !== "ANSWER_WRIT" && a.kind !== "ANSWER_COURT_OFFER");
+    expect(orders).toEqual([{ kind: "BUILD", seasonId: "s1", spec: { kind: "FIGHTER" } }]);
+  });
+
+  it("fortifies a shaken world instead of building", () => {
+    const state = withFighters(duke(), [100]);
+    expect(planAiTurn(input(state, { stabilityBySeason: new Map([["s1", 40]]) }))).toContainEqual({ kind: "FORTIFY", seasonId: "s1" });
   });
 });

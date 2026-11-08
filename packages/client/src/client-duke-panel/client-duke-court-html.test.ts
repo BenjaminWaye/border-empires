@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dukeCourtHtml, dukeLogHtml } from "./client-duke-court-html.js";
-import { D, H, NOW, dukeStatus } from "./client-duke-fixtures.js";
+import { H, NOW, dukeStatus } from "./client-duke-fixtures.js";
 
 const pending = () => dukeStatus({ court: { ...dukeStatus().court, offer: { status: "PENDING", protectedUntil: null, moveLockedUntil: null } } });
 
@@ -24,7 +24,7 @@ describe("dukeCourtHtml", () => {
   it("the wager button is enabled when you can, and says why when you can't", () => {
     expect(dukeCourtHtml(dukeStatus(), NOW)).not.toMatch(/data-duke-court-move disabled/);
     expect(dukeCourtHtml(dukeStatus({ influence: 2 }), NOW)).toContain("You need at least 5 Influence.");
-    expect(dukeCourtHtml(dukeStatus({ petition: { available: false, availableAt: NOW + 3 * D } }), NOW)).toContain("You can again in 3d.");
+    expect(dukeCourtHtml(dukeStatus({ decree: { ready: false, readyAt: NOW + 3 * H } }), NOW)).toContain("Next in 3h.");
     expect(dukeCourtHtml(dukeStatus({ court: { ...dukeStatus().court, canMoveAgainstCourt: false } }), NOW)).toContain("Locked by the Court&#39;s offer.");
     expect(dukeCourtHtml(dukeStatus({ court: { ...dukeStatus().court, fallen: true, canMoveAgainstCourt: false } }), NOW)).toContain("The Court has fallen.");
   });
