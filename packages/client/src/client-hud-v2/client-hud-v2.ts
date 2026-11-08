@@ -4,6 +4,7 @@
 // through the existing handlers; the destination screens live in
 // client-hud-v2-screens.ts, the town and battle screens in their runtimes.
 
+import { latestOwnFight } from "../client-detached-attacks/client-detached-attacks.js";
 import { musterFlagCap } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { activateImperialWard, imperialWardButtonHtml } from "../client-imperial-ward/client-imperial-ward.js";
@@ -91,7 +92,7 @@ const openTarget = (deps: HudV2Deps, open: string): void => {
   }
   if (open === "battle") {
     // Attacks reopen the live battle (over whatever screen is up); an expansion in progress just centres the map on it.
-    const c = deps.state.capture;
+    const c = latestOwnFight(deps.state);
     const live = liveBattleTarget(deps.state);
     if (live && battleRowPlan(screen.id, shownBattleTileKey(), `${live.x},${live.y}`) === "close") closeScreen(deps, { toMap: true });
     if (!reopenLiveBattle(deps) && c) {
@@ -297,8 +298,10 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     };
   }
   const elapsed = nowMs - trackerScan.at;
-  const capture = state.capture && !state.capture.silent
-    ? { x: state.capture.target.x, y: state.capture.target.y, resolvesAt: state.capture.resolvesAt, battle: captureIsBattle(state.capture) }
+  // The slot's capture, or a running attack that already left the slot.
+  const fight = latestOwnFight(state, nowMs);
+  const capture = fight && !fight.silent
+    ? { x: fight.target.x, y: fight.target.y, resolvesAt: fight.resolvesAt, battle: captureIsBattle(fight) }
     : undefined;
   const input: TrackerInput = {
     buildSlots: trackerScan.buildSlots,

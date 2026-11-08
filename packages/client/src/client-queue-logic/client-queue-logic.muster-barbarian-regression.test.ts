@@ -36,7 +36,7 @@ const runQueue = (state: ClientState, send: () => void, sendSetMuster: () => voi
 };
 
 const fireDueTransits = (state: ClientState, sendAttack: () => void): void => {
-  for (const transit of state.musterTransitByTile.values()) transit.transitEndsAt = Date.now() - 1;
+  for (const transit of state.musterTransitByCommand.values()) transit.transitEndsAt = Date.now() - 1;
   state.actionInFlight = false;
   fireDueMusterTransits(state, { keyFor: (x, y) => `${x},${y}`, sendDeferredAttack: sendAttack, requestViewRefresh: () => {} });
 };
@@ -74,7 +74,7 @@ describe("processActionQueue muster gating for Planetary Defense targets", () =>
 
     expect(send).not.toHaveBeenCalled();
     expect(sendSetMuster).not.toHaveBeenCalled();
-    expect(state.musterTransitByTile.get("181,248")).toMatchObject({ musterX: 181, musterY: 248, targetX: 179, targetY: 246 });
+    expect([...state.musterTransitByCommand.values()].find((t) => t.musterX === 181 && t.musterY === 248)).toMatchObject({ musterX: 181, musterY: 248, targetX: 179, targetY: 246 });
     fireDueTransits(state, sendAttack);
     expect(sendAttack).toHaveBeenCalledWith(179, 247, 179, 246, expect.any(String), expect.any(Number));
   });
@@ -96,7 +96,7 @@ describe("processActionQueue muster gating for Planetary Defense targets", () =>
     // Not fired unfunded straight from the origin -- the flag marches first.
     expect(send).not.toHaveBeenCalled();
     expect(sendSetMuster).not.toHaveBeenCalled();
-    expect(state.musterTransitByTile.get("180,247")).toMatchObject({ musterX: 180, musterY: 247, targetX: 179, targetY: 246 });
+    expect([...state.musterTransitByCommand.values()].find((t) => t.musterX === 180 && t.musterY === 247)).toMatchObject({ musterX: 180, musterY: 247, targetX: 179, targetY: 246 });
     fireDueTransits(state, sendAttack);
     expect(sendAttack).toHaveBeenCalledWith(180, 247, 179, 246, expect.any(String), expect.any(Number));
   });

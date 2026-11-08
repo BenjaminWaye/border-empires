@@ -561,7 +561,6 @@ export const processPendingMusterAttacks = (
       required,
       closest: closest ? { x: closest.tile.x, y: closest.tile.y, amount: closest.tile.muster?.amount, dist: closest.dist } : undefined,
       closestIsAdjacentOrLinked,
-      musterTransitReserved: state.musterTransitByTile.has(entry.musterTileKey),
       alreadyQueued: state.queuedTargetKeys.has(targetKey),
       musterRequestedAt: entry.musterRequestedAt
     };

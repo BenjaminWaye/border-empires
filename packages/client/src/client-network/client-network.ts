@@ -28,6 +28,8 @@ import {
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
 import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/client-frontier-late-ack.js";
+import { clearAllAttacksAfterCancel, detachedCombatResultPayload, detachLockedAttack, isDetachedAttackCommandId, takeDetachedAttack } from "../client-detached-attacks/client-detached-attacks.js";
+import { settleCombatResultSlot } from "../client-combat-result-slot/client-combat-result-slot.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { applyPlayerUpdateIntegrity } from "../client-integrity-pct/client-player-update-integrity.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
@@ -571,7 +573,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     syncAuthOverlay();
   };
 
-  const applyCombatOutcomeMessage = (msg: Record<string, unknown>, opts?: { predicted?: boolean }): void => {
+  const applyCombatOutcomeMessage = (msg: Record<string, unknown>, opts?: { predicted?: boolean; detached?: boolean; commandId?: unknown }): void => {
     const target = msg.target as { x: number; y: number } | undefined;
     const targetBefore = (() => (target ? state.tiles.get(keyFor(target.x, target.y)) : undefined))();
     const originBefore = (() => {
@@ -609,47 +611,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     const { resultAlert, resultTargetKey } = notifyCombatResult(state, msg, {
       targetTileBefore: targetBefore, originTileBefore: originBefore
     }, reportFlagKey, { keyFor, combatResolutionAlert, wasPredictedCombatAlreadyShown, appendFeedEntry, showCaptureAlert });
-    if (!isMusterAdvanceCommandId(msg.commandId)) {
-      if (resultTargetKey) {
-        if (opts?.predicted) state.revealedPredictedCombatByKey.set(resultTargetKey, { title: resultAlert.title, detail: resultAlert.detail });
-        else state.revealedPredictedCombatByKey.delete(resultTargetKey);
-      }
-      if (state.pendingCombatReveal && state.pendingCombatReveal.targetKey === resultTargetKey) state.pendingCombatReveal = undefined;
-      const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-      const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
-      let handedOffToSettle = false;
-      if (targetKey && state.autoSettleTargets.has(targetKey)) {
-        const settledTile = state.tiles.get(targetKey);
-        if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
-          if (requestSettlement(settledTile.x, settledTile.y)) {
-            handedOffToSettle = true;
-            pushFeed(`Auto-garrison started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
-          }
-        }
-        state.autoSettleTargets.delete(targetKey);
-      }
-      state.capture = undefined;
-      if (!handedOffToSettle) {
-        if (targetKey) state.autoBuildTargets.delete(targetKey);
-        state.actionInFlight = false;
-        state.actionAcceptedAck = false;
-        state.combatStartAck = false;
-        state.actionAcceptTimeoutHandledAt = 0;
-        state.actionStartedAt = 0;
-        if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
-        if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
-        let startedNext = false;
-        if (msg.attackType === "ATTACK" && state.actionQueue.length > 0) {
-          resumeQueuedFrontierActionsAfter(COMBAT_LOCK_MS);
-        } else {
-          startedNext = processActionQueue();
-        }
-        if (!startedNext) {
-          state.actionTargetKey = "";
-          state.actionCurrent = undefined;
-        }
-      }
-      resetAttackPreviewState(state);
+    if (opts?.detached || !isMusterAdvanceCommandId(msg.commandId)) {
+      settleCombatResultSlot(state, {
+        attackType: msg.attackType, commandId: opts?.commandId ?? msg.commandId, target, resultTargetKey, resultAlert, resolvedCaptureTargetKey,
+        predicted: Boolean(opts?.predicted), detached: Boolean(opts?.detached)
+      }, { keyFor, requestSettlement, pushFeed, dropQueuedTargetKeyIfAbsent, resumeQueuedFrontierActionsAfter, processActionQueue });
+      if (!opts?.detached) resetAttackPreviewState(state); // a detached result must not drop the preview the player is waiting on elsewhere
     }
     for (const change of changes) {
       if (change.ownerId === state.me && change.ownershipState === "SETTLED") {
@@ -1296,7 +1263,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "COMBAT_RESULT") {
-      if (!isMusterAdvanceCommandId(msg.commandId) && !matchesCurrentFrontierCommand(state, msg.commandId)) {
+      if (!isMusterAdvanceCommandId(msg.commandId) && !isDetachedAttackCommandId(state, msg.commandId) && !matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-result-ignored-command-mismatch", {
           attackType: msg.attackType,
           commandId: msg.commandId,
@@ -1349,9 +1316,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         !("defEff" in msg) &&
         !("winChance" in msg) &&
         !("pointsDelta" in msg);
-      applyCombatOutcomeMessage(isMusterAdvanceCommandId(msg.commandId)
+      const detachedAttack = takeDetachedAttack(state, msg.commandId);
+      applyCombatOutcomeMessage(detachedAttack ? detachedCombatResultPayload(msg as Record<string, unknown>, detachedAttack, commitOnlyResult) : isMusterAdvanceCommandId(msg.commandId)
         ? msg as Record<string, unknown>
-        : resolveCombatResultPayload(state, keyFor, msg as Record<string, unknown>, commitOnlyResult));
+        : resolveCombatResultPayload(state, keyFor, msg as Record<string, unknown>, commitOnlyResult), { detached: Boolean(detachedAttack), commandId: msg.commandId });
       return;
     }
       if (msg.type === "COMBAT_START") {
@@ -1437,6 +1405,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         resolvesAt,
         result: lockedCombatResult
       });
+      // The server has locked this attack: let it resolve on its own and free
+      // the dispatch slot so the next attack can go out now.
+      if (detachLockedAttack(state, keyFor, msg as Record<string, unknown>)) processActionQueueSafely();
       renderHud();
       return;
     }
@@ -1511,15 +1482,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "COMBAT_CANCELLED") {
       const cancelledCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
       clearFrontierStatusAlert(state);
-      state.capture = undefined;
       if (state.pendingCombatReveal?.targetKey === cancelledCurrentKey) state.pendingCombatReveal = undefined;
-      state.actionInFlight = false;
-      state.actionAcceptedAck = false;
-      state.combatStartAck = false;
-      state.actionAcceptTimeoutHandledAt = 0;
-      state.actionStartedAt = 0;
-      state.actionTargetKey = "";
-      state.actionCurrent = undefined;
+      clearAllAttacksAfterCancel(state);
       clearLateFrontierAck(cancelledCurrentKey);
       if (cancelledCurrentKey) { state.queuedTargetKeys.delete(cancelledCurrentKey); clearOptimisticTileState(cancelledCurrentKey, true); }
       state.autoSettleTargets.clear(); state.autoBuildTargets.clear();

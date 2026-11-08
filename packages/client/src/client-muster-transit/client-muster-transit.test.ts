@@ -18,7 +18,7 @@ describe("client-muster-transit", () => {
     state.actionCurrent = { x: 9, y: 9, retries: 0 };
     state.actionTargetKey = "9,9";
 
-    armMusterTransit(state, keyFor, {
+    armMusterTransit(state, {
       musterX: 0,
       musterY: 0,
       fromX: 0,
@@ -26,12 +26,12 @@ describe("client-muster-transit", () => {
       toX: 1,
       toY: 0,
       transitTiles: 2,
-      commandId: "cmd-1",
+      manpower: 10, commandId: "cmd-1",
       clientSeq: 1
     });
 
-    expect(state.musterTransitByTile.get("0,0")).toMatchObject({ musterX: 0, musterY: 0, targetX: 1, targetY: 0 });
-    expect(state.deferredAttackByTile.get("0,0")).toMatchObject({ fromX: 0, fromY: 0, toX: 1, toY: 0, commandId: "cmd-1", clientSeq: 1 });
+    expect(state.musterTransitByCommand.get("cmd-1")).toMatchObject({ musterX: 0, musterY: 0, targetX: 1, targetY: 0 });
+    expect(state.deferredAttackByCommand.get("cmd-1")).toMatchObject({ fromX: 0, fromY: 0, toX: 1, toY: 0, commandId: "cmd-1", clientSeq: 1 });
     expect(state.capture?.target).toEqual({ x: 1, y: 0 });
     expect(state.actionInFlight).toBe(false);
     expect(state.actionCurrent).toBeUndefined();
@@ -47,15 +47,15 @@ describe("client-muster-transit", () => {
   // would cover a distance nothing budgeted the transit's duration for.
   it("stores the firing tile as marchToX/Y, distinct from the real attack target, for a remotely-funded march", () => {
     const state = createInitialState();
-    armMusterTransit(state, keyFor, {
+    armMusterTransit(state, {
       musterX: 8, musterY: 5, // the funding flag
       fromX: 5, fromY: 5, // the firing tile the flag marches to (adjacent to the target)
       toX: 300, toY: 300, // the actual (far away) attack target
       transitTiles: 3, // real distance is flag(8,5) -> firing tile(5,5), not to the target
-      commandId: "cmd-remote", clientSeq: 1
+      manpower: 10, commandId: "cmd-remote", clientSeq: 1
     });
 
-    const entry = state.musterTransitByTile.get("8,5");
+    const entry = state.musterTransitByCommand.get("cmd-remote");
     expect(entry).toMatchObject({ musterX: 8, musterY: 5, marchToX: 5, marchToY: 5, targetX: 300, targetY: 300 });
 
     // The supply line draws to the march destination (the front), not the
@@ -68,19 +68,19 @@ describe("client-muster-transit", () => {
 
   it("does not fire a transit before its window elapses", () => {
     const state = createInitialState();
-    armMusterTransit(state, keyFor, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 100, commandId: "cmd-1", clientSeq: 1 });
+    armMusterTransit(state, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 100, manpower: 10, commandId: "cmd-1", clientSeq: 1 });
 
     const sendDeferredAttack = vi.fn();
     fireDueMusterTransits(state, { keyFor, sendDeferredAttack, requestViewRefresh: vi.fn() });
 
     expect(sendDeferredAttack).not.toHaveBeenCalled();
-    expect(state.musterTransitByTile.has("0,0")).toBe(true);
-    expect(state.deferredAttackByTile.has("0,0")).toBe(true);
+    expect(state.musterTransitByCommand.has("cmd-1")).toBe(true);
+    expect(state.deferredAttackByCommand.has("cmd-1")).toBe(true);
   });
 
   it("fires a due transit, claiming actionInFlight only for the attack it sends", () => {
     const state = createInitialState();
-    armMusterTransit(state, keyFor, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, commandId: "cmd-1", clientSeq: 1 });
+    armMusterTransit(state, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, manpower: 10, commandId: "cmd-1", clientSeq: 1 });
 
     const sendDeferredAttack = vi.fn();
     const requestViewRefresh = vi.fn();
@@ -92,14 +92,14 @@ describe("client-muster-transit", () => {
     expect(state.actionTargetKey).toBe("1,0");
     // Deferred send is consumed, but the flag stays tracked ("locked") until
     // its combat result arrives, so the overlay keeps showing it.
-    expect(state.deferredAttackByTile.has("0,0")).toBe(false);
-    expect(state.musterTransitByTile.has("0,0")).toBe(true);
+    expect(state.deferredAttackByCommand.has("cmd-1")).toBe(false);
+    expect(state.musterTransitByCommand.has("cmd-1")).toBe(true);
   });
 
   it("only fires one attack per tick, leaving other due flags parked until the slot frees up", () => {
     const state = createInitialState();
-    armMusterTransit(state, keyFor, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, commandId: "cmd-a", clientSeq: 1 });
-    armMusterTransit(state, keyFor, { musterX: 5, musterY: 5, fromX: 5, fromY: 5, toX: 6, toY: 5, transitTiles: 0, commandId: "cmd-b", clientSeq: 2 });
+    armMusterTransit(state, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, manpower: 10, commandId: "cmd-a", clientSeq: 1 });
+    armMusterTransit(state, { musterX: 5, musterY: 5, fromX: 5, fromY: 5, toX: 6, toY: 5, transitTiles: 0, manpower: 10, commandId: "cmd-b", clientSeq: 2 });
 
     const sendDeferredAttack = vi.fn();
     fireDueMusterTransits(state, { keyFor, sendDeferredAttack, requestViewRefresh: vi.fn() });
@@ -107,74 +107,74 @@ describe("client-muster-transit", () => {
     expect(sendDeferredAttack).toHaveBeenCalledTimes(1);
     expect(state.actionInFlight).toBe(true);
     // Whichever flag didn't fire this tick is still fully armed, waiting its turn.
-    const firedKey = sendDeferredAttack.mock.calls[0]![4] === "cmd-a" ? "0,0" : "5,5";
-    const parkedKey = firedKey === "0,0" ? "5,5" : "0,0";
-    expect(state.deferredAttackByTile.has(parkedKey)).toBe(true);
-    expect(state.musterTransitByTile.has(parkedKey)).toBe(true);
+    const firedKey = sendDeferredAttack.mock.calls[0]![4] === "cmd-a" ? "cmd-a" : "cmd-b";
+    const parkedKey = firedKey === "cmd-a" ? "cmd-b" : "cmd-a";
+    expect(state.deferredAttackByCommand.has(parkedKey)).toBe(true);
+    expect(state.musterTransitByCommand.has(parkedKey)).toBe(true);
 
     // Simulate the first attack's slot freeing up (ack/resolution reset it
     // elsewhere) and re-tick: the parked flag now gets its turn.
     state.actionInFlight = false;
     fireDueMusterTransits(state, { keyFor, sendDeferredAttack, requestViewRefresh: vi.fn() });
     expect(sendDeferredAttack).toHaveBeenCalledTimes(2);
-    expect(state.deferredAttackByTile.has(parkedKey)).toBe(false);
+    expect(state.deferredAttackByCommand.has(parkedKey)).toBe(false);
   });
 
   it("prunes a fired flag's entry once its combat result arrives, leaving other flags untouched", () => {
     const state = createInitialState();
-    armMusterTransit(state, keyFor, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, commandId: "cmd-a", clientSeq: 1 });
-    armMusterTransit(state, keyFor, { musterX: 5, musterY: 5, fromX: 5, fromY: 5, toX: 6, toY: 5, transitTiles: 100, commandId: "cmd-b", clientSeq: 2 });
+    armMusterTransit(state, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, manpower: 10, commandId: "cmd-a", clientSeq: 1 });
+    armMusterTransit(state, { musterX: 5, musterY: 5, fromX: 5, fromY: 5, toX: 6, toY: 5, transitTiles: 100, manpower: 10, commandId: "cmd-b", clientSeq: 2 });
     fireDueMusterTransits(state, { keyFor, sendDeferredAttack: vi.fn(), requestViewRefresh: vi.fn() });
 
-    expect(state.musterTransitByTile.has("0,0")).toBe(true); // locked, awaiting resolution
+    expect(state.musterTransitByCommand.has("cmd-a")).toBe(true); // locked, awaiting resolution
     clearMusterTransitForTarget(state, 1, 0);
 
-    expect(state.musterTransitByTile.has("0,0")).toBe(false);
+    expect(state.musterTransitByCommand.has("cmd-a")).toBe(false);
     // The other flag, still marching toward a different target, is untouched.
-    expect(state.musterTransitByTile.has("5,5")).toBe(true);
-    expect(state.deferredAttackByTile.has("5,5")).toBe(true);
+    expect(state.musterTransitByCommand.has("cmd-b")).toBe(true);
+    expect(state.deferredAttackByCommand.has("cmd-b")).toBe(true);
   });
 
   it("self-heals a locked entry orphaned by an unclean reset (accept-timeout, rejection, reconnect) instead of leaking forever", () => {
     const state = createInitialState();
-    armMusterTransit(state, keyFor, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, commandId: "cmd-a", clientSeq: 1 });
+    armMusterTransit(state, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, manpower: 10, commandId: "cmd-a", clientSeq: 1 });
     fireDueMusterTransits(state, { keyFor, sendDeferredAttack: vi.fn(), requestViewRefresh: vi.fn() });
-    expect(state.musterTransitByTile.has("0,0")).toBe(true);
+    expect(state.musterTransitByCommand.has("cmd-a")).toBe(true);
 
     // No clean COMBAT_RESULT ever arrives (e.g. reset via an accept-timeout
     // or rejection path elsewhere that doesn't know about these maps).
     // Well within every legitimate recovery window, the entry must survive.
-    const entry = state.musterTransitByTile.get("0,0")!;
+    const entry = state.musterTransitByCommand.get("cmd-a")!;
     entry.transitEndsAt = Date.now() - 12_000;
     fireDueMusterTransits(state, { keyFor, sendDeferredAttack: vi.fn(), requestViewRefresh: vi.fn() });
-    expect(state.musterTransitByTile.has("0,0")).toBe(true);
+    expect(state.musterTransitByCommand.has("cmd-a")).toBe(true);
 
     // Well beyond every legitimate recovery window, it's pruned so the flag
     // isn't permanently excluded from findClosestMuster.
     entry.transitEndsAt = Date.now() - 31_000;
     fireDueMusterTransits(state, { keyFor, sendDeferredAttack: vi.fn(), requestViewRefresh: vi.fn() });
-    expect(state.musterTransitByTile.has("0,0")).toBe(false);
+    expect(state.musterTransitByCommand.has("cmd-a")).toBe(false);
   });
 
   it("cancels only unsent (still-marching) transits, leaving already-fired ones for the server-side cancel", () => {
     const state = createInitialState();
-    armMusterTransit(state, keyFor, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, commandId: "cmd-a", clientSeq: 1 });
-    armMusterTransit(state, keyFor, { musterX: 5, musterY: 5, fromX: 5, fromY: 5, toX: 6, toY: 5, transitTiles: 100, commandId: "cmd-b", clientSeq: 2 });
+    armMusterTransit(state, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, manpower: 10, commandId: "cmd-a", clientSeq: 1 });
+    armMusterTransit(state, { musterX: 5, musterY: 5, fromX: 5, fromY: 5, toX: 6, toY: 5, transitTiles: 100, manpower: 10, commandId: "cmd-b", clientSeq: 2 });
     fireDueMusterTransits(state, { keyFor, sendDeferredAttack: vi.fn(), requestViewRefresh: vi.fn() });
 
     const cancelled = cancelUnsentMusterTransits(state);
 
     expect(cancelled).toBe(true);
     // "0,0" already fired (locked) — untouched here, cancelled server-side instead.
-    expect(state.musterTransitByTile.has("0,0")).toBe(true);
+    expect(state.musterTransitByCommand.has("cmd-a")).toBe(true);
     // "5,5" was still marching — cancelled locally immediately.
-    expect(state.musterTransitByTile.has("5,5")).toBe(false);
-    expect(state.deferredAttackByTile.has("5,5")).toBe(false);
+    expect(state.musterTransitByCommand.has("cmd-b")).toBe(false);
+    expect(state.deferredAttackByCommand.has("cmd-b")).toBe(false);
   });
 
   it("reports no cancellation when every tracked flag has already fired", () => {
     const state = createInitialState();
-    armMusterTransit(state, keyFor, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, commandId: "cmd-a", clientSeq: 1 });
+    armMusterTransit(state, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, manpower: 10, commandId: "cmd-a", clientSeq: 1 });
     fireDueMusterTransits(state, { keyFor, sendDeferredAttack: vi.fn(), requestViewRefresh: vi.fn() });
 
     expect(cancelUnsentMusterTransits(state)).toBe(false);
@@ -182,8 +182,8 @@ describe("client-muster-transit", () => {
 
   it("reports supply lines with independent transit/locked phases per flag", () => {
     const state = createInitialState();
-    armMusterTransit(state, keyFor, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, commandId: "cmd-a", clientSeq: 1 });
-    armMusterTransit(state, keyFor, { musterX: 5, musterY: 5, fromX: 5, fromY: 5, toX: 6, toY: 5, transitTiles: 100, commandId: "cmd-b", clientSeq: 2 });
+    armMusterTransit(state, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 0, manpower: 10, commandId: "cmd-a", clientSeq: 1 });
+    armMusterTransit(state, { musterX: 5, musterY: 5, fromX: 5, fromY: 5, toX: 6, toY: 5, transitTiles: 100, manpower: 10, commandId: "cmd-b", clientSeq: 2 });
     fireDueMusterTransits(state, { keyFor, sendDeferredAttack: vi.fn(), requestViewRefresh: vi.fn() });
 
     const lines = activeMusterSupplyLines(state, keyFor);
@@ -196,7 +196,7 @@ describe("client-muster-transit", () => {
 describe("outgoingMusterAttackTransitLines", () => {
   // Regression: this is the marching supply line for an ADVANCE/MARCH
   // auto-fire attack (server-dispatched -- never armed via armMusterTransit,
-  // so musterTransitByTile has nothing for it). The 2D map draws it from
+  // so musterTransitByCommand has nothing for it). The 2D map draws it from
   // this pure function.
   it("builds a transit-phase line for a still-marching auto-fire attack", () => {
     const state = {

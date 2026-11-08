@@ -1,5 +1,5 @@
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
-import { clearMusterTransitForTarget } from "../client-muster-transit/client-muster-transit.js";
+import { clearMusterTransitForAttack } from "../client-muster-transit/client-muster-transit.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 // Split out of client-network.ts's ERROR handler (over the repo's 500-line
@@ -32,7 +32,7 @@ export const resetFrontierActionStateAfterError = (
   // attack from it parks as "mustering" while the flag keeps filling past
   // what's needed, until the 30s orphan prune in fireDueMusterTransits
   // finally frees it (seen as mustering 70/60 climbing to 120+).
-  if (failedAction) clearMusterTransitForTarget(state, failedAction.x, failedAction.y);
+  if (failedAction) clearMusterTransitForAttack(state, failedAction.commandId, failedAction);
   input.clearLateFrontierAck(failedCurrentKey);
   input.clearLateFrontierAck(failedTargetKey);
   if (errorCode === "ATTACK_COOLDOWN" || errorCode === "DOCK_COOLDOWN") {

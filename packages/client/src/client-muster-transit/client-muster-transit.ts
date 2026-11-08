@@ -2,12 +2,14 @@ import { attackSyncLog } from "../client-debug/client-debug.js";
 import { MUSTER_TRANSIT_MS_PER_TILE } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 
-// A player's muster flags (staged manpower on an owned tile) each fund
-// attacks independently on the server (see musterReservedByKey /
-// resolveMusterSource in apps/simulation). This module mirrors that
-// client-side by tracking transit/deferred-send state per flag tile key
-// (`${x},${y}`) instead of a single global slot, so multiple flags can
-// arm, march, and fire concurrently without stomping on each other.
+// A player's muster flags (staged manpower on an owned tile) fund attacks on
+// the server through a per-flag reservation (musterReservedByKey /
+// resolveMusterSource in apps/simulation): a flag can back several attacks at
+// once as long as its staged amount covers every reservation. This module
+// mirrors that client-side by tracking transit/deferred-send state per
+// attack (keyed by the attack's commandId) instead of per flag, so one flag
+// can send several companies and many flags can arm, march and fire
+// concurrently. musterReservedAt sums what a flag has already committed.
 
 export type MusterTransitEntry = {
   musterX: number;
@@ -32,6 +34,10 @@ export type MusterTransitEntry = {
   targetY: number;
   transitStartAt: number;
   transitEndsAt: number;
+  /** Manpower this attack reserved on its flag (released on the attack's result). */
+  manpower: number;
+  /** Server combat-lock resolution time, stamped once the attack is locked. */
+  resolvesAt?: number;
 };
 
 export type DeferredMusterAttack = {
@@ -43,7 +49,7 @@ export type DeferredMusterAttack = {
   clientSeq: number;
 };
 
-type MusterTransitMaps = Pick<ClientState, "musterTransitByTile" | "deferredAttackByTile">;
+type MusterTransitMaps = Pick<ClientState, "musterTransitByCommand" | "deferredAttackByCommand">;
 
 type ArmMusterTransitState = MusterTransitMaps &
   Pick<
@@ -66,7 +72,6 @@ type ArmMusterTransitState = MusterTransitMaps &
 // fallback path that self-corrects once that attack's real result arrives.
 export const armMusterTransit = (
   state: ArmMusterTransitState,
-  keyFor: (x: number, y: number) => string,
   args: {
     musterX: number;
     musterY: number;
@@ -75,6 +80,7 @@ export const armMusterTransit = (
     toX: number;
     toY: number;
     transitTiles: number;
+    manpower: number;
     commandId: string;
     clientSeq: number;
   }
@@ -82,8 +88,7 @@ export const armMusterTransit = (
   const now = Date.now();
   const transitMs = args.transitTiles * MUSTER_TRANSIT_MS_PER_TILE;
   attackSyncLog("muster-transit-armed", { commandId: args.commandId, clientSeq: args.clientSeq, transitMs, transitEndsAt: now + transitMs, target: { x: args.toX, y: args.toY } });
-  const flagKey = keyFor(args.musterX, args.musterY);
-  state.musterTransitByTile.set(flagKey, {
+  state.musterTransitByCommand.set(args.commandId, {
     musterX: args.musterX,
     musterY: args.musterY,
     marchToX: args.fromX,
@@ -91,9 +96,10 @@ export const armMusterTransit = (
     targetX: args.toX,
     targetY: args.toY,
     transitStartAt: now,
-    transitEndsAt: now + transitMs
+    transitEndsAt: now + transitMs,
+    manpower: args.manpower
   });
-  state.deferredAttackByTile.set(flagKey, {
+  state.deferredAttackByCommand.set(args.commandId, {
     fromX: args.fromX,
     fromY: args.fromY,
     toX: args.toX,
@@ -119,24 +125,25 @@ type FireDueMusterTransitsState = MusterTransitMaps &
   Pick<ClientState, "actionInFlight" | "actionAcceptedAck" | "combatStartAck" | "actionAcceptTimeoutHandledAt" | "actionStartedAt" | "actionCurrent" | "actionTargetKey">;
 
 // Once fired, a flag's entry is only meant to live in "locked" phase
-// (musterTransitByTile without a matching deferredAttackByTile) until its
+// (musterTransitByCommand without a matching deferredAttackByCommand) until its
 // combat result arrives, at which point clearMusterTransitForTarget removes
 // it. But several other reset paths (accept-timeout, command rejection,
 // reconnect/resync) reset actionInFlight/actionCurrent without knowing
 // about these maps, so an unclean resolution can orphan a locked entry
-// forever — permanently excluding that flag from findClosestMuster and
-// leaving a stale overlay line. Every legitimate resolution/recovery path
+// forever — permanently holding that flag's manpower reserved (see
+// musterReservedAt) and leaving a stale overlay line. Every legitimate resolution/recovery path
 // in this system completes within ~12s of the transit ending (see the
 // frontierSyncWaitUntilByTarget/frontierLateAckUntilByTarget windows
-// elsewhere); prune anything still locked well beyond that as a safety net.
+// elsewhere) and its combat lock resolving (resolvesAt, stamped when the
+// server locks it); prune anything still locked well beyond that.
 const STALE_LOCKED_MUSTER_TRANSIT_MS = 30_000;
 
-// Fire whichever flags' transit windows have elapsed. Only one frontier
-// command can be awaiting a server ack at a time (state.actionInFlight is
-// still a single slot for the actual send/ack/resolution cycle); any flag
-// that's ready but finds the slot busy just stays parked and is retried on
-// a later tick — it does not block other flags from continuing to count
-// down independently in the meantime.
+// Fire whichever attacks' transit windows have elapsed. Only one frontier
+// command can be awaiting a server ack at a time (state.actionInFlight), but
+// that slot is released as soon as the server locks an ATTACK (COMBAT_START,
+// see client-detached-attacks.ts), so several attacks can be resolving at
+// once. Anything ready while the slot is busy stays parked and is retried on
+// a later tick, without blocking other marches from counting down.
 export const fireDueMusterTransits = (
   state: FireDueMusterTransitsState,
   deps: {
@@ -146,17 +153,18 @@ export const fireDueMusterTransits = (
   }
 ): void => {
   const now = Date.now();
-  for (const [flagKey, transit] of state.musterTransitByTile) {
-    const deferred = state.deferredAttackByTile.get(flagKey);
+  for (const [attackKey, transit] of state.musterTransitByCommand) {
+    const deferred = state.deferredAttackByCommand.get(attackKey);
     if (!deferred) {
       // Already fired — normally waiting on combat resolution, but prune it
       // if it's been orphaned well past every legitimate recovery window.
-      if (now - transit.transitEndsAt > STALE_LOCKED_MUSTER_TRANSIT_MS) state.musterTransitByTile.delete(flagKey);
+      const settlesBy = Math.max(transit.transitEndsAt, transit.resolvesAt ?? 0);
+      if (now - settlesBy > STALE_LOCKED_MUSTER_TRANSIT_MS) state.musterTransitByCommand.delete(attackKey);
       continue;
     }
     if (now < transit.transitEndsAt) continue;
     if (state.actionInFlight) continue;
-    state.deferredAttackByTile.delete(flagKey);
+    state.deferredAttackByCommand.delete(attackKey);
     state.actionInFlight = true;
     state.actionAcceptedAck = false;
     state.combatStartAck = false;
@@ -171,14 +179,55 @@ export const fireDueMusterTransits = (
   }
 };
 
+// Manpower already committed from the flag at (x, y) by this client's own
+// attacks that haven't resolved yet. The server keeps the flag's staged
+// amount untouched until resolution and only reserves against it, so the
+// client subtracts these itself to know how much the flag can still fund.
+export const musterReservedAt = (state: Pick<ClientState, "musterTransitByCommand">, x: number, y: number): number => {
+  let reserved = 0;
+  for (const transit of state.musterTransitByCommand.values()) {
+    if (transit.musterX === x && transit.musterY === y) reserved += transit.manpower;
+  }
+  return reserved;
+};
+
+/** Staged manpower on a flag tile that no unresolved attack has claimed yet. */
+export const musterAvailableAt = (state: Pick<ClientState, "musterTransitByCommand">, tile: { x: number; y: number; muster?: { amount: number } }): number =>
+  Math.max(0, (tile.muster?.amount ?? 0) - musterReservedAt(state, tile.x, tile.y));
+
+// Record when the server will resolve a locked attack, so the stale-entry
+// prune above keeps its reservation alive for the whole combat lock.
+export const stampMusterTransitResolvesAt = (state: Pick<ClientState, "musterTransitByCommand">, commandId: string, resolvesAt: number): void => {
+  const transit = state.musterTransitByCommand.get(commandId);
+  if (transit) transit.resolvesAt = resolvesAt;
+};
+
+// Drop one finished or rejected attack's march and reservation. Matching by
+// commandId keeps a second attack on the same tile (still marching, or
+// refused because the tile is locked) from taking the first one's
+// reservation with it; the target is only a fallback for a message that
+// carries no commandId we know.
+export const clearMusterTransitForAttack = (
+  state: MusterTransitMaps,
+  commandId: unknown,
+  target: { x: number; y: number } | undefined
+): void => {
+  if (typeof commandId === "string" && state.musterTransitByCommand.has(commandId)) {
+    state.musterTransitByCommand.delete(commandId);
+    state.deferredAttackByCommand.delete(commandId);
+    return;
+  }
+  if (target) clearMusterTransitForTarget(state, target.x, target.y);
+};
+
 // Drop the tracked transit/deferred state for a specific resolved target
 // (called once the server's combat result for that attack arrives). Other
 // flags' still-active entries are untouched.
 export const clearMusterTransitForTarget = (state: MusterTransitMaps, targetX: number, targetY: number): void => {
-  for (const [flagKey, transit] of state.musterTransitByTile) {
+  for (const [attackKey, transit] of state.musterTransitByCommand) {
     if (transit.targetX !== targetX || transit.targetY !== targetY) continue;
-    state.musterTransitByTile.delete(flagKey);
-    state.deferredAttackByTile.delete(flagKey);
+    state.musterTransitByCommand.delete(attackKey);
+    state.deferredAttackByCommand.delete(attackKey);
   }
 };
 
@@ -188,9 +237,9 @@ export const clearMusterTransitForTarget = (state: MusterTransitMaps, targetX: n
 // server-side locks, cancelled via the CANCEL_CAPTURE message instead.
 export const cancelUnsentMusterTransits = (state: MusterTransitMaps): boolean => {
   let hadAny = false;
-  for (const flagKey of state.deferredAttackByTile.keys()) {
-    state.musterTransitByTile.delete(flagKey);
-    state.deferredAttackByTile.delete(flagKey);
+  for (const attackKey of state.deferredAttackByCommand.keys()) {
+    state.musterTransitByCommand.delete(attackKey);
+    state.deferredAttackByCommand.delete(attackKey);
     hadAny = true;
   }
   return hadAny;
@@ -216,14 +265,14 @@ export type MusterSupplyLine = {
 // line, and firing one doesn't cancel another's overlay.
 export const activeMusterSupplyLines = (state: MusterTransitMaps, keyFor: (x: number, y: number) => string): MusterSupplyLine[] => {
   const lines: MusterSupplyLine[] = [];
-  for (const [flagKey, transit] of state.musterTransitByTile) {
+  for (const [attackKey, transit] of state.musterTransitByCommand) {
     lines.push({
       musterX: transit.musterX,
       musterY: transit.musterY,
       targetX: transit.marchToX,
       targetY: transit.marchToY,
       targetKey: keyFor(transit.targetX, transit.targetY),
-      phase: state.deferredAttackByTile.has(flagKey) ? "transit" : "locked"
+      phase: state.deferredAttackByCommand.has(attackKey) ? "transit" : "locked"
     });
   }
   return lines;
@@ -234,7 +283,7 @@ type OutgoingMusterAttackMaps = Pick<ClientState, "outgoingMusterAttacksByTile">
 // ADVANCE/MARCH auto-fire's own mechanical travel-time delay (see
 // runtime-frontier-command.ts) is carried on state.outgoingMusterAttacksByTile
 // itself (transitEndsAt/musterOriginX/musterOriginY), independent of both
-// musterTransitByTile (only ever populated for this client's own manually-
+// musterTransitByCommand (only ever populated for this client's own manually-
 // armed attacks) and state.capture (deliberately never set for these
 // server-fired fights -- see handleMusterAdvanceCombatStart -- so it can't
 // be relied on as a supply-line source either). Lets the 2D map's
@@ -265,7 +314,7 @@ export const outgoingMusterAttackTransitLines = (
 export type AdvanceMusterFallbackCache = { targetKey: string; result: { x: number; y: number } | undefined } | undefined;
 
 // ADVANCE-mode attacks are fired autonomously by the server and never go
-// through armMusterTransit, so they aren't covered by musterTransitByTile.
+// through armMusterTransit, so they aren't covered by musterTransitByCommand.
 // Overlay code falls back to scanning for the nearest owned ADVANCE flag
 // for the single tracked `state.capture` target. Takes a
 // caller-owned cache slot (the 2D supply-line overlay's).
