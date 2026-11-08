@@ -135,7 +135,7 @@ export type DukeStatus = {
   politics?: DukePoliticsView;
   raids?: DukePublicRaid[];
   // Systems hit lately, any Duke's: they smoke on the map (§31).
-  recentHits?: { seasonId: string; at: number }[];
+  recentHits?: { seasonId: string; at: number; by: "RAID" | "WARDEN" }[];
 };
 
 export type DukeActionFailure = { ok: false; code: string; availableAt?: number };

@@ -1,6 +1,7 @@
 // What each system shows on the map (design doc §31), derived from the Duke
 // status and shared by both renderers: the 3D galaxy and system view
 // (client-space-system-markers.ts) and the 2D strategic map. Pure.
+import { formatDuration } from "../client-duke-panel/client-duke-format.js";
 import type { DukeStatus } from "../client-duke-panel/client-duke-types.js";
 
 export type BodyMarker = { base: boolean; developed: boolean; building: boolean };
@@ -36,4 +37,13 @@ export const systemMarkersFromStatus = (status: DukeStatus | undefined): Map<str
     m.bodies = s.bodies.map((b) => ({ base: b.base, developed: b.development !== null, building: s.slot?.bodyIndex === b.index }));
   }
   return markers;
+};
+
+// Why a planet is smoking, said when the player presses it (§31). Undefined
+// when it is not.
+export const smokeReason = (status: DukeStatus | undefined, seasonId: string, now: number): string | undefined => {
+  const hit = (status?.recentHits ?? []).find((h) => h.seasonId === seasonId);
+  if (!hit) return undefined;
+  const ago = `${formatDuration(now - hit.at)} ago`;
+  return hit.by === "WARDEN" ? `Smoking: Wardens got through ${ago} and cost it 20 Stability.` : `Smoking: a rival's raid got through ${ago} and cost it 20 Stability.`;
 };

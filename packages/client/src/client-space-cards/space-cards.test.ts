@@ -99,3 +99,14 @@ describe("Space View action cards", () => {
     expect(screen.querySelector("[data-sc-card='hold']")).not.toBeNull();
   });
 });
+
+describe("a smoking planet (§31)", () => {
+  it("says why when you open it, and the bodies strip carries no hit chip", () => {
+    const hit = dukeStatus({ recentHits: [{ seasonId: "s1", at: NOW - 3 * H, by: "WARDEN" }] });
+    const { screen, cards } = setup(hit, hit);
+    expect(screen.querySelector(".sc-hit")).toBeNull();
+    cards.showSystem("s1");
+    expect(screen.querySelector(".sc-hit")?.textContent).toBe("Smoking: Wardens got through 3h ago and cost it 20 Stability.");
+    expect(screen.querySelector(".sc-bodies")?.textContent).not.toMatch(/Hit|smok/i);
+  });
+});

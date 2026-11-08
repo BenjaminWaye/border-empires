@@ -43,7 +43,7 @@ export const spaceCardsStyle = `
 .sc-body-base { border-color: var(--v2-edge); }
 .sc-body-dev { border-color: var(--v2-gold); color: var(--v2-gold-hi); }
 .sc-body-building { box-shadow: 0 0 0 1px var(--v2-gold) inset; }
-.sc-body-hit { border-color: var(--v2-red); color: var(--v2-red-hi); }
+.sc-hit { margin: 0; padding: 5px 12px; background: var(--v2-ink); border: 1px solid var(--v2-red); font-size: 13px; color: var(--v2-red-hi); }
 .sc-hand-wrap { position: absolute; left: 0; right: 0; bottom: 18px; display: grid; justify-items: center; gap: 8px; padding: 0 16px; }
 .sc-turn { margin: 0; padding: 5px 12px; background: var(--v2-ink); border: 1px solid var(--v2-line); font-size: 13px; color: var(--v2-soft); }
 .sc-turn b { color: var(--v2-gold-hi); font-family: var(--v2-display); }

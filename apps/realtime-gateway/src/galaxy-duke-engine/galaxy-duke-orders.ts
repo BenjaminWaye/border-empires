@@ -148,7 +148,7 @@ export const resolveRaidArrival = (attacker: DukeState, defender: DukeState | nu
     const defenderText = outcome.through
       ? `A rival Fighter raided ${target.label}: Stability ${target.stability} to ${after}. This Sector can take ${Math.floor(after / 20)} more hits before it is contested.`
       : `A rival Fighter raided ${target.label} and was held off.`;
-    const hit = outcome.through ? { lastHitAt: now } : {};
+    const hit = outcome.through ? { lastHitAt: now, lastHitBy: "RAID" as const } : {};
     const d = pushDigest(replaceSystem(defender, { ...defenderSystem, fighters: outcome.defenderFighters, ...hit }), now, "COMBAT", defenderText);
     nextDefender = d.state;
     counters.push(...d.counters);

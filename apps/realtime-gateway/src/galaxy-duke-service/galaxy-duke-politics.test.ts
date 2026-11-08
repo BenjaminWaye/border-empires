@@ -243,8 +243,8 @@ describe("smoke after a hit (§31)", () => {
     await h.service.status("uid-a");
     const hitAt = T0 + FIGHTER_TRAVEL_MS;
     expect((await h.service.status("uid-b"))?.systems[0]?.lastHitAt).toBe(hitAt);
-    expect((await h.service.court()).recentHits).toEqual([{ seasonId: "season-b", at: hitAt }]);
-    expect((await h.service.status("uid-a"))?.recentHits).toEqual([{ seasonId: "season-b", at: hitAt }]);
+    expect((await h.service.court()).recentHits).toEqual([{ seasonId: "season-b", at: hitAt, by: "RAID" }]);
+    expect((await h.service.status("uid-a"))?.recentHits).toEqual([{ seasonId: "season-b", at: hitAt, by: "RAID" }]);
     h.advance(DAY);
     expect((await h.service.court()).recentHits).toEqual([]);
   });

@@ -5,6 +5,7 @@ import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import { formatDuration } from "../client-duke-panel/client-duke-format.js";
 import type { DukeStatus } from "../client-duke-panel/client-duke-types.js";
 import type { CardIcon, SpaceCard, SpaceStop } from "./space-cards-model.js";
+import { smokeReason } from "../client-space-view/client-space-view-markers.js";
 
 const ICON_PATHS: Record<CardIcon, string> = {
   crown: "M4 17l2-9 6 5 6-5 2 9z",
@@ -89,9 +90,7 @@ const bodiesHtml = (status: DukeStatus, seasonId: string): string => {
     })
     .join("");
   // Smoking only while the hit is recent (the server's public 24h window).
-  const smoking = (status.recentHits ?? []).some((h) => h.seasonId === seasonId);
-  const hit = smoking ? `<span class="sc-body sc-body-hit"><b>Hit</b>smoking</span>` : "";
-  return `<div class="sc-bodies" aria-label="Bodies in this system">${chips}${hit}</div>`;
+  return `<div class="sc-bodies" aria-label="Bodies in this system">${chips}</div>`;
 };
 
 // The one line above the hand: whose turn it is, or when the next one comes.
@@ -110,6 +109,7 @@ export const spaceCardsHtml = (status: DukeStatus, stop: SpaceStop, hand: Readon
   `<div class="sc-top">${barHtml(status, stop)}${systemsHtml(status, stop)}</div>
    <section class="sc-hand-wrap" aria-label="${stop.mode === "galaxy" ? "Your decrees" : "This system's orders"}">
      ${turnHtml(status, stop, now)}
+     ${stop.mode === "system" && smokeReason(status, stop.seasonId, now) ? `<p class="sc-hit" role="status">${escapeHtml(smokeReason(status, stop.seasonId, now)!)}</p>` : ""}
      ${message ? `<p class="sc-message" role="status">${escapeHtml(message)}</p>` : ""}
      <div class="sc-hand">${hand.map(cardHtml).join("")}</div>
    </section>`;

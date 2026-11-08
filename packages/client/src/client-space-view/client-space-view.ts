@@ -21,7 +21,8 @@ import { isDiscoveryTipSeen, markDiscoveryTipSeen } from "../client-discovery-ti
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
 import { createFleetOverlayFeed } from "./client-space-view-raid-feed.js";
 import { createSpaceFleetFetcher } from "./client-space-view-fleet-fetch.js";
-import { systemMarkersFromStatus } from "./client-space-view-markers.js";
+import { smokeReason, systemMarkersFromStatus } from "./client-space-view-markers.js";
+import type { DukeStatus } from "../client-duke-panel/client-duke-types.js";
 import { mountPanelDismissal } from "./client-space-view-panels.js";
 import { createStrategicMapController, type StrategicMapController } from "./client-strategic-map/client-strategic-map-controller.js";
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
@@ -79,6 +80,8 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   let duke: DukeController | undefined;
   // The action cards (§30): decrees in the galaxy view, orders in a system's.
   let cards: SpaceCards | undefined;
+  // The latest Duke status, so pressing a smoking rival planet can say why.
+  let lastStatus: DukeStatus | undefined;
   // Systems this account holds, so pressing one opens its panel.
   let ownedSeasonIds: ReadonlySet<string> = new Set();
   let modelsBySeasonId: ReadonlyMap<string, SpacePlanetViewModel> = new Map();
@@ -87,7 +90,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     const model = modelsBySeasonId.get(seasonId);
     if (ownedSeasonIds.has(seasonId) && cards) cards.showSystem(seasonId);
     else if (ownedSeasonIds.has(seasonId)) duke?.showSystem(seasonId);
-    else if (model) duke?.showTarget(systemInfoFor(model));
+    else if (model) duke?.showTarget(systemInfoFor(model, smokeReason(lastStatus, seasonId, Date.now())));
   };
 
   const fleets = createSpaceFleetFetcher({ firebaseAuth: deps.firebaseAuth, wsUrl: deps.wsUrl, getScene: () => scene, feed: fleetFeed });
@@ -249,6 +252,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         // Every raid in the air, on both maps (§29.4).
         strategicMap?.setRaids(status?.raids ?? []);
         fleetFeed.setRaids(status?.raids ?? []);
+        lastStatus = status;
         cards?.setStatus(status);
         // Smoke, builds, Probes and bases on both maps (§31).
         const markers = systemMarkersFromStatus(status);

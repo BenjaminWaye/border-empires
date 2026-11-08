@@ -2894,4 +2894,7 @@ renderers draw them.
 | Raid inbound | Everyone | Existing threat ring and flying Fighter | Existing raid course |
 | Base / development / build on a body | Owner | Gold ring on the body; developed bodies glow; a pulse while building | Not drawn: the 2D map has no system view. The card UI shows the same per body in a strip above the cards. |
 
-Each system records `lastHitAt` when a raid or incursion gets through.
+Each system records `lastHitAt` and `lastHitBy` (raid or Warden) when an
+attack gets through. The smoke carries no label: pressing the planet says
+why ("Smoking: a rival's raid got through 2h ago and cost it 20 Stability"),
+in your system's view or in a rival system's panel.

@@ -37,13 +37,13 @@ export const listPublicRaids = (states: ReadonlyArray<DukeState>, now: number): 
 
 // Systems a raid or Warden got through on lately, from every Duke: they smoke
 // on the map for everyone (§31), like the raid that caused it was public.
-export type RecentHitView = { seasonId: string; at: number };
+export type RecentHitView = { seasonId: string; at: number; by: "RAID" | "WARDEN" };
 
 export const listRecentHits = (states: ReadonlyArray<DukeState>, now: number): RecentHitView[] =>
   states
     .flatMap((s) => (Array.isArray(s.systems) ? s.systems : []))
     .filter((sys) => typeof sys.lastHitAt === "number" && now - sys.lastHitAt < RECENT_HIT_MS)
-    .map((sys) => ({ seasonId: sys.seasonId, at: sys.lastHitAt! }));
+    .map((sys) => ({ seasonId: sys.seasonId, at: sys.lastHitAt!, by: sys.lastHitBy ?? "RAID" }));
 
 export const buildPoliticsView = async (
   ctx: DukeContext,

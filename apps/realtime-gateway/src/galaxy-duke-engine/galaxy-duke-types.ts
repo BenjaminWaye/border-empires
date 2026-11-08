@@ -44,6 +44,8 @@ export type SystemState = {
   bases?: number[];
   // When a raid or Warden last got through here (§31: the planet smokes).
   lastHitAt?: number;
+  // What got through: a rival's raid or a Warden incursion.
+  lastHitBy?: "RAID" | "WARDEN";
   fighters: DukeFighter[];
   probeStock: number;
   developments: SystemDevelopment[];
