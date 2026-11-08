@@ -71,19 +71,47 @@ describe("resource bar", () => {
 });
 
 describe("tracker", () => {
-  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, building: [], queue: [], slotsOpen: true, nowMs: 0 };
+  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, manpowerCap: 1000, building: [], queue: [], slotsOpen: true, nowMs: 0 };
 
   it("lists free build slots, AFC upgrades and stalled flags as needs", () => {
     const needs = trackerNeeds({
       ...base,
       afcReady: 1,
       flags: [
-        { x: 4, y: 5, amount: 10, mode: "ADVANCE", insufficientManpower: true },
+        { x: 4, y: 5, amount: 10, mode: "ADVANCE", noTargetInRange: true },
         { x: 6, y: 7, amount: 50, mode: "HOLD" }
       ]
     });
     expect(needs.map((n) => n.kind)).toEqual(["afc", "flag"]);
-    expect(needs[1]).toMatchObject({ x: 4, y: 5, sub: "Needs manpower" });
+    expect(needs[1]).toMatchObject({ x: 4, y: 5, sub: "No target in range" });
+  });
+
+  // Regression: an Advance flag saving up for its next target (37/207, still fighting) was listed as "stalled".
+  // Flags drain the pool as they fill, so the pool sits near 0 while saving up: an empty pool is not a stall either.
+  it("does not list a flag that is only saving up or still fighting", () => {
+    const flags = [
+      { x: 464, y: 17, amount: 37, mode: "ADVANCE" as const, insufficientManpower: true, inFlight: true },
+      { x: 465, y: 17, amount: 37, mode: "ADVANCE" as const, insufficientManpower: true },
+      { x: 466, y: 17, amount: 37, mode: "MARCH" as const, insufficientManpower: true },
+      { x: 467, y: 17, amount: 20, mode: "ADVANCE" as const, inFlight: true, unfundableTarget: { x: 1, y: 1, required: 900 } },
+      { x: 468, y: 17, amount: 20, mode: "HOLD" as const, noTargetInRange: true }
+    ];
+    expect(trackerNeeds({ ...base, flags })).toEqual([]);
+    expect(trackerHtml({ ...base, flags })).not.toContain("Needs you");
+  });
+
+  it("lists idle flags with no target, or a target beyond what the flag can hold", () => {
+    const needs = trackerNeeds({
+      ...base,
+      manpowerCap: 600,
+      flags: [
+        { x: 1, y: 1, amount: 10, mode: "ADVANCE", noTargetInRange: true },
+        { x: 2, y: 2, amount: 150, mode: "ADVANCE", insufficientManpower: true, unfundableTarget: { x: 3, y: 3, required: 300 } },
+        { x: 4, y: 4, amount: 150, mode: "MARCH", insufficientManpower: true, unfundableTarget: { x: 5, y: 5, required: 900 } }
+      ]
+    });
+    expect(needs.map((n) => n.title)).toEqual(["Flag (1, 1) stalled", "Flag (2, 2) needs higher capacity", "Flag (4, 4) stalled"]);
+    expect(needs.map((n) => n.sub)).toEqual(["No target in range", "Target needs 300", "Target needs 900, over manpower cap"]);
   });
 
   it("caps the waiting list and shows the overflow count", () => {
