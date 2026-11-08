@@ -59,7 +59,7 @@ body.hud-v2-compact .hud-v2-bubble {
   flex: 1 1 0; min-width: 0; width: auto; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   border: 0; border-top: 2px solid transparent; border-radius: 0; background: transparent; box-shadow: none;
 }
-body.hud-v2-compact .hud-v2-bubble-active { border: 0; border-top: 2px solid var(--v2-gold); background: #1d1810; }
+body.hud-v2-compact .hud-v2-bubble-active { border: 0; border-top: 2px solid var(--v2-gold); background: var(--v2-chip); }
 body.hud-v2-compact .hud-v2-bubble .tab-icon-img { width: 22px; height: 22px; }
 /* The label is always shown under the icon: there is no hover to reveal it. */
 body.hud-v2-compact .hud-v2-bubble-label {
@@ -199,3 +199,13 @@ body.hud-v2-compact .v2c-treasury-rows .hud-v2-gear { display: flex; align-items
 body.hud-v2-compact .v2c-treasury-rows .hud-v2-gear::after { content: " Settings"; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }
 
 /* The map overview (full-screen minimap with lenses) is styled in client-hud-v2-map-overview.css. */
+
+/* Compact tabs already have their own selected surface and persistent labels. */
+body.hud-v2-compact .hud-v2-bubble .tab-icon-art {
+  width: 26px; height: 26px; border: 0; background: none;
+}
+body.hud-v2-compact .hud-v2-bubble-active .tab-icon-img { filter: none; }
+
+body.hud-v2-compact .hud-v2-crest { display: flex; flex-direction: column; align-items: center; gap: 3px; justify-content: center; height: auto; margin: 0 2px 0 6px; padding: 0; border: 0; }
+body.hud-v2-compact .hud-v2-crest-mark { width: 30px; height: 30px; font-size: 18px; }
+body.hud-v2-compact .hud-v2-crest-label { font-size: 9px; line-height: 12px; }

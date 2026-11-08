@@ -65,7 +65,8 @@ export function renderAfcRecovery(deps: AfcRecoveryUiDeps): void {
     return;
   }
   if (!state.afcRecoveryPopupOpen) {
-    root.innerHTML = `<button class="afc-recovery-status ${buttonClass}" type="button">Construction suspended · Call down AFC · ${cost} gold</button>`;
+    const unaffordable = state.gold < cost;
+    root.innerHTML = `<button class="afc-recovery-status afc-recovery-status-minimized ${buttonClass}" type="button" aria-label="Construction suspended. Review AFC recovery. Requires ${cost} gold${unaffordable ? ", insufficient gold" : ""}"><span>AFC offline</span><span class="${unaffordable ? "afc-recovery-cost-unaffordable" : ""}">Requires ${cost} gold</span></button>`;
     root.querySelector("button")?.addEventListener("click", () => { state.afcRecoveryPopupOpen = true; deps.rerender(); });
     return;
   }
@@ -85,7 +86,7 @@ export function renderAfcRecovery(deps: AfcRecoveryUiDeps): void {
           <div><span>Delivery time</span><strong>60 seconds</strong></div>
         </div>
         <p class="afc-recovery-supply">Losses across the planet strain offworld supply. Each further AFC loss adds 10 gold to the replacement price.</p>
-        ${affordable ? "" : `<p class="afc-recovery-cancellation">You need ${Math.ceil(cost - state.gold)} more gold. Earn income from surviving holdings, continue fighting, or withdraw and redeploy.</p>`}
+        ${affordable ? "" : `<p class="afc-recovery-cancellation">Requires ${cost} gold. Earn income from surviving holdings, continue fighting, or withdraw and redeploy.</p>`}
       </div>
       <footer class="afc-recovery-footer">
         <div class="afc-recovery-actions">

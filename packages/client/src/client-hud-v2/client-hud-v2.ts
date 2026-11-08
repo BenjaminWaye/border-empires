@@ -256,7 +256,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     afcReady: readyAfcUpgradeCount(state),
     diplomacyRequests: state.incomingAllianceRequests.length + state.incomingTruceRequests.length + state.resourceTradeOffers.filter(row => row.toPlayerId === state.me).length,
     chronicleUnread: chronicleBadgeCount(state),
-    active: screen.id ? NAV_ACTIVE[screen.id] : undefined
+    active: screen.id === "profile" && state.activePlayerProfileId === state.me ? "self" : screen.id ? NAV_ACTIVE[screen.id] : undefined
   }));
   writeRegion("season", seasonClockHtml(state.seasonVictory));
   writeRegion("ward", imperialWardButtonHtml(state, nowMs));

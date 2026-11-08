@@ -1,5 +1,4 @@
-/* Nav tab icons (client-nav-icons.ts). The emoji tabs were tinted with CSS
-   filters; the painted art carries its own colour, so drop them. */
+/* Flat amber navigation glyphs shared by the desktop and compact HUD. */
 .tab-icon.tab-icon-art {
   filter: none;
   display: inline-flex;

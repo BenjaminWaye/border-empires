@@ -1,3 +1,5 @@
+import { COMMAND_NAVIGATION_ENTRY } from "./client-changelog-command-navigation.js";
+import { CONNECTED_DISTRICTS_CHANGELOG } from "./client-changelog-connected-districts.js";
 import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
 import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
 import { SEASON_REVEAL_LOADING_CHANGELOG } from "./client-changelog-season-reveal-loading.js";
@@ -283,17 +285,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MARCH_ATTACK_DEEP_CHANGELOG,
   ...MARCH_ATTACK_ROUTES_CHANGELOG,
   ...MARCH_TO_UNEXPLORED_CHANGELOG,
-  {
-    createdAt: 1792870664672, // Date.now() captured once when this entry was created.
-    introducedIn: "2026.10.24.1",
-    title: "Towns and their support buildings now form connected districts",
-    why: "Town industries and services now share a consistent architectural style and show which town they serve.",
-    changes: [
-      "Support buildings and Project preparations have been remodeled on matching marble platforms, with shared brass detailing and distinct machinery.",
-      "Service connections follow the town's actual support assignments, including second-ring plots, terrain and overlapping towns. Connections are visual and do not change building costs or bonuses.",
-      "The 2D fallback has matching building artwork and service links. Construction, inactive buildings and existing saved structures retain their normal behavior."
-    ]
-  },
+  ...CONNECTED_DISTRICTS_CHANGELOG,
   ...WAR_INDUSTRY_SQUADS_CHANGELOG,
   ...FORT_WALL_OPENINGS_CHANGELOG,
   {
@@ -481,7 +473,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...SEASON_REVEAL_LOADING_CHANGELOG,
   ...RIVER_MOUTHS_CHANGELOG,
   ...NOV_07_STANDINGS_CHANGELOG,
-  ...AI_STOP_THE_LEADER_CHANGELOG
+  ...AI_STOP_THE_LEADER_CHANGELOG,
+  { ...COMMAND_NAVIGATION_ENTRY, createdAt: 1794153241666 }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
