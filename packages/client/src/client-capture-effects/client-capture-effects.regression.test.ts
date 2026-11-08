@@ -18,7 +18,7 @@ describe("renderCaptureProgress", () => {
     vi.restoreAllMocks();
   });
 
-  it("keeps the capture popup visible while waiting for delayed frontier resolution", () => {
+  it("shows no progress banner while waiting for a delayed frontier result", () => {
     vi.spyOn(Date, "now").mockReturnValue(11_000);
     const captureCardEl = makeElement();
     const captureWrapEl = makeElement();
@@ -77,15 +77,15 @@ describe("renderCaptureProgress", () => {
       }
     );
 
-    expect(captureCardEl.style.display).toBe("grid");
-    expect(captureWrapEl.style.display).toBe("block");
-    expect(captureTitleEl.textContent).toBe("Resolving action...");
-    expect(captureTimeEl.textContent).toBe("6.0s");
-    expect(captureReportBugBtn.style.display).toBe("inline-flex");
-    expect(captureTargetEl.textContent).toContain("Waiting for result");
+    // Several attacks can resolve at once now; each shows its progress on the
+    // map instead of in one "Resolving action..." banner.
+    expect(captureCardEl.style.display).toBe("none");
+    expect(captureWrapEl.style.display).toBe("none");
+    expect(captureTitleEl.textContent).toBe("");
+    expect(captureTimeEl.textContent).toBe("");
   });
 
-  it("shows countdown timing before resolve deadline and keeps debug download hidden", () => {
+  it("shows no \"Capturing Territory\" countdown before the resolve deadline", () => {
     vi.spyOn(Date, "now").mockReturnValue(4_100);
     const captureCardEl = makeElement();
     const captureWrapEl = makeElement();
@@ -108,62 +108,6 @@ describe("renderCaptureProgress", () => {
           resolvesAt: 5_000,
           target: { x: 10, y: 20 }
         },
-        me: "player-1",
-        tiles: new Map(),
-        pendingCombatReveal: undefined
-      } as any,
-      {
-        keyFor: (x, y) => `${x},${y}`,
-        formatCooldownShort: () => "0s",
-        showCaptureAlert: vi.fn(),
-        pushFeed: vi.fn(),
-        finalizePredictedCombat: vi.fn(),
-        captureCardEl,
-        captureWrapEl,
-        captureCancelBtn,
-        captureDismissBtn,
-        captureCloseBtn,
-        captureReportBugBtn,
-        captureBarEl,
-        captureTitleEl,
-        captureTimeEl,
-        captureTargetEl,
-        captureGotoBtn
-      }
-    );
-
-    expect(captureCardEl.style.display).toBe("grid");
-    expect(captureTitleEl.textContent).toBe("Capturing Territory...");
-    expect(captureTimeEl.textContent).toBe("0.9s");
-    expect(captureReportBugBtn.style.display).toBe("none");
-    expect(captureCancelBtn.style.display).toBe("inline-flex");
-    expect(captureDismissBtn.style.display).toBe("inline-flex");
-  });
-
-  it("hides the overlay for a dismissed capture without touching the underlying claim", () => {
-    vi.spyOn(Date, "now").mockReturnValue(4_100);
-    const captureCardEl = makeElement();
-    const captureWrapEl = makeElement();
-    const captureCancelBtn = makeElement();
-    const captureDismissBtn = makeElement();
-    const captureCloseBtn = makeElement();
-    const captureReportBugBtn = makeElement();
-    const captureBarEl = makeElement();
-    const captureTitleEl = makeElement();
-    const captureTimeEl = makeElement();
-    const captureTargetEl = makeElement();
-    const captureGotoBtn = makeElement() as unknown as HTMLButtonElement;
-
-    renderCaptureProgress(
-      {
-        captureAlert: undefined,
-        activeBattles: new Map(),
-        capture: {
-          startAt: 1_000,
-          resolvesAt: 5_000,
-          target: { x: 10, y: 20 }
-        },
-        dismissedCaptureStartAt: 1_000,
         me: "player-1",
         tiles: new Map(),
         pendingCombatReveal: undefined
@@ -189,64 +133,12 @@ describe("renderCaptureProgress", () => {
     );
 
     expect(captureCardEl.style.display).toBe("none");
-    expect(captureWrapEl.style.display).toBe("none");
+    expect(captureTitleEl.textContent).toBe("");
+    expect(captureTimeEl.textContent).toBe("");
+    expect(captureCancelBtn.style.display).toBe("none");
+    expect(captureDismissBtn.style.display).toBe("none");
   });
 
-  it("reopens the overlay for a new claim on the same tile even if the previous claim was dismissed", () => {
-    vi.spyOn(Date, "now").mockReturnValue(4_100);
-    const captureCardEl = makeElement();
-    const captureWrapEl = makeElement();
-    const captureCancelBtn = makeElement();
-    const captureDismissBtn = makeElement();
-    const captureCloseBtn = makeElement();
-    const captureReportBugBtn = makeElement();
-    const captureBarEl = makeElement();
-    const captureTitleEl = makeElement();
-    const captureTimeEl = makeElement();
-    const captureTargetEl = makeElement();
-    const captureGotoBtn = makeElement() as unknown as HTMLButtonElement;
-
-    renderCaptureProgress(
-      {
-        captureAlert: undefined,
-        activeBattles: new Map(),
-        capture: {
-          startAt: 4_000,
-          resolvesAt: 8_000,
-          target: { x: 10, y: 20 }
-        },
-        dismissedCaptureStartAt: 1_000,
-        me: "player-1",
-        tiles: new Map(),
-        pendingCombatReveal: undefined
-      } as any,
-      {
-        keyFor: (x, y) => `${x},${y}`,
-        formatCooldownShort: () => "0s",
-        showCaptureAlert: vi.fn(),
-        pushFeed: vi.fn(),
-        finalizePredictedCombat: vi.fn(),
-        captureCardEl,
-        captureWrapEl,
-        captureCancelBtn,
-        captureDismissBtn,
-        captureCloseBtn,
-        captureReportBugBtn,
-        captureBarEl,
-        captureTitleEl,
-        captureTimeEl,
-        captureTargetEl,
-        captureGotoBtn
-      }
-    );
-
-    expect(captureCardEl.style.display).toBe("grid");
-    expect(captureWrapEl.style.display).toBe("block");
-  });
-
-  // A parked manual attack used to take this banner over as "Mustering...
-  // 30 / 150"; its progress now floats over the flag as a badge
-  // (client-muster-flag-badge.ts), so the banner must stay out of the way.
   it("keeps the capture banner hidden while a manual attack is only parked on a muster flag", () => {
     const captureCardEl = makeElement();
     const captureWrapEl = makeElement();

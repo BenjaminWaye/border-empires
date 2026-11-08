@@ -3,7 +3,7 @@
 // Attack effort dialog records the chosen commitManpower here, keyed by
 // target tile, rather than threading it through every queue the attack can
 // pass through on its way out (actionQueue -> pendingMusterAttacks ->
-// deferredAttackByTile). Every ATTACK send point reads it back via
+// deferredAttackByCommand). Every ATTACK send point reads it back via
 // attackWireMessage, and every client-side muster-funding check reads it via
 // requiredMusterWithCommit so a flag holding only the floor isn't mistaken
 // for one that can fund the full commitment (the server's resolveMusterSource

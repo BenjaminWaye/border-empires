@@ -174,11 +174,24 @@ describe("findFundedMusterWithinRange", () => {
     expect(hasFundedMusterWithinRange(state, 0, 0, MUSTER_ATTACK_COST)).toBe(false);
   });
 
-  it("skips a flag already committed to another transit", () => {
+  // Regression: a flag already funding one attack was skipped outright, so a
+  // flag holding enough for several attacks could only send one at a time.
+  it("lets one flag fund a second attack from what its first attack left unreserved", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.tiles.set("2,0", makeTile({ x: 2, y: 0, ownerId: "me", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST * 2, mode: "HOLD", updatedAt: 0 } }));
+    state.musterTransitByCommand.set("cmd-first", { musterX: 2, musterY: 0, marchToX: 8, marchToY: 9, targetX: 9, targetY: 9, transitStartAt: 0, transitEndsAt: 999_999_999_999, manpower: MUSTER_ATTACK_COST });
+
+    expect(findFundedMusterWithinRange(state, 0, 0, MUSTER_ATTACK_COST)?.tile).toMatchObject({ x: 2, y: 0 });
+    state.musterTransitByCommand.set("cmd-second", { musterX: 2, musterY: 0, marchToX: 8, marchToY: 8, targetX: 9, targetY: 8, transitStartAt: 0, transitEndsAt: 999_999_999_999, manpower: MUSTER_ATTACK_COST });
+    expect(findFundedMusterWithinRange(state, 0, 0, MUSTER_ATTACK_COST)).toBeUndefined();
+  });
+
+  it("skips a flag whose manpower is already reserved by another attack", () => {
     const state = createInitialState();
     state.me = "me";
     state.tiles.set("2,0", makeTile({ x: 2, y: 0, ownerId: "me", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: 0 } }));
-    state.musterTransitByTile.set("2,0", { musterX: 2, musterY: 0, marchToX: 8, marchToY: 9, targetX: 9, targetY: 9, transitStartAt: 0, transitEndsAt: 999_999_999_999 });
+    state.musterTransitByCommand.set("2,0", { musterX: 2, musterY: 0, marchToX: 8, marchToY: 9, targetX: 9, targetY: 9, transitStartAt: 0, transitEndsAt: 999_999_999_999, manpower: MUSTER_ATTACK_COST });
 
     expect(findFundedMusterWithinRange(state, 0, 0, MUSTER_ATTACK_COST)).toBeUndefined();
   });

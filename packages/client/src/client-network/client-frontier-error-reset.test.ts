@@ -14,10 +14,10 @@ const stateWithFiredMusterAttack = (): ClientState =>
     actionTargetKey: "156,12",
     actionCurrent: { x: 156, y: 12, retries: 0, actionType: "ATTACK", commandId: "c-1", clientSeq: 2 },
     // Fired ("locked" phase): transit entry with no deferred send left.
-    musterTransitByTile: new Map([
+    musterTransitByCommand: new Map([
       ["156,11", { musterX: 156, musterY: 11, marchToX: 156, marchToY: 11, targetX: 156, targetY: 12, transitStartAt: 0, transitEndsAt: 2_000 }]
     ]),
-    deferredAttackByTile: new Map(),
+    deferredAttackByCommand: new Map(),
     frontierSyncWaitUntilByTarget: new Map()
   }) as unknown as ClientState;
 
@@ -34,7 +34,7 @@ describe("resetFrontierActionStateAfterError", () => {
       failedTargetKey: "156,12",
       clearLateFrontierAck: () => {}
     });
-    expect(state.musterTransitByTile.has("156,11")).toBe(false);
+    expect(state.musterTransitByCommand.has("156,11")).toBe(false);
     expect(state.actionInFlight).toBe(false);
     expect(state.actionCurrent).toBeUndefined();
     expect(state.frontierSyncWaitUntilByTarget.has("156,12")).toBe(true);

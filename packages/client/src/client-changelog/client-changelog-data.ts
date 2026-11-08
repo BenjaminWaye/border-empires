@@ -5,6 +5,8 @@ import { BATTLE_VARIETY_ENTRY } from "./client-changelog-battle-variety.js";
 import { GUIDE_AND_RECOVERY_CHANGELOG } from "./client-changelog-nov-03-04-guide-recovery.js";
 import { AFC_REPLACEMENT_CHANGELOG } from "./client-changelog-afc-replacement.js";
 import { AI_FREE_TRUCE_CHANGELOG } from "./client-changelog-ai-free-truce.js";
+import { AI_PRICING_TEMPERAMENTS_CHANGELOG } from "./client-changelog-ai-pricing-temperaments.js";
+import { CONCURRENT_ATTACKS_CHANGELOG } from "./client-changelog-concurrent-attacks.js";
 import { MOBILE_UI_CONSISTENCY_CHANGELOG } from "./client-changelog-mobile-ui-consistency.js";
 import { SALVAGE_TRIBUTE_UI_CHANGELOG } from "./client-changelog-salvage-tribute-ui.js";
 import { TUTORIAL_BUILD_AFC_FLOWS_CHANGELOG } from "./client-changelog-tutorial-build-afc-flows.js";
@@ -451,26 +453,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...BEACON_FOREST_VISION_CHANGELOG,
   ...MANIFEST_WORDING_CHANGELOG,
   ...TOWN_RING_IMPROVEMENTS_CHANGELOG,
-  {
-    createdAt: 1794075196542, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.07.1",
-    title: "AI truce and alliance prices now follow real income",
-    why: "AI empires priced deals as if everyone earned at least 1 coin a minute, far above real income, so a neighbour truce cost 720 to 1,080 coin or more.",
-    changes: [
-      "AI prices are based on real income, with a minimum of 10 coin a day",
-      "AI empires losing a war pay for peace from their real income too, so those payments are smaller"
-    ]
-  },
-  {
-    createdAt: 1794075703761, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.07.1",
-    title: "AI empires have temperaments",
-    why: "Every AI empire haggled the same way, so it made no difference who you were dealing with.",
-    changes: [
-      "Each AI empire is Measured, Merchant, Warlike, Peaceable or Vengeful, shown on the trade screen and the same every season",
-      "Temperament changes truce prices, how much lost land angers them, how far gifts go, and how readily they seek or pay for peace"
-    ]
-  },
+  ...AI_PRICING_TEMPERAMENTS_CHANGELOG,
+  ...CONCURRENT_ATTACKS_CHANGELOG,
   {
     createdAt: 1794087791822, // Date.now() captured once for this entry.
     introducedIn: "2026.11.07.2",

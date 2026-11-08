@@ -94,6 +94,9 @@ export const dispatchMusterFundedAttack = (
   const { from, to, targetKey, commandId, clientSeq } = input;
   const nowMs = Date.now();
   const closest = findClosestMuster(state, to.x, to.y);
+  // What this attack reserves on its flag (the chosen effort, else the base
+  // cost) -- other attacks can only use what is left on that flag.
+  const required = requiredMusterWithCommit(state, to);
   // A "ready" flag found by findClosestMuster must itself be adjacent (or dock-linked) to fire directly — merely "in range" gets NOT_ADJACENT server-side.
   const closestIsAdjacentOrLinked =
     closest != null &&
@@ -101,7 +104,7 @@ export const dispatchMusterFundedAttack = (
       isDockCrossingBetween(state, closest.tile.x, closest.tile.y, to.x, to.y));
   if (!closest || closest.dist >= MUSTER_AUTO_FLAG_THRESHOLD_TILES || !closestIsAdjacentOrLinked) {
     // No flag itself sits adjacent — but the server auto-funds an ATTACK from any owned flag within remote-funding range of the firing tile (see findFundedMusterWithinRange), same as ADVANCE already relies on. Fire from the normal border origin instead of parking behind a redundant new flag.
-    const funded = findFundedMusterWithinRange(state, from.x, from.y, requiredMusterWithCommit(state, to));
+    const funded = findFundedMusterWithinRange(state, from.x, from.y, required);
     if (funded) {
       // The funding flag's troops are pinned while its tile is attacked, and
       // they can't launch from a launch tile that is itself being attacked.
@@ -117,11 +120,11 @@ export const dispatchMusterFundedAttack = (
       // (the flag's own march to the front), matching what the flag
       // physically has to cover, not the trivial firing-tile-to-target
       // adjacency.
-      armMusterTransit(state, deps.keyFor, {
+      armMusterTransit(state, {
         musterX: funded.tile.x, musterY: funded.tile.y,
         fromX: from.x, fromY: from.y, toX: to.x, toY: to.y,
         transitTiles: Math.max(1, funded.dist),
-        commandId, clientSeq
+        manpower: required, commandId, clientSeq
       });
       deps.pushFeed(
         `Company marching from a flag ${funded.dist} tile${funded.dist === 1 ? "" : "s"} away — attack will fire on arrival`,
@@ -149,11 +152,11 @@ export const dispatchMusterFundedAttack = (
   // — arm its march instead of firing instantly. The flag is already
   // adjacent/dock-linked to the target (closestIsAdjacentOrLinked,
   // checked above), so it fires from itself once the march completes.
-  armMusterTransit(state, deps.keyFor, {
+  armMusterTransit(state, {
     musterX: closest.tile.x, musterY: closest.tile.y,
     fromX: closest.tile.x, fromY: closest.tile.y, toX: to.x, toY: to.y,
     transitTiles: Math.max(1, closest.dist),
-    commandId, clientSeq
+    manpower: required, commandId, clientSeq
   });
   deps.pushFeed(
     `Company marching from flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away — attack will fire on arrival`,

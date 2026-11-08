@@ -31,8 +31,8 @@ const SHIELD_REINFORCEMENT_MARCH_MS = Math.round(CLASH_MS * 0.4);
 // for a manual attack, so there's no local startAt to read).
 const advanceTransitSeenAt = new Map<string, number>();
 
-// Drives the marching-company overlay from state.musterTransitByTile/
-// deferredAttackByTile (client-muster-transit.ts) — this client's own
+// Drives the marching-company overlay from state.musterTransitByCommand/
+// deferredAttackByCommand (client-muster-transit.ts) — this client's own
 // muster-funded attacks still in their local pre-send march (see
 // armMusterTransit in client-queue-logic.ts). Runs every frame since the
 // company's position needs to advance continuously. Only ever covers the
@@ -41,7 +41,7 @@ const advanceTransitSeenAt = new Map<string, number>();
 // observer until the attack actually fires and the normal
 // incomingAttacksByTile/activeBattles machinery above takes over (which is
 // also, not coincidentally, exactly when this overlay should stop: an entry
-// leaves state.deferredAttackByTile the instant it's actually sent).
+// leaves state.deferredAttackByCommand the instant it's actually sent).
 export function syncMusterTransitOverlay(
   state: ClientState,
   effectiveOverlayColor: (ownerId: string) => string,
@@ -97,11 +97,11 @@ export function syncMusterTransitOverlay(
     });
   };
 
-  for (const [flagKey, transit] of state.musterTransitByTile) {
+  for (const [attackKey, transit] of state.musterTransitByCommand) {
     // Only still-marching entries — once fired (no deferred entry left) or
     // expired, the skirmish/battle overlay is the right visualization, not
     // this one.
-    if (!state.deferredAttackByTile.has(flagKey) || nowEpochMs >= transit.transitEndsAt) continue;
+    if (!state.deferredAttackByCommand.has(attackKey) || nowEpochMs >= transit.transitEndsAt) continue;
     addMarch(transit.musterX, transit.musterY, transit.marchToX, transit.marchToY, transit.transitStartAt, transit.transitEndsAt);
   }
 

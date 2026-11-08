@@ -1,4 +1,3 @@
-import { isForestTile } from "../client-constants.js";
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
 import { BATTLE_OVERLAY_TOTAL_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { victoryHoldAlertDetail, victoryHoldAlertTitle } from "../client-victory-alert/client-victory-alert.js";
@@ -13,7 +12,6 @@ export const renderCaptureProgress = (
     | "capture"
     | "tiles"
     | "pendingCombatReveal"
-    | "dismissedCaptureStartAt"
     | "activeBattles"
   >,
   deps: {
@@ -40,7 +38,6 @@ export const renderCaptureProgress = (
     captureGotoBtn: HTMLButtonElement;
   }
 ): void => {
-  const RESULT_WAIT_REPORT_BUG_THRESHOLD_MS = 4000;
   if (state.captureAlert && state.captureAlert.until > Date.now()) {
     deps.captureCardEl.dataset.state = state.captureAlert.tone;
     deps.captureCardEl.style.display = "grid";
@@ -72,143 +69,98 @@ export const renderCaptureProgress = (
   deps.captureGotoBtn.style.display = "none";
   delete deps.captureGotoBtn.dataset.feedFocusX;
   delete deps.captureGotoBtn.dataset.feedFocusY;
+  // An attack or claim in progress no longer gets a "Capturing Territory..."
+  // banner with a countdown: several attacks can now resolve at once, and
+  // each one already shows its own progress on the map (skirmish, claim
+  // plate, marching company) and in its tile menu. The card only appears for
+  // results and errors (captureAlert above).
+  hideCaptureCard(deps);
+  if (state.capture && !state.capture.silent) revealLockedCombatResult(state, deps);
+};
 
-  if (state.capture && state.capture.silent) {
-    // Silent capture (waypoint-driven neutral EXPAND): hide the big
-    // overlay; the tile itself signals progress. Errors and combat
-    // results will still surface via state.captureAlert above.
-    deps.captureCardEl.style.display = "none";
-    deps.captureWrapEl.style.display = "none";
-    deps.captureCancelBtn.style.display = "none";
-    deps.captureDismissBtn.style.display = "none";
-    deps.captureCloseBtn.style.display = "none";
-    deps.captureReportBugBtn.style.display = "none";
-    deps.captureBarEl.style.width = "0%";
-    deps.captureTitleEl.textContent = "";
-    deps.captureTimeEl.textContent = "";
-    deps.captureTargetEl.textContent = "";
+type CaptureCardEls = Pick<
+  Parameters<typeof renderCaptureProgress>[1],
+  "captureCardEl" | "captureWrapEl" | "captureCancelBtn" | "captureDismissBtn" | "captureCloseBtn" | "captureReportBugBtn" | "captureBarEl" | "captureTitleEl" | "captureTimeEl" | "captureTargetEl"
+>;
+
+const hideCaptureCard = (deps: CaptureCardEls): void => {
+  deps.captureCardEl.style.display = "none";
+  deps.captureWrapEl.style.display = "none";
+  deps.captureCancelBtn.style.display = "none";
+  deps.captureDismissBtn.style.display = "none";
+  deps.captureCloseBtn.style.display = "none";
+  deps.captureReportBugBtn.style.display = "none";
+  deps.captureBarEl.style.width = "0%";
+  deps.captureTitleEl.textContent = "";
+  deps.captureTimeEl.textContent = "";
+  deps.captureTargetEl.textContent = "";
+};
+
+/**
+ * Once the attack in the dispatch slot (state.capture) passes its resolve
+ * time, show the result the server locked at COMBAT_START, or finalize it
+ * outright, without waiting for the COMBAT_RESULT round trip.
+ */
+const revealLockedCombatResult = (
+  state: Parameters<typeof renderCaptureProgress>[0],
+  deps: Parameters<typeof renderCaptureProgress>[1]
+): void => {
+  const capture = state.capture;
+  if (!capture) return;
+  const captureTargetKey = deps.keyFor(capture.target.x, capture.target.y);
+  const now = Date.now();
+  const awaitingResult = now > capture.resolvesAt;
+  // Don't reveal the result until the local battle overlay FX
+  // (walking-arrow/skirmish + clash/rout) has actually finished playing at
+  // this target tile — resolvesAt is the server's own combat-lock clock and
+  // can elapse well before (or without ever triggering) the client's visual
+  // animation, which otherwise produces a battle-decided banner while the
+  // arrow is still mid-approach, or before the skirmish has rendered at
+  // all. Prefer the real FX's endAt when one is already registered
+  // (client-battle-overlay.ts); otherwise fall back to a flat
+  // BATTLE_OVERLAY_TOTAL_MS grace window past resolvesAt so the reveal
+  // still can't outrun a FX that simply hasn't arrived yet.
+  //
+  // Exception: an ATTACK on a known-FRONTIER (undefended) target never
+  // gets a combat broadcast at all (see runtime-lock-resolution.ts's
+  // hasDefendingForce) — there is no battle FX coming, ever, so waiting
+  // out that grace window would just delay the "captured" reveal for no
+  // reason. The claim-plate/expand-style animation it gets instead
+  // (client-map-3d-frontier-claim-plates.ts) is already timed to
+  // resolvesAt.
+  const targetIsKnownFrontier = frontierAttackIsUndefended(state.tiles.get(captureTargetKey), capture.combatSnapshot?.winChance);
+  const activeBattle = state.activeBattles.get(captureTargetKey);
+  // Active battle timestamps use page uptime; capture/reveal uses epoch ms.
+  const battleFxDoneAt = activeBattle
+    ? now + activeBattle.endAt - performance.now()
+    : targetIsKnownFrontier
+      ? capture.resolvesAt
+      : capture.resolvesAt + BATTLE_OVERLAY_TOTAL_MS;
+  if (awaitingResult && now < battleFxDoneAt) return;
+  if (
+    shouldFinalizePredictedCombat({
+      now,
+      resolvesAt: capture.resolvesAt,
+      captureTargetKey,
+      revealTargetKey: state.pendingCombatReveal?.targetKey,
+      revealed: state.pendingCombatReveal?.revealed,
+      hasPredictedResult: Boolean(state.pendingCombatReveal?.result)
+    }) &&
+    state.pendingCombatReveal?.result
+  ) {
+    deps.finalizePredictedCombat(state.pendingCombatReveal.result);
     return;
   }
-  if (state.capture) {
-    const captureTargetKey = deps.keyFor(state.capture.target.x, state.capture.target.y);
-    deps.captureCardEl.dataset.state = "progress";
-    deps.captureTimeEl.classList.remove("capture-loss");
-    const total = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
-    const elapsed = Date.now() - state.capture.startAt;
-    const pct = Math.max(0, Math.min(1, elapsed / total));
-    const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
-    const awaitingResult = Date.now() > state.capture.resolvesAt;
-    const resolveWaitMs = Math.max(0, Date.now() - state.capture.resolvesAt);
-    // Don't reveal the result banner until the local battle overlay FX
-    // (walking-arrow/skirmish + clash/rout) has actually finished playing at
-    // this target tile — resolvesAt is the server's own combat-lock clock and
-    // can elapse well before (or without ever triggering) the client's visual
-    // animation, which otherwise produces a battle-decided banner while the
-    // arrow is still mid-approach, or before the skirmish has rendered at
-    // all. Prefer the real FX's endAt when one is already registered
-    // (client-battle-overlay.ts); otherwise fall back to a flat
-    // BATTLE_OVERLAY_TOTAL_MS grace window past resolvesAt so the reveal
-    // still can't outrun a FX that simply hasn't arrived yet.
-    //
-    // Exception: an ATTACK on a known-FRONTIER (undefended) target never
-    // gets a combat broadcast at all (see runtime-lock-resolution.ts's
-    // hasDefendingForce) — there is no battle FX coming, ever, so waiting
-    // out that grace window would just delay the "captured" reveal for no
-    // reason. The claim-plate/expand-style animation it gets instead
-    // (client-map-3d-frontier-claim-plates.ts) is already timed to
-    // resolvesAt, same as this progress bar.
-    const targetIsKnownFrontier = frontierAttackIsUndefended(state.tiles.get(captureTargetKey), state.capture.combatSnapshot?.winChance);
-    const activeBattle = state.activeBattles.get(captureTargetKey);
-    // Active battle timestamps use page uptime; capture/reveal uses epoch ms.
-    const battleFxDoneAt = activeBattle
-      ? Date.now() + activeBattle.endAt - performance.now()
-      : targetIsKnownFrontier
-        ? state.capture.resolvesAt
-        : state.capture.resolvesAt + BATTLE_OVERLAY_TOTAL_MS;
-    const awaitingBattleFx = awaitingResult && Date.now() < battleFxDoneAt;
-    const showReportBug = awaitingResult && resolveWaitMs >= RESULT_WAIT_REPORT_BUG_THRESHOLD_MS && !(activeBattle && awaitingBattleFx);
-    if (
-      !awaitingBattleFx &&
-      shouldFinalizePredictedCombat({
-        now: Date.now(),
-        resolvesAt: state.capture.resolvesAt,
-        captureTargetKey,
-        revealTargetKey: state.pendingCombatReveal?.targetKey,
-        revealed: state.pendingCombatReveal?.revealed,
-        hasPredictedResult: Boolean(state.pendingCombatReveal?.result)
-      }) &&
-      state.pendingCombatReveal?.result
-    ) {
-      deps.finalizePredictedCombat(state.pendingCombatReveal.result);
-      return;
-    }
-    if (
-      awaitingResult &&
-      !awaitingBattleFx &&
-      state.pendingCombatReveal &&
-      state.pendingCombatReveal.targetKey === captureTargetKey &&
-      !state.pendingCombatReveal.revealed
-    ) {
-      deps.showCaptureAlert(
-        state.pendingCombatReveal.title,
-        state.pendingCombatReveal.detail,
-        state.pendingCombatReveal.tone,
-        state.pendingCombatReveal.manpowerLoss,
-        { x: state.capture.target.x, y: state.capture.target.y, actionLabel: "Center" }
-      );
-      deps.pushFeed(state.pendingCombatReveal.detail, "combat", state.pendingCombatReveal.tone === "success" ? "success" : "warn");
-      state.pendingCombatReveal.revealed = true;
-      return;
-    }
-    if (state.dismissedCaptureStartAt === state.capture.startAt) {
-      // Dismissed by the player via the "Dismiss" button: hide the banner
-      // for this specific claim without touching the claim itself. A new
-      // claim (different startAt, even on the same tile) reopens it. Combat
-      // reveal/finalize above still ran, so results reach captureAlert
-      // (checked at the top of this function) even while dismissed.
-      deps.captureCardEl.style.display = "none";
-      deps.captureWrapEl.style.display = "none";
-      deps.captureCancelBtn.style.display = "none";
-      deps.captureDismissBtn.style.display = "none";
-      deps.captureCloseBtn.style.display = "none";
-      deps.captureReportBugBtn.style.display = "none";
-      deps.captureBarEl.style.width = "0%";
-      deps.captureTitleEl.textContent = "";
-      deps.captureTimeEl.textContent = "";
-      deps.captureTargetEl.textContent = "";
-      return;
-    }
-    deps.captureCardEl.style.display = "grid";
-    deps.captureWrapEl.style.display = "block";
-    deps.captureCancelBtn.style.display = "inline-flex";
-    deps.captureDismissBtn.style.display = "inline-flex";
-    deps.captureCloseBtn.style.display = "none";
-    deps.captureReportBugBtn.style.display = showReportBug ? "inline-flex" : "none";
-    deps.captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
-    deps.captureTitleEl.textContent = awaitingResult
-      ? "Resolving action..."
-      : isForestTile(state.capture.target.x, state.capture.target.y)
-        ? "Capturing Forest..."
-        : "Capturing Territory...";
-    deps.captureTimeEl.textContent = awaitingResult ? `${(resolveWaitMs / 1000).toFixed(1)}s` : `${remaining.toFixed(1)}s`;
-    deps.captureTargetEl.textContent = awaitingResult
-      ? `Waiting for result at (${state.capture.target.x}, ${state.capture.target.y})`
-      : `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
-  } else {
-    // Nothing fired yet. A manual attack still parked on a muster flag
-    // (pendingMusterAttacks) no longer takes this banner over as
-    // "Mustering... N/M": its progress floats over the flag itself instead
-    // (client-muster-flag-badge.ts), and Esc still cancels it.
-    deps.captureCardEl.style.display = "none";
-    deps.captureWrapEl.style.display = "none";
-    deps.captureCancelBtn.style.display = "none";
-    deps.captureDismissBtn.style.display = "none";
-    deps.captureCloseBtn.style.display = "none";
-    deps.captureReportBugBtn.style.display = "none";
-    deps.captureBarEl.style.width = "0%";
-    deps.captureTitleEl.textContent = "";
-    deps.captureTimeEl.textContent = "";
-    deps.captureTargetEl.textContent = "";
+  if (awaitingResult && state.pendingCombatReveal && state.pendingCombatReveal.targetKey === captureTargetKey && !state.pendingCombatReveal.revealed) {
+    deps.showCaptureAlert(
+      state.pendingCombatReveal.title,
+      state.pendingCombatReveal.detail,
+      state.pendingCombatReveal.tone,
+      state.pendingCombatReveal.manpowerLoss,
+      { x: capture.target.x, y: capture.target.y, actionLabel: "Center" }
+    );
+    deps.pushFeed(state.pendingCombatReveal.detail, "combat", state.pendingCombatReveal.tone === "success" ? "success" : "warn");
+    state.pendingCombatReveal.revealed = true;
   }
 };
 

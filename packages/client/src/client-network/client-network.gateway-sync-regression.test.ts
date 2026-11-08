@@ -1013,12 +1013,14 @@ describe("client gateway sync regression", () => {
       }),
       expect.anything()
     );
-    expect(state.pendingCombatReveal).toEqual(
+    // The locked attack leaves the single dispatch slot (so the next attack
+    // can launch) and keeps its locked result for when COMBAT_RESULT lands.
+    expect(state.detachedAttacksByCommandId.get("cmd-9")).toEqual(
       expect.objectContaining({
-        title: "Victory",
-        detail: "Won with plunder.",
-        manpowerLoss: 42,
-        result: expect.objectContaining({
+        targetX: 10,
+        targetY: 11,
+        resolvesAt: 2_250,
+        lockedResult: expect.objectContaining({
           pointsDelta: 18,
           manpowerDelta: -42,
           pillagedGold: 12.5,
@@ -1026,6 +1028,10 @@ describe("client gateway sync regression", () => {
         })
       })
     );
+    expect(state.actionInFlight).toBe(false);
+    expect(state.actionCurrent).toBeUndefined();
+    expect(state.capture).toBeUndefined();
+    expect(state.outgoingMusterAttacksByTile.get("10,11")).toMatchObject({ originX: 10, originY: 10, resolvesAt: 2_250 });
   });
 
   it("preserves captured town titles when a combat result keeps the town on frontier land", () => {

@@ -89,7 +89,7 @@ describe("renderCaptureProgress battle overlay FX gating", () => {
 
     expect(captureReportBugBtn.style.display).toBe("none");
     expect(showCaptureAlert).not.toHaveBeenCalled();
-    expect(captureTitleEl.textContent).toBe("Resolving action...");
+    expect(captureCardEl.style.display).toBe("none");
   });
 
   // Regression: an ATTACK on a known-FRONTIER (undefended) tile never gets a

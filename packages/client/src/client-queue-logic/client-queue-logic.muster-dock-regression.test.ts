@@ -31,12 +31,12 @@ const makeTile = (overrides: Partial<Tile>): Tile => ({
 // armed transit straight to "due" and drains it through fireDueMusterTransits
 // — the same function client-runtime-loop.ts already calls every tick.
 const fastForwardAndFireDueMusterTransits = (
-  state: Pick<ClientState, "musterTransitByTile" | "deferredAttackByTile" | "actionInFlight" | "actionAcceptedAck" | "combatStartAck" | "actionAcceptTimeoutHandledAt" | "actionStartedAt" | "actionCurrent" | "actionTargetKey">,
+  state: Pick<ClientState, "musterTransitByCommand" | "deferredAttackByCommand" | "actionInFlight" | "actionAcceptedAck" | "combatStartAck" | "actionAcceptTimeoutHandledAt" | "actionStartedAt" | "actionCurrent" | "actionTargetKey">,
   sendAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void
 ): void => {
-  for (const transit of state.musterTransitByTile.values()) transit.transitEndsAt = Date.now() - 1;
+  for (const transit of state.musterTransitByCommand.values()) transit.transitEndsAt = Date.now() - 1;
   let guard = 0;
-  while (state.deferredAttackByTile.size > 0 && guard++ < 10) {
+  while (state.deferredAttackByCommand.size > 0 && guard++ < 10) {
     state.actionInFlight = false; // each real send would normally get its own ack before the next fires
     fireDueMusterTransits(state, {
       keyFor: (x, y) => `${x},${y}`,
@@ -99,7 +99,7 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     expect(sendSetMuster).not.toHaveBeenCalled();
     // Not sent immediately — the flag marches first (real travel time).
     expect(sendAttack).not.toHaveBeenCalled();
-    expect(state.musterTransitByTile.get("5,5")).toMatchObject({ musterX: 5, musterY: 5, targetX: 300, targetY: 300 });
+    expect([...state.musterTransitByCommand.values()].find((t) => t.musterX === 5 && t.musterY === 5)).toMatchObject({ musterX: 5, musterY: 5, targetX: 300, targetY: 300 });
     fastForwardAndFireDueMusterTransits(state, sendAttack);
     expect(sendAttack).toHaveBeenCalledWith(5, 5, 300, 300, expect.any(String), expect.any(Number));
   });
@@ -157,7 +157,7 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     // Fires from the dock (5,5) — funded remotely from the flag at (8,5) —
     // but only once that flag's march (armed by armMusterTransit) completes.
     expect(sendAttack).not.toHaveBeenCalled();
-    expect(state.musterTransitByTile.get("8,5")).toMatchObject({ musterX: 8, musterY: 5, targetX: 300, targetY: 300 });
+    expect([...state.musterTransitByCommand.values()].find((t) => t.musterX === 8 && t.musterY === 5)).toMatchObject({ musterX: 8, musterY: 5, targetX: 300, targetY: 300 });
     fastForwardAndFireDueMusterTransits(state, sendAttack);
     expect(sendAttack).toHaveBeenCalledWith(5, 5, 300, 300, expect.any(String), expect.any(Number));
     expect(sendSetMuster).not.toHaveBeenCalled();
@@ -210,7 +210,7 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     // Both attacks arm independently (neither blocks the other), then both
     // fire, each from its own flag, once their marches complete.
     expect(state.pendingMusterAttacks).toHaveLength(0);
-    expect(state.musterTransitByTile.size).toBe(2);
+    expect(state.musterTransitByCommand.size).toBe(2);
     fastForwardAndFireDueMusterTransits(state, sendAttack);
     expect(sendAttack).toHaveBeenCalledWith(0, 0, 1, 0, expect.any(String), expect.any(Number));
     expect(sendAttack).toHaveBeenCalledWith(50, 50, 51, 50, expect.any(String), expect.any(Number));
@@ -266,7 +266,7 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     // the server resolves funding from (0,0) remotely — once that flag's
     // march to the front (armed by armMusterTransit) completes.
     expect(sendAttack).not.toHaveBeenCalled();
-    expect(state.musterTransitByTile.get("0,0")).toMatchObject({ musterX: 0, musterY: 0, targetX: 5, targetY: 0 });
+    expect([...state.musterTransitByCommand.values()].find((t) => t.musterX === 0 && t.musterY === 0)).toMatchObject({ musterX: 0, musterY: 0, targetX: 5, targetY: 0 });
     fastForwardAndFireDueMusterTransits(state, sendAttack);
     expect(sendAttack).toHaveBeenCalledWith(4, 0, 5, 0, expect.any(String), expect.any(Number));
     expect(sendSetMuster).not.toHaveBeenCalled();
