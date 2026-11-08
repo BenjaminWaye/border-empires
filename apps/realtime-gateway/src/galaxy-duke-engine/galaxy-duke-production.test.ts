@@ -39,7 +39,8 @@ describe("planBuild (§30: every build finishes within a day)", () => {
   });
   it("never takes longer than a day, and developments make a system build faster", () => {
     const capital = duke([planet("s1", "CAPITAL")]);
-    expect(planBuild(capital, "s1", { kind: "DEVELOP", bodyIndex: 0 })).toMatchObject({ ok: true, build: { durationMs: 24 * H } });
+    const based = replaceSystem(capital, { ...findSystem(capital, "s1")!, bases: [0] });
+    expect(planBuild(based, "s1", { kind: "DEVELOP", bodyIndex: 0 })).toMatchObject({ ok: true, build: { durationMs: 24 * H } });
     const harvested = replaceSystem(capital, { ...findSystem(capital, "s1")!, developments: [{ bodyIndex: 1, kind: "HARVESTER" }] });
     const plan = planBuild(harvested, "s1", { kind: "FIGHTER" });
     expect(plan.ok && plan.build.durationMs).toBeLessThan(24 * H);
@@ -61,8 +62,23 @@ describe("planBuild (§30: every build finishes within a day)", () => {
     ] as const;
     for (const [body, development] of cases) {
       const { seasonId, bodyIndex } = seasonWithBody(body);
-      expect(planBuild(duke([planet(seasonId)]), seasonId, { kind: "DEVELOP", bodyIndex })).toMatchObject({ ok: true, build: { kind: "DEVELOP", bodyIndex, development } });
+      const state = duke([planet(seasonId)]);
+      const based = replaceSystem(state, { ...findSystem(state, seasonId)!, bases: [bodyIndex] });
+      expect(planBuild(based, seasonId, { kind: "DEVELOP", bodyIndex })).toMatchObject({ ok: true, build: { kind: "DEVELOP", bodyIndex, development } });
     }
+  });
+  it("a body needs a base before it can be developed (§31); a base is an 8h build", () => {
+    const { seasonId, bodyIndex } = seasonWithBody("GAS_GIANT");
+    const state = duke([planet(seasonId)]);
+    expect(planBuild(state, seasonId, { kind: "DEVELOP", bodyIndex })).toEqual({ ok: false, code: "NO_BASE" });
+    expect(planBuild(state, seasonId, { kind: "BASE", bodyIndex })).toEqual({ ok: true, build: { kind: "BASE", label: "Base", bodyIndex, durationMs: 8 * H } });
+    const done = applyCompletedBuild(state, seasonId, { kind: "BASE", label: "Base", startedAt: 0, completesAt: 1, bodyIndex }, 1).state;
+    expect(findSystem(done, seasonId)?.bases).toEqual([bodyIndex]);
+    expect(planBuild(done, seasonId, { kind: "BASE", bodyIndex })).toEqual({ ok: false, code: "BASE_ALREADY_THERE" });
+    expect(planBuild(done, seasonId, { kind: "DEVELOP", bodyIndex }).ok).toBe(true);
+    // A body developed before bases existed counts as based.
+    const developed = replaceSystem(state, { ...findSystem(state, seasonId)!, developments: [{ bodyIndex, kind: "HARVESTER" }] });
+    expect(planBuild(developed, seasonId, { kind: "BASE", bodyIndex })).toEqual({ ok: false, code: "BASE_ALREADY_THERE" });
   });
   it("refuses a body that doesn't exist or is already developed", () => {
     const { seasonId, bodyIndex } = seasonWithBody("GAS_GIANT");

@@ -13,7 +13,7 @@ import { buildAttention, type AttentionItem } from "./galaxy-duke-attention.js";
 import { buildSystemView, type SystemView } from "./galaxy-duke-system-view.js";
 import { courtNow, domainWeights } from "./galaxy-duke-court.js";
 import { advanceOneDuke, heldSectors } from "./galaxy-duke-tick.js";
-import { buildPoliticsView, listPublicRaids, type DukePoliticsView, type PublicRaidView } from "./galaxy-duke-politics-view.js";
+import { buildPoliticsView, listPublicRaids, listRecentHits, type DukePoliticsView, type PublicRaidView, type RecentHitView } from "./galaxy-duke-politics-view.js";
 
 export type DukeStatusView = {
   now: number;
@@ -40,6 +40,8 @@ export type DukeStatusView = {
   politics: DukePoliticsView;
   // Every raid in the air, so the map can draw them (§29.4).
   raids: PublicRaidView[];
+  // Systems hit lately, any Duke's: they smoke on the map (§31).
+  recentHits: RecentHitView[];
 };
 
 export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promise<DukeStatusView | undefined> => {
@@ -101,17 +103,19 @@ export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promis
     },
     digest: [...state.digest].reverse().slice(0, 40),
     politics,
-    raids: listPublicRaids(everyone, now)
+    raids: listPublicRaids(everyone, now),
+    recentHits: listRecentHits(everyone, now)
   };
 };
 
-export type CourtPublicView = CourtStrength & { dukeCount: number; leaderWeight: number | null; cycleDays: number; era: number; raids: PublicRaidView[] };
+export type CourtPublicView = CourtStrength & { dukeCount: number; leaderWeight: number | null; cycleDays: number; era: number; raids: PublicRaidView[]; recentHits: RecentHitView[] };
 
 // Public: the shared meter everyone sees, and the top Domain Weight (no names).
 export const buildCourtPublicStatus = async (ctx: DukeContext): Promise<CourtPublicView> => {
   const world = await ctx.loadWorld();
   const { strength, contributions, era } = await courtNow(ctx, world);
   const ranks = rankDomainWeights(await domainWeights(ctx, world, contributions));
-  const raids = listPublicRaids(await ctx.deps.dukeStore.getAll(), ctx.now());
-  return { ...strength, dukeCount: ranks.length, leaderWeight: ranks[0]?.weight ?? null, cycleDays: CYCLE_DAYS, era: era.era, raids };
+  const everyone = await ctx.deps.dukeStore.getAll();
+  const raids = listPublicRaids(everyone, ctx.now());
+  return { ...strength, dukeCount: ranks.length, leaderWeight: ranks[0]?.weight ?? null, cycleDays: CYCLE_DAYS, era: era.era, raids, recentHits: listRecentHits(everyone, ctx.now()) };
 };

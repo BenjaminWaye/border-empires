@@ -80,7 +80,8 @@ export const landIncursions = (state: DukeState, sectors: ReadonlyMap<string, Se
       effects.push({ kind: "STABILITY_DELTA", seasonId: system.seasonId, delta: -outcome.stabilityLoss });
       text = `Incursion hit ${sector.label}: Stability ${sector.stability} to ${after}. This Sector can take ${hitsRemaining(after)} more hits like this before it is contested.`;
     }
-    const pushed = pushDigest(replaceSystem(next, { ...cleared, fighters: outcome.fighters }), now, "COMBAT", text);
+    const hit = outcome.repelled ? {} : { lastHitAt: now };
+    const pushed = pushDigest(replaceSystem(next, { ...cleared, fighters: outcome.fighters, ...hit }), now, "COMBAT", text);
     next = pushed.state;
     counters.push(...pushed.counters);
   }

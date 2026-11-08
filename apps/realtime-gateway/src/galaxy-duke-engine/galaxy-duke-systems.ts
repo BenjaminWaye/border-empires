@@ -78,7 +78,7 @@ export const syncSystems = (state: DukeState, planets: ReadonlyArray<HeldSector>
 const normalizeSlot = (system: SystemState, now: number): SystemState => {
   const slot = system.slot as (Partial<DukeBuild> & { kind: string }) | null;
   if (!slot || typeof slot.completesAt === "number") return system;
-  if (slot.kind !== "FIGHTER" && slot.kind !== "PROBE" && slot.kind !== "REFIT" && slot.kind !== "DEVELOP") return { ...system, slot: null };
+  if (slot.kind !== "FIGHTER" && slot.kind !== "PROBE" && slot.kind !== "REFIT" && slot.kind !== "BASE" && slot.kind !== "DEVELOP") return { ...system, slot: null };
   const restarted: DukeBuild = {
     kind: slot.kind,
     label: slot.label ?? slot.kind,

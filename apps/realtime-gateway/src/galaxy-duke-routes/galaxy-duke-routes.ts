@@ -16,7 +16,7 @@ const bodyOf = (request: FastifyRequest): Body => (request.body && typeof reques
 
 const parseBuildSpec = (body: Body): BuildSpec | undefined => {
   if (body.kind === "FIGHTER" || body.kind === "PROBE" || body.kind === "REFIT") return { kind: body.kind };
-  if (body.kind === "DEVELOP" && typeof body.bodyIndex === "number") return { kind: "DEVELOP", bodyIndex: body.bodyIndex };
+  if ((body.kind === "DEVELOP" || body.kind === "BASE") && typeof body.bodyIndex === "number") return { kind: body.kind, bodyIndex: body.bodyIndex };
   return undefined;
 };
 

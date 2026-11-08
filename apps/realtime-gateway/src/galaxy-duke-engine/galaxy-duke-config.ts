@@ -32,7 +32,9 @@ export const WARDEN_HULL = 50;
 const HOUR_MS = 60 * 60 * 1000;
 export const REFERENCE_RATE_PER_DAY = 6;
 export const MAX_BUILD_MS = 24 * HOUR_MS;
-export const BUILD_BASE_HOURS = { FIGHTER: 8, PROBE: 4, REFIT: 4, DEVELOP: 16 } as const;
+export const BUILD_BASE_HOURS = { FIGHTER: 8, PROBE: 4, REFIT: 4, BASE: 8, DEVELOP: 16 } as const;
+// A system that was hit in this window smokes for everyone to see (§31).
+export const RECENT_HIT_MS = 24 * HOUR_MS;
 export const buildDurationMs = (kind: keyof typeof BUILD_BASE_HOURS, ratePerDay: number): number =>
   ratePerDay <= 0 ? MAX_BUILD_MS : Math.min(MAX_BUILD_MS, Math.round((BUILD_BASE_HOURS[kind] * HOUR_MS * REFERENCE_RATE_PER_DAY) / ratePerDay));
 // Fortify is an order that takes effect at once.

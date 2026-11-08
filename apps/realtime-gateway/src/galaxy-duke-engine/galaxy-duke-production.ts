@@ -19,7 +19,7 @@ export const advanceSystem = (system: SystemState, now: number): { system: Syste
   return { system: { ...system, slot: null }, completed: system.slot };
 };
 
-export type BuildSpec = { kind: "FIGHTER" } | { kind: "PROBE" } | { kind: "REFIT" } | { kind: "DEVELOP"; bodyIndex: number };
+export type BuildSpec = { kind: "FIGHTER" } | { kind: "PROBE" } | { kind: "REFIT" } | { kind: "BASE"; bodyIndex: number } | { kind: "DEVELOP"; bodyIndex: number };
 
 export type PlanBuildErrorCode =
   | "NO_SUCH_SYSTEM"
@@ -29,7 +29,9 @@ export type PlanBuildErrorCode =
   | "NOTHING_TO_REPAIR"
   | "INVALID"
   | "NO_SUCH_BODY"
-  | "BODY_ALREADY_DEVELOPED";
+  | "BODY_ALREADY_DEVELOPED"
+  | "NO_BASE"
+  | "BASE_ALREADY_THERE";
 
 export type PlannedBuild = Omit<DukeBuild, "startedAt" | "completesAt"> & { durationMs: number };
 export type PlanBuildResult = { ok: true; build: PlannedBuild } | { ok: false; code: PlanBuildErrorCode };
@@ -40,6 +42,10 @@ export const fightersOwned = (state: DukeState, system: SystemState): number =>
   system.fighters.length +
   state.flights.filter((f) => f.kind === "RAID" && !f.courtWrit && f.fromSeasonId === system.seasonId).length +
   (state.lent ?? []).filter((l) => l.fromSeasonId === system.seasonId).length;
+
+// A body has a base once one is established on it, or once it is developed.
+export const hasBase = (system: SystemState, bodyIndex: number): boolean =>
+  (system.bases ?? []).includes(bodyIndex) || system.developments.some((d) => d.bodyIndex === bodyIndex);
 
 export const planBuild = (state: DukeState, seasonId: string, spec: BuildSpec): PlanBuildResult => {
   const system = findSystem(state, seasonId);
@@ -59,10 +65,17 @@ export const planBuild = (state: DukeState, seasonId: string, spec: BuildSpec): 
       return system.fighters.every((f) => f.hull >= HULL_MAX)
         ? { ok: false, code: "NOTHING_TO_REPAIR" }
         : { ok: true, build: { kind: "REFIT", label: "Refit", durationMs: buildDurationMs("REFIT", rate) } };
+    case "BASE": {
+      const body = systemBodyKinds(seasonId)[spec.bodyIndex];
+      if (!Number.isInteger(spec.bodyIndex) || body === undefined) return { ok: false, code: "NO_SUCH_BODY" };
+      if (hasBase(system, spec.bodyIndex)) return { ok: false, code: "BASE_ALREADY_THERE" };
+      return { ok: true, build: { kind: "BASE", label: "Base", bodyIndex: spec.bodyIndex, durationMs: buildDurationMs("BASE", rate) } };
+    }
     case "DEVELOP": {
       const body = systemBodyKinds(seasonId)[spec.bodyIndex];
       if (!Number.isInteger(spec.bodyIndex) || body === undefined) return { ok: false, code: "NO_SUCH_BODY" };
       if (system.developments.some((d) => d.bodyIndex === spec.bodyIndex)) return { ok: false, code: "BODY_ALREADY_DEVELOPED" };
+      if (!hasBase(system, spec.bodyIndex)) return { ok: false, code: "NO_BASE" };
       const dev = DEVELOPMENTS[DEVELOPMENT_FOR_BODY[body]];
       return { ok: true, build: { kind: "DEVELOP", label: dev.label, bodyIndex: spec.bodyIndex, development: dev.kind, durationMs: buildDurationMs("DEVELOP", rate) } };
     }
@@ -96,6 +109,9 @@ export const applyCompletedBuild = (state: DukeState, seasonId: string, build: D
   } else if (build.kind === "REFIT") {
     next = { ...next, fighters: next.fighters.map(() => ({ hull: HULL_MAX })) };
     text = "Refit complete. Every Fighter here is back to 100%.";
+  } else if (build.kind === "BASE" && build.bodyIndex !== undefined) {
+    next = { ...next, bases: [...(next.bases ?? []).filter((b) => b !== build.bodyIndex), build.bodyIndex] };
+    text = "Base established. That body can now be developed.";
   } else if (build.kind === "DEVELOP" && build.bodyIndex !== undefined && build.development) {
     next = { ...next, developments: [...next.developments, { bodyIndex: build.bodyIndex, kind: build.development }] };
     text = `${DEVELOPMENTS[build.development].label} online: ${DEVELOPMENTS[build.development].summary}.`;

@@ -3,6 +3,7 @@
 // Also the public raid list every client draws on the map.
 import { favorOf, pendingWrit } from "../galaxy-duke-engine/galaxy-duke-court-favor.js";
 import { openGrievance, renownOf } from "../galaxy-duke-engine/galaxy-duke-grievance.js";
+import { RECENT_HIT_MS } from "../galaxy-duke-engine/galaxy-duke-config.js";
 import { planetsOf } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import type { DukeState } from "../galaxy-duke-engine/galaxy-duke-types.js";
 import { isAiDuke } from "../galaxy-duke-ai/galaxy-duke-ai-policy.js";
@@ -33,6 +34,16 @@ export const listPublicRaids = (states: ReadonlyArray<DukeState>, now: number): 
     .filter((f) => f.kind === "RAID" && f.arrivesAt > now)
     .map((f) => ({ fromSeasonId: f.fromSeasonId, seasonId: f.seasonId, launchedAt: f.launchedAt, arrivesAt: f.arrivesAt }))
     .sort((a, b) => a.arrivesAt - b.arrivesAt);
+
+// Systems a raid or Warden got through on lately, from every Duke: they smoke
+// on the map for everyone (§31), like the raid that caused it was public.
+export type RecentHitView = { seasonId: string; at: number };
+
+export const listRecentHits = (states: ReadonlyArray<DukeState>, now: number): RecentHitView[] =>
+  states
+    .flatMap((s) => (Array.isArray(s.systems) ? s.systems : []))
+    .filter((sys) => typeof sys.lastHitAt === "number" && now - sys.lastHitAt < RECENT_HIT_MS)
+    .map((sys) => ({ seasonId: sys.seasonId, at: sys.lastHitAt! }));
 
 export const buildPoliticsView = async (
   ctx: DukeContext,

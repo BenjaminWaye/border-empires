@@ -91,7 +91,7 @@ export const buildAction = (ctx: DukeContext, authUid: string, seasonId: string,
     if (!ordered.ok) return ordered;
     const started = startPlannedBuild(ordered.state, seasonId, plan.build, at);
     const label = await ctx.labelFor(seasonId);
-    return saveDuke(ctx, pushDigest(started, at, "ECONOMY", `Started ${plan.build.label} at ${label}: ready in ${hoursText(plan.build.durationMs)}.`).state);
+    return saveDuke(ctx, pushDigest(started, at, "ECONOMY", `Started ${plan.build.kind === "BASE" ? "a base" : plan.build.label} at ${label}: ready in ${hoursText(plan.build.durationMs)}.`).state);
   });
 
 // Order: Fortify takes effect at once.

@@ -59,7 +59,11 @@ describe("developments: press a planet, develop a body", () => {
     const h = await harness([{ seasonId, player: "a" }, { seasonId: "season-b", player: "b" }]);
     const before = (await h.service.status("uid-a"))?.systems[0];
     const body = before?.bodies[bodyIndex];
-    expect(body).toMatchObject({ kind: "GAS_GIANT", development: null, option: { label: "Gas Harvester", durationMs: 16 * HOUR, blockedBy: null } });
+    expect(body).toMatchObject({ kind: "GAS_GIANT", development: null, base: false, baseOption: { durationMs: 8 * HOUR, blockedBy: null }, option: { label: "Gas Harvester", blockedBy: "NO_BASE" } });
+    // A base first (§31), then the Harvester with the next day's order.
+    expect((await h.service.build("uid-a", seasonId, { kind: "BASE", bodyIndex })).ok).toBe(true);
+    await h.run(DAY);
+    expect((await h.service.status("uid-a"))?.systems[0]?.bodies[bodyIndex]).toMatchObject({ base: true, baseOption: null, option: { blockedBy: null } });
     expect((await h.service.build("uid-a", seasonId, { kind: "DEVELOP", bodyIndex })).ok).toBe(true);
     await h.run(DAY);
     const after = (await h.service.status("uid-a"))?.systems[0];

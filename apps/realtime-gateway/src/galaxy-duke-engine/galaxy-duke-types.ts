@@ -6,14 +6,14 @@ import type { DevelopmentKind } from "./galaxy-duke-config.js";
 
 // What a system's one build slot can be working on (§26). Each build is one
 // order and finishes on a fixed timer of at most a day (§30).
-export type DukeBuildKind = "FIGHTER" | "PROBE" | "REFIT" | "DEVELOP";
+export type DukeBuildKind = "FIGHTER" | "PROBE" | "REFIT" | "BASE" | "DEVELOP";
 
 export type DukeBuild = {
   kind: DukeBuildKind;
   label: string;
   startedAt: number;
   completesAt: number;
-  // DEVELOP: which orbiting body, and what is being built on it.
+  // BASE / DEVELOP: which orbiting body, and (DEVELOP) what is built on it.
   bodyIndex?: number;
   development?: DevelopmentKind;
 };
@@ -39,6 +39,11 @@ export type SystemState = {
   slot: DukeBuild | null;
   // The system's one order a day (§30). Optional: rows from older builds lack it.
   orderGate?: ActionGateState;
+  // Bodies with a base established (§31): a body needs one to be developed.
+  // A developed body always counts as based, so older rows need no migration.
+  bases?: number[];
+  // When a raid or Warden last got through here (§31: the planet smokes).
+  lastHitAt?: number;
   fighters: DukeFighter[];
   probeStock: number;
   developments: SystemDevelopment[];

@@ -231,3 +231,21 @@ describe("the Blind Eye (§21.6)", () => {
     expect((await h.service.status("uid-a"))?.politics.lent).toEqual([]);
   });
 });
+
+describe("smoke after a hit (§31)", () => {
+  it("a raid that gets through marks the system as hit, for everyone, for a day", async () => {
+    const h = await harness();
+    await h.service.status("uid-a");
+    await h.service.status("uid-b");
+    await h.patch("uid-a", (s) => surveyed("season-b")(withSystem("season-a", { fighters: [{ hull: 100 }] })(s)));
+    expect((await h.service.order("uid-a", "season-a", { kind: "RAID", targetSeasonId: "season-b" })).ok).toBe(true);
+    h.advance(FIGHTER_TRAVEL_MS);
+    await h.service.status("uid-a");
+    const hitAt = T0 + FIGHTER_TRAVEL_MS;
+    expect((await h.service.status("uid-b"))?.systems[0]?.lastHitAt).toBe(hitAt);
+    expect((await h.service.court()).recentHits).toEqual([{ seasonId: "season-b", at: hitAt }]);
+    expect((await h.service.status("uid-a"))?.recentHits).toEqual([{ seasonId: "season-b", at: hitAt }]);
+    h.advance(DAY);
+    expect((await h.service.court()).recentHits).toEqual([]);
+  });
+});

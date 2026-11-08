@@ -4,7 +4,7 @@
 // player, an AI has one order per system and one decree a day (§30), so it
 // picks at most one of each; answering offers is free.
 import { MAX_FIGHTERS_PER_SYSTEM } from "../galaxy-duke-engine/galaxy-duke-config.js";
-import { fightersOwned, type BuildSpec } from "../galaxy-duke-engine/galaxy-duke-production.js";
+import { fightersOwned, hasBase, type BuildSpec } from "../galaxy-duke-engine/galaxy-duke-production.js";
 import { systemBodyKinds } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import type { DukeState, SystemState } from "../galaxy-duke-engine/galaxy-duke-types.js";
 import { GRIEVANCE_COST_INFLUENCE } from "../galaxy-duke-engine/galaxy-duke-politics-config.js";
@@ -67,7 +67,8 @@ const nextBuild = (input: AiTurnInput, system: SystemState, unsurveyed: boolean)
     const index = bodies.findIndex((b, i) => b === kind && !system.developments.some((d) => d.bodyIndex === i));
     // Only the first development in a system is free of upkeep; later ones
     // wait until Influence can carry them.
-    if (index >= 0 && (free || input.influence >= INFLUENCE_RESERVE + 4)) return { kind: "DEVELOP", bodyIndex: index };
+    // A body needs a base first (§31).
+    if (index >= 0 && (free || input.influence >= INFLUENCE_RESERVE + 4)) return hasBase(system, index) ? { kind: "DEVELOP", bodyIndex: index } : { kind: "BASE", bodyIndex: index };
   }
   if (system.probeStock === 0 && unsurveyed) return { kind: "PROBE" };
   if (owned < MAX_FIGHTERS_PER_SYSTEM) return { kind: "FIGHTER" };

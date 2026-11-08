@@ -32,10 +32,12 @@ describe("planAiTurn", () => {
     expect(planAiTurn(input(duke([planet("s1")])))).toContainEqual({ kind: "BUILD", seasonId: "s1", spec: { kind: "FIGHTER" } });
   });
 
-  it("develops its first body once it has a defender", () => {
+  it("establishes a base on its first body once it has a defender, then develops it", () => {
     const { seasonId, bodyIndex } = seasonWithBody("GAS_GIANT");
     const state = withFighters(duke([planet(seasonId)]), [100]);
-    expect(planAiTurn(input(state))).toContainEqual({ kind: "BUILD", seasonId, spec: { kind: "DEVELOP", bodyIndex } });
+    expect(planAiTurn(input(state))).toContainEqual({ kind: "BUILD", seasonId, spec: { kind: "BASE", bodyIndex } });
+    const based = replaceSystem(state, { ...state.systems[0]!, bases: [bodyIndex] });
+    expect(planAiTurn(input(based))).toContainEqual({ kind: "BUILD", seasonId, spec: { kind: "DEVELOP", bodyIndex } });
   });
 
   it("accepts the Court's protection only when it has no rivals", () => {
