@@ -59,4 +59,22 @@ describe("shore layers", () => {
     expect(cleared).toBe(0);
     layers.dispose();
   });
+  it("samples the fringe finely round a river mouth, so its banks curve instead of meeting in points", () => {
+    const scene = new Scene();
+    const material = new MeshBasicMaterial();
+    const cornerAt = (_x: number, _z: number, out: { y: number; r: number; g: number; b: number; forestZone: number; tundraZone: number }): boolean => {
+      Object.assign(out, { y: -0.04, r: 0.9, g: 0.85, b: 0.7, forestZone: 0, tundraZone: 0 });
+      return true;
+    };
+    const counts: number[] = [];
+    const layers = createShoreLayers(scene, { material, cornerAt, onFringe: (fringe) => counts.push(fringe.positions.length / 3) });
+    // A sea tile beside a mouth (one bank of it, mostly sand) and one far along the coast.
+    const commit = (tiles: { gc: number; gr: number }[]) =>
+      layers.rebuild({ tiles, isLandTile: (_x, z) => z < 0, windowTiles: 40, worldOffsetX: 100, worldOffsetZ: 100, waterY: -0.06, mouths: [{ x: 1, z: 0 }] });
+    commit([{ gc: 2, gr: 0 }]);
+    commit([{ gc: 8, gr: 0 }]);
+    const [atMouth, alongCoast] = counts as [number, number];
+    expect(atMouth).toBeGreaterThan(alongCoast * 3);
+    layers.dispose();
+  });
 });

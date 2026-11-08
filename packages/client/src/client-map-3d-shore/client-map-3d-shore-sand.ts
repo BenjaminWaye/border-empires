@@ -378,7 +378,12 @@ export type ShoreFringe = {
 export const EMPTY_SHORE_FRINGE: ShoreFringe = { positions: [], seaward: [], polygons: [], polygonVertices: [] };
 
 export type ShoreSandLayer = {
-  readonly rebuild: (tiles: ReadonlyArray<{ readonly gc: number; readonly gr: number }>, tile: Omit<ShoreSandTileInputs, "gc" | "gr">) => ShoreFringe;
+  /** `subdivAt` overrides the sample grid for particular sea tiles (e.g. finer round a river mouth). */
+  readonly rebuild: (
+    tiles: ReadonlyArray<{ readonly gc: number; readonly gr: number }>,
+    tile: Omit<ShoreSandTileInputs, "gc" | "gr">,
+    subdivAt?: (gc: number, gr: number) => number | undefined
+  ) => ShoreFringe;
   readonly clear: () => void;
   readonly dispose: () => void;
 };
@@ -392,10 +397,13 @@ export const createShoreSandLayer = (scene: Scene, material: Material): ShoreSan
     mesh.geometry.dispose();
     mesh = null;
   };
-  const rebuild: ShoreSandLayer["rebuild"] = (tiles, tile) => {
+  const rebuild: ShoreSandLayer["rebuild"] = (tiles, tile, subdivAt) => {
     clear();
     const buffers: ShoreSandBuffers = { positions: [], colors: [], uvs: [], tundra: [], seaward: [], indices: [], polygons: [], polygonVertices: [] };
-    for (const { gc, gr } of tiles) appendShoreSand(buffers, { ...tile, gc, gr });
+    for (const { gc, gr } of tiles) {
+      const subdiv = subdivAt?.(gc, gr);
+      appendShoreSand(buffers, subdiv === undefined ? { ...tile, gc, gr } : { ...tile, gc, gr, subdiv });
+    }
     if (buffers.indices.length === 0) return EMPTY_SHORE_FRINGE;
     const vertCount = buffers.positions.length / 3;
     const normals = new Float32Array(vertCount * 3);

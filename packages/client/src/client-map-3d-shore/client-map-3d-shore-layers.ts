@@ -26,6 +26,17 @@ const SHORE_FOAM_MAX_WINDOW_TILES = 140;
 // the foam tracing the fine waterline round the coarse fringe doesn't show.
 const SHORE_SAND_FINE_MAX_WINDOW_TILES = 100;
 
+// Sample grid for sea tiles round a river mouth: the beach's banks curve
+// tightly there, and the usual grid drew them as a few straight segments
+// meeting in points. Only a handful of tiles per mouth, so it costs little.
+const SHORE_SAND_SUBDIV_MOUTH = 12;
+// A sea tile whose centre is within this many tiles of a mouth (each
+// axis) is close enough for its banks (the cut reaches ~1.3 out).
+const MOUTH_TILE_REACH = 1.6;
+
+const isNearMouth = (gc: number, gr: number, mouths: ReadonlyArray<{ readonly x: number; readonly z: number }>): boolean =>
+  mouths.some((m) => Math.abs(m.x - gc - 0.5) < MOUTH_TILE_REACH && Math.abs(m.z - gr - 0.5) < MOUTH_TILE_REACH);
+
 export type ShoreSandWiring = {
   /** The heightfield's own material, so the fringe continues the beach exactly. */
   readonly material: Material;
@@ -71,9 +82,10 @@ export const createShoreLayers = (scene: Scene, sandWiring: ShoreSandWiring | un
     const foamEnabled = commit.windowTiles <= SHORE_FOAM_MAX_WINDOW_TILES;
     foam.rebuild(tiles, isLandTile, waterY + FOAM_LIFT_Y, foamEnabled, mouths, waterline);
     if (!sand || !sandWiring || !waterline) return;
+    const fine = commit.windowTiles <= SHORE_SAND_FINE_MAX_WINDOW_TILES;
     const fringe = sand.rebuild(tiles, {
       isLandTile,
-      subdiv: commit.windowTiles <= SHORE_SAND_FINE_MAX_WINDOW_TILES ? SHORE_SAND_SUBDIV : SHORE_SAND_SUBDIV_FAR,
+      subdiv: fine ? SHORE_SAND_SUBDIV : SHORE_SAND_SUBDIV_FAR,
       worldOffsetX,
       worldOffsetZ,
       waterY,
@@ -83,7 +95,7 @@ export const createShoreLayers = (scene: Scene, sandWiring: ShoreSandWiring | un
         const wz = (((z + worldOffsetZ) % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
         return sandWiring.cornerAt(wx, wz, out);
       }
-    });
+    }, fine && mouths.length > 0 ? (gc, gr) => (isNearMouth(gc, gr, mouths) ? SHORE_SAND_SUBDIV_MOUTH : undefined) : undefined);
     sandWiring.onFringe?.(fringe);
   };
 

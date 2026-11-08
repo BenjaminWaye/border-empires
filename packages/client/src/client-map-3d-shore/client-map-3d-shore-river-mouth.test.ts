@@ -28,6 +28,13 @@ describe("river mouth through the beach fringe", () => {
     }
   });
 
+  it("starts the beach where the land's own river banks end, with no tooth into the river", () => {
+    // The land's banks rise to dry ground ~0.4 from the river's centre at
+    // the coast (estuary-flared channel + bank). A cut only 0.3 wide left a
+    // sand tooth sticking into the river on each side, past the land's bank.
+    for (const across of [-0.36, 0.36]) expect(waterline(0.02, across)).toBeLessThan(0);
+  });
+
   it("runs the banks alongside the river instead of slanting them into a wedge", () => {
     // A little way beside the river the beach still reaches out to sea
     // (sand at every point the open coast has it), and well clear of the
@@ -35,7 +42,7 @@ describe("river mouth through the beach fringe", () => {
     for (const across of [-0.6, 0.6]) {
       for (const along of [0.05, 0.2, 0.3]) expect(waterline(along, across)).toBeGreaterThan(0);
     }
-    for (const along of [0.05, 0.2, 0.3]) expect(waterline(along, 0.95)).toBeCloseTo(plainWaterline(along, 0.95), 6);
+    for (const along of [0.05, 0.2, 0.3]) expect(waterline(along, 1.2)).toBeCloseTo(plainWaterline(along, 1.2), 6);
   });
 
   it("leaves the coast untouched away from the river", () => {

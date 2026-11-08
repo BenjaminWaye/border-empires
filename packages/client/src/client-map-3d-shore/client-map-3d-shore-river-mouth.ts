@@ -11,11 +11,13 @@
 /** A river mouth corner (scene coords) and the unit direction out to sea from it. */
 export type ShoreRiverMouth = { readonly x: number; readonly z: number; readonly dx: number; readonly dz: number };
 
-// Half-width (tiles) of the cut where it leaves the land. Just wider than
-// the river's water at the coast (MAX_CHANNEL_HALF_WIDTH 0.18, flared by
-// withMouthDescent's estuary to ~0.29), so the banks frame the water
-// without covering it.
-const MOUTH_CUT_HALF_WIDTH = 0.3;
+// Half-width (tiles) of the cut where it leaves the land: where the land's
+// own river banks reach dry ground at the coast (the channel,
+// MAX_CHANNEL_HALF_WIDTH 0.18 flared by withMouthDescent's estuary to
+// ~0.29, plus BANK_WIDTH 0.12), so the beach carries those banks straight
+// on. At 0.3 the beach stuck out past them into the river as a sharp tooth
+// on each side.
+const MOUTH_CUT_HALF_WIDTH = 0.4;
 // Extra half-width per tile out to sea: the banks part a little, like a
 // real river mouth, rather than running out in dead parallel lines.
 const MOUTH_CUT_SPREAD = 0.15;
