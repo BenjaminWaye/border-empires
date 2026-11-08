@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
+
+import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-hud.js";
+import { isReportOpen, setReportOpen } from "../client-bug-report/client-bug-report.js";
+import { createInitialState } from "../client-state/client-state.js";
 
 type State = Parameters<typeof renderSeasonEndOverlay>[0]["state"];
 const stateForSummary = (): State => ({
@@ -33,6 +37,38 @@ const render = (state: State, overlayEl = document.createElement("div")): HTMLDi
 };
 
 describe("season summary recovery", () => {
+  afterEach(() => {
+    document.querySelector<HTMLButtonElement>("[data-bug-report-cancel]")?.click();
+    setReportOpen("bug", false);
+    document.body.innerHTML = "";
+  });
+
+  it.each(["statistics", "timeline"])("opens a prefilled bug report for missing %s without dismissing the summary", (section) => {
+    const state = Object.assign(createInitialState(), stateForSummary());
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    const overlayEl = document.createElement("div");
+    hud.appendChild(overlayEl);
+    document.body.appendChild(hud);
+    const renderHud = (): void => {
+      renderBugReportOverlay({ state, dom: { hud }, wsUrl: "ws://localhost:3101/ws", renderHud });
+      renderSeasonEndOverlay({ state, overlayEl, renderHud, startNewSeason: () => {} });
+    };
+    renderHud();
+    const button = overlayEl.querySelector<HTMLButtonElement>(`[data-se-report-missing="${section}"]`);
+    expect(button).toBeTruthy();
+    button!.click();
+    expect(isReportOpen("bug")).toBe(true);
+    const description = hud.querySelector<HTMLTextAreaElement>("[data-bug-report-description]")!;
+    expect(description.value).toContain(section === "timeline" ? "Score timeline" : "Most Deadly Tile, Longest Road");
+    expect(description.value).toContain("winner");
+    expect(hud.querySelector("[data-bug-report-char-count]")?.textContent).toBe(String(description.value.length));
+    expect(state.seasonEndDismissed).toBe(false);
+    hud.querySelector<HTMLButtonElement>("[data-bug-report-cancel]")!.click();
+    expect(isReportOpen("bug")).toBe(false);
+    expect(overlayEl.style.display).toBe("grid");
+  });
+
   it("resolves the victor's current name and refreshes it after a rename", () => {
     const state = stateForSummary();
     const overlay = render(state);
@@ -60,5 +96,6 @@ describe("season summary recovery", () => {
     const overlay = render(state);
     expect(overlay.querySelector(".se-misc")?.textContent).toContain("33");
     expect(overlay.querySelector(".se-graph-svg")).toBeTruthy();
+    expect(overlay.querySelector("[data-se-report-missing]")).toBeNull();
   });
 });

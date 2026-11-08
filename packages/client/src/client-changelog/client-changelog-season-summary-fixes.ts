@@ -13,3 +13,11 @@ export const SEASON_SUMMARY_FIXES_CHANGELOG: ClientChangelogEntry[] = [{
     "Map preparation no longer guesses a wait from download size"
   ]
 }];
+
+export const MISSING_HISTORY_REPORT_CHANGELOG: ClientChangelogEntry = {
+  createdAt: 1794140696933,
+  introducedIn: "2026.11.08",
+  title: "Report missing season history",
+  why: "Missing historical statistics should be easy to report for investigation.",
+  changes: ["Missing statistics and timelines now offer a bug-report button with the affected records and winner details filled in"]
+};

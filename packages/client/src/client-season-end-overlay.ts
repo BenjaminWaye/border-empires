@@ -6,6 +6,7 @@ import type {
   SeasonVictoryObjectiveView,
   SeasonWinnerView
 } from "./client-types.js";
+import { setReportOpen } from "./client-bug-report/client-bug-report.js";
 import { scoreGraphPanel } from "./client-season-end-score-graph.js";
 
 type SeasonEndLeaderboard = {
@@ -183,6 +184,9 @@ const victoryGauges = (
     </section>`;
 };
 
+const missingHistoryReportButton = (section: "statistics" | "timeline", missing: string[]): string =>
+  `<button type="button" class="se-btn se-btn-secondary" data-se-report-missing="${section}" data-se-missing-records="${escapeHtml(missing.join(", "))}">Report a bug</button>`;
+
 const miscPanel = (seasonStats: SeasonStatsView | undefined): string => {
   const items: string[] = [];
   if (seasonStats?.mostDeadlyTile) {
@@ -203,6 +207,10 @@ const miscPanel = (seasonStats: SeasonStatsView | undefined): string => {
     <section class="se-panel se-misc">
       <h3 class="se-panel-title">Season Miscellany</h3>
       <div class="se-misc-items">${items.join("")}</div>
+      ${!seasonStats?.mostDeadlyTile || !seasonStats?.longestRoad ? missingHistoryReportButton("statistics", [
+        ...(!seasonStats?.mostDeadlyTile ? ["Most Deadly Tile"] : []),
+        ...(!seasonStats?.longestRoad ? ["Longest Road"] : [])
+      ]) : ""}
     </section>`;
 };
 
@@ -234,7 +242,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   const seasonStats = state.seasonStats ?? state.seasonWinner.seasonStats;
   const scoreHistory = state.seasonScoreHistory.length > 0 ? state.seasonScoreHistory : state.seasonWinner.scoreHistory ?? [];
   const scoreGraphHtml = scoreGraphPanel(scoreHistory, colors, selfId, state.seasonWinner.playerId)
-    || `<section class="se-panel se-graph"><h3 class="se-panel-title">Score Over Time</h3><p>No score timeline was saved for this season.</p></section>`;
+    || `<section class="se-panel se-graph"><h3 class="se-panel-title">Score Over Time</h3><p>No score timeline was saved for this season.</p>${missingHistoryReportButton("timeline", ["Score timeline"])}</section>`;
   const winnerEntry = leaderboard.overall.find((entry) => entry.id === state.seasonWinner?.playerId)
     ?? (leaderboard.selfOverall?.id === state.seasonWinner.playerId ? leaderboard.selfOverall : undefined);
   const winner = { ...state.seasonWinner, playerName: winnerEntry?.name ?? state.seasonWinner.playerName };
@@ -295,6 +303,19 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
         </div>
       </div>
     </div>`;
+
+  overlayEl.querySelectorAll<HTMLButtonElement>("[data-se-report-missing]").forEach((button) => {
+    button.onclick = () => {
+      setReportOpen("bug", true);
+      renderHud();
+      const description = document.querySelector<HTMLTextAreaElement>("#bug-report-overlay [data-bug-report-description]");
+      // Preserve an existing draft if the player already started a report.
+      if (!description || description.value.trim()) return;
+      description.value = `Season summary is missing historical data: ${button.dataset.seMissingRecords}.\nWinner: ${winner.playerId} (${winner.playerName}).\nCrowned: ${new Date(winner.crownedAt).toISOString()}.\nPlease investigate why these season records are unavailable.`;
+      description.dispatchEvent(new Event("input", { bubbles: true }));
+      description.focus();
+    };
+  });
 
   const lookAround = overlayEl.querySelector("#se-look-around") as HTMLButtonElement | null;
   const newSeason = overlayEl.querySelector("#se-new-season") as HTMLButtonElement | null;
