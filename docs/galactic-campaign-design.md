@@ -2858,8 +2858,9 @@ between seeing a threat and its landing.
 turns it off for that browser). The galaxy view shows the **decree hand**; a
 system's view shows that **system's order hand**. Each card has an icon, a
 short title, a green gain chip, a gold cost chip, an optional badge (threat
-timer or build time) and one button; free answers are dashed and stay
-playable when the day's order or decree is spent. Urgent cards come first.
+timer or build time) and one button; free answers (the Court's offer, a Writ) are dashed, stay
+playable when the day's decree is spent, and appear only in the galaxy
+view: a system's view shows that system's orders and nothing else. Urgent cards come first.
 After an order or decree lands the view moves on by itself: to the next
 system with an order ready, then back to the galaxy. The top bar shows the
 race for the throne (you against the leader), Court Strength, Influence and

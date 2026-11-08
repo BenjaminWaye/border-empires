@@ -75,10 +75,14 @@ describe("nextStop: where the view goes after an action", () => {
 });
 
 describe("hand order", () => {
-  it("puts an urgent card ahead of a free answer, so a phone always shows it first", () => {
+  it("a system's hand holds only that system's orders: no Writ or Court offer", () => {
     const writ = { kind: "FIGHTER" as const, expiresAt: NOW + D, targetLabel: null };
-    const ids = orderCards(dukeStatus({ politics: politics({ writ }) }), "s1", NOW).map((c) => c.id);
-    expect(ids.slice(0, 2)).toEqual(["fighter", "writ"]);
+    const status = dukeStatus({ politics: politics({ writ }), court: { ...dukeStatus().court, offer: { status: "PENDING", protectedUntil: null, moveLockedUntil: null } } });
+    const ids = orderCards(status, "s1", NOW).map((c) => c.id);
+    expect(ids[0]).toBe("fighter");
+    expect(ids).not.toContain("writ");
+    expect(ids).not.toContain("offer");
+    expect(decreeCards(status, NOW).map((c) => c.id)).toEqual(expect.arrayContaining(["writ", "offer"]));
   });
 });
 

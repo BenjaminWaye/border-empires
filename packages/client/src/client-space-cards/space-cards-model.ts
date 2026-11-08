@@ -1,7 +1,8 @@
 // The action cards of Space View (design doc §30), built from the Duke status.
 // Two hands, two places: decrees (one a day, for the whole empire) are played
 // in the galaxy view; orders (one a day per system) in that system's view.
-// Answering the Court's offer or a Writ is free and shows in both. Pure.
+// Answering the Court's offer or a Writ is free and shows with the decrees
+// only: a system's view holds that system's orders and nothing else. Pure.
 import { formatDuration } from "../client-duke-panel/client-duke-format.js";
 import type { DukeBuildBody } from "../client-duke-panel/client-duke-api.js";
 import type { DukeStatus, DukeSystemView } from "../client-duke-panel/client-duke-types.js";
@@ -165,7 +166,9 @@ export const orderCards = (status: DukeStatus, seasonId: string, now: number): S
   const probe = s.options.find((o) => o.kind === "PROBE")!;
   cards.push(card({ id: "probe-build", icon: "probe", title: "Build Probe", gain: "Scout a rival", cost: hours(probe.durationMs), verb: "Build", action: { kind: "BUILD", seasonId, body: { kind: "PROBE" } }, disabledReason: notReady ?? (probe.blockedBy ? blocked(probe.blockedBy) : null) }));
   const playable = [...cards].sort((a, b) => Number(b.urgent) - Number(a.urgent) || Number(a.disabledReason !== null) - Number(b.disabledReason !== null));
-  return withReactions(playable, reactionCards(status, now));
+  // Only this system's orders here: the Court's offer and Writs are empire
+  // matters and stay in the galaxy view's hand.
+  return playable.slice(0, MAX_HAND);
 };
 
 export type SpaceStop = { mode: "galaxy" } | { mode: "system"; seasonId: string };
