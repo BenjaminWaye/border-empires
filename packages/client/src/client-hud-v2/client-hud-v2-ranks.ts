@@ -134,10 +134,10 @@ const standingsHtml = (input: RanksInput): string => {
   const top = input.overall.slice(0, STANDINGS_CAP);
   const rows = [...top];
   if (input.selfOverall && !top.some((e) => e.id === input.me)) rows.push(input.selfOverall);
-  const best = Math.max(1, ...rows.map((e) => e.tiles));
+  const best = Math.max(1, ...rows.map((e) => e.score));
   return rows.map((e) => `<button type="button" class="v2r-stand${e.id === input.me ? " v2r-stand-you" : ""}" data-hud-v2-profile="${esc(e.id)}">
       <span class="v2r-rank">${e.rank}</span>${crest(e.name, input.colorOf(e.id), "")}<span class="v2r-stand-name">${e.id === input.me ? "You" : esc(e.name)}</span>
-      <span class="v2r-stand-bar"><span style="width:${((e.tiles / best) * 100).toFixed(1)}%"></span></span><span class="v2r-stand-val">${e.tiles.toLocaleString("en-US")}</span>
+      <span class="v2r-stand-bar"><span style="width:${((e.score / best) * 100).toFixed(1)}%"></span></span><span class="v2r-stand-val">${e.score.toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
     </button>`).join("");
 };
 
@@ -151,6 +151,6 @@ export const ranksBodyHtml = (input: RanksInput): string => {
     : "";
   return `<div class="v2r-layout">
     <section class="v2r-race"><div class="v2r-axis"><span>Start</span><span>Win line</span></div>${tracks}</section>
-    <aside class="v2r-aside">${closest}<section class="v2r-card"><h2 class="v2s-h2">Standings <span class="v2s-meta">tiles</span></h2>${standingsHtml(input)}</section></aside>
+    <aside class="v2r-aside">${closest}<section class="v2r-card"><h2 class="v2s-h2">Standings <span class="v2s-meta">power score</span></h2>${standingsHtml(input)}</section></aside>
   </div>`;
 };

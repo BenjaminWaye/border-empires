@@ -1,3 +1,4 @@
+import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
 import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
 import { SEASON_REVEAL_LOADING_CHANGELOG } from "./client-changelog-season-reveal-loading.js";
 import { BATTLE_VARIETY_ENTRY } from "./client-changelog-battle-variety.js";
@@ -19,6 +20,7 @@ import { MANIFEST_WORDING_CHANGELOG } from "./client-changelog-manifest-wording.
 import { VICTORY_HOLD_TIME_CHANGELOG } from "./client-changelog-victory-hold-time.js";
 import { RANKS_TRACK_PROFILES_CHANGELOG } from "./client-changelog-ranks-track-profiles.js";
 import { RIVER_MOUTHS_CHANGELOG } from "./client-changelog-river-mouths.js";
+import { AI_STOP_THE_LEADER_CHANGELOG } from "./client-changelog-ai-stop-the-leader.js";
 import { MOBILE_APP_CHANGELOG } from "./client-changelog-mobile-app.js";
 import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
 import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
@@ -69,9 +71,7 @@ import { BREAK_PACT_ATTACK_CHANGELOG } from "./client-changelog-break-pact-attac
 import { FLAG_TAP_CHANGELOG } from "./client-changelog-flag-tap.js";
 import { SIEGE_UMBRITE_ONLY_CHANGELOG } from "./client-changelog-siege-umbrite.js";
 import { MARCH_WIN_CHANCE_CHANGELOG } from "./client-changelog-march-win-chance.js";
-import { SPACE_POLITICS_CHANGELOG } from "./client-changelog-space-politics.js";
-import { SPACE_DAILY_CHANGELOG } from "./client-changelog-space-daily.js";
-import { SPACE_BASES_CHANGELOG } from "./client-changelog-space-bases.js";
+import { SPACE_CHANGELOG } from "./client-changelog-space.js";
 import { AI_RIVALS_CHANGELOG } from "./client-changelog-ai-rivals.js";
 import { CLAIM_STRIPED_GROUND_CHANGELOG } from "./client-changelog-claim-striped-ground.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE } from "./client-changelog-oct-17-19-inline.js";
@@ -392,7 +392,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...FLAG_TAP_CHANGELOG,
   ...SIEGE_UMBRITE_ONLY_CHANGELOG,
   ...MARCH_WIN_CHANCE_CHANGELOG,
-  ...SPACE_POLITICS_CHANGELOG,
+  ...SPACE_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_30_31,
   {
     createdAt: 1793483288830,
@@ -487,8 +487,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...TERRAIN_COMBAT_CHANGELOG,
   ...SEASON_REVEAL_LOADING_CHANGELOG,
   ...RIVER_MOUTHS_CHANGELOG,
-  ...SPACE_DAILY_CHANGELOG,
-  ...SPACE_BASES_CHANGELOG
+  ...NOV_07_STANDINGS_CHANGELOG,
+  ...AI_STOP_THE_LEADER_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

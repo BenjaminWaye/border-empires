@@ -125,6 +125,10 @@ export type DecisionInputs = {
   // Misc — stalemate is folded into canAttack for ATTACK scoring but kept
   // for MUSTER's independent check.
   stalemated: boolean;
+  // 0..1 "stop the leader" weight of the enemy player the chosen attack/muster
+  // target belongs to (ai-victory-focus.ts): 1 = that player holds a season
+  // victory condition, 0 = not a victory threat (or no enemy-player target).
+  victoryFocusWeight: number;
 };
 
 // ── Momentum ────────────────────────────────────────────────────────────────
@@ -191,6 +195,21 @@ const scoreExpand = (inp: DecisionInputs): number =>
 // still illegal (no candidate, no dev slot, muster should handle it instead).
 const WAR_POSTURE_COMBAT_BOOST = 0.3;
 
+// Gang up on a rival about to win (ai-victory-focus.ts). Added after the
+// product like WAR_POSTURE_COMBAT_BOOST, times the target's focus weight, so
+// it never revives a vetoed ATTACK/MUSTER. A rival already holding a
+// condition (weight 1) also lifts ATTACK's CONTAIN/TRUCE posture veto: every
+// AI that borders it should press, not sit on a contained front.
+export const VICTORY_FOCUS_COMBAT_BOOST = 0.35;
+const VICTORY_FOCUS_POSTURE_OVERRIDE_WEIGHT = 1;
+export const victoryFocusOverridesPosture = (inp: DecisionInputs): boolean =>
+  inp.victoryFocusWeight >= VICTORY_FOCUS_POSTURE_OVERRIDE_WEIGHT;
+const withCombatBoosts = (base: number, inp: DecisionInputs): number => {
+  if (base === 0) return 0;
+  const war = inp.frontPosture === "WAR" ? WAR_POSTURE_COMBAT_BOOST : 0;
+  return Math.min(1, base + war + inp.victoryFocusWeight * VICTORY_FOCUS_COMBAT_BOOST);
+};
+
 const scoreAttack = (inp: DecisionInputs): number => {
   // canAttack already folds stalemate + enemy-presence checks inside
   // buildDecisionInputs so we can represent ATTACK in 5 considerations
@@ -213,22 +232,23 @@ const scoreAttack = (inp: DecisionInputs): number => {
     boolVeto(!(inp.musterReady && inp.hasWeakEnemyBorder)),
     // Barbarian attacks don't require BREAK posture — WAR and plain
     // barbarian targets both bypass it.
-    boolVeto(inp.frontPosture === "BREAK" || inp.frontPosture === "WAR" || inp.hasBarbTarget),
+    boolVeto(inp.frontPosture === "BREAK" || inp.frontPosture === "WAR" || inp.hasBarbTarget || victoryFocusOverridesPosture(inp)),
     // Scales with how hard the enemy is pressing.
     // Midpoint 185 means pressure below ~125 barely registers.
     logistic(inp.pressureAttackScore, 185, 0.06)
   ]);
-  if (base === 0 || inp.frontPosture !== "WAR") return base;
-  return Math.min(1, base + WAR_POSTURE_COMBAT_BOOST);
+  return withCombatBoosts(base, inp);
 };
 
-const scoreMuster = (inp: DecisionInputs): number =>
-  scoreConsiderations([
+const scoreMuster = (inp: DecisionInputs): number => {
+  const base = scoreConsiderations([
     boolVeto(inp.musterReady),
     boolVeto(inp.hasWeakEnemyBorder),
     boolVeto(!inp.stalemated),
     logistic(inp.pressureAttackScore, 120, 0.015)
   ]);
+  return base === 0 ? 0 : Math.min(1, base + inp.victoryFocusWeight * VICTORY_FOCUS_COMBAT_BOOST);
+};
 
 const scoreBuildDefense = (inp: DecisionInputs): number => {
   const base = scoreConsiderations([

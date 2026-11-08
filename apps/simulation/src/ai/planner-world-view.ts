@@ -133,6 +133,8 @@ export type PlannerPlayerView = {
   nonHostilePlayerIds?: string[];
   /** Real 0..1 season-victory progress per path (ai-victory-standings.ts). */
   victoryProgress?: WorldVictoryProgress;
+  /** Rivals near or holding a win, 0..1 weight each, never this player (ai-victory-focus.ts). */
+  victoryFocusTargets?: Record<string, number>;
   /**
    * Manpower currently staged inside this player's muster flags (out of the
    * pool). The AI war reserve counts it as already reserved — see
