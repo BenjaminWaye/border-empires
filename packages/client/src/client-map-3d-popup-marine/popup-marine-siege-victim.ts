@@ -52,8 +52,9 @@ const mostFatedVictim = (dyingSet: ReadonlySet<number>): number | undefined => d
  * the eventual outcome (see computeSkirmishPose) — that marine is always the
  * one attributed here, forced to fall the instant the firefight begins. */
 export const skirmishSiegeVictim = (
-  b: Pick<BattleOverlaySkirmishEntry, "hashSeed" | "startAt" | "holdApproachUntilElapsed">
+  b: Pick<BattleOverlaySkirmishEntry, "hashSeed" | "startAt" | "holdApproachUntilElapsed" | "defenderGarrison">
 ): SiegeVictim | undefined => {
+  if (b.defenderGarrison?.survivorIndex !== undefined) return undefined;
   const dyingSet = dyingIndicesFor((side, i) => deathKitFor(b.hashSeed, side, i), DEFENDER_SIDE, true);
   const index = mostFatedVictim(dyingSet);
   if (index === undefined) return undefined;
@@ -67,10 +68,12 @@ export const skirmishSiegeVictim = (
  * attributed during the skirmish phase above, and attributing it again here
  * would replay the same "kill" a second time once the battle resolves. */
 export const battleSiegeVictim = (
-  b: Pick<BattleOverlayRenderEntry, "hashSeed" | "clashAt" | "attackerWon" | "fromSkirmish">
+  b: Pick<BattleOverlayRenderEntry, "hashSeed" | "clashAt" | "attackerWon" | "fromSkirmish" | "defenderGarrison">
 ): SiegeVictim | undefined => {
   if (b.fromSkirmish) return undefined;
   const defenderWon = !b.attackerWon;
+  const survivor = b.defenderGarrison?.survivorIndex;
+  if (survivor !== undefined) return defenderWon ? undefined : { index: survivor, deathAtMs: b.clashAt };
   const dyingSet = dyingIndicesFor((side, i) => deathKitFor(b.hashSeed, side, i), DEFENDER_SIDE, defenderWon);
   const index = mostFatedVictim(dyingSet);
   if (index === undefined) return undefined;

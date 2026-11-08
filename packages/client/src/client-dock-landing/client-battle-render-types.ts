@@ -1,8 +1,18 @@
+import type { BattleChoreography } from "../client-map-3d-popup-marine/popup-marine-choreography.js";
+import type { BattlePresentation } from "@border-empires/shared";
 import type { GarrisonFacing } from "../client-map-3d-popup-marine/popup-marine-garrison.js";
 import type { SquadGearFields } from "../client-map-3d-popup-marine/popup-marine-gear.js";
 import type { DockLanding } from "./client-dock-landing.js";
 
+export type MarineCasualtyMasks = { attacker: number; defender: number };
+
 export type BattleOverlayRenderEntry = {
+  fallenBeforeResolution?: MarineCasualtyMasks;
+  choreography?: BattleChoreography;
+  choreographyStartAt?: number;
+  presentation?: BattlePresentation;
+  /** Whether this viewer actually saw the skirmish casualty before resolution. */
+  skirmishCasualties?: boolean;
   srcWorldX: number;
   srcWorldZ: number;
   tgtWorldX: number;
@@ -37,6 +47,8 @@ export type BattleOverlayRenderEntry = {
 // oscillation at the tile center with muzzle flashes and first-cycle
 // casualties (WINNER_DEATHS per side), but no rout phase.
 export type BattleOverlaySkirmishEntry = {
+  choreography?: BattleChoreography;
+  choreographyStartAt?: number;
   /** A frontier landing with no defending force: unload and hold, without a firefight. */
   unopposed?: boolean;
   srcWorldX: number;

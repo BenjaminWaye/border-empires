@@ -1,3 +1,4 @@
+import { BATTLE_VARIETY_ENTRY } from "./client-changelog-battle-variety.js";
 import { GUIDE_AND_RECOVERY_CHANGELOG } from "./client-changelog-nov-03-04-guide-recovery.js";
 import { AFC_REPLACEMENT_CHANGELOG } from "./client-changelog-afc-replacement.js";
 import { AI_FREE_TRUCE_CHANGELOG } from "./client-changelog-ai-free-truce.js";
@@ -484,7 +485,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...VICTORY_HOLD_TIME_CHANGELOG,
-  ...RANKS_TRACK_PROFILES_CHANGELOG
+  ...RANKS_TRACK_PROFILES_CHANGELOG,
+  { ...BATTLE_VARIETY_ENTRY, createdAt: 1794073665467, },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildCaptureHoldGarrisons, defenderGarrisonField, resetCaptureHoldGarrisonCache } from "./client-map-3d-capture-hold-garrison.js";
+import { buildCaptureHoldGarrisons, defenderGarrisonField, rememberCompletedComebackGarrisons, resetCaptureHoldGarrisonCache } from "./client-map-3d-capture-hold-garrison.js";
+import { computeGarrisonPose } from "./client-map-3d-popup-marine/popup-marine-garrison.js";
+import { dramaHero } from "./client-map-3d-popup-marine/popup-marine-drama.js";
+import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
 import { noteCaptureHoldDeadline, resetCaptureHoldIndex } from "./client-capture-hold/client-capture-hold.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
@@ -81,6 +84,37 @@ describe("defenderGarrisonField", () => {
   it("keeps the garrison for a fight that outlasts the hold window", () => {
     const state = makeState([held()]);
     defenderGarrisonField(state, keyFor, keyFor(10, 10), "p1", NOW_EPOCH);
+    rememberCompletedComebackGarrisons(state, keyFor, NOW + 60_000);
     expect(defenderGarrisonField(state, keyFor, keyFor(10, 10), "p1", NOW_EPOCH + 60_000).defenderGarrison).toBeDefined();
+  });
+});
+
+
+describe("comeback capture-hold continuity", () => {
+  it.each([true, false])("keeps one survivor after the battle is pruned (attackerWon=%s)", (attackerWon) => {
+    const battle = {
+      originX: 9, originY: 10, targetX: 10, targetY: 10,
+      attackerOwnerId: attackerWon ? "p1" : "p2", defenderOwnerId: attackerWon ? "p2" : "p1",
+      attackerWon, startAt: 0, clashAt: 0, endAt: NOW - 1, fromSkirmish: true, presentation: "comeback" as const
+    };
+    const state = makeState([held()], new Map([["10,10", battle]]));
+    const facing = attackerWon ? undefined : defenderGarrisonField(state, keyFor, "10,10", "p1", NOW_EPOCH).defenderGarrison;
+    const hero = dramaHero({ ...battle, hashSeed: 10 * 92821 + 10, ...(facing ? { defenderGarrison: facing } : {}) }, attackerWon ? 0 : 1);
+    rememberCompletedComebackGarrisons(state, keyFor, NOW);
+    pruneExpiredActiveBattles(state, NOW);
+    expect(state.activeBattles.size).toBe(0);
+    const [garrison] = build(state);
+    expect(garrison!.survivorIndex).toBe(hero);
+    const visible = Array.from({ length: 7 }, (_, i) => i).filter((i) => computeGarrisonPose(garrison!, i, NOW).scale > 0);
+    expect(visible).toEqual([hero]);
+    expect(defenderGarrisonField(state, keyFor, "10,10", "p1", NOW_EPOCH).defenderGarrison!.survivorIndex).toBe(hero);
+  });
+  it("does not shrink the defending squad before the comeback ending completes", () => {
+    const state = makeState([held()], new Map([["10,10", {
+      originX: 9, originY: 10, targetX: 10, targetY: 10, attackerOwnerId: "p2", defenderOwnerId: "p1",
+      attackerWon: false, startAt: 0, clashAt: NOW, endAt: NOW + 5000, fromSkirmish: true, presentation: "comeback"
+    }]]));
+    rememberCompletedComebackGarrisons(state, keyFor, NOW);
+    expect(defenderGarrisonField(state, keyFor, "10,10", "p1", NOW_EPOCH).defenderGarrison!.survivorIndex).toBeUndefined();
   });
 });

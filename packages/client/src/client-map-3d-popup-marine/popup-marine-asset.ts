@@ -62,6 +62,7 @@ export const MARINE_CLIP_NAMES = {
   run: "PistolRun",
   stand: "PistolIdle",
   kneel: "PistolKneelingIdle",
+  walkBack: "PistolWalk",
   dead: "Dead"
 } as const;
 

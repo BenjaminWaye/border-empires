@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { syncBattleOverlayFx } from "../client-map-3d-capture-overlays.js";
-import type { BattleOverlaySkirmishEntry } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
+import type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 const keyFor = (x: number, y: number) => `${x},${y}`;
@@ -350,4 +350,32 @@ describe("battle overlay skirmish sourcing", () => {
     expect(battles[0]?.tgtSurfaceY).toBeCloseTo(0.08);
     expect(battles[0]?.srcSurfaceY).toBe(0);
   });
+});
+
+
+describe("resolved battle presentation reaches the 3D renderer", () => {
+  it("keeps the server category and full ending lifetime when constructing render entries", () => {
+    const state = createState({ activeBattles: new Map([["5,5", {
+      originX: 4, originY: 5, targetX: 5, targetY: 5, attackerOwnerId: "me", defenderOwnerId: "rival",
+      attackerWon: true, startAt: -2400, clashAt: 1000, endAt: 6150, fromSkirmish: true, presentation: "comeback"
+    }]]) });
+    const tick = vi.fn<(now: number, battles: BattleOverlayRenderEntry[]) => void>();
+    syncBattleOverlayFx(state, keyFor, heightfield, () => "#ff0000", { tick, clear: vi.fn(), dispose: vi.fn() } as never, 1234, 0, 0);
+    expect(tick.mock.calls[0]?.[1][0]).toMatchObject({ presentation: "comeback", endAt: 6150 });
+  });
+});
+
+
+it("retains the defending survivor snapshot after the target changes owners", () => {
+  const state = createState({
+    tiles: new Map([["5,5", { x: 5, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" }]]),
+    activeBattles: new Map([["5,5", {
+      originX: 4, originY: 5, targetX: 5, targetY: 5, attackerOwnerId: "me", defenderOwnerId: "rival",
+      attackerWon: true, startAt: -2400, clashAt: 1000, endAt: 6150, fromSkirmish: true,
+      presentation: "comeback", defenderGarrison: { fwdX: 0, fwdZ: 1, survivorIndex: 3 }
+    }]])
+  });
+  const { fx, tick } = createFx();
+  syncBattleOverlayFx(state, keyFor, heightfield, () => "#ff0000", fx, 1234, 0, 0);
+  expect(tick.mock.calls[0]?.[1][0]).toMatchObject({ defenderGarrison: { survivorIndex: 3 } });
 });

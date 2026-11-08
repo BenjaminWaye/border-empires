@@ -1,4 +1,9 @@
+import { battleClashMs, isBattlePresentation, type BattlePresentation } from "@border-empires/shared";
 import { APPROACH_MS, CLASH_MS, ROUT_MS } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
+import { battleChoreographyFor } from "../client-map-3d-popup-marine/popup-marine-choreography.js";
+import { skirmishCasualtyMasksAt } from "../client-map-3d-popup-marine/popup-marine-full-casualties.js";
+import type { MarineCasualtyMasks } from "../client-dock-landing/client-battle-render-types.js";
+import type { GarrisonFacing } from "../client-map-3d-popup-marine/popup-marine-garrison.js";
 import type { ClientState } from "../client-state/client-state.js";
 import {
   ownedFactories,
@@ -14,6 +19,7 @@ import {
 // rather than imported since the client package doesn't depend on
 // sim-protocol; it only ever sees this over the wire as untyped JSON).
 type CombatBroadcastPayload = {
+  presentation?: unknown;
   attackerOwnerId: string;
   defenderOwnerId: string;
   attackerWon: boolean;
@@ -42,6 +48,11 @@ const isCombatBroadcastPayload = (value: unknown): value is CombatBroadcastPaylo
   typeof (value as CombatBroadcastPayload).originY === "number";
 
 export type ActiveBattleOverlay = {
+  presentation?: BattlePresentation;
+  skirmishCasualties?: boolean;
+  choreographyStartAt?: number;
+  fallenBeforeResolution?: MarineCasualtyMasks;
+  defenderGarrison?: GarrisonFacing;
   originX: number;
   originY: number;
   targetX: number;
@@ -134,7 +145,8 @@ export const registerActiveBattleFromTileDelta = (
   state: Pick<ClientState, "activeBattles" | "skirmishSeenAt" | "squadGearByOwner"> & Partial<Pick<ClientState, "dockLandings" | "dockPairs">>,
   keyFor: (x: number, y: number) => string,
   update: { x: number; y: number; combatJson?: string },
-  nowMs: number
+  nowMs: number,
+  garrisonContext?: { ownerId: string; facing: GarrisonFacing }
 ): void => {
   if (!update.combatJson) return;
   let parsed: unknown;
@@ -167,6 +179,7 @@ export const registerActiveBattleFromTileDelta = (
   // its approach open past the default APPROACH_MS. Skipping the approach
   // outright sidesteps both — there's no timing to inherit or race over.
   const seenAt = state.skirmishSeenAt.get(key);
+  const defenderGarrison = garrisonContext?.ownerId === parsed.defenderOwnerId ? garrisonContext.facing : undefined;
   const attackerGear = squadGearFromWire(parsed.attackerGear);
   const defenderGear = squadGearFromWire(parsed.defenderGear);
   rememberSquadGear(state.squadGearByOwner, parsed.attackerOwnerId, attackerGear);
@@ -178,6 +191,13 @@ export const registerActiveBattleFromTileDelta = (
   // authoritative gameplay or replaying the approach for ordinary battles.
   const clashAt = Math.max(nowMs, landing ? landing.startAt + landing.approachMs : nowMs);
   const startAt = clashAt - APPROACH_MS;
+  const fallenBeforeResolution = seenAt === undefined ? undefined : skirmishCasualtyMasksAt({
+    startAt: seenAt, hashSeed: update.x * 92821 + update.y,
+    choreography: battleChoreographyFor(update.x * 92821 + update.y),
+    ...(defenderGarrison ? { defenderGarrison } : {}),
+    ...(landing ? { holdApproachUntilElapsed: landing.startAt + landing.approachMs - seenAt } : {})
+  }, nowMs);
+  const presentation = isBattlePresentation(parsed.presentation) ? parsed.presentation : undefined;
   state.activeBattles.set(key, {
     originX: parsed.originX,
     originY: parsed.originY,
@@ -187,8 +207,16 @@ export const registerActiveBattleFromTileDelta = (
     defenderOwnerId: parsed.defenderOwnerId,
     attackerWon: parsed.attackerWon,
     startAt,
+    choreographyStartAt: seenAt ?? startAt,
+    ...(fallenBeforeResolution ? { fallenBeforeResolution } : {}),
+    ...(defenderGarrison ? { defenderGarrison } : {}),
     clashAt,
-    endAt: clashAt + CLASH_MS + ROUT_MS,
+    endAt: clashAt + battleClashMs(presentation) + ROUT_MS,
+    ...(presentation ? {
+      presentation,
+      // A late observer or unloading landing squad may not have fired yet.
+      skirmishCasualties: seenAt !== undefined && nowMs >= Math.max(seenAt + APPROACH_MS, landing ? landing.startAt + landing.approachMs : -Infinity) + CLASH_MS
+    } : {}),
     // Purely informational now (see computeBattlePose's preDead handling) —
     // no longer load-bearing for positioning, so a missed seenAt (e.g. the
     // COMBAT_RESULT/TILE_DELTA_BATCH race above) only means a marine that
