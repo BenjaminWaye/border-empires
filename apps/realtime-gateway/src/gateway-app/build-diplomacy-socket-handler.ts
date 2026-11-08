@@ -51,7 +51,7 @@ export type DiplomacySocketHandlerDeps = {
   isSimulationConnected: () => boolean;
   /** Every competitive player's tile count, from the simulation's cached season summary. */
   /** The simulation's season summary: leaderboard sizes and the world's land count, for the AI alliance-bloc check. */
-  fetchSeasonSummary: () => Promise<Pick<CurrentSeasonSummary, "overall" | "landTileCount" | "dominanceTilesByPlayerId">>;
+  fetchSeasonSummary: () => Promise<Pick<CurrentSeasonSummary, "overall" | "landTileCount" | "dominanceTilesByPlayerId" | "status">>;
 };
 
 export type DiplomacySocketHandler = {
@@ -198,7 +198,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     syncForcedTruce: async (playerId, targetPlayerId) => { await deps.syncTruceToSimulation({ playerId, targetPlayerId, truced: true }); },
     fetchSnapshot: requesterSnapshot, hasLiveSocket: deps.hasLiveSocket, responder,
     fanout: deps.fanoutPlayerPayloads, recordEvent: deps.recordGatewayEvent,
-    nameForPlayerId: async id => socialState.playerNameOf(id), diplomacyContext });
+    nameForPlayerId: async id => socialState.playerNameOf(id), diplomacyContext,
+    seasonEnded: async () => (await deps.fetchSeasonSummary()).status === "ended" });
 
   const resourceTrades = createResourceTradeService({ social:socialState,settlement,now:()=>Date.now(),
     isAutoRespondingAi:id=>isAi(id)&&!deps.hasLiveSocket(id),
