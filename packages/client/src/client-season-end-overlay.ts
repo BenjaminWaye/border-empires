@@ -61,6 +61,12 @@ export const playerBadge = (
 const rankClass = (rank: number): string =>
   rank === 1 ? "is-gold" : rank === 2 ? "is-silver" : rank === 3 ? "is-bronze" : "";
 
+const currentPlayerName = (leaderboard: SeasonEndLeaderboard, id: string | undefined, fallback: string): string => {
+  const entry = leaderboard.overall.find((player) => player.id === id)
+    ?? (leaderboard.selfOverall?.id === id ? leaderboard.selfOverall : undefined);
+  return entry?.name ?? fallback;
+};
+
 const num = (value: number, digits = 0): string =>
   value.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
@@ -76,7 +82,7 @@ const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: Seas
     voted: state.seasonStartVoted,
     self: [leaderboard.selfOverall?.id, leaderboard.selfOverall?.name],
     overall: leaderboard.overall.map((e) => [e.id, e.name, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
-    victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.progressLabel, o.conditionMet]),
+    victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.leaderName, o.progressLabel, o.conditionMet]),
     stats: state.seasonStats ?? state.seasonWinner?.seasonStats,
     // Cheap-but-sufficient signature for a per-player time series: point
     // count + last value catches "a new sample arrived" without hashing the
@@ -194,11 +200,8 @@ const miscPanel = (
 ): string => {
   const items: string[] = [];
   const missing: string[] = [];
-  const namedPlayer = (id: string, name: string | undefined): string => {
-    const current = leaderboard.overall.find((entry) => entry.id === id)
-      ?? (leaderboard.selfOverall?.id === id ? leaderboard.selfOverall : undefined);
-    return playerBadge(id, current?.name ?? name ?? id, colors);
-  };
+  const namedPlayer = (id: string, name: string | undefined): string =>
+    playerBadge(id, currentPlayerName(leaderboard, id, name ?? id), colors);
   const deadly = stats?.mostDeadlyTile;
   const road = stats?.longestRoad;
   if (deadly) {
@@ -256,15 +259,20 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   const empiresContested = leaderboard.overall.length;
   const starting = state.seasonEndStarting;
 
-  const victoryHtml = victoryGauges(state.seasonVictory, colors, selfId);
+  const winner = { ...state.seasonWinner,
+    playerName: currentPlayerName(leaderboard, state.seasonWinner.playerId, state.seasonWinner.playerName) };
+  const objectives = state.seasonVictory.map((objective) => ({
+    ...objective,
+    leaderName: currentPlayerName(leaderboard, objective.leaderPlayerId, objective.leaderName),
+    statusLabel: objective.id === winner.objectiveId ? `Winner crowned: ${winner.playerName}` : objective.statusLabel
+  }));
+  const victoryHtml = victoryGauges(objectives, colors, selfId);
   const hasVictory = victoryHtml.length > 0;
   const seasonStats = state.seasonStats ?? state.seasonWinner.seasonStats;
-  const scoreHistory = state.seasonScoreHistory.length > 0 ? state.seasonScoreHistory : state.seasonWinner.scoreHistory ?? [];
+  const scoreHistory = (state.seasonScoreHistory.length > 0 ? state.seasonScoreHistory : state.seasonWinner.scoreHistory ?? [])
+    .map((series) => ({ ...series, playerName: currentPlayerName(leaderboard, series.playerId, series.playerName) }));
   const scoreGraphHtml = scoreGraphPanel(scoreHistory, colors, selfId, state.seasonWinner.playerId)
     || `<section class="se-panel se-graph"><h3 class="se-panel-title">Score Over Time</h3><p>No score timeline was saved for this season.</p>${missingHistoryReportButton("timeline", ["Score timeline"])}</section>`;
-  const winnerEntry = leaderboard.overall.find((entry) => entry.id === state.seasonWinner?.playerId)
-    ?? (leaderboard.selfOverall?.id === state.seasonWinner.playerId ? leaderboard.selfOverall : undefined);
-  const winner = { ...state.seasonWinner, playerName: winnerEntry?.name ?? state.seasonWinner.playerName };
   const activeTab = overlayEl.dataset.seTab || "standings";
 
   overlayEl.innerHTML = `

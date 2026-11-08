@@ -90,6 +90,19 @@ describe("season summary recovery", () => {
     expect(overlay.querySelector(".se-misc")?.textContent).toContain("After");
   });
 
+  it("uses current player names in victory paths and the score graph too", () => {
+    const state = stateForSummary();
+    state.seasonVictory = [{ id: "ECONOMIC_HEGEMONY", name: "Economic Ascendancy", description: "Lead income",
+      leaderPlayerId: "winner", leaderName: "Nauticus", progressLabel: "33% lead", thresholdLabel: "Hold the lead",
+      holdDurationSeconds: 86400, statusLabel: "Winner crowned: Nauticus", conditionMet: true }];
+    state.seasonScoreHistory = [{ playerId: "winner", playerName: "Nauticus", points: [{ t: 1, score: 1 }, { t: 2, score: 2 }] }];
+    const overlay = render(state);
+    expect(overlay.querySelector(".se-dial-status")?.textContent).toBe("Winner crowned: Waypoint");
+    expect(overlay.querySelector(".se-dial-leader")?.textContent).toContain("Waypoint");
+    expect(overlay.querySelector(".se-graph-legend")?.textContent).toContain("Waypoint");
+    expect(overlay.textContent).not.toContain("Nauticus");
+  });
+
   it("keeps statistics and timeline accessible when an older season has no saved data", () => {
     const overlay = render(stateForSummary());
     expect(overlay.querySelector('.se-tab[data-tab="misc"]')).toBeTruthy();
