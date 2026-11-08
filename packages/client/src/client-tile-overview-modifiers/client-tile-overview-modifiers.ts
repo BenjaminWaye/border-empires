@@ -1,5 +1,5 @@
 import { prospectSignatureResource, isRedesignedRelic, relicOperationalState, relicReserveLabel, RELIC_DEFINITIONS } from "@border-empires/shared";
-import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, defendingFortVariant, FORT_VARIANT_LABELS, isFortDefending, type EconomicStructureType } from "@border-empires/shared";
+import { HILLS_DEFENSE_MULT, HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, defendingFortVariant, FORT_VARIANT_LABELS, isFortDefending, type EconomicStructureType } from "@border-empires/shared";
 import { prospectClueOverviewLine, prospectClueResourceLabel, retiredProspectClues } from "../client-prospect-clue/client-prospect-clue.js";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import { resourceRevealCategory, structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
@@ -259,10 +259,16 @@ export const tileOverviewModifiersForTile = (tile: Tile, options: { omitTownCoin
   // the source to disambiguate; alone, there's nothing to disambiguate
   // from, so it's shown as a plain "Vision" line instead.
   if (tile.terrain === "LAND" && isHillsTileAt(tile.x, tile.y)) {
+    const named = modifiers.length > 0;
+    const defense = `+${Math.round((HILLS_DEFENSE_MULT - 1) * 100)}% when garrisoned`;
+    // High ground also defends (terrain-combat.ts), labelled the same way.
     modifiers.push(
-      modifiers.length > 0
+      named
         ? { reason: "Hills", effect: `vision +${HILLS_VISION_BONUS}`, tone: "positive" }
-        : { reason: "Vision", effect: `+${HILLS_VISION_BONUS}`, tone: "positive" }
+        : { reason: "Vision", effect: `+${HILLS_VISION_BONUS}`, tone: "positive" },
+      named
+        ? { reason: "Hills", effect: `defense ${defense}`, tone: "positive" }
+        : { reason: "Defense", effect: defense, tone: "positive" }
     );
   }
 

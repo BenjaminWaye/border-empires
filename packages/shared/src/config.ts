@@ -103,6 +103,10 @@ export const FOREST_FRONTIER_CLAIM_MULT = 1.5;
 // 3_750 ms additive + 7_500 ms base = 11_250 ms total (1.5x).
 // See isHillsTileAt usage in runtime-frontier-command.ts.
 export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 3_750;
+// Terrain combat (terrain-combat.ts): a defended (SETTLED or capture-held)
+// hills tile defends at x1.2; an attack across a river edge attacks at x0.8.
+export const HILLS_DEFENSE_MULT = 1.2;
+export const RIVER_CROSSING_ATTACK_MULT = 0.8;
 export const SETTLE_COST = 0;
 /**
  * AI-only reserve: the automatic per-tick frontier auto-claim (see

@@ -460,6 +460,7 @@ describe("tileOverviewModifiersForTile", () => {
       ownershipState: "FRONTIER"
     } satisfies Tile);
     expect(modifiers).toContainEqual({ reason: "Vision", effect: "+1", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Defense", effect: "+20% when garrisoned", tone: "positive" });
     expect(modifiers.some((m) => m.reason === "Hills")).toBe(false);
   });
 
@@ -481,6 +482,7 @@ describe("tileOverviewModifiersForTile", () => {
     expect(modifiers).toContainEqual({ reason: "Local vision", effect: "+5", tone: "positive" });
     expect(modifiers).toContainEqual({ reason: "Hills", effect: "vision +1", tone: "positive" });
     expect(modifiers.some((m) => m.reason === "Vision")).toBe(false);
+    expect(modifiers).toContainEqual({ reason: "Hills", effect: "defense +20% when garrisoned", tone: "positive" });
   });
 
   it("does not show a Hills modifier for a non-hills land tile", () => {

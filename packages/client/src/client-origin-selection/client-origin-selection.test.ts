@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { CURRENT_WORLDGEN_VERSION, WORLD_WIDTH, attackCrossesRiver, riverEdgeKeysForCurrentSeed, setWorldSeed } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import { createClientOriginSelection } from "./client-origin-selection.js";
 import type { Tile } from "../client-types.js";
@@ -370,5 +371,50 @@ describe("createClientOriginSelection", () => {
     addTile(state, supportTile);
 
     expect(selector.supportedOwnedTownsForTile(supportTile)).toHaveLength(0);
+  });
+
+  describe("river crossings", () => {
+    afterEach(() => setWorldSeed(1));
+
+    // A vertical river edge with land both sides, its far-bank tile and a
+    // same-bank neighbour of the target that doesn't cross it.
+    const riverSetup = () => {
+      setWorldSeed(4242, "continents", CURRENT_WORLDGEN_VERSION);
+      for (const key of riverEdgeKeysForCurrentSeed()) {
+        if (key % 2 !== 1) continue;
+        const corner = Math.floor(key / 2);
+        const x = corner % WORLD_WIDTH;
+        const y = Math.floor(corner / WORLD_WIDTH);
+        if (x < 3 || y < 3 || x > 440 || y > 440) continue;
+        // Target west of the edge, so the far-bank origin is its east
+        // neighbour, which the scan (N, E, S, W, ...) visits before the
+        // same-bank south/west ones.
+        const target = { x: x - 1, y };
+        const across = { x, y };
+        const sameBank = [{ x: x - 1, y: y + 1 }, { x: x - 2, y }].find((t) => !attackCrossesRiver(t, target));
+        if (sameBank && attackCrossesRiver(across, target)) return { target, across, sameBank };
+      }
+      throw new Error("seed 4242 has no usable river edge");
+    };
+
+    it("prefers a same-bank origin over an equal one across a river", () => {
+      const { target, across, sameBank } = riverSetup();
+      const { state, selector } = createSelector();
+      addTile(state, { ...target, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED" });
+      // The far-bank origin comes first in the neighbour scan, so without the
+      // river term it wins the tie.
+      addTile(state, { ...across, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" });
+      addTile(state, { ...sameBank, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" });
+      expect(selector.pickOriginForTarget(target.x, target.y)).toMatchObject(sameBank);
+    });
+
+    it("still picks a siege battery across the river over a plain same-bank origin", () => {
+      const { target, across, sameBank } = riverSetup();
+      const { state, selector } = createSelector();
+      addTile(state, { ...target, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED" });
+      addTile(state, { ...across, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", siegeBattery: { ownerId: "me", status: "active" } });
+      addTile(state, { ...sameBank, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" });
+      expect(selector.pickOriginForTarget(target.x, target.y)).toMatchObject(across);
+    });
   });
 });

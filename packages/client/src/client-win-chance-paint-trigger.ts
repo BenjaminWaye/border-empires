@@ -1,4 +1,4 @@
-import { findKnownShieldAmount, isCommitOddsEligibleTarget, winChanceForTile, type FrontierCombatPreviewTile } from "@border-empires/shared";
+import { findKnownShieldAmount, hillsDefenseModifiersAt, isCommitOddsEligibleTarget, winChanceForTile, type FrontierCombatPreviewTile } from "@border-empires/shared";
 import { collectKnownShieldFlags } from "./client-known-shield-flags.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
@@ -70,7 +70,7 @@ export const estimateTileWinChance = (
 ): number =>
   winChanceForTile(previewTileFor(tile), {
     knownShieldAmount: tile.ownerId ? findKnownShieldAmount(tile.x, tile.y, tile.ownerId, collectKnownShieldFlags(state.tiles.values())) : 0,
-    modifiers: { nowMs: Date.now() },
+    modifiers: { nowMs: Date.now(), ...hillsDefenseModifiersAt(tile.x, tile.y) },
     committedManpower: commit.committedManpower,
     baseMusterCost: commit.baseMusterCost,
     ...(serverBaseWinChance != null ? { baseWinChance: serverBaseWinChance } : {})
@@ -109,7 +109,7 @@ export const winChanceEntriesAlongLine = (
     const knownShieldAmount = findKnownShieldAmount(x, y, tile.ownerId, knownShieldFlags);
     const { winChance, color } = winChanceForTile(previewTileFor(tile), {
       knownShieldAmount,
-      modifiers: { nowMs: Date.now() },
+      modifiers: { nowMs: Date.now(), ...hillsDefenseModifiersAt(x, y) },
       ...(commit ? { committedManpower: commit.committedManpower, baseMusterCost: commit.baseMusterCost } : {}),
       ...(targetServerWinChance != null && x === targetX && y === targetY ? { baseWinChance: targetServerWinChance } : {})
     });

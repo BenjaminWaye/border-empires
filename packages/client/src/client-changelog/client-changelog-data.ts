@@ -11,6 +11,7 @@ import { CAPTURE_WRECK_FIX_CHANGELOG } from "./client-changelog-capture-wreck-fi
 import { TOWN_STAT_BONUSES_CHANGELOG } from "./client-changelog-town-stat-bonuses.js";
 import { TOWN_TIER_GROWTH_CHANGELOG } from "./client-changelog-town-tier-growth.js";
 import { SEA_VISION_CHANGELOG } from "./client-changelog-sea-vision.js";
+import { TOWN_RING_IMPROVEMENTS_CHANGELOG } from "./client-changelog-town-ring-improvements.js";
 import { BEACON_FOREST_VISION_CHANGELOG } from "./client-changelog-beacon-forest-vision.js";
 import { MANIFEST_WORDING_CHANGELOG } from "./client-changelog-manifest-wording.js";
 import { VICTORY_HOLD_TIME_CHANGELOG } from "./client-changelog-victory-hold-time.js";
@@ -444,16 +445,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...SEA_VISION_CHANGELOG,
   ...BEACON_FOREST_VISION_CHANGELOG,
   ...MANIFEST_WORDING_CHANGELOG,
-  {
-    createdAt: 1794075638607, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.07",
-    title: "Resource improvements in town support rings",
-    why: "Selecting a farm beside a town opened a different action bar that omitted the yellow improvement button.",
-    changes: [
-      "Available resource improvements now appear as the yellow primary button on the town screen too.",
-      "Selecting a different town plot resets Build to its relevant category, including Resource for farms and deposits."
-    ]
-  },
+  ...TOWN_RING_IMPROVEMENTS_CHANGELOG,
   {
     createdAt: 1794075196542, // Date.now() captured once for this entry.
     introducedIn: "2026.11.07.1",
@@ -487,6 +479,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...VICTORY_HOLD_TIME_CHANGELOG,
   ...RANKS_TRACK_PROFILES_CHANGELOG,
   { ...BATTLE_VARIETY_ENTRY, createdAt: 1794073665467, },
+  {
+    createdAt: 1794081806137, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.07",
+    title: "Hills and rivers shape battles",
+    changes: [
+      "Garrisoned and freshly captured tiles on hills defend at +20%, shown on the tile's overview.",
+      "Attacking across a river attacks at -20%. A diagonal attack crosses when there is no dry way round the river. Attacks now launch from your strongest neighbour counting this penalty.",
+      "The attack odds breakdown shows Hills and River crossing rows when they apply. Undefended frontier is still captured outright."
+    ],
+    why: "High ground and rivers now make natural defensive lines worth holding and planning around."
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

@@ -1,4 +1,4 @@
-import { MAX_SUPPORT_RING_RADIUS, SIEGE_BATTERY_ATTACK_MULT, WORLD_HEIGHT, WORLD_WIDTH, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, attackCrossesRiver, RIVER_CROSSING_ATTACK_MULT, SIEGE_BATTERY_ATTACK_MULT, WORLD_HEIGHT, WORLD_WIDTH, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { townHasSupportStructureType } from "../client-support-structures/client-support-structures.js";
 import type { SupportTownStructureKey } from "../client-support-structures/client-support-structures.js";
@@ -40,11 +40,15 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     return 1;
   };
 
-  const pickBestOrigin = (candidates: Tile[]): Tile | undefined => {
+  // With `target`, an origin across a river edge from it ranks at its
+  // penalised attack (terrain-combat.ts), so a dry neighbour wins a tie but a
+  // siege battery across the river can still out-rank it.
+  const pickBestOrigin = (candidates: Tile[], target?: { x: number; y: number }): Tile | undefined => {
     let best: Tile | undefined;
     let bestMult = -1;
     for (const candidate of candidates) {
-      const attackMult = attackOriginMultiplierForTile(candidate);
+      const riverMult = target && attackCrossesRiver(candidate, target) ? RIVER_CROSSING_ATTACK_MULT : 1;
+      const attackMult = attackOriginMultiplierForTile(candidate) * riverMult;
       if (attackMult > bestMult) {
         best = candidate;
         bestMult = attackMult;
@@ -269,8 +273,9 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     // (client-queue-muster-dispatch.ts); anything else is refused LOCKED
     // with the "launch tile is under attack" explanation.
     const nowMs = Date.now();
+    const target = { x: tx, y: ty };
     const adjacent =
-      pickBestOrigin(usable.filter((t) => !ownTileSiegeAt(state, t.x, t.y, nowMs))) ?? pickBestOrigin(usable);
+      pickBestOrigin(usable.filter((t) => !ownTileSiegeAt(state, t.x, t.y, nowMs)), target) ?? pickBestOrigin(usable, target);
     if (adjacent) return adjacent;
     const dockOrigin = pickDockOriginForTarget(tx, ty, allowAdjacentToDock, allowOptimisticExpandOrigin);
     if (dockOrigin) return dockOrigin;
