@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
-import { detachedCombatResultPayload, detachLockedAttack, isDetachedAttackCommandId, pruneDetachedAttacks, takeDetachedAttack } from "./client-detached-attacks.js";
+import { clearAllAttacksAfterCancel, detachedCombatResultPayload, detachLockedAttack, isDetachedAttackCommandId, pruneDetachedAttacks, takeDetachedAttack } from "./client-detached-attacks.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
@@ -77,5 +77,24 @@ describe("detachLockedAttack", () => {
     const msg = { type: "COMBAT_RESULT", commandId: "cmd-1" };
     expect(detachedCombatResultPayload(msg, attack!, true)).toEqual({ attackerWon: true });
     expect(detachedCombatResultPayload(msg, attack!, false)).toBe(msg);
+  });
+
+  // CANCEL_CAPTURE removes every lock the player holds server-side, so the
+  // detached attacks and the reservations they hold on flags must go too.
+  it("drops every detached attack and its flag reservation on COMBAT_CANCELLED, keeping unsent marches", () => {
+    const state = stateWithLockedAttack();
+    armMusterTransit(state, { musterX: 3, musterY: 5, fromX: 4, fromY: 5, toX: 5, toY: 5, transitTiles: 1, manpower: 30, commandId: "cmd-1", clientSeq: 1 });
+    state.deferredAttackByCommand.delete("cmd-1");
+    armMusterTransit(state, { musterX: 3, musterY: 5, fromX: 4, fromY: 6, toX: 5, toY: 6, transitTiles: 9, manpower: 30, commandId: "cmd-marching", clientSeq: 2 });
+    state.capture = { startAt: 1_000, resolvesAt: 20_000, target: { x: 5, y: 5 }, actionType: "ATTACK" };
+    state.actionCurrent = { x: 5, y: 5, retries: 0, actionType: "ATTACK", commandId: "cmd-1", clientSeq: 1 };
+    detachLockedAttack(state, keyFor, lockedMsg, 2_000);
+
+    clearAllAttacksAfterCancel(state, keyFor);
+
+    expect(state.detachedAttacksByCommandId.size).toBe(0);
+    expect(state.outgoingMusterAttacksByTile.has("5,5")).toBe(false);
+    expect(state.musterTransitByCommand.has("cmd-1")).toBe(false);
+    expect(state.musterTransitByCommand.has("cmd-marching")).toBe(true);
   });
 });

@@ -134,3 +134,26 @@ export const detachedCombatResultPayload = (
   attack: DetachedAttack,
   commitOnlyResult: boolean
 ): Record<string, unknown> => (commitOnlyResult && attack.lockedResult ? attack.lockedResult : msg);
+
+/**
+ * COMBAT_CANCELLED: the server's CANCEL_CAPTURE removes every frontier lock
+ * the player holds, so drop the attack in the dispatch slot and every
+ * detached one, along with their map tracking and flag reservations.
+ */
+export const clearAllAttacksAfterCancel = (state: DetachState & Pick<ClientState, "deferredAttackByCommand">, keyFor: (x: number, y: number) => string): void => {
+  for (const attack of state.detachedAttacksByCommandId.values()) state.outgoingMusterAttacksByTile.delete(keyFor(attack.targetX, attack.targetY));
+  state.detachedAttacksByCommandId.clear();
+  // Fired marches (no deferred send left) were funding the cancelled locks;
+  // still-marching ones were never sent and stay armed.
+  for (const commandId of [...state.musterTransitByCommand.keys()]) {
+    if (!state.deferredAttackByCommand.has(commandId)) state.musterTransitByCommand.delete(commandId);
+  }
+  state.capture = undefined;
+  state.actionInFlight = false;
+  state.actionAcceptedAck = false;
+  state.combatStartAck = false;
+  state.actionAcceptTimeoutHandledAt = 0;
+  state.actionStartedAt = 0;
+  state.actionTargetKey = "";
+  state.actionCurrent = undefined;
+};

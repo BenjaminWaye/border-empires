@@ -125,6 +125,7 @@ export const cancelOngoingCapture = (
     | "dragPreviewKeys"
     | "musterTransitByCommand"
     | "deferredAttackByCommand"
+    | "detachedAttacksByCommandId"
     | "actionInFlight"
     | "actionCurrent"
     | "actionTargetKey"
@@ -154,7 +155,10 @@ export const cancelOngoingCapture = (
   // on every press (closing a menu included), and a CANCEL_CAPTURE with
   // nothing to cancel comes back as a NO_ACTIVE_CAPTURE error that runs the
   // whole server-error path (view refresh, optimistic rollback).
-  const serverMayHoldCapture = state.capture !== undefined || state.actionInFlight || state.actionCurrent !== undefined;
+  // Attacks the server already locked have left the dispatch slot
+  // (client-detached-attacks.ts) but are still cancellable server-side.
+  const serverMayHoldCapture =
+    state.capture !== undefined || state.actionInFlight || state.actionCurrent !== undefined || state.detachedAttacksByCommandId.size > 0;
   state.actionQueue.length = 0;
   state.queuedTargetKeys.clear();
   state.dragPreviewKeys.clear();

@@ -28,7 +28,7 @@ import {
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
 import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/client-frontier-late-ack.js";
-import { detachedCombatResultPayload, detachLockedAttack, isDetachedAttackCommandId, takeDetachedAttack } from "../client-detached-attacks/client-detached-attacks.js";
+import { clearAllAttacksAfterCancel, detachedCombatResultPayload, detachLockedAttack, isDetachedAttackCommandId, takeDetachedAttack } from "../client-detached-attacks/client-detached-attacks.js";
 import { settleCombatResultSlot } from "../client-combat-result-slot/client-combat-result-slot.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { applyPlayerUpdateIntegrity } from "../client-integrity-pct/client-player-update-integrity.js";
@@ -1482,15 +1482,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "COMBAT_CANCELLED") {
       const cancelledCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
       clearFrontierStatusAlert(state);
-      state.capture = undefined;
       if (state.pendingCombatReveal?.targetKey === cancelledCurrentKey) state.pendingCombatReveal = undefined;
-      state.actionInFlight = false;
-      state.actionAcceptedAck = false;
-      state.combatStartAck = false;
-      state.actionAcceptTimeoutHandledAt = 0;
-      state.actionStartedAt = 0;
-      state.actionTargetKey = "";
-      state.actionCurrent = undefined;
+      clearAllAttacksAfterCancel(state, keyFor);
       clearLateFrontierAck(cancelledCurrentKey);
       if (cancelledCurrentKey) { state.queuedTargetKeys.delete(cancelledCurrentKey); clearOptimisticTileState(cancelledCurrentKey, true); }
       state.autoSettleTargets.clear(); state.autoBuildTargets.clear();
