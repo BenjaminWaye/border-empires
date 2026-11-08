@@ -11,6 +11,7 @@ import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/c
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createShoreFoamLayer, FOAM_LIFT_Y } from "./client-map-3d-shore.js";
 import { createShoreSandLayer, EMPTY_SHORE_FRINGE, SHORE_SAND_SUBDIV, SHORE_SAND_SUBDIV_FAR, type ShoreFringe } from "./client-map-3d-shore-sand.js";
+import { withSeaDirections } from "./client-map-3d-shore-river-mouth.js";
 import { createShoreWaterline } from "./client-map-3d-shore-waterline.js";
 
 // Foam would be sub-pixel this far out (window wider than this many tiles).
@@ -66,7 +67,7 @@ export const createShoreLayers = (scene: Scene, sandWiring: ShoreSandWiring | un
       return;
     }
     const { tiles, isLandTile, worldOffsetX, worldOffsetZ, waterY, mouths } = commit;
-    const waterline = sand ? createShoreWaterline(isLandTile, worldOffsetX, worldOffsetZ, mouths) : undefined;
+    const waterline = sand ? createShoreWaterline(isLandTile, worldOffsetX, worldOffsetZ, withSeaDirections(mouths, isLandTile)) : undefined;
     const foamEnabled = commit.windowTiles <= SHORE_FOAM_MAX_WINDOW_TILES;
     foam.rebuild(tiles, isLandTile, waterY + FOAM_LIFT_Y, foamEnabled, mouths, waterline);
     if (!sand || !sandWiring || !waterline) return;

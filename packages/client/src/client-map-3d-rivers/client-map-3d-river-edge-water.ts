@@ -59,9 +59,12 @@ export const riverSampleFogged = (
 // The mouth runs this far past the river's final corner into the sea,
 // widening and fading out, so the river spills into the ocean instead of
 // stopping in a hard square end at the coast.
+// Only a gentle flare: the beach fringe's cut (client-map-3d-shore-river-mouth.ts)
+// parts round the river at about this rate, and a plume flaring to 2.4x
+// the river's width spread out past it into a trumpet on the sea.
 const MOUTH_REACH = 0.8;
 const MOUTH_STEPS = 6;
-const MOUTH_FLARE = 1.4;
+const MOUTH_FLARE = 0.5;
 
 const defaultIsSeaAt = (wx: number, wy: number): boolean => {
   const t = terrainAt(wx, wy);

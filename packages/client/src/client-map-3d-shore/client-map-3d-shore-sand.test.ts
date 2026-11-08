@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { ShoreRiverMouth } from "./client-map-3d-shore-river-mouth.js";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
 import { appendShoreSand, LAND_EDGE_TUCK, type ShoreSandBuffers, type ShoreSandTileInputs } from "./client-map-3d-shore-sand.js";
 import { createShoreWaterline, SHORE_SAND_MAX_REACH } from "./client-map-3d-shore-waterline.js";
@@ -16,7 +17,7 @@ const cornerAt = (_x: number, _z: number, out: HeightfieldCornerAttributes): boo
   out.tundraZone = 0;
   return true;
 };
-type Mouths = ReadonlyArray<{ readonly x: number; readonly z: number }>;
+type Mouths = ReadonlyArray<ShoreRiverMouth>;
 const inputs = (gc: number, gr: number, isLandTile: (x: number, z: number) => boolean, mouths: Mouths = []): ShoreSandTileInputs => ({
   gc,
   gr,
@@ -97,7 +98,7 @@ describe("shore sand fringe", () => {
     // Infinity * 0 in the river-mouth term once came out NaN and drew the
     // shore foam as solid white bars over open water.
     const island = (x: number, z: number): boolean => Math.abs(x) <= 1 && Math.abs(z) <= 1;
-    for (const mouths of [[], [{ x: 2, z: 0.5 }]] as Mouths[]) {
+    for (const mouths of [[], [{ x: 2, z: 0.5, dx: 1, dz: 0 }]] as Mouths[]) {
       const waterline = createShoreWaterline(island, 100, 100, mouths);
       for (let z = -6; z <= 6; z += 0.37) for (let x = -6; x <= 6; x += 0.37) expect(Number.isFinite(waterline(x, z))).toBe(true);
     }
@@ -105,9 +106,9 @@ describe("shore sand fringe", () => {
 
   it("stands clear of a river mouth", () => {
     const b = emptyBuffers();
-    appendShoreSand(b, inputs(0, 0, straightCoast, [{ x: 0.5, z: 0 }]));
-    // Right at the mouth the strip pinches to nothing: whatever is left there
-    // hugs the land edge instead of reaching out over the river's water.
+    appendShoreSand(b, inputs(0, 0, straightCoast, [{ x: 0.5, z: 0, dx: 0, dz: 1 }]));
+    // The river's cut runs straight out through the strip: whatever is left
+    // there hugs the land edge instead of reaching out over the river's water.
     for (const v of vertices(b)) if (Math.hypot(v.x - 0.5, v.z) < 0.15) expect(v.z).toBeLessThan(0.02);
   });
 
@@ -187,7 +188,7 @@ describe("shore sand fringe", () => {
     // the fade used to start part-way there, so the tile's own full-strength
     // tint ended on its square edge against an already-faded beach.
     const b = emptyBuffers();
-    appendShoreSand(b, inputs(0, 0, straightCoast, [{ x: 0.5, z: 0 }]));
+    appendShoreSand(b, inputs(0, 0, straightCoast, [{ x: 0.5, z: 0, dx: 0, dz: 1 }]));
     let edge = 0;
     for (let v = 0; v < b.positions.length / 3; v++) {
       if (b.positions[v * 3 + 2] !== -LAND_EDGE_TUCK) continue;
