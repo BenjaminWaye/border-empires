@@ -1,3 +1,4 @@
+import { SEASON_REVEAL_LOADING_CHANGELOG } from "./client-changelog-season-reveal-loading.js";
 import { BATTLE_VARIETY_ENTRY } from "./client-changelog-battle-variety.js";
 import { GUIDE_AND_RECOVERY_CHANGELOG } from "./client-changelog-nov-03-04-guide-recovery.js";
 import { AFC_REPLACEMENT_CHANGELOG } from "./client-changelog-afc-replacement.js";
@@ -489,7 +490,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The attack odds breakdown shows Hills and River crossing rows when they apply. Undefended frontier is still captured outright."
     ],
     why: "High ground and rivers now make natural defensive lines worth holding and planning around."
-  }
+  },
+  ...SEASON_REVEAL_LOADING_CHANGELOG,
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

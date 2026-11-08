@@ -1,33 +1,32 @@
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice } from "@border-empires/shared";
-import type { SimulationRuntime } from "../runtime/runtime.js";
-
-type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
+import type { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 
 export type SnapshotBuildOptionsInput = {
   useFullVisibility: boolean;
   needsFullWorldExport: boolean;
-  runtimeState: RuntimeState;
   respawnNotice: PlayerRespawnNotice | undefined;
   currentSeasonState: SimulationSeasonState;
   nonCompetitivePlayerIds: ReadonlySet<string> | undefined;
-  sharedFullVisibilityTiles: (runtimeState: RuntimeState) => PlayerSubscriptionSnapshot["tiles"];
+  fullVisibilityTiles: PlayerSubscriptionSnapshot["tiles"] | undefined;
+  worldStatusSnapshot: PlayerSubscriptionSnapshot["worldStatus"] | undefined;
 };
 
 export const buildSnapshotBuildOptions = ({
   useFullVisibility,
   needsFullWorldExport,
-  runtimeState,
   respawnNotice,
   currentSeasonState,
   nonCompetitivePlayerIds,
-  sharedFullVisibilityTiles,
-}: SnapshotBuildOptionsInput) => ({
+  fullVisibilityTiles,
+  worldStatusSnapshot,
+}: SnapshotBuildOptionsInput): NonNullable<Parameters<typeof buildPlayerSubscriptionSnapshot>[2]> => ({
   includeWorldStatus: needsFullWorldExport,
   fullVisibility: useFullVisibility,
   tilesAlreadyVisible: !useFullVisibility,
-  ...(useFullVisibility ? { sharedFullVisibilityTiles: sharedFullVisibilityTiles(runtimeState) } : {}),
+  ...(fullVisibilityTiles ? { sharedFullVisibilityTiles: fullVisibilityTiles } : {}),
+  ...(worldStatusSnapshot ? { worldStatusSnapshot } : {}),
   seasonState: currentSeasonState,
   ...(respawnNotice ? { respawnNotice } : {}),
   ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {}),

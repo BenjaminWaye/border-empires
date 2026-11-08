@@ -1,3 +1,5 @@
+import { createViewportDetailLoader } from "../viewport-detail/viewport-detail.js";
+import { createRevealMapStreamer } from "../reveal-map-stream/reveal-map-stream.js";
 import { createCommandDiagnosticJournal } from "../player-sync-diagnostics/command-diagnostic-journal.js";
 import { groupAttackTraces } from "./group-attack-traces.js";
 import { createAllianceSimulationSync } from "../alliance-simulation-sync/alliance-simulation-sync.js";
@@ -1033,6 +1035,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           queueOrSendSessionPayload(targetSocket, { type: "FOG_UPDATE", fogDisabled });
         }
         queueOrSendSessionPayload(targetSocket, replacementBroadcast);
+        if (fogDisabled) viewportDetails.refresh(targetSocket, targetSession);
       }
       recordGatewayEvent("info", "gateway_fog_refresh_sent", {
         playerId,
@@ -1136,42 +1139,22 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     return revealMapPayloadBuild;
   };
 
-  const streamRevealMapToSocket = async (socket: import("ws").WebSocket, playerId: string): Promise<void> => {
-    activeRevealStreamSockets.add(socket);
-    gatewayMetrics.setRevealActiveStreams(activeRevealStreamSockets.size);
-    try {
-      const payloadSet = await revealMapPayloadSet(playerId);
-      recordGatewayEvent("info", "gateway_reveal_map_stream_started", {
-        playerId,
-        snapshotId: payloadSet.snapshotId,
-        totalTiles: payloadSet.totalTiles,
-        chunkCount: payloadSet.chunks.length,
-        payloadJsonBytes: payloadSet.payloadJsonBytes,
-        activeStreams: activeRevealStreamSockets.size
-      });
-      queueOrSendSessionPayload(socket, payloadSet.begin);
-      for (let chunkIndex = 0; chunkIndex < payloadSet.chunks.length; chunkIndex += 1) {
-        while (socket.bufferedAmount > 2_000_000 && socket.readyState === socket.OPEN) {
-          await sleep(10);
-        }
-        if (socket.readyState !== socket.OPEN) return;
-        queueOrSendSessionPayload(socket, payloadSet.chunks[chunkIndex]);
-        gatewayMetrics.incrementRevealChunksSent(1);
-        if (chunkIndex % 4 === 3) await sleep(0);
-      }
-      if (socket.readyState !== socket.OPEN) return;
-      queueOrSendSessionPayload(socket, payloadSet.end);
-      recordGatewayEvent("info", "gateway_reveal_map_stream_completed", {
-        playerId,
-        snapshotId: payloadSet.snapshotId,
-        totalTiles: payloadSet.totalTiles,
-        chunkCount: payloadSet.chunks.length
-      });
-    } finally {
-      activeRevealStreamSockets.delete(socket);
-      gatewayMetrics.setRevealActiveStreams(activeRevealStreamSockets.size);
-    }
-  };
+  const streamRevealMapToSocket = createRevealMapStreamer({
+    activeSockets: activeRevealStreamSockets, payloadSet: revealMapPayloadSet,
+    send: queueOrSendSessionPayload, sleep,
+    onActiveStreams: (count) => gatewayMetrics.setRevealActiveStreams(count),
+    onChunk: () => gatewayMetrics.incrementRevealChunksSent(1),
+    onComplete: (socket) => { const session = sessionsBySocket.get(socket); if (session) viewportDetails.refresh(socket, session); },
+    record: (event, fields) => recordGatewayEvent("info", event, fields)
+  });
+  const viewportDetails = createViewportDetailLoader({
+    seasonForPlayer: (playerId) => playerSubscriptions.snapshotForPlayer(playerId)?.season,
+    fetch: (playerId, x, y, fullVisibility, radius) => withTimeout(
+      simulationClient.fetchTileDetail!(playerId, x, y, fullVisibility, radius),
+      simulationSubscribeTimeoutMs, "gateway viewport detail"),
+    send: (socket, tiles) => sendJson(socket, { type: "TILE_DELTA", updates: jsonSafeTileDeltaBatch(tiles) }),
+    record: (outcome, fields) => recordGatewayEvent(outcome === "failed" ? "warn" : "info", `gateway_viewport_${outcome}`, fields)
+  });
 
   let simulationEventChain = Promise.resolve();
   let simulationEventChainPending = 0;
@@ -2238,6 +2221,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               return;
             }
             lastRevealRequestMsByPlayerId.set(session.playerId, now);
+            session.fogDisabled = true;
             void streamRevealMapToSocket(socket, session.playerId).catch((error) => {
               recordGatewayEvent("error", "gateway_reveal_map_stream_failed", {
                 playerId: session.playerId,
@@ -2332,7 +2316,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
           if (await diplomacySocket.handleMessage(message, session, socket)) return;
 
-          if (message.type === "SUBSCRIBE_CHUNKS") { ephemeralSimCommands.checkStrandedRegion(session, message); return; } // chunk sync itself is legacy; the camera chunk drives stranded-frontier cleanup
+          if (message.type === "SUBSCRIBE_CHUNKS") {
+            ephemeralSimCommands.checkStrandedRegion(session, message);
+            viewportDetails.subscribe(socket, session, message);
+            return;
+          }
 
           if (ignoredLegacyMessageTypes.has(message.type)) {
             recordGatewayEvent("info", "gateway_ignored_legacy_message", { type: message.type });

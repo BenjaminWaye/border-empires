@@ -1,6 +1,9 @@
+import { createEndedSeasonTileCache } from "./ended-season-tiles.js";
+import { parseFetchTileDetailAck, type ProtoFetchTileDetailRequest, type ProtoFetchTileDetailAck, type FetchTileDetailResult } from "./sim-client-tile-detail.js";
+export type { FetchTileDetailResult } from "./sim-client-tile-detail.js";
 import { fileURLToPath } from "node:url";
 
-import { credentials, loadPackageDefinition, type ClientReadableStream } from "@grpc/grpc-js";
+import { credentials, loadPackageDefinition, type ClientReadableStream, type ChannelOptions } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
 
 import {
@@ -70,22 +73,6 @@ type ProtoSubscribePlayerAck = {
 type ProtoSubscribePlayerRequest = {
   player_id: string;
   subscription_json: string;
-};
-type ProtoFetchTileDetailRequest = {
-  player_id: string;
-  x: number;
-  y: number;
-  full_visibility?: boolean;
-};
-type ProtoFetchTileDetailAck = {
-  ok: boolean;
-  player_id?: string;
-  playerId?: string;
-  x?: number;
-  y?: number;
-  tiles?: ProtoTileDelta[];
-  player_upkeep_json?: string;
-  playerUpkeepJson?: string;
 };
 type ProtoUnsubscribePlayerRequest = {
   player_id: string;
@@ -206,7 +193,7 @@ const packageDefinition = loadSync(fileURLToPath(SIMULATION_PROTO_PATH), {
 const proto = loadPackageDefinition(packageDefinition) as unknown as {
   border_empires: {
     simulation: {
-      SimulationService: new (address: string, creds: ReturnType<typeof credentials.createInsecure>) => SimulationClientLike;
+      SimulationService: new (address: string, creds: ReturnType<typeof credentials.createInsecure>, options?: ChannelOptions) => SimulationClientLike;
     };
   };
 };
@@ -467,7 +454,8 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent | un
 
 const parseSubscriptionSnapshot = (
   response: ProtoSubscribePlayerAck & Record<string, unknown>,
-  playerId: string
+  playerId: string,
+  normalizeTiles?: (tiles: ProtoTileDelta[], season: SimulationSeasonState | undefined) => PlayerSubscriptionSnapshot["tiles"]
 ): PlayerSubscriptionSnapshot => {
   let parsedPlayer: PlayerSubscriptionSnapshot["player"] | undefined;
   let parsedWorldStatus: PlayerSubscriptionSnapshot["worldStatus"] | undefined;
@@ -535,7 +523,7 @@ const parseSubscriptionSnapshot = (
       ...(parsedWorldStatus ? { worldStatus: parsedWorldStatus } : {}),
       ...(parsedSeason ? { season: parsedSeason } : {}),
       ...(parsedDocks.length ? { docks: parsedDocks } : {}),
-      tiles: response.tiles.map((tile) => normalizeProtoTile(tile))
+      tiles: normalizeTiles ? normalizeTiles(response.tiles, parsedSeason) : response.tiles.map((tile) => normalizeProtoTile(tile))
     };
   }
 
@@ -573,41 +561,7 @@ const parseSubscriptionSnapshot = (
   };
 };
 
-const parseFetchTileDetailAck = (
-  response: ProtoFetchTileDetailAck & Record<string, unknown>,
-  playerId: string,
-  fallbackX: number,
-  fallbackY: number
-): FetchTileDetailResult => {
-  const responsePlayerId =
-    typeof response.player_id === "string"
-      ? response.player_id
-      : typeof response.playerId === "string"
-        ? response.playerId
-        : playerId;
-  const tiles = Array.isArray(response.tiles) ? response.tiles.map((tile) => normalizeProtoTile(tile)) : [];
-  const upkeepJson =
-    typeof response.player_upkeep_json === "string"
-      ? response.player_upkeep_json
-      : typeof response.playerUpkeepJson === "string"
-        ? response.playerUpkeepJson
-        : undefined;
-  let upkeepLastTick: FetchTileDetailResult["upkeepLastTick"];
-  if (upkeepJson) {
-    try {
-      upkeepLastTick = JSON.parse(upkeepJson) as FetchTileDetailResult["upkeepLastTick"];
-    } catch {
-      upkeepLastTick = undefined;
-    }
-  }
-  return {
-    playerId: responsePlayerId,
-    x: typeof response.x === "number" ? response.x : fallbackX,
-    y: typeof response.y === "number" ? response.y : fallbackY,
-    tiles,
-    ...(upkeepLastTick ? { upkeepLastTick } : {})
-  };
-};
+
 
 export const startSimulationEventStream = (
   openStream: () => SimulationEventStream,
@@ -668,14 +622,6 @@ export const startSimulationEventStream = (
   };
 };
 
-export type FetchTileDetailResult = {
-  playerId: string;
-  x: number;
-  y: number;
-  tiles: PlayerSubscriptionSnapshot["tiles"];
-  upkeepLastTick?: NonNullable<PlayerSubscriptionSnapshot["player"]>["upkeepLastTick"];
-};
-
 // Shared by createSimulationClientFromRpcClient and createSimulationClient
 // (the latter just wraps the former around a fresh gRPC client) so the
 // method surface is declared once instead of twice.
@@ -684,7 +630,7 @@ export type SimulationClientMethods = {
   preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor, options?: PrepareLikeOptions) => Promise<PrepareLikeResult>;
   joinSeason?: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor, options?: PrepareLikeOptions) => Promise<PrepareLikeResult>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
-  fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean) => Promise<FetchTileDetailResult>;
+  fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean, radius?: number) => Promise<FetchTileDetailResult>;
   unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
   getSubscriptionNamespace: () => Promise<string>;
   ping: () => Promise<void>;
@@ -709,7 +655,10 @@ export type SimulationClientMethods = {
   ) => () => void;
 };
 
-export const createSimulationClientFromRpcClient = (client: SimulationClientLike): SimulationClientMethods => ({
+const createSimulationClientMethods = (
+  client: SimulationClientLike,
+  endedSeasonTiles: ReturnType<typeof createEndedSeasonTileCache>
+): SimulationClientMethods => ({
   submitCommand(command) {
     return new Promise<void>((resolve, reject) => {
       client.SubmitCommand(toProtoCommand(command), (error) => {
@@ -740,11 +689,12 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
           reject(error);
           return;
         }
-        resolve(parseSubscriptionSnapshot(response as ProtoSubscribePlayerAck & Record<string, unknown>, playerId));
+        resolve(parseSubscriptionSnapshot(response as ProtoSubscribePlayerAck & Record<string, unknown>, playerId,
+          (tiles, season) => endedSeasonTiles.read(season, tiles.length, () => tiles.map(normalizeProtoTile))));
       });
     });
   },
-  fetchTileDetail(playerId, x, y, fullVisibility = false) {
+  fetchTileDetail(playerId, x, y, fullVisibility = false, radius = 1) {
     return new Promise<FetchTileDetailResult>((resolve, reject) => {
       const fetchTileDetailRpc =
         typeof client.FetchTileDetail === "function" ? client.FetchTileDetail.bind(client) : undefined;
@@ -752,12 +702,12 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
         reject(new Error("simulation client FetchTileDetail RPC is unavailable"));
         return;
       }
-      fetchTileDetailRpc({ player_id: playerId, x, y, full_visibility: fullVisibility }, (error, response) => {
+      fetchTileDetailRpc({ player_id: playerId, x, y, full_visibility: fullVisibility, radius }, (error, response) => {
         if (error) {
           reject(error);
           return;
         }
-        resolve(parseFetchTileDetailAck(response as ProtoFetchTileDetailAck & Record<string, unknown>, playerId, x, y));
+        resolve(parseFetchTileDetailAck(response, playerId, x, y));
       });
     });
   },
@@ -899,7 +849,14 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
   }
 });
 
+export const createSimulationClientFromRpcClient = (client: SimulationClientLike): SimulationClientMethods =>
+  createSimulationClientMethods(client, createEndedSeasonTileCache());
+
 export const createSimulationClient = (address: string): SimulationClientMethods => {
-  const client = new proto.border_empires.simulation.SimulationService(address, credentials.createInsecure());
+  // The 640x320 revealed overview can exceed gRPC's default 4 MiB. Keep a
+  // finite receive bound with room for the full terrain/territory overview.
+  const client = new proto.border_empires.simulation.SimulationService(address, credentials.createInsecure(), {
+    "grpc.max_receive_message_length": 64 * 1024 * 1024
+  });
   return createSimulationClientFromRpcClient(client);
 };

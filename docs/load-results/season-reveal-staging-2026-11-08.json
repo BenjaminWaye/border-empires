@@ -1,0 +1,205 @@
+{
+  "testedAt": "2026-11-08",
+  "environment": "isolated local copy of staging season 41; no live game state modified",
+  "world": {
+    "width": 640,
+    "height": 320,
+    "tiles": 204800,
+    "status": "ended",
+    "winnerPlayerId": "player-1"
+  },
+  "baselineDefaultGrpc": {
+    "outcome": "RESOURCE_EXHAUSTED",
+    "receivedBytes": 5081039,
+    "defaultReceiveLimitBytes": 4194304
+  },
+  "baselineWithReceiveLimitRaised": [
+    {
+      "phase": "started",
+      "ms": 35461.875667,
+      "season": {
+        "seasonId": "season-41",
+        "worldSeed": 493939287,
+        "status": "ended"
+      }
+    },
+    {
+      "phase": "subscribe",
+      "playerId": "player-1",
+      "ms": 2130.265250000004,
+      "maxBlockMs": 1238.0798749999958,
+      "tiles": 204800,
+      "player": true,
+      "season": "ended",
+      "tileBytes": 17501729
+    },
+    {
+      "phase": "subscribe",
+      "playerId": "ai-1",
+      "ms": 1383.9609169999967,
+      "maxBlockMs": 705.9693330000009,
+      "tiles": 204800,
+      "player": true,
+      "season": "ended",
+      "tileBytes": 17501729
+    },
+    {
+      "phase": "subscribe",
+      "playerId": "ai-2",
+      "ms": 1338.8026669999963,
+      "maxBlockMs": 650.1560839999947,
+      "tiles": 204800,
+      "player": true,
+      "season": "ended",
+      "tileBytes": 17501729
+    },
+    {
+      "phase": "viewport",
+      "ms": 20.718375000004016,
+      "maxBlockMs": 0.2940420000013546,
+      "tiles": 9,
+      "towns": 0,
+      "structures": 0
+    }
+  ],
+  "overviewAndViewportCandidate": [
+    {
+      "phase": "started",
+      "ms": 58087.35333299999,
+      "season": {
+        "seasonId": "season-41",
+        "worldSeed": 493939287,
+        "status": "ended"
+      }
+    },
+    {
+      "phase": "subscribe",
+      "playerId": "player-1",
+      "ms": 1382.3087499999965,
+      "maxBlockMs": 533.9977919999947,
+      "tiles": 204800,
+      "player": true,
+      "season": "ended",
+      "tileBytes": 15008977
+    },
+    {
+      "phase": "subscribe",
+      "playerId": "ai-1",
+      "ms": 832.3349579999922,
+      "maxBlockMs": 385.3547910000052,
+      "tiles": 204800,
+      "player": true,
+      "season": "ended",
+      "tileBytes": 15008977
+    },
+    {
+      "phase": "subscribe",
+      "playerId": "ai-2",
+      "ms": 834.0845419999969,
+      "maxBlockMs": 403.67450000000827,
+      "tiles": 204800,
+      "player": true,
+      "season": "ended",
+      "tileBytes": 15008977
+    },
+    {
+      "phase": "viewport",
+      "ms": 253.57283299999835,
+      "maxBlockMs": 174.83654200000456,
+      "tiles": 16641,
+      "towns": 18,
+      "structures": 94
+    }
+  ],
+  "gatewayAuthAndViewport": [
+    {
+      "phase": "started",
+      "season": {
+        "seasonId": "season-41",
+        "worldSeed": 493939287,
+        "status": "ended"
+      }
+    },
+    {
+      "phase": "init",
+      "ms": 2861.811625000002,
+      "tileCount": 204800,
+      "winner": "Nauticus"
+    },
+    {
+      "phase": "viewport",
+      "ms": 269.3280840000007,
+      "tiles": 16641,
+      "towns": 26,
+      "structures": 95
+    }
+  ],
+  "notes": [
+    "Wall times are developer-machine observations under concurrent local CI, not production latency guarantees.",
+    "maxBlockMs measures timer delay with simulation and probe client sharing one process; live gateway and simulation run on separate event loops.",
+    "Overview includes all world tiles; rich town/economic/combat detail is fetched only around the camera, capped at 129x129 tiles.",
+    "The final gateway probe includes shared ended-season tiles, minimap landmarks and reach-border metadata. Live admin reveal richness is covered by a separate compatibility regression."
+  ],
+  "finalGatewayAuthAndViewport": [
+    {
+      "phase": "started",
+      "season": {
+        "seasonId": "season-41",
+        "worldSeed": 493939287,
+        "status": "ended"
+      }
+    },
+    {
+      "phase": "init",
+      "ms": 2304.6838750000024,
+      "tileCount": 204800,
+      "reachTiles": 68603,
+      "winner": "Nauticus"
+    },
+    {
+      "phase": "viewport",
+      "ms": 193.98279100000218,
+      "tiles": 16641,
+      "towns": 26,
+      "structures": 95
+    }
+  ],
+  "fourConcurrentLoginsAndViews": [
+    {
+      "phase": "four-concurrent-logins-and-views",
+      "reports": [
+        {
+          "actor": "player-1",
+          "initMs": 4053,
+          "tiles": 204800,
+          "viewportMs": 406,
+          "detailTiles": 16641
+        },
+        {
+          "actor": "ai-1",
+          "initMs": 4055,
+          "tiles": 204800,
+          "viewportMs": 459,
+          "detailTiles": 16641
+        },
+        {
+          "actor": "ai-2",
+          "initMs": 4117,
+          "tiles": 204800,
+          "viewportMs": 399,
+          "detailTiles": 16641
+        },
+        {
+          "actor": "ai-3",
+          "initMs": 4660,
+          "tiles": 204800,
+          "viewportMs": 144,
+          "detailTiles": 16641
+        }
+      ],
+      "maxBlockMs": 802.6096249999973,
+      "maxRssMb": 1924.828125
+    }
+  ],
+  "validation": "pnpm ci:local passed after the final source changes, including file-line/doc/changelog gates, all package build/lint/test checks and simulation perf/slow suites."
+}
