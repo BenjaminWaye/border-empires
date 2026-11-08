@@ -458,14 +458,16 @@ describe("season-end overlay", () => {
     expect(panel.classList.contains("is-active")).toBe(true);
   });
 
-  it("escapes player names in the score graph legend", () => {
+  it.each([false, true])("escapes score graph names from both sources (current=%s)", (knownPlayer) => {
     const overlayEl = document.createElement("div");
+    const leaderboard = makeLeaderboard();
+    if (knownPlayer) leaderboard.overall[1]!.name = "<script>evil()</script>";
     const state = makeState({
       seasonWinner: makeWinner({ playerId: "p1", playerName: "Alpha" }),
-      leaderboard: makeLeaderboard(),
+      leaderboard,
       seasonScoreHistory: [
         { playerId: "p1", playerName: "Alpha", points: [{ t: 0, score: 1 }, { t: 300000, score: 10 }] },
-        { playerId: "p2", playerName: "<script>evil()</script>", points: [{ t: 0, score: 2 }, { t: 300000, score: 9 }] }
+        { playerId: knownPlayer ? "p2" : "historical-player", playerName: "<script>evil()</script>", points: [{ t: 0, score: 2 }, { t: 300000, score: 9 }] }
       ]
     });
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
