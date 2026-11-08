@@ -30,7 +30,7 @@ export type SystemMarkerObjects = {
 const radiusOf = (mesh: Mesh): number => (mesh.geometry as SphereGeometry).parameters?.radius ?? 1;
 
 const basic = (color: number, opacity: number): MeshBasicMaterial =>
-  new MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: DoubleSide });
+  new MeshBasicMaterial({ toneMapped: false, color, transparent: true, opacity, depthWrite: false, side: DoubleSide });
 
 const flatRing = (inner: number, outer: number, color: number, opacity: number): Mesh => {
   const ring = new Mesh(new RingGeometry(inner, outer, 40), basic(color, opacity));
