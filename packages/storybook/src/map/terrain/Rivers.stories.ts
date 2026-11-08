@@ -3,6 +3,7 @@ import { getWorldSeed, landBiomeAt, riverCornerWidthsForCurrentSeed, setWorldSee
 import { createHeightfield, type HeightfieldTerrainKind } from "@client/client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createWaterSurface } from "@client/client-map-3d-water-surface.js";
 import { createRiverOverlay } from "@client/client-map-3d-rivers/client-map-3d-rivers.js";
+import { riverMouthCalmCorners } from "@client/client-map-3d-rivers/client-map-3d-river-mouths.js";
 import { createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
 
 // Unlike every other 3D Library story, rivers are intentionally coupled to
@@ -58,13 +59,23 @@ const render = (args: Args): HTMLElement => {
     riverCornerHalfWidths: riverCornerWidthsForCurrentSeed()
   });
 
-  const water = createWaterSurface(stage.scene, (args.halfSpan * 2 + 3) ** 2);
+  // Calm sea at river mouths, shore foam and the soft beach fringe, wired
+  // as in the game (client-map-3d-water-wiring.ts): the fringe is what a
+  // river mouth has to cut through, so the mouth only looks right with it.
+  const water = createWaterSurface(stage.scene, (args.halfSpan * 2 + 3) ** 2, {
+    waveCalmCorners: riverMouthCalmCorners,
+    isLandAt: (wx, wz) => {
+      const terrain = terrainAt(((wx % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH, ((wz % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT);
+      return terrain !== "SEA" && terrain !== "COASTAL_SEA";
+    },
+    shoreSand: { material: hf.material, cornerAt: hf.cornerAttributesAt }
+  });
   for (let dz = -args.halfSpan - 1; dz <= args.halfSpan + 1; dz += 1) {
     for (let dx = -args.halfSpan - 1; dx <= args.halfSpan + 1; dx += 1) {
       const wx = ((args.camX + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
       const wy = ((args.camY + dz) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
       const kind = kindAt(wx, wy);
-      if (kind === "SEA" || kind === "COASTAL_SEA") water.addTile(dx + 0.5, dz + 0.5, kind === "COASTAL_SEA", dx, dz);
+      if (kind === "SEA" || kind === "COASTAL_SEA") water.addTile(dx + 0.5, dz + 0.5, kind === "COASTAL_SEA", args.camX + dx, args.camY + dz);
     }
   }
   water.commit();
@@ -161,3 +172,8 @@ export const SeedIsLive: Story = {
 // ocean's animated material). (390, 228) frames one whole v9 river, source
 // to mouth, near the equator.
 export const EdgeRiverV9: Story = { args: { worldgenVersion: 9, camX: 390, camY: 228, halfSpan: 14, cameraDistance: 16, cameraTilt: 0.7 } };
+
+// v9 river mouth on a straight coast, seen from above: the river should
+// cross the beach at its own width between sandy banks and spill gently
+// into the sea -- no neck at the coast, no funnel on the sea.
+export const RiverMouthV9: Story = { args: { worldgenVersion: 9, camX: 261, camY: 63, halfSpan: 8, cameraDistance: 4, cameraTilt: 0.15 } };

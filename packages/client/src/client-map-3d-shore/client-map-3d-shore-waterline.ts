@@ -14,10 +14,10 @@
 // one-tile inlet or strait never silts up; and a SHORE_SAND_MIN_BAND of
 // sand always rings land, so a land tip never shows its square corner.
 // Both clamps are eased in rather than cut, so neither leaves a corner.
-// The reach pinches to nothing at river mouths so the fringe never dams a
-// river. Everything is a function of world position, so adjacent sea tiles
+// A river mouth cuts a channel through the reach (client-map-3d-shore-river-mouth.ts)
+// so the fringe never dams a river. Everything is a function of world position, so adjacent sea tiles
 // meet seamlessly; the shore foam reads the same waterline.
-import { foamMouthFade } from "./client-map-3d-shore.js";
+import { NO_MOUTH_CUT, riverMouthCutDistance, type ShoreRiverMouth } from "./client-map-3d-shore-river-mouth.js";
 
 // Blurred land field (1 deep inland, 0.5 on a straight coast's tile edge)
 // threshold: 0.18 puts a straight coast's waterline ~0.45 tiles out, and a
@@ -198,6 +198,9 @@ const landField = (px: number, pz: number, isLandTile: (gc: number, gr: number) 
   return field;
 };
 
+// Rounding (tiles) where a river mouth's bank meets the waterline.
+const SHORE_MOUTH_BANK_BLEND = 0.2;
+
 /** Signed shoreline at scene point (x, z), in tiles: > 0 inside the sand, < 0 out over the water. */
 export type ShoreWaterline = (x: number, z: number) => number;
 
@@ -210,7 +213,7 @@ export const createShoreWaterline = (
   isLandTile: (gc: number, gr: number) => boolean,
   worldOffsetX: number,
   worldOffsetZ: number,
-  mouths: ReadonlyArray<{ readonly x: number; readonly z: number }>
+  mouths: ReadonlyArray<ShoreRiverMouth>
 ): ShoreWaterline => (x, z) => {
   const reach = landReach(x, z, isLandTile);
   const d = nearestLand;
@@ -243,8 +246,13 @@ export const createShoreWaterline = (
   // round it doesn't step the foam's fade.
   const shaped = capped + (-1 - capped) * smooth01((d - 0.75) / 0.25);
   if (mouths.length === 0) return shaped;
-  // Squared: the foam's own fade still left a sand lip across the river
-  // just off the mouth; this pinches the strip to nothing there.
-  const fade = foamMouthFade(x, z, mouths) ** 2;
-  return shaped * fade - (1 - fade) * d;
+  const cut = riverMouthCutDistance(x, z, mouths);
+  if (cut >= NO_MOUTH_CUT) return shaped;
+  // Smooth min with the river's cut: the beach stops along the river's
+  // banks, rounded where they meet the waterline. Polynomial, so it is
+  // exactly the plain min once the two differ by the blend -- no step where
+  // a mouth goes out of range.
+  const k = SHORE_MOUTH_BANK_BLEND;
+  const h = Math.max(k - Math.abs(shaped - cut), 0) / k;
+  return Math.min(shaped, cut) - (h * h * k) / 4;
 };

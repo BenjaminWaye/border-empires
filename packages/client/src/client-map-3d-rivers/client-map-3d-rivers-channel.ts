@@ -281,6 +281,17 @@ export const indexCenterlines = (centerlines: ReadonlyArray<readonly ChannelPath
   return { segmentsNearTile };
 };
 
+// How much wider than usual the water is where it reaches the coast.
+const MOUTH_WATER_WIDEN = 0.3;
+// The share of the mouth plume (from the coast) that stays fully solid.
+const MOUTH_SOLID = 0.3;
+
+/** Water opacity along the mouth plume (`mouth` 0 at the coast .. 1 at its end): 1 until MOUTH_SOLID, then easing smoothly to 0. */
+export const riverMouthFade = (mouth: number): number => {
+  const t = Math.min(1, Math.max(0, (mouth - MOUTH_SOLID) / (1 - MOUTH_SOLID)));
+  return 1 - t * t * (3 - 2 * t);
+};
+
 export type WaterBuffers = { positions: number[]; colors: number[]; indices: number[] };
 
 // Across the channel, as fractions of the water half-width: edge, shallow,
@@ -340,15 +351,25 @@ export const appendWater = (
     const tx = next.x - prev.x;
     const tz = next.z - prev.z;
     const tlen = Math.hypot(tx, tz) || 1;
-    const w = riverWaterHalfWidth(cur.halfWidth);
+    // Near the coast the water also widens under the banks (they stand
+    // above it and hide the overshoot), so its edge is wherever the land's
+    // bank or the beach's comes down to it, on both sides of the coast.
+    const firmBy = (cur.descent ?? 0) * (cur.descent ?? 0);
+    const w = riverWaterHalfWidth(cur.halfWidth) * (1 + MOUTH_WATER_WIDEN * firmBy);
     const nx = (-tz / tlen) * w;
     const nz = (tx / tlen) * w;
     const y = waterYAt(cur);
     const side = sides?.[i];
-    // Mouth: stays solid while it leaves the coast, fading out toward its end.
-    const mouth = cur.mouth ?? 0;
-    const fade = 1 - mouth * mouth;
+    // Mouth: fully solid until it is clear of the coast, then fading out
+    // smoothly toward its end. Fading from the coast itself (1 - mouth^2,
+    // sampled per plume step) let the darker sea show through from exactly
+    // the coast edge on, which drew a line across the river there.
+    const fade = riverMouthFade(cur.mouth ?? 0);
     const toSea = riverSeaBlend(cur);
+    // The soft edge firms up over the descent to the coast: past it the
+    // water lies over the sea, not the muddy bank, and a soft edge let each
+    // show through differently -- a line across the river at the coast.
+    const firm = firmBy;
     for (const [f, color] of WATER_COLUMNS) {
       const drawn = !side || (f < 0 ? side.left : f > 0 ? side.right : true);
       const g = drawn ? f : 0;
@@ -358,7 +379,7 @@ export const appendWater = (
         color[0] + (RIVER_SEA_BLEND[0] - color[0]) * toSea,
         color[1] + (RIVER_SEA_BLEND[1] - color[1]) * toSea,
         color[2] + (RIVER_SEA_BLEND[2] - color[2]) * toSea,
-        color[3] * fade
+        (color[3] + (1 - color[3]) * firm) * fade
       );
     }
   }

@@ -59,9 +59,14 @@ export const riverSampleFogged = (
 // The mouth runs this far past the river's final corner into the sea,
 // widening and fading out, so the river spills into the ocean instead of
 // stopping in a hard square end at the coast.
+// Only a gentle flare: the beach fringe's cut (client-map-3d-shore-river-mouth.ts)
+// parts round the river at about this rate, and a plume flaring to 2.4x
+// the river's width spread out past it into a trumpet on the sea.
 const MOUTH_REACH = 0.8;
-const MOUTH_STEPS = 6;
-const MOUTH_FLARE = 1.4;
+// Enough samples that the plume's fade (riverMouthFade) is interpolated
+// smoothly: at 6 its linear steps showed as bands across the water.
+const MOUTH_STEPS = 12;
+const MOUTH_FLARE = 0.5;
 
 const defaultIsSeaAt = (wx: number, wy: number): boolean => {
   const t = terrainAt(wx, wy);
@@ -122,12 +127,31 @@ export const riverMouthPlume = (
   return out;
 };
 
+// Smoothing keeps the river's last point exactly on its mouth corner, which
+// could leave a sample just short of it and a sharp little bend between: the
+// water's rows there, at its widened coast width, crossed and folded a
+// triangle over, which showed as a dark tick on the bank.
+const MOUTH_END_MIN_SPACING = 0.12;
+
+/** `line` without the samples (other than its first) closer than MOUTH_END_MIN_SPACING to its last one. */
+export const trimCrowdedEnd = (line: readonly ChannelPathPoint[]): ChannelPathPoint[] => {
+  const end = line[line.length - 1];
+  if (!end) return [];
+  const out = [...line];
+  while (out.length > 2) {
+    const prev = out[out.length - 2]!;
+    if (Math.hypot(end.x - prev.x, end.z - prev.z) >= MOUTH_END_MIN_SPACING) break;
+    out.splice(out.length - 2, 1);
+  }
+  return out;
+};
+
 // The channel cuts down to sea level over this much river before the mouth.
 const MOUTH_DESCENT_LENGTH = 1.2;
 // ...and widens into a funnel there, ESTUARY_FLARE more at the coast itself:
 // a channel that met the sea at its full inland width (banks and all) looked
 // cut off by the straight coastline.
-const ESTUARY_FLARE = 0.6;
+export const ESTUARY_FLARE = 0.6;
 
 /**
  * Marks the last MOUTH_DESCENT_LENGTH of a smoothed centreline with a
@@ -136,7 +160,7 @@ const ESTUARY_FLARE = 0.6;
  * and flares the channel's width with it into an estuary.
  */
 export const withMouthDescent = (line: readonly ChannelPathPoint[]): ChannelPathPoint[] => {
-  const out = [...line];
+  const out = trimCrowdedEnd(line);
   let arc = 0;
   for (let i = out.length - 1; i >= 0; i -= 1) {
     if (i < out.length - 1) arc += Math.hypot(out[i + 1]!.x - out[i]!.x, out[i + 1]!.z - out[i]!.z);
