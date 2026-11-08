@@ -290,6 +290,8 @@ message FetchTileDetailRequest {
   uint32 x = 2;
   uint32 y = 3;
   bool full_visibility = 4;
+  // Bounded camera-area fetch; omitted/zero retains the existing 3x3 detail response.
+  uint32 radius = 5;
 }
 
 message FetchTileDetailAck {
