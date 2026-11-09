@@ -60,3 +60,7 @@ describe("drawReachTileTreatments2D my tiles inside a rival's reach", () => {
     expect(stamps[0]!.alpha).toBe(0.6);
   });
 });
+
+it("hatches one AI's territory inside another AI's reach", () => {
+  expect(draw({ x: 3, y: 3, terrain: "LAND", ownerId: "elin", reachOwnerId: "other-ai" })).toHaveLength(1);
+});

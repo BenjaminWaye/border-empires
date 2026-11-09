@@ -1,3 +1,4 @@
+import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
 import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
 import { COMMAND_NAVIGATION_ENTRY } from "./client-changelog-command-navigation.js";
@@ -481,7 +482,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...DORMANT_FORT_TOWN_SCREEN_CHANGELOG,
   ...SEASON_SUMMARY_FIXES_CHANGELOG,
   MISSING_HISTORY_REPORT_CHANGELOG,
-  { ...SEASON_RECORD_DETAILS_CHANGELOG, createdAt: 1794152918767, }
+  { ...SEASON_RECORD_DETAILS_CHANGELOG, createdAt: 1794152918767, },
+  {
+    ...MAP_BROWSING_FIXES_CHANGELOG,
+    createdAt: 1794165080849, // Date.now() captured once.
+  }
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
