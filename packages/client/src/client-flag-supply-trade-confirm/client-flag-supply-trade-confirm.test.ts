@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ResourceSupplyAgreementStatus } from "@border-empires/shared";
+import { MUSTER_ADVANCE_RANGE_STEPS, type ResourceSupplyAgreementStatus } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { advanceReachOwnerIds, advanceSupplyTradeWarning, confirmSupplyTradeEnd } from "./client-flag-supply-trade-confirm.js";
@@ -25,7 +25,9 @@ describe("advanceReachOwnerIds", () => {
   it("ignores Houses beyond the range, behind water, allied or truced", () => {
     expect(advanceReachOwnerIds(world(40), 5, 5)).toEqual([]);
     const blocked = world(9);
-    blocked.tiles.set("7,5", { x: 7, y: 5, terrain: "SEA" });
+    // A sea column: no land way round it.
+    for (let y = 0; y <= 10; y += 1) blocked.tiles.set(`7,${y}`, { x: 7, y, terrain: "SEA" });
+    for (const x of [6, 8]) for (const y of [4, 6]) blocked.tiles.set(`${x},${y}`, { x, y, terrain: "LAND" });
     expect(advanceReachOwnerIds(blocked, 5, 5)).toEqual([]);
     const allied = world(9);
     allied.allies = ["rival"];
@@ -33,6 +35,33 @@ describe("advanceReachOwnerIds", () => {
     const truced = world(9);
     truced.activeTruces = [{ otherPlayerId: "rival", otherPlayerName: "Rival", startedAt: 1, endsAt: Date.now() + 60_000, createdByPlayerId: "me" }];
     expect(advanceReachOwnerIds(truced, 5, 5)).toEqual([]);
+  });
+});
+
+describe("advanceReachOwnerIds range and crossings", () => {
+  it("reaches a House exactly MUSTER_ADVANCE_RANGE_STEPS away, not one more", () => {
+    expect(advanceReachOwnerIds(world(5 + MUSTER_ADVANCE_RANGE_STEPS), 5, 5)).toEqual(["rival"]);
+    expect(advanceReachOwnerIds(world(6 + MUSTER_ADVANCE_RANGE_STEPS), 5, 5)).toEqual([]);
+  });
+  it("walks fogged neutral land but ignores fogged or unclaimed-state hostile tiles", () => {
+    const state = world(9);
+    state.tiles.set("7,5", { x: 7, y: 5, terrain: "LAND", fogged: true });
+    expect(advanceReachOwnerIds(state, 5, 5)).toEqual(["rival"]);
+    state.tiles.set("9,5", { x: 9, y: 5, terrain: "LAND", ownerId: "rival", ownershipState: "SETTLED", fogged: true });
+    expect(advanceReachOwnerIds(state, 5, 5)).toEqual([]);
+    state.tiles.set("9,5", { x: 9, y: 5, terrain: "LAND", ownerId: "rival" });
+    expect(advanceReachOwnerIds(state, 5, 5)).toEqual([]);
+  });
+  it("crosses from one of our docks to the linked dock's landing ground", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.tiles.set("5,5", { x: 5, y: 5, terrain: "LAND", ownerId: "me" });
+    for (let x = 6; x <= 30; x += 1) state.tiles.set(`${x},5`, { x, y: 5, terrain: "SEA" });
+    state.tiles.set("31,5", { x: 31, y: 5, terrain: "LAND" });
+    state.tiles.set("32,5", { x: 32, y: 5, terrain: "LAND", ownerId: "rival", ownershipState: "FRONTIER" });
+    expect(advanceReachOwnerIds(state, 5, 5)).toEqual([]);
+    state.dockPairs = [{ ax: 5, ay: 5, bx: 31, by: 5 }];
+    expect(advanceReachOwnerIds(state, 5, 5)).toEqual(["rival"]);
   });
 });
 

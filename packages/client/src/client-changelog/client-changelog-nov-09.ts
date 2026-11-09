@@ -46,7 +46,7 @@ export const FLAG_SUPPLY_TRADE_CONFIRM_ENTRY: Omit<ClientChangelogEntry, "create
   title: "Flags confirm before ending supply trades",
   why: "A March or Advance flag could end your supply trades with a House without asking.",
   changes: [
-    "March To on a House you trade with asks to confirm that it ends those trades",
-    "Set Advance asks too when a House you trade with is within the flag's reach"
+    "March To, or dragging a march, onto a House you trade with asks to confirm that it ends those trades",
+    "Set Advance asks too when a House you trade with is within the flag's reach, including across your docks"
   ]
 };

@@ -3,24 +3,30 @@
 //     the tile to march to, with a Cancel) and an arrow follows the pointer
 //     from the flag, showing the distance and when it is too far;
 //   - a marching flag's destination can be dragged to a new tile: press on
-//     the march target, drag, release, and the flag re-targets (no confirm
-//     sheet; its committed effort is kept by the server).
+//     the march target, drag, release, and the flag re-targets (no effort
+//     sheet; its committed effort is kept by the server -- only the
+//     supply-trade confirm when the new target is a trade partner's).
 // Both draw through state.arrowGesture, which the 2D (client-runtime-loop.ts)
 // and true-3D (client-map-3d-arrow-overlay.ts) renderers already read every
 // frame, so the preview shows in either renderer.
 
 import { MUSTER_MARCH_MAX_DISTANCE_TILES, musterMarchDistanceTiles, musterMarchTooFarAdvice } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import { supplyTradeAttackWarningText, type SupplyWarningState } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
+import { confirmSupplyTradeEnd, type SupplyTradeSheet } from "../client-flag-supply-trade-confirm/client-flag-supply-trade-confirm.js";
 import { findMarchOriginsForTarget } from "../client-muster-march-targeting.js";
 import { musterSiegeReason, ownTileSiegeAt } from "../client-muster-siege/client-muster-siege.js";
 
-type MarchState = Pick<ClientState, "tiles" | "me" | "hover" | "musterMarchTargeting" | "marchOriginPicking" | "arrowGesture" | "pendingArrowGestureConfirm" | "incomingAttacksByTile">;
+type MarchState = Pick<ClientState, "tiles" | "me" | "hover" | "musterMarchTargeting" | "marchOriginPicking" | "arrowGesture" | "pendingArrowGestureConfirm" | "incomingAttacksByTile"> &
+  SupplyWarningState;
 type Point = { x: number; y: number };
 
 export type MarchInteractionDeps = {
   state: MarchState;
   sendGameMessage: (payload: unknown) => boolean;
   renderHud: () => void;
+  /** Test seam for the supply-trade confirm; defaults to the break-pact sheet. */
+  showSupplyTradeSheet?: SupplyTradeSheet;
 };
 
 export const MARCH_HINT_ID = "march-targeting-hint";
@@ -160,11 +166,17 @@ const endDrag = (nowMs = Date.now()): "moved" | "tap" | "none" => {
     notice = { text: `Too far: marches reach up to ${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles. The march keeps its old target.`, until: nowMs + NOTICE_MS };
     return "moved";
   }
-  const sent = deps.sendGameMessage({ type: "SET_MUSTER", x: done.origin.x, y: done.origin.y, mode: "MARCH", targetX: done.current.x, targetY: done.current.y });
-  notice = sent
-    ? { text: `Marching to (${done.current.x}, ${done.current.y}).`, until: nowMs + 2_000 }
-    : { text: "Not connected: the march keeps its old target.", until: nowMs + NOTICE_MS };
-  deps.renderHud();
+  // Re-targeting onto a trade partner's tile ends those trades: confirm first, like March To.
+  const { state, sendGameMessage, renderHud } = deps;
+  const warning = supplyTradeAttackWarningText(state, state.tiles.get(`${done.current.x},${done.current.y}`)?.ownerId);
+  confirmSupplyTradeEnd(warning, "March", () => {
+    const at = warning ? Date.now() : nowMs;
+    const sent = sendGameMessage({ type: "SET_MUSTER", x: done.origin.x, y: done.origin.y, mode: "MARCH", targetX: done.current.x, targetY: done.current.y });
+    notice = sent
+      ? { text: `Marching to (${done.current.x}, ${done.current.y}).`, until: at + 2_000 }
+      : { text: "Not connected: the march keeps its old target.", until: at + NOTICE_MS };
+    renderHud();
+  }, deps.showSupplyTradeSheet);
   return "moved";
 };
 

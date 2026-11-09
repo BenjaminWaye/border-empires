@@ -2,7 +2,7 @@ import { MUSTER_ADVANCE_RANGE_STEPS, MUSTER_MARCH_MAX_DISTANCE_TILES, musterFlag
 import { clearAttackCommit } from "./client-attack-commit/client-attack-commit.js";
 import type { ClientState } from "./client-state/client-state.js";
 import { advanceSupplyTradeNote } from "./client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
-import { advanceSupplyTradeWarning, confirmSupplyTradeEnd } from "./client-flag-supply-trade-confirm/client-flag-supply-trade-confirm.js";
+import { advanceSupplyTradeWarning, confirmSupplyTradeEnd, type SupplyTradeSheet } from "./client-flag-supply-trade-confirm/client-flag-supply-trade-confirm.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
 import { musterStatusText } from "./client-side-panel-html/client-side-panel-html.js";
@@ -166,6 +166,8 @@ export type MusterTileActionDeps = {
   sendGameMessage: (payload: unknown) => boolean;
   pushFeed: (msg: string, type?: string, severity?: string) => void;
   renderHud: () => void;
+  /** Test seam for the supply-trade confirm; defaults to the break-pact sheet. */
+  showSupplyTradeSheet?: SupplyTradeSheet;
 };
 
 /**
@@ -195,8 +197,10 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
   if (actionId === "muster_advance") {
     // Pick the effort level (Normal / Extra / Double) before advancing.
     // A trade partner in the flag's reach: confirm ending those supply trades first.
-    confirmSupplyTradeEnd(advanceSupplyTradeWarning(deps.state, x, y), "Advance", () =>
-      promptMusterAdvanceEffort(x, y, { sendGameMessage: deps.sendGameMessage, onSent: announceFirstMuster, note: advanceSupplyTradeNote(deps.state) }));
+    // The effort sheet's general note only when that confirm didn't just say it.
+    const warning = advanceSupplyTradeWarning(deps.state, x, y);
+    confirmSupplyTradeEnd(warning, "Advance", () =>
+      promptMusterAdvanceEffort(x, y, { sendGameMessage: deps.sendGameMessage, onSent: announceFirstMuster, note: warning ? undefined : advanceSupplyTradeNote(deps.state) }), deps.showSupplyTradeSheet);
     return true;
   }
   if (actionId === "muster_march") {

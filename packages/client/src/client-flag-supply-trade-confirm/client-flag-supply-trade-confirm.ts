@@ -6,6 +6,7 @@
 import { MUSTER_ADVANCE_RANGE_STEPS, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
 import { supplyTradeAttackWarningsForTargets, type SupplyWarningState } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
+import { landingGroundKeys, linkedDocksFrom } from "../client-dock-landing-ground/client-dock-landing-ground.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 export type SupplyTradeSheet = (options: BreakPactSheetOptions) => boolean;
@@ -32,16 +33,18 @@ export const confirmSupplyTradeEnd = (
   if (!shown) proceed();
 };
 
-type ReachState = Pick<ClientState, "tiles" | "me" | "allies" | "activeTruces">;
+type ReachState = Pick<ClientState, "tiles" | "me" | "allies" | "activeTruces" | "dockPairs">;
 
 const wrap = (value: number, size: number): number => ((value % size) + size) % size;
 
 /**
  * Owners of the visible Houses an ADVANCE flag at (x, y) could attack: the
  * same step walk as the server's nearestHostileWithinSteps (muster-advance-
- * clear.ts) -- through own or neutral land, up to MUSTER_ADVANCE_RANGE_STEPS,
- * never across water or another player's land -- minus dock and bridge
- * crossings, which the client doesn't track. Allies and truced Houses are
+ * clear.ts) -- through own or neutral land (fogged too), up to
+ * MUSTER_ADVANCE_RANGE_STEPS, never across water or another player's land,
+ * with one of our docks reaching its linked docks' landing ground in one
+ * step. Aether bridge links aren't known to the client and are not walked.
+ * Only visible FRONTIER/SETTLED tiles count, and allies and truced Houses are
  * skipped, as the flag never attacks them.
  */
 export const advanceReachOwnerIds = (state: ReachState, x: number, y: number, now = Date.now()): string[] => {
@@ -49,28 +52,37 @@ export const advanceReachOwnerIds = (state: ReachState, x: number, y: number, no
   const owners = new Set<string>();
   const visited = new Set<string>([`${x},${y}`]);
   let frontier: Array<{ x: number; y: number }> = [{ x, y }];
+  const next: Array<{ x: number; y: number }> = [];
+  const consider = (cx: number, cy: number): void => {
+    const key = `${cx},${cy}`;
+    if (visited.has(key)) return;
+    visited.add(key);
+    const tile = state.tiles.get(key);
+    if (!tile || tile.terrain !== "LAND") return;
+    if (!tile.ownerId || tile.ownerId === state.me) {
+      next.push({ x: cx, y: cy });
+      return;
+    }
+    if (tile.fogged || (tile.ownershipState !== "FRONTIER" && tile.ownershipState !== "SETTLED")) return;
+    if (!state.allies.includes(tile.ownerId) && !truced.has(tile.ownerId)) owners.add(tile.ownerId);
+  };
   for (let depth = 0; depth < MUSTER_ADVANCE_RANGE_STEPS && frontier.length > 0; depth += 1) {
-    const next: Array<{ x: number; y: number }> = [];
+    next.length = 0;
     for (const node of frontier) {
       for (let dy = -1; dy <= 1; dy += 1) {
         for (let dx = -1; dx <= 1; dx += 1) {
-          if (dx === 0 && dy === 0) continue;
-          const nx = wrap(node.x + dx, WORLD_WIDTH);
-          const ny = wrap(node.y + dy, WORLD_HEIGHT);
-          const key = `${nx},${ny}`;
-          if (visited.has(key)) continue;
-          visited.add(key);
-          const tile = state.tiles.get(key);
-          if (!tile || tile.terrain !== "LAND" || tile.fogged) continue;
-          if (!tile.ownerId || tile.ownerId === state.me) {
-            next.push({ x: nx, y: ny });
-          } else if (!state.allies.includes(tile.ownerId) && !truced.has(tile.ownerId)) {
-            owners.add(tile.ownerId);
-          }
+          if (dx !== 0 || dy !== 0) consider(wrap(node.x + dx, WORLD_WIDTH), wrap(node.y + dy, WORLD_HEIGHT));
+        }
+      }
+      if (state.tiles.get(`${node.x},${node.y}`)?.ownerId !== state.me) continue;
+      for (const linked of linkedDocksFrom(state.dockPairs, node.x, node.y)) {
+        for (const key of landingGroundKeys(state, linked.x, linked.y)) {
+          const [lx, ly] = key.split(",").map(Number);
+          if (lx !== undefined && ly !== undefined) consider(lx, ly);
         }
       }
     }
-    frontier = next;
+    frontier = [...next];
   }
   return [...owners];
 };

@@ -165,3 +165,35 @@ describe("dispatchMusterTileAction muster_cancel_queued_attack", () => {
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "UNWATCH_MUSTER" });
   });
 });
+
+describe("dispatchMusterTileAction muster_advance", () => {
+  const setup = () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.tiles.set("3,3", ownTile());
+    state.tiles.set("5,3", { x: 5, y: 3, terrain: "LAND", ownerId: "rival", ownershipState: "SETTLED" });
+    state.tiles.set("4,3", { x: 4, y: 3, terrain: "LAND" });
+    const sendGameMessage = vi.fn(() => true);
+    const sheets: Array<{ onConfirm: () => void }> = [];
+    const deps = { state, sendGameMessage, pushFeed: vi.fn(), renderHud: vi.fn(), showSupplyTradeSheet: (options: { onConfirm: () => void }) => { sheets.push(options); return true; } };
+    return { state, sendGameMessage, sheets, deps };
+  };
+
+  it("confirms ending supply trades first when a trade partner is in the flag's reach", () => {
+    const { state, sendGameMessage, sheets, deps } = setup();
+    state.resourceTradeAgreements = [{ id: "t", proposerId: "rival", targetId: "me", proposerGives: { FOOD: 1 }, targetGives: {}, startedAt: 1, fulfilled: true }];
+    dispatchMusterTileAction("muster_advance", ownTile(), deps);
+    expect(sheets).toHaveLength(1);
+    expect(sendGameMessage).not.toHaveBeenCalled();
+    sheets[0]!.onConfirm();
+    // No DOM here, so the effort sheet falls back to sending at the floor.
+    expect(sendGameMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "SET_MUSTER", x: 3, y: 3, mode: "ADVANCE" }));
+  });
+
+  it("goes straight to the effort step without a trade partner in reach", () => {
+    const { sendGameMessage, sheets, deps } = setup();
+    dispatchMusterTileAction("muster_advance", ownTile(), deps);
+    expect(sheets).toHaveLength(0);
+    expect(sendGameMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "SET_MUSTER", mode: "ADVANCE" }));
+  });
+});
