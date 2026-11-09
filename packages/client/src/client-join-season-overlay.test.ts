@@ -66,7 +66,7 @@ describe("join-season overlay", () => {
       joinSeason: () => true
     });
     expect(overlayEl.style.display).toBe("grid");
-    expect(overlayEl.innerHTML).toContain("season-42");
+    expect(overlayEl.querySelector(".respawn-kicker")?.textContent).toBe("Season 42");
     expect(overlayEl.querySelector("#join-season-confirm")).toBeTruthy();
   });
 
