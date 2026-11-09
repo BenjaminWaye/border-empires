@@ -354,6 +354,12 @@ consolidation, planning cadence), not deletion.
   - *Hydroworks placement*: scored on FOOD need alone; 33/34 AI Hydroworks
     boosted no new Hydrogarden. `build/hydroworks-placement.ts` requires an own
     garden in `HYDROWORKS_RADIUS` that no existing Hydroworks reaches.
-  FOOD itself cannot be traded (only gold and shards, `diplomacy-terms.ts`);
-  each beacon past the first five costs a FOOD slot, so FOOD supply is the
+  - *No FOOD buying*: resource supply trades (`resource-supply-trades/`) let
+    Houses export spare FOOD, and an AI accepts a fair offer, but no AI ever
+    asked. `apps/realtime-gateway/src/proactive-ai-resource-trade/` now runs on
+    the 15s proactive diplomacy tick: an AI at or below zero FOOD headroom with
+    no pending offer asks up to 4 Houses (other AIs first, then human
+    neighbours) for 1-3 FOOD slots, paying a surplus resource of at least equal
+    daily value or a day's value in coin; 6h per-target cooldown.
+  Each beacon past the first five costs a FOOD slot, so FOOD supply is the
   real ceiling on AI expansion.

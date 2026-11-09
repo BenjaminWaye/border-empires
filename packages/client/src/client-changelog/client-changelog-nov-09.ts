@@ -24,6 +24,7 @@ export const AI_EXPANSION_FIXES_ENTRY: Omit<ClientChangelogEntry, "createdAt"> =
     "AI attacks only when a muster flag in range can pay for it",
     "AI keeps building Relay Beacons on quiet borders unless its core is under threat",
     "Short of FOOD, AI switches off surplus mines and rigs and fully overlapped beacons first, and keeps beacons that hold land",
-    "AI only builds Hydroworks next to Hydrogardens it can actually boost"
+    "AI only builds Hydroworks next to Hydrogardens it can actually boost",
+    "AI out of FOOD offers to buy FOOD supply from Houses with spare FOOD, paying in surplus resources or coin"
   ]
 };

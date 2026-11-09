@@ -1,6 +1,7 @@
 import { createResourceTradeService } from "../resource-trade/resource-trade-service.js";
 import { handleAfcCourtMessage } from "../afc-specializations/afc-force-truce-message.js";
 import { createProactiveAiDiplomacy } from "../proactive-ai-diplomacy/proactive-ai-diplomacy.js";
+import { createProactiveAiResourceTrade } from "../proactive-ai-resource-trade/proactive-ai-resource-trade.js";
 // Wires the ALLIANCE_* / TRUCE_* socket handlers, the trade screen's stance
 // query, deal settlement, and the seeded-AI diplomacy responder, extracted out of gateway-app.ts (well over the repo's
 // 500-line file-size gate and may not grow further -- see AGENTS.md's
@@ -205,6 +206,10 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     isAutoRespondingAi:id=>isAi(id)&&!deps.hasLiveSocket(id),
     aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?{gold:Math.floor(player.gold),...(player.resourceTradeHoldings?{resources:player.resourceTradeHoldings}:{})}:undefined;},
     send:deps.sendJson,fanout:deps.fanoutPlayerPayloads,record:deps.recordGatewayEvent });
+  const aiFoodTrades = createProactiveAiResourceTrade({ aiPlayerIds: deps.seededAiPlayerIds, hasLiveSocket: deps.hasLiveSocket,
+    fetchAiSnapshot: requesterSnapshot, playerState: async id => (await deps.ensureSubscribed(id)).player,
+    trades: resourceTrades, recordEvent: deps.recordGatewayEvent, now: () => Date.now(),
+    seasonEnded: async () => (await deps.fetchSeasonSummary()).status === "ended" });
   const isAutoRespondingAi = (targetId: string): boolean => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId);
   const giftsInFlight = new Set<string>();
   const answerStance = (requesterId: string, targetPlayerName: string, targetPlayerId: string | undefined) =>
@@ -311,7 +316,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     fanoutPlayerPayloads: deps.fanoutPlayerPayloads
   });
   return {
-    tickProactive: proactive.tick,
+    tickProactive: async () => { await proactive.tick(); await aiFoodTrades.tick(); },
     stopProactive: proactive.stop,
     handleMessage,
     runAllianceMaintenance: () => {
