@@ -484,7 +484,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...JOIN_SCREEN_SEASON_END_ENTRY, createdAt: 1794260901474, },
   { ...HIVE_MIND_II_PREREQ_ENTRY, createdAt: 1794261939652, },
   { ...VICTORY_RACE_WINNER_ENTRY, createdAt: 1794261877222, },
-  { ...SECTOR_CONTEST_NAME_ENTRY, createdAt: 1794260286374, }
+  { ...SECTOR_CONTEST_NAME_ENTRY, createdAt: 1794260286374, },
+  {
+    createdAt: 1794255946209, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.09",
+    title: "Brass sliders for diplomacy deals",
+    why: "The bright amount controls stood out against the dark diplomacy panel.",
+    changes: ["Coin and supply amounts now use a brass slider and a dark exact-amount field with larger touch targets"]
+  }
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

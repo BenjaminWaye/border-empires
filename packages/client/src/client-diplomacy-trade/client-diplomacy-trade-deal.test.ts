@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import hudStyles from "../style.css?raw";
 import { closeDiplomacyTradeScreen, openDiplomacyTradeScreen, receiveDiplomacyStance } from "./client-diplomacy-trade.js";
 import { dealKind } from "./client-diplomacy-trade-deal.js";
 import type { DiplomacyStanceReply } from "./client-diplomacy-trade-view.js";
@@ -72,6 +73,29 @@ describe("diplomacy deal table", () => {
     // Pressing an item in the deal opens its slider for a new amount.
     deal.querySelector<HTMLButtonElement>("[data-deal-edit='ask-CRYSTAL']")!.click();
     expect(overlay.querySelector<HTMLElement>("[data-trade-slider='ask-CRYSTAL']")!.hidden).toBe(false);
+  });
+
+  it("keeps the amount controls themed when the deal is hosted inside the HUD", () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    const style = document.createElement("style");
+    style.textContent = hudStyles;
+    document.head.prepend(style);
+    document.body.append(hud);
+
+    try {
+      const { overlay } = openScreen({ gold: 634, resources: { FOOD: 59 } });
+      hud.append(overlay);
+      overlay.querySelector<HTMLButtonElement>("[data-trade-good='give-FOOD']")!.click();
+      const range = overlay.querySelector<HTMLInputElement>("[data-trade-give-FOOD]")!;
+      const exact = overlay.querySelector<HTMLInputElement>("[data-trade-exact='give-FOOD']")!;
+      expect(getComputedStyle(range).backgroundColor).toBe("transparent");
+      expect(getComputedStyle(exact).backgroundColor).toBe("#14100a");
+    } finally {
+      closeDiplomacyTradeScreen();
+      hud.remove();
+      style.remove();
+    }
   });
 
   it("picks one treaty at a time; only the deal's ✕ takes it out", () => {
