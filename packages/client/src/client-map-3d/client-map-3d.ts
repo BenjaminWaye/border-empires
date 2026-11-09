@@ -23,6 +23,7 @@ import type { Tile } from "../client-types.js";
 import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, standingTreeFilter } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
+import { createRebuildThrottle } from "./client-map-3d-rebuild-throttle.js";
 import { EMPTY_MAP_3D_REBUILD_TRIGGERS, captureMap3DRebuildTriggers, map3DRebuildTriggersChanged } from "../client-map-3d-rebuild-triggers/client-map-3d-rebuild-triggers.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 import { createSelectionRangeOverlays } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
@@ -1021,14 +1022,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     });
   };
 
-  // A trailing-edge throttle floor for rebuildVisibleTerrain(): terrainWindowCovers's padded
-  // hysteresis (client-map-3d-terrain-window.ts) already suppresses most rebuilds during a pan or
-  // zoom that doesn't need new tiles outside the pad, but a fast pan/zoom that keeps crossing the
-  // pad boundary can still request rebuilds back to back, so continuous dragging needs a backstop.
-  // Not a dropped-update risk: rebuildNeeded stays true on every subsequent frame until the floor
-  // opens (lastRebuild.at only advances on an actual rebuild), so the next frame after motion
-  // settles always rebuilds against current state.
-  const REBUILD_MIN_INTERVAL_MS = 48;
+  const rebuildThrottle = createRebuildThrottle(); // cost-scaled floor between rebuilds -- see client-map-3d-rebuild-throttle.ts
 
   // Places live pylons/segments, animating border-transitions via
   // reach3DPylonTracker/reach3DSegmentTracker. Own throttle (not
@@ -1036,7 +1030,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // unthrottled, this visibility-filter+diffTransitions pass plus a draw
   // call per pylon/segment was a dominant idle-camera CPU/GPU cost; update()
   // still runs every renderLoop frame so placed pylons keep animating.
-  const REACH_OVERLAY_MIN_INTERVAL_MS = 48; // == REBUILD_MIN_INTERVAL_MS
+  const REACH_OVERLAY_MIN_INTERVAL_MS = 48; // == REBUILD_MIN_INTERVAL_MS (client-map-3d-rebuild-throttle.ts)
   const reachOverlayPlacementThrottle = createReachOverlayPlacementThrottle(REACH_OVERLAY_MIN_INTERVAL_MS); // bypasses its floor when sceneOrigin moves -- see client-reach-overlay-placement-throttle.ts
   const renderReachOverlay3DPylons = (nowMs: number): void => {
     if (!reachOverlayPlacementThrottle.shouldRun(nowMs, sceneOrigin.camX, sceneOrigin.camY)) return;
@@ -1136,7 +1130,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       tileChangeIsWindowRelevant(lastRebuild.builtWindow, deps.state.tilesRevisionChangedKeys, deps.state.tilesRevisionOverflowed, WORLD_WIDTH, WORLD_HEIGHT) ||
       map3DRebuildTriggersChanged(lastRebuild.triggers, triggersNow) ||
       district.boundaryPassed() || structureOverlay.constructionBoundaryPassed() || relayBeaconOverlay.constructionBoundaryPassed() || fortOverlay.constructionBoundaryPassed() || captureAftermathFx.boundaryPassed();
-    if (rebuildNeeded && (lastRebuild.at === 0 || nowMs - lastRebuild.at >= REBUILD_MIN_INTERVAL_MS)) {
+    if (rebuildNeeded && rebuildThrottle.ready(nowMs)) {
       const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
       const builtWindow = padTerrainWindow(requiredWindow, MAX_VISIBLE_TILES);
       rebuildVisibleTerrain(builtWindow); if (isFirstRebuild) markRendererFirstRenderCompleted();
@@ -1146,6 +1140,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       deps.state.tilesRevisionChangedKeys.clear(); deps.state.tilesRevisionOverflowed = false;
       sceneOrigin.camX = builtWindow.camX;
       sceneOrigin.camY = builtWindow.camY; atmosphere.onTerrainRebuilt(builtWindow, (wx, wy) => deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy)))); // resizes the sun's shadow frustum + rebuilds the unexplored storm's and fogged mist's masks at the new origin
+      rebuildThrottle.record(nowMs, isFirstRebuild ? nowMs : performance.now()); // the first rebuild's cost is mostly cold shader compiles, not representative
     }
     // Applied last, using this frame's FINAL sceneOrigin (post-rebuild if one just
     // committed above): applying it before a same-frame rebuild would frame the
