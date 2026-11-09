@@ -60,7 +60,6 @@ export const buildDecalMeshArrays = (source: DecalMeshSource, window: DecalMeshW
       const dome = include ? source.hillDomeAt?.(wrapX(window.firstTileX + tx), wrapY(window.firstTileY + tz)) : undefined;
       hillDomes.push(dome);
       if (!include) continue;
-      hillDomes.push(dome);
       totalVerts += dome ? hillVerts : flatVerts;
       totalQuads += (dome ? HILL_SUBDIVISIONS : FLAT_SUBDIVISIONS) ** 2;
     }

@@ -41,4 +41,17 @@ describe("buildDecalMeshArrays", () => {
     expect(indices.length).toBe(FLAT_SUBDIVISIONS ** 2 * 6);
     expect(domeCalls).toBe(0);
   });
+
+  it("keeps each tile's own dome when later tiles are hills", () => {
+    // Regression: a duplicated hillDomes.push shifted every later tile onto
+    // its neighbour's dome, and Float32Array silently dropped the overflow.
+    const dome = (): number => 0.3;
+    const wide: DecalMeshWindow = { ...window1, tilesX: 3, areaWidthTiles: 3 };
+    const { positions } = buildDecalMeshArrays({ ...source, hillDomeAt: (x) => (x === 11 ? dome : undefined) }, wide);
+    const flatVerts = (FLAT_SUBDIVISIONS + 1) ** 2;
+    const hillVerts = (HILL_SUBDIVISIONS + 1) ** 2;
+    expect(positions.length / 3).toBe(2 * flatVerts + hillVerts);
+    for (let i = flatVerts; i < flatVerts + hillVerts; i += 1) expect(positions[i * 3 + 1]).toBeCloseTo(0.3 + CORNER_RISE, 5);
+    for (let i = flatVerts + hillVerts; i < 2 * flatVerts + hillVerts; i += 1) expect(positions[i * 3]).toBeGreaterThanOrEqual(2);
+  });
 });
