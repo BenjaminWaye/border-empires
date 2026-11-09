@@ -15,32 +15,46 @@ body.season-lobby-active #hud > *:not(#join-season-overlay) {
   display: none !important;
 }
 
-/* --- Backdrop: dark gunmetal instead of the generic blur ---------------- */
-#join-season-overlay .respawn-backdrop {
-  background:
-    radial-gradient(circle at 50% 20%, rgba(120, 78, 30, 0.22), transparent 55%),
-    linear-gradient(180deg, rgba(6, 8, 10, 0.94), rgba(2, 3, 4, 0.97));
-  backdrop-filter: blur(6px);
+/* --- Shared look with the season-end screen ------------------------------
+   The join/lobby screen used to have its own serif, mixed-case, gold-pill
+   skin that didn't match anything else in the game. It now borrows the
+   season-end overlay's tokens (client-season-end-overlay.css): brass-framed
+   plate, letter-spaced uppercase header, leather secondary buttons and a
+   brass primary call to action. */
+#join-season-overlay {
+  --se-brass: #c9a24b;
+  --se-brass-dim: #8c6535;
+  --se-brass-hi: #f0d79a;
+  --se-copper: #a9612f;
+  --se-parch: #ecdcb4;
+  --se-plate-1: #241809;
+  --se-plate-2: #160e05;
+  color: var(--se-parch);
+  font-family: "Rajdhani", "Segoe UI", system-ui, sans-serif;
 }
 
-/* --- War-room panel frame: riveted brass over dark gunmetal ------------- */
+#join-season-overlay .respawn-backdrop {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(70, 48, 18, 0.55), transparent 60%),
+    radial-gradient(circle at 50% 120%, rgba(120, 70, 25, 0.25), transparent 55%),
+    rgba(8, 5, 2, 0.94);
+  backdrop-filter: blur(5px);
+}
+
+/* --- Brass plate frame (same gradient rim as .se-plate) ------------------ */
 #join-season-overlay .respawn-modal {
   position: relative;
+  width: min(560px, calc(100vw - 32px));
   border-radius: 18px;
-  border: 2px solid rgba(214, 168, 92, 0.55);
+  border: 6px solid transparent;
   background:
-    radial-gradient(circle 4.5px at 16px 16px, #e8bf7a 0 55%, rgba(120, 84, 30, 0.4) 62%, transparent 68%),
-    radial-gradient(circle 4.5px at calc(100% - 16px) 16px, #e8bf7a 0 55%, rgba(120, 84, 30, 0.4) 62%, transparent 68%),
-    radial-gradient(circle 4.5px at 16px calc(100% - 16px), #e8bf7a 0 55%, rgba(120, 84, 30, 0.4) 62%, transparent 68%),
-    radial-gradient(circle 4.5px at calc(100% - 16px) calc(100% - 16px), #e8bf7a 0 55%, rgba(120, 84, 30, 0.4) 62%, transparent 68%),
-    radial-gradient(circle at 12% -10%, rgba(214, 168, 92, 0.16), transparent 40%),
-    radial-gradient(circle at 90% 8%, rgba(96, 200, 255, 0.08), transparent 34%),
-    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.015) 0 2px, transparent 2px 4px),
-    linear-gradient(180deg, #1c1712 0%, #100d0a 60%, #0a0806 100%);
+    radial-gradient(circle at 50% -10%, rgba(120, 84, 30, 0.4), transparent 45%) padding-box,
+    linear-gradient(180deg, var(--se-plate-1), var(--se-plate-2)) padding-box,
+    linear-gradient(145deg, var(--se-brass-hi), var(--se-brass-dim) 40%, var(--se-copper) 75%, var(--se-brass-dim)) border-box;
   box-shadow:
-    0 30px 90px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 220, 160, 0.08),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+    0 30px 90px rgba(0, 0, 0, 0.6),
+    0 0 0 2px rgba(0, 0, 0, 0.5),
+    inset 0 0 60px rgba(0, 0, 0, 0.7);
   overflow: hidden;
 }
 
@@ -78,24 +92,49 @@ body.season-lobby-active #hud > *:not(#join-season-overlay) {
 }
 
 #join-season-overlay .respawn-kicker {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.2em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: rgba(232, 191, 122, 0.9);
+  text-align: center;
+  color: var(--se-brass);
 }
 
 #join-season-overlay .respawn-title {
-  color: #f5e6c8;
-  text-shadow: 0 0 22px rgba(232, 191, 122, 0.16);
+  font-size: clamp(22px, 5.4vw, 32px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--se-brass-hi);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6), 0 0 18px rgba(201, 162, 75, 0.4);
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(201, 162, 75, 0.28);
 }
 
 #join-season-overlay .respawn-summary {
-  color: rgba(226, 216, 196, 0.82);
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.55;
+  text-align: center;
+  margin: 0 auto;
+  color: rgba(236, 220, 180, 0.82);
 }
 
 #join-season-overlay .respawn-summary strong {
-  color: #ffd98f;
+  color: var(--se-brass-hi);
+}
+
+#join-season-overlay .guide-close-btn {
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  font-size: 22px;
+  border: 1px solid rgba(201, 162, 75, 0.4);
+  background: linear-gradient(180deg, rgba(70, 52, 26, 0.9), rgba(40, 28, 13, 0.95));
+  color: var(--se-parch);
 }
 
 /* --- Countdown: brass instrument dial, not a plain digital timer -------- */
@@ -192,6 +231,11 @@ body.season-lobby-active #hud > *:not(#join-season-overlay) {
   white-space: nowrap;
 }
 
+/* No count/roster above the actions (the "join now" branch). */
+#join-season-overlay .season-lobby-actions:first-child {
+  margin-top: 0;
+}
+
 /* Riveted brass buttons/links (matches the panel-btn contract but with the
    war-room finish). #season-lobby-discord is an <a>, so it also needs the
    pointer-events override -- #hud's blanket pointer-events:none only opts
@@ -201,36 +245,53 @@ body.season-lobby-active #hud > *:not(#join-season-overlay) {
   pointer-events: auto;
 }
 
+/* Secondary actions (Discord, invite): leather plate buttons, matching
+   .se-btn-secondary on the season-end screen. */
 #join-season-overlay .panel-btn {
-  border: 1px solid rgba(214, 168, 92, 0.6);
-  background: linear-gradient(180deg, #f0d19c, #c99a52);
-  color: #24160a;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 8px 18px rgba(0, 0, 0, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(201, 162, 75, 0.4);
+  background: linear-gradient(180deg, rgba(70, 52, 26, 0.9), rgba(40, 28, 13, 0.95));
+  color: var(--se-parch);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  box-shadow: inset 0 1px 0 rgba(244, 223, 166, 0.08);
 }
 
 #join-season-overlay .panel-btn:hover:not(:disabled) {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 10px 24px rgba(0, 0, 0, 0.36),
-    0 0 16px rgba(255, 200, 110, 0.35);
+  filter: brightness(1.12);
+  border-color: rgba(201, 162, 75, 0.7);
 }
 
 #join-season-overlay .panel-btn:disabled {
-  background: linear-gradient(180deg, #8a8478, #5f5b52);
-  color: rgba(20, 16, 10, 0.6);
+  filter: grayscale(0.3) brightness(0.85);
 }
 
 /* Plain "join now" branch: no scheduledStartAt to count down to and no
    roster wait, so there's no dial -- the confirm button IS the call to
-   action, sized up to carry that weight on its own. */
+   action, styled like the season-end screen's brass .se-btn-primary. */
 #join-season-overlay .season-lobby-lets-go-btn {
+  width: 100%;
   padding: 14px 28px;
-  font-size: 17px;
+  border-color: rgba(0, 0, 0, 0.5);
+  color: #2a1d05;
+  background: linear-gradient(180deg, var(--se-brass-hi), var(--se-brass) 55%, var(--se-brass-dim));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), 0 0 18px rgba(201, 162, 75, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  font-size: 16px;
   font-weight: 800;
-  letter-spacing: 0.03em;
+}
+
+#join-season-overlay .season-lobby-lets-go-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+  border-color: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 26px rgba(240, 215, 154, 0.55);
 }
 
 /* Loading state for the join button: a moving brass sheen plus a spinning
@@ -242,15 +303,16 @@ body.season-lobby-active #hud > *:not(#join-season-overlay) {
   gap: 10px;
   background: linear-gradient(
     100deg,
-    #6f6a5f 0%,
-    #6f6a5f 35%,
-    #a8916a 50%,
-    #6f6a5f 65%,
-    #6f6a5f 100%
+    #4a3618 0%,
+    #4a3618 35%,
+    #8c6535 50%,
+    #4a3618 65%,
+    #4a3618 100%
   );
   background-size: 250% 100%;
   animation: season-lobby-join-sheen 1.6s linear infinite;
-  color: rgba(245, 232, 205, 0.92);
+  color: var(--se-parch);
+  filter: none;
   cursor: progress;
 }
 
@@ -268,7 +330,7 @@ body.season-lobby-active #hud > *:not(#join-season-overlay) {
   text-align: center;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
-  color: rgba(226, 216, 196, 0.78);
+  color: rgba(236, 220, 180, 0.6);
 }
 
 @keyframes season-lobby-join-sheen {

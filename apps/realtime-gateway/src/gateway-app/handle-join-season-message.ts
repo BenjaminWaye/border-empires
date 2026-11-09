@@ -18,6 +18,8 @@ type PrepareLikeFn = (
 // gets a much shorter leash and the ack goes out without it.
 const JOIN_SEASON_RPC_TIMEOUT_MS = 20_000;
 const JOIN_SEASON_SPAWN_TILE_TIMEOUT_MS = 4_000;
+// Matches the simulation's joinSeasonHandler rejection ("cannot join an ended season").
+const SEASON_ENDED_ERROR_PATTERN = /cannot join an ended season/i;
 
 export type JoinSeasonMessageDeps = {
   playerId: string;
@@ -114,7 +116,16 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
     }
     sendJson(socket, { type: "JOIN_SEASON_ACK", spawned: result.spawned, ...(spawnTile ? { spawnTile } : {}) });
   } catch (error) {
-    recordGatewayEvent("warn", "gateway_join_season_failed", { playerId, error: error instanceof Error ? error.message : String(error) });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    // The simulation rejects JoinSeason once the season has a winner. Retrying
+    // can never succeed, so tell the client the season is over instead of
+    // inviting another "Try again".
+    if (SEASON_ENDED_ERROR_PATTERN.test(errorMessage)) {
+      recordGatewayEvent("info", "gateway_join_season_ended", { playerId });
+      sendJson(socket, { type: "ERROR", code: "SEASON_ENDED", message: "This season has ended." });
+      return;
+    }
+    recordGatewayEvent("warn", "gateway_join_season_failed", { playerId, error: errorMessage });
     sendJson(socket, { type: "ERROR", code: "JOIN_SEASON_FAILED", message: "Could not join the season. Try again." });
   }
 };

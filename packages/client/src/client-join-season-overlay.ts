@@ -17,6 +17,7 @@ type JoinSeasonOverlayDeps = {
     | "seasonLobbyRoster"
     | "profileSetupRequired"
     | "authIsGuest"
+    | "seasonWinner"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
@@ -36,6 +37,10 @@ const formatCountdown = (remainingMs: number): string => {
 // One shared interval driving every live countdown tick + auto-retry, so a
 // re-render of the overlay never leaks a duplicate timer.
 let countdownTimer: ReturnType<typeof setInterval> | undefined;
+
+// Dataset key caching what the overlay last rendered; see the note above
+// renderJoinSeasonOverlay for why the rebuild is skipped when unchanged.
+const RENDER_KEY_ATTR = "seasonLobbyRenderKey";
 
 // The "Joining..." state clears only on JOIN_SEASON_ACK / ERROR. If neither ever
 // arrives (dropped socket, stalled simulation) the button used to stay disabled
@@ -59,6 +64,15 @@ export const joinWaitHint = (elapsedSeconds: number): string =>
 const currentJoinWaitHint = (): string =>
   joinWaitHint(joinPendingStartedAt ? Math.max(0, Math.floor((Date.now() - joinPendingStartedAt) / 1000)) : 0);
 
+// Season ids already carry their own "season-" prefix ("season-13"), so the
+// kicker used to read "Season season-13". Normalise to "Season 13".
+export const formatJoinSeasonLabel = (seasonId: string): string => {
+  const trimmed = seasonId.trim();
+  if (!trimmed) return "the current season";
+  const prefixed = /^season[-_\s]*(.+)$/i.exec(trimmed);
+  return `Season ${prefixed ? prefixed[1] : trimmed}`;
+};
+
 const clearJoinPendingWatchdog = (): void => {
   if (joinPendingWatchdog) clearTimeout(joinPendingWatchdog);
   if (joinWaitTicker) clearInterval(joinWaitTicker);
@@ -79,14 +93,27 @@ const armJoinPendingWatchdog = (deps: JoinSeasonOverlayDeps): void => {
   clearJoinPendingWatchdog();
   joinPendingStartedAt = Date.now();
   joinPendingOverlay = overlayEl;
-  joinPendingWatchdog = setTimeout(() => {
+  // The spinner is drawn from cached HTML (see RENDER_KEY_ATTR), so if the
+  // pending flag is cleared somewhere that never re-renders the overlay (an
+  // ERROR path that returns early), the "Joining..." button would spin on
+  // forever. Both timers force a fresh render once the flag is gone.
+  const rerenderSettled = (): void => {
     clearJoinPendingWatchdog();
-    if (!state.joinSeasonPending) return;
-    state.joinSeasonPending = false;
-    pushFeed?.("Joining the season is taking too long. Try again.", "error", "warn");
+    delete overlayEl.dataset[RENDER_KEY_ATTR];
     renderHud();
+  };
+  joinPendingWatchdog = setTimeout(() => {
+    if (state.joinSeasonPending) {
+      state.joinSeasonPending = false;
+      pushFeed?.("Joining the season is taking too long. Try again.", "error", "warn");
+    }
+    rerenderSettled();
   }, JOIN_SEASON_PENDING_WATCHDOG_MS);
   joinWaitTicker = setInterval(() => {
+    if (!state.joinSeasonPending) {
+      rerenderSettled();
+      return;
+    }
     const hintEl = overlayEl.querySelector("#join-season-wait-hint");
     if (hintEl) hintEl.textContent = currentJoinWaitHint();
   }, 1_000);
@@ -116,7 +143,7 @@ const clearCountdownTimer = (): void => {
 // module-level `let` would leak between independent render sequences (e.g.
 // two different overlay elements, or successive unrelated test cases in the
 // same module instance) instead of tracking "what THIS element last showed".
-const RENDER_KEY_ATTR = "seasonLobbyRenderKey";
+// (RENDER_KEY_ATTR is declared near the top of this module.)
 
 const computeRenderKey = (state: JoinSeasonOverlayDeps["state"], visible: boolean): string =>
   !visible
@@ -164,7 +191,10 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   // and hide #auth-overlay along with the rest of #hud, silently skipping
   // the name/color picker entirely -- there was simply no screen left to
   // show it on.
-  const visible = state.needsSeasonJoin && state.joinSeasonOverlayOpen && !state.profileSetupRequired;
+  // Once the season has a winner it is over: nobody can join it (the
+  // simulation rejects JoinSeason), so the season-end screen is shown
+  // instead of a "Let's go!" prompt that could only ever fail.
+  const visible = state.needsSeasonJoin && state.joinSeasonOverlayOpen && !state.profileSetupRequired && !state.seasonWinner;
   overlayEl.style.display = visible ? "grid" : "none";
   if (!visible) {
     if (overlayEl.innerHTML) overlayEl.innerHTML = "";
@@ -184,7 +214,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   if (state.joinSeasonPending) armJoinPendingWatchdog(deps);
   else clearJoinPendingWatchdog();
 
-  const seasonLabel = state.joinSeasonId ? `Season ${state.joinSeasonId}` : "the current season";
+  const seasonLabel = state.joinSeasonId ? formatJoinSeasonLabel(state.joinSeasonId) : "the current season";
 
   if (state.seasonPending) {
     const scheduledStartAt = state.seasonPendingScheduledStartAt;
