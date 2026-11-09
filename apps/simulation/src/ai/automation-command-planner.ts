@@ -1,4 +1,5 @@
 import { attackHasFundedMuster } from "./ai-attack-muster-funding.js";
+import { resourceSlotHeadroomFrom, withOneSpareFoodSlot } from "./food-slot-relief-surplus.js";
 import { chooseAiAetherCommand } from "./ai-aether-planner.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, expandManpowerCostForFrontierCount, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
@@ -264,6 +265,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   let relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
   const relayBeaconSiteSkips: RelayBeaconSiteSkips = { spacing: 0 };
   let beaconAffordable = true;
+  let beaconWaitingOnFood: (() => boolean) | undefined;
   if (input.sessionPrefix === "ai-runtime" && effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
     const structurePlayer = structurePlayerFromPlannerInput(input, { settledTileCount, townCount, incomePerMinute });
     const structureCandidates = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
@@ -304,14 +306,11 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         (!focusFront || focusFront.has(`${tile.x},${tile.y}`))
     );
     beaconAffordable = relayBeaconAffordable(structurePlayer, input.ownedTiles);
-    relayBeaconBuild = chooseBestRelayBeaconBuild(
-      structurePlayer,
-      input.ownedTiles,
-      input.tilesByKey,
-      dedupeTiles([...buildCandidates, ...beaconFrontierCandidates, ...beaconSettledCandidates]),
-      input.reachLookup,
-      relayBeaconSiteSkips
-    );
+    const beaconCandidates = dedupeTiles([...buildCandidates, ...beaconFrontierCandidates, ...beaconSettledCandidates]);
+    relayBeaconBuild = chooseBestRelayBeaconBuild(structurePlayer, input.ownedTiles, input.tilesByKey, beaconCandidates, input.reachLookup, relayBeaconSiteSkips);
+    // Lazy: food relief only asks at exactly-full FOOD with no free relief left.
+    beaconWaitingOnFood = () =>
+      !relayBeaconBuild && chooseBestRelayBeaconBuild(withOneSpareFoodSlot(structurePlayer), input.ownedTiles, input.tilesByKey, beaconCandidates, input.reachLookup) !== undefined;
   }
 
   // Debug-only bridge from the generic TTile scan to explainFrontierOriginTile's
@@ -459,7 +458,9 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     input.slotDemandByResource?.FOOD,
     foodSlotBlocked,
     input.ownedStructureCounts?.RELAY_BEACON,
-    ownedNetworkInstallationCount(input.ownedStructureCounts)
+    ownedNetworkInstallationCount(input.ownedStructureCounts),
+    resourceSlotHeadroomFrom(input.slotSupplyByResource, input.slotDemandByResource),
+    beaconWaitingOnFood
   );
   recordPhaseTiming("summarize_frontier", summarizeStartedAt);
   const result = runUtilityPolicy({

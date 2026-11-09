@@ -96,7 +96,7 @@ describe("planner recovery state", () => {
     };
     const tiles = [beacon, consumer];
     expect(foodSlotReliefFromPlannerInput(tiles, "ai-1", undefined,
-      new Map(tiles.map(t => [`${t.x},${t.y}`, t])), 1, 1).reliefTarget)
+      new Map(tiles.map(t => [`${t.x},${t.y}`, t])), 1, 2).reliefTarget)
       .toEqual({ x: 3, y: 0, kind: "disable" });
   });
 });
