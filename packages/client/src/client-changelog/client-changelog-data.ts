@@ -1,4 +1,4 @@
-import { AI_EXPANSION_FIXES_ENTRY, ATTACK_ENDS_SUPPLY_TRADES_ENTRY, FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, NEUTRAL_TOWN_NAMES_ENTRY, REPORT_CANCEL_ENTRY, SEASON_SCORES_SAVED_ENTRY } from "./client-changelog-nov-09.js";
+import { AFC_CAMPAIGN_LOADOUT_ENTRY, AI_EXPANSION_FIXES_ENTRY, ATTACK_ENDS_SUPPLY_TRADES_ENTRY, FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, NEUTRAL_TOWN_NAMES_ENTRY, REPORT_CANCEL_ENTRY, SEASON_SCORES_SAVED_ENTRY } from "./client-changelog-nov-09.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
@@ -455,16 +455,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Capturing Territory banner and timer are gone; each attack shows its progress on the map"
     ]
   },
-  {
-    createdAt: 1794087791822, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.07.2",
-    title: "AI prices follow the AI's own income",
-    why: "AI empires charged more when you were richer, even a poor AI that had no reason to.",
-    changes: [
-      "Truce and alliance prices depend only on the AI's income, so a strong economy can buy off weak neighbours cheaply",
-      "Gifts win goodwill at 10 minutes of the AI's income per point, never less than 2 coin a point"
-    ]
-  },
   ...VICTORY_HOLD_TIME_CHANGELOG,
   ...RANKS_TRACK_PROFILES_CHANGELOG,
   { ...BATTLE_VARIETY_ENTRY, createdAt: 1794073665467, },
@@ -488,7 +478,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...AI_EXPANSION_FIXES_ENTRY, createdAt: 1794219265399, },
   { ...ATTACK_ENDS_SUPPLY_TRADES_ENTRY, createdAt: 1794230766147, },
   { ...REPORT_CANCEL_ENTRY, createdAt: 1794248783783, },
-  { ...FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, createdAt: 1794241720931 }
+  { ...FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, createdAt: 1794241720931 },
+  { ...AFC_CAMPAIGN_LOADOUT_ENTRY, createdAt: 1794249083604, }
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

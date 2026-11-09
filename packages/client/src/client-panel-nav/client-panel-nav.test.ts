@@ -56,6 +56,20 @@ describe("closeActivePanel", () => {
 });
 
 describe("renderSidePanel", () => {
+  it("uses Campaign Loadout as the AFC panel title", () => {
+    const deps = {
+      sidePanelBodyEl: document.createElement("div"),
+      sidePanelEl: document.createElement("aside"),
+      panelTitleEl: document.createElement("h3")
+    };
+    renderSidePanel({ activePanel: "domains", techTreeExpanded: false, domainDetailOpen: false }, deps);
+    expect(deps.panelTitleEl.textContent).toBe("Campaign Loadout");
+    expect(deps.sidePanelEl.classList.contains("afc-upgrades-panel")).toBe(true);
+    renderSidePanel({ activePanel: "towns", techTreeExpanded: false, domainDetailOpen: false }, deps);
+    expect(deps.panelTitleEl.textContent).toBe("Towns");
+    expect(deps.sidePanelEl.classList.contains("afc-upgrades-panel")).toBe(false);
+  });
+
   // Regression: Settings first drew as the right-hand panel, then jumped to the centre on the HUD's next tick.
   it("marks the side panel as Settings in the same render that opens it", () => {
     const el = (): HTMLElement => document.createElement("div");

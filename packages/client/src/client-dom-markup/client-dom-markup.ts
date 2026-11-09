@@ -204,7 +204,10 @@ export const hudMarkup = `
 
   <aside id="side-panel">
     <div id="side-panel-head">
-      <h3 id="panel-title">Panel</h3>
+      <div>
+        <span class="afc-upgrade-eyebrow">AFC Upgrades</span>
+        <h3 id="panel-title">Panel</h3>
+      </div>
       <button id="tech-view-toggle" class="panel-btn manifest-view-toggle" type="button">Tree view</button>
       <button id="panel-close">Close</button>
     </div>

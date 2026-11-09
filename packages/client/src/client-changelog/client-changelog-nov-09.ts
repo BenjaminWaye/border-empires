@@ -57,3 +57,10 @@ export const REPORT_CANCEL_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   why: "The Cancel button did nothing in either dialog.",
   changes: ["Tap Cancel to close a bug report or suggestion without submitting it"]
 };
+
+export const AFC_CAMPAIGN_LOADOUT_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Campaign Loadout is easier to read",
+  why: "The AFC panel showed campaign completion below the installed upgrades.",
+  changes: ["Campaign Loadout leads the AFC Upgrades panel, with the installed upgrade count directly below"]
+};
