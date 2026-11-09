@@ -76,6 +76,17 @@ export const SECTOR_WAITLIST_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   ]
 };
 
+export const JOIN_SCREEN_SEASON_END_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Join screen fixes after a season ends",
+  why: "Opening the game after a season ended showed the join prompt, and Let's go! spun forever until you closed it.",
+  changes: [
+    "An ended season goes straight to the Season Concluded screen instead of the join prompt",
+    "The Joining... button stops spinning as soon as the join fails",
+    "The join screen uses the same look as the in-game HUD, and reads Season 13 instead of Season season-13"
+  ]
+};
+
 export const HIVE_MIND_II_PREREQ_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   introducedIn: "2026.11.09",
   title: "Hive Mind Module II follows Thunderplate Induction",

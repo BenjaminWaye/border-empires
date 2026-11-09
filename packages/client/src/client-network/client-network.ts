@@ -13,7 +13,7 @@ import { ABILITY_RESULT_MESSAGE_TYPES, applyAbilityResultMessage } from "../clie
 import { formatGoldAmount } from "../client-constants.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
 import { parseServerMessage } from "../client-server-clock/client-server-clock.js";
-import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
+import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js"; import { applyJoinSeasonErrorCode } from "../client-join-season-errors/client-join-season-errors.js";
 import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
@@ -1936,7 +1936,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
-      clearAuthInFlight?.(); if (rawCode === "JOIN_SEASON_FAILED") state.joinSeasonPending = false;
+      clearAuthInFlight?.(); applyJoinSeasonErrorCode(state, rawCode, renderHud);
       const failedTargetKey = state.actionTargetKey;
       const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
       const errorCode = String(msg.code ?? "");
