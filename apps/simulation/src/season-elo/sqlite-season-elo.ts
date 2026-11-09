@@ -4,7 +4,7 @@
 // store stays about summary/archive persistence.
 import type { DatabaseSync } from "node:sqlite";
 
-import { computeSeasonElo, type SeasonEloResult } from "./season-elo.js";
+import { computeSeasonElo, type SeasonEloResult, type SeasonStanding } from "./season-elo.js";
 
 type ColumnInfoRow = { name: string };
 type StandingRow = { season_id: string; player_id: string; rank: number; ended_at: number };
@@ -22,22 +22,19 @@ const writeRatings = (db: DatabaseSync, seasonId: string, ratings: Map<string, S
 };
 
 /**
- * Rates one season whose participation rows are already written. Each
- * player's prior is their latest rating from a *different* season that ended
- * no later than this one, so re-rating the same season (a retried rollover)
- * yields the same numbers instead of compounding.
+ * Rates one season from its final standings (the caller writes the rows
+ * first). Each player's prior is their latest rating from a *different*
+ * season that ended no later than this one, so re-rating the same season (a
+ * retried rollover) yields the same numbers instead of compounding.
  */
-export const rateSeason = (db: DatabaseSync, seasonId: string, endedAt: number): void => {
-  const standings = db
-    .prepare(`SELECT player_id, rank FROM season_participation WHERE season_id = ?`)
-    .all(seasonId) as Array<{ player_id: string; rank: number }>;
+export const rateSeason = (db: DatabaseSync, seasonId: string, endedAt: number, standings: readonly SeasonStanding[]): void => {
   const priorStmt = db.prepare(
     `SELECT rating_after FROM season_participation
      WHERE player_id = ? AND season_id != ? AND ended_at <= ? AND rating_after IS NOT NULL
      ORDER BY ended_at DESC LIMIT 1`
   );
   const ratings = computeSeasonElo(
-    standings.map((row) => ({ playerId: row.player_id, rank: row.rank })),
+    standings,
     (playerId) => (priorStmt.get(playerId, seasonId, endedAt) as { rating_after: number } | undefined)?.rating_after
   );
   writeRatings(db, seasonId, ratings);
@@ -50,6 +47,17 @@ export const rateSeason = (db: DatabaseSync, seasonId: string, endedAt: number):
  * Runs once at boot; a no-op after the first pass. Returns seasons rated.
  */
 export const backfillSeasonElo = (db: DatabaseSync): number => {
+  try {
+    return replayAllSeasons(db);
+  } catch (error) {
+    // Ratings are cosmetic career stats: a failed backfill must not take the
+    // simulation down at boot. Rows stay unrated and the next boot retries.
+    console.error("[sqlite-season-elo] season ELO backfill failed", error);
+    return 0;
+  }
+};
+
+const replayAllSeasons = (db: DatabaseSync): number => {
   const unrated = db.prepare(`SELECT 1 FROM season_participation WHERE rating_after IS NULL LIMIT 1`).get();
   if (!unrated) return 0;
   const rows = db

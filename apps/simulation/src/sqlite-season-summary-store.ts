@@ -200,10 +200,22 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
          techs = excluded.techs,
          ended_at = excluded.ended_at`
     );
-    for (const entry of overall) {
-      stmt.run(seasonId, seasonSequence, entry.id, entry.name, entry.rank, entry.score, entry.tiles, entry.incomePerMinute, entry.techs, endedAt);
+    // One transaction: a crash can't leave the season half-written or
+    // half-rated, and a retried rollover first drops the earlier attempt's
+    // rows so a player missing from the final leaderboard isn't rated on a
+    // stale rank.
+    this.db.exec("BEGIN");
+    try {
+      this.db.prepare(`DELETE FROM season_participation WHERE season_id = ?`).run(seasonId);
+      for (const entry of overall) {
+        stmt.run(seasonId, seasonSequence, entry.id, entry.name, entry.rank, entry.score, entry.tiles, entry.incomePerMinute, entry.techs, endedAt);
+      }
+      rateSeason(this.db, seasonId, endedAt, overall.map((entry) => ({ playerId: entry.id, rank: entry.rank })));
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
     }
-    rateSeason(this.db, seasonId, endedAt);
   }
 
   async listParticipationForPlayer(playerId: string, limit = 200): Promise<SeasonParticipationRow[]> {

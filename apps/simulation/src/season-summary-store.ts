@@ -100,6 +100,15 @@ export class InMemorySeasonSummaryStore implements SeasonSummaryStore {
   private participationByPlayerId = new Map<string, SeasonParticipationRow[]>();
 
   async recordSeasonParticipation(seasonId: string, seasonSequence: number, endedAt: number, overall: CurrentSeasonSummary["overall"]): Promise<void> {
+    // A retried rollover replaces the earlier attempt's rows wholesale, like
+    // the SQLite store's DELETE, so a player who dropped off the final
+    // leaderboard keeps no row (or rating) for this season.
+    for (const [playerId, rows] of this.participationByPlayerId) {
+      const kept = rows.filter((row) => row.seasonId !== seasonId);
+      if (kept.length === rows.length) continue;
+      if (kept.length > 0) this.participationByPlayerId.set(playerId, kept);
+      else this.participationByPlayerId.delete(playerId);
+    }
     const ratings = computeSeasonElo(
       overall.map((entry) => ({ playerId: entry.id, rank: entry.rank })),
       (playerId) => (this.participationByPlayerId.get(playerId) ?? [])
