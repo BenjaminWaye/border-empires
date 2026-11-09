@@ -22,7 +22,7 @@ import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverC
 import type { Tile } from "../client-types.js";
 import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, standingTreeFilter } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
-import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
+import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowContainsPoint, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createRebuildThrottle } from "./client-map-3d-rebuild-throttle.js";
 import { EMPTY_MAP_3D_REBUILD_TRIGGERS, captureMap3DRebuildTriggers, map3DRebuildTriggersChanged } from "../client-map-3d-rebuild-triggers/client-map-3d-rebuild-triggers.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
@@ -1130,7 +1130,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       tileChangeIsWindowRelevant(lastRebuild.builtWindow, deps.state.tilesRevisionChangedKeys, deps.state.tilesRevisionOverflowed, WORLD_WIDTH, WORLD_HEIGHT) ||
       map3DRebuildTriggersChanged(lastRebuild.triggers, triggersNow) ||
       district.boundaryPassed() || structureOverlay.constructionBoundaryPassed() || relayBeaconOverlay.constructionBoundaryPassed() || fortOverlay.constructionBoundaryPassed() || captureAftermathFx.boundaryPassed();
-    if (rebuildNeeded && rebuildThrottle.ready(nowMs)) {
+    const built = lastRebuild.builtWindow;
+    const cameraOutsideTerrain = built !== undefined && !terrainWindowContainsPoint(built, requiredWindow.camX, requiredWindow.camY, WORLD_WIDTH, WORLD_HEIGHT);
+    if (rebuildNeeded && rebuildThrottle.ready(nowMs, cameraOutsideTerrain)) {
       const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
       const builtWindow = padTerrainWindow(requiredWindow, MAX_VISIBLE_TILES);
       rebuildVisibleTerrain(builtWindow); if (isFirstRebuild) markRendererFirstRenderCompleted();
@@ -1140,7 +1142,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       deps.state.tilesRevisionChangedKeys.clear(); deps.state.tilesRevisionOverflowed = false;
       sceneOrigin.camX = builtWindow.camX;
       sceneOrigin.camY = builtWindow.camY; atmosphere.onTerrainRebuilt(builtWindow, (wx, wy) => deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy)))); // resizes the sun's shadow frustum + rebuilds the unexplored storm's and fogged mist's masks at the new origin
-      rebuildThrottle.record(nowMs, isFirstRebuild ? nowMs : performance.now()); // the first rebuild's cost is mostly cold shader compiles, not representative
+      rebuildThrottle.record(nowMs, isFirstRebuild ? nowMs : performance.now()); // exclude the cold first build from the adaptive floor
     }
     // Applied last, using this frame's FINAL sceneOrigin (post-rebuild if one just
     // committed above): applying it before a same-frame rebuild would frame the

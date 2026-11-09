@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { terrainWindowContainsPoint } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import {
   createRebuildThrottle,
   rebuildIntervalMs,
@@ -40,6 +41,16 @@ describe("createRebuildThrottle", () => {
     }
     expect(busyMs / 12_000).toBeLessThan(0.36);
     expect(busyMs / 12_000).toBeGreaterThan(0.3);
+  });
+
+  it("keeps the short floor when a camera jump leaves the terrain window", () => {
+    const throttle = createRebuildThrottle();
+    const built = { camX: 448, camY: 30, halfW: 10, halfH: 10 };
+    const cameraOutsideTerrain = (x: number): boolean => !terrainWindowContainsPoint(built, x, 30, 450, 450);
+
+    throttle.record(0, 300);
+    expect(throttle.ready(310, cameraOutsideTerrain(2))).toBe(false); // small pan across the seam
+    expect(throttle.ready(310, cameraOutsideTerrain(80))).toBe(true); // jump beyond the built tiles
   });
 
   it("reopens as soon as cheap rebuilds are back", () => {

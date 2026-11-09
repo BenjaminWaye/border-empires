@@ -7,13 +7,10 @@
 // of a 12.9s zoomed-out pan trace (~42ms per rebuild). Only tiles inside some
 // label's conservative ink rectangle are meshed now.
 //
-// The rectangle bounds what drawNameAlongPath can paint: glyphs are centred on
-// the path, the run is at most spanTiles long (spacing is clamped so it never
-// exceeds the span), and a name longer than its path runs on along the end
-// tangents -- so every glyph centre lies within spanTiles / 2 of the path's
-// bounding box. Glyphs are at most min(heightTiles, maxFontTiles) tall plus a
-// stroke halo; GLYPH_REACH and the extra tile of margin cover a rotated glyph
-// and its halo with room to spare.
+// Match drawNameAlongPath's projected tile scale. Its run fits the projected
+// span, so only the excess over the path length can extend past the path's
+// bounding box (half on each end). The glyph reach and margin cover rotation
+// and the stroke halo.
 
 import type { NameLabelPath } from "../client-map-name-labels/client-map-name-label-draw.js";
 
@@ -50,16 +47,31 @@ export const labelInkMask = (
   for (const { kind, path } of labels) {
     if (path.points.length === 0) continue;
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (const point of path.points) {
+    let worldLength = 0;
+    let projectedLength = 0;
+    let previousX = 0;
+    let previousY = 0;
+    for (const [index, point] of path.points.entries()) {
       // Same projection as the decal's canvas: tile centres sit at +0.5.
       const x = toroidDelta(area.x0, point.x, worldWidth) + 0.5;
       const y = toroidDelta(area.y0, point.y, worldHeight) + 0.5;
+      const previous = path.points[index - 1];
+      if (previous) {
+        worldLength += Math.hypot(point.x - previous.x, point.y - previous.y);
+        projectedLength += Math.hypot(x - previousX, y - previousY);
+      }
+      previousX = x;
+      previousY = y;
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
     }
-    const pad = Math.max(0, path.spanTiles) / 2 + GLYPH_REACH * Math.min(Math.max(0, path.heightTiles), maxFontTiles(kind)) + MARGIN_TILES;
+    // The shortest-delta projection can stretch a path across the wrap cut.
+    const projectedScale = projectedLength / Math.max(0.5, worldLength);
+    const overshoot = Math.max(0, path.spanTiles * projectedScale - projectedLength) / 2;
+    const glyphHeight = Math.min(Math.max(0, path.heightTiles * projectedScale), maxFontTiles(kind));
+    const pad = overshoot + GLYPH_REACH * glyphHeight + MARGIN_TILES;
     const x0 = Math.max(0, Math.floor(minX - pad));
     const x1 = Math.min(widthTiles - 1, Math.ceil(maxX + pad));
     const y0 = Math.max(0, Math.floor(minY - pad));

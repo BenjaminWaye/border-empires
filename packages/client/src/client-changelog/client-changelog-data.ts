@@ -490,7 +490,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1794165080849, // Date.now() captured once.
   },
   { ...SEASON_SCORES_SAVED_ENTRY, createdAt: 1794209772303, },
-  { ...NEUTRAL_TOWN_NAMES_ENTRY, createdAt: 1794215116027, }, ZOOMED_OUT_PAN_PERF_CHANGELOG
+  { ...NEUTRAL_TOWN_NAMES_ENTRY, createdAt: 1794215116027, },
+  { ...ZOOMED_OUT_PAN_PERF_CHANGELOG, createdAt: 1794216988849, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
