@@ -233,9 +233,15 @@ lives outside Git on the owner's Mac, with its password in macOS Keychain
 (service "Border Empires Android upload key"); the owner must back up both.
 Build a signed AAB without touching `build.gradle` by passing
 `-Pandroid.injected.signing.{store.file,store.password,key.alias,key.password}`
-to `./gradlew bundleRelease`. versionCode 1 / versionName 1.0 was built from the
-same production bundle and prepared for the internal testing track; the next
-Play upload needs versionCode 2.
+to `./gradlew bundleRelease`. versionCode 1 / versionName 1.0 was rebuilt from
+`develop` `ad471b6b3` (production gateway) and published the same day to the
+internal testing track as release "1.0 (1) internal - develop ad471b6b3", with
+the owner's account as the only tester (email list "Owner"). Opt-in link:
+https://play.google.com/apps/internaltest/4701725230794045520. Internal testers
+see the temporary name `com.borderempires.game (unreviewed)` until the store
+listing is reviewed. Play warned only that no deobfuscation file was supplied
+(R8 is not enabled). Note that `develop` was 60 commits ahead of `main` (the
+production server) when built. The next Play upload needs versionCode 2.
 
 ## Required before store submission
 
