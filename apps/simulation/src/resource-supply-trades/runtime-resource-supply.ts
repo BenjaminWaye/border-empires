@@ -157,6 +157,18 @@ export class RuntimeResourceSupply {
     if (row && row.proposerId !== actorId && row.targetId !== actorId) return {ok:false,message:"Only a House in this agreement can end its supply."};
     this.ledger.remove(id,this.ctx.now()); return {ok:true};
   }
+  /** Ends every agreement between two Houses, in both directions, through the
+   * ordinary cancel path (settle both at the old rates, then drop the supply).
+   * Returns how many agreements ended. Used when one House attacks the other. */
+  cancelBetween(playerAId: string, playerBId: string): number {
+    if (playerAId === playerBId) return 0;
+    const ids = this.ledger.rows().filter(row =>
+      (row.proposerId === playerAId && row.targetId === playerBId) ||
+      (row.proposerId === playerBId && row.targetId === playerAId)).map(row => row.id);
+    let ended = 0;
+    for (const id of ids) if (this.ledger.remove(id, this.ctx.now())) ended += 1;
+    return ended;
+  }
   cancelRefunded(id: string, proposerId: string, targetId: string): void {
     const row = this.ledger.rows().find(row => row.id === id);
     if (row && row.proposerId === proposerId && row.targetId === targetId) this.ledger.remove(id, this.ctx.now());
