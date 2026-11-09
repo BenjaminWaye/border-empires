@@ -9,6 +9,7 @@ import {
   updateProfile,
   type User
 } from "firebase/auth";
+import { createSectorWaitlistController } from "../client-sector-waitlist/client-sector-waitlist.js";
 import {
   authLabelForUser as authLabelForUserFromModule,
   seedProfileSetupFields as seedProfileSetupFieldsFromModule,
@@ -88,6 +89,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authColorPresetButtons: dom.authColorPresetButtons
     });
 
+  const sectorWaitlist = createSectorWaitlistController({ state, wsUrl, sync: () => syncAuthOverlay(), getIdToken: async () => firebaseAuth?.currentUser?.getIdToken() });
   const syncAuthOverlay = (): void => {
     syncAuthOverlayFromModule(state, {
       authOverlayEl: dom.authOverlayEl,
@@ -118,6 +120,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       setAuthStatus
     });
     syncGuestSaveBadge(state);
+    sectorWaitlist.refreshIfNeeded();
     dom.authBusyDiagnosticsBtn.onclick = () => {
       try {
         downloadDiagnosticsBundle(buildDiagnosticsBundle(state, wsUrl));
@@ -126,15 +129,10 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         setAuthStatus(`Diagnostics download failed: ${error instanceof Error ? error.message : String(error)}`, "error");
       }
     };
-    // No network call: by the time SEASON_FULL is reached, gateway auth has
-    // already reconciled and persisted this account's email binding (see
-    // reconcileGatewayAuthBinding), and notifySeasonStarted emails every
-    // bound account — including this one — as soon as the next season
-    // rolls over. This button is purely a UI acknowledgement.
-    dom.authBusySeasonFullNotifyBtn.onclick = () => {
-      state.seasonFullNotifyAcknowledged = true;
-      syncAuthOverlay();
-    };
+    // Joins the next-Sector waitlist (client-sector-waitlist.ts). The email
+    // itself still comes from notifySeasonStarted, which mails every bound
+    // account when the next Sector opens; the list records the demand.
+    dom.authBusySeasonFullNotifyBtn.onclick = () => void sectorWaitlist.join();
   };
 
   const authLabelForUser = (user: User): string => authLabelForUserFromModule(user);

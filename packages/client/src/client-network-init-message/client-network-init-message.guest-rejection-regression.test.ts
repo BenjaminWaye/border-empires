@@ -46,7 +46,7 @@ describe("guest rejections from the server", () => {
     const ws = new FakeWebSocket();
     const mocks = bind(state, ws, { firebaseAuth });
 
-    sendError(ws, "SEASON_FULL", "This season's empire slots are full. We'll email you when the next season begins.");
+    sendError(ws, "SEASON_FULL", "This Sector Contest is full. Join the waitlist for the next Sector.");
     await settle();
 
     expect(signOut).toHaveBeenCalledTimes(1);
@@ -60,11 +60,11 @@ describe("guest rejections from the server", () => {
     const ws = new FakeWebSocket();
     bind(state, ws, { firebaseAuth });
 
-    sendError(ws, "SEASON_FULL", "This season's empire slots are full. We'll email you when the next season begins.");
+    sendError(ws, "SEASON_FULL", "This Sector Contest is full. Join the waitlist for the next Sector.");
     await settle();
 
     expect(signOut).not.toHaveBeenCalled();
     expect(state.seasonFull).toBe(true);
-    expect(state.authBusyTitle).toBe("This season is full");
+    expect(state.authBusyTitle).toBe("This Sector Contest is full");
   });
 });
