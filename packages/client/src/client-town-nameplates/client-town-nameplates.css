@@ -58,7 +58,7 @@
   font-size: 10.5px;
   color: #a8997c;
 }
-.town-plate-neutral .town-plate-name {
+.town-plate.town-plate-neutral .town-plate-name {
   font-style: italic;
   color: #8f846d;
 }

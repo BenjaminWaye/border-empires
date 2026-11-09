@@ -15,7 +15,7 @@ export interface TownNameplate {
   /** Own towns only: population, rounded for display. */
   readonly population?: number | undefined;
   readonly growth?: TownNameplateGrowth | undefined;
-  /** Bigger towns win overlap fights; own towns always outrank rivals, and rivals outrank neutral towns of the same tier. */
+  /** Own towns outrank every other; any owned town (rival or the Bleed) outranks every neutral one; then bigger towns win. */
   readonly rank: number;
 }
 
@@ -69,7 +69,7 @@ export const townNameplateFor = (tile: Tile | undefined, me: string, nowMs: numb
     status,
     population,
     growth,
-    rank: (own ? 10 : 0) + (status ? 5 : 0) + (ownerId ? 0.5 : 0) + TIER_RANK[identity.populationTier]
+    rank: (own ? 20 : 0) + (status ? 10 : 0) + (ownerId ? 5 : 0) + TIER_RANK[identity.populationTier]
   };
 };
 

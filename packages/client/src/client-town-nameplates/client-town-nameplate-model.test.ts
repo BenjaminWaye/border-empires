@@ -42,11 +42,14 @@ describe("townNameplateFor", () => {
     expect(townNameplateFor(tile({ fogged: true }), "me", 0)).toBeUndefined();
   });
 
-  it("names a neutral town, without owner, status or population, ranked just below a rival of its tier", () => {
+  it("names a neutral town, without owner, status or population, ranked below any owned town of any tier", () => {
     const neutral = tile({ ownerId: undefined, ownershipState: undefined, town: town({ isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 }) });
     expect(townNameplateFor(neutral, "me", 0)).toMatchObject({ name: "Aldmoor", ownerId: undefined, own: false, status: undefined, population: undefined, growth: undefined });
     expect(townNameplateFor(neutral, "", 0)?.own).toBe(false);
-    expect(townNameplateFor(neutral, "me", 0)!.rank).toBeLessThan(townNameplateFor(tile({ ownerId: "rival" }), "me", 0)!.rank);
+    const neutralMetropolis = tile({ ownerId: undefined, town: town({ populationTier: "METROPOLIS" }) });
+    const rivalSettlement = tile({ ownerId: "rival", town: town({ populationTier: "SETTLEMENT" }) });
+    expect(townNameplateFor(neutralMetropolis, "me", 0)!.rank).toBeLessThan(townNameplateFor(rivalSettlement, "me", 0)!.rank);
+    expect(townNameplateFor(rivalSettlement, "me", 0)!.rank).toBeLessThan(townNameplateFor(tile({ town: town({ populationTier: "SETTLEMENT" }) }), "me", 0)!.rank);
   });
 });
 
