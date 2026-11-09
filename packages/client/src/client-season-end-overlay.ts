@@ -7,6 +7,7 @@ import type {
   SeasonWinnerView
 } from "./client-types.js";
 import { setReportOpen } from "./client-bug-report/client-bug-report.js";
+import { escapeHtml, missingHistoryNotice } from "./client-season-end-overlay/client-season-end-html.js";
 import { scoreGraphPanel } from "./client-season-end-score-graph.js";
 
 type SeasonEndLeaderboard = {
@@ -36,11 +37,6 @@ type SeasonEndOverlayDeps = {
   renderHud: () => void;
   startNewSeason: () => void;
 };
-
-export const escapeHtml = (value: string): string =>
-  value.replace(/[&<>"']/g, (ch) =>
-    ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch === '"' ? "&quot;" : "&#39;"
-  );
 
 export const safeColorValue = (raw: string | undefined): string | undefined => {
   if (!raw) return undefined;
@@ -73,6 +69,11 @@ const num = (value: number, digits = 0): string =>
 const seasonEndVisible = (state: SeasonEndOverlayDeps["state"]): boolean =>
   Boolean(state.seasonWinner) && !state.seasonEndDismissed;
 
+const seasonEndScoreHistory = (state: SeasonEndOverlayDeps["state"]): ClientState["seasonScoreHistory"] => {
+  const saved = state.seasonWinner?.scoreHistory;
+  return saved?.some((series) => series.points.length > 0) ? saved : state.seasonScoreHistory;
+};
+
 const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: SeasonEndLeaderboard): string =>
   JSON.stringify({
     winner: [state.seasonWinner?.playerId, state.seasonWinner?.playerName, state.seasonWinner?.crownedAt],
@@ -87,7 +88,7 @@ const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: Seas
     // Cheap-but-sufficient signature for a per-player time series: point
     // count + last value catches "a new sample arrived" without hashing the
     // whole (small, capped) series every render.
-    scoreHistory: (state.seasonScoreHistory.length > 0 ? state.seasonScoreHistory : state.seasonWinner?.scoreHistory ?? [])
+    scoreHistory: seasonEndScoreHistory(state)
       .map((s) => [s.playerId, s.playerName, s.points.length, s.points[s.points.length - 1]?.score ?? 0])
   });
 
@@ -190,49 +191,51 @@ const victoryGauges = (
     </section>`;
 };
 
-const missingHistoryReportButton = (section: "statistics" | "timeline", missing: string[]): string =>
-  `<button type="button" class="se-btn se-btn-secondary" data-se-report-missing="${section}" data-se-missing-records="${escapeHtml(missing.join(", "))}">Report a bug</button>`;
-
 const miscPanel = (
   stats: SeasonStatsView | undefined,
   colors: ReadonlyMap<string, string>,
   leaderboard: SeasonEndLeaderboard
 ): string => {
-  const items: string[] = [];
-  const missing: string[] = [];
   const namedPlayer = (id: string, name: string | undefined): string =>
     playerBadge(id, currentPlayerName(leaderboard, id, name ?? id), colors);
   const deadly = stats?.mostDeadlyTile;
   const road = stats?.longestRoad;
-  if (deadly) {
-    const player = deadly.mostLossesPlayer;
-    items.push(`<div class="se-misc-item">
-      <span class="se-misc-label">Most Deadly Tile</span>
-      <span class="se-misc-value"><strong>${num(deadly.manpowerLost)}</strong> manpower lost on tile (${deadly.x}, ${deadly.y})<br>
-      ${player ? `Most losses: ${namedPlayer(player.playerId, player.playerName)} · <strong>${num(player.manpowerLost)}</strong> manpower` : "Player loss history unavailable."}</span>
-    </div>`);
-    if (!player) missing.push("Deadliest tile player losses");
+  const player = deadly?.mostLossesPlayer;
+  const deadlyDetails = deadly
+    ? `<strong>${num(deadly.manpowerLost)}</strong> manpower lost on tile (${deadly.x}, ${deadly.y})
+      ${player
+        ? `<br>Most losses: ${namedPlayer(player.playerId, player.playerName)} · <strong>${num(player.manpowerLost)}</strong> manpower`
+        : missingHistoryNotice("deadliest-tile", "Deadliest tile player losses", "Player loss history unavailable.")}`
+    : missingHistoryNotice("deadliest-tile", "Most Deadly Tile", "No combat record available.");
+  const city = (value: { name: string; x: number; y: number }): string =>
+    `${escapeHtml(value.name)} (${value.x}, ${value.y})`;
+  let roadDetails: string;
+  if (!road) {
+    roadDetails = missingHistoryNotice("longest-road", "Longest Road", "No connected road recorded.");
   } else {
-    items.push(`<div class="se-misc-item"><span class="se-misc-label">Most Deadly Tile</span><span class="se-misc-value">No combat record available.</span></div>`);
-    missing.push("Most Deadly Tile");
-  }
-  if (road) {
-    const hasDetails = road.playerId && road.fromCity && road.toCity;
-    const city = (value: NonNullable<typeof road.fromCity>): string => `${escapeHtml(value.name)} (${value.x}, ${value.y})`;
-    items.push(`<div class="se-misc-item">
-      <span class="se-misc-label">Longest Road</span>
-      <span class="se-misc-value">${road.playerId ? `${namedPlayer(road.playerId, road.playerName)} · ` : ""}<strong>${num(road.tileCount)}</strong> tiles long<br>
-      ${road.fromCity && road.toCity ? `${city(road.fromCity)} ↔ ${city(road.toCity)}` : "City details unavailable."}</span>
-    </div>`);
-    if (!hasDetails) missing.push("Longest Road owner and cities");
-  } else {
-    items.push(`<div class="se-misc-item"><span class="se-misc-label">Longest Road</span><span class="se-misc-value">No connected road recorded.</span></div>`);
-    missing.push("Longest Road");
+    const endpoints = road.fromCity && road.toCity ? `${city(road.fromCity)} ↔ ${city(road.toCity)}` : "";
+    roadDetails = `${road.playerId ? `${namedPlayer(road.playerId, road.playerName)} · ` : ""}<strong>${num(road.tileCount)}</strong> tiles long
+      ${endpoints ? `<br>${endpoints}` : ""}`;
+    if (!road.playerId && !endpoints) {
+      roadDetails += missingHistoryNotice("longest-road", "Longest Road owner and cities", "Road owner and city details unavailable.");
+    } else if (!road.playerId) {
+      roadDetails += missingHistoryNotice("longest-road", "Longest Road owner", "Road owner unavailable.");
+    } else if (!endpoints) {
+      roadDetails += missingHistoryNotice("longest-road", "Longest Road cities", "City details unavailable.");
+    }
   }
   return `<section class="se-panel se-misc">
     <h3 class="se-panel-title">Season Miscellany</h3>
-    <div class="se-misc-items">${items.join("")}</div>
-    ${missing.length > 0 ? missingHistoryReportButton("statistics", missing) : ""}
+    <div class="se-misc-items">
+      <div class="se-misc-item">
+        <span class="se-misc-label">Most Deadly Tile</span>
+        <div class="se-misc-value">${deadlyDetails}</div>
+      </div>
+      <div class="se-misc-item">
+        <span class="se-misc-label">Longest Road</span>
+        <div class="se-misc-value">${roadDetails}</div>
+      </div>
+    </div>
   </section>`;
 };
 
@@ -269,10 +272,9 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   const victoryHtml = victoryGauges(objectives, colors, selfId);
   const hasVictory = victoryHtml.length > 0;
   const seasonStats = state.seasonStats ?? state.seasonWinner.seasonStats;
-  const scoreHistory = (state.seasonScoreHistory.length > 0 ? state.seasonScoreHistory : state.seasonWinner.scoreHistory ?? [])
+  const scoreHistory = seasonEndScoreHistory(state)
     .map((series) => ({ ...series, playerName: currentPlayerName(leaderboard, series.playerId, series.playerName) }));
-  const scoreGraphHtml = scoreGraphPanel(scoreHistory, colors, selfId, state.seasonWinner.playerId)
-    || `<section class="se-panel se-graph"><h3 class="se-panel-title">Score Over Time</h3><p>No score timeline was saved for this season.</p>${missingHistoryReportButton("timeline", ["Score timeline"])}</section>`;
+  const scoreGraphHtml = scoreGraphPanel(scoreHistory, colors, selfId, state.seasonWinner.playerId);
   const activeTab = overlayEl.dataset.seTab || "standings";
 
   overlayEl.innerHTML = `
@@ -333,12 +335,19 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
 
   overlayEl.querySelectorAll<HTMLButtonElement>("[data-se-report-missing]").forEach((button) => {
     button.onclick = () => {
+      const observation = button.closest(".se-missing-history")?.querySelector("p")?.textContent;
       setReportOpen("bug", true);
       renderHud();
       const description = document.querySelector<HTMLTextAreaElement>("#bug-report-overlay [data-bug-report-description]");
       // Preserve an existing draft if the player already started a report.
       if (!description || description.value.trim()) return;
-      description.value = `Season summary is missing historical data: ${button.dataset.seMissingRecords}.\nWinner: ${winner.playerId} (${winner.playerName}).\nCrowned: ${new Date(winner.crownedAt).toISOString()}.\nPlease investigate why these season records are unavailable.`;
+      description.value = [
+        `Season summary is missing historical data: ${button.dataset.seMissingRecords}.`,
+        observation ? `Observed: ${observation}` : "",
+        `Winner: ${winner.playerId} (${winner.playerName}).`,
+        `Crowned: ${new Date(winner.crownedAt).toISOString()}.`,
+        "Please investigate why these season records are unavailable."
+      ].filter(Boolean).join("\n");
       description.dispatchEvent(new Event("input", { bubbles: true }));
       description.focus();
     };

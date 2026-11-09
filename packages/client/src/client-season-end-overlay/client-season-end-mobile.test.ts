@@ -43,7 +43,11 @@ describe("season summary recovery", () => {
     document.body.innerHTML = "";
   });
 
-  it.each(["statistics", "timeline"])("opens a prefilled bug report for missing %s without dismissing the summary", (section) => {
+  it.each([
+    ["deadliest-tile", "Most Deadly Tile", "No combat record available."],
+    ["longest-road", "Longest Road", "No connected road recorded."],
+    ["timeline", "Score timeline", "No score timeline was saved for this season."]
+  ])("opens a prefilled bug report beside the missing %s message", (section, record, message) => {
     const state = Object.assign(createInitialState(), stateForSummary());
     const hud = document.createElement("div");
     hud.id = "hud";
@@ -56,11 +60,16 @@ describe("season summary recovery", () => {
     };
     renderHud();
     const button = overlayEl.querySelector<HTMLButtonElement>(`[data-se-report-missing="${section}"]`);
-    expect(button).toBeTruthy();
+    const notice = button?.closest(".se-missing-history");
+    expect(notice?.textContent).toContain(message);
+    expect(button?.getAttribute("aria-label")).toBe(`Report a bug for ${record}`);
+    const descriptionId = button!.getAttribute("aria-describedby");
+    expect(notice?.querySelector(`[id="${descriptionId}"]`)?.textContent).toBe(message);
     button!.click();
     expect(isReportOpen("bug")).toBe(true);
     const description = hud.querySelector<HTMLTextAreaElement>("[data-bug-report-description]")!;
-    expect(description.value).toContain(section === "timeline" ? "Score timeline" : "Most Deadly Tile, Longest Road");
+    expect(description.value).toContain(`historical data: ${record}.`);
+    expect(description.value).toContain(`Observed: ${message}`);
     expect(description.value).toContain("winner");
     expect(hud.querySelector("[data-bug-report-char-count]")?.textContent).toBe(String(description.value.length));
     expect(state.seasonEndDismissed).toBe(false);
@@ -120,10 +129,33 @@ describe("season summary recovery", () => {
     state.seasonWinner!.seasonStats = { longestRoad: { tileCount: 20 }, mostDeadlyTile: { x: 1, y: 2, manpowerLost: 100 } };
     const overlay = render(state);
     expect(overlay.textContent).toContain("Player loss history unavailable.");
-    expect(overlay.textContent).toContain("City details unavailable.");
-    const button = overlay.querySelector<HTMLButtonElement>('[data-se-report-missing="statistics"]');
-    expect(button?.dataset.seMissingRecords).toContain("Longest Road owner and cities");
-    expect(button?.dataset.seMissingRecords).toContain("Deadliest tile player losses");
+    expect(overlay.textContent).toContain("Road owner and city details unavailable.");
+    expect(overlay.querySelector('[data-se-missing-records="Longest Road owner and cities"]')
+      ?.closest(".se-misc-item")?.textContent).toContain("Longest Road");
+    expect(overlay.querySelector('[data-se-missing-records="Deadliest tile player losses"]')
+      ?.closest(".se-misc-item")?.textContent).toContain("Most Deadly Tile");
+  });
+
+  it("shows archived scores when the season has just one sample per player", () => {
+    const state = stateForSummary();
+    state.seasonWinner!.scoreHistory = [
+      { playerId: "winner", playerName: "Nauticus", points: [{ t: 1, score: 100 }] },
+      { playerId: "other", playerName: "Other", points: [{ t: 1, score: 75 }] }
+    ];
+    state.seasonScoreHistory = [
+      { playerId: "winner", playerName: "Waypoint", points: [{ t: 2, score: 200 }] }
+    ];
+
+    const overlay = render(state);
+    const scores = overlay.querySelector(".se-graph");
+    expect(scores?.textContent).toContain("Only one score sample per empire was saved.");
+    expect(scores?.textContent).toContain("Waypoint");
+    expect(scores?.textContent).toContain("100");
+    expect(scores?.textContent).toContain("75");
+    expect(scores?.textContent).not.toContain("200");
+    expect(scores?.textContent).not.toContain("No score timeline was saved");
+    expect(scores?.querySelector('[data-se-report-missing="timeline"]')?.closest(".se-missing-history")
+      ?.textContent).toContain("Only one score sample per empire was saved.");
   });
 
   it("reads saved records from the winner on a fresh login", () => {

@@ -486,6 +486,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     ...MAP_BROWSING_FIXES_CHANGELOG,
     createdAt: 1794165080849, // Date.now() captured once.
+  },
+  {
+    createdAt: 1794209772303, // Date.now() captured once.
+    introducedIn: "2026.11.09",
+    title: "See the season scores that were saved",
+    why: "A season with one score sample per empire could look like it had no history.",
+    changes: ["The Score Graph shows saved scores even without enough samples for a trend", "Report a bug appears next to the missing season record"]
   }
 ];
 
