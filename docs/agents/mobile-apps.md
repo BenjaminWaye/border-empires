@@ -41,8 +41,12 @@ Generated web bundles, Gradle/Xcode output, signing keys and provisioning profil
 are ignored. Commit the native projects and Gradle wrapper, not machine paths.
 Keep Android/iOS Capacitor versions aligned with the client core package.
 
-Launcher/splash artwork derives from `apps/mobile/assets/logo.svg` (the existing
-game favicon). Regenerate it with `pnpm --filter @border-empires/mobile assets`.
+Splash artwork derives from `apps/mobile/assets/logo.svg` (the existing game
+favicon). Launcher icons use the full-bleed sources `assets/icon-only.png` (iOS and
+legacy Android) and `assets/icon-foreground.png` / `icon-background.png` (Android
+adaptive), rendered from the matching `.svg` files. They carry no frame: the OS
+mask supplies the outline, so a framed badge would show a dark ring around it.
+Regenerate native assets with `pnpm --filter @border-empires/mobile assets`.
 
 ## Authentication and platform behavior
 

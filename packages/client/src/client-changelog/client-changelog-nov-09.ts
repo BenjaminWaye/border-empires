@@ -75,3 +75,10 @@ export const SECTOR_WAITLIST_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
     "The next Sector's start is announced by the usual season-start email (if you have it switched on); guests are asked to sign in first"
   ]
 };
+
+export const APP_ICON_BORDER_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Cleaner app icon on phones",
+  why: "The home-screen icon drew the logo's own rounded frame inside the phone's icon shape, leaving a black border around it.",
+  changes: ["The Android and iOS app icons now fill the phone's icon shape edge to edge, with no black border"]
+};

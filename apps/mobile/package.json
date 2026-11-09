@@ -7,7 +7,7 @@
     "sync": "pnpm --filter @border-empires/client^... build && pnpm build && cap sync",
     "open:ios": "cap open ios",
     "open:android": "cap open android",
-    "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#060c16' --iconBackgroundColorDark '#060c16' --splashBackgroundColor '#060c16' --splashBackgroundColorDark '#060c16'",
+    "assets": "capacitor-assets generate --ios --android --splashBackgroundColor '#060c16' --splashBackgroundColorDark '#060c16'",
     "lint": "tsc --noEmit",
     "test": "node --test scripts/*.test.mjs",
     "archive:ios": "xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath ios/App/output/BorderEmpires-signed.xcarchive -allowProvisioningUpdates archive",
