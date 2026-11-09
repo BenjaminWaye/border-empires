@@ -54,6 +54,14 @@ describe("player profile screen", () => {
     expect(unrated.querySelector(".v2p-rows")?.textContent).toContain("Rating—");
   });
 
+  it("explains how the rating is calculated behind a ? toggle", () => {
+    const help = render(base).querySelector<HTMLDetailsElement>("details.v2p-help");
+    expect(help?.querySelector("summary")?.textContent).toContain("How rating works");
+    expect(help?.open).toBe(false);
+    expect(help?.textContent).toContain("final rank");
+    expect(help?.textContent).toContain("1,200");
+  });
+
   // Emoji icons read as generated UI; trophies use the simple SVG icon set.
   it("draws trophies with the SVG icon set, not emoji", () => {
     const icon = render(base).querySelector<HTMLImageElement>(".v2p-icon img.trophy-icon");
