@@ -95,6 +95,8 @@ export const HIVE_MIND_II_PREREQ_ENTRY: Omit<ClientChangelogEntry, "createdAt"> 
     "Hive Mind Module II now requires the Thunderplate Induction Module instead of Hive Mind Module I, and moves to Tier 4",
     "Hive Mind Module I no longer leads to another manifest",
     "Commissioning Hive Mind Module II counts as a Tier 4 manifest, so it opens Tier 4 AFC upgrade choices"
+  ]
+};
 
 export const SECTOR_CONTEST_NAME_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   introducedIn: "2026.11.09",
