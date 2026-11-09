@@ -159,6 +159,7 @@ body.hud-v2-screen-afc #side-panel {
 /* ---- Ranks ---- */
 .v2r-banner { font-family: var(--v2-body); font-size: 14px; color: var(--v2-soft); }
 .v2r-banner-hold { color: var(--v2-red-hi); }
+.v2r-banner-won { color: var(--v2-gold-hi); }
 .v2r-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; overflow: auto; }
 .v2r-race { padding: 14px 20px; background: rgba(15, 13, 10, 0.94); border: 1px solid var(--v2-edge); }
 .v2r-axis { display: grid; grid-template-columns: 220px minmax(0, 1fr) 220px; gap: 32px; font-family: var(--v2-mono); font-size: 10px; color: var(--v2-muted); }
@@ -184,6 +185,7 @@ body.hud-v2-screen-afc #side-panel {
 .v2r-holding { outline: 3px dashed var(--v2-red-hi); outline-offset: 3px; }
 .v2r-status { font-size: 13px; color: var(--v2-soft); }
 .v2r-status-hold { color: var(--v2-red-hi); }
+.v2r-status-won { color: var(--v2-gold-hi); }
 .v2r-status-you { color: var(--v2-gold-hi); }
 .v2r-name-link { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
 .v2r-name-link:hover { color: var(--v2-text); }

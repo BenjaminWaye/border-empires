@@ -4,6 +4,7 @@
 
 import type { ActiveTruceView, SeasonVictoryObjectiveView, SeasonWinnerView } from "../client-types.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
+import { seasonWinnerName, seasonWinnerPath } from "./client-hud-v2-season-winner.js";
 
 export type RivalInput = {
   me: string;
@@ -75,10 +76,14 @@ export const holdingObjective = (objectives: readonly SeasonVictoryObjectiveView
     .sort((a, b) => (a.holdRemainingSeconds ?? Infinity) - (b.holdRemainingSeconds ?? Infinity) || a.name.localeCompare(b.name))[0];
 
 /** Once a winner is crowned the race is over: name the winner and the path, not whoever is still "holding". */
-export const seasonClockHtml = (objectives: readonly SeasonVictoryObjectiveView[], winner?: SeasonWinnerView): string => {
+export const seasonClockHtml = (
+  objectives: readonly SeasonVictoryObjectiveView[],
+  winner?: SeasonWinnerView,
+  me = "",
+  nameOf: (playerId: string) => string = () => ""
+): string => {
   if (winner) {
-    const name = winner.playerName || "An empire";
-    return `<span class="hud-v2-season-title">Victory race</span><span class="hud-v2-season-line hud-v2-season-won">♛ <b>${esc(name)}</b> won ${esc(winner.objectiveName)}</span>`;
+    return `<span class="hud-v2-season-title">Victory race</span><span class="hud-v2-season-line hud-v2-season-won">♛ <b>${esc(seasonWinnerName(winner, me, nameOf))}</b> won ${esc(seasonWinnerPath(winner))}</span>`;
   }
   const holding = holdingObjective(objectives);
   if (!holding) return `<span class="hud-v2-season-title">Victory race</span><span class="hud-v2-season-line">Nobody holding a path</span>`;

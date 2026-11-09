@@ -101,6 +101,9 @@ export const HIVE_MIND_II_PREREQ_ENTRY: Omit<ClientChangelogEntry, "createdAt"> 
 export const VICTORY_RACE_WINNER_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   introducedIn: "2026.11.09",
   title: "Victory race names the season winner",
-  why: "After a season was won, the Victory race banner still said the winner was holding the path.",
-  changes: ["Once a season is won, the Victory race banner says who won and by which path, for example \"Astrid won Economic Ascendancy\""]
+  why: "After a season was won, the Victory race banner and Ranks still said the winner was holding the path.",
+  changes: [
+    "Once a season is won, the Victory race banner says who won and by which path, for example \"Astrid won Economic Ascendancy\"",
+    "The Ranks banner and the winning path's track say won instead of holding, and show You when you won"
+  ]
 };
