@@ -223,6 +223,20 @@ upload-mode export options; Apple reported the package accepted and processing.
 No testers were invited and nothing was submitted for review. The next upload
 needs build 3.
 
+Also on 2026-11-09, Play account verification had cleared. The Play app
+**Border Empires** (`com.borderempires.game`, app ID `4973304443304774969`,
+game, free, en-US default, automatic protection on) was created in the
+Wayepoint studios account, accepting the Developer Program Policies, Play App
+Signing ToS and US export declarations. A new upload key (alias `upload`,
+SHA-256 `FF:06:12:20:B0:43:E8:F6:9D:AA:0B:60:82:8C:D9:BB:62:F3:DA:7A:35:E0:C9:C8:A5:07:EC:13:74:AF:D8:7E`)
+lives outside Git on the owner's Mac, with its password in macOS Keychain
+(service "Border Empires Android upload key"); the owner must back up both.
+Build a signed AAB without touching `build.gradle` by passing
+`-Pandroid.injected.signing.{store.file,store.password,key.alias,key.password}`
+to `./gradlew bundleRelease`. versionCode 1 / versionName 1.0 was built from the
+same production bundle and prepared for the internal testing track; the next
+Play upload needs versionCode 2.
+
 ## Required before store submission
 
 These are existing product gaps, not tasks that signing the wrapper completes:
