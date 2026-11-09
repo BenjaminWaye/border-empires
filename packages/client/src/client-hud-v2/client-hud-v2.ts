@@ -258,7 +258,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     chronicleUnread: chronicleBadgeCount(state),
     active: screen.id === "profile" && state.activePlayerProfileId === state.me ? "self" : screen.id ? NAV_ACTIVE[screen.id] : undefined
   }));
-  writeRegion("season", seasonClockHtml(state.seasonVictory));
+  writeRegion("season", seasonClockHtml(state.seasonVictory, state.seasonWinner));
   writeRegion("ward", imperialWardButtonHtml(state, nowMs));
   writeRegion("rivals", rivalsHtml({
     me: state.me,

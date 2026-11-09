@@ -121,6 +121,8 @@ button.hud-v2-ward:hover { background: rgba(58, 45, 24, 0.94); }
 .hud-v2-season-line { font-size: 13px; color: var(--v2-muted); }
 .hud-v2-season-holding { color: var(--v2-text); }
 .hud-v2-season-holding b { color: var(--v2-red-hi); font-weight: 600; }
+.hud-v2-season-won { color: var(--v2-text); }
+.hud-v2-season-won b { color: var(--v2-gold-hi); font-weight: 600; }
 .hud-v2-rivals { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; gap: 8px; }
 .hud-v2-rival { display: grid; justify-items: center; gap: 3px; width: 58px; padding: 0; border: 0; background: none; }
 .hud-v2-rival-token {
