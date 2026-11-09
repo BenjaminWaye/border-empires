@@ -210,7 +210,9 @@ To upload a future signed archive using the Xcode account, use a local copy of
 `xcodebuild -exportArchive -archivePath <archive> -exportOptionsPlist <options>
 -allowProvisioningUpdates`. This performs an actual upload, so verify the intended
 bundle, production environment and build number first. Increment the build number
-for the next upload. Keep local credentials and private keys outside Git.
+for the next upload. The iOS project is set to version 1.0 build 2 for the first
+post-deletion upload; Android stays at `versionCode 1` because Play has received
+no bundle yet. Keep local credentials and private keys outside Git.
 Rebuild/sync from the intended release commit before uploading; archive/upload
 success is not a gameplay/device QA result.
 
