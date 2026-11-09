@@ -178,7 +178,7 @@ describe("handleJoinSeasonMessage", () => {
     expect(deps.sent).toEqual([{ type: "ERROR", code: "JOIN_SEASON_FAILED", message: "Could not join the season. Try again." }]);
   });
 
-  it("sends SEASON_ENDED (not a retryable JOIN_SEASON_FAILED) when the season already has a winner", async () => {
+  it("sends JOIN_SEASON_ENDED (not a retryable JOIN_SEASON_FAILED) when the season already has a winner", async () => {
     const deps = buildDeps({
       simulationClient: {
         preparePlayer: vi.fn(),
@@ -189,7 +189,7 @@ describe("handleJoinSeasonMessage", () => {
     });
     await handleJoinSeasonMessage(deps);
     expect(deps.sent).toEqual([
-      { type: "ERROR", code: "SEASON_ENDED", message: "This season has ended." }
+      { type: "ERROR", code: "JOIN_SEASON_ENDED", message: "This season has ended. You can join the next one when it starts." }
     ]);
   });
 });

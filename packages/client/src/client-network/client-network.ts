@@ -1936,7 +1936,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
-      clearAuthInFlight?.(); if (applyJoinSeasonErrorCode(state, rawCode)) { renderHud(); if (rawCode === "SEASON_ENDED") return; }
+      clearAuthInFlight?.(); applyJoinSeasonErrorCode(state, rawCode, renderHud);
       const failedTargetKey = state.actionTargetKey;
       const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
       const errorCode = String(msg.code ?? "");

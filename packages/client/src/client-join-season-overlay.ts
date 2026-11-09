@@ -69,7 +69,7 @@ const currentJoinWaitHint = (): string =>
 export const formatJoinSeasonLabel = (seasonId: string): string => {
   const trimmed = seasonId.trim();
   if (!trimmed) return "the current season";
-  const prefixed = /^season[-_\s]*(.+)$/i.exec(trimmed);
+  const prefixed = /^season[-_\s]*(\d.*)$/i.exec(trimmed);
   return `Season ${prefixed ? prefixed[1] : trimmed}`;
 };
 
@@ -84,7 +84,7 @@ const clearJoinPendingWatchdog = (): void => {
 
 // Starts the give-up timer and the once-a-second hint update. The ticker only
 // rewrites the hint's text -- never the overlay's innerHTML -- so it can't
-// restart the gear animation (see the render-key note above).
+// restart the join button's spinner/sheen animation (see the render-key note).
 const armJoinPendingWatchdog = (deps: JoinSeasonOverlayDeps): void => {
   const { state, overlayEl, renderHud, pushFeed } = deps;
   // Idempotent per overlay: a re-render mid-join (e.g. a roster update) must
@@ -128,22 +128,22 @@ const clearCountdownTimer = (): void => {
 // renderJoinSeasonOverlay is called on every renderHud() pass -- which fires
 // many times a second from ordinary socket/state traffic, not just when this
 // overlay's own content changes. Rebuilding overlayEl.innerHTML on every one
-// of those calls tore down and recreated the war-room shell's cog element
-// each time, restarting its CSS animation from frame 0 before it ever
-// completed a visible rotation -- the "vibrating instead of turning" bug.
+// of those calls tore down and recreated every animated element (originally
+// a decorative cog, now the join button's spinner and sheen) each time,
+// restarting its CSS animation from frame 0 before it ever completed a
+// visible rotation -- the "vibrating instead of turning" bug.
 // This tracks what was actually rendered last time so the expensive rebuild
 // (and the animation restart that comes with it) only happens when the
 // overlay's actual content changes -- a new roster entry, the count ticking
 // up, the branch switching -- not on every unrelated render pass. The live
 // countdown digits still update every second via the tick() below, which
-// only touches #join-season-countdown's text and never touches the cog.
+// only touches #join-season-countdown's text and never rebuilds the panel.
 //
 // Stored as a dataset attribute on overlayEl itself, not a module-level
 // variable -- this module has no per-instance state otherwise, and a plain
 // module-level `let` would leak between independent render sequences (e.g.
 // two different overlay elements, or successive unrelated test cases in the
 // same module instance) instead of tracking "what THIS element last showed".
-// (RENDER_KEY_ATTR is declared near the top of this module.)
 
 const computeRenderKey = (state: JoinSeasonOverlayDeps["state"], visible: boolean): string =>
   !visible

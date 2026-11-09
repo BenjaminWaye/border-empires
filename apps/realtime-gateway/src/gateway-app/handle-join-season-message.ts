@@ -119,10 +119,11 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
     const errorMessage = error instanceof Error ? error.message : String(error);
     // The simulation rejects JoinSeason once the season has a winner. Retrying
     // can never succeed, so tell the client the season is over instead of
-    // inviting another "Try again".
+    // inviting another "Try again". Join-specific code: SEASON_ENDED already
+    // means "frontier command rejected after the freeze" (frontier-submit.ts).
     if (SEASON_ENDED_ERROR_PATTERN.test(errorMessage)) {
       recordGatewayEvent("info", "gateway_join_season_ended", { playerId });
-      sendJson(socket, { type: "ERROR", code: "SEASON_ENDED", message: "This season has ended." });
+      sendJson(socket, { type: "ERROR", code: "JOIN_SEASON_ENDED", message: "This season has ended. You can join the next one when it starts." });
       return;
     }
     recordGatewayEvent("warn", "gateway_join_season_failed", { playerId, error: errorMessage });
