@@ -24,6 +24,8 @@ export type RecentEvent = {
 };
 
 export type BugReportInput = {
+  // Correlates the admin email with the gateway's `player_bug_report` log line.
+  reportId: string;
   description: string;
   playerName: string;
   playerId: string;
