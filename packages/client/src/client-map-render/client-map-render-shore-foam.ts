@@ -53,8 +53,16 @@ export const drawShoreFoam2D = (
   }
 };
 
-/** A sea tile's coast: shore foam, then any river mouth washing out over it. */
-export const drawSeaCoast2D = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, w: number, h: number): void => {
-  drawShoreFoam2D(ctx, wx, wy, px, py, w, h);
+/**
+ * A sea tile's coast: shore foam, then any river mouth washing out over it.
+ * `isLandAt` should prefer the synced tile's terrain: the seeded terrainAt
+ * still says LAND for the 1-tile channels season worldgen carves on the
+ * server (ensureLandMassesReachSea), which would foam a band across them.
+ */
+export const drawSeaCoast2D = (
+  ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, w: number, h: number,
+  isLandAt?: (x: number, y: number) => boolean
+): void => {
+  drawShoreFoam2D(ctx, wx, wy, px, py, w, h, isLandAt);
   drawRiverMouth2D(ctx, wx, wy, px, py, w, h);
 };

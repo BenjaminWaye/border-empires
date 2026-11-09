@@ -17,6 +17,9 @@ export const SEA_VISION_CHANGELOG: ClientChangelogEntry[] = [
     introducedIn: "2026.11.09",
     title: "Carved sea channels draw as water in 3D",
     why: "The 3D map's shoreline still treated one-tile channels carved at season start as land, so they showed as a strip of green diamonds while the tile panel said Open sea.",
-    changes: ["In the 3D map, carved one-tile sea channels now draw as open water with beaches on both banks, matching the tile's terrain"]
+    changes: [
+      "In the 3D map, carved one-tile sea channels now draw as open water with beaches on both banks, matching the tile's terrain",
+      "In the 2D map, shore foam no longer draws bands across carved channels as if they were land"
+    ]
   }
 ];
