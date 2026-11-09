@@ -75,21 +75,24 @@ export function renderAfcUpgradesHtml(state: UpgradeState, view: UpgradeView, pr
   const chosen = state.domainCatalog.filter(upgrade => state.domainIds.includes(upgrade.id)).sort((a, b) => a.tier - b.tier);
   const tier = currentTier(state);
   const options = state.domainCatalog.filter(upgrade => upgrade.tier === tier && state.domainChoices.includes(upgrade.id));
-  const heading = tier === undefined ? (tiers.length ? "Campaign configuration complete" : "Loading upgrade choices")
-    : options.length ? `Upgrade ${roman(tier)} · Choose one` : `Next: Upgrade ${roman(tier)}`;
+  const complete = tiers.length > 0 && tier === undefined;
+  const progress = tiers.length ? `${chosen.length} of ${tiers.length} upgrades installed` : "Loading upgrade choices";
   return `<section class="afc-upgrades" aria-label="AFC upgrades">
-    <div class="afc-upgrade-summary"><p><strong>${chosen.length} of ${tiers.length}</strong> installed</p>
-      <span class="afc-upgrade-ready-count" role="status">${count ? `${count} ready` : "None ready"}</span></div>
-    ${chosen.length ? `<section class="afc-upgrade-history" aria-label="Installed upgrades"><h3>Installed upgrades</h3>
+    <div class="afc-upgrade-summary">
+      <p role="status"${complete ? ' data-afc-upgrade-complete tabindex="-1"' : ""}>${complete ? '<span class="afc-upgrade-check" aria-hidden="true"></span>' : ""}${progress}</p>
+      ${tier !== undefined ? `<span class="afc-upgrade-ready-count" role="status">${count ? `${count} ready` : "None ready"}</span>` : ""}
+    </div>
+    ${chosen.length ? `<section class="afc-upgrade-history" aria-label="Installed upgrades">
+      ${complete ? "" : "<h3>Installed upgrades</h3>"}
       <ol>${chosen.map(upgrade => `<li data-afc-upgrade-installed="${escape(upgrade.id)}"><span class="afc-upgrade-history-tier">Tier ${roman(upgrade.tier)}</span>
         <div><strong>${escape(upgrade.name)}</strong><p>${escape(formatDomainBenefitSummary(upgrade))}${typeof upgrade.effects?.chosenResourceSlotGrant === "number" && state.chosenTrickleResource ? ` · ${escape(state.chosenTrickleResource)}` : ""}</p></div></li>`).join("")}</ol>
     </section>` : ""}
     ${renderAfcActions(state)}
-    <div class="afc-upgrade-current" aria-live="polite" aria-atomic="true">
-      <h3 tabindex="-1" ${tier !== undefined ? `data-afc-upgrade-current-tier="${tier}"` : "data-afc-upgrade-complete"}>${heading}</h3>
-      ${!options.length && tier !== undefined ? "<p>Continue progressing your Manifest to unlock your next upgrade choice.</p>" : ""}
-    </div>
-    <div class="afc-upgrade-options">${options.map(upgrade => {
+    ${tier !== undefined ? `<div class="afc-upgrade-current" aria-live="polite" aria-atomic="true">
+      <h3 tabindex="-1" data-afc-upgrade-current-tier="${tier}">${options.length ? `Upgrade ${roman(tier)} · Choose one` : `Next: Upgrade ${roman(tier)}`}</h3>
+      ${options.length ? "" : "<p>Continue progressing your Manifest to unlock your next upgrade choice.</p>"}
+    </div>` : ""}
+    ${options.length ? `<div class="afc-upgrade-options">${options.map(upgrade => {
       const expanded = view.expanded && view.selectedId === upgrade.id;
       const owned = state.domainIds.includes(upgrade.id);
       const detailId = `${prefix}-${upgrade.id}`;
@@ -101,7 +104,7 @@ export function renderAfcUpgradesHtml(state: UpgradeState, view: UpgradeView, pr
           <span>${escape(formatDomainBenefitSummary(upgrade))}</span>
         </button>${expanded ? detail(state, upgrade, detailId) : ""}
       </div>`;
-    }).join("")}</div>
+    }).join("")}</div>` : ""}
   </section>`;
 }
 
@@ -124,6 +127,7 @@ export function renderAfcUpgradePanels(
     const scrollTop = root.scrollTop;
     const focused = root.contains(document.activeElement) ? document.activeElement as HTMLElement : null;
     const focusSelector = focused?.hasAttribute("data-afc-upgrade-current-tier") ? "[data-afc-upgrade-current-tier]"
+      : focused?.hasAttribute("data-afc-upgrade-complete") ? "[data-afc-upgrade-complete]"
       : focused?.dataset.domainUnlock ? `[data-domain-unlock="${CSS.escape(focused.dataset.domainUnlock)}"]`
       : focused?.dataset.afcUpgradeCard ? `[data-afc-upgrade-card="${CSS.escape(focused.dataset.afcUpgradeCard)}"]` : "";
     const restoreFormInputs = rememberAfcFormInputs(root);
@@ -132,9 +136,12 @@ export function renderAfcUpgradePanels(
     view.html = html;
     root.scrollTop = scrollTop;
     if (focusSelector) {
-      const control = root.querySelector<HTMLElement>(focusSelector);
+      let control = root.querySelector<HTMLElement>(focusSelector);
+      if (control instanceof HTMLButtonElement && control.disabled) {
+        control = control.closest(".afc-upgrade-option")?.querySelector<HTMLElement>("[data-afc-upgrade-card]") ?? null;
+      }
       if (control) control.focus({ preventScroll: true });
-      else root.querySelector<HTMLElement>(".afc-upgrade-current h3")?.focus();
+      else root.querySelector<HTMLElement>("[data-afc-upgrade-current-tier], [data-afc-upgrade-complete]")?.focus();
     }
   };
   repaint();
