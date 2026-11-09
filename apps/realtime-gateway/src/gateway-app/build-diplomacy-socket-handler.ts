@@ -1,4 +1,5 @@
 import { createResourceTradeService } from "../resource-trade/resource-trade-service.js";
+import { attackPairFromSimulationEvent, type AttackPairEvent } from "../resource-trade/attack-offer-withdrawal.js";
 import { handleAfcCourtMessage } from "../afc-specializations/afc-force-truce-message.js";
 import { createProactiveAiDiplomacy } from "../proactive-ai-diplomacy/proactive-ai-diplomacy.js";
 import { createProactiveAiResourceTrade } from "../proactive-ai-resource-trade/proactive-ai-resource-trade.js";
@@ -71,7 +72,7 @@ export type DiplomacySocketHandler = {
    */
   runAllianceMaintenance: () => void;
   /** Routes deal-settlement verdicts and combat (for AI memory) from the simulation event stream. */
-  observeSimulationEvent: (event: Parameters<DiplomacySettlement["observe"]>[0] & Parameters<typeof combatFromSimulationEvent>[0]) => void;
+  observeSimulationEvent: (event: Parameters<DiplomacySettlement["observe"]>[0] & AttackPairEvent) => void;
 };
 
 export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): DiplomacySocketHandler => {
@@ -209,6 +210,10 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const aiFoodTrades = createProactiveAiResourceTrade({ aiPlayerIds: deps.seededAiPlayerIds, hasLiveSocket: deps.hasLiveSocket,
     fetchAiSnapshot: requesterSnapshot, playerState: async id => (await deps.ensureSubscribed(id)).player,
     trades: resourceTrades, cancelSupply: (id, agreementId) => settlement.cancel(id, agreementId),
+    recentlyFought: (aiId, targetId, withinMs) => {
+      const at = memory.view(aiId, targetId).lastCombatAt;
+      return at !== undefined && Date.now() - at < withinMs;
+    },
     recordEvent: deps.recordGatewayEvent, now: () => Date.now(),
     seasonEnded: async () => (await deps.fetchSeasonSummary()).status === "ended" });
   const isAutoRespondingAi = (targetId: string): boolean => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId);
@@ -328,6 +333,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     },
     observeSimulationEvent: (event) => {
       settlement.observe(event);
+      const attack = attackPairFromSimulationEvent(event);
+      if (attack) resourceTrades.withdrawOffersBetween(attack.attackerId, attack.defenderId);
       const combat = combatFromSimulationEvent(event);
       if (!combat) return;
       memory.observeCombat(combat);

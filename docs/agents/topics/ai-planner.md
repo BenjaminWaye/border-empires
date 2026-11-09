@@ -363,5 +363,11 @@ consolidation, planning cadence), not deletion.
     daily value or a day's value in coin; 6h per-target cooldown. The AI ends
     its own FOOD purchase after 24h (the sim ignores `supplyDurationHours`, so
     agreements never expire otherwise) to stay under the 16-agreement cap.
+    Attacking a House ends every supply agreement between the two (sim:
+    `runtime-frontier-command.ts` → `RuntimeResourceSupply.cancelBetween`), so an
+    AI that attacks its FOOD supplier loses that FOOD. The attack planner does
+    not see supply agreements and does not discount suppliers; the AI simply
+    asks another House on a later tick. Feeding agreements into the planner
+    view would be needed to score suppliers lower.
   Each beacon past the first five costs a FOOD slot, so FOOD supply is the
   real ceiling on AI expansion.

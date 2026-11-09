@@ -28,3 +28,15 @@ export const AI_EXPANSION_FIXES_ENTRY: Omit<ClientChangelogEntry, "createdAt"> =
     "AI out of FOOD offers to buy FOOD supply from Houses with spare FOOD, paying in surplus resources or coin"
   ]
 };
+
+export const ATTACK_ENDS_SUPPLY_TRADES_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Attacking a House ends your supply trades with it",
+  why: "Supply kept flowing to a House you were at war with until someone remembered to cancel it.",
+  changes: [
+    "Launching an attack on a House ends every resource supply trade between you, in both directions",
+    "Pending resource offers between the two Houses are withdrawn",
+    "Attacking a House you trade with asks you to confirm first, and the March To and Advance sheets warn too",
+    "AI empires don't buy FOOD from a House they fought in the last 6 hours"
+  ]
+};

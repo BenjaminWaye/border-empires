@@ -21,6 +21,8 @@ export interface ResourceTradeService {
   request(fromId:string,toId:string,terms:DiplomacyTerms,options?:{ttlMs?:number}):Promise<ResourceTradeRequestResult>;
   /** Pending (not settling) offers this House sent. */
   outgoingOfferCount(playerId:string):number;
+  /** Withdraws pending offers between two Houses (either direction); settling payments finish. Returns how many. */
+  withdrawOffersBetween(playerAId:string,playerBId:string):number;
 }
 /** Pending offers live durably in the social store. A stable simulation command
  * identity lets an uncertain payment be resumed after either process restarts. */
@@ -62,7 +64,14 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
     return {ok:true,offerId:parsed.data.id};
   };
   const outgoingOfferCount=(playerId:string):number=>store.rows(ctx.now()).filter(row=>row.fromPlayerId===playerId&&row.status==="pending").length;
-  return {request,outgoingOfferCount,handle:async(message,actorId,socket,isGuest)=>{
+  const withdrawOffersBetween=(a:string,b:string):number=>{
+    const between=store.rows(ctx.now()).filter(row=>row.status==="pending"&&
+      ((row.fromPlayerId===a&&row.toPlayerId===b)||(row.fromPlayerId===b&&row.toPlayerId===a)));
+    for(const row of between)store.remove(row.id);
+    if(between.length){publish([a,b]);ctx.record("info","gateway_resource_trade_offers_withdrawn_on_attack",{count:between.length});}
+    return between.length;
+  };
+  return {request,outgoingOfferCount,withdrawOffersBetween,handle:async(message,actorId,socket,isGuest)=>{
     if(!message.type.startsWith("RESOURCE_TRADE_"))return false;
     const error=(text:string)=>ctx.send(socket,{type:"ERROR",code:"RESOURCE_TRADE_FAILED",message:text});
     if(message.type==="RESOURCE_TRADE_SYNC"){ctx.send(socket,{type:"RESOURCE_TRADE_UPDATE",offers:offersFor(actorId)});return true;}

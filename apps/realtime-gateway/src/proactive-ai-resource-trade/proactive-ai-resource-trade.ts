@@ -16,6 +16,11 @@
 // it paid for has passed. That keeps deals from piling up against the
 // per-House agreement cap; the AI asks again if it still needs FOOD. Other AIs answer at once; up to two
 // human neighbours are also asked each tick, with a short-lived offer.
+// Attacking a House ends every supply trade between the two (simulation
+// runtime-frontier-command.ts), so an AI that attacks its FOOD supplier loses
+// that FOOD; the attack planner doesn't weigh this. The AI never asks a House
+// it fought within AI_FOOD_TRADE_TARGET_COOLDOWN_MS, so the next attack can't
+// immediately cancel a trade it just paid for.
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import {
   resourceSupplyCoinValue,
@@ -50,6 +55,8 @@ export interface ProactiveAiResourceTradeDeps {
   /** Another House's player state (holdings only). */
   playerState(playerId: string): Promise<TradePlayerState | undefined>;
   trades: Pick<ResourceTradeService, "request" | "outgoingOfferCount">;
+  /** True when this AI fought `targetId` (either side attacking) within `withinMs`. */
+  recentlyFought(aiId: string, targetId: string, withinMs: number): boolean;
   /** Ends a supply agreement as `playerId` (diplomacy settlement cancel). */
   cancelSupply(playerId: string, agreementId: string): Promise<{ ok: boolean }>;
   recordEvent(level: "info" | "warn", event: string, payload: Record<string, unknown>): void;
@@ -129,7 +136,8 @@ export function createProactiveAiResourceTrade(deps: ProactiveAiResourceTradeDep
       const humans = aiDiplomacyNeighbors(ai.tiles, aiId).filter(id => !deps.aiPlayerIds.has(id));
       const otherAis = ids.filter(id => id !== aiId && !deps.hasLiveSocket(id));
       const rotation = cursor % Math.max(1, otherAis.length);
-      const fresh = (id: string): boolean => !asked.has(`${aiId}>${id}`);
+      const fresh = (id: string): boolean =>
+        !asked.has(`${aiId}>${id}`) && !deps.recentlyFought(aiId, id, AI_FOOD_TRADE_TARGET_COOLDOWN_MS);
       const humanPicks = humans.filter(fresh).slice(0, MAX_HUMAN_CANDIDATES_PER_TICK);
       const aiPicks = [...otherAis.slice(rotation), ...otherAis.slice(0, rotation)].filter(fresh)
         .slice(0, MAX_TRADE_CANDIDATES_PER_TICK - humanPicks.length);

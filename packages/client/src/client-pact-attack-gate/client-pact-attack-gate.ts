@@ -9,6 +9,7 @@
 import { tileActionAvailability } from "../client-tile-action-logic/client-tile-action-availability.js";
 import { breakAllianceConsequences, breakTruceConsequences, showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { supplyTradeAttackWarningText } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
 import type { ActiveTruceView, FeedSeverity, FeedType, Tile, TileActionDef } from "../client-types.js";
 
 const ATTACK_ROW_IDS: ReadonlyArray<TileActionDef["id"]> = ["launch_attack", "attack_connected_region"];
@@ -27,16 +28,27 @@ const pendingAllianceBreak = (state: Pick<ClientState, "activeAllianceBreaks">, 
  * alone when there is no truce, or when they are already disabled (spawn
  * protection, no bordering origin): breaking the truce would not make those
  * attackable, so offering a break there would cost the player for nothing.
+ * With `supply` given, the supply-trade warning (client-supply-trade-attack-
+ * warning.ts) is appended to every enabled attack row's detail, truce or not:
+ * attacking ends supply trades. Plain text; renderers escape it.
  */
-export const gateAttackRowsOnTruce = (rows: TileActionDef[], truce: ActiveTruceView | undefined): void => {
-  if (!truce) return;
+export const gateAttackRowsOnTruce = (
+  rows: TileActionDef[],
+  truce: ActiveTruceView | undefined,
+  supply?: { state: Parameters<typeof supplyTradeAttackWarningText>[0]; ownerId: string | null | undefined }
+): void => {
+  const supplyWarning = supply ? supplyTradeAttackWarningText(supply.state, supply.ownerId) : undefined;
   for (const [index, row] of rows.entries()) {
     if (!ATTACK_ROW_IDS.includes(row.id) || row.disabled) continue;
-    const { loading: _loading, cost: _cost, ...rest } = row;
-    rows[index] =
-      truce.origin === "court"
-        ? { ...rest, detail: "Court armistice", ...tileActionAvailability(false, COURT_ARMISTICE_ATTACK_REASON) }
-        : { ...rest, detail: `Truce with ${truce.otherPlayerName}: attacking means breaking it first`, ...tileActionAvailability(true, "") };
+    if (truce) {
+      const { loading: _loading, cost: _cost, ...rest } = row;
+      rows[index] =
+        truce.origin === "court"
+          ? { ...rest, detail: "Court armistice", ...tileActionAvailability(false, COURT_ARMISTICE_ATTACK_REASON) }
+          : { ...rest, detail: `Truce with ${truce.otherPlayerName}: attacking means breaking it first`, ...tileActionAvailability(true, "") };
+    }
+    const gated = rows[index]!;
+    if (supplyWarning && !gated.disabled) rows[index] = { ...gated, detail: gated.detail ? `${gated.detail} · ${supplyWarning}` : supplyWarning };
   }
 };
 

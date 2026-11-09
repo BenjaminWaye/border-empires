@@ -560,7 +560,8 @@ Houses may pledge resource output, other than salvage, to one another as
 continuing supply rights negotiated through diplomacy. The supplier retains the land and its
 installations; the recipient gains the exclusive use of the promised output for
 as long as both Houses maintain the arrangement. Either House may end the
-supply agreement; the land remains with its owner. Such contracts can support another House's infrastructure or
+supply agreement; the land remains with its owner. An attack dissolves them: when
+one House attacks the other, every supply right between the two lapses at once. Such contracts can support another House's infrastructure or
 industry without transferring towns, bodies or knowledge. They are distinct from
 a one-time Coin payment. An interrupted concession
 cannot deliver its promise until its output is restored. The cancellation, suspension
