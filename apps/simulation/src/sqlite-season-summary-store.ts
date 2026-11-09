@@ -4,6 +4,7 @@ import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonParticipationRow } f
 
 import type { PersistedActivityLogs } from "./activity-dashboard/activity-log-persistence.js";
 import type { DeadliestTileEntry } from "./deadliest-tiles/deadliest-tiles.js";
+import { backfillSeasonElo, ensureSeasonEloColumns, rateSeason } from "./season-elo/sqlite-season-elo.js";
 import { SEASON_ARCHIVE_LIST_LIMIT, type SeasonSummaryStore } from "./season-summary-store.js";
 import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
 
@@ -82,6 +83,9 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
         updated_at INTEGER NOT NULL
       );
     `);
+    ensureSeasonEloColumns(this.db);
+    const backfilled = backfillSeasonElo(this.db);
+    if (backfilled > 0) console.info(`[sqlite-season-summary-store] backfilled season ELO for ${backfilled} season(s)`);
   }
 
   async saveActivityLogs(seasonId: string, logs: PersistedActivityLogs): Promise<void> {
@@ -196,20 +200,35 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
          techs = excluded.techs,
          ended_at = excluded.ended_at`
     );
-    for (const entry of overall) {
-      stmt.run(seasonId, seasonSequence, entry.id, entry.name, entry.rank, entry.score, entry.tiles, entry.incomePerMinute, entry.techs, endedAt);
+    // One transaction: a crash can't leave the season half-written or
+    // half-rated, and a retried rollover first drops the earlier attempt's
+    // rows so a player missing from the final leaderboard isn't rated on a
+    // stale rank.
+    this.db.exec("BEGIN");
+    try {
+      this.db.prepare(`DELETE FROM season_participation WHERE season_id = ?`).run(seasonId);
+      for (const entry of overall) {
+        stmt.run(seasonId, seasonSequence, entry.id, entry.name, entry.rank, entry.score, entry.tiles, entry.incomePerMinute, entry.techs, endedAt);
+      }
+      rateSeason(this.db, seasonId, endedAt, overall.map((entry) => ({ playerId: entry.id, rank: entry.rank })));
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
     }
   }
 
   async listParticipationForPlayer(playerId: string, limit = 200): Promise<SeasonParticipationRow[]> {
     const rows = this.db
       .prepare(
-        `SELECT season_id, season_sequence, player_id, player_name, rank, score, tiles, income_per_minute, techs, ended_at
+        `SELECT season_id, season_sequence, player_id, player_name, rank, score, tiles, income_per_minute, techs, ended_at,
+           rating_before, rating_after
          FROM season_participation WHERE player_id = ? ORDER BY ended_at DESC LIMIT ?`
       )
       .all(playerId, limit) as Array<{
         season_id: string; season_sequence: number; player_id: string; player_name: string;
         rank: number; score: number; tiles: number; income_per_minute: number; techs: number; ended_at: number;
+        rating_before: number | null; rating_after: number | null;
       }>;
     return rows.map((row) => ({
       seasonId: row.season_id,
@@ -221,7 +240,8 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
       tiles: row.tiles,
       incomePerMinute: row.income_per_minute,
       techs: row.techs,
-      endedAt: row.ended_at
+      endedAt: row.ended_at,
+      ...(row.rating_before !== null && row.rating_after !== null ? { ratingBefore: row.rating_before, ratingAfter: row.rating_after } : {})
     }));
   }
 

@@ -1,4 +1,5 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { SEASON_ELO_CHANGELOG } from "./client-changelog-season-elo.js";
 
 export const SEASON_SUMMARY_FIXES_CHANGELOG: ClientChangelogEntry[] = [{
   createdAt: 1794138895074, // Date.now() captured once for this entry.
@@ -12,7 +13,7 @@ export const SEASON_SUMMARY_FIXES_CHANGELOG: ClientChangelogEntry[] = [{
     "The season summary covers game controls until you choose Look Around",
     "Map preparation no longer guesses a wait from download size"
   ]
-}];
+}, { ...SEASON_ELO_CHANGELOG, createdAt: 1794209550379 }];
 
 export const MISSING_HISTORY_REPORT_CHANGELOG: ClientChangelogEntry = {
   createdAt: 1794140696933,

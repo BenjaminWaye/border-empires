@@ -45,7 +45,7 @@ export const fetchActivePlayerProfileData = (
   if (!profileId) return;
   const activeId = () => state.activePlayerProfileId;
   fetchAndCacheOnce(state.galaxyHoldingsByPlayerId, profileId, () => fetchGalaxyHoldings(profileId, wsUrl), { planets: [], outposts: [], trophyCase: [] }, activeId, rerender);
-  fetchAndCacheOnce(state.careerStatsByPlayerId, profileId, () => fetchCareerStats(profileId, wsUrl), { seasonsPlayed: 0, bestRank: null, peakScore: null, peakTiles: null }, activeId, rerender);
+  fetchAndCacheOnce(state.careerStatsByPlayerId, profileId, () => fetchCareerStats(profileId, wsUrl), { seasonsPlayed: 0, bestRank: null, peakScore: null, peakTiles: null, rating: null, lastRatingDelta: null, peakRating: null }, activeId, rerender);
   fetchAndCacheOnce(state.socialViewByPlayerId, profileId, () => fetchPlayerSocialView(profileId, wsUrl), { allies: [], activeTruces: [], truceBreaksThisSeason: [] }, activeId, rerender);
 };
 
