@@ -40,3 +40,10 @@ export const ATTACK_ENDS_SUPPLY_TRADES_ENTRY: Omit<ClientChangelogEntry, "create
     "AI empires don't buy FOOD from a House they fought in the last 6 hours"
   ]
 };
+
+export const REPORT_CANCEL_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Cancel bug reports and suggestions",
+  why: "The Cancel button did nothing in either dialog.",
+  changes: ["Tap Cancel to close a bug report or suggestion without submitting it"]
+};
