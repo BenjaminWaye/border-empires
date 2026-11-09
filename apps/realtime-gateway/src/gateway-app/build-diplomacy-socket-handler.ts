@@ -1,4 +1,5 @@
 import { createResourceTradeService } from "../resource-trade/resource-trade-service.js";
+import { attackPairFromSimulationEvent, type AttackPairEvent } from "../resource-trade/attack-offer-withdrawal.js";
 import { handleAfcCourtMessage } from "../afc-specializations/afc-force-truce-message.js";
 import { createProactiveAiDiplomacy } from "../proactive-ai-diplomacy/proactive-ai-diplomacy.js";
 import { createProactiveAiResourceTrade } from "../proactive-ai-resource-trade/proactive-ai-resource-trade.js";
@@ -71,7 +72,7 @@ export type DiplomacySocketHandler = {
    */
   runAllianceMaintenance: () => void;
   /** Routes deal-settlement verdicts and combat (for AI memory) from the simulation event stream. */
-  observeSimulationEvent: (event: Parameters<DiplomacySettlement["observe"]>[0] & Parameters<typeof combatFromSimulationEvent>[0]) => void;
+  observeSimulationEvent: (event: Parameters<DiplomacySettlement["observe"]>[0] & AttackPairEvent) => void;
 };
 
 export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): DiplomacySocketHandler => {
@@ -328,6 +329,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     },
     observeSimulationEvent: (event) => {
       settlement.observe(event);
+      const attack = attackPairFromSimulationEvent(event);
+      if (attack) resourceTrades.withdrawOffersBetween(attack.attackerId, attack.defenderId);
       const combat = combatFromSimulationEvent(event);
       if (!combat) return;
       memory.observeCombat(combat);
