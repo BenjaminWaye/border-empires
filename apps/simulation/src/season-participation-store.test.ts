@@ -43,7 +43,7 @@ describe.each(stores)("season participation ($name)", ({ create }) => {
 
     const longtail = await store.listParticipationForPlayer("player-9");
     expect(longtail).toEqual([
-      { seasonId: "season-1", seasonSequence: 1, playerId: "player-9", playerName: "Longtail", rank: 9, score: 5, tiles: 10, incomePerMinute: 0.5, techs: 3, endedAt: 1_000 }
+      { seasonId: "season-1", seasonSequence: 1, playerId: "player-9", playerName: "Longtail", rank: 9, score: 5, tiles: 10, incomePerMinute: 0.5, techs: 3, endedAt: 1_000, ratingBefore: 1200, ratingAfter: 1184 }
     ]);
   });
 
@@ -66,9 +66,47 @@ describe.each(stores)("season participation ($name)", ({ create }) => {
     expect(history).toHaveLength(1);
   });
 
+  it("carries each player's ELO from season to season based on final rank", async () => {
+    const store = await create();
+    await store.recordSeasonParticipation("season-1", 1, 1_000, [overallEntry("player-1", "Nauticus", 1, 90), overallEntry("player-2", "Valka", 2, 40)]);
+    await store.recordSeasonParticipation("season-2", 2, 2_000, [overallEntry("player-1", "Nauticus", 2, 50), overallEntry("player-2", "Valka", 1, 70)]);
+
+    const [latest, first] = await store.listParticipationForPlayer("player-1");
+    expect(first).toMatchObject({ ratingBefore: 1200, ratingAfter: 1216 });
+    expect(latest).toMatchObject({ ratingBefore: 1216, ratingAfter: 1199 });
+  });
+
+  it("re-recording a season recomputes the same ratings instead of compounding them", async () => {
+    const store = await create();
+    const overall = [overallEntry("player-1", "Nauticus", 1, 90), overallEntry("player-2", "Valka", 2, 40)];
+    await store.recordSeasonParticipation("season-1", 1, 1_000, overall);
+    await store.recordSeasonParticipation("season-1", 1, 1_000, overall);
+
+    expect((await store.listParticipationForPlayer("player-1"))[0]).toMatchObject({ ratingBefore: 1200, ratingAfter: 1216 });
+  });
+
   it("returns nothing for a player with no season history", async () => {
     const store = await create();
     await store.recordSeasonParticipation("season-1", 1, 1_000, [overallEntry("player-1", "Nauticus", 1, 100)]);
     expect(await store.listParticipationForPlayer("player-unknown")).toEqual([]);
+  });
+});
+
+describe("SqliteSeasonSummaryStore ELO backfill", () => {
+  it("rates seasons recorded before ratings existed, oldest first, on schema apply", async () => {
+    const db = new DatabaseSync(":memory:") as ConstructorParameters<typeof SqliteSeasonSummaryStore>[0];
+    const store = new SqliteSeasonSummaryStore(db);
+    await store.applySchema();
+    await store.recordSeasonParticipation("season-1", 1, 1_000, [overallEntry("player-1", "Nauticus", 1, 90), overallEntry("player-2", "Valka", 2, 40)]);
+    await store.recordSeasonParticipation("season-2", 2, 2_000, [overallEntry("player-1", "Nauticus", 2, 50), overallEntry("player-2", "Valka", 1, 70)]);
+    // Simulate rows written by a build that predates ratings.
+    db.exec(`UPDATE season_participation SET rating_before = NULL, rating_after = NULL`);
+    expect((await store.listParticipationForPlayer("player-1"))[0]).not.toHaveProperty("ratingAfter");
+
+    await new SqliteSeasonSummaryStore(db).applySchema();
+
+    const [latest, first] = await store.listParticipationForPlayer("player-1");
+    expect(first).toMatchObject({ ratingBefore: 1200, ratingAfter: 1216 });
+    expect(latest).toMatchObject({ ratingBefore: 1216, ratingAfter: 1199 });
   });
 });

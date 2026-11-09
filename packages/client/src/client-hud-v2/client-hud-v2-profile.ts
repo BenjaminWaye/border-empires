@@ -91,8 +91,15 @@ const rows = (items: ReadonlyArray<[string, string]>): string =>
 const pending = (value: Loadable<unknown>): string | undefined =>
   value === "loading" ? `<p class="v2p-none">Loading…</p>` : value === undefined ? `<p class="v2p-none">—</p>` : undefined;
 
+const signed = (value: number): string => (value > 0 ? `+${int(value)}` : value < 0 ? `−${int(-value)}` : "±0");
+
+const ratingLabel = (career: CareerStatsView): string =>
+  career.rating === null ? "—" : `${int(career.rating)}${career.lastRatingDelta !== null ? ` (${signed(career.lastRatingDelta)})` : ""}`;
+
 const careerHtml = (career: Loadable<CareerStatsView>): string =>
   panel("Career", pending(career) ?? (typeof career === "object" ? rows([
+    ["Rating", ratingLabel(career)],
+    ["Peak rating", career.peakRating !== null ? int(career.peakRating) : "—"],
     ["Seasons", int(career.seasonsPlayed)],
     ["Best finish", career.bestRank !== null ? `#${career.bestRank}` : "—"],
     ["Peak score", career.peakScore !== null ? int(career.peakScore) : "—"],

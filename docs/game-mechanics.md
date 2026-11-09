@@ -204,6 +204,7 @@ Strategic phases that emerge from the AI planner: opening expansion, mid-game ec
 
 - **Seasons**: time-bounded game instances with `startAt`, `endAt`, `worldSeed`, `techTreeConfigId`, `status`. Single shared season across all players. `packages/shared/src/types.ts:423-430`
 - **Barbarian spawning**: continuous; see §2.
+- **Season ratings (ELO)**: at rollover every player on the final leaderboard is rated from their final rank as a pairwise round-robin (beat everyone below, lost to everyone above, drew on shared rank). Start 1200, K=32, averaged over the N−1 opponents so one season moves a rating by at most 32 whatever the field size. Stored on `season_participation` (`rating_before`/`rating_after`); pre-existing seasons are backfilled oldest-first at boot. Shown on the player profile via `/hq/career/by-player/:playerId`. `apps/simulation/src/season-elo/`
 - **Client visibility**: season status, victory pressure, leader hold-time, and barbarian positions are streamed live to clients. No hidden standings.
 
 ## 10. GOAP action catalog (current)

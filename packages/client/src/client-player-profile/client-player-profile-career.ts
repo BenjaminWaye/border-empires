@@ -22,7 +22,10 @@ export const fetchCareerStats = async (playerId: string, wsUrl: string): Promise
       seasonsPlayed: body.seasonsPlayed ?? 0,
       bestRank: body.bestRank ?? null,
       peakScore: body.peakScore ?? null,
-      peakTiles: body.peakTiles ?? null
+      peakTiles: body.peakTiles ?? null,
+      rating: body.rating ?? null,
+      lastRatingDelta: body.lastRatingDelta ?? null,
+      peakRating: body.peakRating ?? null
     };
   } catch {
     return undefined;
