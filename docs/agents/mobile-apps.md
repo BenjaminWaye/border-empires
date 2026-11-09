@@ -216,6 +216,13 @@ no bundle yet. Keep local credentials and private keys outside Git.
 Rebuild/sync from the intended release commit before uploading; archive/upload
 success is not a gameplay/device QA result.
 
+On 2026-11-09 version 1.0 build 2 was archived from commit `05489519f` (latest
+`develop` UI plus the build bump), exported with production build metadata
+(`wss://api.borderempires.com/ws`), and uploaded to App Store Connect with the
+upload-mode export options; Apple reported the package accepted and processing.
+No testers were invited and nothing was submitted for review. The next upload
+needs build 3.
+
 ## Required before store submission
 
 These are existing product gaps, not tasks that signing the wrapper completes:
