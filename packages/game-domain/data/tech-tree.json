@@ -356,7 +356,7 @@
     },
     {
       "id": "muster-command",
-      "tier": 3,
+      "tier": 4,
       "branch": "war",
       "name": "Hive Mind Module II",
       "description": "AFC module: a second offworld half-mind. A second staging tile means an army can gather while another marches.",

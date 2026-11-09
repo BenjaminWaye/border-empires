@@ -81,7 +81,7 @@ export const HIVE_MIND_II_PREREQ_ENTRY: Omit<ClientChangelogEntry, "createdAt"> 
   title: "Hive Mind Module II follows Thunderplate Induction",
   why: "The second Hive Mind came straight after the first, so extra Muster tiles didn't depend on the rest of the War line.",
   changes: [
-    "Hive Mind Module II now requires the Thunderplate Induction Module instead of Hive Mind Module I",
+    "Hive Mind Module II now requires the Thunderplate Induction Module instead of Hive Mind Module I, and moves to Tier 4",
     "Hive Mind Module I no longer leads to another manifest"
   ]
 };

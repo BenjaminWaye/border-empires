@@ -6,6 +6,7 @@ describe("Hive Mind manifest chain", () => {
     const hiveMindII = techTree.techs.find((tech) => tech.id === "muster-command");
     expect(hiveMindII?.name).toBe("Hive Mind Module II");
     expect(hiveMindII?.prereqIds).toEqual(["steelworking"]);
+    expect(hiveMindII?.tier).toBe(4);
     expect(techTree.techs.find((tech) => tech.id === "steelworking")?.name).toBe("Thunderplate Induction Module");
     const dependentsOfHiveMindI = techTree.techs.filter((tech) => (tech.prereqIds ?? []).includes("muster-discipline"));
     expect(dependentsOfHiveMindI).toEqual([]);
