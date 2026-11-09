@@ -38,6 +38,8 @@ export type DecalMeshWindow = {
   readonly areaOffsetY: number;
   readonly areaWidthTiles: number;
   readonly areaHeightTiles: number;
+  /** Window tiles to mesh (default: all). Tiles the canvas never inks are skipped -- see client-map-3d-name-decal-ink-mask.ts. */
+  readonly includeTile?: ((tx: number, tz: number) => boolean) | undefined;
 };
 
 export type DecalMeshArrays = { readonly positions: Float32Array; readonly uvs: Float32Array; readonly indices: Uint32Array };
@@ -48,12 +50,16 @@ export const buildDecalMeshArrays = (source: DecalMeshSource, window: DecalMeshW
   const flatVerts = (FLAT_SUBDIVISIONS + 1) ** 2;
   const hillVerts = (HILL_SUBDIVISIONS + 1) ** 2;
   const hillDomes: Array<HillDomeSampler | undefined> = [];
+  const included: boolean[] = [];
   let totalVerts = 0;
   let totalQuads = 0;
   for (let tz = 0; tz < window.tilesZ; tz += 1) {
     for (let tx = 0; tx < window.tilesX; tx += 1) {
-      const dome = source.hillDomeAt?.(wrapX(window.firstTileX + tx), wrapY(window.firstTileY + tz));
+      const include = window.includeTile?.(tx, tz) ?? true;
+      included.push(include);
+      const dome = include ? source.hillDomeAt?.(wrapX(window.firstTileX + tx), wrapY(window.firstTileY + tz)) : undefined;
       hillDomes.push(dome);
+      if (!include) continue;
       totalVerts += dome ? hillVerts : flatVerts;
       totalQuads += (dome ? HILL_SUBDIVISIONS : FLAT_SUBDIVISIONS) ** 2;
     }
@@ -65,6 +71,7 @@ export const buildDecalMeshArrays = (source: DecalMeshSource, window: DecalMeshW
   let index = 0;
   for (let tz = 0; tz < window.tilesZ; tz += 1) {
     for (let tx = 0; tx < window.tilesX; tx += 1) {
+      if (!included[tz * window.tilesX + tx]) continue;
       const wx = wrapX(window.firstTileX + tx);
       const wy = wrapY(window.firstTileY + tz);
       const dome = hillDomes[tz * window.tilesX + tx];
