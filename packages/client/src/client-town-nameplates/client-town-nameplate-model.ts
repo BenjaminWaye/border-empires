@@ -8,13 +8,14 @@ export type TownNameplateGrowth = "growing" | "paused";
 
 export interface TownNameplate {
   readonly name: string;
-  readonly ownerId: string;
+  /** Absent for a neutral (unowned) town. */
+  readonly ownerId?: string | undefined;
   readonly own: boolean;
   readonly status?: TownNameplateStatus | undefined;
   /** Own towns only: population, rounded for display. */
   readonly population?: number | undefined;
   readonly growth?: TownNameplateGrowth | undefined;
-  /** Bigger towns win overlap fights; own towns always outrank rivals. */
+  /** Bigger towns win overlap fights; own towns always outrank rivals, and rivals outrank neutral towns of the same tier. */
   readonly rank: number;
 }
 
@@ -46,8 +47,10 @@ const ownStatus = (tile: Tile, me: string, nowMs: number, unrulyTownKeys?: Reado
 /** `unrulyTownKeys`: your towns above Town tier that get less biota than they need (ManpowerBreakdown.biotaTowns). */
 export const townNameplateFor = (tile: Tile | undefined, me: string, nowMs: number, unrulyTownKeys?: ReadonlySet<string>): TownNameplate | undefined => {
   const identity = townIdentityForTile(tile);
-  if (!tile || !identity || tile.terrain !== "LAND" || !tile.ownerId || tile.fogged) return undefined;
-  const own = Boolean(me) && tile.ownerId === me;
+  if (!tile || !identity || tile.terrain !== "LAND" || tile.fogged) return undefined;
+  // Neutral towns get a plate too (no owner line, no status): they're the towns you can still take.
+  const ownerId = tile.ownerId || undefined;
+  const own = Boolean(me) && ownerId === me;
   const status = own ? ownStatus(tile, me, nowMs, unrulyTownKeys) : undefined;
   const population = own && typeof tile.town?.population === "number" ? Math.round(tile.town.population) : undefined;
   // The mark rides on the population, so it needs one. Paused also covers an unfed
@@ -61,12 +64,12 @@ export const townNameplateFor = (tile: Tile | undefined, me: string, nowMs: numb
       : (tile.town?.populationGrowthPerMinute ?? 0) > GROWTH_EPSILON ? "growing" : undefined;
   return {
     name: identity.name || `Town ${tile.x}, ${tile.y}`,
-    ownerId: tile.ownerId,
+    ownerId,
     own,
     status,
     population,
     growth,
-    rank: (own ? 10 : 0) + (status ? 5 : 0) + TIER_RANK[identity.populationTier]
+    rank: (own ? 10 : 0) + (status ? 5 : 0) + (ownerId ? 0.5 : 0) + TIER_RANK[identity.populationTier]
   };
 };
 

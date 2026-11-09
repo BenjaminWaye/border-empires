@@ -56,6 +56,18 @@ describe("createTownNameplates (2D path)", () => {
     expect(Array.from(host.querySelectorAll(".town-plate-name")).map((el) => el.textContent).sort()).toEqual(["Town1", "Town9"]);
   });
 
+  it("draws a plate over a neutral town, in the plain edge colour with no owner line", () => {
+    const { host, plates } = mount();
+    const { ownerId: _owner, ownershipState: _state, ...neutral } = townTile(1, { name: "Thornwick" });
+    plates.render([at(neutral as Tile, 100, 200)], { size: 40, project });
+    const plate = host.querySelector<HTMLElement>(".town-plate");
+    expect(plate?.querySelector(".town-plate-name")?.textContent).toBe("Thornwick");
+    expect(plate?.classList.contains("town-plate-neutral")).toBe(true);
+    expect(plate?.classList.contains("town-plate-own")).toBe(false);
+    expect(plate?.querySelector(".town-plate-badge, .town-plate-pop")).toBeNull();
+    expect(plate?.style.getPropertyValue("--town-plate-owner")).toBe("#5a4828");
+  });
+
   it("keeps only the higher-ranked plate when two would overlap, and removes plates that leave view", () => {
     const { host, plates } = mount();
     const calm = townTile(1), unfed = townTile(2, { isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 });
