@@ -412,32 +412,23 @@ describe("season-end overlay", () => {
     expect(bubbledToOverlay).toBe(true);
   });
 
-  it("hides the score graph tab when there is no score history", () => {
+  it("explains missing score history in the score graph tab", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({ seasonWinner: makeWinner(), leaderboard: makeLeaderboard() });
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
-    expect(overlayEl.querySelector('.se-tab[data-tab="score-graph"]')).toBeNull();
+    expect(overlayEl.querySelector('.se-tab[data-tab="score-graph"]')).toBeTruthy();
+    expect(overlayEl.textContent).toContain("No score timeline was saved for this season.");
   });
 
-  it("hides the score graph tab when there is only a single sample per player", () => {
-    const overlayEl = document.createElement("div");
-    const state = makeState({
-      seasonWinner: makeWinner(),
-      leaderboard: makeLeaderboard(),
-      seasonScoreHistory: [{ playerId: "p1", playerName: "Alpha", points: [{ t: 1000, score: 5 }] }]
-    });
-    renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
-    expect(overlayEl.querySelector('.se-tab[data-tab="score-graph"]')).toBeNull();
-  });
-
-  it("shows the score graph tab and an SVG line per player when history has at least two samples", () => {
+  it("shows a line for each trend and a dot for a single saved score", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({
       seasonWinner: makeWinner({ playerId: "p1", playerName: "Alpha" }),
       leaderboard: makeLeaderboard(),
       seasonScoreHistory: [
         { playerId: "p1", playerName: "Alpha", points: [{ t: 0, score: 1 }, { t: 300000, score: 10 }] },
-        { playerId: "p2", playerName: "Beta", points: [{ t: 0, score: 2 }, { t: 300000, score: 9 }] }
+        { playerId: "p2", playerName: "Beta", points: [{ t: 0, score: 2 }, { t: 300000, score: 9 }] },
+        { playerId: "p3", playerName: "Gamma", points: [{ t: 300000, score: 5 }] }
       ]
     });
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
@@ -449,21 +440,24 @@ describe("season-end overlay", () => {
     const panel = overlayEl.querySelector('.se-tab-panel[data-tab="score-graph"]') as HTMLElement;
     expect(panel).not.toBeNull();
     expect(panel.querySelectorAll("polyline.se-graph-line").length).toBe(2);
-    expect(panel.querySelectorAll(".se-graph-legend-item").length).toBe(2);
+    expect(panel.querySelector("circle title")?.textContent).toBe("Gamma · 5");
+    expect(panel.querySelectorAll(".se-graph-legend-item").length).toBe(3);
 
     tab.click();
     expect(tab.classList.contains("is-active")).toBe(true);
     expect(panel.classList.contains("is-active")).toBe(true);
   });
 
-  it("escapes player names in the score graph legend", () => {
+  it.each([false, true])("escapes score graph names from both sources (current=%s)", (knownPlayer) => {
     const overlayEl = document.createElement("div");
+    const leaderboard = makeLeaderboard();
+    if (knownPlayer) leaderboard.overall[1]!.name = "<script>evil()</script>";
     const state = makeState({
       seasonWinner: makeWinner({ playerId: "p1", playerName: "Alpha" }),
-      leaderboard: makeLeaderboard(),
+      leaderboard,
       seasonScoreHistory: [
         { playerId: "p1", playerName: "Alpha", points: [{ t: 0, score: 1 }, { t: 300000, score: 10 }] },
-        { playerId: "p2", playerName: "<script>evil()</script>", points: [{ t: 0, score: 2 }, { t: 300000, score: 9 }] }
+        { playerId: knownPlayer ? "p2" : "historical-player", playerName: "<script>evil()</script>", points: [{ t: 0, score: 2 }, { t: 300000, score: 9 }] }
       ]
     });
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });

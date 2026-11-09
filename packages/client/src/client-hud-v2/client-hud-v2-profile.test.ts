@@ -8,7 +8,7 @@ const base: ProfileInput = {
   color: "#6a8f3a",
   relation: { kind: "none" },
   entry: { id: "p2", name: "Vasker", tiles: 42, incomePerMinute: 0.5, techs: 7, manpowerCap: 900, score: 310, rank: 2 },
-  career: { seasonsPlayed: 3, bestRank: 1, peakScore: 820, peakTiles: 140 },
+  career: { seasonsPlayed: 3, bestRank: 1, peakScore: 820, peakTiles: 140, rating: 1264, lastRatingDelta: -12, peakRating: 1290 },
   holdings: { planets: [], outposts: [], trophyCase: [{ objectiveId: "TOWN_CONTROL", objectiveName: "Town Control", count: 2 }] },
   pacts: { allies: ["p3"], activeTruces: [] },
   truceBreaks: [],
@@ -44,6 +44,22 @@ describe("player profile screen", () => {
     expect(host.textContent).toContain("Orla");
     expect(host.querySelector("[data-v2-profile-diplomacy='p2']")).not.toBeNull();
     expect(host.querySelector(".intel-modal")).toBeNull();
+  });
+
+  it("shows the season-end rating with its last change in the career panel", () => {
+    const text = render(base).textContent ?? "";
+    expect(text).toContain("1,264 (−12)");
+    expect(text).toContain("1,290");
+    const unrated = render({ ...base, career: { seasonsPlayed: 3, bestRank: 1, peakScore: 820, peakTiles: 140, rating: null, lastRatingDelta: null, peakRating: null } });
+    expect(unrated.querySelector(".v2p-rows")?.textContent).toContain("Rating—");
+  });
+
+  it("explains how the rating is calculated behind a ? toggle", () => {
+    const help = render(base).querySelector<HTMLDetailsElement>("details.v2p-help");
+    expect(help?.querySelector("summary")?.textContent).toContain("How rating works");
+    expect(help?.open).toBe(false);
+    expect(help?.textContent).toContain("final rank");
+    expect(help?.textContent).toContain("1,200");
   });
 
   // Emoji icons read as generated UI; trophies use the simple SVG icon set.

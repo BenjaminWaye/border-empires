@@ -76,3 +76,22 @@ export const hasLiveNeighbour = (
   wrapX: (x: number) => number,
   wrapY: (y: number) => number
 ): boolean => touchesLandInSight((ox, oy) => visibilityAt(wrapX(wx + ox), wrapY(wy + oy)));
+
+/** Visibility and ground eligibility share the same coast ring for every rebuild. */
+export const terrainVisibilityLookups = (
+  rawVisibilityAt: (x: number, y: number) => TileVisibilityState,
+  wrapX: (x: number) => number,
+  wrapY: (y: number) => number,
+  revealWholeMap: boolean
+): {
+  visibilityAt: (x: number, y: number) => TileVisibilityState;
+  isExploredForHeightfield: (x: number, y: number) => boolean;
+} => {
+  const visibilityAt = withUnexploredCoastRingAsFogged(rawVisibilityAt, wrapX, wrapY);
+  const isExploredForHeightfield = (x: number, y: number): boolean => {
+    if (revealWholeMap) return true;
+    const visibility = visibilityAt(x, y);
+    return visibility === "visible" || visibility === "fogged";
+  };
+  return { visibilityAt, isExploredForHeightfield };
+};

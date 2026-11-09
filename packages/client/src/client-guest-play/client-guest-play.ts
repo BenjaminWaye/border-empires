@@ -68,7 +68,7 @@ export const bindGuestPlay = (deps: GuestPlayDeps & { playNowBtn: HTMLButtonElem
   };
 };
 
-const GUEST_SEASON_FULL_MESSAGE = "This season is full. Sign in with an account and we'll email you when the next one starts.";
+const GUEST_SEASON_FULL_MESSAGE = "This Sector Contest is full. Sign in with an account to join the waitlist for the next Sector.";
 
 type GuestRejectionState = Pick<
   ClientState,

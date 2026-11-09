@@ -5,7 +5,7 @@
 export const seasonFullErrorPayload = (): { type: "ERROR"; code: "SEASON_FULL"; message: string } => ({
   type: "ERROR",
   code: "SEASON_FULL",
-  message: "This season's empire slots are full. We'll email you when the next season begins."
+  message: "This Sector Contest is full. Join the waitlist for the next Sector."
 });
 
 // Sent when a guest (Firebase anonymous account) is turned away because the

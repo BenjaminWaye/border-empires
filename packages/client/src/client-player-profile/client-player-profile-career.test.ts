@@ -5,7 +5,7 @@ describe("fetchCareerStats", () => {
   it("fetches and normalizes career stats from the gateway route", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ seasonsPlayed: 3, bestRank: 2, peakScore: 120, peakTiles: 30 })
+      json: async () => ({ seasonsPlayed: 3, bestRank: 2, peakScore: 120, peakTiles: 30, rating: 1234, lastRatingDelta: -6, peakRating: 1250 })
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
@@ -15,7 +15,7 @@ describe("fetchCareerStats", () => {
     const [url, options] = fetchMock.mock.calls[0] as [unknown, unknown];
     expect(String(url)).toContain("/hq/career/by-player/p1");
     expect(options).toEqual(expect.objectContaining({ headers: { Accept: "application/json" } }));
-    expect(result).toEqual({ seasonsPlayed: 3, bestRank: 2, peakScore: 120, peakTiles: 30 });
+    expect(result).toEqual({ seasonsPlayed: 3, bestRank: 2, peakScore: 120, peakTiles: 30, rating: 1234, lastRatingDelta: -6, peakRating: 1250 });
   });
 
   it("returns undefined when the response is not ok", async () => {
@@ -34,7 +34,10 @@ describe("fetchCareerStats", () => {
       seasonsPlayed: 0,
       bestRank: null,
       peakScore: null,
-      peakTiles: null
+      peakTiles: null,
+      rating: null,
+      lastRatingDelta: null,
+      peakRating: null
     });
   });
 });

@@ -7,7 +7,7 @@ const PERSONAL_TABLES = new Set([
   "social_forced_truce_cooldowns", "social_truce_lockouts", "social_truce_breaks",
   "commands", "client_seq_watermarks", "galaxy_survey_snapshot", "galaxy_economy_balances",
   "galaxy_fleet_blueprints", "galaxy_fleet_orders", "galaxy_endorsements", "galaxy_senate_votes",
-  "galaxy_court_contributions"
+  "galaxy_court_contributions", "sector_waitlist"
 ]);
 const SHARED_TABLES = new Set([
   "world_snapshots", "world_events", "world_status_current", "season_archive", "season_deadliest_tiles",

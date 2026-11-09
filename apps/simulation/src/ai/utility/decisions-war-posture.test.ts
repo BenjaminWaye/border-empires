@@ -106,17 +106,17 @@ describe("ATTACK and BUILD_DEFENSE boosted under WAR posture", () => {
   });
 });
 
-describe("BUILD_BEACON's frontier-enemy veto is waived under WAR posture", () => {
-  it("still fires with a frontier enemy present, when at WAR", () => {
+describe("BUILD_BEACON's core-threat veto is waived under WAR posture", () => {
+  it("still fires under core threat, when at WAR", () => {
     expect(scoreDecision("BUILD_BEACON", BASE)).toBeGreaterThan(0);
   });
 
-  it("stays vetoed by a frontier enemy outside WAR posture", () => {
+  it("stays vetoed by a core threat outside WAR posture", () => {
     expect(scoreDecision("BUILD_BEACON", { ...BASE, frontPosture: "BREAK" })).toBe(0);
   });
 
-  it("is unaffected when there's no frontier enemy at all, WAR or not", () => {
-    const s = scoreDecision("BUILD_BEACON", { ...BASE, frontierEnemyCount: 0, frontPosture: "BREAK" });
+  it("fires outside WAR when enemies touch the frontier but don't threaten the core", () => {
+    const s = scoreDecision("BUILD_BEACON", { ...BASE, frontPosture: "BREAK", pressureThreatensCore: false });
     expect(s).toBeGreaterThan(0);
   });
 });

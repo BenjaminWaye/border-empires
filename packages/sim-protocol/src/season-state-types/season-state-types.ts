@@ -170,6 +170,16 @@ export type SimulationSeasonState = {
 };
 
 export type SeasonStats = {
-  mostDeadlyTile?: { x: number; y: number; manpowerLost: number };
-  longestRoad?: { tileCount: number };
+  mostDeadlyTile?: {
+    x: number; y: number; manpowerLost: number;
+    /** Absent when older or capped history cannot establish a season total. */
+    mostLossesPlayer?: { playerId: string; playerName: string; manpowerLost: number };
+  };
+  longestRoad?: {
+    tileCount: number;
+    playerId?: string;
+    playerName?: string;
+    fromCity?: { x: number; y: number; name: string };
+    toCity?: { x: number; y: number; name: string };
+  };
 };

@@ -9,3 +9,7 @@
 .se-graph-legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 10px; }
 .se-graph-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--se-parch); }
 .se-graph-legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--series-color, var(--se-brass)); }
+.se-saved-scores-title { margin: 14px 0 6px; color: var(--se-brass-hi); font-size: 13px; }
+.se-saved-scores { margin: 0; font-size: 14px; }
+.se-saved-scores > div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; }
+.se-saved-scores dd { margin: 0; color: var(--se-parch); font-variant-numeric: tabular-nums; }

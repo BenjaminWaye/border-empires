@@ -27,7 +27,7 @@ describe("automation action admission", () => {
     const result = planAutomationCommand({
       playerId: "ai-1", points: 500, manpower: 500, hasActiveLock: false,
       activeDevelopmentProcessCount: 0, frontierTiles: [], buildCandidateTiles: [town], ownedTiles: [town],
-      tilesByKey: new Map([["0,0", town]]), slotSupplyByResource: { FOOD: 1 }, slotDemandByResource: { FOOD: 1 },
+      tilesByKey: new Map([["0,0", town]]), slotSupplyByResource: { FOOD: 1 }, slotDemandByResource: { FOOD: 2 },
       blockedActionKeys: new Map([["BUILD_ECONOMIC_STRUCTURE:0,0", "INSUFFICIENT_SLOT"]]),
       decisionCooldowns: { BUILD_ECONOMY: true }, clientSeq: 1, issuedAt: 1000, sessionPrefix: "ai-runtime"
     });

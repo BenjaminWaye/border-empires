@@ -11,13 +11,13 @@ describe("client network SEASON_FULL handling", () => {
       data: JSON.stringify({
         type: "ERROR",
         code: "SEASON_FULL",
-        message: "This season's empire slots are full. We'll email you when the next season begins."
+        message: "This Sector Contest is full. Join the waitlist for the next Sector."
       })
     });
 
     expect(state.seasonFull).toBe(true);
     expect(state.authSessionReady).toBe(false);
     expect(state.authBusy).toBe(true);
-    expect(state.authBusyTitle).toBe("This season is full");
+    expect(state.authBusyTitle).toBe("This Sector Contest is full");
   });
 });

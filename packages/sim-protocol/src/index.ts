@@ -204,6 +204,11 @@ export type SeasonParticipationRow = {
   incomePerMinute: number;
   techs: number;
   endedAt: number;
+  // Season-end ELO (apps/simulation/src/season-elo): rating going into and
+  // coming out of this season, from the player's final rank vs. everyone
+  // else's. Optional on the wire for rows written before ratings existed.
+  ratingBefore?: number;
+  ratingAfter?: number;
 };
 
 // Moved to simulation-event.ts (this file is already over the file-line cap).

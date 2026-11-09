@@ -1,3 +1,8 @@
+import { AFC_CAMPAIGN_LOADOUT_ENTRY, AI_EXPANSION_FIXES_ENTRY, ATTACK_ENDS_SUPPLY_TRADES_ENTRY, FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, NEUTRAL_TOWN_NAMES_ENTRY, REPORT_CANCEL_ENTRY, SEASON_SCORES_SAVED_ENTRY, SECTOR_WAITLIST_ENTRY } from "./client-changelog-nov-09.js";
+import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
+import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
+import { recentClientChangelogEntries } from "./client-changelog-recent.js";
+import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
 import { COMMAND_NAVIGATION_ENTRY } from "./client-changelog-command-navigation.js";
 import { CONNECTED_DISTRICTS_CHANGELOG } from "./client-changelog-connected-districts.js";
 import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
@@ -331,13 +336,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A siege on a town or Dock you lost now shows as fallen, even when its tile record is missing"
     ]
   },
-  {
-    createdAt: 1792869724355, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.24.2",
-    title: "Troop carriers at dock landings",
-    why: "An army crossing the sea should arrive aboard a landing carrier.",
-    changes: ["Dock-to-dock attacks now show futuristic carriers sailing in, lowering their bow ramps and unloading infantry into combat. Carriers stay beached until the battle ends, on both 3D and 2D maps."]
-  },
   ...CLIENT_CHANGELOG_ENTRIES_OCT_25,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_26,
   {
@@ -457,16 +455,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Capturing Territory banner and timer are gone; each attack shows its progress on the map"
     ]
   },
-  {
-    createdAt: 1794087791822, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.07.2",
-    title: "AI prices follow the AI's own income",
-    why: "AI empires charged more when you were richer, even a poor AI that had no reason to.",
-    changes: [
-      "Truce and alliance prices depend only on the AI's income, so a strong economy can buy off weak neighbours cheaply",
-      "Gifts win goodwill at 10 minutes of the AI's income per point, never less than 2 coin a point"
-    ]
-  },
   ...VICTORY_HOLD_TIME_CHANGELOG,
   ...RANKS_TRACK_PROFILES_CHANGELOG,
   { ...BATTLE_VARIETY_ENTRY, createdAt: 1794073665467, },
@@ -475,13 +463,24 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RIVER_MOUTHS_CHANGELOG,
   ...NOV_07_STANDINGS_CHANGELOG,
   ...AI_STOP_THE_LEADER_CHANGELOG,
-  { ...COMMAND_NAVIGATION_ENTRY, createdAt: 1794153241666 },
-  ...DORMANT_FORT_TOWN_SCREEN_CHANGELOG
+  { ...COMMAND_NAVIGATION_ENTRY, createdAt: 1794153241666, },
+  ...DORMANT_FORT_TOWN_SCREEN_CHANGELOG,
+  ...SEASON_SUMMARY_FIXES_CHANGELOG,
+  MISSING_HISTORY_REPORT_CHANGELOG,
+  { ...SEASON_RECORD_DETAILS_CHANGELOG, createdAt: 1794152918767, },
+  {
+    ...MAP_BROWSING_FIXES_CHANGELOG,
+    createdAt: 1794165080849, // Date.now() captured once.
+  },
+  { ...SEASON_SCORES_SAVED_ENTRY, createdAt: 1794209772303, },
+  { ...NEUTRAL_TOWN_NAMES_ENTRY, createdAt: 1794215116027, },
+  { ...ZOOMED_OUT_PAN_PERF_CHANGELOG, createdAt: 1794216988849, },
+  { ...AI_EXPANSION_FIXES_ENTRY, createdAt: 1794219265399, },
+  { ...ATTACK_ENDS_SUPPLY_TRADES_ENTRY, createdAt: 1794230766147, },
+  { ...REPORT_CANCEL_ENTRY, createdAt: 1794248783783, },
+  { ...FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, createdAt: 1794241720931, },
+  { ...AFC_CAMPAIGN_LOADOUT_ENTRY, createdAt: 1794249083604, },
+  { ...SECTOR_WAITLIST_ENTRY, createdAt: 1794249296720, }
 ];
 
-const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
-const oldestAllowedAt = latestCreatedAt - 6 * 24 * 60 * 60 * 1000;
-
-export const CLIENT_CHANGELOG_ENTRIES = ALL_CLIENT_CHANGELOG_ENTRIES.filter(
-  (entry) => entry.createdAt >= oldestAllowedAt
-);
+export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

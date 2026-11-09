@@ -34,6 +34,6 @@ describe("client-map-3d frontier-claim rebuild trigger clock", () => {
   });
 
   it("still throttles rebuilds on the render loop's nowMs", () => {
-    expect(maybeRebuildBlock()).toContain("nowMs - lastRebuild.at >= REBUILD_MIN_INTERVAL_MS");
+    expect(maybeRebuildBlock()).toContain("rebuildThrottle.ready(nowMs, cameraOutsideTerrain)");
   });
 });

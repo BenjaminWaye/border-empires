@@ -180,7 +180,7 @@ describe("applyGuestRejection", () => {
     await applyGuestRejection(
       { state: makeGuestState(true), firebaseAuth: auth, setAuthStatus, syncAuthOverlay: vi.fn() },
       "SEASON_FULL",
-      "This season's empire slots are full. We'll email you when the next season begins."
+      "This Sector Contest is full. Join the waitlist for the next Sector."
     );
 
     expect(setAuthStatus).toHaveBeenCalledWith(expect.stringContaining("Sign in with an account"), "error");

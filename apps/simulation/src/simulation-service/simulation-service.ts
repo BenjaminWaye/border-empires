@@ -47,6 +47,7 @@ import { loadLegacySnapshotBootstrap } from "../legacy-snapshot-bootstrap/legacy
 import { seedNextClientSeqByPlayer } from "../next-client-seq/next-client-seq.js";
 import { handlePersistenceConstraintViolation } from "../persistence-constraint-violation/persistence-constraint-violation.js";
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
+import { createSnapshotBuildTimingRecorder } from "./snapshot-build-timing.js";
 import { buildSnapshotBuildOptions } from "./snapshot-build-options.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { createSeedPlayers, createSeedWorld } from "../seed-state/seed-state.js";
@@ -257,18 +258,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (!commandTraceEnabled) return;
     log.info({ ...sample }, "simulation command trace");
   };
-  const recordSnapshotBuildTiming = (
-    phase: string,
-    durationMs: number,
-    payload: Record<string, unknown> = {}
-  ): void => {
-    if (slowSnapshotBuildWarnMs <= 0 || durationMs < slowSnapshotBuildWarnMs) return;
-    recordLagDiagnostic("warn", "simulation_snapshot_build_slow", {
-      phase,
-      durationMs,
-      ...payload
-    });
-  };
+  const recordSnapshotBuildTiming = createSnapshotBuildTimingRecorder({ slowSnapshotBuildWarnMs, recordLagDiagnostic });
   const visibilityAuditAttributedEnabled = process.env.SIMULATION_VISIBILITY_AUDIT === "1";
   const visibilityAuditDedupMs = Math.max(1000, Number(process.env.SIMULATION_VISIBILITY_AUDIT_DEDUP_MS ?? 30_000));
   const visibilityAuditDedup = new Map<string, number>();
@@ -954,6 +944,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       needsFullWorldExport,
       respawnNotice,
       currentSeasonState,
+      currentSummary,
       nonCompetitivePlayerIds,
       fullVisibilityTiles: fullSource?.tiles,
       worldStatusSnapshot: fullSource?.worldStatusForPlayer(playerId),

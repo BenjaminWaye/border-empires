@@ -30,7 +30,9 @@ body.hud-v2 {
 #hud-v2 { display: none; color: var(--v2-text); font-family: var(--v2-body); font-variant-numeric: tabular-nums; }
 body.hud-v2 #hud-v2 { display: block; }
 /* Loading / sign-in / season lobby: nothing of the HUD on top (see client-hud-v2-ready.ts). */
-body.hud-v2.hud-v2-waiting #hud-v2 { display: none; }
+body.hud-v2.hud-v2-waiting #hud-v2,
+body.hud-v2.hud-v2-waiting #side-panel,
+body.hud-v2.hud-v2-waiting #tile-action-menu { display: none !important; }
 /* Zero-specificity resets, so component classes (primary buttons' dark text) win. */
 :where(#hud-v2) button { font: inherit; color: inherit; cursor: pointer; }
 :where(#hud-v2) button:disabled { cursor: not-allowed; }

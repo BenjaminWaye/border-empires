@@ -57,3 +57,11 @@
 .v2p-mod-flat { color: var(--v2-muted); }
 .v2p-rows > .v2p-combat-total dt, .v2p-rows > .v2p-combat-total dd { color: var(--v2-text); font-weight: 700; }
 .v2p-combat-note { margin: -4px 0 0; }
+/* "? How rating works" explainer under the Career rows. */
+.v2p-help > summary { display: inline-flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; font-size: 12px; color: var(--v2-muted); }
+.v2p-help > summary::-webkit-details-marker { display: none; }
+.v2p-help > summary:hover, .v2p-help[open] > summary { color: var(--v2-gold-hi); }
+.v2p-help-q { display: inline-grid; place-items: center; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 50%; font-family: var(--v2-mono); font-size: 10px; font-weight: 700; }
+.v2p-help-body { margin-top: 8px; font-size: 13px; line-height: 1.45; color: var(--v2-soft); }
+.v2p-help-body p { margin: 0 0 6px; }
+.v2p-help-body p:last-child { margin-bottom: 0; }

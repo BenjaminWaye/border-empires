@@ -155,9 +155,15 @@ describe("chooseLowValueBeaconToDisable", () => {
     expect(chooseLowValueBeaconToDisable(tiles, PLAYER_ID, tilesByKeyOf(tiles))).toBeUndefined();
   });
 
-  it("picks deterministically (lowest x, then y) among multiple zero-value beacons, once beacon count exceeds the free waiver", () => {
+  it("among zero-value beacons, picks the one whose reach other anchors cover most", () => {
+    // (5,5) overlaps both (1,9) and (1,2), so it gives up the least land.
     const tiles = [tile(5, 5), tile(1, 9), tile(1, 2), ...paddingBeacons(5)];
-    expect(chooseLowValueBeaconToDisable(tiles, PLAYER_ID, tilesByKeyOf(tiles))).toEqual({ x: 1, y: 2, kind: "disable" });
+    expect(chooseLowValueBeaconToDisable(tiles, PLAYER_ID, tilesByKeyOf(tiles))).toEqual({ x: 5, y: 5, kind: "disable" });
+  });
+
+  it("picks deterministically (lowest x, then y) among equally isolated beacons", () => {
+    const tiles = [tile(300, 100), tile(200, 150), tile(200, 50), ...paddingBeacons(5)];
+    expect(chooseLowValueBeaconToDisable(tiles, PLAYER_ID, tilesByKeyOf(tiles))).toEqual({ x: 200, y: 50, kind: "disable" });
   });
 });
 
@@ -239,18 +245,18 @@ describe("foodSlotReliefFromPlannerInput", () => {
     expect(result).toEqual({ reliefTarget: undefined, exhausted: true, reenableTarget: undefined });
   });
 
-  it("prefers disabling the low-value beacon over the FOOD-consuming-structure fallback once beacon count exceeds the free waiver", () => {
+  it("in a FOOD deficit with no other consumer, disables a low-value beacon once beacon count exceeds the free waiver", () => {
     const beacon = tile(2, 3);
     const padding = paddingBeacons(5);
     const allTiles = [beacon, ...padding];
     const dormant = new Set(["2,3"]);
-    const result = foodSlotReliefFromPlannerInput(allTiles, PLAYER_ID, dormant, tilesByKeyOf(allTiles), 3, 3);
+    const result = foodSlotReliefFromPlannerInput(allTiles, PLAYER_ID, dormant, tilesByKeyOf(allTiles), 2, 3);
     expect(result).toEqual({ reliefTarget: { x: 2, y: 3, kind: "disable" }, exhausted: true, reenableTarget: undefined });
   });
 
   it("falls back to the FOOD-consuming-structure target when there's no beacon at all", () => {
     const structure = tile(2, 3, { type: "INCUBATION_ENGINE" });
-    const result = foodSlotReliefFromPlannerInput([structure], PLAYER_ID, new Set(), undefined, 3, 3);
+    const result = foodSlotReliefFromPlannerInput([structure], PLAYER_ID, new Set(), undefined, 2, 3);
     expect(result).toEqual({ reliefTarget: { x: 2, y: 3, kind: "disable" }, exhausted: true, reenableTarget: undefined });
   });
 
@@ -274,7 +280,7 @@ describe("foodSlotReliefFromPlannerInput", () => {
       terrain: "LAND",
       town: { populationTier: "TOWN" }
     };
-    const result = foodSlotReliefFromPlannerInput([capital, secondTown], PLAYER_ID, undefined, undefined, 3, 3);
+    const result = foodSlotReliefFromPlannerInput([capital, secondTown], PLAYER_ID, undefined, undefined, 2, 3);
     expect(result).toEqual({ reliefTarget: { x: 2, y: 2, kind: "abandon_town" }, exhausted: true, reenableTarget: undefined });
   });
 

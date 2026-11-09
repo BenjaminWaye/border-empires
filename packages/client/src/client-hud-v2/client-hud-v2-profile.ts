@@ -91,13 +91,27 @@ const rows = (items: ReadonlyArray<[string, string]>): string =>
 const pending = (value: Loadable<unknown>): string | undefined =>
   value === "loading" ? `<p class="v2p-none">Loading…</p>` : value === undefined ? `<p class="v2p-none">—</p>` : undefined;
 
+const signed = (value: number): string => (value > 0 ? `+${int(value)}` : value < 0 ? `−${int(-value)}` : "±0");
+
+const ratingLabel = (career: CareerStatsView): string =>
+  career.rating === null ? "—" : `${int(career.rating)}${career.lastRatingDelta !== null ? ` (${signed(career.lastRatingDelta)})` : ""}`;
+
+// Mirrors apps/simulation/src/season-elo/season-elo.ts (start 1200, K=32, averaged over opponents).
+const RATING_HELP_HTML = `<details class="v2p-help" data-v2-open="rating"><summary><span class="v2p-help-q" aria-hidden="true">?</span>How rating works</summary><div class="v2p-help-body">
+  <p>Updated when a season ends, from your final rank.</p>
+  <p>You beat every empire ranked below you and lose to every empire above. Beating higher-rated empires gains more; losing to lower-rated ones costs more.</p>
+  <p>Everyone starts at 1,200. One season moves a rating at most 32 points.</p>
+</div></details>`;
+
 const careerHtml = (career: Loadable<CareerStatsView>): string =>
   panel("Career", pending(career) ?? (typeof career === "object" ? rows([
+    ["Rating", ratingLabel(career)],
+    ["Peak rating", career.peakRating !== null ? int(career.peakRating) : "—"],
     ["Seasons", int(career.seasonsPlayed)],
     ["Best finish", career.bestRank !== null ? `#${career.bestRank}` : "—"],
     ["Peak score", career.peakScore !== null ? int(career.peakScore) : "—"],
     ["Peak tiles", career.peakTiles !== null ? int(career.peakTiles) : "—"]
-  ]) : ""));
+  ]) + RATING_HELP_HTML : ""));
 
 const trophiesHtml = (holdings: Loadable<GalaxyHoldingsView>): string => {
   const wait = pending(holdings);

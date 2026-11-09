@@ -63,8 +63,8 @@ describe("primaryWaitReason", () => {
     expect(primaryWaitReason(stuck, { ...funded, frontierNonHostileTargetCount: 12 })).toBe("WAIT_BOXED_IN_AT_PEACE");
   });
 
-  it("names an enemy at the gate when a site exists but a hostile borders the frontier", () => {
-    expect(primaryWaitReason({ ...stuck, hasRelayBeaconBuild: true, relayBeaconSiteValue: 30, frontierEnemyCount: 2 }, funded)).toBe("WAIT_BEACON_ENEMY_AT_GATE");
+  it("names an enemy at the gate when a site exists but a hostile threatens the core", () => {
+    expect(primaryWaitReason({ ...stuck, hasRelayBeaconBuild: true, relayBeaconSiteValue: 30, frontierEnemyCount: 2, pressureThreatensCore: true }, funded)).toBe("WAIT_BEACON_ENEMY_AT_GATE");
   });
 
   it("names a worthless site when the best beacon only reaches one plain tile", () => {

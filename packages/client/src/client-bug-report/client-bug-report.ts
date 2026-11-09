@@ -229,7 +229,7 @@ export const bindReportModal = (args: {
   const textarea = overlayEl.querySelector<HTMLTextAreaElement>("[data-bug-report-description]");
   const charCount = overlayEl.querySelector<HTMLSpanElement>("[data-bug-report-char-count]");
   const submitBtn = overlayEl.querySelector<HTMLButtonElement>("[data-bug-report-submit]");
-  const cancelBtn = overlayEl.querySelector<HTMLButtonElement>("[data-bug-report-cancel]");
+  const cancelButtons = overlayEl.querySelectorAll<HTMLButtonElement>("[data-bug-report-cancel]");
   const backdrop = overlayEl.querySelector<HTMLDivElement>("[data-bug-report-backdrop]");
   const statusEl = overlayEl.querySelector<HTMLDivElement>("[data-bug-report-status]");
 
@@ -260,7 +260,7 @@ export const bindReportModal = (args: {
   document.addEventListener("keydown", onKeydown);
 
   if (backdrop) backdrop.addEventListener("click", close);
-  if (cancelBtn) cancelBtn.addEventListener("click", close);
+  cancelButtons.forEach((button) => button.addEventListener("click", close));
 
   textarea?.focus();
 

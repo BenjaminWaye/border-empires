@@ -1,3 +1,4 @@
+import { createRoadNetworkCache } from "./client-road-network-cache.js";
 import { describe, expect, it } from "vitest";
 import { buildRoadNetwork } from "./client-road-network.js";
 import type { Tile } from "../client-types.js";
@@ -76,4 +77,17 @@ describe("buildRoadNetwork", () => {
     expect(roads.get("1,1")).toMatchObject({ northwest: true, southeast: true });
     expect(roads.get("2,2")).toMatchObject({ northwest: true, terminal: true });
   });
+});
+
+it("cached roads lose a broken town connection after territory changes", () => {
+  const tiles = new Map<string, Tile>([
+    [keyFor(0, 0), makeTile(0, 0, { town: makeTown("TOWN") })],
+    [keyFor(1, 0), makeTile(1, 0)],
+    [keyFor(2, 0), makeTile(2, 0, { town: makeTown("TOWN") })]
+  ]);
+  const cached = createRoadNetworkCache();
+  const deps = { tiles, keyFor, wrapX, wrapY };
+  expect(cached(deps, 1).get("1,0")).toMatchObject({ east: true, west: true });
+  tiles.get("1,0")!.ownerId = "rival";
+  expect(cached(deps, 2).size).toBe(0);
 });

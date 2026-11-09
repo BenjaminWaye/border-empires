@@ -14,7 +14,7 @@
  */
 
 import type { AutomationNoopReason } from "../automation-command-planner-types.js";
-import { RELAY_BEACON_SITE_VALUE_FLOOR, victoryFocusOverridesPosture, type DecisionClass, type DecisionInputs } from "./decisions.js";
+import { beaconBlockedByEnemy, RELAY_BEACON_SITE_VALUE_FLOOR, victoryFocusOverridesPosture, type DecisionClass, type DecisionInputs } from "./decisions.js";
 
 export type WaitContext = {
   /** False when the next RELAY_BEACON's manpower (or other) cost can't be paid. */
@@ -71,7 +71,7 @@ const buildBeaconVeto = (inp: DecisionInputs, ctx: WaitContext): string | undefi
   if (!ctx.relayBeaconAffordable) return "unaffordable";
   if (!inp.hasRelayBeaconBuild) return "no_site";
   if (!inp.devSlotAvailable) return "no_dev_slot";
-  if (!(inp.frontPosture === "WAR" || inp.frontierEnemyCount === 0)) return "enemy_at_gate";
+  if (beaconBlockedByEnemy(inp)) return "enemy_at_gate";
   if (inp.relayBeaconSiteValue <= RELAY_BEACON_SITE_VALUE_FLOOR) return "low_value_site";
   return undefined;
 };
@@ -115,7 +115,7 @@ export const primaryWaitReason = (inp: DecisionInputs, ctx: WaitContext): Automa
   if (expandVeto(inp) === undefined) return undefined;
   if (!ctx.relayBeaconAffordable) return "WAIT_BEACON_UNAFFORDABLE";
   if (!inp.hasRelayBeaconBuild) return atPeace(inp, ctx) ? "WAIT_BOXED_IN_AT_PEACE" : "WAIT_NO_BEACON_SITE";
-  if (!(inp.frontPosture === "WAR" || inp.frontierEnemyCount === 0)) return "WAIT_BEACON_ENEMY_AT_GATE";
+  if (beaconBlockedByEnemy(inp)) return "WAIT_BEACON_ENEMY_AT_GATE";
   if (inp.relayBeaconSiteValue <= RELAY_BEACON_SITE_VALUE_FLOOR) return "WAIT_BEACON_LOW_VALUE";
   return undefined;
 };

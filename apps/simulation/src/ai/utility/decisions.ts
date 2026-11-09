@@ -365,6 +365,14 @@ const RELAY_BEACON_SITE_VALUE_CEILING = 24;
 // the gate).
 const BEACON_CADENCE_BOOST = 0.6;
 
+// Beacons are vetoed only while an enemy genuinely threatens the core (and
+// not under WAR posture, where reach toward the fight is the point). This
+// used to be "any enemy tile on the scanned frontier", which on staging
+// season-41 froze beacon-building on every border of any empire touching a
+// neighbour anywhere — leaving the open, enemy-free sides unclaimed.
+export const beaconBlockedByEnemy = (inp: Pick<DecisionInputs, "frontPosture" | "pressureThreatensCore">): boolean =>
+  inp.frontPosture !== "WAR" && inp.pressureThreatensCore;
+
 const scoreBuildBeacon = (inp: DecisionInputs): number => {
   const base = scoreConsiderations([
     boolVeto(inp.hasRelayBeaconBuild),
@@ -372,7 +380,7 @@ const scoreBuildBeacon = (inp: DecisionInputs): number => {
     // WAR posture (docs/ai-war-peace-balance-plan.md, Phase 3) waives this:
     // a beacon extending reach toward the threat being actively fought is
     // exactly the point of WAR, not a reason to sit on WAIT instead.
-    boolVeto(inp.frontPosture === "WAR" || inp.frontierEnemyCount === 0),
+    boolVeto(!beaconBlockedByEnemy(inp)),
     linear(inp.relayBeaconSiteValue, RELAY_BEACON_SITE_VALUE_FLOOR, RELAY_BEACON_SITE_VALUE_CEILING)
   ]);
   if (base === 0 || !inp.beaconBoostActive) return base;

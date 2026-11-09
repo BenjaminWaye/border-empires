@@ -12,7 +12,7 @@ export type RoadDirections = {
   terminal?: boolean;
 };
 
-type RoadBuildDeps = {
+export type RoadBuildDeps = {
   tiles: Map<string, Tile>;
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;

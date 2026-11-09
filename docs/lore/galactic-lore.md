@@ -86,6 +86,14 @@ spectacle across the Core, and it tests who among the nobility is actually
 capable, not just well-born. Both readings are true at once; nobody
 involved is lying to the other about it.
 
+Across the Core the war games are known simply as the **Sector Contest**:
+the people's name for the spectacle they watch, where the Court speaks of
+campaigns under the Writ. A Sector admits only as many Houses as its world
+can hold. When a Proclamation is oversubscribed, the Houses turned away
+enter their names for the next Sector the Court opens, and the length of
+that list is itself watched closely, as a measure of how hungry the
+nobility still is for ground.
+
 **Winning a Sector campaign grants the victor the rank of Duke and
 personal, permanent rights to that world.** It is not a season's prize —
 it is a real title and a real holding, carried forward.
@@ -560,7 +568,8 @@ Houses may pledge resource output, other than salvage, to one another as
 continuing supply rights negotiated through diplomacy. The supplier retains the land and its
 installations; the recipient gains the exclusive use of the promised output for
 as long as both Houses maintain the arrangement. Either House may end the
-supply agreement; the land remains with its owner. Such contracts can support another House's infrastructure or
+supply agreement; the land remains with its owner. An attack dissolves them: when
+one House attacks the other, every supply right between the two lapses at once. Such contracts can support another House's infrastructure or
 industry without transferring towns, bodies or knowledge. They are distinct from
 a one-time Coin payment. An interrupted concession
 cannot deliver its promise until its output is restored. The cancellation, suspension
