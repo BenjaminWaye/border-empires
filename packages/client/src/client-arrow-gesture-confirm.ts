@@ -1,3 +1,4 @@
+import type { SupplyWarningState } from "./client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
 import { musterMarchDistanceTiles, musterMarchTooFarAdvice } from "@border-empires/shared";
 import { showArrowGestureConfirmSheet } from "./client-arrow-gesture-confirm-sheet.js";
 import type { ArrowGesturePoint } from "./client-arrow-gesture-confirm-payload.js";
@@ -26,7 +27,7 @@ export type ArrowGestureConfirmDeps = {
  * / state.arrowGesture on "Go" or cancel.
  */
 export const handleArrowGestureConfirm = (
-  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey">,
+  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey"> & SupplyWarningState,
   origin: ArrowGesturePoint,
   target: ArrowGesturePoint,
   deps: ArrowGestureConfirmDeps,

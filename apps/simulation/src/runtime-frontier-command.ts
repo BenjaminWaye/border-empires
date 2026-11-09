@@ -99,7 +99,7 @@ export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   /** Releases the origin's frontier component if it is cut off from supply; true means the origin is gone. */
   releaseIfStrandedOrigin: (originKey: string, ownerId: string, commandId: string) => boolean;
   /** Ends all resource supply agreements between attacker and defender; returns how many ended. */
-  endSupplyTradesOnAttack?: (attackerId: string, defenderId: string) => number;
+  endSupplyTradesOnAttack: (attackerId: string, defenderId: string) => number;
 };
 
 export type FrontierCommandResult = { accepted: boolean; code?: string };
@@ -442,15 +442,17 @@ export const handleFrontierCommandImpl = (
       })
     });
   }
+  ctx.scheduleLockResolution(lock);
   // Attacking a House (any owned tile, frontier included; manual or muster
   // launched alike) ends every supply trade between the two. Barbarians hold
-  // no trades and are exempt.
+  // no trades and are exempt. Runs after the lock is scheduled so a failure
+  // here can never strand the lock or its muster reservation. Frontier
+  // targets have no combat roll, hence the tile-owner fallback.
   const attackedHouseId = defenderOwnerId ?? ctx.tiles.get(lock.targetKey)?.ownerId;
   if (actionType === "ATTACK" && attackedHouseId && attackedHouseId !== command.playerId &&
       !attackedHouseId.startsWith("barbarian-") && !command.playerId.startsWith("barbarian-")) {
-    ctx.endSupplyTradesOnAttack?.(command.playerId, attackedHouseId);
+    ctx.endSupplyTradesOnAttack(command.playerId, attackedHouseId);
   }
-  ctx.scheduleLockResolution(lock);
   // EXPAND's manpower cost was just charged up front (above) instead of at
   // resolution -- push the updated wallet now so a human player's HUD
   // reflects it immediately rather than waiting for the next unrelated

@@ -36,6 +36,7 @@ export const ATTACK_ENDS_SUPPLY_TRADES_ENTRY: Omit<ClientChangelogEntry, "create
   changes: [
     "Launching an attack on a House ends every resource supply trade between you, in both directions",
     "Pending resource offers between the two Houses are withdrawn",
-    "The attack button and attack confirmation say how many supply trades the attack will end"
+    "Attacking a House you trade with asks you to confirm first, and the March To and Advance sheets warn too",
+    "AI empires don't buy FOOD from a House they fought in the last 6 hours"
   ]
 };

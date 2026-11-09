@@ -1,6 +1,7 @@
 import { MUSTER_ADVANCE_RANGE_STEPS, MUSTER_MARCH_MAX_DISTANCE_TILES, musterFlagCap } from "@border-empires/shared";
 import { clearAttackCommit } from "./client-attack-commit/client-attack-commit.js";
 import type { ClientState } from "./client-state/client-state.js";
+import { advanceSupplyTradeNote } from "./client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
 import { musterStatusText } from "./client-side-panel-html/client-side-panel-html.js";
@@ -192,7 +193,7 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
   }
   if (actionId === "muster_advance") {
     // Pick the effort level (Normal / Extra / Double) before advancing.
-    promptMusterAdvanceEffort(x, y, { sendGameMessage: deps.sendGameMessage, onSent: announceFirstMuster });
+    promptMusterAdvanceEffort(x, y, { sendGameMessage: deps.sendGameMessage, onSent: announceFirstMuster, note: advanceSupplyTradeNote(deps.state) });
     return true;
   }
   if (actionId === "muster_march") {

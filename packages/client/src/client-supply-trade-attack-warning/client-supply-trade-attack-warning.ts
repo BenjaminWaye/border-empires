@@ -1,13 +1,13 @@
 // Attacking a House ends every resource supply trade between the two
 // (apps/simulation runtime-frontier-command.ts cancels them when the ATTACK is
-// accepted). The tile menu's attack rows warn about it beforehand.
+// accepted). Launching an attack on a trade partner asks to confirm first
+// (client-launch-attack-effort.ts), whatever HUD shows the row; row details,
+// the Advance sheet and the March To sheet carry the same line. All text here
+// is plain: every renderer escapes it itself.
 import type { ClientState } from "../client-state/client-state.js";
 import { playerNameForOwnerFromState } from "../client-owner-name/client-owner-name.js";
 
-type SupplyWarningState = Pick<ClientState, "me" | "meName" | "playerNames" | "leaderboard" | "resourceTradeAgreements">;
-
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch);
+export type SupplyWarningState = Pick<ClientState, "me" | "meName" | "playerNames" | "leaderboard" | "resourceTradeAgreements">;
 
 /** Active supply agreements between the player and `ownerId`, either direction. */
 export const supplyTradeCountWithOwner = (state: Pick<ClientState, "me" | "resourceTradeAgreements">, ownerId: string): number =>
@@ -23,11 +23,9 @@ export const supplyTradeAttackWarningText = (state: SupplyWarningState, ownerId:
   return `Attacking ends your ${count} supply trade${count === 1 ? "" : "s"} with ${name}`;
 };
 
-/** HTML-escaped form for tile-menu row details, which render as markup. */
-export const supplyTradeAttackWarning = (state: SupplyWarningState, ownerId: string | null | undefined): string | undefined => {
-  const text = supplyTradeAttackWarningText(state, ownerId);
-  return text === undefined ? undefined : escapeHtml(text);
-};
+/** Set Advance picks its own targets later, so it warns whenever the player has any supply trade. */
+export const advanceSupplyTradeNote = (state: Pick<ClientState, "resourceTradeAgreements">): string | undefined =>
+  state.resourceTradeAgreements.length > 0 ? "Auto-attacks on a House you trade with end those supply trades." : undefined;
 
 /** One warning per distinct attacked House, for the effort sheet's (plain-text) subtitle. */
 export const supplyTradeAttackWarningsForTargets = (state: SupplyWarningState, ownerIds: readonly (string | undefined)[]): string | undefined => {

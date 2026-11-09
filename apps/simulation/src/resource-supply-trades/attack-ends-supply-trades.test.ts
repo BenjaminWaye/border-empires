@@ -7,7 +7,7 @@ import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
 const agreement = (id: string, proposerId: string, targetId: string): ResourceSupplyAgreement =>
   ({ id, proposerId, targetId, proposerGives: { FOOD: 1 }, targetGives: {}, startedAt: 1 });
 
-const build = (target: DomainTileState) => new SimulationRuntime({
+const build = (target: DomainTileState, musterAmount = 999) => new SimulationRuntime({
   now: () => 1_000,
   seedTiles: new Map(),
   initialPlayers: new Map(["player-1", "player-2", "player-3"].map(id => [id, buildPlayer(id, { manpower: 1_000 })])),
@@ -15,7 +15,7 @@ const build = (target: DomainTileState) => new SimulationRuntime({
     activeLocks: [],
     tiles: [
       { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-        muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 } },
+        muster: { ownerId: "player-1", amount: musterAmount, mode: "HOLD", updatedAt: 0 } },
       target,
       { x: 30, y: 30, terrain: "LAND", ownerId: "player-3", ownershipState: "SETTLED" }
     ],
@@ -48,6 +48,20 @@ describe("attacking a House ends supply trades between the two", () => {
       .map(e => (JSON.parse((e as { payloadJson: string }).payloadJson) as { action: string; agreement: { id: string } }))
       .filter(m => m.action === "cancelled").map(m => m.agreement.id).sort();
     expect(cancelled).toEqual(["p1-to-p2", "p2-to-p1"]);
+  });
+  it("ends trades on an attack against a SETTLED tile too", async () => {
+    vi.useFakeTimers();
+    const runtime = build({ x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" });
+    await attack(runtime);
+    expect(ids(runtime)).toEqual(["p1-to-p3", "p3-to-p2"]);
+  });
+  it("leaves trades untouched when the attack is rejected (no mustered troops)", async () => {
+    vi.useFakeTimers();
+    const runtime = build({ x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }, 0);
+    const events = collectEvents(runtime);
+    await attack(runtime);
+    expect(events.some(e => e.eventType === "COMMAND_REJECTED" && e.commandId === "attack-1")).toBe(true);
+    expect(ids(runtime)).toEqual(["p1-to-p2", "p1-to-p3", "p2-to-p1", "p3-to-p2"]);
   });
   it("leaves trades untouched when the target is a barbarian tile", async () => {
     vi.useFakeTimers();

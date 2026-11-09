@@ -1,3 +1,4 @@
+import { supplyTradeAttackWarningText, type SupplyWarningState } from "./client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
 import { attackFloorForPlayer } from "./client-attack-commit/client-attack-floor.js";
 import { MUSTER_ATTACK_COST } from "@border-empires/shared";
 import { buildArrowGestureSetMusterPayload } from "./client-arrow-gesture-confirm-payload.js";
@@ -51,13 +52,16 @@ export const hideArrowGestureConfirmSheet = (): void => {
  * "Go" and cancel/dismiss -- there is at most one pending confirm at a time.
  */
 export const showArrowGestureConfirmSheet = (
-  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey"> & Partial<Pick<ClientState, "domainIds">>,
+  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey"> &
+    SupplyWarningState & Partial<Pick<ClientState, "domainIds">>,
   origin: ArrowGesturePoint,
   target: ArrowGesturePoint,
   keyFor: (x: number, y: number) => string,
   deps: ArrowGestureConfirmSheetDeps
 ): void => {
   const floor = floorForTarget(state, target, keyFor);
+  // The march ends in an ATTACK on the target's owner, which ends supply trades with them.
+  const marchSupplyWarning = supplyTradeAttackWarningText(state, state.tiles.get(keyFor(target.x, target.y))?.ownerId);
   // Opening this sheet closes any previous one, whose onCancel runs after
   // the caller already stored THIS gesture -- only clear state we own.
   const pending = state.pendingArrowGestureConfirm;
@@ -77,7 +81,7 @@ export const showArrowGestureConfirmSheet = (
   };
   handle = showEffortConfirmSheet({
     title: `Commit march to (${target.x}, ${target.y})`,
-    subtitle: `From (${origin.x}, ${origin.y})`,
+    subtitle: `From (${origin.x}, ${origin.y})${marchSupplyWarning ? ` · ${marchSupplyWarning}` : ""}`,
     floor,
     cap: Math.max(floor, state.manpowerCap),
     mode: "slider",

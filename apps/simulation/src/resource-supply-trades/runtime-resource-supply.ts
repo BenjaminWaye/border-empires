@@ -161,7 +161,8 @@ export class RuntimeResourceSupply {
    * ordinary cancel path (settle both at the old rates, then drop the supply).
    * Returns how many agreements ended. Used when one House attacks the other. */
   cancelBetween(playerAId: string, playerBId: string): number {
-    if (playerAId === playerBId) return 0;
+    // Hot path (every accepted ATTACK): most worlds hold no agreements at all.
+    if (playerAId === playerBId || this.ledger.size === 0) return 0;
     const ids = this.ledger.rows().filter(row =>
       (row.proposerId === playerAId && row.targetId === playerBId) ||
       (row.proposerId === playerBId && row.targetId === playerAId)).map(row => row.id);

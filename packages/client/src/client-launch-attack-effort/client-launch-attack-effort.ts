@@ -11,6 +11,7 @@ import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type Muster
 import { commitPreviewWinChanceForTarget } from "../client-queue-logic/client-attack-preview-logic.js";
 import { showEffortConfirmSheet } from "../client-effort-confirm-sheet/client-effort-confirm-sheet.js";
 import { supplyTradeAttackWarningsForTargets } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
+import { showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
 import {
   attackEffortFloorForTarget,
   clearAttackCommit,
@@ -32,6 +33,8 @@ export type AttackLaunchDeps = {
   pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
   showCaptureAlert: (title: string, detail: string, tone?: "error" | "success" | "warn") => void;
   hideTileActionMenu: () => void;
+  /** Test seam for the supply-trade confirm; defaults to the break-pact sheet. */
+  showSupplyTradeSheet?: (options: BreakPactSheetOptions) => boolean;
 };
 
 type EffortState = Pick<ClientState, "tiles" | "me" | "manpowerCap" | "attackCommitByTargetKey"> & Partial<Pick<ClientState, "domainIds">>;
@@ -57,10 +60,9 @@ export const promptAttackEffortForTarget = (
 ): boolean => {
   if (!isAttackEffortEligibleTarget(tile)) return false;
   const floor = attackEffortFloorForTarget(tile, state);
-  const supplyWarning = supplyTradeAttackWarningsForTargets(state, [tile.ownerId]);
   const handle = showEffortConfirmSheet({
     title: options.title,
-    subtitle: `${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} — committing more manpower improves your odds.${supplyWarning ? ` ${supplyWarning}.` : ""}`,
+    subtitle: `${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} — committing more manpower improves your odds.`,
     floor,
     cap: Math.max(floor, state.manpowerCap),
     mode: "slider",
@@ -110,12 +112,11 @@ const promptBulkEffort = (
   onConfirm: (preset: MusterCommitPreset) => void
 ): boolean => {
   const minFloor = Math.min(...eligible.map(tile => attackEffortFloorForTarget(tile, state)));
-  const supplyWarning = supplyTradeAttackWarningsForTargets(state, eligible.map(tile => tile.ownerId));
   const totalFor = (preset: MusterCommitPreset): number =>
     eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile, state)), 0);
   const handle = showEffortConfirmSheet({
     title,
-    subtitle: `${eligible.length} defended target${eligible.length === 1 ? "" : "s"} — effort applies to each of them.${supplyWarning ? ` ${supplyWarning}.` : ""}`,
+    subtitle: `${eligible.length} defended target${eligible.length === 1 ? "" : "s"} — effort applies to each of them.`,
     floor: minFloor,
     cap: Math.max(minFloor, state.manpowerCap),
     mode: "presets",
@@ -127,7 +128,10 @@ const promptBulkEffort = (
 };
 
 /**
- * The Launch Attack / Attack Connected Region tile-menu handler. Opens the
+ * The Launch Attack / Attack Connected Region tile-menu handler (single, bulk
+ * and region). When any target belongs to a House the player trades with, it
+ * first asks to confirm that the attack ends those supply trades — a sheet,
+ * so it shows on touch and in every HUD, unlike a row tooltip. Then opens the
  * effort sheet when any target is effort-eligible, otherwise queues at once.
  */
 export const launchAttacksWithEffort = (
@@ -137,6 +141,24 @@ export const launchAttacksWithEffort = (
 ): void => {
   const enemyKeys = enemyTargetKeys(state, request.targetKeys, deps);
   deps.hideTileActionMenu();
+  const supplyWarning = supplyTradeAttackWarningsForTargets(state, enemyKeys.map((k) => state.tiles.get(k)?.ownerId));
+  if (!supplyWarning) return launchWithEffort(state, request, enemyKeys, deps);
+  const shown = (deps.showSupplyTradeSheet ?? showBreakPactSheet)({
+    title: "End supply trades?",
+    subtitle: `${supplyWarning}.`,
+    consequences: ["Supply in both directions stops at once.", "Coin already paid is not refunded."],
+    confirmLabel: "Attack",
+    onConfirm: () => launchWithEffort(state, request, enemyKeys, deps)
+  });
+  if (!shown) launchWithEffort(state, request, enemyKeys, deps);
+};
+
+const launchWithEffort = (
+  state: ClientState,
+  request: { targetKeys: string[]; scope: AttackLaunchScope; selected: Tile | undefined },
+  enemyKeys: string[],
+  deps: AttackLaunchDeps
+): void => {
   const eligible = enemyKeys.map((k) => state.tiles.get(k)).filter((tile) => isAttackEffortEligibleTarget(tile));
   const launch = (): void => queueAndReport(enemyKeys, request, deps);
   if (eligible.length === 0) {

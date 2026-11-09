@@ -75,6 +75,7 @@ const harness = (players: Record<string, TradePlayerState>, options: { pending?:
       outgoingOfferCount: () => options.pending ?? 0,
       request: async (from, to, terms, opts) => { requests.push({ from, to, terms, ...(opts?.ttlMs ? { ttlMs: opts.ttlMs } : {}) }); return { ok: true, offerId: "offer-1" }; }
     },
+    recentlyFought: () => false,
     cancelSupply: async (from, agreementId) => { cancels.push({ from, agreementId }); return { ok: true }; },
     recordEvent: () => undefined,
     now: () => 1_000
@@ -139,6 +140,13 @@ describe("createProactiveAiResourceTrade", () => {
     deps.now = () => 10 * 24 * 3_600_000;
     await createProactiveAiResourceTrade(deps).tick();
     expect(cancels).toEqual([]);
+  });
+
+  it("never asks a House it fought recently, so the next attack can't cancel what it just paid for", async () => {
+    const { deps, requests } = harness({ "ai-1": hungry, "ai-2": rich, "ai-3": rich });
+    deps.recentlyFought = (aiId, targetId) => aiId === "ai-1" && targetId === "ai-2";
+    await createProactiveAiResourceTrade(deps).tick();
+    expect(requests.map(r => r.to)).toEqual(["ai-3"]);
   });
 
   it("never trades for an AI a human took over mid-tick", async () => {
