@@ -18,8 +18,8 @@ export type ResourceTradeRequestResult={ok:true;offerId:string}|{ok:false;messag
 export interface ResourceTradeService {
   handle(message:ClientMessage,actorId:string,socket:WebSocket,isGuest:boolean):Promise<boolean>;
   /** Same path as a player's RESOURCE_TRADE_REQUEST; used by AI-initiated trades too. */
-  request(fromId:string,toId:string,terms:DiplomacyTerms):Promise<ResourceTradeRequestResult>;
-  /** Pending or settling offers this House sent. */
+  request(fromId:string,toId:string,terms:DiplomacyTerms,options?:{ttlMs?:number}):Promise<ResourceTradeRequestResult>;
+  /** Pending (not settling) offers this House sent. */
   outgoingOfferCount(playerId:string):number;
 }
 /** Pending offers live durably in the social store. A stable simulation command
@@ -40,12 +40,12 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
     publish([row.fromPlayerId,row.toPlayerId]);
     return paid.ok?undefined:paid.message;
   };
-  const request=async(fromId:string,toId:string,terms:DiplomacyTerms):Promise<ResourceTradeRequestResult>=>{
+  const request=async(fromId:string,toId:string,terms:DiplomacyTerms,options:{ttlMs?:number}={}):Promise<ResourceTradeRequestResult>=>{
     const from=ctx.social.resolvePlayerById(fromId),to=toId?ctx.social.resolvePlayerById(toId):undefined;
     if(!from||!to||from.id===to.id)return {ok:false,message:"Choose another House to trade with."};
     if(!hasResourceSupplyOffer(terms.give.resources)&&!hasResourceSupplyOffer(terms.ask.resources))return {ok:false,message:"Include at least one resource supply slot in the offer."};
     const now=ctx.now(),parsed=ResourceTradeOfferSchema.safeParse({id:crypto.randomUUID(),fromPlayerId:from.id,toPlayerId:to.id,
-      fromPlayerName:from.name,toPlayerName:to.name,terms,createdAt:now,expiresAt:now+RESOURCE_TRADE_OFFER_TTL_MS,status:"pending"});
+      fromPlayerName:from.name,toPlayerName:to.name,terms,createdAt:now,expiresAt:now+Math.min(options.ttlMs??RESOURCE_TRADE_OFFER_TTL_MS,RESOURCE_TRADE_OFFER_TTL_MS),status:"pending"});
     if(!parsed.success)return {ok:false,message:"Invalid resource trade terms."};
     if(!store.insert(parsed.data)){ctx.record("warn","gateway_resource_trade_capacity",{count:store.rows(now).length});return {ok:false,message:"Too many resource offers are pending. Resolve an existing offer first."};}
     publish([from.id,to.id]);
@@ -61,7 +61,7 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
     }
     return {ok:true,offerId:parsed.data.id};
   };
-  const outgoingOfferCount=(playerId:string):number=>store.rows(ctx.now()).filter(row=>row.fromPlayerId===playerId).length;
+  const outgoingOfferCount=(playerId:string):number=>store.rows(ctx.now()).filter(row=>row.fromPlayerId===playerId&&row.status==="pending").length;
   return {request,outgoingOfferCount,handle:async(message,actorId,socket,isGuest)=>{
     if(!message.type.startsWith("RESOURCE_TRADE_"))return false;
     const error=(text:string)=>ctx.send(socket,{type:"ERROR",code:"RESOURCE_TRADE_FAILED",message:text});

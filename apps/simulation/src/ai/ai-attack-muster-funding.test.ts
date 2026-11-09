@@ -128,6 +128,7 @@ describe("ATTACK dispatch respects muster funding", () => {
   it("emits the ATTACK when a muster flag can fund it", () => {
     const result = runUtilityPolicy(barbarianFrontState(() => true));
     expect(result.command?.type).toBe("ATTACK");
+    expect(result.diagnostic.utilityGates?.attackUnfunded).toBe(false);
   });
 
   it("does not emit an unfundable ATTACK and does not count it as a candidate", () => {
@@ -135,5 +136,6 @@ describe("ATTACK dispatch respects muster funding", () => {
     expect(result.command?.type).not.toBe("ATTACK");
     expect(result.diagnostic.utilityGates?.hasAnyAttackCandidate).toBe(false);
     expect(result.diagnostic.utilityScores?.ATTACK).toBe(0);
+    expect(result.diagnostic.utilityGates?.attackUnfunded).toBe(true);
   });
 });

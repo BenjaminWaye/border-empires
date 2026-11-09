@@ -34,9 +34,11 @@ export const uncoveredHydrogardens = (playerId: string, ownedTiles: readonly Hyd
   const works: Point[] = [];
   for (const tile of ownedTiles) {
     const structure = tile.economicStructure;
-    if (!structure || structure.ownerId !== playerId || !counts(structure.status)) continue;
-    if (structure.type === "HYDROGARDEN") gardens.push(tile);
-    else if (structure.type === "HYDROWORKS") works.push(tile);
+    if (!structure || structure.ownerId !== playerId) continue;
+    if (structure.type === "HYDROGARDEN" && counts(structure.status)) gardens.push(tile);
+    // Any standing Hydroworks, switched off included: switching it back on
+    // beats building a duplicate next to it.
+    else if (structure.type === "HYDROWORKS" && structure.status !== "removing") works.push(tile);
   }
   return gardens.filter((garden) => !works.some((work) => wrappedChebyshev(garden, work) <= HYDROWORKS_RADIUS));
 };

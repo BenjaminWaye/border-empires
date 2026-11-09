@@ -113,6 +113,21 @@ describe("re-enabling non-beacon FOOD consumers", () => {
     expect(result.reenableTarget).toBeUndefined();
   });
 
+  it("skips a building still in overload recovery, or whose CRYSTAL slot doesn't fit", () => {
+    const recovering = building(5, 5, { type: "MANUFACTORY", status: "inactive", inactiveReason: "manual", disabledUntil: 5_000 });
+    expect(chooseManuallyDisabledFoodConsumerToReenable([recovering], PLAYER_ID, undefined, 1_000)).toBeUndefined();
+    expect(chooseManuallyDisabledFoodConsumerToReenable([recovering], PLAYER_ID, undefined, 6_000)).toEqual({ x: 5, y: 5 });
+    const refinery = building(6, 6, { type: "ORE_REFINERY", status: "inactive", inactiveReason: "manual" });
+    expect(chooseManuallyDisabledFoodConsumerToReenable([refinery], PLAYER_ID, { CRYSTAL: 0 }, 1_000)).toBeUndefined();
+    expect(chooseManuallyDisabledFoodConsumerToReenable([refinery], PLAYER_ID, { CRYSTAL: 1 }, 1_000)).toEqual({ x: 6, y: 6 });
+  });
+
+  it("picks a disabled beacon before a disabled building in the same pass", () => {
+    const beacon = building(9, 9, { type: "RELAY_BEACON", status: "inactive", inactiveReason: "manual" });
+    const result = foodSlotReliefFromPlannerInput([disabledManufactory, beacon], PLAYER_ID, undefined, undefined, 12, 10, false, 6);
+    expect(result.reenableTarget).toEqual({ x: 9, y: 9 });
+  });
+
   it("leaves a surplus producer off while its resource is still in surplus", () => {
     const rig = building(3, 3, { type: "UMBRITE_RIG", status: "inactive", inactiveReason: "manual" }, { resource: "UMBRITE" });
     expect(chooseManuallyDisabledFoodConsumerToReenable([rig], PLAYER_ID, { UMBRITE: 30 })).toBeUndefined();

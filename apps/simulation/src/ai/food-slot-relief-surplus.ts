@@ -60,27 +60,56 @@ export const chooseSurplusProducerToDisable = <TTile extends AutomationPlannerTi
   return best ? { x: best.x, y: best.y, kind: "disable" } : undefined;
 };
 
+// Non-FOOD slots a structure needs (e.g. ORE_REFINERY's CRYSTAL) must have
+// room too, or the runtime refuses the re-enable and the planner retries it.
+const otherSlotsFit = (type: string, headroom: ResourceSlotHeadroom | undefined): boolean =>
+  structureSlotRequirements(type as SlotStructureType).every((req) =>
+    req.resource === "FOOD" || headroom === undefined || (headroom[req.resource] ?? 0) >= req.count);
+
+const lowerXY = (a: { x: number; y: number }, b: { x: number; y: number } | undefined): boolean =>
+  !b || a.x < b.x || (a.x === b.x && a.y < b.y);
+
 /**
- * A manually disabled non-beacon FOOD consumer worth switching back on.
- * Skips a producer whose resource is still in surplus (relief would just
- * switch it off again) and non-SETTLED tiles (the runtime refuses those).
+ * One owned-tile pass for both re-enable kinds, beacons first (reach is the
+ * priority): a manually disabled RELAY_BEACON when `beacons`, else a
+ * manually disabled non-beacon FOOD consumer when `consumers`. Consumers skip
+ * a producer whose resource is still in surplus (relief would switch it off
+ * again), one still in overload recovery (`disabledUntil`), and one whose
+ * other slots don't fit. Only SETTLED tiles (the runtime refuses others).
  */
+export const chooseManuallyDisabledToReenable = <TTile extends AutomationPlannerTile>(
+  ownedTiles: readonly TTile[],
+  playerId: string,
+  want: { beacons: boolean; consumers: boolean },
+  headroom: ResourceSlotHeadroom | undefined,
+  nowMs: number
+): FoodSlotReenableTarget | undefined => {
+  let beacon: TTile | undefined;
+  let consumer: TTile | undefined;
+  for (const tile of ownedTiles) {
+    const structure = tile.economicStructure;
+    if (!structure?.type || structure.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
+    if (structure.status !== "inactive" || structure.inactiveReason !== "manual") continue;
+    if (structure.type === "RELAY_BEACON") {
+      if (want.beacons && lowerXY(tile, beacon)) beacon = tile;
+      continue;
+    }
+    if (!want.consumers || !usesFoodSlot(structure.type) || (structure.disabledUntil ?? 0) > nowMs) continue;
+    if ((headroom && isSurplusProducer(tile, headroom)) || !otherSlotsFit(structure.type, headroom)) continue;
+    if (lowerXY(tile, consumer)) consumer = tile;
+  }
+  const best = beacon ?? consumer;
+  return best ? { x: best.x, y: best.y } : undefined;
+};
+
+/** Consumer-only form of chooseManuallyDisabledToReenable. */
 export const chooseManuallyDisabledFoodConsumerToReenable = <TTile extends AutomationPlannerTile>(
   ownedTiles: readonly TTile[],
   playerId: string,
-  headroom: ResourceSlotHeadroom | undefined
-): FoodSlotReenableTarget | undefined => {
-  let best: TTile | undefined;
-  for (const tile of ownedTiles) {
-    const structure = tile.economicStructure;
-    if (!structure?.type || structure.ownerId !== playerId || structure.type === "RELAY_BEACON") continue;
-    if (structure.status !== "inactive" || structure.inactiveReason !== "manual") continue;
-    if (tile.ownershipState !== "SETTLED" || !usesFoodSlot(structure.type)) continue;
-    if (headroom && isSurplusProducer(tile, headroom)) continue;
-    if (!best || tile.x < best.x || (tile.x === best.x && tile.y < best.y)) best = tile;
-  }
-  return best ? { x: best.x, y: best.y } : undefined;
-};
+  headroom: ResourceSlotHeadroom | undefined,
+  nowMs = Date.now()
+): FoodSlotReenableTarget | undefined =>
+  chooseManuallyDisabledToReenable(ownedTiles, playerId, { beacons: false, consumers: true }, headroom, nowMs);
 
 /** Headroom for the non-FOOD slot resources, from the planner's supply/demand maps. */
 export const resourceSlotHeadroomFrom = (

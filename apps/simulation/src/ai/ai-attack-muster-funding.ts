@@ -15,9 +15,11 @@
  * be funded, ATTACK kept winning the utility ranking, and BUILD_BEACON /
  * EXPAND rarely got a turn, so empires stopped growing.
  *
- * The check here is a lower bound: it uses the frontier/settled muster floor
- * and ignores reservations and fort multipliers, so a funded-looking attack
- * can still be rejected occasionally — the rejection cooldown covers that.
+ * The check is optimistic, not exact: it uses the frontier/settled muster
+ * floor, ignores reservations, fort multipliers and besieged flags, and treats
+ * an in-range flag outside the planner's tile view as funded. So some attacks
+ * it passes can still be rejected — the ATTACK rejection cooldown covers that.
+ * Attacks it blocks show as utilityGates.attackUnfunded in AI diagnostics.
  * Cost: origin tile plus this player's active flags (MUSTER_MAX_TILES, 2).
  */
 import { FRONTIER_ATTACK_MUSTER_COST, MUSTER_ATTACK_COST, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";

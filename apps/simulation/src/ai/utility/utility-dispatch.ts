@@ -347,7 +347,9 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
       pressureAttackScore: inputs.pressureAttackScore,
       hasAnyAttackCandidate: inputs.hasAnyAttackCandidate,
       hasBarbarianAttackSelection: state.context.frontierAnalysis.barbarianAttack !== undefined,
-      attackOnCooldown: Boolean(inputs.cooldown.ATTACK)
+      attackOnCooldown: Boolean(inputs.cooldown.ATTACK),
+      attackUnfunded: [state.preferredEnemyAttack, state.context.frontierAnalysis.barbarianAttack]
+        .some(sel => sel !== undefined && !targetStalemated(sel, state) && state.attackMusterFunded?.(sel) === false)
     },
     ...(policy.vetoedClasses.length > 0 ? { utilityVetoedClasses: policy.vetoedClasses } : {})
   };

@@ -77,6 +77,12 @@ describe("chooseBestEconomicBuild — need-weighted catalog", () => {
   });
 
   // ...and 33 of 34 only reached gardens another Hydroworks already boosted.
+  it("counts a switched-off Hydroworks as covering its gardens", () => {
+    const plainLand = tile(5, 5, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const off = tile(14, 5, { ownerId: "ai-1", ownershipState: "SETTLED", economicStructure: { ownerId: "ai-1", type: "HYDROWORKS", status: "inactive" } });
+    expect(hydroworksPick([plainLand, garden(12, 5), off], plainLand)).not.toBe("HYDROWORKS");
+  });
+
   it("does not propose HYDROWORKS when every garden in range is already boosted", () => {
     const plainLand = tile(5, 5, { ownerId: "ai-1", ownershipState: "SETTLED" });
     const existing = tile(14, 5, { ownerId: "ai-1", ownershipState: "SETTLED", economicStructure: { ownerId: "ai-1", type: "HYDROWORKS", status: "active" } });
