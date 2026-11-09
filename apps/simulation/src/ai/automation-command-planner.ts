@@ -1,3 +1,4 @@
+import { attackHasFundedMuster } from "./ai-attack-muster-funding.js";
 import { chooseAiAetherCommand } from "./ai-aether-planner.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, expandManpowerCostForFrontierCount, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
@@ -478,6 +479,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     foodSlotsExhausted: foodSlotRelief.exhausted,
     foodSlotReenableTarget: foodSlotRelief.reenableTarget,
     attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys,
+    attackMusterFunded: (selection) =>
+      attackHasFundedMuster({ playerId: input.playerId, from: selection.from, target: selection.target, musterTileKeys: input.musterTileKeys, tilesByKey: input.tilesByKey }),
     expansionObjective: input.expansionObjective,
     points: input.points,
     manpower: input.manpower,
