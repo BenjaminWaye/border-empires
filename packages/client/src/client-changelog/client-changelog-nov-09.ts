@@ -75,3 +75,13 @@ export const SECTOR_WAITLIST_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
     "The next Sector's start is announced by the usual season-start email (if you have it switched on); guests are asked to sign in first"
   ]
 };
+
+export const HIVE_MIND_II_PREREQ_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Hive Mind Module II follows Thunderplate Induction",
+  why: "The second Hive Mind came straight after the first, so extra Muster tiles didn't depend on the rest of the War line.",
+  changes: [
+    "Hive Mind Module II now requires the Thunderplate Induction Module instead of Hive Mind Module I",
+    "Hive Mind Module I no longer leads to another manifest"
+  ]
+};
