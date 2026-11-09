@@ -16,6 +16,10 @@
 // it paid for has passed. That keeps deals from piling up against the
 // per-House agreement cap; the AI asks again if it still needs FOOD. Other AIs answer at once; up to two
 // human neighbours are also asked each tick, with a short-lived offer.
+// Attacking a House ends every supply trade between the two (simulation
+// runtime-frontier-command.ts), so an AI that attacks its FOOD supplier loses
+// that FOOD; the attack planner doesn't weigh this, and the AI simply asks
+// another House on a later tick.
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import {
   resourceSupplyCoinValue,
