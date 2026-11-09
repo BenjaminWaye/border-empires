@@ -83,6 +83,6 @@ export const JOIN_SCREEN_SEASON_END_ENTRY: Omit<ClientChangelogEntry, "createdAt
   changes: [
     "An ended season goes straight to the Season Concluded screen instead of the join prompt",
     "The Joining... button stops spinning as soon as the join fails",
-    "The join screen uses the same brass look as the rest of the game, and reads Season 13 instead of Season season-13"
+    "The join screen uses the same look as the in-game HUD, and reads Season 13 instead of Season season-13"
   ]
 };
