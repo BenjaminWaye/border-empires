@@ -366,6 +366,7 @@ describe("email alerts", () => {
     });
 
     alerts.sendBugReportAlert({
+      reportId: "report-1",
       description: "The map froze after placing a fort",
       playerName: "Nauticus",
       playerId: "player-1",
@@ -400,6 +401,7 @@ describe("email alerts", () => {
     const alerts = createEmailAlertService({ authBindingStore, fetchImpl });
 
     alerts.sendBugReportAlert({
+      reportId: "report-2",
       description: "desc",
       playerName: "Nauticus",
       playerId: "player-1",
