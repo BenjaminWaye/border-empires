@@ -359,7 +359,7 @@
       "tier": 4,
       "branch": "war",
       "name": "Hive Mind Module II",
-      "description": "AFC module: a second offworld half-mind. A second staging tile means an army can gather while another marches.",
+      "description": "AFC module: another offworld half-mind, slaved to the Thunderplate induction grid. Adds one Muster tile, so an army can gather while another marches.",
       "prereqIds": [
         "steelworking"
       ],
