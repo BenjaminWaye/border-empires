@@ -360,6 +360,8 @@ consolidation, planning cadence), not deletion.
     the 15s proactive diplomacy tick: an AI at or below zero FOOD headroom with
     no pending offer asks up to 4 Houses (other AIs first, then human
     neighbours) for 1-3 FOOD slots, paying a surplus resource of at least equal
-    daily value or a day's value in coin; 6h per-target cooldown.
+    daily value or a day's value in coin; 6h per-target cooldown. The AI ends
+    its own FOOD purchase after 24h (the sim ignores `supplyDurationHours`, so
+    agreements never expire otherwise) to stay under the 16-agreement cap.
   Each beacon past the first five costs a FOOD slot, so FOOD supply is the
   real ceiling on AI expansion.

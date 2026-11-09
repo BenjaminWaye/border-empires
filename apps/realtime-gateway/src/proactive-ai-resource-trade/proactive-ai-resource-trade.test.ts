@@ -35,11 +35,11 @@ describe("foodTradeTerms", () => {
   it("pays with a surplus resource worth at least the FOOD", () => {
     // Staging season-41: ai-10 had 30 spare UMBRITE slots and no FOOD.
     const terms = foodTradeTerms(3, { gold: 0, resourceTradeHoldings: { UMBRITE: 30 } });
-    expect(terms).toEqual({ give: { gold: 0, resources: { UMBRITE: 3 } }, ask: { gold: 0, resources: { FOOD: 3 } }, supplyDurationHours: 24 });
+    expect(terms).toEqual({ give: { gold: 0, resources: { UMBRITE: 3 } }, ask: { gold: 0, resources: { FOOD: 3 } }});
   });
 
   it("falls back to coin worth a day of the FOOD", () => {
-    expect(foodTradeTerms(2, { gold: 100 })).toEqual({ give: { gold: 8 }, ask: { gold: 0, resources: { FOOD: 2 } }, supplyDurationHours: 24 });
+    expect(foodTradeTerms(2, { gold: 100 })).toEqual({ give: { gold: 8 }, ask: { gold: 0, resources: { FOOD: 2 } }});
   });
 
   it("never pledges a producing network site as payment", () => {
@@ -58,10 +58,11 @@ describe("foodTradeTerms", () => {
   });
 });
 
-type Harness = { deps: ProactiveAiResourceTradeDeps; requests: Array<{ from: string; to: string; terms: DiplomacyTerms; ttlMs?: number | undefined }> };
+type Harness = { deps: ProactiveAiResourceTradeDeps; cancels: Array<{ from: string; agreementId: string }>; requests: Array<{ from: string; to: string; terms: DiplomacyTerms; ttlMs?: number | undefined }> };
 
 const harness = (players: Record<string, TradePlayerState>, options: { pending?: number; humanNeighbour?: string } = {}): Harness => {
   const requests: Harness["requests"] = [];
+  const cancels: Harness["cancels"] = [];
   const deps: ProactiveAiResourceTradeDeps = {
     aiPlayerIds: new Set(Object.keys(players).filter(id => id.startsWith("ai-"))),
     hasLiveSocket: () => false,
@@ -74,10 +75,11 @@ const harness = (players: Record<string, TradePlayerState>, options: { pending?:
       outgoingOfferCount: () => options.pending ?? 0,
       request: async (from, to, terms, opts) => { requests.push({ from, to, terms, ...(opts?.ttlMs ? { ttlMs: opts.ttlMs } : {}) }); return { ok: true, offerId: "offer-1" }; }
     },
+    cancelSupply: async (from, agreementId) => { cancels.push({ from, agreementId }); return { ok: true }; },
     recordEvent: () => undefined,
     now: () => 1_000
   };
-  return { deps, requests };
+  return { deps, requests, cancels };
 };
 
 describe("createProactiveAiResourceTrade", () => {
@@ -87,7 +89,7 @@ describe("createProactiveAiResourceTrade", () => {
   it("asks another AI with spare FOOD when out of FOOD", async () => {
     const { deps, requests } = harness({ "ai-1": hungry, "ai-2": rich });
     await createProactiveAiResourceTrade(deps).tick();
-    expect(requests).toEqual([{ from: "ai-1", to: "ai-2", terms: { give: { gold: 4 }, ask: { gold: 0, resources: { FOOD: 1 } }, supplyDurationHours: 24 } }]);
+    expect(requests).toEqual([{ from: "ai-1", to: "ai-2", terms: { give: { gold: 4 }, ask: { gold: 0, resources: { FOOD: 1 } }} }]);
   });
 
   it("does nothing while FOOD has headroom", async () => {
@@ -116,6 +118,27 @@ describe("createProactiveAiResourceTrade", () => {
     const { deps, requests } = harness(players, { humanNeighbour: "human" });
     await createProactiveAiResourceTrade(deps).tick();
     expect(requests.map(r => r.to)).toEqual(["human"]);
+  });
+
+  it("ends its own FOOD purchase once the paid-for day has passed, before asking again", async () => {
+    const day = 24 * 3_600_000;
+    const deal = { id: "deal-1", proposerId: "ai-1", targetId: "ai-2", proposerGives: {}, targetGives: { FOOD: 1 }, startedAt: 0, fulfilled: true };
+    const { deps, requests, cancels } = harness({ "ai-1": { ...hungry, resourceTradeAgreements: [deal] }, "ai-2": rich });
+    deps.now = () => day - 1;
+    await createProactiveAiResourceTrade(deps).tick();
+    expect(cancels).toEqual([]);
+    deps.now = () => day;
+    await createProactiveAiResourceTrade(deps).tick();
+    expect(cancels).toEqual([{ from: "ai-1", agreementId: "deal-1" }]);
+    expect(requests.length).toBe(1); // only the first tick's ask
+  });
+
+  it("never ends a deal another House proposed", async () => {
+    const deal = { id: "deal-2", proposerId: "human", targetId: "ai-1", proposerGives: { FOOD: 2 }, targetGives: {}, startedAt: 0, fulfilled: true };
+    const { deps, cancels } = harness({ "ai-1": { ...hungry, resourceTradeAgreements: [deal] }, "ai-2": rich });
+    deps.now = () => 10 * 24 * 3_600_000;
+    await createProactiveAiResourceTrade(deps).tick();
+    expect(cancels).toEqual([]);
   });
 
   it("never trades for an AI a human took over mid-tick", async () => {

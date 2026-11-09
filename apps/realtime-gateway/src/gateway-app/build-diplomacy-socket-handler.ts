@@ -208,7 +208,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     send:deps.sendJson,fanout:deps.fanoutPlayerPayloads,record:deps.recordGatewayEvent });
   const aiFoodTrades = createProactiveAiResourceTrade({ aiPlayerIds: deps.seededAiPlayerIds, hasLiveSocket: deps.hasLiveSocket,
     fetchAiSnapshot: requesterSnapshot, playerState: async id => (await deps.ensureSubscribed(id)).player,
-    trades: resourceTrades, recordEvent: deps.recordGatewayEvent, now: () => Date.now(),
+    trades: resourceTrades, cancelSupply: (id, agreementId) => settlement.cancel(id, agreementId),
+    recordEvent: deps.recordGatewayEvent, now: () => Date.now(),
     seasonEnded: async () => (await deps.fetchSeasonSummary()).status === "ended" });
   const isAutoRespondingAi = (targetId: string): boolean => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId);
   const giftsInFlight = new Set<string>();

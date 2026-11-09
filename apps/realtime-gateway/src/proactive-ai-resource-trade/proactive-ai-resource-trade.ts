@@ -9,10 +9,12 @@
 //
 // One AI per tick (the 15s proactive diplomacy tick): if it has FOOD demand,
 // no FOOD headroom and no offer already pending, it asks a House with spare
-// FOOD for a few slots for 24 hours, paying with a spare upkeep resource
+// FOOD for a few slots, paying with a spare upkeep resource
 // (TITANIUM/CRYSTAL/UMBRITE) of equal daily value, or a day's value in coin.
-// Deals expire, so they never pile up against the per-House agreement cap; the
-// AI asks again if it still needs FOOD. Other AIs answer at once; up to two
+// Supply agreements never expire on their own (the simulation ignores
+// supplyDurationHours), so the AI ends each FOOD purchase it made once the day
+// it paid for has passed. That keeps deals from piling up against the
+// per-House agreement cap; the AI asks again if it still needs FOOD. Other AIs answer at once; up to two
 // human neighbours are also asked each tick, with a short-lived offer.
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import {
@@ -29,7 +31,7 @@ export const MAX_AI_FOOD_ASK = 3;
 export const MAX_TRADE_CANDIDATES_PER_TICK = 4;
 /** After asking a House (accepted or not), don't ask it again for this long. */
 export const AI_FOOD_TRADE_TARGET_COOLDOWN_MS = 6 * 3_600_000;
-/** How long an AI's FOOD supply deal runs; it asks again if still short. */
+/** How long the AI keeps a FOOD purchase before ending it; it asks again if still short. */
 export const AI_FOOD_TRADE_DURATION_HOURS = 24;
 /** Human neighbours asked per tick, out of MAX_TRADE_CANDIDATES_PER_TICK. */
 export const MAX_HUMAN_CANDIDATES_PER_TICK = 2;
@@ -37,7 +39,7 @@ export const MAX_HUMAN_CANDIDATES_PER_TICK = 2;
 export const AI_FOOD_TRADE_HUMAN_OFFER_TTL_MS = 3_600_000;
 
 type SnapshotPlayer = NonNullable<PlayerSubscriptionSnapshot["player"]>;
-export type TradePlayerState = Partial<Pick<SnapshotPlayer, "gold" | "resourceTradeHoldings" | "resourceSlots">>;
+export type TradePlayerState = Partial<Pick<SnapshotPlayer, "gold" | "resourceTradeHoldings" | "resourceSlots" | "resourceTradeAgreements">>;
 type TradeTile = Pick<PlayerSubscriptionSnapshot["tiles"][number], "x" | "y" | "ownerId">;
 
 export interface ProactiveAiResourceTradeDeps {
@@ -48,6 +50,8 @@ export interface ProactiveAiResourceTradeDeps {
   /** Another House's player state (holdings only). */
   playerState(playerId: string): Promise<TradePlayerState | undefined>;
   trades: Pick<ResourceTradeService, "request" | "outgoingOfferCount">;
+  /** Ends a supply agreement as `playerId` (diplomacy settlement cancel). */
+  cancelSupply(playerId: string, agreementId: string): Promise<{ ok: boolean }>;
   recordEvent(level: "info" | "warn", event: string, payload: Record<string, unknown>): void;
   seasonEnded?: () => Promise<boolean>;
   now(): number;
@@ -70,7 +74,7 @@ export const foodSlotsWanted = (player: TradePlayerState | undefined): number =>
 };
 
 /**
- * Terms asking `food` FOOD slots for a day, paid with the AI's cheapest spare
+ * Terms asking `food` FOOD slots (kept for a day, see AI_FOOD_TRADE_DURATION_HOURS), paid with the AI's cheapest spare
  * upkeep resource covering the daily value or, failing that, coin worth that
  * day — exactly what an AI seller needs to accept (evaluateResourceTradeOffer
  * values supply at 24h, netValueToAi). Undefined when it can't pay.
@@ -86,11 +90,15 @@ export const foodTradeTerms = (food: number, buyer: TradePlayerState | undefined
     if (price <= 0 || (buyer?.resourceTradeHoldings?.[resource] ?? 0) < count) continue;
     if (!best || count * price < best.count * dailyValue(best.resource)) best = { resource, count };
   }
-  const supplyDurationHours = AI_FOOD_TRADE_DURATION_HOURS;
-  if (best) return { give: { gold: 0, resources: { [best.resource]: best.count } }, ask, supplyDurationHours };
+  if (best) return { give: { gold: 0, resources: { [best.resource]: best.count } }, ask };
   const gold = Math.ceil(value);
-  return Math.floor(buyer?.gold ?? 0) >= gold ? { give: { gold }, ask, supplyDurationHours } : undefined;
+  return Math.floor(buyer?.gold ?? 0) >= gold ? { give: { gold }, ask } : undefined;
 };
+
+/** A FOOD purchase this AI proposed that has run for the day it paid for. */
+export const expiredFoodPurchase = (aiId: string, player: TradePlayerState | undefined, nowMs: number): string | undefined =>
+  player?.resourceTradeAgreements?.find(row => row.proposerId === aiId && (row.targetGives.FOOD ?? 0) > 0 &&
+    nowMs - row.startedAt >= AI_FOOD_TRADE_DURATION_HOURS * 3_600_000)?.id;
 
 export function createProactiveAiResourceTrade(deps: ProactiveAiResourceTradeDeps): { tick(): Promise<void> } {
   let cursor = 0;
@@ -109,6 +117,13 @@ export function createProactiveAiResourceTrade(deps: ProactiveAiResourceTradeDep
       cursor = (cursor + 1) % (ids.length * 1000);
       if (deps.hasLiveSocket(aiId) || deps.trades.outgoingOfferCount(aiId) > 0) return;
       const ai = await deps.fetchAiSnapshot(aiId);
+      const expired = expiredFoodPurchase(aiId, ai?.player, now);
+      if (expired) {
+        if (deps.hasLiveSocket(aiId)) return;
+        const ended = await deps.cancelSupply(aiId, expired);
+        deps.recordEvent("info", "gateway_ai_food_trade_ended", { aiPlayerId: aiId, agreementId: expired, ok: ended.ok });
+        return;
+      }
       const wanted = foodSlotsWanted(ai?.player);
       if (!ai || wanted === 0) return;
       const humans = aiDiplomacyNeighbors(ai.tiles, aiId).filter(id => !deps.aiPlayerIds.has(id));
