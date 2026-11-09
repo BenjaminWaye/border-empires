@@ -78,7 +78,7 @@ export const createClientRuntimeDisplaySupport = (deps: {
     structureInfoForKeyFromModule(type, { formatCooldownShort, prettyToken, ownedCountOfType: ownedCountForUpkeep(type), buildSpeedState: state });
 
   const structureInfoButtonHtml = (type: StructureInfoKey, label?: string): string =>
-    structureInfoButtonHtmlFromModule(type, { formatCooldownShort, prettyToken, ownedCountOfType: ownedCountForUpkeep(type) }, label);
+    structureInfoButtonHtmlFromModule(type, label);
 
   const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
     if (terrain !== "LAND") return terrain;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TileVisibilityState } from "../client-types.js";
-import { hasLiveNeighbour, isShallowSeaTile, withUnexploredCoastRingAsFogged } from "./client-map-3d-terrain-tile-rules.js";
+import { hasLiveNeighbour, isShallowSeaTile, terrainVisibilityLookups, withUnexploredCoastRingAsFogged } from "./client-map-3d-terrain-tile-rules.js";
 
 const wrap = (v: number): number => ((v % 100) + 100) % 100;
 
@@ -45,4 +45,13 @@ describe("hasLiveNeighbour", () => {
     expect(hasLiveNeighbour(at("fogged"), 10, 10, wrap, wrap)).toBe(false);
     expect(hasLiveNeighbour(at("visible"), 11, 11, wrap, wrap)).toBe(false); // itself doesn't count
   });
+});
+
+it("uses the coast ring for terrain eligibility and reveals deep fog after victory", () => {
+  const raw = (x: number, y: number): TileVisibilityState => x === 10 && y === 10 ? "visible" : "unexplored";
+  const normal = terrainVisibilityLookups(raw, wrap, wrap, false);
+  expect(normal.visibilityAt(11, 10)).toBe("fogged");
+  expect(normal.isExploredForHeightfield(11, 10)).toBe(true);
+  expect(normal.isExploredForHeightfield(20, 20)).toBe(false);
+  expect(terrainVisibilityLookups(raw, wrap, wrap, true).isExploredForHeightfield(20, 20)).toBe(true);
 });

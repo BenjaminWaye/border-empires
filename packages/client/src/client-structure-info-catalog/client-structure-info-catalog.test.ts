@@ -29,3 +29,9 @@ describe("current structure names and descriptions", () => {
     }
   });
 });
+
+it("keeps an unrecognized structure from crashing resource-tile details", () => {
+  const view = structureInfoForKey("RETIRED_RESOURCE_EXTRACTOR", deps);
+  expect(view.title).toBe("Unknown structure");
+  expect(view.detail).toContain("Reload");
+});

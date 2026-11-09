@@ -5,7 +5,7 @@ import type { TechInfo, Tile, TileMenuView } from "../client-types.js";
 import { resourceTileOverviewLines } from "../client-tile-menu-view/client-resource-tile-copy.js";
 import { clearScreen, screen, type HudV2Deps } from "../client-hud-v2/client-hud-v2-context.js";
 import { openRequestedTechDetail } from "../client-hud-v2/client-hud-v2-screens.js";
-import { structureInfoForKey } from "../client-map-display.js";
+import { structureInfoForKey, structureInfoButtonHtml } from "../client-map-display.js";
 import { renderStructureInfoOverlay } from "../client-structure-info-overlay/client-structure-info-overlay.js";
 import { bindStructureInfoActions } from "../client-structure-info-overlay/client-structure-info-actions.js";
 import { renderTileActionMenu } from "./client-tile-action-menu-ui.js";
@@ -89,4 +89,20 @@ describe("resource to structure to technology navigation", () => {
     expect(document.querySelector('[data-v2-manifest-commission="frontier-concessions"]')).not.toBeNull();
     expect(hud.actionFlow.chooseTech).not.toHaveBeenCalled();
   });
+});
+
+it("renders unknown resource installation links and details without the role crash", () => {
+  const deps = { formatCooldownShort: () => "1m", prettyToken: (value: string) => value };
+  // A server/client version mismatch can supply a key outside the client's catalog.
+  for (const key of ["RETIRED_RESOURCE_EXTRACTOR", "constructor"]) {
+    const popup = renderStructureInfoOverlay(key, type => structureInfoForKey(type, deps));
+    expect(popup).toContain("Unknown structure");
+    expect(popup).toContain("Reload");
+  }
+  const link = document.createElement("div");
+  const unknownKey = 'RETIRED_EXTRACTOR" data-injected="yes';
+  link.innerHTML = structureInfoButtonHtml(unknownKey);
+  const button = link.querySelector("button");
+  expect(button?.dataset.structureInfo).toBe(unknownKey);
+  expect(button?.hasAttribute("data-injected")).toBe(false);
 });

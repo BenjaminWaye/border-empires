@@ -128,3 +128,12 @@ describe("addReachTileOverlays3D on a hill", () => {
     expect(drapes).toEqual([drape]);
   });
 });
+
+it("hatches an AI incursion visible to a third-party viewer in 3D", () => {
+  const target: Tile = { x: 5, y: 5, terrain: "LAND", ownerId: "elin", reachOwnerId: "other-ai" };
+  const calls: string[] = [];
+  addReachTileOverlays3D({ addDormantFrontierTile: () => undefined,
+    addIncursionTile: () => void calls.push("hatch") }, target, 5, 5, { x: 0, z: 0, y: 0 }, new Set(),
+    { tiles: new Map([["5,5", target]]), keyFor, wrapX: x => x, wrapY: y => y, me: "me", ownerColor: () => "#123456" });
+  expect(calls).toEqual(["hatch"]);
+});

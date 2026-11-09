@@ -113,3 +113,21 @@ describe("incursionNeighbourKindAt", () => {
     expect(kindAt(0, -1)).toBe("other"); // unknown / unowned
   });
 });
+
+describe("third-party occupation", () => {
+  it("excludes neutral, same-House and barbarian territory", () => {
+    for (const tile of [{ reachOwnerId: "other" }, { ownerId: "elin", reachOwnerId: "elin" },
+      { ownerId: "barbarian-1", reachOwnerId: "other" }, { ownerId: "elin", reachOwnerId: "barbarian-1" }]) {
+      expect(reachPocketAt(tile, "1,1", "me", new Set(), new Map())).toBeUndefined();
+    }
+  });
+});
+
+it("uses authoritative reach ownership ahead of overlapping viewer reach", () => {
+  const tile = { ownerId: "elin", reachOwnerId: "other-ai" };
+  const tiles = new Map([["1,1", tile]]);
+  const pocket = reachPocketAt(tile, "1,1", "me", new Set(["1,1"]), tiles);
+  expect(pocket?.pusher).toBe("elin");
+  expect(pocket?.defender).toBe("other-ai");
+  expect(pocket?.inDefenderReach.has("1,1")).toBe(true);
+});

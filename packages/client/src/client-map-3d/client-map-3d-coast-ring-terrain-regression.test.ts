@@ -11,11 +11,13 @@ import { describe, expect, it } from "vitest";
 // level because the per-tile loop needs a live WebGL context to run.
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, "client-map-3d.ts"), "utf8");
+const terrainRulesSource = readFileSync(join(here, "client-map-3d-terrain-tile-rules.ts"), "utf8");
 const fogOverlaysSource = readFileSync(join(here, "../client-map-3d-fogged-mist/client-map-3d-fog-overlays.ts"), "utf8");
 
 describe("first fog ring loads its natural terrain in 3D", () => {
   it("routes visibility through the coast-ring wrapper for both the terrain and the per-tile loop", () => {
-    expect(source).toMatch(/const visibilityAt = withUnexploredCoastRingAsFogged\(/);
+    expect(source).toMatch(/const \{ visibilityAt, isExploredForHeightfield \} = terrainVisibilityLookups\(/);
+    expect(terrainRulesSource).toMatch(/const visibilityAt = withUnexploredCoastRingAsFogged\(/);
     expect(source).toMatch(/const visibility = visibilityAt\(wx, wy\);/);
   });
 

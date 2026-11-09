@@ -1,3 +1,4 @@
+import { createRoadNetworkCache } from "../client-road-network/client-road-network-cache.js";
 // Per-rebuild road + hill-cut lookups for the true-3D terrain pass, extracted
 // from client-map-3d.ts. Two lookups on purpose:
 //  - roadDirsAt: the raw road network, for deciding where roads are drawn.
@@ -9,11 +10,12 @@ import { isAfcHiddenForJoinDrop, type AfcJoinDropState } from "../client-afc-joi
 import { buildAfcPadIndex, createHillCutLookup } from "../client-map-3d-afc-hill-cut/client-map-3d-afc-hill-cut.js";
 import { buildFishingPadIndex } from "../client-map-3d-fishing/fishing-hill-cut.js";
 import type { RoadCutDirections } from "../client-map-3d-hill-shape.js";
-import { buildRoadNetwork, type RoadDirections } from "../client-road-network/client-road-network.js";
+import type { RoadDirections } from "../client-road-network/client-road-network.js";
 import type { Tile } from "../client-types.js";
 
 export type TerrainCutLookupDeps = {
   readonly tiles: Map<string, Tile>;
+  readonly tilesRevision: number;
   readonly keyFor: (x: number, y: number) => string;
   readonly wrapX: (x: number) => number;
   readonly wrapY: (y: number) => number;
@@ -28,17 +30,20 @@ export type TerrainCutLookups = {
   readonly hillCutAt: (x: number, y: number) => RoadCutDirections | undefined;
 };
 
-export const buildTerrainCutLookups = (deps: TerrainCutLookupDeps): TerrainCutLookups => {
-  const { tiles, keyFor, wrapX, wrapY } = deps;
-  const roadNetwork = buildRoadNetwork({ tiles, keyFor, wrapX, wrapY });
-  const roadDirsAt = (x: number, y: number): RoadDirections | undefined => roadNetwork.get(keyFor(x, y));
-  const afcPads = buildAfcPadIndex({
-    tiles: tiles.values(),
-    keyFor,
-    wrapX,
-    wrapY,
-    isAfcHiddenAt: (x, y) => isAfcHiddenForJoinDrop(deps.afcJoinDrop, x, y)
-  });
-  const fishingPads = buildFishingPadIndex({ tiles: tiles.values(), keyFor, wrapX, wrapY, isHillsAt: deps.isHillsAt, isWaterAt: deps.isWaterAt, isSiteDrawnAt: deps.isFishingSiteDrawnAt });
-  return { roadDirsAt, hillCutAt: createHillCutLookup(roadDirsAt, afcPads, keyFor, fishingPads) };
+export const createTerrainCutLookupBuilder = (): ((deps: TerrainCutLookupDeps) => TerrainCutLookups) => {
+  const roads = createRoadNetworkCache();
+  return (deps) => {
+    const { tiles, keyFor, wrapX, wrapY } = deps;
+    const roadNetwork = roads({ tiles, keyFor, wrapX, wrapY }, deps.tilesRevision);
+    const roadDirsAt = (x: number, y: number): RoadDirections | undefined => roadNetwork.get(keyFor(x, y));
+    const afcPads = buildAfcPadIndex({
+      tiles: tiles.values(),
+      keyFor,
+      wrapX,
+      wrapY,
+      isAfcHiddenAt: (x, y) => isAfcHiddenForJoinDrop(deps.afcJoinDrop, x, y)
+    });
+    const fishingPads = buildFishingPadIndex({ tiles: tiles.values(), keyFor, wrapX, wrapY, isHillsAt: deps.isHillsAt, isWaterAt: deps.isWaterAt, isSiteDrawnAt: deps.isFishingSiteDrawnAt });
+    return { roadDirsAt, hillCutAt: createHillCutLookup(roadDirsAt, afcPads, keyFor, fishingPads) };
+  };
 };

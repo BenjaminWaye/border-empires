@@ -19,7 +19,7 @@ import {
   Scene
 } from "three";
 import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type SlotResource } from "@border-empires/shared";
-import type { Tile, TileVisibilityState } from "../client-types.js";
+import type { Tile } from "../client-types.js";
 import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, standingTreeFilter } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
@@ -40,7 +40,7 @@ import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createHillTerrain } from "../client-map-3d-hills.js";
 import { createMapWater, riverFoggedAt } from "./client-map-3d-water-wiring.js";
-import { hasLiveNeighbour, isShallowSeaTile, withUnexploredCoastRingAsFogged } from "./client-map-3d-terrain-tile-rules.js";
+import { hasLiveNeighbour, isShallowSeaTile, terrainVisibilityLookups } from "./client-map-3d-terrain-tile-rules.js";
 import { FOGGED_FEATURE_TINT, FOGGED_WASH } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
@@ -106,7 +106,7 @@ import { addReachTileOverlays3D, createIncursionHillDrape, computeOtherOwnersRea
 import { createBorderDustFxLayer } from "../client-map-3d-border-dust-fx/client-map-3d-border-dust-fx.js";
 import { borderContactSeamsToDustSeams, computeBorderContactRenderState, resolveBorderContactVisual, pointKey, splitSegmentByContact, EMPTY_BORDER_CONTACT_STATE, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT, type BorderContactRenderState } from "../client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
 import { createTileIntelOverlays3D } from "../client-map-3d-tile-intel/client-map-3d-tile-intel.js";
-import { buildTerrainCutLookups } from "./client-map-3d-terrain-cut-lookups.js"; import { createProspectClueLayer } from "../client-map-3d-prospect-clue/client-map-3d-prospect-clue-layer.js";
+import { createTerrainCutLookupBuilder } from "./client-map-3d-terrain-cut-lookups.js"; import { createProspectClueLayer } from "../client-map-3d-prospect-clue/client-map-3d-prospect-clue-layer.js";
 import { revealWholeMapInTrue3DMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { isReachOverlayCornerVisible } from "../client-reach-overlay-corner-visibility/client-reach-overlay-corner-visibility.js";
@@ -600,18 +600,15 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const fogWash = new Color(FOGGED_WASH), fogFeatureTint = new Color(FOGGED_FEATURE_TINT); // remembered land wash / trees + peaks multiply
   const SETTLE_FALLBACK_COLOR = new Color("#ffd166");
 
+  const buildTerrainCutLookups = createTerrainCutLookupBuilder();
   const rebuildVisibleTerrain = (window: TerrainWindow): void => {
     const rebuildStartAt = performance.now();
     const { halfW, halfH } = window;
 
     heightfield.mesh.position.set(0, 0, 0);
-    // The fog's first ring reads as "fogged" so its ground draws (dimmed) under the unexplored storm's see-through coast band.
-    const visibilityAt = withUnexploredCoastRingAsFogged((wx: number, wy: number): TileVisibilityState => deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy))), deps.wrapX, deps.wrapY);
-    const isExploredForHeightfield = (wx: number, wy: number): boolean => {
-      if (revealWholeMapInTrue3DMode) return true;
-      const visibility = visibilityAt(wx, wy);
-      return visibility === "visible" || visibility === "fogged";
-    };
+    const { visibilityAt, isExploredForHeightfield } = terrainVisibilityLookups(
+      (x, y) => deps.tileVisibilityStateAt(x, y, deps.state.tiles.get(deps.keyFor(x, y))), deps.wrapX, deps.wrapY, revealWholeMapInTrue3DMode
+    );
     // Shared window params for the main sculpted grid and the separate hills
     // dome layer (client-map-3d-hills.ts, which draws what the grid excludes)
     // — both must rebuild against the exact same visible window every frame.
@@ -622,7 +619,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     };
     const roadNetworkStartAt = performance.now(); // moved up (was after the heightfield rebuild): hillTerrain.rebuild needs roadDirsAt
     // roadDirsAt: where roads are drawn; hillCutAt: roads + AFC levelled pads, for everything tracing a hill dome
-    const { roadDirsAt, hillCutAt } = buildTerrainCutLookups({ tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, afcJoinDrop: deps.state.afcJoinDrop, isHillsAt: isHillsTile, isWaterAt: (x, y) => isSeaTerrain(terrainForWorldTile(deps.wrapX(x), deps.wrapY(y))), isFishingSiteDrawnAt: (x, y) => revealWholeMapInTrue3DMode || visibilityAt(x, y) === "visible" });
+    const { roadDirsAt, hillCutAt } = buildTerrainCutLookups({ tiles: deps.state.tiles, tilesRevision: deps.state.tilesRevision, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, afcJoinDrop: deps.state.afcJoinDrop, isHillsAt: isHillsTile, isWaterAt: (x, y) => isSeaTerrain(terrainForWorldTile(deps.wrapX(x), deps.wrapY(y))), isFishingSiteDrawnAt: (x, y) => revealWholeMapInTrue3DMode || visibilityAt(x, y) === "visible" });
     latestHillCutAt = hillCutAt;
     const ownershipTileDeps: OwnershipTilePlacementDeps = {
       overlay: ownershipOverlay, cornerYAt: (x, y) => heightfield.cornerYAt(x, y), isHillsTile, hillCutAt, frontierDecayPulse, barbarianFrontierTint,
