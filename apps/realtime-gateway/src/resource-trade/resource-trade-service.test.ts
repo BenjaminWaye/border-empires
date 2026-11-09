@@ -16,6 +16,18 @@ function setup(ai=false){
   return{deps,social,settle,cancel,send,fanout,socket,service:createResourceTradeService(deps)};
 }
 describe("independent resource trades",()=>{
+  it("request() caps an offer's lifetime and counts only pending outgoing offers",async()=>{
+    const f=setup();f.settle.mockResolvedValueOnce({ok:false,message:"Timeout",pending:true});
+    const made=await f.service.request("a","b",terms,{ttlMs:1000});
+    expect(made.ok).toBe(true);
+    expect(f.social.resourceTradeOffers.rows(1)[0]?.expiresAt).toBe(1001);
+    expect(f.service.outgoingOfferCount("a")).toBe(1);
+    const row=f.social.resourceTradeOffers.rows(1)[0]!;
+    await f.service.handle({type:"RESOURCE_TRADE_ACCEPT",offerId:row.id},"b",f.socket,false);
+    // A payment stuck in "settling" must not stop the sender making new offers.
+    expect(f.social.resourceTradeOffers.rows(1)[0]?.status).toBe("settling");
+    expect(f.service.outgoingOfferCount("a")).toBe(0);
+  });
   it("requires the recipient's acceptance and pays without creating a treaty",async()=>{
     const f=setup();await f.service.handle(request,"a",f.socket,false);
     const offer=f.social.resourceTradeOffers.rows(1)[0]!;

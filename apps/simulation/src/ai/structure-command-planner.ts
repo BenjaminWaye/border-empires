@@ -1,3 +1,4 @@
+import { hydroworksSiteBoostsGardens, uncoveredHydrogardens } from "./build/hydroworks-placement.js";
 import { isNetworkResource, RESOURCE_NETWORKS, SALVAGE_ARMS_BONUS_MAX, SALVAGE_ARMS_BONUS_PER_SITE, structureStacksPerTown } from "@border-empires/shared";
 import { hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
@@ -245,6 +246,8 @@ export const chooseBestEconomicBuild = (
   needVector?: NeedVector
 ): EconomicBuildChoice | undefined => {
   let best: EconomicBuildChoice | undefined;
+  // Lazy: only scanned once a Hydroworks site is actually being weighed.
+  let uncoveredGardens: ReturnType<typeof uncoveredHydrogardens> | undefined;
   const foodLow = foodCoverageLow(player);
   // §24.5: consolidated onto the shared ai-economic-heuristics.ts
   // implementation instead of this file's own hand-written duplicate (which
@@ -317,6 +320,10 @@ export const chooseBestEconomicBuild = (
     if (needVector && !tile.resource && !tile.town) {
       for (const entry of ECONOMIC_STRUCTURE_CATALOG) {
         if (entry.placement !== "open_settled") continue;
+        if (entry.type === "HYDROWORKS") {
+          uncoveredGardens ??= uncoveredHydrogardens(player.id, ownedTiles);
+          if (!hydroworksSiteBoostsGardens(tile, uncoveredGardens)) continue;
+        }
         const score = economicCatalogScore(entry, needVector);
         if (score > 0) candidates.push({ type: entry.type, score });
       }

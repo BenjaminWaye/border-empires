@@ -328,3 +328,40 @@ consolidation, planning cadence), not deletion.
   structure's gold cost actually scales with existing owned count at
   runtime (unlike economic structures) — `ownedStructureCounts`-based gold
   scaling in the AI's old precheck was dead/incorrect for these two types.
+- **Staging season-41 expansion stall (2026-11-09)** — 25.5% of land ended
+  unclaimed. Evidence came from the staging SQLite snapshot (`commands` +
+  `command_results` keep the last ~46h; `world_snapshots` has final tiles).
+  Four causes, all fixed in one branch:
+  - *Unfundable attacks*: `attackReady` checks the raw manpower pool, but every
+    non-barbarian ATTACK is paid from a muster flag within 10 tiles
+    (`resolveMusterSource`). ~85k `INSUFFICIENT_MUSTER` rejections; one AI hit
+    one tile 1,723 times. `ai-attack-muster-funding.ts` now mirrors the
+    runtime rule (floor cost, ignores reservations, fails open when flag data
+    is missing) and `utility-dispatch.ts` drops unfunded attack candidates.
+  - *Beacon veto*: BUILD_BEACON was vetoed by any enemy tile on the scanned
+    frontier, which is empire-wide (hot origins win), so one contested border
+    froze beacons everywhere. Now `beaconBlockedByEnemy` = core threat and not
+    WAR (`decisions.ts`, also used by `wait-reasons.ts`).
+  - *FOOD relief order*: relief switched off a land-holding beacon first, even
+    at exactly-full FOOD, and the freed slot went to the next economic build
+    (185 AI beacons off, 253 Manufactories on). Free tiers (surplus
+    MINE/UMBRITE_RIG, beacons fully covered by other anchors, FOOD-dormant
+    consumers) always run; costly tiers (working building, then land-holding
+    beacon, then town) only in a real deficit or when a beacon site exists
+    with one more FOOD slot (`beaconWaitingOnFood`, a lazy second beacon
+    scan). Non-beacon consumers switched off by relief are re-enabled once
+    FOOD has a slot to spare (`food-slot-relief-surplus.ts`).
+  - *Hydroworks placement*: scored on FOOD need alone; 33/34 AI Hydroworks
+    boosted no new Hydrogarden. `build/hydroworks-placement.ts` requires an own
+    garden in `HYDROWORKS_RADIUS` that no existing Hydroworks reaches.
+  - *No FOOD buying*: resource supply trades (`resource-supply-trades/`) let
+    Houses export spare FOOD, and an AI accepts a fair offer, but no AI ever
+    asked. `apps/realtime-gateway/src/proactive-ai-resource-trade/` now runs on
+    the 15s proactive diplomacy tick: an AI at or below zero FOOD headroom with
+    no pending offer asks up to 4 Houses (other AIs first, then human
+    neighbours) for 1-3 FOOD slots, paying a surplus resource of at least equal
+    daily value or a day's value in coin; 6h per-target cooldown. The AI ends
+    its own FOOD purchase after 24h (the sim ignores `supplyDurationHours`, so
+    agreements never expire otherwise) to stay under the 16-agreement cap.
+  Each beacon past the first five costs a FOOD slot, so FOOD supply is the
+  real ceiling on AI expansion.

@@ -7,32 +7,37 @@
 // state can never expand its way out even though expansion — claiming a new
 // FARM/FISH tile — is exactly what would fix the underlying shortage.
 //
-// The first two tiers of the fix are always DISABLE, never
+// Every structure tier is DISABLE, never
 // REMOVE_STRUCTURE/demolish: disabling (SET_CONVERTER_STRUCTURE_ENABLED,
 // enabled: false) frees the FOOD slot just as completely as demolition does
 // — a manually-disabled structure is excluded from demand contribution
 // entirely, see buildDemandContributors's `inactiveReason !== "manual"`
 // check — but is reversible (the AI, or a human, can flip it back on once
 // FOOD has headroom again) and keeps the build itself intact. Demolition has
-// no advantage over disabling here, so neither of the first two tiers ever
+// no advantage over disabling here, so no structure tier ever
 // picks a REMOVE_STRUCTURE target.
 //
-// Tier 1: the active RELAY_BEACON this player owns that would cost the
-// *least* FOOD-producing reach to give up — see chooseLowValueBeaconToDisable.
+// Order (expansion first — reach is what grows the empire; see
+// foodSlotReliefFromPlannerInput):
+// Free tiers, allowed at exactly-full FOOD too, each giving up nothing that
+// is producing:
+//   1. a MINE/UMBRITE_RIG whose resource is in surplus
+//      (food-slot-relief-surplus.ts);
+//   2. a RELAY_BEACON whose whole reach other anchors already cover
+//      (chooseLowValueBeaconToDisable with redundantOnly);
+//   3. a FOOD-dormant consumer (chooseFoodConsumingStructureToDisable with
+//      dormantOnly).
+// Costly tiers, only in a real deficit or when a beacon site waits on a slot:
+//   4. any working FOOD-consuming structure;
+//   5. the beacon holding the least unique FOOD/valuable/plain land;
+//   6. abandoning a town (below).
 //
-// Tier 2: if no beacon exists at all, any other active FOOD-consuming
-// structure — preferring one the dormancy system (resource-slot-view.ts)
-// already flagged FOOD-dormant (already contributing zero effect, so
-// disabling it costs nothing in current output), but falling back further to
-// any active FOOD-consuming structure if none is dormant — see
-// chooseFoodConsumingStructureToDisable.
-//
-// Tier 3: if neither tier above found anything, the shortage is coming
+// Tier 6: if nothing above found anything, the shortage is coming
 // entirely from town population itself (townFoodSlotDemandForTier in
 // resource-slot-view.ts) — no structure exists to disable at all. The only
 // remaining lever is UNCAPTURE_TILE ("Abandon Territory" in the client):
 // releasing a town tile back to neutral removes 100% of that town's FOOD
-// demand in one move, not just one slot's worth. Unlike tiers 1-2 this is
+// demand in one move, not just one slot's worth. Unlike tiers 1-5 this is
 // NOT reversible the same way — the tile itself can only be reclaimed later
 // via ordinary EXPAND/SETTLE, not flipped back on — so it only ever targets
 // this player's least-developed eligible town (never the SETTLEMENT-tier
@@ -50,6 +55,11 @@ import {
 } from "@border-empires/shared";
 
 import type { AutomationPlannerTile } from "./automation-command-planner-types.js";
+import {
+  chooseManuallyDisabledToReenable,
+  chooseSurplusProducerToDisable,
+  type ResourceSlotHeadroom
+} from "./food-slot-relief-surplus.js";
 
 // FOOD slots a re-enabled RELAY_BEACON takes back (past the free waiver,
 // which is the only case the disable tier ever touches).
@@ -104,37 +114,49 @@ const pickLowestValueBeacon = <TTile extends AutomationPlannerTile>(
   ownedTiles: readonly TTile[],
   playerId: string,
   tilesByKey: ReadonlyMap<string, TTile>
-): TTile | undefined => {
+): { tile: TTile; foodLoss: number; otherLoss: number; landLoss: number } | undefined => {
   const coverCount = anchorCoverCount(ownedTiles, playerId);
-  let best: { tile: TTile; foodLoss: number; otherLoss: number } | undefined;
+  let best: { tile: TTile; foodLoss: number; otherLoss: number; landLoss: number } | undefined;
   for (const tile of beacons) {
     const anchor: ReachAnchor = { x: tile.x, y: tile.y, ownerId: "", activatedAt: 0, kind: "OUTPOST" };
     let foodLoss = 0;
     let otherLoss = 0;
+    // Plain LAND only this beacon reaches. A tile missing from the view is
+    // unknown, so it counts as a loss — the "free" tier must never guess.
+    let landLoss = 0;
     for (const key of tileKeysInReach(anchor)) {
       if ((coverCount.get(key) ?? 0) > 1) continue; // covered by another of this player's anchors too — no loss
       const reachedTile = tilesByKey.get(key);
-      if (!reachedTile) continue;
+      if (!reachedTile) {
+        landLoss += 1;
+        continue;
+      }
       if (reachedTile.resource === "FARM" || reachedTile.resource === "FISH") foodLoss += 1;
       else if (reachedTile.resource || reachedTile.dockId || reachedTile.town) otherLoss += 1;
+      else if (reachedTile.terrain === "LAND") landLoss += 1;
     }
-    if (
+    const better =
       !best ||
       foodLoss < best.foodLoss ||
       (foodLoss === best.foodLoss && otherLoss < best.otherLoss) ||
-      (foodLoss === best.foodLoss && otherLoss === best.otherLoss && (tile.x < best.tile.x || (tile.x === best.tile.x && tile.y < best.tile.y)))
-    ) {
-      best = { tile, foodLoss, otherLoss };
-    }
+      (foodLoss === best.foodLoss && otherLoss === best.otherLoss && landLoss < best.landLoss) ||
+      (foodLoss === best.foodLoss && otherLoss === best.otherLoss && landLoss === best.landLoss &&
+        (tile.x < best.tile.x || (tile.x === best.tile.x && tile.y < best.tile.y)));
+    if (better) best = { tile, foodLoss, otherLoss, landLoss };
   }
-  return best?.tile;
+  return best;
 };
 
-export const chooseLowValueBeaconToDisable = <TTile extends AutomationPlannerTile>(
+/**
+ * The lowest-value paid beacon and whether switching it off is free (every
+ * tile it reaches is also reached by another of the player's anchors). One
+ * scan serves both the free and the costly relief tier.
+ */
+const lowValueBeaconCandidate = <TTile extends AutomationPlannerTile>(
   ownedTiles: readonly TTile[],
   playerId: string,
   tilesByKey: ReadonlyMap<string, TTile> | undefined
-): FoodSlotReliefPlan | undefined => {
+): { plan: FoodSlotReliefPlan; free: boolean } | undefined => {
   if (!tilesByKey) return undefined;
   const beacons = activeNonManualBeacons(ownedTiles, playerId);
   // Below the waiver count, every one of these beacons already costs 0 FOOD
@@ -142,8 +164,20 @@ export const chooseLowValueBeaconToDisable = <TTile extends AutomationPlannerTil
   // for no relief at all, so this tier refuses to pick a target and defers
   // to another actual FOOD consumer instead.
   if (beacons.length === 0 || beacons.length <= RELAY_BEACON_FREE_FOOD_SLOT_COUNT) return undefined;
-  const target = pickLowestValueBeacon(beacons, ownedTiles, playerId, tilesByKey);
-  return target ? { x: target.x, y: target.y, kind: "disable" } : undefined;
+  const best = pickLowestValueBeacon(beacons, ownedTiles, playerId, tilesByKey);
+  if (!best) return undefined;
+  return { plan: { x: best.tile.x, y: best.tile.y, kind: "disable" }, free: best.foodLoss + best.otherLoss + best.landLoss === 0 };
+};
+
+export const chooseLowValueBeaconToDisable = <TTile extends AutomationPlannerTile>(
+  ownedTiles: readonly TTile[],
+  playerId: string,
+  tilesByKey: ReadonlyMap<string, TTile> | undefined,
+  options: { redundantOnly?: boolean } = {}
+): FoodSlotReliefPlan | undefined => {
+  const candidate = lowValueBeaconCandidate(ownedTiles, playerId, tilesByKey);
+  // redundantOnly: switching it off must give up nothing.
+  return candidate && (!options.redundantOnly || candidate.free) ? candidate.plan : undefined;
 };
 
 /**
@@ -255,8 +289,19 @@ const isFoodConsumingStructureType = (type: SlotStructureType): boolean =>
 export const chooseFoodConsumingStructureToDisable = <TTile extends AutomationPlannerTile>(
   ownedTiles: readonly TTile[],
   playerId: string,
-  foodDormantEconomicStructureKeys: ReadonlySet<string> | undefined
+  foodDormantEconomicStructureKeys: ReadonlySet<string> | undefined,
+  options: { dormantOnly?: boolean } = {}
 ): FoodSlotReliefPlan | undefined => {
+  const { dormant, any } = foodConsumerCandidates(ownedTiles, playerId, foodDormantEconomicStructureKeys);
+  return options.dormantOnly ? dormant : dormant ?? any;
+};
+
+/** One scan for both relief tiers: the lowest x/y FOOD-dormant consumer, and the lowest x/y consumer of any kind. */
+const foodConsumerCandidates = <TTile extends AutomationPlannerTile>(
+  ownedTiles: readonly TTile[],
+  playerId: string,
+  foodDormantEconomicStructureKeys: ReadonlySet<string> | undefined
+): { dormant: FoodSlotReliefPlan | undefined; any: FoodSlotReliefPlan | undefined } => {
   let bestDormant: TTile | undefined;
   let bestAny: TTile | undefined;
   for (const tile of ownedTiles) {
@@ -272,8 +317,8 @@ export const chooseFoodConsumingStructureToDisable = <TTile extends AutomationPl
     if (!foodDormantEconomicStructureKeys?.has(`${tile.x},${tile.y}`)) continue;
     if (!bestDormant || tile.x < bestDormant.x || (tile.x === bestDormant.x && tile.y < bestDormant.y)) bestDormant = tile;
   }
-  const best = bestDormant ?? bestAny;
-  return best ? { x: best.x, y: best.y, kind: "disable" } : undefined;
+  const plan = (tile: TTile | undefined): FoodSlotReliefPlan | undefined => (tile ? { x: tile.x, y: tile.y, kind: "disable" } : undefined);
+  return { dormant: plan(bestDormant), any: plan(bestAny) };
 };
 
 // Population tiers ordered least-to-most developed, matching the town-growth
@@ -366,7 +411,10 @@ export const foodSlotReliefFromPlannerInput = <TTile extends AutomationPlannerTi
   foodSlotDemand: number | undefined,
   forceRelief = false,
   ownedRelayBeaconCount: number | undefined = undefined,
-  ownedNetworkInstallationCount: number | undefined = undefined
+  ownedNetworkInstallationCount: number | undefined = undefined,
+  resourceSlotHeadroom: ResourceSlotHeadroom | undefined = undefined,
+  /** Lazily: would a Relay Beacon site exist with one more FOOD slot? */
+  beaconWaitingOnFood: (() => boolean) | undefined = undefined
 ): { reliefTarget: FoodSlotReliefPlan | undefined; exhausted: boolean; reenableTarget: FoodSlotReenableTarget | undefined } => {
   const demand = foodSlotDemand ?? 0;
   const supply = foodSlotSupply ?? 0;
@@ -382,16 +430,38 @@ export const foodSlotReliefFromPlannerInput = <TTile extends AutomationPlannerTi
     // is waived (the waiver goes to the earliest-activated), so it costs none.
     const reenableCost = (ownedRelayBeaconCount ?? Infinity) > RELAY_BEACON_FREE_FOOD_SLOT_COUNT ? RELAY_BEACON_FOOD_SLOT_COST : 0;
     const beaconHasHeadroom = supply - demand > reenableCost;
+    // Beacons first (reach is the priority), then any other FOOD consumer
+    // relief switched off — one owned-tile pass for both, so a large empire
+    // (which always owns beacons) pays no more than the beacon scan it already
+    // did. Same hysteresis for consumers: each costs one FOOD slot.
+    const reenable = { beacons: (ownedRelayBeaconCount ?? 0) > 0 && beaconHasHeadroom, consumers: supply - demand > 1 };
     const reenableTarget =
       // Count-gated like the beacon scan: walking every owned tile each tick is
       // only worth it when there is a frontier installation to find.
       ((ownedNetworkInstallationCount ?? 0) > 0 ? chooseManuallyDisabledFreeStructureToReenable(ownedTiles, playerId) : undefined) ??
-      ((ownedRelayBeaconCount ?? 0) > 0 && beaconHasHeadroom ? chooseManuallyDisabledBeaconToReenable(ownedTiles, playerId) : undefined);
+      (reenable.beacons || reenable.consumers
+        ? chooseManuallyDisabledToReenable(ownedTiles, playerId, reenable, resourceSlotHeadroom, Date.now())
+        : undefined);
     return { reliefTarget: undefined, exhausted, reenableTarget };
   }
+  // Expansion first. Free relief (gives up nothing that is producing) is
+  // always allowed, including at exactly-full FOOD. Costly relief only runs in
+  // a real deficit, when slot data is missing and a build hit
+  // INSUFFICIENT_SLOT, or when a Relay Beacon site is waiting on exactly this
+  // one FOOD slot. At exactly-full it used to switch off a land-holding
+  // beacon, and the freed slot then went to whatever built next (staging
+  // season-41: 185 AI beacons switched off while 253 Manufactories ran).
+  // Working buildings go before land-holding beacons.
+  // Each chooser scans owned tiles once; the costly tier reuses the results.
+  const surplus = chooseSurplusProducerToDisable(ownedTiles, playerId, resourceSlotHeadroom);
+  const beacon = surplus ? undefined : lowValueBeaconCandidate(ownedTiles, playerId, tilesByKey);
+  const consumers = surplus || beacon?.free ? undefined : foodConsumerCandidates(ownedTiles, playerId, foodDormantEconomicStructureKeys);
+  const freeRelief = surplus ?? (beacon?.free ? beacon.plan : undefined) ?? consumers?.dormant;
+  const inDeficit = forceRelief || supply < demand;
   const reliefTarget =
-    chooseLowValueBeaconToDisable(ownedTiles, playerId, tilesByKey) ??
-    chooseFoodConsumingStructureToDisable(ownedTiles, playerId, foodDormantEconomicStructureKeys) ??
-    chooseTownToAbandon(ownedTiles, playerId);
+    freeRelief ??
+    (inDeficit || beaconWaitingOnFood?.() === true
+      ? consumers?.any ?? beacon?.plan ?? chooseTownToAbandon(ownedTiles, playerId)
+      : undefined);
   return { reliefTarget, exhausted, reenableTarget: undefined };
 };

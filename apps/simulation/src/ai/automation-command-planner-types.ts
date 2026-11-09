@@ -341,6 +341,8 @@ export type AutomationPlannerDiagnostic = {
      *  green yet ATTACK still scoring 0 — this field is the only way to see
      *  that's what happened instead of an unexplained veto. */
     attackOnCooldown: boolean;
+    /** An attack target was selected but no own muster flag in range could fund it (ai-attack-muster-funding.ts). */
+    attackUnfunded?: boolean;
   };
   /** Phase 1 of docs/ai-structure-building-rewrite-plan.md (§4/§9/§10.1):
    *  measured need deficits, reported for diagnostics only — nothing in the
