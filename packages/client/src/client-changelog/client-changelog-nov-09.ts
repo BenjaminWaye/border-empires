@@ -72,7 +72,7 @@ export const SECTOR_WAITLIST_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   changes: [
     "When the current Sector Contest is full, signed-in players can join the waitlist for the next Sector",
     "The full screen shows how many Houses are already waiting",
-    "The next Sector's start is announced by the usual season-start email (if you have it switched on); guests are asked to sign in first"
+    "The next Sector's start is announced by the New Sector Contest email (if you have it switched on); guests are asked to sign in first"
   ]
 };
 
@@ -102,7 +102,7 @@ export const SECTOR_CONTEST_NAME_ENTRY: Omit<ClientChangelogEntry, "createdAt"> 
   why: "Each round is a contest for a Sector world, so \"season\" no longer described it.",
   changes: [
     "Join screens, the end-of-contest summary, profile, rankings, galaxy view and emails say Sector Contest instead of season",
-    "The join screen numbers the contest (Sector Contest 7) instead of showing its internal id",
+    "The join screen no longer shows the contest's internal id (\"Season season-7\")",
     "Nothing about how a contest plays, ends or resets has changed"
   ]
 };

@@ -125,7 +125,7 @@ const economyHtml = (economy: GalaxyViewEconomy | undefined): string => {
 // been redeployed with sector numbering yet (sectorNumber absent) -- see the
 // GalaxyViewPlanet.sectorNumber comment above.
 const sectorOrSeasonLabel = (sectorNumber: number | undefined, seasonSequence: number): string =>
-  sectorNumber !== undefined ? sectorNumberLabel(sectorNumber) : `Sector Contest ${seasonSequence}`;
+  sectorNumber !== undefined ? sectorNumberLabel(sectorNumber) : `Season ${seasonSequence}`;
 
 const specializationBadgeHtml = (specialization: string | undefined): string => {
   if (!specialization) return "";

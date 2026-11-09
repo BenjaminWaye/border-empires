@@ -2302,7 +2302,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               notifySeasonStarted();
             } catch (error) {
               recordGatewayEvent("warn", "gateway_start_new_season_rejected", { playerId: session.playerId, error: error instanceof Error ? error.message : String(error) });
-              sendJson(socket, { type: "ERROR", code: "SEASON_NOT_READY", message: "A new season cannot start yet." });
+              sendJson(socket, { type: "ERROR", code: "SEASON_NOT_READY", message: "A new Sector Contest cannot start yet." });
             }
             return;
           }

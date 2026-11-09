@@ -65,7 +65,7 @@ describe("renderGalaxyViewHtml", () => {
     const withSector: GalaxyViewPlanet = { ...unnamed, sectorNumber: 7, campaign: { kind: "FRONTIER" } };
     const html = renderGalaxyViewHtml({ planets: [named, withSector], focusedSeasonId: "season-2" });
     expect(html).toContain("Sector 007");
-    expect(html).not.toContain("Sector Contest 1");
+    expect(html).not.toContain("Season 1");
   });
 
   it("falls back to the first planet when focusedSeasonId does not match any planet", () => {
@@ -164,7 +164,7 @@ describe("renderGalaxyViewHtml — Outpost/Stipend tiers (§3)", () => {
       stipends: []
     });
     expect(html).toContain("data-galaxy-outpost");
-    expect(html).toContain("Sector Contest 2 Outpost");
+    expect(html).toContain("Season 2 Outpost");
     expect(html).toContain(GALAXY_SPECIALIZATION_NAME.EXTRACTION);
   });
 
@@ -192,9 +192,9 @@ describe("renderGalaxyViewHtml — Outpost/Stipend tiers (§3)", () => {
       stipends: [{ seasonId: "season-dc", seasonSequence: 5, sectorNumber: 1, campaign: { kind: "CONTESTATION", ordinal: 1 }, influence: 9, production: 36, awardedAt: 1_000 }]
     });
     expect(html).toContain("Sector 001 Outpost");
-    expect(html).not.toContain("Sector Contest 2 Outpost");
+    expect(html).not.toContain("Season 2 Outpost");
     expect(html).toContain("Sector 001: a stipend of");
-    expect(html).not.toContain("Sector Contest 5:");
+    expect(html).not.toContain("Season 5:");
   });
 
   it("renders outposts/stipends alongside a focused planet hero", () => {

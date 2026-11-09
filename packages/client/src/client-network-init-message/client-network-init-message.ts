@@ -36,7 +36,6 @@ import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { applySeasonChangeOnInit } from "../client-season-rollover/client-season-rollover.js";
 import { resetServerReachForNewConnection } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
-import { sectorContestLabel } from "../client-sector-contest-label/client-sector-contest-label.js";
 import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
@@ -435,7 +434,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     // guard each reconnect would re-push "Spawned..." with a fresh timestamp,
     // making a spawn from an hour ago look like it just happened.
     state.spawnFeedShownSeasonId = spawnSeasonId;
-    pushFeed(`Spawned. ${spawnSeasonId ? `${sectorContestLabel(spawnSeasonId)}.` : ""} Your tile is centered.`, "info", "success");
+    pushFeed("Spawned. Your tile is centered.", "info", "success");
   }
   if (incomingConfig.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
   if (offlineActivity.length > 0) {

@@ -2,7 +2,6 @@ import type { ClientState } from "./client-state/client-state.js";
 import type { FeedType, FeedSeverity } from "./client-types.js";
 import { renderSeasonLobbyPanelHtml, bindSeasonLobbyPanel } from "./client-season-lobby-panel.js";
 import { takeGuestAutoJoinTurn } from "./client-guest-play/client-guest-play.js";
-import { sectorContestLabel } from "./client-sector-contest-label/client-sector-contest-label.js";
 
 type JoinSeasonOverlayDeps = {
   state: Pick<

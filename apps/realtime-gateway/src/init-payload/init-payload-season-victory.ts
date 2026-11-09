@@ -278,7 +278,7 @@ export const buildSeasonVictoryObjectives = (
     const statusLabel = snapshotBootstrap.seasonWinner
       ? snapshotBootstrap.seasonWinner.objectiveId === def.id
         ? `Winner crowned: ${snapshotBootstrap.seasonWinner.playerName}`
-        : "Season already decided"
+        : "Contest already decided"
       : conditionMet
         ? holdRemainingSeconds !== undefined
           ? `Holding · ${Math.max(0, Math.ceil(holdRemainingSeconds / 3600))}h left`
