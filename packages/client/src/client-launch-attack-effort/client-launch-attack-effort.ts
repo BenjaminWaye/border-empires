@@ -10,6 +10,7 @@
 import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type MusterCommitPreset } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 import { commitPreviewWinChanceForTarget } from "../client-queue-logic/client-attack-preview-logic.js";
 import { showEffortConfirmSheet } from "../client-effort-confirm-sheet/client-effort-confirm-sheet.js";
+import { supplyTradeAttackWarningsForTargets } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
 import {
   attackEffortFloorForTarget,
   clearAttackCommit,
@@ -56,9 +57,10 @@ export const promptAttackEffortForTarget = (
 ): boolean => {
   if (!isAttackEffortEligibleTarget(tile)) return false;
   const floor = attackEffortFloorForTarget(tile, state);
+  const supplyWarning = supplyTradeAttackWarningsForTargets(state, [tile.ownerId]);
   const handle = showEffortConfirmSheet({
     title: options.title,
-    subtitle: `${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} — committing more manpower improves your odds.`,
+    subtitle: `${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} — committing more manpower improves your odds.${supplyWarning ? ` ${supplyWarning}.` : ""}`,
     floor,
     cap: Math.max(floor, state.manpowerCap),
     mode: "slider",
@@ -102,17 +104,18 @@ const queueAndReport = (
 
 /** Multi-target sheet: presets only, each eligible target gets its own floor times the chosen multiplier. */
 const promptBulkEffort = (
-  state: EffortState,
+  state: ClientState,
   eligible: Tile[],
   title: string,
   onConfirm: (preset: MusterCommitPreset) => void
 ): boolean => {
   const minFloor = Math.min(...eligible.map(tile => attackEffortFloorForTarget(tile, state)));
+  const supplyWarning = supplyTradeAttackWarningsForTargets(state, eligible.map(tile => tile.ownerId));
   const totalFor = (preset: MusterCommitPreset): number =>
     eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile, state)), 0);
   const handle = showEffortConfirmSheet({
     title,
-    subtitle: `${eligible.length} defended target${eligible.length === 1 ? "" : "s"} — effort applies to each of them.`,
+    subtitle: `${eligible.length} defended target${eligible.length === 1 ? "" : "s"} — effort applies to each of them.${supplyWarning ? ` ${supplyWarning}.` : ""}`,
     floor: minFloor,
     cap: Math.max(minFloor, state.manpowerCap),
     mode: "presets",

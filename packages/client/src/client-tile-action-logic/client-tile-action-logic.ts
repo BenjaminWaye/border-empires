@@ -22,7 +22,7 @@ import {
 import { manufactoryGoldProductionMultiplier, playerHasAbilityTech } from "@border-empires/game-domain";
 import { townGrowthActionForUpgrade } from "./client-tile-action-town-growth.js";
 import { diplomacyActionForOwner } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
-import { allyLaunchAttackAction, breakTruceAction, gateAttackRowsOnTruce } from "../client-pact-attack-gate/client-pact-attack-gate.js";
+import { allyLaunchAttackAction, breakTruceAction, gateAttackRowsOnTruce, supplyTradeAttackWarning } from "../client-pact-attack-gate/client-pact-attack-gate.js";
 import { structureToggleMenuEntries } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { SKY_DOCK_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS } from "../client-constants.js";
 import { connectedEnemyRegionKeys } from "../client-connected-region/client-connected-region.js";
@@ -1505,7 +1505,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       // Barbarians cannot be truced with — no truce actions for barbarian-owned tiles.
     } else {
       out.push(diplomacyActionForOwner(state, tile.ownerId, deps));
-      gateAttackRowsOnTruce(out, activeTruce);
+      gateAttackRowsOnTruce(out, activeTruce, supplyTradeAttackWarning(state, tile.ownerId));
       if (activeTruce) out.push(breakTruceAction(activeTruce));
     }
     const revealActive = state.activeRevealTargets.includes(tile.ownerId);
