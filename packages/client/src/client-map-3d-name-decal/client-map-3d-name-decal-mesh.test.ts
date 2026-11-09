@@ -32,4 +32,13 @@ describe("buildDecalMeshArrays", () => {
     const { positions, indices } = buildDecalMeshArrays({ ...source, hillDomeAt: () => () => 0.1 }, window1);
     expect(Math.max(...indices)).toBe(positions.length / 3 - 1);
   });
+
+  it("skips excluded tiles without sampling their hill dome", () => {
+    let domeCalls = 0;
+    const hillDomeAt = (x: number) => (x === 10 ? undefined : () => { domeCalls += 1; return 0.1; });
+    const { positions, indices } = buildDecalMeshArrays({ ...source, hillDomeAt }, { ...window1, includeTile: (tx) => tx === 0 });
+    expect(positions.length / 3).toBe((FLAT_SUBDIVISIONS + 1) ** 2);
+    expect(indices.length).toBe(FLAT_SUBDIVISIONS ** 2 * 6);
+    expect(domeCalls).toBe(0);
+  });
 });
