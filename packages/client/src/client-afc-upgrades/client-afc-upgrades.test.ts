@@ -90,6 +90,28 @@ describe("single-level AFC upgrade management", () => {
     expect(panel.querySelectorAll("[data-afc-upgrade-installed]")).toHaveLength(2);
     expect(panel.querySelectorAll(".afc-upgrade-card")).toHaveLength(0);
   });
+  it("moves focus to completion after the final installation is confirmed", () => {
+    const { state, panel, install } = setup();
+    state.domainCatalog.push({ ...state.domainCatalog[0]!, id: "next", tier: 2 });
+    state.domainIds = ["first"]; state.domainChoices = ["next"];
+    renderAfcUpgradePanels(state, panel, install);
+    panel.querySelector<HTMLButtonElement>('[data-afc-upgrade-card="next"]')!.click();
+    const action = panel.querySelector<HTMLButtonElement>('[data-domain-unlock="next"]')!;
+    action.focus();
+    action.click();
+
+    state.pendingDomainUnlockId = "next";
+    renderAfcUpgradePanels(state, panel, install);
+    expect(document.activeElement).toBe(panel.querySelector('[data-afc-upgrade-card="next"]'));
+
+    state.pendingDomainUnlockId = "";
+    state.domainIds.push("next");
+    state.domainChoices = [];
+    renderAfcUpgradePanels(state, panel, install);
+    expect(document.activeElement).toBe(panel.querySelector("[data-afc-upgrade-complete]"));
+    expect(install).toHaveBeenCalledTimes(1);
+    expect(install).toHaveBeenCalledWith("next");
+  });
   it("keeps delegation and selection through live HUD rerenders, without launching an overlay", () => {
     const { state, panel, install } = setup();
     panel.querySelector<HTMLButtonElement>('[data-afc-upgrade-card="first"]')!.click();

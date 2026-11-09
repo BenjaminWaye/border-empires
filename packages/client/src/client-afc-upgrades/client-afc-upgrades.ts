@@ -136,7 +136,10 @@ export function renderAfcUpgradePanels(
     view.html = html;
     root.scrollTop = scrollTop;
     if (focusSelector) {
-      const control = root.querySelector<HTMLElement>(focusSelector);
+      let control = root.querySelector<HTMLElement>(focusSelector);
+      if (control instanceof HTMLButtonElement && control.disabled) {
+        control = control.closest(".afc-upgrade-option")?.querySelector<HTMLElement>("[data-afc-upgrade-card]") ?? null;
+      }
       if (control) control.focus({ preventScroll: true });
       else root.querySelector<HTMLElement>("[data-afc-upgrade-current-tier], [data-afc-upgrade-complete]")?.focus();
     }
