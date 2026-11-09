@@ -125,3 +125,17 @@ export const MOBILE_PROFILE_SCROLL_ENTRY: Omit<ClientChangelogEntry, "createdAt"
   why: "The crest and stats could scroll separately, and the stats heading could overlap profile badges.",
   changes: ["The crest, badges and stats scroll together. The page keeps its place when stats refresh."]
 };
+
+export const BRASS_DEAL_SLIDERS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Brass sliders for diplomacy deals",
+  why: "The bright amount controls stood out against the dark diplomacy panel.",
+  changes: ["Coin and supply amounts now use a brass slider and a dark exact-amount field with larger touch targets"]
+};
+
+export const ADMIN_FORCE_SEASON_START_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Admins can force-start the next Sector Contest",
+  why: "Once a Sector Contest ended, the next one could only start after enough players voted, even when the admin needed to roll it over.",
+  changes: ["On the end-of-contest summary, the admin can press and hold the vote button for about 1.5 seconds to start the next Sector Contest straight away"]
+};
