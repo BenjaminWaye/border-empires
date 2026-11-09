@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { GatewayDebugEvent } from "./http-routes.js";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 import { selectBugReportServerEvents } from "./bug-report-server-events.js";
+import { boundedContextString, normalizeBugReportClientEvents } from "./bug-report-client-events.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -98,7 +99,7 @@ const registerPlayerReportRoute = (
     const metadata = typeof body.metadata === "object" && body.metadata !== null
       ? body.metadata as Record<string, unknown>
       : {};
-    const clientEvents = Array.isArray(body.clientEvents) ? body.clientEvents as BugReportInput["clientEvents"] : [];
+    const clientEvents = normalizeBugReportClientEvents(body.clientEvents);
     const playerId = typeof clientContext.me === "string" && clientContext.me.length > 0 ? clientContext.me : "unknown";
     const playerName = typeof clientContext.meName === "string" ? clientContext.meName : "unknown";
     const serverEvents = selectBugReportServerEvents(recentEventsFn(), playerId);
@@ -116,8 +117,8 @@ const registerPlayerReportRoute = (
         description: description.slice(0, 1_000),
         clientEventCount: clientEvents.length,
         serverEventCount: serverEvents.length,
-        serverBuildSha: clientContext.bridgeDebugServerBuildSha,
-        seasonId: clientContext.bridgeDebugSeasonId
+        serverBuildSha: boundedContextString(clientContext, "bridgeDebugServerBuildSha"),
+        seasonId: boundedContextString(clientContext, "bridgeDebugSeasonId")
       },
       "player_bug_report"
     );
@@ -127,7 +128,7 @@ const registerPlayerReportRoute = (
       description: description.slice(0, 1_000),
       playerName,
       playerId,
-      clientEvents: clientEvents.slice(-100),
+      clientEvents,
       serverEvents,
       clientContext,
       metadata

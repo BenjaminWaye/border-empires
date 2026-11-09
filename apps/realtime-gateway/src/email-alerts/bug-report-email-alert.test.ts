@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
-import { buildPlayerReportEmail, sendPlayerReportEmail } from "./bug-report-email-alert.js";
+import { MAX_REPORT_ATTACHMENT_CHARS, buildPlayerReportEmail, sendPlayerReportEmail } from "./bug-report-email-alert.js";
 
 const report = (): BugReportInput => ({
   reportId: "abc-123",
@@ -62,5 +62,56 @@ describe("sendPlayerReportEmail", () => {
     expect(bodies[0]?.attachments).toEqual([
       expect.objectContaining({ filename: "bug-report-abc-123.json", content: expect.any(String) })
     ]);
+  });
+
+  const capture = (statuses: number[]) => {
+    const bodies: Array<Record<string, unknown>> = [];
+    const fetchImpl = (async (_url: string, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return new Response("rejected", { status: statuses[bodies.length - 1] ?? 200 });
+    }) as typeof fetch;
+    const errors: string[] = [];
+    const config = {
+      resendApiKey: "k", from: "a@b.c", to: "admin@b.c", fetchImpl,
+      log: { error: (_payload: unknown, message?: string) => { errors.push(message ?? ""); } }
+    };
+    return { bodies, errors, config };
+  };
+
+  it("never rejects on malformed events — a throw here would be an unhandled rejection that kills the gateway", async () => {
+    const { errors, config } = capture([]);
+    const bad = { ...report(), clientEvents: [{ at: Number.NaN, level: "warn", scope: "x", event: "e", payload: {} }] };
+    await expect(sendPlayerReportEmail("bug", bad, config)).resolves.toBeUndefined();
+    expect(errors).toEqual(["failed to send bug report email"]);
+  });
+
+  it("swaps in a stub attachment for pathologically deep client context", async () => {
+    let deep: unknown = "leaf";
+    for (let i = 0; i < 1_000_000; i += 1) deep = [deep];
+    const { bodies, config } = capture([]);
+    await sendPlayerReportEmail("bug", { ...report(), clientContext: { deep } }, config);
+    const [attachment] = bodies[0]?.attachments as Array<{ content: string }>;
+    const decoded = JSON.parse(Buffer.from(attachment?.content ?? "", "base64").toString("utf8"));
+    expect(decoded.reportId).toBe("abc-123");
+    // Depending on the V8 build this either overflows the stack or exceeds the size cap; both must yield the stub.
+    expect(decoded.attachmentOmitted).toEqual(expect.any(String));
+  });
+
+  it("swaps in a stub attachment when the report is too large", () => {
+    const big = { blob: "x".repeat(MAX_REPORT_ATTACHMENT_CHARS) };
+    const { attachment } = buildPlayerReportEmail("bug", { ...report(), metadata: big }, "staging");
+    const decoded = JSON.parse(Buffer.from(attachment.content, "base64").toString("utf8"));
+    expect(decoded.attachmentOmitted).toBe("too_large");
+    expect(decoded.clientEvents).toBeUndefined();
+  });
+
+  it("retries without the attachment when Resend rejects it, so the summary still arrives", async () => {
+    const { bodies, errors, config } = capture([422, 200]);
+    await sendPlayerReportEmail("bug", report(), config);
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0]?.attachments).toBeDefined();
+    expect(bodies[1]?.attachments).toBeUndefined();
+    expect(bodies[1]?.text).toContain("Report ID: abc-123");
+    expect(errors).toEqual(["bug report email with attachment rejected; retrying without"]);
   });
 });

@@ -56,6 +56,32 @@ const countLine = (label: string, events: LeveledEvent[]): string => {
   return `${label} events: ${events.length} total (${errors} errors, ${warnings} warnings)`;
 };
 
+// Client context/metadata/payloads are arbitrary client JSON: compact (not
+// pretty-printed, whose indentation grows quadratically with nesting depth),
+// and fall back to a stub when the report is too large or too deep to
+// stringify, so the summary email still goes out.
+export const MAX_REPORT_ATTACHMENT_CHARS = 1_000_000;
+
+const serializeReportAttachment = (kind: PlayerReportKind, report: BugReportInput): string => {
+  let json: string | undefined;
+  let failure = "too_large";
+  try {
+    json = JSON.stringify({ kind, ...report });
+  } catch (error) {
+    failure = error instanceof Error ? error.message : String(error);
+  }
+  if (json !== undefined && json.length <= MAX_REPORT_ATTACHMENT_CHARS) return json;
+  return JSON.stringify({
+    kind,
+    reportId: report.reportId,
+    playerId: report.playerId,
+    playerName: report.playerName,
+    description: report.description,
+    attachmentOmitted: failure,
+    serializedLength: json?.length ?? null
+  });
+};
+
 // The body is a skim-able summary; the full report (every event payload, the
 // client context and metadata) rides along as a JSON attachment, which is
 // what an agent debugging the report should actually read.
@@ -82,7 +108,7 @@ export const buildPlayerReportEmail = (kind: PlayerReportKind, report: BugReport
   ].join("\n");
   const attachment: ResendAttachment = {
     filename: `${kind}-report-${report.reportId}.json`,
-    content: Buffer.from(JSON.stringify({ kind, ...report }, null, 2), "utf8").toString("base64")
+    content: Buffer.from(serializeReportAttachment(kind, report), "utf8").toString("base64")
   };
   return { subject, text, attachment };
 };
@@ -98,27 +124,45 @@ export const sendPlayerReportEmail = async (kind: PlayerReportKind, report: BugR
   const fetchImpl = config.fetchImpl ?? globalThis.fetch;
   if (!apiKey || !from || !to || !fetchImpl) return;
 
-  const { subject, text, attachment } = buildPlayerReportEmail(kind, report, config.appLabel ?? DEFAULT_APP_LABEL);
-  const html = `<pre>${escapeHtml(text)}</pre>`;
+  // Everything — including building the email from untrusted client input —
+  // stays inside the try: callers fire-and-forget with `void`, so a throw
+  // here would be an unhandled rejection that terminates the gateway.
+  try {
+    const { subject, text, attachment } = buildPlayerReportEmail(kind, report, config.appLabel ?? DEFAULT_APP_LABEL);
+    const html = `<pre>${escapeHtml(text)}</pre>`;
+    const message = { from, to: [to], subject, text, html };
+    const withAttachment = await postToResend(fetchImpl, apiKey, { ...message, attachments: [attachment] });
+    if (withAttachment.ok) return;
+    // Don't lose the whole report if Resend rejects the attachment: retry
+    // with the summary body alone.
+    config.log?.error?.({ err: withAttachment.error, reportId: report.reportId }, `${kind} report email with attachment rejected; retrying without`);
+    const plain = await postToResend(fetchImpl, apiKey, message);
+    if (!plain.ok) throw new Error(plain.error);
+  } catch (error) {
+    config.log?.error?.(
+      { err: error instanceof Error ? error.message : String(error), reportId: report.reportId },
+      `failed to send ${kind} report email`
+    );
+  }
+};
 
+type ResendResult = { ok: true } | { ok: false; error: string };
+
+const postToResend = async (fetchImpl: typeof fetch, apiKey: string, message: Record<string, unknown>): Promise<ResendResult> => {
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), POST_TIMEOUT_MS);
   try {
     const response = await fetchImpl(RESEND_ENDPOINT, {
       method: "POST",
       headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ from, to: [to], subject, text, html, attachments: [attachment] }),
+      body: JSON.stringify(message),
       signal: ac.signal
     });
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(`resend returned ${response.status}: ${body.slice(0, 200)}`);
-    }
+    if (response.ok) return { ok: true };
+    const body = await response.text().catch(() => "");
+    return { ok: false, error: `resend returned ${response.status}: ${body.slice(0, 200)}` };
   } catch (error) {
-    config.log?.error?.(
-      { err: error instanceof Error ? error.message : String(error), reportId: report.reportId },
-      `failed to send ${kind} report email`
-    );
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
   } finally {
     clearTimeout(timer);
   }
