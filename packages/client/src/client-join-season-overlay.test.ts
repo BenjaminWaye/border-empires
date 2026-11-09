@@ -66,7 +66,8 @@ describe("join-season overlay", () => {
       joinSeason: () => true
     });
     expect(overlayEl.style.display).toBe("grid");
-    expect(overlayEl.querySelector(".respawn-kicker")?.textContent).toBe("Season 42");
+    expect(overlayEl.querySelector(".respawn-kicker")?.textContent).toBe("Sector Contest");
+    expect(overlayEl.innerHTML).not.toContain("season-42");
     expect(overlayEl.querySelector("#join-season-confirm")).toBeTruthy();
   });
 
@@ -158,7 +159,7 @@ describe("join-season overlay", () => {
       joinSeason: () => true
     });
     const title = overlayEl.querySelector("#join-season-title") as HTMLElement;
-    expect(title.textContent).toBe("Season starts soon");
+    expect(title.textContent).toBe("Sector Contest starts soon");
     expect(title.textContent).not.toContain("season-8");
   });
 

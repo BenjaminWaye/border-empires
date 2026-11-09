@@ -96,11 +96,11 @@ export const handleSetProfileMessage = async (deps: SetProfileMessageDeps): Prom
     currentSeasonId = await getCurrentSeasonId();
   }
   if (isRename && currentSeasonId && existingProfile?.nameChangedSeasonId === currentSeasonId) {
-    sendJson({ type: "ERROR", code: "DISPLAY_NAME_LIMIT", message: "You can only change your display name once per season. Try again next season." });
+    sendJson({ type: "ERROR", code: "DISPLAY_NAME_LIMIT", message: "You can only change your display name once per Sector Contest. Try again in the next one." });
     return;
   }
   if (isColorChange && currentSeasonId && existingProfile?.colorChangedSeasonId === currentSeasonId) {
-    sendJson({ type: "ERROR", code: "COLOR_LIMIT", message: "You can only change your empire colour once per season. Try again next season." });
+    sendJson({ type: "ERROR", code: "COLOR_LIMIT", message: "You can only change your empire colour once per Sector Contest. Try again in the next one." });
     return;
   }
 

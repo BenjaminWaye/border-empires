@@ -27,7 +27,7 @@ export const musterReportsHtml = (view: MusterReportsView | undefined): string =
       </div>
       <details data-muster-report-id="${escapeHtml(report.id)}"><summary>Battle details</summary><p>${reportDetailHtml(report.detail)}</p></details>
     </article>`).join('')}
-    <p class="muster-reports-foot">Up to 40 reports per flag, saved in this browser for this season.</p>
+    <p class="muster-reports-foot">Up to 40 reports per flag, saved in this browser for this Sector Contest.</p>
   </section>`;
 };
 export const wireMusterReports = (root: ParentNode, state: ReportState, view: MusterReportsView | undefined, rerender: () => void): void => {

@@ -46,7 +46,7 @@ describe("season summary recovery", () => {
   it.each([
     ["deadliest-tile", "Most Deadly Tile", "No combat record available."],
     ["longest-road", "Longest Road", "No connected road recorded."],
-    ["timeline", "Score timeline", "No score timeline was saved for this season."]
+    ["timeline", "Score timeline", "No score timeline was saved for this Sector Contest."]
   ])("opens a prefilled bug report beside the missing %s message", (section, record, message) => {
     const state = Object.assign(createInitialState(), stateForSummary());
     const hud = document.createElement("div");
@@ -118,7 +118,7 @@ describe("season summary recovery", () => {
     expect(overlay.querySelector('.se-tab[data-tab="score-graph"]')).toBeTruthy();
     expect(overlay.textContent).toContain("Longest Road");
     expect(overlay.textContent).toContain("Most Deadly Tile");
-    expect(overlay.textContent).toContain("No score timeline was saved for this season.");
+    expect(overlay.textContent).toContain("No score timeline was saved for this Sector Contest.");
     (overlay.querySelector('.se-tab[data-tab="misc"]') as HTMLButtonElement).click();
     expect(overlay.querySelector('.se-tab-panel[data-tab="misc"]')?.classList.contains("is-active")).toBe(true);
   });

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
-import { formatJoinSeasonLabel, renderJoinSeasonOverlay } from "./client-join-season-overlay.js";
+import { renderJoinSeasonOverlay } from "./client-join-season-overlay.js";
 
 const makeState = (overrides: Record<string, unknown> = {}) => ({
   needsSeasonJoin: true,
@@ -51,10 +51,3 @@ describe("join-season overlay after the season has ended", () => {
   });
 });
 
-describe("formatJoinSeasonLabel", () => {
-  it("does not repeat the word season for prefixed ids", () => {
-    expect(formatJoinSeasonLabel("season-13")).toBe("Season 13");
-    expect(formatJoinSeasonLabel("Season 4")).toBe("Season 4");
-    expect(formatJoinSeasonLabel("42")).toBe("Season 42");
-  });
-});

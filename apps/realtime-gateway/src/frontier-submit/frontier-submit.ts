@@ -134,7 +134,7 @@ export const submitDurableCommand = async <TType extends ClientCommandEnvelope["
     const simulationEnded = error instanceof Error && error.message.toLowerCase().includes("season ended");
     const rejectionCode = simulationEnded ? "SEASON_ENDED" : "SIMULATION_UNAVAILABLE";
     const rejectionMessage = simulationEnded
-      ? "season has ended; wait for the next world to begin"
+      ? "the Sector Contest has ended; wait for the next world to begin"
       : "command could not be queued in simulation";
     deps.onCommandSubmitFailed?.(envelope.commandId);
     // markRejected is best-effort — a persistence failure must not suppress the

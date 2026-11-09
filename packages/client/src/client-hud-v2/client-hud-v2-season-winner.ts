@@ -12,4 +12,4 @@ export const seasonWinnerName = (winner: SeasonWinnerView, me: string, nameOf: (
 };
 
 /** "Economic Ascendancy", or a neutral fallback if the snapshot has no path name. */
-export const seasonWinnerPath = (winner: SeasonWinnerView): string => winner.objectiveName || "the season";
+export const seasonWinnerPath = (winner: SeasonWinnerView): string => winner.objectiveName || "the Sector Contest";

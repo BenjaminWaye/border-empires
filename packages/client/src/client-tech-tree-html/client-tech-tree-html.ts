@@ -190,7 +190,7 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
   const choicesSet = new Set(args.effectiveTechChoices);
   const showsGoodPick = createGoodPickLookup(ownedSet, args.isPendingTechUnlock, args.isGoodPick);
   const rootMemo = new Map<string, string>();
-  if (args.techCatalog.length === 0) return `<article class="card"><p>No Manifests are available this season.</p></article>`;
+  if (args.techCatalog.length === 0) return `<article class="card"><p>No Manifests are available this Sector Contest.</p></article>`;
 
   const childrenByTech = new Map<string, string[]>();
   for (const tech of args.techCatalog) {

@@ -220,7 +220,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   if (monumentBaseType) {
     const claimedBy = monumentClaimOwnerId(context.tiles, monumentBaseType);
     if (claimedBy) {
-      rejectCommand(context, command, "MONUMENT_CLAIMED", `${structureLabel(monumentBaseType)} has already been claimed this season`);
+      rejectCommand(context, command, "MONUMENT_CLAIMED", `${structureLabel(monumentBaseType)} has already been claimed this Sector Contest`);
       return;
     }
   }

@@ -110,7 +110,7 @@ export const bindClientSocketLifecycle = (deps: SocketLifecycleDeps): SocketLife
     });
     handleSocketTornDown(
       actionKey,
-      event.reason === SEASON_ROLLOVER_CLOSE_REASON ? "A new season has started. Loading it..." : "Connection lost. Retrying...",
+      event.reason === SEASON_ROLLOVER_CLOSE_REASON ? "A new Sector Contest has started. Loading it..." : "Connection lost. Retrying...",
       state.hasEverInitialized ? "Reconnecting automatically..." : `The realtime connection to ${deps.wsUrl} closed before sign-in finished. Reload the game to reconnect.`
     );
   });

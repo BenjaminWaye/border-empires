@@ -72,7 +72,7 @@ export const SECTOR_WAITLIST_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   changes: [
     "When the current Sector Contest is full, signed-in players can join the waitlist for the next Sector",
     "The full screen shows how many Houses are already waiting",
-    "The next Sector's start is announced by the usual season-start email (if you have it switched on); guests are asked to sign in first"
+    "The next Sector's start is announced by the New Sector Contest email (if you have it switched on); guests are asked to sign in first"
   ]
 };
 
@@ -95,6 +95,17 @@ export const HIVE_MIND_II_PREREQ_ENTRY: Omit<ClientChangelogEntry, "createdAt"> 
     "Hive Mind Module II now requires the Thunderplate Induction Module instead of Hive Mind Module I, and moves to Tier 4",
     "Hive Mind Module I no longer leads to another manifest",
     "Commissioning Hive Mind Module II counts as a Tier 4 manifest, so it opens Tier 4 AFC upgrade choices"
+  ]
+};
+
+export const SECTOR_CONTEST_NAME_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Seasons are now called Sector Contests",
+  why: "Each round is a contest for a Sector world, so \"season\" no longer described it.",
+  changes: [
+    "Join screens, the end-of-contest summary, profile, rankings, galaxy view and emails say Sector Contest instead of season",
+    "The join screen no longer shows the contest's internal id (\"Season season-7\")",
+    "Nothing about how a contest plays, ends or resets has changed"
   ]
 };
 

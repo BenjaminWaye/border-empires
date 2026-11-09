@@ -33,7 +33,7 @@ export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | 
   <div class="profile-edit-modal card" role="dialog" aria-modal="true" aria-labelledby="profile-edit-title">
     <div class="auth-onboarding-head">
       <div id="profile-edit-title" class="auth-panel-title">Update your empire</div>
-      <div class="auth-panel-subtitle">Change the name and colour other empires see. Limited to once per season.</div>
+      <div class="auth-panel-subtitle">Change the name and colour other empires see. Limited to once per Sector Contest.</div>
     </div>
     <input class="auth-style-input" type="text" placeholder="Display name" autocomplete="nickname" maxlength="24" value="${state.meName || ""}" data-profile-edit-name />
     <div class="auth-color-block">
@@ -129,7 +129,7 @@ export const bindProfileEditModal = (args: {
     }
     if (typeof window !== "undefined" && typeof window.confirm === "function") {
       const confirmed = window.confirm(
-        "Change your empire's name and/or colour? You can only change your name and colour once per season."
+        "Change your empire's name and/or colour? You can only change your name and colour once per Sector Contest."
       );
       if (!confirmed) return;
     }

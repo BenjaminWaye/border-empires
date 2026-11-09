@@ -251,7 +251,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
     const uid = await winnerAuthUid(season, deps.authBindingStore);
     if (uid !== identity.authUid) {
       reply.code(403);
-      return { ok: false, error: "you did not win this season" };
+      return { ok: false, error: "you did not win this Sector Contest" };
     }
     const body = request.body && typeof request.body === "object" ? (request.body as Record<string, unknown>) : {};
     const rawName = typeof body.planetName === "string" ? body.planetName : "";

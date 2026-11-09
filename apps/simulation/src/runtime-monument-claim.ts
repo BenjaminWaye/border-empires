@@ -34,7 +34,7 @@ export function announceMonumentClaim(
 
   for (const player of context.players.values()) {
     if (player.id === winnerId) {
-      appendEntry(context, player, "MONUMENT_CLAIMED", `Your ${label} is complete — claimed for the season. No other empire may build one.`, context.now(), x, y);
+      appendEntry(context, player, "MONUMENT_CLAIMED", `Your ${label} is complete — claimed for this Sector Contest. No other empire may build one.`, context.now(), x, y);
       continue;
     }
     if (loserIds.has(player.id)) {
@@ -54,7 +54,7 @@ export function announceMonumentClaim(
       );
       continue;
     }
-    appendEntry(context, player, "MONUMENT_CLAIMED", `${winnerName} has completed the ${label} — it is now claimed for the season.`, context.now(), x, y);
+    appendEntry(context, player, "MONUMENT_CLAIMED", `${winnerName} has completed the ${label} — it is now claimed for this Sector Contest.`, context.now(), x, y);
   }
 }
 

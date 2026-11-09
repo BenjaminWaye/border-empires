@@ -434,7 +434,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     // guard each reconnect would re-push "Spawned..." with a fresh timestamp,
     // making a spawn from an hour ago look like it just happened.
     state.spawnFeedShownSeasonId = spawnSeasonId;
-    pushFeed(`Spawned. ${spawnSeasonId ? `Season ${spawnSeasonId}.` : ""} Your tile is centered.`, "info", "success");
+    pushFeed("Spawned. Your tile is centered.", "info", "success");
   }
   if (incomingConfig.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
   if (offlineActivity.length > 0) {

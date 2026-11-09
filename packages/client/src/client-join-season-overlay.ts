@@ -64,15 +64,6 @@ export const joinWaitHint = (elapsedSeconds: number): string =>
 const currentJoinWaitHint = (): string =>
   joinWaitHint(joinPendingStartedAt ? Math.max(0, Math.floor((Date.now() - joinPendingStartedAt) / 1000)) : 0);
 
-// Season ids already carry their own "season-" prefix ("season-13"), so the
-// kicker used to read "Season season-13". Normalise to "Season 13".
-export const formatJoinSeasonLabel = (seasonId: string): string => {
-  const trimmed = seasonId.trim();
-  if (!trimmed) return "the current season";
-  const prefixed = /^season[-_\s]*(\d.*)$/i.exec(trimmed);
-  return `Season ${prefixed ? prefixed[1] : trimmed}`;
-};
-
 const clearJoinPendingWatchdog = (): void => {
   if (joinPendingWatchdog) clearTimeout(joinPendingWatchdog);
   if (joinWaitTicker) clearInterval(joinWaitTicker);
@@ -105,7 +96,7 @@ const armJoinPendingWatchdog = (deps: JoinSeasonOverlayDeps): void => {
   joinPendingWatchdog = setTimeout(() => {
     if (state.joinSeasonPending) {
       state.joinSeasonPending = false;
-      pushFeed?.("Joining the season is taking too long. Try again.", "error", "warn");
+      pushFeed?.("Joining the Sector Contest is taking too long. Try again.", "error", "warn");
     }
     rerenderSettled();
   }, JOIN_SEASON_PENDING_WATCHDOG_MS);
@@ -214,7 +205,9 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   if (state.joinSeasonPending) armJoinPendingWatchdog(deps);
   else clearJoinPendingWatchdog();
 
-  const seasonLabel = state.joinSeasonId ? formatJoinSeasonLabel(state.joinSeasonId) : "the current season";
+  // No number: season ids count every contest, which clashes with the
+  // gapless "Sector 003" numbering players see in Space View.
+  const seasonLabel = "Sector Contest";
 
   if (state.seasonPending) {
     const scheduledStartAt = state.seasonPendingScheduledStartAt;
@@ -226,9 +219,9 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
       <div class="respawn-backdrop" id="join-season-backdrop"></div>
       <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
         <div class="respawn-modal-scroll">
-          <div class="respawn-kicker">Beta season</div>
-          <h2 id="join-season-title" class="respawn-title">Season starts soon</h2>
-          <p class="respawn-summary">Same starting line for everyone — the whole season kicks off in one shot, no head starts. (Your timezone still decides how early you're up to seize it.) Gates open <strong>${localStartLabel}</strong> your local time.</p>
+          <div class="respawn-kicker">Beta Sector Contest</div>
+          <h2 id="join-season-title" class="respawn-title">Sector Contest starts soon</h2>
+          <p class="respawn-summary">Same starting line for everyone — the whole Sector Contest kicks off in one shot, no head starts. (Your timezone still decides how early you're up to seize it.) Gates open <strong>${localStartLabel}</strong> your local time.</p>
           <section class="respawn-section respawn-actions">
             <div id="join-season-countdown" class="respawn-title" style="font-variant-numeric: tabular-nums;">
               ${formatCountdown(scheduledStartAt - Date.now())}
@@ -269,7 +262,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   overlayEl.innerHTML = `
     <div class="respawn-backdrop" id="join-season-backdrop"></div>
     <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
-      <button id="join-season-close" class="guide-close-btn" type="button" aria-label="Close join season prompt">×</button>
+      <button id="join-season-close" class="guide-close-btn" type="button" aria-label="Close join Sector Contest prompt">×</button>
       <div class="respawn-modal-scroll">
         <div class="respawn-kicker">${seasonLabel}</div>
         <h2 id="join-season-title" class="respawn-title">The Emperor has opened the planet for contestation</h2>

@@ -32,7 +32,7 @@ export const scoreGraphPanel = (
   if (series.length === 0) {
     return `<section class="se-panel se-graph">
       <h3 class="se-panel-title">Score Over Time</h3>
-      ${missingHistoryNotice("timeline", "Score timeline", "No score timeline was saved for this season.")}
+      ${missingHistoryNotice("timeline", "Score timeline", "No score timeline was saved for this Sector Contest.")}
     </section>`;
   }
   if (series.every((s) => s.points.length === 1)) {
@@ -100,7 +100,7 @@ export const scoreGraphPanel = (
   return `
     <section class="se-panel se-graph">
       <h3 class="se-panel-title">Score Over Time</h3>
-      <svg class="se-graph-svg" viewBox="0 0 ${CHART_WIDTH} ${CHART_HEIGHT}" role="img" aria-label="${escapeHtml("Each player's score over the course of the season")}">
+      <svg class="se-graph-svg" viewBox="0 0 ${CHART_WIDTH} ${CHART_HEIGHT}" role="img" aria-label="${escapeHtml("Each player's score over the course of the Sector Contest")}">
         ${gridLines}
         ${marks}
       </svg>

@@ -123,10 +123,10 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
     // means "frontier command rejected after the freeze" (frontier-submit.ts).
     if (SEASON_ENDED_ERROR_PATTERN.test(errorMessage)) {
       recordGatewayEvent("info", "gateway_join_season_ended", { playerId });
-      sendJson(socket, { type: "ERROR", code: "JOIN_SEASON_ENDED", message: "This season has ended. You can join the next one when it starts." });
+      sendJson(socket, { type: "ERROR", code: "JOIN_SEASON_ENDED", message: "This Sector Contest has ended. You can join the next one when it starts." });
       return;
     }
     recordGatewayEvent("warn", "gateway_join_season_failed", { playerId, error: errorMessage });
-    sendJson(socket, { type: "ERROR", code: "JOIN_SEASON_FAILED", message: "Could not join the season. Try again." });
+    sendJson(socket, { type: "ERROR", code: "JOIN_SEASON_FAILED", message: "Could not join the Sector Contest. Try again." });
   }
 };

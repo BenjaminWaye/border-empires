@@ -101,7 +101,7 @@ const victorMedallion = (
     <div class="se-gear se-gear-lg" aria-hidden="true"></div>
     <div class="se-medallion">
       <span class="se-crown" aria-hidden="true">♛</span>
-      <span class="se-victor-kicker">Season Victor</span>
+      <span class="se-victor-kicker">Contest Victor</span>
       <span class="se-victor-name">${playerBadge(winner.playerId, isSelf ? "You" : winner.playerName, colors)}</span>
       <span class="se-victor-path">${escapeHtml(winner.objectiveName)}</span>
       <span class="se-victor-date">Crowned ${escapeHtml(new Date(winner.crownedAt).toLocaleString())}</span>
@@ -121,7 +121,7 @@ const rankRowHtml = (
   // the medal always shows the entry's true score rank.
   const isWinner = Boolean(options.winnerId && entry.id === options.winnerId);
   const medalClass = options.detached ? "" : rankClass(entry.rank);
-  const crown = isWinner ? `<span class="se-rank-crown" title="Season Victor" aria-hidden="true">♔</span>` : "";
+  const crown = isWinner ? `<span class="se-rank-crown" title="Contest Victor" aria-hidden="true">♔</span>` : "";
   return `
     <li class="se-rank-row${options.self ? " is-self" : ""}${options.detached ? " is-detached" : ""}${isWinner ? " is-winner" : ""}">
       <span class="se-rank-medal ${medalClass}">${entry.rank}</span>
@@ -225,7 +225,7 @@ const miscPanel = (
     }
   }
   return `<section class="se-panel se-misc">
-    <h3 class="se-panel-title">Season Miscellany</h3>
+    <h3 class="se-panel-title">Contest Miscellany</h3>
     <div class="se-misc-items">
       <div class="se-misc-item">
         <span class="se-misc-label">Most Deadly Tile</span>
@@ -291,7 +291,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             <span class="se-filigree se-filigree-l" aria-hidden="true"></span>
             <div class="se-header-text">
               <span class="se-kicker">The Great Works Have Settled</span>
-              <h2 id="se-title" class="se-title">Season Concluded</h2>
+              <h2 id="se-title" class="se-title">Sector Contest Concluded</h2>
               <span class="se-subtitle">${empiresContested} ${empiresContested === 1 ? "empire" : "empires"} vied for the crown</span>
             </div>
             <span class="se-filigree se-filigree-r" aria-hidden="true"></span>
@@ -324,11 +324,11 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
           <footer class="se-actions">
             <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${starting || state.seasonStartVoted ? "disabled" : ""}>
               <span class="se-btn-cog" aria-hidden="true"></span>
-              ${starting ? "Winding the Spring…" : state.seasonStartVoted ? `Vote cast (${state.seasonStartVoteCount}/5)` : "Vote for New Season"}
+              ${starting ? "Winding the Spring…" : state.seasonStartVoted ? `Vote cast (${state.seasonStartVoteCount}/5)` : "Vote for a New Sector Contest"}
             </button>
             <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
           </footer>
-          <p class="se-fineprint">Starting a new season resets the world and progression for <strong>every</strong> player.</p>
+          <p class="se-fineprint">Starting a new Sector Contest resets the world and progression for <strong>every</strong> player.</p>
         </div>
       </div>
     </div>`;
@@ -342,11 +342,11 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
       // Preserve an existing draft if the player already started a report.
       if (!description || description.value.trim()) return;
       description.value = [
-        `Season summary is missing historical data: ${button.dataset.seMissingRecords}.`,
+        `Contest summary is missing historical data: ${button.dataset.seMissingRecords}.`,
         observation ? `Observed: ${observation}` : "",
         `Winner: ${winner.playerId} (${winner.playerName}).`,
         `Crowned: ${new Date(winner.crownedAt).toISOString()}.`,
-        "Please investigate why these season records are unavailable."
+        "Please investigate why these Sector Contest records are unavailable."
       ].filter(Boolean).join("\n");
       description.dispatchEvent(new Event("input", { bubbles: true }));
       description.focus();

@@ -309,7 +309,7 @@ export const renderClientHud = (deps: HudDeps): void => {
         state.pendingTechUnlockId
           ? "Unlock pending..."
           : state.techIds.length > 0
-            ? "No further Manifests in your current branch this season"
+            ? "No further Manifests in your current branch this Sector Contest"
             : "No available Manifest choices";
       dom.techPickEl.append(opt);
     }
@@ -611,12 +611,12 @@ export const renderClientHud = (deps: HudDeps): void => {
   });
   renderJoinSeasonOverlay({
     state, overlayEl: dom.joinSeasonOverlayEl, renderHud: () => renderClientHud(deps),
-    joinSeason: () => sendGameMessage({ type: "JOIN_SEASON" }, "Finish sign-in before joining the season."),
+    joinSeason: () => sendGameMessage({ type: "JOIN_SEASON" }, "Finish sign-in before joining the Sector Contest."),
     pushFeed
   });
   renderSeasonEndOverlay({
     state, overlayEl: dom.seasonEndOverlayEl, renderHud: () => renderClientHud(deps),
-    startNewSeason: () => sendGameMessage({ type: "START_NEW_SEASON" }, "Finish sign-in before starting a new season.")
+    startNewSeason: () => sendGameMessage({ type: "START_NEW_SEASON" }, "Finish sign-in before starting a new Sector Contest.")
   });
 
   syncAuthOverlay();

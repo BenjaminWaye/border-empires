@@ -13,7 +13,7 @@ const INTRO_SECTIONS: IntroSection[] = [
   {
     icon: "✦",
     title: "What this is",
-    body: "Winning a Sector campaign earns your empire a permanent Planet or Outpost here, in the galaxy above the seasons. This layer persists forever -- nothing here resets when a season ends."
+    body: "Winning a Sector campaign earns your empire a permanent Planet or Outpost here, in the galaxy above the Sector Contests. This layer persists forever -- nothing here resets when a Sector Contest ends."
   },
   {
     icon: "⚙\uFE0E",
