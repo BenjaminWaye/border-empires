@@ -1,5 +1,4 @@
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
-import { SEASON_ELO_CHANGELOG } from "./client-changelog-season-elo.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
 import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
 import { COMMAND_NAVIGATION_ENTRY } from "./client-changelog-command-navigation.js";
@@ -488,7 +487,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ...MAP_BROWSING_FIXES_CHANGELOG,
     createdAt: 1794165080849, // Date.now() captured once.
   },
-  { ...SEASON_ELO_CHANGELOG, createdAt: 1794209550379 }
+  {
+    createdAt: 1794209772303, // Date.now() captured once.
+    introducedIn: "2026.11.09",
+    title: "See the season scores that were saved",
+    why: "A season with one score sample per empire could look like it had no history.",
+    changes: ["The Score Graph shows saved scores even without enough samples for a trend", "Report a bug appears next to the missing season record"]
+  }
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
