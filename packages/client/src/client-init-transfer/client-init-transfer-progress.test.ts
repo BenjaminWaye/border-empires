@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { InitTransferProgress, RealtimeSocket, RealtimeSocketEventMap } from "../client-socket-types.js";
-import { bindInitTransferProgress } from "./client-init-transfer-progress.js";
+import { bindInitTransferProgress, describeInitTransfer } from "./client-init-transfer-progress.js";
 
 // Regression: an in-place reconnect never dispatches "close", so a finished
 // transfer used to linger in state and flash "Building your map..." at 100%
@@ -53,5 +53,13 @@ describe("bindInitTransferProgress", () => {
     bindInitTransferProgress(socket, state, () => {});
     target.dispatchEvent(new Event("open"));
     expect(state.initTransfer).toBeNull();
+  });
+});
+
+describe("uncalibrated map build progress", () => {
+  it("does not predict minutes of build time from a large completed download", () => {
+    const view = describeInitTransfer({ ...progress("building"), totalChars: 100 * 1024 * 1024 });
+    expect(view.remainingMs).toBeNull();
+    expect(view.detail).toBe("World downloaded. Laying out your territory...");
   });
 });

@@ -1,3 +1,5 @@
+import { recentClientChangelogEntries } from "./client-changelog-recent.js";
+import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
 import { COMMAND_NAVIGATION_ENTRY } from "./client-changelog-command-navigation.js";
 import { CONNECTED_DISTRICTS_CHANGELOG } from "./client-changelog-connected-districts.js";
 import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
@@ -475,13 +477,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RIVER_MOUTHS_CHANGELOG,
   ...NOV_07_STANDINGS_CHANGELOG,
   ...AI_STOP_THE_LEADER_CHANGELOG,
-  { ...COMMAND_NAVIGATION_ENTRY, createdAt: 1794153241666 },
-  ...DORMANT_FORT_TOWN_SCREEN_CHANGELOG
+  { ...COMMAND_NAVIGATION_ENTRY, createdAt: 1794153241666, },
+  ...DORMANT_FORT_TOWN_SCREEN_CHANGELOG,
+  ...SEASON_SUMMARY_FIXES_CHANGELOG,
+  MISSING_HISTORY_REPORT_CHANGELOG,
+  { ...SEASON_RECORD_DETAILS_CHANGELOG, createdAt: 1794152918767, }
 ];
 
-const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
-const oldestAllowedAt = latestCreatedAt - 6 * 24 * 60 * 60 * 1000;
-
-export const CLIENT_CHANGELOG_ENTRIES = ALL_CLIENT_CHANGELOG_ENTRIES.filter(
-  (entry) => entry.createdAt >= oldestAllowedAt
-);
+export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

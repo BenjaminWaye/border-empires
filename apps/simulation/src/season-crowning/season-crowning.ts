@@ -41,8 +41,8 @@ export const captureSeasonWinnerAtCrowning = ({
    *  crowning, persisted onto the winner the same way seasonStats is below. */
   scoreHistory?: ScoreHistorySeries[];
 }): SimulationSeasonState => {
-  const mostDeadlyTile = findMostDeadlyTile(runtime.manpowerLossByTileKey);
-  const longestRoad = computeLongestRoad(runtimeState.tiles);
+  const mostDeadlyTile = findMostDeadlyTile(runtime.manpowerLossByTileKey, runtimeState.players);
+  const longestRoad = computeLongestRoad(runtimeState.tiles, runtimeState.players);
   return {
     ...seasonState,
     winner: {

@@ -19,6 +19,17 @@ describe("HUD v2 waits for the game to be on screen", () => {
     expect(hudV2GameOnScreen(inGame(), body())).toBe(true);
   });
 
+  it("hides the HUD during the season summary and restores it for Look Around", () => {
+    const state = inGame();
+    state.seasonWinner = {
+      playerId: "winner", playerName: "Waypoint", crownedAt: 1,
+      objectiveId: "ECONOMIC_HEGEMONY", objectiveName: "Economic Ascendancy"
+    };
+    expect(hudV2GameOnScreen(state, body())).toBe(false);
+    state.seasonEndDismissed = true;
+    expect(hudV2GameOnScreen(state, body())).toBe(true);
+  });
+
   // Regression: the HUD drew over the "Drawing your map" loading screen when joining.
   it("stays hidden while the map is being prepared after sign-in", () => {
     const state = inGame();

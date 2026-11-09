@@ -1,3 +1,4 @@
+import { recordSeasonTileLoss } from "./deadliest-tiles/season-tile-player-losses.js";
 import { activeRelicTiles, fieldGeneratorForTarget } from "./runtime-relics.js";
 import { targetHasActiveFortFor } from "./runtime-combat-target-fort/runtime-combat-target-fort.js";
 import { breakthroughTileCount, flagMomentumAttackMult, pickBreakthroughTargets } from "./afc-specializations/afc-battle-effects.js";
@@ -342,8 +343,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
       : attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff);
   if (manpowerLoss > 0) {
     const defenseVariant = targetHasActiveFortFor(ctx, previousTarget, defenderOwnerId, lock.targetKey) ? defendingFortVariant(previousTarget?.fort) : undefined;
-    const existing = ctx.manpowerLossByTileKey.get(lock.targetKey) ?? 0;
-    ctx.manpowerLossByTileKey.set(lock.targetKey, existing + manpowerLoss);
+    recordSeasonTileLoss(ctx.manpowerLossByTileKey, lock.targetKey, lock.playerId, manpowerLoss);
     ctx.recordCombatManpowerLoss?.({
       attackerId: lock.playerId,
       defenderId: defenderOwnerId,

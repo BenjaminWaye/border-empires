@@ -49,7 +49,7 @@ describe("computeLongestRoad", () => {
       settledTile(2, 0, "p1"),
       town(3, 0, "p1")
     ];
-    expect(computeLongestRoad(tiles)).toEqual({ tileCount: 4 });
+    expect(computeLongestRoad(tiles)).toMatchObject({ tileCount: 4 });
   });
 
   it("picks the longest path across three towns on one road", () => {
@@ -61,7 +61,7 @@ describe("computeLongestRoad", () => {
       settledTile(4, 0, "p1"),
       town(5, 0, "p1")
     ];
-    expect(computeLongestRoad(tiles)).toEqual({ tileCount: 6 });
+    expect(computeLongestRoad(tiles)).toMatchObject({ tileCount: 6 });
   });
 
   it("ignores settled tiles belonging to a different owner", () => {

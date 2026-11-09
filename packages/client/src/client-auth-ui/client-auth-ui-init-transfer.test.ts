@@ -106,8 +106,8 @@ describe("syncAuthOverlay chunked INIT progress", () => {
   it("shows the building state with a full bar once the download completes", () => {
     const view = render({ phase: "building", receivedChars: 1000, totalChars: 1000, startedAt: 11_000, firstFrameChars: 500 });
     expect(view.title).toBe("Building your map...");
-    // The estimate covers the whole 3D map build that follows, not just the INIT handler.
-    expect(view.copy).toMatch(/^World downloaded\. Laying out your territory\. About \d+s left\.$/);
+    // Download size cannot reliably predict map preparation time.
+    expect(view.copy).toBe("World downloaded. Laying out your territory...");
     expect(view.properties.get("--auth-busy-progress")).toBe("100%");
     // Regression: the width transition froze at ~2/3 while the INIT build blocked the main thread.
     expect(view.bar.dataset.complete).toBe("true");

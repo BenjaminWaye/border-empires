@@ -1,3 +1,4 @@
+import { seasonTilePlayerLossGauge } from "./season-tile-player-losses.js";
 // Save/restore glue between runtime.manpowerLossByTileKey and the season
 // summary store's season_deadliest_tiles row. Kept separate from
 // deadliest-tiles.ts (which season-summary-store.ts imports for its types) so
@@ -19,6 +20,7 @@ export const persistDeadliestTiles = async (
 ): Promise<void> => {
   if (manpowerLossByTileKey.size === 0) return;
   await store.saveDeadliestTiles(seasonId, topDeadliestTiles(manpowerLossByTileKey));
+  console.info({ type: "season_tile_player_loss_gauge", seasonId, ...seasonTilePlayerLossGauge(manpowerLossByTileKey) });
 };
 
 /**

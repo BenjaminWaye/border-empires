@@ -6,6 +6,7 @@ import type {
   SeasonVictoryObjectiveView,
   SeasonWinnerView
 } from "./client-types.js";
+import { setReportOpen } from "./client-bug-report/client-bug-report.js";
 import { scoreGraphPanel } from "./client-season-end-score-graph.js";
 
 type SeasonEndLeaderboard = {
@@ -60,6 +61,12 @@ export const playerBadge = (
 const rankClass = (rank: number): string =>
   rank === 1 ? "is-gold" : rank === 2 ? "is-silver" : rank === 3 ? "is-bronze" : "";
 
+const currentPlayerName = (leaderboard: SeasonEndLeaderboard, id: string | undefined, fallback: string): string => {
+  const entry = leaderboard.overall.find((player) => player.id === id)
+    ?? (leaderboard.selfOverall?.id === id ? leaderboard.selfOverall : undefined);
+  return entry?.name ?? fallback;
+};
+
 const num = (value: number, digits = 0): string =>
   value.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
@@ -68,19 +75,20 @@ const seasonEndVisible = (state: SeasonEndOverlayDeps["state"]): boolean =>
 
 const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: SeasonEndLeaderboard): string =>
   JSON.stringify({
-    winner: state.seasonWinner?.playerId,
+    winner: [state.seasonWinner?.playerId, state.seasonWinner?.playerName, state.seasonWinner?.crownedAt],
     objective: state.seasonWinner?.objectiveName,
     starting: state.seasonEndStarting,
     voteCount: state.seasonStartVoteCount,
     voted: state.seasonStartVoted,
-    self: leaderboard.selfOverall?.id,
-    overall: leaderboard.overall.map((e) => [e.id, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
-    victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.progressLabel, o.conditionMet]),
-    stats: state.seasonStats ? { mostDeadlyTile: state.seasonStats.mostDeadlyTile, longestRoad: state.seasonStats.longestRoad } : undefined,
+    self: [leaderboard.selfOverall?.id, leaderboard.selfOverall?.name],
+    overall: leaderboard.overall.map((e) => [e.id, e.name, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
+    victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.leaderName, o.progressLabel, o.conditionMet]),
+    stats: state.seasonStats ?? state.seasonWinner?.seasonStats,
     // Cheap-but-sufficient signature for a per-player time series: point
     // count + last value catches "a new sample arrived" without hashing the
     // whole (small, capped) series every render.
-    scoreHistory: state.seasonScoreHistory.map((s) => [s.playerId, s.points.length, s.points[s.points.length - 1]?.score ?? 0])
+    scoreHistory: (state.seasonScoreHistory.length > 0 ? state.seasonScoreHistory : state.seasonWinner?.scoreHistory ?? [])
+      .map((s) => [s.playerId, s.playerName, s.points.length, s.points[s.points.length - 1]?.score ?? 0])
   });
 
 const victorMedallion = (
@@ -182,25 +190,50 @@ const victoryGauges = (
     </section>`;
 };
 
-const miscPanel = (seasonStats: SeasonStatsView): string => {
+const missingHistoryReportButton = (section: "statistics" | "timeline", missing: string[]): string =>
+  `<button type="button" class="se-btn se-btn-secondary" data-se-report-missing="${section}" data-se-missing-records="${escapeHtml(missing.join(", "))}">Report a bug</button>`;
+
+const miscPanel = (
+  stats: SeasonStatsView | undefined,
+  colors: ReadonlyMap<string, string>,
+  leaderboard: SeasonEndLeaderboard
+): string => {
   const items: string[] = [];
-  if (seasonStats.mostDeadlyTile) {
+  const missing: string[] = [];
+  const namedPlayer = (id: string, name: string | undefined): string =>
+    playerBadge(id, currentPlayerName(leaderboard, id, name ?? id), colors);
+  const deadly = stats?.mostDeadlyTile;
+  const road = stats?.longestRoad;
+  if (deadly) {
+    const player = deadly.mostLossesPlayer;
     items.push(`<div class="se-misc-item">
       <span class="se-misc-label">Most Deadly Tile</span>
-      <span class="se-misc-value"><strong>${num(seasonStats.mostDeadlyTile.manpowerLost)}</strong> manpower lost on tile (${seasonStats.mostDeadlyTile.x}, ${seasonStats.mostDeadlyTile.y})</span>
+      <span class="se-misc-value"><strong>${num(deadly.manpowerLost)}</strong> manpower lost on tile (${deadly.x}, ${deadly.y})<br>
+      ${player ? `Most losses: ${namedPlayer(player.playerId, player.playerName)} · <strong>${num(player.manpowerLost)}</strong> manpower` : "Player loss history unavailable."}</span>
     </div>`);
+    if (!player) missing.push("Deadliest tile player losses");
+  } else {
+    items.push(`<div class="se-misc-item"><span class="se-misc-label">Most Deadly Tile</span><span class="se-misc-value">No combat record available.</span></div>`);
+    missing.push("Most Deadly Tile");
   }
-  if (seasonStats.longestRoad) {
+  if (road) {
+    const hasDetails = road.playerId && road.fromCity && road.toCity;
+    const city = (value: NonNullable<typeof road.fromCity>): string => `${escapeHtml(value.name)} (${value.x}, ${value.y})`;
     items.push(`<div class="se-misc-item">
       <span class="se-misc-label">Longest Road</span>
-      <span class="se-misc-value"><strong>${num(seasonStats.longestRoad.tileCount)}</strong> tiles long</span>
+      <span class="se-misc-value">${road.playerId ? `${namedPlayer(road.playerId, road.playerName)} · ` : ""}<strong>${num(road.tileCount)}</strong> tiles long<br>
+      ${road.fromCity && road.toCity ? `${city(road.fromCity)} ↔ ${city(road.toCity)}` : "City details unavailable."}</span>
     </div>`);
+    if (!hasDetails) missing.push("Longest Road owner and cities");
+  } else {
+    items.push(`<div class="se-misc-item"><span class="se-misc-label">Longest Road</span><span class="se-misc-value">No connected road recorded.</span></div>`);
+    missing.push("Longest Road");
   }
-  return `
-    <section class="se-panel se-misc">
-      <h3 class="se-panel-title">Season Miscellany</h3>
-      <div class="se-misc-items">${items.join("")}</div>
-    </section>`;
+  return `<section class="se-panel se-misc">
+    <h3 class="se-panel-title">Season Miscellany</h3>
+    <div class="se-misc-items">${items.join("")}</div>
+    ${missing.length > 0 ? missingHistoryReportButton("statistics", missing) : ""}
+  </section>`;
 };
 
 export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
@@ -226,11 +259,20 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   const empiresContested = leaderboard.overall.length;
   const starting = state.seasonEndStarting;
 
-  const victoryHtml = victoryGauges(state.seasonVictory, colors, selfId);
+  const winner = { ...state.seasonWinner,
+    playerName: currentPlayerName(leaderboard, state.seasonWinner.playerId, state.seasonWinner.playerName) };
+  const objectives = state.seasonVictory.map((objective) => ({
+    ...objective,
+    leaderName: currentPlayerName(leaderboard, objective.leaderPlayerId, objective.leaderName),
+    statusLabel: objective.id === winner.objectiveId ? `Winner crowned: ${winner.playerName}` : objective.statusLabel
+  }));
+  const victoryHtml = victoryGauges(objectives, colors, selfId);
   const hasVictory = victoryHtml.length > 0;
-  const hasStats = Boolean(state.seasonStats && (state.seasonStats.mostDeadlyTile || state.seasonStats.longestRoad));
-  const scoreGraphHtml = scoreGraphPanel(state.seasonScoreHistory, colors, selfId, state.seasonWinner.playerId);
-  const hasScoreHistory = scoreGraphHtml.length > 0;
+  const seasonStats = state.seasonStats ?? state.seasonWinner.seasonStats;
+  const scoreHistory = (state.seasonScoreHistory.length > 0 ? state.seasonScoreHistory : state.seasonWinner.scoreHistory ?? [])
+    .map((series) => ({ ...series, playerName: currentPlayerName(leaderboard, series.playerId, series.playerName) }));
+  const scoreGraphHtml = scoreGraphPanel(scoreHistory, colors, selfId, state.seasonWinner.playerId)
+    || `<section class="se-panel se-graph"><h3 class="se-panel-title">Score Over Time</h3><p>No score timeline was saved for this season.</p>${missingHistoryReportButton("timeline", ["Score timeline"])}</section>`;
   const activeTab = overlayEl.dataset.seTab || "standings";
 
   overlayEl.innerHTML = `
@@ -253,13 +295,13 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             <span class="se-filigree se-filigree-r" aria-hidden="true"></span>
           </header>
 
-          ${victorMedallion(state.seasonWinner, colors, isSelfWinner)}
+          ${victorMedallion(winner, colors, isSelfWinner)}
 
           <nav class="se-tab-bar" role="tablist">
             <button class="se-tab${activeTab === "standings" ? " is-active" : ""}" role="tab" data-tab="standings">Final Standings</button>
             ${hasVictory ? `<button class="se-tab${activeTab === "victory" ? " is-active" : ""}" role="tab" data-tab="victory">Victory Paths</button>` : ""}
-            ${hasStats ? `<button class="se-tab${activeTab === "misc" ? " is-active" : ""}" role="tab" data-tab="misc">Misc</button>` : ""}
-            ${hasScoreHistory ? `<button class="se-tab${activeTab === "score-graph" ? " is-active" : ""}" role="tab" data-tab="score-graph">Score Graph</button>` : ""}
+            <button class="se-tab${activeTab === "misc" ? " is-active" : ""}" role="tab" data-tab="misc">Statistics</button>
+            <button class="se-tab${activeTab === "score-graph" ? " is-active" : ""}" role="tab" data-tab="score-graph">Score Graph</button>
           </nav>
           <div class="se-tab-panels">
             <div class="se-tab-panel${activeTab === "standings" ? " is-active" : ""}" data-tab="standings" role="tabpanel">
@@ -268,12 +310,12 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             ${hasVictory ? `<div class="se-tab-panel${activeTab === "victory" ? " is-active" : ""}" data-tab="victory" role="tabpanel">
               ${victoryHtml}
             </div>` : ""}
-            ${hasStats && state.seasonStats ? `<div class="se-tab-panel${activeTab === "misc" ? " is-active" : ""}" data-tab="misc" role="tabpanel">
-              ${miscPanel(state.seasonStats)}
-            </div>` : ""}
-            ${hasScoreHistory ? `<div class="se-tab-panel${activeTab === "score-graph" ? " is-active" : ""}" data-tab="score-graph" role="tabpanel">
+            <div class="se-tab-panel${activeTab === "misc" ? " is-active" : ""}" data-tab="misc" role="tabpanel">
+              ${miscPanel(seasonStats, colors, leaderboard)}
+            </div>
+            <div class="se-tab-panel${activeTab === "score-graph" ? " is-active" : ""}" data-tab="score-graph" role="tabpanel">
               ${scoreGraphHtml}
-            </div>` : ""}
+            </div>
           </div>
         </div>
         <div class="se-scroll-footer">
@@ -288,6 +330,19 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
         </div>
       </div>
     </div>`;
+
+  overlayEl.querySelectorAll<HTMLButtonElement>("[data-se-report-missing]").forEach((button) => {
+    button.onclick = () => {
+      setReportOpen("bug", true);
+      renderHud();
+      const description = document.querySelector<HTMLTextAreaElement>("#bug-report-overlay [data-bug-report-description]");
+      // Preserve an existing draft if the player already started a report.
+      if (!description || description.value.trim()) return;
+      description.value = `Season summary is missing historical data: ${button.dataset.seMissingRecords}.\nWinner: ${winner.playerId} (${winner.playerName}).\nCrowned: ${new Date(winner.crownedAt).toISOString()}.\nPlease investigate why these season records are unavailable.`;
+      description.dispatchEvent(new Event("input", { bubbles: true }));
+      description.focus();
+    };
+  });
 
   const lookAround = overlayEl.querySelector("#se-look-around") as HTMLButtonElement | null;
   const newSeason = overlayEl.querySelector("#se-new-season") as HTMLButtonElement | null;
