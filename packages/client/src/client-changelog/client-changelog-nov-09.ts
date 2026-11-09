@@ -64,3 +64,14 @@ export const AFC_CAMPAIGN_LOADOUT_ENTRY: Omit<ClientChangelogEntry, "createdAt">
   why: "The AFC panel showed campaign completion below the installed upgrades.",
   changes: ["Campaign Loadout leads the AFC Upgrades panel, with the installed upgrade count directly below"]
 };
+
+export const SECTOR_WAITLIST_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Join the waitlist when a Sector Contest is full",
+  why: "A full Sector only offered a button that didn't record anything, so nobody could tell how many Houses were waiting.",
+  changes: [
+    "When the current Sector Contest is full, signed-in players can join the waitlist for the next Sector",
+    "The full screen shows how many Houses are already waiting",
+    "The next Sector's start is announced by the usual season-start email (if you have it switched on); guests are asked to sign in first"
+  ]
+};

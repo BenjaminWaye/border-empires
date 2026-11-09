@@ -39,6 +39,7 @@ describe("syncAuthOverlay", () => {
         bridgeDebugWsUrl: "wss://api-staging.borderempires.com/ws",
         seasonFull: false,
         seasonFullNotifyAcknowledged: false,
+        sectorWaitlistCount: -1,
         authEmail: ""
       },
       {
@@ -119,6 +120,7 @@ describe("syncAuthOverlay", () => {
     bridgeDebugWsUrl: "wss://api-staging.borderempires.com/ws",
     seasonFull: false,
     seasonFullNotifyAcknowledged: false,
+    sectorWaitlistCount: -1,
     authEmail: ""
   });
 

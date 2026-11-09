@@ -50,6 +50,7 @@ const render = (
       bridgeDebugWsUrl: "wss://api.borderempires.com/ws",
       seasonFull: false,
       seasonFullNotifyAcknowledged: false,
+      sectorWaitlistCount: -1,
       authEmail: ""
     },
     {

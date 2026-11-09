@@ -86,6 +86,14 @@ spectacle across the Core, and it tests who among the nobility is actually
 capable, not just well-born. Both readings are true at once; nobody
 involved is lying to the other about it.
 
+Across the Core the war games are known simply as the **Sector Contest**:
+the people's name for the spectacle they watch, where the Court speaks of
+campaigns under the Writ. A Sector admits only as many Houses as its world
+can hold. When a Proclamation is oversubscribed, the Houses turned away
+enter their names for the next Sector the Court opens, and the length of
+that list is itself watched closely, as a measure of how hungry the
+nobility still is for ground.
+
 **Winning a Sector campaign grants the victor the rank of Duke and
 personal, permanent rights to that world.** It is not a season's prize —
 it is a real title and a real holding, carried forward.
