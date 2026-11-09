@@ -13,6 +13,7 @@ import type { GatewayPlayerProfileStore } from "../player-profile-store/player-p
 import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import type { SectorWaitlistStore } from "../sector-waitlist-store/sector-waitlist-store.js";
+import { resolveMaxSeasonPlayersForGateway } from "../season-lobby-broadcast/season-lobby-broadcast.js";
 import type { PlayerFunnelStore } from "../player-funnel-store/player-funnel-store.js";
 import type { PlayerFunnelTracker } from "../player-funnel-tracker/player-funnel-tracker.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
@@ -169,6 +170,14 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
             getCurrentSeason: () => ctx.simulationClient.getCurrentSeasonSummary().then(({ seasonId, status }) => ({ seasonId, status })),
             onJoined: (playerId: string, seasonId: string, waitingCount: number) =>
               app.log.info({ playerId, seasonId, waitingCount }, "sector waitlist joined")
+          },
+          sectorBoard: {
+            store: ctx.sectorWaitlistStore,
+            getOccupancy: () =>
+              ctx.simulationClient
+                .getCurrentSeasonSummary()
+                .then(({ seasonId, status, overall }) => ({ seasonId, status, playerIds: overall.map((entry) => entry.id) })),
+            maxHouses: resolveMaxSeasonPlayersForGateway
           }
         }
       : {}),

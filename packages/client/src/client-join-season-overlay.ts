@@ -2,6 +2,7 @@ import type { ClientState } from "./client-state/client-state.js";
 import type { FeedType, FeedSeverity } from "./client-types.js";
 import { renderSeasonLobbyPanelHtml, bindSeasonLobbyPanel } from "./client-season-lobby-panel.js";
 import { takeGuestAutoJoinTurn } from "./client-guest-play/client-guest-play.js";
+import { sectorBoardHtml, sectorBoardLoaderFor } from "./client-sector-board/client-sector-board.js";
 
 type JoinSeasonOverlayDeps = {
   state: Pick<
@@ -15,6 +16,7 @@ type JoinSeasonOverlayDeps = {
     | "seasonLobbyWaitingCount"
     | "seasonLobbyMaxPlayers"
     | "seasonLobbyRoster"
+    | "sectorBoard"
     | "profileSetupRequired"
     | "authIsGuest"
     | "seasonWinner"
@@ -23,6 +25,8 @@ type JoinSeasonOverlayDeps = {
   renderHud: () => void;
   joinSeason: () => boolean;
   pushFeed?: ((message: string, type: FeedType, severity?: FeedSeverity) => void) | undefined;
+  // Gateway the Sector board counts are fetched from (client-sector-board.ts); omitted in tests.
+  wsUrl?: string | undefined;
 };
 
 const formatCountdown = (remainingMs: number): string => {
@@ -146,7 +150,8 @@ const computeRenderKey = (state: JoinSeasonOverlayDeps["state"], visible: boolea
         state.joinSeasonPending,
         state.seasonLobbyWaitingCount,
         state.seasonLobbyMaxPlayers,
-        state.seasonLobbyRoster
+        state.seasonLobbyRoster,
+        state.sectorBoard
       ]);
 
 // While the join-season overlay is up (either branch), this becomes the ONLY
@@ -259,24 +264,14 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   if (takeGuestAutoJoinTurn(state, Date.now()) && joinSeason()) state.joinSeasonPending = true;
   if (state.joinSeasonPending) armJoinPendingWatchdog(deps);
   const joining = state.joinSeasonPending;
-  overlayEl.innerHTML = `
-    <div class="respawn-backdrop" id="join-season-backdrop"></div>
-    <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
-      <button id="join-season-close" class="guide-close-btn" type="button" aria-label="Close join Sector Contest prompt">×</button>
-      <div class="respawn-modal-scroll">
-        <div class="respawn-kicker">${seasonLabel}</div>
-        <h2 id="join-season-title" class="respawn-title">The Emperor has opened the planet for contestation</h2>
-        <p class="respawn-summary">You have heard the call and brought your people to the challenge. No one empire will win alone. Good luck.</p>
-        ${renderSeasonLobbyPanelHtml(state, false, false)}
-        <section class="respawn-section respawn-actions">
-          <button id="join-season-confirm" class="panel-btn season-lobby-lets-go-btn${joining ? " is-joining" : ""}" type="button" ${joining ? 'disabled aria-busy="true"' : ""}>
-            ${joining ? '<span class="season-lobby-join-spinner" aria-hidden="true"></span>Joining... setting up your empire' : "Let's go!"}
-          </button>
-          ${joining ? `<p id="join-season-wait-hint" class="season-lobby-join-wait-hint">${currentJoinWaitHint()}</p>` : ""}
-        </section>
-      </div>
-    </div>
-  `;
+  if (!joining && deps.wsUrl) sectorBoardLoaderFor(deps.wsUrl, renderHud)(state);
+  overlayEl.innerHTML = sectorBoardHtml({
+    kicker: seasonLabel,
+    board: state.sectorBoard,
+    joining,
+    waitHintHtml: joining ? `<p id="join-season-wait-hint" class="season-lobby-join-wait-hint">${currentJoinWaitHint()}</p>` : "",
+    lobbyPanelHtml: renderSeasonLobbyPanelHtml(state, false, false)
+  });
 
   bindSeasonLobbyPanel({ overlayEl });
 

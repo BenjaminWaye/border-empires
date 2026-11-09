@@ -1,5 +1,6 @@
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
 import { NEXT_CONTEST_ENTRY } from "./client-changelog-next-contest.js";
+import { SECTOR_BOARD_ENTRY } from "./client-changelog-nov-10.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
@@ -481,6 +482,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, },
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_110,
   { ...NEXT_CONTEST_ENTRY, createdAt: 1794337809927, },
+  { ...SECTOR_BOARD_ENTRY, createdAt: 1794268104791, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
