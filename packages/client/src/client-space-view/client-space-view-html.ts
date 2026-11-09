@@ -78,7 +78,7 @@ export const spaceViewStyle = `
      "Manage Planet" button on this screen (since removed) -- 23 sits above the regular HUD chrome
      it's meant to cover (mini-map-wrap:20)
      but below .sv-launcher (24, bumped up from its old shared tier of 23
-     -- see the comment above) so the "return to season" launcher stays
+     -- see the comment above) so the "return to Sector" launcher stays
      clickable on top of the full-screen map, and below that overlay,
      side-panel:25, targeting:27 and auth:30, so none of those get buried
      behind Space View either.

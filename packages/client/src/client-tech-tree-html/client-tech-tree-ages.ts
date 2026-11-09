@@ -37,7 +37,7 @@ const TECH_AGE_BY_TIER: Record<number, TechAgeMeta> = {
   },
   7: {
     name: "Monument Age",
-    blurb: "Empire-scale monuments, shield domes, and global aether systems decide the season.",
+    blurb: "Empire-scale monuments, shield domes, and global aether systems decide the Sector Contest.",
     stageBlurb: "Monuments, power grids, and world-shaping systems."
   }
 };

@@ -103,7 +103,7 @@ describe("socket closed for a season rollover", () => {
 
     ws.emit("close", { code: 4009, reason: "season_rollover", wasClean: true });
 
-    expect(mocks.pushFeed).toHaveBeenCalledWith("A new season has started. Loading it...", "error", "warn");
+    expect(mocks.pushFeed).toHaveBeenCalledWith("A new Sector Contest has started. Loading it...", "error", "warn");
     expect(mocks.pushFeed).not.toHaveBeenCalledWith("Connection lost. Retrying...", "error", "warn");
   });
 });

@@ -151,7 +151,7 @@ const standingsHtml = (input: RanksInput): string => {
 export const ranksBodyHtml = (input: RanksInput): string => {
   const tracks = input.objectives.length > 0
     ? input.objectives.map((o) => trackHtml(o, input)).join("")
-    : `<div class="v2s-empty">No season running</div>`;
+    : `<div class="v2s-empty">No Sector Contest running</div>`;
   const best = closestPath(input.objectives, input.me);
   const closest = best
     ? `<section class="v2r-card"><h2 class="v2s-h2">Your closest path</h2><span class="v2r-closest-name">${esc(best.name)}</span><span class="v2r-closest-pct">${Math.round((selfShare(best, input.me) ?? 0) * 100)}%</span><span class="v2r-path-line">${esc(best.leaderPlayerId === input.me ? best.progressLabel : best.selfProgressLabel ?? "")}</span></section>`

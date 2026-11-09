@@ -101,7 +101,7 @@ describe("season-end overlay", () => {
       startNewSeason: () => {}
     });
     expect(overlayEl.style.display).toBe("grid");
-    expect(overlayEl.innerHTML).toContain("Season Concluded");
+    expect(overlayEl.innerHTML).toContain("Sector Contest Concluded");
     expect(overlayEl.querySelector("#se-look-around")).toBeTruthy();
     expect(overlayEl.querySelector("#se-new-season")).toBeTruthy();
   });
@@ -117,7 +117,7 @@ describe("season-end overlay", () => {
       renderHud: () => {},
       startNewSeason: () => {}
     });
-    expect(overlayEl.innerHTML).toContain("Season Victor");
+    expect(overlayEl.innerHTML).toContain("Contest Victor");
     expect(overlayEl.innerHTML).toContain("Alpha");
     expect(overlayEl.innerHTML).toContain("♛");
   });
@@ -333,7 +333,7 @@ describe("season-end overlay", () => {
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
     const footer = overlayEl.querySelector(".se-scroll-footer") as HTMLElement;
     expect(footer).not.toBeNull();
-    expect(footer!.innerHTML).toContain("Vote for New Season");
+    expect(footer!.innerHTML).toContain("Vote for a New Sector Contest");
     expect(footer!.innerHTML).toContain("Look Around");
   });
 
@@ -417,7 +417,7 @@ describe("season-end overlay", () => {
     const state = makeState({ seasonWinner: makeWinner(), leaderboard: makeLeaderboard() });
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
     expect(overlayEl.querySelector('.se-tab[data-tab="score-graph"]')).toBeTruthy();
-    expect(overlayEl.textContent).toContain("No score timeline was saved for this season.");
+    expect(overlayEl.textContent).toContain("No score timeline was saved for this Sector Contest.");
   });
 
   it("shows a line for each trend and a dot for a single saved score", () => {

@@ -102,13 +102,13 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   };
 
   // The launcher is one button doing double duty: "open Space View" from the
-  // season HUD, "return to season" once inside it. Updated on every
+  // season HUD, "return to Sector" once inside it. Updated on every
   // visibility change rather than having a separate Return button in the
   // chrome (which used to duplicate this).
   const updateLauncherForScreen = (inSpaceView: boolean): void => {
     if (!launcher) return;
     launcher.textContent = inSpaceView ? "⌂" : "✦";
-    const label = inSpaceView ? "Return to Season" : "Open Space View";
+    const label = inSpaceView ? "Return to Sector" : "Open Space View";
     launcher.title = label;
     launcher.setAttribute("aria-label", label);
   };

@@ -14,5 +14,5 @@ export const seasonFullErrorPayload = (): { type: "ERROR"; code: "SEASON_FULL"; 
 export const guestSlotsFullErrorPayload = (): { type: "ERROR"; code: "GUEST_SLOTS_FULL"; message: string } => ({
   type: "ERROR",
   code: "GUEST_SLOTS_FULL",
-  message: "Guest spots for this season are full. Sign in to claim an empire."
+  message: "Guest spots for this Sector Contest are full. Sign in to claim an empire."
 });

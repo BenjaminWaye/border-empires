@@ -170,7 +170,7 @@ describe("mountSpaceView gating", () => {
     expect(state.activeScreen).toBe("space");
     expect(hud.style.visibility).toBe("hidden");
     expect(document.querySelector(".sv-screen")).not.toHaveProperty("hidden", true);
-    expect(launcher.title).toBe("Return to Season");
+    expect(launcher.title).toBe("Return to Sector");
 
     // The same button, clicked again, is now the return action -- there is
     // no separate "Return to Season" button in the chrome.

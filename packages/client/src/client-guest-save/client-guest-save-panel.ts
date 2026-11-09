@@ -47,7 +47,7 @@ const action = (label: string, name: string, className = "panel-btn guest-save-b
 
 const benefits = (): HTMLElement => {
   const list = el("ul", "guest-save-benefits");
-  for (const text of ["Keep this empire", "Make alliances and truces", "Get season updates by email"]) list.append(el("li", undefined, text));
+  for (const text of ["Keep this empire", "Make alliances and truces", "Get Sector Contest updates by email"]) list.append(el("li", undefined, text));
   return list;
 };
 

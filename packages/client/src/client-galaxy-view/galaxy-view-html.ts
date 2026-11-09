@@ -125,7 +125,7 @@ const economyHtml = (economy: GalaxyViewEconomy | undefined): string => {
 // been redeployed with sector numbering yet (sectorNumber absent) -- see the
 // GalaxyViewPlanet.sectorNumber comment above.
 const sectorOrSeasonLabel = (sectorNumber: number | undefined, seasonSequence: number): string =>
-  sectorNumber !== undefined ? sectorNumberLabel(sectorNumber) : `Season ${seasonSequence}`;
+  sectorNumber !== undefined ? sectorNumberLabel(sectorNumber) : `Sector Contest ${seasonSequence}`;
 
 const specializationBadgeHtml = (specialization: string | undefined): string => {
   if (!specialization) return "";
@@ -151,7 +151,7 @@ const christenFormHtml = (planet: GalaxyViewPlanet): string => `
     <p class="gx-kicker">Unnamed World</p>
     ${planetFigureHtml()}
     ${specializationBadgeHtml(planet.specialization)}
-    <p class="gx-christen-copy">You won this season's crown. Name your planet — this cannot be changed later.</p>
+    <p class="gx-christen-copy">You won this Sector Contest's crown. Name your planet — this cannot be changed later.</p>
     <form data-galaxy-christen-form>
       <input
         type="text"
@@ -216,7 +216,7 @@ export const renderEmperorSectionHtml = (model: GalaxyEmperorViewModel): string 
   return `
     <div class="gx-emperor" data-galaxy-emperor>
       <p class="gx-kicker">Emperor's Endorsement</p>
-      <p class="gx-emperor-copy">You reign as Emperor. Endorse a player to grant them Imperial Ward charges next season.</p>
+      <p class="gx-emperor-copy">You reign as Emperor. Endorse a player to grant them Imperial Ward charges next Sector Contest.</p>
       <p class="gx-emperor-countdown" data-galaxy-endorse-countdown>Window closes in ${escapeHtml(countdown)}</p>
       ${currentPickHtml}
       <form data-galaxy-endorse-form>

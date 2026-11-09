@@ -12,7 +12,7 @@ import { sectorNumberLabel } from "../client-galaxy-view/galaxy-sector-label.js"
 // been redeployed with sector numbering yet (sectorNumber absent) -- same
 // reasoning as client-galaxy-view's sectorOrSeasonLabel.
 export const sectorOrSeasonLabel = (holding: GalaxyHoldingsPlanetView | GalaxyHoldingsOutpostView): string =>
-  holding.sectorNumber !== undefined ? sectorNumberLabel(holding.sectorNumber) : `Season ${holding.seasonSequence}`;
+  holding.sectorNumber !== undefined ? sectorNumberLabel(holding.sectorNumber) : `Sector Contest ${holding.seasonSequence}`;
 
 
 export const specializationLabel = (specialization: string): string => {
