@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ResourceSupplyAgreementStatus } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { installMarchInteraction, marchHintText, marchTargetDrag, MARCH_HINT_ID, resetMarchInteractionForTest, syncMarchInteraction } from "./client-march-interaction.js";
 
@@ -16,7 +17,11 @@ const makeState = () => ({
   marchOriginPicking: { active: false, targetX: 0, targetY: 0 },
   arrowGesture: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined,
   pendingArrowGestureConfirm: undefined,
-  incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>()
+  incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
+  meName: "Me",
+  playerNames: new Map<string, string>([["rival", "House Rival"]]),
+  leaderboard: { overall: [], selfOverall: undefined, selfByTiles: undefined, selfByIncome: undefined, selfByTechs: undefined, byTiles: [], byIncome: [], byTechs: [] },
+  resourceTradeAgreements: [] as ResourceSupplyAgreementStatus[]
 });
 
 afterEach(() => {
@@ -62,6 +67,23 @@ describe("dragging a march's destination", () => {
     expect(marchTargetDrag.end()).toBe("moved");
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "SET_MUSTER", x: 10, y: 10, mode: "MARCH", targetX: 16, targetY: 12 });
     expect(state.arrowGesture).toBeUndefined();
+  });
+
+  // Regression (review): drag-retargeting onto a trade partner skipped the supply-trade confirm.
+  it("asks to end supply trades before re-targeting onto a trade partner's tile", () => {
+    const state = makeState();
+    state.tiles.set("16,12", { x: 16, y: 12, terrain: "LAND", ownerId: "rival", ownershipState: "SETTLED" });
+    state.resourceTradeAgreements = [{ id: "t", proposerId: "me", targetId: "rival", proposerGives: { FOOD: 1 }, targetGives: {}, startedAt: 1, fulfilled: true }];
+    const sendGameMessage = vi.fn(() => true);
+    const sheets: Array<{ subtitle: string; onConfirm: () => void }> = [];
+    installMarchInteraction({ state, sendGameMessage, renderHud: vi.fn(), showSupplyTradeSheet: (options) => { sheets.push(options); return true; } });
+    marchTargetDrag.begin(14, 10, 0, 0);
+    marchTargetDrag.move(16, 12, 40, 40);
+    expect(marchTargetDrag.end()).toBe("moved");
+    expect(sendGameMessage).not.toHaveBeenCalled();
+    expect(sheets[0]?.subtitle).toBe("Attacking ends your 1 supply trade with House Rival.");
+    sheets[0]!.onConfirm();
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "SET_MUSTER", x: 10, y: 10, mode: "MARCH", targetX: 16, targetY: 12 });
   });
 
   it("does not start on tiles that aren't a march destination, and a press without moving is a plain tap", () => {

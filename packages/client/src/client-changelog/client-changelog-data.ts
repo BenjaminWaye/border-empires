@@ -1,4 +1,4 @@
-import { AFC_CAMPAIGN_LOADOUT_ENTRY, AI_EXPANSION_FIXES_ENTRY, ATTACK_ENDS_SUPPLY_TRADES_ENTRY, NEUTRAL_TOWN_NAMES_ENTRY, REPORT_CANCEL_ENTRY, SEASON_SCORES_SAVED_ENTRY } from "./client-changelog-nov-09.js";
+import { AFC_CAMPAIGN_LOADOUT_ENTRY, AI_EXPANSION_FIXES_ENTRY, ATTACK_ENDS_SUPPLY_TRADES_ENTRY, FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, NEUTRAL_TOWN_NAMES_ENTRY, REPORT_CANCEL_ENTRY, SEASON_SCORES_SAVED_ENTRY } from "./client-changelog-nov-09.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
@@ -336,13 +336,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A siege on a town or Dock you lost now shows as fallen, even when its tile record is missing"
     ]
   },
-  {
-    createdAt: 1792869724355, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.24.2",
-    title: "Troop carriers at dock landings",
-    why: "An army crossing the sea should arrive aboard a landing carrier.",
-    changes: ["Dock-to-dock attacks now show futuristic carriers sailing in, lowering their bow ramps and unloading infantry into combat. Carriers stay beached until the battle ends, on both 3D and 2D maps."]
-  },
   ...CLIENT_CHANGELOG_ENTRIES_OCT_25,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_26,
   {
@@ -485,6 +478,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...AI_EXPANSION_FIXES_ENTRY, createdAt: 1794219265399, },
   { ...ATTACK_ENDS_SUPPLY_TRADES_ENTRY, createdAt: 1794230766147, },
   { ...REPORT_CANCEL_ENTRY, createdAt: 1794248783783, },
+  { ...FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, createdAt: 1794241720931, },
   { ...AFC_CAMPAIGN_LOADOUT_ENTRY, createdAt: 1794249083604, }
 ];
 

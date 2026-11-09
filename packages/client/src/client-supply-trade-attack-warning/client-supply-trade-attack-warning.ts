@@ -1,7 +1,7 @@
 // Attacking a House ends every resource supply trade between the two
 // (apps/simulation runtime-frontier-command.ts cancels them when the ATTACK is
 // accepted). Launching an attack on a trade partner asks to confirm first
-// (client-launch-attack-effort.ts), whatever HUD shows the row; row details,
+// (client-flag-supply-trade-confirm.ts), as do March To and Set Advance; row details,
 // the Advance sheet and the March To sheet carry the same line. All text here
 // is plain: every renderer escapes it itself.
 import type { ClientState } from "../client-state/client-state.js";
