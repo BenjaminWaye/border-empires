@@ -86,3 +86,14 @@ export const JOIN_SCREEN_SEASON_END_ENTRY: Omit<ClientChangelogEntry, "createdAt
     "The join screen uses the same look as the in-game HUD, and reads Season 13 instead of Season season-13"
   ]
 };
+
+export const HIVE_MIND_II_PREREQ_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Hive Mind Module II follows Thunderplate Induction",
+  why: "The second Hive Mind came straight after the first, so extra Muster tiles didn't depend on the rest of the War line.",
+  changes: [
+    "Hive Mind Module II now requires the Thunderplate Induction Module instead of Hive Mind Module I, and moves to Tier 4",
+    "Hive Mind Module I no longer leads to another manifest",
+    "Commissioning Hive Mind Module II counts as a Tier 4 manifest, so it opens Tier 4 AFC upgrade choices"
+  ]
+};

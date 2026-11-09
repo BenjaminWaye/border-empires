@@ -545,7 +545,7 @@ old Reserve Lattice capacity statistics.
 | Siege Engineering | Siege Lens Foundry Module | AFC Module | Siege Tower |
 | Standing Legion | Dread Tower Cadre | Crew | Dread Tower |
 | Muster Discipline | Hive Mind Module I | AFC Module | One additional regional Muster commander |
-| Muster Command | Hive Mind Module II | AFC Module | A second additional regional Muster commander |
+| Muster Command | Hive Mind Module II | AFC Module | Another additional regional Muster commander (requires Thunderplate Induction; tier 4) |
 | Worldbreaker Doctrine | Sovereign Siege Engine Dossier | Dossier | Sovereign Siege Engine project |
 | Aegis Doctrine | Aegis Dome Dossier | Dossier | Aegis Dome project |
 
