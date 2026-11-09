@@ -69,16 +69,24 @@ describe("single-level AFC upgrade management", () => {
     expect(document.activeElement).toBe(panel.querySelector("[data-afc-upgrade-current-tier]"));
     expect(install).toHaveBeenCalledTimes(1);
   });
-  it("shows the next milestone without unavailable options, then a complete configuration", () => {
+  it("shows the next milestone, then puts completion above the installed upgrades", () => {
     const { state, panel, install } = setup();
     state.domainCatalog.push({ ...state.domainCatalog[0]!, id: "next", tier: 2 });
     state.domainIds = ["first"]; state.domainChoices = [];
     renderAfcUpgradePanels(state, panel, install);
     expect(panel.querySelectorAll(".afc-upgrade-card")).toHaveLength(0);
     expect(panel.textContent).toContain("Next: Upgrade II");
+    expect(panel.querySelector(".afc-upgrade-summary")?.textContent).toContain("1 of 2 upgrades installed");
+    expect(panel.querySelector(".afc-upgrade-ready-count")?.textContent).toBe("None ready");
+    panel.querySelector<HTMLElement>("[data-afc-upgrade-current-tier]")!.focus();
     state.domainIds.push("next");
     renderAfcUpgradePanels(state, panel, install);
-    expect(panel.textContent).toContain("Campaign configuration complete");
+    const completion = panel.querySelector("[data-afc-upgrade-complete]");
+    expect(completion?.textContent).toBe("2 of 2 upgrades installed");
+    expect(document.activeElement).toBe(completion);
+    expect(panel.querySelector(".afc-upgrades")?.firstElementChild).toBe(completion?.parentElement);
+    expect(panel.querySelector(".afc-upgrade-ready-count, .afc-upgrade-current")).toBeNull();
+    expect(panel.textContent).not.toContain("Campaign configuration complete");
     expect(panel.querySelectorAll("[data-afc-upgrade-installed]")).toHaveLength(2);
     expect(panel.querySelectorAll(".afc-upgrade-card")).toHaveLength(0);
   });
@@ -109,6 +117,8 @@ describe("single-level AFC upgrade management", () => {
     const catalogue = state.domainCatalog;
     state.domainCatalog = []; state.domainChoices = [];
     renderAfcUpgradePanels(state, panel, install);
+    expect(panel.querySelector(".afc-upgrade-summary")?.textContent).toContain("Loading upgrade choices");
+    expect(panel.querySelector("[data-afc-upgrade-complete], .afc-upgrade-ready-count")).toBeNull();
     state.domainCatalog = catalogue.map(upgrade => ({ ...upgrade, tier: 3 }));
     state.domainChoices = ["first", "second"];
     renderAfcUpgradePanels(state, panel, install);
