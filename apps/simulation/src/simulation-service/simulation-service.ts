@@ -86,6 +86,7 @@ import { updateSeasonVictoryTrackers, applyPendingSeasonActivation } from "../se
 import { buildBootstrapSeason, seasonStartedAtClock } from "./season-bootstrap.js";
 import { createAiAndSystemShouldRun } from "./ai-and-system-should-run.js";
 import { captureSeasonWinnerAtCrowning } from "../season-crowning/season-crowning.js";
+import { finalScoreHistory, restoreScoreHistory } from "../score-history-sampler/score-history-persistence.js";
 import { preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
 import { generateSeasonWorld } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache, resolveDockRouteBackfillReader } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
@@ -775,9 +776,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
   const snapshotCache = createPlayerSnapshotCache();
-  // Bounded score-over-time sampler for the season-end score graph; sampled
-  // from performGlobalStatusBroadcast (see global-status-broadcast-payload.ts)
-  // on the existing broadcast cadence, never a new timer.
+  // Season-end score graph sampler; cadence + boot restore documented in score-history-sampler.ts.
   const scoreHistorySampler = createScoreHistorySampler();
   // Post-season proto-tile cache: tiles freeze after season end, so the marshalled array is an immutable per-seasonId constant, shareable across all concurrent SubscribePlayer RPCs.
   let postSeasonProtoTilesCache: { seasonId: string; tiles: ReturnType<typeof toFullSnapshotProtoTile>[] } | undefined;
@@ -1091,7 +1090,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (trackerResult.crownedWinner && currentSeasonState.winner && !currentSeasonState.winner.stats) {
       currentSeasonState = captureSeasonWinnerAtCrowning({
         seasonState: currentSeasonState, winner: currentSeasonState.winner, runtime, runtimeState, worldStatus, objectives: trackerResult.objectives,
-        scoreHistory: scoreHistorySampler.seriesFor(currentSeasonState.seasonId)
+        scoreHistory: finalScoreHistory(scoreHistorySampler, currentSeasonState.seasonId, baseSummary.updatedAt, worldStatus.leaderboard.overall)
       });
     }
     scheduleSeasonVictoryRecheck(trackerResult.nextTimerAt);
@@ -1619,6 +1618,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // Before the first persist below, which would otherwise overwrite the stored
   // per-tile combat totals and 24h activity feeds with this process's empty ones.
   await restoreSeasonActivityState(seasonSummaryStore, currentSeasonState.seasonId, runtime);
+  await restoreScoreHistory(seasonSummaryStore, currentSeasonState.seasonId, scoreHistorySampler);
   await recomputeAndPersistCurrentSummary({ forcePersist: true });
   const startNextSeason = async (force = false, pendingImperialWard?: { playerId: string; charges: number }, defenseCampaignTargetSeasonId?: string): Promise<{ seasonId: string }> => {
     if (seasonRolloverInFlight) throw new Error("season rollover already in progress");
