@@ -50,3 +50,10 @@ export const FLAG_SUPPLY_TRADE_CONFIRM_ENTRY: Omit<ClientChangelogEntry, "create
     "Set Advance asks too when a House you trade with is within the flag's reach, including across your docks"
   ]
 };
+
+export const REPORT_CANCEL_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Cancel bug reports and suggestions",
+  why: "The Cancel button did nothing in either dialog.",
+  changes: ["Tap Cancel to close a bug report or suggestion without submitting it"]
+};
