@@ -11,7 +11,7 @@ import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type Muster
 import { commitPreviewWinChanceForTarget } from "../client-queue-logic/client-attack-preview-logic.js";
 import { showEffortConfirmSheet } from "../client-effort-confirm-sheet/client-effort-confirm-sheet.js";
 import { supplyTradeAttackWarningsForTargets } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
-import { showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
+import { confirmSupplyTradeEnd, type SupplyTradeSheet } from "../client-flag-supply-trade-confirm/client-flag-supply-trade-confirm.js";
 import {
   attackEffortFloorForTarget,
   clearAttackCommit,
@@ -34,7 +34,7 @@ export type AttackLaunchDeps = {
   showCaptureAlert: (title: string, detail: string, tone?: "error" | "success" | "warn") => void;
   hideTileActionMenu: () => void;
   /** Test seam for the supply-trade confirm; defaults to the break-pact sheet. */
-  showSupplyTradeSheet?: (options: BreakPactSheetOptions) => boolean;
+  showSupplyTradeSheet?: SupplyTradeSheet;
 };
 
 type EffortState = Pick<ClientState, "tiles" | "me" | "manpowerCap" | "attackCommitByTargetKey"> & Partial<Pick<ClientState, "domainIds">>;
@@ -142,15 +142,7 @@ export const launchAttacksWithEffort = (
   const enemyKeys = enemyTargetKeys(state, request.targetKeys, deps);
   deps.hideTileActionMenu();
   const supplyWarning = supplyTradeAttackWarningsForTargets(state, enemyKeys.map((k) => state.tiles.get(k)?.ownerId));
-  if (!supplyWarning) return launchWithEffort(state, request, enemyKeys, deps);
-  const shown = (deps.showSupplyTradeSheet ?? showBreakPactSheet)({
-    title: "End supply trades?",
-    subtitle: `${supplyWarning}.`,
-    consequences: ["Supply in both directions stops at once.", "Coin already paid is not refunded."],
-    confirmLabel: "Attack",
-    onConfirm: () => launchWithEffort(state, request, enemyKeys, deps)
-  });
-  if (!shown) launchWithEffort(state, request, enemyKeys, deps);
+  confirmSupplyTradeEnd(supplyWarning, "Attack", () => launchWithEffort(state, request, enemyKeys, deps), deps.showSupplyTradeSheet);
 };
 
 const launchWithEffort = (
