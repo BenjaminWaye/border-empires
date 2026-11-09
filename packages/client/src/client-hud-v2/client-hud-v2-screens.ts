@@ -148,6 +148,7 @@ const renderRanks = (deps: HudV2Deps): void => {
   const input = {
     me: deps.state.me,
     objectives: deps.state.seasonVictory,
+    winner: deps.state.seasonWinner,
     overall: lb.overall,
     selfOverall: lb.selfOverall,
     nameOf: (id: string) => nameOf(deps, id),
