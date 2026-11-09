@@ -40,6 +40,7 @@ describe("syncAuthOverlay", () => {
         seasonFull: false,
         seasonFullNotifyAcknowledged: false,
         sectorWaitlistCount: -1,
+        sectorWaitlistJoinFailed: false,
         authEmail: ""
       },
       {
@@ -121,6 +122,7 @@ describe("syncAuthOverlay", () => {
     seasonFull: false,
     seasonFullNotifyAcknowledged: false,
     sectorWaitlistCount: -1,
+    sectorWaitlistJoinFailed: false,
     authEmail: ""
   });
 

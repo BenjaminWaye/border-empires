@@ -51,6 +51,7 @@ const render = (
       seasonFull: false,
       seasonFullNotifyAcknowledged: false,
       sectorWaitlistCount: -1,
+      sectorWaitlistJoinFailed: false,
       authEmail: ""
     },
     {

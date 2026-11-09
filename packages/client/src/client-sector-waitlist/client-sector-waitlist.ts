@@ -11,6 +11,7 @@ type WaitlistState = {
   seasonFull: boolean;
   seasonFullNotifyAcknowledged: boolean;
   sectorWaitlistCount: number;
+  sectorWaitlistJoinFailed: boolean;
 };
 
 export type SectorWaitlistDeps = {
@@ -32,10 +33,10 @@ const housesWaiting = (count: number): string => `${count} ${count === 1 ? "Hous
 
 export const sectorWaitlistButtonLabel = (state: WaitlistState): string => {
   const count = state.sectorWaitlistCount;
-  if (state.seasonFullNotifyAcknowledged) {
-    const who = state.authEmail ? `We'll email ${state.authEmail}` : "We'll notify you";
-    return `On the waitlist${count > 0 ? ` · ${housesWaiting(count)}` : ""}. ${who} when the next Sector opens`;
-  }
+  // No email promise here: the next Sector is announced by the season-start
+  // email, which needs a bound address and the seasonStart preference on.
+  if (state.seasonFullNotifyAcknowledged) return `On the waitlist for the next Sector${count > 0 ? ` · ${housesWaiting(count)}` : ""}`;
+  if (state.sectorWaitlistJoinFailed) return "Couldn't join the waitlist. Tap to try again";
   return `Join the waitlist for the next Sector${count > 0 ? ` (${housesWaiting(count)})` : ""}`;
 };
 
@@ -71,15 +72,21 @@ export const createSectorWaitlistController = (deps: SectorWaitlistDeps) => {
     async join(): Promise<boolean> {
       if (joining || deps.state.seasonFullNotifyAcknowledged) return deps.state.seasonFullNotifyAcknowledged;
       joining = true;
+      let joined = false;
       try {
         const status = await request("POST");
         apply(status);
-        return status?.joined === true;
+        joined = status?.joined === true;
       } catch {
-        return false;
+        joined = false;
       } finally {
         joining = false;
       }
+      // Refusals (503 while the simulation is down, 409 at rollover, a
+      // missing token) must not look like a dead button.
+      deps.state.sectorWaitlistJoinFailed = !joined;
+      deps.sync();
+      return joined;
     }
   };
 };

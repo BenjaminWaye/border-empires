@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createSectorWaitlistController, sectorWaitlistButtonLabel } from "./client-sector-waitlist.js";
 
-const makeState = () => ({ authEmail: "duke@example.test", seasonFull: true, seasonFullNotifyAcknowledged: false, sectorWaitlistCount: -1 });
+const makeState = () => ({ authEmail: "duke@example.test", seasonFull: true, seasonFullNotifyAcknowledged: false, sectorWaitlistCount: -1, sectorWaitlistJoinFailed: false });
 
 const jsonResponse = (body: unknown) => ({ json: async () => body }) as unknown as Response;
 
@@ -26,6 +26,22 @@ describe("sector waitlist controller", () => {
 
     expect(await controller.join()).toBe(false);
     expect(state.seasonFullNotifyAcknowledged).toBe(false);
+    expect(state.sectorWaitlistJoinFailed).toBe(true);
+    expect(sectorWaitlistButtonLabel(state)).toBe("Couldn't join the waitlist. Tap to try again");
+  });
+
+  it("reports a failed join when the request throws, and clears it after a later success", async () => {
+    const state = makeState();
+    const fetchImpl = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockResolvedValueOnce(jsonResponse({ ok: true, seasonId: "s1", waitingCount: 1, joined: true }));
+    const controller = createSectorWaitlistController({ state, wsUrl: "wss://api.example.test/ws", getIdToken: async () => "tok", sync: vi.fn(), fetchImpl });
+
+    expect(await controller.join()).toBe(false);
+    expect(state.sectorWaitlistJoinFailed).toBe(true);
+    expect(await controller.join()).toBe(true);
+    expect(state.sectorWaitlistJoinFailed).toBe(false);
   });
 
   it("refreshes the count once, only after the season-full screen shows", async () => {
@@ -53,7 +69,7 @@ describe("sectorWaitlistButtonLabel", () => {
 
   it("confirms membership", () => {
     expect(sectorWaitlistButtonLabel({ ...makeState(), seasonFullNotifyAcknowledged: true, sectorWaitlistCount: 12 })).toBe(
-      "On the waitlist · 12 Houses waiting. We'll email duke@example.test when the next Sector opens"
+      "On the waitlist for the next Sector · 12 Houses waiting"
     );
   });
 });

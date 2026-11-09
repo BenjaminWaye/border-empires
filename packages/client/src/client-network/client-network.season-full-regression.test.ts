@@ -11,7 +11,7 @@ describe("client network SEASON_FULL handling", () => {
       data: JSON.stringify({
         type: "ERROR",
         code: "SEASON_FULL",
-        message: "This Sector Contest is full. Join the waitlist and we'll email you when the next Sector opens."
+        message: "This Sector Contest is full. Join the waitlist for the next Sector."
       })
     });
 

@@ -1,8 +1,8 @@
 // Sector Contest waitlist: GET the size of the queue for the next Sector (and
 // whether the caller is on it), POST to join, DELETE to leave. A player is
-// sent here by the SEASON_FULL rejection, which happens during socket auth,
-// so the socket never becomes a session -- these are plain HTTP routes
-// authenticated with the Firebase bearer token, like the rally-link routes.
+// sent here by the SEASON_FULL rejection, which can arrive during socket auth
+// (before any session exists) or in reply to JOIN_SEASON, so these are plain
+// HTTP routes authenticated with the Firebase bearer token, like rally links.
 //
 // Joining needs a real account: a guest (anonymous Firebase user) is lost on
 // uninstall and has no email to notify, so it is asked to sign in first.

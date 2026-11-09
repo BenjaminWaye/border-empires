@@ -74,6 +74,7 @@ export const syncAuthOverlay = (
     | "seasonFull"
     | "seasonFullNotifyAcknowledged"
     | "sectorWaitlistCount"
+    | "sectorWaitlistJoinFailed"
     | "authEmail"
   >,
   deps: {
