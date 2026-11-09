@@ -10,6 +10,8 @@
 import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type MusterCommitPreset } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 import { commitPreviewWinChanceForTarget } from "../client-queue-logic/client-attack-preview-logic.js";
 import { showEffortConfirmSheet } from "../client-effort-confirm-sheet/client-effort-confirm-sheet.js";
+import { supplyTradeAttackWarningsForTargets } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
+import { confirmSupplyTradeEnd, type SupplyTradeSheet } from "../client-flag-supply-trade-confirm/client-flag-supply-trade-confirm.js";
 import {
   attackEffortFloorForTarget,
   clearAttackCommit,
@@ -31,6 +33,8 @@ export type AttackLaunchDeps = {
   pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
   showCaptureAlert: (title: string, detail: string, tone?: "error" | "success" | "warn") => void;
   hideTileActionMenu: () => void;
+  /** Test seam for the supply-trade confirm; defaults to the break-pact sheet. */
+  showSupplyTradeSheet?: SupplyTradeSheet;
 };
 
 type EffortState = Pick<ClientState, "tiles" | "me" | "manpowerCap" | "attackCommitByTargetKey"> & Partial<Pick<ClientState, "domainIds">>;
@@ -102,7 +106,7 @@ const queueAndReport = (
 
 /** Multi-target sheet: presets only, each eligible target gets its own floor times the chosen multiplier. */
 const promptBulkEffort = (
-  state: EffortState,
+  state: ClientState,
   eligible: Tile[],
   title: string,
   onConfirm: (preset: MusterCommitPreset) => void
@@ -124,7 +128,10 @@ const promptBulkEffort = (
 };
 
 /**
- * The Launch Attack / Attack Connected Region tile-menu handler. Opens the
+ * The Launch Attack / Attack Connected Region tile-menu handler (single, bulk
+ * and region). When any target belongs to a House the player trades with, it
+ * first asks to confirm that the attack ends those supply trades — a sheet,
+ * so it shows on touch and in every HUD, unlike a row tooltip. Then opens the
  * effort sheet when any target is effort-eligible, otherwise queues at once.
  */
 export const launchAttacksWithEffort = (
@@ -134,6 +141,16 @@ export const launchAttacksWithEffort = (
 ): void => {
   const enemyKeys = enemyTargetKeys(state, request.targetKeys, deps);
   deps.hideTileActionMenu();
+  const supplyWarning = supplyTradeAttackWarningsForTargets(state, enemyKeys.map((k) => state.tiles.get(k)?.ownerId));
+  confirmSupplyTradeEnd(supplyWarning, "Attack", () => launchWithEffort(state, request, enemyKeys, deps), deps.showSupplyTradeSheet);
+};
+
+const launchWithEffort = (
+  state: ClientState,
+  request: { targetKeys: string[]; scope: AttackLaunchScope; selected: Tile | undefined },
+  enemyKeys: string[],
+  deps: AttackLaunchDeps
+): void => {
   const eligible = enemyKeys.map((k) => state.tiles.get(k)).filter((tile) => isAttackEffortEligibleTarget(tile));
   const launch = (): void => queueAndReport(enemyKeys, request, deps);
   if (eligible.length === 0) {

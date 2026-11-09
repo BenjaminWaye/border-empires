@@ -71,8 +71,14 @@ describe("scoreBuildBeacon", () => {
     expect(scoreDecision("BUILD_BEACON", { ...baseInputs, devSlotAvailable: false })).toBe(0);
   });
 
-  it("does not fire with an enemy at the frontier — fight first, build later", () => {
-    expect(scoreDecision("BUILD_BEACON", { ...baseInputs, frontierEnemyCount: 3 })).toBe(0);
+  it("does not fire while an enemy threatens the core — fight first, build later", () => {
+    expect(scoreDecision("BUILD_BEACON", { ...baseInputs, frontierEnemyCount: 3, pressureThreatensCore: true })).toBe(0);
+  });
+
+  // Staging season-41: AIs touching a neighbour anywhere stopped building
+  // beacons on every border, leaving their open, enemy-free sides unclaimed.
+  it("still fires when enemies touch the frontier but don't threaten the core", () => {
+    expect(scoreDecision("BUILD_BEACON", { ...baseInputs, frontierEnemyCount: 3, pressureThreatensCore: false })).toBeGreaterThan(0);
   });
 
   it("does not require an empty economy/manpower/food state — that used to be isReachStarved's job and is gone", () => {
@@ -130,10 +136,10 @@ describe("scoreBuildBeacon — cadence boost", () => {
     expect(boosted).toBeGreaterThan(unboosted);
   });
 
-  it("never revives a vetoed beacon — the boost cannot overcome a missing site, dev slot, or frontier enemy", () => {
+  it("never revives a vetoed beacon — the boost cannot overcome a missing site, dev slot, or core threat", () => {
     expect(scoreDecision("BUILD_BEACON", { ...baseInputs, hasRelayBeaconBuild: false, beaconBoostActive: true })).toBe(0);
     expect(scoreDecision("BUILD_BEACON", { ...baseInputs, devSlotAvailable: false, beaconBoostActive: true })).toBe(0);
-    expect(scoreDecision("BUILD_BEACON", { ...baseInputs, frontierEnemyCount: 3, beaconBoostActive: true })).toBe(0);
+    expect(scoreDecision("BUILD_BEACON", { ...baseInputs, frontierEnemyCount: 3, pressureThreatensCore: true, beaconBoostActive: true })).toBe(0);
     // Site value at the floor (linear() = 0) is also still a hard 0, even boosted.
     expect(scoreDecision("BUILD_BEACON", { ...baseInputs, relayBeaconSiteValue: 1, beaconBoostActive: true })).toBe(0);
   });

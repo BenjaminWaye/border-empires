@@ -54,19 +54,39 @@ describe("chooseBestEconomicBuild — need-weighted catalog", () => {
     expect(result).toBeUndefined();
   });
 
-  it("proposes HYDROWORKS on plain open land when FOOD_SLOTS is acutely deficient", () => {
-    const plainLand = tile(5, 5, { ownerId: "ai-1", ownershipState: "SETTLED" });
-    const tilesByKey = new Map<string, StructurePlannerTile>([["5,5", plainLand]]);
-    const needVector: NeedVector = { ...ZERO_NEED_VECTOR, FOOD_SLOTS: 1 };
-
-    const result = chooseBestEconomicBuild(
+  const garden = (x: number, y: number): StructurePlannerTile =>
+    tile(x, y, { ownerId: "ai-1", ownershipState: "SETTLED", resource: "FARM", economicStructure: { ownerId: "ai-1", type: "HYDROGARDEN", status: "active" } });
+  const hydroworksPick = (owned: StructurePlannerTile[], site: StructurePlannerTile) =>
+    chooseBestEconomicBuild(
       { ...ECONOMIC_BUILD_PLAYER, techIds: TECH_FOR_CATALOG },
-      [plainLand],
-      tilesByKey,
-      [plainLand],
-      needVector
-    );
-    expect(result?.structureType).toBe("HYDROWORKS");
+      owned,
+      new Map(owned.map((t) => [`${t.x},${t.y}`, t])),
+      [site],
+      { ...ZERO_NEED_VECTOR, FOOD_SLOTS: 1 }
+    )?.structureType;
+
+  it("proposes HYDROWORKS on plain open land when FOOD_SLOTS is acutely deficient and an unboosted Hydrogarden is in range", () => {
+    const plainLand = tile(5, 5, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    expect(hydroworksPick([plainLand, garden(12, 5)], plainLand)).toBe("HYDROWORKS");
+  });
+
+  // Staging season-41: 16 of 34 AI Hydroworks had no Hydrogarden in range.
+  it("does not propose HYDROWORKS where no own Hydrogarden is in range", () => {
+    const plainLand = tile(5, 5, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    expect(hydroworksPick([plainLand, garden(40, 40)], plainLand)).not.toBe("HYDROWORKS");
+  });
+
+  // ...and 33 of 34 only reached gardens another Hydroworks already boosted.
+  it("counts a switched-off Hydroworks as covering its gardens", () => {
+    const plainLand = tile(5, 5, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const off = tile(14, 5, { ownerId: "ai-1", ownershipState: "SETTLED", economicStructure: { ownerId: "ai-1", type: "HYDROWORKS", status: "inactive" } });
+    expect(hydroworksPick([plainLand, garden(12, 5), off], plainLand)).not.toBe("HYDROWORKS");
+  });
+
+  it("does not propose HYDROWORKS when every garden in range is already boosted", () => {
+    const plainLand = tile(5, 5, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const existing = tile(14, 5, { ownerId: "ai-1", ownershipState: "SETTLED", economicStructure: { ownerId: "ai-1", type: "HYDROWORKS", status: "active" } });
+    expect(hydroworksPick([plainLand, garden(12, 5), existing], plainLand)).not.toBe("HYDROWORKS");
   });
 
   it("does not propose a catalog type on plain land when its need is fully satisfied (deficit 0)", () => {

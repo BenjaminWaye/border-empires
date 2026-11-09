@@ -57,6 +57,8 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   /** A "manual"-disabled RELAY_BEACON worth re-enabling now that FOOD has headroom — see chooseManuallyDisabledBeaconToReenable in food-slot-relief.ts. Only ever set when foodSlotsExhausted is false. */
   foodSlotReenableTarget: FoodSlotReenableTarget | undefined;
   attackStalemateTargetTileKeys: ReadonlySet<string> | undefined;
+  /** False when no own muster flag in range could fund this attack (ai-attack-muster-funding.ts). Absent = treat as funded. */
+  attackMusterFunded?: ((selection: NonNullable<FrontierAnalysis["attack"]>) => boolean) | undefined;
   expansionObjective: { x: number; y: number; kind: "neutral_value" | "enemy" } | undefined;
   points: number;
   manpower: number;
@@ -72,6 +74,13 @@ const targetStalemated = <TTile extends AutomationPlannerTile>(
   state: UtilityDispatchState<TTile>
 ): boolean =>
   Boolean(sel && state.attackStalemateTargetTileKeys?.has(`${sel.target.x},${sel.target.y}`));
+
+/** An attack the planner may actually emit: selected, not stalemated, and fundable from a muster flag. */
+const attackActionable = <TTile extends AutomationPlannerTile>(
+  sel: FrontierAnalysis["attack"] | undefined,
+  state: UtilityDispatchState<TTile>
+): sel is NonNullable<FrontierAnalysis["attack"]> =>
+  sel !== undefined && !targetStalemated(sel, state) && (state.attackMusterFunded?.(sel) ?? true);
 
 // ── Input builder ─────────────────────────────────────────────────────────────
 
@@ -121,10 +130,7 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
       fa.scaffoldExpand !== undefined ||
       fa.scoutExpand !== undefined,
     hasAnyAttackCandidate:
-      (state.preferredEnemyAttack !== undefined &&
-        !targetStalemated(state.preferredEnemyAttack, state)) ||
-      (fa.barbarianAttack !== undefined &&
-        !targetStalemated(fa.barbarianAttack, state)),
+      attackActionable(state.preferredEnemyAttack, state) || attackActionable(fa.barbarianAttack, state),
     devSlotAvailable: state.devSlotAvailable,
     attackReady: strategic.attackReady,
     musterReady: strategic.musterReady,
@@ -189,10 +195,10 @@ const executeClass = <TTile extends AutomationPlannerTile>(
         fa.frontierEnemyPlayerTargetCount > 0 &&
         notStalemated(fa.enemyAttack);
       const canDirectAttack = canAttack && strategic.attackReady && !musterWillHandle;
-      if (state.preferredEnemyAttack && notStalemated(state.preferredEnemyAttack) && canDirectAttack) {
+      if (attackActionable(state.preferredEnemyAttack, state) && canDirectAttack) {
         return buildPlannerFrontierCommand(context, state.preferredEnemyAttack, "ATTACK");
       }
-      if (fa.barbarianAttack && notStalemated(fa.barbarianAttack) && canDirectAttack) {
+      if (attackActionable(fa.barbarianAttack, state) && canDirectAttack) {
         return buildPlannerFrontierCommand(context, fa.barbarianAttack, "ATTACK");
       }
       return undefined;
@@ -341,7 +347,9 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
       pressureAttackScore: inputs.pressureAttackScore,
       hasAnyAttackCandidate: inputs.hasAnyAttackCandidate,
       hasBarbarianAttackSelection: state.context.frontierAnalysis.barbarianAttack !== undefined,
-      attackOnCooldown: Boolean(inputs.cooldown.ATTACK)
+      attackOnCooldown: Boolean(inputs.cooldown.ATTACK),
+      attackUnfunded: [state.preferredEnemyAttack, state.context.frontierAnalysis.barbarianAttack]
+        .some(sel => sel !== undefined && !targetStalemated(sel, state) && state.attackMusterFunded?.(sel) === false)
     },
     ...(policy.vetoedClasses.length > 0 ? { utilityVetoedClasses: policy.vetoedClasses } : {})
   };

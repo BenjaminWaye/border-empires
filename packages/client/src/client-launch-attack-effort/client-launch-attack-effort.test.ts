@@ -93,3 +93,40 @@ describe("Launch Attack effort sheet", () => {
     expect(attackCommitForTarget(state, 3, 0)).toBeUndefined();
   });
 });
+
+describe("Launch Attack on a supply-trade partner", () => {
+  afterEach(() => hideEffortConfirmSheet());
+  const trade = { id: "t1", proposerId: "me", targetId: "enemy", proposerGives: { FOOD: 1 }, targetGives: {}, startedAt: 1, fulfilled: true };
+
+  // HUD v2 shows row details only as a tooltip, which touch never shows: the
+  // confirm sheet is what actually warns a phone player before trades end.
+  it("asks to confirm a FRONTIER attack before queuing it, and queues on confirm", () => {
+    const { state, deps, queueSpecificTargets } = setup([{ x: 1, y: 0, ownershipState: "FRONTIER" }]);
+    state.resourceTradeAgreements = [trade];
+    const sheets: Array<{ subtitle: string; onConfirm: () => void }> = [];
+    deps.showSupplyTradeSheet = (options) => { sheets.push(options); return true; };
+    launchAttacksWithEffort(state, { targetKeys: ["1,0"], scope: "single", selected: state.tiles.get("1,0") }, deps);
+    expect(queueSpecificTargets).not.toHaveBeenCalled();
+    expect(sheets[0]?.subtitle).toContain("Attacking ends your 1 supply trade with");
+    sheets[0]!.onConfirm();
+    expect(queueSpecificTargets).toHaveBeenCalledWith(["1,0"]);
+  });
+
+  it("asks once for a bulk attack mixing a trade partner's frontier tiles", () => {
+    const { state, deps } = setup([{ x: 1, y: 0, ownershipState: "FRONTIER" }, { x: 2, y: 0, ownershipState: "FRONTIER", ownerId: "other" }]);
+    state.resourceTradeAgreements = [trade];
+    const shown = vi.fn(() => true);
+    deps.showSupplyTradeSheet = shown;
+    launchAttacksWithEffort(state, { targetKeys: ["1,0", "2,0"], scope: "bulk", selected: undefined }, deps);
+    expect(shown).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips the confirm when the target House has no trade with the player", () => {
+    const { state, deps, queueSpecificTargets } = setup([{ x: 1, y: 0, ownershipState: "FRONTIER" }]);
+    const shown = vi.fn(() => true);
+    deps.showSupplyTradeSheet = shown;
+    launchAttacksWithEffort(state, { targetKeys: ["1,0"], scope: "single", selected: state.tiles.get("1,0") }, deps);
+    expect(shown).not.toHaveBeenCalled();
+    expect(queueSpecificTargets).toHaveBeenCalledWith(["1,0"]);
+  });
+});

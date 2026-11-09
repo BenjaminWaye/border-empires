@@ -42,7 +42,7 @@ import { createPlayerFunnelTracker } from "../player-funnel-tracker/player-funne
 import { intakeSimulationEvent } from "../simulation-event-intake/simulation-event-intake.js";
 import { reserveRallyLinkForAuth } from "../rally-link-auth.js";
 import { rallyAnchorFromTiles } from "../rally-link-anchor.js";
-import { createGatewayRallyLinkStore } from "../rally-link-store-factory.js";
+import { createGatewayJoinStores } from "../gateway-join-stores/gateway-join-stores.js";
 import type { RallyAnchor } from "../rally-link-store/rally-link-store.js";
 import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-planet-store-factory.js";
 import { wireGalaxyEconomy } from "../galaxy-economy-wiring/galaxy-economy-wiring.js"; import { wireGalaxySenate } from "../galaxy-senate-wiring/galaxy-senate-wiring.js"; import { createGalaxySenateStore } from "../galaxy-senate-store-factory/galaxy-senate-store-factory.js";
@@ -540,7 +540,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const authBindingStore =
     options.authBindingStore ??
     (await createGatewayAuthBindingStore(commandStoreFactoryOptions));
-  const rallyLinkStore = await createGatewayRallyLinkStore(commandStoreFactoryOptions);
+  const { rallyLinkStore, sectorWaitlistStore } = await createGatewayJoinStores(commandStoreFactoryOptions);
   const galaxyPlanetStore =
     options.galaxyPlanetStore ??
     (await createGalaxyPlanetStore(commandStoreFactoryOptions));
@@ -919,7 +919,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       growthBaselineStore,
       ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
       resolveHttpBearerIdentity,
-      rallyLinkStore,
+      rallyLinkStore, sectorWaitlistStore,
       galaxyPlanetStore, galaxyEconomyStore, galaxySenateStore,
       galaxyEndorsementStore, galaxyDefenseCampaignStore, galaxyFleetStore, galaxyBattleLogStore, galaxyExplorationStore, galaxyDukeService,
       sovereignSiegeEngineStrikeStore: sovereignSiegeEngineStrike.store,

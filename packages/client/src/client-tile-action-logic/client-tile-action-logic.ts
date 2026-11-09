@@ -1505,7 +1505,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       // Barbarians cannot be truced with — no truce actions for barbarian-owned tiles.
     } else {
       out.push(diplomacyActionForOwner(state, tile.ownerId, deps));
-      gateAttackRowsOnTruce(out, activeTruce);
+      gateAttackRowsOnTruce(out, activeTruce, { state, ownerId: tile.ownerId });
       if (activeTruce) out.push(breakTruceAction(activeTruce));
     }
     const revealActive = state.activeRevealTargets.includes(tile.ownerId);

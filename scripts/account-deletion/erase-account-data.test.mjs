@@ -170,3 +170,13 @@ test("does not commit erasure when the restoration ledger could not be saved", (
     assert.equal(db.prepare("SELECT status FROM account_deletion_requests").get().status, "pending");
   } finally { db.close(); }
 });
+
+test("erases the account's next-Sector waitlist entries and keeps other players'", () => {
+  const { db } = fixture();
+  try {
+    db.exec(`CREATE TABLE sector_waitlist(season_id TEXT NOT NULL, player_id TEXT NOT NULL, joined_at INTEGER NOT NULL, PRIMARY KEY (season_id, player_id));
+      INSERT INTO sector_waitlist VALUES('season-7', 'p1', 1), ('season-7', 'p10', 2), ('season-6', 'p1', 0);`);
+    eraseAccountData(db, "receipt", { apply: true, now: 50 });
+    assert.deepEqual(db.prepare("SELECT season_id, player_id FROM sector_waitlist").all().map((row) => ({ ...row })), [{ season_id: "season-7", player_id: "p10" }]);
+  } finally { db.close(); }
+});
