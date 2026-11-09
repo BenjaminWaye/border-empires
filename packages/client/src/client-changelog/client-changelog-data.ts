@@ -1,5 +1,6 @@
 import { AI_EXPANSION_FIXES_ENTRY, NEUTRAL_TOWN_NAMES_ENTRY, SEASON_SCORES_SAVED_ENTRY } from "./client-changelog-nov-09.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
+import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
 import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
 import { COMMAND_NAVIGATION_ENTRY } from "./client-changelog-command-navigation.js";
@@ -490,6 +491,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   { ...SEASON_SCORES_SAVED_ENTRY, createdAt: 1794209772303, },
   { ...NEUTRAL_TOWN_NAMES_ENTRY, createdAt: 1794215116027, },
+  { ...ZOOMED_OUT_PAN_PERF_CHANGELOG, createdAt: 1794216988849, },
   { ...AI_EXPANSION_FIXES_ENTRY, createdAt: 1794219265399, }
 ];
 

@@ -13,7 +13,9 @@
 //
 // Cost: the canvas is only redrawn (and re-uploaded) when the labels change
 // or the camera leaves the canvas's area; the ground mesh is rebuilt when the
-// camera window moves by a tile or the terrain under it changes.
+// camera window moves by a tile, the terrain under it changes, or the tiles
+// the labels can ink change -- and covers only those tiles
+// (client-map-3d-name-decal-ink-mask.ts).
 import {
   BufferAttribute,
   BufferGeometry,
@@ -33,6 +35,7 @@ import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield-
 import { tileSurfaceHeights, type TileSurfaceHeightfield } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { buildDecalMeshArrays, type HillDomeSampler } from "./client-map-3d-name-decal-mesh.js";
+import { labelInkMask, type InkMask } from "./client-map-3d-name-decal-ink-mask.js";
 
 /** Tiles of canvas kept around the camera window, so small pans don't redraw the texture. */
 const CANVAS_MARGIN_TILES = 12;
@@ -42,6 +45,8 @@ const MAX_PX_PER_TILE = 40;
 const TERRAIN_RESAMPLE_MIN_INTERVAL_MS = 1_000;
 /** Smallest glyph height, in tiles, before a name stops shrinking to fit. */
 const MIN_GLYPH_TILES = 0.3;
+/** Largest glyph height, in tiles, by label kind. */
+const maxGlyphTiles = (kind: "player" | "island"): number => (kind === "player" ? 7 : 3.5);
 
 export type NameDecalDeps = {
   readonly scene: Scene;
@@ -111,6 +116,7 @@ export const createNameDecal = (deps: NameDecalDeps): NameDecal => {
   deps.scene.add(mesh);
 
   let area: CanvasArea | undefined;
+  let inkMask: InkMask | undefined;
   let drawnSignature = "";
   let meshKey = "";
   let hasInk = false;
@@ -164,14 +170,14 @@ export const createNameDecal = (deps: NameDecalDeps): NameDecal => {
       // Glyph limits in canvas pixels. The floor is low on purpose: a long
       // name on a small territory shrinks to fit its land rather than spill
       // over the border.
-      const style = { ...label.style, minFontPx: MIN_GLYPH_TILES * current.pxPerTile, maxFontPx: (label.kind === "player" ? 7 : 3.5) * current.pxPerTile };
+      const style = { ...label.style, minFontPx: MIN_GLYPH_TILES * current.pxPerTile, maxFontPx: maxGlyphTiles(label.kind) * current.pxPerTile };
       if (drawNameAlongPath(ctx, label.path, style, project, { width, height })) drew = true;
     }
     texture.needsUpdate = true;
     return drew;
   };
 
-  const rebuildMesh = (current: CanvasArea, frame: NameDecalFrame): void => {
+  const rebuildMesh = (current: CanvasArea, frame: NameDecalFrame, mask: InkMask): void => {
     // Ground under the window, but never past the canvas (a capped canvas on a huge window).
     const halfW = Math.min(frame.halfW, maxHalfW - 2);
     const halfH = Math.min(frame.halfH, maxHalfH - 2);
@@ -179,6 +185,8 @@ export const createNameDecal = (deps: NameDecalDeps): NameDecal => {
     const tilesZ = 2 * halfH + 3;
     const originDx = -halfW - 1;
     const originDy = -halfH - 1;
+    const areaOffsetX = toroidDelta(current.x0, frame.camX + originDx, deps.worldWidth);
+    const areaOffsetY = toroidDelta(current.y0, frame.camY + originDy, deps.worldHeight);
     const { positions, uvs, indices } = buildDecalMeshArrays(deps, {
       firstTileX: frame.camX + originDx,
       firstTileY: frame.camY + originDy,
@@ -186,10 +194,11 @@ export const createNameDecal = (deps: NameDecalDeps): NameDecal => {
       tilesZ,
       originDx,
       originDy,
-      areaOffsetX: toroidDelta(current.x0, frame.camX + originDx, deps.worldWidth),
-      areaOffsetY: toroidDelta(current.y0, frame.camY + originDy, deps.worldHeight),
+      areaOffsetX,
+      areaOffsetY,
       areaWidthTiles: current.widthTiles,
-      areaHeightTiles: current.heightTiles
+      areaHeightTiles: current.heightTiles,
+      includeTile: (tx, tz) => mask.covers(areaOffsetX + tx, areaOffsetY + tz)
     });
     // A fresh geometry, and the old one disposed: replacing attributes in place
     // would leave the previous GL buffers allocated until the context dies.
@@ -217,17 +226,18 @@ export const createNameDecal = (deps: NameDecalDeps): NameDecal => {
       drawnSignature = "";
       return;
     }
-    if (signature !== drawnSignature) {
+    if (signature !== drawnSignature || !inkMask) {
       hasInk = redraw(area, labels);
+      inkMask = labelInkMask(labels, area, deps.worldWidth, deps.worldHeight, maxGlyphTiles);
       drawnSignature = signature;
     }
     mesh.visible = hasInk;
     if (!hasInk) return;
-    const nextMeshKey = `${area.x0},${area.y0},${frame.camX},${frame.camY},${frame.halfW},${frame.halfH}`;
+    const nextMeshKey = `${area.x0},${area.y0},${frame.camX},${frame.camY},${frame.halfW},${frame.halfH},${inkMask.key}`;
     // Tile changes arrive constantly; re-sample the ground for them at most once a second.
     const terrainStale = frame.terrainRevision !== meshTerrainRevision && frame.nowMs - meshBuiltAt >= TERRAIN_RESAMPLE_MIN_INTERVAL_MS;
     if (nextMeshKey !== meshKey || terrainStale) {
-      rebuildMesh(area, frame);
+      rebuildMesh(area, frame, inkMask);
       meshKey = nextMeshKey;
       meshTerrainRevision = frame.terrainRevision;
       meshBuiltAt = frame.nowMs;

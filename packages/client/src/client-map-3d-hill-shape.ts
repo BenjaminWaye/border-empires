@@ -64,8 +64,13 @@ const PLATEAU_BASE_HEIGHT = 0.20;
 // slope band's job, not this noise).
 const PLATEAU_IRREGULARITY = 0.06;
 
-const plateauHeightAt = (wx: number, wy: number, u: number, v: number): number => {
-  const r = Math.hypot(u, v);
+// `r` is the caller's own sqrt(u*u + v*v) (hillShapeHeight shares it with
+// roughnessEnvelopeAt). Math.hypot is avoided throughout this module's
+// per-vertex path: it is several times slower than sqrt in V8, and
+// hillShapeHeight was the single hottest function in a zoomed-out pan trace
+// (1.35s of 12.9s, run for every vertex of the hill dome, ownership drape and
+// name-decal ground on each terrain rebuild).
+const plateauHeightAt = (wx: number, wy: number, u: number, v: number, r: number): number => {
   if (r >= PLATEAU_SLOPE_EDGE) return 0;
   const irregular = PLATEAU_BASE_HEIGHT + (roughnessNoiseAt(wx, wy, u, v, 61) - 0.5) * 2 * PLATEAU_IRREGULARITY;
   if (r <= PLATEAU_FLAT_RADIUS) return irregular;
@@ -119,8 +124,7 @@ const ROUGHNESS_EDGE = 0.40;
 // two textures don't just add up to the same pattern scaled twice.
 const ROUGHNESS_AMPLITUDE = 0.04;
 const ROUGHNESS_SEED = 79;
-const roughnessEnvelopeAt = (u: number, v: number): number => {
-  const r = Math.hypot(u, v);
+const roughnessEnvelopeAt = (r: number): number => {
   if (r >= ROUGHNESS_EDGE) return 0;
   return smoothstep01(1 - r / ROUGHNESS_EDGE);
 };
@@ -258,7 +262,9 @@ const distanceToRoadArms = (u: number, v: number, dirs: RoadCutDirections): numb
     const dy = y2 - y1;
     const len2 = dx * dx + dy * dy;
     const t = len2 > 0 ? Math.max(0, Math.min(1, ((u - x1) * dx + (v - y1) * dy) / len2)) : 0;
-    const d = Math.hypot(u - (x1 + t * dx), v - (y1 + t * dy));
+    const ex = u - (x1 + t * dx);
+    const ey = v - (y1 + t * dy);
+    const d = Math.sqrt(ex * ex + ey * ey);
     if (d < best) best = d;
   };
   if (dirs.north) consider(0, 0, 0, -0.5);
@@ -303,13 +309,19 @@ export const hillShapeHeight = (
   roadDirs?: RoadCutDirections
 ): number => {
   let pointsHeight = 0;
-  for (const b of bumps) {
-    const d = Math.hypot(u - b.ou, v - b.ov);
-    const bh = bumpFalloff(d, b.radius) * b.weight;
+  for (let i = 0; i < bumps.length; i += 1) {
+    const b = bumps[i]!;
+    const du = u - b.ou;
+    const dv = v - b.ov;
+    const d2 = du * du + dv * dv;
+    if (d2 >= b.radius * b.radius) continue; // bumpFalloff is exactly 0 at and past its radius
+    const bh = bumpFalloff(Math.sqrt(d2), b.radius) * b.weight;
     if (bh > pointsHeight) pointsHeight = bh;
   }
-  const plateau = plateauHeightAt(wx, wy, u, v);
-  const roughness = (roughnessNoiseAt(wx, wy, u, v, ROUGHNESS_SEED) - 0.5) * 2 * ROUGHNESS_AMPLITUDE * roughnessEnvelopeAt(u, v);
+  const r = Math.sqrt(u * u + v * v);
+  const plateau = plateauHeightAt(wx, wy, u, v, r);
+  const envelope = roughnessEnvelopeAt(r);
+  const roughness = envelope > 0 ? (roughnessNoiseAt(wx, wy, u, v, ROUGHNESS_SEED) - 0.5) * 2 * ROUGHNESS_AMPLITUDE * envelope : 0;
   const raw = Math.max(0, plateau + pointsHeight + roughness);
   const cut = hillRoadCutMask(u, v, roadDirs);
   return cut > 0 ? raw * (1 - cut) : raw;
