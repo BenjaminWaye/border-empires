@@ -80,13 +80,15 @@ export const armMusterTransit = (
     toX: number;
     toY: number;
     transitTiles: number;
+    /** The company's real route time (client-muster-transit-route.ts), through a dock where it must sail; replaces transitTiles × the per-tile rate. */
+    transitMs?: number;
     manpower: number;
     commandId: string;
     clientSeq: number;
   }
 ): void => {
   const now = Date.now();
-  const transitMs = args.transitTiles * MUSTER_TRANSIT_MS_PER_TILE;
+  const transitMs = args.transitMs ?? args.transitTiles * MUSTER_TRANSIT_MS_PER_TILE;
   attackSyncLog("muster-transit-armed", { commandId: args.commandId, clientSeq: args.clientSeq, transitMs, transitEndsAt: now + transitMs, target: { x: args.toX, y: args.toY } });
   state.musterTransitByCommand.set(args.commandId, {
     musterX: args.musterX,
@@ -258,6 +260,10 @@ export type MusterSupplyLine = {
   // line" check still matches against the tile actually being attacked.
   targetKey: string;
   phase: "transit" | "locked";
+  // The march's window, when known -- the 2D map uses it to place the troop
+  // transport on a route's sea crossing (client-muster-route-2d.ts).
+  startAt?: number;
+  arriveAt?: number;
 };
 
 // All currently-active muster-fed supply lines, independent of the single
@@ -272,7 +278,9 @@ export const activeMusterSupplyLines = (state: MusterTransitMaps, keyFor: (x: nu
       targetX: transit.marchToX,
       targetY: transit.marchToY,
       targetKey: keyFor(transit.targetX, transit.targetY),
-      phase: state.deferredAttackByCommand.has(attackKey) ? "transit" : "locked"
+      phase: state.deferredAttackByCommand.has(attackKey) ? "transit" : "locked",
+      startAt: transit.transitStartAt,
+      arriveAt: transit.transitEndsAt
     });
   }
   return lines;
@@ -305,7 +313,8 @@ export const outgoingMusterAttackTransitLines = (
       targetX: outgoing.originX,
       targetY: outgoing.originY,
       targetKey,
-      phase: "transit"
+      phase: "transit",
+      arriveAt: outgoing.transitEndsAt
     });
   }
   return lines;

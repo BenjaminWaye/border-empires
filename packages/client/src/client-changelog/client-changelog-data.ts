@@ -172,6 +172,7 @@ import { MOBILE_RESOURCE_RIBBON_ENTRY } from "./client-changelog-mobile-resource
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
 import { AFC_LANDING_DEPLOYMENT_ENTRY, CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
+import { MUSTER_DOCK_TRANSPORT_ENTRY } from "./client-changelog-muster-dock-transport.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
@@ -489,6 +490,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...RESOURCE_LENS_ENTRY, createdAt: 1794383695242, },
   { ...WAYSTATION_FORT_MODULE_ENTRY, createdAt: 1794394297385, },
   { ...READABLE_REALM_NAMES_ENTRY, createdAt: 1794410558462, },
+  { ...MUSTER_DOCK_TRANSPORT_ENTRY, createdAt: 1794353510194, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

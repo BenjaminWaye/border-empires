@@ -8,6 +8,7 @@ import {
 } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { formatSiegeRemaining, ownTileSiegeAt, type OwnTileSiege } from "../client-muster-siege/client-muster-siege.js";
 import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
+import { clientMusterTransitRoute } from "../client-muster-transit-route/client-muster-transit-route.js";
 import { requiredMusterWithCommit } from "../client-attack-commit/client-attack-commit.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
@@ -124,6 +125,8 @@ export const dispatchMusterFundedAttack = (
         musterX: funded.tile.x, musterY: funded.tile.y,
         fromX: from.x, fromY: from.y, toX: to.x, toY: to.y,
         transitTiles: Math.max(1, funded.dist),
+        // Through a dock and across by troop transport when the walk would cross water.
+        transitMs: clientMusterTransitRoute(state, funded.tile, from).transitMs,
         manpower: required, commandId, clientSeq
       });
       deps.pushFeed(

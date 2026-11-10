@@ -93,7 +93,6 @@ import {
   buildDockNetworkComponentByTileKey,
 } from "../dock-network/dock-network.js";
 import {
-  isDockCrossingTarget as isDockCrossingTargetImpl,
   isAetherBridgeCrossingTarget as isAetherBridgeCrossingTargetImpl,
   resolveOwnedDockOriginForCrossing as resolveOwnedDockOriginForCrossingImpl,
   findOwnedAetherBridgeOriginForCrossing as findOwnedAetherBridgeOriginForCrossingImpl,
@@ -1312,7 +1311,7 @@ export class SimulationRuntime {
       adjacentTileStates: (x, y) => this.adjacentTileStates(x, y),
       findOwnedDockOriginForCrossing: (playerId, x, y) => this.findOwnedDockOriginForCrossing(playerId, x, y),
       findOwnedAetherBridgeOriginForCrossing: (playerId, x, y) => this.findOwnedAetherBridgeOriginForCrossing(playerId, x, y),
-      isDockCrossingTarget: (from, x, y) => isDockCrossingTargetImpl(from, x, y, this.state.dockLanding),
+      dockLanding: this.state.dockLanding,
       isAetherBridgeCrossingTarget: (playerId, x1, y1, x2, y2) => this.isAetherBridgeCrossingTarget(playerId, x1, y1, x2, y2),
       crossingBlockedByAetherWall: (x1, y1, x2, y2) => this.crossingBlockedByAetherWall(x1, y1, x2, y2),
       isTileWardedByImperialWard: (targetOwnerId) => isTileWardedByImperialWardImpl(this.abilityCooldowns, this.now(), targetOwnerId),
