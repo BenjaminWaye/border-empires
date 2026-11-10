@@ -1,5 +1,5 @@
 // Builds and emits the periodic GLOBAL_STATUS_UPDATE broadcast (leaderboard +
-// season-victory + season-winner/stats + score-history). Extracted out of
+// season-victory + season-winner/stats). Extracted out of
 // simulation-service.ts (already over the repo's 500-line file cap) so that
 // file doesn't grow further -- this module is where the score-history
 // sampler (see score-history-sampler.ts) piggybacks on the existing
@@ -69,7 +69,6 @@ export const createGlobalStatusBroadcastPayload = (
     }
     const acceptLatencyP95Ms = deps.simulationMetrics.currentAcceptLatencyP95Ms();
     const liveEconomicHegemony = buildEconomicHegemonyObjective(globalLeaderboard.overall, id => leaderboardPlayers.find(player => player.id === id)?.domainIds); // once per tick — sorts the leaderboard; do not move into the loop below
-    const scoreHistory = currentSummary ? deps.scoreHistorySampler.seriesFor(currentSummary.seasonId) : [];
     const selfProgress = deps.getSelfProgress();
     const cachedObjectives = seasonVictoryWithCurrentHolds(currentSummary?.seasonVictory ?? [], Date.now(), Boolean(currentSummary?.seasonWinner));
     for (const subscribedPlayerId of deps.subscriptionRegistry.subscribedPlayerIds()) {
@@ -92,7 +91,10 @@ export const createGlobalStatusBroadcastPayload = (
         seasonVictory,
         ...(seasonWinner ? { seasonWinner } : {}),
         ...(currentSummary?.seasonStats ? { seasonStats: currentSummary.seasonStats } : {}),
-        ...(scoreHistory.length > 0 ? { scoreHistory } : {}),
+        // No live scoreHistory: only the season-end screen shows it, and it
+        // reads seasonWinner.scoreHistory (persisted at crowning). Resending
+        // ~90 points per empire to every player on every broadcast would
+        // grow with season age (review of PR #2697).
         ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {})
       };
       const cachedSnapshot = deps.snapshotCache.peek(subscribedPlayerId);
