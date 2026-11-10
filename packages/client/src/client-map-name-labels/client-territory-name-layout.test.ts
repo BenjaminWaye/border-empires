@@ -60,22 +60,39 @@ describe("computeTerritoryNameLabels", () => {
   });
 });
 
-it("fits one player name across connected garrisoned and explored frontier land", () => {
-  const land = [...block("p1", 5, 5, 6, 5), ...block("p1", 11, 5, 14, 5, "FRONTIER")];
+const placePlayerNames = (land: readonly Tile[], isExploredAt: (x: number, y: number) => boolean) => {
   const state = createInitialState();
   state.me = "p1";
   state.meName = "Brass";
   for (const tile of land) state.tiles.set(`${tile.x},${tile.y}`, tile);
-  const { players } = computeNamePlacements({
+  return computeNamePlacements({
     state,
-    isExploredAt: (x) => x < 21,
+    isExploredAt,
     wrapX: (x) => x,
     wrapY: (y) => y
-  }, 1);
+  }, 1).players;
+};
+
+it("fits one player name across connected garrisoned and explored frontier land", () => {
+  const land = [...block("p1", 5, 5, 6, 5), ...block("p1", 11, 5, 14, 5, "FRONTIER")];
+  const players = placePlayerNames(land, (x) => x < 21);
   expect(players).toHaveLength(1);
   const { path } = players[0]!;
   expect(path.text).toBe("Brass");
   const xs = path.points.map(({ x }) => Math.round(x));
   expect(Math.min(...xs)).toBeLessThan(11);
   expect(Math.max(...xs)).toBe(19);
+});
+
+it("keeps one readable name when a thin frontier connects two parallel strips", () => {
+  const land = [
+    ...block("p1", 10, 10, 40, 5),
+    ...block("p1", 10, 15, 1, 9, "FRONTIER"),
+    ...block("p1", 10, 24, 40, 5, "FRONTIER")
+  ];
+  const players = placePlayerNames(land, () => true);
+  expect(players).toHaveLength(1);
+  const { path } = players[0]!;
+  expect(path.spanTiles).toBeGreaterThan(35);
+  expect(path.points.every(({ y }) => y <= 14 || y >= 24)).toBe(true);
 });

@@ -13,7 +13,7 @@ import { playerDisplayNameForOwnerFromState } from "../client-owner-name/client-
 import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { NameLabelPath } from "./client-map-name-label-draw.js";
-import { fitNamePathToTiles } from "./client-name-path-fit.js";
+import { fitNamePathThroughCore, fitNamePathToTiles } from "./client-name-path-fit.js";
 import { layoutNameInRegion } from "./client-region-name-layout.js";
 import { computeTerritoryNameLabels, isPlayerTerritoryLand } from "./client-territory-name-layout.js";
 
@@ -67,7 +67,8 @@ export const computeNamePlacements = (deps: NamePlacementDeps, version: number):
       const tile = tileAt(x, y);
       return tile?.ownerId === label.ownerId && isPlayerTerritoryLand(tile);
     };
-    const path = fitNamePathToTiles({ text: name, points: label.points, heightTiles: label.heightTiles, spanTiles: label.spanTiles }, onOwnTerritory);
+    const preferred = { text: name, points: label.points, heightTiles: label.heightTiles, spanTiles: label.spanTiles };
+    const path = fitNamePathToTiles(preferred, onOwnTerritory) ?? fitNamePathThroughCore(preferred, label.core, onOwnTerritory);
     if (path) players.push({ ownerId: label.ownerId, path });
   }
 

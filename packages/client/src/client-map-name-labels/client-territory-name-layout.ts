@@ -51,6 +51,8 @@ const smooth = (values: readonly number[], radius: number): number[] =>
 
 export type CorePoint = { x: number; y: number; depth: number };
 
+type TerritoryNameLayout = TerritoryNameLabel & { readonly core: readonly CorePoint[] };
+
 export const labelForCore = (ownerId: string, core: readonly CorePoint[], maxDepth: number, tileCount: number): TerritoryNameLabel => {
   let totalWeight = 0;
   let meanX = 0;
@@ -110,7 +112,7 @@ export const labelForCore = (ownerId: string, core: readonly CorePoint[], maxDep
 export const computeTerritoryNameLabels = (
   tiles: Iterable<TerritoryLayoutTile>,
   options: { readonly skipOwner?: (ownerId: string) => boolean; readonly width?: number; readonly height?: number } = {}
-): TerritoryNameLabel[] => {
+): TerritoryNameLayout[] => {
   const width = options.width ?? WORLD_WIDTH;
   const height = options.height ?? WORLD_HEIGHT;
   const ownerIds: string[] = [];
@@ -133,7 +135,7 @@ export const computeTerritoryNameLabels = (
   }
   const visited = new Uint8Array(width * height);
   const depthByCell = new Int16Array(width * height);
-  const labels: TerritoryNameLabel[] = [];
+  const labels: TerritoryNameLayout[] = [];
   const neighbourCell = (x: number, y: number): number => wrap(y, height) * width + wrap(x, width);
   for (const startCell of territoryCells) {
     if (visited[startCell]) continue;
@@ -197,7 +199,7 @@ export const computeTerritoryNameLabels = (
       maxDepth = Math.max(maxDepth, depth);
     }
     if (core.length === 0) continue;
-    labels.push(labelForCore(ownerIds[owner]!, core, maxDepth, members.length));
+    labels.push({ ...labelForCore(ownerIds[owner]!, core, maxDepth, members.length), core });
   }
   return labels.sort((a, b) => a.tileCount - b.tileCount);
 };
