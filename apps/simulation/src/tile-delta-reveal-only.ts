@@ -5,13 +5,13 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import { type TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import { overlayJsonFieldsFrom } from "./tile-delta-overlay-fields.js";
-import { townWireFields } from "./tile-overlay-fields/tile-overlay-fields.js";
+import { townWireFields, waystationRewardHiddenFromViewer } from "./tile-overlay-fields/tile-overlay-fields.js";
 import { revealedResourceValueForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 
 export const tileDeltaRevealOnly = (
   tile: DomainTileState,
   cache: TileDeltaStringifyCache,
-  viewer?: Pick<DomainPlayer, "techIds">,
+  viewer?: Pick<DomainPlayer, "techIds"> & { id?: string },
   reachBorderOwnerAt?: (x: number, y: number) => string | undefined,
   district?: { readonly tiles: ReadonlyMap<string, DomainTileState>; readonly canSee: (key: string) => boolean }
 ): SimulationTileWireDelta => {
@@ -27,6 +27,7 @@ export const tileDeltaRevealOnly = (
     ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...overlayJsonFieldsFrom(cached),
+    ...(waystationRewardHiddenFromViewer(tile.waystation, viewer?.id) ? { waystationJson: undefined } : {}),
     ...(district ? districtOverlayProjection(district.tiles, tile, district.canSee) : {}),
     // Explicit `undefined` vs `...({})` is load-bearing: subscribers diff by
     // own-property existence to detect clears (uncapture, structure removal).

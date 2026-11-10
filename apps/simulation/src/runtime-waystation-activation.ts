@@ -240,8 +240,8 @@ const grantWaystationTech = (input: WaystationActivationInput, player: DomainPla
   return techId;
 };
 
-/** Picks the resource the player has the fewest slots of, breaking ties in list order. */
-const leastSuppliedWaystationResource = (player: DomainPlayer): SlotResource => {
+/** Uses the existing waystation reward rule: lowest tracked resource balance, with ties in list order. */
+const lowestBalanceWaystationResource = (player: DomainPlayer): SlotResource => {
   let target: SlotResource = "FOOD";
   let lowestCount = Infinity;
   for (const resource of WAYSTATION_SLOT_RESOURCES) {
@@ -265,8 +265,7 @@ const leastSuppliedWaystationResource = (player: DomainPlayer): SlotResource => 
  *  1. POPULATION: a population burst to the player's nearest owned town;
  *  2. TECH: a random unowned tier-1 tech, granted outright -- or GOLD if the
  *     player already owns every tier-1 tech;
- *  3. RESOURCE_TILE: a site for whichever strategic resource the player
- *     has the fewest slots of;
+ *  3. RESOURCE_TILE: a site for the resource with the lowest tracked balance;
  *  4. GOLD: a flat-tier treasury payout (WAYSTATION_GOLD_TIERS);
  *  5. MANPOWER: WAYSTATION_MANPOWER_GRANT, allowed to overflow the cap.
  * No-op if the tile has no waystation or it was already activated (one-time
@@ -328,7 +327,7 @@ export const activateWaystationAt = (
       grantGoldInto(waystationResult, player, random);
     }
   } else if (rolledEffect === "RESOURCE_TILE") {
-    const grantedResource = leastSuppliedWaystationResource(player);
+    const grantedResource = lowestBalanceWaystationResource(player);
     waystationResult.grantedResource = grantedResource;
     resource = WAYSTATION_TILE_RESOURCES[grantedResource];
   } else if (rolledEffect === "GOLD") {
