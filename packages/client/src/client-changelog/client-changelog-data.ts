@@ -3,7 +3,7 @@ import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fi
 import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
 import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
-import { COMMAND_NAVIGATION_ENTRY } from "./client-changelog-command-navigation.js";
+import { COMMAND_NAVIGATION_ENTRY, NAVIGATION_LABELS_ENTRY } from "./client-changelog-command-navigation.js";
 import { CONNECTED_DISTRICTS_CHANGELOG } from "./client-changelog-connected-districts.js";
 import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
 import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
@@ -490,7 +490,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...MOBILE_PROFILE_SCROLL_ENTRY, createdAt: 1794258518510, },
   { ...BRASS_DEAL_SLIDERS_ENTRY, createdAt: 1794255946209, },
   { ...SCORE_TIMELINE_KEPT_ENTRY, createdAt: 1794261469742, },
-  { ...WAR_TREE_HIVE_MIND_HUB_ENTRY, createdAt: 1794292926456, }
+  { ...WAR_TREE_HIVE_MIND_HUB_ENTRY, createdAt: 1794292926456, },
+  { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, }
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
