@@ -126,11 +126,18 @@ export const MOBILE_PROFILE_SCROLL_ENTRY: Omit<ClientChangelogEntry, "createdAt"
   changes: ["The crest, badges and stats scroll together. The page keeps its place when stats refresh."]
 };
 
-export const BRASS_DIPLOMACY_SLIDERS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+export const BRASS_DEAL_SLIDERS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   introducedIn: "2026.11.09",
   title: "Brass sliders for diplomacy deals",
   why: "The bright amount controls stood out against the dark diplomacy panel.",
   changes: ["Coin and supply amounts now use a brass slider and a dark exact-amount field with larger touch targets"]
+};
+
+export const SCORE_TIMELINE_KEPT_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Score Graph keeps its history",
+  why: "Score samples were never reloaded after a server restart, so a crowned season could end with one score per empire and no trend.",
+  changes: ["Saved score samples survive server restarts", "The Score Graph ends on each empire's score at the moment the winner is crowned"]
 };
 
 export const WAR_TREE_HIVE_MIND_HUB_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {

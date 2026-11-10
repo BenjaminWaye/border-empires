@@ -22,12 +22,19 @@
 //     kept as defense in depth (same shape as territory-flip-log.ts's dual
 //     bound) in case a season runs well past its normal 30 days -- it is a
 //     safety ceiling, not the mechanism the design relies on day to day.
-//   - Not checkpoint/snapshot state -- this is a pure activity feed, rebuilt
-//     empty on restart (acceptable: a restart mid-season just means "score
-//     graph starts from here"). The one place it DOES get persisted is
+//   - Not checkpoint/snapshot state. It rides the persisted current season
+//     summary (CurrentSeasonSummary.scoreHistory, saved on the summary's
+//     existing cadence) and is re-seeded from it on boot via `restore()`
+//     (see score-history-persistence.ts). It used to be rebuilt empty on
+//     restart, but staging restarts on every deploy -- far more often than
+//     the 8h interval -- so the boot-time summary persist kept overwriting
+//     the stored history and crowned seasons ended up with one sample per
+//     empire (bug report 364334a9, season-41). It is also persisted
 //     alongside the crowned season winner (see season-crowning.ts), the same
 //     pattern SeasonWinnerSnapshot.seasonStats already uses, so a client
 //     that connects after crowning still gets the full graph via INIT.
+//   - Crowning takes one forced final sample (`sample(..., { force: true })`)
+//     so the graph always ends on the crowning scores.
 //   - Reset on season-id change so a new season doesn't inherit the previous
 //     season's history.
 export const SCORE_HISTORY_SAMPLE_INTERVAL_MS = 8 * 60 * 60_000; // one sample per player every 8h -- ~90 points over a full 30-day season
@@ -50,8 +57,10 @@ export type ScoreHistoryGauge = {
 export type ScoreHistorySampleEntry = { id: string; name: string; score: number };
 
 export type ScoreHistorySampler = {
-  /** No-op unless the sample interval has elapsed or the season changed. */
-  sample: (seasonId: string, now: number, entries: readonly ScoreHistorySampleEntry[]) => void;
+  /** No-op unless the sample interval has elapsed, the season changed, or `force` is set. */
+  sample: (seasonId: string, now: number, entries: readonly ScoreHistorySampleEntry[], options?: { force?: boolean }) => void;
+  /** Re-seed from persisted series after a restart; replaces whatever is tracked. */
+  restore: (seasonId: string, series: readonly ScoreHistorySeries[]) => void;
   /** Current in-memory series for the given season, or [] if it isn't the tracked season. */
   seriesFor: (seasonId: string) => ScoreHistorySeries[];
   gauge: () => ScoreHistoryGauge;
@@ -63,7 +72,7 @@ export const createScoreHistorySampler = (): ScoreHistorySampler => {
   let capHits = 0;
   let seriesByPlayerId = new Map<string, ScoreHistorySeries>();
 
-  const sample: ScoreHistorySampler["sample"] = (seasonId, now, entries) => {
+  const sample: ScoreHistorySampler["sample"] = (seasonId, now, entries, options) => {
     if (seasonId !== trackedSeasonId) {
       trackedSeasonId = seasonId;
       seriesByPlayerId = new Map();
@@ -74,7 +83,9 @@ export const createScoreHistorySampler = (): ScoreHistorySampler => {
       // `now` under ~8h of real/test time since 1970).
       lastSampledAt = -Infinity;
     }
-    if (now - lastSampledAt < SCORE_HISTORY_SAMPLE_INTERVAL_MS) return;
+    if (!options?.force && now - lastSampledAt < SCORE_HISTORY_SAMPLE_INTERVAL_MS) return;
+    // A forced sample landing on the same timestamp as the last one adds no trend information.
+    if (now <= lastSampledAt) return;
     lastSampledAt = now;
     for (const entry of entries) {
       let series = seriesByPlayerId.get(entry.id);
@@ -91,8 +102,26 @@ export const createScoreHistorySampler = (): ScoreHistorySampler => {
     }
   };
 
+  const restore: ScoreHistorySampler["restore"] = (seasonId, series) => {
+    trackedSeasonId = seasonId;
+    seriesByPlayerId = new Map();
+    capHits = 0;
+    lastSampledAt = -Infinity;
+    for (const entry of series) {
+      const points = entry.points
+        .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.score))
+        .map((p) => ({ t: p.t, score: p.score }))
+        .sort((a, b) => a.t - b.t)
+        .slice(-SCORE_HISTORY_MAX_POINTS);
+      if (points.length === 0) continue;
+      seriesByPlayerId.set(entry.playerId, { playerId: entry.playerId, playerName: entry.playerName, points });
+      lastSampledAt = Math.max(lastSampledAt, points[points.length - 1]!.t);
+    }
+  };
+
   return {
     sample,
+    restore,
     seriesFor: (seasonId) => (seasonId === trackedSeasonId ? [...seriesByPlayerId.values()].map((s) => ({ ...s, points: [...s.points] })) : []),
     gauge: (): ScoreHistoryGauge => ({
       playerCount: seriesByPlayerId.size,
