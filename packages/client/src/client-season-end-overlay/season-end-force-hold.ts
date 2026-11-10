@@ -24,10 +24,17 @@ export const attachSeasonForceHold = (button: HTMLButtonElement, options: ForceH
     if (event.button !== 0) return;
     cancel();
     delete button.dataset.seForceFired;
+    // Touch pointers are implicitly captured, which suppresses pointerleave;
+    // release so sliding a finger off the button cancels the hold.
+    try { button.releasePointerCapture(event.pointerId); } catch { /* not captured */ }
     button.classList.add("is-holding");
     timer = setTimeout(() => {
       timer = undefined;
       button.classList.remove("is-holding");
+      // The overlay re-renders (e.g. on a vote update) by replacing its HTML;
+      // the release then lands on the new button and never cancels this
+      // timer, so a detached button must not force-start.
+      if (!button.isConnected) return;
       // Swallow the click that follows the release so a completed hold on
       // the not-yet-voted button doesn't also cast a normal vote.
       button.dataset.seForceFired = "1";

@@ -383,8 +383,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // Triggered from the season-end screen. Starts the next season for everyone
   // (global rollover). The sim only honours it once the current season has
   // ended (startNextSeason(force=false)), so it cannot reset an active season.
-  // `force` is the admin long-press: skips the vote threshold and starts now.
-  // The gateway rejects it unless the session is the admin (canToggleFog).
+  // `force` is the admin long-press: skips the vote threshold only (the season
+  // must still have ended). The gateway rejects it unless the session is the
+  // admin with a verified email.
   z.object({ type: z.literal("START_NEW_SEASON"), force: z.boolean().optional() }),
   z.object({ type: z.literal("JOIN_SEASON") }),
   // Fetches the requesting player's rolling 24h personal activity timeline

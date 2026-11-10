@@ -21,6 +21,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
 
 const render = (state: ReturnType<typeof makeState>) => {
   const overlayEl = document.createElement("div");
+  document.body.appendChild(overlayEl);
   const startNewSeason = vi.fn();
   const forceStartNewSeason = vi.fn();
   renderSeasonEndOverlay({ state: state as any, overlayEl, renderHud: () => {}, startNewSeason, forceStartNewSeason });
@@ -33,7 +34,7 @@ const release = (button: HTMLButtonElement) => button.dispatchEvent(new PointerE
 
 describe("season-end admin force-start hold", () => {
   beforeEach(() => { vi.useFakeTimers(); });
-  afterEach(() => { vi.useRealTimers(); });
+  afterEach(() => { vi.useRealTimers(); document.body.innerHTML = ""; });
 
   it("keeps the voted button reachable for admins and force-starts after a full hold", () => {
     const { button, startNewSeason, forceStartNewSeason } = render(makeState({ mapRevealEligible: true }));
@@ -46,6 +47,23 @@ describe("season-end admin force-start hold", () => {
     button.click();
     expect(forceStartNewSeason).toHaveBeenCalledTimes(1);
     expect(startNewSeason).not.toHaveBeenCalled();
+  });
+
+  it("does not force-start when the overlay re-renders mid-hold", () => {
+    const overlayEl = document.createElement("div");
+    document.body.appendChild(overlayEl);
+    const forceStartNewSeason = vi.fn();
+    const deps = { state: makeState({ mapRevealEligible: true }) as any, overlayEl, renderHud: () => {}, startNewSeason: vi.fn(), forceStartNewSeason };
+    renderSeasonEndOverlay(deps);
+    press(overlayEl.querySelector("#se-new-season") as HTMLButtonElement);
+    vi.advanceTimersByTime(200);
+    // Another player's vote changes the signature and replaces the button;
+    // the release lands on the new button, never cancelling the old timer.
+    renderSeasonEndOverlay({ ...deps, state: makeState({ mapRevealEligible: true, seasonStartVoteCount: 2 }) as any });
+    release(overlayEl.querySelector("#se-new-season") as HTMLButtonElement);
+    vi.advanceTimersByTime(FORCE_HOLD_MS);
+    expect(forceStartNewSeason).not.toHaveBeenCalled();
+    overlayEl.remove();
   });
 
   it("does not force-start when the admin releases early", () => {

@@ -19,12 +19,13 @@ const makeDeps = (overrides: Partial<StartNewSeasonMessageDeps> = {}) => {
 };
 
 describe("handleStartNewSeasonMessage", () => {
-  it("admin force-start skips the vote threshold and starts with force", async () => {
+  it("admin force-start skips the vote threshold but still uses the non-forced sim start", async () => {
     const seasonStartVote = new SeasonStartVoteTracker();
     seasonStartVote.vote("p1"); // admin already voted; 1 of 2 votes
     const deps = makeDeps({ isAdmin: true, force: true, seasonStartVote });
     await handleStartNewSeasonMessage(deps);
-    expect(deps.startNextSeason).toHaveBeenCalledWith(true);
+    // No sim force: the sim keeps refusing to reset a season that hasn't ended.
+    expect(deps.startNextSeason).toHaveBeenCalledWith();
     expect(deps.onSeasonStarted).toHaveBeenCalledWith("s2", true);
     expect(deps.sendError).not.toHaveBeenCalled();
   });
@@ -49,7 +50,7 @@ describe("handleStartNewSeasonMessage", () => {
     seasonStartVote.vote("p0");
     const deps = makeDeps({ seasonStartVote });
     await handleStartNewSeasonMessage(deps);
-    expect(deps.startNextSeason).toHaveBeenCalledWith(false);
+    expect(deps.startNextSeason).toHaveBeenCalledWith();
     expect(deps.onSeasonStarted).toHaveBeenCalledWith("s2", false);
   });
 

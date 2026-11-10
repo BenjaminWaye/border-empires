@@ -1778,6 +1778,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             session.isGuest = playerIdentity.isGuest === true;
             playerFunnel.onSocketAuthenticated(session.sessionId, playerIdentity.playerId, authBindingSource);
             session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.adminEmail);
+            session.canForceSeasonStart = session.canToggleFog && playerIdentity.authEmailVerified === true;
             // Always start a new auth with fog ON — fog admins must explicitly re-toggle
             // SET_FOG_DISABLED each login (the client also clears its persisted reveal
             // preference on Firebase sign-in so it does not auto-resend the toggle).
@@ -2288,10 +2289,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
           if (message.type === "START_NEW_SEASON") {
             await handleStartNewSeasonMessage({
-              playerId: session.playerId, isAdmin: session.canToggleFog === true, force: message.force === true, seasonStartVote, recordGatewayEvent,
+              playerId: session.playerId, isAdmin: session.canForceSeasonStart === true, force: message.force === true, seasonStartVote, recordGatewayEvent,
               sendError: (code, text) => sendJson(socket, { type: "ERROR", code, message: text }),
               broadcastVoteUpdate: (payload) => { const votePayload = preSerializeBroadcast(payload); for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, votePayload); },
-              startNextSeason: (force) => simulationClient.startNextSeason(force),
+              startNextSeason: () => simulationClient.startNextSeason(false),
               onSeasonStarted: (seasonId, force) => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); seasonStartVote.reset(); seasonLobby.roster.reset(); slackAlerter?.alertSeasonStarted(seasonId, force); notifySeasonStarted(); }
             });
             return;

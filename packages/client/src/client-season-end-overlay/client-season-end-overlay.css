@@ -400,3 +400,4 @@
   pointer-events: none;
 }
 .se-btn.is-holding .se-btn-hold-fill { transform: scaleX(1); transition: transform var(--se-hold-ms, 1500ms) linear; }
+.se-btn[data-se-force-hold] > :not(.se-btn-hold-fill) { position: relative; z-index: 1; }

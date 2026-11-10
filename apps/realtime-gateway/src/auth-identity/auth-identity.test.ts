@@ -9,7 +9,7 @@ const unsignedJwt = (payload: Record<string, unknown>): string => {
 };
 
 const verifiedAs =
-  (claims: { uid: string; email?: string; name?: string }): FirebaseTokenVerifier =>
+  (claims: { uid: string; email?: string; emailVerified?: boolean; name?: string }): FirebaseTokenVerifier =>
   async () =>
     claims;
 const rejectsEverything: FirebaseTokenVerifier = async () => undefined;
@@ -37,6 +37,20 @@ describe("resolveGatewayAuthIdentity", () => {
       authUid: "firebase-user-1",
       authEmail: "nauticus@example.com"
     });
+  });
+
+  // An unverified email equal to ADMIN_EMAIL must not unlock destructive
+  // admin actions (force season start), so only asserted emails are flagged.
+  it("flags the email as verified only when firebase asserts it", async () => {
+    const unverified = await resolveGatewayAuthIdentity(unsignedJwt({}), {
+      verifyFirebaseToken: verifiedAs({ uid: "u1", email: "admin@example.com" })
+    });
+    expect(unverified?.authEmail).toBe("admin@example.com");
+    expect(unverified?.authEmailVerified).toBeUndefined();
+    const verified = await resolveGatewayAuthIdentity(unsignedJwt({}), {
+      verifyFirebaseToken: verifiedAs({ uid: "u1", email: "admin@example.com", emailVerified: true })
+    });
+    expect(verified?.authEmailVerified).toBe(true);
   });
 
   it("uses the verified firebase uid as the player id by default", async () => {
@@ -81,7 +95,8 @@ describe("resolveGatewayAuthIdentity", () => {
       playerId: "snapshot-player-1",
       playerName: "Nauticus",
       authUid: "firebase-user-1",
-      authEmail: "nauticus@example.com"
+      authEmail: "nauticus@example.com",
+      authEmailVerified: true
     });
     // Uids are visible to every client, so outside dev a bare uid must not log in.
     expect(await resolveGatewayAuthIdentity("firebase-user-1", { authIdentities })).toBeUndefined();
