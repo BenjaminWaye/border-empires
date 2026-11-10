@@ -7,7 +7,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   seasonWinner: undefined,
   seasonEndDismissed: false,
   seasonEndStarting: false,
-  seasonStartVoteCount: 0, seasonStartVoted: false,
+  seasonStartVoteCount: 0, seasonStartVoted: false, mapRevealEligible: false,
   leaderboard: {
     overall: [] as { id: string; rank: number; name: string; score: number; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number }[],
     selfOverall: undefined,

@@ -17,6 +17,7 @@ const stateForSummary = (): State => ({
   seasonEndStarting: false,
   seasonStartVoteCount: 0,
   seasonStartVoted: false,
+  mapRevealEligible: false,
   leaderboard: {
     overall: [{
       id: "winner", name: "Waypoint", rank: 1, score: 100, tiles: 50,
