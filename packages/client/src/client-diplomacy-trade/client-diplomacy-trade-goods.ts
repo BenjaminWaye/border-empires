@@ -125,8 +125,8 @@ const goodRowHtml = (spec: TradeGoodSpec): string => `<div class="diplomacy-trad
       <div class="diplomacy-trade-slider-row">
         <input type="range" min="0" step="1" data-trade-${spec.key} aria-label="${spec.aria}">
         <input type="number" inputmode="numeric" min="0" step="1" data-trade-exact="${spec.key}" aria-label="${spec.aria}, exact amount">
+        <span class="diplomacy-trade-slider-ends"><span>0</span><span data-trade-max="${spec.key}">0</span></span>
       </div>
-      <span class="diplomacy-trade-slider-ends"><span>0</span><span data-trade-max="${spec.key}">0</span></span>
     </div>
   </div>`;
 

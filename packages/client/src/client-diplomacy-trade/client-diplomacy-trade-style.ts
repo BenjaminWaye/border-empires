@@ -136,36 +136,43 @@ export const diplomacyTradeStyles = `
   .diplomacy-deal-none { margin: 0; color: var(--sp-parchment-muted, #bda880); font-size: 13px; font-style: italic; }
   .diplomacy-deal-note { margin: 0; color: var(--sp-parchment-muted, #bda880); font-size: 12px; }
   .diplomacy-trade-slider { margin-top: 10px; }
-  .diplomacy-trade-slider-row { display: flex; align-items: center; gap: 8px; }
-  .diplomacy-trade-slider input[type="number"] {
-    box-sizing: border-box; width: 72px; flex: none; min-height: 32px; padding: 4px 6px;
-    border: 1px solid var(--sp-brass-700, #8a611f); border-radius: 4px;
-    background: rgba(12, 9, 6, .55); color: var(--sp-parchment-100, #f2e8d3);
-    font: 600 13px/1.2 var(--sp-font-mono, "Space Mono", monospace);
+  .diplomacy-trade-slider-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; }
+  /* The embedded deal sits under #hud, where the generic input styles have ID specificity. */
+  :is(#hud, .diplomacy-trade-popup) .diplomacy-trade-slider-row > input {
+    box-sizing: border-box; width: 100%; min-width: 0; height: 44px; min-height: 44px; margin: 0;
   }
-  .diplomacy-trade-slider input[type="range"] {
+  :is(#hud, .diplomacy-trade-popup) .diplomacy-trade-slider-row > input[type="number"] {
+    width: calc(7ch + 20px); padding: 4px 8px; appearance: textfield;
+    border: 1px solid var(--sp-brass-700, #8a611f); border-radius: 4px;
+    background: var(--sp-iron-900, #14100a); color: var(--sp-brass-100, #f4dfa6);
+    font: 600 16px/1.2 var(--sp-font-mono, "Space Mono", monospace); text-align: right;
+  }
+  .diplomacy-trade-slider input::-webkit-inner-spin-button,
+  .diplomacy-trade-slider input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  :is(#hud, .diplomacy-trade-popup) .diplomacy-trade-slider-row > input[type="range"] {
     --fill: 0%;
-    display: block; box-sizing: border-box; flex: 1; min-width: 0; width: 100%; height: 24px; margin: 0; padding: 0;
-    background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer;
+    padding: 0; border: 0; border-radius: 4px; background: transparent;
+    appearance: none; -webkit-appearance: none; cursor: pointer;
   }
   .diplomacy-trade-slider input[type="range"]::-webkit-slider-runnable-track {
-    height: 6px; border-radius: 3px; border: 1px solid var(--sp-brass-700, #8a611f);
-    background: linear-gradient(90deg, var(--sp-brass-500, #b8862f) var(--fill), rgba(12, 9, 6, .7) var(--fill));
+    box-sizing: border-box; height: 6px; border-radius: 3px; border: 1px solid var(--sp-brass-700, #8a611f);
+    background: linear-gradient(90deg, var(--sp-brass-300, #d9ad52) var(--fill), var(--sp-iron-900, #14100a) var(--fill));
   }
   .diplomacy-trade-slider input[type="range"]::-moz-range-track {
-    height: 6px; border-radius: 3px; border: 1px solid var(--sp-brass-700, #8a611f); background: rgba(12, 9, 6, .7);
+    box-sizing: border-box; height: 6px; border-radius: 3px; border: 1px solid var(--sp-brass-700, #8a611f);
+    background: var(--sp-iron-900, #14100a);
   }
-  .diplomacy-trade-slider input[type="range"]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--sp-brass-500, #b8862f); }
+  .diplomacy-trade-slider input[type="range"]::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--sp-brass-300, #d9ad52); }
   .diplomacy-trade-slider input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%;
-    border: 2px solid var(--sp-brass-100, #f4dfa6); background: var(--sp-brass-500, #b8862f); box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+    -webkit-appearance: none; box-sizing: border-box; width: 18px; height: 18px; margin-top: -7px; border-radius: 4px;
+    border: 1px solid var(--sp-brass-100, #f4dfa6); background: var(--sp-brass-500, #b8862f);
   }
   .diplomacy-trade-slider input[type="range"]::-moz-range-thumb {
-    width: 16px; height: 16px; border-radius: 50%;
-    border: 2px solid var(--sp-brass-100, #f4dfa6); background: var(--sp-brass-500, #b8862f); box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+    box-sizing: border-box; width: 18px; height: 18px; border-radius: 4px;
+    border: 1px solid var(--sp-brass-100, #f4dfa6); background: var(--sp-brass-500, #b8862f);
   }
   .diplomacy-trade-slider-ends {
-    display: flex; justify-content: space-between; margin-top: 2px; color: var(--sp-parchment-muted, #bda880);
+    display: flex; justify-content: space-between; color: var(--sp-parchment-muted, #bda880);
     font: 400 11px/1.4 var(--sp-font-mono, "Space Mono", monospace);
   }
   .diplomacy-trade-verdict { margin: 0 0 12px; padding: 10px 12px; border-radius: 4px; background: rgba(12, 9, 6, .45); }
