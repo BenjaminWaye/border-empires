@@ -149,3 +149,10 @@ export const WAR_TREE_HIVE_MIND_HUB_ENTRY: Omit<ClientChangelogEntry, "createdAt
     "The Sovereign Siege Engine Dossier and the Aegis Dome Dossier both require Hive Mind Module II"
   ]
 };
+
+export const ADMIN_FORCE_SEASON_START_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Admins can force-start the next Sector Contest",
+  why: "Once a Sector Contest ended, the next one could only start after enough players voted, even when the admin needed to roll it over.",
+  changes: ["On the end-of-contest summary, the admin can press and hold the vote button for about 1.5 seconds to start the next Sector Contest straight away"]
+};

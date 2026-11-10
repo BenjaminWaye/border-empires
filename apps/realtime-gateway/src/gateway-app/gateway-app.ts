@@ -48,7 +48,7 @@ import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-p
 import { wireGalaxyEconomy } from "../galaxy-economy-wiring/galaxy-economy-wiring.js"; import { wireGalaxySenate } from "../galaxy-senate-wiring/galaxy-senate-wiring.js"; import { createGalaxySenateStore } from "../galaxy-senate-store-factory/galaxy-senate-store-factory.js";
 import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js"; import { createGalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store-factory/galaxy-defense-campaign-store-factory.js"; import { wireGalaxyFleets } from "../galaxy-fleet-wiring/galaxy-fleet-wiring.js"; import { createGalaxyBattleLogStore } from "../galaxy-battle-log-store-factory/galaxy-battle-log-store-factory.js"; import { createGalaxyExplorationStore } from "../galaxy-exploration-store-factory/galaxy-exploration-store-factory.js"; import { wireGalaxyDuke } from "../galaxy-duke-wiring/galaxy-duke-wiring.js";
 import { createSovereignSiegeEngineStrikeGatewayIntegration } from "../sovereign-siege-engine-strike-broadcast/sovereign-siege-engine-strike-broadcast.js";
-import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js"; import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js"; import { handlePrepareResultSeasonPending } from "./handle-prepare-result-season-pending.js";
+import { SeasonStartVoteTracker } from "../season-start-vote/season-start-vote.js"; import { handleStartNewSeasonMessage } from "../season-start-vote/handle-start-new-season-message.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js"; import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js"; import { handlePrepareResultSeasonPending } from "./handle-prepare-result-season-pending.js";
 import { notifySeasonStarted as notifySeasonStartedImpl } from "../season-start-notify/season-start-notify.js";
 import { relaySimulationBroadcastEvent } from "../broadcast-event-relay/broadcast-event-relay.js";
 import { createGameplayEmailAlertSender } from "../gameplay-email-alert/gameplay-email-alert.js";
@@ -1778,6 +1778,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             session.isGuest = playerIdentity.isGuest === true;
             playerFunnel.onSocketAuthenticated(session.sessionId, playerIdentity.playerId, authBindingSource);
             session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.adminEmail);
+            session.canForceSeasonStart = session.canToggleFog && playerIdentity.authEmailVerified === true;
             // Always start a new auth with fog ON — fog admins must explicitly re-toggle
             // SET_FOG_DISABLED each login (the client also clears its persisted reveal
             // preference on Firebase sign-in so it does not auto-resend the toggle).
@@ -2287,23 +2288,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "START_NEW_SEASON") {
-            if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; }
-            if (seasonStartVote.hasVoted(session.playerId)) { sendJson(socket, { type: "ERROR", code: "ALREADY_VOTED", message: "already voted" }); return; }
-            const { count, thresholdMet } = seasonStartVote.vote(session.playerId);
-            recordGatewayEvent("info", "gateway_start_new_season_vote", { playerId: session.playerId, count });
-            const votePayload = preSerializeBroadcast({ type: "SEASON_START_VOTE_UPDATE", voteCount: count, threshold: SEASON_START_VOTE_THRESHOLD, votedBy: [...seasonStartVote.getVoters()] });
-            for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, votePayload);
-            if (!thresholdMet) return;
-            try {
-              const result = await simulationClient.startNextSeason(false);
-              socialStore.clearSeasonData(); socialState.resetAfcCampaign();
-              seasonStartVote.reset(); seasonLobby.roster.reset();
-              slackAlerter?.alertSeasonStarted(result.seasonId, false);
-              notifySeasonStarted();
-            } catch (error) {
-              recordGatewayEvent("warn", "gateway_start_new_season_rejected", { playerId: session.playerId, error: error instanceof Error ? error.message : String(error) });
-              sendJson(socket, { type: "ERROR", code: "SEASON_NOT_READY", message: "A new Sector Contest cannot start yet." });
-            }
+            await handleStartNewSeasonMessage({
+              playerId: session.playerId, isAdmin: session.canForceSeasonStart === true, force: message.force === true, seasonStartVote, recordGatewayEvent,
+              sendError: (code, text) => sendJson(socket, { type: "ERROR", code, message: text }),
+              broadcastVoteUpdate: (payload) => { const votePayload = preSerializeBroadcast(payload); for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, votePayload); },
+              startNextSeason: () => simulationClient.startNextSeason(false),
+              onSeasonStarted: (seasonId, force) => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); seasonStartVote.reset(); seasonLobby.roster.reset(); slackAlerter?.alertSeasonStarted(seasonId, force); notifySeasonStarted(); }
+            });
             return;
           }
 

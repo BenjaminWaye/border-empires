@@ -20,6 +20,11 @@ describe("gateway fog capability regression guard", () => {
     expect(sourceFor("./gateway-app-socket-session.ts")).toContain("canToggleFog: boolean;");
     expect(source).toContain("canToggleFog: false");
     expect(source).toContain("session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.adminEmail);");
+    // Force-starting a season needs the admin email AND Firebase verification,
+    // and never asks the sim to force (which would reset a live season).
+    expect(source).toContain("session.canForceSeasonStart = session.canToggleFog && playerIdentity.authEmailVerified === true;");
+    expect(source).toContain("isAdmin: session.canForceSeasonStart === true, force: message.force === true,");
+    expect(source).toContain("startNextSeason: () => simulationClient.startNextSeason(false),");
     expect(source).toContain("socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids\n              );");
     expect(setProfileSource).toContain("canToggleFog");
     expect(setProfileSource).toContain('for (const targetSocket of socketsForPlayer(playerId))');
