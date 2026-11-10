@@ -20,7 +20,7 @@ const config: CapacitorConfig = {
   },
   // Only the Google Sign-In SDK: the plugin's default iOS traits also link the
   // Facebook SDK, which the game does not use and would add tracking declarations.
-  experimental: { ios: { spm: { packageTraits: { "@capacitor-firebase/authentication": ["Google"] } } } }
+  experimental: { ios: { spm: { swiftToolsVersion: "6.1", packageTraits: { "@capacitor-firebase/authentication": ["Google"] } } } }
 };
 
 export default config;
