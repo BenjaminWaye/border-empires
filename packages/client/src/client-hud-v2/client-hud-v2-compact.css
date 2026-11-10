@@ -100,26 +100,26 @@ body.hud-v2-compact .hud-v2-bar .hud-v2-gear span { display: none; }
 
 /* ---- Foot: crest + destinations as a tab bar ---- */
 body.hud-v2-compact .hud-v2-nav {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: flex; align-items: stretch; gap: 0;
-  height: var(--v2c-bottom); padding: 0 var(--v2c-safe-right) var(--v2c-safe-bottom) var(--v2c-safe-left);
-  background: var(--v2-ink-solid); border-top: 1px solid var(--v2-edge-strong); box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.45); pointer-events: auto;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; align-items: stretch; gap: 2px;
+  box-sizing: border-box; height: var(--v2c-bottom);
+  padding: 4px calc(var(--v2c-safe-right) + 4px) calc(var(--v2c-safe-bottom) + 4px) calc(var(--v2c-safe-left) + 4px);
+  background: var(--v2-ink-solid); pointer-events: auto;
 }
 body.hud-v2-compact .hud-v2-bubbles { display: contents; }
-body.hud-v2-compact .hud-v2-crest { flex: none; align-self: center; width: 46px; height: 46px; margin: 0 2px 0 6px; padding: 2px; border-radius: 10px; }
-body.hud-v2-compact .hud-v2-crest-mark { font-size: 19px; border-radius: 7px; }
+body.hud-v2-compact .hud-v2-crest,
 body.hud-v2-compact .hud-v2-bubble {
-  flex: 1 1 0; min-width: 0; width: auto; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  border: 0; border-top: 2px solid transparent; border-radius: 0; background: transparent; box-shadow: none;
+  flex: 1 1 0;
+  min-width: max-content;
+  width: auto;
+  height: auto;
+  gap: 3px;
+  padding: 2px 1px;
+  border-radius: 5px;
 }
-body.hud-v2-compact .hud-v2-bubble-active { border: 0; border-top: 2px solid var(--v2-gold); background: var(--v2-chip); }
+body.hud-v2-compact .hud-v2-crest { font-size: 22px; }
 body.hud-v2-compact .hud-v2-bubble .tab-icon-img { width: 22px; height: 22px; }
-/* The label is always shown under the icon: there is no hover to reveal it. */
-body.hud-v2-compact .hud-v2-bubble-label {
-  position: static; transform: none; opacity: 1; padding: 0; border: 0; background: none;
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 9px; letter-spacing: 0.03em; color: var(--v2-soft);
-}
-body.hud-v2-compact .hud-v2-bubble-active .hud-v2-bubble-label { color: var(--v2-gold-hi); }
-body.hud-v2-compact .hud-v2-bubble-badge { top: 4px; right: calc(50% - 20px); }
+body.hud-v2-compact .hud-v2-bubble-label { font-size: clamp(10px, 2.8vw, 11px); }
+body.hud-v2-compact .hud-v2-bubble-badge { top: -3px; right: 1px; }
 
 /* ---- Under the bar: folded tracker left, season pill right; rivals live in Diplomacy ---- */
 body.hud-v2-compact .hud-v2-right { top: var(--v2c-top); right: calc(var(--v2c-safe-right) + var(--v2c-gutter)); max-width: 44vw; gap: 0; }
@@ -250,13 +250,3 @@ body.hud-v2-compact .v2c-treasury-rows .hud-v2-gear { display: flex; align-items
 body.hud-v2-compact .v2c-treasury-rows .hud-v2-gear::after { content: " Settings"; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }
 
 /* The map overview (full-screen minimap with lenses) is styled in client-hud-v2-map-overview.css. */
-
-/* Compact tabs already have their own selected surface and persistent labels. */
-body.hud-v2-compact .hud-v2-bubble .tab-icon-art {
-  width: 26px; height: 26px; border: 0; background: none;
-}
-body.hud-v2-compact .hud-v2-bubble-active .tab-icon-img { filter: none; }
-
-body.hud-v2-compact .hud-v2-crest { display: flex; flex-direction: column; align-items: center; gap: 3px; justify-content: center; height: auto; margin: 0 2px 0 6px; padding: 0; border: 0; }
-body.hud-v2-compact .hud-v2-crest-mark { width: 30px; height: 30px; font-size: 18px; }
-body.hud-v2-compact .hud-v2-crest-label { font-size: 9px; line-height: 12px; }
