@@ -1,3 +1,4 @@
+import { AFC_DEPLOYED_POSE, type AfcDeploymentPose } from "./client-afc-join-drop/client-afc-join-drop-timeline.js";
 import type { Tile } from "./client-types.js";
 import { drawIndustrialToolingModule2D } from "./client-industrial-tooling-module/client-map-2d-industrial-tooling-module.js";
 import { AFC_DELIVERY_2D_PULSE_MS } from "./client-afc-module-delivery/client-afc-module-delivery-detect.js";
@@ -32,7 +33,8 @@ export const drawAfc2D = (
   py: number,
   size: number,
   nowMs: number,
-  deliveryLandedAtMs?: number
+  deliveryLandedAtMs?: number,
+  deployment: AfcDeploymentPose = AFC_DEPLOYED_POSE
 ): void => {
   const afc = tile.afc;
   if (!afc) return;
@@ -68,8 +70,9 @@ export const drawAfc2D = (
     const angle = i * Math.PI / 4;
     const dx = Math.cos(angle);
     const dy = Math.sin(angle);
-    const bx = cx + dx * size * 0.425;
-    const by = cy + dy * size * 0.425;
+    const radius = size * (0.22 + 0.205 * deployment.bays);
+    const bx = cx + dx * radius;
+    const by = cy + dy * radius;
     ctx.strokeStyle = "#424c56";
     ctx.lineWidth = Math.max(1, size * 0.035);
     ctx.beginPath();
@@ -90,29 +93,37 @@ export const drawAfc2D = (
     const angle = Math.PI / 8 + i * Math.PI / 2;
     const dx = Math.cos(angle);
     const dy = Math.sin(angle);
+    const fold = 1 - deployment.arms;
+    const kneeX = dx * (0.345 - 0.05 * fold) - dy * 0.04 * fold;
+    const kneeY = dy * (0.345 - 0.05 * fold) + dx * 0.04 * fold;
+    const footX = dx * (0.41 - 0.16 * fold) - dy * 0.13 * fold;
+    const footY = dy * (0.41 - 0.16 * fold) + dx * 0.13 * fold;
     ctx.strokeStyle = "#63717b";
     ctx.lineWidth = Math.max(1, size * 0.035);
     ctx.beginPath();
     ctx.moveTo(cx + dx * size * 0.25, cy + dy * size * 0.25);
-    ctx.lineTo(cx + dx * size * 0.41, cy + dy * size * 0.41);
+    ctx.lineTo(cx + kneeX * size, cy + kneeY * size);
+    ctx.lineTo(cx + footX * size, cy + footY * size);
     ctx.stroke();
     // A cooler armoured shin, side actuator and small knee encoder.
     if (size >= 24) {
+      const shinX = footX - kneeX;
+      const shinY = footY - kneeY;
       ctx.strokeStyle = "#70848e";
       ctx.lineWidth = Math.max(1, size * 0.025);
       ctx.beginPath();
-      ctx.moveTo(cx + dx * size * 0.345, cy + dy * size * 0.345);
-      ctx.lineTo(cx + dx * size * 0.395, cy + dy * size * 0.395);
+      ctx.moveTo(cx + kneeX * size, cy + kneeY * size);
+      ctx.lineTo(cx + (kneeX + shinX * 0.77) * size, cy + (kneeY + shinY * 0.77) * size);
       ctx.stroke();
       ctx.strokeStyle = afc.status === "active" ? "#37bcd6" : "#63717b";
       ctx.lineWidth = Math.max(0.7, size * 0.009);
       ctx.beginPath();
-      ctx.arc(cx + dx * size * 0.355, cy + dy * size * 0.355, size * 0.017, angle, angle + Math.PI * 1.5);
+      ctx.arc(cx + (kneeX + shinX * 0.15) * size, cy + (kneeY + shinY * 0.15) * size, size * 0.017, angle, angle + Math.PI * 1.5);
       ctx.stroke();
     }
     ctx.fillStyle = "#b99760";
     ctx.beginPath();
-    ctx.arc(cx + dx * size * 0.41, cy + dy * size * 0.41, size * 0.025, 0, Math.PI * 2);
+    ctx.arc(cx + footX * size, cy + footY * size, size * 0.025, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -195,6 +206,6 @@ export const drawAfc2D = (
     ctx.stroke();
     ctx.restore();
   }
-  drawIndustrialToolingModule2D(ctx, afc, cx, cy, size);
+  if (deployment.bays > 0.3) drawIndustrialToolingModule2D(ctx, afc, cx, cy - size * 0.15 * (1 - deployment.bays), size);
   ctx.restore();
 };

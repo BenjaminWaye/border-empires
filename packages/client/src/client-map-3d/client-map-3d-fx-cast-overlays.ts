@@ -57,9 +57,11 @@ export type FxCastOverlayDeps = {
   readonly state: ClientState;
   // Scene-space anchor for toroidDelta placement — the last committed terrain
   // rebuild's origin (see client-map-3d.ts's sceneOrigin), NOT the live camera.
+  readonly keyFor: (wx: number, wy: number) => string;
   readonly sceneOrigin: { camX: number; camY: number };
   readonly aetherBridgeTileSurfaceY: (wx: number, wy: number) => number;
   readonly afcOverlayGroup: AfcOverlayGroup;
+  readonly afcPadSurfaceY: (wx: number, wy: number) => number;
   /** Parent of every one-shot effect layer below except surveySweepPingOverlay; spawn positions must be in its local space (fxXZ). */
   readonly anchoredFx: AnchoredFxRoot;
   readonly layers: FxCastOverlayLayers;
@@ -87,7 +89,7 @@ export type FxCastOverlaySyncs = {
 };
 
 export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlaySyncs => {
-  const { state, sceneOrigin, aetherBridgeTileSurfaceY, afcOverlayGroup, anchoredFx, layers } = deps;
+  const { state, sceneOrigin, aetherBridgeTileSurfaceY, afcOverlayGroup, afcPadSurfaceY, anchoredFx, layers } = deps;
 
   /** Tile centre measured from the current scene origin: only for things redrawn every frame (survey-sweep pings). */
   const originSceneXZ = (x: number, y: number): { sceneX: number; sceneZ: number } => ({
@@ -236,8 +238,21 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     while (state.afcJoinDropFxQueue.length > 0) {
       const drop = state.afcJoinDropFxQueue.shift()!;
       const { sceneX, sceneZ } = fxXZ(drop.x, drop.y);
+      const key = deps.keyFor(drop.x, drop.y);
+      const afc = state.tiles.get(key)?.afc;
+      if (!afc || state.afcJoinDrop.startedAt !== drop.queuedAt) continue;
       // The drop's timeline is anchored at when it started, not at this drain, so 3D and 2D stay in step.
-      layers.afcDropFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(drop.x, drop.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, drop.queuedAt);
+      layers.afcDropFx.spawn(sceneX, sceneZ, afcPadSurfaceY(drop.x, drop.y), drop.queuedAt, {
+        worldX: drop.x,
+        worldY: drop.y,
+        moduleIds: afc.modules ?? [],
+        padY: () => afcPadSurfaceY(drop.x, drop.y),
+        isCurrent: () => {
+          const current = state.tiles.get(key)?.afc;
+          return current?.ownerId === afc.ownerId && current.activatedAt === afc.activatedAt;
+        },
+        hasPermanentModel: () => afcOverlayGroup.hasAt(drop.x, drop.y)
+      });
     }
   };
 
