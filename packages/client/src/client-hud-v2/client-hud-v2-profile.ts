@@ -148,7 +148,7 @@ const breaksHtml = (breaks: Loadable<TruceBreakView[]>): string => {
 };
 
 export const profileHtml = (input: ProfileInput): string =>
-  `<div class="v2p">${heroHtml(input)}<div class="v2p-main" data-v2-scroll="profile">
+  `<div class="v2p" data-v2-scroll="profile-page">${heroHtml(input)}<div class="v2p-main" data-v2-scroll="profile">
     <h3 class="v2p-h">This Sector Contest</h3>
     ${statsHtml(input.entry, input.combat)}
     ${input.combat ? `<div class="v2p-grid">${combatPanelsHtml(input.combat)}</div>${COMBAT_FOOTNOTE_HTML}` : ""}
