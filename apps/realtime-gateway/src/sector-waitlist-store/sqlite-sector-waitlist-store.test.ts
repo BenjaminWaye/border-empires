@@ -43,4 +43,13 @@ describe.each(stores)("%s sector waitlist store", (_name, create) => {
     expect(await store.has("s1", "p1")).toBe(false);
     expect(await store.count("s1")).toBe(0);
   });
+
+  it("lists one season's players earliest first", async () => {
+    const store = await create();
+    await store.join({ seasonId: "s1", playerId: "late", joinedAt: 30 });
+    await store.join({ seasonId: "s1", playerId: "early", joinedAt: 10 });
+    await store.join({ seasonId: "s2", playerId: "other", joinedAt: 20 });
+    expect(await store.list("s1")).toEqual(["early", "late"]);
+    expect(await store.list("s3")).toEqual([]);
+  });
 });

@@ -1,63 +1,69 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleStartNewSeasonMessage, type StartNewSeasonMessageDeps } from "./handle-start-new-season-message.js";
-import { SeasonStartVoteTracker } from "./season-start-vote.js";
 
-const makeDeps = (overrides: Partial<StartNewSeasonMessageDeps> = {}) => {
-  const deps = {
-    playerId: "p1",
-    isAdmin: false,
-    force: false,
-    seasonStartVote: new SeasonStartVoteTracker(),
-    sendError: vi.fn(),
-    broadcastVoteUpdate: vi.fn(),
-    startNextSeason: vi.fn(async () => ({ seasonId: "s2" })),
-    onSeasonStarted: vi.fn(),
-    recordGatewayEvent: vi.fn(),
-    ...overrides
-  };
-  return deps;
-};
+const makeDeps = (overrides: Partial<StartNewSeasonMessageDeps> = {}) => ({
+  playerId: "p1",
+  isGuest: false,
+  isAdmin: false,
+  force: false,
+  nextContest: {
+    commit: vi.fn(async () => ({ ok: true as const, count: 1, started: false })),
+    forceStart: vi.fn(async (): Promise<{ seasonId: string } | undefined> => ({ seasonId: "s2" }))
+  },
+  sendError: vi.fn(),
+  recordGatewayEvent: vi.fn(),
+  ...overrides
+});
 
 describe("handleStartNewSeasonMessage", () => {
-  it("admin force-start skips the vote threshold but still uses the non-forced sim start", async () => {
-    const seasonStartVote = new SeasonStartVoteTracker();
-    seasonStartVote.vote("p1"); // admin already voted; 1 of 2 votes
-    const deps = makeDeps({ isAdmin: true, force: true, seasonStartVote });
+  it("admin force-start starts the next contest", async () => {
+    const deps = makeDeps({ isAdmin: true, force: true });
     await handleStartNewSeasonMessage(deps);
-    // No sim force: the sim keeps refusing to reset a season that hasn't ended.
-    expect(deps.startNextSeason).toHaveBeenCalledWith();
-    expect(deps.onSeasonStarted).toHaveBeenCalledWith("s2", true);
+    expect(deps.nextContest.forceStart).toHaveBeenCalled();
+    expect(deps.nextContest.commit).not.toHaveBeenCalled();
     expect(deps.sendError).not.toHaveBeenCalled();
   });
 
-  it("rejects force from a non-admin without voting or starting", async () => {
+  it("rejects force from a non-admin without committing or starting", async () => {
     const deps = makeDeps({ force: true });
     await handleStartNewSeasonMessage(deps);
     expect(deps.sendError).toHaveBeenCalledWith("FORBIDDEN", expect.any(String));
-    expect(deps.startNextSeason).not.toHaveBeenCalled();
-    expect(deps.seasonStartVote.getCount()).toBe(0);
+    expect(deps.nextContest.forceStart).not.toHaveBeenCalled();
+    expect(deps.nextContest.commit).not.toHaveBeenCalled();
   });
 
-  it("a normal vote below threshold only broadcasts the tally", async () => {
-    const deps = makeDeps({ isAdmin: true });
-    await handleStartNewSeasonMessage(deps);
-    expect(deps.broadcastVoteUpdate).toHaveBeenCalledWith(expect.objectContaining({ voteCount: 1, votedBy: ["p1"] }));
-    expect(deps.startNextSeason).not.toHaveBeenCalled();
-  });
-
-  it("starts without force once the vote threshold is met", async () => {
-    const seasonStartVote = new SeasonStartVoteTracker();
-    seasonStartVote.vote("p0");
-    const deps = makeDeps({ seasonStartVote });
-    await handleStartNewSeasonMessage(deps);
-    expect(deps.startNextSeason).toHaveBeenCalledWith();
-    expect(deps.onSeasonStarted).toHaveBeenCalledWith("s2", false);
-  });
-
-  it("reports SEASON_NOT_READY when the sim rejects the start", async () => {
-    const deps = makeDeps({ isAdmin: true, force: true, startNextSeason: vi.fn(async () => { throw new Error("nope"); }) });
+  it("reports SEASON_NOT_READY when there is nothing to force-start", async () => {
+    const deps = makeDeps({ isAdmin: true, force: true });
+    deps.nextContest.forceStart.mockResolvedValueOnce(undefined);
     await handleStartNewSeasonMessage(deps);
     expect(deps.sendError).toHaveBeenCalledWith("SEASON_NOT_READY", expect.any(String));
-    expect(deps.onSeasonStarted).not.toHaveBeenCalled();
+  });
+
+  it("a normal press commits the House, passing on guest status", async () => {
+    const deps = makeDeps({ isGuest: true });
+    await handleStartNewSeasonMessage(deps);
+    expect(deps.nextContest.commit).toHaveBeenCalledWith("p1", true);
+  });
+
+  // Regression: a guest's press used to count as one of the two votes that
+  // reset the world for everyone.
+  it("passes a refused commitment back to the player", async () => {
+    const deps = makeDeps({ isGuest: true });
+    deps.nextContest.commit.mockResolvedValueOnce({ ok: false, code: "ACCOUNT_REQUIRED", message: "sign in" } as never);
+    await handleStartNewSeasonMessage(deps);
+    expect(deps.sendError).toHaveBeenCalledWith("ACCOUNT_REQUIRED", "sign in");
+  });
+
+  it("reports SEASON_NOT_READY when the simulation rejects the start", async () => {
+    const deps = makeDeps();
+    deps.nextContest.commit.mockRejectedValueOnce(new Error("nope"));
+    await handleStartNewSeasonMessage(deps);
+    expect(deps.sendError).toHaveBeenCalledWith("SEASON_NOT_READY", expect.any(String));
+  });
+
+  it("requires auth", async () => {
+    const deps = makeDeps({ playerId: undefined });
+    await handleStartNewSeasonMessage(deps);
+    expect(deps.sendError).toHaveBeenCalledWith("NO_AUTH", expect.any(String));
   });
 });

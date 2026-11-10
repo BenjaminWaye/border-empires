@@ -6,8 +6,9 @@
 //
 // Deliberately only a demand signal today: the infrastructure runs one
 // Sector at a time, so waitlisted accounts are notified by the existing
-// season-start email that every bound account receives. Opening extra
-// Sectors on demand, and paid pledges, build on this list later.
+// season-start email that every bound account receives. The same table also
+// holds commitments to the next Sector Contest under a separate key (see
+// next-contest/next-contest.ts).
 export type SectorWaitlistEntry = {
   seasonId: string;
   playerId: string;
@@ -21,6 +22,8 @@ export type SectorWaitlistStore = {
   leave: (seasonId: string, playerId: string) => Promise<boolean>;
   has: (seasonId: string, playerId: string) => Promise<boolean>;
   count: (seasonId: string) => Promise<number>;
+  /** Player ids on the list, earliest first. */
+  list: (seasonId: string) => Promise<string[]>;
 };
 
 export class InMemorySectorWaitlistStore implements SectorWaitlistStore {
@@ -44,5 +47,11 @@ export class InMemorySectorWaitlistStore implements SectorWaitlistStore {
 
   async count(seasonId: string): Promise<number> {
     return this.entries.get(seasonId)?.size ?? 0;
+  }
+
+  async list(seasonId: string): Promise<string[]> {
+    return [...(this.entries.get(seasonId)?.values() ?? [])]
+      .sort((left, right) => left.joinedAt - right.joinedAt)
+      .map((entry) => entry.playerId);
   }
 }

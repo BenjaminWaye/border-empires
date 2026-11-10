@@ -22,7 +22,7 @@ import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-lo
 import { renderHudManpowerPanel } from "./client-hud-manpower-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
-import { renderSeasonEndOverlay, seasonStartSenders } from "../client-season-end-overlay.js";
+import { renderSeasonEndOverlay, seasonStartSenders } from "../client-season-end-overlay.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
 import { bindAdminSettingsControls } from "./client-hud-admin-settings.js"; import { bindPhotoModeSettingsControls } from "../client-photo-mode/client-photo-mode.js"; // combined onto one line: client-hud.ts is already over the file-line cap and must not grow (AGENTS.md)
 import { bindBreakAllianceButton } from "./client-hud-break-alliance-button.js";
 import { bindAuthDebugCopyButton } from "./client-hud-debug.js";
@@ -616,7 +616,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   });
   renderSeasonEndOverlay({
     state, overlayEl: dom.seasonEndOverlayEl, renderHud: () => renderClientHud(deps),
-    ...seasonStartSenders(sendGameMessage)
+    ...seasonStartSenders(sendGameMessage), openGuestSave: () => openGuestSavePanel("next-contest")
   });
 
   syncAuthOverlay();

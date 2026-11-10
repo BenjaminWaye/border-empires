@@ -92,7 +92,9 @@ campaigns under the Writ. A Sector admits only as many Houses as its world
 can hold. When a Proclamation is oversubscribed, the Houses turned away
 enter their names for the next Sector the Court opens, and the length of
 that list is itself watched closely, as a measure of how hungry the
-nobility still is for ground.
+nobility still is for ground. Once a campaign is decided, the Court
+proclaims the next Sector at once but sends no expedition until enough
+Houses have entered their names; all of them land together.
 
 **Winning a Sector campaign grants the victor the rank of Duke and
 personal, permanent rights to that world.** It is not a season's prize —

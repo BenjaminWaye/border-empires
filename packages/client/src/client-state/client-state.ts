@@ -1,4 +1,5 @@
 import { createInitialManpowerState } from "./client-state-manpower-defaults.js";
+import { NEXT_CONTEST_DEFAULT_THRESHOLD } from "../client-next-contest/client-next-contest.js";
 import { createInitialResourceEconomyState } from "./client-state-resource-slots.js";
 import { createInitialProgressionState } from "./client-state-progression-defaults.js";
 import { createInitialTargetingState } from "./client-state-targeting-defaults.js";
@@ -267,7 +268,7 @@ export const createInitialState = () => ({
   seasonEndDismissed: false,
   seasonEndStarting: false,
   seasonStats: undefined as SeasonStatsView | undefined, seasonScoreHistory: [] as ScoreHistorySeriesView[],
-  seasonStartVoteCount: 0, seasonStartVoted: false,
+  seasonStartVoteCount: 0, seasonStartVoted: false, seasonStartVoteThreshold: NEXT_CONTEST_DEFAULT_THRESHOLD, // Houses committed to the next Sector Contest: client-next-contest.ts
   missions: [] as MissionState[],
   activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "settings" | null,
   ...createInitialSpaceViewState(),
