@@ -125,3 +125,20 @@ export const MOBILE_PROFILE_SCROLL_ENTRY: Omit<ClientChangelogEntry, "createdAt"
   why: "The crest and stats could scroll separately, and the stats heading could overlap profile badges.",
   changes: ["The crest, badges and stats scroll together. The page keeps its place when stats refresh."]
 };
+
+export const BRASS_DIPLOMACY_SLIDERS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Brass sliders for diplomacy deals",
+  why: "The bright amount controls stood out against the dark diplomacy panel.",
+  changes: ["Coin and supply amounts now use a brass slider and a dark exact-amount field with larger touch targets"]
+};
+
+export const WAR_TREE_HIVE_MIND_HUB_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.10",
+  title: "War line converges on Hive Mind Module II",
+  why: "Each War dossier hung off a single tier 3 manifest, so you could reach a capstone project without building out the rest of the War line.",
+  changes: [
+    "Hive Mind Module II now requires both Dread Tower Cadre and the Thunderplate Induction Module",
+    "The Sovereign Siege Engine Dossier and the Aegis Dome Dossier both require Hive Mind Module II"
+  ]
+};
