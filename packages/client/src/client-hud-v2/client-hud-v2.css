@@ -61,6 +61,8 @@ body.hud-v2.hud-v2-waiting #tile-action-menu { display: none !important; }
 .hud-v2-chip-static { cursor: default; }
 .hud-v2-chip-static:hover { border-color: var(--v2-line); }
 .hud-v2-chip-label { font-size: 11px; color: var(--v2-muted); }
+.hud-v2-chip-icon, .hud-v2-chip-short, .hud-v2-chip-summary, .hud-v2-gear img { display: none; }
+.hud-v2-chip-slot { display: contents; }
 .hud-v2-chip-value { font-weight: 700; }
 .hud-v2-chip-of { color: var(--v2-muted); }
 .hud-v2-chip-rate { font-size: 11px; color: var(--v2-green); }
