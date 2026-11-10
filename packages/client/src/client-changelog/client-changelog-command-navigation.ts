@@ -10,3 +10,14 @@ export const COMMAND_NAVIGATION_ENTRY: Omit<ClientChangelogEntry, "createdAt"> =
     "Continue fighting folds AFC recovery into a small edge button. Unaffordable replacement costs are red, and the minimap matches the HUD."
   ]
 };
+
+export const NAVIGATION_LABELS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.10",
+  title: "Navigation labels are easier to read",
+  why: "Labels could blend into the map beneath the navigation icons.",
+  changes: [
+    "Destination labels sit inside solid buttons on desktop and mobile",
+    "The mobile navigation row has a solid dark backing",
+    "The Profile button shows your initial on a solid field of your empire color"
+  ]
+};

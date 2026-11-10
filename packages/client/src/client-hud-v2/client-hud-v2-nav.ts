@@ -29,7 +29,7 @@ export const navHtml = (input: NavInput): string => {
     { open: "chronicle", icon: "activity", label: "Chronicle", badge: input.chronicleUnread }
   ];
   const initial = (input.name.trim()[0] ?? "?").toUpperCase();
-  const crest = `<button type="button" class="hud-v2-crest${input.active === "self" ? " hud-v2-crest-active" : ""}" data-hud-v2-open="self" aria-pressed="${input.active === "self"}" aria-label="${esc(input.name)}, your profile" title="Profile"><span class="hud-v2-crest-mark" style="background:${esc(input.color)}">${esc(initial)}</span><span class="hud-v2-crest-label">Profile</span></button>`;
+  const crest = `<button type="button" class="hud-v2-crest${input.active === "self" ? " hud-v2-crest-active" : ""}" data-hud-v2-open="self" aria-pressed="${input.active === "self"}" aria-label="${esc(input.name)}, your profile" title="Profile" style="background-color:${esc(input.color)}">${esc(initial)}</button>`;
   const items = bubbles.map((b) => {
     const active = b.open === input.active;
     const badge = b.badge && b.badge > 0 ? `<span class="hud-v2-bubble-badge${b.open === "chronicle" ? " hud-v2-bubble-badge-info" : ""}">${b.badge}</span>` : "";

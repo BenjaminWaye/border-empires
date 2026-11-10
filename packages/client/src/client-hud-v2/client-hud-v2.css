@@ -75,27 +75,38 @@ body.hud-v2.hud-v2-waiting #tile-action-menu { display: none !important; }
 }
 .hud-v2-gear:hover { color: var(--v2-gold-hi); border-color: var(--v2-gold); }
 
-.hud-v2-nav { display: flex; align-items: center; gap: 10px; }
+/* A solid surface behind each label keeps navigation legible over bright terrain. */
+.hud-v2-nav, .hud-v2-bubbles { display: flex; gap: 4px; }
+.hud-v2-crest, .hud-v2-bubble {
+  box-sizing: border-box;
+  position: relative;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 5px;
+  width: 68px;
+  height: 66px;
+  padding: 4px 2px;
+  border-radius: 8px;
+}
 .hud-v2-crest {
-  width: 56px; height: 56px; padding: 3px; border: 2px solid var(--v2-gold); border-radius: 12px;
-  background: var(--v2-ink-solid); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+  border: 0;
+  background-color: var(--v2-edge-strong);
+  font: 700 25px/1 var(--v2-display);
+  color: #fff;
+  text-shadow: 0 1px 2px #000;
 }
-.hud-v2-crest-mark {
-  display: grid; place-items: center; width: 100%; height: 100%; border-radius: 8px;
-  font-family: var(--v2-display); font-weight: 700; font-size: 24px; color: #f6ecd4; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
-}
-.hud-v2-bubbles { display: flex; gap: 4px; }
+.hud-v2-crest-active { box-shadow: inset 0 0 0 2px var(--v2-gold-hi); }
 .hud-v2-bubble {
-  position: relative; display: grid; justify-items: center; align-content: start; gap: 6px;
-  width: 68px; height: 66px; padding: 0; border: 0; background: none;
+  border: 1px solid var(--v2-edge-strong);
+  background: var(--v2-ink-solid);
+  transition: background 0.12s, border-color 0.12s;
 }
-.hud-v2-bubble .tab-icon-art {
-  width: 44px; height: 44px; border: 1px solid var(--v2-edge-strong); border-radius: 50%;
-  background: var(--v2-ink-solid); transition: background 0.12s, border-color 0.12s;
+.hud-v2-bubble:hover { border-color: var(--v2-gold); background: var(--v2-chip); }
+.hud-v2-bubble-active, .hud-v2-bubble-active:hover {
+  border-color: var(--v2-gold-hi);
+  background: var(--v2-gold);
 }
-.hud-v2-bubble:hover .tab-icon-art { border-color: var(--v2-gold); background: var(--v2-chip); }
-.hud-v2-bubble-active .tab-icon-art,
-.hud-v2-bubble-active:hover .tab-icon-art { border-color: var(--v2-gold-hi); background: var(--v2-gold); }
 .hud-v2-bubble .tab-icon-img { width: 24px; height: 24px; }
 .hud-v2-bubble-active .tab-icon-img { filter: brightness(0); }
 .hud-v2-bubble-badge {
@@ -104,11 +115,12 @@ body.hud-v2.hud-v2-waiting #tile-action-menu { display: none !important; }
 }
 .hud-v2-bubble-badge-info { background: var(--v2-chip); color: var(--v2-soft); border: 1px solid var(--v2-edge); }
 .hud-v2-bubble-label {
-  font-family: Arial, sans-serif; font-size: 11px; font-weight: 600; line-height: 14px;
-  letter-spacing: 0.02em; white-space: nowrap; color: var(--v2-soft); pointer-events: none;
+  color: var(--v2-text);
+  font: 600 12px/1.2 Arial, sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
 }
-.hud-v2-bubble-active .hud-v2-bubble-label,
-.hud-v2-bubble:hover .hud-v2-bubble-label { color: var(--v2-gold-hi); }
+.hud-v2-bubble-active .hud-v2-bubble-label { color: var(--v2-ink-solid); }
 
 /* ---- Top-right: victory line + rivals ---- */
 .hud-v2-right { position: fixed; top: 12px; right: 16px; z-index: 40; display: grid; gap: 10px; justify-items: end; max-width: 340px; }
@@ -343,13 +355,6 @@ body.hud-v2 #side-panel.settings-panel-active { top: 50%; left: 50%; right: auto
 @media (prefers-reduced-motion: reduce) {
   .hud-v2-orb-bubble, .hud-v2-orb-surface, .hud-v2-orb-escaped-bubble { animation: none; }
 }
-
-/* Profile is a peer destination with a permanent label and selected state. */
-.hud-v2-crest { display: grid; justify-items: center; align-content: start; gap: 6px; width: 68px; height: 66px; padding: 0; border: 0; background: none; box-shadow: none; }
-.hud-v2-crest-mark { width: 44px; height: 44px; border: 1px solid var(--v2-edge-strong); border-radius: 6px; font-size: 22px; text-shadow: none; }
-.hud-v2-crest-label { color: var(--v2-soft); font: 600 11px/14px Arial, sans-serif; }
-.hud-v2-crest-active .hud-v2-crest-mark { outline: 2px solid var(--v2-gold-hi); outline-offset: 2px; }
-.hud-v2-crest-active .hud-v2-crest-label { color: var(--v2-gold-hi); }
 
 /* Match the minimap and its coordinate readout to the command panels. */
 body.hud-v2 #mini-map { border-radius: 0; border-color: var(--v2-edge); background: var(--v2-ink-solid); box-shadow: none; }
