@@ -57,16 +57,10 @@ describe("sector waitlist routes", () => {
     expect(await store.count("season-7")).toBe(0);
   });
 
-  it("rejects joining while the season has not started", async () => {
+  it("rejects joining while the season is not active", async () => {
     const { app } = setup({ seasonId: "season-8", status: "pending" });
     const response = await call(app, "POST", "alice");
     expect(response.statusCode).toBe(409);
-  });
-
-  it("lets accounts commit to the next Sector Contest once the season has ended", async () => {
-    const { app, onJoined } = setup({ seasonId: "season-8", status: "ended" });
-    expect((await call(app, "POST", "alice")).json()).toEqual({ ok: true, seasonId: "season-8", waitingCount: 1, joined: true });
-    expect(onJoined).toHaveBeenCalledWith("alice", "season-8", 1);
   });
 
   it("keys the waitlist by the current season so a rollover starts empty", async () => {

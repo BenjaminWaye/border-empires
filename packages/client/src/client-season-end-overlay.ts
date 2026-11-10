@@ -338,7 +338,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
 
           ${victorMedallion(winner, colors, isSelfWinner)}
 
-          ${compact ? `<p class="se-arrival-note">You arrived after the crown was claimed. Join the next Sector Contest to found your empire.</p>
+          ${compact ? `<p class="se-arrival-note">You arrived after the crown was claimed. ${state.authIsGuest ? "Save your empire to join the next Sector Contest." : "Join the next Sector Contest to found your empire."}</p>
           ${standingsLedger({ ...leaderboard, overall: leaderboard.overall.slice(0, COMPACT_STANDINGS_ROWS), selfOverall: undefined }, colors, selfId, state.seasonWinner.playerId)}` : `<nav class="se-tab-bar" role="tablist">
             <button class="se-tab${activeTab === "standings" ? " is-active" : ""}" role="tab" data-tab="standings">Final Standings</button>
             ${hasVictory ? `<button class="se-tab${activeTab === "victory" ? " is-active" : ""}" role="tab" data-tab="victory">Victory Paths</button>` : ""}

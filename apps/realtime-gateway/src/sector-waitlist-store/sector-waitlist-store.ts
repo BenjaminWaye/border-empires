@@ -4,9 +4,11 @@
 // rollover naturally starts an empty list while the old one stays readable
 // as a record of demand (how many Houses were waiting for that Sector).
 //
-// Once the Sector has ended, the same list is the set of Houses committed to
-// the next Sector Contest: it starts when enough have committed (see
-// next-contest/next-contest.ts), which then joins every listed account.
+// Deliberately only a demand signal today: the infrastructure runs one
+// Sector at a time, so waitlisted accounts are notified by the existing
+// season-start email that every bound account receives. The same table also
+// holds commitments to the next Sector Contest under a separate key (see
+// next-contest/next-contest.ts).
 export type SectorWaitlistEntry = {
   seasonId: string;
   playerId: string;

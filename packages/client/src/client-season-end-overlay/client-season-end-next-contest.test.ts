@@ -43,7 +43,7 @@ describe("season-end next Sector Contest", () => {
   // Regression: a guest's press counted toward resetting the world for everyone.
   it("offers a guest the save-your-empire panel instead of committing", () => {
     const overlayEl = document.createElement("div");
-    const state = makeState({ seasonWinner: makeWinner(), leaderboard: makeLeaderboard(), authIsGuest: true });
+    const state = makeState({ seasonWinner: makeWinner(), leaderboard: makeLeaderboard(), authIsGuest: true, needsSeasonJoin: true });
     let committed = false;
     let savePanelOpened = false;
     renderSeasonEndOverlay({
@@ -54,6 +54,7 @@ describe("season-end next Sector Contest", () => {
       openGuestSave: () => { savePanelOpened = true; }
     });
     expect(overlayEl.innerHTML).toContain("Save your empire to join the next Sector Contest");
+    expect(overlayEl.innerHTML).not.toContain("to found your empire");
     (overlayEl.querySelector("#se-new-season") as HTMLButtonElement).click();
     expect(committed).toBe(false);
     expect(savePanelOpened).toBe(true);

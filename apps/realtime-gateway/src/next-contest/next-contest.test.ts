@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { InMemorySectorWaitlistStore } from "../sector-waitlist-store/sector-waitlist-store.js";
-import { createNextContest, NEXT_CONTEST_MIN_COMMITTED, startNextContestTimer, type NextContestDeps } from "./next-contest.js";
+import { createNextContest, NEXT_CONTEST_MIN_COMMITTED, nextContestKey, startNextContestTimer, type NextContestDeps } from "./next-contest.js";
 
 const makeDeps = (overrides: Partial<NextContestDeps> = {}) => {
   let season = { seasonId: "season-1", status: "ended" };
@@ -33,7 +33,7 @@ describe("next contest", () => {
     const { deps } = makeDeps();
     const nextContest = createNextContest(deps);
     expect(await nextContest.commit("guest-1", true)).toMatchObject({ ok: false, code: "ACCOUNT_REQUIRED" });
-    expect(await deps.store.count("season-1")).toBe(0);
+    expect(await deps.store.count(nextContestKey("season-1"))).toBe(0);
     expect(deps.broadcast).not.toHaveBeenCalled();
   });
 
@@ -80,17 +80,60 @@ describe("next contest", () => {
     expect(deps.recordGatewayEvent).toHaveBeenCalledWith("warn", "gateway_next_contest_join_failed", expect.objectContaining({ playerId: "p2" }));
   });
 
-  it("starts from rows waitlisted while the Sector was full once it has ended", async () => {
+  // Regression: "Sector full" waitlist rows counted as commitments, so the
+  // world rolled over within a minute of the crown with nobody pressing.
+  it("never starts from rows waitlisted while the Sector was full", async () => {
     const { deps } = makeDeps();
     for (const playerId of ["a", "b", "c"]) await deps.store.join({ seasonId: "season-1", playerId, joinedAt: 1 });
+    const nextContest = createNextContest(deps);
+    expect(await nextContest.maybeStart()).toBe(false);
+    expect(nextContest.initFields("a")).toMatchObject({ seasonStartVoteCount: 0, seasonStartVoted: false });
+    expect(deps.startNextSeason).not.toHaveBeenCalled();
+  });
+
+  it("starts from commitments made before a restart", async () => {
+    const { deps } = makeDeps();
+    for (const playerId of ["a", "b", "c"]) await deps.store.join({ seasonId: nextContestKey("season-1"), playerId, joinedAt: 1 });
     expect(await createNextContest(deps).maybeStart()).toBe(true);
     expect(deps.joinSeason).toHaveBeenCalledTimes(3);
+  });
+
+  it("places committed Houses before announcing the new season", async () => {
+    const order: string[] = [];
+    const { deps } = makeDeps({
+      joinSeason: vi.fn(async (playerId: string) => { order.push(`join:${playerId}`); return { spawned: true }; }),
+      onSeasonStarted: vi.fn(() => { order.push("announce"); })
+    });
+    const nextContest = createNextContest(deps);
+    for (const playerId of ["p1", "p2", "p3"]) await nextContest.commit(playerId, false);
+    expect(order).toEqual(["join:p1", "join:p2", "join:p3", "announce"]);
+  });
+
+  // Regression: a commit while the world was being built was recorded but
+  // never joined, and a second starter reset the start guard mid-rollover.
+  it("joins Houses that commit during the rollover and never starts twice", async () => {
+    let finishRollover: () => void = () => {};
+    const { deps, setSeason } = makeDeps();
+    deps.startNextSeason = vi.fn(() => new Promise<{ seasonId: string }>((resolve) => {
+      finishRollover = () => { setSeason({ seasonId: "season-2", status: "active" }); resolve({ seasonId: "season-2" }); };
+    }));
+    const nextContest = createNextContest(deps);
+    await nextContest.commit("p1", false);
+    await nextContest.commit("p2", false);
+    const third = nextContest.commit("p3", false);
+    await vi.waitFor(() => expect(deps.startNextSeason).toHaveBeenCalledTimes(1));
+    expect(await nextContest.commit("p4", false)).toEqual({ ok: true, count: 4, started: false });
+    expect(await nextContest.maybeStart()).toBe(false);
+    finishRollover();
+    expect(await third).toEqual({ ok: true, count: 3, started: true });
+    expect(deps.startNextSeason).toHaveBeenCalledTimes(1);
+    expect(deps.joinSeason.mock.calls.map(([playerId]) => playerId)).toEqual(["p1", "p2", "p3", "p4"]);
   });
 
   it("does not start a running season from the timer", async () => {
     const { deps, setSeason } = makeDeps();
     setSeason({ seasonId: "season-1", status: "active" });
-    for (const playerId of ["a", "b", "c"]) await deps.store.join({ seasonId: "season-1", playerId, joinedAt: 1 });
+    for (const playerId of ["a", "b", "c"]) await deps.store.join({ seasonId: nextContestKey("season-1"), playerId, joinedAt: 1 });
     expect(await createNextContest(deps).maybeStart()).toBe(false);
     expect(deps.startNextSeason).not.toHaveBeenCalled();
   });

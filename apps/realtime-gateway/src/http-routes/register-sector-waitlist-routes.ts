@@ -4,9 +4,6 @@
 // (before any session exists) or in reply to JOIN_SEASON, so these are plain
 // HTTP routes authenticated with the Firebase bearer token, like rally links.
 //
-// Once the Sector has ended, the same list is the commitment to the next
-// Sector Contest (see next-contest/next-contest.ts), so joining stays open.
-//
 // Joining needs a real account: a guest (anonymous Firebase user) is lost on
 // uninstall and has no email to notify, so it is asked to sign in first.
 import type { FastifyInstance } from "fastify";
@@ -80,9 +77,9 @@ export const registerSectorWaitlistRoutes = (app: FastifyInstance, deps: SectorW
       reply.code(503);
       return { ok: false, error: "season unavailable" };
     }
-    if (season.status === "pending") {
+    if (season.status !== "active") {
       reply.code(409);
-      return { ok: false, error: "season has not started" };
+      return { ok: false, error: "season is not active" };
     }
     const added = await deps.store.join({ seasonId: season.seasonId, playerId: identity.playerId, joinedAt: now() });
     const result = await summary(season.seasonId, identity.playerId);
