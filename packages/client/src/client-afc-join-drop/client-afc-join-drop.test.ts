@@ -221,8 +221,10 @@ describe("tickAfcJoinDrop playback", () => {
     const startAt = startDrop(t);
     t.tick(startAt + AFC_JOIN_TOTAL_MS - 1);
     expect(t.seen.size).toBe(0);
+    const changesAtTouchdown = t.changed.length;
     t.tick(startAt + AFC_JOIN_TOTAL_MS);
     expect(t.state.afcJoinDrop.phase).toBe("done");
+    expect(t.changed.length).toBe(changesAtTouchdown + 1);
     expect(t.seen.has(afcJoinDropTipId(ACTIVATED_AT))).toBe(true);
     t.tick(startAt + AFC_JOIN_TOTAL_MS + 16);
     t.tick(startAt + AFC_JOIN_TOTAL_MS + 60_000);

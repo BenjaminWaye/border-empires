@@ -5,6 +5,7 @@ import {
   AFC_JOIN_DESCENT_MS,
   AFC_JOIN_TOTAL_MS,
   afcJoinBrakeIntensity,
+  afcJoinDeploymentPose,
   afcJoinFallenFraction,
   afcJoinStreakAlpha
 } from "./client-afc-join-drop-timeline.js";
@@ -74,7 +75,7 @@ const drawDescent2D = (ctx: CanvasRenderingContext2D, tile: AfcTile, px: number,
   // The hull itself, easing in from transparent so it isn't a sudden pop at the top of the screen.
   ctx.save();
   ctx.globalAlpha = clamp01(age / 600);
-  drawAfc2D(ctx, tile, px, py - offset, size, nowMs);
+  drawAfc2D(ctx, tile, px, py - offset, size, nowMs, undefined, afcJoinDeploymentPose(age - AFC_JOIN_DESCENT_MS));
   ctx.restore();
 
   const burn = afcJoinBrakeIntensity(age);
@@ -136,6 +137,6 @@ export const drawAfcTile2D = (
     drawDescent2D(ctx, tile, px, py, size, nowMs, age);
     return;
   }
-  drawAfc2D(ctx, tile, px, py, size, nowMs, deliveryLandedAtMs);
+  drawAfc2D(ctx, tile, px, py, size, nowMs, deliveryLandedAtMs, afcJoinDeploymentPose(age - AFC_JOIN_DESCENT_MS));
   if (age < AFC_JOIN_TOTAL_MS) drawAfterglow2D(ctx, px, py, size, age - AFC_JOIN_DESCENT_MS);
 };

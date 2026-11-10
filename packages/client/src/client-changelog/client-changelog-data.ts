@@ -168,7 +168,7 @@ import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-
 import { MOBILE_RESOURCE_RIBBON_ENTRY } from "./client-changelog-mobile-resource-ribbon.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
-import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
+import { AFC_LANDING_DEPLOYMENT_ENTRY, CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
@@ -481,6 +481,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, },
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_110,
   { ...NEXT_CONTEST_ENTRY, createdAt: 1794337809927, },
+  { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

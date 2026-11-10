@@ -1,15 +1,24 @@
 import { BufferGeometry, CylinderGeometry, TorusGeometry } from "three";
 import { afcBeveledBox, afcTurnedCasing, colorAfcGeometry } from "./client-map-3d-afc-machining.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { appendAfcLegGeometry } from "./client-map-3d-afc-legs.js";
+import { afcLegAzimuth, appendAfcLegGeometry, type AfcFinishParts } from "./client-map-3d-afc-legs.js";
 
-/** Static machining detail, merged by finish: four extra draws regardless of
- * AFC count. No lights, per-frame allocations or docking changes. */
-export const createAfcFinishGeometry = (): Readonly<Record<"armour" | "trim" | "inset" | "light", BufferGeometry>> => {
-  const armour: BufferGeometry[] = [];
-  const trim: BufferGeometry[] = [];
-  const inset: BufferGeometry[] = [];
-  const light: BufferGeometry[] = [];
+export const AFC_BAY_FOUNDATION_RADIUS = 0.218;
+export const AFC_FINISHES = ["armour", "trim", "inset", "light"] as const;
+export type AfcFinish = (typeof AFC_FINISHES)[number];
+type FinishGeometry = Partial<Record<AfcFinish, BufferGeometry>>;
+
+const finishParts = (): AfcFinishParts => ({ armour: [], trim: [], inset: [], light: [] });
+
+export const createAfcFinishGeometry = (animated: boolean, socketCount: number, socketRadius: number): {
+  body: FinishGeometry;
+  bay?: FinishGeometry;
+  upper?: FinishGeometry;
+  shin?: FinishGeometry;
+  toe?: FinishGeometry;
+} => {
+  const body = finishParts();
+  const { armour, trim, inset, light } = body;
   const ring = (parts: BufferGeometry[], radius: number, tube: number, y: number): void => {
     parts.push(new TorusGeometry(radius, tube, 6, 48).rotateX(Math.PI / 2).translate(0, y, 0));
   };
@@ -40,22 +49,7 @@ export const createAfcFinishGeometry = (): Readonly<Record<"armour" | "trim" | "
     block(inset, 0.012, 0.06, 0.04, 0.39, 0.166, a);
     for (let j = 0; j < 3; j++) block(trim, 0.012, 0.009, 0.05, 0.305, 0.73 + j * 0.025, a);
     block(light, 0.014, 0.027, 0.045, 0.398, 0.176, a);
-    // Bay foundations taper out below the original pad; interiors stay clear.
-    const x = Math.cos(a) * 1.28;
-    const z = Math.sin(a) * 1.28;
-    armour.push(afcTurnedCasing(0.205, 0.235, 0.025).translate(x, 0.014, z));
-    trim.push(new TorusGeometry(0.205, 0.009, 5, 24).rotateX(Math.PI / 2).translate(x, 0.029, z));
-    for (let j = 0; j < 4; j++) {
-      const lockAngle = a + j * Math.PI / 2;
-      const lock = afcBeveledBox(0.035, 0.045, 0.065).translate(0.183, 0.12, 0).rotateY(-lockAngle).translate(x, 0, z);
-      armour.push(lock);
-    }
-    // Exterior service latch, status lens and conduit clamp.
-    block(armour, 0.06, 0.075, 0.10, 1.475, 0.07, a);
-    block(light, 0.015, 0.018, 0.055, 1.51, 0.09, a);
-    block(trim, 0.045, 0.025, 0.19, 0.83, 0.064, a);
   }
-  appendAfcLegGeometry({ armour, trim, inset, light });
   // Thin cooling vanes break up the blank upper drum, grouped into quadrants.
   for (let i = 0; i < 16; i++) {
     const a = i * Math.PI / 8;
@@ -69,15 +63,53 @@ export const createAfcFinishGeometry = (): Readonly<Record<"armour" | "trim" | "
     block(inset, 0.015, 0.06, 0.024, 0.245, 0.865, a);
     trim.push(new CylinderGeometry(0.012, 0.012, 0.012, 6).translate(Math.cos(a) * 0.46, 0.125, Math.sin(a) * 0.46));
   }
-  // Vertex colours let the cooler leg armour share the iron batch.
-  for (const part of armour) {
-    if (!part.hasAttribute("color")) colorAfcGeometry(part, "#424b55");
+  const bay = finishParts();
+  bay.armour.push(afcTurnedCasing(0.205, AFC_BAY_FOUNDATION_RADIUS, 0.025).translate(0, 0.014, 0));
+  bay.trim.push(new TorusGeometry(0.205, 0.009, 5, 24).rotateX(Math.PI / 2).translate(0, 0.029, 0));
+  for (let j = 0; j < 4; j++) {
+    bay.armour.push(afcBeveledBox(0.035, 0.045, 0.065).translate(0.183, 0.12, 0).rotateY(-j * Math.PI / 2));
   }
-  const merge = (parts: BufferGeometry[]): BufferGeometry => {
-    const geometry = mergeGeometries(parts, false);
-    for (const part of parts) part.dispose();
-    if (!geometry) throw new Error("Unable to merge AFC machining details");
-    return geometry;
+  block(bay.armour, 0.06, 0.075, 0.10, 0.18, 0.07, 0);
+  block(bay.light, 0.015, 0.018, 0.055, 0.203, 0.09, 0);
+  block(bay.trim, 0.045, 0.025, 0.19, -0.45, 0.064, 0);
+
+  const upper = finishParts();
+  const shin = finishParts();
+  const toe = finishParts();
+  appendAfcLegGeometry(upper, shin, toe);
+
+  const merge = (parts: AfcFinishParts): FinishGeometry => {
+    const result: FinishGeometry = {};
+    for (const finish of AFC_FINISHES) {
+      const geometries = parts[finish];
+      if (geometries.length === 0) continue;
+      if (finish === "armour") {
+        for (const part of geometries) {
+          if (!part.hasAttribute("color")) colorAfcGeometry(part, "#424b55");
+        }
+      }
+      const geometry = mergeGeometries(geometries, false);
+      for (const part of geometries) part.dispose();
+      if (!geometry) throw new Error("Unable to merge AFC machining details");
+      result[finish] = geometry;
+    }
+    return result;
   };
-  return { armour: merge(armour), trim: merge(trim), inset: merge(inset), light: merge(light) };
+  if (animated) return { body: merge(body), bay: merge(bay), upper: merge(upper), shin: merge(shin), toe: merge(toe) };
+
+  // Keep deployed AFC details in four instanced batches regardless of how
+  // many complexes are visible. Only the landing model needs separate parts.
+  const bake = (parts: AfcFinishParts, count: number, angleAt: (index: number) => number, radius: number): void => {
+    for (const finish of AFC_FINISHES) {
+      for (const part of parts[finish]) {
+        for (let i = 0; i < count; i++) {
+          const geometry = i === count - 1 ? part : part.clone();
+          body[finish].push(geometry.translate(radius, 0, 0).rotateY(-angleAt(i)));
+        }
+      }
+    }
+  };
+  bake(bay, socketCount, (i) => i * Math.PI / 4, socketRadius);
+  for (const segment of [upper, shin, toe]) bake(segment, 4, afcLegAzimuth, 0);
+  return { body: merge(body) };
 };
