@@ -58,6 +58,7 @@ import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
 import { ADVANCE_VISIBLE_ONLY_CHANGELOG } from "./client-changelog-advance-visible-only.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_19_20 } from "./client-changelog-oct-19-20.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_13_16 } from "./client-changelog-oct-13-16.js";
+import { WAR_TREE_HIVE_MIND_HUB_ENTRY } from "./client-changelog-nov-09.js";
 import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-effort.js";
 import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
 import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js";
@@ -489,6 +490,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...SECTOR_CONTEST_NAME_ENTRY, createdAt: 1794260286374, },
   { ...MOBILE_PROFILE_SCROLL_ENTRY, createdAt: 1794258518510, },
   { ...BRASS_DEAL_SLIDERS_ENTRY, createdAt: 1794255946209, },
+  { ...WAR_TREE_HIVE_MIND_HUB_ENTRY, createdAt: 1794292926456, },
   { ...SCORE_TIMELINE_KEPT_ENTRY, createdAt: 1794261469742, },
   { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, },
   { ...ADMIN_FORCE_SEASON_START_ENTRY, createdAt: 1794261609344, }

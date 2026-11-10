@@ -140,6 +140,16 @@ export const SCORE_TIMELINE_KEPT_ENTRY: Omit<ClientChangelogEntry, "createdAt"> 
   changes: ["Saved score samples survive server restarts", "The Score Graph ends on each empire's score at the moment the winner is crowned"]
 };
 
+export const WAR_TREE_HIVE_MIND_HUB_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.10",
+  title: "War line converges on Hive Mind Module II",
+  why: "Each War dossier hung off a single tier 3 manifest, so you could reach a capstone project without building out the rest of the War line.",
+  changes: [
+    "Hive Mind Module II now requires both Dread Tower Cadre and the Thunderplate Induction Module",
+    "The Sovereign Siege Engine Dossier and the Aegis Dome Dossier both require Hive Mind Module II"
+  ]
+};
+
 export const ADMIN_FORCE_SEASON_START_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   introducedIn: "2026.11.09",
   title: "Admins can force-start the next Sector Contest",
