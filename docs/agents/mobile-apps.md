@@ -69,17 +69,20 @@ The email magic link stays hidden in native builds (it cannot return to the app)
 Apple has no web or Android provider yet, so an Apple-only account can sign in
 and delete itself only from the iOS app.
 
-Native social sign-in needs console setup that lives outside Git:
+Native social sign-in depends on console setup (done 2026-11-10):
 
-- Firebase project `border-empires`: register the Android app
-  `com.borderempires.game` with the SHA-1 of the upload key **and** the Play app
-  signing key, and the iOS app with the same bundle ID; commit the resulting
-  `android/app/google-services.json` and `ios/App/App/GoogleService-Info.plist`
-  (already referenced by the Xcode project). Enable the Apple provider.
-- iOS `Info.plist` URL types: the plist's `REVERSED_CLIENT_ID` (Google) and the
-  encoded Firebase app ID (`app-1-…-ios-…`, Twitch/Discord redirect).
-- Apple Developer: Sign in with Apple on App ID `com.borderempires.game`
-  (`App.entitlements` requests it; automatic signing adds the capability).
+- Firebase project `border-empires` has the Android app
+  `com.borderempires.game` with three SHA-1s (Play app signing key, upload key,
+  local debug key) and the iOS app with the same bundle ID. Their configs are
+  committed as `android/app/google-services.json` and
+  `ios/App/App/GoogleService-Info.plist`; re-download them after adding a new
+  signing key fingerprint. The Apple provider is enabled (no Services ID, so
+  iOS only).
+- iOS `Info.plist` URL types hold the plist's `REVERSED_CLIENT_ID` (Google) and
+  the encoded Firebase app ID (`app-1-979056688511-ios-…`, Twitch/Discord redirect).
+- Sign in with Apple is on App ID `com.borderempires.game`; Xcode automatic
+  signing added it from `App.entitlements` during a `-allowProvisioningUpdates`
+  archive.
 - iOS links only the plugin's `Google` SPM trait (`capacitor.config.ts`
   `experimental.ios.spm.packageTraits`), not the Facebook SDK.
 
@@ -232,9 +235,8 @@ To upload a future signed archive using the Xcode account, use a local copy of
 `xcodebuild -exportArchive -archivePath <archive> -exportOptionsPlist <options>
 -allowProvisioningUpdates`. This performs an actual upload, so verify the intended
 bundle, production environment and build number first. Increment the build number
-for the next upload. The iOS project is set to version 1.0 build 2 for the first
-post-deletion upload; Android stays at `versionCode 1` because Play has received
-no bundle yet. Keep local credentials and private keys outside Git.
+for the next upload. The native social sign-in branch set the projects to iOS
+build 3 and Android `versionCode 2`, the next numbers each store accepts. Keep local credentials and private keys outside Git.
 Rebuild/sync from the intended release commit before uploading; archive/upload
 success is not a gameplay/device QA result.
 
