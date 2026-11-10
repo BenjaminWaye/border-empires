@@ -11,6 +11,13 @@ const declarationsFor = (selector: string): string[] =>
     .map(([,, declarations]) => declarations!.trim());
 
 describe("compact HUD styles", () => {
+  it("keeps the opaque navigation row within its reserved height", () => {
+    const rules = declarationsFor("body.hud-v2-compact .hud-v2-nav").join("\n");
+    expect(rules).toContain("background: var(--v2-ink-solid)");
+    expect(rules).toContain("box-sizing: border-box");
+    expect(rules).toContain("height: var(--v2c-bottom)");
+  });
+
   it("lets the Profile sections grow inside one scroll area", () => {
     expect(screensCss).toMatch(/body\.hud-v2-compact \.v2p\s*\{[^}]*grid-auto-rows:\s*max-content;[^}]*overflow-y:\s*auto;/);
     expect(screensCss).toMatch(/body\.hud-v2-compact \.v2p-hero\s*\{[^}]*max-height:\s*none;[^}]*overflow:\s*visible;/);
