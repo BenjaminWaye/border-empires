@@ -53,13 +53,35 @@ Saving a guest links email/password credentials to its existing Firebase UID,
 then refreshes the token and reloads. A conflicting email leaves the guest intact.
 Uninstalling the app or clearing app data loses an unsaved guest.
 
-Native builds hide the browser's Google/Twitch/Discord popups and magic links:
-embedded OAuth popups and email links opened in a different browser cannot
-reliably complete the current flow. Existing email accounts can reset their
-password in the native login UI. Social-only users must establish email/password
-access through a tested recovery/linking path first; do not promise social login in a store listing. Adding
-native social login needs provider configuration, credential linking, and an
-Apple-compliant equivalent login option before release.
+Native builds sign in with Google, Twitch and Discord (and Sign in with Apple
+on iOS only) through `@capacitor-firebase/authentication` 8.5.2
+(`packages/client/src/client-native-sso`). The native Firebase SDK runs the
+provider UI (Credential Manager account picker on Android, Google/Apple sheets
+on iOS, a system browser tab for the Twitch/Discord OIDC providers) and returns
+a credential; the web Firebase SDK then calls `signInWithCredential`, so the web
+SDK stays the only game session and existing web accounts keep their UID.
+Google/Apple use `skipNativeAuth`; Twitch/Discord need a full native sign-in to
+return tokens and the native session is signed out straight away. Guests can
+save with Google (and Apple on iOS) via `linkWithCredential`; Twitch/Discord are
+not offered for guest save because their native flow would create a separate
+account first. Account deletion re-authenticates provider accounts natively.
+The email magic link stays hidden in native builds (it cannot return to the app).
+Apple has no web or Android provider yet, so an Apple-only account can sign in
+and delete itself only from the iOS app.
+
+Native social sign-in needs console setup that lives outside Git:
+
+- Firebase project `border-empires`: register the Android app
+  `com.borderempires.game` with the SHA-1 of the upload key **and** the Play app
+  signing key, and the iOS app with the same bundle ID; commit the resulting
+  `android/app/google-services.json` and `ios/App/App/GoogleService-Info.plist`
+  (already referenced by the Xcode project). Enable the Apple provider.
+- iOS `Info.plist` URL types: the plist's `REVERSED_CLIENT_ID` (Google) and the
+  encoded Firebase app ID (`app-1-…-ios-…`, Twitch/Discord redirect).
+- Apple Developer: Sign in with Apple on App ID `com.borderempires.game`
+  (`App.entitlements` requests it; automatic signing adds the capability).
+- iOS links only the plugin's `Google` SPM trait (`capacitor.config.ts`
+  `experimental.ios.spm.packageTraits`), not the Facebook SDK.
 
 Web login stays unchanged. GA web analytics initialization is skipped in native
 builds; first-party game telemetry remains active. External anchor links and legal

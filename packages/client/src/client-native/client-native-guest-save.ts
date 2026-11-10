@@ -1,18 +1,72 @@
-import { EmailAuthProvider, getAuth, linkWithCredential } from "firebase/auth";
+import { Capacitor } from "@capacitor/core";
+import { EmailAuthProvider, getAuth, linkWithCredential, type User } from "firebase/auth";
+import type { NativeSsoMethod } from "../client-native-sso/client-native-sso.js";
 
-/** Link credentials to the guest UID so saving never replaces its empire. */
-export const saveNativeGuest = async (email: string, password: string): Promise<void> => {
+const currentGuest = async (): Promise<User> => {
   const auth = getAuth();
   await auth.authStateReady();
   const user = auth.currentUser;
   if (!user?.isAnonymous) throw new Error("This guest session is no longer available.");
-  await linkWithCredential(user, EmailAuthProvider.credential(email.trim(), password));
+  return user;
+};
+
+const refreshAfterLink = async (user: User): Promise<void> => {
   try {
     await user.getIdToken(true);
   } catch {
     // Linking has already saved the account. Reload will retry token refresh;
     // do not leave a now-saved user stranded on the guest form.
   }
+};
+
+// Twitch/Discord are not offered here: their native flow has no credential-only
+// mode, so it would create a separate account before the guest could be linked.
+export type NativeGuestSaveProvider = Extract<NativeSsoMethod, "google.com" | "apple.com">;
+
+/** Link a Google/Apple identity to the guest UID so saving never replaces its empire. */
+export const saveNativeGuestWithProvider = async (method: NativeGuestSaveProvider): Promise<void> => {
+  const user = await currentGuest();
+  const { linkWithNativeSso } = await import("../client-native-sso/client-native-sso.js");
+  await linkWithNativeSso(user, method);
+  await refreshAfterLink(user);
+};
+
+const CONFLICT_CODES = new Set(["auth/email-already-in-use", "auth/credential-already-in-use", "auth/account-exists-with-different-credential"]);
+
+export const nativeGuestSaveErrorMessage = (error: unknown, label: string): string => {
+  const code = error instanceof Object && "code" in error ? error.code : undefined;
+  if (typeof code === "string" && CONFLICT_CODES.has(code)) {
+    return `That ${label} already has an account. Use a different one to keep this guest empire.`;
+  }
+  return error instanceof Error ? error.message : "Could not save. Check your connection and try again.";
+};
+
+/** Link credentials to the guest UID so saving never replaces its empire. */
+export const saveNativeGuest = async (email: string, password: string): Promise<void> => {
+  const user = await currentGuest();
+  await linkWithCredential(user, EmailAuthProvider.credential(email.trim(), password));
+  await refreshAfterLink(user);
+};
+
+const providerButton = (label: string, method: NativeGuestSaveProvider, status: HTMLElement, form: HTMLFormElement): HTMLButtonElement => {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `panel-btn guest-save-btn ${method === "apple.com" ? "guest-save-apple" : "guest-save-primary"}`;
+  button.textContent = `Continue with ${label}`;
+  button.onclick = async () => {
+    const buttons = Array.from(form.parentElement?.querySelectorAll<HTMLButtonElement>("button") ?? []);
+    buttons.forEach((entry) => { entry.disabled = true; });
+    status.textContent = `Opening ${label}...`;
+    try {
+      await saveNativeGuestWithProvider(method);
+      window.location.reload();
+    } catch (error) {
+      const cancelled = error instanceof Error && error.name === "NativeSsoCancelledError";
+      status.textContent = cancelled ? "" : nativeGuestSaveErrorMessage(error, `${label} account`);
+      buttons.forEach((entry) => { entry.disabled = false; });
+    }
+  };
+  return button;
 };
 
 export const nativeGuestSaveOptions = (): HTMLElement[] => {
@@ -33,11 +87,19 @@ export const nativeGuestSaveOptions = (): HTMLElement[] => {
   password.required = true;
   const save = document.createElement("button");
   save.type = "submit";
-  save.className = "panel-btn guest-save-btn guest-save-primary";
+  save.className = "panel-btn guest-save-btn";
   save.textContent = "Save with email and password";
   const status = document.createElement("p");
   status.setAttribute("role", "status");
   form.append(email, password, save, status);
+  const providers = [providerButton("Google", "google.com", status, form)];
+  if (Capacitor.getPlatform() === "ios") providers.unshift(providerButton("Apple", "apple.com", status, form));
+  const wrapper = document.createElement("div");
+  wrapper.className = "native-guest-save-options";
+  const or = document.createElement("div");
+  or.className = "guest-save-or";
+  or.textContent = "or";
+  wrapper.append(...providers, or, form);
   form.onsubmit = async (event) => {
     event.preventDefault();
     if (!form.reportValidity() || save.disabled) return;
@@ -46,12 +108,9 @@ export const nativeGuestSaveOptions = (): HTMLElement[] => {
       await saveNativeGuest(email.value, password.value);
       window.location.reload();
     } catch (error) {
-      const code = error instanceof Object && "code" in error ? error.code : undefined;
-      status.textContent = code === "auth/email-already-in-use" || code === "auth/credential-already-in-use"
-        ? "That email already has an account. Use a different email to keep this guest empire."
-        : error instanceof Error ? error.message : "Could not save. Check your connection and try again.";
+      status.textContent = nativeGuestSaveErrorMessage(error, "email");
       save.disabled = false;
     }
   };
-  return [form];
+  return [wrapper];
 };

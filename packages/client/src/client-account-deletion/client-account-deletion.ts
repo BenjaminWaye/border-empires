@@ -1,3 +1,4 @@
+import type { NativeSsoMethod } from "../client-native-sso/client-native-sso.js";
 import {
   EmailAuthProvider, GoogleAuthProvider, OAuthProvider, reauthenticateWithCredential,
   reauthenticateWithPopup, signOut, type Auth, type User
@@ -41,14 +42,20 @@ export const requestAccountDeletion = async (user: Pick<User, "getIdToken">, wsU
   return { requestId: receipt.requestId, completeBy: receipt.completeBy, status: receipt.status };
 };
 
-const confirmOwnership = async (user: User, password: string): Promise<void> => {
+export const confirmOwnership = async (user: User, password: string): Promise<void> => {
   if (user.isAnonymous) return;
   if (user.email && user.providerData.some((provider) => provider.providerId === "password")) {
     await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
     return;
   }
-  const provider = user.providerData.find((entry) => ["google.com", "oidc.twitch", "oidc.discord"].includes(entry.providerId));
-  if (!provider || Capacitor.isNativePlatform()) throw new Error("Sign in with this account on the website to delete it.");
+  const provider = user.providerData.find((entry) => ["google.com", "apple.com", "oidc.twitch", "oidc.discord"].includes(entry.providerId));
+  if (!provider) throw new Error("Sign in with this account on the website to delete it.");
+  if (Capacitor.isNativePlatform()) {
+    const { reauthenticateWithNativeSso } = await import("../client-native-sso/client-native-sso.js");
+    await reauthenticateWithNativeSso(user, provider.providerId as NativeSsoMethod);
+    return;
+  }
+  if (provider.providerId === "apple.com") throw new Error("Open the Border Empires iOS app to delete an Apple account.");
   await reauthenticateWithPopup(user, provider.providerId === "google.com" ? new GoogleAuthProvider() : new OAuthProvider(provider.providerId));
 };
 

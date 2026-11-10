@@ -1,7 +1,10 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getAuth, linkWithCredential } from "firebase/auth";
-import { saveNativeGuest } from "./client-native-guest-save.js";
+import { nativeGuestSaveErrorMessage, saveNativeGuest, saveNativeGuestWithProvider } from "./client-native-guest-save.js";
+import { linkWithNativeSso } from "../client-native-sso/client-native-sso.js";
+
+vi.mock("../client-native-sso/client-native-sso.js", () => ({ linkWithNativeSso: vi.fn(async () => ({})) }));
 
 vi.mock("firebase/auth", () => ({
   getAuth: vi.fn(),
@@ -36,5 +39,20 @@ describe("native guest save", () => {
     vi.mocked(getAuth).mockReturnValue({ currentUser: { ...user, isAnonymous: false }, authStateReady: async () => undefined } as never);
     await expect(saveNativeGuest("player@example.com", "secret123")).rejects.toThrow("no longer available");
     expect(linkWithCredential).not.toHaveBeenCalled();
+  });
+  it("links Google to the existing guest UID and refreshes its token", async () => {
+    await saveNativeGuestWithProvider("google.com");
+    expect(linkWithNativeSso).toHaveBeenCalledWith(user, "google.com");
+    expect(user.getIdToken).toHaveBeenCalledWith(true);
+  });
+  it("refuses to link a provider to a signed-in non-guest", async () => {
+    vi.mocked(getAuth).mockReturnValue({ currentUser: { ...user, isAnonymous: false }, authStateReady: async () => undefined } as never);
+    await expect(saveNativeGuestWithProvider("apple.com")).rejects.toThrow("no longer available");
+    expect(linkWithNativeSso).not.toHaveBeenCalled();
+  });
+  it("explains an account collision instead of showing Firebase's code", () => {
+    expect(nativeGuestSaveErrorMessage({ code: "auth/credential-already-in-use" }, "Google account")).toBe(
+      "That Google account already has an account. Use a different one to keep this guest empire."
+    );
   });
 });

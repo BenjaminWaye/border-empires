@@ -1,3 +1,4 @@
+import { NATIVE_SOCIAL_SIGN_IN_ENTRY } from "./client-changelog-nov-10.js";
 import { AFC_CAMPAIGN_LOADOUT_ENTRY, BRASS_DEAL_SLIDERS_ENTRY, SCORE_TIMELINE_KEPT_ENTRY, AI_EXPANSION_FIXES_ENTRY, ATTACK_ENDS_SUPPLY_TRADES_ENTRY, FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, MOBILE_PROFILE_SCROLL_ENTRY, NEUTRAL_TOWN_NAMES_ENTRY, REPORT_CANCEL_ENTRY, HIVE_MIND_II_PREREQ_ENTRY, SEASON_SCORES_SAVED_ENTRY, SECTOR_CONTEST_NAME_ENTRY, SECTOR_WAITLIST_ENTRY, JOIN_SCREEN_SEASON_END_ENTRY, VICTORY_RACE_WINNER_ENTRY, ADMIN_FORCE_SEASON_START_ENTRY } from "./client-changelog-nov-09.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
@@ -172,6 +173,7 @@ import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-earlier-106.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -306,26 +308,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...HILL_GARRISON_FILL_CHANGELOG,
   ...NAME_DECAL_HILLS_CHANGELOG,
-  {
-    createdAt: 1792873662311, // Frozen Date.now() timestamp for the changelog gate.
-    introducedIn: "2026.10.24.3",
-    title: "Titanium-armoured soldiers no longer collapse when they move",
-    why: "The heavy armour's animations were copied from the standard soldier onto a differently shaped body, so the armour crumpled the moment a soldier ran, stood or knelt.",
-    changes: [
-      "Soldiers in heavy armour now stand, run, march and kneel with the same poses and arm positions as standard soldiers",
-      "This is cosmetic and only shows on the 3D map"
-    ]
-  },
-  {
-    createdAt: 1792909803859, // Frozen Date.now() timestamp for the changelog gate.
-    introducedIn: "2026.10.24.3",
-    title: "Soldiers killed in battle now fall properly",
-    why: "A soldier killed in a 3D battle was tipped over whole and shrunk, so they sank into a small bundle on the ground instead of falling.",
-    changes: [
-      "Killed soldiers, in standard or heavy armour, now play a real fall and lie full size on the battlefield",
-      "On the 2D map, soldiers killed during a dock landing now fade out over about a second instead of vanishing almost at once"
-    ]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_110,
   ...SHARD_COMEBACK_CHANGELOG,
   {
     createdAt: 1792907228760, // Date.now() captured once for this entry.
@@ -493,7 +476,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...WAR_TREE_HIVE_MIND_HUB_ENTRY, createdAt: 1794292926456, },
   { ...SCORE_TIMELINE_KEPT_ENTRY, createdAt: 1794261469742, },
   { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, },
-  { ...ADMIN_FORCE_SEASON_START_ENTRY, createdAt: 1794261609344, }
+  { ...ADMIN_FORCE_SEASON_START_ENTRY, createdAt: 1794261609344, },
+  { ...NATIVE_SOCIAL_SIGN_IN_ENTRY, createdAt: 1794288128417, }
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
