@@ -21,18 +21,25 @@ export type SectorBoardReply =
   | { ok: false; error: string };
 
 // The join cap counts human players only (season-join-capacity.ts), so AI
-// empires ("ai-<n>") and the barbarian faction are left out here too. The
-// leaderboard lists empires that hold land, so a House with none yet is
-// missed: the board can read a little low, never high.
-const isHumanHouse = (playerId: string): boolean => !playerId.startsWith("ai-") && !playerId.startsWith("barbarian");
+// empires ("ai-<n>", as worldgen names them) and the barbarian faction
+// ("barbarian", "barbarian-<n>") are left out here too. This is an estimate:
+// the leaderboard lists only empires that hold land, while the cap also
+// counts landless or eliminated humans still on record, so the board reads
+// low -- more so late in a contest -- and never high. The join itself stays
+// authoritative: a refused join opens the next-Sector waitlist.
+const AI_ID = /^ai-\d+$/;
+const BARBARIAN_ID = /^barbarian(-\d+)?$/;
+const isHumanHouse = (playerId: string): boolean => !AI_ID.test(playerId) && !BARBARIAN_ID.test(playerId);
 
 export const countHumanHouses = (playerIds: readonly string[]): number => playerIds.filter(isHumanHouse).length;
 
 export const registerSectorBoardRoute = (app: FastifyInstance, deps: SectorBoardRouteDeps): void => {
   app.get("/sector/board", async (_request, reply): Promise<SectorBoardReply> => {
     let occupancy: SectorOccupancy;
+    let waitingCount: number;
     try {
       occupancy = await deps.getOccupancy();
+      waitingCount = await deps.store.count(occupancy.seasonId);
     } catch {
       reply.code(503);
       return { ok: false, error: "season unavailable" };
@@ -46,7 +53,7 @@ export const registerSectorBoardRoute = (app: FastifyInstance, deps: SectorBoard
       houses,
       maxHouses,
       full: maxHouses > 0 && houses >= maxHouses,
-      waitingCount: await deps.store.count(occupancy.seasonId)
+      waitingCount
     };
   });
 };

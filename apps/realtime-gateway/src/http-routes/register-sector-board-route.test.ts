@@ -21,6 +21,7 @@ const setup = (playerIds: string[], maxHouses: number, fail = false) => {
 describe("countHumanHouses", () => {
   it("leaves out AI empires and barbarians, like the join cap", () => {
     expect(countHumanHouses(["alice", "ai-1", "ai-12", "barbarian", "barbarian-2", "bob"])).toBe(2);
+    expect(countHumanHouses(["ai-lover", "barbarian-king"])).toBe(2);
   });
 });
 
@@ -40,6 +41,17 @@ describe("GET /sector/board", () => {
   it("never reports full when there is no cap", async () => {
     const { app } = setup(["alice", "bob"], 0);
     expect((await app.inject({ method: "GET", url: "/sector/board" })).json()).toMatchObject({ maxHouses: 0, full: false });
+  });
+
+  it("answers 503 instead of crashing when the waitlist store fails", async () => {
+    const app = Fastify();
+    registerSectorBoardRoute(app, {
+      store: { count: async () => { throw new Error("SQLITE_BUSY"); } },
+      getOccupancy: async () => ({ seasonId: "season-9", status: "active", playerIds: [] }),
+      maxHouses: () => 100
+    });
+    const response = await app.inject({ method: "GET", url: "/sector/board" });
+    expect(response.statusCode).toBe(503);
   });
 
   it("answers 503 when the season is unavailable", async () => {

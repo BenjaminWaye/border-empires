@@ -203,6 +203,10 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
 
   setSeasonLobbyFullscreen(true);
 
+  // Before the render-key check: a failed board load retries through a
+  // later renderHud that would otherwise stop at the unchanged key.
+  if (!state.seasonPending && !state.joinSeasonPending && deps.wsUrl) sectorBoardLoaderFor(deps.wsUrl, renderHud)(state);
+
   const renderKey = computeRenderKey(state, visible);
   if (renderKey === overlayEl.dataset[RENDER_KEY_ATTR]) return;
   overlayEl.dataset[RENDER_KEY_ATTR] = renderKey;
@@ -264,10 +268,9 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   if (takeGuestAutoJoinTurn(state, Date.now()) && joinSeason()) state.joinSeasonPending = true;
   if (state.joinSeasonPending) armJoinPendingWatchdog(deps);
   const joining = state.joinSeasonPending;
-  if (!joining && deps.wsUrl) sectorBoardLoaderFor(deps.wsUrl, renderHud)(state);
   overlayEl.innerHTML = sectorBoardHtml({
     kicker: seasonLabel,
-    board: state.sectorBoard,
+    board: !state.joinSeasonId || state.sectorBoard?.seasonId === state.joinSeasonId ? state.sectorBoard : undefined,
     joining,
     waitHintHtml: joining ? `<p id="join-season-wait-hint" class="season-lobby-join-wait-hint">${currentJoinWaitHint()}</p>` : "",
     lobbyPanelHtml: renderSeasonLobbyPanelHtml(state, false, false)

@@ -78,7 +78,7 @@ describe("join-season overlay", () => {
         needsSeasonJoin: true,
         joinSeasonOverlayOpen: true,
         joinSeasonId: "season-42",
-        sectorBoard: { houses: 42, maxHouses: 100, full: false, waitingCount: 2 }
+        sectorBoard: { seasonId: "season-42", houses: 42, maxHouses: 100, full: false, waitingCount: 2 }
       }) as any,
       overlayEl,
       renderHud: () => {},
@@ -90,7 +90,7 @@ describe("join-season overlay", () => {
   });
 
   it("fetches the board from the gateway once while the board is on screen", async () => {
-    const fetchSpy = vi.fn(async () => ({ json: async () => ({ ok: true, houses: 7, maxHouses: 100, full: false, waitingCount: 0 }) }));
+    const fetchSpy = vi.fn(async () => ({ json: async () => ({ ok: true, seasonId: "season-board-test", houses: 7, maxHouses: 100, full: false, waitingCount: 0 }) }));
     vi.stubGlobal("fetch", fetchSpy);
     try {
       const overlayEl = document.createElement("div");
@@ -102,6 +102,47 @@ describe("join-season overlay", () => {
       expect(String((fetchSpy.mock.calls[0] as unknown[])[0])).toMatch(/\/sector\/board$/);
     } finally {
       vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not show another season's board counts (review regression)", () => {
+    const overlayEl = document.createElement("div");
+    renderJoinSeasonOverlay({
+      state: makeState({
+        needsSeasonJoin: true,
+        joinSeasonOverlayOpen: true,
+        joinSeasonId: "season-43",
+        sectorBoard: { seasonId: "season-42", houses: 100, maxHouses: 100, full: true, waitingCount: 9 }
+      }) as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true
+    });
+    expect(overlayEl.textContent).toContain("Counting Houses");
+    expect(overlayEl.textContent).not.toContain("looks full");
+  });
+
+  it("retries a failed board load on a later render even though nothing on screen changed (review regression)", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "Date"] });
+    let calls = 0;
+    const fetchSpy = vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("gateway down");
+      return { json: async () => ({ ok: true, seasonId: "season-retry-test", houses: 3, maxHouses: 100, full: false, waitingCount: 0 }) };
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+    try {
+      const overlayEl = document.createElement("div");
+      const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonId: "season-retry-test" }) as any;
+      const render = () => renderJoinSeasonOverlay({ state, overlayEl, renderHud: render, joinSeason: () => true, wsUrl: "wss://retry.example.test/ws" });
+      render();
+      await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      await vi.advanceTimersByTimeAsync(31_000);
+      await vi.waitFor(() => expect(overlayEl.textContent).toContain("3 of 100 Houses"));
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
     }
   });
 

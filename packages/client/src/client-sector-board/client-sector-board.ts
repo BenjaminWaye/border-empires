@@ -6,13 +6,13 @@
 // straight in (client-guest-play.ts). Data comes from GET /sector/board.
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 
-export type SectorBoardView = { houses: number; maxHouses: number; full: boolean; waitingCount: number };
+export type SectorBoardView = { seasonId: string; houses: number; maxHouses: number; full: boolean; waitingCount: number };
 
 export const parseSectorBoard = (body: unknown): SectorBoardView | undefined => {
   if (!body || typeof body !== "object") return undefined;
-  const { ok, houses, maxHouses, full, waitingCount } = body as Record<string, unknown>;
-  if (ok !== true || typeof houses !== "number" || typeof maxHouses !== "number" || typeof full !== "boolean" || typeof waitingCount !== "number") return undefined;
-  return { houses, maxHouses, full, waitingCount };
+  const { ok, seasonId, houses, maxHouses, full, waitingCount } = body as Record<string, unknown>;
+  if (ok !== true || typeof seasonId !== "string" || typeof houses !== "number" || typeof maxHouses !== "number" || typeof full !== "boolean" || typeof waitingCount !== "number") return undefined;
+  return { seasonId, houses, maxHouses, full, waitingCount };
 };
 
 const houses = (count: number): string => `${count} ${count === 1 ? "House" : "Houses"}`;
@@ -36,9 +36,11 @@ export const sectorBoardHtml = ({ kicker, board, joining, waitHintHtml, lobbyPan
   const buttonLabel = joining
     ? '<span class="season-lobby-join-spinner" aria-hidden="true"></span>Joining... setting up your empire'
     : full
-      ? "Sector full"
+      ? "Sector looks full — try anyway"
       : "Join this Sector Contest";
-  const disabled = joining ? 'disabled aria-busy="true"' : full ? "disabled" : "";
+  // Never disabled for "full": the count is approximate, and a refused join
+  // is what opens the next-Sector waitlist screen (client-season-full-error.ts).
+  const disabled = joining ? 'disabled aria-busy="true"' : "";
   const waiting = board ? `${houses(board.waitingCount)} waiting` : "";
   return `
     <div class="respawn-backdrop" id="join-season-backdrop"></div>
@@ -55,7 +57,7 @@ export const sectorBoardHtml = ({ kicker, board, joining, waitHintHtml, lobbyPan
               <span class="sector-board-status">${status}</span>
             </div>
             <div class="sector-board-meta">${occupancyLabel(board)}</div>
-            ${full ? '<p class="sector-board-note">Every House slot is taken. You can join the next Sector when it opens.</p>' : ""}
+            ${full ? '<p class="sector-board-note">Every House slot looks taken. If the Sector is full you will be offered the waitlist for the next one.</p>' : ""}
             ${lobbyPanelHtml}
             <section class="respawn-section respawn-actions">
               <button id="join-season-confirm" class="panel-btn season-lobby-lets-go-btn${joining ? " is-joining" : ""}" type="button" ${disabled}>${buttonLabel}</button>
@@ -78,16 +80,20 @@ export const sectorBoardHtml = ({ kicker, board, joining, waitHintHtml, lobbyPan
 type BoardState = { sectorBoard: SectorBoardView | undefined; joinSeasonId: string };
 
 const RETRY_AFTER_FAILURE_MS = 30_000;
+const FETCH_TIMEOUT_MS = 10_000;
 
-// Loads the board once per season id while the board is on screen; a failed
-// load is retried at most every 30s so a down gateway is not hammered from
-// the render loop. The board still works without data (no counts shown).
+// Loads the board once per season id while the board is on screen. A failed
+// or stalled load (10s timeout) is retried after 30s: the loader schedules a
+// re-render then, so the retry happens even if nothing else redraws the
+// screen. The board still works without data (no counts shown).
 export const createSectorBoardLoader = (deps: {
   wsUrl: string;
   rerender: () => void;
   fetchImpl?: typeof fetch;
   now?: () => number;
+  setTimeoutImpl?: (callback: () => void, ms: number) => unknown;
 }) => {
+  const setTimeoutImpl = deps.setTimeoutImpl ?? ((callback: () => void, ms: number) => setTimeout(callback, ms));
   const fetchImpl = deps.fetchImpl ?? ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
   const now = deps.now ?? (() => Date.now());
   let loadedFor: string | undefined;
@@ -98,17 +104,21 @@ export const createSectorBoardLoader = (deps: {
     if (inFlight || loadedFor === state.joinSeasonId || now() - lastFailureAt < RETRY_AFTER_FAILURE_MS) return;
     inFlight = true;
     const seasonId = state.joinSeasonId;
-    void fetchImpl(`${rallyApiOrigin(deps.wsUrl)}/sector/board`, { method: "GET" })
+    void fetchImpl(`${rallyApiOrigin(deps.wsUrl)}/sector/board`, { method: "GET", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
       .then((response) => response.json())
       .then((body) => {
         const board = parseSectorBoard(body);
         if (!board) throw new Error("bad board");
+        // A reply for another season (client and gateway mid-rollover) is not
+        // this screen's data: retry later instead of showing stale counts.
+        if (seasonId && board.seasonId !== seasonId) throw new Error("season mismatch");
         loadedFor = seasonId;
         state.sectorBoard = board;
         deps.rerender();
       })
       .catch(() => {
         lastFailureAt = now();
+        setTimeoutImpl(deps.rerender, RETRY_AFTER_FAILURE_MS);
       })
       .finally(() => {
         inFlight = false;
