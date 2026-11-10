@@ -139,3 +139,10 @@ export const SCORE_TIMELINE_KEPT_ENTRY: Omit<ClientChangelogEntry, "createdAt"> 
   why: "Score samples were never reloaded after a server restart, so a crowned season could end with one score per empire and no trend.",
   changes: ["Saved score samples survive server restarts", "The Score Graph ends on each empire's score at the moment the winner is crowned"]
 };
+
+export const ADMIN_FORCE_SEASON_START_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Admins can force-start the next Sector Contest",
+  why: "Once a Sector Contest ended, the next one could only start after enough players voted, even when the admin needed to roll it over.",
+  changes: ["On the end-of-contest summary, the admin can press and hold the vote button for about 1.5 seconds to start the next Sector Contest straight away"]
+};

@@ -9,6 +9,8 @@ export type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   pendingPayloads: unknown[];
   channel: "control" | "bulk";
   canToggleFog: boolean;
+  // canToggleFog plus a verified email: required to force-start a season.
+  canForceSeasonStart?: boolean;
   fogDisabled: boolean; authInProgress: boolean;
   rallyAnchor?: { x: number; y: number; island?: string } | undefined;
   isGuest?: boolean;
