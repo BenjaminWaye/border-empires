@@ -118,3 +118,10 @@ export const VICTORY_RACE_WINNER_ENTRY: Omit<ClientChangelogEntry, "createdAt"> 
     "The Ranks banner and the winning path's track say won instead of holding, and show You when you won"
   ]
 };
+
+export const MOBILE_PROFILE_SCROLL_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.09",
+  title: "Profile scrolls as one page on phones",
+  why: "The crest and stats could scroll separately, and the stats heading could overlap profile badges.",
+  changes: ["The crest, badges and stats scroll together. The page keeps its place when stats refresh."]
+};
