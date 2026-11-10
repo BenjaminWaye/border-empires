@@ -1,6 +1,6 @@
 // Map name labels, drawn on the overlay canvas in both renderers (see
 // client-map-name-label-draw.ts for how 3D is covered):
-//   - zoomed far out: each player's name across their garrisoned territory
+//   - zoomed far out: each player's name across their garrisoned and frontier land
 //     (client-territory-name-layout.ts), in their own colour;
 //   - zoomed in: island names from the simulation's ISLAND_NAMES push
 //     (client-island-names-state.ts) -- generated names faint, chosen names in

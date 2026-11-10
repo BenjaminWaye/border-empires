@@ -1,5 +1,5 @@
 // Fits a map name inside the tiles it belongs on (a player's explored
-// garrisons, an island's explored garrisoned land):
+// territory, an island's explored garrisoned land):
 //   - along the name: the path is walked in half-tile steps and cut down to
 //     its longest stretch over those tiles, so the name compacts instead of
 //     running out over other ground (or under the unexplored storm);
