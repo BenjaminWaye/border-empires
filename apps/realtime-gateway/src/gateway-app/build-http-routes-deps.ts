@@ -70,6 +70,8 @@ export type BuildGatewayHttpRoutesDepsContext = {
   resolveHttpBearerIdentity: (authorizationHeader: string | undefined) => Promise<ResolvedGatewayAuthBinding | undefined>;
   rallyLinkStore: RallyLinkStore;
   sectorWaitlistStore?: SectorWaitlistStore;
+  // A waitlist join may be the commitment the next Sector Contest waits for.
+  onSectorWaitlistJoined?: (seasonId: string) => void;
   galaxyPlanetStore: GalaxyPlanetStore;
   galaxyEconomyStore: GalaxyEconomyStore;
   galaxySenateStore: GalaxySenateStore;
@@ -167,8 +169,10 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
             store: ctx.sectorWaitlistStore,
             authenticateBearer: ctx.resolveHttpBearerIdentity,
             getCurrentSeason: () => ctx.simulationClient.getCurrentSeasonSummary().then(({ seasonId, status }) => ({ seasonId, status })),
-            onJoined: (playerId: string, seasonId: string, waitingCount: number) =>
-              app.log.info({ playerId, seasonId, waitingCount }, "sector waitlist joined")
+            onJoined: (playerId: string, seasonId: string, waitingCount: number) => {
+              app.log.info({ playerId, seasonId, waitingCount }, "sector waitlist joined");
+              ctx.onSectorWaitlistJoined?.(seasonId);
+            }
           }
         }
       : {}),

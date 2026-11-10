@@ -16,7 +16,7 @@ const stateForSummary = (): State => ({
   seasonEndDismissed: false,
   seasonEndStarting: false,
   seasonStartVoteCount: 0,
-  seasonStartVoted: false,
+  seasonStartVoted: false, seasonStartVoteThreshold: 10, authIsGuest: false, needsSeasonJoin: false,
   mapRevealEligible: false,
   leaderboard: {
     overall: [{
