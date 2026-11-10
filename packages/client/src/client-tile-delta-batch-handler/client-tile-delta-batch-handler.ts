@@ -17,7 +17,7 @@ import { detectAfcModuleDeliveries, recordAfcModuleDeliveries, snapshotAfcModule
 import { notifyIfLastAfcLost } from "../client-afc-slot-notices/client-afc-slot-notices.js";
 import { emitTownTierUpgrades } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-detect.js";
 
-export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
+export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string; waystationJson?: string };
 
 // Moved to client-onboarding-ui-overlays.ts (it now applies the onboarding UI gate); re-exported for client-network.ts.
 export { refreshOnboardingChecklistHighlight };
@@ -60,7 +60,6 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     });
   }
   const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"]; townPopulationTier?: Tile["townPopulationTier"]; defenderGarrison?: GarrisonFacing; ownershipState?: Tile["ownershipState"] } | undefined>();
-  const previousWaystationByKey = new Map<string, { activated?: boolean } | undefined>();
   const previousAfcModulesByKey = new Map<string, ReadonlySet<string> | undefined>();
   const myAfcKeysBefore = new Set<string>();
   if (Array.isArray(tileUpdates)) {
@@ -83,7 +82,6 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
             }
           : undefined
       );
-      previousWaystationByKey.set(updateKey, existing?.waystation ? { activated: existing.waystation.activated } : undefined);
     }
   }
   applyGatewayTileDeltaBatch(
@@ -201,10 +199,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     });
     emitWaystationActivationIfActivated({
       tileUpdates,
-      previousWaystationByKey,
-      tiles: state.tiles,
       me: state.me,
-      keyFor,
       techCatalog: state.techCatalog,
       onJumpToLocation: (x, y) => {
         state.camX = x;

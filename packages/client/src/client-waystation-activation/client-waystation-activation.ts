@@ -15,7 +15,7 @@ export type WaystationActivationInfo = {
   grantedTechName?: string;
   /** TECH only: id of the granted tech, so the "Unlocked: <name>" modifier line can act as a button that opens that tech's detail panel via onViewTech. */
   grantedTechId?: string;
-  /** RESOURCE_SLOT only: which resource received the +1 slot bump. */
+  /** Resource found on the tile, or the type of slot granted by a legacy reward. */
   grantedResource?: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
   /** POPULATION only: the name of the town that received the burst. Absent if the town had no name set, or (rarely) if the server's DB predates this field -- falls back to generic "your nearest town" copy. */
   grantedTownName?: string;
@@ -58,6 +58,9 @@ const narrativeForEffect = (info: WaystationActivationInfo): string | undefined 
   if (info.grantedEffect === "TECH") {
     return info.grantedTechName ? "Waystation engineers shared their research findings with your scholars." : undefined;
   }
+  if (info.grantedEffect === "RESOURCE_TILE") {
+    return info.grantedResource ? "The waystation is gone, leaving a resource site on the same ground." : undefined;
+  }
   if (info.grantedEffect === "RESOURCE_SLOT") {
     return info.grantedResource ? "The waystation's stockpiles and storage rigs were folded into your empire's supply lines." : undefined;
   }
@@ -92,6 +95,9 @@ const modifierForEffect = (info: WaystationActivationInfo): string | undefined =
   }
   if (info.grantedEffect === "TECH") {
     return info.grantedTechName ? `Unlocked: ${info.grantedTechName}` : undefined;
+  }
+  if (info.grantedEffect === "RESOURCE_TILE") {
+    return info.grantedResource ? `Discovered: ${RESOURCE_LABEL[info.grantedResource]} site` : undefined;
   }
   if (info.grantedEffect === "RESOURCE_SLOT") {
     return info.grantedResource ? `+1 ${RESOURCE_LABEL[info.grantedResource]} Resource Slot` : undefined;
