@@ -73,4 +73,11 @@ export type MusterState = {
   // "area cleared" and returns to HOLD; one that never engaged keeps waiting
   // at a quiet front, as ADVANCE always has. See muster-advance-fire.ts.
   clearing?: boolean | undefined;
+  // ADVANCE only: "Hunt Planetary Defense". The flag's auto-fire only ever
+  // targets Planetary Defense (barbarian) tiles, re-picking the nearest one
+  // every search so a patrol that walks away is chased instead of the attack
+  // landing on empty ground. With targetX/Y set, that tile is attacked first
+  // while it is still Planetary Defense (the tile the player clicked). Ends
+  // like any clearing ADVANCE: back to HOLD once nothing is left in range.
+  hunt?: boolean | undefined;
 };

@@ -41,6 +41,7 @@ import type { PersistedActivityLogs } from "../activity-dashboard/activity-log-p
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { filterDistrictDeltasForRuntime, type DistrictDeltaInput } from "../town-district/town-district-projection.js";
 import { RuntimeState } from "./runtime-state.js";
+import { buildTileVisibilityDebugReport, type TileVisibilityDebugQuery, type TileVisibilityDebugReport } from "./runtime-tile-visibility-debug.js";
 import { reachBorderOwnerAt as reachBorderOwnerAtImpl, grantAetherBridgeReach as grantAetherBridgeReachImpl, tickAetherBridgeReachExpiry as tickAetherBridgeReachExpiryImpl } from "../runtime-aether-bridge-reach.js";
 import { createReachUpdateState, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
 import { restoreReachBorder } from "../runtime-reach-update/runtime-reach-border-restore.js";
@@ -93,8 +94,6 @@ import {
   buildDockNetworkComponentByTileKey,
 } from "../dock-network/dock-network.js";
 import {
-  isDockCrossingTarget as isDockCrossingTargetImpl,
-  isAetherBridgeCrossingTarget as isAetherBridgeCrossingTargetImpl,
   resolveOwnedDockOriginForCrossing as resolveOwnedDockOriginForCrossingImpl,
   findOwnedAetherBridgeOriginForCrossing as findOwnedAetherBridgeOriginForCrossingImpl,
   type DockCrossingOrigin
@@ -304,7 +303,7 @@ import {
   exportVisibleStateForPlayerAsyncForRuntime,
   exportVisibleStateForPlayerForRuntime,
   settledTilesForPlayerForRuntime,
-  type RuntimeClassifyVisibilityContext,
+  createClassifyVisibilityContext,
   type RuntimeVisibleStateContext
 } from "./runtime-visibility.js";
 import {
@@ -1312,8 +1311,8 @@ export class SimulationRuntime {
       adjacentTileStates: (x, y) => this.adjacentTileStates(x, y),
       findOwnedDockOriginForCrossing: (playerId, x, y) => this.findOwnedDockOriginForCrossing(playerId, x, y),
       findOwnedAetherBridgeOriginForCrossing: (playerId, x, y) => this.findOwnedAetherBridgeOriginForCrossing(playerId, x, y),
-      isDockCrossingTarget: (from, x, y) => isDockCrossingTargetImpl(from, x, y, this.state.dockLanding),
-      isAetherBridgeCrossingTarget: (playerId, x1, y1, x2, y2) => this.isAetherBridgeCrossingTarget(playerId, x1, y1, x2, y2),
+      dockLanding: this.state.dockLanding,
+      activeAetherBridgesForPlayer: (playerId) => this.activeAetherBridgesForPlayer(playerId),
       crossingBlockedByAetherWall: (x1, y1, x2, y2) => this.crossingBlockedByAetherWall(x1, y1, x2, y2),
       isTileWardedByImperialWard: (targetOwnerId) => isTileWardedByImperialWardImpl(this.abilityCooldowns, this.now(), targetOwnerId),
       resolveMusterSource: (playerId, originKey, required, preferred) => this.resolveMusterSource(playerId, originKey, required, preferred),
@@ -2053,23 +2052,9 @@ export class SimulationRuntime {
     return leaderboardPlayersForRuntime(this.exportContext());
   }
 
-  // Shared context builder for the visibility-surface free functions in runtime-visibility.ts; visibilityCoverage stays
-  // owned by SimulationRuntime and is threaded in by reference (see runtime-visibility.ts's header for why).
-  private classifyVisibilityContext(): RuntimeClassifyVisibilityContext {
-    return {
-      players: this.state.players,
-      tiles: this.state.tiles,
-      locksByTile: this.state.locksByTile,
-      docks: this.state.docks,
-      dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
-      applyManpowerRegen: (player) => this.applyManpowerRegen(player),
-      visibilityCoverage: this.state.visibilityCoverage,
-      ...(this.trackSyncMainThreadTask !== undefined ? { trackSyncMainThreadTask: this.trackSyncMainThreadTask } : {})
-    };
-  }
-
   private classifyVisibilityForPlayer(playerId: string): RuntimeVisibilityClassification {
-    return classifyVisibilityForPlayerForRuntime(this.classifyVisibilityContext(), playerId);
+    const context = createClassifyVisibilityContext(this.state, (player) => this.applyManpowerRegen(player), this.trackSyncMainThreadTask);
+    return classifyVisibilityForPlayerForRuntime(context, playerId);
   }
 
   /** Sizes of growable barbarian state, for gauges (docs/agents/state-and-persistence-discipline.md). */
@@ -2086,6 +2071,17 @@ export class SimulationRuntime {
       territoryTileKeys: (id) => this.summaryForPlayer(id).territoryTileKeys,
       isVisibleTo: (viewerId, tileKey) => this.state.visibilityCoverage.isVisible(viewerId, tileKey)
     });
+  }
+
+  /** Admin "why can this player see these tiles?" report -- see runtime-tile-visibility-debug.ts. */
+  tileVisibilityDebug(query: TileVisibilityDebugQuery): TileVisibilityDebugReport {
+    return buildTileVisibilityDebugReport({
+      allies: (id) => { const player = this.state.players.get(id); return player ? [...player.allies] : undefined; },
+      classify: (id, onlyTileKeys) => classifyVisibilityForPlayerForRuntime({ ...createClassifyVisibilityContext(this.state, () => {}, this.trackSyncMainThreadTask), onlyTileKeys }, id),
+      hasFullVision: (id) => this.getAbilityCooldownUntil(id, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > this.now(),
+      tileAt: (tileKey) => this.state.tiles.get(tileKey),
+      reachOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y)
+    }, query);
   }
 
   exportVisibleStateForPlayer(playerId: string): ReturnType<SimulationRuntime["exportState"]> {
@@ -2992,16 +2988,6 @@ export class SimulationRuntime {
   private adjacentTileStates(x: number, y: number): DomainTileState[] { return adjacentTileStatesImpl(this.state.tiles, x, y); }
 
   private extendFortPatrolGrace(tileKey: string, graceUntil: number): void { this.fortPatrolGraceUntilByTile.set(tileKey, Math.max(this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0, graceUntil)); }
-
-  private isAetherBridgeCrossingTarget(
-    playerId: string,
-    fromX: number,
-    fromY: number,
-    toX: number,
-    toY: number
-  ): boolean {
-    return isAetherBridgeCrossingTargetImpl(this.activeAetherBridgesForPlayer(playerId), fromX, fromY, toX, toY);
-  }
 
   private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DockCrossingOrigin | undefined {
     return resolveOwnedDockOriginForCrossingImpl(this.state, playerId, toX, toY);

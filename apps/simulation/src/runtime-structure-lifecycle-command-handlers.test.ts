@@ -325,6 +325,21 @@ describe("handleSetMusterCommand self-heals musterTilesByOwner", () => {
     // not reset to 0 as a fresh muster would be).
     expect(tiles.get(targetKey)?.muster).toMatchObject({ ownerId: PLAYER_ID, mode: "ADVANCE", amount: 50 });
   });
+
+  // Review regression (PR #2716): re-ordering a flag mid-hunt rebuilt the
+  // muster from scratch and dropped `clearing`, so it could never report
+  // "cleared" and return to HOLD.
+  it("keeps an engaged hunt's clearing state when the hunt is re-ordered, and drops it otherwise", () => {
+    const player = makePlayer({ points: 0, manpower: 100 });
+    const hunting = { ownerId: PLAYER_ID, amount: 50, mode: "ADVANCE" as const, hunt: true, clearing: true, setAt: 0, updatedAt: 0 };
+    const { context, tiles } = createContext(player, makeTile({ muster: hunting }));
+    handleSetMusterCommand(context, makeCommand({ type: "SET_MUSTER", payloadJson: JSON.stringify({ x: 5, y: 5, mode: "ADVANCE", hunt: true }) }));
+    expect(tiles.get(simulationTileKey(5, 5))?.muster).toMatchObject({ mode: "ADVANCE", hunt: true, clearing: true });
+
+    const plain = createContext(player, makeTile({ muster: hunting }));
+    handleSetMusterCommand(plain.context, makeCommand({ type: "SET_MUSTER", payloadJson: JSON.stringify({ x: 5, y: 5, mode: "ADVANCE" }) }));
+    expect(plain.tiles.get(simulationTileKey(5, 5))?.muster?.clearing).toBeUndefined();
+  });
 });
 
 // docs/replenishment-update-plan.md D6: SET_MUSTER's optional commitManpower

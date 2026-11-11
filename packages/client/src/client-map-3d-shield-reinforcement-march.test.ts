@@ -22,6 +22,7 @@ const makeHeightfield = (): Heightfield =>
 const makeOverlay = (): MusterTransitOverlay => ({
   clear: vi.fn(),
   addTransit: vi.fn(),
+  addVoyage: vi.fn(),
   commit: vi.fn(),
   tick: vi.fn(),
   dispose: vi.fn()

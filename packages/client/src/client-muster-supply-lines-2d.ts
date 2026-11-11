@@ -8,6 +8,7 @@ import {
 } from "./client-muster-transit/client-muster-transit.js";
 import { drawMusterBadges2D } from "./client-muster-flag-badge/client-muster-flag-badge.js";
 import type { ClientState } from "./client-state/client-state.js";
+import { pruneRouteSeenAt, routedSupplyLine, strokeRoutedSupplyLine } from "./client-muster-route-2d/client-muster-route-2d.js";
 
 type WorldToScreen = (x: number, y: number, size: number, halfW: number, halfH: number) => { sx: number; sy: number };
 
@@ -56,7 +57,8 @@ export function drawMusterSupplyLines2D(
     }
   }
   lines.push(...outgoingMusterAttackTransitLines(state, Date.now(), coveredTargetKeys));
-  for (const line of lines) drawSupplyLine(line, worldToScreen, ctx, effectiveOverlayColor(state.me ?? ""), size, halfW, halfH, nowMs);
+  for (const line of lines) drawSupplyLine(state, line, worldToScreen, ctx, effectiveOverlayColor(state.me ?? ""), size, halfW, halfH, nowMs);
+  pruneRouteSeenAt(new Set(lines.map((line) => line.targetKey)));
 }
 
 // Everything muster-related the 2D map draws over the tiles, in one pass:
@@ -79,6 +81,7 @@ export function drawMusterOverlays2D(
 }
 
 function drawSupplyLine(
+  state: ClientState,
   line: MusterSupplyLine,
   worldToScreen: WorldToScreen,
   ctx: CanvasRenderingContext2D,
@@ -88,18 +91,14 @@ function drawSupplyLine(
   halfH: number,
   nowMs: number
 ): void {
-  const srcScreen = worldToScreen(line.musterX, line.musterY, size, halfW, halfH);
-  const tgtScreen = worldToScreen(line.targetX, line.targetY, size, halfW, halfH);
   const alpha = line.phase === "transit" ? 0.6 + 0.35 * Math.abs(Math.sin(nowMs / 400)) : 0.75;
   ctx.save();
   ctx.strokeStyle = strokeColor;
   ctx.globalAlpha = alpha;
   ctx.lineWidth = line.phase === "transit" ? 3.5 : 2.5;
   if (line.phase === "transit") ctx.setLineDash([6, 4]);
-  ctx.beginPath();
-  ctx.moveTo(srcScreen.sx, srcScreen.sy);
-  ctx.lineTo(tgtScreen.sx, tgtScreen.sy);
-  ctx.stroke();
+  // Through a dock and along the sea lane where the company must sail (wall-clock, like the march timers it reads).
+  strokeRoutedSupplyLine(routedSupplyLine(state, line, Date.now()), ctx, worldToScreen, strokeColor, size, halfW, halfH);
   ctx.setLineDash([]);
   ctx.restore();
 }

@@ -23,6 +23,8 @@ export type BarButton =
 type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs"> & Partial<Pick<TileMenuView, "overviewLines" | "afcUpgradesReady" | "progress">>;
 
 const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
+  // Your own tile while Planetary Defense is capturing it: send a flag after them.
+  "muster_hunt_attackers",
   "launch_attack",
   "march_attack_flag",
   "expand_here",
@@ -38,6 +40,7 @@ const SECONDARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   "muster_hold",
   "muster_advance",
   "muster_march",
+  "muster_hunt",
   "diplomacy",
   "city_overclock"
 ];

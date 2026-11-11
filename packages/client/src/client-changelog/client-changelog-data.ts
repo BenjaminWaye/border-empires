@@ -1,4 +1,5 @@
 import { CAMERA_PER_ACCOUNT_ENTRY } from "./client-changelog-nov-11.js";
+import { PLANETARY_DEFENSE_HUNT_ENTRY } from "./client-changelog-planetary-defense-hunt.js";
 import { NATIVE_SOCIAL_SIGN_IN_ENTRY } from "./client-changelog-nov-10.js";
 import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-names.js";
 import { RELIC_REVEAL_ENTRY } from "./client-changelog-relic-reveal.js";
@@ -181,6 +182,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-earlier-106.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_112 } from "./client-changelog-data-earlier-112.js";
+import { MUSTER_DOCK_TRANSPORT_ENTRY } from "./client-changelog-muster-dock-transport.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -478,8 +480,10 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...RELIC_REVEAL_ENTRY, createdAt: 1794422720232, },
   { ...MINIMAP_WORLD_EDGE_ENTRY, createdAt: 1794411491316, },
   { ...NEXT_CONTEST_STARTING_ENTRY, createdAt: 1794380743713, },
+  { ...PLANETARY_DEFENSE_HUNT_ENTRY, createdAt: 1794423294581, },
   { ...NATIVE_SOCIAL_SIGN_IN_ENTRY, createdAt: 1794288128417, },
-  { ...CAMERA_PER_ACCOUNT_ENTRY, createdAt: 1794432604008, }
+  { ...MUSTER_DOCK_TRANSPORT_ENTRY, createdAt: 1794353510194, },
+  { ...CAMERA_PER_ACCOUNT_ENTRY, createdAt: 1794432604008, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

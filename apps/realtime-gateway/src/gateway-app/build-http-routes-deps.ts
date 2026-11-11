@@ -7,6 +7,7 @@
 import type { FastifyInstance } from "fastify";
 import type { GatewayAttackDebug, GatewayAttackTrace, GatewayDebugEvent, RegisterGatewayHttpRoutesDeps } from "../http-routes/http-routes.js";
 import { DEFAULT_ADMIN_GITHUB_REPO, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
+import { fetchSimTileVisibility, type TileVisibilityQuery } from "../http-routes/register-admin-tile-visibility-route.js";
 import { createFirebaseTokenVerifier } from "../auth-identity/firebase-token-verifier.js";
 import type { ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolution/gateway-auth-binding-resolution.js";
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
@@ -135,7 +136,8 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
             const res = await fetch(ctx.simMetricsUrl!, { signal: AbortSignal.timeout(3000) });
             if (!res.ok) throw new Error(`sim metrics HTTP ${res.status}`);
             return res.text();
-          }
+          },
+          getSimTileVisibility: (query: TileVisibilityQuery) => fetchSimTileVisibility(ctx.simMetricsUrl!, query)
         }
       : {}),
     getCurrentSeasonSummary: async () =>

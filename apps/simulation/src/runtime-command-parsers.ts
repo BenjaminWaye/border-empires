@@ -93,7 +93,7 @@ export const parseConverterModePayload = (payloadJson: string): { x: number; y: 
 
 export const parseSetMusterPayload = (
   payloadJson: string
-): { x: number; y: number; mode: "HOLD" | "ADVANCE" | "MARCH"; targetX?: number; targetY?: number; commitManpower?: number } | null => {
+): { x: number; y: number; mode: "HOLD" | "ADVANCE" | "MARCH"; targetX?: number; targetY?: number; commitManpower?: number; hunt?: true } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return null;
@@ -105,7 +105,8 @@ export const parseSetMusterPayload = (
       mode: parsed.mode,
       ...(typeof parsed.targetX === "number" ? { targetX: parsed.targetX } : {}),
       ...(typeof parsed.targetY === "number" ? { targetY: parsed.targetY } : {}),
-      ...(typeof parsed.commitManpower === "number" ? { commitManpower: parsed.commitManpower } : {})
+      ...(typeof parsed.commitManpower === "number" ? { commitManpower: parsed.commitManpower } : {}),
+      ...(parsed.mode === "ADVANCE" && parsed.hunt === true ? { hunt: true as const } : {})
     };
   } catch {
     return null;
