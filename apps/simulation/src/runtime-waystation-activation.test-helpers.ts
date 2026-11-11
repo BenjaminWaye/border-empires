@@ -3,6 +3,8 @@ import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { WaystationActivationInput } from "./runtime-waystation-activation.js";
+import type { TechGrantContext } from "./tech-grant-side-effects/tech-grant-side-effects.js";
+import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 
 export const PLAYER_ID = "player-1";
@@ -23,8 +25,8 @@ export function makePlayer(overrides: Partial<DomainPlayer> = {}): DomainPlayer 
   return { id: PLAYER_ID, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }, ...overrides };
 }
 
-/** One beforeTechGrant/afterTechGrant call, in order. */
-export type TechGrantCall = { phase: "before" | "after"; playerId: string; techId?: string; commandId?: string };
+/** Resource-supply bracket calls made while granting a tech, in order. */
+export type TechGrantCall = { phase: "before" | "after"; playerId: string };
 
 export function createInput(
   tiles: Map<string, DomainTileState>,
@@ -53,11 +55,37 @@ export function createInput(
     // Tests run with no elapsed time, so there's no regen to settle.
     refreshManpower: () => {},
     playerManpowerCap: () => manpowerCap,
-    beforeTechGrant: (playerId) => { techGrants.push({ phase: "before", playerId }); },
-    afterTechGrant: (playerId, techId, commandId) => { techGrants.push({ phase: "after", playerId, techId, commandId }); },
+    progressionContext: () => techGrantContext(tiles, events, techGrants),
     ...(random ? { random } : {})
   };
   return { input, events, impacts, reveals, techGrants };
+}
+
+/**
+ * A real TechGrantContext over `tiles`: owned AFCs come from the tiles
+ * themselves, so grantFreeTech's AFC module install runs for real.
+ */
+function techGrantContext(tiles: Map<string, DomainTileState>, events: SimulationEvent[], techGrants: TechGrantCall[]): TechGrantContext {
+  const noop = (): void => {};
+  return {
+    tiles,
+    summaryForPlayer: (playerId) => ({
+      ownedAfcTileKeys: new Set([...tiles].filter(([, tile]) => tile.afc && tile.ownerId === playerId).map(([key]) => key))
+    }) as unknown as PlayerRuntimeSummary,
+    replaceTileState: (tileKey, tile) => { tiles.set(tileKey, tile); },
+    tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }) as SimulationTileWireDelta,
+    emitEvent: (event) => { events.push(event); },
+    beforeResourceSupplyChange: (playerId) => { techGrants.push({ phase: "before", playerId }); },
+    afterResourceSupplyChange: (playerId) => { techGrants.push({ phase: "after", playerId }); },
+    invalidateUpkeepAccrual: noop,
+    invalidateResourceSlotDemand: noop,
+    invalidateEconomySnapshot: noop,
+    invalidateTileYieldContext: noop,
+    resyncVisionRadius: noop,
+    resyncRevealedResourceTilesForPlayer: noop,
+    sweepFrontierResourceTechUnlock: noop,
+    incomePerMinuteForPlayer: () => 0
+  };
 }
 
 export const waystationTile = (overrides: Partial<DomainTileState> = {}): DomainTileState => ({

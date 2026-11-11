@@ -8,10 +8,9 @@ import {
   buildTechUpdatePayload,
   chooseDomainForPlayer,
   chooseTechForPlayer,
-  revealResourceCategoryForTech,
   type ChosenTrickleResource
 } from "./tech-domain-bridge/tech-domain-bridge.js";
-import { commissionModuleIfApplicable } from "./afc-module-commissioning.js";
+import { applyTechGrantSideEffects } from "./tech-grant-side-effects/tech-grant-side-effects.js";
 import { hasSupportedStructure } from "./economy-network/economy-network.js";
 import { parseTilePayload } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -195,39 +194,6 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
     tileDeltas: [context.tileDeltaFromState(updatedTile)]
   });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
-}
-
-/**
- * Side effects of a player gaining a tech, shared by paid research and the
- * waystation TECH reward so the two can't drift apart. Run after the tech is
- * added (and after beforeResourceSupplyChange); the caller emits TECH_UPDATE.
- * Without commissionModuleIfApplicable, a granted AFC_MODULE tech (e.g. the
- * Titanium Forge Module) stays uninstalled and its builds stay locked.
- */
-export function applyTechGrantSideEffects(
-  context: RuntimeProgressionCommandContext,
-  playerId: string,
-  techId: string,
-  commandId: string
-): void {
-  context.invalidateUpkeepAccrual(playerId);
-  context.invalidateResourceSlotDemand(playerId);
-  // A tech can grant a gold/growth/vision-adjacent effect that
-  // multiplicativeEffectForPlayer/additiveEffectForPlayer feed into the
-  // cached per-player tile-yield economy context (dockGoldOutputMult,
-  // connectedTownStepBonusAdd, etc.) — without invalidating it here the
-  // cache keeps serving pre-grant multipliers until something else
-  // happens to invalidate it (e.g. a later tile mutation).
-  context.afterResourceSupplyChange?.(playerId);
-  context.invalidateEconomySnapshot(playerId);
-  context.invalidateTileYieldContext(playerId);
-  context.resyncVisionRadius(playerId);
-  commissionModuleIfApplicable(context, playerId, techId, commandId);
-  const revealCategory = revealResourceCategoryForTech(techId);
-  if (revealCategory) {
-    context.resyncRevealedResourceTilesForPlayer(playerId, revealCategory);
-    context.sweepFrontierResourceTechUnlock(playerId, revealCategory);
-  }
 }
 
 export function handleChooseTechCommand(context: RuntimeProgressionCommandContext, command: CommandEnvelope): void {

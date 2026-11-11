@@ -304,7 +304,7 @@ describe("settle + build — settled-only building with no resource/town/dock su
 describe("Palisade / Relay Beacon stay visible as a fallback when their upgrade's resource slot is unavailable", () => {
   const settledTile = (): Tile => ({ x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile);
 
-  it("hides build_palisade once Stoneworks is known, installed on an AFC, and a free TITANIUM slot exists (upgrade path is buildable)", () => {
+  it("hides build_palisade once the Titanium Forge Module is known, installed on an AFC, and a free TITANIUM slot exists (upgrade path is buildable)", () => {
     const state = richState();
     state.techIds = ["masonry"];
     state.resourceSlots.supply.TITANIUM = 1;
@@ -323,21 +323,39 @@ describe("Palisade / Relay Beacon stay visible as a fallback when their upgrade'
   // without installing it on an AFC. The Fort row is hidden until the module is
   // installed, and the Palisade was hidden too because the tech was owned --
   // leaving a garrisoned tile with no fortification option at all.
-  it("keeps build_palisade visible when Stoneworks is known but the module is not installed on an AFC", () => {
+  const palisadeVisibleWithMasonryAfc = (afcTile: Tile | undefined, configure: (state: ReturnType<typeof richState>) => void = () => {}): TileActionDef | undefined => {
     const state = richState();
     state.techIds = ["masonry"];
     state.resourceSlots.supply.TITANIUM = 1;
     state.resourceSlots.supply.FOOD = 1;
+    configure(state);
+    if (afcTile) state.tiles.set(keyFor(afcTile.x, afcTile.y), afcTile);
     const tile = settledTile();
     state.tiles.set(keyFor(3, 3), tile);
+    return findAction(menuActionsForSingleTile(state, tile, baseDeps as never), "build_palisade");
+  };
+  const afcAt8 = (afc: NonNullable<Tile["afc"]>, ownerId = "me"): Tile => ({ x: 8, y: 8, terrain: "LAND", ownerId, ownershipState: "SETTLED", afc } as Tile);
 
-    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    const palisade = findAction(actions, "build_palisade");
+  it("keeps build_palisade visible when the Titanium Forge Module is known but not installed on an AFC", () => {
+    const palisade = palisadeVisibleWithMasonryAfc(undefined);
     expect(palisade).toBeDefined();
     expect(palisade?.disabled).not.toBe(true);
   });
 
-  it("keeps build_palisade visible when Stoneworks is known but no free TITANIUM slot is available", () => {
+  it("keeps build_palisade visible when the only AFC holding the module is inactive or someone else's", () => {
+    expect(palisadeVisibleWithMasonryAfc(afcAt8({ ownerId: "me", status: "inactive", modules: ["masonry"] }))).toBeDefined();
+    expect(palisadeVisibleWithMasonryAfc(afcAt8({ ownerId: "rival", status: "active", modules: ["masonry"] }, "rival"))).toBeDefined();
+  });
+
+  it("keeps build_palisade visible under Fortification Patterns when no AFC holds the module (the waiver covers the tech, not the install)", () => {
+    const palisade = palisadeVisibleWithMasonryAfc(undefined, (state) => {
+      state.techIds = [];
+      state.domainIds = ["afc-bastion-2"]; // Fortification Patterns
+    });
+    expect(palisade).toBeDefined();
+  });
+
+  it("keeps build_palisade visible when the Titanium Forge Module is known but no free TITANIUM slot is available", () => {
     const state = richState();
     state.techIds = ["masonry"];
     state.resourceSlots.supply.TITANIUM = 0;

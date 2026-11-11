@@ -210,13 +210,28 @@ describe("activateWaystationAt", () => {
     expect(player.techIds.has(waystation!.grantedTechId!)).toBe(true);
     const techUpdates = events.filter((e): e is Extract<SimulationEvent, { eventType: "TECH_UPDATE" }> => e.eventType === "TECH_UPDATE");
     expect(techUpdates).toHaveLength(1);
-    // Regression: a waystation-granted Titanium Forge Module (masonry) was never
-    // installed on the player's AFC, so Fort stayed locked and Palisade vanished.
-    // The grant must run the same post-grant side effects as paid research.
-    expect(techGrants).toEqual([
-      { phase: "before", playerId: PLAYER_ID },
-      { phase: "after", playerId: PLAYER_ID, techId: waystation!.grantedTechId, commandId: "cmd-tech" }
+    expect(techGrants).toEqual([{ phase: "before", playerId: PLAYER_ID }, { phase: "after", playerId: PLAYER_ID }]);
+  });
+
+  // Regression: a waystation-granted Titanium Forge Module (masonry) was never
+  // installed on the player's AFC, so the Fort stayed locked (client and server)
+  // and the Palisade disappeared. The grant must install the module like paid research.
+  it("TECH effect installs a granted AFC module on the player's AFC", () => {
+    const afcKey = "12,12";
+    const tiles = new Map<string, DomainTileState>([
+      [WAYSTATION_KEY, waystationTile()],
+      [afcKey, { x: 12, y: 12, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "SETTLED", afc: { ownerId: PLAYER_ID, status: "active", activatedAt: 1000 } } as DomainTileState]
     ]);
+    // Own every tier-1 root except masonry, so the tech pick lands on it.
+    const players = new Map([[PLAYER_ID, makePlayer({ techIds: new Set(["agriculture", "trade", "leatherworking", "organized-supply", "crystal-lattices"]) })]]);
+    const { input, events } = createInput(tiles, players, queueRandom([RANDOM_FOR.TECH, 0]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-module");
+
+    expect(tiles.get(WAYSTATION_KEY)?.waystation?.grantedTechId).toBe("masonry");
+    expect(tiles.get(afcKey)?.afc?.modules).toEqual(["masonry"]);
+    expect(tiles.get(afcKey)?.afc?.houseModules).toEqual(["masonry"]);
+    expect(events.some((e) => e.eventType === "TILE_DELTA_BATCH" && e.tileDeltas?.some((d) => d.x === 12 && d.y === 12))).toBe(true);
   });
 
   // Regression: a TECH roll with every tier-1 tech already owned used to burn

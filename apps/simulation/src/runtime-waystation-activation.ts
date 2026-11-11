@@ -1,8 +1,8 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { appendPlayerEventLogEntry, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import { WAYSTATION_POP_BURST, WAYSTATION_REVEAL_RADIUS, WAYSTATION_VISION_TOWN_SEARCH_RADIUS, type ResourceType, type SlotResource, type WaystationGrantedEffect } from "@border-empires/shared";
-import { buildTechUpdatePayload, recomputeMods, techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
-import { grantAmbaricTransformerUnlockIfLinked } from "./tech-domain-bridge/tech-ambaric-transformer-unlock.js";
+import { techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { grantFreeTech, type TechGrantContext } from "./tech-grant-side-effects/tech-grant-side-effects.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
 import type { PersonalImpactWaystationActivated } from "./personal-impact-log/personal-impact-log.js";
@@ -24,12 +24,11 @@ export type WaystationActivationInput = {
   refreshManpower: (playerId: string) => void;
   playerManpowerCap: (playerId: string) => number;
   /**
-   * TECH reward hooks: `beforeTechGrant` runs before the tech is added (resource-supply
-   * bracket), `afterTechGrant` applies the same side effects paid research does
-   * (applyTechGrantSideEffects) -- notably installing an AFC_MODULE tech on an AFC.
+   * The runtime's progression context: the TECH reward grants through
+   * grantFreeTech, the same path paid research takes (supply bracket, cache
+   * invalidation, AFC module install, resource reveal, TECH_UPDATE).
    */
-  beforeTechGrant: (playerId: string) => void;
-  afterTechGrant: (playerId: string, techId: string, commandId: string) => void;
+  progressionContext: () => TechGrantContext;
   /** Injectable randomness for the one-of-six effect roll, then the tech pick within TECH / the tier pick within GOLD. Defaults to Math.random; tests pass a deterministic stub. */
   random?: () => number;
 };
@@ -217,11 +216,8 @@ const grantWaystationPopulationBurst = (input: WaystationActivationInput, player
 /**
  * Grants the TECH effect: picks a random tier-1 tech (a tree root -- no
  * prereqIds) the player does not already own, via the injected `random`, and
- * adds it to the player's techIds -- applying the same side effects a paid
- * research grant applies (ambaric-transformer unlock linkage, a mods recompute,
- * then afterTechGrant: cache invalidation, AFC module install, resource reveal),
- * and emits a TECH_UPDATE event so an already-connected client's
- * tech list/UI picks up the grant immediately.
+ * grants it through grantFreeTech -- the same steps paid research takes, so a
+ * granted AFC module is installed and a connected client gets TECH_UPDATE.
  *
  * If the player already owns every tier-1 tech, nothing is granted here
  * (don't touch player state) and undefined is returned -- the caller then
@@ -235,17 +231,7 @@ const grantWaystationTech = (input: WaystationActivationInput, player: DomainPla
   if (unownedTierOneIds.length === 0) return undefined;
   const techId = unownedTierOneIds[Math.floor(random() * unownedTierOneIds.length) % unownedTierOneIds.length];
   if (!techId) return undefined;
-  input.beforeTechGrant(playerId);
-  player.techIds.add(techId);
-  grantAmbaricTransformerUnlockIfLinked(player, techId);
-  player.mods = recomputeMods(player);
-  input.afterTechGrant(playerId, techId, commandId);
-  input.emitEvent({
-    eventType: "TECH_UPDATE",
-    commandId,
-    playerId,
-    payloadJson: JSON.stringify(buildTechUpdatePayload(player, input.tiles.values()))
-  });
+  grantFreeTech(input.progressionContext(), player, techId, commandId);
   return techId;
 };
 
