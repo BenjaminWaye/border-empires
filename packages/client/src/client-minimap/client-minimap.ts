@@ -1,10 +1,10 @@
 import { relicRemainingUses } from "@border-empires/shared";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { drawAetherBridgeLane, hexWithAlpha } from "../client-map-render/client-map-render.js";
-import { computeMiniMapViewBox } from "../client-minimap-view-box.js";
+import { computeMiniMapViewBox, unwrapIntoBox } from "./client-minimap-view-box.js";
 import { townIdentityForTile, tileHasTownIdentity } from "../client-town-identity.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
-import { drawMiniMapTileLayer, miniMapTileRect } from "./client-minimap-tile-layer.js";
+import { drawMiniMapTileLayer, drawWrappedWorldImage, miniMapBoxPoint, miniMapTileRect } from "./client-minimap-tile-layer.js";
 import type { DockPair, StrategicReplayEvent, Tile } from "../client-types.js";
 import { resourceLensTileColor } from "../client-resource-lens/client-resource-lens.js";
 
@@ -42,10 +42,7 @@ const CONTENT_RECOMPUTE_FLOOR_MS = 140;
 // world-size increment toward the box center picks whichever copy is nearest.
 const wrapCoordNearBoxCenter = (coord: number, boxMin: number, boxSize: number, worldSize: number): number => {
   const center = boxMin + boxSize / 2;
-  const diff = coord - center;
-  if (diff > worldSize / 2) return coord - worldSize;
-  if (diff < -worldSize / 2) return coord + worldSize;
-  return coord;
+  return unwrapIntoBox(coord, center - worldSize / 2, worldSize);
 };
 
 export type MiniMapEdgeArrow = { x: number; y: number; angle: number };
@@ -171,8 +168,10 @@ export const drawMiniMap = (options: {
     });
     const wxToPx = (wx: number): number => ((wx - box.x0) / box.w) * w;
     const wyToPy = (wy: number): number => ((wy - box.y0) / box.h) * h;
-    const inBox = (x: number, y: number): boolean =>
-      x >= box.x0 && y >= box.y0 && x < box.x0 + box.w && y < box.y0 + box.h;
+    // The frame may run past the world's edge (client-minimap-view-box.ts): place everything at its copy inside it.
+    const inBox = (x: number, y: number): boolean => miniMapBoxPoint(x, y, box) !== undefined;
+    const pxOf = (wx: number): number => wxToPx(unwrapIntoBox(wx, box.x0, WORLD_WIDTH));
+    const pyOf = (wy: number): number => wyToPy(unwrapIntoBox(wy, box.y0, WORLD_HEIGHT));
 
     // Crisp squares and territory outlines while the frame is small enough to be cheap and tiles are at least a
     // pixel; zoomed far out (late game, a big frame) the whole-world base reads the same and costs a fixed amount.
@@ -195,28 +194,17 @@ export const drawMiniMap = (options: {
         lensTileColor: (tile) => resourceLensTileColor(options.state, tile)
       });
     } else {
-      const baseW = options.miniMapBase.width;
-      const baseH = options.miniMapBase.height;
       const prevSmoothing = cctx.imageSmoothingEnabled;
       cctx.imageSmoothingEnabled = false;
-      cctx.drawImage(
-        options.miniMapBase,
-        (box.x0 / WORLD_WIDTH) * baseW,
-        (box.y0 / WORLD_HEIGHT) * baseH,
-        (box.w / WORLD_WIDTH) * baseW,
-        (box.h / WORLD_HEIGHT) * baseH,
-        0,
-        0,
-        w,
-        h
-      );
+      drawWrappedWorldImage(cctx, options.miniMapBase, box, w, h);
       cctx.imageSmoothingEnabled = prevSmoothing;
       if (options.state.replayActive) {
         for (const [tileKey, replayTile] of options.state.replayOwnershipByTile) {
           if (!replayTile.ownerId) continue;
           const { x, y } = options.parseKey(tileKey);
-          if (x < box.x0 || y < box.y0 || x >= box.x0 + box.w || y >= box.y0 + box.h) continue;
-          const r = miniMapTileRect(x, y, box, w, h);
+          const at = miniMapBoxPoint(x, y, box);
+          if (!at) continue;
+          const r = miniMapTileRect(at.x, at.y, box, w, h);
           cctx.fillStyle = hexWithAlpha(options.effectiveOverlayColor(replayTile.ownerId), replayTile.ownershipState === "SETTLED" ? 0.9 : 0.6);
           cctx.fillRect(r.x, r.y, r.w, r.h);
         }
@@ -225,8 +213,9 @@ export const drawMiniMap = (options: {
           const lensColor = resourceLensTileColor(options.state, tile); // Resources lens: resource tiles only
           if (lensColor === null || (!lensColor && !tile.ownerId)) continue;
           if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
-          if (!inBox(tile.x, tile.y)) continue;
-          const r = miniMapTileRect(tile.x, tile.y, box, w, h);
+          const at = miniMapBoxPoint(tile.x, tile.y, box);
+          if (!at) continue;
+          const r = miniMapTileRect(at.x, at.y, box, w, h);
           cctx.fillStyle = lensColor ?? hexWithAlpha(options.effectiveOverlayColor(tile.ownerId!), tile.ownershipState === "SETTLED" ? 0.9 : 0.6);
           cctx.fillRect(r.x, r.y, r.w, r.h);
         }
@@ -240,7 +229,7 @@ export const drawMiniMap = (options: {
         // Sampled in blocks so a canvas larger than 220px (the phone overview) costs about the same.
         const step = Math.max(1, Math.floor(w / 220));
         for (let py = 0; py < h; py += step) {
-          const wy = Math.floor(box.y0 + (py / h) * box.h);
+          const wy = unwrapIntoBox(Math.floor(box.y0 + (py / h) * box.h), 0, WORLD_HEIGHT);
           let runVis: "unexplored" | "fogged" | undefined;
           let runStartPx = 0;
           const flushRun = (endPx: number): void => {
@@ -249,7 +238,7 @@ export const drawMiniMap = (options: {
             cctx.fillRect(runStartPx, py, endPx - runStartPx, step);
           };
           for (let px = 0; px < w; px += step) {
-            const wx = Math.floor(box.x0 + (px / w) * box.w);
+            const wx = unwrapIntoBox(Math.floor(box.x0 + (px / w) * box.w), 0, WORLD_WIDTH);
             const tile = options.state.tiles.get(options.keyFor(wx, wy));
             const vis = options.tileVisibilityStateAt(wx, wy, tile);
             const cellVis = vis === "visible" ? undefined : vis;
@@ -272,11 +261,11 @@ export const drawMiniMap = (options: {
       if (!effectiveFogDisabled(options.state) && ((!aKnown || aKnown.fogged) && (!bKnown || bKnown.fogged))) continue;
       if (inBox(pair.ax, pair.ay)) {
         const d = 3 * markerScale;
-        cctx.fillRect(wxToPx(pair.ax + 0.5) - d / 2, wyToPy(pair.ay + 0.5) - d / 2, d, d);
+        cctx.fillRect(pxOf(pair.ax + 0.5) - d / 2, pyOf(pair.ay + 0.5) - d / 2, d, d);
       }
       if (inBox(pair.bx, pair.by)) {
         const d = 3 * markerScale;
-        cctx.fillRect(wxToPx(pair.bx + 0.5) - d / 2, wyToPy(pair.by + 0.5) - d / 2, d, d);
+        cctx.fillRect(pxOf(pair.bx + 0.5) - d / 2, pyOf(pair.by + 0.5) - d / 2, d, d);
       }
     }
 
@@ -284,8 +273,8 @@ export const drawMiniMap = (options: {
       if (!tileHasTownIdentity(tile)) continue;
       if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
       if (!inBox(tile.x, tile.y)) continue;
-      const tx = wxToPx(tile.x + 0.5);
-      const ty = wyToPy(tile.y + 0.5);
+      const tx = pxOf(tile.x + 0.5);
+      const ty = pyOf(tile.y + 0.5);
       const palette = miniMapTownMarkerPalette(tile);
       cctx.fillStyle = palette.outer;
       cctx.beginPath();
@@ -300,14 +289,14 @@ export const drawMiniMap = (options: {
     if (options.state.replayActive) {
       const replayEvent = options.replayCurrentEvent();
       if (replayEvent && replayEvent.x !== undefined && replayEvent.y !== undefined && inBox(replayEvent.x, replayEvent.y)) {
-        const ex = Math.floor(wxToPx(replayEvent.x));
-        const ey = Math.floor(wyToPy(replayEvent.y));
+        const ex = Math.floor(pxOf(replayEvent.x));
+        const ey = Math.floor(pyOf(replayEvent.y));
         cctx.strokeStyle = "rgba(255, 244, 171, 0.98)";
         cctx.lineWidth = 1.6 * uiScale;
         cctx.strokeRect(ex - 2 * markerScale, ey - 2 * markerScale, 5 * markerScale, 5 * markerScale);
       }
       if (replayEvent?.from && replayEvent?.to) {
-        drawAetherBridgeLane(cctx, wxToPx(replayEvent.from.x), wyToPy(replayEvent.from.y), wxToPx(replayEvent.to.x), wyToPy(replayEvent.to.y), options.nowMs, {
+        drawAetherBridgeLane(cctx, pxOf(replayEvent.from.x), pyOf(replayEvent.from.y), pxOf(replayEvent.to.x), pyOf(replayEvent.to.y), options.nowMs, {
           compact: true
         });
       }
@@ -339,8 +328,8 @@ export const drawMiniMap = (options: {
       if (!tile.watchtower) continue;
       if (!effectiveFogDisabled(options.state) && tile.fogged && !tile.watchtower.activated) continue;
       if (!inBox(tile.x, tile.y)) continue;
-      const tx = wxToPx(tile.x + 0.5);
-      const ty = wyToPy(tile.y + 0.5);
+      const tx = pxOf(tile.x + 0.5);
+      const ty = pyOf(tile.y + 0.5);
       const revealing = typeof tile.watchtower.revealUntil === "number" && tile.watchtower.revealUntil > options.nowMs;
       // Brass/amber palette to match the steampunk 3D lantern beacon.
       cctx.fillStyle = tile.watchtower.activated ? "rgba(255, 190, 110, 0.95)" : "rgba(150, 120, 80, 0.75)";
@@ -364,8 +353,8 @@ export const drawMiniMap = (options: {
       if (!tile.waystation) continue;
       if (!effectiveFogDisabled(options.state) && tile.fogged && !tile.waystation.activated) continue;
       if (!inBox(tile.x, tile.y)) continue;
-      const tx = wxToPx(tile.x + 0.5);
-      const ty = wyToPy(tile.y + 0.5);
+      const tx = pxOf(tile.x + 0.5);
+      const ty = pyOf(tile.y + 0.5);
       cctx.fillStyle = tile.waystation.activated ? "rgba(120, 150, 155, 0.7)" : "rgba(90, 220, 235, 0.95)";
       cctx.beginPath();
       cctx.arc(tx, ty, 2 * markerScale, 0, Math.PI * 2);
@@ -391,8 +380,11 @@ export const drawMiniMap = (options: {
   // so this is the only work redone on every camera/zoom-changed frame.
   const viewTilesW = options.canvas.width / options.state.zoom;
   const viewTilesH = options.canvas.height / options.state.zoom;
-  const camLeft = options.state.camX - viewTilesW / 2;
-  const camTop = options.state.camY - viewTilesH / 2;
+  // The camera's copy nearest the frame's centre, so the view shows on the right side of the world's edge.
+  const camX = wrapCoordNearBoxCenter(options.state.camX, box.x0, box.w, WORLD_WIDTH);
+  const camY = wrapCoordNearBoxCenter(options.state.camY, box.y0, box.h, WORLD_HEIGHT);
+  const camLeft = camX - viewTilesW / 2;
+  const camTop = camY - viewTilesH / 2;
   const uiScale = Math.max(1, w / 220);
   options.miniMapCtx.strokeStyle = "rgba(255, 240, 180, 0.95)";
   options.miniMapCtx.lineWidth = 1.5 * uiScale;
@@ -403,8 +395,8 @@ export const drawMiniMap = (options: {
     Math.max(2, (viewTilesH / box.h) * h)
   );
 
-  const px = wxToPx(options.state.camX);
-  const py = wyToPy(options.state.camY);
+  const px = wxToPx(camX);
+  const py = wyToPy(camY);
   options.miniMapCtx.fillStyle = "#ffd166";
   options.miniMapCtx.beginPath();
   options.miniMapCtx.arc(px, py, 2.8 * uiScale, 0, Math.PI * 2);

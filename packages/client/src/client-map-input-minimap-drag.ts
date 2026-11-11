@@ -1,4 +1,4 @@
-import { computeMiniMapViewBox } from "./client-minimap-view-box.js";
+import { computeMiniMapViewBox } from "./client-minimap/client-minimap-view-box.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import type { ClientState } from "./client-state/client-state.js";
 
