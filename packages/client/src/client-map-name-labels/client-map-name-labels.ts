@@ -32,8 +32,10 @@ const PLAIN_FONT = (px: number): string => `600 ${px}px "Cinzel", Georgia, serif
 
 // Cartographer's ink, as on a printed campaign map: dark lettering with a
 // faint parchment halo, painted on the ground under every unit and building.
-const INK_HALO = "rgba(246, 236, 210, 0.38)";
-const INK_HALO_EM = 0.07;
+const INK_HALO = "rgba(246, 236, 210, 0.6)";
+const INK_HALO_EM = 0.08;
+/** Realm-name ink opacity at full fade-in: solid, so the name reads through any territory colour. */
+export const PLAYER_NAME_INK_ALPHA = 1;
 
 const islandStyle = (label: IslandLabel, alpha: number): LabelStyle => {
   const base = { font: PLAIN_FONT, stroke: INK_HALO, strokeEm: INK_HALO_EM, maxSpacingEm: 0.9, minFontPx: 10, maxFontPx: 54 };
@@ -95,7 +97,7 @@ export const createMapNameLabelSource = (deps: MapNameLabelSourceDeps): MapNameL
               fill: "rgb(26, 18, 10)",
               stroke: INK_HALO,
               strokeEm: INK_HALO_EM,
-              alpha: alphas.players * 0.82,
+              alpha: alphas.players * PLAYER_NAME_INK_ALPHA,
               maxSpacingEm: 2.2,
               minFontPx: 11,
               maxFontPx: 96

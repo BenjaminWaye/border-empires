@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyIslandNamesMessage, createInitialIslandNamesState } from "./client-island-names-state.js";
 import { drawNameAlongPath } from "./client-map-name-label-draw.js";
-import { islandLabelPath, nameLabelAlphasForZoom } from "./client-map-name-labels.js";
+import { islandLabelPath, nameLabelAlphasForZoom, PLAYER_NAME_INK_ALPHA } from "./client-map-name-labels.js";
 
 const fakeCtx = () => {
   const glyphs: Array<{ char: string; x: number; y: number }> = [];
@@ -28,6 +28,12 @@ const fakeCtx = () => {
   };
   return { ctx: ctx as unknown as CanvasRenderingContext2D, glyphs };
 };
+
+describe("realm name ink", () => {
+  it("is fully opaque once faded in, so it reads over any territory colour", () => {
+    expect(PLAYER_NAME_INK_ALPHA).toBe(1);
+  });
+});
 
 describe("nameLabelAlphasForZoom", () => {
   it("shows player names fully zoomed out and island names zoomed in, crossfading between", () => {
