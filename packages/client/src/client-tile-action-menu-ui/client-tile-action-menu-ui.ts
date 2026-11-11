@@ -21,6 +21,7 @@ import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-t
 import { afcModulePickerStateForTitle, bindAfcModulePicker, fitAfcModulePicker } from "../client-afc-module-tab/client-afc-module-tab.js";
 import { openTechDetailFromTileMenu } from "../client-tile-action-support/client-tech-locked-tile-action.js";
 import { dockTileActionMenuForHudV2 } from "../client-hud-v2/client-hud-v2-tile-dock.js";
+import { cancelGarrisonFollowUpBuild } from "../client-queue-logic/client-cancel-queued-auto-settle.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -206,6 +207,7 @@ export const renderTileActionMenu = (
         if (btn.dataset.progressAction === "cancel_settle") {
           if (deps.sendGameMessage({ type: "CANCEL_SETTLE", x: tile.x, y: tile.y })) {
             deps.clearSettlementProgressByKey(deps.keyFor(tile.x, tile.y));
+            cancelGarrisonFollowUpBuild(state, deps.keyFor(tile.x, tile.y), deps.cancelQueuedBuild);
             deps.renderHud();
           }
           deps.hideTileActionMenu();

@@ -103,6 +103,26 @@ export const clearCompletedSettleEntry = (
   summary.devQueue = devQueueCancel(summary.devQueue, tileKey);
 };
 
+/**
+ * CANCEL_SETTLE: the player gave up garrisoning this tile, so the build that
+ * was waiting behind that garrison is abandoned with it -- otherwise the
+ * continuation lingers and the build fires the next time the tile is
+ * garrisoned. Drops the tile's continuation and any devQueue entry still
+ * queued for it, handing back the manpower that entry was holding.
+ */
+export const dropTileClaimContinuation = (
+  context: Pick<RuntimeDevQueueCommandContext, "summaryForPlayer" | "refundManpowerReservation">,
+  playerId: string,
+  tileKey: string
+): void => {
+  const summary = context.summaryForPlayer(playerId);
+  summary.claimContinuations.delete(tileKey);
+  const entry = devQueueEntryForTileKey(summary.devQueue, tileKey);
+  if (!entry) return;
+  if (entry.reservedManpower) context.refundManpowerReservation(playerId, entry.reservedManpower);
+  summary.devQueue = devQueueCancel(summary.devQueue, tileKey);
+};
+
 // The siege ladder (structureSkipsSettledRequirement) never needs a SETTLE
 // step at all -- it's buildable directly on FRONTIER ground -- so a claim
 // continuation for one of those structure types enqueues its BUILD directly

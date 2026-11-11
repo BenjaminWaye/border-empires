@@ -81,6 +81,7 @@ import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
 import { MAP_LENS_CHANGELOG, MINIMAP_WORLD_EDGE_ENTRY, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
+import { PLACE_FEEDBACK_ENTRY } from "./client-changelog-place-feedback.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
@@ -484,6 +485,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...NATIVE_SOCIAL_SIGN_IN_ENTRY, createdAt: 1794288128417, },
   { ...MUSTER_DOCK_TRANSPORT_ENTRY, createdAt: 1794353510194, },
   { ...CAMERA_PER_ACCOUNT_ENTRY, createdAt: 1794432604008, },
+  { ...PLACE_FEEDBACK_ENTRY, createdAt: 1794410576432, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
