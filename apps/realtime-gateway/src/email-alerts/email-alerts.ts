@@ -436,25 +436,25 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
         (to) =>
           formatBrandedEmail({
             to,
-            subject: isPreviousWinner ? "You won the season — and a new one has begun in Border Empires" : "A new season has begun in Border Empires",
-            eyebrow: isPreviousWinner ? "Border Empires — Season Recap" : "Border Empires",
-            headline: isPreviousWinner ? "Victory Is Yours" : "A New Season Has Begun",
+            subject: isPreviousWinner ? "You won the Sector Contest — and a new one has begun in Border Empires" : "A new Sector Contest has begun in Border Empires",
+            eyebrow: isPreviousWinner ? "Border Empires — Sector Contest Recap" : "Border Empires",
+            headline: isPreviousWinner ? "Victory Is Yours" : "A New Sector Contest Has Begun",
             body: isPreviousWinner
               ? [
                   "Your empire outbuilt, outmaneuvered, and outlasted every rival on the map.",
                   input.objectiveName
-                    ? `You claimed victory through ${input.objectiveName}, and your name is now etched into this season's history.`
-                    : "Your name is now etched into this season's history.",
-                  "The map has already reset for a new season — come defend your title before your rivals stake their claim.",
-                  "Last season's final stats — yours, your allies', and your rivals' — are ready to browse on the season recap screen."
+                    ? `You claimed victory through ${input.objectiveName}, and your name is now etched into this Sector Contest's history.`
+                    : "Your name is now etched into this Sector Contest's history.",
+                  "The map has already reset for a new Sector Contest — come defend your title before your rivals stake their claim.",
+                  "Last Sector Contest's final stats — yours, your allies', and your rivals' — are ready to browse on the recap screen."
                 ]
               : [
                   "The map has been reset, borders are undrawn, and every empire starts from the same first tile again.",
-                  "Claim your territory early, forge alliances, and build toward this season's objective before your rivals do.",
-                  "Curious how last season shook out? The recap screen now shows final stats for you and every friend or foe you played against."
+                  "Claim your territory early, forge alliances, and build toward this Sector Contest's objective before your rivals do.",
+                  "Curious how the last Sector Contest shook out? The recap screen now shows final stats for you and every friend or foe you played against."
                 ],
             ...(isPreviousWinner
-              ? { highlight: { label: "Status", value: "Season Champion" } }
+              ? { highlight: { label: "Status", value: "Sector Contest Champion" } }
               : input.previousWinnerName
                 ? { highlight: { label: "Reigning Champion", value: input.previousWinnerName } }
                 : {}),

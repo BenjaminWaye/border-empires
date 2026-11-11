@@ -14,7 +14,7 @@ import {
 // idle   : nothing armed; the tick is looking for a fresh home AFC.
 // waiting: armed. The real AFC is hidden in both renderers until the map is
 //          unobstructed for the dwell, then `playing` begins.
-// playing: drop animating; the real AFC stays hidden until `landsAt`.
+// playing: the pad clears at `landsAt`; the 3D drop owns the model until deployment ends.
 // done   : finished, skipped, or not eligible for `decidedFor`.
 export type AfcJoinDropPhase = "idle" | "waiting" | "playing" | "done";
 
@@ -31,7 +31,7 @@ export type AfcJoinDropState = {
   /** performance.now() since which the gate has held continuously; 0 while closed. */
   gateOpenSince: number;
   startedAt: number;
-  /** performance.now() of touchdown, when the real AFC is revealed. */
+  /** performance.now() of touchdown, when the landing footprint is revealed. */
   landsAt: number;
   revealed: boolean;
   /** tilesRevision at the last scan for a fresh AFC, and when (performance.now()) it ran; throttle the scan. */
@@ -56,9 +56,14 @@ export const createAfcJoinDropState = (): AfcJoinDropState => ({
   lastScanAt: -Infinity
 });
 
-/** True while the real AFC on (x, y) must not be drawn because the drop has not landed yet. */
+/** True before touchdown, while the landing footprint still shows its original terrain. */
 export const isAfcHiddenForJoinDrop = (drop: AfcJoinDropState, x: number, y: number): boolean =>
   drop.x === x && drop.y === y && (drop.phase === "waiting" || (drop.phase === "playing" && !drop.revealed));
+
+/** The true-3D drop owns the model until it is fully deployed. Terrain
+ * still switches at touchdown so the bays extend over the cleared pad. */
+export const isAfcModelHiddenForJoinDrop = (drop: AfcJoinDropState, x: number, y: number): boolean =>
+  drop.x === x && drop.y === y && (drop.phase === "waiting" || drop.phase === "playing");
 
 // AFC landing footprint hold: the landing flattens mountains and clears
 // forest from the AFC's 3x3 footprint (forest-clearing.ts in

@@ -7,16 +7,20 @@ import { drawAfcTile2D } from "./client-map-2d-afc-join-drop.js";
 // A recording 2D context: every method is a spy and every property assignment is accepted, so we can assert "drew something / drew nothing".
 const recordingCtx = () => {
   const calls: string[] = [];
+  const arcs: number[][] = [];
   const gradient = { addColorStop: vi.fn() };
   const target: Record<string, unknown> = {};
   const ctx = new Proxy(target, {
     get: (_t, prop: string) => {
       if (prop === "createRadialGradient" || prop === "createLinearGradient") return () => gradient;
-      return (..._args: unknown[]) => { calls.push(prop); };
+      return (...args: number[]) => {
+        calls.push(prop);
+        if (prop === "arc") arcs.push(args);
+      };
     },
     set: () => true
   }) as unknown as CanvasRenderingContext2D;
-  return { ctx, calls };
+  return { ctx, calls, arcs };
 };
 
 const tile = { x: 10, y: 10, afc: { ownerId: "p1", status: "active" } } as Pick<Tile, "x" | "y" | "afc">;
@@ -49,11 +53,32 @@ describe("drawAfcTile2D", () => {
     expect(calls).toContain("fillRect");
   });
 
+  it("folds the glyph's feet out before sliding its eight bays into position", () => {
+    const size = 100;
+    const drawAt = (landedAge: number) => {
+      const { ctx, arcs } = recordingCtx();
+      drawAfcTile2D(ctx, tile, 0, 0, size, 1000 + AFC_JOIN_DESCENT_MS + landedAge, undefined, dropIn({ phase: "playing", startedAt: 1000, revealed: true }));
+      return arcs;
+    };
+    const arcRadii = (arcs: number[][], partSize: number) => arcs
+      .filter(([, , radius]) => radius === size * partSize)
+      .map(([x = 0, y = 0]) => Math.hypot(x - size / 2, y - size / 2));
+    const touchdown = drawAt(0);
+    const planted = drawAt(1150);
+    const deployed = drawAt(2700);
+    expect(arcRadii(touchdown, 0.025)[0]).toBeLessThan(arcRadii(planted, 0.025)[0]!);
+    expect(arcRadii(planted, 0.055)).toEqual(arcRadii(touchdown, 0.055));
+    expect(arcRadii(deployed, 0.055)).toHaveLength(8);
+    for (const radius of arcRadii(deployed, 0.055)) expect(radius).toBeCloseTo(42.5);
+  });
+
   it("draws the landed AFC plus touchdown effects after landing, and stops the effects when the drop ends", () => {
     const landed = recordingCtx();
     drawAfcTile2D(landed.ctx, tile, 0, 0, 40, 1000 + AFC_JOIN_DESCENT_MS + 500, undefined, dropIn({ phase: "playing", startedAt: 1000, revealed: true }));
     const done = recordingCtx();
     drawAfcTile2D(done.ctx, tile, 0, 0, 40, 1000 + AFC_JOIN_TOTAL_MS + 1, undefined, dropIn({ phase: "playing", startedAt: 1000, revealed: true }));
-    expect(landed.calls.length).toBeGreaterThan(done.calls.length);
+    // The expanding dust ring is larger than any part of the glyph.
+    expect(landed.arcs.some(([, , radius = 0]) => radius > 40)).toBe(true);
+    expect(done.arcs.some(([, , radius = 0]) => radius > 40)).toBe(false);
   });
 });

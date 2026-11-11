@@ -22,7 +22,7 @@ import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-lo
 import { renderHudManpowerPanel } from "./client-hud-manpower-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
-import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
+import { renderSeasonEndOverlay, seasonStartSenders } from "../client-season-end-overlay.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
 import { bindAdminSettingsControls } from "./client-hud-admin-settings.js"; import { bindPhotoModeSettingsControls } from "../client-photo-mode/client-photo-mode.js"; // combined onto one line: client-hud.ts is already over the file-line cap and must not grow (AGENTS.md)
 import { bindBreakAllianceButton } from "./client-hud-break-alliance-button.js";
 import { bindAuthDebugCopyButton } from "./client-hud-debug.js";
@@ -309,7 +309,7 @@ export const renderClientHud = (deps: HudDeps): void => {
         state.pendingTechUnlockId
           ? "Unlock pending..."
           : state.techIds.length > 0
-            ? "No further Manifests in your current branch this season"
+            ? "No further Manifests in your current branch this Sector Contest"
             : "No available Manifest choices";
       dom.techPickEl.append(opt);
     }
@@ -611,12 +611,12 @@ export const renderClientHud = (deps: HudDeps): void => {
   });
   renderJoinSeasonOverlay({
     state, overlayEl: dom.joinSeasonOverlayEl, renderHud: () => renderClientHud(deps),
-    joinSeason: () => sendGameMessage({ type: "JOIN_SEASON" }, "Finish sign-in before joining the season."),
-    pushFeed
+    joinSeason: () => sendGameMessage({ type: "JOIN_SEASON" }, "Finish sign-in before joining the Sector Contest."),
+    pushFeed, wsUrl
   });
   renderSeasonEndOverlay({
     state, overlayEl: dom.seasonEndOverlayEl, renderHud: () => renderClientHud(deps),
-    startNewSeason: () => sendGameMessage({ type: "START_NEW_SEASON" }, "Finish sign-in before starting a new season.")
+    ...seasonStartSenders(sendGameMessage), openGuestSave: () => openGuestSavePanel("next-contest")
   });
 
   syncAuthOverlay();

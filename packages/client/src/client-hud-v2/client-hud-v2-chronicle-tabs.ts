@@ -33,7 +33,7 @@ export const worldTabHtml = (input: WorldTabInput): string => {
   const change = typeof pulse.rankChange === "number" && pulse.rankChange !== 0
     ? `<span class="v2c-rank-change ${pulse.rankChange > 0 ? "v2c-up" : "v2c-down"}">${pulse.rankChange > 0 ? "▲" : "▼"}${Math.abs(pulse.rankChange)}</span>`
     : "";
-  const rank = `<div class="v2c-world-rank"><span class="v2c-world-label">${esc(pulse.seasonLabel ?? "This season")}</span><span class="v2c-world-you">${typeof pulse.rank === "number" ? `You #${pulse.rank}` : "Unranked"}${change}</span></div>`;
+  const rank = `<div class="v2c-world-rank"><span class="v2c-world-label">${esc(pulse.seasonLabel ?? "This Sector Contest")}</span><span class="v2c-world-you">${typeof pulse.rank === "number" ? `You #${pulse.rank}` : "Unranked"}${change}</span></div>`;
   const powers = pulse.leadingPowers.length > 0
     ? `<div class="v2c-powers">${pulse.leadingPowers.map((p) => `<span class="v2c-power"><b>#${p.rank}</b> ${esc(p.name)} <span class="v2c-power-score">${Math.round(p.score)}</span></span>`).join("")}</div>`
     : "";

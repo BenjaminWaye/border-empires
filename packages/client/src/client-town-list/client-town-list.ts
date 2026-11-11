@@ -4,8 +4,9 @@
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import type { Tile } from "../client-types.js";
+import { openBuildSlotsForTown } from "./client-town-list-slots.js";
 
-export type TownListSortKey = "gold" | "population" | "growth";
+export type TownListSortKey = "gold" | "population" | "growth" | "slots";
 export type TownListSort = { key: TownListSortKey; descending: boolean };
 
 export type TownListRow = {
@@ -18,12 +19,15 @@ export type TownListRow = {
   maxPopulation: number;
   growthPerMinute: number;
   isFed: boolean;
+  /** Support-ring tiles open for a new building; undefined for Settlements, which have no ring yet. */
+  openSlots: number | undefined;
 };
 
 const SORT_COLUMNS: Array<{ key: TownListSortKey; label: string }> = [
   { key: "gold", label: "Gold/day" },
   { key: "population", label: "Pop" },
-  { key: "growth", label: "Growth" }
+  { key: "growth", label: "Growth" },
+  { key: "slots", label: "Slots" }
 ];
 
 // UI-only preference: kept here rather than on ClientState (which sits at
@@ -45,9 +49,10 @@ export const toggleTownListSort = (key: TownListSortKey): void => {
   currentSort = nextTownListSort(currentSort, key);
 };
 
-export const deriveTownListRows = (tiles: Iterable<Tile>, me: string): TownListRow[] => {
+/** `towns` is any iterable holding the towns to list; `tiles` is the full map, read for each town's support ring. */
+export const deriveTownListRows = (towns: Iterable<Tile>, me: string, tiles: ReadonlyMap<string, Tile>): TownListRow[] => {
   const rows: TownListRow[] = [];
-  for (const tile of tiles) {
+  for (const tile of towns) {
     const town = tile.town;
     if (!town || tile.ownerId !== me || tile.fogged) continue;
     rows.push({
@@ -62,17 +67,29 @@ export const deriveTownListRows = (tiles: Iterable<Tile>, me: string): TownListR
       maxPopulation: finiteOrZero(town.maxPopulation),
       growthPerMinute: finiteOrZero(town.populationGrowthPerMinute),
       // Only flag a town unfed when the server says so, not when the field is missing.
-      isFed: town.isFed !== false
+      isFed: town.isFed !== false,
+      openSlots: openBuildSlotsForTown(tiles, tile, me)
     });
   }
   return rows;
 };
 
 const sortValue = (row: TownListRow, key: TownListSortKey): number =>
-  key === "gold" ? row.goldPerMinute : key === "population" ? row.population : row.growthPerMinute;
+  key === "gold"
+    ? row.goldPerMinute
+    : key === "population"
+      ? row.population
+      : key === "growth"
+        ? row.growthPerMinute
+        : (row.openSlots ?? 0);
+
+/** Open build slots cell text: a count, or a dash for a Settlement with no support ring. */
+export const formatOpenSlots = (openSlots: number | undefined): string => (openSlots === undefined ? "—" : String(openSlots));
 
 export const sortTownListRows = (rows: TownListRow[], sort: TownListSort): TownListRow[] =>
   [...rows].sort((a, b) => {
+    // Settlements have no support ring, so they stay below every town in either direction.
+    if (sort.key === "slots" && (a.openSlots === undefined) !== (b.openSlots === undefined)) return a.openSlots === undefined ? 1 : -1;
     const diff = sortValue(a, sort.key) - sortValue(b, sort.key);
     if (diff !== 0) return sort.descending ? -diff : diff;
     return a.name.localeCompare(b.name);
@@ -85,8 +102,8 @@ const formatGrowth = (value: number): string => {
   return `${rounded > 0 ? "+" : ""}${rounded.toFixed(1)}`;
 };
 
-export const townListCardHtml = (tiles: Iterable<Tile>, me: string, sort: TownListSort = currentSort): string => {
-  const rows = sortTownListRows(deriveTownListRows(tiles, me), sort);
+export const townListCardHtml = (tiles: ReadonlyMap<string, Tile>, me: string, sort: TownListSort = currentSort): string => {
+  const rows = sortTownListRows(deriveTownListRows(tiles.values(), me, tiles), sort);
   const headers = SORT_COLUMNS.map(({ key, label }) => {
     const active = sort.key === key;
     const arrow = active ? (sort.descending ? " ▼" : " ▲") : "";
@@ -102,6 +119,7 @@ export const townListCardHtml = (tiles: Iterable<Tile>, me: string, sort: TownLi
             <strong>${(row.goldPerMinute * 1440).toFixed(1)}</strong>
             <strong>${formatCount(row.population)}<small>/ ${formatCount(row.maxPopulation)}</small></strong>
             <strong>${formatGrowth(row.growthPerMinute)}<small>/min</small></strong>
+            <strong title="Open build slots">${formatOpenSlots(row.openSlots)}</strong>
           </button>`
           )
           .join("");

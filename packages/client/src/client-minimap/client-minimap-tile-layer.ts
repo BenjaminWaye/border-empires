@@ -19,6 +19,8 @@ export type MiniMapTileLayerDeps = {
   overlayColor: (ownerId: string) => string;
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => "visible" | "fogged" | "unexplored";
   withAlpha: (hex: string, alpha: number) => string;
+  /** The Resources lens (client-resource-lens.ts): undefined while off, else a resource colour or null for no paint. */
+  lensTileColor?: (tile: Tile) => string | null | undefined;
 };
 
 export type TileRect = { x: number; y: number; w: number; h: number };
@@ -51,8 +53,15 @@ export const drawMiniMapTileLayer = (cctx: CanvasRenderingContext2D, box: MiniMa
 
   const border = miniMapBorderPx(w / box.w);
   for (const tile of shown) {
-    if (!tile.ownerId || tile.fogged) continue;
+    const lensColor = deps.lensTileColor?.(tile);
+    if (lensColor === null || tile.fogged) continue;
     const r = miniMapTileRect(tile.x, tile.y, box, w, h);
+    if (lensColor) {
+      cctx.fillStyle = lensColor;
+      cctx.fillRect(r.x, r.y, r.w, r.h);
+      continue;
+    }
+    if (!tile.ownerId) continue;
     const color = deps.overlayColor(tile.ownerId);
     cctx.fillStyle = deps.withAlpha(color, tile.ownershipState === "SETTLED" ? 0.72 : 0.48);
     cctx.fillRect(r.x, r.y, r.w, r.h);

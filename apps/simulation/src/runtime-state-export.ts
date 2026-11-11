@@ -20,6 +20,7 @@ import { shouldYieldAt } from "./event-loop-yield.js";
 import { musterStagedManpowerForPlayer } from "./runtime-muster-staged-manpower.js";
 import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
 import { reachBorderOwnerAt } from "./runtime-aether-bridge-reach.js";
+import { waystationRewardHiddenFromViewer } from "./tile-overlay-fields/tile-overlay-fields.js";
 
 import type { RuntimeExportState } from "./runtime-export-state-types.js";
 import type { TownEconomyEntry } from "./ai/build/town-economy-view.js";
@@ -82,6 +83,7 @@ const toRuntimeExportTile = (
   // Every overlay from the shared table (TILE_OVERLAY_WIRE_FIELDS): this list
   // was once hand-written and left out watchtowers and waystations.
   for (const { camel } of TILE_OVERLAY_WIRE_FIELDS) {
+    if (camel === "waystationJson" && waystationRewardHiddenFromViewer(tile.waystation, undefined)) continue;
     const json = cached[camel];
     if (json) entry[camel] = json;
   }

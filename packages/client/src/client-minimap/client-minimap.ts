@@ -6,6 +6,7 @@ import { townIdentityForTile, tileHasTownIdentity } from "../client-town-identit
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { drawMiniMapTileLayer, miniMapTileRect } from "./client-minimap-tile-layer.js";
 import type { DockPair, StrategicReplayEvent, Tile } from "../client-types.js";
+import { resourceLensTileColor } from "../client-resource-lens/client-resource-lens.js";
 
 type ReplayTileView = { ownerId?: string; ownershipState?: Tile["ownershipState"] };
 
@@ -76,6 +77,7 @@ export const drawMiniMap = (options: {
     zoom: number;
     replayActive: boolean;
     replayIndex: number;
+    showResourceOverlay?: boolean;
     replayOwnershipByTile: Map<string, ReplayTileView>;
     fogDisabled: boolean;
     tiles: Map<string, Tile>;
@@ -189,7 +191,8 @@ export const drawMiniMap = (options: {
         terrainColorAt: options.terrainColorAt,
         overlayColor: options.effectiveOverlayColor,
         tileVisibilityStateAt: options.tileVisibilityStateAt,
-        withAlpha: hexWithAlpha
+        withAlpha: hexWithAlpha,
+        lensTileColor: (tile) => resourceLensTileColor(options.state, tile)
       });
     } else {
       const baseW = options.miniMapBase.width;
@@ -219,11 +222,12 @@ export const drawMiniMap = (options: {
         }
       } else {
         for (const tile of options.state.tiles.values()) {
-          if (!tile.ownerId) continue;
+          const lensColor = resourceLensTileColor(options.state, tile); // Resources lens: resource tiles only
+          if (lensColor === null || (!lensColor && !tile.ownerId)) continue;
           if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
           if (!inBox(tile.x, tile.y)) continue;
           const r = miniMapTileRect(tile.x, tile.y, box, w, h);
-          cctx.fillStyle = hexWithAlpha(options.effectiveOverlayColor(tile.ownerId), tile.ownershipState === "SETTLED" ? 0.9 : 0.6);
+          cctx.fillStyle = lensColor ?? hexWithAlpha(options.effectiveOverlayColor(tile.ownerId!), tile.ownershipState === "SETTLED" ? 0.9 : 0.6);
           cctx.fillRect(r.x, r.y, r.w, r.h);
         }
       }

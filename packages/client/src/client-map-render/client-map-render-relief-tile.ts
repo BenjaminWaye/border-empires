@@ -16,6 +16,8 @@ export type ReliefTerrainTileOptions = {
   readonly py: number;
   readonly size: number;
   readonly cachedTerrainColorAt: (x: number, y: number, terrain: Tile["terrain"]) => string;
+  /** Land lookup for the sea tile's shore foam (see drawSeaCoast2D); seeded terrain when absent. */
+  readonly isLandAt?: (x: number, y: number) => boolean;
 };
 
 export const drawReliefTerrainTile = (
@@ -50,7 +52,7 @@ export const drawReliefTerrainTile = (
     ctx.fillRect(options.px, options.py + topHeight, options.size, relief);
     ctx.fillStyle = "rgba(173, 229, 255, 0.15)";
     ctx.fillRect(options.px + 1, options.py + 1, options.size - 2, Math.max(1, Math.floor(options.size * 0.12)));
-    drawSeaCoast2D(ctx, options.wx, options.wy, options.px, options.py, options.size, topHeight);
+    drawSeaCoast2D(ctx, options.wx, options.wy, options.px, options.py, options.size, topHeight, options.isLandAt);
   } else {
     ctx.fillStyle = options.terrain === "MOUNTAIN" ? "rgba(52, 55, 63, 0.9)" : "rgba(34, 42, 26, 0.65)";
     ctx.fillRect(options.px, options.py + topHeight, options.size, relief);

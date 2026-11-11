@@ -22,7 +22,7 @@ describe("client HUD display-name rename confirmation regression", () => {
     expect(saveHandlerSource).toContain("const nameChanged = newName !== state.meName;");
     expect(saveHandlerSource).toContain('if (typeof window !== "undefined" && typeof window.confirm === "function") {');
     expect(saveHandlerSource).toContain("window.confirm(");
-    expect(saveHandlerSource).toContain("once per season");
+    expect(saveHandlerSource).toContain("once per Sector Contest");
     expect(saveHandlerSource).toContain("if (!confirmed) return;");
   });
 });

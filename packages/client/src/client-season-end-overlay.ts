@@ -1,4 +1,5 @@
 import type { ClientState } from "./client-state/client-state.js";
+import { attachSeasonForceHold, consumeForceHoldClick } from "./client-season-end-overlay/season-end-force-hold.js";
 import type {
   LeaderboardOverallEntry,
   LeaderboardMetricEntry,
@@ -9,6 +10,7 @@ import type {
 import { setReportOpen } from "./client-bug-report/client-bug-report.js";
 import { escapeHtml, missingHistoryNotice } from "./client-season-end-overlay/client-season-end-html.js";
 import { scoreGraphPanel } from "./client-season-end-score-graph.js";
+import { nextContestButtonLabel, nextContestFineprint } from "./client-next-contest/client-next-contest.js";
 
 type SeasonEndLeaderboard = {
   overall: LeaderboardOverallEntry[];
@@ -31,12 +33,32 @@ type SeasonEndOverlayDeps = {
     | "seasonEndStarting"
     | "seasonStartVoteCount"
     | "seasonStartVoted"
+    | "seasonStartVoteThreshold"
+    | "authIsGuest"
+    | "needsSeasonJoin"
     | "playerColors"
+    | "mapRevealEligible"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
+  // Commits this House to the next Sector Contest.
   startNewSeason: () => void;
+  // Admin-only (mapRevealEligible = server canToggleFog): long-press the
+  // button to start the next contest without waiting for commitments.
+  forceStartNewSeason?: () => void;
+  // Guests can't commit; the button offers to save the empire instead.
+  openGuestSave?: () => void;
 };
+
+const SEASON_START_SIGN_IN_MESSAGE = "Finish sign-in before joining the next Sector Contest.";
+
+// Commit and admin force-start senders for the season-end overlay's button.
+export const seasonStartSenders = (
+  send: (payload: unknown, message?: string) => boolean
+): Pick<SeasonEndOverlayDeps, "startNewSeason" | "forceStartNewSeason"> => ({
+  startNewSeason: () => { send({ type: "START_NEW_SEASON" }, SEASON_START_SIGN_IN_MESSAGE); },
+  forceStartNewSeason: () => { send({ type: "START_NEW_SEASON", force: true }, SEASON_START_SIGN_IN_MESSAGE); }
+});
 
 export const safeColorValue = (raw: string | undefined): string | undefined => {
   if (!raw) return undefined;
@@ -53,6 +75,9 @@ export const playerBadge = (
     color ? ` style="--player-color:${color}"` : ""
   } aria-hidden="true"></span><span class="se-badge-name">${escapeHtml(name)}</span></span>`;
 };
+
+// Rows on the newcomer's short result card.
+const COMPACT_STANDINGS_ROWS = 5;
 
 const rankClass = (rank: number): string =>
   rank === 1 ? "is-gold" : rank === 2 ? "is-silver" : rank === 3 ? "is-bronze" : "";
@@ -81,6 +106,10 @@ const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: Seas
     starting: state.seasonEndStarting,
     voteCount: state.seasonStartVoteCount,
     voted: state.seasonStartVoted,
+    threshold: state.seasonStartVoteThreshold,
+    guest: state.authIsGuest,
+    compact: state.needsSeasonJoin,
+    admin: state.mapRevealEligible,
     self: [leaderboard.selfOverall?.id, leaderboard.selfOverall?.name],
     overall: leaderboard.overall.map((e) => [e.id, e.name, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
     victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.leaderName, o.progressLabel, o.conditionMet]),
@@ -101,7 +130,7 @@ const victorMedallion = (
     <div class="se-gear se-gear-lg" aria-hidden="true"></div>
     <div class="se-medallion">
       <span class="se-crown" aria-hidden="true">♛</span>
-      <span class="se-victor-kicker">Season Victor</span>
+      <span class="se-victor-kicker">Contest Victor</span>
       <span class="se-victor-name">${playerBadge(winner.playerId, isSelf ? "You" : winner.playerName, colors)}</span>
       <span class="se-victor-path">${escapeHtml(winner.objectiveName)}</span>
       <span class="se-victor-date">Crowned ${escapeHtml(new Date(winner.crownedAt).toLocaleString())}</span>
@@ -121,7 +150,7 @@ const rankRowHtml = (
   // the medal always shows the entry's true score rank.
   const isWinner = Boolean(options.winnerId && entry.id === options.winnerId);
   const medalClass = options.detached ? "" : rankClass(entry.rank);
-  const crown = isWinner ? `<span class="se-rank-crown" title="Season Victor" aria-hidden="true">♔</span>` : "";
+  const crown = isWinner ? `<span class="se-rank-crown" title="Contest Victor" aria-hidden="true">♔</span>` : "";
   return `
     <li class="se-rank-row${options.self ? " is-self" : ""}${options.detached ? " is-detached" : ""}${isWinner ? " is-winner" : ""}">
       <span class="se-rank-medal ${medalClass}">${entry.rank}</span>
@@ -225,7 +254,7 @@ const miscPanel = (
     }
   }
   return `<section class="se-panel se-misc">
-    <h3 class="se-panel-title">Season Miscellany</h3>
+    <h3 class="se-panel-title">Contest Miscellany</h3>
     <div class="se-misc-items">
       <div class="se-misc-item">
         <span class="se-misc-label">Most Deadly Tile</span>
@@ -240,7 +269,7 @@ const miscPanel = (
 };
 
 export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
-  const { state, overlayEl, renderHud, startNewSeason } = deps;
+  const { state, overlayEl, renderHud, startNewSeason, forceStartNewSeason, openGuestSave } = deps;
   const visible = seasonEndVisible(state);
   overlayEl.style.display = visible ? "grid" : "none";
   if (!visible || !state.seasonWinner) {
@@ -261,6 +290,16 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   const isSelfWinner = Boolean(selfId && state.seasonWinner.playerId === selfId);
   const empiresContested = leaderboard.overall.length;
   const starting = state.seasonEndStarting;
+  const canForceStart = Boolean(state.mapRevealEligible && forceStartNewSeason) && !starting;
+  // A disabled button gets no pointer events, so the admin's voted button
+  // stays enabled (aria-disabled) to keep the long-press reachable.
+  const newSeasonDisabledAttr = starting || (state.seasonStartVoted && !canForceStart)
+    ? "disabled"
+    : state.seasonStartVoted ? `aria-disabled="true"` : "";
+  const forceHoldAttrs = canForceStart ? `data-se-force-hold title="Admin: hold to start the next Sector Contest now"` : "";
+  // Someone who never played this world (a newcomer arriving after the crown)
+  // gets a short result card, not the full ledger.
+  const compact = state.needsSeasonJoin;
 
   const winner = { ...state.seasonWinner,
     playerName: currentPlayerName(leaderboard, state.seasonWinner.playerId, state.seasonWinner.playerName) };
@@ -291,7 +330,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             <span class="se-filigree se-filigree-l" aria-hidden="true"></span>
             <div class="se-header-text">
               <span class="se-kicker">The Great Works Have Settled</span>
-              <h2 id="se-title" class="se-title">Season Concluded</h2>
+              <h2 id="se-title" class="se-title">Sector Contest Concluded</h2>
               <span class="se-subtitle">${empiresContested} ${empiresContested === 1 ? "empire" : "empires"} vied for the crown</span>
             </div>
             <span class="se-filigree se-filigree-r" aria-hidden="true"></span>
@@ -299,7 +338,8 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
 
           ${victorMedallion(winner, colors, isSelfWinner)}
 
-          <nav class="se-tab-bar" role="tablist">
+          ${compact ? `<p class="se-arrival-note">You arrived after the crown was claimed. ${state.authIsGuest ? "Save your empire to join the next Sector Contest." : "Join the next Sector Contest to found your empire."}</p>
+          ${standingsLedger({ ...leaderboard, overall: leaderboard.overall.slice(0, COMPACT_STANDINGS_ROWS), selfOverall: undefined }, colors, selfId, state.seasonWinner.playerId)}` : `<nav class="se-tab-bar" role="tablist">
             <button class="se-tab${activeTab === "standings" ? " is-active" : ""}" role="tab" data-tab="standings">Final Standings</button>
             ${hasVictory ? `<button class="se-tab${activeTab === "victory" ? " is-active" : ""}" role="tab" data-tab="victory">Victory Paths</button>` : ""}
             <button class="se-tab${activeTab === "misc" ? " is-active" : ""}" role="tab" data-tab="misc">Statistics</button>
@@ -318,17 +358,18 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             <div class="se-tab-panel${activeTab === "score-graph" ? " is-active" : ""}" data-tab="score-graph" role="tabpanel">
               ${scoreGraphHtml}
             </div>
-          </div>
+          </div>`}
         </div>
         <div class="se-scroll-footer">
           <footer class="se-actions">
-            <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${starting || state.seasonStartVoted ? "disabled" : ""}>
+            <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${newSeasonDisabledAttr} ${forceHoldAttrs}>
+              ${canForceStart ? `<span class="se-btn-hold-fill" aria-hidden="true"></span>` : ""}
               <span class="se-btn-cog" aria-hidden="true"></span>
-              ${starting ? "Winding the Spring…" : state.seasonStartVoted ? `Vote cast (${state.seasonStartVoteCount}/5)` : "Vote for New Season"}
+              <span class="se-btn-label">${escapeHtml(nextContestButtonLabel(state))}</span>
             </button>
             <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
           </footer>
-          <p class="se-fineprint">Starting a new season resets the world and progression for <strong>every</strong> player.</p>
+          <p class="se-fineprint">${escapeHtml(nextContestFineprint(state.seasonStartVoteThreshold))}</p>
         </div>
       </div>
     </div>`;
@@ -342,11 +383,11 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
       // Preserve an existing draft if the player already started a report.
       if (!description || description.value.trim()) return;
       description.value = [
-        `Season summary is missing historical data: ${button.dataset.seMissingRecords}.`,
+        `Contest summary is missing historical data: ${button.dataset.seMissingRecords}.`,
         observation ? `Observed: ${observation}` : "",
         `Winner: ${winner.playerId} (${winner.playerName}).`,
         `Crowned: ${new Date(winner.crownedAt).toISOString()}.`,
-        "Please investigate why these season records are unavailable."
+        "Please investigate why these Sector Contest records are unavailable."
       ].filter(Boolean).join("\n");
       description.dispatchEvent(new Event("input", { bubbles: true }));
       description.focus();
@@ -364,9 +405,12 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   }
   if (newSeason) {
     newSeason.onclick = () => {
+      if (consumeForceHoldClick(newSeason)) return;
       if (state.seasonEndStarting || state.seasonStartVoted) return;
+      if (state.authIsGuest) { openGuestSave?.(); return; }
       startNewSeason();
     };
+    if (canForceStart && forceStartNewSeason) attachSeasonForceHold(newSeason, { onForce: forceStartNewSeason });
   }
 
   const tabBar = overlayEl.querySelector(".se-tab-bar") as HTMLElement | null;

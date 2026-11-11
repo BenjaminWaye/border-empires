@@ -4,6 +4,7 @@
 // A future branch adding the remaining module families only needs to add
 // one entry here -- client-map-3d.ts never needs to change.
 import type { Scene, Texture } from "three";
+import type { AfcDeploymentPose } from "./client-afc-join-drop/client-afc-join-drop-timeline.js";
 import { createFabricationComplexOverlay, AFC_SOCKET_COUNT, type FabricationComplexOverlay } from "./client-map-3d-fabrication-complex.js";
 import { createAfcGenericModuleOverlay } from "./client-map-3d-afc-generic-module.js";
 import { createIndustrialToolingModuleOverlay } from "./client-industrial-tooling-module/client-map-3d-industrial-tooling-module.js";
@@ -75,21 +76,24 @@ export type AfcOverlayGroup = {
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
+  readonly hasAt: (worldTileX: number, worldTileY: number) => boolean;
   // Docks the AFC itself plus up to AFC_SOCKET_COUNT of moduleTechIds (in
   // order) into their matching family overlay's next socket attachment.
   // `frozen`: remembered under fog -- every part holds its rest pose.
-  readonly addAfc: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[], frozen?: boolean) => void;
+  readonly addAfc: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[], frozen?: boolean, deployment?: AfcDeploymentPose) => void;
   /** Current scene-space socket for a rendered module. The delivery FX reads
    * this after the visible-terrain rebuild, so a cargo streak lands on the
    * same socket as the permanent module rather than the AFC tile centre. */
   readonly attachmentFor: (worldTileX: number, worldTileY: number, techId: string) => { x: number; y: number; z: number } | undefined;
 };
 
-export const createAfcOverlayGroup = (scene: Scene, maxAfcInstances: number, buildingEnvironmentTexture?: Texture): AfcOverlayGroup => {
-  const afc: FabricationComplexOverlay = createFabricationComplexOverlay(scene, maxAfcInstances, buildingEnvironmentTexture);
+export const createAfcOverlayGroup = (scene: Scene, maxAfcInstances: number, buildingEnvironmentTexture?: Texture, landingModuleIds?: readonly string[]): AfcOverlayGroup => {
+  const afc: FabricationComplexOverlay = createFabricationComplexOverlay(scene, maxAfcInstances, buildingEnvironmentTexture, landingModuleIds !== undefined);
   const familyCapacity = maxAfcInstances * AFC_SOCKET_COUNT;
   const families = new Map<string, ModuleFamilyOverlay>(
-    Object.entries(MODULE_FAMILY_FACTORIES).map(([techId, factory]) => [techId, factory(scene, familyCapacity, buildingEnvironmentTexture)])
+    Object.entries(MODULE_FAMILY_FACTORIES)
+      .filter(([techId]) => !landingModuleIds || landingModuleIds.includes(techId))
+      .map(([techId, factory]) => [techId, factory(scene, familyCapacity, buildingEnvironmentTexture)])
   );
   // Any docked tech without a bespoke family still occupies its socket with
   // a plain generic cartridge, so an unlocked module is never invisible.
@@ -98,8 +102,8 @@ export const createAfcOverlayGroup = (scene: Scene, maxAfcInstances: number, bui
   const attachmentsByModule = new Map<string, { x: number; y: number; z: number }>();
   const attachmentKey = (worldTileX: number, worldTileY: number, techId: string): string => `${worldTileX},${worldTileY}:${techId}`;
 
-  const addAfc = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[], frozen = false): void => {
-    const index = afc.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY, frozen);
+  const addAfc = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[], frozen = false, deployment?: AfcDeploymentPose): void => {
+    const index = afc.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY, frozen, deployment);
     const attachments = afc.moduleSocketAttachments(index);
     moduleTechIds.slice(0, attachments.length).forEach((techId, i) => {
       const family = families.get(techId) ?? genericFamily;
@@ -112,6 +116,7 @@ export const createAfcOverlayGroup = (scene: Scene, maxAfcInstances: number, bui
 
   return {
     addAfc,
+    hasAt: afc.hasAt,
     attachmentFor: (worldTileX, worldTileY, techId) => attachmentsByModule.get(attachmentKey(worldTileX, worldTileY, techId)),
     clear: () => { attachmentsByModule.clear(); afc.clear(); for (const family of allFamilies) family.clear(); },
     commit: () => { afc.commit(); for (const family of allFamilies) family.commit(); },

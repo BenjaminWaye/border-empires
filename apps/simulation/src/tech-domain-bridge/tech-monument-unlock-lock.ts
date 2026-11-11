@@ -35,5 +35,5 @@ export const monumentAlreadyBuiltRejectReason = (
   if (hasTech) return undefined;
   const monumentType = monumentTypeForUnlockTechId(techId);
   if (!monumentType) return undefined;
-  return monumentClaimOwnerIdFromTiles(tiles, monumentType) ? "monument already built this season" : undefined;
+  return monumentClaimOwnerIdFromTiles(tiles, monumentType) ? "monument already built this Sector Contest" : undefined;
 };

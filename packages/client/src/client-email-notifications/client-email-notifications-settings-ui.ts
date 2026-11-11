@@ -15,7 +15,7 @@ const CATEGORY_LABELS: Array<{ id: EmailNotificationCategory; title: string; des
   { id: "attackAlert", title: "Attacks", desc: "Your empire is attacked" },
   { id: "aetherPurgeAlert", title: "Aether Purges", desc: "Your empire is hit with an Aether Purge" },
   { id: "aetherHijackAlert", title: "Tower Hijacks", desc: "Someone starts taking over one of your Aether Towers" },
-  { id: "seasonStart", title: "New Season", desc: "A new season begins" },
+  { id: "seasonStart", title: "New Sector Contest", desc: "A new Sector Contest begins" },
   { id: "manpowerFull", title: "Manpower Full", desc: "Your manpower reaches its cap while you're away" }
 ];
 

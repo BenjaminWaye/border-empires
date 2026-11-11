@@ -36,4 +36,11 @@ export class SqliteSectorWaitlistStore implements SectorWaitlistStore {
     const row = this.db.prepare("SELECT COUNT(*) AS n FROM sector_waitlist WHERE season_id = ?").get(seasonId) as { n: number } | undefined;
     return Number(row?.n ?? 0);
   }
+
+  async list(seasonId: string): Promise<string[]> {
+    const rows = this.db
+      .prepare("SELECT player_id FROM sector_waitlist WHERE season_id = ? ORDER BY joined_at, player_id")
+      .all(seasonId) as Array<{ player_id: string }>;
+    return rows.map((row) => row.player_id);
+  }
 }

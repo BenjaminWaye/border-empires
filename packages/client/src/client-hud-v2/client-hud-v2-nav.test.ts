@@ -13,10 +13,12 @@ it("keeps destination names inside buttons and exposes the selected destination"
   expect(host.querySelector('[data-hud-v2-open="diplomacy"] .hud-v2-bubble-badge-info')).toBeNull();
 });
 
-it("gives Profile the same selected state and persistent name as other destinations", () => {
+it("keeps the icon-only Profile button named and selected for assistive technology", () => {
   const host = document.createElement("div");
   host.innerHTML = navHtml({ name: "House", color: "#abc", afcReady: 0, diplomacyRequests: 0, chronicleUnread: 0, active: "self" });
-  expect(host.querySelector('.hud-v2-crest-label')?.textContent).toBe("Profile");
+  const crest = host.querySelector('[data-hud-v2-open="self"]');
+  expect(crest?.textContent).toBe("H");
+  expect(crest?.getAttribute("aria-label")).toBe("House, your profile");
   expect(host.querySelector('[aria-pressed="true"]')?.getAttribute("data-hud-v2-open")).toBe("self");
   expect(host.querySelectorAll('[aria-pressed="true"]')).toHaveLength(1);
 });

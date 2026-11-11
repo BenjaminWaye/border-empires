@@ -10,8 +10,8 @@ export const WAYSTATION_KEY = "10,10";
 export const TOWN_KEY = "9,10";
 export const FAR_TOWN_KEY = "400,400";
 
-// Effect roll order in runtime-waystation-activation.ts: 0=VISION, 1=POPULATION, 2=TECH, 3=RESOURCE_SLOT, 4=GOLD, 5=MANPOWER (floor(r * 6)).
-export const RANDOM_FOR = { VISION: 0.05, POPULATION: 0.2, TECH: 0.4, RESOURCE_SLOT: 0.55, GOLD: 0.75, MANPOWER: 0.95 };
+// Effect roll order in runtime-waystation-activation.ts: 0=VISION, 1=POPULATION, 2=TECH, 3=RESOURCE_TILE, 4=GOLD, 5=MANPOWER (floor(r * 6)).
+export const RANDOM_FOR = { VISION: 0.05, POPULATION: 0.2, TECH: 0.4, RESOURCE_TILE: 0.55, GOLD: 0.75, MANPOWER: 0.95 };
 
 /** A queue-based random stub: returns each value in order, then repeats the last value forever (so a test doesn't need to know exactly how many times `random()` is called). */
 export function queueRandom(values: number[]): () => number {

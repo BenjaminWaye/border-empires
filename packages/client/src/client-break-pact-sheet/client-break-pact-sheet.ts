@@ -29,8 +29,8 @@ export const breakTruceConsequences = (targetName: string): string[] => [
   `The truce with ${targetName} ends immediately and you can attack them.`,
   `You can't make or accept new truces for ${Math.round(TRUCE_BREAK_LOCKOUT_MS / HOUR_MS)} hours.`,
   `Every other AI ruler thinks less of you: −${BROKEN_TRUCE_REPUTATION_OPINION_PENALTY} opinion for ${BROKEN_PACT_OPINION_WINDOW_DAYS} days per broken truce (up to −${BROKEN_TRUCE_REPUTATION_OPINION_PENALTY_CAP}).`,
-  `If ${targetName} is an AI ruler, it holds a grudge for the rest of the season (−${BROKEN_TRUCE_GRUDGE_OPINION_PENALTY} opinion) and will never ally with you.`,
-  "The broken truce is shown on your profile for the rest of the season."
+  `If ${targetName} is an AI ruler, it holds a grudge for the rest of the Sector Contest (−${BROKEN_TRUCE_GRUDGE_OPINION_PENALTY} opinion) and will never ally with you.`,
+  "The broken truce is shown on your profile for the rest of the Sector Contest."
 ];
 
 /** What breaking an alliance with `targetName` means for the breaker, one line each. */

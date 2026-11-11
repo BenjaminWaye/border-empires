@@ -13,3 +13,14 @@ export const MAP_LENS_CHANGELOG: ClientChangelogEntry[] = [
     ]
   }
 ];
+
+export const RESOURCE_LENS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.11",
+  title: "Resources map lens",
+  why: "Finding resources meant scanning small markers among everyone's territory colours.",
+  changes: [
+    "The minimap's lens button has a new Resources view.",
+    "Every resource tile in sight glows in its resource's colour, on the map and the minimap.",
+    "Territory colours and borders are hidden while the view is on; pick Terrain to bring them back."
+  ]
+};

@@ -2,8 +2,9 @@
 // Rivals show truces first, then allies, then everyone else you've met, capped,
 // with an overflow count that opens Diplomacy. Stance is an icon plus text, never colour alone.
 
-import type { ActiveTruceView, SeasonVictoryObjectiveView } from "../client-types.js";
+import type { ActiveTruceView, SeasonVictoryObjectiveView, SeasonWinnerView } from "../client-types.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
+import { seasonWinnerName, seasonWinnerPath } from "./client-hud-v2-season-winner.js";
 
 export type RivalInput = {
   me: string;
@@ -74,7 +75,16 @@ export const holdingObjective = (objectives: readonly SeasonVictoryObjectiveView
     .filter((o) => o.conditionMet && o.leaderName)
     .sort((a, b) => (a.holdRemainingSeconds ?? Infinity) - (b.holdRemainingSeconds ?? Infinity) || a.name.localeCompare(b.name))[0];
 
-export const seasonClockHtml = (objectives: readonly SeasonVictoryObjectiveView[]): string => {
+/** Once a winner is crowned the race is over: name the winner and the path, not whoever is still "holding". */
+export const seasonClockHtml = (
+  objectives: readonly SeasonVictoryObjectiveView[],
+  winner?: SeasonWinnerView,
+  me = "",
+  nameOf: (playerId: string) => string = () => ""
+): string => {
+  if (winner) {
+    return `<span class="hud-v2-season-title">Victory race</span><span class="hud-v2-season-line hud-v2-season-won">♛ <b>${esc(seasonWinnerName(winner, me, nameOf))}</b> won ${esc(seasonWinnerPath(winner))}</span>`;
+  }
   const holding = holdingObjective(objectives);
   if (!holding) return `<span class="hud-v2-season-title">Victory race</span><span class="hud-v2-season-line">Nobody holding a path</span>`;
   const left = holding.holdRemainingSeconds !== undefined ? ` · ${hoursLeft(Date.now() + holding.holdRemainingSeconds * 1000, Date.now())}` : "";

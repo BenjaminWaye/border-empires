@@ -1366,13 +1366,13 @@ describe("client network regression guards", () => {
       data: JSON.stringify({
         type: "ERROR",
         code: "DISPLAY_NAME_LIMIT",
-        message: "You can only change your display name once per season. Try again next season."
+        message: "You can only change your display name once per Sector Contest. Try again in the next one."
       })
     });
 
     expect(state.pendingDisplayNameChange).toBe("");
     expect(deps.pushFeed).toHaveBeenCalledWith(
-      "You can only change your display name once per season. Try again next season.",
+      "You can only change your display name once per Sector Contest. Try again in the next one.",
       "error",
       "warn"
     );

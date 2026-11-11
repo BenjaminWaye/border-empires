@@ -159,7 +159,7 @@ export const createDukeContext = (deps: GalaxyDukeDeps): DukeContext => {
         next,
         at,
         "COMBAT",
-        `${await labelFor(seasonId)} fell to 0 Stability and is now contested: a Defense Campaign season is open to anyone.`
+        `${await labelFor(seasonId)} fell to 0 Stability and is now contested: a Defense Campaign Sector Contest is open to anyone.`
       );
       next = pushed.state;
       countAll(pushed.counters);

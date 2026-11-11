@@ -48,7 +48,7 @@ import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-p
 import { wireGalaxyEconomy } from "../galaxy-economy-wiring/galaxy-economy-wiring.js"; import { wireGalaxySenate } from "../galaxy-senate-wiring/galaxy-senate-wiring.js"; import { createGalaxySenateStore } from "../galaxy-senate-store-factory/galaxy-senate-store-factory.js";
 import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js"; import { createGalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store-factory/galaxy-defense-campaign-store-factory.js"; import { wireGalaxyFleets } from "../galaxy-fleet-wiring/galaxy-fleet-wiring.js"; import { createGalaxyBattleLogStore } from "../galaxy-battle-log-store-factory/galaxy-battle-log-store-factory.js"; import { createGalaxyExplorationStore } from "../galaxy-exploration-store-factory/galaxy-exploration-store-factory.js"; import { wireGalaxyDuke } from "../galaxy-duke-wiring/galaxy-duke-wiring.js";
 import { createSovereignSiegeEngineStrikeGatewayIntegration } from "../sovereign-siege-engine-strike-broadcast/sovereign-siege-engine-strike-broadcast.js";
-import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js"; import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js"; import { handlePrepareResultSeasonPending } from "./handle-prepare-result-season-pending.js";
+import { startNextContestTimer } from "../next-contest/next-contest.js"; import { createGatewayNextContest } from "../next-contest/gateway-next-contest.js"; import { handleStartNewSeasonMessage } from "../season-start-vote/handle-start-new-season-message.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js"; import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js"; import { handlePrepareResultSeasonPending } from "./handle-prepare-result-season-pending.js";
 import { notifySeasonStarted as notifySeasonStartedImpl } from "../season-start-notify/season-start-notify.js";
 import { relaySimulationBroadcastEvent } from "../broadcast-event-relay/broadcast-event-relay.js";
 import { createGameplayEmailAlertSender } from "../gameplay-email-alert/gameplay-email-alert.js";
@@ -896,7 +896,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const ignoredLegacyMessageTypes = new Set<string>(
     supportedClientMessageTypes.filter((messageType) => !migratedDurableCommandTypes.has(messageType))
   );
-  const seasonStartVote = new SeasonStartVoteTracker(); const seasonLobby = createSeasonLobbyGatewayIntegration({ preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), profileOverrides, profileStore, invalidateProfileCache, fallbackName: (playerId) => socialRegistrationNameFor(playerId, playerId) }); const getWorldPulseActivity = createWorldPulseActivitySource({ getActivityDashboard: () => simulationClient.getActivityDashboard(), getSeasonPowerScore: async () => { const season = await simulationClient.getCurrentSeasonSummary(); return { seasonId: season.seasonId, powerScore: (await hydrateCurrentSeasonSummaryDisplayNames(season, profileStore)).overall }; }, getSocialSnapshot: () => socialStore.loadSnapshot(), growthBaselineStore });
+  const seasonLobby = createSeasonLobbyGatewayIntegration({ preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), profileOverrides, profileStore, invalidateProfileCache, fallbackName: (playerId) => socialRegistrationNameFor(playerId, playerId) }); const getWorldPulseActivity = createWorldPulseActivitySource({ getActivityDashboard: () => simulationClient.getActivityDashboard(), getSeasonPowerScore: async () => { const season = await simulationClient.getCurrentSeasonSummary(); return { seasonId: season.seasonId, powerScore: (await hydrateCurrentSeasonSummaryDisplayNames(season, profileStore)).overall }; }, getSocialSnapshot: () => socialStore.loadSnapshot(), growthBaselineStore });
+  const nextContest = createGatewayNextContest({
+    simulationClient, store: sectorWaitlistStore, recordGatewayEvent: (level, event, payload) => recordGatewayEvent(level, event, payload),
+    onSeasonStarted: (seasonId, force) => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); seasonLobby.roster.reset(); slackAlerter?.alertSeasonStarted(seasonId, force); notifySeasonStarted(); },
+    broadcast: (payload) => { const updatePayload = preSerializeBroadcast(payload); for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, updatePayload); }
+  });
 
   registerGatewayHttpRoutes(
     app,
@@ -929,8 +934,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       },
       admin: { apiToken: options.adminApiToken, email: options.adminEmail },
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
-      ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); seasonStartVote.reset(); } } : {}),
-      onSeasonStarted: () => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); seasonStartVote.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
+      ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); nextContest.reset(); } } : {}),
+      onSeasonStarted: () => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); nextContest.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
       snapshotForPlayer: socialState.snapshotForPlayer,
       playerFunnel: { store: playerFunnelStore, tracker: playerFunnel }
     })
@@ -1561,12 +1566,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   }, 2_000);
   const aiDiplomacyTimer = startRecurringTask(() => void diplomacySocket.tickProactive(), 15_000, { runImmediately: false });
   const allianceBreakFinalize = startRecurringTask(() => diplomacySocket.runAllianceMaintenance(), 60_000), truceExpirySync = startRecurringTask(() => void syncExpiredTruces(), 60_000);
-  // Season rollover never auto-starts on a timer -- a new season only begins
-  // once players vote via START_NEW_SEASON (see SEASON_START_VOTE_THRESHOLD
-  // below). This intentionally drops the old auto-start timer hook's Imperial
-  // Ward endorsement auto-apply and Defense Campaign auto-scheduling; those
-  // features are not currently wired to the vote-triggered start path.
+  // No clock restarts a season: the next Sector Contest starts once enough Houses
+  // commit, or an admin force-starts it (next-contest.ts). Imperial Ward
+  // auto-apply and Defense Campaign auto-scheduling are not wired to this path.
   const pendingSeasonNotifyTimer = startPendingSeasonNotifyTimer({ getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), notifySeasonStarted, onError: (error) => app.log.error({ err: error }, "pending season notify tick failed") });
+  const nextContestTimer = startNextContestTimer(nextContest, { onError: (error) => app.log.error({ err: error }, "next contest start check failed") });
   const databaseKeepAlive = startDatabaseKeepAlive({
     nextClientSeqForPlayer: (playerId) => commandStore.nextClientSeqForPlayer(playerId),
     recordGatewayEvent
@@ -1645,7 +1649,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
     aiDiplomacyTimer.stop(); diplomacySocket.stopProactive();
-    allianceBreakFinalize.stop(); truceExpirySync.stop(); pendingSeasonNotifyTimer.stop(); stopGalaxyCycleScheduler(); stopGalaxySenateScheduler(); stopGalaxyFleetScheduler(); stopGalaxyDukeScheduler();
+    allianceBreakFinalize.stop(); truceExpirySync.stop(); pendingSeasonNotifyTimer.stop(); nextContestTimer.stop(); stopGalaxyCycleScheduler(); stopGalaxySenateScheduler(); stopGalaxyFleetScheduler(); stopGalaxyDukeScheduler();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
     simBacklogStatusPoller?.stop(); slackAlertLatencyPoll.stop();
@@ -1778,6 +1782,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             session.isGuest = playerIdentity.isGuest === true;
             playerFunnel.onSocketAuthenticated(session.sessionId, playerIdentity.playerId, authBindingSource);
             session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.adminEmail);
+            session.canForceSeasonStart = session.canToggleFog && playerIdentity.authEmailVerified === true;
             // Always start a new auth with fog ON — fog admins must explicitly re-toggle
             // SET_FOG_DISABLED each login (the client also clears its persisted reveal
             // preference on Firebase sign-in so it does not auto-resend the toggle).
@@ -2102,8 +2107,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               const hintStateProfile = await cachedProfileGet(playerIdentity.playerId); // cached, never profileStore.get: sync node:sqlite on a sim-shared DB blocks the event loop up to busy_timeout (5s) and tripped the 30s watchdog
               Object.assign(initMessage.player as Record<string, unknown>, hintStateInitFields(hintStateProfile));
               (initMessage.player as Record<string, unknown>).emailNotificationPrefs = emailNotificationPrefsInitFields(hintStateProfile?.emailNotificationPrefs); (initMessage as Record<string, unknown>).activitySeen = { lastActivitySeenAt: hintStateProfile?.lastActivitySeenAt ?? 0, lastActivitySeenSeasonId: hintStateProfile?.lastActivitySeenSeasonId ?? "" };
-              (initMessage as Record<string, unknown>).seasonStartVoteCount = seasonStartVote.getCount();
-              (initMessage as Record<string, unknown>).seasonStartVoted = seasonStartVote.hasVoted(playerIdentity.playerId);
+              Object.assign(initMessage as Record<string, unknown>, nextContest.initFields(playerIdentity.playerId));
               const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
               authTrace.endStep("build_init");
               // Stringify the ~256KB init message off the main thread so the
@@ -2287,23 +2291,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "START_NEW_SEASON") {
-            if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; }
-            if (seasonStartVote.hasVoted(session.playerId)) { sendJson(socket, { type: "ERROR", code: "ALREADY_VOTED", message: "already voted" }); return; }
-            const { count, thresholdMet } = seasonStartVote.vote(session.playerId);
-            recordGatewayEvent("info", "gateway_start_new_season_vote", { playerId: session.playerId, count });
-            const votePayload = preSerializeBroadcast({ type: "SEASON_START_VOTE_UPDATE", voteCount: count, threshold: SEASON_START_VOTE_THRESHOLD, votedBy: [...seasonStartVote.getVoters()] });
-            for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, votePayload);
-            if (!thresholdMet) return;
-            try {
-              const result = await simulationClient.startNextSeason(false);
-              socialStore.clearSeasonData(); socialState.resetAfcCampaign();
-              seasonStartVote.reset(); seasonLobby.roster.reset();
-              slackAlerter?.alertSeasonStarted(result.seasonId, false);
-              notifySeasonStarted();
-            } catch (error) {
-              recordGatewayEvent("warn", "gateway_start_new_season_rejected", { playerId: session.playerId, error: error instanceof Error ? error.message : String(error) });
-              sendJson(socket, { type: "ERROR", code: "SEASON_NOT_READY", message: "A new season cannot start yet." });
-            }
+            await handleStartNewSeasonMessage({
+              playerId: session.playerId, isGuest: session.isGuest === true, isAdmin: session.canForceSeasonStart === true, force: message.force === true, nextContest, recordGatewayEvent,
+              sendError: (code, text) => sendJson(socket, { type: "ERROR", code, message: text })
+            });
             return;
           }
 

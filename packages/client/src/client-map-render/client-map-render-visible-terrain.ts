@@ -4,6 +4,7 @@ import { createRetiredProspectCluesLookup } from "../client-prospect-clue/client
 import { drawProspectSignatureOverlay, prospectClueDrawFor } from "../client-prospect-signature-overlay.js";
 import { drawLiveOwnershipTint2D } from "./client-map-render-live-ownership-tint.js";
 import { settledEdgeMaskForOwner } from "../client-settled-edge-glow/client-settled-edge-glow.js";
+import { drawResourceLensTile2D, resourceLensTileColor } from "../client-resource-lens/client-resource-lens.js";
 
 interface VisibleTerrainDeps {
   ctx: CanvasRenderingContext2D;
@@ -40,13 +41,16 @@ const settledEdgeMaskCached = (key: string, revision: number, compute: () => num
 /** Visible land details, then ownership, then small prospect clues above both. */
 export const drawVisibleTerrain2D = (
   deps: VisibleTerrainDeps,
-  state: { readonly techIds: readonly string[]; readonly techCatalog: readonly TechInfo[]; readonly tiles: ReadonlyMap<string, Tile>; readonly tilesRevision: number },
+  state: { readonly techIds: readonly string[]; readonly techCatalog: readonly TechInfo[]; readonly tiles: ReadonlyMap<string, Tile>; readonly tilesRevision: number; readonly showResourceOverlay?: boolean },
   tile: Tile,
   wx: number, wy: number, px: number, py: number, size: number
 ): void => {
   if (!isNetworkResource(tile.resource)) deps.drawForestOverlay(wx, wy, px, py, size);
   deps.drawHillsOverlay(wx, wy, px, py, size);
-  if (tile.ownerId) {
+  // Resources lens: the resource colour replaces territory paint, and tiles without a resource get none.
+  const lensColor = resourceLensTileColor(state, tile);
+  if (lensColor) drawResourceLensTile2D(deps.ctx, lensColor, px, py, size);
+  else if (tile.ownerId && lensColor === undefined) {
     const ownerId = tile.ownerId;
     const edgeMask = tile.ownershipState === "SETTLED"
       ? settledEdgeMaskCached(`${ownerId}|${wx},${wy}`, state.tilesRevision, () =>

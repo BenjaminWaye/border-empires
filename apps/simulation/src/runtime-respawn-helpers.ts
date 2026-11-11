@@ -1,5 +1,5 @@
-import { TOWN_REACH_RADIUS, WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY, type PlayerRespawnNotice, type PlayerRespawnReasonCode } from "@border-empires/shared";
-import { STARTING_CAPITAL_MANPOWER_CAP, TOWN_MANPOWER_BY_TIER, hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite, starterSiteQuality, type DomainTileState } from "@border-empires/game-domain";
+import { TOWN_REACH_RADIUS, WORLD_WIDTH, WORLD_HEIGHT, isAfcFootprintClear, wrapX, wrapY, type PlayerRespawnNotice, type PlayerRespawnReasonCode } from "@border-empires/shared";
+import { STARTING_CAPITAL_MANPOWER_CAP, TOWN_MANPOWER_BY_TIER, starterSiteQuality, type DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { buildRewritePlayerRespawnNotice, type PendingRespawnNoticeContext } from "./player-respawn-notice.js";
 import { chooseLegacySpawnPlacement, RALLY_SPAWN_RADIUS, type LegacySpawnPlacementInput } from "./spawn-placement/spawn-placement.js";
@@ -53,12 +53,8 @@ const isSpawnableTile = (ctx: RuntimeRespawnContext, blockedTileKeys: ReadonlySe
   const tile = ctx.tiles.get(simulationTileKey(x, y));
   if (!tile || tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return false;
   if (blockedTileKeys.has(simulationTileKey(x, y))) return false;
-  // AFC dry-footprint rule: a precomputed site (possibly from a roster built
-  // before this rule existed) next to water is skipped, not handed out.
-  if (hasWaterNeighbor(terrainLookup(ctx), x, y)) return false;
-  // Same for towns/docks/resources on or around the site -- re-checked against
-  // live tiles, since the roster was computed from worldgen-time tiles.
-  if (!isAfcSiteClear((nx, ny) => tileBlocksAfcSite(ctx.tiles.get(simulationTileKey(nx, ny))), x, y)) return false;
+  // Recheck the dry, unobstructed footprint against live tiles before using a roster site.
+  if (!isAfcFootprintClear((nx, ny) => ctx.tiles.get(simulationTileKey(nx, ny)), x, y)) return false;
   // A neutral tile can already belong to a rival's reach. The AFC's opening
   // disk must be uncontested, otherwise nearby neutral goals cannot be claimed.
   for (let dy = -TOWN_REACH_RADIUS; dy <= TOWN_REACH_RADIUS; dy += 1) {
