@@ -25,7 +25,7 @@ export type RegisterAdminTileVisibilityRouteDeps = {
 const asInt = (value: unknown): number | undefined => {
   if (typeof value !== "string" || value.trim() === "") return undefined;
   const parsed = Number(value);
-  return Number.isInteger(parsed) ? parsed : undefined;
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
 };
 
 export const parseTileVisibilityQuery = (raw: Record<string, unknown>): TileVisibilityQuery | undefined => {
@@ -40,11 +40,18 @@ export const parseTileVisibilityQuery = (raw: Record<string, unknown>): TileVisi
 /** The sim loopback URL for `query`, resolved against the sim's /metrics URL (same host and port). */
 export const simTileVisibilityUrl = (simMetricsUrl: string, query: TileVisibilityQuery): string => {
   const url = new URL("/debug/tile-visibility", simMetricsUrl);
+  if (url.hostname === "0.0.0.0") url.hostname = "127.0.0.1";
   url.searchParams.set("playerId", query.playerId);
   url.searchParams.set("x", String(query.x));
   url.searchParams.set("y", String(query.y));
   url.searchParams.set("radius", String(query.radius));
   return url.toString();
+};
+
+export const fetchSimTileVisibility = async (simMetricsUrl: string, query: TileVisibilityQuery): Promise<unknown> => {
+  const response = await fetch(simTileVisibilityUrl(simMetricsUrl, query), { signal: AbortSignal.timeout(5000) });
+  if (!response.ok) throw new Error(`Simulation tile visibility returned HTTP ${response.status}`);
+  return response.json();
 };
 
 export const registerAdminTileVisibilityRoute = (app: FastifyInstance, deps: RegisterAdminTileVisibilityRouteDeps): void => {

@@ -48,7 +48,7 @@ export type TileVisibilityDebugReport = {
 
 export type TileVisibilityDebugDeps = {
   readonly allies: (playerId: string) => readonly string[] | undefined;
-  readonly classify: (playerId: string) => RuntimeVisibilityClassification;
+  readonly classify: (playerId: string, tileKeys: readonly string[]) => RuntimeVisibilityClassification;
   readonly hasFullVision: (playerId: string) => boolean;
   readonly tileAt: (tileKey: string) => DomainTileState | undefined;
   readonly reachOwnerAt: (x: number, y: number) => string | undefined;
@@ -70,29 +70,33 @@ export const buildTileVisibilityDebugReport = (
 ): TileVisibilityDebugReport => {
   const radius = Math.max(0, Math.min(TILE_VISIBILITY_DEBUG_MAX_RADIUS, Math.floor(query.radius)));
   const allies = deps.allies(query.playerId);
-  const classification = deps.classify(query.playerId);
   const fullVisionActive = deps.hasFullVision(query.playerId);
-  const tiles: TileVisibilityDebugTile[] = [];
+  const centerX = wrap(query.x, WORLD_WIDTH);
+  const centerY = wrap(query.y, WORLD_HEIGHT);
+  const points: { x: number; y: number; tileKey: string }[] = [];
   for (let dy = -radius; dy <= radius; dy += 1) {
     for (let dx = -radius; dx <= radius; dx += 1) {
-      const x = wrap(query.x + dx, WORLD_WIDTH);
-      const y = wrap(query.y + dy, WORLD_HEIGHT);
-      const tileKey = simulationTileKey(x, y);
-      const reasons = [...classification.coverageReasonsForTile(tileKey), ...extraReasons(classification, tileKey)];
-      if (fullVisionActive) reasons.push("full-vision");
-      const tile = deps.tileAt(tileKey);
-      const reachOwnerId = deps.reachOwnerAt(x, y);
-      tiles.push({
-        x,
-        y,
-        visible: fullVisionActive || classification.visibleKeys.has(tileKey),
-        reasons,
-        ...(tile?.ownerId ? { ownerId: tile.ownerId } : {}),
-        ...(tile?.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-        ...(reachOwnerId ? { reachOwnerId } : {})
-      });
+      const x = wrap(centerX + dx, WORLD_WIDTH);
+      const y = wrap(centerY + dy, WORLD_HEIGHT);
+      points.push({ x, y, tileKey: simulationTileKey(x, y) });
     }
   }
+  const classification = deps.classify(query.playerId, points.map(({ tileKey }) => tileKey));
+  const tiles = points.map(({ x, y, tileKey }): TileVisibilityDebugTile => {
+    const reasons = [...classification.coverageReasonsForTile(tileKey), ...extraReasons(classification, tileKey)];
+    if (fullVisionActive) reasons.push("full-vision");
+    const tile = deps.tileAt(tileKey);
+    const reachOwnerId = deps.reachOwnerAt(x, y);
+    return {
+      x,
+      y,
+      visible: fullVisionActive || classification.visibleKeys.has(tileKey),
+      reasons,
+      ...(tile?.ownerId ? { ownerId: tile.ownerId } : {}),
+      ...(tile?.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+      ...(reachOwnerId ? { reachOwnerId } : {})
+    };
+  });
   return { playerId: query.playerId, playerKnown: allies !== undefined, allies: [...(allies ?? [])].sort(), fullVisionActive, tiles };
 };
 
@@ -103,12 +107,17 @@ export const parseTileVisibilityDebugQuery = (params: URLSearchParams): TileVisi
     const raw = params.get(name)?.trim();
     if (!raw) return undefined;
     const value = Number(raw);
-    return Number.isInteger(value) ? value : undefined;
+    return Number.isSafeInteger(value) ? value : undefined;
   };
   const playerId = params.get("playerId")?.trim();
   const x = intParam("x");
   const y = intParam("y");
   const radius = params.has("radius") ? intParam("radius") : 0;
-  if (!playerId || x === undefined || y === undefined || radius === undefined || radius < 0) return undefined;
+  if (!playerId || x === undefined || y === undefined || radius === undefined || radius < 0 || radius > TILE_VISIBILITY_DEBUG_MAX_RADIUS) return undefined;
   return { playerId, x, y, radius };
 };
+
+
+/** This admin-only diagnostic is available to local callers of the metrics listener. */
+export const isTileVisibilityDebugLocal = (address: string | undefined): boolean =>
+  address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";

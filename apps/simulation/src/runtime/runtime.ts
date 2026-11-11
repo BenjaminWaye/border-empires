@@ -2079,7 +2079,7 @@ export class SimulationRuntime {
   tileVisibilityDebug(query: TileVisibilityDebugQuery): TileVisibilityDebugReport {
     return buildTileVisibilityDebugReport({
       allies: (id) => { const player = this.state.players.get(id); return player ? [...player.allies] : undefined; },
-      classify: (id) => this.classifyVisibilityForPlayer(id),
+      classify: (id, onlyTileKeys) => classifyVisibilityForPlayerForRuntime({ ...createClassifyVisibilityContext(this.state, () => {}, this.trackSyncMainThreadTask), onlyTileKeys }, id),
       hasFullVision: (id) => this.getAbilityCooldownUntil(id, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > this.now(),
       tileAt: (tileKey) => this.state.tiles.get(tileKey),
       reachOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y)

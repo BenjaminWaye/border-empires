@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import Fastify from "fastify";
 
 import {
+  fetchSimTileVisibility,
   parseTileVisibilityQuery,
   registerAdminTileVisibilityRoute,
   simTileVisibilityUrl,
@@ -52,6 +53,19 @@ describe("GET /admin/debug/tile-visibility", () => {
     expect(response.json()).toEqual({ ok: true, playerId: "human-1", tiles: [{ x: 1, y: 2, visible: true, reasons: ["reach:self"] }] });
   });
 
+  it("does not return an upstream JSON error as HTTP 200", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({ error: "missing" }, { status: 404 }));
+    const app = appWith({ getSimTileVisibility: (query) => fetchSimTileVisibility("http://127.0.0.1:50052/metrics", query) });
+    try {
+      const response = await app.inject({ method: "GET", url: "/admin/debug/tile-visibility?playerId=p&x=1&y=2", headers: authed });
+      expect(response.statusCode).toBe(503);
+      expect(response.json()).toEqual({ ok: false, error: "Simulation tile visibility returned HTTP 404" });
+    } finally {
+      fetchMock.mockRestore();
+      await app.close();
+    }
+  });
+
   it("reports a sim failure as 503", async () => {
     const app = appWith({ getSimTileVisibility: async () => { throw new Error("sim down"); } });
     const response = await app.inject({ method: "GET", url: "/admin/debug/tile-visibility?playerId=p&x=1&y=2", headers: authed });
@@ -66,7 +80,7 @@ describe("tile visibility helpers", () => {
   });
 
   it("builds the loopback URL on the sim metrics host and port", () => {
-    expect(simTileVisibilityUrl("http://127.0.0.1:50052/metrics", { playerId: "a b", x: 4, y: 5, radius: 1 })).toBe(
+    expect(simTileVisibilityUrl("http://0.0.0.0:50052/metrics", { playerId: "a b", x: 4, y: 5, radius: 1 })).toBe(
       "http://127.0.0.1:50052/debug/tile-visibility?playerId=a+b&x=4&y=5&radius=1"
     );
   });

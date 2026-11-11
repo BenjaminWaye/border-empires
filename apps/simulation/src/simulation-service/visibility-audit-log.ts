@@ -18,6 +18,7 @@ export const createVisibilityAuditHandler = (
   const attributedEnabled = env.SIMULATION_VISIBILITY_AUDIT === "1";
   const dedupMs = Math.max(1000, Number(env.SIMULATION_VISIBILITY_AUDIT_DEDUP_MS ?? 30_000));
   const dedup = new Map<string, number>();
+  let evictions = 0;
   return (sample) => {
     const isUnattributed = sample.reasons.length === 0;
     if (!isUnattributed && !attributedEnabled) return;
@@ -25,11 +26,16 @@ export const createVisibilityAuditHandler = (
     const at = Date.now();
     const last = dedup.get(dedupKey);
     if (last !== undefined && at - last < dedupMs) return;
+    dedup.delete(dedupKey);
     dedup.set(dedupKey, at);
     if (dedup.size > DEDUP_MAX_ENTRIES) {
-      const cutoff = at - dedupMs * 5;
-      for (const [key, ts] of dedup) {
-        if (ts < cutoff) dedup.delete(key);
+      const oldest = dedup.keys().next().value;
+      if (oldest !== undefined) dedup.delete(oldest);
+      evictions += 1;
+      if (evictions === 1 || evictions % 1000 === 0) {
+        emitLog("warn", "simulation visibility audit dedup capacity reached", {
+          event: "sim_visibility_audit_dedup_evictions", evictions, entries: dedup.size
+        });
       }
     }
     emitLog(isUnattributed ? "warn" : "info", "simulation visibility audit", {

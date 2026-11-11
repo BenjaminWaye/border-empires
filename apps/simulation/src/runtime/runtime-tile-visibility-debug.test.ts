@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
 import { buildPlayer } from "./runtime.test-helpers.js";
-import { parseTileVisibilityDebugQuery, TILE_VISIBILITY_DEBUG_MAX_RADIUS } from "./runtime-tile-visibility-debug.js";
+import { isTileVisibilityDebugLocal, parseTileVisibilityDebugQuery, TILE_VISIBILITY_DEBUG_MAX_RADIUS } from "./runtime-tile-visibility-debug.js";
 
 const runtimeWith = (allies: string[] = []) =>
   new SimulationRuntime({
@@ -53,6 +53,18 @@ describe("runtime.tileVisibilityDebug", () => {
     expect(corner.y).toBeGreaterThan(0);
   });
 
+  it("does not refresh manpower or iterate the viewer's full coverage", () => {
+    const runtime = runtimeWith(["rival"]);
+    const player = runtime["state"].players.get("viewer")!;
+    const coverage = vi.spyOn(runtime["state"].visibilityCoverage, "forEachVisibleKey");
+    const advanceLedger = vi.spyOn(runtime["resourceSupply"]!.ledger, "advanceTo");
+    const before = { ...player };
+    runtime.tileVisibilityDebug({ playerId: "viewer", x: 10, y: 10, radius: 0 });
+    expect(coverage).not.toHaveBeenCalled();
+    expect(advanceLedger).not.toHaveBeenCalled();
+    expect(player).toEqual(before);
+  });
+
   it("flags an unknown player instead of throwing", () => {
     const report = runtimeWith().tileVisibilityDebug({ playerId: "nobody", x: 10, y: 10, radius: 0 });
     expect(report.playerKnown).toBe(false);
@@ -66,8 +78,19 @@ describe("parseTileVisibilityDebugQuery", () => {
   });
 
   it("rejects missing or non-integer values", () => {
-    for (const query of ["x=3&y=4", "playerId=p&x=3", "playerId=p&x=a&y=4", "playerId=p&x=3&y=4&radius=-1"]) {
+    for (const query of ["x=3&y=4", "playerId=p&x=3", "playerId=p&x=a&y=4", "playerId=p&x=3&y=4&radius=-1", "playerId=p&x=3&y=4&radius=9", "playerId=p&x=9007199254740992&y=4"]) {
       expect(parseTileVisibilityDebugQuery(new URLSearchParams(query))).toBeUndefined();
     }
+  });
+});
+
+
+describe("tile visibility debug peer check", () => {
+  it("allows localhost and denies non-loopback connections", () => {
+    expect(isTileVisibilityDebugLocal("127.0.0.1")).toBe(true);
+    expect(isTileVisibilityDebugLocal("::ffff:127.0.0.1")).toBe(true);
+    expect(isTileVisibilityDebugLocal("::1")).toBe(true);
+    expect(isTileVisibilityDebugLocal("172.18.0.2")).toBe(false);
+    expect(isTileVisibilityDebugLocal(undefined)).toBe(false);
   });
 });
