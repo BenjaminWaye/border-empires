@@ -42,7 +42,7 @@ export const parseClaimContinuationSetPayload = (payloadJson: string): ClaimCont
       y: parsed.y,
       tileKey: `${parsed.x},${parsed.y}`,
       ...(typeof parsed.structureType === "string" ? { structureType: parsed.structureType } : {}),
-      ...(typeof parsed.structureType === "string" && isChosenStructureTier(parsed.tier) ? { tier: parsed.tier } : {})
+      ...((parsed.structureType === "FORT" || parsed.structureType === "SIEGE_BATTERY") && isChosenStructureTier(parsed.tier) ? { tier: parsed.tier } : {})
     };
   } catch {
     return null;

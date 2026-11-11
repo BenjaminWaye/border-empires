@@ -41,7 +41,8 @@ export const parseDevQueueEnqueuePayload = (payloadJson: string): DevQueueEnqueu
       tileKey: parsed.tileKey,
       kind: parsed.kind,
       ...(typeof parsed.structureType === "string" ? { structureType: parsed.structureType } : {}),
-      ...(isChosenStructureTier(parsed.tier) ? { tier: parsed.tier } : {})
+      // A tier only means something on a fort/siege BUILD; anything else is dropped, not stored.
+      ...(parsed.kind === "BUILD" && isChosenStructureTier(parsed.tier) ? { tier: parsed.tier } : {})
     };
   } catch {
     return null;

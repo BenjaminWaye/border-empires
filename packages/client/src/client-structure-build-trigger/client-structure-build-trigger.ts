@@ -1,6 +1,6 @@
 // Split out of client-action-flow.ts (already over the repo's 500-line
 // file-growth cap) so this file can grow independently.
-import { structureRequiresTownOrSupportTile, type BuildableStructureType, type ChosenStructureTier } from "@border-empires/shared";
+import { chosenStructureTierLabel, structureRequiresTownOrSupportTile, type BuildableStructureType, type ChosenStructureTier } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile } from "../client-types.js";
 
@@ -29,7 +29,7 @@ export const dispatchGenericBuild = (structureType: BuildableStructureType, tile
     {
       x: tile.x,
       y: tile.y,
-      label: `${deps.structureDisplayLabel(structureType)} at (${tile.x}, ${tile.y})`,
+      label: `${tier ? chosenStructureTierLabel(tier) : deps.structureDisplayLabel(structureType)} at (${tile.x}, ${tile.y})`,
       optimisticKind: structureType as OptimisticStructureKind
     }
   );

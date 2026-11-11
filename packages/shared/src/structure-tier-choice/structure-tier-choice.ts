@@ -33,6 +33,10 @@ export const isChosenSiegeTier = (value: unknown): value is SiegeBatteryVariant 
   typeof value === "string" && (SIEGE_TIER_ORDER as readonly string[]).includes(value);
 export const isChosenStructureTier = (value: unknown): value is ChosenStructureTier => isChosenFortTier(value) || isChosenSiegeTier(value);
 
+/** Display name of a chosen tier ("Titanium Bastion", "Siege Tower"). */
+export const chosenStructureTierLabel = (tier: ChosenStructureTier): string =>
+  isChosenFortTier(tier) ? FORT_VARIANT_LABELS[tier] : SIEGE_VARIANT_LABELS[tier];
+
 /** The tech id that unlocks `variant`, or undefined for a base tier (Palisade, Fort, Siege Battery). */
 export const fortTierTechId = (variant: FortVariant): string | undefined => FORT_TIER_TECH_IDS[variant];
 export const siegeTierTechId = (variant: SiegeBatteryVariant): string | undefined => SIEGE_TIER_TECH_IDS[variant];

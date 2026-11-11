@@ -31,7 +31,7 @@ describe("Fortify / Siege picker tier", () => {
     expect(sendDevelopmentBuild).toHaveBeenCalledWith(
       { type: "BUILD_STRUCTURE", x: 2, y: 3, structureType: "FORT", tier: "TITANIUM_BASTION" },
       expect.any(Function),
-      expect.objectContaining({ x: 2, y: 3 })
+      expect.objectContaining({ x: 2, y: 3, label: "Titanium Bastion at (2, 3)" })
     );
     expect(applyOptimisticStructureBuild).toHaveBeenCalledWith(2, 3, "FORT", "TITANIUM_BASTION");
   });
