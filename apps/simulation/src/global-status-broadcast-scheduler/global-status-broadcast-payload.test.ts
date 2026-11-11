@@ -30,7 +30,7 @@ const setup = (initialPlayers: LeaderboardPlayer[] = [{ id: "p1", name: "Waypoin
     getSelfProgress: emptySelfProgressCache
   } as unknown as GlobalStatusBroadcastPayloadDeps;
   const swapRuntime = (players: LeaderboardPlayer[]) => { runtime = { getPlayersForLeaderboard: () => players }; };
-  return { deps, written, swapRuntime };
+  return { deps, written, swapRuntime, currentSummary: () => summary };
 };
 
 describe("GLOBAL_STATUS_UPDATE payload", () => {
@@ -49,11 +49,13 @@ describe("GLOBAL_STATUS_UPDATE payload", () => {
   // Economic Ascendancy holder until the sim restarted, because the
   // broadcaster held the pre-rollover runtime instead of reading the live one.
   it("reads the leaderboard from the runtime that is live at broadcast time", async () => {
-    const { deps, written, swapRuntime } = setup([{ id: "old-leader", name: "Waypoint", points: 2338, settledTileCount: 900, techIds: [] }]);
+    const { deps, written, swapRuntime, currentSummary } = setup([{ id: "old-leader", name: "Waypoint", points: 2338, settledTileCount: 900, techIds: [] }]);
     const broadcast = createGlobalStatusBroadcastPayload(deps);
     swapRuntime([{ id: "p1", name: "Fresh", points: 1, settledTileCount: 1, techIds: [] }]);
     await broadcast.perform("cmd-after-rollover");
     const payload = JSON.parse(written[0]!.payload_json ?? "{}") as { leaderboard?: { overall?: Array<{ id: string }> } };
     expect(payload.leaderboard?.overall?.map((entry) => entry.id)).toEqual(["p1"]);
+    // The refreshed leaderboard is also written back to the summary new logins read.
+    expect(currentSummary().leaderboard.overall.map((entry) => entry.id)).toEqual(["p1"]);
   });
 });

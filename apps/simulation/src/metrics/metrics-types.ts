@@ -269,6 +269,8 @@ export type SimulationMetricsSnapshot = {
   simSeasonGuestPlayers: number;
   /** Economy accruals where an inactive (>24h) human's converter gold upkeep was netted against income. */
   simUpkeepNettedWhileIncomePausedTotal: number;
+  /** Season-summary recomputes discarded because a season rollover swapped the runtime mid-export. */
+  simSummaryRecomputeStaleRuntimeTotal: number;
   /** auth_recovery respawn placed via ensurePlayerHasSpawnTerritory (overwrites the player's prior empire). */
   simAuthRecoveryRespawnTotal: number;
   /** auth_recovery respawn suppressed by the world-sanity guard (ctx.tiles empty at check time). */
