@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAMERA_LOCATION_BY_PLAYER_STORAGE_KEY } from "../client-constants.js";
 import {
   MAX_STORED_CAMERA_ACCOUNTS,
+  clearStoredCameraLocations,
+  prepareCameraForIncomingPlayer,
   cameraLocationInitialState,
   reconcileStoredCameraForPlayer,
   readStoredCameraLocationForPlayer,
@@ -86,5 +88,47 @@ describe("per-account camera storage", () => {
     expect(Object.keys(stored)).toHaveLength(MAX_STORED_CAMERA_ACCOUNTS);
     expect(readStoredCameraLocationForPlayer("p0")).toBeNull();
     expect(readStoredCameraLocationForPlayer(`p${MAX_STORED_CAMERA_ACCOUNTS}`)?.x).toBe(MAX_STORED_CAMERA_ACCOUNTS);
+  });
+
+  // Review finding: a stale-season save for one account (or a join-season
+  // spawn) used to wipe every account's saved spot on the browser.
+  it("clearing one account's camera leaves the other accounts' spots alone", () => {
+    writeStoredCameraLocation({ x: 10, y: 20, zoom: 30, seasonId: "s1", playerId: "alice" }, 1);
+    writeStoredCameraLocation({ x: 400, y: 290, zoom: 50, seasonId: "s2", playerId: "bob" }, 2);
+
+    clearStoredCameraLocations("alice");
+
+    expect(readStoredCameraLocationForPlayer("alice")).toBeNull();
+    expect(readStoredCameraLocationForPlayer("bob")?.x).toBe(400);
+    // Bob's "last account" slot survives too, so his next load still restores at boot.
+    expect(bootState().cameraRestoredPlayerId).toBe("bob");
+  });
+
+  it("clearing without an account forgets every account", () => {
+    writeStoredCameraLocation({ x: 10, y: 20, zoom: 30, seasonId: "s1", playerId: "alice" }, 1);
+    clearStoredCameraLocations();
+    expect(readStoredCameraLocationForPlayer("alice")).toBeNull();
+    expect(bootState().cameraRestoredFromStorage).toBe(false);
+  });
+
+  // Review finding: a guest rejected for a full Sector is signed out without
+  // a reload; signing in as another account on that page kept the guest's camera.
+  it("swaps to the new account's spot on an in-place account switch", () => {
+    writeStoredCameraLocation({ x: 10, y: 20, zoom: 30, seasonId: "s1", playerId: "alice" }, 1);
+    const state = { ...bootState(), me: "guest-1", camX: 999, camY: 999, cameraRestoredFromStorage: false };
+
+    expect(prepareCameraForIncomingPlayer(state, "alice", false)).toBe(true);
+
+    expect(state.cameraRestoredFromStorage).toBe(true);
+    expect([state.camX, state.camY]).toEqual([10, 20]);
+  });
+
+  it("does not touch the camera on a reconnect INIT for the same account", () => {
+    const state = { ...bootState(), me: "alice", camX: 900, camY: 800, cameraRestoredFromStorage: false };
+
+    expect(prepareCameraForIncomingPlayer(state, "alice", false)).toBe(false);
+
+    expect([state.camX, state.camY]).toEqual([900, 800]);
+    expect(state.cameraRestoredFromStorage).toBe(false);
   });
 });

@@ -35,7 +35,7 @@ import { applyInitSocialState } from "./apply-init-social-state.js";
 import { applyInitNextContest } from "../client-next-contest/client-next-contest.js";
 import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { applySeasonChangeOnInit } from "../client-season-rollover/client-season-rollover.js";
-import { reconcileStoredCameraForPlayer } from "../client-state/client-camera-storage.js";
+import { prepareCameraForIncomingPlayer } from "../client-state/client-camera-storage.js";
 import { resetServerReachForNewConnection } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
 import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
@@ -137,9 +137,9 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.me === incomingPlayerId &&
     state.tiles.size > 0 &&
     state.discoveredTiles.size > 0;
-  // Logging out reloads the page, so the camera restored at boot is whichever
-  // account last saved on this browser -- swap in this account's own spot.
-  if (isFirstInitThisSession) reconcileStoredCameraForPlayer(state, incomingPlayerId);
+  // The camera restored at boot (or kept across an in-place sign-out) is
+  // whichever account last saved on this browser -- swap in this account's own.
+  const accountSwitchedInPlace = prepareCameraForIncomingPlayer(state, incomingPlayerId, isFirstInitThisSession);
   const seasonRolledOverInSession = applySeasonChangeOnInit(state, incomingSeason?.seasonId);
   resetServerReachForNewConnection(state, !seasonRolledOverInSession && incomingPlayerId.length > 0 && state.me === incomingPlayerId); // before state.me is overwritten below
   // Set here, before the initial tile snapshot is applied below -- its muster-unlock pass needs the CURRENT season id, not the previous session's.
@@ -346,7 +346,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     // so this was silently discarding the restore before the player ever saw it.
     // Also never snap on a reconnect's INIT (isFirstInitThisSession false) — the
     // camera already reflects wherever the player was before the drop.
-    if ((isFirstInitThisSession || seasonRolledOverInSession) && !state.cameraRestoredFromStorage) {
+    if ((isFirstInitThisSession || seasonRolledOverInSession || accountSwitchedInPlace) && !state.cameraRestoredFromStorage) {
       state.camX = homeTile.x; state.camY = homeTile.y;
       state.camSubX = 0; state.camSubY = 0;
     }

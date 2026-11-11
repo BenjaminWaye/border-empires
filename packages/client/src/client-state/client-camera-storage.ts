@@ -97,13 +97,44 @@ export const writeStoredCameraLocation = (location: { x: number; y: number; zoom
   storageSet(CAMERA_LOCATION_BY_PLAYER_STORAGE_KEY, JSON.stringify(Object.fromEntries(kept)));
 };
 
-export const clearStoredCameraLocations = (): void => {
+// With a playerId, forgets only that account's position (and the "last
+// account" slot if it is theirs), so one account's stale-season or
+// pre-spawn camera doesn't wipe the other accounts on this browser. Without
+// one (a season rollover seen live), forgets every account.
+export const clearStoredCameraLocations = (playerId?: string): void => {
   try {
-    window.localStorage.removeItem(CAMERA_LOCATION_STORAGE_KEY);
-    window.localStorage.removeItem(CAMERA_LOCATION_BY_PLAYER_STORAGE_KEY);
+    if (!playerId) {
+      window.localStorage.removeItem(CAMERA_LOCATION_STORAGE_KEY);
+      window.localStorage.removeItem(CAMERA_LOCATION_BY_PLAYER_STORAGE_KEY);
+      return;
+    }
+    if (readStoredCameraLocation()?.playerId === playerId) window.localStorage.removeItem(CAMERA_LOCATION_STORAGE_KEY);
+    const byPlayer = readCameraLocationsByPlayer();
+    if (!(playerId in byPlayer)) return;
+    delete byPlayer[playerId];
+    storageSet(CAMERA_LOCATION_BY_PLAYER_STORAGE_KEY, JSON.stringify(byPlayer));
   } catch {
     // Ignore storage failures in restricted browser contexts.
   }
+};
+
+// Account switches normally reload the page (settings logout), but a guest
+// rejected for a full Sector is signed out in place and can sign in as
+// someone else on the same page. Treat that INIT like a fresh load for the
+// new account: restore its own saved spot or let INIT centre on its home.
+// Returns true when the camera should be (re)placed for a new account.
+export const prepareCameraForIncomingPlayer = (
+  state: Parameters<typeof reconcileStoredCameraForPlayer>[0] & { me: string },
+  incomingPlayerId: string,
+  isFirstInitThisSession: boolean
+): boolean => {
+  const switchedInPlace = !isFirstInitThisSession && state.me !== "" && incomingPlayerId !== "" && state.me !== incomingPlayerId;
+  if (switchedInPlace) {
+    state.cameraRestoredFromStorage = true;
+    state.cameraRestoredPlayerId = state.me;
+  }
+  if (isFirstInitThisSession || switchedInPlace) reconcileStoredCameraForPlayer(state, incomingPlayerId);
+  return switchedInPlace;
 };
 
 // Called once on the first INIT of a page load, when the server finally says

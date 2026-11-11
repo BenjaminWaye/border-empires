@@ -26,7 +26,7 @@ export const saveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "z
 // season. Called on SEASON_ROLLOVER so the player doesn't land on darkness.
 // Also cancels any pending camera save to prevent a race condition where a
 // scheduled save could re-persist the old coordinates after this clears them.
-export const clearCameraLocation = (): void => {
+export const clearCameraLocation = (playerId?: string): void => {
   // Cancel any pending save that might fire after we clear localStorage
   if (pendingSaveTask !== undefined) {
     if (typeof cancelIdleCallback === "function") {
@@ -38,7 +38,7 @@ export const clearCameraLocation = (): void => {
   }
   // Reset throttle so even if a save was in progress, future saves restart fresh
   lastCameraSaveAt = 0;
-  clearStoredCameraLocations();
+  clearStoredCameraLocations(playerId);
 };
 
 const CAMERA_SAVE_THROTTLE_MS = 1_000;

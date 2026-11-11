@@ -162,6 +162,27 @@ describe("INIT camera-restore regression", () => {
     expect(state.camY).toBe(40);
   });
 
+  it("centers on the new account's home tile after an in-place sign-out and sign-in", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+    sendInit(ws); // player-1 is now state.me; hasEverInitialized is true
+    state.camX = 900;
+    state.camY = -200;
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-2", name: "Player 2", points: 5, level: 1, stamina: 0, homeTile: { x: 70, y: 80 } },
+        config: {},
+        recovery: { nextClientSeq: 1, pendingCommands: [] }
+      })
+    });
+
+    expect(state.camX).toBe(70);
+    expect(state.camY).toBe(80);
+  });
+
   it("still centers on the home tile when there is nothing to restore (unchanged default behavior)", () => {
     const state = createState();
     state.cameraRestoredFromStorage = false;
