@@ -65,16 +65,20 @@ export function notifyRelicCapture(existing: Tile | undefined, tile: Tile, viewe
   const first = !seen.includes(key);
   if (first) { try { localStorage.setItem(SEEN_KEY, JSON.stringify({ namespace, keys: [...seen, key].slice(-9) })); } catch { /* Storage is optional. */ } }
   const state = tile.naturalWonder;
+  const garrisoned = tile.ownershipState === "SETTLED";
   queueMicrotask(() => {
     if (first && !document.querySelector(".relic-capture-dialog[open]")) {
-      const dialog = createRelicCaptureDialog(state, tile.ownershipState === "SETTLED");
+      const dialog = createRelicCaptureDialog(state, garrisoned);
       dialog.addEventListener("close", () => dialog.remove(), { once: true }); document.body.append(dialog); dialog.showModal();
     } else {
       document.querySelector(".relic-recapture-notice")?.remove();
       if (noticeTimer !== undefined) window.clearTimeout(noticeTimer);
       const notice = document.createElement("div"); notice.className = "relic-recapture-notice"; notice.setAttribute("role", "status");
-      notice.textContent = `${RELIC_DEFINITIONS[state.type].name} secured. ${tile.ownershipState === "SETTLED" ? relicReserveLabel(state) ?? "" : "Garrison to activate."} `;
-      const button = document.createElement("button"); button.textContent = "View relic"; button.onclick = () => { showRelicDetails(state, tile.ownershipState === "SETTLED"); notice.remove(); }; notice.append(button); document.body.append(notice);
+      const status = relicOperationalState(state, garrisoned);
+      const reserve = status === "active" ? relicReserveLabel(state) : undefined;
+      const detail = status === "dormant" ? "Garrison to activate." : status === "depleted" ? "Depleted." : reserve ? `${reserve}.` : "";
+      notice.textContent = `${RELIC_DEFINITIONS[state.type].name} secured. ${detail} `;
+      const button = document.createElement("button"); button.textContent = "View relic"; button.onclick = () => { showRelicDetails(state, garrisoned); notice.remove(); }; notice.append(button); document.body.append(notice);
       noticeTimer = window.setTimeout(() => { notice.remove(); noticeTimer = undefined; }, 12000);
     }
   });
