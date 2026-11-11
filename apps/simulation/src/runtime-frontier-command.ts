@@ -1,5 +1,6 @@
 import { activeRelicTiles, consumeBattleRelics, type RelicMutationContext } from "./runtime-relics.js";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
+import type { DockLandingIndex } from "@border-empires/shared";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import {
   validateFrontierCommand
@@ -7,8 +8,6 @@ import {
 import {
   FRONTIER_CLAIM_COST,
   MUSTER_ATTACK_COST,
-  MUSTER_TRANSIT_MAX_TILES,
-  MUSTER_TRANSIT_MS_PER_TILE,
   anonymizedEmpireNameForId,
   afcExpandPricingFrontierCount,
   expandManpowerCostForFrontierCount,
@@ -16,13 +15,13 @@ import {
   isOpaquePlayerId
 } from "@border-empires/shared";
 import { isFrontierAdjacent } from "./frontier-adjacency/frontier-adjacency.js";
-import { chebyshevDistanceToroidal } from "./territory-automation/territory-automation.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { musterTransitMs } from "./muster-transit-delay/muster-transit-delay.js";
 import { parseFrontierPayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { lockSourceFromSessionId } from "./runtime-types.js";
-import type { LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtime-types.js";
-import type { DockCrossingOrigin } from "./runtime/runtime-crossing.js";
+import type { ActiveAetherBridgeView, LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtime-types.js";
+import { isAetherBridgeCrossingTarget, isDockCrossingTarget, type DockCrossingOrigin } from "./runtime/runtime-crossing.js";
 import type { LockedCombatInput } from "./runtime-combat-support.js";
 import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
@@ -74,8 +73,10 @@ export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   adjacentTileStates: (x: number, y: number) => DomainTileState[];
   findOwnedDockOriginForCrossing: (playerId: string, x: number, y: number) => DockCrossingOrigin | undefined;
   findOwnedAetherBridgeOriginForCrossing: (playerId: string, x: number, y: number) => DomainTileState | undefined;
-  isDockCrossingTarget: (from: DomainTileState, x: number, y: number) => boolean;
-  isAetherBridgeCrossingTarget: (playerId: string, x1: number, y1: number, x2: number, y2: number) => boolean;
+  /** Dock crossings: where a crossing from each dock may land (also routes a muster company's sea legs). */
+  dockLanding: DockLandingIndex;
+  /** The player's live aether bridges: bridge crossings, and a muster company crosses them on foot. */
+  activeAetherBridgesForPlayer: (playerId: string) => readonly ActiveAetherBridgeView[];
   crossingBlockedByAetherWall: (x1: number, y1: number, x2: number, y2: number) => boolean;
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1): true while the
   // tile's owner has an active Imperial Ward — blocks ATTACK-lock creation
@@ -167,8 +168,8 @@ export const handleFrontierCommandImpl = (
     return { accepted: false, code: "ORIGIN_CUT_OFF" };
   }
 
-  const isDockCrossing = ctx.isDockCrossingTarget(from, to.x, to.y);
-  const isBridgeCrossing = ctx.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y);
+  const isDockCrossing = isDockCrossingTarget(from, to.x, to.y, ctx.dockLanding);
+  const isBridgeCrossing = isAetherBridgeCrossingTarget(ctx.activeAetherBridgesForPlayer(actor.id), from.x, from.y, to.x, to.y);
   // EXPAND-into-a-rival's-reach carve-out: your border touches theirs right
   // here (origin is inside YOUR reach, target is inside THEIRS, and the two
   // are adjacent by construction below) -- open exactly enough ground to
@@ -283,7 +284,11 @@ export const handleFrontierCommandImpl = (
   // flag firing directly (adjacent to the target) still takes a moment,
   // matching the client's own Math.max(1, dist) floor.
   //
-  // Measured on the wrapping world and capped at MUSTER_TRANSIT_MAX_TILES:
+  // Measured along the company's real route (muster-transit-delay.ts): over
+  // land, and through a dock with a troop-transport crossing where the
+  // straight walk would cross water -- before that the company was charged the
+  // straight line and was drawn walking over the sea. The march part is
+  // capped at MUSTER_TRANSIT_MAX_TILES:
   // ADVANCE's range counts a dock crossing as one hop, and a march's travel
   // time stops growing past that cap however long its route (it is kept
   // separate from the march range so a longer march never locks a front for
@@ -291,6 +296,7 @@ export const handleFrontierCommandImpl = (
   // the map seam was charged its full straight-line distance -- an AI flag
   // ~120 tiles away locked both tiles for 4+ minutes while the defender saw
   // nothing approaching and couldn't counterattack the locked origin.
+  // A crossing adds its own sail time on top, capped at MUSTER_SAIL_MAX_MS.
   //
   // The flag itself -- not whatever intermediate owned tile the BFS launches
   // from -- is always the travel-time origin: MARCH/ADVANCE stamp
@@ -303,11 +309,7 @@ export const handleFrontierCommandImpl = (
   let transitMs = 0;
   if (lockSource === "automation" && payload.musterSourceX != null && payload.musterSourceY != null) {
     musterOrigin = { x: payload.musterSourceX, y: payload.musterSourceY };
-    const transitTiles = Math.min(
-      MUSTER_TRANSIT_MAX_TILES,
-      Math.max(1, chebyshevDistanceToroidal(musterOrigin.x, musterOrigin.y, validation.origin.x, validation.origin.y))
-    );
-    transitMs = transitTiles * MUSTER_TRANSIT_MS_PER_TILE;
+    transitMs = musterTransitMs({ tiles: ctx.tiles, dockLanding: ctx.dockLanding, playerId: actor.id, activeAetherBridgesForPlayer: ctx.activeAetherBridgesForPlayer, flag: musterOrigin, launch: validation.origin });
   }
   const transitEndsAt = transitMs > 0 ? ctx.now() + transitMs : undefined;
   // Steam Vanguard's attackResolveSpeedReduceMs shaves time off an ATTACK's

@@ -102,6 +102,14 @@ export const hudMarkup = `
             </span>
             <span>Continue with Google</span>
           </button>
+          <button id="auth-apple" class="panel-btn auth-apple-btn auth-primary-sso" hidden>
+            <span class="auth-sso-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path fill="currentColor" d="M16.37 12.73c-.03-2.63 2.15-3.9 2.25-3.96-1.23-1.8-3.14-2.04-3.82-2.07-1.62-.17-3.17.96-3.99.96-.83 0-2.09-.94-3.44-.91-1.76.03-3.39 1.03-4.3 2.61-1.84 3.18-.47 7.88 1.32 10.46.88 1.26 1.92 2.68 3.28 2.63 1.32-.05 1.82-.85 3.41-.85 1.6 0 2.04.85 3.43.82 1.42-.02 2.32-1.28 3.18-2.55 1.01-1.46 1.42-2.88 1.44-2.96-.03-.01-2.75-1.05-2.78-4.18ZM13.75 5.01c.72-.88 1.21-2.09 1.08-3.31-1.04.04-2.31.7-3.06 1.57-.67.77-1.26 2.02-1.1 3.21 1.16.09 2.35-.59 3.08-1.47Z"></path>
+              </svg>
+            </span>
+            <span>Continue with Apple</span>
+          </button>
           <button id="auth-twitch" class="panel-btn auth-twitch-btn auth-primary-sso">
             <span class="auth-twitch-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">

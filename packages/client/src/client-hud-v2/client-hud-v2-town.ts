@@ -18,6 +18,7 @@ import { townWorkHtml } from "./client-hud-v2-town-work.js";
 import { builtStructureFacts, townGrowth, type DormantResourcesFor, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
+import type { BuildPlacedOutcome } from "../client-queue-logic/client-build-placed-feedback.js";
 
 export type TownScreenInput = {
   town: Tile;
@@ -36,6 +37,10 @@ export type TownScreenInput = {
   autoSettle?: ClientAutoSettleState;
   /** Dormancy lookup (state.dormantStructures), so a building without its upkeep slot reads Dormant, not Active. */
   dormantResourcesFor?: DormantResourcesFor;
+  /** The "Build plots" card (client-hud-v2-town-plots.ts); the card is left out when absent. */
+  plotsHtml?: string;
+  /** A Place press's outcome while its confirmation shows on the button (set per press in runTileActionOn). */
+  placed?: BuildPlacedOutcome | undefined;
 };
 
 const esc = (text: string): string =>
@@ -83,8 +88,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   const stats = [
     { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(town.goldPerMinute * 1440)}/day` : "—", n: fed, tone: town.isFed === false ? " v2t-warn" : "" },
     { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: `Base town · +${fmt(manpowerPerBatch(manpower.regenPerMinute))} per batch regen`, tone: " v2t-gold" },
-    { k: "FOOD UPKEEP", v: `${townFoodSlotDemandForTier(town.populationTier)} slots`, n: "", tone: "" },
-    { k: "SUPPORT RING", v: known(town.supportCurrent) && known(town.supportMax) ? `${town.supportCurrent} / ${town.supportMax}` : "—", n: "", tone: "" }
+    { k: "FOOD UPKEEP", v: `${townFoodSlotDemandForTier(town.populationTier)} slots`, n: "", tone: "" }
   ];
   const built = (town.townModifierTotals ?? []).map((g) => `<div class="v2t-built"><span class="v2t-built-ico" aria-hidden="true"></span><span><span class="v2t-built-name">${esc(g.heading)}</span><span class="v2t-built-mods">${g.modifiers.map((m) => `<span class="v2t-mod-${m.tone}">${esc(m.statLabel)} ${esc(m.valueText)}</span>`).join(" · ")}</span></span></div>`).join("");
   const grow = [...input.townView.actions, ...input.townView.buildings].find((a) => GROW_IDS.has(a.id));
@@ -97,7 +101,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
       <button type="button" class="v2t-step" data-v2-town-step="1" aria-label="Next town"${input.townCount > 1 ? "" : " disabled"}>▷</button>
     </div>
     <div class="v2t-growth"><div class="v2t-growth-row"><span>${growthLabel}</span><span>${fmt(town.population)}${target ? ` / ${fmt(target)}` : ""}</span></div><div class="v2t-bar"><span style="width:${growthPct}%"></span></div>${growth ? `<div class="v2t-growth-row v2t-growth-rate${growth.paused ? " v2t-warn" : ""}"><span>${esc(growth.eta)}</span><span>${esc(growth.rate)}</span></div>` : ""}</div>
-    <div class="v2t-stats">${stats.map((s) => `<div class="v2t-stat"><span class="v2t-stat-k">${s.k}</span><span class="v2t-stat-v${s.tone}">${s.v}</span>${s.n ? `<span class="v2t-stat-n">${s.n}</span>` : ""}</div>`).join("")}</div>
+    <div class="v2t-stats">${stats.map((s) => `<div class="v2t-stat"><span class="v2t-stat-k">${s.k}</span><span class="v2t-stat-v${s.tone}">${s.v}</span>${s.n ? `<span class="v2t-stat-n">${s.n}</span>` : ""}</div>`).join("")}${input.plotsHtml ?? ""}</div>
     <div class="v2t-h">Town bonuses</div>${modifiers}
     ${built ? `<div class="v2t-h">In this town</div><div class="v2t-built-list" data-v2-scroll="town-built">${built}</div>` : ""}
     <div class="v2t-grow-wrap">${growHtml}</div>`;
@@ -131,7 +135,7 @@ const buildPanelHtml = (input: TownScreenInput): string => {
     ...(work.length > 0 ? { title: "In progress" } : built ? { title: "On this tile" } : {}),
     ...(lead ? { leadHtml: lead } : {})
   });
-  const place = buildPlaceHtml({ buildings: input.focusView.buildings, selection: input.buildSelection, targetKey: keyOf(input.focus), placeLabel, docked: true });
+  const place = buildPlaceHtml({ buildings: input.focusView.buildings, selection: input.buildSelection, targetKey: keyOf(input.focus), placeLabel, docked: true, placed: input.placed });
   return `${list}${place}`;
 };
 

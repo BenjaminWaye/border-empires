@@ -97,6 +97,15 @@ export const ADMIN_ROUTE_SECTIONS: AdminRouteSection[] = [
       },
       {
         method: "GET",
+        path: "/admin/debug/tile-visibility",
+        kind: "json",
+        auth: "read",
+        title: "Tile visibility",
+        description: "Why a player can see the tiles around a point: every vision source per tile (own land, reach, ally, town ring, beacon, dock reveal, combat lock). For fog reports.",
+        params: [{ name: "playerId", hint: "from /admin/players" }, { name: "x", hint: "tile x" }, { name: "y", hint: "tile y" }, { name: "radius", hint: "0 (0–8)" }]
+      },
+      {
+        method: "GET",
         path: "/admin/players/insights.json",
         kind: "json",
         auth: "read",

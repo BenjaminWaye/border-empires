@@ -31,7 +31,7 @@ describe("client state camera-location restore regression", () => {
 
   it("restores the last-viewed map location saved by saveCameraLocation()", () => {
     stubLocalStorage();
-    saveCameraLocation({ camX: 128, camY: -64, zoom: 40 });
+    saveCameraLocation({ me: "p1", camX: 128, camY: -64, zoom: 40 });
 
     const state = createInitialState();
     expect(state.camX).toBe(128);

@@ -23,7 +23,7 @@ import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-dia
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
 import { logSignUpConversion, logSignUpIfNewUser } from "./client-auth-flow-analytics.js";
 import { createSocketAuthenticator } from "./client-authenticate-socket.js";
-import { createSsoSignInHandler, DISCORD_PROVIDER_ID, signInProviderLabel, TWITCH_PROVIDER_ID } from "./client-auth-flow-sso.js";
+import { APPLE_PROVIDER_ID, createSsoSignInHandler, DISCORD_PROVIDER_ID, signInProviderLabel, TWITCH_PROVIDER_ID } from "./client-auth-flow-sso.js";
 import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from "../client-safe-storage/client-safe-storage.js";
 import { bindGuestPlay, markReturningAccount } from "../client-guest-play/client-guest-play.js";
 import { EMAIL_LINK_STORAGE_KEY, initGuestSave, linkOrSignInWithEmailLink } from "../client-guest-save/client-guest-save.js";
@@ -101,6 +101,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authGoogleBtn: dom.authGoogleBtn,
       authTwitchBtn: dom.authTwitchBtn,
       authDiscordBtn: dom.authDiscordBtn,
+      authAppleBtn: dom.authAppleBtn,
       authPlayNowBtn: dom.authPlayNowBtn,
       authEmailEl: dom.authEmailEl,
       authPasswordEl: dom.authPasswordEl,
@@ -258,6 +259,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     dom.authGoogleBtn.onclick = createSsoSignInHandler(ssoDeps, googleProvider && { provider: googleProvider, label: "Google", method: "google.com" });
     dom.authTwitchBtn.onclick = createSsoSignInHandler(ssoDeps, twitchProvider && { provider: twitchProvider, label: "Twitch", method: TWITCH_PROVIDER_ID });
     dom.authDiscordBtn.onclick = createSsoSignInHandler(ssoDeps, discordProvider && { provider: discordProvider, label: "Discord", method: DISCORD_PROVIDER_ID });
+    // Apple has no web provider yet: the button is shown only in the iOS app, which signs in natively.
+    if (dom.authAppleBtn) dom.authAppleBtn.onclick = createSsoSignInHandler(ssoDeps, { label: "Apple", method: APPLE_PROVIDER_ID });
 
     dom.authEmailLinkBtn.onclick = async () => {
       if (!firebaseAuth) return;

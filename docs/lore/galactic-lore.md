@@ -480,6 +480,10 @@ seagoing troop carriers. The carriers beach at the destination, lower their
 bow doors as ramps, and release infantry to fight inland. They remain at
 the beachhead until the engagement ends. These local amphibious transports
 are distinct from the offworld landing equipment used to establish an AFC.
+A company marching from a muster flag to a front across water boards the
+same carriers: it marches to the nearest dock, sails the sea lane, comes
+ashore at the far dock or a beach beside it, and marches on. Troops never
+cross open water on foot.
 
 ### Coin and local production
 

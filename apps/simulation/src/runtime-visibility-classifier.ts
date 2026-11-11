@@ -7,6 +7,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 export interface VisibilityCoverageReader {
+  isVisible(viewerId: string, tileKey: string): boolean;
   forEachVisibleKey(viewerId: string, cb: (key: string) => void): void;
   reasonsForTile(viewerId: string, tileKey: string): ReadonlySet<string>;
 }
@@ -47,6 +48,7 @@ export const classifyVisibilityForPlayer = (input: {
   // structure-only vision source (Relay Beacons) could show up live but
   // vanish on refresh.
   visibilityCoverage: VisibilityCoverageReader;
+  onlyTileKeys?: readonly string[];
 }): RuntimeVisibilityClassification => {
   const lockOriginKeys = new Set<string>();
   const dockRevealKeys = new Set<string>();
@@ -68,7 +70,13 @@ export const classifyVisibilityForPlayer = (input: {
   // tile at boot/mutation regardless of whether the owner has a player row,
   // defaulting to vision=1/no-allies for such ids, so it needs no special
   // fallback here.
-  input.visibilityCoverage.forEachVisibleKey(input.playerId, (key) => fullVisionKeys.add(key));
+  if (input.onlyTileKeys) {
+    for (const key of input.onlyTileKeys) {
+      if (input.visibilityCoverage.isVisible(input.playerId, key)) fullVisionKeys.add(key);
+    }
+  } else {
+    input.visibilityCoverage.forEachVisibleKey(input.playerId, (key) => fullVisionKeys.add(key));
+  }
 
   for (const lock of input.locksByTile.values()) {
     if (lock.playerId !== input.playerId) continue;

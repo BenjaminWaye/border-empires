@@ -2,7 +2,8 @@
    style.css, which is over the file-line cap; layout mirrors .auth-google-btn
    there. */
 .auth-twitch-btn,
-.auth-discord-btn {
+.auth-discord-btn,
+.auth-apple-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -19,6 +20,11 @@
 
 .auth-discord-btn {
   background: #5865f2;
+}
+
+/* Apple sign-in is native-iOS only; client-native-style.css reveals it there. */
+.auth-apple-btn[hidden] {
+  display: none;
 }
 
 .auth-discord-btn:hover:not(:disabled) {

@@ -25,7 +25,7 @@ export const parseJoinSeasonAckSpawnTile = (value: unknown): { x: number; y: num
 };
 
 export const applyJoinSeasonSpawnRecenter = (
-  state: Pick<ClientState, "homeTile" | "camX" | "camY" | "camSubX" | "camSubY">,
+  state: Pick<ClientState, "homeTile" | "camX" | "camY" | "camSubX" | "camSubY" | "me">,
   spawnTile: { x: number; y: number } | undefined,
   requestViewRefreshSafely: (radius?: number, force?: boolean) => void
 ): void => {
@@ -43,6 +43,6 @@ export const applyJoinSeasonSpawnRecenter = (
   // reload it and the player lands back on the meaningless position this
   // just overrode. Clear it so a reload instead falls through to the normal
   // homeTile-driven INIT recenter.
-  clearCameraLocation();
+  clearCameraLocation(state.me || undefined);
   requestViewRefreshSafely(undefined, true);
 };
