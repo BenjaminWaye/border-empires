@@ -268,6 +268,8 @@ export const createInitialState = () => ({
   // can dismiss it with "Look Around"; reset on SEASON_ROLLOVER.
   seasonEndDismissed: false,
   seasonEndStarting: false,
+  // Why the last START_NEW_SEASON was refused, shown on the season-end screen (client-next-contest.ts).
+  seasonStartError: undefined as string | undefined,
   seasonStats: undefined as SeasonStatsView | undefined, seasonScoreHistory: [] as ScoreHistorySeriesView[],
   seasonStartVoteCount: 0, seasonStartVoted: false, seasonStartVoteThreshold: NEXT_CONTEST_DEFAULT_THRESHOLD, // Houses committed to the next Sector Contest: client-next-contest.ts
   missions: [] as MissionState[],

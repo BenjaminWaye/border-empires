@@ -8,7 +8,8 @@ const makeDeps = (overrides: Partial<StartNewSeasonMessageDeps> = {}) => ({
   force: false,
   nextContest: {
     commit: vi.fn(async () => ({ ok: true as const, count: 1, started: false })),
-    forceStart: vi.fn(async (): Promise<{ seasonId: string } | undefined> => ({ seasonId: "s2" }))
+    forceStart: vi.fn(async (): Promise<{ seasonId: string } | undefined> => ({ seasonId: "s2" })),
+    isStarting: vi.fn(() => false)
   },
   sendError: vi.fn(),
   recordGatewayEvent: vi.fn(),
@@ -27,9 +28,19 @@ describe("handleStartNewSeasonMessage", () => {
   it("rejects force from a non-admin without committing or starting", async () => {
     const deps = makeDeps({ force: true });
     await handleStartNewSeasonMessage(deps);
-    expect(deps.sendError).toHaveBeenCalledWith("FORBIDDEN", expect.any(String));
+    expect(deps.sendError).toHaveBeenCalledWith("FORCE_START_FORBIDDEN", expect.any(String));
     expect(deps.nextContest.forceStart).not.toHaveBeenCalled();
     expect(deps.nextContest.commit).not.toHaveBeenCalled();
+  });
+
+  // Regression: repeated holds while the world was building each got a
+  // SEASON_NOT_READY error even though the first one had worked.
+  it("treats a force-start while one is already building as in progress, not an error", async () => {
+    const deps = makeDeps({ isAdmin: true, force: true });
+    deps.nextContest.isStarting.mockReturnValue(true);
+    await handleStartNewSeasonMessage(deps);
+    expect(deps.nextContest.forceStart).not.toHaveBeenCalled();
+    expect(deps.sendError).not.toHaveBeenCalled();
   });
 
   it("reports SEASON_NOT_READY when there is nothing to force-start", async () => {

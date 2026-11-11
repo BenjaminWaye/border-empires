@@ -7,6 +7,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   seasonWinner: undefined,
   seasonEndDismissed: false,
   seasonEndStarting: false,
+  seasonStartError: undefined as string | undefined,
   seasonStartVoteCount: 0, seasonStartVoted: false, seasonStartVoteThreshold: 10, authIsGuest: false, needsSeasonJoin: false, mapRevealEligible: false,
   leaderboard: {
     overall: [] as { id: string; rank: number; name: string; score: number; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number }[],
@@ -231,17 +232,35 @@ describe("season-end overlay", () => {
     expect(overlayEl.innerHTML).not.toContain("You: 20/87 towns");
   });
 
-  it("disables start button when seasonEndStarting is true", () => {
+  it("disables the committed House's button while the next contest starts", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({
       seasonWinner: makeWinner(),
       leaderboard: makeLeaderboard(),
-      seasonEndStarting: true
+      seasonEndStarting: true,
+      seasonStartVoted: true
     });
     renderSeasonEndOverlay({ state: state as any, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
     const newSeasonBtn = overlayEl.querySelector("#se-new-season") as HTMLButtonElement;
     expect(newSeasonBtn.disabled).toBe(true);
-    expect(overlayEl.innerHTML).toContain("Winding the Spring");
+    expect(overlayEl.innerHTML).toContain("Starting the next Sector Contest");
+    expect(overlayEl.querySelector(".se-fineprint")?.textContent).toContain("next world is being built");
+  });
+
+  // Regression: everyone's button was disabled during the build, so a House
+  // that hadn't committed couldn't join although the gateway still places
+  // late commits, and was promised an automatic start it wouldn't get.
+  it("keeps the join button live for uncommitted Houses while the next contest starts", () => {
+    const overlayEl = document.createElement("div");
+    let joined = 0;
+    const state = makeState({ seasonWinner: makeWinner(), leaderboard: makeLeaderboard(), seasonEndStarting: true });
+    renderSeasonEndOverlay({ state: state as any, overlayEl, renderHud: () => {}, startNewSeason: () => { joined += 1; } });
+    const button = overlayEl.querySelector("#se-new-season") as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toContain("Join now");
+    expect(overlayEl.querySelector(".se-fineprint")?.textContent).toContain("Join now to start in it");
+    button.click();
+    expect(joined).toBe(1);
   });
 
   it("renders all leaderboard entries in final standings", () => {
