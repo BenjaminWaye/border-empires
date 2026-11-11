@@ -48,14 +48,13 @@ export const saveNativeGuest = async (email: string, password: string): Promise<
   await refreshAfterLink(user);
 };
 
-const providerButton = (label: string, method: NativeGuestSaveProvider, status: HTMLElement, form: HTMLFormElement): HTMLButtonElement => {
+const providerButton = (label: string, method: NativeGuestSaveProvider, status: HTMLElement, beginSave: () => boolean, endSave: () => void): HTMLButtonElement => {
   const button = document.createElement("button");
   button.type = "button";
   button.className = `panel-btn guest-save-btn ${method === "apple.com" ? "guest-save-apple" : "guest-save-primary"}`;
   button.textContent = `Continue with ${label}`;
   button.onclick = async () => {
-    const buttons = Array.from(form.parentElement?.querySelectorAll<HTMLButtonElement>("button") ?? []);
-    buttons.forEach((entry) => { entry.disabled = true; });
+    if (!beginSave()) return;
     status.textContent = `Opening ${label}...`;
     try {
       await saveNativeGuestWithProvider(method);
@@ -63,7 +62,7 @@ const providerButton = (label: string, method: NativeGuestSaveProvider, status: 
     } catch (error) {
       const cancelled = error instanceof Error && error.name === "NativeSsoCancelledError";
       status.textContent = cancelled ? "" : nativeGuestSaveErrorMessage(error, `${label} account`);
-      buttons.forEach((entry) => { entry.disabled = false; });
+      endSave();
     }
   };
   return button;
@@ -92,8 +91,18 @@ export const nativeGuestSaveOptions = (): HTMLElement[] => {
   const status = document.createElement("p");
   status.setAttribute("role", "status");
   form.append(email, password, save, status);
-  const providers = [providerButton("Google", "google.com", status, form)];
-  if (Capacitor.getPlatform() === "ios") providers.unshift(providerButton("Apple", "apple.com", status, form));
+  const setSaving = (saving: boolean): void => {
+    save.disabled = saving;
+    providers.forEach((button) => { button.disabled = saving; });
+  };
+  const beginSave = (): boolean => {
+    if (save.disabled) return false;
+    setSaving(true);
+    return true;
+  };
+  const endSave = (): void => setSaving(false);
+  const providers = [providerButton("Google", "google.com", status, beginSave, endSave)];
+  if (Capacitor.getPlatform() === "ios") providers.unshift(providerButton("Apple", "apple.com", status, beginSave, endSave));
   const wrapper = document.createElement("div");
   wrapper.className = "native-guest-save-options";
   const or = document.createElement("div");
@@ -102,14 +111,13 @@ export const nativeGuestSaveOptions = (): HTMLElement[] => {
   wrapper.append(...providers, or, form);
   form.onsubmit = async (event) => {
     event.preventDefault();
-    if (!form.reportValidity() || save.disabled) return;
-    save.disabled = true;
+    if (!form.reportValidity() || !beginSave()) return;
     try {
       await saveNativeGuest(email.value, password.value);
       window.location.reload();
     } catch (error) {
       status.textContent = nativeGuestSaveErrorMessage(error, "email");
-      save.disabled = false;
+      endSave();
     }
   };
   return [wrapper];

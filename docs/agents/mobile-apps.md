@@ -78,6 +78,10 @@ Native social sign-in depends on console setup (done 2026-11-10):
   `ios/App/App/GoogleService-Info.plist`; re-download them after adding a new
   signing key fingerprint. The Apple provider is enabled (no Services ID, so
   iOS only).
+  Before releasing Apple sign-in, configure its Services ID and OAuth code
+  flow in Firebase and verify on an iOS device that deleting an Apple-linked
+  account revokes its Apple authorization and completes the game deletion.
+  Keep the OAuth private key in Firebase configuration.
 - iOS `Info.plist` URL types hold the plist's `REVERSED_CLIENT_ID` (Google) and
   the encoded Firebase app ID (`app-1-979056688511-ios-…`, Twitch/Discord redirect).
 - Sign in with Apple is on App ID `com.borderempires.game`; Xcode automatic

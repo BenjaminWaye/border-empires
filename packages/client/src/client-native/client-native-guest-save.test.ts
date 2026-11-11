@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getAuth, linkWithCredential } from "firebase/auth";
-import { nativeGuestSaveErrorMessage, saveNativeGuest, saveNativeGuestWithProvider } from "./client-native-guest-save.js";
+import { nativeGuestSaveOptions, nativeGuestSaveErrorMessage, saveNativeGuest, saveNativeGuestWithProvider } from "./client-native-guest-save.js";
 import { linkWithNativeSso } from "../client-native-sso/client-native-sso.js";
 
 vi.mock("../client-native-sso/client-native-sso.js", () => ({ linkWithNativeSso: vi.fn(async () => ({})) }));
@@ -50,6 +50,29 @@ describe("native guest save", () => {
     await expect(saveNativeGuestWithProvider("apple.com")).rejects.toThrow("no longer available");
     expect(linkWithNativeSso).not.toHaveBeenCalled();
   });
+  it("prevents provider linking while an email save is in flight", async () => {
+    let rejectLink: (error: Error) => void = () => {};
+    vi.mocked(linkWithCredential).mockImplementationOnce(() => new Promise((_resolve, reject) => {
+      rejectLink = reject;
+    }));
+    const [options] = nativeGuestSaveOptions();
+    const form = options!.querySelector("form")!;
+    form.querySelector<HTMLInputElement>('input[type="email"]')!.value = "p@example.com";
+    form.querySelector<HTMLInputElement>('input[type="password"]')!.value = "secret123";
+    const provider = options!.querySelector<HTMLButtonElement>('button[type="button"]')!;
+    const submission = form.onsubmit?.(new SubmitEvent("submit"));
+    try {
+      await vi.waitFor(() => expect(linkWithCredential).toHaveBeenCalledOnce());
+      expect(provider.disabled).toBe(true);
+      await provider.onclick?.(new MouseEvent("click"));
+      expect(linkWithNativeSso).not.toHaveBeenCalled();
+    } finally {
+      rejectLink(new Error("offline"));
+      await submission;
+    }
+    expect(provider.disabled).toBe(false);
+  });
+
   it("explains an account collision instead of showing Firebase's code", () => {
     expect(nativeGuestSaveErrorMessage({ code: "auth/credential-already-in-use" }, "Google account")).toBe(
       "That Google account already has an account. Use a different one to keep this guest empire."

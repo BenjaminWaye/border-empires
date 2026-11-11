@@ -5,6 +5,7 @@ vi.mock("@capacitor-firebase/authentication", () => ({
     signInWithGoogle: vi.fn(),
     signInWithApple: vi.fn(),
     signInWithOpenIdConnect: vi.fn(),
+    revokeAccessToken: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined)
   }
 }));
@@ -26,7 +27,7 @@ vi.mock("firebase/auth", () => {
 });
 
 const { FirebaseAuthentication } = await import("@capacitor-firebase/authentication");
-const { linkWithCredential, signInWithCredential } = await import("firebase/auth");
+const { linkWithCredential, reauthenticateWithCredential, signInWithCredential } = await import("firebase/auth");
 const sso = await import("./client-native-sso.js");
 
 beforeEach(() => vi.clearAllMocks());
@@ -77,9 +78,40 @@ describe("native SSO flows", () => {
     expect(linkWithCredential).toHaveBeenCalledWith(guest, { providerId: "apple.com", idToken: "a-id", rawNonce: "n" });
   });
 
+  it("revokes Apple authorization only after reauthenticating the matching UID", async () => {
+    const user = { uid: "player" };
+    vi.mocked(FirebaseAuthentication.signInWithApple).mockResolvedValueOnce({
+      user: user as never,
+      additionalUserInfo: null,
+      credential: { providerId: "apple.com", idToken: "a-id", nonce: "n", authorizationCode: "code" }
+    });
+    await sso.reauthenticateAndRevokeNativeApple(user as never);
+    expect(reauthenticateWithCredential).toHaveBeenCalledWith(user, { providerId: "apple.com", idToken: "a-id", rawNonce: "n" });
+    expect(FirebaseAuthentication.revokeAccessToken).toHaveBeenCalledWith({ token: "code" });
+    expect(FirebaseAuthentication.signOut).toHaveBeenCalledOnce();
+  });
+
+  it("does not revoke a different account and clears the native session", async () => {
+    vi.mocked(FirebaseAuthentication.signInWithApple).mockResolvedValueOnce({
+      user: { uid: "different" } as never,
+      additionalUserInfo: null,
+      credential: { providerId: "apple.com", idToken: "a-id", authorizationCode: "code" }
+    });
+    await expect(sso.reauthenticateAndRevokeNativeApple({ uid: "player" } as never)).rejects.toThrow("linked to this empire");
+    expect(reauthenticateWithCredential).not.toHaveBeenCalled();
+    expect(FirebaseAuthentication.revokeAccessToken).not.toHaveBeenCalled();
+    expect(FirebaseAuthentication.signOut).toHaveBeenCalledOnce();
+  });
+
   it("reports a backed-out sign-in as a cancellation, not an error", async () => {
     vi.mocked(FirebaseAuthentication.signInWithGoogle).mockRejectedValueOnce(new Error("The user canceled the sign-in flow."));
     await expect(sso.nativeSsoCredential("google.com")).rejects.toBeInstanceOf(sso.NativeSsoCancelledError);
+  });
+
+  it("does not suppress Google errors when no saved credential is available", async () => {
+    const noCredentials = new Error("No credentials available");
+    vi.mocked(FirebaseAuthentication.signInWithGoogle).mockRejectedValueOnce(noCredentials);
+    await expect(sso.nativeSsoCredential("google.com")).rejects.toThrow("Add a Google account or choose another sign-in method");
   });
 
   it("keeps real provider failures as errors", async () => {

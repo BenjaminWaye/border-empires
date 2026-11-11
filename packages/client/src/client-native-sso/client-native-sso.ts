@@ -31,7 +31,7 @@ export class NativeSsoCancelledError extends Error {
 // native sign-in carries the same email/username claims to the gateway.
 const TWITCH_CLAIMS = JSON.stringify({ id_token: { email: null, email_verified: null, preferred_username: null } });
 
-const CANCEL_PATTERNS = [/cancel/i, /closed by the user/i, /user denied/i, /aborted/i, /no credentials available/i];
+const CANCEL_PATTERNS = [/cancel/i, /closed by the user/i, /user denied/i, /aborted/i];
 
 export const isNativeSsoCancellation = (error: unknown): boolean => {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
@@ -91,6 +91,9 @@ export const nativeSsoCredential = async (method: NativeSsoMethod): Promise<OAut
   try {
     result = await runNativeSignIn(method);
   } catch (error) {
+    if (method === "google.com" && error instanceof Error && /no credentials available/i.test(error.message)) {
+      throw new Error("No Google account is available on this device. Add a Google account or choose another sign-in method.");
+    }
     if (isNativeSsoCancellation(error)) throw new NativeSsoCancelledError();
     throw error;
   }
@@ -108,3 +111,21 @@ export const linkWithNativeSso = async (user: User, method: NativeSsoMethod): Pr
 
 export const reauthenticateWithNativeSso = async (user: User, method: NativeSsoMethod): Promise<UserCredential> =>
   reauthenticateWithCredential(user, await nativeSsoCredential(method));
+
+
+/** Reauthenticate the game account and revoke its Apple authorization before deletion. */
+export const reauthenticateAndRevokeNativeApple = async (user: User): Promise<void> => {
+  try {
+    const result = await FirebaseAuthentication.signInWithApple({ skipNativeAuth: false, scopes: ["email", "name"] });
+    if (result.user?.uid !== user.uid) throw new Error("Sign in with the Apple account linked to this empire.");
+    const authorizationCode = result.credential?.authorizationCode;
+    if (!authorizationCode) throw new Error("Apple returned no authorization code. Try again.");
+    await reauthenticateWithCredential(user, webCredentialFromNativeResult("apple.com", result));
+    await FirebaseAuthentication.revokeAccessToken({ token: authorizationCode });
+  } catch (error) {
+    if (isNativeSsoCancellation(error)) throw new NativeSsoCancelledError();
+    throw error;
+  } finally {
+    await signOutNativeSso();
+  }
+};
