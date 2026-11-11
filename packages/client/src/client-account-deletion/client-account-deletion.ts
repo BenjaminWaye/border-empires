@@ -1,3 +1,4 @@
+import type { NativeSsoMethod } from "../client-native-sso/client-native-sso.js";
 import {
   EmailAuthProvider, GoogleAuthProvider, OAuthProvider, reauthenticateWithCredential,
   reauthenticateWithPopup, signOut, type Auth, type User
@@ -41,14 +42,27 @@ export const requestAccountDeletion = async (user: Pick<User, "getIdToken">, wsU
   return { requestId: receipt.requestId, completeBy: receipt.completeBy, status: receipt.status };
 };
 
-const confirmOwnership = async (user: User, password: string): Promise<void> => {
+const hasAppleSignIn = (user: User): boolean => user.providerData.some((provider) => provider.providerId === "apple.com");
+
+export const confirmOwnership = async (user: User, password: string): Promise<void> => {
   if (user.isAnonymous) return;
+  if (hasAppleSignIn(user)) {
+    if (Capacitor.getPlatform() !== "ios") throw new Error("Open the Border Empires iOS app to delete an Apple-linked account.");
+    const { reauthenticateAndRevokeNativeApple } = await import("../client-native-sso/client-native-sso.js");
+    await reauthenticateAndRevokeNativeApple(user);
+    return;
+  }
   if (user.email && user.providerData.some((provider) => provider.providerId === "password")) {
     await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
     return;
   }
   const provider = user.providerData.find((entry) => ["google.com", "oidc.twitch", "oidc.discord"].includes(entry.providerId));
-  if (!provider || Capacitor.isNativePlatform()) throw new Error("Sign in with this account on the website to delete it.");
+  if (!provider) throw new Error("Sign in with this account on the website to delete it.");
+  if (Capacitor.isNativePlatform()) {
+    const { reauthenticateWithNativeSso } = await import("../client-native-sso/client-native-sso.js");
+    await reauthenticateWithNativeSso(user, provider.providerId as NativeSsoMethod);
+    return;
+  }
   await reauthenticateWithPopup(user, provider.providerId === "google.com" ? new GoogleAuthProvider() : new OAuthProvider(provider.providerId));
 };
 
@@ -56,7 +70,7 @@ export const openAccountDeletion = (auth: Auth, wsUrl: string): void => {
   if (document.querySelector("[data-account-deletion-dialog]")) return;
   const user = auth.currentUser;
   if (!user) return;
-  const needsPassword = !user.isAnonymous && user.providerData.some((provider) => provider.providerId === "password");
+  const needsPassword = !user.isAnonymous && !hasAppleSignIn(user) && user.providerData.some((provider) => provider.providerId === "password");
   const dialog = document.createElement("dialog");
   dialog.dataset.accountDeletionDialog = "true";
   dialog.className = "account-deletion-dialog";

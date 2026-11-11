@@ -1,8 +1,9 @@
+import { NATIVE_SOCIAL_SIGN_IN_ENTRY } from "./client-changelog-nov-10.js";
+import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-names.js";
 import { RELIC_REVEAL_ENTRY } from "./client-changelog-relic-reveal.js";
 import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
+import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_112 } from "./client-changelog-data-earlier-112.js";
 import { NEXT_CONTEST_STARTING_ENTRY } from "./client-changelog-next-contest.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
@@ -77,7 +78,7 @@ import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
-import { MAP_LENS_CHANGELOG, MINIMAP_WORLD_EDGE_ENTRY } from "./client-changelog-map-lens.js";
+import { MAP_LENS_CHANGELOG, MINIMAP_WORLD_EDGE_ENTRY, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
@@ -172,11 +173,14 @@ import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-
 import { MOBILE_RESOURCE_RIBBON_ENTRY } from "./client-changelog-mobile-resource-ribbon.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
-import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
+import { AFC_LANDING_DEPLOYMENT_ENTRY, CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-earlier-106.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_112 } from "./client-changelog-data-earlier-112.js";
+import { MUSTER_DOCK_TRANSPORT_ENTRY } from "./client-changelog-muster-dock-transport.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -312,26 +316,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...HILL_GARRISON_FILL_CHANGELOG,
   ...NAME_DECAL_HILLS_CHANGELOG,
-  {
-    createdAt: 1792873662311, // Frozen Date.now() timestamp for the changelog gate.
-    introducedIn: "2026.10.24.3",
-    title: "Titanium-armoured soldiers no longer collapse when they move",
-    why: "The heavy armour's animations were copied from the standard soldier onto a differently shaped body, so the armour crumpled the moment a soldier ran, stood or knelt.",
-    changes: [
-      "Soldiers in heavy armour now stand, run, march and kneel with the same poses and arm positions as standard soldiers",
-      "This is cosmetic and only shows on the 3D map"
-    ]
-  },
-  {
-    createdAt: 1792909803859, // Frozen Date.now() timestamp for the changelog gate.
-    introducedIn: "2026.10.24.3",
-    title: "Soldiers killed in battle now fall properly",
-    why: "A soldier killed in a 3D battle was tipped over whole and shrunk, so they sank into a small bundle on the ground instead of falling.",
-    changes: [
-      "Killed soldiers, in standard or heavy armour, now play a real fall and lie full size on the battlefield",
-      "On the 2D map, soldiers killed during a dock landing now fade out over about a second instead of vanishing almost at once"
-    ]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_112,
   ...SHARD_COMEBACK_CHANGELOG,
   {
     createdAt: 1792907228760, // Date.now() captured once for this entry.
@@ -486,10 +471,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, },
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_110,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_111,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_112,
+  { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
+  { ...RESOURCE_LENS_ENTRY, createdAt: 1794383695242, },
+  { ...WAYSTATION_FORT_MODULE_ENTRY, createdAt: 1794394297385, },
+  { ...READABLE_REALM_NAMES_ENTRY, createdAt: 1794410558462, },
   { ...RELIC_REVEAL_ENTRY, createdAt: 1794422720232, },
   { ...MINIMAP_WORLD_EDGE_ENTRY, createdAt: 1794411491316, },
   { ...NEXT_CONTEST_STARTING_ENTRY, createdAt: 1794380743713, },
+  { ...NATIVE_SOCIAL_SIGN_IN_ENTRY, createdAt: 1794288128417, },
+  { ...MUSTER_DOCK_TRANSPORT_ENTRY, createdAt: 1794353510194, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
