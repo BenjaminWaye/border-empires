@@ -1,5 +1,5 @@
 // Fits a map name inside the tiles it belongs on (a player's explored
-// garrisons, an island's explored garrisoned land):
+// territory, an island's explored garrisoned land):
 //   - along the name: the path is walked in half-tile steps and cut down to
 //     its longest stretch over those tiles, so the name compacts instead of
 //     running out over other ground (or under the unexplored storm);
@@ -7,7 +7,9 @@
 //     nearest outside tile on either side of that stretch, so letters never
 //     poke over the border.
 // Returns undefined when too little of the path is inside to carry a name.
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { NameLabelPath } from "./client-map-name-label-draw.js";
+import type { CorePoint } from "./client-territory-name-layout.js";
 
 const STEP_TILES = 0.5;
 const CLEARANCE_STEP_TILES = 0.25;
@@ -89,4 +91,32 @@ export const fitNamePathToTiles = (path: NameLabelPath, inside: (x: number, y: n
   if (heightTiles <= 0) return undefined;
   // The stretch (rim included) is all the room the name gets.
   return { ...path, points: run.map(({ x, y }) => ({ x, y })), heightTiles, spanTiles: lengthTiles };
+};
+
+// A narrow connection can make the preferred path average two wide lobes
+// and fall in the gap. Try a straight path through the deepest explored tile.
+export const fitNamePathThroughCore = (
+  preferred: NameLabelPath,
+  core: readonly CorePoint[],
+  inside: (x: number, y: number) => boolean
+): NameLabelPath | undefined => {
+  let anchor: CorePoint | undefined;
+  for (const point of core) {
+    if ((!anchor || point.depth > anchor.depth) && inside(point.x, point.y)) anchor = point;
+  }
+  if (!anchor) return undefined;
+  const { x, y } = anchor;
+  const fitAxis = (dx: number, dy: number, axisSize: number): NameLabelPath | undefined => {
+    let start = 0;
+    let end = 0;
+    // A wrapped row or column can contain at most one world's worth of tiles.
+    while (start > 1 - axisSize && inside(x + (start - 1) * dx, y + (start - 1) * dy)) start -= 1;
+    while (end - start < axisSize - 1 && inside(x + (end + 1) * dx, y + (end + 1) * dy)) end += 1;
+    const points = [{ x: x + start * dx, y: y + start * dy }, { x: x + end * dx, y: y + end * dy }];
+    return fitNamePathToTiles({ ...preferred, points, spanTiles: end - start }, inside);
+  };
+  const horizontal = fitAxis(1, 0, WORLD_WIDTH);
+  const vertical = fitAxis(0, 1, WORLD_HEIGHT);
+  if (!horizontal || (vertical && vertical.spanTiles > horizontal.spanTiles)) return vertical;
+  return horizontal;
 };

@@ -1,3 +1,4 @@
+import { FRONTIER_MAP_NAMES_ENTRY } from "./client-changelog-frontier-map-names.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
 import { NEXT_CONTEST_ENTRY } from "./client-changelog-next-contest.js";
 import { SECTOR_BOARD_ENTRY } from "./client-changelog-nov-10.js";
@@ -491,6 +492,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The reward is claimed once.",
     changes: ["A resource reward leaves a resource tile on the former waystation site."]
   },
+  { ...FRONTIER_MAP_NAMES_ENTRY, createdAt: 1794312655623, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
