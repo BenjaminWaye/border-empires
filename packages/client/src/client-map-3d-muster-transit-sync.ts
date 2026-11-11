@@ -10,6 +10,7 @@ import { activeFrontierAttackClaimTargetKeys } from "./client-map-3d-frontier-cl
 import type { ClientState } from "./client-state/client-state.js";
 import { activeIncomingFrontierClaims } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 import { TILE_CENTER_OFFSET } from "./client-map-3d-capture-overlays.js";
+import { activeTransitLeg, clientMusterTransitRoute, isStraightRoute, marchStartAt, sailPath } from "./client-muster-transit-route/client-muster-transit-route.js";
 
 // Split out of client-map-3d-capture-overlays.ts (500-line cap) when march
 // companies started showing their empire's weapons-factory gear.
@@ -97,12 +98,63 @@ export function syncMusterTransitOverlay(
     });
   };
 
+  // Scene-space path through tile points, unwrapped one step at a time so a
+  // route over the world seam stays continuous.
+  const scenePath = (points: ReadonlyArray<{ x: number; y: number }>): Array<{ x: number; z: number }> => {
+    let prev = points[0]!;
+    let x = toroidDelta(originX, prev.x, WORLD_WIDTH);
+    let z = toroidDelta(originY, prev.y, WORLD_HEIGHT);
+    const out = [{ x: x + TILE_CENTER_OFFSET, z: z + TILE_CENTER_OFFSET }];
+    for (const point of points.slice(1)) {
+      x += toroidDelta(prev.x, point.x, WORLD_WIDTH);
+      z += toroidDelta(prev.y, point.y, WORLD_HEIGHT);
+      out.push({ x: x + TILE_CENTER_OFFSET, z: z + TILE_CENTER_OFFSET });
+      prev = point;
+    }
+    return out;
+  };
+
+  // A company's march from its flag to the tile it launches from, along the
+  // real route (client-muster-transit-route.ts): over land, and where the
+  // straight walk would cross water, to a dock, across in a troop transport
+  // and out again. Only the leg under way is drawn; the troops are aboard
+  // (not drawn) while the boat sails.
+  // `firstSeenAt` (server-fired marches, whose start the client isn't told):
+  // the real start is derived from the route instead (marchStartAt).
+  const addRoutedMarch = (musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number, firstSeenAt?: number): void => {
+    const route = clientMusterTransitRoute(state, { x: musterX, y: musterY }, { x: marchToX, y: marchToY });
+    if (firstSeenAt !== undefined) startAt = marchStartAt(route, arriveAt, firstSeenAt);
+    const leg = activeTransitLeg(route, startAt, arriveAt, nowEpochMs);
+    if (!leg) return;
+    if (leg.kind === "SAIL") {
+      transitOverlay.addVoyage({ path: scenePath(sailPath(state, leg.from, leg.to)), startAt: leg.startAt, arriveAt: leg.endAt, ownerColor });
+      return;
+    }
+    if (isStraightRoute(route, { x: musterX, y: musterY }, { x: marchToX, y: marchToY })) {
+      addMarch(musterX, musterY, marchToX, marchToY, startAt, arriveAt);
+      return;
+    }
+    const first = leg.points[0]!;
+    const last = leg.points[leg.points.length - 1]!;
+    const firstY = Math.max(heightfield.elevationAt(first.x, first.y), heightfield.cornerYAt(first.x, first.y));
+    const lastY = Math.max(heightfield.elevationAt(last.x, last.y), heightfield.cornerYAt(last.x, last.y));
+    const gear = myGear();
+    transitOverlay.addTransit({
+      path: scenePath(leg.points),
+      groundY: (firstY + lastY) / 2,
+      startAt: leg.startAt,
+      arriveAt: leg.endAt,
+      ownerColor,
+      ...(gear ? { gear } : {})
+    });
+  };
+
   for (const [attackKey, transit] of state.musterTransitByCommand) {
     // Only still-marching entries — once fired (no deferred entry left) or
     // expired, the skirmish/battle overlay is the right visualization, not
     // this one.
     if (!state.deferredAttackByCommand.has(attackKey) || nowEpochMs >= transit.transitEndsAt) continue;
-    addMarch(transit.musterX, transit.musterY, transit.marchToX, transit.marchToY, transit.transitStartAt, transit.transitEndsAt);
+    addRoutedMarch(transit.musterX, transit.musterY, transit.marchToX, transit.marchToY, transit.transitStartAt, transit.transitEndsAt);
   }
 
   // ADVANCE/MARCH auto-fire's own mechanical travel-time delay (see
@@ -119,7 +171,7 @@ export function syncMusterTransitOverlay(
       startAt = nowEpochMs;
       advanceTransitSeenAt.set(targetKey, startAt);
     }
-    addMarch(outgoing.musterOriginX, outgoing.musterOriginY, outgoing.originX, outgoing.originY, startAt, outgoing.transitEndsAt);
+    addRoutedMarch(outgoing.musterOriginX, outgoing.musterOriginY, outgoing.originX, outgoing.originY, startAt, outgoing.transitEndsAt, startAt);
   }
   for (const key of advanceTransitSeenAt.keys()) {
     if (!liveAdvanceKeys.has(key)) advanceTransitSeenAt.delete(key);
