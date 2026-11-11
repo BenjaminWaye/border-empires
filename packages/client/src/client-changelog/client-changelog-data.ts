@@ -1,9 +1,9 @@
-import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-names.js";
 import { PLANETARY_DEFENSE_HUNT_ENTRY } from "./client-changelog-planetary-defense-hunt.js";
 import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
-import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_112 } from "./client-changelog-data-earlier-112.js";
+import { NEXT_CONTEST_STARTING_ENTRY } from "./client-changelog-next-contest.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
@@ -486,12 +486,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, },
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_110,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_111,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_112,
   { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
   { ...RESOURCE_LENS_ENTRY, createdAt: 1794383695242, },
-  { ...WAYSTATION_FORT_MODULE_ENTRY, createdAt: 1794394297385, },
-  { ...READABLE_REALM_NAMES_ENTRY, createdAt: 1794410558462, },
   { ...MINIMAP_WORLD_EDGE_ENTRY, createdAt: 1794411491316, },
   { ...PLANETARY_DEFENSE_HUNT_ENTRY, createdAt: 1794423294581, },
+  { ...NEXT_CONTEST_STARTING_ENTRY, createdAt: 1794380743713, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

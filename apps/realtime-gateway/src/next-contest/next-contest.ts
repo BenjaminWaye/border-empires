@@ -19,8 +19,11 @@ export const NEXT_CONTEST_MIN_COMMITTED = 10;
 
 // Keeps the message and INIT field names of the old start vote, so a client
 // bundle that predates this change still shows a live count.
-export type NextContestUpdate = { type: "SEASON_START_VOTE_UPDATE"; voteCount: number; threshold: number; votedBy: string[] };
-export type NextContestInitFields = { seasonStartVoteCount: number; seasonStartVoted: boolean; seasonStartVoteThreshold: number };
+// `starting` is true while the next world is being built (between the
+// threshold or an admin force-start and the rollover), so every client can
+// show that the start is under way instead of a live button.
+export type NextContestUpdate = { type: "SEASON_START_VOTE_UPDATE"; voteCount: number; threshold: number; votedBy: string[]; starting: boolean };
+export type NextContestInitFields = { seasonStartVoteCount: number; seasonStartVoted: boolean; seasonStartVoteThreshold: number; seasonStartStarting: boolean };
 export type NextContestCommitResult =
   | { ok: true; count: number; started: boolean }
   | { ok: false; code: "ACCOUNT_REQUIRED" | "SEASON_NOT_ENDED"; message: string };
@@ -65,7 +68,7 @@ export const createNextContest = (deps: NextContestDeps) => {
   };
 
   const publish = (committed: string[]): void =>
-    deps.broadcast({ type: "SEASON_START_VOTE_UPDATE", voteCount: committed.length, threshold, votedBy: [...committed] });
+    deps.broadcast({ type: "SEASON_START_VOTE_UPDATE", voteCount: committed.length, threshold, votedBy: [...committed], starting });
 
   const joinCommitted = async (committed: string[], seasonId: string): Promise<number> => {
     let spawned = 0;
@@ -85,7 +88,13 @@ export const createNextContest = (deps: NextContestDeps) => {
   const start = async (endedSeasonId: string, force: boolean): Promise<{ seasonId: string } | undefined> => {
     if (starting) return undefined;
     starting = true;
+    // What was announced as starting; re-published as not starting on failure.
+    let announced: string[] = [];
     try {
+      // Announce the start before the (slow) world build, so nobody keeps
+      // pressing a button that already worked.
+      announced = await load(endedSeasonId);
+      publish(announced);
       const { seasonId } = await deps.startNextSeason();
       cache = undefined;
       // Read after the rollover, not before: the world build takes a while
@@ -98,6 +107,12 @@ export const createNextContest = (deps: NextContestDeps) => {
       deps.onSeasonStarted(seasonId, force);
       deps.recordGatewayEvent("info", "gateway_next_contest_started", { endedSeasonId, seasonId, force, committed: committed.length, spawned });
       return { seasonId };
+    } catch (error) {
+      // Any step failed (the build, or a read after it): clear the
+      // "starting" state everyone was shown, so no client stays stuck on it.
+      starting = false;
+      publish(announced);
+      throw error;
     } finally {
       starting = false;
     }
@@ -120,6 +135,9 @@ export const createNextContest = (deps: NextContestDeps) => {
   return {
     threshold,
     maybeStart,
+
+    // True while a start (by threshold or admin) is building the next world.
+    isStarting: (): boolean => starting,
 
     async commit(playerId: string, isGuest: boolean): Promise<NextContestCommitResult> {
       if (isGuest) return { ok: false, code: "ACCOUNT_REQUIRED", message: "Sign in with an account to join the next Sector Contest." };
@@ -146,7 +164,7 @@ export const createNextContest = (deps: NextContestDeps) => {
 
     initFields(playerId: string): NextContestInitFields {
       const committed = cache?.committed ?? [];
-      return { seasonStartVoteCount: committed.length, seasonStartVoted: committed.includes(playerId), seasonStartVoteThreshold: threshold };
+      return { seasonStartVoteCount: committed.length, seasonStartVoted: committed.includes(playerId), seasonStartVoteThreshold: threshold, seasonStartStarting: starting };
     },
 
     // A season started some other way (admin HTTP route).
