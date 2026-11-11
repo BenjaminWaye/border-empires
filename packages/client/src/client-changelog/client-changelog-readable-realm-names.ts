@@ -1,9 +1,12 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
-export const READABLE_REALM_NAMES_ENTRY: ClientChangelogEntry = {
-  createdAt: 1794410558462, // Date.now() captured once for this entry.
+export const READABLE_REALM_NAMES_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   introducedIn: "2026.11.11",
-  title: "Empire names are easier to read",
-  why: "Zoomed out, an empire's name could sit under its territory colour and was hard to make out.",
-  changes: ["Empire names on the map now draw on top of territory colours, including remembered land in fog, with solid ink and a stronger outline"]
+  title: "Map names are easier to read",
+  why: "Zoomed out, an empire's name could be hard to make out over its territory, especially on remembered land under fog.",
+  changes: [
+    "Empire names on the map are now drawn in solid ink with a stronger outline",
+    "On the 3D map, map names now draw over the fog wash on remembered land, as they already did on the 2D map",
+    "Island names get the same stronger outline"
+  ]
 };

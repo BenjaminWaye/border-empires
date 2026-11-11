@@ -16,11 +16,11 @@ export const RENDER_ORDER = {
   prospectClues: 8.25,
   fogDarkenSettled: 9,
   fogDarkenFrontier: 10,
-  // Map names inked on the ground (client-map-3d-name-decal): over every
-  // ownership tint -- live and the fog layers' last-known owner tint -- and
-  // rivers, so a realm name never sits under its own territory colour; under
-  // mist, storm clouds and every overlay; depth-tested so buildings and
-  // units stand in front.
+  // Map names inked on the ground (client-map-3d-name-decal): over the
+  // ownership tint, rivers and both fog layers (the 0.55 slate wash used to
+  // wash names out on remembered land; the 2D map already draws names over
+  // fog); under the drifting mist, ocean, storm clouds and every overlay;
+  // depth-tested so buildings and units stand in front.
   groundNames: 10.5,
   // client-map-3d-water-surface.ts: the ocean plane.
   oceanSurface: 12,
