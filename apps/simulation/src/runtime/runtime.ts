@@ -93,7 +93,6 @@ import {
   buildDockNetworkComponentByTileKey,
 } from "../dock-network/dock-network.js";
 import {
-  isAetherBridgeCrossingTarget as isAetherBridgeCrossingTargetImpl,
   resolveOwnedDockOriginForCrossing as resolveOwnedDockOriginForCrossingImpl,
   findOwnedAetherBridgeOriginForCrossing as findOwnedAetherBridgeOriginForCrossingImpl,
   type DockCrossingOrigin
@@ -1313,7 +1312,6 @@ export class SimulationRuntime {
       findOwnedAetherBridgeOriginForCrossing: (playerId, x, y) => this.findOwnedAetherBridgeOriginForCrossing(playerId, x, y),
       dockLanding: this.state.dockLanding,
       activeAetherBridgesForPlayer: (playerId) => this.activeAetherBridgesForPlayer(playerId),
-      isAetherBridgeCrossingTarget: (playerId, x1, y1, x2, y2) => this.isAetherBridgeCrossingTarget(playerId, x1, y1, x2, y2),
       crossingBlockedByAetherWall: (x1, y1, x2, y2) => this.crossingBlockedByAetherWall(x1, y1, x2, y2),
       isTileWardedByImperialWard: (targetOwnerId) => isTileWardedByImperialWardImpl(this.abilityCooldowns, this.now(), targetOwnerId),
       resolveMusterSource: (playerId, originKey, required, preferred) => this.resolveMusterSource(playerId, originKey, required, preferred),
@@ -2992,16 +2990,6 @@ export class SimulationRuntime {
   private adjacentTileStates(x: number, y: number): DomainTileState[] { return adjacentTileStatesImpl(this.state.tiles, x, y); }
 
   private extendFortPatrolGrace(tileKey: string, graceUntil: number): void { this.fortPatrolGraceUntilByTile.set(tileKey, Math.max(this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0, graceUntil)); }
-
-  private isAetherBridgeCrossingTarget(
-    playerId: string,
-    fromX: number,
-    fromY: number,
-    toX: number,
-    toY: number
-  ): boolean {
-    return isAetherBridgeCrossingTargetImpl(this.activeAetherBridgesForPlayer(playerId), fromX, fromY, toX, toY);
-  }
 
   private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DockCrossingOrigin | undefined {
     return resolveOwnedDockOriginForCrossingImpl(this.state, playerId, toX, toY);

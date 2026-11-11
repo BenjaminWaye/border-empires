@@ -21,7 +21,7 @@ import { parseFrontierPayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { lockSourceFromSessionId } from "./runtime-types.js";
 import type { ActiveAetherBridgeView, LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtime-types.js";
-import { isDockCrossingTarget, type DockCrossingOrigin } from "./runtime/runtime-crossing.js";
+import { isAetherBridgeCrossingTarget, isDockCrossingTarget, type DockCrossingOrigin } from "./runtime/runtime-crossing.js";
 import type { LockedCombatInput } from "./runtime-combat-support.js";
 import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
@@ -75,9 +75,8 @@ export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   findOwnedAetherBridgeOriginForCrossing: (playerId: string, x: number, y: number) => DomainTileState | undefined;
   /** Dock crossings: where a crossing from each dock may land (also routes a muster company's sea legs). */
   dockLanding: DockLandingIndex;
-  /** The player's live aether bridges (a muster company crosses them on foot). */
+  /** The player's live aether bridges: bridge crossings, and a muster company crosses them on foot. */
   activeAetherBridgesForPlayer: (playerId: string) => readonly ActiveAetherBridgeView[];
-  isAetherBridgeCrossingTarget: (playerId: string, x1: number, y1: number, x2: number, y2: number) => boolean;
   crossingBlockedByAetherWall: (x1: number, y1: number, x2: number, y2: number) => boolean;
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1): true while the
   // tile's owner has an active Imperial Ward — blocks ATTACK-lock creation
@@ -170,7 +169,7 @@ export const handleFrontierCommandImpl = (
   }
 
   const isDockCrossing = isDockCrossingTarget(from, to.x, to.y, ctx.dockLanding);
-  const isBridgeCrossing = ctx.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y);
+  const isBridgeCrossing = isAetherBridgeCrossingTarget(ctx.activeAetherBridgesForPlayer(actor.id), from.x, from.y, to.x, to.y);
   // EXPAND-into-a-rival's-reach carve-out: your border touches theirs right
   // here (origin is inside YOUR reach, target is inside THEIRS, and the two
   // are adjacent by construction below) -- open exactly enough ground to
