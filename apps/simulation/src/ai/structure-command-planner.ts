@@ -11,6 +11,7 @@ import {
   SYNTHESIZER_STRUCTURE_TYPES,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
+  structurePlacementMetadata,
   structureShowsOnTile,
   structureSlotRequirements,
   TECH_REQUIREMENTS_BY_STRUCTURE,
@@ -160,15 +161,23 @@ export const structureVisibleOnTile = (
   playerId: string,
   tile: StructurePlannerTile,
   tilesByKey: TileLookup
-): boolean =>
-  !landmarkConstructionBlocker(tilesByKey, tile.x, tile.y) && structureShowsOnTile(structureType, {
+): boolean => {
+  if (landmarkConstructionBlocker(tilesByKey, tile.x, tile.y)) return false;
+  const surface = {
     ownershipState: tile.ownershipState,
     resource: tile.resource,
     dockId: tile.dockId,
-    townPopulationTier: tile.town?.populationTier,
-    supportedTownCount: supportedTownCount(playerId, tile, tilesByKey),
-    supportedDockCount: supportedDockCount(playerId, tile, tilesByKey)
+    townPopulationTier: tile.town?.populationTier
+  };
+  if (structureShowsOnTile(structureType, surface)) return true;
+  const { showOn } = structurePlacementMetadata(structureType);
+  if (!showOn.includes("support") && !showOn.includes("dock_support")) return false;
+  return structureShowsOnTile(structureType, {
+    ...surface,
+    supportedTownCount: showOn.includes("support") ? supportedTownCount(playerId, tile, tilesByKey) : 0,
+    supportedDockCount: showOn.includes("dock_support") ? supportedDockCount(playerId, tile, tilesByKey) : 0
   });
+};
 
 export const playerTechSet = (player: StructurePlannerPlayer): ReadonlySet<string> => new Set(player.techIds ?? []);
 
