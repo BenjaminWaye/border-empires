@@ -151,7 +151,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     diplomacyColor(ownerId) ?? effectiveOverlayColorFromModule(ownerId, { ownerColor: effectiveColor, visualStyleForOwner });
   const borderColorForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): string =>
     borderColorForOwnerFromModule(ownerId, stateName, visualStyleForOwner);
-  const shouldDrawOwnershipBorder = (tile: Tile): boolean => shouldDrawOwnershipBorderFromModule(tile, visualStyleForOwner);
+  const shouldDrawOwnershipBorder = (tile: Tile): boolean => !state.showResourceOverlay && shouldDrawOwnershipBorderFromModule(tile, visualStyleForOwner); // Resources lens: no borders
   const borderLineWidthForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): number =>
     borderLineWidthForOwnerFromModule(ownerId, stateName, visualStyleForOwner);
   const structureAccentColor = (ownerId: string, fallback: string): string =>

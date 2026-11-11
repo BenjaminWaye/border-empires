@@ -58,7 +58,7 @@ import { applyDomainUpdateMessage } from "../client-domain-update-handler/client
 import { applyInitActivitySeen } from "../client-activity-dashboard/client-activity-dashboard-init.js";
 import { handleActivityDashboardMessage, requestPersonalActivity } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
-import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
+import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js"; import { applyNextContestUpdate } from "../client-next-contest/client-next-contest.js";
 import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
 import { clearTechCommissionOnError } from "../client-tech-commission/client-tech-commission.js";
 
@@ -1914,7 +1914,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-    if (msg.type === "SEASON_START_VOTE_UPDATE") { const votedBy = Array.isArray((msg as any).votedBy) ? ((msg as any).votedBy as unknown[]) : []; state.seasonStartVoteCount = (msg as any).voteCount as number ?? state.seasonStartVoteCount; state.seasonStartVoted = votedBy.includes(state.me); renderHud(); return; }
+    if (msg.type === "SEASON_START_VOTE_UPDATE") { applyNextContestUpdate(state, msg as Record<string, unknown>); renderHud(); return; }
     if (msg.type === "SEASON_LOBBY_UPDATE") { state.seasonLobbyWaitingCount = (msg as any).waitingCount as number ?? state.seasonLobbyWaitingCount; state.seasonLobbyMaxPlayers = (msg as any).maxPlayers as number ?? state.seasonLobbyMaxPlayers; state.seasonLobbyRoster = Array.isArray((msg as any).roster) ? (msg as any).roster : state.seasonLobbyRoster; renderHud(); return; }
     // Intercepts PERSONAL_ACTIVITY_TIMELINE/ACTIVITY_SEEN_ACKNOWLEDGED, plus
     // the one ERROR code it owns, before the generic ERROR handler below

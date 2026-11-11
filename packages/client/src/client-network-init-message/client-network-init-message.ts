@@ -32,6 +32,7 @@ import {
 import type { ClientState } from "../client-state/client-state.js";
 import { applyInitPendingAction } from "./apply-init-pending-action.js";
 import { applyInitSocialState } from "./apply-init-social-state.js";
+import { applyInitNextContest } from "../client-next-contest/client-next-contest.js";
 import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { applySeasonChangeOnInit } from "../client-season-rollover/client-season-rollover.js";
 import { resetServerReachForNewConnection } from "../client-reach-authoritative/client-reach-authoritative.js";
@@ -118,7 +119,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.needsSeasonJoin = Boolean((msg as { needsSeasonJoin?: unknown }).needsSeasonJoin);
   state.joinSeasonId = incomingSeason?.seasonId ?? "";
   state.joinSeasonOverlayOpen = state.needsSeasonJoin;
-  applyInitSeasonPending(state, msg);
+  applyInitSeasonPending(state, msg); applyInitNextContest(state, msg as Record<string, unknown>);
   const incomingRuntimeIdentity =
     (msg.runtimeIdentity as
       | {

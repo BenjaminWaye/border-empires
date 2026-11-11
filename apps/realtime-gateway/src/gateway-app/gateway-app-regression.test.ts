@@ -24,7 +24,8 @@ describe("gateway fog capability regression guard", () => {
     // and never asks the sim to force (which would reset a live season).
     expect(source).toContain("session.canForceSeasonStart = session.canToggleFog && playerIdentity.authEmailVerified === true;");
     expect(source).toContain("isAdmin: session.canForceSeasonStart === true, force: message.force === true,");
-    expect(source).toContain("startNextSeason: () => simulationClient.startNextSeason(false),");
+    // The next-contest wiring (where the start call now lives) moved to gateway-next-contest.ts.
+    expect(sourceFor("../next-contest/gateway-next-contest.ts")).toContain("startNextSeason: () => simulationClient.startNextSeason(false),");
     expect(source).toContain("socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids\n              );");
     expect(setProfileSource).toContain("canToggleFog");
     expect(setProfileSource).toContain('for (const targetSocket of socketsForPlayer(playerId))');

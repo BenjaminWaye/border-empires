@@ -46,8 +46,9 @@ import {
 } from "three";
 import { createAfcMetalSurface } from "./client-map-3d-afc-surface.js";
 import { afcTurnedCasing } from "./client-map-3d-afc-machining.js";
-import { AFC_ARM_JOINTS } from "./client-map-3d-afc-legs.js";
-import { createAfcFinishGeometry } from "./client-map-3d-afc-finish.js";
+import { afcBayHeightScale, afcBayRadius, createAfcArmWriter, createAfcBayWriter } from "./client-map-3d-afc-deployment.js";
+import { AFC_DEPLOYED_POSE, type AfcDeploymentPose } from "./client-afc-join-drop/client-afc-join-drop-timeline.js";
+import { AFC_FINISHES, createAfcFinishGeometry } from "./client-map-3d-afc-finish.js";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 export const AFC_SOCKET_COUNT = 8;
@@ -74,18 +75,18 @@ export type AfcModuleSocketAttachment = {
 
 export type FabricationComplexOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen?: boolean) => number;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen?: boolean, deployment?: AfcDeploymentPose) => number;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
+  readonly hasAt: (worldTileX: number, worldTileY: number) => boolean;
   // Common attachment points (one per Module_Socket) for spawning a separate
   // upgrade-module asset. Scene-absolute; empty for an invalid instance index.
   readonly moduleSocketAttachments: (instanceIndex: number) => readonly AfcModuleSocketAttachment[];
 };
 
-export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): FabricationComplexOverlay => {
+export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture, animated = false): FabricationComplexOverlay => {
   const C = maxTiles;
-  const PI_2 = Math.PI / 2;
   const DOTS = 2;
   // Core heartbeat — a slow several-second beat so the glow reads as
   // contained power rather than flickering light.
@@ -196,15 +197,26 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
   make("forearm", forearmGeo, ironMaterial, 4);
   make("claw", clawGeo, steelMaterial, 4);
 
-  const finish = createAfcFinishGeometry();
   const armourFinishMaterial = ironMaterial.clone();
   armourFinishMaterial.color.set("#ffffff");
   armourFinishMaterial.vertexColors = true;
   const signalMaterial = new MeshStandardMaterial({ color: "#123744", roughness: 0.35, metalness: 0.3, emissive: "#19badd", emissiveIntensity: 0.65 });
-  make("finishArmour", finish.armour, armourFinishMaterial, 1);
-  make("finishTrim", finish.trim, brassMaterial, 1);
-  make("finishInset", finish.inset, pipeMaterial, 1);
-  make("finishLight", finish.light, signalMaterial, 1);
+  const finishMaterials = { armour: armourFinishMaterial, trim: brassMaterial, inset: pipeMaterial, light: signalMaterial };
+  const finishes = createAfcFinishGeometry(animated, AFC_SOCKET_COUNT, AFC_SOCKET_RING_RADIUS);
+  for (const [part, geometries] of Object.entries(finishes)) {
+    const count = part === "body" ? 1 : part === "bay" ? AFC_SOCKET_COUNT : 4;
+    for (const finish of AFC_FINISHES) {
+      const geometry = geometries[finish];
+      if (geometry) make(`${part}-${finish}`, geometry, finishMaterials[finish], count);
+    }
+  }
+  const addFinish = (part: string, transform: Matrix4): void => {
+    for (const finish of AFC_FINISHES) {
+      const slot = slots.get(`${part}-${finish}`);
+      if (!slot || slot.count >= slot.cap) continue;
+      slot.mesh.setMatrixAt(slot.count++, transform);
+    }
+  };
 
   // ─── Helpers ────────────────────────────────────────────────────────
   const matrix = new Matrix4();
@@ -295,73 +307,14 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
     }
   };
 
-  // Module_Socket: an empty circular bay — a short, wide, hollow docking ring
-  // with a brass collar on a low pad. The pad-top center
-  // (AFC_MODULE_DOCK_HEIGHT) is the common attachment point for upgrade
-  // modules.
-  const addModuleSocket = (wx: number, sy: number, wz: number, ang: number): void => {
-    const cx = Math.cos(ang) * AFC_SOCKET_RING_RADIUS;
-    const cz = Math.sin(ang) * AFC_SOCKET_RING_RADIUS;
-    addPiece("socketPad", wx, sy, wz, cx, 0.02, cz);
-    addPiece("socketRing", wx, sy, wz, cx, 0.105, cz);
-    addPiece("socketCollar", wx, sy, wz, cx, 0.175, cz, 1, 1, 1, 0, PI_2, 0);
-  };
-
-  // Socket_Cables: two thick cables running along the ground from under the
-  // base disc out to each socket's pad.
-  const addSocketCable = (wx: number, sy: number, wz: number, ang: number): void => {
-    const px = -Math.sin(ang);
-    const pz = Math.cos(ang);
-    for (const side of [-1, 1]) {
-      addPieceAlong(
-        "cable",
-        wx, sy, wz,
-        Math.cos(ang) * 0.81 + px * 0.05 * side,
-        0.055,
-        Math.sin(ang) * 0.81 + pz * 0.05 * side,
-        Math.cos(ang) * 0.68,
-        0,
-        Math.sin(ang) * 0.68,
-        0.68
-      );
-    }
-  };
-
-  // Manipulator_Arm: a spider arm splaying out from the upper machinery,
-  // angled downward toward the module area and ending in the gap between two
-  // bays. Two chunky segments (upper arm, forearm) with obvious circular
-  // brass knuckles (shoulder, elbow) and a grounded stabilizer claw.
-  const addManipulatorArm = (wx: number, sy: number, wz: number, ang: number): void => {
-    const dx = Math.cos(ang);
-    const dz = Math.sin(ang);
-    const px = -dz;
-    const pz = dx;
-    const shoulderR = AFC_ARM_JOINTS.shoulder.radius;
-    const elbowR = AFC_ARM_JOINTS.elbow.radius;
-    const wristR = AFC_ARM_JOINTS.wrist.radius;
-    const shoulderY = AFC_ARM_JOINTS.shoulder.height;
-    const elbowY = AFC_ARM_JOINTS.elbow.height;
-    const wristY = AFC_ARM_JOINTS.wrist.height;
-    addTorusAlong("shoulder", wx, sy, wz, dx * shoulderR, shoulderY, dz * shoulderR, px, 0, pz);
-    addPieceAlong("upperArm", wx, sy, wz, dx * (shoulderR + elbowR) / 2, (shoulderY + elbowY) / 2, dz * (shoulderR + elbowR) / 2, dx * (elbowR - shoulderR), elbowY - shoulderY, dz * (elbowR - shoulderR), Math.hypot(elbowR - shoulderR, shoulderY - elbowY));
-    addTorusAlong("elbow", wx, sy, wz, dx * elbowR, elbowY, dz * elbowR, px, 0, pz);
-    addPieceAlong("forearm", wx, sy, wz, dx * (elbowR + wristR) / 2, (elbowY + wristY) / 2, dz * (elbowR + wristR) / 2, dx * (wristR - elbowR), wristY - elbowY, dz * (wristR - elbowR), Math.hypot(wristR - elbowR, elbowY - wristY));
-    addPieceAlong("claw", wx, sy, wz, dx * (wristR + 0.07), (wristY + 0.055) / 2, dz * (wristR + 0.07), dx * 0.14, 0.055 - wristY, dz * 0.14, Math.hypot(0.14, wristY - 0.055));
-  };
-
-  const addAfc = (wx: number, sy: number, wz: number): void => {
-    addCentralPrinter(wx, sy, wz);
-    for (const key of ["finishArmour", "finishTrim", "finishInset", "finishLight"]) {
-      addPiece(key, wx, sy, wz, 0, 0, 0);
-    }
-    for (let k = 0; k < AFC_SOCKET_COUNT; k += 1) {
-      const ang = (k * Math.PI) / 4;
-      addModuleSocket(wx, sy, wz, ang);
-      addSocketCable(wx, sy, wz, ang);
-    }
-    for (let m = 0; m < 4; m += 1) {
-      addManipulatorArm(wx, sy, wz, Math.PI / 8 + (m * Math.PI) / 2);
-    }
+  const addArms = createAfcArmWriter(addPieceAlong, addTorusAlong, addFinish);
+  const addBays = createAfcBayWriter(addPiece, addPieceAlong, addFinish, AFC_SOCKET_COUNT, AFC_SOCKET_RING_RADIUS);
+  const addAfc = (x: number, y: number, z: number, pose: AfcDeploymentPose): void => {
+    addCentralPrinter(x, y, z);
+    matrix.makeTranslation(x, y, z);
+    addFinish("body", matrix);
+    addBays(x, y, z, pose.bays, animated);
+    addArms(x, y, z, pose.arms, animated);
   };
 
   // ─── Core/chamber animation ─────────────────────────────────────────
@@ -372,7 +325,7 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
   const animatedMeshes: readonly InstancedMesh[] = [coreMesh, dotMesh].filter((mesh): mesh is InstancedMesh => mesh !== undefined);
 
   // frozen: remembered under fog, so the core holds still and the dots stop orbiting.
-  type AfcRecord = { readonly x: number; readonly y: number; readonly z: number; readonly phase: number; readonly frozen: boolean };
+  type AfcRecord = { readonly x: number; readonly y: number; readonly z: number; readonly phase: number; readonly frozen: boolean; readonly wx: number; readonly wy: number; readonly bayDeployment: number };
   const records: AfcRecord[] = [];
 
   // ─── Public API ─────────────────────────────────────────────────────
@@ -381,12 +334,13 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
     records.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen = false): number => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen = false, deployment = AFC_DEPLOYED_POSE): number => {
     if (records.length >= C) return -1;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    records.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, frozen });
-    addAfc(sceneX, surfaceY, sceneZ);
+    const pose = animated ? deployment : AFC_DEPLOYED_POSE;
+    records.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, frozen, wx: worldTileX, wy: worldTileY, bayDeployment: pose.bays });
+    addAfc(sceneX, surfaceY, sceneZ, pose);
     return records.length - 1;
   };
 
@@ -436,13 +390,15 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
     if (instanceIndex < 0 || instanceIndex >= records.length) return [];
     const rec = records[instanceIndex]!;
     const out: AfcModuleSocketAttachment[] = [];
+    const radius = afcBayRadius(rec.bayDeployment, AFC_SOCKET_RING_RADIUS);
+    const height = AFC_MODULE_DOCK_HEIGHT * afcBayHeightScale(rec.bayDeployment);
     for (let k = 0; k < AFC_SOCKET_COUNT; k += 1) {
       const a = (k * Math.PI) / 4;
       out.push({
         socketIndex: k,
-        x: rec.x + Math.cos(a) * AFC_SOCKET_RING_RADIUS,
-        y: rec.y + AFC_MODULE_DOCK_HEIGHT,
-        z: rec.z + Math.sin(a) * AFC_SOCKET_RING_RADIUS,
+        x: rec.x + Math.cos(a) * radius,
+        y: rec.y + height,
+        z: rec.z + Math.sin(a) * radius,
         yaw: a,
         bayInnerRadius: AFC_BAY_INNER_RADIUS
       });
@@ -460,5 +416,5 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
     metalSurface.dispose();
   };
 
-  return { clear, addInstance, commit, update, dispose, moduleSocketAttachments };
+  return { clear, addInstance, commit, update, dispose, moduleSocketAttachments, hasAt: (wx, wy) => records.some((rec) => rec.wx === wx && rec.wy === wy) };
 };

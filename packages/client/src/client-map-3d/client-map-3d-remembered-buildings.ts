@@ -12,7 +12,7 @@ import type { DockOverlay } from "../client-map-3d-dock-overlay.js";
 import type { WatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js";
 import type { WaystationOverlay } from "../client-map-3d-waystation-overlay.js";
 import type { AfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
-import { isAfcHiddenForJoinDrop, type AfcJoinDropState } from "../client-afc-join-drop/client-afc-join-drop-state.js";
+import { isAfcModelHiddenForJoinDrop, type AfcJoinDropState } from "../client-afc-join-drop/client-afc-join-drop-state.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { harbourFacingAt, rotationForFacing } from "../client-harbour-slipways/client-harbour-slipways.js";
 import { DEFAULT_CONTACT_SHADOW_RADIUS_TILES, LARGE_CONTACT_SHADOW_RADIUS_TILES } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
@@ -41,13 +41,13 @@ export type RememberedBuildingContext = FortificationInstanceDeps & {
   readonly elevationAt: (wx: number, wy: number) => number;
   readonly dockEndpointKeys: ReadonlySet<string>;
   readonly rebuildStartAt: number;
+  readonly afcPadSurfaceY: (wx: number, wy: number) => number;
 };
 
 export type RememberedBuildingSite = {
   readonly x: number;
   readonly z: number;
   readonly surfaceY: number;
-  /** Follows the hill dome; the AFC stands on its levelled pad at this height. */
   readonly flatOverlayY: number;
   readonly wx: number;
   readonly wy: number;
@@ -81,8 +81,9 @@ export const addRememberedBuildingsForTile = (
     layers.waystationOverlay.addInstance(x, z, surfaceY, wx, wy, tile.waystation, true);
     shadows.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
   }
-  if (tile.afc && !isAfcHiddenForJoinDrop(context.state.afcJoinDrop, wx, wy)) {
-    layers.afcOverlay.addAfc(x, z, site.flatOverlayY, wx, wy, tile.afc.modules ?? [], true);
+  if (tile.afc && !isAfcModelHiddenForJoinDrop(context.state.afcJoinDrop, wx, wy)) {
+    const padY = context.afcPadSurfaceY(wx, wy);
+    layers.afcOverlay.addAfc(x, z, padY, wx, wy, tile.afc.modules ?? [], true);
     shadows.addShadow(x, z, site.flatOverlayY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
   }
   addBuildingInstancesForTile(tile, site, layers.buildings, context.state, context.rebuildStartAt, tile.resource, true);

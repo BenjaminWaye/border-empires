@@ -9,7 +9,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   seasonEndDismissed: false,
   seasonEndStarting: false,
   seasonStartVoteCount: 1,
-  seasonStartVoted: true,
+  seasonStartVoted: true, seasonStartVoteThreshold: 10, authIsGuest: false, needsSeasonJoin: false,
   mapRevealEligible: false,
   leaderboard: { overall: [], selfOverall: undefined, selfByTiles: undefined, selfByIncome: undefined, selfByTechs: undefined, byTiles: [], byIncome: [], byTechs: [] },
   seasonVictory: [],
@@ -40,7 +40,7 @@ describe("season-end admin force-start hold", () => {
     const { button, startNewSeason, forceStartNewSeason } = render(makeState({ mapRevealEligible: true }));
     expect(button.disabled).toBe(false);
     expect(button.getAttribute("aria-disabled")).toBe("true");
-    expect(button.textContent).toContain("Vote cast (1/5)");
+    expect(button.textContent).toContain("You're in · 1/10 Houses committed");
     press(button);
     vi.advanceTimersByTime(FORCE_HOLD_MS);
     release(button);

@@ -92,7 +92,9 @@ campaigns under the Writ. A Sector admits only as many Houses as its world
 can hold. When a Proclamation is oversubscribed, the Houses turned away
 enter their names for the next Sector the Court opens, and the length of
 that list is itself watched closely, as a measure of how hungry the
-nobility still is for ground.
+nobility still is for ground. Once a campaign is decided, the Court
+proclaims the next Sector at once but sends no expedition until enough
+Houses have entered their names; all of them land together.
 
 **Winning a Sector campaign grants the victor the rank of Duke and
 personal, permanent rights to that world.** It is not a season's prize —
@@ -160,7 +162,9 @@ not to.
 Relics are fixed remnants of the Concordance's planetary megastructures.
 Their shared ziggurat-shaped surface buildings are access and control
 structures; different installations survive below them and provide different
-capabilities. The installations remain part of the planet after a war game.
+capabilities. The ground around the access structure is part of the installation
+and is kept clear of new buildings. The installations remain part of the planet
+after a war game.
 Their physical survival does not establish continued House ownership or
 bonuses between campaigns.
 
@@ -593,6 +597,10 @@ strategic materials used in machinery, construction and military equipment.
 Crystal is usable aether (§3). These meanings do not prescribe stockpiles, resource-slot costs or
 per-cast consumption: those details follow the current gameplay reference.
 
+Frontier waystations are temporary camps. Once a House claims one, the
+camp is struck. A camp that guarded fertile ground or a deposit leaves that
+site for the House to work and defend.
+
 A House's war industry shows on its soldiers. Once a House runs a Titanium
 Weapons Factory, its troops go to war in heavy plate -- thick House-coloured
 plates edged and riveted in polished titanium, stacked pauldrons and a
@@ -620,7 +628,8 @@ planet, rather than discovering knowledge it already possessed.
 
 The AFC is the House's imported industrial seed and delivery point. A module
 is a substantial machine that lets the House fabricate, operate or deploy
-an entire category of capability. Being technical is not by itself a reason
+an entire category of capability. The complex and its service arms occupy a
+reserved site that stays clear of other buildings. Being technical is not by itself a reason
 to classify something as a module.
 
 The **Industrial Tooling Module** is a precision toolmaking system. It

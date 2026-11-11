@@ -2,7 +2,7 @@
 // come per frame from client-map-name-labels.ts). Every name is fitted inside
 // the tiles it belongs on, never overflowing them (client-name-path-fit.ts):
 //   - player names: along the core of each run of the player's explored
-//     garrisons (client-territory-name-layout.ts);
+//     garrisoned and frontier land (client-territory-name-layout.ts);
 //   - island names: along the core of the island's explored garrisons -- the
 //     namer's own for a chosen name, anyone's for a generated one -- found by
 //     flooding out from the island's label line (client-region-name-layout.ts).
@@ -13,9 +13,9 @@ import { playerDisplayNameForOwnerFromState } from "../client-owner-name/client-
 import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { NameLabelPath } from "./client-map-name-label-draw.js";
-import { fitNamePathToTiles } from "./client-name-path-fit.js";
+import { fitNamePathThroughCore, fitNamePathToTiles } from "./client-name-path-fit.js";
 import { layoutNameInRegion } from "./client-region-name-layout.js";
-import { computeTerritoryNameLabels } from "./client-territory-name-layout.js";
+import { computeTerritoryNameLabels, isPlayerTerritoryLand } from "./client-territory-name-layout.js";
 
 const PLACEMENT_MIN_INTERVAL_MS = 1_500;
 /** Longest stretch an island name is spread over: a continent's name stays readable instead of scattering letters across the world. */
@@ -61,13 +61,14 @@ export const computeNamePlacements = (deps: NamePlacementDeps, version: number):
   for (const label of computeTerritoryNameLabels(deps.state.tiles.values(), { skipOwner: (ownerId) => isPlanetaryDefenseOwnerId(ownerId) })) {
     const name = playerDisplayNameForOwnerFromState(deps.state, label.ownerId);
     if (!name) continue;
-    // The player's own explored garrisons: never over a rival, frontier or unexplored tile.
-    const onOwnGarrison = (x: number, y: number): boolean => {
+    // Keep the label on the player's explored land.
+    const onOwnTerritory = (x: number, y: number): boolean => {
       if (!isExplored(x, y)) return false;
       const tile = tileAt(x, y);
-      return tile?.ownerId === label.ownerId && tile.ownershipState === "SETTLED";
+      return tile?.ownerId === label.ownerId && isPlayerTerritoryLand(tile);
     };
-    const path = fitNamePathToTiles({ text: name, points: label.points, heightTiles: label.heightTiles, spanTiles: label.spanTiles }, onOwnGarrison);
+    const preferred = { text: name, points: label.points, heightTiles: label.heightTiles, spanTiles: label.spanTiles };
+    const path = fitNamePathToTiles(preferred, onOwnTerritory) ?? fitNamePathThroughCore(preferred, label.core, onOwnTerritory);
     if (path) players.push({ ownerId: label.ownerId, path });
   }
 

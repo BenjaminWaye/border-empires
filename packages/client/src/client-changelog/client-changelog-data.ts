@@ -1,5 +1,8 @@
 import { NATIVE_SOCIAL_SIGN_IN_ENTRY } from "./client-changelog-nov-10.js";
-import { AFC_CAMPAIGN_LOADOUT_ENTRY, BRASS_DEAL_SLIDERS_ENTRY, SCORE_TIMELINE_KEPT_ENTRY, AI_EXPANSION_FIXES_ENTRY, ATTACK_ENDS_SUPPLY_TRADES_ENTRY, FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, MOBILE_PROFILE_SCROLL_ENTRY, NEUTRAL_TOWN_NAMES_ENTRY, REPORT_CANCEL_ENTRY, HIVE_MIND_II_PREREQ_ENTRY, SEASON_SCORES_SAVED_ENTRY, SECTOR_CONTEST_NAME_ENTRY, SECTOR_WAITLIST_ENTRY, JOIN_SCREEN_SEASON_END_ENTRY, VICTORY_RACE_WINNER_ENTRY, ADMIN_FORCE_SEASON_START_ENTRY } from "./client-changelog-nov-09.js";
+import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-names.js";
+import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
+import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
@@ -73,7 +76,7 @@ import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
-import { MAP_LENS_CHANGELOG } from "./client-changelog-map-lens.js";
+import { MAP_LENS_CHANGELOG, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
@@ -168,12 +171,13 @@ import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-
 import { MOBILE_RESOURCE_RIBBON_ENTRY } from "./client-changelog-mobile-resource-ribbon.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
-import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
+import { AFC_LANDING_DEPLOYMENT_ENTRY, CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-earlier-106.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_112 } from "./client-changelog-data-earlier-112.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -184,6 +188,7 @@ export type ClientChangelogEntry = {
 // Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_REPLACEMENT_CHANGELOG,
+  { ...AFC_RELIC_BUILD_ENTRY, createdAt: 1794343264230, },
   ...TOWN_ECONOMY_CHANGELOG,
   ...RESOURCE_NETWORKS_CHANGELOG,
   ...AFC_SPECIALIZATIONS_CHANGELOG,
@@ -308,7 +313,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...HILL_GARRISON_FILL_CHANGELOG,
   ...NAME_DECAL_HILLS_CHANGELOG,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_110,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_112,
   ...SHARD_COMEBACK_CHANGELOG,
   {
     createdAt: 1792907228760, // Date.now() captured once for this entry.
@@ -458,25 +463,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ...MAP_BROWSING_FIXES_CHANGELOG,
     createdAt: 1794165080849, // Date.now() captured once.
   },
-  { ...SEASON_SCORES_SAVED_ENTRY, createdAt: 1794209772303, },
-  { ...NEUTRAL_TOWN_NAMES_ENTRY, createdAt: 1794215116027, },
   { ...ZOOMED_OUT_PAN_PERF_CHANGELOG, createdAt: 1794216988849, },
-  { ...AI_EXPANSION_FIXES_ENTRY, createdAt: 1794219265399, },
-  { ...ATTACK_ENDS_SUPPLY_TRADES_ENTRY, createdAt: 1794230766147, },
-  { ...REPORT_CANCEL_ENTRY, createdAt: 1794248783783, },
-  { ...FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, createdAt: 1794241720931, },
-  { ...AFC_CAMPAIGN_LOADOUT_ENTRY, createdAt: 1794249083604, },
-  { ...SECTOR_WAITLIST_ENTRY, createdAt: 1794249296720, },
-  { ...JOIN_SCREEN_SEASON_END_ENTRY, createdAt: 1794260901474, },
-  { ...HIVE_MIND_II_PREREQ_ENTRY, createdAt: 1794261939652, },
-  { ...VICTORY_RACE_WINNER_ENTRY, createdAt: 1794261877222, },
-  { ...SECTOR_CONTEST_NAME_ENTRY, createdAt: 1794260286374, },
-  { ...MOBILE_PROFILE_SCROLL_ENTRY, createdAt: 1794258518510, },
-  { ...BRASS_DEAL_SLIDERS_ENTRY, createdAt: 1794255946209, },
   { ...WAR_TREE_HIVE_MIND_HUB_ENTRY, createdAt: 1794292926456, },
-  { ...SCORE_TIMELINE_KEPT_ENTRY, createdAt: 1794261469742, },
   { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, },
-  { ...ADMIN_FORCE_SEASON_START_ENTRY, createdAt: 1794261609344, },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_110,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_111,
+  { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
+  { ...RESOURCE_LENS_ENTRY, createdAt: 1794383695242, },
+  { ...WAYSTATION_FORT_MODULE_ENTRY, createdAt: 1794394297385, },
+  { ...READABLE_REALM_NAMES_ENTRY, createdAt: 1794410558462, },
   { ...NATIVE_SOCIAL_SIGN_IN_ENTRY, createdAt: 1794288128417, }
 ];
 

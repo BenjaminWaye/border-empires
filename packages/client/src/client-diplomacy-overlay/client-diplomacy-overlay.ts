@@ -41,11 +41,16 @@ export const diplomacyStanceLookup = (state: StanceState): DiplomacyStanceLookup
   };
 };
 
-/** What the 3D overlay was built from: empty while it's off, else the stances that decide each tint. */
-export const diplomacyOverlayKey = (state: StanceState & Pick<ClientState, "showDiplomacyOverlay">): string =>
-  state.showDiplomacyOverlay
-    ? `on:${[...state.allies].sort().join(",")}|${state.activeTruces.map((t) => t.otherPlayerId).sort().join(",")}`
-    : "";
+/**
+ * What the 3D map and minimap territory paint was built from: empty on the Terrain lens, "resources" on the
+ * Resources lens (client-resource-lens.ts), else the stances that decide each Diplomacy tint.
+ */
+export const diplomacyOverlayKey = (state: StanceState & Pick<ClientState, "showDiplomacyOverlay"> & { showResourceOverlay?: boolean }): string =>
+  state.showResourceOverlay
+    ? "resources"
+    : state.showDiplomacyOverlay
+      ? `on:${[...state.allies].sort().join(",")}|${state.activeTruces.map((t) => t.otherPlayerId).sort().join(",")}`
+      : "";
 
 /**
  * While the view is on, the colour an empire's land is painted in (your own in DIPLOMACY_SELF_COLOR); undefined

@@ -430,10 +430,17 @@ growable) carries the hold:
 
 - While the phase is `waiting`, or `playing` before touchdown, both
   renderers skip the AFC on that tile (`isAfcHiddenForJoinDrop`): 3D at
-  the `addAfc` call, 2D in `drawAfcTile2D`.
+  the `addAfc` call, 2D in `drawAfcTile2D`. The landing footprint keeps
+  its original terrain until touchdown.
+- After touchdown the footprint terrain switches, but the true-3D drop
+  layer keeps owning the model while the stabilizer arms plant and the
+  eight bays slide out (`isAfcModelHiddenForJoinDrop`, for the whole
+  `playing` phase). 2D draws the same deployment pose
+  (`afcJoinDeploymentPose`) in `drawAfcTile2D`.
 - The tick bumps the tile revision (and records the changed key) when it
-  arms and again when it reveals at touchdown, so the 3D renderer
-  rebuilds its instances exactly then.
+  arms, at touchdown, and again when the drop finishes, so the 3D
+  renderer rebuilds then. The drop copy stays until the permanent AFC
+  exists, or for at most `AFC_JOIN_MODEL_OVERLAP_MS` after the drop ends.
 - Every exit path (completion, safety-net reveal, AFC replaced) sets
   `revealed`, so the hold can never outlive the drop.
 
@@ -480,7 +487,7 @@ scrubbing the timeline; the story owns its clock and has a slider):
 | Engine cut | 6350-7150 ms | Thrusters off; the AFC drops the last few percent unpowered and hits the ground. Clip: the short lull. |
 | Touchdown | at 7150 ms; ~260 ms flash, 1600 ms shockwave | Impact glow, thin ring, expanding shockwave. Clip: the sharp impact hit. |
 | Smoke settle | ~1900 ms per puff, staggered | A soft dust bank (gradient sprites, not solid spheres) wraps the 3x3 footprint, then thins. Clip: the low ground rumble. |
-| Power-on | 1000-2600 ms after touchdown | Cyan glow swell as the smoke thins. The real AFC is revealed at touchdown under the smoke; the descending copy lingers 800 ms to cover rebuild throttling. |
+| Power-on | 1000-2600 ms after touchdown | Cyan glow swell as the smoke thins. The drop copy plants its arms and slides out its bays over this window; the permanent AFC takes over once deployment ends, with up to 800 ms grace to cover rebuild throttling. |
 
 That is 10 s of animation after the 1.2 s dwell. The beats are pinned to
 the 9 s rocket clip (`/audio/afc-drop-rocket.mp3`) that plays as the drop
@@ -520,9 +527,10 @@ Implemented (all in `packages/client/src`):
   "eyes on the map" predicate.
 - `client-map-3d-afc-drop-fx/`: the true-3D layer, with a private
   descending AFC model, streak, braking burn, touchdown and smoke.
-- Hidden-until-touchdown: `client-map-3d.ts` skips `addAfc` while
-  `isAfcHiddenForJoinDrop`, and the tick bumps the tile revision on arm
-  and reveal so the 3D renderer rebuilds; `drawAfcTile2D` draws nothing
+- Hidden-until-deployed: `client-map-3d.ts` skips `addAfc` while
+  `isAfcModelHiddenForJoinDrop` (terrain and shadow follow
+  `isAfcHiddenForJoinDrop`), and the tick bumps the tile revision on arm,
+  touchdown and finish so the 3D renderer rebuilds; `drawAfcTile2D` draws nothing
   while waiting. (Implemented as `state.afcJoinDrop`, not the
   `afcArrivalsByKey` map sketched under "AFC drop" Design decision 2.)
 - Storybook: `AfcDropFx.stories.ts` (real FX layer, scrub slider).

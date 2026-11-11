@@ -70,6 +70,16 @@ describe("minimap tile layer", () => {
     expect(ctx.fillRectCalls.some((c) => c.style.startsWith("#3366cc"))).toBe(false);
     expect(ctx.fillRectCalls).toContainEqual({ x: 10, y: 10, w: 10, h: 10, style: "rgba(0,0,0,0.62)" });
   });
+
+  it("on the Resources lens paints resource tiles in their colour and drops all territory tint and outline", () => {
+    const ctx = makeFakeCtx();
+    const tiles = mapOf([tile(1, 1, { ownerId: "me", resource: "FARM" }), tile(2, 1, { ownerId: "rival" }), tile(3, 1, { resource: "GEMS" })]);
+    const lensTileColor = (t: Tile): string | null => (t.resource === "FARM" ? "#e9f27b" : t.resource === "GEMS" ? "#b175ff" : null);
+    drawMiniMapTileLayer(ctx, BOX, 100, 100, { ...layerDeps(tiles), lensTileColor });
+    expect(ctx.fillRectCalls.some((c) => c.style.startsWith("#3366cc"))).toBe(false);
+    expect(ctx.fillRectCalls).toContainEqual({ x: 10, y: 10, w: 10, h: 10, style: "#e9f27b" });
+    expect(ctx.fillRectCalls).toContainEqual({ x: 30, y: 10, w: 10, h: 10, style: "#b175ff" });
+  });
 });
 
 describe("drawMiniMap with the tile layer", () => {

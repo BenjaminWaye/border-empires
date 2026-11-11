@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { HudV2Deps } from "./client-hud-v2-context.js";
-import { installLens, lensClick, lensMenu, overlaysHtml, OVERLAYS_HOST_ID } from "./client-hud-v2-overlays.js";
+import { activeLens, installLens, lensClick, lensMenu, overlaysHtml, OVERLAYS_HOST_ID } from "./client-hud-v2-overlays.js";
 import { ownerStanceTagHtml } from "./client-hud-v2-stance-tag.js";
 
 const host = (html: string): HTMLElement => {
@@ -23,7 +23,7 @@ describe("map lens button", () => {
     expect(closed.innerHTML).not.toContain("alliance.svg");
     expect(closed.innerHTML).not.toContain("legend");
     const open = host(overlaysHtml(false, true));
-    expect(Array.from(open.querySelectorAll<HTMLElement>("[data-hud-v2-lens]")).map((b) => b.dataset.hudV2Lens)).toEqual(["terrain", "diplomacy"]);
+    expect(Array.from(open.querySelectorAll<HTMLElement>("[data-hud-v2-lens]")).map((b) => b.dataset.hudV2Lens)).toEqual(["terrain", "diplomacy", "resources"]);
     expect(open.querySelector('[data-hud-v2-lens="terrain"]')?.getAttribute("aria-checked")).toBe("true");
     // The list follows its button in tab order.
     expect(open.firstElementChild?.hasAttribute("data-hud-v2-lens-toggle")).toBe(true);
@@ -49,6 +49,17 @@ describe("map lens button", () => {
     const same = host(overlaysHtml(true, true)).querySelector('[data-hud-v2-lens="diplomacy"]')!;
     expect(lensClick(state, same)).toEqual({ handled: true, viewChanged: false });
     expect(lensMenu.open).toBe(false);
+  });
+
+  it("switches between Diplomacy and Resources so only one lens is ever on", () => {
+    const state = { showDiplomacyOverlay: true, showResourceOverlay: false };
+    const pick = (lens: string): Element => host(overlaysHtml("terrain", true)).querySelector(`[data-hud-v2-lens="${lens}"]`)!;
+    expect(lensClick(state, pick("resources"))).toEqual({ handled: true, viewChanged: true });
+    expect(state).toEqual({ showDiplomacyOverlay: false, showResourceOverlay: true });
+    expect(activeLens(state.showDiplomacyOverlay, state.showResourceOverlay)).toBe("resources");
+    expect(host(overlaysHtml("resources", false)).querySelector("img")?.getAttribute("src")).toBe("/icons/simple/lens-resources.svg");
+    expect(lensClick(state, pick("terrain"))).toEqual({ handled: true, viewChanged: true });
+    expect(state).toEqual({ showDiplomacyOverlay: false, showResourceOverlay: false });
   });
 });
 

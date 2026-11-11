@@ -14,7 +14,9 @@ describe("3d town rendering regression guard", () => {
     // The orchestrator must not embed the legacy three-town/resource layers.
     expect(map3dSource).not.toContain("createClientThreeTownLayer");
     // The 3D town overlay drives town visuals through this entry point.
-    expect(map3dSource).toContain("townOverlay.addInstance");
+    expect(map3dSource).toContain('if (terrain === "LAND") addTownForTile(');
+    const townPlacementSource = clientSource("../client-map-3d/client-map-3d-town-placement.ts");
+    expect(townPlacementSource).toContain("townOverlay.addInstanceWithUpgrade");
     // Bootstrap suppresses the SVG town icon when the true-3D renderer is
     // mounted — this is the drawTownOverlay wrapper's own 3D branch, not just
     // any mention of the renderer handle.

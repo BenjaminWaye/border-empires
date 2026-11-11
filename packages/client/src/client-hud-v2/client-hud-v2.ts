@@ -20,7 +20,7 @@ import { currentHudV2Layout, type HudV2Layout } from "./client-hud-v2-layout.js"
 import { navHtml } from "./client-hud-v2-nav.js";
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import { orbHtml, orbInputForState } from "./client-hud-v2-orb.js";
-import { installLens, lensMenu, mapOverview, overlaysHtml, setMapOverview } from "./client-hud-v2-overlays.js";
+import { activeLens, installLens, lensMenu, mapOverview, overlaysHtml, setMapOverview } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
 import { applyResourceChip } from "./client-hud-v2-resource-panel.js";
 import { hasRevealedResourceCategory } from "../client-tech-html/client-tech-html.js";
@@ -273,7 +273,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
   writeRegion("orb-slot", orbHtml(orbInputForState(state, nowMs, resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor)))); // Base colour: the Diplomacy view recolours ownerColor.
 };
 
-const renderLens = (state: ClientState): void => writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay, lensMenu.open, mapOverview.open));
+const renderLens = (state: ClientState): void => writeRegion("overlays", overlaysHtml(activeLens(state.showDiplomacyOverlay, state.showResourceOverlay), lensMenu.open, mapOverview.open));
 
 /** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */
 const TRACKER_SCAN_MAX_AGE_MS = 5_000;

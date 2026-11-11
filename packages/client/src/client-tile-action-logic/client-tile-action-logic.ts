@@ -51,7 +51,7 @@ import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structur
 import { ownTowerReadyInMs, ownTowerShotReadyInMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { appendMarchCancelAction } from "../client-muster-march-targeting.js";
-import { hasFortTech, nextFortVariantForTile } from "./client-tile-action-fort-siege-variants.js";
+import { fortModuleReady, hasFortTech, nextFortVariantForTile } from "./client-tile-action-fort-siege-variants.js";
 import { siegeCampAction } from "./client-tile-action-siege-camp.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason, ownedRelayBeaconCount } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
@@ -663,9 +663,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       (!tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "HARBOR_EXCHANGE") && // Fort/Palisade may also coexist with a Harbor Exchange, same as Relay Beacon.
       // Normally masonry supersedes the Palisade with the full Fort
       // upgrade below, but if a fresh Fort can't actually be built right now
-      // (no free TITANIUM slot) keep Palisade visible as the fallback rather
-      // than hiding both options.
-      (!hasFortTech(state) || !hasFreeResourceSlots(state, "FORT"))
+      // (masonry module not on an AFC, or no free TITANIUM slot) keep Palisade
+      // visible as the fallback rather than hiding both options.
+      (!fortModuleReady(state) || !hasFreeResourceSlots(state, "FORT"))
     ) {
       out.push({
         id: "build_palisade" as TileActionDef["id"],

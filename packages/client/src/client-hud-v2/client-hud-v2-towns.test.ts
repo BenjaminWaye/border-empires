@@ -14,7 +14,8 @@ const row = (x: number, name: string, goldPerMinute: number, isFed = true): Town
   population: 4200,
   maxPopulation: 8000,
   growthPerMinute: 1.25,
-  isFed
+  isFed,
+  openSlots: 3
 });
 
 describe("HUD v2 towns screen", () => {
@@ -34,6 +35,8 @@ describe("HUD v2 towns screen", () => {
     expect(html).toContain("4,200");
     expect(html).toContain("+1.3");
     expect(html).toContain("Gold/day ▲");
+    expect(html).toContain('title="Open build slots">3<');
+    expect(html).toContain(">Slots<");
   });
 
   it("flags unfed towns and escapes names", () => {

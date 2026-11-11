@@ -1,25 +1,22 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { AFC_CAMPAIGN_LOADOUT_ENTRY, BRASS_DEAL_SLIDERS_ENTRY, SCORE_TIMELINE_KEPT_ENTRY, AI_EXPANSION_FIXES_ENTRY, ATTACK_ENDS_SUPPLY_TRADES_ENTRY, FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, MOBILE_PROFILE_SCROLL_ENTRY, NEUTRAL_TOWN_NAMES_ENTRY, REPORT_CANCEL_ENTRY, HIVE_MIND_II_PREREQ_ENTRY, SEASON_SCORES_SAVED_ENTRY, SECTOR_CONTEST_NAME_ENTRY, SECTOR_WAITLIST_ENTRY, JOIN_SCREEN_SEASON_END_ENTRY, VICTORY_RACE_WINNER_ENTRY, ADMIN_FORCE_SEASON_START_ENTRY } from "./client-changelog-nov-09.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_110: ClientChangelogEntry[] = [
-  {
-    createdAt: 1792873662311, // Frozen Date.now() timestamp for the changelog gate.
-    introducedIn: "2026.10.24.3",
-    title: "Titanium-armoured soldiers no longer collapse when they move",
-    why: "The heavy armour's animations were copied from the standard soldier onto a differently shaped body, so the armour crumpled the moment a soldier ran, stood or knelt.",
-    changes: [
-      "Soldiers in heavy armour now stand, run, march and kneel with the same poses and arm positions as standard soldiers",
-      "This is cosmetic and only shows on the 3D map"
-    ]
-  },
-  {
-    createdAt: 1792909803859, // Frozen Date.now() timestamp for the changelog gate.
-    introducedIn: "2026.10.24.3",
-    title: "Soldiers killed in battle now fall properly",
-    why: "A soldier killed in a 3D battle was tipped over whole and shrunk, so they sank into a small bundle on the ground instead of falling.",
-    changes: [
-      "Killed soldiers, in standard or heavy armour, now play a real fall and lie full size on the battlefield",
-      "On the 2D map, soldiers killed during a dock landing now fade out over about a second instead of vanishing almost at once"
-    ]
-  }
+  { ...SEASON_SCORES_SAVED_ENTRY, createdAt: 1794209772303, },
+  { ...NEUTRAL_TOWN_NAMES_ENTRY, createdAt: 1794215116027, },
+  { ...AI_EXPANSION_FIXES_ENTRY, createdAt: 1794219265399, },
+  { ...ATTACK_ENDS_SUPPLY_TRADES_ENTRY, createdAt: 1794230766147, },
+  { ...REPORT_CANCEL_ENTRY, createdAt: 1794248783783, },
+  { ...FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, createdAt: 1794241720931, },
+  { ...AFC_CAMPAIGN_LOADOUT_ENTRY, createdAt: 1794249083604, },
+  { ...SECTOR_WAITLIST_ENTRY, createdAt: 1794249296720, },
+  { ...JOIN_SCREEN_SEASON_END_ENTRY, createdAt: 1794260901474, },
+  { ...HIVE_MIND_II_PREREQ_ENTRY, createdAt: 1794261939652, },
+  { ...VICTORY_RACE_WINNER_ENTRY, createdAt: 1794261877222, },
+  { ...SECTOR_CONTEST_NAME_ENTRY, createdAt: 1794260286374, },
+  { ...MOBILE_PROFILE_SCROLL_ENTRY, createdAt: 1794258518510, },
+  { ...BRASS_DEAL_SLIDERS_ENTRY, createdAt: 1794255946209, },
+  { ...SCORE_TIMELINE_KEPT_ENTRY, createdAt: 1794261469742, },
+  { ...ADMIN_FORCE_SEASON_START_ENTRY, createdAt: 1794261609344, }
 ];

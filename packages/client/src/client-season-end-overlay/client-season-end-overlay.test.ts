@@ -7,7 +7,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   seasonWinner: undefined,
   seasonEndDismissed: false,
   seasonEndStarting: false,
-  seasonStartVoteCount: 0, seasonStartVoted: false, mapRevealEligible: false,
+  seasonStartVoteCount: 0, seasonStartVoted: false, seasonStartVoteThreshold: 10, authIsGuest: false, needsSeasonJoin: false, mapRevealEligible: false,
   leaderboard: {
     overall: [] as { id: string; rank: number; name: string; score: number; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number }[],
     selfOverall: undefined,
@@ -289,7 +289,7 @@ describe("season-end overlay", () => {
     expect(hudCalled).toBe(true);
   });
 
-  it("sends vote on new season button click", () => {
+  it("commits to the next Sector Contest on button click", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({ seasonWinner: makeWinner(), leaderboard: makeLeaderboard() });
     let newSeasonStarted = false;
@@ -333,7 +333,7 @@ describe("season-end overlay", () => {
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
     const footer = overlayEl.querySelector(".se-scroll-footer") as HTMLElement;
     expect(footer).not.toBeNull();
-    expect(footer!.innerHTML).toContain("Vote for a New Sector Contest");
+    expect(footer!.innerHTML).toContain("Join the next Sector Contest (0/10)");
     expect(footer!.innerHTML).toContain("Look Around");
   });
 

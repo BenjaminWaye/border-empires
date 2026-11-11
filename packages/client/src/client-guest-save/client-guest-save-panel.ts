@@ -5,7 +5,7 @@ import { detectInAppBrowserName } from "../client-inapp-browser/client-inapp-bro
 import type { ClientState } from "../client-state/client-state.js";
 import { getGuestSave, saveMethodLabel, type EmailLinkResult, type GuestSaveController, type SaveView } from "./client-guest-save.js";
 
-export type OpenReason = "badge" | "diplomacy" | "nudge";
+export type OpenReason = "badge" | "diplomacy" | "nudge" | "next-contest";
 
 const BADGE_ID = "guest-save-badge";
 const PANEL_ID = "guest-save-panel";
@@ -21,7 +21,8 @@ const INAPP_NOTICE_STORAGE_KEY = "be_guest_inapp_notice_shown";
 const INTRO: Record<OpenReason, string> = {
   badge: "You're playing as a guest.",
   diplomacy: "Alliances and truces are for saved empires. You're playing as a guest.",
-  nudge: "Enjoying it? Save your empire so you don't lose it."
+  nudge: "Enjoying it? Save your empire so you don't lose it.",
+  "next-contest": "Joining the next Sector Contest needs a saved empire. You're playing as a guest."
 };
 
 let unsubscribe: (() => void) | undefined;

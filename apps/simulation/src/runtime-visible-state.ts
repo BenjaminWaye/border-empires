@@ -25,7 +25,7 @@ import type {
 } from "./runtime-types.js";
 import type { RuntimeExportState } from "./runtime-state-export.js";
 import type { RuntimeVisibilityClassification } from "./runtime-visibility-classifier.js";
-import { overlayJsonFieldsFromTile, townWireFields } from "./tile-overlay-fields/tile-overlay-fields.js";
+import { overlayJsonFieldsFromTile, townWireFields, waystationRewardHiddenFromViewer } from "./tile-overlay-fields/tile-overlay-fields.js";
 
 type VisibilityPlayerProjectionDeps = {
   supplyStateForPlayer?: (id: string) => import("@border-empires/shared").ResourceSupplyPlayerState;
@@ -192,7 +192,11 @@ export function exportTilesInAreaForPlayer(input: {
         { full: true }
       );
       collected.push(input.fullVisibility
-        ? { ...delta, ...districtOverlayProjection(input.tiles, tile, () => true) }
+        ? {
+            ...delta,
+            ...(waystationRewardHiddenFromViewer(tile.waystation, input.playerId) ? { waystationJson: undefined } : {}),
+            ...districtOverlayProjection(input.tiles, tile, () => true)
+          }
         : delta);
     }
   }
@@ -245,7 +249,7 @@ function visibleTileProjection(
     // reached a reconnecting client. Truthy-guarded: this bulk login /
     // full-visibility export reports what IS there, not what changed; a stale
     // local belief is corrected by REQUEST_TILE_DETAIL, same as before.
-    ...overlayJsonFieldsFromTile(tile),
+    ...overlayJsonFieldsFromTile(tile, playerId),
     ...districtOverlayProjection(input.tiles, tile, key => classification.visibleKeys.has(key) &&
       !(classification.lockTargetOnlyKeys.has(key) && !allyAndSelfIds.has(input.tiles.get(key)?.ownerId ?? "")))
   };

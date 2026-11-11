@@ -349,6 +349,7 @@
 .se-btn-secondary:hover { filter: brightness(1.12); border-color: rgba(201, 162, 75, 0.7); }
 .se-fineprint { text-align: center; margin: 12px 0 2px; font-size: 11px; color: rgba(236, 220, 180, 0.5); }
 .se-fineprint strong { color: var(--se-copper); }
+.se-arrival-note { text-align: center; margin: 4px auto 12px; max-width: 34em; font-size: 13px; line-height: 1.45; color: rgba(236, 220, 180, 0.82); }
 .se-misc-items { display: flex; flex-direction: column; gap: 10px; }
 .se-misc-item { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 14px; background: rgba(0, 0, 0, 0.3); border-radius: 6px; border: 1px solid rgba(201, 162, 75, 0.15); }
 .se-misc-label { font-size: 13px; color: var(--se-brass-hi); font-weight: 700; white-space: nowrap; }

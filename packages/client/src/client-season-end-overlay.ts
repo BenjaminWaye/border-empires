@@ -10,6 +10,7 @@ import type {
 import { setReportOpen } from "./client-bug-report/client-bug-report.js";
 import { escapeHtml, missingHistoryNotice } from "./client-season-end-overlay/client-season-end-html.js";
 import { scoreGraphPanel } from "./client-season-end-score-graph.js";
+import { nextContestButtonLabel, nextContestFineprint } from "./client-next-contest/client-next-contest.js";
 
 type SeasonEndLeaderboard = {
   overall: LeaderboardOverallEntry[];
@@ -32,20 +33,26 @@ type SeasonEndOverlayDeps = {
     | "seasonEndStarting"
     | "seasonStartVoteCount"
     | "seasonStartVoted"
+    | "seasonStartVoteThreshold"
+    | "authIsGuest"
+    | "needsSeasonJoin"
     | "playerColors"
     | "mapRevealEligible"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
+  // Commits this House to the next Sector Contest.
   startNewSeason: () => void;
   // Admin-only (mapRevealEligible = server canToggleFog): long-press the
-  // vote button to start the next season without waiting for votes.
+  // button to start the next contest without waiting for commitments.
   forceStartNewSeason?: () => void;
+  // Guests can't commit; the button offers to save the empire instead.
+  openGuestSave?: () => void;
 };
 
-const SEASON_START_SIGN_IN_MESSAGE = "Finish sign-in before starting a new Sector Contest.";
+const SEASON_START_SIGN_IN_MESSAGE = "Finish sign-in before joining the next Sector Contest.";
 
-// Vote and admin force-start senders for the season-end overlay's button.
+// Commit and admin force-start senders for the season-end overlay's button.
 export const seasonStartSenders = (
   send: (payload: unknown, message?: string) => boolean
 ): Pick<SeasonEndOverlayDeps, "startNewSeason" | "forceStartNewSeason"> => ({
@@ -68,6 +75,9 @@ export const playerBadge = (
     color ? ` style="--player-color:${color}"` : ""
   } aria-hidden="true"></span><span class="se-badge-name">${escapeHtml(name)}</span></span>`;
 };
+
+// Rows on the newcomer's short result card.
+const COMPACT_STANDINGS_ROWS = 5;
 
 const rankClass = (rank: number): string =>
   rank === 1 ? "is-gold" : rank === 2 ? "is-silver" : rank === 3 ? "is-bronze" : "";
@@ -96,6 +106,9 @@ const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: Seas
     starting: state.seasonEndStarting,
     voteCount: state.seasonStartVoteCount,
     voted: state.seasonStartVoted,
+    threshold: state.seasonStartVoteThreshold,
+    guest: state.authIsGuest,
+    compact: state.needsSeasonJoin,
     admin: state.mapRevealEligible,
     self: [leaderboard.selfOverall?.id, leaderboard.selfOverall?.name],
     overall: leaderboard.overall.map((e) => [e.id, e.name, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
@@ -256,7 +269,7 @@ const miscPanel = (
 };
 
 export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
-  const { state, overlayEl, renderHud, startNewSeason, forceStartNewSeason } = deps;
+  const { state, overlayEl, renderHud, startNewSeason, forceStartNewSeason, openGuestSave } = deps;
   const visible = seasonEndVisible(state);
   overlayEl.style.display = visible ? "grid" : "none";
   if (!visible || !state.seasonWinner) {
@@ -283,7 +296,10 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   const newSeasonDisabledAttr = starting || (state.seasonStartVoted && !canForceStart)
     ? "disabled"
     : state.seasonStartVoted ? `aria-disabled="true"` : "";
-  const forceHoldAttrs = canForceStart ? `data-se-force-hold title="Admin: hold to force-start the new season"` : "";
+  const forceHoldAttrs = canForceStart ? `data-se-force-hold title="Admin: hold to start the next Sector Contest now"` : "";
+  // Someone who never played this world (a newcomer arriving after the crown)
+  // gets a short result card, not the full ledger.
+  const compact = state.needsSeasonJoin;
 
   const winner = { ...state.seasonWinner,
     playerName: currentPlayerName(leaderboard, state.seasonWinner.playerId, state.seasonWinner.playerName) };
@@ -322,7 +338,8 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
 
           ${victorMedallion(winner, colors, isSelfWinner)}
 
-          <nav class="se-tab-bar" role="tablist">
+          ${compact ? `<p class="se-arrival-note">You arrived after the crown was claimed. ${state.authIsGuest ? "Save your empire to join the next Sector Contest." : "Join the next Sector Contest to found your empire."}</p>
+          ${standingsLedger({ ...leaderboard, overall: leaderboard.overall.slice(0, COMPACT_STANDINGS_ROWS), selfOverall: undefined }, colors, selfId, state.seasonWinner.playerId)}` : `<nav class="se-tab-bar" role="tablist">
             <button class="se-tab${activeTab === "standings" ? " is-active" : ""}" role="tab" data-tab="standings">Final Standings</button>
             ${hasVictory ? `<button class="se-tab${activeTab === "victory" ? " is-active" : ""}" role="tab" data-tab="victory">Victory Paths</button>` : ""}
             <button class="se-tab${activeTab === "misc" ? " is-active" : ""}" role="tab" data-tab="misc">Statistics</button>
@@ -341,18 +358,18 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             <div class="se-tab-panel${activeTab === "score-graph" ? " is-active" : ""}" data-tab="score-graph" role="tabpanel">
               ${scoreGraphHtml}
             </div>
-          </div>
+          </div>`}
         </div>
         <div class="se-scroll-footer">
           <footer class="se-actions">
             <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${newSeasonDisabledAttr} ${forceHoldAttrs}>
               ${canForceStart ? `<span class="se-btn-hold-fill" aria-hidden="true"></span>` : ""}
               <span class="se-btn-cog" aria-hidden="true"></span>
-              <span class="se-btn-label">${starting ? "Winding the Spring…" : state.seasonStartVoted ? `Vote cast (${state.seasonStartVoteCount}/5)` : "Vote for a New Sector Contest"}</span>
+              <span class="se-btn-label">${escapeHtml(nextContestButtonLabel(state))}</span>
             </button>
             <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
           </footer>
-          <p class="se-fineprint">Starting a new Sector Contest resets the world and progression for <strong>every</strong> player.</p>
+          <p class="se-fineprint">${escapeHtml(nextContestFineprint(state.seasonStartVoteThreshold))}</p>
         </div>
       </div>
     </div>`;
@@ -390,6 +407,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
     newSeason.onclick = () => {
       if (consumeForceHoldClick(newSeason)) return;
       if (state.seasonEndStarting || state.seasonStartVoted) return;
+      if (state.authIsGuest) { openGuestSave?.(); return; }
       startNewSeason();
     };
     if (canForceStart && forceStartNewSeason) attachSeasonForceHold(newSeason, { onForce: forceStartNewSeason });
