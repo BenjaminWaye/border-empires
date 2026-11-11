@@ -222,7 +222,6 @@ export const SIM_LOOPBACK_PORT = 50052;
 export const SIM_LOOPBACK_ENDPOINTS: SimLoopbackEndpoint[] = [
   { path: "/debug/players?ai=1", description: "Simulation-side player debug snapshot (drop ?ai=1 for humans too)." },
   { path: "/debug/ai-diagnostics", description: "Per-AI recent utility winners, noop/preplan reasons, last accepted command." },
-  { path: "/debug/tile-visibility?playerId=<id>&x=<x>&y=<y>&radius=0", description: "Why a player can see the tiles around a point (every vision source per tile)." },
   { path: "/debug/heap-stats", description: "Cheap heap-space breakdown; safe to poll." },
   { path: "/debug/cpu-profile?ms=5000", description: "Sampling CPU profile of the sim thread (max 60s)." },
   { path: "/debug/heap-snapshot", description: "Writes a .heapsnapshot to /data. Pauses the loop — avoid near the heap ceiling." }

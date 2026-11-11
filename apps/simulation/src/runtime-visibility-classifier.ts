@@ -7,6 +7,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 export interface VisibilityCoverageReader {
+  isVisible(viewerId: string, tileKey: string): boolean;
   forEachVisibleKey(viewerId: string, cb: (key: string) => void): void;
   reasonsForTile(viewerId: string, tileKey: string): ReadonlySet<string>;
 }
@@ -71,7 +72,7 @@ export const classifyVisibilityForPlayer = (input: {
   // fallback here.
   if (input.onlyTileKeys) {
     for (const key of input.onlyTileKeys) {
-      if (input.visibilityCoverage.reasonsForTile(input.playerId, key).size > 0) fullVisionKeys.add(key);
+      if (input.visibilityCoverage.isVisible(input.playerId, key)) fullVisionKeys.add(key);
     }
   } else {
     input.visibilityCoverage.forEachVisibleKey(input.playerId, (key) => fullVisionKeys.add(key));

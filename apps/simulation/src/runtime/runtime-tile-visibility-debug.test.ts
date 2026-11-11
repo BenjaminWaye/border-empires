@@ -65,6 +65,13 @@ describe("runtime.tileVisibilityDebug", () => {
     expect(player).toEqual(before);
   });
 
+  it("reports covered tiles even if no reason tag is present", () => {
+    const runtime = runtimeWith();
+    vi.spyOn(runtime["state"].visibilityCoverage, "reasonsForTile").mockReturnValue(new Set());
+    const report = runtime.tileVisibilityDebug({ playerId: "viewer", x: 10, y: 10, radius: 0 });
+    expect(report.tiles[0]).toMatchObject({ visible: true, reasons: [] });
+  });
+
   it("flags an unknown player instead of throwing", () => {
     const report = runtimeWith().tileVisibilityDebug({ playerId: "nobody", x: 10, y: 10, radius: 0 });
     expect(report.playerKnown).toBe(false);
