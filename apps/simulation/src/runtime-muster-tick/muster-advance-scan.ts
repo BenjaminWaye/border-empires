@@ -2,6 +2,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import { isAlliedOrTruced } from "../runtime-player-factory.js";
+import { BARBARIAN_PLAYER_ID } from "../ai/system-job-barbarian-planner.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { ADVANCE_MAX_RANGE_TILES, isNearerAdvanceCandidate, type AdvanceCandidate } from "./muster-auto-fire-shared.js";
 
@@ -11,12 +12,23 @@ import { ADVANCE_MAX_RANGE_TILES, isNearerAdvanceCandidate, type AdvanceCandidat
  * attackable enemy tile (whether or not the flag can afford it yet) and the
  * nearest one it can afford right now. See pickAdvanceTarget for how the two
  * are used.
+ *
+ * A hunting flag (MusterState.hunt) only takes Planetary Defense tiles as
+ * candidates, and its preferred tile (the one the player clicked, targetX/Y)
+ * beats any other candidate while it is still reachable.
  */
+/** A hunt's preferred tile beats every other candidate; otherwise nearest wins. */
+const isBetterCandidate = (a: AdvanceCandidate, b: AdvanceCandidate | undefined): boolean => {
+  if (b && a.preferred !== b.preferred) return a.preferred === true;
+  return isNearerAdvanceCandidate(a, b);
+};
+
 export const scanAdvanceCandidates = (
   input: MusterTickInput,
   musterTile: DomainTileState,
   playerId: string,
-  availableMuster: number
+  availableMuster: number,
+  hunt?: { preferKey?: string | undefined }
 ): { nearest: AdvanceCandidate | undefined; nearestAffordable: AdvanceCandidate | undefined; engagedResolvesAt: number | undefined } => {
   const originKey = simulationTileKey(musterTile.x, musterTile.y);
   const getTile = (x: number, y: number): DomainTileState | undefined =>
@@ -95,6 +107,7 @@ export const scanAdvanceCandidates = (
         }
       } else if (
         neighbor.ownerId &&
+        (!hunt || neighbor.ownerId === BARBARIAN_PLAYER_ID) &&
         (neighbor.ownershipState === "FRONTIER" || neighbor.ownershipState === "SETTLED" || neighbor.ownershipState === "BARBARIAN") &&
         // An ally's or truced player's tile is not a target: the attack would
         // only be rejected, and as the nearest candidate it would be re-picked
@@ -116,8 +129,9 @@ export const scanAdvanceCandidates = (
           dist: chebyshevDistanceSimple(musterTile.x, musterTile.y, neighbor.x, neighbor.y),
           required: input.requiredMusterForTarget(neighbor, playerId)
         };
-        if (isNearerAdvanceCandidate(candidate, nearest)) nearest = candidate;
-        if (availableMuster >= candidate.required && isNearerAdvanceCandidate(candidate, nearestAffordable)) nearestAffordable = candidate;
+        if (hunt?.preferKey === nKey) candidate.preferred = true;
+        if (isBetterCandidate(candidate, nearest)) nearest = candidate;
+        if (availableMuster >= candidate.required && isBetterCandidate(candidate, nearestAffordable)) nearestAffordable = candidate;
       }
     }
   }

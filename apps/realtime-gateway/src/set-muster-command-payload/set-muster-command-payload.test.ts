@@ -16,6 +16,11 @@ describe("setMusterCommandPayload", () => {
   it("omits optional fields the client didn't send", () => {
     expect(setMusterCommandPayload({ x: 1, y: 2, mode: "HOLD" })).toEqual({ x: 1, y: 2, mode: "HOLD" });
   });
+
+  it("forwards Hunt Planetary Defense on ADVANCE, and only there", () => {
+    expect(setMusterCommandPayload({ x: 1, y: 2, mode: "ADVANCE", hunt: true, targetX: 3, targetY: 4 })).toEqual({ x: 1, y: 2, mode: "ADVANCE", hunt: true, targetX: 3, targetY: 4 });
+    expect(setMusterCommandPayload({ x: 1, y: 2, mode: "HOLD", hunt: true })).toEqual({ x: 1, y: 2, mode: "HOLD" });
+  });
 });
 
 describe("upgradeMusterCapCommandPayload", () => {

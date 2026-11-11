@@ -60,7 +60,8 @@ const musterLabel = (tile: Tile): string => {
     noTargetInRange: muster.noTargetInRange,
     insufficientManpower: muster.insufficientManpower,
     unfundableTarget: muster.unfundableTarget,
-    clearing: muster.clearing
+    clearing: muster.clearing,
+    hunt: muster.hunt
   });
 };
 
