@@ -66,6 +66,20 @@ describe("attacking Planetary Defense starts a hunt", () => {
     expect(state.queuedTargetKeys.has("179,246")).toBe(false);
   });
 
+  // Review regression: the hunt used to go to the nearest holding flag even
+  // when it was empty, dropping an attack the funded flag could have made.
+  it("hunts with the flag that can fund the attack, not a nearer empty one", () => {
+    const state = stateWithFlag("HOLD");
+    state.tiles.set("180,247", makeTile({
+      x: 180, y: 247, ownerId: "me", ownershipState: "SETTLED",
+      muster: { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() }
+    }));
+    const sendGameMessage = vi.fn(() => true);
+    run(state, sendGameMessage);
+    expect(sendGameMessage).toHaveBeenCalledWith(expect.objectContaining({ x: 181, y: 248, hunt: true }));
+    expect(sendGameMessage).not.toHaveBeenCalledWith(expect.objectContaining({ x: 180, y: 247 }));
+  });
+
   it("leaves a flag that is already advancing on everything alone and attacks the ordinary way", () => {
     const state = stateWithFlag("ADVANCE");
     const sendGameMessage = vi.fn(() => true);

@@ -39,7 +39,7 @@ export const buildMusterActions = (
   // Planetary Defense is capturing this tile: send a nearby flag after them
   // (offered even before mustering is unlocked -- they have plainly been met).
   const huntAttackers = huntAttackersAction(tile, state, nowMs);
-  if (!tile.muster && !isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)) return huntAttackers ? [huntAttackers] : [];
+  if (!tile.muster && !isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)) return huntAttackers && !huntAttackers.disabled ? [huntAttackers] : [];
 
   const out: TileActionDef[] = [];
   const muster = tile.muster;

@@ -45,8 +45,16 @@ describe("Hunt Planetary Defense on a tile it is capturing", () => {
 
   it("explains why when no flag can take the order (a marching flag is busy)", () => {
     const state = capturedState("MARCH");
-    const [action] = buildMusterActions(state.tiles.get("2,150")!, state, NOW);
+    // Its own flag is besieged by the capture, so it can't hunt either.
+    const captured = { ...state.tiles.get("2,150")!, muster: { ownerId: "me", amount: 50, mode: "HOLD" as const, updatedAt: 0 } };
+    state.tiles.set("2,150", captured);
+    const [action] = buildMusterActions(captured, state, NOW);
     expect(action).toMatchObject({ id: "muster_hunt_attackers", disabled: true });
+  });
+
+  it("hides the disabled row before mustering is unlocked, since no flag could be raised", () => {
+    const state = capturedState("MARCH");
+    expect(buildMusterActions(state.tiles.get("2,150")!, state, NOW)).toEqual([]);
   });
 
   it("is not offered when a rival, not Planetary Defense, is attacking", () => {

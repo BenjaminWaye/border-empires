@@ -90,6 +90,16 @@ describe("Hunt Planetary Defense flags", () => {
     expect(player?.eventLog).toEqual([expect.objectContaining({ type: "AREA_CLEARED", text: expect.stringContaining("Planetary Defense cleared") })]);
   });
 
+  // Review regression: a hunt set with nothing reachable reported a false
+  // "Planetary Defense cleared" on its first search.
+  it("keeps waiting, without claiming a clear, when it has engaged nothing yet", () => {
+    const runtime = buildRuntime([owned(10, 10, huntFlag({ clearing: undefined })), rival(11, 10)]);
+    tick(runtime);
+    expect(musterAt(runtime, 10, 10)).toMatchObject({ mode: "ADVANCE", hunt: true, noTargetInRange: true });
+    const player = runtime.exportState().players.find((entry) => entry.id === "player-1");
+    expect(player?.eventLog ?? []).toEqual([]);
+  });
+
   it("waits for a patrol that is mid-capture of our land instead of calling the area clear", () => {
     // The patrol launched from (10,12) and left it at launch, so for now it
     // stands on no tile: only its in-flight attack on (10,11) shows it is here.

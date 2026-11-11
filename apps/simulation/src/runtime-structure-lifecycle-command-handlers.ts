@@ -137,9 +137,11 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
       ...fittedCapLevelField(context.playerManpowerCap(actor), isNewMuster ? undefined : target.muster?.capLevel, payload.commitManpower),
       // Hunt Planetary Defense: an explicit per-order choice, never carried
       // over -- any SET_MUSTER without it (Set Advance, Hold, March) ends the hunt.
-      // A hunt is a targeted order, so it counts as engaged from the start:
-      // with no Planetary Defense in range it reports clear and holds again.
-      ...(payload.hunt ? { hunt: true, clearing: true } : {}),
+      // Not marked `clearing` up front: like any ADVANCE it only reports
+      // "cleared" once it has engaged something, so a hunt that can't reach
+      // its patrol (across water, behind a rival, in fog) waits with "no
+      // Planetary Defense within range" instead of claiming a false clear.
+      ...(payload.hunt ? { hunt: true } : {}),
       setAt: isNewMuster ? now : (target.muster!.setAt ?? now),
       updatedAt: now
     }
