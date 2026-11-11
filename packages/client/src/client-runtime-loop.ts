@@ -440,7 +440,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
       // Fixed-borders-via-reach overlay. Boundary renders over fogged tiles
       // too (a fixed claim, not fog-dependent) but stays hidden over unexplored.
-      if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
+      if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored" && !state.showResourceOverlay) {
         if (vis === "visible") drawReachTileTreatments2D(deps.ctx, t, wx, wy, px, py, size, myReach, reachTileDeps2D); // dormant frontier + rival incursions -- client-reach-incursion-2d.ts
         if (t.ownerId === state.me) {
           drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, deps.effectiveOverlayColor(state.me), {
@@ -532,7 +532,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         // flip, then it fogs": the delta already updated t.ownerId to the
         // new owner before freezing, so a captured-then-fogged tile reads
         // as the new owner's color, not the player's own.
-        if (!isTrue3DRendererActive() && t && vis === "fogged" && t.terrain === "LAND" && t.ownerId) {
+        if (!isTrue3DRendererActive() && t && vis === "fogged" && t.terrain === "LAND" && t.ownerId && !state.showResourceOverlay) { // the Resources lens hides territory (client-resource-lens.ts)
           deps.ctx.fillStyle = deps.effectiveOverlayColor(t.ownerId);
           deps.ctx.globalAlpha = t.ownershipState === "SETTLED" ? 0.4 : 0.12;
           if (t.ownershipState === "SETTLED") deps.ctx.fillRect(px, py, size, size);
@@ -662,7 +662,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         });
 
         // Fixed-borders-via-reach overlay -- see the main pass above.
-        if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
+        if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored" && !state.showResourceOverlay) {
           if (vis === "visible") drawReachTileTreatments2D(deps.ctx, t, wx, wy, px, py, size, myReach, reachTileDeps2D); // dormant frontier + rival incursions -- client-reach-incursion-2d.ts
           if (t.ownerId === state.me) {
             drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, deps.effectiveOverlayColor(state.me), {

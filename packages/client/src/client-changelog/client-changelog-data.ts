@@ -2,7 +2,7 @@ import { FRONTIER_MAP_NAMES_ENTRY } from "./client-changelog-frontier-map-names.
 import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
 import { NEXT_CONTEST_ENTRY } from "./client-changelog-next-contest.js";
-import { SECTOR_BOARD_ENTRY } from "./client-changelog-nov-10.js";
+import { SECTOR_BOARD_ENTRY, WAYSTATION_CAPTURE_ENTRY } from "./client-changelog-nov-10.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
@@ -76,7 +76,7 @@ import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
-import { MAP_LENS_CHANGELOG } from "./client-changelog-map-lens.js";
+import { MAP_LENS_CHANGELOG, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
@@ -487,14 +487,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...NEXT_CONTEST_ENTRY, createdAt: 1794337809927, },
   { ...SECTOR_BOARD_ENTRY, createdAt: 1794268104791, },
   { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
-  {
-    createdAt: 1794342387101,
-    introducedIn: "2026.11.10",
-    title: "Waystations disappear after capture",
-    why: "The reward is claimed once.",
-    changes: ["A resource reward leaves a resource tile on the former waystation site."]
-  },
+  { ...WAYSTATION_CAPTURE_ENTRY, createdAt: 1794342387101, },
   { ...FRONTIER_MAP_NAMES_ENTRY, createdAt: 1794312655623, },
+  { ...RESOURCE_LENS_ENTRY, createdAt: 1794383695242, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
