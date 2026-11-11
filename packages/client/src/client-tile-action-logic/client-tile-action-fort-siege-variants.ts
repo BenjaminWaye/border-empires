@@ -11,6 +11,7 @@ import {
 } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+import { afcModuleInstalled } from "../client-tile-action-support/client-tech-locked-tile-action.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import { hasFreeResourceSlots } from "./client-resource-slot-gate.js";
 import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
@@ -28,9 +29,19 @@ export type FortVariantAction = { label: string; variant: FortTierInfo["variant"
 /** Fortification Patterns (AFC Bastion II): a fresh Fort (bare ground or over a Palisade) is free until the grant is used. */
 export const freeFortAvailable = (state: Pick<ClientState, "domainIds" | "freeFortsUsed">, variant: string, currentVariant: string | undefined): boolean =>
   variant !== "PALISADE" && (!currentVariant || currentVariant === "PALISADE") && state.freeFortsUsed < afcAdditiveEffect(state.domainIds, "freeFortCount");
-/** Fortification Patterns also lets a House build Forts without the Titanium Forge Module. */
+/** The Titanium Forge Module: the AFC module that gates every Fort tier. */
+export const FORT_MODULE_TECH_ID = "masonry";
+/** Fortification Patterns also lets a House build Forts without researching the Titanium Forge Module (a copy must still be installed: fortModuleReady). */
 export const hasFortTech = (state: Pick<ClientState, "techIds" | "domainIds">): boolean =>
-  state.techIds.includes("masonry") || afcAdditiveEffect(state.domainIds, "fortTechWaiver") > 0;
+  state.techIds.includes(FORT_MODULE_TECH_ID) || afcAdditiveEffect(state.domainIds, "fortTechWaiver") > 0;
+/**
+ * Whether the Fort row can actually be offered: masonry is the Titanium Forge
+ * AFC module, so a copy must sit on an active AFC -- the menu filter hides the
+ * Fort row otherwise, and the server rejects the build. Fortification Patterns
+ * waives owning the tech, not the installed module.
+ */
+export const fortModuleReady = (state: Pick<ClientState, "techIds" | "domainIds" | "tiles" | "me">): boolean =>
+  hasFortTech(state) && afcModuleInstalled(state, FORT_MODULE_TECH_ID);
 
 const fortActionFromTier = (state: ClientState, tier: FortTierInfo, free = false): FortVariantAction => ({
   label: FORT_VARIANT_LABELS[tier.variant],
