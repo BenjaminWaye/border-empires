@@ -2,6 +2,8 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { playerHasAbilityTech } from "@border-empires/game-domain";
+import { razedWreckFieldsOnCapture } from "@border-empires/shared";
+import { abandonedStructureFields } from "./capture-structures/capture-structures.js";
 import { parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { attackAlertDisplayName } from "./runtime-frontier-command.js";
@@ -62,6 +64,14 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     ownershipState: undefined,
     frontierDecayAt: undefined,
     frontierDecayKind: undefined,
+    // The purge strikes the structures too, with the same razing rules as
+    // abandoning or losing the tile: a Relay Beacon or siege engine is
+    // destroyed (a finished one leaves its burning 24h wreck), and anything
+    // still under construction is lost. Without this a half-built beacon sat
+    // on the neutral tile forever -- completion bails once the tile has no
+    // owner -- and blocked the site.
+    ...abandonedStructureFields(target),
+    ...razedWreckFieldsOnCapture(target, lanceNow),
     // Purging ownership destroys any muster flag staged on the tile — the
     // accumulated manpower is lost, not refunded.
     muster: undefined
