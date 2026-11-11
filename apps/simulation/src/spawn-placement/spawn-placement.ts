@@ -146,7 +146,7 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
   const coastalLandKeys = input.coastalLandKeys ?? computeCoastalLandKeys(tileList);
   // The spawn tile becomes an AFC, whose eight arms occupy the whole 3x3
   // footprint. The center and every neighbour must therefore be clear of
-  // towns, docks, and resources on every search pass. There is no fallback:
+  // structures, landmarks, and resources on every search pass. There is no fallback:
   // an invalid footprint must never be handed to a player.
   const afcBlockerKeys = computeAfcBlockerKeys(tileList);
   const blocksAfcSite = (x: number, y: number): boolean => afcBlockerKeys.has(simulationTileKey(x, y));

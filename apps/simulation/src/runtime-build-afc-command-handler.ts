@@ -29,7 +29,7 @@ export const handleBuildAfcCommand = (context: RuntimeStructureCommandContext, c
   }
   const ownershipOk = tile?.ownerId === actor.id && tile.ownershipState === "SETTLED";
   if (!tile || tile.terrain !== "LAND" || !ownershipOk || !isEmptyAfcSite(tile) || !isClearAfcFootprint(context.tiles, tile.x, tile.y) || context.locksByTile.has(tileKey)) {
-    return rejectCommand(context, command, "BUILD_INVALID", "AFCs need an unlocked, empty garrisoned land tile you control");
+    return rejectCommand(context, command, "BUILD_INVALID", "AFCs need an unlocked garrisoned land tile with a clear 3×3 footprint");
   }
   const cost = afcBuildCost(ownedAfcCount);
   if (actor.points < cost) return rejectCommand(context, command, "INSUFFICIENT_GOLD", `AFC needs ${cost} coin`);

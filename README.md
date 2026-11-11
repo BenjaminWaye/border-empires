@@ -58,6 +58,7 @@ or withdraw and redeploy. See [AFC recovery](docs/afc-recovery-plan.md).
 ### Structures
 
 - One structure per tile, placed on garrisoned (SETTLED) owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile). The siege ladder (Siege Battery/Siege Tower/Dread Tower) is the one exception: it builds directly on ungarrisoned (FRONTIER) owned land too, including a tile currently sitting inside another player's reach, and its attack bonus applies there immediately.
+- New buildings, including forts, must go outside the nine tiles reserved by an AFC or relic. See the [construction rules](docs/game-mechanics.md).
 - **Economic**: Hydrogarden, Umbrite Rig, Mine, Incubation Engine, Market, Bank, Synthesizers, Fuel Plant, Trade Nexus, Ore Refinery, Governance structures.
 - **Military**: Fort, Siege Battery, Observatory (extends vision and provides protection against aether abilities).
 - **Monuments** (late-game, four-stage builds costing manpower and a Crystal slot): Imperial Exchange, Sovereign Siege Engine, Aegis Dome, Astral Dock. Each monument type is globally unique — only one can ever be active, world-wide, at a time. If two players finish a race for the same monument within moments of each other, the loser's investment is refunded rather than silently wasted.

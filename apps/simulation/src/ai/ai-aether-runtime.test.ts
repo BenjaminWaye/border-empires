@@ -99,12 +99,14 @@ describe("AI aether commands obey the real simulation rules", () => {
     const { events } = await applyPlan(runtime, "CAST_AETHER_WALL", true);
     expect(events).toContainEqual(expect.objectContaining({ eventType: "PLAYER_MESSAGE", messageType: "AETHER_WALL_UPDATE" }));
   });
-  it("builds a valid tower when the border needs one", async () => {
+  it("builds a tower outside the AFC footprint when the border needs one", async () => {
     const tiles = baseTiles();
     delete tiles[1]!.observatory;
+    tiles.push(own(12, 11));
     const runtime = runtimeFor(tiles, ["crystal-lattices"]);
     const { command } = await applyPlan(runtime, "BUILD_OBSERVATORY", true);
     const target = JSON.parse(command.payloadJson) as { x: number; y: number };
+    expect(target).toEqual({ x: 12, y: 11 });
     expect(runtime.exportState().tiles.find(t => t.x === target.x && t.y === target.y)?.observatoryJson).toContain("under_construction");
   });
 });

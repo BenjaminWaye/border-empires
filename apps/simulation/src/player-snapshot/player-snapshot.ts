@@ -361,7 +361,10 @@ export const buildPlayerSubscriptionSnapshot = (
               const afc: { ownerId?: string; status?: string } = JSON.parse(tile.afcJson);
               return afc.ownerId === playerId && afc.status === "active";
             }) } : {}),
-            ...(livePlayer.afcUpgradeRuleset ? { afcInstallationPreviews: afcInstallationPreviews({ id: playerId, techIds: new Set(livePlayer.techIds), domainIds: new Set(livePlayer.domainIds), afcUpgradeRuleset: livePlayer.afcUpgradeRuleset, ...(livePlayer.afcCoreTownKeys ? { afcCoreTownKeys: livePlayer.afcCoreTownKeys } : {}) }, ownedTileKeys(playerId).map(key => tileByKey.get(key)).filter((tile): tile is RuntimeState["tiles"][number] => Boolean(tile)).map(tile => toDomainTile(tile))) } : {}),
+            ...(livePlayer.afcUpgradeRuleset ? { afcInstallationPreviews: afcInstallationPreviews({ id: playerId, techIds: new Set(livePlayer.techIds), domainIds: new Set(livePlayer.domainIds), afcUpgradeRuleset: livePlayer.afcUpgradeRuleset, ...(livePlayer.afcCoreTownKeys ? { afcCoreTownKeys: livePlayer.afcCoreTownKeys } : {}) }, ownedTileKeys(playerId).map(key => tileByKey.get(key)).filter((tile): tile is RuntimeState["tiles"][number] => Boolean(tile)).map(tile => toDomainTile(tile)), { get: key => {
+              const tile = tileByKey.get(key);
+              return tile ? { afc: Boolean(tile.afcJson), naturalWonder: Boolean(tile.naturalWonderJson) } : undefined;
+            } }) } : {}),
             weaponsFactoryCounts,
             mods: liveProgressionPlayer ? recomputeMods(liveProgressionPlayer) : { attack: 1, defense: 1, income: 1, vision: 1 },
             modBreakdown: liveProgressionPlayer

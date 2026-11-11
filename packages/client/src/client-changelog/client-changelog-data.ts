@@ -1,4 +1,5 @@
 import { FRONTIER_MAP_NAMES_ENTRY } from "./client-changelog-frontier-map-names.js";
+import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
 import { NEXT_CONTEST_ENTRY } from "./client-changelog-next-contest.js";
 import { SECTOR_BOARD_ENTRY } from "./client-changelog-nov-10.js";
@@ -185,6 +186,7 @@ export type ClientChangelogEntry = {
 // Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_REPLACEMENT_CHANGELOG,
+  { ...AFC_RELIC_BUILD_ENTRY, createdAt: 1794343264230, },
   ...TOWN_ECONOMY_CHANGELOG,
   ...RESOURCE_NETWORKS_CHANGELOG,
   ...AFC_SPECIALIZATIONS_CHANGELOG,

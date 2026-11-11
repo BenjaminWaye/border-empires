@@ -3,7 +3,7 @@ import { applyDomainUpdateMessage } from "../client-domain-update-handler/client
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
-import { gateAfcConstructionActions } from "./client-afc-recovery-actions.js";
+import { gateAfcConstructionActions, gateTileConstructionActions } from "./client-afc-recovery-actions.js";
 import { renderAfcRecovery } from "./client-afc-recovery.js";
 
 const fixture = (gold = 500) => {
@@ -115,4 +115,25 @@ it("does not clear an upgrade selection when the global AFC quote changes", () =
   expect(state.pendingDomainUnlockId).toBe("afc-exchequer-1");
   expect(state.afcRecovery?.globalLosses).toBe(10);
   expect(state.gold).toBe(80);
+});
+
+it("blocks a fort at a town inside a relic's nine tiles while allowing a build that uses a different plot", () => {
+  const { state } = fixture();
+  state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", naturalWonder: { type: "WARPRESS" } });
+  const town = { ...state.tiles.get("10,10")!, town: {
+    type: "MARKET" as const,
+    populationTier: "TOWN" as const,
+    baseGoldPerMinute: 1, goldPerMinute: 1, cap: 100,
+    supportCurrent: 1, supportMax: 2, isFed: true,
+    population: 100, maxPopulation: 200,
+    connectedTownCount: 0, connectedTownBonus: 0,
+    hasManufactory: false, manufactoryActive: false,
+    hasIncubationEngine: false, incubationEngineActive: false
+  } };
+  const actions = gateTileConstructionActions([
+    { id: "build_palisade", label: "Build fort" },
+    { id: "build_manufactory", label: "Build manufactory" }
+  ], state, town);
+  expect(actions[0]?.disabledReason).toBe("This tile is reserved by a relic");
+  expect(actions[1]?.disabled).toBeUndefined();
 });

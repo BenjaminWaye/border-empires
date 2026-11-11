@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, isSeaTerrain, wrapX, wrapY, type Terrain } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, afcLandingTileHasObstruction, isSeaTerrain, wrapX, wrapY, type Terrain } from "@border-empires/shared";
 import { key } from "./server-game-constants/server-game-constants.js";
 import type { DomainTileState } from "./index/index.js";
 import { STARTER_ECONOMY_DISTANCE, STARTER_FOOD_DISTANCE, starterSiteQuality } from "./starter-site-quality.js";
@@ -34,21 +34,12 @@ export const hasWaterNeighbor = (terrainAt: (x: number, y: number) => Terrain | 
   return false;
 };
 
-/**
- * True if a tile is a town, dock or resource node. An AFC must not sit on or
- * touch any of these: it is a self-contained opening anchor, so it must not
- * squat on (or crowd) the features a player is meant to expand into and settle
- * themselves.
- */
-export const tileBlocksAfcSite = (tile: Pick<DomainTileState, "town" | "dockId" | "resource"> | undefined): boolean =>
-  Boolean(tile && (tile.town || tile.dockId || tile.resource));
+export const tileBlocksAfcSite = afcLandingTileHasObstruction;
 
 /**
- * True when (x, y) and all 8 surrounding tiles are free of towns, docks and
- * resources. `blocksAfcSite` answers that per coordinate so callers can back it
- * with whatever lookup they already hold (a live tile map, or a precomputed
- * blocker-key set for scan-heavy paths). Unlike the dry-footprint preference
- * this is a hard rule with no fallback.
+ * True when (x, y) and all 8 surrounding tiles are clear of obstructions.
+ * The callback can use a precomputed set for scan-heavy paths. Unlike the
+ * dry-footprint preference, this is a hard rule with no fallback.
  */
 export const isAfcSiteClear = (blocksAfcSite: (x: number, y: number) => boolean, x: number, y: number): boolean => {
   for (let dy = -1; dy <= 1; dy += 1) {
@@ -61,7 +52,13 @@ export const isAfcSiteClear = (blocksAfcSite: (x: number, y: number) => boolean,
 
 export const computeAfcBlockerKeys = (tileList: readonly DomainTileState[]): Set<string> => {
   const blockers = new Set<string>();
-  for (const tile of tileList) if (tileBlocksAfcSite(tile)) blockers.add(key(tile.x, tile.y));
+  for (const tile of tileList) {
+    if (tileBlocksAfcSite(tile)) blockers.add(key(tile.x, tile.y));
+    if (!tile.afc && !tile.naturalWonder) continue;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) blockers.add(key(wrapX(tile.x + dx, WORLD_WIDTH), wrapY(tile.y + dy, WORLD_HEIGHT)));
+    }
+  }
   return blockers;
 };
 
