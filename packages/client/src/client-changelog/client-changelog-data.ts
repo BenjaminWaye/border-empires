@@ -76,7 +76,7 @@ import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
-import { MAP_LENS_CHANGELOG, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
+import { MAP_LENS_CHANGELOG, MINIMAP_WORLD_EDGE_ENTRY, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
@@ -491,6 +491,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...WAYSTATION_FORT_MODULE_ENTRY, createdAt: 1794394297385, },
   { ...READABLE_REALM_NAMES_ENTRY, createdAt: 1794410558462, },
   { ...MUSTER_DOCK_TRANSPORT_ENTRY, createdAt: 1794353510194, },
+  { ...MINIMAP_WORLD_EDGE_ENTRY, createdAt: 1794411491316, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
