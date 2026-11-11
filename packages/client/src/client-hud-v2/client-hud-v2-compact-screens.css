@@ -54,7 +54,7 @@ body.hud-v2-compact .v2p-grid { grid-template-columns: minmax(0, 1fr); }
 
 /* Towns: name plus three numbers fit at 360px. */
 body.hud-v2-compact .v2l-table { width: 100%; padding: 8px 10px; }
-body.hud-v2-compact .v2l-head, body.hud-v2-compact .v2l-row { grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)); gap: 8px; }
+body.hud-v2-compact .v2l-head, body.hud-v2-compact .v2l-row { grid-template-columns: minmax(0, 1.5fr) repeat(4, minmax(0, 1fr)); gap: 8px; }
 body.hud-v2-compact .v2l-row { min-height: var(--v2c-touch); padding: 6px 6px; }
 
 /* The orb and lens would sit on the Chronicle sheet and the town screen's panels. */

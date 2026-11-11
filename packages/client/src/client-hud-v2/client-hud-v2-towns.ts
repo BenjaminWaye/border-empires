@@ -3,12 +3,13 @@
 // Rows and sort order come from the shared town list (client-town-list.ts).
 
 import { escapeHtml as esc } from "../client-duke-panel/client-duke-escape.js";
-import type { TownListRow, TownListSort, TownListSortKey } from "../client-town-list/client-town-list.js";
+import { formatOpenSlots, type TownListRow, type TownListSort, type TownListSortKey } from "../client-town-list/client-town-list.js";
 
 const COLUMNS: Array<{ key: TownListSortKey; label: string }> = [
   { key: "gold", label: "Gold/day" },
   { key: "population", label: "Population" },
-  { key: "growth", label: "Growth/min" }
+  { key: "growth", label: "Growth/min" },
+  { key: "slots", label: "Build slots" }
 ];
 
 const count = (value: number): string => Math.round(value).toLocaleString("en-US");
@@ -33,6 +34,7 @@ export const townsBodyHtml = (rows: readonly TownListRow[], sort: TownListSort):
       <span class="v2l-num">${(row.goldPerMinute * 1440).toFixed(1)}</span>
       <span class="v2l-num">${count(row.population)}<small>/ ${count(row.maxPopulation)}</small></span>
       <span class="v2l-num">${growth(row.growthPerMinute)}</span>
+      <span class="v2l-num" title="Open build slots">${formatOpenSlots(row.openSlots)}</span>
     </button>`).join("");
   return `<section class="v2l-table" data-v2-scroll="towns"><div class="v2l-head"><span>Town</span>${head}</div>${body}</section>`;
 };
