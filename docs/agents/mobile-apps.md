@@ -53,13 +53,42 @@ Saving a guest links email/password credentials to its existing Firebase UID,
 then refreshes the token and reloads. A conflicting email leaves the guest intact.
 Uninstalling the app or clearing app data loses an unsaved guest.
 
-Native builds hide the browser's Google/Twitch/Discord popups and magic links:
-embedded OAuth popups and email links opened in a different browser cannot
-reliably complete the current flow. Existing email accounts can reset their
-password in the native login UI. Social-only users must establish email/password
-access through a tested recovery/linking path first; do not promise social login in a store listing. Adding
-native social login needs provider configuration, credential linking, and an
-Apple-compliant equivalent login option before release.
+Native builds sign in with Google, Twitch and Discord (and Sign in with Apple
+on iOS only) through `@capacitor-firebase/authentication` 8.5.2
+(`packages/client/src/client-native-sso`). The native Firebase SDK runs the
+provider UI (Credential Manager account picker on Android, Google/Apple sheets
+on iOS, a system browser tab for the Twitch/Discord OIDC providers) and returns
+a credential; the web Firebase SDK then calls `signInWithCredential`, so the web
+SDK stays the only game session and existing web accounts keep their UID.
+Google/Apple use `skipNativeAuth`; Twitch/Discord need a full native sign-in to
+return tokens and the native session is signed out straight away. Guests can
+save with Google (and Apple on iOS) via `linkWithCredential`; Twitch/Discord are
+not offered for guest save because their native flow would create a separate
+account first. Account deletion re-authenticates provider accounts natively.
+The email magic link stays hidden in native builds (it cannot return to the app).
+Apple has no web or Android provider yet, so an Apple-only account can sign in
+and delete itself only from the iOS app.
+
+Native social sign-in depends on console setup (done 2026-11-10):
+
+- Firebase project `border-empires` has the Android app
+  `com.borderempires.game` with three SHA-1s (Play app signing key, upload key,
+  local debug key) and the iOS app with the same bundle ID. Their configs are
+  committed as `android/app/google-services.json` and
+  `ios/App/App/GoogleService-Info.plist`; re-download them after adding a new
+  signing key fingerprint. The Apple provider is enabled (no Services ID, so
+  iOS only).
+  Before releasing Apple sign-in, configure its Services ID and OAuth code
+  flow in Firebase and verify on an iOS device that deleting an Apple-linked
+  account revokes its Apple authorization and completes the game deletion.
+  Keep the OAuth private key in Firebase configuration.
+- iOS `Info.plist` URL types hold the plist's `REVERSED_CLIENT_ID` (Google) and
+  the encoded Firebase app ID (`app-1-979056688511-ios-…`, Twitch/Discord redirect).
+- Sign in with Apple is on App ID `com.borderempires.game`; Xcode automatic
+  signing added it from `App.entitlements` during a `-allowProvisioningUpdates`
+  archive.
+- iOS links only the plugin's `Google` SPM trait (`capacitor.config.ts`
+  `experimental.ios.spm.packageTraits`), not the Facebook SDK.
 
 Web login stays unchanged. GA web analytics initialization is skipped in native
 builds; first-party game telemetry remains active. External anchor links and legal
@@ -210,9 +239,10 @@ To upload a future signed archive using the Xcode account, use a local copy of
 `xcodebuild -exportArchive -archivePath <archive> -exportOptionsPlist <options>
 -allowProvisioningUpdates`. This performs an actual upload, so verify the intended
 bundle, production environment and build number first. Increment the build number
-for the next upload. The iOS project is set to version 1.0 build 2 for the first
-post-deletion upload; Android stays at `versionCode 1` because Play has received
-no bundle yet. Keep local credentials and private keys outside Git.
+for the next upload. Android `versionCode 1` was published to Play internal
+testing on 2026-11-09 (see below). The native social sign-in branch set the
+projects to iOS build 3 and Android `versionCode 2`, the next numbers each store
+accepts. Keep local credentials and private keys outside Git.
 Rebuild/sync from the intended release commit before uploading; archive/upload
 success is not a gameplay/device QA result.
 
@@ -233,9 +263,15 @@ lives outside Git on the owner's Mac, with its password in macOS Keychain
 (service "Border Empires Android upload key"); the owner must back up both.
 Build a signed AAB without touching `build.gradle` by passing
 `-Pandroid.injected.signing.{store.file,store.password,key.alias,key.password}`
-to `./gradlew bundleRelease`. versionCode 1 / versionName 1.0 was built from the
-same production bundle and prepared for the internal testing track; the next
-Play upload needs versionCode 2.
+to `./gradlew bundleRelease`. versionCode 1 / versionName 1.0 was rebuilt from
+`develop` `ad471b6b3` (production gateway) and published on 2026-11-09 to the
+internal testing track as release "1.0 (1) internal - develop ad471b6b3", with
+the owner's account as the only tester (email list "Owner"). Opt-in link:
+https://play.google.com/apps/internaltest/4701725230794045520. Internal testers
+see the temporary name `com.borderempires.game (unreviewed)` until the store
+listing is reviewed. Play warned only that no deobfuscation file was supplied
+(R8 is not enabled). Note that `develop` was 60 commits ahead of `main` (the
+production server) when built. The next Play upload needs versionCode 2.
 
 ## Required before store submission
 
@@ -257,7 +293,9 @@ These are existing product gaps, not tasks that signing the wrapper completes:
    game favicon; store screenshots must come from the built native app.
 5. Complete signing and internal device testing in the owner's Apple/Google accounts.
    Store acceptance is subject to each review process. The first iOS build has
-   been uploaded, but neither store has received a review submission or release. If digital purchases are added, implement the applicable
+   been uploaded and the first Android bundle is on the Play internal testing
+   track, but neither store has received a review submission or a
+   closed/open/production release. If digital purchases are added, implement the applicable
    store billing flow before exposing purchase links in native builds.
 
 Lore reviewed; no canon change. Packaging does not change gameplay or fiction.
