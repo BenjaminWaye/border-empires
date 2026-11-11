@@ -135,6 +135,11 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
       // Keep earlier Expand Capacity presses across a mode change, and expand
       // further so a newly chosen commitment fits on the flag at all.
       ...fittedCapLevelField(context.playerManpowerCap(actor), isNewMuster ? undefined : target.muster?.capLevel, payload.commitManpower),
+      // Hunt Planetary Defense: an explicit per-order choice, never carried
+      // over -- any SET_MUSTER without it (Set Advance, Hold, March) ends the hunt.
+      // A hunt is a targeted order, so it counts as engaged from the start:
+      // with no Planetary Defense in range it reports clear and holds again.
+      ...(payload.hunt ? { hunt: true, clearing: true } : {}),
       setAt: isNewMuster ? now : (target.muster!.setAt ?? now),
       updatedAt: now
     }

@@ -1,4 +1,5 @@
 import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-names.js";
+import { PLANETARY_DEFENSE_HUNT_ENTRY } from "./client-changelog-planetary-defense-hunt.js";
 import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
 import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
@@ -490,6 +491,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...WAYSTATION_FORT_MODULE_ENTRY, createdAt: 1794394297385, },
   { ...READABLE_REALM_NAMES_ENTRY, createdAt: 1794410558462, },
   { ...MINIMAP_WORLD_EDGE_ENTRY, createdAt: 1794411491316, },
+  { ...PLANETARY_DEFENSE_HUNT_ENTRY, createdAt: 1794423294581, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

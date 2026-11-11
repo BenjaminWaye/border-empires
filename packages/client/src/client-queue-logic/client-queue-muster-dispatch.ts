@@ -9,6 +9,7 @@ import {
 import { formatSiegeRemaining, ownTileSiegeAt, type OwnTileSiege } from "../client-muster-siege/client-muster-siege.js";
 import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
 import { requiredMusterWithCommit } from "../client-attack-commit/client-attack-commit.js";
+import { BARBARIAN_OWNER_ID, huntOrderMessage, nearestHuntFlag } from "../client-muster-hunt/client-muster-hunt.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -86,6 +87,38 @@ const holdAttackForSiege = (
   deps.renderHud();
 };
 
+/**
+ * An attack on Planetary Defense turns the nearest holding (or already
+ * hunting) flag into a hunt instead of arming a client-side march: a manual
+ * attack is only sent once its company has walked to the front, and by then the
+ * patrol had usually walked off, so it arrived on empty ground ("target must be
+ * enemy-controlled land"). The hunt fires from the server at once, which locks
+ * the patrol in place for the whole march, goes for the clicked tile first, and
+ * chases the patrol if it does move. Returns false when no flag can take the
+ * order, so the attack goes the ordinary way.
+ */
+const huntInsteadOfAttack = (
+  state: ClientState,
+  input: MusterAttackDispatchInput,
+  deps: MusterAttackDispatchDeps,
+  nowMs: number
+): boolean => {
+  if (!deps.sendGameMessage) return false;
+  const flag = nearestHuntFlag(state, input.to.x, input.to.y, nowMs);
+  if (!flag) return false;
+  if (!deps.sendGameMessage(huntOrderMessage(flag.x, flag.y, { x: input.to.x, y: input.to.y }))) return false;
+  clearInFlightAction(state);
+  state.queuedTargetKeys.delete(input.targetKey);
+  attackSyncLog("muster-attack-became-hunt", { targetKey: input.targetKey, flag: { x: flag.x, y: flag.y } });
+  deps.pushFeed(
+    `Flag at (${flag.x}, ${flag.y}) is hunting Planetary Defense, starting with (${input.to.x}, ${input.to.y})`,
+    "combat",
+    "info"
+  );
+  deps.renderHud();
+  return true;
+};
+
 export const dispatchMusterFundedAttack = (
   state: ClientState,
   input: MusterAttackDispatchInput,
@@ -93,6 +126,7 @@ export const dispatchMusterFundedAttack = (
 ): void => {
   const { from, to, targetKey, commandId, clientSeq } = input;
   const nowMs = Date.now();
+  if (to.ownerId === BARBARIAN_OWNER_ID && huntInsteadOfAttack(state, input, deps, nowMs)) return;
   const closest = findClosestMuster(state, to.x, to.y);
   // What this attack reserves on its flag (the chosen effort, else the base
   // cost) -- other attacks can only use what is left on that flag.
