@@ -10,15 +10,16 @@ import { formatSiegeRemaining, ownTileSiegeAt, type OwnTileSiege } from "../clie
 import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
 import { clientMusterTransitRoute } from "../client-muster-transit-route/client-muster-transit-route.js";
 import { requiredMusterWithCommit } from "../client-attack-commit/client-attack-commit.js";
+import { BARBARIAN_OWNER_ID, canTakeHuntOrder, huntOrderMessage } from "../client-muster-hunt/client-muster-hunt.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
 // Extracted from client-queue-logic.ts's processActionQueue (well over the
-// repo's 500-line cap): the muster-funded branch of a manual ATTACK on a
-// non-barbarian tile. Every path here ends the current queue step -- the
-// attack is armed on a flag's march, parked behind a flag that is still
-// filling, or held because the flag/launch tile is under siege -- so the
-// caller always `continue`s afterwards.
+// repo's 500-line cap): the muster-funded branch of every manual ATTACK.
+// Every path here ends the current queue step -- the attack is armed on a
+// flag's march, parked behind a flag that is still filling, held because the
+// flag/launch tile is under siege, or (Planetary Defense targets) handed to
+// its holding flag as a hunt -- so the caller always `continue`s afterwards.
 
 export type MusterAttackDispatchDeps = {
   keyFor: (x: number, y: number) => string;
@@ -87,6 +88,38 @@ const holdAttackForSiege = (
   deps.renderHud();
 };
 
+/**
+ * An attack on Planetary Defense turns the flag that would fund it into a hunt
+ * (when that flag is holding, or already hunting) instead of arming a
+ * client-side march: a manual attack is only sent once its company has walked
+ * to the front, and by then the patrol had usually walked off, so it arrived on
+ * empty ground ("target must be enemy-controlled land"). The hunt fires from
+ * the server on its next muster tick (about a second), which target-locks the
+ * patrol for the whole march, goes for the clicked tile first, and chases the
+ * patrol if it does move. Only the flag the ordinary routing already chose (so
+ * it can afford the attack and reaches the target) is converted; otherwise the
+ * attack goes the ordinary way.
+ */
+const huntInsteadOfAttack = (
+  state: ClientState,
+  input: MusterAttackDispatchInput,
+  flag: Tile,
+  deps: MusterAttackDispatchDeps
+): boolean => {
+  if (input.to.ownerId !== BARBARIAN_OWNER_ID || !deps.sendGameMessage || !canTakeHuntOrder(flag)) return false;
+  if (!deps.sendGameMessage(huntOrderMessage(flag.x, flag.y, { x: input.to.x, y: input.to.y }))) return false;
+  clearInFlightAction(state);
+  state.queuedTargetKeys.delete(input.targetKey);
+  attackSyncLog("muster-attack-became-hunt", { targetKey: input.targetKey, flag: { x: flag.x, y: flag.y } });
+  deps.pushFeed(
+    `Flag at (${flag.x}, ${flag.y}) is hunting Planetary Defense, starting with (${input.to.x}, ${input.to.y})`,
+    "combat",
+    "info"
+  );
+  deps.renderHud();
+  return true;
+};
+
 export const dispatchMusterFundedAttack = (
   state: ClientState,
   input: MusterAttackDispatchInput,
@@ -112,6 +145,7 @@ export const dispatchMusterFundedAttack = (
       const siege = ownTileSiegeAt(state, funded.tile.x, funded.tile.y, nowMs) ?? ownTileSiegeAt(state, from.x, from.y, nowMs);
       if (siege) return holdAttackForSiege(state, input, siege, deps);
       announcedSiegeByTarget.delete(targetKey);
+      if (huntInsteadOfAttack(state, input, funded.tile, deps)) return;
       // Real travel time: the company doesn't march until it reaches
       // the target, so the ATTACK itself isn't even sent (let alone
       // its 15s combat lock started) until armMusterTransit's local
@@ -150,6 +184,7 @@ export const dispatchMusterFundedAttack = (
   const siege = ownTileSiegeAt(state, closest.tile.x, closest.tile.y, nowMs);
   if (siege) return holdAttackForSiege(state, input, siege, deps);
   announcedSiegeByTarget.delete(targetKey);
+  if (huntInsteadOfAttack(state, input, closest.tile, deps)) return;
   // Flag found within range already has enough manpower staged
   // (findClosestMuster only returns flags at/above MUSTER_ATTACK_COST)
   // — arm its march instead of firing instantly. The flag is already

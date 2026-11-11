@@ -22,12 +22,16 @@
 // The first WARMUP_MS of frames are ignored (asset loading and the first
 // terrain rebuild make startup frames slow on every device), and single
 // gaps longer than MAX_COUNTED_FRAME_MS are skipped: a backgrounded tab or a
-// one-off stall says nothing about the device's steady frame rate. Note that
-// a browser that caps rAF at 30fps (iOS Low Power Mode) reads as slow and
-// latches still, which is the intended outcome for a battery-saving device.
+// one-off stall says nothing about the device's steady frame rate. A browser
+// that caps rAF at 30fps (iOS Low Power Mode) stays animated: 30fps is well
+// inside the threshold, and only a sustained ~20fps or worse stands units still.
 
-export const SLOW_FRAME_MS = 25; // ~40fps
-export const SLOW_SUSTAIN_MS = 3_000;
+// Only a device that is genuinely struggling: a busy 3D map (the jungle in the
+// 2026-11 report) routinely runs at 30fps on capable hardware, and the old
+// 25ms (~40fps) / 3s threshold latched those players still for the whole
+// session -- the Planetary Defense soldiers simply stopped patrolling.
+export const SLOW_FRAME_MS = 50; // ~20fps
+export const SLOW_SUSTAIN_MS = 10_000;
 export const WARMUP_MS = 5_000;
 export const MAX_COUNTED_FRAME_MS = 250;
 const SMOOTHING = 0.1;
