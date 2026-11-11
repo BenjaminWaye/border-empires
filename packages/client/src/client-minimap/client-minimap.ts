@@ -34,12 +34,10 @@ export const miniMapTownMarkerPalette = (tile: Tile): { outer: string; inner: st
 // churn waits for this window, but it no longer gates camera/zoom responsiveness (see below).
 const CONTENT_RECOMPUTE_FLOOR_MS = 140;
 
-// World is toroidal (see wrapX/wrapY in @border-empires/shared), but the view
-// box computed above never wraps — it's a plain rectangle bounding explored
-// territory. A coordinate can therefore sit far outside the box in raw terms
-// while actually being close by the wraparound path (e.g. explored land near
-// x=440 and a site at x=10 on a 450-wide world). Shifting the coordinate by a
-// world-size increment toward the box center picks whichever copy is nearest.
+// World is toroidal (see wrapX/wrapY in @border-empires/shared) and the view box
+// may run past the world's edge (client-minimap-view-box.ts). For a point that may
+// lie outside the box (a relic hint, the camera, a replay lane's ends), pick the
+// copy nearest the box centre, so it is drawn on the side it is actually closest to.
 const wrapCoordNearBoxCenter = (coord: number, boxMin: number, boxSize: number, worldSize: number): number => {
   const center = boxMin + boxSize / 2;
   return unwrapIntoBox(coord, center - worldSize / 2, worldSize);
@@ -296,7 +294,10 @@ export const drawMiniMap = (options: {
         cctx.strokeRect(ex - 2 * markerScale, ey - 2 * markerScale, 5 * markerScale, 5 * markerScale);
       }
       if (replayEvent?.from && replayEvent?.to) {
-        drawAetherBridgeLane(cctx, pxOf(replayEvent.from.x), pyOf(replayEvent.from.y), pxOf(replayEvent.to.x), pyOf(replayEvent.to.y), options.nowMs, {
+        // Both ends at their copies nearest the frame's centre, so the lane never runs the long way round the world.
+        const lx = (x: number): number => wxToPx(wrapCoordNearBoxCenter(x, box.x0, box.w, WORLD_WIDTH));
+        const ly = (y: number): number => wyToPy(wrapCoordNearBoxCenter(y, box.y0, box.h, WORLD_HEIGHT));
+        drawAetherBridgeLane(cctx, lx(replayEvent.from.x), ly(replayEvent.from.y), lx(replayEvent.to.x), ly(replayEvent.to.y), options.nowMs, {
           compact: true
         });
       }

@@ -67,3 +67,21 @@ describe("minimap view box", () => {
     ]);
   });
 });
+
+describe("minimap view box over the whole world", () => {
+  it("keeps the world's own edge at the frame's edge once every column and row is explored", () => {
+    const coords: Array<[number, number]> = [];
+    for (let x = 0; x < WORLD_WIDTH; x += 1) coords.push([x, x % WORLD_HEIGHT]);
+    for (let y = 0; y < WORLD_HEIGHT; y += 1) coords.push([0, y]);
+    expect(boxFor(coords)).toEqual({ x0: 0, y0: 0, w: WORLD_WIDTH, h: WORLD_HEIGHT });
+    const full = new Uint8Array(10).fill(1);
+    expect(wrappedAxisExtent(full)).toEqual({ start: 0, span: 10 });
+  });
+
+  it("starts a whole-world frame on a whole tile, so no strip of a tile is left unpainted", () => {
+    // A very wide canvas widens the frame past the world's width, centred on a fractional point.
+    const box = computeMiniMapViewBox({ tiles: tilesAt([[0, 100], [320, 101]]), fogDisabled: false, canvasW: 10_001, canvasH: 100 });
+    expect(box.w).toBe(WORLD_WIDTH);
+    expect(Number.isInteger(box.x0)).toBe(true);
+  });
+});

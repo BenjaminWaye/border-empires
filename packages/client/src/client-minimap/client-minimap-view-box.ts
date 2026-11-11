@@ -38,7 +38,9 @@ export const wrappedAxisExtent = (occupied: Uint8Array): { start: number; span: 
     }
     prev = first + step;
   }
-  return { start: bestStart, span: size - Math.max(0, bestGap) };
+  // Fully explored: no gap to skip, so keep the world's own edge at the frame's edge (as with fog off).
+  if (bestGap <= 0) return { start: 0, span: size };
+  return { start: bestStart, span: size - bestGap };
 };
 
 const fitAxis = (start: number, span: number): { min: number; size: number } => {
@@ -55,7 +57,8 @@ const settleAxis = (min: number, size: number, worldSize: number): { min: number
   if (size >= worldSize) {
     // Keep the explored area centred; the seam then falls in the part of the world furthest from it.
     const center = min + size / 2;
-    return { min: wrap(center - worldSize / 2, worldSize), size: worldSize };
+    // Whole tiles: a fractional start would leave a strip of the first tile unpainted at the frame's edge.
+    return { min: wrap(Math.round(center - worldSize / 2), worldSize), size: worldSize };
   }
   return { min: wrap(min, worldSize), size };
 };
