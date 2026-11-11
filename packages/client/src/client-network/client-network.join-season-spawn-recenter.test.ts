@@ -30,9 +30,10 @@ describe("JOIN_SEASON_ACK recenters the camera on a live spawn", () => {
   });
 
   it("moves the camera to spawnTile, sets homeTile, and clears the stale persisted camera", () => {
-    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 430, y: 250, zoom: 69, seasonId: "season-8" }));
+    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 430, y: 250, zoom: 69, seasonId: "season-8", playerId: "player-1" }));
 
     const state = createState();
+    state.me = "player-1";
     state.camX = 430;
     state.camY = 250;
     state.homeTile = undefined;

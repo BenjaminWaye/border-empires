@@ -1,3 +1,4 @@
+import { CAMERA_PER_ACCOUNT_ENTRY } from "./client-changelog-nov-11.js";
 import { PLANETARY_DEFENSE_HUNT_ENTRY } from "./client-changelog-planetary-defense-hunt.js";
 import { NATIVE_SOCIAL_SIGN_IN_ENTRY } from "./client-changelog-nov-10.js";
 import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-names.js";
@@ -482,6 +483,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...PLANETARY_DEFENSE_HUNT_ENTRY, createdAt: 1794423294581, },
   { ...NATIVE_SOCIAL_SIGN_IN_ENTRY, createdAt: 1794288128417, },
   { ...MUSTER_DOCK_TRANSPORT_ENTRY, createdAt: 1794353510194, },
+  { ...CAMERA_PER_ACCOUNT_ENTRY, createdAt: 1794432604008, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

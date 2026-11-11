@@ -94,6 +94,7 @@ describe("INIT camera-restore regression", () => {
     state.camX = 500;
     state.camY = -300;
     state.cameraRestoredFromStorage = true;
+    state.cameraRestoredPlayerId = "player-1";
     const ws = new FakeWebSocket();
     bind(state, ws);
 
@@ -115,6 +116,7 @@ describe("INIT camera-restore regression", () => {
     state.camY = 174;
     state.selected = { x: 141, y: 174 };
     state.cameraRestoredFromStorage = true;
+    state.cameraRestoredPlayerId = null; // deep link: not tied to any account
     const ws = new FakeWebSocket();
     bind(state, ws);
 
@@ -125,6 +127,60 @@ describe("INIT camera-restore regression", () => {
     expect(state.selected).toEqual({ x: 141, y: 174 });
     // homeTile itself should still be recorded.
     expect(state.homeTile).toEqual({ x: 40, y: 40 });
+  });
+
+  // Regression: logging out reloads the page, and the boot-time restore read
+  // whichever account last saved on this browser. Logging in as a second
+  // account then dropped it on the first account's territory.
+  it("centers on the home tile when the restored camera was saved by a different account", () => {
+    const state = createState();
+    state.camX = 500;
+    state.camY = -300;
+    state.cameraRestoredFromStorage = true;
+    state.cameraRestoredPlayerId = "player-2";
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    sendInit(ws);
+
+    expect(state.camX).toBe(40);
+    expect(state.camY).toBe(40);
+  });
+
+  it("treats an old untagged save as another account's and centers on home", () => {
+    const state = createState();
+    state.camX = 500;
+    state.camY = -300;
+    state.cameraRestoredFromStorage = true;
+    state.cameraRestoredPlayerId = undefined;
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    sendInit(ws);
+
+    expect(state.camX).toBe(40);
+    expect(state.camY).toBe(40);
+  });
+
+  it("centers on the new account's home tile after an in-place sign-out and sign-in", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+    sendInit(ws); // player-1 is now state.me; hasEverInitialized is true
+    state.camX = 900;
+    state.camY = -200;
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-2", name: "Player 2", points: 5, level: 1, stamina: 0, homeTile: { x: 70, y: 80 } },
+        config: {},
+        recovery: { nextClientSeq: 1, pendingCommands: [] }
+      })
+    });
+
+    expect(state.camX).toBe(70);
+    expect(state.camY).toBe(80);
   });
 
   it("still centers on the home tile when there is nothing to restore (unchanged default behavior)", () => {
@@ -223,7 +279,7 @@ describe("INIT clears stale camera on season change", () => {
   });
 
   it("clears persisted camera and centers on home tile when season changed", () => {
-    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40 }));
+    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40, playerId: "player-1" }));
 
     const state = createState();
     state.camX = 500;
@@ -242,7 +298,7 @@ describe("INIT clears stale camera on season change", () => {
   });
 
   it("preserves camera when season has not changed", () => {
-    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40 }));
+    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40, playerId: "player-1" }));
 
     const state = createState();
     state.camX = 500;
@@ -267,7 +323,7 @@ describe("INIT clears stale camera on season change", () => {
   // via cameraLocationInitialState() at state-creation time), which is what
   // actually lets the INIT handler notice the old season is stale.
   it("clears persisted camera on first load in a new season (reload-after-rollover scenario)", () => {
-    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40, seasonId: "season-1" }));
+    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40, seasonId: "season-1", playerId: "player-1" }));
 
     const state = createState(); // reads storage above: cameraRestoredSeasonId = "season-1"
     state.camX = 500;
@@ -295,7 +351,7 @@ describe("INIT clears stale camera on season change", () => {
   // actually changed — that treated every single reload as a season change
   // and silently broke the "restore last-viewed position" feature entirely.
   it("preserves camera on first load when the season has NOT changed (fresh reload, same season)", () => {
-    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40, seasonId: "season-1" }));
+    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40, seasonId: "season-1", playerId: "player-1" }));
 
     const state = createState(); // reads storage above: cameraRestoredSeasonId = "season-1"
     state.camX = 500;
@@ -319,7 +375,7 @@ describe("INIT clears stale camera on season change", () => {
   // Defaulting to "preserve" here matches pre-existing behavior for that
   // narrow migration window rather than risking false-positive clears.
   it("preserves camera on first load when the stored payload has no season tag", () => {
-    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40 }));
+    storage.set(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify({ x: 500, y: 300, zoom: 40, playerId: "player-1" }));
 
     const state = createState();
     state.camX = 500;

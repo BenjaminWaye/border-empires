@@ -103,7 +103,7 @@ export const resetClientForNewSeason = (state: RolloverState): void => {
 // session was connected, or while its socket was down and reconnected in place.
 // Returns true in that case so INIT can re-centre the camera on the new home tile.
 export const applySeasonChangeOnInit = (
-  state: RolloverState & Pick<ClientState, "bridgeDebugSeasonId" | "cameraRestoredSeasonId" | "cameraRestoredFromStorage">,
+  state: RolloverState & Pick<ClientState, "bridgeDebugSeasonId" | "cameraRestoredSeasonId" | "cameraRestoredFromStorage" | "cameraRestoredPlayerId">,
   incomingSeasonId: string | undefined
 ): boolean => {
   if (!incomingSeasonId) return false;
@@ -116,7 +116,8 @@ export const applySeasonChangeOnInit = (
   // in memory then, but the saved camera carries the season it was saved in.
   const savedCameraSeasonId = state.cameraRestoredSeasonId;
   if (state.bridgeDebugSeasonId === "" && savedCameraSeasonId !== undefined && savedCameraSeasonId !== "" && savedCameraSeasonId !== incomingSeasonId) {
-    clearCameraLocation();
+    // Only this account's save is stale; other accounts on this browser may be in the current season.
+    clearCameraLocation(state.cameraRestoredPlayerId ?? undefined);
     state.cameraRestoredFromStorage = false;
     clearStoredDiscoveredTiles();
   }
