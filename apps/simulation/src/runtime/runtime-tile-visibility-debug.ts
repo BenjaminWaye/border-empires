@@ -6,11 +6,13 @@
 // "radius:ally:<id>", "relay-beacon", "temporary-reveal", ...), but nothing
 // exposed those tags outside the opt-in SIMULATION_VISIBILITY_AUDIT log.
 //
-// Reads the same classification the login export uses
-// (runtime-visibility-classifier.ts), so `visible` here matches what a
-// fresh snapshot would send, plus the non-coverage sources that
-// classification adds on top (combat-lock origins/targets, linked-dock
-// reveals) and the Astral Dock launch's full-map vision.
+// Reads the same classification a fresh login export uses
+// (runtime-visibility-classifier.ts), including the non-coverage sources it
+// adds on top (combat-lock origins/targets, linked-dock reveals). It does
+// NOT reflect: a reconnect served from the per-player snapshot cache (which
+// patches deltas in but never drops tiles that left vision), season-end /
+// fullVisibility subscribes, or the Astral Dock launch, which only unfilters
+// live tile deltas -- reported once as `fullVisionActive`, not per tile.
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { simulationTileKey } from "../seed-state/seed-state.js";
@@ -84,13 +86,12 @@ export const buildTileVisibilityDebugReport = (
   const classification = deps.classify(query.playerId, points.map(({ tileKey }) => tileKey));
   const tiles = points.map(({ x, y, tileKey }): TileVisibilityDebugTile => {
     const reasons = [...classification.coverageReasonsForTile(tileKey), ...extraReasons(classification, tileKey)];
-    if (fullVisionActive) reasons.push("full-vision");
     const tile = deps.tileAt(tileKey);
     const reachOwnerId = deps.reachOwnerAt(x, y);
     return {
       x,
       y,
-      visible: fullVisionActive || classification.visibleKeys.has(tileKey),
+      visible: classification.visibleKeys.has(tileKey),
       reasons,
       ...(tile?.ownerId ? { ownerId: tile.ownerId } : {}),
       ...(tile?.ownershipState ? { ownershipState: tile.ownershipState } : {}),
@@ -116,7 +117,6 @@ export const parseTileVisibilityDebugQuery = (params: URLSearchParams): TileVisi
   if (!playerId || x === undefined || y === undefined || radius === undefined || radius < 0 || radius > TILE_VISIBILITY_DEBUG_MAX_RADIUS) return undefined;
   return { playerId, x, y, radius };
 };
-
 
 /** This admin-only diagnostic is available to local callers of the metrics listener. */
 export const isTileVisibilityDebugLocal = (address: string | undefined): boolean =>

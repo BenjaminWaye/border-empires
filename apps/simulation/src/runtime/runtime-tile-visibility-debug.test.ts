@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
 import { buildPlayer } from "./runtime.test-helpers.js";
-import { isTileVisibilityDebugLocal, parseTileVisibilityDebugQuery, TILE_VISIBILITY_DEBUG_MAX_RADIUS } from "./runtime-tile-visibility-debug.js";
+import { buildTileVisibilityDebugReport, isTileVisibilityDebugLocal, parseTileVisibilityDebugQuery, TILE_VISIBILITY_DEBUG_MAX_RADIUS } from "./runtime-tile-visibility-debug.js";
+import type { RuntimeVisibilityClassification } from "../runtime-visibility-classifier.js";
 
 const runtimeWith = (allies: string[] = []) =>
   new SimulationRuntime({
@@ -22,6 +23,26 @@ const runtimeWith = (allies: string[] = []) =>
   });
 
 describe("runtime.tileVisibilityDebug", () => {
+  it("keeps per-tile visibility to the login classification while an Astral Dock launch is active", () => {
+    // Full vision only unfilters live tile deltas; the login export never
+    // sends tiles outside the classification, so they must not read visible.
+    const classification: RuntimeVisibilityClassification = {
+      lockOriginKeys: new Set(),
+      dockRevealKeys: new Set(),
+      lockTargetOnlyKeys: new Set(),
+      fullVisionKeys: new Set(),
+      visibleKeys: new Set(),
+      allyAndSelfIds: new Set(["viewer"]),
+      coverageReasonsForTile: () => new Set()
+    };
+    const report = buildTileVisibilityDebugReport(
+      { allies: () => [], classify: () => classification, hasFullVision: () => true, tileAt: () => undefined, reachOwnerAt: () => undefined },
+      { playerId: "viewer", x: 5, y: 5, radius: 0 }
+    );
+    expect(report.fullVisionActive).toBe(true);
+    expect(report.tiles[0]).toMatchObject({ visible: false, reasons: [] });
+  });
+
   it("names the viewer's own land as the reason it sees its own tile", () => {
     const report = runtimeWith().tileVisibilityDebug({ playerId: "viewer", x: 10, y: 10, radius: 0 });
     expect(report.playerKnown).toBe(true);
