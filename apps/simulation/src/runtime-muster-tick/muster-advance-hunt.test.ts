@@ -126,6 +126,12 @@ describe("Hunt Planetary Defense flags", () => {
     stale["musterAdvanceCooldowns"].set(`${10 + BASE},${10 + BASE}`, 11_000);
     expect(targets(tick(stale))).toEqual(["ATTACK:10,12"]);
 
+    // A patrol across neutral land: the expand-toward step has its own
+    // cooldown check, which must skip the stale cooldown too.
+    const approach = buildRuntime([owned(10, 10, huntFlag({ clearing: undefined })), neutral(10, 11), barb(10, 12)]);
+    approach["musterAdvanceCooldowns"].set(`${10 + BASE},${10 + BASE}`, 11_000);
+    expect(targets(tick(approach))).toEqual(["EXPAND:10,11"]);
+
     const waiting = buildRuntime([owned(10, 10, huntFlag({ clearing: undefined, nextActionAt: 11_000, noTargetInRange: true })), owned(10, 11), barb(10, 12)]);
     waiting["musterAdvanceCooldowns"].set(`${10 + BASE},${10 + BASE}`, 11_000);
     expect(targets(tick(waiting))).toEqual([]);

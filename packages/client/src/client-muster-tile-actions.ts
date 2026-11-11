@@ -31,7 +31,7 @@ export const buildMusterActions = (
   state: Pick<
     ClientState,
     | "me" | "authEmail" | "manpowerCap" | "manpower" | "musterAmountRateByTile" | "bridgeDebugSeasonId" | "incomingAttacksByTile" | "tiles"
-    | "pendingMusterAttacks" | "dockPairs" | "musterTransitByCommand"
+    | "pendingMusterAttacks" | "dockPairs" | "musterTransitByCommand" | "activeAetherBridges"
   >,
   nowMs = Date.now()
 ): TileActionDef[] => {

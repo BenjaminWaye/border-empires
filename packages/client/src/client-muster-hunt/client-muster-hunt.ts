@@ -3,7 +3,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import { ownTileSiegeAt } from "../client-muster-siege/client-muster-siege.js";
 import { musterAvailableAt } from "../client-muster-transit/client-muster-transit.js";
-import { flagHasArmedTransit, huntFlagReaches } from "./client-muster-hunt-reach.js";
+import { flagHasMarchingAttack, huntFlagReaches } from "./client-muster-hunt-reach.js";
 
 // "Hunt Planetary Defense": an ADVANCE flag that only goes after Planetary
 // Defense (barbarian) tiles, re-picking the nearest patrol every second on the
@@ -15,7 +15,7 @@ import { flagHasArmedTransit, huntFlagReaches } from "./client-muster-hunt-reach
 
 export const BARBARIAN_OWNER_ID = "barbarian-1";
 
-type HuntState = Pick<ClientState, "me" | "tiles" | "incomingAttacksByTile" | "dockPairs" | "musterTransitByCommand">;
+type HuntState = Pick<ClientState, "me" | "tiles" | "incomingAttacksByTile" | "dockPairs" | "musterTransitByCommand" | "activeAetherBridges">;
 
 const wrappedDistance = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = Math.abs(ax - bx);
@@ -34,8 +34,8 @@ export const canTakeHuntOrder = (tile: Tile): boolean =>
  * target the way the server's hunt search does. Otherwise the attack goes the
  * ordinary way.
  */
-export const canHuntWith = (state: HuntState, flag: Tile, target: { x: number; y: number }): boolean =>
-  canTakeHuntOrder(flag) && !flagHasArmedTransit(state, flag) && huntFlagReaches(state, flag, target);
+export const canHuntWith = (state: HuntState, flag: Tile, target: { x: number; y: number }, nowMs: number): boolean =>
+  canTakeHuntOrder(flag) && !flagHasMarchingAttack(state, flag, nowMs) && huntFlagReaches(state, flag, target, nowMs);
 
 /** SET_MUSTER that turns the flag at (x, y) into a hunt, optionally going for (target) first. */
 export const huntOrderMessage = (x: number, y: number, target?: { x: number; y: number }): Record<string, unknown> => ({
@@ -58,9 +58,9 @@ export const nearestHuntFlag = (state: HuntState, x: number, y: number, nowMs: n
   for (const [key, tile] of state.tiles) {
     if (key === excludeKey || tile.ownerId !== state.me || tile.muster?.ownerId !== state.me || !canTakeHuntOrder(tile)) continue;
     const dist = wrappedDistance(tile.x, tile.y, x, y);
-    if (dist > MUSTER_ADVANCE_RANGE_STEPS) continue;
+    if (dist > MUSTER_ADVANCE_RANGE_STEPS || (best && dist >= best.dist)) continue;
     if (ownTileSiegeAt(state, tile.x, tile.y, nowMs)) continue;
-    if (musterAvailableAt(state, tile) < MUSTER_ATTACK_COST || !canHuntWith(state, tile, { x, y })) continue;
+    if (musterAvailableAt(state, tile) < MUSTER_ATTACK_COST || !canHuntWith(state, tile, { x, y }, nowMs)) continue;
     if (!best || dist < best.dist) best = { tile, dist };
   }
   return best?.tile;
@@ -85,7 +85,7 @@ export const huntAttackersAction = (tile: Tile, state: HuntState, nowMs: number)
       id: "muster_hunt_attackers",
       label: "Hunt Planetary Defense",
       disabled: true,
-      disabledReason: `No staged holding flag that can reach this tile within ${MUSTER_ADVANCE_RANGE_STEPS} tiles — stage one nearby to hunt them.`
+      disabledReason: "No flag in reach"
     };
   }
   return {

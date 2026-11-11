@@ -106,7 +106,7 @@ const huntInsteadOfAttack = (
   flag: Tile,
   deps: MusterAttackDispatchDeps
 ): boolean => {
-  if (input.to.ownerId !== BARBARIAN_OWNER_ID || !deps.sendGameMessage || !canHuntWith(state, flag, input.to)) return false;
+  if (input.to.ownerId !== BARBARIAN_OWNER_ID || !deps.sendGameMessage || !canHuntWith(state, flag, input.to, Date.now())) return false;
   if (!deps.sendGameMessage(huntOrderMessage(flag.x, flag.y, { x: input.to.x, y: input.to.y }))) return false;
   clearInFlightAction(state);
   state.queuedTargetKeys.delete(input.targetKey);

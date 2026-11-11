@@ -75,6 +75,22 @@ describe("Hunt Planetary Defense on a tile it is capturing", () => {
     expect(buildMusterActions(state.tiles.get("2,150")!, state, NOW).some((a) => a.id === "muster_hunt_attackers" && !a.disabled)).toBe(false);
   });
 
+  it("reaches across a dock crossing to the player's own island", () => {
+    const state = capturedState();
+    state.tiles.delete("6,150");
+    for (const x of [4, 5, 6, 7]) state.tiles.set(`${x},150`, { x, y: 150, terrain: "SEA" });
+    state.tiles.set("8,150", tile({ x: 8, y: 150, ownershipState: "SETTLED", muster: { ownerId: "me", amount: 120, mode: "HOLD", updatedAt: 0 } }));
+    expect(buildMusterActions(state.tiles.get("2,150")!, state, NOW).some((a) => a.id === "muster_hunt_attackers" && !a.disabled)).toBe(false);
+    state.dockPairs = [{ ax: 8, ay: 150, bx: 3, by: 150 }];
+    expect(buildMusterActions(state.tiles.get("2,150")!, state, NOW)[0]?.detail).toContain("(8, 150)");
+  });
+
+  it("takes a flag whose manual attack has already been sent", () => {
+    const state = capturedState();
+    state.musterTransitByCommand.set("cmd-1", { musterX: 6, musterY: 150, marchToX: 3, marchToY: 150, targetX: 3, targetY: 151, transitStartAt: NOW - 5_000, transitEndsAt: NOW - 1, manpower: 60 });
+    expect(buildMusterActions(state.tiles.get("2,150")!, state, NOW)[0]?.detail).toContain("(6, 150)");
+  });
+
   it("hides the disabled row before mustering is unlocked, since no flag could be raised", () => {
     const state = capturedState("MARCH");
     expect(buildMusterActions(state.tiles.get("2,150")!, state, NOW)).toEqual([]);
