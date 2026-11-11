@@ -42,13 +42,15 @@ describe("Place feedback", () => {
 });
 
 describe("Place button confirmation", () => {
-  it("reports the latest Place outcome while its flash lasts", async () => {
-    const { lastBuildPlaced, BUILD_PLACED_FLASH_MS } = await import("./client-build-placed-feedback.js");
-    const now = Date.now();
+  it("counts only presses that went through, with each one's outcome", async () => {
+    const { buildPlacedPresses } = await import("./client-build-placed-feedback.js");
+    const start = buildPlacedPresses().count;
     sendDevelopmentBuild(createInitialState(), payload, vi.fn(), opts, deps(0));
-    expect(lastBuildPlaced(now + 10)).toBe("queued");
+    expect(buildPlacedPresses()).toEqual({ count: start + 1, outcome: "queued" });
     sendDevelopmentBuild(createInitialState(), payload, vi.fn(), opts, deps(1));
-    expect(lastBuildPlaced(Date.now())).toBe("started");
-    expect(lastBuildPlaced(Date.now() + BUILD_PLACED_FLASH_MS + 1)).toBeUndefined();
+    expect(buildPlacedPresses()).toEqual({ count: start + 2, outcome: "started" });
+    // Rejected locally (slots full, no queueing): no new press, so no "✓ Placed" for it.
+    sendDevelopmentBuild(createInitialState(), payload, vi.fn(), { ...opts, allowQueueWhenBusy: false }, deps(0));
+    expect(buildPlacedPresses().count).toBe(start + 2);
   });
 });

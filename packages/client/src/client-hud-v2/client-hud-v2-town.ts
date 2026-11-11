@@ -39,7 +39,7 @@ export type TownScreenInput = {
   dormantResourcesFor?: DormantResourcesFor;
   /** The "Build plots" card (client-hud-v2-town-plots.ts); the card is left out when absent. */
   plotsHtml?: string;
-  /** A Place press's outcome while its confirmation shows on the button (lastBuildPlaced). */
+  /** A Place press's outcome while its confirmation shows on the button (set per press in runTileActionOn). */
   placed?: BuildPlacedOutcome | undefined;
 };
 

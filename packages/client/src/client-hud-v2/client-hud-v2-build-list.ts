@@ -58,7 +58,7 @@ export const buildListHtml = (input: BuildListInput): string => {
     <div class="v2t-build-list" data-v2-scroll="build-list">${rows}${empty}</div>`;
 };
 
-/** The Place button's brief confirmation after a press (see lastBuildPlaced); it stays pressable for the next one. */
+/** The Place button's brief confirmation after a press (see buildPlacedPresses); it stays pressable for the next one. */
 const PLACED_LABELS: Record<BuildPlacedOutcome, string> = { started: "✓ Placed", queued: "✓ Queued" };
 
 /** The picked building's Place button: a box of its own, or `docked` at the foot of the build panel (the town screen). */

@@ -35,6 +35,29 @@ describe("town build plots", () => {
     expect(Object.values(s).filter((v) => v === "open")).toHaveLength(4);
   });
 
+  // Review regression: sea, mountains and rivals' tiles were counted as "needs garrison", which the player can never act on.
+  it("counts only ground the player could build on", () => {
+    const tiles = ring({
+      "9,9": { terrain: "SEA", ownerId: undefined },
+      "10,9": { terrain: "MOUNTAIN", ownerId: undefined },
+      "11,9": { ownerId: "rival" },
+      "9,10": { ownerId: undefined, ownershipState: undefined }
+    } as unknown as Record<string, Partial<Tile>>);
+    const s = states(tiles);
+    expect(s["9,9"]).toBeUndefined();
+    expect(s["10,9"]).toBeUndefined();
+    expect(s["11,9"]).toBeUndefined();
+    expect(s["9,10"]).toBe("locked");
+    expect(Object.keys(s)).toHaveLength(5);
+  });
+
+  // Review regression: a plot already being garrisoned read "garrison this tile", inviting a second garrison.
+  it("shows a plot being garrisoned as in progress, not as needing a garrison", () => {
+    const tiles = ring({ "11,9": { ownershipState: "FRONTIER" }, "11,10": { ownershipState: "FRONTIER", optimisticPending: "settle" } });
+    expect(states(tiles, ["11,9"])).toMatchObject({ "11,9": "building", "11,10": "building" });
+    expect(states(tiles)["11,9"]).toBe("locked");
+  });
+
   it("has no plots for a Settlement", () => {
     const settlement = { ...town, town: { ...town.town!, populationTier: "SETTLEMENT" as const } };
     expect(townBuildPlots(ring(), settlement, "me", new Set())).toBeUndefined();
