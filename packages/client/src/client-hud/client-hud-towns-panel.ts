@@ -23,7 +23,7 @@ export const renderHudTownsPanel = (state: ClientState, deps: HudTownsPanelDeps)
     return;
   }
   deps.panelEl.innerHTML = deps.safeHtml("townListCardHtml", deps.fallbackHtml, () =>
-    townListCardHtml(state.tiles.values(), state.me)
+    townListCardHtml(state.tiles, state.me)
   );
   bindTownListControls(deps.root, {
     rerender: deps.rerender,

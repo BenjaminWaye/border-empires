@@ -6,7 +6,7 @@
 .town-list-head,
 .town-list-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)) minmax(0, 0.7fr);
   align-items: center;
   gap: 8px;
 }
