@@ -68,6 +68,9 @@ const providerButton = (label: string, method: NativeGuestSaveProvider, status: 
   return button;
 };
 
+let saveInFlight = false;
+let enableReopenedControls: (() => void) | undefined;
+
 export const nativeGuestSaveOptions = (): HTMLElement[] => {
   const form = document.createElement("form");
   form.className = "native-guest-save";
@@ -96,11 +99,17 @@ export const nativeGuestSaveOptions = (): HTMLElement[] => {
     providers.forEach((button) => { button.disabled = saving; });
   };
   const beginSave = (): boolean => {
-    if (save.disabled) return false;
+    if (saveInFlight) return false;
+    saveInFlight = true;
     setSaving(true);
     return true;
   };
-  const endSave = (): void => setSaving(false);
+  const endSave = (): void => {
+    saveInFlight = false;
+    setSaving(false);
+    enableReopenedControls?.();
+    enableReopenedControls = undefined;
+  };
   const providers = [providerButton("Google", "google.com", status, beginSave, endSave)];
   if (Capacitor.getPlatform() === "ios") providers.unshift(providerButton("Apple", "apple.com", status, beginSave, endSave));
   const wrapper = document.createElement("div");
@@ -109,6 +118,10 @@ export const nativeGuestSaveOptions = (): HTMLElement[] => {
   or.className = "guest-save-or";
   or.textContent = "or";
   wrapper.append(...providers, or, form);
+  if (saveInFlight) {
+    setSaving(true);
+    enableReopenedControls = () => setSaving(false);
+  }
   form.onsubmit = async (event) => {
     event.preventDefault();
     if (!form.reportValidity() || !beginSave()) return;

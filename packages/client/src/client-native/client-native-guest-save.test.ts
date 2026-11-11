@@ -61,16 +61,22 @@ describe("native guest save", () => {
     form.querySelector<HTMLInputElement>('input[type="password"]')!.value = "secret123";
     const provider = options!.querySelector<HTMLButtonElement>('button[type="button"]')!;
     const submission = form.onsubmit?.(new SubmitEvent("submit"));
+    let reopenedProvider: HTMLButtonElement | undefined;
     try {
       await vi.waitFor(() => expect(linkWithCredential).toHaveBeenCalledOnce());
       expect(provider.disabled).toBe(true);
-      await provider.onclick?.(new MouseEvent("click"));
+      await provider.onclick?.(new PointerEvent("click"));
+      const [reopened] = nativeGuestSaveOptions();
+      reopenedProvider = reopened!.querySelector<HTMLButtonElement>('button[type="button"]')!;
+      expect(reopenedProvider.disabled).toBe(true);
+      await reopenedProvider.onclick?.(new PointerEvent("click"));
       expect(linkWithNativeSso).not.toHaveBeenCalled();
     } finally {
       rejectLink(new Error("offline"));
       await submission;
     }
     expect(provider.disabled).toBe(false);
+    expect(reopenedProvider?.disabled).toBe(false);
   });
 
   it("explains an account collision instead of showing Firebase's code", () => {
