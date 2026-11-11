@@ -124,7 +124,8 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
   switch (actionId) {
     case "build_ore_refinery":
       return "industrial-extraction";
-    case "build_fortification":
+    // build_fortification is deliberately absent: the Fortify row also offers the
+    // tech-free Palisade, and each fort tier reports its own lock in the picker.
     case "build_titanium_weapons_factory":
       return "masonry";
     case "build_observatory":

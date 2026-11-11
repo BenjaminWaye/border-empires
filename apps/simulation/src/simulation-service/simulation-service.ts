@@ -111,6 +111,7 @@ import { registerSubscribeAndMaybePushReach } from "./live-subscribe-reach-push.
 import { repairPlayerInfrastructure } from "./repair-player-infrastructure.js";
 import { zeroGrossIncomeRepairCandidateIds } from "./zero-gross-income-repair-candidates.js";
 import { marshalDocksToProto } from "./dock-proto-marshal.js";
+import { createSeasonVictoryRecheckTimer } from "../season-victory-recheck-timer/season-victory-recheck-timer.js";
 
 export type SimulationRuntimeIdentity = {
   sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
@@ -872,7 +873,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // replaced wholesale on every recompute below, never persisted, never appended to.
   let currentSummaryPlayerSelfProgress: SelfProgressCache = emptySelfProgressCache();
   let lastCurrentSummaryPersistedAt = currentSummary?.updatedAt ?? 0;
-  let seasonVictoryTimer: ReturnType<typeof setTimeout> | undefined;
   let seasonRolloverInFlight = false;
   const sampleCpuPercent = (): number => {
     const at = Date.now();
@@ -999,20 +999,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const inFlightSubscribeBuilds = new Map<InFlightSubscribeKey, Promise<PlayerSubscriptionSnapshot>>();
   const buildSubscribeKey = (playerId: string, mode: string, fullVisibility: boolean): InFlightSubscribeKey =>
     `${playerId}|${mode}|${fullVisibility ? "1" : "0"}`;
-  const clearSeasonVictoryTimer = (): void => {
-    if (!seasonVictoryTimer) return;
-    clearTimeout(seasonVictoryTimer);
-    seasonVictoryTimer = undefined;
-  };
-  const scheduleSeasonVictoryRecheck = (at: number | undefined): void => {
-    clearSeasonVictoryTimer();
-    if (currentSeasonState.status === "ended") return;
-    // `at` undefined = no contested objective (or a pending season, recheck at scheduledStartAt); 5-min cap keeps season-victory and the activity-log save fresh during long holds.
-    const effectiveAt = at ?? (currentSeasonState.status === "pending" ? currentSeasonState.scheduledStartAt : undefined), delayMs = typeof effectiveAt === "number" ? Math.min(300_000, Math.max(0, effectiveAt - Date.now())) : 300_000;
-    seasonVictoryTimer = setTimeout(() => {
-      void recomputeAndPersistCurrentSummary({ forcePersist: true, commandId: `season-victory:${Date.now()}` });
-    }, delayMs);
-  };
+  const seasonVictoryRecheck = createSeasonVictoryRecheckTimer({
+    getSeasonState: () => currentSeasonState,
+    onFire: () => { void recomputeAndPersistCurrentSummary({ forcePersist: true, commandId: `season-victory:${Date.now()}` }); }
+  });
+  const clearSeasonVictoryTimer = seasonVictoryRecheck.clear, scheduleSeasonVictoryRecheck = seasonVictoryRecheck.schedule;
   const persistCurrentSummary = async (summary: CurrentSeasonSummary, force = false): Promise<void> => {
     const signature = leaderboardSignature(summary);
     const enoughTimePassed = summary.updatedAt - lastCurrentSummaryPersistedAt >= 15_000;
@@ -1037,7 +1028,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // scan when the caller already holds a fresh snapshot (e.g. flushGlobalStatusBroadcast).
     // Use the async chunked path when no snapshot is provided — avoids blocking the
     // main thread for the full 202k-tile synchronous scan (season victory timer, cold start).
-    const runtimeState = providedRuntimeState ?? await runtime.exportStateAsync(yieldToEventLoop);
+    const sourceRuntime = runtime;
+    const runtimeState = providedRuntimeState ?? await sourceRuntime.exportStateAsync(yieldToEventLoop);
+    // A season rollover can swap the runtime while the export yields; the old
+    // season's tiles must not be summarised under the new season (stale Ranks).
+    if (runtime !== sourceRuntime && currentSummary) {
+      simulationMetrics.incrementSimSummaryRecomputeStaleRuntime();
+      return currentSummary;
+    }
     // One tile scan feeds the leaderboard, base objectives, AND every player's
     // self-progress label — reused below so tracker re-summarization doesn't rescan.
     const worldStatus = buildWorldStatusSnapshot("", runtimeState, {
@@ -1094,7 +1092,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // score-history sampler's piggyback point on this cadence.
   const { perform: performGlobalStatusBroadcast } = createGlobalStatusBroadcastPayload({
     subscriptionRegistry,
-    runtime,
+    getRuntime: () => runtime,
     nonCompetitivePlayerIds: options.nonCompetitivePlayerIds,
     simulationMetrics,
     snapshotCache,
@@ -1668,6 +1666,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         currentSummary: nextSummary,
         createdAt: bootstrap.seasonState.startedAt
       });
+      // Swap the summary before the runtime: replaceRuntime awaits, and a broadcast
+      // in that gap must not pair the new leaderboard with the ended season's summary.
+      currentSummary = nextSummary;
+      currentSummarySignature = leaderboardSignature(nextSummary);
+      currentSummaryPlayerSelfProgress = selfProgressCacheOf(nextWorldStatus);
+      lastCurrentSummaryPersistedAt = nextSummary.updatedAt;
       await replaceRuntime({
         nextRuntime,
         nextPlayers: createActivePlayerIdentityMap(bootstrap.initialPlayers.values()),
@@ -1675,10 +1679,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         nextSeededTileCount: bootstrap.initialState.tiles.length
       });
       checkpointSoon(snapshotCheckpointManager, log, "simulation season rollover reach border baseline checkpoint failed"); // rollover snapshot carries no reach border
-      currentSummary = nextSummary;
-      currentSummarySignature = leaderboardSignature(nextSummary);
-      currentSummaryPlayerSelfProgress = selfProgressCacheOf(nextWorldStatus);
-      lastCurrentSummaryPersistedAt = nextSummary.updatedAt;
       // Old timer's closure captured the previous season's state, so clear it —
       // but re-arm the 5-min fallback for the new season, otherwise no code
       // path ever recomputes seasonVictory again and every objective stays

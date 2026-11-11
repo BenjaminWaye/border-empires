@@ -1,4 +1,5 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import { isChosenStructureTier } from "@border-empires/shared";
 
 // ── Unified build handler (Phase 2) ──────────────────────────────
 // Maps the legacy per-structure BUILD_* commands onto BUILD_STRUCTURE.
@@ -16,6 +17,7 @@ export const normalizeLegacyBuildCommand = (command: CommandEnvelope): CommandEn
   return {
     ...command,
     type: "BUILD_STRUCTURE",
-    payloadJson: JSON.stringify({ x: payload.x, y: payload.y, structureType })
+    // The Fortify / Siege picker's explicit tier rides along; the build handler validates it.
+    payloadJson: JSON.stringify({ x: payload.x, y: payload.y, structureType, ...(isChosenStructureTier(payload.tier) ? { tier: payload.tier } : {}) })
   } as unknown as CommandEnvelope;
 };

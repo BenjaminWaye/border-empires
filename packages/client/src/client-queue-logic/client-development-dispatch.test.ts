@@ -5,7 +5,7 @@ import { createInitialState } from "../client-state/client-state.js";
 import { queueDevelopmentAction } from "../client-development-queue/client-development-queue.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { Tile } from "../client-types.js";
-import { processDevelopmentQueue, queuedSettleAwaitsManpower, requestSettlement } from "./client-development-dispatch.js";
+import { gatewayBuildWirePayload, processDevelopmentQueue, queuedSettleAwaitsManpower, requestSettlement } from "./client-development-dispatch.js";
 
 const frontierTile = (x: number, y: number): Tile => ({ x, y, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "FRONTIER" });
 const ws = { readyState: 1, OPEN: 1 } as unknown as RealtimeSocket;
@@ -143,5 +143,13 @@ describe("requestSettlement while short on manpower", () => {
     expect(requestSettlement(state, 1, 1, deps)).toBe(true);
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "SETTLE", x: 1, y: 1 });
     expect(state.manpower).toBe(3);
+  });
+});
+
+describe("gatewayBuildWirePayload", () => {
+  it("forwards the Fortify / Siege picker's tier on fort and siege builds only", () => {
+    expect(gatewayBuildWirePayload({ type: "BUILD_STRUCTURE", x: 1, y: 2, structureType: "FORT", tier: "FORT" })).toEqual({ type: "BUILD_FORT", x: 1, y: 2, tier: "FORT" });
+    expect(gatewayBuildWirePayload({ type: "BUILD_STRUCTURE", x: 1, y: 2, structureType: "SIEGE_BATTERY", tier: "DREAD_TOWER" })).toEqual({ type: "BUILD_SIEGE_BATTERY", x: 1, y: 2, tier: "DREAD_TOWER" });
+    expect(gatewayBuildWirePayload({ type: "BUILD_STRUCTURE", x: 1, y: 2, structureType: "FORT" })).toEqual({ type: "BUILD_FORT", x: 1, y: 2 });
   });
 });

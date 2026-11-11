@@ -2,7 +2,7 @@ import { processAutoBuilds } from "./client-structure-build-trigger/client-proce
 import { dispatchTileAetherAction } from "./client-afc-upgrades/client-afc-tower-action.js";
 import { createGarrisonManyFlow } from "./client-garrison-many/client-garrison-many.js";
 import { openDiplomacyForPlayer } from "./client-tile-action-diplomacy/client-tile-action-diplomacy.js";
-import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureSkipsSettledRequirement, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureSkipsSettledRequirement, type BuildableStructureType, type ChosenStructureTier, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
 import {
   enqueueAdjacentExpandWaypoint,
   enqueueRelayBeaconFrontierWaypoint,
@@ -458,19 +458,19 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const buildDispatchDeps = (): BuildDispatchDeps => ({ sendDevelopmentBuild, applyOptimisticStructureBuild, structureDisplayLabel });
 
-  const triggerBuildForStructureType = (structureType: BuildableStructureType, tile: Tile): void =>
-    triggerBuildForStructureTypeFromModule(structureType, tile, state, { ...buildDispatchDeps(), renderPlacementOverlay, renderHud });
+  const triggerBuildForStructureType = (structureType: BuildableStructureType, tile: Tile, tier?: ChosenStructureTier): void =>
+    triggerBuildForStructureTypeFromModule(structureType, tile, state, { ...buildDispatchDeps(), renderPlacementOverlay, renderHud }, tier);
 
   // Owned-tile build entry point: settles-then-builds on a FRONTIER tile (mirroring the Relay Beacon frontier chain) or
   // builds immediately on SETTLED -- or, for the siege ladder (structureSkipsSettledRequirement), on FRONTIER too, no settle. A 2nd build click on a tile already queued is blocked, not overwritten.
-  const handleBuildAction = (actionId: string, structureType: BuildableStructureType, selected: Tile): void => {
+  const handleBuildAction = (actionId: string, structureType: BuildableStructureType, selected: Tile, tier?: ChosenStructureTier): void => {
     const targetKey = keyFor(selected.x, selected.y);
     const isActiveCaptureTarget = isPendingExpansionTarget(state, selected.x, selected.y);
     const skipsSettle = structureSkipsSettledRequirement(structureType);
     if (selected.ownerId !== state.me && !isActiveCaptureTarget) { hideTileActionMenu(); return; }
     if (selected.ownershipState === "SETTLED" || (selected.ownerId === state.me && skipsSettle)) {
       hideTileActionMenu();
-      triggerBuildForStructureType(structureType, selected);
+      triggerBuildForStructureType(structureType, selected, tier);
       return;
     }
     if (state.autoBuildTargets.has(targetKey)) {
@@ -481,7 +481,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     // Still waiting on an in-flight EXPAND -- siege ladder builds the instant it lands (no settle step), everything else still settles first.
     if (!skipsSettle) state.autoSettleTargets.add(targetKey);
     state.autoBuildTargets.set(targetKey, structureType);
-    sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType }); // server-durable continuation, see runtime-claim-continuation-command-handlers.ts
+    sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType, ...(tier ? { tier } : {}) }); // server-durable continuation, see runtime-claim-continuation-command-handlers.ts
     pushFeed(
       skipsSettle || isActiveCaptureTarget
         ? `Queued ${skipsSettle ? "build" : "garrison + build"} ${structureDisplayLabel(structureType)} at (${selected.x}, ${selected.y}) — starts once the expansion completes.`

@@ -2,6 +2,9 @@ import { z } from "zod";
 import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
 import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema } from "../diplomacy-terms/diplomacy-terms.js";
 
+/** The Fortify / Siege picker's explicit tier (structure-tier-choice.ts); omitted = best tier the tech allows. */
+const ChosenStructureTierSchema = z.enum(["FORT", "TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]);
+
 const FrontierCommandMetadataSchema = {
   commandId: z.string().min(1).optional(),
   clientSeq: z.number().int().positive().optional()
@@ -125,7 +128,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     displayName: z.string().trim().min(2).max(24),
     color: z.string()
   }),
-  z.object({ type: z.literal("BUILD_FORT"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("BUILD_FORT"), x: z.number().int(), y: z.number().int(), tier: ChosenStructureTierSchema.extract(["FORT", "TITANIUM_BASTION", "THUNDER_BASTION"]).optional() }),
   z.object({ type: z.literal("BUILD_OBSERVATORY"), x: z.number().int(), y: z.number().int() }),
   z.object({
     type: z.literal("BUILD_ECONOMIC_STRUCTURE"),
@@ -228,7 +231,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     ...FrontierCommandMetadataSchema
   }),
   z.object({ type: z.literal("UPGRADE_TOWN_TIER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
-  z.object({ type: z.literal("BUILD_SIEGE_BATTERY"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("BUILD_SIEGE_BATTERY"), x: z.number().int(), y: z.number().int(), tier: ChosenStructureTierSchema.extract(["SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]).optional() }),
   z.object({
     type: z.literal("BUILD_STRUCTURE"),
     x: z.number().int(),
@@ -333,7 +336,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     y: z.number().int(),
     tileKey: z.string().min(1),
     kind: z.enum(["SETTLE", "BUILD"]),
-    structureType: z.string().optional()
+    structureType: z.string().optional(),
+    tier: ChosenStructureTierSchema.optional()
   }),
   z.object({ type: z.literal("DEV_QUEUE_CANCEL"), tileKey: z.string().min(1) }),
   z.object({ type: z.literal("DEV_QUEUE_MOVE_TO_FRONT"), tileKey: z.string().min(1) }),
@@ -347,7 +351,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("CLAIM_CONTINUATION_SET"),
     x: z.number().int(),
     y: z.number().int(),
-    structureType: z.string().optional()
+    structureType: z.string().optional(),
+    tier: ChosenStructureTierSchema.optional()
   }),
   // steps/planId/plannedAt carry the client's full planned route (see
   // docs/waypoint-client-planning-plan.md §1) so the server can replay it
