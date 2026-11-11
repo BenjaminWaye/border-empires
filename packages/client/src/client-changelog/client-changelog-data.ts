@@ -492,7 +492,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The reward is claimed once.",
     changes: ["A resource reward leaves a resource tile on the former waystation site."]
   },
-  { ...FRONTIER_MAP_NAMES_ENTRY, createdAt: 1794312655623 },
+  { ...FRONTIER_MAP_NAMES_ENTRY, createdAt: 1794312655623, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
