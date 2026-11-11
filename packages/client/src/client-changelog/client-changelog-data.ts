@@ -6,6 +6,7 @@ import { RELIC_REVEAL_ENTRY } from "./client-changelog-relic-reveal.js";
 import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
 import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
 import { FORT_SIEGE_TIER_PICKER_ENTRY } from "./client-changelog-fort-siege-tiers.js";
+import { AFC_CAPTURE_NO_DROP_ENTRY } from "./client-changelog-afc-capture-no-drop.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { NEXT_CONTEST_STARTING_ENTRY } from "./client-changelog-next-contest.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -488,6 +489,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...CAMERA_PER_ACCOUNT_ENTRY, createdAt: 1794432604008, },
   { ...PLACE_FEEDBACK_ENTRY, createdAt: 1794410576432, },
   { ...FORT_SIEGE_TIER_PICKER_ENTRY, createdAt: 1794418877252, },
+  { ...AFC_CAPTURE_NO_DROP_ENTRY, createdAt: 1794437873725, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

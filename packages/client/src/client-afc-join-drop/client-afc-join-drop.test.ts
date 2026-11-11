@@ -116,6 +116,16 @@ describe("tickAfcJoinDrop arming", () => {
     expect(t.hidden()).toBe(false);
   });
 
+  it("never arms for an AFC the viewer just captured from an enemy (it never dropped from orbit)", () => {
+    const captured = afcTile("p1", ACTIVATED_AT);
+    captured.afc = { ...captured.afc!, capturedAt: ACTIVATED_AT };
+    const t = setup(captured);
+    t.tick(0);
+    expect(t.state.afcJoinDrop.phase).toBe("idle");
+    expect(t.hidden()).toBe(false);
+    expect(t.state.afcJoinDropFxQueue).toEqual([]);
+  });
+
   it("never arms once this AFC's drop has already been played", () => {
     const t = setup();
     t.seen.add(afcJoinDropTipId(ACTIVATED_AT));
