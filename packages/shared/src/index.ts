@@ -34,6 +34,7 @@ export * from "./exposure/exposure.js";
 export * from "./dock-landing/dock-landing.js";
 export * from "./muster-transit-route/muster-transit-route.js";
 export * from "./structure-costs/structure-costs.js";
+export * from "./structure-tier-choice/structure-tier-choice.js";
 export * from "./structure-stacking/structure-stacking.js";
 export * from "./structure-slots/structure-slots.js";
 export * from "./resource-slot-sources/resource-slot-sources.js";
