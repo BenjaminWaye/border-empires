@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { WORLD_WIDTH, buildFrontierCombatPreview, createRelicState } from "@border-empires/shared";
+import { RELIC_RULES, WORLD_WIDTH, buildFrontierCombatPreview, createRelicState } from "@border-empires/shared";
 import { addRelicResourceSupply, activateRelic, activeRelicTiles, consumeBattleRelics, fieldGeneratorForTarget } from "../runtime-relics.js";
 import { RelicMapHintIndex } from "../runtime-relic-map-hints.js";
 import { applyTileToPlayerSummary, createEmptyPlayerRuntimeSummary } from "../player-runtime-summary.js";
@@ -64,7 +64,8 @@ describe("redesigned relic runtime", () => {
     const ctx = indexedContext([relicTile("BASTION_FRAME", 0)]);
     const target = { ...relicTile("QUICKFORGE", 1), naturalWonder: undefined };
     expect(fieldGeneratorForTarget(ctx, "p", target)).toBeDefined();
-    expect(fieldGeneratorForTarget(ctx, "p", { ...target, x: 4 })).toBeUndefined();
+    expect(fieldGeneratorForTarget(ctx, "p", { ...target, x: RELIC_RULES.fieldRadius })).toBeDefined();
+    expect(fieldGeneratorForTarget(ctx, "p", { ...target, x: RELIC_RULES.fieldRadius + 1 })).toBeUndefined();
     expect(fieldGeneratorForTarget(ctx, "p", { ...target, x: WORLD_WIDTH - 1 })).toBeDefined();
     expect(fieldGeneratorForTarget(ctx, "p", { ...target, ownershipState: "FRONTIER" })).toBeUndefined();
     expect(fieldGeneratorForTarget(ctx, "p", { ...target, terrain: "SEA" })).toBeUndefined();

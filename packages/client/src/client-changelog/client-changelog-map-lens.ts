@@ -24,3 +24,13 @@ export const RESOURCE_LENS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
     "Territory colours and borders are hidden while the view is on; pick Terrain to bring them back."
   ]
 };
+
+export const MINIMAP_WORLD_EDGE_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.11",
+  title: "Minimap across the world's edge",
+  why: "When your land crossed the edge of the world, the minimap showed it squeezed against both sides with empty space between, and on phones the lens buttons ran off the screen.",
+  changes: [
+    "The minimap now frames land on both sides of the world's edge together, centred, with your view box in the right place.",
+    "The phone map's lens buttons fit the screen, with each icon above its name."
+  ]
+};

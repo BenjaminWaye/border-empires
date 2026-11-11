@@ -14,12 +14,14 @@ export const RENDER_ORDER = {
   riverWater: 8,
   // Ground ore flecks and crystal clues stay readable over the owner tint.
   prospectClues: 8.25,
-  // Map names inked on the ground (client-map-3d-name-decal): over the
-  // ownership tint and rivers, under fog, mist, storm clouds and every
-  // overlay; depth-tested so buildings and units stand in front.
-  groundNames: 8.5,
   fogDarkenSettled: 9,
   fogDarkenFrontier: 10,
+  // Map names inked on the ground (client-map-3d-name-decal): over the
+  // ownership tint, rivers and both fog layers (the 0.55 slate wash used to
+  // wash names out on remembered land; the 2D map already draws names over
+  // fog); under the drifting mist, ocean, storm clouds and every overlay;
+  // depth-tested so buildings and units stand in front.
+  groundNames: 10.5,
   // client-map-3d-water-surface.ts: the ocean plane.
   oceanSurface: 12,
   // Soft foam band along every coastline, on the sea (client-map-3d-shore.ts).
