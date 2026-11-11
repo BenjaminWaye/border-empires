@@ -155,7 +155,15 @@ export const syncMusterStatus = <TDelta>(
   });
 };
 
-export type AdvanceCandidate = { from: DomainTileState; enemy: DomainTileState; hops: number; dist: number; required: number };
+export type AdvanceCandidate = {
+  from: DomainTileState;
+  enemy: DomainTileState;
+  hops: number;
+  dist: number;
+  required: number;
+  /** A hunting flag's preferred tile (MusterState.hunt + targetX/Y). */
+  preferred?: boolean;
+};
 
 /** Fewest BFS hops wins; Chebyshev distance to the flag breaks ties. */
 export const isNearerAdvanceCandidate = (a: AdvanceCandidate, b: AdvanceCandidate | undefined): boolean =>

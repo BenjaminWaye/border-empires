@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { configureNativeLogin, externalNativeUrl, installNativeShell } from "./client-native-shell.js";
 import { Browser } from "@capacitor/browser";
 
-vi.mock("@capacitor/core", () => ({ Capacitor: { isNativePlatform: () => true } }));
+vi.mock("@capacitor/core", () => ({ Capacitor: { isNativePlatform: () => true, getPlatform: () => "ios" } }));
 const native = vi.hoisted(() => ({ stateListener: undefined as ((event: { isActive: boolean }) => void) | undefined }));
 vi.mock("@capacitor/app", () => ({ App: {
   addListener: vi.fn(async (_name: string, callback: (event: { isActive: boolean }) => void) => {
@@ -36,6 +36,8 @@ describe("native shell", () => {
   it("intercepts legal links and forwards native resume to existing reconnect handling", async () => {
     document.body.innerHTML = '<div class="auth-login-state"></div><div class="auth-legacy-controls"></div><a href="https://discord.gg/example">Discord</a>';
     installNativeShell();
+    // Drives the iOS-only Sign in with Apple button in client-native-style.css.
+    expect(document.documentElement.dataset.nativePlatform).toBe("ios");
     document.querySelector("a")?.click();
     expect(Browser.open).toHaveBeenCalledWith({ url: "https://discord.gg/example" });
     const resume = vi.fn();

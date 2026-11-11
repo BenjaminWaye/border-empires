@@ -48,6 +48,7 @@ export const configureNativeLogin = (): boolean => {
 export const installNativeShell = (): void => {
   if (!Capacitor.isNativePlatform()) return;
   document.documentElement.dataset.nativeApp = "true";
+  document.documentElement.dataset.nativePlatform = Capacitor.getPlatform();
   // A contained viewport keeps fixed game controls clear of notches and system bars
   // for both renderers, without changing their coordinate spaces.
   document.querySelector('meta[name="viewport"]')?.setAttribute(

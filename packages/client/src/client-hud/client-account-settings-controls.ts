@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { signOut, type Auth } from "firebase/auth";
 import type { ClientState } from "../client-state/client-state.js";
 import { openAccountDeletion } from "../client-account-deletion/client-account-deletion.js";
@@ -11,6 +12,11 @@ export const bindAccountSettingsControls = (
     button.onclick = async () => {
       if (!auth) return;
       await signOut(auth);
+      if (Capacitor.isNativePlatform()) {
+        // Also forget the native Google/Apple session so the next sign-in offers the account picker.
+        const { signOutNativeSso } = await import("../client-native-sso/client-native-sso.js");
+        await signOutNativeSso();
+      }
       window.location.reload();
     };
   });
