@@ -8,7 +8,10 @@ import type { Tile } from "../client-types.js";
 
 export type ResourceLensState = { readonly showResourceOverlay?: boolean };
 
-/** The pseudo-owner a resource tile is painted under in 3D, so same-resource neighbours read as one patch. */
+/**
+ * The owner id a resource tile is painted under in 3D (no real tile has it). The settled edge glow compares
+ * owner ids, so each resource tile is outlined on its own rather than merged with same-resource neighbours.
+ */
 export const resourceLensOwnerId = (resource: Tile["resource"]): string => `resource:${resource ?? ""}`;
 
 /**

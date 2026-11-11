@@ -52,9 +52,10 @@ import type { RoadCutDirections } from "../client-map-3d-hill-shape.js";
 import { type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
 import { createOwnershipOverlay, DEFAULT_SETTLED_EDGE_GLOW } from "../client-map-3d-ownership-overlay.js";
-import { placeOwnershipTile3D, type OwnershipTilePlacementDeps } from "../client-map-3d-ownership-tile/client-map-3d-ownership-tile.js"; import { ownershipPaint3D } from "../client-resource-lens/client-resource-lens.js";
+import type { OwnershipTilePlacementDeps } from "../client-map-3d-ownership-tile/client-map-3d-ownership-tile.js";
+import { paintTerritoryTile3D } from "../client-map-3d-territory-paint/client-map-3d-territory-paint.js";
 import { OWNERSHIP_RISE_ABOVE_HEIGHTFIELD } from "../client-map-3d-ownership-shore.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
-import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js"; import { createBarbarianFrontierTintTracker, observeBarbarianFrontierTint } from "../client-map-3d-barbarian-frontier-tint.js";
+import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js"; import { createBarbarianFrontierTintTracker } from "../client-map-3d-barbarian-frontier-tint.js";
 import {
   createBendingMarkerGeometry,
   writeBendingMarkerCorners
@@ -627,6 +628,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       overlay: ownershipOverlay, cornerYAt: (x, y) => heightfield.cornerYAt(x, y), isHillsTile, hillCutAt, frontierDecayPulse, barbarianFrontierTint,
       neighbours: { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, isLandAt: (x, y) => terrainForWorldTile(x, y) === "LAND" }
     };
+    const territoryPaintDeps = { state: deps.state, placement: ownershipTileDeps, effectiveOverlayColor: deps.effectiveOverlayColor, barbarianFrontierTint, scratch: tmpOwnerColor };
     const roadNetworkMs = performance.now() - roadNetworkStartAt;
     const heightfieldStartAt = performance.now();
     heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: (x, y) => isForestTileWithAfcLandingHold(deps.state.afcJoinDrop, x, y), isHillsAt: isHillsTile, riverCornerHalfWidths: riverCornerWidthsForCurrentSeed() });
@@ -931,19 +933,10 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             fortOverlay.addInstance(x, z, surfaceY, demoFort.kind, demoFort.opening, wx, wy);
           }
         }
-        const paint = ownershipPaint3D(deps.state, tile, terrain === "LAND" && visibility === "visible", isOwnedLand); if (paint && !activeFrontierAttackClaimKeys.has(tileKey)) { // owner colour, or the Resources lens's resource colour (client-resource-lens.ts)
-          const normalizedColor = normalizeColorForThree(paint.color ?? deps.effectiveOverlayColor(paint.ownerId));
-          // ownershipOverlay.addTile copies the colour, so we can reuse a
-          // hoisted Color across tiles.
-          const ownerColor = tmpOwnerColor.set(normalizedColor);
-          placeOwnershipTile3D(ownershipTileDeps, { tile: tile ?? {}, ownerId: paint.ownerId, ownershipState: paint.ownershipState, wx, wy, x, z, ownerColor, barbarianTintTransition: paint.color ? undefined : observeBarbarianFrontierTint(barbarianFrontierTint, paint.ownerId, paint.ownershipState, tileKey, ownerColor) }); // see client-map-3d-barbarian-frontier-tint.ts
-          if (selectedCoord && wx === selectedCoord.x && wy === selectedCoord.y && selectedOwnershipDebug) {
-            selectedOwnershipDebug = {
-              ...selectedOwnershipDebug,
-              renderedOwnershipLayer: true,
-              renderedOwnershipColor: `#${ownerColor.getHexString()}`
-            };
-          }
+        // Owner colour, or the Resources lens's resource colour -- see client-map-3d-territory-paint.ts.
+        const ownerColor = activeFrontierAttackClaimKeys.has(tileKey) ? undefined : paintTerritoryTile3D(territoryPaintDeps, { tile, tileKey, wx, wy, x, z, visibleLand: terrain === "LAND" && visibility === "visible", isOwnedLand });
+        if (ownerColor && selectedCoord && wx === selectedCoord.x && wy === selectedCoord.y && selectedOwnershipDebug) {
+          selectedOwnershipDebug = { ...selectedOwnershipDebug, renderedOwnershipLayer: true, renderedOwnershipColor: `#${ownerColor.getHexString()}` };
         }
         // Aether Survey Line 3D overlay: dormant-frontier fill and the incursion hatch are
         // per-tile (mirrors the 2D path's conditions in
