@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { FairSpawnSite, TownDefinition } from "@border-empires/game-domain";
+import type { FairSpawnSite, TownDefinition, WaystationSiteState } from "@border-empires/game-domain";
 import type { Tile, TileKey } from "@border-empires/shared";
 import { createSeasonSeedPlayerSpawner } from "./season-seed-world-player-spawn.js";
 
 const key = (x: number, y: number): TileKey => `${x},${y}`;
 
-const createSpawner = (width: number, fairSpawnSites: readonly FairSpawnSite[] = []): ReturnType<typeof createSeasonSeedPlayerSpawner> => {
+const createSpawner = (width: number, fairSpawnSites: readonly FairSpawnSite[] = [], waystationsByTile = new Map<TileKey, WaystationSiteState>()): ReturnType<typeof createSeasonSeedPlayerSpawner> => {
   const ownership = new Map<TileKey, string>();
   const townsByTile = new Map<TileKey, TownDefinition>();
   return createSeasonSeedPlayerSpawner({
@@ -26,7 +26,7 @@ const createSpawner = (width: number, fairSpawnSites: readonly FairSpawnSite[] =
     clusterByTile: new Map(),
     clustersById: new Map(),
     watchtowersByTile: new Map(),
-    waystationsByTile: new Map(),
+    waystationsByTile,
     naturalWondersByTile: new Map(),
     createSettlementTown: (tileKeyValue, type): TownDefinition => ({
       townId: `town-${tileKeyValue}`,
@@ -85,5 +85,16 @@ describe("createSeasonSeedPlayerSpawner", () => {
     const spawner = createSpawner(40);
 
     expect(() => spawner.spawnPlayerAt("player-1", false, 0)).toThrow("no qualified starter site for season player player-1");
+  });
+
+  it("removes waystations inside the landing's reach disk (wrapping the seam) so the auto-claim cannot activate them", () => {
+    const waystations = new Map<TileKey, WaystationSiteState>(
+      ["3,0", "37,0", "4,0", "36,0"].map((tileKey) => [tileKey, { tileKey, activated: false }])
+    );
+    const spawner = createSpawner(40, [{ x: 0, y: 0 }], waystations);
+
+    spawner.spawnPlayerAt("player-1", false, 0);
+
+    expect([...waystations.keys()].sort()).toEqual(["36,0", "4,0"]);
   });
 });

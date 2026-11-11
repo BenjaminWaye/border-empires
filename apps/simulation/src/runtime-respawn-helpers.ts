@@ -8,6 +8,7 @@ import { hasBarbarianWithin } from "./spawn-placement/barbarian-proximity.js";
 import type { SpawnSearchLookups } from "./spawn-placement/spawn-placement-index.js";
 import { prepareAfcLandingFootprint } from "./afc-landing-footprint/afc-landing-footprint.js";
 import { clearBarbariansAroundAfcLanding } from "./afc-landing-footprint/afc-landing-barbarian-clear.js";
+import { clearWaystationsAroundAfcLanding, withoutLandingWaystation } from "./afc-landing-footprint/afc-landing-waystation-clear.js";
 import { backfillMissingHouseModules, rebalanceOverfullAfcs } from "./afc-module-commissioning.js";
 import { createHumanRuntimePlayer } from "./runtime-player-factory.js";
 import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
@@ -210,7 +211,7 @@ export const ensurePlayerHasSpawnTerritory = (
   // the gold aggregation as a special case -- see the plan doc for why it is
   // NOT folded into the town-list-driven math.
   const spawnedTile: DomainTileState = {
-    ...tile,
+    ...withoutLandingWaystation(tile),
     ownerId: playerId,
     ownershipState: "SETTLED",
     afc: { ownerId: playerId, status: "active", activatedAt: ctx.now(), landedAt: ctx.now() }
@@ -218,9 +219,10 @@ export const ensurePlayerHasSpawnTerritory = (
   const commandId = `bootstrap-spawn:${playerId}:${ctx.now()}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, commandId);
   const clearedBarbarianTiles = clearBarbariansAroundAfcLanding(ctx, spawn.x, spawn.y, commandId);
+  const clearedWaystationTiles = clearWaystationsAroundAfcLanding(ctx, spawn.x, spawn.y, commandId);
   ctx.replaceTileState(tileKey, spawnedTile);
   finalizeRespawnNotice(ctx, playerId, tileKey);
-  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [spawnedTile, ...flattenedTiles, ...clearedBarbarianTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
+  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [spawnedTile, ...flattenedTiles, ...clearedBarbarianTiles, ...clearedWaystationTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
   ctx.emitPlayerStateUpdate({ commandId, playerId });
   if (rallyAnchor && onRallySpawnPlaced) {
     // Measured from where the player actually landed, so it also catches the fair-spawn-site claim (which picks
@@ -268,7 +270,7 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
   // AFC replaces the SETTLEMENT-tier town on every spawn/respawn -- see the
   // comment in ensurePlayerHasSpawnTerritory above.
   const respawnedTile: DomainTileState = {
-    ...tile,
+    ...withoutLandingWaystation(tile),
     ownerId: playerId,
     ownershipState: "SETTLED",
     afc: { ownerId: playerId, status: "active", activatedAt: ctx.now(), landedAt: ctx.now() }
@@ -278,9 +280,10 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, respawnCommandId);
   const clearedBarbarianTiles = clearBarbariansAroundAfcLanding(ctx, spawn.x, spawn.y, respawnCommandId);
+  const clearedWaystationTiles = clearWaystationsAroundAfcLanding(ctx, spawn.x, spawn.y, respawnCommandId);
   ctx.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
   finalizeRespawnNotice(ctx, playerId, respawnedTileKey);
-  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: respawnCommandId, playerId, tileDeltas: [respawnedTile, ...flattenedTiles, ...clearedBarbarianTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
+  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: respawnCommandId, playerId, tileDeltas: [respawnedTile, ...flattenedTiles, ...clearedBarbarianTiles, ...clearedWaystationTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
   ctx.emitPlayerStateUpdate({ commandId: respawnCommandId, playerId });
   ctx.runtimeLogInfo(
     {
@@ -320,7 +323,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   // AFC replaces the SETTLEMENT-tier town on every spawn/respawn -- see the
   // comment in ensurePlayerHasSpawnTerritory above.
   const respawnedTile: DomainTileState = {
-    ...tile,
+    ...withoutLandingWaystation(tile),
     ownerId: playerId,
     ownershipState: "SETTLED",
     afc: { ownerId: playerId, status: "active", activatedAt: ctx.now(), landedAt: ctx.now() }
@@ -332,6 +335,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, respawnCommandId);
   const clearedBarbarianTiles = clearBarbariansAroundAfcLanding(ctx, spawn.x, spawn.y, respawnCommandId);
+  const clearedWaystationTiles = clearWaystationsAroundAfcLanding(ctx, spawn.x, spawn.y, respawnCommandId);
   ctx.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
   // Tile/reach callbacks may refresh capacity while the landing is written.
   // An opening package includes the AFC baseline once, never another starting-capital refill.
@@ -342,7 +346,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
     eventType: "TILE_DELTA_BATCH",
     commandId: respawnCommandId,
     playerId,
-    tileDeltas: [respawnedTile, ...flattenedTiles, ...clearedBarbarianTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile))
+    tileDeltas: [respawnedTile, ...flattenedTiles, ...clearedBarbarianTiles, ...clearedWaystationTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile))
   });
   if (!actor.isAi) ctx.emitPlayerStateUpdate({ commandId: respawnCommandId, playerId });
 };

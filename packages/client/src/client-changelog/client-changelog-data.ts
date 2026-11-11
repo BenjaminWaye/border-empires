@@ -4,6 +4,7 @@ import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-na
 import { RELIC_REVEAL_ENTRY } from "./client-changelog-relic-reveal.js";
 import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
 import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
+import { WAYSTATION_LANDING_CLEAR_ENTRY } from "./client-changelog-waystation-landing-clear.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { NEXT_CONTEST_STARTING_ENTRY } from "./client-changelog-next-contest.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -482,6 +483,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...PLANETARY_DEFENSE_HUNT_ENTRY, createdAt: 1794423294581, },
   { ...NATIVE_SOCIAL_SIGN_IN_ENTRY, createdAt: 1794288128417, },
   { ...MUSTER_DOCK_TRANSPORT_ENTRY, createdAt: 1794353510194, },
+  { ...WAYSTATION_LANDING_CLEAR_ENTRY, createdAt: 1794433771738, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
