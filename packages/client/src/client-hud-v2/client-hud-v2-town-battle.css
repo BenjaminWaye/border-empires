@@ -187,7 +187,8 @@
 .v2t-plot-building { background: transparent; border: 2px solid var(--v2-gold); }
 .v2t-plot-open { background: transparent; border: 2px solid var(--v2-green-hi); }
 .v2t-plot-locked { background: var(--v2-line); opacity: 0.6; }
-.v2t-plot-new { box-shadow: 0 0 0 2px var(--v2-gold-hi), 0 0 8px var(--v2-gold-hi); animation: v2t-plot-pop 0.6s ease-out; }
-.v2t-plots-changed .v2t-stat-v { animation: v2t-plot-pop 0.6s ease-out; }
-@keyframes v2t-plot-pop { 0% { transform: scale(1.6); } 100% { transform: scale(1); } }
-@media (prefers-reduced-motion: reduce) { .v2t-plot-new, .v2t-plots-changed .v2t-stat-v { animation: none; } }
+/* Steady highlights, not animations: the town screen repaints as its numbers tick, which would restart them. */
+.v2t-plot-new { box-shadow: 0 0 0 2px var(--v2-gold-hi), 0 0 8px var(--v2-gold-hi); }
+.v2t-plots.v2t-plots-changed { box-shadow: inset 3px 0 0 var(--v2-gold-hi); background: color-mix(in srgb, var(--v2-gold) 14%, var(--v2-well)); }
+/* Place button right after a press: "✓ Placed" / "✓ Queued" (lastBuildPlaced). Still pressable for the next build. */
+.v2s-btn.v2t-place-done { background: var(--v2-green); border-color: var(--v2-green-hi); color: #10170f; }

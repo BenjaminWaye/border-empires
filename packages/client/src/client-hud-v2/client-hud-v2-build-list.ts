@@ -1,4 +1,5 @@
 import { isResourceImprovementAction } from "./client-resource-improvement-action.js";
+import type { BuildPlacedOutcome } from "../client-queue-logic/client-build-placed-feedback.js";
 // The build list shared by the town screen and the map's Build ▸ sidebar:
 // category tabs, one row per building with its cost or why it can't be built,
 // and a Place button for the picked one. Picks and tabs carry
@@ -57,11 +58,14 @@ export const buildListHtml = (input: BuildListInput): string => {
     <div class="v2t-build-list" data-v2-scroll="build-list">${rows}${empty}</div>`;
 };
 
+/** The Place button's brief confirmation after a press (see lastBuildPlaced); it stays pressable for the next one. */
+const PLACED_LABELS: Record<BuildPlacedOutcome, string> = { started: "✓ Placed", queued: "✓ Queued" };
+
 /** The picked building's Place button: a box of its own, or `docked` at the foot of the build panel (the town screen). */
-export const buildPlaceHtml = (input: Pick<BuildListInput, "buildings" | "selection" | "targetKey" | "placeLabel"> & { docked?: boolean }): string => {
+export const buildPlaceHtml = (input: Pick<BuildListInput, "buildings" | "selection" | "targetKey" | "placeLabel"> & { docked?: boolean; placed?: BuildPlacedOutcome | undefined }): string => {
   const sel = input.buildings.find((b) => b.id === input.selection && !b.disabled);
   if (!sel) return "";
   const target = ` data-target-key="${esc(sel.targetKey ?? input.targetKey)}"${sel.originKey ? ` data-origin-key="${esc(sel.originKey)}"` : ""}`;
   const bulk = isResourceImprovementAction(sel.id) ? `<label class="v2t-build-all"><input type="checkbox" data-v2-build-all-resources /> Build this improvement on all garrisoned tiles of this resource</label>` : "";
-  return `<div class="v2t-place${input.docked ? " v2t-place-docked" : ""}"><span class="v2t-place-name">${esc(sel.label)}</span><button type="button" class="v2s-btn v2s-btn-primary" data-hud-v2-action="${esc(sel.id)}"${target}>${esc(input.placeLabel)}</button>${bulk}</div>`;
+  return `<div class="v2t-place${input.docked ? " v2t-place-docked" : ""}"><span class="v2t-place-name">${esc(sel.label)}</span><button type="button" class="v2s-btn v2s-btn-primary${input.placed ? " v2t-place-done" : ""}" data-hud-v2-action="${esc(sel.id)}"${target}>${esc(input.placed ? PLACED_LABELS[input.placed] : input.placeLabel)}</button>${bulk}</div>`;
 };

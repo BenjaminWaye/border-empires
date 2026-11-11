@@ -18,6 +18,7 @@ import { townWorkHtml } from "./client-hud-v2-town-work.js";
 import { builtStructureFacts, townGrowth, type DormantResourcesFor, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
+import type { BuildPlacedOutcome } from "../client-queue-logic/client-build-placed-feedback.js";
 
 export type TownScreenInput = {
   town: Tile;
@@ -38,6 +39,8 @@ export type TownScreenInput = {
   dormantResourcesFor?: DormantResourcesFor;
   /** The "Build plots" card (client-hud-v2-town-plots.ts); the card is left out when absent. */
   plotsHtml?: string;
+  /** A Place press's outcome while its confirmation shows on the button (lastBuildPlaced). */
+  placed?: BuildPlacedOutcome | undefined;
 };
 
 const esc = (text: string): string =>
@@ -132,7 +135,7 @@ const buildPanelHtml = (input: TownScreenInput): string => {
     ...(work.length > 0 ? { title: "In progress" } : built ? { title: "On this tile" } : {}),
     ...(lead ? { leadHtml: lead } : {})
   });
-  const place = buildPlaceHtml({ buildings: input.focusView.buildings, selection: input.buildSelection, targetKey: keyOf(input.focus), placeLabel, docked: true });
+  const place = buildPlaceHtml({ buildings: input.focusView.buildings, selection: input.buildSelection, targetKey: keyOf(input.focus), placeLabel, docked: true, placed: input.placed });
   return `${list}${place}`;
 };
 

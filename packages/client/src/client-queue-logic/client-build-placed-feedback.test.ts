@@ -40,3 +40,15 @@ describe("Place feedback", () => {
     expect(d.pushFeed).not.toHaveBeenCalled();
   });
 });
+
+describe("Place button confirmation", () => {
+  it("reports the latest Place outcome while its flash lasts", async () => {
+    const { lastBuildPlaced, BUILD_PLACED_FLASH_MS } = await import("./client-build-placed-feedback.js");
+    const now = Date.now();
+    sendDevelopmentBuild(createInitialState(), payload, vi.fn(), opts, deps(0));
+    expect(lastBuildPlaced(now + 10)).toBe("queued");
+    sendDevelopmentBuild(createInitialState(), payload, vi.fn(), opts, deps(1));
+    expect(lastBuildPlaced(Date.now())).toBe("started");
+    expect(lastBuildPlaced(Date.now() + BUILD_PLACED_FLASH_MS + 1)).toBeUndefined();
+  });
+});
