@@ -198,7 +198,7 @@ describe("activateWaystationAt", () => {
     const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
     const players = new Map([[PLAYER_ID, makePlayer()]]);
     // First random() picks the effect (TECH); second picks the tech index within the unowned tier-1 list (index 0 -> "agriculture", the first tier-1 tech in tech-tree.json).
-    const { input, events } = createInput(tiles, players, queueRandom([RANDOM_FOR.TECH, 0]));
+    const { input, events, techGrants } = createInput(tiles, players, queueRandom([RANDOM_FOR.TECH, 0]));
 
     activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-tech");
 
@@ -210,6 +210,13 @@ describe("activateWaystationAt", () => {
     expect(player.techIds.has(waystation!.grantedTechId!)).toBe(true);
     const techUpdates = events.filter((e): e is Extract<SimulationEvent, { eventType: "TECH_UPDATE" }> => e.eventType === "TECH_UPDATE");
     expect(techUpdates).toHaveLength(1);
+    // Regression: a waystation-granted Titanium Forge Module (masonry) was never
+    // installed on the player's AFC, so Fort stayed locked and Palisade vanished.
+    // The grant must run the same post-grant side effects as paid research.
+    expect(techGrants).toEqual([
+      { phase: "before", playerId: PLAYER_ID },
+      { phase: "after", playerId: PLAYER_ID, techId: waystation!.grantedTechId, commandId: "cmd-tech" }
+    ]);
   });
 
   // Regression: a TECH roll with every tier-1 tech already owned used to burn
@@ -219,7 +226,7 @@ describe("activateWaystationAt", () => {
     const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
     const players = new Map([[PLAYER_ID, makePlayer({ techIds: new Set(allTierOne), points: 7 })]]);
     // Effect roll -> TECH, then the gold-tier roll -> 0 (SMALL).
-    const { input, events } = createInput(tiles, players, queueRandom([RANDOM_FOR.TECH, 0]));
+    const { input, events, techGrants } = createInput(tiles, players, queueRandom([RANDOM_FOR.TECH, 0]));
 
     activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-tech-fallback");
 
@@ -230,6 +237,7 @@ describe("activateWaystationAt", () => {
     expect(waystation).toMatchObject({ activated: true, grantedEffect: "GOLD", grantedGold: 25, grantedGoldTier: "SMALL" });
     expect(waystation?.grantedTechId).toBeUndefined();
     expect(events.filter((e) => e.eventType === "TECH_UPDATE")).toHaveLength(0);
+    expect(techGrants).toEqual([]);
     expect(player.eventLog?.at(-1)).toMatchObject({ grantedEffect: "GOLD", grantedGold: 25 });
   });
 

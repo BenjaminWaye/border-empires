@@ -23,14 +23,18 @@ export function makePlayer(overrides: Partial<DomainPlayer> = {}): DomainPlayer 
   return { id: PLAYER_ID, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }, ...overrides };
 }
 
+/** One beforeTechGrant/afterTechGrant call, in order. */
+export type TechGrantCall = { phase: "before" | "after"; playerId: string; techId?: string; commandId?: string };
+
 export function createInput(
   tiles: Map<string, DomainTileState>,
   players: Map<string, DomainPlayer>,
   random?: () => number,
   alreadyVisibleTileKeys: ReadonlySet<string> = new Set(),
   manpowerCap = 720
-): { input: WaystationActivationInput; events: SimulationEvent[]; impacts: unknown[]; reveals: Array<{ playerId: string; x: number; y: number; radius: number }> } {
+): { input: WaystationActivationInput; events: SimulationEvent[]; impacts: unknown[]; reveals: Array<{ playerId: string; x: number; y: number; radius: number }>; techGrants: TechGrantCall[] } {
   const events: SimulationEvent[] = [];
+  const techGrants: TechGrantCall[] = [];
   const impacts: unknown[] = [];
   const reveals: Array<{ playerId: string; x: number; y: number; radius: number }> = [];
   const input: WaystationActivationInput = {
@@ -49,9 +53,11 @@ export function createInput(
     // Tests run with no elapsed time, so there's no regen to settle.
     refreshManpower: () => {},
     playerManpowerCap: () => manpowerCap,
+    beforeTechGrant: (playerId) => { techGrants.push({ phase: "before", playerId }); },
+    afterTechGrant: (playerId, techId, commandId) => { techGrants.push({ phase: "after", playerId, techId, commandId }); },
     ...(random ? { random } : {})
   };
-  return { input, events, impacts, reveals };
+  return { input, events, impacts, reveals, techGrants };
 }
 
 export const waystationTile = (overrides: Partial<DomainTileState> = {}): DomainTileState => ({

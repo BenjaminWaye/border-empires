@@ -23,6 +23,13 @@ export type WaystationActivationInput = {
   /** Settles a player's accrued manpower regen (MANPOWER effect grants on top of the settled balance). */
   refreshManpower: (playerId: string) => void;
   playerManpowerCap: (playerId: string) => number;
+  /**
+   * TECH reward hooks: `beforeTechGrant` runs before the tech is added (resource-supply
+   * bracket), `afterTechGrant` applies the same side effects paid research does
+   * (applyTechGrantSideEffects) -- notably installing an AFC_MODULE tech on an AFC.
+   */
+  beforeTechGrant: (playerId: string) => void;
+  afterTechGrant: (playerId: string, techId: string, commandId: string) => void;
   /** Injectable randomness for the one-of-six effect roll, then the tech pick within TECH / the tier pick within GOLD. Defaults to Math.random; tests pass a deterministic stub. */
   random?: () => number;
 };
@@ -211,9 +218,9 @@ const grantWaystationPopulationBurst = (input: WaystationActivationInput, player
  * Grants the TECH effect: picks a random tier-1 tech (a tree root -- no
  * prereqIds) the player does not already own, via the injected `random`, and
  * adds it to the player's techIds -- applying the same side effects a paid
- * research grant applies via chooseTechForPlayer (ambaric-transformer unlock
- * linkage and a mods recompute) so a live client's cached multipliers never
- * go stale, and emits a TECH_UPDATE event so an already-connected client's
+ * research grant applies (ambaric-transformer unlock linkage, a mods recompute,
+ * then afterTechGrant: cache invalidation, AFC module install, resource reveal),
+ * and emits a TECH_UPDATE event so an already-connected client's
  * tech list/UI picks up the grant immediately.
  *
  * If the player already owns every tier-1 tech, nothing is granted here
@@ -228,9 +235,11 @@ const grantWaystationTech = (input: WaystationActivationInput, player: DomainPla
   if (unownedTierOneIds.length === 0) return undefined;
   const techId = unownedTierOneIds[Math.floor(random() * unownedTierOneIds.length) % unownedTierOneIds.length];
   if (!techId) return undefined;
+  input.beforeTechGrant(playerId);
   player.techIds.add(techId);
   grantAmbaricTransformerUnlockIfLinked(player, techId);
   player.mods = recomputeMods(player);
+  input.afterTechGrant(playerId, techId, commandId);
   input.emitEvent({
     eventType: "TECH_UPDATE",
     commandId,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { handleChooseDomainCommand, handleChooseTechCommand, handleUpgradeTownTierCommand, type RuntimeProgressionCommandContext } from "./runtime-progression-command-handlers.js";
+import { applyTechGrantSideEffects, handleChooseDomainCommand, handleChooseTechCommand, handleUpgradeTownTierCommand, type RuntimeProgressionCommandContext } from "./runtime-progression-command-handlers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 
 const buildPlayer = (id: string, overrides: Partial<DomainPlayer> = {}): DomainPlayer => ({
@@ -96,6 +96,29 @@ describe("handleChooseTechCommand resource-reveal resync", () => {
     handleChooseTechCommand(context, command);
 
     expect(calls).toEqual([]);
+  });
+});
+
+// Regression: the waystation TECH reward granted AFC_MODULE techs (e.g. masonry,
+// the Titanium Forge Module) without installing them on an AFC, so the Fort stayed
+// locked client- and server-side. applyTechGrantSideEffects is the shared post-grant
+// path both paid research and the waystation call, and it must install the module.
+describe("applyTechGrantSideEffects", () => {
+  it("installs a granted AFC module tech on the player's AFC", () => {
+    const player = buildPlayer("player-1", { techIds: new Set(["masonry"]) });
+    const afcKey = "10,10";
+    const tiles = new Map<string, DomainTileState>([
+      [afcKey, { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", afc: { ownerId: "player-1", status: "active", activatedAt: 1000 } } as DomainTileState]
+    ]);
+    const context = buildContext(new Map([["player-1", player]]), tiles, () => {}, {
+      replaceTileState: (key, tile) => { tiles.set(key, tile); },
+      summaryForPlayer: () => ({ ownedTownTierByTile: new Map(), ownedAfcTileKeys: new Set([afcKey]) } as never)
+    });
+
+    applyTechGrantSideEffects(context, "player-1", "masonry", "cmd-waystation");
+
+    expect(tiles.get(afcKey)?.afc?.modules).toEqual(["masonry"]);
+    expect(tiles.get(afcKey)?.afc?.houseModules).toEqual(["masonry"]);
   });
 });
 

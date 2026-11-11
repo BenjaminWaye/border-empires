@@ -304,10 +304,11 @@ describe("settle + build — settled-only building with no resource/town/dock su
 describe("Palisade / Relay Beacon stay visible as a fallback when their upgrade's resource slot is unavailable", () => {
   const settledTile = (): Tile => ({ x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile);
 
-  it("hides build_palisade once Stoneworks is known and a free TITANIUM slot exists (upgrade path is buildable)", () => {
+  it("hides build_palisade once Stoneworks is known, installed on an AFC, and a free TITANIUM slot exists (upgrade path is buildable)", () => {
     const state = richState();
     state.techIds = ["masonry"];
     state.resourceSlots.supply.TITANIUM = 1;
+    state.tiles.set(keyFor(8, 8), { x: 8, y: 8, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", afc: { ownerId: "me", status: "active", modules: ["masonry"] } } as Tile);
     const tile = settledTile();
     state.tiles.set(keyFor(3, 3), tile);
 
@@ -316,6 +317,24 @@ describe("Palisade / Relay Beacon stay visible as a fallback when their upgrade'
     const upgrade = findAction(actions, "build_fortification");
     expect(upgrade?.label).toBe("Build Fort");
     expect(upgrade?.disabled).not.toBe(true);
+  });
+
+  // Regression: a waystation granted masonry (the Titanium Forge AFC module)
+  // without installing it on an AFC. The Fort row is hidden until the module is
+  // installed, and the Palisade was hidden too because the tech was owned --
+  // leaving a garrisoned tile with no fortification option at all.
+  it("keeps build_palisade visible when Stoneworks is known but the module is not installed on an AFC", () => {
+    const state = richState();
+    state.techIds = ["masonry"];
+    state.resourceSlots.supply.TITANIUM = 1;
+    state.resourceSlots.supply.FOOD = 1;
+    const tile = settledTile();
+    state.tiles.set(keyFor(3, 3), tile);
+
+    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
+    const palisade = findAction(actions, "build_palisade");
+    expect(palisade).toBeDefined();
+    expect(palisade?.disabled).not.toBe(true);
   });
 
   it("keeps build_palisade visible when Stoneworks is known but no free TITANIUM slot is available", () => {

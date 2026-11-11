@@ -197,6 +197,39 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
+/**
+ * Side effects of a player gaining a tech, shared by paid research and the
+ * waystation TECH reward so the two can't drift apart. Run after the tech is
+ * added (and after beforeResourceSupplyChange); the caller emits TECH_UPDATE.
+ * Without commissionModuleIfApplicable, a granted AFC_MODULE tech (e.g. the
+ * Titanium Forge Module) stays uninstalled and its builds stay locked.
+ */
+export function applyTechGrantSideEffects(
+  context: RuntimeProgressionCommandContext,
+  playerId: string,
+  techId: string,
+  commandId: string
+): void {
+  context.invalidateUpkeepAccrual(playerId);
+  context.invalidateResourceSlotDemand(playerId);
+  // A tech can grant a gold/growth/vision-adjacent effect that
+  // multiplicativeEffectForPlayer/additiveEffectForPlayer feed into the
+  // cached per-player tile-yield economy context (dockGoldOutputMult,
+  // connectedTownStepBonusAdd, etc.) — without invalidating it here the
+  // cache keeps serving pre-grant multipliers until something else
+  // happens to invalidate it (e.g. a later tile mutation).
+  context.afterResourceSupplyChange?.(playerId);
+  context.invalidateEconomySnapshot(playerId);
+  context.invalidateTileYieldContext(playerId);
+  context.resyncVisionRadius(playerId);
+  commissionModuleIfApplicable(context, playerId, techId, commandId);
+  const revealCategory = revealResourceCategoryForTech(techId);
+  if (revealCategory) {
+    context.resyncRevealedResourceTilesForPlayer(playerId, revealCategory);
+    context.sweepFrontierResourceTechUnlock(playerId, revealCategory);
+  }
+}
+
 export function handleChooseTechCommand(context: RuntimeProgressionCommandContext, command: CommandEnvelope): void {
   const actor = context.players.get(command.playerId);
   if (!actor) {
@@ -220,24 +253,7 @@ export function handleChooseTechCommand(context: RuntimeProgressionCommandContex
     rejectCommand(context, command, "TECH_INVALID", outcome.reason);
     return;
   }
-  context.invalidateUpkeepAccrual(actor.id);
-  context.invalidateResourceSlotDemand(actor.id);
-  // A tech can grant a gold/growth/vision-adjacent effect that
-  // multiplicativeEffectForPlayer/additiveEffectForPlayer feed into the
-  // cached per-player tile-yield economy context (dockGoldOutputMult,
-  // connectedTownStepBonusAdd, etc.) — without invalidating it here the
-  // cache keeps serving pre-purchase multipliers until something else
-  // happens to invalidate it (e.g. a later tile mutation).
-  context.afterResourceSupplyChange?.(actor.id);
-  context.invalidateEconomySnapshot(actor.id);
-  context.invalidateTileYieldContext(actor.id);
-  context.resyncVisionRadius(actor.id);
-  commissionModuleIfApplicable(context, actor.id, techId, command.commandId);
-  const revealCategory = revealResourceCategoryForTech(techId);
-  if (revealCategory) {
-    context.resyncRevealedResourceTilesForPlayer(actor.id, revealCategory);
-    context.sweepFrontierResourceTechUnlock(actor.id, revealCategory);
-  }
+  applyTechGrantSideEffects(context, actor.id, techId, command.commandId);
   context.emitEvent({
     eventType: "TECH_UPDATE",
     commandId: command.commandId,

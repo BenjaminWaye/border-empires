@@ -31,6 +31,16 @@ export const freeFortAvailable = (state: Pick<ClientState, "domainIds" | "freeFo
 /** Fortification Patterns also lets a House build Forts without the Titanium Forge Module. */
 export const hasFortTech = (state: Pick<ClientState, "techIds" | "domainIds">): boolean =>
   state.techIds.includes("masonry") || afcAdditiveEffect(state.domainIds, "fortTechWaiver") > 0;
+/**
+ * Whether a fresh Fort is actually buildable tech-wise: masonry is the Titanium
+ * Forge AFC module, so owning it is not enough -- a copy must sit on an active
+ * AFC (the same check hideTechLockedTileAction uses to hide the Fort row).
+ * Fortification Patterns waives the module entirely.
+ */
+export const fortModuleReady = (state: Pick<ClientState, "techIds" | "domainIds" | "tiles" | "me">): boolean =>
+  afcAdditiveEffect(state.domainIds, "fortTechWaiver") > 0 ||
+  (state.techIds.includes("masonry") &&
+    [...state.tiles.values()].some((tile) => tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.afc?.status === "active" && tile.afc.modules?.includes("masonry")));
 
 const fortActionFromTier = (state: ClientState, tier: FortTierInfo, free = false): FortVariantAction => ({
   label: FORT_VARIANT_LABELS[tier.variant],
