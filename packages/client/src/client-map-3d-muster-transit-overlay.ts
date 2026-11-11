@@ -8,6 +8,7 @@ import {
 import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-timeline.js";
 import { MARINE_MODEL_KEYS, marineModelFor, type MarineModelKey, type SquadGear } from "./client-map-3d-popup-marine/popup-marine-gear.js";
 import { createMarineMaterial } from "./client-map-3d-popup-marine/popup-marine-material.js";
+import { createMusterBoatOverlay, type MusterBoatVoyage } from "./client-map-3d-muster-boat-overlay.js";
 
 // Muster transit overlay: a company marching hop-by-hop along the actual
 // owned-territory path from a mustering flag to the enemy tile it's
@@ -114,6 +115,8 @@ export const tileWalkPath = (
 export type MusterTransitOverlay = {
   readonly clear: () => void;
   readonly addTransit: (transit: MusterTransit) => void;
+  // A company's sea crossing, in its troop transport (client-map-3d-muster-boat-overlay.ts).
+  readonly addVoyage: (voyage: MusterBoatVoyage) => void;
   readonly commit: () => void;
   readonly tick: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -199,8 +202,9 @@ export const createMusterTransitOverlay = (scene: Scene, envMap?: Texture): Must
 
   let entries: MusterTransit[] = [];
   const tmpQuat = new Quaternion();
+  const boats = createMusterBoatOverlay(scene);
 
-  const clear = (): void => { entries = []; };
+  const clear = (): void => { entries = []; boats.clear(); };
   const addTransit = (transit: MusterTransit): void => {
     if (entries.length >= MAX_TRANSITS || transit.path.length < 2) return;
     entries.push(transit);
@@ -226,6 +230,7 @@ export const createMusterTransitOverlay = (scene: Scene, envMap?: Texture): Must
   };
 
   const tick = (nowMs: number): void => {
+    boats.tick(nowMs);
     for (const model of MARINE_MODEL_KEYS) for (const soldier of pools[model]) soldier.root.visible = false;
     if (entries.length === 0) return;
 
@@ -295,11 +300,12 @@ export const createMusterTransitOverlay = (scene: Scene, envMap?: Texture): Must
 
   const dispose = (): void => {
     disposed = true;
+    boats.dispose();
     for (const model of MARINE_MODEL_KEYS) {
       for (const soldier of pools[model]) disposeSoldier(soldier);
       pools[model] = [];
     }
   };
 
-  return { clear, addTransit, commit, tick, dispose };
+  return { clear, addTransit, addVoyage: boats.addVoyage, commit, tick, dispose };
 };

@@ -25,7 +25,7 @@ not activate it. A banner shows the owner independently of the ground tint.
 | Antimatter Drive Works | Dock income ×2. Dock-launched attacks gain ×1.15 strength and take 25% less time, subject to the normal minimum resolve time. |
 | Ancillary Vault | First garrison recovers 2,000 manpower from a single reserve, held above the ordinary cap until spent. No recurring cap increase. Recovered bodies remain with the recipient after capture. |
 | Combat-Suit Factory | Next 100 accepted ATTACK deployments gain ×1.5 strength. Each launch consumes one reserve; rejected commands do not. |
-| Ancient Field Generator | Garrisoned owned land within wrapped Manhattan radius 3 receives ×1.5 defense, for 30 accepted defensive engagements. This consumes field cells and is separate from AFC Bastion wards and Aether Tower protection. |
+| Ancient Field Generator | Garrisoned owned land within wrapped Manhattan radius 6 receives ×1.5 defense, for 30 accepted defensive engagements. This consumes field cells and is separate from AFC Bastion wards and Aether Tower protection. |
 | Fabrication Coordinator | +1 simultaneous Development project. No Manifest discount. Losing the site does not cancel projects already underway. |
 | Nanofabricator Reserve | Five successful rush purchases receive up to 40 Coin subsidy each. No daily reset. A zero-price base purchase consumes no dose. |
 | Concordance Resonator | Acts as an Aether Tower with 50-tile casting reach and no Crystal-slot demand. Normal vision and protection radii remain independent. |

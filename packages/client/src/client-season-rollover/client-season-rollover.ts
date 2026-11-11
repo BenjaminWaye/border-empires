@@ -23,6 +23,7 @@ type RolloverState = Pick<
   | "seasonScoreHistory"
   | "seasonEndDismissed"
   | "seasonEndStarting"
+  | "seasonStartError"
   | "seasonStartVoteCount"
   | "seasonStartVoted"
   | "victoryHoldAlert"
@@ -66,6 +67,7 @@ export const resetClientForNewSeason = (state: RolloverState): void => {
   resetVictoryHoldAlertForNewSeason(state);
   state.seasonEndDismissed = false;
   state.seasonEndStarting = false;
+  state.seasonStartError = undefined;
   state.seasonStartVoteCount = 0;
   state.seasonStartVoted = false;
   state.actionQueue = [];
@@ -101,7 +103,7 @@ export const resetClientForNewSeason = (state: RolloverState): void => {
 // session was connected, or while its socket was down and reconnected in place.
 // Returns true in that case so INIT can re-centre the camera on the new home tile.
 export const applySeasonChangeOnInit = (
-  state: RolloverState & Pick<ClientState, "bridgeDebugSeasonId" | "cameraRestoredSeasonId" | "cameraRestoredFromStorage">,
+  state: RolloverState & Pick<ClientState, "bridgeDebugSeasonId" | "cameraRestoredSeasonId" | "cameraRestoredFromStorage" | "cameraRestoredPlayerId">,
   incomingSeasonId: string | undefined
 ): boolean => {
   if (!incomingSeasonId) return false;
@@ -114,7 +116,8 @@ export const applySeasonChangeOnInit = (
   // in memory then, but the saved camera carries the season it was saved in.
   const savedCameraSeasonId = state.cameraRestoredSeasonId;
   if (state.bridgeDebugSeasonId === "" && savedCameraSeasonId !== undefined && savedCameraSeasonId !== "" && savedCameraSeasonId !== incomingSeasonId) {
-    clearCameraLocation();
+    // Only this account's save is stale; other accounts on this browser may be in the current season.
+    clearCameraLocation(state.cameraRestoredPlayerId ?? undefined);
     state.cameraRestoredFromStorage = false;
     clearStoredDiscoveredTiles();
   }

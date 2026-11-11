@@ -267,11 +267,13 @@ describe("enqueueDiscoveryTipForNewlySeenTile / dismissActiveDiscoveryTip", () =
   });
 });
 
-it("uses new installation benefits for versioned relics and never promises a depleted reserve", () => {
+it("hides installation benefits for versioned relics and never promises a depleted reserve", () => {
   const live = discoveryTipIdForNewlySeenTile({ naturalWonder: { type: "WARPRESS", relicVersion: 1, remainingUses: 100 } });
   expect(live).toBe("RELIC_WARPRESS");
   expect(DISCOVERY_TIPS[live!].title).toContain("Combat-Suit Factory");
-  expect(DISCOVERY_TIPS[live!].body).toContain("100 attack");
+  // The benefit stays hidden until the relic is garrisoned and activated.
+  expect(DISCOVERY_TIPS[live!].body).not.toContain("100 attack");
+  expect(DISCOVERY_TIPS[live!].body).toContain("Garrison the site to activate it.");
   expect(discoveryTipIdForNewlySeenTile({ naturalWonder: { type: "WARPRESS", relicVersion: 1, remainingUses: 0 } })).toBe("DEPLETED_RELIC");
   expect(discoveryTipIdForNewlySeenTile({ naturalWonder: { type: "WARPRESS" } })).toBe("WARPRESS");
 });

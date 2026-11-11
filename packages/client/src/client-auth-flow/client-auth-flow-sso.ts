@@ -1,4 +1,5 @@
-import { signInWithPopup, type Auth, type AuthProvider, type User } from "firebase/auth";
+import { Capacitor } from "@capacitor/core";
+import { signInWithPopup, type Auth, type AuthProvider, type User, type UserCredential } from "firebase/auth";
 import type { Analytics } from "firebase/analytics";
 import {
   detectInAppBrowserName,
@@ -14,14 +15,19 @@ import { logSignUpIfNewUser, type SignUpMethod } from "./client-auth-flow-analyt
 export const TWITCH_PROVIDER_ID = "oidc.twitch";
 export const DISCORD_PROVIDER_ID = "oidc.discord";
 
+export const APPLE_PROVIDER_ID = "apple.com";
+
 export type SsoProvider = {
-  provider: AuthProvider;
-  label: "Google" | "Twitch" | "Discord";
-  method: Extract<SignUpMethod, "google.com" | "oidc.twitch" | "oidc.discord">;
+  /** Web popup provider. Native builds sign in through the native SDK instead and may omit it. */
+  provider?: AuthProvider | undefined;
+  label: "Google" | "Apple" | "Twitch" | "Discord";
+  method: Extract<SignUpMethod, "google.com" | "apple.com" | "oidc.twitch" | "oidc.discord">;
 };
 
 export type SsoSignInDeps = {
   firebaseAuth: Auth | undefined;
+  /** Defaults to Capacitor's platform check; injectable for tests. */
+  isNative?: () => boolean;
   analytics: Analytics | undefined;
   userAgent: () => string | undefined;
   clearEmailLinkSentTo: () => void;
@@ -42,10 +48,20 @@ const errorCode = (error: unknown): string | undefined =>
 
 export const ssoSignInErrorMessage = (error: unknown, label: SsoProvider["label"]): string => {
   if (errorCode(error) === ACCOUNT_EXISTS_CODE) {
-    return `That ${label} account's email is already used by another sign-in method. Sign in the way you did before (Google or email).`;
+    return `That ${label} account's email is already used by another sign-in method. Sign in the way you did before.`;
   }
   const rawMessage = error instanceof Error ? error.message : `${label} sign-in failed.`;
   return isMissingInitialStateError(rawMessage) ? missingInitialStateMessage(label) : rawMessage;
+};
+
+const signInWith = async (auth: Auth, sso: SsoProvider, native: boolean): Promise<UserCredential> => {
+  if (native) {
+    // Loaded on demand so the web bundle never pulls in the native plugin.
+    const { signInWithNativeSso } = await import("../client-native-sso/client-native-sso.js");
+    return signInWithNativeSso(auth, sso.method);
+  }
+  if (!sso.provider) throw new Error(`${sso.label} sign-in isn't available here.`);
+  return signInWithPopup(auth, sso.provider);
 };
 
 export const createSsoSignInHandler =
@@ -53,7 +69,9 @@ export const createSsoSignInHandler =
   async (): Promise<void> => {
     const { firebaseAuth } = deps;
     if (!firebaseAuth || !sso) return;
-    const userAgent = deps.userAgent();
+    const native = (deps.isNative ?? (() => Capacitor.isNativePlatform()))();
+    if (!native && !sso.provider) return;
+    const userAgent = native ? undefined : deps.userAgent();
     const inAppBrowserName = userAgent ? detectInAppBrowserName(userAgent) : undefined;
     if (inAppBrowserName) {
       deps.setAuthStatus(inAppBrowserSsoSignInMessage(inAppBrowserName, sso.label), "error");
@@ -66,12 +84,13 @@ export const createSsoSignInHandler =
     deps.syncAuthOverlay();
     let authSucceeded = false;
     try {
-      const cred = await signInWithPopup(firebaseAuth, sso.provider);
+      const cred = await signInWith(firebaseAuth, sso, native);
       logSignUpIfNewUser(deps.analytics, cred, sso.method);
       authSucceeded = true;
       deps.setAuthStatus(`${sso.label} sign-in complete. Authorizing empire...`);
     } catch (error) {
-      deps.setAuthStatus(ssoSignInErrorMessage(error, sso.label), "error");
+      if (error instanceof Error && error.name === "NativeSsoCancelledError") deps.setAuthStatus("");
+      else deps.setAuthStatus(ssoSignInErrorMessage(error, sso.label), "error");
     } finally {
       if (!authSucceeded) deps.setAuthBusy(false);
       deps.syncAuthOverlay();
@@ -85,6 +104,7 @@ export const signInProviderLabel = (user: Pick<User, "providerData">): string =>
   const providerIds = (user.providerData ?? []).map((info) => info.providerId);
   if (providerIds.includes(TWITCH_PROVIDER_ID)) return "Twitch";
   if (providerIds.includes(DISCORD_PROVIDER_ID)) return "Discord";
+  if (providerIds.includes(APPLE_PROVIDER_ID)) return "Apple";
   if (providerIds.includes("google.com")) return "Google";
   return "account";
 };

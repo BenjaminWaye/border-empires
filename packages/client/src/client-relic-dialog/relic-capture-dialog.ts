@@ -16,17 +16,19 @@ export function createRelicCaptureDialog(state: NaturalWonderState, garrisoned: 
   const dialog = document.createElement("dialog");
   dialog.className = "relic-capture-dialog";
   dialog.setAttribute("aria-label", definition.name);
-  dialog.innerHTML = `<header><div class="relic-dialog-eyebrow">${secured ? "RELIC SECURED" : "CONCORDANCE INSTALLATION"}</div><button class="relic-dialog-close" type="button" autofocus aria-label="Close relic details">×</button><h1></h1><p class="relic-installation"></p></header>
+  dialog.innerHTML = `<header><div class="relic-dialog-eyebrow">${secured ? "Relic secured" : "Concordance installation"}</div><button class="relic-dialog-close" type="button" autofocus aria-label="Close relic details">×</button><h1></h1><p class="relic-installation"></p></header>
     <figure><div class="relic-art" role="img"></div><figcaption>Surface access structure · buried installation · illustrative section</figcaption></figure>
     <section class="relic-dialog-copy"><p class="relic-description"></p><div class="relic-effect"><span class="relic-status"></span><p class="relic-benefit"></p><p class="relic-allocation"></p><p class="relic-reserve"></p></div><p class="relic-footnote"></p></section>
     <footer><button class="relic-dialog-continue" type="button">Continue →</button></footer>`;
   const set = (selector: string, value: string): void => { const node = dialog.querySelector(selector); if (node) node.textContent = value; };
   set("h1", definition.name); set(".relic-installation", definition.installation);
   set(".relic-description", definition.description);
-  set(".relic-status", status === "depleted" ? "DEPLETED" : garrisoned ? "INSTALLATION ACTIVE" : "GARRISON TO ACTIVATE");
-  set(".relic-benefit", status === "depleted" ? "The surviving reserve is exhausted. This site cannot provide another reserve this campaign." : definition.benefit);
-  set(".relic-allocation", state.resourceBonus ? `Recovered supply: +${state.resourceBonus.amount} ${state.resourceBonus.resource} capacity, available to a holder who has revealed that resource.` : "");
-  set(".relic-reserve", relicReserveLabel(state) ?? "");
+  // What the installation does stays sealed until a garrison brings it online.
+  const active = status === "active";
+  set(".relic-status", status === "depleted" ? "Depleted" : active ? "Installation active" : "Garrison to activate");
+  set(".relic-benefit", status === "depleted" ? "The surviving reserve is exhausted. This site cannot provide another reserve this campaign." : active ? definition.benefit : "");
+  set(".relic-allocation", active && state.resourceBonus ? `Recovered supply: +${state.resourceBonus.amount} ${state.resourceBonus.resource} capacity, available to a holder who has revealed that resource.` : "");
+  set(".relic-reserve", active ? relicReserveLabel(state) ?? "" : "");
   set(".relic-footnote", "The installation remains part of the planet. Taking it from another House does not replenish its reserves.");
   const art = dialog.querySelector<HTMLElement>(".relic-art")!;
   art.setAttribute("aria-label", `Cutaway artwork of a weathered ziggurat above ${definition.installation.toLowerCase()}`);
@@ -63,16 +65,20 @@ export function notifyRelicCapture(existing: Tile | undefined, tile: Tile, viewe
   const first = !seen.includes(key);
   if (first) { try { localStorage.setItem(SEEN_KEY, JSON.stringify({ namespace, keys: [...seen, key].slice(-9) })); } catch { /* Storage is optional. */ } }
   const state = tile.naturalWonder;
+  const garrisoned = tile.ownershipState === "SETTLED";
   queueMicrotask(() => {
     if (first && !document.querySelector(".relic-capture-dialog[open]")) {
-      const dialog = createRelicCaptureDialog(state, tile.ownershipState === "SETTLED");
+      const dialog = createRelicCaptureDialog(state, garrisoned);
       dialog.addEventListener("close", () => dialog.remove(), { once: true }); document.body.append(dialog); dialog.showModal();
     } else {
       document.querySelector(".relic-recapture-notice")?.remove();
       if (noticeTimer !== undefined) window.clearTimeout(noticeTimer);
       const notice = document.createElement("div"); notice.className = "relic-recapture-notice"; notice.setAttribute("role", "status");
-      notice.textContent = `${RELIC_DEFINITIONS[state.type].name} secured. ${relicReserveLabel(state) ?? "Garrison to operate."} `;
-      const button = document.createElement("button"); button.textContent = "View relic"; button.onclick = () => { showRelicDetails(state, tile.ownershipState === "SETTLED"); notice.remove(); }; notice.append(button); document.body.append(notice);
+      const status = relicOperationalState(state, garrisoned);
+      const reserve = status === "active" ? relicReserveLabel(state) : undefined;
+      const detail = status === "dormant" ? "Garrison to activate." : status === "depleted" ? "Depleted." : reserve ? `${reserve}.` : "";
+      notice.textContent = `${RELIC_DEFINITIONS[state.type].name} secured. ${detail} `;
+      const button = document.createElement("button"); button.textContent = "View relic"; button.onclick = () => { showRelicDetails(state, garrisoned); notice.remove(); }; notice.append(button); document.body.append(notice);
       noticeTimer = window.setTimeout(() => { notice.remove(); noticeTimer = undefined; }, 12000);
     }
   });

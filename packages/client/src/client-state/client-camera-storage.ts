@@ -1,5 +1,5 @@
-import { CAMERA_LOCATION_STORAGE_KEY, DEFAULT_ZOOM, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
-import { storageGet } from "./client-state.js";
+import { CAMERA_LOCATION_BY_PLAYER_STORAGE_KEY, CAMERA_LOCATION_STORAGE_KEY, DEFAULT_ZOOM, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
+import { storageGet, storageSet } from "./client-state.js";
 
 // Reads a deep-linked tile from the page URL, e.g. the "Go to tile" link in
 // an attack-alert email (see sendAttackAlert() in
@@ -33,23 +33,134 @@ export const clearUrlTileFocus = (): void => {
   window.history.replaceState(window.history.state, document.title, url.toString());
 };
 
+type StoredCameraLocation = { x: number; y: number; zoom: number; seasonId: string | undefined; playerId: string | undefined };
+
+// How many accounts' camera positions one browser remembers. Bounded so the
+// by-player map can't grow without limit; least recently saved is dropped.
+export const MAX_STORED_CAMERA_ACCOUNTS = 8;
+
+const parseCameraLocation = (value: unknown): StoredCameraLocation | null => {
+  if (!value || typeof value !== "object") return null;
+  const parsed = value as { x?: unknown; y?: unknown; zoom?: unknown; seasonId?: unknown; playerId?: unknown };
+  if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return null;
+  const zoom = Number.isFinite(parsed.zoom) ? Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(parsed.zoom))) : DEFAULT_ZOOM;
+  const seasonId = typeof parsed.seasonId === "string" ? parsed.seasonId : undefined;
+  const playerId = typeof parsed.playerId === "string" && parsed.playerId !== "" ? parsed.playerId : undefined;
+  return { x: Number(parsed.x), y: Number(parsed.y), zoom, seasonId, playerId };
+};
+
 // Reads the last-viewed map location saved by saveCameraLocation() in
 // client-view-refresh.ts. Returns null if nothing is stored or the payload
 // is malformed, so callers fall back to the default (0,0) / home-tile camera.
 // seasonId (if present) is the season the saved position belongs to — see
 // cameraLocationInitialState() for why this is needed on a fresh page load.
-export const readStoredCameraLocation = (): { x: number; y: number; zoom: number; seasonId: string | undefined } | null => {
+// playerId is the account that saved it: at boot the client doesn't know who
+// is logging in yet, so INIT checks it (reconcileStoredCameraForPlayer()).
+export const readStoredCameraLocation = (): StoredCameraLocation | null => {
   const raw = storageGet(CAMERA_LOCATION_STORAGE_KEY);
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as { x?: unknown; y?: unknown; zoom?: unknown; seasonId?: unknown };
-    if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return null;
-    const zoom = Number.isFinite(parsed.zoom) ? Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(parsed.zoom))) : DEFAULT_ZOOM;
-    const seasonId = typeof parsed.seasonId === "string" ? parsed.seasonId : undefined;
-    return { x: Number(parsed.x), y: Number(parsed.y), zoom, seasonId };
+    return parseCameraLocation(JSON.parse(raw));
   } catch {
     return null;
   }
+};
+
+type CameraLocationsByPlayer = Record<string, { x: number; y: number; zoom: number; seasonId?: string | undefined; savedAt: number }>;
+
+const readCameraLocationsByPlayer = (): CameraLocationsByPlayer => {
+  const raw = storageGet(CAMERA_LOCATION_BY_PLAYER_STORAGE_KEY);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as CameraLocationsByPlayer) : {};
+  } catch {
+    return {};
+  }
+};
+
+export const readStoredCameraLocationForPlayer = (playerId: string): StoredCameraLocation | null => {
+  if (!playerId) return null;
+  const entry = parseCameraLocation(readCameraLocationsByPlayer()[playerId]);
+  return entry ? { ...entry, playerId } : null;
+};
+
+// Writes both the "last account" slot (read at boot) and this account's own
+// slot (read by INIT when a different account logs in on this browser).
+export const writeStoredCameraLocation = (location: { x: number; y: number; zoom: number; seasonId: string | undefined; playerId: string }, now = Date.now()): void => {
+  storageSet(CAMERA_LOCATION_STORAGE_KEY, JSON.stringify(location));
+  const byPlayer = readCameraLocationsByPlayer();
+  byPlayer[location.playerId] = { x: location.x, y: location.y, zoom: location.zoom, seasonId: location.seasonId, savedAt: now };
+  const kept = Object.entries(byPlayer)
+    .sort((a, b) => (Number(b[1]?.savedAt) || 0) - (Number(a[1]?.savedAt) || 0))
+    .slice(0, MAX_STORED_CAMERA_ACCOUNTS);
+  storageSet(CAMERA_LOCATION_BY_PLAYER_STORAGE_KEY, JSON.stringify(Object.fromEntries(kept)));
+};
+
+// With a playerId, forgets only that account's position (and the "last
+// account" slot if it is theirs), so one account's stale-season or
+// pre-spawn camera doesn't wipe the other accounts on this browser. Without
+// one (a season rollover seen live), forgets every account.
+export const clearStoredCameraLocations = (playerId?: string): void => {
+  try {
+    if (!playerId) {
+      window.localStorage.removeItem(CAMERA_LOCATION_STORAGE_KEY);
+      window.localStorage.removeItem(CAMERA_LOCATION_BY_PLAYER_STORAGE_KEY);
+      return;
+    }
+    if (readStoredCameraLocation()?.playerId === playerId) window.localStorage.removeItem(CAMERA_LOCATION_STORAGE_KEY);
+    const byPlayer = readCameraLocationsByPlayer();
+    if (!(playerId in byPlayer)) return;
+    delete byPlayer[playerId];
+    storageSet(CAMERA_LOCATION_BY_PLAYER_STORAGE_KEY, JSON.stringify(byPlayer));
+  } catch {
+    // Ignore storage failures in restricted browser contexts.
+  }
+};
+
+// Account switches normally reload the page (settings logout), but a guest
+// rejected for a full Sector is signed out in place and can sign in as
+// someone else on the same page. Treat that INIT like a fresh load for the
+// new account: restore its own saved spot or let INIT centre on its home.
+// Returns true when the camera should be (re)placed for a new account.
+export const prepareCameraForIncomingPlayer = (
+  state: Parameters<typeof reconcileStoredCameraForPlayer>[0] & { me: string },
+  incomingPlayerId: string,
+  isFirstInitThisSession: boolean
+): boolean => {
+  const switchedInPlace = !isFirstInitThisSession && state.me !== "" && incomingPlayerId !== "" && state.me !== incomingPlayerId;
+  if (switchedInPlace) {
+    state.cameraRestoredFromStorage = true;
+    state.cameraRestoredPlayerId = state.me;
+  }
+  if (isFirstInitThisSession || switchedInPlace) reconcileStoredCameraForPlayer(state, incomingPlayerId);
+  return switchedInPlace;
+};
+
+// Called once on the first INIT of a page load, when the server finally says
+// which account is logged in. The camera restored at boot belongs to whoever
+// saved last on this browser; if that's a different account (or an old
+// untagged save), swap in this account's own saved position, or drop the
+// restore so INIT centres on this account's home tile instead.
+export const reconcileStoredCameraForPlayer = (
+  state: { camX: number; camY: number; camSubX: number; camSubY: number; zoom: number; cameraRestoredFromStorage: boolean; cameraRestoredSeasonId: string | undefined; cameraRestoredPlayerId: string | null | undefined },
+  incomingPlayerId: string
+): void => {
+  if (!state.cameraRestoredFromStorage || state.cameraRestoredPlayerId === null || !incomingPlayerId) return;
+  if (state.cameraRestoredPlayerId === incomingPlayerId) return;
+  const own = readStoredCameraLocationForPlayer(incomingPlayerId);
+  state.cameraRestoredPlayerId = incomingPlayerId;
+  if (!own) {
+    state.cameraRestoredFromStorage = false;
+    state.cameraRestoredSeasonId = undefined;
+    return;
+  }
+  state.camX = own.x;
+  state.camY = own.y;
+  state.camSubX = 0;
+  state.camSubY = 0;
+  state.zoom = own.zoom;
+  state.cameraRestoredSeasonId = own.seasonId;
 };
 
 // Bundles the restored (or default) camera fields for createInitialState()
@@ -74,6 +185,10 @@ export const cameraLocationInitialState = (): {
   zoom: number;
   cameraRestoredFromStorage: boolean;
   cameraRestoredSeasonId: string | undefined;
+  // Account that saved the restored position (undefined for an old untagged
+  // save, which INIT treats as some other account's). null for a ?x=&y=
+  // deep link: that camera isn't tied to any account and is never swapped.
+  cameraRestoredPlayerId: string | null | undefined;
 } => {
   const urlFocus = readUrlTileFocus();
   if (urlFocus) {
@@ -87,7 +202,8 @@ export const cameraLocationInitialState = (): {
       // so the initial centerOnOwnedTile() fallback doesn't override a tile
       // the player was explicitly linked to.
       cameraRestoredFromStorage: true,
-      cameraRestoredSeasonId: undefined
+      cameraRestoredSeasonId: undefined,
+      cameraRestoredPlayerId: null
     };
   }
 
@@ -99,6 +215,7 @@ export const cameraLocationInitialState = (): {
     camSubY: 0,
     zoom: stored?.zoom ?? DEFAULT_ZOOM,
     cameraRestoredFromStorage: stored !== null,
-    cameraRestoredSeasonId: stored?.seasonId
+    cameraRestoredSeasonId: stored?.seasonId,
+    cameraRestoredPlayerId: stored?.playerId
   };
 };

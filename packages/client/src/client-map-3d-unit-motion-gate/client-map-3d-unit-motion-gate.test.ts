@@ -27,15 +27,24 @@ describe("createUnitMotionGate", () => {
     const onSlowDeviceLatched = vi.fn();
     const gate = createUnitMotionGate({ prefersReducedMotion: () => false, onSlowDeviceLatched });
     const afterWarmup = runFrames(gate, 0, WARMUP_MS, 16.7);
-    const slowStart = runFrames(gate, afterWarmup, 1_000, 40);
+    const slowStart = runFrames(gate, afterWarmup, 1_000, 70);
     expect(gate.shouldAnimate()).toBe(true);
-    const latched = runFrames(gate, slowStart, SLOW_SUSTAIN_MS + 500, 40);
+    const latched = runFrames(gate, slowStart, SLOW_SUSTAIN_MS + 500, 70);
     expect(gate.shouldAnimate()).toBe(false);
     // Frames speed back up (the units standing still is what freed the time):
     // stays latched, so it doesn't flap.
     runFrames(gate, latched, 10_000, 16.7);
     expect(gate.shouldAnimate()).toBe(false);
     expect(onSlowDeviceLatched).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression: the Planetary Defense soldiers stopped patrolling for players
+  // whose busy 3D map ran at a steady 30fps -- the old ~40fps threshold
+  // latched those capable devices still for the whole session.
+  it("keeps animating on a device that holds a steady 30fps", () => {
+    const gate = createUnitMotionGate({ prefersReducedMotion: () => false });
+    runFrames(gate, 0, WARMUP_MS + 60_000, 33.4);
+    expect(gate.shouldAnimate()).toBe(true);
   });
 
   it("ignores slow frames during startup warmup", () => {
@@ -58,7 +67,7 @@ describe("createUnitMotionGate", () => {
   it("does not latch on a brief slow patch shorter than the sustain window", () => {
     const gate = createUnitMotionGate({ prefersReducedMotion: () => false });
     let t = runFrames(gate, 0, WARMUP_MS, 16.7);
-    t = runFrames(gate, t, SLOW_SUSTAIN_MS / 2, 40);
+    t = runFrames(gate, t, SLOW_SUSTAIN_MS / 2, 70);
     runFrames(gate, t, 5_000, 16.7);
     expect(gate.shouldAnimate()).toBe(true);
   });
