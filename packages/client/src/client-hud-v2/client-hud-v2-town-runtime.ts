@@ -8,6 +8,7 @@ import { dormantResourcesForTile, structureTypeForTileAction } from "../client-t
 
 import type { Terrain } from "@border-empires/shared";
 import { supportPlotAnchorTown } from "../client-town-support-plot-lookup.js";
+import { townPlotsCardHtml } from "./client-hud-v2-town-plots-card.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
@@ -79,7 +80,8 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     focusQueuePosition: townQueuePosition(deps.state.developmentQueue, current.focusKey),
     focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? []),
     autoSettle: deps.state.autoSettle,
-    dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field)
+    dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field),
+    plotsHtml: townPlotsCardHtml(deps.state, town)
   });
   writeHtml("v2t-left", regions.left);
   preserveResourceBuildChoice(document.getElementById("v2t-build"), () => writeHtml("v2t-build", regions.build));

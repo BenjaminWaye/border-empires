@@ -179,3 +179,15 @@
 .v2t-build-all { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.4; }
 .v2t-place-docked:has(.v2t-build-all) { flex-wrap: wrap; }
 .v2t-place-docked .v2t-build-all { flex-basis: 100%; }
+
+/* Build plots card: one pip per support plot (client-hud-v2-town-plots.ts). */
+.v2t-plot-row { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px 0 1px; }
+.v2t-plot { width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; }
+.v2t-plot-built { background: var(--v2-gold); }
+.v2t-plot-building { background: transparent; border: 2px solid var(--v2-gold); }
+.v2t-plot-open { background: transparent; border: 2px solid var(--v2-green-hi); }
+.v2t-plot-locked { background: var(--v2-line); opacity: 0.6; }
+.v2t-plot-new { box-shadow: 0 0 0 2px var(--v2-gold-hi), 0 0 8px var(--v2-gold-hi); animation: v2t-plot-pop 0.6s ease-out; }
+.v2t-plots-changed .v2t-stat-v { animation: v2t-plot-pop 0.6s ease-out; }
+@keyframes v2t-plot-pop { 0% { transform: scale(1.6); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .v2t-plot-new, .v2t-plots-changed .v2t-stat-v { animation: none; } }
