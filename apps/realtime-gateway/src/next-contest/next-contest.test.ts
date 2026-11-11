@@ -160,6 +160,20 @@ describe("next contest", () => {
     expect(nextContest.isStarting()).toBe(false);
   });
 
+  // Regression: a failure after the rollover (here, re-reading commitments)
+  // skipped the reset broadcast, leaving every client stuck on "Starting".
+  it("clears the announced start when a step after the rollover fails", async () => {
+    const { deps } = makeDeps();
+    const nextContest = createNextContest(deps);
+    await nextContest.commit("p1", false);
+    const list = deps.store.list.bind(deps.store);
+    let reads = 0;
+    deps.store.list = vi.fn(async (key: string) => { reads += 1; if (reads > 1) throw new Error("db down"); return list(key); });
+    await expect(nextContest.forceStart()).rejects.toThrow("db down");
+    expect(deps.startNextSeason).toHaveBeenCalledTimes(1);
+    expect(deps.broadcast).toHaveBeenLastCalledWith(expect.objectContaining({ starting: false, voteCount: 1, votedBy: ["p1"] }));
+  });
+
   it("does not start a running season from the timer", async () => {
     const { deps, setSeason } = makeDeps();
     setSeason({ seasonId: "season-1", status: "active" });

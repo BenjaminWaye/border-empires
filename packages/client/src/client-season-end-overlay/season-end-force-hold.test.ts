@@ -24,7 +24,7 @@ const render = (state: ReturnType<typeof makeState>) => {
   const overlayEl = document.createElement("div");
   document.body.appendChild(overlayEl);
   const startNewSeason = vi.fn();
-  const forceStartNewSeason = vi.fn();
+  const forceStartNewSeason = vi.fn(() => true);
   renderSeasonEndOverlay({ state: state as any, overlayEl, renderHud: () => {}, startNewSeason, forceStartNewSeason });
   const button = overlayEl.querySelector("#se-new-season") as HTMLButtonElement;
   return { button, startNewSeason, forceStartNewSeason };
@@ -53,7 +53,7 @@ describe("season-end admin force-start hold", () => {
   it("does not force-start when the overlay re-renders mid-hold", () => {
     const overlayEl = document.createElement("div");
     document.body.appendChild(overlayEl);
-    const forceStartNewSeason = vi.fn();
+    const forceStartNewSeason = vi.fn(() => true);
     const deps = { state: makeState({ mapRevealEligible: true }) as any, overlayEl, renderHud: () => {}, startNewSeason: vi.fn(), forceStartNewSeason };
     renderSeasonEndOverlay(deps);
     press(overlayEl.querySelector("#se-new-season") as HTMLButtonElement);
@@ -73,7 +73,7 @@ describe("season-end admin force-start hold", () => {
     const state = makeState({ mapRevealEligible: true, seasonStartError: "earlier refusal" });
     const overlayEl = document.createElement("div");
     document.body.appendChild(overlayEl);
-    const forceStartNewSeason = vi.fn();
+    const forceStartNewSeason = vi.fn(() => true);
     const deps = { state: state as any, overlayEl, renderHud: () => renderSeasonEndOverlay(deps), startNewSeason: vi.fn(), forceStartNewSeason };
     renderSeasonEndOverlay(deps);
     const button = overlayEl.querySelector("#se-new-season") as HTMLButtonElement;
@@ -89,6 +89,20 @@ describe("season-end admin force-start hold", () => {
     press(after);
     vi.advanceTimersByTime(FORCE_HOLD_MS * 2);
     expect(forceStartNewSeason).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression: the start was shown even when the request never left (socket
+  // down / not signed in), so the admin was told a world was being built.
+  it("does not show a start when the force request was not sent", () => {
+    const state = makeState({ mapRevealEligible: true });
+    const overlayEl = document.createElement("div");
+    document.body.appendChild(overlayEl);
+    const forceStartNewSeason = vi.fn(() => false);
+    renderSeasonEndOverlay({ state: state as any, overlayEl, renderHud: () => {}, startNewSeason: vi.fn(), forceStartNewSeason });
+    press(overlayEl.querySelector("#se-new-season") as HTMLButtonElement);
+    vi.advanceTimersByTime(FORCE_HOLD_MS);
+    expect(forceStartNewSeason).toHaveBeenCalledTimes(1);
+    expect(state.seasonEndStarting).toBe(false);
   });
 
   it("shows a refused start on the overlay instead of only in the feed", () => {

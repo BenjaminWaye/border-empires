@@ -62,14 +62,17 @@ export const applyNextContestErrorCode = (
 const houses = (count: number): string => `${count} ${count === 1 ? "House" : "Houses"}`;
 
 export const nextContestButtonLabel = (state: NextContestLabelState): string => {
-  if (state.seasonEndStarting) return "Starting the next Sector Contest…";
+  if (state.seasonEndStarting && state.seasonStartVoted) return "Starting the next Sector Contest…";
   if (state.authIsGuest) return "Save your empire to join the next Sector Contest";
+  if (state.seasonEndStarting) return "Join now · the next Sector Contest is starting";
   const tally = `${state.seasonStartVoteCount}/${state.seasonStartVoteThreshold}`;
   if (state.seasonStartVoted) return `You're in · ${tally} Houses committed`;
   return `Join the next Sector Contest (${tally})`;
 };
 
-export const nextContestFineprint = (threshold: number, starting = false): string =>
+export const nextContestFineprint = (threshold: number, starting = false, committed = false): string =>
   starting
-    ? "The next world is being built. This takes a minute or two: you'll be disconnected briefly, then brought into the new Sector Contest automatically."
+    ? committed
+      ? "The next world is being built. You'll be disconnected briefly, then brought into the new Sector Contest automatically."
+      : "The next world is being built. Join now to start in it together with every committed House."
     : `The next Sector Contest starts once ${houses(threshold)} have committed, and every committed House starts together. Until then you can keep looking around this world.`;

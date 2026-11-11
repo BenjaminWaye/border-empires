@@ -1,12 +1,13 @@
 import { SEASON_ROLLOVER_CLOSE_REASON } from "@border-empires/shared";
-// While the next Sector Contest's world is built the server can be briefly
-// unreachable; say so instead of a bare "Server unreachable".
-const NEXT_CONTEST_BUILDING_MESSAGE = "Building the next Sector Contest. Reconnecting when it's ready...";
 import type { ClientState } from "../client-state/client-state.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import { attackSyncLog, recordClientDebugEvent } from "../client-debug/client-debug.js";
 import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
+
+// While the next Sector Contest's world is built the server can be briefly
+// unreachable; say so instead of a bare "Server unreachable".
+const NEXT_CONTEST_BUILDING_MESSAGE = "Building the next Sector Contest. Reconnecting when it's ready...";
 
 interface SocketLifecycleDeps {
   state: ClientState;

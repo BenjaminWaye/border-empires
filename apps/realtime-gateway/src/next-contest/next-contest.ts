@@ -88,10 +88,13 @@ export const createNextContest = (deps: NextContestDeps) => {
   const start = async (endedSeasonId: string, force: boolean): Promise<{ seasonId: string } | undefined> => {
     if (starting) return undefined;
     starting = true;
+    // What was announced as starting; re-published as not starting on failure.
+    let announced: string[] = [];
     try {
       // Announce the start before the (slow) world build, so nobody keeps
       // pressing a button that already worked.
-      publish(await load(endedSeasonId));
+      announced = await load(endedSeasonId);
+      publish(announced);
       const { seasonId } = await deps.startNextSeason();
       cache = undefined;
       // Read after the rollover, not before: the world build takes a while
@@ -105,9 +108,10 @@ export const createNextContest = (deps: NextContestDeps) => {
       deps.recordGatewayEvent("info", "gateway_next_contest_started", { endedSeasonId, seasonId, force, committed: committed.length, spawned });
       return { seasonId };
     } catch (error) {
-      // The build failed: clear the "starting" state everyone was shown.
+      // Any step failed (the build, or a read after it): clear the
+      // "starting" state everyone was shown, so no client stays stuck on it.
       starting = false;
-      if (cache) publish(cache.committed);
+      publish(announced);
       throw error;
     } finally {
       starting = false;

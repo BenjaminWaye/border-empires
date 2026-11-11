@@ -20,7 +20,8 @@ export const NEXT_CONTEST_STARTING_ENTRY: Omit<ClientChangelogEntry, "createdAt"
   title: "See when the next Sector Contest is starting",
   why: "Once the next contest began starting, the button stayed live, nothing confirmed it, and the brief disconnect while the new world was built looked like the server was down.",
   changes: [
-    "As soon as the next Sector Contest starts, everyone's button changes to Starting the next Sector Contest…, with a note that the new world is being built",
+    "As soon as the next Sector Contest starts, committed Houses see Starting the next Sector Contest…, with a note that the new world is being built",
+    "Houses that haven't committed yet can still join while it's being built",
     "The brief disconnect while it's built says Building the next Sector Contest instead of Server unreachable",
     "If a start is refused, the reason is shown on the summary screen instead of only in the event feed"
   ]

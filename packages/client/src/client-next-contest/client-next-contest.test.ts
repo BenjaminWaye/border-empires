@@ -46,11 +46,13 @@ describe("next Sector Contest", () => {
     expect(nextContestButtonLabel(makeState({ seasonStartVoteCount: 3, seasonStartVoted: true }))).toBe("You're in · 3/10 Houses committed");
     expect(nextContestButtonLabel(makeState({ authIsGuest: true }))).toBe("Save your empire to join the next Sector Contest");
     expect(nextContestButtonLabel(makeState({ seasonEndStarting: true, seasonStartVoted: true }))).toBe("Starting the next Sector Contest…");
+    expect(nextContestButtonLabel(makeState({ seasonEndStarting: true }))).toBe("Join now · the next Sector Contest is starting");
   });
 
   it("explains when the next contest starts", () => {
     expect(nextContestFineprint(10)).toContain("starts once 10 Houses have committed");
-    expect(nextContestFineprint(10, true)).toContain("brought into the new Sector Contest automatically");
+    expect(nextContestFineprint(10, true, true)).toContain("brought into the new Sector Contest automatically");
+    expect(nextContestFineprint(10, true, false)).toContain("Join now to start in it");
   });
 
   // Regression: nothing showed that a start was under way, so repeated

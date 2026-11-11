@@ -24,7 +24,7 @@ export const handleStartNewSeasonMessage = async (deps: StartNewSeasonMessageDep
     if (deps.force) {
       if (!deps.isAdmin) {
         deps.recordGatewayEvent("warn", "gateway_force_start_new_season_forbidden", { playerId });
-        deps.sendError("FORCE_START_FORBIDDEN", "Only the admin account, signed in with a verified email, can force-start the next Sector Contest.");
+        deps.sendError("FORCE_START_FORBIDDEN", "Only an admin can force-start the next Sector Contest.");
         return;
       }
       // A repeat press while the world is already being built is not an
