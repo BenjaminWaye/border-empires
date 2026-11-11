@@ -11,10 +11,3 @@ export const SECTOR_BOARD_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
     "Play now still drops guests straight into the current Sector"
   ]
 };
-
-export const WAYSTATION_CAPTURE_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
-  introducedIn: "2026.11.10",
-  title: "Waystations disappear after capture",
-  why: "The reward is claimed once.",
-  changes: ["A resource reward leaves a resource tile on the former waystation site."]
-};

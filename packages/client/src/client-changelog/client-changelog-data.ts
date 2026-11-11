@@ -1,8 +1,10 @@
 import { FRONTIER_MAP_NAMES_ENTRY } from "./client-changelog-frontier-map-names.js";
 import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
+import { WAYSTATION_CAPTURE_ENTRY } from "./client-changelog-waystation-capture.js";
+import { TOWN_LIST_BUILD_SLOTS_ENTRY } from "./client-changelog-town-list-build-slots.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
 import { NEXT_CONTEST_ENTRY } from "./client-changelog-next-contest.js";
-import { SECTOR_BOARD_ENTRY, WAYSTATION_CAPTURE_ENTRY } from "./client-changelog-nov-10.js";
+import { SECTOR_BOARD_ENTRY } from "./client-changelog-nov-10.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
@@ -489,6 +491,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
   { ...WAYSTATION_CAPTURE_ENTRY, createdAt: 1794342387101, },
   { ...FRONTIER_MAP_NAMES_ENTRY, createdAt: 1794312655623, },
+  { ...TOWN_LIST_BUILD_SLOTS_ENTRY, createdAt: 1794383457964, },
   { ...RESOURCE_LENS_ENTRY, createdAt: 1794383695242, },
 ];
 

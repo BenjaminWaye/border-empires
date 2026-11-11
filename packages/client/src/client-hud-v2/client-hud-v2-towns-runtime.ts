@@ -6,7 +6,7 @@ import { writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { forgetMyTowns, myTowns, openTownAt } from "./client-hud-v2-town-runtime.js";
 import { townsBannerHtml, townsBodyHtml } from "./client-hud-v2-towns.js";
 
-const SORT_KEYS: ReadonlySet<string> = new Set<TownListSortKey>(["gold", "population", "growth"]);
+const SORT_KEYS: ReadonlySet<string> = new Set<TownListSortKey>(["gold", "population", "growth", "slots"]);
 
 /** What the table was last built from: rebuilt only when the town list, sort or screen changes, not every HUD tick. */
 let built: { towns: unknown; sort: TownListSort; body: HTMLElement | null } | undefined;
@@ -19,7 +19,7 @@ export const renderTownsScreen = (deps: HudV2Deps, options: { force?: boolean } 
   // Hold the rows still while the pointer is on them, so a press can't land on a row that just moved.
   if (!options.force && built?.body === body && document.querySelector(".v2l-table:hover")) return;
   built = { towns, sort, body };
-  const rows = sortTownListRows(deriveTownListRows(towns, deps.state.me), sort);
+  const rows = sortTownListRows(deriveTownListRows(towns, deps.state.me, deps.state.tiles), sort);
   writeHtml("v2s-head-right", townsBannerHtml(rows));
   writeHtml("v2s-body", townsBodyHtml(rows, sort));
 };
