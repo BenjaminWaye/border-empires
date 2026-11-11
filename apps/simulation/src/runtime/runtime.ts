@@ -2701,7 +2701,7 @@ export class SimulationRuntime {
       rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       emitEvent: (event) => this.emitEvent(event),
-      drainDevQueue: (playerId) => tryDrainDevQueueImpl(this.devQueueCommandContext(), playerId)
+      devQueue: this.devQueueCommandContext()
     };
   }
 

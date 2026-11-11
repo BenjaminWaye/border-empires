@@ -13,5 +13,7 @@ describe("cancel settlement regression guard", () => {
     expect(menuUiSource).toContain('if (btn.dataset.progressAction === "cancel_settle")');
     expect(menuUiSource).toContain('deps.sendGameMessage({ type: "CANCEL_SETTLE", x: tile.x, y: tile.y })');
     expect(actionFlowSource).toContain('cancelActionId: "cancel_settle" as const');
+    // Cancelling the garrison also cancels the build queued to follow it (garrison + build).
+    expect(menuUiSource).toContain("cancelGarrisonFollowUpBuild(state, deps.keyFor(tile.x, tile.y), deps.cancelQueuedBuild);");
   });
 });
