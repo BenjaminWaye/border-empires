@@ -31,6 +31,7 @@ type SeasonEndOverlayDeps = {
     | "seasonScoreHistory"
     | "seasonEndDismissed"
     | "seasonEndStarting"
+    | "seasonStartError"
     | "seasonStartVoteCount"
     | "seasonStartVoted"
     | "seasonStartVoteThreshold"
@@ -45,7 +46,8 @@ type SeasonEndOverlayDeps = {
   startNewSeason: () => void;
   // Admin-only (mapRevealEligible = server canToggleFog): long-press the
   // button to start the next contest without waiting for commitments.
-  forceStartNewSeason?: () => void;
+  // Returns whether the request was sent (false while signed out/offline).
+  forceStartNewSeason?: () => boolean;
   // Guests can't commit; the button offers to save the empire instead.
   openGuestSave?: () => void;
 };
@@ -57,7 +59,7 @@ export const seasonStartSenders = (
   send: (payload: unknown, message?: string) => boolean
 ): Pick<SeasonEndOverlayDeps, "startNewSeason" | "forceStartNewSeason"> => ({
   startNewSeason: () => { send({ type: "START_NEW_SEASON" }, SEASON_START_SIGN_IN_MESSAGE); },
-  forceStartNewSeason: () => { send({ type: "START_NEW_SEASON", force: true }, SEASON_START_SIGN_IN_MESSAGE); }
+  forceStartNewSeason: () => send({ type: "START_NEW_SEASON", force: true }, SEASON_START_SIGN_IN_MESSAGE)
 });
 
 export const safeColorValue = (raw: string | undefined): string | undefined => {
@@ -104,6 +106,7 @@ const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: Seas
     winner: [state.seasonWinner?.playerId, state.seasonWinner?.playerName, state.seasonWinner?.crownedAt],
     objective: state.seasonWinner?.objectiveName,
     starting: state.seasonEndStarting,
+    startError: state.seasonStartError,
     voteCount: state.seasonStartVoteCount,
     voted: state.seasonStartVoted,
     threshold: state.seasonStartVoteThreshold,
@@ -293,7 +296,9 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   const canForceStart = Boolean(state.mapRevealEligible && forceStartNewSeason) && !starting;
   // A disabled button gets no pointer events, so the admin's voted button
   // stays enabled (aria-disabled) to keep the long-press reachable.
-  const newSeasonDisabledAttr = starting || (state.seasonStartVoted && !canForceStart)
+  // While the next world builds, Houses that haven't committed can still join
+  // (the gateway places late commits too); only committed Houses are done.
+  const newSeasonDisabledAttr = state.seasonStartVoted && (starting || !canForceStart)
     ? "disabled"
     : state.seasonStartVoted ? `aria-disabled="true"` : "";
   const forceHoldAttrs = canForceStart ? `data-se-force-hold title="Admin: hold to start the next Sector Contest now"` : "";
@@ -369,7 +374,8 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             </button>
             <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
           </footer>
-          <p class="se-fineprint">${escapeHtml(nextContestFineprint(state.seasonStartVoteThreshold))}</p>
+          ${state.seasonStartError && !starting ? `<p class="se-start-error" role="alert">${escapeHtml(state.seasonStartError)}</p>` : ""}
+          <p class="se-fineprint" aria-live="polite">${escapeHtml(nextContestFineprint(state.seasonStartVoteThreshold, starting, state.seasonStartVoted))}</p>
         </div>
       </div>
     </div>`;
@@ -406,11 +412,22 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   if (newSeason) {
     newSeason.onclick = () => {
       if (consumeForceHoldClick(newSeason)) return;
-      if (state.seasonEndStarting || state.seasonStartVoted) return;
+      if (state.seasonStartVoted) return;
       if (state.authIsGuest) { openGuestSave?.(); return; }
+      state.seasonStartError = undefined;
       startNewSeason();
     };
-    if (canForceStart && forceStartNewSeason) attachSeasonForceHold(newSeason, { onForce: forceStartNewSeason });
+    if (canForceStart && forceStartNewSeason) {
+      // Show the start straight away: the world build takes a while and the
+      // gateway's "starting" broadcast confirms it (or an ERROR reverts it).
+      attachSeasonForceHold(newSeason, { onForce: () => {
+        // Not sent (socket down / signed out): don't claim a start is under way.
+        if (!forceStartNewSeason()) return;
+        state.seasonEndStarting = true;
+        state.seasonStartError = undefined;
+        renderHud();
+      } });
+    }
   }
 
   const tabBar = overlayEl.querySelector(".se-tab-bar") as HTMLElement | null;

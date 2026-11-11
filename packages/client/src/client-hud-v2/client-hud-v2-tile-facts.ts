@@ -200,7 +200,8 @@ const wonderFacts = (tile: Tile, mine: boolean): TileFact[] => {
       state === "depleted" ? { label: "State", value: "Depleted", tone: "warn" }
         : state === "active" ? (mine ? { label: "State", value: "Active", tone: "good" } : { label: "State", value: "Held" })
         : { label: "State", value: mine ? "Garrison to activate" : "Dormant" },
-      ...(gives ? [{ label: "Gives", value: gives }] : [])
+      // What a relic does stays hidden until a garrison brings it online.
+      ...(gives && state === "active" ? [{ label: "Gives", value: gives }] : [])
     ];
   }
   const { name, boon } = NATURAL_WONDER_LABELS[wonder.type];
