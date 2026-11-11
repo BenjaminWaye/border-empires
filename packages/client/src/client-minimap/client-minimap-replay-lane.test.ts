@@ -48,7 +48,7 @@ describe("minimap replay bridge lane", () => {
       replayCurrentEvent: () => ({ from, to } as unknown as ReturnType<Parameters<typeof drawMiniMap>[0]["replayCurrentEvent"]>)
     });
     expect(laneCalls).toHaveLength(1);
-    const [fromPx, , toPx] = laneCalls[0]!;
+    const [fromPx = NaN, , toPx = NaN] = laneCalls[0] ?? [];
     // The outside end sits just left of the frame, a few pixels from the near end, not far off the right side.
     expect(fromPx).toBeLessThan(0);
     expect(fromPx).toBeGreaterThan(-w / 4);
