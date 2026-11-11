@@ -142,6 +142,9 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
       // its patrol (across water, behind a rival, in fog) waits with "no
       // Planetary Defense within range" instead of claiming a false clear.
       ...(payload.hunt ? { hunt: true } : {}),
+      // Re-ordering a flag that is already hunting keeps its engaged state, or
+      // it could never report "cleared" and return to HOLD.
+      ...(payload.hunt && target.muster?.hunt && target.muster.clearing ? { clearing: true } : {}),
       setAt: isNewMuster ? now : (target.muster!.setAt ?? now),
       updatedAt: now
     }
