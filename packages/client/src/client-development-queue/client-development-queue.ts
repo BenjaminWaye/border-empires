@@ -1,6 +1,6 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind } from "../client-types.js";
-import { DEV_QUEUE_SERVER_CAP, DEV_QUEUE_TOTAL_CAP, SETTLE_COST, structureDisplayName, upgradeLegacyStructureNames } from "@border-empires/shared";
+import { DEV_QUEUE_SERVER_CAP, DEV_QUEUE_TOTAL_CAP, SETTLE_COST, isChosenStructureTier, structureDisplayName, upgradeLegacyStructureNames } from "@border-empires/shared";
 import { applyAutoSettlePrefsFromServer, isClientAutoSettleAllowedForTile } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 
 export const AUTO_SETTLEMENT_QUEUE_VISIBLE_MS = 3_000;
@@ -303,7 +303,9 @@ export const devQueueEnqueueWirePayload = (entry: PersistedDevelopmentAction): R
   tileKey: entry.tileKey,
   kind: entry.kind,
   ...(entry.kind === "BUILD"
-    ? { structureType: entry.payload.type === "REMOVE_STRUCTURE" ? "REMOVE_STRUCTURE" : entry.payload.structureType }
+    ? entry.payload.type === "REMOVE_STRUCTURE"
+      ? { structureType: "REMOVE_STRUCTURE" }
+      : { structureType: entry.payload.structureType, ...(entry.payload.tier ? { tier: entry.payload.tier } : {}) }
     : {})
 });
 
@@ -441,6 +443,7 @@ export type ServerDevQueueWireEntry = {
   y: number;
   kind: "SETTLE" | "BUILD";
   structureType?: string;
+  tier?: string;
   queuedAt: number;
   manpowerReserved?: true;
   awaitingManpower?: true;
@@ -464,7 +467,7 @@ const reconstructDevelopmentActionFromServerEntry = (entry: ServerDevQueueWireEn
     label: isRemoval ? `Remove structure at (${entry.x}, ${entry.y})` : `Build ${entry.structureType ? structureDisplayName(entry.structureType) : "structure"} at (${entry.x}, ${entry.y})`,
     payload: isRemoval
       ? { type: "REMOVE_STRUCTURE", x: entry.x, y: entry.y }
-      : { type: "BUILD_STRUCTURE", x: entry.x, y: entry.y, structureType: entry.structureType ?? "" },
+      : { type: "BUILD_STRUCTURE", x: entry.x, y: entry.y, structureType: entry.structureType ?? "", ...(isChosenStructureTier(entry.tier) ? { tier: entry.tier } : {}) },
     optimisticKind: (entry.structureType ?? "FORT") as OptimisticStructureKind
   };
 };

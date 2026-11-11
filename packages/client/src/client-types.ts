@@ -401,7 +401,7 @@ export type TileVisibilityState = "unexplored" | "fogged" | "visible";
 
 export type { SurveySweepPingKind, SurveySweepPing } from "./client-types-survey-sweep.js";
 
-export type { TileActionDef } from "./client-tile-action-def-types.js";
+export type { StructureTierOption, TileActionDef } from "./client-tile-action-def-types.js";
 
 // Tile action menu view types (TileMenuTab, TileMenuProgressView,
 // TileOverviewLine, TileCombatBreakdown, TileMenuView) moved to

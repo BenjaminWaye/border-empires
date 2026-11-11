@@ -128,4 +128,22 @@ export type TileActionDef = {
   recommended?: boolean;
   /** Settle Land on a frontier tile: the "auto-settle these from now on" checkbox rendered under the button. */
   autoSettleOption?: import("./client-auto-settle-prompt/client-auto-settle-tile-option.js").AutoSettleOption | undefined;
+  /** Fortify / Siege rows: the tiers the picker sheet offers (client-structure-tier-options.ts). */
+  tierOptions?: StructureTierOption[];
+};
+
+/** One tier in the Fortify / Siege picker sheet. */
+export type StructureTierOption = {
+  /** What BUILD_STRUCTURE sends: a Palisade is its own structure; fort and siege tiers ride `tier`. */
+  structureType: "PALISADE" | "FORT" | "SIEGE_BATTERY";
+  tier?: import("@border-empires/shared").ChosenStructureTier;
+  variant: import("@border-empires/shared").FortVariant | import("@border-empires/shared").SiegeBatteryVariant;
+  label: string;
+  /** "Defense ×2.50" / "Attack ×1.60". */
+  stat: string;
+  cost: string;
+  disabled: boolean;
+  disabledReason?: string;
+  /** A tech-locked tier: the tech the sheet links to. */
+  techLinkId?: string;
 };

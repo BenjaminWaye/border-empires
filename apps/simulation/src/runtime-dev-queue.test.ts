@@ -83,6 +83,17 @@ describe("payload parsers", () => {
     expect(parseDevQueueEnqueuePayload("not json")).toBeNull();
   });
 
+  it("keeps a valid chosen tier and drops an unknown one", () => {
+    const base = { x: 1, y: 2, tileKey: "1,2", kind: "BUILD", structureType: "FORT" };
+    expect(parseDevQueueEnqueuePayload(JSON.stringify({ ...base, tier: "THUNDER_BASTION" }))?.tier).toBe("THUNDER_BASTION");
+    expect(parseDevQueueEnqueuePayload(JSON.stringify({ ...base, tier: "MEGA_FORT" }))).not.toHaveProperty("tier");
+  });
+
+  it("copies the chosen tier onto the queued entry", () => {
+    const { queue } = devQueueEnqueue([], { x: 1, y: 2, tileKey: "1,2", kind: "BUILD", structureType: "SIEGE_BATTERY", tier: "SIEGE_BATTERY" }, 5);
+    expect(queue[0]).toMatchObject({ structureType: "SIEGE_BATTERY", tier: "SIEGE_BATTERY" });
+  });
+
   it("parses a tileKey-only payload", () => {
     expect(parseDevQueueTileKeyPayload(JSON.stringify({ tileKey: "1,2" }))).toEqual({ tileKey: "1,2" });
   });

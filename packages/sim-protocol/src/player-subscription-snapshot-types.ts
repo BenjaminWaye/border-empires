@@ -69,6 +69,7 @@ export type PlayerSubscriptionSnapshot = {
       y: number;
       kind: "SETTLE" | "BUILD";
       structureType?: string;
+      tier?: string;
       queuedAt: number;
       manpowerReserved?: true;
       awaitingManpower?: true;

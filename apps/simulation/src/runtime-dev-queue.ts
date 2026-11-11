@@ -4,7 +4,7 @@
 // ServerDevQueueEntry[] kept in PlayerRuntimeSummary.devQueue rather than the
 // two-tier DevQueueState (the "planned" tier stays entirely client-side --
 // the server only ever sees the top DEV_QUEUE_SERVER_CAP items).
-import { DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
+import { DEV_QUEUE_SERVER_CAP, isChosenStructureTier, type ChosenStructureTier } from "@border-empires/shared";
 import type { ServerDevQueueEntry } from "./player-runtime-summary.js";
 
 export type DevQueueEnqueuePayload = {
@@ -13,6 +13,8 @@ export type DevQueueEnqueuePayload = {
   tileKey: string;
   kind: ServerDevQueueEntry["kind"];
   structureType?: string;
+  /** The Fortify / Siege picker's explicit tier for a fort/siege BUILD (structure-tier-choice.ts). */
+  tier?: ChosenStructureTier;
   reservedManpower?: number;
   reservedSlotRequirements?: ServerDevQueueEntry["reservedSlotRequirements"];
   awaitingManpower?: true;
@@ -38,7 +40,8 @@ export const parseDevQueueEnqueuePayload = (payloadJson: string): DevQueueEnqueu
       y: parsed.y,
       tileKey: parsed.tileKey,
       kind: parsed.kind,
-      ...(typeof parsed.structureType === "string" ? { structureType: parsed.structureType } : {})
+      ...(typeof parsed.structureType === "string" ? { structureType: parsed.structureType } : {}),
+      ...(isChosenStructureTier(parsed.tier) ? { tier: parsed.tier } : {})
     };
   } catch {
     return null;
@@ -70,6 +73,7 @@ export const devQueueEnqueue = (
     kind: entry.kind,
     queuedAt,
     ...(entry.structureType ? { structureType: entry.structureType } : {}),
+    ...(entry.tier ? { tier: entry.tier } : {}),
     ...(entry.reservedManpower ? { reservedManpower: entry.reservedManpower } : {}),
     ...(entry.reservedSlotRequirements ? { reservedSlotRequirements: entry.reservedSlotRequirements } : {}),
     ...(entry.awaitingManpower ? { awaitingManpower: true as const } : {}),

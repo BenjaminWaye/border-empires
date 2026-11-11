@@ -10,21 +10,21 @@
 import { relayBeaconFreeFoodSlotCountForPlayer } from "./tech-domain-bridge/slot-waivers.js";
 import { settleManpowerCostFor } from "./runtime-settlement-rules.js";
 import {
+  resolveFortBuildTier,
+  resolveSiegeBuildTier,
   STRUCTURE_REGISTRY,
   bestFortTierForTech,
   bestSiegeTierForTech,
-  fortTierForBuild,
   landmarkConstructionBlocker,
   STACKING_SAME_TILE_SUPPORT_STRUCTURE_TYPES,
   structurePlacementMetadata,
-  nextSiegeTierForUpgrade,
-  siegeTierForFreshBuild,
   structureBuildManpowerCostScaled,
   structureSlotRequirements,
   SYNTHESIZER_STRUCTURE_TYPES,
   type BuildableStructureType,
   type StructureSpec,
   type SlotResource,
+  type ChosenStructureTier,
   type SlotStructureType
 } from "@border-empires/shared";
 import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, emptyResourceSlotTotals, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
@@ -48,7 +48,8 @@ export type RuntimeDevQueueReservationContext = {
     structureType: string,
     x: number,
     y: number,
-    extraSlotDemand: ResourceSlotTotals
+    extraSlotDemand: ResourceSlotTotals,
+    tier?: ChosenStructureTier
   ) => DevQueueBuildReservation;
   estimateSettleReservation: (playerId: string) => DevQueueBuildReservation;
   applyManpowerReservation: (playerId: string, amount: number) => void;
@@ -75,8 +76,8 @@ export function reservedSlotDemandForQueue(entries: readonly { reservedSlotRequi
 
 export function devQueueBuildReservationContext(context: RuntimeStructureCommandContext): RuntimeDevQueueReservationContext {
   return {
-    estimateBuildReservation: (playerId, structureType, x, y, extraSlotDemand) =>
-      estimateDevQueueBuildReservation(context, playerId, structureType, x, y, extraSlotDemand),
+    estimateBuildReservation: (playerId, structureType, x, y, extraSlotDemand, tier) =>
+      estimateDevQueueBuildReservation(context, playerId, structureType, x, y, extraSlotDemand, tier),
     estimateSettleReservation: (playerId) => estimateDevQueueSettleReservation(context, playerId),
     applyManpowerReservation: (playerId, amount) => {
       const player = context.players.get(playerId);
@@ -112,7 +113,8 @@ function estimateDevQueueBuildReservation(
   structureType: string,
   x: number,
   y: number,
-  extraSlotDemand: ResourceSlotTotals
+  extraSlotDemand: ResourceSlotTotals,
+  tier?: ChosenStructureTier
 ): DevQueueBuildReservation {
   const actor = context.players.get(playerId);
   const spec = STRUCTURE_REGISTRY[structureType as BuildableStructureType];
@@ -130,16 +132,23 @@ function estimateDevQueueBuildReservation(
   let manpowerCost: number;
   let slotStructureType: SlotStructureType = structureType as BuildableStructureType;
   let fortVariant: string | undefined;
+  const buildingSiege = spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON";
+  if (tier !== undefined && spec.kind !== "FORT" && !buildingSiege) return { ok: false, code: "BUILD_INVALID", message: "tier does not match the structure" };
   if (spec.kind === "FORT") {
-    const fortTier = fortTierForBuild(structureType, target.fort?.variant, hasTech) ?? bestFortTierForTech(hasTech);
+    // A default build that can't resolve right now (tier maxed, tech missing) keeps the old
+    // best-tier estimate; the build handler re-validates at drain. An explicit tier that can't
+    // be built is rejected here instead -- queueing it could never succeed.
+    const resolved = resolveFortBuildTier(structureType, tier, target.fort?.variant, hasTech);
+    if (!resolved.ok && tier !== undefined) return { ok: false, code: "BUILD_INVALID", message: resolved.reason };
+    const fortTier = resolved.ok ? resolved.tier : bestFortTierForTech(hasTech);
     manpowerCost = fortTier.manpower;
     slotStructureType = fortTier.variant;
     fortVariant = fortTier.variant;
-  } else if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON") {
-    // Mirrors the build handler: a fresh build steps down to the best tier whose UMBRITE slots fit.
-    const siegeTier = target.siegeBattery
-      ? (nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech) ?? bestSiegeTierForTech(hasTech))
-      : siegeTierForFreshBuild(hasTech, (variant) => !firstSlotShortfall(context, playerId, target, spec.tileField, extraSlotDemand, structureSlotRequirements(variant)));
+  } else if (buildingSiege) {
+    // Mirrors the build handler: a fresh default build steps down to the best tier whose UMBRITE slots fit.
+    const resolved = resolveSiegeBuildTier(tier, target.siegeBattery?.variant, hasTech, (variant) => !firstSlotShortfall(context, playerId, target, spec.tileField, extraSlotDemand, structureSlotRequirements(variant)));
+    if (!resolved.ok && tier !== undefined) return { ok: false, code: "BUILD_INVALID", message: resolved.reason };
+    const siegeTier = resolved.ok ? resolved.tier : bestSiegeTierForTech(hasTech);
     manpowerCost = siegeTier.manpower;
     slotStructureType = siegeTier.variant;
   } else {

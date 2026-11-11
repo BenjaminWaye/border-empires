@@ -18,29 +18,11 @@ describe("buildDetailTextForAction fort tier text", () => {
     expect(detail).not.toContain("Upgrade");
   });
 
-  it("shows 'Upgrade this Palisade' for a palisade tile", () => {
-    const detail = buildDetailTextForAction("build_fortification", palisadeTile);
-    expect(detail).toContain("Upgrade this Palisade");
-  });
-
-  it("shows Titanium Bastion upgrade text for an active fort with undefined variant", () => {
-    const detail = buildDetailTextForAction("build_fortification", fortTile);
-    expect(detail).toContain("Upgrade this Fort into an Titanium Bastion");
-    expect(detail).toContain("4x");
-  });
-
-  it("shows Thunder Bastion upgrade text for an Titanium Bastion", () => {
-    const detail = buildDetailTextForAction("build_fortification", ironTile);
-    expect(detail).toContain("Upgrade this Titanium Bastion into a Thunder Bastion");
-    expect(detail).toContain("6.5x");
-  });
-
-  it("falls through (no upgrade text) for a Thunder Bastion", () => {
-    const detail = buildDetailTextForAction("build_fortification", thunderTile);
-    // Should not show upgrade text for a max-tier fort
-    expect(detail).toBeDefined();
-    expect(detail).not.toContain("Upgrade");
-    expect(detail).not.toContain("Bastion");
+  it("names the standing tier, never a fixed upgrade target (the picker chooses)", () => {
+    expect(buildDetailTextForAction("build_fortification", palisadeTile)).toContain("Upgrade this Palisade to a stronger tier");
+    expect(buildDetailTextForAction("build_fortification", fortTile)).toContain("Upgrade this Fort to a stronger tier");
+    expect(buildDetailTextForAction("build_fortification", ironTile)).toContain("Upgrade this Titanium Bastion to a stronger tier");
+    expect(buildDetailTextForAction("build_fortification", thunderTile)).toContain("Upgrade this Thunder Bastion");
   });
 });
 

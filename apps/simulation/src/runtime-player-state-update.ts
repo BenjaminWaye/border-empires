@@ -138,6 +138,7 @@ export function emitPlayerStateUpdate(
         y: entry.y,
         kind: entry.kind,
         ...(entry.structureType ? { structureType: entry.structureType } : {}),
+        ...(entry.tier ? { tier: entry.tier } : {}),
         queuedAt: entry.queuedAt,
         // Lets the client dispatch a reserved entry without its own manpower check, and hold a waiting one.
         ...(entry.reservedManpower ? { manpowerReserved: true } : {}),

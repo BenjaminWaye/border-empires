@@ -1,4 +1,4 @@
-import { fortRemovalDurationMs, siegeBatteryRemovalDurationMs, structureBuildDurationMs, structureRemovalDurationMs } from "@border-empires/shared";
+import { fortRemovalDurationMs, siegeBatteryRemovalDurationMs, structureBuildDurationMs, structureRemovalDurationMs, type ChosenStructureTier } from "@border-empires/shared";
 import { writeOptimisticStructureBuild, writeOptimisticStructureCancel } from "./client-optimistic-structure-writes.js";
 import { buildMsWithSpeedForState } from "../client-build-speed/client-build-speed.js";
 import { hasFreeResourceSlots } from "../client-tile-action-logic/client-resource-slot-gate.js";
@@ -154,7 +154,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     return tile.economicStructure?.type === kind && tile.economicStructure?.status === "under_construction";
   };
 
-  const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStructureKind): void => {
+  const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStructureKind, chosenTier?: ChosenStructureTier): void => {
     if (!enabled) return;
     // Relay Beacon's first 5 build instantly; the server decides by owned count.
     let ownedBeacons = 0;
@@ -166,7 +166,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     const completesAt = startedAt + adjustBuildMs(kind, structureBuildDurationMs(kind, ownedBeacons));
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_build";
-      writeOptimisticStructureBuild(tile, kind, state.me, (id) => state.techIds.includes(id), completesAt, startedAt, adjustBuildMs, (variant) => hasFreeResourceSlots(state, variant));
+      writeOptimisticStructureBuild(tile, kind, state.me, (id) => state.techIds.includes(id), completesAt, startedAt, adjustBuildMs, (variant) => hasFreeResourceSlots(state, variant), chosenTier);
     });
   };
 
