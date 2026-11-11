@@ -37,6 +37,10 @@ export const overlaySubstructuresFrom = (tile: TileOverlays): TileOverlays => {
   return out;
 };
 
+/** The claim notification can name a deposit that is still hidden by other viewers' tech. */
+export const waystationRewardHiddenFromViewer = (waystation: DomainTileState["waystation"], viewerId: string | undefined): boolean =>
+  waystation?.grantedEffect === "RESOURCE_TILE" && (!viewerId || waystation.activatedByPlayerId !== viewerId);
+
 /**
  * The overlay substructures present on `tile`, JSON-stringified under their
  * wire names. Truthy-guarded: absent means "not there", never "cleared", so
@@ -44,10 +48,11 @@ export const overlaySubstructuresFrom = (tile: TileOverlays): TileOverlays => {
  * overlayJsonFieldsFrom (tile-delta-overlay-fields.ts), which keeps every
  * field present so subscribers can detect clears.
  */
-export const overlayJsonFieldsFromTile = (tile: TileOverlays): Partial<Record<DomainOverlayJsonField, string>> => {
+export const overlayJsonFieldsFromTile = (tile: TileOverlays, viewerId?: string): Partial<Record<DomainOverlayJsonField, string>> => {
   const out: Partial<Record<DomainOverlayJsonField, string>> = {};
   for (const key of TILE_OVERLAY_KEYS) {
     const value = tile[key];
+    if (key === "waystation" && waystationRewardHiddenFromViewer(tile.waystation, viewerId)) continue;
     if (value) out[overlayJsonField(key)] = JSON.stringify(value);
   }
   return out;

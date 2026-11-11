@@ -356,12 +356,13 @@
     },
     {
       "id": "muster-command",
-      "tier": 3,
+      "tier": 4,
       "branch": "war",
       "name": "Hive Mind Module II",
-      "description": "AFC module: a second offworld half-mind. A second staging tile means an army can gather while another marches.",
+      "description": "AFC module: another offworld half-mind, slaved to the Thunderplate induction grid and the Dread Tower command net. Adds one Muster tile, so an army can gather while another marches.",
       "prereqIds": [
-        "muster-discipline"
+        "standing-army",
+        "steelworking"
       ],
       "cost": {
         "gold": 10
@@ -674,7 +675,7 @@
       "branch": "war",
       "name": "Sovereign Siege Engine Dossier",
       "prereqIds": [
-        "steelworking"
+        "muster-command"
       ],
       "description": "Reserves an offworld Aether Bore Core and firing key for the Sovereign Siege Engine project.",
       "cost": {
@@ -694,7 +695,7 @@
       "branch": "war",
       "name": "Aegis Dome Dossier",
       "prereqIds": [
-        "standing-army"
+        "muster-command"
       ],
       "description": "Reserves an offworld Aegis Field Core for the Aegis Dome project.",
       "cost": {

@@ -14,6 +14,9 @@ import {
   bestFortTierForTech,
   bestSiegeTierForTech,
   fortTierForBuild,
+  landmarkConstructionBlocker,
+  STACKING_SAME_TILE_SUPPORT_STRUCTURE_TYPES,
+  structurePlacementMetadata,
   nextSiegeTierForUpgrade,
   siegeTierForFreshBuild,
   structureBuildManpowerCostScaled,
@@ -37,7 +40,7 @@ export type DevQueueSlotRequirement = { resource: SlotResource; count: number };
 
 export type DevQueueBuildReservation =
   | { ok: true; manpowerCost: number; slotRequirements: DevQueueSlotRequirement[] }
-  | { ok: false; code: "UNKNOWN_STRUCTURE" | "INSUFFICIENT_MANPOWER" | "INSUFFICIENT_SLOT"; message: string };
+  | { ok: false; code: "BUILD_INVALID" | "UNKNOWN_STRUCTURE" | "INSUFFICIENT_MANPOWER" | "INSUFFICIENT_SLOT"; message: string };
 
 export type RuntimeDevQueueReservationContext = {
   estimateBuildReservation: (
@@ -116,6 +119,12 @@ function estimateDevQueueBuildReservation(
   const target = context.tiles.get(simulationTileKey(x, y));
   if (!actor || !spec || !target) {
     return { ok: false, code: "UNKNOWN_STRUCTURE", message: `unknown structure type: ${structureType}` };
+  }
+  const redirectsFromTown = target.town && spec.kind === "ECONOMIC" &&
+    (structurePlacementMetadata(structureType as BuildableStructureType).placementMode === "town_support" ||
+      STACKING_SAME_TILE_SUPPORT_STRUCTURE_TYPES.has(structureType as BuildableStructureType));
+  if (target.ownerId === playerId && !redirectsFromTown && landmarkConstructionBlocker(context.tiles, target.x, target.y)) {
+    return { ok: false, code: "BUILD_INVALID", message: "This tile is reserved by an AFC or relic" };
   }
   const hasTech = (id: string) => actor.techIds.has(id);
   let manpowerCost: number;

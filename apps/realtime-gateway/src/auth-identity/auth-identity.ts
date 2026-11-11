@@ -50,6 +50,9 @@ export type GatewayResolvedIdentity = {
   playerName: string;
   authUid?: string;
   authEmail?: string;
+  // True only when the email is trusted: from configured authIdentities, or
+  // asserted by Firebase (email_verified). Gates destructive admin actions.
+  authEmailVerified?: boolean;
   isGuest?: boolean;
 };
 
@@ -75,7 +78,7 @@ export const resolveGatewayAuthIdentity = async (
         playerId: directMappedIdentity.playerId,
         playerName: normalizeDisplayName(directMappedIdentity.name) ?? fallbackDisplayNameForToken(token),
         authUid: directMappedIdentity.uid,
-        ...(directMappedIdentity.email ? { authEmail: directMappedIdentity.email } : {})
+        ...(directMappedIdentity.email ? { authEmail: directMappedIdentity.email, authEmailVerified: true } : {})
       };
     }
   }
@@ -103,7 +106,9 @@ export const resolveGatewayAuthIdentity = async (
     playerId: mappedIdentity?.playerId ?? options.defaultHumanPlayerId ?? decoded.uid,
     playerName: normalizeDisplayName(mappedIdentity?.name) ?? playerName,
     authUid: decoded.uid,
-    ...(mappedIdentity?.email ? { authEmail: mappedIdentity.email } : decoded.email ? { authEmail: decoded.email } : {}),
+    ...(mappedIdentity?.email
+      ? { authEmail: mappedIdentity.email, authEmailVerified: true }
+      : decoded.email ? { authEmail: decoded.email, ...(decoded.emailVerified ? { authEmailVerified: true } : {}) } : {}),
     ...(decoded.isGuest ? { isGuest: true } : {})
   };
 };

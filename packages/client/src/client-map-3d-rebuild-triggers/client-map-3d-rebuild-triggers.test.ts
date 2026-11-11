@@ -33,6 +33,7 @@ const createState = (): TriggerState => ({
   techIds: [],
   techCatalog: [],
   showDiplomacyOverlay: false,
+  showResourceOverlay: false,
   activeTruces: []
 });
 

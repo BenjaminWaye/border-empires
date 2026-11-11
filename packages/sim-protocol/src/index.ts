@@ -166,10 +166,10 @@ export type CurrentSeasonSummary = {
   dominanceTilesByPlayerId?: Record<string, number>;
   updatedAt: number;
   seasonStats?: SeasonStats;
-  // Live in-memory score-history samples for the current season (see
-  // score-history-sampler.ts). Not persisted on CurrentSeasonSummary itself
-  // (it is a pure activity feed, rebuilt on restart) -- once the season ends
-  // the authoritative copy lives on seasonWinner.scoreHistory instead.
+  // Score-history samples for the current season (see score-history-sampler.ts).
+  // Persisted with the summary and re-seeded into the sampler on boot, so do
+  // not strip it as ephemeral. Once the season ends the authoritative copy
+  // lives on seasonWinner.scoreHistory; never sent in GLOBAL_STATUS_UPDATE.
   scoreHistory?: ScoreHistorySeries[];
   defenseCampaignTargetSeasonId?: string;
 };

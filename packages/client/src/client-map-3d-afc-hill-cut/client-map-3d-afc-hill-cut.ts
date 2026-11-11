@@ -1,8 +1,6 @@
-// AFC hill cut (true-3D renderer only). The Automated Fabrication Complex is
-// placed at its own tile's height, but its socket ring, ground cables,
-// manipulator claws and docked modules reach ~1.3 tiles out -- right over the
-// centres of its 8 neighbours, which is exactly where a neighbouring hill
-// dome peaks. Without this cut those pieces sank into the dome.
+// The AFC's sockets, cables and stabilizers extend across neighbouring tiles.
+// Cut the 3D hill domes around them and place the whole assembly above the
+// highest remaining point of its pad.
 //
 // Like a road (hillRoadCutMask), the AFC carves a levelled pad through the
 // hill domes around it: hillShapeHeight is flattened to ground level within
@@ -15,17 +13,17 @@
 // The pad offsets ride on the per-tile RoadCutDirections every hill drape
 // already receives (dome mesh, tile surface Y, roads, ownership/fog/prospect
 // drapes), so all of them trace the same cut surface.
+import { AFC_LANDING_FOOTPRINT_RADIUS } from "@border-empires/shared";
 import type { RoadCutDirections } from "../client-map-3d-hill-shape.js";
 import type { FishingPadOffset } from "../client-map-3d-fishing/fishing-hill-cut.js";
 
 /** Offset (tiles) from a hill tile's centre to an AFC centre whose pad cuts through it. */
 export type AfcPadOffset = { readonly du: number; readonly dv: number };
 
-// The socket pads reach AFC_SOCKET_RING_RADIUS (1.28) + pad radius (0.21)
-// = 1.49 from the AFC centre; this keeps the dome to a sliver there and the
-// docked modules/claws (all inside the ring) on flat ground.
-export const AFC_HILL_CUT_FULL_RADIUS = 1.45;
-export const AFC_HILL_CUT_FADE_RADIUS = 1.8;
+// Bay geometry stays within 1.5 tiles. The extra 0.15 covers the vertices
+// of the 0.1-tile hill mesh cells that overlap its outermost edge.
+export const AFC_HILL_CUT_FULL_RADIUS = 1.65;
+export const AFC_HILL_CUT_FADE_RADIUS = 1.85;
 // Chebyshev tile radius the fade reaches into (a tile centred d tiles away
 // spans d +- 0.5). Every hill tile in it gets the pad -- not just the 3x3
 // footprint -- because the mask is one continuous function of distance from
@@ -33,6 +31,25 @@ export const AFC_HILL_CUT_FADE_RADIUS = 1.8;
 // outside the footprint that is cut by the same amount there, or the hill
 // steps up at the shared border.
 export const AFC_HILL_CUT_TILE_RADIUS = Math.ceil(AFC_HILL_CUT_FADE_RADIUS - 0.5);
+
+/** After the dome cut, the pad and surrounding hill mesh still slope
+ * between their rendered corners. Use their highest point so even the
+ * far edge of a sliding bay clears the surface. */
+export const createAfcPadSurfaceSampler = (
+  cornerYAt: (x: number, y: number) => number,
+  wrapX: (x: number) => number,
+  wrapY: (y: number) => number,
+  rise: number
+): ((x: number, y: number) => number) => (x, y) => {
+  let highest = -Infinity;
+  const radius = AFC_LANDING_FOOTPRINT_RADIUS;
+  for (let dy = -radius; dy <= radius + 1; dy++) {
+    for (let dx = -radius; dx <= radius + 1; dx++) {
+      highest = Math.max(highest, cornerYAt(wrapX(x + dx), wrapY(y + dy)));
+    }
+  }
+  return highest + rise;
+};
 
 /** 0..1 strength of the AFC pad cut at tile-local (u, v) (origin at the hill tile's centre). */
 export const afcHillCutMask = (u: number, v: number, pads: readonly AfcPadOffset[] | undefined): number => {

@@ -159,6 +159,7 @@ body.hud-v2-screen-afc #side-panel {
 /* ---- Ranks ---- */
 .v2r-banner { font-family: var(--v2-body); font-size: 14px; color: var(--v2-soft); }
 .v2r-banner-hold { color: var(--v2-red-hi); }
+.v2r-banner-won { color: var(--v2-gold-hi); }
 .v2r-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; overflow: auto; }
 .v2r-race { padding: 14px 20px; background: rgba(15, 13, 10, 0.94); border: 1px solid var(--v2-edge); }
 .v2r-axis { display: grid; grid-template-columns: 220px minmax(0, 1fr) 220px; gap: 32px; font-family: var(--v2-mono); font-size: 10px; color: var(--v2-muted); }
@@ -184,6 +185,7 @@ body.hud-v2-screen-afc #side-panel {
 .v2r-holding { outline: 3px dashed var(--v2-red-hi); outline-offset: 3px; }
 .v2r-status { font-size: 13px; color: var(--v2-soft); }
 .v2r-status-hold { color: var(--v2-red-hi); }
+.v2r-status-won { color: var(--v2-gold-hi); }
 .v2r-status-you { color: var(--v2-gold-hi); }
 .v2r-name-link { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
 .v2r-name-link:hover { color: var(--v2-text); }
@@ -305,7 +307,7 @@ body.hud-v2-screen-afc #side-panel {
 
 /* Towns: your towns in one sortable table (client-hud-v2-towns.ts). */
 .v2l-table { max-height: 100%; min-height: 0; overflow: auto; align-self: center; width: min(820px, 100%); display: grid; align-content: start; gap: 4px; padding: 14px 20px; background: rgba(15, 13, 10, 0.94); border: 1px solid var(--v2-edge); }
-.v2l-head, .v2l-row { display: grid; grid-template-columns: minmax(0, 1.8fr) repeat(3, minmax(0, 1fr)); gap: 16px; align-items: center; }
+.v2l-head, .v2l-row { display: grid; grid-template-columns: minmax(0, 1.8fr) repeat(4, minmax(0, 1fr)); gap: 16px; align-items: center; }
 .v2l-head { padding: 0 10px 8px; border-bottom: 1px solid var(--v2-line); font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
 .v2l-sort { justify-self: end; padding: 2px 0; border: 0; background: none; color: inherit; font: inherit; white-space: nowrap; }
 .v2l-sort:hover, .v2l-sort-on { color: var(--v2-gold-hi); }

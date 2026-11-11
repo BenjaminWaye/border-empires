@@ -77,7 +77,11 @@ const GATEWAY_OVERLAY_PARSERS = {
   economicStructureJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ economicStructure: parseGatewayStructureJson<Tile["economicStructure"]>(json) }),
   sabotageJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ sabotage: parseGatewayStructureJson<Tile["sabotage"]>(json) }),
   watchtowerJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ watchtower: parseGatewayStructureJson<NonNullable<Tile["watchtower"]>>(json) }),
-  waystationJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ waystation: parseGatewayStructureJson<NonNullable<Tile["waystation"]>>(json) }),
+  waystationJson: (json: string | undefined): NormalizedGatewayTileUpdate => {
+    const waystation = parseGatewayStructureJson<NonNullable<Tile["waystation"]>>(json);
+    // Activated records describe the reward. Only dormant waystations occupy the map.
+    return { waystation: waystation?.activated ? undefined : waystation };
+  },
   musterJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ muster: parseGatewayStructureJson<Tile["muster"]>(json) }),
   afcJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ afc: parseGatewayStructureJson<Tile["afc"]>(json) })
 };

@@ -382,7 +382,7 @@ export const leaderboardHtml = (
   const winnerCard = seasonWinner
     ? `
     <article class="card pressure-card">
-      <strong>Season Winner</strong>
+      <strong>Contest Winner</strong>
       <div class="pressure-row">
         <div class="pressure-head">
           <span class="pressure-name">${playerNameBadgeHtml(seasonWinner.playerId, isSelfPlayer(seasonWinner.playerId) ? "You" : seasonWinner.playerName, playerColors, dukePlayers)}</span>
@@ -397,7 +397,7 @@ export const leaderboardHtml = (
     seasonVictory.length > 0
       ? `
     <article class="card pressure-card">
-      <strong>Season Victory</strong>
+      <strong>Contest Victory</strong>
       ${seasonVictory
         .map(
           (objective) => `<div class="pressure-row">

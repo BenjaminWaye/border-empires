@@ -9,7 +9,15 @@ afterEach(() => {
   document.getElementById("waystation-activation-overlay")?.remove();
 });
 
-describe("waystation activation popup -- GOLD / MANPOWER", () => {
+describe("waystation activation popup", () => {
+  it("announces the resource site left by a captured waystation", () => {
+    showWaystationActivationOverlay({
+      x: 1, y: 2, grantedEffect: "RESOURCE_TILE", revealedTown: false,
+      grantedResource: "TITANIUM", onJumpToLocation: () => {}
+    });
+    expect(overlayText()).toContain("Discovered: Titanium site");
+  });
+
   it("shows the gold amount, with tier-specific narrative", () => {
     showWaystationActivationOverlay({ x: 1, y: 2, grantedEffect: "GOLD", revealedTown: false, grantedGold: 100, grantedGoldTier: "LARGE", onJumpToLocation: () => {} });
     expect(overlayText()).toContain("+100 Coin");

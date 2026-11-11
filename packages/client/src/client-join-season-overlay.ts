@@ -2,6 +2,7 @@ import type { ClientState } from "./client-state/client-state.js";
 import type { FeedType, FeedSeverity } from "./client-types.js";
 import { renderSeasonLobbyPanelHtml, bindSeasonLobbyPanel } from "./client-season-lobby-panel.js";
 import { takeGuestAutoJoinTurn } from "./client-guest-play/client-guest-play.js";
+import { sectorBoardHtml, sectorBoardLoaderFor } from "./client-sector-board/client-sector-board.js";
 
 type JoinSeasonOverlayDeps = {
   state: Pick<
@@ -15,13 +16,17 @@ type JoinSeasonOverlayDeps = {
     | "seasonLobbyWaitingCount"
     | "seasonLobbyMaxPlayers"
     | "seasonLobbyRoster"
+    | "sectorBoard"
     | "profileSetupRequired"
     | "authIsGuest"
+    | "seasonWinner"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
   joinSeason: () => boolean;
   pushFeed?: ((message: string, type: FeedType, severity?: FeedSeverity) => void) | undefined;
+  // Gateway the Sector board counts are fetched from (client-sector-board.ts); omitted in tests.
+  wsUrl?: string | undefined;
 };
 
 const formatCountdown = (remainingMs: number): string => {
@@ -36,6 +41,10 @@ const formatCountdown = (remainingMs: number): string => {
 // One shared interval driving every live countdown tick + auto-retry, so a
 // re-render of the overlay never leaks a duplicate timer.
 let countdownTimer: ReturnType<typeof setInterval> | undefined;
+
+// Dataset key caching what the overlay last rendered; see the note above
+// renderJoinSeasonOverlay for why the rebuild is skipped when unchanged.
+const RENDER_KEY_ATTR = "seasonLobbyRenderKey";
 
 // The "Joining..." state clears only on JOIN_SEASON_ACK / ERROR. If neither ever
 // arrives (dropped socket, stalled simulation) the button used to stay disabled
@@ -70,7 +79,7 @@ const clearJoinPendingWatchdog = (): void => {
 
 // Starts the give-up timer and the once-a-second hint update. The ticker only
 // rewrites the hint's text -- never the overlay's innerHTML -- so it can't
-// restart the gear animation (see the render-key note above).
+// restart the join button's spinner/sheen animation (see the render-key note).
 const armJoinPendingWatchdog = (deps: JoinSeasonOverlayDeps): void => {
   const { state, overlayEl, renderHud, pushFeed } = deps;
   // Idempotent per overlay: a re-render mid-join (e.g. a roster update) must
@@ -79,14 +88,27 @@ const armJoinPendingWatchdog = (deps: JoinSeasonOverlayDeps): void => {
   clearJoinPendingWatchdog();
   joinPendingStartedAt = Date.now();
   joinPendingOverlay = overlayEl;
-  joinPendingWatchdog = setTimeout(() => {
+  // The spinner is drawn from cached HTML (see RENDER_KEY_ATTR), so if the
+  // pending flag is cleared somewhere that never re-renders the overlay (an
+  // ERROR path that returns early), the "Joining..." button would spin on
+  // forever. Both timers force a fresh render once the flag is gone.
+  const rerenderSettled = (): void => {
     clearJoinPendingWatchdog();
-    if (!state.joinSeasonPending) return;
-    state.joinSeasonPending = false;
-    pushFeed?.("Joining the season is taking too long. Try again.", "error", "warn");
+    delete overlayEl.dataset[RENDER_KEY_ATTR];
     renderHud();
+  };
+  joinPendingWatchdog = setTimeout(() => {
+    if (state.joinSeasonPending) {
+      state.joinSeasonPending = false;
+      pushFeed?.("Joining the Sector Contest is taking too long. Try again.", "error", "warn");
+    }
+    rerenderSettled();
   }, JOIN_SEASON_PENDING_WATCHDOG_MS);
   joinWaitTicker = setInterval(() => {
+    if (!state.joinSeasonPending) {
+      rerenderSettled();
+      return;
+    }
     const hintEl = overlayEl.querySelector("#join-season-wait-hint");
     if (hintEl) hintEl.textContent = currentJoinWaitHint();
   }, 1_000);
@@ -101,22 +123,22 @@ const clearCountdownTimer = (): void => {
 // renderJoinSeasonOverlay is called on every renderHud() pass -- which fires
 // many times a second from ordinary socket/state traffic, not just when this
 // overlay's own content changes. Rebuilding overlayEl.innerHTML on every one
-// of those calls tore down and recreated the war-room shell's cog element
-// each time, restarting its CSS animation from frame 0 before it ever
-// completed a visible rotation -- the "vibrating instead of turning" bug.
+// of those calls tore down and recreated every animated element (originally
+// a decorative cog, now the join button's spinner and sheen) each time,
+// restarting its CSS animation from frame 0 before it ever completed a
+// visible rotation -- the "vibrating instead of turning" bug.
 // This tracks what was actually rendered last time so the expensive rebuild
 // (and the animation restart that comes with it) only happens when the
 // overlay's actual content changes -- a new roster entry, the count ticking
 // up, the branch switching -- not on every unrelated render pass. The live
 // countdown digits still update every second via the tick() below, which
-// only touches #join-season-countdown's text and never touches the cog.
+// only touches #join-season-countdown's text and never rebuilds the panel.
 //
 // Stored as a dataset attribute on overlayEl itself, not a module-level
 // variable -- this module has no per-instance state otherwise, and a plain
 // module-level `let` would leak between independent render sequences (e.g.
 // two different overlay elements, or successive unrelated test cases in the
 // same module instance) instead of tracking "what THIS element last showed".
-const RENDER_KEY_ATTR = "seasonLobbyRenderKey";
 
 const computeRenderKey = (state: JoinSeasonOverlayDeps["state"], visible: boolean): string =>
   !visible
@@ -128,7 +150,8 @@ const computeRenderKey = (state: JoinSeasonOverlayDeps["state"], visible: boolea
         state.joinSeasonPending,
         state.seasonLobbyWaitingCount,
         state.seasonLobbyMaxPlayers,
-        state.seasonLobbyRoster
+        state.seasonLobbyRoster,
+        state.sectorBoard
       ]);
 
 // While the join-season overlay is up (either branch), this becomes the ONLY
@@ -164,7 +187,10 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   // and hide #auth-overlay along with the rest of #hud, silently skipping
   // the name/color picker entirely -- there was simply no screen left to
   // show it on.
-  const visible = state.needsSeasonJoin && state.joinSeasonOverlayOpen && !state.profileSetupRequired;
+  // Once the season has a winner it is over: nobody can join it (the
+  // simulation rejects JoinSeason), so the season-end screen is shown
+  // instead of a "Let's go!" prompt that could only ever fail.
+  const visible = state.needsSeasonJoin && state.joinSeasonOverlayOpen && !state.profileSetupRequired && !state.seasonWinner;
   overlayEl.style.display = visible ? "grid" : "none";
   if (!visible) {
     if (overlayEl.innerHTML) overlayEl.innerHTML = "";
@@ -177,6 +203,10 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
 
   setSeasonLobbyFullscreen(true);
 
+  // Before the render-key check: a failed board load retries through a
+  // later renderHud that would otherwise stop at the unchanged key.
+  if (!state.seasonPending && !state.joinSeasonPending && deps.wsUrl) sectorBoardLoaderFor(deps.wsUrl, renderHud)(state);
+
   const renderKey = computeRenderKey(state, visible);
   if (renderKey === overlayEl.dataset[RENDER_KEY_ATTR]) return;
   overlayEl.dataset[RENDER_KEY_ATTR] = renderKey;
@@ -184,7 +214,9 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   if (state.joinSeasonPending) armJoinPendingWatchdog(deps);
   else clearJoinPendingWatchdog();
 
-  const seasonLabel = state.joinSeasonId ? `Season ${state.joinSeasonId}` : "the current season";
+  // No number: season ids count every contest, which clashes with the
+  // gapless "Sector 003" numbering players see in Space View.
+  const seasonLabel = "Sector Contest";
 
   if (state.seasonPending) {
     const scheduledStartAt = state.seasonPendingScheduledStartAt;
@@ -196,9 +228,9 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
       <div class="respawn-backdrop" id="join-season-backdrop"></div>
       <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
         <div class="respawn-modal-scroll">
-          <div class="respawn-kicker">Beta season</div>
-          <h2 id="join-season-title" class="respawn-title">Season starts soon</h2>
-          <p class="respawn-summary">Same starting line for everyone — the whole season kicks off in one shot, no head starts. (Your timezone still decides how early you're up to seize it.) Gates open <strong>${localStartLabel}</strong> your local time.</p>
+          <div class="respawn-kicker">Beta Sector Contest</div>
+          <h2 id="join-season-title" class="respawn-title">Sector Contest starts soon</h2>
+          <p class="respawn-summary">Same starting line for everyone — the whole Sector Contest kicks off in one shot, no head starts. (Your timezone still decides how early you're up to seize it.) Gates open <strong>${localStartLabel}</strong> your local time.</p>
           <section class="respawn-section respawn-actions">
             <div id="join-season-countdown" class="respawn-title" style="font-variant-numeric: tabular-nums;">
               ${formatCountdown(scheduledStartAt - Date.now())}
@@ -236,24 +268,13 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   if (takeGuestAutoJoinTurn(state, Date.now()) && joinSeason()) state.joinSeasonPending = true;
   if (state.joinSeasonPending) armJoinPendingWatchdog(deps);
   const joining = state.joinSeasonPending;
-  overlayEl.innerHTML = `
-    <div class="respawn-backdrop" id="join-season-backdrop"></div>
-    <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
-      <button id="join-season-close" class="guide-close-btn" type="button" aria-label="Close join season prompt">×</button>
-      <div class="respawn-modal-scroll">
-        <div class="respawn-kicker">${seasonLabel}</div>
-        <h2 id="join-season-title" class="respawn-title">The Emperor has opened the planet for contestation</h2>
-        <p class="respawn-summary">You have heard the call and brought your people to the challenge. No one empire will win alone. Good luck.</p>
-        ${renderSeasonLobbyPanelHtml(state, false, false)}
-        <section class="respawn-section respawn-actions">
-          <button id="join-season-confirm" class="panel-btn season-lobby-lets-go-btn${joining ? " is-joining" : ""}" type="button" ${joining ? 'disabled aria-busy="true"' : ""}>
-            ${joining ? '<span class="season-lobby-join-spinner" aria-hidden="true"></span>Joining... setting up your empire' : "Let's go!"}
-          </button>
-          ${joining ? `<p id="join-season-wait-hint" class="season-lobby-join-wait-hint">${currentJoinWaitHint()}</p>` : ""}
-        </section>
-      </div>
-    </div>
-  `;
+  overlayEl.innerHTML = sectorBoardHtml({
+    kicker: seasonLabel,
+    board: !state.joinSeasonId || state.sectorBoard?.seasonId === state.joinSeasonId ? state.sectorBoard : undefined,
+    joining,
+    waitHintHtml: joining ? `<p id="join-season-wait-hint" class="season-lobby-join-wait-hint">${currentJoinWaitHint()}</p>` : "",
+    lobbyPanelHtml: renderSeasonLobbyPanelHtml(state, false, false)
+  });
 
   bindSeasonLobbyPanel({ overlayEl });
 

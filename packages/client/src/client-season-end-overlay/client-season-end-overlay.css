@@ -349,6 +349,7 @@
 .se-btn-secondary:hover { filter: brightness(1.12); border-color: rgba(201, 162, 75, 0.7); }
 .se-fineprint { text-align: center; margin: 12px 0 2px; font-size: 11px; color: rgba(236, 220, 180, 0.5); }
 .se-fineprint strong { color: var(--se-copper); }
+.se-arrival-note { text-align: center; margin: 4px auto 12px; max-width: 34em; font-size: 13px; line-height: 1.45; color: rgba(236, 220, 180, 0.82); }
 .se-misc-items { display: flex; flex-direction: column; gap: 10px; }
 .se-misc-item { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 14px; background: rgba(0, 0, 0, 0.3); border-radius: 6px; border: 1px solid rgba(201, 162, 75, 0.15); }
 .se-misc-label { font-size: 13px; color: var(--se-brass-hi); font-weight: 700; white-space: nowrap; }
@@ -389,3 +390,15 @@
   .se-actions { gap: 10px; }
   .se-btn { padding: 12px 18px; flex: 1 1 auto; justify-content: center; }
 }
+
+/* admin long-press to force-start (see season-end-force-hold.ts) */
+.se-btn-primary[aria-disabled="true"] { filter: grayscale(0.3) brightness(0.85); }
+.se-btn[data-se-force-hold] { overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.se-btn-hold-fill {
+  position: absolute; inset: 0;
+  background: rgba(150, 30, 20, 0.45);
+  transform: scaleX(0); transform-origin: left center;
+  pointer-events: none;
+}
+.se-btn.is-holding .se-btn-hold-fill { transform: scaleX(1); transition: transform var(--se-hold-ms, 1500ms) linear; }
+.se-btn[data-se-force-hold] > :not(.se-btn-hold-fill) { position: relative; z-index: 1; }

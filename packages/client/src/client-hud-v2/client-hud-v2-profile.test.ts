@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
+import { forgetWritten, writeHtml } from "./client-hud-v2-context.js";
 import { profileHtml, profileScreenStep, type ProfileInput } from "./client-hud-v2-profile.js";
 
 const base: ProfileInput = {
@@ -23,6 +24,26 @@ const render = (input: ProfileInput): HTMLElement => {
 };
 
 describe("player profile screen", () => {
+  it("restores the mobile page and desktop details scroll positions when stats refresh", () => {
+    const host = document.createElement("div");
+    host.id = "test-profile-scroll";
+    document.body.append(host);
+    try {
+      writeHtml(host.id, profileHtml(base));
+      host.querySelector<HTMLElement>(".v2p")!.scrollTop = 180;
+      host.querySelector<HTMLElement>(".v2p-main")!.scrollTop = 70;
+
+      writeHtml(host.id, profileHtml({ ...base, entry: { ...base.entry!, score: 325 } }));
+
+      expect(host.querySelector(".v2p-stats")?.textContent).toContain("325");
+      expect(host.querySelector(".v2p")?.scrollTop).toBe(180);
+      expect(host.querySelector(".v2p-main")?.scrollTop).toBe(70);
+    } finally {
+      forgetWritten(host.id);
+      host.remove();
+    }
+  });
+
   it("opens for a picked player and closes once dismissed", () => {
     expect(profileScreenStep("p2", null)).toBe("open");
     expect(profileScreenStep("p2", "ranks")).toBe("open");

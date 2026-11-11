@@ -7,7 +7,7 @@
 // client popup that reads grantedEffect/detail fields off it.
 import type { WaystationGoldTier } from "./waystation-rewards.js";
 
-export type WaystationGrantedEffect = "VISION" | "POPULATION" | "TECH" | "RESOURCE_SLOT" | "GOLD" | "MANPOWER";
+export type WaystationGrantedEffect = "VISION" | "POPULATION" | "TECH" | "RESOURCE_TILE" | "RESOURCE_SLOT" | "GOLD" | "MANPOWER";
 
 export type WaystationTileState = {
   activated: boolean;
@@ -19,7 +19,7 @@ export type WaystationTileState = {
   revealedAtY?: number;
   /** TECH only: the tech id granted. (Pre-GOLD-fallback activations may have TECH with no id -- the old no-op.) */
   grantedTechId?: string;
-  /** RESOURCE_SLOT only: which resource received the +1 slot bump. */
+  /** Resource found on the tile, or the type of slot granted by a legacy RESOURCE_SLOT reward. */
   grantedResource?: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
   /** POPULATION only: the name of the town that received the burst. Absent if the player had no owned town nearby (silent no-op -- the tile still activates) or the town was unnamed. */
   grantedTownName?: string;

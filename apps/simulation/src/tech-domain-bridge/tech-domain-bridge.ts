@@ -435,7 +435,7 @@ export const buildTechUpdatePayload = (
       },
       // Lets the client show "already built" on a claimed monument's unlock tech (monument-uniqueness.ts) instead of a generic locked state.
       ...(!player.techIds.has(tech.id) && claimedMonumentTechIds.has(tech.id)
-        ? { lockedReason: "monument already built this season" }
+        ? { lockedReason: "monument already built this Sector Contest" }
         : {}),
       ...(tech.grantsPowerup ? { grantsPowerup: tech.grantsPowerup } : {})
     })),

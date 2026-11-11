@@ -8,6 +8,6 @@ export const seasonPendingErrorPayload = (
 ): { type: "ERROR"; code: "SEASON_PENDING"; message: string; scheduledStartAt: number } => ({
   type: "ERROR",
   code: "SEASON_PENDING",
-  message: "This season hasn't started yet. Hang tight for the countdown.",
+  message: "This Sector Contest hasn't started yet. Hang tight for the countdown.",
   scheduledStartAt
 });

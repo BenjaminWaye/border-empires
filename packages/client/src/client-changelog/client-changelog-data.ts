@@ -1,9 +1,15 @@
-import { AFC_CAMPAIGN_LOADOUT_ENTRY, AI_EXPANSION_FIXES_ENTRY, ATTACK_ENDS_SUPPLY_TRADES_ENTRY, FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, NEUTRAL_TOWN_NAMES_ENTRY, REPORT_CANCEL_ENTRY, SEASON_SCORES_SAVED_ENTRY, SECTOR_WAITLIST_ENTRY } from "./client-changelog-nov-09.js";
+import { FRONTIER_MAP_NAMES_ENTRY } from "./client-changelog-frontier-map-names.js";
+import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
+import { WAYSTATION_CAPTURE_ENTRY } from "./client-changelog-waystation-capture.js";
+import { TOWN_LIST_BUILD_SLOTS_ENTRY } from "./client-changelog-town-list-build-slots.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
+import { NEXT_CONTEST_ENTRY } from "./client-changelog-next-contest.js";
+import { SECTOR_BOARD_ENTRY } from "./client-changelog-nov-10.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
 import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
-import { COMMAND_NAVIGATION_ENTRY } from "./client-changelog-command-navigation.js";
+import { COMMAND_NAVIGATION_ENTRY, NAVIGATION_LABELS_ENTRY } from "./client-changelog-command-navigation.js";
 import { CONNECTED_DISTRICTS_CHANGELOG } from "./client-changelog-connected-districts.js";
 import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
 import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
@@ -58,6 +64,7 @@ import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
 import { ADVANCE_VISIBLE_ONLY_CHANGELOG } from "./client-changelog-advance-visible-only.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_19_20 } from "./client-changelog-oct-19-20.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_13_16 } from "./client-changelog-oct-13-16.js";
+import { WAR_TREE_HIVE_MIND_HUB_ENTRY } from "./client-changelog-nov-09.js";
 import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-effort.js";
 import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
 import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js";
@@ -71,7 +78,7 @@ import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
-import { MAP_LENS_CHANGELOG } from "./client-changelog-map-lens.js";
+import { MAP_LENS_CHANGELOG, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
@@ -163,9 +170,10 @@ import { FLAT_BUILD_TIME_CHANGELOG } from "./client-changelog-flat-build-time.js
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
+import { MOBILE_RESOURCE_RIBBON_ENTRY } from "./client-changelog-mobile-resource-ribbon.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
-import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
+import { AFC_LANDING_DEPLOYMENT_ENTRY, CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
@@ -180,6 +188,7 @@ export type ClientChangelogEntry = {
 // Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_REPLACEMENT_CHANGELOG,
+  { ...AFC_RELIC_BUILD_ENTRY, createdAt: 1794343264230, },
   ...TOWN_ECONOMY_CHANGELOG,
   ...RESOURCE_NETWORKS_CHANGELOG,
   ...AFC_SPECIALIZATIONS_CHANGELOG,
@@ -217,6 +226,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
+  { ...MOBILE_RESOURCE_RIBBON_ENTRY, createdAt: 1794288046727, },
   ...AETHER_ABILITY_ICONS_CHANGELOG,
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
@@ -472,15 +482,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ...MAP_BROWSING_FIXES_CHANGELOG,
     createdAt: 1794165080849, // Date.now() captured once.
   },
-  { ...SEASON_SCORES_SAVED_ENTRY, createdAt: 1794209772303, },
-  { ...NEUTRAL_TOWN_NAMES_ENTRY, createdAt: 1794215116027, },
   { ...ZOOMED_OUT_PAN_PERF_CHANGELOG, createdAt: 1794216988849, },
-  { ...AI_EXPANSION_FIXES_ENTRY, createdAt: 1794219265399, },
-  { ...ATTACK_ENDS_SUPPLY_TRADES_ENTRY, createdAt: 1794230766147, },
-  { ...REPORT_CANCEL_ENTRY, createdAt: 1794248783783, },
-  { ...FLAG_SUPPLY_TRADE_CONFIRM_ENTRY, createdAt: 1794241720931, },
-  { ...AFC_CAMPAIGN_LOADOUT_ENTRY, createdAt: 1794249083604, },
-  { ...SECTOR_WAITLIST_ENTRY, createdAt: 1794249296720, }
+  { ...WAR_TREE_HIVE_MIND_HUB_ENTRY, createdAt: 1794292926456, },
+  { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_110,
+  { ...NEXT_CONTEST_ENTRY, createdAt: 1794337809927, },
+  { ...SECTOR_BOARD_ENTRY, createdAt: 1794268104791, },
+  { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
+  { ...WAYSTATION_CAPTURE_ENTRY, createdAt: 1794342387101, },
+  { ...FRONTIER_MAP_NAMES_ENTRY, createdAt: 1794312655623, },
+  { ...TOWN_LIST_BUILD_SLOTS_ENTRY, createdAt: 1794383457964, },
+  { ...RESOURCE_LENS_ENTRY, createdAt: 1794383695242, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

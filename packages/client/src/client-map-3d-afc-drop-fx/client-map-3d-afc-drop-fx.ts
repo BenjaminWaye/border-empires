@@ -8,12 +8,8 @@
 // pulses. All timing comes from client-afc-join-drop-timeline.ts, which the
 // 2D companion shares.
 //
-// The descending model is a private single-instance createFabricationComplexOverlay
-// parented to a child Scene whose Y is animated, so the shared AfcOverlayGroup
-// (which rebuilds from tile state and has no per-instance identity) is never
-// touched. The real AFC is hidden by the join-drop controller until touchdown
-// and takes over from underneath the smoke; the descending copy lingers for
-// AFC_JOIN_MODEL_OVERLAP_MS past touchdown to cover any rebuild throttling.
+// The drop owns its model through deployment. The permanent AFC takes over
+// at the same height and pose after the terrain pass commits it.
 import {
   AdditiveBlending,
   CanvasTexture,
@@ -31,13 +27,15 @@ import {
   type Texture,
   type Object3D
 } from "three";
-import { createFabricationComplexOverlay, type FabricationComplexOverlay } from "../client-map-3d-fabrication-complex.js";
+import { createAfcOverlayGroup, type AfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
 import { makeGlowTexture, makeStreakTexture } from "../client-map-3d-afc-module-delivery-fx.js";
 import {
   AFC_JOIN_DESCENT_MS,
   AFC_JOIN_MODEL_OVERLAP_MS,
   AFC_JOIN_TOTAL_MS,
   afcJoinBrakeIntensity,
+  afcJoinDeploymentPose,
+  type AfcDeploymentPose,
   afcJoinFallenFraction,
   afcJoinStreakAlpha
 } from "../client-afc-join-drop/client-afc-join-drop-timeline.js";
@@ -52,7 +50,7 @@ const POWER_ON_MS = 1600;
 const SMOKE_PUFF_COUNT = 30;
 const SMOKE_SPREAD_RADIUS = 2.2;
 const SMOKE_DRIFT_HEIGHT = 1.1;
-const SMOKE_PEAK_OPACITY = 0.26;
+const SMOKE_PEAK_OPACITY = 0.20;
 
 const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
 const easeOut = (t: number): number => 1 - (1 - t) * (1 - t);
@@ -85,11 +83,21 @@ const makeSmokeTexture = (): CanvasTexture | null => {
 
 type SmokePuff = { readonly mesh: Sprite; readonly delayMs: number; readonly riseHeight: number; readonly driftX: number; readonly driftZ: number };
 
+type AfcDropSite = {
+  readonly worldX: number;
+  readonly worldY: number;
+  readonly moduleIds: readonly string[];
+  readonly padY: () => number;
+  readonly isCurrent: () => boolean;
+  readonly hasPermanentModel: () => boolean;
+};
+
 type DropEntry = {
   readonly group: Group;
   readonly container: Scene;
-  readonly model: FabricationComplexOverlay;
-  modelAlive: boolean;
+  readonly model: AfcOverlayGroup;
+  readonly site: AfcDropSite | undefined;
+  pose: AfcDeploymentPose;
   readonly streak: Mesh;
   readonly streakCore: Mesh;
   readonly headGlow: Sprite;
@@ -107,7 +115,7 @@ type DropEntry = {
 export type AfcDropFxLayer = {
   readonly group: Group;
   /** Starts a drop whose timeline began at `startedAtMs` (performance.now()); a late start plays the remainder and a finished one is ignored. Staying on its tile while the camera pans is the anchored fx root's job (client-map-3d-anchored-fx). */
-  readonly spawn: (sceneX: number, sceneZ: number, surfaceY: number, startedAtMs: number) => void;
+  readonly spawn: (sceneX: number, sceneZ: number, surfaceY: number, startedAtMs: number, site?: AfcDropSite) => void;
   readonly update: (nowMs: number) => void;
   readonly clear: () => void;
   readonly dispose: () => void;
@@ -137,18 +145,16 @@ export const createAfcDropFxLayer = (scene: Object3D, buildingEnvironmentTexture
     new SpriteMaterial({ toneMapped: false, map: smokeTexture, color: "#ffffff", transparent: true, opacity: 0, blending: NormalBlending, depthWrite: false });
   const additiveGlowPlane = (color: string): MeshBasicMaterial => additiveMaterial(color, glowTexture);
 
-  const spawnEntry = (sceneX: number, sceneZ: number, surfaceY: number, startedAtMs: number): void => {
+  const spawnEntry = (sceneX: number, sceneZ: number, surfaceY: number, startedAtMs: number, site?: AfcDropSite): void => {
     const entryGroup = new Group();
     entryGroup.position.set(sceneX, surfaceY, sceneZ);
 
-    // A child Scene is a plain Object3D to the renderer; the overlay factory
-    // only needs something to add its meshes to, and moving this container
-    // moves the whole model.
     const container = new Scene();
     container.position.y = DROP_HEIGHT;
     entryGroup.add(container);
-    const model = createFabricationComplexOverlay(container, 1, buildingEnvironmentTexture);
-    model.addInstance(0, 0, 0, 0, 0);
+    const model = createAfcOverlayGroup(container, 1, buildingEnvironmentTexture, site?.moduleIds ?? []);
+    const pose = afcJoinDeploymentPose(-AFC_JOIN_DESCENT_MS);
+    model.addAfc(0, 0, 0, site?.worldX ?? 0, site?.worldY ?? 0, [], false, pose);
     model.commit();
 
     const streak = new Mesh(streakGeometry, additiveMaterial("#ffb066", streakTexture));
@@ -186,18 +192,12 @@ export const createAfcDropFxLayer = (scene: Object3D, buildingEnvironmentTexture
     }
 
     group.add(entryGroup);
-    entries.push({ group: entryGroup, container, model, modelAlive: true, streak, streakCore, headGlow, burnCone, burnGlow, groundBlast, ring, flash, shockwave, smoke, powerOnGlow, startedAt: startedAtMs });
-  };
-
-  const disposeModel = (entry: DropEntry): void => {
-    if (!entry.modelAlive) return;
-    entry.modelAlive = false;
-    entry.model.dispose();
-    entry.group.remove(entry.container);
+    entries.push({ group: entryGroup, container, model, site, pose, streak, streakCore, headGlow, burnCone, burnGlow, groundBlast, ring, flash, shockwave, smoke, powerOnGlow, startedAt: startedAtMs });
   };
 
   const disposeEntry = (entry: DropEntry): void => {
-    disposeModel(entry);
+    entry.model.dispose();
+    entry.group.remove(entry.container);
     group.remove(entry.group);
     entry.group.traverse((child) => {
       const target = child as Mesh | Sprite;
@@ -212,7 +212,6 @@ export const createAfcDropFxLayer = (scene: Object3D, buildingEnvironmentTexture
     const fallen = afcJoinFallenFraction(age);
     const baseY = DROP_HEIGHT * (1 - fallen);
     entry.container.position.y = baseY;
-    entry.model.update(nowMs);
     entry.streak.position.y = baseY + STREAK_LENGTH / 2;
     entry.streak.scale.set(1, STREAK_LENGTH, 1);
     entry.streakCore.position.y = baseY + STREAK_LENGTH / 2;
@@ -286,17 +285,33 @@ export const createAfcDropFxLayer = (scene: Object3D, buildingEnvironmentTexture
     for (let i = entries.length - 1; i >= 0; i -= 1) {
       const entry = entries[i]!;
       const age = nowMs - entry.startedAt;
-      if (age >= AFC_JOIN_TOTAL_MS + 50) {
+      if (entry.site?.isCurrent() === false || age >= AFC_JOIN_TOTAL_MS + AFC_JOIN_MODEL_OVERLAP_MS ||
+          (age >= AFC_JOIN_TOTAL_MS && (!entry.site || entry.site.hasPermanentModel()))) {
         disposeEntry(entry);
         entries.splice(i, 1);
         continue;
       }
       const landedAge = age - AFC_JOIN_DESCENT_MS;
-      if (entry.modelAlive && landedAge >= AFC_JOIN_MODEL_OVERLAP_MS) disposeModel(entry);
-      if (entry.modelAlive) updateFalling(entry, age, nowMs);
-      else hideFallingEffects(entry);
-      if (landedAge < 0) hideTouchdownEffects(entry);
-      else updateTouchdown(entry, landedAge);
+      if (landedAge < 0) {
+        updateFalling(entry, age, nowMs);
+        hideTouchdownEffects(entry);
+      } else {
+        entry.container.position.y = 0;
+        if (entry.site) entry.group.position.y = entry.site.padY();
+        hideFallingEffects(entry);
+        updateTouchdown(entry, landedAge);
+        const pose = afcJoinDeploymentPose(landedAge);
+        if (pose.arms !== entry.pose.arms || pose.bays !== entry.pose.bays) {
+          entry.pose = pose;
+          entry.model.clear();
+          // The commissioned machinery comes into view as the bays emerge
+          // from the hull. Its attachment follows the same slide as the pad.
+          const modules = pose.bays > 0.3 ? entry.site?.moduleIds ?? [] : [];
+          entry.model.addAfc(0, 0, 0, entry.site?.worldX ?? 0, entry.site?.worldY ?? 0, modules, false, pose);
+          entry.model.commit();
+        }
+      }
+      entry.model.update(nowMs);
     }
   };
 
@@ -313,9 +328,9 @@ export const createAfcDropFxLayer = (scene: Object3D, buildingEnvironmentTexture
     smokeTexture?.dispose();
   };
 
-  const spawn = (sceneX: number, sceneZ: number, surfaceY: number, startedAtMs: number): void => {
+  const spawn = (sceneX: number, sceneZ: number, surfaceY: number, startedAtMs: number, site?: AfcDropSite): void => {
     if (performance.now() - startedAtMs >= AFC_JOIN_TOTAL_MS) return;
-    spawnEntry(sceneX, sceneZ, surfaceY, startedAtMs);
+    spawnEntry(sceneX, sceneZ, surfaceY, startedAtMs, site);
   };
 
   return { group, spawn, update, clear, dispose };

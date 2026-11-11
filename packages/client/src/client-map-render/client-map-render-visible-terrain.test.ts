@@ -57,3 +57,30 @@ it("uses the resource plot in place of overlapping decorative forest in 2D", () 
   expect(render("owner", "NEURAL_RESIN")).toEqual(["hills", "ownership"]);
   expect(render("owner", "CONDUCTIVE_MINERALS")).toEqual(["hills", "ownership"]);
 });
+
+describe("2D visible terrain on the Resources lens", () => {
+  const paintOn = (tile: Partial<Tile>): string[] => {
+    const fills: string[] = [];
+    const ctx = {
+      fillStyle: "", strokeStyle: "", globalAlpha: 1, lineWidth: 1,
+      save: () => undefined, restore: () => undefined, beginPath: () => undefined, arc: () => undefined, fill: () => undefined,
+      fillRect(this: { fillStyle: string }) { fills.push(this.fillStyle); }, strokeRect: () => undefined
+    } as unknown as CanvasRenderingContext2D;
+    setTrue3DRendererActive(false);
+    drawVisibleTerrain2D({
+      ctx, effectiveOverlayColor: () => "#ff0000", drawForestOverlay: () => undefined, drawHillsOverlay: () => undefined,
+      keyFor: (x, y) => `${x},${y}`, wrapX: (x) => x, wrapY: (y) => y
+    }, { techIds: [], techCatalog: [], tiles: surroundedBy(tile.ownerId), tilesRevision: 0, showResourceOverlay: true },
+    { x: 5, y: 9, terrain: "LAND", ownershipState: "SETTLED", ...tile }, 5, 9, 0, 0, 48);
+    return fills;
+  };
+
+  it("paints a resource tile in its resource colour instead of its owner's", () => {
+    expect(paintOn({ ownerId: "owner", resource: "FARM" })).toEqual(["#e9f27b"]);
+    expect(paintOn({ resource: "GEMS" })).toEqual(["#b175ff"]);
+  });
+
+  it("gives owned land without a resource no territory paint", () => {
+    expect(paintOn({ ownerId: "owner" })).toEqual([]);
+  });
+});
