@@ -2,6 +2,7 @@
 // sent straight away or held in the dev queue until a slot -- or, for a
 // garrison, manpower -- frees up. Extracted from client-queue-logic.ts
 // (oversized), which re-exports everything here.
+import { announceBuildPlaced } from "./client-build-placed-feedback.js";
 import { SETTLE_COST, captureHoldSettleFloorMs } from "@border-empires/shared";
 import { canAffordCost, settleDurationMsForTile } from "../client-constants.js";
 import { debugTileLog, tileMatchesDebugKey } from "../client-debug/client-debug.js";
@@ -203,12 +204,8 @@ export const sendDevelopmentBuild = (
     sendGameMessage: (payload: unknown) => boolean;
   }
 ): boolean => {
-  const summary = deps.developmentSlotSummary();
-  const canQueue = opts.allowQueueWhenBusy !== false && !opts.fromQueue;
-  // FIFO: if anything is already waiting, this new click goes to the end of the line
-  // rather than racing into a slot that opened mid-dispatch.
-  if (canQueue && state.developmentQueue.length > 0) {
-    return deps.queueDevelopmentAction({
+  const queueBuild = (): boolean => {
+    const queued = deps.queueDevelopmentAction({
       kind: "BUILD",
       x: opts.x,
       y: opts.y,
@@ -217,18 +214,19 @@ export const sendDevelopmentBuild = (
       payload,
       optimisticKind: opts.optimisticKind
     });
+    if (queued) announceBuildPlaced(deps, payload.type, opts.label, "queued", opts);
+    return queued;
+  };
+  const summary = deps.developmentSlotSummary();
+  const canQueue = opts.allowQueueWhenBusy !== false && !opts.fromQueue;
+  // FIFO: if anything is already waiting, this new click goes to the end of the line
+  // rather than racing into a slot that opened mid-dispatch.
+  if (canQueue && state.developmentQueue.length > 0) {
+    return queueBuild();
   }
   if (summary.available <= 0) {
     if (canQueue) {
-      return deps.queueDevelopmentAction({
-        kind: "BUILD",
-        x: opts.x,
-        y: opts.y,
-        tileKey: deps.keyFor(opts.x, opts.y),
-        label: opts.label,
-        payload,
-        optimisticKind: opts.optimisticKind
-      });
+      return queueBuild();
     }
     if (!opts.suppressWarnings) {
       showVisibleActionWarning(deps, "Development slots full", deps.developmentSlotReason(summary));
@@ -251,6 +249,7 @@ export const sendDevelopmentBuild = (
   }
   if (opts.fromQueue) state.queuedDevelopmentDispatchPending = true;
   optimistic();
+  announceBuildPlaced(deps, payload.type, opts.label, "started", opts);
   deps.renderHud();
   return true;
 };

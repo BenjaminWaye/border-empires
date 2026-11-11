@@ -58,7 +58,7 @@ describe("town arrow detail refresh", () => {
     const panel = document.getElementById("v2t-left");
     expect(panel?.textContent).toContain("Birch");
     expect(panel?.textContent).toContain("+2,880/day");
-    expect(panel?.textContent).toContain("7 / 8");
+    expect(panel?.textContent).toContain("Support 7/8");
     stepTown(deps, -1);
     expect(requestTileDetailIfNeeded).toHaveBeenLastCalledWith(first, { force: true });
     stepTown(deps, 1);

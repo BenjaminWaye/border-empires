@@ -37,6 +37,29 @@ export type RuntimeClassifyVisibilityContext = Omit<Parameters<typeof classifyVi
   trackSyncMainThreadTask?: MainThreadTaskTracker["trackSync"];
 };
 
+/** The runtime state classification reads; visibilityCoverage stays owned by SimulationRuntime and is passed by reference. */
+export type RuntimeClassifyVisibilitySources = Pick<RuntimeClassifyVisibilityContext, "players" | "tiles" | "locksByTile" | "docks" | "dockLinksByDockTileKey" | "visibilityCoverage">;
+
+// Builds the context the classification free functions here take, from
+// SimulationRuntime's state (moved out of runtime.ts, which is over the
+// file-line cap).
+export function createClassifyVisibilityContext(
+  sources: RuntimeClassifyVisibilitySources,
+  applyManpowerRegen: RuntimeClassifyVisibilityContext["applyManpowerRegen"],
+  trackSyncMainThreadTask: MainThreadTaskTracker["trackSync"] | undefined
+): RuntimeClassifyVisibilityContext {
+  return {
+    players: sources.players,
+    tiles: sources.tiles,
+    locksByTile: sources.locksByTile,
+    docks: sources.docks,
+    dockLinksByDockTileKey: sources.dockLinksByDockTileKey,
+    applyManpowerRegen,
+    visibilityCoverage: sources.visibilityCoverage,
+    ...(trackSyncMainThreadTask !== undefined ? { trackSyncMainThreadTask } : {})
+  };
+}
+
 // Named so an event_loop_blocked incident can see this instead of an empty
 // mainThreadTasks — classification itself is now an O(territory) read of
 // the incrementally-maintained coverage cache (see

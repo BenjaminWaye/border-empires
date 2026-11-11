@@ -30,7 +30,7 @@ import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
-import { captureIsBattle, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
+import { captureIsBattle, createSlotPulse, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { closeTreasury, compactLayerClick, compactTrackerHtml, syncBackEntry, syncTreasury, treasuryOpen } from "./client-hud-v2-compact.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
@@ -283,6 +283,8 @@ let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: n
 const trackerScanKey = (state: ClientState): string =>
   [state.tilesRevision, state.settleProgressByTile.size, state.developmentQueue.length, state.activeDevelopmentProcessCount, state.manpower, state.manpowerCap].join("|");
 
+const slotPulse = createSlotPulse();
+
 const renderTracker = (state: ClientState, nowMs: number): void => {
   const key = trackerScanKey(state);
   if (!trackerScan || trackerScan.key !== key || nowMs - trackerScan.at > TRACKER_SCAN_MAX_AGE_MS) {
@@ -313,6 +315,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     building: tickSlots(trackerScan.building, elapsed),
     queue: trackerScan.queue,
     slotsOpen: slotsFold.open,
+    slotsPulse: slotPulse(trackerScan.buildSlots.busy, trackerScan.queue.length, nowMs),
     capture,
     nowMs
   };

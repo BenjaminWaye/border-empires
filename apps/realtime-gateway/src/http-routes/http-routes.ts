@@ -13,6 +13,7 @@ import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import { registerGalaxyHttpRoutes } from "./register-galaxy-http-routes.js";
 import { registerRallyLinkRoutes } from "./register-rally-link-routes.js";
 import { registerAdminWorldRoute } from "./register-admin-world-route.js";
+import { registerAdminTileVisibilityRoute, type TileVisibilityQuery } from "./register-admin-tile-visibility-route.js";
 import { registerCareerRoutes } from "../career-routes/career-routes.js";
 import { registerSocialRoutes, type PublicSocialView } from "../social-routes/social-routes.js";
 import { registerSovereignSiegeEngineStrikeRoutes } from "../sovereign-siege-engine-strike-routes/sovereign-siege-engine-strike-routes.js";
@@ -83,6 +84,8 @@ export type RegisterGatewayHttpRoutesDeps = {
   // dashboard / single scrape URL. Resolves to "" when unreachable so the
   // gateway-side series still render.
   getSimMetrics?: () => Promise<string>;
+  // Proxies the sim loopback's /debug/tile-visibility (same server as getSimMetrics).
+  getSimTileVisibility?: (query: TileVisibilityQuery) => Promise<unknown>;
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   getCurrentSeasonStatus: () => Promise<SeasonLifecycleStatus>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
@@ -214,6 +217,11 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     metrics: deps.metrics,
     ...(deps.getSimMetrics ? { getSimMetrics: deps.getSimMetrics } : {}),
     ...(deps.playerInsights ? { playerInsights: deps.playerInsights } : {})
+  });
+
+  registerAdminTileVisibilityRoute(app, {
+    adminRequestAuthorized,
+    ...(deps.getSimTileVisibility ? { getSimTileVisibility: deps.getSimTileVisibility } : {})
   });
 
   registerAdminWorldRoute(app, {

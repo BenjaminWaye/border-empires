@@ -70,14 +70,14 @@ export const trackerSummaryHtml = (input: TrackerInput): string => {
     input.flags.length > 0 ? `⚑ ${input.flags.length}` : "",
     input.capture ? `${input.capture.battle ? "Battle" : "Expanding"} ${formatRemaining(input.capture.resolvesAt - input.nowMs)}` : ""
   ].filter(Boolean);
-  return `<button type="button" class="v2c-track-line" data-v2c-tracker-toggle aria-expanded="false" aria-label="Tracker: ${parts.length} items, tap to unfold"><span class="v2c-track-caret" aria-hidden="true">▸</span>${parts.join(" · ")}</button>`;
+  return `<button type="button" class="v2c-track-line${input.slotsPulse ? " v2c-track-pulse" : ""}" data-v2c-tracker-toggle aria-expanded="false" aria-label="Tracker: ${parts.length} items, tap to unfold"><span class="v2c-track-caret" aria-hidden="true">▸</span>${parts.join(" · ")}</button>`;
 };
 
 export const compactTrackerHtml = (input: TrackerInput): string => {
   if (!compactTracker.open) return trackerSummaryHtml(input);
   const fold = `<button type="button" class="v2c-track-line v2c-track-line-open" data-v2c-tracker-toggle aria-expanded="true" aria-label="Fold the tracker"><span class="v2c-track-caret" aria-hidden="true">▾</span>Tracker</button>`;
   // The full tracker repeats the slot pips; keep them, they fold the slot list.
-  return `${fold}${trackerHtml(input) || buildSlotsHtml(input.buildSlots, input.slotsOpen)}`;
+  return `${fold}${trackerHtml(input) || buildSlotsHtml(input.buildSlots, input.slotsOpen, input.slotsPulse)}`;
 };
 
 // ---- Taps ----
