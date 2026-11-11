@@ -120,7 +120,16 @@ it("does not clear an upgrade selection when the global AFC quote changes", () =
 it("blocks a fort at a town inside a relic's nine tiles while allowing a build that uses a different plot", () => {
   const { state } = fixture();
   state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", naturalWonder: { type: "WARPRESS" } });
-  const town = { ...state.tiles.get("10,10")!, town: { type: "MARKET" as const } };
+  const town = { ...state.tiles.get("10,10")!, town: {
+    type: "MARKET" as const,
+    populationTier: "TOWN" as const,
+    baseGoldPerMinute: 1, goldPerMinute: 1, cap: 100,
+    supportCurrent: 1, supportMax: 2, isFed: true,
+    population: 100, maxPopulation: 200,
+    connectedTownCount: 0, connectedTownBonus: 0,
+    hasManufactory: false, manufactoryActive: false,
+    hasIncubationEngine: false, incubationEngineActive: false
+  } };
   const actions = gateTileConstructionActions([
     { id: "build_palisade", label: "Build fort" },
     { id: "build_manufactory", label: "Build manufactory" }
