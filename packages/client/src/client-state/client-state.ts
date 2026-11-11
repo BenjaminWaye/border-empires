@@ -19,7 +19,7 @@ import { createInitialAetherShieldState } from "../client-aether-tower-protectio
 import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js";
 import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialMapFxQueueState } from "./client-state-map-fx-queue-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
-import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MUSTER_MAX_TILES, type BuildableStructureType, type FrontierCombatSideBreakdown } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenStructureTier, type FrontierCombatSideBreakdown } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import { createInitialAttackDispatchState } from "./client-state-attack-dispatch-defaults.js";
@@ -52,7 +52,8 @@ export type { ClientWaypoint } from "./client-waypoint-state.js";
 import type { ClientWaypoint } from "./client-waypoint-state.js"; import type { ClientEventLogEntry } from "../client-event-log-html.js";
 
 type QueuedOptimisticKind = OptimisticStructureKind;
-type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string } | { type: "REMOVE_STRUCTURE"; x: number; y: number };
+// tier: the Fortify / Siege picker's explicit choice (structure-tier-choice.ts); absent = best tier the tech allows.
+type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string; tier?: ChosenStructureTier } | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
 export { storageGet, storageRemove, storageSet } from "./client-storage.js";
 import { storageGet } from "./client-storage.js";

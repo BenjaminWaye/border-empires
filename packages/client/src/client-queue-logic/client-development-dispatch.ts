@@ -3,7 +3,7 @@
 // garrison, manpower -- frees up. Extracted from client-queue-logic.ts
 // (oversized), which re-exports everything here.
 import { announceBuildPlaced } from "./client-build-placed-feedback.js";
-import { SETTLE_COST, captureHoldSettleFloorMs } from "@border-empires/shared";
+import { SETTLE_COST, captureHoldSettleFloorMs, type ChosenStructureTier } from "@border-empires/shared";
 import { canAffordCost, settleDurationMsForTile } from "../client-constants.js";
 import { debugTileLog, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -26,9 +26,9 @@ export type DevelopmentSlotSummary = {
 type QueuedDevelopmentAction = ClientState["developmentQueue"][number];
 type QueuedBuildPayload = Extract<QueuedDevelopmentAction, { kind: "BUILD" }>["payload"];
 type GatewayBuildWirePayload =
-  | { type: "BUILD_FORT"; x: number; y: number }
+  | { type: "BUILD_FORT"; x: number; y: number; tier?: ChosenStructureTier }
   | { type: "BUILD_OBSERVATORY"; x: number; y: number }
-  | { type: "BUILD_SIEGE_BATTERY"; x: number; y: number }
+  | { type: "BUILD_SIEGE_BATTERY"; x: number; y: number; tier?: ChosenStructureTier }
   | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: string }
   | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
@@ -40,9 +40,10 @@ const numericEffect = (effects: Record<string, unknown> | undefined, key: string
 
 export const gatewayBuildWirePayload = (payload: QueuedBuildPayload): GatewayBuildWirePayload => {
   if (payload.type !== "BUILD_STRUCTURE") return payload;
-  if (payload.structureType === "FORT") return { type: "BUILD_FORT", x: payload.x, y: payload.y };
+  const tier = payload.tier ? { tier: payload.tier } : {};
+  if (payload.structureType === "FORT") return { type: "BUILD_FORT", x: payload.x, y: payload.y, ...tier };
   if (payload.structureType === "OBSERVATORY") return { type: "BUILD_OBSERVATORY", x: payload.x, y: payload.y };
-  if (payload.structureType === "SIEGE_BATTERY") return { type: "BUILD_SIEGE_BATTERY", x: payload.x, y: payload.y };
+  if (payload.structureType === "SIEGE_BATTERY") return { type: "BUILD_SIEGE_BATTERY", x: payload.x, y: payload.y, ...tier };
   return { type: "BUILD_ECONOMIC_STRUCTURE", x: payload.x, y: payload.y, structureType: payload.structureType };
 };
 
@@ -273,7 +274,7 @@ export const processDevelopmentQueue = (
         suppressWarnings: true;
       }
     ) => boolean;
-    applyOptimisticStructureBuild: (x: number, y: number, kind: OptimisticStructureKind) => void;
+    applyOptimisticStructureBuild: (x: number, y: number, kind: OptimisticStructureKind, chosenTier?: ChosenStructureTier) => void;
     applyOptimisticStructureRemoval: (x: number, y: number) => void;
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
@@ -327,7 +328,7 @@ export const processDevelopmentQueue = (
           })
         : deps.sendDevelopmentBuild(next.payload, () => {
             if (next.payload.type === "REMOVE_STRUCTURE") deps.applyOptimisticStructureRemoval(next.x, next.y);
-            else deps.applyOptimisticStructureBuild(next.x, next.y, next.optimisticKind);
+            else deps.applyOptimisticStructureBuild(next.x, next.y, next.optimisticKind, next.payload.tier);
           }, {
             x: next.x,
             y: next.y,

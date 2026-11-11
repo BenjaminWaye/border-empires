@@ -19,6 +19,26 @@ describe("writeOptimisticStructureBuild", () => {
     expect(tile.economicStructure).toEqual(beacon);
   });
 
+  it("writes the picker's chosen lower tier, not the best one the tech allows", () => {
+    const tile = baseTile();
+    writeOptimisticStructureBuild(tile, "FORT", "me", techs("masonry", "fortified-walls", "steelworking"), 5_000, 1_000, undefined, undefined, "FORT");
+    expect(tile.fort?.variant).toBe("FORT");
+
+    const siegeTile = baseTile();
+    writeOptimisticStructureBuild(siegeTile, "SIEGE_BATTERY", "me", techs("siegecraft", "standing-army"), 5_000, 1_000, undefined, undefined, "SIEGE_BATTERY");
+    expect(siegeTile.siegeBattery?.variant).toBe("SIEGE_BATTERY");
+  });
+
+  it("writes nothing for a chosen tier the sim would refuse (locked, or not above the standing fort)", () => {
+    const locked = baseTile();
+    writeOptimisticStructureBuild(locked, "FORT", "me", techs("masonry"), 5_000, 1_000, undefined, undefined, "THUNDER_BASTION");
+    expect(locked.fort).toBeUndefined();
+
+    const fortified: Tile = { ...baseTile(), fort: { ownerId: "me", status: "active", variant: "TITANIUM_BASTION" } };
+    writeOptimisticStructureBuild(fortified, "FORT", "me", techs("masonry", "fortified-walls", "steelworking"), 5_000, 1_000, undefined, undefined, "FORT");
+    expect(fortified.fort).toEqual({ ownerId: "me", status: "active", variant: "TITANIUM_BASTION" });
+  });
+
   it("doesn't write a Palisade onto a tile that already has a fortification", () => {
     const tile: Tile = { ...baseTile(), fort: { ownerId: "me", status: "active", variant: "FORT" } };
     writeOptimisticStructureBuild(tile, "PALISADE", "me", techs(), 5_000, 1_000);

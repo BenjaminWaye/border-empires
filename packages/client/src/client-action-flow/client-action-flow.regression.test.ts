@@ -62,7 +62,7 @@ describe("client action flow regressions", () => {
     // out between the click and either follow-up landing. CLAIM_CONTINUATION_SET
     // registers the same tail server-side too, covering both the fresh-EXPAND
     // and already-owned-FRONTIER cases.
-    expect(source).toContain('sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType });');
+    expect(source).toContain('sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType, ...(tier ? { tier } : {}) });');
     expect(adjacentExpandClaimSource()).toContain(
       'sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x, y, structureType: "RELAY_BEACON" });'
     );

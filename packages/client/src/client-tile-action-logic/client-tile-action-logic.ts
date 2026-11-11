@@ -9,7 +9,6 @@ import {
   nextTownGrowthUpgrade,
   type BuildableStructureType,
   SETTLE_COST,
-  PALISADE_DEFENSE_MULT,
   structureBuildDurationMs,
   terrainAt,
   structureSkipsSettledRequirement,
@@ -28,7 +27,7 @@ import { SKY_DOCK_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS } from "../client-con
 import { connectedEnemyRegionKeys } from "../client-connected-region/client-connected-region.js";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
 import { economicStructureName, MONUMENT_COMPONENT_KEYS } from "../client-map-display.js";
-import { economicBuildMsForState, fortBuildMsForState } from "../client-build-speed/client-build-speed.js";
+import { economicBuildMsForState } from "../client-build-speed/client-build-speed.js";
 import { structureLabelForRemoval } from "../client-structure-time-labels/client-structure-time-labels.js";
 import type { SupportTownStructureKey } from "../client-support-structures/client-support-structures.js";
 import {
@@ -51,7 +50,7 @@ import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structur
 import { ownTowerReadyInMs, ownTowerShotReadyInMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { appendMarchCancelAction } from "../client-muster-march-targeting.js";
-import { fortModuleReady, hasFortTech, nextFortVariantForTile } from "./client-tile-action-fort-siege-variants.js";
+import { fortTierOptionsForTile, tierRowAvailability } from "./client-structure-tier-options.js";
 import { siegeCampAction } from "./client-tile-action-siege-camp.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason, ownedRelayBeaconCount } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
@@ -653,64 +652,24 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       ? townGrowthActionForUpgrade(state, nextTownGrowthUpgrade(tile.town.populationTier, tile.town.population))
       : undefined;
     if (townGrowthAction) out.push(townGrowthAction);
-    const hasPalisade = tile.fort?.variant === "PALISADE";
     const hasRelayBeacon = tile.economicStructure?.type === "RELAY_BEACON";
-    if (
-      buildShowsOnTile("PALISADE", tile, supportedTowns.length, supportedDocks.length) &&
-      !tile.fort &&
-      !tile.siegeBattery &&
-      !tile.observatory &&
-      (!tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "HARBOR_EXCHANGE") && // Fort/Palisade may also coexist with a Harbor Exchange, same as Relay Beacon.
-      // Normally masonry supersedes the Palisade with the full Fort
-      // upgrade below, but if a fresh Fort can't actually be built right now
-      // (masonry module not on an AFC, or no free TITANIUM slot) keep Palisade
-      // visible as the fallback rather than hiding both options.
-      (!fortModuleReady(state) || !hasFreeResourceSlots(state, "FORT"))
-    ) {
+    // One Fortify row (Palisade and every fort tier) that opens the tier picker
+    // (client-structure-tier-options.ts); a fortification may share a tile with a
+    // Relay Beacon or a Harbor Exchange, never with any other structure.
+    const fortifyTileFree = !tile.siegeBattery && !tile.observatory &&
+      (Boolean(tile.fort) || !tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "HARBOR_EXCHANGE");
+    const fortifyOptions = fortifyTileFree && (tile.fort || buildShowsOnTile("PALISADE", tile, supportedTowns.length, supportedDocks.length))
+      ? fortTierOptionsForTile(state, tile)
+      : [];
+    if (fortifyOptions.length > 0) {
       out.push({
-        id: "build_palisade" as TileActionDef["id"],
-        label: "Build Palisade",
-        detail: deps.buildDetailTextForAction("build_palisade", tile) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailability(
-          ...chainedBuildAvailability(
-            "PALISADE",
-            hasFreeResourceSlots(state, "PALISADE"),
-            missingResourceSlotReason(state, "PALISADE") ?? "Unavailable",
-            `${deps.structureCostText("PALISADE")} • ${buildTimeLabel(fortBuildMsForState(state, "PALISADE"))} • def x${PALISADE_DEFENSE_MULT.toFixed(2)}${upkeepSuffixFor("PALISADE")}`
-          )
-        )
+        id: "build_fortification",
+        label: tile.fort ? "Upgrade fortification" : "Fortify",
+        detail: deps.buildDetailTextForAction("build_fortification", tile) + frontierBuildDetailSuffix(tile),
+        cost: `Choose a tier: ${fortifyOptions.map((entry) => entry.label).join(" · ")}`,
+        ...tierRowAvailability(fortifyOptions),
+        tierOptions: fortifyOptions
       });
-    }
-    if (
-      tile.ownerId === state.me &&
-      !tile.siegeBattery &&
-      !tile.observatory &&
-      (tile.fort || !tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "HARBOR_EXCHANGE")
-    ) {
-      const fortVariant = nextFortVariantForTile(state, tile);
-      if (fortVariant) {
-        const hasTech = tile.fort && !hasPalisade ? true : hasFortTech(state); // a Palisade upgrade still needs masonry (or Fortification Patterns)
-        const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "HARBOR_EXCHANGE";
-        const hasFreeSlots = hasFreeResourceSlots(state, fortVariant.variant, tile.fort?.variant, tile);
-        out.push({
-          id: "build_fortification",
-          label: tile.fort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`,
-          detail: deps.buildDetailTextForAction("build_fortification", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailability(
-            ...chainedBuildAvailability(
-              "FORT",
-              hasTech && hasFreeSlots && canUseTile,
-              !hasTech
-                ? "Requires Ironclad Masonry"
-                : !canUseTile
-                  ? "Tile already has structure"
-                  : missingResourceSlotReason(state, fortVariant.variant, tile.fort?.variant, tile) ?? "Unavailable",
-              `${fortVariant.summary} • ${buildTimeLabel(fortBuildMsForState(state, fortVariant.variant))} • def x${fortVariant.defenseMult.toFixed(2)}${fortVariant.upkeepSuffix}`,
-              fortVariant.gold
-            )
-          )
-        });
-      }
     }
     if (buildShowsOnTile("OBSERVATORY", tile, supportedTowns.length, supportedDocks.length) && !tile.observatory) {
       const hasTech = state.techIds.includes("crystal-lattices");
