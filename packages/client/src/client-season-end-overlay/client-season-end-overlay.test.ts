@@ -7,6 +7,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   seasonWinner: undefined,
   seasonEndDismissed: false,
   seasonEndStarting: false,
+  seasonStartError: undefined as string | undefined,
   seasonStartVoteCount: 0, seasonStartVoted: false, seasonStartVoteThreshold: 10, authIsGuest: false, needsSeasonJoin: false, mapRevealEligible: false,
   leaderboard: {
     overall: [] as { id: string; rank: number; name: string; score: number; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number }[],
@@ -241,7 +242,8 @@ describe("season-end overlay", () => {
     renderSeasonEndOverlay({ state: state as any, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
     const newSeasonBtn = overlayEl.querySelector("#se-new-season") as HTMLButtonElement;
     expect(newSeasonBtn.disabled).toBe(true);
-    expect(overlayEl.innerHTML).toContain("Winding the Spring");
+    expect(overlayEl.innerHTML).toContain("Starting the next Sector Contest");
+    expect(overlayEl.querySelector(".se-fineprint")?.textContent).toContain("next world is being built");
   });
 
   it("renders all leaderboard entries in final standings", () => {

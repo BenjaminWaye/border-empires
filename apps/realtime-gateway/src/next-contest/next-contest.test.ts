@@ -50,8 +50,8 @@ describe("next contest", () => {
     const nextContest = createNextContest(deps);
     expect(await nextContest.commit("p1", false)).toEqual({ ok: true, count: 1, started: false });
     expect(await nextContest.commit("p1", false)).toEqual({ ok: true, count: 1, started: false });
-    expect(deps.broadcast).toHaveBeenLastCalledWith({ type: "SEASON_START_VOTE_UPDATE", voteCount: 1, threshold: 3, votedBy: ["p1"] });
-    expect(nextContest.initFields("p1")).toEqual({ seasonStartVoteCount: 1, seasonStartVoted: true, seasonStartVoteThreshold: 3 });
+    expect(deps.broadcast).toHaveBeenLastCalledWith({ type: "SEASON_START_VOTE_UPDATE", voteCount: 1, threshold: 3, votedBy: ["p1"], starting: false });
+    expect(nextContest.initFields("p1")).toEqual({ seasonStartVoteCount: 1, seasonStartVoted: true, seasonStartVoteThreshold: 3, seasonStartStarting: false });
     expect(nextContest.initFields("p2")).toMatchObject({ seasonStartVoted: false });
     expect(deps.startNextSeason).not.toHaveBeenCalled();
   });
@@ -128,6 +128,36 @@ describe("next contest", () => {
     expect(await third).toEqual({ ok: true, count: 3, started: true });
     expect(deps.startNextSeason).toHaveBeenCalledTimes(1);
     expect(deps.joinSeason.mock.calls.map(([playerId]) => playerId)).toEqual(["p1", "p2", "p3", "p4"]);
+  });
+
+  // Regression: nothing told players a start was under way, so the admin
+  // kept force-starting and everyone saw a live button until the rollover.
+  it("announces the start to everyone while the next world is building", async () => {
+    let finishRollover: () => void = () => {};
+    const { deps, setSeason } = makeDeps();
+    deps.startNextSeason = vi.fn(() => new Promise<{ seasonId: string }>((resolve) => {
+      finishRollover = () => { setSeason({ seasonId: "season-2", status: "active" }); resolve({ seasonId: "season-2" }); };
+    }));
+    const nextContest = createNextContest(deps);
+    await nextContest.commit("p1", false);
+    const forced = nextContest.forceStart();
+    await vi.waitFor(() => expect(deps.startNextSeason).toHaveBeenCalledTimes(1));
+    expect(deps.broadcast).toHaveBeenLastCalledWith(expect.objectContaining({ voteCount: 1, votedBy: ["p1"], starting: true }));
+    expect(nextContest.isStarting()).toBe(true);
+    expect(nextContest.initFields("p2")).toMatchObject({ seasonStartStarting: true });
+    finishRollover();
+    expect(await forced).toEqual({ seasonId: "season-2" });
+    expect(nextContest.isStarting()).toBe(false);
+  });
+
+  it("clears the announced start when the world build fails", async () => {
+    const { deps } = makeDeps();
+    deps.startNextSeason = vi.fn(async () => { throw new Error("rollover failed"); });
+    const nextContest = createNextContest(deps);
+    await nextContest.commit("p1", false);
+    await expect(nextContest.forceStart()).rejects.toThrow("rollover failed");
+    expect(deps.broadcast).toHaveBeenLastCalledWith(expect.objectContaining({ starting: false, voteCount: 1 }));
+    expect(nextContest.isStarting()).toBe(false);
   });
 
   it("does not start a running season from the timer", async () => {

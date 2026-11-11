@@ -31,6 +31,7 @@ type SeasonEndOverlayDeps = {
     | "seasonScoreHistory"
     | "seasonEndDismissed"
     | "seasonEndStarting"
+    | "seasonStartError"
     | "seasonStartVoteCount"
     | "seasonStartVoted"
     | "seasonStartVoteThreshold"
@@ -104,6 +105,7 @@ const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: Seas
     winner: [state.seasonWinner?.playerId, state.seasonWinner?.playerName, state.seasonWinner?.crownedAt],
     objective: state.seasonWinner?.objectiveName,
     starting: state.seasonEndStarting,
+    startError: state.seasonStartError,
     voteCount: state.seasonStartVoteCount,
     voted: state.seasonStartVoted,
     threshold: state.seasonStartVoteThreshold,
@@ -369,7 +371,8 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             </button>
             <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
           </footer>
-          <p class="se-fineprint">${escapeHtml(nextContestFineprint(state.seasonStartVoteThreshold))}</p>
+          ${state.seasonStartError && !starting ? `<p class="se-start-error" role="alert">${escapeHtml(state.seasonStartError)}</p>` : ""}
+          <p class="se-fineprint" aria-live="polite">${escapeHtml(nextContestFineprint(state.seasonStartVoteThreshold, starting))}</p>
         </div>
       </div>
     </div>`;
@@ -408,9 +411,19 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
       if (consumeForceHoldClick(newSeason)) return;
       if (state.seasonEndStarting || state.seasonStartVoted) return;
       if (state.authIsGuest) { openGuestSave?.(); return; }
+      state.seasonStartError = undefined;
       startNewSeason();
     };
-    if (canForceStart && forceStartNewSeason) attachSeasonForceHold(newSeason, { onForce: forceStartNewSeason });
+    if (canForceStart && forceStartNewSeason) {
+      // Show the start straight away: the world build takes a while and the
+      // gateway's "starting" broadcast confirms it (or an ERROR reverts it).
+      attachSeasonForceHold(newSeason, { onForce: () => {
+        state.seasonEndStarting = true;
+        state.seasonStartError = undefined;
+        forceStartNewSeason();
+        renderHud();
+      } });
+    }
   }
 
   const tabBar = overlayEl.querySelector(".se-tab-bar") as HTMLElement | null;

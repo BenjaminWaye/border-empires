@@ -8,6 +8,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   seasonWinner: { playerId: "player-1", playerName: "Nauticus", crownedAt: 1700000000000, objectiveId: "TOWN_CONTROL", objectiveName: "Town Control" },
   seasonEndDismissed: false,
   seasonEndStarting: false,
+  seasonStartError: undefined as string | undefined,
   seasonStartVoteCount: 1,
   seasonStartVoted: true, seasonStartVoteThreshold: 10, authIsGuest: false, needsSeasonJoin: false,
   mapRevealEligible: false,
@@ -64,6 +65,37 @@ describe("season-end admin force-start hold", () => {
     vi.advanceTimersByTime(FORCE_HOLD_MS);
     expect(forceStartNewSeason).not.toHaveBeenCalled();
     overlayEl.remove();
+  });
+
+  // Regression: a completed hold gave no feedback and the button stayed live,
+  // so the admin kept force-starting while the world was being built.
+  it("shows the start immediately after a completed hold and blocks repeats", () => {
+    const state = makeState({ mapRevealEligible: true, seasonStartError: "earlier refusal" });
+    const overlayEl = document.createElement("div");
+    document.body.appendChild(overlayEl);
+    const forceStartNewSeason = vi.fn();
+    const deps = { state: state as any, overlayEl, renderHud: () => renderSeasonEndOverlay(deps), startNewSeason: vi.fn(), forceStartNewSeason };
+    renderSeasonEndOverlay(deps);
+    const button = overlayEl.querySelector("#se-new-season") as HTMLButtonElement;
+    press(button);
+    vi.advanceTimersByTime(FORCE_HOLD_MS);
+    expect(forceStartNewSeason).toHaveBeenCalledTimes(1);
+    expect(state.seasonEndStarting).toBe(true);
+    expect(state.seasonStartError).toBeUndefined();
+    const after = overlayEl.querySelector("#se-new-season") as HTMLButtonElement;
+    expect(after.disabled).toBe(true);
+    expect(after.hasAttribute("data-se-force-hold")).toBe(false);
+    expect(after.textContent).toContain("Starting the next Sector Contest");
+    press(after);
+    vi.advanceTimersByTime(FORCE_HOLD_MS * 2);
+    expect(forceStartNewSeason).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a refused start on the overlay instead of only in the feed", () => {
+    const { button } = render(makeState({ mapRevealEligible: true, seasonStartError: "Only the admin account can force-start." }));
+    const error = button.ownerDocument.querySelector(".se-start-error");
+    expect(error?.textContent).toBe("Only the admin account can force-start.");
+    expect(error?.getAttribute("role")).toBe("alert");
   });
 
   it("does not force-start when the admin releases early", () => {

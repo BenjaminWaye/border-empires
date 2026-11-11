@@ -15,6 +15,7 @@ const stateForSummary = (): State => ({
   },
   seasonEndDismissed: false,
   seasonEndStarting: false,
+  seasonStartError: undefined as string | undefined,
   seasonStartVoteCount: 0,
   seasonStartVoted: false, seasonStartVoteThreshold: 10, authIsGuest: false, needsSeasonJoin: false,
   mapRevealEligible: false,
