@@ -484,6 +484,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...NEXT_CONTEST_ENTRY, createdAt: 1794337809927, },
   { ...SECTOR_BOARD_ENTRY, createdAt: 1794268104791, },
   { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
+  {
+    createdAt: 1794342387101,
+    introducedIn: "2026.11.10",
+    title: "Waystations disappear after capture",
+    why: "The reward is claimed once.",
+    changes: ["A resource reward leaves a resource tile on the former waystation site."]
+  },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
