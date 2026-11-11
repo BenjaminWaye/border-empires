@@ -11,3 +11,15 @@ export const PLANETARY_DEFENSE_HUNT_ENTRY: Omit<ClientChangelogEntry, "createdAt
     "Planetary Defense soldiers keep patrolling on devices running the 3D map at 30fps; they only stand still on a device that is really struggling, or with Reduce Motion on"
   ]
 };
+
+export const PLANETARY_DEFENSE_HUNT_REACH_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.12",
+  title: "Hunts only go to flags that can reach",
+  why: "An attack on Planetary Defense could be handed to a flag across water that could never reach it, and the attack was lost.",
+  changes: [
+    "Attacking Planetary Defense starts a hunt only with a flag that can reach the tile over your land, docks or aether bridges; otherwise the attack goes the normal way",
+    "Hunt Planetary Defense on a captured tile picks the nearest flag that can reach it and has troops staged",
+    "A flag whose own attack is still marching is left alone",
+    "A new hunt order goes out at once instead of waiting out the flag's previous pause"
+  ]
+};
