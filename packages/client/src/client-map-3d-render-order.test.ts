@@ -16,6 +16,17 @@ describe("surface overlay render order", () => {
     expect(RENDER_ORDER.selectedMarker).toBeLessThan(RENDER_ORDER.hoverMarker);
   });
 
+  it("draws ground names over the ownership tint, rivers and fog layers, under mist, sea, storm and markers", () => {
+    // Names used to sit at 8.5, under the fog layers (9/10), whose slate wash
+    // washed them out over remembered territory.
+    for (const below of [RENDER_ORDER.ownershipSettled, RENDER_ORDER.ownershipFrontier, RENDER_ORDER.riverWater, FOG_OVERLAY_RENDER_ORDERS.settled, FOG_OVERLAY_RENDER_ORDERS.frontier]) {
+      expect(RENDER_ORDER.groundNames).toBeGreaterThan(below);
+    }
+    for (const above of [RENDER_ORDER.oceanSurface, RENDER_ORDER.shoreFoam, RENDER_ORDER.foggedMist, RENDER_ORDER.unexploredStorm, RENDER_ORDER.selectedMarker]) {
+      expect(RENDER_ORDER.groundNames).toBeLessThan(above);
+    }
+  });
+
   it("ownership overlays default to the ownership slots; fog overlays take their own", () => {
     const orders = (scene: Scene): number[] =>
       scene.children.filter((c): c is Mesh => c instanceof Mesh).map((m) => m.renderOrder).sort((a, b) => a - b);

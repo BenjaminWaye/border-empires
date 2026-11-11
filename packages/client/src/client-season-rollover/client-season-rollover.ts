@@ -23,6 +23,7 @@ type RolloverState = Pick<
   | "seasonScoreHistory"
   | "seasonEndDismissed"
   | "seasonEndStarting"
+  | "seasonStartError"
   | "seasonStartVoteCount"
   | "seasonStartVoted"
   | "victoryHoldAlert"
@@ -66,6 +67,7 @@ export const resetClientForNewSeason = (state: RolloverState): void => {
   resetVictoryHoldAlertForNewSeason(state);
   state.seasonEndDismissed = false;
   state.seasonEndStarting = false;
+  state.seasonStartError = undefined;
   state.seasonStartVoteCount = 0;
   state.seasonStartVoted = false;
   state.actionQueue = [];
