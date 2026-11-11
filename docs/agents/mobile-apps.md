@@ -239,8 +239,10 @@ To upload a future signed archive using the Xcode account, use a local copy of
 `xcodebuild -exportArchive -archivePath <archive> -exportOptionsPlist <options>
 -allowProvisioningUpdates`. This performs an actual upload, so verify the intended
 bundle, production environment and build number first. Increment the build number
-for the next upload. The native social sign-in branch set the projects to iOS
-build 3 and Android `versionCode 2`, the next numbers each store accepts. Keep local credentials and private keys outside Git.
+for the next upload. Android `versionCode 1` was published to Play internal
+testing on 2026-11-09 (see below). The native social sign-in branch set the
+projects to iOS build 3 and Android `versionCode 2`, the next numbers each store
+accepts. Keep local credentials and private keys outside Git.
 Rebuild/sync from the intended release commit before uploading; archive/upload
 success is not a gameplay/device QA result.
 
@@ -261,9 +263,15 @@ lives outside Git on the owner's Mac, with its password in macOS Keychain
 (service "Border Empires Android upload key"); the owner must back up both.
 Build a signed AAB without touching `build.gradle` by passing
 `-Pandroid.injected.signing.{store.file,store.password,key.alias,key.password}`
-to `./gradlew bundleRelease`. versionCode 1 / versionName 1.0 was built from the
-same production bundle and prepared for the internal testing track; the next
-Play upload needs versionCode 2.
+to `./gradlew bundleRelease`. versionCode 1 / versionName 1.0 was rebuilt from
+`develop` `ad471b6b3` (production gateway) and published on 2026-11-09 to the
+internal testing track as release "1.0 (1) internal - develop ad471b6b3", with
+the owner's account as the only tester (email list "Owner"). Opt-in link:
+https://play.google.com/apps/internaltest/4701725230794045520. Internal testers
+see the temporary name `com.borderempires.game (unreviewed)` until the store
+listing is reviewed. Play warned only that no deobfuscation file was supplied
+(R8 is not enabled). Note that `develop` was 60 commits ahead of `main` (the
+production server) when built. The next Play upload needs versionCode 2.
 
 ## Required before store submission
 
@@ -285,7 +293,9 @@ These are existing product gaps, not tasks that signing the wrapper completes:
    game favicon; store screenshots must come from the built native app.
 5. Complete signing and internal device testing in the owner's Apple/Google accounts.
    Store acceptance is subject to each review process. The first iOS build has
-   been uploaded, but neither store has received a review submission or release. If digital purchases are added, implement the applicable
+   been uploaded and the first Android bundle is on the Play internal testing
+   track, but neither store has received a review submission or a
+   closed/open/production release. If digital purchases are added, implement the applicable
    store billing flow before exposing purchase links in native builds.
 
 Lore reviewed; no canon change. Packaging does not change gameplay or fiction.
