@@ -20,14 +20,16 @@ describe("Place feedback", () => {
   it("confirms a build that starts straight away", () => {
     const d = deps(1);
     expect(sendDevelopmentBuild(createInitialState(), payload, vi.fn(), opts, d)).toBe(true);
-    expect(d.showCaptureAlert).toHaveBeenCalledWith("Building placed", expect.stringContaining("Fort at (4, 5)"), "success");
-    expect(d.pushFeed).toHaveBeenCalledWith(expect.stringContaining("Building placed"), "info", "success");
+    expect(d.pushFeed).toHaveBeenCalledWith(expect.stringContaining("Building placed: Fort at (4, 5)"), "info", "success");
+    // Feed line only: never the big alert banner.
+    expect(d.showCaptureAlert).not.toHaveBeenCalled();
   });
 
   it("confirms a build that joins the development queue", () => {
     const d = deps(0);
     expect(sendDevelopmentBuild(createInitialState(), payload, vi.fn(), opts, d)).toBe(true);
-    expect(d.showCaptureAlert).toHaveBeenCalledWith("Build queued", expect.stringContaining("development slot"), "success");
+    expect(d.pushFeed).toHaveBeenCalledWith(expect.stringContaining("Build queued"), "info", "success");
+    expect(d.showCaptureAlert).not.toHaveBeenCalled();
   });
 
   it("stays silent for queue drains and removals", () => {
