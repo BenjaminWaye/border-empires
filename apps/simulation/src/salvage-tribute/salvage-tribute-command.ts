@@ -2,6 +2,7 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { salvageLoadsRemaining, salvageTributeManpower } from "@border-empires/shared";
 import type { AfcActiveCommandContext } from "../afc-specializations/afc-active-commands.js";
 import { parseTilePayload } from "../runtime-command-parsers.js";
+import { withResourceCleared } from "./salvage-field-clear.js";
 
 /**
  * Ship one load of precursor salvage from a working Reclamation Works to the
@@ -41,7 +42,9 @@ export function handleShipSalvageToCourt(context: AfcActiveCommandContext, comma
     ? { ...tile, economicStructure: { ...works, salvageLoadsShipped: shipped } }
     : { ...tile, resource: undefined, economicStructure: undefined };
   abilities.replaceTileState(key, updated, command.commandId);
-  abilities.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: actor.id, tileDeltas: [abilities.tileDeltaFromState(updated)] });
+  const delta = abilities.tileDeltaFromState(updated);
+  abilities.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: actor.id,
+    tileDeltas: [updated.resource ? delta : withResourceCleared(delta)] });
   abilities.emitEvent({ eventType: "DOMAIN_UPDATE", commandId: command.commandId, playerId: actor.id,
     payloadJson: JSON.stringify({ manpower: actor.manpower, manpowerUpdatedAt: actor.manpowerUpdatedAt,
       manpowerBanked: actor.manpowerBanked ?? 0, waystationManpowerOverflow: actor.waystationManpowerOverflow ?? 0,

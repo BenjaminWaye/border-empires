@@ -164,6 +164,10 @@ export const buildSnapshotTileDetail = (
     ownerId: tile.ownerId ?? null,
     ownershipState: tile.ownershipState ?? null,
     musterJson: tile.musterJson ?? "",
+    // Same desync as muster: an emptied salvage field has no resource, and an
+    // omitted key reads as "unchanged", so the client kept the field forever.
+    // The sim already reveal-gates resource, so absent really means "none".
+    resource: tile.resource ?? null,
     detailLevel: "full"
   };
   if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return update;

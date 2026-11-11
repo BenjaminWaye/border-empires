@@ -171,7 +171,10 @@ const applyTileDeltaToRecoveredAccumulator = (
     y: tileDelta.y,
     terrain: tileDelta.terrain ?? existing?.terrain ?? "LAND",
     ...(existing?.landBiome ? { landBiome: existing.landBiome } : {}),
-    ...(tileDelta.resource ? { resource: tileDelta.resource as DomainTileState["resource"] } : existing?.resource ? { resource: existing.resource } : {}),
+    // "" is an explicit clear (depleted salvage field, salvage-field-clear.ts).
+    ...("resource" in tileDelta
+      ? (tileDelta.resource ? { resource: tileDelta.resource as DomainTileState["resource"] } : {})
+      : existing?.resource ? { resource: existing.resource } : {}),
     ...(tileDelta.prospectSignature ? { prospectSignature: tileDelta.prospectSignature } : existing?.prospectSignature ? { prospectSignature: existing.prospectSignature } : {}),
     ...(tileDelta.dockId ? { dockId: tileDelta.dockId } : existing?.dockId ? { dockId: existing.dockId } : {}),
     // For ownership + per-tile-structure fields, an empty-string delta value

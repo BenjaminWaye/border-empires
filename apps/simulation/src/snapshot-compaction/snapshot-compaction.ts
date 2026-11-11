@@ -7,7 +7,7 @@
  *
  * v1 snapshots store only the *mutable overlay* — tiles that differ from
  * what `generateSeasonWorld(rulesetId, worldSeed)` would produce — and omit
- * the static fields (resource, dockId). `terrain` is included in
+ * the static field dockId. `terrain` (and `resource`) are included in
  * the overlay set because it is no longer purely worldgen-static:
  * CREATE_MOUNTAIN/REMOVE_MOUNTAIN commands mutate it at runtime, and that
  * mutation must round-trip through a checkpoint the same way ownership or
@@ -40,6 +40,10 @@ export type RecoveredTile = RecoveredSimulationState["tiles"][number];
 
 const MUTABLE_TILE_FIELDS = [
   "terrain",
+  // Worldgen places resources, but the last salvage load (or dismantling a
+  // stripped Reclamation Works) removes one; without it every restart
+  // regenerated the depleted salvage field.
+  "resource",
   "ownerId",
   "ownershipState",
   "town",

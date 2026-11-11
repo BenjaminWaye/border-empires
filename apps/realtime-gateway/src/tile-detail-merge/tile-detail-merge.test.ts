@@ -27,4 +27,18 @@ describe("mergeTileDetailIntoSnapshot", () => {
 
     expect(merged.tiles).toEqual(fresh);
   });
+
+  it("clears a cached resource the fresh tile no longer has (regression: emptied salvage field reappeared)", () => {
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      tiles: [{ x: 5, y: 287, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "PRECURSOR_SALVAGE" }]
+    };
+    // Exact shape the sim's FetchTileDetail returns after the last salvage load: no resource key.
+    const fresh: PlayerSubscriptionSnapshot["tiles"] = [{ x: 5, y: 287, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }];
+
+    const merged = mergeTileDetailIntoSnapshot(snapshot, fresh, undefined);
+
+    expect(merged.tiles[0]).not.toHaveProperty("resource");
+    expect(mergeTileDetailIntoSnapshot(snapshot, [{ ...fresh[0]!, resource: "PRECURSOR_SALVAGE" }], undefined).tiles[0]?.resource).toBe("PRECURSOR_SALVAGE");
+  });
 });

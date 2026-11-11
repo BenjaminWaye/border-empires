@@ -17,7 +17,13 @@ export const mergeTileDetailIntoSnapshot = (
     const key = `${fresh.x},${fresh.y}`;
     const idx = tileIndex.get(key);
     if (typeof idx === "number") {
-      nextTiles[idx] = { ...nextTiles[idx], ...fresh };
+      const merged = { ...nextTiles[idx], ...fresh };
+      // The sim's full tile detail omits `resource` when the tile has none (or
+      // the viewer can't see it), so a plain spread kept a cached resource
+      // forever: an emptied salvage field reappeared on every tile click and
+      // reload. A fresh full tile is authoritative for its resource.
+      if (!fresh.resource) delete merged.resource;
+      nextTiles[idx] = merged;
     } else {
       nextTiles.push(fresh);
       tileIndex.set(key, nextTiles.length - 1);
