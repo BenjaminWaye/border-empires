@@ -63,7 +63,7 @@ describe("camera location save", () => {
   };
 
   it("does not write to localStorage synchronously (would block the render frame)", () => {
-    const state = { camX: 5, camY: 5, zoom: 22 };
+    const state = { me: "p1", camX: 5, camY: 5, zoom: 22 };
     maybeSaveCameraLocation(state);
 
     // The write is deferred off-frame — nothing landed in storage yet.
@@ -94,7 +94,7 @@ describe("camera location save", () => {
     maybeRefreshForCamera(state, { ws, requestViewRefresh });
     await flushDeferredSave();
 
-    expect(readSaved()).toEqual({ x: 5, y: 5, zoom: 22 });
+    expect(readSaved()).toEqual({ x: 5, y: 5, zoom: 22, playerId: "p1" });
     // The chunk-subscribe path must NOT have fired — this proves the save is
     // decoupled from it, not just coincidentally triggered by it.
     expect(requestViewRefresh).not.toHaveBeenCalled();
@@ -152,55 +152,55 @@ describe("camera location save", () => {
     maybeRefreshForCamera(state, { ws, requestViewRefresh: vi.fn() });
     await flushDeferredSave();
 
-    expect(readSaved()).toEqual({ x: 12, y: 34, zoom: 22 });
+    expect(readSaved()).toEqual({ x: 12, y: 34, zoom: 22, playerId: "p1" });
   });
 
   it("throttles rapid repeated saves to once per second", async () => {
-    const state = { camX: 1, camY: 1, zoom: 22 };
+    const state = { me: "p1", camX: 1, camY: 1, zoom: 22 };
     maybeSaveCameraLocation(state);
     await flushDeferredSave();
-    expect(readSaved()).toEqual({ x: 1, y: 1, zoom: 22 });
+    expect(readSaved()).toEqual({ x: 1, y: 1, zoom: 22, playerId: "p1" });
 
     // Immediately move again — within the throttle window, should NOT overwrite.
     state.camX = 999;
     maybeSaveCameraLocation(state);
     await flushDeferredSave();
-    expect(readSaved()).toEqual({ x: 1, y: 1, zoom: 22 });
+    expect(readSaved()).toEqual({ x: 1, y: 1, zoom: 22, playerId: "p1" });
   });
 
   it("snapshots the camera at throttle-check time, not whatever it is when the deferred write runs", async () => {
-    const state = { camX: 1, camY: 1, zoom: 22 };
+    const state = { me: "p1", camX: 1, camY: 1, zoom: 22 };
     maybeSaveCameraLocation(state);
     // Camera keeps moving before the deferred write actually flushes.
     state.camX = 500;
     await flushDeferredSave();
 
-    expect(readSaved()).toEqual({ x: 1, y: 1, zoom: 22 });
+    expect(readSaved()).toEqual({ x: 1, y: 1, zoom: 22, playerId: "p1" });
   });
 
   it("saveCameraLocation itself still writes unconditionally and synchronously (used directly where needed)", () => {
-    saveCameraLocation({ camX: 7, camY: 8, zoom: 15 });
-    expect(readSaved()).toEqual({ x: 7, y: 8, zoom: 15 });
+    saveCameraLocation({ me: "p1", camX: 7, camY: 8, zoom: 15 });
+    expect(readSaved()).toEqual({ x: 7, y: 8, zoom: 15, playerId: "p1" });
   });
 
   // seasonId is tagged onto the saved payload (when known) so a later fresh
   // page load can tell whether the restored position is still current — see
   // the INIT handler in client-network-init-message.ts.
   it("saveCameraLocation tags the payload with bridgeDebugSeasonId when provided", () => {
-    saveCameraLocation({ camX: 7, camY: 8, zoom: 15, bridgeDebugSeasonId: "season-9" });
+    saveCameraLocation({ me: "p1", camX: 7, camY: 8, zoom: 15, bridgeDebugSeasonId: "season-9" });
     const raw = storage.get(CAMERA_LOCATION_STORAGE_KEY);
-    expect(raw ? JSON.parse(raw) : undefined).toEqual({ x: 7, y: 8, zoom: 15, seasonId: "season-9" });
+    expect(raw ? JSON.parse(raw) : undefined).toEqual({ x: 7, y: 8, zoom: 15, seasonId: "season-9", playerId: "p1" });
   });
 
   it("saveCameraLocation omits seasonId when bridgeDebugSeasonId is not provided or empty", () => {
-    saveCameraLocation({ camX: 7, camY: 8, zoom: 15, bridgeDebugSeasonId: "" });
+    saveCameraLocation({ me: "p1", camX: 7, camY: 8, zoom: 15, bridgeDebugSeasonId: "" });
     const raw = storage.get(CAMERA_LOCATION_STORAGE_KEY);
-    expect(raw ? JSON.parse(raw) : undefined).toEqual({ x: 7, y: 8, zoom: 15 });
+    expect(raw ? JSON.parse(raw) : undefined).toEqual({ x: 7, y: 8, zoom: 15, playerId: "p1" });
   });
 
   it("clearCameraLocation removes the persisted camera location from localStorage", () => {
-    saveCameraLocation({ camX: 100, camY: 200, zoom: 40 });
-    expect(readSaved()).toEqual({ x: 100, y: 200, zoom: 40 });
+    saveCameraLocation({ me: "p1", camX: 100, camY: 200, zoom: 40 });
+    expect(readSaved()).toEqual({ x: 100, y: 200, zoom: 40, playerId: "p1" });
 
     clearCameraLocation();
     expect(readSaved()).toBeUndefined();
@@ -221,7 +221,7 @@ describe("camera location save", () => {
   // the freshly regenerated world). clearCameraLocation() must cancel any
   // in-flight deferred save, not just wipe the current storage value.
   it("clearCameraLocation cancels an in-flight deferred save so it cannot resurrect the old location", async () => {
-    const state = { camX: 500, camY: 300, zoom: 40 };
+    const state = { me: "p1", camX: 500, camY: 300, zoom: 40 };
     maybeSaveCameraLocation(state); // schedules a deferred write, not yet flushed
 
     clearCameraLocation();

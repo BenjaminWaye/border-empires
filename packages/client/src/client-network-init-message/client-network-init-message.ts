@@ -35,6 +35,7 @@ import { applyInitSocialState } from "./apply-init-social-state.js";
 import { applyInitNextContest } from "../client-next-contest/client-next-contest.js";
 import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { applySeasonChangeOnInit } from "../client-season-rollover/client-season-rollover.js";
+import { reconcileStoredCameraForPlayer } from "../client-state/client-camera-storage.js";
 import { resetServerReachForNewConnection } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
 import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
@@ -136,6 +137,9 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.me === incomingPlayerId &&
     state.tiles.size > 0 &&
     state.discoveredTiles.size > 0;
+  // Logging out reloads the page, so the camera restored at boot is whichever
+  // account last saved on this browser -- swap in this account's own spot.
+  if (isFirstInitThisSession) reconcileStoredCameraForPlayer(state, incomingPlayerId);
   const seasonRolledOverInSession = applySeasonChangeOnInit(state, incomingSeason?.seasonId);
   resetServerReachForNewConnection(state, !seasonRolledOverInSession && incomingPlayerId.length > 0 && state.me === incomingPlayerId); // before state.me is overwritten below
   // Set here, before the initial tile snapshot is applied below -- its muster-unlock pass needs the CURRENT season id, not the previous session's.

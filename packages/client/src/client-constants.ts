@@ -28,6 +28,11 @@ export const DOUBLE_TAP_ZOOM_STEP = 32;
 export const GOLD_COST_EPSILON = 1e-6;
 export const RENDERER_PROMPT_STORAGE_KEY = "border-empires-renderer-prompt-v1";
 export const CAMERA_LOCATION_STORAGE_KEY = "border-empires-camera-location-v1";
+// Per-account last-viewed camera, keyed by player id. CAMERA_LOCATION_STORAGE_KEY
+// above only holds the most recent account's position (read at boot, before
+// the server says who is logged in); this one lets a second account on the
+// same browser get its own position back -- see reconcileStoredCameraForPlayer().
+export const CAMERA_LOCATION_BY_PLAYER_STORAGE_KEY = "border-empires-camera-location-by-player-v1";
 export const DISCOVERED_TILES_STORAGE_KEY = "border-empires-discovered-tiles-v1";
 // Shared across every "still waiting on auth/session" overlay (the initial
 // Firebase auth busy modal in client-auth-ui.ts, and the post-connect

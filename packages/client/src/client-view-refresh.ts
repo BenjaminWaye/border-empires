@@ -1,8 +1,8 @@
 import { CHUNK_SIZE } from "@border-empires/shared";
-import { CAMERA_LOCATION_STORAGE_KEY } from "./client-constants.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
-import { storageSet, type ClientState } from "./client-state/client-state.js";
+import type { ClientState } from "./client-state/client-state.js";
+import { clearStoredCameraLocations, writeStoredCameraLocation } from "./client-state/client-camera-storage.js";
 import { maybeSaveDiscoveredTiles } from "./client-state/client-discovered-tiles-storage.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 
@@ -13,12 +13,12 @@ import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 // payload (when known) so a later fresh page load can tell whether the
 // restored position still belongs to the current season — see
 // cameraLocationInitialState() and the INIT handler in
-// client-network-init-message.ts for why that's needed.
-export const saveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "zoom"> & { bridgeDebugSeasonId?: string | undefined }): void => {
-  storageSet(
-    CAMERA_LOCATION_STORAGE_KEY,
-    JSON.stringify({ x: state.camX, y: state.camY, zoom: state.zoom, seasonId: state.bridgeDebugSeasonId || undefined })
-  );
+// client-network-init-message.ts for why that's needed. Saved per account
+// (state.me): before INIT there is no account yet, so nothing is saved --
+// otherwise a pre-login frame would re-tag the previous account's position.
+export const saveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "zoom" | "me"> & { bridgeDebugSeasonId?: string | undefined }): void => {
+  if (!state.me) return;
+  writeStoredCameraLocation({ x: state.camX, y: state.camY, zoom: state.zoom, seasonId: state.bridgeDebugSeasonId || undefined, playerId: state.me });
 };
 
 // Removes the persisted camera location so the next page load starts at the
@@ -38,11 +38,7 @@ export const clearCameraLocation = (): void => {
   }
   // Reset throttle so even if a save was in progress, future saves restart fresh
   lastCameraSaveAt = 0;
-  try {
-    window.localStorage.removeItem(CAMERA_LOCATION_STORAGE_KEY);
-  } catch {
-    // Ignore storage failures in restricted browser contexts.
-  }
+  clearStoredCameraLocations();
 };
 
 const CAMERA_SAVE_THROTTLE_MS = 1_000;
@@ -74,14 +70,15 @@ const scheduleOffFrame: (task: () => void) => void =
 // happen far more often than that, so this has its own lightweight,
 // unconditional (not gated on auth/socket/queued-action state) time-based
 // throttle instead of piggybacking on the subscribe gate.
-export const maybeSaveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "zoom"> & { bridgeDebugSeasonId?: string | undefined }): void => {
+export const maybeSaveCameraLocation = (state: Pick<ClientState, "camX" | "camY" | "zoom" | "me"> & { bridgeDebugSeasonId?: string | undefined }): void => {
+  if (!state.me) return;
   const now = Date.now();
   if (now - lastCameraSaveAt < CAMERA_SAVE_THROTTLE_MS) return;
   lastCameraSaveAt = now;
   // Snapshot now — this runs inside the render loop's rAF callback, and by
   // the time the idle callback fires the caller's `state` object may have
   // moved on to a newer camera position than what triggered this save.
-  const snapshot = { camX: state.camX, camY: state.camY, zoom: state.zoom, bridgeDebugSeasonId: state.bridgeDebugSeasonId };
+  const snapshot = { camX: state.camX, camY: state.camY, zoom: state.zoom, me: state.me, bridgeDebugSeasonId: state.bridgeDebugSeasonId };
   scheduleOffFrame(() => saveCameraLocation(snapshot));
 };
 
