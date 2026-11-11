@@ -232,16 +232,16 @@ describe("settle + build — settled-only building with no resource/town/dock su
     return state;
   };
 
-  it("shows build_palisade on a bare FRONTIER owned LAND tile with no resource, town, or dock", () => {
+  it("offers Fortify (with a buildable Palisade) on a bare FRONTIER owned LAND tile with no resource, town, or dock", () => {
     const state = bareFrontierState([]);
     const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as Tile;
     state.tiles.set(keyFor(3, 3), frontier);
 
     const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
-    const action = findAction(actions, "build_palisade");
-    expect(action).toBeDefined();
+    const action = findAction(actions, "build_fortification");
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe(" • garrisons this tile first");
+    expect(action?.tierOptions?.find((entry) => entry.label === "Palisade")?.disabled).toBe(false);
   });
 
   it("shows build_observatory on the same bare FRONTIER owned LAND tile", () => {
@@ -301,29 +301,12 @@ describe("settle + build — settled-only building with no resource/town/dock su
   });
 });
 
-describe("Palisade / Relay Beacon stay visible as a fallback when their upgrade's resource slot is unavailable", () => {
+const tierOption = (action: TileActionDef | undefined, label: string) => action?.tierOptions?.find((entry) => entry.label === label);
+
+describe("Fortify row: Palisade always sits beside the Fort tiers", () => {
   const settledTile = (): Tile => ({ x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile);
-
-  it("hides build_palisade once the Titanium Forge Module is known, installed on an AFC, and a free TITANIUM slot exists (upgrade path is buildable)", () => {
-    const state = richState();
-    state.techIds = ["masonry"];
-    state.resourceSlots.supply.TITANIUM = 1;
-    state.tiles.set(keyFor(8, 8), { x: 8, y: 8, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", afc: { ownerId: "me", status: "active", modules: ["masonry"] } } as Tile);
-    const tile = settledTile();
-    state.tiles.set(keyFor(3, 3), tile);
-
-    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    expect(findAction(actions, "build_palisade")).toBeUndefined();
-    const upgrade = findAction(actions, "build_fortification");
-    expect(upgrade?.label).toBe("Build Fort");
-    expect(upgrade?.disabled).not.toBe(true);
-  });
-
-  // Regression: a waystation granted masonry (the Titanium Forge AFC module)
-  // without installing it on an AFC. The Fort row is hidden until the module is
-  // installed, and the Palisade was hidden too because the tech was owned --
-  // leaving a garrisoned tile with no fortification option at all.
-  const palisadeVisibleWithMasonryAfc = (afcTile: Tile | undefined, configure: (state: ReturnType<typeof richState>) => void = () => {}): TileActionDef | undefined => {
+  const afcAt8 = (afc: NonNullable<Tile["afc"]>, ownerId = "me"): Tile => ({ x: 8, y: 8, terrain: "LAND", ownerId, ownershipState: "SETTLED", afc } as Tile);
+  const fortifyRow = (afcTile: Tile | undefined, configure: (state: ReturnType<typeof richState>) => void = () => {}): TileActionDef | undefined => {
     const state = richState();
     state.techIds = ["masonry"];
     state.resourceSlots.supply.TITANIUM = 1;
@@ -332,45 +315,53 @@ describe("Palisade / Relay Beacon stay visible as a fallback when their upgrade'
     if (afcTile) state.tiles.set(keyFor(afcTile.x, afcTile.y), afcTile);
     const tile = settledTile();
     state.tiles.set(keyFor(3, 3), tile);
-    return findAction(menuActionsForSingleTile(state, tile, baseDeps as never), "build_palisade");
+    return findAction(menuActionsForSingleTile(state, tile, baseDeps as never), "build_fortification");
   };
-  const afcAt8 = (afc: NonNullable<Tile["afc"]>, ownerId = "me"): Tile => ({ x: 8, y: 8, terrain: "LAND", ownerId, ownershipState: "SETTLED", afc } as Tile);
 
-  it("keeps build_palisade visible when the Titanium Forge Module is known but not installed on an AFC", () => {
-    const palisade = palisadeVisibleWithMasonryAfc(undefined);
-    expect(palisade).toBeDefined();
-    expect(palisade?.disabled).not.toBe(true);
+  it("offers both Palisade and Fort once the Titanium Forge Module is installed and a TITANIUM slot is free", () => {
+    const row = fortifyRow(afcAt8({ ownerId: "me", status: "active", modules: ["masonry"] }));
+    expect(row?.label).toBe("Fortify");
+    expect(tierOption(row, "Palisade")?.disabled).toBe(false);
+    expect(tierOption(row, "Fort")).toMatchObject({ disabled: false, tier: "FORT" });
   });
 
-  it("keeps build_palisade visible when the only AFC holding the module is inactive or someone else's", () => {
-    expect(palisadeVisibleWithMasonryAfc(afcAt8({ ownerId: "me", status: "inactive", modules: ["masonry"] }))).toBeDefined();
-    expect(palisadeVisibleWithMasonryAfc(afcAt8({ ownerId: "rival", status: "active", modules: ["masonry"] }, "rival"))).toBeDefined();
+  // Regression: a waystation granted masonry (the Titanium Forge AFC module)
+  // without installing it on an AFC. The Fort tier must explain why and the
+  // Palisade must stay buildable -- the bug left a garrisoned tile with no
+  // fortification option at all.
+  it("keeps Palisade buildable and explains the Fort when the module is known but not installed", () => {
+    const row = fortifyRow(undefined);
+    expect(row?.disabled).not.toBe(true);
+    expect(tierOption(row, "Palisade")?.disabled).toBe(false);
+    expect(tierOption(row, "Fort")).toMatchObject({ disabled: true, disabledReason: "Install masonry on an active AFC" });
   });
 
-  it("keeps build_palisade visible under Fortification Patterns when no AFC holds the module (the waiver covers the tech, not the install)", () => {
-    const palisade = palisadeVisibleWithMasonryAfc(undefined, (state) => {
+  it("treats an inactive AFC, or someone else's, as no install", () => {
+    for (const afc of [afcAt8({ ownerId: "me", status: "inactive", modules: ["masonry"] }), afcAt8({ ownerId: "rival", status: "active", modules: ["masonry"] }, "rival")]) {
+      expect(tierOption(fortifyRow(afc), "Fort")?.disabled).toBe(true);
+    }
+  });
+
+  it("under Fortification Patterns still needs the module installed (the waiver covers the tech, not the install)", () => {
+    const row = fortifyRow(undefined, (state) => {
       state.techIds = [];
       state.domainIds = ["afc-bastion-2"]; // Fortification Patterns
     });
-    expect(palisade).toBeDefined();
+    expect(tierOption(row, "Palisade")?.disabled).toBe(false);
+    expect(tierOption(row, "Fort")?.disabledReason).toMatch(/^Install .* on an active AFC$/);
   });
 
-  it("keeps build_palisade visible when the Titanium Forge Module is known but no free TITANIUM slot is available", () => {
-    const state = richState();
-    state.techIds = ["masonry"];
-    state.resourceSlots.supply.TITANIUM = 0;
-    const tile = settledTile();
-    state.tiles.set(keyFor(3, 3), tile);
-
-    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    const palisade = findAction(actions, "build_palisade");
-    expect(palisade).toBeDefined();
-    const upgrade = findAction(actions, "build_fortification");
-    expect(upgrade?.disabled).toBe(true);
-    expect(upgrade?.disabledReason).toBe("Need a free TITANIUM slot");
+  it("reports a missing TITANIUM slot on the Fort tier only", () => {
+    const row = fortifyRow(afcAt8({ ownerId: "me", status: "active", modules: ["masonry"] }), (state) => { state.resourceSlots.supply.TITANIUM = 0; });
+    expect(tierOption(row, "Palisade")?.disabled).toBe(false);
+    expect(tierOption(row, "Fort")).toMatchObject({ disabled: true, disabledReason: "Need a free TITANIUM slot" });
   });
+});
 
-  it("keeps build_relay_beacon visible even once Leatherworking is known and a free UMBRITE slot exists (independently choosable from Siege Battery)", () => {
+describe("Relay Beacon stays independently choosable from the Siege row", () => {
+  const settledTile = (): Tile => ({ x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile);
+
+  it("keeps build_relay_beacon visible once Leatherworking is known and a free UMBRITE slot exists", () => {
     const state = richState();
     state.techIds = ["leatherworking"];
     state.resourceSlots.supply.UMBRITE = 1;
@@ -379,12 +370,10 @@ describe("Palisade / Relay Beacon stay visible as a fallback when their upgrade'
     state.tiles.set(keyFor(3, 3), tile);
 
     const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    const relayBeacon = findAction(actions, "build_relay_beacon");
-    expect(relayBeacon).toBeDefined();
-    expect(relayBeacon?.disabled).not.toBe(true);
-    const upgrade = findAction(actions, "build_siege_camp");
-    expect(upgrade?.label).toBe("Build Siege Battery");
-    expect(upgrade?.disabled).not.toBe(true);
+    expect(findAction(actions, "build_relay_beacon")?.disabled).not.toBe(true);
+    const siege = findAction(actions, "build_siege_camp");
+    expect(siege?.label).toBe("Siege");
+    expect(tierOption(siege, "Siege Battery")?.disabled).toBe(false);
   });
 
   it("keeps build_relay_beacon visible when Leatherworking is known but no free UMBRITE slot is available", () => {
@@ -396,12 +385,10 @@ describe("Palisade / Relay Beacon stay visible as a fallback when their upgrade'
     state.tiles.set(keyFor(3, 3), tile);
 
     const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    const relayBeacon = findAction(actions, "build_relay_beacon");
-    expect(relayBeacon).toBeDefined();
-    expect(relayBeacon?.disabled).not.toBe(true);
-    const upgrade = findAction(actions, "build_siege_camp");
-    expect(upgrade?.disabled).toBe(true);
-    expect(upgrade?.disabledReason).toBe("Need a free UMBRITE slot");
+    expect(findAction(actions, "build_relay_beacon")?.disabled).not.toBe(true);
+    const siege = findAction(actions, "build_siege_camp");
+    expect(siege?.disabled).toBe(true);
+    expect(siege?.disabledReason).toBe("Need a free UMBRITE slot");
   });
 });
 
@@ -411,31 +398,26 @@ describe("Palisade / Fort builds on a tile with an existing Relay Beacon", () =>
     economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
   } as Tile);
 
-  it("shows build_palisade (Build Palisade) on a Relay Beacon tile, matching the server's carve-out for replacing the beacon", () => {
+  it("offers a buildable Palisade on a Relay Beacon tile, matching the server's carve-out for the beacon", () => {
     const state = richState();
     state.resourceSlots.supply.FOOD = 1;
     const tile = relayBeaconTile();
     state.tiles.set(keyFor(3, 3), tile);
 
-    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    const action = findAction(actions, "build_palisade");
-    expect(action).toBeDefined();
-    expect(action?.label).toBe("Build Palisade");
-    expect(action?.disabled).not.toBe(true);
+    const row = findAction(menuActionsForSingleTile(state, tile, baseDeps as never), "build_fortification");
+    expect(row?.label).toBe("Fortify");
+    expect(tierOption(row, "Palisade")?.disabled).toBe(false);
   });
 
-  it("shows build_fortification (Build Fort) on a Relay Beacon tile once Ironclad Masonry is known -- Fort lives in a separate tile field and coexists with the beacon", () => {
+  it("offers a buildable Fort tier on a Relay Beacon tile once the module is installed -- Fort lives in a separate tile field and coexists with the beacon", () => {
     const state = richState();
     state.techIds = ["masonry"];
     state.resourceSlots.supply.TITANIUM = 1;
+    state.tiles.set(keyFor(8, 8), { x: 8, y: 8, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", afc: { ownerId: "me", status: "active", modules: ["masonry"] } } as Tile);
     const tile = relayBeaconTile();
     state.tiles.set(keyFor(3, 3), tile);
 
-    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    const action = findAction(actions, "build_fortification");
-    expect(action).toBeDefined();
-    expect(action?.label).toBe("Build Fort");
-    expect(action?.disabled).not.toBe(true);
-    expect(action?.disabledReason).not.toBe("Tile already has structure");
+    const row = findAction(menuActionsForSingleTile(state, tile, baseDeps as never), "build_fortification");
+    expect(tierOption(row, "Fort")).toMatchObject({ disabled: false, tier: "FORT" });
   });
 });

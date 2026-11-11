@@ -1,34 +1,35 @@
 // Split out of client-action-flow.ts (already over the repo's 500-line
 // file-growth cap) so this file can grow independently.
-import { structureRequiresTownOrSupportTile, type BuildableStructureType } from "@border-empires/shared";
+import { chosenStructureTierLabel, structureRequiresTownOrSupportTile, type BuildableStructureType, type ChosenStructureTier } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile } from "../client-types.js";
 
 export type BuildDispatchDeps = {
   sendDevelopmentBuild: (
-    payload: { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: BuildableStructureType },
+    payload: { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: BuildableStructureType; tier?: ChosenStructureTier },
     optimistic: () => void,
     opts: { x: number; y: number; label: string; optimisticKind: OptimisticStructureKind }
   ) => boolean;
-  applyOptimisticStructureBuild: (x: number, y: number, kind: OptimisticStructureKind) => void;
+  applyOptimisticStructureBuild: (x: number, y: number, kind: OptimisticStructureKind, chosenTier?: ChosenStructureTier) => void;
   structureDisplayLabel: (structureType: BuildableStructureType) => string;
 };
 
 // Builds a structure directly, applying the optimistic tile update only for
 // types that don't require town-support placement (matching the per-action
 // optimistic behavior that previously lived in each build_* handler).
-export const dispatchGenericBuild = (structureType: BuildableStructureType, tile: Tile, deps: BuildDispatchDeps): void => {
+// `tier` is the Fortify / Siege picker's explicit choice for a fort/siege build.
+export const dispatchGenericBuild = (structureType: BuildableStructureType, tile: Tile, deps: BuildDispatchDeps, tier?: ChosenStructureTier): void => {
   deps.sendDevelopmentBuild(
-    { type: "BUILD_STRUCTURE", x: tile.x, y: tile.y, structureType },
+    { type: "BUILD_STRUCTURE", x: tile.x, y: tile.y, structureType, ...(tier ? { tier } : {}) },
     () => {
       if (!(tile.town && structureRequiresTownOrSupportTile(structureType))) {
-        deps.applyOptimisticStructureBuild(tile.x, tile.y, structureType as OptimisticStructureKind);
+        deps.applyOptimisticStructureBuild(tile.x, tile.y, structureType as OptimisticStructureKind, tier);
       }
     },
     {
       x: tile.x,
       y: tile.y,
-      label: `${deps.structureDisplayLabel(structureType)} at (${tile.x}, ${tile.y})`,
+      label: `${tier ? chosenStructureTierLabel(tier) : deps.structureDisplayLabel(structureType)} at (${tile.x}, ${tile.y})`,
       optimisticKind: structureType as OptimisticStructureKind
     }
   );
@@ -44,7 +45,8 @@ export const triggerBuildForStructureType = (
   structureType: BuildableStructureType,
   tile: Tile,
   state: ClientState,
-  deps: BuildDispatchDeps & { renderPlacementOverlay: () => void; renderHud: () => void }
+  deps: BuildDispatchDeps & { renderPlacementOverlay: () => void; renderHud: () => void },
+  tier?: ChosenStructureTier
 ): void => {
   if (structureType === "ORE_REFINERY" || structureType === "HYDROWORKS" || structureType === "RELAY_BEACON") {
     state.buildingPlacement = { active: true, structureType, x: tile.x, y: tile.y };
@@ -52,5 +54,5 @@ export const triggerBuildForStructureType = (
     deps.renderHud();
     return;
   }
-  dispatchGenericBuild(structureType, tile, deps);
+  dispatchGenericBuild(structureType, tile, deps, tier);
 };

@@ -19,6 +19,20 @@ describe("town support build optimism", () => {
     expect(sendDevelopmentBuild).toHaveBeenCalledTimes(2);
     expect(applyOptimisticStructureBuild).not.toHaveBeenCalled();
     dispatchGenericBuild("MANUFACTORY", { x: 6, y: 5, terrain: "LAND" }, deps);
-    expect(applyOptimisticStructureBuild).toHaveBeenCalledWith(6, 5, "MANUFACTORY");
+    expect(applyOptimisticStructureBuild).toHaveBeenCalledWith(6, 5, "MANUFACTORY", undefined);
+  });
+});
+
+describe("Fortify / Siege picker tier", () => {
+  it("sends the chosen tier and shows it optimistically", () => {
+    const applyOptimisticStructureBuild = vi.fn();
+    const sendDevelopmentBuild: BuildDispatchDeps["sendDevelopmentBuild"] = vi.fn((_payload, optimistic) => { optimistic(); return true; });
+    dispatchGenericBuild("FORT", { x: 2, y: 3, terrain: "LAND" }, { sendDevelopmentBuild, applyOptimisticStructureBuild, structureDisplayLabel: () => "Fort" }, "TITANIUM_BASTION");
+    expect(sendDevelopmentBuild).toHaveBeenCalledWith(
+      { type: "BUILD_STRUCTURE", x: 2, y: 3, structureType: "FORT", tier: "TITANIUM_BASTION" },
+      expect.any(Function),
+      expect.objectContaining({ x: 2, y: 3, label: "Titanium Bastion at (2, 3)" })
+    );
+    expect(applyOptimisticStructureBuild).toHaveBeenCalledWith(2, 3, "FORT", "TITANIUM_BASTION");
   });
 });

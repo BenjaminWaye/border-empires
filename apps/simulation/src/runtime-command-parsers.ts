@@ -1,4 +1,4 @@
-import type { ConverterMode, RetortTargetResource } from "@border-empires/shared";
+import { isChosenStructureTier, type ChosenStructureTier, type ConverterMode, type RetortTargetResource } from "@border-empires/shared";
 import type { AetherWallDirection } from "./runtime-types.js";
 
 export interface FrontierPayload {
@@ -128,14 +128,16 @@ export const parseUpgradeMusterCapPayload = (payloadJson: string): { x: number; 
   }
 };
 
-export const parseBuildStructurePayload = (payloadJson: string): { x: number; y: number; structureType: string } | null => {
+export const parseBuildStructurePayload = (payloadJson: string): { x: number; y: number; structureType: string; tier?: ChosenStructureTier } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (typeof parsed.x !== "number" || typeof parsed.y !== "number" || typeof parsed.structureType !== "string") return null;
+    if (parsed.tier !== undefined && !isChosenStructureTier(parsed.tier)) return null;
     return {
       x: parsed.x,
       y: parsed.y,
-      structureType: parsed.structureType
+      structureType: parsed.structureType,
+      ...(parsed.tier !== undefined ? { tier: parsed.tier } : {})
     };
   } catch {
     return null;
