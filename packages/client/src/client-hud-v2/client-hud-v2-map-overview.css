@@ -62,9 +62,11 @@ body.hud-v2-compact.v2c-map-overview .onb-root { display: none !important; }
   display: flex; padding: 3px; gap: 3px; border: 1px solid var(--v2-edge-strong); border-radius: 12px; background: rgba(15, 13, 10, 0.92);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
 }
+/* Icon over label and free to shrink (min-width: 0), so all three lenses fit the map's width on a narrow phone. */
 .v2c-map-segments .hud-v2-lens-item {
-  flex: 1 1 0; justify-content: center; gap: 8px; min-height: var(--v2c-touch); border: 0; border-radius: 9px; background: transparent;
-  font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; color: var(--v2-soft);
+  flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 4px; min-height: var(--v2c-touch); padding: 6px 4px;
+  border: 0; border-radius: 9px; background: transparent; text-align: center; white-space: nowrap; overflow: hidden;
+  font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--v2-soft);
 }
 .v2c-map-segments .hud-v2-lens-item-on { background: linear-gradient(180deg, #3a2e18, #2a2216); color: var(--v2-gold-hi); box-shadow: inset 0 0 0 1px var(--v2-gold); }
 .v2c-map-segments .hud-v2-lens-icon { width: 20px; height: 20px; }
@@ -76,6 +78,7 @@ body.hud-v2-compact.v2c-map-overview .onb-root { display: none !important; }
   body.hud-v2-compact.v2c-map-overview .v2c-map-head { flex-direction: column; align-items: flex-start; width: min(190px, 20vw); }
   body.hud-v2-compact.v2c-map-overview .v2c-map-lenses { width: min(190px, 20vw); }
   body.hud-v2-compact.v2c-map-overview .v2c-map-segments { flex-direction: column; }
+  body.hud-v2-compact.v2c-map-overview .v2c-map-segments .hud-v2-lens-item { flex-direction: row; gap: 8px; padding: 4px 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
