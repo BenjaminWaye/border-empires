@@ -17,7 +17,8 @@ import type { ScoreHistorySampler } from "../score-history-sampler/score-history
 
 export type GlobalStatusBroadcastPayloadDeps = {
   subscriptionRegistry: PlayerSubscriptionRegistry;
-  runtime: SimulationRuntime;
+  /** Read at broadcast time: a season rollover swaps the runtime, so a captured instance would keep broadcasting the ended season. */
+  getRuntime: () => SimulationRuntime;
   nonCompetitivePlayerIds: ReadonlySet<string> | undefined;
   simulationMetrics: SimulationMetrics;
   snapshotCache: PlayerSnapshotCache;
@@ -37,7 +38,7 @@ export const createGlobalStatusBroadcastPayload = (
   const perform = async (commandId: string | undefined): Promise<void> => {
     if (deps.subscriptionRegistry.subscribedPlayerIds().length === 0) return;
     if (deps.isPersistenceDegradedOrBacklogged()) return;
-    const leaderboardPlayers = deps.runtime.getPlayersForLeaderboard();
+    const leaderboardPlayers = deps.getRuntime().getPlayersForLeaderboard();
     const globalLeaderboard = buildLeaderboardFromPlayers(leaderboardPlayers, deps.nonCompetitivePlayerIds);
     let currentSummary = deps.getCurrentSummary();
     if (currentSummary) {

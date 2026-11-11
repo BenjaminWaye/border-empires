@@ -1120,7 +1120,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // score-history sampler's piggyback point on this cadence.
   const { perform: performGlobalStatusBroadcast } = createGlobalStatusBroadcastPayload({
     subscriptionRegistry,
-    runtime,
+    getRuntime: () => runtime,
     nonCompetitivePlayerIds: options.nonCompetitivePlayerIds,
     simulationMetrics,
     snapshotCache,
