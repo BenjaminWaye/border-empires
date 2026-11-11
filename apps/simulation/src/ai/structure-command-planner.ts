@@ -4,6 +4,8 @@ import { hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
   bestFortTierForTech,
+  landmarkConstructionBlocker,
+  type LandmarkTile,
   siegeTierForFreshBuild,
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   SYNTHESIZER_STRUCTURE_TYPES,
@@ -54,7 +56,7 @@ export type StructurePlannerPlayer = {
   townEconomy?: readonly TownEconomyEntry[];
 };
 
-export type StructurePlannerTile = {
+export type StructurePlannerTile = LandmarkTile & {
   x: number;
   y: number;
   terrain: Terrain;
@@ -62,7 +64,6 @@ export type StructurePlannerTile = {
   ownershipState?: DomainTileState["ownershipState"] | undefined;
   resource?: DomainTileState["resource"] | undefined;
   dockId?: string | undefined;
-  naturalWonder?: unknown;
   town?: {
     supportMax?: number | undefined;
     supportCurrent?: number | undefined;
@@ -160,7 +161,7 @@ export const structureVisibleOnTile = (
   tile: StructurePlannerTile,
   tilesByKey: TileLookup
 ): boolean =>
-  structureShowsOnTile(structureType, {
+  !landmarkConstructionBlocker(tilesByKey, tile.x, tile.y) && structureShowsOnTile(structureType, {
     ownershipState: tile.ownershipState,
     resource: tile.resource,
     dockId: tile.dockId,

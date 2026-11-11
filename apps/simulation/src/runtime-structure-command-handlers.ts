@@ -1,6 +1,7 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   STRUCTURE_REGISTRY,
+  landmarkConstructionBlocker,
   siegeTierForFreshBuild,
   defendingFortVariant,
   fortTierForBuild,
@@ -254,6 +255,9 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     rejectCommand(context, command, "BUILD_INVALID", "structure requires land tile");
     return;
   }
+  if (target.ownerId !== actor.id) return rejectCommand(context, command, "BUILD_INVALID", "tile must be owned");
+  const blocker = landmarkConstructionBlocker(context.tiles, target.x, target.y);
+  if (blocker) return rejectCommand(context, command, "BUILD_INVALID", blocker === "AFC" ? "Cannot build inside an AFC footprint" : "Cannot build inside a relic footprint");
   const targetKey = simulationTileKey(target.x, target.y);
   if (!structureShowsOnTile(structureType, {
     ownershipState: target.ownershipState,
@@ -264,10 +268,6 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     supportedDockCount: context.supportedDockKeysForTile(command.playerId, target.x, target.y).length
   })) {
     rejectCommand(context, command, "BUILD_INVALID", `${structureLabel(structureType)} cannot be built on this tile`);
-    return;
-  }
-  if (target.ownerId !== command.playerId) {
-    rejectCommand(context, command, "BUILD_INVALID", "tile must be owned");
     return;
   }
   if ((spec.kind !== "OUTPOST" || structureType === "RELAY_BEACON") && target.ownershipState !== "SETTLED") {

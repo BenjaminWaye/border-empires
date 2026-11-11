@@ -58,6 +58,22 @@ describe("Relay Beacon placement", () => {
     expect(state.buildingPlacement.active).toBe(false);
   });
 
+  it("refuses to place a beacon inside an AFC or relic footprint", () => {
+    const { state, flow, sendDevelopmentBuild } = setup([
+      settled(4, 4, { afc: { ownerId: "me", status: "active" } }),
+      settled(5, 5),
+      settled(6, 5),
+      settled(7, 5),
+      settled(8, 6, { naturalWonder: { type: "WARPRESS" } })
+    ]);
+    state.buildingPlacement = { active: true, structureType: "RELAY_BEACON", x: 5, y: 5 };
+    expect(flow.isPlacementValidForTile(state.tiles.get("5,5"))).toBe(false);
+    expect(flow.isPlacementValidForTile(state.tiles.get("6,5"))).toBe(true);
+    expect(flow.isPlacementValidForTile(state.tiles.get("7,5"))).toBe(false);
+    flow.confirmBuildingPlacement();
+    expect(sendDevelopmentBuild).not.toHaveBeenCalled();
+  });
+
   it("refuses a tile a beacon can't go on (structure already there, not yours, or not settled)", () => {
     const { state, flow, sendDevelopmentBuild, pushFeed } = setup([
       settled(4, 4, { observatory: { ownerId: "me", status: "active" } }),

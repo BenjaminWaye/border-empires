@@ -17,7 +17,9 @@
  */
 
 import {
+  landmarkConstructionBlocker,
   structureShowsOnTile,
+  type LandmarkTile,
   supportRingCandidates,
   supportRingRadiusForTier,
   wideSupportRingScanRadiusFor,
@@ -27,7 +29,7 @@ import {
 } from "@border-empires/shared";
 import { forEachFrontierNeighbor } from "./frontier-topology.js";
 
-export type TownSupportTile = {
+export type TownSupportTile = LandmarkTile & {
   x: number;
   y: number;
   ownerId?: string | undefined;
@@ -188,6 +190,7 @@ export function openTownSupportNeighborTiles<T extends TownSupportTile>(
     .filter((tile) => {
       if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return false;
       if (tile.town || tile.fort || tile.observatory || tile.siegeBattery || tile.economicStructure) return false;
+      if (landmarkConstructionBlocker(tiles, tile.x, tile.y)) return false;
       return assignedTownKeyForSupportTile(tiles, playerId, tile.x, tile.y) === townKey;
     });
 }

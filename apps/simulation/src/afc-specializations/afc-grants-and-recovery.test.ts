@@ -14,7 +14,7 @@ describe("AFC installation deliveries and durable recovery", () => {
     const actor = player();
     actor.techIds = new Set([...techEntryById.values()].filter(tech => tech.effects?.revealResource).map(tech => tech.id));
     const tiles = new Map([tile(1, "FARM"), tile(2, "FARM"), tile(3, "FARM"), tile(4, "TITANIUM"), tile(5, "TITANIUM"), tile(6, "GEMS")].map(t => [`${t.x},0`, t]));
-    const preview = previewScarcityDelivery(actor, tiles.values());
+    const preview = previewScarcityDelivery(actor, tiles.values(), tiles);
     expect(preview.resource).toBe("CRYSTAL");
     expect(preview.deliveries).toEqual([{ key: "6,0", type: "MINE" }]);
     const before = [...actor.techIds];
@@ -27,10 +27,16 @@ describe("AFC installation deliveries and durable recovery", () => {
     const actor = player();
     const occupied = { ...tile(1, "FARM"), economicStructure: { ownerId: "p", status: "active" as const, type: "MANUFACTORY" as const } };
     const tiles = new Map([occupied, tile(2, "FARM"), tile(3, "GEMS"), { ...tile(4, "FISH"), terrain: "SEA" as const }, { ...tile(5, "FARM"), observatory: { ownerId: "p", status: "active" as const } }].map(t => [`${t.x},0`, t]));
-    expect(previewScarcityDelivery(actor, tiles.values(), key => key === "2,0").fallback).toBe(true);
+    expect(previewScarcityDelivery(actor, tiles.values(), tiles, key => key === "2,0").fallback).toBe(true);
     const grant = applyAfcInstallationGrant({ tiles, now: () => 1, replaceTileState: () => { throw new Error("must not replace a structure"); }, isLocked: key => key === "2,0" }, actor, "afc-exchequer-2", "pick");
     expect(grant?.fallbackFoodSlots).toBe(1);
     expect(actor.afcScarcityFoodSlots).toBe(1);
+  });
+  it("skips an owned deposit next to a relic outside the player's territory", () => {
+    const actor = player();
+    const deposit = tile(2, "FARM");
+    const landmarks = new Map([["3,0", { naturalWonder: true }]]);
+    expect(previewScarcityDelivery(actor, [deposit], landmarks).fallback).toBe(true);
   });
   it("limits population to the stable three-town core, skips Metropolises and clamps headroom", () => {
     const actor = { ...player(), afcCoreTownKeys: ["1,0", "2,0", "3,0"] };

@@ -14,8 +14,8 @@ Seven of nine produces 36 possible family sets. Planet identity also varies
 through terrain, placement, reclamation allocations and the history of captured
 and depleted sites. Family sets can recur across a catalogue of 100+ planets.
 
-The logical footprint is one capturable tile. The decorative model overhangs
-that tile; it does not prevent construction on neighboring tiles. Garrisoning
+The center is the only capturable installation tile. New buildings cannot be
+placed on the center or any of its eight neighbors. Garrisoning
 (SETTLED ownership) activates a surviving installation. Frontier ownership does
 not activate it. A banner shows the owner independently of the ground tint.
 

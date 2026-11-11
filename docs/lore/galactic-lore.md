@@ -162,7 +162,9 @@ not to.
 Relics are fixed remnants of the Concordance's planetary megastructures.
 Their shared ziggurat-shaped surface buildings are access and control
 structures; different installations survive below them and provide different
-capabilities. The installations remain part of the planet after a war game.
+capabilities. The ground around the access structure is part of the installation
+and is kept clear of new buildings. The installations remain part of the planet
+after a war game.
 Their physical survival does not establish continued House ownership or
 bonuses between campaigns.
 
@@ -626,7 +628,8 @@ planet, rather than discovering knowledge it already possessed.
 
 The AFC is the House's imported industrial seed and delivery point. A module
 is a substantial machine that lets the House fabricate, operate or deploy
-an entire category of capability. Being technical is not by itself a reason
+an entire category of capability. The complex and its service arms occupy a
+reserved site that stays clear of other buildings. Being technical is not by itself a reason
 to classify something as a module.
 
 The **Industrial Tooling Module** is a precision toolmaking system. It

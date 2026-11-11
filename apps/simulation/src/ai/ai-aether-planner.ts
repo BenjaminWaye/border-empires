@@ -1,7 +1,7 @@
 import { hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { AETHER_EMP_RADIUS, playerHasAbilityTech } from "@border-empires/game-domain";
-import { isAetherTowerSuppressed, DEVELOPMENT_PROCESS_LIMIT, observatoryCrystalSlotCostForOwnedCount, structureBuildManpowerCostScaled, structureShowsOnTile } from "@border-empires/shared";
+import { isAetherTowerSuppressed, DEVELOPMENT_PROCESS_LIMIT, landmarkConstructionBlocker, observatoryCrystalSlotCostForOwnedCount, structureBuildManpowerCostScaled, structureShowsOnTile } from "@border-empires/shared";
 import { createAutomationCommand } from "./automation-command-factory.js";
 import { createAutomationNoopDiagnostic, type AutomationPlannerInput, type AutomationPlannerResult, type AutomationPlannerTile } from "./automation-command-planner-types.js";
 import { actionAdmissionKey } from "./ai-rejection-cooldown.js";
@@ -90,7 +90,7 @@ export function chooseAiAetherCommand<T extends AutomationPlannerTile>(input: Au
     for (const tile of visible) {
       if (valuable(tile) || tile.ownerId !== input.playerId || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND" || tile.fort || tile.observatory || tile.siegeBattery || tile.economicStructure) continue;
       if (!structureShowsOnTile("OBSERVATORY", { ownershipState: tile.ownershipState, resource: tile.resource, dockId: tile.dockId, townPopulationTier: tile.town?.populationTier, supportedTownCount: 0, supportedDockCount: 0 })) continue;
-      if (!enemies.some(enemy => distance(enemy, tile) <= view.castRange)) continue;
+      if (!enemies.some(enemy => distance(enemy, tile) <= view.castRange) || landmarkConstructionBlocker(input.tilesByKey, tile.x, tile.y)) continue;
       actions.push({ type: "BUILD_OBSERVATORY", payload: { x: tile.x, y: tile.y }, value: 80 });
       break;
     }
