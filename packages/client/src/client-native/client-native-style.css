@@ -1,11 +1,9 @@
-/* Loaded only by the bundled native entry. Browser login keeps its existing UI. */
-html[data-native-app="true"] #auth-google,
-html[data-native-app="true"] #auth-twitch,
-html[data-native-app="true"] #auth-discord,
+/* Loaded only by the bundled native entry. Browser login keeps its existing UI.
+   Google/Twitch/Discord/Apple sign in through the native SDK (client-native-sso);
+   only the email magic link, which cannot return to the app, stays hidden. */
 html[data-native-app="true"] #auth-email-link,
 html[data-native-app="true"] #auth-debug-route,
-html[data-native-app="true"] .auth-hint,
-html[data-native-app="true"] .auth-login-state > .auth-divider:nth-of-type(2) {
+html[data-native-app="true"] .auth-hint {
   display: none !important;
 }
 
@@ -29,7 +27,18 @@ html[data-native-app="true"] .native-guest-save input {
   font-size: 16px;
 }
 
-.native-guest-save { display: grid; gap: 10px; }
+.native-guest-save,
+.native-guest-save-options { display: grid; gap: 10px; }
+.native-guest-save-options .guest-save-apple { background: #000; border-color: #000; color: #fff; }
 .native-guest-save [role="status"] { color: #f5d499; }
 
 html[data-native-app="true"] .auth-legacy-controls button { min-height: 44px; }
+
+/* Sign in with Apple: iOS app only (Apple requires it there alongside other social logins). */
+html[data-native-platform="ios"] #auth-apple.auth-apple-btn[hidden] { display: inline-flex; }
+#auth-apple.auth-apple-btn {
+  background: #000;
+  border-color: #000;
+  color: #fff;
+}
+#auth-apple.auth-apple-btn:hover:not(:disabled) { background: #1a1a1a; }

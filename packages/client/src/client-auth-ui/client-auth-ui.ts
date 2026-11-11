@@ -86,6 +86,7 @@ export const syncAuthOverlay = (
     authGoogleBtn: HTMLButtonElement;
     authTwitchBtn: HTMLButtonElement;
     authDiscordBtn: HTMLButtonElement;
+    authAppleBtn?: HTMLButtonElement | undefined;
     authPlayNowBtn: HTMLButtonElement;
     authEmailEl: HTMLInputElement;
     authPasswordEl: HTMLInputElement;
@@ -150,6 +151,7 @@ export const syncAuthOverlay = (
   deps.authGoogleBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authTwitchBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authDiscordBtn.disabled = state.authBusy || !state.authConfigured;
+  if (deps.authAppleBtn) deps.authAppleBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authPlayNowBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authEmailEl.disabled = state.authBusy || !state.authConfigured;
   deps.authPasswordEl.disabled = state.authBusy || !state.authConfigured;
