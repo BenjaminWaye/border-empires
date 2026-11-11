@@ -1,7 +1,9 @@
-import { MUSTER_ADVANCE_RANGE_STEPS, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { MUSTER_ADVANCE_RANGE_STEPS, MUSTER_ATTACK_COST, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import { ownTileSiegeAt } from "../client-muster-siege/client-muster-siege.js";
+import { musterAvailableAt } from "../client-muster-transit/client-muster-transit.js";
+import { flagHasArmedTransit, huntFlagReaches } from "./client-muster-hunt-reach.js";
 
 // "Hunt Planetary Defense": an ADVANCE flag that only goes after Planetary
 // Defense (barbarian) tiles, re-picking the nearest patrol every second on the
@@ -13,7 +15,7 @@ import { ownTileSiegeAt } from "../client-muster-siege/client-muster-siege.js";
 
 export const BARBARIAN_OWNER_ID = "barbarian-1";
 
-type HuntState = Pick<ClientState, "me" | "tiles" | "incomingAttacksByTile">;
+type HuntState = Pick<ClientState, "me" | "tiles" | "incomingAttacksByTile" | "dockPairs" | "musterTransitByCommand">;
 
 const wrappedDistance = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = Math.abs(ax - bx);
@@ -24,6 +26,16 @@ const wrappedDistance = (ax: number, ay: number, bx: number, by: number): number
 /** A flag that is free to take a hunt order: holding, or already hunting. */
 export const canTakeHuntOrder = (tile: Tile): boolean =>
   tile.muster?.mode === "HOLD" || (tile.muster?.mode === "ADVANCE" && tile.muster.hunt === true);
+
+/**
+ * A flag a manual attack on Planetary Defense may be handed to as a hunt: free
+ * to take the order, not funding a manual attack that is still marching (the
+ * hunt would spend the manpower that attack reserved), and able to reach the
+ * target the way the server's hunt search does. Otherwise the attack goes the
+ * ordinary way.
+ */
+export const canHuntWith = (state: HuntState, flag: Tile, target: { x: number; y: number }): boolean =>
+  canTakeHuntOrder(flag) && !flagHasArmedTransit(state, flag) && huntFlagReaches(state, flag, target);
 
 /** SET_MUSTER that turns the flag at (x, y) into a hunt, optionally going for (target) first. */
 export const huntOrderMessage = (x: number, y: number, target?: { x: number; y: number }): Record<string, unknown> => ({
@@ -38,7 +50,8 @@ export const huntOrderMessage = (x: number, y: number, target?: { x: number; y: 
 /**
  * The player's nearest flag (within the hunt range, by straight-line distance)
  * that can take a hunt order for a fight at (x, y): holding or already
- * hunting, and not pinned by an attack on its own tile.
+ * hunting, not pinned by an attack on its own tile, staged with enough
+ * manpower for an attack, and able to reach (x, y) over its own land.
  */
 export const nearestHuntFlag = (state: HuntState, x: number, y: number, nowMs: number, excludeKey?: string): Tile | undefined => {
   let best: { tile: Tile; dist: number } | undefined;
@@ -47,6 +60,7 @@ export const nearestHuntFlag = (state: HuntState, x: number, y: number, nowMs: n
     const dist = wrappedDistance(tile.x, tile.y, x, y);
     if (dist > MUSTER_ADVANCE_RANGE_STEPS) continue;
     if (ownTileSiegeAt(state, tile.x, tile.y, nowMs)) continue;
+    if (musterAvailableAt(state, tile) < MUSTER_ATTACK_COST || !canHuntWith(state, tile, { x, y })) continue;
     if (!best || dist < best.dist) best = { tile, dist };
   }
   return best?.tile;
@@ -71,7 +85,7 @@ export const huntAttackersAction = (tile: Tile, state: HuntState, nowMs: number)
       id: "muster_hunt_attackers",
       label: "Hunt Planetary Defense",
       disabled: true,
-      disabledReason: `No holding muster flag within ${MUSTER_ADVANCE_RANGE_STEPS} tiles — stage one nearby to hunt them.`
+      disabledReason: `No staged holding flag that can reach this tile within ${MUSTER_ADVANCE_RANGE_STEPS} tiles — stage one nearby to hunt them.`
     };
   }
   return {

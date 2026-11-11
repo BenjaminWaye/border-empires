@@ -119,6 +119,18 @@ describe("Hunt Planetary Defense flags", () => {
     expect(musterAt(runtime, 10, 10)).toMatchObject({ mode: "ADVANCE", hunt: true, nextActionAt: resolvesAt });
   });
 
+  // Review regression (PR #2716): a new hunt order sat out the previous
+  // order's 10s "nothing in range" cooldown, so the patrol walked off.
+  it("ignores a cooldown left by an earlier order once the flag is re-ordered to hunt", () => {
+    const stale = buildRuntime([owned(10, 10, huntFlag({ clearing: undefined })), owned(10, 11), barb(10, 12)]);
+    stale["musterAdvanceCooldowns"].set(`${10 + BASE},${10 + BASE}`, 11_000);
+    expect(targets(tick(stale))).toEqual(["ATTACK:10,12"]);
+
+    const waiting = buildRuntime([owned(10, 10, huntFlag({ clearing: undefined, nextActionAt: 11_000, noTargetInRange: true })), owned(10, 11), barb(10, 12)]);
+    waiting["musterAdvanceCooldowns"].set(`${10 + BASE},${10 + BASE}`, 11_000);
+    expect(targets(tick(waiting))).toEqual([]);
+  });
+
   it("a plain ADVANCE flag still attacks the nearer rival", () => {
     const runtime = buildRuntime([owned(10, 10, huntFlag({ hunt: undefined })), rival(11, 10), owned(10, 11), barb(10, 12)]);
     expect(targets(tick(runtime))).toEqual(["ATTACK:11,10"]);

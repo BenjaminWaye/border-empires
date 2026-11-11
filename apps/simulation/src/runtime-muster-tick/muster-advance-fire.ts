@@ -85,7 +85,12 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
   // of clearing it back to the generic "Planning next move" text for the
   // rest of the cooldown window.
   const cooldownUntil = input.advanceCooldowns.get(originKey) ?? 0;
-  if (input.nowMs < cooldownUntil) {
+  // A new hunt order (SET_MUSTER rebuilds the muster, dropping nextActionAt)
+  // must not sit out the previous order's cooldown: every cooldown here is
+  // stamped onto nextActionAt or comes with inFlight, so a hunting flag
+  // carrying neither was re-ordered after this cooldown was set.
+  const huntReordered = musterTile.muster?.hunt === true && !musterTile.muster.inFlight && musterTile.muster.nextActionAt !== cooldownUntil;
+  if (input.nowMs < cooldownUntil && !huntReordered) {
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
       inFlight: inFlightLocks.length > 0,
       inFlightCount: inFlightLocks.length,

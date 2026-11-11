@@ -31,19 +31,19 @@ const MANPOWER_CAP = 1_000;
 describe("buildMusterActions", () => {
   it("returns nothing for a tile the player doesn't own", () => {
     stubWindowStorage();
-    expect(buildMusterActions(ownTile({ ownerId: "rival" }), { me: "me", authEmail: "", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" })).toEqual([]);
+    expect(buildMusterActions(ownTile({ ownerId: "rival" }), { me: "me", authEmail: "", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), tiles: new Map(), bridgeDebugSeasonId: "season-1" })).toEqual([]);
   });
 
   it("hides the muster option on an un-mustered tile before the player has met a rival empire", () => {
     stubWindowStorage();
-    expect(buildMusterActions(ownTile(), { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" })).toEqual([]);
+    expect(buildMusterActions(ownTile(), { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), tiles: new Map(), bridgeDebugSeasonId: "season-1" })).toEqual([]);
   });
 
   it("offers Stage Muster once mustering has been unlocked this season", async () => {
     stubWindowStorage();
     const { markMusterUnlocked } = await import("./client-muster-unlock/client-muster-unlock-storage.js");
     markMusterUnlocked("a@example.com", "season-1");
-    const actions = buildMusterActions(ownTile(), { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" });
+    const actions = buildMusterActions(ownTile(), { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), tiles: new Map(), bridgeDebugSeasonId: "season-1" });
     expect(actions.map((a) => a.id)).toEqual(["muster_hold"]);
   });
 
@@ -51,7 +51,7 @@ describe("buildMusterActions", () => {
     stubWindowStorage();
     const { markMusterUnlocked } = await import("./client-muster-unlock/client-muster-unlock-storage.js");
     markMusterUnlocked("a@example.com", "season-1");
-    const actions = buildMusterActions(ownTile(), { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], tiles: new Map(), bridgeDebugSeasonId: "season-2" });
+    const actions = buildMusterActions(ownTile(), { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), tiles: new Map(), bridgeDebugSeasonId: "season-2" });
     expect(actions).toEqual([]);
   });
 
@@ -59,7 +59,7 @@ describe("buildMusterActions", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" }
+      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), tiles: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     expect(actions.map((a) => a.id)).toEqual(["muster_advance", "muster_hunt", "muster_march", "muster_expand_cap", "muster_clear"]);
   });
@@ -68,7 +68,7 @@ describe("buildMusterActions", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "ADVANCE", updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" }
+      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), tiles: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     expect(actions.map((a) => a.id)).toEqual(["muster_hold", "muster_hunt", "muster_march", "muster_expand_cap", "muster_clear"]);
   });
@@ -77,7 +77,7 @@ describe("buildMusterActions", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "MARCH", targetX: 5, targetY: 5, updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" }
+      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), tiles: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     expect(actions.map((a) => a.id)).toEqual(["muster_march", "muster_march_cancel", "muster_expand_cap", "muster_clear"]);
     expect(actions[0]?.label).toBe("Change Target…");
@@ -87,7 +87,7 @@ describe("buildMusterActions", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" }
+      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), tiles: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     const expand = actions.find((a) => a.id === "muster_expand_cap");
     expect(expand?.disabled).toBeFalsy();
@@ -98,7 +98,7 @@ describe("buildMusterActions", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" }
+      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), tiles: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     const cap = musterFlagCap(MANPOWER_CAP, 0);
     const nextCap = musterFlagCap(MANPOWER_CAP, 1);
@@ -112,7 +112,7 @@ describe("buildMusterActions", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: 10_000, manpower: 10_000, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" }
+      { me: "me", authEmail: "a@example.com", manpowerCap: 10_000, manpower: 10_000, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), tiles: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     expect(actions.find((a) => a.id === "muster_advance")?.detail).toContain("40/1000");
   });
@@ -123,7 +123,7 @@ describe("buildMusterActions", () => {
     // already clamped to MANPOWER_CAP -- no more room to expand into.
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0, capLevel: 50 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" }
+      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), tiles: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     const expand = actions.find((a) => a.id === "muster_expand_cap");
     expect(expand?.disabled).toBe(true);
@@ -133,7 +133,7 @@ describe("buildMusterActions", () => {
   it("offers Cancel Queued Attack on a flag with a parked attack, since the badge has no button", () => {
     stubWindowStorage();
     const flag = ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } });
-    const base = { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), tiles: new Map(), bridgeDebugSeasonId: "season-1" };
+    const base = { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), dockPairs: [], musterTransitByCommand: new Map(), tiles: new Map(), bridgeDebugSeasonId: "season-1" };
     expect(buildMusterActions(flag, { ...base, pendingMusterAttacks: [] }).some((a) => a.id === "muster_cancel_queued_attack")).toBe(false);
 
     const parked = [{ targetX: 4, targetY: 3, fromX: 3, fromY: 3, musterTileKey: "3,3" }];
