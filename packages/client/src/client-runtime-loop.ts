@@ -1,3 +1,4 @@
+import { createCanvasRoadNetwork } from "./client-road-network/client-canvas-road-network.js";
 import { syntheticOverlayTileFor3DPopulation } from "./client-map-3d-population/client-map-3d-synthetic-overlay-tile.js";
 import { tileHasTownIdentity } from "./client-town-identity.js";
 import { drawMapSelection2D } from "./client-garrison-many/client-map-selection-2d.js";
@@ -27,7 +28,7 @@ import { renderBuildingPlacementPreview2D } from "./client-placement-preview-2d/
 import { renderSelectedStructureReachHighlight } from "./client-reach-overlay-structure-highlight/client-reach-overlay-structure-highlight.js";
 import { renderSelectedStructurePreview2D } from "./client-selected-structure-preview-2d/client-selected-structure-preview-2d.js";
 import type { initClientDom } from "./client-dom.js";
-import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
+import type { RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedTileBadges } from "./client-queue-badges/client-queued-tile-badges.js";
 import { createMapScreenOverlays } from "./client-map-screen-overlays/client-map-screen-overlays.js";
 import { createMapNameLabels } from "./client-map-name-labels/client-map-name-labels.js";
@@ -178,6 +179,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   let roadNetwork = new Map<string, RoadDirections>();
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
+  const syncRoadNetwork = createCanvasRoadNetwork({ tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY });
   const mapScreenOverlays = createMapScreenOverlays(deps.canvas, state, () => {
     state.activePanel = "domains"; state.domainDetailOpen = false; state.techDetailOpen = false; deps.renderHud();
   });
@@ -268,15 +270,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
     // 2D support-plot ring; shared eligibility logic in client-town-support-plot-lookup.ts
     const townSupportPlots = districtCanvas.plots(isTrue3DRendererActive());
-    if (size >= 14 && (roadNetworkBuiltAt === 0 || nowMs - roadNetworkBuiltAt > 450)) {
-      roadNetwork = buildRoadNetwork({
-        tiles: state.tiles,
-        keyFor: deps.keyFor,
-        wrapX: deps.wrapX,
-        wrapY: deps.wrapY
-      });
-      roadNetworkBuiltAt = nowMs;
-    }
+    ({ roads: roadNetwork, builtAt: roadNetworkBuiltAt } = syncRoadNetwork(nowMs, size, isTrue3DRendererActive(), state.tilesRevision));
     const overlayTiles: VisibleRenderTile[] = []; if (!isTrue3DRendererActive() && state.winChancePaint && performance.now() > state.winChancePaint.expiresAt && !state.pendingArrowGestureConfirm) state.winChancePaint = undefined; const knownShieldFlags2D = !isTrue3DRendererActive() ? collectKnownShieldFlags(state.tiles.values()) : []; // F4: 2D counterparts of F0's expiry sweep + F3's per-frame known-flag scan (client-map-3d.ts)
     const aetherProtection2D = !isTrue3DRendererActive() && isAetherProtectionFieldShown(state, deps.keyFor) ? aetherProtectionField(state, Date.now()) : undefined; // Aether Tower protection field, 2D parity of client-map-3d-aether-protection-overlay.ts
     const syntheticOverlayTileAt = (wx: number, wy: number, tile: Tile | undefined): Tile | undefined => syntheticOverlayTileFor3DPopulation(wx, wy, tile, isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
@@ -446,7 +440,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
       // Fixed-borders-via-reach overlay. Boundary renders over fogged tiles
       // too (a fixed claim, not fog-dependent) but stays hidden over unexplored.
-      if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
+      if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored" && !state.showResourceOverlay) {
         if (vis === "visible") drawReachTileTreatments2D(deps.ctx, t, wx, wy, px, py, size, myReach, reachTileDeps2D); // dormant frontier + rival incursions -- client-reach-incursion-2d.ts
         if (t.ownerId === state.me) {
           drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, deps.effectiveOverlayColor(state.me), {
@@ -538,7 +532,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         // flip, then it fogs": the delta already updated t.ownerId to the
         // new owner before freezing, so a captured-then-fogged tile reads
         // as the new owner's color, not the player's own.
-        if (!isTrue3DRendererActive() && t && vis === "fogged" && t.terrain === "LAND" && t.ownerId) {
+        if (!isTrue3DRendererActive() && t && vis === "fogged" && t.terrain === "LAND" && t.ownerId && !state.showResourceOverlay) { // the Resources lens hides territory (client-resource-lens.ts)
           deps.ctx.fillStyle = deps.effectiveOverlayColor(t.ownerId);
           deps.ctx.globalAlpha = t.ownershipState === "SETTLED" ? 0.4 : 0.12;
           if (t.ownershipState === "SETTLED") deps.ctx.fillRect(px, py, size, size);
@@ -668,7 +662,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         });
 
         // Fixed-borders-via-reach overlay -- see the main pass above.
-        if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
+        if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored" && !state.showResourceOverlay) {
           if (vis === "visible") drawReachTileTreatments2D(deps.ctx, t, wx, wy, px, py, size, myReach, reachTileDeps2D); // dormant frontier + rival incursions -- client-reach-incursion-2d.ts
           if (t.ownerId === state.me) {
             drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, deps.effectiveOverlayColor(state.me), {

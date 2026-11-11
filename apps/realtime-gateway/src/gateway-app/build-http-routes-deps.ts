@@ -13,6 +13,8 @@ import type { ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolut
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
+import type { SectorWaitlistStore } from "../sector-waitlist-store/sector-waitlist-store.js";
+import { resolveMaxSeasonPlayersForGateway } from "../season-lobby-broadcast/season-lobby-broadcast.js";
 import type { PlayerFunnelStore } from "../player-funnel-store/player-funnel-store.js";
 import type { PlayerFunnelTracker } from "../player-funnel-tracker/player-funnel-tracker.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
@@ -69,6 +71,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   playOrigin?: string;
   resolveHttpBearerIdentity: (authorizationHeader: string | undefined) => Promise<ResolvedGatewayAuthBinding | undefined>;
   rallyLinkStore: RallyLinkStore;
+  sectorWaitlistStore?: SectorWaitlistStore;
   galaxyPlanetStore: GalaxyPlanetStore;
   galaxyEconomyStore: GalaxyEconomyStore;
   galaxySenateStore: GalaxySenateStore;
@@ -164,6 +167,25 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     ...(ctx.playOrigin ? { playOrigin: ctx.playOrigin } : {}),
     authenticateBearer: ctx.resolveHttpBearerIdentity,
     rallyLinkStore: ctx.rallyLinkStore,
+    ...(ctx.sectorWaitlistStore
+      ? {
+          sectorWaitlist: {
+            store: ctx.sectorWaitlistStore,
+            authenticateBearer: ctx.resolveHttpBearerIdentity,
+            getCurrentSeason: () => ctx.simulationClient.getCurrentSeasonSummary().then(({ seasonId, status }) => ({ seasonId, status })),
+            onJoined: (playerId: string, seasonId: string, waitingCount: number) =>
+              app.log.info({ playerId, seasonId, waitingCount }, "sector waitlist joined")
+          },
+          sectorBoard: {
+            store: ctx.sectorWaitlistStore,
+            getOccupancy: () =>
+              ctx.simulationClient
+                .getCurrentSeasonSummary()
+                .then(({ seasonId, status, overall }) => ({ seasonId, status, playerIds: overall.map((entry) => entry.id) })),
+            maxHouses: resolveMaxSeasonPlayersForGateway
+          }
+        }
+      : {}),
     preparePlayer: (playerId: string, options: { isGuest: boolean }) => ctx.simulationClient.preparePlayer(playerId, undefined, options),
     subscribePlayer: (playerId: string) =>
       ctx.simulationClient.subscribePlayer(

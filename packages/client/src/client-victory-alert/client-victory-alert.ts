@@ -85,7 +85,7 @@ export const victoryHoldAlertTitle = (alert: VictoryHoldAlert): string =>
 
 export const victoryHoldAlertDetail = (alert: VictoryHoldAlert, nowMs: number = Date.now()): string =>
   alert.isSelfLeader
-    ? `Hold ${alert.objectiveName} for ${formatHoldCountdown(remainingSeconds(alert, nowMs))} more to win the season.`
+    ? `Hold ${alert.objectiveName} for ${formatHoldCountdown(remainingSeconds(alert, nowMs))} more to win the Sector Contest.`
     : `${alert.leaderName} will win via ${alert.objectiveName} in ${formatHoldCountdown(remainingSeconds(alert, nowMs))} unless stopped.`;
 
 // Compact single-line text for the collapsed/persistent banner state.

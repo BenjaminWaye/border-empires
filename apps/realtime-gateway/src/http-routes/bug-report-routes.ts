@@ -1,6 +1,9 @@
+import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type { GatewayDebugEvent } from "./http-routes.js";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
+import { selectBugReportServerEvents } from "./bug-report-server-events.js";
+import { boundedContextString, normalizeBugReportClientEvents } from "./bug-report-client-events.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,11 +44,6 @@ const BUG_REPORT_RATE_MAX = 5;
 // iteration order is insertion order, and we delete+re-set on every touch, so
 // the oldest key is always the least-recently-active one to evict.
 const BUG_REPORT_RATE_MAP_MAX_IPS = 2_000;
-
-const BUG_REPORT_LIFECYCLE_EVENTS = new Set([
-  "player_connected", "player_disconnected", "command_submit",
-  "sim_event_latency", "frontier_action_received"
-]);
 
 // ---------------------------------------------------------------------------
 // Route registration
@@ -101,26 +99,42 @@ const registerPlayerReportRoute = (
     const metadata = typeof body.metadata === "object" && body.metadata !== null
       ? body.metadata as Record<string, unknown>
       : {};
-    const clientEvents = Array.isArray(body.clientEvents) ? body.clientEvents as BugReportInput["clientEvents"] : [];
-    const allServerEvents = recentEventsFn();
-    // Filter server events: keep warnings/errors plus key lifecycle events.
-    // This avoids sending the full 250-event ring buffer — the player's
-    // description and client events provide most of the context.
-    const serverEvents = allServerEvents
-      .filter((e) => e.level !== "info" || BUG_REPORT_LIFECYCLE_EVENTS.has(e.event))
-      .slice(-100);
+    const clientEvents = normalizeBugReportClientEvents(body.clientEvents);
+    const playerId = typeof clientContext.me === "string" && clientContext.me.length > 0 ? clientContext.me : "unknown";
+    const playerName = typeof clientContext.meName === "string" ? clientContext.meName : "unknown";
+    const serverEvents = selectBugReportServerEvents(recentEventsFn(), playerId);
+    const reportId = randomUUID();
+
+    // Durable breadcrumb: the email is the only other copy of the report, so
+    // log enough to find it (and correlate with surrounding gateway logs)
+    // even if the email never arrives.
+    app.log.info(
+      {
+        reportId,
+        path,
+        playerId,
+        playerName,
+        description: description.slice(0, 1_000),
+        clientEventCount: clientEvents.length,
+        serverEventCount: serverEvents.length,
+        serverBuildSha: boundedContextString(clientContext, "bridgeDebugServerBuildSha"),
+        seasonId: boundedContextString(clientContext, "bridgeDebugSeasonId")
+      },
+      "player_bug_report"
+    );
 
     alert({
+      reportId,
       description: description.slice(0, 1_000),
-      playerName: typeof clientContext.meName === "string" ? clientContext.meName : "unknown",
-      playerId: typeof clientContext.me === "string" ? clientContext.me : "unknown",
-      clientEvents: clientEvents.slice(-100),
+      playerName,
+      playerId,
+      clientEvents,
       serverEvents,
       clientContext,
       metadata
     });
 
-    return { ok: true };
+    return { ok: true, reportId };
   });
 };
 

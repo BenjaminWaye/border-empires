@@ -1,3 +1,4 @@
+import { escapeHtml } from "./client-duke-panel/client-duke-escape.js";
 import { RESOURCE_NETWORKS, isNetworkResource, networkResourceForBuilding } from "@border-empires/shared";
 import { converterInfoEffects } from "./client-structure-info-catalog/converter-info.js";
 import { structureDisplayName, type StructureDisplayKey } from "@border-empires/shared";
@@ -142,10 +143,25 @@ export const economicStructureBuildMs = (type: EconomicStructureType): number =>
   return economicStructureBuildDurationMs(type);
 };
 
+export const isStructureInfoKey = (value: string): value is StructureInfoKey =>
+  Object.hasOwn(STRUCTURE_PRESENTATION, value);
+
+export const unknownStructureInfo = (): StructureInfoView => ({
+  title: "Unknown structure",
+  detail: "This structure is not recognized by this client. Reload to update the game.",
+  effects: [],
+  modifiers: [],
+  glyph: "?",
+  placement: "",
+  costBits: [],
+  buildTimeLabel: ""
+});
+
 export const structureInfoForKey = (
-  type: StructureInfoKey,
+  type: string,
   deps: { formatCooldownShort: (ms: number) => string; prettyToken: (value: string) => string; ownedCountOfType?: number | undefined; buildSpeedState?: BuildSpeedState | undefined }
 ): StructureInfoView => {
+  if (!isStructureInfoKey(type)) return unknownStructureInfo();
   const buildTimeLabelFor = (key: StructureInfoKey): string =>
     deps.formatCooldownShort(structureInfoBuildMs(key, deps.ownedCountOfType ?? 0, deps.buildSpeedState));
   // Single shared source of truth for "what does this cost to keep running"
@@ -228,10 +244,9 @@ export const structureInfoForKey = (
 };
 
 export const structureInfoButtonHtml = (
-  type: StructureInfoKey,
-  deps: { formatCooldownShort: (ms: number) => string; prettyToken: (value: string) => string; ownedCountOfType?: number | undefined },
+  type: string,
   label?: string
-): string => `<button class="inline-info-link" type="button" data-structure-info="${type}">${label ?? structureInfoForKey(type, deps).title}</button>`;
+): string => `<button class="inline-info-link" type="button" data-structure-info="${escapeHtml(type)}">${label ?? escapeHtml(structureDisplayName(type))}</button>`;
 
 export const resourceColor = (resource: string | undefined): string | undefined => {
   if (isNetworkResource(resource)) return RESOURCE_NETWORKS[resource].color;

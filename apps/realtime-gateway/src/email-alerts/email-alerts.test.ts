@@ -222,7 +222,7 @@ describe("email alerts", () => {
     expect(sent).toEqual([
       expect.objectContaining({
         to: "player@example.com",
-        subject: "A new season has begun in Border Empires",
+        subject: "A new Sector Contest has begun in Border Empires",
         html: expect.stringContaining("Reigning Champion"),
         text: expect.stringContaining("Reigning Champion: Nauticus")
       })
@@ -256,7 +256,7 @@ describe("email alerts", () => {
     expect(sent).toEqual([
       expect.objectContaining({
         to: "player@example.com",
-        subject: "You won the season — and a new one has begun in Border Empires",
+        subject: "You won the Sector Contest — and a new one has begun in Border Empires",
         text: expect.stringContaining("Continental Dominance")
       })
     ]);
@@ -366,6 +366,7 @@ describe("email alerts", () => {
     });
 
     alerts.sendBugReportAlert({
+      reportId: "report-1",
       description: "The map froze after placing a fort",
       playerName: "Nauticus",
       playerId: "player-1",
@@ -400,6 +401,7 @@ describe("email alerts", () => {
     const alerts = createEmailAlertService({ authBindingStore, fetchImpl });
 
     alerts.sendBugReportAlert({
+      reportId: "report-2",
       description: "desc",
       playerName: "Nauticus",
       playerId: "player-1",

@@ -166,10 +166,10 @@ export type CurrentSeasonSummary = {
   dominanceTilesByPlayerId?: Record<string, number>;
   updatedAt: number;
   seasonStats?: SeasonStats;
-  // Live in-memory score-history samples for the current season (see
-  // score-history-sampler.ts). Not persisted on CurrentSeasonSummary itself
-  // (it is a pure activity feed, rebuilt on restart) -- once the season ends
-  // the authoritative copy lives on seasonWinner.scoreHistory instead.
+  // Score-history samples for the current season (see score-history-sampler.ts).
+  // Persisted with the summary and re-seeded into the sampler on boot, so do
+  // not strip it as ephemeral. Once the season ends the authoritative copy
+  // lives on seasonWinner.scoreHistory; never sent in GLOBAL_STATUS_UPDATE.
   scoreHistory?: ScoreHistorySeries[];
   defenseCampaignTargetSeasonId?: string;
 };
@@ -204,6 +204,11 @@ export type SeasonParticipationRow = {
   incomePerMinute: number;
   techs: number;
   endedAt: number;
+  // Season-end ELO (apps/simulation/src/season-elo): rating going into and
+  // coming out of this season, from the player's final rank vs. everyone
+  // else's. Optional on the wire for rows written before ratings existed.
+  ratingBefore?: number;
+  ratingAfter?: number;
 };
 
 // Moved to simulation-event.ts (this file is already over the file-line cap).

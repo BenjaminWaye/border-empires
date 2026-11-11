@@ -54,6 +54,10 @@ export type CareerStatsView = {
   bestRank: number | null;
   peakScore: number | null;
   peakTiles: number | null;
+  /** Season-end ELO after the latest rated season; null before any. */
+  rating: number | null;
+  lastRatingDelta: number | null;
+  peakRating: number | null;
 };
 
 export type SocialActiveTruceView = {

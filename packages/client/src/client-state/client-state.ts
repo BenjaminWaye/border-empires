@@ -1,4 +1,6 @@
+import type { SectorBoardView } from "../client-sector-board/client-sector-board.js";
 import { createInitialManpowerState } from "./client-state-manpower-defaults.js";
+import { NEXT_CONTEST_DEFAULT_THRESHOLD } from "../client-next-contest/client-next-contest.js";
 import { createInitialResourceEconomyState } from "./client-state-resource-slots.js";
 import { createInitialProgressionState } from "./client-state-progression-defaults.js";
 import { createInitialTargetingState } from "./client-state-targeting-defaults.js";
@@ -75,7 +77,7 @@ export const createInitialState = () => ({
   // session is initialized with chunks in hand.
   disconnectedSince: 0,
   ...createInitialAuthBusyState(),
-  seasonFull: false, seasonFullNotifyAcknowledged: false, authIsGuest: false, // SEASON_FULL rejection — see client-auth-ui.ts; authIsGuest: signed in anonymously ("Play now"), set from Firebase's user.isAnonymous
+  seasonFull: false, seasonFullNotifyAcknowledged: false, sectorWaitlistCount: -1, sectorWaitlistJoinFailed: false, authIsGuest: false, // SEASON_FULL rejection — see client-auth-ui.ts; seasonFullNotifyAcknowledged = on the next-Sector waitlist, sectorWaitlistCount -1 until loaded (client-sector-waitlist.ts); authIsGuest: signed in anonymously ("Play now"), set from Firebase's user.isAnonymous
   profileSetupRequired: false,
   gold: 0, level: 0,
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
@@ -266,8 +268,10 @@ export const createInitialState = () => ({
   // can dismiss it with "Look Around"; reset on SEASON_ROLLOVER.
   seasonEndDismissed: false,
   seasonEndStarting: false,
+  // Why the last START_NEW_SEASON was refused, shown on the season-end screen (client-next-contest.ts).
+  seasonStartError: undefined as string | undefined,
   seasonStats: undefined as SeasonStatsView | undefined, seasonScoreHistory: [] as ScoreHistorySeriesView[],
-  seasonStartVoteCount: 0, seasonStartVoted: false,
+  seasonStartVoteCount: 0, seasonStartVoted: false, seasonStartVoteThreshold: NEXT_CONTEST_DEFAULT_THRESHOLD, // Houses committed to the next Sector Contest: client-next-contest.ts
   missions: [] as MissionState[],
   activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "settings" | null,
   ...createInitialSpaceViewState(),
@@ -278,6 +282,7 @@ export const createInitialState = () => ({
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
   needsSeasonJoin: false, joinSeasonOverlayOpen: false, joinSeasonId: "" as string, joinSeasonPending: false, seasonPending: false, seasonPendingScheduledStartAt: 0, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [] as { playerId: string; name: string }[], // join-season overlay + SEASON_PENDING countdown + lobby roster: see client-join-season-overlay.ts / client-season-lobby-panel.ts
+  sectorBoard: undefined as SectorBoardView | undefined, // join screen Sector board (client-sector-board.ts), loaded from GET /sector/board
   lastSeenRespawnNoticeId: "",
   structureInfoKey: "" as string, crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",

@@ -1,7 +1,8 @@
 import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonParticipationRow } from "@border-empires/sim-protocol";
 
 import type { PersistedActivityLogs } from "./activity-dashboard/activity-log-persistence.js";
-import type { DeadliestTileEntry } from "./deadliest-tiles/deadliest-tiles.js";
+import { cloneDeadliestTile, type DeadliestTileEntry } from "./deadliest-tiles/deadliest-tiles.js";
+import { computeSeasonElo } from "./season-elo/season-elo.js";
 import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
 
 // The Season archive list shown to players is the newest 12; the galaxy layer
@@ -36,6 +37,9 @@ export type SeasonSummaryStore = {
    * top-5 truncated into SeasonArchiveRow's mostPoints/mostTerritory) --
    * backs career stats (seasons played, best rank) on the player profile.
    * Idempotent per (seasonId, playerId) so a retried rollover can't double-count.
+   * Also stamps each row with the player's season-end ELO (season-elo.ts),
+   * seeded from their most recent rating in any *other* season, so a retry
+   * recomputes the same ratings instead of compounding them.
    */
   recordSeasonParticipation(seasonId: string, seasonSequence: number, endedAt: number, overall: CurrentSeasonSummary["overall"]): Promise<void>;
   listParticipationForPlayer(playerId: string, limit?: number): Promise<SeasonParticipationRow[]>;
@@ -67,11 +71,11 @@ export class InMemorySeasonSummaryStore implements SeasonSummaryStore {
   }
 
   async saveDeadliestTiles(seasonId: string, tiles: readonly DeadliestTileEntry[]): Promise<void> {
-    this.deadliestTilesBySeasonId.set(seasonId, tiles.map((tile) => ({ ...tile })));
+    this.deadliestTilesBySeasonId.set(seasonId, tiles.map(cloneDeadliestTile));
   }
 
   async loadDeadliestTiles(seasonId: string): Promise<DeadliestTileEntry[] | undefined> {
-    return this.deadliestTilesBySeasonId.get(seasonId)?.map((tile) => ({ ...tile }));
+    return this.deadliestTilesBySeasonId.get(seasonId)?.map(cloneDeadliestTile);
   }
 
   async saveActivityLogs(seasonId: string, logs: PersistedActivityLogs): Promise<void> {
@@ -96,11 +100,28 @@ export class InMemorySeasonSummaryStore implements SeasonSummaryStore {
   private participationByPlayerId = new Map<string, SeasonParticipationRow[]>();
 
   async recordSeasonParticipation(seasonId: string, seasonSequence: number, endedAt: number, overall: CurrentSeasonSummary["overall"]): Promise<void> {
+    // A retried rollover replaces the earlier attempt's rows wholesale, like
+    // the SQLite store's DELETE, so a player who dropped off the final
+    // leaderboard keeps no row (or rating) for this season.
+    for (const [playerId, rows] of this.participationByPlayerId) {
+      const kept = rows.filter((row) => row.seasonId !== seasonId);
+      if (kept.length === rows.length) continue;
+      if (kept.length > 0) this.participationByPlayerId.set(playerId, kept);
+      else this.participationByPlayerId.delete(playerId);
+    }
+    const ratings = computeSeasonElo(
+      overall.map((entry) => ({ playerId: entry.id, rank: entry.rank })),
+      (playerId) => (this.participationByPlayerId.get(playerId) ?? [])
+        .filter((row) => row.seasonId !== seasonId && row.endedAt <= endedAt && typeof row.ratingAfter === "number")
+        .sort((left, right) => right.endedAt - left.endedAt)[0]?.ratingAfter
+    );
     for (const entry of overall) {
+      const rating = ratings.get(entry.id);
       const row: SeasonParticipationRow = {
         seasonId, seasonSequence, playerId: entry.id, playerName: entry.name,
         rank: entry.rank, score: entry.score, tiles: entry.tiles,
-        incomePerMinute: entry.incomePerMinute, techs: entry.techs, endedAt
+        incomePerMinute: entry.incomePerMinute, techs: entry.techs, endedAt,
+        ...(rating ? { ratingBefore: rating.ratingBefore, ratingAfter: rating.ratingAfter } : {})
       };
       const existing = (this.participationByPlayerId.get(entry.id) ?? []).filter((r) => r.seasonId !== seasonId);
       existing.push(row);

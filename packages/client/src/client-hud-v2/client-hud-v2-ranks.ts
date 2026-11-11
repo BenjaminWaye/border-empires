@@ -2,12 +2,15 @@
 // victory path from zero to the win line, with the top three's crests and yours
 // placed by their numeric progress. Standings below keep the plain ranking.
 
-import type { LeaderboardOverallEntry, SeasonVictoryObjectiveView } from "../client-types.js";
+import type { LeaderboardOverallEntry, SeasonVictoryObjectiveView, SeasonWinnerView } from "../client-types.js";
 import { assignLanes, LANE_STEP_PX } from "./client-hud-v2-ranks-lanes.js";
+import { seasonWinnerName, seasonWinnerPath } from "./client-hud-v2-season-winner.js";
 
 export type RanksInput = {
   me: string;
   objectives: readonly SeasonVictoryObjectiveView[];
+  /** Set once the season is crowned; the banner and winning track then say "won" instead of "holding". */
+  winner?: SeasonWinnerView | undefined;
   overall: readonly LeaderboardOverallEntry[];
   selfOverall: LeaderboardOverallEntry | undefined;
   nameOf: (playerId: string) => string;
@@ -105,7 +108,10 @@ const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => 
   const leaderLink = o.leaderPlayerId
     ? `<button type="button" class="v2r-name-link" data-hud-v2-profile="${esc(o.leaderPlayerId)}">${esc(leaderName)}</button>`
     : esc(leaderName);
-  const status = holding
+  const won = input.winner?.objectiveId === o.id ? input.winner : undefined;
+  const status = won
+    ? `<span class="v2r-status v2r-status-won">♛ ${esc(seasonWinnerName(won, input.me, input.nameOf))} won</span>`
+    : holding
     ? `<span class="v2r-status v2r-status-hold">⧗ ${iLead ? "You" : leaderLink} holding${o.holdRemainingSeconds === undefined ? "" : ` · ${formatHold(o.holdRemainingSeconds)} left`}</span>`
     : iLead
       ? `<span class="v2r-status v2r-status-you">★ You lead</span>`
@@ -124,6 +130,7 @@ const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => 
 };
 
 export const ranksBannerHtml = (input: RanksInput): string => {
+  if (input.winner) return `<span class="v2r-banner v2r-banner-won">♛ ${esc(seasonWinnerName(input.winner, input.me, input.nameOf))} won ${esc(seasonWinnerPath(input.winner))}</span>`;
   const holding = input.objectives.filter((o) => o.conditionMet && o.leaderName).sort((a, b) => (a.holdRemainingSeconds ?? Infinity) - (b.holdRemainingSeconds ?? Infinity))[0];
   if (!holding) return `<span class="v2r-banner">Hold any path past the line for 24h</span>`;
   const who = holding.leaderPlayerId === input.me ? "You are" : `${esc(holding.leaderPlayerId ? input.nameOf(holding.leaderPlayerId) || holding.leaderName : holding.leaderName)} is`;
@@ -144,7 +151,7 @@ const standingsHtml = (input: RanksInput): string => {
 export const ranksBodyHtml = (input: RanksInput): string => {
   const tracks = input.objectives.length > 0
     ? input.objectives.map((o) => trackHtml(o, input)).join("")
-    : `<div class="v2s-empty">No season running</div>`;
+    : `<div class="v2s-empty">No Sector Contest running</div>`;
   const best = closestPath(input.objectives, input.me);
   const closest = best
     ? `<section class="v2r-card"><h2 class="v2s-h2">Your closest path</h2><span class="v2r-closest-name">${esc(best.name)}</span><span class="v2r-closest-pct">${Math.round((selfShare(best, input.me) ?? 0) * 100)}%</span><span class="v2r-path-line">${esc(best.leaderPlayerId === input.me ? best.progressLabel : best.selfProgressLabel ?? "")}</span></section>`

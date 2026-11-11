@@ -7,7 +7,7 @@ import type { StructureModifier } from "@border-empires/game-domain";
 import { STRUCTURE_REGISTRY } from "@border-empires/shared";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import type { TechInfo } from "../client-types.js";
-import { MONUMENT_COMPONENTS_BY_BASE, type StructureInfoKey } from "../client-map-display.js";
+import { MONUMENT_COMPONENTS_BY_BASE, isStructureInfoKey, unknownStructureInfo, type StructureInfoKey } from "../client-map-display.js";
 import { structureInfoRemovalMs } from "../client-structure-time-labels/client-structure-time-labels.js";
 import { buildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 
@@ -29,10 +29,11 @@ export const renderStructureInfoOverlay = (
   ownedComponentTypes?: ReadonlySet<string>,
   techCatalog: readonly Pick<TechInfo, "id" | "name">[] = []
 ): string => {
-  const type = structureInfoKey as StructureInfoKey | "";
-  if (!type) return "";
-  const info = structureInfoForKey(type);
-  const unlocks = (STRUCTURE_REGISTRY[type]?.techIds ?? []).flatMap(id => {
+  if (!structureInfoKey) return "";
+  const type = isStructureInfoKey(structureInfoKey) ? structureInfoKey : undefined;
+  const info = type ? structureInfoForKey(type) : unknownStructureInfo();
+  const techIds = type ? STRUCTURE_REGISTRY[type]?.techIds : undefined;
+  const unlocks = (techIds ?? []).flatMap(id => {
     const tech = techCatalog.find(entry => entry.id === id);
     return tech ? [tech] : [];
   });
@@ -74,7 +75,7 @@ export const renderStructureInfoOverlay = (
   const artHtml = info.image
     ? `<div class="structure-info-art has-image"><img class="structure-info-image" src="${info.image}" alt="${info.title}" /></div>`
     : `<div class="structure-info-art"><div class="structure-info-glyph" aria-hidden="true">${info.glyph}</div></div>`;
-  const components = MONUMENT_COMPONENTS_BY_BASE[type];
+  const components = type ? MONUMENT_COMPONENTS_BY_BASE[type] : undefined;
   const componentsHtml = components
     ? (() => {
         const ownedCount = components.filter((c) => ownedComponentTypes?.has(c.type)).length;
@@ -107,14 +108,14 @@ export const renderStructureInfoOverlay = (
         ${componentsHtml}
         ${modifiersHtml}
         ${effectsHtml}
-        <div class="structure-info-meta">
+        ${type ? `<div class="structure-info-meta">
           ${unlockHtml}
           ${costHtml}
           ${upkeepHtml}
           <div class="structure-info-meta-card"><span>Build time</span><strong>${info.buildTimeLabel}</strong></div>
           <div class="structure-info-meta-card"><span>Removal time</span><strong>${buildTimeLabel(structureInfoRemovalMs(type))}</strong></div>
           <div class="structure-info-meta-card"><span>Placement</span><strong>${info.placement}</strong></div>
-        </div>
+        </div>` : ""}
       </div>
     </div>`;
 };

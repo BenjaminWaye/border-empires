@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { WAYSTATION_POP_BURST, WAYSTATION_RESOURCE_SLOT_BONUS } from "@border-empires/shared";
+import { WAYSTATION_POP_BURST } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { activateWaystationAt, seedWaystationVisionBonus } from "./runtime-waystation-activation.js";
 import { FAR_TOWN_KEY, PLAYER_ID, RANDOM_FOR, TOWN_KEY, WAYSTATION_KEY, createInput, makePlayer, queueRandom, townTile, waystationTile } from "./runtime-waystation-activation.test-helpers.js";
@@ -198,7 +198,7 @@ describe("activateWaystationAt", () => {
     const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
     const players = new Map([[PLAYER_ID, makePlayer()]]);
     // First random() picks the effect (TECH); second picks the tech index within the unowned tier-1 list (index 0 -> "agriculture", the first tier-1 tech in tech-tree.json).
-    const { input, events } = createInput(tiles, players, queueRandom([RANDOM_FOR.TECH, 0]));
+    const { input, events, techGrants } = createInput(tiles, players, queueRandom([RANDOM_FOR.TECH, 0]));
 
     activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-tech");
 
@@ -210,6 +210,28 @@ describe("activateWaystationAt", () => {
     expect(player.techIds.has(waystation!.grantedTechId!)).toBe(true);
     const techUpdates = events.filter((e): e is Extract<SimulationEvent, { eventType: "TECH_UPDATE" }> => e.eventType === "TECH_UPDATE");
     expect(techUpdates).toHaveLength(1);
+    expect(techGrants).toEqual([{ phase: "before", playerId: PLAYER_ID }, { phase: "after", playerId: PLAYER_ID }]);
+  });
+
+  // Regression: a waystation-granted Titanium Forge Module (masonry) was never
+  // installed on the player's AFC, so the Fort stayed locked (client and server)
+  // and the Palisade disappeared. The grant must install the module like paid research.
+  it("TECH effect installs a granted AFC module on the player's AFC", () => {
+    const afcKey = "12,12";
+    const tiles = new Map<string, DomainTileState>([
+      [WAYSTATION_KEY, waystationTile()],
+      [afcKey, { x: 12, y: 12, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "SETTLED", afc: { ownerId: PLAYER_ID, status: "active", activatedAt: 1000 } } as DomainTileState]
+    ]);
+    // Own every tier-1 root except masonry, so the tech pick lands on it.
+    const players = new Map([[PLAYER_ID, makePlayer({ techIds: new Set(["agriculture", "trade", "leatherworking", "organized-supply", "crystal-lattices"]) })]]);
+    const { input, events } = createInput(tiles, players, queueRandom([RANDOM_FOR.TECH, 0]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-module");
+
+    expect(tiles.get(WAYSTATION_KEY)?.waystation?.grantedTechId).toBe("masonry");
+    expect(tiles.get(afcKey)?.afc?.modules).toEqual(["masonry"]);
+    expect(tiles.get(afcKey)?.afc?.houseModules).toEqual(["masonry"]);
+    expect(events.some((e) => e.eventType === "TILE_DELTA_BATCH" && e.tileDeltas?.some((d) => d.x === 12 && d.y === 12))).toBe(true);
   });
 
   // Regression: a TECH roll with every tier-1 tech already owned used to burn
@@ -219,7 +241,7 @@ describe("activateWaystationAt", () => {
     const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
     const players = new Map([[PLAYER_ID, makePlayer({ techIds: new Set(allTierOne), points: 7 })]]);
     // Effect roll -> TECH, then the gold-tier roll -> 0 (SMALL).
-    const { input, events } = createInput(tiles, players, queueRandom([RANDOM_FOR.TECH, 0]));
+    const { input, events, techGrants } = createInput(tiles, players, queueRandom([RANDOM_FOR.TECH, 0]));
 
     activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-tech-fallback");
 
@@ -230,52 +252,36 @@ describe("activateWaystationAt", () => {
     expect(waystation).toMatchObject({ activated: true, grantedEffect: "GOLD", grantedGold: 25, grantedGoldTier: "SMALL" });
     expect(waystation?.grantedTechId).toBeUndefined();
     expect(events.filter((e) => e.eventType === "TECH_UPDATE")).toHaveLength(0);
+    expect(techGrants).toEqual([]);
     expect(player.eventLog?.at(-1)).toMatchObject({ grantedEffect: "GOLD", grantedGold: 25 });
   });
 
-  it("RESOURCE_SLOT effect bumps whichever resource the player has the least of", () => {
+  it.each([
+    ["FOOD", "FARM"],
+    ["TITANIUM", "TITANIUM"],
+    ["CRYSTAL", "GEMS"],
+    ["UMBRITE", "UMBRITE"]
+  ] as const)("turns a resource waystation into a %s site (%s)", (slot, resource) => {
     const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
-    const players = new Map([[PLAYER_ID, makePlayer({ strategicResources: { FOOD: 5, TITANIUM: 1, CRYSTAL: 5, UMBRITE: 5 } })]]);
-    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_SLOT]));
+    const player = makePlayer({ strategicResources: { FOOD: 5, TITANIUM: 5, CRYSTAL: 5, UMBRITE: 5, [slot]: 0 } });
+    const { input } = createInput(tiles, new Map([[PLAYER_ID, player]]), queueRandom([RANDOM_FOR.RESOURCE_TILE]));
 
-    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-slot");
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-site");
 
-    const player = players.get(PLAYER_ID)!;
-    expect(player.waystationResourceSlotBonus).toEqual({ TITANIUM: WAYSTATION_RESOURCE_SLOT_BONUS });
-    expect(tiles.get(WAYSTATION_KEY)?.waystation?.grantedResource).toBe("TITANIUM");
+    expect(tiles.get(WAYSTATION_KEY)).toMatchObject({ resource, ownerId: PLAYER_ID, ownershipState: "FRONTIER" });
+    expect(player.waystationResourceSlotBonus).toBeUndefined();
   });
 
-  it("RESOURCE_SLOT effect ties break to the first resource in FOOD/TITANIUM/CRYSTAL/UMBRITE order", () => {
+  it("breaks resource ties in favor of food and consumes the reward only once", () => {
     const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
-    const players = new Map([[PLAYER_ID, makePlayer()]]); // no strategicResources at all -- every count is 0, a four-way tie.
-    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_SLOT]));
+    const player = makePlayer();
+    const { input } = createInput(tiles, new Map([[PLAYER_ID, player]]), queueRandom([RANDOM_FOR.RESOURCE_TILE]));
 
-    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-slot-tie");
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-site-tie");
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-site-retry");
 
-    const player = players.get(PLAYER_ID)!;
-    expect(player.waystationResourceSlotBonus).toEqual({ FOOD: WAYSTATION_RESOURCE_SLOT_BONUS });
-    expect(tiles.get(WAYSTATION_KEY)?.waystation?.grantedResource).toBe("FOOD");
-  });
-
-  it("RESOURCE_SLOT effect can land on a different resource across two separate activations, driven by the player's current strategicResources counts", () => {
-    const secondKey = "20,20";
-    const tiles = new Map<string, DomainTileState>([
-      [WAYSTATION_KEY, waystationTile()],
-      [secondKey, waystationTile({ x: 20, y: 20 })]
-    ]);
-    // strategicResources (the player's actual resource counts) drives the pick, not waystationResourceSlotBonus -- so a
-    // player with fewer TITANIUM than FOOD lands there first, then (after TITANIUM catches up) lands on FOOD next.
-    const players = new Map([[PLAYER_ID, makePlayer({ strategicResources: { FOOD: 3, TITANIUM: 1, CRYSTAL: 3, UMBRITE: 3 } })]]);
-    const { input: input1 } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_SLOT]));
-    activateWaystationAt(input1, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-slot-a");
-    expect(players.get(PLAYER_ID)!.waystationResourceSlotBonus).toEqual({ TITANIUM: WAYSTATION_RESOURCE_SLOT_BONUS });
-
-    players.get(PLAYER_ID)!.strategicResources = { FOOD: 3, TITANIUM: 4, CRYSTAL: 3, UMBRITE: 3 };
-    const { input: input2 } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_SLOT]));
-    activateWaystationAt(input2, secondKey, 20, 20, PLAYER_ID, "cmd-slot-b");
-
-    const player = players.get(PLAYER_ID)!;
-    expect(player.waystationResourceSlotBonus).toEqual({ FOOD: WAYSTATION_RESOURCE_SLOT_BONUS, TITANIUM: WAYSTATION_RESOURCE_SLOT_BONUS });
+    expect(tiles.get(WAYSTATION_KEY)?.resource).toBe("FARM");
+    expect(player.eventLog).toHaveLength(1);
   });
 
   it("defaults to Math.random when no random is injected", () => {
@@ -287,7 +293,7 @@ describe("activateWaystationAt", () => {
 
     const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
     expect(waystation?.activated).toBe(true);
-    expect(["VISION", "POPULATION", "TECH", "RESOURCE_SLOT", "GOLD", "MANPOWER"]).toContain(waystation?.grantedEffect);
+    expect(["VISION", "POPULATION", "TECH", "RESOURCE_TILE", "GOLD", "MANPOWER"]).toContain(waystation?.grantedEffect);
   });
 
   // Regression for: a waystation activating while the player is offline (or
@@ -299,7 +305,7 @@ describe("activateWaystationAt", () => {
   it("records a WAYSTATION_ACTIVATED eventLog entry with the granted effect's detail fields", () => {
     const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
     const players = new Map([[PLAYER_ID, makePlayer()]]);
-    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_SLOT]));
+    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_TILE]));
 
     activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-eventlog");
 
@@ -309,18 +315,18 @@ describe("activateWaystationAt", () => {
     expect(entry.type).toBe("WAYSTATION_ACTIVATED");
     expect(entry.x).toBe(10);
     expect(entry.y).toBe(10);
-    expect(entry.grantedEffect).toBe("RESOURCE_SLOT");
+    expect(entry.grantedEffect).toBe("RESOURCE_TILE");
     expect(entry.grantedResource).toBe("FOOD");
   });
 
   it("records the exact waystation grant in the rolling personal-impact log", () => {
     const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
     const players = new Map([[PLAYER_ID, makePlayer()]]);
-    const { input, impacts } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_SLOT]));
+    const { input, impacts } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_TILE]));
 
     activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-impact");
 
-    expect(impacts).toEqual([expect.objectContaining({ kind: "WAYSTATION_ACTIVATED", playerId: PLAYER_ID, grantedEffect: "RESOURCE_SLOT", grantedResource: "FOOD", x: 10, y: 10 })]);
+    expect(impacts).toEqual([expect.objectContaining({ kind: "WAYSTATION_ACTIVATED", playerId: PLAYER_ID, grantedEffect: "RESOURCE_TILE", grantedResource: "FOOD", x: 10, y: 10 })]);
   });
 
   it("does not record an eventLog entry when re-activation is a no-op", () => {

@@ -187,7 +187,7 @@ export const hudMarkup = `
           <p id="auth-busy-copy">Please wait while we finish sign-in and sync your starting state.</p>
           <div id="auth-busy-progress" class="auth-busy-progress" role="progressbar" aria-label="World download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div class="auth-busy-progress-fill"></div></div>
           <button id="auth-busy-diagnostics" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button" style="display:none;">Download diagnostics</button>
-          <button id="auth-busy-season-full-notify" class="panel-btn" type="button" style="display:none;">Alert me when next season starts</button>
+          <button id="auth-busy-season-full-notify" class="panel-btn" type="button" style="display:none;">Join the waitlist for the next Sector</button>
         </div>
       </div>
     </div>
@@ -204,7 +204,10 @@ export const hudMarkup = `
 
   <aside id="side-panel">
     <div id="side-panel-head">
-      <h3 id="panel-title">Panel</h3>
+      <div>
+        <span class="afc-upgrade-eyebrow">AFC Upgrades</span>
+        <h3 id="panel-title">Panel</h3>
+      </div>
       <button id="tech-view-toggle" class="panel-btn manifest-view-toggle" type="button">Tree view</button>
       <button id="panel-close">Close</button>
     </div>

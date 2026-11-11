@@ -1,3 +1,16 @@
+import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-names.js";
+import { RELIC_REVEAL_ENTRY } from "./client-changelog-relic-reveal.js";
+import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
+import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
+import { NEXT_CONTEST_STARTING_ENTRY } from "./client-changelog-next-contest.js";
+import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
+import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
+import { recentClientChangelogEntries } from "./client-changelog-recent.js";
+import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
+import { COMMAND_NAVIGATION_ENTRY, NAVIGATION_LABELS_ENTRY } from "./client-changelog-command-navigation.js";
+import { CONNECTED_DISTRICTS_CHANGELOG } from "./client-changelog-connected-districts.js";
 import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
 import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
 import { SEASON_REVEAL_LOADING_CHANGELOG } from "./client-changelog-season-reveal-loading.js";
@@ -22,6 +35,7 @@ import { VICTORY_HOLD_TIME_CHANGELOG } from "./client-changelog-victory-hold-tim
 import { RANKS_TRACK_PROFILES_CHANGELOG } from "./client-changelog-ranks-track-profiles.js";
 import { RIVER_MOUTHS_CHANGELOG } from "./client-changelog-river-mouths.js";
 import { AI_STOP_THE_LEADER_CHANGELOG } from "./client-changelog-ai-stop-the-leader.js";
+import { DORMANT_FORT_TOWN_SCREEN_CHANGELOG } from "./client-changelog-dormant-fort-town-screen.js";
 import { MOBILE_APP_CHANGELOG } from "./client-changelog-mobile-app.js";
 import { TOWN_SCREEN_AUTO_GARRISON_CHANGELOG } from "./client-changelog-town-screen-auto-garrison.js";
 import { INCURSION_SHORE_CHANGELOG } from "./client-changelog-incursion-shore.js";
@@ -50,6 +64,7 @@ import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
 import { ADVANCE_VISIBLE_ONLY_CHANGELOG } from "./client-changelog-advance-visible-only.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_19_20 } from "./client-changelog-oct-19-20.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_13_16 } from "./client-changelog-oct-13-16.js";
+import { WAR_TREE_HIVE_MIND_HUB_ENTRY } from "./client-changelog-nov-09.js";
 import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-effort.js";
 import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
 import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js";
@@ -63,7 +78,7 @@ import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
-import { MAP_LENS_CHANGELOG } from "./client-changelog-map-lens.js";
+import { MAP_LENS_CHANGELOG, MINIMAP_WORLD_EDGE_ENTRY, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
@@ -155,9 +170,10 @@ import { FLAT_BUILD_TIME_CHANGELOG } from "./client-changelog-flat-build-time.js
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
+import { MOBILE_RESOURCE_RIBBON_ENTRY } from "./client-changelog-mobile-resource-ribbon.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
-import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
+import { AFC_LANDING_DEPLOYMENT_ENTRY, CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
@@ -172,6 +188,7 @@ export type ClientChangelogEntry = {
 // Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_REPLACEMENT_CHANGELOG,
+  { ...AFC_RELIC_BUILD_ENTRY, createdAt: 1794343264230, },
   ...TOWN_ECONOMY_CHANGELOG,
   ...RESOURCE_NETWORKS_CHANGELOG,
   ...AFC_SPECIALIZATIONS_CHANGELOG,
@@ -209,6 +226,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
+  { ...MOBILE_RESOURCE_RIBBON_ENTRY, createdAt: 1794288046727, },
   ...AETHER_ABILITY_ICONS_CHANGELOG,
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
@@ -283,17 +301,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MARCH_ATTACK_DEEP_CHANGELOG,
   ...MARCH_ATTACK_ROUTES_CHANGELOG,
   ...MARCH_TO_UNEXPLORED_CHANGELOG,
-  {
-    createdAt: 1792870664672, // Date.now() captured once when this entry was created.
-    introducedIn: "2026.10.24.1",
-    title: "Towns and their support buildings now form connected districts",
-    why: "Town industries and services now share a consistent architectural style and show which town they serve.",
-    changes: [
-      "Support buildings and Project preparations have been remodeled on matching marble platforms, with shared brass detailing and distinct machinery.",
-      "Service connections follow the town's actual support assignments, including second-ring plots, terrain and overlapping towns. Connections are visual and do not change building costs or bonuses.",
-      "The 2D fallback has matching building artwork and service links. Construction, inactive buildings and existing saved structures retain their normal behavior."
-    ]
-  },
+  ...CONNECTED_DISTRICTS_CHANGELOG,
   ...WAR_INDUSTRY_SQUADS_CHANGELOG,
   ...FORT_WALL_OPENINGS_CHANGELOG,
   {
@@ -337,13 +345,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Losing or capturing a Dock gets its own note in Yours, naming the other player",
       "A siege on a town or Dock you lost now shows as fallen, even when its tile record is missing"
     ]
-  },
-  {
-    createdAt: 1792869724355, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.24.2",
-    title: "Troop carriers at dock landings",
-    why: "An army crossing the sea should arrive aboard a landing carrier.",
-    changes: ["Dock-to-dock attacks now show futuristic carriers sailing in, lowering their bow ramps and unloading infantry into combat. Carriers stay beached until the battle ends, on both 3D and 2D maps."]
   },
   ...CLIENT_CHANGELOG_ENTRIES_OCT_25,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_26,
@@ -464,16 +465,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Capturing Territory banner and timer are gone; each attack shows its progress on the map"
     ]
   },
-  {
-    createdAt: 1794087791822, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.07.2",
-    title: "AI prices follow the AI's own income",
-    why: "AI empires charged more when you were richer, even a poor AI that had no reason to.",
-    changes: [
-      "Truce and alliance prices depend only on the AI's income, so a strong economy can buy off weak neighbours cheaply",
-      "Gifts win goodwill at 10 minutes of the AI's income per point, never less than 2 coin a point"
-    ]
-  },
   ...VICTORY_HOLD_TIME_CHANGELOG,
   ...RANKS_TRACK_PROFILES_CHANGELOG,
   { ...BATTLE_VARIETY_ENTRY, createdAt: 1794073665467, },
@@ -481,12 +472,28 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...SEASON_REVEAL_LOADING_CHANGELOG,
   ...RIVER_MOUTHS_CHANGELOG,
   ...NOV_07_STANDINGS_CHANGELOG,
-  ...AI_STOP_THE_LEADER_CHANGELOG
+  ...AI_STOP_THE_LEADER_CHANGELOG,
+  { ...COMMAND_NAVIGATION_ENTRY, createdAt: 1794153241666, },
+  ...DORMANT_FORT_TOWN_SCREEN_CHANGELOG,
+  ...SEASON_SUMMARY_FIXES_CHANGELOG,
+  MISSING_HISTORY_REPORT_CHANGELOG,
+  { ...SEASON_RECORD_DETAILS_CHANGELOG, createdAt: 1794152918767, },
+  {
+    ...MAP_BROWSING_FIXES_CHANGELOG,
+    createdAt: 1794165080849, // Date.now() captured once.
+  },
+  { ...ZOOMED_OUT_PAN_PERF_CHANGELOG, createdAt: 1794216988849, },
+  { ...WAR_TREE_HIVE_MIND_HUB_ENTRY, createdAt: 1794292926456, },
+  { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_110,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_111,
+  { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
+  { ...RESOURCE_LENS_ENTRY, createdAt: 1794383695242, },
+  { ...WAYSTATION_FORT_MODULE_ENTRY, createdAt: 1794394297385, },
+  { ...READABLE_REALM_NAMES_ENTRY, createdAt: 1794410558462, },
+  { ...RELIC_REVEAL_ENTRY, createdAt: 1794422720232, },
+  { ...MINIMAP_WORLD_EDGE_ENTRY, createdAt: 1794411491316, },
+  { ...NEXT_CONTEST_STARTING_ENTRY, createdAt: 1794380743713, },
 ];
 
-const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
-const oldestAllowedAt = latestCreatedAt - 6 * 24 * 60 * 60 * 1000;
-
-export const CLIENT_CHANGELOG_ENTRIES = ALL_CLIENT_CHANGELOG_ENTRIES.filter(
-  (entry) => entry.createdAt >= oldestAllowedAt
-);
+export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

@@ -5,6 +5,10 @@ import { attackSyncLog, recordClientDebugEvent } from "../client-debug/client-de
 import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
 
+// While the next Sector Contest's world is built the server can be briefly
+// unreachable; say so instead of a bare "Server unreachable".
+const NEXT_CONTEST_BUILDING_MESSAGE = "Building the next Sector Contest. Reconnecting when it's ready...";
+
 interface SocketLifecycleDeps {
   state: ClientState;
   ws: RealtimeSocket;
@@ -110,7 +114,7 @@ export const bindClientSocketLifecycle = (deps: SocketLifecycleDeps): SocketLife
     });
     handleSocketTornDown(
       actionKey,
-      event.reason === SEASON_ROLLOVER_CLOSE_REASON ? "A new season has started. Loading it..." : "Connection lost. Retrying...",
+      event.reason === SEASON_ROLLOVER_CLOSE_REASON ? "A new Sector Contest has started. Loading it..." : state.seasonEndStarting ? NEXT_CONTEST_BUILDING_MESSAGE : "Connection lost. Retrying...",
       state.hasEverInitialized ? "Reconnecting automatically..." : `The realtime connection to ${deps.wsUrl} closed before sign-in finished. Reload the game to reconnect.`
     );
   });
@@ -120,7 +124,7 @@ export const bindClientSocketLifecycle = (deps: SocketLifecycleDeps): SocketLife
     recordSocketDisconnect("error", { connectionUptimeMs: connectionUptimeMs(), debugPayload: debugDisconnectPayload(actionKey) });
     handleSocketTornDown(
       actionKey,
-      "Server unreachable. Retrying...",
+      state.seasonEndStarting ? NEXT_CONTEST_BUILDING_MESSAGE : "Server unreachable. Retrying...",
       state.hasEverInitialized ? "Reconnecting automatically..." : `The realtime connection to ${deps.wsUrl} failed before sign-in finished. Reload the game to reconnect.`
     );
   });

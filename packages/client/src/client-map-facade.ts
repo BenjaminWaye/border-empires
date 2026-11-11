@@ -1,5 +1,5 @@
 import { standingTreeFilter } from "./client-forest-war/forest-war.js";
-import { WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion } from "@border-empires/shared";
+import { WORLD_WIDTH, clearForestAroundAfcTiles, isSeaTerrain, terrainAt, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion } from "@border-empires/shared";
 import { prospectClueDrawFor } from "./client-prospect-signature-overlay.js";
 import { createRetiredProspectCluesLookup } from "./client-prospect-clue/client-prospect-clue.js";
 import { createMiniMapBaseBuilder } from "./client-minimap/client-minimap-base-builder.js";
@@ -40,6 +40,7 @@ import { drawHillsOverlay as drawHillsOverlayOnCanvas } from "./client-map-rende
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import type { RoadDirections } from "./client-road-network/client-road-network.js";
 import type { ClientState } from "./client-state/client-state.js";
+import { knownTerrainAt } from "./client-tile-action-support/client-tile-action-support.js";
 import { diplomacyOverlayKey, diplomacyOwnerColor } from "./client-diplomacy-overlay/client-diplomacy-overlay.js";
 import { incomingFrontierClaimAt } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 import { drawMusterSiegeBadge } from "./client-map-render/client-map-render-muster-siege-badge.js";
@@ -150,7 +151,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     diplomacyColor(ownerId) ?? effectiveOverlayColorFromModule(ownerId, { ownerColor: effectiveColor, visualStyleForOwner });
   const borderColorForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): string =>
     borderColorForOwnerFromModule(ownerId, stateName, visualStyleForOwner);
-  const shouldDrawOwnershipBorder = (tile: Tile): boolean => shouldDrawOwnershipBorderFromModule(tile, visualStyleForOwner);
+  const shouldDrawOwnershipBorder = (tile: Tile): boolean => !state.showResourceOverlay && shouldDrawOwnershipBorderFromModule(tile, visualStyleForOwner); // Resources lens: no borders
   const borderLineWidthForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): number =>
     borderLineWidthForOwnerFromModule(ownerId, stateName, visualStyleForOwner);
   const structureAccentColor = (ownerId: string, fallback: string): string =>
@@ -260,6 +261,10 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     return color;
   };
 
+  // Shore foam's land lookup: the synced tile first, since season worldgen's
+  // carved 1-tile channels are SEA only on the server (seeded terrainAt says LAND).
+  const knownTerrain = knownTerrainAt(state, keyFor, wrapX, wrapY, terrainAt);
+  const knownLandAt = (x: number, y: number): boolean => !isSeaTerrain(knownTerrain(x, y));
   const drawTerrainTile = (wx: number, wy: number, terrain: Tile["terrain"], px: number, py: number, size: number): void =>
     drawTerrainTileOnCanvas(ctx, {
       wx,
@@ -272,6 +277,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       wrapX,
       wrapY,
       cachedTerrainColorAt,
+      isLandAt: knownLandAt,
       getVisibleLandBiomeAt: (x, y) => {
         const tile = state.tiles.get(keyFor(x, y));
         return tile?.terrain === "LAND" ? tile.landBiome : undefined;

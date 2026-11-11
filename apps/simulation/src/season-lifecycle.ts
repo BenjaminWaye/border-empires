@@ -190,7 +190,7 @@ export const updateSeasonVictoryTrackers = ({
       return {
         ...objective,
         holdRemainingSeconds: 0,
-        statusLabel: "Season won"
+        statusLabel: "Contest won"
       };
     }
 

@@ -30,14 +30,14 @@ describe("guest rejections from the server", () => {
     const ws = new FakeWebSocket();
     const mocks = bind(state, ws, { firebaseAuth });
 
-    sendError(ws, "GUEST_SLOTS_FULL", "Guest spots for this season are full. Sign in to claim an empire.");
+    sendError(ws, "GUEST_SLOTS_FULL", "Guest spots for this Sector Contest are full. Sign in to claim an empire.");
     await settle();
 
     expect(signOut).toHaveBeenCalledWith(firebaseAuth);
     expect(state.authIsGuest).toBe(false);
     expect(state.authSessionReady).toBe(false);
     expect(state.seasonFull).toBe(false);
-    expect(mocks.setAuthStatus).toHaveBeenLastCalledWith("Guest spots for this season are full. Sign in to claim an empire.", "error");
+    expect(mocks.setAuthStatus).toHaveBeenLastCalledWith("Guest spots for this Sector Contest are full. Sign in to claim an empire.", "error");
   });
 
   it("treats a full season differently for a guest: sign in, do not wait for an email they cannot get", async () => {
@@ -46,7 +46,7 @@ describe("guest rejections from the server", () => {
     const ws = new FakeWebSocket();
     const mocks = bind(state, ws, { firebaseAuth });
 
-    sendError(ws, "SEASON_FULL", "This season's empire slots are full. We'll email you when the next season begins.");
+    sendError(ws, "SEASON_FULL", "This Sector Contest is full. Join the waitlist for the next Sector.");
     await settle();
 
     expect(signOut).toHaveBeenCalledTimes(1);
@@ -60,11 +60,11 @@ describe("guest rejections from the server", () => {
     const ws = new FakeWebSocket();
     bind(state, ws, { firebaseAuth });
 
-    sendError(ws, "SEASON_FULL", "This season's empire slots are full. We'll email you when the next season begins.");
+    sendError(ws, "SEASON_FULL", "This Sector Contest is full. Join the waitlist for the next Sector.");
     await settle();
 
     expect(signOut).not.toHaveBeenCalled();
     expect(state.seasonFull).toBe(true);
-    expect(state.authBusyTitle).toBe("This season is full");
+    expect(state.authBusyTitle).toBe("This Sector Contest is full");
   });
 });

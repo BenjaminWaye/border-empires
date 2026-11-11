@@ -210,9 +210,32 @@ To upload a future signed archive using the Xcode account, use a local copy of
 `xcodebuild -exportArchive -archivePath <archive> -exportOptionsPlist <options>
 -allowProvisioningUpdates`. This performs an actual upload, so verify the intended
 bundle, production environment and build number first. Increment the build number
-for the next upload. Keep local credentials and private keys outside Git.
+for the next upload. The iOS project is set to version 1.0 build 2 for the first
+post-deletion upload; Android stays at `versionCode 1` because Play has received
+no bundle yet. Keep local credentials and private keys outside Git.
 Rebuild/sync from the intended release commit before uploading; archive/upload
 success is not a gameplay/device QA result.
+
+On 2026-11-09 version 1.0 build 2 was archived from commit `05489519f` (latest
+`develop` UI plus the build bump), exported with production build metadata
+(`wss://api.borderempires.com/ws`), and uploaded to App Store Connect with the
+upload-mode export options; Apple reported the package accepted and processing.
+No testers were invited and nothing was submitted for review. The next upload
+needs build 3.
+
+Also on 2026-11-09, Play account verification had cleared. The Play app
+**Border Empires** (`com.borderempires.game`, app ID `4973304443304774969`,
+game, free, en-US default, automatic protection on) was created in the
+Wayepoint studios account, accepting the Developer Program Policies, Play App
+Signing ToS and US export declarations. A new upload key (alias `upload`,
+SHA-256 `FF:06:12:20:B0:43:E8:F6:9D:AA:0B:60:82:8C:D9:BB:62:F3:DA:7A:35:E0:C9:C8:A5:07:EC:13:74:AF:D8:7E`)
+lives outside Git on the owner's Mac, with its password in macOS Keychain
+(service "Border Empires Android upload key"); the owner must back up both.
+Build a signed AAB without touching `build.gradle` by passing
+`-Pandroid.injected.signing.{store.file,store.password,key.alias,key.password}`
+to `./gradlew bundleRelease`. versionCode 1 / versionName 1.0 was built from the
+same production bundle and prepared for the internal testing track; the next
+Play upload needs versionCode 2.
 
 ## Required before store submission
 

@@ -1,5 +1,5 @@
 // Map lenses, Civ-style: a round button notched into the top edge of the
-// minimap opens a short list of views (Terrain, Diplomacy). The button shows the
+// minimap opens a short list of views (Terrain, Diplomacy, Resources). The button shows the
 // lens that is on. There is no legend: the colours speak for themselves, and a
 // tile's owner carries a stance tag in the tile panel (client-hud-v2-stance-tag.ts).
 // The host lives inside #mini-map-wrap so it moves with the minimap.
@@ -10,12 +10,17 @@
 
 import type { HudV2Deps } from "./client-hud-v2-context.js";
 
-export type MapLens = "terrain" | "diplomacy";
+export type MapLens = "terrain" | "diplomacy" | "resources";
 
 const LENSES: ReadonlyArray<{ id: MapLens; label: string }> = [
   { id: "terrain", label: "Terrain" },
-  { id: "diplomacy", label: "Diplomacy" }
+  { id: "diplomacy", label: "Diplomacy" },
+  { id: "resources", label: "Resources" }
 ];
+const isMapLens = (value: string | undefined): value is MapLens => LENSES.some((l) => l.id === value);
+
+/** The lens flags kept on the client state; at most one is on, Terrain when neither is. */
+type LensState = { showDiplomacyOverlay: boolean; showResourceOverlay?: boolean };
 
 export const OVERLAYS_HOST_ID = "hud-v2-overlays";
 
@@ -79,7 +84,7 @@ export const setMapOverview = (open: boolean, body: HTMLElement | undefined = ty
 
 const lensIcon = (src: string): string => `<img class="hud-v2-lens-icon" src="${src}" alt="" aria-hidden="true" draggable="false">`;
 
-export const activeLens = (diplomacyOn: boolean): MapLens => (diplomacyOn ? "diplomacy" : "terrain");
+export const activeLens = (diplomacyOn: boolean, resourcesOn = false): MapLens => (resourcesOn ? "resources" : diplomacyOn ? "diplomacy" : "terrain");
 
 /** The overview's header and lens row; the minimap canvas itself sits between them (CSS order). */
 const mapOverviewHtml = (active: MapLens): string => {
@@ -88,8 +93,9 @@ const mapOverviewHtml = (active: MapLens): string => {
     <div class="v2c-map-lenses"><span class="v2c-map-lens-label" id="v2c-map-lens-label">Lens</span><div class="v2c-map-segments" role="radiogroup" aria-labelledby="v2c-map-lens-label">${items}</div></div>`;
 };
 
-export const overlaysHtml = (diplomacyOn: boolean, menuOpen: boolean, overviewOpen = false): string => {
-  const active = activeLens(diplomacyOn);
+/** `lens` is the active lens, or (older callers) whether the Diplomacy lens is on. */
+export const overlaysHtml = (lens: MapLens | boolean, menuOpen: boolean, overviewOpen = false): string => {
+  const active = typeof lens === "string" ? lens : activeLens(lens);
   if (overviewOpen) return mapOverviewHtml(active);
   const label = active === "terrain" ? "Map lens" : `Map lens: ${LENSES.find((l) => l.id === active)?.label}`;
   const button = `<button type="button" class="hud-v2-lens-btn${active !== "terrain" ? " hud-v2-lens-on" : ""}" data-hud-v2-lens-toggle aria-haspopup="menu" aria-expanded="${menuOpen}" aria-label="${label}" title="${label}">${lensIcon(active === "terrain" ? "/icons/simple/lens.svg" : `/icons/simple/lens-${active}.svg`)}</button>`;
@@ -103,7 +109,7 @@ export const overlaysHtml = (diplomacyOn: boolean, menuOpen: boolean, overviewOp
  * Applies a click inside the lens host; true when it was a lens control. On a phone (`compact`) the round button
  * opens the map overview instead of the list, and a lens picked there leaves the overview open.
  */
-export const lensClick = (state: Pick<HudV2Deps["state"], "showDiplomacyOverlay">, target: Element, compact = false): { handled: boolean; viewChanged: boolean } => {
+export const lensClick = (state: LensState, target: Element, compact = false): { handled: boolean; viewChanged: boolean } => {
   if (target.closest("[data-hud-v2-lens-toggle]")) {
     if (compact) setMapOverview(!mapOverview.open);
     else lensMenu.open = !lensMenu.open;
@@ -114,11 +120,11 @@ export const lensClick = (state: Pick<HudV2Deps["state"], "showDiplomacyOverlay"
     return { handled: true, viewChanged: false };
   }
   const pick = target.closest<HTMLElement>("[data-hud-v2-lens]")?.dataset.hudV2Lens;
-  if (pick !== "terrain" && pick !== "diplomacy") return { handled: false, viewChanged: false };
+  if (!isMapLens(pick)) return { handled: false, viewChanged: false };
   lensMenu.open = false;
-  const next = pick === "diplomacy";
-  if (state.showDiplomacyOverlay === next) return { handled: true, viewChanged: false };
-  state.showDiplomacyOverlay = next;
+  if (activeLens(state.showDiplomacyOverlay, state.showResourceOverlay) === pick) return { handled: true, viewChanged: false };
+  state.showDiplomacyOverlay = pick === "diplomacy";
+  state.showResourceOverlay = pick === "resources";
   return { handled: true, viewChanged: true };
 };
 

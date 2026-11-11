@@ -23,3 +23,13 @@ export const CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT: ClientChangelogEntry[] = [
     ]
   }
 ];
+
+export const AFC_LANDING_DEPLOYMENT_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.10",
+  title: "AFCs unfold after landing",
+  why: "The AFC arrived fully extended, and uneven ground could hide the outer edges of its module bays.",
+  changes: [
+    "On both maps, the AFC descends with its arms tucked in, plants them after touchdown, then slides out its eight module bays.",
+    "On the 3D map, the landing pad clears hills beneath the bays so the sockets and docked modules stay above the ground."
+  ]
+};

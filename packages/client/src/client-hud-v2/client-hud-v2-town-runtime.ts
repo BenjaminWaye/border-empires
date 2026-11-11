@@ -1,7 +1,7 @@
 import { townBuildTarget } from "./client-hud-v2-town-build-target.js";
 import { preserveResourceBuildChoice } from "./client-resource-improvement-action.js";
 import { structureRequiresTownOrSupportTile } from "@border-empires/shared";
-import { structureTypeForTileAction } from "../client-tile-action-support/client-tile-action-support.js";
+import { dormantResourcesForTile, structureTypeForTileAction } from "../client-tile-action-support/client-tile-action-support.js";
 // Runtime for the town screen: decides when a selected tile opens it (your
 // town, or a tile in its support ring), renders it from the tile menu views,
 // and runs town actions on the town even while a support tile is selected.
@@ -78,7 +78,8 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     category: screen.townCategory,
     focusQueuePosition: townQueuePosition(deps.state.developmentQueue, current.focusKey),
     focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? []),
-    autoSettle: deps.state.autoSettle
+    autoSettle: deps.state.autoSettle,
+    dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field)
   });
   writeHtml("v2t-left", regions.left);
   preserveResourceBuildChoice(document.getElementById("v2t-build"), () => writeHtml("v2t-build", regions.build));

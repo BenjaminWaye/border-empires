@@ -53,9 +53,9 @@ export const rivalReachOverMyTile = (tile: IncursionTile | undefined, me: string
 };
 
 /**
- * A tile held by one empire inside another's reach, from either side: a
- * rival's tile inside the viewer's reach (incursionOwnerAt) or the viewer's
- * own tile inside a rival's reach (rivalReachOverMyTile). `pusher` holds the
+ * A tile held by one empire inside another's reach, including conflicts
+ * between two other Houses. The viewer's reach set remains the fallback
+ * for tiles received without authoritative reach ownership. `pusher` holds the
  * tile, `defender` owns the reach around it, and `inDefenderReach` says
  * whether any tile key sits inside that reach. Both cases get the same hatch
  * and front line, coloured by who pushed in.
@@ -73,11 +73,12 @@ export const reachPocketAt = (
   myReach: ReadonlySet<string>,
   tiles: ReadonlyMap<string, IncursionTile>
 ): ReachPocket | undefined => {
-  const intruder = incursionOwnerAt(tile, tileKey, me, myReach);
+  const intruder = !tile?.reachOwnerId ? incursionOwnerAt(tile, tileKey, me, myReach) : undefined;
   if (intruder) return { pusher: intruder, defender: me, inDefenderReach: myReach };
-  const rival = rivalReachOverMyTile(tile, me);
-  if (!rival) return undefined;
-  return { pusher: me, defender: rival, inDefenderReach: { has: (key) => tiles.get(key)?.reachOwnerId === rival } };
+  const pusher = tile?.ownerId;
+  const defender = tile?.reachOwnerId;
+  if (!pusher || !defender || pusher === defender || pusher.startsWith("barbarian") || defender.startsWith("barbarian")) return undefined;
+  return { pusher, defender, inDefenderReach: { has: (key) => tiles.get(key)?.reachOwnerId === defender } };
 };
 
 export const incursionPocketEdges = (x: number, y: number, ownerId: string, deps: IncursionDeps): IncursionEdges => {

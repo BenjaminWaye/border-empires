@@ -75,6 +75,47 @@ describe("SimulationRuntime exportVisibleStateForPlayer — watchtower/waystatio
     expect(tile?.waystationJson).toBe(JSON.stringify({ activated: false }));
   });
 
+  it("keeps a captured waystation's hidden resource reward private across tile projections", () => {
+    const claimant = "player-1";
+    const observer = "player-2";
+    const viewer = makePlayer(observer);
+    const waystation = {
+      activated: true, activatedByPlayerId: claimant, grantedEffect: "RESOURCE_TILE" as const, grantedResource: "TITANIUM" as const
+    };
+    const coords = { x: 6, y: 6 };
+    const tile = { ...coords, terrain: "LAND" as const, ownerId: claimant, ownershipState: "SETTLED" as const, resource: "TITANIUM" as const, waystation };
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([[claimant, makePlayer(claimant)], [observer, viewer]]),
+      initialState: {
+        tiles: [tile, { x: 6, y: 7, terrain: "LAND", ownerId: observer, ownershipState: "SETTLED" }],
+        activeLocks: []
+      }
+    });
+
+    const live = { ...coords, resource: tile.resource, ownerId: claimant, waystationJson: JSON.stringify(waystation) };
+    const observedDeltas = [
+      runtime.filterTileDeltasForPlayer([live], observer)[0],
+      runtime.filterTileDeltasForPlayer([{ ...live, forceVisibleForPlayerId: observer }], observer)[0],
+      runtime.wireDeltaForTileKey("6,6", observer),
+      runtime.exportVisibleStateForPlayer(observer).tiles.find((entry) => entry.x === 6 && entry.y === 6),
+      runtime.exportTilesInAreaForPlayer(observer, 6, 6, 0).find((entry) => entry.x === 6 && entry.y === 6)
+    ];
+    for (const delta of observedDeltas) {
+      expect(delta).toMatchObject(coords);
+      expect(delta?.resource).toBeUndefined();
+      expect(delta?.waystationJson).toBeUndefined();
+    }
+    expect(runtime.filterTileDeltasForPlayer([live], observer)[0]).toHaveProperty("waystationJson", undefined);
+    expect(runtime.filterTileDeltasForPlayer([live], claimant)[0]?.waystationJson).toBe(live.waystationJson);
+    expect(runtime.wireDeltaForTileKey("6,6", claimant)?.waystationJson).toBe(live.waystationJson);
+    const fullMapTile = runtime.exportState().tiles.find((entry) => entry.x === 6 && entry.y === 6);
+    expect(fullMapTile?.resource).toBe("TITANIUM");
+    expect(fullMapTile?.waystationJson).toBeUndefined();
+    const checkpointTile = runtime.exportSnapshotSections().initialState.tiles.find((entry) => entry.x === 6 && entry.y === 6);
+    expect(checkpointTile?.waystation).toEqual(waystation);
+  });
+
   it("omits watchtowerJson/waystationJson for a tile with neither site (unchanged from before this fix)", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,

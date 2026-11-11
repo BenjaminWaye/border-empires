@@ -1,5 +1,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import { isAfcModelHiddenForJoinDrop } from "./client-afc-join-drop-state.js";
 import { isMapUnobstructed, type MapUnobstructedState } from "../client-map-unobstructed/client-map-unobstructed.js";
 import {
   AFC_JOIN_DESCENT_MS,
@@ -13,8 +14,8 @@ import {
 // "Join drop"). Ticked once per frame from the runtime loop, before either
 // renderer draws. It (1) arms when the viewer's own home AFC is freshly
 // activated and not yet shown, hiding the real AFC; (2) starts the drop only
-// once the map has been unobstructed for the dwell; (3) reveals the real AFC
-// at touchdown; (4) persists "played" when the drop completes.
+// once the map has been unobstructed for the dwell; (3) clears the pad at touchdown and
+// hands the deployed AFC back to the map when the sequence ends; (4) persists "played" when the drop completes.
 
 export type AfcJoinDropTickState = MapUnobstructedState &
   Pick<ClientState, "me" | "tiles" | "tilesRevision" | "connection" | "firstChunkAt" | "camX" | "camY" | "afcJoinDrop" | "afcJoinDropFxQueue">;
@@ -95,7 +96,7 @@ const gateOpen = (deps: AfcJoinDropTickDeps, x: number, y: number): boolean =>
 
 const finish = (deps: AfcJoinDropTickDeps, markPlayed: boolean): void => {
   const drop = deps.state.afcJoinDrop;
-  const wasHidden = !drop.revealed;
+  const wasHidden = isAfcModelHiddenForJoinDrop(drop, drop.x, drop.y);
   if (markPlayed && drop.tipId) deps.markSeen(drop.tipId);
   drop.phase = "done";
   drop.revealed = true;

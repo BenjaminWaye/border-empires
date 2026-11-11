@@ -47,7 +47,7 @@ describe("monument-unlock tech lockout once the monument is already built", () =
 
     const result = chooseTechForPlayer(player, "grand-levy-doctrine", tiles);
 
-    expect(result).toEqual({ ok: false, reason: "monument already built this season" });
+    expect(result).toEqual({ ok: false, reason: "monument already built this Sector Contest" });
     expect(player.techIds.has("grand-levy-doctrine")).toBe(false);
   });
 
@@ -59,7 +59,7 @@ describe("monument-unlock tech lockout once the monument is already built", () =
     // (already owned), but the monument-lock check itself must not fire for
     // an owner — assert the reason text differs from the lockout message.
     const result = chooseTechForPlayer(player, "grand-levy-doctrine", tiles);
-    expect(result).not.toEqual({ ok: false, reason: "monument already built this season" });
+    expect(result).not.toEqual({ ok: false, reason: "monument already built this Sector Contest" });
   });
 
   it("does not block an unrelated tech even while a monument is claimed", () => {
@@ -79,7 +79,7 @@ describe("monument-unlock tech lockout once the monument is already built", () =
     expect(payload.nextChoices).not.toContain("grand-levy-doctrine");
     const entry = payload.techCatalog.find((tech) => tech.id === "grand-levy-doctrine");
     expect(entry?.requirements.canResearch).toBe(false);
-    expect(entry?.lockedReason).toBe("monument already built this season");
+    expect(entry?.lockedReason).toBe("monument already built this Sector Contest");
   });
 
   it("still offers the tech normally when no monument is claimed", () => {

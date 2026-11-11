@@ -39,6 +39,17 @@ describe("season activity persistence", () => {
     expect(afterRestart.restoredLogs()).toEqual(sampleLogs());
   });
 
+  it.each([40, 80])("recovers legacy player losses only when retained logs cover all %i manpower", async (total) => {
+    const store = new InMemorySeasonSummaryStore();
+    await store.saveDeadliestTiles("season-1", [{ x: 1, y: 2, manpowerLost: total }]);
+    await store.saveActivityLogs("season-1", sampleLogs());
+    const runtime = fakeRuntime();
+    await restoreSeasonActivityState(store, "season-1", runtime);
+    const player = findMostDeadlyTile(runtime.manpowerLossByTileKey)?.mostLossesPlayer;
+    if (total === 40) expect(player).toMatchObject({ playerId: "p1", manpowerLost: 40 });
+    else expect(player).toBeUndefined();
+  });
+
   it("does not let empty feeds overwrite stored history", async () => {
     const store = new InMemorySeasonSummaryStore();
     await persistSeasonActivityState(store, "season-1", fakeRuntime({ logs: sampleLogs() }));

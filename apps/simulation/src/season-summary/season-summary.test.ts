@@ -160,8 +160,10 @@ describe("buildArchiveRow", () => {
       worldSeed: 1,
       rulesetId: "seasonal-default",
       seasonStats: {
-        mostDeadlyTile: { x: 387, y: 423, manpowerLost: 42128 },
-        longestRoad: { tileCount: 39 }
+        mostDeadlyTile: { x: 387, y: 423, manpowerLost: 42128,
+          mostLossesPlayer: { playerId: "p1", playerName: "Waypoint", manpowerLost: 30000 } },
+        longestRoad: { tileCount: 39, playerId: "p1", playerName: "Waypoint",
+          fromCity: { x: 1, y: 2, name: "Port Brass" }, toCity: { x: 3, y: 4, name: "Northgate" } }
       },
       leaderboard: { overall: [], byTiles: [], byIncome: [], byTechs: [] } as CurrentSeasonSummary["leaderboard"],
       overall: [],
@@ -177,10 +179,7 @@ describe("buildArchiveRow", () => {
 
     const archiveRow = buildArchiveRow(summary);
 
-    expect(archiveRow.seasonStats).toEqual({
-      mostDeadlyTile: { x: 387, y: 423, manpowerLost: 42128 },
-      longestRoad: { tileCount: 39 }
-    });
+    expect(archiveRow.seasonStats).toEqual(summary.seasonStats);
 
     // Round-trip through JSON the way SqliteSeasonSummaryStore persists it,
     // to catch the field being dropped by serialization rather than mapping.

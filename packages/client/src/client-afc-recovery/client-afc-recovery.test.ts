@@ -3,7 +3,7 @@ import { applyDomainUpdateMessage } from "../client-domain-update-handler/client
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
-import { gateAfcConstructionActions } from "./client-afc-recovery-actions.js";
+import { gateAfcConstructionActions, gateTileConstructionActions } from "./client-afc-recovery-actions.js";
 import { renderAfcRecovery } from "./client-afc-recovery.js";
 
 const fixture = (gold = 500) => {
@@ -36,7 +36,7 @@ describe("AFC recovery popup", () => {
     document.querySelector<HTMLButtonElement>("[data-afc-fight]")!.click();
     f.update({ globalLosses: 6, requiredSince: 1000 });
     expect(document.querySelector("[role=dialog]")).toBeNull();
-    expect(document.body.textContent).toContain("Construction suspended");
+    expect(document.querySelector(".afc-recovery-status")?.getAttribute("aria-label")).toContain("Construction suspended");
     f.update({ globalLosses: 6, requiredSince: 2000, cancellation: "Landing site lost" });
     expect(document.querySelector("[role=dialog]")).not.toBeNull();
     expect(document.body.textContent).toContain("Landing site lost");
@@ -48,6 +48,23 @@ describe("AFC recovery popup", () => {
     expect(document.querySelector("[data-afc-choose]")?.classList.contains("v2s-btn-primary")).toBe(true);
     expect(document.querySelector("[data-afc-fight]")?.classList.contains("v2s-btn")).toBe(true);
     expect(document.querySelector("[data-afc-confirm]")?.classList.contains("v2s-btn-danger")).toBe(true);
+  });
+
+  it("keeps recovery at the edge after Continue fighting and updates affordability", () => {
+    const f = fixture(10); f.update({ globalLosses: 1, requiredSince: 1000 });
+    document.querySelector<HTMLButtonElement>("[data-afc-fight]")!.click();
+    f.render();
+    expect(document.querySelector(".afc-recovery-status")?.textContent).toContain("Requires 20 gold");
+    expect(document.querySelector("[role=dialog]")).toBeNull();
+    expect(document.querySelector(".afc-recovery-status-minimized")).not.toBeNull();
+    expect(document.querySelector(".afc-recovery-cost-unaffordable")).not.toBeNull();
+    f.state.gold = 20;
+    f.render();
+    expect(document.querySelector(".afc-recovery-cost-unaffordable")).toBeNull();
+    expect(document.querySelector(".afc-recovery-status")?.textContent).toContain("Requires 20 gold");
+    document.querySelector<HTMLButtonElement>(".afc-recovery-status")!.click();
+    f.render();
+    expect(document.querySelector("[role=dialog]")).not.toBeNull();
   });
 
   it("updates affordability when income reaches the exact replacement price", () => {
@@ -98,4 +115,25 @@ it("does not clear an upgrade selection when the global AFC quote changes", () =
   expect(state.pendingDomainUnlockId).toBe("afc-exchequer-1");
   expect(state.afcRecovery?.globalLosses).toBe(10);
   expect(state.gold).toBe(80);
+});
+
+it("blocks a fort at a town inside a relic's nine tiles while allowing a build that uses a different plot", () => {
+  const { state } = fixture();
+  state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", naturalWonder: { type: "WARPRESS" } });
+  const town = { ...state.tiles.get("10,10")!, town: {
+    type: "MARKET" as const,
+    populationTier: "TOWN" as const,
+    baseGoldPerMinute: 1, goldPerMinute: 1, cap: 100,
+    supportCurrent: 1, supportMax: 2, isFed: true,
+    population: 100, maxPopulation: 200,
+    connectedTownCount: 0, connectedTownBonus: 0,
+    hasManufactory: false, manufactoryActive: false,
+    hasIncubationEngine: false, incubationEngineActive: false
+  } };
+  const actions = gateTileConstructionActions([
+    { id: "build_palisade", label: "Build fort" },
+    { id: "build_manufactory", label: "Build manufactory" }
+  ], state, town);
+  expect(actions[0]?.disabledReason).toBe("This tile is reserved by a relic");
+  expect(actions[1]?.disabled).toBeUndefined();
 });

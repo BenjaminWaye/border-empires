@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyGatewayTileDeltaBatch } from "./client-gateway-sync.js";
+import { applyGatewayInitialState, applyGatewayTileDeltaBatch } from "./client-gateway-sync.js";
 import type { Tile } from "../client-types.js";
 
 const createDeps = () => {
@@ -39,6 +39,27 @@ const createDeps = () => {
 // water-surface rebuild almost continuously, visible as the sea's wave/
 // lighting animation restarting over and over with no player action.
 describe("client gateway sync tiles revision regression", () => {
+  it.each([
+    { reward: "RESOURCE_TILE", resource: "FARM" },
+    { reward: "VISION", resource: undefined }
+  ])("removes a claimed waystation from the map for a $reward reward", ({ reward, resource }) => {
+    const deps = createDeps();
+    const coords = { x: 5, y: 5 };
+    applyGatewayInitialState(deps, { tiles: [{ ...coords, waystationJson: '{"activated":false}' }] });
+    expect(deps.state.tiles.get("5,5")?.waystation).toEqual({ activated: false });
+    const revision = deps.state.tilesRevision;
+
+    const claimed = { ...coords, ...(resource ? { resource } : {}), waystationJson: JSON.stringify({ activated: true, grantedEffect: reward }) };
+    applyGatewayTileDeltaBatch(deps, [claimed]);
+    expect(deps.state.tiles.get("5,5")?.waystation).toBeUndefined();
+    expect(deps.state.tiles.get("5,5")?.resource).toBe(resource);
+    expect(deps.state.tilesRevision).toBeGreaterThan(revision);
+
+    applyGatewayInitialState(deps, { tiles: [claimed] });
+    expect(deps.state.tiles.get("5,5")?.waystation).toBeUndefined();
+    expect(deps.state.tiles.get("5,5")?.resource).toBe(resource);
+  });
+
   it("does not bump tilesRevision for an economy-only delta (yieldRate/upkeep/history), but does for a visually-relevant one", () => {
     const deps = createDeps();
     deps.state.tiles.set("5,5", {

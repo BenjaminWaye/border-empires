@@ -159,7 +159,7 @@ describe("handleJoinSeasonMessage", () => {
       const done = handleJoinSeasonMessage(deps);
       await vi.advanceTimersByTimeAsync(21_000);
       await done;
-      expect(deps.sent).toEqual([{ type: "ERROR", code: "JOIN_SEASON_FAILED", message: "Could not join the season. Try again." }]);
+      expect(deps.sent).toEqual([{ type: "ERROR", code: "JOIN_SEASON_FAILED", message: "Could not join the Sector Contest. Try again." }]);
     } finally {
       vi.useRealTimers();
     }
@@ -175,6 +175,21 @@ describe("handleJoinSeasonMessage", () => {
       }
     });
     await handleJoinSeasonMessage(deps);
-    expect(deps.sent).toEqual([{ type: "ERROR", code: "JOIN_SEASON_FAILED", message: "Could not join the season. Try again." }]);
+    expect(deps.sent).toEqual([{ type: "ERROR", code: "JOIN_SEASON_FAILED", message: "Could not join the Sector Contest. Try again." }]);
+  });
+
+  it("sends JOIN_SEASON_ENDED (not a retryable JOIN_SEASON_FAILED) when the season already has a winner", async () => {
+    const deps = buildDeps({
+      simulationClient: {
+        preparePlayer: vi.fn(),
+        joinSeason: vi.fn(async () => {
+          throw new Error("2 UNKNOWN: cannot join an ended season");
+        })
+      }
+    });
+    await handleJoinSeasonMessage(deps);
+    expect(deps.sent).toEqual([
+      { type: "ERROR", code: "JOIN_SEASON_ENDED", message: "This Sector Contest has ended. You can join the next one when it starts." }
+    ]);
   });
 });

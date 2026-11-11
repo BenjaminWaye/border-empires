@@ -15,7 +15,7 @@ import { autoSettleOptionForTile, autoSettleOptionHtml } from "../client-auto-se
 import { availableResourceImprovement, isGarrison } from "./client-hud-v2-action-bar.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
-import { builtStructureFacts, townGrowth, type TileFact } from "./client-hud-v2-tile-facts.js";
+import { builtStructureFacts, townGrowth, type DormantResourcesFor, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 
@@ -34,6 +34,8 @@ export type TownScreenInput = {
   focusWorkLocked?: boolean;
   /** Live prefs: the checkbox is read from these each render, not from the view snapshot taken when the screen opened. */
   autoSettle?: ClientAutoSettleState;
+  /** Dormancy lookup (state.dormantStructures), so a building without its upkeep slot reads Dormant, not Active. */
+  dormantResourcesFor?: DormantResourcesFor;
 };
 
 const esc = (text: string): string =>
@@ -111,8 +113,9 @@ const buildPanelHtml = (input: TownScreenInput): string => {
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
   const placeLabel = supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place";
   const work = input.focusView.work ?? [];
-  // A support tile can already hold a building; pressing it shows what that building is and does.
-  const built = supportFocus ? builtCardHtml(builtStructureFacts(input.focus, input.focus.ownerId === input.town.ownerId)) : "";
+  // The selected tile (a support tile, or the town itself, e.g. a Fort on the town) can already hold a
+  // building; show what it is and does, including when it's dormant and giving nothing.
+  const built = builtCardHtml(builtStructureFacts(input.focus, input.focus.ownerId === input.town.ownerId, Date.now(), input.dormantResourcesFor));
   const workHtml = work.length > 0 ? townWorkHtml(work, keyOf(input.focus), input.focusQueuePosition ?? 0, input.focusWorkLocked ?? false) : "";
   // Work first: under the "Built here" heading it would read as part of the building.
   const lead = `${workHtml}${built}`;

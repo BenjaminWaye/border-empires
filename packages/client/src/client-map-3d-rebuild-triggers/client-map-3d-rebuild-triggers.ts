@@ -92,7 +92,7 @@ export const aetherProtectionRebuildKey = (state: AetherProtectionTriggerState, 
   isAetherProtectionFieldShown(state, keyFor) ? `on:${aetherProtectionFieldKey(aetherProtectionField(state, Date.now()))}` : "";
 
 export const captureMap3DRebuildTriggers = (
-  state: Pick<ClientState, "crystalTargeting" | "capture" | "outgoingMusterAttacksByTile" | "tiles" | "incomingAttacksByTile" | "me" | "serverReach" | "serverReachRevision" | "techIds" | "techCatalog" | "showDiplomacyOverlay" | "allies" | "activeTruces"> & { relicMapHintsRevision?: number } & AetherProtectionTriggerState,
+  state: Pick<ClientState, "crystalTargeting" | "capture" | "outgoingMusterAttacksByTile" | "tiles" | "incomingAttacksByTile" | "me" | "serverReach" | "serverReachRevision" | "techIds" | "techCatalog" | "showDiplomacyOverlay" | "showResourceOverlay" | "allies" | "activeTruces"> & { relicMapHintsRevision?: number } & AetherProtectionTriggerState,
   keyFor: (x: number, y: number) => string,
   reach3DActive: boolean
 ): Map3DRebuildTriggers => ({

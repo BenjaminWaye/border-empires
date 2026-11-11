@@ -39,7 +39,7 @@ const NATURAL_WONDER_DISCOVERY_TIPS: Record<NaturalWonderType, DiscoveryTipDef> 
 ) as Record<NaturalWonderType, DiscoveryTipDef>;
 
 const RELIC_DISCOVERY_TIPS = Object.fromEntries(Object.entries(RELIC_DEFINITIONS).map(([type, definition]) => [
-  `RELIC_${type}`, { id: `RELIC_${type}`, title: `Concordance Relic Discovered: ${definition.name}`, body: `${definition.description} Garrison the site to activate it. ${definition.benefit}` }
+  `RELIC_${type}`, { id: `RELIC_${type}`, title: `Concordance Relic Discovered: ${definition.name}`, body: `${definition.description} Garrison the site to activate it.` }
 ])) as Record<RelicDiscoveryTipId, DiscoveryTipDef>;
 
 export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {

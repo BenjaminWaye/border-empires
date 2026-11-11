@@ -296,11 +296,16 @@ export const chooseTechForPlayer = (
   if (player.points < goldCost || !hasResources(required, available)) { return { ok: false, reason: "requirements not met" }; }
   player.points = Math.max(0, player.points - goldCost);
   spendStrategicResources(player, required);
+  grantTechToPlayer(player, techId);
+  return { ok: true };
+};
+
+/** Adds a tech and its immediate player-state effects; shared by paid research and the waystation TECH reward. */
+export const grantTechToPlayer = (player: DomainPlayer, techId: string): void => {
   player.techIds.add(techId);
   grantAmbaricTransformerUnlockIfLinked(player, techId);
-  player.techRootId = tech.rootId ?? player.techRootId ?? "rewrite-local";
+  player.techRootId = techTree.techs.find((entry) => entry.id === techId)?.rootId ?? player.techRootId ?? "rewrite-local";
   player.mods = recomputeMods(player);
-  return { ok: true };
 };
 
 // Re-exported so runtime.ts and other sim modules that already import this
@@ -435,7 +440,7 @@ export const buildTechUpdatePayload = (
       },
       // Lets the client show "already built" on a claimed monument's unlock tech (monument-uniqueness.ts) instead of a generic locked state.
       ...(!player.techIds.has(tech.id) && claimedMonumentTechIds.has(tech.id)
-        ? { lockedReason: "monument already built this season" }
+        ? { lockedReason: "monument already built this Sector Contest" }
         : {}),
       ...(tech.grantsPowerup ? { grantsPowerup: tech.grantsPowerup } : {})
     })),

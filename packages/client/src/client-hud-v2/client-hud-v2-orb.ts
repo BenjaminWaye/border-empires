@@ -44,7 +44,31 @@ export const orbLiquidStyle = (color: string | undefined): string => {
 };
 
 /** Fill fraction, clamped to 0..1 so overflow manpower never draws outside the orb. */
-export const orbFill = (manpower: number, cap: number): number => (cap > 0 ? Math.max(0, Math.min(1, manpower / cap)) : 0);
+export const orbFill = (manpower: number, cap: number): number =>
+  manpower <= 0 ? 0 : cap > 0 ? Math.min(1, manpower / cap) : 1;
+
+/** Share of the held pool beyond capacity; controls the bubbling intensity. */
+export const orbOverflowFraction = (manpower: number, cap: number): number =>
+  manpower > 0 && manpower > cap ? Math.min(1, (manpower - Math.max(0, cap)) / manpower) : 0;
+
+const OVERFLOW_BUBBLES = [
+  { x: 39, y: 92, r: 3, delay: -0.4 },
+  { x: 139, y: 110, r: 3.5, delay: -1.6 },
+  { x: 63, y: 48, r: 2, delay: -0.9 },
+  { x: 121, y: 55, r: 2.5, delay: -2.2 },
+  { x: 46, y: 136, r: 2.5, delay: -1.2 },
+  { x: 130, y: 142, r: 2, delay: -0.2 }
+];
+
+const orbOverflowHtml = (input: OrbInput): string => {
+  const fraction = orbOverflowFraction(input.manpower, input.manpowerCap);
+  if (fraction === 0) return "";
+  const bubbles = OVERFLOW_BUBBLES.slice(0, 2 + Math.ceil(fraction * 4)).map(b =>
+    `<g class="hud-v2-orb-bubble" style="animation-delay:${b.delay}s"><circle cx="${b.x}" cy="${b.y}" r="${b.r}"/><circle class="hud-v2-orb-bubble-glint" cx="${b.x - 0.8}" cy="${b.y - 0.9}" r="0.7"/></g>`
+  ).join("");
+  const escaping = `<circle class="hud-v2-orb-escaped-bubble" cx="52" cy="20" r="2.5"/><circle class="hud-v2-orb-escaped-bubble" cx="128" cy="17" r="2" style="animation-delay:-1.3s"/>`;
+  return `<g class="hud-v2-orb-overflow"${orbLiquidStyle(input.color)}><g clip-path="url(#hud-v2-orb-clip)"><g class="hud-v2-orb-surface"><path d="M23 48 C48 25 76 54 100 38 S137 38 157 53"/><path d="M28 57 C55 42 82 62 111 48 S139 50 152 60"/></g>${bubbles}</g>${escaping}</g>`;
+};
 
 /** Next batch as it lands in the pool (never more than the room left under the cap), or undefined when unknown or empty. */
 export const orbBatchAmount = (input: OrbInput): number | undefined => {
@@ -83,17 +107,26 @@ const orbRefillLine = (input: OrbInput): { text: string; label: string } => {
 export const orbHtml = (input: OrbInput): string => {
   const fill = orbFill(input.manpower, input.manpowerCap);
   const level = Math.round(170 - fill * 150);
+  // Once full, cover the entire clipped glass instead of leaving the wave below its top edge.
+  const liquidPath = fill === 1 ? "M0 0 H180 V180 H0 Z"
+    : `M0 ${level} C 45 ${level - 8}, 70 ${level + 8}, 90 ${level} S 140 ${level - 8}, 180 ${level} V 180 H 0 Z`;
   const line = orbRefillLine(input);
   const refill = line.text ? `<span class="hud-v2-orb-refill">${line.text}</span>` : "";
-  const label = `Manpower ${Math.floor(input.manpower)} of ${Math.floor(input.manpowerCap)}${line.label}`;
+  const overCapacity = input.manpower > input.manpowerCap;
+  const excess = Math.floor(Math.max(0, input.manpower - input.manpowerCap)).toLocaleString("en-US");
+  const overflow = orbOverflowHtml(input);
+  const capPrefix = overCapacity ? "Capacity " : "/ ";
+  const label = `Manpower ${Math.floor(input.manpower)} of ${Math.floor(input.manpowerCap)}${line.label}${overCapacity ? `, ${excess} above capacity` : ""}`;
   return `<button type="button" class="hud-v2-orb${fill <= 0.02 ? " hud-v2-orb-empty" : ""}" data-hud-v2-open="manpower" aria-label="${label}" title="${label}">
     <svg viewBox="0 0 180 180" aria-hidden="true">
-      <defs><clipPath id="hud-v2-orb-clip"><circle cx="90" cy="90" r="74"/></clipPath></defs>
+      <defs>
+        <clipPath id="hud-v2-orb-clip"><circle cx="90" cy="90" r="74"/></clipPath>
+      </defs>
       <circle cx="90" cy="90" r="86" class="hud-v2-orb-rim"/>
       <circle cx="90" cy="90" r="74" class="hud-v2-orb-glass"/>
-      <g clip-path="url(#hud-v2-orb-clip)"><path class="hud-v2-orb-liquid"${orbLiquidStyle(input.color)} d="M0 ${level} C 45 ${level - 8}, 70 ${level + 8}, 90 ${level} S 140 ${level - 8}, 180 ${level} V 180 H 0 Z"/></g>
-      <circle cx="90" cy="90" r="74" class="hud-v2-orb-ring"/>
+      <g clip-path="url(#hud-v2-orb-clip)"><path class="hud-v2-orb-liquid"${orbLiquidStyle(input.color)} d="${liquidPath}"/></g>
+      <circle cx="90" cy="90" r="74" class="hud-v2-orb-ring"/>${overflow}
     </svg>
-    <span class="hud-v2-orb-text"><span class="hud-v2-orb-label">Manpower</span><span class="hud-v2-orb-value">${Math.floor(input.manpower).toLocaleString("en-US")}</span><span class="hud-v2-orb-cap">/ ${Math.floor(input.manpowerCap).toLocaleString("en-US")}</span>${refill}</span>
+    <span class="hud-v2-orb-text"><span class="hud-v2-orb-label">Manpower</span><span class="hud-v2-orb-value">${Math.floor(input.manpower).toLocaleString("en-US")}</span><span class="hud-v2-orb-cap">${capPrefix}${Math.floor(input.manpowerCap).toLocaleString("en-US")}</span>${refill}</span>
   </button>`;
 };

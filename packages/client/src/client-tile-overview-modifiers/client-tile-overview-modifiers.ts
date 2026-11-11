@@ -23,6 +23,7 @@ export const naturalWonderOverviewLine = (tile: Tile, ownerKind: TileOwnerKind):
     const status = relicOperationalState(tile.naturalWonder, Boolean(tile.ownerId && tile.ownershipState === "SETTLED"));
     const reserve = relicReserveLabel(tile.naturalWonder);
     const bonus = tile.naturalWonder.resourceBonus;
+    if (status === "dormant") return `Relic: ${definition.name} — dormant. Garrison to activate.`;
     return `Relic: ${definition.name} — ${status}. ${status === "depleted" ? "The reserve is exhausted; capture does not replenish it." : definition.benefit}${bonus ? ` Allocation: +${bonus.amount} ${bonus.resource} capacity.` : ""}${reserve ? ` ${reserve}.` : ""}`;
   }
   const { name, boon } = NATURAL_WONDER_LABELS[tile.naturalWonder.type];

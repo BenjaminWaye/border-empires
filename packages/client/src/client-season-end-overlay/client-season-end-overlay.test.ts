@@ -7,7 +7,8 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   seasonWinner: undefined,
   seasonEndDismissed: false,
   seasonEndStarting: false,
-  seasonStartVoteCount: 0, seasonStartVoted: false,
+  seasonStartError: undefined as string | undefined,
+  seasonStartVoteCount: 0, seasonStartVoted: false, seasonStartVoteThreshold: 10, authIsGuest: false, needsSeasonJoin: false, mapRevealEligible: false,
   leaderboard: {
     overall: [] as { id: string; rank: number; name: string; score: number; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number }[],
     selfOverall: undefined,
@@ -101,7 +102,7 @@ describe("season-end overlay", () => {
       startNewSeason: () => {}
     });
     expect(overlayEl.style.display).toBe("grid");
-    expect(overlayEl.innerHTML).toContain("Season Concluded");
+    expect(overlayEl.innerHTML).toContain("Sector Contest Concluded");
     expect(overlayEl.querySelector("#se-look-around")).toBeTruthy();
     expect(overlayEl.querySelector("#se-new-season")).toBeTruthy();
   });
@@ -117,7 +118,7 @@ describe("season-end overlay", () => {
       renderHud: () => {},
       startNewSeason: () => {}
     });
-    expect(overlayEl.innerHTML).toContain("Season Victor");
+    expect(overlayEl.innerHTML).toContain("Contest Victor");
     expect(overlayEl.innerHTML).toContain("Alpha");
     expect(overlayEl.innerHTML).toContain("♛");
   });
@@ -231,17 +232,35 @@ describe("season-end overlay", () => {
     expect(overlayEl.innerHTML).not.toContain("You: 20/87 towns");
   });
 
-  it("disables start button when seasonEndStarting is true", () => {
+  it("disables the committed House's button while the next contest starts", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({
       seasonWinner: makeWinner(),
       leaderboard: makeLeaderboard(),
-      seasonEndStarting: true
+      seasonEndStarting: true,
+      seasonStartVoted: true
     });
     renderSeasonEndOverlay({ state: state as any, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
     const newSeasonBtn = overlayEl.querySelector("#se-new-season") as HTMLButtonElement;
     expect(newSeasonBtn.disabled).toBe(true);
-    expect(overlayEl.innerHTML).toContain("Winding the Spring");
+    expect(overlayEl.innerHTML).toContain("Starting the next Sector Contest");
+    expect(overlayEl.querySelector(".se-fineprint")?.textContent).toContain("next world is being built");
+  });
+
+  // Regression: everyone's button was disabled during the build, so a House
+  // that hadn't committed couldn't join although the gateway still places
+  // late commits, and was promised an automatic start it wouldn't get.
+  it("keeps the join button live for uncommitted Houses while the next contest starts", () => {
+    const overlayEl = document.createElement("div");
+    let joined = 0;
+    const state = makeState({ seasonWinner: makeWinner(), leaderboard: makeLeaderboard(), seasonEndStarting: true });
+    renderSeasonEndOverlay({ state: state as any, overlayEl, renderHud: () => {}, startNewSeason: () => { joined += 1; } });
+    const button = overlayEl.querySelector("#se-new-season") as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toContain("Join now");
+    expect(overlayEl.querySelector(".se-fineprint")?.textContent).toContain("Join now to start in it");
+    button.click();
+    expect(joined).toBe(1);
   });
 
   it("renders all leaderboard entries in final standings", () => {
@@ -289,7 +308,7 @@ describe("season-end overlay", () => {
     expect(hudCalled).toBe(true);
   });
 
-  it("sends vote on new season button click", () => {
+  it("commits to the next Sector Contest on button click", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({ seasonWinner: makeWinner(), leaderboard: makeLeaderboard() });
     let newSeasonStarted = false;
@@ -333,7 +352,7 @@ describe("season-end overlay", () => {
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
     const footer = overlayEl.querySelector(".se-scroll-footer") as HTMLElement;
     expect(footer).not.toBeNull();
-    expect(footer!.innerHTML).toContain("Vote for New Season");
+    expect(footer!.innerHTML).toContain("Join the next Sector Contest (0/10)");
     expect(footer!.innerHTML).toContain("Look Around");
   });
 
@@ -412,32 +431,23 @@ describe("season-end overlay", () => {
     expect(bubbledToOverlay).toBe(true);
   });
 
-  it("hides the score graph tab when there is no score history", () => {
+  it("explains missing score history in the score graph tab", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({ seasonWinner: makeWinner(), leaderboard: makeLeaderboard() });
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
-    expect(overlayEl.querySelector('.se-tab[data-tab="score-graph"]')).toBeNull();
+    expect(overlayEl.querySelector('.se-tab[data-tab="score-graph"]')).toBeTruthy();
+    expect(overlayEl.textContent).toContain("No score timeline was saved for this Sector Contest.");
   });
 
-  it("hides the score graph tab when there is only a single sample per player", () => {
-    const overlayEl = document.createElement("div");
-    const state = makeState({
-      seasonWinner: makeWinner(),
-      leaderboard: makeLeaderboard(),
-      seasonScoreHistory: [{ playerId: "p1", playerName: "Alpha", points: [{ t: 1000, score: 5 }] }]
-    });
-    renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
-    expect(overlayEl.querySelector('.se-tab[data-tab="score-graph"]')).toBeNull();
-  });
-
-  it("shows the score graph tab and an SVG line per player when history has at least two samples", () => {
+  it("shows a line for each trend and a dot for a single saved score", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({
       seasonWinner: makeWinner({ playerId: "p1", playerName: "Alpha" }),
       leaderboard: makeLeaderboard(),
       seasonScoreHistory: [
         { playerId: "p1", playerName: "Alpha", points: [{ t: 0, score: 1 }, { t: 300000, score: 10 }] },
-        { playerId: "p2", playerName: "Beta", points: [{ t: 0, score: 2 }, { t: 300000, score: 9 }] }
+        { playerId: "p2", playerName: "Beta", points: [{ t: 0, score: 2 }, { t: 300000, score: 9 }] },
+        { playerId: "p3", playerName: "Gamma", points: [{ t: 300000, score: 5 }] }
       ]
     });
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
@@ -449,21 +459,24 @@ describe("season-end overlay", () => {
     const panel = overlayEl.querySelector('.se-tab-panel[data-tab="score-graph"]') as HTMLElement;
     expect(panel).not.toBeNull();
     expect(panel.querySelectorAll("polyline.se-graph-line").length).toBe(2);
-    expect(panel.querySelectorAll(".se-graph-legend-item").length).toBe(2);
+    expect(panel.querySelector("circle title")?.textContent).toBe("Gamma · 5");
+    expect(panel.querySelectorAll(".se-graph-legend-item").length).toBe(3);
 
     tab.click();
     expect(tab.classList.contains("is-active")).toBe(true);
     expect(panel.classList.contains("is-active")).toBe(true);
   });
 
-  it("escapes player names in the score graph legend", () => {
+  it.each([false, true])("escapes score graph names from both sources (current=%s)", (knownPlayer) => {
     const overlayEl = document.createElement("div");
+    const leaderboard = makeLeaderboard();
+    if (knownPlayer) leaderboard.overall[1]!.name = "<script>evil()</script>";
     const state = makeState({
       seasonWinner: makeWinner({ playerId: "p1", playerName: "Alpha" }),
-      leaderboard: makeLeaderboard(),
+      leaderboard,
       seasonScoreHistory: [
         { playerId: "p1", playerName: "Alpha", points: [{ t: 0, score: 1 }, { t: 300000, score: 10 }] },
-        { playerId: "p2", playerName: "<script>evil()</script>", points: [{ t: 0, score: 2 }, { t: 300000, score: 9 }] }
+        { playerId: knownPlayer ? "p2" : "historical-player", playerName: "<script>evil()</script>", points: [{ t: 0, score: 2 }, { t: 300000, score: 9 }] }
       ]
     });
     renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });

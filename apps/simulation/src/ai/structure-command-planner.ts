@@ -1,13 +1,17 @@
+import { hydroworksSiteBoostsGardens, uncoveredHydrogardens } from "./build/hydroworks-placement.js";
 import { isNetworkResource, RESOURCE_NETWORKS, SALVAGE_ARMS_BONUS_MAX, SALVAGE_ARMS_BONUS_PER_SITE, structureStacksPerTown } from "@border-empires/shared";
 import { hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
   bestFortTierForTech,
+  landmarkConstructionBlocker,
+  type LandmarkTile,
   siegeTierForFreshBuild,
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   SYNTHESIZER_STRUCTURE_TYPES,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
+  structurePlacementMetadata,
   structureShowsOnTile,
   structureSlotRequirements,
   TECH_REQUIREMENTS_BY_STRUCTURE,
@@ -53,7 +57,7 @@ export type StructurePlannerPlayer = {
   townEconomy?: readonly TownEconomyEntry[];
 };
 
-export type StructurePlannerTile = {
+export type StructurePlannerTile = LandmarkTile & {
   x: number;
   y: number;
   terrain: Terrain;
@@ -61,7 +65,6 @@ export type StructurePlannerTile = {
   ownershipState?: DomainTileState["ownershipState"] | undefined;
   resource?: DomainTileState["resource"] | undefined;
   dockId?: string | undefined;
-  naturalWonder?: unknown;
   town?: {
     supportMax?: number | undefined;
     supportCurrent?: number | undefined;
@@ -158,15 +161,23 @@ export const structureVisibleOnTile = (
   playerId: string,
   tile: StructurePlannerTile,
   tilesByKey: TileLookup
-): boolean =>
-  structureShowsOnTile(structureType, {
+): boolean => {
+  if (landmarkConstructionBlocker(tilesByKey, tile.x, tile.y)) return false;
+  const surface = {
     ownershipState: tile.ownershipState,
     resource: tile.resource,
     dockId: tile.dockId,
-    townPopulationTier: tile.town?.populationTier,
-    supportedTownCount: supportedTownCount(playerId, tile, tilesByKey),
-    supportedDockCount: supportedDockCount(playerId, tile, tilesByKey)
+    townPopulationTier: tile.town?.populationTier
+  };
+  if (structureShowsOnTile(structureType, surface)) return true;
+  const { showOn } = structurePlacementMetadata(structureType);
+  if (!showOn.includes("support") && !showOn.includes("dock_support")) return false;
+  return structureShowsOnTile(structureType, {
+    ...surface,
+    supportedTownCount: showOn.includes("support") ? supportedTownCount(playerId, tile, tilesByKey) : 0,
+    supportedDockCount: showOn.includes("dock_support") ? supportedDockCount(playerId, tile, tilesByKey) : 0
   });
+};
 
 export const playerTechSet = (player: StructurePlannerPlayer): ReadonlySet<string> => new Set(player.techIds ?? []);
 
@@ -245,6 +256,8 @@ export const chooseBestEconomicBuild = (
   needVector?: NeedVector
 ): EconomicBuildChoice | undefined => {
   let best: EconomicBuildChoice | undefined;
+  // Lazy: only scanned once a Hydroworks site is actually being weighed.
+  let uncoveredGardens: ReturnType<typeof uncoveredHydrogardens> | undefined;
   const foodLow = foodCoverageLow(player);
   // §24.5: consolidated onto the shared ai-economic-heuristics.ts
   // implementation instead of this file's own hand-written duplicate (which
@@ -317,6 +330,10 @@ export const chooseBestEconomicBuild = (
     if (needVector && !tile.resource && !tile.town) {
       for (const entry of ECONOMIC_STRUCTURE_CATALOG) {
         if (entry.placement !== "open_settled") continue;
+        if (entry.type === "HYDROWORKS") {
+          uncoveredGardens ??= uncoveredHydrogardens(player.id, ownedTiles);
+          if (!hydroworksSiteBoostsGardens(tile, uncoveredGardens)) continue;
+        }
         const score = economicCatalogScore(entry, needVector);
         if (score > 0) candidates.push({ type: entry.type, score });
       }

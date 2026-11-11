@@ -124,3 +124,15 @@ body.hud-v2 .afc-recovery-modal {
 }
 body.hud-v2 .afc-recovery-quote { border-radius: 0; }
 body.hud-v2 .afc-recovery-status { border-radius: 0; }
+
+/* Continuing combat leaves a small recovery launcher at the screen edge. */
+body.hud-v2 .afc-recovery-status-minimized {
+  bottom: 24px; display: flex; align-items: center; gap: 10px; height: auto;
+  padding: 8px 12px; min-height: 36px; border: 1px solid var(--v2-edge);
+  background: var(--v2-ink-solid); font: 11px/1.4 Arial, sans-serif;
+  text-transform: none; letter-spacing: normal;
+}
+.afc-recovery-cost-unaffordable { color: var(--v2-red-hi, #e8907f); }
+body.hud-v2-compact .afc-recovery-status-minimized {
+  left: 12px; transform: none; bottom: calc(var(--v2c-bottom) + 104px);
+}

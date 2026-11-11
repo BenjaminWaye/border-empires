@@ -26,6 +26,8 @@ import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js"; import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js"; import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { SovereignSiegeEngineStrikeStore } from "../sovereign-siege-engine-strike-store/sovereign-siege-engine-strike-store.js";
+import { registerSectorWaitlistRoutes, type SectorWaitlistRouteDeps } from "./register-sector-waitlist-routes.js";
+import { registerSectorBoardRoute, type SectorBoardRouteDeps } from "./register-sector-board-route.js";
 
 export type GatewayDebugEvent = {
   at: number;
@@ -104,6 +106,10 @@ export type RegisterGatewayHttpRoutesDeps = {
   simDiagnostics?: () => unknown[];
   authenticateBearer?: (authorizationHeader: string | undefined) => Promise<GatewayResolvedIdentity | undefined>;
   rallyLinkStore?: RallyLinkStore;
+  // /sector/waitlist (register-sector-waitlist-routes.ts); omitted in tests that do not exercise it.
+  sectorWaitlist?: SectorWaitlistRouteDeps;
+  // /sector/board (register-sector-board-route.ts): the join screen's Sector board.
+  sectorBoard?: SectorBoardRouteDeps;
   preparePlayer?: (playerId: string, options: { isGuest: boolean }) => Promise<{ playerId: string; spawned: boolean }>;
   subscribePlayer?: (playerId: string) => Promise<{
     player?: { name?: string };
@@ -341,6 +347,8 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   });
 
   registerRallyLinkRoutes(app, deps, playOrigin);
+  if (deps.sectorWaitlist) registerSectorWaitlistRoutes(app, deps.sectorWaitlist);
+  if (deps.sectorBoard) registerSectorBoardRoute(app, deps.sectorBoard);
   if (deps.authBindingStore?.accountDeletion) registerAccountDeletionRoutes(app, {
     ...(deps.disconnectDeletedPlayer ? { disconnectPlayer: deps.disconnectDeletedPlayer } : {}),
     store: deps.authBindingStore.accountDeletion, bindings: deps.authBindingStore

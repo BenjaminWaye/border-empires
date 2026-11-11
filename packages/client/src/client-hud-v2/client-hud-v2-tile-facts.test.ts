@@ -64,6 +64,15 @@ describe("tile fact strip", () => {
     expect(tileFactsFor(t, noView, "me")).toContainEqual({ label: "Gives", value: "Dock income ×2" });
   });
 
+  // Regression: an un-garrisoned Field Generator listed "+50% defense…" before it was activated.
+  it("hides what a relic gives until it is garrisoned", () => {
+    const frontier = tile({ ownerId: "me", ownershipState: "FRONTIER", naturalWonder: { type: "BASTION_FRAME", relicVersion: 1 } });
+    const facts = tileFactsFor(frontier, noView, "me");
+    expect(facts).toContainEqual({ label: "State", value: "Garrison to activate" });
+    expect(labels(facts)).not.toContain("Gives");
+    expect(labels(tileFactsFor({ ...frontier, ownershipState: "SETTLED" }, noView, "me"))).toContain("Gives");
+  });
+
   // Regression: your town showed no growth rate.
   it("gives your town's growth rate, or that it is paused", () => {
     const growing = { populationTier: "TOWN", population: 20_000, isFed: true, populationGrowthPerMinute: 12.5 } as NonNullable<Tile["town"]>;

@@ -3,6 +3,7 @@ import { AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { describeInitTransfer } from "../client-init-transfer/client-init-transfer-progress.js";
 import { describeMapPrep } from "../client-map-prep/client-map-prep.js";
+import { sectorWaitlistButtonLabel } from "../client-sector-waitlist/client-sector-waitlist.js";
 
 export const setAuthStatus = (
   state: Pick<ClientState, "authError">,
@@ -72,6 +73,8 @@ export const syncAuthOverlay = (
     | "bridgeDebugWsUrl"
     | "seasonFull"
     | "seasonFullNotifyAcknowledged"
+    | "sectorWaitlistCount"
+    | "sectorWaitlistJoinFailed"
     | "authEmail"
   >,
   deps: {
@@ -118,11 +121,7 @@ export const syncAuthOverlay = (
     state.authBusy && !state.seasonFull && authBusyElapsedMs >= AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS ? "" : "none";
   deps.authBusySeasonFullNotifyBtn.style.display = state.authBusy && state.seasonFull ? "" : "none";
   deps.authBusySeasonFullNotifyBtn.disabled = state.seasonFullNotifyAcknowledged;
-  deps.authBusySeasonFullNotifyBtn.textContent = state.seasonFullNotifyAcknowledged
-    ? state.authEmail
-      ? `We'll email ${state.authEmail} when it starts`
-      : "We'll notify you when it starts"
-    : "Alert me when next season starts";
+  deps.authBusySeasonFullNotifyBtn.textContent = sectorWaitlistButtonLabel(state);
   const resolvedWsUrl = state.bridgeDebugWsUrl || deps.wsUrl;
   let resolvedFlyApp = "non-fly";
   try {

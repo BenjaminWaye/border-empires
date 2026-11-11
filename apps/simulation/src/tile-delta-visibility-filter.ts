@@ -4,6 +4,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import { collectLinkedDockRevealKeysForOwners, type DockRouteDefinition } from "./dock-network/dock-network.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { revealedResourceValueForPlayer, visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { waystationRewardHiddenFromViewer } from "./tile-overlay-fields/tile-overlay-fields.js";
 
 export type VisibilityAuditSample = {
   playerId: string;
@@ -29,7 +30,7 @@ type PlayerShape = Pick<DomainPlayer, "id" | "allies" | "techIds" | "domainIds">
   mods?: DomainPlayer["mods"];
 };
 
-type TileShape = Pick<DomainTileState, "ownershipState" | "ownerId">;
+type TileShape = Pick<DomainTileState, "ownershipState" | "ownerId" | "waystation">;
 
 export interface VisibilityCoverageReader {
   isVisible(viewerId: string, tileKey: string): boolean;
@@ -102,6 +103,7 @@ export const filterTileDeltasForPlayer = <
     terrain?: Terrain | undefined;
     ownerId?: string | undefined;
     resource?: string | undefined;
+    waystationJson?: string | undefined;
     // Single id (the common case: one player force-sees this delta) or an
     // array when two parties both need it forced past their own visibility
     // check (e.g. a capture deep in enemy territory: both the attacker and
@@ -121,7 +123,19 @@ export const filterTileDeltasForPlayer = <
   if (tileDeltas.length === 0) return [];
   const primaryPlayer = deps.players.get(playerId);
   if (!primaryPlayer) return [];
-  if (deps.hasFullVision?.(playerId)) return tileDeltas.slice();
+  const projectForViewer = (delta: TDelta, maskResource: boolean): TDelta => {
+    const hideResource = maskResource && delta.resource && !revealedResourceValueForPlayer(delta.resource, primaryPlayer);
+    const hideReward = delta.waystationJson && waystationRewardHiddenFromViewer(
+      deps.tiles.get(simulationTileKey(delta.x, delta.y))?.waystation, playerId
+    );
+    if (!hideResource && !hideReward) return delta;
+    return {
+      ...delta,
+      ...(hideResource ? { resource: undefined } : {}),
+      ...(hideReward ? { waystationJson: undefined } : {})
+    };
+  };
+  if (deps.hasFullVision?.(playerId)) return tileDeltas.map((delta) => projectForViewer(delta, false));
 
   const auditEnabled = Boolean(deps.onVisibilityAudit);
   // The coverage cache is kept correct incrementally by the caller (see
@@ -189,7 +203,7 @@ export const filterTileDeltasForPlayer = <
       delta.forceVisibleForPlayerId === playerId ||
       (Array.isArray(delta.forceVisibleForPlayerId) && delta.forceVisibleForPlayerId.includes(playerId))
     ) {
-      filtered.push(delta);
+      filtered.push(projectForViewer(delta, true));
       continue;
     }
     const tileKey = simulationTileKey(delta.x, delta.y);
@@ -326,11 +340,7 @@ export const filterTileDeltasForPlayer = <
         redacted: false
       });
     }
-    if (delta.resource && !revealedResourceValueForPlayer(delta.resource, primaryPlayer)) {
-      filtered.push({ ...delta, resource: undefined });
-      continue;
-    }
-    filtered.push(delta);
+    filtered.push(projectForViewer(delta, true));
   }
   return filtered;
 };

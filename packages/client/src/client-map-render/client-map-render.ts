@@ -1,7 +1,7 @@
 import { landBiomeAt } from "@border-empires/shared";
 import { terrainTextureIdAt } from "./client-map-render-texture-id.js";
 import { terrainTextures } from "./client-map-render-terrain-textures.js";
-import { drawReliefTerrainTile } from "./client-map-render-relief-tile.js";
+import { drawReliefTerrainTile, type ReliefTerrainTileOptions } from "./client-map-render-relief-tile.js";
 import { drawMountainPeaks2D } from "./client-map-render-mountain-peaks.js";
 import { drawRiverEdges } from "./client-map-render-river-edges.js";
 import { drawTownGrowthSprites2D, townSpriteRect } from "../client-town-tier-upgrade-fx/client-map-2d-town-growth.js";
@@ -175,16 +175,9 @@ export const drawOwnershipSignature = (
 
 export const drawTerrainTile = (
   ctx: CanvasRenderingContext2D,
-  options: {
-    wx: number;
-    wy: number;
-    terrain: Tile["terrain"];
-    px: number;
-    py: number;
-    size: number;
+  options: ReliefTerrainTileOptions & {
     wrapX: (value: number) => number;
     wrapY: (value: number) => number;
-    cachedTerrainColorAt: (x: number, y: number, terrain: Tile["terrain"]) => string;
     getVisibleLandBiomeAt?: (x: number, y: number) => Tile["landBiome"];
     getVisibleRegionTypeAt?: (x: number, y: number) => Tile["regionType"];
   }
@@ -218,7 +211,7 @@ export const drawTerrainTile = (
   ctx.drawImage(texture, 0, 0, texture.width, texture.height, options.px, options.py, options.size, options.size);
   if (options.terrain === "MOUNTAIN") drawMountainPeaks2D(ctx, options.wx, options.wy, options.px, options.py, options.size);
   else if (options.terrain === "LAND") drawRiverEdges(ctx, options.wx, options.wy, options.px, options.py, options.size, options.size);
-  else if (options.terrain === "SEA" || options.terrain === "COASTAL_SEA") drawSeaCoast2D(ctx, options.wx, options.wy, options.px, options.py, options.size, options.size);
+  else if (options.terrain === "SEA" || options.terrain === "COASTAL_SEA") drawSeaCoast2D(ctx, options.wx, options.wy, options.px, options.py, options.size, options.size, options.isLandAt);
 };
 
 // drawForestOverlay moved to client-map-render-forest-overlay.ts (adding the

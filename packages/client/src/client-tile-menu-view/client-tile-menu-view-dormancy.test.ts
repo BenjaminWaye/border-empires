@@ -44,6 +44,7 @@ describe("menuOverviewForTile — §14.2 dormant structure indicator", () => {
     expect(dormantLine?.html).toContain("Dormant");
     expect(dormantLine?.html).toContain("1 Titanium slot");
     expect(dormantLine?.html).toContain("a Titanium tile");
+    expect(dormantLine?.html).toContain("No defense bonus");
   });
 
   it("renders nothing extra when the structure is powered", () => {

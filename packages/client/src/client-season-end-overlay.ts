@@ -1,4 +1,5 @@
 import type { ClientState } from "./client-state/client-state.js";
+import { attachSeasonForceHold, consumeForceHoldClick } from "./client-season-end-overlay/season-end-force-hold.js";
 import type {
   LeaderboardOverallEntry,
   LeaderboardMetricEntry,
@@ -6,7 +7,10 @@ import type {
   SeasonVictoryObjectiveView,
   SeasonWinnerView
 } from "./client-types.js";
+import { setReportOpen } from "./client-bug-report/client-bug-report.js";
+import { escapeHtml, missingHistoryNotice } from "./client-season-end-overlay/client-season-end-html.js";
 import { scoreGraphPanel } from "./client-season-end-score-graph.js";
+import { nextContestButtonLabel, nextContestFineprint } from "./client-next-contest/client-next-contest.js";
 
 type SeasonEndLeaderboard = {
   overall: LeaderboardOverallEntry[];
@@ -27,19 +31,36 @@ type SeasonEndOverlayDeps = {
     | "seasonScoreHistory"
     | "seasonEndDismissed"
     | "seasonEndStarting"
+    | "seasonStartError"
     | "seasonStartVoteCount"
     | "seasonStartVoted"
+    | "seasonStartVoteThreshold"
+    | "authIsGuest"
+    | "needsSeasonJoin"
     | "playerColors"
+    | "mapRevealEligible"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
+  // Commits this House to the next Sector Contest.
   startNewSeason: () => void;
+  // Admin-only (mapRevealEligible = server canToggleFog): long-press the
+  // button to start the next contest without waiting for commitments.
+  // Returns whether the request was sent (false while signed out/offline).
+  forceStartNewSeason?: () => boolean;
+  // Guests can't commit; the button offers to save the empire instead.
+  openGuestSave?: () => void;
 };
 
-export const escapeHtml = (value: string): string =>
-  value.replace(/[&<>"']/g, (ch) =>
-    ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch === '"' ? "&quot;" : "&#39;"
-  );
+const SEASON_START_SIGN_IN_MESSAGE = "Finish sign-in before joining the next Sector Contest.";
+
+// Commit and admin force-start senders for the season-end overlay's button.
+export const seasonStartSenders = (
+  send: (payload: unknown, message?: string) => boolean
+): Pick<SeasonEndOverlayDeps, "startNewSeason" | "forceStartNewSeason"> => ({
+  startNewSeason: () => { send({ type: "START_NEW_SEASON" }, SEASON_START_SIGN_IN_MESSAGE); },
+  forceStartNewSeason: () => send({ type: "START_NEW_SEASON", force: true }, SEASON_START_SIGN_IN_MESSAGE)
+});
 
 export const safeColorValue = (raw: string | undefined): string | undefined => {
   if (!raw) return undefined;
@@ -57,8 +78,17 @@ export const playerBadge = (
   } aria-hidden="true"></span><span class="se-badge-name">${escapeHtml(name)}</span></span>`;
 };
 
+// Rows on the newcomer's short result card.
+const COMPACT_STANDINGS_ROWS = 5;
+
 const rankClass = (rank: number): string =>
   rank === 1 ? "is-gold" : rank === 2 ? "is-silver" : rank === 3 ? "is-bronze" : "";
+
+const currentPlayerName = (leaderboard: SeasonEndLeaderboard, id: string | undefined, fallback: string): string => {
+  const entry = leaderboard.overall.find((player) => player.id === id)
+    ?? (leaderboard.selfOverall?.id === id ? leaderboard.selfOverall : undefined);
+  return entry?.name ?? fallback;
+};
 
 const num = (value: number, digits = 0): string =>
   value.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -66,21 +96,32 @@ const num = (value: number, digits = 0): string =>
 const seasonEndVisible = (state: SeasonEndOverlayDeps["state"]): boolean =>
   Boolean(state.seasonWinner) && !state.seasonEndDismissed;
 
+const seasonEndScoreHistory = (state: SeasonEndOverlayDeps["state"]): ClientState["seasonScoreHistory"] => {
+  const saved = state.seasonWinner?.scoreHistory;
+  return saved?.some((series) => series.points.length > 0) ? saved : state.seasonScoreHistory;
+};
+
 const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: SeasonEndLeaderboard): string =>
   JSON.stringify({
-    winner: state.seasonWinner?.playerId,
+    winner: [state.seasonWinner?.playerId, state.seasonWinner?.playerName, state.seasonWinner?.crownedAt],
     objective: state.seasonWinner?.objectiveName,
     starting: state.seasonEndStarting,
+    startError: state.seasonStartError,
     voteCount: state.seasonStartVoteCount,
     voted: state.seasonStartVoted,
-    self: leaderboard.selfOverall?.id,
-    overall: leaderboard.overall.map((e) => [e.id, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
-    victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.progressLabel, o.conditionMet]),
-    stats: state.seasonStats ? { mostDeadlyTile: state.seasonStats.mostDeadlyTile, longestRoad: state.seasonStats.longestRoad } : undefined,
+    threshold: state.seasonStartVoteThreshold,
+    guest: state.authIsGuest,
+    compact: state.needsSeasonJoin,
+    admin: state.mapRevealEligible,
+    self: [leaderboard.selfOverall?.id, leaderboard.selfOverall?.name],
+    overall: leaderboard.overall.map((e) => [e.id, e.name, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
+    victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.leaderName, o.progressLabel, o.conditionMet]),
+    stats: state.seasonStats ?? state.seasonWinner?.seasonStats,
     // Cheap-but-sufficient signature for a per-player time series: point
     // count + last value catches "a new sample arrived" without hashing the
     // whole (small, capped) series every render.
-    scoreHistory: state.seasonScoreHistory.map((s) => [s.playerId, s.points.length, s.points[s.points.length - 1]?.score ?? 0])
+    scoreHistory: seasonEndScoreHistory(state)
+      .map((s) => [s.playerId, s.playerName, s.points.length, s.points[s.points.length - 1]?.score ?? 0])
   });
 
 const victorMedallion = (
@@ -92,7 +133,7 @@ const victorMedallion = (
     <div class="se-gear se-gear-lg" aria-hidden="true"></div>
     <div class="se-medallion">
       <span class="se-crown" aria-hidden="true">♛</span>
-      <span class="se-victor-kicker">Season Victor</span>
+      <span class="se-victor-kicker">Contest Victor</span>
       <span class="se-victor-name">${playerBadge(winner.playerId, isSelf ? "You" : winner.playerName, colors)}</span>
       <span class="se-victor-path">${escapeHtml(winner.objectiveName)}</span>
       <span class="se-victor-date">Crowned ${escapeHtml(new Date(winner.crownedAt).toLocaleString())}</span>
@@ -112,7 +153,7 @@ const rankRowHtml = (
   // the medal always shows the entry's true score rank.
   const isWinner = Boolean(options.winnerId && entry.id === options.winnerId);
   const medalClass = options.detached ? "" : rankClass(entry.rank);
-  const crown = isWinner ? `<span class="se-rank-crown" title="Season Victor" aria-hidden="true">♔</span>` : "";
+  const crown = isWinner ? `<span class="se-rank-crown" title="Contest Victor" aria-hidden="true">♔</span>` : "";
   return `
     <li class="se-rank-row${options.self ? " is-self" : ""}${options.detached ? " is-detached" : ""}${isWinner ? " is-winner" : ""}">
       <span class="se-rank-medal ${medalClass}">${entry.rank}</span>
@@ -182,29 +223,56 @@ const victoryGauges = (
     </section>`;
 };
 
-const miscPanel = (seasonStats: SeasonStatsView): string => {
-  const items: string[] = [];
-  if (seasonStats.mostDeadlyTile) {
-    items.push(`<div class="se-misc-item">
-      <span class="se-misc-label">Most Deadly Tile</span>
-      <span class="se-misc-value"><strong>${num(seasonStats.mostDeadlyTile.manpowerLost)}</strong> manpower lost on tile (${seasonStats.mostDeadlyTile.x}, ${seasonStats.mostDeadlyTile.y})</span>
-    </div>`);
+const miscPanel = (
+  stats: SeasonStatsView | undefined,
+  colors: ReadonlyMap<string, string>,
+  leaderboard: SeasonEndLeaderboard
+): string => {
+  const namedPlayer = (id: string, name: string | undefined): string =>
+    playerBadge(id, currentPlayerName(leaderboard, id, name ?? id), colors);
+  const deadly = stats?.mostDeadlyTile;
+  const road = stats?.longestRoad;
+  const player = deadly?.mostLossesPlayer;
+  const deadlyDetails = deadly
+    ? `<strong>${num(deadly.manpowerLost)}</strong> manpower lost on tile (${deadly.x}, ${deadly.y})
+      ${player
+        ? `<br>Most losses: ${namedPlayer(player.playerId, player.playerName)} · <strong>${num(player.manpowerLost)}</strong> manpower`
+        : missingHistoryNotice("deadliest-tile", "Deadliest tile player losses", "Player loss history unavailable.")}`
+    : missingHistoryNotice("deadliest-tile", "Most Deadly Tile", "No combat record available.");
+  const city = (value: { name: string; x: number; y: number }): string =>
+    `${escapeHtml(value.name)} (${value.x}, ${value.y})`;
+  let roadDetails: string;
+  if (!road) {
+    roadDetails = missingHistoryNotice("longest-road", "Longest Road", "No connected road recorded.");
+  } else {
+    const endpoints = road.fromCity && road.toCity ? `${city(road.fromCity)} ↔ ${city(road.toCity)}` : "";
+    roadDetails = `${road.playerId ? `${namedPlayer(road.playerId, road.playerName)} · ` : ""}<strong>${num(road.tileCount)}</strong> tiles long
+      ${endpoints ? `<br>${endpoints}` : ""}`;
+    if (!road.playerId && !endpoints) {
+      roadDetails += missingHistoryNotice("longest-road", "Longest Road owner and cities", "Road owner and city details unavailable.");
+    } else if (!road.playerId) {
+      roadDetails += missingHistoryNotice("longest-road", "Longest Road owner", "Road owner unavailable.");
+    } else if (!endpoints) {
+      roadDetails += missingHistoryNotice("longest-road", "Longest Road cities", "City details unavailable.");
+    }
   }
-  if (seasonStats.longestRoad) {
-    items.push(`<div class="se-misc-item">
-      <span class="se-misc-label">Longest Road</span>
-      <span class="se-misc-value"><strong>${num(seasonStats.longestRoad.tileCount)}</strong> tiles long</span>
-    </div>`);
-  }
-  return `
-    <section class="se-panel se-misc">
-      <h3 class="se-panel-title">Season Miscellany</h3>
-      <div class="se-misc-items">${items.join("")}</div>
-    </section>`;
+  return `<section class="se-panel se-misc">
+    <h3 class="se-panel-title">Contest Miscellany</h3>
+    <div class="se-misc-items">
+      <div class="se-misc-item">
+        <span class="se-misc-label">Most Deadly Tile</span>
+        <div class="se-misc-value">${deadlyDetails}</div>
+      </div>
+      <div class="se-misc-item">
+        <span class="se-misc-label">Longest Road</span>
+        <div class="se-misc-value">${roadDetails}</div>
+      </div>
+    </div>
+  </section>`;
 };
 
 export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
-  const { state, overlayEl, renderHud, startNewSeason } = deps;
+  const { state, overlayEl, renderHud, startNewSeason, forceStartNewSeason, openGuestSave } = deps;
   const visible = seasonEndVisible(state);
   overlayEl.style.display = visible ? "grid" : "none";
   if (!visible || !state.seasonWinner) {
@@ -225,12 +293,32 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   const isSelfWinner = Boolean(selfId && state.seasonWinner.playerId === selfId);
   const empiresContested = leaderboard.overall.length;
   const starting = state.seasonEndStarting;
+  const canForceStart = Boolean(state.mapRevealEligible && forceStartNewSeason) && !starting;
+  // A disabled button gets no pointer events, so the admin's voted button
+  // stays enabled (aria-disabled) to keep the long-press reachable.
+  // While the next world builds, Houses that haven't committed can still join
+  // (the gateway places late commits too); only committed Houses are done.
+  const newSeasonDisabledAttr = state.seasonStartVoted && (starting || !canForceStart)
+    ? "disabled"
+    : state.seasonStartVoted ? `aria-disabled="true"` : "";
+  const forceHoldAttrs = canForceStart ? `data-se-force-hold title="Admin: hold to start the next Sector Contest now"` : "";
+  // Someone who never played this world (a newcomer arriving after the crown)
+  // gets a short result card, not the full ledger.
+  const compact = state.needsSeasonJoin;
 
-  const victoryHtml = victoryGauges(state.seasonVictory, colors, selfId);
+  const winner = { ...state.seasonWinner,
+    playerName: currentPlayerName(leaderboard, state.seasonWinner.playerId, state.seasonWinner.playerName) };
+  const objectives = state.seasonVictory.map((objective) => ({
+    ...objective,
+    leaderName: currentPlayerName(leaderboard, objective.leaderPlayerId, objective.leaderName),
+    statusLabel: objective.id === winner.objectiveId ? `Winner crowned: ${winner.playerName}` : objective.statusLabel
+  }));
+  const victoryHtml = victoryGauges(objectives, colors, selfId);
   const hasVictory = victoryHtml.length > 0;
-  const hasStats = Boolean(state.seasonStats && (state.seasonStats.mostDeadlyTile || state.seasonStats.longestRoad));
-  const scoreGraphHtml = scoreGraphPanel(state.seasonScoreHistory, colors, selfId, state.seasonWinner.playerId);
-  const hasScoreHistory = scoreGraphHtml.length > 0;
+  const seasonStats = state.seasonStats ?? state.seasonWinner.seasonStats;
+  const scoreHistory = seasonEndScoreHistory(state)
+    .map((series) => ({ ...series, playerName: currentPlayerName(leaderboard, series.playerId, series.playerName) }));
+  const scoreGraphHtml = scoreGraphPanel(scoreHistory, colors, selfId, state.seasonWinner.playerId);
   const activeTab = overlayEl.dataset.seTab || "standings";
 
   overlayEl.innerHTML = `
@@ -247,19 +335,20 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             <span class="se-filigree se-filigree-l" aria-hidden="true"></span>
             <div class="se-header-text">
               <span class="se-kicker">The Great Works Have Settled</span>
-              <h2 id="se-title" class="se-title">Season Concluded</h2>
+              <h2 id="se-title" class="se-title">Sector Contest Concluded</h2>
               <span class="se-subtitle">${empiresContested} ${empiresContested === 1 ? "empire" : "empires"} vied for the crown</span>
             </div>
             <span class="se-filigree se-filigree-r" aria-hidden="true"></span>
           </header>
 
-          ${victorMedallion(state.seasonWinner, colors, isSelfWinner)}
+          ${victorMedallion(winner, colors, isSelfWinner)}
 
-          <nav class="se-tab-bar" role="tablist">
+          ${compact ? `<p class="se-arrival-note">You arrived after the crown was claimed. ${state.authIsGuest ? "Save your empire to join the next Sector Contest." : "Join the next Sector Contest to found your empire."}</p>
+          ${standingsLedger({ ...leaderboard, overall: leaderboard.overall.slice(0, COMPACT_STANDINGS_ROWS), selfOverall: undefined }, colors, selfId, state.seasonWinner.playerId)}` : `<nav class="se-tab-bar" role="tablist">
             <button class="se-tab${activeTab === "standings" ? " is-active" : ""}" role="tab" data-tab="standings">Final Standings</button>
             ${hasVictory ? `<button class="se-tab${activeTab === "victory" ? " is-active" : ""}" role="tab" data-tab="victory">Victory Paths</button>` : ""}
-            ${hasStats ? `<button class="se-tab${activeTab === "misc" ? " is-active" : ""}" role="tab" data-tab="misc">Misc</button>` : ""}
-            ${hasScoreHistory ? `<button class="se-tab${activeTab === "score-graph" ? " is-active" : ""}" role="tab" data-tab="score-graph">Score Graph</button>` : ""}
+            <button class="se-tab${activeTab === "misc" ? " is-active" : ""}" role="tab" data-tab="misc">Statistics</button>
+            <button class="se-tab${activeTab === "score-graph" ? " is-active" : ""}" role="tab" data-tab="score-graph">Score Graph</button>
           </nav>
           <div class="se-tab-panels">
             <div class="se-tab-panel${activeTab === "standings" ? " is-active" : ""}" data-tab="standings" role="tabpanel">
@@ -268,26 +357,48 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             ${hasVictory ? `<div class="se-tab-panel${activeTab === "victory" ? " is-active" : ""}" data-tab="victory" role="tabpanel">
               ${victoryHtml}
             </div>` : ""}
-            ${hasStats && state.seasonStats ? `<div class="se-tab-panel${activeTab === "misc" ? " is-active" : ""}" data-tab="misc" role="tabpanel">
-              ${miscPanel(state.seasonStats)}
-            </div>` : ""}
-            ${hasScoreHistory ? `<div class="se-tab-panel${activeTab === "score-graph" ? " is-active" : ""}" data-tab="score-graph" role="tabpanel">
+            <div class="se-tab-panel${activeTab === "misc" ? " is-active" : ""}" data-tab="misc" role="tabpanel">
+              ${miscPanel(seasonStats, colors, leaderboard)}
+            </div>
+            <div class="se-tab-panel${activeTab === "score-graph" ? " is-active" : ""}" data-tab="score-graph" role="tabpanel">
               ${scoreGraphHtml}
-            </div>` : ""}
-          </div>
+            </div>
+          </div>`}
         </div>
         <div class="se-scroll-footer">
           <footer class="se-actions">
-            <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${starting || state.seasonStartVoted ? "disabled" : ""}>
+            <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${newSeasonDisabledAttr} ${forceHoldAttrs}>
+              ${canForceStart ? `<span class="se-btn-hold-fill" aria-hidden="true"></span>` : ""}
               <span class="se-btn-cog" aria-hidden="true"></span>
-              ${starting ? "Winding the Spring…" : state.seasonStartVoted ? `Vote cast (${state.seasonStartVoteCount}/5)` : "Vote for New Season"}
+              <span class="se-btn-label">${escapeHtml(nextContestButtonLabel(state))}</span>
             </button>
             <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
           </footer>
-          <p class="se-fineprint">Starting a new season resets the world and progression for <strong>every</strong> player.</p>
+          ${state.seasonStartError && !starting ? `<p class="se-start-error" role="alert">${escapeHtml(state.seasonStartError)}</p>` : ""}
+          <p class="se-fineprint" aria-live="polite">${escapeHtml(nextContestFineprint(state.seasonStartVoteThreshold, starting, state.seasonStartVoted))}</p>
         </div>
       </div>
     </div>`;
+
+  overlayEl.querySelectorAll<HTMLButtonElement>("[data-se-report-missing]").forEach((button) => {
+    button.onclick = () => {
+      const observation = button.closest(".se-missing-history")?.querySelector("p")?.textContent;
+      setReportOpen("bug", true);
+      renderHud();
+      const description = document.querySelector<HTMLTextAreaElement>("#bug-report-overlay [data-bug-report-description]");
+      // Preserve an existing draft if the player already started a report.
+      if (!description || description.value.trim()) return;
+      description.value = [
+        `Contest summary is missing historical data: ${button.dataset.seMissingRecords}.`,
+        observation ? `Observed: ${observation}` : "",
+        `Winner: ${winner.playerId} (${winner.playerName}).`,
+        `Crowned: ${new Date(winner.crownedAt).toISOString()}.`,
+        "Please investigate why these Sector Contest records are unavailable."
+      ].filter(Boolean).join("\n");
+      description.dispatchEvent(new Event("input", { bubbles: true }));
+      description.focus();
+    };
+  });
 
   const lookAround = overlayEl.querySelector("#se-look-around") as HTMLButtonElement | null;
   const newSeason = overlayEl.querySelector("#se-new-season") as HTMLButtonElement | null;
@@ -300,9 +411,23 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   }
   if (newSeason) {
     newSeason.onclick = () => {
-      if (state.seasonEndStarting || state.seasonStartVoted) return;
+      if (consumeForceHoldClick(newSeason)) return;
+      if (state.seasonStartVoted) return;
+      if (state.authIsGuest) { openGuestSave?.(); return; }
+      state.seasonStartError = undefined;
       startNewSeason();
     };
+    if (canForceStart && forceStartNewSeason) {
+      // Show the start straight away: the world build takes a while and the
+      // gateway's "starting" broadcast confirms it (or an ERROR reverts it).
+      attachSeasonForceHold(newSeason, { onForce: () => {
+        // Not sent (socket down / signed out): don't claim a start is under way.
+        if (!forceStartNewSeason()) return;
+        state.seasonEndStarting = true;
+        state.seasonStartError = undefined;
+        renderHud();
+      } });
+    }
   }
 
   const tabBar = overlayEl.querySelector(".se-tab-bar") as HTMLElement | null;

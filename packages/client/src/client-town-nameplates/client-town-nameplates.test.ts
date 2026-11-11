@@ -56,6 +56,18 @@ describe("createTownNameplates (2D path)", () => {
     expect(Array.from(host.querySelectorAll(".town-plate-name")).map((el) => el.textContent).sort()).toEqual(["Town1", "Town9"]);
   });
 
+  it("draws a plate over a neutral town, in the plain edge colour with no owner line", () => {
+    const { host, plates } = mount();
+    const { ownerId: _owner, ownershipState: _state, ...neutral } = townTile(1, { name: "Thornwick" });
+    plates.render([at(neutral as Tile, 100, 200)], { size: 40, project });
+    const plate = host.querySelector<HTMLElement>(".town-plate");
+    expect(plate?.querySelector(".town-plate-name")?.textContent).toBe("Thornwick");
+    expect(plate?.classList.contains("town-plate-neutral")).toBe(true);
+    expect(plate?.classList.contains("town-plate-own")).toBe(false);
+    expect(plate?.querySelector(".town-plate-badge, .town-plate-pop")).toBeNull();
+    expect(plate?.style.getPropertyValue("--town-plate-owner")).toBe("#5a4828");
+  });
+
   it("keeps only the higher-ranked plate when two would overlap, and removes plates that leave view", () => {
     const { host, plates } = mount();
     const calm = townTile(1), unfed = townTile(2, { isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 });
@@ -144,6 +156,21 @@ describe("createTownNameplates (true-3D path)", () => {
       // Tile centre (500, 400), 120px deep: back edge at y 340, plate bottom 4px above it.
       // The old lift (1.5 × zoom = 240px) put it at y 160, deep in the tile behind.
       expect(host.querySelector<HTMLElement>(".town-plate")?.style.transform).toBe("translate3d(500px, 336px, 0) translate(-50%, -100%) scale(1.600)");
+    } finally {
+      threeActive = false;
+    }
+  });
+
+  it("draws a neutral town's plate on the 3D map too, on its projected back edge", () => {
+    threeActive = true;
+    try {
+      const { host, plates } = mount();
+      const { ownerId: _owner, ...neutral } = townTile(1, { name: "Thornwick" });
+      const project3d = (x: number, y: number) => ({ sx: 300 + x * 200, sy: 400 + y * 120 });
+      plates.render([at(neutral as Tile, 0, 0)], { size: 160, project: project3d });
+      const plate = host.querySelector<HTMLElement>(".town-plate.town-plate-neutral");
+      expect(plate?.querySelector(".town-plate-name")?.textContent).toBe("Thornwick");
+      expect(plate?.style.transform).toContain("translate3d(500px, 336px, 0)");
     } finally {
       threeActive = false;
     }

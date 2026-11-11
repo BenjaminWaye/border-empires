@@ -38,6 +38,20 @@ describe("profile return", () => {
     expect(state.activePlayerProfileId).toBeUndefined();
   });
 
+  it("treats your own profile as a peer tab and closes directly to the map", () => {
+    document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
+    const state = createInitialState();
+    state.me = "p1";
+    const deps = depsFor(state);
+    openScreen(deps, "diplomacy");
+    state.activePlayerProfileId = "p1";
+    openScreen(deps, "profile");
+    expect(document.getElementById("v2s-back-label")?.textContent).toBe("Map");
+    screenClick(deps, document.querySelector("[data-v2-close]") as Element);
+    expect(screen.id).toBeNull();
+    expect(state.activePlayerProfileId).toBeUndefined();
+  });
+
   it("closes to the map when opened from the map, and when told to", () => {
     document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
     const state = createInitialState();

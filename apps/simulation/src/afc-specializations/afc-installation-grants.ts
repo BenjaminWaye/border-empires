@@ -1,5 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { AFC_SPECIALIZATION_BALANCE, structureShowsOnTile, type EconomicStructureType, type SlotResource } from "@border-empires/shared";
+import { AFC_SPECIALIZATION_BALANCE, landmarkConstructionBlocker, structureShowsOnTile, type EconomicStructureType, type LandmarkTile, type SlotResource } from "@border-empires/shared";
 import { hasRevealedResourceForPlayer } from "../tech-domain-bridge/tech-resource-reveal.js";
 import { reconcileAfcCoreTowns } from "./afc-core-towns.js";
 
@@ -16,7 +16,12 @@ const booster = (resource: DomainTileState["resource"]): EconomicStructureType |
   resource === "FARM" ? "HYDROGARDEN" : resource === "TITANIUM" || resource === "GEMS" ? "MINE" : resource === "UMBRITE" ? "UMBRITE_RIG" : undefined;
 
 /** Owned known deposits determine scarcity; spending slots cannot manipulate the choice. */
-export function previewScarcityDelivery(player: Pick<DomainPlayer, "id" | "techIds" | "domainIds">, tiles: Iterable<DomainTileState>, isLocked: (key: string) => boolean = () => false): ScarcityDelivery {
+export function previewScarcityDelivery(
+  player: Pick<DomainPlayer, "id" | "techIds" | "domainIds">,
+  tiles: Iterable<DomainTileState>,
+  landmarks: Pick<ReadonlyMap<string, LandmarkTile>, "get">,
+  isLocked: (key: string) => boolean = () => false
+): ScarcityDelivery {
   const counts: Record<SlotResource, number> = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 };
   const candidates: Record<SlotResource, ScarcityDelivery["deliveries"]> = { FOOD: [], TITANIUM: [], CRYSTAL: [], UMBRITE: [] };
   for (const tile of tiles) {
@@ -26,7 +31,7 @@ export function previewScarcityDelivery(player: Pick<DomainPlayer, "id" | "techI
     counts[resource] += 1;
     const type = booster(tile.resource);
     const key = `${tile.x},${tile.y}`;
-    if (!type || tile.terrain !== "LAND" || tile.economicStructure || tile.fort || tile.observatory || tile.siegeBattery || tile.afc || isLocked(key)) continue;
+    if (!type || tile.terrain !== "LAND" || tile.economicStructure || tile.fort || tile.observatory || tile.siegeBattery || isLocked(key) || landmarkConstructionBlocker(landmarks, tile.x, tile.y)) continue;
     if (!structureShowsOnTile(type, { ownershipState: tile.ownershipState, resource: tile.resource, dockId: tile.dockId, townPopulationTier: tile.town?.populationTier, supportedTownCount: 0, supportedDockCount: 0 })) continue;
     candidates[resource].push({ key, type });
   }
@@ -52,7 +57,7 @@ export interface AfcInstallationGrantContext {
 /** Called exactly once after a new choice is accepted, never during hydration or AFC capture. */
 export function applyAfcInstallationGrant(context: AfcInstallationGrantContext, player: DomainPlayer, upgradeId: string, commandId: string): AfcInstallationOutcome | undefined {
   if (upgradeId === "afc-exchequer-2") {
-    const preview = previewScarcityDelivery(player, context.tiles.values(), context.isLocked);
+    const preview = previewScarcityDelivery(player, context.tiles.values(), context.tiles, context.isLocked);
     for (const delivery of preview.deliveries) {
       const tile = context.tiles.get(delivery.key)!;
       context.replaceTileState(delivery.key, { ...tile, economicStructure: { type: delivery.type, ownerId: player.id, status: "active", activatedAt: context.now() } }, commandId);

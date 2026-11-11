@@ -5,6 +5,12 @@ import type { TileActionDef } from "../client-types.js";
 export type TileActionFilterState = Pick<ClientState, "techIds" | "localhostDevAetherWall"> &
   Partial<Pick<ClientState, "tiles" | "me" | "techCatalog" | "domainIds">>;
 
+/** An AFC_MODULE tech only works while a copy sits on one of the player's active, settled AFCs (the server's build gate, runtime-structure-command-handlers.ts). */
+export const afcModuleInstalled = (state: Pick<ClientState, "tiles" | "me">, techId: string): boolean =>
+  [...state.tiles.values()].some(
+    (tile) => tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.afc?.status === "active" && Boolean(tile.afc.modules?.includes(techId))
+  );
+
 export const hideTechLockedTileAction = (
   action: TileActionDef,
   state: TileActionFilterState,
@@ -16,12 +22,7 @@ export const hideTechLockedTileAction = (
   const fortWaived = action.id === "build_fortification" && afcAdditiveEffect(state.domainIds, "fortTechWaiver") > 0;
   if (requiredTech && !fortWaived && !state.techIds.includes(requiredTech)) return true;
   const isModule = state.techCatalog?.find((tech) => tech.id === requiredTech)?.manifestCategory === "AFC_MODULE";
-  if (requiredTech && isModule && state.tiles && state.me) {
-    const installed = [...state.tiles.values()].some(
-      (tile) => tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.afc?.status === "active" && tile.afc.modules?.includes(requiredTech)
-    );
-    if (!installed) return true;
-  }
+  if (requiredTech && isModule && state.tiles && state.me && !afcModuleInstalled({ tiles: state.tiles, me: state.me }, requiredTech)) return true;
   if (requiredTech) return false;
   if (!action.disabled || !action.disabledReason) return false;
   return /^Requires\b/i.test(action.disabledReason) || /^Need reveal capability\b/i.test(action.disabledReason);

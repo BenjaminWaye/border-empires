@@ -1,3 +1,5 @@
+import { supplyTradeAttackWarningText, type SupplyWarningState } from "./client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
+import { confirmSupplyTradeEnd, type SupplyTradeSheet } from "./client-flag-supply-trade-confirm/client-flag-supply-trade-confirm.js";
 import { musterMarchDistanceTiles, musterMarchTooFarAdvice } from "@border-empires/shared";
 import { showArrowGestureConfirmSheet } from "./client-arrow-gesture-confirm-sheet.js";
 import type { ArrowGesturePoint } from "./client-arrow-gesture-confirm-payload.js";
@@ -18,6 +20,8 @@ export type ArrowGestureConfirmDeps = {
   sendGameMessage: (payload: unknown) => boolean;
   renderHud: () => void;
   keyFor: (x: number, y: number) => string;
+  /** Test seam for the supply-trade confirm; defaults to the break-pact sheet. */
+  showSupplyTradeSheet?: SupplyTradeSheet;
 };
 
 /**
@@ -26,7 +30,7 @@ export type ArrowGestureConfirmDeps = {
  * / state.arrowGesture on "Go" or cancel.
  */
 export const handleArrowGestureConfirm = (
-  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey">,
+  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey"> & SupplyWarningState,
   origin: ArrowGesturePoint,
   target: ArrowGesturePoint,
   deps: ArrowGestureConfirmDeps,
@@ -41,10 +45,15 @@ export const handleArrowGestureConfirm = (
     deps.pushFeed(tooFarAdvice, "combat", "info");
     return;
   }
-  state.pendingArrowGestureConfirm = { origin, target, ...(options.newFlag ? { newFlag: true } : {}) };
-  state.arrowGesture = { origin, target };
-  showArrowGestureConfirmSheet(state, origin, target, deps.keyFor, {
-    sendGameMessage: deps.sendGameMessage,
-    renderHud: deps.renderHud
-  });
+  // The march ends in an ATTACK on the target's owner: a trade partner gets
+  // the "End supply trades?" confirm before the effort sheet opens.
+  const supplyWarning = supplyTradeAttackWarningText(state, state.tiles.get(deps.keyFor(target.x, target.y))?.ownerId);
+  confirmSupplyTradeEnd(supplyWarning, "March", () => {
+    state.pendingArrowGestureConfirm = { origin, target, ...(options.newFlag ? { newFlag: true } : {}) };
+    state.arrowGesture = { origin, target };
+    showArrowGestureConfirmSheet(state, origin, target, deps.keyFor, {
+      sendGameMessage: deps.sendGameMessage,
+      renderHud: deps.renderHud
+    });
+  }, deps.showSupplyTradeSheet);
 };

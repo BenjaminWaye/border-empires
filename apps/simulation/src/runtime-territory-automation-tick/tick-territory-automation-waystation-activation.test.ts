@@ -7,8 +7,10 @@
  * waystation: a restart used to erase activation (see snapshot-compaction.ts),
  * so the sweep re-rolled every owned waystation's reward on every deploy.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
+import { RANDOM_FOR } from "../runtime-waystation-activation.test-helpers.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 
@@ -63,17 +65,28 @@ const waystationAt = (runtime: SimulationRuntime) =>
   (runtime as unknown as { state: { tiles: Map<string, DomainTileState> } }).state.tiles.get("51,50")!;
 
 describe("tickTerritoryAutomation waystation activation", () => {
-  it("activates a dormant waystation it auto-claims", () => {
+  it("converts a resource waystation it auto-claims and streams the new site", () => {
     const runtime = buildRuntime(undefined);
     expect(waystationAt(runtime).waystation?.activated).toBe(false);
+    const events: SimulationEvent[] = [];
+    runtime.onEvent((event) => events.push(event));
+    const random = vi.spyOn(Math, "random").mockReturnValue(RANDOM_FOR.RESOURCE_TILE);
 
-    runtime.tickTerritoryAutomation(NOW_MS);
+    try {
+      runtime.tickTerritoryAutomation(NOW_MS);
+    } finally {
+      random.mockRestore();
+    }
 
-    const tile = waystationAt(runtime);
-    expect(tile.ownerId).toBe(PLAYER_ID);
-    expect(tile.waystation?.activated).toBe(true);
-    expect(tile.waystation?.activatedByPlayerId).toBe(PLAYER_ID);
-    expect(tile.waystation?.grantedEffect).toBeDefined();
+    expect(waystationAt(runtime)).toMatchObject({
+      ownerId: PLAYER_ID,
+      resource: "FARM",
+      waystation: { activated: true, activatedByPlayerId: PLAYER_ID, grantedEffect: "RESOURCE_TILE" }
+    });
+    expect(events.flatMap((event) => event.eventType === "TILE_DELTA_BATCH" ? event.tileDeltas : [])).toContainEqual(
+      expect.objectContaining({ x: 51, y: 50, resource: "FARM", waystationJson: expect.stringContaining('"activated":true') })
+    );
+    expect(runtime.exportState().tiles).toContainEqual(expect.objectContaining({ x: 51, y: 50, resource: "FARM" }));
   });
 
   it("does not re-roll an already-owned dormant waystation on the first tick (regression: +1000 manpower per deploy)", () => {

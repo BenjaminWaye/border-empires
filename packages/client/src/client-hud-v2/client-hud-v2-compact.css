@@ -2,7 +2,7 @@
    Map at rest, the tile panel and hosted side panels; the screens are in
    client-hud-v2-compact-screens.css. Keep phone rules here, never in style.css.
 
-   Portrait:  resource bar (one target: Treasury) + season pill / folded tracker on top,
+   Portrait:  resource ribbon + season pill / folded tracker on top,
               lens button bottom left, manpower orb bottom right, tab bar at the foot.
    A selected tile's panel replaces the tab bar as a bottom sheet. */
 
@@ -13,8 +13,8 @@ body.hud-v2-compact {
   --v2c-safe-left: env(safe-area-inset-left, 0px);
   /* Apple HIG 44pt / Material 48dp minimum touch target. */
   --v2c-touch: 44px;
-  --v2c-gutter: 6px;
-  --v2c-bar-h: 40px;
+  --v2c-gutter: 4px;
+  --v2c-bar-h: calc(var(--v2c-touch) + 2px);
   --v2c-tab-h: 58px;
   /* Where content under the top bar starts, and where content above the tab bar ends. */
   --v2c-top: calc(var(--v2c-safe-top) + var(--v2c-gutter) + var(--v2c-bar-h) + 6px);
@@ -33,41 +33,93 @@ body.hud-v2-compact .hud-v2-top {
   gap: 6px; justify-items: stretch;
 }
 body.hud-v2-compact .hud-v2-bar {
-  height: var(--v2c-bar-h); gap: 2px; padding: 0 3px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  box-sizing: border-box;
+  height: var(--v2c-bar-h);
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 0;
+  border-radius: 8px;
+  background: var(--v2-ink-solid);
 }
-body.hud-v2-compact .hud-v2-bar::-webkit-scrollbar { display: none; }
-/* Label over value, so every resource fits on a 360px screen; the coin rate lives in the Treasury. */
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip {
-  flex: 1 0 auto; flex-direction: column; justify-content: center; gap: 0; height: 34px; padding: 0 6px; font-size: 12px; line-height: 1.15;
+  box-sizing: border-box;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  height: var(--v2c-touch);
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--v2-line);
+  background: transparent;
+  font-size: 13px;
+  line-height: 1;
 }
-body.hud-v2-compact .hud-v2-bar .hud-v2-chip-label { font-size: 9px; letter-spacing: 0.04em; }
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip:first-child { border-radius: 7px 0 0 7px; }
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip:hover { background: var(--v2-chip); }
+body.hud-v2-compact #hud-v2 .hud-v2-bar button:focus-visible { outline-offset: -3px; }
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-label {
+  display: flex;
+  align-items: center;
+  min-height: 15px;
+  font: 600 10px/1 Arial, sans-serif;
+  color: var(--v2-soft);
+}
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-icon { display: block; width: 15px; height: 15px; }
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-summary { display: block; font-weight: 700; }
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-available { color: var(--v2-green-hi); }
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-zero { color: var(--v2-muted); }
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-short { display: inline; font-size: 0.9em; }
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-icon + .hud-v2-chip-name,
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-exact,
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-description {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-rate,
-body.hud-v2-compact .hud-v2-bar .hud-v2-chip-static,
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-slot,
 body.hud-v2-compact .hud-v2-bar .hud-v2-sep { display: none; }
-body.hud-v2-compact .hud-v2-gear { flex: none; width: 36px; height: 34px; margin-left: 2px; }
+body.hud-v2-compact .hud-v2-bar .hud-v2-gear {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  flex: 0 0 var(--v2c-touch);
+  height: var(--v2c-touch);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0 7px 7px 0;
+}
+body.hud-v2-compact .hud-v2-bar .hud-v2-gear img { display: block; width: 20px; height: 20px; }
+body.hud-v2-compact .hud-v2-bar .hud-v2-gear span { display: none; }
 
 /* ---- Foot: crest + destinations as a tab bar ---- */
 body.hud-v2-compact .hud-v2-nav {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: flex; align-items: stretch; gap: 0;
-  height: var(--v2c-bottom); padding: 0 var(--v2c-safe-right) var(--v2c-safe-bottom) var(--v2c-safe-left);
-  background: var(--v2-ink-solid); border-top: 1px solid var(--v2-edge-strong); box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.45); pointer-events: auto;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; align-items: stretch; gap: 2px;
+  box-sizing: border-box; height: var(--v2c-bottom);
+  padding: 4px calc(var(--v2c-safe-right) + 4px) calc(var(--v2c-safe-bottom) + 4px) calc(var(--v2c-safe-left) + 4px);
+  background: var(--v2-ink-solid); pointer-events: auto;
 }
 body.hud-v2-compact .hud-v2-bubbles { display: contents; }
-body.hud-v2-compact .hud-v2-crest { flex: none; align-self: center; width: 46px; height: 46px; margin: 0 2px 0 6px; padding: 2px; border-radius: 10px; }
-body.hud-v2-compact .hud-v2-crest-mark { font-size: 19px; border-radius: 7px; }
+body.hud-v2-compact .hud-v2-crest,
 body.hud-v2-compact .hud-v2-bubble {
-  flex: 1 1 0; min-width: 0; width: auto; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  border: 0; border-top: 2px solid transparent; border-radius: 0; background: transparent; box-shadow: none;
+  flex: 1 1 0;
+  min-width: max-content;
+  width: auto;
+  height: auto;
+  gap: 3px;
+  padding: 2px 1px;
+  border-radius: 5px;
 }
-body.hud-v2-compact .hud-v2-bubble-active { border: 0; border-top: 2px solid var(--v2-gold); background: #1d1810; }
+body.hud-v2-compact .hud-v2-crest { font-size: 22px; }
 body.hud-v2-compact .hud-v2-bubble .tab-icon-img { width: 22px; height: 22px; }
-/* The label is always shown under the icon: there is no hover to reveal it. */
-body.hud-v2-compact .hud-v2-bubble-label {
-  position: static; transform: none; opacity: 1; padding: 0; border: 0; background: none;
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 9px; letter-spacing: 0.03em; color: var(--v2-soft);
-}
-body.hud-v2-compact .hud-v2-bubble-active .hud-v2-bubble-label { color: var(--v2-gold-hi); }
-body.hud-v2-compact .hud-v2-bubble-badge { top: 4px; right: calc(50% - 20px); }
+body.hud-v2-compact .hud-v2-bubble-label { font-size: clamp(10px, 2.8vw, 11px); }
+body.hud-v2-compact .hud-v2-bubble-badge { top: -3px; right: 1px; }
 
 /* ---- Under the bar: folded tracker left, season pill right; rivals live in Diplomacy ---- */
 body.hud-v2-compact .hud-v2-right { top: var(--v2c-top); right: calc(var(--v2c-safe-right) + var(--v2c-gutter)); max-width: 44vw; gap: 0; }
@@ -194,7 +246,6 @@ body.hud-v2-compact #side-panel .panel-btn { min-height: 40px; }
 .v2c-treasury-rows .hud-v2-chip-label { min-width: 84px; font-size: 13px; }
 .v2c-treasury-rows .hud-v2-chip-rate { margin-left: auto; font-size: 13px; }
 .v2c-treasury-rows .hud-v2-sep { display: none; }
-/* body-qualified to outrank the compact top-bar gear rule. */
 body.hud-v2-compact .v2c-treasury-rows .hud-v2-gear { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 48px; margin: 6px 0 0; font-size: 18px; }
 body.hud-v2-compact .v2c-treasury-rows .hud-v2-gear::after { content: " Settings"; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }
 

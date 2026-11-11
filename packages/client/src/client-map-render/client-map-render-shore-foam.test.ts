@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { drawShoreFoam2D } from "./client-map-render-shore-foam.js";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { setWorldSeed, terrainAt } from "@border-empires/shared";
+import { drawSeaCoast2D, drawShoreFoam2D } from "./client-map-render-shore-foam.js";
 
 type Op = { kind: "rect" | "arc"; x: number; y: number; w?: number; h?: number };
 const recordingCtx = (): { ctx: CanvasRenderingContext2D; ops: Op[] } => {
@@ -34,5 +38,34 @@ describe("2D shore foam (parity with the 3D coastline polish)", () => {
     const open = recordingCtx();
     drawShoreFoam2D(open.ctx, 5, 5, 100, 200, 40, 40, () => false);
     expect(open.ops).toHaveLength(0);
+  });
+
+  // Season worldgen carves 1-tile SEA channels on the server only; the seeded
+  // terrainAt still says LAND there, so the coast must take the synced-tile
+  // lookup the map facade passes in, or it foams a band across the channel.
+  it("draws the coast from the caller's land lookup, not the seeded terrain", () => {
+    setWorldSeed(1);
+    const isSeededLand = (x: number, y: number): boolean => terrainAt(x, y) === "LAND";
+    let tile: { x: number; y: number } | undefined;
+    for (let y = 40; y < 400 && !tile; y += 1) {
+      for (let x = 40; x < 400 && !tile; x += 1) {
+        let allLand = true;
+        for (let dy = -1; dy <= 1 && allLand; dy += 1) for (let dx = -1; dx <= 1 && allLand; dx += 1) allLand = isSeededLand(x + dx, y + dy);
+        if (allLand) tile = { x, y };
+      }
+    }
+    if (!tile) throw new Error("no seeded inland tile found");
+    const seeded = recordingCtx();
+    drawSeaCoast2D(seeded.ctx, tile.x, tile.y, 100, 200, 40, 40);
+    expect(seeded.ops.length).toBeGreaterThan(0); // seeded neighbours read as land
+    const carved = recordingCtx();
+    drawSeaCoast2D(carved.ctx, tile.x, tile.y, 100, 200, 40, 40, () => false); // synced tiles: all sea
+    expect(carved.ops).toHaveLength(0);
+  });
+
+  it("is wired to the synced-tile terrain in the 2D map facade", () => {
+    const facade = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../client-map-facade.ts"), "utf8");
+    expect(facade).toContain("const knownTerrain = knownTerrainAt(state, keyFor, wrapX, wrapY, terrainAt);");
+    expect(facade).toContain("isLandAt: knownLandAt,");
   });
 });

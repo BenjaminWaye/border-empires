@@ -1,10 +1,7 @@
-import type { Tile } from "../client-types.js";
+import { parseGatewayStructureJson } from "../client-gateway-sync/client-gateway-sync-town-summary.js";
 import { showWaystationActivationOverlay, type WaystationActivationInfo } from "./client-waystation-activation.js";
 
-export type WaystationActivationUpdate = { x: number; y: number };
-
-/** Snapshot of a tile's waystation state taken before a TILE_DELTA_BATCH is merged in. */
-export type PreviousWaystationSnapshot = { activated?: boolean };
+export type WaystationActivationUpdate = { x: number; y: number; waystationJson?: string };
 
 /** The subset of a waystation's granted-effect detail this popup needs -- shaped to match both `Tile["waystation"]` (the live path) and a WAYSTATION_ACTIVATED event-log entry (the reconnect catch-up path), so buildWaystationActivationInfo below can serve both without either caller reshaping its data first. */
 export type WaystationActivationDetail = {
@@ -67,9 +64,8 @@ export const buildWaystationActivationInfo = (
 };
 
 /**
- * Scans a TILE_DELTA_BATCH for a tile whose waystation just transitioned
- * from dormant (undefined, or `{ activated: false }`) to activated by the
- * local player, and shows the activation-result popup for at most one such
+ * Reads reward records from a TILE_DELTA_BATCH before they are discarded
+ * from the map state. Shows the activation-result popup for at most one
  * tile per batch (mirroring emitTownCaptureIfCaptured's "one popup per
  * batch" choice -- multi-activation batches are rare and stacking several
  * popups instantly would be worse than showing one).
@@ -81,10 +77,7 @@ export const buildWaystationActivationInfo = (
 export const emitWaystationActivationIfActivated = (
   input: {
     tileUpdates: WaystationActivationUpdate[];
-    previousWaystationByKey: Map<string, PreviousWaystationSnapshot | undefined>;
-    tiles: Map<string, Tile>;
     me: string;
-    keyFor: (x: number, y: number) => string;
     techCatalog: ReadonlyArray<{ id: string; name: string }>;
     onJumpToLocation: (x: number, y: number) => void;
     /** Opens the tech detail panel for a tech id, wiring the TECH reward's clickable "Unlocked: <name>" line. Omit to render that line as plain text. */
@@ -100,15 +93,11 @@ export const emitWaystationActivationIfActivated = (
   }
 ): void => {
   for (const update of input.tileUpdates) {
-    const key = input.keyFor(update.x, update.y);
-    const tile = input.tiles.get(key);
-    const previous = input.previousWaystationByKey.get(key);
-    if (previous?.activated) continue; // Already activated before this batch -- not a fresh transition (e.g. a boot resync).
-    const waystation = tile?.waystation;
+    const waystation = parseGatewayStructureJson<WaystationActivationDetail>(update.waystationJson);
     if (!waystation?.activated) continue;
     // Jump target depends on the effect: VISION jumps to the revealed town,
-    // POPULATION jumps to the town that got the burst, everything else has
-    // no jump button so it falls back to the waystation's own tile.
+    // POPULATION jumps to the town that got the burst, and a resource
+    // site is at the former waystation.
     const jumpX = waystation.grantedEffect === "POPULATION" ? waystation.grantedTownX ?? update.x : waystation.revealedAtX ?? update.x;
     const jumpY = waystation.grantedEffect === "POPULATION" ? waystation.grantedTownY ?? update.y : waystation.revealedAtY ?? update.y;
     const info = buildWaystationActivationInfo(

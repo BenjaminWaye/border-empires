@@ -35,7 +35,7 @@ const layers = () => {
 const context = (tiles: Map<string, Tile>, dockEndpointKeys = new Set<string>(), afcJoinDrop = createAfcJoinDropState()): RememberedBuildingContext => ({
   state: { tiles, tilesRevision: 1, me: "me", siegeAimOverrides: new Map(), afcJoinDrop },
   keyFor: (x, y) => `${x},${y}`, wrapX: (x) => x, wrapY: (y) => y,
-  terrainAt: (x) => (x > 5 ? "SEA" : "LAND"), elevationAt: () => 0.1, dockEndpointKeys, rebuildStartAt: 0
+  terrainAt: (x) => (x > 5 ? "SEA" : "LAND"), elevationAt: () => 0.1, dockEndpointKeys, rebuildStartAt: 0, afcPadSurfaceY: () => 0.45
 });
 
 const site = { x: 1, z: 2, surfaceY: 0.3, flatOverlayY: 0.2, wx: 5, wy: 5, tileKey: "5,5" };
@@ -85,10 +85,10 @@ describe("remembered buildings on fogged 3D tiles", () => {
     const target = layers();
     const tile: Tile = { x: 5, y: 5, terrain: "LAND", afc: { ownerId: "p2", status: "active", modules: ["trade", "radar"] } };
     addRememberedBuildingsForTile(tile, site, target, context(new Map([["5,5", tile]])));
-    expect(target.afcOverlay.addAfc).toHaveBeenCalledWith(1, 2, 0.2, 5, 5, ["trade", "radar"], true);
+    expect(target.afcOverlay.addAfc).toHaveBeenCalledWith(1, 2, 0.45, 5, 5, ["trade", "radar"], true);
 
     const landing = layers();
-    const drop = { ...createAfcJoinDropState(), phase: "waiting" as const, x: 5, y: 5 };
+    const drop = { ...createAfcJoinDropState(), phase: "playing" as const, revealed: true, x: 5, y: 5 };
     addRememberedBuildingsForTile(tile, site, landing, context(new Map([["5,5", tile]]), new Set(), drop));
     expect(landing.afcOverlay.addAfc).not.toHaveBeenCalled();
   });

@@ -1,3 +1,4 @@
+import { recoverTilePlayerLosses } from "../deadliest-tiles/recover-tile-player-losses.js";
 // Single entry point for the season state that must survive a process restart
 // but deliberately does NOT live in the world snapshot:
 //   - per-tile combat damage, behind the end-of-season "deadliest tile"
@@ -52,7 +53,9 @@ export const restoreSeasonActivityState = async (
   runtime: PersistableRuntime
 ): Promise<void> => {
   await restoreDeadliestTiles(store, seasonId, runtime.manpowerLossByTileKey);
-  runtime.restoreActivityLogs(await store.loadActivityLogs(seasonId));
+  const logs = await store.loadActivityLogs(seasonId);
+  runtime.restoreActivityLogs(logs);
+  recoverTilePlayerLosses(runtime.manpowerLossByTileKey, logs?.combat);
 };
 
 /**

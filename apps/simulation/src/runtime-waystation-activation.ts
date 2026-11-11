@@ -1,8 +1,8 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { appendPlayerEventLogEntry, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
-import { WAYSTATION_POP_BURST, WAYSTATION_REVEAL_RADIUS, WAYSTATION_RESOURCE_SLOT_BONUS, WAYSTATION_VISION_TOWN_SEARCH_RADIUS, type WaystationGrantedEffect } from "@border-empires/shared";
-import { buildTechUpdatePayload, recomputeMods, techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
-import { grantAmbaricTransformerUnlockIfLinked } from "./tech-domain-bridge/tech-ambaric-transformer-unlock.js";
+import { WAYSTATION_POP_BURST, WAYSTATION_REVEAL_RADIUS, WAYSTATION_VISION_TOWN_SEARCH_RADIUS, type ResourceType, type SlotResource, type WaystationGrantedEffect } from "@border-empires/shared";
+import { techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { grantFreeTech, type TechGrantContext } from "./tech-grant-side-effects/tech-grant-side-effects.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
 import type { PersonalImpactWaystationActivated } from "./personal-impact-log/personal-impact-log.js";
@@ -23,16 +23,29 @@ export type WaystationActivationInput = {
   /** Settles a player's accrued manpower regen (MANPOWER effect grants on top of the settled balance). */
   refreshManpower: (playerId: string) => void;
   playerManpowerCap: (playerId: string) => number;
+  /**
+   * The runtime's progression context: the TECH reward grants through
+   * grantFreeTech, the same path paid research takes (supply bracket, cache
+   * invalidation, AFC module install, resource reveal, TECH_UPDATE).
+   */
+  progressionContext: () => TechGrantContext;
   /** Injectable randomness for the one-of-six effect roll, then the tech pick within TECH / the tier pick within GOLD. Defaults to Math.random; tests pass a deterministic stub. */
   random?: () => number;
 };
 
 type WaystationEffect = WaystationGrantedEffect;
 
-/** Effect roll order -- fixed and load-bearing for tests: 0=VISION, 1=POPULATION, 2=TECH, 3=RESOURCE_SLOT, 4=GOLD, 5=MANPOWER. */
-const WAYSTATION_EFFECTS: readonly WaystationEffect[] = ["VISION", "POPULATION", "TECH", "RESOURCE_SLOT", "GOLD", "MANPOWER"];
+/** Effect roll order -- fixed and load-bearing for tests: 0=VISION, 1=POPULATION, 2=TECH, 3=RESOURCE_TILE, 4=GOLD, 5=MANPOWER. */
+const WAYSTATION_EFFECTS: readonly WaystationEffect[] = ["VISION", "POPULATION", "TECH", "RESOURCE_TILE", "GOLD", "MANPOWER"];
 
-const WAYSTATION_SLOT_RESOURCES = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const;
+const WAYSTATION_TILE_RESOURCES = {
+  FOOD: "FARM",
+  TITANIUM: "TITANIUM",
+  CRYSTAL: "GEMS",
+  UMBRITE: "UMBRITE"
+} as const satisfies Record<SlotResource, ResourceType>;
+
+const WAYSTATION_SLOT_RESOURCES: readonly SlotResource[] = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"];
 
 /** The fixed reason tag for a waystation's permanent vision footprint -- see addTileVisionBonus/removeTileVisionBonus in visibility-coverage-cache.ts. */
 const WAYSTATION_VISION_REASON = "waystation";
@@ -203,11 +216,8 @@ const grantWaystationPopulationBurst = (input: WaystationActivationInput, player
 /**
  * Grants the TECH effect: picks a random tier-1 tech (a tree root -- no
  * prereqIds) the player does not already own, via the injected `random`, and
- * adds it to the player's techIds -- applying the same side effects a paid
- * research grant applies via chooseTechForPlayer (ambaric-transformer unlock
- * linkage and a mods recompute) so a live client's cached multipliers never
- * go stale, and emits a TECH_UPDATE event so an already-connected client's
- * tech list/UI picks up the grant immediately.
+ * grants it through grantFreeTech -- the same steps paid research takes, so a
+ * granted AFC module is installed and a connected client gets TECH_UPDATE.
  *
  * If the player already owns every tier-1 tech, nothing is granted here
  * (don't touch player state) and undefined is returned -- the caller then
@@ -221,29 +231,13 @@ const grantWaystationTech = (input: WaystationActivationInput, player: DomainPla
   if (unownedTierOneIds.length === 0) return undefined;
   const techId = unownedTierOneIds[Math.floor(random() * unownedTierOneIds.length) % unownedTierOneIds.length];
   if (!techId) return undefined;
-  player.techIds.add(techId);
-  grantAmbaricTransformerUnlockIfLinked(player, techId);
-  player.mods = recomputeMods(player);
-  input.emitEvent({
-    eventType: "TECH_UPDATE",
-    commandId,
-    playerId,
-    payloadJson: JSON.stringify(buildTechUpdatePayload(player, input.tiles.values()))
-  });
+  grantFreeTech(input.progressionContext(), player, techId, commandId);
   return techId;
 };
 
-/**
- * Grants the RESOURCE_SLOT effect: +WAYSTATION_RESOURCE_SLOT_BONUS to
- * whichever of FOOD/TITANIUM/CRYSTAL/UMBRITE the player currently has the
- * fewest counted slots of (player.strategicResources, missing/undefined
- * counts as 0), tie-broken by array order (FOOD first). Merged additively
- * into player.waystationResourceSlotBonus so repeated activations can each
- * land on a different resource depending on the player's current counts.
- * Returns the resource that was bumped.
- */
-const grantWaystationResourceSlotBonus = (player: DomainPlayer): "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" => {
-  let target: (typeof WAYSTATION_SLOT_RESOURCES)[number] = WAYSTATION_SLOT_RESOURCES[0];
+/** Uses the existing waystation reward rule: lowest tracked resource balance, with ties in list order. */
+const lowestBalanceWaystationResource = (player: DomainPlayer): SlotResource => {
+  let target: SlotResource = "FOOD";
   let lowestCount = Infinity;
   for (const resource of WAYSTATION_SLOT_RESOURCES) {
     const count = player.strategicResources?.[resource] ?? 0;
@@ -252,9 +246,6 @@ const grantWaystationResourceSlotBonus = (player: DomainPlayer): "FOOD" | "TITAN
       target = resource;
     }
   }
-  const bonus = { ...(player.waystationResourceSlotBonus ?? {}) };
-  bonus[target] = (bonus[target] ?? 0) + WAYSTATION_RESOURCE_SLOT_BONUS;
-  player.waystationResourceSlotBonus = bonus;
   return target;
 };
 
@@ -269,17 +260,14 @@ const grantWaystationResourceSlotBonus = (player: DomainPlayer): "FOOD" | "TITAN
  *  1. POPULATION: a population burst to the player's nearest owned town;
  *  2. TECH: a random unowned tier-1 tech, granted outright -- or GOLD if the
  *     player already owns every tier-1 tech;
- *  3. RESOURCE_SLOT: a +1 bump to whichever strategic resource the player
- *     has the least of;
+ *  3. RESOURCE_TILE: a site for the resource with the lowest tracked balance;
  *  4. GOLD: a flat-tier treasury payout (WAYSTATION_GOLD_TIERS);
  *  5. MANPOWER: WAYSTATION_MANPOWER_GRANT, allowed to overflow the cap.
  * No-op if the tile has no waystation or it was already activated (one-time
  * only, never re-fires). Unlike watchtowers there is no expiry/tick-cleanup
- * step -- nothing granted here expires. Which effect fired (and its
- * detail: revealed coordinates, granted tech id, granted resource, the
- * granted-population town's name, or the gold/manpower amount) is
- * recorded on tile.waystation itself so the client's activation-result popup
- * (client-waystation-activation/) can read it straight off the wire delta.
+ * step. The consumed record travels with the tile for event replay, live
+ * reward notifications, and restoring permanent vision on restart. Clients
+ * clear the map feature when they receive an activated record.
  */
 export const activateWaystationAt = (
   input: WaystationActivationInput,
@@ -306,6 +294,7 @@ export const activateWaystationAt = (
 
   const waystationResult: NonNullable<DomainTileState["waystation"]> = { activated: true, activatedByPlayerId: playerId, grantedEffect: rolledEffect };
   let populationBurst: number | undefined;
+  let resource: ResourceType | undefined;
 
   // Resolve the chosen effect's grant (and its wire-visible detail field, if
   // any) BEFORE writing the waystation tile itself, so the single tile delta
@@ -332,8 +321,10 @@ export const activateWaystationAt = (
       // log and popup all describe what the player actually received.
       grantGoldInto(waystationResult, player, random);
     }
-  } else if (rolledEffect === "RESOURCE_SLOT") {
-    waystationResult.grantedResource = grantWaystationResourceSlotBonus(player);
+  } else if (rolledEffect === "RESOURCE_TILE") {
+    const grantedResource = lowestBalanceWaystationResource(player);
+    waystationResult.grantedResource = grantedResource;
+    resource = WAYSTATION_TILE_RESOURCES[grantedResource];
   } else if (rolledEffect === "GOLD") {
     grantGoldInto(waystationResult, player, random);
   } else if (rolledEffect === "MANPOWER") {
@@ -354,7 +345,7 @@ export const activateWaystationAt = (
     }
   }
 
-  const updated: DomainTileState = { ...tile, waystation: waystationResult };
+  const updated: DomainTileState = { ...tile, ...(resource ? { resource } : {}), waystation: waystationResult };
   input.replaceTileState(targetKey, updated, commandId);
   input.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [input.tileDeltaFromState(updated)] });
 
@@ -399,10 +390,10 @@ const grantGoldInto = (result: NonNullable<DomainTileState["waystation"]>, playe
 
 /** Short server-side flavor line for the Activity Feed fallback -- the client's activation popup (client-waystation-activation.ts) has its own richer per-effect copy built from the structured fields above; this text is only what's shown if the popup itself doesn't fire (e.g. an older client that doesn't know the effect). */
 const waystationActivationLogText = (effect: WaystationEffect): string => {
-  if (effect === "VISION") return "A waystation you own revealed a nearby area.";
-  if (effect === "POPULATION") return "A waystation you own sent settlers to one of your towns.";
-  if (effect === "TECH") return "A waystation you own shared research with your empire.";
-  if (effect === "GOLD") return "A waystation you own handed its coffers to your treasury.";
-  if (effect === "MANPOWER") return "A waystation you own sent militia to join your ranks.";
-  return "A waystation you own bolstered your resource stockpiles.";
+  if (effect === "VISION") return "A captured waystation revealed a nearby area.";
+  if (effect === "POPULATION") return "A captured waystation sent settlers to one of your towns.";
+  if (effect === "TECH") return "A captured waystation shared research with your empire.";
+  if (effect === "GOLD") return "A captured waystation handed its coffers to your treasury.";
+  if (effect === "MANPOWER") return "A captured waystation sent militia to join your ranks.";
+  return "A captured waystation uncovered a resource site.";
 };

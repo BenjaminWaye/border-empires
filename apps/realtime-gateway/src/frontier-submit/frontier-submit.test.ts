@@ -94,7 +94,7 @@ describe("submitFrontierCommand", () => {
         type: "ERROR",
         commandId: "cmd-1",
         code: "SEASON_ENDED",
-        message: "season has ended; wait for the next world to begin"
+        message: "the Sector Contest has ended; wait for the next world to begin"
       }
     ]);
   });

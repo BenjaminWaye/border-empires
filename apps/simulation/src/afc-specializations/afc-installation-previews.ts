@@ -1,15 +1,19 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { afcSpecializationProgress } from "@border-empires/shared";
+import { afcSpecializationProgress, type LandmarkTile } from "@border-empires/shared";
 import { techEntryById } from "../tech-domain-bridge/tech-domain-catalogs.js";
 import { previewScarcityDelivery } from "./afc-installation-grants.js";
 import { reconcileAfcCoreTowns } from "./afc-core-towns.js";
 
 /** Small factual summaries, not full tile/deposit records. Selection revalidates them. */
-export function afcInstallationPreviews(player: Pick<DomainPlayer, "id" | "techIds" | "domainIds" | "afcUpgradeRuleset" | "afcCoreTownKeys">, tiles: readonly DomainTileState[]): Record<string, string> {
+export function afcInstallationPreviews(player: Pick<DomainPlayer, "id" | "techIds" | "domainIds" | "afcUpgradeRuleset" | "afcCoreTownKeys">, tiles: readonly DomainTileState[], landmarkTiles?: Pick<ReadonlyMap<string, LandmarkTile>, "get">): Record<string, string> {
   if (player.afcUpgradeRuleset !== "afc-v1") return {};
   const { choices } = afcSpecializationProgress(player, techEntryById.values());
   if (choices.includes("afc-exchequer-2")) {
-    const preview = previewScarcityDelivery(player, tiles);
+    const landmarks = new Map<string, DomainTileState>();
+    if (!landmarkTiles) {
+      for (const tile of tiles) if (tile.afc || tile.naturalWonder) landmarks.set(`${tile.x},${tile.y}`, tile);
+    }
+    const preview = previewScarcityDelivery(player, tiles, landmarkTiles ?? landmarks);
     return { "afc-exchequer-2": preview.fallback ? "No eligible unboosted deposit. Delivery supplies 1 permanent FOOD slot instead."
       : `Current delivery: ${preview.deliveries.length} finished boosting buildings on ${preview.resource} deposits. No Manifest required.` };
   }

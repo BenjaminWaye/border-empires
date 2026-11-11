@@ -62,14 +62,21 @@ export const screen: HudV2ScreenState = {
 
 const written = new Map<string, string>();
 
-/** Writes `html` into the element with `id` when it changed; restores scroll of `[data-v2-scroll]` lists. */
+/**
+ * Writes `html` into the element with `id` when it changed; restores scroll of
+ * `[data-v2-scroll]` lists and the open state of `details[data-v2-open]`
+ * explainers, so a repaint (e.g. a score tick) doesn't snap them shut.
+ */
 export const writeHtml = (id: string, html: string): void => {
   if (written.get(id) === html) return;
   const el = document.getElementById(id);
   if (!el) return;
   const scrolls = new Map<string, number>();
   el.querySelectorAll<HTMLElement>("[data-v2-scroll]").forEach((node) => scrolls.set(node.dataset.v2Scroll ?? "", node.scrollTop));
+  const open = new Set<string>();
+  el.querySelectorAll<HTMLDetailsElement>("details[data-v2-open]").forEach((node) => { if (node.open) open.add(node.dataset.v2Open ?? ""); });
   el.innerHTML = html;
+  el.querySelectorAll<HTMLDetailsElement>("details[data-v2-open]").forEach((node) => { if (open.has(node.dataset.v2Open ?? "")) node.open = true; });
   el.querySelectorAll<HTMLElement>("[data-v2-scroll]").forEach((node) => {
     const top = scrolls.get(node.dataset.v2Scroll ?? "");
     if (top) node.scrollTop = top;

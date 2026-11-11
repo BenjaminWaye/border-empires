@@ -33,8 +33,8 @@ const topLongestSurvival = (
 
 const buildSeasonStats = (seasonState: SimulationSeasonState, runtimeState: RuntimeState, manpowerLossByTileKey?: Map<string, number>): SeasonStats | undefined => {
   if (seasonState.status !== "ended") return undefined;
-  const mostDeadlyTile = manpowerLossByTileKey ? findMostDeadlyTile(manpowerLossByTileKey) : undefined;
-  const longestRoad = computeLongestRoad(runtimeState.tiles);
+  const mostDeadlyTile = manpowerLossByTileKey ? findMostDeadlyTile(manpowerLossByTileKey, runtimeState.players) : undefined;
+  const longestRoad = computeLongestRoad(runtimeState.tiles, runtimeState.players);
   if (!mostDeadlyTile && !longestRoad) return undefined;
   return {
     ...(mostDeadlyTile ? { mostDeadlyTile } : {}),

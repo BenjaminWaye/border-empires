@@ -2,6 +2,7 @@ import { withdrawAndRedeploy } from "../afc-owned-site/afc-withdraw.js";
 import { createAfcRecoveryTicker } from "../afc-owned-site/afc-recovery-ticker.js";
 import { createVisibleStateContext } from "./runtime-visible-state-context.js";
 import { createAfcTileObserver, preserveAfclessReserves } from "../afc-owned-site/afc-loss.js";
+import { defaultScheduleAfter } from "./runtime-default-schedule-after.js";
 import { createRuntimeResourceSupply } from "../resource-supply-trades/runtime-resource-supply-bridge.js";
 import { dormantContributorTiles, cachedResourceSlots, cachedResourceDemand, cachedResourceDormancy, type RuntimeResourceSlotsContext } from "../resource-supply-trades/runtime-resource-slots.js";
 import { RuntimeResourceSupply } from "../resource-supply-trades/runtime-resource-supply.js";
@@ -728,15 +729,7 @@ export class SimulationRuntime {
       Math.max(0, options.maxTerminalCommandReplayHistory ?? DEFAULT_MAX_TERMINAL_COMMAND_REPLAY_HISTORY),
       Math.max(0, options.maxPlayerSeqReplayEntries ?? DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES)
     );
-    // scheduleAfter(0, ...) previously used setTimeout(0) (Timers phase, before
-    // Check-phase setImmediate snapshot-build yields), so every yield ate a
-    // ~200ms AI drain callback first — 22+s login stalls. Fix: setImmediate for
-    // delay=0 lands drains in the same Check phase, but registered AFTER
-    // snapshot yields re-arm theirs, so yields always run ahead of drains next
-    // iteration (~22s → ~500ms). Real-delay timers still use setTimeout.
-    const scheduleAfter = options.scheduleAfter ?? ((delayMs, task) =>
-      delayMs === 0 ? void setImmediate(task) : void setTimeout(task, delayMs)
-    );
+    const scheduleAfter = options.scheduleAfter ?? defaultScheduleAfter;
     this.scheduleAfter = (delayMs, task) => scheduleAfter(delayMs, () => { if (!this.scheduledTasksFrozen) task(); });
     this.jobQueue = new RuntimeJobQueue({
       backgroundBatchSize: Math.max(1, options.backgroundBatchSize ?? 1),
@@ -1115,7 +1108,7 @@ export class SimulationRuntime {
     };
   }
 
-  private activateReachClaimedTile(tileKey: string, playerId: string, commandId: string): void { const tile = this.state.tiles.get(tileKey); if (!tile) return; this.activateWatchtowerAt(tileKey, tile.x, tile.y, playerId, commandId); this.activateWaystationAt(tileKey, tile.x, tile.y, playerId, commandId); } private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId); } private activateWaystationAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWaystationAtImpl({ now: this.now, tiles: this.state.tiles, players: this.state.players, visibilityCoverage: this.state.visibilityCoverage, visionTransitionCallbacks: this.visionTransitions.callbacks, replaceTileState: (tileKey, tile, commandId2) => this.replaceTileState(tileKey, tile, commandId2), emitEvent: (event) => this.emitEvent(event), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event), refreshManpower: (id) => { const p = this.state.players.get(id); if (p) this.refreshManpowerOnly(p); }, playerManpowerCap: (id) => { const p = this.state.players.get(id); return p ? this.playerManpowerCap(p) : 0; } }, targetKey, x, y, playerId, commandId); }
+  private activateReachClaimedTile(tileKey: string, playerId: string, commandId: string): void { const tile = this.state.tiles.get(tileKey); if (!tile) return; this.activateWatchtowerAt(tileKey, tile.x, tile.y, playerId, commandId); this.activateWaystationAt(tileKey, tile.x, tile.y, playerId, commandId); } private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId); } private activateWaystationAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWaystationAtImpl({ now: this.now, tiles: this.state.tiles, players: this.state.players, visibilityCoverage: this.state.visibilityCoverage, visionTransitionCallbacks: this.visionTransitions.callbacks, replaceTileState: (tileKey, tile, commandId2) => this.replaceTileState(tileKey, tile, commandId2), emitEvent: (event) => this.emitEvent(event), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event), refreshManpower: (id) => { const p = this.state.players.get(id); if (p) this.refreshManpowerOnly(p); }, playerManpowerCap: (id) => { const p = this.state.players.get(id); return p ? this.playerManpowerCap(p) : 0; }, progressionContext: () => this.progressionCommandContext() }, targetKey, x, y, playerId, commandId); }
 
   tickWatchtowerReveals(nowMs: number = this.now()): void {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
@@ -1329,7 +1322,8 @@ export class SimulationRuntime {
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock),
       isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
       releaseIfStrandedOrigin: (originKey, ownerId, commandId) => this.strandedFrontier.releaseIfStrandedOrigin(originKey, ownerId, commandId),
-      frontierTileCountForPlayer: (playerId) => this.ownerIndexes.frontierTilesByOwner.get(playerId)?.size ?? 0
+      frontierTileCountForPlayer: (playerId) => this.ownerIndexes.frontierTilesByOwner.get(playerId)?.size ?? 0,
+      endSupplyTradesOnAttack: (attackerId, defenderId) => this.resourceSupply?.cancelBetween(attackerId, defenderId) ?? 0
     };
   }
 

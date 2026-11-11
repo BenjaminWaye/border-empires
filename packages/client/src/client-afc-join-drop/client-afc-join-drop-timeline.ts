@@ -24,8 +24,22 @@ const ENGINE_CUT_FALLEN = 0.95;
 const STREAK_FADE_IN_MS = 500;
 /** The streak burns off over this long once the thrust starts winding down. */
 const STREAK_FADE_OUT_MS = 1500;
-/** The descending copy stays this long past touchdown so the real AFC can take over under the smoke. */
+/** The effect can cover one throttled terrain rebuild after the deployment. */
 export const AFC_JOIN_MODEL_OVERLAP_MS = 800;
+
+export type AfcDeploymentPose = { readonly arms: number; readonly bays: number };
+export const AFC_DEPLOYED_POSE: AfcDeploymentPose = { arms: 1, bays: 1 };
+
+const deploymentEase = (t: number): number => {
+  const progress = Math.max(0, Math.min(1, t));
+  return progress * progress * (3 - 2 * progress);
+};
+
+/** Arms plant after impact, then all eight bays slide outward together. */
+export const afcJoinDeploymentPose = (landedAge: number): AfcDeploymentPose => ({
+  arms: deploymentEase((landedAge - 100) / 1050),
+  bays: deploymentEase((landedAge - 1150) / 1500)
+});
 /** Only an AFC activated this recently counts as a join; a returning player's old AFC never replays. */
 export const AFC_JOIN_MAX_AGE_MS = 30 * 60_000;
 /** Safety net: if some overlay stays "open" this long the AFC is revealed without the animation, so it can never stay hidden. */

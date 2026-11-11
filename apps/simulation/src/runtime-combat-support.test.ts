@@ -1,3 +1,4 @@
+import { findMostDeadlyTile } from "./season-stats/season-stats.js";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { requiredMusterForFort } from "@border-empires/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -173,6 +174,9 @@ describe("buildLockedCombatResolution against a FRONTIER (undefended) target", (
     expect(resolution?.result.winChance).toBeCloseTo(0.5, 5);
     expect(resolution?.result.attackerWon).toBe(false);
     expect(resolution?.defendedFrontier).toBe(true);
+    expect(findMostDeadlyTile(context.manpowerLossByTileKey)?.mostLossesPlayer).toMatchObject({
+      playerId: ATTACKER_ID, manpowerLost: 15
+    });
   });
 
   it("is a guaranteed capture again once the capture-hold window has expired", () => {

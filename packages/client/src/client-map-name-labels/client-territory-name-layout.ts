@@ -1,23 +1,26 @@
-// Where to write each player's name across their garrisoned (SETTLED) land
+// Where to write each player's name across their garrisoned and frontier land
 // when the map is zoomed far out. Pure: tiles in, label paths out.
 //
-// A connected run of one owner's garrisoned tiles only earns a label once it
-// holds a fully garrisoned 3x3 square somewhere. Its "core" is every tile
-// whose 8 neighbours are all the same owner's garrison (a Chebyshev distance
+// A connected run of one owner's land only earns a label once it
+// holds a fully owned 3x3 square somewhere. Its "core" is every tile
+// whose 8 neighbours are all held by the same owner (a Chebyshev distance
 // of at least 2 from the territory's edge): the centre of such a square. The
 // label runs along the core's long axis, bending with it (the core is cut
 // into one-tile slices across the axis and each slice's weighted middle is a
 // path point), so the name stretches out and follows the land as the
-// garrisoned area grows. Glyph height follows how thick the core is.
-import { WORLD_HEIGHT, WORLD_WIDTH, type Terrain } from "@border-empires/shared";
+// territory grows. Glyph height follows how thick the core is.
+import { WORLD_HEIGHT, WORLD_WIDTH, type OwnershipState, type Terrain } from "@border-empires/shared";
 
 export type TerritoryLayoutTile = {
   readonly x: number;
   readonly y: number;
   readonly terrain: Terrain;
   readonly ownerId?: string | undefined;
-  readonly ownershipState?: string | undefined;
+  readonly ownershipState?: OwnershipState | undefined;
 };
+
+export const isPlayerTerritoryLand = (tile: Pick<TerritoryLayoutTile, "terrain" | "ownershipState">): boolean =>
+  tile.terrain === "LAND" && (tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER");
 
 export type TerritoryNameLabel = {
   readonly ownerId: string;
@@ -27,7 +30,7 @@ export type TerritoryNameLabel = {
   readonly heightTiles: number;
   /** Tiles the name may spread across: the core path plus the one-tile rim at each end. */
   readonly spanTiles: number;
-  /** Garrisoned tiles in the territory; bigger territories draw on top. */
+  /** Owned land tiles in the territory; bigger territories draw on top. */
   readonly tileCount: number;
 };
 
@@ -47,6 +50,8 @@ const smooth = (values: readonly number[], radius: number): number[] =>
   });
 
 export type CorePoint = { x: number; y: number; depth: number };
+
+type TerritoryNameLayout = TerritoryNameLabel & { readonly core: readonly CorePoint[] };
 
 export const labelForCore = (ownerId: string, core: readonly CorePoint[], maxDepth: number, tileCount: number): TerritoryNameLabel => {
   let totalWeight = 0;
@@ -107,15 +112,15 @@ export const labelForCore = (ownerId: string, core: readonly CorePoint[], maxDep
 export const computeTerritoryNameLabels = (
   tiles: Iterable<TerritoryLayoutTile>,
   options: { readonly skipOwner?: (ownerId: string) => boolean; readonly width?: number; readonly height?: number } = {}
-): TerritoryNameLabel[] => {
+): TerritoryNameLayout[] => {
   const width = options.width ?? WORLD_WIDTH;
   const height = options.height ?? WORLD_HEIGHT;
   const ownerIds: string[] = [];
   const ownerIndexById = new Map<string, number>();
   const ownerByCell = new Int32Array(width * height).fill(-1);
-  const garrisonedCells: number[] = [];
+  const territoryCells: number[] = [];
   for (const tile of tiles) {
-    if (!tile.ownerId || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
+    if (!tile.ownerId || !isPlayerTerritoryLand(tile)) continue;
     if (options.skipOwner?.(tile.ownerId)) continue;
     if (tile.x < 0 || tile.y < 0 || tile.x >= width || tile.y >= height) continue;
     let ownerIndex = ownerIndexById.get(tile.ownerId);
@@ -126,13 +131,13 @@ export const computeTerritoryNameLabels = (
     }
     const cell = tile.y * width + tile.x;
     ownerByCell[cell] = ownerIndex;
-    garrisonedCells.push(cell);
+    territoryCells.push(cell);
   }
   const visited = new Uint8Array(width * height);
   const depthByCell = new Int16Array(width * height);
-  const labels: TerritoryNameLabel[] = [];
+  const labels: TerritoryNameLayout[] = [];
   const neighbourCell = (x: number, y: number): number => wrap(y, height) * width + wrap(x, width);
-  for (const startCell of garrisonedCells) {
+  for (const startCell of territoryCells) {
     if (visited[startCell]) continue;
     const owner = ownerByCell[startCell]!;
     // Flood fill in unwrapped coordinates so a territory straddling the world
@@ -194,7 +199,7 @@ export const computeTerritoryNameLabels = (
       maxDepth = Math.max(maxDepth, depth);
     }
     if (core.length === 0) continue;
-    labels.push(labelForCore(ownerIds[owner]!, core, maxDepth, members.length));
+    labels.push({ ...labelForCore(ownerIds[owner]!, core, maxDepth, members.length), core });
   }
   return labels.sort((a, b) => a.tileCount - b.tileCount);
 };

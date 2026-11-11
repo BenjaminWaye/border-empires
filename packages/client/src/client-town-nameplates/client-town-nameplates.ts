@@ -22,6 +22,8 @@ export const unrulyTownKeys = (biotaTowns: readonly BiotaTownStatus[] | undefine
   new Set((biotaTowns ?? []).filter(town => town.received < town.needed).map(town => town.tileKey));
 
 const MAX_PLATES = 160;
+/** A neutral town has no owner colour: its plate keeps the plain edge colour as its line. */
+const NEUTRAL_PLATE_LINE = "#5a4828";
 // The game's own simple icons, so unfed is the same food icon as the resource bar.
 // The bubble names the cause; whether the town grows rides on its population (GROWTH_MARK).
 const STATUS_ICON: Record<TownNameplateStatus, string> = {
@@ -129,11 +131,11 @@ export function createTownNameplates(canvas: HTMLCanvasElement, state: TownNamep
         if (entry.html !== html) { entry.el.innerHTML = html; entry.html = html; }
         const name = entry.el.querySelector(".town-plate-name");
         if (name && name.textContent !== plate.name) name.textContent = plate.name;
-        const className = `town-plate${plate.own ? " town-plate-own" : ""}${plate.status ? " town-plate-has-status" : ""}`;
+        const className = `town-plate${plate.own ? " town-plate-own" : ""}${plate.ownerId ? "" : " town-plate-neutral"}${plate.status ? " town-plate-has-status" : ""}`;
         if (entry.el.className !== className) entry.el.className = className;
         const title = plate.status ? `${plate.name}: ${STATUS_LABEL[plate.status]}` : plate.name;
         if (entry.el.title !== title) entry.el.title = title;
-        const color = ownerColor(plate.ownerId);
+        const color = plate.ownerId ? ownerColor(plate.ownerId) : NEUTRAL_PLATE_LINE;
         if (entry.el.style.getPropertyValue("--town-plate-owner") !== color) entry.el.style.setProperty("--town-plate-owner", color);
         // transform, not left/top: moving plates then never dirties layout, so the
         // AFC layer's getBoundingClientRect right after doesn't force a reflow.

@@ -11,6 +11,8 @@ import { showEffortConfirmSheet } from "../client-effort-confirm-sheet/client-ef
 
 export type MusterAdvanceEffortDeps = {
   sendGameMessage: (payload: unknown) => boolean;
+  /** Extra line under the subtitle, e.g. that auto-attacks end supply trades. */
+  note?: string | undefined;
   /** Runs after SET_MUSTER is sent (e.g. the first-muster discovery tip). */
   onSent?: () => void;
 };
@@ -36,7 +38,7 @@ export const promptMusterAdvanceEffort = (x: number, y: number, deps: MusterAdva
   };
   const handle = showEffortConfirmSheet({
     title: `Advance from (${x}, ${y})`,
-    subtitle: "Choose how much manpower each auto-attack commits — more effort improves the odds.",
+    subtitle: `Choose how much manpower each auto-attack commits — more effort improves the odds.${deps.note ? ` ${deps.note}` : ""}`,
     floor: MUSTER_ATTACK_COST,
     cap: MUSTER_ATTACK_COST * MUSTER_COMMIT_PRESET_MULTIPLIERS.double,
     mode: "presets",

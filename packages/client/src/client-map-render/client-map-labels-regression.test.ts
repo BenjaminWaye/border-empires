@@ -8,7 +8,7 @@ const source = (relativePath: string): string => {
   return readFileSync(resolve(here, relativePath), "utf8");
 };
 
-// Map names (player names over garrisoned land when zoomed out, island names
+// Map names (player names over owned land when zoomed out, island names
 // when zoomed in) come from client-map-name-labels/. The 2D map draws them in
 // the runtime loop's overlay pass; true-3D inks them onto the ground
 // (client-map-3d-name-decal) so buildings and units stand on top. Guards

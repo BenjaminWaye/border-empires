@@ -1,7 +1,6 @@
-// Map name labels, drawn on the overlay canvas in both renderers (see
-// client-map-name-label-draw.ts for how 3D is covered):
-//   - zoomed far out: each player's name across their garrisoned territory
-//     (client-territory-name-layout.ts), in their own colour;
+// Map names, drawn on the 2D overlay canvas and the 3D ground decal:
+//   - zoomed far out: each player's name across their garrisoned and frontier land
+//     (client-territory-name-layout.ts);
 //   - zoomed in: island names from the simulation's ISLAND_NAMES push
 //     (client-island-names-state.ts) -- generated names faint, chosen names in
 //     brass, a contested name tarnished, a fading one ghosted.
@@ -32,9 +31,10 @@ const DECORATIVE_FONT = (px: number): string => `700 ${px}px "Cinzel Decorative"
 const PLAIN_FONT = (px: number): string => `600 ${px}px "Cinzel", Georgia, serif`;
 
 // Cartographer's ink, as on a printed campaign map: dark lettering with a
-// faint parchment halo, painted on the ground under every unit and building.
-const INK_HALO = "rgba(246, 236, 210, 0.38)";
-const INK_HALO_EM = 0.07;
+// parchment halo strong enough to read over any owner colour, painted on the
+// ground under every unit and building. Shared by realm and island names.
+const INK_HALO = "rgba(246, 236, 210, 0.6)";
+const INK_HALO_EM = 0.08;
 
 const islandStyle = (label: IslandLabel, alpha: number): LabelStyle => {
   const base = { font: PLAIN_FONT, stroke: INK_HALO, strokeEm: INK_HALO_EM, maxSpacingEm: 0.9, minFontPx: 10, maxFontPx: 54 };
@@ -43,6 +43,18 @@ const islandStyle = (label: IslandLabel, alpha: number): LabelStyle => {
   if (label.status === "fading") return { ...base, fill: "rgb(46, 34, 20)", alpha: alpha * 0.35 };
   return { ...base, fill: "rgb(30, 22, 14)", alpha: alpha * 0.6 };
 };
+
+/** Realm names in solid deep ink, widely spaced across the land; the owner's colour is already the ground under them. */
+export const playerNameStyle = (alpha: number): LabelStyle => ({
+  font: DECORATIVE_FONT,
+  fill: "rgb(26, 18, 10)",
+  stroke: INK_HALO,
+  strokeEm: INK_HALO_EM,
+  alpha,
+  maxSpacingEm: 2.2,
+  minFontPx: 11,
+  maxFontPx: 96
+});
 
 export { islandLabelPath } from "./client-map-name-placements.js";
 
@@ -87,21 +99,7 @@ export const createMapNameLabelSource = (deps: MapNameLabelSourceDeps): MapNameL
       }
       if (alphas.players > 0) {
         for (const { path } of placed.players) {
-          labels.push({
-            kind: "player",
-            path,
-            // Realm names in deep ink, widely spaced across the land; the owner's colour is already the ground under them.
-            style: {
-              font: DECORATIVE_FONT,
-              fill: "rgb(26, 18, 10)",
-              stroke: INK_HALO,
-              strokeEm: INK_HALO_EM,
-              alpha: alphas.players * 0.82,
-              maxSpacingEm: 2.2,
-              minFontPx: 11,
-              maxFontPx: 96
-            }
-          });
+          labels.push({ kind: "player", path, style: playerNameStyle(alphas.players) });
         }
       }
       return { labels, signature: `${alphas.players.toFixed(2)};${alphas.islands.toFixed(2)};${placed.version}` };

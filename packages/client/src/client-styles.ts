@@ -1,6 +1,7 @@
 // Every global client stylesheet, in cascade order. main.ts imports this once;
 // Storybook imports it too so UI stories render with the same styles as the game.
 import "./style.css";
+import "./client-season-end-overlay/client-season-end-overlay.css";
 import "./client-lighting-tuner/client-lighting-tuner.css";
 import "./client-player-name-link-style.css";
 import "./client-placement-overlay-style.css";
@@ -13,6 +14,7 @@ import "./client-town-stat-grid-style.css";
 import "./client-feed-unread-style.css";
 import "./client-rush-buy-style.css";
 import "./client-season-lobby-style.css";
+import "./client-sector-board/client-sector-board-style.css";
 import "./client-rally-link-settings-style.css";
 import "./client-bug-report-style.css";
 import "./client-resource-icons/client-resource-icons-style.css";
