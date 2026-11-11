@@ -207,7 +207,7 @@ describe("outgoingMusterAttackTransitLines", () => {
 
     const lines = outgoingMusterAttackTransitLines(state, 1_000, new Set());
 
-    expect(lines).toEqual([{ musterX: 5, musterY: 4, targetX: 8, targetY: 4, targetKey: "9,4", phase: "transit" }]);
+    expect(lines).toEqual([{ musterX: 5, musterY: 4, targetX: 8, targetY: 4, targetKey: "9,4", phase: "transit", arriveAt: 3_000 }]);
   });
 
   it("omits an entry once its transit has already ended", () => {

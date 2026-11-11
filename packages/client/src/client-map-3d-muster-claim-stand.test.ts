@@ -16,6 +16,7 @@ const run = (
   const overlay: MusterTransitOverlay = {
     clear: () => { added.length = 0; },
     addTransit: (t) => { added.push(t); },
+    addVoyage: () => {},
     commit: () => {},
     tick: () => {},
     dispose: () => {}
