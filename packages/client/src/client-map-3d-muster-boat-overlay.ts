@@ -76,6 +76,7 @@ export const createMusterBoatOverlay = (scene: Scene): MusterBoatOverlay => {
   const sharedMaterials: MeshStandardMaterial[] = [];
   let boats: Boat[] = [];
   let voyages: MusterBoatVoyage[] = [];
+  let disposed = false;
 
   const track = <T extends BufferGeometry>(geometry: T): T => {
     geometries.push(geometry);
@@ -138,7 +139,7 @@ export const createMusterBoatOverlay = (scene: Scene): MusterBoatOverlay => {
 
   const tick = (nowMs: number): void => {
     for (const boat of boats) boat.root.visible = false;
-    if (voyages.length === 0) return;
+    if (voyages.length === 0 || disposed) return;
     if (boats.length === 0) buildPool();
     voyages.forEach((voyage, index) => {
       const boat = boats[index]!;
@@ -168,6 +169,8 @@ export const createMusterBoatOverlay = (scene: Scene): MusterBoatOverlay => {
   };
 
   const dispose = (): void => {
+    disposed = true;
+    voyages = [];
     for (const boat of boats) {
       scene.remove(boat.root);
       boat.ownerMaterial.dispose();

@@ -6,7 +6,7 @@ import type { Heightfield } from "../client-map-3d-heightfield/client-map-3d-hei
 import type { ClientState } from "../client-state/client-state.js";
 import type { DockPair, Tile } from "../client-types.js";
 import { routedSupplyLine } from "../client-muster-route-2d/client-muster-route-2d.js";
-import { activeTransitLeg, clientMusterTransitRoute, sailPath } from "./client-muster-transit-route.js";
+import { activeTransitLeg, clientMusterTransitRoute, isStraightRoute, marchStartAt, sailPath } from "./client-muster-transit-route.js";
 
 // REGRESSION: a muster company marching from a flag on one island to a launch
 // tile across a strait was drawn walking straight over the sea (3D) and its
@@ -17,10 +17,10 @@ import { activeTransitLeg, clientMusterTransitRoute, sailPath } from "./client-m
 // (11,8) are paired with a one-tile sea lane. Flag (8,5) on A, launch (11,5) on B.
 const tiles = new Map<string, Tile>();
 for (let x = 0; x <= 20; x += 1) {
-  for (let y = 0; y <= 10; y += 1) tiles.set(`${x},${y}`, { x, y, terrain: x === 10 ? "SEA" : "LAND" } as Tile);
+  for (let y = 0; y <= 10; y += 1) tiles.set(`${x},${y}`, { x, y, terrain: x === 10 ? "SEA" : "LAND", ...(x === 8 && y === 8 ? { ownerId: "me" } : {}) } as Tile);
 }
 const dockPairs: DockPair[] = [{ ax: 8, ay: 8, bx: 11, by: 8, route: [{ x: 10, y: 8 }] }];
-const state = { tiles, dockPairs };
+const state = { tiles, dockPairs, me: "me" };
 const flag = { x: 8, y: 5 };
 const launch = { x: 11, y: 5 };
 const isSea = (point: { x: number; y: number }): boolean => point.x === 10;
@@ -43,6 +43,29 @@ describe("clientMusterTransitRoute", () => {
     expect(activeTransitLeg(route, 0, total, route.legMs[0]! + 1)?.kind).toBe("SAIL");
     const last = activeTransitLeg(route, 0, total, total - 1);
     expect(last?.kind === "WALK" && last.last).toBe(true);
+    expect(activeTransitLeg(route, 0, total, total)).toBeUndefined();
+  });
+
+  it("does not board at a dock the player doesn't own", () => {
+    const route = clientMusterTransitRoute({ ...state, me: "someone-else" }, { x: 8, y: 4 }, { x: 11, y: 4 });
+    expect(route.legs.some((leg) => leg.kind === "SAIL")).toBe(false);
+  });
+
+  it("dates a server-fired march from its route, not from when it was first seen", () => {
+    const route = clientMusterTransitRoute(state, flag, launch);
+    // Seen 20 s into the march: it is placed 20 s along, not restarted at the flag.
+    expect(marchStartAt(route, 100_000, 100_000 - route.transitMs + 20_000)).toBe(100_000 - route.transitMs);
+  });
+
+  it("draws a walk round an obstacle along the detour, not straight through it", () => {
+    const walled = new Map(tiles);
+    walled.set("5,2", { x: 5, y: 2, terrain: "MOUNTAIN" } as Tile);
+    const from = { x: 3, y: 2 };
+    const to = { x: 7, y: 2 };
+    const route = clientMusterTransitRoute({ ...state, tiles: walled }, from, to);
+    expect(isStraightRoute(route, from, to)).toBe(false);
+    const line = routedSupplyLine({ ...state, tiles: walled }, { musterX: 3, musterY: 2, targetX: 7, targetY: 2, targetKey: "8,2", phase: "transit" }, 0);
+    expect(line.points).not.toContainEqual({ x: 5, y: 2 });
   });
 });
 

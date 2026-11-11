@@ -10,7 +10,7 @@ import { activeFrontierAttackClaimTargetKeys } from "./client-map-3d-frontier-cl
 import type { ClientState } from "./client-state/client-state.js";
 import { activeIncomingFrontierClaims } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 import { TILE_CENTER_OFFSET } from "./client-map-3d-capture-overlays.js";
-import { activeTransitLeg, clientMusterTransitRoute, sailPath } from "./client-muster-transit-route/client-muster-transit-route.js";
+import { activeTransitLeg, clientMusterTransitRoute, isStraightRoute, marchStartAt, sailPath } from "./client-muster-transit-route/client-muster-transit-route.js";
 
 // Split out of client-map-3d-capture-overlays.ts (500-line cap) when march
 // companies started showing their empire's weapons-factory gear.
@@ -119,15 +119,18 @@ export function syncMusterTransitOverlay(
   // straight walk would cross water, to a dock, across in a troop transport
   // and out again. Only the leg under way is drawn; the troops are aboard
   // (not drawn) while the boat sails.
-  const addRoutedMarch = (musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number): void => {
+  // `firstSeenAt` (server-fired marches, whose start the client isn't told):
+  // the real start is derived from the route instead (marchStartAt).
+  const addRoutedMarch = (musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number, firstSeenAt?: number): void => {
     const route = clientMusterTransitRoute(state, { x: musterX, y: musterY }, { x: marchToX, y: marchToY });
+    if (firstSeenAt !== undefined) startAt = marchStartAt(route, arriveAt, firstSeenAt);
     const leg = activeTransitLeg(route, startAt, arriveAt, nowEpochMs);
     if (!leg) return;
     if (leg.kind === "SAIL") {
       transitOverlay.addVoyage({ path: scenePath(sailPath(state, leg.from, leg.to)), startAt: leg.startAt, arriveAt: leg.endAt, ownerColor });
       return;
     }
-    if (route.legs.length === 1) {
+    if (isStraightRoute(route, { x: musterX, y: musterY }, { x: marchToX, y: marchToY })) {
       addMarch(musterX, musterY, marchToX, marchToY, startAt, arriveAt);
       return;
     }
@@ -168,7 +171,7 @@ export function syncMusterTransitOverlay(
       startAt = nowEpochMs;
       advanceTransitSeenAt.set(targetKey, startAt);
     }
-    addRoutedMarch(outgoing.musterOriginX, outgoing.musterOriginY, outgoing.originX, outgoing.originY, startAt, outgoing.transitEndsAt);
+    addRoutedMarch(outgoing.musterOriginX, outgoing.musterOriginY, outgoing.originX, outgoing.originY, startAt, outgoing.transitEndsAt, startAt);
   }
   for (const key of advanceTransitSeenAt.keys()) {
     if (!liveAdvanceKeys.has(key)) advanceTransitSeenAt.delete(key);

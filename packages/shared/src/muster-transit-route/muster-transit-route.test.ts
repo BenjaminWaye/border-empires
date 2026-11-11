@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MUSTER_TRANSIT_MS_PER_TILE } from "../config.js";
 import { MUSTER_TRANSIT_MAX_TILES } from "../muster-config.js";
-import { MUSTER_SAIL_MIN_MS, MUSTER_SAIL_MS_PER_TILE, musterSailMs, planMusterTransitRoute, type TransitPoint } from "./muster-transit-route.js";
+import { MUSTER_SAIL_MAX_MS, MUSTER_SAIL_MIN_MS, MUSTER_SAIL_MS_PER_TILE, musterSailMs, planMusterTransitRoute, type TransitPoint } from "./muster-transit-route.js";
 
 // Two land masses split by a channel of sea at y 20..29: an island to the
 // north (y < 20) and the mainland to the south (y >= 30), with a dock pair
@@ -62,4 +62,30 @@ describe("planMusterTransitRoute", () => {
     expect(route.legs).toHaveLength(1);
     expect(route.legs[0]!.kind).toBe("WALK");
   });
+
+  it("walks round a short obstacle rather than taking a slower voyage", () => {
+    // A two-tile wall at x = 5, y 4..6 on open land, with a dock at (3,5)
+    // linked to a landing far beyond the target: walking round is quicker.
+    const wall = (x: number, y: number): boolean => !(x === 5 && y >= 4 && y <= 6);
+    const farDock = (x: number, y: number) => (x === 4 && y === 5 ? [{ x: 7, y: 25 }] : undefined);
+    const route = planMusterTransitRoute({ from: { x: 3, y: 5 }, to: { x: 7, y: 5 }, isPassable: wall, crossingsFrom: farDock, maxSteps: 60 });
+    expect(route.legs.map((leg) => leg.kind)).toEqual(["WALK"]);
+    const walk = route.legs[0]!;
+    if (walk.kind !== "WALK") throw new Error("expected a walk");
+    for (const point of walk.points) expect(wall(point.x, point.y)).toBe(true);
+  });
+
+  it("caps the sailing of a chain of crossings", () => {
+    // Three islands in a row, each pair linked by docks 30 tiles apart.
+    const land = (x: number): boolean => x < 2 || (x >= 40 && x < 42) || x >= 80;
+    const links = new Map<string, TransitPoint[]>([["1,0", [{ x: 40, y: 0 }]], ["41,0", [{ x: 80, y: 0 }]]]);
+    const route = planMusterTransitRoute({
+      from: { x: 0, y: 0 }, to: { x: 81, y: 0 }, isPassable: (x) => land(x),
+      crossingsFrom: (x, y) => links.get(`${x},${y}`), maxSteps: 60
+    });
+    expect(route.legs.filter((leg) => leg.kind === "SAIL")).toHaveLength(2);
+    const sailed = route.legs.reduce((sum, leg, i) => sum + (leg.kind === "SAIL" ? route.legMs[i]! : 0), 0);
+    expect(sailed).toBeLessThanOrEqual(MUSTER_SAIL_MAX_MS + 1);
+  });
 });
+

@@ -5,7 +5,9 @@ vi.hoisted(() => {
 });
 
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { MUSTER_SAIL_MIN_MS, MUSTER_TRANSIT_MS_PER_TILE } from "@border-empires/shared";
+import { MUSTER_SAIL_MIN_MS, MUSTER_TRANSIT_MS_PER_TILE, buildDockLandingIndex } from "@border-empires/shared";
+import type { DomainTileState } from "@border-empires/game-domain";
+import { musterTransitMs } from "./muster-transit-delay.js";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { makePlayer } from "../runtime-muster-tick/muster-march-test-support.js";
 
@@ -67,5 +69,30 @@ describe("muster transit through a dock", () => {
     // The straight line was 3 tiles (6 s). Now: three tiles down to the dock,
     // at least two up from where the transport lands, plus the crossing.
     expect(transitMs).toBeGreaterThanOrEqual((3 + 2) * MUSTER_TRANSIT_MS_PER_TILE + MUSTER_SAIL_MIN_MS);
+    // ...and no more than that walk with the longest possible landing (dock tile, 3 up).
+    expect(transitMs).toBeLessThanOrEqual((3 + 3) * MUSTER_TRANSIT_MS_PER_TILE + MUSTER_SAIL_MIN_MS);
+  });
+
+  it("only boards at the marching player's own docks", () => {
+    // Same strait. A rival's dock pair (8,6)->(11,6) sits right by the flag at
+    // (8,5); the player's own pair (8,9)->(11,9) is further south.
+    const tiles = new Map<string, DomainTileState>();
+    for (let x = 0; x <= 20; x += 1) {
+      for (let y = 0; y <= 12; y += 1) {
+        const tile = { x, y, terrain: x === 10 ? "SEA" : "LAND" } as DomainTileState;
+        if (x === 8 && y === 6) Object.assign(tile, { ownerId: "player-2" });
+        if (x === 8 && y === 9) Object.assign(tile, { ownerId: "player-1" });
+        tiles.set(`${x},${y}`, tile);
+      }
+    }
+    const dockLanding = buildDockLandingIndex(
+      new Map([["8,6", ["11,6"]], ["8,9", ["11,9"]]]),
+      (x, y) => tiles.get(`${x},${y}`)?.terrain
+    );
+    const transitMs = musterTransitMs({ tiles, dockLanding, playerId: "player-1", activeAetherBridgesForPlayer: () => [], flag: { x: 8, y: 5 }, launch: { x: 11, y: 5 } });
+    // Via the rival's dock it would be about 2 tiles of marching plus the crossing.
+    // Via its own: 4 tiles down to (8,9), at least 3 back up from the far shore, plus the crossing.
+    expect(transitMs).toBeGreaterThanOrEqual((4 + 3) * MUSTER_TRANSIT_MS_PER_TILE + MUSTER_SAIL_MIN_MS);
   });
 });
+

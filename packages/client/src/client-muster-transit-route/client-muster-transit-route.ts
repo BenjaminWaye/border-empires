@@ -5,6 +5,7 @@ import {
   WORLD_WIDTH,
   dockLandingGroundCoords,
   planMusterTransitRoute,
+  straightTransitWalk,
   type MusterTransitRoute,
   type TransitPoint
 } from "@border-empires/shared";
@@ -16,15 +17,24 @@ import { clientTerrainAt, type DockLandingState } from "../client-dock-landing-g
  * land and through a dock with a troop-transport crossing where the straight
  * walk would cross water. Read from the client's own tiles and dock pairs,
  * the same inputs the landing-ground rule uses, so the company is drawn along
- * the route the simulation timed. Tiles the client hasn't seen count as land.
+ * the route the simulation timed. Tiles the client hasn't seen count as land,
+ * so under fog the drawn route can differ from the one the server timed; the
+ * server's arrival time stays the authority either way. Only the player's own
+ * docks start a crossing, as on the server. Aether bridges aren't modelled
+ * here: a march over one falls back to the straight walk.
  *
  * The 3D overlay asks for it every frame, so routes are memoised by
  * endpoints. Bounded: at most ROUTE_MEMO_MAX entries, oldest evicted first,
- * and dropped whenever the dock pairs change.
+ * each kept ROUTE_MEMO_TTL_MS so terrain changes and lifted fog are picked up,
+ * and all dropped whenever the dock pairs change.
  */
 const ROUTE_MEMO_MAX = 32;
-const routeMemo = new Map<string, MusterTransitRoute>();
+const ROUTE_MEMO_TTL_MS = 5_000;
+const routeMemo = new Map<string, { route: MusterTransitRoute; expiresAt: number }>();
 let memoDockPairs: DockLandingState["dockPairs"] | undefined;
+
+/** The client state a route reads: tiles, dock pairs, and who "we" are. */
+export type MusterRouteState = DockLandingState & { readonly me?: string | undefined };
 
 /** Where a troop transport from each dock tile may land: every linked dock and the beaches beside it. */
 const landingsByDock = (state: DockLandingState): Map<string, TransitPoint[]> => {
@@ -47,14 +57,15 @@ const landingsByDock = (state: DockLandingState): Map<string, TransitPoint[]> =>
   return out;
 };
 
-export const clientMusterTransitRoute = (state: DockLandingState, from: TransitPoint, to: TransitPoint): MusterTransitRoute => {
+export const clientMusterTransitRoute = (state: MusterRouteState, from: TransitPoint, to: TransitPoint): MusterTransitRoute => {
   if (memoDockPairs !== state.dockPairs) {
     routeMemo.clear();
     memoDockPairs = state.dockPairs;
   }
+  const nowMs = Date.now();
   const key = `${from.x},${from.y}>${to.x},${to.y}`;
   const cached = routeMemo.get(key);
-  if (cached) return cached;
+  if (cached && cached.expiresAt > nowMs) return cached.route;
   let landings: Map<string, TransitPoint[]> | undefined;
   const route = planMusterTransitRoute({
     from,
@@ -64,12 +75,14 @@ export const clientMusterTransitRoute = (state: DockLandingState, from: TransitP
       return terrain === undefined || terrain === "LAND";
     },
     crossingsFrom: (x, y) => {
+      if (state.me === undefined || state.tiles.get(`${x},${y}`)?.ownerId !== state.me) return undefined;
       landings ??= landingsByDock(state);
       return landings.get(`${x},${y}`);
     },
     maxSteps: MUSTER_MARCH_MAX_ROUTE_STEPS
   });
-  routeMemo.set(key, route);
+  routeMemo.delete(key);
+  routeMemo.set(key, { route, expiresAt: nowMs + ROUTE_MEMO_TTL_MS });
   while (routeMemo.size > ROUTE_MEMO_MAX) {
     const oldest = routeMemo.keys().next().value;
     if (oldest === undefined) break;
@@ -108,11 +121,28 @@ export type ActiveTransitLeg =
   | { kind: "SAIL"; from: TransitPoint; to: TransitPoint; startAt: number; endAt: number };
 
 /**
+ * When a server-fired march began, which the client is never told: derived
+ * from its arrival and the route's own time, so a client that joins mid-march
+ * picks it up on the right leg. Never later than the first time it was seen.
+ */
+export const marchStartAt = (route: MusterTransitRoute, arriveAt: number, firstSeenAt: number): number =>
+  Math.min(firstSeenAt, arriveAt - route.transitMs);
+
+/** True when the route is just the straight walk (drawn as before). */
+export const isStraightRoute = (route: MusterTransitRoute, from: TransitPoint, to: TransitPoint): boolean => {
+  const leg = route.legs[0];
+  if (route.legs.length !== 1 || leg?.kind !== "WALK") return false;
+  const straight = straightTransitWalk(from, to);
+  return leg.points.length === straight.length && leg.points.every((point, i) => point.x === straight[i]!.x && point.y === straight[i]!.y);
+};
+
+/**
  * The leg the company is on at `nowMs`, with its own time window: the route's
  * leg times scaled to [startAt, arriveAt] (the server's transitEndsAt is the
  * authority; the client only spreads it over the legs). Undefined once arrived.
  */
 export const activeTransitLeg = (route: MusterTransitRoute, startAt: number, arriveAt: number, nowMs: number): ActiveTransitLeg | undefined => {
+  if (nowMs >= arriveAt) return undefined;
   const total = route.legMs.reduce((sum, ms) => sum + ms, 0) || 1;
   const span = Math.max(1, arriveAt - startAt);
   let legStart = startAt;

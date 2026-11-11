@@ -20,7 +20,7 @@ import { musterTransitMs } from "./muster-transit-delay/muster-transit-delay.js"
 import { parseFrontierPayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { lockSourceFromSessionId } from "./runtime-types.js";
-import type { LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtime-types.js";
+import type { ActiveAetherBridgeView, LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtime-types.js";
 import { isDockCrossingTarget, type DockCrossingOrigin } from "./runtime/runtime-crossing.js";
 import type { LockedCombatInput } from "./runtime-combat-support.js";
 import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -75,6 +75,8 @@ export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   findOwnedAetherBridgeOriginForCrossing: (playerId: string, x: number, y: number) => DomainTileState | undefined;
   /** Dock crossings: where a crossing from each dock may land (also routes a muster company's sea legs). */
   dockLanding: DockLandingIndex;
+  /** The player's live aether bridges (a muster company crosses them on foot). */
+  activeAetherBridgesForPlayer: (playerId: string) => readonly ActiveAetherBridgeView[];
   isAetherBridgeCrossingTarget: (playerId: string, x1: number, y1: number, x2: number, y2: number) => boolean;
   crossingBlockedByAetherWall: (x1: number, y1: number, x2: number, y2: number) => boolean;
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1): true while the
@@ -308,7 +310,7 @@ export const handleFrontierCommandImpl = (
   let transitMs = 0;
   if (lockSource === "automation" && payload.musterSourceX != null && payload.musterSourceY != null) {
     musterOrigin = { x: payload.musterSourceX, y: payload.musterSourceY };
-    transitMs = musterTransitMs({ tiles: ctx.tiles, dockLanding: ctx.dockLanding, flag: musterOrigin, launch: validation.origin });
+    transitMs = musterTransitMs({ tiles: ctx.tiles, dockLanding: ctx.dockLanding, playerId: actor.id, activeAetherBridgesForPlayer: ctx.activeAetherBridgesForPlayer, flag: musterOrigin, launch: validation.origin });
   }
   const transitEndsAt = transitMs > 0 ? ctx.now() + transitMs : undefined;
   // Steam Vanguard's attackResolveSpeedReduceMs shaves time off an ATTACK's

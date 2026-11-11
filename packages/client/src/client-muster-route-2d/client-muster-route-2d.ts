@@ -1,5 +1,4 @@
-import { activeTransitLeg, clientMusterTransitRoute, sailPath } from "../client-muster-transit-route/client-muster-transit-route.js";
-import type { DockLandingState } from "../client-dock-landing-ground/client-dock-landing-ground.js";
+import { activeTransitLeg, clientMusterTransitRoute, isStraightRoute, marchStartAt, sailPath, type MusterRouteState } from "../client-muster-transit-route/client-muster-transit-route.js";
 import type { MusterSupplyLine } from "../client-muster-transit/client-muster-transit.js";
 
 type WorldToScreen = (x: number, y: number, size: number, halfW: number, halfH: number) => { sx: number; sy: number };
@@ -18,20 +17,24 @@ const seenAt = new Map<string, number>();
 export type RoutedSupplyLine = { points: Point[]; boat?: { at: Point; heading: Point } };
 
 /** The polyline a supply line is drawn along, and the boat's spot while the company sails. */
-export const routedSupplyLine = (state: DockLandingState, line: MusterSupplyLine, nowMs: number): RoutedSupplyLine => {
+export const routedSupplyLine = (state: MusterRouteState, line: MusterSupplyLine, nowMs: number): RoutedSupplyLine => {
   const from = { x: line.musterX, y: line.musterY };
   const to = { x: line.targetX, y: line.targetY };
   if (line.phase !== "transit") return { points: [from, to] };
   const route = clientMusterTransitRoute(state, from, to);
-  if (route.legs.length === 1) return { points: [from, to] };
+  if (isStraightRoute(route, from, to)) return { points: [from, to] };
   const points: Point[] = [];
   for (const leg of route.legs) {
     if (leg.kind === "WALK") points.push(...leg.points);
     else points.push(...sailPath(state, leg.from, leg.to));
   }
   if (line.arriveAt === undefined) return { points };
-  const startAt = line.startAt ?? seenAt.get(line.targetKey) ?? nowMs;
-  if (line.startAt === undefined) seenAt.set(line.targetKey, startAt);
+  let startAt = line.startAt;
+  if (startAt === undefined) {
+    const firstSeen = seenAt.get(line.targetKey) ?? nowMs;
+    seenAt.set(line.targetKey, firstSeen);
+    startAt = marchStartAt(route, line.arriveAt, firstSeen);
+  }
   const leg = activeTransitLeg(route, startAt, line.arriveAt, nowMs);
   if (leg?.kind !== "SAIL") return { points };
   const path = sailPath(state, leg.from, leg.to);
