@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import FirebaseAuth
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
@@ -15,7 +16,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
-        SceneDelegateProxy.shared.scene(scene, openURLContexts: URLContexts)
+        // Twitch/Discord sign-in returns through the app's Firebase URL scheme. Firebase
+        // only swizzles the app delegate, so scene-based apps must hand it the URL.
+        let unhandled = URLContexts.filter { !Auth.auth().canHandle($0.url) }
+        if !unhandled.isEmpty {
+            SceneDelegateProxy.shared.scene(scene, openURLContexts: unhandled)
+        }
     }
 
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {

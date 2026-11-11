@@ -14,6 +14,7 @@
     "export:ios": "xcodebuild -exportArchive -archivePath ios/App/output/BorderEmpires-signed.xcarchive -exportPath ios/App/output/app-store -exportOptionsPlist ios/ExportOptions.plist -allowProvisioningUpdates"
   },
   "dependencies": {
+    "@capacitor-firebase/authentication": "8.5.2",
     "@capacitor/android": "8.5.3",
     "@capacitor/app": "8.1.2",
     "@capacitor/browser": "8.0.5",
@@ -22,8 +23,8 @@
   },
   "devDependencies": {
     "@border-empires/client": "workspace:*",
-    "@capacitor/cli": "8.5.3",
     "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "8.5.3",
     "@types/node": "^22.0.0",
     "typescript": "^5.6.3"
   }
