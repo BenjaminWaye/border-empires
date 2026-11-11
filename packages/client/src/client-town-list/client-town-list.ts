@@ -81,13 +81,15 @@ const sortValue = (row: TownListRow, key: TownListSortKey): number =>
       ? row.population
       : key === "growth"
         ? row.growthPerMinute
-        : (row.openSlots ?? -1); // Settlements (no ring) sort below a full town
+        : (row.openSlots ?? 0);
 
 /** Open build slots cell text: a count, or a dash for a Settlement with no support ring. */
 export const formatOpenSlots = (openSlots: number | undefined): string => (openSlots === undefined ? "—" : String(openSlots));
 
 export const sortTownListRows = (rows: TownListRow[], sort: TownListSort): TownListRow[] =>
   [...rows].sort((a, b) => {
+    // Settlements have no support ring, so they stay below every town in either direction.
+    if (sort.key === "slots" && (a.openSlots === undefined) !== (b.openSlots === undefined)) return a.openSlots === undefined ? 1 : -1;
     const diff = sortValue(a, sort.key) - sortValue(b, sort.key);
     if (diff !== 0) return sort.descending ? -diff : diff;
     return a.name.localeCompare(b.name);

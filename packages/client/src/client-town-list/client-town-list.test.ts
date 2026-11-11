@@ -120,6 +120,28 @@ describe("town list", () => {
     const rows = rowsOf(map);
     expect(rows.find((entry) => entry.name === "Outpost")?.openSlots).toBeUndefined();
     expect(sortTownListRows(rows, { key: "slots", descending: true }).map((entry) => entry.name)).toEqual(["Roomy", "Packed", "Outpost"]);
+    expect(sortTownListRows(rows, { key: "slots", descending: false }).map((entry) => entry.name)).toEqual(["Packed", "Roomy", "Outpost"]);
     expect(townListCardHtml(map, "me")).toContain("—");
+  });
+
+  it("counts a tile two towns share only for the lowest (x, y) town", () => {
+    const west = townTile(50, "West", 1, 4000, { y: 50 });
+    const east = townTile(52, "East", 1, 4000, { y: 50 });
+    const map = mapOf([west, east, plain(51, 50)]);
+    expect(openBuildSlotsForTown(map, west, "me")).toBe(1);
+    expect(openBuildSlotsForTown(map, east, "me")).toBe(0);
+  });
+
+  it("reaches the second ring for a Great City", () => {
+    const city = townTile(60, "Capital", 1, 4000, { y: 60 });
+    if (city.town) city.town.populationTier = "GREAT_CITY";
+    const map = mapOf([city, plain(62, 62), plain(61, 60)]);
+    expect(openBuildSlotsForTown(map, city, "me")).toBe(2);
+  });
+
+  it("skips tiles inside an AFC or relic footprint", () => {
+    const town = townTile(70, "Shrine", 1, 4000, { y: 70 });
+    const map = mapOf([town, plain(71, 70), plain(69, 70), plain(68, 70, { naturalWonder: {} as NonNullable<Tile["naturalWonder"]> })]);
+    expect(openBuildSlotsForTown(map, town, "me")).toBe(1);
   });
 });

@@ -9,7 +9,7 @@ const COLUMNS: Array<{ key: TownListSortKey; label: string }> = [
   { key: "gold", label: "Gold/day" },
   { key: "population", label: "Population" },
   { key: "growth", label: "Growth/min" },
-  { key: "slots", label: "Build slots" }
+  { key: "slots", label: "Slots" }
 ];
 
 const count = (value: number): string => Math.round(value).toLocaleString("en-US");

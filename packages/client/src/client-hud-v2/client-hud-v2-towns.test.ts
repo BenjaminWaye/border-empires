@@ -36,7 +36,7 @@ describe("HUD v2 towns screen", () => {
     expect(html).toContain("+1.3");
     expect(html).toContain("Gold/day ▲");
     expect(html).toContain('title="Open build slots">3<');
-    expect(html).toContain("Build slots");
+    expect(html).toContain(">Slots<");
   });
 
   it("flags unfed towns and escapes names", () => {

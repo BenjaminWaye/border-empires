@@ -1,5 +1,7 @@
 import { FRONTIER_MAP_NAMES_ENTRY } from "./client-changelog-frontier-map-names.js";
 import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
+import { WAYSTATION_CAPTURE_ENTRY } from "./client-changelog-waystation-capture.js";
+import { TOWN_LIST_BUILD_SLOTS_ENTRY } from "./client-changelog-town-list-build-slots.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
 import { NEXT_CONTEST_ENTRY } from "./client-changelog-next-contest.js";
 import { SECTOR_BOARD_ENTRY } from "./client-changelog-nov-10.js";
@@ -487,14 +489,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...NEXT_CONTEST_ENTRY, createdAt: 1794337809927, },
   { ...SECTOR_BOARD_ENTRY, createdAt: 1794268104791, },
   { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
-  {
-    createdAt: 1794342387101,
-    introducedIn: "2026.11.10",
-    title: "Waystations disappear after capture",
-    why: "The reward is claimed once.",
-    changes: ["A resource reward leaves a resource tile on the former waystation site."]
-  },
+  { ...WAYSTATION_CAPTURE_ENTRY, createdAt: 1794342387101, },
   { ...FRONTIER_MAP_NAMES_ENTRY, createdAt: 1794312655623, },
+  { ...TOWN_LIST_BUILD_SLOTS_ENTRY, createdAt: 1794383457964, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
