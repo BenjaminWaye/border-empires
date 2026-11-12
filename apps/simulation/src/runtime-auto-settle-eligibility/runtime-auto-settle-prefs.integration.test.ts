@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LANDING_MANPOWER_RESERVE, NEW_PLAYER_AUTO_SETTLE_PREFS, normalizeAutoSettlePrefs, type AutoSettleCategory, type AutoSettlePrefs, type Tile } from "@border-empires/shared";
+import { LANDING_MANPOWER_RESERVE, NEW_PLAYER_AUTO_SETTLE_PREFS, autoSettlePrefsForOutput, normalizeAutoSettlePrefs, type AutoSettleCategory, type AutoSettlePrefs, type Tile } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
@@ -106,7 +106,7 @@ describe("auto-settle prefs gate", () => {
     setPrefs(runtime, switches);
     await Promise.resolve();
     expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "prefs-1" }));
-    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual(only("TITANIUM"));
+    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual(autoSettlePrefsForOutput(only("TITANIUM")));
   });
 
   it("SET_AUTO_SETTLE_PREFS marks the prompt answered, persists, and immediately starts the newly-allowed settles", async () => {
@@ -116,7 +116,7 @@ describe("auto-settle prefs gate", () => {
     await Promise.resolve();
     expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "prefs-1" }));
     expect(settlementStartedTileKeys(seen)).toEqual(["41,40"]);
-    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual(grouped(false, true, false, false));
+    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual(autoSettlePrefsForOutput(grouped(false, true, false, false)));
   });
 
   it("'Not now' (everything false) marks answered without settling anything", async () => {
@@ -132,7 +132,7 @@ describe("auto-settle prefs gate", () => {
     setPrefs(runtime, { towns: false, food: true, resources: true });
     await Promise.resolve();
     expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "prefs-1" }));
-    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual(grouped(false, true, true, true));
+    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual(autoSettlePrefsForOutput(grouped(false, true, true, true)));
   });
 
   it("rejects a payload with neither the split nor the legacy resources switch", async () => {
@@ -147,7 +147,7 @@ describe("auto-settle prefs gate", () => {
     setPrefs(runtime, { towns: "yes" });
     await Promise.resolve();
     expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_REJECTED", commandId: "prefs-1", code: "BAD_COMMAND" }));
-    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual(NEW_PLAYER_AUTO_SETTLE_PREFS);
+    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual(autoSettlePrefsForOutput(NEW_PLAYER_AUTO_SETTLE_PREFS));
   });
 });
 
@@ -232,7 +232,7 @@ describe("join / spawn does not spend manpower on a new human", () => {
     expect(runtime.ensurePlayerHasSpawnTerritory("newbie")).toBe(true);
     expect(settlementStartedTileKeys(seen)).toEqual([]);
     const player = runtime.exportState().players.find((p) => p.id === "newbie");
-    expect(player?.autoSettle).toEqual(NEW_PLAYER_AUTO_SETTLE_PREFS);
+    expect(player?.autoSettle).toEqual(autoSettlePrefsForOutput(NEW_PLAYER_AUTO_SETTLE_PREFS));
     // Full starting manpower plus the one-time landing reserve, nothing spent.
     expect(player?.manpower).toBe(720 + LANDING_MANPOWER_RESERVE);
   });

@@ -116,7 +116,10 @@ export class RuntimeOwnerTileIndexes {
       censusHallTilesByOwner: this.censusHallTilesByOwner
     });
     if (previous?.ownerId && isImprovableResourceTile(previous)) this.improvableTilesByOwner.get(previous.ownerId)?.delete(tileKey);
-    if (next.ownerId && isImprovableResourceTile(next)) addToOwnerIndex(this.improvableTilesByOwner, next.ownerId, tileKey);
+    // A structure removed (or destroyed) on a tile its owner still holds garrisoned is not a new
+    // candidate: auto-improve must not rebuild what the player just took down.
+    const structureRemovedInPlace = previous?.economicStructure && previous.ownerId === next.ownerId && previous.ownershipState === next.ownershipState;
+    if (next.ownerId && isImprovableResourceTile(next) && !structureRemovedInPlace) addToOwnerIndex(this.improvableTilesByOwner, next.ownerId, tileKey);
   }
 
   /** Boot, first pass over every tile: the frontier, yield-bearing and improvable-resource indexes. */

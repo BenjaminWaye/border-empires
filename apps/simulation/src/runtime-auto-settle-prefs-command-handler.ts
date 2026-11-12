@@ -1,5 +1,5 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import { AUTO_SETTLE_CATEGORIES, NO_AUTO_IMPROVE, parseAutoImprovePrefs, parseAutoSettleCategoryPrefs } from "@border-empires/shared";
+import { AUTO_SETTLE_CATEGORIES, NO_AUTO_IMPROVE, parseAutoImprovePrefsPatch, parseAutoSettleCategoryPrefs } from "@border-empires/shared";
 import { rejectCommand, type RuntimeMapCommandContext } from "./runtime-map-command-handlers.js";
 
 // SET_AUTO_SETTLE_PREFS: the join prompt / settings toggles. Replaces the
@@ -27,16 +27,16 @@ export function handleSetAutoSettlePrefsCommand(context: RuntimeMapCommandContex
     return;
   }
   const sentImprove = (parsed as { improve?: unknown }).improve;
-  const improve = sentImprove === undefined ? undefined : parseAutoImprovePrefs(sentImprove);
-  if (sentImprove !== undefined && !improve) {
+  const improvePatch = sentImprove === undefined ? undefined : parseAutoImprovePrefsPatch(sentImprove);
+  if (sentImprove !== undefined && !improvePatch) {
     rejectCommand(context, command, "BAD_COMMAND", "invalid auto-improve preferences");
     return;
   }
   const previous = actor.autoSettle;
   const switchedOn = AUTO_SETTLE_CATEGORIES.some((category) => categories[category] && !previous?.[category]);
-  // Auto-improve switches ride along when sent; otherwise the stored ones stay. The next
+  // Auto-improve switches named in the payload change; the rest keep their stored value. The next
   // territory-automation tick picks up a switch turned on (runtime-auto-improve.ts).
-  actor.autoSettle = { answered: true, ...categories, improve: improve ?? { ...(previous?.improve ?? NO_AUTO_IMPROVE) } };
+  actor.autoSettle = { answered: true, ...categories, improve: { ...NO_AUTO_IMPROVE, ...previous?.improve, ...improvePatch } };
   context.emitPlayerMessage(command, { type: "PLAYER_UPDATE", autoSettle: actor.autoSettle });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   context.onAutoSettlePrefsChanged?.(actor.id, switchedOn);

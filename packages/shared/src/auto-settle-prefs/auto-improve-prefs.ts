@@ -37,16 +37,22 @@ export const isAutoImproveResource = (value: string | undefined): value is AutoI
 export const autoImproveStructureForResource = (resource: string | undefined): BuildableStructureType | undefined =>
   isAutoImproveResource(resource) ? AUTO_IMPROVE_STRUCTURE_BY_RESOURCE[resource] : undefined;
 
-/** Reads a wire/persisted value: a missing resource is off; undefined when not an object or a value isn't boolean. */
-export const parseAutoImprovePrefs = (value: unknown): AutoImprovePrefs | undefined => {
+/** Only the switches a value names; undefined when it isn't an object or a named value isn't boolean. */
+export const parseAutoImprovePrefsPatch = (value: unknown): Partial<AutoImprovePrefs> | undefined => {
   if (!value || typeof value !== "object") return undefined;
   const v = value as Record<string, unknown>;
-  const prefs = { ...NO_AUTO_IMPROVE };
+  const patch: Partial<AutoImprovePrefs> = {};
   for (const resource of AUTO_IMPROVE_RESOURCES) {
     const on = v[resource];
     if (on === undefined) continue;
     if (typeof on !== "boolean") return undefined;
-    prefs[resource] = on;
+    patch[resource] = on;
   }
-  return prefs;
+  return patch;
+};
+
+/** Reads a persisted value: a missing resource is off; undefined when not an object or a value isn't boolean. */
+export const parseAutoImprovePrefs = (value: unknown): AutoImprovePrefs | undefined => {
+  const patch = parseAutoImprovePrefsPatch(value);
+  return patch ? { ...NO_AUTO_IMPROVE, ...patch } : undefined;
 };

@@ -8,6 +8,7 @@ export const AUTO_IMPROVE_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
     "Auto-improve works like auto-garrison: switch it on for a resource and its improvement is built on every garrisoned tile of that resource, including ones you garrison later",
     "Choose resources one by one, e.g. Mines on titanium only or Reclamation Works on salvage sites only",
     "Set it from the checkbox under a resource improvement's Place button, or in Settings > Gameplay",
-    "It builds only when you have the tech, coin, manpower and a free slot, and garrisoning comes first"
+    "It builds only when you have the tech, coin, manpower and a free slot, and garrisoning comes first",
+    "If you remove an improvement, auto-improve won't rebuild it on that tile"
   ]
 };

@@ -1,4 +1,4 @@
-import { NEW_PLAYER_AUTO_SETTLE_PREFS } from "@border-empires/shared";
+import { NEW_PLAYER_AUTO_SETTLE_PREFS, autoSettlePrefsForOutput } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
 import type { PlayerSubscriptionSnapshot } from "../index.js";
@@ -118,9 +118,10 @@ describe("applyPlayerMessageToSnapshot", () => {
   it("merges autoSettle prefs from a PLAYER_UPDATE and ignores a malformed value", () => {
     const prefs = { ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true, towns: true, PRECURSOR_SALVAGE: true };
     const updated = applyPlayerMessageToSnapshot(snapshot(), { type: "PLAYER_UPDATE", autoSettle: prefs });
-    expect(updated.player?.autoSettle).toEqual(prefs);
+    // Cached with the grouped switches older tabs read (autoSettlePrefsForOutput).
+    expect(updated.player?.autoSettle).toEqual(autoSettlePrefsForOutput(prefs));
     const untouched = applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", autoSettle: { towns: "yes" } });
-    expect(untouched.player?.autoSettle).toEqual(prefs);
+    expect(untouched.player?.autoSettle).toEqual(autoSettlePrefsForOutput(prefs));
   });
 
   it("merges economyBreakdown, upkeepPerMinute, and upkeepLastTick from a PLAYER_UPDATE into the cached snapshot", () => {

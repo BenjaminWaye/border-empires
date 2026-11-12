@@ -7,7 +7,7 @@ const settled = { ...frontier, ownershipState: "SETTLED" } as DomainTileState;
 const built = { ...settled, economicStructure: { ownerId: "p1", type: "MINE", status: "under_construction" } } as unknown as DomainTileState;
 
 describe("improvableTilesByOwner", () => {
-  it("adds a resource tile once garrisoned and drops it once something is built on it or it changes hands", () => {
+  it("adds a resource tile once garrisoned, drops it once built on, and does not re-add it when the structure is removed", () => {
     const indexes = new RuntimeOwnerTileIndexes();
     indexes.refreshForTileChange("3,4", undefined, frontier);
     expect(indexes.improvableTilesByOwner.get("p1")?.has("3,4") ?? false).toBe(false);
@@ -15,7 +15,9 @@ describe("improvableTilesByOwner", () => {
     expect(indexes.improvableTilesByOwner.get("p1")?.has("3,4")).toBe(true);
     indexes.refreshForTileChange("3,4", settled, built);
     expect(indexes.improvableTilesByOwner.get("p1")?.has("3,4")).toBe(false);
+    // Removed (or destroyed) in place: not a candidate again, so auto-improve doesn't rebuild it.
     indexes.refreshForTileChange("3,4", built, settled);
+    expect(indexes.improvableTilesByOwner.get("p1")?.has("3,4")).toBe(false);
     indexes.refreshForTileChange("3,4", settled, { ...settled, ownerId: "p2" });
     expect(indexes.improvableTilesByOwner.get("p1")?.has("3,4")).toBe(false);
     expect(indexes.improvableTilesByOwner.get("p2")?.has("3,4")).toBe(true);

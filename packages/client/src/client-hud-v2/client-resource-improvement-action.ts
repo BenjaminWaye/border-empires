@@ -4,7 +4,7 @@
 // auto-improve-prefs.ts, carried in the auto-garrison prefs); the server then
 // builds the improvement on every garrisoned tile of that resource, now and as
 // more are garrisoned. The Settings card edits the same switches.
-import { AUTO_SETTLE_CATEGORIES, autoImproveStructureForResource, isAutoImproveResource, type AutoImproveResource } from "@border-empires/shared";
+import { AUTO_SETTLE_CATEGORIES, autoImproveStructureForResource, isAutoImproveResource, structureDisplayName, type AutoImproveResource } from "@border-empires/shared";
 import type { ClientAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { loadedAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { autoSettleCategoryLabel } from "../client-auto-settle-prompt/client-auto-settle-labels.js";
@@ -33,7 +33,7 @@ export const autoImproveOptionHtml = (option: AutoImproveOption): string =>
 
 /** The structure a resource's auto-improve builds, for labels ("Titanium: Mine"). */
 export const autoImproveStructureLabel = (resource: AutoImproveResource): string =>
-  (autoImproveStructureForResource(resource) ?? "").toLowerCase().split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  structureDisplayName(autoImproveStructureForResource(resource) ?? "");
 
 /** One document-level listener (the build panel re-renders its HTML constantly). Idempotent per document. */
 export const installAutoImproveOptionBinding = (state: { autoSettle: ClientAutoSettleState }, send: (payload: unknown) => boolean): void => {

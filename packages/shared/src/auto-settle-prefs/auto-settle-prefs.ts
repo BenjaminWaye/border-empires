@@ -5,7 +5,7 @@
 // a tile belongs to.
 import { NETWORK_RESOURCES } from "../resource-networks/resource-networks.js";
 import type { ResourceType } from "../types.js";
-import { NO_AUTO_IMPROVE, parseAutoImprovePrefs, type AutoImprovePrefs } from "./auto-improve-prefs.js";
+import { NO_AUTO_IMPROVE, parseAutoImprovePrefs, parseAutoImprovePrefsPatch, type AutoImprovePrefs } from "./auto-improve-prefs.js";
 
 /** Every resource a tile can carry, in settings-panel order: food, strategic, then the network resources. */
 export const AUTO_SETTLE_RESOURCES: readonly ResourceType[] = ["FARM", "FISH", "TITANIUM", "UMBRITE", "GEMS", ...NETWORK_RESOURCES];
@@ -95,12 +95,39 @@ export const normalizeAutoSettlePrefs = (value: unknown): AutoSettlePrefs => {
 const LEGACY_GROUP_SWITCHES = ["food", "strategic", "luxury", "resources"] as const;
 
 /** The gateway's sim payload for SET_AUTO_SETTLE_PREFS: every category switch, any legacy grouped ones an older tab sent, and the auto-improve switches when sent. */
-export const autoSettlePrefsCommandPayload = (message: Partial<Record<string, unknown>>): Record<string, boolean | AutoImprovePrefs> => {
+export const autoSettlePrefsCommandPayload = (message: Partial<Record<string, unknown>>): Record<string, boolean | Partial<AutoImprovePrefs>> => {
   const payload: Record<string, boolean> = {};
   for (const key of [...AUTO_SETTLE_CATEGORIES, ...LEGACY_GROUP_SWITCHES]) {
     const value = message[key];
     if (typeof value === "boolean") payload[key] = value;
   }
-  const improve = parseAutoImprovePrefs(message.improve);
+  // Forwarded as sent: the sim changes only the switches it names.
+  const improve = parseAutoImprovePrefsPatch(message.improve);
   return improve ? { ...payload, improve } : payload;
+};
+
+const LEGACY_GROUP_MEMBERS = {
+  food: ["FARM", "FISH"],
+  strategic: ["TITANIUM", "UMBRITE", "GEMS"],
+  luxury: AUTO_SETTLE_RESOURCES.filter((resource) => !["FARM", "FISH", "TITANIUM", "UMBRITE", "GEMS"].includes(resource))
+} as const satisfies Record<string, readonly ResourceType[]>;
+
+export type LegacyAutoSettleGroupSwitches = Record<keyof typeof LEGACY_GROUP_MEMBERS, boolean>;
+
+/**
+ * Prefs as persisted and sent to clients: the per-resource switches plus the grouped food/strategic/luxury
+ * ones that readers from before the per-resource split require (a rolled-back sim, a tab still on the old
+ * bundle). Without them those readers fall back to all-on and would garrison for a player who opted out,
+ * so a group reads on only when every resource in it is on. Readers that know the per-resource keys
+ * ignore the group ones (parseAutoSettleCategoryPrefs prefers a resource's own switch).
+ */
+export const autoSettlePrefsForOutput = (value: unknown): AutoSettlePrefs & LegacyAutoSettleGroupSwitches => {
+  const prefs = normalizeAutoSettlePrefs(value);
+  const group = (members: readonly ResourceType[]): boolean => members.every((resource) => prefs[resource]);
+  return {
+    ...prefs,
+    food: group(LEGACY_GROUP_MEMBERS.food),
+    strategic: group(LEGACY_GROUP_MEMBERS.strategic),
+    luxury: group(LEGACY_GROUP_MEMBERS.luxury)
+  };
 };

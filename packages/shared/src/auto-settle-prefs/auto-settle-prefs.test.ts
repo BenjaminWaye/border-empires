@@ -3,6 +3,7 @@ import {
   AUTO_SETTLE_CATEGORIES,
   autoSettleCategoryForTile,
   autoSettlePrefsCommandPayload,
+  autoSettlePrefsForOutput,
   DEFAULT_AUTO_SETTLE_PREFS,
   isAutoSettleAllowedForTile,
   NEW_PLAYER_AUTO_SETTLE_PREFS,
@@ -107,11 +108,29 @@ describe("auto-improve prefs", () => {
   });
 });
 
+describe("autoSettlePrefsForOutput", () => {
+  it("adds food/strategic/luxury group switches that are on only when every resource in the group is", () => {
+    const out = autoSettlePrefsForOutput({ answered: true, ...only("towns", "FARM", "FISH", "TITANIUM"), ...off });
+    expect(out).toMatchObject({ food: true, strategic: false, luxury: false, TITANIUM: true });
+  });
+  it("keeps an opted-out player opted out for a reader from before the per-resource split (no all-on fallback)", () => {
+    const out = autoSettlePrefsForOutput({ ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true });
+    // The old reader required towns + food + strategic/luxury booleans and fell back to all-on otherwise.
+    const legacyRead = { towns: out.towns, food: out.food, strategic: out.strategic, luxury: out.luxury };
+    expect(legacyRead).toEqual({ towns: false, food: false, strategic: false, luxury: false });
+  });
+  it("round-trips: per-resource keys win over the added group keys", () => {
+    const prefs = { answered: true, ...only("TITANIUM"), ...off };
+    expect(normalizeAutoSettlePrefs(autoSettlePrefsForOutput(prefs))).toEqual(prefs);
+  });
+});
+
 describe("autoSettlePrefsCommandPayload", () => {
   it("forwards every per-resource switch and any legacy grouped ones, dropping the message type", () => {
     expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", ...only("TITANIUM") })).toEqual(only("TITANIUM"));
     expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", towns: true, food: false, resources: true })).toEqual({ towns: true, food: false, resources: true });
-    expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", ...only(), improve: { TITANIUM: true } })).toEqual({ ...only(), improve: { ...NO_AUTO_IMPROVE, TITANIUM: true } });
+    // Forwarded as sent, so the sim changes only the named switches.
+    expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", ...only(), improve: { TITANIUM: true } })).toEqual({ ...only(), improve: { TITANIUM: true } });
   });
 });
 
