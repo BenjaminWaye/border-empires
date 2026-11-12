@@ -41,6 +41,7 @@ remain authoritative for runtime behavior.
 | Tutorial guide for new accounts: research, chapters, renderer coverage | [`tutorial-guide-plan.md`](tutorial-guide-plan.md) |
 | HUD v2 on mobile: 4X UI research, phone layout and phased rollout (built; the default on phones) | [`hud-v2-mobile-plan.md`](hud-v2-mobile-plan.md) |
 | Stacking-building adjacency / industrial districts (proposed) | [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md) |
+| Territory development: cut frontier materials, refineries in towns, town roles, FOOD as growth (proposed) | [`territory-development-plan.md`](territory-development-plan.md) |
 | Connected town support buildings: complete remodel and both renderer implementations (planned) | [`town-support-district-plan.md`](town-support-district-plan.md) |
 | Connected town support buildings: renderer, model and anchor contract | [`town-support-districts.md`](town-support-districts.md) |
 | Storybook cleanup: what was removed, the new layout and guardrails | [`storybook-cleanup-plan.md`](storybook-cleanup-plan.md) |
