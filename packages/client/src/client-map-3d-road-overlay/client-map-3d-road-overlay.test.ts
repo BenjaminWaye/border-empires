@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { BRICK_FRAGMENT, buildRoadFragmentShader, DIRT_FRAGMENT, TRANSIT_FRAGMENT } from "./client-map-3d-road-fragments.js";
+import { BRICK_FRAGMENT, buildRoadFragmentShader, DIRT_FRAGMENT } from "./client-map-3d-road-fragments.js";
 
 const clientSource = (filename: string): string => {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -24,12 +24,13 @@ describe("3d road overlay regression guard", () => {
     expect(source).toContain("polygonOffset: true");
   });
 
-  it("defaults to the sci-fi transit style and lets storybook select dirt and brick", () => {
+  it("defaults to a sci-fi style and lets storybook select dirt and brick", () => {
     const source = clientSource("./client-map-3d-road-overlay.ts");
-    expect(source).toMatch(/createRoadOverlay = \(scene: Scene, style: RoadOverlayStyle = "transit"\)/);
-    expect(buildRoadFragmentShader("transit")).toBe(TRANSIT_FRAGMENT);
-    expect(TRANSIT_FRAGMENT).toContain("uniform float uTime;");
-    expect(TRANSIT_FRAGMENT).not.toBe(DIRT_FRAGMENT);
+    expect(source).toMatch(/createRoadOverlay = \(scene: Scene, style: RoadOverlayStyle = "link"\)/);
+    for (const style of ["link", "beam", "trace", "hex"] as const) {
+      expect(buildRoadFragmentShader(style)).toContain("uniform float uTime;");
+      expect(buildRoadFragmentShader(style)).not.toBe(DIRT_FRAGMENT);
+    }
     expect(source).toContain("buildRoadFragmentShader(style)");
 
     expect(buildRoadFragmentShader("dirt")).toBe(DIRT_FRAGMENT);

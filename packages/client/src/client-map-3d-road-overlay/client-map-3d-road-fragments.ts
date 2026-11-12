@@ -1,11 +1,16 @@
-import { buildTransitRoadFragment } from "./client-map-3d-road-transit-fragment.js";
+import {
+  buildBeamRoadFragment,
+  buildHexRoadFragment,
+  buildLinkRoadFragment,
+  buildTraceRoadFragment
+} from "./client-map-3d-road-scifi-fragments.js";
 
-export type RoadOverlayStyle = "transit" | "dirt" | "brick";
+export type RoadOverlayStyle = "link" | "beam" | "trace" | "hex" | "dirt" | "brick";
 
 export const ROAD_WIDTH = 0.12;
 
 // The old cobblestone surface, preserved so Storybook can keep showing the
-// original paved-town look while the game ships the transit style.
+// original paved-town look while the game ships a sci-fi style.
 export const BRICK_FRAGMENT = `
 precision highp float;
 varying vec2 vUv;
@@ -227,9 +232,14 @@ void main() {
 }
 `;
 
-// Sci-fi transit lane — what the game ships. Dirt and brick stay selectable in
-// Storybook for comparison.
-export const TRANSIT_FRAGMENT = buildTransitRoadFragment(ROAD_WIDTH);
+// Sci-fi candidates (client-map-3d-road-scifi-fragments.ts). Dirt and brick
+// stay selectable in Storybook for comparison.
+const SCIFI_FRAGMENTS: Record<"link" | "beam" | "trace" | "hex", string> = {
+  link: buildLinkRoadFragment(ROAD_WIDTH),
+  beam: buildBeamRoadFragment(ROAD_WIDTH),
+  trace: buildTraceRoadFragment(ROAD_WIDTH),
+  hex: buildHexRoadFragment(ROAD_WIDTH)
+};
 
 export const buildRoadFragmentShader = (style: RoadOverlayStyle): string =>
-  style === "brick" ? BRICK_FRAGMENT : style === "dirt" ? DIRT_FRAGMENT : TRANSIT_FRAGMENT;
+  style === "brick" ? BRICK_FRAGMENT : style === "dirt" ? DIRT_FRAGMENT : SCIFI_FRAGMENTS[style];

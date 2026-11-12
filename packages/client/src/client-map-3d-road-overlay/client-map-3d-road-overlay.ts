@@ -204,7 +204,7 @@ const addRibbonGeometry = (
   }
 };
 
-export const createRoadOverlay = (scene: Scene, style: RoadOverlayStyle = "transit"): RoadOverlay => {
+export const createRoadOverlay = (scene: Scene, style: RoadOverlayStyle = "link"): RoadOverlay => {
   const group = new Group();
   group.name = "road-overlay";
 
@@ -232,7 +232,7 @@ export const createRoadOverlay = (scene: Scene, style: RoadOverlayStyle = "trans
   const material = new ShaderMaterial({
     vertexShader,
     fragmentShader: buildRoadFragmentShader(style),
-    // Drives the transit style's slow light pulse; ignored by dirt/brick.
+    // Drives the sci-fi styles' light pulses; ignored by dirt/brick.
     uniforms: { uTime: { value: 0 } },
     transparent: true,
     depthWrite: true,
