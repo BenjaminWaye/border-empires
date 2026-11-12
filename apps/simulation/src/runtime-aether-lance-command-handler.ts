@@ -64,10 +64,11 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     ownershipState: undefined,
     frontierDecayAt: undefined,
     frontierDecayKind: undefined,
-    // The purge strikes the structures too, with the same razing rules as
-    // abandoning or losing the tile: a Relay Beacon or siege engine is
-    // destroyed (a finished one leaves its burning 24h wreck), and anything
-    // still under construction is lost. Without this a half-built beacon sat
+    // The purge strikes the structures too, razing them as a capture does:
+    // a Relay Beacon or siege engine is destroyed (a finished one leaves its
+    // burning 24h wreck, as on capture -- plain abandoning leaves none), and
+    // anything still under construction is lost (a fort upgrade falls back
+    // to its standing tier). Without this a half-built beacon sat
     // on the neutral tile forever -- completion bails once the tile has no
     // owner -- and blocked the site.
     ...abandonedStructureFields(target),
