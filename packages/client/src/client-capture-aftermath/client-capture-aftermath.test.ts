@@ -16,7 +16,7 @@ describe("capture aftermath", () => {
   it("draws a razed Relay Beacon's wreck for its 24h, long after the hold ends", () => {
     const after = captured({ razedWreck: "RELAY_BEACON", razedWreckUntil: NOW + RAZED_WRECK_DURATION_MS });
     expect(captureAftermathForTile(after, NOW)).toEqual({ rubble: ["RELAY_BEACON"], smoke: false, burningDock: false, until: NOW + RAZED_WRECK_DURATION_MS });
-    expect(captureAftermathMenuLines(after, NOW)).toEqual(["Relay Beacon destroyed in the capture."]);
+    expect(captureAftermathMenuLines(after, NOW)).toEqual(["Relay Beacon destroyed here."]);
     const hoursLater = NOW + 20 * 3_600_000;
     const garrisoned = { ...after, ownershipState: "SETTLED", ownerId: "p3" } as Tile;
     expect(captureAftermathForTile(garrisoned, hoursLater)?.rubble).toEqual(["RELAY_BEACON"]);
