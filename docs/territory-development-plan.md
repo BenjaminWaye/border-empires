@@ -8,17 +8,16 @@ implemented yet.
 
 Make improving your territory the main activity of a visit, with fighting
 running in the background (`docs/core-loop.md` §1.1). Today the frontier
-materials add passive regen nobody notices, deposits each carry a building,
-and FOOD is only upkeep. This plan:
+materials add passive regen nobody notices and every deposit carries its own
+building. This plan:
 
 1. Cuts neural resin, conductive minerals and catalyst.
 2. Moves strategic processing into towns: a **refinery** on a support-ring
    tile processes one nearby deposit field, linked through your territory.
-3. Gives each City-or-larger town one **role** (Market, Garrison, Foundry).
-4. Turns FOOD from a requirement into **population growth**, with surplus
-   people you spend.
-
-Each phase ships and is played on its own before the next starts.
+Each phase ships and is played on its own before the next starts. Town roles
+and FOOD-as-growth were considered and dropped: roles only restricted
+buildings that are already one per town, and the FOOD rework added chores
+without a clear payoff. FOOD can get its own discussion later.
 
 ## Design inputs
 
@@ -71,7 +70,7 @@ passage so remaking runs on town industry).
 
 **Done when.** No references remain outside `docs/archive/`; an AI test
 season reaches City tier at about the same pace as before. If early manpower
-feels thin, the Garrison role (Phase 3) is where regen goes back, not the map.
+feels thin, put regen back through town or Ancillary buildings, not the map.
 
 ## Phase 2: Refineries in towns
 
@@ -105,13 +104,20 @@ feels thin, the Garrison role (Phase 3) is where regen goes back, not the map.
 9. **Worldgen guarantee.** Every strategic field has at least one town within
    reach, and no field tile sits on a town tile or inside either support
    ring.
+10. **Refinery boosters.** One support building per resource (working names:
+    Titanium Smelter, Umbrite Distillery, Crystal Cutter) is built on another
+    support-ring tile of the same town. While it stands, each refinery of that
+    resource in the town gives +1 more slot per processed tile (so +3 instead
+    of +2). One booster per resource per town. It costs a second ring tile, so
+    a town that commits to a resource gives up more of its ring.
 
 Open: whether a Town (not just City and above) can host a refinery; whether
-output should also fall with distance inside the reach.
+output should also fall with distance inside the reach; whether the booster's
++1 is per processed tile (as written) or one extra slot per refinery.
 
 ### Simulation and shared code
 
-- **Structure types.** Add the three refineries through the full
+- **Structure types.** Add the three refineries and the three boosters through the full
   `docs/adding-a-structure-playbook.md` (type union, cost, slots, registry
   and tech gate, placement metadata: town and support surfaces only, wire
   enum). Remove `MINE`, `UMBRITE_RIG` and `ORE_REFINERY` the same way,
@@ -133,7 +139,8 @@ output should also fall with distance inside the reach.
 - **Slot supply.** In `apps/simulation/src/resource-slot-view/resource-slot-view.ts`
   and `packages/shared/src/resource-slot-sources/`, replace the same-tile
   Mine/Umbrite Rig bonus and the Ore Refinery radius bonus with "+2 per
-  garrisoned tile of a linked, processed field". Keep the source breakdown
+  garrisoned tile of a linked, processed field" (+3 with the town's
+  booster for that resource). Keep the source breakdown
   labels so the HUD explains it. Update `tile-yield-view`,
   `legacy-snapshot-economy` and `ai/food-slot-relief-surplus.ts`, which read
   the old structures.
@@ -161,8 +168,17 @@ output should also fall with distance inside the reach.
 - **Broken link.** Line and goods stop, the overlay goes, and a toast above
   the refinery says it needs a new field (the DOM plate layer drawn over
   both maps, like the unruly-town icon).
-- **Placement preview.** When choosing a ring tile for a refinery, show the
-  reach and the fields it could take, with their slot gain.
+- **Connecting a field, from the field (main path).** Tap a deposit tile and
+  choose "Refine at…": it lists towns in reach with free ring tiles and the
+  slot gain; picking one places the refinery on a free ring tile (with a
+  "choose tile" step).
+- **Connecting a field, from the town.** Tap a support-ring tile and choose a
+  refinery: the map shows the 10-tile reach and highlights the fields it
+  could take with their slot gain; taken or unlinked fields are greyed with
+  the reason. A single choice is picked automatically.
+- **Changing field.** Tap the refinery and choose "Change field" (same
+  picker); tapping the broken-link toast opens it too. Retaking the land that
+  broke the link restores it automatically.
 - Guard 3D-only paths with `isTrue3DRendererActive()` and check both
   branches before calling it done.
 
@@ -176,6 +192,8 @@ and the structure planner; read `docs/agents/ai-guardrails.md` and
 
 ### Tests
 
+- Booster: a booster in the same town raises each processed tile to +3;
+  removing or losing the booster drops it back to +2.
 - Slot supply: a linked field gives +2 per garrisoned tile; unlinked gives
   base only; one field cannot feed two refineries.
 - Link: cut by capture of a path tile, by water, by another player's land;
@@ -192,92 +210,6 @@ In playtests, players give up ring tiles in towns near fields and fight over
 the links, and a visit includes at least one refinery decision while the
 empire is growing.
 
-## Phase 3: Town roles
-
-### Rules
-
-- Each town of City tier or above has one **role slot**. A town can host only
-  one of these amplifiers:
-
-| Role | Building in the role slot | Amplifies |
-| --- | --- | --- |
-| Market | Clearing House or Trade Nexus | Manufactory coin in the town and its network |
-| Garrison | Ancillary Factory | Ancillary Depots: manpower cap and regen |
-| Foundry | New amplifier (name to decide) | Weapons Factories in its connected-town network |
-
-- Refineries do not use the role slot (open question: should they?).
-- Forts are untouched.
-- Changing role means removing the amplifier (30 s) and building another;
-  add a cooldown only if role-swapping turns out to be abused.
-
-### Code
-
-- Exclusivity: placement validation where town-support caps are enforced
-  (`apps/simulation/src/runtime-structure-town-support-target.ts`,
-  `packages/shared/src/structure-stacking/`), shared so the client build menu
-  can show "Role taken: Market".
-- Foundry amplifier: a new structure through the playbook, with network
-  constants beside the Neural Works ones in `packages/shared/src/config.ts`
-  and wiring in `apps/simulation/src/runtime-weapons-factory-mults.ts` /
-  `runtime-combat-support.ts`, following how Neural Works amplifies Ancillary
-  Factories.
-- Client: role icon on the town nameplate in both renderers; role row on the
-  town screen.
-- AI: choose a role from need and terrain.
-
-### Done when
-
-Empires use more than one role, and players can say why each town has its
-role.
-
-## Phase 4: FOOD becomes population
-
-This phase needs its own balance doc before code; the rules below fix the
-direction.
-
-### Rules
-
-1. **No upkeep.** Towns never need FOOD to work; the unfed state goes away,
-   and so does its coin pause.
-2. **Food makes people.** Each FOOD slot assigned to a town adds population
-   every refill (rate to decide). Unassigned slots go to the smallest
-   connected towns by default, so 50 towns is not a chore.
-3. **Tiers follow population** as now (10k, 100k, 1M, 5M); tier-ups keep their
-   coin cost but no longer need an extra FOOD slot.
-4. **Full towns build a surplus.** At max population, food sent to a town
-   fills a surplus pool instead of being wasted.
-5. **Spend the surplus.** *Migrate*: send surplus people to another of your
-   towns connected through your territory. *Levy*: a town with an Ancillary
-   Factory turns surplus into manpower at today's Forced Ancillarification
-   rate (about 1,000 people per manpower) without shrinking itself.
-6. **Losing farms slows growth and surplus; it never breaks a town.**
-7. Buildings that occupy a FOOD slot (Manufactory, Incubation Engine) keep
-   doing so; they now compete with growth, which is a fair trade-off.
-
-### Code
-
-- Remove town FOOD demand and town dormancy from
-  `resource-slot-view.ts`; remove the fed checks in
-  `runtime-population-growth.ts`, `player-update-economy/`,
-  `economy-network/`, `runtime/runtime-town-network.ts`,
-  `live-town-summary.ts` and the legacy snapshot readers.
-- Tier-up: drop the FOOD slot from the upgrade cost (`town-growth.ts`,
-  `config.ts`, progression command handlers).
-- New state: per-town food assignment and surplus pool. Read the state and
-  persistence discipline doc first; both must survive restart and capture
-  rules must be decided (suggested: surplus is lost on capture).
-- Commands: assign food, migrate, levy. Decide whether Forced
-  Ancillarification stays as an emergency option or is replaced by the levy
-  (`forced-ancillarification/`).
-- Client: food assignment and surplus on the town screen; migrate and levy
-  actions; remove unfed presentation.
-- Balance: coin pass, since unfed towns no longer stop paying.
-
-### Done when
-
-Players move food or migrants on most visits, and mature empires still value
-farms.
-
 ## Cross-cutting rules for every phase
 
 - A regression test for every bug fix; `pnpm ci:local` before each PR.
@@ -291,9 +223,9 @@ farms.
 
 `docs/stacking-adjacency-plan.md` (unreviewed) would make same-family
 buildings in a ring earn more for touching neighbours. It answers how to
-arrange a ring; this plan answers what each town does. Review it after
-Phase 3; refineries take ring tiles, so both plans compete for the same
-space.
+arrange a ring; this plan answers which town processes which field. Review
+it after Phase 2; refineries take ring tiles, so both plans compete for the
+same space.
 
 ## Evidence
 
@@ -322,8 +254,4 @@ fields land in the gaps rather than crowding towns.
 
 - Refinery output of +2 per tile, and whether output falls with distance.
 - Can a Town (not only City and above) host a refinery?
-- Should refineries use the role slot?
 - Does Crystal get a refinery, given its only use is Aether Towers?
-- Name of the Foundry amplifier.
-- Population per FOOD slot per refill; whether Forced Ancillarification
-  stays beside the levy; whether surplus survives capture.
