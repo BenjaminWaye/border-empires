@@ -1,5 +1,5 @@
 import type { ClusterDefinition, NaturalWonderSiteState, TownDefinition, WatchtowerSiteState, WaystationSiteState } from "@border-empires/game-domain";
-import { DEFAULT_WORLD_HEIGHT, TOWN_REACH_RADIUS, WORLD_HEIGHT as CONFIGURED_WORLD_HEIGHT, isCoastalLandAt, townTerrainProfileForBiome, underlyingLandBiomeAt, type Tile, type TileKey } from "@border-empires/shared";
+import { DEFAULT_WORLD_HEIGHT, WORLD_HEIGHT as CONFIGURED_WORLD_HEIGHT, isCoastalLandAt, townTerrainProfileForBiome, underlyingLandBiomeAt, type Tile, type TileKey } from "@border-empires/shared";
 import type { FairSpawnSite } from "@border-empires/game-domain";
 
 /**
@@ -153,13 +153,7 @@ export const createSeasonSeedPlayerSpawner = (
     const tk = key(spawn.x, spawn.y);
     ownership.set(tk, playerId);
     watchtowersByTile.delete(tk);
-    // The landing AFC's reach auto-claims this whole disk, and claiming a waystation activates it -- a free payout
-    // (and reward popup) mid-landing. Waystations in the starting disk are removed, not granted.
-    for (let dy = -TOWN_REACH_RADIUS; dy <= TOWN_REACH_RADIUS; dy += 1) {
-      for (let dx = -TOWN_REACH_RADIUS; dx <= TOWN_REACH_RADIUS; dx += 1) {
-        waystationsByTile.delete(key(wrapX(spawn.x + dx, WORLD_WIDTH), wrapY(spawn.y + dy, WORLD_HEIGHT)));
-      }
-    }
+    waystationsByTile.delete(tk);
     naturalWondersByTile.delete(tk);
     townsByTile.set(tk, createSettlementTown(tk, townTypeAt(spawn.x, spawn.y), townTerrainProfileForBiome(underlyingLandBiomeAt(spawn.x, spawn.y)), isCoastalLandAt(spawn.x, spawn.y)));
     spawnPositions.push({ playerId, x: spawn.x, y: spawn.y, isAi });

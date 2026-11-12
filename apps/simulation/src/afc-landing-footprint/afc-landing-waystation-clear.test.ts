@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { DomainTileState } from "@border-empires/game-domain";
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 
 import { clearWaystationsAroundAfcLanding, withoutLandingWaystation } from "./afc-landing-waystation-clear.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
+import { buildPlayer } from "../runtime/runtime.test-helpers.js";
 
 const SIZE = 25;
 const dormant = { waystation: { activated: false } } satisfies Partial<DomainTileState>;
@@ -18,18 +19,25 @@ const buildWorld = (overrides: Record<string, Partial<DomainTileState>> = {}): M
   return tiles;
 };
 
-const run = (tiles: Map<string, DomainTileState>) => {
+type RunOptions = { players?: ReadonlyMap<string, DomainPlayer>; lockedKeys?: ReadonlySet<string>; reachOwners?: ReadonlyMap<string, string> };
+
+const run = (tiles: Map<string, DomainTileState>, options: RunOptions = {}) => {
   const replaced: Array<{ tileKey: string; commandId: string | undefined }> = [];
   const logs: Array<Record<string, unknown>> = [];
   const removed = clearWaystationsAroundAfcLanding(
     {
       tiles,
+      players: options.players ?? new Map(),
+      locksByTile: options.lockedKeys ?? new Set<string>(),
+      pendingSettlementsByTile: new Set<string>(),
+      reachOwnerAt: (x, y) => options.reachOwners?.get(simulationTileKey(x, y)),
       replaceTileState: (tileKey, tile, commandId) => {
         tiles.set(tileKey, tile);
         replaced.push({ tileKey, commandId });
       },
       runtimeLogInfo: (payload) => logs.push(payload)
     },
+    "p1",
     10,
     10,
     "cmd-1"
@@ -66,6 +74,20 @@ describe("clearWaystationsAroundAfcLanding", () => {
     expect(tiles.get("14,10")?.waystation).toEqual({ activated: false });
     expect(tiles.get("11,11")?.waystation).toEqual(activated.waystation);
     expect(tiles.get("9,9")?.waystation).toEqual({ activated: false });
+  });
+});
+
+describe("clearWaystationsAroundAfcLanding review regressions", () => {
+  it("covers the landing player's bonus town reach, as the auto-claim does", () => {
+    const tiles = buildWorld({ "14,10": dormant });
+    const dominion = buildPlayer("p1", { domainIds: new Set<string>(["afc-dominion-3"]) });
+    expect(run(tiles, { players: new Map([["p1", dominion]]) }).removed.map((tile) => simulationTileKey(tile.x, tile.y))).toEqual(["14,10"]);
+  });
+
+  it("leaves waystations in a rival's reach or under a fight for their own claim", () => {
+    const tiles = buildWorld({ "11,10": dormant, "12,10": dormant });
+    const { removed } = run(tiles, { reachOwners: new Map([["11,10", "rival"]]), lockedKeys: new Set(["12,10"]) });
+    expect(removed).toEqual([]);
   });
 });
 

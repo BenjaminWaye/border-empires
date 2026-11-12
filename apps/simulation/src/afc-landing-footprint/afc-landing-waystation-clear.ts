@@ -1,10 +1,16 @@
 import { tileKeysInReach } from "@border-empires/shared";
-import type { DomainTileState } from "@border-empires/game-domain";
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 
 import { simulationTileKey } from "../seed-state/seed-state.js";
+import { withAfcReachRadii } from "../runtime/runtime-reach-anchors.js";
 
 export type AfcLandingWaystationClearContext = {
   tiles: ReadonlyMap<string, DomainTileState>;
+  players: ReadonlyMap<string, DomainPlayer>;
+  locksByTile: Pick<ReadonlyMap<string, unknown>, "has">;
+  pendingSettlementsByTile: Pick<ReadonlyMap<string, unknown>, "has">;
+  /** Owner of the reach border at (x, y), if any -- a rival's reach keeps its tiles out of the landing's auto-claim. */
+  reachOwnerAt: (x: number, y: number) => string | undefined;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
 };
@@ -27,7 +33,10 @@ const isLandForReach =
  *
  * The landing tile itself is skipped (see withoutLandingWaystation).
  * Activated waystations are left alone (they can never fire again), as are
- * waystations on tiles someone already owns.
+ * waystations on tiles someone already owns, tiles a rival's reach covers
+ * (the auto-claim won't take those either) and tiles mid-fight or
+ * mid-settle. The disk is the landing player's real AFC reach, including any
+ * town reach bonus (withAfcReachRadii).
  *
  * Call alongside `clearBarbariansAroundAfcLanding`, BEFORE the AFC tile is
  * written (that write is what triggers the reach auto-claim). Returns the
@@ -35,6 +44,7 @@ const isLandForReach =
  */
 export const clearWaystationsAroundAfcLanding = (
   ctx: AfcLandingWaystationClearContext,
+  playerId: string,
   x: number,
   y: number,
   commandId: string
@@ -43,10 +53,14 @@ export const clearWaystationsAroundAfcLanding = (
   // The landing tile is stripped by withoutLandingWaystation on the AFC write; a second, unowned copy here would
   // land in the same TILE_DELTA_BATCH after the AFC tile and overwrite it on the client.
   const landingKey = simulationTileKey(x, y);
-  for (const tileKey of tileKeysInReach({ x, y, ownerId: "", activatedAt: 0, kind: "TOWN" }, isLandForReach(ctx.tiles))) {
+  const [anchor] = withAfcReachRadii([{ x, y, ownerId: playerId, activatedAt: 0, kind: "TOWN" }], ctx.players);
+  for (const tileKey of tileKeysInReach(anchor!, isLandForReach(ctx.tiles))) {
     if (tileKey === landingKey) continue;
     const tile = ctx.tiles.get(tileKey);
     if (!tile?.waystation || tile.waystation.activated || tile.ownerId) continue;
+    if (ctx.locksByTile.has(tileKey) || ctx.pendingSettlementsByTile.has(tileKey)) continue;
+    const reachOwner = ctx.reachOwnerAt(tile.x, tile.y);
+    if (reachOwner && reachOwner !== playerId) continue;
     const { waystation: _removed, ...withoutWaystation } = tile;
     ctx.replaceTileState(tileKey, withoutWaystation, commandId);
     removed.push(withoutWaystation);
