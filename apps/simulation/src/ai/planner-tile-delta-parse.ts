@@ -77,12 +77,27 @@ export const parseOwnedStructure = (
   }
 };
 
+// A town refinery's stored field anchor rides on the full record JSON
+// (tile-delta-stringify-cache.ts stringifies the domain record as-is).
+const parseRefineryField = (raw: string): { x: number; y: number; assignedAt: number } | undefined => {
+  try {
+    const field = (JSON.parse(raw) as { refineryField?: { x?: unknown; y?: unknown; assignedAt?: unknown } }).refineryField;
+    return field && typeof field.x === "number" && typeof field.y === "number"
+      ? { x: field.x, y: field.y, assignedAt: typeof field.assignedAt === "number" ? field.assignedAt : 0 }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export const parseEconomicStructure = (
   raw: string | undefined
 ): PlannerTileView["economicStructure"] | undefined => {
   const parsed = parseOwnedStructure(raw);
   if (!parsed) return undefined;
+  const refineryField = raw && raw.includes("refineryField") ? parseRefineryField(raw) : undefined;
   return {
+    ...(refineryField ? { refineryField } : {}),
     ...(parsed.ownerId ? { ownerId: parsed.ownerId } : {}),
     ...(parsed.status ? { status: parsed.status } : {}),
     ...(parsed.type ? { type: parsed.type as EconomicStructureType } : {}),

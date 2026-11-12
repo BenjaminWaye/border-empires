@@ -27,10 +27,11 @@ export type ResourceSlotHeadroom = Partial<Record<SlotResource, number>>;
 // The planner tile does not say how many field tiles a refinery processes, so
 // assume the most one can add: the largest worldgen field (8 tiles) at the
 // boosted rate. Requiring at least this much headroom means switching it off
-// can never push that resource into deficit. (Phase 2 minimal port; the AI
-// refinery planner follow-up can read the real processed-tile count.)
+// can never push that resource into deficit. The refinery builder
+// (build/refinery-build-planner.ts) refuses any build that would lift free
+// slots to this threshold, so building and switching off cannot loop.
 const LARGEST_WORLDGEN_FIELD_TILES = 8;
-const SURPLUS_PRODUCER_MIN_HEADROOM = LARGEST_WORLDGEN_FIELD_TILES * (REFINERY_SLOTS_PER_TILE + REFINERY_BOOSTER_SLOTS_PER_TILE);
+export const SURPLUS_PRODUCER_MIN_HEADROOM = LARGEST_WORLDGEN_FIELD_TILES * (REFINERY_SLOTS_PER_TILE + REFINERY_BOOSTER_SLOTS_PER_TILE);
 
 /** The slot resource the refinery on this tile produces, if any. */
 const producedSlotResource = (tile: AutomationPlannerTile): SlotResource | undefined => {
