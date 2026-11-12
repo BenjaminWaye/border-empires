@@ -155,6 +155,17 @@ export const syncMusterStatus = <TDelta>(
   });
 };
 
+/**
+ * True when a hunting flag was re-ordered after its current cooldown was set,
+ * so the new order must not sit it out. SET_MUSTER rebuilds the muster and
+ * drops nextActionAt; every cooldown the advance/march auto-fire sets is
+ * stamped onto nextActionAt or comes with inFlight, so a hunting flag carrying
+ * neither belongs to a newer order than the cooldown. Applied by both cooldown
+ * checks (maybeAdvanceFire, and maybeMarchFire for its expand-toward step).
+ */
+export const isStaleHuntCooldown = (muster: DomainTileState["muster"], cooldownUntil: number): boolean =>
+  muster?.hunt === true && !muster.inFlight && muster.nextActionAt !== cooldownUntil;
+
 export type AdvanceCandidate = {
   from: DomainTileState;
   enemy: DomainTileState;
