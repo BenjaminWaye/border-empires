@@ -1,4 +1,3 @@
-import { preserveResourceBuildChoice, resourceBuildChecked } from "./client-resource-improvement-action.js";
 // Bridges the legacy floating tile menu into the new HUD. With the flag on,
 // every render of the floating menu also renders the bottom action bar and
 // hides the floating menu itself. Build ▸ and Aether ▸ open a right-hand
@@ -18,12 +17,13 @@ import { actionBarHtml, barBuildings, selectBarButtons, type BarPanel } from "./
 import { ownerStanceTagHtml } from "./client-hud-v2-stance-tag.js";
 import { aetherListHtml } from "./client-hud-v2-aether-list.js";
 import { buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
+import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { tileFactsFor, wonderName } from "./client-hud-v2-tile-facts.js";
 import { syncTileProgress } from "./client-hud-v2-tile-progress-live.js";
 
 export type TileDockDeps = {
   tileActionMenuEl: HTMLElement;
-  handleTileAction: (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string, buildAllResources?: boolean) => void;
+  handleTileAction: (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string) => void;
   hideTileActionMenu: () => void;
   renderHud: () => void;
 };
@@ -177,7 +177,7 @@ const paintBar = (): void => {
   side.setAttribute("aria-label", dock.panel === "aether" ? "Aether" : "Build");
   const sideHtml = dock.panel === "aether" ? aetherListHtml({ abilities: view.crystal, focusLabel: `(${x}, ${y})` }) : buildSideHtml(view, key, `(${x}, ${y})`);
   if (sideHtml !== dock.lastSideHtml) {
-    preserveResourceBuildChoice(side, () => { side.innerHTML = sideHtml; });
+    side.innerHTML = sideHtml;
     dock.lastSideHtml = sideHtml;
   }
   side.hidden = false;
@@ -187,7 +187,7 @@ const paintBar = (): void => {
 const buildSideHtml = (view: TileMenuView, key: string, focusLabel: string): string => {
   const primary = selectBarButtons(view).find((b) => b.kind === "action" && b.primary);
   const buildings = barBuildings(view, primary?.kind === "action" ? primary.action : undefined);
-  const place = { buildings, selection: dock?.buildSelection, targetKey: key, placeLabel: "Place" };
+  const place = { buildings, selection: dock?.buildSelection, targetKey: key, placeLabel: "Place", autoImprove: autoImproveOptionForTile(dock?.state.autoSettle, dock?.state.tiles.get(key)) };
   return buildListHtml({
     ...place,
     focusLabel,
@@ -242,7 +242,7 @@ const onBarClick = (event: MouseEvent): void => {
     const id = action.dataset.hudV2Action as TileActionDef["id"];
     if (dock.lastView) listener?.onBarAction(id, dock.lastView, state.tileActionMenu.currentTileKey);
     dock.panel = undefined;
-    deps.handleTileAction(id, action.dataset.targetKey, action.dataset.originKey, resourceBuildChecked(action));
+    deps.handleTileAction(id, action.dataset.targetKey, action.dataset.originKey);
     paintBar();
     return;
   }

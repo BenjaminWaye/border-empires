@@ -1,4 +1,4 @@
-import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
+import { NEW_PLAYER_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { loadedAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { settingsGameplayPageHtml } from "./client-hud-settings-panel.js";
@@ -6,7 +6,7 @@ import { settingsGameplayPageHtml } from "./client-hud-settings-panel.js";
 const gameplayState = {
   authSessionReady: true,
   authEmail: "ada@example.com",
-  autoSettle: loadedAutoSettleState({ ...DEFAULT_AUTO_SETTLE_PREFS, towns: true, food: false, strategic: false, luxury: false }),
+  autoSettle: loadedAutoSettleState({ ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true, towns: true }),
   photoModeActive: false
 };
 

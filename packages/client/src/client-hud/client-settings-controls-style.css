@@ -37,6 +37,12 @@
   gap: 6px;
 }
 
+.settings-auto-settle-group {
+  margin: 6px 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 /* ---- Toggle row: title (+ hint) on the left, switch on the right ---- */
 
 .settings-toggle-row {

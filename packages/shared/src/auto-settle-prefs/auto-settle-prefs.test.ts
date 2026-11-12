@@ -1,23 +1,32 @@
 import { describe, expect, it } from "vitest";
 import {
+  AUTO_SETTLE_CATEGORIES,
   autoSettleCategoryForTile,
+  autoSettlePrefsCommandPayload,
+  autoSettlePrefsForOutput,
   DEFAULT_AUTO_SETTLE_PREFS,
   isAutoSettleAllowedForTile,
   NEW_PLAYER_AUTO_SETTLE_PREFS,
-  normalizeAutoSettlePrefs
+  normalizeAutoSettlePrefs,
+  parseAutoSettleCategoryPrefs,
+  type AutoSettleCategoryPrefs
 } from "./auto-settle-prefs.js";
+import { autoImproveStructureForResource, NO_AUTO_IMPROVE, parseAutoImprovePrefs } from "./auto-improve-prefs.js";
+
+const off = { improve: { ...NO_AUTO_IMPROVE } };
+
+const only = (...on: string[]): AutoSettleCategoryPrefs =>
+  Object.fromEntries(AUTO_SETTLE_CATEGORIES.map((category) => [category, on.includes(category)])) as AutoSettleCategoryPrefs;
 
 describe("autoSettleCategoryForTile", () => {
-  it("maps towns and docks to towns, food to food, titanium/umbrite/gems to strategic, everything else to luxury", () => {
+  it("maps towns and docks to towns and every resource tile to its own resource", () => {
     expect(autoSettleCategoryForTile({ town: { name: "x" } })).toBe("towns");
     expect(autoSettleCategoryForTile({ dockId: "d1" })).toBe("towns");
-    expect(autoSettleCategoryForTile({ resource: "FARM" })).toBe("food");
-    expect(autoSettleCategoryForTile({ resource: "FISH" })).toBe("food");
-    expect(autoSettleCategoryForTile({ resource: "TITANIUM" })).toBe("strategic");
-    expect(autoSettleCategoryForTile({ resource: "UMBRITE" })).toBe("strategic");
-    expect(autoSettleCategoryForTile({ resource: "GEMS" })).toBe("strategic");
-    expect(autoSettleCategoryForTile({ resource: "LUXURY_BIOTA" })).toBe("luxury");
-    expect(autoSettleCategoryForTile({ resource: "NEURAL_RESIN" })).toBe("luxury");
+    expect(autoSettleCategoryForTile({ resource: "FARM" })).toBe("FARM");
+    expect(autoSettleCategoryForTile({ resource: "FISH" })).toBe("FISH");
+    expect(autoSettleCategoryForTile({ resource: "TITANIUM" })).toBe("TITANIUM");
+    expect(autoSettleCategoryForTile({ resource: "GEMS" })).toBe("GEMS");
+    expect(autoSettleCategoryForTile({ resource: "PRECURSOR_SALVAGE" })).toBe("PRECURSOR_SALVAGE");
   });
 
   it("puts a town that also carries a resource under towns, and plain support tiles under towns", () => {
@@ -29,18 +38,34 @@ describe("autoSettleCategoryForTile", () => {
 describe("isAutoSettleAllowedForTile", () => {
   it("allows everything for the explicit legacy/AI default prefs", () => {
     expect(isAutoSettleAllowedForTile(DEFAULT_AUTO_SETTLE_PREFS, { resource: "FARM" })).toBe(true);
+    expect(isAutoSettleAllowedForTile(DEFAULT_AUTO_SETTLE_PREFS, { resource: "PRECURSOR_SALVAGE" })).toBe(true);
   });
   it("blocks every category for a new player until they answer", () => {
     expect(isAutoSettleAllowedForTile(NEW_PLAYER_AUTO_SETTLE_PREFS, { town: {} })).toBe(false);
     expect(isAutoSettleAllowedForTile(NEW_PLAYER_AUTO_SETTLE_PREFS, { resource: "FISH" })).toBe(false);
   });
-  it("gates each category independently", () => {
-    const prefs = { answered: true, towns: true, food: false, strategic: true, luxury: false };
-    expect(isAutoSettleAllowedForTile(prefs, { town: {} })).toBe(true);
-    expect(isAutoSettleAllowedForTile(prefs, { resource: "FARM" })).toBe(false);
+  it("garrisons only titanium when only titanium is on", () => {
+    const prefs = only("TITANIUM");
     expect(isAutoSettleAllowedForTile(prefs, { resource: "TITANIUM" })).toBe(true);
-    expect(isAutoSettleAllowedForTile(prefs, { resource: "GEMS" })).toBe(true);
+    expect(isAutoSettleAllowedForTile(prefs, { resource: "UMBRITE" })).toBe(false);
+    expect(isAutoSettleAllowedForTile(prefs, { resource: "GEMS" })).toBe(false);
     expect(isAutoSettleAllowedForTile(prefs, { resource: "PRECURSOR_SALVAGE" })).toBe(false);
+    expect(isAutoSettleAllowedForTile(prefs, { town: {} })).toBe(false);
+  });
+  it("garrisons only salvage sites when only salvage is on", () => {
+    const prefs = only("PRECURSOR_SALVAGE");
+    expect(isAutoSettleAllowedForTile(prefs, { resource: "PRECURSOR_SALVAGE" })).toBe(true);
+    expect(isAutoSettleAllowedForTile(prefs, { resource: "LUXURY_BIOTA" })).toBe(false);
+    expect(isAutoSettleAllowedForTile(prefs, { resource: "TITANIUM" })).toBe(false);
+  });
+});
+
+describe("parseAutoSettleCategoryPrefs", () => {
+  it("reads per-resource switches", () => {
+    expect(parseAutoSettleCategoryPrefs(only("towns", "FISH"))).toEqual(only("towns", "FISH"));
+  });
+  it("rejects a value with neither a resource's own switch nor its old group switch", () => {
+    expect(parseAutoSettleCategoryPrefs({ towns: true, FARM: true })).toBeUndefined();
   });
 });
 
@@ -49,18 +74,63 @@ describe("normalizeAutoSettlePrefs", () => {
     expect(normalizeAutoSettlePrefs(undefined)).toEqual(DEFAULT_AUTO_SETTLE_PREFS);
     expect(normalizeAutoSettlePrefs({ towns: "yes" })).toEqual(DEFAULT_AUTO_SETTLE_PREFS);
   });
-  it("splits a value stored before the strategic/luxury split from its single resources switch", () => {
-    expect(normalizeAutoSettlePrefs({ answered: true, towns: true, food: false, resources: false })).toEqual({
+  it("carries a food/strategic/luxury value over to each resource in those groups", () => {
+    expect(normalizeAutoSettlePrefs({ answered: true, towns: true, food: false, strategic: true, luxury: false })).toEqual({
       answered: true,
-      towns: true,
-      food: false,
-      strategic: false,
-      luxury: false
+      ...only("towns", "TITANIUM", "UMBRITE", "GEMS"),
+      ...off
     });
-    expect(normalizeAutoSettlePrefs({ answered: true, towns: false, food: false, resources: true })).toMatchObject({ strategic: true, luxury: true });
+  });
+  it("carries a value stored before the strategic/luxury split over from its single resources switch", () => {
+    expect(normalizeAutoSettlePrefs({ answered: true, towns: true, food: false, resources: false })).toEqual({ answered: true, ...only("towns"), ...off });
+    expect(normalizeAutoSettlePrefs({ answered: true, towns: false, food: false, resources: true })).toMatchObject({ TITANIUM: true, PRECURSOR_SALVAGE: true, FARM: false });
+  });
+  it("lets a resource's own switch override its old group switch", () => {
+    expect(normalizeAutoSettlePrefs({ towns: false, food: false, strategic: false, luxury: false, TITANIUM: true })).toEqual({ answered: true, ...only("TITANIUM"), ...off });
   });
   it("preserves an unanswered new-player value", () => {
     expect(normalizeAutoSettlePrefs({ ...NEW_PLAYER_AUTO_SETTLE_PREFS })).toEqual(NEW_PLAYER_AUTO_SETTLE_PREFS);
+  });
+});
+
+describe("auto-improve prefs", () => {
+  it("maps each improvable resource to its improvement, and fish to none", () => {
+    expect(autoImproveStructureForResource("TITANIUM")).toBe("MINE");
+    expect(autoImproveStructureForResource("GEMS")).toBe("MINE");
+    expect(autoImproveStructureForResource("FARM")).toBe("HYDROGARDEN");
+    expect(autoImproveStructureForResource("PRECURSOR_SALVAGE")).toBe("RECLAMATION_WORKS");
+    expect(autoImproveStructureForResource("FISH")).toBeUndefined();
+  });
+  it("is off for stored prefs that predate it, and reads the switches when present", () => {
+    expect(normalizeAutoSettlePrefs({ answered: true, ...only("towns") }).improve).toEqual(NO_AUTO_IMPROVE);
+    expect(normalizeAutoSettlePrefs({ answered: true, ...only("towns"), improve: { TITANIUM: true } }).improve).toEqual({ ...NO_AUTO_IMPROVE, TITANIUM: true });
+    expect(parseAutoImprovePrefs({ TITANIUM: "yes" })).toBeUndefined();
+  });
+});
+
+describe("autoSettlePrefsForOutput", () => {
+  it("adds food/strategic/luxury group switches that are on only when every resource in the group is", () => {
+    const out = autoSettlePrefsForOutput({ answered: true, ...only("towns", "FARM", "FISH", "TITANIUM"), ...off });
+    expect(out).toMatchObject({ food: true, strategic: false, luxury: false, TITANIUM: true });
+  });
+  it("keeps an opted-out player opted out for a reader from before the per-resource split (no all-on fallback)", () => {
+    const out = autoSettlePrefsForOutput({ ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true });
+    // The old reader required towns + food + strategic/luxury booleans and fell back to all-on otherwise.
+    const legacyRead = { towns: out.towns, food: out.food, strategic: out.strategic, luxury: out.luxury };
+    expect(legacyRead).toEqual({ towns: false, food: false, strategic: false, luxury: false });
+  });
+  it("round-trips: per-resource keys win over the added group keys", () => {
+    const prefs = { answered: true, ...only("TITANIUM"), ...off };
+    expect(normalizeAutoSettlePrefs(autoSettlePrefsForOutput(prefs))).toEqual(prefs);
+  });
+});
+
+describe("autoSettlePrefsCommandPayload", () => {
+  it("forwards every per-resource switch and any legacy grouped ones, dropping the message type", () => {
+    expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", ...only("TITANIUM") })).toEqual(only("TITANIUM"));
+    expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", towns: true, food: false, resources: true })).toEqual({ towns: true, food: false, resources: true });
+    // Forwarded as sent, so the sim changes only the named switches.
+    expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", ...only(), improve: { TITANIUM: true } })).toEqual({ ...only(), improve: { TITANIUM: true } });
   });
 });
 

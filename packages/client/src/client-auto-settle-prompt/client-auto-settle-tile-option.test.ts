@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AUTO_SETTLE_CATEGORIES, NO_AUTO_IMPROVE, type AutoSettleCategory, type AutoImprovePrefs } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { loadedAutoSettleState } from "./client-auto-settle-prefs.js";
@@ -9,6 +10,10 @@ import {
   installAutoSettleTileOptionBinding,
   settleOutcomeText
 } from "./client-auto-settle-tile-option.js";
+
+const switches = (...on: AutoSettleCategory[]): Record<AutoSettleCategory, boolean> =>
+  Object.fromEntries(AUTO_SETTLE_CATEGORIES.map((category) => [category, on.includes(category)])) as Record<AutoSettleCategory, boolean>;
+const only = (...on: AutoSettleCategory[]): Record<AutoSettleCategory, boolean> & { improve: AutoImprovePrefs } => ({ ...switches(...on), improve: { ...NO_AUTO_IMPROVE } });
 
 const tile = (extra: Partial<Tile>): Tile => ({ x: 5, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", ...extra }) as Tile;
 
@@ -40,41 +45,54 @@ describe("auto-settle checkbox", () => {
     (document as { __autoSettleTileOptionBound?: boolean }).__autoSettleTileOptionBound = false;
   });
 
-  it("is hidden until prefs load, then reflects the tile's category", () => {
+  it("is hidden until prefs load, then reflects the tile's own resource", () => {
     const state = createInitialState();
     expect(autoSettleOptionForTile(state, tile({ resource: "FARM" }))).toBeUndefined();
-    state.autoSettle = loadedAutoSettleState({ answered: true, towns: false, food: true, strategic: false, luxury: false });
-    expect(autoSettleOptionForTile(state, tile({ resource: "FARM" }))).toMatchObject({ category: "food", checked: true });
-    expect(autoSettleOptionForTile(state, tile({ resource: "GEMS" }))).toMatchObject({ category: "strategic", checked: false });
+    state.autoSettle = loadedAutoSettleState({ answered: true, ...only("FARM", "TITANIUM") });
+    expect(autoSettleOptionForTile(state, tile({ resource: "FARM" }))).toMatchObject({ category: "FARM", checked: true });
+    expect(autoSettleOptionForTile(state, tile({ resource: "TITANIUM" }))).toMatchObject({ category: "TITANIUM", checked: true, label: "Garrison titanium tiles automatically from now on" });
+    expect(autoSettleOptionForTile(state, tile({ resource: "GEMS" }))).toMatchObject({ category: "GEMS", checked: false });
+    expect(autoSettleOptionForTile(state, tile({ resource: "PRECURSOR_SALVAGE" }))).toMatchObject({
+      category: "PRECURSOR_SALVAGE", checked: false, label: "Garrison precursor salvage tiles automatically from now on"
+    });
     expect(autoSettleOptionForTile(state, tile({ dockId: "d" }))).toMatchObject({ category: "towns", checked: false });
   });
 
   it("is not offered on a natural wonder (it would fall into the towns setting)", () => {
     const state = createInitialState();
-    state.autoSettle = loadedAutoSettleState({ answered: true, towns: true, food: true, strategic: true, luxury: true });
+    state.autoSettle = loadedAutoSettleState({ answered: true, ...only(...AUTO_SETTLE_CATEGORIES) });
     expect(autoSettleOptionForTile(state, tile({ naturalWonder: { type: "QUICKFORGE" } }))).toBeUndefined();
   });
 
-  it("toggling sends all four prefs with only that category changed", () => {
+  it("toggling sends every switch with only that tile's resource changed", () => {
     const state = createInitialState();
-    state.autoSettle = loadedAutoSettleState({ answered: false, towns: false, food: true, strategic: false, luxury: false });
+    state.autoSettle = loadedAutoSettleState({ answered: false, ...only("FARM") });
     const send = vi.fn(() => true);
     installAutoSettleTileOptionBinding(state, send);
-    document.body.innerHTML = autoSettleOptionHtml(autoSettleOptionForTile(state, tile({ dockId: "d" }))!);
+    document.body.innerHTML = autoSettleOptionHtml(autoSettleOptionForTile(state, tile({ resource: "PRECURSOR_SALVAGE" }))!);
     const box = document.querySelector<HTMLInputElement>("[data-tile-auto-settle]")!;
     box.click();
-    expect(send).toHaveBeenCalledWith({ type: "SET_AUTO_SETTLE_PREFS", towns: true, food: true, strategic: false, luxury: false });
-    expect(state.autoSettle).toEqual(loadedAutoSettleState({ answered: true, towns: true, food: true, strategic: false, luxury: false }));
+    expect(send).toHaveBeenCalledWith({ type: "SET_AUTO_SETTLE_PREFS", ...switches("FARM", "PRECURSOR_SALVAGE") });
+    expect(state.autoSettle).toEqual(loadedAutoSettleState({ answered: true, ...only("FARM", "PRECURSOR_SALVAGE") }));
+  });
+
+  it("keeps the auto-improve switches when toggling a garrison switch", () => {
+    const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ answered: true, ...only(), improve: { ...NO_AUTO_IMPROVE, TITANIUM: true } });
+    installAutoSettleTileOptionBinding(state, () => true);
+    document.body.innerHTML = autoSettleOptionHtml(autoSettleOptionForTile(state, tile({ resource: "FARM" }))!);
+    document.querySelector<HTMLInputElement>("[data-tile-auto-settle]")!.click();
+    expect(state.autoSettle.status === "loaded" && state.autoSettle.prefs.improve.TITANIUM).toBe(true);
   });
 
   it("un-ticks itself when the message could not be sent", () => {
     const state = createInitialState();
-    state.autoSettle = loadedAutoSettleState({ answered: true, towns: false, food: false, strategic: false, luxury: false });
+    state.autoSettle = loadedAutoSettleState({ answered: true, ...only() });
     installAutoSettleTileOptionBinding(state, () => false);
     document.body.innerHTML = autoSettleOptionHtml(autoSettleOptionForTile(state, tile({ resource: "FARM" }))!);
     const box = document.querySelector<HTMLInputElement>("[data-tile-auto-settle]")!;
     box.click();
     expect(box.checked).toBe(false);
-    expect(state.autoSettle).toEqual(loadedAutoSettleState({ answered: true, towns: false, food: false, strategic: false, luxury: false }));
+    expect(state.autoSettle).toEqual(loadedAutoSettleState({ answered: true, ...only() }));
   });
 });

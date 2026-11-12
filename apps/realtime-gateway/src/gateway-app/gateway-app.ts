@@ -8,7 +8,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { isChosenTrickleResource } from "@border-empires/shared";
+import { autoSettlePrefsCommandPayload, isChosenTrickleResource } from "@border-empires/shared";
 import { ClientMessageSchema, upgradeLegacyStructureNames } from "@border-empires/shared";
 import type { DurableCommandType } from "@border-empires/client-protocol";
 import { preSerializeBroadcast, sendJsonToSocket } from "../broadcast-payload/broadcast-payload.js";
@@ -2554,7 +2554,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "NAME_ISLAND") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y, ...(message.type === "NAME_ISLAND" ? { name: message.name } : {}) }, true);
           } else if (message.type === "SET_AUTO_SETTLE_PREFS") {
-            await dispatchDurableCommand("SET_AUTO_SETTLE_PREFS", { towns: message.towns, food: message.food, strategic: message.strategic, luxury: message.luxury, resources: message.resources });
+            await dispatchDurableCommand("SET_AUTO_SETTLE_PREFS", autoSettlePrefsCommandPayload(message));
           } else if (isDevQueueWaypointMessageType(message.type)) {
             await dispatchDurableCommand(message.type, devQueueWaypointCommandPayload(message));
           } else if (message.type === "ATTACK" || message.type === "EXPAND") {
