@@ -28,14 +28,14 @@ const renderedPieces = (scene: Scene): number =>
   instancedMeshes(scene).reduce((total, mesh) => total + mesh.count, 0);
 
 describe("dock overlay", () => {
-  it("commits a fully assembled quay: pier, toll house, steam derrick, freight, harbour lamp and ferry", () => {
+  it("commits a fully assembled quay: marble quay, pier, lamp posts, control office, gantry crane, cell bank, containers, beacon and troop carrier", () => {
     const scene = new Scene();
     const overlay = createDockOverlay(scene, 100);
 
     overlay.addInstance(0, 0, 0, 0, 0, 0);
     overlay.commit();
 
-    // A change that drops a part (say the ferry's funnel or the hoisted crate)
+    // A change that drops a part (say the carrier's mast or the hoisted container)
     // changes this total and must be reviewed here.
     expect(renderedPieces(scene)).toBe(QUAY_PARTS.length);
     expect(instancedMeshes(scene)).toHaveLength(SLOTS);
@@ -147,27 +147,27 @@ describe("dock overlay", () => {
     // multiply by the outer rotation matrix, so positions rotated twice while
     // orientations rotated once — every dock that faced a non-zero direction
     // came out garbled (only the unrotated Row/FacingSouth docks looked right).
-    // The toll house door is the first dark-timber instance of a lone quay,
-    // at model (-0.24, 0.15, -0.115); under a clean rotationY it must land at
+    // The toll house door is the second iron-edge instance of a lone quay
+    // (after the quay's sea-edge cap), at model (-0.24, 0.15, -0.117); under a clean rotationY it must land at
     // centerX/centerZ + RY(rot) * that local offset. centerX/centerZ must NOT
     // themselves be rotated: they are the tile's own world position.
     const doorPosition = (scene: Scene, centerX: number, centerZ: number, rotationY: number): number[] => {
       const overlay = createDockOverlay(scene, 100);
       overlay.addInstance(centerX, centerZ, 0, rotationY, 0, 0);
       overlay.commit();
-      const door = instancedMeshes(scene).find((mesh) => mesh.name === "dock-7")!;
+      const door = instancedMeshes(scene).find((mesh) => mesh.name === "dock-1")!;
       const matrix = new Matrix4();
-      door.getMatrixAt(0, matrix);
+      door.getMatrixAt(1, matrix);
       overlay.dispose();
       return [matrix.elements[12]!, matrix.elements[13]!, matrix.elements[14]!];
     };
 
     // RY(90deg) faces the quay east: local (x, z) -> (z, -x), so the door at the back lands on the inland (west) side.
-    expect(doorPosition(new Scene(), 0, 0, Math.PI / 2).map((v) => Math.round(v * 1000))).toEqual([-115, 150, 240]);
+    expect(doorPosition(new Scene(), 0, 0, Math.PI / 2).map((v) => Math.round(v * 1000))).toEqual([-117, 150, 240]);
     // RY(180deg): (x, z) -> (-x, -z)
-    expect(doorPosition(new Scene(), 0, 0, Math.PI).map((v) => Math.round(v * 1000))).toEqual([240, 150, 115]);
+    expect(doorPosition(new Scene(), 0, 0, Math.PI).map((v) => Math.round(v * 1000))).toEqual([240, 150, 117]);
     // Off-centre tile: only the local offset rotates; the centre translates untouched.
-    expect(doorPosition(new Scene(), 10, -4, Math.PI / 2).map((v) => Math.round(v * 1000))).toEqual([9885, 150, -3760]);
+    expect(doorPosition(new Scene(), 10, -4, Math.PI / 2).map((v) => Math.round(v * 1000))).toEqual([9883, 150, -3760]);
   });
 
   it("re-uploads the used range on every commit so a swapped dock is never stale", () => {

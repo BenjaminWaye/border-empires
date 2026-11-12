@@ -3,8 +3,8 @@ import { slipwayPlacementsFor, type SlipwayPlacement } from "./client-harbour-sl
 
 // 2D canvas counterpart of the true-3D landing slipways
 // (client-map-3d-harbour/client-map-3d-harbour-parts.ts): on each beach of a
-// dock's landing ground, a timber ramp running into the water with iron rails
-// and a landing barge hauled up it. Shrunk to the waterline beside another
+// dock's landing ground, an iron-plated ramp running into the water with brass
+// rails and a landing barge hauled up it. Shrunk to the waterline beside another
 // structure, like the 3D one; placement is shared (client-harbour-slipways.ts).
 
 export type Slipway2DDeps = {
@@ -16,10 +16,12 @@ export type Slipway2DDeps = {
   readonly tileVisible: (x: number, y: number) => boolean;
 };
 
-const RAMP = "#7c5a39";
-const RAIL = "#2a2826";
-const HULL = "#5a2f26";
-const CABIN = "#b9a98a";
+// The 3D slipway's palette (TOWN_COLORS via client-map-3d-dock-overlay.ts):
+// graphite ramp plating, brass rails, an iron barge and a grey wheelhouse.
+const RAMP = "#4a4d53";
+const RAIL = "#8b6c3d";
+const HULL = "#25282e";
+const CABIN = "#5d6066";
 // Matches SHRUNK_SLIPWAY_SCALE / SHRUNK_SLIPWAY_SEAWARD_OFFSET in the 3D part tables.
 const SHRUNK_SCALE = 0.6;
 const SHRUNK_OFFSET = 0.32;

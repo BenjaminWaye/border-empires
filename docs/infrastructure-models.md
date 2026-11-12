@@ -48,3 +48,22 @@ Regression coverage includes resource identity, exact SVG agreement, menu crops,
 construction gates, disabled-state animation, bounded draw calls, triangle and
 upload budgets, disposal and the Umbrite platform. Keep both 2D canvas assets
 and true-3D models in agreement whenever any of these models changes.
+
+## Harbour (dock quay and landing slipways)
+
+The dock tile's quay and the slipways on its landing ground are not a built
+structure, but they are drawn in the same palette as the models above
+(`TOWN_COLORS`): a black-and-gold marble quay on a charcoal course with a
+brass inlay (the marble finish shared with town plinths), lamp posts along
+the sea edge, a glazed control office with a sensor mast, an iron-plated
+pier, a powered gantry crane with cyan status strips and its cell bank,
+sealed containers and an armoured troop carrier. Part tables
+live in `client-map-3d-harbour/client-map-3d-harbour-parts.ts`; the capture
+fire (`client-wreck-models/dock-fire-model.ts`) burns on the same layout.
+
+The 2D sprites `dock-overlay-{1,2,3}.svg` are flat projections of the
+production quay (`client-map-3d-harbour/harbour-overlay-svg.ts`, shared
+projector `client-structure-info-catalog/mesh-projection-svg.ts`). Regenerate
+with `node scripts/generate-dock-overlay-icons.mjs` after changing the parts
+and bump `overlayAssetVersion`; a regression test fails while they disagree.
+The 2D slipway glyph (`client-harbour-slipways-2d.ts`) uses the same colours.

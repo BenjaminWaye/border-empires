@@ -245,7 +245,7 @@ const flame = (ctx: Ctx, x: number, y: number, size: number, now: number, i: num
   }
 };
 
-/** A captured dock ablaze: its buildings, freight, pier and ferry burning. */
+/** A captured dock ablaze: its buildings, containers, pier and moored carrier burning. */
 const dockFire = (ctx: Ctx, seed: number, px: number, py: number, s: number, now: number): void => {
   scorch(ctx, px + s * 0.5, py + s * 0.55, s * 0.32, 0.6);
   const spots: ReadonlyArray<readonly [number, number, number]> = [[0.3, 0.38, 0.07], [0.42, 0.34, 0.05], [0.55, 0.55, 0.06], [0.7, 0.66, 0.05], [0.36, 0.72, 0.055]];

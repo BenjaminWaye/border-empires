@@ -1,7 +1,6 @@
 import {
   BoxGeometry,
   type BufferGeometry,
-  ConeGeometry,
   CylinderGeometry,
   Euler,
   Group,
@@ -14,6 +13,8 @@ import {
 } from "three";
 import type { SlipwayFit } from "./client-harbour-slipways/client-harbour-slipways.js";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import { applyMarbleFinish } from "./client-map-3d-muster-banner/muster-banner-marble-material.js";
+import { TOWN_COLORS } from "./client-map-3d-town-overlay/town-mesh-builder.js";
 import {
   HARBOUR_SLOT_LOOKS,
   type HarbourPart,
@@ -29,6 +30,7 @@ import {
 // packages/shared dock-landing). Part tables and the lore behind the look live
 // in client-map-3d-harbour/client-map-3d-harbour-parts.ts. Everything is
 // modelled facing +z (the sea) and rotated at render time toward the water.
+
 
 export type DockOverlay = {
   readonly group: Group;
@@ -61,30 +63,38 @@ const QUAY_PER_SLOT = countBySlot(QUAY_PARTS);
 const SLIPWAY_PER_SLOT = countBySlot(SLIPWAY_PARTS);
 const SHRUNK_SLIPWAY_PARTS = SLIPWAY_PARTS.filter((piece) => piece.core);
 
-const createGeometry = (shape: HarbourShape): BufferGeometry => {
-  if (shape === "box") return new BoxGeometry(1, 1, 1);
-  if (shape === "cylinder") return new CylinderGeometry(0.5, 0.5, 1, 10);
-  if (shape === "cone") return new ConeGeometry(0.5, 1, 8);
-  // Square pyramid with a 1x1 base: a 4-sided cone turned so its edges line up with the axes.
-  return new ConeGeometry(Math.SQRT1_2, 1, 4).rotateY(Math.PI / 4);
-};
+const createGeometry = (shape: HarbourShape): BufferGeometry =>
+  shape === "box" ? new BoxGeometry(1, 1, 1) : new CylinderGeometry(0.5, 0.5, 1, 10);
 
+// Ledges (in the unit box's frame) the marble walls rise from: see applyMarbleFinish.
+const MARBLE_LEDGES = [-0.5] as const;
+
+// The shared structure palette (TOWN_COLORS): stone and metal read like the
+// towns, refineries and Harbor Exchange; metals use the town overlay's metallic finish.
 const createMaterials = (): Record<string, MeshStandardMaterial> => {
   const flat = (color: string, roughness: number, metalness = 0) => new MeshStandardMaterial({ color, roughness, metalness, flatShading: true });
+  const metal = (color: string) => flat(color, 0.45, 0.7);
+  const marble = (color: string) => {
+    const material = flat(color, 0.22);
+    applyMarbleFinish(material, MARBLE_LEDGES);
+    return material;
+  };
   return {
-    stone: flat("#7d776d", 0.95),
-    iron: flat("#2a2826", 0.7, 0.5),
-    boilerIron: flat("#3b3530", 0.6, 0.55),
-    deck: flat("#7c5a39", 0.9),
-    darkTimber: flat("#4a3524", 0.92),
-    plaster: flat("#b9a98a", 0.9),
-    slate: flat("#3e4650", 0.85, 0.1),
-    brass: flat("#8a7442", 0.42, 0.85),
-    crate: flat("#8a6a45", 0.84),
-    barrel: flat("#7a553a", 0.86),
-    coal: flat("#1c1b1a", 1),
-    hull: flat("#5a2f26", 0.75, 0.25),
-    lampGlow: new MeshStandardMaterial({ color: "#ff9a3c", roughness: 0.4, flatShading: true, emissive: "#ff6a1c", emissiveIntensity: 0.9 })
+    // The marble shader picks black-and-gold for dark base colours and charcoal for light ones;
+    // the base colour is what the flat 2D projection (harbour-overlay-svg.ts) draws.
+    blackMarble: marble("#26272b"),
+    charcoalMarble: marble(TOWN_COLORS.stoneLight),
+    stone: flat(TOWN_COLORS.stoneDark, 0.82, 0.02),
+    plate: flat(TOWN_COLORS.graphite, 0.6, 0.35),
+    iron: metal(TOWN_COLORS.iron),
+    ironDark: metal(TOWN_COLORS.ironDark),
+    brass: metal(TOWN_COLORS.brass),
+    brassDark: metal(TOWN_COLORS.brassDark),
+    crate: flat(TOWN_COLORS.graphite, 0.6, 0.4),
+    hull: flat("#2f3238", 0.55, 0.55),
+    glass: flat(TOWN_COLORS.glassLight, 0.2, 0.85),
+    status: new MeshStandardMaterial({ color: TOWN_COLORS.aether, roughness: 0.4, flatShading: true, emissive: "#3fd8ff", emissiveIntensity: 1.1 }),
+    lampGlow: new MeshStandardMaterial({ color: TOWN_COLORS.lampWarm, roughness: 0.4, flatShading: true, emissive: "#ff9a3c", emissiveIntensity: 1 })
   };
 };
 
