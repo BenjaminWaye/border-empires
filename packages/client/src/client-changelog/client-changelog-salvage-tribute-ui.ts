@@ -12,5 +12,12 @@ export const SALVAGE_TRIBUTE_UI_CHANGELOG: ClientChangelogEntry[] = [
       "Each of your working salvage fields shows a toast on the map; tap it to ship",
       "An emptied salvage field disappears from the map straight away"
     ]
+  },
+  {
+    createdAt: 1794434646470, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.11",
+    title: "Emptied salvage fields stay gone",
+    why: "After the last salvage load the Reclamation Works vanished but the salvage field stayed on the map, even after a reload.",
+    changes: ["An emptied or ruined salvage field disappears from the map and stays gone after reloads and server restarts"]
   }
 ];

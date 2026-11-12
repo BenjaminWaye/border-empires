@@ -29,6 +29,14 @@ describe("snapshot compaction keeps runtime-mutated tile state across a restart"
     expect(tile?.watchtower).toEqual(activated);
   });
 
+  it("keeps a depleted salvage field depleted (regression: restart regenerated the worldgen resource)", async () => {
+    const baseline: RecoveredTile[] = [{ x: 0, y: 0, terrain: "LAND", resource: "PRECURSOR_SALVAGE" }];
+    const [tile] = await restart(baseline, [{ x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }]);
+    expect(tile?.resource).toBeUndefined();
+    const [untouched] = await restart(baseline, [{ ...baseline[0]!, ownerId: "player-1", ownershipState: "SETTLED" }]);
+    expect(untouched?.resource).toBe("PRECURSOR_SALVAGE");
+  });
+
   it("keeps muster flags and frontier decay timers", async () => {
     const baseline: RecoveredTile[] = [{ x: 0, y: 0, terrain: "LAND" }];
     const muster = { ownerId: "player-1", amount: 250, mode: "HOLD" as const, updatedAt: 1_000 };

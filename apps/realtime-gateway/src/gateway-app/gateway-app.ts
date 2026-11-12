@@ -684,7 +684,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       .then((result) => {
         let updatedSnapshot: PlayerSubscriptionSnapshot | undefined;
         playerSubscriptions.updateSnapshot(playerId, (snapshot) => {
-          const merged = mergeTileDetailIntoSnapshot(snapshot, result.tiles, result.upkeepLastTick);
+          const merged = mergeTileDetailIntoSnapshot(snapshot, result.tiles, result.upkeepLastTick, playerId);
           updatedSnapshot = merged;
           return merged;
         });

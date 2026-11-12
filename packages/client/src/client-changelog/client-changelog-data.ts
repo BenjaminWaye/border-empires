@@ -5,10 +5,9 @@ import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-na
 import { RELIC_REVEAL_ENTRY } from "./client-changelog-relic-reveal.js";
 import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
 import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
-import { FORT_SIEGE_TIER_PICKER_ENTRY } from "./client-changelog-fort-siege-tiers.js";
-import { AFC_CAPTURE_NO_DROP_ENTRY } from "./client-changelog-afc-capture-no-drop.js";
-import { AUTO_GARRISON_PER_RESOURCE_ENTRY } from "./client-changelog-auto-garrison-per-resource.js";
-import { AUTO_IMPROVE_ENTRY } from "./client-changelog-auto-improve.js";
+import { WAYSTATION_LANDING_CLEAR_ENTRY } from "./client-changelog-waystation-landing-clear.js";
+import { AUTO_RESOURCE_SWITCHES_CHANGELOG } from "./client-changelog-auto-resource-switches.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { NEXT_CONTEST_STARTING_ENTRY } from "./client-changelog-next-contest.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -86,6 +85,7 @@ import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
 import { MAP_LENS_CHANGELOG, MINIMAP_WORLD_EDGE_ENTRY, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
 import { PLACE_FEEDBACK_ENTRY } from "./client-changelog-place-feedback.js";
+import { AETHER_PURGE_RAZES_BEACON_ENTRY } from "./client-changelog-aether-purge-razes-beacon.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
@@ -489,12 +489,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...PLANETARY_DEFENSE_HUNT_REACH_ENTRY, createdAt: 1794439081730, },
   { ...NATIVE_SOCIAL_SIGN_IN_ENTRY, createdAt: 1794288128417, },
   { ...MUSTER_DOCK_TRANSPORT_ENTRY, createdAt: 1794353510194, },
+  { ...WAYSTATION_LANDING_CLEAR_ENTRY, createdAt: 1794433771738, },
   { ...CAMERA_PER_ACCOUNT_ENTRY, createdAt: 1794432604008, },
   { ...PLACE_FEEDBACK_ENTRY, createdAt: 1794410576432, },
-  { ...FORT_SIEGE_TIER_PICKER_ENTRY, createdAt: 1794418877252, },
-  { ...AFC_CAPTURE_NO_DROP_ENTRY, createdAt: 1794437873725, },
-  { ...AUTO_GARRISON_PER_RESOURCE_ENTRY, createdAt: 1794472982258, },
-  { ...AUTO_IMPROVE_ENTRY, createdAt: 1794477276494, },
+  { ...AETHER_PURGE_RAZES_BEACON_ENTRY, createdAt: 1794436718206, },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_113,
+  ...AUTO_RESOURCE_SWITCHES_CHANGELOG,
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

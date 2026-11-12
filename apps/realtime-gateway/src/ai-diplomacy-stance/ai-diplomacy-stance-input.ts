@@ -97,6 +97,18 @@ export const hasOtherExpansionInTiles = (tiles: readonly SnapshotTile[], aiPlaye
 };
 
 /**
+ * Manpower a player's next payout adds. Prefers the simulation's own figure:
+ * it stops accruing while at cap and settles the bank at the current rate.
+ * Without it, assume a full window of regen, capped by room under the cap
+ * (an overestimate after time at cap).
+ */
+const nextRefillOf = (player: NonNullable<AiDiplomacySnapshot["player"]>, manpowerCap: number): number | undefined =>
+  player.nextManpowerBatchAmount ??
+  (player.manpowerRegenPerMinute !== undefined
+    ? Math.max(0, Math.min(manpowerCap - player.manpower, manpowerPerBatch(player.manpowerRegenPerMinute)))
+    : undefined);
+
+/**
  * undefined when the AI snapshot carries no player block: with no manpower
  * reading at all there is nothing to judge, and the caller declines rather
  * than inventing numbers.
@@ -119,13 +131,8 @@ export const buildAiDiplomacyStanceInput = (input: {
   const manpowerCap = aiPlayer.manpowerCap > 0 ? aiPlayer.manpowerCap : MANPOWER_BASE_CAP;
   const hasOtherExpansion = hasOtherExpansionInTiles(tiles, input.aiPlayerId);
   const requesterPlayer = input.requesterSnapshot?.player;
-  // Prefer the simulation's own figure: it stops accruing while at cap and
-  // settles the bank at the current rate. Without it, assume a full window of
-  // regen, capped by room under the cap (an overestimate after time at cap).
-  const nextRefillManpower = aiPlayer.nextManpowerBatchAmount ??
-    (aiPlayer.manpowerRegenPerMinute !== undefined
-      ? Math.max(0, Math.min(manpowerCap - aiPlayer.manpower, manpowerPerBatch(aiPlayer.manpowerRegenPerMinute)))
-      : undefined);
+  const nextRefillManpower = nextRefillOf(aiPlayer, manpowerCap);
+  const requesterRefill = requesterPlayer ? nextRefillOf(requesterPlayer, requesterPlayer.manpowerCap > 0 ? requesterPlayer.manpowerCap : MANPOWER_BASE_CAP) : undefined;
   return {
     aiName: input.aiName,
     ai: {
@@ -146,6 +153,10 @@ export const buildAiDiplomacyStanceInput = (input: {
       manpowerCap: requesterPlayer?.manpowerCap,
       ...(requesterPlayer && input.requesterSnapshot
         ? { fightingStrength: requesterPlayer.manpower + musterManpowerFromTiles(input.requesterSnapshot.tiles, input.requesterId) }
+        : {}),
+      // Refill offsets are a pure function of the player id, so the AI knows when its rival reloads too.
+      ...(input.now !== undefined && requesterRefill !== undefined
+        ? { nextRefillInMs: nextManpowerRefillAtMs(input.requesterId, input.now) - input.now, nextRefillManpower: requesterRefill }
         : {})
     },
     bordersTouch: bordersTouchInTiles(tiles, input.aiPlayerId, input.requesterId),
