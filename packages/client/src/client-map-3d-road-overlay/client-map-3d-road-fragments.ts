@@ -1,9 +1,11 @@
-export type RoadOverlayStyle = "dirt" | "brick";
+import { buildTransitRoadFragment } from "./client-map-3d-road-transit-fragment.js";
+
+export type RoadOverlayStyle = "transit" | "dirt" | "brick";
 
 export const ROAD_WIDTH = 0.12;
 
 // The old cobblestone surface, preserved so Storybook can keep showing the
-// original paved-town look while the game ships the dirt style.
+// original paved-town look while the game ships the transit style.
 export const BRICK_FRAGMENT = `
 precision highp float;
 varying vec2 vUv;
@@ -225,5 +227,9 @@ void main() {
 }
 `;
 
+// Sci-fi transit lane — what the game ships. Dirt and brick stay selectable in
+// Storybook for comparison.
+export const TRANSIT_FRAGMENT = buildTransitRoadFragment(ROAD_WIDTH);
+
 export const buildRoadFragmentShader = (style: RoadOverlayStyle): string =>
-  style === "brick" ? BRICK_FRAGMENT : DIRT_FRAGMENT;
+  style === "brick" ? BRICK_FRAGMENT : style === "dirt" ? DIRT_FRAGMENT : TRANSIT_FRAGMENT;

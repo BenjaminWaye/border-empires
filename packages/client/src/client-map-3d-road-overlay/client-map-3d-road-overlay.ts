@@ -40,6 +40,7 @@ const HUB_CENTER_LIFT = Y_LIFT + 0.01;
 const CURVE_SAMPLES = 12;
 const ARM_SAMPLES = 7;
 const HUB_SEGMENTS = 16;
+const ROAD_TIME_WRAP_SECONDS = 3600;
 
 const ROAD_DIRS: readonly RoadDir[] = [
   "north", "northeast", "east", "southeast",
@@ -203,7 +204,7 @@ const addRibbonGeometry = (
   }
 };
 
-export const createRoadOverlay = (scene: Scene, style: RoadOverlayStyle = "dirt"): RoadOverlay => {
+export const createRoadOverlay = (scene: Scene, style: RoadOverlayStyle = "transit"): RoadOverlay => {
   const group = new Group();
   group.name = "road-overlay";
 
@@ -231,6 +232,8 @@ export const createRoadOverlay = (scene: Scene, style: RoadOverlayStyle = "dirt"
   const material = new ShaderMaterial({
     vertexShader,
     fragmentShader: buildRoadFragmentShader(style),
+    // Drives the transit style's slow light pulse; ignored by dirt/brick.
+    uniforms: { uTime: { value: 0 } },
     transparent: true,
     depthWrite: true,
     side: DoubleSide,
@@ -242,6 +245,11 @@ export const createRoadOverlay = (scene: Scene, style: RoadOverlayStyle = "dirt"
   const mesh = new Mesh(geometry, material);
   mesh.renderOrder = 25;
   mesh.frustumCulled = false;
+  // Time lives in a uniform updated per draw, never in the geometry rebuild
+  // (which also fires on camera pan) — so panning doesn't restart the pulse.
+  mesh.onBeforeRender = () => {
+    material.uniforms.uTime!.value = (performance.now() / 1000) % ROAD_TIME_WRAP_SECONDS;
+  };
   group.add(mesh);
   scene.add(group);
 
