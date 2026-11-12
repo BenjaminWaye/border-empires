@@ -364,7 +364,7 @@ and one that fires the instant a modal closes is missed.
 
 #### When it plays: the "eyes on the map" gate
 
-The drop is *armed* as soon as the viewer's own freshly activated home AFC is seen (from `INIT`, a chunk or a delta alike) and *started* only when the gate is open.
+The drop is *armed* as soon as the viewer's own freshly activated home AFC is seen (from `INIT`, a chunk or a delta alike) and *started* only when the gate is open. A captured AFC (`afc.capturedAt` set) is never armed: it was already on the ground.
 The gate is a single shared predicate, `isMapUnobstructed(state)`, in
 its own small module. It reuses the exact set of blockers that
 `shouldShowRendererPrompt` (`client-runtime-loop.ts`) already checks, so

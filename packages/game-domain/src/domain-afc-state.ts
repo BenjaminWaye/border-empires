@@ -10,7 +10,7 @@ export type DomainAfcState = {
    * owner's reach, see AFC_LANDING_GUARANTEED_REACH_RADIUS.
    */
   landedAt?: number | undefined;
-  /** Set when the AFC changes hands by capture (capturedAfc); the client skips the landing drop for it. */
+  /** Set whenever an existing AFC gets a new owner via capturedAfc (combat capture or reclaiming an abandoned tile); the client skips the landing drop for it. */
   capturedAt?: number | undefined;
   modules?: string[] | undefined;
   houseModules?: string[] | undefined;
