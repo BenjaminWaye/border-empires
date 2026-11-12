@@ -146,9 +146,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     structureType: z.enum([
-      "RESIN_EXTRACTOR",
-      "IMPLANT_FOUNDRY",
-      "CATALYST_REFINERY",
       "CULTIVATION_ESTATE",
       "RECLAMATION_WORKS",
       "HYDROGARDEN",

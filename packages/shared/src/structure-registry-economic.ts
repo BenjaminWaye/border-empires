@@ -27,9 +27,6 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   HYDROWORKS: "irrigation",
   UMBRITE_RIG: "leatherworking",
   MINE: "mining",
-  RESIN_EXTRACTOR: "neural-resin-processing",
-  IMPLANT_FOUNDRY: "organized-supply",
-  CATALYST_REFINERY: "frontier-concessions",
   CULTIVATION_ESTATE: "frontier-concessions",
   RECLAMATION_WORKS: "trade",
 
@@ -145,9 +142,6 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   HYDROWORKS: econSpec("HYDROWORKS"),
   UMBRITE_RIG: econSpec("UMBRITE_RIG"),
   MINE: econSpec("MINE"),
-  RESIN_EXTRACTOR: econSpec("RESIN_EXTRACTOR"),
-  IMPLANT_FOUNDRY: econSpec("IMPLANT_FOUNDRY"),
-  CATALYST_REFINERY: econSpec("CATALYST_REFINERY"),
   CULTIVATION_ESTATE: econSpec("CULTIVATION_ESTATE"),
   RECLAMATION_WORKS: econSpec("RECLAMATION_WORKS"),
 

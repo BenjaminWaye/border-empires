@@ -41,46 +41,16 @@ function fixture(developed: boolean, now: () => number, manpower = 0, techs: Set
 const player = (runtime: SimulationRuntime) => runtime.exportState().players.find(entry => entry.id === "p")!;
 
 describe("resource networks in the real runtime", () => {
-  it.each([[0, 0], [1, 0], [0, 2], [3, 1]])("adds 120 per refill for each material type with %i factories and %i depots", (factories, depots) => {
-    const baseline = fixture(false, () => boundary, 0, techIds, false, { factories, depots });
-    const developed = fixture(true, () => boundary, 0, techIds, false, { factories, depots });
-    const base = player(baseline), boosted = player(developed);
-    expect((boosted.manpowerRegenPerMinute! - base.manpowerRegenPerMinute!) * 240).toBeCloseTo(360);
-    expect(boosted.manpowerCap).toBe(base.manpowerCap);
-  });
-  it("pays the additional Ancillaries at the batch boundary and names them in the breakdown", () => {
-    let now = boundary;
-    const baseline=fixture(false,()=>now), developed=fixture(true,()=>now);
-    const boosted=player(developed);
-    expect(boosted.manpowerBreakdown?.regen.find(row => row.label === "Resin, conductive and catalyst")?.amount).toBeCloseTo(360/240);
-    player(baseline);
-    now += MANPOWER_REFILL_WINDOW_MS;
-    expect(player(developed).manpower! - player(baseline).manpower!).toBeCloseTo(360);
-  });
-  it("no longer pays Coin for biota, catalyst or salvage", () => {
+  it("no longer pays Coin for biota or salvage", () => {
     const now=boundary;
     const baseline=fixture(false,()=>now),developed=fixture(true,()=>now);
     baseline.applyPassiveIncome(now,Number.MAX_SAFE_INTEGER); developed.applyPassiveIncome(now,Number.MAX_SAFE_INTEGER);
     expect(player(developed).incomePerMinute).toBeCloseTo(player(baseline).incomePerMinute!, 6);
   });
-  it("settles the old rate when a developed site is lost halfway through a batch", async () => {
-    let now=boundary;
-    const baseline=fixture(false,()=>now),developed=fixture(true,()=>now);
-    player(baseline);player(developed);
-    now += MANPOWER_REFILL_WINDOW_MS/2;
-    for (const runtime of [baseline,developed]) {
-      const seen=collectEvents(runtime);
-      runtime.submitCommand({commandId:"abandon-resin",sessionId:"s",playerId:"p",clientSeq:1,issuedAt:now,type:"UNCAPTURE_TILE",payloadJson:JSON.stringify({x:20,y:20})});
-      await Promise.resolve();
-      expect(seen.filter(event=>event.eventType==="COMMAND_REJECTED")).toEqual([]);
-    }
-    now += MANPOWER_REFILL_WINDOW_MS/2;
-    expect(player(developed).manpower!-player(baseline).manpower!).toBeCloseTo(360/2 + 240/2);
-  });
-  it("reports every material and salvage site as working, and biota only when a large town needs it", () => {
+  it("reports every salvage site as working, and biota only when a large town needs it", () => {
     const status = (tier: "TOWN" | "CITY") => buildLivePlayerEconomySnapshot("p", fixture(true, () => boundary, 0, techIds, false, undefined, tier).exportState()).resourceSlots.bonusSupply!;
     for (const resource of NETWORK_RESOURCES) expect(status("TOWN").supply[resource]).toBe(1);
-    expect(status("TOWN").used).toMatchObject({ NEURAL_RESIN: 1, CONDUCTIVE_MINERALS: 1, CATALYTIC_DEPOSIT: 1, PRECURSOR_SALVAGE: 1, LUXURY_BIOTA: 0 });
+    expect(status("TOWN").used).toMatchObject({ PRECURSOR_SALVAGE: 1, LUXURY_BIOTA: 0 });
     expect(status("CITY").used.LUXURY_BIOTA).toBe(1);
   });
   it("an unruly Metropolis without biota gives Town manpower and shows the shortfall", () => {
@@ -105,26 +75,25 @@ describe("resource networks in the real runtime", () => {
     const after=player(recovered);
     expect(after.incomePerMinute).toBe(before.incomePerMinute);
     expect(after.manpowerRegenPerMinute).toBe(before.manpowerRegenPerMinute);
-    expect(initialState.tiles.filter(tile=>NETWORK_RESOURCES.some(resource=>resource===tile.resource))).toHaveLength(5);
+    expect(initialState.tiles.filter(tile=>NETWORK_RESOURCES.some(resource=>resource===tile.resource))).toHaveLength(2);
   });
   it("requires the resource technology and the matching site through the actual build command", async () => {
     let now=boundary;
     vi.useFakeTimers();
     const runtime=fixture(false,()=>now,500);
     const seen=collectEvents(runtime);
-    runtime.submitCommand({commandId:"build-resin",sessionId:"s",playerId:"p",clientSeq:1,issuedAt:now,type:"BUILD_ECONOMIC_STRUCTURE",payloadJson:JSON.stringify({x:20,y:20,structureType:"RESIN_EXTRACTOR"})});
+    runtime.submitCommand({commandId:"build-estate",sessionId:"s",playerId:"p",clientSeq:1,issuedAt:now,type:"BUILD_ECONOMIC_STRUCTURE",payloadJson:JSON.stringify({x:20,y:20,structureType:"CULTIVATION_ESTATE"})});
     await Promise.resolve();
     expect(seen.filter(event=>event.eventType==="COMMAND_REJECTED")).toEqual([]);
     const built=runtime.exportState().tiles.find(tile=>tile.x===20&&tile.y===20);
-    expect(JSON.parse(built!.economicStructureJson!)).toMatchObject({type:"RESIN_EXTRACTOR",status:"under_construction",completesAt:boundary+structureBuildDurationMs("RESIN_EXTRACTOR")});
-    const initialRate = player(runtime).manpowerRegenPerMinute!;
-    now += structureBuildDurationMs("RESIN_EXTRACTOR");
-    await vi.advanceTimersByTimeAsync(structureBuildDurationMs("RESIN_EXTRACTOR"));
-    expect((player(runtime).manpowerRegenPerMinute! - initialRate) * 240).toBeCloseTo(120);
+    expect(JSON.parse(built!.economicStructureJson!)).toMatchObject({type:"CULTIVATION_ESTATE",status:"under_construction",completesAt:boundary+structureBuildDurationMs("CULTIVATION_ESTATE")});
+    now += structureBuildDurationMs("CULTIVATION_ESTATE");
+    await vi.advanceTimersByTimeAsync(structureBuildDurationMs("CULTIVATION_ESTATE"));
+    expect(player(runtime).effectiveNetworkSupply?.LUXURY_BIOTA).toBe(1);
     vi.useRealTimers();
     const locked=fixture(false,()=>now,500,new Set());
     const rejected=collectEvents(locked);
-    locked.submitCommand({commandId:"locked-resin",sessionId:"s",playerId:"p",clientSeq:1,issuedAt:now,type:"BUILD_ECONOMIC_STRUCTURE",payloadJson:JSON.stringify({x:20,y:20,structureType:"RESIN_EXTRACTOR"})});
+    locked.submitCommand({commandId:"locked-estate",sessionId:"s",playerId:"p",clientSeq:1,issuedAt:now,type:"BUILD_ECONOMIC_STRUCTURE",payloadJson:JSON.stringify({x:20,y:20,structureType:"CULTIVATION_ESTATE"})});
     await Promise.resolve();
     expect(rejected.some(event=>event.eventType==="COMMAND_REJECTED")).toBe(true);
   });

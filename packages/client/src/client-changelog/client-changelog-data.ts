@@ -6,7 +6,7 @@ import { RELIC_REVEAL_ENTRY } from "./client-changelog-relic-reveal.js";
 import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
 import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
 import { WAYSTATION_LANDING_CLEAR_ENTRY } from "./client-changelog-waystation-landing-clear.js";
-import { AUTO_RESOURCE_SWITCHES_CHANGELOG } from "./client-changelog-auto-resource-switches.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { NEXT_CONTEST_STARTING_ENTRY } from "./client-changelog-next-contest.js";
@@ -494,7 +494,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...PLACE_FEEDBACK_ENTRY, createdAt: 1794410576432, },
   { ...AETHER_PURGE_RAZES_BEACON_ENTRY, createdAt: 1794436718206, },
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_113,
-  ...AUTO_RESOURCE_SWITCHES_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_114,
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

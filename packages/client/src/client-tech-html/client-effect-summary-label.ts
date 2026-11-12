@@ -5,9 +5,6 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockHydrogarden" && value === true) return `Unlocks Hydrogardens (+${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slot), and adds +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile`;
   if (key === "unlockUmbriteRig" && value === true) return "Unlocks umbrite rigs";
   if (key === "unlockMine" && value === true) return "Unlocks mines";
-  if (key === "unlockResinExtractor" && value === true) return "Unlocks Resin Extractor";
-  if (key === "unlockImplantFoundry" && value === true) return "Unlocks Implant Foundry";
-  if (key === "unlockCatalystRefinery" && value === true) return "Unlocks Catalyst Refinery";
   if (key === "unlockCultivationEstate" && value === true) return "Unlocks Cultivation Estate";
   if (key === "unlockReclamationWorks" && value === true) return "Unlocks Reclamation Works";
   if (key === "unlockManufactory" && value === true) return "Unlocks Manufactories";

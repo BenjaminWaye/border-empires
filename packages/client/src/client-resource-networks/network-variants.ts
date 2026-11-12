@@ -7,9 +7,6 @@ export const networkVariantForTile = (x: number, y: number): NetworkVariant =>
 export const networkDepositFilename = (resource: NetworkResource, variant: NetworkVariant): string =>
   `${resource.toLowerCase().replaceAll("_", "-")}-deposit${variant === 0 ? "" : `-${variant + 1}`}.svg`;
 export const NETWORK_VARIANT_NAMES: Readonly<Record<NetworkResource, readonly [string,string,string]>> = {
-  NEURAL_RESIN: ["Mature grove", "Paired crowns", "Low thicket"],
-  CONDUCTIVE_MINERALS: ["Vein ridge", "Split lode", "Ore fan"],
-  CATALYTIC_DEPOSIT: ["Layered outcrop", "Twin spires", "Weathered seam"],
   LUXURY_BIOTA: ["Rosette garden", "Blooming stand", "Meadow patch"],
   PRECURSOR_SALVAGE: ["Broken power train", "Collapsed gantry", "Shattered rotor"]
 };

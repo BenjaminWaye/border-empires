@@ -54,8 +54,8 @@ describe("resource trade inventory projection",()=>{
 
   it("settles and invalidates a non-trading caster when its external supplier loses FOOD",()=>{
     const beforeChange=vi.fn(),invalidate=vi.fn(),publish=vi.fn();
-    const drained={x:1,y:1,terrain:"LAND" as const,ownerId:"victim",ownershipState:"SETTLED" as const,resource:"NEURAL_RESIN" as const,
-      economicStructure:{ownerId:"victim",type:"RESIN_EXTRACTOR" as const,status:"active" as const},
+    const drained={x:1,y:1,terrain:"LAND" as const,ownerId:"victim",ownershipState:"SETTLED" as const,resource:"LUXURY_BIOTA" as const,
+      economicStructure:{ownerId:"victim",type:"CULTIVATION_ESTATE" as const,status:"active" as const},
       sabotage:{ownerId:"caster",observatoryTileKey:"4,4",endsAt:Number.MAX_SAFE_INTEGER,outputMultiplier:0}};
     const supply=new RuntimeResourceSupply({now:()=>10,player:id=>buildPlayer(id),ownedTiles:()=>[],
       physicalUpkeep:()=>({FOOD:0,TITANIUM:0,CRYSTAL:0,UMBRITE:0}),

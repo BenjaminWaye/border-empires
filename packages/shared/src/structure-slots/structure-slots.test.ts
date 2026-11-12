@@ -92,7 +92,7 @@ describe("structureSlotRequirements", () => {
   });
 
   it("charges the frontier resource-network installations no slot upkeep", () => {
-    for (const type of ["RESIN_EXTRACTOR", "IMPLANT_FOUNDRY", "CATALYST_REFINERY", "CULTIVATION_ESTATE", "RECLAMATION_WORKS"] as const) {
+    for (const type of ["CULTIVATION_ESTATE", "RECLAMATION_WORKS"] as const) {
       expect(structureSlotRequirements(type)).toEqual([]);
     }
   });

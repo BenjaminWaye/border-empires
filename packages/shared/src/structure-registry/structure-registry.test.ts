@@ -21,7 +21,7 @@ import { TECH_REQUIREMENTS_BY_STRUCTURE as LIVE_TECH_REQ } from "../structure-re
 
 // ── Size check ─────────────────────────────────────────────────────
 
-test("STRUCTURE_REGISTRY covers exactly 65 structure types", () => {
+test("STRUCTURE_REGISTRY covers exactly 62 structure types", () => {
   // 51 minus BANK and EXCHANGE_HOUSE (both removed; Clearing House now
   // covers Bank's former unlock slot on the coinage tech), minus
   // WEAPONS_WORKSHOP (retired, no longer in ECONOMIC_SPECS — see
@@ -29,8 +29,10 @@ test("STRUCTURE_REGISTRY covers exactly 65 structure types", () => {
   // UMBRITE_WEAPONS_FACTORY (its replacements): 49 - 1 + 2 = 50, plus 12 for
   // each of the 6 monuments' single Part becoming 3 uniquely-named
   // components = 62, minus QUARTERMASTERS_OFFICE (removed) = 61, minus SEED_INCUBATION_ENGINE (removed from the
-  // game, Manifest/Coin rework) = 60.
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(65);
+  // game, Manifest/Coin rework) = 60, plus the five frontier installations =
+  // 65, minus Resin Extractor, Implant Foundry and Catalyst Refinery (cut with
+  // their materials) = 62.
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(62);
 });
 
 test("all registered types are unique", () => {
@@ -354,7 +356,7 @@ describe("upkeep parity", () => {
   };
 
   const noUpkeepTypes = new Set([
-    "RESIN_EXTRACTOR", "IMPLANT_FOUNDRY", "CATALYST_REFINERY", "CULTIVATION_ESTATE", "RECLAMATION_WORKS",
+    "CULTIVATION_ESTATE", "RECLAMATION_WORKS",
     "HYDROWORKS", "CENSUS_HALL", "CLEARING_HOUSE",
     "AMBARIC_TRANSFORMER", "NEURAL_WORKS",
     "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
