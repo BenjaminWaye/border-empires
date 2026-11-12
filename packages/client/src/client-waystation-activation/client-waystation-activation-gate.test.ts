@@ -20,6 +20,7 @@ const returningPlayerState = (): WaystationPopupGateState =>
     respawnOverlayOpen: false,
     seasonWinner: undefined,
     seasonEndDismissed: false,
+    afcJoinDrop: { phase: "idle" },
     activityDashboard: { open: false, loading: true }
   }) as unknown as WaystationPopupGateState;
 
@@ -72,6 +73,28 @@ describe("showWaystationActivationOverlayWhenClear", () => {
     const state = returningPlayerState();
     showWaystationActivationOverlayWhenClear(info, state);
     vi.advanceTimersByTime(WAYSTATION_POPUP_PENDING_DASHBOARD_GRACE_MS + 1_000);
+    expect(popup()).not.toBeNull();
+  });
+
+  it("holds the popup while the AFC drop animation plays, then shows it once the AFC lands", () => {
+    const state = returningPlayerState();
+    state.activityDashboard.loading = false;
+    state.afcJoinDrop.phase = "playing";
+    showWaystationActivationOverlayWhenClear(info, state);
+    expect(popup()).toBeNull();
+    vi.advanceTimersByTime(2_000);
+    expect(popup()).toBeNull(); // never painted over the landing
+
+    state.afcJoinDrop.phase = "done";
+    vi.advanceTimersByTime(500);
+    expect(popup()).not.toBeNull();
+  });
+
+  it("does not hold the popup while the drop is only waiting for an off-screen AFC (can last minutes)", () => {
+    const state = returningPlayerState();
+    state.activityDashboard.loading = false;
+    state.afcJoinDrop.phase = "waiting";
+    showWaystationActivationOverlayWhenClear(info, state);
     expect(popup()).not.toBeNull();
   });
 });

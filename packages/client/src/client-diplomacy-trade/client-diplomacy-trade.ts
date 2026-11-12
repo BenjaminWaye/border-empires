@@ -35,11 +35,11 @@ import {
   type TradeGoodKey,
   type TradeGoodSpec
 } from "./client-diplomacy-trade-goods.js";
+import { balancingAmount, suggestedTradeDeal } from "./client-diplomacy-trade-balance.js";
 import { dealKind, dealSummaryHtml, dealVerdictOverride, type DealTreaty } from "./client-diplomacy-trade-deal.js";
 import {
   attitudeSummary,
   temperamentLine,
-  suggestedDeal,
   tradeVerdict,
   warTally,
   type DiplomacyStanceReply,
@@ -225,8 +225,8 @@ const render = (screen: OpenScreen): void => {
   // Only an AI's prices can be read, so only an AI gets a suggestion.
   const suggest = overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]");
   if (suggest) {
-    const deal = suggestedDeal(reply, selection, own);
-    suggest.hidden = selection.kind === "trade" || !(reply?.found && reply.ai && (selection.kind === "gift" ? reply.gift : reply.pricing));
+    const deal = suggestedTradeDeal(reply, selection, own);
+    suggest.hidden = !(reply?.found && reply.ai && (selection.kind === "gift" ? reply.gift : reply.pricing));
     suggest.textContent = selection.kind === "gift" ? "Suggest gift" : "Suggest deal";
     suggest.disabled = !deal || tradeTermsEqual(deal, selection.terms);
     suggest.title = deal
@@ -402,7 +402,10 @@ export const openDiplomacyTradeScreen = (
   }
   bindTradeGoods(overlay, {
     onToggle: (key) => {
-      screen.expanded = screen.expanded === key ? undefined : key;
+      const opening = screen.expanded !== key, balanced = opening ? balancingAmount(screen.reply, screen.selection, deps.ownHoldings(), key) : undefined;
+      screen.expanded = opening ? key : undefined;
+      // Opening a good adds exactly what settles the deal (client-diplomacy-trade-balance.ts).
+      if (balanced !== undefined) setDeal(screen, screen.treaty, withTradeAmount(screen.selection.terms, key, balanced));
       render(screen);
     },
     onAmount: (key, amount, typed) => {
@@ -426,7 +429,7 @@ export const openDiplomacyTradeScreen = (
     if (edit) overlay.querySelector<HTMLInputElement>(`[data-trade-${edit}]`)?.focus();
   });
   overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")?.addEventListener("click", () => {
-    const deal = suggestedDeal(screen.reply, screen.selection, deps.ownHoldings());
+    const deal = suggestedTradeDeal(screen.reply, screen.selection, deps.ownHoldings());
     if (!deal) return;
     screen.reach = maxTradeTerms(screen.reach, deal);
     setDeal(screen, screen.treaty, deal);

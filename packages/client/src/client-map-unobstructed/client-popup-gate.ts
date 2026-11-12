@@ -6,9 +6,14 @@ import { isMapUnobstructed, type MapUnobstructedState } from "./client-map-unobs
 // or exceed the Activity dashboard's z-index, so showing one while the
 // dashboard is open -- or just before it opens, since the dashboard waits on
 // the personal-activity response -- paints it on top of What's New. Each
-// popup holds itself until nothing else is open or about to open.
+// popup holds itself until nothing else is open or about to open. It also
+// waits while the AFC drop animation is playing, so a popup never paints over
+// the landing. Not while the drop is merely "waiting": that phase can last
+// minutes (AFC off-screen, AFC_JOIN_FALLBACK_REVEAL_MS) and fires for AFCs
+// commissioned mid-game too, and a dialog that holds it is already covered by
+// isMapUnobstructed.
 
-export type PopupGateState = MapUnobstructedState & Pick<ClientState, "changelog"> & { activityDashboard: { open: boolean; chronicleOpen?: boolean; loading: boolean } };
+export type PopupGateState = MapUnobstructedState & Pick<ClientState, "changelog" | "afcJoinDrop"> & { activityDashboard: { open: boolean; chronicleOpen?: boolean; loading: boolean } };
 
 /** Upper bound on waiting for the personal-activity response, so a dropped request can't suppress a popup forever. */
 export const POPUP_PENDING_DASHBOARD_GRACE_MS = 10_000;
@@ -29,7 +34,7 @@ export const createPopupBlockedCheck = (): { isBlocked: (state: PopupGateState, 
     return nowMs - pendingDashboardSince < POPUP_PENDING_DASHBOARD_GRACE_MS;
   };
   return {
-    isBlocked: (state, nowMs = Date.now()) => !isMapUnobstructed(state) || dashboardAboutToOpen(state, nowMs),
+    isBlocked: (state, nowMs = Date.now()) => !isMapUnobstructed(state) || state.afcJoinDrop.phase === "playing" || dashboardAboutToOpen(state, nowMs),
     reset: () => {
       pendingDashboardSince = null;
     }

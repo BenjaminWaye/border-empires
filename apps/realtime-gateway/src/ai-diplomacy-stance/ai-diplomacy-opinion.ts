@@ -16,6 +16,7 @@ import {
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
+import type { AiWarOutlook } from "./ai-war-outlook.js";
 import { AI_TEMPERAMENTS, type AiTemperament } from "./ai-diplomacy-temperament.js";
 
 export type AiAttitude = AiAttitudeLevel;
@@ -42,6 +43,10 @@ export type AiOpinion = {
 /** Fighting within this window means the two are still at war. */
 export const AT_WAR_WINDOW_MS = 6 * 60 * 60_000;
 
+/** Whether the pair have fought recently enough to still be at war. */
+export const atWarFromMemory = (memory: Pick<DiplomacyMemoryView, "lastCombatAt">, now: number): boolean =>
+  memory.lastCombatAt !== undefined && now - memory.lastCombatAt < AT_WAR_WINDOW_MS;
+
 export const ATTITUDE_RANK: Record<AiAttitude, number> = { FURIOUS: 0, ANNOYED: 1, CAUTIOUS: 2, PLEASED: 3, FRIENDLY: 4 };
 
 export const computeAiOpinion = (input: {
@@ -59,6 +64,8 @@ export const computeAiOpinion = (input: {
   diplomaticCorpsBonus?: number;
   /** The AI's fixed personality; Measured when omitted. */
   temperament?: AiTemperament;
+  /** The AI's read on the next couple of hours of war; STEADY when omitted. */
+  outlook?: AiWarOutlook;
   now: number;
 }): AiOpinion => {
   const { memory } = input;
@@ -87,11 +94,16 @@ export const computeAiOpinion = (input: {
   add(`${temperament.label} temperament`, temperament.opinionBaseline);
 
   const score = modifiers.reduce((sum, modifier) => sum + modifier.value, 0);
-  const atWar = memory.lastCombatAt !== undefined && input.now - memory.lastCombatAt < AT_WAR_WINDOW_MS;
+  const atWar = atWarFromMemory(memory, input.now);
   const balance = memory.tilesTakenByAi - memory.tilesTakenFromAi;
   // Weak or desperate only counts as losing while the AI isn't gaining ground:
   // an AI taking tiles from a stronger empire is winning that war, not paying for peace.
-  const aiLosing = atWar && (balance <= -2 || ((input.stanceKind === "SEEKING_PEACE" || input.stanceKind === "OUTMATCHED") && balance <= 0));
+  // The war outlook (ai-war-outlook.ts) looks ahead: an AI whose reload will
+  // win its land back isn't losing yet, and one being overrun is, even before
+  // the tally shows it.
+  const outlook = input.outlook?.kind;
+  const aiLosing = atWar && outlook !== "HOLD_FOR_REFILL" &&
+    (outlook === "SUE_FOR_PEACE" || balance <= -2 || ((input.stanceKind === "SEEKING_PEACE" || input.stanceKind === "OUTMATCHED") && balance <= 0));
   const aiWinning = atWar && !aiLosing && (balance >= 2 || input.stanceKind === "WINNING");
   return {
     attitude: attitudeForScore(score),
