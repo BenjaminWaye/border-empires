@@ -4,7 +4,8 @@ import {
   combatFromSimulationEvent,
   createAiDiplomacyMemory,
   MAX_DIPLOMACY_MEMORY_PAIRS,
-  WAR_MEMORY_HALF_LIFE_MS
+  WAR_MEMORY_HALF_LIFE_MS,
+  WAR_PACE_HALF_LIFE_MS
 } from "./ai-diplomacy-memory.js";
 
 const setup = () => {
@@ -23,6 +24,16 @@ describe("createAiDiplomacyMemory", () => {
     );
     clock.now += WAR_MEMORY_HALF_LIFE_MS;
     expect(memory.view("ai-1", "p1").tilesTakenFromAi).toBeCloseTo(2);
+  });
+
+  it("tracks the war's pace on an hourly fade beside the 12h tally", () => {
+    const { clock, memory } = setup();
+    memory.observeCombat({ attackerId: "p1", defenderId: "ai-1", attackerWon: true, tilesCaptured: 4 });
+    memory.observeCombat({ attackerId: "ai-1", defenderId: "p1", attackerWon: true, tilesCaptured: 2 });
+    expect(memory.view("ai-1", "p1")).toEqual(expect.objectContaining({ recentTilesTakenFromAi: 4, recentTilesTakenByAi: 2 }));
+    clock.now += 3 * WAR_PACE_HALF_LIFE_MS;
+    expect(memory.view("ai-1", "p1").recentTilesTakenFromAi).toBeCloseTo(0.5);
+    expect(memory.view("ai-1", "p1").tilesTakenFromAi).toBeGreaterThan(3);
   });
 
   it("counts a failed attack as aggression but captures nothing", () => {

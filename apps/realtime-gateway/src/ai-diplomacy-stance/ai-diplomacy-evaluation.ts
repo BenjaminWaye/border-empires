@@ -8,12 +8,13 @@ import { ATTITUDE_MIN_SCORE, giftToReach, giftView, type AiDiplomacyPricing, typ
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type DominanceSizing, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
 import type { AiDiplomacyGrudges } from "./ai-diplomacy-grudges.js";
-import { computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
+import { atWarFromMemory, computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing, goodwillIncomePerHour, TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "./ai-diplomacy-pricing.js";
 import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
 import { buildAiDiplomacyStanceInput, type AiDiplomacySnapshot } from "./ai-diplomacy-stance-input.js";
 import { aiTemperamentForId, type AiTemperament } from "./ai-diplomacy-temperament.js";
 import { aiRetaliationReadiness } from "./ai-retaliation-readiness.js";
+import { aiWarOutlook, type AiWarOutlook } from "./ai-war-outlook.js";
 
 export type AiDiplomacyEvaluation = {
   stance: AiDiplomacyStance;
@@ -27,6 +28,8 @@ export type AiDiplomacyEvaluation = {
   /** What a gift buys: coin per opinion point and the goodwill already paid. */
   gift: AiGiftView;
   temperament: AiTemperament;
+  /** The AI's read on the next couple of hours of war (ai-war-outlook.ts). */
+  outlook: AiWarOutlook;
 };
 
 /** What the gateway knows about the pair beyond the snapshots: grudges and memory. */
@@ -58,7 +61,14 @@ const holdingsOf = (snapshot: AiDiplomacySnapshot | undefined): DiplomacyGoods =
   gold: Math.max(0, Math.floor(snapshot?.player?.gold ?? 0))
 });
 
-const warReason = (aiName: string, opinion: AiOpinion, fallback: string): string => {
+const warReason = (aiName: string, opinion: AiOpinion, outlook: AiWarOutlook, fallback: string): string => {
+  if (opinion.war.atWar && outlook.kind === "HOLD_FOR_REFILL") {
+    const minutes = Math.max(1, Math.ceil(outlook.refillInMs / 60_000));
+    return `${aiName} expects to win its land back when its armies reload in ${minutes} min.`;
+  }
+  if (opinion.war.aiLosing && outlook.kind === "SUE_FOR_PEACE") {
+    return `${aiName} is losing ground fast and can't stop you before its armies reload, so it wants the war over.`;
+  }
   if (opinion.war.aiLosing) {
     // Say what "losing" rests on: net ground lost to you, or being outmatched while gaining none.
     // From the rounded counts the war tally shows, so the two always agree.
@@ -108,6 +118,13 @@ export const evaluateAiDiplomacy = (input: {
   const temperament = aiTemperamentForId(input.aiPlayerId);
   // Gifts go further with a lower "hour of income": the trade screen's preview reads the same rate from `gift`.
   const goodwillHourCoin = goodwillIncomePerHour(aiIncome, temperament.giftValue);
+  const outlook = aiWarOutlook({
+    atWar: atWarFromMemory(input.memory, input.now),
+    ai: stanceInput.ai,
+    rival: stanceInput.requester,
+    recentTilesLost: input.memory.recentTilesTakenFromAi ?? 0,
+    recentTilesTaken: input.memory.recentTilesTakenByAi ?? 0
+  });
   const opinion = computeAiOpinion({
     stanceKind: stance.kind,
     memory: input.memory,
@@ -118,6 +135,7 @@ export const evaluateAiDiplomacy = (input: {
     incomePerHour: goodwillHourCoin,
     diplomaticCorpsBonus: afcAdditiveEffect(input.requesterSnapshot?.player?.domainIds, "aiOpinionBonus"),
     temperament,
+    outlook,
     now: input.now
   });
   const gift = giftView(input.memory.goodwillCoin, goodwillHourCoin);
@@ -135,17 +153,19 @@ export const evaluateAiDiplomacy = (input: {
     requesterTruceCostMult: afcMultiplicativeEffect(input.requesterSnapshot?.player?.domainIds, "truceCostMult"),
     retaliation: aiRetaliationReadiness(stanceInput.ai, cooldownRemainingMs(input.memory.lastPlayerAttackAt, input.now)),
     temperament,
+    outlook,
     now: input.now
   });
   return {
     stance,
     opinion,
     pricing: priced.pricing,
-    reason: warReason(input.aiName, opinion, stance.reason),
+    reason: warReason(input.aiName, opinion, outlook, stance.reason),
     ...(priced.truceRefusal ? { truceRefusal: priced.truceRefusal } : {}),
     ...(priced.allianceRefusal ? { allianceRefusal: priced.allianceRefusal } : {}),
     requesterHoldings: holdingsOf(input.requesterSnapshot),
     gift,
-    temperament
+    temperament,
+    outlook
   };
 };

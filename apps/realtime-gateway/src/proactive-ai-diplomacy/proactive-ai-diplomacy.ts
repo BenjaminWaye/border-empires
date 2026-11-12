@@ -120,20 +120,25 @@ export function createProactiveAiDiplomacy(deps: ProactiveAiDiplomacyDeps): { ti
       const alliance = !evaluation.allianceRefusal && ATTITUDE_RANK[evaluation.opinion.attitude] >= ATTITUDE_RANK.PLEASED && social.allies.length < 2 && aiLand >= targetLand && targetLand > 0 &&
         stance.kind !== "SEEKING_PEACE" && stance.kind !== "DISTRUSTFUL" &&
         haveSharedVisibleEnemy(ai.tiles, aiId, targetId, new Set([...friendly, ...targetSocial.allies, ...targetSocial.activeTruces.map(t => t.otherPlayerId)]));
-      // The AI may accept a truce right after being attacked, but it doesn't go asking the attacker for one.
+      // The AI may accept a truce right after being attacked, but it doesn't go asking the attacker for one --
+      // unless it is being overrun with no reload that could stop it (ai-war-outlook.ts): then it sues at once.
       const freshlyAttacked = context.memory.lastPlayerAttackAt !== undefined && context.now - context.memory.lastPlayerAttackAt < TRUCE_COOLDOWN_AFTER_ATTACK_MS;
-      const peace = !evaluation.truceRefusal && !freshlyAttacked && aiAsksForPeace(stance.kind, evaluation.temperament);
+      const suing = evaluation.outlook.kind === "SUE_FOR_PEACE" && evaluation.opinion.war.aiLosing;
+      const peace = !evaluation.truceRefusal && (suing || (!freshlyAttacked && aiAsksForPeace(stance.kind, evaluation.temperament)));
+      // A losing AI's price is negative: it puts that payment in its own offer (rechecked on accept, ai-offer-recheck.ts).
+      const payment = peace && !alliance ? Math.max(0, -(evaluation.pricing.required.truce12 ?? 0)) : 0;
       if (!alliance && !peace) return;
       if (peace && ai.player.domainIds?.includes("afc-chancery-4") && deps.syncForcedTruce && (social.forcedTruceCooldownUntil ?? 0) <= Date.now()) {
         const forced = deps.socialState.forceTruce(aiId, targetId);
         if (forced.ok) { await deps.syncForcedTruce(aiId, targetId); deps.fanout(forced.payloadsByPlayerId); return; }
       }
-      const result = alliance ? deps.socialState.requestAlliance(aiId, targetName) : deps.socialState.requestTruce(aiId, targetName, 12);
+      const result = alliance ? deps.socialState.requestAlliance(aiId, targetName)
+        : deps.socialState.requestTruce(aiId, targetName, 12, payment > 0 ? { targetPlayerId: targetId, terms: { give: { gold: payment }, ask: { gold: 0 } } } : undefined);
       if (!result.ok) {
         deps.recordEvent("info", "gateway_ai_diplomacy_offer_blocked", { aiPlayerId: aiId, targetId, code: result.code });
         return;
       }
-      deps.recordEvent("info", "gateway_ai_diplomacy_offer", { aiPlayerId: aiId, targetId, kind: alliance ? "alliance" : "truce" });
+      deps.recordEvent("info", "gateway_ai_diplomacy_offer", { aiPlayerId: aiId, targetId, kind: alliance ? "alliance" : "truce", ...(payment > 0 ? { payment, suing } : {}) });
       deps.fanout(result.payloadsByPlayerId);
       if (alliance) await deps.responder.maybeAutoRespondToSeededAiAlliance(extractAllianceRequestFromPayloads(result.payloadsByPlayerId, aiId));
       else await deps.responder.maybeAutoRespondToSeededAiTruce(extractTruceRequestFromPayloads(result.payloadsByPlayerId, aiId));
