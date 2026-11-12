@@ -1,3 +1,4 @@
+import { NEW_PLAYER_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
 import type { PlayerStateSnapshot } from "../subscription-snapshot-merge/subscription-snapshot-merge.js";
@@ -66,7 +67,7 @@ describe("reconnectPassthroughFields", () => {
   });
 
   it("carries autoSettle through so a reconnecting new player is still asked (answered:false)", () => {
-    const prefs = { answered: false, towns: false, food: false, strategic: false, luxury: false };
+    const prefs = { ...NEW_PLAYER_AUTO_SETTLE_PREFS };
     expect(reconnectPassthroughFields(basePlayer({ autoSettle: prefs })).autoSettle).toEqual(prefs);
   });
 

@@ -4,13 +4,11 @@
 // needs no per-render binding (client-hud.ts is over the per-file line cap).
 import { AUTO_SETTLE_CATEGORIES, type AutoSettleCategory } from "@border-empires/shared";
 import { settingsToggleRowHtml } from "../client-hud/client-settings-controls.js";
+import { autoSettleCategoryGroup, autoSettleCategoryLabel } from "./client-auto-settle-labels.js";
 import type { ClientAutoSettleState } from "./client-auto-settle-prefs.js";
 
-const ROWS: Record<AutoSettleCategory, { label: string; hint: string }> = {
-  towns: { label: "Towns & docks", hint: "Also garrisons the plain tiles around a grown town." },
-  food: { label: "Food (farms, fish)", hint: "Keeps your towns fed." },
-  strategic: { label: "Strategic resources", hint: "Titanium, umbrite, crystal." },
-  luxury: { label: "Luxury resources", hint: "Every other resource." }
+const HINTS: Partial<Record<AutoSettleCategory, string>> = {
+  towns: "Also garrisons the plain tiles around a grown town."
 };
 
 export const autoSettleSettingsFieldHtml = (autoSettle: ClientAutoSettleState): string => {
@@ -26,14 +24,18 @@ export const autoSettleSettingsFieldHtml = (autoSettle: ClientAutoSettleState): 
     <div class="settings-auto-settle-field">
       <p class="settings-section-title">Auto-garrison</p>
       <p class="settings-field-hint">Spends manpower to garrison these tiles as soon as they're yours. Off means nothing garrisons until you click.</p>
-      ${AUTO_SETTLE_CATEGORIES.map((category) =>
-        settingsToggleRowHtml({
+      ${AUTO_SETTLE_CATEGORIES.map((category, index) => {
+        const group = autoSettleCategoryGroup(category);
+        const heading = index === 0 || autoSettleCategoryGroup(AUTO_SETTLE_CATEGORIES[index - 1]!) !== group
+          ? `<p class="settings-field-hint settings-auto-settle-group">${group}</p>` : "";
+        const hint = HINTS[category];
+        return heading + settingsToggleRowHtml({
           attrs: `data-settings-auto-settle="${category}"`,
           checked: current[category],
-          title: ROWS[category].label,
-          hint: ROWS[category].hint
-        })
-      ).join("")}
+          title: autoSettleCategoryLabel(category),
+          ...(hint ? { hint } : {})
+        });
+      }).join("")}
     </div>`;
 };
 
@@ -47,7 +49,7 @@ export const installAutoSettleSettingsBinding = (send: (payload: unknown) => boo
     const target = event.target as HTMLInputElement | null;
     if (!target || !target.matches?.("[data-settings-auto-settle]")) return;
     const boxes = document.querySelectorAll<HTMLInputElement>("[data-settings-auto-settle]");
-    const prefs = { towns: false, food: false, strategic: false, luxury: false };
+    const prefs = Object.fromEntries(AUTO_SETTLE_CATEGORIES.map((category) => [category, false])) as Record<AutoSettleCategory, boolean>;
     boxes.forEach((box) => {
       const category = box.dataset.settingsAutoSettle as AutoSettleCategory | undefined;
       if (category && category in prefs) prefs[category] = box.checked;

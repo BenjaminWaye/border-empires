@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
+import { AUTO_SETTLE_RESOURCES } from "../auto-settle-prefs/auto-settle-prefs.js";
+import type { ResourceType } from "../types.js";
 import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema } from "../diplomacy-terms/diplomacy-terms.js";
+
+const AUTO_SETTLE_RESOURCE_SWITCHES = Object.fromEntries(
+  AUTO_SETTLE_RESOURCES.map((resource) => [resource, z.boolean().optional()])
+) as Record<ResourceType, z.ZodOptional<z.ZodBoolean>>;
 
 /** The Fortify / Siege picker's explicit tier (structure-tier-choice.ts); omitted = best tier the tech allows. */
 const ChosenStructureTierSchema = z.enum(["FORT", "TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]);
@@ -420,14 +426,16 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // `resource choice required` even when the client picked one.
     chosenTrickleResource: z.enum(TRICKLE_RESOURCE_KEYS).optional()
   }),
-  // Per-category auto-settle opt-in (shared auto-settle-prefs.ts). Answering
-  // (including "Not now" with everything false) marks the join prompt answered.
-  // Tabs opened before the strategic/luxury split send one `resources` switch
-  // instead; the sim's parseAutoSettleCategoryPrefs requires one of the shapes.
+  // Per-category auto-settle opt-in (shared auto-settle-prefs.ts): `towns` plus
+  // one switch per resource. Answering (including "Not now" with everything
+  // false) marks the join prompt answered. Tabs opened before the per-resource
+  // split send grouped `food` + `strategic`/`luxury` (or one `resources`)
+  // switches instead; the sim's parseAutoSettleCategoryPrefs reads either shape.
   z.object({
     type: z.literal("SET_AUTO_SETTLE_PREFS"),
     towns: z.boolean(),
-    food: z.boolean(),
+    ...AUTO_SETTLE_RESOURCE_SWITCHES,
+    food: z.boolean().optional(),
     strategic: z.boolean().optional(),
     luxury: z.boolean().optional(),
     resources: z.boolean().optional()

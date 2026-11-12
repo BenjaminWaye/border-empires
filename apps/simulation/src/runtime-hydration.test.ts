@@ -1,6 +1,8 @@
 import { afterEach, describe, it, expect } from "vitest";
 import {
   DEFAULT_AUTO_SETTLE_PREFS,
+  NEW_PLAYER_AUTO_SETTLE_PREFS,
+  type AutoSettlePrefs,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   clearForestAroundAfcTile,
@@ -179,11 +181,19 @@ describe("createPlayersFromRecoveredState", () => {
   });
 
   it("round-trips the per-category auto-settle prefs, and fills legacy snapshots with DEFAULT prefs once at the boundary", () => {
-    const answered = { answered: false, towns: false, food: false, strategic: false, luxury: false };
+    const answered = { ...NEW_PLAYER_AUTO_SETTLE_PREFS, TITANIUM: true };
     const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1", autoSettle: answered }, { id: "legacy" }] };
     const result = createPlayersFromRecoveredState(state);
     expect(result?.get("p1")?.autoSettle).toEqual(answered);
     expect(result?.get("legacy")?.autoSettle).toEqual(DEFAULT_AUTO_SETTLE_PREFS);
+  });
+
+  it("carries prefs saved before the per-resource split over to each resource in their old group", () => {
+    const grouped = { answered: true, towns: true, food: false, strategic: true, luxury: false } as unknown as AutoSettlePrefs;
+    const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1", autoSettle: grouped }] };
+    expect(createPlayersFromRecoveredState(state)?.get("p1")?.autoSettle).toEqual({
+      ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true, towns: true, TITANIUM: true, UMBRITE: true, GEMS: true
+    });
   });
 
   it("restores a player who owned the retired Echo-Reader Crew with Augury Office, which now carries Survey Sweep", () => {
