@@ -51,6 +51,7 @@ import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-see
 import { buildSeasonSeedTile } from "./season-seed-world-tile-assembly.js";
 import { createSeasonSeedPlayerSpawner } from "./season-seed-world-player-spawn.js";
 import { computeFairSpawnSitesForWorldgen, FAIR_SPAWN_SITE_WORLDGEN_MINIMUM } from "./season-seed-world-fair-spawn-check.js"; import { fillMountainRingInteriors } from "./season-seed-world-ring-interiors.js";
+import { applyStrategicReachGuarantee } from "./season-seed-world-strategic-reach.js";
 import { worldLooksBland } from "./season-seed-world-bland-check.js";
 export { worldLooksBland } from "./season-seed-world-bland-check.js";
 
@@ -264,6 +265,7 @@ export const createSeasonSeedWorld = (
     townsRuntime.ensureInterestCoverage(worldSeed);
     townsRuntime.normalizeTownPlacements();
     fillMountainRingInteriors(worldSeed, style, { WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, townsByTile, clusterByTile, docksByTile: docksByTile as Map<TileKey, unknown>, townsRuntime, POPULATION_MAX });
+    applyStrategicReachGuarantee(worldSeed, { clusterByTile, clustersById, townsByTile, docksByTile, habitat: terrainRuntime });
     townsRuntime.assignMissingTownNamesForWorld();
     watchtowersRuntime.generateWatchtowers(worldSeed); waystationsRuntime.generateWaystations(worldSeed);
     islandSummary = islandSizeSummary(terrainRuntime.terrainAtRuntime, significantIslandTileThreshold);

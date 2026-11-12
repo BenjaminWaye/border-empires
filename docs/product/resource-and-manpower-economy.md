@@ -152,6 +152,15 @@ demand is across its consumers. Gold does not use this system.
   1 matching-resource slot. Hydroworks adds 2 FOOD slots to Hydrogardens in
   range; Ore Refinery adds 2 TITANIUM slots to Mines in range.
 - Agrarian Works adds 1 FOOD slot per owned, settled FISH tile.
+- **Strategic deposit placement.** On worlds generated from worldgen v13,
+  every Titanium, Umbrite and Gems field (connected group of deposit tiles) has
+  a tile within `REFINERY_REACH_LAND_TILES` (10) land steps of a worldgen town,
+  and no deposit sits on a town or dock tile or inside a town's two support
+  rings; worldgen re-places any cluster that fails this after towns are placed
+  (`packages/game-domain/src/server-worldgen-strategic-reach.ts`). This prepares
+  for refineries (`docs/territory-development-plan.md`, Phase 2). Existing
+  worlds keep their saved deposits, and deposits created at runtime (waystation
+  rewards) or spawn settlements placed after worldgen carry no guarantee.
 - A structure occupies its requirements from build start until removal
   completes, including while under construction or inactive. The full table is
   `STRUCTURE_SLOT_REQUIREMENTS`.
