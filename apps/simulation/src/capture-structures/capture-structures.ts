@@ -75,6 +75,7 @@ const capturedAfc = (tile: DomainTileState | undefined, nextOwnerId: string, now
     ...afc,
     ownerId: nextOwnerId,
     activatedAt: now,
+    capturedAt: now,
     ...(afc.houseModules ? { houseModules: [] } : {})
   };
 };

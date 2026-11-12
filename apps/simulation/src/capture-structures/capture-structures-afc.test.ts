@@ -73,7 +73,7 @@ describe("capture structure survival — AFC", () => {
         expect.objectContaining({
           ownerId: "player-1",
           ownershipState: "FRONTIER",
-          afcJson: JSON.stringify({ ownerId: "player-1", status: "active", activatedAt: 1_000 })
+          afcJson: JSON.stringify({ ownerId: "player-1", status: "active", activatedAt: 1_000, capturedAt: 1_000 })
         })
       );
     } finally {
