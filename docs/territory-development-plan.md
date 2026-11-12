@@ -126,7 +126,8 @@ buildings (scoped in the same branch), not the map.
    least one town within reach, and no field tile sits on a town tile or
    inside either support ring; the check covers every cluster, not only moved
    ones. Deposits created at runtime (waystation resource rewards) carry no
-   guarantee: out of reach, they give their base slot only.
+   guarantee: out of reach, they give their base slot only. **Implemented**
+   (worldgen v13; see the Worldgen bullet below).
 10. **Refinery boosters.** One support building per resource (working names:
     Titanium Smelter, Umbrite Distillery, Crystal Cutter) is built on another
     support-ring tile of the same town. While it stands, each refinery of that
@@ -176,15 +177,29 @@ output should also fall with distance inside the reach; whether the booster's
   labels so the HUD explains it. Update `tile-yield-view`,
   `legacy-snapshot-economy` and `ai/food-slot-relief-surplus.ts`, which read
   the old structures.
-- **Worldgen.** Clusters are placed before towns
-  (`season-seed-world.ts` and `season-seed-world-async.ts`), so add a pass
-  after town placement: any strategic cluster with no tile within reach of a
-  town is cleared and re-placed with the same habitat rules
+- **Worldgen (implemented, worldgen v13).** Clusters are placed before towns
+  (`season-seed-world.ts` and `season-seed-world-async.ts`), so a pass runs
+  once every worldgen town is placed (after `normalizeTownPlacements()` and
+  the mountain-ring interior towns, which add towns, before watchtowers and
+  waystations): `applyStrategicReachGuarantee`
+  (`apps/simulation/src/season-seed-world-strategic-reach.ts`) calls
+  `ensureStrategicClustersInReach`
+  (`packages/game-domain/src/server-worldgen-strategic-reach.ts`). Every
+  strategic cluster is checked: each of its fields must have a tile within
+  `REFINERY_REACH_LAND_TILES` (`packages/shared/src/refineries/`) land steps of
+  a town, and no tile may sit on a town, a dock or within Chebyshev 2 of a
+  town. A failing cluster is cleared and re-placed with the same resource
   (`resourcePlacementAllowed`, `collectClusterTiles`, relaxed fallback),
-  rejecting spots on towns, docks or support rings. Use the seeded RNG so a
-  seed stays deterministic, bump `CURRENT_WORLDGEN_VERSION`, and mirror it in
-  `apps/worldgen-lab`. A prototype of this pass was run (see Evidence): every
-  field found a valid spot on both seeds.
+  preferring a spot that keeps its field size; hilltop singles move to another
+  hills tile. It keeps its cluster id, uses `seeded01` with its own seed
+  offset, and is left in place (one `worldgen_strategic_reach_unplaced` log
+  line) if no spot is found. `CURRENT_WORLDGEN_VERSION` is 13. On seeds
+  12345, 777 and 4242 it moved 48 of 136, 51 of 138 and 53 of 138 clusters
+  with no failures and unchanged strategic tile totals (more than the
+  prototype in Evidence, which only moved out-of-reach clusters). Existing
+  worlds keep their saved deposits; settlement towns placed for players after
+  worldgen are not covered. `apps/worldgen-lab` runs the same pass against its
+  estimated towns.
 
 ### Client (both 2D and true-3D)
 

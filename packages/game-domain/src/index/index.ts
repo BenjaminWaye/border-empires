@@ -15,6 +15,7 @@ export * from "../starter-site-quality.js";
 export * from "../server-worldgen-island-connectivity.js";
 export * from "../server-worldgen-natural-wonders.js";
 export * from "../server-worldgen-terrain.js";
+export * from "../server-worldgen-strategic-reach.js";
 export * from "../server-worldgen-towns.js";
 export * from "../server-worldgen-watchtowers.js";
 export * from "../server-worldgen-waystations.js";
