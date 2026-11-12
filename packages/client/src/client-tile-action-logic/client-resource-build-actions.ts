@@ -21,11 +21,9 @@ export function resourceBuildActions(state: ClientState, tile: Tile, blocked: bo
       requirement: `Requires ${state.techCatalog.find(tech => tech.id === spec.tech)?.name ?? spec.tech.split("-").join(" ")}`, effect: spec.effect };
   } else if (tile.resource === "FARM") {
     build = { type: "HYDROGARDEN", id: "build_hydrogarden", name: "Hydrogarden", tech: "agriculture", requirement: "Requires Hyperfeed Seedstock Consignment", effect: `+${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slot` };
-  } else if (tile.resource === "UMBRITE") {
-    build = { type: "UMBRITE_RIG", id: "build_umbrite_rig", name: "Umbrite Rig", tech: "leatherworking", requirement: "Requires Umbrite Rigging Module", effect: "+1 UMBRITE slot" };
-  } else if (tile.resource === "TITANIUM" || tile.resource === "GEMS") {
-    build = { type: "MINE", id: "build_mine", name: "Mine", tech: "mining", requirement: "Requires Prospector Crew", effect: `+1 ${tile.resource === "TITANIUM" ? "TITANIUM" : "CRYSTAL"} slot` };
   }
+  // Titanium, Umbrite and Gems deposits take no on-tile building: a town
+  // refinery processes the field (territory-development-plan.md Phase 2).
   if (!build) return [];
   const eligible = !blocked && state.techIds.includes(build.tech) && hasFreeResourceSlots(state, build.type);
   const reason = blocked ? "Tile already has structure" : !state.techIds.includes(build.tech) ? build.requirement : missingResourceSlotReason(state, build.type) ?? "Unavailable";

@@ -54,13 +54,13 @@
       "tier": 1,
       "branch": "war",
       "name": "Umbrite Rigging Module",
-      "description": "AFC module: tension frames, cable looms, and umbrite-working tools. Reveals Umbrite and unlocks the Umbrite Rig (+1 UMBRITE slot on an Umbrite deposit), Siege Battery, and the Umbrite Weapons Factory.",
+      "description": "AFC module: tension frames, cable looms, and umbrite-working tools. Reveals Umbrite and unlocks the Umbrite Refinery (a town support building that processes a linked Umbrite field), Siege Battery, and the Umbrite Weapons Factory.",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 3600,
       "effects": {
-        "unlockUmbriteRig": true,
+        "unlockUmbriteRefinery": true,
         "unlockSiegeBatteries": true,
         "unlockUmbriteWeaponsFactory": true,
         "revealResource": "umbrite"
@@ -105,7 +105,7 @@
       "tier": 2,
       "branch": "economy",
       "name": "Prospector Crew",
-      "description": "Imported survey-and-drilling specialists configured for this planet's crust and deposit depths. Unlocks Mines.",
+      "description": "Imported survey-and-drilling specialists configured for this planet's crust and deposit depths. Unlocks the Titanium Refinery and Crystal Refinery, town support buildings that process a linked Titanium or Gems field.",
       "prereqIds": [
         "agriculture"
       ],
@@ -114,7 +114,8 @@
       },
       "researchTimeSeconds": 7200,
       "effects": {
-        "unlockMine": true
+        "unlockTitaniumRefinery": true,
+        "unlockCrystalRefinery": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
@@ -286,7 +287,7 @@
       "tier": 3,
       "branch": "economy",
       "name": "Tuned Separation Process",
-      "description": "An offworld industrial process adapted to this planet's ore. Unlocks the Ore Refinery, which improves nearby Mine output.",
+      "description": "An offworld industrial process adapted to this planet's ore. Unlocks the Titanium Smelter, Umbrite Distillery and Crystal Cutter, which raise every field tile their town's refineries process by one more slot.",
       "prereqIds": [
         "mining"
       ],
@@ -295,7 +296,9 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockOreRefinery": true
+        "unlockTitaniumSmelter": true,
+        "unlockUmbriteDistillery": true,
+        "unlockCrystalCutter": true
       },
       "manifestCategory": "CHARTER_WARRANT"
     },

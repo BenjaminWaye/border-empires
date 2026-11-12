@@ -53,7 +53,7 @@ export const renderStructureIdentityReview = (kinds: readonly StructureInfoKey[]
     const kind = kinds[index]; if (!kind) return;
     select.value = kind;
     model?.dispose(); model = createStructureReviewModel(stage.scene, kind, environment.texture, true, resource.value === "GEMS" ? "GEMS" : "TITANIUM");
-    resource.hidden = kind !== "MINE";
+    resource.hidden = true; // the Mine, the only resource-dependent model, was removed (town refineries)
     const center = model.bounds.getCenter(new Vector3()), size = model.bounds.getSize(new Vector3());
     const radius = Math.max(size.x, size.y, size.z, 0.5);
     controls.target.copy(center); stage.camera.position.copy(center).add(new Vector3(1.2, 1, 1.6).multiplyScalar(radius * 2));

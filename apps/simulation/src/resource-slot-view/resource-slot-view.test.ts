@@ -47,13 +47,13 @@ describe("resourceSlotSupplyForPlayer", () => {
     expect(totals.FOOD).toBe(1);
   });
 
-  it("an active Mine adds +1 TITANIUM slot, an active Umbrite Rig adds +1 UMBRITE slot", () => {
+  it("a saved Mine/Umbrite Rig record on a deposit adds nothing past the base slot (Phase 2)", () => {
     const totals = resourceSlotSupplyForPlayer([
-      tile({ x: 0, y: 0, resource: "TITANIUM", economicStructure: { ownerId: "p1", type: "MINE", status: "active" } }),
-      tile({ x: 1, y: 0, resource: "UMBRITE", economicStructure: { ownerId: "p1", type: "UMBRITE_RIG", status: "active" } })
+      tile({ x: 0, y: 0, resource: "TITANIUM", economicStructure: { ownerId: "p1", type: "MINE" as never, status: "active" } }),
+      tile({ x: 1, y: 0, resource: "UMBRITE", economicStructure: { ownerId: "p1", type: "UMBRITE_RIG" as never, status: "active" } })
     ]);
-    expect(totals.TITANIUM).toBe(2);
-    expect(totals.UMBRITE).toBe(2);
+    expect(totals.TITANIUM).toBe(1);
+    expect(totals.UMBRITE).toBe(1);
   });
 
   it("an active Hydrogarden within Hydroworks radius jumps from 3 to 5 FOOD slots", () => {
@@ -74,16 +74,11 @@ describe("resourceSlotSupplyForPlayer", () => {
     expect(totals.FOOD).toBe(2);
   });
 
-  it("an active Mine within Ore Refinery radius jumps from 2 to 4 slots of its resource", () => {
-    const mine = tile({ x: 5, y: 5, resource: "GEMS", economicStructure: { ownerId: "p1", type: "MINE", status: "active" } });
-    const totals = resourceSlotSupplyForPlayer([mine], new Set(), new Set(["5,6"]));
-    expect(totals.CRYSTAL).toBe(4);
-  });
-
-  it("Ore Refinery radius bonus does not apply outside ORE_REFINERY_RADIUS", () => {
-    const mine = tile({ x: 5, y: 5, resource: "TITANIUM", economicStructure: { ownerId: "p1", type: "MINE", status: "active" } });
-    const totals = resourceSlotSupplyForPlayer([mine], new Set(), new Set(["5,100"]));
-    expect(totals.TITANIUM).toBe(2);
+  it("adds each refinery bonus to the deposit tile it names, in that tile's slot resource", () => {
+    const gems = tile({ x: 5, y: 5, resource: "GEMS" });
+    const bonuses = new Map([["5,5", [{ sourceId: "CRYSTAL_REFINERY" as const, slots: 2 }, { sourceId: "CRYSTAL_CUTTER" as const, slots: 1 }]]]);
+    expect(resourceSlotSupplyForPlayer([gems], new Set(), bonuses).CRYSTAL).toBe(4);
+    expect(resourceSlotSupplyForPlayer([gems], new Set(), new Map([["5,6", bonuses.get("5,5")!]])).CRYSTAL).toBe(1);
   });
 
   it("a tile with no resource contributes nothing", () => {
@@ -102,25 +97,11 @@ describe("resourceSlotSupplyForPlayer", () => {
     const totals = resourceSlotSupplyForPlayer(
       [tile({ x: 5, y: 5, resource: "FISH", economicStructure: { ownerId: "p1", type: "HYDROGARDEN", status: "active" } })],
       new Set(),
-      new Set(),
+      new Map(),
       undefined,
       1
     );
     expect(totals.FOOD).toBe(3);
-  });
-
-  it("an active Mine on a GEMS tile (placement-legal alongside TITANIUM) boosts CRYSTAL, not TITANIUM", () => {
-    const totals = resourceSlotSupplyForPlayer([
-      tile({ x: 5, y: 5, resource: "GEMS", economicStructure: { ownerId: "p1", type: "MINE", status: "active" } })
-    ]);
-    expect(totals).toEqual({ FOOD: 0, TITANIUM: 0, CRYSTAL: 2, UMBRITE: 0 });
-  });
-
-  it("an active Umbrite Rig on a UMBRITE tile boosts UMBRITE", () => {
-    const totals = resourceSlotSupplyForPlayer([
-      tile({ x: 5, y: 5, resource: "UMBRITE", economicStructure: { ownerId: "p1", type: "UMBRITE_RIG", status: "active" } })
-    ]);
-    expect(totals.UMBRITE).toBe(2);
   });
 
   it("§6.4: an active synthesizer grants +1 slot of its own resource, even on a tile with no matching resource", () => {
@@ -147,7 +128,7 @@ describe("resourceSlotSupplyForPlayer", () => {
   });
 
   it("domainGrantedSupply adds extra slots on top of tile-based supply", () => {
-    const totals = resourceSlotSupplyForPlayer([], new Set(), new Set(), { TITANIUM: 1, CRYSTAL: 1 });
+    const totals = resourceSlotSupplyForPlayer([], new Set(), new Map(), { TITANIUM: 1, CRYSTAL: 1 });
     expect(totals.TITANIUM).toBe(1);
     expect(totals.CRYSTAL).toBe(1);
     expect(totals.UMBRITE).toBe(0);
@@ -393,9 +374,9 @@ describe("resourceSlotDormantContributorsForPlayer", () => {
 
   it("a structure needing multiple resources is only dormant for the resource that's actually short", () => {
     const tiles = [
-      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "ORE_REFINERY", status: "active", activatedAt: 100 } })
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "NEURAL_WORKS", status: "active", activatedAt: 100 } })
     ];
-    // ORE_REFINERY needs 1 FOOD + 1 CRYSTAL. Supply covers CRYSTAL but not FOOD.
+    // NEURAL_WORKS needs 1 FOOD + 1 CRYSTAL. Supply covers CRYSTAL but not FOOD.
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, TITANIUM: 0, CRYSTAL: 1, UMBRITE: 0 });
     expect([...dormancy.FOOD]).toEqual(["0,0:economicStructure"]);
     expect(dormancy.CRYSTAL.size).toBe(0);
@@ -467,9 +448,9 @@ describe("dormantStructureDetailsFromDormancy", () => {
 
   it("groups a multi-resource structure's dormancy into one entry with both resources", () => {
     const tiles = [
-      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "ORE_REFINERY", status: "active", activatedAt: 100 } })
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "NEURAL_WORKS", status: "active", activatedAt: 100 } })
     ];
-    // ORE_REFINERY needs 1 FOOD + 1 CRYSTAL; neither is supplied.
+    // NEURAL_WORKS needs 1 FOOD + 1 CRYSTAL; neither is supplied.
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
     const details = dormantStructureDetailsFromDormancy(dormancy);
     expect(details).toHaveLength(1);

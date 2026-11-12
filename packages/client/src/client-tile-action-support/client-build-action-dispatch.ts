@@ -16,10 +16,6 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "HYDROGARDEN";
     case "build_hydroworks":
       return "HYDROWORKS";
-    case "build_umbrite_rig":
-      return "UMBRITE_RIG";
-    case "build_mine":
-      return "MINE";
     case "build_manufactory":
       return "MANUFACTORY";
     case "build_incubation_engine":
@@ -44,8 +40,6 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "AETHER_CONDENSER";
     case "build_trade_nexus":
       return "TRADE_NEXUS";
-    case "build_ore_refinery":
-      return "ORE_REFINERY";
     case "build_ancillary_depot":
       return "ANCILLARY_DEPOT";
     case "build_harbor_exchange":
@@ -122,8 +116,6 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
   const networkResource = networkResourceForAction(actionId);
   if (networkResource) return RESOURCE_NETWORKS[networkResource].tech;
   switch (actionId) {
-    case "build_ore_refinery":
-      return "industrial-extraction";
     // build_fortification is deliberately absent: the Fortify row also offers the
     // tech-free Palisade, and each fort tier reports its own lock in the picker.
     case "build_titanium_weapons_factory":
@@ -141,15 +133,12 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_ancillary_depot":
       return "organized-supply";
     case "build_siege_camp":
-    case "build_umbrite_rig":
     case "build_umbrite_weapons_factory":
       return "leatherworking";
     case "build_hydrogarden":
       return "agriculture";
     case "build_hydroworks":
       return "irrigation";
-    case "build_mine":
-      return "mining";
     case "build_manufactory":
       return "trade";
     case "build_incubation_engine":

@@ -1,5 +1,9 @@
 # Frontier infrastructure models
 
+> Mine and Umbrite Rig were removed from play with town refineries
+> (territory-development-plan.md Phase 2). Their models and art remain in the
+> client for the refined-deposit overlay follow-up; they are no longer built.
+
 Status: implementation reference
 
 The production 3D models and **Map / Structures / Infrastructure / Identity

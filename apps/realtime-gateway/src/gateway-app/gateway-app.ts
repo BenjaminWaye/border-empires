@@ -15,6 +15,7 @@ import { preSerializeBroadcast, sendJsonToSocket } from "../broadcast-payload/br
 import { sendCombatResolvedPayload } from "../combat-resolved-payloads/combat-resolved-payloads.js";
 import { createGatewayStringifier } from "../gateway-stringifier/gateway-stringifier.js";
 import { dispatchAfcOrRevealCommand } from "./gateway-afc-and-reveal-command.js";
+import { dispatchEconomicBuildOrRefineryCommand } from "./gateway-refinery-command.js";
 import { createLoginPhaseNotifier } from "../login-phase-notifier/login-phase-notifier.js";
 import { createSlowLoginAlerter } from "../slow-login-alert/slow-login-alert.js";
 import { createSlackAlerter, type SlackAlerter, type BugReportInput } from "../slack-alerts/slack-alerts.js";
@@ -2470,12 +2471,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await ephemeralSimCommands.watchMuster(session, authedSession.playerId, message.x, message.y);
           } else if (message.type === "UNWATCH_MUSTER") {
             await ephemeralSimCommands.unwatchMuster(session, authedSession.playerId);
-          } else if (message.type === "BUILD_ECONOMIC_STRUCTURE") {
-            await dispatchDurableCommand("BUILD_ECONOMIC_STRUCTURE", {
-              x: message.x,
-              y: message.y,
-              structureType: message.structureType
-            });
+          } else if (await dispatchEconomicBuildOrRefineryCommand(message, dispatchDurableCommand)) {
           } else if (message.type === "CANCEL_FORT_BUILD") {
             await dispatchDurableCommand("CANCEL_FORT_BUILD", { x: message.x, y: message.y });
           } else if (message.type === "CANCEL_STRUCTURE_BUILD") {

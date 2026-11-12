@@ -1,7 +1,7 @@
 // FOOD-slot relief tiers that sit around food-slot-relief.ts's core choosers:
 //
-// - chooseSurplusProducerToDisable: a MINE or UMBRITE_RIG costs a FOOD slot to
-//   add a TITANIUM/CRYSTAL/UMBRITE slot. When that resource is already well in
+// - chooseSurplusProducerToDisable: a town refinery costs a FOOD slot to
+//   add TITANIUM/CRYSTAL/UMBRITE slots on its field. When that resource is already well in
 //   surplus the FOOD slot buys nothing. Staging season-41: ai-10 ran 9 rigs
 //   with UMBRITE 31 supply vs 1 demand while switching off 53 of its own Relay
 //   Beacons for FOOD. Only gold and shards can be traded (diplomacy-terms.ts),
@@ -10,8 +10,10 @@
 //   FOOD consumer relief switched off, once FOOD has headroom again.
 import {
   BASE_SLOTS_BY_TILE_RESOURCE,
-  ORE_REFINERY_MINE_SLOT_BONUS,
-  TILE_SLOT_BOOST_STRUCTURES,
+  REFINERY_BOOSTER_SLOTS_PER_TILE,
+  REFINERY_FIELD_RESOURCE_BY_TYPE,
+  REFINERY_SLOTS_PER_TILE,
+  isRefineryType,
   structureSlotRequirements,
   type SlotResource,
   type SlotStructureType
@@ -22,17 +24,19 @@ import type { FoodSlotReenableTarget, FoodSlotReliefPlan } from "./food-slot-rel
 /** Free slots (supply − demand) per non-FOOD slot resource. */
 export type ResourceSlotHeadroom = Partial<Record<SlotResource, number>>;
 
-// The most one producer can add: its own boost plus an Ore Refinery's bonus.
-// Requiring at least this much headroom means switching it off can never push
-// that resource into deficit.
-const SURPLUS_PRODUCER_MIN_HEADROOM = 1 + ORE_REFINERY_MINE_SLOT_BONUS;
+// The planner tile does not say how many field tiles a refinery processes, so
+// assume the most one can add: the largest worldgen field (8 tiles) at the
+// boosted rate. Requiring at least this much headroom means switching it off
+// can never push that resource into deficit. (Phase 2 minimal port; the AI
+// refinery planner follow-up can read the real processed-tile count.)
+const LARGEST_WORLDGEN_FIELD_TILES = 8;
+const SURPLUS_PRODUCER_MIN_HEADROOM = LARGEST_WORLDGEN_FIELD_TILES * (REFINERY_SLOTS_PER_TILE + REFINERY_BOOSTER_SLOTS_PER_TILE);
 
-/** The slot resource a MINE/UMBRITE_RIG on this tile produces, if any. */
+/** The slot resource the refinery on this tile produces, if any. */
 const producedSlotResource = (tile: AutomationPlannerTile): SlotResource | undefined => {
   const type = tile.economicStructure?.type;
-  if (!type || !(type in TILE_SLOT_BOOST_STRUCTURES) || type === "HYDROGARDEN") return undefined;
-  const produced = tile.resource ? BASE_SLOTS_BY_TILE_RESOURCE[tile.resource as keyof typeof BASE_SLOTS_BY_TILE_RESOURCE]?.slotResource : undefined;
-  return produced && produced !== "FOOD" ? produced : undefined;
+  if (!isRefineryType(type)) return undefined;
+  return BASE_SLOTS_BY_TILE_RESOURCE[REFINERY_FIELD_RESOURCE_BY_TYPE[type]]?.slotResource;
 };
 
 const usesFoodSlot = (type: string): boolean =>
@@ -43,7 +47,7 @@ const isSurplusProducer = (tile: AutomationPlannerTile, headroom: ResourceSlotHe
   return produced !== undefined && (headroom[produced] ?? 0) >= SURPLUS_PRODUCER_MIN_HEADROOM;
 };
 
-/** An active FOOD-using MINE/UMBRITE_RIG whose output resource is in surplus. Lowest x, then y. */
+/** An active FOOD-using refinery whose output resource is in surplus. Lowest x, then y. */
 export const chooseSurplusProducerToDisable = <TTile extends AutomationPlannerTile>(
   ownedTiles: readonly TTile[],
   playerId: string,
@@ -60,7 +64,7 @@ export const chooseSurplusProducerToDisable = <TTile extends AutomationPlannerTi
   return best ? { x: best.x, y: best.y, kind: "disable" } : undefined;
 };
 
-// Non-FOOD slots a structure needs (e.g. ORE_REFINERY's CRYSTAL) must have
+// Non-FOOD slots a structure needs (e.g. NEURAL_WORKS's CRYSTAL) must have
 // room too, or the runtime refuses the re-enable and the planner retries it.
 const otherSlotsFit = (type: string, headroom: ResourceSlotHeadroom | undefined): boolean =>
   structureSlotRequirements(type as SlotStructureType).every((req) =>

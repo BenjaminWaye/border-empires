@@ -28,7 +28,7 @@ const bastion: TechInfo = {
 };
 
 const thunder: TechInfo = { ...bastion, id: "thunder", tier: 3, name: "Thunderplate Induction Module", prereqIds: ["bastion"], effects: { unlockThunderBastion: true } };
-const mining: TechInfo = { ...bastion, id: "mining", tier: 1, name: "Prospector Crew", manifestCategory: "CREW_OFFICE_CONSIGNMENT", branch: "economy", prereqIds: [], effects: { unlockMine: true } };
+const mining: TechInfo = { ...bastion, id: "mining", tier: 1, name: "Prospector Crew", manifestCategory: "CREW_OFFICE_CONSIGNMENT", branch: "economy", prereqIds: [], effects: { unlockTitaniumRefinery: true } };
 
 const catalog = [titaniumForge, bastion, thunder, mining];
 
@@ -148,7 +148,7 @@ describe("renderManifestDetailHtml", () => {
       context({ tech: mining, fit: { manpower: 0, hasBuildSite: () => false, ownsFish: false, resourceSlots: { supply: emptySlots, demand: emptySlots }, clueNearTerritory: () => false, surveyReportFor: () => undefined } })
     );
     expect(html).not.toContain("Good pick");
-    expect(html).toContain("Not useful yet: Mine needs Food slots");
+    expect(html).toContain("Not useful yet: Titanium Refinery needs Food slots");
   });
 
   it("shows no badge without live player state", () => {

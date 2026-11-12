@@ -22,7 +22,7 @@ describe("developed resource eligibility", () => {
     expect(developedNetworkSites([site()], "p", new Set(), tech).LUXURY_BIOTA).toBe(1);
     const invalid = [site({ ownerId: "other" }), site({ ownershipState: "FRONTIER" }), site({ economicStructure: undefined }), site({ economicStructure: { ownerId:"other",type:"CULTIVATION_ESTATE",status:"active" } }),
       site({ economicStructure: { ownerId: "p", type: "CULTIVATION_ESTATE", status: "under_construction" } }),
-      site({ economicStructure: { ownerId: "p", type: "MINE", status: "active" } })];
+      site({ economicStructure: { ownerId: "p", type: "TITANIUM_REFINERY", status: "active" } })];
     expect(developedNetworkSites(invalid, "p", new Set(), tech)).toEqual(emptyNetworkSiteCounts());
     expect(developedNetworkSites([site()], "p", new Set(["2,3"]), tech).LUXURY_BIOTA).toBe(0);
     expect(developedNetworkSites([site()], "p", new Set(), new Set()).LUXURY_BIOTA).toBe(0);

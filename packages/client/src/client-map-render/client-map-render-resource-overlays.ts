@@ -8,6 +8,9 @@ import { networkVariantForTile, networkDepositFilename, NETWORK_VARIANTS } from 
 import { createOverlayVariantSet, structureOverlayImages } from "./client-map-overlay-images.js";
 import type { Tile } from "../client-types.js";
 
+// UMBRITE_RIG/TITANIUM_MINE/GEMS_MINE are no longer chosen for any tile
+// (Mine and Umbrite Rig were removed); kept for the refined-deposit overlay
+// follow-up (territory-development-plan.md Phase 2, Client).
 const builtResourceOverlayVariants = {
   FARM_HYDROPONIC: createOverlayVariantSet(["farm-hydroponic-overlay-1.svg", "farm-hydroponic-overlay-2.svg", "farm-hydroponic-overlay-3.svg"]),
   FARM_HYDROGARDEN: createOverlayVariantSet(["farm-hydrogarden-overlay-1.svg", "farm-hydrogarden-overlay-2.svg", "farm-hydrogarden-overlay-3.svg"]),
@@ -46,9 +49,6 @@ export const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | unde
   const key =
     tile.resource === "FARM" && tile.economicStructure.type === "HYDROGARDEN" ? "FARM_HYDROPONIC"
     : tile.resource === "FISH" && tile.economicStructure.type === "HYDROGARDEN" ? "FISH_HYDROGARDEN"
-    : tile.resource === "UMBRITE" && tile.economicStructure.type === "UMBRITE_RIG" ? "UMBRITE_RIG"
-    : tile.resource === "TITANIUM" && tile.economicStructure.type === "MINE" ? "TITANIUM_MINE"
-    : tile.resource === "GEMS" && tile.economicStructure.type === "MINE" ? "GEMS_MINE"
     : undefined;
   if (!key) return undefined;
   const variants = builtResourceOverlayVariants[key];

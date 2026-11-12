@@ -30,14 +30,12 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     glyph: "▥",
     placement: "Build on a garrisoned farm resource tile you own."
   },
-  UMBRITE_RIG: {
-    glyph: "◆",
-    placement: "Build on a garrisoned umbrite resource tile you own."
-  },
-  MINE: {
-    glyph: "⛏",
-    placement: "Build on a garrisoned titanium or crystal resource tile you own."
-  },
+  TITANIUM_REFINERY: { glyph: "⛏", placement: "Build on an open garrisoned support tile for a town linked to a Titanium field." },
+  UMBRITE_REFINERY: { glyph: "◆", placement: "Build on an open garrisoned support tile for a town linked to an Umbrite field." },
+  CRYSTAL_REFINERY: { glyph: "◇", placement: "Build on an open garrisoned support tile for a town linked to a Gems field." },
+  TITANIUM_SMELTER: { glyph: "⚙", placement: "Build on an open garrisoned support tile for a town you own." },
+  UMBRITE_DISTILLERY: { glyph: "⚗", placement: "Build on an open garrisoned support tile for a town you own." },
+  CRYSTAL_CUTTER: { glyph: "✧", placement: "Build on an open garrisoned support tile for a town you own." },
   MANUFACTORY: {
     glyph: "⚙",
     placement: "Build on an open garrisoned town or support tile you own."
@@ -61,10 +59,6 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
   DREAD_TOWER: {
     glyph: "⚔",
     placement: "Upgrade an existing Siege Tower on its current tile."
-  },
-  ORE_REFINERY: {
-    glyph: "⚙\uFE0E",
-    placement: "Build on an open garrisoned support tile for a town you own."
   },
   HARBOR_EXCHANGE: {
     glyph: "⚓\uFE0E",

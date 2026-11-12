@@ -10,18 +10,32 @@ const player = () => ({ ...createHumanRuntimePlayer("p"), afcUpgradeRuleset: "af
 const tile = (x: number, resource?: DomainTileState["resource"]): DomainTileState => ({ x, y: 0, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED", ...(resource ? { resource } : {}) });
 
 describe("AFC installation deliveries and durable recovery", () => {
-  it("counts owned known deposits, ignores remaining slots, and delivers without build tech", () => {
+  it("counts owned known deposits, ignores remaining slots, and delivers a linked refinery without build tech", () => {
     const actor = player();
     actor.techIds = new Set([...techEntryById.values()].filter(tech => tech.effects?.revealResource).map(tech => tech.id));
-    const tiles = new Map([tile(1, "FARM"), tile(2, "FARM"), tile(3, "FARM"), tile(4, "TITANIUM"), tile(5, "TITANIUM"), tile(6, "GEMS")].map(t => [`${t.x},0`, t]));
-    const preview = previewScarcityDelivery(actor, tiles.values(), tiles);
+    // Row 0: three farms, two titanium, one gems. A town at (6,2) whose ring
+    // reaches the deposits over owned land.
+    const ring = [[5, 1], [6, 1], [7, 1], [5, 2], [7, 2], [5, 3], [6, 3], [7, 3]].map(([x, y]) => ({ ...tile(x!), y: y! }));
+    const town = { ...tile(6), y: 2, town: { type: "MARKET" as const, populationTier: "TOWN" as const } };
+    const all = [tile(1, "FARM"), tile(2, "FARM"), tile(3, "FARM"), tile(4, "TITANIUM"), tile(5, "TITANIUM"), tile(6, "GEMS"), ...ring, town];
+    const tiles = new Map(all.map(t => [`${t.x},${t.y}`, t]));
+    const preview = previewScarcityDelivery(actor, tiles.values(), tiles, () => false, tiles);
     expect(preview.resource).toBe("CRYSTAL");
-    expect(preview.deliveries).toEqual([{ key: "6,0", type: "MINE" }]);
+    expect(preview.deliveries).toEqual([{ key: "5,1", type: "CRYSTAL_REFINERY", field: { x: 6, y: 0 } }]);
     const before = [...actor.techIds];
     const result = applyAfcInstallationGrant({ tiles, now: () => 123, replaceTileState: (key, t) => tiles.set(key, t) }, actor, "afc-exchequer-2", "choose");
     expect(result).toMatchObject({ deliveredBuildings: 1, resource: "CRYSTAL" });
-    expect(tiles.get("6,0")?.economicStructure).toMatchObject({ status: "active", type: "MINE", activatedAt: 123 });
+    expect(tiles.get("5,1")?.economicStructure).toMatchObject({ status: "active", type: "CRYSTAL_REFINERY", activatedAt: 123, refineryField: { x: 6, y: 0, assignedAt: 123 } });
+    expect(tiles.get("6,0")?.economicStructure).toBeUndefined();
     expect([...actor.techIds]).toEqual(before);
+  });
+  it("gives a strategic resource no candidate when no town can link a free field, falling back to Hydrogardens", () => {
+    const actor = player();
+    actor.techIds = new Set([...techEntryById.values()].filter(tech => tech.effects?.revealResource).map(tech => tech.id));
+    const tiles = new Map([tile(1, "FARM"), tile(2, "FARM"), tile(4, "TITANIUM"), tile(6, "GEMS")].map(t => [`${t.x},0`, t]));
+    const preview = previewScarcityDelivery(actor, tiles.values(), tiles, () => false, tiles);
+    expect(preview.resource).toBe("FOOD");
+    expect(preview.deliveries).toEqual([{ key: "1,0", type: "HYDROGARDEN" }, { key: "2,0", type: "HYDROGARDEN" }]);
   });
   it("skips occupied/locked/unknown deposits and uses a useful no-deposit fallback", () => {
     const actor = player();

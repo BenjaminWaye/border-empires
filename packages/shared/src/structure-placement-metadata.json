@@ -45,17 +45,35 @@
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
-  "UMBRITE_RIG": {
-    "showOn": ["resource"],
+  "TITANIUM_REFINERY": {
+    "showOn": ["town", "support"],
     "placementMode": "same_tile",
-    "sortGroup": "resource",
-    "resourceTypes": ["UMBRITE"]
+    "sortGroup": "support"
   },
-  "MINE": {
-    "showOn": ["resource"],
+  "UMBRITE_REFINERY": {
+    "showOn": ["town", "support"],
     "placementMode": "same_tile",
-    "sortGroup": "resource",
-    "resourceTypes": ["TITANIUM", "GEMS"]
+    "sortGroup": "support"
+  },
+  "CRYSTAL_REFINERY": {
+    "showOn": ["town", "support"],
+    "placementMode": "same_tile",
+    "sortGroup": "support"
+  },
+  "TITANIUM_SMELTER": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "UMBRITE_DISTILLERY": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "CRYSTAL_CUTTER": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
   },
   "MANUFACTORY": {
     "showOn": ["town", "support"],
@@ -131,11 +149,6 @@
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
-  },
-  "ORE_REFINERY": {
-    "showOn": ["settled", "resource", "town", "support", "dock"],
-    "placementMode": "same_tile",
-    "sortGroup": "general"
   },
   "ANCILLARY_DEPOT": {
     "showOn": ["town", "support"],

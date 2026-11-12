@@ -148,9 +148,33 @@ demand is across its consumers. Gold does not use this system.
 | GEMS | 1 CRYSTAL slot |
 | UMBRITE | 1 UMBRITE slot |
 
-- Hydrogarden adds 2 FOOD slots to its FARM tile. Mine and Umbrite Rig each add
-  1 matching-resource slot. Hydroworks adds 2 FOOD slots to Hydrogardens in
-  range; Ore Refinery adds 2 TITANIUM slots to Mines in range.
+- Hydrogarden adds 2 FOOD slots to its FARM tile. Hydroworks adds 2 FOOD slots
+  to Hydrogardens in range.
+- Strategic deposits (Titanium, Umbrite, Gems) take no on-tile building; the
+  Mine, Umbrite Rig and Ore Refinery were removed (recovery drops their saved
+  records; the bare deposit keeps its base slot). Instead a **town refinery**
+  (Titanium Refinery, Umbrite Refinery, Crystal Refinery: 80 manpower, 1 FOOD
+  slot, several per town) stands on a town's support ring and processes one
+  **field**: the 8-connected group of same-resource deposit tiles containing
+  its anchor tile. The field is linked when the owner's own land (FRONTIER or
+  SETTLED; water, mountains, unowned and other players' tiles block) joins the
+  town tile to any field tile within `REFINERY_REACH_LAND_TILES` = 10 land
+  steps (8-way). A working refinery adds `REFINERY_SLOTS_PER_TILE` = 2 slots
+  to every garrisoned field tile its owner holds, plus
+  `REFINERY_BOOSTER_SLOTS_PER_TILE` = 1 while an active booster of its resource
+  (Titanium Smelter, Umbrite Distillery, Crystal Cutter: 150 manpower, 1 FOOD
+  slot, one per town) stands on the same town's ring. It works only while
+  active, while its owner holds both its tile and its town, and while the field
+  is linked. Each field feeds at most one of an owner's refineries (the oldest
+  assignment wins; the others are unassigned until reassigned). If the anchor
+  stops being an owned deposit the refinery re-anchors to another owned tile of
+  the same field. Building one auto-picks the nearest free linked field (or
+  takes an explicit one); `ASSIGN_REFINERY_FIELD` changes it. Field
+  eligibility, link, exclusivity and the bonus are pure rules in
+  `packages/shared/src/refineries/`; the simulation applies them in the slot
+  supply rebuild (`apps/simulation/src/refineries/`) and reports them as
+  `STRUCTURE_BOOST` rows with the refinery / booster type. Known gap, shared
+  with every slot boost: a FOOD-dormant refinery still processes its field.
 - Agrarian Works adds 1 FOOD slot per owned, settled FISH tile.
 - **Strategic deposit placement.** On worlds generated from worldgen v13,
   every Titanium, Umbrite and Gems field (connected group of deposit tiles) has

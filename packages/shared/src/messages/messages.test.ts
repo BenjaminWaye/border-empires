@@ -39,7 +39,7 @@ describe("ClientMessageSchema", () => {
     delete switches.improve;
     expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", ...switches })).toEqual({ type: "SET_AUTO_SETTLE_PREFS", ...switches });
     expect(ClientMessageSchema.safeParse({ type: "SET_AUTO_SETTLE_PREFS", towns: true, TITANIUM: "yes" }).success).toBe(false);
-    expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", ...switches, improve: { TITANIUM: true } })).toMatchObject({ improve: { TITANIUM: true } });
+    expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", ...switches, improve: { FARM: true } })).toMatchObject({ improve: { FARM: true } });
   });
 
   it("accepts NAME_ISLAND and rejects a non-integer tile", () => {
@@ -114,6 +114,23 @@ describe("ClientMessageSchema", () => {
     expect(
       ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "UMBRITE_WEAPONS_FACTORY" })
     ).toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "UMBRITE_WEAPONS_FACTORY" });
+  });
+
+  it("accepts refinery and booster builds, with an optional field, and rejects the removed Mine", () => {
+    for (const structureType of ["TITANIUM_REFINERY", "UMBRITE_REFINERY", "CRYSTAL_REFINERY", "TITANIUM_SMELTER", "UMBRITE_DISTILLERY", "CRYSTAL_CUTTER"]) {
+      expect(ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType })).toMatchObject({ structureType });
+    }
+    expect(ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "TITANIUM_REFINERY", fieldX: 4, fieldY: 5 }))
+      .toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "TITANIUM_REFINERY", fieldX: 4, fieldY: 5 });
+    for (const structureType of ["MINE", "UMBRITE_RIG", "ORE_REFINERY"]) {
+      expect(() => ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType })).toThrow();
+    }
+  });
+
+  it("accepts ASSIGN_REFINERY_FIELD and requires the field coordinates", () => {
+    expect(ClientMessageSchema.parse({ type: "ASSIGN_REFINERY_FIELD", x: 1, y: 2, fieldX: 3, fieldY: 4 }))
+      .toEqual({ type: "ASSIGN_REFINERY_FIELD", x: 1, y: 2, fieldX: 3, fieldY: 4 });
+    expect(() => ClientMessageSchema.parse({ type: "ASSIGN_REFINERY_FIELD", x: 1, y: 2 })).toThrow();
   });
 
   it("accepts REQUEST_PERSONAL_ACTIVITY with no payload", () => {

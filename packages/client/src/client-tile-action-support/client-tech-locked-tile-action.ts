@@ -27,15 +27,10 @@ export const hideTechLockedTileAction = (
 };
 
 // Same-tile resource builds stay visible (greyed out) while their tech is
-// locked, naming the tech and linking to it instead of vanishing. A
-// researched Umbrite Rigging Module that wasn't installed on an AFC used to
-// hide the Umbrite Rig with no explanation at all. (An unresearched rig can't
-// show up: the same tech reveals Umbrite on the map.)
+// locked, naming the tech and linking to it instead of vanishing.
 const SHOWN_WHEN_TECH_LOCKED: ReadonlySet<TileActionDef["id"]> = new Set<TileActionDef["id"]>([
   ...NETWORK_RESOURCES.map(networkBuildAction),
-  "build_hydrogarden",
-  "build_umbrite_rig",
-  "build_mine"
+  "build_hydrogarden"
 ]);
 
 /**

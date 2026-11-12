@@ -556,6 +556,14 @@ fields are industrial remains, distinct from the great Monuments; no claim that
 a field is itself an active Concordance construct is implied by the term
 precursor.
 
+Strategic ore is not worked at the pit. Titanium, Umbrite and Crystal-bearing
+Gems are refined in a House's towns: a refinery on a town's support ground
+hauls raw ore from one linked field, over the House's own roads and land, and
+turns it into usable supply. A deposit with no town to serve it, or whose haul
+road an enemy has cut, yields only what a garrison can scrape by hand. A town
+that commits to an ore gives up more of its working ground to smelters,
+distilleries or cutting halls.
+
 Specialised warrants and charters commission the crews, processing standards
 and commercial rights needed to exploit these sites. A discovered deposit is
 an opportunity before it is a working supply industry. Losing a concession

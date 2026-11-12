@@ -254,6 +254,6 @@ export const enrichSnapshotTilesForPlayer = (
     // recomputing from their partial tiles could pick a different town.
     const domainTile = fullVisibility && (tile.economicStructureJson || tile.observatoryJson)
       ? ctx.domainTilesByKey.get(keyFor(tile.x, tile.y)) : undefined;
-    return domainTile ? { ...enriched, ...districtOverlayProjection(ctx.domainTilesByKey, domainTile, () => true) } : enriched;
+    return domainTile ? { ...enriched, ...districtOverlayProjection(ctx.domainTilesByKey, domainTile, () => true, playerId) } : enriched;
   });
 };

@@ -115,7 +115,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CREATE_MOUNTAIN") return handlers.handleCreateMountainCommand(command);
   if (command.type === "REMOVE_MOUNTAIN") return handlers.handleRemoveMountainCommand(command);
   if (command.type === "RETORT_RECAST") return handlers.handleRetortRecastCommand(command);
-  if (command.type === "REDEPLOY_AFC_MODULE" || command.type === "BUILD_AFC") return handlers.handleBuildStructureCommand(command);
+  if (command.type === "REDEPLOY_AFC_MODULE" || command.type === "BUILD_AFC" || command.type === "ASSIGN_REFINERY_FIELD") return handlers.handleBuildStructureCommand(command);
   if (command.type === "SKY_DOCK_BOMBARD") return handlers.handleSkyDockBombardCommand(command);
   if (command.type === "IMPERIAL_EXCHANGE_LEVY") return handlers.handleImperialExchangeLevyCommand(command);
   if (command.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE") return handlers.handleSovereignSiegeEngineStrikeCommand(command);
@@ -173,6 +173,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "CHOOSE_DOMAIN" ||
   command.type === "SET_CONVERTER_STRUCTURE_ENABLED" ||
   command.type === "SET_CONVERTER_STRUCTURE_MODE" ||
+  command.type === "ASSIGN_REFINERY_FIELD" ||
   command.type === "SET_OBSERVATORY_ENABLED" ||
   command.type === "REVEAL_EMPIRE" ||
   command.type === "REVEAL_EMPIRE_STATS" ||

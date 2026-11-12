@@ -10,13 +10,9 @@ export function resolvedMapResource3D(x: number, y: number, terrain: Tile["terra
   return value === "FARM" || value === "FISH" || value === "TITANIUM" || value === "UMBRITE" || value === "GEMS" ? value : undefined;
 }
 // Non-network extraction improvements whose 3D model stands in for the raw
-// deposit: a MINE on TITANIUM/GEMS (its cart carries the ore/crystals) and an
-// UMBRITE_RIG on UMBRITE. Drawing the deposit too would leave the raw rocks
-// poking through the building.
-const DEPOSIT_IMPROVEMENT_RESOURCES: Partial<Record<NonNullable<Tile["economicStructure"]>["type"], readonly ResourceType[]>> = {
-  MINE: ["TITANIUM", "GEMS"],
-  UMBRITE_RIG: ["UMBRITE"]
-};
+// deposit. None remain since Mine and Umbrite Rig were removed (strategic
+// deposits stay bare; town refineries process them).
+const DEPOSIT_IMPROVEMENT_RESOURCES: Partial<Record<NonNullable<Tile["economicStructure"]>["type"], readonly ResourceType[]>> = {};
 
 /** Developed models include their raw site; avoid coincident duplicate meshes. */
 export const shouldRenderRawResource = (resource: ResourceType, tile: Tile | undefined): boolean => {

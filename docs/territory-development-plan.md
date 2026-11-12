@@ -91,6 +91,28 @@ buildings (scoped in the same branch), not the map.
 
 ## Phase 2: Refineries in towns
 
+Status: server and shared rules implemented (2026-11-12); worldgen
+relocation, client UI (supply lines, refined overlay, field picker, toast) and
+the AI planner are still to do. Implemented numbers:
+`REFINERY_REACH_LAND_TILES` = 10, `REFINERY_SLOTS_PER_TILE` = 2,
+`REFINERY_BOOSTER_SLOTS_PER_TILE` = 1 (+3 per tile with the booster). Titanium
+and Crystal Refinery need `mining`, Umbrite Refinery `leatherworking`, the
+three boosters `industrial-extraction`. Refineries: 80 manpower, 1 FOOD slot,
+`same_tile` (stack per town); boosters: 150 manpower, 1 FOOD slot,
+`town_support` (one per town). Rules live in `packages/shared/src/refineries/`
+(fields, link BFS, exclusivity, field choice), the simulation glue in
+`apps/simulation/src/refineries/` (slot supply, `BUILD_ECONOMIC_STRUCTURE`
+`fieldX`/`fieldY`, `ASSIGN_REFINERY_FIELD`, wire status). Decisions taken
+while implementing: exclusivity is per owner (two players' refineries on one
+component each refine only their own tiles); re-anchoring is derived at
+evaluation time, not written back; a refinery's tile must be SETTLED to work;
+a FOOD-dormant refinery still processes its field (same known gap as every
+slot boost). Recovery drops saved Mine / Umbrite Rig / Ore Refinery records
+(`retired-frontier-materials.ts`). The wire status is attached where the
+`supportAnchor` projection runs, so it is refreshed when the refinery tile
+itself is sent; a change elsewhere on the link path does not re-send it (the
+client follow-up should refresh or recompute it).
+
 ### Rules (starting values)
 
 1. **Bare deposits.** A garrisoned Titanium, Umbrite or Gems tile gives its 1

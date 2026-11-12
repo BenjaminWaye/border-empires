@@ -14,8 +14,10 @@ export function afcInstallationPreviews(player: Pick<DomainPlayer, "id" | "techI
       for (const tile of tiles) if (tile.afc || tile.naturalWonder) landmarks.set(`${tile.x},${tile.y}`, tile);
     }
     const preview = previewScarcityDelivery(player, tiles, landmarkTiles ?? landmarks);
-    return { "afc-exchequer-2": preview.fallback ? "No eligible unboosted deposit. Delivery supplies 1 permanent FOOD slot instead."
-      : `Current delivery: ${preview.deliveries.length} finished boosting buildings on ${preview.resource} deposits. No Manifest required.` };
+    return { "afc-exchequer-2": preview.fallback ? "No eligible unboosted deposit or linked field. Delivery supplies 1 permanent FOOD slot instead."
+      : preview.resource === "FOOD"
+        ? `Current delivery: ${preview.deliveries.length} finished Hydrogardens on FOOD deposits. No Manifest required.`
+        : `Current delivery: ${preview.deliveries.length} finished town refineries for linked ${preview.resource} fields. No Manifest required.` };
   }
   if (!choices.includes("afc-exchequer-5")) return {};
   const towns = tiles.filter(tile => tile.ownerId === player.id && tile.ownershipState === "SETTLED" && tile.town);

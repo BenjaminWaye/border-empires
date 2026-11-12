@@ -171,8 +171,6 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_relay_beacon") return "⚑";
   if (id === "build_observatory") return "◉";
   if (id === "build_hydrogarden") return "▥";
-  if (id === "build_umbrite_rig") return "◆";
-  if (id === "build_mine") return "⛏";
   if (id === "build_manufactory") return "▣";
   if (id === "build_incubation_engine") return "◫";
   if (id === "build_bank") return "◧";
@@ -192,7 +190,6 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "cancel_siphon") return "⊘";
   if (id === "set_converter_structure_mode") return "⇄";
   if (id === "build_fuel_plant") return "⬢";
-  if (id === "build_ore_refinery") return "⚙";
   if (id === "build_ancillary_depot") return "⛨";
   if (id === "build_harbor_exchange") return "⚓\uFE0E";
   if (id === "build_lockworks_port") return "⚓\uFE0E";

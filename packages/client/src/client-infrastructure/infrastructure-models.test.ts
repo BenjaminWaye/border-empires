@@ -35,12 +35,9 @@ describe("current infrastructure art", () => {
     }
     model.dispose();
   });
-  it("preserves a visibly different load for Titanium and Crystal extraction", () => {
-    expect(structureReviewSvg("MINE", "TITANIUM")).not.toBe(structureReviewSvg("MINE", "GEMS"));
-  });
   it("provides exact versioned crops for all five menu images", () => {
     const crops = infrastructureMenuCrops();
-    for (const kind of ["MINE", "HARBOR_EXCHANGE", "RELAY_BEACON", "OBSERVATORY", "UMBRITE_RIG"]) {
+    for (const kind of ["HARBOR_EXCHANGE", "RELAY_BEACON", "OBSERVATORY"]) {
       const url = infrastructureArtUrl(kind)!; expect(url).toContain("?v=");
       const crop = crops[url]!; expect(crop).toHaveLength(4);
       expect(crop.every(n => n >= 0 && n <= 1)).toBe(true);

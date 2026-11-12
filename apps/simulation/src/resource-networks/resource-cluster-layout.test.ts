@@ -75,7 +75,7 @@ describe("small resource deposits", () => {
   it("is deterministic, idempotent, and preserves occupied tiles", () => {
     const a = map(), b = map();
     for (const tiles of [a, b]) {
-      tiles.get("2,2")!.economicStructure = { type: "MINE", ownerId: "p", status: "active" };
+      tiles.get("2,2")!.economicStructure = { type: "TITANIUM_REFINERY", ownerId: "p", status: "active" };
       tiles.get("3,3")!.town = { name: "Town", type: "MARKET", populationTier: "TOWN" };
       seedResourceNetworks(tiles, 42, width, height, biome);
     }

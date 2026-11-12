@@ -2,13 +2,11 @@ import { DirectionalLight, Mesh, MeshStandardMaterial, PCFSoftShadowMap, PlaneGe
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createDistrictOverlay } from "@client/client-town-district/district-overlay.js";
-import type { DistrictVisualKind } from "@client/client-town-district/district-catalog.js";
 import { REFINERY_MODEL_KINDS } from "@client/client-town-district/support-model-refinery.js";
 import { createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
 
 // Proposal review (docs/territory-development-plan.md, Phase 2): refineries in
 // the back row, their boosters in front, on the production district kit.
-// The kinds are not structure types yet, so they are cast for the overlay.
 
 const LABELS: Record<string, string> = {
   TITANIUM_REFINERY: "Titanium Refinery", UMBRITE_REFINERY: "Umbrite Refinery", CRYSTAL_REFINERY: "Crystal Refinery",
@@ -35,7 +33,7 @@ const render = (args: Args): HTMLElement => {
   REFINERY_MODEL_KINDS.forEach((kind, index) => {
     if (args.only >= 0 && index !== args.only) return;
     const x = args.only >= 0 ? 0 : ((index % 3) - 1) * 0.95, z = args.only >= 0 ? 0 : index < 3 ? -0.5 : 0.5;
-    overlay.add({ kind: kind as unknown as DistrictVisualKind, x, z, y: 0, foundation: true, operational: true });
+    overlay.add({ kind, x, z, y: 0, foundation: true, operational: true });
   });
   overlay.commit();
   let raf = 0;

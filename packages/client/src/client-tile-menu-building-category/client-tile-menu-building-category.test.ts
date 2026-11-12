@@ -33,7 +33,7 @@ describe("structureBuildingCategory", () => {
   });
 
   it("puts resource-tile-gated structures in Resource", () => {
-    expectCategory("resource", ["HYDROGARDEN", "MINE", "UMBRITE_RIG"]);
+    expectCategory("resource", ["HYDROGARDEN", "CULTIVATION_ESTATE", "RECLAMATION_WORKS"]);
   });
 
   // Regression: MANUFACTORY is placementMode "same_tile" only so it can stack
@@ -59,6 +59,6 @@ describe("structureBuildingCategory", () => {
   });
 
   it("puts structures buildable on any owned settled tile in Infrastructure", () => {
-    expectCategory("infrastructure", ["RELAY_BEACON", "AMBARIC_TRANSFORMER", "HYDROWORKS", "ORE_REFINERY", "MINISTRY_HALL"]);
+    expectCategory("infrastructure", ["RELAY_BEACON", "AMBARIC_TRANSFORMER", "HYDROWORKS", "MINISTRY_HALL"]);
   });
 });

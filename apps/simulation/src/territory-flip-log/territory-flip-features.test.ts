@@ -10,7 +10,7 @@ describe("tileFeaturesForActivity", () => {
   it("lists the standing fortification, buildings and wonder, but not a town, a dock or an unfinished build", () => {
     expect(tileFeaturesForActivity(tile({
       fort: { ownerId: "me", status: "active", variant: "PALISADE" },
-      economicStructure: { ownerId: "me", type: "MINE", status: "under_construction" },
+      economicStructure: { ownerId: "me", type: "TITANIUM_REFINERY", status: "under_construction" },
       dockId: "dock-3",
       naturalWonder: { type: "FOUNDRY_HEART" },
       town: { type: "MARKET", populationTier: "TOWN" }
@@ -35,7 +35,7 @@ describe("tileFeaturesForActivity", () => {
       tile({ siegeBattery: { ownerId: "me", status: "active", variant: "DREAD_TOWER" } }),
       tile({ siegeBattery: { ownerId: "me", status: "active" } }),
       tile({ economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" } }),
-      tile({ economicStructure: { ownerId: "me", type: "MINE", status: "removing" } }),
+      tile({ economicStructure: { ownerId: "me", type: "TITANIUM_REFINERY", status: "removing" } }),
       tile({ afc: { ownerId: "me", status: "active" } })
     ];
     for (const before of tiles) {

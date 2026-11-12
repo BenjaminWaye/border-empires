@@ -6,12 +6,13 @@
 import { RESOURCE_NETWORKS } from "../resource-networks/resource-networks.js";
 import type { BuildableStructureType } from "../structure-costs/structure-costs.js";
 
-/** The improvement each resource takes. Fish has none. */
+/**
+ * The improvement each resource takes. Fish has none, and strategic deposits
+ * (Titanium, Umbrite, Gems) take no on-tile improvement: a town refinery
+ * processes their whole field instead (refineries/).
+ */
 export const AUTO_IMPROVE_STRUCTURE_BY_RESOURCE = {
   FARM: "HYDROGARDEN",
-  TITANIUM: "MINE",
-  UMBRITE: "UMBRITE_RIG",
-  GEMS: "MINE",
   LUXURY_BIOTA: RESOURCE_NETWORKS.LUXURY_BIOTA.building,
   PRECURSOR_SALVAGE: RESOURCE_NETWORKS.PRECURSOR_SALVAGE.building
 } as const satisfies Record<string, BuildableStructureType>;

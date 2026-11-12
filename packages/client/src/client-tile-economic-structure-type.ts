@@ -7,8 +7,12 @@ export type ClientTileEconomicStructure = {
     | import("@border-empires/shared").NetworkBuilding
     | "HYDROGARDEN"
     | "HYDROWORKS"
-    | "UMBRITE_RIG"
-    | "MINE"
+    | "TITANIUM_REFINERY"
+    | "UMBRITE_REFINERY"
+    | "CRYSTAL_REFINERY"
+    | "TITANIUM_SMELTER"
+    | "UMBRITE_DISTILLERY"
+    | "CRYSTAL_CUTTER"
     | "MANUFACTORY"
     | "INCUBATION_ENGINE"
     | "CENSUS_HALL"
@@ -24,7 +28,6 @@ export type ClientTileEconomicStructure = {
     | "AETHER_CONDENSER"
     | "HIGH_YIELD_AETHER_CONDENSER"
     | "TRADE_NEXUS"
-    | "ORE_REFINERY"
     | "ANCILLARY_DEPOT"
     | "HARBOR_EXCHANGE"
     | "NEURAL_WORKS"
@@ -68,4 +71,7 @@ export type ClientTileEconomicStructure = {
   converterMode?: "SYNTHESIZE" | "EXCHANGE"; modeLockedUntil?: number; powered?: boolean; bombardCooldownUntil?: number;
   /** Reclamation Works: salvage loads already shipped to the Court. */
   salvageLoadsShipped?: number;
+  /** Refineries: the stored field anchor (owner only) and the server's derived field status (see RefineryWireStatus). */
+  refineryField?: import("@border-empires/shared").RefineryFieldAssignment;
+  refinery?: import("@border-empires/shared").RefineryWireStatus;
 };

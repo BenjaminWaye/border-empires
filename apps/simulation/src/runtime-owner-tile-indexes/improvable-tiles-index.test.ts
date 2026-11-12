@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { RuntimeOwnerTileIndexes } from "./runtime-owner-tile-indexes.js";
 
-const frontier: DomainTileState = { x: 3, y: 4, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER", resource: "TITANIUM" } as DomainTileState;
+const frontier: DomainTileState = { x: 3, y: 4, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER", resource: "FARM" } as DomainTileState;
 const settled = { ...frontier, ownershipState: "SETTLED" } as DomainTileState;
-const built = { ...settled, economicStructure: { ownerId: "p1", type: "MINE", status: "under_construction" } } as unknown as DomainTileState;
+const built = { ...settled, economicStructure: { ownerId: "p1", type: "HYDROGARDEN", status: "under_construction" } } as unknown as DomainTileState;
 
 describe("improvableTilesByOwner", () => {
   it("adds a resource tile once garrisoned, drops it once built on, and does not re-add it when the structure is removed", () => {
