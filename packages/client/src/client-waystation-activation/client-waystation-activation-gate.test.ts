@@ -76,19 +76,25 @@ describe("showWaystationActivationOverlayWhenClear", () => {
     expect(popup()).not.toBeNull();
   });
 
-  it("holds the popup while the join-time AFC drop is waiting or playing, then shows it once the AFC lands", () => {
+  it("holds the popup while the AFC drop animation plays, then shows it once the AFC lands", () => {
     const state = returningPlayerState();
     state.activityDashboard.loading = false;
-    state.afcJoinDrop.phase = "waiting";
+    state.afcJoinDrop.phase = "playing";
     showWaystationActivationOverlayWhenClear(info, state);
     expect(popup()).toBeNull();
-
-    state.afcJoinDrop.phase = "playing";
     vi.advanceTimersByTime(2_000);
     expect(popup()).toBeNull(); // never painted over the landing
 
     state.afcJoinDrop.phase = "done";
     vi.advanceTimersByTime(500);
+    expect(popup()).not.toBeNull();
+  });
+
+  it("does not hold the popup while the drop is only waiting for an off-screen AFC (can last minutes)", () => {
+    const state = returningPlayerState();
+    state.activityDashboard.loading = false;
+    state.afcJoinDrop.phase = "waiting";
+    showWaystationActivationOverlayWhenClear(info, state);
     expect(popup()).not.toBeNull();
   });
 });
