@@ -14,6 +14,12 @@ Status: active proposal
 > 2026-09-24), the gold cap is removed, build time follows manpower cost
 > (100 MP = 1 hour), and nothing resolves at a shared tick. Muster flags become investments that shields can counter
 > (`docs/muster-fronts-proposal.md`).
+>
+> **Correction 2026-11-12 (owner):** the continuous-regen note above is out of
+> date. Manpower accrues continuously but is paid out in one refill every 4
+> hours (`MANPOWER_REFILL_WINDOW_MS`), so a day holds about four turns. Build
+> time is a flat 60 s per structure (`STRUCTURE_BUILD_MS`). See
+> `docs/core-loop.md` §1.1.
 
 ## 1. The problem
 
