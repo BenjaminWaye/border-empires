@@ -4,6 +4,7 @@ import { WAYSTATION_CAPTURE_ENTRY } from "./client-changelog-waystation-capture.
 import { TOWN_LIST_BUILD_SLOTS_ENTRY } from "./client-changelog-town-list-build-slots.js";
 import { NEXT_CONTEST_ENTRY } from "./client-changelog-next-contest.js";
 import { SECTOR_BOARD_ENTRY } from "./client-changelog-nov-10.js";
+import { NEW_SEASON_RANKS_ENTRY } from "./client-changelog-new-season-ranks.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_111: ClientChangelogEntry[] = [
@@ -12,4 +13,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_111: ClientChangelogEntry[] = [
   { ...WAYSTATION_CAPTURE_ENTRY, createdAt: 1794342387101, },
   { ...FRONTIER_MAP_NAMES_ENTRY, createdAt: 1794312655623, },
   { ...TOWN_LIST_BUILD_SLOTS_ENTRY, createdAt: 1794383457964, },
+  { ...NEW_SEASON_RANKS_ENTRY, createdAt: 1794430820813, },
 ];
