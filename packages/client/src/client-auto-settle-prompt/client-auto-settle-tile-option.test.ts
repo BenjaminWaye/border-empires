@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AUTO_SETTLE_CATEGORIES, type AutoSettleCategory } from "@border-empires/shared";
+import { AUTO_SETTLE_CATEGORIES, NO_AUTO_IMPROVE, type AutoSettleCategory, type AutoImprovePrefs } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { loadedAutoSettleState } from "./client-auto-settle-prefs.js";
@@ -11,8 +11,9 @@ import {
   settleOutcomeText
 } from "./client-auto-settle-tile-option.js";
 
-const only = (...on: AutoSettleCategory[]): Record<AutoSettleCategory, boolean> =>
+const switches = (...on: AutoSettleCategory[]): Record<AutoSettleCategory, boolean> =>
   Object.fromEntries(AUTO_SETTLE_CATEGORIES.map((category) => [category, on.includes(category)])) as Record<AutoSettleCategory, boolean>;
+const only = (...on: AutoSettleCategory[]): Record<AutoSettleCategory, boolean> & { improve: AutoImprovePrefs } => ({ ...switches(...on), improve: { ...NO_AUTO_IMPROVE } });
 
 const tile = (extra: Partial<Tile>): Tile => ({ x: 5, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", ...extra }) as Tile;
 
@@ -71,8 +72,17 @@ describe("auto-settle checkbox", () => {
     document.body.innerHTML = autoSettleOptionHtml(autoSettleOptionForTile(state, tile({ resource: "PRECURSOR_SALVAGE" }))!);
     const box = document.querySelector<HTMLInputElement>("[data-tile-auto-settle]")!;
     box.click();
-    expect(send).toHaveBeenCalledWith({ type: "SET_AUTO_SETTLE_PREFS", ...only("FARM", "PRECURSOR_SALVAGE") });
+    expect(send).toHaveBeenCalledWith({ type: "SET_AUTO_SETTLE_PREFS", ...switches("FARM", "PRECURSOR_SALVAGE") });
     expect(state.autoSettle).toEqual(loadedAutoSettleState({ answered: true, ...only("FARM", "PRECURSOR_SALVAGE") }));
+  });
+
+  it("keeps the auto-improve switches when toggling a garrison switch", () => {
+    const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ answered: true, ...only(), improve: { ...NO_AUTO_IMPROVE, TITANIUM: true } });
+    installAutoSettleTileOptionBinding(state, () => true);
+    document.body.innerHTML = autoSettleOptionHtml(autoSettleOptionForTile(state, tile({ resource: "FARM" }))!);
+    document.querySelector<HTMLInputElement>("[data-tile-auto-settle]")!.click();
+    expect(state.autoSettle.status === "loaded" && state.autoSettle.prefs.improve.TITANIUM).toBe(true);
   });
 
   it("un-ticks itself when the message could not be sent", () => {

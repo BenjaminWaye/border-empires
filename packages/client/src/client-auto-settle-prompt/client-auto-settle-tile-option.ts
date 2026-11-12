@@ -71,6 +71,6 @@ export const installAutoSettleTileOptionBinding = (state: ClientState, send: (pa
       box.checked = !box.checked; // not signed in yet: nothing was sent, so don't pretend it took
       return;
     }
-    state.autoSettle = loadedAutoSettleState({ answered: true, ...prefs }); // optimistic; the server's PLAYER_UPDATE confirms
+    state.autoSettle = loadedAutoSettleState({ ...current, answered: true, ...prefs }); // optimistic (improve switches kept); the server's PLAYER_UPDATE confirms
   });
 };

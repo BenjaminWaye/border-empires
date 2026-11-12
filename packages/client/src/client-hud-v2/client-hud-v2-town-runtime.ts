@@ -1,5 +1,4 @@
 import { townBuildTarget } from "./client-hud-v2-town-build-target.js";
-import { preserveResourceBuildChoice } from "./client-resource-improvement-action.js";
 import { structureRequiresTownOrSupportTile } from "@border-empires/shared";
 import { dormantResourcesForTile, structureTypeForTileAction } from "../client-tile-action-support/client-tile-action-support.js";
 // Runtime for the town screen: decides when a selected tile opens it (your
@@ -86,7 +85,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     placed: placeFlash && Date.now() < placeFlash.until ? placeFlash.outcome : undefined
   });
   writeHtml("v2t-left", regions.left);
-  preserveResourceBuildChoice(document.getElementById("v2t-build"), () => writeHtml("v2t-build", regions.build));
+  writeHtml("v2t-build", regions.build);
   writeHtml("v2t-bar", regions.bar);
 };
 
@@ -192,7 +191,7 @@ export const closeTownScreen = (keepPosition = false): void => {
  * first, so the action -- and anything it opens that reads the selection later -- targets the town. The town
  * screen then shows the town itself as the build target.
  */
-export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], targetKey: string | undefined, originKey: string | undefined, buildAllResources = false): void => {
+export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], targetKey: string | undefined, originKey: string | undefined): void => {
   const type = structureTypeForTileAction(actionId);
   const pressesBefore = buildPlacedPresses().count;
   const repeat = screen.id === "town" && current && type && structureRequiresTownOrSupportTile(type);
@@ -211,14 +210,14 @@ export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], 
     const menu = deps.state.tileActionMenu;
     const target = targetKey ? deps.state.tiles.get(targetKey) : undefined;
     if (!target || targetKey === menu.currentTileKey || menu.mode !== "single") {
-      deps.actionFlow.handleTileAction(actionId, targetKey, originKey, buildAllResources);
+      deps.actionFlow.handleTileAction(actionId, targetKey, originKey);
       return;
     }
     suppressAutoExpand();
     deps.state.selected = { x: target.x, y: target.y };
     const centre = screenCentre();
     deps.actionFlow.openSingleTileActionMenu(target, centre.x, centre.y);
-    deps.actionFlow.handleTileAction(actionId, targetKey, originKey, buildAllResources);
+    deps.actionFlow.handleTileAction(actionId, targetKey, originKey);
   };
   placingTownBuild = Boolean(repeat);
   try { run(); } finally { placingTownBuild = false; }

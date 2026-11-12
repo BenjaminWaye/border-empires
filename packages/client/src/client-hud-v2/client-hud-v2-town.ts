@@ -14,6 +14,7 @@ import { initialBuildingCategory, type BuildingCategory } from "../client-tile-m
 import { autoSettleOptionForTile, autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { availableResourceImprovement, isGarrison } from "./client-hud-v2-action-bar.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
+import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
 import { builtStructureFacts, townGrowth, type DormantResourcesFor, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
@@ -135,7 +136,10 @@ const buildPanelHtml = (input: TownScreenInput): string => {
     ...(work.length > 0 ? { title: "In progress" } : built ? { title: "On this tile" } : {}),
     ...(lead ? { leadHtml: lead } : {})
   });
-  const place = buildPlaceHtml({ buildings: input.focusView.buildings, selection: input.buildSelection, targetKey: keyOf(input.focus), placeLabel, docked: true, placed: input.placed });
+  const place = buildPlaceHtml({
+    buildings: input.focusView.buildings, selection: input.buildSelection, targetKey: keyOf(input.focus), placeLabel, docked: true, placed: input.placed,
+    autoImprove: autoImproveOptionForTile(input.autoSettle, input.focus)
+  });
   return `${list}${place}`;
 };
 

@@ -1,0 +1,52 @@
+// Per-player, per-resource opt-in for the server's auto-improve: once a tile
+// of a switched-on resource is garrisoned, the simulation builds that
+// resource's improvement on it (same cost, slot and tech rules as a manual
+// build). Stored with the auto-garrison prefs (auto-settle-prefs.ts) so it
+// persists and reaches the client the same way.
+import { RESOURCE_NETWORKS } from "../resource-networks/resource-networks.js";
+import type { BuildableStructureType } from "../structure-costs/structure-costs.js";
+
+/** The improvement each resource takes. Fish has none. */
+export const AUTO_IMPROVE_STRUCTURE_BY_RESOURCE = {
+  FARM: "HYDROGARDEN",
+  TITANIUM: "MINE",
+  UMBRITE: "UMBRITE_RIG",
+  GEMS: "MINE",
+  NEURAL_RESIN: RESOURCE_NETWORKS.NEURAL_RESIN.building,
+  CONDUCTIVE_MINERALS: RESOURCE_NETWORKS.CONDUCTIVE_MINERALS.building,
+  CATALYTIC_DEPOSIT: RESOURCE_NETWORKS.CATALYTIC_DEPOSIT.building,
+  LUXURY_BIOTA: RESOURCE_NETWORKS.LUXURY_BIOTA.building,
+  PRECURSOR_SALVAGE: RESOURCE_NETWORKS.PRECURSOR_SALVAGE.building
+} as const satisfies Record<string, BuildableStructureType>;
+
+export type AutoImproveResource = keyof typeof AUTO_IMPROVE_STRUCTURE_BY_RESOURCE;
+
+export const AUTO_IMPROVE_RESOURCES = Object.keys(AUTO_IMPROVE_STRUCTURE_BY_RESOURCE) as AutoImproveResource[];
+
+export type AutoImprovePrefs = Record<AutoImproveResource, boolean>;
+
+/** Everyone starts with auto-improve off (AI included: its planner builds for itself). */
+export const NO_AUTO_IMPROVE: Readonly<AutoImprovePrefs> = Object.fromEntries(
+  AUTO_IMPROVE_RESOURCES.map((resource) => [resource, false])
+) as AutoImprovePrefs;
+
+export const isAutoImproveResource = (value: string | undefined): value is AutoImproveResource =>
+  value !== undefined && Object.prototype.hasOwnProperty.call(AUTO_IMPROVE_STRUCTURE_BY_RESOURCE, value);
+
+/** The improvement auto-improve would build on a tile of this resource, if any. */
+export const autoImproveStructureForResource = (resource: string | undefined): BuildableStructureType | undefined =>
+  isAutoImproveResource(resource) ? AUTO_IMPROVE_STRUCTURE_BY_RESOURCE[resource] : undefined;
+
+/** Reads a wire/persisted value: a missing resource is off; undefined when not an object or a value isn't boolean. */
+export const parseAutoImprovePrefs = (value: unknown): AutoImprovePrefs | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as Record<string, unknown>;
+  const prefs = { ...NO_AUTO_IMPROVE };
+  for (const resource of AUTO_IMPROVE_RESOURCES) {
+    const on = v[resource];
+    if (on === undefined) continue;
+    if (typeof on !== "boolean") return undefined;
+    prefs[resource] = on;
+  }
+  return prefs;
+};

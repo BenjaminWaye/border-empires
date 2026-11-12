@@ -36,8 +36,10 @@ describe("ClientMessageSchema", () => {
   it("keeps per-resource SET_AUTO_SETTLE_PREFS switches (zod would strip unknown keys)", () => {
     const switches = { ...NEW_PLAYER_AUTO_SETTLE_PREFS, TITANIUM: true, PRECURSOR_SALVAGE: true } as Record<string, boolean>;
     delete switches.answered;
+    delete switches.improve;
     expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", ...switches })).toEqual({ type: "SET_AUTO_SETTLE_PREFS", ...switches });
     expect(ClientMessageSchema.safeParse({ type: "SET_AUTO_SETTLE_PREFS", towns: true, TITANIUM: "yes" }).success).toBe(false);
+    expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", ...switches, improve: { TITANIUM: true } })).toMatchObject({ improve: { TITANIUM: true } });
   });
 
   it("accepts NAME_ISLAND and rejects a non-integer tile", () => {

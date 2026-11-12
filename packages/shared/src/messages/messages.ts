@@ -1,12 +1,17 @@
 import { z } from "zod";
 import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
 import { AUTO_SETTLE_RESOURCES } from "../auto-settle-prefs/auto-settle-prefs.js";
+import { AUTO_IMPROVE_RESOURCES } from "../auto-settle-prefs/auto-improve-prefs.js";
 import type { ResourceType } from "../types.js";
 import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema } from "../diplomacy-terms/diplomacy-terms.js";
 
 const AUTO_SETTLE_RESOURCE_SWITCHES = Object.fromEntries(
   AUTO_SETTLE_RESOURCES.map((resource) => [resource, z.boolean().optional()])
 ) as Record<ResourceType, z.ZodOptional<z.ZodBoolean>>;
+
+const AutoImproveSwitchesSchema = z.object(
+  Object.fromEntries(AUTO_IMPROVE_RESOURCES.map((resource) => [resource, z.boolean().optional()]))
+);
 
 /** The Fortify / Siege picker's explicit tier (structure-tier-choice.ts); omitted = best tier the tech allows. */
 const ChosenStructureTierSchema = z.enum(["FORT", "TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]);
@@ -438,7 +443,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     food: z.boolean().optional(),
     strategic: z.boolean().optional(),
     luxury: z.boolean().optional(),
-    resources: z.boolean().optional()
+    resources: z.boolean().optional(),
+    // Auto-improve switches; absent keeps the stored ones.
+    improve: AutoImproveSwitchesSchema.optional()
   }),
   // Rename the island under (x, y); only its full garrison holder may
   // (shared island-names.ts). The sim re-validates the name and the hold.

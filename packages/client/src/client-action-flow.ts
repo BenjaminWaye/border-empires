@@ -1123,7 +1123,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     keyFor, hideTileActionMenu, renderHud, requestSettlement, processDevelopmentQueue, pushFeed
   });
 
-  const handleTileAction = (actionId: string, _targetKeyOverride?: string, _originKeyOverride?: string, buildAllResources = false): void => {
+  const handleTileAction = (actionId: string, _targetKeyOverride?: string, _originKeyOverride?: string): void => {
     if (state.garrisonMany.active) garrisonMany.cancel();
     const singleTargetKey = state.tileActionMenu.mode === "single" ? state.tileActionMenu.currentTileKey : "";
     const selectedKey = singleTargetKey || (state.selected ? keyFor(state.selected.x, state.selected.y) : "");
@@ -1233,7 +1233,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (handleAfcTileAction({ actionId, selected, sendGameMessage, hideMenu: hideTileActionMenu, armAfcLanding: () => { state.buildingPlacement = { active: true, structureType: "AFC", x: selected.x, y: selected.y }; renderPlacementOverlay(); renderHud(); } })) return;
     if (actionId === "grow_settlement_to_town" || actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "UPGRADE_TOWN_TIER", x: selected.x, y: selected.y });
-    if (handleGenericBuildAction({ actionId, selected, handleBuildAction, pushFeed, hideMenu: hideTileActionMenu, state, buildAllResources, viewForTile: tileMenuViewForTile, queueDevelopmentAction })) return;
+    if (handleGenericBuildAction({ actionId, selected, handleBuildAction, pushFeed, hideMenu: hideTileActionMenu, state, viewForTile: tileMenuViewForTile, queueDevelopmentAction })) return;
     if (actionId === "upgrade_umbrite_works" || actionId === "upgrade_titanium_works" || actionId === "upgrade_aether_condenser" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode" || actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") {
       handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);
     }

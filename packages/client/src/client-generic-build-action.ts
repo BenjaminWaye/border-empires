@@ -1,7 +1,6 @@
 import { structureRequiresTownOrSupportTile, type ChosenStructureTier } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { TileMenuView } from "./client-types.js";
-import { isResourceImprovementAction } from "./client-hud-v2/client-resource-improvement-action.js";
 import type { OptimisticStructureKind, Tile, TileActionDef } from "./client-types.js";
 import { structureTypeForTileAction, unmappedBuildActionWarning } from "./client-tile-action-support/client-tile-action-support.js";
 import { showStructureTierSheet } from "./client-structure-tier-sheet/client-structure-tier-sheet.js";
@@ -9,7 +8,6 @@ import { showStructureTierSheet } from "./client-structure-tier-sheet/client-str
 export const handleGenericBuildAction = (input: {
   actionId: string;
   state?: ClientState;
-  buildAllResources?: boolean;
   queueDevelopmentAction?: (entry: ClientState["developmentQueue"][number]) => boolean;
   viewForTile?: (tile: Tile) => TileMenuView;
   selected: Tile;
@@ -49,18 +47,7 @@ export const handleGenericBuildAction = (input: {
       input.hideMenu();
       return true;
     }
-    if (input.buildAllResources && input.state && input.viewForTile && input.queueDevelopmentAction && isResourceImprovementAction(input.actionId)) {
-      const resource = input.selected.resource;
-      const targets = [...input.state.tiles.values()].filter((tile) =>
-        resource && tile.resource === resource && tile.ownerId === input.state?.me && tile.ownershipState === "SETTLED" && !tile.optimisticPending);
-      let queued = 0;
-      for (const tile of targets) {
-        const action = input.viewForTile(tile).buildings.find((candidate) => candidate.id === input.actionId);
-        if (action && !action.disabled && enqueue(tile, action.label)) queued += 1;
-      }
-      input.pushFeed(`Queued ${queued} resource improvements.`);
-      input.hideMenu();
-    } else input.handleBuildAction(input.actionId, type, input.selected);
+    input.handleBuildAction(input.actionId, type, input.selected);
     return true;
   }
   const warning = unmappedBuildActionWarning(actionId);

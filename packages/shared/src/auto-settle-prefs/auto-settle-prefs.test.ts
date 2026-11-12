@@ -10,6 +10,9 @@ import {
   parseAutoSettleCategoryPrefs,
   type AutoSettleCategoryPrefs
 } from "./auto-settle-prefs.js";
+import { autoImproveStructureForResource, NO_AUTO_IMPROVE, parseAutoImprovePrefs } from "./auto-improve-prefs.js";
+
+const off = { improve: { ...NO_AUTO_IMPROVE } };
 
 const only = (...on: string[]): AutoSettleCategoryPrefs =>
   Object.fromEntries(AUTO_SETTLE_CATEGORIES.map((category) => [category, on.includes(category)])) as AutoSettleCategoryPrefs;
@@ -73,18 +76,34 @@ describe("normalizeAutoSettlePrefs", () => {
   it("carries a food/strategic/luxury value over to each resource in those groups", () => {
     expect(normalizeAutoSettlePrefs({ answered: true, towns: true, food: false, strategic: true, luxury: false })).toEqual({
       answered: true,
-      ...only("towns", "TITANIUM", "UMBRITE", "GEMS")
+      ...only("towns", "TITANIUM", "UMBRITE", "GEMS"),
+      ...off
     });
   });
   it("carries a value stored before the strategic/luxury split over from its single resources switch", () => {
-    expect(normalizeAutoSettlePrefs({ answered: true, towns: true, food: false, resources: false })).toEqual({ answered: true, ...only("towns") });
+    expect(normalizeAutoSettlePrefs({ answered: true, towns: true, food: false, resources: false })).toEqual({ answered: true, ...only("towns"), ...off });
     expect(normalizeAutoSettlePrefs({ answered: true, towns: false, food: false, resources: true })).toMatchObject({ TITANIUM: true, PRECURSOR_SALVAGE: true, FARM: false });
   });
   it("lets a resource's own switch override its old group switch", () => {
-    expect(normalizeAutoSettlePrefs({ towns: false, food: false, strategic: false, luxury: false, TITANIUM: true })).toEqual({ answered: true, ...only("TITANIUM") });
+    expect(normalizeAutoSettlePrefs({ towns: false, food: false, strategic: false, luxury: false, TITANIUM: true })).toEqual({ answered: true, ...only("TITANIUM"), ...off });
   });
   it("preserves an unanswered new-player value", () => {
     expect(normalizeAutoSettlePrefs({ ...NEW_PLAYER_AUTO_SETTLE_PREFS })).toEqual(NEW_PLAYER_AUTO_SETTLE_PREFS);
+  });
+});
+
+describe("auto-improve prefs", () => {
+  it("maps each improvable resource to its improvement, and fish to none", () => {
+    expect(autoImproveStructureForResource("TITANIUM")).toBe("MINE");
+    expect(autoImproveStructureForResource("GEMS")).toBe("MINE");
+    expect(autoImproveStructureForResource("FARM")).toBe("HYDROGARDEN");
+    expect(autoImproveStructureForResource("PRECURSOR_SALVAGE")).toBe("RECLAMATION_WORKS");
+    expect(autoImproveStructureForResource("FISH")).toBeUndefined();
+  });
+  it("is off for stored prefs that predate it, and reads the switches when present", () => {
+    expect(normalizeAutoSettlePrefs({ answered: true, ...only("towns") }).improve).toEqual(NO_AUTO_IMPROVE);
+    expect(normalizeAutoSettlePrefs({ answered: true, ...only("towns"), improve: { TITANIUM: true } }).improve).toEqual({ ...NO_AUTO_IMPROVE, TITANIUM: true });
+    expect(parseAutoImprovePrefs({ TITANIUM: "yes" })).toBeUndefined();
   });
 });
 
@@ -92,6 +111,7 @@ describe("autoSettlePrefsCommandPayload", () => {
   it("forwards every per-resource switch and any legacy grouped ones, dropping the message type", () => {
     expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", ...only("TITANIUM") })).toEqual(only("TITANIUM"));
     expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", towns: true, food: false, resources: true })).toEqual({ towns: true, food: false, resources: true });
+    expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", ...only(), improve: { TITANIUM: true } })).toEqual({ ...only(), improve: { ...NO_AUTO_IMPROVE, TITANIUM: true } });
   });
 });
 
