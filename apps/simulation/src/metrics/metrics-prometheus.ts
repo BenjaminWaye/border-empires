@@ -269,6 +269,8 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_season_guest_players ${formatMetricValue(sample.simSeasonGuestPlayers)}`,
     "# TYPE sim_upkeep_netted_while_income_paused_total counter",
     `sim_upkeep_netted_while_income_paused_total ${formatMetricValue(sample.simUpkeepNettedWhileIncomePausedTotal)}`,
+    "# TYPE sim_summary_recompute_stale_runtime_total counter",
+    `sim_summary_recompute_stale_runtime_total ${formatMetricValue(sample.simSummaryRecomputeStaleRuntimeTotal)}`,
     "# TYPE sim_auth_recovery_respawn_total counter",
     `sim_auth_recovery_respawn_total ${formatMetricValue(sample.simAuthRecoveryRespawnTotal)}`,
     "# TYPE sim_auth_recovery_respawn_guarded_total counter",
