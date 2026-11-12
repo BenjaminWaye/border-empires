@@ -6,7 +6,8 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 export const mergeTileDetailIntoSnapshot = (
   snapshot: PlayerSubscriptionSnapshot,
   freshTiles: PlayerSubscriptionSnapshot["tiles"],
-  upkeepLastTick: NonNullable<PlayerSubscriptionSnapshot["player"]>["upkeepLastTick"] | undefined
+  upkeepLastTick: NonNullable<PlayerSubscriptionSnapshot["player"]>["upkeepLastTick"] | undefined,
+  playerId: string
 ): PlayerSubscriptionSnapshot => {
   if (freshTiles.length === 0 && !upkeepLastTick) return snapshot;
   const tileIndex = new Map<string, number>();
@@ -21,8 +22,10 @@ export const mergeTileDetailIntoSnapshot = (
       // The sim's full tile detail omits `resource` when the tile has none (or
       // the viewer can't see it), so a plain spread kept a cached resource
       // forever: an emptied salvage field reappeared on every tile click and
-      // reload. A fresh full tile is authoritative for its resource.
-      if (!fresh.resource) delete merged.resource;
+      // reload. A fresh tile the player owns is authoritative for its
+      // resource; other tiles can be masked (lock-target-only, unrevealed
+      // resource tech), where an absent resource means "hidden", not "none".
+      if (!fresh.resource && fresh.ownerId === playerId) delete merged.resource;
       nextTiles[idx] = merged;
     } else {
       nextTiles.push(fresh);

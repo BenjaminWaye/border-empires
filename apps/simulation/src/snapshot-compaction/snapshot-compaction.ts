@@ -7,10 +7,11 @@
  *
  * v1 snapshots store only the *mutable overlay* — tiles that differ from
  * what `generateSeasonWorld(rulesetId, worldSeed)` would produce — and omit
- * the static field dockId. `terrain` (and `resource`) are included in
- * the overlay set because it is no longer purely worldgen-static:
- * CREATE_MOUNTAIN/REMOVE_MOUNTAIN commands mutate it at runtime, and that
- * mutation must round-trip through a checkpoint the same way ownership or
+ * the static field dockId. `terrain` and `resource` are included in
+ * the overlay set because neither is purely worldgen-static any more:
+ * CREATE_MOUNTAIN/REMOVE_MOUNTAIN mutate terrain, and emptied salvage fields,
+ * Retort recasts and waystation grants mutate resource at runtime. Those
+ * mutations must round-trip through a checkpoint the same way ownership or
  * structures do. At load time the worldgen baseline is regenerated and the
  * overlay is merged on top.
  *

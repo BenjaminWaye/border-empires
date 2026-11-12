@@ -154,7 +154,8 @@ export const buildSnapshotTileDetail = (
   // structurally could not. "" makes the client's `"musterJson" in update`
   // branch fire and delete the stale flag.
   //
-  // Scoped to muster on purpose: the other overlay fields (naturalWonder,
+  // Scoped to muster (and resource on the player's own tiles, below) on
+  // purpose: the other overlay fields (naturalWonder,
   // fort, ...) are subject to per-player reveal gating in the sim's
   // projection, so an absent field there can mean "not revealed to you yet"
   // rather than "removed", and force-clearing them would wipe legitimately
@@ -166,8 +167,9 @@ export const buildSnapshotTileDetail = (
     musterJson: tile.musterJson ?? "",
     // Same desync as muster: an emptied salvage field has no resource, and an
     // omitted key reads as "unchanged", so the client kept the field forever.
-    // The sim already reveal-gates resource, so absent really means "none".
-    resource: tile.resource ?? null,
+    // Only the player's own tiles: elsewhere the sim may mask the resource
+    // (lock-target-only tiles, unrevealed resource tech), so absent != none.
+    ...(tile.ownerId === playerId ? { resource: tile.resource ?? null } : {}),
     detailLevel: "full"
   };
   if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return update;
