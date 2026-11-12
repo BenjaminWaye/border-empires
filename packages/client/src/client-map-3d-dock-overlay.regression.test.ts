@@ -41,8 +41,10 @@ describe("dock overlay", () => {
     expect(quay.length).toBeGreaterThan(8);
     for (const mesh of quay) expect(mesh.count).toBe(1);
     for (const mesh of [...piece(scene, "slipway"), ...piece(scene, "shrunkSlipway")]) expect(mesh.count).toBe(0);
-    // The detailed model: a regression to the old few-dozen-box quay shows up here.
+    // The detailed model: a regression to the old few-dozen-box quay shows up here,
+    // and so does unbounded growth (every placed quay draws these twice, with shadows).
     expect(triangles(quay)).toBeGreaterThan(3000);
+    expect(triangles(quay)).toBeLessThan(9000);
     // Stays on its tile (the pier and moored carrier reach just past the sea edge).
     const box = bounds(quay);
     expect(box.min.x).toBeGreaterThanOrEqual(-0.5);
@@ -67,8 +69,10 @@ describe("dock overlay", () => {
     overlay.commit();
     for (const mesh of piece(scene, "slipway")) expect(mesh.count).toBe(0);
     for (const mesh of piece(scene, "shrunkSlipway")) expect(mesh.count).toBe(1);
-    // The shrunk slipway keeps only the ramp and barge.
+    // The shrunk slipway keeps only the ramp and barge. Slipways line every
+    // beach of a landing ground, so they stay far lighter than the quay.
     expect(triangles(piece(scene, "shrunkSlipway"))).toBeLessThan(triangles(piece(scene, "slipway")));
+    expect(triangles(piece(scene, "slipway"))).toBeLessThan(1500);
 
     overlay.dispose();
   });
@@ -112,14 +116,15 @@ describe("dock overlay", () => {
     overlay.dispose();
   });
 
-  it("reserves maxTiles placements per mesh, under the old dock's 64 matrices per tile", () => {
+  it("reserves maxTiles placements per mesh, well under the old dock's 56 matrices per tile", () => {
     const scene = new Scene();
     const overlay = createDockOverlay(scene, 14_000);
 
     const meshes = instancedMeshes(scene);
     const totalBytes = meshes.reduce((total, mesh) => total + mesh.instanceMatrix.array.length * 4, 0);
     expect(totalBytes).toBe(14_000 * meshes.length * 16 * 4);
-    expect(meshes.length).toBeLessThanOrEqual(64);
+    // One mesh per material per piece (quay, full and shrunk slipway): 34 today.
+    expect(meshes.length).toBeLessThanOrEqual(36);
 
     overlay.dispose();
   });

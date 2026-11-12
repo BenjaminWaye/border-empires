@@ -1,4 +1,5 @@
 import { districtOverlayImages } from "../client-town-district/district-art.js";
+import { DOCK_SPRITE_FILES } from "../client-map-3d-harbour/dock-sprite-frame.js";
 import {
   fortificationOpeningSides,
   recordForEachFortificationOpening,
@@ -43,7 +44,8 @@ const createDirectionalOverlaySet = (
 export const aetherBridgeAnchorImage = loadOverlayImage("aether-pylon-overlay.svg");
 export const aetherWallPylonImage = loadOverlayImage("aether-wall-pylon-overlay.svg");
 
-export const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock-overlay-2.svg", "dock-overlay-3.svg"]);
+/** Dock sprites in HARBOUR_FACINGS order (south, east, north, west): drawDockEndpoint2D picks the one facing the water. */
+export const dockOverlayVariants = createOverlayVariantSet(DOCK_SPRITE_FILES);
 const legacyStructureOverlayImages = {
   CULTIVATION_ESTATE: loadOverlayImage("cultivation-estate-overlay.svg"),
   RECLAMATION_WORKS: loadOverlayImage("reclamation-works-overlay.svg"),

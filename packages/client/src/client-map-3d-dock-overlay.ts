@@ -38,8 +38,8 @@ export type DockOverlay = {
 };
 
 // Heights (in the piece's frame) of the ledges the marble walls rise from: the
-// plinth foot, course and inlay of the quay, the slipway head. See applyMarbleFinish.
-const MARBLE_LEDGES = [0, 0.016, 0.05, 0.058, 0.062, 0.07] as const;
+// plinth foot, course, inlay and paving of the quay, the office pad, the slipway head. See applyMarbleFinish.
+const MARBLE_LEDGES = [0, 0.016, 0.05, 0.058, 0.062, 0.07, 0.085, 0.105] as const;
 
 // The shared structure palette (TOWN_COLORS): stone and metal read like the
 // towns, refineries and Harbor Exchange; metals use the town overlay's metallic finish.

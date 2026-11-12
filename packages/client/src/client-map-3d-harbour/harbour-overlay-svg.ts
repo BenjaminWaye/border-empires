@@ -1,30 +1,35 @@
 import { Scene } from "three";
-import { createDockOverlay } from "../client-map-3d-dock-overlay.js";
-import { projectMeshesToSvg } from "../client-structure-info-catalog/mesh-projection-svg.js";
+import { HARBOUR_FACINGS, rotationForFacing, type Facing } from "../client-harbour-slipways/client-harbour-slipways.js";
+import { createDockOverlay, type DockOverlay } from "../client-map-3d-dock-overlay.js";
+import { projectedHalfExtent, projectMeshesToSvg } from "../client-structure-info-catalog/mesh-projection-svg.js";
+import { DOCK_SPRITE_FILES, DOCK_SPRITE_SCALE, dockSpriteIndex } from "./dock-sprite-frame.js";
 
-// The 2D canvas map's dock sprites (public/overlays/dock-overlay-N.svg, see
-// client-map-render/client-map-overlay-images.ts) are flat projections of the
-// production 3D quay, so the two renderers show the same harbour. Written by
+// The 2D canvas map's dock sprites are flat projections of the production 3D
+// quay, one per facing, so the two renderers show the same harbour turned the
+// same way (framing: dock-sprite-frame.ts). Written by
 // scripts/generate-dock-overlay-icons.mjs; the regression test keeps them in sync.
 
-/** Quay facing for each 2D variant: the 2D map does not know which side the water is on, so the variants simply turn the quay. */
-export const DOCK_OVERLAY_SVG_VARIANTS: readonly { readonly filename: string; readonly rotationY: number }[] = [
-  { filename: "dock-overlay-1.svg", rotationY: 0 },
-  { filename: "dock-overlay-2.svg", rotationY: Math.PI / 2 },
-  { filename: "dock-overlay-3.svg", rotationY: -Math.PI / 2 }
-];
+/** One sprite per facing the 2D map picks from (by harbourFacingAt, as the 3D quay is turned). */
+export const DOCK_OVERLAY_SVG_VARIANTS: readonly { readonly filename: string; readonly facing: Facing }[] =
+  HARBOUR_FACINGS.map((facing) => ({ filename: DOCK_SPRITE_FILES[dockSpriteIndex(facing)]!, facing }));
 
 // Faces under this many square SVG units vanish at map scale (the sprite is drawn about a tile wide).
 const DOCK_SVG_MIN_FACE_AREA = 0.25;
 
-export const dockOverlaySvg = (rotationY: number): string => {
-  const scene = new Scene();
-  const overlay = createDockOverlay(scene, 1);
-  overlay.addInstance(0, 0, 0, rotationY, 0, 0);
+const withQuay = <T>(facing: Facing, use: (overlay: DockOverlay) => T): T => {
+  const overlay = createDockOverlay(new Scene(), 1);
+  overlay.addInstance(0, 0, 0, rotationForFacing(facing), 0, 0);
   overlay.commit();
   try {
-    return projectMeshesToSvg(overlay.group, "Dock", DOCK_SVG_MIN_FACE_AREA);
+    return use(overlay);
   } finally {
     overlay.dispose();
   }
 };
+
+/** The largest scale at which every facing's quay fits the 128-unit sprite about its centre (DOCK_SPRITE_SCALE is this, rounded down). */
+export const dockSpriteFitScale = (): number =>
+  64 / Math.max(...HARBOUR_FACINGS.map((facing) => withQuay(facing, (overlay) => projectedHalfExtent(overlay.group))));
+
+export const dockOverlaySvg = (facing: Facing): string =>
+  withQuay(facing, (overlay) => projectMeshesToSvg(overlay.group, "Dock", { minFaceArea: DOCK_SVG_MIN_FACE_AREA, scale: DOCK_SPRITE_SCALE }));

@@ -416,7 +416,8 @@ charcoal course with a brass inlay and an iron-capped sea edge, with lamp
 posts along it and an iron-plated pier on blackened piles. A grey stone
 control office, glazed and crowned with a sensor mast, keeps the freight
 and the tolls that back a House's Coin (§11). A powered gantry crane, fed
-by a cell bank and marked out by cyan status strips, lifts sealed cargo
+by a cell bank charged from the town's ordinary generation and marked out by
+cyan status strips (signal lamps, not aether-work), lifts sealed cargo
 containers off the pier, a beacon burns at the pier head for the sea lane,
 and one of the House's armoured troop carriers (§11) lies alongside.
 

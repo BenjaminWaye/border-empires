@@ -25,7 +25,7 @@ const plinth = (b: HarbourModelBuilder): void => {
 
 const controlOffice = (b: HarbourModelBuilder): void => {
   const x = -0.24, z = -0.24;
-  b.box("charcoalMarble", x, DECK + 0.008, z, 0.3, 0.016, 0.26);
+  b.box("charcoalMarble", x, DECK + 0.01, z, 0.3, 0.02, 0.26);
   b.box("stone", x, 0.205, z, 0.28, 0.2, 0.24);
   for (const dx of [-0.14, 0.14]) for (const dz of [-0.12, 0.12]) b.box("plate", x + dx, 0.205, z + dz, 0.034, 0.2, 0.034);
   // Front: an iron door in a brass frame, a lit window band with brass mullions, the toll board.

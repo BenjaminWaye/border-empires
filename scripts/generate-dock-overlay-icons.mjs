@@ -16,8 +16,8 @@ try {
     lib: { entry: resolve(root, "packages/client/src/client-map-3d-harbour/harbour-overlay-svg.ts"), formats: ["es"], fileName: () => "dock-icons.mjs" }
   } });
   const { dockOverlaySvg, DOCK_OVERLAY_SVG_VARIANTS } = await import(pathToFileURL(join(temporary, "dock-icons.mjs")).href);
-  for (const { filename, rotationY } of DOCK_OVERLAY_SVG_VARIANTS) {
-    await writeFile(join(root, "packages/client/public/overlays", filename), dockOverlaySvg(rotationY));
+  for (const { filename, facing } of DOCK_OVERLAY_SVG_VARIANTS) {
+    await writeFile(join(root, "packages/client/public/overlays", filename), dockOverlaySvg(facing));
   }
   console.log(`Generated ${DOCK_OVERLAY_SVG_VARIANTS.length} dock overlay sprites.`);
 } finally { await rm(temporary, { recursive: true, force: true }); }

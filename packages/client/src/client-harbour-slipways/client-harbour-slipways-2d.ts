@@ -20,7 +20,7 @@ export type Slipway2DDeps = {
 // graphite ramp plating, brass rails, an iron barge and a grey wheelhouse.
 const RAMP = "#4a4d53";
 const RAIL = "#8b6c3d";
-const HULL = "#25282e";
+const HULL = "#2f3238";
 const CABIN = "#5d6066";
 // Matches SHRUNK_SLIPWAY_SCALE / SHRUNK_SLIPWAY_SEAWARD_OFFSET in client-map-3d-harbour/client-map-3d-harbour-parts.ts.
 const SHRUNK_SCALE = 0.6;

@@ -67,10 +67,16 @@ material meshes, so added detail costs triangles, never per-tile instance
 memory. The capture fire (`client-wreck-models/dock-fire-model.ts`) burns on
 the same layout.
 
-The 2D sprites `dock-overlay-{1,2,3}.svg` are flat projections of the
-production quay (`client-map-3d-harbour/harbour-overlay-svg.ts`, shared
-projector `client-structure-info-catalog/mesh-projection-svg.ts`). Faces below a quarter of
-a square sprite unit are dropped to keep the files small. Regenerate
-with `node scripts/generate-dock-overlay-icons.mjs` after changing the models
-and bump `overlayAssetVersion`; a regression test fails while they disagree.
+The 2D sprites `dock-overlay-{south,east,north,west}.svg` are flat
+projections of the production quay turned to each facing
+(`client-map-3d-harbour/harbour-overlay-svg.ts`, shared projector
+`client-structure-info-catalog/mesh-projection-svg.ts`), all at one scale with
+the tile centre at the sprite centre (`dock-sprite-frame.ts`). The 2D map
+picks the sprite with the same `harbourFacingAt` rule that turns the 3D quay,
+and the 2D capture fire places its flames by projecting the 3D fire's anchors
+onto that sprite (`client-capture-aftermath/dock-fire-2d-layout.ts`). Faces
+below a quarter of a square sprite unit are dropped to keep the files small.
+Regenerate with `node scripts/generate-dock-overlay-icons.mjs` after changing
+the models and bump `overlayAssetVersion`; regression tests fail while the
+sprites disagree with the model or the scale no longer fits.
 The 2D slipway glyph (`client-harbour-slipways-2d.ts`) uses the same colours.

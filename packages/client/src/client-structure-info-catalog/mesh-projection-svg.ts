@@ -2,15 +2,23 @@ import { AdditiveBlending, BufferGeometry, Color, InstancedMesh, Matrix4, Mesh, 
 
 type Face = { readonly points: readonly Vector3[]; readonly depth: number; readonly fill: string; readonly opacity: number };
 
-/** Deterministic flat-shaded 2D projection of meshes (instanced or not) to a
- * 128x128 SVG, for overlay exports and audits. Skips halo/steam meshes and
- * additive glows; `root`'s descendants are visited with their world matrices.
- * `minFaceArea` (square SVG units) drops faces too small to see, for detailed
- * models whose every triangle would otherwise bloat the file. */
-export const projectMeshesToSvg = (root: Object3D, title: string, minFaceArea = 0): string => {
+/** The fixed 3/4 view every export uses: screen x is v·RIGHT, screen y is -v·UP. */
+export const PROJECTION_FORWARD = new Vector3(0.65, 0.85, 1).normalize();
+export const PROJECTION_RIGHT = new Vector3(1, 0, -0.65).normalize();
+export const PROJECTION_UP = new Vector3().crossVectors(PROJECTION_FORWARD, PROJECTION_RIGHT);
+
+export type ProjectionOptions = {
+  /** Drop faces under this many square SVG units: detailed models would otherwise bloat the file. */
+  readonly minFaceArea?: number;
+  /** Fixed SVG units per model unit, with the model origin at the SVG centre. Default: fit the drawing's own extents to 112 units. */
+  readonly scale?: number;
+};
+
+/** Flat-shaded, front-facing faces of `root`'s meshes (instanced or not) in
+ * projected model units. Skips halo/steam meshes and additive glows. */
+const projectedFaces = (root: Object3D): Face[] => {
   root.updateMatrixWorld(true);
-  const forward = new Vector3(0.65, 0.85, 1).normalize();
-  const right = new Vector3(1, 0, -0.65).normalize(), up = new Vector3().crossVectors(forward, right);
+  const forward = PROJECTION_FORWARD, right = PROJECTION_RIGHT, up = PROJECTION_UP;
   const light = new Vector3(-0.3, 0.85, 0.55).normalize();
   const faces: Face[] = [];
   const meshes: Mesh[] = [];
@@ -49,12 +57,27 @@ export const projectMeshesToSvg = (root: Object3D, title: string, minFaceArea = 
       }
     }
   }
+  return faces;
+};
+
+/** Largest |x| or |y| of `root`'s projected drawing about the model origin, in model units. */
+export const projectedHalfExtent = (root: Object3D): number =>
+  Math.max(...projectedFaces(root).flatMap(face => face.points.map(p => Math.max(Math.abs(p.x), Math.abs(p.y)))));
+
+/** Deterministic flat-shaded 2D projection of meshes (instanced or not) to a
+ * 128x128 SVG, for overlay exports and audits; `root`'s descendants are
+ * visited with their world matrices. */
+export const projectMeshesToSvg = (root: Object3D, title: string, options: ProjectionOptions = {}): string => {
+  const faces = projectedFaces(root);
+  const minFaceArea = options.minFaceArea ?? 0;
   if (!faces.length) throw new Error(`No visible geometry for ${title}`);
   const points = faces.flatMap(face => face.points);
   const minX = Math.min(...points.map(p => p.x)), maxX = Math.max(...points.map(p => p.x));
   const minY = Math.min(...points.map(p => p.y)), maxY = Math.max(...points.map(p => p.y));
-  const scale = 112 / Math.max(maxX - minX, maxY - minY);
-  const project = (p: Vector3): string => `${(64 + (p.x - (minX + maxX) / 2) * scale).toFixed(1)},${(64 + (p.y - (minY + maxY) / 2) * scale).toFixed(1)}`;
+  const fixed = options.scale !== undefined;
+  const scale = options.scale ?? 112 / Math.max(maxX - minX, maxY - minY);
+  const centerX = fixed ? 0 : (minX + maxX) / 2, centerY = fixed ? 0 : (minY + maxY) / 2;
+  const project = (p: Vector3): string => `${(64 + (p.x - centerX) * scale).toFixed(1)},${(64 + (p.y - centerY) * scale).toFixed(1)}`;
   const area = (face: Face): number => {
     const [a, b, c] = face.points;
     return a && b && c ? Math.abs((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)) * 0.5 * scale * scale : 0;
