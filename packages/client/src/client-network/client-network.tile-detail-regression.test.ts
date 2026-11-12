@@ -615,15 +615,15 @@ describe("client network tile detail regression", () => {
     expect(state.tiles.get("79,240")?.fogged).toBe(true);
   });
 
-  it("never clears resource or dockId via delete -- an explicit falsy value is set as-is, not removed (divergence from gateway path)", () => {
-    // Divergence pin: the TILE_DELTA handler merges resource/dockId with
-    // `if (value !== undefined) merged.field = value;` -- it has no
-    // delete-on-falsy branch. The gateway path (`applyGatewayTileUpdate`)
-    // uses `if ("field" in update) { if (truthy) set; else delete; }`, which
-    // DOES clear the field on an empty-string value. These are genuinely
-    // different behaviors found while reading both blocks line-by-line; the
-    // plan's "confirmed identical" list did not catch this, so it must NOT
-    // be unified during extraction.
+  it("clears resource on an explicit falsy value but sets dockId as-is (resource diverges from dockId on purpose)", () => {
+    // dockId keeps the set-only merge (`if (value !== undefined) set`) with
+    // no delete-on-falsy branch. resource now clears on an explicit null/"":
+    // the gateway's full tile detail sends `resource: null` for a tile with
+    // none, so an emptied salvage field leaves the map instead of sticking
+    // (see client-network.salvage-resource-clear-regression.test.ts). The two
+    // fields must still NOT be unified into the shared helper, because dockId
+    // keeps its set-only behaviour.
+    // An omitted resource still means "unchanged" (covered in that file).
     const state = createState();
     state.tiles.set("79,240", {
       x: 79,
@@ -647,7 +647,7 @@ describe("client network tile detail regression", () => {
     });
 
     const tile = state.tiles.get("79,240");
-    expect(tile?.resource).toBe("");
+    expect(tile?.resource).toBeUndefined();
     expect(tile?.dockId).toBe("");
   });
 });
