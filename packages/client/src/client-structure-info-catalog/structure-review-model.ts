@@ -10,8 +10,7 @@ import { structureOverlayRoute } from "../client-structure-info-catalog/structur
 import type { StructureInfoKey } from "../client-map-display.js";
 
 export type StructureReviewModel = { readonly bounds: Box3; readonly update: (now: number) => void; readonly dispose: () => void };
-// mineResource is unused since the Mine was removed (kept so review callers stay unchanged).
-export const createStructureReviewModel = (scene: Scene, kind: StructureInfoKey, envMap?: Texture, contactShadows = true, _mineResource: "TITANIUM" | "GEMS" = "TITANIUM"): StructureReviewModel => {
+export const createStructureReviewModel = (scene: Scene, kind: StructureInfoKey, envMap?: Texture, contactShadows = true): StructureReviewModel => {
   const before = new Set(scene.children);
   const route = structureOverlayRoute(kind);
   let update: (now: number) => void = () => {};

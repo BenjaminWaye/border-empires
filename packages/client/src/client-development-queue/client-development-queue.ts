@@ -3,6 +3,7 @@ import type { OptimisticStructureKind } from "../client-types.js";
 import { DEV_QUEUE_SERVER_CAP, DEV_QUEUE_TOTAL_CAP, SETTLE_COST, chosenStructureTierLabel, isChosenStructureTier, structureDisplayName, upgradeLegacyStructureNames } from "@border-empires/shared";
 import { tileAlreadyHasBuildStructure, type QueueRestoreTileLike } from "./client-queued-build-done.js";
 import { applyAutoSettlePrefsFromServer, isClientAutoSettleAllowedForTile } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
+import { refineryFieldOf } from "../client-refineries/refinery-commands.js";
 
 export const AUTO_SETTLEMENT_QUEUE_VISIBLE_MS = 3_000;
 
@@ -213,7 +214,7 @@ const parsePersistedDevelopmentAction = (value: unknown): PersistedDevelopmentAc
       normalizedStructureType = (value.payload as any).structureType as string;
     }
     else { normalizedType = rawType; normalizedStructureType = ""; }
-    // The Fortify / Siege picker's tier must survive a reload, or the build silently becomes the best tier.
+    // The Fortify / Siege picker's tier (and a refinery's chosen field) must survive a reload, or the build silently changes.
     const rawTier = (value.payload as { tier?: unknown }).tier;
 
     return {
@@ -223,7 +224,7 @@ const parsePersistedDevelopmentAction = (value: unknown): PersistedDevelopmentAc
       tileKey: value.tileKey,
       label: value.label,
       payload: normalizedType === "BUILD_STRUCTURE"
-        ? { type: "BUILD_STRUCTURE", x: value.payload.x, y: value.payload.y, structureType: normalizedStructureType, ...(isChosenStructureTier(rawTier) ? { tier: rawTier } : {}) }
+        ? { type: "BUILD_STRUCTURE", x: value.payload.x, y: value.payload.y, structureType: normalizedStructureType, ...(isChosenStructureTier(rawTier) ? { tier: rawTier } : {}), ...refineryFieldOf(value.payload) }
         : ({ type: value.payload.type, x: value.payload.x, y: value.payload.y } as Extract<PersistedDevelopmentAction, { kind: "BUILD" }>["payload"]),
       optimisticKind: value.optimisticKind as Extract<PersistedDevelopmentAction, { kind: "BUILD" }>["optimisticKind"]
     };

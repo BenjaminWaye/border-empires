@@ -3,7 +3,7 @@ import { INFRASTRUCTURE_ICON_CROPS } from "./infrastructure-icon-crops.js";
 
 export const INFRASTRUCTURE_REVIEW_KINDS = ["HARBOR_EXCHANGE", "RELAY_BEACON", "OBSERVATORY"] as const satisfies readonly StructureInfoKey[];
 export const INFRASTRUCTURE_ART_VERSION = "20261026-gravity-relay";
-export const INFRASTRUCTURE_EXPORTS: readonly { kind: StructureInfoKey; filename: string; resource?: "TITANIUM" | "GEMS" }[] = [
+export const INFRASTRUCTURE_EXPORTS: readonly { kind: StructureInfoKey; filename: string }[] = [
   { kind: "RELAY_BEACON", filename: "relay-beacon-overlay.svg" },
   { kind: "OBSERVATORY", filename: "observatory-overlay.svg" },
   { kind: "HARBOR_EXCHANGE", filename: "harbor-exchange-overlay.svg" }

@@ -7,10 +7,12 @@ import { networkVariantForTile, networkDepositFilename, NETWORK_VARIANTS } from 
 // existing importers keep working unchanged.
 import { createOverlayVariantSet, structureOverlayImages } from "./client-map-overlay-images.js";
 import type { Tile } from "../client-types.js";
+import { refinedDepositAt } from "../client-refineries/refinery-scene.js";
 
-// UMBRITE_RIG/TITANIUM_MINE/GEMS_MINE are no longer chosen for any tile
-// (Mine and Umbrite Rig were removed); kept for the refined-deposit overlay
-// follow-up (territory-development-plan.md Phase 2, Client).
+// UMBRITE_RIG/TITANIUM_MINE/GEMS_MINE are the former Mine / Umbrite Rig art,
+// now the refined-deposit look: a field tile a working town refinery
+// processes (territory-development-plan.md Phase 2, Client; the processed
+// tiles come from client-refineries/refinery-scene.ts).
 const builtResourceOverlayVariants = {
   FARM_HYDROPONIC: createOverlayVariantSet(["farm-hydroponic-overlay-1.svg", "farm-hydroponic-overlay-2.svg", "farm-hydroponic-overlay-3.svg"]),
   FARM_HYDROGARDEN: createOverlayVariantSet(["farm-hydrogarden-overlay-1.svg", "farm-hydrogarden-overlay-2.svg", "farm-hydrogarden-overlay-3.svg"]),
@@ -42,7 +44,19 @@ export const resourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined
   return variants[isNetworkResource(tile.resource) ? networkVariantForTile(tile.x,tile.y) : overlayVariantIndexAt(tile.x, tile.y, variants.length)];
 };
 
+const REFINED_DEPOSIT_ART = { TITANIUM: "TITANIUM_MINE", GEMS: "GEMS_MINE", UMBRITE: "UMBRITE_RIG" } as const;
+
+/** The refined-deposit art for a bare deposit tile a working refinery processes; undefined otherwise. */
+export const refinedDepositOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
+  const refined = tile.economicStructure ? undefined : refinedDepositAt(tile.x, tile.y);
+  if (!refined || refined !== tile.resource) return undefined;
+  const variants = builtResourceOverlayVariants[REFINED_DEPOSIT_ART[refined]];
+  return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
+};
+
 export const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
+  const refined = refinedDepositOverlayForTile(tile);
+  if (refined) return refined;
   if (tile.economicStructure && ["CULTIVATION_ESTATE", "RECLAMATION_WORKS"].includes(tile.economicStructure.type)) return structureOverlayImages[tile.economicStructure.type as keyof typeof structureOverlayImages];
   if (tile.economicStructure?.type === "HYDROWORKS") return structureOverlayImages.HYDROWORKS;
   if (!tile.resource || !tile.economicStructure) return undefined;

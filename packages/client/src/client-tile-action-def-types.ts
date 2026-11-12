@@ -4,6 +4,8 @@
 export type TileActionDef = {
   id:
     | import("@border-empires/shared").NetworkBuildAction
+    | import("./client-refineries/refinery-action-ids.js").RefineryBuildActionId
+    | import("./client-refineries/refinery-action-ids.js").RefineryPickerActionId
     | "settle_land"
     | "settle_many"
     | "launch_attack"

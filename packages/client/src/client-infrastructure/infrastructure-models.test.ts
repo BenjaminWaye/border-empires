@@ -8,13 +8,13 @@ import { createDistrictGeometry } from "../client-town-district/district-geometr
 
 describe("current infrastructure art", () => {
   it.each(INFRASTRUCTURE_EXPORTS)("matches production geometry for $filename", entry => {
-    const scene = new Scene(), model = createStructureReviewModel(scene, entry.kind, undefined, false, entry.resource);
+    const scene = new Scene(), model = createStructureReviewModel(scene, entry.kind, undefined, false);
     expect(model.bounds.isEmpty()).toBe(false);
     expect(model.bounds.max.y).toBeLessThan(2.5);
     expect(Math.max(Math.abs(model.bounds.min.x), Math.abs(model.bounds.max.x), Math.abs(model.bounds.min.z), Math.abs(model.bounds.max.z))).toBeLessThan(0.56);
     model.update(2500); model.dispose(); expect(scene.children).toHaveLength(0);
     expect(readFileSync(new URL(`../../public/overlays/${entry.filename}`, import.meta.url), "utf8"))
-      .toBe(structureReviewSvg(entry.kind, entry.resource));
+      .toBe(structureReviewSvg(entry.kind));
   });
   it("keeps each sensing frame joined during calibration", () => {
     const scene = new Scene(), model = createStructureReviewModel(scene, "RELAY_BEACON");

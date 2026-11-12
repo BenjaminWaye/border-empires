@@ -12,11 +12,15 @@ import { DISTRICT_RADIUS, isDistrictBuilding, isDistrictProject } from "./distri
 import { buildDistrictNetwork, districtOperational, districtRecord, type DistrictPoint } from "./district-network.js";
 import { createDistrictOverlay } from "./district-overlay.js";
 import { createDistrictLinks3D } from "./district-links-3d.js";
+import { refinerySceneAround, type RefineryScene } from "../client-refineries/refinery-scene.js";
+import { createRefineryGoods3D } from "../client-refineries/refinery-goods-3d.js";
 
 // farmLift: raise onto a farm plot's crops (FarmlandOverlay.standLiftAt); surfaceY already includes it.
 export type DistrictSite = { readonly x: number; readonly z: number; readonly surfaceY: number; readonly wx: number; readonly wy: number; readonly farmLift?: number };
 type DistrictMapDeps = {
   readonly state: Pick<ClientState, "tiles" | "tilesRevision" | "selected" | "me" | "dormantStructures">;
+  /** Half the refinery scan window when clear() is given none (the visible window's half size). */
+  readonly refineryHalfExtent?: number;
   readonly origin: { camX: number; camY: number };
   readonly visibilityAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
   readonly cornerYAt: (x: number, y: number) => number;
@@ -36,10 +40,11 @@ export const districtSelectedTown = (state: Pick<ClientState, "selected" | "tile
 
 export type DistrictMap3D = {
   readonly addTile: (tile: Tile, site: DistrictSite, rebuildAt: number) => { economic: boolean; observatory: boolean };
-  readonly clear: () => void; readonly commit: (origin?: { camX: number; camY: number }) => void;
+  /** Starts a rebuild; `view` (the new terrain window) also refreshes the refinery scene the per-tile refined-deposit lookups read. */
+  readonly clear: (view?: { camX: number; camY: number; halfW?: number; halfH?: number }) => void; readonly commit: (origin?: { camX: number; camY: number }) => void;
   readonly update: (nowMs: number) => void; readonly boundaryPassed: () => boolean;
   readonly dispose: () => void;
-  readonly diagnostics: { models: { instances: number; overflow: number; slots: number }; links: { edges: number; overflow: number }; worldWidth: number; worldHeight: number };
+  readonly diagnostics: { models: { instances: number; overflow: number; slots: number }; links: { edges: number; overflow: number }; goods: { loads: number; lines: number }; worldWidth: number; worldHeight: number };
 };
 
 export const createDistrictMap3D = (scene: Scene, maxTiles: number, deps: DistrictMapDeps, envMap?: Texture): DistrictMap3D => {
@@ -67,6 +72,13 @@ export const createDistrictMap3D = (scene: Scene, maxTiles: number, deps: Distri
     return height + deps.rise;
   };
   const links = createDistrictLinks3D(scene, maxTiles * 24, { origin, surfaceAt, selectedTown: () => districtSelectedTown(deps.state) }, envMap);
+  // Town refineries: supply lines join the district links; loads ride them (client-refineries/).
+  const goods = createRefineryGoods3D(scene, Math.max(8, Math.ceil(maxTiles / 4)), { origin, surfaceAt }, envMap);
+  let refineries: RefineryScene | undefined;
+  const refreshRefineries = (center: { camX: number; camY: number }, halfW?: number, halfH?: number): void => {
+    const half = deps.refineryHalfExtent ?? 40;
+    refineries = refinerySceneAround(deps.state, { x: center.camX, y: center.camY }, halfW ?? half, halfH ?? half, deps.visibilityAt);
+  };
   return {
     addTile: (tile: Tile, site: DistrictSite, rebuildAt: number): { economic: boolean; observatory: boolean } => {
       const economic = (isDistrictBuilding(tile.economicStructure?.type) || isDistrictProject(tile.economicStructure?.type));
@@ -95,11 +107,14 @@ export const createDistrictMap3D = (scene: Scene, maxTiles: number, deps: Distri
       if (economic && (isDistrictBuilding(tile.economicStructure?.type) || isDistrictProject(tile.economicStructure?.type))) add(tile.economicStructure.type, -0.18);
       return { economic, observatory: false };
     },
-    clear: () => { builtDormancy = deps.state.dormantStructures; nextDisabledExpiry = Infinity; models.clear(); sites.clear(); candidates.length = 0; dormant = new Set(deps.state.dormantStructures.map(entry => entry.key)); },
-    commit: nextOrigin => { if (nextOrigin) Object.assign(origin, { camX: nextOrigin.camX, camY: nextOrigin.camY }); models.commit(); links.commit(buildDistrictNetwork({ tiles: deps.state.tiles, visibilityAt: deps.visibilityAt, isDormant: tile => dormant.has(`${tile.x},${tile.y}:economicStructure`) }, candidates)); },
-    update: (nowMs: number) => { models.update(nowMs); links.refreshSelection(); },
+    clear: view => { refreshRefineries(view ?? origin, view?.halfW, view?.halfH); builtDormancy = deps.state.dormantStructures; nextDisabledExpiry = Infinity; models.clear(); sites.clear(); candidates.length = 0; dormant = new Set(deps.state.dormantStructures.map(entry => entry.key)); },
+    commit: nextOrigin => { if (nextOrigin) Object.assign(origin, { camX: nextOrigin.camX, camY: nextOrigin.camY }); models.commit();
+      if (!refineries) refreshRefineries(origin);
+      links.commit([...buildDistrictNetwork({ tiles: deps.state.tiles, visibilityAt: deps.visibilityAt, isDormant: tile => dormant.has(`${tile.x},${tile.y}:economicStructure`) }, candidates), ...(refineries?.edges ?? [])]);
+      goods.setPaths(refineries?.paths ?? []); },
+    update: (nowMs: number) => { models.update(nowMs); links.refreshSelection(); goods.update(Date.now()); },
     boundaryPassed: () => builtDormancy !== deps.state.dormantStructures || Date.now() >= nextDisabledExpiry || models.boundaryPassed(),
-    dispose: () => { models.dispose(); links.dispose(); sites.clear(); candidates.length = 0; dormant.clear(); },
-    diagnostics: { models: models.diagnostics, links: links.diagnostics, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT }
+    dispose: () => { models.dispose(); links.dispose(); goods.dispose(); sites.clear(); candidates.length = 0; dormant.clear(); },
+    diagnostics: { models: models.diagnostics, links: links.diagnostics, goods: goods.diagnostics, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT }
   };
 };

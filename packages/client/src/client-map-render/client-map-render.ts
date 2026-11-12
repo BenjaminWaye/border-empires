@@ -570,7 +570,7 @@ export {
 
 export const economicStructureOverlayAlpha = (tile: Tile): number => {
   const status = tile.economicStructure?.status;
-  if (status === "active") return 1;
+  if (status === "active" || !status) return 1; // no structure: a refined deposit's art (client-map-render-resource-overlays.ts)
   if (status === "under_construction") return 0.8;
   return 0.7;
 };

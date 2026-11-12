@@ -30,6 +30,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { createBeaconPlacementOverlay, tileCornerMeanY } from "../client-map-3d-beacon-placement-overlay/client-map-3d-beacon-placement-overlay.js";
 import { REACH_RADIUS_BY_KIND } from "../client-reach-overlay/client-reach-overlay-anchor-disk.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
+import { createRefineryHighlight3D } from "../client-refineries/refinery-highlight-3d.js";
 
 const RANGE_RISE_ABOVE_HEIGHTFIELD = 0.012;
 const BENEFICIARY_RISE_ABOVE_HEIGHTFIELD = 0.014;
@@ -99,6 +100,8 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
 
   scene.add(marker, fill, benefitFill);
   const beaconOverlay = createBeaconPlacementOverlay(scene);
+  // The refinery pickers' reach / field highlight (2D parity: client-refineries/refinery-canvas-2d.ts).
+  const refineryHighlight = createRefineryHighlight3D(scene);
 
   const tempMatrix = new Matrix4();
 
@@ -141,6 +144,7 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
     benefitFill.visible = false;
     benefitFill.count = 0;
     beaconOverlay.sync(deps);
+    refineryHighlight.sync(deps);
     const pending = deps.state.afcRecovery?.pending;
     const placement = deps.state.buildingPlacement.active ? deps.state.buildingPlacement : pending ? { x: pending.x, y: pending.y, structureType: "AFC" as const } : undefined;
     if (!placement) return;

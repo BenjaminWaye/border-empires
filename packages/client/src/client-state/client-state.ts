@@ -52,8 +52,8 @@ export type { ClientWaypoint } from "./client-waypoint-state.js";
 import type { ClientWaypoint } from "./client-waypoint-state.js"; import type { ClientEventLogEntry } from "../client-event-log-html.js";
 
 type QueuedOptimisticKind = OptimisticStructureKind;
-// tier: the Fortify / Siege picker's explicit choice (structure-tier-choice.ts); absent = best tier the tech allows.
-type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string; tier?: ChosenStructureTier } | { type: "REMOVE_STRUCTURE"; x: number; y: number };
+// tier: the Fortify / Siege picker's explicit choice (structure-tier-choice.ts); absent = best tier the tech allows. fieldX/fieldY: a refinery's chosen field (client-refineries/).
+type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string; tier?: ChosenStructureTier; fieldX?: number; fieldY?: number } | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
 export { storageGet, storageRemove, storageSet } from "./client-storage.js";
 import { storageGet } from "./client-storage.js";

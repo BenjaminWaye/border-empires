@@ -9,15 +9,12 @@ export function resolvedMapResource3D(x: number, y: number, terrain: Tile["terra
   if (isNetworkResource(value)) return value;
   return value === "FARM" || value === "FISH" || value === "TITANIUM" || value === "UMBRITE" || value === "GEMS" ? value : undefined;
 }
-// Non-network extraction improvements whose 3D model stands in for the raw
-// deposit. None remain since Mine and Umbrite Rig were removed (strategic
-// deposits stay bare; town refineries process them).
-const DEPOSIT_IMPROVEMENT_RESOURCES: Partial<Record<NonNullable<Tile["economicStructure"]>["type"], readonly ResourceType[]>> = {};
-
-/** Developed models include their raw site; avoid coincident duplicate meshes. */
+/**
+ * Developed network models include their raw site; avoid coincident duplicate
+ * meshes. Strategic deposits take no building (a refined deposit's Mine /
+ * Umbrite Rig look is swapped in by client-map-3d-raw-resource-dispatch.ts).
+ */
 export const shouldRenderRawResource = (resource: ResourceType, tile: Tile | undefined): boolean => {
   const structureType = tile?.economicStructure?.type;
-  if (!structureType) return true;
-  if (networkResourceForBuilding(structureType) === resource) return false;
-  return !DEPOSIT_IMPROVEMENT_RESOURCES[structureType]?.includes(resource);
+  return !structureType || networkResourceForBuilding(structureType) !== resource;
 };

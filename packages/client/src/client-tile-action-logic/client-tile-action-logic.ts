@@ -1074,7 +1074,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     if (siegeCamp) out.push(siegeCamp);
     out.push(...resourceBuildActions(state, tile, hasBlockingStructure, frontierBuildDetailSuffix(tile), {
       structureCostText: deps.structureCostText, buildDetailTextForAction: deps.buildDetailTextForAction,
-      availability: chainedBuildAvailability
+      availability: chainedBuildAvailability, townBuildSource, supportPlacementBlocked, townHasSupportStructure: deps.townHasSupportStructure
     }));
     if (townBuildSource) {
       // Manufactory moved to same-tile/uncapped placement in the tech-tree

@@ -4,6 +4,7 @@ import {
   type NetworkResource, type ResourceType
 } from "@border-empires/shared";
 import type { Tile, TileOverviewLine } from "../client-types.js";
+import { depositRefineryCardHtml, refineryTileOverviewLines } from "../client-refineries/refinery-tile-copy.js";
 
 type BaseResource = Exclude<ResourceType, keyof typeof RESOURCE_NETWORKS>;
 const isBaseResource = (value: string): value is BaseResource =>
@@ -41,7 +42,9 @@ export function resourceTileStatsHtml(tile: Tile, view: FrontierSiteViewer = {})
     const slots = BASE_SLOTS_BY_TILE_RESOURCE[resource];
     if (!slots) return "";
     const label = slots.slotResource === "CRYSTAL" ? "Crystal" : slots.slotResource === "FOOD" ? "FOOD" : slots.slotResource === "TITANIUM" ? "Titanium" : "Umbrite";
-    return `<div class="tile-stat-grid resource-stat-grid">${card("Base supply", `+${slots.baseSlots} ${label}`, "Renewable slots")}${card("Requires", "Garrison", siphoned ? "Siphoned" : "Owned tile")}</div>`;
+    // Strategic deposits also say whether a town refinery processes them (client-refineries/refinery-tile-copy.ts).
+    const refinery = view.tiles && view.me ? depositRefineryCardHtml({ tiles: view.tiles, tilesRevision: view.tilesRevision ?? 0, me: view.me }, tile) : "";
+    return `<div class="tile-stat-grid resource-stat-grid">${card("Base supply", `+${slots.baseSlots} ${label}`, "Renewable slots")}${card("Requires", "Garrison", siphoned ? "Siphoned" : "Owned tile")}${refinery}</div>`;
   }
   const spec = RESOURCE_NETWORKS[resource];
   const installation = `<button type="button" class="inline-info-link" data-structure-info="${escapeHtml(spec.building)}" aria-label="About ${escapeHtml(spec.buildingName)}">${escapeHtml(spec.buildingName)}</button>`;
@@ -54,7 +57,13 @@ export function resourceTileStatsHtml(tile: Tile, view: FrontierSiteViewer = {})
 }
 
 /** Who is looking and which frontier sites they already hold (after trades), so a deposit can show its value to them. */
-export type FrontierSiteViewer = { readonly me?: string | undefined; readonly held?: Readonly<Record<NetworkResource, number>> | undefined };
+export type FrontierSiteViewer = {
+  readonly me?: string | undefined;
+  readonly held?: Readonly<Record<NetworkResource, number>> | undefined;
+  /** The viewer's known tiles, for the refinery copy on deposits and refineries. */
+  readonly tiles?: ReadonlyMap<string, Tile> | undefined;
+  readonly tilesRevision?: number | undefined;
+};
 
 /** What capturing this site adds for the viewer, or what losing it costs if it is already theirs and working. */
 const frontierSiteValueForViewer = (tile: Tile, resource: NetworkResource, view: FrontierSiteViewer): { label: string; value: string; sub: string } | undefined => {
@@ -73,7 +82,8 @@ const frontierSiteValueForViewer = (tile: Tile, resource: NetworkResource, view:
 };
 
 export function resourceTileOverviewLines(tile: Tile, view: FrontierSiteViewer = {}): TileOverviewLine[] {
+  const refinery = view.tiles && view.me ? refineryTileOverviewLines({ tiles: view.tiles, tilesRevision: view.tilesRevision ?? 0, me: view.me }, tile) : [];
   const descriptions = resourceTileDescriptionLines(tile);
-  if (!descriptions.length) return [];
-  return [...descriptions.map(html => ({ html })), { kind: "statgrid", html: resourceTileStatsHtml(tile, view) }];
+  if (!descriptions.length) return refinery;
+  return [...refinery, ...descriptions.map(html => ({ html })), { kind: "statgrid", html: resourceTileStatsHtml(tile, view) }];
 }

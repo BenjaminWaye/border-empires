@@ -1,10 +1,13 @@
 import { RESOURCE_NETWORKS, networkResourceForAction, type BuildableStructureType } from "@border-empires/shared";
 import { requiredTechIdsForAbility } from "@border-empires/game-domain";
 import type { TileActionDef } from "../client-types.js";
+import { refineryStructureForAction, refineryTechForAction } from "../client-refineries/refinery-action-ids.js";
 
 export const structureTypeForTileAction = (actionId: TileActionDef["id"]): BuildableStructureType | undefined => {
   const networkResource = networkResourceForAction(actionId);
   if (networkResource) return RESOURCE_NETWORKS[networkResource].building;
+  const refinery = refineryStructureForAction(actionId);
+  if (refinery) return refinery;
   switch (actionId) {
     case "build_fortification":
       return "FORT";
@@ -115,6 +118,8 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
 export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string | undefined => {
   const networkResource = networkResourceForAction(actionId);
   if (networkResource) return RESOURCE_NETWORKS[networkResource].tech;
+  const refineryTech = refineryTechForAction(actionId);
+  if (refineryTech) return refineryTech;
   switch (actionId) {
     // build_fortification is deliberately absent: the Fortify row also offers the
     // tech-free Palisade, and each fort tier reports its own lock in the picker.
