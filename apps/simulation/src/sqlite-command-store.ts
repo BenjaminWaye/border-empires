@@ -191,6 +191,13 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
     return rows.map(toStored);
   }
 
+  async loadResolvedCommandsOfType(type: CommandEnvelope["type"], sinceQueuedAt: number): Promise<StoredSimulationCommand[]> {
+    const rows = this.db
+      .prepare(`${SELECT_JOINED} WHERE c.command_type = ? AND r.status = 'RESOLVED' AND c.queued_at >= ? ORDER BY c.queued_at ASC`)
+      .all(type, sinceQueuedAt) as Row[];
+    return rows.map(toStored);
+  }
+
   // See SimulationCommandStore.loadMaxClientSeqByPlayer for the full rationale.
   // Reads from client_seq_watermarks (not MAX(client_seq) GROUP BY on commands)
   // so this stays correct once retention pruning removes old commands rows.
