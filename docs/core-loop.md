@@ -132,16 +132,20 @@ gameplay changes.
   improving their territory while fighting runs in the background, checked
   every now and then. Development is a main activity, not a side job of war.
 - **Players should control town growth** more directly than they do today.
-- **FOOD is only a requirement today, and that isn't great.** Making it a
-  growth lever as well would be too complicated. If FOOD changes, it moves to
-  growth instead of being a requirement, not both.
-- **Strategic slots.** Titanium feeds Weapons Factories and forts, Umbrite
-  feeds Weapons Factories and siege, Crystal feeds Aether Towers. Players try
-  to build away every surplus slot, because using them gives a large
-  advantage.
+- **FOOD is only a requirement today, and that isn't great.** Towns must be
+  fed to work and to grow (§4.3), but players don't steer growth with it.
+  Making it a separate growth lever as well would be too complicated. If FOOD
+  changes, it moves to growth instead of being a requirement, not both.
+- **Strategic slots.** The owner's view of the main uses: Titanium feeds
+  Weapons Factories and forts, Umbrite feeds Weapons Factories and siege,
+  Crystal feeds Aether Towers. (The full list is longer; for example Crystal
+  also feeds Aether Condensers, Sky Docks and Great Projects; see
+  `STRUCTURE_SLOT_REQUIREMENTS`.) Players try to build away every surplus
+  slot, because using them gives a large advantage.
 - **Development is captured, not raided.** Developed land can't be damaged by
-  raids; it changes hands only by capture, and a captured site is disabled for
-  a while afterwards (see capture hold in `docs/game-mechanics.md`).
+  raids; it changes hands only by capture. After capture a site is held for
+  `CAPTURE_HOLD_MS` (60 s) and works again once garrisoned; towns also take
+  a 10-minute capture shock (see capture hold in `docs/game-mechanics.md`).
 - **Cost of content.** A new building type is cheap to add (models and art
   included). AI support for a new system is wanted but not required at launch.
 - **Live seasons.** There are no active players at the moment, so removing

@@ -49,10 +49,11 @@ const render = (args: Args): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "Map/Structures/Refineries (proposal)",
+  title: "Sandbox/Refineries/Lineup",
+  parameters: { sandbox: { owner: "BenjaminWaye", added: "2026-11-12" } },
   argTypes: {
     zoom: { control: { type: "range", min: 0.6, max: 4, step: 0.1 } },
-    only: { control: { type: "range", min: -1, max: 5, step: 1 }, description: "-1 shows all six" }
+    only: { control: { type: "range", min: -1, max: REFINERY_MODEL_KINDS.length - 1, step: 1 }, description: "-1 shows all six" }
   },
   args: { zoom: 1, only: -1 },
   render

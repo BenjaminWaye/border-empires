@@ -1,19 +1,24 @@
 # Territory development plan
 
 Status: proposed (2026-11-12). Design agreed with the owner in discussion;
-numbers marked "starting value" are for a balance pass. Nothing here is
-implemented yet.
+numbers marked "starting value" are for a balance pass. Only proposed true-3D
+models for the refineries and boosters exist
+(`packages/client/src/client-town-district/support-model-refinery.ts`, reviewed
+in Storybook under Sandbox / Refineries); they are not wired to any structure
+type, and 2D icons do not exist yet. No rule below is implemented.
 
 ## Goal
 
 Make improving your territory the main activity of a visit, with fighting
 running in the background (`docs/core-loop.md` §1.1). Today the frontier
-materials add passive regen nobody notices and every deposit carries its own
-building. This plan:
+materials add a large but invisible regen bonus (+120 manpower per 4h refill
+for a first site of each type, more than the capital's 96) that asks for no
+decision, and every deposit carries its own building. This plan:
 
 1. Cuts neural resin, conductive minerals and catalyst.
 2. Moves strategic processing into towns: a **refinery** on a support-ring
    tile processes one nearby deposit field, linked through your territory.
+
 Each phase ships and is played on its own before the next starts. Town roles
 and FOOD-as-growth were considered and dropped: roles only restricted
 buildings that are already one per town, and the FOOD rework added chores
@@ -29,8 +34,10 @@ plan:
   stay manageable at 50.
 - Players build away every surplus strategic slot, so more slots is a strong
   reward.
-- Developed land is captured, never raided; captured sites are disabled for a
-  while.
+- Developed land is captured, never raided. "Disabled after capture" means the
+  existing capture hold (`CAPTURE_HOLD_MS`, 60 s) plus garrison time, and the
+  10-minute town capture shock for towns; there is no separate structure
+  timer.
 - New building types are cheap; AI support is wanted but not required at
   launch. No live players, so no migration of saved campaigns is needed.
 
@@ -52,8 +59,11 @@ them, no trades in them. Luxury biota and precursor salvage are unchanged.
   `structure-costs/`, `structure-slots/`, `structure-display-names/`,
   `messages/` enums, `resource-supply-trades/` (8 negotiable resources become
   5).
-- Manifests: remove the `neural-resin-processing` warrant. Keep
-  `frontier-concessions`: it also unlocks the Cultivation Estate.
+- Manifests and tech tree (`packages/game-domain/data/tech-tree.json`):
+  remove the `neural-resin-processing` warrant; drop the Implant Foundry from
+  `organized-supply` (it keeps the Ancillary Depot); keep
+  `frontier-concessions` (it also unlocks the Cultivation Estate) but remove
+  catalysts from its description.
 - Simulation: `resource-networks-worldgen.ts` (stop seeding the three),
   `apps/simulation/src/resource-networks/`, the material term in manpower
   regen, siphon targets, AI extractor scoring and trade asks.
@@ -68,9 +78,12 @@ networks, resource trades), and `docs/lore/galactic-lore.md` "Frontier
 concessions and ancillary supply" (rewrite the "three frontier inputs"
 passage so remaking runs on town industry).
 
-**Done when.** No references remain outside `docs/archive/`; an AI test
-season reaches City tier at about the same pace as before. If early manpower
-feels thin, put regen back through town or Ancillary buildings, not the map.
+**Done when.** No references remain outside `docs/archive/`. The loss is
+large for a developed empire (at least +360 manpower per refill with one site
+of each type, against 96 from the capital), so measure it: compare manpower
+regen per refill and time to City tier in an AI test season before and after.
+If the drop is material, put the regen back through towns or Ancillary
+buildings (scoped in the same branch), not the map.
 
 ## Phase 2: Refineries in towns
 
@@ -81,15 +94,17 @@ feels thin, put regen back through town or Ancillary buildings, not the map.
    deposit tiles.
 2. **A refinery costs a ring tile.** Titanium Refinery, Umbrite Refinery and
    Crystal Refinery are built on a tile of a town's support ring. That tile
-   can no longer hold a Manufactory, Depot or Weapons Factory: it is the
-   sacrifice.
+   can no longer hold any other support building: it is the sacrifice.
 3. **One refinery processes one deposit field.** A field is a connected group
-   of same-resource deposit tiles (worldgen places them in groups of about
-   3–6). Each processed, garrisoned field tile gives +2 slots (starting
+   of same-resource deposit tiles (worldgen places 1–8 tiles: single hilltop
+   Umbrite and Gems tiles, 2 for grassland Titanium, 5 for Gems, 6–8 for other
+   Titanium and forest Umbrite). Each processed, garrisoned field tile gives +2 slots (starting
    value). Another field needs another refinery, in the same town or
    another. Each field feeds at most one refinery.
-4. **Reach: 8 land tiles past the second support ring**, i.e. within 10 land
-   tiles of the town tile, measured over land with 8-way steps.
+4. **Reach: 10 land tiles from the town tile**, for every town tier, measured
+   over land with 8-way steps. (This is 8 tiles past a Great City's second
+   support ring; one number for all tiers keeps it simple.) A field is in
+   reach when any of its tiles is.
 5. **Link.** The field must be joined to the town by the owner's own land
    (FRONTIER or SETTLED; garrisoning is not required). Water and other
    players' land break it.
@@ -99,11 +114,15 @@ feels thin, put regen back through town or Ancillary buildings, not the map.
 7. **Broken link or lost field.** The refinery keeps its tile but stops
    processing; a toast above it asks for a new field, and the deposit loses
    its refined overlay. Restoring the link resumes processing.
-8. **Capture.** Taking the town stops its refineries; captured refineries and
-   deposits are disabled for a while, as captured sites are today.
-9. **Worldgen guarantee.** Every strategic field has at least one town within
-   reach, and no field tile sits on a town tile or inside either support
-   ring.
+8. **Capture.** A refinery or booster works only while the same player holds
+   both its tile and its town. Taking the town stops its refineries; taking
+   just the refinery tile stops that refinery for both players until one
+   holds both again. Captured sites follow the existing capture hold.
+9. **Worldgen guarantee.** Every strategic field placed by worldgen has at
+   least one town within reach, and no field tile sits on a town tile or
+   inside either support ring; the check covers every cluster, not only moved
+   ones. Deposits created at runtime (waystation resource rewards) carry no
+   guarantee: out of reach, they give their base slot only.
 10. **Refinery boosters.** One support building per resource (working names:
     Titanium Smelter, Umbrite Distillery, Crystal Cutter) is built on another
     support-ring tile of the same town. While it stands, each refinery of that
@@ -122,20 +141,29 @@ output should also fall with distance inside the reach; whether the booster's
   and tech gate, placement metadata: town and support surfaces only, wire
   enum). Remove `MINE`, `UMBRITE_RIG` and `ORE_REFINERY` the same way,
   including `afc-specializations/afc-installation-grants.ts`, which grants a
-  Mine.
+  Mine. As in Phase 1, a snapshot holding a removed Mine, Umbrite Rig or Ore
+  Refinery must still load (drop the record).
 - **Fields need no new stored state.** A field is derived from tiles: the
-  connected component of same-resource deposit tiles, identified by its
-  smallest tile key. Worldgen keeps fields apart (cluster centres are already
-  spaced), so components match generated clusters.
-- **Refinery record.** Store the assigned field key on the refinery's
-  economic structure record. Commands: build with a field key, and
+  connected component of same-resource deposit tiles. Worldgen cluster ids
+  (`clustersById`) are not stored on runtime tiles, and waystation rewards add
+  deposits at runtime, so the component is the source of truth.
+- **Refinery record.** Store an anchor tile key (any tile of the assigned
+  field) on the refinery's economic structure record; the field is the
+  component containing the anchor when evaluated, so a component that grows
+  or merges keeps working. If a merge puts two refineries on one component,
+  the older assignment keeps it and the newer refinery shows the
+  "needs a new field" toast. If the anchor tile stops being a deposit or
+  changes owner, re-anchor to another tile of the same component, or show the
+  toast if none is left. Commands: build with a field key, and
   `ASSIGN_REFINERY_FIELD` to change it. Validate reach and link on the
   server.
 - **Link check.** Breadth-first search over the owner's land from the
-  field's tiles to the town tile, capped at the reach. Recompute only for
-  refineries whose town, field or path tiles changed owner, not every tick.
-  Read `docs/agents/state-and-persistence-discipline.md` before adding any
-  cache; prefer recomputing from tiles over storing link state.
+  field's tiles to the town tile, capped at the reach. When a tile changes
+  owner, recompute only refineries whose town lies within reach (10 tiles) of
+  that tile; no path needs storing, because any tile on a valid path is
+  within reach of the town. Read
+  `docs/agents/state-and-persistence-discipline.md` before adding any cache;
+  prefer recomputing from tiles over storing link state.
 - **Slot supply.** In `apps/simulation/src/resource-slot-view/resource-slot-view.ts`
   and `packages/shared/src/resource-slot-sources/`, replace the same-tile
   Mine/Umbrite Rig bonus and the Ore Refinery radius bonus with "+2 per
@@ -238,9 +266,12 @@ on three generated standard maps (seeds 12345, 777, 4242):
 | Within 10 tiles | 63–80% | 59–84% | 62–76% |
 | Farthest | 16–20 | 17–20 | 16–19 |
 
-**Worldgen prototype.** On seeds 12345 and 777, out-of-reach strategic
-clusters were cleared after town placement and re-placed within 10 land
-tiles of a town using the real habitat rules:
+**Worldgen prototype.** On seeds 12345 and 777 (seed 4242 was measured but
+not prototyped), out-of-reach strategic clusters were cleared after town
+placement and re-placed within 10 land tiles of a town using the real habitat
+rules. The throwaway code ran inside `season-seed-world-async.ts` right after
+`normalizeTownPlacements()` and is not part of this branch; Phase 2 rebuilds
+it properly, including the ring-overlap check for clusters it does not move:
 
 | Seed | Fields moved | Failed | Deposit tiles within reach, before → after | Within 4 tiles of a town, before → after | Towns with a strategic deposit within 10, before → after |
 | --- | --- | --- | --- | --- | --- |
@@ -254,4 +285,7 @@ fields land in the gaps rather than crowding towns.
 
 - Refinery output of +2 per tile, and whether output falls with distance.
 - Can a Town (not only City and above) host a refinery?
-- Does Crystal get a refinery, given its only use is Aether Towers?
+- Does Crystal get a refinery? Crystal slots feed more than Aether Towers:
+  Aether Condensers, Sky Docks, Neural Works, Resonance Grid, Ambaric
+  Transformer, Reserve Lattice, Ore Refinery and every Great Project part
+  (`STRUCTURE_SLOT_REQUIREMENTS`).

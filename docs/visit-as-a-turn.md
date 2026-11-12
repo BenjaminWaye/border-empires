@@ -18,8 +18,10 @@ Status: active proposal
 > **Correction 2026-11-12 (owner):** the continuous-regen note above is out of
 > date. Manpower accrues continuously but is paid out in one refill every 4
 > hours (`MANPOWER_REFILL_WINDOW_MS`), so a day holds about four turns. Build
-> time is a flat 60 s per structure (`STRUCTURE_BUILD_MS`). See
-> `docs/core-loop.md` §1.1.
+> time does not follow manpower cost: it is a flat 60 s for a structure that
+> costs manpower (`STRUCTURE_BUILD_MS`), instant for 0-manpower structures and
+> the first five Relay Beacons, and shortened by build-speed effects (see
+> `docs/game-mechanics.md` §5). See `docs/core-loop.md` §1.1.
 
 ## 1. The problem
 
