@@ -1,9 +1,12 @@
 import { CanvasTexture, CylinderGeometry, Group, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, type Scene } from "three";
-import type { RelicMapHint } from "@border-empires/shared";
+import type { NaturalWonderState, RelicMapHint } from "@border-empires/shared";
+import { shouldDrawRelicHint } from "./relic-map-hints.js";
+
+type HintTile = { naturalWonder?: NaturalWonderState | undefined } | undefined;
 
 /** Anonymous transponder beams and survey signatures remain readable over unexplored ground. */
 export function createRelicHintOverlay(scene: Scene): {
-  clear: () => void; addHint: (hint: RelicMapHint, x: number, z: number) => void; commit: () => void; dispose: () => void;
+  clear: () => void; addHint: (hint: RelicMapHint | undefined, tile: HintTile, x: number, z: number) => void; commit: () => void; dispose: () => void;
 } {
   const group = new Group(); scene.add(group);
   const beamGeometry = new CylinderGeometry(0.012, 0.065, 3.8, 6).translate(0, 1.9, 0);
@@ -25,7 +28,8 @@ export function createRelicHintOverlay(scene: Scene): {
   }
   let count = 0; const matrix = new Matrix4();
   const clear = (): void => { count = 0; beams.count = 0; for (const shape of shapes) { shape.count = 0; shape.mesh.count = 0; } };
-  const addHint = (hint: RelicMapHint, x: number, z: number): void => {
+  const addHint = (hint: RelicMapHint | undefined, tile: HintTile, x: number, z: number): void => {
+    if (!shouldDrawRelicHint(hint, tile)) return;
     matrix.makeTranslation(x, 0.12, z);
     if (hint.kind === "RELIC") { if (count < 9) beams.setMatrixAt(count++, matrix); }
     else {

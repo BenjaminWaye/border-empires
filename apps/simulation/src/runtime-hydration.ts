@@ -1,5 +1,5 @@
 import { usesPlayerCommandSequence, type CommandEnvelope, type SimulationEvent } from "@border-empires/sim-protocol";
-import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundLandmarkTiles, clearForestOnTownAndDockTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
 import { backfillProspectClues } from "./prospect-clue-backfill/prospect-clue-backfill.js";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
 import { recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -119,14 +119,14 @@ const withProspectClues = (tiles: Map<string, DomainTileState>): Map<string, Dom
   return tiles;
 };
 
-// AFC landing sites clear forest from their 3x3 footprint, and towns/docks
+// AFC landing sites and relics clear forest from their 3x3 footprint, and towns/docks
 // clear the forest on their own tile; neither is persisted itself --
 // re-derived from the (permanent) tile.afc / tile.town / tile.dockId on every
 // runtime build, starting from a clean slate so an in-process season
 // rollover can't inherit the previous world's clearings.
 const withAfcForestClearings = (tiles: Map<string, DomainTileState>): Map<string, DomainTileState> => {
   resetForestClearings();
-  clearForestAroundAfcTiles(tiles.values());
+  clearForestAroundLandmarkTiles(tiles.values());
   clearForestOnTownAndDockTiles(tiles.values());
   return tiles;
 };

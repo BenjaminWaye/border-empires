@@ -191,6 +191,25 @@ describe("createServerWorldgenNaturalWonders", () => {
     expect(placedTypes).not.toContain("FOUNDRY_HEART");
   });
 
+  it("keeps every relic's whole 3x3 footprint plain, unoccupied land", () => {
+    const deps = { ...buildDeps(), watchtowersByTile: new Map<TileKey, unknown>(), waystationsByTile: new Map<TileKey, unknown>() };
+    for (let y = 0; y < WORLD_HEIGHT; y += 3) for (let x = 0; x < WORLD_WIDTH; x += 4) deps.clusterByTile.set(key(x, y), "c");
+    deps.watchtowersByTile.set(key(17, 20), {}); deps.waystationsByTile.set(key(46, 30), {});
+    for (let seed = 1; seed <= 25; seed += 1) {
+      createServerWorldgenNaturalWonders(deps).generateNaturalWonders(seed);
+      expect(deps.naturalWondersByTile.size).toBeGreaterThan(0);
+      for (const tileKey of deps.naturalWondersByTile.keys()) {
+        const [cx, cy] = tileKey.split(",").map(Number) as [number, number];
+        for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) {
+          const x = (cx + dx + WORLD_WIDTH) % WORLD_WIDTH, y = (cy + dy + WORLD_HEIGHT) % WORLD_HEIGHT, k = key(x, y);
+          expect(terrainAt(x, y)).toBe("LAND");
+          expect(deps.clusterByTile.has(k) || deps.watchtowersByTile.has(k) || deps.waystationsByTile.has(k)).toBe(false);
+          if (dx !== 0 || dy !== 0) expect(deps.naturalWondersByTile.has(k)).toBe(false);
+        }
+      }
+    }
+  });
+
   it("is idempotent per call: clears prior placements before regenerating", () => {
     const deps = buildDeps();
     const runtime = createServerWorldgenNaturalWonders(deps);

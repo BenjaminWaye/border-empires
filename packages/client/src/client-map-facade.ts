@@ -1,5 +1,5 @@
 import { standingTreeFilter } from "./client-forest-war/forest-war.js";
-import { WORLD_WIDTH, clearForestAroundAfcTiles, isSeaTerrain, terrainAt, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion } from "@border-empires/shared";
+import { WORLD_WIDTH, clearForestAroundLandmarkTiles, isSeaTerrain, terrainAt, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion } from "@border-empires/shared";
 import { prospectClueDrawFor } from "./client-prospect-signature-overlay.js";
 import { createRetiredProspectCluesLookup } from "./client-prospect-clue/client-prospect-clue.js";
 import { createMiniMapBaseBuilder } from "./client-minimap/client-minimap-base-builder.js";
@@ -102,7 +102,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     // clearings along with the other worldgen caches -- and on first
     // connect runs only AFTER the initial tiles were merged) or a terrain
     // change, so re-derive the clearings from the AFC tiles already known.
-    clearForestAroundAfcTiles(state.tiles.values());
+    clearForestAroundLandmarkTiles(state.tiles.values());
     clearForestOnTownAndDockTiles(state.tiles.values());
     terrainColorCache.clear();
     terrainColorCacheOrder.length = 0;
