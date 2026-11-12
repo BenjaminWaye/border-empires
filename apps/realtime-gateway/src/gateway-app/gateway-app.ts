@@ -2457,11 +2457,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           if (message.type === "SETTLE") {
             await dispatchDurableCommand("SETTLE", { x: message.x, y: message.y }, true);
           } else if (message.type === "BUILD_FORT") {
-            await dispatchDurableCommand("BUILD_FORT", { x: message.x, y: message.y });
+            await dispatchDurableCommand("BUILD_FORT", { x: message.x, y: message.y, ...(message.tier ? { tier: message.tier } : {}) });
           } else if (message.type === "BUILD_OBSERVATORY") {
             await dispatchDurableCommand("BUILD_OBSERVATORY", { x: message.x, y: message.y });
           } else if (message.type === "BUILD_SIEGE_BATTERY") {
-            await dispatchDurableCommand("BUILD_SIEGE_BATTERY", { x: message.x, y: message.y });
+            await dispatchDurableCommand("BUILD_SIEGE_BATTERY", { x: message.x, y: message.y, ...(message.tier ? { tier: message.tier } : {}) });
           } else if (message.type === "SET_MUSTER") {
             await dispatchDurableCommand("SET_MUSTER", setMusterCommandPayload(message));
           } else if (message.type === "CLEAR_MUSTER" || message.type === "UPGRADE_MUSTER_CAP") {

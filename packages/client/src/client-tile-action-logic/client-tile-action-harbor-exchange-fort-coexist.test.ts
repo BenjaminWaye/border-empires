@@ -77,29 +77,27 @@ describe("Palisade / Fort builds on a dock with an existing Harbor Exchange (HAR
     economicStructure: { ownerId: "me", type: "HARBOR_EXCHANGE", status: "active" }
   } as Tile);
 
-  it("shows build_palisade (Build Palisade) on a Harbor Exchange dock tile", () => {
+  const tierOption = (action: TileActionDef | undefined, label: string) => action?.tierOptions?.find((entry) => entry.label === label);
+
+  it("offers the Fortify row with a buildable Palisade on a Harbor Exchange dock tile", () => {
     const state = richState();
     const tile = harborExchangeDockTile();
     state.tiles.set(keyFor(3, 3), tile);
 
-    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    const action = findAction(actions, "build_palisade");
-    expect(action).toBeDefined();
-    expect(action?.label).toBe("Build Palisade");
+    const action = findAction(menuActionsForSingleTile(state, tile, baseDeps as never), "build_fortification");
+    expect(action).toMatchObject({ label: "Fortify" });
     expect(action?.disabled).not.toBe(true);
+    expect(tierOption(action, "Palisade")?.disabled).toBe(false);
   });
 
-  it("shows build_fortification (Build Fort) on a Harbor Exchange dock tile once Ironclad Masonry is known -- Fort lives in a separate tile field and coexists with the Harbor Exchange", () => {
+  it("offers a buildable Fort tier on a Harbor Exchange dock tile once the Titanium Forge Module is installed -- Fort lives in a separate tile field and coexists with the Harbor Exchange", () => {
     const state = richState();
     state.techIds = ["masonry"];
+    state.tiles.set(keyFor(8, 8), { x: 8, y: 8, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", afc: { ownerId: "me", status: "active", modules: ["masonry"] } } as Tile);
     const tile = harborExchangeDockTile();
     state.tiles.set(keyFor(3, 3), tile);
 
-    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    const action = findAction(actions, "build_fortification");
-    expect(action).toBeDefined();
-    expect(action?.label).toBe("Build Fort");
-    expect(action?.disabled).not.toBe(true);
-    expect(action?.disabledReason).not.toBe("Tile already has structure");
+    const action = findAction(menuActionsForSingleTile(state, tile, baseDeps as never), "build_fortification");
+    expect(tierOption(action, "Fort")).toMatchObject({ disabled: false, tier: "FORT" });
   });
 });

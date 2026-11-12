@@ -51,6 +51,21 @@ describe("dev queue wire payloads", () => {
     ).toEqual({ type: "DEV_QUEUE_ENQUEUE", x: 4, y: 5, tileKey: "4,5", kind: "BUILD", structureType: "FORT" });
   });
 
+  it("carries the Fortify / Siege picker's chosen tier on a BUILD entry, both ways", () => {
+    expect(
+      devQueueEnqueueWirePayload({
+        kind: "BUILD", x: 4, y: 5, tileKey: "4,5", label: "Build Fort",
+        payload: { type: "BUILD_STRUCTURE", x: 4, y: 5, structureType: "FORT", tier: "THUNDER_BASTION" },
+        optimisticKind: "FORT"
+      })
+    ).toEqual({ type: "DEV_QUEUE_ENQUEUE", x: 4, y: 5, tileKey: "4,5", kind: "BUILD", structureType: "FORT", tier: "THUNDER_BASTION" });
+    // A fresh login rebuilds the entry from the server's queue with the same tier.
+    const [rebuilt] = mergeServerDevQueueIntoRestoredQueue([], [
+      { tileKey: "4,5", x: 4, y: 5, kind: "BUILD", structureType: "SIEGE_BATTERY", tier: "SIEGE_TOWER", queuedAt: 1 }
+    ]);
+    expect(rebuilt).toMatchObject({ payload: { type: "BUILD_STRUCTURE", structureType: "SIEGE_BATTERY", tier: "SIEGE_TOWER" } });
+  });
+
   it("uses the REMOVE_STRUCTURE sentinel for a removal entry", () => {
     expect(
       devQueueEnqueueWirePayload({

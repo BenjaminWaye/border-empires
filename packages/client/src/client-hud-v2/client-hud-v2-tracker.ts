@@ -20,6 +20,8 @@ export type TrackerInput = {
   queue: Array<{ label: string; x: number; y: number }>;
   /** The Dev slots section is expanded in place (the player can fold it away). */
   slotsOpen: boolean;
+  /** A build or garrison just took a slot or joined the queue: Dev slots pulses (see createSlotPulse). */
+  slotsPulse?: boolean;
   /** battle: an attack (opens the battle screen); otherwise a frontier expansion still landing. */
   capture?: { x: number; y: number; resolvesAt: number; battle: boolean } | undefined;
   nowMs: number;
@@ -69,12 +71,29 @@ const focusAttrs = (x?: number, y?: number): string =>
   x === undefined || y === undefined ? "" : ` data-hud-v2-focus-x="${x}" data-hud-v2-focus-y="${y}"`;
 
 /** Always-visible slot pips: filled for busy, open for free; free slots are called out since they are idle capacity. The row folds the slot list open and closed. */
-export const buildSlotsHtml = (slots: TrackerInput["buildSlots"], open: boolean): string => {
+export const buildSlotsHtml = (slots: TrackerInput["buildSlots"], open: boolean, pulse = false): string => {
   const limit = Math.max(0, slots.limit);
   const busy = Math.min(limit, Math.max(0, slots.busy));
   const free = limit - busy;
   const pips = Array.from({ length: limit }, (_, i) => `<span class="hud-v2-slot-pip${i < busy ? " hud-v2-slot-busy" : ""}"></span>`).join("");
-  return `<button type="button" class="hud-v2-slots${free > 0 ? " hud-v2-slots-free" : ""}" data-hud-v2-slots-toggle aria-expanded="${open}" aria-label="Development slots ${busy} of ${limit} in use"><span class="hud-v2-slots-label">Dev slots</span><span class="hud-v2-slot-pips" aria-hidden="true">${pips}</span><span class="hud-v2-slots-count">${busy}/${limit}${free > 0 ? ` · ${free} free` : ""}</span><span class="hud-v2-slots-fold" aria-hidden="true">${open ? "▾" : "▸"}</span></button>`;
+  return `<button type="button" class="hud-v2-slots${free > 0 ? " hud-v2-slots-free" : ""}${pulse ? " hud-v2-slots-pulse" : ""}" data-hud-v2-slots-toggle aria-expanded="${open}" aria-label="Development slots ${busy} of ${limit} in use"><span class="hud-v2-slots-label">Dev slots</span><span class="hud-v2-slot-pips" aria-hidden="true">${pips}</span><span class="hud-v2-slots-count">${busy}/${limit}${free > 0 ? ` · ${free} free` : ""}</span><span class="hud-v2-slots-fold" aria-hidden="true">${open ? "▾" : "▸"}</span></button>`;
+};
+
+const SLOT_PULSE_MS = 2_000;
+
+/**
+ * Pulses Dev slots for a moment when the slots in use or the queue grow (pressing Place, Garrison), so a
+ * press shows it took a slot even with the Place panel closed. Freed slots don't pulse.
+ */
+export const createSlotPulse = () => {
+  let previous: number | undefined;
+  let until = 0;
+  return (busy: number, queued: number, nowMs: number): boolean => {
+    const taken = busy + queued;
+    if (previous !== undefined && taken > previous) until = nowMs + SLOT_PULSE_MS;
+    previous = taken;
+    return nowMs < until;
+  };
 };
 
 /** Folds the Dev slots list on a click of its row. The caller repaints the tracker at once: its own refresh runs only once a second. */
@@ -118,7 +137,7 @@ export const trackerHtml = (input: TrackerInput): string => {
       return `<button type="button" class="hud-v2-tracker-row hud-v2-need-${n.kind}"${focusAttrs(n.x, n.y)}${open}><span class="hud-v2-tracker-title">${esc(n.title)}</span>${n.sub ? `<span class="hud-v2-tracker-sub">${esc(n.sub)}</span>` : ""}</button>`;
     }));
   }
-  parts.push(buildSlotsHtml(input.buildSlots, input.slotsOpen));
+  parts.push(buildSlotsHtml(input.buildSlots, input.slotsOpen, input.slotsPulse));
   if (input.slotsOpen && (input.building.length > 0 || input.queue.length > 0)) parts.push(slotListHtml(input));
   if (input.flags.length > 0) {
     parts.push(`<div class="hud-v2-tracker-head"><span>Flags · ${input.flags.length}</span></div>`);

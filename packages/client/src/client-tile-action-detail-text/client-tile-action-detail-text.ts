@@ -11,6 +11,8 @@ import {
   OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS,
   SIEGE_TIER_LADDER,
+  FORT_VARIANT_LABELS,
+  SIEGE_VARIANT_LABELS,
   TILE_SLOT_BOOST_STRUCTURES,
   HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS
 } from "@border-empires/shared";
@@ -33,33 +35,21 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "settle_land") return "Station troops here so the tile can be defended and built on, and its town or resource starts producing.";
   if (actionId === "settle_many") return "Select frontier tiles on the map, then confirm their total garrison cost.";
   if (actionId === "build_fortification") {
-    // Only show upgrade text when a fort already exists on the tile.
-    // Without this guard, a tile.fort === undefined falls through the
-    // ?? "FORT" default and shows "Upgrade this Fort" for fresh builds.
+    // The Fortify row opens the tier picker (client-structure-tier-options.ts);
+    // the copy names the standing tier when there is one, never a fixed target.
     if (tile.fort) {
-      const currentVariant = tile.fort.variant ?? "FORT";
-      if (currentVariant === "FORT") return `Upgrade this Fort into an Titanium Bastion. Titanium Bastions defend at ${FORT_TIER_LADDER.TITANIUM_BASTION.defenseMult}x.`;
-      if (currentVariant === "TITANIUM_BASTION") return `Upgrade this Titanium Bastion into a Thunder Bastion. Thunder Bastions defend at ${FORT_TIER_LADDER.THUNDER_BASTION.defenseMult}x.`;
-      // THUNDER_BASTION shouldn't expose this action at all; fall through for safety.
+      return `Upgrade this ${FORT_VARIANT_LABELS[tile.fort.variant ?? "FORT"]} to a stronger tier — pick which one. Stronger tiers defend harder but cost more manpower and TITANIUM slots.`;
     }
-    return tile.fort?.variant === "PALISADE"
-      ? `Upgrade this Palisade into a full fortification. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`
-      : `Fortify this tile. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`;
+    return `Fortify this tile — pick a tier. A Palisade (${FORT_TIER_LADDER.PALISADE.defenseMult}x) needs no tech; Forts (${FORT_TIER_LADDER.FORT.defenseMult}x and up) stop failed attacks from costing the origin tile.`;
   }
   if (actionId === "build_palisade") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but coin-only.";
   if (actionId === "build_observatory")
     return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and protects your own tiles within ${OBSERVATORY_PROTECTION_RADIUS} tiles from hostile Aether abilities (Purge, EMP, Siphon, terrain shaping, Aether Bridge landings) — it never covers unclaimed land or other players' tiles. Each Aether ability cast from this tower spends one of its 3 shots per 24h. Protection pauses while it is out of shots or unpowered; a Siphon cast during that gap ends as soon as the tower is back online.`;
   if (actionId === "build_siege_camp") {
-    // Only show upgrade text when a siege battery already exists.
     if (tile.siegeBattery) {
-      const currentVariant = tile.siegeBattery.variant ?? "SIEGE_BATTERY";
-      if (currentVariant === "SIEGE_BATTERY") return `Upgrade this Siege Battery into a Siege Tower. Siege Towers attack at ${SIEGE_TIER_LADDER.SIEGE_TOWER.attackMult}x.`;
-      if (currentVariant === "SIEGE_TOWER") return `Upgrade this Siege Tower into a Dread Tower. Dread Towers attack at ${SIEGE_TIER_LADDER.DREAD_TOWER.attackMult}x.`;
-      // DREAD_TOWER shouldn't expose this action; fall through for safety.
+      return `Upgrade this ${SIEGE_VARIANT_LABELS[tile.siegeBattery.variant ?? "SIEGE_BATTERY"]} to a stronger tier — pick which one. Stronger tiers attack harder but take more UMBRITE slots.`;
     }
-    return tile.economicStructure?.type === "RELAY_BEACON"
-      ? `Upgrade this Relay Beacon into a full Siege Battery. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_BATTERY.attackMult}x.`
-      : `Adds an offensive staging point. Does not extend reach. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_BATTERY.attackMult}x.`;
+    return `${tile.economicStructure?.type === "RELAY_BEACON" ? "Turn this Relay Beacon into a siege structure" : "Adds an offensive staging point. Does not extend reach"} — pick a tier. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_BATTERY.attackMult}x, up to ${SIEGE_TIER_LADDER.DREAD_TOWER.attackMult}x for a Dread Tower.`;
   }
   if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons build instantly (50 manpower each, no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full Siege Battery.";
   if (actionId === "build_hydrogarden") return tile.resource === "FARM" ? `Adds +${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slots on grain resource tiles.` : "Hydrogardens do not boost fish output.";

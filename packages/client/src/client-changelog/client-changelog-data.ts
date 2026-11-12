@@ -1,9 +1,11 @@
-import { PLANETARY_DEFENSE_HUNT_ENTRY } from "./client-changelog-planetary-defense-hunt.js";
+import { CAMERA_PER_ACCOUNT_ENTRY } from "./client-changelog-nov-11.js";
+import { PLANETARY_DEFENSE_HUNT_ENTRY, PLANETARY_DEFENSE_HUNT_REACH_ENTRY } from "./client-changelog-planetary-defense-hunt.js";
 import { NATIVE_SOCIAL_SIGN_IN_ENTRY } from "./client-changelog-nov-10.js";
 import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-names.js";
 import { RELIC_REVEAL_ENTRY } from "./client-changelog-relic-reveal.js";
 import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
 import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
+import { FORT_SIEGE_TIER_PICKER_ENTRY } from "./client-changelog-fort-siege-tiers.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { NEXT_CONTEST_STARTING_ENTRY } from "./client-changelog-next-contest.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -80,6 +82,7 @@ import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
 import { MAP_LENS_CHANGELOG, MINIMAP_WORLD_EDGE_ENTRY, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
+import { PLACE_FEEDBACK_ENTRY } from "./client-changelog-place-feedback.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
@@ -480,8 +483,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...MINIMAP_WORLD_EDGE_ENTRY, createdAt: 1794411491316, },
   { ...NEXT_CONTEST_STARTING_ENTRY, createdAt: 1794380743713, },
   { ...PLANETARY_DEFENSE_HUNT_ENTRY, createdAt: 1794423294581, },
+  { ...PLANETARY_DEFENSE_HUNT_REACH_ENTRY, createdAt: 1794439081730, },
   { ...NATIVE_SOCIAL_SIGN_IN_ENTRY, createdAt: 1794288128417, },
   { ...MUSTER_DOCK_TRANSPORT_ENTRY, createdAt: 1794353510194, },
+  { ...CAMERA_PER_ACCOUNT_ENTRY, createdAt: 1794432604008, },
+  { ...PLACE_FEEDBACK_ENTRY, createdAt: 1794410576432, },
+  { ...FORT_SIEGE_TIER_PICKER_ENTRY, createdAt: 1794418877252, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

@@ -15,6 +15,7 @@ import {
   ADVANCE_EMPTY_COOLDOWN_MS,
   ADVANCE_FAR_COOLDOWN_MS,
   ADVANCE_THROTTLE_DIST,
+  isStaleHuntCooldown,
   locksSourcedFromMusterTile,
   pickAdvanceTarget,
   syncMusterStatus
@@ -85,7 +86,8 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
   // of clearing it back to the generic "Planning next move" text for the
   // rest of the cooldown window.
   const cooldownUntil = input.advanceCooldowns.get(originKey) ?? 0;
-  if (input.nowMs < cooldownUntil) {
+  // A new hunt order must not sit out the previous order's cooldown.
+  if (input.nowMs < cooldownUntil && !isStaleHuntCooldown(musterTile.muster, cooldownUntil)) {
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
       inFlight: inFlightLocks.length > 0,
       inFlightCount: inFlightLocks.length,
