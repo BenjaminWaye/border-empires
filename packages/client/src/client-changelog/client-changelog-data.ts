@@ -8,6 +8,7 @@ import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort
 import { WAYSTATION_LANDING_CLEAR_ENTRY } from "./client-changelog-waystation-landing-clear.js";
 import { FORT_SIEGE_TIER_PICKER_ENTRY } from "./client-changelog-fort-siege-tiers.js";
 import { AFC_CAPTURE_NO_DROP_ENTRY } from "./client-changelog-afc-capture-no-drop.js";
+import { ONE_PRESS_TRADE_ENTRY } from "./client-changelog-one-press-trade.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { NEXT_CONTEST_STARTING_ENTRY } from "./client-changelog-next-contest.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -495,6 +496,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...AETHER_PURGE_RAZES_BEACON_ENTRY, createdAt: 1794436718206, },
   { ...FORT_SIEGE_TIER_PICKER_ENTRY, createdAt: 1794418877252, },
   { ...AFC_CAPTURE_NO_DROP_ENTRY, createdAt: 1794437873725, },
+  { ...ONE_PRESS_TRADE_ENTRY, createdAt: 1794472642567, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
