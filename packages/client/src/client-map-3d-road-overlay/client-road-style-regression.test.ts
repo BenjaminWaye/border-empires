@@ -9,11 +9,12 @@ const renderSource = (): string => {
 };
 
 describe("road style regression guard", () => {
-  it("draws 2D roads in the sci-fi transit look, not the old dirt-tan stroke", () => {
+  it("draws 2D town links as an elevated monorail, not the old dirt-tan stroke", () => {
     const source = renderSource();
 
-    expect(source).toContain('const ROAD_DECK = "rgba(28, 36, 46, 0.92)"');
-    expect(source).toContain('const ROAD_CORE = "rgba(120, 235, 255, 0.95)"');
+    expect(source).toContain('const RAIL_STEEL = "rgba(58, 64, 72, 0.96)"');
+    expect(source).toContain('const RAIL_POWER = "rgba(95, 227, 255, 0.92)"');
+    expect(source).toContain('const RAIL_SHADOW = "rgba(5, 8, 11, 0.28)"');
     expect(source).not.toContain("rgba(210, 180, 120, 0.92)");
   });
 });

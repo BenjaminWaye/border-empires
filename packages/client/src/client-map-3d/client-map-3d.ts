@@ -99,7 +99,7 @@ import {
 } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { resolvedMapResource3D } from "../client-resource-networks/network-resource-3d.js"; import { addRawResourceInstance, type RawResourceOverlays } from "../client-map-3d-raw-resource-dispatch/client-map-3d-raw-resource-dispatch.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
-import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
+import { createMonorailRoadOverlay } from "../client-map-3d-monorail/client-map-3d-monorail.js";
 import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import { reachCacheKey, resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { filterReachToLand, samplePerimeterPylons, traceReachBoundaryEdgeLoops } from "../client-reach-overlay/client-reach-overlay.js";
@@ -166,7 +166,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const { fogDarkenOverlay, fogOwnershipOverlay } = fogOverlays;
   await deps.onStage?.("structures");
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture);
-  const roadOverlay = createRoadOverlay(scene);
+  const roadOverlay = createMonorailRoadOverlay(scene, { envMap: atmosphere.buildingEnvironmentTexture, wrapX: deps.wrapX, wrapY: deps.wrapY, ownerColorAt: (wx, wy) => { const ownerId = deps.state.tiles.get(deps.keyFor(wx, wy))?.ownerId; return ownerId ? new Color(normalizeColorForThree(deps.effectiveOverlayColor(ownerId))) : undefined; } }); // town links: elevated monorail + trains
   const reachOverlay3D = createReachOverlay3D(scene, MAX_VISIBLE_TILES);
   // Land-filtered copy of the player's reach for the border trace, rebuilt only when reachCacheKey changes. The unfiltered set itself comes from
   // resolveMyReachCached (shared with the 2D path via state.myReach); this stays a local because the sea-trimmed variant is 3D-only.
@@ -645,7 +645,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     fogOwnershipOverlay.clear();
     townOverlay.clear();
     district.clear(window);
-    roadOverlay.clear();
+    roadOverlay.clear(window, roadDirsAt);
     // Live pylon/line pool is cleared+rebuilt every frame instead (see the
     // unconditional per-frame section below) so its border-transition
     // animation stays smooth regardless of camera movement -- only the
@@ -1183,7 +1183,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     syncAstralDockLaunchFxQueue();
     anchoredFx.root.follow(sceneOrigin); syncAegisLockFxQueue(); syncUnsettleFxQueue(); syncAfcModuleDeliveryFxQueue(); syncAfcDropFxQueue(); syncTownTierUpgradeFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs); syncArrowOverlayFrame(arrowOverlay, deps.state.arrowGesture, (t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) })); // F1: driven every frame (not just on terrain rebuild) so the arrow tracks the mouse smoothly mid-drag
     crystalTargetingOverlay.sync({ ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected, keyFor: deps.keyFor, camX: sceneOrigin.camX, camY: sceneOrigin.camY, cornerYAt: heightfield.cornerYAt.bind(heightfield), toroidDelta });
-    villageEffects.update(nowMs);
+    villageEffects.update(nowMs); roadOverlay.update(nowMs);
     district.update(nowMs);
     watchtowerOverlay.update(nowMs); waystationOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs); ambaricTransformerOverlay.update(nowMs); const beamedSiegeBattles = siegeTowerOverlay.update(nowMs, (wx, wy) => siegeTowerBattleTargetFor(deps.state, deps.keyFor, wx, wy));
     renderReachOverlay3DPylons(nowMs); afcOverlayGroup.update(nowMs);

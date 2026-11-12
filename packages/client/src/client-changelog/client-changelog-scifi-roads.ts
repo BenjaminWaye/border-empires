@@ -2,9 +2,10 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const SCIFI_ROADS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   introducedIn: "2026.11.12",
-  title: "Transit lanes between towns",
-  why: "The roads linking towns looked like dirt tracks.",
+  title: "Monorails between towns",
+  why: "The links between connected towns looked like dirt tracks.",
   changes: [
-    "Town links are now plated transit lanes with lit rails and glowing centre guides, on both the 3D and 2D maps."
+    "Connected towns are now joined by an elevated monorail, with trains running between them on the 3D map.",
+    "The 2D map shows the same rail line, without the trains."
   ]
 };
