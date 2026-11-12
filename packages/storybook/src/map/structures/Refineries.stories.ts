@@ -15,9 +15,10 @@ const LABELS: Record<string, string> = {
   TITANIUM_SMELTER: "Titanium Smelter (booster)", UMBRITE_DISTILLERY: "Umbrite Distillery (booster)", CRYSTAL_CUTTER: "Crystal Cutter (booster)"
 };
 
-const render = (args: { zoom: number }): HTMLElement => {
+type Args = { zoom: number; only: number };
+const render = (args: Args): HTMLElement => {
   const stage = createStage({ width: 1200, height: 620, camera: "orthographic", orthoHalfHeight: 0.95 / args.zoom, background: "#18232b", bloom: true });
-  stage.camera.position.set(1.4, 1.5, 2.4); stage.camera.lookAt(0, 0.12, 0);
+  stage.camera.position.set(1.4, 1.5, 2.4); stage.camera.lookAt(0, args.only >= 0 ? 0.18 : 0.12, 0);
   stage.renderer.shadowMap.enabled = true; stage.renderer.shadowMap.type = PCFSoftShadowMap;
   const sun = stage.scene.children.find((object): object is DirectionalLight => object instanceof DirectionalLight);
   if (sun) {
@@ -32,7 +33,8 @@ const render = (args: { zoom: number }): HTMLElement => {
   const ground = new Mesh(groundGeometry, groundMaterial); ground.position.y = -0.105; ground.receiveShadow = true; stage.scene.add(ground);
   const overlay = createDistrictOverlay(stage.scene, REFINERY_MODEL_KINDS.length, environment.texture);
   REFINERY_MODEL_KINDS.forEach((kind, index) => {
-    const x = ((index % 3) - 1) * 0.95, z = index < 3 ? -0.5 : 0.5;
+    if (args.only >= 0 && index !== args.only) return;
+    const x = args.only >= 0 ? 0 : ((index % 3) - 1) * 0.95, z = args.only >= 0 ? 0 : index < 3 ? -0.5 : 0.5;
     overlay.add({ kind: kind as unknown as DistrictVisualKind, x, z, y: 0, foundation: true, operational: true });
   });
   overlay.commit();
@@ -41,17 +43,21 @@ const render = (args: { zoom: number }): HTMLElement => {
   const root = wrapWithCleanup(stage, [overlay.dispose, () => environment.dispose(), () => groundGeometry.dispose(), () => groundMaterial.dispose(), () => cancelAnimationFrame(raf)]);
   const legend = document.createElement("p");
   legend.style.cssText = "margin:0;padding:12px 16px;background:#18232b;color:#e3d7ba;font:14px system-ui";
-  legend.textContent = `Back row: ${REFINERY_MODEL_KINDS.slice(0, 3).map(kind => LABELS[kind]).join(" · ")}. Front row: ${REFINERY_MODEL_KINDS.slice(3).map(kind => LABELS[kind]).join(" · ")}.`;
+  legend.textContent = args.only >= 0 ? LABELS[REFINERY_MODEL_KINDS[args.only] ?? ""] ?? "" : `Back row: ${REFINERY_MODEL_KINDS.slice(0, 3).map(kind => LABELS[kind]).join(" · ")}. Front row: ${REFINERY_MODEL_KINDS.slice(3).map(kind => LABELS[kind]).join(" · ")}.`;
   root.append(legend);
   return root;
 };
 
-const meta: Meta<{ zoom: number }> = {
+const meta: Meta<Args> = {
   title: "Map/Structures/Refineries (proposal)",
-  argTypes: { zoom: { control: { type: "range", min: 0.6, max: 2.5, step: 0.1 } } },
-  args: { zoom: 1 },
+  argTypes: {
+    zoom: { control: { type: "range", min: 0.6, max: 4, step: 0.1 } },
+    only: { control: { type: "range", min: -1, max: 5, step: 1 }, description: "-1 shows all six" }
+  },
+  args: { zoom: 1, only: -1 },
   render
 };
 export default meta;
-export const Lineup: StoryObj<{ zoom: number }> = {};
-export const Close: StoryObj<{ zoom: number }> = { args: { zoom: 1.8 } };
+export const Lineup: StoryObj<Args> = {};
+export const Close: StoryObj<Args> = { args: { zoom: 1.8 } };
+export const Single: StoryObj<Args> = { args: { zoom: 2.6, only: 0 } };
