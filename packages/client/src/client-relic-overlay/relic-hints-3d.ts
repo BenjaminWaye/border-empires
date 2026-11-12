@@ -2,7 +2,7 @@ import { CanvasTexture, CylinderGeometry, Group, InstancedMesh, Matrix4, MeshBas
 import type { NaturalWonderState, RelicMapHint } from "@border-empires/shared";
 import { shouldDrawRelicHint } from "./relic-map-hints.js";
 
-type HintTile = { naturalWonder?: NaturalWonderState | undefined } | undefined;
+type HintTile = { naturalWonder?: NaturalWonderState | null | undefined } | undefined;
 
 /** Anonymous transponder beams and survey signatures remain readable over unexplored ground. */
 export function createRelicHintOverlay(scene: Scene): {
