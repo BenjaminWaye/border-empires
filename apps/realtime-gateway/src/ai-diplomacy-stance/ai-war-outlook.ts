@@ -19,13 +19,19 @@ import { fightingStrengthOf, type RivalStrength, type WarExhaustionInput } from 
 export const WAR_OUTLOOK_HORIZON_MS = 2 * 60 * 60_000;
 /** Net tiles lost over the last hour and a half or so (WAR_PACE_HALF_LIFE_MS) that read as losing ground fast. */
 export const RAPID_LOSS_TILES = 3;
+/**
+ * An AI that paid this player for peace doesn't sue them again for this long:
+ * otherwise "truce ends, take 3 tiles, get paid" repeats every 12h and drains
+ * it. Inside the window the usual losing-war rules apply (no payment to a fresh attacker).
+ */
+export const SUING_REPEAT_COOLDOWN_MS = 24 * 60 * 60_000;
 /** After its reload the AI must be at least this strong relative to the rival to expect to retake its land. */
 export const COUNTER_ATTACK_STRENGTH_RATIO = 1;
 
 export type AiWarOutlook =
   /** No reason to change course: not at war, not losing ground lately, or holding its own. */
   | { kind: "STEADY" }
-  /** Losing ground, but its reload lands soon and out-muscles the rival: it fights on rather than pay. */
+  /** Losing ground and spent for now, but its reload lands soon and out-muscles the rival: it fights on rather than pay. */
   | { kind: "HOLD_FOR_REFILL"; refillInMs: number }
   /** Losing ground fast with no way to stop it before the horizon: it pays for peace now. */
   | { kind: "SUE_FOR_PEACE"; projectedLoss: number };
@@ -46,13 +52,23 @@ export const aiWarOutlook = (input: {
   /** Hour-scale fading tile counts (DiplomacyMemoryView.recentTilesTaken*). */
   recentTilesLost: number;
   recentTilesTaken: number;
+  /** When this AI last paid this rival for peace, if ever. */
+  paidForPeaceAt?: number;
+  now?: number;
 }): AiWarOutlook => {
   const { ai, rival } = input;
   if (!input.atWar || ai.manpowerCap <= 0) return STEADY;
   const netLoss = input.recentTilesLost - input.recentTilesTaken;
-  if (netLoss <= 0) return STEADY;
+  // Fading counts never quite reach zero: under a tile of net loss is no recent loss at all.
+  if (netLoss < 1) return STEADY;
 
+  // An AI that can stop the bleeding with what it has now isn't waiting on anything:
+  // the tally decides whether it is losing, as before.
   const strength = fightingStrengthOf(ai);
+  const holdsNow = rival.fightingStrength !== undefined ? strength >= rival.fightingStrength : strength / ai.manpowerCap >= RETALIATION_READY_RATIO;
+  if (holdsNow) return STEADY;
+
+  // Spent for now: a reload that lands soon and out-muscles the rival is worth waiting for.
   const reloadsSoon = ai.nextRefillInMs !== undefined && ai.nextRefillInMs <= WAR_OUTLOOK_HORIZON_MS;
   if (reloadsSoon) {
     const reloadAt = ai.nextRefillInMs!;
@@ -65,9 +81,9 @@ export const aiWarOutlook = (input: {
     }
   }
 
-  // Can it stop the bleeding with what it has now?
-  const holdsNow = rival.fightingStrength !== undefined ? strength >= rival.fightingStrength : strength / ai.manpowerCap >= RETALIATION_READY_RATIO;
-  if (netLoss < RAPID_LOSS_TILES || holdsNow) return STEADY;
+  if (netLoss < RAPID_LOSS_TILES) return STEADY;
+  const paidRecently = input.paidForPeaceAt !== undefined && input.now !== undefined && input.now - input.paidForPeaceAt < SUING_REPEAT_COOLDOWN_MS;
+  if (paidRecently) return STEADY;
   // A fading count holds about (half-life / ln 2) of fighting, so this is its rate.
   const tilesPerHour = (netLoss * Math.LN2) / (WAR_PACE_HALF_LIFE_MS / 3_600_000);
   return { kind: "SUE_FOR_PEACE", projectedLoss: Math.round(tilesPerHour * (WAR_OUTLOOK_HORIZON_MS / 3_600_000)) };

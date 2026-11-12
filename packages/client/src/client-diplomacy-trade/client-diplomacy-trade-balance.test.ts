@@ -29,9 +29,12 @@ describe("balancingAmount", () => {
     expect(evaluateResourceTradeOffer(terms, aiHoldings).accepts).toBe(true);
   });
 
-  it("leaves an accepted deal alone and fills only what you hold", () => {
+  // Opening Coin to look at it put the player's whole treasury into a truce they couldn't afford.
+  it("leaves an accepted deal alone and never fills a price one good can't cover", () => {
     expect(balancingAmount(reply, askTitanium(5), own, "give-FOOD")).toBeUndefined();
-    expect(balancingAmount(reply, askTitanium(), { gold: 0, resources: { FOOD: 3 } }, "give-FOOD")).toBe(3);
+    expect(balancingAmount(reply, askTitanium(), { gold: 0, resources: { FOOD: 3 } }, "give-FOOD")).toBeUndefined();
+    const truce: TradeSelection = { kind: "truce", durationHours: 12, terms: { give: { gold: 0 }, ask: { gold: 0 } } };
+    expect(balancingAmount(reply, truce, { gold: 25 }, "give-gold")).toBeUndefined();
     expect(balancingAmount({ found: true, targetPlayerName: "Valka", targetPlayerId: "p2", ai: false }, askTitanium(), own, "give-FOOD")).toBeUndefined();
   });
 
@@ -59,6 +62,12 @@ describe("suggestedTradeDeal for resource trades", () => {
 
   it("asks for the surplus instead of letting the player overpay", () => {
     expect(suggestedTradeDeal(reply, askTitanium(10), own)).toEqual({ give: { gold: 0, resources: { FOOD: 10 } }, ask: { gold: 20, resources: { TITANIUM: 5 } } });
+  });
+
+  it("combines goods when one alone can't cover the price", () => {
+    // 3 Food (12) then 8 coin for the 20 owed.
+    expect(suggestedTradeDeal(reply, askTitanium(1), { gold: 100, resources: { FOOD: 3 } }))
+      .toEqual({ give: { gold: 8, resources: { FOOD: 3 } }, ask: { gold: 0, resources: { TITANIUM: 5 } } });
   });
 
   it("has no suggestion the player can't afford", () => {

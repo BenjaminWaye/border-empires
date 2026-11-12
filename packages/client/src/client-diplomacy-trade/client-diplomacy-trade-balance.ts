@@ -34,9 +34,10 @@ const held = (holdings: DiplomacyGoods, spec: TradeGoodSpec): number =>
 /**
  * The amount of `key` that settles the deal, or undefined when pressing it
  * should leave the amount alone: the deal is already accepted (your side) or
- * has no surplus to spend (their side), the AI can't be read, or nothing is
- * held. Never more than the giving side holds, so a price out of reach fills
- * what you have and the verdict says what is still missing.
+ * has no surplus to spend (their side), the AI can't be read, or this good
+ * alone can't settle it: opening your Coin to look at it never pours your
+ * whole treasury into a price out of reach (the verdict says what is missing,
+ * and Suggest deal combines goods). Their side is capped at what they hold.
  */
 export const balancingAmount = (
   reply: DiplomacyStanceReply | undefined,
@@ -52,8 +53,8 @@ export const balancingAmount = (
   const current = tradeAmount(selection.terms, spec);
   if (spec.side === "give") {
     if (surplus >= 0) return undefined;
-    const next = Math.min(current + Math.ceil(-surplus / unit), held(own, spec));
-    return next > current ? next : undefined;
+    const next = current + Math.ceil(-surplus / unit);
+    return next <= held(own, spec) ? next : undefined;
   }
   // An AI never pays anything to join an alliance.
   const theirs = theirHoldings(reply);
@@ -62,10 +63,18 @@ export const balancingAmount = (
   return next > current ? next : undefined;
 };
 
+/** Suggest deal may combine goods: a give-side good that can't settle the deal alone goes in whole, and the next one covers the rest. */
+const partialTopUp = (reply: DiplomacyStanceReply | undefined, selection: TradeSelection, own: DiplomacyGoods, spec: TradeGoodSpec): number | undefined => {
+  const required = aiRequiredValue(reply, selection);
+  if (spec.side !== "give" || required === undefined || netValueToAi(selection.terms) >= required) return undefined;
+  const all = held(own, spec);
+  return all > tradeAmount(selection.terms, spec) ? all : undefined;
+};
+
 const applyBalance = (reply: DiplomacyStanceReply | undefined, selection: TradeSelection, own: DiplomacyGoods, specs: readonly TradeGoodSpec[]): DiplomacyTerms => {
   let terms = selection.terms;
   for (const spec of specs) {
-    const amount = balancingAmount(reply, { ...selection, terms }, own, spec.key);
+    const amount = balancingAmount(reply, { ...selection, terms }, own, spec.key) ?? partialTopUp(reply, { ...selection, terms }, own, spec);
     if (amount !== undefined) terms = withTradeAmount(terms, spec.key, amount);
   }
   return terms;

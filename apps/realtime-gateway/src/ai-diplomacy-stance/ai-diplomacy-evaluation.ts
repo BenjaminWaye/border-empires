@@ -123,7 +123,9 @@ export const evaluateAiDiplomacy = (input: {
     ai: stanceInput.ai,
     rival: stanceInput.requester,
     recentTilesLost: input.memory.recentTilesTakenFromAi ?? 0,
-    recentTilesTaken: input.memory.recentTilesTakenByAi ?? 0
+    recentTilesTaken: input.memory.recentTilesTakenByAi ?? 0,
+    ...(input.memory.aiPaidForPeaceAt !== undefined ? { paidForPeaceAt: input.memory.aiPaidForPeaceAt } : {}),
+    now: input.now
   });
   const opinion = computeAiOpinion({
     stanceKind: stance.kind,

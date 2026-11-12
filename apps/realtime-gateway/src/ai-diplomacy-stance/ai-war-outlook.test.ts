@@ -33,6 +33,22 @@ describe("aiWarOutlook", () => {
     expect(outlook({ ai: { ...spent, nextRefillInMs: 20 * MIN, nextRefillManpower: 100 } }).kind).toBe("SUE_FOR_PEACE");
   });
 
+  // HOLD used to fire for any AI with a reload due, spent or not, so a level war read as "expects to win its land back"
+  // and the tally's "lost 2+ more tiles" no longer counted as losing.
+  it("only holds out for a reload when it is spent now", () => {
+    const fit = { manpower: 600, manpowerCap: 1000, musterManpower: 0, nextRefillInMs: 90 * MIN, nextRefillManpower: 400 };
+    expect(outlook({ ai: fit, rival: { fightingStrength: 550, manpowerCap: 1000 }, recentTilesLost: 2.5 }).kind).toBe("STEADY");
+    // A fading count left over from hours ago is no recent loss.
+    expect(outlook({ ai: { ...spent, nextRefillInMs: 20 * MIN, nextRefillManpower: 700 }, recentTilesLost: 0.6 }).kind).toBe("STEADY");
+  });
+
+  // "Truce ends, take 3 tiles, get paid" could repeat every 12h and drain the AI.
+  it("doesn't sue the same rival again within a day of paying it", () => {
+    const now = 100 * HOUR;
+    expect(outlook({ paidForPeaceAt: now - 23 * HOUR, now }).kind).toBe("STEADY");
+    expect(outlook({ paidForPeaceAt: now - 25 * HOUR, now }).kind).toBe("SUE_FOR_PEACE");
+  });
+
   it("stays steady when not losing ground lately, losing it slowly, or still able to hold", () => {
     expect(outlook({ recentTilesLost: 2, recentTilesTaken: 2 }).kind).toBe("STEADY");
     expect(outlook({ recentTilesLost: 2 }).kind).toBe("STEADY");
