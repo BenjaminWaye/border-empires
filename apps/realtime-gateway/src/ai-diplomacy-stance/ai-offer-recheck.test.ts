@@ -143,3 +143,27 @@ describe("standing free AI truces", () => {
     )).resolves.toEqual(expect.objectContaining({ withdraw: false }));
   });
 });
+
+// A suing AI priced its payment off a fast-fading war pace, so the price had drifted by the time the player
+// accepted, and a 10% tolerance on what the player paid (nothing) withdrew every such offer.
+describe("recheckAiOffer on the AI's own peace payment", () => {
+  const recheckPayment = (gold: number, memory: Partial<AiDiplomacyContext["memory"]>) =>
+    recheckAiOffer(
+      {
+        fetchAiSnapshot: async () => snapshotFor(AI_ID, 1_000, 2),
+        requesterSnapshot: async () => snapshotFor(HUMAN_ID, 5_000, 1),
+        diplomacyContext: () => context(memory)
+      },
+      { aiPlayerId: AI_ID, aiName: "Alden Vale", playerId: HUMAN_ID, kind: "truce", durationHours: 12, termsFromAi: { give: { gold }, ask: { gold: 0 } } }
+    );
+
+  it("stands by a payment above today's price while it is still losing and can afford it", async () => {
+    // Losing now: its price is 250 (a quarter of its 1000 coin), below the 400 it offered.
+    await expect(recheckPayment(400, { tilesTakenFromAi: 3, lastCombatAt: NOW - 60_000 })).resolves.toBeUndefined();
+    await expect(recheckPayment(2_000, { tilesTakenFromAi: 3, lastCombatAt: NOW - 60_000 })).resolves.toEqual(expect.objectContaining({ withdraw: true }));
+  });
+
+  it("withdraws it once the AI no longer counts as losing", async () => {
+    await expect(recheckPayment(400, {})).resolves.toEqual(expect.objectContaining({ withdraw: true }));
+  });
+});
