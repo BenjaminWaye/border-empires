@@ -252,7 +252,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       afcJoinDrop: state.afcJoinDrop,
       resourceInstallations: deps
     };
-    const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt, remembered: rememberedStructureDeps2D, townTierUpgradeFxByKey: state.townTierUpgradeFxByKey }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
+    const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt, remembered: rememberedStructureDeps2D, townTierUpgradeFxByKey: state.townTierUpgradeFxByKey, tiles: state.tiles }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
@@ -306,7 +306,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     };
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
       // A remembered (fogged) dock stays on the map.
-      if (dockEndpointKeys.has(wk) && ((!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged")) drawDockEndpoint2D(deps, wx, wy, px, py, size);
+      if (dockEndpointKeys.has(wk) && ((!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged")) drawDockEndpoint2D(deps, wx, wy, px, py, size, state.tiles);
 
       const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);
       const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
@@ -571,7 +571,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
         if (roadNetworkBuiltAt >= 0) continue;
 
-        if (dockEndpointKeys.has(wk) && ((!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged")) drawDockEndpoint2D(deps, wx, wy, px, py, size);
+        if (dockEndpointKeys.has(wk) && ((!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged")) drawDockEndpoint2D(deps, wx, wy, px, py, size, state.tiles);
 
         const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);
         const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);

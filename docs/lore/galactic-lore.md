@@ -410,17 +410,21 @@ a rival who takes that harbour strands everything put ashore from it.
 
 ### What a harbour looks like
 
-A frontier harbour is ordinary machinery, like everything else a town will
-run: coal, steam, timber and iron, with no aether-work in it. The quay is
-dressed stone with an iron-capped edge and a timber pier on piles. A toll and
-harbourmaster's house keeps the freight and the tolls that back a House's Coin
-(§11), a coal-fired steam derrick swings cargo off the pier, a lamp burns at
-the pier head for the sea lane, and a paddle-steamer ferry lies alongside.
+A harbour is a House port, built to the same standard as a House's other
+works. The quay is polished black stone veined with gold, laid on a
+charcoal course with a brass inlay and an iron-capped sea edge, with lamp
+posts along it and an iron-plated pier on blackened piles. A grey stone
+control office, glazed and crowned with a sensor mast, keeps the freight
+and the tolls that back a House's Coin (§11). A powered gantry crane, fed
+by a cell bank charged from the town's ordinary generation and marked out by
+cyan status strips (signal lamps, not aether-work), lifts sealed cargo
+containers off the pier, a beacon burns at the pier head for the sea lane,
+and one of the House's armoured troop carriers (§11) lies alongside.
 
 The beaches beside the quay are part of the harbour. Each carries a slipway:
-a timber ramp with iron rails running down into the water, a flat-bottomed
-landing barge hauled up it, a winch, a lantern and stacked supplies brought
-in by sea. They are where the harbour's landings come ashore, which is why a
+an iron-plated ramp with brass rails running down into the water, an
+armoured landing barge hauled up it, a winch, a lamp post and containers
+brought in by sea. They are where the harbour's landings come ashore, which is why a
 defender watches the whole stretch and not only the quay. A harbour is a
 transport hub, not a fortification: it carries no guns and no walls, and a
 Palisade is what defends it.
