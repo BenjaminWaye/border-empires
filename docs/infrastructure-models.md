@@ -57,13 +57,20 @@ structure, but they are drawn in the same palette as the models above
 brass inlay (the marble finish shared with town plinths), lamp posts along
 the sea edge, a glazed control office with a sensor mast, an iron-plated
 pier, a powered gantry crane with cyan status strips and its cell bank,
-sealed containers and an armoured troop carrier. Part tables
-live in `client-map-3d-harbour/client-map-3d-harbour-parts.ts`; the capture
-fire (`client-wreck-models/dock-fire-model.ts`) burns on the same layout.
+sealed containers and an armoured troop carrier. The models are written with a
+small builder (`client-map-3d-harbour/harbour-model-builder.ts`: boxes,
+cylinders, domes, bands and rods in the piece's frame) in
+`harbour-quay-model.ts`, `harbour-slipway-model.ts` and `harbour-props.ts`,
+then merged once into one geometry per material for each piece (quay, full
+slipway, shrunk slipway). A placed piece is one instance on each of its
+material meshes, so added detail costs triangles, never per-tile instance
+memory. The capture fire (`client-wreck-models/dock-fire-model.ts`) burns on
+the same layout.
 
 The 2D sprites `dock-overlay-{1,2,3}.svg` are flat projections of the
 production quay (`client-map-3d-harbour/harbour-overlay-svg.ts`, shared
-projector `client-structure-info-catalog/mesh-projection-svg.ts`). Regenerate
-with `node scripts/generate-dock-overlay-icons.mjs` after changing the parts
+projector `client-structure-info-catalog/mesh-projection-svg.ts`). Faces below a quarter of
+a square sprite unit are dropped to keep the files small. Regenerate
+with `node scripts/generate-dock-overlay-icons.mjs` after changing the models
 and bump `overlayAssetVersion`; a regression test fails while they disagree.
 The 2D slipway glyph (`client-harbour-slipways-2d.ts`) uses the same colours.

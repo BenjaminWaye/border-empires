@@ -4,8 +4,10 @@ type Face = { readonly points: readonly Vector3[]; readonly depth: number; reado
 
 /** Deterministic flat-shaded 2D projection of meshes (instanced or not) to a
  * 128x128 SVG, for overlay exports and audits. Skips halo/steam meshes and
- * additive glows; `root`'s descendants are visited with their world matrices. */
-export const projectMeshesToSvg = (root: Object3D, title: string): string => {
+ * additive glows; `root`'s descendants are visited with their world matrices.
+ * `minFaceArea` (square SVG units) drops faces too small to see, for detailed
+ * models whose every triangle would otherwise bloat the file. */
+export const projectMeshesToSvg = (root: Object3D, title: string, minFaceArea = 0): string => {
   root.updateMatrixWorld(true);
   const forward = new Vector3(0.65, 0.85, 1).normalize();
   const right = new Vector3(1, 0, -0.65).normalize(), up = new Vector3().crossVectors(forward, right);
@@ -53,7 +55,12 @@ export const projectMeshesToSvg = (root: Object3D, title: string): string => {
   const minY = Math.min(...points.map(p => p.y)), maxY = Math.max(...points.map(p => p.y));
   const scale = 112 / Math.max(maxX - minX, maxY - minY);
   const project = (p: Vector3): string => `${(64 + (p.x - (minX + maxX) / 2) * scale).toFixed(1)},${(64 + (p.y - (minY + maxY) / 2) * scale).toFixed(1)}`;
-  faces.sort((a, b) => a.depth - b.depth);
-  const paths = faces.map(face => `<path fill="${face.fill}"${face.opacity < 1 ? ` opacity="${face.opacity}"` : ""} d="M${face.points.map(project).join("L")}Z"/>`);
+  const area = (face: Face): number => {
+    const [a, b, c] = face.points;
+    return a && b && c ? Math.abs((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)) * 0.5 * scale * scale : 0;
+  };
+  const visible = minFaceArea > 0 ? faces.filter((face) => area(face) >= minFaceArea) : faces;
+  visible.sort((a, b) => a.depth - b.depth);
+  const paths = visible.map(face => `<path fill="${face.fill}"${face.opacity < 1 ? ` opacity="${face.opacity}"` : ""} d="M${face.points.map(project).join("L")}Z"/>`);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><title>${title}</title>${paths.join("")}</svg>\n`;
 };

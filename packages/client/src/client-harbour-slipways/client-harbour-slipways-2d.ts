@@ -22,7 +22,7 @@ const RAMP = "#4a4d53";
 const RAIL = "#8b6c3d";
 const HULL = "#25282e";
 const CABIN = "#5d6066";
-// Matches SHRUNK_SLIPWAY_SCALE / SHRUNK_SLIPWAY_SEAWARD_OFFSET in the 3D part tables.
+// Matches SHRUNK_SLIPWAY_SCALE / SHRUNK_SLIPWAY_SEAWARD_OFFSET in client-map-3d-harbour/client-map-3d-harbour-parts.ts.
 const SHRUNK_SCALE = 0.6;
 const SHRUNK_OFFSET = 0.32;
 

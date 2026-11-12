@@ -1,16 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, Matrix4, Object3D, Scene } from "three";
+import { Box3, InstancedMesh, Matrix4, Object3D, Scene, Vector3 } from "three";
 import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
-import { HARBOUR_SLOT_LOOKS, QUAY_PARTS, SLIPWAY_PARTS, type HarbourPart } from "./client-map-3d-harbour/client-map-3d-harbour-parts.js";
-
-const SLOTS = HARBOUR_SLOT_LOOKS.length;
-const perSlot = (parts: readonly HarbourPart[]): number[] => {
-  const counts = new Array<number>(SLOTS).fill(0);
-  for (const piece of parts) counts[piece.slot] = (counts[piece.slot] ?? 0) + 1;
-  return counts;
-};
-// Every visible tile holds at most one harbour piece, so each slot reserves room for the piece that uses it most.
-const RESERVED_PER_TILE = perSlot(QUAY_PARTS).reduce((total, quay, slot) => total + Math.max(quay, perSlot(SLIPWAY_PARTS)[slot] ?? 0, 1), 0);
 
 const instancedMeshes = (scene: Scene): InstancedMesh[] => {
   const meshes: InstancedMesh[] = [];
@@ -24,63 +14,76 @@ const instancedMeshes = (scene: Scene): InstancedMesh[] => {
   return meshes;
 };
 
-const renderedPieces = (scene: Scene): number =>
-  instancedMeshes(scene).reduce((total, mesh) => total + mesh.count, 0);
+const piece = (scene: Scene, kind: "quay" | "slipway" | "shrunkSlipway"): InstancedMesh[] =>
+  instancedMeshes(scene).filter((mesh) => mesh.name.startsWith(`dock-${kind}-`));
+
+const triangles = (meshes: readonly InstancedMesh[]): number =>
+  meshes.reduce((total, mesh) => total + (mesh.geometry.index?.count ?? mesh.geometry.getAttribute("position").count) / 3, 0);
+
+const bounds = (meshes: readonly InstancedMesh[]): Box3 => {
+  const box = new Box3();
+  for (const mesh of meshes) {
+    mesh.geometry.computeBoundingBox();
+    box.union(mesh.geometry.boundingBox!);
+  }
+  return box;
+};
 
 describe("dock overlay", () => {
-  it("commits a fully assembled quay: marble quay, pier, lamp posts, control office, gantry crane, cell bank, containers, beacon and troop carrier", () => {
+  it("draws a placed quay as one instance on every quay material mesh, and nothing else", () => {
     const scene = new Scene();
     const overlay = createDockOverlay(scene, 100);
 
     overlay.addInstance(0, 0, 0, 0, 0, 0);
     overlay.commit();
 
-    // A change that drops a part (say the carrier's mast or the hoisted container)
-    // changes this total and must be reviewed here.
-    expect(renderedPieces(scene)).toBe(QUAY_PARTS.length);
-    expect(instancedMeshes(scene)).toHaveLength(SLOTS);
+    const quay = piece(scene, "quay");
+    expect(quay.length).toBeGreaterThan(8);
+    for (const mesh of quay) expect(mesh.count).toBe(1);
+    for (const mesh of [...piece(scene, "slipway"), ...piece(scene, "shrunkSlipway")]) expect(mesh.count).toBe(0);
+    // The detailed model: a regression to the old few-dozen-box quay shows up here.
+    expect(triangles(quay)).toBeGreaterThan(3000);
+    // Stays on its tile (the pier and moored carrier reach just past the sea edge).
+    const box = bounds(quay);
+    expect(box.min.x).toBeGreaterThanOrEqual(-0.5);
+    expect(box.max.x).toBeLessThanOrEqual(0.5);
+    expect(box.min.z).toBeGreaterThanOrEqual(-0.5);
+    expect(box.max.z).toBeLessThanOrEqual(0.62);
 
     overlay.dispose();
   });
 
-  it("commits a full landing slipway, and only its ramp and barge when shrunk", () => {
+  it("draws a full landing slipway, or the smaller shrunk one, never both", () => {
     const scene = new Scene();
     const overlay = createDockOverlay(scene, 100);
 
     overlay.addSlipway(0, 0, 0, 0, "full");
     overlay.commit();
-    expect(renderedPieces(scene)).toBe(SLIPWAY_PARTS.length);
+    for (const mesh of piece(scene, "slipway")) expect(mesh.count).toBe(1);
+    for (const mesh of piece(scene, "shrunkSlipway")) expect(mesh.count).toBe(0);
 
     overlay.clear();
     overlay.addSlipway(0, 0, 0, 0, "shrunk");
     overlay.commit();
-    expect(renderedPieces(scene)).toBe(SLIPWAY_PARTS.filter((piece) => piece.core).length);
-    expect(renderedPieces(scene)).toBeLessThan(SLIPWAY_PARTS.length);
+    for (const mesh of piece(scene, "slipway")) expect(mesh.count).toBe(0);
+    for (const mesh of piece(scene, "shrunkSlipway")) expect(mesh.count).toBe(1);
+    // The shrunk slipway keeps only the ramp and barge.
+    expect(triangles(piece(scene, "shrunkSlipway"))).toBeLessThan(triangles(piece(scene, "slipway")));
 
     overlay.dispose();
   });
 
   it("pushes a shrunk slipway out to the waterline, toward the sea it faces", () => {
-    // The ramp is the first deck instance of a lone slipway. Shrunk, it sits
-    // further toward the water (+z here) so it clears the tile's other structure.
-    const rampZ = (fit: "full" | "shrunk"): number => {
-      const scene = new Scene();
-      const overlay = createDockOverlay(scene, 10);
-      overlay.addSlipway(0, 0, 0, 0, fit);
-      overlay.commit();
-      const deck = instancedMeshes(scene).find((mesh) => mesh.name === "dock-2")!;
-      const matrix = new Matrix4();
-      deck.getMatrixAt(0, matrix);
-      overlay.dispose();
-      return matrix.elements[14]!;
-    };
-    expect(rampZ("shrunk")).toBeGreaterThan(rampZ("full"));
+    // Shrunk, the ramp sits further toward the water (+z here) so it clears the tile's other structure.
+    const scene = new Scene();
+    const overlay = createDockOverlay(scene, 10);
+    expect(bounds(piece(scene, "shrunkSlipway")).min.z).toBeGreaterThan(bounds(piece(scene, "slipway")).min.z);
+    overlay.dispose();
   });
 
   it("renders every harbour piece in a multi-dock frame completely", () => {
-    // Regression for the storybook Row view: per-slot capacity is maxTiles *
-    // parts-per-tile, so placing several pieces in one commit must not drop
-    // the parts of pieces after the first.
+    // Regression for the storybook Row view: placing several pieces in one
+    // commit must not drop the pieces after the first.
     const scene = new Scene();
     const overlay = createDockOverlay(scene, 4);
 
@@ -88,7 +91,7 @@ describe("dock overlay", () => {
     for (let i = 0; i < 2; i += 1) overlay.addSlipway(i * 1.4, 1, 0, 0, "full");
     overlay.commit();
 
-    expect(renderedPieces(scene)).toBe(2 * QUAY_PARTS.length + 2 * SLIPWAY_PARTS.length);
+    for (const mesh of [...piece(scene, "quay"), ...piece(scene, "slipway")]) expect(mesh.count).toBe(2);
 
     overlay.dispose();
   });
@@ -99,24 +102,24 @@ describe("dock overlay", () => {
 
     overlay.addInstance(0, 0, 0, 0, 0, 0);
     overlay.commit();
-    expect(renderedPieces(scene)).toBeGreaterThan(0);
+    expect(instancedMeshes(scene).some((mesh) => mesh.count > 0)).toBe(true);
 
     overlay.clear();
     overlay.commit();
-    expect(renderedPieces(scene)).toBe(0);
+    expect(instancedMeshes(scene).every((mesh) => mesh.count === 0)).toBe(true);
     expect(instancedMeshes(scene).length).toBeGreaterThan(0);
 
     overlay.dispose();
   });
 
-  it("reserves maxTiles * the busiest piece per slot, no more than the old dock's 64 parts per tile", () => {
+  it("reserves maxTiles placements per mesh, under the old dock's 64 matrices per tile", () => {
     const scene = new Scene();
     const overlay = createDockOverlay(scene, 14_000);
 
-    const totalBytes = instancedMeshes(scene).reduce((total, mesh) => total + mesh.instanceMatrix.array.length * 4, 0);
-    const bytesPerPart = 16 * 4;
-    expect(totalBytes).toBe(14_000 * RESERVED_PER_TILE * bytesPerPart);
-    expect(RESERVED_PER_TILE).toBeLessThanOrEqual(64);
+    const meshes = instancedMeshes(scene);
+    const totalBytes = meshes.reduce((total, mesh) => total + mesh.instanceMatrix.array.length * 4, 0);
+    expect(totalBytes).toBe(14_000 * meshes.length * 16 * 4);
+    expect(meshes.length).toBeLessThanOrEqual(64);
 
     overlay.dispose();
   });
@@ -146,37 +149,34 @@ describe("dock overlay", () => {
     // Regression: addInstance used to pre-rotate the part position AND then
     // multiply by the outer rotation matrix, so positions rotated twice while
     // orientations rotated once — every dock that faced a non-zero direction
-    // came out garbled (only the unrotated Row/FacingSouth docks looked right).
-    // The toll house door is the second iron-edge instance of a lone quay
-    // (after the quay's sea-edge cap), at model (-0.24, 0.15, -0.117); under a clean rotationY it must land at
-    // centerX/centerZ + RY(rot) * that local offset. centerX/centerZ must NOT
-    // themselves be rotated: they are the tile's own world position.
-    const doorPosition = (scene: Scene, centerX: number, centerZ: number, rotationY: number): number[] => {
+    // came out garbled. A model point (the control office door, at
+    // (-0.24, 0.165, -0.117)) must land at centre + RY(rot) * that offset;
+    // the centre itself is the tile's world position and is never rotated.
+    const doorAt = (centerX: number, centerZ: number, rotationY: number): number[] => {
+      const scene = new Scene();
       const overlay = createDockOverlay(scene, 100);
       overlay.addInstance(centerX, centerZ, 0, rotationY, 0, 0);
       overlay.commit();
-      const door = instancedMeshes(scene).find((mesh) => mesh.name === "dock-1")!;
       const matrix = new Matrix4();
-      door.getMatrixAt(1, matrix);
+      piece(scene, "quay")[0]!.getMatrixAt(0, matrix);
       overlay.dispose();
-      return [matrix.elements[12]!, matrix.elements[13]!, matrix.elements[14]!];
+      return new Vector3(-0.24, 0.165, -0.117).applyMatrix4(matrix).toArray().map((v) => Math.round(v * 1000));
     };
 
     // RY(90deg) faces the quay east: local (x, z) -> (z, -x), so the door at the back lands on the inland (west) side.
-    expect(doorPosition(new Scene(), 0, 0, Math.PI / 2).map((v) => Math.round(v * 1000))).toEqual([-117, 150, 240]);
+    expect(doorAt(0, 0, Math.PI / 2)).toEqual([-117, 165, 240]);
     // RY(180deg): (x, z) -> (-x, -z)
-    expect(doorPosition(new Scene(), 0, 0, Math.PI).map((v) => Math.round(v * 1000))).toEqual([240, 150, 117]);
+    expect(doorAt(0, 0, Math.PI)).toEqual([240, 165, 117]);
     // Off-centre tile: only the local offset rotates; the centre translates untouched.
-    expect(doorPosition(new Scene(), 10, -4, Math.PI / 2).map((v) => Math.round(v * 1000))).toEqual([9883, 150, -3760]);
+    expect(doorAt(10, -4, Math.PI / 2)).toEqual([9883, 165, -3760]);
   });
 
   it("re-uploads the used range on every commit so a swapped dock is never stale", () => {
     // commit() only runs when the visible tile set changed. A dock leaving and
-    // another entering keeps the per-slot instance counts identical, so a
-    // "count unchanged" skip would leave the previous dock's matrices on the
-    // GPU. Every commit must re-mark the used range for upload (three r179
-    // re-uploads when the setter-only needsUpdate bumps the attribute's
-    // `version`).
+    // another entering keeps the instance counts identical, so a "count
+    // unchanged" skip would leave the previous dock's matrices on the GPU.
+    // Every commit must re-mark the used range for upload (three r179
+    // re-uploads when the setter-only needsUpdate bumps the attribute's `version`).
     const scene = new Scene();
     const overlay = createDockOverlay(scene, 100);
 
@@ -187,8 +187,6 @@ describe("dock overlay", () => {
     const versionsAfterFirst = drawn.map((mesh) => mesh.instanceMatrix.version);
     for (const version of versionsAfterFirst) expect(version).toBeGreaterThan(0);
 
-    // Same number of docks, different tile (per-slot counts unchanged): the
-    // matrices were re-written, so the upload must be marked again, not skipped.
     overlay.clear();
     overlay.addInstance(1, 0, 0, Math.PI / 2, 1, 0);
     overlay.commit();

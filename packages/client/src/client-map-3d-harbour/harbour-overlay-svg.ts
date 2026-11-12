@@ -14,13 +14,16 @@ export const DOCK_OVERLAY_SVG_VARIANTS: readonly { readonly filename: string; re
   { filename: "dock-overlay-3.svg", rotationY: -Math.PI / 2 }
 ];
 
+// Faces under this many square SVG units vanish at map scale (the sprite is drawn about a tile wide).
+const DOCK_SVG_MIN_FACE_AREA = 0.25;
+
 export const dockOverlaySvg = (rotationY: number): string => {
   const scene = new Scene();
   const overlay = createDockOverlay(scene, 1);
   overlay.addInstance(0, 0, 0, rotationY, 0, 0);
   overlay.commit();
   try {
-    return projectMeshesToSvg(overlay.group, "Dock");
+    return projectMeshesToSvg(overlay.group, "Dock", DOCK_SVG_MIN_FACE_AREA);
   } finally {
     overlay.dispose();
   }

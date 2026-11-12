@@ -1,13 +1,13 @@
 // A dock set ablaze in a capture (see client-capture-aftermath.ts), burning on
 // its own harbour pieces while the capturing troops hold it. Modelled in the
-// quay's frame (client-map-3d-harbour/client-map-3d-harbour-parts.ts QUAY_PARTS:
+// quay's frame (client-map-3d-harbour/harbour-quay-model.ts:
 // facing +z, the sea; y = 0 on the quay's paving) and turned with it: the
 // control office's roof and a window alight, the cargo containers and the
 // crane's power cell burning, the pier and the moored troop carrier on fire,
 // scorched paving, embers, and smoke pouring off it all.
 import { ember, flame, scorch, smokeColumn, wreckRandom, type WreckBuilders } from "./wreck-kit.js";
 
-/** Height of the quay's paving above the harbour's base (QUAY_PARTS' stone block). */
+/** Height of the quay's paving above the harbour's base (harbour-quay-model.ts DECK). */
 export const QUAY_DECK_Y = 0.085;
 
 export const buildDockFire = (t: WreckBuilders, variant: number): void => {
