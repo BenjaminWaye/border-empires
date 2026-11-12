@@ -33,6 +33,8 @@ export type SimulationCommandStore = {
    * window (payload JSON included) and materializing it OOM'd the sim worker.
    */
   loadRecentCommands(limit: number): Promise<StoredSimulationCommand[]>;
+  /** RESOLVED commands of one type queued at or after `sinceQueuedAt`. */
+  loadResolvedCommandsOfType(type: CommandEnvelope["type"], sinceQueuedAt: number): Promise<StoredSimulationCommand[]>;
   /**
    * Highest ever-persisted client_seq per player, regardless of status AND
    * regardless of whether the underlying commands row still exists. Used to
@@ -124,6 +126,12 @@ export class InMemorySimulationCommandStore implements SimulationCommandStore {
 
   async loadRecentCommands(limit: number): Promise<StoredSimulationCommand[]> {
     return [...this.commands.values()].sort((left, right) => right.queuedAt - left.queuedAt).slice(0, limit);
+  }
+
+  async loadResolvedCommandsOfType(type: CommandEnvelope["type"], sinceQueuedAt: number): Promise<StoredSimulationCommand[]> {
+    return [...this.commands.values()]
+      .filter((command) => command.type === type && command.status === "RESOLVED" && command.queuedAt >= sinceQueuedAt)
+      .sort((left, right) => left.queuedAt - right.queuedAt);
   }
 
   async loadMaxClientSeqByPlayer(): Promise<Record<string, number>> {

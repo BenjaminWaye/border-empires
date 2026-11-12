@@ -251,6 +251,7 @@ export class WriterBackedCommandStore implements SimulationCommandStore {
   loadRecoverableCommands(): Promise<StoredSimulationCommand[]> { return this.reader.loadRecoverableCommands(); }
   loadAllCommands(): Promise<StoredSimulationCommand[]> { return this.reader.loadAllCommands(); }
   loadRecentCommands(limit: number): Promise<StoredSimulationCommand[]> { return this.reader.loadRecentCommands(limit); }
+  loadResolvedCommandsOfType(type: CommandEnvelope["type"], sinceQueuedAt: number): Promise<StoredSimulationCommand[]> { return this.reader.loadResolvedCommandsOfType(type, sinceQueuedAt); }
   loadMaxClientSeqByPlayer(): Promise<Record<string, number>> { return this.reader.loadMaxClientSeqByPlayer(); }
 }
 
