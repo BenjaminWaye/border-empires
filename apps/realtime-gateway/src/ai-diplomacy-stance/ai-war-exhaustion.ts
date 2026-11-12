@@ -31,6 +31,9 @@ export type RivalStrength = {
   /** Free + mustered manpower; undefined when the rival's snapshot has no player block. */
   fightingStrength?: number;
   manpowerCap?: number | undefined;
+  /** The rival's next manpower payout, as for the AI (ai-war-outlook.ts); undefined = unknown. */
+  nextRefillInMs?: number;
+  nextRefillManpower?: number;
 };
 
 export type WarExhaustion = "NOT_EXHAUSTED" | "EXHAUSTED" | "REFILL_SOON" | "RIVAL_ALSO_SPENT" | "BOXED_IN";

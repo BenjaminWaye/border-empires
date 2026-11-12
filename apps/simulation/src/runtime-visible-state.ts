@@ -6,6 +6,7 @@ import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import { afcPlayerExportFields } from "./afc-specializations/afc-player-export.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
+  autoSettlePrefsForOutput,
   WORLD_HEIGHT,
   WORLD_WIDTH
 } from "@border-empires/shared";
@@ -313,7 +314,7 @@ function visiblePlayersProjection(
         activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
         relicDevelopmentBonus: player.relicDevelopmentBonus ?? 0,
         ...(player.id === visiblePlayerId && input.relicMapHintsForPlayer ? { relicMapHints: input.relicMapHintsForPlayer(player.id) } : {}),
-        autoSettle: { ...player.autoSettle },
+        autoSettle: autoSettlePrefsForOutput(player.autoSettle),
         // This reconnect/login snapshot path (exportVisibleStateForPlayerAsync)
         // never carried devQueue/waypointQueue -- only the separate full
         // exportState() (runtime-state-export.ts, used for checkpointing/

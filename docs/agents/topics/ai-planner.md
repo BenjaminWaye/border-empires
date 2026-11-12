@@ -363,6 +363,9 @@ consolidation, planning cadence), not deletion.
     daily value or a day's value in coin; 6h per-target cooldown. The AI ends
     its own FOOD purchase after 24h (the sim ignores `supplyDurationHours`, so
     agreements never expire otherwise) to stay under the 16-agreement cap.
+    An AI with no FOOD to buy instead sells up to 3 spare upkeep slots (keeping
+    2) to a neighbouring player out of them, for a day's value; it ends those
+    sales after 24h too (`ai-surplus-sale.ts`).
     Attacking a House ends every supply agreement between the two (sim:
     `runtime-frontier-command.ts` → `RuntimeResourceSupply.cancelBetween`), so an
     AI that attacks its FOOD supplier loses that FOOD. The attack planner does

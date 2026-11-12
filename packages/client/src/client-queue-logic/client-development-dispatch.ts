@@ -2,7 +2,8 @@
 // sent straight away or held in the dev queue until a slot -- or, for a
 // garrison, manpower -- frees up. Extracted from client-queue-logic.ts
 // (oversized), which re-exports everything here.
-import { SETTLE_COST, captureHoldSettleFloorMs } from "@border-empires/shared";
+import { announceBuildPlaced } from "./client-build-placed-feedback.js";
+import { SETTLE_COST, captureHoldSettleFloorMs, type ChosenStructureTier } from "@border-empires/shared";
 import { canAffordCost, settleDurationMsForTile } from "../client-constants.js";
 import { debugTileLog, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -25,9 +26,9 @@ export type DevelopmentSlotSummary = {
 type QueuedDevelopmentAction = ClientState["developmentQueue"][number];
 type QueuedBuildPayload = Extract<QueuedDevelopmentAction, { kind: "BUILD" }>["payload"];
 type GatewayBuildWirePayload =
-  | { type: "BUILD_FORT"; x: number; y: number }
+  | { type: "BUILD_FORT"; x: number; y: number; tier?: ChosenStructureTier }
   | { type: "BUILD_OBSERVATORY"; x: number; y: number }
-  | { type: "BUILD_SIEGE_BATTERY"; x: number; y: number }
+  | { type: "BUILD_SIEGE_BATTERY"; x: number; y: number; tier?: ChosenStructureTier }
   | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: string }
   | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
@@ -39,9 +40,10 @@ const numericEffect = (effects: Record<string, unknown> | undefined, key: string
 
 export const gatewayBuildWirePayload = (payload: QueuedBuildPayload): GatewayBuildWirePayload => {
   if (payload.type !== "BUILD_STRUCTURE") return payload;
-  if (payload.structureType === "FORT") return { type: "BUILD_FORT", x: payload.x, y: payload.y };
+  const tier = payload.tier ? { tier: payload.tier } : {};
+  if (payload.structureType === "FORT") return { type: "BUILD_FORT", x: payload.x, y: payload.y, ...tier };
   if (payload.structureType === "OBSERVATORY") return { type: "BUILD_OBSERVATORY", x: payload.x, y: payload.y };
-  if (payload.structureType === "SIEGE_BATTERY") return { type: "BUILD_SIEGE_BATTERY", x: payload.x, y: payload.y };
+  if (payload.structureType === "SIEGE_BATTERY") return { type: "BUILD_SIEGE_BATTERY", x: payload.x, y: payload.y, ...tier };
   return { type: "BUILD_ECONOMIC_STRUCTURE", x: payload.x, y: payload.y, structureType: payload.structureType };
 };
 
@@ -203,12 +205,8 @@ export const sendDevelopmentBuild = (
     sendGameMessage: (payload: unknown) => boolean;
   }
 ): boolean => {
-  const summary = deps.developmentSlotSummary();
-  const canQueue = opts.allowQueueWhenBusy !== false && !opts.fromQueue;
-  // FIFO: if anything is already waiting, this new click goes to the end of the line
-  // rather than racing into a slot that opened mid-dispatch.
-  if (canQueue && state.developmentQueue.length > 0) {
-    return deps.queueDevelopmentAction({
+  const queueBuild = (): boolean => {
+    const queued = deps.queueDevelopmentAction({
       kind: "BUILD",
       x: opts.x,
       y: opts.y,
@@ -217,18 +215,19 @@ export const sendDevelopmentBuild = (
       payload,
       optimisticKind: opts.optimisticKind
     });
+    if (queued) announceBuildPlaced(deps, payload.type, opts.label, "queued", opts);
+    return queued;
+  };
+  const summary = deps.developmentSlotSummary();
+  const canQueue = opts.allowQueueWhenBusy !== false && !opts.fromQueue;
+  // FIFO: if anything is already waiting, this new click goes to the end of the line
+  // rather than racing into a slot that opened mid-dispatch.
+  if (canQueue && state.developmentQueue.length > 0) {
+    return queueBuild();
   }
   if (summary.available <= 0) {
     if (canQueue) {
-      return deps.queueDevelopmentAction({
-        kind: "BUILD",
-        x: opts.x,
-        y: opts.y,
-        tileKey: deps.keyFor(opts.x, opts.y),
-        label: opts.label,
-        payload,
-        optimisticKind: opts.optimisticKind
-      });
+      return queueBuild();
     }
     if (!opts.suppressWarnings) {
       showVisibleActionWarning(deps, "Development slots full", deps.developmentSlotReason(summary));
@@ -251,6 +250,7 @@ export const sendDevelopmentBuild = (
   }
   if (opts.fromQueue) state.queuedDevelopmentDispatchPending = true;
   optimistic();
+  announceBuildPlaced(deps, payload.type, opts.label, "started", opts);
   deps.renderHud();
   return true;
 };
@@ -274,7 +274,7 @@ export const processDevelopmentQueue = (
         suppressWarnings: true;
       }
     ) => boolean;
-    applyOptimisticStructureBuild: (x: number, y: number, kind: OptimisticStructureKind) => void;
+    applyOptimisticStructureBuild: (x: number, y: number, kind: OptimisticStructureKind, chosenTier?: ChosenStructureTier) => void;
     applyOptimisticStructureRemoval: (x: number, y: number) => void;
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
@@ -328,7 +328,7 @@ export const processDevelopmentQueue = (
           })
         : deps.sendDevelopmentBuild(next.payload, () => {
             if (next.payload.type === "REMOVE_STRUCTURE") deps.applyOptimisticStructureRemoval(next.x, next.y);
-            else deps.applyOptimisticStructureBuild(next.x, next.y, next.optimisticKind);
+            else deps.applyOptimisticStructureBuild(next.x, next.y, next.optimisticKind, next.payload.tier);
           }, {
             x: next.x,
             y: next.y,

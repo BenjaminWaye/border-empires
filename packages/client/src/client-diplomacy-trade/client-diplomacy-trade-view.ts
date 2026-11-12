@@ -87,7 +87,7 @@ export type TradeSelection = { kind: TradeKind; durationHours: 12 | 24; terms: D
 const extendsTruce = (selection: TradeSelection): boolean => selection.kind === "truce" && selection.extendsTruce === true;
 
 /** The AI's prices for this offer: an extension never has the AI pay (shared extensionPricing, as the gateway decides). */
-const pricingFor = (pricing: AiDiplomacyPricing, selection: TradeSelection): AiDiplomacyPricing =>
+export const pricingFor = (pricing: AiDiplomacyPricing, selection: TradeSelection): AiDiplomacyPricing =>
   extendsTruce(selection) ? extensionPricing(pricing) : pricing;
 
 export type TradeVerdict = {
@@ -144,7 +144,10 @@ export const tradeVerdict = (input: {
     if (reply && !reply.found) return {tone:"bad",text:`No empire named ${targetName}.`,canSend:false,sendLabel};
     if (reply?.found && reply.ai && reply.pricing) {
       const answer = evaluateResourceTradeOffer(selection.terms,reply.pricing.aiHoldings);
-      return {tone:answer.accepts?"good":"bad",text:answer.accepts?`${targetName} would accept this resource trade.`:`${targetName} would decline these resource terms.`,canSend:true,sendLabel};
+      if (answer.accepts) return {tone:"good",text:`${targetName} would accept this resource trade.`,canSend:true,sendLabel};
+      const why = answer.reason === "shortfall" ? `wants about ${answer.shortfall} more coin's worth. Press a good on your side to add just enough.`
+        : answer.reason === "aiCannotPay" ? "doesn't have that much spare to give." : "won't take these resource terms.";
+      return {tone:"bad",text:`${targetName} would decline: ${why}`,canSend:true,sendLabel};
     }
     return {tone:"neutral",text:`Supply continues until either House cancels. ${targetName} will decide on the offer.`,canSend:true,sendLabel};
   }

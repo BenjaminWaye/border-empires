@@ -250,3 +250,6 @@ body.hud-v2-compact .v2c-treasury-rows .hud-v2-gear { display: flex; align-items
 body.hud-v2-compact .v2c-treasury-rows .hud-v2-gear::after { content: " Settings"; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }
 
 /* The map overview (full-screen minimap with lenses) is styled in client-hud-v2-map-overview.css. */
+
+/* Folded tracker line while Dev slots just took a build (createSlotPulse). */
+.v2c-track-line.v2c-track-pulse { background: color-mix(in srgb, var(--v2-gold) 22%, transparent); box-shadow: inset 3px 0 0 var(--v2-gold-hi); color: var(--v2-gold-hi); }

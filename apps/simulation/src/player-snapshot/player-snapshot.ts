@@ -4,7 +4,7 @@ import {
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_STANDING_VISION_RADIUS,
   MUSTER_MAX_TILES,
-  normalizeAutoSettlePrefs,
+  autoSettlePrefsForOutput,
   VISION_RADIUS,
   WORLD_HEIGHT,
   WORLD_WIDTH
@@ -286,7 +286,7 @@ export const buildPlayerSubscriptionSnapshot = (
             },
             incomePerMinute,
             imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
-            autoSettle: normalizeAutoSettlePrefs(livePlayer.autoSettle),
+            autoSettle: autoSettlePrefsForOutput(livePlayer.autoSettle),
             wonderLastFreeRushBuyAt: livePlayer.wonderLastFreeRushBuyAt ?? 0,
             relicMapHints: livePlayer.relicMapHints ?? [],
             eventLog: livePlayer.eventLog ?? [],
@@ -346,6 +346,7 @@ export const buildPlayerSubscriptionSnapshot = (
                     y: entry.y,
                     kind: entry.kind,
                     ...(entry.structureType ? { structureType: entry.structureType } : {}),
+                    ...(entry.tier ? { tier: entry.tier } : {}),
                     queuedAt: entry.queuedAt,
                     // Same reservation flags PLAYER_UPDATE carries (runtime-player-state-update.ts).
                     ...(entry.reservedManpower ? { manpowerReserved: true } : {}),

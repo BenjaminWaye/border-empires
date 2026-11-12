@@ -17,6 +17,7 @@ const capturedState = (flagMode: "HOLD" | "MARCH" = "HOLD"): ClientState => {
   state.manpowerCap = 1_000;
   state.manpower = 1_000;
   state.tiles.set("2,150", tile({ x: 2, y: 150 }));
+  for (const x of [3, 4, 5]) state.tiles.set(`${x},150`, tile({ x, y: 150 }));
   state.tiles.set("6,150", tile({ x: 6, y: 150, ownershipState: "SETTLED", muster: { ownerId: "me", amount: 120, mode: flagMode, updatedAt: 0, ...(flagMode === "MARCH" ? { targetX: 9, targetY: 9 } : {}) } }));
   state.incomingAttacksByTile.set("2,150", { attackerName: "Planetary Defense", attackerId: "barbarian-1", resolvesAt: NOW + 10_000 });
   return state;
@@ -50,6 +51,44 @@ describe("Hunt Planetary Defense on a tile it is capturing", () => {
     state.tiles.set("2,150", captured);
     const [action] = buildMusterActions(captured, state, NOW);
     expect(action).toMatchObject({ id: "muster_hunt_attackers", disabled: true });
+  });
+
+  // Review regressions (PR #2716): the flag was picked by straight-line
+  // distance only, so an empty flag, one across water, or one funding a
+  // manual attack still marching could be sent after the patrol.
+  it("skips a flag that can't reach the tile over its own land", () => {
+    const state = capturedState();
+    state.tiles.delete("4,150");
+    state.tiles.delete("5,150");
+    expect(buildMusterActions(state.tiles.get("2,150")!, state, NOW).some((a) => a.id === "muster_hunt_attackers" && !a.disabled)).toBe(false);
+  });
+
+  it("sends a farther staged flag rather than a nearer empty one", () => {
+    const state = capturedState();
+    state.tiles.set("4,150", tile({ x: 4, y: 150, muster: { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: 0 } }));
+    expect(buildMusterActions(state.tiles.get("2,150")!, state, NOW)[0]?.detail).toContain("(6, 150)");
+  });
+
+  it("skips a flag whose manual attack is still marching", () => {
+    const state = capturedState();
+    state.musterTransitByCommand.set("cmd-1", { musterX: 6, musterY: 150, marchToX: 3, marchToY: 150, targetX: 3, targetY: 151, transitStartAt: NOW, transitEndsAt: NOW + 5_000, manpower: 60 });
+    expect(buildMusterActions(state.tiles.get("2,150")!, state, NOW).some((a) => a.id === "muster_hunt_attackers" && !a.disabled)).toBe(false);
+  });
+
+  it("reaches across a dock crossing to the player's own island", () => {
+    const state = capturedState();
+    state.tiles.delete("6,150");
+    for (const x of [4, 5, 6, 7]) state.tiles.set(`${x},150`, { x, y: 150, terrain: "SEA" });
+    state.tiles.set("8,150", tile({ x: 8, y: 150, ownershipState: "SETTLED", muster: { ownerId: "me", amount: 120, mode: "HOLD", updatedAt: 0 } }));
+    expect(buildMusterActions(state.tiles.get("2,150")!, state, NOW).some((a) => a.id === "muster_hunt_attackers" && !a.disabled)).toBe(false);
+    state.dockPairs = [{ ax: 8, ay: 150, bx: 3, by: 150 }];
+    expect(buildMusterActions(state.tiles.get("2,150")!, state, NOW)[0]?.detail).toContain("(8, 150)");
+  });
+
+  it("takes a flag whose manual attack has already been sent", () => {
+    const state = capturedState();
+    state.musterTransitByCommand.set("cmd-1", { musterX: 6, musterY: 150, marchToX: 3, marchToY: 150, targetX: 3, targetY: 151, transitStartAt: NOW - 5_000, transitEndsAt: NOW - 1, manpower: 60 });
+    expect(buildMusterActions(state.tiles.get("2,150")!, state, NOW)[0]?.detail).toContain("(6, 150)");
   });
 
   it("hides the disabled row before mustering is unlocked, since no flag could be raised", () => {

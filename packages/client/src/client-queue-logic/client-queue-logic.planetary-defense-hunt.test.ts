@@ -29,6 +29,7 @@ const stateWithFlag = (mode: "HOLD" | "ADVANCE"): ClientState => {
     x: 181, y: 248, ownerId: "me", ownershipState: "SETTLED",
     muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode, updatedAt: Date.now() }
   }));
+  state.tiles.set("180,247", makeTile({ x: 180, y: 247, ownerId: "me", ownershipState: "SETTLED" }));
   state.tiles.set("179,246", makeTile({ x: 179, y: 246, ownerId: "barbarian-1", ownershipState: "FRONTIER" }));
   state.actionQueue = [{ x: 179, y: 246, retries: 0 }];
   state.queuedTargetKeys = new Set<string>(["179,246"]);
@@ -78,6 +79,18 @@ describe("attacking Planetary Defense starts a hunt", () => {
     run(state, sendGameMessage);
     expect(sendGameMessage).toHaveBeenCalledWith(expect.objectContaining({ x: 181, y: 248, hunt: true }));
     expect(sendGameMessage).not.toHaveBeenCalledWith(expect.objectContaining({ x: 180, y: 247 }));
+  });
+
+  // Review regression (PR #2716): a flag in straight-line range but cut off
+  // from the target over land was turned into a hunt the server could never
+  // fire, swallowing the attack. It now attacks the ordinary way.
+  it("attacks the ordinary way when the flag can't reach the target over its own land", () => {
+    const state = stateWithFlag("HOLD");
+    state.tiles.set("180,247", makeTile({ x: 180, y: 247, terrain: "SEA" }));
+    const sendGameMessage = vi.fn(() => true);
+    run(state, sendGameMessage);
+    expect(sendGameMessage).not.toHaveBeenCalledWith(expect.objectContaining({ hunt: true }));
+    expect(state.musterTransitByCommand.size).toBe(1);
   });
 
   it("leaves a flag that is already advancing on everything alone and attacks the ordinary way", () => {

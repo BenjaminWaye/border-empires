@@ -1,6 +1,20 @@
 import { z } from "zod";
 import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
+import { AUTO_SETTLE_RESOURCES } from "../auto-settle-prefs/auto-settle-prefs.js";
+import { AUTO_IMPROVE_RESOURCES } from "../auto-settle-prefs/auto-improve-prefs.js";
+import type { ResourceType } from "../types.js";
 import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema } from "../diplomacy-terms/diplomacy-terms.js";
+
+const AUTO_SETTLE_RESOURCE_SWITCHES = Object.fromEntries(
+  AUTO_SETTLE_RESOURCES.map((resource) => [resource, z.boolean().optional()])
+) as Record<ResourceType, z.ZodOptional<z.ZodBoolean>>;
+
+const AutoImproveSwitchesSchema = z.object(
+  Object.fromEntries(AUTO_IMPROVE_RESOURCES.map((resource) => [resource, z.boolean().optional()]))
+);
+
+/** The Fortify / Siege picker's explicit tier (structure-tier-choice.ts); omitted = best tier the tech allows. */
+const ChosenStructureTierSchema = z.enum(["FORT", "TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]);
 
 const FrontierCommandMetadataSchema = {
   commandId: z.string().min(1).optional(),
@@ -125,7 +139,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     displayName: z.string().trim().min(2).max(24),
     color: z.string()
   }),
-  z.object({ type: z.literal("BUILD_FORT"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("BUILD_FORT"), x: z.number().int(), y: z.number().int(), tier: ChosenStructureTierSchema.extract(["FORT", "TITANIUM_BASTION", "THUNDER_BASTION"]).optional() }),
   z.object({ type: z.literal("BUILD_OBSERVATORY"), x: z.number().int(), y: z.number().int() }),
   z.object({
     type: z.literal("BUILD_ECONOMIC_STRUCTURE"),
@@ -228,7 +242,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     ...FrontierCommandMetadataSchema
   }),
   z.object({ type: z.literal("UPGRADE_TOWN_TIER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
-  z.object({ type: z.literal("BUILD_SIEGE_BATTERY"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("BUILD_SIEGE_BATTERY"), x: z.number().int(), y: z.number().int(), tier: ChosenStructureTierSchema.extract(["SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]).optional() }),
   z.object({
     type: z.literal("BUILD_STRUCTURE"),
     x: z.number().int(),
@@ -333,7 +347,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     y: z.number().int(),
     tileKey: z.string().min(1),
     kind: z.enum(["SETTLE", "BUILD"]),
-    structureType: z.string().optional()
+    structureType: z.string().optional(),
+    tier: ChosenStructureTierSchema.optional()
   }),
   z.object({ type: z.literal("DEV_QUEUE_CANCEL"), tileKey: z.string().min(1) }),
   z.object({ type: z.literal("DEV_QUEUE_MOVE_TO_FRONT"), tileKey: z.string().min(1) }),
@@ -347,7 +362,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("CLAIM_CONTINUATION_SET"),
     x: z.number().int(),
     y: z.number().int(),
-    structureType: z.string().optional()
+    structureType: z.string().optional(),
+    tier: ChosenStructureTierSchema.optional()
   }),
   // steps/planId/plannedAt carry the client's full planned route (see
   // docs/waypoint-client-planning-plan.md §1) so the server can replay it
@@ -415,17 +431,21 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // `resource choice required` even when the client picked one.
     chosenTrickleResource: z.enum(TRICKLE_RESOURCE_KEYS).optional()
   }),
-  // Per-category auto-settle opt-in (shared auto-settle-prefs.ts). Answering
-  // (including "Not now" with everything false) marks the join prompt answered.
-  // Tabs opened before the strategic/luxury split send one `resources` switch
-  // instead; the sim's parseAutoSettleCategoryPrefs requires one of the shapes.
+  // Per-category auto-settle opt-in (shared auto-settle-prefs.ts): `towns` plus
+  // one switch per resource. Answering (including "Not now" with everything
+  // false) marks the join prompt answered. Tabs opened before the per-resource
+  // split send grouped `food` + `strategic`/`luxury` (or one `resources`)
+  // switches instead; the sim's parseAutoSettleCategoryPrefs reads either shape.
   z.object({
     type: z.literal("SET_AUTO_SETTLE_PREFS"),
     towns: z.boolean(),
-    food: z.boolean(),
+    ...AUTO_SETTLE_RESOURCE_SWITCHES,
+    food: z.boolean().optional(),
     strategic: z.boolean().optional(),
     luxury: z.boolean().optional(),
-    resources: z.boolean().optional()
+    resources: z.boolean().optional(),
+    // Auto-improve switches; absent keeps the stored ones.
+    improve: AutoImproveSwitchesSchema.optional()
   }),
   // Rename the island under (x, y); only its full garrison holder may
   // (shared island-names.ts). The sim re-validates the name and the hold.

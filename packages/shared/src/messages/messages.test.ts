@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { NEW_PLAYER_AUTO_SETTLE_PREFS } from "../auto-settle-prefs/auto-settle-prefs.js";
 import { ClientMessageSchema } from "./messages.js";
 
 describe("ClientMessageSchema", () => {
@@ -30,6 +31,15 @@ describe("ClientMessageSchema", () => {
       resources: true
     });
     expect(ClientMessageSchema.safeParse({ type: "SET_AUTO_SETTLE_PREFS", towns: "yes", food: false, strategic: false, luxury: false }).success).toBe(false);
+  });
+
+  it("keeps per-resource SET_AUTO_SETTLE_PREFS switches (zod would strip unknown keys)", () => {
+    const switches = { ...NEW_PLAYER_AUTO_SETTLE_PREFS, TITANIUM: true, PRECURSOR_SALVAGE: true } as Record<string, boolean>;
+    delete switches.answered;
+    delete switches.improve;
+    expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", ...switches })).toEqual({ type: "SET_AUTO_SETTLE_PREFS", ...switches });
+    expect(ClientMessageSchema.safeParse({ type: "SET_AUTO_SETTLE_PREFS", towns: true, TITANIUM: "yes" }).success).toBe(false);
+    expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", ...switches, improve: { TITANIUM: true } })).toMatchObject({ improve: { TITANIUM: true } });
   });
 
   it("accepts NAME_ISLAND and rejects a non-integer tile", () => {
@@ -148,3 +158,19 @@ describe("ClientMessageSchema", () => {
     expect(parsed).toEqual({ type: "DIPLOMACY_GIFT", targetPlayerName: "Elin", gift: { gold: 10 } });
   });
 });
+
+describe("Fortify / Siege picker tier on build messages", () => {
+  it("accepts a family-matching tier and rejects a mismatched or unknown one", () => {
+    expect(ClientMessageSchema.safeParse({ type: "BUILD_FORT", x: 1, y: 2, tier: "TITANIUM_BASTION" }).success).toBe(true);
+    expect(ClientMessageSchema.safeParse({ type: "BUILD_FORT", x: 1, y: 2 }).success).toBe(true);
+    expect(ClientMessageSchema.safeParse({ type: "BUILD_FORT", x: 1, y: 2, tier: "SIEGE_TOWER" }).success).toBe(false);
+    expect(ClientMessageSchema.safeParse({ type: "BUILD_SIEGE_BATTERY", x: 1, y: 2, tier: "DREAD_TOWER" }).success).toBe(true);
+    expect(ClientMessageSchema.safeParse({ type: "DEV_QUEUE_ENQUEUE", x: 1, y: 2, tileKey: "1,2", kind: "BUILD", structureType: "FORT", tier: "MEGA_FORT" }).success).toBe(false);
+  });
+
+  it("keeps the tier on a parsed message (zod would otherwise strip unknown keys)", () => {
+    const parsed = ClientMessageSchema.parse({ type: "CLAIM_CONTINUATION_SET", x: 1, y: 2, structureType: "FORT", tier: "FORT" });
+    expect(parsed).toMatchObject({ tier: "FORT" });
+  });
+});
+

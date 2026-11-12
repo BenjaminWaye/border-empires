@@ -30,7 +30,7 @@ function setup(manpower = 900, goodwillCoin = 6000) {
   const responder = { maybeAutoRespondToSeededAiTruce: vi.fn(async () => {}), maybeAutoRespondToSeededAiAlliance: vi.fn(async () => {}) };
   const recordEvent = vi.fn();
   const deps = { diplomacyContext, socialState: social, aiPlayerIds: new Set(["ai-1"]), fetchSnapshot, hasLiveSocket, responder, fanout: vi.fn(), recordEvent };
-  return { social, snapshots, deps, coordinator: createProactiveAiDiplomacy(deps) };
+  return { social, snapshots, deps, memory, coordinator: createProactiveAiDiplomacy(deps) };
 }
 
 describe("proactive AI diplomacy", () => {
@@ -60,6 +60,16 @@ describe("proactive AI diplomacy", () => {
     expect(deps.responder.maybeAutoRespondToSeededAiTruce).toHaveBeenCalledOnce();
     await coordinator.tick();
     expect(social.snapshotForPlayer("human").incomingTruceRequests).toHaveLength(1);
+  });
+  // A losing AI never asked the player overrunning it for peace, and never offered to pay for it.
+  it("sues for peace with a paid truce while being overrun, even right after the attack", async () => {
+    const { coordinator, social, snapshots, memory } = setup(10, 0);
+    snapshots["ai-1"]!.player = { ...snapshots["ai-1"]!.player!, gold: 10_000, nextManpowerBatchAmount: 100 };
+    memory.observeCombat({ attackerId: "human", defenderId: "ai-1", attackerWon: true, tilesCaptured: 5 });
+    await coordinator.tick();
+    const [offer] = social.snapshotForPlayer("human").incomingTruceRequests;
+    // ~7 tiles projected over the next 2h, an hour of income (60 coin) each.
+    expect(offer).toMatchObject({ fromPlayerId: "ai-1", durationHours: 12, terms: { give: { gold: 420 }, ask: { gold: 0 } } });
   });
   it("offers an alliance for a shared threat when it retains bloc leadership", async () => {
     const { coordinator, social } = setup();

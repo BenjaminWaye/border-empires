@@ -50,5 +50,10 @@ export const recheckAiOffer = async (
   const verdict = evaluateAiOffer(pricing, offer.kind, offer.durationHours, playerTerms);
   if (verdict.accepts) return undefined;
   if (verdict.reason === "shortfall" && verdict.shortfall <= playerTerms.give.gold * COUNTER_PRICE_TOLERANCE) return undefined;
+  // The AI paying for peace prices it off a fast-fading war pace, so its price drifts within minutes.
+  // It stands by its own payment while it still counts as losing and can afford it (an
+  // unaffordable payment fails as aiCannotPay above); 10% of a payment the player makes is no measure here.
+  const aiPaysOnly = playerTerms.ask.gold > 0 && diplomacyTermsAreEmpty({ give: playerTerms.give, ask: { gold: 0 } });
+  if (verdict.reason === "shortfall" && offer.kind === "truce" && !offer.extendsTruce && aiPaysOnly && evaluation.opinion.war.aiLosing) return undefined;
   return { reason: `${offer.aiName} withdrew its offer: those terms no longer suit it. Open a new deal to see its price.`, withdraw: true };
 };

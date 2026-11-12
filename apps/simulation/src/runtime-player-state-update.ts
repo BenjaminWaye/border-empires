@@ -1,6 +1,6 @@
 import { nextManpowerBatchAmount } from "./runtime-manpower.js";
 import { developmentProcessLimitForPlayer } from "./development-process-limit.js";
-import { afcExpandPricingFrontierCount, empireIntegrity, expandManpowerCostForFrontierCount, instantGarrisonsRemaining, normalizeAutoSettlePrefs, type ResourceSlotSources } from "@border-empires/shared";
+import { afcExpandPricingFrontierCount, empireIntegrity, expandManpowerCostForFrontierCount, instantGarrisonsRemaining, autoSettlePrefsForOutput, type ResourceSlotSources } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { buildModBreakdownForPlayer, multiplicativeEffectForPlayer, recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -138,6 +138,7 @@ export function emitPlayerStateUpdate(
         y: entry.y,
         kind: entry.kind,
         ...(entry.structureType ? { structureType: entry.structureType } : {}),
+        ...(entry.tier ? { tier: entry.tier } : {}),
         queuedAt: entry.queuedAt,
         // Lets the client dispatch a reserved entry without its own manpower check, and hold a waiting one.
         ...(entry.reservedManpower ? { manpowerReserved: true } : {}),
@@ -152,7 +153,7 @@ export function emitPlayerStateUpdate(
       // muster flag, instead of firing a SET_MUSTER that's silently rejected
       // and only discovered 5s later via the request-timeout fallback.
       musterFlagLimit: playerMusterFlagLimit(player),
-      autoSettle: normalizeAutoSettlePrefs(player.autoSettle),
+      autoSettle: autoSettlePrefsForOutput(player.autoSettle),
       ...(capChanged ? { storageCap } : {})
     }
   );

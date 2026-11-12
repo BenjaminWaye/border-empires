@@ -38,4 +38,23 @@ describe("buildSnapshotTileDetail muster clear-signaling", () => {
 
     expect(detail?.musterJson).toBe(musterJson);
   });
+
+  it("emits an explicit null resource for a tile with none (regression: emptied salvage field stayed on the map)", () => {
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      tiles: [{ x: 5, y: 287, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }]
+    };
+    const detail = JSON.parse(JSON.stringify(buildSnapshotTileDetail(snapshot, "player-1", 5, 287))) as Record<string, unknown>;
+    expect(detail.resource).toBeNull();
+    const withResource = { ...snapshot, tiles: [{ ...snapshot.tiles[0]!, resource: "PRECURSOR_SALVAGE" }] };
+    expect(buildSnapshotTileDetail(withResource, "player-1", 5, 287)?.resource).toBe("PRECURSOR_SALVAGE");
+  });
+
+  it("leaves resource unset on a tile the player doesn't own, where the sim may mask it", () => {
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      tiles: [{ x: 9, y: 9, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED" }]
+    };
+    expect(buildSnapshotTileDetail(snapshot, "player-1", 9, 9)).not.toHaveProperty("resource");
+  });
 });

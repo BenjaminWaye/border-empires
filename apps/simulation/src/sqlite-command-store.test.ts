@@ -193,4 +193,21 @@ describe("SqliteSimulationCommandStore", () => {
 
     await expect(store.loadMaxClientSeqByPlayer()).resolves.toEqual({ "ai-1": 1 });
   });
+
+  it("loadResolvedCommandsOfType returns only RESOLVED rows of that type queued since the cutoff", async () => {
+    const store = await createStore();
+    const ship = (commandId: string, clientSeq: number) => ({ ...testCommand(commandId), clientSeq, type: "SHIP_SALVAGE_TO_COURT" as const, payloadJson: "{\"x\":5,\"y\":287}" });
+    await store.persistQueuedCommand(ship("old", 1), 50);
+    await store.markResolved("old", 51);
+    await store.persistQueuedCommand(ship("resolved", 2), 200);
+    await store.markResolved("resolved", 201);
+    await store.persistQueuedCommand(ship("rejected", 3), 210);
+    await store.markRejected("rejected", 211, "SALVAGE_TRIBUTE_INVALID", "empty");
+    await store.persistQueuedCommand({ ...testCommand("expand"), clientSeq: 4 }, 220);
+    await store.markResolved("expand", 221);
+
+    const rows = await store.loadResolvedCommandsOfType("SHIP_SALVAGE_TO_COURT", 100);
+    expect(rows.map((row) => row.commandId)).toEqual(["resolved"]);
+    expect(rows[0]?.payloadJson).toBe("{\"x\":5,\"y\":287}");
+  });
 });

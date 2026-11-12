@@ -12,6 +12,7 @@ import { activeDevelopmentProcessCountForSummary, cloneStrategicProduction, wayp
 import { toPersistedDevQueueEntries } from "./runtime-dev-queue-restore.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { SlotResource } from "@border-empires/shared";
+import { autoSettlePrefsForOutput } from "@border-empires/shared";
 import type { PlannerPlayerView, PlannerTileView } from "./ai/planner-world-view.js";
 import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 import { toPlannerTileView } from "./ai/planner-world-view-slice.js";
@@ -140,7 +141,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
         ...(typeof player.lifetimeGarrisons === "number" && player.lifetimeGarrisons > 0 ? { lifetimeGarrisons: player.lifetimeGarrisons } : {}),
         ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
-        autoSettle: { ...player.autoSettle },
+        autoSettle: autoSettlePrefsForOutput(player.autoSettle),
         ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
         ...(typeof player.wonderMusterExtraFlag === "number" ? { wonderMusterExtraFlag: player.wonderMusterExtraFlag } : {}),
