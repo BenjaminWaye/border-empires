@@ -6,9 +6,6 @@ import { isDistrictBuilding, type DistrictBuildingKind } from "../client-town-di
 import type { StructureInfoKey } from "../client-map-display.js";
 
 const NETWORK_LANDMARKS = {
-  NEURAL_RESIN: "Tapped native trees, brass trunk collars and pipes, a collection vessel and pump.",
-  CONDUCTIVE_MINERALS: "Precision assembly hall with an open press gantry, glowing work cells and ore hopper.",
-  CATALYTIC_DEPOSIT: "Tall banded distillation columns with transfer pipes, access ladder and control hut.",
   LUXURY_BIOTA: "Twin brass-framed conservatory bays, flowering rows and a packing lodge.",
   PRECURSOR_SALVAGE: "Broken machine ribs beneath a travelling crane, sorting beds and salvage workshop."
 } as const;

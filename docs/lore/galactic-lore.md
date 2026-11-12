@@ -511,35 +511,21 @@ They do not mint the offworld credit itself. The historical building name
 Mintworks has been replaced by Manufactory; exact income, stacking and
 Clearing House effects are maintained in the economy reference.
 
-### Frontier concessions and ancillary supply
+### Frontier concessions
 
-Making an Ancillary takes three frontier inputs. Resin Extractors refine native
-compounds that stabilise the neural controls of newly remade bodies. Implant
-Foundries turn conductive ore into implants, command circuitry and replacement
-components. Catalyst Refineries recover rare catalysts that drive the chemistry
-of remaking itself, the same compounds offworld chemical and fabrication
-industries pay for. Each working site feeds the House's whole Ancillary reserve
-rather than one building. Towns still provide the bodies: these industries
-improve remaking throughput, not the supply of people. Depots still determine
-storage capacity and custody for the reserve. The Reserve Custody Cadre
-authorises both Depots and Implant Foundries.
-
-Resin-bearing broadleaf groves grow in forested grassland, with amber seams
-beneath their bark; ordinary trees are not automatically resin deposits.
-Conductive seams lie in hills, beside mountains and in cold ground. Catalysts
-favour inland sand, never beaches. Each grows only where its terrain allows,
-so a House rarely finds all three inside its first borders.
+Remaking runs on town industry: the bodies come from towns, and the reserve is
+held in Depots and processed in Ancillary Factories. No frontier input is
+needed to make an Ancillary. Houses no longer commission resin groves,
+conductive seams or catalyst concessions; earlier campaigns that worked them
+abandoned those concessions.
 
 Frontier deposits sit beyond a town's immediate support ring, giving a House
 reason to develop and defend the surrounding countryside.
 
 A working site provides continuing contracted output, not ore units spent down
-to zero. A House's first site of a kind transforms its remaking lines; further
-sites of the same kind add less, which is why Houses trade surplus sites with
-neighbours who lack that kind. A Siphon can divert a working site's output to
-the caster, without duplicating its supply. Its crews and extraction systems
-must still be authorised at the source; draining an undeveloped deposit creates
-no industry.
+to zero. A Siphon can divert a working site's output to the caster, without
+duplicating its supply. Its crews and extraction systems must still be
+authorised at the source; draining an undeveloped deposit creates no industry.
 
 Cultivation Estates grow native luxury biota in warm, wet grassland and marsh.
 Its fragrances and pigments sell in the Core, but on a Sector world its

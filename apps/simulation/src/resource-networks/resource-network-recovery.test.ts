@@ -10,12 +10,28 @@ describe("resource layout recovery", () => {
     for (let y = 0; y < WORLD_HEIGHT; y += 1) for (let x = 0; x < WORLD_WIDTH; x += 1)
       legacy.set(`${x},${y}`, { x, y, terrain: "LAND" });
     const hydrated = createTilesFromInitialState(undefined, legacy, false);
-    expect([...hydrated.values()].some(tile => tile.resource === "NEURAL_RESIN")).toBe(false);
+    expect([...hydrated.values()].some(tile => (tile.resource as string | undefined) === "NEURAL_RESIN")).toBe(false);
   }, 60_000);
   it("preserves a developed deposit and ownership through an ordinary snapshot recovery", () => {
-    const tiles: DomainTileState[] = [{ x: 2, y: 3, terrain: "LAND", resource: "NEURAL_RESIN", ownerId: "p", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "p", type: "RESIN_EXTRACTOR", status: "active" } }];
+    const tiles: DomainTileState[] = [{ x: 2, y: 3, terrain: "LAND", resource: "LUXURY_BIOTA", ownerId: "p", ownershipState: "SETTLED",
+      economicStructure: { ownerId: "p", type: "CULTIVATION_ESTATE", status: "active" } }];
     const restored = createTilesFromInitialState({ tiles, activeLocks: [] }, new Map(), false);
     expect(restored.get("2,3")).toMatchObject(tiles[0]!);
+  });
+  it("drops cut resin, conductive and catalyst deposits and installations from an old save", () => {
+    // Saves from before the cut hold resources and buildings the rules no longer know.
+    const tiles = [
+      { x: 2, y: 3, terrain: "LAND", resource: "NEURAL_RESIN", ownerId: "p", ownershipState: "SETTLED", economicStructure: { ownerId: "p", type: "RESIN_EXTRACTOR", status: "active" } },
+      { x: 4, y: 3, terrain: "LAND", resource: "CONDUCTIVE_MINERALS", ownerId: "p", ownershipState: "SETTLED", economicStructure: { ownerId: "p", type: "IMPLANT_FOUNDRY", status: "active" } },
+      { x: 6, y: 3, terrain: "LAND", resource: "CATALYTIC_DEPOSIT" },
+      { x: 8, y: 3, terrain: "LAND", resource: "LUXURY_BIOTA", ownerId: "p", ownershipState: "SETTLED", economicStructure: { ownerId: "p", type: "CULTIVATION_ESTATE", status: "active" } }
+    ] as unknown as DomainTileState[];
+    const restored = createTilesFromInitialState({ tiles, activeLocks: [] }, new Map(), false);
+    for (const key of ["2,3", "4,3", "6,3"]) {
+      expect(restored.get(key)?.resource).toBeUndefined();
+      expect(restored.get(key)?.economicStructure).toBeUndefined();
+    }
+    expect(restored.get("2,3")).toMatchObject({ ownerId: "p", ownershipState: "SETTLED" });
+    expect(restored.get("8,3")).toMatchObject(tiles[3]!);
   });
 });

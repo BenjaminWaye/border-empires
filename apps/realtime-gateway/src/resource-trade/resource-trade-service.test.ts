@@ -4,7 +4,7 @@ import type { ClientMessage } from "@border-empires/shared";
 import { createSocialState } from "../social-state/social-state.js";
 import type { DiplomacySettlementInput, DiplomacySettlementResult } from "../diplomacy-settlement/diplomacy-settlement.js";
 import { createResourceTradeService, type ResourceTradeServiceDeps } from "./resource-trade-service.js";
-const terms={give:{gold:0,resources:{NEURAL_RESIN:1}},ask:{gold:2}};
+const terms={give:{gold:0,resources:{LUXURY_BIOTA:1}},ask:{gold:2}};
 const request:ClientMessage={type:"RESOURCE_TRADE_REQUEST",targetPlayerName:"B",targetPlayerId:"b",terms};
 function setup(ai=false){
   const social=createSocialState({now:()=>1,players:[{id:"a",name:"A"},{id:"b",name:"B"},{id:"c",name:"C"}]});

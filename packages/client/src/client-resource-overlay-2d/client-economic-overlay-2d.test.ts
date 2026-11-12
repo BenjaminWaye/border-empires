@@ -3,8 +3,8 @@ import { drawEconomicStructureOverlay2D, type EconomicOverlay2DDeps } from "./cl
 import type { Tile } from "../client-types.js";
 vi.mock("../client-renderer-mode.js",()=>({isTrue3DRendererActive:()=>false}));
 const image={complete:true,naturalWidth:128} as HTMLImageElement;
-const tile:Tile={x:10,y:10,terrain:"LAND",resource:"NEURAL_RESIN",economicStructure:{ownerId:"p",type:"RESIN_EXTRACTOR",status:"under_construction"}};
-const deps=():EconomicOverlay2DDeps=>({ctx:{} as CanvasRenderingContext2D,builtResourceOverlayForTile:()=>image,structureOverlayImages:{RESIN_EXTRACTOR:image},structureAccentColor:(_owner,fallback)=>fallback,drawCenteredOverlay:vi.fn()});
+const tile:Tile={x:10,y:10,terrain:"LAND",resource:"LUXURY_BIOTA",economicStructure:{ownerId:"p",type:"CULTIVATION_ESTATE",status:"under_construction"}};
+const deps=():EconomicOverlay2DDeps=>({ctx:{} as CanvasRenderingContext2D,builtResourceOverlayForTile:()=>image,structureOverlayImages:{CULTIVATION_ESTATE:image},structureAccentColor:(_owner,fallback)=>fallback,drawCenteredOverlay:vi.fn()});
 describe("resource construction overlay ownership",()=>{
   it("never paints a full building over the construction-aware resource overlay in either tile pass",()=>{
     const d=deps();

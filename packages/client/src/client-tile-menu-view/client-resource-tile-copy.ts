@@ -1,6 +1,6 @@
 import {
   BASE_SLOTS_BY_TILE_RESOURCE, BIOTA_SLOTS_PER_SITE, RESOURCE_NETWORKS, SALVAGE_ARMS_BONUS_MAX, SALVAGE_ARMS_BONUS_PER_SITE, SALVAGE_LOADS_PER_SITE,
-  frontierSiteCaptureValue, isNetworkResource, isSiphonModeSabotage, materialMarginalManpowerPerWindow, salvageLoadsRemaining,
+  frontierSiteCaptureValue, isNetworkResource, isSiphonModeSabotage, salvageLoadsRemaining,
   type NetworkResource, type ResourceType
 } from "@border-empires/shared";
 import type { Tile, TileOverviewLine } from "../client-types.js";
@@ -16,9 +16,6 @@ const DEPOSIT_DESCRIPTIONS: Readonly<Record<BaseResource, string>> = {
   UMBRITE: "Umbrite supplies military machinery and ammunition."
 };
 const NETWORK_SUPPLY_NAMES = {
-  NEURAL_RESIN: "resin",
-  CONDUCTIVE_MINERALS: "conductive",
-  CATALYTIC_DEPOSIT: "catalyst",
   LUXURY_BIOTA: "biota",
   PRECURSOR_SALVAGE: "salvage"
 } as const;
@@ -69,12 +66,10 @@ const frontierSiteValueForViewer = (tile: Tile, resource: NetworkResource, view:
   if (working) {
     const others = Math.max(0, held - 1);
     const loss = resource === "LUXURY_BIOTA" ? `−${BIOTA_SLOTS_PER_SITE} biota slots`
-      : resource === "PRECURSOR_SALVAGE" ? (others >= SALVAGE_ARMS_BONUS_MAX / SALVAGE_ARMS_BONUS_PER_SITE ? "No change (bonus at +10%)" : "−1% attack and defense")
-      : `−${materialMarginalManpowerPerWindow(others)} manpower per refill`;
+      : others >= SALVAGE_ARMS_BONUS_MAX / SALVAGE_ARMS_BONUS_PER_SITE ? "No change (bonus at +10%)" : "−1% attack and defense";
     return { label: "If you lose it", value: loss, sub: `You hold ${held} ${name} ${held === 1 ? "site" : "sites"}` };
   }
-  const first = resource !== "LUXURY_BIOTA" && resource !== "PRECURSOR_SALVAGE" && held === 0;
-  return { label: "Capturing it adds", value: frontierSiteCaptureValue(resource, held), sub: first ? `Your first ${name} site` : `You hold ${held} ${name} ${held === 1 ? "site" : "sites"}` };
+  return { label: "Capturing it adds", value: frontierSiteCaptureValue(resource, held), sub: `You hold ${held} ${name} ${held === 1 ? "site" : "sites"}` };
 };
 
 export function resourceTileOverviewLines(tile: Tile, view: FrontierSiteViewer = {}): TileOverviewLine[] {

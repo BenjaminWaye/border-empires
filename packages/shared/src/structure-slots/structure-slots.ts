@@ -56,8 +56,7 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   // could silently zero out the very supply they exist to add.
   UMBRITE_RIG: [{ resource: "FOOD", count: 1 }],
   MINE: [{ resource: "FOOD", count: 1 }],
-  // The frontier resource-network installations (RESIN_EXTRACTOR,
-  // IMPLANT_FOUNDRY, CATALYST_REFINERY, CULTIVATION_ESTATE,
+  // The frontier resource-network installations (CULTIVATION_ESTATE,
   // RECLAMATION_WORKS) deliberately have NO slot requirement (zero upkeep,
   // user decision): developing a frontier deposit costs only its build
   // manpower. Unlike Hydrogarden/Hydroworks this isn't about circularity:

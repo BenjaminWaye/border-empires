@@ -46,6 +46,10 @@ it on the map, can someone take it from you, does it fit a visit?
 
 ## Phase 1: Cut the three frontier materials
 
+Status: implemented (2026-11-12). Saved deposits and installations are
+dropped on recovery by
+`apps/simulation/src/resource-networks/retired-frontier-materials.ts`.
+
 **Rules.** Resin, conductive minerals and catalyst disappear: no deposits, no
 Resin Extractor / Implant Foundry / Catalyst Refinery, no manpower regen from
 them, no trades in them. Luxury biota and precursor salvage are unchanged.

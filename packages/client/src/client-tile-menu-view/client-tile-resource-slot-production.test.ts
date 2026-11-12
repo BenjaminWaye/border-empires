@@ -100,10 +100,10 @@ describe("every resource tile explains its role", () => {
     expect(menuOverviewForTile({x:1,y:1,terrain:"COASTAL_SEA",resource:"FISH"},deps).map(row=>row.html).join(" ")).toContain("Coastal fishing grounds");
   });
   it("keeps deposit bonuses separate from the installation's build status", () => {
-    const tile: Tile = {x:1,y:1,terrain:"LAND",resource:"NEURAL_RESIN",ownerId:"me",ownershipState:"SETTLED",
-      economicStructure:{ownerId:"me",type:"RESIN_EXTRACTOR",status:"under_construction"}};
+    const tile: Tile = {x:1,y:1,terrain:"LAND",resource:"LUXURY_BIOTA",ownerId:"me",ownershipState:"SETTLED",
+      economicStructure:{ownerId:"me",type:"CULTIVATION_ESTATE",status:"under_construction"}};
     const potential = resourceTileStatsHtml(tile);
-    expect(potential).toContain("+120 manpower per refill for your first resin site");
+    expect(potential).toContain("Supplies 2 biota slots");
     tile.economicStructure!.status="active";
     expect(resourceTileStatsHtml(tile)).toBe(potential);
   });
@@ -119,14 +119,8 @@ it("reports diverted resource supply and explains the Siphon on frontier sites",
   const sabotage={ownerId:"enemy",observatoryTileKey:"5,5",endsAt:Number.MAX_SAFE_INTEGER,outputMultiplier:0};
   const tile:Tile={x:1,y:1,terrain:"LAND",resource:"FARM",ownerId:"me",ownershipState:"SETTLED",sabotage};
   expect(resourceSlotProductionHtml(tile)).toContain("Food +0 (siphoned)");
-  tile.resource="NEURAL_RESIN";
+  tile.resource="LUXURY_BIOTA";
   expect(menuOverviewForTile(tile,deps).map(row=>row.html).join(" ")).toContain("Siphoned");
-});
-
-it("shows the conductive amount with no recipient building", () => {
-  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "CONDUCTIVE_MINERALS" });
-  expect(html).toContain("+120 manpower per refill for your first conductive site, +30 for each extra one.");
-  expect(html).not.toContain("factories");
 });
 
 it.each(NETWORK_RESOURCES)("%s links the required structure without repeating its research requirement", resource => {
@@ -149,19 +143,16 @@ it.each(NETWORK_RESOURCES)("%s makes improvement a condition even after a fronti
   }
 });
 
-it("shows a deposit's value to the viewer: the first site of a type is worth 120, an extra one 30", () => {
-  const held = { NEURAL_RESIN: 4, CONDUCTIVE_MINERALS: 0, CATALYTIC_DEPOSIT: 0, LUXURY_BIOTA: 1, PRECURSOR_SALVAGE: 0 };
+it("shows a deposit's value to the viewer, and what losing an own site costs", () => {
+  const held = { LUXURY_BIOTA: 1, PRECURSOR_SALVAGE: 3 };
   const view = { me: "me", held };
-  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "CATALYTIC_DEPOSIT" }, view)).toContain("+120 manpower per refill");
-  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "CATALYTIC_DEPOSIT" }, view)).toContain("Your first catalyst site");
-  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "NEURAL_RESIN", ownerId: "rival" }, view)).toContain("+30 manpower per refill");
-  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "LUXURY_BIOTA" }, view)).toContain("+2 biota slots");
-  const ownResin = { x: 1, y: 1, terrain: "LAND" as const, resource: "NEURAL_RESIN" as const, ownerId: "me", ownershipState: "SETTLED" as const,
-    economicStructure: { ownerId: "me", type: "RESIN_EXTRACTOR" as const, status: "active" as const } };
-  const own = resourceTileStatsHtml(ownResin, view);
+  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "LUXURY_BIOTA", ownerId: "rival" }, view)).toContain("+2 biota slots");
+  expect(resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "PRECURSOR_SALVAGE" }, view)).toContain("+1% attack and defense");
+  const ownEstate = { x: 1, y: 1, terrain: "LAND" as const, resource: "LUXURY_BIOTA" as const, ownerId: "me", ownershipState: "SETTLED" as const,
+    economicStructure: { ownerId: "me", type: "CULTIVATION_ESTATE" as const, status: "active" as const } };
+  const own = resourceTileStatsHtml(ownEstate, view);
   expect(own).toContain("If you lose it");
-  expect(own).toContain("−30 manpower per refill");
-  expect(resourceTileStatsHtml(ownResin, { me: "me", held: { ...held, NEURAL_RESIN: 1 } })).toContain("−120 manpower per refill");
+  expect(own).toContain("−2 biota slots");
 });
 
 it("shows the loads left at a Reclamation Works", () => {
