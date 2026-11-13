@@ -120,7 +120,6 @@ type GalaxyStipendView = {
   tier: "STIPEND";
   awardedAt: number;
   influence: number;
-  production: number;
 };
 
 export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyRoutesDeps): void => {

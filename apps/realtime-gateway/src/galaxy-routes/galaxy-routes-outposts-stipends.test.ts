@@ -132,8 +132,7 @@ describe("galaxy routes — Outposts/Stipends", () => {
         campaign: { kind: "FRONTIER" },
         tier: "STIPEND",
         awardedAt: 1_000,
-        influence: 9,
-        production: 36
+        influence: 9
       }
     ]);
     expect(meResponse.json().outposts).toEqual([]);
@@ -198,8 +197,7 @@ describe("galaxy routes — Outposts/Stipends", () => {
         campaign: { kind: "CONTESTATION", ordinal: 1 },
         tier: "STIPEND",
         awardedAt: 1_000,
-        influence: 2,
-        production: 3
+        influence: 2
       }
     ]);
   });

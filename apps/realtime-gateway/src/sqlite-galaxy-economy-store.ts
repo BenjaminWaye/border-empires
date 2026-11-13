@@ -61,7 +61,6 @@ export class SqliteGalaxyEconomyStore implements GalaxyEconomyStore {
         auth_uid TEXT NOT NULL,
         season_id TEXT NOT NULL,
         influence INTEGER NOT NULL,
-        production INTEGER NOT NULL,
         paid_at INTEGER NOT NULL,
         PRIMARY KEY (auth_uid, season_id)
       );
@@ -148,21 +147,19 @@ export class SqliteGalaxyEconomyStore implements GalaxyEconomyStore {
     try {
       const inserted = this.db
         .prepare(
-          `INSERT INTO galaxy_stipend_payouts (auth_uid, season_id, influence, production, paid_at)
-           VALUES (?, ?, ?, ?, ?)
+          `INSERT INTO galaxy_stipend_payouts (auth_uid, season_id, influence, paid_at)
+           VALUES (?, ?, ?, ?)
            ON CONFLICT(auth_uid, season_id) DO NOTHING`
         )
-        .run(input.authUid, input.seasonId, input.influence, input.production, input.now);
+        .run(input.authUid, input.seasonId, input.influence, input.now);
       if (Number(inserted.changes) > 0) {
         this.db
           .prepare(
             `INSERT INTO galaxy_economy_balances (auth_uid, influence, production, last_cycle_at)
-             VALUES (?, ?, ?, ?)
-             ON CONFLICT(auth_uid) DO UPDATE SET
-               influence = influence + excluded.influence,
-               production = production + excluded.production`
+             VALUES (?, ?, 0, ?)
+             ON CONFLICT(auth_uid) DO UPDATE SET influence = influence + excluded.influence`
           )
-          .run(input.authUid, input.influence, input.production, input.now);
+          .run(input.authUid, input.influence, input.now);
       }
       this.db.exec("COMMIT");
       return Number(inserted.changes) > 0;

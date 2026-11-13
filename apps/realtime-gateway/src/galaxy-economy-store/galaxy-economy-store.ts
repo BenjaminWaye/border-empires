@@ -61,7 +61,7 @@ export type GalaxyEconomyStore = {
   // a Defense Campaign opens for it (§7: Garrison Production has no
   // surrender value).
   resetGarrison: (authUid: string, seasonId: string) => Promise<void>;
-  // §3/§13 Stipend: credits a season's one-time Influence/Production payout
+  // Stipend: credits a season's one-time Influence payout
   // to this empire's balance, at most once per (authUid, seasonId). The
   // payout record and the balance change are written together, so repeated
   // calls (every Cycle poll, every gateway restart) are no-ops after the
@@ -74,7 +74,6 @@ export type StipendCredit = {
   authUid: string;
   seasonId: string;
   influence: number;
-  production: number;
   now: number;
 };
 
@@ -151,7 +150,7 @@ export class InMemoryGalaxyEconomyStore implements GalaxyEconomyStore {
     this.balances.set(input.authUid, {
       authUid: input.authUid,
       influence: (existing?.influence ?? 0) + input.influence,
-      production: (existing?.production ?? 0) + input.production,
+      production: existing?.production ?? 0,
       lastCycleAt: existing?.lastCycleAt ?? input.now
     });
     return true;
