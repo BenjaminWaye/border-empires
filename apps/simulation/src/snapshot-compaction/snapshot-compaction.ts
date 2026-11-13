@@ -338,9 +338,22 @@ export const expandSnapshotFromStorage = (
   const overlayByKey = new Map<string, V1OverlayTile>();
   for (const overlay of v1.tileOverlay) overlayByKey.set(tileKey(overlay.x, overlay.y), overlay);
   const tiles: RecoveredTile[] = baselineTiles.map((baseline) => {
-    const overlay = overlayByKey.get(tileKey(baseline.x, baseline.y));
-    return overlay ? applyOverlayToBaseline(baseline, overlay) : baseline;
+    const key = tileKey(baseline.x, baseline.y);
+    const overlay = overlayByKey.get(key);
+    if (!overlay) return baseline;
+    overlayByKey.delete(key);
+    return applyOverlayToBaseline(baseline, overlay);
   });
+  // Overlay rows with no baseline tile are full tiles, not diffs: the save
+  // side emits every runtime tile it can't match (all of them when the
+  // resolver returns [] — e.g. `seed:*` rulesets). Dropping them here loaded
+  // an empty world, so recovery fell back to the seed world and wiped every
+  // empire on restart. Terrain is always present on such rows (baseline-less
+  // diff includes every defined mutable field).
+  for (const overlay of overlayByKey.values()) {
+    if (overlay.terrain === undefined || overlay.terrain === null) continue;
+    tiles.push(applyOverlayToBaseline({ x: overlay.x, y: overlay.y, terrain: overlay.terrain }, overlay));
+  }
   return {
     initialState: {
       tiles,

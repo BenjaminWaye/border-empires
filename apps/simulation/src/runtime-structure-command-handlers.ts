@@ -23,6 +23,7 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import { parseBuildStructurePayload } from "./runtime-command-parsers.js";
 import { type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { releaseQueuedBuildReservation } from "./dev-queue-build-release/dev-queue-build-release.js";
 import { multiplicativeEffectForPlayer, techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { isMonumentBaseType, monumentBaseTypeForPartType, monumentClaimOwnerId, monumentPartTypesForBaseType } from "./monument-uniqueness.js";
@@ -362,6 +363,8 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   }
   const fortCharge = fortTier ? fortBuildManpowerCharge(actor, fortTier.variant, target.fort?.variant, manpowerCost) : undefined;
   manpowerCost = fortCharge ? fortCharge.manpower : structureManpowerCostForPlayer(actor, slotStructureType, manpowerCost);
+  // A client-dispatched queued build pays from its own dev-queue hold, once (dev-queue-build-release.ts).
+  if (context.summaryForPlayer) releaseQueuedBuildReservation(context.summaryForPlayer(actor.id), actor, simulationTileKey(payload.x, payload.y), structureType);
   if (actor.points < goldCost) {
     rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient coin for ${structureLabel(structureType)}`);
     return;

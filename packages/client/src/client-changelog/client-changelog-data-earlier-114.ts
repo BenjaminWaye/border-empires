@@ -6,7 +6,6 @@ import { DOCK_ART_ENTRY } from "./client-changelog-dock-art.js";
 import { TOWN_REFINERIES_ENTRY } from "./client-changelog-town-refineries.js";
 import { LAST_CONTEST_RECAP_ENTRY } from "./client-changelog-last-contest-recap.js";
 import { GALAXY_STIPEND_PAID_ENTRY } from "./client-changelog-galaxy-stipend-paid.js";
-import { SCIFI_ROADS_ENTRY } from "./client-changelog-scifi-roads.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_114: ClientChangelogEntry[] = [
@@ -17,5 +16,4 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_114: ClientChangelogEntry[] = [
   { ...TOWN_REFINERIES_ENTRY, createdAt: 1794522848705, },
   { ...LAST_CONTEST_RECAP_ENTRY, createdAt: 1794556633359, },
   { ...GALAXY_STIPEND_PAID_ENTRY, createdAt: 1794561205515, },
-  { ...SCIFI_ROADS_ENTRY, createdAt: 1794519394469, },
 ];

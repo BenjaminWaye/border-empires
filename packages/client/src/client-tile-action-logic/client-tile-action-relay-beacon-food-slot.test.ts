@@ -182,7 +182,7 @@ describe("Relay Beacon FOOD-slot gate — build_relay_beacon on an owned FRONTIE
     const action = findAction(actions, "build_relay_beacon" as TileActionDef["id"]);
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
-    expect(action?.cost).toContain("garrison + build");
+    expect(action?.cost).toMatch(/\(\d+ garrison \+ \d+ build\)/);
   });
 
   it(`still bites with "Need a free FOOD slot" past ${RELAY_BEACON_FREE_FOOD_SLOT_COUNT} outposts`, () => {
