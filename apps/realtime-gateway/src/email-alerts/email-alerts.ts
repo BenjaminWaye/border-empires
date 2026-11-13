@@ -354,6 +354,9 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
     },
     sendSeasonStartAlert(input) {
       const isPreviousWinner = input.isPreviousWinner === true;
+      // A forced rollover archives a contest with no winner, which has no
+      // recap to show, so only point at the recap when someone was crowned.
+      const hasRecap = isPreviousWinner || Boolean(input.previousWinnerName);
       return send(
         input.recipientPlayerId,
         "seasonStart",
@@ -375,7 +378,9 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
               : [
                   "The map has been reset, borders are undrawn, and every empire starts from the same first tile again.",
                   "Claim your territory early, forge alliances, and build toward this Sector Contest's objective before your rivals do.",
-                  "Curious how the last Sector Contest shook out? The recap screen shows final stats for you and every friend or foe you played against. Open it from the link below, or any time from the Last Contest Recap button on the leaderboard."
+                  ...(hasRecap
+                    ? ["Curious how the last Sector Contest shook out? The recap screen shows final stats for you and every friend or foe you played against. Open it from the link below, or any time from the Last Contest Recap button on the leaderboard."]
+                    : [])
                 ],
             ...(isPreviousWinner
               ? { highlight: { label: "Status", value: "Sector Contest Champion" } }
@@ -385,7 +390,7 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
             linkLabel: isPreviousWinner ? "Defend Your Title" : "Start Your Empire",
             // The client opens the archived recap overlay for ?recap=last
             // (client-last-contest-recap). Plain "/?..." so Caddy serves index.html.
-            secondaryLink: { url: `${appUrl}/?recap=last`, label: "View the last contest's recap" }
+            ...(hasRecap ? { secondaryLink: { url: `${appUrl}/?recap=last`, label: "View the last contest's recap" } } : {})
           }),
         { bypassRateLimit: true }
       );

@@ -8,6 +8,7 @@ export type EmailUnsubscribeRouteDeps = {
   signer: EmailUnsubscribeSigner;
   appUrl: string;
   profileStore: {
+    get: (playerId: string) => Promise<unknown>;
     setEmailNotificationPrefs: (playerId: string, patch: EmailNotificationPrefs) => Promise<unknown>;
   };
   invalidateProfileCache?: (playerId: string) => void;
@@ -109,8 +110,13 @@ export const registerEmailUnsubscribeRoutes = (app: FastifyInstance, deps: Email
     scope.post(EMAIL_UNSUBSCRIBE_PATH, async (request, reply) => {
       const parsed = parseUnsubscribeQuery(request.query as UnsubscribeQuery, deps.signer);
       if (!parsed) return sendPage(reply, 400, invalidLinkPage(deps.appUrl));
-      await deps.profileStore.setEmailNotificationPrefs(parsed.playerId, unsubscribePatch(parsed.scope));
-      deps.invalidateProfileCache?.(parsed.playerId);
+      // setEmailNotificationPrefs upserts: never recreate the profile row of a
+      // deleted account from a link in an old email. A deleted account has no
+      // bound address, so it gets no email anyway -- report success either way.
+      if (await deps.profileStore.get(parsed.playerId)) {
+        await deps.profileStore.setEmailNotificationPrefs(parsed.playerId, unsubscribePatch(parsed.scope));
+        deps.invalidateProfileCache?.(parsed.playerId);
+      }
       return sendPage(reply, 200, page("Unsubscribed", `<h1>You're unsubscribed</h1>
         <p>You won't receive ${escapeHtml(scopeLabel(parsed.scope))} any more.</p>
         <p>To turn them back on, open Border Empires and go to <strong>Settings → Email Notifications</strong>.</p>

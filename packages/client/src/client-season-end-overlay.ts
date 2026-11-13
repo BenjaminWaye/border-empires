@@ -242,7 +242,9 @@ const victoryGauges = (
 export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   const { state, overlayEl, renderHud } = deps;
   if (deps.wsUrl) installLastContestRecapTriggers(state, { wsUrl: deps.wsUrl, renderHud });
-  // The live season-end screen always wins over an archived recap.
+  // The live season-end screen always wins over an archived recap, and closes
+  // it so the stale recap doesn't reappear once the live one is dismissed.
+  if (seasonEndVisible(state) && state.lastContestRecap.open) state.lastContestRecap = { ...state.lastContestRecap, open: false };
   if (seasonEndVisible(state) || !state.lastContestRecap.open) {
     renderSeasonEndPlate(deps);
     return;

@@ -15,6 +15,7 @@ const setup = async (options: { unsubscribeSecret?: string } = { unsubscribeSecr
   const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
   await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1", email: "player@example.com" });
   const profileStore = new InMemoryGatewayPlayerProfileStore();
+  await profileStore.setProfile("player-1", "Nauticus", "#abcdef");
   const sent: EmailMessage[] = [];
   const alerts = createEmailAlertService({
     authBindingStore,
@@ -58,6 +59,26 @@ describe("email unsubscribe", () => {
     await alerts.sendSeasonStartAlert({ recipientPlayerId: "player-1", previousWinnerName: "Nauticus" });
     expect(sent[0]!.text).toContain(`View the last contest's recap: ${APP_URL}/?recap=last`);
     expect(sent[0]!.html).toContain(`href="${APP_URL}/?recap=last"`);
+  });
+
+  it("does not promise a recap after a forced rollover that crowned nobody", async () => {
+    // Regression: the email linked to a recap that the client can't draw
+    // without a winner, so the link opened a "no recap yet" card.
+    const { alerts, sent } = await setup();
+    await alerts.sendSeasonStartAlert({ recipientPlayerId: "player-1" });
+    expect(sent[0]!.text).not.toContain("recap");
+    expect(sent[0]!.html).not.toContain("?recap=last");
+  });
+
+  it("does not recreate the profile of a deleted account from an old email's link", async () => {
+    // Regression: setEmailNotificationPrefs upserts, so a POST for an erased
+    // player brought a player_profiles row back.
+    const { app, profileStore } = await setup();
+    const url = createEmailUnsubscribeSigner(SECRET).url(APP_URL, "deleted-player", "all");
+    const response = await app.inject({ method: "POST", url: pathOf(url) });
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain("You're unsubscribed");
+    expect(await profileStore.get("deleted-player")).toBeUndefined();
   });
 
   it("sends no unsubscribe link when no signing secret is available", async () => {

@@ -1,10 +1,16 @@
 // @vitest-environment happy-dom
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SeasonArchiveRecap } from "@border-empires/sim-protocol";
 
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
 import { leaderboardHtml } from "../client-panel-html/client-panel-html.js";
 import { sectorBoardHtml } from "../client-sector-board/client-sector-board.js";
+import { createInitialState } from "../client-state/client-state.js";
+import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js";
+import { hudV2GameOnScreen } from "../client-hud-v2/client-hud-v2-ready.js";
+import { isMapUnobstructed } from "../client-map-unobstructed/client-map-unobstructed.js";
 import {
   consumeLastContestRecapDeepLink,
   createInitialLastContestRecapState,
@@ -136,5 +142,44 @@ describe("last contest recap", () => {
     expect(consumeLastContestRecapDeepLink({ href: "https://play.example/?recap=last&x=3#map" }, { replaceState })).toBe(true);
     expect(replaceState).toHaveBeenCalledWith(null, "", "/?x=3#map");
     expect(consumeLastContestRecapDeepLink({ href: "https://play.example/?x=3" }, { replaceState })).toBe(false);
+  });
+
+  it("stays visible over the full-screen join-contest lobby, where the email deep link lands", () => {
+    // Regression: the lobby hid every other #hud child with !important,
+    // including #season-end-overlay, so the reopened recap never appeared.
+    const css = readFileSync(resolve(process.cwd(), "src/client-season-lobby-style.css"), "utf8");
+    const hideRule = /body\.season-lobby-active #hud > ([^{]+)\{\s*display: none !important;/.exec(css);
+    expect(hideRule?.[1]).toContain(":not(#season-end-overlay)");
+  });
+
+  it("drops the cached recap at rollover so the next open fetches the newer contest", async () => {
+    // Regression: a tab kept open across a rollover kept showing the older contest.
+    const state = createInitialState();
+    await openLastContestRecap(state as never, { wsUrl: WS_URL, renderHud: () => {}, fetchImpl: jsonFetch({ ok: true, recap }) });
+    expect(state.lastContestRecap.load).toBe("ready");
+    resetClientForNewSeason(state);
+    expect(state.lastContestRecap).toEqual({ open: false, load: "idle" });
+  });
+
+  it("closes an open recap when the live season-end screen takes over, so it doesn't resurface after Look Around", async () => {
+    const state = makeState();
+    await openLastContestRecap(state as never, { wsUrl: WS_URL, renderHud: () => {}, fetchImpl: jsonFetch({ ok: true, recap }) });
+    Object.assign(state, { seasonWinner: { ...recap.winner, playerName: "Live Winner" }, needsSeasonJoin: false });
+    const overlayEl = document.createElement("div");
+    render(state, overlayEl);
+    expect(state.lastContestRecap.open).toBe(false);
+    (overlayEl.querySelector("#se-look-around") as HTMLButtonElement).click();
+    render(state, overlayEl);
+    expect(overlayEl.style.display).toBe("none");
+  });
+
+  it("counts an open recap as covering the map for the HUD and popup gates", () => {
+    const state = createInitialState();
+    Object.assign(state, { authSessionReady: true, hasEverInitialized: true, firstChunkAt: 1, mapPrep: false });
+    expect(hudV2GameOnScreen(state, undefined)).toBe(true);
+    expect(isMapUnobstructed(state)).toBe(true);
+    state.lastContestRecap = { open: true, load: "loading" };
+    expect(hudV2GameOnScreen(state, undefined)).toBe(false);
+    expect(isMapUnobstructed(state)).toBe(false);
   });
 });
