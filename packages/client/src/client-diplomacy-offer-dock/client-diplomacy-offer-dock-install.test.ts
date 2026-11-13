@@ -33,7 +33,7 @@ describe("installed offer dock", () => {
   it("accepts a free offer in one tap, then holds the buttons until the server answers", () => {
     const { sendGameMessage, button } = mount([truce("t1")]);
     button("accept", "t1").click();
-    expect(sendGameMessage).toHaveBeenCalledWith({ type: "TRUCE_ACCEPT", requestId: "t1" }, expect.any(String));
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "TRUCE_ACCEPT", requestId: "t1", confirmedResourceSupply: true }, expect.any(String));
     expect(button("accept", "t1").disabled).toBe(true);
     // The server refused without dropping the offer: the buttons come back.
     vi.advanceTimersByTime(OFFER_DOCK_PENDING_MS + 1_000);
@@ -52,7 +52,27 @@ describe("installed offer dock", () => {
 
     button("accept", "t1").click();
     button("accept", "t1").click();
-    expect(sendGameMessage).toHaveBeenCalledWith({ type: "TRUCE_ACCEPT", requestId: "t1" }, expect.any(String));
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "TRUCE_ACCEPT", requestId: "t1", confirmedResourceSupply: true }, expect.any(String));
+  });
+
+  // Playtest 2026-11-12: on an AI counter-offer the Confirm tap sent the accept, but the
+  // disabled button went straight back to "Accept", so it read as a tap that did nothing.
+  it("labels a sent accept as Sending until the server answers, instead of reverting to Accept", () => {
+    const { sendGameMessage, button } = mount([truce("t1", { gold: 16 })]);
+    button("accept", "t1").click();
+    vi.advanceTimersByTime(5_000); // a phone player reads the terms before confirming
+    expect(button("accept", "t1").textContent).toBe("Confirm");
+    button("accept", "t1").click();
+    expect(sendGameMessage).toHaveBeenCalledTimes(1);
+    expect(button("accept", "t1").textContent).toBe("Sending…");
+    expect(button("accept", "t1").disabled).toBe(true);
+  });
+
+  it("confirms the resource supply it shows, so the gateway does not refuse a supply offer", () => {
+    const { sendGameMessage, button } = mount([truce("t1", { gold: 0, resources: { FOOD: 2 } } as { gold: number })]);
+    button("accept", "t1").click();
+    button("accept", "t1").click();
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "TRUCE_ACCEPT", requestId: "t1", confirmedResourceSupply: true }, expect.any(String));
   });
 
   it("hides an offer to answer later in Alliances, without answering it", () => {
