@@ -23,8 +23,6 @@ export type BarButton =
 type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs"> & Partial<Pick<TileMenuView, "overviewLines" | "afcUpgradesReady" | "progress">>;
 
 const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
-  // A tile you just set a waypoint on: undoing it is the main thing to do there.
-  "cancel_waypoint",
   // Your own tile while Planetary Defense is capturing it: send a flag after them.
   "muster_hunt_attackers",
   "launch_attack",
@@ -74,7 +72,10 @@ const primaryAction = (view: BarView): TileActionDef | undefined => {
     const hit = view.actions.find((a) => a.id === id && !a.disabled);
     if (hit) return hit;
   }
-  return view.actions.find((a) => isGarrison(a) && a.recommended && !a.disabled)
+  // The active waypoint's target (incl. a plain Expand click, which queues one): Cancel is gold
+  // unless an attack/march above applies, ahead of the fallback suggestions below.
+  return view.actions.find((a) => a.id === "cancel_waypoint")
+    ?? view.actions.find((a) => isGarrison(a) && a.recommended && !a.disabled)
     ?? availableResourceImprovement(view)
     ?? relayBeacon(view)
     ?? view.actions.find((a) => a.id === "settle_land" && !a.disabled && !isGarrison(a))
