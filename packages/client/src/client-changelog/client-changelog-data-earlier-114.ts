@@ -8,6 +8,7 @@ import { LAST_CONTEST_RECAP_ENTRY } from "./client-changelog-last-contest-recap.
 import { CAMERA_PER_ACCOUNT_ENTRY } from "./client-changelog-nov-11.js";
 import { PLACE_FEEDBACK_ENTRY } from "./client-changelog-place-feedback.js";
 import { AETHER_PURGE_RAZES_BEACON_ENTRY } from "./client-changelog-aether-purge-razes-beacon.js";
+import { GALAXY_STIPEND_PAID_ENTRY } from "./client-changelog-galaxy-stipend-paid.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_114: ClientChangelogEntry[] = [
@@ -20,4 +21,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_114: ClientChangelogEntry[] = [
   { ...CAMERA_PER_ACCOUNT_ENTRY, createdAt: 1794432604008, },
   { ...PLACE_FEEDBACK_ENTRY, createdAt: 1794410576432, },
   { ...AETHER_PURGE_RAZES_BEACON_ENTRY, createdAt: 1794436718206, },
+  { ...GALAXY_STIPEND_PAID_ENTRY, createdAt: 1794561205515, },
 ];

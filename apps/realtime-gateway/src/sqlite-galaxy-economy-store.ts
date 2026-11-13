@@ -4,7 +4,8 @@ import type {
   GalaxyEconomyBalance,
   GalaxyEconomyStore,
   GalaxyTerritoryStability,
-  GalaxyTerritoryTier
+  GalaxyTerritoryTier,
+  StipendCredit
 } from "./galaxy-economy-store/galaxy-economy-store.js";
 
 type BalanceRow = {
@@ -56,6 +57,13 @@ export class SqliteGalaxyEconomyStore implements GalaxyEconomyStore {
         PRIMARY KEY (auth_uid, season_id)
       );
       CREATE INDEX IF NOT EXISTS galaxy_territory_stability_owner_idx ON galaxy_territory_stability (auth_uid);
+      CREATE TABLE IF NOT EXISTS galaxy_stipend_payouts (
+        auth_uid TEXT NOT NULL,
+        season_id TEXT NOT NULL,
+        influence INTEGER NOT NULL,
+        paid_at INTEGER NOT NULL,
+        PRIMARY KEY (auth_uid, season_id)
+      );
     `);
     try {
       this.db.exec(`ALTER TABLE galaxy_territory_stability ADD COLUMN garrison INTEGER NOT NULL DEFAULT 0;`);
@@ -132,5 +140,39 @@ export class SqliteGalaxyEconomyStore implements GalaxyEconomyStore {
     this.db
       .prepare(`UPDATE galaxy_territory_stability SET garrison = 0 WHERE auth_uid = ? AND season_id = ?`)
       .run(authUid, seasonId);
+  }
+
+  async creditStipendOnce(input: StipendCredit): Promise<boolean> {
+    // Every Cycle poll re-offers every Stipend in history, and almost all are
+    // already paid: answer those with a plain read instead of a write-lock
+    // transaction. The INSERT below still guards a race between the two.
+    const alreadyPaid = this.db
+      .prepare(`SELECT 1 FROM galaxy_stipend_payouts WHERE auth_uid = ? AND season_id = ?`)
+      .get(input.authUid, input.seasonId);
+    if (alreadyPaid) return false;
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const inserted = this.db
+        .prepare(
+          `INSERT INTO galaxy_stipend_payouts (auth_uid, season_id, influence, paid_at)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(auth_uid, season_id) DO NOTHING`
+        )
+        .run(input.authUid, input.seasonId, input.influence, input.now);
+      if (Number(inserted.changes) > 0) {
+        this.db
+          .prepare(
+            `INSERT INTO galaxy_economy_balances (auth_uid, influence, production, last_cycle_at)
+             VALUES (?, ?, 0, ?)
+             ON CONFLICT(auth_uid) DO UPDATE SET influence = influence + excluded.influence`
+          )
+          .run(input.authUid, input.influence, input.now);
+      }
+      this.db.exec("COMMIT");
+      return Number(inserted.changes) > 0;
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
   }
 }
