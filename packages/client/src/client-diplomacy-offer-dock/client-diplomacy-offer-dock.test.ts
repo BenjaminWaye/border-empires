@@ -92,9 +92,9 @@ describe("diplomacy offer dock", () => {
   });
 
   it("maps buttons to the same messages the Alliances tab sends", () => {
-    expect(offerDockMessage("accept", "truce", "t1")).toEqual({ type: "TRUCE_ACCEPT", requestId: "t1" });
+    expect(offerDockMessage("accept", "truce", "t1")).toEqual({ type: "TRUCE_ACCEPT", requestId: "t1", confirmedResourceSupply: true });
     expect(offerDockMessage("decline", "truce", "t1")).toEqual({ type: "TRUCE_REJECT", requestId: "t1" });
-    expect(offerDockMessage("accept", "alliance", "a1")).toEqual({ type: "ALLIANCE_ACCEPT", requestId: "a1" });
+    expect(offerDockMessage("accept", "alliance", "a1")).toEqual({ type: "ALLIANCE_ACCEPT", requestId: "a1", confirmedResourceSupply: true });
     expect(offerDockMessage("decline", "alliance", "a1")).toEqual({ type: "ALLIANCE_REJECT", requestId: "a1" });
     expect(offerDockMessage("cancel", "truce", "t1")).toBeUndefined();
     expect(offerDockMessage("accept", "truce", undefined)).toBeUndefined();

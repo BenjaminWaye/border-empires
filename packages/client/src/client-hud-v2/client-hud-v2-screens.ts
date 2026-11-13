@@ -22,7 +22,7 @@ import {
   type HudV2Deps,
   type HudV2ScreenId
 } from "./client-hud-v2-context.js";
-import { dealSkeletonHtml, diplomacyListHtml, empireStance } from "./client-hud-v2-diplomacy.js";
+import { dealFactsText, dealSkeletonHtml, diplomacyListHtml, diplomacyResponseMessage, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
 import { crestClosesProfile, profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { pendingTechCommissionId } from "../client-tech-commission/client-tech-commission.js";
@@ -173,6 +173,8 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
       activeTruces: state.activeTruces,
       incomingAlliance: state.incomingAllianceRequests,
       incomingTruce: state.incomingTruceRequests,
+      outgoingAlliance: state.outgoingAllianceRequests,
+      outgoingTruce: state.outgoingTruceRequests,
       leaderboard: state.leaderboard.overall,
       nameOf: (id) => nameOf(deps, id),
       colorOf: (id) => deps.ownerColor(id),
@@ -193,10 +195,7 @@ const dealFacts = (deps: HudV2Deps, target: string): string => {
   const tilesOf = (id: string): number | undefined =>
     (state.leaderboard.overall.find((e) => e.id === id) ?? (id === state.me ? state.leaderboard.selfOverall : undefined))?.tiles;
   const stance = empireStance(target, { allies: state.allies, activeTruces: state.activeTruces, nowMs: Date.now() });
-  const theirs = tilesOf(target), mine = tilesOf(state.me);
-  return [stance.kind === "met" ? "" : stance.label, theirs === undefined ? "" : `${theirs.toLocaleString("en-US")} tiles`, mine === undefined ? "" : `you ${mine.toLocaleString("en-US")}`]
-    .filter(Boolean)
-    .join(" · ");
+  return dealFactsText(stance.kind === "met" ? undefined : stance.label, tilesOf(target), tilesOf(state.me));
 };
 
 /** The alert title for a sent offer; undefined for anything else the deal view sends (e.g. its stance lookup on open). */
@@ -299,9 +298,8 @@ export const renderScreen = (deps: HudV2Deps): void => {
   }
 };
 
-const respondToRequest = (deps: HudV2Deps, kind: "alliance" | "truce", verb: "ACCEPT" | "REJECT", requestId: string): void => {
-  const type = `${kind === "alliance" ? "ALLIANCE" : "TRUCE"}_${verb}`;
-  deps.sendGameMessage({ type, requestId, ...(verb === "ACCEPT" ? {confirmedResourceSupply:true} : {}) }, kind === "alliance" ? "Finish sign-in before responding to alliance requests." : "Finish sign-in before responding to truces.");
+const respondToRequest = (deps: HudV2Deps, kind: "alliance" | "truce", verb: "ACCEPT" | "REJECT" | "CANCEL", requestId: string): void => {
+  deps.sendGameMessage(diplomacyResponseMessage(kind, verb, requestId), kind === "alliance" ? "Finish sign-in before responding to alliance requests." : "Finish sign-in before responding to truces.");
 };
 
 /** Clicks inside an open screen; true when handled. */
@@ -356,10 +354,11 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
   }
   const accept = target.closest<HTMLElement>("[data-v2-dip-accept]");
   const reject = target.closest<HTMLElement>("[data-v2-dip-reject]");
-  const respond = accept ?? reject;
+  const cancel = target.closest<HTMLElement>("[data-v2-dip-cancel]");
+  const respond = accept ?? reject ?? cancel;
   if (respond) {
-    const kind = (respond.dataset.v2DipAccept ?? respond.dataset.v2DipReject) === "alliance" ? "alliance" : "truce";
-    respondToRequest(deps, kind, accept ? "ACCEPT" : "REJECT", respond.dataset.requestId ?? "");
+    const kind = (respond.dataset.v2DipAccept ?? respond.dataset.v2DipReject ?? respond.dataset.v2DipCancel) === "alliance" ? "alliance" : "truce";
+    respondToRequest(deps, kind, accept ? "ACCEPT" : reject ? "REJECT" : "CANCEL", respond.dataset.requestId ?? "");
     return true;
   }
   const counter = target.closest<HTMLElement>("[data-v2-dip-counter]");

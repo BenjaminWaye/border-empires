@@ -77,6 +77,28 @@ describe("startTruceRequestExpiryTicker", () => {
   });
 });
 
+// Playtest 2026-11-12: an offer you sent that ran out just vanished, with no word to you.
+describe("your own truce offer expiring", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("tells you, in the feed and a popup; an incoming offer expiring does not", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(10_000);
+    const state = {
+      incomingTruceRequests: [request("in")],
+      outgoingTruceRequests: [{ ...request("out"), toName: "Tom" }],
+      captureAlert: undefined as undefined | { title: string; detail: string }
+    };
+    const pushFeed = vi.fn();
+    startTruceRequestExpiryTicker(state, vi.fn(), vi.fn(), pushFeed);
+    vi.advanceTimersByTime(TTL_MS + 1_000);
+    expect(pushFeed).toHaveBeenCalledTimes(1);
+    expect(pushFeed).toHaveBeenCalledWith("Your 12h truce offer to Tom expired unanswered.");
+    expect(state.captureAlert).toEqual(expect.objectContaining({ title: "Truce offer expired", detail: "Your 12h truce offer to Tom expired unanswered." }));
+    vi.clearAllTimers();
+  });
+});
+
 it.each(["paying", "refunding"] as const)("keeps %s treaty offers available after their normal expiry", settlementPhase => {
   const dropExpired = createTruceRequestExpiry();
   const state = { incomingTruceRequests: [{ ...request("in"), settlementPhase }], outgoingTruceRequests: [{ ...request("out"), settlementPhase }] };
