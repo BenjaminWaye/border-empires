@@ -210,6 +210,11 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
       worldSeed: season.worldSeed,
       ...(season.mapStyle ? { mapStyle: season.mapStyle } : {})
     });
+    // No baseline (e.g. `seed:*` rulesets resolve []): compaction would turn
+    // every tile into an overlay row that keeps only MUTABLE_TILE_FIELDS,
+    // silently dropping static fields (dockId, landBiome, prospectSignature)
+    // with nothing to rehydrate them from on load. Save the full v0 payload.
+    if (tiles.length === 0) return undefined;
     // The baseline `tiles` array is immutable per season and returned by
     // identity from resolveBaseline's own in-memory cache, so the derived
     // key->tile index is immutable too. Rebuilding it here (202k Map.set +
