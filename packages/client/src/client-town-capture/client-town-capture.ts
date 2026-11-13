@@ -44,10 +44,19 @@ export const showTownCaptureOverlay = (info: TownCaptureInfo): void => {
 
   overlay.style.display = "grid";
 
+  const onKeyDown = (e: KeyboardEvent): void => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    e.stopPropagation();
+    dismiss();
+  };
   const dismiss = (): void => {
+    window.removeEventListener("keydown", onKeyDown, true);
+    if (!overlay.isConnected) return;
     occupationSurveyController.endCapture(info.surveyReports ?? []);
     overlay.remove();
   };
+  window.addEventListener("keydown", onKeyDown, true);
 
   overlay.querySelector("#town-capture-close")?.addEventListener("click", dismiss);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) dismiss(); });
@@ -136,6 +145,8 @@ const overlayHtml = (info: TownCaptureInfo): string => {
         }</div>
         ${statsHtml}
         ${surveyHtml}
+      </div>
+      <div id="town-capture-footer">
         <button id="town-capture-jump" class="town-capture-jump-btn" type="button">Jump to Town</button>
       </div>
     </div>`;
@@ -155,14 +166,15 @@ const injectStyles = (): void => {
 
 const styles = `
 #town-capture-overlay {
-  position: fixed; inset: 0; display: none; place-items: center; padding: 16px; z-index: 32;
+  position: fixed; inset: 0; display: none; place-items: center; z-index: 32;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
 #town-capture-backdrop {
   position: absolute; inset: 0; background: rgba(10, 6, 1, 0.72); backdrop-filter: blur(4px);
 }
 #town-capture-modal {
-  position: relative; display: grid; grid-template-rows: auto auto;
-  width: min(520px, calc(100vw - 32px)); border-radius: 20px; overflow: hidden;
+  position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(520px, 100%); max-height: 100%; border-radius: 20px; overflow: hidden;
   border: 1px solid rgba(230, 178, 106, 0.32);
   background: linear-gradient(180deg, rgba(24,17,10,0.98), rgba(14,10,6,0.98));
   box-shadow: 0 28px 80px rgba(0,0,0,0.5), 0 0 60px rgba(214,150,68,0.14);
@@ -196,7 +208,15 @@ const styles = `
   color: #fbf3e6; font-size: 13px; font-weight: 800; line-height: 1; cursor: pointer;
 }
 .town-capture-close-btn:hover { background: rgba(30,20,10,0.78); }
-#town-capture-body { display: grid; gap: 14px; padding: 18px 22px 22px; }
+#town-capture-body {
+  display: grid; align-content: start; gap: 14px; padding: 18px 22px 14px;
+  min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+#town-capture-footer {
+  display: flex; padding: 10px 22px 18px;
+  border-top: 1px solid rgba(230, 178, 106, 0.16);
+}
 #town-capture-owner {
   font-size: 14px; color: rgba(240, 224, 200, 0.86);
 }
@@ -237,17 +257,23 @@ const styles = `
 #town-capture-survey p { margin: 0; color: rgba(232,247,255,0.72); font-size: 12px; line-height: 1.4; }
 .town-capture-survey-report { padding-top: 5px; color: #e8f7ff; font-size: 12px; line-height: 1.35; }
 .town-capture-jump-btn {
-  justify-self: start; padding: 10px 18px; border-radius: 12px; border: 1px solid rgba(255,214,148,0.5);
+  padding: 10px 18px; border-radius: 12px; border: 1px solid rgba(255,214,148,0.5);
   background: linear-gradient(180deg, rgba(255,214,148,0.22), rgba(214,150,68,0.14));
   color: #ffe6b8; font-size: 13.5px; font-weight: 800; cursor: pointer;
 }
 .town-capture-jump-btn:hover { background: linear-gradient(180deg, rgba(255,214,148,0.32), rgba(214,150,68,0.22)); }
 @media (max-width: 520px) {
   #town-capture-hero { height: 140px; }
+  #town-capture-body { padding: 14px 16px 12px; }
+  #town-capture-footer { padding: 10px 16px 14px; }
+  .town-capture-jump-btn { flex: 1; }
   #town-capture-name { font-size: 20px; }
   #town-capture-stats { grid-template-columns: 1fr 1fr; gap: 8px; }
   .town-capture-stat { padding: 8px 8px; }
   .town-capture-stat-value { font-size: 14px; }
+}
+@media (max-height: 720px) {
+  #town-capture-hero { height: 104px; }
 }
 @keyframes townCaptureEnter {
   0% { opacity: 0; transform: scale(0.9) translateY(14px); }

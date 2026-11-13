@@ -116,7 +116,7 @@ const filtersHtml = (timeline: PersonalActivityTimeline, input: ChronicleInput):
 
 /** Title, close and (when given) the Yours / World / Updates tabs. */
 export const chronicleHeadHtml = (tabs = ""): string =>
-  `<div class="v2c-head"><span class="v2c-title">Chronicle</span><button type="button" class="v2c-close" data-v2-close aria-label="Close Chronicle">Esc ✕</button></div>${tabs}`;
+  `<div class="v2c-head"><span class="v2c-title">Chronicle</span><button type="button" class="v2c-close" data-v2-close aria-label="Close Chronicle"><span class="v2-key-hint">Esc </span>✕</button></div>${tabs}`;
 
 export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
   const head = chronicleHeadHtml(tabs);
