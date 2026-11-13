@@ -6,6 +6,8 @@ import { recordMusterCombatReport, type CombatReportAlert } from "../client-must
 type CombatFeedEntry = {
   title: string; text: string; type: "combat"; severity: "success" | "warn"; at: number;
   focusX?: number; focusY?: number; actionLabel?: string;
+  /** Flag-driven fights report via muster combat reports, never the alert card. */
+  feedOnly?: true;
 };
 interface CombatNotificationDeps {
   keyFor: (x: number, y: number) => string;
@@ -35,7 +37,7 @@ export const notifyCombatResult = (
   if (!predictedAlreadyShown && !silentExpandSuccess) {
     deps.appendFeedEntry({
       title: resultAlert.title, text: resultAlert.detail, type: "combat",
-      severity: resultAlert.tone === "success" ? "success" : "warn", at: Date.now(),
+      severity: resultAlert.tone === "success" ? "success" : "warn", at: Date.now(), ...(flagKey ? { feedOnly: true } : {}),
       ...(typeof resultAlert.focusX === "number" && typeof resultAlert.focusY === "number"
         ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" } : {})
     });

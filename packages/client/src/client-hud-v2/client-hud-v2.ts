@@ -294,7 +294,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
       key,
       at: nowMs,
       buildSlots: { busy: development.busy, limit: development.limit },
-      flags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
+      flags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile, (x, y) => state.tiles.get(`${x},${y}`)),
       building: development.activeSlots,
       queue: development.queue
     };

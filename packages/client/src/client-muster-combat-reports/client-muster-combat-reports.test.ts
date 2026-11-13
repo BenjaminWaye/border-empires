@@ -29,6 +29,8 @@ describe("muster combat history", () => {
     }
     expect(showCaptureAlert).not.toHaveBeenCalled();
     expect(appendFeedEntry).toHaveBeenCalledTimes(4);
+    // Flag fights stay off the alert card the feed mirrors warn/error onto (client-feed-alert-surface.ts).
+    for (const [entry] of appendFeedEntry.mock.calls) expect(entry).toMatchObject({ feedOnly: true });
   });
   it("keeps normal manually dispatched result notifications", () => {
     const state = stateFor(); const showCaptureAlert = vi.fn();

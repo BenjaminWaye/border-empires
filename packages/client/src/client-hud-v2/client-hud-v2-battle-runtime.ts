@@ -45,7 +45,8 @@ export const battleOutcomeFromAlert = (
   before: ClientState["captureAlert"],
   nowMs: number
 ): { won: boolean; headline: string; detail: string; manpowerLoss: number | undefined } | undefined => {
-  if (!alert || alert === before || alert.until <= nowMs) return undefined;
+  // A mirrored feed warning (client-feed-alert-surface.ts) is never a fight's outcome.
+  if (!alert || alert === before || alert.until <= nowMs || alert.fromFeed) return undefined;
   const a: CaptureAlert = alert;
   return { won: a.tone === "success", headline: a.title, detail: a.detail, manpowerLoss: a.manpowerLoss };
 };

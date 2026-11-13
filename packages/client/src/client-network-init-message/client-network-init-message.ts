@@ -441,7 +441,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.spawnFeedShownSeasonId = spawnSeasonId;
     pushFeed("Spawned. Your tile is centered.", "info", "success");
   }
-  if (incomingConfig.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
+  if (incomingConfig.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "info");
   if (offlineActivity.length > 0) {
     for (let index = offlineActivity.length - 1; index >= 0; index -= 1) {
       const entry = offlineActivity[index]!;

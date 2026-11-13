@@ -627,7 +627,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           deps.wasPredictedCombatAlreadyShown(state.revealedPredictedCombatByKey, resultTargetKey, resultAlert.title, resultAlert.detail))
     );
     if (!predictedAlreadyShown) {
-      pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : "warn");
+      pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : state.capture?.fromMusterAdvance ? "info" : "warn");
       if (!state.capture?.fromMusterAdvance) showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss);
     }
     if (resultTargetKey) {

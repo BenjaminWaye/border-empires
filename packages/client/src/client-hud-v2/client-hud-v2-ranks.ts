@@ -4,6 +4,7 @@
 
 import type { LeaderboardOverallEntry, SeasonVictoryObjectiveView, SeasonWinnerView } from "../client-types.js";
 import { assignLanes, LANE_STEP_PX } from "./client-hud-v2-ranks-lanes.js";
+import { crestLettersFor } from "./client-hud-v2-crest-letters.js";
 import { seasonWinnerName, seasonWinnerPath } from "./client-hud-v2-season-winner.js";
 
 export type RanksInput = {
@@ -60,8 +61,22 @@ export const closestPath = (objectives: readonly SeasonVictoryObjectiveView[], m
     .filter((o) => selfShare(o, me) !== undefined)
     .sort((a, b) => (selfShare(b, me) ?? 0) - (selfShare(a, me) ?? 0))[0];
 
-const crest = (name: string, color: string | undefined, extra: string): string =>
-  `<span class="v2r-crest ${extra}" style="background:${esc(color ?? "#5a4828")}">${esc((name.trim()[0] ?? "?").toUpperCase())}</span>`;
+type CrestLetters = (name: string) => string;
+
+const crest = (name: string, color: string | undefined, extra: string, letters: CrestLetters): string => {
+  const text = letters(name);
+  return `<span class="v2r-crest ${extra}${text.length > 1 ? " v2r-crest-2" : ""}" style="background:${esc(color ?? "#5a4828")}">${esc(text)}</span>`;
+};
+
+/** Every empire name a Ranks view can show, so shared crest letters get a second letter. */
+const ranksNames = (input: RanksInput): string[] => [
+  input.nameOf(input.me) || "You",
+  ...input.overall.map((e) => e.name),
+  ...input.objectives.flatMap((o) => [
+    o.leaderPlayerId ? input.nameOf(o.leaderPlayerId) || o.leaderName : o.leaderName,
+    ...(o.contenders ?? []).map((c) => input.nameOf(c.playerId) || c.name)
+  ])
+].filter((name): name is string => typeof name === "string" && name.trim() !== "");
 
 type TrackPin = { playerId: string; share: number; priority: number; title: string; color: string | undefined; classes: string; crest: string };
 
@@ -81,7 +96,7 @@ const pinsHtml = (pins: readonly TrackPin[]): { html: string; lanes: number } =>
   return { html, lanes: deepest };
 };
 
-const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => {
+const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput, letters: CrestLetters): string => {
   const lead = leaderShare(o);
   const mine = selfShare(o, input.me);
   const iLead = o.leaderPlayerId === input.me;
@@ -90,7 +105,7 @@ const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => 
   const pins: TrackPin[] = [];
   if (lead !== undefined && o.leaderPlayerId && !iLead) {
     const color = input.colorOf(o.leaderPlayerId);
-    pins.push({ playerId: o.leaderPlayerId, share: lead, priority: 3, color, classes: "v2r-pin", title: `${esc(leaderName)} · ${esc(o.progressLabel)}`, crest: crest(leaderName, color, holding ? "v2r-holding" : "") });
+    pins.push({ playerId: o.leaderPlayerId, share: lead, priority: 3, color, classes: "v2r-pin", title: `${esc(leaderName)} · ${esc(o.progressLabel)}`, crest: crest(leaderName, color, holding ? "v2r-holding" : "", letters) });
   }
   // Runners-up (2nd and 3rd); the viewer is drawn by their own pin instead.
   for (const c of (o.contenders ?? []).filter((entry) => entry.playerId !== input.me)) {
@@ -98,11 +113,11 @@ const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => 
     if (share === undefined) continue;
     const name = input.nameOf(c.playerId) || c.name;
     const color = input.colorOf(c.playerId);
-    pins.push({ playerId: c.playerId, share, priority: 1, color, classes: "v2r-pin v2r-pin-rival", title: esc(name), crest: crest(name, color, "v2r-rival") });
+    pins.push({ playerId: c.playerId, share, priority: 1, color, classes: "v2r-pin v2r-pin-rival", title: esc(name), crest: crest(name, color, "v2r-rival", letters) });
   }
   if (mine !== undefined) {
     const color = input.colorOf(input.me);
-    pins.push({ playerId: input.me, share: mine, priority: 2, color, classes: "v2r-pin v2r-pin-you", title: `You · ${esc(iLead ? o.progressLabel : o.selfProgressLabel ?? "")}`, crest: crest(input.nameOf(input.me) || "You", color, `v2r-you${iLead && holding ? " v2r-holding" : ""}`) });
+    pins.push({ playerId: input.me, share: mine, priority: 2, color, classes: "v2r-pin v2r-pin-you", title: `You · ${esc(iLead ? o.progressLabel : o.selfProgressLabel ?? "")}`, crest: crest(input.nameOf(input.me) || "You", color, `v2r-you${iLead && holding ? " v2r-holding" : ""}`, letters) });
   }
   const laid = pinsHtml(pins);
   const leaderLink = o.leaderPlayerId
@@ -137,20 +152,21 @@ export const ranksBannerHtml = (input: RanksInput): string => {
   return `<span class="v2r-banner v2r-banner-hold">⧗ ${who} holding ${esc(holding.name)}${holding.holdRemainingSeconds === undefined ? "" : ` · ${formatHold(holding.holdRemainingSeconds)} to win`}</span>`;
 };
 
-const standingsHtml = (input: RanksInput): string => {
+const standingsHtml = (input: RanksInput, letters: CrestLetters): string => {
   const top = input.overall.slice(0, STANDINGS_CAP);
   const rows = [...top];
   if (input.selfOverall && !top.some((e) => e.id === input.me)) rows.push(input.selfOverall);
   const best = Math.max(1, ...rows.map((e) => e.score));
   return rows.map((e) => `<button type="button" class="v2r-stand${e.id === input.me ? " v2r-stand-you" : ""}" data-hud-v2-profile="${esc(e.id)}">
-      <span class="v2r-rank">${e.rank}</span>${crest(e.name, input.colorOf(e.id), "")}<span class="v2r-stand-name">${e.id === input.me ? "You" : esc(e.name)}</span>
+      <span class="v2r-rank">${e.rank}</span>${crest(e.name, input.colorOf(e.id), "", letters)}<span class="v2r-stand-name">${e.id === input.me ? "You" : esc(e.name)}</span>
       <span class="v2r-stand-bar"><span style="width:${((e.score / best) * 100).toFixed(1)}%"></span></span><span class="v2r-stand-val">${e.score.toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
     </button>`).join("");
 };
 
 export const ranksBodyHtml = (input: RanksInput): string => {
+  const letters = crestLettersFor(ranksNames(input));
   const tracks = input.objectives.length > 0
-    ? input.objectives.map((o) => trackHtml(o, input)).join("")
+    ? input.objectives.map((o) => trackHtml(o, input, letters)).join("")
     : `<div class="v2s-empty">No Sector Contest running</div>`;
   const best = closestPath(input.objectives, input.me);
   const closest = best
@@ -158,6 +174,6 @@ export const ranksBodyHtml = (input: RanksInput): string => {
     : "";
   return `<div class="v2r-layout">
     <section class="v2r-race"><div class="v2r-axis"><span>Start</span><span>Win line</span></div>${tracks}</section>
-    <aside class="v2r-aside">${closest}<section class="v2r-card"><h2 class="v2s-h2">Standings <span class="v2s-meta">power score</span></h2>${standingsHtml(input)}</section></aside>
+    <aside class="v2r-aside">${closest}<section class="v2r-card"><h2 class="v2s-h2">Standings <span class="v2s-meta">power score</span></h2>${standingsHtml(input, letters)}</section></aside>
   </div>`;
 };
