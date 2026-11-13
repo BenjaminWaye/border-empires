@@ -4,8 +4,8 @@ import { FRONTIER_MATERIALS_CUT_ENTRY } from "./client-changelog-frontier-materi
 import { STRATEGIC_DEPOSIT_REACH_ENTRY } from "./client-changelog-strategic-deposit-reach.js";
 import { DOCK_ART_ENTRY } from "./client-changelog-dock-art.js";
 import { TOWN_REFINERIES_ENTRY } from "./client-changelog-town-refineries.js";
+import { PLANETARY_DEFENSE_HUNT_ENTRY, PLANETARY_DEFENSE_HUNT_REACH_ENTRY } from "./client-changelog-planetary-defense-hunt.js";
 import { LAST_CONTEST_RECAP_ENTRY } from "./client-changelog-last-contest-recap.js";
-import { SCIFI_ROADS_ENTRY } from "./client-changelog-scifi-roads.js";
 import { GALAXY_STIPEND_PAID_ENTRY } from "./client-changelog-galaxy-stipend-paid.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
@@ -15,7 +15,8 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_114: ClientChangelogEntry[] = [
   { ...STRATEGIC_DEPOSIT_REACH_ENTRY, createdAt: 1794522009490, },
   { ...DOCK_ART_ENTRY, createdAt: 1794521176798, },
   { ...TOWN_REFINERIES_ENTRY, createdAt: 1794522848705, },
+  { ...PLANETARY_DEFENSE_HUNT_ENTRY, createdAt: 1794423294581, },
+  { ...PLANETARY_DEFENSE_HUNT_REACH_ENTRY, createdAt: 1794439081730, },
   { ...LAST_CONTEST_RECAP_ENTRY, createdAt: 1794556633359, },
-  { ...SCIFI_ROADS_ENTRY, createdAt: 1794519394469, },
   { ...GALAXY_STIPEND_PAID_ENTRY, createdAt: 1794561205515, },
 ];
