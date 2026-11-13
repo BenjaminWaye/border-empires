@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { ClientState } from "../client-state/client-state.js";
 import type { TruceRequest } from "../client-types.js";
 import { createTruceRequestExpiry, startTruceRequestExpiryTicker } from "./client-truce-request-expiry.js";
 
@@ -61,7 +62,7 @@ describe("startTruceRequestExpiryTicker", () => {
   it("re-renders the HUD and the counter-offer screen once, when the offer expires", () => {
     vi.useFakeTimers();
     vi.setSystemTime(10_000);
-    const state = { incomingTruceRequests: [request("offer")], outgoingTruceRequests: [] };
+    const state = { incomingTruceRequests: [request("offer")], outgoingTruceRequests: [], captureAlert: undefined };
     const renderHud = vi.fn();
     const refreshTradeScreen = vi.fn();
     startTruceRequestExpiryTicker(state, renderHud, refreshTradeScreen);
@@ -87,7 +88,7 @@ describe("your own truce offer expiring", () => {
     const state = {
       incomingTruceRequests: [request("in")],
       outgoingTruceRequests: [{ ...request("out"), toName: "Tom" }],
-      captureAlert: undefined as undefined | { title: string; detail: string }
+      captureAlert: undefined as ClientState["captureAlert"]
     };
     const pushFeed = vi.fn();
     startTruceRequestExpiryTicker(state, vi.fn(), vi.fn(), pushFeed);

@@ -1,9 +1,10 @@
 import { describeDiplomacyTermsForProposer, describeDiplomacyTermsForRecipient } from "@border-empires/shared";
 // Diplomacy for the new HUD. Step 1 lists every empire you've met as crests,
-// with requests waiting on you pinned at the top, then the offers you sent
-// (withdrawable), then ranked empires you haven't met: deals need no contact. Step 2 is the deal: the
-// trade view re-hosted full width (your goods and treaties on the left, the
-// deal in the middle, theirs on the right). Picking an empire hides the list.
+// with requests waiting on you pinned at the top and the offers you sent
+// (withdrawable) under them, then ranked empires you haven't met: deals need
+// no contact. Step 2 is the deal: the trade view re-hosted full width (your
+// goods and treaties on the left, the deal in the middle, theirs on the
+// right). Picking an empire hides the list.
 
 import type { ActiveTruceView, AllianceRequest, LeaderboardOverallEntry, TruceRequest } from "../client-types.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
