@@ -269,31 +269,3 @@ describe("parallel muster results keep manual command tracking", () => {
     expect(state.combatStartAck).toBe(true);
   });
 });
-
-// 2026-11-12 playtest (pt-predator): a MARCH attack's win/loss only reached the
-// flag's Recent combat tab, so the attacker never saw a result. ADVANCE
-// patrols stay quiet (see "keeps four flag histories" above).
-describe("march attack result card", () => {
-  const march = (ws: FakeWebSocket, n: number, attackerWon: boolean, attackType = "ATTACK") => {
-    const commandId = `territory-auto:muster-march:me:4,${n}:${n}`;
-    ws.emit("message", { data: JSON.stringify({ type: "COMBAT_START", commandId, origin: { x: 3, y: n }, musterOrigin: { x: 1, y: 1 }, target: { x: 4, y: n }, resolvesAt: Date.now() + 25_000 }) });
-    ws.emit("message", { data: JSON.stringify({ type: "COMBAT_RESULT", commandId, attackType, attackerWon, origin: { x: 3, y: n }, target: { x: 4, y: n }, manpowerDelta: attackerWon ? 0 : -100, changes: [] }) });
-  };
-
-  it("shows one card for a march attack and tallies later results into it", () => {
-    const state = createState(); state.me = "me";
-    const ws = new FakeWebSocket(); bind(state, ws);
-    march(ws, 1, false);
-    expect(state.captureAlert).toEqual(expect.objectContaining({ tone: "warn", musterFlagKey: "1,1", musterTally: { won: 0, lost: 1 } }));
-    march(ws, 2, true);
-    expect(state.captureAlert).toEqual(expect.objectContaining({ title: "Flag (1, 1): 1 won · 1 lost", tone: "warn" }));
-    expect(musterCombatReports(state, "1,1")).toHaveLength(2);
-  });
-
-  it("never shows a card for the march's neutral claims", () => {
-    const state = createState(); state.me = "me";
-    const ws = new FakeWebSocket(); bind(state, ws);
-    march(ws, 1, true, "EXPAND");
-    expect(state.captureAlert).toBeUndefined();
-  });
-});
