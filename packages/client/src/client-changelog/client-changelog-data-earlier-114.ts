@@ -4,6 +4,7 @@ import { FRONTIER_MATERIALS_CUT_ENTRY } from "./client-changelog-frontier-materi
 import { STRATEGIC_DEPOSIT_REACH_ENTRY } from "./client-changelog-strategic-deposit-reach.js";
 import { DOCK_ART_ENTRY } from "./client-changelog-dock-art.js";
 import { TOWN_REFINERIES_ENTRY } from "./client-changelog-town-refineries.js";
+import { PHONE_LAYOUT_FIXES_ENTRY } from "./client-changelog-phone-layout-fixes.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_114: ClientChangelogEntry[] = [
@@ -12,4 +13,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_114: ClientChangelogEntry[] = [
   { ...STRATEGIC_DEPOSIT_REACH_ENTRY, createdAt: 1794522009490, },
   { ...DOCK_ART_ENTRY, createdAt: 1794521176798, },
   { ...TOWN_REFINERIES_ENTRY, createdAt: 1794522848705, },
+  { ...PHONE_LAYOUT_FIXES_ENTRY, createdAt: 1794563191075, },
 ];

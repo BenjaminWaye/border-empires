@@ -29,10 +29,16 @@ export type BuildListInput = {
   title?: string;
   /** Shown between the title and the tabs (the town screen's work cards); the list then gets its own Build heading, and no empty text. */
   leadHtml?: string;
+  /** The map's Build ▸ sheet: adds a ✕ that shuts that bar panel (phones have no Esc, and the sheet fills the screen). */
+  closePanel?: "build" | "aether";
 };
 
 const esc = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** The ✕ in a Build ▸ / Aether ▸ sheet's head; the dock's click handler shuts that panel. */
+export const buildPanelCloseHtml = (panel: "build" | "aether"): string =>
+  `<button type="button" class="v2t-build-close" data-hud-v2-panel-close="${panel}" aria-label="Close ${panel === "aether" ? "Aether" : "Build"}">✕</button>`;
 
 /** Categories that have something to build here, in the build menu's order. */
 export const buildCategories = (buildings: readonly TileActionDef[]): Array<{ category: BuildingCategory; count: number }> =>
@@ -52,7 +58,7 @@ export const buildListHtml = (input: BuildListInput): string => {
   }).join("");
   const empty = input.buildings.length === 0 && !input.leadHtml ? `<div class="v2s-empty">${esc(input.emptyText)}</div>` : "";
   const lead = input.leadHtml ? `${input.leadHtml}${input.buildings.length > 0 ? `<div class="v2t-h">Build</div>` : ""}` : "";
-  return `<div class="v2t-build-head"><span class="v2t-build-title">${esc(input.title ?? "Build")}</span><span class="v2t-focus${input.focusHighlighted ? " v2t-focus-on" : ""}">${esc(input.focusLabel)}</span></div>
+  return `<div class="v2t-build-head"><span class="v2t-build-title">${esc(input.title ?? "Build")}</span><span class="v2t-focus${input.focusHighlighted ? " v2t-focus-on" : ""}">${esc(input.focusLabel)}</span>${input.closePanel ? buildPanelCloseHtml(input.closePanel) : ""}</div>
     ${lead}
     ${tabs ? `<div class="v2t-tabs" role="tablist" aria-label="Building categories">${tabs}</div>` : ""}
     <div class="v2t-build-list" data-v2-scroll="build-list">${rows}${empty}</div>`;

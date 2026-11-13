@@ -97,7 +97,7 @@ export const battlePreviewHtml = (input: BattlePreviewInput): string => {
         <div class="v2b-panel-main"><span class="v2b-panel-title">Win chance</span><div class="v2b-efforts" role="radiogroup" aria-label="Effort">${efforts}</div>
         ${input.commit !== undefined ? `<span class="v2b-cost">Cost <b>${input.commit} MP</b></span>` : ""}</div>
       </div>
-      <div class="v2b-panel-actions"><button type="button" class="v2s-btn v2s-btn-primary v2b-go" data-v2-battle-go>Confirm attack</button><button type="button" class="v2s-btn" data-v2-battle-cancel>Back · Esc</button></div>
+      <div class="v2b-panel-actions"><button type="button" class="v2s-btn v2s-btn-primary v2b-go" data-v2-battle-go>Confirm attack</button><button type="button" class="v2s-btn" data-v2-battle-cancel>Back<span class="v2-key-hint"> · Esc</span></button></div>
     </div>`;
 };
 
@@ -126,5 +126,5 @@ export const battleResultHtml = (input: BattleResultInput): string =>
         <div class="v2b-panel-main"><span class="v2b-result-title">${esc(input.headline)}</span><span class="v2b-result-body">${esc(input.detail)}</span>
           ${input.manpowerLoss ? `<span class="v2b-cost">−${Math.round(input.manpowerLoss)} MP</span>` : ""}</div>
       </div>
-      <div class="v2b-panel-actions"><button type="button" class="v2s-btn v2s-btn-primary" data-v2-battle-show>Show tile</button><button type="button" class="v2s-btn" data-v2-close>Close · Esc</button></div>
+      <div class="v2b-panel-actions"><button type="button" class="v2s-btn v2s-btn-primary" data-v2-battle-show>Show tile</button><button type="button" class="v2s-btn" data-v2-close>Close<span class="v2-key-hint"> · Esc</span></button></div>
     </div>`;
