@@ -2,13 +2,16 @@
 // Playtest 2026-11-12: at 375x667 the capture card was taller than the screen, centred so its ✕ sat above
 // the top edge and "Jump to Town" below the bottom, with no scroll and no Esc: the game soft-locked twice.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { occupationSurveyController } from "../client-occupation-survey.js";
+import { occupationSurveyController, type OccupationSurveyReport } from "../client-occupation-survey.js";
 import { showTownCaptureOverlay, type TownCaptureInfo } from "./client-town-capture.js";
+
+const report = (id: string, text: string): OccupationSurveyReport =>
+  ({ id, x: 0, y: 0, bearing: "S", distanceBand: "NEAR", confidence: "LOW", text }) as unknown as OccupationSurveyReport;
 
 const info = (extra: Partial<TownCaptureInfo> = {}): TownCaptureInfo => ({
   x: 289, y: 203, townName: "Tumblerun Green", populationTier: "TOWN", terrainProfile: "GRASS", coastal: true,
   population: 16_792, maxPopulation: 100_000, empireName: "Nordmark", ownedTownCount: 1, destroyed: false,
-  surveyReports: [{ text: "Ferrous dust south of this town." }, { text: "Blackwood canopy west of the walls." }] as TownCaptureInfo["surveyReports"],
+  surveyReports: [report("a", "Ferrous dust south of this town."), report("b", "Blackwood canopy west of the walls.")],
   onJumpToTown: () => undefined,
   ...extra
 });
