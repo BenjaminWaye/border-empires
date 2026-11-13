@@ -116,8 +116,10 @@ describe("client action flow regressions", () => {
     // even when it touched the player's own territory.
     expect(source).toContain('const isLand = clicked?.terrain === "LAND";');
     expect(source).toContain('const isNeutral = !clicked?.ownerId;');
+    // Mouse clicks only: a touch tap opens the sheet (tap-to-inspect, see
+    // client-tile-interaction.ts).
     expect(source).toContain(
-      'const frontierOrigin = isLand && isNeutral ? pickOriginForTarget(wx, wy, false) : undefined;'
+      'const frontierOrigin = isLand && isNeutral && tapClaimsAdjacentTile(tapInput) ? pickOriginForTarget(wx, wy, false) : undefined;'
     );
   });
 
@@ -137,7 +139,7 @@ describe("client action flow regressions", () => {
     // opening the tile menu. Reverted: every click site here passes `false`
     // explicitly, so only a click on the dock's landing ground (handled by
     // pickDockOriginForTarget, unaffected by this flag) instant-expands.
-    expect(source).toContain("const frontierOrigin = pickOriginForTarget(wx, wy, false);");
+    expect(source).toContain("const frontierOrigin = tapClaimsAdjacentTile(tapInput) ? pickOriginForTarget(wx, wy, false) : undefined;");
     expect(source).toContain("const frontierOrigin = pickOriginForTarget(to.x, to.y, false);");
     expect(source).toContain("const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false);");
   });
@@ -158,7 +160,7 @@ describe("client action flow regressions", () => {
     expect(unexploredBranch.slice(-600)).toContain("queueAdjacentExpandClaim(wx, wy);");
   });
 
-  it("always auto-claims an adjacent unowned tile with a single click, regardless of reach -- no menu detour", () => {
+  it("auto-claims an adjacent unowned tile with a single mouse click, regardless of reach -- no menu detour", () => {
     const source = actionFlowSource();
 
     // An earlier version of this file gated the quick-claim shortcuts on
@@ -169,13 +171,14 @@ describe("client action flow regressions", () => {
     // Adjacent-tile clicks (fogged, unexplored, and visible) go straight to
     // queueAdjacentExpandClaim again; reach only affects what's *visible*
     // once a menu is actually opened some other way (e.g. re-clicking an
-    // already-queued tile), never whether the quick-claim fires.
+    // already-queued tile), never whether the quick-claim fires. Touch taps
+    // are the exception: they inspect first (tapInput, 2026-11-12 playtest).
     expect(source).not.toContain("targetInReach: clickTargetInReach");
     expect(source).not.toContain("if (frontierOrigin && isTargetInLocalReach(wx, wy)) {");
     const visibleBranchStart = source.indexOf("const to = clicked;");
     const visibleBranch = source.slice(visibleBranchStart, visibleBranchStart + 600);
     expect(visibleBranch).toContain(
-      "const clickOutcome = neutralTileClickOutcome({\n      isLand: to.terrain === \"LAND\",\n      isFogged: Boolean(to.fogged),\n      hasFrontierOrigin: Boolean(frontierOrigin),\n      isNeutral: !to.ownerId\n    });"
+      "const clickOutcome = neutralTileClickOutcome({\n      isLand: to.terrain === \"LAND\",\n      isFogged: Boolean(to.fogged),\n      hasFrontierOrigin: Boolean(frontierOrigin),\n      isNeutral: !to.ownerId,\n      tapInput\n    });"
     );
   });
 
