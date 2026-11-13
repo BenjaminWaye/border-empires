@@ -74,7 +74,7 @@ import {
   syncOptimisticSettlementTile as syncOptimisticSettlementTileFromModule,
   type DevelopmentSlotSummary
 } from "./client-queue-logic/client-queue-logic.js";
-import { cancelQueuedAutoSettle as cancelQueuedAutoSettleFromModule } from "./client-queue-logic/client-cancel-queued-auto-settle.js";
+import { cancelQueuedAutoSettle as cancelQueuedAutoSettleFromModule } from "./client-queue-logic/client-cancel-queued-auto-settle.js"; import { processTownRingGarrisons, requestGarrisonWithTownRing } from "./client-town-ring-garrison/client-town-ring-garrison.js";
 import { structureDisplayLabel as structureDisplayLabelFromModule } from "./client-structure-display-label/client-structure-display-label.js";
 import { queueSettleForExpandingTile as queueSettleForExpandingTileFromModule } from "./client-settle-land-queue/client-settle-land-queue.js";
 import {
@@ -495,10 +495,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const processAutoBuildTargets = (): void => processAutoBuilds(state, triggerBuildForStructureType);
 
-  // Runtime loop's periodic tick: once a waypoint target is owned, settle it if queued.
+  // Runtime loop's periodic tick: once a waypoint target is owned, settle it if queued; garrison a garrisoned town's ring (client-town-ring-garrison.ts).
   const processAutoSettleTargets = (): void => {
-    if (state.autoSettleTargets.size === 0) return;
-    const reach = resolveMyReachCached(state);
+    const reach = resolveMyReachCached(state), isSettling = (k: string): boolean => state.settleProgressByTile.has(k) || queuedDevelopmentActionExists(state, k, "SETTLE");
+    if (state.townRingGarrisons.size > 0) processTownRingGarrisons(state, { now: Date.now(), reach, isSettling, requestSettlement: (x, y) => requestSettlement(x, y, { forceQueue: true, suppressWarnings: true }) });
     for (const targetKey of [...state.autoSettleTargets]) {
       const tile = state.tiles.get(targetKey);
       if (!tile) continue;
@@ -508,7 +508,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       // sends a second SETTLE and the server rejects it with
       // "tile is already settling" -- drop the auto-settle entry instead, the
       // matching autoBuildTargets entry still runs once the tile lands SETTLED.
-      if (state.settleProgressByTile.has(targetKey) || queuedDevelopmentActionExists(state, targetKey, "SETTLE")) {
+      if (isSettling(targetKey)) {
         state.autoSettleTargets.delete(targetKey);
         continue;
       }
@@ -700,7 +700,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     });
 
   const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
-  const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement });
+  const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement: (x, y) => { const t = state.tiles.get(keyFor(x, y)); return t ? requestGarrisonWithTownRing(state, t, (tx, ty) => requestSettlement(tx, ty), Date.now()) : requestSettlement(x, y); } });
   const buildSiegeBatteryOnSelected = (): void => buildSiegeBatteryOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const cancelOngoingCapture = (): void => cancelOngoingCaptureFromModule(state, sendGameMessage, (message) => pushFeed(message, "combat", "info"));
@@ -1210,7 +1210,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             return;
           }
         } else if (selected.ownerId === state.me && selected.ownershipState === "FRONTIER") {
-          requestSettlement(selected.x, selected.y);
+          requestGarrisonWithTownRing(state, selected, (x, y) => requestSettlement(x, y), Date.now());
         }
         state.autoSettleTargets.delete(k);
       }

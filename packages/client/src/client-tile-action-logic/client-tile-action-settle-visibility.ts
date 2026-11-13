@@ -13,6 +13,7 @@ import { authoritativeIsInReach } from "../client-reach-authoritative/client-rea
 import { assignedTownForSupportTile } from "../client-support-structures/client-support-structures.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
+import { garrisonCostText, townRingGarrisonTiles } from "../client-town-ring-garrison/client-town-ring-garrison.js";
 import { tileActionAvailability, type TileActionLogicDeps } from "./client-tile-action-logic.js";
 
 export const hasEstablishedTownAndFoodTile = (state: ClientState): boolean => {
@@ -59,18 +60,20 @@ export const settleActionsForFrontierTile = (
   const withReachGate = ([eligible, reason, cost]: [boolean, string, string]): [boolean, string, string] =>
     frontierOutOfReach ? [false, "Outside your reach", cost] : [eligible, reason, cost];
 
+  const ringCount = townRingGarrisonTiles(state, tile).length;
+  const ringNote = ringCount > 0 ? `Then garrisons the ${ringCount} tile${ringCount === 1 ? "" : "s"} around it; the town's reach claims them, so no Expand is needed.` : "";
   const out: TileActionDef[] = [
     {
       id: "settle_land",
       label: "Garrison",
-      detail: [deps.buildDetailTextForAction("settle_land", tile), settleOutcomeText(state, tile)].filter(Boolean).join(" "),
+      detail: [deps.buildDetailTextForAction("settle_land", tile), settleOutcomeText(state, tile), ringNote].filter(Boolean).join(" "),
       autoSettleOption: autoSettleOptionForTile(state, tile),
       ...(hasPayoff ? { recommended: true } : {}),
       ...tileActionAvailability(
         ...withReachGate([
           canAffordCost(state.gold, SETTLE_COST) && state.manpower >= state.settleManpowerCost,
           state.manpower < state.settleManpowerCost ? `Need ${state.settleManpowerCost} manpower` : `Need ${SETTLE_COST} coin`,
-          `${SETTLE_COST} coin, ${state.settleManpowerCost} manpower • ${settleTimeLabel(state, tile)}`
+          `${garrisonCostText(state, tile)} • ${settleTimeLabel(state, tile)}`
         ])
       )
     }
