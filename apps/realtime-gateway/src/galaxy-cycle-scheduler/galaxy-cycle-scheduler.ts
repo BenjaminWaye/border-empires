@@ -3,7 +3,8 @@ import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
-import { resolveGalaxyHoldingsByOwner } from "../galaxy-holdings/galaxy-holdings.js";
+import { resolveEndedSeasons, resolveGalaxyHoldingsByOwner } from "../galaxy-holdings/galaxy-holdings.js";
+import { payOutstandingStipends } from "../galaxy-stipend-payout/galaxy-stipend-payout.js";
 import { GALAXY_CYCLE_LENGTH_MS, computeGalaxyCycleTick } from "../galaxy-cycle-tick/galaxy-cycle-tick.js";
 import { currentGlobalCycleIndex } from "../galaxy-senate-tick/galaxy-senate-tick.js";
 
@@ -44,9 +45,18 @@ export const startGalaxyCycleScheduler = (deps: GalaxyCycleSchedulerDeps): { sto
     if (inFlight) return;
     inFlight = true;
     try {
-      const holdingsByOwner = await resolveGalaxyHoldingsByOwner({
+      const nowMs = now();
+      const seasonDeps = {
         listSeasonArchives: deps.listSeasonArchives,
-        ...(deps.getCurrentSeasonSummary ? { getCurrentSeasonSummary: deps.getCurrentSeasonSummary } : {}),
+        ...(deps.getCurrentSeasonSummary ? { getCurrentSeasonSummary: deps.getCurrentSeasonSummary } : {})
+      };
+      // Stipends first (§3/§13), so the balances read below already include
+      // them and the Cycle upsert can't overwrite a fresh credit.
+      const { tiered } = await resolveEndedSeasons(seasonDeps);
+      await payOutstandingStipends({ tiered, authBindingStore: deps.authBindingStore, galaxyEconomyStore: deps.galaxyEconomyStore, now: nowMs });
+
+      const holdingsByOwner = await resolveGalaxyHoldingsByOwner({
+        ...seasonDeps,
         authBindingStore: deps.authBindingStore,
         // AI Dukes earn and pay Influence like anyone else (§29.1).
         includeAiDukes: true
@@ -55,7 +65,6 @@ export const startGalaxyCycleScheduler = (deps: GalaxyCycleSchedulerDeps): { sto
       const balanceByAuthUid = new Map(existingBalances.map((b) => [b.authUid, b]));
       const authUids = new Set<string>([...holdingsByOwner.keys(), ...balanceByAuthUid.keys()]);
 
-      const nowMs = now();
       const activeEmbargoAuthUids = deps.galaxySenateStore
         ? await deps.galaxySenateStore.getActiveEmbargoAuthUids(currentGlobalCycleIndex(nowMs))
         : undefined;

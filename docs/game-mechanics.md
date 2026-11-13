@@ -309,3 +309,81 @@ retain their earlier behavior. The implementation contracts are in
 - **Most Deadly Tile** records the tile coordinates, total combat manpower spent attacking it, and the empire with the largest cumulative loss there, including that empire's loss count. Repeated attacks accumulate across the season and persist across restarts. This counts actual combat manpower losses, rather than expansion costs or a fictional defender casualty estimate.
 - The crowned records are carried through login and season archives. Legacy records can gain road details from the frozen final map when the road length still matches the captured record. Retained combat logs can recover older player attribution when their losses cover the entire saved tile total and that total has complete season-history provenance. Older casualty totals without complete player attribution are labelled unavailable and offer a bug-report button; recent losses alone never establish a season-wide player record.
 - Per-player casualty attribution is bounded to 100,000 tile/player entries per runtime and 256 players per tile, with entry-count and cap-hit gauges logged on the existing persistence cadence. It is saved with the existing top 200 deadliest tiles outside the world snapshot. The existing top-200 restart tradeoff remains: lower-ranked tiles resume from zero after a restart. Truncated saves retain provenance: a tile omitted at restart cannot claim a complete player-loss record if it later becomes the deadliest tile, including across further restarts. If attribution reaches a cap, aggregate totals continue, and incomplete tiles do not claim a player record.
+
+## Galactic layer
+
+The cross-season layer players reach through Space View and the Duke panel. Server code is in `apps/realtime-gateway/src/galaxy-*`; the season hand-off is in `apps/simulation/src/season-galaxy-tiers/` and `season-crowning/`. This section describes shipped behaviour only. It replaces the retired `docs/galactic-campaign-design.md`. Code comments that cite `§N` refer to that retired doc, which is readable with `git show 7c7b451840:docs/galactic-campaign-design.md`.
+
+### From a season to the galaxy
+
+- **When:** records are made only when a season crowns a winner (`captureSeasonWinnerAtCrowning`). A season with no winner records nothing, including no Stipends. Each competitive player gets at most one record, stored as `galaxyTiers` on the season.
+- **Planet:** the winner. Specialization comes from the winning path (`packages/sim-protocol/src/galaxy-specialization.ts`): Town Control → Industrial, Economic → Trade, Resource Monopoly → Extraction, Maritime → Logistics, Diplomatic → Capital. The original winner may name it once (2–24 characters, `galaxy-name-policy.ts`).
+- **Outpost:** a non-winner who leads a *different* path from the one that won, with that path's progress ≥ `GALAXY_OUTPOST_PROGRESS_THRESHOLD` (0.5). Specialization comes from that player's own path. It gives Influence income and Senate weight only: no system, ships or developments.
+- **Stipend:** anyone else whose best-path progress (0–1) is above 0. It pays `round(10 × progress)` Influence, so at most 10, once per (account, season). The Cycle scheduler pays it (`galaxy-stipend-payout.ts`, `creditStipendOnce`), including for older seasons. It carries no Production and no territory. Records with no bound account (AI empires) are never paid.
+- **Ownership** is keyed by the account's durable `authUid`; a territory's id is its season's `seasonId`. Holding at least one Planet makes an account a **Duke**, which unlocks Space View and the Duke panel. Outposts alone do not.
+- **Sector numbers** are derived on every read, never stored (`galaxy-sector-numbering/`). Sector N is the Nth won season in sequence.
+- **AI Dukes:** a season won by a seasonal AI (`ai-<n>`) is held by AI Duke `ai:<seasonId>` ("House <name>"). AI Dukes take part in the Cycle tick and the Duke layer only, and play through the same actions (`galaxy-duke-ai/`). The Senate and `/hq/galaxy/me` treat AI-held Sectors as unclaimed.
+
+### Influence and Production
+
+- **Influence is a bank.** It is credited each 7-day Cycle (`GALAXY_CYCLE_LENGTH_MS`). Each account's Cycle is anchored to its ledger row's `lastCycleAt`. The scheduler polls hourly and grants only whole Cycles (`galaxy-cycle-scheduler.ts`, `galaxy-cycle-tick.ts`). Influence can go negative.
+  - Income per Cycle: Capital/Trade Planet 4 (Outpost 2), Logistics 3 (1), Industrial/Extraction 2 (1).
+  - Planet upkeep per Cycle: 2, 2, 3, then n for the nth Planet. Outposts cost nothing.
+  - Each development beyond the first in a system costs 1 per Cycle. This is charged by the Duke tick on the global Cycle grid `floor(now / 7d)`, which the Senate and the Duke layer also use.
+  - Other sources: Stipends, Hold Court +1, a first-Probe derelict +15, Lend Fleet +4, grievance plunder.
+  - Sinks: Senate proposals (15), grievances (5), and wagers on Move Against the Court.
+- **Production is a daily rate, not a wallet** (`galaxy-production-queue.ts`, `galaxy-duke-engine/galaxy-duke-config.ts`).
+  - Each Planet's system has a rate: Industrial/Extraction 6/day, Logistics 4, Trade/Capital 2. A Harvester adds +3 and a Mining Station +2.
+  - Production is never spent; it only sets build time: `min(24 h, baseHours × 6 / rate)`. Base hours: Fighter 8, Probe 4, Refit 4, Base 8, Develop 16. Builds have no cost.
+  - Space View shows the summed rate as "N/day".
+- **Legacy Production wallet:** the `production` field of the economy balance. The Cycle adds 0 to it and nothing else credits it. Only the unused legacy fleet endpoints (below) spend it.
+
+### Stability
+
+- Each Planet and Outpost has Stability 0–100, starting at 100.
+- Each Cycle: if the Influence balance is still negative after that Cycle's income and upkeep, the single lowest-Stability territory loses 8; otherwise all territories gain 15.
+- Other effects:
+  - A raid or Warden hit that gets through: −20.
+  - Fortify (a system's daily order): +15.
+  - Cryo Refinery: +6 per Cycle.
+  - Blind Eye: −4 per Cycle on the weakest Sector.
+- At 0 a Sector is marked contested and queued for a Defense Campaign (`galaxy-defense-campaign-store`). Nothing else happens: no season rollover consumes that queue (see "Not live" below), so the Sector stays held and heals normally.
+
+### Duke layer
+
+Server code: `galaxy-duke-engine/`, `galaxy-duke-service/`, `galaxy-duke-routes/`, `galaxy-court/`. Client: `packages/client/src/client-duke-panel/`. The scheduler runs every 60 s.
+
+- **Systems:** one per Planet, with 2–4 bodies fixed from the `seasonId` (`packages/shared/src/galaxy-system-bodies.ts`). On a body you build a Base, then Develop it:
+  - Gas Giant → Harvester (+3 Production/day).
+  - Asteroid Belt → Mining Station (+2 Production/day).
+  - Ice Moon → Cryo Refinery (+6 Stability/Cycle).
+- **Daily rhythm (nothing banks):**
+  - Each system gets one *order* per 24 h: build (Fighter, Probe, Refit, Base, Develop), Fortify, or launch a Probe or raid.
+  - Each Duke gets one *decree* per 24 h: Hold Court, Move Against the Court, Declare Grievance, or Lend Fleet.
+- **Ships:** Fighter (weapons 3, armour 2, hull 100). Caps: 3 Fighters per system and 3 Probes in stock. Travel: Probe about 9.6 h, Fighter 12 h.
+- **Probes** survey a system and give live intel while in orbit. The first Probe to reach a system has an 8% chance of a derelict worth +15 Influence.
+- **Raids:** the target must be surveyed first. The attacker's Fighter fights the healthiest defending Fighter; the raid gets through if there is no defender or the defender ends at ≤ 40 hull. Getting through costs the target 20 Stability.
+- **Wardens:** about 3 incursions per Cycle, spread across player-held Planets and announced 24 h ahead. A Fighter always repels one; with no Fighter the system loses 20 Stability.
+- **The Court:**
+  - Court Strength starts at 10 × 30 Sectors. It falls 10 for each player-held Planet captured this era and by Influence wagered ÷ 5. Accepted Writs give it +3.
+  - Writs are occasional private offers: a free Fighter, or a Court strike on a rival.
+  - Blind Eye: when the top Duke has ≥ 1.5× second place's Domain Weight for 7 days, that Duke loses Court protection, grievances against them are free, and their weakest Sector drains.
+  - Lend Fleet resets the Blind Eye timer.
+  - Grievances (14 days) earn Renown and plunder up to 3 Influence for each hit that gets through.
+- **Convergence:** when Court Strength reaches 0, the Duke with the top Domain Weight becomes Emperor of the era. The era goes into the Hall of Fame (`GET /hq/galaxy/court`) and a new era starts with a full Court (`galaxy-duke-convergence.ts`).
+
+### Senate
+
+`galaxy-senate-routes/`, `galaxy-senate-scheduler/`; client `client-senate-panel/`.
+
+- Only **Embargo** can be proposed. The proposer must hold a Planet and pay 15 Influence.
+- It resolves at the next global Cycle boundary and passes with ≥ 25% of total vote weight from ≥ 3 voters.
+- Vote weight is Planets × 10 + Outposts × 3 + total Stability / 100. AI Dukes don't vote.
+- A passed Embargo halves the target's Influence income until the Cycle 2 after it passed.
+
+### Not live
+
+- **Defense Campaign seasons and Imperial Ward endorsements.** The code exists (`galaxy-endorsement-auto-start.ts`, `recordTransfer`), and holdings and Sector numbering honour transfers. But `startImperialWardAutoStartTimer` is never started, so the contested queue is never consumed, no ownership ever transfers, and endorsements are stored but never applied.
+- **Legacy fleets.** `galaxy-fleet-*` and `POST /hq/galaxy/fleets/send` / `garrison/invest` are still wired and spend the unfunded Production wallet. Their client panel (`client-fleet-panel`) is not mounted. Space View still polls their fleet lists for overlay markers.
+- **Unused helper.** `daysToComplete` in `galaxy-production-queue.ts` is used only by its test.
+- **Never built:** Wonders, Alliance Blocs, Senate actions other than Embargo, an elective throne, Outposts as build systems, developments moving with a transferred system, Stipends for seasons nobody won.
