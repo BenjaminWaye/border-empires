@@ -20,10 +20,12 @@ import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 export const releaseQueuedBuildReservation = (
   summary: Pick<PlayerRuntimeSummary, "devQueue">,
   player: Pick<DomainPlayer, "manpower">,
-  tileKey: string
+  tileKey: string,
+  structureType: string
 ): void => {
   const entry = devQueueEntryForTileKey(summary.devQueue, tileKey);
-  if (entry?.kind !== "BUILD" || !entry.structureType || entry.structureType === "REMOVE_STRUCTURE") return;
+  // Only the entry this build is: a different queued structure on the tile keeps its place and its hold.
+  if (entry?.kind !== "BUILD" || entry.structureType !== structureType) return;
   if (entry.reservedManpower) player.manpower = Math.max(0, player.manpower) + entry.reservedManpower;
   summary.devQueue = devQueueCancel(summary.devQueue, tileKey);
 };

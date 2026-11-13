@@ -364,7 +364,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   const fortCharge = fortTier ? fortBuildManpowerCharge(actor, fortTier.variant, target.fort?.variant, manpowerCost) : undefined;
   manpowerCost = fortCharge ? fortCharge.manpower : structureManpowerCostForPlayer(actor, slotStructureType, manpowerCost);
   // A client-dispatched queued build pays from its own dev-queue hold, once (dev-queue-build-release.ts).
-  if (context.summaryForPlayer) releaseQueuedBuildReservation(context.summaryForPlayer(actor.id), actor, simulationTileKey(payload.x, payload.y));
+  if (context.summaryForPlayer) releaseQueuedBuildReservation(context.summaryForPlayer(actor.id), actor, simulationTileKey(payload.x, payload.y), structureType);
   if (actor.points < goldCost) {
     rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient coin for ${structureLabel(structureType)}`);
     return;

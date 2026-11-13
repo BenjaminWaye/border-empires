@@ -77,19 +77,20 @@ describe("releaseQueuedBuildReservation", () => {
   it("returns the hold unclamped and drops the entry", () => {
     const summary = { devQueue: [{ tileKey: "1,1", x: 1, y: 1, kind: "BUILD" as const, structureType: "MANUFACTORY", reservedManpower: 150, enqueuedAt: 0 }] };
     const player = { manpower: 5 };
-    releaseQueuedBuildReservation(summary, player, "1,1");
+    releaseQueuedBuildReservation(summary, player, "1,1", "MANUFACTORY");
     expect(player.manpower).toBe(155);
     expect(summary.devQueue).toEqual([]);
   });
 
-  it("leaves garrisons, removals and other tiles alone", () => {
+  it("leaves garrisons, removals, other structures and other tiles alone", () => {
     const entries = [
       { tileKey: "1,1", x: 1, y: 1, kind: "SETTLE" as const, reservedManpower: 20, enqueuedAt: 0 },
-      { tileKey: "2,2", x: 2, y: 2, kind: "BUILD" as const, structureType: "REMOVE_STRUCTURE", enqueuedAt: 0 }
+      { tileKey: "2,2", x: 2, y: 2, kind: "BUILD" as const, structureType: "REMOVE_STRUCTURE", enqueuedAt: 0 },
+      { tileKey: "4,4", x: 4, y: 4, kind: "BUILD" as const, structureType: "FORT", reservedManpower: 300, enqueuedAt: 0 }
     ];
     const summary = { devQueue: entries };
     const player = { manpower: 5 };
-    for (const key of ["1,1", "2,2", "3,3"]) releaseQueuedBuildReservation(summary, player, key);
+    for (const key of ["1,1", "2,2", "3,3", "4,4"]) releaseQueuedBuildReservation(summary, player, key, "MANUFACTORY");
     expect(player.manpower).toBe(5);
     expect(summary.devQueue).toBe(entries);
   });
