@@ -23,11 +23,11 @@ const silentLog = { info: () => undefined, error: () => undefined, warn: () => u
 
 type RawSimulationClient = {
   StartNextSeason?: (
-    request: { force: boolean; imperial_ward_json: string },
+    request: { force: boolean },
     callback: (error: Error | null, response: { ok: boolean; season_id?: string }) => void
   ) => void;
   startNextSeason?: (
-    request: { force: boolean; imperial_ward_json: string },
+    request: { force: boolean },
     callback: (error: Error | null, response: { ok: boolean; season_id?: string }) => void
   ) => void;
 };
@@ -52,7 +52,7 @@ const startNextSeason = async (client: RawSimulationClient, force: boolean): Pro
   const rpc = client.StartNextSeason ?? client.startNextSeason;
   if (!rpc) throw new Error("StartNextSeason RPC unavailable in integration test");
   return await new Promise((resolve, reject) => {
-    rpc.call(client, { force, imperial_ward_json: "" }, (error, response) => {
+    rpc.call(client, { force }, (error, response) => {
       if (error) {
         reject(error);
         return;

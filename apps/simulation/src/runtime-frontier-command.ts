@@ -79,11 +79,6 @@ export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   /** The player's live aether bridges: bridge crossings, and a muster company crosses them on foot. */
   activeAetherBridgesForPlayer: (playerId: string) => readonly ActiveAetherBridgeView[];
   crossingBlockedByAetherWall: (x1: number, y1: number, x2: number, y2: number) => boolean;
-  // Emperor-endorsement bonus (galaxy meta-layer Phase 1): true while the
-  // tile's owner has an active Imperial Ward — blocks ATTACK-lock creation
-  // outright (full invulnerability), unlike Aegis Lock's resolution-time
-  // "attack always loses" mechanism.
-  isTileWardedByImperialWard: (targetOwnerId: string | undefined) => boolean;
   resolveMusterSource: (playerId: string, originKey: string, required: number, preferred?: string) => MusterSourceResult | undefined;
   requiredMusterForTarget: (target: DomainTileState, attackerId?: string) => number;
   buildLockedCombatResolution: (lock: LockedCombatInput) => LockedCombatResolution | undefined;
@@ -234,7 +229,6 @@ export const handleFrontierCommandImpl = (
     isDockCrossing,
     isBridgeCrossing,
     originIsAlliedDockCrossing,
-    targetShielded: ctx.isTileWardedByImperialWard(to.ownerId),
     crossingBlockedByAetherWall: isDockCrossing ? false : ctx.crossingBlockedByAetherWall(from.x, from.y, clickedTo.x, clickedTo.y),
     defenderIsAlliedOrTruced: Boolean(to.ownerId && isAlliedOrTruced(actor, to.ownerId)),
     expandClaimDurationMs,
@@ -246,8 +240,7 @@ export const handleFrontierCommandImpl = (
     // player's normal Chebyshev reach border by design (that's the whole
     // point of both -- linking distant landmasses/points with no anchor of
     // your own there yet) -- gating either on isInReach as well would block
-    // the very crossings they exist to enable. Same carve-out targetShielded
-    // already gives dock crossings above.
+    // the very crossings they exist to enable.
     isInReach: isDockCrossing || isBridgeCrossing ? true : ctx.isInReach(actor.id, clickedTo.x, clickedTo.y) || isEnemyBorderContact
   });
 

@@ -9,7 +9,6 @@ import { applyPlayerUpdateManpowerFields } from "../client-player-update-manpowe
 import { COMBAT_LOCK_MS, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
-import { ABILITY_RESULT_MESSAGE_TYPES, applyAbilityResultMessage } from "../client-ability-result-messages/client-ability-result-messages.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
 import { parseServerMessage } from "../client-server-clock/client-server-clock.js";
@@ -2406,11 +2405,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       requestViewRefresh(1, true);
       renderHud();
       return;
-    }
-
-    if (typeof msg.type === "string" && ABILITY_RESULT_MESSAGE_TYPES.has(msg.type)) {
-      applyAbilityResultMessage(state, msg);
-      renderHud();
     }
     } catch (error) {
       console.error("[client-network] unhandled message processing error", error, { msgType: msg?.type });

@@ -27,9 +27,9 @@ const baseInitialState = (playerOverrides: Record<string, unknown> = {}): Initia
 // Regression: same allowlist-gap class as the durable-queues regression above
 // (init-payload.durable-queues-regression.test.ts) -- the INIT payload's
 // `player` object is built as an explicit field-by-field allowlist, and these
-// four fields were never on it even though the client reads them off
-// msg.player unconditionally. imperialWardCharges and wonderLastFreeRushBuyAt
-// are assigned with no `??` fallback client-side, so a missing value here
+// fields were never on it even though the client reads them off
+// msg.player unconditionally. wonderLastFreeRushBuyAt
+// is assigned with no `??` fallback client-side, so a missing value here
 // actively wiped them on every reconnect.
 describe("buildGatewayInitPayload reconnect fields", () => {
   it("carries eventLog through to the INIT payload's player object", () => {
@@ -50,16 +50,6 @@ describe("buildGatewayInitPayload reconnect fields", () => {
     expect(init.player.logisticsThroughputPerMinute).toBe(42);
   });
 
-  it("carries imperialWardCharges through to the INIT payload's player object", () => {
-    const init = buildGatewayInitPayload(
-      { playerId: "player-1", playerName: "Nauticus" },
-      baseInitialState({ imperialWardCharges: 3 }),
-      "default"
-    );
-
-    expect(init.player.imperialWardCharges).toBe(3);
-  });
-
   it("carries wonderLastFreeRushBuyAt through to the INIT payload's player object", () => {
     const init = buildGatewayInitPayload(
       { playerId: "player-1", playerName: "Nauticus" },
@@ -70,12 +60,11 @@ describe("buildGatewayInitPayload reconnect fields", () => {
     expect(init.player.wonderLastFreeRushBuyAt).toBe(5000);
   });
 
-  it("omits all four fields when the snapshot has no values for them", () => {
+  it("omits all three fields when the snapshot has no values for them", () => {
     const init = buildGatewayInitPayload({ playerId: "player-1", playerName: "Nauticus" }, baseInitialState(), "default");
 
     expect(init.player.eventLog).toBeUndefined();
     expect(init.player.logisticsThroughputPerMinute).toBeUndefined();
-    expect(init.player.imperialWardCharges).toBeUndefined();
     expect(init.player.wonderLastFreeRushBuyAt).toBeUndefined();
   });
 

@@ -18,7 +18,6 @@ describe("commitManpower (D6 commitment choice)", () => {
     isAdjacent: true,
     isDockCrossing: false,
     isBridgeCrossing: false,
-    targetShielded: false,
     crossingBlockedByAetherWall: false,
     defenderIsAlliedOrTruced: false,
     requiredMuster: 60

@@ -703,5 +703,5 @@ one `resources` switch; `parseAutoSettleCategoryPrefs` applies it to both.
   auto-settle regardless. A category left off keeps its candidates in the
   bounded eligible queue, and switching it on (`SET_AUTO_SETTLE_PREFS`, also in
   Settings > Gameplay) drains them immediately.
-- Persistence is snapshot-only (like `imperialWardCharges`), so a crash between
+- Persistence is snapshot-only, so a crash between
   checkpoints can re-ask a player who had just answered.

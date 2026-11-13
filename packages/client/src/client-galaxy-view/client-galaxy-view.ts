@@ -3,12 +3,10 @@ import { onAuthStateChanged, type Auth } from "firebase/auth";
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 import {
   renderGalaxyViewHtml,
-  renderEmperorSectionHtml,
   type GalaxyViewPlanet,
   type GalaxyViewOutpost,
   type GalaxyViewStipend,
-  type GalaxyViewEconomy,
-  type GalaxyEmperorViewModel
+  type GalaxyViewEconomy
 } from "./galaxy-view-html.js";
 
 type GalaxyMeResponse = {
@@ -18,8 +16,6 @@ type GalaxyMeResponse = {
   economy?: GalaxyViewEconomy;
 };
 type GalaxyNameResponse = { ok?: boolean; error?: string; planet?: { planetName: string } };
-type GalaxyEmperorResponse = Partial<GalaxyEmperorViewModel> & { ok?: boolean };
-type GalaxyEndorseResponse = { ok?: boolean; error?: string; endorsement?: { targetPlayerId: string; createdAt: number } };
 
 const galaxyStyle = `
   /* Positioned to clear the always-on chrome that already owns the bottom-right
@@ -90,15 +86,6 @@ const galaxyStyle = `
   .gx-holdings{position:relative;margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.14);text-align:center}
   .gx-holding-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
   .gx-holding-row{color:#cbd5e1;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
-  .gx-emperor{position:relative;margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.14);text-align:center}
-  .gx-emperor-copy{margin:0 0 8px;color:#cbd5e1;font-size:14px}
-  .gx-emperor-countdown{margin:0 0 8px;color:#facc15;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
-  .gx-emperor-current{margin:0 0 8px;color:#94a3b8;font-size:13px}
-  .gx-emperor form{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-  .gx-emperor input{min-width:0;border:1px solid rgba(255,255,255,.18);border-radius:6px;background:#020617;color:#f8fafc;padding:10px}
-  .gx-emperor button{border:0;border-radius:6px;background:#facc15;color:#082f49;font-weight:700;padding:0 14px}
-  .gx-emperor-error{margin:10px 0 0;color:#fca5a5;font-size:13px}
-  .gx-emperor-error[hidden]{display:none}
 `;
 
 // #hud is `position:fixed` with no explicit z-index, which per the CSS
@@ -141,7 +128,7 @@ const buildPanel = (): { overlay: HTMLElement; body: HTMLElement; launcher: HTML
 };
 
 export type GalaxyViewHandle = {
-  // Opens the galaxy overlay (planet card, christening, Emperor section)
+  // Opens the galaxy overlay (planet card, christening)
   // programmatically — used by Space View so a Planet-owning account gets
   // exactly one entry-point button instead of two. No-ops if the overlay
   // hasn't finished its own `/hq/galaxy/me` load yet.
@@ -157,14 +144,11 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): G
   let stipends: GalaxyViewStipend[] = [];
   let economy: GalaxyViewEconomy | undefined;
   let focusedSeasonId = "";
-  let emperorModel: GalaxyEmperorViewModel = { emperor: null, windowOpenUntil: null, endorsement: null, isEmperor: false };
   let panel: { overlay: HTMLElement; body: HTMLElement; launcher: HTMLButtonElement } | undefined;
 
   const render = (): void => {
     if (!panel) return;
-    panel.body.innerHTML =
-      renderGalaxyViewHtml({ planets, focusedSeasonId, outposts, stipends, ...(economy ? { economy } : {}) }) +
-      renderEmperorSectionHtml(emperorModel);
+    panel.body.innerHTML = renderGalaxyViewHtml({ planets, focusedSeasonId, outposts, stipends, ...(economy ? { economy } : {}) });
   };
 
   const christen = async (form: HTMLFormElement): Promise<void> => {
@@ -203,42 +187,6 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): G
     }
   };
 
-  const endorse = async (form: HTMLFormElement): Promise<void> => {
-    const container = form.closest<HTMLElement>("[data-galaxy-emperor]");
-    const input = form.querySelector<HTMLInputElement>("[data-galaxy-endorse-target]");
-    const errorEl = container?.querySelector<HTMLElement>("[data-galaxy-endorse-error]");
-    const user = deps.firebaseAuth?.currentUser;
-    if (!input || !user) return;
-    const targetValue = input.value.trim();
-    const showError = (message: string): void => {
-      if (!errorEl) return;
-      errorEl.hidden = false;
-      errorEl.textContent = message;
-    };
-    if (!targetValue) {
-      showError("Enter a player email or ID.");
-      return;
-    }
-    const isEmail = targetValue.includes("@");
-    try {
-      const token = await user.getIdToken();
-      const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/endorse`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(isEmail ? { targetEmail: targetValue } : { targetAuthUid: targetValue })
-      });
-      const body = (await response.json().catch(() => undefined)) as GalaxyEndorseResponse | undefined;
-      if (!response.ok || !body?.ok || !body.endorsement) {
-        showError(body?.error ?? "Could not endorse that player.");
-        return;
-      }
-      emperorModel = { ...emperorModel, endorsement: body.endorsement };
-      render();
-    } catch {
-      showError("Could not endorse that player. Try again.");
-    }
-  };
-
   const ensureMounted = (showLauncher: boolean): void => {
     if (panel) {
       // Ownership state can change between loads (e.g. a Planet is newly
@@ -269,12 +217,6 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): G
       if (christenForm) {
         event.preventDefault();
         void christen(christenForm);
-        return;
-      }
-      const endorseForm = target.closest<HTMLFormElement>("[data-galaxy-endorse-form]");
-      if (endorseForm) {
-        event.preventDefault();
-        void endorse(endorseForm);
       }
     });
   };
@@ -314,37 +256,12 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): G
     }
   };
 
-  const loadEmperor = async (): Promise<void> => {
-    const user = deps.firebaseAuth?.currentUser;
-    if (!user) return;
-    try {
-      const token = await user.getIdToken();
-      const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/emperor`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
-      });
-      if (!response.ok) return;
-      const body = (await response.json().catch(() => undefined)) as GalaxyEmperorResponse | undefined;
-      if (!body?.ok) return;
-      emperorModel = {
-        emperor: body.emperor ?? null,
-        windowOpenUntil: body.windowOpenUntil ?? null,
-        endorsement: body.endorsement ?? null,
-        isEmperor: body.isEmperor ?? false
-      };
-      render();
-    } catch {
-      // Network hiccup: the Emperor section just stays hidden until the next auth event.
-    }
-  };
-
   if (deps.firebaseAuth) {
     onAuthStateChanged(deps.firebaseAuth, () => {
       void load();
-      void loadEmperor();
     });
   }
   void load();
-  void loadEmperor();
 
   return {
     open: () => {

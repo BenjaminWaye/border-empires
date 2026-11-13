@@ -66,7 +66,6 @@ import { handleGetSeasonParticipationForPlayer, type ProtoSeasonArchivesResponse
 import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
 import { handleGetPersonalActivityTimeline, type ProtoPersonalActivityTimelineRequest, type ProtoPersonalActivityTimelineResponse } from "../personal-activity-aggregation/personal-activity-timeline-rpc-handler.js";
 import { handleGetCurrentSeasonSummary, handleListSeasonArchives } from "../season-summary-rpc-handlers.js";
-import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
@@ -150,7 +149,7 @@ type ProtoGetAiDecisionDiagnosticsResponse = {
   ok: boolean;
   diagnostics_json?: string;
 };
-type ProtoStartNextSeasonRequest = { force?: boolean; imperial_ward_json?: string; defense_campaign_target_season_id?: string };
+type ProtoStartNextSeasonRequest = { force?: boolean; defense_campaign_target_season_id?: string };
 type ProtoStartNextSeasonResponse = {
   ok: boolean;
   season_id: string;
@@ -1592,7 +1591,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   await restoreSeasonActivityState(seasonSummaryStore, currentSeasonState.seasonId, runtime);
   await restoreScoreHistory(seasonSummaryStore, currentSeasonState.seasonId, scoreHistorySampler);
   await recomputeAndPersistCurrentSummary({ forcePersist: true });
-  const startNextSeason = async (force = false, pendingImperialWard?: { playerId: string; charges: number }, defenseCampaignTargetSeasonId?: string): Promise<{ seasonId: string }> => {
+  const startNextSeason = async (force = false, defenseCampaignTargetSeasonId?: string): Promise<{ seasonId: string }> => {
     if (seasonRolloverInFlight) throw new Error("season rollover already in progress");
     if (currentSeasonState.status !== "ended" && !force) {
       throw new Error("cannot start next season before current season has ended");
@@ -1636,7 +1635,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         onVisibilityAudit: handleVisibilityAudit,
         trackSyncMainThreadTask: trackSyncMainThreadTaskWithMetrics,
         onCaptureRevealBuilt: captureRevealBuildSample, isPlayerSubscribed: (playerId) => subscriptionRegistry.isSubscribed(playerId),
-        ...(pendingImperialWard ? { pendingImperialWard } : {}), ...(currentSeasonState.winner ? { pendingGalacticWonderBonus: { playerId: currentSeasonState.winner.playerId } } : {}), // v0 Wonder-style starting bonus (§5, §12)
+        ...(currentSeasonState.winner ? { pendingGalacticWonderBonus: { playerId: currentSeasonState.winner.playerId } } : {}), // v0 Wonder-style starting bonus (§5, §12)
         shouldPauseBackground: () => {
           if (loginExportsInFlight > 0) {
             simulationMetrics.incrementSimLoginExportPausedDrain();
@@ -2123,7 +2122,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       call: { request: ProtoStartNextSeasonRequest },
       callback: (error: Error | null, response: ProtoStartNextSeasonResponse) => void
     ) {
-      void startNextSeason(call.request.force === true, parsePendingImperialWard(call.request.imperial_ward_json), call.request.defense_campaign_target_season_id || undefined)
+      void startNextSeason(call.request.force === true, call.request.defense_campaign_target_season_id || undefined)
         .then((result) => callback(null, { ok: true, season_id: result.seasonId }))
         .catch((error) =>
           callback(error instanceof Error ? error : new Error("failed to start next season"), {

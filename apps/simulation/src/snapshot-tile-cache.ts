@@ -33,7 +33,6 @@ export type RuntimeState = {
     afcCoreTownKeys?: string[];
     afcScarcityFoodSlots?: number;
     chosenTrickleResource?: "TITANIUM" | "UMBRITE" | "CRYSTAL";
-    imperialWardCharges?: number;
     lifetimeGarrisons?: number;
     autoSettle?: AutoSettlePrefs;
     wonderLastFreeRushBuyAt?: number;

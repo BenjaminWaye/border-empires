@@ -324,10 +324,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // an instant one-time army at the anchor tile, then freezes empire-wide
   // manpower regen for 2 hours.
   z.object({ type: z.literal("TITANIUM_LEVY_MUSTER"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
-  // Emperor-endorsement bonus: burns one Imperial Ward charge, granting the
-  // player 10 minutes of total invulnerability on all owned tiles. No anchor
-  // tile — a pure per-player toggle, unlike AEGIS_LOCK.
-  z.object({ type: z.literal("ACTIVATE_IMPERIAL_WARD"), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("SUPPRESS_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("HIJACK_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("FORCED_ANCILLARIFICATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),

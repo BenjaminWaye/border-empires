@@ -22,7 +22,6 @@ import type { PlayerFunnelTracker } from "../player-funnel-tracker/player-funnel
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
-import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import type { GalaxyFleetStore } from "../galaxy-fleet-store/galaxy-fleet-store.js";
 import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js";
@@ -77,7 +76,6 @@ export type BuildGatewayHttpRoutesDepsContext = {
   galaxyPlanetStore: GalaxyPlanetStore;
   galaxyEconomyStore: GalaxyEconomyStore;
   galaxySenateStore: GalaxySenateStore;
-  galaxyEndorsementStore: GalaxyEndorsementStore;
   galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
   galaxyFleetStore?: GalaxyFleetStore;
   galaxyBattleLogStore?: GalaxyBattleLogStore;
@@ -225,7 +223,6 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     galaxyPlanetStore: ctx.galaxyPlanetStore,
     galaxyEconomyStore: ctx.galaxyEconomyStore,
     galaxySenateStore: ctx.galaxySenateStore,
-    galaxyEndorsementStore: ctx.galaxyEndorsementStore,
     ...(ctx.galaxyDefenseCampaignStore ? { galaxyDefenseCampaignStore: ctx.galaxyDefenseCampaignStore } : {}),
     ...(ctx.galaxyFleetStore ? { galaxyFleetStore: ctx.galaxyFleetStore } : {}),
     ...(ctx.galaxyBattleLogStore ? { galaxyBattleLogStore: ctx.galaxyBattleLogStore } : {}),

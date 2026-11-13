@@ -8,8 +8,8 @@ import { describe, expect, it } from "vitest";
 // START_NEW_SEASON vote path -- this asserts the auto-start timer is not
 // wired back into gateway-app.ts's startup sequence.
 describe("gateway-app season rollover wiring", () => {
-  it("never calls startImperialWardAutoStartTimer on startup", () => {
+  it("never calls startDefenseCampaignAutoStartTimer on startup", () => {
     const source = readFileSync(fileURLToPath(new URL("./gateway-app.ts", import.meta.url)), "utf8");
-    expect(source).not.toContain("startImperialWardAutoStartTimer");
+    expect(source).not.toContain("startDefenseCampaignAutoStartTimer");
   });
 });

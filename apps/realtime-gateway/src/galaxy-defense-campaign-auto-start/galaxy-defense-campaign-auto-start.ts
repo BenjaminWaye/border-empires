@@ -1,24 +1,17 @@
 import type { CurrentSeasonSummary } from "@border-empires/sim-protocol";
-import { IMPERIAL_WARD_CHARGES_GRANTED } from "@border-empires/game-domain";
-
-import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
-import { IMPERIAL_WARD_ENDORSEMENT_WINDOW_MS } from "../galaxy-endorsement-routes/galaxy-endorsement-routes.js";
 
-export type GalaxyEndorsementAutoStartDeps = {
+// How long after a season ends before this timer starts the next one.
+export const SEASON_AUTO_START_DELAY_MS = 60 * 60_000;
+
+export type GalaxyDefenseCampaignAutoStartDeps = {
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
-  startNextSeason: (
-    force?: boolean,
-    imperialWard?: { playerId: string; charges: number },
-    defenseCampaignTargetSeasonId?: string
-  ) => Promise<{ seasonId: string }>;
-  endorsementStore: GalaxyEndorsementStore;
+  startNextSeason: (force?: boolean, defenseCampaignTargetSeasonId?: string) => Promise<{ seasonId: string }>;
   // Optional (§7/§11 Defense Campaign auto-scheduling): all three of these
   // must be present together to enable it -- a deployment missing any one
-  // just keeps today's behavior (Imperial Ward only, next season is always
-  // Frontier).
+  // just keeps today's behavior (next season is always Frontier).
   galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
   galaxyEconomyStore?: GalaxyEconomyStore;
   authBindingStore?: GatewayAuthBindingStore;
@@ -33,11 +26,10 @@ export type GalaxyEndorsementAutoStartDeps = {
 // season, so it's a free, stateless way to get the same guarantee.
 const isReservedFrontierSlot = (nextSeasonSequence: number): boolean => nextSeasonSequence % 3 === 0;
 
-// Season start never blocks on the Emperor: once the one-hour endorsement
-// window elapses, the next season auto-starts, applying whatever endorsement
-// (if any) was picked. No pick just means no Imperial Ward grant.
-//
-// Also the single hook point for Defense Campaign auto-scheduling (§7/§11):
+// NOT wired into gateway-app.ts: season rollover only happens via the
+// START_NEW_SEASON vote (gateway-app.no-auto-season-start.regression.test.ts).
+// Once a season has been ended for SEASON_AUTO_START_DELAY_MS, this starts the
+// next one. It is the hook point for Defense Campaign auto-scheduling (§7/§11):
 // this is the one place in the gateway that decides "what season starts
 // next" on the natural end-of-season path, so it's where (a) a just-ended
 // Defense Campaign's ownership transfer gets applied, and (b) the next
@@ -45,7 +37,7 @@ const isReservedFrontierSlot = (nextSeasonSequence: number): boolean => nextSeas
 // timer racing this one to call startNextSeason would risk a double
 // rollover attempt, so this logic is added here rather than as its own
 // competing scheduler.
-export const startImperialWardAutoStartTimer = (deps: GalaxyEndorsementAutoStartDeps): { stop: () => void } => {
+export const startDefenseCampaignAutoStartTimer = (deps: GalaxyDefenseCampaignAutoStartDeps): { stop: () => void } => {
   const now = deps.now ?? (() => Date.now());
   let inFlight = false;
 
@@ -88,7 +80,7 @@ export const startImperialWardAutoStartTimer = (deps: GalaxyEndorsementAutoStart
       const summary = await deps.getCurrentSeasonSummary();
       const deadlineAnchor = summary.seasonWinner?.crownedAt ?? summary.endedAt;
       if (summary.status !== "ended" || typeof deadlineAnchor !== "number") return;
-      if (now() - deadlineAnchor < IMPERIAL_WARD_ENDORSEMENT_WINDOW_MS) return;
+      if (now() - deadlineAnchor < SEASON_AUTO_START_DELAY_MS) return;
 
       // Isolated from the rest of the tick: a failure applying a Defense
       // Campaign's ownership transfer must not block the season rollover
@@ -103,15 +95,9 @@ export const startImperialWardAutoStartTimer = (deps: GalaxyEndorsementAutoStart
         deps.onError?.(error);
       }
 
-      const endorsement = await deps.endorsementStore.getByEndedSeasonId(summary.seasonId);
-      const imperialWard =
-        endorsement && !endorsement.appliedAt
-          ? { playerId: endorsement.targetPlayerId, charges: IMPERIAL_WARD_CHARGES_GRANTED }
-          : undefined;
-
       const defenseCampaignTarget = await pickNextDefenseCampaignTarget(summary.seasonSequence + 1);
       try {
-        await deps.startNextSeason(false, imperialWard, defenseCampaignTarget?.targetSeasonId);
+        await deps.startNextSeason(false, defenseCampaignTarget?.targetSeasonId);
       } catch (error) {
         // Compensate: startNextSeason failing after we already popped a
         // contested territory off the queue would otherwise lose it forever
@@ -127,7 +113,6 @@ export const startImperialWardAutoStartTimer = (deps: GalaxyEndorsementAutoStart
         }
         throw error;
       }
-      if (endorsement) await deps.endorsementStore.markApplied(summary.seasonId);
     } catch (error) {
       deps.onError?.(error);
     } finally {
