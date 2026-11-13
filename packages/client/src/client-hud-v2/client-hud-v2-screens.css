@@ -107,10 +107,11 @@ body.hud-v2-screen-afc #side-panel {
 .v2m-own { color: var(--v2-green-hi); }
 .v2m-avail { color: #9fc1ea; }
 .v2m-pips { display: flex; gap: 3px; }
-.v2m-pips i, .v2m-legend i { display: inline-block; width: 9px; height: 9px; }
-.v2m-pip-owned { background: #2f5a33; border: 1px solid var(--v2-green); }
-.v2m-pip-available { background: #2c4a6b; border: 1px solid var(--v2-blue); }
-.v2m-pip-locked { background: #2a241b; border: 1px solid var(--v2-edge); }
+.v2m-pips i, .v2m-legend i { display: inline-grid; place-items: center; width: 11px; height: 11px; box-sizing: border-box; font-style: normal; font-size: 9px; line-height: 1; }
+/* Shape per state, not only colour: tick / hollow / hatched (manifestPipHtml). */
+.v2m-pip-owned { background: #2f5a33; border: 1px solid var(--v2-green); color: #e8f5e4; font-weight: 700; }
+.v2m-pip-available { background: transparent; border: 2px solid var(--v2-blue); border-radius: 50%; }
+.v2m-pip-locked { background: repeating-linear-gradient(45deg, #2a241b 0 2px, #6b5e49 2px 3px); border: 1px solid var(--v2-edge); }
 .v2m-seg { position: absolute; background: #4a3f2c; }
 .v2m-seg-path { background: var(--v2-gold); }
 .v2m-seg-owned { background: var(--v2-green); }
@@ -197,6 +198,9 @@ body.hud-v2-screen-afc #side-panel {
 .v2r-stand { display: grid; grid-template-columns: 24px 30px minmax(0, 1fr) 70px 56px; gap: 8px; align-items: center; padding: 5px 4px; border: 0; background: none; text-align: left; }
 .v2r-stand:hover { background: #221c13; }
 .v2r-stand .v2r-crest { width: 24px; height: 24px; font-size: 11px; border-width: 1px; }
+/* Two-letter crest when empires share an initial (client-hud-v2-crest-letters.ts). */
+.v2r-crest.v2r-crest-2 { font-size: 12px; letter-spacing: -0.02em; }
+.v2r-stand .v2r-crest-2, .v2r-rival.v2r-crest-2 { font-size: 9.5px; }
 .v2r-stand-you .v2r-stand-name { color: var(--v2-gold-hi); }
 .v2r-rank { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-muted); }
 .v2r-stand-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; }

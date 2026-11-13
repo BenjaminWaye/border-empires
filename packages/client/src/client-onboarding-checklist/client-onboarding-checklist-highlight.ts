@@ -31,12 +31,61 @@ export const drawOnboardingChecklistHighlights = (
   ctx.save();
   for (const tile of tiles) {
     const { sx, sy } = deps.worldToScreen(tile.x, tile.y, deps.size, deps.halfW, deps.halfH);
+    // Dark halo first: the pale-green ring alone vanished on pale-green and
+    // beige land for a deuteranope (playtest 2026-11-12), so the marker reads
+    // by lightness contrast, not hue.
+    ctx.globalAlpha = Math.min(1, pulse + 0.2);
+    ctx.strokeStyle = GUIDE_MARKER_HALO;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.globalAlpha = pulse;
-    ctx.strokeStyle = "rgba(126, 224, 138, 0.95)";
+    ctx.strokeStyle = GUIDE_MARKER_RING;
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(sx, sy, radius, 0, Math.PI * 2);
     ctx.stroke();
+    drawGuideChevrons(ctx, sx, sy, radius, deps.size);
   }
   ctx.restore();
+};
+
+export const GUIDE_MARKER_RING = "rgba(126, 224, 138, 0.95)";
+export const GUIDE_MARKER_HALO = "rgba(12, 20, 14, 0.85)";
+
+/**
+ * Shape cue: four arrowheads outside the ring pointing in at the tile, so the
+ * marker is findable without telling its colour from the land's. Exported for
+ * the regression test; the 3D overlay draws the same four arrowheads.
+ */
+type Point = [number, number];
+export type GuideChevron = [Point, Point, Point];
+
+export const guideChevronTriangles = (sx: number, sy: number, radius: number, size: number): GuideChevron[] => {
+  const tipGap = radius + Math.max(3, size * 0.06);
+  const depth = Math.max(5, size * 0.18);
+  const halfWidth = depth * 0.7;
+  const directions: Point[] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  return directions.map(([dx, dy]): GuideChevron => {
+    const baseX = sx + dx * (tipGap + depth);
+    const baseY = sy + dy * (tipGap + depth);
+    return [[sx + dx * tipGap, sy + dy * tipGap], [baseX - dy * halfWidth, baseY + dx * halfWidth], [baseX + dy * halfWidth, baseY - dx * halfWidth]];
+  });
+};
+
+const drawGuideChevrons = (ctx: CanvasRenderingContext2D, sx: number, sy: number, radius: number, size: number): void => {
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = GUIDE_MARKER_RING;
+  ctx.strokeStyle = GUIDE_MARKER_HALO;
+  ctx.lineWidth = 2;
+  for (const [a, b, c] of guideChevronTriangles(sx, sy, radius, size)) {
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.lineTo(c[0], c[1]);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fill();
+  }
 };
