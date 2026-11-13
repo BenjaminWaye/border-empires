@@ -1,12 +1,12 @@
 import type { RoadDirections } from "../client-road-network/client-road-network.js";
 
-// 2D canvas counterpart of the true-3D town-link monorail
-// (client-map-3d-monorail/): a twin-beam guideway with cyan power rails, its
+// 2D canvas counterpart of the true-3D maglev freight line
+// (client-map-3d-monorail/): a twin-beam guideway with cyan coil lights, its
 // shadow and pylon feet offset down-right so the line reads as elevated, and a
 // lit switching deck at junctions. Trains are 3D-only; this fallback stays a
 // static drawing to keep the low-end canvas path cheap.
 const RAIL_SHADOW = "rgba(5, 8, 11, 0.28)";
-const RAIL_STEEL = "rgba(58, 64, 72, 0.96)";
+const RAIL_STEEL = "rgba(43, 48, 56, 0.96)";
 const RAIL_POWER = "rgba(95, 227, 255, 0.92)";
 const PYLON_CONCRETE = "rgba(167, 173, 179, 0.95)";
 const DECK_WARNING = "rgba(255, 59, 47, 0.95)";
@@ -76,12 +76,15 @@ export const drawRoadOverlay = (
       ctx.moveTo(centerX + ox, centerY + oy);
       ctx.lineTo(endX + ox, endY + oy);
       ctx.stroke();
+      // Induction-coil lights: a dashed power line, like the 3D beam's coils.
       ctx.strokeStyle = RAIL_POWER;
-      ctx.lineWidth = Math.max(0.5, beamWidth * 0.32);
+      ctx.lineWidth = Math.max(0.5, beamWidth * 0.45);
+      ctx.setLineDash([Math.max(1, size * 0.03), Math.max(1, size * 0.05)]);
       ctx.beginPath();
       ctx.moveTo(centerX + ox, centerY + oy);
       ctx.lineTo(endX + ox, endY + oy);
       ctx.stroke();
+      ctx.setLineDash([]);
     }
   }
 

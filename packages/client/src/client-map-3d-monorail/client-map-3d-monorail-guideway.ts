@@ -18,16 +18,20 @@ import {
 } from "../client-map-3d-road-overlay/client-map-3d-road-centerline.js";
 import type { RoadDirections } from "../client-road-network/client-road-network.js";
 import { createMonorailPool, type MonorailPool } from "./client-map-3d-monorail-pool.js";
+import { createBeamPanelTexture } from "./client-map-3d-monorail-textures.js";
 
-// The monorail's static structure: a twin-beam guideway carried on pylons along
-// every road tile. Through tiles get one pylon under the curve's midpoint;
-// junctions get a heavier pylon with a switching deck and a red warning light;
-// town tiles end the line at a lit station gate on the edge of the town.
+// The maglev freight line's static structure: twin graphite guideway beams
+// carried on Y-forked pylons along every road tile. Each beam carries a lit
+// levitation line on top and induction-coil lights down its sides. Through
+// tiles get one pylon under the curve's midpoint; junctions get a heavy pylon
+// with a glowing switching deck and a red beacon; town tiles end the line at a
+// freight gantry with a scanner bar on the edge of the town.
 
 export const RAIL_HEIGHT = 0.3;
-export const TRACK_GAP = 0.095;
-export const BEAM_W = 0.03;
-export const BEAM_H = 0.042;
+export const TRACK_GAP = 0.112;
+export const BEAM_W = 0.028;
+export const BEAM_H = 0.036;
+const COIL_STEP = 0.07; // spacing of the induction-coil lights along a beam
 // Beams stop this far from a town's centre so they meet the town model's edge.
 export const STATION_RADIUS = 0.42;
 const DECK_RADIUS = 0.165;
@@ -66,63 +70,86 @@ export type MonorailGuideway = {
 
 export const createMonorailGuideway = (scene: Scene, envMap?: Texture): MonorailGuideway => {
   const box = new BoxGeometry(1, 1, 1);
-  const oct = new CylinderGeometry(1, 1, 1, 8);
+  const hex = new CylinderGeometry(1, 1, 1, 6);
   // Spans stretch along local X, so the column's axis is turned from Y to X.
-  const column = new CylinderGeometry(0.72, 1, 1, 8).rotateZ(-Math.PI / 2);
+  const column = new CylinderGeometry(0.62, 1, 1, 6).rotateZ(-Math.PI / 2);
   const disc = new CircleGeometry(1, 20).rotateX(-Math.PI / 2);
-  const concrete = new MeshStandardMaterial({ color: "#a7adb3", metalness: 0.15, roughness: 0.78 });
-  const steel = new MeshStandardMaterial({ color: "#3a4048", metalness: 0.75, roughness: 0.32 });
-  const plate = new MeshStandardMaterial({ color: "#c3c9cf", metalness: 0.85, roughness: 0.22 });
-  const trim = new MeshStandardMaterial({ color: "#20252c", metalness: 0.6, roughness: 0.4 });
-  for (const mat of [concrete, steel, plate, trim]) applyBuildingEnvMap(mat, envMap);
-  const power = new MeshBasicMaterial({ toneMapped: false, color: "#5fe3ff" });
+  const graphite = new MeshStandardMaterial({ color: "#2b3038", metalness: 0.82, roughness: 0.3 });
+  const beamTex = createBeamPanelTexture();
+  const beamMat = new MeshStandardMaterial({ color: "#3e4650", map: beamTex, metalness: 0.85, roughness: 0.24 });
+  const plinth = new MeshStandardMaterial({ color: "#1c2026", metalness: 0.6, roughness: 0.5 });
+  for (const mat of [graphite, beamMat, plinth]) applyBuildingEnvMap(mat, envMap);
+  const field = new MeshBasicMaterial({ toneMapped: false, color: "#8ff6ff" });
+  const coil = new MeshBasicMaterial({ toneMapped: false, color: "#2bb7d8" });
   const warning = new MeshBasicMaterial({ toneMapped: false, color: "#ff3b2f" });
   const shadow = new MeshBasicMaterial({ toneMapped: false, color: "#05080b", transparent: true, opacity: 0.3, depthWrite: false });
 
   const pools = {
-    footing: createMonorailPool(scene, oct, concrete),
-    column: createMonorailPool(scene, column, concrete),
-    collar: createMonorailPool(scene, oct, trim),
-    crosshead: createMonorailPool(scene, box, steel),
-    beam: createMonorailPool(scene, box, steel),
-    plate: createMonorailPool(scene, box, plate),
-    power: createMonorailPool(scene, box, power),
-    deck: createMonorailPool(scene, oct, plate),
-    rim: createMonorailPool(scene, oct, power),
+    footing: createMonorailPool(scene, hex, plinth),
+    footRing: createMonorailPool(scene, hex, coil),
+    column: createMonorailPool(scene, column, graphite),
+    arm: createMonorailPool(scene, box, graphite),
+    seam: createMonorailPool(scene, box, field),
+    beam: createMonorailPool(scene, box, beamMat),
+    field: createMonorailPool(scene, box, field),
+    coil: createMonorailPool(scene, box, coil),
+    deck: createMonorailPool(scene, hex, graphite),
+    rim: createMonorailPool(scene, hex, field),
     warning: createMonorailPool(scene, box, warning),
     shadow: createMonorailPool(scene, disc, shadow, { renderOrder: 24 })
   } satisfies Record<string, MonorailPool>;
   const all = Object.values(pools);
 
-  const pylon = (ground: Vector3, forward: Vector3, heavy: boolean): void => {
-    const r = heavy ? 0.034 : 0.024;
-    const headBottom = RAIL_HEIGHT - BEAM_H / 2 - (heavy ? 0.025 : 0.03);
-    pools.shadow.upright(p.copy(ground).setY(ground.y + 0.004), r * 3.2, 1, r * 3.2);
-    pools.footing.upright(p.copy(ground).setY(ground.y + 0.012), r * 2.1, 0.024, r * 2.1);
-    pools.column.span(p.copy(ground), a.copy(ground).setY(ground.y + headBottom), r * 2, r * 2);
-    pools.collar.upright(p.copy(ground).setY(ground.y + headBottom - 0.008), r * 1.25, 0.016, r * 1.25);
-    if (heavy) return;
-    side.set(-forward.z, 0, forward.x).normalize();
-    pools.crosshead.place(p.copy(ground).setY(ground.y + headBottom + 0.014), side, UP, TRACK_GAP + BEAM_W + 0.03, 0.028, 0.04);
+  // Hex plinth with a glowing ring at its foot.
+  const foot = (ground: Vector3, r: number): void => {
+    pools.shadow.upright(p.copy(ground).setY(ground.y + 0.004), r * 3.4, 1, r * 3.4);
+    pools.footRing.upright(p.copy(ground).setY(ground.y + 0.006), r * 2.5, 0.006, r * 2.5);
+    pools.footing.upright(p.copy(ground).setY(ground.y + 0.012), r * 2.2, 0.024, r * 2.2);
   };
 
-  // Twin beams along a centreline polyline, `lift` is the ground-to-beam rise.
+  // Slim tapered column that forks into two arms, one under each beam.
+  const pylon = (ground: Vector3, forward: Vector3): void => {
+    const forkY = ground.y + RAIL_HEIGHT * 0.6;
+    const beamUnderside = ground.y + RAIL_HEIGHT - BEAM_H / 2;
+    foot(ground, 0.02);
+    pools.column.span(p.copy(ground), a.copy(ground).setY(forkY), 0.04, 0.04);
+    side.set(-forward.z, 0, forward.x).normalize();
+    // Lit seam up the column's face, turned toward the track direction.
+    pools.seam.span(p.copy(ground).addScaledVector(forward, 0.016).setY(ground.y + 0.03), a.copy(ground).addScaledVector(forward, 0.013).setY(forkY - 0.01), 0.004, 0.004);
+    for (const sign of [-1, 1]) {
+      b.copy(ground).addScaledVector(side, sign * TRACK_GAP / 2).setY(beamUnderside);
+      pools.arm.span(a.copy(ground).setY(forkY - 0.008), b, 0.016, 0.02, forward);
+      pools.arm.place(b.setY(beamUnderside - 0.006), side, UP, BEAM_W + 0.014, 0.012, 0.03);
+    }
+  };
+
+  // Twin beams along a centreline polyline, with coil lights every COIL_STEP.
   const beams = (line: readonly XZ[], toWorld: (pt: XZ) => [number, number], elevationAt: ElevationAt): void => {
     const pts = line.map((pt) => {
       const [wx, wz] = toWorld(pt);
       return new Vector3(pt[0], elevationAt(wx, wz) + RAIL_HEIGHT, pt[1]);
     });
+    let untilCoil = COIL_STEP / 2;
     for (let i = 1; i < pts.length; i += 1) {
       const p0 = pts[i - 1]!, p1 = pts[i]!;
+      const len = p0.distanceTo(p1);
       t.subVectors(p1, p0).normalize();
       side.set(-t.z, 0, t.x).normalize();
       for (const sign of [-1, 1]) {
         a.copy(p0).addScaledVector(side, sign * TRACK_GAP / 2).addScaledVector(t, -0.003);
         b.copy(p1).addScaledVector(side, sign * TRACK_GAP / 2).addScaledVector(t, 0.003);
         pools.beam.span(a, b, BEAM_W, BEAM_H);
-        pools.power.span(a.setY(a.y - 0.004), b.setY(b.y - 0.004), BEAM_W + 0.006, 0.006);
-        pools.plate.span(a.setY(a.y + 0.004 + BEAM_H / 2), b.setY(b.y + 0.004 + BEAM_H / 2), BEAM_W + 0.004, 0.006);
+        pools.field.span(a.setY(a.y + BEAM_H / 2 + 0.001), b.setY(b.y + BEAM_H / 2 + 0.001), 0.006, 0.003);
       }
+      // `untilCoil` carries the distance to the next coil across segments.
+      let d = untilCoil;
+      for (; d < len; d += COIL_STEP) {
+        for (const sign of [-1, 1]) {
+          p.copy(p0).addScaledVector(t, d).addScaledVector(side, sign * TRACK_GAP / 2);
+          pools.coil.place(p, t, UP, 0.012, BEAM_H * 0.45, BEAM_W + 0.005);
+        }
+      }
+      untilCoil = d - len;
     }
   };
 
@@ -131,23 +158,25 @@ export const createMonorailGuideway = (scene: Scene, envMap?: Texture): Monorail
     return out.set(p1[0] - p0[0], 0, p1[1] - p0[1]).normalize();
   };
 
+  // Freight gantry where the line meets a town: two legs, a lintel with a
+  // scanner bar over both tracks, and red marker lights at its ends.
   const stationGate = (line: readonly XZ[], toWorld: (pt: XZ) => [number, number], elevationAt: ElevationAt): void => {
     const start = line[0]!;
     const [wx, wz] = toWorld(start);
     const ground = new Vector3(start[0], elevationAt(wx, wz), start[1]);
     const fwd = tangentAt(line, 0, new Vector3());
     side.set(-fwd.z, 0, fwd.x).normalize();
-    const halfSpan = TRACK_GAP / 2 + BEAM_W + 0.012;
-    const top = RAIL_HEIGHT + 0.075;
+    const halfSpan = TRACK_GAP / 2 + BEAM_W + 0.02;
+    const top = RAIL_HEIGHT + 0.12;
     for (const sign of [-1, 1]) {
       a.copy(ground).addScaledVector(side, sign * halfSpan);
-      pools.shadow.upright(p.copy(a).setY(a.y + 0.004), 0.05, 1, 0.05);
-      pools.footing.upright(p.copy(a).setY(a.y + 0.012), 0.04, 0.024, 0.04);
-      pools.column.span(a, b.copy(a).setY(a.y + top), 0.03, 0.03);
+      foot(a, 0.018);
+      pools.column.span(a, b.copy(a).setY(a.y + top), 0.032, 0.032);
+      pools.warning.upright(p.copy(a).setY(a.y + top + 0.004), 0.014, 0.014, 0.014);
     }
-    pools.crosshead.place(p.copy(ground).setY(ground.y + top), side, UP, halfSpan * 2 + 0.03, 0.03, 0.045);
-    pools.power.place(p.copy(ground).setY(ground.y + top - 0.019), side, UP, halfSpan * 2 - 0.02, 0.006, 0.02);
-    pools.crosshead.place(p.copy(ground).setY(ground.y + RAIL_HEIGHT - BEAM_H / 2 - 0.016), side, UP, halfSpan * 2, 0.026, 0.04);
+    pools.arm.place(p.copy(ground).setY(ground.y + top - 0.012), side, UP, halfSpan * 2 + 0.03, 0.026, 0.05);
+    pools.seam.place(p.copy(ground).setY(ground.y + top - 0.028), side, UP, halfSpan * 2 - 0.02, 0.005, 0.03);
+    pools.arm.place(p.copy(ground).setY(ground.y + RAIL_HEIGHT - BEAM_H / 2 - 0.012), side, UP, halfSpan * 2, 0.02, 0.04);
   };
 
   const addTile = (tileX: number, tileY: number, sceneX: number, sceneZ: number, elevationAt: ElevationAt, dirs: RoadDirections): void => {
@@ -160,7 +189,7 @@ export const createMonorailGuideway = (scene: Scene, envMap?: Texture): Monorail
       const midIndex = Math.floor(line.length / 2);
       const mid = line[midIndex]!;
       const [wx, wz] = toWorld(mid);
-      pylon(new Vector3(mid[0], elevationAt(wx, wz), mid[1]), tangentAt(line, midIndex, new Vector3()), false);
+      pylon(new Vector3(mid[0], elevationAt(wx, wz), mid[1]), tangentAt(line, midIndex, new Vector3()));
       return;
     }
     if (dirs.terminal === true) {
@@ -172,31 +201,36 @@ export const createMonorailGuideway = (scene: Scene, envMap?: Texture): Monorail
       }
       return;
     }
+    // Junction: heavy column, glowing switching deck, beacon spire.
     for (const dir of arms) beams(roadArmPoints(tileX, tileY, sceneX, sceneZ, dir), toWorld, elevationAt);
     const ground = new Vector3(sceneX, elevationAt(tileX + 0.5, tileY + 0.5), sceneZ);
-    pylon(ground, new Vector3(1, 0, 0), true);
     const deckY = ground.y + RAIL_HEIGHT - BEAM_H / 2 - 0.012;
-    pools.deck.upright(p.copy(ground).setY(deckY), DECK_RADIUS, 0.024, DECK_RADIUS);
+    foot(ground, 0.03);
+    pools.column.span(p.copy(ground), a.copy(ground).setY(deckY), 0.06, 0.06);
+    pools.deck.upright(p.copy(ground).setY(deckY), DECK_RADIUS, 0.022, DECK_RADIUS);
     // Slightly wider glowing slab inside the deck: only its edge shows, as a lit rim.
-    pools.rim.upright(p.copy(ground).setY(deckY), DECK_RADIUS + 0.006, 0.008, DECK_RADIUS + 0.006);
-    pools.column.span(p.copy(ground).setY(deckY), a.copy(ground).setY(deckY + 0.11), 0.014, 0.014);
-    pools.warning.upright(p.copy(ground).setY(deckY + 0.118), 0.026, 0.026, 0.026);
+    pools.rim.upright(p.copy(ground).setY(deckY), DECK_RADIUS + 0.007, 0.008, DECK_RADIUS + 0.007);
+    pools.column.span(p.copy(ground).setY(deckY), a.copy(ground).setY(deckY + 0.14), 0.016, 0.016);
+    pools.warning.upright(p.copy(ground).setY(deckY + 0.146), 0.022, 0.022, 0.022);
   };
 
   return {
     clear: () => { for (const pool of all) pool.begin(); },
     addTile,
     commit: () => { for (const pool of all) pool.end(); },
-    // Slow double-blink on the junction warning lights.
+    // Slow double-blink on the beacons; the coil lights breathe.
     update: (nowMs) => {
       const phase = (nowMs / 1000) % 2.4;
       const on = phase < 0.12 || (phase > 0.3 && phase < 0.42);
       warning.color.set(on ? "#ff3b2f" : "#4a120e");
+      const glow = 0.7 + 0.3 * Math.sin((nowMs / 1000) * 1.9);
+      coil.color.setRGB(0.17 * glow, 0.72 * glow, 0.85 * glow);
     },
     dispose: () => {
       for (const pool of all) pool.dispose();
-      for (const g of [box, oct, column, disc]) g.dispose();
-      for (const mat of [concrete, steel, plate, trim, power, warning, shadow]) mat.dispose();
+      for (const g of [box, hex, column, disc]) g.dispose();
+      beamTex.dispose();
+      for (const mat of [graphite, beamMat, plinth, field, coil, warning, shadow]) mat.dispose();
     }
   };
 };

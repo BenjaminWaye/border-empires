@@ -19,6 +19,7 @@ const createMockContext = (commands: LoggedCommand[]): CanvasRenderingContext2D 
       commands.push({ type: "stroke" });
     },
     arc() {},
+    setLineDash() {},
     fill() {},
     lineCap: "butt",
     lineJoin: "miter",

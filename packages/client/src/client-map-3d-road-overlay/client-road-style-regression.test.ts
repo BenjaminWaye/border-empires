@@ -12,7 +12,7 @@ describe("road style regression guard", () => {
   it("draws 2D town links as an elevated monorail, not the old dirt-tan stroke", () => {
     const source = renderSource();
 
-    expect(source).toContain('const RAIL_STEEL = "rgba(58, 64, 72, 0.96)"');
+    expect(source).toContain('const RAIL_STEEL = "rgba(43, 48, 56, 0.96)"');
     expect(source).toContain('const RAIL_POWER = "rgba(95, 227, 255, 0.92)"');
     expect(source).toContain('const RAIL_SHADOW = "rgba(5, 8, 11, 0.28)"');
     expect(source).not.toContain("rgba(210, 180, 120, 0.92)");
