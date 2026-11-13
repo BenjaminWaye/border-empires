@@ -446,6 +446,7 @@ export const createInitialState = () => ({
   discoveredTiles: new Set<string>(),
   discoveryTipQueue: [] as import("../client-discovery-tips/client-discovery-tips.js").DiscoveryTipId[], // see client-discovery-tips.ts
   autoSettleTargets: new Set<string>(),
+  townRingGarrisons: new Map<string, import("../client-town-ring-garrison/client-town-ring-garrison.js").TownRingGarrison>(), // bounded there
   autoBuildTargets: new Map<string, BuildableStructureType>(),
   frontierSyncWaitUntilByTarget: new Map<string, number>(),
   // How many times processActionQueue has deferred a target while waiting for

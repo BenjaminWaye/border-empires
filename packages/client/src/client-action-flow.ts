@@ -60,7 +60,6 @@ import {
   queuedSettleAwaitsManpower,
   processPendingMusterAttacks as processPendingMusterAttacksFromModule,
   queueDevelopmentAction as queueDevelopmentActionFromModule,
-  queuedDevelopmentActionExists,
   queueSpecificTargets as queueSpecificTargetsFromModule,
   queuedDevelopmentEntryForTile as queuedDevelopmentEntryForTileFromModule,
   queuedSettlementIndexForTile as queuedSettlementIndexForTileFromModule,
@@ -75,6 +74,8 @@ import {
   type DevelopmentSlotSummary
 } from "./client-queue-logic/client-queue-logic.js";
 import { cancelQueuedAutoSettle as cancelQueuedAutoSettleFromModule } from "./client-queue-logic/client-cancel-queued-auto-settle.js";
+import { requestGarrisonWithTownRing } from "./client-town-ring-garrison/client-town-ring-garrison.js";
+import { processAutoSettleTargetsForState } from "./client-auto-settle-targets/client-process-auto-settle-targets.js";
 import { structureDisplayLabel as structureDisplayLabelFromModule } from "./client-structure-display-label/client-structure-display-label.js";
 import { queueSettleForExpandingTile as queueSettleForExpandingTileFromModule } from "./client-settle-land-queue/client-settle-land-queue.js";
 import {
@@ -495,39 +496,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const processAutoBuildTargets = (): void => processAutoBuilds(state, triggerBuildForStructureType);
 
-  // Runtime loop's periodic tick: once a waypoint target is owned, settle it if queued.
-  const processAutoSettleTargets = (): void => {
-    if (state.autoSettleTargets.size === 0) return;
-    const reach = resolveMyReachCached(state);
-    for (const targetKey of [...state.autoSettleTargets]) {
-      const tile = state.tiles.get(targetKey);
-      if (!tile) continue;
-      // A settle already dispatched (or waiting in the development queue) for
-      // this tile keeps it FRONTIER until the server confirms, and the optimistic
-      // marker can be cleared by an intervening tile update. Firing again here
-      // sends a second SETTLE and the server rejects it with
-      // "tile is already settling" -- drop the auto-settle entry instead, the
-      // matching autoBuildTargets entry still runs once the tile lands SETTLED.
-      if (state.settleProgressByTile.has(targetKey) || queuedDevelopmentActionExists(state, targetKey, "SETTLE")) {
-        state.autoSettleTargets.delete(targetKey);
-        continue;
-      }
-      if (tile.ownerId === state.me && tile.ownershipState === "FRONTIER" && !tile.optimisticPending) {
-        // The tile can drift out of reach between the click that queued this
-        // (e.g. a Relay Beacon chain, or a build queued ahead of ownership
-        // landing) and the tick where ownership actually arrives -- the server
-        // would reject the SETTLE as OUT_OF_REACH anyway, so drop the queued
-        // settle (and any dependent build) instead of sending a doomed command.
-        if (!reach.has(targetKey)) {
-          state.autoSettleTargets.delete(targetKey);
-          state.autoBuildTargets.delete(targetKey);
-          continue;
-        }
-        state.autoSettleTargets.delete(targetKey);
-        requestSettlement(tile.x, tile.y);
-      }
-    }
-  };
+  // Runtime loop's periodic tick: auto-settle targets and town ring garrisons (client-process-auto-settle-targets.ts).
+  const processAutoSettleTargets = (): void => processAutoSettleTargetsForState(state, requestSettlement);
 
   const processDevelopmentQueue = (): boolean =>
     processDevelopmentQueueFromModule(state, {
@@ -700,7 +670,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     });
 
   const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
-  const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement });
+  // A town's Garrison also garrisons the tiles around it once the town lands (client-town-ring-garrison.ts).
+  const requestGarrison = (x: number, y: number): boolean => {
+    const tile = state.tiles.get(keyFor(x, y));
+    return tile ? requestGarrisonWithTownRing(state, tile, (tx, ty) => requestSettlement(tx, ty), Date.now()) : requestSettlement(x, y);
+  };
+  const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement: requestGarrison });
   const buildSiegeBatteryOnSelected = (): void => buildSiegeBatteryOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const cancelOngoingCapture = (): void => cancelOngoingCaptureFromModule(state, sendGameMessage, (message) => pushFeed(message, "combat", "info"));
@@ -1210,7 +1185,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             return;
           }
         } else if (selected.ownerId === state.me && selected.ownershipState === "FRONTIER") {
-          requestSettlement(selected.x, selected.y);
+          requestGarrison(selected.x, selected.y);
         }
         state.autoSettleTargets.delete(k);
       }
