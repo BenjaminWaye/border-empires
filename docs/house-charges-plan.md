@@ -142,7 +142,7 @@ Charges pay out only after the season, so rewards are things that outlast it.
    from the installation family. Rarity follows the charge type. Cards appear on
    the player's profile beside the career stats. Sets grant **titles only**
    (for example "Cartographer" for five Survey cards), never gameplay power.
-   Cards are designed as **playing cards** (see [Card design](#card-design)).
+   Cards are designed as **collectible trading cards** (see [Card design](#card-design)).
 3. **Galaxy reward**: +1 **Domain Weight** per fulfilled charge for empires
    that hold a Planet or Outpost (see the [Galactic Campaign design](galactic-campaign-design.md),
    Domain Weight → Senate vote weight). Domain Weight is only computed for
@@ -168,55 +168,62 @@ Stipend.
 
 ### Card design
 
-Charge cards look and behave like a deck of playing cards: a standard
-poker-card shape (63 × 88 mm proportions, rounded corners), a rank and suit
-in two opposite corners (the lower one rotated 180°), and the art in the
-centre panel.
+Charge cards use the layout of a **collectible trading card game**: a framed
+card with a name bar, a large art box, a type line, a text box with rules and
+flavour text, and a stats corner. The frames, icons and symbols are Border
+Empires' own; the layout is a genre convention, not a copy of any existing
+game's card design.
 
-**Four suits, one per kind of charge:**
+**Card anatomy, top to bottom:**
 
-| Suit | Charges | Symbol idea |
+| Part | Content | Example |
 |---|---|---|
-| **Roads** | Charter of Passage | A milestone or crossed paths |
-| **Seats** | Founding of a Seat | A town gate or crown |
-| **Charts** | Survey Claim, Garrison the Desert / Tundra | A compass rose |
-| **Relics** | Reawakening | The ziggurat access structure |
+| **Name bar** | The charge's target, plus its **Renown value** shown as pips on the right (where other games put a cost) | "Road of Vell and Harrowmere" ●●● |
+| **Art box** | Art drawn from the real final map: the road traced between its two towns, the charted island outline, the desert's shape, or the relic family's ziggurat | The 22-tile road across the Vell lowlands |
+| **Type line** | "House Charge — {type}", with the **Sector set symbol** on the right, coloured by rarity | "House Charge — Charter of Passage" |
+| **Text box** | One line saying what was achieved, then italic **flavour text** from lore templates | "Connected Vell and Harrowmere and held the road to the end of the contest." *"The merchant families of House Alden paid for every milestone."* |
+| **Stats corner** | Two numbers: **size / hours held**. Size is the road length, the town's tier reached, or the tiles garrisoned; hours held is how long the charge was continuously complete before the crowning | 22 / 61 |
+| **Footer** | Collector number within the Sector, House name, season-end date | "014/212 · House Alden · 2026-12-03" |
 
-**Rank shows difficulty**, set when the charge was dealt:
+**Frame colour by charge type:**
 
-- **2–10** for common charges, scaled by difficulty: Charter route length,
-  the number of tiers a Seat had to grow, or landmass and region size.
-- **Jack, Queen, King** for rare charges: Tundra is a Jack of Charts, and a
-  Reawakening is the Queen or King of Relics depending on distance.
-- **Ace**: a charge fulfilled by the House that also won the season.
-- **Jokers**: the public titles (Longest Road, Royal Cartographer), if that
-  companion ships. A House holding one at game end gets a Joker card.
+| Charge | Frame |
+|---|---|
+| Charter of Passage | Bronze, with milestone motif |
+| Founding of a Seat | Gold, with town-gate motif |
+| Survey Claim | Sea blue, with compass-rose motif |
+| Garrison the Desert | Sand, with dune motif |
+| Garrison the Tundra | Ice white, with frost motif |
+| Reawakening | Aether violet, with ziggurat motif |
 
-**Card face:**
+**Rarity** is shown by the colour of the set symbol:
 
-- **Centre panel:** the art taken from the real final map: the road traced
-  between its two towns, the charted island outline, the desert's shape, or
-  the relic family's ziggurat.
-- **Title band:** the target's name and the Sector ("Vell to Harrowmere ·
-  Sector 012").
-- **Footer:** the House banner and the season-end date.
-- **Number cards** may scatter small suit pips around the centre panel like a
-  traditional deck. Face cards use a framed illustration instead.
+- **Common**: Charter, Seat, Survey and Desert charges.
+- **Rare**: Tundra charges, and common charges of the highest difficulty band.
+- **Mythic**: Reawakening (relic) charges.
+- **Legendary**: public titles held at game end (Longest Road, Royal
+  Cartographer), if that companion ships. These use a distinct crowned frame.
+- **Foil treatment**: any card earned by the House that also won the season.
 
-**Card back:** one shared back, the Court's seal over the Sector's starfield,
-so a collection reads as one deck. An optional variant shows the owning
-House's colours.
+**Sets:** each Sector Contest is a **set** with its own generated set symbol
+and collector numbering, so a collection is organised by Sector like
+expansions. Every card is unique: no other House can ever hold the same card.
 
-**Collection view:** cards are shown fanned or in a grid grouped by suit,
-with flip-to-back on hover or tap. Collection titles borrow poker hands, as
-titles only: a **Flush** (five cards of one suit), **Four of a Kind** (four
-cards of the same rank) or a **Royal Set** (Jack, Queen, King and Ace of
-one suit).
+**Card back:** one shared back, the Court's seal over a starfield, so every
+collection reads as one game.
 
-Cards are drawn in the client from the archived final map and card data, so
-the same layout works on the profile, the season-end reveal and phone
-screens. Map-derived art must use only what the season archive already
-stores.
+**Collection view:** a binder-style grid grouped by Sector or by charge type,
+with filters for rarity and foil, flip-to-back on tap, and an enlarged view
+for reading the text box. Collection titles (titles only, never gameplay
+power) reward breadth, for example **Cartographer** for five Survey cards or
+**Keeper of the Concordance** for Reawakening cards from all nine relic
+families.
+
+**Data needed:** the size and hours-held numbers mean scoring records, for each
+charge, when it last became complete, not only whether it is complete at the
+crowning. Cards are drawn in the client from the archived final map and card
+data, so the same layout works on the profile, the season-end reveal and
+phone screens.
 
 ### Optional companion: public titles
 
