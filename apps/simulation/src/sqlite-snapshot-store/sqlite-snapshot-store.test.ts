@@ -217,7 +217,19 @@ describe("SqliteSimulationSnapshotStore — empty worldgen baseline round-trip",
     const snapshots = new SqliteSimulationSnapshotStore(db, { resolveBaseline: async () => [] });
     await snapshots.applySchema();
     const tiles = [
-      { x: 0, y: 0, terrain: "LAND", ownerId: "pt-warlord", ownershipState: "SETTLED", town: { name: "Keep" } },
+      {
+        x: 0,
+        y: 0,
+        terrain: "LAND",
+        ownerId: "pt-warlord",
+        ownershipState: "SETTLED",
+        town: { name: "Keep" },
+        // Static worldgen fields outside MUTABLE_TILE_FIELDS: a compacted
+        // save against an empty baseline has nowhere to rehydrate them from.
+        dockId: "dock-3",
+        landBiome: "GRASS",
+        prospectSignature: "clue-7"
+      },
       { x: 1, y: 0, terrain: "LAND", ownerId: "ai-3", ownershipState: "FRONTIER" },
       { x: 2, y: 0, terrain: "SEA" }
     ];
