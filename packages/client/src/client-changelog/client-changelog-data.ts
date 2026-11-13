@@ -1,3 +1,4 @@
+import { COMBAT_LEGIBILITY_ENTRY } from "./client-changelog-combat-legibility.js";
 import { PHONE_LAYOUT_FIXES_ENTRY } from "./client-changelog-phone-layout-fixes.js";
 import { NATIVE_SOCIAL_SIGN_IN_ENTRY } from "./client-changelog-nov-10.js";
 import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-names.js";
@@ -6,7 +7,6 @@ import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
 import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
-import { CONSISTENT_NUMBERS_ENTRY } from "./client-changelog-consistent-numbers.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { NEXT_CONTEST_STARTING_ENTRY } from "./client-changelog-next-contest.js";
@@ -492,7 +492,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_113,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_114,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_115,
-  { ...CONSISTENT_NUMBERS_ENTRY, createdAt: 1794562088771, },
+  { ...COMBAT_LEGIBILITY_ENTRY, createdAt: 1794561912110, },
   { ...PHONE_LAYOUT_FIXES_ENTRY, createdAt: 1794563191075, },
 ];
 
