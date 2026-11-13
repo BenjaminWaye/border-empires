@@ -7,6 +7,8 @@ export type ManpowerPanelMusterFlag = {
   x: number;
   y: number;
   amount: number;
+  /** This flag's own cap (musterFlagCap with its capLevel), so every screen shows the same "x / cap". */
+  cap?: number | undefined;
   mode: "HOLD" | "ADVANCE" | "MARCH";
   targetX?: number | undefined;
   targetY?: number | undefined;
@@ -96,6 +98,10 @@ const musterBaseStatusText = (
   return `Advancing ${Math.floor(flag.amount)} manpower — scouting for a target.`;
 };
 
+/** "93 / 150": whole manpower over the flag's cap, the same figure the tracker shows. */
+export const musterFillText = (flag: Pick<ManpowerPanelMusterFlag, "amount" | "cap">): string =>
+  flag.cap === undefined ? String(Math.floor(flag.amount)) : `${Math.floor(flag.amount)} / ${Math.floor(flag.cap)}`;
+
 const musterFlagsSectionHtml = (flags: ManpowerPanelMusterFlag[]): string => {
   const rows = flags.length
     ? flags
@@ -103,7 +109,7 @@ const musterFlagsSectionHtml = (flags: ManpowerPanelMusterFlag[]): string => {
           (flag) => `
             <button class="panel-btn economy-line muster-flag-row" type="button" data-muster-focus-x="${flag.x}" data-muster-focus-y="${flag.y}">
               <span>(${flag.x}, ${flag.y})<small>${musterStatusText(flag)}</small></span>
-              <strong>${flag.amount}</strong>
+              <strong>${musterFillText(flag)}</strong>
             </button>
           `
         )

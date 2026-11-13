@@ -34,7 +34,7 @@ describe("HUD v2 towns screen", () => {
     expect(html).toContain('data-v2-towns-open="4,2"');
     expect(html).toContain("4,200");
     expect(html).toContain("+1.3");
-    expect(html).toContain("Gold/day ▲");
+    expect(html).toContain("Coin/day ▲");
     expect(html).toContain('title="Open build slots">3<');
     expect(html).toContain(">Slots<");
   });

@@ -2,6 +2,7 @@ import type { Tile } from "../client-types.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import { showTownCaptureOverlay, type TownCaptureInfo } from "./client-town-capture.js";
 import { occupationSurveyReportsForCapture } from "../client-occupation-survey.js";
+import { townPopulationTarget } from "../client-town-growth/client-town-growth.js";
 
 export type TownCaptureUpdate = { x: number; y: number };
 
@@ -59,7 +60,7 @@ export const emitTownCaptureIfCaptured = (
       terrainProfile,
       coastal,
       population: town.population,
-      maxPopulation: town.maxPopulation,
+      maxPopulation: townPopulationTarget(town),
       empireName: input.meName || "Your Empire",
       ownedTownCount: settledTownCountExcluding(input.tiles, input.me, key),
       destroyed: !survivingTown,
