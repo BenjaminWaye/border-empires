@@ -807,6 +807,14 @@ player's best-path completion fraction at season end. A near-miss (0.9)
 pays 9 Inf + 36 Prod — roughly a Cycle and a half of a small empire's
 income, meaningful as a consolation without rivalling a Planet.
 
+Payout (implemented): the simulation records the amounts on the season's
+`galaxyTiers` at crowning; the gateway's Cycle scheduler credits them to
+the galaxy economy balance, rounded to whole units, exactly once per
+(account, season) via a durable payout ledger
+(`galaxy-stipend-payout.ts`, `creditStipendOnce`). Stipends from seasons
+archived before payouts existed are back-paid on the first poll. Records
+with no bound account (AI empires) are never paid.
+
 ### Exploration (§17)
 
 | Source | Charting radius |

@@ -15,6 +15,7 @@ import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-stor
 import { validatePlanetName } from "../galaxy-name-policy/galaxy-name-policy.js";
 import { bearerHeader } from "../bearer-header/bearer-header.js";
 import { isAiWinner, resolveEndedSeasons, resolveCurrentOwnerAuthUid, winnerAuthUid, type WonSeason } from "../galaxy-holdings/galaxy-holdings.js";
+import { stipendPayoutAmounts } from "../galaxy-stipend-payout/galaxy-stipend-payout.js";
 import { aiNameFromStored } from "@border-empires/shared";
 import type { SectorCampaign } from "../galaxy-sector-numbering/galaxy-sector-numbering.js";
 
@@ -208,8 +209,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
             ...(season.sectorLabel ? { sectorNumber: season.sectorLabel.sectorNumber, campaign: season.sectorLabel.campaign } : {}),
             tier: "STIPEND",
             awardedAt: season.endedAt,
-            influence: tier.influence ?? 0,
-            production: tier.production ?? 0
+            ...stipendPayoutAmounts(tier)
           });
         }
       }
