@@ -1,6 +1,6 @@
 # House Charges: secret objectives held to game end
 
-Status: active proposal (Phase 1 in progress: server-side dealing, held state and crowning results are live; see the [gameplay reference](game-mechanics.md#house-charges-server-side-no-player-ui-yet))
+Status: active proposal (Phase 1 in progress: dealing, held state, crowning results and the Charges panel are live; see the [gameplay reference](game-mechanics.md#house-charges))
 Owner: game design (repository owner) decides scope and reward weights before implementation
 Last verified: 2026-11-13
 Replaces: none (on delivery, the rules move into [`game-mechanics.md`](game-mechanics.md) and the fiction into the [world bible](lore/galactic-lore.md))

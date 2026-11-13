@@ -17,6 +17,7 @@ import { handleTitaniumLevyMusterCommand as handleTitaniumLevyMusterCommandImpl 
 import { handleSetAutoSettlePrefsCommand as handleSetAutoSettlePrefsCommandImpl } from "../runtime-auto-settle-prefs-command-handler.js";
 import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
 import { handleNameIslandCommand as handleNameIslandCommandImpl } from "../island-names/name-island-command-handler.js";
+import { handleChooseHouseChargesCommand as handleChooseHouseChargesCommandImpl } from "../house-charges/choose-house-charges-command-handler.js";
 
 // Extracted from runtime.ts's commandDispatchHandlers() (500-line source
 // budget, see AGENTS.md) so a new map-command ability only adds one line
@@ -36,6 +37,7 @@ export const buildMapCommandDispatchHandlers = (mapCommandContext: () => Runtime
   handleActivateImperialWardCommand: (command: CommandEnvelope) => handleActivateImperialWardCommandImpl(mapCommandContext(), command),
   handleSetAutoSettlePrefsCommand: (command: CommandEnvelope) => handleSetAutoSettlePrefsCommandImpl(mapCommandContext(), command),
   handleNameIslandCommand: (command: CommandEnvelope) => handleNameIslandCommandImpl(mapCommandContext(), command),
+  handleChooseHouseChargesCommand: (command: CommandEnvelope) => handleChooseHouseChargesCommandImpl(mapCommandContext(), command),
   handleSyncTruceCommand: (command: CommandEnvelope) => handleSyncTruceCommandImpl(mapCommandContext(), command),
   handleCancelResourceSupplyCommand: (command: CommandEnvelope) => handleCancelResourceSupplyCommand(mapCommandContext(), command),
   handleDiplomacySettlementCommand: (command: CommandEnvelope) => handleDiplomacySettlementCommandImpl(mapCommandContext(), command)

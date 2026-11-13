@@ -121,3 +121,53 @@ export const houseChargeTitle = (charge: Pick<HouseCharge, "kind" | "targets">):
 /** The kept charges, in kept order. */
 export const keptHouseCharges = (state: Pick<HouseChargesState, "offered" | "keptIds">): HouseCharge[] =>
   state.keptIds.map((id) => state.offered.find((charge) => charge.id === id)).filter((charge): charge is HouseCharge => Boolean(charge));
+
+export const HOUSE_CHARGES_MESSAGE_TYPE = "HOUSE_CHARGES";
+
+/**
+ * One charge as its own House sees it. Progressive reveal is applied by the
+ * simulation: a relic charge carries no target position until the House
+ * detects the relic's beacon, and never its installation type until the
+ * House garrisons it.
+ */
+export type HouseChargeView = {
+  id: string;
+  kind: HouseChargeKind;
+  title: string;
+  rarity: HouseChargeRarity;
+  renown: number;
+  kept: boolean;
+  /** Complete right now. */
+  held: boolean;
+  /** Epoch ms it last became complete, while held. */
+  completeSince?: number;
+  /** Kind-specific size now (see HouseChargeResult.size). */
+  size: number;
+  searchCircle: HouseCharge["searchCircle"];
+  targets: HouseChargeTarget[];
+  startTier?: string;
+  relicType?: string;
+  areaTiles?: number;
+};
+
+/** Pushed to a House when its charges are dealt or change, and on connect. */
+export type HouseChargesPayload = {
+  type: typeof HOUSE_CHARGES_MESSAGE_TYPE;
+  dealtAt: number;
+  /** Epoch ms after which the kept charges can no longer be changed. */
+  choiceClosesAt: number;
+  charges: HouseChargeView[];
+};
+
+/** Why a CHOOSE_HOUSE_CHARGES choice is refused, or undefined when it is valid. */
+export const houseChargeChoiceError = (
+  state: Pick<HouseChargesState, "dealtAt" | "offered">,
+  keptIds: readonly string[],
+  nowMs: number
+): string | undefined => {
+  if (nowMs > state.dealtAt + HOUSE_CHARGES_CHOICE_WINDOW_MS) return "the choice closed a day after your charges were dealt";
+  const wanted = Math.min(HOUSE_CHARGES_KEPT, state.offered.length);
+  if (keptIds.length !== wanted || new Set(keptIds).size !== keptIds.length) return `keep exactly ${wanted} different charges`;
+  if (!keptIds.every((id) => state.offered.some((charge) => charge.id === id))) return "keep only charges you were offered";
+  return undefined;
+};

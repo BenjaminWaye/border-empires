@@ -1,0 +1,117 @@
+/* House Charges panel (client-house-charges-panel.ts). Frame colours follow
+   the charge-card design in docs/house-charges-plan.md. */
+.house-charges-card {
+  display: grid;
+  gap: 12px;
+}
+
+.house-charges-intro,
+.house-charges-choice p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(214, 226, 240, 0.82);
+}
+
+.house-charges-choice {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(217, 178, 92, 0.45);
+  border-radius: 8px;
+  background: rgba(217, 178, 92, 0.08);
+}
+
+.house-charges-list {
+  display: grid;
+  gap: 10px;
+}
+
+.house-charge-card {
+  --charge-frame: #c99158;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 4px solid var(--charge-frame);
+  border-radius: 8px;
+  background: rgba(15, 13, 10, 0.55);
+}
+
+.house-charge-card.kind-seat { --charge-frame: #d6a84c; }
+.house-charge-card.kind-survey { --charge-frame: #5e9cbc; }
+.house-charge-card.kind-desert { --charge-frame: #e3c48d; }
+.house-charge-card.kind-tundra { --charge-frame: #eef3f5; }
+.house-charge-card.kind-relic { --charge-frame: #9a74d1; }
+.house-charge-card.is-unkept { opacity: 0.62; }
+
+.house-charge-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.house-charge-title {
+  min-width: 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.house-charge-pips {
+  flex: none;
+  color: #d9b25c;
+  letter-spacing: 2px;
+  font-size: 11px;
+}
+
+.house-charge-type {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(170, 198, 231, 0.7);
+}
+
+.house-charge-objective,
+.house-charge-progress {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.house-charge-progress {
+  color: rgba(240, 207, 130, 0.9);
+}
+
+.house-charge-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.house-charge-foot .panel-btn {
+  margin-left: auto;
+}
+
+.house-charge-status {
+  font-size: 12px;
+  color: rgba(214, 226, 240, 0.7);
+}
+
+.house-charge-status.is-held {
+  color: #8fd18a;
+}
+
+.house-charge-status.is-dropped {
+  color: rgba(214, 226, 240, 0.5);
+}
+
+.house-charge-keep {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}

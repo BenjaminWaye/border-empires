@@ -25,8 +25,8 @@ const BARBARIAN_PLAYER_ID = "barbarian-1";
 export type HouseChargesTickerDeps = {
   readonly tiles: () => ReadonlyMap<string, DomainTileState>;
   readonly players: () => ReadonlyMap<string, DomainPlayer>;
-  /** Players whose charges changed (dealt, completed or lost) on this run. */
-  readonly onChargesChanged?: (playerIds: readonly string[], nowMs: number) => void;
+  /** Runs after every pass, with the players whose charges were dealt, completed or lost on it. */
+  readonly onPassComplete?: (changedPlayerIds: readonly string[], nowMs: number) => void;
 };
 
 export type HouseChargesTicker = {
@@ -78,22 +78,33 @@ export const runHouseChargesPass = (
     }
   }
   for (const player of players.values()) {
-    const state = player.houseCharges;
-    if (!state) continue;
-    const completeSince: Record<string, number> = {};
-    const sizes: Record<string, number> = {};
-    for (const charge of keptHouseCharges(state)) {
-      const standing = houseChargeStanding(charge, { world, tiles, players, playerId: player.id });
-      sizes[charge.id] = standing.size;
-      if (standing.complete) completeSince[charge.id] = state.completeSince?.[charge.id] ?? nowMs;
-    }
-    const before = JSON.stringify(state.completeSince ?? {});
-    if (before !== JSON.stringify(completeSince)) changed.add(player.id);
-    if (Object.keys(completeSince).length > 0) state.completeSince = completeSince;
-    else delete state.completeSince;
-    state.sizes = sizes;
+    if (refreshPlayerHouseCharges(player, tiles, players, nowMs)) changed.add(player.id);
   }
   return [...changed];
+};
+
+/** Re-evaluates one House's kept charges. Returns whether any charge became complete or stopped being complete. */
+export const refreshPlayerHouseCharges = (
+  player: DomainPlayer,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  players: ReadonlyMap<string, DomainPlayer>,
+  nowMs: number
+): boolean => {
+  const state = player.houseCharges;
+  if (!state) return false;
+  const world = houseChargesWorldFor(tiles);
+  const completeSince: Record<string, number> = {};
+  const sizes: Record<string, number> = {};
+  for (const charge of keptHouseCharges(state)) {
+    const standing = houseChargeStanding(charge, { world, tiles, players, playerId: player.id });
+    sizes[charge.id] = standing.size;
+    if (standing.complete) completeSince[charge.id] = state.completeSince?.[charge.id] ?? nowMs;
+  }
+  const changed = JSON.stringify(state.completeSince ?? {}) !== JSON.stringify(completeSince);
+  if (Object.keys(completeSince).length > 0) state.completeSince = completeSince;
+  else delete state.completeSince;
+  state.sizes = sizes;
+  return changed;
 };
 
 export const createHouseChargesTicker = (deps: HouseChargesTickerDeps): HouseChargesTicker => {
@@ -104,7 +115,7 @@ export const createHouseChargesTicker = (deps: HouseChargesTickerDeps): HouseCha
     const deal = nowMs - lastDealAt >= HOUSE_CHARGES_DEAL_MIN_INTERVAL_MS;
     if (deal) lastDealAt = nowMs;
     const changed = runHouseChargesPass(deps.tiles(), deps.players(), nowMs, { deal });
-    if (changed.length > 0) deps.onChargesChanged?.(changed, nowMs);
+    deps.onPassComplete?.(changed, nowMs);
   };
   return {
     tick: (nowMs) => {

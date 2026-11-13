@@ -157,3 +157,25 @@ describe("ticker pass and crowning", () => {
     expect(players.get("p1")!.houseCharges).toEqual({ dealtAt: 1_000, offered: [], keptIds: [], sizes: {} });
   });
 });
+
+describe("HOUSE_CHARGES view", () => {
+  it("hides a relic's position until its beacon is detected, and its type until it is garrisoned", async () => {
+    const { houseChargesPayloadFor } = await import("./house-charges-view.js");
+    const tiles = buildChargeWorld();
+    const players = new Map([["p1", makeChargePlayer("p1")]]);
+    runHouseChargesPass(tiles, players, 1_000);
+    // The landing site (20,15) is itself inside the beacon radius; take it away so only later garrisons count.
+    tiles.set(`${HOME.x},${HOME.y}`, { ...tiles.get(`${HOME.x},${HOME.y}`)!, ownerId: undefined, ownershipState: undefined });
+    const relicView = () => houseChargesPayloadFor(players.get("p1")!, tiles)!.charges.find((charge) => charge.kind === "RELIC")!;
+    expect(relicView().targets).toEqual([]);
+    expect(relicView().relicType).toBeUndefined();
+    expect(relicView().title).toBe("A Concordance installation");
+
+    garrisonKeys(tiles, "p1", ["20,20"]); // 5 tiles from the relic, inside the 12-tile beacon radius
+    expect(relicView().targets).toEqual([expect.objectContaining({ x: 20, y: 25 })]);
+    expect(relicView().relicType).toBeUndefined();
+
+    garrisonKeys(tiles, "p1", [RELIC]);
+    expect(relicView().relicType).toBe("FOUNDRY_HEART");
+  });
+});

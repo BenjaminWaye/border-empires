@@ -49,6 +49,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleActivateImperialWardCommand: (command: CommandEnvelope) => void;
   handleSetAutoSettlePrefsCommand: (command: CommandEnvelope) => void;
   handleNameIslandCommand: (command: CommandEnvelope) => void;
+  handleChooseHouseChargesCommand: (command: CommandEnvelope) => void;
   handleUpgradeTownTierCommand: (command: CommandEnvelope) => void;
   handleSyncAllianceCommand: (command: CommandEnvelope) => void;
   handleSyncTruceCommand: (command: CommandEnvelope) => void;
@@ -125,6 +126,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "ACTIVATE_IMPERIAL_WARD") return handlers.handleActivateImperialWardCommand(command);
   if (command.type === "SET_AUTO_SETTLE_PREFS") return handlers.handleSetAutoSettlePrefsCommand(command);
   if (command.type === "NAME_ISLAND") return handlers.handleNameIslandCommand(command);
+  if (command.type === "CHOOSE_HOUSE_CHARGES") return handlers.handleChooseHouseChargesCommand(command);
   if (command.type === "UPGRADE_TOWN_TIER") return handlers.handleUpgradeTownTierCommand(command);
   if (command.type === "SYNC_ALLIANCE") return handlers.handleSyncAllianceCommand(command);
   if (command.type === "SYNC_TRUCE") return handlers.handleSyncTruceCommand(command);
@@ -205,6 +207,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "ACTIVATE_IMPERIAL_WARD" ||
   command.type === "SET_AUTO_SETTLE_PREFS" ||
   command.type === "NAME_ISLAND" ||
+  command.type === "CHOOSE_HOUSE_CHARGES" ||
   command.type === "UPGRADE_TOWN_TIER" ||
   command.type === "SYNC_ALLIANCE" ||
   command.type === "SYNC_TRUCE" ||

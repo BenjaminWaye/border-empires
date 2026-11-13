@@ -80,7 +80,7 @@ const SCREEN_TARGETS: Readonly<Record<string, HudV2ScreenId>> = {
 };
 
 /** HUD targets that open a side panel rather than a screen. */
-const SIDE_PANEL_TARGETS: Readonly<Record<string, NonNullable<HudV2Deps["state"]["activePanel"]>>> = { manpower: "manpower", settings: "settings" };
+const SIDE_PANEL_TARGETS: Readonly<Record<string, NonNullable<HudV2Deps["state"]["activePanel"]>>> = { manpower: "manpower", settings: "settings", charges: "charges" };
 
 /** Opens a screen, a profile or a side panel. */
 const openTarget = (deps: HudV2Deps, open: string): void => {
@@ -256,7 +256,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     afcReady: readyAfcUpgradeCount(state),
     diplomacyRequests: state.incomingAllianceRequests.length + state.incomingTruceRequests.length + state.resourceTradeOffers.filter(row => row.toPlayerId === state.me).length,
     chronicleUnread: chronicleBadgeCount(state),
-    active: screen.id === "profile" && state.activePlayerProfileId === state.me ? "self" : screen.id ? NAV_ACTIVE[screen.id] : undefined
+    active: screen.id === "profile" && state.activePlayerProfileId === state.me ? "self" : screen.id ? NAV_ACTIVE[screen.id] : state.activePanel === "charges" ? "charges" : undefined
   }));
   writeRegion("season", seasonClockHtml(state.seasonVictory, state.seasonWinner, state.me, (id) => state.playerNames.get(id) ?? ""));
   writeRegion("ward", imperialWardButtonHtml(state, nowMs));
