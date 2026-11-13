@@ -1107,7 +1107,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     updateMusicForGameState(computeWarMusicSignals(state));
   }, 500);
   startMusterStatusTicker(state, deps.renderHud);
-  startTruceRequestExpiryTicker(state, deps.renderHud);
+  startTruceRequestExpiryTicker(state, deps.renderHud, undefined, (message) => deps.pushFeed(message, "alliance", "warn"));
   setInterval(() => {
     if (state.connection !== "initialized") return;
     if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;

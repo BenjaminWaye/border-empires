@@ -58,6 +58,8 @@ export const handleDiplomacySocketMessage = (state: DiplomacyMessageState, msg: 
     if (request && !state.outgoingAllianceRequests.some((existing) => existing.id === request.id)) {
       state.outgoingAllianceRequests.push(request);
     }
+    const targetName = (msg.targetName as string | undefined) ?? request?.toName ?? (request ? deps.playerNameForOwner(request.toPlayerId) : undefined);
+    deps.pushFeed(`Alliance offered${targetName ? ` to ${targetName}` : ""}.`, "alliance", "success");
     return true;
   }
   if (msg.type === "ALLIANCE_UPDATE") {

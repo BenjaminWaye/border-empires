@@ -117,3 +117,40 @@ describe("truce announcements", () => {
     expect(endedTruces([a], [a])).toEqual([]);
   });
 });
+
+// Playtest 2026-11-12: a refused offer only reached the Activity feed, which a
+// phone player never sees, so the sender learned of it from the re-offer cooldown.
+describe("answers to your own offers", () => {
+  const sentAlliance = { id: "a1", fromPlayerId: "me", toPlayerId: "ai-1", createdAt: 0 };
+  const sentTruce = { id: "t1", fromPlayerId: "me", toPlayerId: "ai-1", createdAt: 0, expiresAt: 600_000, durationHours: 24 as const };
+
+  it("pops up a decline of your alliance offer", () => {
+    const state = { ...allianceState(), outgoingAllianceRequests: [sentAlliance] };
+    const deps = { pushFeed: vi.fn(), showCaptureAlert: vi.fn() };
+    const announcement = "Astrid declined your alliance offer. Astrid wants about 16 coin more than you can offer.";
+    applyAllianceUpdateMessage(state, { allies: [], outgoingAllianceRequests: [], announcement }, deps);
+    expect(deps.showCaptureAlert).toHaveBeenCalledWith("Alliance declined", announcement, "warn");
+    expect(state.outgoingAllianceRequests).toEqual([]);
+  });
+
+  it("pops up a decline of your truce offer", () => {
+    const state = { ...truceState(), outgoingTruceRequests: [sentTruce] };
+    const deps = { pushFeed: vi.fn(), showCaptureAlert: vi.fn() };
+    applyTruceUpdateMessage(state, { outgoingTruceRequests: [], announcement: "Tom declined your 24h truce offer." }, deps);
+    expect(deps.showCaptureAlert).toHaveBeenCalledWith("Truce declined", "Tom declined your 24h truce offer.", "warn");
+  });
+
+  it("stays quiet when you withdraw your own offer (no announcement)", () => {
+    const state = { ...allianceState(), outgoingAllianceRequests: [sentAlliance] };
+    const deps = { pushFeed: vi.fn(), showCaptureAlert: vi.fn() };
+    applyAllianceUpdateMessage(state, { allies: [], outgoingAllianceRequests: [] }, deps);
+    expect(deps.showCaptureAlert).not.toHaveBeenCalled();
+  });
+
+  it("does not pop up for an announcement about someone else's offer", () => {
+    const state = { ...allianceState(), outgoingAllianceRequests: [sentAlliance] };
+    const deps = { pushFeed: vi.fn(), showCaptureAlert: vi.fn() };
+    applyAllianceUpdateMessage(state, { allies: [], outgoingAllianceRequests: [sentAlliance], announcement: "You declined Milo's alliance offer." }, deps);
+    expect(deps.showCaptureAlert).not.toHaveBeenCalled();
+  });
+});
