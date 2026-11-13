@@ -106,19 +106,17 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   SIEGE_BATTERY: "War", SIEGE_TOWER: "War", DREAD_TOWER: "War",
   WEAPONS_WORKSHOP: "War",
   TITANIUM_WEAPONS_FACTORY: "War", UMBRITE_WEAPONS_FACTORY: "War",
-  RESIN_EXTRACTOR: "Manpower",
-  IMPLANT_FOUNDRY: "Manpower",
-  CATALYST_REFINERY: "Economy",
   CULTIVATION_ESTATE: "Economy",
   RECLAMATION_WORKS: "Economy",
-  HYDROGARDEN: "Economy", HYDROWORKS: "Economy", MINE: "Economy",
+  HYDROGARDEN: "Economy", HYDROWORKS: "Economy",
+  TITANIUM_REFINERY: "Economy", UMBRITE_REFINERY: "Economy", CRYSTAL_REFINERY: "Economy",
+  TITANIUM_SMELTER: "Economy", UMBRITE_DISTILLERY: "Economy", CRYSTAL_CUTTER: "Economy",
   MANUFACTORY: "Economy", CLEARING_HOUSE: "Economy",
   UMBRITE_WORKS: "Economy", HIGH_YIELD_UMBRITE_WORKS: "Economy",
   TITANIUM_WORKS: "Economy", HIGH_YIELD_TITANIUM_WORKS: "Economy",
-  ORE_REFINERY: "Economy", HARBOR_EXCHANGE: "Economy",
+  HARBOR_EXCHANGE: "Economy",
   TRADE_NEXUS: "Economy", MINISTRY_HALL: "Economy",
   IMPERIAL_EXCHANGE_PART_1: "Economy", IMPERIAL_EXCHANGE_PART_2: "Economy", IMPERIAL_EXCHANGE_PART_3: "Economy", IMPERIAL_EXCHANGE: "Economy",
-  UMBRITE_RIG: "War",
   INCUBATION_ENGINE: "Manpower", CENSUS_HALL: "Manpower",
   ANCILLARY_DEPOT: "Manpower", NEURAL_WORKS: "Manpower",
   ANCILLARY_FACTORY: "Manpower",
@@ -195,21 +193,20 @@ export const structureInfoForKey = (
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers, effective against heavy fortified targets"];
     if (key === "HYDROGARDEN") return ["Grain resource tiles only — no effect on fish tiles"];
     if (key === "HYDROWORKS") return [];
-    if (key === "UMBRITE_RIG") return [];
-    if (key === "MINE") return [];
+    if (key === "TITANIUM_REFINERY" || key === "UMBRITE_REFINERY" || key === "CRYSTAL_REFINERY") return ["Processes one linked deposit field of its resource"];
+    if (key === "TITANIUM_SMELTER" || key === "UMBRITE_DISTILLERY" || key === "CRYSTAL_CUTTER") return ["Boosts this town's refineries of its resource"];
     if (key === "MANUFACTORY") return ["Developed precursor salvage improves output backing campaign credit", "Stacks additively across every active Manufactory in the town"];
     if (key === "INCUBATION_ENGINE") return [];
     if (key === "CENSUS_HALL") return [];
     if (key === "CLEARING_HOUSE") return [];
-    if (key === "TRADE_NEXUS") return ["Developed catalysts and luxury biota provide additional campaign credit", "Enables the connected-town income bonus for this road network"];
-    if (key === "ORE_REFINERY") return [];
+    if (key === "TRADE_NEXUS") return ["Enables the connected-town income bonus for this road network"];
     if (key === "HARBOR_EXCHANGE") return [];
     if (key === "MINISTRY_HALL") return [];
     if (key === "ANCILLARY_DEPOT") return ["Also boosts manpower cap further if a Reserve Lattice is in this town's connected network"];
     if (key === "SKY_DOCK") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer power"];
     if (key === "AMBARIC_TRANSFORMER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];
     if (key === "RESONANCE_GRID") return ["Requires nearby Ambaric Transformer power"];
-    if (key === "ANCILLARY_FACTORY") return ["Developed neural resin and conductive minerals add Ancillaries to each batch", "Boosted rate applies instead of the standalone rate when a Neural Works is in this town's connected network"];
+    if (key === "ANCILLARY_FACTORY") return ["Boosted rate applies instead of the standalone rate when a Neural Works is in this town's connected network"];
     if (key === "RESERVE_LATTICE") return ["One per connected-town network"];
     if (MONUMENT_COMPONENT_KEYS.has(key)) return ["One of the monument's 3 required unique components", "Must be built in a Great City or Monumental City that has no other monument component"];
     if (key === "ASTRAL_DOCK") return ["Unique world monument", "Must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Transformer power"];

@@ -15,7 +15,7 @@ const ABILITIES = [
 const view = (crystal: readonly TileActionDef[] = ABILITIES): TileMenuView =>
   ({
     title: "Grassland (4, 7)", subtitle: "Yours", tabs: [], overviewLines: [], actions: [],
-    buildings: [act("build_mine", { label: "Mine", cost: "200 gold" })],
+    buildings: [act("build_hydrogarden", { label: "Hydrogarden", cost: "200 gold" })],
     crystal
   }) as unknown as TileMenuView;
 

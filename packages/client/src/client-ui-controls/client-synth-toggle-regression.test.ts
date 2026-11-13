@@ -36,7 +36,6 @@ describe("converter toggle regression guard", () => {
       ["CLEARING_HOUSE", "clearing-house-overlay.svg"],
       ["SKY_DOCK", "sky-dock-overlay.svg"],
       ["TRADE_NEXUS", "trade-nexus-overlay.svg"],
-      ["ORE_REFINERY", "ore-refinery-overlay.svg"],
       // ANCILLARY_DEPOT ("Ancillary Depot") got its own storage-drum overlay;
       // ANCILLARY_FACTORY ("Ancillary Factory") keeps the hopper manufactory.
       // NEURAL_WORKS ("Neural Works") and RESERVE_LATTICE ("Reserve Lattice")

@@ -78,11 +78,11 @@ describe("auto-settle checkbox", () => {
 
   it("keeps the auto-improve switches when toggling a garrison switch", () => {
     const state = createInitialState();
-    state.autoSettle = loadedAutoSettleState({ answered: true, ...only(), improve: { ...NO_AUTO_IMPROVE, TITANIUM: true } });
+    state.autoSettle = loadedAutoSettleState({ answered: true, ...only(), improve: { ...NO_AUTO_IMPROVE, PRECURSOR_SALVAGE: true } });
     installAutoSettleTileOptionBinding(state, () => true);
     document.body.innerHTML = autoSettleOptionHtml(autoSettleOptionForTile(state, tile({ resource: "FARM" }))!);
     document.querySelector<HTMLInputElement>("[data-tile-auto-settle]")!.click();
-    expect(state.autoSettle.status === "loaded" && state.autoSettle.prefs.improve.TITANIUM).toBe(true);
+    expect(state.autoSettle.status === "loaded" && state.autoSettle.prefs.improve.PRECURSOR_SALVAGE).toBe(true);
   });
 
   it("un-ticks itself when the message could not be sent", () => {

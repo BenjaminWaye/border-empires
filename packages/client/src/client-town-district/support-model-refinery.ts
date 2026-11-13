@@ -87,24 +87,28 @@ const umbriteRefinery = (t: TownBuilders): void => {
   oreIntake(t, 0.06);
   t.body.cylinder(0.05, 0.015, -0.03, 0.07, 0.085, 0.03, "stoneLight", 10);
   t.body.cylinder(0.05, 0.045, -0.03, 0.05, 0.055, 0.34, "ironDark", 10);
-  for (let i = 0; i < 6; i += 1) band(t, 0.05, 0.08 + i * 0.05, -0.03, 0.058, i % 2 ? "brassDark" : "brass");
-  for (let i = 0; i < 3; i += 1) lit(t, 0.05, 0.1 + i * 0.1, 0.022, 0.022, 0.026, 0.05);
+  // Kept to three bands, two lamps, six rungs, a lighter upper catwalk and a two-pipe
+  // manifold to stay inside the district triangle budget.
+  for (let i = 0; i < 3; i += 1) band(t, 0.05, 0.08 + i * 0.1, -0.03, 0.058, i % 2 ? "brassDark" : "brass");
+  for (let i = 0; i < 2; i += 1) lit(t, 0.05, 0.12 + i * 0.14, 0.022, 0.022, 0.026, 0.05);
   t.body.dome(0.05, 0.385, -0.03, 0.05, "graphite", 10, 0.6);
   catwalk(t, 0.05, 0.16, -0.03, 0.08);
-  catwalk(t, 0.05, 0.29, -0.03, 0.075);
+  catwalk(t, 0.05, 0.29, -0.03, 0.075, 4);
   t.body.box(0.12, 0.03, -0.03, 0.022, 0.26, 0.006, "iron");
-  for (let i = 0; i < 9; i += 1) t.body.box(0.12, 0.05 + i * 0.028, -0.03, 0.026, 0.004, 0.012, "brassDark");
+  for (let i = 0; i < 6; i += 1) t.body.box(0.12, 0.05 + i * 0.042, -0.03, 0.026, 0.004, 0.012, "brassDark");
   for (const [x, z] of [[-0.09, -0.14], [0.19, -0.12]] as const) {
     vessel(t, x, z, 0.055, 0.1, "graphite");
     t.body.pipe(x, 0.15, z, 0.05, 0.2, -0.03, 0.01, "brass");
   }
-  // Manifold: three parallel pipes on stands, bent down into the receiver.
-  for (const dz of [-0.016, 0, 0.016]) {
-    t.body.pipe(0.05, 0.3, -0.03 + dz, 0.18, 0.3, 0.12 + dz, 0.007, dz === 0 ? "brass" : "brassDark");
-    t.body.pipe(0.18, 0.3, 0.12 + dz, 0.18, 0.06, 0.12 + dz, 0.007, dz === 0 ? "brass" : "brassDark");
+  // Manifold: parallel pipes on stands, bent down into the receiver.
+  for (const dz of [-0.01, 0.01]) {
+    t.body.pipe(0.05, 0.3, -0.03 + dz, 0.18, 0.3, 0.12 + dz, 0.007, dz < 0 ? "brass" : "brassDark");
+    t.body.pipe(0.18, 0.3, 0.12 + dz, 0.18, 0.06, 0.12 + dz, 0.007, dz < 0 ? "brass" : "brassDark");
   }
   t.body.box(0.12, 0.015, 0.05, 0.012, 0.28, 0.012, "iron");
-  vessel(t, 0.18, 0.12, 0.045, 0.06, "ironDark");
+  // Plain receiver drum (not a full vessel) for the triangle budget.
+  t.body.cylinder(0.18, 0.012, 0.12, 0.05, 0.05, 0.07, "ironDark", 8);
+  band(t, 0.18, 0.07, 0.12, 0.053, "brass");
   ribs(t, -0.08, 0.015, 0.14, 0.14, 4, 0.05, 0.07);
   beacon(t, 0.05, 0.43, -0.03);
 };

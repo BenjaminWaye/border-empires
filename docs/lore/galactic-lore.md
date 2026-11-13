@@ -410,17 +410,21 @@ a rival who takes that harbour strands everything put ashore from it.
 
 ### What a harbour looks like
 
-A frontier harbour is ordinary machinery, like everything else a town will
-run: coal, steam, timber and iron, with no aether-work in it. The quay is
-dressed stone with an iron-capped edge and a timber pier on piles. A toll and
-harbourmaster's house keeps the freight and the tolls that back a House's Coin
-(§11), a coal-fired steam derrick swings cargo off the pier, a lamp burns at
-the pier head for the sea lane, and a paddle-steamer ferry lies alongside.
+A harbour is a House port, built to the same standard as a House's other
+works. The quay is polished black stone veined with gold, laid on a
+charcoal course with a brass inlay and an iron-capped sea edge, with lamp
+posts along it and an iron-plated pier on blackened piles. A grey stone
+control office, glazed and crowned with a sensor mast, keeps the freight
+and the tolls that back a House's Coin (§11). A powered gantry crane, fed
+by a cell bank charged from the town's ordinary generation and marked out by
+cyan status strips (signal lamps, not aether-work), lifts sealed cargo
+containers off the pier, a beacon burns at the pier head for the sea lane,
+and one of the House's armoured troop carriers (§11) lies alongside.
 
 The beaches beside the quay are part of the harbour. Each carries a slipway:
-a timber ramp with iron rails running down into the water, a flat-bottomed
-landing barge hauled up it, a winch, a lantern and stacked supplies brought
-in by sea. They are where the harbour's landings come ashore, which is why a
+an iron-plated ramp with brass rails running down into the water, an
+armoured landing barge hauled up it, a winch, a lamp post and containers
+brought in by sea. They are where the harbour's landings come ashore, which is why a
 defender watches the whole stretch and not only the quay. A harbour is a
 transport hub, not a fortification: it carries no guns and no walls, and a
 Palisade is what defends it.
@@ -511,35 +515,21 @@ They do not mint the offworld credit itself. The historical building name
 Mintworks has been replaced by Manufactory; exact income, stacking and
 Clearing House effects are maintained in the economy reference.
 
-### Frontier concessions and ancillary supply
+### Frontier concessions
 
-Making an Ancillary takes three frontier inputs. Resin Extractors refine native
-compounds that stabilise the neural controls of newly remade bodies. Implant
-Foundries turn conductive ore into implants, command circuitry and replacement
-components. Catalyst Refineries recover rare catalysts that drive the chemistry
-of remaking itself, the same compounds offworld chemical and fabrication
-industries pay for. Each working site feeds the House's whole Ancillary reserve
-rather than one building. Towns still provide the bodies: these industries
-improve remaking throughput, not the supply of people. Depots still determine
-storage capacity and custody for the reserve. The Reserve Custody Cadre
-authorises both Depots and Implant Foundries.
-
-Resin-bearing broadleaf groves grow in forested grassland, with amber seams
-beneath their bark; ordinary trees are not automatically resin deposits.
-Conductive seams lie in hills, beside mountains and in cold ground. Catalysts
-favour inland sand, never beaches. Each grows only where its terrain allows,
-so a House rarely finds all three inside its first borders.
+Remaking runs on town industry: the bodies come from towns, and the reserve is
+held in Depots and processed in Ancillary Factories. No frontier input is
+needed to make an Ancillary. Houses no longer commission resin groves,
+conductive seams or catalyst concessions; earlier campaigns that worked them
+abandoned those concessions.
 
 Frontier deposits sit beyond a town's immediate support ring, giving a House
 reason to develop and defend the surrounding countryside.
 
 A working site provides continuing contracted output, not ore units spent down
-to zero. A House's first site of a kind transforms its remaking lines; further
-sites of the same kind add less, which is why Houses trade surplus sites with
-neighbours who lack that kind. A Siphon can divert a working site's output to
-the caster, without duplicating its supply. Its crews and extraction systems
-must still be authorised at the source; draining an undeveloped deposit creates
-no industry.
+to zero. A Siphon can divert a working site's output to the caster, without
+duplicating its supply. Its crews and extraction systems must still be
+authorised at the source; draining an undeveloped deposit creates no industry.
 
 Cultivation Estates grow native luxury biota in warm, wet grassland and marsh.
 Its fragrances and pigments sell in the Core, but on a Sector world its
@@ -565,6 +555,14 @@ Tooling Module authorises both Manufactories and Reclamation Works. Salvage
 fields are industrial remains, distinct from the great Monuments; no claim that
 a field is itself an active Concordance construct is implied by the term
 precursor.
+
+Strategic ore is not worked at the pit. Titanium, Umbrite and Crystal-bearing
+Gems are refined in a House's towns: a refinery on a town's support ground
+hauls raw ore from one linked field, over the House's own roads and land, and
+turns it into usable supply. A deposit with no town to serve it, or whose haul
+road an enemy has cut, yields only what a garrison can scrape by hand. A town
+that commits to an ore gives up more of its working ground to smelters,
+distilleries or cutting halls.
 
 Specialised warrants and charters commission the crews, processing standards
 and commercial rights needed to exploit these sites. A discovered deposit is

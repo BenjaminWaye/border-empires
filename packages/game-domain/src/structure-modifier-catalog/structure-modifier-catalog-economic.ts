@@ -6,10 +6,11 @@ import { manpowerPerBatch } from "@border-empires/shared";
 import {
   CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_INCUBATION_ENGINE, CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT,
   ANCILLARY_DEPOT_MANPOWER_CAP_BONUS, INCUBATION_ENGINE_INSTANT_POPULATION_BURST,
-  TILE_SLOT_BOOST_STRUCTURES, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS
+  TILE_SLOT_BOOST_STRUCTURES, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS, REFINERY_BOOSTER_SLOTS_PER_TILE, REFINERY_REACH_LAND_TILES, REFINERY_SLOTS_PER_TILE,
+  isRefineryBoosterType, isRefineryType
 } from "@border-empires/shared";
 import {
-  EXCHANGE_GOLD_PER_SLOT_PER_DAY, ORE_REFINERY_OUTPUT_MULT, MINISTRY_HALL_RADIUS, INCUBATION_ENGINE_ONGOING_GROWTH_MULT,
+  EXCHANGE_GOLD_PER_SLOT_PER_DAY, MINISTRY_HALL_RADIUS, INCUBATION_ENGINE_ONGOING_GROWTH_MULT,
   ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN, MANUFACTORY_GOLD_PRODUCTION_BONUS,
   MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE, MANUFACTORY_INSTANT_GOLD_BONUS,
   NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY, UPKEEP_MINUTES_PER_DAY
@@ -44,13 +45,20 @@ const manufactoryModifiers = (ctx: ModifierContext): StructureModifier[] => {
   ];
 };
 
-// FOOD/TITANIUM/CRYSTAL/UMBRITE production caps were retired by the
-// resource-slot rewrite (§5) — Mine's only live effect is +1 slot of its
-// tile's resource (TILE_SLOT_BOOST_STRUCTURES.MINE, structure-slots.ts).
-const mineModifiers = (ctx: ModifierContext): StructureModifier[] => {
-  const resource = ctx.tile?.resource;
-  const slotLabel = resource === "GEMS" ? "CRYSTAL slot" : resource === "TITANIUM" ? "TITANIUM slot" : "resource slot";
-  return [{ statLabel: slotLabel, valueText: `+${TILE_SLOT_BOOST_STRUCTURES.MINE}`, tone: "positive", isTownWide: false }];
+// Refineries (refineries/, territory-development-plan.md Phase 2): each
+// processes one linked deposit field; boosters add to every processed tile of
+// their resource in the same town.
+const refineryModifiers = (type: string): StructureModifier[] => {
+  if (isRefineryType(type)) {
+    return [
+      { statLabel: "Slots per garrisoned field tile", valueText: `+${REFINERY_SLOTS_PER_TILE}`, tone: "positive", isTownWide: false },
+      { statLabel: "Field reach (land tiles from the town)", valueText: `${REFINERY_REACH_LAND_TILES}`, tone: "positive", isTownWide: false }
+    ];
+  }
+  if (isRefineryBoosterType(type)) {
+    return [{ statLabel: "Slots per processed field tile (town refineries)", valueText: `+${REFINERY_BOOSTER_SLOTS_PER_TILE}`, tone: "positive", isTownWide: true }];
+  }
+  return [];
 };
 
 // The *_PER_DAY constants below describe a daily production rate that the
@@ -105,11 +113,7 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
       { statLabel: "FOOD slots per boosted Hydrogarden", valueText: `+${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS}`, tone: "positive", isTownWide: false }
     ];
   }
-  // Same retirement as Mine — no ongoing production/cap left, just +1 slot.
-  if (type === "UMBRITE_RIG") {
-    return [{ statLabel: "UMBRITE slot", valueText: `+${TILE_SLOT_BOOST_STRUCTURES.UMBRITE_RIG}`, tone: "positive", isTownWide: false }];
-  }
-  if (type === "MINE") return mineModifiers(ctx);
+  if (isRefineryType(type) || isRefineryBoosterType(type)) return refineryModifiers(type);
   if (type === "MANUFACTORY") return manufactoryModifiers(ctx);
   if (type === "INCUBATION_ENGINE") {
     return [
@@ -141,7 +145,6 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
   // source, so no single per-copy number applies here.
   if (type === "TRADE_NEXUS") return [{ statLabel: "Connected-town coin bonus", valueText: "+50% / +40% / +30% (1st–3rd connected town)", tone: "positive", isTownWide: true }];
   if (type === "HARBOR_EXCHANGE") return [{ statLabel: "Coin / day per connected owned dock", valueText: "+5 coin/day", tone: "positive", isTownWide: true }];
-  if (type === "ORE_REFINERY") return [{ statLabel: "Mine output (5-tile radius)", valueText: `${ORE_REFINERY_OUTPUT_MULT}x`, tone: "positive", isTownWide: true }];
   if (type === "MINISTRY_HALL") {
     return [
       { statLabel: `Nearby town FOOD slot demand (${MINISTRY_HALL_RADIUS}-tile radius)`, valueText: "-1 tier step", tone: "positive", isTownWide: true }

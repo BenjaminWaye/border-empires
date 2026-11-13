@@ -5,7 +5,7 @@ import type { OptimisticStructureKind, Tile } from "../client-types.js";
 import { isValidAfcLandingTile, ownedAfcCount } from "../client-afc-actions.js";
 import { isRelayBeaconPlacementTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 
-type PlacedStructureType = "HYDROWORKS" | "ORE_REFINERY" | "RELAY_BEACON";
+type PlacedStructureType = "HYDROWORKS" | "RELAY_BEACON";
 
 export type BuildingPlacementFlowDeps = {
   keyFor: (x: number, y: number) => string;
@@ -36,7 +36,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
     }
     if (landmarkConstructionBlocker(state.tiles, tile.x, tile.y)) return false;
     if (st === "RELAY_BEACON") return isRelayBeaconPlacementTile(tile, state.me);
-    if (st !== "HYDROWORKS" && st !== "ORE_REFINERY") return false;
+    if (st !== "HYDROWORKS") return false;
     return canBuildPlacementStructure(st, tile, state.me, state.gold, state.techIds, state.resourceSlots).available;
   };
 
@@ -66,7 +66,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
       cancelBuildingPlacement();
       return;
     }
-    if (structureType !== "HYDROWORKS" && structureType !== "ORE_REFINERY" && structureType !== "RELAY_BEACON") {
+    if (structureType !== "HYDROWORKS" && structureType !== "RELAY_BEACON") {
       cancelBuildingPlacement();
       return;
     }

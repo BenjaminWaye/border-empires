@@ -12,6 +12,7 @@
 // paused and pausedAt is cleared. Readers compute remaining time against
 // pausedAt instead of the wall clock while it is set.
 import type { ConverterMode } from "./economic-structure.js";
+import type { RefineryFieldAssignment } from "./refineries/refinery-types.js";
 import type {
   AfcStatus,
   EconomicStructureType,
@@ -99,4 +100,6 @@ export type TileEconomicStructureState = {
   modeLockedUntil?: number;
   /** Reclamation Works only: salvage loads already shipped to the Court from this deposit tile. */
   salvageLoadsShipped?: number;
+  /** Refineries only: the anchor tile of the deposit field it processes (refineries/). */
+  refineryField?: RefineryFieldAssignment;
 };

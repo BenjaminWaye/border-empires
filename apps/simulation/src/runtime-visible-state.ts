@@ -196,7 +196,7 @@ export function exportTilesInAreaForPlayer(input: {
         ? {
             ...delta,
             ...(waystationRewardHiddenFromViewer(tile.waystation, input.playerId) ? { waystationJson: undefined } : {}),
-            ...districtOverlayProjection(input.tiles, tile, () => true)
+            ...districtOverlayProjection(input.tiles, tile, () => true, input.playerId)
           }
         : delta);
     }
@@ -252,7 +252,7 @@ function visibleTileProjection(
     // local belief is corrected by REQUEST_TILE_DETAIL, same as before.
     ...overlayJsonFieldsFromTile(tile, playerId),
     ...districtOverlayProjection(input.tiles, tile, key => classification.visibleKeys.has(key) &&
-      !(classification.lockTargetOnlyKeys.has(key) && !allyAndSelfIds.has(input.tiles.get(key)?.ownerId ?? "")))
+      !(classification.lockTargetOnlyKeys.has(key) && !allyAndSelfIds.has(input.tiles.get(key)?.ownerId ?? "")), playerId)
   };
 }
 

@@ -43,7 +43,7 @@ describe("foodTradeTerms", () => {
   });
 
   it("never pledges a producing network site as payment", () => {
-    expect(foodTradeTerms(1, { gold: 0, resourceTradeHoldings: { NEURAL_RESIN: 5 } })).toBeUndefined();
+    expect(foodTradeTerms(1, { gold: 0, resourceTradeHoldings: { LUXURY_BIOTA: 5 } })).toBeUndefined();
   });
 
   it("gives up when it can pay with neither", () => {

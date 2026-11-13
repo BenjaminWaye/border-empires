@@ -53,10 +53,8 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   }
   if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons build instantly (50 manpower each, no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full Siege Battery.";
   if (actionId === "build_hydrogarden") return tile.resource === "FARM" ? `Adds +${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slots on grain resource tiles.` : "Hydrogardens do not boost fish output.";
-  if (actionId === "build_umbrite_rig") return "Adds +1 UMBRITE slot on this tile.";
   if (actionId === "build_titanium_weapons_factory") return "Military-industrial structure. Grants +1.5% attack / +3% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_umbrite_weapons_factory") return "Military-industrial structure. Grants +3% attack / +1.5% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
-  if (actionId === "build_mine") return `Adds +1 ${tile.resource === "TITANIUM" ? "TITANIUM" : "CRYSTAL"} slot on this tile.`;
   if (actionId === "build_manufactory") {
     // manufactory-stacking task: this describes what THIS one Manufactory will add
     // (stacks additively with any other Manufactory already supporting the
@@ -98,7 +96,6 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") return observatoryToggleDetailText(actionId);
   if (actionId === "abandon_territory")
     return "Give this tile up. The land goes neutral; anything built on it (fort, Aether Tower, economic structure) stays standing and is picked up by whoever claims the tile next. Siege Batteries and Relay Beacons are razed, and any mustered manpower is returned to your pool.";
-  if (actionId === "build_ore_refinery") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises titanium and crystal caps.";
   if (actionId === "build_ancillary_depot") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if a Reserve Lattice is in this town's connected network.";
   if (actionId === "build_harbor_exchange") return "Build on a garrisoned dock tile. Adds +5 coin / day per connected owned dock.";
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";

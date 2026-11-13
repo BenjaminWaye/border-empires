@@ -4,6 +4,8 @@
 export type TileActionDef = {
   id:
     | import("@border-empires/shared").NetworkBuildAction
+    | import("./client-refineries/refinery-action-ids.js").RefineryBuildActionId
+    | import("./client-refineries/refinery-action-ids.js").RefineryPickerActionId
     | "settle_land"
     | "settle_many"
     | "launch_attack"
@@ -16,8 +18,6 @@ export type TileActionDef = {
     | "build_observatory"
     | "build_hydrogarden"
     | "build_hydroworks"
-    | "build_umbrite_rig"
-    | "build_mine"
     | "build_manufactory"
     | "build_incubation_engine"
     | "build_census_hall"
@@ -33,7 +33,6 @@ export type TileActionDef = {
     | "upgrade_aether_condenser"
     | "build_fuel_plant"
     | "build_trade_nexus"
-    | "build_ore_refinery"
     | "build_ancillary_depot"
     | "build_harbor_exchange"
     | "build_lockworks_port"

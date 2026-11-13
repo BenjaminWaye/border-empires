@@ -70,8 +70,6 @@ export const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
 // which already got this treatment). Retired to 0 rather than deleted, same
 // "leave plumbing, starve input" pattern.
 export const HYDROGARDEN_GOLD_UPKEEP = 0;
-export const UMBRITE_RIG_GOLD_UPKEEP = 0;
-export const MINE_GOLD_UPKEEP = 0;
 export const INCUBATION_ENGINE_GOLD_UPKEEP = 0;
 /**
  * Pure town population-growth multiplier from Incubation Engine — the single shared
@@ -125,7 +123,7 @@ export const SETTLEMENT_BASE_GOLD_PER_MIN = 2 / GOLD_RESCALE_DIVISOR; // §24.6:
 // directly in gold/day per §6.4's implementation rule, converted through
 // the single UPKEEP_MINUTES_PER_DAY divisor rather than each call site
 // re-deriving its own "divide by N" — the exact bug class (Advanced Umbrite
-// Synthesizer silently reusing UMBRITE_RIG_GOLD_UPKEEP) that rule exists to
+// Synthesizer silently reusing the old Umbrite Rig gold upkeep) that rule exists to
 // prevent.
 export const UPKEEP_MINUTES_PER_DAY = 1440;
 export const UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY = 30;
@@ -221,7 +219,6 @@ export const HARBOR_EXCHANGE_GOLD_UPKEEP = 0;
 export const ANCILLARY_DEPOT_GOLD_UPKEEP = 0;
 export const MINISTRY_HALL_GOLD_UPKEEP = 0;
 export const RESONANCE_GRID_GOLD_UPKEEP = 0;
-export const ORE_REFINERY_GOLD_UPKEEP = 0;
 export const UMBRITE_WORKS_UMBRITE_PER_DAY = 18;
 export const HIGH_YIELD_UMBRITE_WORKS_UMBRITE_PER_DAY = 21.6;
 export const TITANIUM_WORKS_TITANIUM_PER_DAY = 18;
@@ -246,8 +243,6 @@ export const AMBARIC_TRANSFORMER_RADIUS = 30;
 export const SKY_DOCK_BOMBARD_MIN_FIELD_TILES = 2;
 export const SKY_DOCK_BOMBARD_MAX_FIELD_TILES = 4;
 export const STRUCTURE_OUTPUT_MULT = 1.5;
-export const ORE_REFINERY_RADIUS = 5;
-export const ORE_REFINERY_OUTPUT_MULT = 2;
 export const HYDROWORKS_RADIUS = 10;
 export const HYDROWORKS_OUTPUT_MULT = 2;
 export const MINISTRY_HALL_RADIUS = 10;

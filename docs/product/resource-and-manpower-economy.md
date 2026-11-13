@@ -148,10 +148,43 @@ demand is across its consumers. Gold does not use this system.
 | GEMS | 1 CRYSTAL slot |
 | UMBRITE | 1 UMBRITE slot |
 
-- Hydrogarden adds 2 FOOD slots to its FARM tile. Mine and Umbrite Rig each add
-  1 matching-resource slot. Hydroworks adds 2 FOOD slots to Hydrogardens in
-  range; Ore Refinery adds 2 TITANIUM slots to Mines in range.
+- Hydrogarden adds 2 FOOD slots to its FARM tile. Hydroworks adds 2 FOOD slots
+  to Hydrogardens in range.
+- Strategic deposits (Titanium, Umbrite, Gems) take no on-tile building; the
+  Mine, Umbrite Rig and Ore Refinery were removed (recovery drops their saved
+  records; the bare deposit keeps its base slot). Instead a **town refinery**
+  (Titanium Refinery, Umbrite Refinery, Crystal Refinery: 80 manpower, 1 FOOD
+  slot, several per town) stands on a town's support ring and processes one
+  **field**: the 8-connected group of same-resource deposit tiles containing
+  its anchor tile. The field is linked when the owner's own land (FRONTIER or
+  SETTLED; water, mountains, unowned and other players' tiles block) joins the
+  town tile to any field tile within `REFINERY_REACH_LAND_TILES` = 10 land
+  steps (8-way). A working refinery adds `REFINERY_SLOTS_PER_TILE` = 2 slots
+  to every garrisoned field tile its owner holds, plus
+  `REFINERY_BOOSTER_SLOTS_PER_TILE` = 1 while an active booster of its resource
+  (Titanium Smelter, Umbrite Distillery, Crystal Cutter: 150 manpower, 1 FOOD
+  slot, one per town) stands on the same town's ring. It works only while
+  active, while its owner holds both its tile and its town, and while the field
+  is linked. Each field feeds at most one of an owner's refineries (the oldest
+  assignment wins; the others are unassigned until reassigned). If the anchor
+  stops being an owned deposit the refinery re-anchors to another owned tile of
+  the same field. Building one auto-picks the nearest free linked field (or
+  takes an explicit one); `ASSIGN_REFINERY_FIELD` changes it. Field
+  eligibility, link, exclusivity and the bonus are pure rules in
+  `packages/shared/src/refineries/`; the simulation applies them in the slot
+  supply rebuild (`apps/simulation/src/refineries/`) and reports them as
+  `STRUCTURE_BOOST` rows with the refinery / booster type. Known gap, shared
+  with every slot boost: a FOOD-dormant refinery still processes its field.
 - Agrarian Works adds 1 FOOD slot per owned, settled FISH tile.
+- **Strategic deposit placement.** On worlds generated from worldgen v13,
+  every Titanium, Umbrite and Gems field (connected group of deposit tiles) has
+  a tile within `REFINERY_REACH_LAND_TILES` (10) land steps of a worldgen town,
+  and no deposit sits on a town or dock tile or inside a town's two support
+  rings; worldgen re-places any cluster that fails this after towns are placed
+  (`packages/game-domain/src/server-worldgen-strategic-reach.ts`). This prepares
+  for refineries (`docs/territory-development-plan.md`, Phase 2). Existing
+  worlds keep their saved deposits, and deposits created at runtime (waystation
+  rewards) or spawn settlements placed after worldgen carry no guarantee.
 - A structure occupies its requirements from build start until removal
   completes, including while under construction or inactive. The full table is
   `STRUCTURE_SLOT_REQUIREMENTS`.
@@ -203,24 +236,20 @@ slot until removal completes.
 
 ## Frontier resource networks
 
-New seasons contain five economic deposits in addition to the slot resources.
+New seasons contain two frontier deposits in addition to the slot resources:
+luxury biota and precursor salvage. Neural resin, conductive minerals and
+catalyst were cut (`docs/territory-development-plan.md`, Phase 1); recovery
+drops their saved deposits and installations
+(`apps/simulation/src/resource-networks/retired-frontier-materials.ts`).
 They are visible when explored, but require a specialised Manifest and an
 owned, settled matching extraction installation before supplying benefits.
 Extraction installations have no upkeep (no slot requirement) and cost only
 manpower to build:
-Resin Extractor 40, Implant Foundry 50, Catalyst Refinery 50, Cultivation
-Estate 33, Reclamation Works 60. Base construction seconds equal manpower.
+Cultivation Estate 33, Reclamation Works 60. Base construction seconds equal manpower.
 
 Every active developed tile counts as one site; there are no recipient
 buildings and no per-building slot caps. Formulas live in
 `packages/shared/src/resource-networks/frontier-resource-effects.ts`.
-
-**Resin, conductive minerals, catalyst (manpower).** Each type adds manpower
-regen, paid at the four-hour refill: +120 per refill for your first site of
-that type and +30 for each further site of the same type. One site of each
-type gives +360 per refill (1.5/min). The bonus raises regen only, never the
-manpower cap. Ancillary Depots, Neural Works and Ancillary Factories keep their
-own cap and regen effects; they no longer receive frontier supply.
 
 **Luxury biota (large towns' manpower).** Each developed biota site supplies 2
 biota slots. A City needs 1 slot, a Great City 2, a Metropolis 3; Settlements
@@ -254,39 +283,35 @@ nothing. Site losses invalidate the existing economy caches; network owners
 settle accrued income and manpower at the old rate before a relevant tile
 mutation. No frontier resource pays Coin.
 
-New standard 640×320 maps target 160 tiles each of resin, conductive minerals
-and catalyst and 90 of precursor salvage, scaled by map area. Luxury biota is
+New standard 640×320 maps target 90 tiles of precursor salvage, scaled by map
+area. Luxury biota is
 sized from the map's towns instead: 1.5 tiles per town (3 slots of demand per
 town at 2 slots per site), about 550–585 tiles on a continents map of 360–390
 towns and about 200 on an islands map; a map with no towns falls back to 540
 scaled by area. Deposits are separated and hold 3–6 tiles. On
-standard-size maps each type uses only its preferred habitat (resin in
-forested grassland, conductive minerals in hills, near mountains or cold
-ground, catalyst in inland sand, biota in tropical grassland and marsh,
-salvage in hills and near mountains), so most start regions lack some types;
+standard-size maps each type uses only its preferred habitat (biota in
+tropical grassland and marsh, salvage in hills and near mountains), so most
+start regions lack one;
 smaller maps also use the secondary habitat. New frontier deposits avoid towns
 and all eight adjacent support tiles; their installations do not require town
-support. Catalysts exclude coastal sand. Saved campaigns preserve their
-existing geography on recovery.
+support. Saved campaigns preserve their existing biota and salvage on
+recovery.
 
-Implant Foundry shares Reserve Custody Cadre (`organized-supply`) with the
-Ancillary Depot. Reclamation Works shares Industrial Tooling Module (`trade`)
-with the Manufactory. Resin Extractor and export installations retain their
-separate warrant/charter. There are no additional implant or salvage warrants.
+Reclamation Works shares Industrial Tooling Module (`trade`) with the
+Manufactory. The Cultivation Estate uses the Frontier Export Charter
+(`frontier-concessions`). There is no separate salvage warrant.
 
 Sources: `packages/shared/src/resource-networks/`,
 `apps/simulation/src/resource-networks/`, `resource-networks-worldgen.ts`.
 
 ## Diplomatic resource supply
 
-All four upkeep resources and four of the frontier resources (not precursor
-salvage) can be negotiated in independent Resource trade offers or alongside a
+All four upkeep resources and luxury biota (not precursor salvage) can be negotiated in independent Resource trade offers or alongside a
 truce/alliance. These are exclusive renewable slots or developed sites, not a
 new inventory of mined stockpiles. Coin remains a one-time transfer. For upkeep
 resources only surplus beyond current domestic use and existing export
-commitments may be newly promised; any developed resin, conductive, catalyst or
-biota site may be pledged, and the supplier loses that site's marginal value
-(−30 or −120 manpower per refill, or 2 biota slots) while the receiver gains it.
+commitments may be newly promised; any developed biota site may be pledged, and
+the supplier loses that site's 2 biota slots while the receiver gains them.
 Offers containing salvage are refused, and agreements saved with salvage are
 suspended. Received slots cannot back another export. Accepted exports
 take priority over later domestic building demand.
@@ -306,8 +331,7 @@ being resolved cannot be withdrawn: either party finishes/retries the same accep
 payment identity before deciding whether to end its resulting supply agreement.
 
 Starting AI negotiation values per slot or site are FOOD 4 Coin, Titanium 4,
-Crystal 6, Umbrite 4, resin, conductive minerals and catalyst 8, and luxury
-biota 10. These are
+Crystal 6, Umbrite 4, and luxury biota 10. These are
 one-day-equivalent negotiation weights for an open-ended promise, not recurring
 charges, guaranteed market prices or playtest-proven balance. Human offers can
 use other prices. Limits: 16 active supply agreements per House, 256 per world;

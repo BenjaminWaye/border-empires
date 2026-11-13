@@ -117,7 +117,7 @@ describe("client runtime display support", () => {
     const { structureCostText } = createSubject();
 
     expect(structureCostText("RELAY_BEACON")).not.toContain("slot");
-    expect(structureCostText("MINE")).not.toContain("slot");
+    expect(structureCostText("TITANIUM_REFINERY")).not.toContain("slot");
   });
 
   describe("structureInfoForKey(\"OBSERVATORY\") progressive upkeep count", () => {

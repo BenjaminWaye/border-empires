@@ -40,7 +40,7 @@ function baseManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext, player: 
   // The Iron Levy (tech-tree redesign): a 2-hour empire-wide manpower
   // regen freeze after triggering the muster ability.
   if (ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now()) return 0;
-  const { neuralWorksNetworkAncillaryFactoryCount, ancillaryFactoryCount, censusDirectorateManpowerBuildingCount, resourceNetworkRegenPerMinute = 0, biotaTownSupply } =
+  const { neuralWorksNetworkAncillaryFactoryCount, ancillaryFactoryCount, censusDirectorateManpowerBuildingCount, biotaTownSupply } =
     ctx.cachedManpowerStructureBonusForPlayer(player);
   return playerManpowerRegenPerMinuteFromSummary(
     ctx.summaryForPlayer(player.id),
@@ -49,7 +49,7 @@ function baseManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext, player: 
     censusDirectorateManpowerBuildingCount,
     player.galacticWonderManpowerRegenBonusPerMinute ?? 0,
     biotaTownSupply
-  ) + resourceNetworkRegenPerMinute;
+  );
 }
 
 /** Allied Levies scales the player's own capacity, so it never reads (or recurses into) an ally's bonuses. */
@@ -94,8 +94,6 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
   );
   if (biotaTownSupply && biotaTownSupply.size > 0)
     breakdown.biotaTowns = [...biotaTownSupply].map(([tileKey, supply]) => ({ tileKey, ...supply }));
-  const resourceBonus = ctx.cachedManpowerStructureBonusForPlayer(player).resourceNetworkRegenPerMinute ?? 0;
-  if (resourceBonus > 0) breakdown.regen.push({ label: "Resin, conductive and catalyst", amount: resourceBonus });
   const levy = alliedLevyShare(ctx, player);
   if (levy > 0) {
     breakdown.cap.push({ label: AFC_LEVY_SOURCE_LABEL, amount: baseManpowerCap(ctx, player) * levy });

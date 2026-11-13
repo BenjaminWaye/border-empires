@@ -1,4 +1,5 @@
 import { musterReportsHtml } from "./client-muster-combat-reports/client-muster-combat-reports-ui.js";
+import { refineryActionIcon } from "./client-refineries/refinery-action-ids.js";
 import { advanceCommitOddsText } from "./client-muster-commit-tab/client-muster-commit-tab.js";
 import { escapeHtml } from "./client-duke-panel/client-duke-escape.js";
 import { afcModuleTabHtml } from "./client-afc-module-tab/client-afc-module-tab.js";
@@ -156,6 +157,8 @@ const abilityActionIconHtml = (actionId: TileActionDef["id"]): string | undefine
 };
 const actionIcon = (id: TileActionDef["id"]): string => {
   if (id.startsWith("redeploy_afc_module:")) return "⇣";
+  const refinery = refineryActionIcon(id);
+  if (refinery) return refinery;
   if (id === "expand_here") return "⚐";
   if (id.startsWith("march_attack_") || id === "march_to_pick_origin") return "⚑";
   if (id === "clear_waypoint_and_expand_here") return "↺⚐";
@@ -171,8 +174,6 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_relay_beacon") return "⚑";
   if (id === "build_observatory") return "◉";
   if (id === "build_hydrogarden") return "▥";
-  if (id === "build_umbrite_rig") return "◆";
-  if (id === "build_mine") return "⛏";
   if (id === "build_manufactory") return "▣";
   if (id === "build_incubation_engine") return "◫";
   if (id === "build_bank") return "◧";
@@ -192,7 +193,6 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "cancel_siphon") return "⊘";
   if (id === "set_converter_structure_mode") return "⇄";
   if (id === "build_fuel_plant") return "⬢";
-  if (id === "build_ore_refinery") return "⚙";
   if (id === "build_ancillary_depot") return "⛨";
   if (id === "build_harbor_exchange") return "⚓\uFE0E";
   if (id === "build_lockworks_port") return "⚓\uFE0E";

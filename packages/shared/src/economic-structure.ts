@@ -1,4 +1,5 @@
 import type { EconomicStructureType, PlayerId, TileKey } from "./types.js";
+import type { RefineryFieldAssignment } from "./refineries/refinery-types.js";
 
 export type ConverterMode = "SYNTHESIZE" | "EXCHANGE";
 
@@ -18,4 +19,5 @@ export interface EconomicStructure {
   bombardCooldownUntil?: number;
   converterMode?: ConverterMode;
   modeLockedUntil?: number;
+  refineryField?: RefineryFieldAssignment;
 }

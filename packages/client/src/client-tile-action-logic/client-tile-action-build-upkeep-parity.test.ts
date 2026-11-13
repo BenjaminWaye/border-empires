@@ -81,7 +81,7 @@ describe("build-menu cost strings always label real upkeep (client-tile-action-l
   it("Hydrogarden and Hydroworks are the real zero-upkeep exceptions (sanity check the predicate itself)", () => {
     expect(hasRealUpkeep("HYDROGARDEN")).toBe(false);
     expect(hasRealUpkeep("HYDROWORKS")).toBe(false);
-    expect(hasRealUpkeep("MINE")).toBe(true);
+    expect(hasRealUpkeep("TITANIUM_REFINERY")).toBe(true);
     expect(hasRealUpkeep("TITANIUM_WORKS")).toBe(true);
   });
 });

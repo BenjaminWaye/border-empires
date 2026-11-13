@@ -119,7 +119,7 @@ describe("town arrow detail refresh", () => {
   });
 
   it.each([
-    ["FARM", "build_hydrogarden"], ["TITANIUM", "build_mine"], ["UMBRITE", "build_umbrite_rig"]
+    ["FARM", "build_hydrogarden"], ["LUXURY_BIOTA", "build_cultivation_estate"], ["PRECURSOR_SALVAGE", "build_reclamation_works"]
   ] as const)("offers the yellow improvement on a %s in the town support ring", (resource, id) => {
     document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
     const state = createInitialState();

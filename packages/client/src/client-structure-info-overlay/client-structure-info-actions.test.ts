@@ -41,11 +41,11 @@ describe("structure info navigation", () => {
   it("retains close and structure-name actions after extracting the HUD bindings", () => {
     const f = fixture();
     const source = document.createElement("button");
-    source.dataset.structureInfo = "RESIN_EXTRACTOR";
+    source.dataset.structureInfo = "CULTIVATION_ESTATE";
     f.root.append(source);
     bindStructureInfoActions(f.root, { state: f.state, renderHud: f.renderHud });
     source.click();
-    expect(f.state.structureInfoKey).toBe("RESIN_EXTRACTOR");
+    expect(f.state.structureInfoKey).toBe("CULTIVATION_ESTATE");
     f.root.querySelector<HTMLButtonElement>('[data-structure-info-close="button"]')!.click();
     expect(f.state.structureInfoKey).toBe("");
     expect(f.renderHud).toHaveBeenCalledTimes(2);

@@ -128,16 +128,20 @@ export const parseUpgradeMusterCapPayload = (payloadJson: string): { x: number; 
   }
 };
 
-export const parseBuildStructurePayload = (payloadJson: string): { x: number; y: number; structureType: string; tier?: ChosenStructureTier } | null => {
+export const parseBuildStructurePayload = (payloadJson: string): { x: number; y: number; structureType: string; tier?: ChosenStructureTier; field?: { x: number; y: number } } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (typeof parsed.x !== "number" || typeof parsed.y !== "number" || typeof parsed.structureType !== "string") return null;
     if (parsed.tier !== undefined && !isChosenStructureTier(parsed.tier)) return null;
+    // Refineries only: an explicit deposit field; both coordinates or neither.
+    const hasField = typeof parsed.fieldX === "number" && typeof parsed.fieldY === "number";
+    if (!hasField && (parsed.fieldX !== undefined || parsed.fieldY !== undefined)) return null;
     return {
       x: parsed.x,
       y: parsed.y,
       structureType: parsed.structureType,
-      ...(parsed.tier !== undefined ? { tier: parsed.tier } : {})
+      ...(parsed.tier !== undefined ? { tier: parsed.tier } : {}),
+      ...(hasField ? { field: { x: parsed.fieldX as number, y: parsed.fieldY as number } } : {})
     };
   } catch {
     return null;
@@ -305,6 +309,17 @@ export const parseTitaniumLevyMusterPayload = (payloadJson: string): { fromX: nu
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (typeof parsed.fromX !== "number" || typeof parsed.fromY !== "number") return null;
     return { fromX: parsed.fromX, fromY: parsed.fromY };
+  } catch {
+    return null;
+  }
+};
+
+export const parseAssignRefineryFieldPayload = (payloadJson: string): { x: number; y: number; fieldX: number; fieldY: number } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    const { x, y, fieldX, fieldY } = parsed;
+    if (typeof x !== "number" || typeof y !== "number" || typeof fieldX !== "number" || typeof fieldY !== "number") return null;
+    return { x, y, fieldX, fieldY };
   } catch {
     return null;
   }

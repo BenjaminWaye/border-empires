@@ -280,7 +280,7 @@ describe("action bar", () => {
   });
 
   it("never puts the new-flag march on the main row and offers Build and Aether", () => {
-    const buttons = selectBarButtons(view({ actions: [act("march_attack_new_flag")], buildings: [act("build_mine")], crystal: [act("aether_lance")], tabs: ["actions", "buildings", "crystal"] }));
+    const buttons = selectBarButtons(view({ actions: [act("march_attack_new_flag")], buildings: [act("build_hydrogarden")], crystal: [act("aether_lance")], tabs: ["actions", "buildings", "crystal"] }));
     expect(buttons.some((b) => b.kind === "action" && b.action.id === "march_attack_new_flag")).toBe(false);
     expect(buttons.flatMap((b) => (b.kind === "panel" ? [b.panel] : []))).toEqual(["build", "aether"]);
   });
