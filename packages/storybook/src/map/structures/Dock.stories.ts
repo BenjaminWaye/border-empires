@@ -10,7 +10,7 @@ type Args = {
   zoom: number;
 };
 
-// Lit like the structure lineups (Sandbox/Refineries): orthographic, shadowed,
+// Lit like the structure lineups (Map/Structures/Refineries/Models): orthographic, shadowed,
 // with the building environment map the live map hands the overlay.
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ width: 1200, height: 620, camera: "orthographic", orthoHalfHeight: (0.5 + 0.35 * args.count) / args.zoom, background: "#18232b", bloom: true });

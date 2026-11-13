@@ -1,17 +1,16 @@
 import { DirectionalLight, Mesh, MeshStandardMaterial, PCFSoftShadowMap, PlaneGeometry, PMREMGenerator } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { Meta, StoryObj } from "@storybook/html-vite";
+import { isRefineryBoosterType, structureDisplayName } from "@border-empires/shared";
 import { createDistrictOverlay } from "@client/client-town-district/district-overlay.js";
 import { REFINERY_MODEL_KINDS } from "@client/client-town-district/support-model-refinery.js";
-import { createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
+import { createStage, wrapWithCleanup } from "../../../fixtures/three-stage.js";
 
-// Proposal review (docs/territory-development-plan.md, Phase 2): refineries in
-// the back row, their boosters in front, on the production district kit.
+// The shipped town refinery models (docs/territory-development-plan.md, Phase
+// 2; client-town-district/support-model-refinery.ts): refineries in the back
+// row, their boosters in front, on the production district kit.
 
-const LABELS: Record<string, string> = {
-  TITANIUM_REFINERY: "Titanium Refinery", UMBRITE_REFINERY: "Umbrite Refinery", CRYSTAL_REFINERY: "Crystal Refinery",
-  TITANIUM_SMELTER: "Titanium Smelter (booster)", UMBRITE_DISTILLERY: "Umbrite Distillery (booster)", CRYSTAL_CUTTER: "Crystal Cutter (booster)"
-};
+const LABELS: Record<string, string> = Object.fromEntries(REFINERY_MODEL_KINDS.map((kind) => [kind, `${structureDisplayName(kind)}${isRefineryBoosterType(kind) ? " (booster)" : ""}`]));
 
 type Args = { zoom: number; only: number };
 const render = (args: Args): HTMLElement => {
@@ -47,8 +46,7 @@ const render = (args: Args): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "Sandbox/Refineries/Lineup",
-  parameters: { sandbox: { owner: "BenjaminWaye", added: "2026-11-12" } },
+  title: "Map/Structures/Refineries/Models",
   argTypes: {
     zoom: { control: { type: "range", min: 0.6, max: 4, step: 0.1 } },
     only: { control: { type: "range", min: -1, max: REFINERY_MODEL_KINDS.length - 1, step: 1 }, description: "-1 shows all six" }

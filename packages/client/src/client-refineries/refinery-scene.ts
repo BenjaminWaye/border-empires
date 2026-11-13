@@ -56,44 +56,63 @@ const MAX_PATH_STEPS = REFINERY_REACH_LAND_TILES + MAX_SUPPORT_RING_RADIUS + 2;
 const passable = (tile: Tile | undefined, ownerId: string): tile is Tile =>
   Boolean(tile && tile.terrain === "LAND" && tile.ownerId === ownerId && (tile.ownershipState === "FRONTIER" || tile.ownershipState === "SETTLED"));
 
+const NEIGHBOR_STEPS: ReadonlyArray<readonly [number, number]> = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+
 /**
  * Tile steps from the refinery to the nearest tile of its field over the
  * owner's land (town tiles are not crossed, so the line leaves the district
- * instead of running through the town model). Falls back to the field tile
- * nearest as the crow flies when no such path is known.
+ * instead of running through the town model). Among the shortest routes it
+ * takes the one heading most directly at the field, so the line reads as a
+ * straight run where the land allows. Falls back to a straight line to the
+ * nearest field tile when no route over known land exists.
  */
 export const refinerySupplySteps = (tiles: ReadonlyMap<string, Tile>, status: RefineryClientStatus): Array<{ x: number; y: number }> => {
-  const fieldKeys = new Set((status.fieldTiles ?? []).map(({ x, y }) => refineryTileKey(x, y)));
-  if (fieldKeys.size === 0) return [];
+  const fields = status.fieldTiles ?? [];
+  if (fields.length === 0) return [];
   const start = { x: status.x, y: status.y };
-  const previous = new Map<string, { x: number; y: number } | undefined>([[status.key, undefined]]);
-  const queue: Array<{ x: number; y: number; depth: number }> = [{ ...start, depth: 0 }];
-  for (let index = 0; index < queue.length; index += 1) {
+  // The nearest field tile as the crow flies, unwrapped relative to the refinery: what the line aims at.
+  let target = start, targetDistance = Infinity;
+  for (const field of fields) {
+    const dx = toroidDelta(status.x, field.x, WORLD_WIDTH), dy = toroidDelta(status.y, field.y, WORLD_HEIGHT);
+    const distance = Math.hypot(dx, dy);
+    if (distance < targetDistance) { targetDistance = distance; target = { x: status.x + dx, y: status.y + dy }; }
+  }
+  // Land steps to the field from every tile near it (multi-source search from the field tiles).
+  const steps = new Map<string, number>();
+  const queue: Array<{ x: number; y: number }> = [];
+  for (const field of fields) { steps.set(refineryTileKey(field.x, field.y), 0); queue.push(field); }
+  for (let index = 0; index < queue.length && !steps.has(status.key); index += 1) {
     const at = queue[index]!;
-    if (at.depth >= MAX_PATH_STEPS) continue;
-    for (const [dx, dy] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]] as const) {
-      const next = { x: at.x + dx, y: at.y + dy };
-      const key = refineryTileKey(wrapX(next.x), wrapY(next.y));
-      if (previous.has(key)) continue;
+    const depth = steps.get(refineryTileKey(at.x, at.y))!;
+    if (depth >= MAX_PATH_STEPS) continue;
+    for (const [dx, dy] of NEIGHBOR_STEPS) {
+      const next = { x: wrapX(at.x + dx), y: wrapY(at.y + dy) };
+      const key = refineryTileKey(next.x, next.y);
+      if (steps.has(key)) continue;
       const tile = tiles.get(key);
-      if (!passable(tile, status.ownerId) || (tile.town && !fieldKeys.has(key))) continue;
-      previous.set(key, at);
-      if (fieldKeys.has(key)) {
-        const steps = [next];
-        for (let back: { x: number; y: number } | undefined = at; back; back = previous.get(refineryTileKey(wrapX(back.x), wrapY(back.y)))) steps.unshift(back);
-        return steps.map(({ x, y }) => ({ x, y }));
-      }
-      queue.push({ ...next, depth: at.depth + 1 });
+      if (key !== status.key && (!passable(tile, status.ownerId) || tile.town)) continue;
+      steps.set(key, depth + 1);
+      queue.push(next);
     }
   }
-  let best: { x: number; y: number } | undefined;
-  let bestDistance = Infinity;
-  for (const field of status.fieldTiles ?? []) {
-    const dx = toroidDelta(status.x, field.x, WORLD_WIDTH), dy = toroidDelta(status.y, field.y, WORLD_HEIGHT);
-    const distance = Math.max(Math.abs(dx), Math.abs(dy));
-    if (distance < bestDistance) { bestDistance = distance; best = { x: status.x + dx, y: status.y + dy }; }
+  if (!steps.has(status.key)) return [start, target];
+  // Walk down the step counts from the refinery, preferring the step nearest the target.
+  const route = [start];
+  let at = start, remaining = steps.get(status.key)!;
+  while (remaining > 0) {
+    let best: { x: number; y: number } | undefined, bestScore = Infinity;
+    for (const [dx, dy] of NEIGHBOR_STEPS) {
+      const next = { x: at.x + dx, y: at.y + dy };
+      if (steps.get(refineryTileKey(wrapX(next.x), wrapY(next.y))) !== remaining - 1) continue;
+      const score = Math.hypot(target.x - next.x, target.y - next.y);
+      if (score < bestScore) { bestScore = score; best = next; }
+    }
+    if (!best) break;
+    route.push(best);
+    at = best;
+    remaining -= 1;
   }
-  return best ? [start, best] : [];
+  return route;
 };
 
 /** Tile steps to world points: straight runs merged, starting at the refinery model's port and ending in the field tile's centre. */
