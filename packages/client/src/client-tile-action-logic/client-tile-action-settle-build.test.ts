@@ -89,7 +89,7 @@ const frontierCostLabel = (state: ReturnType<typeof createInitialState>, tile: T
   const totalGold = SETTLE_COST + 500;
   const totalManpower = SETTLE_MANPOWER_COST + structureBuildManpowerCost(type);
   const totalMs = settleDurationMsForState(state, tile) + structureBuildDurationMs(type);
-  return `${totalGold} coin, ${totalManpower} m.p. • garrison + build • ${buildTimeLabel(totalMs)} total`;
+  return `${totalGold} coin, ${totalManpower} m.p. (${SETTLE_MANPOWER_COST} garrison + ${structureBuildManpowerCost(type)} build) • ${buildTimeLabel(totalMs)} total`;
 };
 
 describe("settle + build — resource-gated building (HYDROGARDEN)", () => {
@@ -104,7 +104,7 @@ describe("settle + build — resource-gated building (HYDROGARDEN)", () => {
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe("");
-    expect(action?.cost).not.toContain("garrison + build");
+    expect(action?.cost).not.toContain("garrison");
     expect(action?.cost).toContain("FOOD slot");
   });
 
@@ -185,7 +185,8 @@ describe("settle + build — Relay Beacon on an owned FRONTIER tile", () => {
     // the chain total is settle + 50 MP and the settle time alone -- matching what the
     // server charges, not the flat 100 MP / stale 1m build time this used to show.
     const settleLabel = buildTimeLabel(settleDurationMsForState(state, frontier));
-    expect(action?.cost).toBe(`${SETTLE_COST + 500} coin, ${SETTLE_MANPOWER_COST + 50} m.p. • garrison + build • ${settleLabel} total`);
+    // Playtest 2026-11-12: "70 m.p." on the button vs "50 manpower" in the build list; the split is now spelled out.
+    expect(action?.cost).toBe(`${SETTLE_COST + 500} coin, ${SETTLE_MANPOWER_COST + 50} m.p. (${SETTLE_MANPOWER_COST} garrison + 50 build) • ${settleLabel} total`);
   });
 
   it("shows build_relay_beacon in both the Actions and Buildings tabs on a FRONTIER tile, but Buildings only on a SETTLED tile", () => {

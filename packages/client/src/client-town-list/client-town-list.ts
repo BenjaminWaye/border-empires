@@ -1,8 +1,8 @@
 // Sortable list of the viewer's towns for the Towns panel, so a player can
-// spot the towns producing the least/most gold or holding the most people
+// spot the towns producing the least/most coin or holding the most people
 // without clicking through every town tile.
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
-import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
+import { displayTownPopulationTierLabel, townPopulationTarget } from "../client-town-growth/client-town-growth.js";
 import type { Tile } from "../client-types.js";
 import { openBuildSlotsForTown } from "./client-town-list-slots.js";
 
@@ -16,6 +16,7 @@ export type TownListRow = {
   tierLabel: string;
   goldPerMinute: number;
   population: number;
+  /** The next tier's population, matching the town screen's growth bar (not the hard cap). */
   maxPopulation: number;
   growthPerMinute: number;
   isFed: boolean;
@@ -24,7 +25,7 @@ export type TownListRow = {
 };
 
 const SORT_COLUMNS: Array<{ key: TownListSortKey; label: string }> = [
-  { key: "gold", label: "Gold/day" },
+  { key: "gold", label: "Coin/day" },
   { key: "population", label: "Pop" },
   { key: "growth", label: "Growth" },
   { key: "slots", label: "Slots" }
@@ -64,7 +65,7 @@ export const deriveTownListRows = (towns: Iterable<Tile>, me: string, tiles: Rea
       // sabotage, dock income and the pre-first-tick settlement fallback.
       goldPerMinute: finiteOrZero(tile.yieldRate?.goldPerMinute ?? town.goldPerMinute),
       population: finiteOrZero(town.population),
-      maxPopulation: finiteOrZero(town.maxPopulation),
+      maxPopulation: finiteOrZero(townPopulationTarget(town)),
       growthPerMinute: finiteOrZero(town.populationGrowthPerMinute),
       // Only flag a town unfed when the server says so, not when the field is missing.
       isFed: town.isFed !== false,

@@ -35,7 +35,7 @@ describe("buildManpowerPanelMusterFlags", () => {
       MANPOWER_CAP,
       new Map()
     );
-    expect(flags).toEqual([{ x: 5, y: 6, amount: 50, mode: "HOLD", targetX: undefined, targetY: undefined }]);
+    expect(flags).toEqual([{ x: 5, y: 6, amount: 50, cap: 150, mode: "HOLD", targetX: undefined, targetY: undefined }]);
   });
 
   it("returns an empty list when no tiles have a muster flag", () => {
@@ -58,7 +58,7 @@ describe("buildManpowerPanelMusterFlags", () => {
       MANPOWER_CAP,
       new Map()
     );
-    expect(flags).toEqual([{ x: 5, y: 6, amount: 50, mode: "ADVANCE", targetX: 9, targetY: 10 }]);
+    expect(flags).toEqual([{ x: 5, y: 6, amount: 50, cap: 150, mode: "ADVANCE", targetX: 9, targetY: 10 }]);
   });
 });
 
