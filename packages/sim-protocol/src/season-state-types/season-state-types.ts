@@ -105,6 +105,8 @@ export type SeasonGalaxyTierSnapshot = {
   tier: "OUTPOST" | "STIPEND";
   specialization?: GalaxySpecialization;
   influence?: number;
+  // Legacy: Stipends recorded before they became Influence-only carry a
+  // Production amount too. Nothing reads it any more.
   production?: number;
 };
 

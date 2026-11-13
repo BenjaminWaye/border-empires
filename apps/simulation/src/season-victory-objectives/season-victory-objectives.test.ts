@@ -45,7 +45,7 @@ describe("computeSeasonVictory", () => {
   });
 });
 
-describe("objective progress (docs/galactic-campaign-design.md §3 Outpost/Stipend tiering)", () => {
+describe("objective progress (Outpost/Stipend tiering, docs/game-mechanics.md Galactic layer)", () => {
   it("computes ECONOMIC_HEGEMONY progress as the harder of the income and lead-over-runner-up constraints", () => {
     // MIN_INCOME is 1000/1440 gold/min and LEAD_MULT is 1.33. The leader (top
     // earner by income) clears MIN_INCOME comfortably (1200 >= 1000, fraction

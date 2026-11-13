@@ -168,16 +168,16 @@ describe("renderGalaxyViewHtml — Outpost/Stipend tiers (§3)", () => {
     expect(html).toContain(GALAXY_SPECIALIZATION_NAME.EXTRACTION);
   });
 
-  it("renders a one-line Stipend row with its Inf/Prod payout", () => {
+  it("renders a one-line Stipend row with its Influence payout", () => {
     const html = renderGalaxyViewHtml({
       planets: [],
       focusedSeasonId: "",
       outposts: [],
-      stipends: [{ seasonId: "season-3", seasonSequence: 3, influence: 9, production: 36, awardedAt: 1_000 }]
+      stipends: [{ seasonId: "season-3", seasonSequence: 3, influence: 9, awardedAt: 1_000 }]
     });
     expect(html).toContain("data-galaxy-stipend");
-    expect(html).toContain("9 Inf");
-    expect(html).toContain("36 Prod");
+    expect(html).toContain("a stipend of 9 Influence");
+    expect(html).not.toContain("Prod");
   });
 
   it("renders nothing when there are no planets, outposts, or stipends", () => {
@@ -189,7 +189,7 @@ describe("renderGalaxyViewHtml — Outpost/Stipend tiers (§3)", () => {
       planets: [],
       focusedSeasonId: "",
       outposts: [{ seasonId: "season-2", seasonSequence: 2, sectorNumber: 1, campaign: { kind: "FRONTIER" }, specialization: "EXTRACTION", awardedAt: 1_000 }],
-      stipends: [{ seasonId: "season-dc", seasonSequence: 5, sectorNumber: 1, campaign: { kind: "CONTESTATION", ordinal: 1 }, influence: 9, production: 36, awardedAt: 1_000 }]
+      stipends: [{ seasonId: "season-dc", seasonSequence: 5, sectorNumber: 1, campaign: { kind: "CONTESTATION", ordinal: 1 }, influence: 9, awardedAt: 1_000 }]
     });
     expect(html).toContain("Sector 001 Outpost");
     expect(html).not.toContain("Season 2 Outpost");

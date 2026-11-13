@@ -4,7 +4,7 @@ import { GALAXY_SPECIALIZATION_NAME, specializationForVictoryPath } from "./gala
 import type { SeasonVictoryPathId } from "@border-empires/shared";
 
 describe("specializationForVictoryPath", () => {
-  it("maps every victory path to its documented specialization (docs/galactic-campaign-design.md §3)", () => {
+  it("maps every victory path to its documented specialization (docs/game-mechanics.md, Galactic layer)", () => {
     const expected: Record<SeasonVictoryPathId, string> = {
       TOWN_CONTROL: "INDUSTRIAL",
       ECONOMIC_HEGEMONY: "TRADE",

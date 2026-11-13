@@ -15,6 +15,7 @@ import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-stor
 import { validatePlanetName } from "../galaxy-name-policy/galaxy-name-policy.js";
 import { bearerHeader } from "../bearer-header/bearer-header.js";
 import { isAiWinner, resolveEndedSeasons, resolveCurrentOwnerAuthUid, winnerAuthUid, type WonSeason } from "../galaxy-holdings/galaxy-holdings.js";
+import { stipendPayoutAmounts } from "../galaxy-stipend-payout/galaxy-stipend-payout.js";
 import { aiNameFromStored } from "@border-empires/shared";
 import type { SectorCampaign } from "../galaxy-sector-numbering/galaxy-sector-numbering.js";
 
@@ -119,7 +120,6 @@ type GalaxyStipendView = {
   tier: "STIPEND";
   awardedAt: number;
   influence: number;
-  production: number;
 };
 
 export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyRoutesDeps): void => {
@@ -202,14 +202,17 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
             ...(outpostStability !== undefined ? { stability: outpostStability } : {})
           });
         } else if (tier.tier === "STIPEND") {
+          // Same whole-number amount the payout uses; one that rounds to 0
+          // pays nothing, so it isn't listed either.
+          const amounts = stipendPayoutAmounts(tier);
+          if (amounts.influence === 0) continue;
           stipends.push({
             seasonId: season.seasonId,
             seasonSequence: season.seasonSequence,
             ...(season.sectorLabel ? { sectorNumber: season.sectorLabel.sectorNumber, campaign: season.sectorLabel.campaign } : {}),
             tier: "STIPEND",
             awardedAt: season.endedAt,
-            influence: tier.influence ?? 0,
-            production: tier.production ?? 0
+            ...amounts
           });
         }
       }
