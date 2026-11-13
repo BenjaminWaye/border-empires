@@ -1,8 +1,10 @@
-import { describeDiplomacyTermsForRecipient } from "@border-empires/shared";
+import { describeDiplomacyTermsForProposer, describeDiplomacyTermsForRecipient } from "@border-empires/shared";
 // Diplomacy for the new HUD. Step 1 lists every empire you've met as crests,
-// with requests waiting on you pinned at the top. Step 2 is the deal: the
-// trade view re-hosted full width (your goods and treaties on the left, the
-// deal in the middle, theirs on the right). Picking an empire hides the list.
+// with requests waiting on you pinned at the top and the offers you sent
+// (withdrawable) under them, then ranked empires you haven't met: deals need
+// no contact. Step 2 is the deal: the trade view re-hosted full width (your
+// goods and treaties on the left, the deal in the middle, theirs on the
+// right). Picking an empire hides the list.
 
 import type { ActiveTruceView, AllianceRequest, LeaderboardOverallEntry, TruceRequest } from "../client-types.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
@@ -16,6 +18,8 @@ export type DiplomacyListInput = {
   activeTruces: readonly ActiveTruceView[];
   incomingAlliance: readonly AllianceRequest[];
   incomingTruce: readonly TruceRequest[];
+  outgoingAlliance?: readonly AllianceRequest[];
+  outgoingTruce?: readonly TruceRequest[];
   leaderboard: readonly LeaderboardOverallEntry[];
   nameOf: (playerId: string) => string;
   colorOf: (playerId: string) => string | undefined;
@@ -51,15 +55,13 @@ export const diplomacyEmpires = (input: DiplomacyListInput): Array<{ id: string;
 const crest = (name: string, color: string | undefined, size = ""): string =>
   `<span class="v2d-crest${size}" style="background:${esc(color ?? "#5a4828")}" aria-hidden="true">${esc((name.trim()[0] ?? "?").toUpperCase())}</span>`;
 
-const termsText = (terms: AllianceRequest["terms"]): string => {
-  if (!terms) return "";
-  return describeDiplomacyTermsForRecipient(terms,"Other House");
-};
+const offerWhat = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest): string =>
+  kind === "alliance" ? "Alliance" : `${(r as TruceRequest).extendsTruce ? "Extend truce" : "Truce"} ${(r as TruceRequest).durationHours}h`;
 
 const requestRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest, input: DiplomacyListInput): string => {
   const name = input.nameOf(r.fromPlayerId) || r.fromName || "Empire";
-  const what = kind === "alliance" ? "Alliance" : `${(r as TruceRequest).extendsTruce ? "Extend truce" : "Truce"} ${(r as TruceRequest).durationHours}h`;
-  const terms = termsText(r.terms);
+  const what = offerWhat(kind, r);
+  const terms = r.terms ? describeDiplomacyTermsForRecipient(r.terms, name) : "";
   return `<div class="v2d-req">${crest(name, input.colorOf(r.fromPlayerId))}
     <span class="v2d-req-text"><b>${esc(name)}</b><span>${what}${terms ? ` · ${esc(terms)}` : ""}</span></span>
     <button type="button" class="v2s-btn v2s-btn-primary v2s-btn-sm" data-v2-dip-accept="${kind}" data-request-id="${esc(r.id)}">Accept</button>
@@ -67,6 +69,22 @@ const requestRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceReques
     <button type="button" class="v2s-btn v2s-btn-sm v2s-btn-ghost" data-v2-dip-reject="${kind}" data-request-id="${esc(r.id)}" aria-label="Decline">✕</button>
   </div>`;
 };
+
+// An offer you made, waiting on the other House; Withdraw sends ALLIANCE_CANCEL / TRUCE_CANCEL.
+const sentRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest, input: DiplomacyListInput): string => {
+  const name = input.nameOf(r.toPlayerId) || r.toName || "Empire";
+  const terms = r.terms ? describeDiplomacyTermsForProposer(r.terms, name) : "";
+  const expiresAt = (r as TruceRequest).expiresAt;
+  const left = typeof expiresAt === "number" ? ` · ${socialRemainingLabel(expiresAt, input.nowMs)} left` : "";
+  return `<div class="v2d-req v2d-sent">${crest(name, input.colorOf(r.toPlayerId))}
+    <span class="v2d-req-text"><b>${esc(name)}</b><span>${offerWhat(kind, r)}${terms ? ` · ${esc(terms)}` : ""} · waiting${left}</span></span>
+    <button type="button" class="v2s-btn v2s-btn-sm v2s-btn-ghost" data-v2-dip-cancel="${kind}" data-request-id="${esc(r.id)}">Withdraw</button>
+  </div>`;
+};
+
+/** Ranked empires you haven't met yet: an offer needs no contact, so they open the deal like any met empire. */
+export const unmetRankedEmpires = (input: DiplomacyListInput, listed: ReadonlySet<string>): Array<{ id: string; name: string; tiles: number }> =>
+  input.leaderboard.filter((e) => e.id !== input.me && !e.id.startsWith("barbarian") && !listed.has(e.id)).map((e) => ({ id: e.id, name: input.nameOf(e.id) || e.name || "Empire", tiles: e.tiles }));
 
 export const diplomacyListHtml = (input: DiplomacyListInput): string => {
   const requests = [
@@ -78,14 +96,23 @@ export const diplomacyListHtml = (input: DiplomacyListInput): string => {
     ...input.incomingAlliance.map((r) => requestRow("alliance", r, input))
   ];
   const reqHtml = requests.length > 0 ? `<section class="v2d-reqs"><h2 class="v2s-h2">Requests · ${requests.length}</h2>${requests.join("")}</section>` : "";
+  const sent = [...(input.outgoingTruce ?? []).map((r) => sentRow("truce", r, input)), ...(input.outgoingAlliance ?? []).map((r) => sentRow("alliance", r, input))];
+  const sentHtml = sent.length > 0 ? `<section class="v2d-reqs"><h2 class="v2s-h2">Sent · ${sent.length}</h2>${sent.join("")}</section>` : "";
   const empires = diplomacyEmpires(input);
+  const unmet = unmetRankedEmpires(input, new Set(empires.map((e) => e.id)));
+  const unmetHtml = unmet.length > 0
+    ? `<section class="v2d-grid-wrap"><h2 class="v2s-h2">Not met yet · ${unmet.length}</h2><div class="v2d-grid">${unmet.map((e) => `<button type="button" class="v2d-emp v2d-emp-met" data-v2-dip-open="${esc(e.id)}">
+        ${crest(e.name, input.colorOf(e.id), " v2d-crest-lg")}<span class="v2d-emp-name">${esc(e.name)}</span>
+        <span class="v2d-emp-stance">Not met</span><span class="v2d-emp-tiles">${e.tiles.toLocaleString("en-US")} tiles</span>
+      </button>`).join("")}</div></section>`
+    : "";
   const grid = empires.length > 0
     ? empires.map((e) => `<button type="button" class="v2d-emp v2d-emp-${e.stance.kind}" data-v2-dip-open="${esc(e.id)}">
         ${crest(e.name, input.colorOf(e.id), " v2d-crest-lg")}<span class="v2d-emp-name">${esc(e.name)}</span>
         <span class="v2d-emp-stance">${esc(e.stance.label)}</span><span class="v2d-emp-tiles">${e.tiles !== undefined ? `${e.tiles.toLocaleString("en-US")} tiles` : ""}</span>
       </button>`).join("")
-    : `<div class="v2s-empty">No empires met yet</div>`;
-  return `${reqHtml}<section class="v2d-grid-wrap"><h2 class="v2s-h2">Empires you've met · ${empires.length}</h2><div class="v2d-grid">${grid}</div></section>`;
+    : `<div class="v2s-empty">No empires met yet${unmet.length > 0 ? ". You can still offer a deal to any empire below." : ""}</div>`;
+  return `${reqHtml}${sentHtml}<section class="v2d-grid-wrap"><h2 class="v2s-h2">Empires you've met · ${empires.length}</h2><div class="v2d-grid">${grid}</div></section>${unmetHtml}`;
 };
 
 /**
@@ -103,3 +130,10 @@ export const dealSkeletonHtml = (targetName: string, facts = ""): string =>
    <div class="v2d-deal">
      <section class="v2d-terms" id="v2s-dip-host" aria-label="Deal"></section>
    </div>`;
+
+/** Answer to an offer in the list: accept or decline one sent to you, or withdraw (CANCEL) one you sent. */
+export const diplomacyResponseMessage = (kind: "alliance" | "truce", verb: "ACCEPT" | "REJECT" | "CANCEL", requestId: string): Record<string, unknown> => ({
+  type: `${kind === "alliance" ? "ALLIANCE" : "TRUCE"}_${verb}`,
+  requestId,
+  ...(verb === "ACCEPT" ? { confirmedResourceSupply: true } : {})
+});

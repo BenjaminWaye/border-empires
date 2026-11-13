@@ -93,7 +93,8 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   ENEMY_EMPIRE: {
     id: "ENEMY_EMPIRE",
     title: "First Contact!",
-    body: "You've found an enemy! Mustering is now unlocked — place a Muster Flag on your border to gather manpower and attack rival empires or Planetary Defense outposts."
+    // Fires on the first sighting of anyone's land, a House you may want as a friend included: no "enemy".
+    body: "You've spotted land held by another power. Rival Houses can be offered a truce or alliance in Diplomacy. Mustering is now unlocked too: a Muster Flag on your border gathers manpower to attack."
   },
   OUT_OF_REACH_EXPAND: {
     id: "OUT_OF_REACH_EXPAND",

@@ -84,6 +84,7 @@ import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
 import { MAP_LENS_CHANGELOG, MINIMAP_WORLD_EDGE_ENTRY, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
+import { DIPLOMACY_OFFER_FLOW_ENTRY } from "./client-changelog-diplomacy-offer-flow.js";
 import { TAP_TO_INSPECT_ENTRY } from "./client-changelog-tap-to-inspect.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
@@ -486,6 +487,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...NEXT_CONTEST_STARTING_ENTRY, createdAt: 1794380743713, },
   { ...NATIVE_SOCIAL_SIGN_IN_ENTRY, createdAt: 1794288128417, },
   { ...MUSTER_DOCK_TRANSPORT_ENTRY, createdAt: 1794353510194, },
+  { ...DIPLOMACY_OFFER_FLOW_ENTRY, createdAt: 1794561892577, },
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_113,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_114,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_115,
