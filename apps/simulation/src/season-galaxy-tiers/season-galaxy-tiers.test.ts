@@ -51,7 +51,7 @@ describe("computeSeasonGalaxyTiers", () => {
       playerNamesById: new Map([["player-2", "Runner Up"]]),
       selfProgressByPlayerId: new Map()
     });
-    expect(records).toEqual([{ playerId: "player-2", playerName: "Runner Up", tier: "STIPEND", influence: 4, production: 16 }]);
+    expect(records).toEqual([{ playerId: "player-2", playerName: "Runner Up", tier: "STIPEND", influence: 4 }]);
   });
 
   it("does not grant an Outpost for leading the SAME path the winner won (that's the winner's own crown)", () => {
@@ -66,7 +66,7 @@ describe("computeSeasonGalaxyTiers", () => {
     expect(records).toEqual([]);
   });
 
-  it("gives a Stipend scaled to the player's own best-path progress fraction (§13 formula)", () => {
+  it("gives a Stipend scaled to the player's own best-path progress fraction (Influence only)", () => {
     const objectives = [
       baseObjective({ id: "TOWN_CONTROL", leaderPlayerId: "player-1", progress: 1 }),
       baseObjective({ id: "MARITIME_SUPREMACY", leaderPlayerId: "player-3", progress: 0.2 })
@@ -78,7 +78,7 @@ describe("computeSeasonGalaxyTiers", () => {
       playerNamesById: new Map([["player-2", "Bystander"]]),
       selfProgressByPlayerId: new Map([["player-2", new Map([["MARITIME_SUPREMACY", 0.9]])]])
     });
-    expect(records).toEqual([{ playerId: "player-2", playerName: "Bystander", tier: "STIPEND", influence: 9, production: 36 }]);
+    expect(records).toEqual([{ playerId: "player-2", playerName: "Bystander", tier: "STIPEND", influence: 9 }]);
   });
 
   it("gives no record at all to a player with zero progress on every path", () => {
