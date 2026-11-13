@@ -216,11 +216,20 @@ const nodeHtml = (tech: TechInfo, pos: { x: number; y: number }, input: Manifest
   </button>`;
 };
 
+/**
+ * A state pip for the legend and closed-lane summaries. Each state has its own
+ * shape, not just its own colour (green vs brown read alike to a deuteranope,
+ * playtest 2026-11-12): commissioned is filled with a tick, available is a
+ * hollow outline, locked is hatched.
+ */
+export const manifestPipHtml = (state: "owned" | "available" | "locked"): string =>
+  `<i class="v2m-pip-${state}" aria-hidden="true">${state === "owned" ? "✓" : ""}</i>`;
+
 const laneHtml = (lane: ManifestLaneLayout, width: number): string => {
   const band = `<div class="v2m-band${lane.closed ? " v2m-band-closed" : ""}" style="top:${lane.y}px;height:${lane.height}px;width:${width}px" aria-hidden="true"></div>`;
   const toggle = `<button type="button" class="v2m-lane" style="top:${lane.y + 5}px" data-v2-manifest-lane="${esc(lane.branch)}" aria-expanded="${!lane.closed}"><span class="v2m-chev">${lane.closed ? "▸" : "▾"}</span>${esc(lane.name)}</button>`;
   const summary = lane.closed
-    ? `<div class="v2m-lane-sum" style="top:${lane.y + 5}px"><span><b class="v2m-own">${lane.owned}</b> / ${lane.total} commissioned</span><span><b class="v2m-avail">${lane.available}</b> available</span><span class="v2m-pips">${lane.pips.map((p) => `<i class="v2m-pip-${p}"></i>`).join("")}</span></div>`
+    ? `<div class="v2m-lane-sum" style="top:${lane.y + 5}px"><span><b class="v2m-own">${lane.owned}</b> / ${lane.total} commissioned</span><span><b class="v2m-avail">${lane.available}</b> available</span><span class="v2m-pips">${lane.pips.map(manifestPipHtml).join("")}</span></div>`
     : "";
   return band + toggle + summary;
 };
@@ -277,4 +286,4 @@ export const manifestDetailHtml = (input: ManifestInput): string => {
     ${button}`;
 };
 
-export const MANIFEST_LEGEND_HTML = `<div class="v2m-legend"><span><i class="v2m-pip-owned"></i>Commissioned</span><span><i class="v2m-pip-available"></i>Available</span><span><i class="v2m-pip-locked"></i>Locked</span></div>`;
+export const MANIFEST_LEGEND_HTML = `<div class="v2m-legend"><span>${manifestPipHtml("owned")}Commissioned</span><span>${manifestPipHtml("available")}Available</span><span>${manifestPipHtml("locked")}Locked</span></div>`;

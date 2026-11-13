@@ -6,6 +6,7 @@ import { SCIFI_ROADS_ENTRY } from "./client-changelog-scifi-roads.js";
 import { BLOCKED_ACTION_ALERTS_ENTRY } from "./client-changelog-blocked-action-alerts.js";
 import { CONSISTENT_NUMBERS_ENTRY } from "./client-changelog-consistent-numbers.js";
 import { TAP_TO_INSPECT_ENTRY } from "./client-changelog-tap-to-inspect.js";
+import { COMBAT_LEGIBILITY_ENTRY } from "./client-changelog-combat-legibility.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_115: ClientChangelogEntry[] = [
@@ -16,4 +17,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_115: ClientChangelogEntry[] = [
   { ...BLOCKED_ACTION_ALERTS_ENTRY, createdAt: 1794571774926, },
   { ...CONSISTENT_NUMBERS_ENTRY, createdAt: 1794562088771, },
   { ...TAP_TO_INSPECT_ENTRY, createdAt: 1794561745534, },
+  { ...COMBAT_LEGIBILITY_ENTRY, createdAt: 1794561912110, },
 ];

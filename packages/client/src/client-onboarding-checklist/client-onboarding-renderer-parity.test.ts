@@ -18,14 +18,16 @@ it("renders the food objective, not intermediate land, in 2D and true-3D, then c
   expect(highlights).toEqual([{ x: 20, y: 20 }, { x: 7, y: 5 }]);
   expect(highlights).not.toContainEqual({ x: 6, y: 5 });
   const targets = highlights.filter((tile) => tile.x === 7);
-  const context = { save: vi.fn(), restore: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), stroke: vi.fn(), globalAlpha: 1, strokeStyle: "", lineWidth: 1 };
+  const context = { save: vi.fn(), restore: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), stroke: vi.fn(), fill: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), closePath: vi.fn(), globalAlpha: 1, strokeStyle: "", fillStyle: "", lineWidth: 1 };
   const projection = vi.fn((x: number, y: number) => ({ sx: x * 10, sy: y * 10 }));
   const deps = { ctx: context as unknown as CanvasRenderingContext2D, worldToScreen: projection, size: 20, halfW: 10, halfH: 10, nowMs: 0 };
   drawOnboardingChecklistHighlights(targets, deps);
   expect(projection).toHaveBeenCalledTimes(1);
   expect(projection).toHaveBeenCalledWith(7, 5, 20, 10, 10);
-  expect(context.arc).toHaveBeenCalledTimes(1);
+  // Dark halo + ring (both centred on the tile), then four filled arrowheads.
+  expect(context.arc).toHaveBeenCalledTimes(2);
   expect(context.arc).toHaveBeenCalledWith(70, 50, 12.4, 0, Math.PI * 2);
+  expect(context.fill).toHaveBeenCalledTimes(4);
 
   const scene = new Scene();
   const overlay = createOnboardingChecklistHighlightOverlay(scene);
@@ -34,6 +36,10 @@ it("renders the food objective, not intermediate land, in 2D and true-3D, then c
   expect(mesh).toBeInstanceOf(InstancedMesh);
   if (!(mesh instanceof InstancedMesh)) throw new Error("missing onboarding mesh");
   expect(mesh.count).toBe(1);
+  // Same halo + arrowhead cue as 2D, placed on the same tile.
+  const markerMeshes = scene.children[0]!.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
+  expect(markerMeshes).toHaveLength(3);
+  for (const marker of markerMeshes) expect(marker.count).toBe(1);
   const matrix = new Matrix4();
   mesh.getMatrixAt(0, matrix);
   expect(matrix.elements[12]).toBe(7);
@@ -43,6 +49,7 @@ it("renders the food objective, not intermediate land, in 2D and true-3D, then c
   overlay.sync([], 0);
   expect(context.arc).not.toHaveBeenCalled();
   expect(mesh.count).toBe(0);
+  for (const marker of markerMeshes) expect(marker.count).toBe(0);
   overlay.dispose();
   expect(scene.children).toHaveLength(0);
 });
