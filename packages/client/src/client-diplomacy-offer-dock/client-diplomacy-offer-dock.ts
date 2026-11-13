@@ -15,9 +15,10 @@ type OfferDockState = Pick<ClientState, "me" | "incomingTruceRequests" | "incomi
 export const OFFER_DOCK_MAX_ROWS = 3;
 const TICK_MS = 500;
 // An answer the server refuses without dropping the offer (say, terms you can no longer pay) re-enables the buttons after this.
-export const OFFER_DOCK_PENDING_MS = 8_000;
-// A first tap on Accept for an offer that costs you coin only arms it; it disarms after this.
-export const OFFER_DOCK_CONFIRM_MS = 4_000;
+// An AI's counter-offer is re-weighed against a fresh AI snapshot on accept, which can take several seconds on a busy world.
+export const OFFER_DOCK_PENDING_MS = 15_000;
+// A first tap on Accept for an offer that costs you coin only arms it; it disarms after this (long enough to read the terms on a phone).
+export const OFFER_DOCK_CONFIRM_MS = 10_000;
 
 export type OfferDockEntry = {
   kind: "truce" | "alliance";
@@ -139,7 +140,7 @@ const rowHtml = (entry: OfferDockEntry, confirmingId: string | undefined): strin
       ${entry.terms ? `<div class="offer-dock-terms">${esc(entry.terms)}</div>` : ""}
     </div>
     <div class="offer-dock-actions">
-      <button type="button" class="offer-dock-btn offer-dock-accept${confirming ? " offer-dock-confirming" : ""}" data-offer-action="accept" data-offer-kind="${entry.kind}" data-offer-id="${esc(entry.id)}"${confirming ? ` title="Tap again to accept: ${esc(entry.terms)}"` : ""}${disabled}>${confirming ? "Confirm" : "Accept"}</button>
+      <button type="button" class="offer-dock-btn offer-dock-accept${confirming ? " offer-dock-confirming" : ""}" data-offer-action="accept" data-offer-kind="${entry.kind}" data-offer-id="${esc(entry.id)}"${confirming ? ` title="Tap again to accept: ${esc(entry.terms)}"` : ""}${disabled}>${entry.pending ? "Sending…" : confirming ? "Confirm" : "Accept"}</button>
       <button type="button" class="offer-dock-btn offer-dock-decline" data-offer-action="decline" data-offer-kind="${entry.kind}" data-offer-id="${esc(entry.id)}"${disabled}>Decline</button>
     </div>
     <button type="button" class="offer-dock-hide" data-offer-action="hide" data-offer-id="${esc(entry.id)}" title="Hide · answer later in Alliances" aria-label="Hide this offer; answer it later in Alliances">✕</button>
@@ -153,12 +154,21 @@ export const offerDockHtml = (entries: readonly OfferDockEntry[], confirmingId?:
   return `${shown.map((entry) => rowHtml(entry, confirmingId)).join("")}${more}`;
 };
 
-/** The game message for a dock button, or undefined for an unknown button. */
-export const offerDockMessage = (action: string | undefined, kind: string | undefined, id: string | undefined): { type: string; requestId: string } | undefined => {
+/**
+ * The game message for a dock button, or undefined for an unknown button. The
+ * row shows the offer's terms, so an accept confirms any resource supply in
+ * them, as the Requests row does; without the flag the gateway refuses every
+ * resource-supply offer accepted here.
+ */
+export const offerDockMessage = (
+  action: string | undefined,
+  kind: string | undefined,
+  id: string | undefined
+): { type: string; requestId: string; confirmedResourceSupply?: true } | undefined => {
   if (!id || (action !== "accept" && action !== "decline")) return undefined;
-  if (kind === "truce") return { type: action === "accept" ? "TRUCE_ACCEPT" : "TRUCE_REJECT", requestId: id };
-  if (kind === "alliance") return { type: action === "accept" ? "ALLIANCE_ACCEPT" : "ALLIANCE_REJECT", requestId: id };
-  return undefined;
+  const prefix = kind === "truce" ? "TRUCE" : kind === "alliance" ? "ALLIANCE" : undefined;
+  if (!prefix) return undefined;
+  return action === "accept" ? { type: `${prefix}_ACCEPT`, requestId: id, confirmedResourceSupply: true } : { type: `${prefix}_REJECT`, requestId: id };
 };
 
 /**

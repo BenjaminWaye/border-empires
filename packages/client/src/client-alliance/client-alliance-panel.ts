@@ -41,7 +41,7 @@ const sectionHtml = (title: string, body: string, stackClass = ""): string =>
 export const noPlayersMetHtml = (): string =>
   `<article class="card alliance-empty-card alliance-empty-state">
     <p class="alliance-empty-title">You haven't met any other players yet.</p>
-    <p class="alliance-empty-hint">Expand your territory until you spot another empire. Once you have, you can propose an alliance or a truce right here.</p>
+    <p class="alliance-empty-hint">Empires you meet while expanding show up here. You don't have to meet one first: open any empire in Ranks to offer a truce or alliance.</p>
   </article>`;
 
 // A met player with nothing in flight: no ally, no pending request either way.
