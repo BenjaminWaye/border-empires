@@ -61,11 +61,26 @@ export type GalaxyEconomyStore = {
   // a Defense Campaign opens for it (§7: Garrison Production has no
   // surrender value).
   resetGarrison: (authUid: string, seasonId: string) => Promise<void>;
+  // Stipend: credits a season's one-time Influence payout
+  // to this empire's balance, at most once per (authUid, seasonId). The
+  // payout record and the balance change are written together, so repeated
+  // calls (every Cycle poll, every gateway restart) are no-ops after the
+  // first. Creates the balance row (lastCycleAt = `now`) if there is none.
+  // Returns true only for the call that actually paid.
+  creditStipendOnce: (input: StipendCredit) => Promise<boolean>;
+};
+
+export type StipendCredit = {
+  authUid: string;
+  seasonId: string;
+  influence: number;
+  now: number;
 };
 
 export class InMemoryGalaxyEconomyStore implements GalaxyEconomyStore {
   private readonly balances = new Map<string, GalaxyEconomyBalance>();
   private readonly stability = new Map<string, GalaxyTerritoryStability>();
+  private readonly paidStipends = new Set<string>();
 
   async getBalance(authUid: string): Promise<GalaxyEconomyBalance | undefined> {
     const existing = this.balances.get(authUid);
@@ -125,5 +140,19 @@ export class InMemoryGalaxyEconomyStore implements GalaxyEconomyStore {
     const existing = this.stability.get(key);
     if (!existing) return;
     this.stability.set(key, { ...existing, garrison: 0 });
+  }
+
+  async creditStipendOnce(input: StipendCredit): Promise<boolean> {
+    const key = this.stabilityKey(input.authUid, input.seasonId);
+    if (this.paidStipends.has(key)) return false;
+    this.paidStipends.add(key);
+    const existing = this.balances.get(input.authUid);
+    this.balances.set(input.authUid, {
+      authUid: input.authUid,
+      influence: (existing?.influence ?? 0) + input.influence,
+      production: existing?.production ?? 0,
+      lastCycleAt: existing?.lastCycleAt ?? input.now
+    });
+    return true;
   }
 }
