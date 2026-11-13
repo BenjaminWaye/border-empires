@@ -30,7 +30,7 @@ export type ArrowGestureConfirmDeps = {
  * / state.arrowGesture on "Go" or cancel.
  */
 export const handleArrowGestureConfirm = (
-  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey"> & SupplyWarningState,
+  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey" | "captureAlert"> & SupplyWarningState,
   origin: ArrowGesturePoint,
   target: ArrowGesturePoint,
   deps: ArrowGestureConfirmDeps,
@@ -53,6 +53,7 @@ export const handleArrowGestureConfirm = (
     state.arrowGesture = { origin, target };
     showArrowGestureConfirmSheet(state, origin, target, deps.keyFor, {
       sendGameMessage: deps.sendGameMessage,
+      pushFeed: deps.pushFeed,
       renderHud: deps.renderHud
     });
   }, deps.showSupplyTradeSheet);

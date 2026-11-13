@@ -5,8 +5,10 @@ import { buildArrowGestureSetMusterPayload } from "./client-arrow-gesture-confir
 import { showEffortConfirmSheet, type EffortConfirmSheetHandle } from "./client-effort-confirm-sheet/client-effort-confirm-sheet.js";
 import type { ArrowGesturePoint } from "./client-arrow-gesture-confirm-payload.js";
 import type { ClientState } from "./client-state/client-state.js";
+import type { FeedSeverity, FeedType } from "./client-types.js";
 import { describeMarchWinChance, triggerWinChancePaintOnMarchArm } from "./client-win-chance-paint-trigger.js";
 import { createMarchWinChancePreviewPoller, marchPreviewBaseWinChance } from "./client-march-win-chance-preview/client-march-win-chance-preview.js";
+import { showCaptureAlert } from "./client-alerts/client-alerts.js";
 
 // F-revision (docs/replenishment-update-plan.md, "the hold-drag gesture is
 // replaced by click-to-target"): the confirm sheet shown after a March-To
@@ -26,6 +28,7 @@ import { createMarchWinChancePreviewPoller, marchPreviewBaseWinChance } from "./
 
 export type ArrowGestureConfirmSheetDeps = {
   sendGameMessage: (payload: unknown) => boolean;
+  pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
   renderHud: () => void;
 };
 
@@ -52,7 +55,7 @@ export const hideArrowGestureConfirmSheet = (): void => {
  * "Go" and cancel/dismiss -- there is at most one pending confirm at a time.
  */
 export const showArrowGestureConfirmSheet = (
-  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey"> &
+  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey" | "captureAlert"> &
     SupplyWarningState & Partial<Pick<ClientState, "domainIds">>,
   origin: ArrowGesturePoint,
   target: ArrowGesturePoint,
@@ -94,7 +97,14 @@ export const showArrowGestureConfirmSheet = (
     },
     onChange: paint,
     onConfirm: (commitManpower) => {
-      deps.sendGameMessage(buildArrowGestureSetMusterPayload(origin, target, commitManpower));
+      const sent = deps.sendGameMessage(buildArrowGestureSetMusterPayload(origin, target, commitManpower));
+      // Playtest 2026-11-12 (pt-snacker): after Go nothing on screen said the
+      // march had left; only the manpower pool falling later did.
+      if (sent) {
+        const detail = `${commitManpower} manpower from (${origin.x}, ${origin.y}) to (${target.x}, ${target.y})`;
+        showCaptureAlert(state, "March sent", detail, "success", undefined, { x: target.x, y: target.y });
+        deps.pushFeed(`March sent: ${detail}`, "combat", "info");
+      }
       clearPending();
       deps.renderHud();
     },
