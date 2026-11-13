@@ -37,7 +37,10 @@
 .v2t-grow-cost, .v2t-grow-why { font-size: 13px; color: var(--v2-muted); text-align: center; }
 .v2t-grow-why { color: var(--v2-amber); }
 .v2t-right { position: fixed; right: 16px; top: 74px; bottom: 212px; width: 420px; display: flex; flex-direction: column; }
-.v2t-build-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px 10px; }
+.v2t-build-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 18px 10px; }
+.v2t-build-head .v2t-focus { margin-left: auto; }
+.v2t-build-close { flex: none; width: 32px; height: 32px; display: grid; place-items: center; background: var(--v2-well); border: 1px solid var(--v2-edge-strong); color: var(--v2-soft); font-size: 14px; line-height: 1; cursor: pointer; }
+.v2t-build-close:hover { color: var(--v2-text); }
 .v2t-build-title { font-family: var(--v2-display); font-size: 18px; font-weight: 700; letter-spacing: 0.08em; color: var(--v2-gold); }
 .v2t-focus { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-muted); }
 .v2t-focus-on { color: var(--v2-gold-hi); }
