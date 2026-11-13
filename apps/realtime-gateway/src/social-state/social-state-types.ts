@@ -278,3 +278,16 @@ export type SocialStateInitial = {
   offerCooldowns?: SocialOfferCooldown[];
   diplomacyHistory?: StoredDiplomacyHistoryEntry[];
 };
+
+/**
+ * Who hears about a declined offer. An AI's answer brings its own wording (with
+ * its reason); a human's decline used to reach the sender as a silent list
+ * update, so they only learned of it from the re-offer cooldown. Keeps the word
+ * "declined": the client picks the warn tone and the popup title off it.
+ */
+export const declinedOfferAnnouncements = (
+  request: { fromPlayerId: string; durationHours?: number },
+  declinerName: string,
+  given: Partial<Record<string, string>> | undefined
+): Partial<Record<string, string>> =>
+  given ?? { [request.fromPlayerId]: `${declinerName} declined your ${request.durationHours ? `${request.durationHours}h truce` : "alliance"} offer.` };
