@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 
+// galaxy_endorsements is no longer written (Imperial Ward removed) but the table
+// still exists in older databases, so it stays classified here.
 const PERSONAL_TABLES = new Set([
   "auth_identity_bindings", "player_profiles", "player_growth_baseline", "player_funnel",
   "player_funnel_session", "rally_links", "season_participation", "social_players",

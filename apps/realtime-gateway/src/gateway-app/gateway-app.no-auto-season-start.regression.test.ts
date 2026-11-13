@@ -11,5 +11,6 @@ describe("gateway-app season rollover wiring", () => {
   it("never calls startDefenseCampaignAutoStartTimer on startup", () => {
     const source = readFileSync(fileURLToPath(new URL("./gateway-app.ts", import.meta.url)), "utf8");
     expect(source).not.toContain("startDefenseCampaignAutoStartTimer");
+    expect(source).not.toContain("galaxy-defense-campaign-auto-start");
   });
 });
