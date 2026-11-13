@@ -23,6 +23,8 @@ export type BarButton =
 type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs"> & Partial<Pick<TileMenuView, "overviewLines" | "afcUpgradesReady" | "progress">>;
 
 const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
+  // A tile you just set a waypoint on: undoing it is the main thing to do there.
+  "cancel_waypoint",
   // Your own tile while Planetary Defense is capturing it: send a flag after them.
   "muster_hunt_attackers",
   "launch_attack",

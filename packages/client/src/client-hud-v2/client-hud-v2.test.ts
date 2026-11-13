@@ -280,6 +280,12 @@ describe("action bar", () => {
     expect(buttons[0]).toMatchObject({ primary: true, action: { label: "Expand To" } });
   });
 
+  it("makes Cancel Waypoint the main (gold) action on a waypoint's target tile", () => {
+    const v = view({ actions: [act("cancel_waypoint", { label: "Cancel Waypoint" }), act("cancel_all_waypoints")] });
+    expect(selectBarButtons(v)[0]).toMatchObject({ primary: true, action: { id: "cancel_waypoint" } });
+    expect(actionBarHtml(v)).toContain('class="hud-v2-act hud-v2-act-primary" data-hud-v2-action="cancel_waypoint"');
+  });
+
   it("never puts the new-flag march on the main row and offers Build and Aether", () => {
     const buttons = selectBarButtons(view({ actions: [act("march_attack_new_flag")], buildings: [act("build_hydrogarden")], crystal: [act("aether_lance")], tabs: ["actions", "buildings", "crystal"] }));
     expect(buttons.some((b) => b.kind === "action" && b.action.id === "march_attack_new_flag")).toBe(false);
