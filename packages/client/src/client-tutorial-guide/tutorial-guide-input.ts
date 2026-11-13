@@ -18,6 +18,7 @@ import { isMeetablePlayerId } from "../client-alliance/client-met-players.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
 import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
+import { resolveMyReach, serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 
 export type GuideInputState = Pick<
@@ -47,6 +48,8 @@ export type GuideInputState = Pick<
   | "gold"
   | "strategicResources"
   | "pendingDomainUnlockId"
+  | "serverReach"
+  | "serverReachRevision"
 >;
 
 const MAX_BUILD_TARGETS = 6;
@@ -60,6 +63,8 @@ type TileScan = {
   ownsBuiltStructure: boolean;
   ownsRelayBeacon: boolean;
   ownsMusterFlag: boolean;
+  /** Manifests a Waystation granted this player for free (its TECH effect): owned, but never commissioned. */
+  waystationGiftTechIds: Set<string>;
   buildTargetTiles: Array<{ x: number; y: number }>;
   musterTargetTiles: Array<{ x: number; y: number }>;
 };
@@ -94,10 +99,14 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
   let ownsMusterFlag = false;
   let manufactoryInstalled = false;
   let rivalHouseMet = false;
+  const waystationGiftTechIds = new Set<string>();
   const buildCandidates: Array<{ x: number; y: number }> = [];
   const musterCandidates: Array<{ x: number; y: number }> = [];
   for (const tile of tiles.values()) {
     if (isMeetablePlayerId(tile.ownerId, me)) rivalHouseMet = true;
+    // The activation record stays on the tile, whoever owns it now.
+    const waystation = tile.waystation;
+    if (waystation?.activated && waystation.activatedByPlayerId === me && waystation.grantedTechId) waystationGiftTechIds.add(waystation.grantedTechId);
     if (tile.ownerId !== me) continue;
     if (isOwnBuiltStructure(tile, me)) ownsBuiltStructure = true;
     if (tile.economicStructure?.type === "RELAY_BEACON") ownsRelayBeacon = true;
@@ -118,6 +127,7 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
     ownsBuiltStructure,
     ownsRelayBeacon,
     ownsMusterFlag,
+    waystationGiftTechIds,
     buildTargetTiles: nearest(buildCandidates, MAX_BUILD_TARGETS),
     musterTargetTiles: nearest(musterCandidates, MAX_MUSTER_TARGETS)
   };
@@ -132,6 +142,7 @@ let cached:
   | {
       revision: number;
       chunks: number;
+      reachKey: string;
       me: string;
       footholdSaved: boolean;
       checklist: OnboardingChecklistState;
@@ -176,25 +187,33 @@ const foodSlotFreeFor = (state: GuideInputState): boolean => {
   return (state.resourceSlots?.supply.FOOD ?? 0) - (state.resourceSlots?.demand.FOOD ?? 0) >= needed;
 };
 
+/** Towns and food to point at; food only inside reach (the server's border once a REACH_UPDATE has arrived). */
+const footholdTargetsFor = (state: GuideInputState): GuideFootholdTargets => {
+  const reach = resolveMyReach(state);
+  return scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile), (x, y) => reach.has(tileKey(x, y)));
+};
+
 export const buildGuideInput = (state: GuideInputState): GuideInput => {
   const footholdSaved = footholdStepsSaved(state.authEmail);
   if (
     !cached ||
     cached.revision !== state.tilesRevision ||
     cached.chunks !== state.chunkFullCount ||
+    cached.reachKey !== serverReachKey(state) ||
     cached.me !== state.me ||
     cached.footholdSaved !== footholdSaved
   ) {
     cached = {
       revision: state.tilesRevision,
       chunks: state.chunkFullCount,
+      reachKey: serverReachKey(state),
       me: state.me,
       footholdSaved,
       // Judged from the live tiles, not the checklist's account-wide saved flag, until the guide's
       // own foothold steps are saved; then a constant DONE, so later chapters skip the reach scan.
       checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail, { completed: footholdSaved }),
       scan: scanGuideTiles(state.tiles, state.me, state.homeTile),
-      footholdTargets: scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile)),
+      footholdTargets: footholdTargetsFor(state),
       musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)
     };
   }
@@ -209,7 +228,8 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     openPanel,
     hudV2: bodyHasClass("hud-v2"),
     activityDashboardOpen: state.activityDashboard.open || state.activityDashboard.chronicleOpen,
-    manifestCount: state.techIds.filter((id) => id !== state.techRootId).length,
+    // A Waystation's free Manifest isn't one the player commissioned: it must not tick the Manifest steps.
+    manifestCount: state.techIds.filter((id) => id !== state.techRootId && !current.scan.waystationGiftTechIds.has(id)).length,
     manufactoryResearched: state.techIds.includes(RECOMMENDED_FIRST_MANIFEST_ID),
     manufactoryUnlocked: cached.scan.manufactoryInstalled,
     afcUpgradeReady: readyAfcUpgradeCount(state) > 0,
