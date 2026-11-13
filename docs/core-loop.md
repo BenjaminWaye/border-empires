@@ -391,15 +391,15 @@ hidden standings.
 ### 4.5 Meta loop (across seasons)
 
 Territory and progression reset each season. These carry over: account,
-cosmetics, history, and the **galactic layer** (`docs/galactic-campaign-design.md`).
+cosmetics, history, and the **galactic layer** ([game-mechanics.md, Galactic layer](game-mechanics.md#galactic-layer)).
 A season winner gets a durable, nameable Planet and a "Duke" title, plus
 one-time starting bonuses in the next season (`GALACTIC_WONDER_*`). Planet
-holders get the Space View economy (Influence/Production, Senate, Fleets).
+holders get Space View: an Influence bank, a daily Production build rate, the Duke panel and the Senate.
 New seasons need a player vote to start.
 
-**Known gap:** that doc's §20 says the meta layer gives nothing to do to an
-empire that *isn't* winning seasons. In practice, the meta loop today rewards
-winners only.
+**Known gap:** the meta layer gives little to an empire that *isn't* winning
+seasons: Outposts give Influence and Senate weight only, and Stipends are a
+small one-time Influence payout.
 
 ## 5. Economy: sources, sinks, and the gate
 
@@ -622,7 +622,7 @@ deliberately no decay for simply being offline.
    Moving expansion to manpower cost partly addresses the cost issue.
    Repetition and sufficiency are still open.
 2. **The meta loop only rewards winners**
-   (`docs/galactic-campaign-design.md` §20).
+   ([game-mechanics.md, Galactic layer](game-mechanics.md#galactic-layer)).
 3. **Empire integrity** is live but inert in practice, because its input
    metric parks near 50% for almost everyone (expansion brief §7). New
    empires get a grace period: integrity stays at 90%+ until 50 settled tiles,

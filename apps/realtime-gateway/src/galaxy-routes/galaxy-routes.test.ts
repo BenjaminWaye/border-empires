@@ -309,7 +309,7 @@ describe("galaxy routes", () => {
     expect(response.json().planets).toHaveLength(1);
   });
 
-  it("maps the winning victory path to its galactic specialization (docs/galactic-campaign-design.md §3)", async () => {
+  it("maps the winning victory path to its galactic specialization (docs/game-mechanics.md, Galactic layer)", async () => {
     const authBindingStore = new InMemoryGatewayAuthBindingStore();
     await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
     const app = buildApp({
