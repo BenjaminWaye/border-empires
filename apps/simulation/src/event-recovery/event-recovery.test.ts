@@ -392,4 +392,24 @@ describe("recoverSimulationStateFromEvents", () => {
 
     expect(recovered.tiles.find((t) => t.x === 30 && t.y === 30)?.prospectSignature).toBe("FERROUS_DUST");
   });
+
+  // Only "" (the persisted clear, salvage-field-clear.ts) removes a resource;
+  // an in-memory delta carrying `resource: undefined` (reveal-only/masked
+  // projections) means "unchanged" and must not wipe it.
+  it("clears resource only on an explicit empty value, not on undefined", () => {
+    const base = {
+      tiles: [{ x: 31, y: 31, terrain: "LAND" as const, resource: "PRECURSOR_SALVAGE" as const }],
+      activeLocks: [],
+      players: [],
+      pendingSettlements: [],
+      playerYieldCollectionEpochByPlayer: []
+    };
+    const replay = (resource: string | undefined) =>
+      applySimulationEventsToRecoveredState(base, [
+        { eventType: "TILE_DELTA_BATCH", commandId: "c", playerId: "player-1", tileDeltas: [{ x: 31, y: 31, resource }] }
+      ]).tiles.find((t) => t.x === 31 && t.y === 31)?.resource;
+
+    expect(replay(undefined)).toBe("PRECURSOR_SALVAGE");
+    expect(replay("")).toBeUndefined();
+  });
 });

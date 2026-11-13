@@ -16,8 +16,12 @@ export type OptimisticStructureKind =
   | import("@border-empires/shared").NetworkBuilding
   | "HYDROGARDEN"
   | "HYDROWORKS"
-  | "UMBRITE_RIG"
-  | "MINE"
+  | "TITANIUM_REFINERY"
+  | "UMBRITE_REFINERY"
+  | "CRYSTAL_REFINERY"
+  | "TITANIUM_SMELTER"
+  | "UMBRITE_DISTILLERY"
+  | "CRYSTAL_CUTTER"
   | "MANUFACTORY"
   | "INCUBATION_ENGINE"
   | "CENSUS_HALL"
@@ -33,7 +37,6 @@ export type OptimisticStructureKind =
   | "AETHER_CONDENSER"
   | "HIGH_YIELD_AETHER_CONDENSER"
   | "TRADE_NEXUS"
-  | "ORE_REFINERY"
   | "ANCILLARY_DEPOT"
   | "HARBOR_EXCHANGE"
   | "NEURAL_WORKS"
@@ -133,8 +136,12 @@ export type Tile = {
       | import("@border-empires/shared").NetworkBuilding
       | "HYDROGARDEN"
       | "HYDROWORKS"
-      | "UMBRITE_RIG"
-      | "MINE"
+      | "TITANIUM_REFINERY"
+      | "UMBRITE_REFINERY"
+      | "CRYSTAL_REFINERY"
+      | "TITANIUM_SMELTER"
+      | "UMBRITE_DISTILLERY"
+      | "CRYSTAL_CUTTER"
       | "MANUFACTORY"
       | "INCUBATION_ENGINE"
       | "CENSUS_HALL"
@@ -149,7 +156,6 @@ export type Tile = {
       | "AETHER_CONDENSER"
       | "HIGH_YIELD_AETHER_CONDENSER"
       | "TRADE_NEXUS"
-      | "ORE_REFINERY"
       | "ANCILLARY_DEPOT"
       | "HARBOR_EXCHANGE"
       | "NEURAL_WORKS"
@@ -167,8 +173,12 @@ export type Tile = {
       | import("@border-empires/shared").NetworkBuilding
       | "HYDROGARDEN"
       | "HYDROWORKS"
-      | "UMBRITE_RIG"
-      | "MINE"
+      | "TITANIUM_REFINERY"
+      | "UMBRITE_REFINERY"
+      | "CRYSTAL_REFINERY"
+      | "TITANIUM_SMELTER"
+      | "UMBRITE_DISTILLERY"
+      | "CRYSTAL_CUTTER"
       | "MANUFACTORY"
       | "INCUBATION_ENGINE"
       | "CENSUS_HALL"
@@ -183,7 +193,6 @@ export type Tile = {
       | "AETHER_CONDENSER"
       | "HIGH_YIELD_AETHER_CONDENSER"
       | "TRADE_NEXUS"
-      | "ORE_REFINERY"
       | "ANCILLARY_DEPOT"
       | "HARBOR_EXCHANGE"
       | "NEURAL_WORKS"
@@ -201,7 +210,7 @@ export type Tile = {
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
   muster?: MusterState;
   /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
-  afc?: { ownerId: string; status: "active" | "inactive"; activatedAt?: number; modules?: string[]; houseModules?: string[]; incomingModules?: Array<{ techId: string; arrivesAt: number }> };
+  afc?: { ownerId: string; status: "active" | "inactive"; activatedAt?: number; capturedAt?: number; modules?: string[]; houseModules?: string[]; incomingModules?: Array<{ techId: string; arrivesAt: number }> };
 };
 
 export type SeasonVictoryObjectiveView = {
@@ -349,8 +358,12 @@ export type StrategicReplayEvent = {
     | "OBSERVATORY"
     | import("@border-empires/shared").NetworkBuilding
     | "HYDROGARDEN"
-    | "UMBRITE_RIG"
-    | "MINE"
+    | "TITANIUM_REFINERY"
+    | "UMBRITE_REFINERY"
+    | "CRYSTAL_REFINERY"
+    | "TITANIUM_SMELTER"
+    | "UMBRITE_DISTILLERY"
+    | "CRYSTAL_CUTTER"
     | "MANUFACTORY"
     | "INCUBATION_ENGINE"
     | "SKY_DOCK"
@@ -358,7 +371,6 @@ export type StrategicReplayEvent = {
     | "TITANIUM_WORKS"
     | "AETHER_CONDENSER"
     | "TRADE_NEXUS"
-    | "ORE_REFINERY"
     | "ANCILLARY_DEPOT"
     | "HARBOR_EXCHANGE"
     | "MINISTRY_HALL"
@@ -401,7 +413,7 @@ export type TileVisibilityState = "unexplored" | "fogged" | "visible";
 
 export type { SurveySweepPingKind, SurveySweepPing } from "./client-types-survey-sweep.js";
 
-export type { TileActionDef } from "./client-tile-action-def-types.js";
+export type { StructureTierOption, TileActionDef } from "./client-tile-action-def-types.js";
 
 // Tile action menu view types (TileMenuTab, TileMenuProgressView,
 // TileOverviewLine, TileCombatBreakdown, TileMenuView) moved to

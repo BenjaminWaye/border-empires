@@ -17,7 +17,11 @@ export const STACKING_SAME_TILE_SUPPORT_STRUCTURE_TYPES: ReadonlySet<BuildableSt
   "MANUFACTORY",
   "ANCILLARY_DEPOT",
   "TITANIUM_WEAPONS_FACTORY",
-  "UMBRITE_WEAPONS_FACTORY"
+  "UMBRITE_WEAPONS_FACTORY",
+  // Refineries: several per town, one per deposit field (refineries/).
+  "TITANIUM_REFINERY",
+  "UMBRITE_REFINERY",
+  "CRYSTAL_REFINERY"
 ]);
 
 // Placement mode "town_support" types exempt from the "town already has X"

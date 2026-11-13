@@ -1,4 +1,4 @@
-import { NETWORK_RESOURCES, RESOURCE_NETWORKS, emptyNetworkSiteCounts, frontierMaterialManpowerPerWindow, type NetworkResource } from "@border-empires/shared";
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS, emptyNetworkSiteCounts, type NetworkResource } from "@border-empires/shared";
 import { networkSupplyHtml } from "@client/client-resource-networks/network-supply-html.js";
 
 /** Uses the production formulas: enter developed sites per type and see what the empire gets. */
@@ -15,10 +15,9 @@ export const renderNetworkSupplyReview = (): HTMLElement => {
   const refresh = (): void => {
     const supply = emptyNetworkSiteCounts();
     for (const [resource, field] of fields) supply[resource] = Math.min(20, Math.max(0, Math.floor(Number(field.value) || 0)));
-    const total = frontierMaterialManpowerPerWindow(supply);
-    body.innerHTML = `<h3>Empire bonus: +${total} manpower / 4h</h3>${networkSupplyHtml({ supply, used: supply })}`;
+    body.innerHTML = networkSupplyHtml({ supply, used: supply });
   };
-  const initial: Record<NetworkResource, number> = { NEURAL_RESIN: 10, CONDUCTIVE_MINERALS: 5, CATALYTIC_DEPOSIT: 6, LUXURY_BIOTA: 2, PRECURSOR_SALVAGE: 3 };
+  const initial: Record<NetworkResource, number> = { LUXURY_BIOTA: 2, PRECURSOR_SALVAGE: 3 };
   for (const resource of NETWORK_RESOURCES) {
     const field = document.createElement("input"); field.type = "number"; field.min = "0"; field.max = "20"; field.value = String(initial[resource]); field.oninput = refresh;
     fields.set(resource, field);

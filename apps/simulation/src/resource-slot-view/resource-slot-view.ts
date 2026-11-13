@@ -18,7 +18,6 @@ import {
   townFoodSlotDemandForTier,
   ministryHallFoodSlotWaiver,
   HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS,
-  ORE_REFINERY_MINE_SLOT_BONUS,
   structureSlotRequirements,
   converterModeOf, isSlotSourceConverter,
   type BuildableStructureType,
@@ -27,7 +26,8 @@ import {
   type SlotStructureType,
   type StructureSlotRequirement
 } from "@border-empires/shared";
-import { HYDROWORKS_RADIUS, ORE_REFINERY_RADIUS, MINISTRY_HALL_RADIUS } from "@border-empires/game-domain";
+import { HYDROWORKS_RADIUS, MINISTRY_HALL_RADIUS } from "@border-empires/game-domain";
+import { NO_REFINERY_SLOT_BONUSES, type RefinerySlotBonuses } from "../refineries/refinery-slot-supply.js";
 import { withinRadiusOfAnyKey } from "../tile-yield-view/tile-yield-view.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
@@ -99,18 +99,19 @@ const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
 
 /**
  * Slot supply from a player's owned, settled tiles: base + boost slots from
- * real resource tiles (§5.2's table, same-tile Hydrogarden +2/Mine/Camp +1, the
- * Hydroworks-radius Hydrogarden bonus from §5.3, and the Ore-Refinery-radius Mine
- * bonus from §12), PLUS each active SYNTHESIZE-mode converter's own +1 slot
+ * real resource tiles (§5.2's table, same-tile Hydrogarden +2, the
+ * Hydroworks-radius Hydrogarden bonus from §5.3, and the town-refinery bonus on
+ * processed deposit tiles — territory-development-plan.md Phase 2), PLUS each active SYNTHESIZE-mode converter's own +1 slot
  * of its resource (§6.4: "a synthesizer provides exactly 1 slot of its
  * resource... so a landlocked player *can* build the one Fort/etc. that
  * needs it" — a SYNTHESIZE-mode converter is a supply *source* standing in
  * for a resource tile the player doesn't have, not a consumer; see the
  * "doesn't sit on a real resource tile" comment on SYNTHESIZER_STRUCTURE_TYPES
- * in structure-slots.ts). `hydroworksKeys`/`oreRefineryKeys` should both come from
+ * in structure-slots.ts). `hydroworksKeys` should come from
  * `radiusStructureKeysForSettledTiles` over the same player's settled tiles
  * (shared with the legacy yield view so both can never disagree on "which
- * Hydroworks/Ore Refineries are active").
+ * Hydroworks are active"); `refineryBonuses` from refinerySlotBonusesForTiles
+ * (refineries/refinery-slot-supply.ts) over the full tile map.
  *
  * §6.4's former "hard-capped at 1 per family, forever" rule was removed by
  * the converter-mode-flip plan (docs/plans/2026-08-06-converter-mode-flip.md
@@ -123,7 +124,7 @@ const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
 export const resourceSlotSupplyForPlayer = (
   settledTiles: Iterable<Pick<DomainTileState, "x" | "y" | "resource" | "economicStructure">>,
   hydroworksKeys: ReadonlySet<string> = new Set(),
-  oreRefineryKeys: ReadonlySet<string> = new Set(),
+  refineryBonuses: RefinerySlotBonuses = NO_REFINERY_SLOT_BONUSES,
   domainGrantedSupply?: Partial<Record<SlotResource, number>>,
   // Agrarian Works flat FOOD-slot bonus per owned FISH tile — see techGrantedFishFoodSlotBonus (tech-domain-bridge/fish-food-slot-bonus.ts).
   fishFoodSlotBonus = 0,
@@ -138,9 +139,9 @@ export const resourceSlotSupplyForPlayer = (
   //    charging them FOOD would be circular: their own dormancy would zero
   //    out the very supply they exist to add). None of these three can ever
   //    be dormant, so this is correct as-is.
-  //  - Mine/Camp DO consume a FOOD slot (a different resource than what
-  //    they boost — TITANIUM/UMBRITE — so no circularity) and so, in principle,
-  //    a FOOD-dormant Mine/Umbrite Rig shouldn't still grant its TITANIUM/UMBRITE boost.
+  //  - Refineries DO consume a FOOD slot (a different resource than what
+  //    they boost — TITANIUM/UMBRITE/CRYSTAL — so no circularity) and so, in principle,
+  //    a FOOD-dormant refinery shouldn't still grant its field boost.
   //    Not implemented: doing so needs FOOD dormancy resolved BEFORE this
   //    function's supply output (a two-pass computation), a real
   //    architecture change touching every caller of
@@ -183,13 +184,10 @@ export const resourceSlotSupplyForPlayer = (
       slots += HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS;
       onSource?.(base.slotResource, "STRUCTURE_BOOST", "HYDROWORKS", HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS);
     }
-    if (
-      structureType === "MINE" &&
-      oreRefineryKeys.size > 0 &&
-      withinRadiusOfAnyKey(tile.x, tile.y, oreRefineryKeys, ORE_REFINERY_RADIUS)
-    ) {
-      slots += ORE_REFINERY_MINE_SLOT_BONUS;
-      onSource?.(base.slotResource, "STRUCTURE_BOOST", "ORE_REFINERY", ORE_REFINERY_MINE_SLOT_BONUS);
+    // A working town refinery (and its booster) processing this deposit tile.
+    for (const bonus of refineryBonuses.get(simulationTileKey(tile.x, tile.y)) ?? []) {
+      slots += bonus.slots;
+      onSource?.(base.slotResource, "STRUCTURE_BOOST", bonus.sourceId, bonus.slots);
     }
     totals[base.slotResource] += slots;
     onSource?.(base.slotResource, "TILE", tile.resource, base.baseSlots);

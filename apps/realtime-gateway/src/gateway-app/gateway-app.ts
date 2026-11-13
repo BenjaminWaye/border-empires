@@ -8,13 +8,14 @@ import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { isChosenTrickleResource } from "@border-empires/shared";
+import { autoSettlePrefsCommandPayload, isChosenTrickleResource } from "@border-empires/shared";
 import { ClientMessageSchema, upgradeLegacyStructureNames } from "@border-empires/shared";
 import type { DurableCommandType } from "@border-empires/client-protocol";
 import { preSerializeBroadcast, sendJsonToSocket } from "../broadcast-payload/broadcast-payload.js";
 import { sendCombatResolvedPayload } from "../combat-resolved-payloads/combat-resolved-payloads.js";
 import { createGatewayStringifier } from "../gateway-stringifier/gateway-stringifier.js";
 import { dispatchAfcOrRevealCommand } from "./gateway-afc-and-reveal-command.js";
+import { dispatchEconomicBuildOrRefineryCommand } from "./gateway-refinery-command.js";
 import { createLoginPhaseNotifier } from "../login-phase-notifier/login-phase-notifier.js";
 import { createSlowLoginAlerter } from "../slow-login-alert/slow-login-alert.js";
 import { createSlackAlerter, type SlackAlerter, type BugReportInput } from "../slack-alerts/slack-alerts.js";
@@ -684,7 +685,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       .then((result) => {
         let updatedSnapshot: PlayerSubscriptionSnapshot | undefined;
         playerSubscriptions.updateSnapshot(playerId, (snapshot) => {
-          const merged = mergeTileDetailIntoSnapshot(snapshot, result.tiles, result.upkeepLastTick);
+          const merged = mergeTileDetailIntoSnapshot(snapshot, result.tiles, result.upkeepLastTick, playerId);
           updatedSnapshot = merged;
           return merged;
         });
@@ -2457,11 +2458,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           if (message.type === "SETTLE") {
             await dispatchDurableCommand("SETTLE", { x: message.x, y: message.y }, true);
           } else if (message.type === "BUILD_FORT") {
-            await dispatchDurableCommand("BUILD_FORT", { x: message.x, y: message.y });
+            await dispatchDurableCommand("BUILD_FORT", { x: message.x, y: message.y, ...(message.tier ? { tier: message.tier } : {}) });
           } else if (message.type === "BUILD_OBSERVATORY") {
             await dispatchDurableCommand("BUILD_OBSERVATORY", { x: message.x, y: message.y });
           } else if (message.type === "BUILD_SIEGE_BATTERY") {
-            await dispatchDurableCommand("BUILD_SIEGE_BATTERY", { x: message.x, y: message.y });
+            await dispatchDurableCommand("BUILD_SIEGE_BATTERY", { x: message.x, y: message.y, ...(message.tier ? { tier: message.tier } : {}) });
           } else if (message.type === "SET_MUSTER") {
             await dispatchDurableCommand("SET_MUSTER", setMusterCommandPayload(message));
           } else if (message.type === "CLEAR_MUSTER" || message.type === "UPGRADE_MUSTER_CAP") {
@@ -2470,12 +2471,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await ephemeralSimCommands.watchMuster(session, authedSession.playerId, message.x, message.y);
           } else if (message.type === "UNWATCH_MUSTER") {
             await ephemeralSimCommands.unwatchMuster(session, authedSession.playerId);
-          } else if (message.type === "BUILD_ECONOMIC_STRUCTURE") {
-            await dispatchDurableCommand("BUILD_ECONOMIC_STRUCTURE", {
-              x: message.x,
-              y: message.y,
-              structureType: message.structureType
-            });
+          } else if (message.type === "BUILD_ECONOMIC_STRUCTURE" || message.type === "ASSIGN_REFINERY_FIELD") {
+            // Schema-parsed, so ASSIGN_REFINERY_FIELD always carries its field and the helper always dispatches.
+            await dispatchEconomicBuildOrRefineryCommand(message, dispatchDurableCommand);
           } else if (message.type === "CANCEL_FORT_BUILD") {
             await dispatchDurableCommand("CANCEL_FORT_BUILD", { x: message.x, y: message.y });
           } else if (message.type === "CANCEL_STRUCTURE_BUILD") {
@@ -2554,7 +2552,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "NAME_ISLAND") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y, ...(message.type === "NAME_ISLAND" ? { name: message.name } : {}) }, true);
           } else if (message.type === "SET_AUTO_SETTLE_PREFS") {
-            await dispatchDurableCommand("SET_AUTO_SETTLE_PREFS", { towns: message.towns, food: message.food, strategic: message.strategic, luxury: message.luxury, resources: message.resources });
+            await dispatchDurableCommand("SET_AUTO_SETTLE_PREFS", autoSettlePrefsCommandPayload(message));
           } else if (isDevQueueWaypointMessageType(message.type)) {
             await dispatchDurableCommand(message.type, devQueueWaypointCommandPayload(message));
           } else if (message.type === "ATTACK" || message.type === "EXPAND") {

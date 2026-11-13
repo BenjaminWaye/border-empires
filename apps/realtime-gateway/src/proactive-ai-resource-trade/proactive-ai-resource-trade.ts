@@ -21,6 +21,9 @@
 // that FOOD; the attack planner doesn't weigh this. The AI never asks a House
 // it fought within AI_FOOD_TRADE_TARGET_COOLDOWN_MS, so the next attack can't
 // immediately cancel a trade it just paid for.
+//
+// An AI with nothing to buy offers its own spare upkeep slots to a neighbouring
+// player who has run out of them instead (ai-surplus-sale.ts).
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import {
   resourceSupplyCoinValue,
@@ -29,6 +32,7 @@ import {
 } from "@border-empires/shared";
 import { aiDiplomacyNeighbors } from "../proactive-ai-diplomacy/proactive-ai-diplomacy.js";
 import type { ResourceTradeService } from "../resource-trade/resource-trade-service.js";
+import { expiredSurplusSale, surplusSaleTerms } from "./ai-surplus-sale.js";
 
 /** Most FOOD slots an AI asks for in one offer. */
 export const MAX_AI_FOOD_ASK = 3;
@@ -112,6 +116,20 @@ export function createProactiveAiResourceTrade(deps: ProactiveAiResourceTradeDep
   let running = false;
   // `${aiId}>${targetId}` -> expiry. Bounded by AI count x Houses; pruned every tick.
   const asked = new Map<string, number>();
+  /** Offers spare slots to the first neighbouring player who is out of them and can pay. */
+  const offerSurplus = async (aiId: string, seller: TradePlayerState | undefined, humans: readonly string[], now: number): Promise<void> => {
+    const fresh = humans.filter(id => !asked.has(`${aiId}>${id}:sell`) && !deps.recentlyFought(aiId, id, AI_FOOD_TRADE_TARGET_COOLDOWN_MS));
+    for (const targetId of fresh.slice(0, MAX_HUMAN_CANDIDATES_PER_TICK)) {
+      const terms = surplusSaleTerms(seller, await deps.playerState(targetId));
+      if (!terms) continue;
+      if (deps.hasLiveSocket(aiId)) return;
+      asked.set(`${aiId}>${targetId}:sell`, now + AI_FOOD_TRADE_TARGET_COOLDOWN_MS);
+      const result = await deps.trades.request(aiId, targetId, terms, { ttlMs: AI_FOOD_TRADE_HUMAN_OFFER_TTL_MS });
+      deps.recordEvent("info", result.ok ? "gateway_ai_surplus_sale_offer" : "gateway_ai_surplus_sale_failed",
+        { aiPlayerId: aiId, targetId, resources: terms.give.resources, ...(result.ok ? {} : { reason: result.message }) });
+      return;
+    }
+  };
   return { tick: async () => {
     if (running || deps.aiPlayerIds.size === 0) return;
     running = true;
@@ -124,16 +142,20 @@ export function createProactiveAiResourceTrade(deps: ProactiveAiResourceTradeDep
       cursor = (cursor + 1) % (ids.length * 1000);
       if (deps.hasLiveSocket(aiId) || deps.trades.outgoingOfferCount(aiId) > 0) return;
       const ai = await deps.fetchAiSnapshot(aiId);
-      const expired = expiredFoodPurchase(aiId, ai?.player, now);
+      const expired = expiredFoodPurchase(aiId, ai?.player, now) ?? expiredSurplusSale(aiId, ai?.player, now);
       if (expired) {
         if (deps.hasLiveSocket(aiId)) return;
         const ended = await deps.cancelSupply(aiId, expired);
         deps.recordEvent("info", "gateway_ai_food_trade_ended", { aiPlayerId: aiId, agreementId: expired, ok: ended.ok });
         return;
       }
-      const wanted = foodSlotsWanted(ai?.player);
-      if (!ai || wanted === 0) return;
+      if (!ai) return;
+      const wanted = foodSlotsWanted(ai.player);
       const humans = aiDiplomacyNeighbors(ai.tiles, aiId).filter(id => !deps.aiPlayerIds.has(id));
+      if (wanted === 0) {
+        await offerSurplus(aiId, ai.player, humans, now);
+        return;
+      }
       const otherAis = ids.filter(id => id !== aiId && !deps.hasLiveSocket(id));
       const rotation = cursor % Math.max(1, otherAis.length);
       const fresh = (id: string): boolean =>

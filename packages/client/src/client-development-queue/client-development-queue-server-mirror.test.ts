@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { DEV_QUEUE_SERVER_CAP, DEV_QUEUE_TOTAL_CAP } from "@border-empires/shared";
+import { ClientMessageSchema, DEV_QUEUE_SERVER_CAP, DEV_QUEUE_TOTAL_CAP } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import {
   devQueueCancelWirePayload,
@@ -49,6 +49,35 @@ describe("dev queue wire payloads", () => {
         optimisticKind: "FORT"
       })
     ).toEqual({ type: "DEV_QUEUE_ENQUEUE", x: 4, y: 5, tileKey: "4,5", kind: "BUILD", structureType: "FORT" });
+  });
+
+  it("carries the Fortify / Siege picker's chosen tier on a BUILD entry, both ways", () => {
+    expect(
+      devQueueEnqueueWirePayload({
+        kind: "BUILD", x: 4, y: 5, tileKey: "4,5", label: "Build Fort",
+        payload: { type: "BUILD_STRUCTURE", x: 4, y: 5, structureType: "FORT", tier: "THUNDER_BASTION" },
+        optimisticKind: "FORT"
+      })
+    ).toEqual({ type: "DEV_QUEUE_ENQUEUE", x: 4, y: 5, tileKey: "4,5", kind: "BUILD", structureType: "FORT", tier: "THUNDER_BASTION" });
+    // A fresh login rebuilds the entry from the server's queue with the same tier.
+    const [rebuilt] = mergeServerDevQueueIntoRestoredQueue([], [
+      { tileKey: "4,5", x: 4, y: 5, kind: "BUILD", structureType: "SIEGE_BATTERY", tier: "SIEGE_TOWER", queuedAt: 1 }
+    ]);
+    expect(rebuilt).toMatchObject({ payload: { type: "BUILD_STRUCTURE", structureType: "SIEGE_BATTERY", tier: "SIEGE_TOWER" } });
+  });
+
+  it("carries a refinery build's chosen field on the wire, accepted by the schema, and back from the server's queue", () => {
+    const wire = devQueueEnqueueWirePayload({
+      kind: "BUILD", x: 4, y: 5, tileKey: "4,5", label: "Build Titanium Refinery",
+      payload: { type: "BUILD_STRUCTURE", x: 4, y: 5, structureType: "TITANIUM_REFINERY", fieldX: 9, fieldY: 3 },
+      optimisticKind: "TITANIUM_REFINERY"
+    });
+    expect(wire).toEqual({ type: "DEV_QUEUE_ENQUEUE", x: 4, y: 5, tileKey: "4,5", kind: "BUILD", structureType: "TITANIUM_REFINERY", fieldX: 9, fieldY: 3 });
+    expect(ClientMessageSchema.parse(wire)).toEqual(wire);
+    const [rebuilt] = mergeServerDevQueueIntoRestoredQueue([], [
+      { tileKey: "4,5", x: 4, y: 5, kind: "BUILD", structureType: "TITANIUM_REFINERY", fieldX: 9, fieldY: 3, queuedAt: 1 }
+    ]);
+    expect(rebuilt).toMatchObject({ payload: { type: "BUILD_STRUCTURE", structureType: "TITANIUM_REFINERY", fieldX: 9, fieldY: 3 } });
   });
 
   it("uses the REMOVE_STRUCTURE sentinel for a removal entry", () => {

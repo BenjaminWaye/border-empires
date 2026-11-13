@@ -10,7 +10,7 @@ import type { AiTacticalView } from "./ai-tactical-view.js";
 
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import { type EconomicStructureType, type SlotResource, type Terrain } from "@border-empires/shared";
+import { type EconomicStructureType, type RefineryFieldAssignment, type SlotResource, type Terrain } from "@border-empires/shared";
 import type { DecisionClass } from "./utility/decisions.js";
 import type { FrontierOriginExplanation } from "./planner-candidate-index.js";
 import type { NeedVector } from "./build/build-need-vector.js";
@@ -100,7 +100,7 @@ export type AutomationPlannerTile = AiTacticalTileFields & {
   fort?: { ownerId?: string; status?: string } | null | undefined;
   observatory?: { ownerId?: string; status?: string } | null | undefined;
   siegeBattery?: { ownerId?: string; status?: string } | null | undefined;
-  economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string; inactiveReason?: string | undefined } | null | undefined;
+  economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string; inactiveReason?: string | undefined; refineryField?: RefineryFieldAssignment | undefined } | null | undefined;
 };
 
 export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {

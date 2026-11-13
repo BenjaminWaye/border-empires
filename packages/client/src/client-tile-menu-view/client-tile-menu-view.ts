@@ -61,7 +61,7 @@ export { constructionProgressForTile } from "../client-tile-menu-construction-pr
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
-    state: { me: string; domainIds?: readonly string[]; domainCatalog?: readonly DomainInfo[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[]; resourceSlots?: { bonusSupply?: import("@border-empires/shared").NetworkSupplyStatus }; manpowerBreakdown?: { biotaTowns?: import("@border-empires/sim-protocol").BiotaTownStatus[] } } & Partial<DockLandingState>;
+    state: { me: string; tilesRevision?: number; domainIds?: readonly string[]; domainCatalog?: readonly DomainInfo[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[]; resourceSlots?: { bonusSupply?: import("@border-empires/shared").NetworkSupplyStatus }; manpowerBreakdown?: { biotaTowns?: import("@border-empires/sim-protocol").BiotaTownStatus[] } } & Partial<DockLandingState>;
     prettyToken: (value: string) => string;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;
@@ -143,7 +143,7 @@ export const menuOverviewForTile = (
     hasTown: Boolean(tile.town),
     ownershipState: tile.ownershipState
   }).forEach(pushLine);
-  lines.push(...resourceTileOverviewLines(tile, { me: deps.state.me, held: deps.state.resourceSlots?.bonusSupply?.supply }));
+  lines.push(...resourceTileOverviewLines(tile, { me: deps.state.me, held: deps.state.resourceSlots?.bonusSupply?.supply, tiles: deps.state.tiles, tilesRevision: deps.state.tilesRevision }));
   if (!isLand) return lines;
   const { dockPairs, tiles } = deps.state;
   const landingLine = dockPairs && tiles ? landingGroundMenuLine({ dockPairs, tiles, me: deps.state.me }, tile.x, tile.y) : undefined;

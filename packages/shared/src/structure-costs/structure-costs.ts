@@ -56,9 +56,6 @@ const RELAY_BEACON_FIRST_TIER_MANPOWER = 50;
 const RELAY_BEACON_MANPOWER = 100;
 
 const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDefinition> = {
-  RESIN_EXTRACTOR: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.NEURAL_RESIN.manpowerCost },
-  IMPLANT_FOUNDRY: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.CONDUCTIVE_MINERALS.manpowerCost },
-  CATALYST_REFINERY: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.CATALYTIC_DEPOSIT.manpowerCost },
   CULTIVATION_ESTATE: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.LUXURY_BIOTA.manpowerCost },
   RECLAMATION_WORKS: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.PRECURSOR_SALVAGE.manpowerCost },
   FORT: {
@@ -86,8 +83,15 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   // model is §5 (Step 5), out of scope for this pass.
   HYDROGARDEN: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
   HYDROWORKS: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
-  UMBRITE_RIG: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "UMBRITE", amount: 30 } },
-  MINE: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "TITANIUM", amount: 30 }, resourceOptions: ["TITANIUM", "CRYSTAL"] },
+  // Refineries (territory-development-plan.md Phase 2) take a support-ring
+  // tile and process one deposit field; boosters add +1 slot per processed
+  // tile for their resource's refineries in the same town.
+  TITANIUM_REFINERY: { baseGoldCost: 0, manpowerCost: 80 },
+  UMBRITE_REFINERY: { baseGoldCost: 0, manpowerCost: 80 },
+  CRYSTAL_REFINERY: { baseGoldCost: 0, manpowerCost: 80 },
+  TITANIUM_SMELTER: { baseGoldCost: 0, manpowerCost: 150 },
+  UMBRITE_DISTILLERY: { baseGoldCost: 0, manpowerCost: 150 },
+  CRYSTAL_CUTTER: { baseGoldCost: 0, manpowerCost: 150 },
   MANUFACTORY: { baseGoldCost: 0, manpowerCost: 150 },
   INCUBATION_ENGINE: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 40 } },
   CENSUS_HALL: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 30 } },
@@ -125,7 +129,6 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   AETHER_CONDENSER: { baseGoldCost: 0, manpowerCost: 150 },
   HIGH_YIELD_AETHER_CONDENSER: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "CRYSTAL", amount: 40 } },
   TRADE_NEXUS: { baseGoldCost: 0, manpowerCost: 150 },
-  ORE_REFINERY: { baseGoldCost: 0, manpowerCost: 300 },
   ANCILLARY_DEPOT: { baseGoldCost: 0, manpowerCost: 150 },
   HARBOR_EXCHANGE: { baseGoldCost: 0, manpowerCost: 100 },
   NEURAL_WORKS: { baseGoldCost: 0, manpowerCost: 300 },

@@ -1,3 +1,4 @@
+import { NEW_PLAYER_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { loadedAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { townScreenRegions } from "./client-hud-v2-town.js";
@@ -8,7 +9,7 @@ const support = { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "F
 const view = (actions: TileActionDef[]): TileMenuView =>
   ({ title: "T", subtitle: "", actions, buildings: [], crystal: [], tabs: ["actions"], overviewLines: [] }) as unknown as TileMenuView;
 const garrison = { id: "settle_land", label: "Garrison", cost: "0 coin, 20 manpower" } as TileActionDef;
-const prefs = (towns: boolean) => loadedAutoSettleState({ answered: true, towns, food: false, strategic: false, luxury: false } as never);
+const prefs = (towns: boolean) => loadedAutoSettleState({ ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true, towns });
 const bar = (autoSettle: ReturnType<typeof prefs> | undefined, focusActions: TileActionDef[], townActions: TileActionDef[] = []): string =>
   townScreenRegions({
     town, focus: support, townView: view(townActions), focusView: view(focusActions),

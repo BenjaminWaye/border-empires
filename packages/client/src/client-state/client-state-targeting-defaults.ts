@@ -4,7 +4,7 @@ import { createGarrisonManyState, type GarrisonManyState } from "../client-garri
 type TileCoord = { x: number; y: number };
 type ArrowGesture = { origin: TileCoord; target: TileCoord };
 export type InitialTargetingState = {
-  buildingPlacement: { active: boolean; structureType: "HYDROWORKS" | "ORE_REFINERY" | "AFC" | "RELAY_BEACON" | ""; x: number; y: number };
+  buildingPlacement: { active: boolean; structureType: "HYDROWORKS" | "AFC" | "RELAY_BEACON" | ""; x: number; y: number };
   crystalTargeting: { active: boolean; ability: CrystalTargetingAbility; validTargets: Set<string>; originByTarget: Map<string, string> };
   aetherWallTargeting: { active: boolean; validOrigins: Set<string>; direction: "N" | "E" | "S" | "W"; length: 1 | 2 | 3 };
   skyDockTargeting: { active: boolean; originKey: string; validTargets: Set<string> };

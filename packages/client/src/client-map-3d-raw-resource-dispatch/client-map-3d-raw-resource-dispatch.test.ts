@@ -42,17 +42,15 @@ describe("addRawResourceInstance", () => {
   });
 
   it.each([
-    ["TITANIUM", "MINE"],
-    ["GEMS", "MINE"],
-    ["UMBRITE", "UMBRITE_RIG"],
     ["FARM", "HYDROGARDEN"]
   ] as const)("draws nothing raw for %s under a %s", (resource, building) => {
     expect(dispatch(resource, tileWith(resource, building))).toEqual([]);
   });
 
   it("keeps the raw deposit under a structure that does not replace it", () => {
-    expect(dispatch("TITANIUM", tileWith("TITANIUM", "UMBRITE_RIG"))).toEqual(["titaniumDeposit"]);
-    expect(dispatch("UMBRITE", tileWith("UMBRITE", "MINE"))).toEqual(["umbriteDeposit"]);
+    // Strategic deposits take no on-tile building since town refineries; any stray structure leaves them drawn.
+    expect(dispatch("TITANIUM", tileWith("TITANIUM", "MANUFACTORY"))).toEqual(["titaniumDeposit"]);
+    expect(dispatch("UMBRITE", tileWith("UMBRITE", "TITANIUM_REFINERY"))).toEqual(["umbriteDeposit"]);
     // Buildings other than the hydroponic dome keep the farm readable; they
     // are lifted onto the plot instead (FarmlandOverlay.standLiftAt).
     expect(dispatch("FARM", tileWith("FARM", "HYDROWORKS"))).toEqual(["farmland"]);

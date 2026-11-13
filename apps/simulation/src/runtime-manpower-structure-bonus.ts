@@ -1,5 +1,5 @@
 import { developedNetworkSites } from "./resource-networks/resource-networks.js";
-import { allocateBiotaSlots, BIOTA_SLOTS_PER_SITE, biotaSlotsNeededForTier, frontierMaterialManpowerRegenPerMinute,
+import { allocateBiotaSlots, BIOTA_SLOTS_PER_SITE, biotaSlotsNeededForTier,
   type BiotaTownSupply, type NetworkSiteCounts, type PopulationTier } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { MonumentalStructureType } from "@border-empires/shared";
@@ -15,8 +15,6 @@ import type { RuntimePlayer } from "./runtime-types.js";
 
 /** §4.4 manpower structure bonuses for one player. */
 export type ManpowerStructureBonus = {
-  /** Resin, conductive and catalyst manpower per minute (frontier-resource-effects.ts). */
-  resourceNetworkRegenPerMinute?: number;
   /** Biota supply for each owned town above Town tier, oldest-held first. */
   biotaTownSupply?: ReadonlyMap<string, BiotaTownSupply>;
   /** Developed salvage sites still holding loads (arms bonus). */
@@ -189,7 +187,6 @@ export const cachedManpowerStructureBonusForPlayer = (
     neuralWorksNetworkAncillaryFactoryCount,
     ancillaryFactoryCount,
     censusDirectorateManpowerBuildingCount,
-    resourceNetworkRegenPerMinute: frontierMaterialManpowerRegenPerMinute(sites),
     ...(sites.PRECURSOR_SALVAGE > 0 ? { salvageArmsSites: sites.PRECURSOR_SALVAGE } : {}),
     ...(biotaTownSupply ? { biotaTownSupply } : {}),
     ...(ancillaryFactoryCapacityBonusByTown.size > 0 ? { ancillaryFactoryCapacityBonusByTown } : {})

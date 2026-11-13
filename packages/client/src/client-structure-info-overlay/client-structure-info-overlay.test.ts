@@ -48,7 +48,7 @@ describe("Relay Beacon build-time label", () => {
 
 describe("structure technology unlocks", () => {
   const catalog = [
-    { id: "neural-resin-processing", name: "Neural Resin Processing Warrant" },
+    { id: "frontier-concessions", name: "Frontier Export Charter" },
     { id: "organized-supply", name: "Reserve Custody Cadre" },
     { id: "frontier-concessions", name: "Frontier Export Charter" },
     { id: "trade", name: "Industrial Tooling Module" }

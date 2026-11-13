@@ -78,7 +78,7 @@ export const captureAftermathMenuLines = (tile: Tile, nowEpochMs: number = Date.
   if (!aftermath) return lines;
   for (const kind of aftermath.rubble) {
     if (kind === "FORT") lines.push("Fort wrecked in the capture. It gives no defense until the capturing troops finish holding this tile and it is garrisoned.");
-    else lines.push(`${RUBBLE_MENU_LABELS[kind]} destroyed in the capture.`);
+    else lines.push(`${RUBBLE_MENU_LABELS[kind]} destroyed here.`);
   }
   if (aftermath.burningDock) lines.push("Dock set ablaze in the capture. It pays no gold until the capturing troops finish holding it and it is garrisoned.");
   if (aftermath.smoke) lines.push("Resource captured. Its resource slots only count once the capturing troops finish holding this tile and it is garrisoned.");

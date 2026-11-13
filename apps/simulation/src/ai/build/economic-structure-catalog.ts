@@ -1,6 +1,6 @@
 // Need-weighted catalog for chooseBestEconomicBuild's non-resource,
 // non-original-town-support economic structures (structure-command-planner.ts).
-// The original 5 types (HYDROGARDEN/UMBRITE_RIG/MINE/MANUFACTORY/INCUBATION_ENGINE) keep
+// The original types (HYDROGARDEN/MANUFACTORY/INCUBATION_ENGINE) keep
 // their existing hand-tuned foodLow/econWeak scoring — already shipped and
 // tested, no reason to disturb it. This catalog is additive: it's how the
 // newly-reachable types below get scored, using computeNeedVector's real

@@ -3,12 +3,11 @@ import { TRADABLE_SUPPLY_RESOURCES, type ResourceSupplyAmounts, type ResourceSup
 /**
  * Starting AI negotiation values per slot (or developed frontier site) per day.
  * Players can negotiate different prices. Frontier sites are priced well above
- * upkeep slots because a site the buyer lacks adds a City's worth of manpower
- * (or two biota slots); salvage can't be traded.
+ * upkeep slots because a biota site the buyer lacks adds two biota slots;
+ * salvage can't be traded.
  */
 export const RESOURCE_SUPPLY_COIN_VALUE_PER_DAY: Readonly<ResourceSupplyAmounts> = {
-  FOOD: 4, TITANIUM: 4, CRYSTAL: 6, UMBRITE: 4, NEURAL_RESIN: 8, CONDUCTIVE_MINERALS: 8,
-  CATALYTIC_DEPOSIT: 8, LUXURY_BIOTA: 10, PRECURSOR_SALVAGE: 0
+  FOOD: 4, TITANIUM: 4, CRYSTAL: 6, UMBRITE: 4, LUXURY_BIOTA: 10, PRECURSOR_SALVAGE: 0
 };
 export const resourceSupplyCoinValue = (offer: ResourceSupplyOffer | undefined, hours: number): number =>
   TRADABLE_SUPPLY_RESOURCES.reduce((sum, resource) => sum + (offer?.[resource] ?? 0) * RESOURCE_SUPPLY_COIN_VALUE_PER_DAY[resource], 0) * hours / 24;

@@ -11,20 +11,12 @@
 // one's reach covers at all is blocked) and never appends the generic
 // " • garrisons this tile first" detail suffix or combined settle+build cost
 // every other frontier build action gets.
-import { siegeBuildMsForState } from "../client-build-speed/client-build-speed.js";
-import { buildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
-import { SIEGE_VARIANT_LABELS } from "@border-empires/shared";
-import { bestSiegeVariantForTech, nextSiegeVariantForTile } from "./client-tile-action-fort-siege-variants.js";
-import {
-  chainedBuildAvailabilityFromModule,
-  hasFreeResourceSlots,
-  missingResourceSlotReason,
-  tileActionAvailability,
-  type TileActionLogicDeps
-} from "./client-tile-action-logic.js";
+import { siegeTierOptionsForTile, tierRowAvailability } from "./client-structure-tier-options.js";
+import type { TileActionLogicDeps } from "./client-tile-action-logic.js";
 
+/** The Siege row: opens the tier picker (client-structure-tier-options.ts) listing every siege tier this tile can take. */
 export const siegeCampAction = (
   state: ClientState,
   tile: Tile,
@@ -33,47 +25,20 @@ export const siegeCampAction = (
 ): TileActionDef | undefined => {
   if (tile.ownerId !== state.me || tile.fort || tile.observatory) return undefined;
   if (!(tile.siegeBattery || !tile.economicStructure || hasRelayBeacon)) return undefined;
-
-  const siegeVariant = nextSiegeVariantForTile(state, tile);
-  if (!siegeVariant) return undefined;
-
-  const hasTech = tile.siegeBattery ? true : state.techIds.includes("leatherworking");
-  const canUseTile = Boolean(tile.siegeBattery) || !tile.economicStructure || hasRelayBeacon;
-  const hasFreeSlots = hasFreeResourceSlots(state, siegeVariant.variant, tile.siegeBattery?.variant);
-  // A fresh build that stepped down a tier (e.g. Siege Battery because a
-  // Siege Tower's UMBRITE slots don't fit) says why in its cost line.
-  const bestVariant = bestSiegeVariantForTech(state);
-  const steppedDownNote = !tile.siegeBattery && siegeVariant.variant !== bestVariant
-    ? ` • ${SIEGE_VARIANT_LABELS[bestVariant]}: ${missingResourceSlotReason(state, bestVariant) ?? "unavailable"}`
-    : "";
   // tile.reachOwnerId mirrors the server's per-tile reachBorderOwnerAt
   // exactly (always-emitted, like ownerId) -- undefined means no one's
   // reach covers this tile at all, the only case the siege ladder rejects.
   const siegeOutOfReach = tile.ownershipState === "FRONTIER" && !tile.reachOwnerId;
-  const withSiegeReachGate = ([eligible, reason, cost]: [boolean, string, string]): [boolean, string, string] =>
-    siegeOutOfReach ? [false, "Outside your reach", cost] : [eligible, reason, cost];
-
+  const options = siegeTierOptionsForTile(state, tile, siegeOutOfReach);
+  if (options.length === 0) return undefined;
   return {
     id: "build_siege_camp",
-    label: tile.siegeBattery || hasRelayBeacon ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`,
+    label: tile.siegeBattery ? "Upgrade siege" : "Siege",
     // No settle-first detail suffix here -- unlike every other build action,
     // the siege ladder never settles the tile first.
     detail: deps.buildDetailTextForAction("build_siege_camp", tile),
-    ...tileActionAvailability(
-      ...withSiegeReachGate(chainedBuildAvailabilityFromModule(
-        deps,
-        state,
-        tile,
-        "SIEGE_BATTERY",
-        hasTech && hasFreeSlots && canUseTile,
-        !hasTech
-          ? "Requires Tanner's Craft"
-          : !canUseTile
-            ? "Tile already has structure"
-            : missingResourceSlotReason(state, siegeVariant.variant, tile.siegeBattery?.variant) ?? "Unavailable",
-        `${siegeVariant.summary} • ${buildTimeLabel(siegeBuildMsForState(state, siegeVariant.variant))} • atk x${siegeVariant.attackMult.toFixed(2)}${siegeVariant.upkeepSuffix}${steppedDownNote}`,
-        siegeVariant.gold
-      ))
-    )
+    cost: `Choose a tier: ${options.map((entry) => entry.label).join(" · ")}`,
+    ...tierRowAvailability(options),
+    tierOptions: options
   };
 };

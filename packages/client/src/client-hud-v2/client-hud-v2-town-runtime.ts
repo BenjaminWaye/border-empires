@@ -1,5 +1,4 @@
 import { townBuildTarget } from "./client-hud-v2-town-build-target.js";
-import { preserveResourceBuildChoice } from "./client-resource-improvement-action.js";
 import { structureRequiresTownOrSupportTile } from "@border-empires/shared";
 import { dormantResourcesForTile, structureTypeForTileAction } from "../client-tile-action-support/client-tile-action-support.js";
 // Runtime for the town screen: decides when a selected tile opens it (your
@@ -8,6 +7,8 @@ import { dormantResourcesForTile, structureTypeForTileAction } from "../client-t
 
 import type { Terrain } from "@border-empires/shared";
 import { supportPlotAnchorTown } from "../client-town-support-plot-lookup.js";
+import { townPlotsCardHtml } from "./client-hud-v2-town-plots-card.js";
+import { BUILD_PLACED_FLASH_MS, buildPlacedPresses, type BuildPlacedOutcome } from "../client-queue-logic/client-build-placed-feedback.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
@@ -79,10 +80,12 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     focusQueuePosition: townQueuePosition(deps.state.developmentQueue, current.focusKey),
     focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? []),
     autoSettle: deps.state.autoSettle,
-    dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field)
+    dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field),
+    plotsHtml: townPlotsCardHtml(deps.state, town),
+    placed: placeFlash && Date.now() < placeFlash.until ? placeFlash.outcome : undefined
   });
   writeHtml("v2t-left", regions.left);
-  preserveResourceBuildChoice(document.getElementById("v2t-build"), () => writeHtml("v2t-build", regions.build));
+  writeHtml("v2t-build", regions.build);
   writeHtml("v2t-bar", regions.bar);
 };
 
@@ -171,8 +174,13 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
   return true;
 };
 
+/** The town screen's own Place press confirmation: set only by a press on this screen that went through (runTileActionOn). */
+let placeFlash: { outcome: BuildPlacedOutcome; until: number } | undefined;
+let placeFlashTimer: ReturnType<typeof setTimeout> | undefined;
+
 export const closeTownScreen = (keepPosition = false): void => {
   current = undefined;
+  placeFlash = undefined;
   screen.townBuildSelection = undefined;
   if (lastDeps) endCloseUp(lastDeps, keepPosition);
   if (screen.id === "town") clearScreen();
@@ -183,8 +191,9 @@ export const closeTownScreen = (keepPosition = false): void => {
  * first, so the action -- and anything it opens that reads the selection later -- targets the town. The town
  * screen then shows the town itself as the build target.
  */
-export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], targetKey: string | undefined, originKey: string | undefined, buildAllResources = false): void => {
+export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], targetKey: string | undefined, originKey: string | undefined): void => {
   const type = structureTypeForTileAction(actionId);
+  const pressesBefore = buildPlacedPresses().count;
   const repeat = screen.id === "town" && current && type && structureRequiresTownOrSupportTile(type);
   const saved = repeat ? current : undefined;
   if (repeat && saved) {
@@ -201,14 +210,14 @@ export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], 
     const menu = deps.state.tileActionMenu;
     const target = targetKey ? deps.state.tiles.get(targetKey) : undefined;
     if (!target || targetKey === menu.currentTileKey || menu.mode !== "single") {
-      deps.actionFlow.handleTileAction(actionId, targetKey, originKey, buildAllResources);
+      deps.actionFlow.handleTileAction(actionId, targetKey, originKey);
       return;
     }
     suppressAutoExpand();
     deps.state.selected = { x: target.x, y: target.y };
     const centre = screenCentre();
     deps.actionFlow.openSingleTileActionMenu(target, centre.x, centre.y);
-    deps.actionFlow.handleTileAction(actionId, targetKey, originKey, buildAllResources);
+    deps.actionFlow.handleTileAction(actionId, targetKey, originKey);
   };
   placingTownBuild = Boolean(repeat);
   try { run(); } finally { placingTownBuild = false; }
@@ -224,6 +233,14 @@ export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], 
       screen.townCategory = category;
       renderTownScreen(deps);
     }
+  }
+  if (type) {
+    // This press's own confirmation: a press rejected locally clears an earlier "✓ Placed" rather than inherit it.
+    const presses = buildPlacedPresses();
+    placeFlash = presses.count !== pressesBefore && presses.outcome ? { outcome: presses.outcome, until: Date.now() + BUILD_PLACED_FLASH_MS } : undefined;
+    if (placeFlashTimer) clearTimeout(placeFlashTimer);
+    placeFlashTimer = placeFlash ? setTimeout(() => renderTownScreen(deps), BUILD_PLACED_FLASH_MS + 50) : undefined;
+    renderTownScreen(deps);
   }
 };
 

@@ -115,7 +115,7 @@ export const crystalAbilityInfoForKey = (
   if (key === "aether_lance") {
     return {
       title: "Aether Purge",
-      detail: "Purge enemy control from a tile, turning it neutral.",
+      detail: "Purge enemy control from a tile, turning it neutral. Razes its Relay Beacon or siege engine and anything still being built.",
       target: "Enemy garrisoned or frontier tile within Aether Tower range.",
       costBits: [],
       towerShotLabel: TOWER_SHOT_LABEL

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildRuntimeSnapshotSectionsAsync, type SnapshotExportInput } from "./runtime-snapshot-sections.js";
+import { toPersistedDevQueueEntries } from "./runtime-dev-queue-restore.js";
 import { createEmptyPlayerRuntimeSummary, createPlayerRuntimeSummaryFromRecovered, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { DomainPlayer } from "@border-empires/game-domain";
 
@@ -18,6 +19,7 @@ function summaryWithQueue(): PlayerRuntimeSummary {
       y: 1,
       kind: "BUILD",
       structureType: "FORT",
+      tier: "TITANIUM_BASTION",
       queuedAt: 1000,
       reservedManpower: 300,
       reservedSlotRequirements: [{ resource: "TITANIUM", count: 1 }]
@@ -72,12 +74,29 @@ describe("dev-queue reservation survives a snapshot round-trip", () => {
     const sections = await buildRuntimeSnapshotSectionsAsync(input, async () => {});
     const persistedPlayer = sections.initialState.players?.find((p) => p.id === PLAYER_ID);
     expect(persistedPlayer?.devQueue).toEqual([
-      { tileKey: "1,1", x: 1, y: 1, kind: "BUILD", structureType: "FORT", queuedAt: 1000, reservedManpower: 300, reservedSlotRequirements: [{ resource: "TITANIUM", count: 1 }] },
+      { tileKey: "1,1", x: 1, y: 1, kind: "BUILD", structureType: "FORT", tier: "TITANIUM_BASTION", queuedAt: 1000, reservedManpower: 300, reservedSlotRequirements: [{ resource: "TITANIUM", count: 1 }] },
       { tileKey: "2,2", x: 2, y: 2, kind: "SETTLE", queuedAt: 2000 }
     ]);
 
     // ...and the restore side puts it back byte-for-byte.
     const restored = createPlayerRuntimeSummaryFromRecovered(persistedPlayer);
     expect(restored.devQueue).toEqual(summary.devQueue);
+  });
+
+  // A queued Fortify / Siege picker choice must come back as the same tier, not the default best tier.
+  it("keeps a queued build's chosen tier in exportState's persisted shape", () => {
+    expect(toPersistedDevQueueEntries(summaryWithQueue().devQueue)[0]).toMatchObject({ structureType: "FORT", tier: "TITANIUM_BASTION" });
+  });
+});
+
+describe("dev-queue refinery field persistence", () => {
+  it("persists a queued refinery build's fieldX/fieldY and restores it; older entries without them stay valid", () => {
+    const entries = [
+      { tileKey: "3,3", x: 3, y: 3, kind: "BUILD" as const, structureType: "TITANIUM_REFINERY", fieldX: 7, fieldY: 8, queuedAt: 1000 },
+      { tileKey: "4,4", x: 4, y: 4, kind: "BUILD" as const, structureType: "TITANIUM_REFINERY", queuedAt: 1001 }
+    ];
+    const persisted = toPersistedDevQueueEntries(entries);
+    expect(persisted).toEqual(entries);
+    expect(createPlayerRuntimeSummaryFromRecovered({ devQueue: JSON.parse(JSON.stringify(persisted)) }).devQueue).toEqual(entries);
   });
 });

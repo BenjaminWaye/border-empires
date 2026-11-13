@@ -61,7 +61,7 @@ both renderers through the shared AFC effects layer.
 | Tier / ID | Name | Mechanical promise | Explanation |
 | --- | --- | --- | --- |
 | I `afc-exchequer-1` | **Founding Concession** | First three towns ×1.5 Coin; each uses two fewer FOOD slots. | Favorable starter export contracts and coordinated provisioning. |
-| II `afc-exchequer-2` | **Scarcity Consignment** | One-time delivery of boosters to every eligible deposit of the scarcest known resource; fallback +1 FOOD slot. | Finished extraction equipment bought offworld. |
+| II `afc-exchequer-2` | **Scarcity Consignment** | One-time delivery for the scarcest known resource: a Hydrogarden on every eligible FOOD deposit, or for Titanium/Crystal/Umbrite one finished town refinery, assigned to the best linked, unclaimed field (most garrisoned tiles, then nearest), on a free support-ring tile that passes the normal placement checks; fallback +1 FOOD slot. | Finished extraction equipment bought offworld. |
 | III `afc-exchequer-3` | **Clearing Privilege** | Clearing House uplift doubled: +60% town Coin per linked Manufactory. | Preferential clearing terms. |
 | IV `afc-exchequer-4` | **Orbital Recruitment Contract** | Buy 5 MP for 1 Coin, uncapped, retaining paid overflow; +50% pool-to-flag throughput. | Ancillary contingents bought from offworld suppliers. |
 | V `afc-exchequer-5` | **Metropolitan Concession** | Core towns ×2 Coin (×3 with tier I, 🔗 Founding Concession); one-time +50% population below Metropolis; Economic Hegemony needs a 20% income lead instead of 33% for this House. | The Court recognizes preferred export centers and their House's commercial standing. |

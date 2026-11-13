@@ -13,7 +13,10 @@
 // The AI's temperament (ai-diplomacy-temperament.ts) scales the base price,
 // reparations and what it pays for peace.
 // An AI that is losing a war will pay for peace instead (the loser pays),
-// but only once per war and never more than a quarter of its coin. Losing
+// but only once per war and never more than a quarter of its coin. An AI
+// suing for peace (ai-war-outlook.ts: losing ground fast with no reload that
+// could stop it) pays even right after being attacked, and pays for the land
+// it expects to lose -- an hour of income a tile, up to 12h and 40% of its coin. Losing
 // also overrides fury: an AI that hates you still wants a war it is losing
 // over -- unless you broke a truce with it, which it never deals past.
 // Alliances need an AI that is at least Pleased, hasn't fought the player for
@@ -31,6 +34,7 @@ import { ATTITUDE_RANK, type AiAttitude, type AiOpinion } from "./ai-diplomacy-o
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
 import { AI_TEMPERAMENTS, type AiTemperament } from "./ai-diplomacy-temperament.js";
 import type { AiRetaliationReadiness } from "./ai-retaliation-readiness.js";
+import type { AiWarOutlook } from "./ai-war-outlook.js";
 
 export const TRUCE_HOURS = { apartAtPeace: 0, neighboursAtPeace: 12, atWar: 24, aiWinning: 48 } as const;
 export const REPARATION_HOURS_PER_TILE = 1;
@@ -42,6 +46,9 @@ export const DESPERATE_DISCOUNT = 0;
 /** Most a losing AI pays for peace: hours of its own income, and share of its coin. */
 export const AI_PEACE_PAYMENT_HOURS = 6;
 export const AI_PEACE_PAYMENT_COIN_SHARE = 0.25;
+/** The same caps for an AI suing for peace: it pays for the land it expects to lose, within these. */
+export const AI_SUING_MAX_PAYMENT_HOURS = 12;
+export const AI_SUING_COIN_SHARE = 0.4;
 /** The "fresh aggression" window after the player attacks: surcharged, refused when the AI can strike back. */
 export const TRUCE_COOLDOWN_AFTER_ATTACK_MS = 30 * 60_000;
 export const FRESH_ATTACK_SURCHARGE = 0.5;
@@ -98,6 +105,8 @@ export const aiDiplomacyPricing = (input: {
   retaliation?: AiRetaliationReadiness;
   /** The AI's fixed personality (ai-diplomacy-temperament.ts); Measured when omitted. */
   temperament?: AiTemperament;
+  /** The AI's read on the next couple of hours of war; STEADY when omitted. */
+  outlook?: AiWarOutlook;
   now: number;
 }): AiDiplomacyPricingResult => {
   const temperament = input.temperament ?? AI_TEMPERAMENTS.MEASURED;
@@ -124,11 +133,16 @@ export const aiDiplomacyPricing = (input: {
   let truce12: number | null = null;
   let truce24: number | null = null;
   if (!truceRefusal) {
-    if (war.aiLosing && !memory.aiAlreadyPaidThisWar && !freshAttack) {
+    const suing = input.outlook?.kind === "SUE_FOR_PEACE" ? input.outlook : undefined;
+    if (war.aiLosing && !memory.aiAlreadyPaidThisWar && (!freshAttack || suing)) {
       // The loser pays: offer up to a capped sum to end a war it is losing.
+      // Being overrun, it pays for the land it would otherwise lose.
+      const hours = suing
+        ? Math.min(AI_SUING_MAX_PAYMENT_HOURS, Math.max(AI_PEACE_PAYMENT_HOURS, suing.projectedLoss * REPARATION_HOURS_PER_TILE))
+        : AI_PEACE_PAYMENT_HOURS;
       const payment = Math.min(
-        hoursToCoin(AI_PEACE_PAYMENT_HOURS * temperament.peacePayment, aiIncome),
-        Math.floor(aiHoldings.gold * AI_PEACE_PAYMENT_COIN_SHARE * temperament.peacePayment)
+        hoursToCoin(hours * temperament.peacePayment, aiIncome),
+        Math.floor(aiHoldings.gold * (suing ? AI_SUING_COIN_SHARE : AI_PEACE_PAYMENT_COIN_SHARE) * temperament.peacePayment)
       );
       truce12 = -payment;
       truce24 = -payment;

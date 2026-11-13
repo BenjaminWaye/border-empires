@@ -1,10 +1,10 @@
 // Eligibility for a curated set of basic structures (starter set: HYDROGARDEN,
-// MINE, PALISADE), reusing the same predicates the real server/client use
+// PALISADE; the Mine was removed with town refineries), reusing the same predicates the real server/client use
 // rather than reimplementing them:
 //   - structureShowsOnTile (packages/shared/src/structure-placement.ts):
 //     data-driven placement rule (structure-placement-metadata.json) --
-//     HYDROGARDEN only shows on a "FARM" resource tile, MINE on "TITANIUM" or
-//     "GEMS", both placementMode "same_tile". PALISADE has no
+//     HYDROGARDEN only shows on a "FARM" resource tile (placementMode
+//     "same_tile"). PALISADE has no
 //     resourceTypes gate at all (showOn includes "settled" generically), so
 //     it's eligible on any settled tile regardless of resource.
 //   - TECH_REQUIREMENTS_BY_STRUCTURE (packages/shared/src/structure-
@@ -17,8 +17,7 @@
 //     pool, NOT the retired strategicResources stockpile amounts in
 //     structure-costs.ts's resourceCost field (apps/simulation/src/
 //     runtime-structure-command-handlers.ts's hasFreeResourceSlots is the server's real gate). Notably
-//     HYDROGARDEN needs no slot at all, MINE needs a free FOOD slot (not a
-//     TITANIUM one), and PALISADE also needs a free FOOD slot -- none of
+//     HYDROGARDEN needs no slot at all, and PALISADE needs a free FOOD slot -- none of
 //     this matches what structure-costs.ts's resourceCost field would
 //     suggest.
 // Deliberately a small curated allowlist rather than every EconomicStructureType
@@ -37,7 +36,7 @@ import {
 import { freeResourceSlotCount, type ResourceSlots } from "./game-socket.js";
 import { ownedSettledSitesInViewport, type CameraPosition, type TileIndex } from "./viewport.js";
 
-export const BUILDABLE_STRUCTURE_TYPES = ["HYDROGARDEN", "MINE", "PALISADE"] as const satisfies readonly EconomicStructureType[];
+export const BUILDABLE_STRUCTURE_TYPES = ["HYDROGARDEN", "PALISADE"] as const satisfies readonly EconomicStructureType[];
 export type BuildableStructureType = (typeof BUILDABLE_STRUCTURE_TYPES)[number];
 
 export type StructureSite = { x: number; y: number; structureType: BuildableStructureType; manpowerCost: number };

@@ -3,6 +3,7 @@
 // season-end overlay, the tile-menu auto-settle checkbox, the v2 desktop HUD (default on), and the one-time
 // landmass naming prompt. Lives here (not
 // inline in client-bootstrap.ts) to keep that oversized file from growing.
+import { installAutoImproveOptionBinding } from "../client-hud-v2/client-resource-improvement-action.js";
 import { isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { installAutoSettleSettingsBinding } from "../client-auto-settle-prompt/client-auto-settle-settings-ui.js";
@@ -15,13 +16,15 @@ import type { HudV2ActionFlow } from "../client-hud-v2/client-hud-v2-context.js"
 import { installDiplomacyOfferDock } from "../client-diplomacy-offer-dock/client-diplomacy-offer-dock.js";
 import { installMarchInteraction } from "../client-march-interaction/client-march-interaction.js";
 import { installSalvageTributeSheet } from "../client-salvage-tribute/client-salvage-tribute-sheet.js";
+import { installRefineryPickers } from "../client-refineries/refinery-picker-flow.js";
+import type { createClientActionFlow } from "../client-action-flow.js";
 
 type PostBootstrapDeps = {
   state: ClientState;
   renderHud: () => void;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   setActivePanel: (panel: ClientState["activePanel"]) => void;
-  actionFlow: HudV2ActionFlow;
+  actionFlow: HudV2ActionFlow & Pick<ReturnType<typeof createClientActionFlow>, "sendDevelopmentBuild">;
   ownerColor: (ownerId: string) => string;
 } & Pick<DiscoveryTipCenterDeps, "wrapX" | "wrapY" | "requestViewRefresh">;
 
@@ -33,8 +36,12 @@ export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, s
   // March To banner + pointer arrow, and dragging a march's destination (read by client-map-input.ts).
   installMarchInteraction({ state, renderHud, sendGameMessage: (payload) => sendGameMessage(payload, "Finish sign-in before changing a march.") });
   installSalvageTributeSheet(state, sendGameMessage); // lets the map's salvage toasts open the ship-salvage popup
+  // Refinery field / town pickers, opened from the tile menu and the map's "needs a field" toasts.
+  installRefineryPickers({ state, sendGameMessage, buildRefinery: (payload, label) =>
+    actionFlow.sendDevelopmentBuild(payload, () => undefined, { x: payload.x, y: payload.y, label, optimisticKind: payload.structureType }) });
   installAutoSettleSettingsBinding((payload) => sendGameMessage(payload, "Finish sign-in before changing auto-garrison."));
   installAutoSettleTileOptionBinding(state, (payload) => sendGameMessage(payload, "Finish sign-in before changing auto-garrison."));
+  installAutoImproveOptionBinding(state, (payload) => sendGameMessage(payload, "Finish sign-in before changing auto-improve."));
   // One-time "name this landmass" prompt once the player garrisons a whole landmass (throttled inside).
   const landmassNamePrompt = createLandmassNamePrompt({ state, sendGameMessage });
   setInterval(() => landmassNamePrompt.tick(performance.now()), 1_000);

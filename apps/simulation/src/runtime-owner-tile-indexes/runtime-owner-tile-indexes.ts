@@ -9,6 +9,7 @@ import {
   refreshActiveStructureIndexForTile,
   refreshRuntimeTileIndexesForChange
 } from "../runtime-tile-index-maintenance.js";
+import { isImprovableResourceTile } from "../runtime-auto-improve/improvable-resource-tile.js";
 
 const addToOwnerIndex = (index: Map<string, Set<string>>, ownerId: string, tileKey: string): void => {
   let set = index.get(ownerId);
@@ -45,6 +46,10 @@ export class RuntimeOwnerTileIndexes {
       censusHallTilesByOwner: this.censusHallTilesByOwner,
     };
   }
+
+  // Garrisoned tiles with an improvable resource and nothing built yet, per
+  // owner: the auto-improve tick's candidates (runtime-auto-improve.ts).
+  readonly improvableTilesByOwner = new Map<string, Set<string>>();
 
   // Non-barbarian FRONTIER tiles per owner.
   readonly frontierTilesByOwner = new Map<string, Set<string>>();
@@ -110,14 +115,20 @@ export class RuntimeOwnerTileIndexes {
       incubationEngineTilesByOwner: this.incubationEngineTilesByOwner,
       censusHallTilesByOwner: this.censusHallTilesByOwner
     });
+    if (previous?.ownerId && isImprovableResourceTile(previous)) this.improvableTilesByOwner.get(previous.ownerId)?.delete(tileKey);
+    // A structure removed (or destroyed) on a tile its owner still holds garrisoned is not a new
+    // candidate: auto-improve must not rebuild what the player just took down.
+    const structureRemovedInPlace = previous?.economicStructure && previous.ownerId === next.ownerId && previous.ownershipState === next.ownershipState;
+    if (next.ownerId && isImprovableResourceTile(next) && !structureRemovedInPlace) addToOwnerIndex(this.improvableTilesByOwner, next.ownerId, tileKey);
   }
 
-  /** Boot, first pass over every tile: the frontier and yield-bearing indexes. */
+  /** Boot, first pass over every tile: the frontier, yield-bearing and improvable-resource indexes. */
   seedFromBootTile(tileKey: string, tile: DomainTileState): void {
     if (tile.ownershipState === "FRONTIER" && tile.ownerId && !tile.ownerId.startsWith("barbarian-")) {
       addToOwnerIndex(this.frontierTilesByOwner, tile.ownerId, tileKey);
     }
     if (isYieldBearingTile(tile) && tile.ownerId) addToOwnerIndex(this.yieldBearingTilesByOwner, tile.ownerId, tileKey);
+    if (isImprovableResourceTile(tile) && tile.ownerId) addToOwnerIndex(this.improvableTilesByOwner, tile.ownerId, tileKey);
   }
 
   /** Boot, second pass over owned tiles: the active siege battery, relay beacon and observatory indexes. */

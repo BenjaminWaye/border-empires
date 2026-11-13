@@ -116,6 +116,24 @@ describe("tickAfcJoinDrop arming", () => {
     expect(t.hidden()).toBe(false);
   });
 
+  it("never arms for an AFC the viewer just captured from an enemy (it never dropped from orbit)", () => {
+    const captured = afcTile("p1", ACTIVATED_AT);
+    captured.afc = { ...captured.afc!, capturedAt: ACTIVATED_AT };
+    const t = setup(captured);
+    t.tick(0);
+    expect(t.state.afcJoinDrop.phase).toBe("idle");
+    expect(t.hidden()).toBe(false);
+    expect(t.state.afcJoinDropFxQueue).toEqual([]);
+  });
+
+  it("arms for the viewer's landed AFC, not a newer AFC they captured", () => {
+    const t = setup();
+    t.state.tiles.set("12,12", { x: 12, y: 12, terrain: "LAND", ownerId: "p1", ownershipState: "SETTLED", afc: { ownerId: "p1", status: "active", activatedAt: ACTIVATED_AT + 30_000, capturedAt: ACTIVATED_AT + 30_000 } } as Tile);
+    t.tick(0);
+    expect(t.state.afcJoinDrop.phase).toBe("waiting");
+    expect([t.state.afcJoinDrop.x, t.state.afcJoinDrop.y]).toEqual([10, 10]);
+  });
+
   it("never arms once this AFC's drop has already been played", () => {
     const t = setup();
     t.seen.add(afcJoinDropTipId(ACTIVATED_AT));

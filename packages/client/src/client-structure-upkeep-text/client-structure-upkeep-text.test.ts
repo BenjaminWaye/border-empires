@@ -51,7 +51,7 @@ describe("upkeepSuffixFor", () => {
   });
 
   it("formats a single bit as a labeled Upkeep segment", () => {
-    expect(upkeepSuffixFor("MINE")).toBe(" • Upkeep: 1 FOOD slot");
+    expect(upkeepSuffixFor("TITANIUM_REFINERY")).toBe(" • Upkeep: 1 FOOD slot");
   });
 
   it("joins multiple bits with a middle dot", () => {

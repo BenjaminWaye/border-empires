@@ -1,4 +1,5 @@
 import { districtOverlayImages } from "../client-town-district/district-art.js";
+import { DOCK_SPRITE_FILES } from "../client-map-3d-harbour/dock-sprite-frame.js";
 import {
   fortificationOpeningSides,
   recordForEachFortificationOpening,
@@ -12,7 +13,7 @@ import {
 // in packages/client/public/overlays/, cache-busted by
 // overlayAssetVersion — bump it whenever overlay art changes.
 
-const overlayAssetVersion = "20261029-food-tiles";
+const overlayAssetVersion = "20261112-dock-art";
 export const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -43,11 +44,9 @@ const createDirectionalOverlaySet = (
 export const aetherBridgeAnchorImage = loadOverlayImage("aether-pylon-overlay.svg");
 export const aetherWallPylonImage = loadOverlayImage("aether-wall-pylon-overlay.svg");
 
-export const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock-overlay-2.svg", "dock-overlay-3.svg"]);
+/** Dock sprites in HARBOUR_FACINGS order (south, east, north, west): drawDockEndpoint2D picks the one facing the water. */
+export const dockOverlayVariants = createOverlayVariantSet(DOCK_SPRITE_FILES);
 const legacyStructureOverlayImages = {
-  RESIN_EXTRACTOR: loadOverlayImage("resin-extractor-overlay.svg"),
-  IMPLANT_FOUNDRY: loadOverlayImage("implant-foundry-overlay.svg"),
-  CATALYST_REFINERY: loadOverlayImage("catalyst-refinery-overlay.svg"),
   CULTIVATION_ESTATE: loadOverlayImage("cultivation-estate-overlay.svg"),
   RECLAMATION_WORKS: loadOverlayImage("reclamation-works-overlay.svg"),
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
@@ -62,7 +61,6 @@ const legacyStructureOverlayImages = {
   AETHER_CONDENSER: loadOverlayImage("aether-condenser-overlay.svg"),
   HIGH_YIELD_AETHER_CONDENSER: loadOverlayImage("high-yield-aether-condenser-overlay.svg"),
   TRADE_NEXUS: loadOverlayImage("trade-nexus-overlay.svg"),
-  ORE_REFINERY: loadOverlayImage("ore-refinery-overlay.svg"),
   // Manifest tree naming/lore pass: ANCILLARY_DEPOT ("Ancillary Depot") and
   // ANCILLARY_FACTORY ("Ancillary Factory") had their art swapped; the Depot
   // since got its own dedicated storage-drum overlay (and the Factory keeps

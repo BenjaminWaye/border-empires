@@ -111,7 +111,6 @@ const REDUNDANT_STATIC_STAT_LABELS_BY_TYPE: Partial<Record<string, string>> = {
 };
 
 const economicStructureModifiersForTile = (tile: NonNullable<Tile["economicStructure"]>): TileOverviewModifier[] => {
-  if (tile.type === "MINE") return [];
   const label = FARM_RESOURCE_LABEL_OVERRIDES[tile.type] ?? economicStructureName(tile.type as EconomicStructureType);
   const redundantLabel = REDUNDANT_STATIC_STAT_LABELS_BY_TYPE[tile.type];
   const modifiers = structureModifiersFor(tile.type as ModifierStructureType, { tile: { converterMode: converterModeOf(tile) } }).filter((m) => m.statLabel !== redundantLabel);
@@ -243,9 +242,6 @@ export const tileOverviewModifiersForTile = (tile: Tile, options: { omitTownCoin
   }
   if (tile.observatory?.status === "active") {
     modifiers.push(...toTileOverviewModifiers("Aether Tower", structureModifiersFor("OBSERVATORY")));
-  }
-  if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "MINE") {
-    modifiers.push(...toTileOverviewModifiers("Mine", structureModifiersFor("MINE", { tile: { resource: tile.resource } })));
   }
   if (tile.economicStructure?.status === "active") {
     modifiers.push(...economicStructureModifiersForTile(tile.economicStructure));

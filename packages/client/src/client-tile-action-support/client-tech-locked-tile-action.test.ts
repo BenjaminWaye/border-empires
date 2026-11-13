@@ -27,48 +27,47 @@ describe("Manufactory module build availability", () => {
 
 describe("tech-locked resource builds", () => {
   const mineTech = {
-    id: "mining", name: "Prospector Crew", branch: "economy", tier: 2,
+    id: "agriculture", name: "Hyperfeed Seedstock Consignment", branch: "economy", tier: 1,
     manifestCategory: "CREW_OFFICE_CONSIGNMENT" as const, description: "", mods: {},
-    effects: { unlockMine: true }, requirements: { gold: 10, resources: {} }
+    effects: { unlockHydrogarden: true }, requirements: { gold: 10, resources: {} }
   };
   const rigTech = {
-    id: "leatherworking", name: "Umbrite Rigging Module", branch: "war", tier: 1,
+    id: "trade", name: "Industrial Tooling Module", branch: "economy", tier: 1,
     manifestCategory: "AFC_MODULE" as const, description: "", mods: {},
-    effects: { unlockUmbriteRig: true }, requirements: { gold: 10, resources: {} }
+    effects: { unlockReclamationWorks: true }, requirements: { gold: 10, resources: {} }
   };
-  // Titanium is revealed by masonry, so a Titanium tile is visible before the Mine's tech.
-  const lockedMine: TileActionDef = { id: "build_mine", label: "Build Mine", disabled: true, disabledReason: "Requires Prospector Crew" };
+    const lockedMine: TileActionDef = { id: "build_hydrogarden", label: "Build Hydrogarden", disabled: true, disabledReason: "Requires Hyperfeed Seedstock Consignment" };
   const unlockedState: TileActionFilterState = { techIds: [], localhostDevAetherWall: false, me: "me", tiles: new Map(), techCatalog: [mineTech] };
 
-  it("keeps a locked Mine visible, names its tech, and links to it", () => {
-    expect(presentTechLockedTileAction(lockedMine, unlockedState, () => "mining")).toMatchObject({
+  it("keeps a locked Hydrogarden visible, names its tech, and links to it", () => {
+    expect(presentTechLockedTileAction(lockedMine, unlockedState, () => "agriculture")).toMatchObject({
       disabled: true,
-      disabledReason: "Requires Prospector Crew",
-      techLinkId: "mining"
+      disabledReason: "Requires Hyperfeed Seedstock Consignment",
+      techLinkId: "agriculture"
     });
   });
 
   it("keeps the logic layer's reason when the tech catalog hasn't loaded", () => {
     const state: TileActionFilterState = { techIds: [], localhostDevAetherWall: false };
-    expect(presentTechLockedTileAction(lockedMine, state, () => "mining")?.disabledReason).toBe("Requires Prospector Crew");
+    expect(presentTechLockedTileAction(lockedMine, state, () => "agriculture")?.disabledReason).toBe("Requires Hyperfeed Seedstock Consignment");
   });
 
   it("stays hidden when the tile already has a structure", () => {
     const blocked = { ...lockedMine, disabledReason: "Tile already has structure" };
-    expect(presentTechLockedTileAction(blocked, unlockedState, () => "mining")).toBeUndefined();
+    expect(presentTechLockedTileAction(blocked, unlockedState, () => "agriculture")).toBeUndefined();
   });
 
   it("says to install a researched module that is not on an active AFC", () => {
     const afc: Tile = { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", afc: { ownerId: "me", status: "active", modules: [] } };
-    const state: TileActionFilterState = { techIds: ["leatherworking"], localhostDevAetherWall: false, me: "me", tiles: new Map([["1,1", afc]]), techCatalog: [rigTech] };
-    const rig: TileActionDef = { id: "build_umbrite_rig", label: "Build Umbrite Rig" };
-    const shown = presentTechLockedTileAction(rig, state, () => "leatherworking");
-    expect(shown).toMatchObject({ disabled: true, disabledReason: "Install Umbrite Rigging Module on an active AFC" });
+    const state: TileActionFilterState = { techIds: ["trade"], localhostDevAetherWall: false, me: "me", tiles: new Map([["1,1", afc]]), techCatalog: [rigTech] };
+    const rig: TileActionDef = { id: "build_reclamation_works", label: "Build Reclamation Works" };
+    const shown = presentTechLockedTileAction(rig, state, () => "trade");
+    expect(shown).toMatchObject({ disabled: true, disabledReason: "Install Industrial Tooling Module on an active AFC" });
     expect(shown?.techLinkId).toBeUndefined();
     // Installing wouldn't be enough when something else (here, no free slot) also blocks it.
-    expect(presentTechLockedTileAction({ ...rig, disabled: true, disabledReason: "No free UMBRITE slot" }, state, () => "leatherworking")).toBeUndefined();
-    afc.afc = { ownerId: "me", status: "active", modules: ["leatherworking"] };
-    expect(presentTechLockedTileAction(rig, state, () => "leatherworking")).toBe(rig);
+    expect(presentTechLockedTileAction({ ...rig, disabled: true, disabledReason: "No free FOOD slot" }, state, () => "trade")).toBeUndefined();
+    afc.afc = { ownerId: "me", status: "active", modules: ["trade"] };
+    expect(presentTechLockedTileAction(rig, state, () => "trade")).toBe(rig);
   });
 
   it("still hides tech-locked builds that are not same-tile resource builds", () => {

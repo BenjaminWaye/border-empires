@@ -8,6 +8,7 @@ import {
   type BuildableStructureType
 } from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import { withResourceCleared } from "./salvage-tribute/salvage-field-clear.js";
 import {
   parseClearMusterPayload,
   parseSetMusterPayload,
@@ -395,7 +396,9 @@ export function completeStructureRemoval(context: RuntimeStructureCommandContext
   }
   if (!completedTile) return;
   context.replaceTileState(targetKey, completedTile);
-  context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
+  const delta = context.tileDeltaFromState(completedTile);
+  const resourceCleared = Boolean(latest.resource) && !completedTile.resource;
+  context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [resourceCleared ? withResourceCleared(delta) : delta] });
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   // A removed Relay Beacon's vision bonus is dropped by reconcileOutpostVisionBonus
   // via the replaceTileState call above — runtime-outpost-vision.ts.

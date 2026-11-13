@@ -16,7 +16,7 @@ function fixture(allResources = false, buyerFarms = 12) {
     tiles.find(t=>t.x===offset&&t.y===offset)!.town={ name:id,type:"MARKET",populationTier:"TOWN" };
     for (let x=0;x<(id === "buyer" ? buyerFarms : 12);x++) tiles.push({ ...land(offset+x,80,id),resource:"FARM" });
   }
-  for (const [index, resource] of (allResources ? NETWORK_RESOURCES : ["NEURAL_RESIN"] as const).entries()) tiles.push({
+  for (const [index, resource] of (allResources ? NETWORK_RESOURCES : ["LUXURY_BIOTA"] as const).entries()) tiles.push({
     ...land(20+index,20,"seller"),resource,economicStructure:{ownerId:"seller",type:RESOURCE_NETWORKS[resource].building,status:"active"}
   });
   if (allResources) for (const [y,type] of [[40,"TRADE_NEXUS"],[41,"MANUFACTORY"]] as const)
@@ -25,20 +25,20 @@ function fixture(allResources = false, buyerFarms = 12) {
   tiles.find(tile => tile.x === 41 && tile.y === 40)!.economicStructure = { ownerId: "buyer", type: "ANCILLARY_DEPOT", status: "active" };
   const runtime = new SimulationRuntime({ now:()=>now,seedTiles:new Map(),initialState:{ tiles,activeLocks:[] },
     initialPlayers:new Map(["seller","buyer"].map(id=>[id,buildPlayer(id,{ points:100,manpower:0,manpowerUpdatedAt:start,
-      manpowerCapSnapshot:10000,landingReserveGranted:true,techIds:new Set(allResources ? NETWORK_RESOURCES.map(resource=>RESOURCE_NETWORKS[resource].tech) : ["neural-resin-processing"]) })])) });
-  const pay = (id = "trade", resources: ResourceSupplyOffer = {NEURAL_RESIN:1}) => runtime.submitCommand({ commandId:id,playerId:"seller",type:"SETTLE_DIPLOMACY_TERMS",sessionId:"gateway",clientSeq:id === "trade" ? 1 : 2,issuedAt:now,payloadJson:JSON.stringify({ proposerId:"seller",targetId:"buyer",proposerPays:{gold:0,resources},targetPays:{gold:3},supplyDurationHours:12 }) });
+      manpowerCapSnapshot:10000,landingReserveGranted:true,techIds:new Set(allResources ? NETWORK_RESOURCES.map(resource=>RESOURCE_NETWORKS[resource].tech) : ["frontier-concessions"]) })])) });
+  const pay = (id = "trade", resources: ResourceSupplyOffer = {LUXURY_BIOTA:1}) => runtime.submitCommand({ commandId:id,playerId:"seller",type:"SETTLE_DIPLOMACY_TERMS",sessionId:"gateway",clientSeq:id === "trade" ? 1 : 2,issuedAt:now,payloadJson:JSON.stringify({ proposerId:"seller",targetId:"buyer",proposerPays:{gold:0,resources},targetPays:{gold:3},supplyDurationHours:12 }) });
   return { runtime,pay,setNow:(at:number)=>{now=at;}, player:(id:string)=>runtime.exportState().players.find(p=>p.id===id)! };
 }
 describe("resource trades in the production runtime",()=>{
-  it("commits a supplier once, pays Coin, and gives the recipient a first resin site's manpower",async()=>{
+  it("commits a supplier once, pays Coin, and gives the recipient the imported biota site",async()=>{
     const f=fixture(), events=collectEvents(f.runtime);
-    expect(f.player("seller").resourceTradeHoldings?.NEURAL_RESIN).toBe(1);
+    expect(f.player("seller").resourceTradeHoldings?.LUXURY_BIOTA).toBe(1);
     const before=f.player("buyer");
     await f.pay();
     expect(events.some(e=>e.eventType==="COMMAND_REJECTED")).toBe(false);
     expect(f.player("seller").points).toBeCloseTo(103);
-    expect(f.player("seller").resourceTradeHoldings?.NEURAL_RESIN).toBeUndefined();
-    expect((f.player("buyer").manpowerRegenPerMinute!-before.manpowerRegenPerMinute!)*240).toBeCloseTo(120);
+    expect(f.player("seller").resourceTradeHoldings?.LUXURY_BIOTA).toBeUndefined();
+    expect(f.player("buyer").effectiveNetworkSupply?.LUXURY_BIOTA).toBe((before.effectiveNetworkSupply?.LUXURY_BIOTA ?? 0)+1);
     await f.pay("duplicate-supply");
     expect(events.some(e=>e.eventType==="COMMAND_REJECTED"&&e.commandId==="duplicate-supply")).toBe(true);
     expect(f.player("seller").points).toBeCloseTo(103);
@@ -67,7 +67,7 @@ describe("resource trades in the production runtime",()=>{
     const f=fixture(); await f.pay();
     expect(f.player("buyer").resourceTradeAgreements?.[0]?.fulfilled).toBe(true);
     f.setNow(start+12*3_600_000);
-    expect(f.player("seller").resourceTradeHoldings?.NEURAL_RESIN).toBeUndefined();
+    expect(f.player("seller").resourceTradeHoldings?.LUXURY_BIOTA).toBeUndefined();
     expect(f.player("buyer").resourceTradeAgreements?.[0]?.fulfilled).toBe(true);
   });
   it("preserves supply in durable checkpoints, event replay and the actual reconnect snapshot",async()=>{
@@ -80,7 +80,7 @@ describe("resource trades in the production runtime",()=>{
     const restored=new SimulationRuntime({ now:()=>start,seedTiles:new Map(),initialState,mergeSeedTilesWithInitialState:false });
     const own=buildPlayerSubscriptionSnapshot("buyer",restored.exportVisibleStateForPlayer("buyer"), { tilesAlreadyVisible:true }).player!;
     expect(own.resourceTradeAgreements?.[0]?.fulfilled).toBe(true);
-    expect(own.resourceSlots?.bonusSupply?.supply.NEURAL_RESIN).toBe(1);
+    expect(own.resourceSlots?.bonusSupply?.supply.LUXURY_BIOTA).toBe(1);
     expect(own.manpowerRegenPerMinute).toBeCloseTo(f.player("buyer").manpowerRegenPerMinute!);
   });
   it("suspends deliveries when the supplier loses its extraction site",async()=>{
@@ -91,14 +91,14 @@ describe("resource trades in the production runtime",()=>{
     await Promise.resolve();
     const buyer=f.player("buyer");
     expect(buyer.resourceTradeAgreements?.[0]?.fulfilled).toBe(false);
-    expect(buyer.effectiveNetworkSupply?.NEURAL_RESIN).toBe(0);
+    expect(buyer.effectiveNetworkSupply?.LUXURY_BIOTA).toBe(0);
     const updates=events.filter(event=>event.eventType==="PLAYER_MESSAGE"&&event.playerId==="buyer"&&event.messageType==="PLAYER_UPDATE");
     expect(updates.length).toBeGreaterThan(0);
     const lastUpdate=updates.at(-1);
     if (lastUpdate?.eventType!=="PLAYER_MESSAGE") throw new Error("Missing recipient update");
     const payload=JSON.parse(lastUpdate.payloadJson);
     expect(payload.resourceTradeAgreements?.[0]?.fulfilled).toBe(false);
-    expect(payload.resourceSlots?.bonusSupply?.supply.NEURAL_RESIN ?? 0).toBe(0);
+    expect(payload.resourceSlots?.bonusSupply?.supply.LUXURY_BIOTA ?? 0).toBe(0);
   });
   it("preserves open-ended contracts when restoring after a long offline interval",async()=>{
     const f=fixture(); await f.pay();
@@ -112,24 +112,24 @@ describe("resource trades in the production runtime",()=>{
     expect(actual.points).toBeCloseTo(expected.points);
   });
 
-  it("imports the four tradable frontier resources and refuses salvage",async()=>{
-    const f=fixture(true),before=f.player("buyer"),events=collectEvents(f.runtime);
+  it("imports the tradable frontier resource and refuses salvage",async()=>{
+    const f=fixture(true),events=collectEvents(f.runtime);
     const resources=Object.fromEntries(NETWORK_RESOURCES.filter(resource=>resource!=="PRECURSOR_SALVAGE").map(resource=>[resource,1]));
     await f.pay("trade",resources);
     const boosted=f.player("buyer");
-    expect((boosted.manpowerRegenPerMinute!-before.manpowerRegenPerMinute!)*240).toBeCloseTo(360);
     expect(boosted.effectiveNetworkSupply).toEqual({...resources,PRECURSOR_SALVAGE:0});
     expect(f.player("seller").resourceTradeHoldings?.PRECURSOR_SALVAGE).toBeUndefined();
     await f.pay("salvage",{PRECURSOR_SALVAGE:1});
     expect(events.some(event=>event.eventType==="COMMAND_REJECTED"&&event.commandId==="salvage")).toBe(true);
   });
-  it("an imported resin site pays even with no Depot or Factory", async () => {
-    const f = fixture(false, 0), before = f.player("buyer").manpowerRegenPerMinute!;
+  it("an imported biota site is supplied even with no Depot or Factory", async () => {
+    const f = fixture(false, 0);
     await f.pay();
-    expect((f.player("buyer").manpowerRegenPerMinute! - before) * 240).toBeCloseTo(120);
+    expect(f.player("buyer").effectiveNetworkSupply?.LUXURY_BIOTA).toBe(1);
     const slots = buildPlayerSubscriptionSnapshot("buyer", f.runtime.exportVisibleStateForPlayer("buyer"), { tilesAlreadyVisible: true }).player!.resourceSlots!.bonusSupply!;
-    expect(slots.supply.NEURAL_RESIN).toBe(1);
-    expect(slots.used.NEURAL_RESIN).toBe(1);
+    expect(slots.supply.LUXURY_BIOTA).toBe(1);
+    // The buyer's only town is Town tier, which needs no biota, so the import is unused.
+    expect(slots.used.LUXURY_BIOTA).toBe(0);
   });
   it("uses imported FOOD to wake dormant domestic industry without creating a stockpile",async()=>{
     const f=fixture(false,5),before=f.player("buyer");
@@ -150,8 +150,9 @@ describe("resource trades in the production runtime",()=>{
     await Promise.resolve();
     expect(events.some(event=>event.eventType==="COMMAND_REJECTED")).toBe(false);
     expect(f.player("buyer").resourceTradeAgreements).toEqual([]);
-    expect(f.player("seller").resourceTradeHoldings?.NEURAL_RESIN).toBe(1);
-    expect((before.manpowerRegenPerMinute!-f.player("buyer").manpowerRegenPerMinute!)*240).toBeCloseTo(120);
+    expect(f.player("seller").resourceTradeHoldings?.LUXURY_BIOTA).toBe(1);
+    expect(before.effectiveNetworkSupply?.LUXURY_BIOTA).toBe(1);
+    expect(f.player("buyer").effectiveNetworkSupply?.LUXURY_BIOTA ?? 0).toBe(0);
     expect(f.player("buyer").points).toBeCloseTo(before.points);
   });
 
@@ -184,7 +185,6 @@ describe("resource trades in the production runtime",()=>{
     const siphonable=NETWORK_RESOURCES.filter(resource=>resource!=="PRECURSOR_SALVAGE");
     for(const resource of siphonable){expect(own("seller").effectiveNetworkSupply?.[resource]).toBe(0);expect(own("buyer").effectiveNetworkSupply?.[resource]).toBe(1);}
     expect(own("seller").effectiveNetworkSupply?.PRECURSOR_SALVAGE).toBe(1);
-    expect((own("buyer").manpowerRegenPerMinute!-base.player("buyer").manpowerRegenPerMinute!)*240).toBeCloseTo(360);
     runtime.submitCommand({commandId:"end-siphon",sessionId:"buyer",playerId:"buyer",clientSeq:100,issuedAt:start,type:"CANCEL_SIPHON",payloadJson:JSON.stringify({x:40,y:39})});
     await Promise.resolve();
     for(const resource of NETWORK_RESOURCES){expect(own("seller").effectiveNetworkSupply?.[resource]).toBe(1);expect(own("buyer").effectiveNetworkSupply?.[resource]).toBe(0);}

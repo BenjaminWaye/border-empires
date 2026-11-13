@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { NEW_PLAYER_AUTO_SETTLE_PREFS } from "../auto-settle-prefs/auto-settle-prefs.js";
 import { ClientMessageSchema } from "./messages.js";
 
 describe("ClientMessageSchema", () => {
@@ -30,6 +31,15 @@ describe("ClientMessageSchema", () => {
       resources: true
     });
     expect(ClientMessageSchema.safeParse({ type: "SET_AUTO_SETTLE_PREFS", towns: "yes", food: false, strategic: false, luxury: false }).success).toBe(false);
+  });
+
+  it("keeps per-resource SET_AUTO_SETTLE_PREFS switches (zod would strip unknown keys)", () => {
+    const switches = { ...NEW_PLAYER_AUTO_SETTLE_PREFS, TITANIUM: true, PRECURSOR_SALVAGE: true } as Record<string, boolean>;
+    delete switches.answered;
+    delete switches.improve;
+    expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", ...switches })).toEqual({ type: "SET_AUTO_SETTLE_PREFS", ...switches });
+    expect(ClientMessageSchema.safeParse({ type: "SET_AUTO_SETTLE_PREFS", towns: true, TITANIUM: "yes" }).success).toBe(false);
+    expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", ...switches, improve: { FARM: true } })).toMatchObject({ improve: { FARM: true } });
   });
 
   it("accepts NAME_ISLAND and rejects a non-integer tile", () => {
@@ -106,6 +116,23 @@ describe("ClientMessageSchema", () => {
     ).toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "UMBRITE_WEAPONS_FACTORY" });
   });
 
+  it("accepts refinery and booster builds, with an optional field, and rejects the removed Mine", () => {
+    for (const structureType of ["TITANIUM_REFINERY", "UMBRITE_REFINERY", "CRYSTAL_REFINERY", "TITANIUM_SMELTER", "UMBRITE_DISTILLERY", "CRYSTAL_CUTTER"]) {
+      expect(ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType })).toMatchObject({ structureType });
+    }
+    expect(ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "TITANIUM_REFINERY", fieldX: 4, fieldY: 5 }))
+      .toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "TITANIUM_REFINERY", fieldX: 4, fieldY: 5 });
+    for (const structureType of ["MINE", "UMBRITE_RIG", "ORE_REFINERY"]) {
+      expect(() => ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType })).toThrow();
+    }
+  });
+
+  it("accepts ASSIGN_REFINERY_FIELD and requires the field coordinates", () => {
+    expect(ClientMessageSchema.parse({ type: "ASSIGN_REFINERY_FIELD", x: 1, y: 2, fieldX: 3, fieldY: 4 }))
+      .toEqual({ type: "ASSIGN_REFINERY_FIELD", x: 1, y: 2, fieldX: 3, fieldY: 4 });
+    expect(() => ClientMessageSchema.parse({ type: "ASSIGN_REFINERY_FIELD", x: 1, y: 2 })).toThrow();
+  });
+
   it("accepts REQUEST_PERSONAL_ACTIVITY with no payload", () => {
     expect(ClientMessageSchema.parse({ type: "REQUEST_PERSONAL_ACTIVITY" })).toEqual({
       type: "REQUEST_PERSONAL_ACTIVITY"
@@ -148,3 +175,19 @@ describe("ClientMessageSchema", () => {
     expect(parsed).toEqual({ type: "DIPLOMACY_GIFT", targetPlayerName: "Elin", gift: { gold: 10 } });
   });
 });
+
+describe("Fortify / Siege picker tier on build messages", () => {
+  it("accepts a family-matching tier and rejects a mismatched or unknown one", () => {
+    expect(ClientMessageSchema.safeParse({ type: "BUILD_FORT", x: 1, y: 2, tier: "TITANIUM_BASTION" }).success).toBe(true);
+    expect(ClientMessageSchema.safeParse({ type: "BUILD_FORT", x: 1, y: 2 }).success).toBe(true);
+    expect(ClientMessageSchema.safeParse({ type: "BUILD_FORT", x: 1, y: 2, tier: "SIEGE_TOWER" }).success).toBe(false);
+    expect(ClientMessageSchema.safeParse({ type: "BUILD_SIEGE_BATTERY", x: 1, y: 2, tier: "DREAD_TOWER" }).success).toBe(true);
+    expect(ClientMessageSchema.safeParse({ type: "DEV_QUEUE_ENQUEUE", x: 1, y: 2, tileKey: "1,2", kind: "BUILD", structureType: "FORT", tier: "MEGA_FORT" }).success).toBe(false);
+  });
+
+  it("keeps the tier on a parsed message (zod would otherwise strip unknown keys)", () => {
+    const parsed = ClientMessageSchema.parse({ type: "CLAIM_CONTINUATION_SET", x: 1, y: 2, structureType: "FORT", tier: "FORT" });
+    expect(parsed).toMatchObject({ tier: "FORT" });
+  });
+});
+

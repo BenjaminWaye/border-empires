@@ -51,7 +51,7 @@ export const structureSkipsSettledRequirement = (type: string): boolean => {
  * ServerDevQueueEntry.origin).
  */
 export const structureRequiresClientPlacement = (type: string): boolean =>
-  type === "ORE_REFINERY" || type === "HYDROWORKS";
+  type === "HYDROWORKS";
 
 /**
  * Which tech/domain build-speed effect shortens this structure's build, the

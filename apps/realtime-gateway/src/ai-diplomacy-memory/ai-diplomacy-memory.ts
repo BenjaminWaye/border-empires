@@ -8,6 +8,11 @@
 
 /** Tiles and fights fade by half every 12 hours. */
 export const WAR_MEMORY_HALF_LIFE_MS = 12 * 60 * 60_000;
+/**
+ * The war's pace: the same tile counts fading by half every hour, so they hold
+ * roughly the last hour and a half of fighting (ai-war-outlook.ts).
+ */
+export const WAR_PACE_HALF_LIFE_MS = 60 * 60_000;
 /** Goodwill from payments and the "you keep buying truces" count fade by half daily. */
 export const DEAL_MEMORY_HALF_LIFE_MS = 24 * 60 * 60_000;
 /** Pairs remembered at once (state discipline); the least recently touched is forgotten first. */
@@ -20,6 +25,9 @@ type PairMemory = {
   tilesTakenFromAi: Decaying;
   /** Tiles the AI took from the player. */
   tilesTakenByAi: Decaying;
+  /** The same, fading by the hour: how fast ground is changing hands now. */
+  recentTilesTakenFromAi: Decaying;
+  recentTilesTakenByAi: Decaying;
   /** Battles between them, either direction. */
   battles: Decaying;
   /** Truces the player has bought or agreed with this AI. */
@@ -35,6 +43,9 @@ type PairMemory = {
 export type DiplomacyMemoryView = {
   tilesTakenFromAi: number;
   tilesTakenByAi: number;
+  /** Tiles taken either way over roughly the last hour and a half; absent from older test fixtures (read as 0). */
+  recentTilesTakenFromAi?: number;
+  recentTilesTakenByAi?: number;
   battles: number;
   truceDeals: number;
   goodwillCoin: number;
@@ -42,6 +53,8 @@ export type DiplomacyMemoryView = {
   lastCombatAt: number | undefined;
   /** The AI paid for peace and there has been no fighting since. */
   aiAlreadyPaidThisWar: boolean;
+  /** When the AI last paid this player for peace (ai-war-outlook.ts limits suing to once a day); absent from older fixtures. */
+  aiPaidForPeaceAt?: number;
 };
 
 const decayed = (entry: Decaying, now: number, halfLifeMs: number): number =>
@@ -55,6 +68,8 @@ const bump = (entry: Decaying, amount: number, now: number, halfLifeMs: number):
 const empty = (now: number): PairMemory => ({
   tilesTakenFromAi: { value: 0, at: now },
   tilesTakenByAi: { value: 0, at: now },
+  recentTilesTakenFromAi: { value: 0, at: now },
+  recentTilesTakenByAi: { value: 0, at: now },
   battles: { value: 0, at: now },
   truceDeals: { value: 0, at: now },
   goodwillCoin: { value: 0, at: now },
@@ -111,6 +126,7 @@ export const createAiDiplomacyMemory = (deps: { now: () => number; isAi: (player
       if (deps.isAi(defenderId)) {
         const entry = touch(defenderId, attackerId);
         entry.tilesTakenFromAi = bump(entry.tilesTakenFromAi, captured, now, WAR_MEMORY_HALF_LIFE_MS);
+        entry.recentTilesTakenFromAi = bump(entry.recentTilesTakenFromAi, captured, now, WAR_PACE_HALF_LIFE_MS);
         entry.battles = bump(entry.battles, 1, now, WAR_MEMORY_HALF_LIFE_MS);
         entry.lastPlayerAttackAt = now;
         entry.lastCombatAt = now;
@@ -118,6 +134,7 @@ export const createAiDiplomacyMemory = (deps: { now: () => number; isAi: (player
       if (deps.isAi(attackerId)) {
         const entry = touch(attackerId, defenderId);
         entry.tilesTakenByAi = bump(entry.tilesTakenByAi, captured, now, WAR_MEMORY_HALF_LIFE_MS);
+        entry.recentTilesTakenByAi = bump(entry.recentTilesTakenByAi, captured, now, WAR_PACE_HALF_LIFE_MS);
         entry.battles = bump(entry.battles, 1, now, WAR_MEMORY_HALF_LIFE_MS);
         entry.lastCombatAt = now;
       }
@@ -139,6 +156,8 @@ export const createAiDiplomacyMemory = (deps: { now: () => number; isAi: (player
         return {
           tilesTakenFromAi: 0,
           tilesTakenByAi: 0,
+          recentTilesTakenFromAi: 0,
+          recentTilesTakenByAi: 0,
           battles: 0,
           truceDeals: 0,
           goodwillCoin: 0,
@@ -150,12 +169,15 @@ export const createAiDiplomacyMemory = (deps: { now: () => number; isAi: (player
       return {
         tilesTakenFromAi: decayed(entry.tilesTakenFromAi, now, WAR_MEMORY_HALF_LIFE_MS),
         tilesTakenByAi: decayed(entry.tilesTakenByAi, now, WAR_MEMORY_HALF_LIFE_MS),
+        recentTilesTakenFromAi: decayed(entry.recentTilesTakenFromAi, now, WAR_PACE_HALF_LIFE_MS),
+        recentTilesTakenByAi: decayed(entry.recentTilesTakenByAi, now, WAR_PACE_HALF_LIFE_MS),
         battles: decayed(entry.battles, now, WAR_MEMORY_HALF_LIFE_MS),
         truceDeals: decayed(entry.truceDeals, now, DEAL_MEMORY_HALF_LIFE_MS),
         goodwillCoin: decayed(entry.goodwillCoin, now, DEAL_MEMORY_HALF_LIFE_MS),
         lastPlayerAttackAt: entry.lastPlayerAttackAt,
         lastCombatAt: entry.lastCombatAt,
-        aiAlreadyPaidThisWar: entry.aiPaidForPeaceAt !== undefined && (entry.lastCombatAt === undefined || entry.lastCombatAt <= entry.aiPaidForPeaceAt)
+        aiAlreadyPaidThisWar: entry.aiPaidForPeaceAt !== undefined && (entry.lastCombatAt === undefined || entry.lastCombatAt <= entry.aiPaidForPeaceAt),
+        ...(entry.aiPaidForPeaceAt !== undefined ? { aiPaidForPeaceAt: entry.aiPaidForPeaceAt } : {})
       };
     },
     size: () => pairs.size

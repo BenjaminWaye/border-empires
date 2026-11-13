@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { ResourceTradeOffer } from "@border-empires/shared";
 import { InMemoryResourceTradeOfferStore, SqliteResourceTradeOfferStore } from "./resource-trade-store.js";
 const offer=(id="offer",from="a",to="b"):ResourceTradeOffer=>({id,fromPlayerId:from,toPlayerId:to,fromPlayerName:from,toPlayerName:to,
-  terms:{give:{gold:0,resources:{NEURAL_RESIN:1}},ask:{gold:2}},createdAt:1,expiresAt:100,status:"pending"});
+  terms:{give:{gold:0,resources:{LUXURY_BIOTA:1}},ask:{gold:2}},createdAt:1,expiresAt:100,status:"pending"});
 describe.each([false,true])("bounded resource trade offers (SQLite=%s)",sqlite=>{
   it("expires pending offers, preserves uncertain settlements and clears campaign state",()=>{
     const db=sqlite?new DatabaseSync(":memory:"):undefined;
@@ -38,7 +38,7 @@ describe("resource trade offers persisted before Shards were removed", () => {
     try{
       const store=new SqliteResourceTradeOfferStore(db);
       expect(store.insert(offer("legacy"))).toBe(true);expect(store.insert(offer("kept"))).toBe(true);
-      const legacy={...offer("legacy"),terms:{give:{gold:0,shard:0,resources:{NEURAL_RESIN:1}},ask:{gold:0,shard:3}}};
+      const legacy={...offer("legacy"),terms:{give:{gold:0,shard:0,resources:{LUXURY_BIOTA:1}},ask:{gold:0,shard:3}}};
       db.prepare("UPDATE social_resource_trade_offers SET payload_json=? WHERE id=?").run(JSON.stringify(legacy),"legacy");
       expect(store.rows(2).map(row=>row.id)).toEqual(["kept"]);
       expect(db.prepare("SELECT COUNT(*) AS n FROM social_resource_trade_offers").get()).toEqual({n:1});

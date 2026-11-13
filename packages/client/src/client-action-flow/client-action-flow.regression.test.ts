@@ -62,7 +62,7 @@ describe("client action flow regressions", () => {
     // out between the click and either follow-up landing. CLAIM_CONTINUATION_SET
     // registers the same tail server-side too, covering both the fresh-EXPAND
     // and already-owned-FRONTIER cases.
-    expect(source).toContain('sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType });');
+    expect(source).toContain('sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType, ...(tier ? { tier } : {}) });');
     expect(adjacentExpandClaimSource()).toContain(
       'sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x, y, structureType: "RELAY_BEACON" });'
     );
@@ -189,7 +189,7 @@ describe("client action flow regressions", () => {
     // tryDrainClaimContinuationBuildTail). Whichever command lost the race
     // got rejected with BUILD_INVALID "tile already has structure", even
     // though the structure was actually built successfully by the winner.
-    // The placement-overlay structures (ORE_REFINERY/HYDROWORKS) are the one
+    // The placement-overlay structure (HYDROWORKS) is the one
     // exception -- those need the player to pick an exact adjacent tile via
     // the placement overlay, so they still trigger locally. That exception is
     // keyed off the shared structureRequiresClientPlacement predicate, which
@@ -199,17 +199,17 @@ describe("client action flow regressions", () => {
     expect(source).toContain("processAutoBuilds(state, triggerBuildForStructureType)");
     const state = createInitialState();
     state.me = "me";
-    for (const [x, type] of [[1, "HYDROGARDEN"], [2, "ORE_REFINERY"], [3, "HYDROWORKS"]] as const) {
+    for (const [x, type] of [[1, "HYDROGARDEN"], [2, "HYDROWORKS"], [3, "MANUFACTORY"]] as const) {
       const key = `${x},0`;
       state.tiles.set(key, { x, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" });
       state.autoBuildTargets.set(key, type);
     }
     const trigger = vi.fn<(type: string) => void>();
     processAutoBuilds(state, trigger);
-    expect(trigger.mock.calls.map(([type]) => type)).toEqual(["ORE_REFINERY", "HYDROWORKS"]);
+    expect(trigger.mock.calls.map(([type]) => type)).toEqual(["HYDROWORKS"]);
     expect(state.autoBuildTargets.size).toBe(0);
     processAutoBuilds(state, trigger);
-    expect(trigger).toHaveBeenCalledTimes(2);
+    expect(trigger).toHaveBeenCalledTimes(1);
   });
 
   it("delegates settle_land on a non-adjacent-but-in-reach neutral tile into the waypoint machinery instead of a doomed direct claim", () => {

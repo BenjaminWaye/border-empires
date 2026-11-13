@@ -8,7 +8,7 @@
 // runtime-lock-resolution.ts's resolveLock).
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { DEV_QUEUE_SERVER_CAP, structureRequiresClientPlacement, structureSkipsSettledRequirement } from "@border-empires/shared";
+import { DEV_QUEUE_SERVER_CAP, isChosenStructureTier, structureRequiresClientPlacement, structureSkipsSettledRequirement, type ChosenStructureTier } from "@border-empires/shared";
 import { devQueueCancel, devQueueEnqueue, devQueueEntryForTileKey } from "./runtime-dev-queue.js";
 import { tryDrainDevQueue, type RuntimeDevQueueCommandContext } from "./runtime-dev-queue-command-handlers.js";
 import type { ClaimContinuation, PlayerRuntimeSummary, ServerDevQueueEntry } from "./player-runtime-summary.js";
@@ -30,7 +30,7 @@ export const claimContinuationContextFromDevQueueContext = (
   }
 });
 
-export type ClaimContinuationSetPayload = { x: number; y: number; tileKey: string; structureType?: string };
+export type ClaimContinuationSetPayload = { x: number; y: number; tileKey: string; structureType?: string; tier?: ChosenStructureTier };
 
 export const parseClaimContinuationSetPayload = (payloadJson: string): ClaimContinuationSetPayload | null => {
   try {
@@ -41,7 +41,8 @@ export const parseClaimContinuationSetPayload = (payloadJson: string): ClaimCont
       x: parsed.x,
       y: parsed.y,
       tileKey: `${parsed.x},${parsed.y}`,
-      ...(typeof parsed.structureType === "string" ? { structureType: parsed.structureType } : {})
+      ...(typeof parsed.structureType === "string" ? { structureType: parsed.structureType } : {}),
+      ...((parsed.structureType === "FORT" || parsed.structureType === "SIEGE_BATTERY") && isChosenStructureTier(parsed.tier) ? { tier: parsed.tier } : {})
     };
   } catch {
     return null;
@@ -103,14 +104,35 @@ export const clearCompletedSettleEntry = (
   summary.devQueue = devQueueCancel(summary.devQueue, tileKey);
 };
 
+/**
+ * CANCEL_SETTLE: the player gave up garrisoning this tile, so the build that
+ * was waiting behind that garrison is abandoned with it -- otherwise the
+ * continuation lingers and the build fires the next time the tile is
+ * garrisoned. Drops the tile's continuation and any devQueue entry still
+ * queued for it, handing back the manpower that entry was holding.
+ */
+export const dropTileClaimContinuation = (
+  context: Pick<RuntimeDevQueueCommandContext, "summaryForPlayer" | "refundManpowerReservation">,
+  playerId: string,
+  tileKey: string
+): void => {
+  const summary = context.summaryForPlayer(playerId);
+  summary.claimContinuations.delete(tileKey);
+  const entry = devQueueEntryForTileKey(summary.devQueue, tileKey);
+  if (!entry) return;
+  if (entry.reservedManpower) context.refundManpowerReservation(playerId, entry.reservedManpower);
+  summary.devQueue = devQueueCancel(summary.devQueue, tileKey);
+};
+
 // The siege ladder (structureSkipsSettledRequirement) never needs a SETTLE
 // step at all -- it's buildable directly on FRONTIER ground -- so a claim
 // continuation for one of those structure types enqueues its BUILD directly
 // instead of going through the SETTLE-then-build-tail dance every other
 // continuation (RELAY_BEACON included) still needs.
-const enqueueBuildStep = (summary: PlayerRuntimeSummary, x: number, y: number, tileKey: string, structureType: string, nowMs: number): boolean => {
+const enqueueBuildStep = (summary: PlayerRuntimeSummary, x: number, y: number, tileKey: string, continuation: { structureType: string; tier?: ChosenStructureTier | undefined }, nowMs: number): boolean => {
   if (summary.devQueue.some((entry) => entry.tileKey === tileKey && entry.kind === "BUILD")) return true;
-  const { queue, accepted } = devQueueEnqueue(summary.devQueue, { x, y, tileKey, kind: "BUILD", structureType, origin: buildOriginFor(structureType) }, nowMs);
+  const { structureType, tier } = continuation;
+  const { queue, accepted } = devQueueEnqueue(summary.devQueue, { x, y, tileKey, kind: "BUILD", structureType, ...(tier ? { tier } : {}), origin: buildOriginFor(structureType) }, nowMs);
   summary.devQueue = queue;
   return accepted;
 };
@@ -122,7 +144,7 @@ export const handleClaimContinuationSetCommand = (
   const payload = parseClaimContinuationSetPayload(command.payloadJson);
   if (!payload) { context.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
   const summary = context.summaryForPlayer(command.playerId);
-  const continuation: ClaimContinuation = payload.structureType ? { structureType: payload.structureType } : {};
+  const continuation: ClaimContinuation = payload.structureType ? { structureType: payload.structureType, ...(payload.tier ? { tier: payload.tier } : {}) } : {};
   if (!summary.claimContinuations.has(payload.tileKey) && summary.claimContinuations.size >= DEV_QUEUE_SERVER_CAP) {
     context.rejectCommand(command, "CLAIM_CONTINUATION_FULL", "too many pending claim continuations");
     return;
@@ -132,7 +154,7 @@ export const handleClaimContinuationSetCommand = (
     if (payload.structureType && structureSkipsSettledRequirement(payload.structureType)) {
       // The siege ladder never needs SETTLED -- drive its BUILD directly,
       // no SETTLE step (and no build-tail bookkeeping needed after).
-      const buildEnqueued = enqueueBuildStep(summary, payload.x, payload.y, payload.tileKey, payload.structureType, context.now());
+      const buildEnqueued = enqueueBuildStep(summary, payload.x, payload.y, payload.tileKey, { ...continuation, structureType: payload.structureType }, context.now());
       if (buildEnqueued) summary.claimContinuations.delete(payload.tileKey);
       else summary.claimContinuations.set(payload.tileKey, continuation);
     } else {
@@ -173,7 +195,7 @@ export const tryDrainClaimContinuation = (
   const continuation = summary.claimContinuations.get(tileKey);
   if (!continuation) return;
   if (continuation.structureType && structureSkipsSettledRequirement(continuation.structureType)) {
-    const buildEnqueued = enqueueBuildStep(summary, x, y, tileKey, continuation.structureType, context.now());
+    const buildEnqueued = enqueueBuildStep(summary, x, y, tileKey, { ...continuation, structureType: continuation.structureType }, context.now());
     if (buildEnqueued) summary.claimContinuations.delete(tileKey);
     tryDrainDevQueue(context, playerId);
     return;
@@ -220,7 +242,7 @@ export const tryDrainClaimContinuationBuildTail = (
   }
   const { queue, accepted } = devQueueEnqueue(
     summary.devQueue,
-    { x, y, tileKey, kind: "BUILD", structureType: continuation.structureType, origin: buildOriginFor(continuation.structureType) },
+    { x, y, tileKey, kind: "BUILD", structureType: continuation.structureType, ...(continuation.tier ? { tier: continuation.tier } : {}), origin: buildOriginFor(continuation.structureType) },
     context.now()
   );
   summary.devQueue = queue;

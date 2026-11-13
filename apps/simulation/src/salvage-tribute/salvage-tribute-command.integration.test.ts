@@ -5,6 +5,15 @@ import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
 import { salvageArmsMultForPlayer } from "../runtime-weapons-factory-mults.js";
 import { toProtoEvent } from "../simulation-service/proto-serialization.js";
+import { applySimulationEventsToRecoveredState } from "../event-recovery/event-recovery.js";
+import type { SimulationEvent } from "@border-empires/sim-protocol";
+
+/** Replay the emitted events the way a restart does: persisted with JSON.stringify, on top of the pre-shipping tile. */
+const replayedSiteResource = (events: readonly SimulationEvent[]): string | undefined => {
+  const persisted = events.map(event => JSON.parse(JSON.stringify(event)) as SimulationEvent);
+  const base = { tiles: [{ x: 20, y: 20, terrain: "LAND" as const, resource: "PRECURSOR_SALVAGE" as const }], activeLocks: [] };
+  return applySimulationEventsToRecoveredState(base, persisted).tiles.find(tile => tile.x === 20 && tile.y === 20)?.resource;
+};
 
 const now = lastManpowerRefillAtMs("p", 100 * MANPOWER_REFILL_WINDOW_MS);
 const land = (x: number, y: number): DomainTileState => ({ x, y, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED" });
@@ -42,6 +51,8 @@ describe("shipping precursor salvage to the Court", () => {
     const lastDelta = f.events.filter(event => event.eventType === "TILE_DELTA_BATCH" && event.commandId === "load-3").at(-1)!;
     const wireTile = toProtoEvent(lastDelta).tile_deltas.find(tile => tile.x === 20 && tile.y === 20);
     expect(wireTile && "resource" in wireTile ? wireTile.resource : "omitted").toBe("");
+    // Regression: the clear must survive the JSON event log, or a restart resurrects the field.
+    expect(replayedSiteResource(f.events)).toBeUndefined();
     await f.ship("load-4");
     expect(f.events.some(event => event.eventType === "COMMAND_REJECTED" && event.commandId === "load-4")).toBe(true);
   });
@@ -66,6 +77,7 @@ describe("shipping precursor salvage to the Court", () => {
       await vi.advanceTimersByTimeAsync(7 * 24 * 60 * 60_000);
       expect(f.site().economicStructureJson).toBeUndefined();
       expect(f.site().resource).toBeUndefined();
+      expect(replayedSiteResource(f.events)).toBeUndefined();
     } finally {
       vi.useRealTimers();
     }

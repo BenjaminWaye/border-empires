@@ -2,7 +2,7 @@ import type { AiSurveyObjective } from "./ai-survey-objective.js";
 import type { AiTacticalTileFields } from "./ai-tactical-tile.js";
 import type { AiTacticalView } from "./ai-tactical-view.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import type { EconomicStructureType, SlotResource, Terrain } from "@border-empires/shared";
+import type { EconomicStructureType, RefineryFieldAssignment, SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 import type { WorldVictoryProgress } from "./victory-path-scoring.js";
 import type { TownEconomyEntry } from "./build/town-economy-view.js";
@@ -40,7 +40,8 @@ export type PlannerTileView = AiTacticalTileFields & {
   fort?: { ownerId?: string; status?: string } | null;
   observatory?: { ownerId?: string; status?: string } | null;
   siegeBattery?: { ownerId?: string; status?: string } | null;
-  economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string; inactiveReason?: string } | null;
+  /** refineryField: a town refinery's stored field anchor (shared/refineries), read by build/refinery-*.ts. */
+  economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string; inactiveReason?: string; refineryField?: RefineryFieldAssignment } | null;
 };
 
 export type PlannerDockView = {

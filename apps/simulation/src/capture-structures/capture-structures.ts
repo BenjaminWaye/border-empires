@@ -34,7 +34,19 @@ const capturedObservatory = (tile: DomainTileState | undefined, nextOwnerId: str
 // (via player-update-economy.ts's modeLockedUntil check) suppresses
 // EXCHANGE-mode gold payout until the same window expires, so a captured
 // converter can't be harvested for gold the instant it changes hands.
+//
+// A captured refinery loses its field assignment (refineryField): the old
+// owner's assignedAt would otherwise let it take the field from the new
+// owner's own working refinery. It comes over unassigned and must be
+// reassigned (ASSIGN_REFINERY_FIELD).
 const capturedEconomicStructure = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["economicStructure"] => {
+  const captured = capturedEconomicStructureWithField(tile, nextOwnerId, now);
+  if (!captured?.refineryField) return captured;
+  const { refineryField: _previousOwnersField, ...unassigned } = captured;
+  return unassigned;
+};
+
+const capturedEconomicStructureWithField = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["economicStructure"] => {
   if (!tile?.economicStructure || tile.economicStructure.status === "under_construction") return undefined;
   // Relay beacons don't survive capture — like siege batteries, they're razed
   // rather than handed to the attacker, so a captured beacon can't
@@ -75,6 +87,7 @@ const capturedAfc = (tile: DomainTileState | undefined, nextOwnerId: string, now
     ...afc,
     ownerId: nextOwnerId,
     activatedAt: now,
+    capturedAt: now,
     ...(afc.houseModules ? { houseModules: [] } : {})
   };
 };

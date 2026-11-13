@@ -37,7 +37,7 @@ const BENEFICIARY_STROKE_STYLE = "rgba(80, 220, 110, 0.85)";
 const renderPlacementBeneficiaryTiles = (
   state: ClientState,
   deps: PlacementPreview2DDeps,
-  structureType: "HYDROWORKS" | "ORE_REFINERY",
+  structureType: "HYDROWORKS",
   centerX: number,
   centerY: number,
   radius: number,
@@ -135,7 +135,7 @@ export const renderBuildingPlacementPreview2D = (
     deps.ctx.restore();
     return;
   }
-  if (st !== "HYDROWORKS" && st !== "ORE_REFINERY") return;
+  if (st !== "HYDROWORKS") return;
   const { x, y } = state.buildingPlacement;
   const placementTile = state.tiles.get(deps.keyFor(x, y));
   if (deps.tileVisibilityStateAt(x, y, placementTile) !== "visible") return;

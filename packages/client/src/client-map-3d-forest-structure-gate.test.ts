@@ -13,7 +13,7 @@ describe("shouldDrawForestInstance", () => {
   it("skips the forest instance once a structure is built on the tile", () => {
     const built: Tile = {
       ...baseTile,
-      economicStructure: { ownerId: "p1", type: "MINE", status: "active" }
+      economicStructure: { ownerId: "p1", type: "MANUFACTORY", status: "active" }
     };
     expect(shouldDrawForestInstance(true, built)).toBe(false);
   });

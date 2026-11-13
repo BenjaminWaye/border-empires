@@ -11,6 +11,7 @@
  * even though the other settle-related test fixtures all supply a qualifying
  * town + food tile up front.
  */
+import { NEW_PLAYER_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
 import { createInitialState } from "../client-state/client-state.js";
@@ -132,14 +133,14 @@ describe("Settle Land / Settle Connected visibility gate", () => {
     state.me = "me";
     state.gold = 10_000;
     state.manpower = 10_000;
-    state.autoSettle = loadedAutoSettleState({ answered: false, towns: false, food: false, strategic: false, luxury: false });
+    state.autoSettle = loadedAutoSettleState({ ...NEW_PLAYER_AUTO_SETTLE_PREFS });
     const farm = { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
     state.tiles.set(keyFor(1, 0), farm);
 
     const actions = menuActionsForSingleTile(state, farm, baseDeps as never);
     const settle = findAction(actions, "settle_land");
     expect(settle?.detail).toContain("Gain: +1 food slot. Upkeep: none.");
-    expect(settle?.autoSettleOption).toMatchObject({ category: "food", checked: false });
+    expect(settle?.autoSettleOption).toMatchObject({ category: "FARM", checked: false });
     expect(settle?.recommended).toBe(true);
     expect(findAction(actions, "settle_many")).toBeUndefined();
   });

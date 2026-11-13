@@ -4,10 +4,10 @@
 // Extracted from client-optimistic-state.ts (500-line cap).
 import {
   defendingFortVariant,
-  fortTierForBuild,
+  resolveFortBuildTier,
+  resolveSiegeBuildTier,
   structureBuildDurationMsForManpowerCost,
-  nextSiegeTierForUpgrade,
-  siegeTierForFreshBuild,
+  type ChosenStructureTier,
   type SiegeBatteryVariant
 } from "@border-empires/shared";
 import type { OptimisticStructureKind, Tile } from "../client-types.js";
@@ -24,12 +24,15 @@ export const writeOptimisticStructureBuild = (
   // Applies the player's build-speed effects to a fort tier's base duration (client-build-speed).
   adjustBuildMs: (structureType: string, baseMs: number) => number = (_type, baseMs) => baseMs,
   // Whether the player's resource slots fit a siege tier -- a fresh siege build steps down to the best tier that fits, as the sim does.
-  canAffordSiegeVariant: (variant: SiegeBatteryVariant) => boolean = () => true
+  canAffordSiegeVariant: (variant: SiegeBatteryVariant) => boolean = () => true,
+  // The Fortify / Siege picker's explicit tier; resolved exactly as the sim does (structure-tier-choice.ts).
+  chosenTier?: ChosenStructureTier
 ): void => {
   if (kind === "FORT" || kind === "PALISADE") {
-    // Don't write a construction the sim will reject (max tier, or a Palisade on a fortified tile).
-    const tier = fortTierForBuild(kind, tile.fort?.variant, hasTech);
-    if (!tier) return;
+    // Don't write a construction the sim will reject (max tier, a Palisade on a fortified tile, a locked or lower chosen tier).
+    const resolved = resolveFortBuildTier(kind, chosenTier, tile.fort?.variant, hasTech);
+    if (!resolved.ok) return;
+    const tier = resolved.tier;
     // An upgrade leaves the current tier standing until the new one completes.
     const standing = defendingFortVariant(tile.fort);
     tile.fort = {
@@ -49,12 +52,10 @@ export const writeOptimisticStructureBuild = (
     return;
   }
   if (kind === "SIEGE_BATTERY") {
+    const resolved = resolveSiegeBuildTier(chosenTier, tile.siegeBattery?.variant, hasTech, canAffordSiegeVariant);
+    if (!resolved.ok) return;
     delete tile.economicStructure;
-    if (tile.siegeBattery && !nextSiegeTierForUpgrade(tile.siegeBattery.variant, hasTech)) return;
-    const variant: SiegeBatteryVariant = tile.siegeBattery
-      ? nextSiegeTierForUpgrade(tile.siegeBattery.variant, hasTech)!.variant
-      : siegeTierForFreshBuild(hasTech, canAffordSiegeVariant).variant;
-    tile.siegeBattery = { ownerId, status: "under_construction", variant, completesAt, startedAt };
+    tile.siegeBattery = { ownerId, status: "under_construction", variant: resolved.tier.variant, completesAt, startedAt };
     return;
   }
   tile.economicStructure = { ownerId, type: kind, status: "under_construction", completesAt, startedAt };

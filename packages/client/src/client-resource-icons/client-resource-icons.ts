@@ -20,9 +20,6 @@ const RESOURCE_ICON_FILE: Record<ResourceIconKey, string> = {
   TITANIUM: "titanium",
   CRYSTAL: "crystal",
   UMBRITE: "umbrite",
-  NEURAL_RESIN: "neural-resin",
-  CONDUCTIVE_MINERALS: "conductive-minerals",
-  CATALYTIC_DEPOSIT: "catalytic-deposit",
   LUXURY_BIOTA: "luxury-biota",
   PRECURSOR_SALVAGE: "precursor-salvage"
 };
@@ -34,9 +31,6 @@ const RESOURCE_ICON_LABEL: Record<ResourceIconKey, string> = {
   TITANIUM: "Titanium",
   CRYSTAL: "Crystal",
   UMBRITE: "Umbrite",
-  NEURAL_RESIN: RESOURCE_NETWORKS.NEURAL_RESIN.name,
-  CONDUCTIVE_MINERALS: RESOURCE_NETWORKS.CONDUCTIVE_MINERALS.name,
-  CATALYTIC_DEPOSIT: RESOURCE_NETWORKS.CATALYTIC_DEPOSIT.name,
   LUXURY_BIOTA: RESOURCE_NETWORKS.LUXURY_BIOTA.name,
   PRECURSOR_SALVAGE: RESOURCE_NETWORKS.PRECURSOR_SALVAGE.name
 };
@@ -48,9 +42,6 @@ const RESOURCE_ICON_GLYPH: Record<ResourceIconKey, string> = {
   TITANIUM: "⛏",
   CRYSTAL: "💎",
   UMBRITE: "🟣",
-  NEURAL_RESIN: RESOURCE_NETWORKS.NEURAL_RESIN.glyph,
-  CONDUCTIVE_MINERALS: RESOURCE_NETWORKS.CONDUCTIVE_MINERALS.glyph,
-  CATALYTIC_DEPOSIT: RESOURCE_NETWORKS.CATALYTIC_DEPOSIT.glyph,
   LUXURY_BIOTA: RESOURCE_NETWORKS.LUXURY_BIOTA.glyph,
   PRECURSOR_SALVAGE: RESOURCE_NETWORKS.PRECURSOR_SALVAGE.glyph
 };
@@ -62,9 +53,6 @@ const DEPOSIT_ICON_KEY: Readonly<Record<string, ResourceIconKey>> = {
   TITANIUM: "TITANIUM",
   GEMS: "CRYSTAL",
   UMBRITE: "UMBRITE",
-  NEURAL_RESIN: "NEURAL_RESIN",
-  CONDUCTIVE_MINERALS: "CONDUCTIVE_MINERALS",
-  CATALYTIC_DEPOSIT: "CATALYTIC_DEPOSIT",
   LUXURY_BIOTA: "LUXURY_BIOTA",
   PRECURSOR_SALVAGE: "PRECURSOR_SALVAGE"
 };
@@ -155,7 +143,7 @@ export const drawResourceIconOnCanvas = (
 // they stay safe in any text-only sink; these swap the glyphs for the icon images at
 // display time. The glyph set is the resource glyphs only.
 const GLYPH_ICON_KEY = new Map<string, ResourceIconKey>(
-  // Network glyphs overlap existing currency symbols; never reinterpret Coin as resin.
+  // Network glyphs overlap existing currency symbols; never reinterpret Coin as a network resource.
   (Object.keys(RESOURCE_ICON_GLYPH) as ResourceIconKey[])
     .filter(key => !isNetworkResource(key))
     .map((key) => [RESOURCE_ICON_GLYPH[key], key])

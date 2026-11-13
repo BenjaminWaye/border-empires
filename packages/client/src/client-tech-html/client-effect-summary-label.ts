@@ -3,11 +3,9 @@ import { economicStructureName } from "../client-map-display.js";
 
 export const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockHydrogarden" && value === true) return `Unlocks Hydrogardens (+${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slot), and adds +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile`;
-  if (key === "unlockUmbriteRig" && value === true) return "Unlocks umbrite rigs";
-  if (key === "unlockMine" && value === true) return "Unlocks mines";
-  if (key === "unlockResinExtractor" && value === true) return "Unlocks Resin Extractor";
-  if (key === "unlockImplantFoundry" && value === true) return "Unlocks Implant Foundry";
-  if (key === "unlockCatalystRefinery" && value === true) return "Unlocks Catalyst Refinery";
+  if (key === "unlockTitaniumRefinery" && value === true) return `Unlocks the ${economicStructureName("TITANIUM_REFINERY")}`;
+  if (key === "unlockUmbriteRefinery" && value === true) return `Unlocks the ${economicStructureName("UMBRITE_REFINERY")}`;
+  if (key === "unlockCrystalRefinery" && value === true) return `Unlocks the ${economicStructureName("CRYSTAL_REFINERY")}`;
   if (key === "unlockCultivationEstate" && value === true) return "Unlocks Cultivation Estate";
   if (key === "unlockReclamationWorks" && value === true) return "Unlocks Reclamation Works";
   if (key === "unlockManufactory" && value === true) return "Unlocks Manufactories";
@@ -23,7 +21,9 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockAetherCondenser" && value === true) return "Unlocks aether condensers";
   if (key === "unlockSynthOverload" && value === true) return "Unlocks synth overload";
   if (key === "unlockAdvancedSynthesizers" && value === true) return "Unlocks grand synthesis upgrades";
-  if (key === "unlockOreRefinery" && value === true) return `Unlocks the ${economicStructureName("ORE_REFINERY")}`;
+  if (key === "unlockTitaniumSmelter" && value === true) return `Unlocks the ${economicStructureName("TITANIUM_SMELTER")}`;
+  if (key === "unlockUmbriteDistillery" && value === true) return `Unlocks the ${economicStructureName("UMBRITE_DISTILLERY")}`;
+  if (key === "unlockCrystalCutter" && value === true) return `Unlocks the ${economicStructureName("CRYSTAL_CUTTER")}`;
   if (key === "unlockAmbaricTransformer" && value === true) return "Unlocks Aether Towers";
   if (key === "unlockHarborExchange" && value === true) return "Unlocks harbor exchanges";
   if (key === "unlockMinistryHall" && value === true) return "Unlocks ministry halls";

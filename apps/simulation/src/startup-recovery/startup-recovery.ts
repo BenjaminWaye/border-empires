@@ -15,6 +15,7 @@ import {
 } from "../event-recovery/event-recovery.js";
 import type { SimulationEventStore, StoredSimulationEvent } from "../event-store/event-store.js";
 import { migrateLegacyPalisades, migrateLegacyStructureKinds } from "../legacy-structure-kind-migration.js";
+import { backfillEmptiedSalvageFields } from "../salvage-tribute/salvage-field-backfill.js";
 import type { SimulationSeedProfile } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotStore } from "../snapshot-store/snapshot-store.js";
 
@@ -104,6 +105,13 @@ export const loadSimulationStartupRecovery = async ({
   const recoveredState = finalizeRecoveredSimulationAccumulator(recoveredStateAccumulator);
   migrateLegacyStructureKinds(recoveredState.tiles);
   migrateLegacyPalisades(recoveredState.tiles);
+  if (recoveredState.season) {
+    const shipments = await commandStore.loadResolvedCommandsOfType("SHIP_SALVAGE_TO_COURT", recoveredState.season.startedAt);
+    const backfill = backfillEmptiedSalvageFields(recoveredState.tiles, shipments);
+    if (backfill.cleared > 0) {
+      console.log(`[salvage-field-backfill] cleared=${backfill.cleared} worksRemoved=${backfill.worksRemoved} shipments=${shipments.length}`);
+    }
+  }
 
   return {
     initialState: recoveredState,
