@@ -60,7 +60,8 @@ export const resourceBarHtml = (input: ResourceBarInput): string => {
     const usedHtml = over ? `<b class="hud-v2-over">${fmt(used)}</b>` : `<span class="hud-v2-chip-value">${fmt(used)}</span>`;
     const desktop = `<span class="hud-v2-chip-slot">${usedHtml}<span class="hud-v2-chip-of">/${fmt(total)}</span></span>`;
     const remaining = total - used;
-    const amount = chipNumberHtml(Math.abs(remaining));
+    // A shortfall carries a minus sign so it can't be read as free slots by colour alone.
+    const amount = `${over ? "−" : ""}${chipNumberHtml(Math.abs(remaining))}`;
     const description = over ? " slots short" : " free slots";
     const tone = over ? "hud-v2-over" : remaining > 0 ? "hud-v2-chip-available" : "hud-v2-chip-zero";
     const summary = `<span class="hud-v2-chip-summary ${tone}">${amount}<span class="hud-v2-chip-description">${description}</span></span>`;

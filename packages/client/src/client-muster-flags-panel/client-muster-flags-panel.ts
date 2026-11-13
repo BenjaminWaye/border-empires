@@ -29,6 +29,7 @@ export const buildManpowerPanelMusterFlags = (
       x: tile.x,
       y: tile.y,
       amount,
+      cap,
       mode: tile.muster.mode,
       ...(tile.muster.targetX !== undefined ? { targetX: tile.muster.targetX } : {}),
       ...(tile.muster.targetY !== undefined ? { targetY: tile.muster.targetY } : {}),
