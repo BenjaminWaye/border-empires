@@ -150,8 +150,12 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "RECLAMATION_WORKS",
       "HYDROGARDEN",
       "HYDROWORKS",
-      "UMBRITE_RIG",
-      "MINE",
+      "TITANIUM_REFINERY",
+      "UMBRITE_REFINERY",
+      "CRYSTAL_REFINERY",
+      "TITANIUM_SMELTER",
+      "UMBRITE_DISTILLERY",
+      "CRYSTAL_CUTTER",
       "MANUFACTORY",
       "INCUBATION_ENGINE",
       "CENSUS_HALL",
@@ -167,7 +171,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "AETHER_CONDENSER",
       "HIGH_YIELD_AETHER_CONDENSER",
       "TRADE_NEXUS",
-      "ORE_REFINERY",
       "ANCILLARY_DEPOT",
       "HARBOR_EXCHANGE",
       "NEURAL_WORKS",
@@ -201,8 +204,13 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "ASTRAL_DOCK",
       "CENSUS_DIRECTORATE",
       "TITANIUM_LEVY"
-    ])
+    ]),
+    // Refineries only: any tile of the deposit field to process; omitted = nearest eligible field.
+    fieldX: z.number().int().optional(),
+    fieldY: z.number().int().optional()
   }),
+  // Reassign the refinery at (x, y) to the field containing (fieldX, fieldY).
+  z.object({ type: z.literal("ASSIGN_REFINERY_FIELD"), x: z.number().int(), y: z.number().int(), fieldX: z.number().int(), fieldY: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("CANCEL_FORT_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("CANCEL_STRUCTURE_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("RUSH_BUY"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
@@ -345,7 +353,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     tileKey: z.string().min(1),
     kind: z.enum(["SETTLE", "BUILD"]),
     structureType: z.string().optional(),
-    tier: ChosenStructureTierSchema.optional()
+    tier: ChosenStructureTierSchema.optional(),
+    // A queued refinery build's chosen deposit field (BUILD_ECONOMIC_STRUCTURE fieldX/fieldY).
+    fieldX: z.number().int().optional(),
+    fieldY: z.number().int().optional()
   }),
   z.object({ type: z.literal("DEV_QUEUE_CANCEL"), tileKey: z.string().min(1) }),
   z.object({ type: z.literal("DEV_QUEUE_MOVE_TO_FRONT"), tileKey: z.string().min(1) }),

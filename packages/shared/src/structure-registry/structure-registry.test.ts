@@ -32,7 +32,7 @@ test("STRUCTURE_REGISTRY covers exactly 62 structure types", () => {
   // game, Manifest/Coin rework) = 60, plus the five frontier installations =
   // 65, minus Resin Extractor, Implant Foundry and Catalyst Refinery (cut with
   // their materials) = 62.
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(62);
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(65);
 });
 
 test("all registered types are unique", () => {
@@ -364,8 +364,10 @@ describe("upkeep parity", () => {
     "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
     "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
     "IMPERIAL_EXCHANGE", "SOVEREIGN_SIEGE_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
-    "HYDROGARDEN", "UMBRITE_RIG", "MINE", "MANUFACTORY", "INCUBATION_ENGINE",
-    "TRADE_NEXUS", "ORE_REFINERY",
+    "HYDROGARDEN", "MANUFACTORY", "INCUBATION_ENGINE",
+    "TITANIUM_REFINERY", "UMBRITE_REFINERY", "CRYSTAL_REFINERY",
+    "TITANIUM_SMELTER", "UMBRITE_DISTILLERY", "CRYSTAL_CUTTER",
+    "TRADE_NEXUS",
     "HARBOR_EXCHANGE", "ANCILLARY_DEPOT", "MINISTRY_HALL", "RESONANCE_GRID",
     "SKY_DOCK", "OBSERVATORY",
     "PALISADE", "RELAY_BEACON", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION",

@@ -114,7 +114,7 @@ export const createTilesFromInitialState = (
 
 const withoutRetiredMaterials = (tiles: Map<string, DomainTileState>): Map<string, DomainTileState> => {
   const stripped = stripRetiredFrontierMaterials(tiles);
-  if (stripped > 0) console.info(JSON.stringify({ event: "retired_frontier_materials_stripped", tiles: stripped }));
+  if (stripped > 0) console.info(JSON.stringify({ event: "retired_materials_stripped", tiles: stripped }));
   return tiles;
 };
 

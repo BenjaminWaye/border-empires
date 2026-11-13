@@ -10,6 +10,7 @@
 // for reconnect hydration, kept separate so it can't drift from the snapshot
 // builder's own field list.
 import type { ChosenStructureTier, SlotResource } from "@border-empires/shared";
+import { devQueueFieldOf } from "./runtime-dev-queue.js";
 
 /** Element shape of RuntimeStateExport's per-player `devQueue` (kept structural to avoid importing the whole export type). */
 export type ExportedDevQueueEntry = {
@@ -19,6 +20,8 @@ export type ExportedDevQueueEntry = {
   kind: "SETTLE" | "BUILD";
   structureType?: string;
   tier?: ChosenStructureTier;
+  fieldX?: number;
+  fieldY?: number;
   queuedAt: number;
   reservedManpower?: number;
   reservedSlotRequirements?: ReadonlyArray<{ resource: SlotResource; count: number }>;
@@ -38,6 +41,7 @@ export const toPersistedDevQueueEntries = (
     kind: entry.kind,
     ...(entry.structureType ? { structureType: entry.structureType } : {}),
     ...(entry.tier ? { tier: entry.tier } : {}),
+    ...devQueueFieldOf(entry),
     queuedAt: entry.queuedAt,
     ...(entry.reservedManpower ? { reservedManpower: entry.reservedManpower } : {}),
     ...(entry.reservedSlotRequirements?.length

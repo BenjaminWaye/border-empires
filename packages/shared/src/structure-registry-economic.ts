@@ -25,8 +25,14 @@ const economicPlacement: StructureSpec["placement"] = [
 export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureType, string>> = {
   HYDROGARDEN: "agriculture",
   HYDROWORKS: "irrigation",
-  UMBRITE_RIG: "leatherworking",
-  MINE: "mining",
+  // Refineries take over the deposit techs (Mine/Umbrite Rig were removed);
+  // the boosters take over Ore Refinery's tech.
+  TITANIUM_REFINERY: "mining",
+  CRYSTAL_REFINERY: "mining",
+  UMBRITE_REFINERY: "leatherworking",
+  TITANIUM_SMELTER: "industrial-extraction",
+  UMBRITE_DISTILLERY: "industrial-extraction",
+  CRYSTAL_CUTTER: "industrial-extraction",
   CULTIVATION_ESTATE: "frontier-concessions",
   RECLAMATION_WORKS: "trade",
 
@@ -47,7 +53,6 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   AETHER_CONDENSER: "crystal-lattices",
   HIGH_YIELD_AETHER_CONDENSER: "advanced-synthetication",
   TRADE_NEXUS: "ledger-keeping",
-  ORE_REFINERY: "industrial-extraction",
   ANCILLARY_DEPOT: "organized-supply",
   HARBOR_EXCHANGE: "trade",
   MINISTRY_HALL: "civil-service",
@@ -84,7 +89,7 @@ function upgradePrereq(type: EconomicStructureType): readonly string[] | undefin
 // actually read from THIS registry at runtime, spec.upkeep has zero
 // consumers in apps/simulation/src). Non-synthesizer structures are zero
 // here because their named upkeep constants (HYDROGARDEN_GOLD_UPKEEP,
-// UMBRITE_RIG_GOLD_UPKEEP, etc., packages/game-domain/src/server-game-constants/
+// INCUBATION_ENGINE_GOLD_UPKEEP, etc., packages/game-domain/src/server-game-constants/
 // server-game-constants.ts) are hardcoded to 0 — NOT because "slot
 // occupation replaced upkeep." Slot occupation (structure-slots.ts) is a
 // separate mechanism gating whether a structure can be built/exist at all;
@@ -140,8 +145,6 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   // Resource-tile structures
   HYDROGARDEN: econSpec("HYDROGARDEN"),
   HYDROWORKS: econSpec("HYDROWORKS"),
-  UMBRITE_RIG: econSpec("UMBRITE_RIG"),
-  MINE: econSpec("MINE"),
   CULTIVATION_ESTATE: econSpec("CULTIVATION_ESTATE"),
   RECLAMATION_WORKS: econSpec("RECLAMATION_WORKS"),
 
@@ -151,6 +154,12 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   INCUBATION_ENGINE: econSpec("INCUBATION_ENGINE"),
   CENSUS_HALL: econSpec("CENSUS_HALL"),
   CLEARING_HOUSE: econSpec("CLEARING_HOUSE"),
+  TITANIUM_REFINERY: econSpec("TITANIUM_REFINERY"),
+  UMBRITE_REFINERY: econSpec("UMBRITE_REFINERY"),
+  CRYSTAL_REFINERY: econSpec("CRYSTAL_REFINERY"),
+  TITANIUM_SMELTER: econSpec("TITANIUM_SMELTER"),
+  UMBRITE_DISTILLERY: econSpec("UMBRITE_DISTILLERY"),
+  CRYSTAL_CUTTER: econSpec("CRYSTAL_CUTTER"),
 
   // Special-scaling structures
   SKY_DOCK: econSpec("SKY_DOCK"),
@@ -179,7 +188,6 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
 
   // Military-support structures
   TRADE_NEXUS: econSpec("TRADE_NEXUS"),
-  ORE_REFINERY: econSpec("ORE_REFINERY"),
   ANCILLARY_DEPOT: econSpec("ANCILLARY_DEPOT"),
   HARBOR_EXCHANGE: econSpec("HARBOR_EXCHANGE"),
   NEURAL_WORKS: econSpec("NEURAL_WORKS"),

@@ -37,6 +37,7 @@ import {
 } from "./snapshot-economy-helpers.js";
 import { buildTownSummary } from "./live-town-summary.js";
 import { radiusStructureKeysForSettledTiles } from "./tile-yield-view/tile-yield-view.js";
+import { refinerySlotBonusesForParsedTiles } from "./refineries/refinery-slot-supply.js";
 import {
   dormantStructureDetailsFromDormancy,
   emptyResourceSlotDormancy,
@@ -177,7 +178,7 @@ export const buildLivePlayerEconomySnapshot = (
 // domainTilesByKey/settledDomainTilesByPlayerId (snapshot-tile-cache.ts)
 // deliberately don't parse economicStructure (toDomainTile omits it), so
 // they can't be reused here without silently under-counting synthesizer/
-// Mine/Hydrogarden/Umbrite Rig supply and structure demand. Parse a player-scoped
+// Hydrogarden/refinery supply and structure demand. Parse a player-scoped
 // view directly from the wire-shaped tiles instead, then hand it to the
 // same pure resourceSlotSupplyForPlayer/resourceSlotDemandForPlayer the
 // live runtime uses for the build-time gate, so the two paths can never
@@ -214,7 +215,8 @@ const resourceSlotsForPlayer = (
       ownershipState: tile.ownershipState as DomainTileState["ownershipState"]
     });
   }
-  const { hydroworksKeys, oreRefineryKeys } = radiusStructureKeysForSettledTiles(settledSlotTiles);
+  const { hydroworksKeys } = radiusStructureKeysForSettledTiles(settledSlotTiles);
+  const refineryBonuses = refinerySlotBonusesForParsedTiles(settledSlotTiles, () => getDomainTilesByKey(runtimeState));
   // §23.2: the cold/reconnect path must apply the same slot waivers
   // (fortTitaniumSlotWaiverCount etc) as the live runtime, or a player with
   // Dwarf Kingdom/Supply State/Treasury State/Enduring Realm would see a
@@ -230,7 +232,7 @@ const resourceSlotsForPlayer = (
   const grants: ResourceSlotGrant[] = upgrade ? [upgrade] : [];
   const fishBonus = player ? techGrantedFishFoodSlotBonus(player) : 0;
   const { sink, rows } = createResourceSlotSourceCollector();
-  const supply = resourceSlotSupplyForPlayer(settledSlotTiles, hydroworksKeys, oreRefineryKeys, undefined, fishBonus, sink);
+  const supply = resourceSlotSupplyForPlayer(settledSlotTiles, hydroworksKeys, refineryBonuses, undefined, fishBonus, sink);
   for (const grant of grants) {
     for (const resource of Object.keys(grant.supply) as SlotResource[]) {
       const count = grant.supply[resource] ?? 0;

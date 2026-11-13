@@ -61,7 +61,6 @@ const legacyStructureOverlayImages = {
   AETHER_CONDENSER: loadOverlayImage("aether-condenser-overlay.svg"),
   HIGH_YIELD_AETHER_CONDENSER: loadOverlayImage("high-yield-aether-condenser-overlay.svg"),
   TRADE_NEXUS: loadOverlayImage("trade-nexus-overlay.svg"),
-  ORE_REFINERY: loadOverlayImage("ore-refinery-overlay.svg"),
   // Manifest tree naming/lore pass: ANCILLARY_DEPOT ("Ancillary Depot") and
   // ANCILLARY_FACTORY ("Ancillary Factory") had their art swapped; the Depot
   // since got its own dedicated storage-drum overlay (and the Factory keeps

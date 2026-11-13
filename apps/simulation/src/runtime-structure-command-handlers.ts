@@ -1,4 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { handleAssignRefineryFieldCommand, refineryFieldForBuild } from "./refineries/refinery-commands.js";
 import {
   resolveFortBuildTier,
   resolveSiegeBuildTier,
@@ -176,6 +177,7 @@ function spendStrategicCost(
 export function handleBuildStructureCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
   if (command.type === "BUILD_AFC") return handleBuildAfcCommand(context, command);
   if (command.type === "REDEPLOY_AFC_MODULE") return handleRedeployAfcModuleCommand(context, command);
+  if (command.type === "ASSIGN_REFINERY_FIELD") return handleAssignRefineryFieldCommand(context, command);
   const actor = context.players.get(command.playerId);
   const payload = parseBuildStructurePayload(command.payloadJson);
   if (!actor || !payload) {
@@ -293,6 +295,8 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     return;
   }
 
+  const refineryField = refineryFieldForBuild(context, command, target, structureType, payload.field);
+  if (refineryField === null) return;
   const hasTech = (id: string) => actor.techIds.has(id);
   const buildingFort = spec.kind === "FORT";
   const buildingRelayBeacon = spec.kind === "OUTPOST" && structureType === "RELAY_BEACON";
@@ -416,6 +420,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
       status: "under_construction",
       ...(resolvedVariant ? { variant: resolvedVariant } : {}),
       ...(isEcoStruct ? { type: structureType } : {}),
+      ...(refineryField ? { refineryField } : {}),
       ...(fortCharge?.freeFort ? { freeFort: true } : {}),
       ...(standingFort
         ? {

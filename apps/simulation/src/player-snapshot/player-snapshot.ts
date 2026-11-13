@@ -347,6 +347,7 @@ export const buildPlayerSubscriptionSnapshot = (
                     kind: entry.kind,
                     ...(entry.structureType ? { structureType: entry.structureType } : {}),
                     ...(entry.tier ? { tier: entry.tier } : {}),
+                    ...(entry.fieldX !== undefined && entry.fieldY !== undefined ? { fieldX: entry.fieldX, fieldY: entry.fieldY } : {}),
                     queuedAt: entry.queuedAt,
                     // Same reservation flags PLAYER_UPDATE carries (runtime-player-state-update.ts).
                     ...(entry.reservedManpower ? { manpowerReserved: true } : {}),

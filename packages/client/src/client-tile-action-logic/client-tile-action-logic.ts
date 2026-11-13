@@ -966,27 +966,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           )
         });
       }
-      if (buildShowsOnTile("ORE_REFINERY", tile, supportedTowns.length, supportedDocks.length)) {
-        const oreRefineryAvail = canBuildPlacementStructure("ORE_REFINERY", tile, state.me, state.gold, state.techIds, state.resourceSlots);
-        const oreRefineryHasManpower = state.manpower >= buildManpowerCostForState(state, "ORE_REFINERY");
-        out.push({
-          id: "build_ore_refinery",
-          label: "Build Ore Refinery",
-          detail: deps.buildDetailTextForAction("build_ore_refinery", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailability(
-            ...chainedBuildAvailability(
-              "ORE_REFINERY",
-              oreRefineryAvail.available && oreRefineryHasManpower,
-              !oreRefineryAvail.available
-                ? oreRefineryAvail.reason
-                : !oreRefineryHasManpower
-                  ? `Need ${buildManpowerCostForState(state, "ORE_REFINERY")} manpower`
-                  : missingResourceSlotReason(state, "ORE_REFINERY") ?? "Unavailable",
-              `${deps.structureCostText("ORE_REFINERY")} • ${buildTimeLabel(economicBuildMsForState(state, "ORE_REFINERY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("ORE_REFINERY")}`
-            )
-          )
-        });
-      }
       if (buildShowsOnTile("HYDROWORKS", tile, supportedTowns.length, supportedDocks.length)) {
         const hydroworksAvail = canBuildPlacementStructure("HYDROWORKS", tile, state.me, state.gold, state.techIds, state.resourceSlots);
         const hydroworksHasManpower = state.manpower >= buildManpowerCostForState(state, "HYDROWORKS");
@@ -1095,7 +1074,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     if (siegeCamp) out.push(siegeCamp);
     out.push(...resourceBuildActions(state, tile, hasBlockingStructure, frontierBuildDetailSuffix(tile), {
       structureCostText: deps.structureCostText, buildDetailTextForAction: deps.buildDetailTextForAction,
-      availability: chainedBuildAvailability
+      availability: chainedBuildAvailability, townBuildSource, supportPlacementBlocked, townHasSupportStructure: deps.townHasSupportStructure
     }));
     if (townBuildSource) {
       // Manufactory moved to same-tile/uncapped placement in the tech-tree

@@ -5,8 +5,8 @@ import { createStructureReviewModel } from "./structure-review-model.js";
 import { projectMeshesToSvg } from "./mesh-projection-svg.js";
 
 /** Deterministic 2D projection of the production mesh, for exports and audits. */
-export const structureReviewSvg = (kind: StructureInfoKey, mineResource: "TITANIUM" | "GEMS" = "TITANIUM"): string => {
-  const scene = new Scene(), model = createStructureReviewModel(scene, kind, undefined, false, mineResource);
+export const structureReviewSvg = (kind: StructureInfoKey): string => {
+  const scene = new Scene(), model = createStructureReviewModel(scene, kind, undefined, false);
   // Only the scene's direct meshes, as the exports always projected.
   const root = new Group();
   for (const child of scene.children) if (child instanceof Mesh) root.add(child.clone(false));

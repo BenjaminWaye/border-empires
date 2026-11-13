@@ -11,7 +11,7 @@
  *
  * Covers a representative sample: HYDROGARDEN (resource-gated, no slot),
  * MANUFACTORY (town-support), RELAY_BEACON (previously only ever built directly on
- * a settled tile via a bespoke path), and ORE_REFINERY (placement-overlay type).
+ * a settled tile via a bespoke path), and HYDROWORKS (placement-overlay type).
  */
 import { describe, expect, it } from "vitest";
 import { SETTLE_COST, SETTLE_MANPOWER_COST, structureBuildDurationMs, structureBuildManpowerCost } from "@border-empires/shared";
@@ -204,21 +204,19 @@ describe("settle + build — Relay Beacon on an owned FRONTIER tile", () => {
   });
 });
 
-describe("settle + build — placement-overlay building (ORE_REFINERY)", () => {
-  it("shows build_ore_refinery on a FRONTIER owned TITANIUM tile with a garrison + build total", () => {
+describe("settle + build — placement-overlay building (HYDROWORKS)", () => {
+  it("shows build_hydroworks on a FRONTIER owned TITANIUM tile with a garrison + build total", () => {
     const state = richState();
-    state.techIds = ["industrial-extraction"];
-    state.resourceSlots.supply.FOOD = 1;
-    state.resourceSlots.supply.CRYSTAL = 1;
+    state.techIds = ["irrigation"];
     const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "TITANIUM" } as Tile;
     state.tiles.set(keyFor(3, 3), frontier);
 
     const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
-    const action = findAction(actions, "build_ore_refinery");
+    const action = findAction(actions, "build_hydroworks");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe(" • garrisons this tile first");
-    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "ORE_REFINERY"));
+    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "HYDROWORKS"));
   });
 });
 

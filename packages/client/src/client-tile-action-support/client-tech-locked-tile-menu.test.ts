@@ -13,27 +13,27 @@ const buildingsHtml = (actions: TileActionDef[], state: Parameters<typeof splitT
 };
 
 describe("tech-locked resource builds in the tile menu", () => {
-  // Regression: with Umbrite Rigging Module researched (which is what reveals
-  // Umbrite on the map) but not installed on an active AFC, tapping an Umbrite
-  // deposit showed no Umbrite Rig and no reason why.
-  it("shows the Umbrite Rig with an install hint when its module isn't on an active AFC", () => {
+  // Regression: with an AFC-module tech researched but not installed on an
+  // active AFC, tapping its deposit showed no build and no reason why
+  // (first seen with the Umbrite Rig, since removed).
+  it("shows Reclamation Works with an install hint when its module isn't on an active AFC", () => {
     const afc: Tile = { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", afc: { ownerId: "me", status: "active", modules: [] } };
     const state = {
-      techIds: ["leatherworking"], localhostDevAetherWall: false, me: "me", tiles: new Map([["1,1", afc]]),
-      techCatalog: [techEntry("leatherworking", "Umbrite Rigging Module", "AFC_MODULE")]
+      techIds: ["trade"], localhostDevAetherWall: false, me: "me", tiles: new Map([["1,1", afc]]),
+      techCatalog: [techEntry("trade", "Industrial Tooling Module", "AFC_MODULE")]
     };
-    const { tabs, html } = buildingsHtml([{ id: "build_umbrite_rig", label: "Build Umbrite Rig" }], state);
-    expect(tabs.buildings.map((row) => row.id)).toEqual(["build_umbrite_rig"]);
-    expect(html).toContain("Build Umbrite Rig");
-    expect(html).toContain("Install Umbrite Rigging Module on an active AFC");
+    const { tabs, html } = buildingsHtml([{ id: "build_reclamation_works", label: "Build Reclamation Works" }], state);
+    expect(tabs.buildings.map((row) => row.id)).toEqual(["build_reclamation_works"]);
+    expect(html).toContain("Build Reclamation Works");
+    expect(html).toContain("Install Industrial Tooling Module on an active AFC");
   });
 
-  it("shows a locked Mine with a link to the Manifest that unlocks it", () => {
-    const state = { techIds: ["masonry"], localhostDevAetherWall: false, techCatalog: [techEntry("mining", "Prospector Crew", "CREW_OFFICE_CONSIGNMENT")] };
-    const lockedMine: TileActionDef = { id: "build_mine", label: "Build Mine", disabled: true, disabledReason: "Requires Prospector Crew" };
+  it("shows a locked Hydrogarden with a link to the Manifest that unlocks it", () => {
+    const state = { techIds: [], localhostDevAetherWall: false, techCatalog: [techEntry("agriculture", "Hyperfeed Seedstock Consignment", "CREW_OFFICE_CONSIGNMENT")] };
+    const lockedMine: TileActionDef = { id: "build_hydrogarden", label: "Build Hydrogarden", disabled: true, disabledReason: "Requires Hyperfeed Seedstock Consignment" };
     const { tabs, html } = buildingsHtml([lockedMine], state);
-    expect(tabs.buildings).toEqual([{ ...lockedMine, techLinkId: "mining" }]);
-    expect(html).toContain("Requires Prospector Crew");
-    expect(html).toContain('data-view-tech="mining"');
+    expect(tabs.buildings).toEqual([{ ...lockedMine, techLinkId: "agriculture" }]);
+    expect(html).toContain("Requires Hyperfeed Seedstock Consignment");
+    expect(html).toContain('data-view-tech="agriculture"');
   });
 });

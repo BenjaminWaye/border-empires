@@ -31,14 +31,14 @@ export const relatedStructureTypesForTech = (tech: Pick<TechInfo, "effects">): S
       case "unlockHydroworksUpgrade":
         out.add("HYDROWORKS");
         break;
-      // The catalog's key is unlockUmbriteRig; this used to match only the
-      // retired unlockCamp, so Rigging Works never listed the Umbrite Rig.
-      case "unlockUmbriteRig":
-      case "unlockCamp":
-        out.add("UMBRITE_RIG");
+      case "unlockTitaniumRefinery":
+        out.add("TITANIUM_REFINERY");
         break;
-      case "unlockMine":
-        out.add("MINE");
+      case "unlockUmbriteRefinery":
+        out.add("UMBRITE_REFINERY");
+        break;
+      case "unlockCrystalRefinery":
+        out.add("CRYSTAL_REFINERY");
         break;
       case "unlockManufactory":
         out.add("MANUFACTORY");
@@ -69,8 +69,14 @@ export const relatedStructureTypesForTech = (tech: Pick<TechInfo, "effects">): S
         out.add("HIGH_YIELD_TITANIUM_WORKS");
         out.add("HIGH_YIELD_AETHER_CONDENSER");
         break;
-      case "unlockOreRefinery":
-        out.add("ORE_REFINERY");
+      case "unlockTitaniumSmelter":
+        out.add("TITANIUM_SMELTER");
+        break;
+      case "unlockUmbriteDistillery":
+        out.add("UMBRITE_DISTILLERY");
+        break;
+      case "unlockCrystalCutter":
+        out.add("CRYSTAL_CUTTER");
         break;
       case "unlockAmbaricTransformer":
         out.add("AMBARIC_TRANSFORMER");

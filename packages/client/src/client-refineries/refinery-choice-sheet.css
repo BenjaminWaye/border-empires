@@ -1,0 +1,22 @@
+/*
+ * Refinery pickers (refinery-choice-sheet.ts): the tier sheet's card and rows,
+ * docked at the bottom with no backdrop so the map highlights stay visible.
+ */
+.refinery-sheet-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  pointer-events: none;
+}
+
+.refinery-sheet-card {
+  width: 380px;
+  max-width: 100%;
+  max-height: 48vh;
+  pointer-events: auto;
+}

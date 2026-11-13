@@ -6,7 +6,6 @@ import {
   HIGH_YIELD_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   HIGH_YIELD_TITANIUM_WORKS_TITANIUM_PER_DAY,
   SKY_DOCK_CRYSTAL_UPKEEP_PER_MIN,
-  UMBRITE_RIG_GOLD_UPKEEP,
   TRADE_NEXUS_FOOD_UPKEEP,
   AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY,
   AETHER_CONDENSER_CRYSTAL_PER_DAY,
@@ -15,9 +14,6 @@ import {
   HYDROGARDEN_GOLD_UPKEEP,
   UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY,
   UMBRITE_WORKS_UMBRITE_PER_DAY,
-  ORE_REFINERY_OUTPUT_MULT,
-  ORE_REFINERY_RADIUS,
-  ORE_REFINERY_GOLD_UPKEEP,
   HYDROWORKS_OUTPUT_MULT,
   HYDROWORKS_RADIUS,
   ANCILLARY_DEPOT_GOLD_UPKEEP,
@@ -27,7 +23,6 @@ import {
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   MANUFACTORY_FOOD_UPKEEP,
   manufactoryGoldProductionMultiplier,
-  MINE_GOLD_UPKEEP,
   PASSIVE_INCOME_MULT,
   RESONANCE_GRID_GOLD_UPKEEP,
   SETTLEMENT_BASE_GOLD_PER_MIN,
@@ -43,7 +38,7 @@ import {
   type DomainStrategicResourceKey,
   type TownDefinition
 } from "@border-empires/game-domain";
-import { OBSERVATORY_UPKEEP_PER_MIN, structureDisplayName, terrainAt } from "@border-empires/shared";
+import { OBSERVATORY_UPKEEP_PER_MIN, isRefineryBoosterType, isRefineryType, structureDisplayName, terrainAt } from "@border-empires/shared";
 
 type EconomyResourceKey = "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 
@@ -202,7 +197,8 @@ const economicStructureOutputMultAt = (
     structure.type === "HIGH_YIELD_TITANIUM_WORKS" ||
     structure.type === "AETHER_CONDENSER" ||
     structure.type === "HIGH_YIELD_AETHER_CONDENSER" ||
-    structure.type === "ORE_REFINERY" ||
+    isRefineryType(structure.type) ||
+    isRefineryBoosterType(structure.type) ||
     structure.type === "HYDROWORKS" ||
     structure.type === "MINISTRY_HALL" ||
     structure.type === "RESONANCE_GRID"
@@ -210,20 +206,6 @@ const economicStructureOutputMultAt = (
     return 1;
   }
   let multiplier = STRUCTURE_OUTPUT_MULT;
-  if (structure.type === "MINE") {
-    const origin = parseTileKey(tileKey);
-    if (origin) {
-      for (const [candidateTileKey, candidate] of structuresByTile) {
-        if (candidate.ownerId !== ownerId || candidate.status !== "active" || candidate.type !== "ORE_REFINERY") continue;
-        const candidateCoords = parseTileKey(candidateTileKey);
-        if (!candidateCoords) continue;
-        if (chebyshevDistance(origin, candidateCoords) <= ORE_REFINERY_RADIUS) {
-          multiplier *= ORE_REFINERY_OUTPUT_MULT;
-          break;
-        }
-      }
-    }
-  }
   if (structure.type === "HYDROGARDEN") {
     const origin = parseTileKey(tileKey);
     if (origin) {
@@ -244,12 +226,10 @@ const economicStructureOutputMultAt = (
 const goldUpkeepPerMinuteForStructure = (structureType: string): number => {
   switch (structureType) {
     case "HYDROGARDEN": return HYDROGARDEN_GOLD_UPKEEP / 10;
-    case "UMBRITE_RIG": return UMBRITE_RIG_GOLD_UPKEEP / 10;
-    case "MINE": return MINE_GOLD_UPKEEP / 10;
     case "INCUBATION_ENGINE": return INCUBATION_ENGINE_GOLD_UPKEEP / 10;
     // This switch previously
     // had BOTH the base and High Yield Umbrite Works cases returning
-    // UMBRITE_RIG_GOLD_UPKEEP instead of their own rate — a third, previously-
+    // the old Umbrite Rig gold upkeep instead of their own rate — a third, previously-
     // unfound instance of the exact "Advanced synthesizer costs less to
     // run than the thing it upgrades" bug class §6.4 already flagged for
     // the live-code/live-screenshot discrepancy. Fixed to each synthesizer's
@@ -260,7 +240,6 @@ const goldUpkeepPerMinuteForStructure = (structureType: string): number => {
     case "HIGH_YIELD_TITANIUM_WORKS": return HIGH_YIELD_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
     case "AETHER_CONDENSER": return AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
     case "HIGH_YIELD_AETHER_CONDENSER": return HIGH_YIELD_AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
-    case "ORE_REFINERY": return ORE_REFINERY_GOLD_UPKEEP / 10;
     case "ANCILLARY_DEPOT": return ANCILLARY_DEPOT_GOLD_UPKEEP / 10;
     case "HARBOR_EXCHANGE": return HARBOR_EXCHANGE_GOLD_UPKEEP / 10;
     case "MINISTRY_HALL": return MINISTRY_HALL_GOLD_UPKEEP / 10;

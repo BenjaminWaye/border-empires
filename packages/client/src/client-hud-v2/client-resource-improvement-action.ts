@@ -11,7 +11,7 @@ import { autoSettleCategoryLabel } from "../client-auto-settle-prompt/client-aut
 
 // Improvements tied to a resource deposit, rather than buildings that boost nearby tiles.
 export const isResourceImprovementAction = (action: string): boolean => [
-  "build_hydrogarden", "build_umbrite_rig", "build_mine", "build_resin_extractor",
+  "build_hydrogarden", "build_resin_extractor",
   "build_implant_foundry", "build_catalyst_refinery", "build_cultivation_estate", "build_reclamation_works"
 ].includes(action);
 

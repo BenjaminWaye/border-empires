@@ -1,4 +1,5 @@
 import { DEVELOPMENT_PROCESS_LIMIT, TRICKLE_RESOURCE_KEYS } from "@border-empires/shared";
+import { refineryRejectionMessage } from "./client-refineries/refinery-commands.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import { promptForTrickleResource, type TrickleOption } from "./client-trickle-pick-modal.js";
@@ -213,6 +214,8 @@ export const explainActionFailureFromServer = (
     const lockText = explainCombatLockRejection(state, { code, message, targetX: target?.x, targetY: target?.y, nowMs: Date.now() }, wrap);
     if (lockText) return lockText;
   }
+  const refinery = refineryRejectionMessage(code, message);
+  if (refinery) return refinery;
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot garrison: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;

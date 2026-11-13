@@ -9,18 +9,9 @@ const tileWith = (resource: ResourceType, type?: NonNullable<Tile["economicStruc
 });
 
 describe("shouldRenderRawResource for deposit improvements", () => {
-  it.each([
-    ["TITANIUM", "MINE"],
-    ["GEMS", "MINE"],
-    ["UMBRITE", "UMBRITE_RIG"]
-  ] as const)("hides the raw %s deposit once a %s is built on it", (resource, building) => {
-    expect(shouldRenderRawResource(resource, tileWith(resource))).toBe(true);
-    expect(shouldRenderRawResource(resource, tileWith(resource, building))).toBe(false);
-  });
-
-  it("keeps the deposit under an unrelated structure", () => {
-    expect(shouldRenderRawResource("TITANIUM", tileWith("TITANIUM", "UMBRITE_RIG"))).toBe(true);
-    expect(shouldRenderRawResource("UMBRITE", tileWith("UMBRITE", "MINE"))).toBe(true);
+  it("keeps strategic deposits drawn: they take no on-tile building since town refineries", () => {
+    expect(shouldRenderRawResource("TITANIUM", tileWith("TITANIUM", "TITANIUM_REFINERY"))).toBe(true);
+    expect(shouldRenderRawResource("UMBRITE", tileWith("UMBRITE", "MANUFACTORY"))).toBe(true);
   });
 
   it("draws every deposit on an unstreamed tile", () => {
@@ -31,7 +22,7 @@ describe("shouldRenderRawResource for deposit improvements", () => {
   it("still hides a network deposit under its own building", () => {
     for (const resource of NETWORK_RESOURCES) {
       expect(shouldRenderRawResource(resource, tileWith(resource, RESOURCE_NETWORKS[resource].building))).toBe(false);
-      expect(shouldRenderRawResource(resource, tileWith(resource, "MINE"))).toBe(true);
+      expect(shouldRenderRawResource(resource, tileWith(resource, "MANUFACTORY"))).toBe(true);
     }
   });
 });

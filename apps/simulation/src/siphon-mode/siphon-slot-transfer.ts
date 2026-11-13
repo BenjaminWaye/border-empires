@@ -3,7 +3,7 @@
 // While a siphon is active on an enemy RESOURCE tile, that tile's slots stop
 // counting toward its owner's slot supply and count toward the caster's
 // instead — the same slot resource and the same count the owner would get
-// from it, boosts included (same-tile Hydrogarden/Mine, the owner's own
+// from it, boosts included (same-tile Hydrogarden, town refineries, the owner's own
 // Hydroworks/Ore Refinery radius bonuses, the owner's Agrarian Works fish bonus).
 // When the siphon ends (siphon-mode-lifecycle.ts) the sabotage stamp is gone
 // and both players' supply goes back to normal on the next read.
@@ -20,6 +20,7 @@ import {
   type ResourceSlotTotals
 } from "../resource-slot-view/resource-slot-view.js";
 import { radiusStructureKeysForSettledTiles } from "../tile-yield-view/tile-yield-view.js";
+import { refinerySlotBonusesForPlayer } from "../refineries/refinery-slot-supply.js";
 
 /** True when this tile's resource slots are currently siphoned away from `ownerId`. */
 export const isResourceTileSiphonedAway = (tile: Pick<DomainTileState, "resource" | "sabotage">, ownerId: string): boolean =>
@@ -39,8 +40,9 @@ export type SiphonSlotSupplyInput = {
 
 /** What `ownerId` would get from `drained` if it weren't siphoned — computed in the owner's own boost context. */
 const ownerSlotsForTiles = (input: SiphonSlotSupplyInput, ownerId: string, drained: DomainTileState[]): ResourceSlotTotals => {
-  const { hydroworksKeys, oreRefineryKeys } = radiusStructureKeysForSettledTiles(input.settledTilesForPlayer(ownerId));
-  return resourceSlotSupplyForPlayer(drained, hydroworksKeys, oreRefineryKeys, undefined, input.fishFoodSlotBonusForPlayer(ownerId));
+  const settled = input.settledTilesForPlayer(ownerId);
+  const { hydroworksKeys } = radiusStructureKeysForSettledTiles(settled);
+  return resourceSlotSupplyForPlayer(drained, hydroworksKeys, refinerySlotBonusesForPlayer(input.tiles, settled), undefined, input.fishFoodSlotBonusForPlayer(ownerId));
 };
 
 /** Source tiles controlled by this caster's active Siphon towers. */
@@ -81,14 +83,14 @@ export const siphonedInSlotsForPlayer = (input: SiphonSlotSupplyInput): Resource
  */
 export const resourceSlotSupplyWithSiphonTransfer = (input: SiphonSlotSupplyInput): ResourceSlotTotals => {
   const settledTiles = input.settledTilesForPlayer(input.playerId);
-  // Radius bonuses come from the full list: the owner's Hydroworks/Ore Refineries
+  // Radius and refinery bonuses come from the full list: the owner's Hydroworks/refineries
   // still stand even when the tile under them is being drained.
-  const { hydroworksKeys, oreRefineryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+  const { hydroworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
   const kept = settledTiles.filter((tile) => !isResourceTileSiphonedAway(tile, input.playerId));
   const totals = resourceSlotSupplyForPlayer(
     kept,
     hydroworksKeys,
-    oreRefineryKeys,
+    refinerySlotBonusesForPlayer(input.tiles, settledTiles),
     undefined,
     input.fishFoodSlotBonusForPlayer(input.playerId),
     input.onSource

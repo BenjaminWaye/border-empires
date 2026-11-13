@@ -1,11 +1,10 @@
 # Territory development plan
 
 Status: proposed (2026-11-12). Design agreed with the owner in discussion;
-numbers marked "starting value" are for a balance pass. Only proposed true-3D
-models for the refineries and boosters exist
-(`packages/client/src/client-town-district/support-model-refinery.ts`, reviewed
-in Storybook under Sandbox / Refineries); they are not wired to any structure
-type, and 2D icons do not exist yet. No rule below is implemented.
+numbers marked "starting value" are for a balance pass. Each phase below
+states what is implemented. The refinery and booster models
+(`packages/client/src/client-town-district/support-model-refinery.ts`) are
+reviewed in Storybook under Map / Structures / Refineries.
 
 ## Goal
 
@@ -90,6 +89,39 @@ If the drop is material, put the regen back through towns or Ancillary
 buildings (scoped in the same branch), not the map.
 
 ## Phase 2: Refineries in towns
+
+Status: server and shared rules implemented (2026-11-12); client UI (supply
+lines, moving goods, refined overlay, field and town pickers, toast)
+implemented (2026-11-12, `packages/client/src/client-refineries/`); worldgen
+relocation implemented (PR #2734); the AI planner implemented in the same PR
+as the client (`apps/simulation/src/ai/build/refinery-*.ts`,
+`apps/simulation/src/ai/refinery-reassign-planner.ts`). Known gaps: another
+player's refinery shows no supply line (its field is withheld from
+non-owners), and a non-owner's `linked` flag can go stale (it refreshes only
+when the refinery tile itself is re-sent). Implemented numbers:
+`REFINERY_REACH_LAND_TILES` = 10, `REFINERY_SLOTS_PER_TILE` = 2,
+`REFINERY_BOOSTER_SLOTS_PER_TILE` = 1 (+3 per tile with the booster). Titanium
+and Crystal Refinery need `mining`, Umbrite Refinery `leatherworking`, the
+three boosters `industrial-extraction`. Refineries: 80 manpower, 1 FOOD slot,
+`same_tile` (stack per town); boosters: 150 manpower, 1 FOOD slot,
+`town_support` (one per town). Rules live in `packages/shared/src/refineries/`
+(fields, link BFS, exclusivity, field choice), the simulation glue in
+`apps/simulation/src/refineries/` (slot supply, `BUILD_ECONOMIC_STRUCTURE`
+`fieldX`/`fieldY`, `ASSIGN_REFINERY_FIELD`, wire status). Decisions taken
+while implementing: exclusivity is per owner (two players' refineries on one
+component each refine only their own tiles); re-anchoring is derived at
+evaluation time, not written back; a refinery's tile must be SETTLED to work;
+a FOOD-dormant refinery still processes its field (same known gap as every
+slot boost); only a refinery that could work (active or under construction,
+on its owner's SETTLED ring tile of a town the same owner holds) competes for
+or reserves a field, and a captured refinery comes over unassigned; an
+explicit field tile must be one the player holds (FRONTIER or SETTLED), else
+`REFINERY_FIELD_INVALID` before any other check, so commands cannot probe
+hidden deposits. Recovery drops saved Mine / Umbrite Rig / Ore Refinery records
+(`retired-frontier-materials.ts`). The wire status is attached where the
+`supportAnchor` projection runs, so it is refreshed when the refinery tile
+itself is sent; a change elsewhere on the link path does not re-send it (the
+client follow-up should refresh or recompute it).
 
 ### Rules (starting values)
 
@@ -203,6 +235,22 @@ output should also fall with distance inside the reach; whether the booster's
 
 ### Client (both 2D and true-3D)
 
+**Implemented** in `packages/client/src/client-refineries/` (2026-11-12). The
+owner's client recomputes each refinery's status from its own tiles with the
+shared rules, so a link cut or restored elsewhere shows at once even though
+the server's `refinery` JSON only refreshes with the refinery tile; it uses
+the wire status only when the town tile is not loaded. Other players see
+whether a refinery is linked, but not its field, so they see no line, loads
+or refined overlay for it. Per bullet: status `refinery-client-status.ts`;
+line and refined tiles `refinery-scene.ts` (2D through `district-canvas.ts`
+and `client-map-render-resource-overlays.ts`, 3D through `district-map-3d.ts`
+and `client-map-3d-raw-resource-dispatch.ts`); goods `refinery-goods.ts`
+(`refinery-canvas-2d.ts`, `refinery-goods-3d.ts`); toast
+`refinery-field-toasts.ts`; pickers `refinery-picker-flow.ts`,
+`refinery-field-options.ts`, `refinery-towns.ts`; picker highlight
+`refinery-picker-highlight.ts` (`refinery-canvas-2d.ts`,
+`refinery-highlight-3d.ts`). Stories: Map / Structures / Refineries.
+
 - **Supply line.** A working refinery draws the same dark service line that
   support-ring buildings draw to their town (`client-town-district/`
   `district-network.ts`, `district-links-3d.ts`, 2D `district-canvas.ts`),
@@ -249,7 +297,7 @@ and the structure planner; read `docs/agents/ai-guardrails.md` and
 - Capture of the town, of a field tile, and of the refinery tile.
 - Worldgen: every strategic field within reach of a town; none on rings;
   same seed gives the same map.
-- Client: line, goods, overlay and toast in 2D and 3D adapters.
+- Client: line, goods, overlay and toast in 2D and 3D adapters (implemented: `packages/client/src/client-refineries/*.test.ts`).
 
 ### Done when
 

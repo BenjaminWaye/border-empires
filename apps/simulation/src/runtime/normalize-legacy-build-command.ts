@@ -17,7 +17,12 @@ export const normalizeLegacyBuildCommand = (command: CommandEnvelope): CommandEn
   return {
     ...command,
     type: "BUILD_STRUCTURE",
-    // The Fortify / Siege picker's explicit tier rides along; the build handler validates it.
-    payloadJson: JSON.stringify({ x: payload.x, y: payload.y, structureType, ...(isChosenStructureTier(payload.tier) ? { tier: payload.tier } : {}) })
+    // The Fortify / Siege picker's explicit tier and a refinery's explicit
+    // field ride along; the build handler validates them.
+    payloadJson: JSON.stringify({
+      x: payload.x, y: payload.y, structureType,
+      ...(isChosenStructureTier(payload.tier) ? { tier: payload.tier } : {}),
+      ...(typeof payload.fieldX === "number" && typeof payload.fieldY === "number" ? { fieldX: payload.fieldX, fieldY: payload.fieldY } : {})
+    })
   } as unknown as CommandEnvelope;
 };

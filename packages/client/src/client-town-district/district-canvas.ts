@@ -7,6 +7,9 @@ import { townSupportPlotMapFor2D } from "../client-town-support-plot-lookup.js";
 import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { buildDistrictNetwork, districtRecord, type DistrictEdge } from "./district-network.js";
 import { isDistrictBuilding, isDistrictProject } from "./district-catalog.js";
+import { refinerySceneAround, type RefineryScene } from "../client-refineries/refinery-scene.js";
+import { drawRefineryGoods2D, drawRefineryPickerHighlight2D } from "../client-refineries/refinery-canvas-2d.js";
+import { refineryPickerHighlight } from "../client-refineries/refinery-picker-highlight.js";
 
 type CanvasDeps = {
   readonly state: Pick<ClientState, "tiles" | "tilesRevision" | "selected" | "me" | "dormantStructures" | "camX" | "camY">;
@@ -25,9 +28,16 @@ export const createDistrictCanvas = (deps: CanvasDeps): {
   let cachedDormancy: CanvasDeps["state"]["dormantStructures"] | undefined;
   let cachedTiles: ReadonlyMap<string, Tile> | undefined;
   let edges: readonly DistrictEdge[] = [];
+  let cachedScene: RefineryScene | undefined;
+  // The last drawn window, so plots() (which runs before the frame's tile
+  // loop) can refresh the refinery scene the refined-deposit art reads.
+  let lastHalfW = 24, lastHalfH = 16;
+  const refineryScene = (): RefineryScene =>
+    refinerySceneAround(deps.state, { x: deps.state.camX, y: deps.state.camY }, lastHalfW, lastHalfH, deps.visibilityAt);
   return {
     plots: true3D => {
       if (true3D) return new Map();
+      refineryScene();
       const { state } = deps;
       const selected = state.selected ? state.tiles.get(`${state.selected.x},${state.selected.y}`) : undefined;
       const plots = townSupportPlotMapFor2D(selected, { tiles: state.tiles, wrapX, wrapY, keyFor: (x, y) => `${x},${y}`, terrainAt: deps.terrainAt, me: state.me });
@@ -40,9 +50,11 @@ export const createDistrictCanvas = (deps: CanvasDeps): {
     draw: (size, halfW, halfH) => {
       if (size < 8) return;
       const { state, ctx } = deps;
+      lastHalfW = halfW; lastHalfH = halfH;
+      const scene = refineryScene();
       const cx = Math.floor(state.camX), cy = Math.floor(state.camY);
       const key = `${state.tilesRevision}:${cx}:${cy}:${halfW}:${halfH}`;
-      if (cacheKey !== key || cachedTiles !== state.tiles || cachedDormancy !== state.dormantStructures || Date.now() >= nextDisabledExpiry) {
+      if (cacheKey !== key || cachedScene !== scene || cachedTiles !== state.tiles || cachedDormancy !== state.dormantStructures || Date.now() >= nextDisabledExpiry) {
         const candidates: Tile[] = [];
         for (let dy = -halfH - 3; dy <= halfH + 3 && candidates.length < 8192; dy += 1) {
           for (let dx = -halfW - 3; dx <= halfW + 3 && candidates.length < 8192; dx += 1) {
@@ -56,8 +68,9 @@ export const createDistrictCanvas = (deps: CanvasDeps): {
           if (record && "disabledUntil" in record && (record.disabledUntil ?? 0) > Date.now()) nextDisabledExpiry = Math.min(nextDisabledExpiry, record.disabledUntil!);
         }
         const dormant = new Set(state.dormantStructures.map(entry => entry.key));
-        edges = buildDistrictNetwork({ tiles: state.tiles, visibilityAt: deps.visibilityAt, isDormant: tile => dormant.has(`${tile.x},${tile.y}:economicStructure`) }, candidates);
-        cacheKey = key; cachedTiles = state.tiles; cachedDormancy = state.dormantStructures;
+        // Refinery supply lines continue the district's service lines to their fields (client-refineries/refinery-scene.ts).
+        edges = [...buildDistrictNetwork({ tiles: state.tiles, visibilityAt: deps.visibilityAt, isDormant: tile => dormant.has(`${tile.x},${tile.y}:economicStructure`) }, candidates), ...scene.edges];
+        cacheKey = key; cachedScene = scene; cachedTiles = state.tiles; cachedDormancy = state.dormantStructures;
       }
       const selected = state.selected ? state.tiles.get(`${state.selected.x},${state.selected.y}`) : undefined;
       const anchor = selected && districtRecord(selected)?.supportAnchor;
@@ -84,6 +97,9 @@ export const createDistrictCanvas = (deps: CanvasDeps): {
         ctx.stroke();
       }
       ctx.restore();
+      const corner = (x: number, y: number): { sx: number; sy: number } => deps.worldToScreen(x - 0.5, y - 0.5, size, halfW, halfH);
+      drawRefineryGoods2D(ctx, scene.paths, Date.now(), size, corner);
+      drawRefineryPickerHighlight2D(ctx, refineryPickerHighlight(), size, corner);
     }
   };
 };

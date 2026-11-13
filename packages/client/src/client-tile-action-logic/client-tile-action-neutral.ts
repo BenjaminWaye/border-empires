@@ -8,11 +8,9 @@ import {
   SETTLE_COST
 } from "@border-empires/shared";
 import { canAffordCost, frontierClaimCostLabelForTile } from "../client-constants.js";
-import { economicBuildMsForState } from "../client-build-speed/client-build-speed.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
-import { buildManpowerCostForState, buildTimeLabel, relayBeaconBuildDurationMsForState, relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
-import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
+import { buildTimeLabel, relayBeaconBuildDurationMsForState, relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import { formatWaypointSummary } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
@@ -123,7 +121,6 @@ export const neutralTileActions = (
     createMountainAction: () => TileActionDef;
   }
 ): TileActionDef[] => {
-  const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false));
   const targetInReach = authoritativeIsInReach(state, deps.keyFor)(tile.x, tile.y);
 
   const out: TileActionDef[] = [];
@@ -161,30 +158,6 @@ export const neutralTileActions = (
       )
     });
   }
-  out.push({
-    id: "build_ore_refinery",
-    label: "Build Ore Refinery",
-    detail: deps.buildDetailTextForAction("build_ore_refinery", tile),
-    ...tileActionAvailability(
-      reachable &&
-        state.techIds.includes("industrial-extraction") &&
-        state.gold >= deps.structureGoldCost("ORE_REFINERY") &&
-        state.manpower >= buildManpowerCostForState(state, "ORE_REFINERY") &&
-        !tile.resource &&
-        !tile.town &&
-        !tile.dockId,
-      !reachable
-        ? "Must touch your territory"
-        : !state.techIds.includes("industrial-extraction")
-          ? "Requires Steam-Driven Extraction"
-          : tile.resource || tile.town || tile.dockId
-            ? "Needs empty land"
-            : state.gold < deps.structureGoldCost("ORE_REFINERY")
-              ? `Need ${deps.structureGoldCost("ORE_REFINERY")} coin`
-              : `Need ${buildManpowerCostForState(state, "ORE_REFINERY")} manpower`,
-      `${deps.structureCostText("ORE_REFINERY")} • ${buildTimeLabel(economicBuildMsForState(state, "ORE_REFINERY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("ORE_REFINERY")}`
-    )
-  });
   out.push(...helpers.retortRecastActions());
   out.push(...helpers.crystalCoreActions());
   out.push(helpers.createMountainAction());

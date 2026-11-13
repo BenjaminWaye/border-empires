@@ -192,19 +192,19 @@ describe("town screen", () => {
 
   // Regression: pressing a support tile with a building on it said nothing about that building.
   it("shows the building standing on the selected support tile", () => {
-    const built: Tile = { ...support, economicStructure: { ownerId: "me", type: "MINE", status: "active" } };
+    const built: Tile = { ...support, economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "active" } };
     const regions = (focus: Tile, focusView = view({})) => townScreenRegions({ town, focus, townView: view({}), focusView, townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined }).build;
     const html = regions(built);
     expect(html).toContain("On this tile");
     expect(html).toContain("Built here");
-    expect(html).toContain('<span class="v2t-structure-k">Building</span><span class="v2t-structure-v">Mine</span>');
+    expect(html).toContain('<span class="v2t-structure-k">Building</span><span class="v2t-structure-v">Manufactory</span>');
     expect(html).toContain('<span class="v2t-structure-v v2t-structure-good">Active</span>');
     expect(html).not.toContain("Nothing to build");
     // An empty support tile, or the town itself, gets no card; a build still going up is left to the work cards.
     expect(regions(support)).not.toContain("Built here");
-    expect(regions({ ...built, economicStructure: { ownerId: "me", type: "MINE", status: "under_construction" } })).not.toContain("Built here");
+    expect(regions({ ...built, economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "under_construction" } })).not.toContain("Built here");
     // A building being removed already has its own work card.
-    expect(regions({ ...built, economicStructure: { ownerId: "me", type: "MINE", status: "removing" } })).not.toContain("Built here");
+    expect(regions({ ...built, economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "removing" } })).not.toContain("Built here");
     // Queued work leads, so it isn't read as part of the building under the "Built here" heading.
     const withWork = regions(built, view({ work: [{ title: "Hydrogarden queued", detail: "", remainingLabel: "", progress: 0, note: "", queueState: "queued" }] }));
     expect(withWork.indexOf("v2t-work")).toBeGreaterThan(-1);

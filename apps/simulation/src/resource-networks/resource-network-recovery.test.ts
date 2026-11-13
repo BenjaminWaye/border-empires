@@ -34,4 +34,18 @@ describe("resource layout recovery", () => {
     expect(restored.get("2,3")).toMatchObject({ ownerId: "p", ownershipState: "SETTLED" });
     expect(restored.get("8,3")).toMatchObject(tiles[3]!);
   });
+  it("drops saved Mines, Umbrite Rigs and Ore Refineries but keeps the bare deposits (Phase 2)", () => {
+    const tiles = [
+      { x: 2, y: 5, terrain: "LAND", resource: "TITANIUM", ownerId: "p", ownershipState: "SETTLED", economicStructure: { ownerId: "p", type: "MINE", status: "active" } },
+      { x: 4, y: 5, terrain: "LAND", resource: "UMBRITE", ownerId: "p", ownershipState: "SETTLED", economicStructure: { ownerId: "p", type: "UMBRITE_RIG", status: "under_construction" } },
+      { x: 6, y: 5, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED", economicStructure: { ownerId: "p", type: "ORE_REFINERY", status: "active" } },
+      { x: 8, y: 5, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED",
+        economicStructure: { ownerId: "p", type: "TITANIUM_REFINERY", status: "active", refineryField: { x: 2, y: 5, assignedAt: 7 } } }
+    ] as unknown as DomainTileState[];
+    const restored = createTilesFromInitialState({ tiles, activeLocks: [] }, new Map(), false);
+    for (const key of ["2,5", "4,5", "6,5"]) expect(restored.get(key)?.economicStructure).toBeUndefined();
+    expect(restored.get("2,5")).toMatchObject({ resource: "TITANIUM", ownerId: "p", ownershipState: "SETTLED" });
+    expect(restored.get("4,5")?.resource).toBe("UMBRITE");
+    expect(restored.get("8,5")).toMatchObject(tiles[3]!);
+  });
 });
