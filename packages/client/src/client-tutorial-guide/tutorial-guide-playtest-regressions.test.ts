@@ -242,3 +242,33 @@ describe("Finish acknowledges the completed guide (Tom: 'No reward, no badge, no
     expect(card()).toBeNull();
   });
 });
+
+describe("a Waystation's free Manifest doesn't soft-lock the guide on a Manifest the player can't afford", () => {
+  const manifestDone = new Set(["look-pan", "look-zoom", "foothold-take-town", "foothold-take-food", "reach-beacon", "manpower-open", "manifest-open"]);
+
+  it("reads the next Manifest's price from the catalog and the player's Coin", () => {
+    const state = createInitialState();
+    state.me = ME;
+    state.gold = 10;
+    state.techCatalog = [{ id: "trade", name: "Industrial Tooling Module", tier: 1, description: "", mods: {}, requirements: { gold: 40, resources: {} } }];
+    expect(buildGuideInput(state).manifestPrice).toEqual({ cost: 40, coin: 10 });
+  });
+
+  it("waits with the price instead of asking for a 40-coin Manifest with 10 coin, and doesn't offer Finish meanwhile", () => {
+    const broke = stepInput({ manifestPrice: { cost: 40, coin: 10 } });
+    const first = evaluateGuide(broke, manifestDone);
+    expect(first.kind === "step" && first.step.id).not.toBe("manifest-commission");
+    const view = evaluateGuide(broke, new Set([...manifestDone, "turn-activity"]));
+    if (view.kind !== "step") throw new Error("expected a step");
+    expect(view.step.id).toBe("manifest-commission");
+    expect(view.waiting).toBe(true);
+    expect(view.title).toBe("Save up 40 coin for your next Manifest");
+  });
+
+  it("asks for the Manifest once the player can pay for it", () => {
+    const view = evaluateGuide(stepInput({ manifestPrice: { cost: 40, coin: 40 } }), manifestDone);
+    if (view.kind !== "step") throw new Error("expected a step");
+    expect(view.step.id).toBe("manifest-commission");
+    expect(view.waiting).toBe(false);
+  });
+});

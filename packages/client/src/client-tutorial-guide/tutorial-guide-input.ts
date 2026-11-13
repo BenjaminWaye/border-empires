@@ -230,6 +230,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     activityDashboardOpen: state.activityDashboard.open || state.activityDashboard.chronicleOpen,
     // A Waystation's free Manifest isn't one the player commissioned: it must not tick the Manifest steps.
     manifestCount: state.techIds.filter((id) => id !== state.techRootId && !current.scan.waystationGiftTechIds.has(id)).length,
+    ...manifestPriceOf(state),
     manufactoryResearched: state.techIds.includes(RECOMMENDED_FIRST_MANIFEST_ID),
     manufactoryUnlocked: cached.scan.manufactoryInstalled,
     afcUpgradeReady: readyAfcUpgradeCount(state) > 0,
@@ -248,6 +249,12 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     ownsMusterFlag: cached.scan.ownsMusterFlag,
     musterTargetTiles: cached.scan.musterTargetTiles
   };
+};
+
+/** Every Manifest costs the same at a given moment, so the recommended one's catalog price is the next Manifest's. */
+const manifestPriceOf = (state: GuideInputState): Pick<GuideInput, "manifestPrice"> => {
+  const cost = state.techCatalog.find((t) => t.id === RECOMMENDED_FIRST_MANIFEST_ID)?.requirements.gold;
+  return typeof cost === "number" ? { manifestPrice: { cost, coin: state.gold } } : {};
 };
 
 /** Test-only: drops the per-revision tile-scan cache. */
