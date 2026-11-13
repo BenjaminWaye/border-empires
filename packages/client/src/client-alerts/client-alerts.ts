@@ -7,7 +7,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import { getDiscoveryTipTarget, type DiscoveryTipDef } from "../client-discovery-tips/client-discovery-tips.js";
 import type { FeedEntry, FeedSeverity, FeedType, SeasonVictoryObjectiveView, Tile } from "../client-types.js";
-import { surfaceFeedEntryAsAlert, type FeedAlertSurfaceState } from "./client-feed-alert-surface.js";
+import { CAPTURE_ALERT_MS, surfaceFeedEntryAsAlert, type FeedAlertSurfaceState } from "./client-feed-alert-surface.js";
 
 export type FeedMutableState = Pick<ClientState, "feed"> &
   Partial<Pick<ClientState, "activePanel" | "feedUnreadCount" | "feedAttentionUntil">> &
@@ -143,12 +143,10 @@ export const showCaptureAlert = (
   manpowerLoss?: number,
   focus?: { x: number; y: number; actionLabel?: string }
 ): void => {
-  const nowMs = Date.now();
   state.captureAlert = {
     title,
     detail,
-    shownAt: nowMs,
-    until: nowMs + 12_000,
+    until: Date.now() + CAPTURE_ALERT_MS,
     tone,
     ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {}),
     ...(focus ? { focusX: focus.x, focusY: focus.y, actionLabel: focus.actionLabel ?? "Center" } : {})
