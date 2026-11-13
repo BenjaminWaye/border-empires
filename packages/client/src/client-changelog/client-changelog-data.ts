@@ -84,6 +84,7 @@ import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
 import { MAP_LENS_CHANGELOG, MINIMAP_WORLD_EDGE_ENTRY, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
+import { TAP_TO_INSPECT_ENTRY } from "./client-changelog-tap-to-inspect.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
@@ -489,6 +490,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_114,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_115,
   { ...CONSISTENT_NUMBERS_ENTRY, createdAt: 1794562088771, },
+  { ...TAP_TO_INSPECT_ENTRY, createdAt: 1794561745534, },
   { ...PHONE_LAYOUT_FIXES_ENTRY, createdAt: 1794563191075, },
 ];
 
