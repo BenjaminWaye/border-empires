@@ -7,9 +7,11 @@ import type { ClientState } from "../client-state/client-state.js";
 import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import { getDiscoveryTipTarget, type DiscoveryTipDef } from "../client-discovery-tips/client-discovery-tips.js";
 import type { FeedEntry, FeedSeverity, FeedType, SeasonVictoryObjectiveView, Tile } from "../client-types.js";
+import { surfaceFeedEntryAsAlert, type FeedAlertSurfaceState } from "./client-feed-alert-surface.js";
 
 export type FeedMutableState = Pick<ClientState, "feed"> &
-  Partial<Pick<ClientState, "activePanel" | "feedUnreadCount" | "feedAttentionUntil">>;
+  Partial<Pick<ClientState, "activePanel" | "feedUnreadCount" | "feedAttentionUntil">> &
+  FeedAlertSurfaceState;
 
 const shouldPulseFeedButton = (entry: FeedEntry): boolean =>
   entry.severity === "warn" ||
@@ -30,14 +32,13 @@ export const markAllFeedEntriesRead = (state: FeedMutableState): void => {
   for (const entry of state.feed) entry.unread = false;
 };
 
-export const pushFeed = (state: FeedMutableState, msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void => {
-  const entry = { text: msg, type, severity, at: Date.now() };
-  state.feed.unshift(entry);
-  state.feed = state.feed.slice(0, 18);
-  markFeedUnread(state, entry);
-};
+// The feed panel is admin-only, so warn/error entries are also shown on the
+// capture alert card (client-feed-alert-surface.ts); info/success stay feed-only.
+export const pushFeed = (state: FeedMutableState, msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void =>
+  pushFeedEntry(state, { text: msg, type, severity, at: Date.now() });
 
 export const pushFeedEntry = (state: FeedMutableState, entry: FeedEntry): void => {
+  surfaceFeedEntryAsAlert(state, entry);
   state.feed.unshift(entry);
   state.feed = state.feed.slice(0, 18);
   markFeedUnread(state, entry);
@@ -142,10 +143,12 @@ export const showCaptureAlert = (
   manpowerLoss?: number,
   focus?: { x: number; y: number; actionLabel?: string }
 ): void => {
+  const nowMs = Date.now();
   state.captureAlert = {
     title,
     detail,
-    until: Date.now() + 12_000,
+    shownAt: nowMs,
+    until: nowMs + 12_000,
     tone,
     ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {}),
     ...(focus ? { focusX: focus.x, focusY: focus.y, actionLabel: focus.actionLabel ?? "Center" } : {})

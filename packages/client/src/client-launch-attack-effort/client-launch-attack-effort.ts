@@ -91,7 +91,7 @@ const queueAndReport = (
   if (out.queued > 0) {
     deps.processActionQueue();
     const where = request.scope === "region" ? " across the connected region" : "";
-    deps.pushFeed(`Queued ${out.queued} attacks${where}${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`, "combat", "warn");
+    deps.pushFeed(`Queued ${out.queued} attacks${where}${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`, "combat", "info");
     return;
   }
   const failureMessage =
