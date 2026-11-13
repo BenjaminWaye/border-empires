@@ -2,6 +2,7 @@ import { usesPlayerCommandSequence, type CommandEnvelope, type SimulationEvent }
 import { stripRetiredFrontierMaterials } from "./resource-networks/retired-frontier-materials.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundLandmarkTiles, clearForestOnTownAndDockTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
 import { backfillProspectClues } from "./prospect-clue-backfill/prospect-clue-backfill.js";
+import { alignLandmarkSuperTiles } from "./landmark-super-tile/landmark-super-tile.js";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
 import { recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { migrateRetiredTechIds } from "./retired-tech-ids/retired-tech-ids.js";
@@ -110,7 +111,16 @@ export const createTilesFromInitialState = (
   initialState: RecoveredSimulationState | undefined,
   seedTiles: Map<string, DomainTileState>,
   mergeSeedTilesWithInitialState: boolean
-): Map<string, DomainTileState> => withAfcForestClearings(withProspectClues(withoutRetiredMaterials(createTilesFromInitialStateUncleared(initialState, seedTiles, mergeSeedTilesWithInitialState))));
+): Map<string, DomainTileState> => withAlignedSuperTiles(withAfcForestClearings(withProspectClues(withoutRetiredMaterials(createTilesFromInitialStateUncleared(initialState, seedTiles, mergeSeedTilesWithInitialState)))));
+
+// An AFC/relic and its footprint are one super tile; worlds saved before that
+// rule (or a footprint that drifted) are brought in line with the centre once
+// per boot, before any index is built (see landmark-super-tile.ts).
+const withAlignedSuperTiles = (tiles: Map<string, DomainTileState>): Map<string, DomainTileState> => {
+  const aligned = alignLandmarkSuperTiles(tiles);
+  if (aligned > 0) console.info(JSON.stringify({ event: "landmark_super_tile_align", tilesAligned: aligned }));
+  return tiles;
+};
 
 const withoutRetiredMaterials = (tiles: Map<string, DomainTileState>): Map<string, DomainTileState> => {
   const stripped = stripRetiredFrontierMaterials(tiles);

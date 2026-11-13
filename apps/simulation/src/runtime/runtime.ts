@@ -7,7 +7,9 @@ import { createRuntimeResourceSupply } from "../resource-supply-trades/runtime-r
 import { dormantContributorTiles, cachedResourceSlots, cachedResourceDemand, cachedResourceDormancy, type RuntimeResourceSlotsContext } from "../resource-supply-trades/runtime-resource-slots.js";
 import { RuntimeResourceSupply } from "../resource-supply-trades/runtime-resource-supply.js";
 import { RelicMapHintIndex } from "../runtime-relic-map-hints.js";
-import { activateUnallocatedFoundries, activateRelic } from "../runtime-relics.js";
+import { activateUnallocatedFoundries } from "../runtime-relics.js";
+import { prepareRelicTileWrite } from "../runtime-relic-tile-write.js";
+import { createLandmarkSuperTileSync, superTileActionTarget } from "../landmark-super-tile/landmark-super-tile.js";
 import { settleResourceNetworkOwnersBeforeTileChange } from "./runtime-manpower-economy.js";
 import { afcEnvoyIncomeInSnapshot } from "../afc-specializations/afc-coalition.js";
 import { settleBootstrapManpower } from "./runtime-bootstrap-manpower.js";
@@ -486,7 +488,7 @@ import {
 } from "../runtime-respawn-helpers.js";
 import { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js";
 import { buildRelocatedSettlementTile } from "../runtime-relocated-settlement-tile.js";
-import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
+import { publishOwnershipChange } from "./runtime-ownership-change-sample.js";
 import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js";
 import { holdDevelopmentForAttack, releaseDevelopmentHold, type AttackDevelopmentHoldContext } from "../attack-development-hold/attack-development-hold.js";
 import { installAttackReleaseHandler } from "./runtime-attack-release-handler.js";
@@ -513,6 +515,7 @@ export class SimulationRuntime {
     () => this.state, () => this.structureCommandContext()
   );
   private readonly siphonModeLifecycle: SiphonModeLifecycle; // Siphon siphon-mode end rules — siphon-mode/siphon-mode-lifecycle.ts
+  private readonly syncLandmarkSuperTile = createLandmarkSuperTileSync({ tiles: { get: key => this.state.tiles.get(key) }, replaceTileState: (key, tile, commandId) => this.replaceTileState(key, tile, commandId), tileDeltaFromState: tile => this.tileDeltaFromState(tile), emitEvent: event => this.emitEvent(event) }); // AFC/relic super tile ownership — landmark-super-tile/
   private readonly aetherShieldTicker: AetherShieldTicker; // Siphon tower-comes-back-online sweep + AETHER_SHIELDS push — aether-shield/aether-shield-tick.ts
   // Non-snapshot rolling history for public and personal activity views.
   private readonly activityLogs = createRuntimeActivityLogs(() => this.now());
@@ -1689,10 +1692,7 @@ export class SimulationRuntime {
     const previous = this.state.tiles.get(tileKey);
     this.resourceSupply?.sourceWillChange(previous, nextTile);
     let tile = withAfcFortFacts(withoutClearedRazedWreck(withoutFadedWarScars(withoutStaleCaptureHold(previous, nextTile, this.now()), this.now()), this.now()), this.state.players);
-    const relicOwner = tile.ownerId ? this.state.players.get(tile.ownerId) : undefined;
-    const relicTotals = tile.naturalWonder?.relicVersion === 1 && tile.naturalWonder.type === "FOUNDRY_HEART" && !tile.naturalWonder.resourceBonus && relicOwner ? { supply: this.resourceSlotSupplyForPlayer(relicOwner.id), demand: this.resourceSlotDemandForPlayer(relicOwner.id) } : undefined;
-    tile = activateRelic(tile, relicOwner, this.now(), tile.naturalWonder?.relicVersion === 1 && tile.naturalWonder.type === "CONSCRIPTION_ENGINE" && relicOwner ? this.playerManpowerCap(relicOwner) : 0, relicTotals, { commandId, emitEvent: event => this.emitEvent(event) });
-    wonderEffects.prepareWonderTileWrite(tile, previous, this.state.players, this.now());
+    tile = prepareRelicTileWrite(previous, tile, { players: this.state.players, now: this.now(), resourceSlotSupplyForPlayer: id => this.resourceSlotSupplyForPlayer(id), resourceSlotDemandForPlayer: id => this.resourceSlotDemandForPlayer(id), playerManpowerCap: player => this.playerManpowerCap(player), commandId, emitEvent: event => this.emitEvent(event) });
     if (this.manpowerReady) settleResourceNetworkOwnersBeforeTileChange(this.manpowerEconomyContext(), previous, tile);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
     // See refreshEconomyCachesForTileChange for why this is gated on SETTLED
@@ -1707,11 +1707,7 @@ export class SimulationRuntime {
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).ownedTownTierByTile.keys()]
         : undefined;
-    const ownershipChangeSample = buildOwnershipChangeSample(tileKey, tile, previous, commandId);
-    if (ownershipChangeSample) {
-      if (this.onOwnershipChange) this.onOwnershipChange(ownershipChangeSample);
-      appendTownLostEventLogIfApplicable(ownershipChangeSample, previous?.town, this.state.players, this.now());
-    }
+    publishOwnershipChange({ tileKey, tile, previous, commandId }, this.onOwnershipChange, this.state.players, this.now());
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.state.tiles.set(tileKey, tile);
     this.relicMapHintIndex.refresh(tileKey, tile);
@@ -1780,7 +1776,8 @@ export class SimulationRuntime {
       this.applyReachAnchorDeactivation(anchor, commandId);
     }
     this.resourceSupply?.sourceChangesPublished(previous, tile);
-    this.siphonModeLifecycle.onTileReplaced(tileKey, previous, tile, commandId); // last: may write other tiles
+    this.siphonModeLifecycle.onTileReplaced(tileKey, previous, tile, commandId); // may write other tiles
+    this.syncLandmarkSuperTile(previous, tile, commandId); // last: mirrors ownership across an AFC/relic super tile
   }
 
   private rebuildPlannerCandidateIndexesForPlayer(playerId: string): void {
@@ -2661,9 +2658,9 @@ export class SimulationRuntime {
     const actor = this.state.players.get(command.playerId);
     const payload = parseSettlePayload(command.payloadJson);
     if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const target = this.state.tiles.get(targetKey);
+    const clicked = this.state.tiles.get(simulationTileKey(payload.x, payload.y)); const target = clicked ? superTileActionTarget(this.state.tiles, clicked) : undefined; // settling any of an AFC/relic's nine tiles settles the site
     if (!target) { this.rejectCommand(command, "UNKNOWN_TILE", "tile not found"); return; }
+    const targetKey = simulationTileKey(target.x, target.y);
     if (target.ownerId !== command.playerId || target.ownershipState !== "FRONTIER") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not one of your frontier tiles"); return; }
     if (this.state.locksByTile.targetLockAt(targetKey)?.actionType === "ATTACK") { this.rejectCommand(command, "SETTLE_INVALID", "tile is under attack"); return; } // attack-development-hold.ts
     // Encirclement guard: a cut-off tile cannot be settled. Settling a
