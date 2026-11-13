@@ -6,7 +6,6 @@ import type { SeasonArchiveRecap } from "@border-empires/sim-protocol";
 
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
 import { leaderboardHtml } from "../client-panel-html/client-panel-html.js";
-import { sectorBoardHtml } from "../client-sector-board/client-sector-board.js";
 import { createInitialState } from "../client-state/client-state.js";
 import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js";
 import { hudV2GameOnScreen } from "../client-hud-v2/client-hud-v2-ready.js";
@@ -131,10 +130,8 @@ describe("last contest recap", () => {
     expect(state.lastContestRecap.open).toBe(true);
   });
 
-  it("offers the recap from the leaderboard and the join-contest screen", () => {
+  it("offers the recap from the leaderboard", () => {
     expect(leaderboardHtml(makeState().leaderboard, [], undefined)).toContain("Last Contest Recap");
-    expect(sectorBoardHtml({ kicker: "Sector Contest", board: undefined, joining: false, waitHintHtml: "", lobbyPanelHtml: "" }))
-      .toContain("data-last-contest-recap-open");
   });
 
   it("consumes the ?recap=last deep link once and strips it from the URL", () => {

@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resetAutoJoinForTests } from "./client-join-season-auto-join/client-join-season-auto-join.js";
 import { JOIN_SEASON_PENDING_WATCHDOG_MS, joinWaitHint, renderJoinSeasonOverlay } from "./client-join-season-overlay.js";
 
 const makeState = (overrides: Record<string, unknown> = {}) => ({
@@ -14,6 +15,8 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe("join-season overlay", () => {
+  beforeEach(() => resetAutoJoinForTests());
+
   it("is hidden when needsSeasonJoin is false", () => {
     const overlayEl = document.createElement("div");
     renderJoinSeasonOverlay({
@@ -71,102 +74,17 @@ describe("join-season overlay", () => {
     expect(overlayEl.querySelector("#join-season-confirm")).toBeTruthy();
   });
 
-  it("shows the running Sector as a board card with its Houses and the next Sector's waitlist", () => {
-    const overlayEl = document.createElement("div");
-    renderJoinSeasonOverlay({
-      state: makeState({
-        needsSeasonJoin: true,
-        joinSeasonOverlayOpen: true,
-        joinSeasonId: "season-42",
-        sectorBoard: { seasonId: "season-42", houses: 42, maxHouses: 100, full: false, waitingCount: 2 }
-      }) as any,
-      overlayEl,
-      renderHud: () => {},
-      joinSeason: () => true
-    });
-    expect(overlayEl.querySelector("#join-season-title")?.textContent).toBe("Choose your Sector");
-    expect(overlayEl.querySelector('[data-sector-card="current"]')?.textContent).toContain("42 of 100 Houses");
-    expect(overlayEl.querySelector('[data-sector-card="next"]')?.textContent).toContain("2 Houses waiting");
-  });
-
-  it("fetches the board from the gateway once while the board is on screen", async () => {
-    const fetchSpy = vi.fn(async () => ({ json: async () => ({ ok: true, seasonId: "season-board-test", houses: 7, maxHouses: 100, full: false, waitingCount: 0 }) }));
-    vi.stubGlobal("fetch", fetchSpy);
-    try {
-      const overlayEl = document.createElement("div");
-      const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonId: "season-board-test" }) as any;
-      const render = () => renderJoinSeasonOverlay({ state, overlayEl, renderHud: render, joinSeason: () => true, wsUrl: "wss://board.example.test/ws" });
-      render();
-      await vi.waitFor(() => expect(overlayEl.textContent).toContain("7 of 100 Houses"));
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-      expect(String((fetchSpy.mock.calls[0] as unknown[])[0])).toMatch(/\/sector\/board$/);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("does not show another season's board counts (review regression)", () => {
-    const overlayEl = document.createElement("div");
-    renderJoinSeasonOverlay({
-      state: makeState({
-        needsSeasonJoin: true,
-        joinSeasonOverlayOpen: true,
-        joinSeasonId: "season-43",
-        sectorBoard: { seasonId: "season-42", houses: 100, maxHouses: 100, full: true, waitingCount: 9 }
-      }) as any,
-      overlayEl,
-      renderHud: () => {},
-      joinSeason: () => true
-    });
-    expect(overlayEl.textContent).toContain("Counting Houses");
-    expect(overlayEl.textContent).not.toContain("looks full");
-  });
-
-  it("retries a failed board load on a later render even though nothing on screen changed (review regression)", async () => {
-    vi.useFakeTimers({ toFake: ["setTimeout", "Date"] });
-    let calls = 0;
-    const fetchSpy = vi.fn(async () => {
-      calls += 1;
-      if (calls === 1) throw new Error("gateway down");
-      return { json: async () => ({ ok: true, seasonId: "season-retry-test", houses: 3, maxHouses: 100, full: false, waitingCount: 0 }) };
-    });
-    vi.stubGlobal("fetch", fetchSpy);
-    try {
-      const overlayEl = document.createElement("div");
-      const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonId: "season-retry-test" }) as any;
-      const render = () => renderJoinSeasonOverlay({ state, overlayEl, renderHud: render, joinSeason: () => true, wsUrl: "wss://retry.example.test/ws" });
-      render();
-      await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
-      await vi.advanceTimersByTimeAsync(31_000);
-      await vi.waitFor(() => expect(overlayEl.textContent).toContain("3 of 100 Houses"));
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
-    } finally {
-      vi.unstubAllGlobals();
-      vi.useRealTimers();
-    }
-  });
-
-  it("calls joinSeason and marks pending when the confirm button is clicked", () => {
+  it("calls joinSeason and marks pending when Play is clicked after the automatic join could not be sent", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonId: "season-42" });
-    const joinSeason = vi.fn(() => true);
+    const joinSeason = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
     const renderHud = vi.fn();
     renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason });
     const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement;
+    expect(confirmBtn.textContent).toContain("Play");
     confirmBtn.click();
     expect(state.joinSeasonPending).toBe(true);
-    expect(joinSeason).toHaveBeenCalledTimes(1);
-    expect(renderHud).toHaveBeenCalledTimes(1);
-  });
-
-  it("closes the overlay when the close button is clicked", () => {
-    const overlayEl = document.createElement("div");
-    const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true });
-    const renderHud = vi.fn();
-    renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason: () => true });
-    const closeBtn = overlayEl.querySelector("#join-season-close") as HTMLButtonElement;
-    closeBtn.click();
-    expect(state.joinSeasonOverlayOpen).toBe(false);
+    expect(joinSeason).toHaveBeenCalledTimes(2);
     expect(renderHud).toHaveBeenCalledTimes(1);
   });
 
@@ -178,7 +96,7 @@ describe("join-season overlay", () => {
     renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason });
     const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement;
     confirmBtn.click();
-    expect(joinSeason).toHaveBeenCalledTimes(1);
+    expect(joinSeason).toHaveBeenCalledTimes(2); // the automatic attempt, then the click
     expect(state.joinSeasonPending).toBe(false);
   });
 
@@ -278,7 +196,7 @@ describe("join-season overlay", () => {
     expect(document.body.classList.contains("season-lobby-active")).toBe(true);
   });
 
-  it("plain join-now branch shows the invite actions alongside its Join button, without a countdown or a waiting count", () => {
+  it("plain join-now branch is only a joining card: no board, roster, close button or invite actions", () => {
     const overlayEl = document.createElement("div");
     renderJoinSeasonOverlay({
       state: makeState({
@@ -293,16 +211,12 @@ describe("join-season overlay", () => {
       renderHud: () => {},
       joinSeason: () => true
     });
-    // The season is already active here -- "waiting count"/roster describe
-    // people holding a reserved spot for a world that hasn't started, which
-    // doesn't apply once play is underway, so this branch must not show it.
-    expect(overlayEl.innerHTML).not.toContain("PLAYERS WAITING");
-    expect(overlayEl.innerHTML).not.toContain("PLAYERS</div>");
+    expect(overlayEl.textContent).not.toContain("Choose your Sector");
     expect(overlayEl.innerHTML).not.toContain("Alice");
-    // Hasn't joined yet -- must not claim "You're in".
     expect(overlayEl.innerHTML).not.toContain("You're in");
-    expect(overlayEl.querySelector("#join-season-confirm")).toBeTruthy();
-    expect(overlayEl.querySelector("#season-lobby-discord")).toBeTruthy();
+    expect(overlayEl.querySelector("#join-season-close")).toBeFalsy();
+    expect(overlayEl.querySelector("#season-lobby-discord")).toBeFalsy();
+    expect(overlayEl.querySelector("#join-season-title")?.textContent).toBe("Entering the Sector");
   });
 
   it("never renders a flag picker or flag emoji in either branch", () => {
@@ -362,7 +276,8 @@ describe("join-season overlay", () => {
       const overlayEl = document.createElement("div");
       const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonPending: true }) as any;
       const pushFeed = vi.fn();
-      const renderHud = vi.fn(() => renderJoinSeasonOverlay({ state, overlayEl, renderHud, joinSeason: () => true, pushFeed }));
+      // The automatic retry after the give-up cannot send either, so Play is offered.
+      const renderHud = vi.fn(() => renderJoinSeasonOverlay({ state, overlayEl, renderHud, joinSeason: () => false, pushFeed }));
       renderJoinSeasonOverlay({ state, overlayEl, renderHud, joinSeason: () => true, pushFeed });
       expect(overlayEl.querySelector<HTMLButtonElement>("#join-season-confirm")?.disabled).toBe(true);
       vi.advanceTimersByTime(JOIN_SEASON_PENDING_WATCHDOG_MS + 1);
@@ -370,7 +285,7 @@ describe("join-season overlay", () => {
       expect(pushFeed).toHaveBeenCalledTimes(1);
       const btn = overlayEl.querySelector<HTMLButtonElement>("#join-season-confirm");
       expect(btn?.disabled).toBe(false);
-      expect(btn?.textContent).toContain("Join this Sector Contest");
+      expect(btn?.textContent).toContain("Play");
     } finally {
       vi.useRealTimers();
     }

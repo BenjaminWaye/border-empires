@@ -612,7 +612,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   renderJoinSeasonOverlay({
     state, overlayEl: dom.joinSeasonOverlayEl, renderHud: () => renderClientHud(deps),
     joinSeason: () => sendGameMessage({ type: "JOIN_SEASON" }, "Finish sign-in before joining the Sector Contest."),
-    pushFeed, wsUrl
+    pushFeed
   });
   renderSeasonEndOverlay({
     state, overlayEl: dom.seasonEndOverlayEl, renderHud: () => renderClientHud(deps),
