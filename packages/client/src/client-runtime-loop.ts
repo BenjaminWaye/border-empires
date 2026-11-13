@@ -1081,7 +1081,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           ? "Frontier result delayed; keeping optimistic tile while continuing queue."
           : "Combat result delayed locally; continuing queue.",
         "combat",
-        "warn"
+        "info"
       );
       if (keepOptimisticExpand) {
         state.frontierSyncWaitUntilByTarget.set(timedOutCurrentKey, Date.now() + 12_000);

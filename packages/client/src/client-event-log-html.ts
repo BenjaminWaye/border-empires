@@ -62,6 +62,7 @@ export type EventLogFeedEntry = {
   focusX?: number;
   focusY?: number;
   actionLabel?: string;
+  feedOnly: true;
 };
 
 // Converts a server eventLog entry into the shape appendFeedEntry expects,
@@ -73,6 +74,8 @@ export const feedEntryForEventLogEntry = (entry: ClientEventLogEntry): EventLogF
     text: entry.text,
     type,
     severity,
+    // Server event history (live or login backfill), not a reply to a click.
+    feedOnly: true,
     at: entry.occurredAt,
     ...(typeof entry.surveyX === "number" && typeof entry.surveyY === "number"
       ? { focusX: entry.surveyX, focusY: entry.surveyY, actionLabel: "View survey" }
