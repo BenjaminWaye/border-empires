@@ -141,6 +141,21 @@ describe("galaxy routes — Outposts/Stipends", () => {
     expect(publicResponse.json().outposts).toEqual([]);
   });
 
+  it("does not list a Stipend whose whole-number payout rounds to 0", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
+    await authBindingStore.bindIdentity({ uid: "uid-3", playerId: "player-3" });
+    const bystanderIdentity: GatewayResolvedIdentity = { playerId: "player-3", playerName: "Bystander", authUid: "uid-3" };
+    const app = buildApp({
+      archives: [wonArchive({ galaxyTiers: [{ playerId: "player-3", playerName: "Bystander", tier: "STIPEND", influence: 0.3 }] })],
+      identityForToken: (auth) => (auth === "Bearer bystander-token" ? bystanderIdentity : undefined),
+      authBindingStore
+    });
+
+    const meResponse = await app.inject({ method: "GET", url: "/hq/galaxy/me", headers: { authorization: "Bearer bystander-token" } });
+    expect(meResponse.json().stipends).toEqual([]);
+  });
+
   it("does not leak another account's Outpost/Stipend records into /me", async () => {
     const authBindingStore = new InMemoryGatewayAuthBindingStore();
     await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });

@@ -29,4 +29,20 @@ describe("SqliteGalaxyEconomyStore.creditStipendOnce", () => {
     await store.creditStipendOnce({ authUid: "uid-1", seasonId: "s-2", influence: 1, now: 5_000 });
     await expect(store.getBalance("uid-1")).resolves.toEqual({ authUid: "uid-1", influence: 3, production: 5, lastCycleAt: 100 });
   });
+
+  it("answers an already-paid Stipend without opening a write transaction", async () => {
+    const db = new DatabaseSync(":memory:") as { exec: (sql: string) => void };
+    const store = new SqliteGalaxyEconomyStore(db as unknown as ConstructorParameters<typeof SqliteGalaxyEconomyStore>[0]);
+    await store.applySchema();
+    await store.creditStipendOnce({ authUid: "uid-1", seasonId: "s-1", influence: 9, now: 5_000 });
+
+    const execs: string[] = [];
+    const realExec = db.exec.bind(db);
+    db.exec = (sql: string) => {
+      execs.push(sql);
+      realExec(sql);
+    };
+    await expect(store.creditStipendOnce({ authUid: "uid-1", seasonId: "s-1", influence: 9, now: 6_000 })).resolves.toBe(false);
+    expect(execs).toEqual([]);
+  });
 });

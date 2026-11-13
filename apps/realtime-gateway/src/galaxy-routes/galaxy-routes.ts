@@ -202,13 +202,17 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
             ...(outpostStability !== undefined ? { stability: outpostStability } : {})
           });
         } else if (tier.tier === "STIPEND") {
+          // Same whole-number amount the payout uses; one that rounds to 0
+          // pays nothing, so it isn't listed either.
+          const amounts = stipendPayoutAmounts(tier);
+          if (amounts.influence === 0) continue;
           stipends.push({
             seasonId: season.seasonId,
             seasonSequence: season.seasonSequence,
             ...(season.sectorLabel ? { sectorNumber: season.sectorLabel.sectorNumber, campaign: season.sectorLabel.campaign } : {}),
             tier: "STIPEND",
             awardedAt: season.endedAt,
-            ...stipendPayoutAmounts(tier)
+            ...amounts
           });
         }
       }

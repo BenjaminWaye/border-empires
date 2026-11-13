@@ -143,6 +143,13 @@ export class SqliteGalaxyEconomyStore implements GalaxyEconomyStore {
   }
 
   async creditStipendOnce(input: StipendCredit): Promise<boolean> {
+    // Every Cycle poll re-offers every Stipend in history, and almost all are
+    // already paid: answer those with a plain read instead of a write-lock
+    // transaction. The INSERT below still guards a race between the two.
+    const alreadyPaid = this.db
+      .prepare(`SELECT 1 FROM galaxy_stipend_payouts WHERE auth_uid = ? AND season_id = ?`)
+      .get(input.authUid, input.seasonId);
+    if (alreadyPaid) return false;
     this.db.exec("BEGIN IMMEDIATE");
     try {
       const inserted = this.db
