@@ -46,6 +46,8 @@ const collectArchiveIds = (rows: SeasonArchiveRow[]): Set<string> => {
     for (const entry of row.mostPoints) ids.add(entry.playerId);
     for (const entry of row.longestSurvivalMs) ids.add(entry.playerId);
     for (const tier of row.galaxyTiers ?? []) ids.add(tier.playerId);
+    for (const entry of row.finalStandings ?? []) ids.add(entry.id);
+    for (const objective of row.seasonVictory ?? []) if (objective.leaderPlayerId) ids.add(objective.leaderPlayerId);
   }
   return ids;
 };
@@ -173,7 +175,9 @@ export const hydrateSeasonArchiveDisplayNames = async (
       ...(galaxyTiers ? { galaxyTiers } : {}),
       mostTerritory: overrideArchivePlayerNames(row.mostTerritory, lookup),
       mostPoints: overrideArchivePlayerNames(row.mostPoints, lookup),
-      longestSurvivalMs: overrideArchivePlayerNames(row.longestSurvivalMs, lookup)
+      longestSurvivalMs: overrideArchivePlayerNames(row.longestSurvivalMs, lookup),
+      ...(row.finalStandings ? { finalStandings: overrideEntryNames(row.finalStandings, lookup) } : {}),
+      ...(row.seasonVictory ? { seasonVictory: overrideSeasonVictoryLeaderNames(row.seasonVictory, lookup) } : {})
     };
   });
 };

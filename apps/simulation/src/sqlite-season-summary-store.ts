@@ -1,4 +1,5 @@
 import { upgradeLegacyStructureNames } from "@border-empires/shared";
+import { withBackfilledLatestStandings } from "./season-summary/season-archive-standings.js";
 import type { DatabaseSync } from "node:sqlite";
 import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonParticipationRow } from "@border-empires/sim-protocol";
 
@@ -170,7 +171,8 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
     const rows = this.db
       .prepare(`SELECT summary_json FROM season_archive ORDER BY ended_at DESC LIMIT ?`)
       .all(limit) as ArchiveRow[];
-    return rows.map((row) => upgradeLegacyStructureNames(JSON.parse(row.summary_json) as SeasonArchiveRow));
+    const archives = rows.map((row) => upgradeLegacyStructureNames(JSON.parse(row.summary_json) as SeasonArchiveRow));
+    return withBackfilledLatestStandings(archives, (seasonId) => this.listParticipationForSeason(seasonId));
   }
 
   async archiveSeason(summary: SeasonArchiveRow): Promise<void> {
@@ -219,13 +221,22 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
   }
 
   async listParticipationForPlayer(playerId: string, limit = 200): Promise<SeasonParticipationRow[]> {
+    return this.selectParticipation(`WHERE player_id = ? ORDER BY ended_at DESC LIMIT ?`, playerId, limit);
+  }
+
+  /** Every player's row for one ended season, best rank first (backfills SeasonArchiveRow.finalStandings). */
+  async listParticipationForSeason(seasonId: string): Promise<SeasonParticipationRow[]> {
+    return this.selectParticipation(`WHERE season_id = ? ORDER BY rank ASC`, seasonId);
+  }
+
+  private selectParticipation(whereClause: string, ...params: Array<string | number>): SeasonParticipationRow[] {
     const rows = this.db
       .prepare(
         `SELECT season_id, season_sequence, player_id, player_name, rank, score, tiles, income_per_minute, techs, ended_at,
            rating_before, rating_after
-         FROM season_participation WHERE player_id = ? ORDER BY ended_at DESC LIMIT ?`
+         FROM season_participation ${whereClause}`
       )
-      .all(playerId, limit) as Array<{
+      .all(...params) as Array<{
         season_id: string; season_sequence: number; player_id: string; player_name: string;
         rank: number; score: number; tiles: number; income_per_minute: number; techs: number; ended_at: number;
         rating_before: number | null; rating_after: number | null;

@@ -187,7 +187,20 @@ export type SeasonArchiveRow = {
   replayEvents: Array<Record<string, unknown>>;
   defenseCampaignTargetSeasonId?: string;
   seasonStats?: SeasonStats;
+  // Full final leaderboard and victory-path dials, so the client can reopen
+  // the season-end recap after the next contest has started. Absent on rows
+  // archived before these existed; the simulation backfills finalStandings
+  // for the newest archive from season participation rows on read.
+  finalStandings?: SeasonArchiveStanding[];
+  seasonVictory?: SeasonVictoryObjectiveSnapshot[];
 };
+
+// GET /seasons/last-recap (gateway): the newest archive without its replay
+// log, backing the client's reopenable "Last Contest Recap" overlay.
+export type SeasonArchiveRecap = Omit<SeasonArchiveRow, "replayEvents">;
+export type LastContestRecapResponse = { ok: true; recap: SeasonArchiveRecap | null } | { ok: false; error: string };
+
+export type SeasonArchiveStanding = Pick<LeaderboardOverallEntry, "id" | "name" | "rank" | "score" | "tiles" | "incomePerMinute" | "techs">;
 
 // One player's full-leaderboard snapshot (not top-N truncated, unlike
 // SeasonArchiveRow's mostPoints/mostTerritory) at the end of a season they

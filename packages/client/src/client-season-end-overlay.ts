@@ -3,12 +3,15 @@ import { attachSeasonForceHold, consumeForceHoldClick } from "./client-season-en
 import type {
   LeaderboardOverallEntry,
   LeaderboardMetricEntry,
-  SeasonStatsView,
   SeasonVictoryObjectiveView,
   SeasonWinnerView
 } from "./client-types.js";
 import { setReportOpen } from "./client-bug-report/client-bug-report.js";
-import { escapeHtml, missingHistoryNotice } from "./client-season-end-overlay/client-season-end-html.js";
+import { escapeHtml } from "./client-season-end-overlay/client-season-end-html.js";
+import {
+  closeLastContestRecap, installLastContestRecapTriggers, lastContestRecapOverlayState, lastContestRecapStatusHtml
+} from "./client-last-contest-recap/client-last-contest-recap.js";
+import { miscPanel } from "./client-season-end-overlay/client-season-end-misc-panel.js";
 import { scoreGraphPanel } from "./client-season-end-score-graph.js";
 import { nextContestButtonLabel, nextContestFineprint } from "./client-next-contest/client-next-contest.js";
 
@@ -20,8 +23,7 @@ type SeasonEndLeaderboard = {
   byTechs: LeaderboardMetricEntry[];
 };
 
-type SeasonEndOverlayDeps = {
-  state: Pick<
+type SeasonEndViewState = Pick<
     ClientState,
     | "me"
     | "seasonWinner"
@@ -40,6 +42,9 @@ type SeasonEndOverlayDeps = {
     | "playerColors"
     | "mapRevealEligible"
   >;
+
+type SeasonEndOverlayDeps = {
+  state: SeasonEndViewState & Pick<ClientState, "lastContestRecap">;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
   // Commits this House to the next Sector Contest.
@@ -50,6 +55,16 @@ type SeasonEndOverlayDeps = {
   forceStartNewSeason?: () => boolean;
   // Guests can't commit; the button offers to save the empire instead.
   openGuestSave?: () => void;
+  // Enables the reopenable Last Contest Recap (client-last-contest-recap).
+  wsUrl?: string;
+};
+
+// The plate renderer's inputs: the live season-end slice, or one rebuilt from
+// the archived recap (with `recap` set: read-only, a Close button instead of
+// the next-contest controls).
+type SeasonEndPlateDeps = Omit<SeasonEndOverlayDeps, "state"> & {
+  state: SeasonEndViewState;
+  recap?: { onClose: () => void };
 };
 
 const SEASON_START_SIGN_IN_MESSAGE = "Finish sign-in before joining the next Sector Contest.";
@@ -93,16 +108,17 @@ const currentPlayerName = (leaderboard: SeasonEndLeaderboard, id: string | undef
 const num = (value: number, digits = 0): string =>
   value.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
-const seasonEndVisible = (state: SeasonEndOverlayDeps["state"]): boolean =>
+const seasonEndVisible = (state: SeasonEndViewState): boolean =>
   Boolean(state.seasonWinner) && !state.seasonEndDismissed;
 
-const seasonEndScoreHistory = (state: SeasonEndOverlayDeps["state"]): ClientState["seasonScoreHistory"] => {
+const seasonEndScoreHistory = (state: SeasonEndViewState): ClientState["seasonScoreHistory"] => {
   const saved = state.seasonWinner?.scoreHistory;
   return saved?.some((series) => series.points.length > 0) ? saved : state.seasonScoreHistory;
 };
 
-const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: SeasonEndLeaderboard): string =>
+const renderSignature = (state: SeasonEndViewState, leaderboard: SeasonEndLeaderboard, recap: boolean): string =>
   JSON.stringify({
+    recap,
     winner: [state.seasonWinner?.playerId, state.seasonWinner?.playerName, state.seasonWinner?.crownedAt],
     objective: state.seasonWinner?.objectiveName,
     starting: state.seasonEndStarting,
@@ -223,56 +239,33 @@ const victoryGauges = (
     </section>`;
 };
 
-const miscPanel = (
-  stats: SeasonStatsView | undefined,
-  colors: ReadonlyMap<string, string>,
-  leaderboard: SeasonEndLeaderboard
-): string => {
-  const namedPlayer = (id: string, name: string | undefined): string =>
-    playerBadge(id, currentPlayerName(leaderboard, id, name ?? id), colors);
-  const deadly = stats?.mostDeadlyTile;
-  const road = stats?.longestRoad;
-  const player = deadly?.mostLossesPlayer;
-  const deadlyDetails = deadly
-    ? `<strong>${num(deadly.manpowerLost)}</strong> manpower lost on tile (${deadly.x}, ${deadly.y})
-      ${player
-        ? `<br>Most losses: ${namedPlayer(player.playerId, player.playerName)} · <strong>${num(player.manpowerLost)}</strong> manpower`
-        : missingHistoryNotice("deadliest-tile", "Deadliest tile player losses", "Player loss history unavailable.")}`
-    : missingHistoryNotice("deadliest-tile", "Most Deadly Tile", "No combat record available.");
-  const city = (value: { name: string; x: number; y: number }): string =>
-    `${escapeHtml(value.name)} (${value.x}, ${value.y})`;
-  let roadDetails: string;
-  if (!road) {
-    roadDetails = missingHistoryNotice("longest-road", "Longest Road", "No connected road recorded.");
-  } else {
-    const endpoints = road.fromCity && road.toCity ? `${city(road.fromCity)} ↔ ${city(road.toCity)}` : "";
-    roadDetails = `${road.playerId ? `${namedPlayer(road.playerId, road.playerName)} · ` : ""}<strong>${num(road.tileCount)}</strong> tiles long
-      ${endpoints ? `<br>${endpoints}` : ""}`;
-    if (!road.playerId && !endpoints) {
-      roadDetails += missingHistoryNotice("longest-road", "Longest Road owner and cities", "Road owner and city details unavailable.");
-    } else if (!road.playerId) {
-      roadDetails += missingHistoryNotice("longest-road", "Longest Road owner", "Road owner unavailable.");
-    } else if (!endpoints) {
-      roadDetails += missingHistoryNotice("longest-road", "Longest Road cities", "City details unavailable.");
-    }
+export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
+  const { state, overlayEl, renderHud } = deps;
+  if (deps.wsUrl) installLastContestRecapTriggers(state, { wsUrl: deps.wsUrl, renderHud });
+  // The live season-end screen always wins over an archived recap, and closes
+  // it so the stale recap doesn't reappear once the live one is dismissed.
+  if (seasonEndVisible(state) && state.lastContestRecap.open) state.lastContestRecap = { ...state.lastContestRecap, open: false };
+  if (seasonEndVisible(state) || !state.lastContestRecap.open) {
+    renderSeasonEndPlate(deps);
+    return;
   }
-  return `<section class="se-panel se-misc">
-    <h3 class="se-panel-title">Contest Miscellany</h3>
-    <div class="se-misc-items">
-      <div class="se-misc-item">
-        <span class="se-misc-label">Most Deadly Tile</span>
-        <div class="se-misc-value">${deadlyDetails}</div>
-      </div>
-      <div class="se-misc-item">
-        <span class="se-misc-label">Longest Road</span>
-        <div class="se-misc-value">${roadDetails}</div>
-      </div>
-    </div>
-  </section>`;
+  const close = (): void => closeLastContestRecap(state, renderHud);
+  const recapState = lastContestRecapOverlayState(state);
+  if (recapState) {
+    renderSeasonEndPlate({ ...deps, state: recapState, recap: { onClose: close } });
+    return;
+  }
+  overlayEl.style.display = "grid";
+  const signature = `recap-status:${state.lastContestRecap.load}`;
+  if (overlayEl.dataset.seSignature === signature) return;
+  overlayEl.dataset.seSignature = signature;
+  overlayEl.innerHTML = lastContestRecapStatusHtml(state.lastContestRecap.load);
+  const closeButton = overlayEl.querySelector("#se-recap-close") as HTMLButtonElement | null;
+  if (closeButton) closeButton.onclick = close;
 };
 
-export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
-  const { state, overlayEl, renderHud, startNewSeason, forceStartNewSeason, openGuestSave } = deps;
+const renderSeasonEndPlate = (deps: SeasonEndPlateDeps): void => {
+  const { state, overlayEl, renderHud, startNewSeason, forceStartNewSeason, openGuestSave, recap } = deps;
   const visible = seasonEndVisible(state);
   overlayEl.style.display = visible ? "grid" : "none";
   if (!visible || !state.seasonWinner) {
@@ -284,7 +277,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   }
 
   const leaderboard: SeasonEndLeaderboard = state.leaderboard;
-  const signature = renderSignature(state, leaderboard);
+  const signature = renderSignature(state, leaderboard, Boolean(recap));
   if (overlayEl.dataset.seSignature === signature) return;
   overlayEl.dataset.seSignature = signature;
 
@@ -334,7 +327,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
           <header class="se-header">
             <span class="se-filigree se-filigree-l" aria-hidden="true"></span>
             <div class="se-header-text">
-              <span class="se-kicker">The Great Works Have Settled</span>
+              <span class="se-kicker">${recap ? "Last Sector Contest" : "The Great Works Have Settled"}</span>
               <h2 id="se-title" class="se-title">Sector Contest Concluded</h2>
               <span class="se-subtitle">${empiresContested} ${empiresContested === 1 ? "empire" : "empires"} vied for the crown</span>
             </div>
@@ -358,7 +351,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
               ${victoryHtml}
             </div>` : ""}
             <div class="se-tab-panel${activeTab === "misc" ? " is-active" : ""}" data-tab="misc" role="tabpanel">
-              ${miscPanel(seasonStats, colors, leaderboard)}
+              ${miscPanel(seasonStats, (id, name) => playerBadge(id, currentPlayerName(leaderboard, id, name ?? id), colors))}
             </div>
             <div class="se-tab-panel${activeTab === "score-graph" ? " is-active" : ""}" data-tab="score-graph" role="tabpanel">
               ${scoreGraphHtml}
@@ -366,7 +359,9 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
           </div>`}
         </div>
         <div class="se-scroll-footer">
-          <footer class="se-actions">
+          ${recap ? `<footer class="se-actions">
+            <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Close</button>
+          </footer>` : `<footer class="se-actions">
             <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${newSeasonDisabledAttr} ${forceHoldAttrs}>
               ${canForceStart ? `<span class="se-btn-hold-fill" aria-hidden="true"></span>` : ""}
               <span class="se-btn-cog" aria-hidden="true"></span>
@@ -375,7 +370,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
           </footer>
           ${state.seasonStartError && !starting ? `<p class="se-start-error" role="alert">${escapeHtml(state.seasonStartError)}</p>` : ""}
-          <p class="se-fineprint" aria-live="polite">${escapeHtml(nextContestFineprint(state.seasonStartVoteThreshold, starting, state.seasonStartVoted))}</p>
+          <p class="se-fineprint" aria-live="polite">${escapeHtml(nextContestFineprint(state.seasonStartVoteThreshold, starting, state.seasonStartVoted))}</p>`}
         </div>
       </div>
     </div>`;
@@ -405,6 +400,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
 
   if (lookAround) {
     lookAround.onclick = () => {
+      if (recap) { recap.onClose(); return; }
       state.seasonEndDismissed = true;
       renderHud();
     };

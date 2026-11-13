@@ -7,6 +7,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   me: "player-1",
   seasonWinner: { playerId: "player-1", playerName: "Nauticus", crownedAt: 1700000000000, objectiveId: "TOWN_CONTROL", objectiveName: "Town Control" },
   seasonEndDismissed: false,
+  lastContestRecap: { open: false, load: "idle" as const },
   seasonEndStarting: false,
   seasonStartError: undefined as string | undefined,
   seasonStartVoteCount: 1,

@@ -14,6 +14,7 @@ import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
+import { createInitialLastContestRecapState } from "../client-last-contest-recap/client-last-contest-recap.js";
 import { createInitialTileActionMenuState } from "./client-tile-action-menu-state-defaults.js";
 import { createInitialAetherShieldState } from "../client-aether-tower-protection/client-aether-shield-state.js";
 import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js";
@@ -268,6 +269,7 @@ export const createInitialState = () => ({
   // Season-end screen: shown once a winner is crowned (season ended). The player
   // can dismiss it with "Look Around"; reset on SEASON_ROLLOVER.
   seasonEndDismissed: false,
+  lastContestRecap: createInitialLastContestRecapState(),
   seasonEndStarting: false,
   // Why the last START_NEW_SEASON was refused, shown on the season-end screen (client-next-contest.ts).
   seasonStartError: undefined as string | undefined,
