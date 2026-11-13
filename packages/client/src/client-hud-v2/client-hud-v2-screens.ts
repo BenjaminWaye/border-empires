@@ -195,7 +195,8 @@ const dealFacts = (deps: HudV2Deps, target: string): string => {
   const tilesOf = (id: string): number | undefined =>
     (state.leaderboard.overall.find((e) => e.id === id) ?? (id === state.me ? state.leaderboard.selfOverall : undefined))?.tiles;
   const stance = empireStance(target, { allies: state.allies, activeTruces: state.activeTruces, nowMs: Date.now() });
-  return dealFactsText(stance.kind === "met" ? undefined : stance.label, tilesOf(target), tilesOf(state.me));
+  const theirs = tilesOf(target), mine = tilesOf(state.me);
+  return dealFactsText(stance.kind === "met" ? "" : stance.label, theirs, mine);
 };
 
 /** The alert title for a sent offer; undefined for anything else the deal view sends (e.g. its stance lookup on open). */

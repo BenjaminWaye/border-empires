@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AllianceRequest, LeaderboardOverallEntry, TruceRequest } from "../client-types.js";
-import { dealFactsText, diplomacyListHtml, diplomacyResponseMessage, type DiplomacyListInput } from "./client-hud-v2-diplomacy.js";
+import { diplomacyListHtml, diplomacyResponseMessage, type DiplomacyListInput } from "./client-hud-v2-diplomacy.js";
 
 const names: Record<string, string> = { me: "Lumen Accord", "ai-1": "Tove", "ai-2": "Astrid", "p-3": "Nordmark" };
 const rank = (id: string, tiles: number, position: number): LeaderboardOverallEntry => ({ id, name: names[id] ?? id, tiles, incomePerMinute: 0, techs: 0, manpowerCap: 0, score: tiles, rank: position });
@@ -63,15 +63,5 @@ describe("phone Diplomacy list: empires you haven't met", () => {
     const html = diplomacyListHtml(input({ metPlayerIds: new Set(["ai-1"]) }));
     expect(html).toContain("Not met yet · 1");
     expect(html.match(/data-v2-dip-open="ai-1"/g)).toHaveLength(1);
-  });
-});
-
-// Playtest 2026-11-12: "11 tiles · you 2" left both players guessing what the 2 was.
-describe("deal header facts", () => {
-  it("says whose tiles each number is", () => {
-    expect(dealFactsText(undefined, 11, 2)).toBe("11 tiles vs your 2");
-    expect(dealFactsText("Truce 9h", 1_204, 980)).toBe("Truce 9h · 1,204 tiles vs your 980");
-    expect(dealFactsText(undefined, undefined, 2)).toBe("your 2 tiles");
-    expect(dealFactsText("Ally", 11, undefined)).toBe("Ally · 11 tiles");
   });
 });

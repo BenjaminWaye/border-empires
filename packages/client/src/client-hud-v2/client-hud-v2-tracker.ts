@@ -2,7 +2,7 @@
 // decision, your muster flags, and everything on a timer. Rows carry tile coordinates; clicking one centres
 // the map there (wired by the controller).
 
-import { musterStatusText, type ManpowerPanelMusterFlag } from "../client-side-panel-html/client-side-panel-html.js";
+import { musterFillText, musterStatusText, type ManpowerPanelMusterFlag } from "../client-side-panel-html/client-side-panel-html.js";
 import type { DevelopmentSlotOccupant } from "../client-development-panel/client-development-html.js";
 
 export type TrackerNeed = { kind: "afc" | "flag"; title: string; sub: string; x?: number; y?: number };
@@ -142,8 +142,10 @@ export const trackerHtml = (input: TrackerInput): string => {
   if (input.flags.length > 0) {
     parts.push(`<div class="hud-v2-tracker-head"><span>Flags · ${input.flags.length}</span></div>`);
     parts.push(capped(input.flags, (f) => {
-      const pct = input.flagCap > 0 ? Math.min(100, Math.round((f.amount / input.flagCap) * 100)) : 0;
-      return `<button type="button" class="hud-v2-tracker-row"${focusAttrs(f.x, f.y)}><span class="hud-v2-tracker-title">⚑ (${f.x}, ${f.y}) · <b>${MODE_LABEL[f.mode]}</b><span class="hud-v2-tracker-amt">${Math.round(f.amount)} / ${Math.round(input.flagCap)}</span></span><span class="hud-v2-tracker-bar"><span style="width:${pct}%"></span></span><span class="hud-v2-tracker-sub">${esc(musterStatusText(f, input.nowMs))}</span></button>`;
+      // Each flag's own cap (Expand Capacity raises it), the same figure the Manpower panel shows.
+      const cap = f.cap ?? input.flagCap;
+      const pct = cap > 0 ? Math.min(100, Math.round((f.amount / cap) * 100)) : 0;
+      return `<button type="button" class="hud-v2-tracker-row"${focusAttrs(f.x, f.y)}><span class="hud-v2-tracker-title">⚑ (${f.x}, ${f.y}) · <b>${MODE_LABEL[f.mode]}</b><span class="hud-v2-tracker-amt">${esc(musterFillText({ amount: f.amount, cap }))}</span></span><span class="hud-v2-tracker-bar"><span style="width:${pct}%"></span></span><span class="hud-v2-tracker-sub">${esc(musterStatusText(f, input.nowMs))}</span></button>`;
     }));
   }
   // Builds and garrisons are listed under Dev slots; this group is the attack or expansion still landing.

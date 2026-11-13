@@ -48,6 +48,19 @@ const rowsOf = (map: Map<string, Tile>) => deriveTownListRows(map.values(), "me"
 const plain = (x: number, y: number, overrides: Partial<Tile> = {}): Tile => ({ x, y, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", ...overrides });
 
 describe("town list", () => {
+  // Playtest 2026-11-12: Towns said 17,135 / 10,000,000 (the hard cap) while
+  // the town's own screen said 17,135 / 100,000 (growth to City).
+  it("shows the next tier's population, like the town screen, not the hard cap", () => {
+    const map = mapOf([townTile(1, "Durndelve", 1, 17_135, { town: { ...townTile(1, "Durndelve", 1, 17_135).town!, maxPopulation: 10_000_000 } })]);
+    expect(rowsOf(map)[0]?.maxPopulation).toBe(100_000);
+    expect(townListCardHtml(map, "me")).toContain("17,135<small>/ 100,000</small>");
+  });
+
+  it("labels the income column Coin/day, like every other screen", () => {
+    expect(townListCardHtml(tiles, "me")).toContain("Coin/day");
+    expect(townListCardHtml(tiles, "me")).not.toContain("Gold");
+  });
+
   it("lists only the viewer's visible towns", () => {
     expect(rowsOf(tiles).map((row) => row.name)).toEqual(["Ashford", "Brimvale", "Cogsworth"]);
   });

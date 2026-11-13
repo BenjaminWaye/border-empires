@@ -115,13 +115,13 @@ export const diplomacyListHtml = (input: DiplomacyListInput): string => {
   return `${reqHtml}${sentHtml}<section class="v2d-grid-wrap"><h2 class="v2s-h2">Empires you've met · ${empires.length}</h2><div class="v2d-grid">${grid}</div></section>${unmetHtml}`;
 };
 
-/** The deal's top line: the relation, then both sizes in tiles ("Truce 9h · 135 tiles vs your 20"). */
-export const dealFactsText = (stanceLabel: string | undefined, theirTiles: number | undefined, myTiles: number | undefined): string => {
-  const fmt = (n: number): string => n.toLocaleString("en-US");
-  const sizes = theirTiles === undefined
-    ? myTiles === undefined ? "" : `your ${fmt(myTiles)} tiles`
-    : `${fmt(theirTiles)} tiles${myTiles === undefined ? "" : ` vs your ${fmt(myTiles)}`}`;
-  return [stanceLabel ?? "", sizes].filter(Boolean).join(" · ");
+/**
+ * The deal's top line: relation and both tile counts ("Ally · 1,204 tiles · you have 980").
+ * Playtest 2026-11-12: a bare "you 1" read as an unexplained number.
+ */
+export const dealFactsText = (stanceLabel: string, theirs: number | undefined, mine: number | undefined): string => {
+  const tiles = (n: number): string => `${n.toLocaleString("en-US")} tile${n === 1 ? "" : "s"}`;
+  return [stanceLabel, theirs === undefined ? "" : tiles(theirs), mine === undefined ? "" : `you have ${mine.toLocaleString("en-US")}`].filter(Boolean).join(" · ");
 };
 
 /** `facts`: the relation and tile counts the trade view itself doesn't show (dealFactsText). */
