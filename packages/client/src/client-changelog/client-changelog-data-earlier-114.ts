@@ -5,7 +5,7 @@ import { STRATEGIC_DEPOSIT_REACH_ENTRY } from "./client-changelog-strategic-depo
 import { DOCK_ART_ENTRY } from "./client-changelog-dock-art.js";
 import { TOWN_REFINERIES_ENTRY } from "./client-changelog-town-refineries.js";
 import { LAST_CONTEST_RECAP_ENTRY } from "./client-changelog-last-contest-recap.js";
-import { OWNER_COLOURS_COLOUR_BLIND_ENTRY } from "./client-changelog-owner-colours-colour-blind.js";
+import { AETHER_PURGE_RAZES_BEACON_ENTRY } from "./client-changelog-aether-purge-razes-beacon.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_114: ClientChangelogEntry[] = [
@@ -15,5 +15,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_114: ClientChangelogEntry[] = [
   { ...DOCK_ART_ENTRY, createdAt: 1794521176798, },
   { ...TOWN_REFINERIES_ENTRY, createdAt: 1794522848705, },
   { ...LAST_CONTEST_RECAP_ENTRY, createdAt: 1794556633359, },
-  { ...OWNER_COLOURS_COLOUR_BLIND_ENTRY, createdAt: 1794561750842, },
+  { ...AETHER_PURGE_RAZES_BEACON_ENTRY, createdAt: 1794436718206, },
 ];
