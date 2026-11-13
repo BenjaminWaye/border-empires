@@ -6,7 +6,7 @@ import { escapeHtml as esc } from "../client-duke-panel/client-duke-escape.js";
 import { formatOpenSlots, type TownListRow, type TownListSort, type TownListSortKey } from "../client-town-list/client-town-list.js";
 
 const COLUMNS: Array<{ key: TownListSortKey; label: string }> = [
-  { key: "gold", label: "Gold/day" },
+  { key: "gold", label: "Coin/day" },
   { key: "population", label: "Population" },
   { key: "growth", label: "Growth/min" },
   { key: "slots", label: "Slots" }
