@@ -16,6 +16,8 @@ import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import type { SectorWaitlistStore } from "../sector-waitlist-store/sector-waitlist-store.js";
 import { resolveMaxSeasonPlayersForGateway } from "../season-lobby-broadcast/season-lobby-broadcast.js";
 import type { PlayerFunnelStore } from "../player-funnel-store/player-funnel-store.js";
+import { resolveEmailAppUrl, type EmailAlertConfig } from "../email-alerts/email-alerts.js";
+import { createEmailUnsubscribeSigner, resolveEmailUnsubscribeSecret } from "../email-unsubscribe/email-unsubscribe-token.js";
 import type { PlayerFunnelTracker } from "../player-funnel-tracker/player-funnel-tracker.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
@@ -82,6 +84,10 @@ export type BuildGatewayHttpRoutesDepsContext = {
   galaxyExplorationStore?: GalaxyExplorationStore;
   galaxyDukeService?: GalaxyDukeService;
   authBindingStore: GatewayAuthBindingStore;
+  // Same config the email alert service signs unsubscribe links with, so the
+  // /email/unsubscribe route verifies them with the identical secret.
+  emailAlertConfig?: EmailAlertConfig | undefined;
+  invalidateProfileCache?: (playerId: string) => void;
   disconnectDeletedPlayer?: (playerId: string) => void;
   sovereignSiegeEngineStrikeStore: SovereignSiegeEngineStrikeStore;
   // Static admin token (ADMIN_API_TOKEN) and the one admin identity
@@ -96,6 +102,21 @@ export type BuildGatewayHttpRoutesDepsContext = {
   simDiagnostics?: () => unknown[];
   snapshotForPlayer: (playerId: string) => { allies: string[]; activeTruces: PublicSocialActiveTruce[]; truceBreaksThisSeason: PublicSocialTruceBreak[] };
   playerFunnel?: { store: PlayerFunnelStore; tracker: PlayerFunnelTracker };
+};
+
+// Only mounts /email/unsubscribe when a signing secret is available -- with
+// no secret the email service sends no unsubscribe links either.
+const emailUnsubscribeRouteDeps = (ctx: BuildGatewayHttpRoutesDepsContext): Pick<RegisterGatewayHttpRoutesDeps, "emailUnsubscribe"> => {
+  const secret = resolveEmailUnsubscribeSecret(ctx.emailAlertConfig ?? {});
+  if (!secret) return {};
+  return {
+    emailUnsubscribe: {
+      signer: createEmailUnsubscribeSigner(secret),
+      appUrl: resolveEmailAppUrl(ctx.emailAlertConfig?.appUrl),
+      profileStore: ctx.profileStore,
+      ...(ctx.invalidateProfileCache ? { invalidateProfileCache: ctx.invalidateProfileCache } : {})
+    }
+  };
 };
 
 export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatewayHttpRoutesDepsContext): RegisterGatewayHttpRoutesDeps => {
@@ -211,6 +232,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     ...(ctx.galaxyExplorationStore ? { galaxyExplorationStore: ctx.galaxyExplorationStore } : {}),
     ...(ctx.galaxyDukeService ? { galaxyDukeService: ctx.galaxyDukeService } : {}),
     authBindingStore: ctx.authBindingStore,
+    ...emailUnsubscribeRouteDeps(ctx),
     sovereignSiegeEngineStrikeStore: ctx.sovereignSiegeEngineStrikeStore,
     ...(ctx.playerFunnel
       ? {

@@ -5,6 +5,7 @@
 // galaxy map. Guests who pressed "Play now" never see it: they are sent
 // straight in (client-guest-play.ts). Data comes from GET /sector/board.
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
+import { lastContestRecapButtonHtml } from "../client-last-contest-recap/client-last-contest-recap.js";
 
 export type SectorBoardView = { seasonId: string; houses: number; maxHouses: number; full: boolean; waitingCount: number };
 
@@ -72,6 +73,7 @@ export const sectorBoardHtml = ({ kicker, board, joining, waitHintHtml, lobbyPan
             ${waiting ? `<div class="sector-board-meta">${waiting}</div>` : ""}
           </li>
         </ul>
+        <p class="sector-board-recap">Curious how the last contest ended? ${lastContestRecapButtonHtml()}</p>
       </div>
     </div>
   `;

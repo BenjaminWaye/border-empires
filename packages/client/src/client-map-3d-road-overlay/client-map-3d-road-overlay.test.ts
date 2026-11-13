@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { BRICK_FRAGMENT, buildRoadFragmentShader, DIRT_FRAGMENT } from "./client-map-3d-road-fragments.js";
+import { BRICK_FRAGMENT, buildRoadFragmentShader, DIRT_FRAGMENT, SHADOW_FRAGMENT } from "./client-map-3d-road-fragments.js";
 
 const clientSource = (filename: string): string => {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -12,25 +12,30 @@ const clientSource = (filename: string): string => {
 describe("3d road overlay regression guard", () => {
   it("keeps 3d roads as curved eight-direction ribbons with junction hubs", () => {
     const source = clientSource("./client-map-3d-road-overlay.ts");
+    const centerline = clientSource("./client-map-3d-road-centerline.ts");
 
-    expect(source).toContain("const ROAD_DIRS: readonly RoadDir[] = [");
-    expect(source).toContain('"northeast"');
-    expect(source).toContain('"southwest"');
-    expect(source).toContain("const curvedArmPoints =");
+    expect(centerline).toContain("export const ROAD_DIRS: readonly RoadDir[] = [");
+    expect(centerline).toContain('"northeast"');
+    expect(centerline).toContain('"southwest"');
+    expect(centerline).toContain("export const roadArmPoints =");
+    expect(centerline).toContain("export const roadThroughPoints =");
+    expect(source).toContain("roadTileCenterlines(");
     expect(source).toContain("const addHub =");
-    expect(source).toContain("getCubicBezierPoint");
     expect(source).toContain("ShaderMaterial");
     expect(source).toContain("side: DoubleSide");
     expect(source).toContain("polygonOffset: true");
   });
 
-  it("defaults to the dirt style and lets storybook select the preserved brick style", () => {
+  it("defaults to dirt and offers the monorail's ground shadow and the brick style", () => {
     const source = clientSource("./client-map-3d-road-overlay.ts");
     expect(source).toMatch(/createRoadOverlay = \(scene: Scene, style: RoadOverlayStyle = "dirt"\)/);
     expect(source).toContain("buildRoadFragmentShader(style)");
+    // The shadow is translucent and must not punch depth holes into the pylons.
+    expect(source).toContain('depthWrite: style !== "shadow"');
 
     expect(buildRoadFragmentShader("dirt")).toBe(DIRT_FRAGMENT);
     expect(buildRoadFragmentShader("brick")).toBe(BRICK_FRAGMENT);
+    expect(buildRoadFragmentShader("shadow")).toBe(SHADOW_FRAGMENT);
     expect(DIRT_FRAGMENT).not.toBe(BRICK_FRAGMENT);
   });
 
@@ -85,7 +90,7 @@ describe("3d road overlay regression guard", () => {
     // `patch` is a reserved tessellation keyword in GLSL ES; using it as a
     // variable made the whole road invisible (shader link failure). Word-boundary
     // match so renames like `soilPatch` still pass.
-    for (const fragment of [DIRT_FRAGMENT, BRICK_FRAGMENT]) {
+    for (const fragment of [DIRT_FRAGMENT, BRICK_FRAGMENT, SHADOW_FRAGMENT]) {
       expect(fragment).not.toMatch(/\bpatch\b/);
       for (const reserved of ["input", "output", "sample", "filter", "class", "interface", "struct", "uniform"]) {
         expect(fragment).not.toMatch(new RegExp(`\\b${reserved}\\b`));

@@ -47,7 +47,6 @@ export type GalaxyViewStipend = {
   seasonId: string;
   seasonSequence: number;
   influence: number;
-  production: number;
   awardedAt: number;
   sectorNumber?: number;
   campaign?: SectorCampaign;
@@ -242,7 +241,7 @@ const outpostRowHtml = (outpost: GalaxyViewOutpost): string => `
 
 const stipendRowHtml = (stipend: GalaxyViewStipend): string => `
   <li class="gx-holding-row" data-galaxy-stipend>
-    ${escapeHtml(sectorOrSeasonLabel(stipend.sectorNumber, stipend.seasonSequence))}: a stipend of ${stipend.influence} Inf / ${stipend.production} Prod
+    ${escapeHtml(sectorOrSeasonLabel(stipend.sectorNumber, stipend.seasonSequence))}: a stipend of ${stipend.influence} Influence
   </li>`;
 
 // Deliberately simple v0 rendering — no starfield hero, just a flat list
