@@ -9,7 +9,7 @@ import type { ClientState } from "../client-state/client-state.js";
 type ReadyState = Pick<
   ClientState,
   "authSessionReady" | "profileSetupRequired" | "mapPrep" | "authError" | "hasEverInitialized" | "firstChunkAt" | "seasonPending" | "needsSeasonJoin" | "joinSeasonOverlayOpen" | "seasonWinner" | "seasonEndDismissed"
->;
+> & { lastContestRecap?: { open: boolean } };
 
 export const hudV2GameOnScreen = (state: ReadyState, body: Pick<HTMLElement, "classList"> | undefined): boolean => {
   if (!state.authSessionReady || state.profileSetupRequired) return false;
@@ -19,6 +19,7 @@ export const hudV2GameOnScreen = (state: ReadyState, body: Pick<HTMLElement, "cl
   if (!state.hasEverInitialized || state.firstChunkAt === 0) return false;
   if (state.seasonPending || (state.needsSeasonJoin && state.joinSeasonOverlayOpen)) return false;
   if (state.seasonWinner && !state.seasonEndDismissed) return false;
+  if (state.lastContestRecap?.open) return false;
   if (body?.classList.contains("season-lobby-active")) return false;
   return true;
 };

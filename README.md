@@ -382,6 +382,7 @@ Full deploy procedures, first-time client provisioning and DNS cutover are docum
 | `ADMIN_API_TOKEN` (gateway) | *(unset)* | Bearer token (or `?token=`) required on `/admin/*` HTTP routes. `/admin?token=…` indexes every admin page, including `/admin/players/insights` (sign-up funnel, new-player milestones, sessions). Also the signing key for read-only agent tokens minted from the Google-signed-in `/admin` page (see `docs/AI_DEBUGGING.md`); rotating it revokes them all. |
 | `GATEWAY_FIREBASE_PROJECT_ID` (gateway) | `border-empires` | Firebase project whose ID tokens the gateway accepts. Tokens are verified (RS256 signature against Google's securetoken JWKS, `iss`, `aud`, `exp`, `iat`) on both the WebSocket `AUTH` message and HTTP bearer routes; unsigned or wrongly signed tokens get `AUTH_FAIL` / `401` and bump `gateway_auth_verification_rejected_total` |
 | `GATEWAY_EMAIL_ALERTS_RESEND_API_KEY` | *(unset)* | Resend API key for outbound email alerts; alert sends no-op without it |
+| `GATEWAY_EMAIL_UNSUBSCRIBE_SECRET` | *(derived from the Resend key)* | Signs the login-free unsubscribe links (`/email/unsubscribe`) and `List-Unsubscribe` headers in gameplay emails. Set it so rotating the Resend key does not invalidate links in already-sent emails |
 
 See `.env.example` for a copyable local-dev template of these.
 

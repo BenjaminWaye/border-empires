@@ -1,4 +1,5 @@
 import type { CurrentSeasonSummary, ScoreHistorySeries, SeasonArchiveRow, SeasonStats, SimulationSeasonState } from "@border-empires/sim-protocol";
+import { standingsFromOverall } from "./season-archive-standings.js";
 
 import { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 import type { SimulationRuntime } from "../runtime/runtime.js";
@@ -133,6 +134,8 @@ export const buildArchiveRow = (summary: CurrentSeasonSummary): SeasonArchiveRow
     ...(summary.seasonStats ? { seasonStats: summary.seasonStats } : {}),
     mostTerritory,
     mostPoints,
+    finalStandings: standingsFromOverall(summary.overall),
+    ...(summary.seasonVictory.length > 0 ? { seasonVictory: summary.seasonVictory } : {}),
     longestSurvivalMs: topLongestSurvival(summary.overall, summary.startedAt, endedAt),
     replayEvents: [],
     ...(summary.defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId: summary.defenseCampaignTargetSeasonId } : {})

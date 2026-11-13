@@ -255,6 +255,37 @@ describe("hydrateSeasonArchiveDisplayNames", () => {
     expect(hydrated[0].galaxyTiers?.[0].playerName).toBe("Runner Up Renamed");
   });
 
+  it("overrides finalStandings and victory-dial leader names used by the last-contest recap", async () => {
+    const store = new InMemoryGatewayPlayerProfileStore();
+    await store.setProfile(opaqueIdA, "Benjamin", "#abcdef");
+
+    const rows: SeasonArchiveRow[] = [
+      {
+        seasonId: "season-1",
+        seasonSequence: 1,
+        endedAt: 2_000,
+        updatedAt: 2_000,
+        finalStandings: [
+          { id: opaqueIdA, name: anonymizedEmpireNameForId(opaqueIdA), rank: 1, score: 9, tiles: 9, incomePerMinute: 1, techs: 1 },
+          { id: opaqueIdB, name: anonymizedEmpireNameForId(opaqueIdB), rank: 2, score: 4, tiles: 4, incomePerMinute: 1, techs: 1 }
+        ],
+        seasonVictory: [
+          { id: "TOWN_CONTROL", name: "Town Control", description: "", leaderPlayerId: opaqueIdA, leaderName: anonymizedEmpireNameForId(opaqueIdA),
+            progressLabel: "", thresholdLabel: "", holdDurationSeconds: 0, statusLabel: "", conditionMet: true } as NonNullable<SeasonArchiveRow["seasonVictory"]>[number]
+        ],
+        mostTerritory: [],
+        mostPoints: [],
+        longestSurvivalMs: [],
+        replayEvents: []
+      }
+    ];
+
+    const hydrated = await hydrateSeasonArchiveDisplayNames(rows, store);
+
+    expect(hydrated[0].finalStandings?.map((entry) => entry.name)).toEqual(["Benjamin", anonymizedEmpireNameForId(opaqueIdB)]);
+    expect(hydrated[0].seasonVictory?.[0]?.leaderName).toBe("Benjamin");
+  });
+
   it("keeps winner undefined when the archive row has no winner", async () => {
     const store = new InMemoryGatewayPlayerProfileStore();
     await store.setProfile(opaqueIdA, "Benjamin", "#abcdef");
