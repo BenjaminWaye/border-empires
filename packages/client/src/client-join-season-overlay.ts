@@ -1,7 +1,7 @@
 import type { ClientState } from "./client-state/client-state.js";
 import type { FeedType, FeedSeverity } from "./client-types.js";
 import { renderSeasonLobbyPanelHtml, bindSeasonLobbyPanel } from "./client-season-lobby-panel.js";
-import { takeAutoJoinTurn } from "./client-join-season-auto-join/client-join-season-auto-join.js";
+import { canAutoJoin, recordAutoJoin } from "./client-join-season-auto-join/client-join-season-auto-join.js";
 import { joinNowHtml } from "./client-join-now-html/client-join-now-html.js";
 
 type JoinSeasonOverlayDeps = {
@@ -144,9 +144,9 @@ const computeRenderKey = (state: JoinSeasonOverlayDeps["state"], visible: boolea
         state.joinSeasonId,
         state.seasonPendingScheduledStartAt,
         state.joinSeasonPending,
-        state.seasonLobbyWaitingCount,
-        state.seasonLobbyMaxPlayers,
-        state.seasonLobbyRoster
+        // The lobby count/roster is only shown in the pending countdown; in
+        // the running-contest card an update must not rebuild the spinner.
+        state.seasonPending ? [state.seasonLobbyWaitingCount, state.seasonLobbyMaxPlayers, state.seasonLobbyRoster] : null
       ]);
 
 // While the join-season overlay is up (either branch), this becomes the ONLY
@@ -246,9 +246,12 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   clearCountdownTimer();
   // The contest is running: send the player straight in (see
   // client-join-season-auto-join.ts). This screen only covers the few
-  // seconds the join takes, plus a Play button if the join could not be sent
-  // or came back without a spawn.
-  if (takeAutoJoinTurn(state, Date.now()) && joinSeason()) state.joinSeasonPending = true;
+  // seconds the join takes, plus a Play button (and a close) if the join
+  // could not be sent, stalled or came back without a spawn.
+  if (canAutoJoin(state) && joinSeason()) {
+    recordAutoJoin(state);
+    state.joinSeasonPending = true;
+  }
   if (state.joinSeasonPending) armJoinPendingWatchdog(deps);
   const joining = state.joinSeasonPending;
   overlayEl.innerHTML = joinNowHtml({
@@ -256,6 +259,13 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
     waitHintHtml: joining ? `<p id="join-season-wait-hint" class="season-lobby-join-wait-hint">${currentJoinWaitHint()}</p>` : ""
   });
 
+  const closeBtn = overlayEl.querySelector("#join-season-close") as HTMLButtonElement | null;
+  if (closeBtn) {
+    closeBtn.onclick = () => {
+      state.joinSeasonOverlayOpen = false;
+      renderHud();
+    };
+  }
   const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement | null;
   if (confirmBtn) {
     confirmBtn.onclick = () => {

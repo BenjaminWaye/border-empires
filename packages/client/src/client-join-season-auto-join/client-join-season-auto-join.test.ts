@@ -1,20 +1,20 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { resetAutoJoinForTests, takeAutoJoinTurn } from "./client-join-season-auto-join.js";
+import { canAutoJoin, recordAutoJoin, resetAutoJoinForTests } from "./client-join-season-auto-join.js";
 
-describe("takeAutoJoinTurn", () => {
-  const ready = { needsSeasonJoin: true, seasonPending: false, joinSeasonPending: false, profileSetupRequired: false };
+describe("auto-join", () => {
+  const ready = { needsSeasonJoin: true, seasonPending: false, joinSeasonPending: false, profileSetupRequired: false, joinSeasonId: "season-1" };
 
   beforeEach(() => resetAutoJoinForTests());
 
-  it("lets a player waiting to join an active season through, once", () => {
-    expect(takeAutoJoinTurn(ready, 100_000)).toBe(true);
-    expect(takeAutoJoinTurn(ready, 100_500)).toBe(false);
+  it("allows one automatic attempt per contest, however long the player waits (no retry loop)", () => {
+    expect(canAutoJoin(ready)).toBe(true);
+    recordAutoJoin(ready);
+    expect(canAutoJoin(ready)).toBe(false);
   });
 
-  it("allows another attempt after a while, so a join that did not spawn is retried but never in a tight loop", () => {
-    expect(takeAutoJoinTurn(ready, 100_000)).toBe(true);
-    expect(takeAutoJoinTurn(ready, 110_000)).toBe(false);
-    expect(takeAutoJoinTurn(ready, 115_001)).toBe(true);
+  it("gives a new contest a fresh attempt after a rollover", () => {
+    recordAutoJoin(ready);
+    expect(canAutoJoin({ ...ready, joinSeasonId: "season-2" })).toBe(true);
   });
 
   it.each([
@@ -23,8 +23,7 @@ describe("takeAutoJoinTurn", () => {
     ["a join already in flight", { joinSeasonPending: true }],
     ["profile setup not finished", { profileSetupRequired: true }]
   ])("does not fire for %s", (_label, override) => {
-    expect(takeAutoJoinTurn({ ...ready, ...override }, 100_000)).toBe(false);
-    // a refusal must not use up the turn
-    expect(takeAutoJoinTurn(ready, 100_000)).toBe(true);
+    expect(canAutoJoin({ ...ready, ...override })).toBe(false);
+    expect(canAutoJoin(ready)).toBe(true);
   });
 });
