@@ -163,7 +163,9 @@ Relics are fixed remnants of the Concordance's planetary megastructures.
 Their shared ziggurat-shaped surface buildings are access and control
 structures; different installations survive below them and provide different
 capabilities. The ground around the access structure is part of the installation
-and is kept clear of new buildings. The installations remain part of the planet
+and is kept clear of new buildings; whoever holds the access structure holds
+that ground with it, and the site is taken or lost as one. An AFC's landing
+pad is held the same way. The installations remain part of the planet
 after a war game.
 Their physical survival does not establish continued House ownership or
 bonuses between campaigns.

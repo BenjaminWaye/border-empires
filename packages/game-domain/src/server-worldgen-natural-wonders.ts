@@ -17,12 +17,25 @@ const manhattanWrap = (ax: number, ay: number, bx: number, by: number, width: nu
 };
 
 export const createServerWorldgenNaturalWonders = (deps: ServerWorldgenNaturalWondersDeps): ServerWorldgenNaturalWondersRuntime => {
-  const { seeded01, naturalWondersByTile, WORLD_WIDTH, WORLD_HEIGHT, terrainAt, regionTypeAtLocal, landBiomeAt, grassShadeAt, key, docksByTile, clusterByTile, clustersById, townsByTile } = deps;
+  const { seeded01, naturalWondersByTile, WORLD_WIDTH, WORLD_HEIGHT, terrainAt, regionTypeAtLocal, landBiomeAt, grassShadeAt, key, docksByTile, clusterByTile, clustersById, townsByTile, watchtowersByTile, waystationsByTile } = deps;
 
   const isVacantLandTile = (x: number, y: number): boolean => {
     if (terrainAt(x, y) !== "LAND") return false;
     const tileKey = key(x, y);
-    return !docksByTile.has(tileKey) && !clusterByTile.has(tileKey) && !townsByTile.has(tileKey) && !naturalWondersByTile.has(tileKey);
+    return !docksByTile.has(tileKey) && !clusterByTile.has(tileKey) && !townsByTile.has(tileKey) && !naturalWondersByTile.has(tileKey) &&
+      !watchtowersByTile?.has(tileKey) && !waystationsByTile?.has(tileKey);
+  };
+
+  // A relic model covers its tile and all 8 neighbours (the landmark
+  // footprint), so every one of them must be plain, unoccupied land: no
+  // mountain, water, resource, town, dock or other landmark under it.
+  const isVacantRelicFootprint = (x: number, y: number): boolean => {
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (!isVacantLandTile(((x + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH, ((y + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT)) return false;
+      }
+    }
+    return true;
   };
 
   const withinManhattanOfTerrain = (x: number, y: number, radius: number, predicate: (terrain: ReturnType<typeof terrainAt>) => boolean): boolean => {
@@ -68,7 +81,7 @@ export const createServerWorldgenNaturalWonders = (deps: ServerWorldgenNaturalWo
       for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_WONDER; attempt += 1) {
         const x = Math.floor(seeded01(attempt * 53 + wonderIndex * 7, attempt * 61 + wonderIndex * 11, seed + 31_000 + wonderIndex * 97) * WORLD_WIDTH);
         const y = Math.floor(seeded01(attempt * 67 + wonderIndex * 13, attempt * 71 + wonderIndex * 17, seed + 31_500 + wonderIndex * 101) * WORLD_HEIGHT);
-        if (!isVacantLandTile(x, y)) continue;
+        if (!isVacantRelicFootprint(x, y)) continue;
         if (attempt < MAX_ATTEMPTS_PER_WONDER / 2 && !predicate(x, y)) continue;
         const tooCloseToCluster = clusterCenters.some((c) => manhattanWrap(x, y, c.x, c.y, WORLD_WIDTH, WORLD_HEIGHT) < clusterSpacing);
         if (tooCloseToCluster) continue;

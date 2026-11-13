@@ -251,7 +251,7 @@ export const createSeasonSeedWorld = (
   const waystationsRuntime = createServerWorldgenWaystations({
     seeded01: terrainRuntime.seeded01, waystationsByTile, WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key,
     docksByTile: docksByTile as Map<TileKey, never>, clusterByTile, townsByTile, watchtowersByTile });
-  const naturalWondersRuntime = createSeasonNaturalWondersRuntime(terrainRuntime, naturalWondersByTile, docksByTile, clusterByTile, clustersById, townsByTile);
+  const naturalWondersRuntime = createSeasonNaturalWondersRuntime(terrainRuntime, naturalWondersByTile, docksByTile, clusterByTile, clustersById, townsByTile, { watchtowersByTile, waystationsByTile });
   let worldSeed = seed; let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
   let acceptedFairSpawnSites: FairSpawnSite[] | undefined;
   for (let iteration = 0; iteration < 16; iteration += 1) {

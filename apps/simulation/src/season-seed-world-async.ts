@@ -223,7 +223,7 @@ export const createSeasonSeedWorldAsync = async (
     townsByTile,
     watchtowersByTile
   });
-  const naturalWondersRuntime = createSeasonNaturalWondersRuntime(terrainRuntime, naturalWondersByTile, docksByTile, clusterByTile, clustersById, townsByTile);
+  const naturalWondersRuntime = createSeasonNaturalWondersRuntime(terrainRuntime, naturalWondersByTile, docksByTile, clusterByTile, clustersById, townsByTile, { watchtowersByTile, waystationsByTile });
   let worldSeed = seed;
   let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
   let acceptedFairSpawnSites: FairSpawnSite[] | undefined;

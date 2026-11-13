@@ -1,6 +1,6 @@
 import { extendMapShoreOverlays } from "./client-map-3d-shore-overlays.js";
 import { hideLineMarkerPool } from "./line-marker-pool.js";
-import { isSeaTerrain, relicRemainingUses } from "@border-empires/shared";
+import { isSeaTerrain } from "@border-empires/shared";
 import { createRelicHintOverlay } from "../client-relic-overlay/relic-hints-3d.js";
 import { createCornerSurfaceSampler } from "../client-map-3d-heightfield/client-map-3d-surface-average.js";
 import { createDeferredBuildingOverlay } from "../client-town-district/deferred-building-overlay.js";
@@ -762,7 +762,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // darkened + last-known-owner tint and the last-seen buildings (standing
         // still) before its own `continue`, so fogged tiles never reach the live
         // overlay code (roads, live structures, units, FX) further down this loop.
-        const relicHint = deps.state.relicMapHints.get(tileKey); if (relicHint && !(tile?.naturalWonder && relicRemainingUses(tile.naturalWonder) === 0)) relicHintOverlay.addHint(relicHint, dx + TILE_CENTER_OFFSET, dy + TILE_CENTER_OFFSET);
+        relicHintOverlay.addHint(deps.state.relicMapHints.get(tileKey), tile, dx + TILE_CENTER_OFFSET, dy + TILE_CENTER_OFFSET);
         if (visibility === "unexplored" && !revealWholeMapInTrue3DMode) continue;
         const terrain = terrainForWorldTile(wx, wy);
         const x = dx + TILE_CENTER_OFFSET;
