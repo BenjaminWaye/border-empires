@@ -17,6 +17,15 @@ describe("devQueueEnqueue", () => {
     expect(queue).toEqual([{ tileKey: "1,2", x: 1, y: 2, kind: "SETTLE", queuedAt: 1000 }]);
   });
 
+  it("keeps a refinery BUILD's fieldX/fieldY from the wire, and stays valid without them", () => {
+    const payload = parseDevQueueEnqueuePayload(JSON.stringify({ x: 1, y: 2, tileKey: "1,2", kind: "BUILD", structureType: "TITANIUM_REFINERY", fieldX: 5, fieldY: 6 }));
+    expect(payload).toMatchObject({ fieldX: 5, fieldY: 6 });
+    expect(devQueueEnqueue([], payload!, 1000).queue[0]).toMatchObject({ structureType: "TITANIUM_REFINERY", fieldX: 5, fieldY: 6 });
+    const legacy = parseDevQueueEnqueuePayload(JSON.stringify({ x: 1, y: 2, tileKey: "1,2", kind: "BUILD", structureType: "TITANIUM_REFINERY" }));
+    expect(devQueueEnqueue([], legacy!, 1000).queue[0]).toEqual({ tileKey: "1,2", x: 1, y: 2, kind: "BUILD", structureType: "TITANIUM_REFINERY", queuedAt: 1000 });
+    expect(parseDevQueueEnqueuePayload(JSON.stringify({ x: 1, y: 2, tileKey: "1,2", kind: "BUILD", structureType: "TITANIUM_REFINERY", fieldX: 5 }))).not.toHaveProperty("fieldX");
+  });
+
   it("keeps structureType for BUILD entries", () => {
     const { queue } = devQueueEnqueue([], { x: 1, y: 2, tileKey: "1,2", kind: "BUILD", structureType: "FORT" }, 1000);
     expect(queue[0]).toMatchObject({ structureType: "FORT" });

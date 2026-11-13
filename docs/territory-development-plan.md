@@ -93,7 +93,12 @@ buildings (scoped in the same branch), not the map.
 Status: server and shared rules implemented (2026-11-12); client UI (supply
 lines, moving goods, refined overlay, field and town pickers, toast)
 implemented (2026-11-12, `packages/client/src/client-refineries/`); worldgen
-relocation and the AI planner are tracked separately. Implemented numbers:
+relocation implemented (PR #2734); the AI planner implemented in the same PR
+as the client (`apps/simulation/src/ai/build/refinery-*.ts`,
+`apps/simulation/src/ai/refinery-reassign-planner.ts`). Known gaps: another
+player's refinery shows no supply line (its field is withheld from
+non-owners), and a non-owner's `linked` flag can go stale (it refreshes only
+when the refinery tile itself is re-sent). Implemented numbers:
 `REFINERY_REACH_LAND_TILES` = 10, `REFINERY_SLOTS_PER_TILE` = 2,
 `REFINERY_BOOSTER_SLOTS_PER_TILE` = 1 (+3 per tile with the booster). Titanium
 and Crystal Refinery need `mining`, Umbrite Refinery `leatherworking`, the
@@ -107,7 +112,12 @@ while implementing: exclusivity is per owner (two players' refineries on one
 component each refine only their own tiles); re-anchoring is derived at
 evaluation time, not written back; a refinery's tile must be SETTLED to work;
 a FOOD-dormant refinery still processes its field (same known gap as every
-slot boost). Recovery drops saved Mine / Umbrite Rig / Ore Refinery records
+slot boost); only a refinery that could work (active or under construction,
+on its owner's SETTLED ring tile of a town the same owner holds) competes for
+or reserves a field, and a captured refinery comes over unassigned; an
+explicit field tile must be one the player holds (FRONTIER or SETTLED), else
+`REFINERY_FIELD_INVALID` before any other check, so commands cannot probe
+hidden deposits. Recovery drops saved Mine / Umbrite Rig / Ore Refinery records
 (`retired-frontier-materials.ts`). The wire status is attached where the
 `supportAnchor` projection runs, so it is refreshed when the refinery tile
 itself is sent; a change elsewhere on the link path does not re-send it (the

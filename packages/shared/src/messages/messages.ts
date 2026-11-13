@@ -353,7 +353,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     tileKey: z.string().min(1),
     kind: z.enum(["SETTLE", "BUILD"]),
     structureType: z.string().optional(),
-    tier: ChosenStructureTierSchema.optional()
+    tier: ChosenStructureTierSchema.optional(),
+    // A queued refinery build's chosen deposit field (BUILD_ECONOMIC_STRUCTURE fieldX/fieldY).
+    fieldX: z.number().int().optional(),
+    fieldY: z.number().int().optional()
   }),
   z.object({ type: z.literal("DEV_QUEUE_CANCEL"), tileKey: z.string().min(1) }),
   z.object({ type: z.literal("DEV_QUEUE_MOVE_TO_FRONT"), tileKey: z.string().min(1) }),

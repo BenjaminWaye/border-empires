@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { evaluateRefineries, refinerySlotBonusesByTile, refineryWireStatus } from "./refinery-processing.js";
 import { evaluateRefineryAt } from "./refinery-local.js";
-import { at, buildRefineryGrid, ENEMY, placeStructure, ringResolver } from "./refinery-test-fixtures.js";
+import { takenRefineryFieldIds } from "./refinery-field-choice.js";
+import { at, buildRefineryGrid, ENEMY, OWNER, placeStructure, ringResolver } from "./refinery-test-fixtures.js";
 import type { RefineryTile } from "./refinery-types.js";
 
 // Town at (0,0); its ring (radius 1, see ringResolver) holds the refineries.
@@ -75,6 +76,50 @@ describe("refinery processing", () => {
     expect(refineryWireStatus(newer, true)).toEqual({ unassigned: true });
     // Each processed tile is counted once.
     expect(refinerySlotBonusesByTile(result.values()).get("13,10")).toEqual([{ sourceId: "TITANIUM_REFINERY", slots: 2 }]);
+  });
+
+  it("never lets an older refinery that cannot work beat (or reserve the field from) one that can", () => {
+    const rivals: Array<[string, (tiles: Map<string, RefineryTile>) => RefineryTile]> = [
+      ["being removed", (tiles) => placeStructure(tiles, 1, 0, { type: "TITANIUM_REFINERY", status: "removing", refineryField: field(3, 0, 1) })],
+      ["on a FRONTIER tile", (tiles) => {
+        const rival = placeStructure(tiles, 1, 0, { type: "TITANIUM_REFINERY", status: "active", refineryField: field(3, 0, 1) });
+        rival.ownershipState = "FRONTIER";
+        return rival;
+      }],
+      ["off any town it holds", (tiles) => placeStructure(tiles, 2, 2, { type: "TITANIUM_REFINERY", status: "active", refineryField: field(3, 0, 1) })]
+    ];
+    for (const [label, placeRival] of rivals) {
+      const tiles = baseMap();
+      const working = placeStructure(tiles, 1, 1, { type: "TITANIUM_REFINERY", status: "active", refineryField: field(4, 0, 50) });
+      const rival = placeRival(tiles);
+      const result = evaluate(tiles);
+      expect(result.get(`${working.x},${working.y}`)!.working, label).toBe(true);
+      expect(result.get(`${rival.x},${rival.y}`)!.unassignedReason, label).toBe("FIELD_TAKEN");
+      expect(evaluateRefineryAt(tiles, working, resolve)!.working, label).toBe(true);
+      expect(takenRefineryFieldIds(tiles, OWNER, [rival], resolve), label).toEqual(new Set());
+      expect(takenRefineryFieldIds(tiles, OWNER, [working], resolve), label).toEqual(new Set(["13,10"]));
+    }
+  });
+
+  it("gives every refinery of one town the same result as evaluating it alone (shared reach)", () => {
+    const tiles = buildRefineryGrid([
+      "T..tt.",
+      "......",
+      "...m.."
+    ]);
+    placeStructure(tiles, 1, 1, { type: "TITANIUM_REFINERY", status: "active", refineryField: field(3, 0, 1) });
+    placeStructure(tiles, 1, 0, { type: "UMBRITE_REFINERY", status: "active", refineryField: field(3, 2, 2) });
+    placeStructure(tiles, 0, 1, { type: "TITANIUM_REFINERY", status: "active", refineryField: field(4, 0, 3) });
+    const together = evaluate(tiles);
+    expect(together.size).toBe(3);
+    for (const [key, evaluation] of together) {
+      const tile = tiles.get(key)!;
+      const rivals = [...tiles.values()].filter((other) => other.economicStructure && other.economicStructure.type === tile.economicStructure!.type);
+      expect(evaluateRefineries(tiles, rivals, resolve).get(key)).toEqual(evaluation);
+    }
+    // Map order: (1,0) umbrite, (0,1) the newer titanium (field taken), (1,1) titanium.
+    expect([...together.values()].map((evaluation) => [evaluation.working, evaluation.processedTileKeys.length]))
+      .toEqual([[true, 1], [false, 0], [true, 2]]);
   });
 
   it("re-anchors to another owned tile of the field, and is unassigned once none is left", () => {

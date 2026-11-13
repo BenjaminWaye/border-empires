@@ -15,12 +15,19 @@ export type DevQueueEnqueuePayload = {
   structureType?: string;
   /** The Fortify / Siege picker's explicit tier for a fort/siege BUILD (structure-tier-choice.ts). */
   tier?: ChosenStructureTier;
+  /** A refinery BUILD's chosen deposit field; both or neither. */
+  fieldX?: number;
+  fieldY?: number;
   reservedManpower?: number;
   reservedSlotRequirements?: ServerDevQueueEntry["reservedSlotRequirements"];
   awaitingManpower?: true;
   origin?: ServerDevQueueEntry["origin"];
 };
 export type DevQueueTileKeyPayload = { tileKey: string };
+
+/** An entry's refinery field as { fieldX, fieldY } when both are integers, else nothing (older saved entries carry none). */
+export const devQueueFieldOf = (entry: { fieldX?: unknown; fieldY?: unknown }): { fieldX?: number; fieldY?: number } =>
+  Number.isInteger(entry.fieldX) && Number.isInteger(entry.fieldY) ? { fieldX: entry.fieldX as number, fieldY: entry.fieldY as number } : {};
 
 export const parseDevQueueEnqueuePayload = (payloadJson: string): DevQueueEnqueuePayload | null => {
   try {
@@ -42,7 +49,10 @@ export const parseDevQueueEnqueuePayload = (payloadJson: string): DevQueueEnqueu
       kind: parsed.kind,
       ...(typeof parsed.structureType === "string" ? { structureType: parsed.structureType } : {}),
       // A tier only means something on a fort/siege BUILD; anything else is dropped, not stored.
-      ...(parsed.kind === "BUILD" && isChosenStructureTier(parsed.tier) ? { tier: parsed.tier } : {})
+      ...(parsed.kind === "BUILD" && isChosenStructureTier(parsed.tier) ? { tier: parsed.tier } : {}),
+      // A refinery's field: kept only as a pair of integers on a BUILD; the build command validates it at drain.
+      ...(parsed.kind === "BUILD" && Number.isInteger(parsed.fieldX) && Number.isInteger(parsed.fieldY)
+        ? { fieldX: parsed.fieldX as number, fieldY: parsed.fieldY as number } : {})
     };
   } catch {
     return null;
@@ -75,6 +85,7 @@ export const devQueueEnqueue = (
     queuedAt,
     ...(entry.structureType ? { structureType: entry.structureType } : {}),
     ...(entry.tier ? { tier: entry.tier } : {}),
+    ...devQueueFieldOf(entry),
     ...(entry.reservedManpower ? { reservedManpower: entry.reservedManpower } : {}),
     ...(entry.reservedSlotRequirements ? { reservedSlotRequirements: entry.reservedSlotRequirements } : {}),
     ...(entry.awaitingManpower ? { awaitingManpower: true as const } : {}),

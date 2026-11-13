@@ -24,7 +24,7 @@ describe("refinery commands", () => {
   });
 
   it("explains every refinery rejection code in plain words", () => {
-    for (const code of ["REFINERY_NO_FIELD", "REFINERY_FIELD_INVALID", "REFINERY_FIELD_UNLINKED", "REFINERY_FIELD_TAKEN", "REFINERY_NO_TOWN", "REFINERY_INVALID"]) {
+    for (const code of ["REFINERY_NO_FIELD", "REFINERY_FIELD_INVALID", "REFINERY_FIELD_UNLINKED", "REFINERY_FIELD_TAKEN", "REFINERY_FIELD_UNCHANGED", "REFINERY_NO_TOWN", "REFINERY_INVALID"]) {
       const text = explainActionFailureFromServer(code, "you do not hold this refinery");
       expect(text).toMatch(/^Refinery blocked: /);
       expect(text).not.toContain(code);

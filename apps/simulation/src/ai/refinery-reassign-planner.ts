@@ -9,12 +9,14 @@
 // a FOOD slot. Gated on the AI owning a refinery at all (the cached
 // structure counts), and bounded by the town list (at most 64 towns, one
 // support-ring scan each) — never an owned-territory scan.
-import { REFINERY_TYPES, chooseRefineryField, takenRefineryFieldIds, type RefineryTile } from "@border-empires/shared";
+import { REFINERY_TYPES, chooseRefineryField, refineryReachMemo, takenRefineryFieldIds, type RefineryTile } from "@border-empires/shared";
 import { createAutomationCommand } from "./automation-command-factory.js";
 import { createAutomationNoopDiagnostic } from "./automation-command-planner-types.js";
 import type { AutomationPlannerInput, AutomationPlannerResult, AutomationPlannerTile } from "./automation-command-planner-types.js";
 import { actionAdmissionKey } from "./ai-rejection-cooldown.js";
-import { asRefineryTiles, evaluatePlannerRefineries, refineryPlannerTowns, refineryTilesAroundTowns } from "./build/refinery-ai-view.js";
+import {
+  asRefineryTiles, evaluatePlannerRefineries, plannerRefineryTownResolver, refineryPlannerTowns, refineryTilesAroundTowns
+} from "./build/refinery-ai-view.js";
 
 export type RefineryReassignment = { x: number; y: number; fieldX: number; fieldY: number };
 
@@ -26,11 +28,13 @@ export const chooseRefineryReassignment = <T extends AutomationPlannerTile>(
   if (refineries.length === 0) return undefined;
   const tiles = asRefineryTiles(tilesByKey);
   const evaluations = [...evaluatePlannerRefineries(tilesByKey, refineries).values()].sort((a, b) => a.x - b.x || a.y - b.y);
+  const resolveTown = plannerRefineryTownResolver(tilesByKey);
+  const reachOf = refineryReachMemo(tiles, playerId);
   for (const evaluation of evaluations) {
     if (evaluation.working || evaluation.linked || !evaluation.townKey) continue;
     if (tilesByKey.get(evaluation.key)?.economicStructure?.status === "removing") continue;
-    const taken = takenRefineryFieldIds(tiles, playerId, refineries as unknown as RefineryTile[], evaluation.key);
-    const choice = chooseRefineryField(tiles, playerId, evaluation.type, evaluation.townKey, taken);
+    const taken = takenRefineryFieldIds(tiles, playerId, refineries as unknown as RefineryTile[], resolveTown, evaluation.key);
+    const choice = chooseRefineryField(tiles, playerId, evaluation.type, evaluation.townKey, taken, undefined, reachOf(evaluation.townKey));
     if (!choice.ok || choice.fieldId === evaluation.field?.id) continue;
     const target = { x: evaluation.x, y: evaluation.y, fieldX: choice.x, fieldY: choice.y };
     if (!isBlocked(target)) return target;

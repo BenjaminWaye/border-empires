@@ -15,7 +15,8 @@ export const assignRefineryFieldPayload = (refinery: { x: number; y: number }, f
 
 const REFINERY_REJECTIONS: Readonly<Record<string, string>> = {
   REFINERY_NO_FIELD: `No free deposit field of this resource is linked to the town within ${REFINERY_REACH_LAND_TILES} land tiles. Claim a field and the land between, or free one from another refinery.`,
-  REFINERY_FIELD_INVALID: "That tile is not a deposit of this refinery's resource. Choose a Titanium field for a Titanium Refinery, Umbrite for Umbrite, Gems for Crystal.",
+  REFINERY_FIELD_INVALID: "Choose a deposit tile you hold of this refinery's resource: Titanium for a Titanium Refinery, Umbrite for Umbrite, Gems for Crystal.",
+  REFINERY_FIELD_UNCHANGED: "This refinery already processes that field.",
   REFINERY_FIELD_UNLINKED: `That field is not linked to the town: your own land must join them within ${REFINERY_REACH_LAND_TILES} land tiles (water and other empires' land break the link).`,
   REFINERY_FIELD_TAKEN: "Another of your refineries already processes that field. Change that refinery's field first, or choose another.",
   REFINERY_NO_TOWN: "A refinery must stand on the support ring of one of your towns.",

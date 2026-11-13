@@ -24,6 +24,7 @@ import {
   eligibleRefineryFields,
   isRefineryFieldResource,
   refineryFieldAt,
+  refineryReachMemo,
   takenRefineryFieldIds,
   type EconomicStructureType,
   type EligibleRefineryField,
@@ -35,7 +36,7 @@ import {
 import { economicStructureTypesForSupportedTown, openTownSupportNeighborTiles, townSupportStructureShowsOnTile } from "../../town-support-lookup.js";
 import { SURPLUS_PRODUCER_MIN_HEADROOM } from "../food-slot-relief-surplus.js";
 import {
-  asRefineryTiles, evaluatePlannerRefineries, freeSlotsOf, refineryPlannerTowns, refinerySlotResource, refineryTilesAroundTowns,
+  asRefineryTiles, evaluatePlannerRefineries, freeSlotsOf, plannerRefineryTownResolver, refineryPlannerTowns, refinerySlotResource, refineryTilesAroundTowns,
   type RefineryPlannerTile
 } from "./refinery-ai-view.js";
 
@@ -135,8 +136,9 @@ const bestRefinerySite = <T extends RefineryPlannerTile>(
   const tiles = asRefineryTiles(context.tilesByKey);
   const fields = depositFields(context, resources);
   if (fields.length === 0) return undefined;
-  const taken = takenRefineryFieldIds(tiles, playerId, refineries as unknown as RefineryTile[]);
+  const taken = takenRefineryFieldIds(tiles, playerId, refineries as unknown as RefineryTile[], plannerRefineryTownResolver(context.tilesByKey));
   const eligible = new Map<string, EligibleRefineryField[]>();
+  const reachOf = refineryReachMemo(tiles, playerId);
   let best: RefineryBuildCandidate<T> | undefined;
   for (const field of fields) {
     if (taken.has(field.id)) continue;
@@ -148,7 +150,7 @@ const bestRefinerySite = <T extends RefineryPlannerTile>(
       const townKey = `${town.x},${town.y}`;
       const memoKey = `${townKey}|${type}`;
       let linked = eligible.get(memoKey);
-      if (!linked) eligible.set(memoKey, (linked = eligibleRefineryFields(tiles, playerId, type, townKey, taken)));
+      if (!linked) eligible.set(memoKey, (linked = eligibleRefineryFields(tiles, playerId, type, townKey, taken, reachOf(townKey))));
       const match = linked.find((entry) => entry.fieldId === field.id && !entry.taken);
       if (!match) continue;
       const score = refineryBuildScore(garrisoned, free, match.distance);
@@ -157,7 +159,7 @@ const bestRefinerySite = <T extends RefineryPlannerTile>(
         townSupportStructureShowsOnTile(context.tilesByKey, playerId, tile, type) && !context.blockedActionKeys?.has(buildKey(tile.x, tile.y, type)));
       if (!site || !ringAllows(townKey, score)) continue;
       // The exact check the server runs on this build (refinery-commands.ts).
-      const choice = chooseRefineryField(tiles, playerId, type, townKey, taken, { x: match.anchorX, y: match.anchorY });
+      const choice = chooseRefineryField(tiles, playerId, type, townKey, taken, { x: match.anchorX, y: match.anchorY }, reachOf(townKey));
       if (!choice.ok || choice.fieldId !== field.id) continue;
       best = { tile: site, structureType: type, score, field: { x: match.anchorX, y: match.anchorY } };
     }

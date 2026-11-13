@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { chooseRefineryField, eligibleRefineryFields, takenRefineryFieldIds } from "./refinery-field-choice.js";
-import { at, buildRefineryGrid, OWNER, placeStructure } from "./refinery-test-fixtures.js";
+import { at, buildRefineryGrid, OWNER, placeStructure, ringResolver } from "./refinery-test-fixtures.js";
 
 const TOWN = `${at(0, 0).x},${at(0, 0).y}`;
 // Two titanium fields: (3,0) at 3 steps, (6,2)-(7,2) at 6 steps; gems at (2,2).
@@ -40,6 +40,21 @@ describe("refinery field choice", () => {
     expect(chooseRefineryField(tiles, OWNER, "TITANIUM_REFINERY", TOWN, new Set(), at(6, 2))).toMatchObject({ ok: false, code: "REFINERY_FIELD_UNLINKED" });
   });
 
+  it("rejects every tile the owner does not hold with one code, before any resource check (no deposit probing)", () => {
+    // (4,0) unowned titanium joined to the owned (3,0) field; (0,2) a lone unowned
+    // titanium; (2,2) unowned plain land; (6,0) enemy titanium; (7,0) enemy land.
+    const tiles = buildRefineryGrid([
+      "T..tx.Ee",
+      "........",
+      "x._....."
+    ]);
+    for (const [column, row] of [[4, 0], [0, 2], [2, 2], [6, 0], [7, 0], [30, 30]] as const) {
+      expect(chooseRefineryField(tiles, OWNER, "TITANIUM_REFINERY", TOWN, new Set(), at(column, row)))
+        .toEqual({ ok: false, code: "REFINERY_FIELD_INVALID", message: "choose a deposit tile you hold" });
+    }
+    expect(chooseRefineryField(tiles, OWNER, "TITANIUM_REFINERY", TOWN, new Set(), at(3, 0))).toMatchObject({ ok: true, ...at(3, 0) });
+  });
+
   it("rejects when no free field is linked", () => {
     expect(chooseRefineryField(map(), OWNER, "UMBRITE_REFINERY", TOWN, new Set())).toMatchObject({ ok: false, code: "REFINERY_NO_FIELD" });
   });
@@ -47,7 +62,7 @@ describe("refinery field choice", () => {
   it("counts fields held by the owner's other refineries as taken, except the one being reassigned", () => {
     const tiles = map();
     placeStructure(tiles, 1, 1, { type: "TITANIUM_REFINERY", status: "under_construction", refineryField: { ...at(3, 0), assignedAt: 1 } });
-    expect(takenRefineryFieldIds(tiles, OWNER, tiles.values())).toEqual(new Set(["13,10"]));
-    expect(takenRefineryFieldIds(tiles, OWNER, tiles.values(), `${at(1, 1).x},${at(1, 1).y}`)).toEqual(new Set());
+    expect(takenRefineryFieldIds(tiles, OWNER, tiles.values(), ringResolver(0, 0))).toEqual(new Set(["13,10"]));
+    expect(takenRefineryFieldIds(tiles, OWNER, tiles.values(), ringResolver(0, 0), `${at(1, 1).x},${at(1, 1).y}`)).toEqual(new Set());
   });
 });

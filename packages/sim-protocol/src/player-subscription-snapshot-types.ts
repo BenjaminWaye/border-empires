@@ -70,6 +70,9 @@ export type PlayerSubscriptionSnapshot = {
       kind: "SETTLE" | "BUILD";
       structureType?: string;
       tier?: ChosenStructureTier;
+      /** A queued refinery build's chosen deposit field. */
+      fieldX?: number;
+      fieldY?: number;
       queuedAt: number;
       manpowerReserved?: true;
       awaitingManpower?: true;

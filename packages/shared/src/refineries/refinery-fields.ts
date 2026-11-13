@@ -101,3 +101,19 @@ export const refineryReachFromTownKey = <T extends RefineryTile>(
   const town = tiles.get(townKey);
   return town ? refineryReachFromTown(tiles, ownerId, town.x, town.y) : new Map();
 };
+
+/**
+ * refineryReachFromTownKey remembered per town for one caller's pass over an
+ * unchanged tile map (one evaluation or one planning call): each town's
+ * reach BFS runs once however many refineries of that town are looked at.
+ */
+export const refineryReachMemo = <T extends RefineryTile>(
+  tiles: ReadonlyMap<string, T>, ownerId: string
+): (townKey: string) => Map<string, number> => {
+  const byTown = new Map<string, Map<string, number>>();
+  return (townKey) => {
+    let reach = byTown.get(townKey);
+    if (!reach) byTown.set(townKey, (reach = refineryReachFromTownKey(tiles, ownerId, townKey)));
+    return reach;
+  };
+};

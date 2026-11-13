@@ -21,11 +21,13 @@ const fixtureTiles = (): DomainTileState[] => {
   return tiles;
 };
 
-const setup = (techIds = ["mining"], tiles = fixtureTiles()) => {
+type InitialLock = { commandId: string; playerId: string; actionType: "ATTACK"; originX: number; originY: number; targetX: number; targetY: number; originKey: string; targetKey: string; resolvesAt: number };
+
+const setup = (techIds = ["mining"], tiles = fixtureTiles(), activeLocks: InitialLock[] = []) => {
   const runtime = new SimulationRuntime({
     now: () => NOW,
     seedTiles: new Map(),
-    initialState: { tiles, activeLocks: [] },
+    initialState: { tiles, activeLocks },
     initialPlayers: new Map([
       ["p1", buildPlayer("p1", { points: 1_000, manpower: 5_000, manpowerUpdatedAt: NOW, techIds: new Set(techIds) })],
       ["p2", buildPlayer("p2", { points: 1_000, manpower: 5_000, manpowerUpdatedAt: NOW, techIds: new Set(techIds) })]
@@ -98,11 +100,56 @@ describe("refinery field commands", () => {
     await f.send("move", "ASSIGN_REFINERY_FIELD", { x: 31, y: 31, fieldX: 38, fieldY: 30 });
     expect(f.rejection("move")).toBeUndefined();
     expect(f.record(31, 31)?.refineryField).toEqual({ x: 38, y: 30, assignedAt: NOW });
-    // Reassigning to its own current field is allowed (it does not block itself).
+    // Reassigning to the field it already holds is refused and changes nothing.
     await f.send("same", "ASSIGN_REFINERY_FIELD", { x: 31, y: 31, fieldX: 38, fieldY: 30 });
-    expect(f.rejection("same")).toBeUndefined();
+    expect(f.rejection("same")?.code).toBe("REFINERY_FIELD_UNCHANGED");
     await f.send("none", "ASSIGN_REFINERY_FIELD", { x: 33, y: 30, fieldX: 38, fieldY: 30 });
     expect(f.rejection("none")?.code).toBe("REFINERY_INVALID");
+  });
+
+  it("refuses every field tile the player does not hold with one code, revealing no hidden deposit", async () => {
+    // (32,32) is an unowned titanium tile, (33,32) unowned plain land, (90,90) off the known map.
+    const tiles: DomainTileState[] = fixtureTiles().map((tile) => tile.x === 31 && tile.y === 31
+      ? { ...tile, economicStructure: { ownerId: "p1", type: "TITANIUM_REFINERY" as const, status: "active" as const, refineryField: { x: 34, y: 30, assignedAt: 1 } } }
+      : tile);
+    tiles.push({ x: 32, y: 32, terrain: "LAND", resource: "TITANIUM" }, { x: 33, y: 32, terrain: "LAND" });
+    const f = setup(["mining"], tiles);
+    const probes = [[32, 32], [33, 32], [90, 90]] as const;
+    for (const [x, y] of probes) {
+      await f.build(`build-${x}`, 29, 29, { fieldX: x, fieldY: y });
+      await f.send(`assign-${x}`, "ASSIGN_REFINERY_FIELD", { x: 31, y: 31, fieldX: x, fieldY: y });
+    }
+    for (const [x] of probes) {
+      expect([f.rejection(`build-${x}`)?.code, f.rejection(`build-${x}`)?.message]).toEqual(["REFINERY_FIELD_INVALID", "choose a deposit tile you hold"]);
+      expect([f.rejection(`assign-${x}`)?.code, f.rejection(`assign-${x}`)?.message]).toEqual(["REFINERY_FIELD_INVALID", "choose a deposit tile you hold"]);
+    }
+  });
+
+  it("does not let an old refinery that cannot work (off its town's ring) reserve the field", async () => {
+    // (33,30) is the player's land but on no town's ring: a refinery there can never work.
+    const tiles = fixtureTiles().map((tile) => tile.x === 33 && tile.y === 30
+      ? { ...tile, economicStructure: { ownerId: "p1", type: "TITANIUM_REFINERY" as const, status: "active" as const, refineryField: { x: 34, y: 30, assignedAt: 1 } } }
+      : tile);
+    const f = setup(["mining"], tiles);
+    await f.build("free", 31, 31, { fieldX: 34, fieldY: 30 });
+    expect(f.rejection("free")).toBeUndefined();
+    expect(f.record(31, 31)?.refineryField).toMatchObject({ x: 34, y: 30 });
+  });
+
+  it("ASSIGN_REFINERY_FIELD is frozen while an attack on the refinery tile is unresolved, and a no-op assign changes nothing", async () => {
+    const tiles = fixtureTiles().map((tile) => tile.x === 31 && tile.y === 31
+      ? { ...tile, economicStructure: { ownerId: "p1", type: "TITANIUM_REFINERY" as const, status: "active" as const, refineryField: { x: 34, y: 30, assignedAt: 1 } } }
+      : tile);
+    const lock: InitialLock = { commandId: "siege", playerId: "p2", actionType: "ATTACK", originX: 32, originY: 32, targetX: 31, targetY: 31, originKey: "32,32", targetKey: "31,31", resolvesAt: NOW + 60_000 };
+    const held = setup(["mining"], tiles, [lock]);
+    await held.send("held", "ASSIGN_REFINERY_FIELD", { x: 31, y: 31, fieldX: 38, fieldY: 30 });
+    expect(held.rejection("held")).toMatchObject({ code: "REFINERY_INVALID", message: "tile is under attack" });
+    expect(held.record(31, 31)?.refineryField).toEqual({ x: 34, y: 30, assignedAt: 1 });
+    const f = setup(["mining"], tiles);
+    await f.send("noop", "ASSIGN_REFINERY_FIELD", { x: 31, y: 31, fieldX: 35, fieldY: 30 });
+    expect(f.rejection("noop")?.code).toBe("REFINERY_FIELD_UNCHANGED");
+    expect(f.record(31, 31)?.refineryField).toEqual({ x: 34, y: 30, assignedAt: 1 });
+    expect(f.events.some((event) => event.eventType === "TILE_DELTA_BATCH" && event.commandId === "noop")).toBe(false);
   });
 
   it("keeps refineryField through the event journal and snapshot recovery", async () => {

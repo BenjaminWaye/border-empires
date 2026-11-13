@@ -14,6 +14,7 @@ import {
   type RefineryEvaluation,
   type RefineryFieldResource,
   type RefineryTile,
+  type RefineryTownResolver,
   type SlotResource
 } from "@border-empires/shared";
 import { assignedTownKeyForSupportTile, type TownSupportTile } from "../../town-support-lookup.js";
@@ -79,14 +80,17 @@ export const refineryTilesAroundTowns = <T extends RefineryPlannerTile>(
   return [...found.values()];
 };
 
+/** The same support-ring town resolver the runtime uses, over the planner map. */
+export const plannerRefineryTownResolver = <T extends RefineryPlannerTile>(tilesByKey: ReadonlyMap<string, T>): RefineryTownResolver =>
+  (ownerId, x, y) => assignedTownKeyForSupportTile(tilesByKey, ownerId, x, y);
+
 /** evaluateRefineries over the planner map, with the same support-ring town resolver the runtime uses. */
 export const evaluatePlannerRefineries = <T extends RefineryPlannerTile>(
   tilesByKey: ReadonlyMap<string, T>, refineryTiles: readonly T[]
 ): Map<string, RefineryEvaluation> =>
   refineryTiles.length === 0
     ? new Map()
-    : evaluateRefineries(asRefineryTiles(tilesByKey), refineryTiles as unknown as RefineryTile[],
-      (ownerId, x, y) => assignedTownKeyForSupportTile(tilesByKey, ownerId, x, y));
+    : evaluateRefineries(asRefineryTiles(tilesByKey), refineryTiles as unknown as RefineryTile[], plannerRefineryTownResolver(tilesByKey));
 
 /** The slot resource a deposit field feeds (GEMS → CRYSTAL). */
 export const refinerySlotResource = (resource: RefineryFieldResource): SlotResource =>

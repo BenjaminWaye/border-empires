@@ -3,7 +3,7 @@ import { REFINERY_BOOSTER_SLOTS_PER_TILE, REFINERY_SLOTS_PER_TILE, chooseRefiner
 import { refineryFieldOptions } from "./refinery-field-options.js";
 import { REFINERY_FIXTURE_ME, placeRefineryFixture, refineryFixtureGrid } from "./refinery-fixtures.js";
 import { refineAtTownChoices, freeRefineryRingTiles } from "./refinery-towns.js";
-import { refineryTilesView } from "./refinery-client-status.js";
+import { clientRefineryTownResolver, refineryTilesView } from "./refinery-client-status.js";
 
 const TOWN = "100,100";
 
@@ -19,7 +19,7 @@ describe("refinery field options", () => {
     const tiles = refineryFixtureGrid();
     const view = refineryTilesView(tiles);
     for (const option of refineryFieldOptions(tiles, REFINERY_FIXTURE_ME, "TITANIUM_REFINERY", TOWN)) {
-      const taken = takenRefineryFieldIds(view, REFINERY_FIXTURE_ME, [] as RefineryTile[]);
+      const taken = takenRefineryFieldIds(view, REFINERY_FIXTURE_ME, [] as RefineryTile[], clientRefineryTownResolver(tiles));
       const choice = chooseRefineryField(view, REFINERY_FIXTURE_ME, "TITANIUM_REFINERY", TOWN, taken, { x: option.anchorX, y: option.anchorY });
       expect(choice.ok).toBe(option.status === "eligible");
     }

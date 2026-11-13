@@ -7,9 +7,9 @@
 // picker never offers a field the server would refuse for that reason.
 import {
   REFINERY_BOOSTER_SLOTS_PER_TILE, REFINERY_BOOSTER_TYPE_BY_RESOURCE, REFINERY_FIELD_RESOURCE_BY_TYPE, REFINERY_REACH_LAND_TILES,
-  REFINERY_SLOTS_PER_TILE, compareRefineryTiles, effectiveRefineryField, eligibleRefineryFields, isRefineryType, refineryFieldAt,
+  REFINERY_SLOTS_PER_TILE, compareRefineryTiles, effectiveRefineryField, eligibleRefineryFields, isRefineryType, refineryCanHoldField, refineryFieldAt,
   refineryNeighborKeys, refineryTileKey, supportRingCandidates, MAX_SUPPORT_RING_RADIUS, takenRefineryFieldIds, townHasActiveRefineryBooster,
-  type RefineryField, type RefineryTile, type RefineryType
+  type RefineryField, type RefineryTile, type RefineryTownResolver, type RefineryType
 } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { clientRefineryTownResolver, refineryTilesView } from "./refinery-client-status.js";
@@ -67,12 +67,15 @@ const myRefineriesNearTown = (tiles: ReadonlyMap<string, RefineryTile>, me: stri
     .map(({ tile }) => tile)
     .filter((tile) => tile.economicStructure?.ownerId === me && isRefineryType(tile.economicStructure.type));
 
-/** Which of your refineries holds a field (effective field id -> refinery tile), excluding `excludeKey`. */
-const holderByField = (tiles: ReadonlyMap<string, RefineryTile>, me: string, refineries: readonly RefineryTile[], excludeKey?: string): Map<string, RefineryTile> => {
+/** Which of your refineries that could work holds a field (effective field id -> refinery tile), excluding `excludeKey`. */
+const holderByField = (
+  tiles: ReadonlyMap<string, RefineryTile>, me: string, refineries: readonly RefineryTile[], resolveTown: RefineryTownResolver, excludeKey?: string
+): Map<string, RefineryTile> => {
   const holders = new Map<string, RefineryTile>();
   for (const tile of refineries) {
     const record = tile.economicStructure!;
     if (!isRefineryType(record.type) || !record.refineryField || refineryTileKey(tile.x, tile.y) === excludeKey) continue;
+    if (!refineryCanHoldField(tile, resolveTown)) continue;
     const resolved = effectiveRefineryField(tiles, me, record.refineryField, REFINERY_FIELD_RESOURCE_BY_TYPE[record.type]);
     if (resolved && !holders.has(resolved.field.id)) holders.set(resolved.field.id, tile);
   }
@@ -100,9 +103,10 @@ export const refineryFieldOptions = (
   if (!town) return [];
   const resource = REFINERY_FIELD_RESOURCE_BY_TYPE[type];
   const refineries = myRefineriesNearTown(tiles, me, town);
-  const taken = takenRefineryFieldIds(tiles, me, refineries, excludeRefineryKey);
-  const holders = holderByField(tiles, me, refineries, excludeRefineryKey);
-  const boosted = townHasActiveRefineryBooster(tiles, me, townKey, REFINERY_BOOSTER_TYPE_BY_RESOURCE[resource], clientRefineryTownResolver(clientTiles));
+  const resolveTown = clientRefineryTownResolver(clientTiles);
+  const taken = takenRefineryFieldIds(tiles, me, refineries, resolveTown, excludeRefineryKey);
+  const holders = holderByField(tiles, me, refineries, resolveTown, excludeRefineryKey);
+  const boosted = townHasActiveRefineryBooster(tiles, me, townKey, REFINERY_BOOSTER_TYPE_BY_RESOURCE[resource], resolveTown);
   const perTileSlots = refineryPerTileSlots(boosted);
   const options: RefineryFieldOption[] = [];
   const seen = new Set<string>();

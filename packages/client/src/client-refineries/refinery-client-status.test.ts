@@ -21,6 +21,13 @@ describe("refinery client status", () => {
     expect(status.needsField).toBeUndefined();
   });
 
+  it("keeps the field on the refinery that can work when an older one is being removed", () => {
+    const tiles = refineryFixtureGrid();
+    placeRefineryFixture(tiles, 99, 100, "TITANIUM_REFINERY", { field: FIELD, assignedAt: 1, status: "removing" });
+    const refinery = placeRefineryFixture(tiles, 101, 100, "TITANIUM_REFINERY", { field: FIELD, assignedAt: 50 });
+    expect(refineryClientStatus(tiles, refinery, REFINERY_FIXTURE_ME)).toMatchObject({ source: "local", working: true });
+  });
+
   it("prefers the local result over a stale wire status when nearby land changes", () => {
     const tiles = refineryFixtureGrid();
     // The server last sent this refinery while the link was still cut.

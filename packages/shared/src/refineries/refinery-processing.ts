@@ -7,7 +7,9 @@
 // the refinery's owner; that tile sits on the support ring of a town the same
 // player holds (the caller's resolver); it has a field; it wins that field
 // (one refinery per field per owner, oldest assignment first); and the field
-// is linked to the town. A working refinery adds REFINERY_SLOTS_PER_TILE to
+// is linked to the town. Only a refinery that could work (refineryCanHoldField:
+// not being removed, on its owner's SETTLED tile serving the same owner's town)
+// competes for a field against one that can. A working refinery adds REFINERY_SLOTS_PER_TILE to
 // every SETTLED field tile its owner holds, plus
 // REFINERY_BOOSTER_SLOTS_PER_TILE while an active booster of its resource
 // stands on that town's ring.
@@ -15,7 +17,7 @@ import { supportRingCandidates } from "../town-growth/town-support-ring.js";
 import { supportRingRadiusForTier } from "../town-growth/town-growth.js";
 import type { PopulationTier } from "../types.js";
 import {
-  compareRefineryTiles, refineryFieldAt, refineryFieldLinked, refineryNeighborKeys, refineryReachFromTownKey, refineryTileKey,
+  compareRefineryTiles, refineryFieldAt, refineryFieldLinked, refineryNeighborKeys, refineryReachMemo, refineryTileKey,
   type RefineryField
 } from "./refinery-fields.js";
 import {
@@ -93,7 +95,35 @@ export const townHasActiveRefineryBooster = <T extends RefineryTile>(
   return false;
 };
 
-type Candidate = { tile: RefineryTile; type: RefineryType; ownerId: string; assignedAt: number; resolved: ReturnType<typeof effectiveRefineryField> };
+/** The owner's town a refinery serves: only while its tile is SETTLED land its owner holds and sits on that town's ring. */
+const refineryTownKeyOf = (tile: RefineryTile, ownerId: string, resolveTown: RefineryTownResolver): string | undefined =>
+  tile.ownerId === ownerId && tile.ownershipState === "SETTLED" ? resolveTown(ownerId, tile.x, tile.y) : undefined;
+
+/**
+ * Whether the refinery on `tile` may hold a field against others: it is not
+ * being removed, its tile is SETTLED land its owner holds, and that tile
+ * serves a town the same owner holds. Exclusivity (evaluateRefineries) and the
+ * reserved-field check (takenRefineryFieldIds) share it, so slot supply, the
+ * wire/local status, the commands and the client all agree that a refinery
+ * which cannot work (captured tile, lost town, being removed) never beats or
+ * blocks one that can.
+ */
+export const refineryCanHoldField = (tile: RefineryTile, resolveTown: RefineryTownResolver): boolean => {
+  const record = tile.economicStructure;
+  return Boolean(record && isRefineryType(record.type) && record.status !== "removing" &&
+    refineryTownKeyOf(tile, record.ownerId, resolveTown) !== undefined);
+};
+
+type Candidate = {
+  tile: RefineryTile; type: RefineryType; ownerId: string; assignedAt: number; townKey: string | undefined; canHold: boolean;
+  resolved: ReturnType<typeof effectiveRefineryField>;
+};
+
+/** Candidate a beats b for a field: one that can work first, then the oldest assignment, then the smaller tile. */
+const beats = (a: Candidate, b: Candidate): boolean =>
+  a.canHold !== b.canHold ? a.canHold
+    : a.assignedAt !== b.assignedAt ? a.assignedAt < b.assignedAt
+      : compareRefineryTiles(a.tile, b.tile) < 0;
 
 /**
  * Evaluates every refinery among `refineryTiles` (other tiles are ignored).
@@ -110,36 +140,45 @@ export const evaluateRefineries = <T extends RefineryTile>(
     if (!record || !isRefineryType(record.type)) continue;
     const resource = REFINERY_FIELD_RESOURCE_BY_TYPE[record.type];
     const resolved = record.refineryField ? effectiveRefineryField(tiles, record.ownerId, record.refineryField, resource) : undefined;
-    candidates.push({ tile, type: record.type, ownerId: record.ownerId, assignedAt: record.refineryField?.assignedAt ?? 0, resolved });
+    const townKey = refineryTownKeyOf(tile, record.ownerId, resolveTown);
+    candidates.push({
+      tile, type: record.type, ownerId: record.ownerId, assignedAt: record.refineryField?.assignedAt ?? 0, townKey,
+      canHold: townKey !== undefined && record.status !== "removing", resolved
+    });
   }
   const winners = new Map<string, Candidate>();
   for (const candidate of candidates) {
     if (!candidate.resolved) continue;
     const groupKey = `${candidate.ownerId}|${candidate.resolved.field.resource}|${candidate.resolved.field.id}`;
     const current = winners.get(groupKey);
-    if (!current || candidate.assignedAt < current.assignedAt ||
-      (candidate.assignedAt === current.assignedAt && compareRefineryTiles(candidate.tile, current.tile) < 0)) winners.set(groupKey, candidate);
+    if (!current || beats(candidate, current)) winners.set(groupKey, candidate);
   }
   const winnerSet = new Set(winners.values());
+  // One reach BFS per (owner, town) per call, shared by every refinery of that town.
+  const reachByOwner = new Map<string, (townKey: string) => Map<string, number>>();
+  const reachOf = (ownerId: string, townKey: string): Map<string, number> => {
+    let memo = reachByOwner.get(ownerId);
+    if (!memo) reachByOwner.set(ownerId, (memo = refineryReachMemo(tiles, ownerId)));
+    return memo(townKey);
+  };
   const result = new Map<string, RefineryEvaluation>();
   for (const candidate of candidates) {
-    const evaluation = evaluateCandidate(tiles, candidate, winnerSet.has(candidate), resolveTown);
+    const evaluation = evaluateCandidate(tiles, candidate, winnerSet.has(candidate), reachOf, resolveTown);
     result.set(evaluation.key, evaluation);
   }
   return result;
 };
 
 const evaluateCandidate = <T extends RefineryTile>(
-  tiles: ReadonlyMap<string, T>, candidate: Candidate, wins: boolean, resolveTown: RefineryTownResolver
+  tiles: ReadonlyMap<string, T>, candidate: Candidate, wins: boolean,
+  reachOf: (ownerId: string, townKey: string) => ReadonlyMap<string, number>, resolveTown: RefineryTownResolver
 ): RefineryEvaluation => {
-  const { tile, type, ownerId } = candidate;
+  const { tile, type, ownerId, townKey } = candidate;
   const record = tile.economicStructure!;
   const base: RefineryEvaluation = {
     key: refineryTileKey(tile.x, tile.y), x: tile.x, y: tile.y, type, ownerId,
     resource: REFINERY_FIELD_RESOURCE_BY_TYPE[type], linked: false, working: false, boosted: false, processedTileKeys: []
   };
-  const tileHeld = tile.ownerId === ownerId && tile.ownershipState === "SETTLED";
-  const townKey = tileHeld ? resolveTown(ownerId, tile.x, tile.y) : undefined;
   if (townKey) base.townKey = townKey;
   if (!candidate.resolved) {
     base.unassignedReason = record.refineryField ? "FIELD_LOST" : "NO_FIELD";
@@ -152,7 +191,7 @@ const evaluateCandidate = <T extends RefineryTile>(
   const { field, anchor } = candidate.resolved;
   base.field = field;
   base.anchor = anchor;
-  base.linked = townKey !== undefined && refineryFieldLinked(tiles, ownerId, townKey, field, refineryReachFromTownKey(tiles, ownerId, townKey));
+  base.linked = townKey !== undefined && refineryFieldLinked(tiles, ownerId, townKey, field, reachOf(ownerId, townKey));
   base.working = base.linked && record.status === "active";
   if (!base.working || !townKey) return base;
   base.processedTileKeys = field.tiles

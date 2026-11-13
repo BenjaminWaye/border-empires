@@ -7,7 +7,7 @@ import { refineryDeliveryCandidates } from "./afc-refinery-delivery.js";
 export interface ScarcityDelivery {
   resource: SlotResource | undefined;
   deposits: number;
-  /** FOOD: a Hydrogarden on the deposit. TITANIUM/CRYSTAL/UMBRITE: a refinery on a town's free support tile, already assigned to `field`. */
+  /** FOOD: a Hydrogarden on the deposit. TITANIUM/CRYSTAL/UMBRITE: one refinery on a town's free, placeable support tile, already assigned to `field`. */
   deliveries: Array<{ key: string; type: EconomicStructureType; field?: { x: number; y: number } }>;
   fallback: boolean;
 }
@@ -18,8 +18,8 @@ const resourceCategory = (resource: DomainTileState["resource"]): SlotResource |
 /**
  * Owned known deposits determine scarcity; spending slots cannot manipulate
  * the choice. Strategic deposits take no on-tile building since Phase 2, so
- * their delivery is a town refinery per linked, unclaimed field (the build
- * command's auto-pick), and a resource with no such field has no candidate.
+ * their delivery is one town refinery for the best linked, unclaimed field
+ * (afc-refinery-delivery.ts), and a resource with no such field has no candidate.
  * `tileMap` is the full tile map for the refinery link search; it defaults
  * to the tiles passed in.
  */

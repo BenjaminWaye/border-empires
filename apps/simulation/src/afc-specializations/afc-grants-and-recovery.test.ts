@@ -29,6 +29,24 @@ describe("AFC installation deliveries and durable recovery", () => {
     expect(tiles.get("6,0")?.economicStructure).toBeUndefined();
     expect([...actor.techIds]).toEqual(before);
   });
+  it("delivers ONE refinery, for the field with the most garrisoned tiles, on a ring tile that passes placement checks", () => {
+    const actor = player();
+    actor.techIds = new Set([...techEntryById.values()].filter(tech => tech.effects?.revealResource).map(tech => tech.id));
+    // Town (6,2). Titanium field A at (6,0): one tile, 2 steps. Field B at
+    // (9,0)-(10,0): two garrisoned tiles, 3 steps. A relic at (4,2) blocks
+    // ring tiles (5,1)-(5,3), so the first placeable ring tile is (6,1).
+    const ring = [[5, 1], [6, 1], [7, 1], [5, 2], [7, 2], [5, 3], [6, 3], [7, 3]].map(([x, y]) => ({ ...tile(x!), y: y! }));
+    const town = { ...tile(6), y: 2, town: { type: "MARKET" as const, populationTier: "TOWN" as const } };
+    const row = [3, 4, 5, 6, 7, 8, 9, 10].map(x => tile(x, x === 6 || x === 9 || x === 10 ? "TITANIUM" : undefined));
+    const relic: DomainTileState = { x: 4, y: 2, terrain: "LAND", naturalWonder: { id: "relic" } } as unknown as DomainTileState;
+    const tiles = new Map([...row, ...ring, town, relic].map(t => [`${t.x},${t.y}`, t]));
+    const preview = previewScarcityDelivery(actor, tiles.values(), tiles, () => false, tiles);
+    expect(preview.resource).toBe("TITANIUM");
+    expect(preview.deliveries).toEqual([{ key: "6,1", type: "TITANIUM_REFINERY", field: { x: 9, y: 0 } }]);
+    const result = applyAfcInstallationGrant({ tiles, now: () => 7, replaceTileState: (key, t) => tiles.set(key, t) }, actor, "afc-exchequer-2", "choose");
+    expect(result).toMatchObject({ deliveredBuildings: 1, resource: "TITANIUM" });
+    expect([...tiles.values()].filter(t => t.economicStructure?.type === "TITANIUM_REFINERY")).toHaveLength(1);
+  });
   it("gives a strategic resource no candidate when no town can link a free field, falling back to Hydrogardens", () => {
     const actor = player();
     actor.techIds = new Set([...techEntryById.values()].filter(tech => tech.effects?.revealResource).map(tech => tech.id));

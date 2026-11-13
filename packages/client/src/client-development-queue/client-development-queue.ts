@@ -309,7 +309,7 @@ export const devQueueEnqueueWirePayload = (entry: PersistedDevelopmentAction): R
   ...(entry.kind === "BUILD"
     ? entry.payload.type === "REMOVE_STRUCTURE"
       ? { structureType: "REMOVE_STRUCTURE" }
-      : { structureType: entry.payload.structureType, ...(entry.payload.tier ? { tier: entry.payload.tier } : {}) }
+      : { structureType: entry.payload.structureType, ...(entry.payload.tier ? { tier: entry.payload.tier } : {}), ...refineryFieldOf(entry.payload) }
     : {})
 });
 
@@ -429,6 +429,8 @@ export type ServerDevQueueWireEntry = {
   kind: "SETTLE" | "BUILD";
   structureType?: string;
   tier?: string;
+  fieldX?: number;
+  fieldY?: number;
   queuedAt: number;
   manpowerReserved?: true;
   awaitingManpower?: true;
@@ -452,7 +454,7 @@ const reconstructDevelopmentActionFromServerEntry = (entry: ServerDevQueueWireEn
     label: isRemoval ? `Remove structure at (${entry.x}, ${entry.y})` : `Build ${isChosenStructureTier(entry.tier) ? chosenStructureTierLabel(entry.tier) : entry.structureType ? structureDisplayName(entry.structureType) : "structure"} at (${entry.x}, ${entry.y})`,
     payload: isRemoval
       ? { type: "REMOVE_STRUCTURE", x: entry.x, y: entry.y }
-      : { type: "BUILD_STRUCTURE", x: entry.x, y: entry.y, structureType: entry.structureType ?? "", ...(isChosenStructureTier(entry.tier) ? { tier: entry.tier } : {}) },
+      : { type: "BUILD_STRUCTURE", x: entry.x, y: entry.y, structureType: entry.structureType ?? "", ...(isChosenStructureTier(entry.tier) ? { tier: entry.tier } : {}), ...refineryFieldOf(entry) },
     optimisticKind: (entry.structureType ?? "FORT") as OptimisticStructureKind
   };
 };

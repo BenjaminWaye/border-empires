@@ -2471,7 +2471,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await ephemeralSimCommands.watchMuster(session, authedSession.playerId, message.x, message.y);
           } else if (message.type === "UNWATCH_MUSTER") {
             await ephemeralSimCommands.unwatchMuster(session, authedSession.playerId);
-          } else if (await dispatchEconomicBuildOrRefineryCommand(message, dispatchDurableCommand)) {
+          } else if (message.type === "BUILD_ECONOMIC_STRUCTURE" || message.type === "ASSIGN_REFINERY_FIELD") {
+            // Schema-parsed, so ASSIGN_REFINERY_FIELD always carries its field and the helper always dispatches.
+            await dispatchEconomicBuildOrRefineryCommand(message, dispatchDurableCommand);
           } else if (message.type === "CANCEL_FORT_BUILD") {
             await dispatchDurableCommand("CANCEL_FORT_BUILD", { x: message.x, y: message.y });
           } else if (message.type === "CANCEL_STRUCTURE_BUILD") {

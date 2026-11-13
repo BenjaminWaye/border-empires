@@ -83,4 +83,15 @@ describe("town refinery slot supply", () => {
     place(tiles, 1, 0, { type: "TITANIUM_REFINERY", status: "active", refineryField: fieldAt(3, 1, 10) });
     expect(titaniumSupply(tiles).titanium).toBe(2 + 2 * 2);
   });
+
+  it("never lets an older refinery that cannot work (off its town's ring, or being removed) take the field", () => {
+    const offRing = refineryTestMap(baseRows);
+    place(offRing, 1, 2, { type: "TITANIUM_REFINERY", status: "active", refineryField: fieldAt(4, 1, 50) });
+    place(offRing, 2, 0, { type: "TITANIUM_REFINERY", status: "active", refineryField: fieldAt(3, 1, 10) });
+    expect(titaniumSupply(offRing).titanium).toBe(2 + 2 * 2);
+    const removing = refineryTestMap(baseRows);
+    place(removing, 1, 2, { type: "TITANIUM_REFINERY", status: "active", refineryField: fieldAt(4, 1, 50) });
+    place(removing, 1, 0, { type: "TITANIUM_REFINERY", status: "removing", refineryField: fieldAt(3, 1, 10) });
+    expect(titaniumSupply(removing).titanium).toBe(2 + 2 * 2);
+  });
 });
