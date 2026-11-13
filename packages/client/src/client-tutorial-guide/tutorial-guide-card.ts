@@ -54,18 +54,73 @@ export const guideCardHtml = (view: StepView, expanded: boolean): string => {
   return `
     <section class="tg-card" ${expanded ? "" : "hidden"} aria-label="Guide">
       <div class="tg-head">
-        <span class="tg-chapter">Guide · ${view.chapterIndex + 1}/${view.chapterCount} ${escapeHtml(view.chapterTitle)}</span>
+        <span class="tg-chapter">Guide · ${escapeHtml(view.chapterTitle)}</span>
         <button type="button" class="tg-collapse" data-guide-action="toggle" aria-label="Minimise guide">&#8211;</button>
       </div>
       <div class="tg-title${view.waiting ? " tg-title-waiting" : ""}">${escapeHtml(view.title)}</div>
       ${view.waiting ? "" : `<div class="tg-why">${escapeHtml(view.why)}</div>`}
       ${lookForHtml(view.lookFor)}
-      <div class="tg-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${view.totalCount}" aria-valuenow="${view.completedCount}"><span style="width:${progressPct}%"></span></div>
+      ${view.laterChapterTitles.length > 0 ? `<div class="tg-later">Later: ${escapeHtml(view.laterChapterTitles.join(", "))}</div>` : ""}
+      <div class="tg-progress-row">
+        <div class="tg-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${view.totalCount}" aria-valuenow="${view.completedCount}"><span style="width:${progressPct}%"></span></div>
+        <span class="tg-count">${view.completedCount}/${view.totalCount}</span>
+      </div>
       <div class="tg-actions">${actions}<button type="button" class="tg-hide" data-guide-action="hide">Hide guide</button></div>
     </section>
     <button type="button" class="tg-launcher" data-guide-action="toggle" ${expanded ? "hidden" : ""} aria-label="Open guide (${remaining} steps left)">
       <span aria-hidden="true">?</span><span class="tg-badge">${remaining}</span>
     </button>`;
+};
+
+/**
+ * The card after Finish: a short "Guide complete" acknowledgement that closes
+ * itself (renderGuideCompleteCard) or on its Close button.
+ */
+export const guideCompleteCardHtml = (doneCount: number, stepCount: number): string => `
+    <section class="tg-card tg-card-complete" role="status" aria-label="Guide complete">
+      <div class="tg-head"><span class="tg-chapter">Guide complete</span></div>
+      <div class="tg-title"><span class="tg-check" aria-hidden="true">&#10003;</span> You know the basics</div>
+      <div class="tg-why">${doneCount >= stepCount ? "Every step done." : "Contest and Diplomacy are explained when you first meet another House."} Restart the guide from Settings.</div>
+      <div class="tg-progress-row">
+        <div class="tg-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${stepCount}" aria-valuenow="${doneCount}"><span style="width:${Math.round((doneCount / stepCount) * 100)}%"></span></div>
+        <span class="tg-count">${doneCount}/${stepCount}</span>
+      </div>
+      <div class="tg-actions"><button type="button" class="tg-btn tg-btn-primary" data-guide-complete-close>Close</button></div>
+    </section>`;
+
+const COMPLETE_CARD_MS = 8_000;
+
+/** Replaces the card with the completion acknowledgement; it removes itself after a few seconds. */
+export const renderGuideCompleteCard = (doneCount: number, stepCount: number): void => {
+  if (typeof document === "undefined") return;
+  injectStyles();
+  document.getElementById(ROOT_ID)?.remove();
+  const root = document.createElement("div");
+  root.id = ROOT_ID;
+  root.className = "onb-root";
+  root.style.setProperty("--tg-bottom", `${ONBOARDING_CORNER_BOTTOM_PX}px`);
+  root.innerHTML = guideCompleteCardHtml(doneCount, stepCount);
+  document.body.appendChild(root);
+  const close = (): void => {
+    if (root.isConnected) root.remove();
+  };
+  root.querySelector("[data-guide-complete-close]")?.addEventListener("click", close);
+  setTimeout(close, COMPLETE_CARD_MS);
+};
+
+/**
+ * True when the card covers the middle of the screen, where "Show me" puts the
+ * target (the camera centres on it). On a phone the card is most of the
+ * screen's width, so the target would land under it.
+ */
+export const guideCardCoversScreenCentre = (): boolean => {
+  if (typeof document === "undefined" || typeof window === "undefined") return false;
+  const card = document.querySelector<HTMLElement>(`#${ROOT_ID} .tg-card:not([hidden])`);
+  if (!card) return false;
+  const rect = card.getBoundingClientRect();
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2;
+  return cx >= rect.left && cx <= rect.right && cy >= rect.top && cy <= rect.bottom;
 };
 
 /**
@@ -139,7 +194,11 @@ body.hud-v2-compact #${ROOT_ID}.tg-over-manpower { display: block !important; }
 .tg-lookfor { margin-top: 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: rgba(240,224,200,0.75); }
 .tg-lookfor-item { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: #fbf3e6; }
 .tg-lookfor .resource-icon-img { width: 22px; height: 22px; object-fit: contain; }
-.tg-progress { margin-top: 8px; height: 4px; border-radius: 999px; background: rgba(126,224,138,0.15); overflow: hidden; }
+.tg-later { margin-top: 5px; font-size: 11px; color: #d6ac6a; }
+.tg-progress-row { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+.tg-progress { flex: 1; height: 4px; border-radius: 999px; background: rgba(126,224,138,0.15); overflow: hidden; }
+.tg-count { font-size: 11px; font-weight: 700; color: #a7f3b0; font-variant-numeric: tabular-nums; }
+.tg-check { color: #7ee08a; }
 .tg-progress span { display: block; height: 100%; background: #7ee08a; }
 .tg-actions { margin-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tg-btn { appearance: none; border-radius: 8px; border: 1px solid rgba(126,224,138,0.35); background: transparent; color: #eafff0; font-size: 12px; font-weight: 700; padding: 5px 10px; cursor: pointer; }

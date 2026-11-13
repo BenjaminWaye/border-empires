@@ -115,7 +115,8 @@ export const GUIDE_CHAPTER_TITLES: Record<GuideChapterId, string> = {
 
 const TOWN_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
   pending: { title: "Your claim on the marked town is underway", why: "Once your claim lands, it garrisons itself." },
-  garrison: { title: "Tap the marked town and Garrison it", why: "Your reach already claimed it as frontier; a garrison makes it count and grow." },
+  // Not "your reach claimed it": a town Expand To claimed can sit outside reach (towns may be garrisoned there anyway).
+  garrison: { title: "Tap the marked town and Garrison it", why: "It's your frontier now; a garrison makes it count and grow." },
   expand: { title: "Tap the marked town and Expand To it", why: "It's outside your reach: Expand To claims the land across to it." },
   beacon: { title: "No town in sight: build a Relay Beacon", why: "Its reach and vision push outward until a town comes into view." }
 };
@@ -156,7 +157,7 @@ const targetHighlights =
 export const guideBeaconSite = (stepId: string, input: GuideInput): { x: number; y: number } | undefined => {
   if (stepId === "reach-beacon") return townBeforeBeacon(input) ? undefined : input.beaconSite();
   const footholdBeacon =
-    (stepId === "foothold-take-town" && townAction(input) === "beacon") ||
+    ((stepId === "foothold-take-town" || (stepId === "build-first" && needsTownForBuild(input))) && townAction(input) === "beacon") ||
     ((stepId === "foothold-take-food" || stepId === "build-food-slot") && foodAction(input) === "beacon");
   return footholdBeacon ? input.checklist.relayBeaconSite : undefined;
 };
@@ -174,6 +175,16 @@ const foodTitle = (input: GuideInput): string => {
   const action = foodAction(input);
   const progress = ` (${input.checklist.foodSlotsClaimed}/${input.checklist.foodSlotsTarget} slots)`;
   return FOOD_STEP[action].title + (action === "beacon" ? beaconWhere(input) : progress);
+};
+
+/** No garrisoned town to build the Manufactory on (the town step was skipped): the build step asks for a town first. */
+export const needsTownForBuild = (input: GuideInput): boolean => input.buildTargetTiles.length === 0;
+
+const buildFirstTitle = (i: GuideInput): string => {
+  if (needsTownForBuild(i)) return `A Manufactory needs a town. ${townTitle(i)}`;
+  return i.manufactoryUnlocked
+    ? "Tap your marked town and build a Manufactory"
+    : "Your Industrial Tooling Module is docking at your AFC: then build a Manufactory on your marked town";
 };
 
 /** True while the guide is on a Manifest step: the Manifest screens mark RECOMMENDED_FIRST_MANIFEST_ID as the guide's pick. */
@@ -248,7 +259,8 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     why: "It unlocks the Manufactory, which turns your town's industry into Coin.",
     // Any Manifest completes it. Choosing another than the recommended one skips the Manufactory
     // steps (otherManifestChosen) rather than waiting for a module that was never commissioned.
-    isDone: (i) => i.manifestCount > 0 || i.ownsBuiltStructure,
+    // A Waystation can grant the module itself (not counted in manifestCount): nothing left to commission then.
+    isDone: (i) => i.manifestCount > 0 || i.manufactoryResearched || i.ownsBuiltStructure,
     anchor: "manifest"
   },
   {
@@ -277,15 +289,15 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "build-first",
     chapter: "build",
-    title: (i) =>
-      i.manufactoryUnlocked
-        ? "Tap your marked town and build a Manufactory"
-        : "Your Industrial Tooling Module is docking at your AFC: then build a Manufactory on your marked town",
-    why: "A Manufactory goes on a garrisoned town or the tiles around it and adds Coin from the town's industry.",
+    title: buildFirstTitle,
+    why: (i) =>
+      needsTownForBuild(i)
+        ? TOWN_STEP[townAction(i)].why
+        : "A Manufactory goes on a garrisoned town or the tiles around it and adds Coin from the town's industry.",
     isDone: (i) => i.ownsBuiltStructure || otherManifestChosen(i),
     isAvailable: (i) => i.manufactoryResearched,
     waitingNote: "Commission the Industrial Tooling Module to unlock the Manufactory.",
-    highlight: (i) => i.buildTargetTiles
+    highlight: (i) => (needsTownForBuild(i) ? targetHighlights("town")(i) : i.buildTargetTiles)
   },
   {
     id: "contest-muster",
@@ -320,7 +332,8 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "turn-finish",
     chapter: "turn",
     title: () => "That's the basics. Your manpower refills every 4 hours.",
-    why: "Come back, spend it on expanding, building and attacking, and check the Activity dashboard for what happened while you were away.",
+    why: (i) =>
+      `Come back, spend it on expanding, building and attacking, and check the ${i.hudV2 ? "Chronicle" : "Activity dashboard"} for what happened while you were away.`,
     isDone: () => false,
     acknowledge: true
   }
@@ -345,6 +358,8 @@ export type GuideView =
       lookFor?: ReadonlyArray<GuideLookForIcon>;
       /** True when every remaining step is waiting on something; the card shows the waiting note. */
       waiting: boolean;
+      /** Chapters before this step that wait on something (a first contact, a docking Manifest): the guide comes back to them. */
+      laterChapterTitles: string[];
     };
 
 const CHAPTER_ORDER = Object.keys(GUIDE_CHAPTER_TITLES) as GuideChapterId[];
@@ -374,6 +389,10 @@ export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>)
   const available = remaining.find((s) => isAvailable(s) && (!s.acknowledge || remaining.every((r) => r === s || !isAvailable(r))));
   const step = available ?? remaining[0]!;
   const waiting = !available;
+  const stepIndex = GUIDE_STEPS.indexOf(step);
+  const laterChapterTitles = [
+    ...new Set(remaining.filter((s) => GUIDE_STEPS.indexOf(s) < stepIndex && !s.acknowledge).map((s) => GUIDE_CHAPTER_TITLES[s.chapter]))
+  ];
   return {
     kind: "step",
     step,
@@ -386,6 +405,7 @@ export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>)
     totalCount: GUIDE_STEPS.length,
     newlyCompleted,
     waiting,
+    laterChapterTitles,
     highlightTiles: waiting ? [] : (step.highlight?.(input) ?? []),
     ...(step.anchor && !waiting ? { anchor: step.anchor } : {}),
     ...(step.lookFor && !waiting ? { lookFor: step.lookFor } : {})
