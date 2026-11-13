@@ -18,7 +18,7 @@ import { createCorrugationTexture, createHullPanelTexture } from "./client-map-3
 
 // Maglev freight haulers running both ways along every monorail line, one
 // direction per beam (keep right): a windowless wedge-nosed drive unit pulling
-// four cargo modules -- containers, pressure tanks or energy cells, one kind
+// four cargo modules -- containers, pressure tanks or energy canisters, one kind
 // per line. Cars hover on a lit levitation field, never touching the beam.
 // A train's place on its line is a pure function of the clock and the line,
 // so it never jumps when the window rebuilds. Trains ease out of stops and
@@ -93,10 +93,11 @@ export const createMonorailTrains = (scene: Scene, envMap?: Texture): MonorailTr
   const moduleMat = new MeshStandardMaterial({ color: "#ffffff", map: corrugation, metalness: 0.45, roughness: 0.5 });
   const tankMat = new MeshStandardMaterial({ color: "#d4d9de", metalness: 0.9, roughness: 0.18 });
   const liveryMat = new MeshStandardMaterial({ color: "#ffffff", metalness: 0.3, roughness: 0.35 });
-  for (const mat of [hullMat, frameMat, moduleMat, tankMat, liveryMat]) applyBuildingEnvMap(mat, envMap);
+  const podMat = new MeshStandardMaterial({ color: "#8d98a3", metalness: 0.75, roughness: 0.3 });
+  for (const mat of [hullMat, frameMat, moduleMat, tankMat, liveryMat, podMat]) applyBuildingEnvMap(mat, envMap);
   const sensorMat = new MeshBasicMaterial({ toneMapped: false, color: "#7ff3ff" });
   const markerMat = new MeshBasicMaterial({ toneMapped: false, color: "#ff3d33" });
-  const cellMat = new MeshBasicMaterial({ toneMapped: false, color: "#b48cff" });
+  const cellMat = new MeshBasicMaterial({ toneMapped: false, color: "#9ff4ff" });
   const fieldMat = new MeshBasicMaterial({ toneMapped: false, color: "#3fd8ff", transparent: true, opacity: 0.55, blending: AdditiveBlending, depthWrite: false });
   const haloMat = new MeshBasicMaterial({ toneMapped: false, color: "#bff8ff", transparent: true, opacity: 0.35, blending: AdditiveBlending, depthWrite: false });
   const thrustMat = new MeshBasicMaterial({ toneMapped: false, color: "#ff5a3c", transparent: true, opacity: 0.5, blending: AdditiveBlending, depthWrite: false });
@@ -106,6 +107,7 @@ export const createMonorailTrains = (scene: Scene, envMap?: Texture): MonorailTr
     frame: createMonorailPool(scene, box, frameMat),
     module: createMonorailPool(scene, box, moduleMat, { colored: true }),
     tank: createMonorailPool(scene, tankGeo, tankMat),
+    pod: createMonorailPool(scene, tankGeo, podMat),
     livery: createMonorailPool(scene, box, liveryMat, { colored: true }),
     sensor: createMonorailPool(scene, box, sensorMat),
     marker: createMonorailPool(scene, box, markerMat),
@@ -163,12 +165,11 @@ export const createMonorailTrains = (scene: Scene, envMap?: Texture): MonorailTr
       pools.tank.place(at(0, h * 0.12), fwd, up, l * 0.47, h * 0.72, w * 0.8);
       pools.frame.place(at(0, h * 0.12), fwd, up, l * 0.06, h * 0.78, w * 0.86);
     } else {
-      // Open-top cradle: the glowing cells stay visible from the camera above.
-      for (const k of [-0.3, 0, 0.3]) pools.cell.place(at(l * k, h * 0.12), fwd, up, l * 0.2, h * 0.8, w * 0.62);
-      for (const k of [-0.46, 0.46]) {
-        p.copy(pos).addScaledVector(side, w * k).setY(pos.y - h * 0.18);
-        pools.frame.place(p, fwd, up, l * 0.96, h * 0.28, w * 0.06);
-      }
+      // Sealed gunmetal energy canister: the charge shows only as thin lit
+      // containment rings and end caps, not as a glowing block.
+      pools.pod.place(at(0, h * 0.1), fwd, up, l * 0.47, h * 0.62, w * 0.66);
+      for (const k of [-0.24, 0, 0.24]) pools.cell.place(at(l * k, h * 0.1), fwd, up, l * 0.03, h * 0.66, w * 0.7);
+      for (const k of [-0.45, 0.45]) pools.cell.place(at(l * k, h * 0.1), fwd, up, l * 0.02, h * 0.3, w * 0.3);
     }
     if (last) {
       pools.marker.place(at(-l / 2 - 0.002, 0), fwd, up, 0.006, h * 0.18, w * 0.7);
@@ -208,9 +209,10 @@ export const createMonorailTrains = (scene: Scene, envMap?: Texture): MonorailTr
     update: (nowMs) => {
       for (const pool of all) pool.begin();
       const t = nowMs / 1000;
-      // The energy cells and levitation field breathe slowly.
+      // The canister rings and levitation field breathe slowly.
       fieldMat.opacity = 0.45 + 0.15 * Math.sin(t * 2.4);
-      cellMat.color.setRGB(0.62 + 0.12 * Math.sin(t * 1.7), 0.45, 1);
+      const charge = 0.8 + 0.2 * Math.sin(t * 1.7);
+      cellMat.color.setRGB(0.62 * charge, 0.96 * charge, 1);
       let cars = 0;
       for (const run of runs) {
         const L = run.line.length;
@@ -240,7 +242,7 @@ export const createMonorailTrains = (scene: Scene, envMap?: Texture): MonorailTr
       for (const pool of all) pool.dispose();
       for (const g of [wedge, box, tankGeo, disc]) g.dispose();
       for (const tex of [hullTex, corrugation]) tex.dispose();
-      for (const mat of [hullMat, frameMat, moduleMat, tankMat, liveryMat, sensorMat, markerMat, cellMat, fieldMat, haloMat, thrustMat, groundShadowMat]) mat.dispose();
+      for (const mat of [hullMat, frameMat, moduleMat, tankMat, liveryMat, sensorMat, markerMat, cellMat, podMat, fieldMat, haloMat, thrustMat, groundShadowMat]) mat.dispose();
     }
   };
 };
