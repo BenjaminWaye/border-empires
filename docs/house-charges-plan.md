@@ -142,6 +142,7 @@ Charges pay out only after the season, so rewards are things that outlast it.
    from the installation family. Rarity follows the charge type. Cards appear on
    the player's profile beside the career stats. Sets grant **titles only**
    (for example "Cartographer" for five Survey cards), never gameplay power.
+   Cards are designed as **playing cards** (see [Card design](#card-design)).
 3. **Galaxy reward**: +1 **Domain Weight** per fulfilled charge for empires
    that hold a Planet or Outpost (see the [Galactic Campaign design](galactic-campaign-design.md),
    Domain Weight → Senate vote weight). Domain Weight is only computed for
@@ -164,6 +165,58 @@ failure.
 **Dependency:** the Stipend payout is being checked separately because it
 may not currently credit balances. The galaxy reward builds on a working
 Stipend.
+
+### Card design
+
+Charge cards look and behave like a deck of playing cards: a standard
+poker-card shape (63 × 88 mm proportions, rounded corners), a rank and suit
+in two opposite corners (the lower one rotated 180°), and the art in the
+centre panel.
+
+**Four suits, one per kind of charge:**
+
+| Suit | Charges | Symbol idea |
+|---|---|---|
+| **Roads** | Charter of Passage | A milestone or crossed paths |
+| **Seats** | Founding of a Seat | A town gate or crown |
+| **Charts** | Survey Claim, Garrison the Desert / Tundra | A compass rose |
+| **Relics** | Reawakening | The ziggurat access structure |
+
+**Rank shows difficulty**, set when the charge was dealt:
+
+- **2–10** for common charges, scaled by difficulty: Charter route length,
+  the number of tiers a Seat had to grow, or landmass and region size.
+- **Jack, Queen, King** for rare charges: Tundra is a Jack of Charts, and a
+  Reawakening is the Queen or King of Relics depending on distance.
+- **Ace**: a charge fulfilled by the House that also won the season.
+- **Jokers**: the public titles (Longest Road, Royal Cartographer), if that
+  companion ships. A House holding one at game end gets a Joker card.
+
+**Card face:**
+
+- **Centre panel:** the art taken from the real final map: the road traced
+  between its two towns, the charted island outline, the desert's shape, or
+  the relic family's ziggurat.
+- **Title band:** the target's name and the Sector ("Vell to Harrowmere ·
+  Sector 012").
+- **Footer:** the House banner and the season-end date.
+- **Number cards** may scatter small suit pips around the centre panel like a
+  traditional deck. Face cards use a framed illustration instead.
+
+**Card back:** one shared back, the Court's seal over the Sector's starfield,
+so a collection reads as one deck. An optional variant shows the owning
+House's colours.
+
+**Collection view:** cards are shown fanned or in a grid grouped by suit,
+with flip-to-back on hover or tap. Collection titles borrow poker hands, as
+titles only: a **Flush** (five cards of one suit), **Four of a Kind** (four
+cards of the same rank) or a **Royal Set** (Jack, Queen, King and Ace of
+one suit).
+
+Cards are drawn in the client from the archived final map and card data, so
+the same layout works on the profile, the season-end reveal and phone
+screens. Map-derived art must use only what the season archive already
+stores.
 
 ### Optional companion: public titles
 
@@ -269,8 +322,10 @@ These are design expectations, not measurements.
 
 1. Impossible charges: void, or replaced with a new one?
 2. Garrison threshold for desert and tundra regions (75% proposed).
-3. Card art pipeline: rendered from the final map server-side, or in the
-   client from archived map data?
+3. Card art pipeline: the proposal draws cards in the client from archived
+   map data. Confirm the season archive keeps enough of the final map
+   (routes, outlines, biome regions) to do that, or store a small per-card
+   shape at crowning.
 4. Whether public titles carry an in-season perk.
 5. Renown weights, after measuring past seasons' score spread.
 6. Whether charges should be shown to allies automatically or only by choice.
