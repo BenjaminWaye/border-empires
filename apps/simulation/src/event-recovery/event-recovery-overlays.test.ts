@@ -9,7 +9,7 @@ const overlays = {
   fort: { ownerId: "player-1", status: "active" },
   observatory: { ownerId: "player-1", status: "active" },
   siegeBattery: { ownerId: "player-1", status: "active" },
-  economicStructure: { ownerId: "player-1", type: "ORE_REFINERY", status: "active" },
+  economicStructure: { ownerId: "player-1", type: "TITANIUM_SMELTER", status: "active" },
   sabotage: { ownerId: "player-2", endsAt: 10_000, outputMultiplier: 0.5 },
   watchtower: { activated: true, activatedByPlayerId: "player-1" },
   waystation: { activated: false },

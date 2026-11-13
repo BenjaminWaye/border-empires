@@ -21,3 +21,19 @@ export const cancelQueuedAutoSettle = (
   deps.renderHud();
   return true;
 };
+
+/**
+ * Cancel garrison on a tile mid-garrison: a build queued to follow that
+ * garrison is abandoned with it (the server drops its own copy on
+ * CANCEL_SETTLE -- see runtime-cancel-settle.ts). Clears the client's
+ * garrison+build continuation and any dev-queue BUILD still waiting on the tile.
+ */
+export const cancelGarrisonFollowUpBuild = (
+  state: ClientState,
+  tileKey: string,
+  cancelQueuedBuild: (tileKey: string) => boolean
+): void => {
+  state.autoSettleTargets.delete(tileKey);
+  state.autoBuildTargets.delete(tileKey);
+  cancelQueuedBuild(tileKey);
+};

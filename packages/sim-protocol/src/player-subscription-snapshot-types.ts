@@ -1,7 +1,7 @@
 // Extracted from index.ts (500-line source budget, see AGENTS.md) to make
 // room for new tile-overlay wire fields without growing that file further.
 
-import type { AutoSettlePrefs, ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, ResourceSlotSources, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
+import type { AutoSettlePrefs, ChosenStructureTier, ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, ResourceSlotSources, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
 import type { ManpowerBreakdown, SimulationSeasonState, WorldStatusSnapshot } from "./index.js";
 import type { TileOverlayJsonFields } from "./tile-overlay-fields/tile-overlay-fields.js";
 
@@ -69,6 +69,10 @@ export type PlayerSubscriptionSnapshot = {
       y: number;
       kind: "SETTLE" | "BUILD";
       structureType?: string;
+      tier?: ChosenStructureTier;
+      /** A queued refinery build's chosen deposit field. */
+      fieldX?: number;
+      fieldY?: number;
       queuedAt: number;
       manpowerReserved?: true;
       awaitingManpower?: true;

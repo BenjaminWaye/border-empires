@@ -4,14 +4,13 @@ import { Box3, InstancedMesh, Mesh, type Scene, type Texture } from "three";
 import { createDistrictOverlay } from "../client-town-district/district-overlay.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
 import { createSiegeTowerOverlay } from "../client-map-3d-siege-tower-overlay.js";
-import { createUmbriteExtractionRigOverlay } from "../client-map-3d-umbrite-extraction-rig.js";
 import { createStructureOverlay } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { createContactShadowOverlay } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { structureOverlayRoute } from "../client-structure-info-catalog/structure-overlay-route.js";
 import type { StructureInfoKey } from "../client-map-display.js";
 
 export type StructureReviewModel = { readonly bounds: Box3; readonly update: (now: number) => void; readonly dispose: () => void };
-export const createStructureReviewModel = (scene: Scene, kind: StructureInfoKey, envMap?: Texture, contactShadows = true, mineResource: "TITANIUM" | "GEMS" = "TITANIUM"): StructureReviewModel => {
+export const createStructureReviewModel = (scene: Scene, kind: StructureInfoKey, envMap?: Texture, contactShadows = true): StructureReviewModel => {
   const before = new Set(scene.children);
   const route = structureOverlayRoute(kind);
   let update: (now: number) => void = () => {};
@@ -42,17 +41,12 @@ export const createStructureReviewModel = (scene: Scene, kind: StructureInfoKey,
       model.addInstance(0, 0, 0, 100, 100, route.kind); model.commit();
       update = now => { model.update(now); }; dispose = model.dispose; break;
     }
-    case "umbrite-rig": {
-      const model = createUmbriteExtractionRigOverlay(scene, 1, envMap);
-      model.addInstance(0, 0, 0, 100, 100); model.commit();
-      dispose = model.dispose; break;
-    }
     case "generic": {
       const shadows = contactShadows ? createContactShadowOverlay(scene, 1) : {
         clear: () => {}, addShadow: () => {}, commit: () => {}, dispose: () => {}
       };
       const model = createStructureOverlay(scene, 1, shadows, envMap);
-      model.addInstance(0, 0, 0, route.kind, route.kind === "MINE" ? mineResource : undefined); model.commit(); shadows.commit();
+      model.addInstance(0, 0, 0, route.kind, undefined); model.commit(); shadows.commit();
       update = model.update; dispose = () => { model.dispose(); shadows.dispose(); }; break;
     }
   }

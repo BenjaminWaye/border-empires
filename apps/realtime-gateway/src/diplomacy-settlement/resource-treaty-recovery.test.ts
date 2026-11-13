@@ -10,7 +10,7 @@ import type { DiplomacySettlementInput, DiplomacySettlementResult } from "./dipl
 const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as { DatabaseSync: typeof DatabaseSyncType };
 
 const players = [{ id: "a", name: "A" }, { id: "b", name: "B" }];
-const terms = { give: { gold: 7, resources: { NEURAL_RESIN: 1 } }, ask: { gold: 0 } };
+const terms = { give: { gold: 7, resources: { LUXURY_BIOTA: 1 } }, ask: { gold: 0 } };
 const pending: DiplomacySettlementResult = { ok: false, pending: true, message: "Payment uncertain" };
 
 for (const backend of ["memory", "sqlite"] as const) {

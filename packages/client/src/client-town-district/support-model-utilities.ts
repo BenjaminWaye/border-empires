@@ -17,21 +17,6 @@ export const buildUtility = (t: TownBuilders, kind: string): boolean => {
       for (const z of [0.16, 0.22]) t.body.box(0.09, 0.015, z, 0.22, 0.012, 0.025, "water");
       for (const x of [-0.17, 0.16]) t.body.box(x, 0.008, 0.21, 0.06, 0.025, 0.045, "stoneLight");
       return true;
-    case "ORE_REFINERY":
-      // Twin square smelter stacks and a sloping raw-ore feed chute.
-      for (const x of [-0.13, 0.06]) {
-        t.body.box(x, 0.015, -0.07, 0.14, 0.035, 0.19, "stoneLight");
-        t.body.pyramid(x, 0.05, -0.07, 0.14, 0.1, 0.19, "iron");
-        t.body.box(x, 0.15, -0.07, 0.08, x < 0 ? 0.23 : 0.16, 0.09, "stoneDark");
-        t.body.box(x, x < 0 ? 0.36 : 0.29, -0.07, 0.1, 0.025, 0.11, "brassDark");
-        t.body.box(x, 0.055, 0.032, 0.065, 0.065, 0.012, "ironDark");
-        t.glow.box(x, 0.065, 0.04, 0.045, 0.04, 0.005, "lampWarm");
-      }
-      t.body.box(0, 0.01, 0.18, 0.35, 0.025, 0.09, "ironDark");
-      for (const x of [-0.13, -0.04, 0.05, 0.14]) t.body.gem(x, 0.065, 0.18, 0.035, 0.045, "stoneDark");
-      t.body.pipe(0.19, 0.03, 0.17, 0.19, 0.22, -0.12, 0.028, "iron");
-      ribs(t, 0.19, 0.19, -0.15, 0.09, 4, 0.04, 0.1);
-      return true;
     case "SKY_DOCK":
       // Armed aerial bombardment craft, launch rails and ordnance servicing.
       housing(t, -0.16, 0.08, 0.1, 0.12, 0.22);

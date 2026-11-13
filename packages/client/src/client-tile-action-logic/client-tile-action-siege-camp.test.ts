@@ -1,8 +1,7 @@
 /**
- * A fresh siege build steps down to the best tier whose UMBRITE slots fit
- * (siegeTierForFreshBuild, mirrored server-side): a player with Siegecraft
- * who can't cover a Siege Tower's 2 UMBRITE slots is offered an enabled
- * "Build Siege Battery" instead of a disabled Siege Tower.
+ * The Siege row lists every tier in the picker: a player with Siegecraft who
+ * can't cover a Siege Tower's 2 UMBRITE slots still gets an enabled row with
+ * a buildable Siege Battery, and the Siege Tower says why it can't be built.
  */
 import { describe, expect, it } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
@@ -68,23 +67,25 @@ const siegeCampFor = (umbriteSlots: number, techIds: string[] = ["leatherworking
   return menuActionsForSingleTile(state, target, deps as never).find((action) => action.id === "build_siege_camp");
 };
 
-describe("build_siege_camp tier fallback", () => {
+const tiers = (action: ReturnType<typeof siegeCampFor>) => action?.tierOptions?.map((entry) => [entry.label, entry.disabled ? entry.disabledReason : "ok"]);
+
+describe("build_siege_camp tier picker", () => {
   it("offers a Siege Tower on UMBRITE slots alone (no TITANIUM)", () => {
     const action = siegeCampFor(2);
-    expect(action?.label).toBe("Build Siege Tower");
+    expect(action?.label).toBe("Siege");
     expect(action?.disabled).toBeFalsy();
+    expect(tiers(action)?.slice(0, 2)).toEqual([["Siege Battery", "ok"], ["Siege Tower", "ok"]]);
   });
 
-  it("offers an enabled Siege Battery when a Siege Tower's UMBRITE slots don't fit, saying why", () => {
+  it("keeps a Siege Battery buildable when a Siege Tower's UMBRITE slots don't fit, saying why", () => {
     const action = siegeCampFor(1);
-    expect(action?.label).toBe("Build Siege Battery");
     expect(action?.disabled).toBeFalsy();
-    expect(action?.cost).toContain("Siege Tower: Need 2 free UMBRITE slots (have 1)");
+    expect(tiers(action)?.slice(0, 2)).toEqual([["Siege Battery", "ok"], ["Siege Tower", "Need 2 free UMBRITE slots (have 1)"]]);
   });
 
-  it("stays disabled on the best tier when not even a Siege Battery fits", () => {
+  it("is disabled when not even a Siege Battery fits", () => {
     const action = siegeCampFor(0);
-    expect(action?.label).toBe("Build Siege Tower");
     expect(action?.disabled).toBe(true);
+    expect(action?.disabledReason).toBe("Need a free UMBRITE slot");
   });
 });

@@ -349,3 +349,16 @@ describe("handleDevQueueEnqueueCommand -- SETTLE manpower reservation", () => {
     expect(summary.devQueue).toEqual([]);
   });
 });
+
+describe("handleDevQueueEnqueueCommand -- refinery field", () => {
+  it("keeps a queued refinery build's fieldX/fieldY and passes them to the build it drains", () => {
+    const { context, summary, dispatchedBuilds } = makeContext({ manpower: 1000 });
+    const command = enqueueCommand(1, 1, "TITANIUM_REFINERY");
+    handleDevQueueEnqueueCommand(context, { ...command, payloadJson: JSON.stringify({ ...JSON.parse(command.payloadJson), fieldX: 5, fieldY: 6 }) });
+    expect(summary.devQueue).toEqual([expect.objectContaining({ tileKey: "1,1", structureType: "TITANIUM_REFINERY", fieldX: 5, fieldY: 6 })]);
+    expect(dispatchedBuilds).toHaveLength(0); // no free development slot yet
+    const ready = makeContext({ manpower: 1000, hasSlot: true });
+    handleDevQueueEnqueueCommand(ready.context, { ...command, payloadJson: JSON.stringify({ ...JSON.parse(command.payloadJson), fieldX: 5, fieldY: 6 }) });
+    expect(JSON.parse(ready.dispatchedBuilds[0]!.payloadJson)).toEqual({ x: 1, y: 1, structureType: "TITANIUM_REFINERY", fieldX: 5, fieldY: 6 });
+  });
+});

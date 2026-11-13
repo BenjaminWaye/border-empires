@@ -1,0 +1,46 @@
+/* "Needs a field" toasts over your refineries (refinery-field-toasts.ts).
+   Shaped like the salvage toast; an amber warning edge. */
+.refinery-toast-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+.refinery-toast {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  min-height: 32px;
+  padding: 5px 11px;
+  border: 1px solid #e0913f;
+  border-radius: 5px;
+  color: #fbe2c0;
+  background: #2a160cf0;
+  box-shadow: 0 3px 8px #0008;
+  font: 700 12px var(--sp-font-body, Georgia, serif);
+  white-space: nowrap;
+  pointer-events: auto;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+.refinery-toast::before {
+  content: "⚠ ";
+  color: #f2a64a;
+}
+.refinery-toast::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 4px);
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  border-right: 1px solid #e0913f;
+  border-bottom: 1px solid #e0913f;
+  background: #2a160c;
+  transform: rotate(45deg);
+}
+.refinery-toast:hover { background: #432410; }
+.refinery-toast:focus-visible {
+  outline: 2px solid var(--sp-parchment-100, #f2e8d3);
+  outline-offset: 3px;
+}

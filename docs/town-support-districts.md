@@ -151,6 +151,16 @@ surface route, endpoint service risers represent a buried connection. Selecting
 the town/building shows a dashed relationship where the intervening ground is
 visible. A buried or visually omitted route never disables the building.
 
+A town refinery's service line continues past its own ring connection to its
+deposit field (docs/territory-development-plan.md, Phase 2). The client adds
+those segments as ordinary `DistrictEdge`s with the refinery's town as
+`townKey`, so both renderers draw and select them like the town's own lines:
+from the refinery model's port, over the owner's land (town tiles are not
+crossed, shortest route heading most directly at the field), to the nearest
+field tile. Only a linked refinery has one; it is lit while the refinery
+works, and small loads ride it from the field to the refinery. A broken link
+removes the extension and its loads; the ring connection stays.
+
 Platforms seat against the terrain footprint, while corridor supports follow
 the local surface. Shared town/fort tiles use compact building placement and
 a shared foundation rather than overlapping full-sized slabs. High-yield
@@ -173,7 +183,9 @@ and status indicators remain in their normal overlay paths.
   baked geometry, shared finishes, construction cuts and lazy instance storage.
 - `district-network.ts`: common relationship graph and bounded corridor routing.
 - `district-map-3d.ts`, `district-links-3d.ts`, `district-canvas.ts`: live renderer
-  adapters, seating, selection emphasis and cleanup.
+  adapters, seating, selection emphasis and cleanup. They also draw the refinery
+  supply lines and loads from `packages/client/src/client-refineries/refinery-scene.ts`
+  (`refinery-goods-3d.ts`, `refinery-canvas-2d.ts`).
 - `apps/simulation/src/town-district/town-district-projection.ts`: authoritative
   per-viewer anchor projection and local refreshes.
 - `packages/storybook/src/map/structures/TownDistrict.stories.ts`: complete catalogue,

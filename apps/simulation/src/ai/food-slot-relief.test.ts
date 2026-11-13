@@ -44,7 +44,7 @@ describe("chooseFoodConsumingStructureToDisable", () => {
   it("falls back to any active FOOD-consuming structure when none is dormant", () => {
     // supply === demand (exactly full) never marks anything dormant, so
     // requiring dormancy used to leave the AI with no fallback target here.
-    const structure = tile(4, 5, { type: "MINE" });
+    const structure = tile(4, 5, { type: "TITANIUM_REFINERY" });
     expect(chooseFoodConsumingStructureToDisable([structure], PLAYER_ID, new Set())).toEqual({ x: 4, y: 5, kind: "disable" });
     expect(chooseFoodConsumingStructureToDisable([structure], PLAYER_ID, undefined)).toEqual({ x: 4, y: 5, kind: "disable" });
   });
@@ -205,7 +205,7 @@ describe("chooseManuallyDisabledBeaconToReenable", () => {
 
 describe("chooseManuallyDisabledFreeStructureToReenable", () => {
   it("re-enables a manually-disabled frontier extractor, which now has no FOOD upkeep", () => {
-    const extractor = tile(4, 4, { type: "RESIN_EXTRACTOR", status: "inactive", inactiveReason: "manual" });
+    const extractor = tile(4, 4, { type: "CULTIVATION_ESTATE", status: "inactive", inactiveReason: "manual" });
     expect(chooseManuallyDisabledFreeStructureToReenable([extractor], PLAYER_ID)).toEqual({ x: 4, y: 4 });
   });
 
@@ -215,7 +215,7 @@ describe("chooseManuallyDisabledFreeStructureToReenable", () => {
   });
 
   it("is offered through foodSlotReliefFromPlannerInput without any beacon", () => {
-    const extractor = tile(4, 4, { type: "IMPLANT_FOUNDRY", status: "inactive", inactiveReason: "manual" });
+    const extractor = tile(4, 4, { type: "RECLAMATION_WORKS", status: "inactive", inactiveReason: "manual" });
     expect(foodSlotReliefFromPlannerInput([extractor], PLAYER_ID, undefined, undefined, 10, 2, false, 0, 1).reenableTarget).toEqual({ x: 4, y: 4 });
     // Without an owned installation count the scan is skipped entirely.
     expect(foodSlotReliefFromPlannerInput([extractor], PLAYER_ID, undefined, undefined, 10, 2).reenableTarget).toBeUndefined();

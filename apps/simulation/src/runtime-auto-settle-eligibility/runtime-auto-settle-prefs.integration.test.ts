@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LANDING_MANPOWER_RESERVE, NEW_PLAYER_AUTO_SETTLE_PREFS, type AutoSettlePrefs, type Tile } from "@border-empires/shared";
+import { LANDING_MANPOWER_RESERVE, NEW_PLAYER_AUTO_SETTLE_PREFS, autoSettlePrefsForOutput, normalizeAutoSettlePrefs, type AutoSettleCategory, type AutoSettlePrefs, type Tile } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
@@ -12,6 +12,12 @@ const settlementStartedTileKeys = (events: SimulationEvent[]): string[] =>
   events
     .filter((event): event is Extract<SimulationEvent, { eventType: "SETTLEMENT_STARTED" }> => event.eventType === "SETTLEMENT_STARTED")
     .map((event) => event.tileKey);
+
+/** Answered prefs with only the named switches on. */
+const only = (...on: AutoSettleCategory[]): AutoSettlePrefs => ({ ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true, ...Object.fromEntries(on.map((c) => [c, true])) });
+/** A food/strategic/luxury value stored before the per-resource split, read the way a snapshot load reads it. */
+const grouped = (towns: boolean, food: boolean, strategic: boolean, luxury: boolean): AutoSettlePrefs =>
+  normalizeAutoSettlePrefs({ answered: true, towns, food, strategic, luxury });
 
 const buildRuntime = (autoSettle: AutoSettlePrefs | undefined, extraTiles: Tile[] = []) => {
   const runtime = new SimulationRuntime({
@@ -63,23 +69,44 @@ describe("auto-settle prefs gate", () => {
   });
 
   it("only the opted-in category settles", async () => {
-    const { runtime, seen } = buildRuntime({ answered: true, towns: false, food: true, strategic: false, luxury: false });
+    const { runtime, seen } = buildRuntime(grouped(false, true, false, false));
     await runtime.tickTerritoryAutomation(1_000);
     expect(settlementStartedTileKeys(seen)).toEqual(["41,40"]);
   });
 
-  it("strategic and luxury resources are gated separately", async () => {
+  it("gates each resource separately: titanium only, or salvage only", async () => {
+    const resourceTiles: Tile[] = [
+      { x: 39, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" },
+      { x: 40, y: 39, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "GEMS" },
+      { x: 39, y: 39, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "PRECURSOR_SALVAGE" },
+      { x: 39, y: 41, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "LUXURY_BIOTA" }
+    ];
+    const titaniumOnly = buildRuntime(only("TITANIUM"), resourceTiles);
+    await titaniumOnly.runtime.tickTerritoryAutomation(1_000);
+    expect(settlementStartedTileKeys(titaniumOnly.seen)).toEqual(["39,40"]);
+    const salvageOnly = buildRuntime(only("PRECURSOR_SALVAGE"), resourceTiles);
+    await salvageOnly.runtime.tickTerritoryAutomation(1_000);
+    expect(settlementStartedTileKeys(salvageOnly.seen)).toEqual(["39,39"]);
+  });
+
+  it("a stored strategic/luxury value carries over to each resource in the group", async () => {
     const resourceTiles: Tile[] = [
       { x: 39, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" },
       { x: 40, y: 39, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "GEMS" },
       { x: 39, y: 39, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "LUXURY_BIOTA" }
     ];
-    const strategicOnly = buildRuntime({ answered: true, towns: false, food: false, strategic: true, luxury: false }, resourceTiles);
+    const strategicOnly = buildRuntime(grouped(false, false, true, false), resourceTiles);
     await strategicOnly.runtime.tickTerritoryAutomation(1_000);
     expect(settlementStartedTileKeys(strategicOnly.seen).sort()).toEqual(["39,40", "40,39"]);
-    const luxuryOnly = buildRuntime({ answered: true, towns: false, food: false, strategic: false, luxury: true }, resourceTiles);
-    await luxuryOnly.runtime.tickTerritoryAutomation(1_000);
-    expect(settlementStartedTileKeys(luxuryOnly.seen)).toEqual(["39,39"]);
+  });
+
+  it("SET_AUTO_SETTLE_PREFS stores a per-resource choice", async () => {
+    const { runtime, seen } = buildRuntime({ ...NEW_PLAYER_AUTO_SETTLE_PREFS });
+    const { answered: _answered, ...switches } = only("TITANIUM");
+    setPrefs(runtime, switches);
+    await Promise.resolve();
+    expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "prefs-1" }));
+    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual(autoSettlePrefsForOutput(only("TITANIUM")));
   });
 
   it("SET_AUTO_SETTLE_PREFS marks the prompt answered, persists, and immediately starts the newly-allowed settles", async () => {
@@ -89,13 +116,7 @@ describe("auto-settle prefs gate", () => {
     await Promise.resolve();
     expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "prefs-1" }));
     expect(settlementStartedTileKeys(seen)).toEqual(["41,40"]);
-    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual({
-      answered: true,
-      towns: false,
-      food: true,
-      strategic: false,
-      luxury: false
-    });
+    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual(autoSettlePrefsForOutput(grouped(false, true, false, false)));
   });
 
   it("'Not now' (everything false) marks answered without settling anything", async () => {
@@ -106,18 +127,12 @@ describe("auto-settle prefs gate", () => {
     expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle?.answered).toBe(true);
   });
 
-  it("applies a legacy single resources switch to both strategic and luxury", async () => {
+  it("applies a legacy single resources switch to every non-food resource", async () => {
     const { runtime, seen } = buildRuntime({ ...NEW_PLAYER_AUTO_SETTLE_PREFS });
     setPrefs(runtime, { towns: false, food: true, resources: true });
     await Promise.resolve();
     expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "prefs-1" }));
-    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual({
-      answered: true,
-      towns: false,
-      food: true,
-      strategic: true,
-      luxury: true
-    });
+    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual(autoSettlePrefsForOutput(grouped(false, true, true, true)));
   });
 
   it("rejects a payload with neither the split nor the legacy resources switch", async () => {
@@ -132,7 +147,7 @@ describe("auto-settle prefs gate", () => {
     setPrefs(runtime, { towns: "yes" });
     await Promise.resolve();
     expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_REJECTED", commandId: "prefs-1", code: "BAD_COMMAND" }));
-    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual(NEW_PLAYER_AUTO_SETTLE_PREFS);
+    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual(autoSettlePrefsForOutput(NEW_PLAYER_AUTO_SETTLE_PREFS));
   });
 });
 
@@ -164,13 +179,13 @@ const buildFarmFieldRuntime = (autoSettle: AutoSettlePrefs) => {
 
 describe("auto-settle queue with a category switched off", () => {
   it("lots of farms with food off do not crowd a town out of the queue (regression)", async () => {
-    const { runtime, seen } = buildFarmFieldRuntime({ answered: true, towns: true, food: false, strategic: false, luxury: false });
+    const { runtime, seen } = buildFarmFieldRuntime(grouped(true, false, false, false));
     await runtime.tickTerritoryAutomation(1_000);
     expect(settlementStartedTileKeys(seen)).toEqual(["43,43"]);
   });
 
   it("switching food off while every slot is busy frees the queue for the town (regression)", async () => {
-    const { runtime } = buildFarmFieldRuntime({ answered: true, towns: true, food: true, strategic: false, luxury: false });
+    const { runtime } = buildFarmFieldRuntime(grouped(true, true, false, false));
     await runtime.tickTerritoryAutomation(1_000); // 3 farms take every slot; 20 more fill the queue, the town is dropped
     const queued = () => runtime["autoSettlementQueueForPlayer"]("player-1").map(({ x, y }) => `${x},${y}`);
     expect(queued()).not.toContain("43,43");
@@ -182,7 +197,7 @@ describe("auto-settle queue with a category switched off", () => {
   });
 
   it("switching food on afterwards starts garrisoning the farms captured while it was off", async () => {
-    const { runtime, seen } = buildFarmFieldRuntime({ answered: true, towns: false, food: false, strategic: false, luxury: false });
+    const { runtime, seen } = buildFarmFieldRuntime(grouped(false, false, false, false));
     await runtime.tickTerritoryAutomation(1_000);
     expect(settlementStartedTileKeys(seen)).toEqual([]);
     setPrefs(runtime, { towns: false, food: true, strategic: false, luxury: false });
@@ -217,7 +232,7 @@ describe("join / spawn does not spend manpower on a new human", () => {
     expect(runtime.ensurePlayerHasSpawnTerritory("newbie")).toBe(true);
     expect(settlementStartedTileKeys(seen)).toEqual([]);
     const player = runtime.exportState().players.find((p) => p.id === "newbie");
-    expect(player?.autoSettle).toEqual(NEW_PLAYER_AUTO_SETTLE_PREFS);
+    expect(player?.autoSettle).toEqual(autoSettlePrefsForOutput(NEW_PLAYER_AUTO_SETTLE_PREFS));
     // Full starting manpower plus the one-time landing reserve, nothing spent.
     expect(player?.manpower).toBe(720 + LANDING_MANPOWER_RESERVE);
   });

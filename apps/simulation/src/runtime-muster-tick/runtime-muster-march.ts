@@ -5,7 +5,7 @@ import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { deviationFromMarchLine } from "./muster-march-pathfinding.js";
 import { planMarchRoute } from "./muster-march-route-plan.js";
 import { endMarch, isStraighterRoute, type MarchRouteScore } from "./muster-march-route.js";
-import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_MAX_RANGE_TILES, ADVANCE_THROTTLE_DIST, locksSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
+import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_MAX_RANGE_TILES, ADVANCE_THROTTLE_DIST, isStaleHuntCooldown, locksSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
 import { MUSTER_MARCH_MAX_ROUTE_STEPS, MUSTER_MAX_CONCURRENT_ACTIONS, WORLD_HEIGHT, WORLD_WIDTH, flagCommitForTarget, musterFlagCap } from "@border-empires/shared";
 import { isAlliedOrTruced } from "../runtime-player-factory.js";
 import { countSiegeAttackVectors, isMarchSiegeTarget, MARCH_ROUTE_CORRIDOR_SLACK, MARCH_SIEGE_ATTACK_VECTORS, touchesSiegeTarget } from "./muster-march-siege.js";
@@ -127,7 +127,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // of clearing it back to the generic cooldown text for the rest of the
   // cooldown window — see the matching comment in maybeAdvanceFire.
   const cooldownUntil = input.advanceCooldowns.get(originKey) ?? 0;
-  if (input.nowMs < cooldownUntil) {
+  if (input.nowMs < cooldownUntil && !isStaleHuntCooldown(musterTile.muster, cooldownUntil)) {
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
       inFlight: inFlightLocks.length > 0,
       inFlightCount: inFlightLocks.length,

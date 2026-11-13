@@ -58,7 +58,7 @@ describe("town arrow detail refresh", () => {
     const panel = document.getElementById("v2t-left");
     expect(panel?.textContent).toContain("Birch");
     expect(panel?.textContent).toContain("+2,880/day");
-    expect(panel?.textContent).toContain("7 / 8");
+    expect(panel?.textContent).toContain("Support 7/8");
     stepTown(deps, -1);
     expect(requestTileDetailIfNeeded).toHaveBeenLastCalledWith(first, { force: true });
     stepTown(deps, 1);
@@ -119,7 +119,7 @@ describe("town arrow detail refresh", () => {
   });
 
   it.each([
-    ["FARM", "build_hydrogarden"], ["TITANIUM", "build_mine"], ["UMBRITE", "build_umbrite_rig"]
+    ["FARM", "build_hydrogarden"], ["LUXURY_BIOTA", "build_cultivation_estate"], ["PRECURSOR_SALVAGE", "build_reclamation_works"]
   ] as const)("offers the yellow improvement on a %s in the town support ring", (resource, id) => {
     document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
     const state = createInitialState();
@@ -147,7 +147,7 @@ describe("town arrow detail refresh", () => {
     expect(primary()?.dataset.targetKey).toBe("6,5");
     expect(document.querySelector('[data-v2-build-category][aria-selected="true"]')?.getAttribute("data-v2-build-category")).toBe("resource");
     screenClick(deps, primary()!);
-    expect(handleTileAction).toHaveBeenCalledWith(id, "6,5", undefined, false);
+    expect(handleTileAction).toHaveBeenCalledWith(id, "6,5", undefined);
 
     // A manually chosen category persists on ticks, but not when selecting a different plot.
     screenClick(deps, document.querySelector<HTMLElement>('[data-v2-build-category="military"]')!);

@@ -12,6 +12,8 @@
 //   - captured dock: its harbour ablaze, flames, embers and smoke;
 //   - captured resource: scorched ground, flames, embers, rising smoke.
 import { captureAftermathForTile, type CaptureRubbleKind } from "./client-capture-aftermath/client-capture-aftermath.js";
+import { dockFireLayout2D } from "./client-capture-aftermath/dock-fire-2d-layout.js";
+import { HARBOUR_FACINGS, type Facing } from "./client-harbour-slipways/client-harbour-slipways.js";
 import type { Tile } from "./client-types.js";
 
 type Ctx = CanvasRenderingContext2D;
@@ -245,14 +247,14 @@ const flame = (ctx: Ctx, x: number, y: number, size: number, now: number, i: num
   }
 };
 
-/** A captured dock ablaze: its buildings, freight, pier and ferry burning. */
-const dockFire = (ctx: Ctx, seed: number, px: number, py: number, s: number, now: number): void => {
-  scorch(ctx, px + s * 0.5, py + s * 0.55, s * 0.32, 0.6);
-  const spots: ReadonlyArray<readonly [number, number, number]> = [[0.3, 0.38, 0.07], [0.42, 0.34, 0.05], [0.55, 0.55, 0.06], [0.7, 0.66, 0.05], [0.36, 0.72, 0.055]];
-  spots.forEach(([fx, fy, size], i) => flame(ctx, px + s * fx, py + s * fy, s * size, now, i + seed));
+/** A captured dock ablaze: its buildings, containers, pier and moored carrier burning, on the sprite turned to `facing`. */
+const dockFire = (ctx: Ctx, seed: number, px: number, py: number, s: number, now: number, facing: Facing): void => {
+  const layout = dockFireLayout2D(facing);
+  const [scorchX, scorchY, scorchSize] = layout.scorch;
+  scorch(ctx, px + s * scorchX, py + s * scorchY, s * scorchSize, 0.6);
+  layout.flames.forEach(([fx, fy, size], i) => flame(ctx, px + s * fx, py + s * fy, s * size, now, i + seed));
   embers(ctx, seed, px, py, s, 5, now);
-  smoke(ctx, seed, px + s * 0.32, py + s * 0.3, s, now, 7, 1.25);
-  smoke(ctx, seed + 3, px + s * 0.38, py + s * 0.66, s, now, 5, 0.9);
+  layout.smoke.forEach(([fx, fy, scale], i) => smoke(ctx, seed + i * 3, px + s * fx, py + s * fy, s, now, i === 0 ? 7 : 5, scale));
 };
 
 const resourceFire = (ctx: Ctx, seed: number, px: number, py: number, s: number, now: number): void => {
@@ -265,7 +267,8 @@ const resourceFire = (ctx: Ctx, seed: number, px: number, py: number, s: number,
   smoke(ctx, seed + 7, px + s * 0.38, py + s * 0.5, s, now, 4, 0.8);
 };
 
-export const drawCaptureAftermath2D = (ctx: Ctx, tile: Tile, px: number, py: number, size: number, nowEpochMs: number): void => {
+/** `dockFacing`: which way a dock on the tile faces its water (harbourFacingAt), to burn on its turned sprite. */
+export const drawCaptureAftermath2D = (ctx: Ctx, tile: Tile, px: number, py: number, size: number, nowEpochMs: number, dockFacing: Facing = HARBOUR_FACINGS[0]!): void => {
   if (size < 8) return;
   const aftermath = captureAftermathForTile(tile, nowEpochMs);
   if (!aftermath) return;
@@ -276,7 +279,7 @@ export const drawCaptureAftermath2D = (ctx: Ctx, tile: Tile, px: number, py: num
     // A breached fort is painted over its own sprite by drawFortBreach2D.
     else if (kind !== "FORT") siegeWreck(ctx, kind, seed, px, py, size, nowEpochMs);
   }
-  if (aftermath.burningDock) dockFire(ctx, seed, px, py, size, nowEpochMs);
+  if (aftermath.burningDock) dockFire(ctx, seed, px, py, size, nowEpochMs, dockFacing);
   else if (aftermath.smoke) resourceFire(ctx, seed, px, py, size, nowEpochMs);
   ctx.restore();
 };

@@ -6,6 +6,7 @@ import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import { afcPlayerExportFields } from "./afc-specializations/afc-player-export.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
+  autoSettlePrefsForOutput,
   WORLD_HEIGHT,
   WORLD_WIDTH
 } from "@border-empires/shared";
@@ -195,7 +196,7 @@ export function exportTilesInAreaForPlayer(input: {
         ? {
             ...delta,
             ...(waystationRewardHiddenFromViewer(tile.waystation, input.playerId) ? { waystationJson: undefined } : {}),
-            ...districtOverlayProjection(input.tiles, tile, () => true)
+            ...districtOverlayProjection(input.tiles, tile, () => true, input.playerId)
           }
         : delta);
     }
@@ -251,7 +252,7 @@ function visibleTileProjection(
     // local belief is corrected by REQUEST_TILE_DETAIL, same as before.
     ...overlayJsonFieldsFromTile(tile, playerId),
     ...districtOverlayProjection(input.tiles, tile, key => classification.visibleKeys.has(key) &&
-      !(classification.lockTargetOnlyKeys.has(key) && !allyAndSelfIds.has(input.tiles.get(key)?.ownerId ?? "")))
+      !(classification.lockTargetOnlyKeys.has(key) && !allyAndSelfIds.has(input.tiles.get(key)?.ownerId ?? "")), playerId)
   };
 }
 
@@ -313,7 +314,7 @@ function visiblePlayersProjection(
         activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
         relicDevelopmentBonus: player.relicDevelopmentBonus ?? 0,
         ...(player.id === visiblePlayerId && input.relicMapHintsForPlayer ? { relicMapHints: input.relicMapHintsForPlayer(player.id) } : {}),
-        autoSettle: { ...player.autoSettle },
+        autoSettle: autoSettlePrefsForOutput(player.autoSettle),
         // This reconnect/login snapshot path (exportVisibleStateForPlayerAsync)
         // never carried devQueue/waypointQueue -- only the separate full
         // exportState() (runtime-state-export.ts, used for checkpointing/

@@ -23,7 +23,6 @@ export const MAX_RESOURCE_SUPPLY_AGREEMENTS_PER_PLAYER = 16;
 const amount = z.number().int().min(0).max(MAX_RESOURCE_TRADE_SLOTS).optional();
 export const ResourceSupplyOfferSchema = z.object({
   FOOD: amount, TITANIUM: amount, CRYSTAL: amount, UMBRITE: amount,
-  NEURAL_RESIN: amount, CONDUCTIVE_MINERALS: amount, CATALYTIC_DEPOSIT: amount,
   LUXURY_BIOTA: amount, PRECURSOR_SALVAGE: amount
 }).strict();
 export const ResourceSupplyAgreementSchema = z.object({
@@ -35,8 +34,7 @@ export const ResourceSupplyAgreementSchema = z.object({
 export type ResourceSupplyAgreement = z.infer<typeof ResourceSupplyAgreementSchema>;
 
 export const emptyResourceSupplyAmounts = (): ResourceSupplyAmounts => ({
-  FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, NEURAL_RESIN: 0,
-  CONDUCTIVE_MINERALS: 0, CATALYTIC_DEPOSIT: 0, LUXURY_BIOTA: 0, PRECURSOR_SALVAGE: 0
+  FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, LUXURY_BIOTA: 0, PRECURSOR_SALVAGE: 0
 });
 export const hasResourceSupplyOffer = (offer: ResourceSupplyOffer | undefined): boolean =>
   TRADABLE_SUPPLY_RESOURCES.some(resource => (offer?.[resource] ?? 0) > 0);

@@ -34,7 +34,8 @@ describe("structureModifiersFor", () => {
     expect(structureModifiersFor("MANUFACTORY").every((m) => m.isTownWide === true)).toBe(true);
     expect(structureModifiersFor("FORT").every((m) => m.isTownWide === false)).toBe(true);
     expect(structureModifiersFor("OBSERVATORY").every((m) => m.isTownWide === false)).toBe(true);
-    expect(structureModifiersFor("UMBRITE_RIG").every((m) => m.isTownWide === false)).toBe(true);
+    expect(structureModifiersFor("TITANIUM_REFINERY").every((m) => m.isTownWide === false)).toBe(true);
+    expect(structureModifiersFor("CRYSTAL_CUTTER").every((m) => m.isTownWide === true)).toBe(true);
   });
 
   it("only carries rawValue on flat, additive-per-copy numbers", () => {

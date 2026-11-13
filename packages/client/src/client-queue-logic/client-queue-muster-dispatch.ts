@@ -10,7 +10,7 @@ import { formatSiegeRemaining, ownTileSiegeAt, type OwnTileSiege } from "../clie
 import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
 import { clientMusterTransitRoute } from "../client-muster-transit-route/client-muster-transit-route.js";
 import { requiredMusterWithCommit } from "../client-attack-commit/client-attack-commit.js";
-import { BARBARIAN_OWNER_ID, canTakeHuntOrder, huntOrderMessage } from "../client-muster-hunt/client-muster-hunt.js";
+import { BARBARIAN_OWNER_ID, canHuntWith, huntOrderMessage } from "../client-muster-hunt/client-muster-hunt.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -106,7 +106,7 @@ const huntInsteadOfAttack = (
   flag: Tile,
   deps: MusterAttackDispatchDeps
 ): boolean => {
-  if (input.to.ownerId !== BARBARIAN_OWNER_ID || !deps.sendGameMessage || !canTakeHuntOrder(flag)) return false;
+  if (input.to.ownerId !== BARBARIAN_OWNER_ID || !deps.sendGameMessage || !canHuntWith(state, flag, input.to, Date.now())) return false;
   if (!deps.sendGameMessage(huntOrderMessage(flag.x, flag.y, { x: input.to.x, y: input.to.y }))) return false;
   clearInFlightAction(state);
   state.queuedTargetKeys.delete(input.targetKey);

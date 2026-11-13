@@ -1,3 +1,4 @@
+import { NEW_PLAYER_AUTO_SETTLE_PREFS, autoSettlePrefsForOutput } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
 import type { PlayerSubscriptionSnapshot } from "../index.js";
@@ -37,13 +38,13 @@ const snapshot = (): PlayerSubscriptionSnapshot => ({
 // independently accumulated, now against the single merged implementation.
 describe("applyPlayerMessageToSnapshot", () => {
   it("refreshes committed resource supply in the cached reconnect snapshot", () => {
-    const agreement = { id: "supply-1", proposerId: "player-1", targetId: "other", proposerGives: { NEURAL_RESIN: 1 }, targetGives: {}, startedAt: 1, expiresAt: 100, fulfilled: true };
+    const agreement = { id: "supply-1", proposerId: "player-1", targetId: "other", proposerGives: { LUXURY_BIOTA: 1 }, targetGives: {}, startedAt: 1, expiresAt: 100, fulfilled: true };
     const updated = applyPlayerMessageToSnapshot(snapshot(), { type: "PLAYER_UPDATE", resourceTradeHoldings: { FOOD: 2 }, resourceTradeAgreements: [agreement] });
     expect(updated.player?.resourceTradeHoldings).toEqual({ FOOD: 2 });
     expect(updated.player?.resourceTradeAgreements).toEqual([agreement]);
-    const expired = applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", resourceTradeHoldings: { FOOD: 2, NEURAL_RESIN: 1 }, resourceTradeAgreements: [] });
+    const expired = applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", resourceTradeHoldings: { FOOD: 2, LUXURY_BIOTA: 1 }, resourceTradeAgreements: [] });
     expect(expired.player?.resourceTradeAgreements).toEqual([]);
-    expect(expired.player?.resourceTradeHoldings?.NEURAL_RESIN).toBe(1);
+    expect(expired.player?.resourceTradeHoldings?.LUXURY_BIOTA).toBe(1);
   });
   // Resource slots: the client
   // build-affordability gate reads resourceSlots off ClientState, sourced
@@ -115,11 +116,12 @@ describe("applyPlayerMessageToSnapshot", () => {
   });
 
   it("merges autoSettle prefs from a PLAYER_UPDATE and ignores a malformed value", () => {
-    const prefs = { answered: true, towns: true, food: false, strategic: false, luxury: false };
+    const prefs = { ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true, towns: true, PRECURSOR_SALVAGE: true };
     const updated = applyPlayerMessageToSnapshot(snapshot(), { type: "PLAYER_UPDATE", autoSettle: prefs });
-    expect(updated.player?.autoSettle).toEqual(prefs);
+    // Cached with the grouped switches older tabs read (autoSettlePrefsForOutput).
+    expect(updated.player?.autoSettle).toEqual(autoSettlePrefsForOutput(prefs));
     const untouched = applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", autoSettle: { towns: "yes" } });
-    expect(untouched.player?.autoSettle).toEqual(prefs);
+    expect(untouched.player?.autoSettle).toEqual(autoSettlePrefsForOutput(prefs));
   });
 
   it("merges economyBreakdown, upkeepPerMinute, and upkeepLastTick from a PLAYER_UPDATE into the cached snapshot", () => {

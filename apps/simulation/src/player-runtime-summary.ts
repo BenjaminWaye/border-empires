@@ -6,7 +6,7 @@ import {
   TOWN_BASE_GOLD_PER_MIN,
   townPopulationMultiplier
 } from "@border-empires/game-domain";
-import { resolvedTownCoastal, resolvedTownTerrainProfileId, type SlotResource, type WaypointWireStep } from "@border-empires/shared";
+import { resolvedTownCoastal, resolvedTownTerrainProfileId, type ChosenStructureTier, type SlotResource, type WaypointWireStep } from "@border-empires/shared";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 type TownPopulationTier = NonNullable<NonNullable<DomainTileState["town"]>["populationTier"]>;
@@ -45,6 +45,11 @@ export type ServerDevQueueEntry = {
   kind: "SETTLE" | "BUILD";
   /** Only present for kind === "BUILD" -- e.g. "FORT", "MANUFACTORY", "REMOVE_STRUCTURE". */
   structureType?: string;
+  /** The Fortify / Siege picker's explicit tier for a fort/siege BUILD; absent = best tier the tech allows. */
+  tier?: ChosenStructureTier;
+  /** A queued refinery BUILD's chosen deposit field (BUILD_ECONOMIC_STRUCTURE fieldX/fieldY); absent = auto-pick. Optional so older saved entries stay valid. */
+  fieldX?: number;
+  fieldY?: number;
   queuedAt: number;
   /** § queued-buildings-mp-reimbursement: manpower reserved from the player at enqueue time for a BUILD entry (never set for SETTLE/REMOVE_STRUCTURE), refunded on cancel or before the entry drains -- see runtime-dev-queue-build-reservation.ts. */
   reservedManpower?: number;
@@ -110,6 +115,8 @@ export type ServerWaypointQueueEntry = {
  */
 export type ClaimContinuation = {
   structureType?: string;
+  /** The Fortify / Siege picker's explicit tier for the build that follows. */
+  tier?: ChosenStructureTier;
 };
 
 export type PlayerRuntimeSummary = {

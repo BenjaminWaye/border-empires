@@ -9,6 +9,7 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import {
   devQueueCancel,
   devQueueEnqueue,
+  devQueueFieldOf,
   devQueueEntryForTileKey,
   devQueueMoveToFront,
   parseDevQueueEnqueuePayload,
@@ -84,7 +85,7 @@ export const handleDevQueueEnqueueCommand = (context: RuntimeDevQueueCommandCont
   let awaitingManpower = false;
   if (isReservableBuildEntry(payload.kind, payload.structureType)) {
     const extraSlotDemand = reservedSlotDemandForQueue(summary.devQueue);
-    const reservation = context.estimateBuildReservation(command.playerId, payload.structureType, payload.x, payload.y, extraSlotDemand);
+    const reservation = context.estimateBuildReservation(command.playerId, payload.structureType, payload.x, payload.y, extraSlotDemand, payload.tier);
     if (!reservation.ok) { context.rejectCommand(command, reservation.code, reservation.message); return; }
     context.applyManpowerReservation(command.playerId, reservation.manpowerCost);
     reservedManpower = reservation.manpowerCost;
@@ -215,7 +216,7 @@ export const tryDrainDevQueue = (context: RuntimeDevQueueCommandContext, playerI
     type: entry.kind === "SETTLE" ? "SETTLE" : isRemoval ? "REMOVE_STRUCTURE" : "BUILD_STRUCTURE",
     payloadJson: JSON.stringify(
       entry.kind === "BUILD" && entry.structureType && !isRemoval
-        ? { x: entry.x, y: entry.y, structureType: entry.structureType }
+        ? { x: entry.x, y: entry.y, structureType: entry.structureType, ...(entry.tier ? { tier: entry.tier } : {}), ...devQueueFieldOf(entry) }
         : { x: entry.x, y: entry.y }
     )
   } as unknown as CommandEnvelope;

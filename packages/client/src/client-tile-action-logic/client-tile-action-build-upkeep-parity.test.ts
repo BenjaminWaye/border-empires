@@ -23,9 +23,8 @@ const readSource = (relativePath: string): string => readFileSync(fileURLToPath(
 
 const logicSource = readSource("./client-tile-action-logic.ts");
 const neutralSource = readSource("./client-tile-action-neutral.ts");
-const fortSiegeVariantsSource = readSource("./client-tile-action-fort-siege-variants.ts");
+const tierOptionsSource = readSource("./client-structure-tier-options.ts");
 const resourceBuildSource = readSource("./client-resource-build-actions.ts");
-const siegeCampSource = readSource("./client-tile-action-siege-camp.ts");
 
 const hasRealUpkeep = (type: string): boolean =>
   structureSlotRequirements(type as SlotStructureType).length > 0 ||
@@ -73,20 +72,16 @@ describe("build-menu cost strings always label real upkeep (client-tile-action-l
     expect(line).toContain("upkeepSuffixFor(def.structureType)");
   });
 
-  it("the Fort/Siege tier ladder computes upkeepSuffix from the shared helper, not inline slot text", () => {
-    expect(fortSiegeVariantsSource).toContain("upkeepSuffixFor(tier.variant)");
-    expect(fortSiegeVariantsSource).not.toContain("structureSlotRequirements");
-  });
-
-  it("the build_fortification and build_siege_camp actions surface that upkeepSuffix", () => {
-    expect(lineContaining(logicSource, "fortVariant.summary")).toContain("fortVariant.upkeepSuffix");
-    expect(lineContaining(siegeCampSource, "siegeVariant.summary")).toContain("siegeVariant.upkeepSuffix");
+  it("the Fortify / Siege tier picker labels each tier's upkeep with the shared helper, not inline slot text", () => {
+    expect(lineContaining(tierOptionsSource, 'upkeepSuffixFor("PALISADE")')).toContain("costLine(");
+    expect(tierOptionsSource.match(/upkeepSuffixFor\(variant\)/g)).toHaveLength(2);
+    expect(tierOptionsSource).not.toContain("structureSlotRequirements");
   });
 
   it("Hydrogarden and Hydroworks are the real zero-upkeep exceptions (sanity check the predicate itself)", () => {
     expect(hasRealUpkeep("HYDROGARDEN")).toBe(false);
     expect(hasRealUpkeep("HYDROWORKS")).toBe(false);
-    expect(hasRealUpkeep("MINE")).toBe(true);
+    expect(hasRealUpkeep("TITANIUM_REFINERY")).toBe(true);
     expect(hasRealUpkeep("TITANIUM_WORKS")).toBe(true);
   });
 });

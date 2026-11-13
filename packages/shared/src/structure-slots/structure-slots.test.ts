@@ -43,7 +43,7 @@ describe("structureSlotRequirements", () => {
   });
 
   it("gives every Tier 3 'crystal fix' structure both a FOOD and a CRYSTAL slot", () => {
-    for (const type of ["ORE_REFINERY", "NEURAL_WORKS", "RESONANCE_GRID", "AMBARIC_TRANSFORMER"] as const) {
+    for (const type of ["NEURAL_WORKS", "RESONANCE_GRID", "AMBARIC_TRANSFORMER"] as const) {
       expect(structureSlotRequirements(type)).toEqual(
         expect.arrayContaining([{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }])
       );
@@ -92,7 +92,7 @@ describe("structureSlotRequirements", () => {
   });
 
   it("charges the frontier resource-network installations no slot upkeep", () => {
-    for (const type of ["RESIN_EXTRACTOR", "IMPLANT_FOUNDRY", "CATALYST_REFINERY", "CULTIVATION_ESTATE", "RECLAMATION_WORKS"] as const) {
+    for (const type of ["CULTIVATION_ESTATE", "RECLAMATION_WORKS"] as const) {
       expect(structureSlotRequirements(type)).toEqual([]);
     }
   });
@@ -127,10 +127,14 @@ describe("BASE_SLOTS_BY_TILE_RESOURCE", () => {
 });
 
 describe("TILE_SLOT_BOOST_STRUCTURES / Hydroworks bonus", () => {
-  it("Hydrogarden adds +2 slots, Mine/Umbrite Rig each add +1 slot, to their own tile", () => {
-    expect(TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN).toBe(2);
-    expect(TILE_SLOT_BOOST_STRUCTURES.MINE).toBe(1);
-    expect(TILE_SLOT_BOOST_STRUCTURES.UMBRITE_RIG).toBe(1);
+  it("Hydrogarden is the only same-tile boost; strategic deposits take none", () => {
+    expect(TILE_SLOT_BOOST_STRUCTURES).toEqual({ HYDROGARDEN: 2 });
+  });
+
+  it("refineries and boosters each draw one FOOD slot", () => {
+    for (const type of ["TITANIUM_REFINERY", "UMBRITE_REFINERY", "CRYSTAL_REFINERY", "TITANIUM_SMELTER", "UMBRITE_DISTILLERY", "CRYSTAL_CUTTER"] as const) {
+      expect(structureSlotRequirements(type)).toEqual([{ resource: "FOOD", count: 1 }]);
+    }
   });
 
   it("Hydroworks adds +2 FOOD slots to Hydrogardens in its radius, on top of Hydrogarden's own +2", () => {

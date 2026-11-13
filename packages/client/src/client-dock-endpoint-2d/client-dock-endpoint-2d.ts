@@ -3,22 +3,36 @@
 // drawn even in 3D mode so the icon-only summary stays readable zoomed out
 // (parallels drawResourceCornerMarker), and -- 2D renderer only, since the 3D
 // dock overlay supersedes it -- the SVG dock icon or its fallback placeholder.
+// The icon is the sprite turned toward the dock's water, chosen by the same
+// harbourFacingAt rule that turns the 3D quay.
+import { clientTerrainAt } from "../client-dock-landing-ground/client-dock-landing-ground.js";
+import { harbourFacingAt } from "../client-harbour-slipways/client-harbour-slipways.js";
+import { DOCK_SPRITE_DRAW_SCALE, dockSpriteIndex } from "../client-map-3d-harbour/dock-sprite-frame.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
+import type { Tile } from "../client-types.js";
 
 export type DockEndpoint2DDeps = {
   readonly ctx: CanvasRenderingContext2D;
-  readonly overlayVariantIndexAt: (x: number, y: number, mod: number) => number;
+  /** Dock sprites in HARBOUR_FACINGS order (client-map-overlay-images.ts dockOverlayVariants). */
   readonly dockOverlayVariants: ReadonlyArray<HTMLImageElement | undefined>;
   readonly drawDockMarker: (px: number, py: number, size: number) => void;
   readonly drawCenteredOverlay: (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale?: number) => void;
 };
 
-export const drawDockEndpoint2D = (deps: DockEndpoint2DDeps, wx: number, wy: number, px: number, py: number, size: number): void => {
+export const drawDockEndpoint2D = (
+  deps: DockEndpoint2DDeps,
+  wx: number,
+  wy: number,
+  px: number,
+  py: number,
+  size: number,
+  tiles: ReadonlyMap<string, Tile>
+): void => {
   deps.drawDockMarker(px, py, size);
   if (isTrue3DRendererActive()) return;
-  const dockOverlay = deps.dockOverlayVariants[deps.overlayVariantIndexAt(wx, wy, deps.dockOverlayVariants.length)];
+  const dockOverlay = deps.dockOverlayVariants[dockSpriteIndex(harbourFacingAt(clientTerrainAt(tiles), wx, wy))];
   if (dockOverlay?.complete && dockOverlay.naturalWidth) {
-    deps.drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
+    deps.drawCenteredOverlay(dockOverlay, px, py, size, DOCK_SPRITE_DRAW_SCALE);
     return;
   }
   const { ctx } = deps;

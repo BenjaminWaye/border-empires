@@ -11,21 +11,21 @@ describe("client structure effects", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "ORE_REFINERY", status: "active" }
+      economicStructure: { ownerId: "me", type: "HYDROWORKS", status: "active" }
     });
 
-    expect(preview?.radius).toBe(5);
+    expect(preview?.radius).toBe(10);
     expect(preview?.lineDash).toEqual([10, 8]);
   });
 
-  it("shows percent-style area modifiers on affected tiles", () => {
-    const oreRefinery: Tile = {
+  it("shows area modifiers on affected tiles and ignores unrelated structures", () => {
+    const ministryHall: Tile = {
       x: 20,
       y: 20,
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "ORE_REFINERY", status: "active" }
+      economicStructure: { ownerId: "me", type: "MINISTRY_HALL", status: "active" }
     };
     const ancillaryDepot: Tile = {
       x: 23,
@@ -35,41 +35,11 @@ describe("client structure effects", () => {
       ownershipState: "SETTLED",
       economicStructure: { ownerId: "me", type: "ANCILLARY_DEPOT", status: "active" }
     };
-    const mine: Tile = {
-      x: 25,
-      y: 20,
-      terrain: "LAND",
-      ownerId: "me",
-      ownershipState: "SETTLED",
-      resource: "TITANIUM",
-      economicStructure: { ownerId: "me", type: "MINE", status: "active" }
-    };
+    const deposit: Tile = { x: 25, y: 20, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "TITANIUM" };
 
-    expect(tileAreaEffectModifiersForTile(mine, [oreRefinery, ancillaryDepot, mine])).toEqual([
-      { reason: "Ore Refinery", effect: "+100% titanium production", tone: "positive" }
-    ]);
-  });
-
-  it("does not show Ore Refinery modifiers beyond five tiles", () => {
-    const oreRefinery: Tile = {
-      x: 20,
-      y: 20,
-      terrain: "LAND",
-      ownerId: "me",
-      ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "ORE_REFINERY", status: "active" }
-    };
-    const mine: Tile = {
-      x: 26,
-      y: 20,
-      terrain: "LAND",
-      ownerId: "me",
-      ownershipState: "SETTLED",
-      resource: "TITANIUM",
-      economicStructure: { ownerId: "me", type: "MINE", status: "active" }
-    };
-
-    expect(tileAreaEffectModifiersForTile(mine, [oreRefinery, mine])).toEqual([]);
+    expect(tileAreaEffectModifiersForTile(deposit, [ministryHall, ancillaryDepot, deposit]).map((m) => m.reason)).toEqual(["Ministry Hall"]);
+    // A titanium deposit no longer reads an Ore Refinery modifier (removed with town refineries).
+    expect(tileAreaEffectModifiersForTile(deposit, [ancillaryDepot, deposit])).toEqual([]);
   });
 
   it("shows owned domain defense bonuses on settled land near active forts", () => {

@@ -7,7 +7,8 @@ import type { SlotResource } from "../structure-slots/structure-slots.js";
 /**
  * TILE: owned settled resource tiles (id = tile resource, e.g. "TITANIUM").
  * STRUCTURE_BOOST: a structure's bonus on a resource tile (id = structure type:
- *   same-tile Mine/Hydrogarden/etc., or a radius HYDROWORKS / ORE_REFINERY).
+ *   same-tile Hydrogarden, a radius HYDROWORKS, or a town refinery / its
+ *   booster processing a deposit field, e.g. TITANIUM_REFINERY / TITANIUM_SMELTER).
  * CONVERTER: a SYNTHESIZE-mode converter (id = structure type).
  * TECH: a tech bonus (id = tech id, e.g. "agriculture" for the fish bonus).
  * UPGRADE: an installed domain / AFC upgrade (id = domain or upgrade id).

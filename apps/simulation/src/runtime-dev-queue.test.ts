@@ -8,12 +8,22 @@ import {
   parseDevQueueTileKeyPayload
 } from "./runtime-dev-queue.js";
 import type { ServerDevQueueEntry } from "./player-runtime-summary.js";
+import { parseClaimContinuationSetPayload } from "./runtime-claim-continuation-command-handlers.js";
 
 describe("devQueueEnqueue", () => {
   it("appends a new entry", () => {
     const { queue, accepted } = devQueueEnqueue([], { x: 1, y: 2, tileKey: "1,2", kind: "SETTLE" }, 1000);
     expect(accepted).toBe(true);
     expect(queue).toEqual([{ tileKey: "1,2", x: 1, y: 2, kind: "SETTLE", queuedAt: 1000 }]);
+  });
+
+  it("keeps a refinery BUILD's fieldX/fieldY from the wire, and stays valid without them", () => {
+    const payload = parseDevQueueEnqueuePayload(JSON.stringify({ x: 1, y: 2, tileKey: "1,2", kind: "BUILD", structureType: "TITANIUM_REFINERY", fieldX: 5, fieldY: 6 }));
+    expect(payload).toMatchObject({ fieldX: 5, fieldY: 6 });
+    expect(devQueueEnqueue([], payload!, 1000).queue[0]).toMatchObject({ structureType: "TITANIUM_REFINERY", fieldX: 5, fieldY: 6 });
+    const legacy = parseDevQueueEnqueuePayload(JSON.stringify({ x: 1, y: 2, tileKey: "1,2", kind: "BUILD", structureType: "TITANIUM_REFINERY" }));
+    expect(devQueueEnqueue([], legacy!, 1000).queue[0]).toEqual({ tileKey: "1,2", x: 1, y: 2, kind: "BUILD", structureType: "TITANIUM_REFINERY", queuedAt: 1000 });
+    expect(parseDevQueueEnqueuePayload(JSON.stringify({ x: 1, y: 2, tileKey: "1,2", kind: "BUILD", structureType: "TITANIUM_REFINERY", fieldX: 5 }))).not.toHaveProperty("fieldX");
   });
 
   it("keeps structureType for BUILD entries", () => {
@@ -81,6 +91,26 @@ describe("payload parsers", () => {
 
   it("rejects malformed JSON", () => {
     expect(parseDevQueueEnqueuePayload("not json")).toBeNull();
+  });
+
+  it("keeps a valid chosen tier and drops an unknown one", () => {
+    const base = { x: 1, y: 2, tileKey: "1,2", kind: "BUILD", structureType: "FORT" };
+    expect(parseDevQueueEnqueuePayload(JSON.stringify({ ...base, tier: "THUNDER_BASTION" }))?.tier).toBe("THUNDER_BASTION");
+    expect(parseDevQueueEnqueuePayload(JSON.stringify({ ...base, tier: "MEGA_FORT" }))).not.toHaveProperty("tier");
+  });
+
+  it("never stores a tier on a non-BUILD entry", () => {
+    expect(parseDevQueueEnqueuePayload(JSON.stringify({ x: 1, y: 2, tileKey: "1,2", kind: "SETTLE", tier: "DREAD_TOWER" }))).not.toHaveProperty("tier");
+  });
+
+  it("keeps a claim continuation's tier only for a fort or siege build", () => {
+    expect(parseClaimContinuationSetPayload(JSON.stringify({ x: 1, y: 2, structureType: "FORT", tier: "FORT" }))?.tier).toBe("FORT");
+    expect(parseClaimContinuationSetPayload(JSON.stringify({ x: 1, y: 2, structureType: "OBSERVATORY", tier: "FORT" }))).not.toHaveProperty("tier");
+  });
+
+  it("copies the chosen tier onto the queued entry", () => {
+    const { queue } = devQueueEnqueue([], { x: 1, y: 2, tileKey: "1,2", kind: "BUILD", structureType: "SIEGE_BATTERY", tier: "SIEGE_BATTERY" }, 5);
+    expect(queue[0]).toMatchObject({ structureType: "SIEGE_BATTERY", tier: "SIEGE_BATTERY" });
   });
 
   it("parses a tileKey-only payload", () => {

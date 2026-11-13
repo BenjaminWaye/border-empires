@@ -52,7 +52,7 @@ wall-clock inflation** on the oversubscribed vCPU, not planner code cost.
 
 Emitters: `EXPAND`, `ATTACK`, `SET_MUSTER`/`ADVANCE`, `CHOOSE_TECH`,
 `CHOOSE_DOMAIN`, `BUILD_FORT`, `BUILD_ECONOMIC_STRUCTURE`,
-`BUILD_SIEGE_BATTERY`, `SETTLE`; barbarian planner:
+`BUILD_SIEGE_BATTERY`, `SETTLE`, `ASSIGN_REFINERY_FIELD`; barbarian planner:
 `EXPAND`, `ATTACK`, `UNCAPTURE_TILE`.
 
 The bounded tactical interrupt (`ai-aether-planner.ts`) also emits
@@ -77,6 +77,19 @@ The gateway owns proactive diplomacy (`proactive-ai-diplomacy.ts`): one AI per
 15-second evaluation, at most one offer, existing durable SocialState and responder.
 No diplomacy request store is added to the simulation. See
 [AI progression review and implementation](../../ai-progression-improvements-plan.md).
+
+Town refineries (territory-development-plan.md Phase 2): `build/refinery-build-planner.ts`
+adds refinery and booster candidates to `chooseBestEconomicBuild` (a refinery
+build carries `fieldX`/`fieldY`, re-checked with the shared
+`chooseRefineryField`), and `refinery-reassign-planner.ts` runs beside the
+aether interrupt to emit `ASSIGN_REFINERY_FIELD` for an idle refinery. Both
+read only the AI's towns (town-economy keys or build-candidate towns, at most
+64) and their support rings, never the whole territory; the reassign pass is
+skipped when the cached structure counts show no refinery. Planner tiles carry
+the record's `refineryField` (`toPlannerTileView`, `parseEconomicStructure`).
+A refinery is never built if its new slots would lift free slots to
+`SURPLUS_PRODUCER_MIN_HEADROOM`, the point where FOOD relief switches
+refineries off again. Scores: `docs/game-mechanics.md` §11.
 
 `evaluateSettlementCandidate` still classifies frontier tiles; it remains live.
 
@@ -345,7 +358,7 @@ consolidation, planning cadence), not deletion.
   - *FOOD relief order*: relief switched off a land-holding beacon first, even
     at exactly-full FOOD, and the freed slot went to the next economic build
     (185 AI beacons off, 253 Manufactories on). Free tiers (surplus
-    MINE/UMBRITE_RIG, beacons fully covered by other anchors, FOOD-dormant
+    MINE/UMBRITE_RIG, now town refineries, beacons fully covered by other anchors, FOOD-dormant
     consumers) always run; costly tiers (working building, then land-holding
     beacon, then town) only in a real deficit or when a beacon site exists
     with one more FOOD slot (`beaconWaitingOnFood`, a lazy second beacon
@@ -363,6 +376,9 @@ consolidation, planning cadence), not deletion.
     daily value or a day's value in coin; 6h per-target cooldown. The AI ends
     its own FOOD purchase after 24h (the sim ignores `supplyDurationHours`, so
     agreements never expire otherwise) to stay under the 16-agreement cap.
+    An AI with no FOOD to buy instead sells up to 3 spare upkeep slots (keeping
+    2) to a neighbouring player out of them, for a day's value; it ends those
+    sales after 24h too (`ai-surplus-sale.ts`).
     Attacking a House ends every supply agreement between the two (sim:
     `runtime-frontier-command.ts` → `RuntimeResourceSupply.cancelBetween`), so an
     AI that attacks its FOOD supplier loses that FOOD. The attack planner does

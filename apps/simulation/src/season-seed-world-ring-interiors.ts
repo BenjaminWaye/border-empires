@@ -62,10 +62,12 @@ const interiorLandTilesByDistance = (
  * place on) or that already have something placed by an earlier pass
  * (a town, a resource cluster, or a dock already inside the interior).
  */
-export const fillMountainRingInteriors = (worldSeed: number, style: WorldStyle, deps: RingInteriorFillDeps): void => {
+/** Puts a town in every land-accessible ring interior that has no town, cluster or dock; returns how many towns it added. */
+export const fillMountainRingInteriors = (worldSeed: number, style: WorldStyle, deps: RingInteriorFillDeps): number => {
   const { WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, townsByTile, clusterByTile, docksByTile, townsRuntime, POPULATION_MAX } = deps;
   const { canPlaceTownAt, initialTownPopulationAt, townTypeAt } = townsRuntime;
   const rings = enumerateMountainRings(WORLD_WIDTH, WORLD_HEIGHT);
+  let added = 0;
   for (const ring of rings) {
     const interiorTiles = interiorLandTilesByDistance(ring, { WORLD_WIDTH, WORLD_HEIGHT, terrainAt });
     if (interiorTiles.length === 0) continue; // entirely sea/lake — nothing to place on
@@ -95,10 +97,12 @@ export const fillMountainRingInteriors = (worldSeed: number, style: WorldStyle, 
       connectedTownBonus: 0,
       lastGrowthTickAt: 0
     } as TownDefinition);
+    added += 1;
   }
   // style is currently unused by the placement logic itself (rings are
   // seeded the same way regardless of style) but kept in the signature so
   // callers don't need a separate no-op branch if style-specific behavior
   // (e.g. skipping on "islands" ring density) is added later.
   void style;
+  return added;
 };

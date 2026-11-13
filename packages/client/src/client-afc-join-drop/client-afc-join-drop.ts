@@ -73,14 +73,14 @@ const ownAfcIdentityAt = (deps: AfcJoinDropTickDeps, x: number, y: number): stri
   return afc && afc.ownerId === deps.state.me && afc.activatedAt !== undefined ? afcIdentity(x, y, afc.activatedAt) : undefined;
 };
 
-/** The viewer's newest own AFC activated within AFC_JOIN_MAX_AGE_MS. Scans every known tile -- the AFC is not necessarily on state.homeTile -- so the caller throttles it. */
+/** The viewer's newest own AFC activated within AFC_JOIN_MAX_AGE_MS. A captured AFC (capturedAt set) never dropped from orbit, so it is skipped. Scans every known tile -- the AFC is not necessarily on state.homeTile -- so the caller throttles it. */
 const findFreshOwnAfc = (deps: AfcJoinDropTickDeps): FreshAfc | undefined => {
   const { state } = deps;
   if (!state.me) return undefined;
   let best: FreshAfc | undefined;
   for (const tile of state.tiles.values()) {
     const afc = tile.afc;
-    if (!afc || afc.ownerId !== state.me || afc.activatedAt === undefined) continue;
+    if (!afc || afc.ownerId !== state.me || afc.activatedAt === undefined || afc.capturedAt !== undefined) continue;
     if (deps.wallNowMs - afc.activatedAt > AFC_JOIN_MAX_AGE_MS) continue;
     if (!best || afc.activatedAt > best.activatedAt) best = { x: tile.x, y: tile.y, activatedAt: afc.activatedAt, identity: afcIdentity(tile.x, tile.y, afc.activatedAt) };
   }

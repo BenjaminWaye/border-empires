@@ -114,6 +114,43 @@ somewhere in code):
    through towns, gold, resources, sea control or diplomacy, not only by
    conquering.
 
+### 1.1 Owner design intent (confirmed 2026-11-12)
+
+The pillars above were inferred from code. These answers come from the owner
+and take precedence when a proposal has to choose. Read them before proposing
+gameplay changes.
+
+- **Rhythm.** Manpower is paid in a refill every 4 hours
+  (`MANPOWER_REFILL_WINDOW_MS`), so a day is about four "turns", or one big
+  turn for a player who visits once. A visit lasts 15–30 minutes, or about an
+  hour for a single daily visit.
+- **Scale.** A map has about 400 towns for about 100 players. Mid-season,
+  when roughly 20 active empires hold half the towns, a typical empire holds
+  5–10 towns, while a leader may hold 40–50. Per-town decisions must work for
+  5 towns and stay manageable at 50.
+- **Optimising is the fun.** Players should be able to spend their visit
+  improving their territory while fighting runs in the background, checked
+  every now and then. Development is a main activity, not a side job of war.
+- **Players should control town growth** more directly than they do today.
+- **FOOD is only a requirement today, and that isn't great.** Towns must be
+  fed to work and to grow (§4.3), but players don't steer growth with it.
+  Making it a separate growth lever as well would be too complicated. If FOOD
+  changes, it moves to growth instead of being a requirement, not both.
+- **Strategic slots.** The owner's view of the main uses: Titanium feeds
+  Weapons Factories and forts, Umbrite feeds Weapons Factories and siege,
+  Crystal feeds Aether Towers. (The full list is longer; for example Crystal
+  also feeds Aether Condensers, Sky Docks and Great Projects; see
+  `STRUCTURE_SLOT_REQUIREMENTS`.) Players try to build away every surplus
+  slot, because using them gives a large advantage.
+- **Development is captured, not raided.** Developed land can't be damaged by
+  raids; it changes hands only by capture. After capture a site is held for
+  `CAPTURE_HOLD_MS` (60 s) and works again once garrisoned; towns also take
+  a 10-minute capture shock (see capture hold in `docs/game-mechanics.md`).
+- **Cost of content.** A new building type is cheap to add (models and art
+  included). AI support for a new system is wanted but not required at launch.
+- **Live seasons.** There are no active players at the moment, so removing
+  content mid-season needs no migration plan for now.
+
 ## 2. The loop at a glance
 
 ```mermaid
@@ -286,7 +323,7 @@ one, and resource tiles lighting up.
 (`DEVELOPMENT_PROCESS_LIMIT`, up to +4 from domains). Beacons, settles and
 builds all share those slots. And reach itself (§6.2).
 
-### 4.2 Session loop (a 5–20 minute check-in): "spend the pool, set up the next half-day"
+### 4.2 Session loop (a 15–30 minute check-in, or one ~1h daily visit): "spend the refill, set up the next one"
 
 1. **Arrive.** The Activity dashboard opens with "since you were away":
    combat, captures, waystation activations (`docs/activity-dashboard-plan.md`).

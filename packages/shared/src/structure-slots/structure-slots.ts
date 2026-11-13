@@ -36,7 +36,7 @@ export type StructureSlotRequirement = {
 // One known documentation quirk, preserved intentionally rather than
 // "corrected" by guessing: HARBOR_EXCHANGE lists a 60-CRYSTAL build cost in
 // structure-costs.ts but §12's own slot-requirement column for it says only
-// "1 FOOD slot" (no CRYSTAL slot), unlike ORE_REFINERY/NEURAL_WORKS/
+// "1 FOOD slot" (no CRYSTAL slot), unlike NEURAL_WORKS/
 // RESONANCE_GRID/AMBARIC_TRANSFORMER, which the plan's "Tier 3 crystal
 // fix" explicitly gives a CRYSTAL slot on top of FOOD. Taken at face value
 // (the plan's table is the source of truth for slot requirements), not
@@ -54,10 +54,13 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   // Hydroworks-radius +2 via HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS below), so
   // charging them their own boosted resource would be circular — dormancy
   // could silently zero out the very supply they exist to add.
-  UMBRITE_RIG: [{ resource: "FOOD", count: 1 }],
-  MINE: [{ resource: "FOOD", count: 1 }],
-  // The frontier resource-network installations (RESIN_EXTRACTOR,
-  // IMPLANT_FOUNDRY, CATALYST_REFINERY, CULTIVATION_ESTATE,
+  TITANIUM_REFINERY: [{ resource: "FOOD", count: 1 }],
+  UMBRITE_REFINERY: [{ resource: "FOOD", count: 1 }],
+  CRYSTAL_REFINERY: [{ resource: "FOOD", count: 1 }],
+  TITANIUM_SMELTER: [{ resource: "FOOD", count: 1 }],
+  UMBRITE_DISTILLERY: [{ resource: "FOOD", count: 1 }],
+  CRYSTAL_CUTTER: [{ resource: "FOOD", count: 1 }],
+  // The frontier resource-network installations (CULTIVATION_ESTATE,
   // RECLAMATION_WORKS) deliberately have NO slot requirement (zero upkeep,
   // user decision): developing a frontier deposit costs only its build
   // manpower. Unlike Hydrogarden/Hydroworks this isn't about circularity:
@@ -84,7 +87,6 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   CLEARING_HOUSE: [{ resource: "FOOD", count: 1 }],
 
   // Tier 3 — major economic engines
-  ORE_REFINERY: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
   NEURAL_WORKS: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
   RESONANCE_GRID: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
   HIGH_YIELD_UMBRITE_WORKS: [{ resource: "UMBRITE", count: 1 }],
@@ -221,25 +223,17 @@ export const BASE_SLOTS_BY_TILE_RESOURCE: Partial<Record<ResourceType, { slotRes
 // player having researched the tech.
 export const AGRICULTURE_FISH_FOOD_SLOT_BONUS = 1;
 
-// Mine/Camp add +1 slot to the tile they sit on (§5.2: "one rule, all
-// resources"). Hydrogarden adds +2 (user decision — a bigger same-tile boost
-// than Mine/Camp, on top of which Hydroworks still adds its own separate
-// +2-per-Hydrogarden-in-radius bonus below). Hydroworks/Ore Refinery instead boost
-// every Hydrogarden/Mine within their radius by a further bonus (§5.3/§12) — a
-// radius effect, not a same-tile one, so neither is part of this
-// per-tile-structure map.
+// Hydrogarden adds +2 to the FARM tile it sits on (§5.2). Hydroworks instead
+// boosts every Hydrogarden within its radius by a further bonus (§5.3/§12) — a
+// radius effect, not a same-tile one, so it is not part of this map.
+// Strategic deposits (Titanium/Umbrite/Gems) take no on-tile improvement:
+// their boost comes from a town refinery processing the whole field
+// (packages/shared/src/refineries/, docs/territory-development-plan.md Phase 2).
 export const TILE_SLOT_BOOST_STRUCTURES: Partial<Record<BuildableStructureType, number>> = {
-  HYDROGARDEN: 2,
-  MINE: 1,
-  UMBRITE_RIG: 1
+  HYDROGARDEN: 2
 };
 
 export const HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS = 2;
-// Mirrors HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS's "double the post-own-boost
-// total" shape: a Mine alone is base(1) + own-boost(1) = 2 slots; within
-// Ore Refinery range it becomes 2 + 2 = 4, i.e. doubled, matching Ore Refinery's
-// "doubles active Mine production" billing (§12).
-export const ORE_REFINERY_MINE_SLOT_BONUS = 2;
 
 // §5.3: "a town requires ~4 food slots to be powered (produce gold +
 // manpower)" — the town itself, separate from any structure sitting on its

@@ -15,7 +15,7 @@ const site = (phase: number, durationMs: number, afcOffset: { dx: number; dy: nu
     afcOffset,
     direction: "build",
     field: "economicStructure",
-    structureType: "ORE_REFINERY",
+    structureType: "TITANIUM_WORKS",
     ownerId: "me",
     fraction: phase / CONSTRUCTION_PHASES,
     visibleBands: phase + 1,

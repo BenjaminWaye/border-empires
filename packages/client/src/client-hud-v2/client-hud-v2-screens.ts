@@ -1,4 +1,3 @@
-import { resourceBuildChecked } from "./client-resource-improvement-action.js";
 // Screen router for the new HUD. Manifest, AFC upgrades, Diplomacy and Ranks
 // share one full-screen frame over the darkened map; Chronicle is a drawer
 // over the live map; town and battle have their own runtimes. Opening one
@@ -434,7 +433,7 @@ const townClick = (deps: HudV2Deps, target: Element): boolean => {
   }
   const action = target.closest<HTMLButtonElement>("[data-hud-v2-action]");
   if (action && !action.disabled) {
-    runTileActionOn(deps, action.dataset.hudV2Action as TileActionDef["id"], action.dataset.targetKey, action.dataset.originKey, resourceBuildChecked(action));
+    runTileActionOn(deps, action.dataset.hudV2Action as TileActionDef["id"], action.dataset.targetKey, action.dataset.originKey);
     return true;
   }
   if (target.closest("[data-hud-v2-tab]")) {

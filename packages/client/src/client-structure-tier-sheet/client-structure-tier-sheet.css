@@ -1,0 +1,89 @@
+/*
+ * Fortify / Siege tier picker (client-structure-tier-sheet.ts). The card,
+ * title, subtitle and Cancel reuse the effort sheet's classes
+ * (client-effort-confirm-sheet-style.css); this file centres it over a dim
+ * backdrop, like the salvage sheet, and styles the tier rows.
+ */
+.tier-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(8, 6, 4, 0.55);
+}
+
+.tier-sheet-card {
+  width: 340px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+.tier-sheet-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.tier-sheet-option {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(217, 173, 82, 0.35);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--sp-parchment-100);
+  font-family: var(--sp-font-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tier-sheet-option:hover:not(:disabled) {
+  border-color: #d9b25c;
+  background: rgba(217, 178, 92, 0.12);
+}
+
+.tier-sheet-option:focus-visible {
+  outline: 2px solid var(--sp-parchment-100, #f2e8d3);
+  outline-offset: 2px;
+}
+
+.tier-sheet-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.tier-sheet-option-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tier-sheet-option-label {
+  font-family: var(--sp-font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sp-brass-100);
+}
+
+.tier-sheet-option-stat {
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--sp-parchment-100);
+}
+
+.tier-sheet-option-cost {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--sp-parchment-muted, #c9b98f);
+}
+
+.tier-sheet-option-reason {
+  font-size: 12px;
+  color: #e9a08a;
+}

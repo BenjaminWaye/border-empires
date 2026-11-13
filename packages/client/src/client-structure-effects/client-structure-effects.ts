@@ -11,7 +11,6 @@ import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "../c
 import type { TileOverviewModifier } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import type { DomainInfo, Tile } from "../client-types.js";
 
-export const ORE_REFINERY_RADIUS = 5;
 export const HYDROWORKS_RADIUS = 10;
 const MINISTRY_HALL_RADIUS = 10;
 const SKY_DOCK_BOMBARD_RADIUS = 30;
@@ -130,14 +129,6 @@ export const settledDefenseNearFortDomainModifiers = (domainCatalog: DomainInfo[
 export const structureAreaPreviewForTile = (tile: Tile): StructureAreaPreview | undefined => {
   const structure = tile.economicStructure;
   if (!structure) return undefined;
-  if (structure.type === "ORE_REFINERY") {
-    return {
-      radius: ORE_REFINERY_RADIUS,
-      strokeStyle: structure.status === "active" ? "rgba(255, 169, 77, 0.58)" : "rgba(255, 169, 77, 0.3)",
-      fillStyle: structure.status === "active" ? "rgba(255, 169, 77, 0.08)" : "rgba(255, 169, 77, 0.035)",
-      lineDash: [10, 8]
-    };
-  }
   if (structure.type === "MINISTRY_HALL") {
     return {
       radius: MINISTRY_HALL_RADIUS,
@@ -173,34 +164,25 @@ export const structureAreaPreviewForTile = (tile: Tile): StructureAreaPreview | 
   return undefined;
 };
 
-export type PlacementStructureType = "HYDROWORKS" | "ORE_REFINERY";
+// Ore Refinery (the other radius placement) was removed with town refineries.
+export type PlacementStructureType = "HYDROWORKS";
 
 export type PlacementPreviewResult = StructureAreaPreview & { valid: boolean };
 
 export const placementPreviewForStructure = (
-  structureType: PlacementStructureType,
+  _structureType: PlacementStructureType,
   valid: boolean
 ): PlacementPreviewResult => {
-  if (structureType === "HYDROWORKS") {
-    return {
-      radius: HYDROWORKS_RADIUS,
-      strokeStyle: valid ? "rgba(72, 212, 180, 0.7)" : "rgba(220, 80, 80, 0.6)",
-      fillStyle: valid ? "rgba(72, 212, 180, 0.12)" : "rgba(220, 80, 80, 0.08)",
-      lineDash: [10, 8],
-      valid
-    };
-  }
   return {
-    radius: ORE_REFINERY_RADIUS,
-    strokeStyle: valid ? "rgba(255, 169, 77, 0.7)" : "rgba(220, 80, 80, 0.6)",
-    fillStyle: valid ? "rgba(255, 169, 77, 0.12)" : "rgba(220, 80, 80, 0.08)",
+    radius: HYDROWORKS_RADIUS,
+    strokeStyle: valid ? "rgba(72, 212, 180, 0.7)" : "rgba(220, 80, 80, 0.6)",
+    fillStyle: valid ? "rgba(72, 212, 180, 0.12)" : "rgba(220, 80, 80, 0.08)",
     lineDash: [10, 8],
     valid
   };
 };
 
-export const placementRadius = (structureType: PlacementStructureType): number =>
-  structureType === "HYDROWORKS" ? HYDROWORKS_RADIUS : ORE_REFINERY_RADIUS;
+export const placementRadius = (_structureType: PlacementStructureType): number => HYDROWORKS_RADIUS;
 
 export type PlacementAvailability = { available: true } | { available: false; reason: string };
 
@@ -238,8 +220,7 @@ export const canBuildPlacementStructure = (
   return { available: true };
 };
 
-export const placementBeneficiaryStructureType = (structureType: PlacementStructureType): "MINE" | "HYDROGARDEN" =>
-  structureType === "HYDROWORKS" ? "HYDROGARDEN" : "MINE";
+export const placementBeneficiaryStructureType = (_structureType: PlacementStructureType): "HYDROGARDEN" => "HYDROGARDEN";
 
 export const tileIsPlacementBeneficiary = (tile: Tile, structureType: PlacementStructureType, ownerId: string): boolean => {
   const structure = tile.economicStructure;
@@ -257,19 +238,6 @@ export const tileAreaEffectModifiersForTile = (
   if (!tile.ownerId || tile.fogged) return modifiers;
   const shouldDebug = verboseTileDebugEnabled() && tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: tile });
   const tilesForScan = tilesWithPreferredTarget(tile, tiles);
-
-  if (
-    tile.economicStructure?.type === "MINE" &&
-    tile.economicStructure.status === "active" &&
-    isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "ORE_REFINERY", ORE_REFINERY_RADIUS)
-  ) {
-    const resource = tile.resource === "TITANIUM" ? "TITANIUM" : tile.resource === "GEMS" ? "CRYSTAL" : undefined;
-    modifiers.push({
-      reason: "Ore Refinery",
-      effect: resource === "TITANIUM" ? "+100% titanium production" : resource === "CRYSTAL" ? "+100% crystal production" : "+100% mine production",
-      tone: "positive"
-    });
-  }
 
   if (
     tile.ownershipState === "SETTLED" &&

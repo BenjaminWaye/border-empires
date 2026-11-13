@@ -1,11 +1,11 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { handleAssignRefineryFieldCommand, refineryFieldForBuild } from "./refineries/refinery-commands.js";
 import {
+  resolveFortBuildTier,
+  resolveSiegeBuildTier,
   STRUCTURE_REGISTRY,
   landmarkConstructionBlocker,
-  siegeTierForFreshBuild,
   defendingFortVariant,
-  fortTierForBuild,
-  nextSiegeTierForUpgrade,
   relayBeaconBuildDurationMs,
   structureBuildDurationMsForManpowerCost,
   structureBuildSpeedEffectKey,
@@ -177,6 +177,7 @@ function spendStrategicCost(
 export function handleBuildStructureCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
   if (command.type === "BUILD_AFC") return handleBuildAfcCommand(context, command);
   if (command.type === "REDEPLOY_AFC_MODULE") return handleRedeployAfcModuleCommand(context, command);
+  if (command.type === "ASSIGN_REFINERY_FIELD") return handleAssignRefineryFieldCommand(context, command);
   const actor = context.players.get(command.playerId);
   const payload = parseBuildStructurePayload(command.payloadJson);
   if (!actor || !payload) {
@@ -294,6 +295,8 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     return;
   }
 
+  const refineryField = refineryFieldForBuild(context, command, target, structureType, payload.field);
+  if (refineryField === null) return;
   const hasTech = (id: string) => actor.techIds.has(id);
   const buildingFort = spec.kind === "FORT";
   const buildingRelayBeacon = spec.kind === "OUTPOST" && structureType === "RELAY_BEACON";
@@ -321,39 +324,30 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     return;
   }
 
-  const fortTier = spec.kind === "FORT" ? fortTierForBuild(structureType, target.fort?.variant, hasTech) : undefined;
-  if (spec.kind === "FORT" && !fortTier) {
-    rejectCommand(
-      context,
-      command,
-      "BUILD_INVALID",
-      structureType === "PALISADE"
-        ? "tile already has a fortification"
-        : target.fort?.variant === "THUNDER_BASTION" ? "fort already at maximum tier" : "research the next tier first"
-    );
-    return;
-  }
-  if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeBattery && !nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech)) {
-    rejectCommand(context, command, "BUILD_INVALID", target.siegeBattery.variant === "DREAD_TOWER" ? "siege battery already at maximum tier" : "research the next tier first");
-    return;
-  }
+  const buildingSiege = spec.kind === "OUTPOST" && !buildingRelayBeacon;
+  if (payload.tier !== undefined && !buildingFort && !buildingSiege) return rejectCommand(context, command, "BUILD_INVALID", "tier does not match the structure");
+  const fortResolution = buildingFort ? resolveFortBuildTier(structureType, payload.tier, target.fort?.variant, hasTech) : undefined;
+  if (fortResolution && !fortResolution.ok) return rejectCommand(context, command, "BUILD_INVALID", fortResolution.reason);
+  const fortTier = fortResolution?.tier;
+  // A fresh default build steps down to the best tier the player's UMBRITE slots can cover (Siege Battery if a Tower won't fit).
+  const siegeTarget = target;
+  const siegeResolution = buildingSiege
+    ? resolveSiegeBuildTier(payload.tier, target.siegeBattery?.variant, hasTech, (variant) => missingResourceSlotMessage(context, command.playerId, structureType, variant, siegeTarget, spec.tileField) === undefined)
+    : undefined;
+  if (siegeResolution && !siegeResolution.ok) return rejectCommand(context, command, "BUILD_INVALID", siegeResolution.reason);
   if (context.rejectIfNoDevelopmentSlot(command, "BUILD_INVALID", "development slots are busy")) return;
 
   let goldCost: number;
   let manpowerCost: number;
   let strategicCost = spec.cost.strategic as StrategicCost | undefined;
   let slotStructureType: SlotStructureType = structureType;
-  let siegeTier: SiegeTierInfo | undefined;
+  const siegeTier: SiegeTierInfo | undefined = siegeResolution?.tier;
   if (fortTier) {
     goldCost = Math.max(0, Math.round(fortTier.gold * multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult")));
     manpowerCost = fortTier.manpower;
     strategicCost = { TITANIUM: fortTier.titanium };
     slotStructureType = fortTier.variant;
-  } else if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON") {
-    // A fresh build steps down to the best tier the player's UMBRITE slots can cover (Siege Battery if a Tower won't fit).
-    siegeTier = target.siegeBattery
-      ? nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech)!
-      : siegeTierForFreshBuild(hasTech, (variant) => missingResourceSlotMessage(context, command.playerId, structureType, variant, target, spec.tileField) === undefined);
+  } else if (siegeTier) {
     goldCost = siegeTier.gold;
     manpowerCost = siegeTier.manpower;
     strategicCost = { UMBRITE: siegeTier.umbrite, ...(siegeTier.titanium > 0 ? { TITANIUM: siegeTier.titanium } : {}) };
@@ -426,6 +420,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
       status: "under_construction",
       ...(resolvedVariant ? { variant: resolvedVariant } : {}),
       ...(isEcoStruct ? { type: structureType } : {}),
+      ...(refineryField ? { refineryField } : {}),
       ...(fortCharge?.freeFort ? { freeFort: true } : {}),
       ...(standingFort
         ? {

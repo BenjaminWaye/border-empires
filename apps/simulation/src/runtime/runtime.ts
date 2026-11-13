@@ -406,6 +406,7 @@ import {
   type RuntimePassiveIncomeContext
 } from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
+import { runAutoImproveForPlayer } from "../runtime-auto-improve/runtime-auto-improve.js";
 import { createTerritoryAutomationCommandIdGenerator } from "../runtime-territory-automation-tick/territory-automation-command-id.js";
 import { dormantOwnedActivatables } from "../runtime-territory-automation-tick/dormant-claim-sweep.js";
 import {
@@ -2701,7 +2702,7 @@ export class SimulationRuntime {
       rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       emitEvent: (event) => this.emitEvent(event),
-      drainDevQueue: (playerId) => tryDrainDevQueueImpl(this.devQueueCommandContext(), playerId)
+      devQueue: this.devQueueCommandContext()
     };
   }
 
@@ -2728,15 +2729,11 @@ export class SimulationRuntime {
   /** Tick hook (docs/waypoint-client-planning-plan.md §4): drains one leg per drain-eligible player with a non-empty waypoint queue. */ tickWaypointDrain(): void { tickWaypointDrainImpl({ scheduler: this.waypointDrainScheduler, playerIdsWithWaypointQueue: () => [...this.playerSummaries].filter(([, s]) => s.waypointQueue.length > 0).map(([id]) => id), drainForPlayer: (playerId) => this.tryDrainWaypointQueue(playerId) }); }
   private tryDrainWaypointQueue(playerId: string): void { tryDrainWaypointQueueImpl(this.waypointQueueCommandContext(), playerId); }
 
-  /**
-   * Server-side auto-settle for every player, gated per tile category by the
-   * player's autoSettle prefs (shared auto-settle-prefs.ts; AI/legacy = all on,
-   * new humans = off until they answer the join prompt). Same manpower/gold
-   * cost and duration as a manual SETTLE — this only removes the need to click
-   * SETTLE. Called once per territory-automation tick.
-   */
+  /** Once per territory-automation tick: auto-settle (gated by autoSettle prefs, shared auto-settle-prefs.ts), then auto-improve (runtime-auto-improve.ts). Both only remove the click. */
   private runAutoSettleForPlayer(playerId: string, nowMs: number): number {
-    return this.autoSettleEligibilityRuntime().runTickForOwner(playerId, nowMs);
+    const started = this.autoSettleEligibilityRuntime().runTickForOwner(playerId, nowMs);
+    runAutoImproveForPlayer({ players: this.state.players, structureContext: () => this.structureCommandContext(), improvableTilesByOwner: this.ownerIndexes.improvableTilesByOwner, hasAvailableDevelopmentSlot: (id) => this.hasAvailableDevelopmentSlot(id) }, playerId, nowMs);
+    return started;
   }
 
   private economicStructureCommandContext(): RuntimeEconomicStructureCommandContext {

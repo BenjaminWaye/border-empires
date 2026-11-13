@@ -1660,11 +1660,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (!("landBiome" in normalizedUpdate)) delete merged.landBiome;
           if (!("regionType" in normalizedUpdate)) delete merged.regionType;
         }
-        // resource/dockId stay inline: unlike the gateway path, this handler
-        // only ever SETS these fields on a defined value -- it has no
-        // delete-on-falsy branch, so it must not be routed through the
-        // shared helper (which does delete on falsy).
-        if (normalizedUpdate.resource !== undefined) merged.resource = normalizedUpdate.resource;
+        // resource stays inline: it clears only on an explicit null/"" (the
+        // gateway's full tile detail sends null for a tile with none, e.g. an
+        // emptied salvage field -- tile-detail-snapshot.ts); omitted = unchanged.
+        if ("resource" in normalizedUpdate && !normalizedUpdate.resource) delete merged.resource;
+        else if (normalizedUpdate.resource !== undefined) merged.resource = normalizedUpdate.resource;
         // capital/breachShockUntil/clusterId/clusterType/dock are TILE_DELTA-only
         // fields -- the gateway path has no equivalent handling for them.
         if ("capital" in normalizedUpdate) {

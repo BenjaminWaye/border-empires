@@ -1,7 +1,9 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind } from "../client-types.js";
-import { DEV_QUEUE_SERVER_CAP, DEV_QUEUE_TOTAL_CAP, SETTLE_COST, structureDisplayName, upgradeLegacyStructureNames } from "@border-empires/shared";
+import { DEV_QUEUE_SERVER_CAP, DEV_QUEUE_TOTAL_CAP, SETTLE_COST, chosenStructureTierLabel, isChosenStructureTier, structureDisplayName, upgradeLegacyStructureNames } from "@border-empires/shared";
+import { tileAlreadyHasBuildStructure, type QueueRestoreTileLike } from "./client-queued-build-done.js";
 import { applyAutoSettlePrefsFromServer, isClientAutoSettleAllowedForTile } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
+import { refineryFieldOf } from "../client-refineries/refinery-commands.js";
 
 export const AUTO_SETTLEMENT_QUEUE_VISIBLE_MS = 3_000;
 
@@ -212,6 +214,8 @@ const parsePersistedDevelopmentAction = (value: unknown): PersistedDevelopmentAc
       normalizedStructureType = (value.payload as any).structureType as string;
     }
     else { normalizedType = rawType; normalizedStructureType = ""; }
+    // The Fortify / Siege picker's tier (and a refinery's chosen field) must survive a reload, or the build silently changes.
+    const rawTier = (value.payload as { tier?: unknown }).tier;
 
     return {
       kind: "BUILD",
@@ -220,7 +224,7 @@ const parsePersistedDevelopmentAction = (value: unknown): PersistedDevelopmentAc
       tileKey: value.tileKey,
       label: value.label,
       payload: normalizedType === "BUILD_STRUCTURE"
-        ? { type: "BUILD_STRUCTURE", x: value.payload.x, y: value.payload.y, structureType: normalizedStructureType }
+        ? { type: "BUILD_STRUCTURE", x: value.payload.x, y: value.payload.y, structureType: normalizedStructureType, ...(isChosenStructureTier(rawTier) ? { tier: rawTier } : {}), ...refineryFieldOf(value.payload) }
         : ({ type: value.payload.type, x: value.payload.x, y: value.payload.y } as Extract<PersistedDevelopmentAction, { kind: "BUILD" }>["payload"]),
       optimisticKind: value.optimisticKind as Extract<PersistedDevelopmentAction, { kind: "BUILD" }>["optimisticKind"]
     };
@@ -303,7 +307,9 @@ export const devQueueEnqueueWirePayload = (entry: PersistedDevelopmentAction): R
   tileKey: entry.tileKey,
   kind: entry.kind,
   ...(entry.kind === "BUILD"
-    ? { structureType: entry.payload.type === "REMOVE_STRUCTURE" ? "REMOVE_STRUCTURE" : entry.payload.structureType }
+    ? entry.payload.type === "REMOVE_STRUCTURE"
+      ? { structureType: "REMOVE_STRUCTURE" }
+      : { structureType: entry.payload.structureType, ...(entry.payload.tier ? { tier: entry.payload.tier } : {}), ...refineryFieldOf(entry.payload) }
     : {})
 });
 
@@ -357,25 +363,6 @@ export const queueDevelopmentAction = (
   return true;
 };
 
-type QueueRestoreTileLike = {
-  ownerId?: string;
-  ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
-  fort?: { status?: string };
-  observatory?: { status?: string };
-  siegeBattery?: { status?: string };
-  economicStructure?: { type?: string; status?: string };
-};
-
-/** True once `tile` already carries the structure a queued BUILD_STRUCTURE
- * entry is asking for -- redispatching in that case just earns another
- * server-side BUILD_INVALID "tile already has structure" rejection. */
-const tileAlreadyHasBuildStructure = (tile: QueueRestoreTileLike, structureType: string): boolean => {
-  if (structureType === "FORT") return Boolean(tile.fort);
-  if (structureType === "OBSERVATORY") return Boolean(tile.observatory);
-  if (structureType === "SIEGE_BATTERY") return Boolean(tile.siegeBattery);
-  return tile.economicStructure?.type === structureType;
-};
-
 /** True if `entry` still describes something worth dispatching -- false once the
  * tile has moved past it (e.g. a SETTLE whose tile already settled, a BUILD
  * whose tile is no longer owned/settled, or a BUILD whose target structure
@@ -398,7 +385,7 @@ export const isQueuedDevelopmentActionStillValid = (
   }
   if (tile.ownershipState !== "SETTLED") return false;
   if (entry.payload.type === "REMOVE_STRUCTURE") return true;
-  return !tileAlreadyHasBuildStructure(tile, entry.payload.structureType);
+  return !tileAlreadyHasBuildStructure(tile, entry.payload.structureType, entry.payload.tier);
 };
 
 export const restorePersistedDevelopmentQueueForPlayer = (
@@ -441,6 +428,9 @@ export type ServerDevQueueWireEntry = {
   y: number;
   kind: "SETTLE" | "BUILD";
   structureType?: string;
+  tier?: string;
+  fieldX?: number;
+  fieldY?: number;
   queuedAt: number;
   manpowerReserved?: true;
   awaitingManpower?: true;
@@ -461,10 +451,10 @@ const reconstructDevelopmentActionFromServerEntry = (entry: ServerDevQueueWireEn
     x: entry.x,
     y: entry.y,
     tileKey: entry.tileKey,
-    label: isRemoval ? `Remove structure at (${entry.x}, ${entry.y})` : `Build ${entry.structureType ? structureDisplayName(entry.structureType) : "structure"} at (${entry.x}, ${entry.y})`,
+    label: isRemoval ? `Remove structure at (${entry.x}, ${entry.y})` : `Build ${isChosenStructureTier(entry.tier) ? chosenStructureTierLabel(entry.tier) : entry.structureType ? structureDisplayName(entry.structureType) : "structure"} at (${entry.x}, ${entry.y})`,
     payload: isRemoval
       ? { type: "REMOVE_STRUCTURE", x: entry.x, y: entry.y }
-      : { type: "BUILD_STRUCTURE", x: entry.x, y: entry.y, structureType: entry.structureType ?? "" },
+      : { type: "BUILD_STRUCTURE", x: entry.x, y: entry.y, structureType: entry.structureType ?? "", ...(isChosenStructureTier(entry.tier) ? { tier: entry.tier } : {}), ...refineryFieldOf(entry) },
     optimisticKind: (entry.structureType ?? "FORT") as OptimisticStructureKind
   };
 };

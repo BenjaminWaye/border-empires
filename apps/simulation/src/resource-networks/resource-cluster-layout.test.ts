@@ -52,10 +52,9 @@ describe("small resource deposits", () => {
       const tile: DomainTileState = { x: i % w, y: Math.floor(i / w), terrain: "LAND" };
       return [`${tile.x},${tile.y}`, tile] as const;
     }));
-    // Open grassland: secondary habitat for resin and biota, preferred for neither.
+    // Open grassland: secondary habitat for biota, not its preferred one.
     seedResourceNetworks(tiles, 7, w, h, () => ({ biome: "GRASS", forest: false, hills: false, tropical: false, nearMountains: false }));
     const placed = (resource: NetworkResource): number => [...tiles.values()].filter(tile => tile.resource === resource).length;
-    expect(placed("NEURAL_RESIN")).toBe(0);
     expect(placed("LUXURY_BIOTA")).toBe(0);
   });
   it("preserves all eight support tiles around towns, including across world edges", () => {
@@ -76,7 +75,7 @@ describe("small resource deposits", () => {
   it("is deterministic, idempotent, and preserves occupied tiles", () => {
     const a = map(), b = map();
     for (const tiles of [a, b]) {
-      tiles.get("2,2")!.economicStructure = { type: "MINE", ownerId: "p", status: "active" };
+      tiles.get("2,2")!.economicStructure = { type: "TITANIUM_REFINERY", ownerId: "p", status: "active" };
       tiles.get("3,3")!.town = { name: "Town", type: "MARKET", populationTier: "TOWN" };
       seedResourceNetworks(tiles, 42, width, height, biome);
     }
