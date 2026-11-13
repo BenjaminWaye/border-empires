@@ -27,6 +27,9 @@ describe("alliancePanelHtml", () => {
   it("says you haven't met anyone yet, with no empty section cards or inputs", () => {
     const html = panel();
     expect(html).toContain("You haven't met any other players yet.");
+    // Playtest 2026-11-12: it used to say you must expand until you meet someone, but Ranks deals with anyone.
+    expect(html).toContain("open any empire in Ranks");
+    expect(html).not.toContain("until you spot");
     expect(html).not.toContain("No allies");
     expect(html).not.toContain("No pending");
     expect(html).not.toContain("<input");

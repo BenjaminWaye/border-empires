@@ -2,10 +2,10 @@ import { createSocialOfferSettlementState } from "./social-offer-settlement-stat
 import { InMemoryResourceTradeOfferStore, type ResourceTradeOfferStore } from "../resource-trade/resource-trade-store.js";
 import { createForcedTruces } from "./social-forced-truce.js";
 import crypto from "node:crypto";
-
 import { TRUCE_BREAK_LOCKOUT_MS, TRUCE_REQUEST_TTL_MS } from "@border-empires/game-domain";
 import {
   activeTruceBetween,
+  declinedOfferAnnouncements,
   findAllianceRequestBetweenPlayers,
   findTruceRequestBetweenPlayers,
   pairKey,
@@ -318,7 +318,7 @@ export const createSocialState = (options: {
       sink?.deleteAllianceRequest(requestId);
       if (options?.startCooldown !== false) startOfferCooldown("alliance", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
       const notifyPlayerIds = [playerId, request.fromPlayerId];
-      return { ok: true, notifyPlayerIds, payloadsByPlayerId: updatePayloadsFor(notifyPlayerIds, undefined, options?.announcementByPlayerId) };
+      return { ok: true, notifyPlayerIds, payloadsByPlayerId: updatePayloadsFor(notifyPlayerIds, undefined, declinedOfferAnnouncements(request, playersById.get(playerId)?.name ?? playerId, options?.announcementByPlayerId)) };
     },
     cancelAlliance(playerId, requestId) {
       sweepExpired();
@@ -439,7 +439,7 @@ export const createSocialState = (options: {
       truceRequests.delete(requestId);
       sink?.deleteTruceRequest(requestId);
       if (options?.startCooldown !== false) startOfferCooldown("truce", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
-      return ok([playerId, request.fromPlayerId], options?.announcementByPlayerId);
+      return ok([playerId, request.fromPlayerId], declinedOfferAnnouncements(request, playersById.get(playerId)?.name ?? playerId, options?.announcementByPlayerId));
     },
     cancelTruce(playerId, requestId) {
       sweepExpired();
