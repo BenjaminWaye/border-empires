@@ -1485,7 +1485,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       clearAllAttacksAfterCancel(state);
       clearLateFrontierAck(cancelledCurrentKey);
       if (cancelledCurrentKey) { state.queuedTargetKeys.delete(cancelledCurrentKey); clearOptimisticTileState(cancelledCurrentKey, true); }
-      state.autoSettleTargets.clear(); state.autoBuildTargets.clear(); state.townRingGarrisons.clear();
+      state.autoSettleTargets.clear(); state.autoBuildTargets.clear();
       pushFeed(`Capture cancelled (${(msg.count as number | undefined) ?? 1})`, "combat", "info");
       renderHud();
       return;

@@ -24,19 +24,34 @@ export const TOWN_RING_AFTER_SETTLE_WINDOW_MS = 2 * 60_000;
 const keyOf = (x: number, y: number): string => `${x},${y}`;
 
 /**
- * The tiles around a town that its Garrison also garrisons: land in the town's support ring that you
- * haven't garrisoned yet and nobody else holds. Neutral tiles count -- the garrisoned town's reach claims them.
+ * The tiles around a town that its Garrison also garrisons: land in the town's support ring that is your
+ * frontier (not already being garrisoned), or neutral ground outside every border. Only the latter is claimed
+ * by the town's reach when it activates (server: runtime-reach-border-apply.ts auto-claims only tiles that newly
+ * enter the owner's border); neutral ground already inside your or a rival's border (`reachOwnerId`) is not, so
+ * it is neither priced nor promised.
  */
-export const townRingGarrisonTiles = (state: Pick<RingState, "tiles" | "me">, town: Tile): Tile[] => {
+export const townRingGarrisonTiles = (
+  state: Pick<RingState, "tiles" | "me">,
+  town: Tile,
+  isSettling: (tileKey: string) => boolean = () => false
+): Tile[] => {
   if (!town.town) return [];
   return supportRingCandidates(state.tiles, town.x, town.y, supportRingRadiusForTier(town.town.populationTier))
     .map(({ tile }) => tile)
-    .filter((tile) => tile.terrain === "LAND" && (!tile.ownerId || (tile.ownerId === state.me && tile.ownershipState === "FRONTIER")));
+    .filter((tile) => {
+      if (tile.terrain !== "LAND") return false;
+      if (!tile.ownerId) return !tile.reachOwnerId;
+      return tile.ownerId === state.me && tile.ownershipState === "FRONTIER" && !isSettling(keyOf(tile.x, tile.y));
+    });
 };
 
 /** "N coin, M manpower" for garrisoning `tile` -- for a town, the town plus every tile around it. */
-export const garrisonCostText = (state: Pick<RingState, "tiles" | "me"> & { settleManpowerCost: number }, tile: Tile): string => {
-  const ring = townRingGarrisonTiles(state, tile).length;
+export const garrisonCostText = (
+  state: Pick<RingState, "tiles" | "me"> & { settleManpowerCost: number },
+  tile: Tile,
+  isSettling?: (tileKey: string) => boolean
+): string => {
+  const ring = townRingGarrisonTiles(state, tile, isSettling).length;
   const count = 1 + ring;
   const base = `${count * SETTLE_COST} coin, ${count * state.settleManpowerCost} manpower`;
   return ring > 0 ? `${base} (town + ${ring} around)` : base;
@@ -81,11 +96,15 @@ export type TownRingGarrisonDeps = {
 export const processTownRingGarrisons = (state: RingState, deps: TownRingGarrisonDeps): void => {
   for (const [townKey, entry] of [...state.townRingGarrisons]) {
     const town = state.tiles.get(townKey);
-    if (deps.now - entry.startedAt > TOWN_RING_GARRISON_TTL_MS || !town || town.ownerId !== state.me) {
+    if (!town || town.ownerId !== state.me) {
       state.townRingGarrisons.delete(townKey);
       continue;
     }
-    if (town.ownershipState !== "SETTLED") continue;
+    // Wait for the server's SETTLED, not the local timer's optimistic one (optimisticPending "settle").
+    if (town.ownershipState !== "SETTLED" || town.optimisticPending) {
+      if (entry.townSettledAt === undefined && deps.now - entry.startedAt > TOWN_RING_GARRISON_TTL_MS) state.townRingGarrisons.delete(townKey);
+      continue;
+    }
     entry.townSettledAt ??= deps.now;
     if (deps.now - entry.townSettledAt > TOWN_RING_AFTER_SETTLE_WINDOW_MS) {
       state.townRingGarrisons.delete(townKey);
@@ -101,10 +120,8 @@ export const processTownRingGarrisons = (state: RingState, deps: TownRingGarriso
       if (tile.ownerId && tile.ownerId !== state.me) continue;
       if (tile.ownerId === state.me && tile.ownershipState !== "FRONTIER") continue;
       if (deps.isSettling(key)) continue;
-      if (tile.ownerId === state.me && !tile.optimisticPending && deps.reach.has(key)) {
-        deps.requestSettlement(tile.x, tile.y);
-        continue;
-      }
+      // A request that could not be queued (e.g. the development queue is full) is retried next tick.
+      if (tile.ownerId === state.me && !tile.optimisticPending && deps.reach.has(key) && deps.requestSettlement(tile.x, tile.y)) continue;
       remaining.push(key); // still neutral (reach claim pending) or not yet in reach
     }
     if (remaining.length === 0) state.townRingGarrisons.delete(townKey);

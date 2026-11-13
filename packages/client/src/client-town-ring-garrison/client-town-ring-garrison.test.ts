@@ -10,6 +10,7 @@ import type { Tile } from "../client-types.js";
 import {
   TOWN_RING_AFTER_SETTLE_WINDOW_MS,
   TOWN_RING_GARRISON_MAX_ENTRIES,
+  TOWN_RING_GARRISON_TTL_MS,
   processTownRingGarrisons,
   registerTownRingGarrison,
   requestGarrisonWithTownRing,
@@ -105,5 +106,37 @@ describe("town ring garrison", () => {
     expect(state.townRingGarrisons.size).toBe(TOWN_RING_GARRISON_MAX_ENTRIES);
     expect(state.townRingGarrisons.has("old-0")).toBe(false);
     expect(state.townRingGarrisons.has(keyFor(TX, TY))).toBe(true);
+  });
+
+  // Review fixes (PR #2754): each case below failed before its fix.
+  it("does not price or promise neutral ground already inside a border (the town's reach never auto-claims it)", () => {
+    const { state, town } = setup();
+    state.tiles.set(keyFor(TX + 1, TY + 1), land(TX + 1, TY + 1, { reachOwnerId: "me" }));
+    state.tiles.set(keyFor(TX - 1, TY - 1), land(TX - 1, TY - 1, { reachOwnerId: "rival" }));
+    expect(townRingGarrisonTiles(state, town)).toHaveLength(4);
+    // An own frontier tile that is already being garrisoned is already paid for.
+    expect(townRingGarrisonTiles(state, town, (k) => k === keyFor(TX + 1, TY))).toHaveLength(3);
+  });
+
+  it("waits for the server's SETTLED, not the local timer's optimistic one", () => {
+    const { state, town } = setup();
+    const requestSettlement = vi.fn(() => true);
+    registerTownRingGarrison(state, town, 0);
+    state.tiles.set(keyFor(TX, TY), { ...town, ownershipState: "SETTLED", optimisticPending: "settle" });
+    processTownRingGarrisons(state, { now: 1_000, reach: new Set([keyFor(TX + 1, TY)]), isSettling: () => false, requestSettlement });
+    expect(requestSettlement).not.toHaveBeenCalled();
+    expect(state.townRingGarrisons.get(keyFor(TX, TY))?.townSettledAt).toBeUndefined();
+  });
+
+  it("retries a ring tile whose garrison could not be queued, and the click-time TTL does not cut off a settled town", () => {
+    const { state, town } = setup();
+    const requestSettlement = vi.fn(() => false);
+    registerTownRingGarrison(state, town, 0);
+    state.tiles.set(keyFor(TX, TY), { ...town, ownershipState: "SETTLED" });
+    const deps = { now: TOWN_RING_GARRISON_TTL_MS - 1, reach: new Set([keyFor(TX + 1, TY)]), isSettling: () => false, requestSettlement };
+    processTownRingGarrisons(state, deps);
+    processTownRingGarrisons(state, { ...deps, now: TOWN_RING_GARRISON_TTL_MS + 1_000 });
+    expect(requestSettlement).toHaveBeenCalledTimes(2);
+    expect(state.townRingGarrisons.get(keyFor(TX, TY))?.ringKeys).toContain(keyFor(TX + 1, TY));
   });
 });
