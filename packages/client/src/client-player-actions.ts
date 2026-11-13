@@ -249,7 +249,14 @@ export const explainActionFailureFromServer = (
     return `Action blocked: that dock crossing endpoint is still on cooldown for ${remainingLabel}.`;
   }
   if (code === "INSUFFICIENT_MANPOWER") return `Action blocked: ${message}.`;
-  if (code === "INSUFFICIENT_MUSTER") return "Attack blocked: stage manpower on this tile first. Tap the tile → Stage Muster, then wait for it to fill.";
+  // Any of your flags within 10 tiles of the launch tile funds an attack
+  // (resolveMusterSource), so "on this tile" sent players hunting for a
+  // flag on the wrong tile. The server's message carries the amount needed
+  // (the floor, or the chosen Extra/Double effort).
+  if (code === "INSUFFICIENT_MUSTER") {
+    const needed = /need (\d+)/.exec(message)?.[1];
+    return `Attack blocked: ${needed ? `needs ${needed}` : "not enough"} manpower mustered on a flag within 10 tiles.`;
+  }
   if (code === "MUSTER_DISABLED") return "Mustering is not enabled on this server.";
   if (code === "MUSTER_MARCH_TOO_FAR") return message;
   if (code === "MUSTER_INVALID") return "Action blocked: you can only stage muster on your own land tiles.";
