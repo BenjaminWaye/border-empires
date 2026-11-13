@@ -1,4 +1,4 @@
-import { parseRelicMapHints, isChosenTrickleResource, type ChosenTrickleResource, type RelicMapHint } from "@border-empires/shared";
+import { parseRelicMapHints, isChosenTrickleResource, relicRemainingUses, type ChosenTrickleResource, type NaturalWonderState, type RelicMapHint } from "@border-empires/shared";
 
 export interface RelicHintClientState {
   relicMapHints: Map<string, RelicMapHint>;
@@ -20,8 +20,18 @@ export function applyRelicAndProgressionUpdate(state: RelicHintClientState, mess
   state.tilesRevision += 1;
   state.relicMapHintsRevision += 1;
 }
-export function drawRelicHint2D(ctx: CanvasRenderingContext2D, hint: RelicMapHint | undefined, x: number, y: number, size: number): void {
-  if (!hint) return;
+/**
+ * The anonymous transponder beam only stands in for a relic the player cannot
+ * see yet: once the tile itself carries the relic, the model is on the map and
+ * the beam is hidden. Survey signatures stay unless the relic there is depleted.
+ */
+export function shouldDrawRelicHint(hint: RelicMapHint | undefined, tile: { naturalWonder?: NaturalWonderState | null | undefined } | undefined): hint is RelicMapHint {
+  if (!hint) return false;
+  if (!tile?.naturalWonder) return true;
+  return hint.kind !== "RELIC" && relicRemainingUses(tile.naturalWonder) !== 0;
+}
+export function drawRelicHint2D(ctx: CanvasRenderingContext2D, hint: RelicMapHint | undefined, tile: { naturalWonder?: NaturalWonderState | null | undefined } | undefined, x: number, y: number, size: number): void {
+  if (!shouldDrawRelicHint(hint, tile)) return;
   ctx.save();
   const cx = x + size / 2, cy = y + size / 2;
   if (hint.kind === "RELIC") {

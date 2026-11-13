@@ -211,11 +211,15 @@ body.hud-v2-compact #tile-action-menu.hud-v2-docked.hud-v2-expanded {
   padding-bottom: var(--v2c-safe-bottom); border-radius: 14px 14px 0 0; z-index: 56;
 }
 
-/* Hosted legacy panels (Economy, Integrity, Manpower, AFC, Settings) open as a sheet under the bar. */
+/* Hosted legacy panels (Economy, Integrity, Manpower, AFC, Settings) open as a sheet under the bar.
+   It ends at the tab bar: the bar's row (.hud-v2-top, also z-index 50, later in #hud) paints over it, so
+   a sheet running to the screen edge hid its last rows under the tabs. */
 body.hud-v2-compact #side-panel {
-  left: 0 !important; right: 0 !important; top: var(--v2c-top) !important; bottom: 0 !important; width: auto !important; max-width: none !important;
-  transform: none !important; height: auto !important; padding-bottom: var(--v2c-safe-bottom); border-radius: 14px 14px 0 0; z-index: 50;
+  left: 0 !important; right: 0 !important; top: var(--v2c-top) !important; bottom: var(--v2c-bottom) !important; width: auto !important; max-width: none !important;
+  transform: none !important; height: auto !important; border-radius: 14px 14px 0 0; z-index: 50;
 }
+/* Structure info is a modal: above the tab bar (z 50) and orb (z 40), or they cover its foot and ✕ column. */
+body.hud-v2-compact #structure-info-overlay { z-index: 71; }
 body.hud-v2-compact #side-panel.settings-panel-active { top: calc(var(--v2c-safe-top) + 8px) !important; }
 body.hud-v2-compact #side-panel button,
 body.hud-v2-compact #side-panel .panel-btn { min-height: 40px; }

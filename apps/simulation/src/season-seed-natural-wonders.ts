@@ -20,7 +20,8 @@ export const createSeasonNaturalWondersRuntime = (
   docksByTile: Map<TileKey, GeneratedDockState>,
   clusterByTile: Map<TileKey, string>,
   clustersById: Map<string, ClusterDefinition>,
-  townsByTile: Map<TileKey, TownDefinition>
+  townsByTile: Map<TileKey, TownDefinition>,
+  landmarks: { watchtowersByTile: ReadonlyMap<TileKey, unknown>; waystationsByTile: ReadonlyMap<TileKey, unknown> }
 ) =>
   createServerWorldgenNaturalWonders({
     seeded01: terrainRuntime.seeded01,
@@ -35,5 +36,7 @@ export const createSeasonNaturalWondersRuntime = (
     docksByTile: docksByTile as Map<TileKey, never>,
     clusterByTile,
     clustersById,
-    townsByTile
+    townsByTile,
+    watchtowersByTile: landmarks.watchtowersByTile,
+    waystationsByTile: landmarks.waystationsByTile
   });

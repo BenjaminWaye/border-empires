@@ -37,6 +37,9 @@ const buildStrip = (): StripTile[] => {
     muster: { ownerId: "player-2", amount: ORIGIN_MUSTER_AMOUNT, mode: "HOLD", updatedAt: 1_000 }
   });
   Object.assign(at(10, 11), { ownerId: "player-1", ownershipState: "SETTLED" });
+  // player-1's AFC sits away from the strip: an AFC granted next to (10,11)
+  // would make the target part of the AFC's super tile (landmark-super-tile).
+  Object.assign(at(12, 16), { ownerId: "player-1", ownershipState: "SETTLED", afc: { ownerId: "player-1", status: "active", activatedAt: 0 } });
   // A second, far-away anchor tile for player-2: a failed ATTACK risks
   // counter-capture of the origin (per the README), and losing (10,10) as
   // player-2's only tile would eliminate + auto-respawn them elsewhere in

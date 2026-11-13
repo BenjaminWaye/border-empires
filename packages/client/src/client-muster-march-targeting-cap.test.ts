@@ -53,7 +53,7 @@ describe("march cap advice", () => {
     expect(pushFeed).toHaveBeenCalledWith("March target cancelled.", "combat", "info");
   });
 
-  it("the arrow-gesture confirm sends nothing and gives advice (info, not an error) when the target is too far", () => {
+  it("the arrow-gesture confirm sends nothing and gives visible advice (warn tone, not an error) when the target is too far", () => {
     const pushFeed = vi.fn();
     const sendGameMessage = vi.fn(() => true);
     handleArrowGestureConfirm(confirmState(), { x: 10, y: 10 }, { x: 10 + MUSTER_MARCH_MAX_DISTANCE_TILES + 1, y: 10 }, {
@@ -63,7 +63,7 @@ describe("march cap advice", () => {
       keyFor: (x, y) => `${x},${y}`
     });
     expect(sendGameMessage).not.toHaveBeenCalled();
-    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("Raise a muster flag closer"), "combat", "info");
+    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("Raise a muster flag closer"), "combat", "warn");
   });
 
   it("the arrow gesture gives no advice and opens a confirm sheet at the cap", () => {

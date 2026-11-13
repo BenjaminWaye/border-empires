@@ -79,7 +79,7 @@ export const notifyIncomingAllianceRequest = (
   deps: DiplomacyNotificationDeps
 ): void => {
   if (!request?.id || !markUnseenRequest(state, "alliance", request.id)) return;
-  deps.pushFeed(allianceDetail(request), "alliance", "warn");
+  deps.pushFeed(allianceDetail(request), "alliance", "info");
 };
 
 export const notifyIncomingTruceRequest = (
@@ -88,7 +88,7 @@ export const notifyIncomingTruceRequest = (
   deps: DiplomacyNotificationDeps
 ): void => {
   if (!request?.id || !markUnseenRequest(state, "truce", request.id)) return;
-  deps.pushFeed(truceDetail(request), "alliance", "warn");
+  deps.pushFeed(truceDetail(request), "alliance", "info");
 };
 
 type TruceUpdateNotificationState = Pick<
@@ -200,8 +200,8 @@ export const notifyIncomingDiplomacyRequestsOnInit = (
 ): void => {
   const unseenAllianceRequests = allianceRequests.filter((request) => request.id && markUnseenRequest(state, "alliance", request.id));
   const unseenTruceRequests = truceRequests.filter((request) => request.id && markUnseenRequest(state, "truce", request.id));
-  for (const request of unseenAllianceRequests) deps.pushFeed(allianceDetail(request), "alliance", "warn");
-  for (const request of unseenTruceRequests) deps.pushFeed(truceDetail(request), "alliance", "warn");
+  for (const request of unseenAllianceRequests) deps.pushFeed(allianceDetail(request), "alliance", "info");
+  for (const request of unseenTruceRequests) deps.pushFeed(truceDetail(request), "alliance", "info");
 };
 
 export const notifyActiveAllianceBreaksOnInit = (

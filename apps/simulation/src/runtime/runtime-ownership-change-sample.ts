@@ -86,3 +86,16 @@ export const appendTownLostEventLogIfApplicable = (
   loser.eventLog = (loser.eventLog ?? []).filter((entry) => !(entry.type === "OCCUPATION_SURVEY" && entry.x === sample.x && entry.y === sample.y));
   appendPlayerEventLogEntry(loser, { type: "TOWN_LOST", text, occurredAt: now, x: sample.x, y: sample.y });
 };
+
+/** Reports a tile write's ownership change: the onOwnershipChange hook plus the loser's TOWN_LOST log entry. */
+export const publishOwnershipChange = (
+  write: { tileKey: string; tile: DomainTileState; previous: DomainTileState | undefined; commandId: string },
+  onOwnershipChange: ((sample: OwnershipChangeSample) => void) | undefined,
+  players: ReadonlyMap<string, DomainPlayer>,
+  now: number
+): void => {
+  const sample = buildOwnershipChangeSample(write.tileKey, write.tile, write.previous, write.commandId);
+  if (!sample) return;
+  onOwnershipChange?.(sample);
+  appendTownLostEventLogIfApplicable(sample, write.previous?.town, players, now);
+};

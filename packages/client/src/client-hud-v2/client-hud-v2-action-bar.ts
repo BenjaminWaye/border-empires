@@ -72,7 +72,10 @@ const primaryAction = (view: BarView): TileActionDef | undefined => {
     const hit = view.actions.find((a) => a.id === id && !a.disabled);
     if (hit) return hit;
   }
-  return view.actions.find((a) => isGarrison(a) && a.recommended && !a.disabled)
+  // The active waypoint's target (incl. a plain Expand click, which queues one): Cancel is gold
+  // unless an attack/march above applies, ahead of the fallback suggestions below.
+  return view.actions.find((a) => a.id === "cancel_waypoint")
+    ?? view.actions.find((a) => isGarrison(a) && a.recommended && !a.disabled)
     ?? availableResourceImprovement(view)
     ?? relayBeacon(view)
     ?? view.actions.find((a) => a.id === "settle_land" && !a.disabled && !isGarrison(a))

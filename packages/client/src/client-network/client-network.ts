@@ -1432,7 +1432,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       appendFeedEntry({
         text: `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
         type: "combat",
-        severity: "error",
+        severity: "error", feedOnly: true,
         at: Date.now(),
         focusX: x,
         focusY: y,
@@ -1487,7 +1487,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       clearLateFrontierAck(cancelledCurrentKey);
       if (cancelledCurrentKey) { state.queuedTargetKeys.delete(cancelledCurrentKey); clearOptimisticTileState(cancelledCurrentKey, true); }
       state.autoSettleTargets.clear(); state.autoBuildTargets.clear();
-      pushFeed(`Capture cancelled (${(msg.count as number | undefined) ?? 1})`, "combat", "warn");
+      pushFeed(`Capture cancelled (${(msg.count as number | undefined) ?? 1})`, "combat", "info");
       renderHud();
       return;
     }

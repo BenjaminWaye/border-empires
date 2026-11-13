@@ -210,6 +210,12 @@
   background: var(--sp-panel-bg);
 }
 
+/* Phones and narrow tablets (style.css sizes it to 100vw - 24px there): keep the side padding inside that
+   width, or the ✕ sat half off a 375px screen. */
+@media (max-width: 900px) {
+  .structure-info-modal { box-sizing: border-box; }
+}
+
 .structure-info-close,
 .structure-info-kicker,
 .structure-info-section-label,

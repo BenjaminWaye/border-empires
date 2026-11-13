@@ -43,7 +43,8 @@ describe("manpower across a graceful restart", () => {
         initialState: {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "SETTLED", afc: { ownerId: PLAYER_ID, status: "active" } },
-            { x: 11, y: 10, terrain: "LAND" }
+            { x: 11, y: 10, terrain: "LAND" }, // AFC footprint: joins the AFC super tile at boot (landmark-super-tile)
+            { x: 12, y: 10, terrain: "LAND" }
           ], activeLocks: [],
           players: [{ id: PLAYER_ID, points: 100, manpower: 500, manpowerUpdatedAt: FIXED_NOW_MS, landingReserveGranted: true }]
         }, commands: [], eventsByCommandId: new Map()
@@ -58,7 +59,7 @@ describe("manpower across a graceful restart", () => {
       clientSeq: 1,
       issuedAt: FIXED_NOW_MS,
       type: "EXPAND",
-      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+      payloadJson: JSON.stringify({ fromX: 11, fromY: 10, toX: 12, toY: 10 })
     });
     await vi.waitFor(() => expect(manpowerOf(before.runtime.exportState())).toBeLessThan(startingManpower!));
     const spentManpower = manpowerOf(before.runtime.exportState());

@@ -404,6 +404,8 @@ export type FeedEntry = {
   focusY?: number;
   actionLabel?: string;
   unread?: boolean;
+  /** Never mirror onto the alert card: a background notice with its own UI (client-feed-alert-surface.ts). */
+  feedOnly?: boolean;
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number; route?: Array<{ x: number; y: number }> };

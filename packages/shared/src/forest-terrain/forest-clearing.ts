@@ -24,11 +24,16 @@ export const clearForestAroundAfcTile = (x: number, y: number): boolean => {
   return changed;
 };
 
-/** Applies clearForestAroundAfcTile for every tile carrying an AFC. Returns true if any tile visibly changed. */
-export const clearForestAroundAfcTiles = (tiles: Iterable<{ x: number; y: number; afc?: unknown }>): boolean => {
+/**
+ * Applies clearForestAroundAfcTile for every tile carrying an AFC or a relic
+ * (naturalWonder). Relics occupy the same 3x3 landmark footprint as an AFC
+ * (see landmark-footprint.ts) and are never removed, so their clearing is
+ * re-derived the same way. Returns true if any tile visibly changed.
+ */
+export const clearForestAroundLandmarkTiles = (tiles: Iterable<{ x: number; y: number; afc?: unknown; naturalWonder?: unknown }>): boolean => {
   let changed = false;
   for (const tile of tiles) {
-    if (tile.afc && clearForestAroundAfcTile(tile.x, tile.y)) changed = true;
+    if ((tile.afc || tile.naturalWonder) && clearForestAroundAfcTile(tile.x, tile.y)) changed = true;
   }
   return changed;
 };
