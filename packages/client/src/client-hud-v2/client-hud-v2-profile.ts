@@ -9,6 +9,8 @@ import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakV
 import { sectorOrSeasonLabel, specializationLabel, trophyIconHtml } from "../client-player-profile/client-player-profile-galaxy.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { COMBAT_FOOTNOTE_HTML, combatPanelsHtml, combatStatCardsHtml, type ProfileCombat } from "./client-hud-v2-profile-combat.js";
+import type { HouseChargesPayload } from "@border-empires/shared";
+import { houseChargesProfileSectionHtml } from "../client-house-charges/client-house-charges-profile.js";
 
 type Loadable<T> = T | "loading" | undefined;
 
@@ -29,6 +31,8 @@ export type ProfileInput = {
   nowMs: number;
   /** Your own Attack/Defense sources; only set on your own profile, so rivals' strength never shows. */
   combat?: ProfileCombat;
+  /** Your own House Charges (null before they are dealt); only set on your own profile, since charges are secret. */
+  houseCharges?: HouseChargesPayload | null;
 };
 
 const esc = (text: string): string =>
@@ -152,7 +156,7 @@ export const profileHtml = (input: ProfileInput): string =>
     <h3 class="v2p-h">This Sector Contest</h3>
     ${statsHtml(input.entry, input.combat)}
     ${input.combat ? `<div class="v2p-grid">${combatPanelsHtml(input.combat)}</div>${COMBAT_FOOTNOTE_HTML}` : ""}
-    <div class="v2p-grid">${careerHtml(input.career)}${trophiesHtml(input.holdings)}${holdingsHtml(input.holdings)}${pactsHtml(input)}${breaksHtml(input.truceBreaks)}</div>
+    <div class="v2p-grid">${input.houseCharges !== undefined ? houseChargesProfileSectionHtml(input.houseCharges, input.nowMs) : ""}${careerHtml(input.career)}${trophiesHtml(input.holdings)}${holdingsHtml(input.holdings)}${pactsHtml(input)}${breaksHtml(input.truceBreaks)}</div>
   </div></div>`;
 
 /** Which way the profile screen should move this frame: open for a newly picked player, close once it was dismissed. */

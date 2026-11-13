@@ -6,7 +6,7 @@ it("keeps destination names inside buttons and exposes the selected destination"
   const host = document.createElement("div");
   host.innerHTML = navHtml({ name: "House", color: "#abc", afcReady: 2, diplomacyRequests: 1, chronicleUnread: 65, active: "towns" });
   const buttons = Array.from(host.querySelectorAll(".hud-v2-bubble"));
-  expect(buttons.map((b) => b.querySelector(".hud-v2-bubble-label")?.textContent)).toEqual(["Manifest", "Towns", "Charges", "AFC", "Diplomacy", "Ranks", "Chronicle"]);
+  expect(buttons.map((b) => b.querySelector(".hud-v2-bubble-label")?.textContent)).toEqual(["Manifest", "Towns", "AFC", "Diplomacy", "Ranks", "Chronicle"]);
   expect(host.querySelector('[aria-pressed="true"]')?.getAttribute("data-hud-v2-open")).toBe("towns");
   expect(host.querySelectorAll('[aria-pressed="true"]')).toHaveLength(1);
   expect(host.querySelector('[data-hud-v2-open="chronicle"] .hud-v2-bubble-badge-info')?.textContent).toBe("65");

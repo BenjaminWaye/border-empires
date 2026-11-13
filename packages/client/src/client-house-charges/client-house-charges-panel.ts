@@ -1,6 +1,7 @@
 // The House Charges side panel (docs/house-charges-plan.md, "Player guidance"):
 // the House's sealed charges, whether each is held now, the keep-two choice
-// while it is open, and "Show on map". Opened from the HUD's Charges bubble.
+// while it is open, and "Show on map". Opened from the House Charges section of
+// your own profile (client-house-charges-profile.ts).
 import { HOUSE_CHARGES_KEPT, type HouseChargeView } from "@border-empires/shared";
 import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
 import type { ClientState } from "../client-state/client-state.js";

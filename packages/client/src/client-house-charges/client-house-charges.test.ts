@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { HouseChargeView } from "@border-empires/shared";
-import { navHtml } from "../client-hud-v2/client-hud-v2-nav.js";
+import { profileHtml, type ProfileInput } from "../client-hud-v2/client-hud-v2-profile.js";
 import { houseChargeFocusPoint, houseChargesPanelHtml } from "./client-house-charges-panel.js";
 import { applyHouseChargesMessage, createInitialHouseChargesState } from "./client-house-charges-state.js";
 
@@ -74,9 +74,42 @@ describe("House Charges panel", () => {
     expect(houseChargeFocusPoint(relic)).toEqual({ x: 22, y: 24, radius: 9 });
   });
 
-  it("adds a Charges bubble to the HUD navigation", () => {
-    const html = navHtml({ name: "Alden", color: "#b23a34", afcReady: 0, diplomacyRequests: 0, chronicleUnread: 0, active: "charges" });
-    expect(html).toContain('data-hud-v2-open="charges"');
-    expect(html).toMatch(/hud-v2-bubble-active" data-hud-v2-open="charges"/);
+});
+
+describe("House Charges in the profile", () => {
+  const profile = (overrides: Partial<ProfileInput>): string =>
+    profileHtml({
+      id: "p1",
+      name: "House Alden",
+      color: "#b23a34",
+      relation: { kind: "self" },
+      entry: undefined,
+      career: undefined,
+      holdings: undefined,
+      pacts: undefined,
+      truceBreaks: undefined,
+      nameOf: () => undefined,
+      nowMs: 5_000,
+      ...overrides
+    });
+
+  it("lists your kept charges with a Manage button on your own profile", () => {
+    const html = profile({ houseCharges: { type: "HOUSE_CHARGES", dealtAt: 1_000, choiceClosesAt: 10_000, charges: [charge({ held: true }), { ...relic, kept: true }, desert] } });
+    expect(html).toContain("House Charges");
+    expect(html).toContain("Road of Vell and Harrowmere");
+    expect(html).toContain("A Concordance installation");
+    expect(html).not.toContain("The Ashen Reach");
+    expect(html).toContain("data-v2-open-charges");
+    expect(html).toContain("You can still change which 2 you keep.");
+  });
+
+  it("explains the wait on your own profile before charges are dealt", () => {
+    expect(profile({ houseCharges: null })).toContain("arrive once your AFC has landed");
+  });
+
+  it("never shows a section on another player's profile", () => {
+    const html = profile({ id: "p2", relation: { kind: "none" } });
+    expect(html).not.toContain("House Charges");
+    expect(html).not.toContain("data-v2-open-charges");
   });
 });
