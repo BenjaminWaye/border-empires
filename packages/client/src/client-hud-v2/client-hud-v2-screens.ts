@@ -22,7 +22,7 @@ import {
   type HudV2Deps,
   type HudV2ScreenId
 } from "./client-hud-v2-context.js";
-import { dealSkeletonHtml, diplomacyListHtml, empireStance } from "./client-hud-v2-diplomacy.js";
+import { dealFactsText, dealSkeletonHtml, diplomacyListHtml, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
 import { crestClosesProfile, profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { pendingTechCommissionId } from "../client-tech-commission/client-tech-commission.js";
@@ -194,9 +194,7 @@ const dealFacts = (deps: HudV2Deps, target: string): string => {
     (state.leaderboard.overall.find((e) => e.id === id) ?? (id === state.me ? state.leaderboard.selfOverall : undefined))?.tiles;
   const stance = empireStance(target, { allies: state.allies, activeTruces: state.activeTruces, nowMs: Date.now() });
   const theirs = tilesOf(target), mine = tilesOf(state.me);
-  return [stance.kind === "met" ? "" : stance.label, theirs === undefined ? "" : `${theirs.toLocaleString("en-US")} tiles`, mine === undefined ? "" : `you ${mine.toLocaleString("en-US")}`]
-    .filter(Boolean)
-    .join(" · ");
+  return dealFactsText(stance.kind === "met" ? "" : stance.label, theirs, mine);
 };
 
 /** The alert title for a sent offer; undefined for anything else the deal view sends (e.g. its stance lookup on open). */

@@ -217,6 +217,27 @@ describe("expandSnapshotFromStorage", () => {
     expect(expandSnapshotFromStorage(v0, baselineTiles)).toEqual(v0);
   });
 
+  it("materialises overlay rows with no baseline tile instead of dropping them (empty seed baseline)", async () => {
+    const runtime = [
+      baseTile({ x: 0, y: 0, terrain: "LAND", ownerId: "pt-warlord", ownershipState: "SETTLED" }),
+      baseTile({ x: 1, y: 0, terrain: "WATER" })
+    ];
+    const compact = await compactSnapshotForStorage(sections(runtime), buildWorldgenBaselineIndex([]));
+    expect(expandSnapshotFromStorage(compact, []).initialState.tiles).toEqual(runtime);
+  });
+
+  it("keeps runtime tiles that fall outside a non-empty baseline", async () => {
+    const baselineTiles = baselineWorld();
+    const extra = baseTile({ x: 9, y: 9, terrain: "LAND", ownerId: "ai-2", ownershipState: "FRONTIER" });
+    const compact = await compactSnapshotForStorage(
+      sections([...baselineTiles, extra]),
+      buildWorldgenBaselineIndex(baselineTiles)
+    );
+    const tiles = expandSnapshotFromStorage(compact, baselineTiles).initialState.tiles;
+    expect(tiles).toHaveLength(baselineTiles.length + 1);
+    expect(tiles.at(-1)).toEqual(extra);
+  });
+
   it("rehydrates static fields from the worldgen baseline", async () => {
     const baselineTiles = baselineWorld();
     const baseline = buildWorldgenBaselineIndex(baselineTiles);

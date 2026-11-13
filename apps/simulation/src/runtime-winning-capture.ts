@@ -70,7 +70,11 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
     // itself is already gone; this just drops the pooled manpower with it.
     const hadMuster = Boolean(previousTarget?.muster);
     context.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
-    if (previousTarget?.town && previousOwnerId && previousOwnerId !== lock.playerId && townAftermath.populationBefore !== undefined && townAftermath.populationAfter !== undefined) {
+    // A neutral town (no previous owner) is taken whole: no capture loss, and only the captor gets a card.
+    const neutralTownPopulation = previousTarget?.town && !previousOwnerId && lock.playerId !== "barbarian-1" ? previousTarget.town.population ?? 0 : undefined;
+    const populationBefore = townAftermath.populationBefore ?? neutralTownPopulation;
+    const populationAfter = townAftermath.populationAfter ?? neutralTownPopulation;
+    if (previousTarget?.town && previousOwnerId !== lock.playerId && populationBefore !== undefined && populationAfter !== undefined) {
       const capturedStructureTypes = [
         ...(capturedFields.fort ? ["FORT"] : []),
         ...(capturedFields.observatory ? ["OBSERVATORY"] : []),
@@ -81,13 +85,13 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
         ...(previousTarget.town.name ? { townName: previousTarget.town.name } : {}),
         townTier: previousTarget.town.populationTier,
         townSurvived: Boolean(townAftermath.town),
-        populationBefore: townAftermath.populationBefore,
-        populationAfter: townAftermath.populationAfter,
+        populationBefore,
+        populationAfter,
         capturedStructureTypes
       };
       const occurredAt = context.now();
-      context.recordPersonalImpact?.({ id: `town-captured:${lock.commandId}`, kind: "TOWN_CAPTURED", playerId: lock.playerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact, counterpartyPlayerId: previousOwnerId });
-      context.recordPersonalImpact?.({ id: `town-lost:${lock.commandId}`, kind: "TOWN_LOST", playerId: previousOwnerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact, counterpartyPlayerId: lock.playerId });
+      context.recordPersonalImpact?.({ id: `town-captured:${lock.commandId}`, kind: "TOWN_CAPTURED", playerId: lock.playerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact, ...(previousOwnerId ? { counterpartyPlayerId: previousOwnerId } : {}) });
+      if (previousOwnerId) context.recordPersonalImpact?.({ id: `town-lost:${lock.commandId}`, kind: "TOWN_LOST", playerId: previousOwnerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact, counterpartyPlayerId: lock.playerId });
     }
     recordDockChangeImpacts(context, previousTarget, lock.playerId, lock.commandId);
     if (previousOwnerId !== resolvedTarget.ownerId) {

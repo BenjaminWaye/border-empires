@@ -21,6 +21,17 @@ export const townNextPopulationMilestone = (
   return undefined;
 };
 
+/**
+ * The population a town is growing toward: its next tier, as the town screen's
+ * "Growth to City" bar shows. Falls back to the hard cap (POPULATION_MAX) only
+ * at the top tier, so lists and cards never show 10,000,000 beside a town
+ * whose own screen says 100,000.
+ */
+export const townPopulationTarget = (
+  town: Pick<NonNullable<Tile["town"]>, "populationTier" | "maxPopulation" | "nextPopulationTierUpgrade">
+): number =>
+  town.nextPopulationTierUpgrade?.requiredPopulation ?? townNextPopulationMilestone(town as NonNullable<Tile["town"]>)?.targetPopulation ?? town.maxPopulation;
+
 export const formatRoughMinutes = (minutes: number): string => {
   if (!Number.isFinite(minutes) || minutes <= 0) return "now";
   if (minutes < 60) return `${Math.ceil(minutes)}m`;

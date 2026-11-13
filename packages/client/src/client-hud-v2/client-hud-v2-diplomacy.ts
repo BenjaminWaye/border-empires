@@ -88,7 +88,16 @@ export const diplomacyListHtml = (input: DiplomacyListInput): string => {
   return `${reqHtml}<section class="v2d-grid-wrap"><h2 class="v2s-h2">Empires you've met · ${empires.length}</h2><div class="v2d-grid">${grid}</div></section>`;
 };
 
-/** `facts`: the relation and tile counts the trade view itself doesn't show ("Ally · 1,204 tiles · you 980"). */
+/**
+ * The deal's top line: relation and both tile counts ("Ally · 1,204 tiles · you have 980").
+ * Playtest 2026-11-12: a bare "you 1" read as an unexplained number.
+ */
+export const dealFactsText = (stanceLabel: string, theirs: number | undefined, mine: number | undefined): string => {
+  const tiles = (n: number): string => `${n.toLocaleString("en-US")} tile${n === 1 ? "" : "s"}`;
+  return [stanceLabel, theirs === undefined ? "" : tiles(theirs), mine === undefined ? "" : `you have ${mine.toLocaleString("en-US")}`].filter(Boolean).join(" · ");
+};
+
+/** `facts`: the relation and tile counts the trade view itself doesn't show (dealFactsText). */
 export const dealSkeletonHtml = (targetName: string, facts = ""): string =>
   `<div class="v2d-deal-nav"><button type="button" class="v2s-link" data-v2-dip-back>◁ All empires</button><span class="v2d-deal-with">${esc(targetName)}</span>${facts ? `<span class="v2d-deal-facts">${esc(facts)}</span>` : ""}</div>
    <div class="v2d-deal">
