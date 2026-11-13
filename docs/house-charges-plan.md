@@ -144,7 +144,7 @@ Charges pay out only after the season, so rewards are things that outlast it.
    (for example "Cartographer" for five Survey cards), never gameplay power.
    Cards are designed as **collectible trading cards** (see [Card design](#card-design)).
 3. **Galaxy reward**: +1 **Domain Weight** per fulfilled charge for empires
-   that hold a Planet or Outpost (see the [Galactic Campaign design](galactic-campaign-design.md),
+   that hold a Planet or Outpost (see the [Galactic layer](game-mechanics.md#galactic-layer),
    Domain Weight → Senate vote weight). Domain Weight is only computed for
    territory holders, so other players instead receive a **larger Stipend**
    of Influence and Production. +1 is a third of an Outpost, so about ten
@@ -371,5 +371,5 @@ These are design expectations, not measurements.
 - Renderer regression tests for 2D and true-3D overlays.
 - On delivery, update [`game-mechanics.md`](game-mechanics.md), the
   [world bible](lore/galactic-lore.md) (charges, charts of biome regions,
-  Renown source), the [Galactic Campaign design](galactic-campaign-design.md)
+  Renown source), the [Galactic layer](game-mechanics.md#galactic-layer)
   reward tables, and add a client changelog entry.
