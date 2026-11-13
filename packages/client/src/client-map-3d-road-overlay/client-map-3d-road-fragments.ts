@@ -1,9 +1,9 @@
-export type RoadOverlayStyle = "dirt" | "brick";
+export type RoadOverlayStyle = "shadow" | "dirt" | "brick";
 
 export const ROAD_WIDTH = 0.12;
 
 // The old cobblestone surface, preserved so Storybook can keep showing the
-// original paved-town look while the game ships the dirt style.
+// original paved-town look while the game draws towns' links as monorails.
 export const BRICK_FRAGMENT = `
 precision highp float;
 varying vec2 vUv;
@@ -225,5 +225,22 @@ void main() {
 }
 `;
 
+// Soft ground shadow cast by the monorail guideway overhead
+// (client-map-3d-monorail/). Two darker bands under the twin beams inside a
+// wide feathered falloff, so the rail reads as standing above the ground.
+export const SHADOW_FRAGMENT = `
+precision highp float;
+varying vec2 vUv;
+
+void main() {
+  float c = abs(vUv.y - 0.5) * 2.0;
+  float body = 1.0 - smoothstep(0.35, 1.0, c);
+  float beams = exp(-pow((c - 0.42) * 7.0, 2.0));
+  float alpha = clamp(body * 0.20 + beams * 0.16, 0.0, 0.34);
+  if (alpha < 0.005) discard;
+  gl_FragColor = vec4(0.02, 0.03, 0.04, alpha);
+}
+`;
+
 export const buildRoadFragmentShader = (style: RoadOverlayStyle): string =>
-  style === "brick" ? BRICK_FRAGMENT : DIRT_FRAGMENT;
+  style === "brick" ? BRICK_FRAGMENT : style === "shadow" ? SHADOW_FRAGMENT : DIRT_FRAGMENT;
