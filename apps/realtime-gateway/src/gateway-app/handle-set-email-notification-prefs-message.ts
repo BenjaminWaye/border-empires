@@ -6,7 +6,7 @@ import type { EmailNotificationPrefs } from "../player-profile-store/player-prof
 // handle-set-hint-state-message.ts's SET_HINT_STATE pattern. Every category
 // defaults to on -- only an explicit `false` in the patch disables it.
 
-const EMAIL_NOTIFICATION_CATEGORIES = [
+export const EMAIL_NOTIFICATION_CATEGORIES = [
   "allianceRequest",
   "allianceBreak",
   "truceOffer",

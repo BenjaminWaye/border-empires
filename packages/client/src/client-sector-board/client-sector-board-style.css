@@ -57,3 +57,15 @@
   font-family: var(--sl-body);
   color: var(--sl-muted);
 }
+
+/* "Last Contest Recap" link under the Sector list (client-last-contest-recap). */
+.sector-board-recap {
+  margin: 14px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  opacity: 0.9;
+}
