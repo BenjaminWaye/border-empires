@@ -1,8 +1,8 @@
 import type { ClientState } from "./client-state/client-state.js";
 import type { FeedType, FeedSeverity } from "./client-types.js";
 import { renderSeasonLobbyPanelHtml, bindSeasonLobbyPanel } from "./client-season-lobby-panel.js";
-import { takeGuestAutoJoinTurn } from "./client-guest-play/client-guest-play.js";
-import { sectorBoardHtml, sectorBoardLoaderFor } from "./client-sector-board/client-sector-board.js";
+import { canAutoJoin, recordAutoJoin } from "./client-join-season-auto-join/client-join-season-auto-join.js";
+import { joinNowHtml } from "./client-join-now-html/client-join-now-html.js";
 
 type JoinSeasonOverlayDeps = {
   state: Pick<
@@ -16,17 +16,13 @@ type JoinSeasonOverlayDeps = {
     | "seasonLobbyWaitingCount"
     | "seasonLobbyMaxPlayers"
     | "seasonLobbyRoster"
-    | "sectorBoard"
     | "profileSetupRequired"
-    | "authIsGuest"
     | "seasonWinner"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
   joinSeason: () => boolean;
   pushFeed?: ((message: string, type: FeedType, severity?: FeedSeverity) => void) | undefined;
-  // Gateway the Sector board counts are fetched from (client-sector-board.ts); omitted in tests.
-  wsUrl?: string | undefined;
 };
 
 const formatCountdown = (remainingMs: number): string => {
@@ -148,10 +144,9 @@ const computeRenderKey = (state: JoinSeasonOverlayDeps["state"], visible: boolea
         state.joinSeasonId,
         state.seasonPendingScheduledStartAt,
         state.joinSeasonPending,
-        state.seasonLobbyWaitingCount,
-        state.seasonLobbyMaxPlayers,
-        state.seasonLobbyRoster,
-        state.sectorBoard
+        // The lobby count/roster is only shown in the pending countdown; in
+        // the running-contest card an update must not rebuild the spinner.
+        state.seasonPending ? [state.seasonLobbyWaitingCount, state.seasonLobbyMaxPlayers, state.seasonLobbyRoster] : null
       ]);
 
 // While the join-season overlay is up (either branch), this becomes the ONLY
@@ -164,19 +159,12 @@ const setSeasonLobbyFullscreen = (active: boolean): void => {
   document.body.classList.toggle("season-lobby-active", active);
 };
 
-// Both branches below share the same full-screen "war room" shell
-// (client-season-lobby-style.css, scoped under #join-season-overlay /
-// body.season-lobby-active) and the same lobby panel (renderSeasonLobbyPanelHtml/
-// bindSeasonLobbyPanel: Discord link + invite button, plus the live player
-// count/roster when showRoster is left on). They differ in the join trigger
-// and in whether that count/roster makes sense: state.seasonPending shows a
-// live countdown to scheduledStartAt, auto-retries JOIN_SEASON once it
-// elapses, and shows the count/roster (it describes players holding a
-// reserved spot for the world that hasn't started yet); the plain branch
-// (season already active, player just hasn't joined yet) shows narrative
-// intro copy and a "Let's go!" button the player clicks themselves, and
-// passes showRoster=false since the season is already running -- there's no
-// "waiting" concept left to show, and no scheduledStartAt to count down to.
+// Two branches share the full-screen shell (client-season-lobby-style.css,
+// scoped under #join-season-overlay / body.season-lobby-active):
+// state.seasonPending shows a live countdown to scheduledStartAt with the
+// lobby panel (count/roster, Discord, invite) and auto-retries JOIN_SEASON
+// once it elapses; the plain branch (contest already running) joins the
+// player automatically and only shows a short "joining" card.
 export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   const { state, overlayEl, renderHud, joinSeason } = deps;
   // Profile setup (name/color) must complete before the join-season overlay
@@ -203,20 +191,12 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
 
   setSeasonLobbyFullscreen(true);
 
-  // Before the render-key check: a failed board load retries through a
-  // later renderHud that would otherwise stop at the unchanged key.
-  if (!state.seasonPending && !state.joinSeasonPending && deps.wsUrl) sectorBoardLoaderFor(deps.wsUrl, renderHud)(state);
-
   const renderKey = computeRenderKey(state, visible);
   if (renderKey === overlayEl.dataset[RENDER_KEY_ATTR]) return;
   overlayEl.dataset[RENDER_KEY_ATTR] = renderKey;
 
   if (state.joinSeasonPending) armJoinPendingWatchdog(deps);
   else clearJoinPendingWatchdog();
-
-  // No number: season ids count every contest, which clashes with the
-  // gapless "Sector 003" numbering players see in Space View.
-  const seasonLabel = "Sector Contest";
 
   if (state.seasonPending) {
     const scheduledStartAt = state.seasonPendingScheduledStartAt;
@@ -264,31 +244,29 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   }
 
   clearCountdownTimer();
-  // A guest who pressed "Play now" goes straight in; the prompt below is for everyone else.
-  if (takeGuestAutoJoinTurn(state, Date.now()) && joinSeason()) state.joinSeasonPending = true;
+  // The contest is running: send the player straight in (see
+  // client-join-season-auto-join.ts). This screen only covers the few
+  // seconds the join takes, plus a Play button (and a close) if the join
+  // could not be sent, stalled or came back without a spawn.
+  if (canAutoJoin(state) && joinSeason()) {
+    recordAutoJoin(state);
+    state.joinSeasonPending = true;
+  }
   if (state.joinSeasonPending) armJoinPendingWatchdog(deps);
   const joining = state.joinSeasonPending;
-  overlayEl.innerHTML = sectorBoardHtml({
-    kicker: seasonLabel,
-    board: !state.joinSeasonId || state.sectorBoard?.seasonId === state.joinSeasonId ? state.sectorBoard : undefined,
+  overlayEl.innerHTML = joinNowHtml({
     joining,
-    waitHintHtml: joining ? `<p id="join-season-wait-hint" class="season-lobby-join-wait-hint">${currentJoinWaitHint()}</p>` : "",
-    lobbyPanelHtml: renderSeasonLobbyPanelHtml(state, false, false)
+    waitHintHtml: joining ? `<p id="join-season-wait-hint" class="season-lobby-join-wait-hint">${currentJoinWaitHint()}</p>` : ""
   });
 
-  bindSeasonLobbyPanel({ overlayEl });
-
-  const close = (): void => {
-    state.joinSeasonOverlayOpen = false;
-    renderHud();
-  };
-
   const closeBtn = overlayEl.querySelector("#join-season-close") as HTMLButtonElement | null;
-  const backdrop = overlayEl.querySelector("#join-season-backdrop") as HTMLDivElement | null;
+  if (closeBtn) {
+    closeBtn.onclick = () => {
+      state.joinSeasonOverlayOpen = false;
+      renderHud();
+    };
+  }
   const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement | null;
-
-  if (closeBtn) closeBtn.onclick = close;
-  if (backdrop) backdrop.onclick = close;
   if (confirmBtn) {
     confirmBtn.onclick = () => {
       if (state.joinSeasonPending) return;
