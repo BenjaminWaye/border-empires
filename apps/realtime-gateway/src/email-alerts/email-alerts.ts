@@ -1,7 +1,8 @@
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { EmailNotificationCategory, GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import { sendPlayerReportEmail } from "./bug-report-email-alert.js";
-import { escapeHtml } from "./escape-html.js";
+import { formatBrandedEmail, type EmailMessage, type EmailRecipient } from "./email-branded-template.js";
+import { createEmailUnsubscribeSigner, resolveEmailUnsubscribeSecret } from "../email-unsubscribe/email-unsubscribe-token.js";
 import type { AetherHijackAlertInput, AetherPurgeAlertInput, AttackAlertInput, ManpowerFullAlertInput, SeasonStartAlertInput, SocialRequestAlertInput, TruceRequestAlertInput } from "./email-alert-inputs.js";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 export {
@@ -21,6 +22,9 @@ export type EmailAlertConfig = {
   dailyLimit?: number;
   bugReportEmailTo?: string;
   appLabel?: string;
+  // Signs per-recipient unsubscribe links; falls back to a key derived from
+  // resendApiKey (see resolveEmailUnsubscribeSecret).
+  unsubscribeSecret?: string;
 };
 
 export type EmailAlertService = {
@@ -37,13 +41,6 @@ export type EmailAlertService = {
 };
 
 export type EmailAlertOutcome = "sent" | "disabled" | "recipient_missing" | "throttled" | "send_failed";
-
-type EmailMessage = {
-  to: string;
-  subject: string;
-  text: string;
-  html: string;
-};
 
 type EmailTransport = {
   send: (message: EmailMessage) => Promise<void>;
@@ -84,7 +81,7 @@ const clampDailyLimit = (limit: number | undefined): number => {
 
 const dayKey = (at: number): string => new Date(at).toISOString().slice(0, 10);
 
-const baseUrl = (value: string | undefined): string => {
+export const resolveEmailAppUrl = (value: string | undefined): string => {
   const trimmed = value?.trim();
   if (!trimmed) return "https://staging.borderempires.com";
   return trimmed.replace(/\/+$/, "");
@@ -115,7 +112,8 @@ const createResendTransport = (options: {
             subject: message.subject,
             text: message.text,
             html: message.html,
-            ...(options.replyTo ? { reply_to: options.replyTo } : {})
+            ...(options.replyTo ? { reply_to: options.replyTo } : {}),
+            ...(message.headers ? { headers: message.headers } : {})
           }),
           signal: ac.signal
         });
@@ -145,13 +143,15 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       : undefined);
   const now = options.now ?? (() => Date.now());
   const dailyLimit = clampDailyLimit(options.dailyLimit);
-  const appUrl = baseUrl(options.appUrl);
+  const appUrl = resolveEmailAppUrl(options.appUrl);
+  const unsubscribeSecret = resolveEmailUnsubscribeSecret(options);
+  const unsubscribeSigner = unsubscribeSecret ? createEmailUnsubscribeSigner(unsubscribeSecret) : undefined;
   const countersByEmail = new Map<string, { day: string; sent: number; lastSentAt: number }>();
 
   const send = async (
     recipientPlayerId: string,
     category: EmailNotificationCategory,
-    build: (email: string) => EmailMessage,
+    build: (recipient: EmailRecipient) => EmailMessage,
     sendOptions?: { bypassRateLimit?: boolean }
   ): Promise<EmailAlertOutcome> => {
     if (!transport) return "disabled";
@@ -176,7 +176,8 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
     }
 
     try {
-      await transport.send(build(email));
+      const unsubscribeUrl = unsubscribeSigner?.url(appUrl, recipientPlayerId, category);
+      await transport.send(build({ to: email, ...(unsubscribeUrl ? { unsubscribeUrl } : {}) }));
       return "sent";
     } catch (error) {
       if (!bypassRateLimit) {
@@ -192,83 +193,6 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       );
       return "send_failed";
     }
-  };
-
-  const formatBrandedEmail = (input: {
-    to: string;
-    subject: string;
-    eyebrow: string;
-    headline: string;
-    body: string[];
-    highlight?: { label: string; value: string };
-    linkUrl?: string;
-    linkLabel?: string;
-  }): EmailMessage => {
-    const linkUrl = input.linkUrl ?? appUrl;
-    const linkLabel = input.linkLabel ?? "Enter Border Empires";
-    const safeHeadline = escapeHtml(input.headline);
-    const safeEyebrow = escapeHtml(input.eyebrow);
-    const safeBody = input.body.map(escapeHtml);
-    const safeLinkUrl = escapeHtml(linkUrl);
-    const safeLinkLabel = escapeHtml(linkLabel);
-
-    const highlightHtml = input.highlight
-      ? `<tr><td style="padding:24px 40px 0;">
-           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#241a08,#2f2107);border:1px solid #a9791f;border-radius:10px;">
-             <tr>
-               <td style="padding:20px 24px;text-align:center;">
-                 <div style="font:600 11px/1.4 'Segoe UI',Arial,sans-serif;letter-spacing:2px;text-transform:uppercase;color:#e0b84a;">${escapeHtml(input.highlight.label)}</div>
-                 <div style="font:700 22px/1.4 Georgia,'Times New Roman',serif;color:#fbe7ad;margin-top:6px;">${escapeHtml(input.highlight.value)}</div>
-               </td>
-             </tr>
-           </table>
-         </td></tr>`
-      : "";
-
-    const bodyHtml = safeBody.map((line) => `<p style="margin:0 0 14px;font:400 15px/1.6 'Segoe UI',Arial,sans-serif;color:#cbd2de;">${line}</p>`).join("");
-
-    const html = `<!doctype html>
-<html>
-  <body style="margin:0;padding:0;background:#0b0d14;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0d14;padding:32px 16px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#141826;border-radius:14px;overflow:hidden;border:1px solid #262c40;">
-            <tr>
-              <td style="background:linear-gradient(135deg,#1c2438,#0e1220);padding:32px 40px 24px;text-align:center;border-bottom:1px solid #2a3350;">
-                <div style="font:600 12px/1 'Segoe UI',Arial,sans-serif;letter-spacing:3px;text-transform:uppercase;color:#7c8bb3;">${safeEyebrow}</div>
-                <div style="font:700 26px/1.3 Georgia,'Times New Roman',serif;color:#f3d98b;margin-top:10px;">${safeHeadline}</div>
-              </td>
-            </tr>
-            ${highlightHtml}
-            <tr>
-              <td style="padding:28px 40px 8px;">
-                ${bodyHtml}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:8px 40px 36px;text-align:center;">
-                <a href="${safeLinkUrl}" style="display:inline-block;padding:14px 32px;background:#c8952f;color:#1a1305;font:700 14px/1 'Segoe UI',Arial,sans-serif;letter-spacing:0.5px;text-decoration:none;border-radius:8px;">${safeLinkLabel}</a>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:20px 40px 28px;border-top:1px solid #232a3f;text-align:center;">
-                <div style="font:400 12px/1.5 'Segoe UI',Arial,sans-serif;color:#5b647f;">Border Empires &mdash; build, ally, conquer.</div>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
-
-    return {
-      to: input.to,
-      subject: input.subject,
-      text: `${input.headline}\n\n${input.body.join("\n\n")}${input.highlight ? `\n\n${input.highlight.label}: ${input.highlight.value}` : ""}\n\n${linkLabel}: ${linkUrl}`,
-      html
-    };
   };
 
   return {
@@ -296,9 +220,9 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       return send(
         input.recipientPlayerId,
         "allianceRequest",
-        (to) =>
-          formatBrandedEmail({
-            to,
+        (recipient) =>
+          formatBrandedEmail(appUrl, {
+            ...recipient,
             subject: `${input.senderName} sent you an alliance request`,
             eyebrow: "Border Empires — Alliance Request",
             headline: "You've Been Offered an Alliance",
@@ -315,9 +239,9 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       return send(
         input.recipientPlayerId,
         "allianceBreak",
-        (to) =>
-          formatBrandedEmail({
-            to,
+        (recipient) =>
+          formatBrandedEmail(appUrl, {
+            ...recipient,
             subject: `${input.senderName} started breaking your alliance`,
             eyebrow: "Border Empires — Alliance Break Notice",
             headline: "An Alliance Break Is Underway",
@@ -335,9 +259,9 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       return send(
         input.recipientPlayerId,
         "truceOffer",
-        (to) =>
-          formatBrandedEmail({
-            to,
+        (recipient) =>
+          formatBrandedEmail(appUrl, {
+            ...recipient,
             subject: `${input.senderName} offered you a ${input.durationHours}h truce`,
             eyebrow: "Border Empires — Truce Offer",
             headline: "You've Been Offered a Truce",
@@ -352,9 +276,9 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       );
     },
     sendAttackAlert(input) {
-      return send(input.defenderPlayerId, "attackAlert", (to) =>
-        formatBrandedEmail({
-          to,
+      return send(input.defenderPlayerId, "attackAlert", (recipient) =>
+        formatBrandedEmail(appUrl, {
+          ...recipient,
           subject: `${input.attackerName} is attacking your empire`,
           eyebrow: "Border Empires — Under Attack",
           headline: "Your Empire Is Under Attack",
@@ -375,9 +299,9 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       // Shares the same per-recipient send() throttle as sendAttackAlert
       // (MIN_SEND_INTERVAL_MS, keyed by email) so a player under sustained
       // aether or conventional assault still gets at most one email an hour.
-      return send(input.defenderPlayerId, "aetherPurgeAlert", (to) =>
-        formatBrandedEmail({
-          to,
+      return send(input.defenderPlayerId, "aetherPurgeAlert", (recipient) =>
+        formatBrandedEmail(appUrl, {
+          ...recipient,
           subject: `${input.attackerName} hit your empire with an aether purge`,
           eyebrow: "Border Empires — Aether Attack",
           headline: "Your Empire Was Aether-Purged",
@@ -394,9 +318,9 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
     sendAetherHijackAlert(input) {
       // Time-critical (the takeover finishes in minutes), so it skips the hourly throttle like truce offers.
       const deadline = new Date(input.endsAt).toISOString().slice(11, 16);
-      return send(input.defenderPlayerId, "aetherHijackAlert", (to) =>
-        formatBrandedEmail({
-          to,
+      return send(input.defenderPlayerId, "aetherHijackAlert", (recipient) =>
+        formatBrandedEmail(appUrl, {
+          ...recipient,
           subject: `${input.attackerName} is hijacking your Aether Tower`,
           eyebrow: "Border Empires — Tower Hijack",
           headline: "Your Aether Tower Is Being Taken Over",
@@ -414,9 +338,9 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       // full-alert.ts) already only fires this while the player is offline
       // and only once per full-to-not-full cycle, so the throttle here is
       // just a backstop against duplicate sends racing a reconnect.
-      return send(input.recipientPlayerId, "manpowerFull", (to) =>
-        formatBrandedEmail({
-          to,
+      return send(input.recipientPlayerId, "manpowerFull", (recipient) =>
+        formatBrandedEmail(appUrl, {
+          ...recipient,
           subject: "Your manpower is full in Border Empires",
           eyebrow: "Border Empires — Manpower Full",
           headline: "Your Manpower Has Filled Up",
@@ -430,12 +354,15 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
     },
     sendSeasonStartAlert(input) {
       const isPreviousWinner = input.isPreviousWinner === true;
+      // A forced rollover archives a contest with no winner, which has no
+      // recap to show, so only point at the recap when someone was crowned.
+      const hasRecap = isPreviousWinner || Boolean(input.previousWinnerName);
       return send(
         input.recipientPlayerId,
         "seasonStart",
-        (to) =>
-          formatBrandedEmail({
-            to,
+        (recipient) =>
+          formatBrandedEmail(appUrl, {
+            ...recipient,
             subject: isPreviousWinner ? "You won the Sector Contest — and a new one has begun in Border Empires" : "A new Sector Contest has begun in Border Empires",
             eyebrow: isPreviousWinner ? "Border Empires — Sector Contest Recap" : "Border Empires",
             headline: isPreviousWinner ? "Victory Is Yours" : "A New Sector Contest Has Begun",
@@ -446,19 +373,24 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
                     ? `You claimed victory through ${input.objectiveName}, and your name is now etched into this Sector Contest's history.`
                     : "Your name is now etched into this Sector Contest's history.",
                   "The map has already reset for a new Sector Contest — come defend your title before your rivals stake their claim.",
-                  "Last Sector Contest's final stats — yours, your allies', and your rivals' — are ready to browse on the recap screen."
+                  "Last Sector Contest's final stats — yours, your allies', and your rivals' — are ready to browse on the recap screen. Open it from the link below, or any time from the Last Contest Recap button on the leaderboard."
                 ]
               : [
                   "The map has been reset, borders are undrawn, and every empire starts from the same first tile again.",
                   "Claim your territory early, forge alliances, and build toward this Sector Contest's objective before your rivals do.",
-                  "Curious how the last Sector Contest shook out? The recap screen now shows final stats for you and every friend or foe you played against."
+                  ...(hasRecap
+                    ? ["Curious how the last Sector Contest shook out? The recap screen shows final stats for you and every friend or foe you played against. Open it from the link below, or any time from the Last Contest Recap button on the leaderboard."]
+                    : [])
                 ],
             ...(isPreviousWinner
               ? { highlight: { label: "Status", value: "Sector Contest Champion" } }
               : input.previousWinnerName
                 ? { highlight: { label: "Reigning Champion", value: input.previousWinnerName } }
                 : {}),
-            linkLabel: isPreviousWinner ? "Defend Your Title" : "Start Your Empire"
+            linkLabel: isPreviousWinner ? "Defend Your Title" : "Start Your Empire",
+            // The client opens the archived recap overlay for ?recap=last
+            // (client-last-contest-recap). Plain "/?..." so Caddy serves index.html.
+            ...(hasRecap ? { secondaryLink: { url: `${appUrl}/?recap=last`, label: "View the last contest's recap" } } : {})
           }),
         { bypassRateLimit: true }
       );

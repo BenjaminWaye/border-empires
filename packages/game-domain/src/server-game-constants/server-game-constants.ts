@@ -378,9 +378,10 @@ export const GALAXY_OUTPOST_PROGRESS_THRESHOLD = 0.5;
 // floor (and who didn't qualify for an Outpost) gets a Stipend; a player at
 // exactly 0 (never engaged with any objective) gets no galactic record.
 export const GALAXY_STIPEND_MIN_PROGRESS = 0;
-// Stipend payout formula (§13): (10 × progress) Inf + (40 × progress) Prod.
+// Stipend payout: (10 × progress) Influence, paid once into the galaxy
+// Influence bank. No Production: galactic Production is a per-territory daily
+// build rate, and a Stipend comes with no territory.
 export const GALAXY_STIPEND_INFLUENCE_PER_PROGRESS = 10;
-export const GALAXY_STIPEND_PRODUCTION_PER_PROGRESS = 40;
 export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   {
     id: "TOWN_CONTROL",

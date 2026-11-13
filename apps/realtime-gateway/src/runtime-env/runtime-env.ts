@@ -140,6 +140,7 @@ export const parseRealtimeGatewayRuntimeEnv = (
     })(),
     emailAlerts: {
       ...(env.GATEWAY_EMAIL_ALERTS_RESEND_API_KEY ? { resendApiKey: env.GATEWAY_EMAIL_ALERTS_RESEND_API_KEY } : {}),
+      ...(env.GATEWAY_EMAIL_UNSUBSCRIBE_SECRET ? { unsubscribeSecret: env.GATEWAY_EMAIL_UNSUBSCRIBE_SECRET } : {}),
       from: emailAlertsFrom,
       ...(env.GATEWAY_EMAIL_ALERTS_REPLY_TO ? { replyTo: env.GATEWAY_EMAIL_ALERTS_REPLY_TO } : {}),
       appUrl: emailAlertsAppUrl,

@@ -1,8 +1,7 @@
 import {
   GALAXY_OUTPOST_PROGRESS_THRESHOLD,
   GALAXY_STIPEND_INFLUENCE_PER_PROGRESS,
-  GALAXY_STIPEND_MIN_PROGRESS,
-  GALAXY_STIPEND_PRODUCTION_PER_PROGRESS
+  GALAXY_STIPEND_MIN_PROGRESS
 } from "@border-empires/game-domain";
 import { specializationForVictoryPath } from "@border-empires/sim-protocol";
 import type { LeaderboardOverallEntry, SeasonGalaxyTierSnapshot, SeasonVictoryObjectiveSnapshot, SeasonWinnerSnapshot } from "@border-empires/sim-protocol";
@@ -21,7 +20,7 @@ import type { SeasonVictoryPathId } from "@border-empires/shared";
  *  - STIPEND: otherwise, if the player's own best-path progress fraction
  *    (their own progress on the objective they lead, if any, else their
  *    self-progress on every objective they don't) is strictly above
- *    GALAXY_STIPEND_MIN_PROGRESS. Payout is §13's formula.
+ *    GALAXY_STIPEND_MIN_PROGRESS. Payout is Influence only (10 × progress).
  *  - Neither: a player who never meaningfully engaged with any objective
  *    (best progress 0) gets no record at all — no degenerate empty rows.
  *
@@ -85,8 +84,7 @@ export const computeSeasonGalaxyTiers = ({
         playerId,
         playerName,
         tier: "STIPEND",
-        influence: Math.round(GALAXY_STIPEND_INFLUENCE_PER_PROGRESS * bestOverallProgress * 100) / 100,
-        production: Math.round(GALAXY_STIPEND_PRODUCTION_PER_PROGRESS * bestOverallProgress * 100) / 100
+        influence: Math.round(GALAXY_STIPEND_INFLUENCE_PER_PROGRESS * bestOverallProgress * 100) / 100
       });
     }
   }
