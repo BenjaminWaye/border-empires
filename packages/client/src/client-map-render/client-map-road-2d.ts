@@ -10,6 +10,8 @@ const RAIL_STEEL = "rgba(43, 48, 56, 0.96)";
 const RAIL_POWER = "rgba(95, 227, 255, 0.92)";
 const PYLON_CONCRETE = "rgba(167, 173, 179, 0.95)";
 const DECK_WARNING = "rgba(255, 59, 47, 0.95)";
+// Below this tile size the coil dashes and pylon feet are sub-pixel noise.
+const DETAIL_MIN_TILE_PX = 16;
 
 export const drawRoadOverlay = (
   ctx: CanvasRenderingContext2D,
@@ -51,8 +53,12 @@ export const drawRoadOverlay = (
     ctx.stroke();
   }
 
+  // Detail only where it can be seen: the 2D path is the low-end fallback, so
+  // zoomed-out tiles draw just the shadow and beams (3 strokes per link).
+  const detailed = size >= DETAIL_MIN_TILE_PX;
+
   // Pylon foot (every road tile but a town, which sits on its own plinth).
-  if (!directions.terminal && size >= 10) {
+  if (!directions.terminal && detailed) {
     ctx.fillStyle = RAIL_SHADOW;
     ctx.beginPath();
     ctx.arc(centerX + lift, centerY + lift, size * 0.06, 0, Math.PI * 2);
@@ -76,6 +82,7 @@ export const drawRoadOverlay = (
       ctx.moveTo(centerX + ox, centerY + oy);
       ctx.lineTo(endX + ox, endY + oy);
       ctx.stroke();
+      if (!detailed) continue;
       // Induction-coil lights: a dashed power line, like the 3D beam's coils.
       ctx.strokeStyle = RAIL_POWER;
       ctx.lineWidth = Math.max(0.5, beamWidth * 0.45);

@@ -13,8 +13,9 @@ import { trimArmToStation, type ElevationAt } from "./client-map-3d-monorail-gui
 
 // Monorail "lines": the stretch of track between two stops (a town station or a
 // junction), traced over the whole road network rather than just the visible
-// window. Tracing to the real ends keeps each line's length and identity fixed
-// in world space, so a train's position (a pure function of time and the line)
+// window. Tracing to the real ends, and always running a line from the same
+// (canonical) end, keeps each line's length, identity and direction fixed in
+// world space, so a train's position (a pure function of time and the line)
 // doesn't jump when the camera pans and the window is rebuilt.
 
 export type MonorailLine = {
@@ -23,14 +24,18 @@ export type MonorailLine = {
   readonly ys: Float32Array; // beam centre Y per sample
   readonly zs: Float32Array; // scene Z per sample
   readonly cum: Float32Array; // arc length (world units) per sample
-  readonly visible: Uint8Array; // sample lies inside the rebuilt window
+  readonly visible: Uint8Array; // sample lies on a tile whose guideway was drawn
+  readonly visibleFrom: number; // arc-length span covering every visible sample
+  readonly visibleTo: number;
   readonly length: number;
   readonly ownerTileX: number;
   readonly ownerTileY: number;
 };
 
 export type RouteTraceInput = {
-  readonly window: { readonly camX: number; readonly camY: number; readonly halfW: number; readonly halfH: number };
+  // Only tiles whose guideway was actually drawn this rebuild (in view, not
+  // fogged/unexplored) show trains; the rest of a line is traced but hidden.
+  readonly isDrawnTile: (wx: number, wy: number) => boolean;
   readonly sceneXOf: (wx: number) => number; // scene X of a world tile column's centre
   readonly sceneZOf: (wy: number) => number;
   readonly roadDirsAt: (wx: number, wy: number) => RoadDirections | undefined;
@@ -82,11 +87,23 @@ const findStop = (input: RouteTraceInput, wx: number, wy: number, dirs: RoadDire
   return undefined;
 };
 
-const lineId = (input: RouteTraceInput, steps: readonly Step[]): string => {
+const endKeys = (input: RouteTraceInput, steps: readonly Step[]): [string, string] => {
   const first = steps[0]!, last = steps[steps.length - 1]!;
-  const a = `${input.wrapX(first.ux)},${input.wrapY(first.uy)}:${first.exit}`;
-  const b = `${input.wrapX(last.ux)},${input.wrapY(last.uy)}:${last.entry}`;
-  return a < b ? `${a}|${b}` : `${b}|${a}`;
+  return [
+    `${input.wrapX(first.ux)},${input.wrapY(first.uy)}:${first.exit}`,
+    `${input.wrapX(last.ux)},${input.wrapY(last.uy)}:${last.entry}`
+  ];
+};
+
+// The same line walked from its other end: tiles reversed, entry/exit swapped.
+const reverseSteps = (steps: readonly Step[]): Step[] =>
+  steps.slice().reverse().map((step) => ({ ux: step.ux, uy: step.uy, dirs: step.dirs, ...(step.exit ? { entry: step.exit } : {}), ...(step.entry ? { exit: step.entry } : {}) }));
+
+// Every line runs from its lexicographically smaller end, whichever end the
+// scan happened to reach first, so its direction never flips between rebuilds.
+const canonicalLine = (input: RouteTraceInput, steps: readonly Step[]): { id: string; steps: readonly Step[] } => {
+  const [a, b] = endKeys(input, steps);
+  return a <= b ? { id: `${a}|${b}`, steps } : { id: `${b}|${a}`, steps: reverseSteps(steps) };
 };
 
 const buildLine = (input: RouteTraceInput, steps: readonly Step[], id: string): MonorailLine | undefined => {
@@ -105,7 +122,7 @@ const buildLine = (input: RouteTraceInput, steps: readonly Step[], id: string): 
     } else {
       line = roadThroughPoints(sx, sz, step.entry!, step.exit!);
     }
-    const vis = Math.abs(sx - 0.5) <= input.window.halfW + 0.5 && Math.abs(sz - 0.5) <= input.window.halfH + 0.5;
+    const vis = input.isDrawnTile(input.wrapX(step.ux), input.wrapY(step.uy));
     for (const pt of line) {
       const prev = pts[pts.length - 1];
       if (prev && Math.hypot(prev.pt[0] - pt[0], prev.pt[1] - pt[1]) < 1e-4) continue;
@@ -115,15 +132,17 @@ const buildLine = (input: RouteTraceInput, steps: readonly Step[], id: string): 
   if (pts.length < 2 || !pts.some((p) => p.vis)) return undefined;
   const n = pts.length;
   const xs = new Float32Array(n), ys = new Float32Array(n), zs = new Float32Array(n), cum = new Float32Array(n), visible = new Uint8Array(n);
+  let visibleFrom = Infinity, visibleTo = -Infinity;
   for (let i = 0; i < n; i += 1) {
     const p = pts[i]!;
     xs[i] = p.pt[0]; zs[i] = p.pt[1];
     visible[i] = p.vis ? 1 : 0;
     ys[i] = p.vis ? input.elevationAt(p.wx, p.wz) + input.railHeight : 0;
     if (i > 0) cum[i] = cum[i - 1]! + Math.hypot(xs[i]! - xs[i - 1]!, zs[i]! - zs[i - 1]!);
+    if (p.vis) { visibleFrom = Math.min(visibleFrom, cum[i]!); visibleTo = Math.max(visibleTo, cum[i]!); }
   }
   return {
-    id, xs, ys, zs, cum, visible, length: cum[n - 1]!,
+    id, xs, ys, zs, cum, visible, visibleFrom, visibleTo, length: cum[n - 1]!,
     ownerTileX: input.wrapX(first.ux), ownerTileY: input.wrapY(first.uy)
   };
 };
@@ -133,10 +152,10 @@ export const traceMonorailLines = (input: RouteTraceInput, visibleTiles: Readonl
   const lines = new Map<string, MonorailLine>();
   const covered = new Set<string>();
   const trace = (sx: number, sy: number, dir: RoadDir): void => {
-    const steps = walk(input, sx, sy, dir);
-    if (!steps) return;
-    for (const step of steps) if (!isStop(step.dirs)) covered.add(`${input.wrapX(step.ux)},${input.wrapY(step.uy)}`);
-    const id = lineId(input, steps);
+    const walked = walk(input, sx, sy, dir);
+    if (!walked) return;
+    for (const step of walked) if (!isStop(step.dirs)) covered.add(`${input.wrapX(step.ux)},${input.wrapY(step.uy)}`);
+    const { id, steps } = canonicalLine(input, walked);
     if (lines.has(id)) return;
     const line = buildLine(input, steps, id);
     if (line) lines.set(id, line);

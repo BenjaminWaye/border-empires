@@ -35,7 +35,13 @@ const HEADWAY = 3.6; // tiles between trains on the same beam
 const BASE_SPEED = 0.4; // tiles per second, before easing
 const RIDE = BEAM_H / 2 + HOVER + CAR_H / 2; // beam centre -> car centre
 const FADE = 0.16;
-const MAX_CARS = 1000;
+// Most train cars drawn per frame, by renderer quality tier (0 best .. 2 lowest).
+const MAX_CARS_BY_TIER: Readonly<Record<0 | 1 | 2, number>> = { 0: 900, 1: 450, 2: 180 };
+const DIRECTIONS = [1, -1] as const;
+const HEADLAMPS = [-0.28, 0.28] as const;
+const CONTAINER_RIBS = [-0.25, 0.25] as const;
+const CANISTER_RINGS = [-0.24, 0, 0.24] as const;
+const CANISTER_CAPS = [-0.45, 0.45] as const;
 
 // Car centres measured back from the train's head.
 const CAR_OFFSETS: readonly number[] = (() => {
@@ -80,7 +86,8 @@ export type MonorailTrains = {
   readonly dispose: () => void;
 };
 
-export const createMonorailTrains = (scene: Scene, envMap?: Texture): MonorailTrains => {
+export const createMonorailTrains = (scene: Scene, envMap?: Texture, qualityTier: 0 | 1 | 2 = 0): MonorailTrains => {
+  const maxCars = MAX_CARS_BY_TIER[qualityTier];
   const wedge = wedgeGeometry();
   const box = new BoxGeometry(1, 1, 1);
   // Capsule along Y (2 long, 1 wide) turned to run along X.
@@ -148,7 +155,7 @@ export const createMonorailTrains = (scene: Scene, envMap?: Texture): MonorailTr
     // and soft halos round the twin headlamps.
     pools.sensor.place(at(l * 0.36, h * 0.02), fwd, up, l * 0.05, h * 0.1, w * 0.62);
     pools.sensor.place(at(-l * 0.2, h / 2 + 0.001), fwd, up, l * 0.45, 0.003, w * 0.12);
-    for (const k of [-0.28, 0.28]) {
+    for (const k of HEADLAMPS) {
       p.copy(pos).addScaledVector(fwd, l * 0.5).addScaledVector(side, w * k).setY(pos.y - h * 0.18);
       pools.halo.place(p, fwd, up, 0.05 * s, 1, 0.05 * s);
     }
@@ -160,7 +167,7 @@ export const createMonorailTrains = (scene: Scene, envMap?: Texture): MonorailTr
     if (run.cargo === "containers") {
       pools.module.place(at(0, h * 0.1), fwd, up, l * 0.94, h * 0.8, w * 0.96);
       pools.module.color(run.tones[index % run.tones.length]!);
-      for (const k of [-0.25, 0.25]) pools.frame.place(at(l * k, h * 0.1), fwd, up, l * 0.05, h * 0.84, w * 1.0);
+      for (const k of CONTAINER_RIBS) pools.frame.place(at(l * k, h * 0.1), fwd, up, l * 0.05, h * 0.84, w * 1.0);
     } else if (run.cargo === "tanks") {
       pools.tank.place(at(0, h * 0.12), fwd, up, l * 0.47, h * 0.72, w * 0.8);
       pools.frame.place(at(0, h * 0.12), fwd, up, l * 0.06, h * 0.78, w * 0.86);
@@ -168,8 +175,8 @@ export const createMonorailTrains = (scene: Scene, envMap?: Texture): MonorailTr
       // Sealed gunmetal energy canister: the charge shows only as thin lit
       // containment rings and end caps, not as a glowing block.
       pools.pod.place(at(0, h * 0.1), fwd, up, l * 0.47, h * 0.62, w * 0.66);
-      for (const k of [-0.24, 0, 0.24]) pools.cell.place(at(l * k, h * 0.1), fwd, up, l * 0.03, h * 0.66, w * 0.7);
-      for (const k of [-0.45, 0.45]) pools.cell.place(at(l * k, h * 0.1), fwd, up, l * 0.02, h * 0.3, w * 0.3);
+      for (const k of CANISTER_RINGS) pools.cell.place(at(l * k, h * 0.1), fwd, up, l * 0.03, h * 0.66, w * 0.7);
+      for (const k of CANISTER_CAPS) pools.cell.place(at(l * k, h * 0.1), fwd, up, l * 0.02, h * 0.3, w * 0.3);
     }
     if (last) {
       pools.marker.place(at(-l / 2 - 0.002, 0), fwd, up, 0.006, h * 0.18, w * 0.7);
@@ -177,8 +184,9 @@ export const createMonorailTrains = (scene: Scene, envMap?: Texture): MonorailTr
     }
   };
 
-  const car = (run: Run, along: number, dir: 1 | -1, index: number, scale: number): void => {
-    if (!sample(run.line, along)) return;
+  // Draws one car; false when its stretch of line isn't drawn this rebuild.
+  const car = (run: Run, along: number, dir: 1 | -1, index: number, scale: number): boolean => {
+    if (!sample(run.line, along)) return false;
     if (dir < 0) fwd.negate();
     side.set(-fwd.z, 0, fwd.x).normalize();
     pos.addScaledVector(side, TRACK_GAP / 2);
@@ -190,6 +198,7 @@ export const createMonorailTrains = (scene: Scene, envMap?: Texture): MonorailTr
     pos.setY(pos.y + RIDE);
     if (index === 0) driveUnit(run, scale);
     else cargoModule(run, index - 1, index === MODULES, scale);
+    return true;
   };
 
   return {
@@ -216,10 +225,11 @@ export const createMonorailTrains = (scene: Scene, envMap?: Texture): MonorailTr
       let cars = 0;
       for (const run of runs) {
         const L = run.line.length;
-        if (L < 0.3) continue;
+        const { visibleFrom, visibleTo } = run.line;
+        if (L < 0.3 || cars >= maxCars) continue;
         // Arc length is eased per train, so a train's cars stay coupled while
         // the train as a whole slows into a stop.
-        for (const dir of [1, -1] as const) {
+        for (const dir of DIRECTIONS) {
           const head0 = (((t * run.speed + run.phase[dir > 0 ? 0 : 1]) % HEADWAY) + HEADWAY) % HEADWAY;
           // Head runs 0 -> L + consist length, so the last car clears the stop too.
           const travel = L + CONSIST_LEN;
@@ -227,11 +237,13 @@ export const createMonorailTrains = (scene: Scene, envMap?: Texture): MonorailTr
             const eased = travel * ease(head / travel);
             for (let k = 0; k < CAR_OFFSETS.length; k += 1) {
               const s = eased - CAR_OFFSETS[k]!;
-              if (s < 0 || s > L || cars >= MAX_CARS) continue;
+              if (s < 0 || s > L || cars >= maxCars) continue;
+              const along = dir > 0 ? s : L - s;
+              // Only on-screen cars do any work or count toward the cap.
+              if (along < visibleFrom || along > visibleTo) continue;
               const edge = Math.min(s, L - s);
               const scale = edge < FADE ? Math.max(0.05, edge / FADE) : 1;
-              car(run, dir > 0 ? s : L - s, dir, k, scale);
-              cars += 1;
+              if (car(run, along, dir, k, scale)) cars += 1;
             }
           }
         }

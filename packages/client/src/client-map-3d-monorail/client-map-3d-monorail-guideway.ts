@@ -2,6 +2,7 @@ import {
   BoxGeometry,
   CircleGeometry,
   CylinderGeometry,
+  Color,
   MeshBasicMaterial,
   MeshStandardMaterial,
   Vector3,
@@ -18,7 +19,7 @@ import {
 } from "../client-map-3d-road-overlay/client-map-3d-road-centerline.js";
 import type { RoadDirections } from "../client-road-network/client-road-network.js";
 import { createMonorailPool, type MonorailPool } from "./client-map-3d-monorail-pool.js";
-import { createBeamPanelTexture } from "./client-map-3d-monorail-textures.js";
+import { createBeamGlowTexture, createBeamPanelTexture } from "./client-map-3d-monorail-textures.js";
 
 // The maglev freight line's static structure: twin graphite guideway beams
 // carried on Y-forked pylons along every road tile. Each beam carries a lit
@@ -31,7 +32,9 @@ export const RAIL_HEIGHT = 0.3;
 export const TRACK_GAP = 0.112;
 export const BEAM_W = 0.028;
 export const BEAM_H = 0.036;
-const COIL_STEP = 0.07; // spacing of the induction-coil lights along a beam
+const WARNING_ON = new Color("#ff3b2f");
+const WARNING_OFF = new Color("#4a120e");
+const TRACK_SIDES = [-1, 1] as const;
 // Beams stop this far from a town's centre so they meet the town model's edge.
 export const STATION_RADIUS = 0.42;
 const DECK_RADIUS = 0.165;
@@ -76,23 +79,22 @@ export const createMonorailGuideway = (scene: Scene, envMap?: Texture): Monorail
   const disc = new CircleGeometry(1, 20).rotateX(-Math.PI / 2);
   const graphite = new MeshStandardMaterial({ color: "#2b3038", metalness: 0.82, roughness: 0.3 });
   const beamTex = createBeamPanelTexture();
-  const beamMat = new MeshStandardMaterial({ color: "#3e4650", map: beamTex, metalness: 0.85, roughness: 0.24 });
+  const beamGlow = createBeamGlowTexture();
+  // Coil lights + levitation line are an emissive map on the beam itself.
+  const beamMat = new MeshStandardMaterial({ color: "#3e4650", map: beamTex, metalness: 0.85, roughness: 0.24, emissive: "#46dcff", emissiveMap: beamGlow, emissiveIntensity: 1.1 });
   const plinth = new MeshStandardMaterial({ color: "#1c2026", metalness: 0.6, roughness: 0.5 });
   for (const mat of [graphite, beamMat, plinth]) applyBuildingEnvMap(mat, envMap);
   const field = new MeshBasicMaterial({ toneMapped: false, color: "#8ff6ff" });
-  const coil = new MeshBasicMaterial({ toneMapped: false, color: "#2bb7d8" });
   const warning = new MeshBasicMaterial({ toneMapped: false, color: "#ff3b2f" });
   const shadow = new MeshBasicMaterial({ toneMapped: false, color: "#05080b", transparent: true, opacity: 0.3, depthWrite: false });
 
   const pools = {
     footing: createMonorailPool(scene, hex, plinth),
-    footRing: createMonorailPool(scene, hex, coil),
+    footRing: createMonorailPool(scene, hex, field),
     column: createMonorailPool(scene, column, graphite),
     arm: createMonorailPool(scene, box, graphite),
     seam: createMonorailPool(scene, box, field),
     beam: createMonorailPool(scene, box, beamMat),
-    field: createMonorailPool(scene, box, field),
-    coil: createMonorailPool(scene, box, coil),
     deck: createMonorailPool(scene, hex, graphite),
     rim: createMonorailPool(scene, hex, field),
     warning: createMonorailPool(scene, box, warning),
@@ -123,33 +125,21 @@ export const createMonorailGuideway = (scene: Scene, envMap?: Texture): Monorail
     }
   };
 
-  // Twin beams along a centreline polyline, with coil lights every COIL_STEP.
+  // Twin beams along a centreline polyline; their lights are in the emissive map.
   const beams = (line: readonly XZ[], toWorld: (pt: XZ) => [number, number], elevationAt: ElevationAt): void => {
     const pts = line.map((pt) => {
       const [wx, wz] = toWorld(pt);
       return new Vector3(pt[0], elevationAt(wx, wz) + RAIL_HEIGHT, pt[1]);
     });
-    let untilCoil = COIL_STEP / 2;
     for (let i = 1; i < pts.length; i += 1) {
       const p0 = pts[i - 1]!, p1 = pts[i]!;
-      const len = p0.distanceTo(p1);
       t.subVectors(p1, p0).normalize();
       side.set(-t.z, 0, t.x).normalize();
-      for (const sign of [-1, 1]) {
+      for (const sign of TRACK_SIDES) {
         a.copy(p0).addScaledVector(side, sign * TRACK_GAP / 2).addScaledVector(t, -0.003);
         b.copy(p1).addScaledVector(side, sign * TRACK_GAP / 2).addScaledVector(t, 0.003);
         pools.beam.span(a, b, BEAM_W, BEAM_H);
-        pools.field.span(a.setY(a.y + BEAM_H / 2 + 0.001), b.setY(b.y + BEAM_H / 2 + 0.001), 0.006, 0.003);
       }
-      // `untilCoil` carries the distance to the next coil across segments.
-      let d = untilCoil;
-      for (; d < len; d += COIL_STEP) {
-        for (const sign of [-1, 1]) {
-          p.copy(p0).addScaledVector(t, d).addScaledVector(side, sign * TRACK_GAP / 2);
-          pools.coil.place(p, t, UP, 0.012, BEAM_H * 0.45, BEAM_W + 0.005);
-        }
-      }
-      untilCoil = d - len;
     }
   };
 
@@ -222,15 +212,14 @@ export const createMonorailGuideway = (scene: Scene, envMap?: Texture): Monorail
     update: (nowMs) => {
       const phase = (nowMs / 1000) % 2.4;
       const on = phase < 0.12 || (phase > 0.3 && phase < 0.42);
-      warning.color.set(on ? "#ff3b2f" : "#4a120e");
-      const glow = 0.7 + 0.3 * Math.sin((nowMs / 1000) * 1.9);
-      coil.color.setRGB(0.17 * glow, 0.72 * glow, 0.85 * glow);
+      warning.color.copy(on ? WARNING_ON : WARNING_OFF);
+      beamMat.emissiveIntensity = 1.1 * (0.7 + 0.3 * Math.sin((nowMs / 1000) * 1.9));
     },
     dispose: () => {
       for (const pool of all) pool.dispose();
       for (const g of [box, hex, column, disc]) g.dispose();
-      beamTex.dispose();
-      for (const mat of [graphite, beamMat, plinth, field, coil, warning, shadow]) mat.dispose();
+      beamTex.dispose(); beamGlow.dispose();
+      for (const mat of [graphite, beamMat, plinth, field, warning, shadow]) mat.dispose();
     }
   };
 };

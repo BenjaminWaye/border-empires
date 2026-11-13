@@ -56,3 +56,13 @@ export const createBeamPanelTexture = (): DataTexture => texture(64, 16, (u, v) 
   if (band(v, 0.5, 0.04)) g *= 0.85;
   return g;
 });
+
+// Glow mask for a guideway beam segment: a lit line along the middle (the
+// levitation line on top, the power rail down each side) and one induction-
+// coil block per segment. Used as an emissive map, so the lights cost no
+// extra instances.
+export const createBeamGlowTexture = (): DataTexture => texture(64, 16, (u, v) => {
+  if (band(v, 0.5, 0.07)) return 1;
+  if (band(u, 0.5, 0.09) && band(v, 0.5, 0.3)) return 0.85;
+  return 0;
+});

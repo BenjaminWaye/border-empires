@@ -99,7 +99,7 @@ import {
 } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { resolvedMapResource3D } from "../client-resource-networks/network-resource-3d.js"; import { addRawResourceInstance, type RawResourceOverlays } from "../client-map-3d-raw-resource-dispatch/client-map-3d-raw-resource-dispatch.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
-import { createMonorailRoadOverlay } from "../client-map-3d-monorail/client-map-3d-monorail.js";
+import { createMonorailRoadOverlay, monorailOwnerColorAt } from "../client-map-3d-monorail/client-map-3d-monorail.js";
 import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import { reachCacheKey, resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { filterReachToLand, samplePerimeterPylons, traceReachBoundaryEdgeLoops } from "../client-reach-overlay/client-reach-overlay.js";
@@ -166,7 +166,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const { fogDarkenOverlay, fogOwnershipOverlay } = fogOverlays;
   await deps.onStage?.("structures");
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture);
-  const roadOverlay = createMonorailRoadOverlay(scene, { envMap: atmosphere.buildingEnvironmentTexture, wrapX: deps.wrapX, wrapY: deps.wrapY, ownerColorAt: (wx, wy) => { const ownerId = deps.state.tiles.get(deps.keyFor(wx, wy))?.ownerId; return ownerId ? new Color(normalizeColorForThree(deps.effectiveOverlayColor(ownerId))) : undefined; } }); // town links: elevated monorail + trains
+  const roadOverlay = createMonorailRoadOverlay(scene, { envMap: atmosphere.buildingEnvironmentTexture, wrapX: deps.wrapX, wrapY: deps.wrapY, qualityTier, ownerColorAt: monorailOwnerColorAt(deps.state.tiles, deps.keyFor, deps.effectiveOverlayColor) }); // town links: maglev freight line
   const reachOverlay3D = createReachOverlay3D(scene, MAX_VISIBLE_TILES);
   // Land-filtered copy of the player's reach for the border trace, rebuilt only when reachCacheKey changes. The unfiltered set itself comes from
   // resolveMyReachCached (shared with the 2D path via state.myReach); this stays a local because the sea-trimmed variant is 3D-only.

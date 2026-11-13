@@ -18,6 +18,7 @@ export type MonorailPool = {
 };
 
 const WORLD_UP = new Vector3(0, 1, 0);
+const WHITE = new Color(1, 1, 1);
 const m = new Matrix4(), q = new Quaternion(), s = new Vector3(), scratch = new Color();
 const fx = new Vector3(), fy = new Vector3(), fz = new Vector3(), mid = new Vector3();
 
@@ -42,7 +43,7 @@ export const createMonorailPool = (
     if (opts.renderOrder !== undefined) mesh.renderOrder = opts.renderOrder;
     // Per-instance colours must exist before the first draw, or the compiled
     // shader never reads them.
-    if (opts.colored) for (let i = 0; i < capacity; i += 1) mesh.setColorAt(i, new Color(1, 1, 1));
+    if (opts.colored) for (let i = 0; i < capacity; i += 1) mesh.setColorAt(i, WHITE);
     scene.add(mesh);
     return mesh;
   };
