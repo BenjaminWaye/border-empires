@@ -147,7 +147,7 @@ import {
   queuedExpandProgressForTile as queuedExpandProgressForTileFromModule,
   queuedAutoSettleNextForTile as queuedAutoSettleNextForTileFromModule
 } from "./client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
-import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
+import { neutralTileClickOutcome, tapClaimsAdjacentTile, type TileTapInput } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
 import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
@@ -1349,7 +1349,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     suppressNextClick: false
   };
 
-  const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: number): void => {
+  const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: number, tapInput: TileTapInput = "mouse"): void => {
     if (mapInteractionFlags.suppressNextClick) {
       mapInteractionFlags.suppressNextClick = false;
       return;
@@ -1444,8 +1444,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     // ever appears inside that menu -- actually has a chance to be seen.
     const isTargetInLocalReach = (x: number, y: number): boolean =>
       resolveMyReachCached(state).has(keyFor(x, y));
-    // Shared with the "visible" neutral-adjacent click path below: claims an
-    // adjacent-reachable tile immediately instead of opening a menu. Lifted
+    // Shared with the "visible" neutral-adjacent click path below: a mouse click
+    // claims an adjacent-reachable tile immediately instead of opening a menu
+    // (a touch tap only inspects -- tapClaimsAdjacentTile). Lifted
     // out so fogged/unexplored tiles adjacent to owned territory can also
     // start a frontier expand directly, rather than only ever showing a
     // description popup (or, for unexplored tiles, nothing at all) just
@@ -1473,7 +1474,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
     };
     if (vis === "unexplored") {
-      const frontierOrigin = pickOriginForTarget(wx, wy, false);
+      const frontierOrigin = tapClaimsAdjacentTile(tapInput) ? pickOriginForTarget(wx, wy, false) : undefined;
       if (frontierOrigin) {
         state.selected = { x: wx, y: wy };
         resetAttackPreviewState(state);
@@ -1489,7 +1490,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       resetAttackPreviewState(state);
       const isLand = clicked?.terrain === "LAND";
       const isNeutral = !clicked?.ownerId;
-      const frontierOrigin = isLand && isNeutral ? pickOriginForTarget(wx, wy, false) : undefined;
+      const frontierOrigin = isLand && isNeutral && tapClaimsAdjacentTile(tapInput) ? pickOriginForTarget(wx, wy, false) : undefined;
       if (frontierOrigin) {
         queueAdjacentExpandClaim(wx, wy);
         return;
@@ -1518,7 +1519,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       isLand: to.terrain === "LAND",
       isFogged: Boolean(to.fogged),
       hasFrontierOrigin: Boolean(frontierOrigin),
-      isNeutral: !to.ownerId
+      isNeutral: !to.ownerId,
+      tapInput
     });
     // Enable via localStorage.setItem("tile-sync-debug", "1") in the
     // browser console, then click a tile -- prints what the click decided.
@@ -1544,12 +1546,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       // already-queued target, which would otherwise leave the click with
       // no menu and no feedback. (queueAdjacentExpandClaim handles this.)
       queueAdjacentExpandClaim(to.x, to.y);
-      return;
-    }
-    if (to.terrain === "LAND" && !to.fogged) {
-      openSingleTileActionMenu(to, clientX, clientY);
-      requestAttackPreviewForHover();
-      renderHud();
       return;
     }
     openSingleTileActionMenu(to, clientX, clientY);

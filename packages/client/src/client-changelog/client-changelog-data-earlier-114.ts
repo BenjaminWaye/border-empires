@@ -5,8 +5,6 @@ import { STRATEGIC_DEPOSIT_REACH_ENTRY } from "./client-changelog-strategic-depo
 import { DOCK_ART_ENTRY } from "./client-changelog-dock-art.js";
 import { TOWN_REFINERIES_ENTRY } from "./client-changelog-town-refineries.js";
 import { LAST_CONTEST_RECAP_ENTRY } from "./client-changelog-last-contest-recap.js";
-import { CAMERA_PER_ACCOUNT_ENTRY } from "./client-changelog-nov-11.js";
-import { PLACE_FEEDBACK_ENTRY } from "./client-changelog-place-feedback.js";
 import { SCIFI_ROADS_ENTRY } from "./client-changelog-scifi-roads.js";
 import { GALAXY_STIPEND_PAID_ENTRY } from "./client-changelog-galaxy-stipend-paid.js";
 
@@ -18,8 +16,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_114: ClientChangelogEntry[] = [
   { ...DOCK_ART_ENTRY, createdAt: 1794521176798, },
   { ...TOWN_REFINERIES_ENTRY, createdAt: 1794522848705, },
   { ...LAST_CONTEST_RECAP_ENTRY, createdAt: 1794556633359, },
-  { ...CAMERA_PER_ACCOUNT_ENTRY, createdAt: 1794432604008, },
-  { ...PLACE_FEEDBACK_ENTRY, createdAt: 1794410576432, },
   { ...SCIFI_ROADS_ENTRY, createdAt: 1794519394469, },
   { ...GALAXY_STIPEND_PAID_ENTRY, createdAt: 1794561205515, },
 ];

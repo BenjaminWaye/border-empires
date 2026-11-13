@@ -12,6 +12,8 @@ import { predictedMusterAmount } from "./client-muster-prediction/client-muster-
 import { musterSiegeReason, ownTileSiegeAt } from "./client-muster-siege/client-muster-siege.js";
 import { promptMusterAdvanceEffort } from "./client-muster-advance-effort/client-muster-advance-effort.js";
 import { huntAttackersAction, huntOrderMessage, sendHuntAttackersOrder } from "./client-muster-hunt/client-muster-hunt.js";
+import { confirmFirstMusterStage } from "./client-muster-stage-confirm/client-muster-stage-confirm.js";
+import type { BreakPactSheetOptions } from "./client-break-pact-sheet/client-break-pact-sheet.js";
 
 // Inline to avoid circular dependency with client-tile-action-logic.ts
 // (which imports buildMusterActions from here).
@@ -192,6 +194,8 @@ export type MusterTileActionDeps = {
   renderHud: () => void;
   /** Test seam for the supply-trade confirm; defaults to the break-pact sheet. */
   showSupplyTradeSheet?: SupplyTradeSheet;
+  /** Test seam for the first-time Stage Muster confirm; defaults to the break-pact sheet. */
+  showStageMusterSheet?: (options: BreakPactSheetOptions) => boolean;
 };
 
 /**
@@ -214,8 +218,14 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
     if (deps.state.discoveryTipQueue) announceDiscoveryTipForState(deps.state, "FIRST_MUSTER", deps.renderHud, { x, y });
   };
   if (actionId === "muster_hold") {
-    deps.sendGameMessage({ type: "SET_MUSTER", x, y, mode: "HOLD" });
-    announceFirstMuster();
+    const stage = (): void => {
+      deps.sendGameMessage({ type: "SET_MUSTER", x, y, mode: "HOLD" });
+      announceFirstMuster();
+    };
+    // "Set Hold" on an existing flag shares this id and stays instant; only
+    // raising a new flag gets the first-time explainer.
+    if (tile.muster) stage();
+    else confirmFirstMusterStage({ authEmail: deps.state.authEmail, flagCap: Math.floor(musterFlagCap(deps.state.manpowerCap, 0)), x, y, proceed: stage, ...(deps.showStageMusterSheet ? { show: deps.showStageMusterSheet } : {}) });
     return true;
   }
   if (actionId === "muster_advance") {
