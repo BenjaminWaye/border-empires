@@ -11,7 +11,9 @@ body.hud-v2-compact .v2s-head {
 body.hud-v2-compact .v2s-title { font-size: 17px; letter-spacing: 0.08em; }
 body.hud-v2-compact .v2s-back { height: var(--v2c-touch); }
 /* No Esc key on a phone: back is the button or the back gesture. */
-body.hud-v2-compact .v2s-back kbd { display: none; }
+body.hud-v2-compact .v2s-back kbd,
+body.hud-v2-compact .v2-key-hint,
+body.hud-v2-compact .tile-action-hint { display: none; }
 body.hud-v2-compact .v2s-head-right { margin-left: 0; flex: 1 1 100%; }
 body.hud-v2-compact .v2s-head-right:empty { display: none; }
 body.hud-v2-compact .v2s-body {
@@ -72,6 +74,11 @@ body.hud-v2-compact .v2c-filter { height: 34px; }
 body.hud-v2-compact .v2c-row { grid-template-columns: 36px 22px minmax(0, 1fr) auto; min-height: var(--v2c-touch); padding: 6px 10px; }
 body.hud-v2-compact .v2c-show { height: 34px; }
 body.hud-v2-compact .v2u-row { min-height: var(--v2c-touch); }
+/* Short phones (667px): a half sheet left the list ~2 rows tall under the summary; open to the ribbon instead. */
+@media (orientation: portrait) and (max-height: 760px) {
+  body.hud-v2-compact .v2c-drawer { top: var(--v2c-top); height: auto; }
+  body.hud-v2-compact .v2c-chips { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 
 /* ---- Town: full screen, stats over the build list, actions pinned at the foot ---- */
 body.hud-v2-compact .v2t-left {
@@ -93,14 +100,22 @@ body.hud-v2-compact .v2t-right {
   left: 0; right: 0; top: calc(var(--v2c-top) + 34dvh + 4px); bottom: calc(var(--v2c-safe-bottom) + var(--v2c-town-bar, 118px)); width: auto; border-width: 1px 0;
 }
 body.hud-v2-compact .v2t-build-head { padding: 8px 12px 6px; }
+body.hud-v2-compact .v2t-build-close { width: var(--v2c-touch); height: var(--v2c-touch); }
 body.hud-v2-compact .v2t-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 0 12px 8px; scrollbar-width: none; }
 body.hud-v2-compact .v2t-tab { flex: none; height: 36px; }
 body.hud-v2-compact .v2t-build { min-height: 56px; padding: 6px 12px; }
 body.hud-v2-compact .v2t-build-ico { width: 40px; height: 40px; }
 body.hud-v2-compact .v2t-work { padding: 0 12px 8px; }
 body.hud-v2-compact .v2t-job-acts .v2s-btn { height: 40px; }
+/* The town's build panel is ~260px on a 667px phone: work, "Built here" and the docked Place squeezed the
+   list to nothing. Scroll the panel as one column instead, Place pinned at its foot. */
+body.hud-v2-compact #v2t-build { overflow-y: auto; overscroll-behavior: contain; }
+body.hud-v2-compact #v2t-build > * { flex-shrink: 0; }
+body.hud-v2-compact #v2t-build .v2t-build-list,
+body.hud-v2-compact #v2t-build .v2t-work { flex: none; max-height: none; min-height: 0; overflow: visible; }
+body.hud-v2-compact #v2t-build .v2t-place-docked { position: sticky; bottom: 0; z-index: 1; margin-top: auto; }
 body.hud-v2-compact #v2t-bar.v2t-bar {
-  left: 0; right: 0; bottom: 0; transform: none; width: auto; min-width: 0; max-height: var(--v2c-town-bar, 118px); overflow-y: auto;
+  box-sizing: border-box; left: 0; right: 0; bottom: 0; transform: none; width: auto; min-width: 0; max-height: var(--v2c-town-bar, 118px); overflow-y: auto;
   padding: 8px calc(var(--v2c-safe-right) + 8px) calc(var(--v2c-safe-bottom) + 8px) calc(var(--v2c-safe-left) + 8px); border-width: 1px 0 0;
 }
 body.hud-v2-compact .v2t-act { min-height: 48px; height: auto; }

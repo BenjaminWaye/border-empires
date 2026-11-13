@@ -94,6 +94,25 @@ describe("Launch Attack effort sheet", () => {
   });
 });
 
+// 2026-11-12 playtest (pt-predator): on a region attack the presets-only sheet
+// showed no odds, so Normal/Extra/Double looked like they changed nothing.
+describe("region attack effort sheet odds", () => {
+  afterEach(() => hideEffortConfirmSheet());
+
+  it("shows the tapped tile's win chance and moves it with the preset", () => {
+    const { state, deps } = setup([
+      { x: 1, y: 0, ownershipState: "SETTLED" },
+      { x: 2, y: 0, ownershipState: "SETTLED" }
+    ]);
+    (state as { attackPreview?: unknown }).attackPreview = { fromKey: "0,0", toKey: "1,0", valid: true, winChance: 0.22, receivedAt: Date.now() };
+    launchAttacksWithEffort(state, { targetKeys: ["1,0", "2,0"], scope: "region", selected: state.tiles.get("1,0") }, deps);
+    const info = (): string => document.querySelector("[data-effort-info]")?.textContent ?? "";
+    expect(info()).toContain("Win chance 22% at (1, 0)");
+    click('[data-effort-preset="double"]');
+    expect(info()).toContain("Win chance 36% at (1, 0)");
+  });
+});
+
 describe("Launch Attack on a supply-trade partner", () => {
   afterEach(() => hideEffortConfirmSheet());
   const trade = { id: "t1", proposerId: "me", targetId: "enemy", proposerGives: { FOOD: 1 }, targetGives: {}, startedAt: 1, fulfilled: true };

@@ -192,7 +192,7 @@ const barHtml = (input: TownScreenInput): string => {
     : "";
   return `${garrisonBtn}${improvementBtn}${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
     ${minor ? `<span class="v2t-minor">${minor}</span>` : ""}
-    <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map · Esc</button>${garrisonOption}`;
+    <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map<span class="v2-key-hint"> · Esc</span></button>${garrisonOption}`;
 };
 
 export const townScreenRegions = (input: TownScreenInput): { left: string; build: string; bar: string } => ({
