@@ -203,3 +203,41 @@ describe("SqliteSimulationSnapshotStore overlay memo — baseline scoping", () =
     expect(overlay2).toEqual([]);
   });
 });
+
+// Regression (2026-11-12 playtest wipe): `seed:*` rulesets resolve an empty
+// worldgen baseline, so every runtime tile is saved as a baseline-less overlay
+// row. Loading expanded against that same empty baseline yielded zero tiles,
+// startup recovery discarded the snapshot as unusable, and the sim rebooted
+// the seed world — every empire vanished on restart.
+describe("SqliteSimulationSnapshotStore — empty worldgen baseline round-trip", () => {
+  it("restores every saved tile when the resolver returns no baseline", async () => {
+    const db = new DatabaseSync(":memory:");
+    const events = new SqliteSimulationEventStore(db);
+    await events.applySchema();
+    const snapshots = new SqliteSimulationSnapshotStore(db, { resolveBaseline: async () => [] });
+    await snapshots.applySchema();
+    const tiles = [
+      { x: 0, y: 0, terrain: "LAND", ownerId: "pt-warlord", ownershipState: "SETTLED", town: { name: "Keep" } },
+      { x: 1, y: 0, terrain: "LAND", ownerId: "ai-3", ownershipState: "FRONTIER" },
+      { x: 2, y: 0, terrain: "SEA" }
+    ];
+    await snapshots.saveSnapshot({
+      lastAppliedEventId: 0,
+      snapshotSections: {
+        initialState: {
+          tiles,
+          players: [],
+          pendingSettlements: [],
+          activeLocks: [],
+          docks: [],
+          season: { rulesetId: "seed:season-20ai", worldSeed: 7, mapStyle: "continents" }
+        },
+        commandEvents: []
+      } as unknown as SimulationSnapshotSections,
+      createdAt: 1000
+    });
+
+    const loaded = await snapshots.loadLatestSnapshot();
+    expect(loaded?.snapshotPayload.initialState.tiles).toEqual(tiles);
+  });
+});
