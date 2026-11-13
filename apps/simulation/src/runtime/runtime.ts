@@ -10,6 +10,7 @@ import { RelicMapHintIndex } from "../runtime-relic-map-hints.js";
 import { activateUnallocatedFoundries } from "../runtime-relics.js";
 import { prepareRelicTileWrite } from "../runtime-relic-tile-write.js";
 import { createLandmarkSuperTileSync, superTileActionTarget } from "../landmark-super-tile/landmark-super-tile.js";
+import { superTileSettlementStart } from "../landmark-super-tile/landmark-super-tile-settle.js";
 import { settleResourceNetworkOwnersBeforeTileChange } from "./runtime-manpower-economy.js";
 import { afcEnvoyIncomeInSnapshot } from "../afc-specializations/afc-coalition.js";
 import { settleBootstrapManpower } from "./runtime-bootstrap-manpower.js";
@@ -515,7 +516,7 @@ export class SimulationRuntime {
     () => this.state, () => this.structureCommandContext()
   );
   private readonly siphonModeLifecycle: SiphonModeLifecycle; // Siphon siphon-mode end rules — siphon-mode/siphon-mode-lifecycle.ts
-  private readonly syncLandmarkSuperTile = createLandmarkSuperTileSync({ tiles: { get: key => this.state.tiles.get(key) }, replaceTileState: (key, tile, commandId) => this.replaceTileState(key, tile, commandId), tileDeltaFromState: tile => this.tileDeltaFromState(tile), emitEvent: event => this.emitEvent(event) }); // AFC/relic super tile ownership — landmark-super-tile/
+  private readonly superTileSync = createLandmarkSuperTileSync({ tiles: { get: key => this.state.tiles.get(key) }, replaceTileState: (key, tile, commandId) => this.replaceTileState(key, tile, commandId), tileDeltaFromState: tile => this.tileDeltaFromState(tile), emitEvent: event => this.emitEvent(event) }); // AFC/relic super tile ownership — landmark-super-tile/
   private readonly aetherShieldTicker: AetherShieldTicker; // Siphon tower-comes-back-online sweep + AETHER_SHIELDS push — aether-shield/aether-shield-tick.ts
   // Non-snapshot rolling history for public and personal activity views.
   private readonly activityLogs = createRuntimeActivityLogs(() => this.now());
@@ -1687,7 +1688,8 @@ export class SimulationRuntime {
     this.markPlannerPlayerTileCollectionDirty(tile.ownerId);
   }
 
-  private replaceTileState(tileKey: string, nextTile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void {
+  private replaceTileState(tileKey: string, nextTile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void { this.superTileSync.write(() => this.writeTileState(tileKey, nextTile, commandId)); }
+  private writeTileState(tileKey: string, nextTile: DomainTileState, commandId: string): void {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.state.tiles.get(tileKey);
     this.resourceSupply?.sourceWillChange(previous, nextTile);
@@ -1777,7 +1779,7 @@ export class SimulationRuntime {
     }
     this.resourceSupply?.sourceChangesPublished(previous, tile);
     this.siphonModeLifecycle.onTileReplaced(tileKey, previous, tile, commandId); // may write other tiles
-    this.syncLandmarkSuperTile(previous, tile, commandId); // last: mirrors ownership across an AFC/relic super tile
+    this.superTileSync.record(previous, tile, commandId); // last: mirrored across an AFC/relic super tile once the outermost write ends
   }
 
   private rebuildPlannerCandidateIndexesForPlayer(playerId: string): void {
@@ -2600,7 +2602,8 @@ export class SimulationRuntime {
 
   private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): FrontierCommandResult { return handleFrontierCommandImpl(this.frontierCommandContext(), command, actionType); }
 
-  private startSettlementProcess(input: SettlementStartInput): void {
+  private startSettlementProcess(requested: SettlementStartInput): void {
+    const input = superTileSettlementStart(this.state.tiles, this.pendingSettlementsByTile, key => this.state.locksByTile.targetLockAt(key)?.actionType === "ATTACK", requested); if (!input) return; // one garrison per AFC/relic super tile
     startSettlementProcessImpl({
       players: this.state.players, addPendingSettlement: (record) => this.addPendingSettlement(record), scheduleAfter: this.scheduleAfter,
       resolvePendingSettlement: (resolution) => this.resolvePendingSettlement(resolution), emitEvent: (event) => this.emitEvent(event),
@@ -2673,12 +2676,12 @@ export class SimulationRuntime {
     // EXPAND's OUT_OF_REACH check. Town/dock tiles and tiles holding a captured
     // building are exempt (settleIgnoresReach) -- the same tiles the sim
     // auto-settles out of reach on capture, so manual Garrison must accept them.
-    if (!settleIgnoresReach(target) && !this.isPlayerTileInReach(command.playerId, target.x, target.y)) {
+    if (!settleIgnoresReach(target) && !this.isPlayerTileInReach(command.playerId, (clicked ?? target).x, (clicked ?? target).y)) {
       this.rejectCommand(command, "OUT_OF_REACH", "tile is outside your reach"); return;
     }
     if (handleDuplicatePendingSettlement({ emitEvent: (e) => this.emitEvent(e), rejectCommand: (c, code, msg) => this.rejectCommand(c, code, msg) }, this.pendingSettlementsByTile.get(targetKey), command)) return; // see runtime-settle-duplicate.ts
     if (this.rejectIfNoDevelopmentSlot(command, "SETTLE_INVALID", "development slots are busy")) return;
-    releaseQueuedSettleReservationImpl(this.devQueueCommandContext(), command.playerId, targetKey); // runtime-dev-queue-command-handlers.ts
+    for (const key of new Set([targetKey, simulationTileKey(payload.x, payload.y)])) releaseQueuedSettleReservationImpl(this.devQueueCommandContext(), command.playerId, key); // runtime-dev-queue-command-handlers.ts
     const settleRejection = settleRejectionForActor(actor); if (settleRejection) { this.rejectCommand(command, settleRejection.code, settleRejection.message); return; }
 
     this.startSettlementProcess({

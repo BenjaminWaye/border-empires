@@ -4,6 +4,7 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { RuntimeStructureCommandContext } from "../runtime-structure-command-handlers.js";
 import { isEmptyAfcSite } from "./afc-owned-site.js";
 import { landBuiltAfc } from "../runtime-build-afc-command-handler.js";
+import { footprintHeldByRival } from "../landmark-super-tile/landmark-super-tile.js";
 
 /** Replacements reserve a 3x3 footprint; neighbouring AFC centres must be >=3 tiles apart. */
 export function isClearAfcFootprint(tiles: ReadonlyMap<string, DomainTileState>, x: number, y: number): boolean {
@@ -17,7 +18,7 @@ export function validReplacementSite(context: AfcRecoverySiteContext, playerId: 
   return Boolean(tile && tile.ownerId === playerId && tile.terrain === "LAND" &&
     (tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER") &&
     !isCaptureHoldActive(tile, context.now()) && !context.locksByTile.has(`${x},${y}`) &&
-    isEmptyAfcSite(tile) && isClearAfcFootprint(context.tiles, x, y));
+    isEmptyAfcSite(tile) && isClearAfcFootprint(context.tiles, x, y) && !footprintHeldByRival(context.tiles, x, y, playerId));
 }
 
 export function emitRecoveryState(context: Pick<RuntimeStructureCommandContext, "emitEvent" | "emitPlayerStateUpdate">, player: DomainPlayer, commandId: string, refreshPlayerState = true): void {

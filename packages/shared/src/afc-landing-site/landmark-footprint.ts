@@ -33,6 +33,10 @@ export interface SuperTileMember extends LandmarkTile {
   terrain?: string | undefined;
   town?: unknown;
   dockId?: unknown;
+  fort?: unknown;
+  observatory?: unknown;
+  siegeBattery?: unknown;
+  economicStructure?: unknown;
 }
 
 const isLandmark = (tile: LandmarkTile | undefined): boolean => Boolean(tile?.afc || tile?.naturalWonder);
@@ -54,9 +58,14 @@ export function landmarkFootprintCentre<T extends SuperTileMember>(
   return undefined;
 }
 
-/** Whether a footprint tile shares its landmark's ownership (plain land without its own town, dock or landmark). */
+/**
+ * Whether a footprint tile shares its landmark's ownership: plain land with no
+ * town, dock, landmark or building of its own (buildings predating the
+ * footprint rule stay with their owner).
+ */
 export const followsLandmarkOwnership = (tile: SuperTileMember): boolean =>
-  tile.terrain === "LAND" && !tile.town && !tile.dockId && !isLandmark(tile);
+  tile.terrain === "LAND" && !tile.town && !tile.dockId && !isLandmark(tile) &&
+  !tile.fort && !tile.observatory && !tile.siegeBattery && !tile.economicStructure;
 
 /** The landmark centre plus every footprint tile that follows its ownership. */
 export function landmarkSuperTileMembers<T extends SuperTileMember>(

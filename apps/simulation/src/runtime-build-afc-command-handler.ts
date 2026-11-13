@@ -3,6 +3,7 @@ import { afcBuildCost } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { prepareAfcLandingFootprint } from "./afc-landing-footprint/afc-landing-footprint.js";
+import { footprintHeldByRival } from "./landmark-super-tile/landmark-super-tile.js";
 import { isEmptyAfcSite } from "./afc-owned-site/afc-owned-site.js";
 import { backfillMissingHouseModules, rebalanceOverfullAfcs } from "./afc-module-commissioning.js";
 import { afcModuleDeliveryContextFor } from "./runtime-redeploy-afc-module-command-handler.js";
@@ -28,7 +29,7 @@ export const handleBuildAfcCommand = (context: RuntimeStructureCommandContext, c
     return rejectCommand(context, command, "AFC_REQUIRED", "Garrison your captured AFC before commissioning additional complexes");
   }
   const ownershipOk = tile?.ownerId === actor.id && tile.ownershipState === "SETTLED";
-  if (!tile || tile.terrain !== "LAND" || !ownershipOk || !isEmptyAfcSite(tile) || !isClearAfcFootprint(context.tiles, tile.x, tile.y) || context.locksByTile.has(tileKey)) {
+  if (!tile || tile.terrain !== "LAND" || !ownershipOk || !isEmptyAfcSite(tile) || !isClearAfcFootprint(context.tiles, tile.x, tile.y) || footprintHeldByRival(context.tiles, tile.x, tile.y, actor.id) || context.locksByTile.has(tileKey)) {
     return rejectCommand(context, command, "BUILD_INVALID", "AFCs need an unlocked garrisoned land tile with a clear 3×3 footprint");
   }
   const cost = afcBuildCost(ownedAfcCount);

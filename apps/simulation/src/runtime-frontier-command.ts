@@ -146,7 +146,9 @@ export const handleFrontierCommandImpl = (
   // ally's tile that is the origin of that ally's own fight still can't be
   // reused as a dock-crossing origin.
   const fromKey = simulationTileKey(from.x, from.y);
-  const originLock = ctx.locksByTile.targetLockAt(fromKey) ?? ctx.locksByTile.originLocksAt(fromKey).find((candidate) => candidate.playerId !== actor.id);
+  // A super tile under attack is locked as a whole: none of its nine tiles can launch.
+  const fromSite = superTileActionTarget(ctx.tiles, from);
+  const originLock = ctx.locksByTile.targetLockAt(fromKey) ?? ctx.locksByTile.targetLockAt(simulationTileKey(fromSite.x, fromSite.y)) ?? ctx.locksByTile.originLocksAt(fromKey).find((candidate) => candidate.playerId !== actor.id);
   const targetLock = ctx.locksByTile.targetLockAt(simulationTileKey(to.x, to.y));
   ctx.commandTrace?.({
     phase: "frontier_validate",
