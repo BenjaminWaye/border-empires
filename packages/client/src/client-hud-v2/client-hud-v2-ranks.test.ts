@@ -150,3 +150,20 @@ describe("ranks standings power score", () => {
     expect(html).toContain('class="v2r-stand-val">0</span>');
   });
 });
+
+describe("ranks crests for empires sharing an initial (playtest 2026-11-12: Alden and Astrid both 'A')", () => {
+  const entry = (id: string, name: string, rank: number): LeaderboardOverallEntry => ({
+    id, name, rank, score: 10 * (10 - rank), tiles: 1, incomePerMinute: 0, techs: 0, manpowerCap: 0
+  });
+
+  it("shows two letters only where the first letter is shared, so they differ without colour", () => {
+    const html = ranksBodyHtml({
+      me: "me", objectives: [],
+      overall: [entry("ai-1", "Alden", 1), entry("ai-11", "Astrid", 2), entry("ai-10", "Tove", 3)],
+      selfOverall: undefined, nameOf: () => "Gerald", colorOf: () => undefined
+    });
+    expect(html).toMatch(/v2r-crest-2"[^>]*>Al<\/span>/);
+    expect(html).toMatch(/v2r-crest-2"[^>]*>As<\/span>/);
+    expect(html).toMatch(/class="v2r-crest "[^>]*>T<\/span>/);
+  });
+});

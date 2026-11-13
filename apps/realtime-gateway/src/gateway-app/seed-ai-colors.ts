@@ -1,10 +1,14 @@
-import { assignUniqueColor, RESERVED_COLORS } from "../player-color-allocation/player-color-allocation.js";
+import { aiDisplayNameForId } from "@border-empires/shared";
+import { assignAiColors } from "../player-color-allocation/ai-color-assignment.js";
 
-export async function seedAiColors(aiIds: ReadonlySet<string>, save: (id: string, color: string) => Promise<void>): Promise<void> {
-  const taken = new Set<string>(RESERVED_COLORS);
-  for (const id of [...aiIds].sort()) {
-    const color = assignUniqueColor(id, taken);
-    taken.add(color);
+// Seeded AI empires get colours kept apart for colour-blind viewers too, with
+// same-initial empires pushed furthest apart (see ai-color-assignment.ts).
+export async function seedAiColors(
+  aiIds: ReadonlySet<string>,
+  save: (id: string, color: string) => Promise<void>,
+  nameFor: (id: string) => string | undefined = aiDisplayNameForId
+): Promise<void> {
+  for (const [id, color] of assignAiColors(aiIds, nameFor)) {
     await save(id, color);
   }
 }
