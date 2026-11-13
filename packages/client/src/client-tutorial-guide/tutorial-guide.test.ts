@@ -265,11 +265,14 @@ describe("tutorial guide in the onboarding corner", () => {
     expect(card()?.querySelector('[data-guide-action="finish"]')).not.toBeNull();
     click("finish");
     expect(readGuideProgress(EMAIL).status).toBe("done");
-    expect(card()).toBeNull();
+    // Only the Guide complete acknowledgement is left, honest about the steps it never reached.
+    expect(card()?.querySelector("[data-guide-action]")).toBeNull();
+    expect(card()?.textContent).toContain(`${GUIDE_STEPS.length - 2}/${GUIDE_STEPS.length}`);
+    expect(card()?.textContent).toContain("Contest and Diplomacy are explained");
     state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" } as Tile);
     state.tilesRevision += 1;
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(card()).toBeNull(); // contact after Finish doesn't bring the guide back
+    expect(card()?.querySelector("[data-guide-action]")).toBeNull(); // contact after Finish doesn't bring the guide back
   });
 
   it("Hide guide turns it off for good and removes the card", () => {
