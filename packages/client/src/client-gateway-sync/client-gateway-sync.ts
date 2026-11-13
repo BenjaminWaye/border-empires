@@ -346,11 +346,12 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     });
   }
   logOwnershipChangeIfAny(update.x, update.y, existing, resolved, "apply-gateway-tile-update");
-  // Structure/resource/dock change without a fresh server rate clears the stale value (radius-yield-delivery plan Phase 4).
+  // Structure/resource/dock/town-income change without a fresh server rate clears the stale value (radius-yield-delivery plan Phase 4).
   const staleYieldInputsChanged =
     ("economicStructure" in normalizedGateway && JSON.stringify(normalizedGateway.economicStructure) !== JSON.stringify(existing?.economicStructure)) ||
     ("resource" in normalizedGateway && normalizedGateway.resource !== existing?.resource) ||
-    ("dockId" in normalizedGateway && normalizedGateway.dockId !== existing?.dockId);
+    ("dockId" in normalizedGateway && normalizedGateway.dockId !== existing?.dockId) ||
+    ("town" in normalizedGateway && normalizedGateway.town?.goldPerMinute !== existing?.town?.goldPerMinute);
   if (staleYieldInputsChanged && !("yieldRate" in normalizedGateway)) delete resolved.yieldRate;
   const ownIncomeMultiplier =
     resolved.ownerId && deps.state.me && resolved.ownerId === deps.state.me
