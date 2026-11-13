@@ -2,6 +2,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { focusFromAlert } from "../client-alerts/client-alerts.js";
 import { recordMusterCombatReport, type CombatReportAlert } from "../client-muster-combat-reports/client-muster-combat-reports.js";
+import { shouldShowMusterBattleCard, showMusterBattleCard } from "../client-muster-combat-reports/client-muster-battle-alert.js";
 
 type CombatFeedEntry = {
   title: string; text: string; type: "combat"; severity: "success" | "warn"; at: number;
@@ -15,7 +16,7 @@ interface CombatNotificationDeps {
   showCaptureAlert: (title: string, detail: string, tone: "success" | "warn", loss?: number, focus?: { x: number; y: number; actionLabel?: string }) => void;
 }
 
-/** Keep automatic flag reports available for review without interrupting commands. */
+/** Flag reports stay reviewable per flag; a MARCH attack also gets a (tallied) result card. */
 export const notifyCombatResult = (
   state: ClientState, msg: Record<string, unknown>,
   context: { targetTileBefore: Tile | undefined; originTileBefore: Tile | undefined },
@@ -40,6 +41,7 @@ export const notifyCombatResult = (
         ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" } : {})
     });
     if (!flagKey) deps.showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss, focusFromAlert(resultAlert));
+    else if (shouldShowMusterBattleCard(msg)) showMusterBattleCard(state, flagKey, msg.attackerWon === true, resultAlert);
   }
   return { resultAlert, resultTargetKey };
 };

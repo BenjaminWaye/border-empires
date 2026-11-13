@@ -5,7 +5,7 @@ import { advanceSupplyTradeNote } from "./client-supply-trade-attack-warning/cli
 import { advanceSupplyTradeWarning, confirmSupplyTradeEnd, type SupplyTradeSheet } from "./client-flag-supply-trade-confirm/client-flag-supply-trade-confirm.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
-import { musterStatusText } from "./client-side-panel-html/client-side-panel-html.js";
+import { musterFightIsClaim, musterStatusText } from "./client-side-panel-html/client-side-panel-html.js";
 import { armMusterMarchTargeting, cancelMarchAction, MARCH_CANCEL_ACTION_IDS, type MarchCancelActionId } from "./client-muster-march-targeting.js";
 import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import { predictedMusterAmount } from "./client-muster-prediction/client-muster-prediction.js";
@@ -74,6 +74,7 @@ export const buildMusterActions = (
       nextActionAt: muster.nextActionAt,
       fightX: muster.fightX,
       fightY: muster.fightY,
+      fightClaim: musterFightIsClaim(muster, state.me, (x, y) => state.tiles.get(`${x},${y}`)),
       noTargetInRange: muster.noTargetInRange,
       insufficientManpower: muster.insufficientManpower,
       unfundableTarget: muster.unfundableTarget,

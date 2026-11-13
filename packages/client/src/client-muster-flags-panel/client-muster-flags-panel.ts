@@ -1,5 +1,5 @@
 import { musterFlagCap } from "@border-empires/shared";
-import type { ManpowerPanelMusterFlag } from "../client-side-panel-html/client-side-panel-html.js";
+import { musterFightIsClaim, type ManpowerPanelMusterFlag } from "../client-side-panel-html/client-side-panel-html.js";
 import type { Tile } from "../client-types.js";
 import { predictedMusterAmount, type MusterRateCache } from "../client-muster-prediction/client-muster-prediction.js";
 import { setManpowerInfoOpen } from "../client-manpower-panel-info/client-manpower-panel-info.js";
@@ -18,7 +18,8 @@ export const buildManpowerPanelMusterFlags = (
   me: string,
   manpowerCap: number,
   manpower: number,
-  musterAmountRateByTile: MusterRateCache
+  musterAmountRateByTile: MusterRateCache,
+  tileAt: (x: number, y: number) => Tile | undefined = () => undefined
 ): ManpowerPanelMusterFlag[] => {
   const flags: ManpowerPanelMusterFlag[] = [];
   for (const tile of tiles) {
@@ -37,6 +38,7 @@ export const buildManpowerPanelMusterFlags = (
       ...(tile.muster.nextActionAt !== undefined ? { nextActionAt: tile.muster.nextActionAt } : {}),
       ...(tile.muster.fightX !== undefined ? { fightX: tile.muster.fightX } : {}),
       ...(tile.muster.fightY !== undefined ? { fightY: tile.muster.fightY } : {}),
+      ...(musterFightIsClaim(tile.muster, me, tileAt) ? { fightClaim: true } : {}),
       ...(tile.muster.noTargetInRange !== undefined ? { noTargetInRange: tile.muster.noTargetInRange } : {}),
       ...(tile.muster.insufficientManpower !== undefined ? { insufficientManpower: tile.muster.insufficientManpower } : {}),
       ...(tile.muster.unfundableTarget !== undefined ? { unfundableTarget: tile.muster.unfundableTarget } : {}),

@@ -37,6 +37,16 @@ const floorForTarget = (state: Pick<ClientState, "tiles"> & Partial<Pick<ClientS
     : MUSTER_ATTACK_COST;
 };
 
+/**
+ * A march claims neutral land on its way, and each claim is charged to the
+ * pool (not the flag) at the current expand cost, which rises with frontier
+ * size (runtime-frontier-command.ts) -- on top of what the flag stages. The
+ * sheet only spoke of the commitment, so a long march looked like it drained
+ * the pool for nothing (2026-11-12 playtest: 943 -> 97 on a 295 commit).
+ */
+export const claimCostNote = (expandManpowerCost: number | undefined): string =>
+  expandManpowerCost && expandManpowerCost > 0 ? ` · each tile claimed on the way costs ${Math.ceil(expandManpowerCost)} more manpower` : "";
+
 let activeHandle: EffortConfirmSheetHandle | undefined;
 
 /** Tears down the confirm sheet if it is the march sheet, without sending anything. Safe to call when none is shown. */
@@ -53,6 +63,7 @@ export const hideArrowGestureConfirmSheet = (): void => {
  */
 export const showArrowGestureConfirmSheet = (
   state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey"> &
+    Partial<Pick<ClientState, "expandManpowerCost">> &
     SupplyWarningState & Partial<Pick<ClientState, "domainIds">>,
   origin: ArrowGesturePoint,
   target: ArrowGesturePoint,
@@ -90,7 +101,7 @@ export const showArrowGestureConfirmSheet = (
       // repaint the arrow labels once they land, not only on slider moves.
       preview.poll();
       paint(commitManpower);
-      return describeMarchWinChance(state, target, keyFor, { committedManpower: commitManpower, baseMusterCost: floor }, serverWinChance());
+      return `${describeMarchWinChance(state, target, keyFor, { committedManpower: commitManpower, baseMusterCost: floor }, serverWinChance())}${claimCostNote(state.expandManpowerCost)}`;
     },
     onChange: paint,
     onConfirm: (commitManpower) => {
