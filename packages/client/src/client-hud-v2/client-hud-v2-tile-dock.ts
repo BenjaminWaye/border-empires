@@ -193,7 +193,8 @@ const buildSideHtml = (view: TileMenuView, key: string, focusLabel: string): str
     focusLabel,
     focusHighlighted: true,
     category: dock?.buildCategory,
-    emptyText: "Nothing to build here"
+    emptyText: "Nothing to build here",
+    closePanel: "build"
   }) + `<div class="hud-v2-build-place">${buildPlaceHtml(place)}</div>`;
 };
 
@@ -243,6 +244,12 @@ const onBarClick = (event: MouseEvent): void => {
     if (dock.lastView) listener?.onBarAction(id, dock.lastView, state.tileActionMenu.currentTileKey);
     dock.panel = undefined;
     deps.handleTileAction(id, action.dataset.targetKey, action.dataset.originKey);
+    paintBar();
+    return;
+  }
+  // The sheet's own ✕: phones have no Esc, and on a phone the sheet fills the screen, so there is no outside to tap.
+  if (target.closest("[data-hud-v2-panel-close]")) {
+    dock.panel = undefined;
     paintBar();
     return;
   }

@@ -1,4 +1,4 @@
-import { PLANETARY_DEFENSE_HUNT_ENTRY, PLANETARY_DEFENSE_HUNT_REACH_ENTRY } from "./client-changelog-planetary-defense-hunt.js";
+import { PHONE_LAYOUT_FIXES_ENTRY } from "./client-changelog-phone-layout-fixes.js";
 import { NATIVE_SOCIAL_SIGN_IN_ENTRY } from "./client-changelog-nov-10.js";
 import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-names.js";
 import { RELIC_REVEAL_ENTRY } from "./client-changelog-relic-reveal.js";
@@ -485,8 +485,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...RELIC_REVEAL_ENTRY, createdAt: 1794422720232, },
   { ...MINIMAP_WORLD_EDGE_ENTRY, createdAt: 1794411491316, },
   { ...NEXT_CONTEST_STARTING_ENTRY, createdAt: 1794380743713, },
-  { ...PLANETARY_DEFENSE_HUNT_ENTRY, createdAt: 1794423294581, },
-  { ...PLANETARY_DEFENSE_HUNT_REACH_ENTRY, createdAt: 1794439081730, },
   { ...NATIVE_SOCIAL_SIGN_IN_ENTRY, createdAt: 1794288128417, },
   { ...MUSTER_DOCK_TRANSPORT_ENTRY, createdAt: 1794353510194, },
   { ...DIPLOMACY_OFFER_FLOW_ENTRY, createdAt: 1794561892577, },
@@ -495,6 +493,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_115,
   { ...CONSISTENT_NUMBERS_ENTRY, createdAt: 1794562088771, },
   { ...TAP_TO_INSPECT_ENTRY, createdAt: 1794561745534, },
+  { ...PHONE_LAYOUT_FIXES_ENTRY, createdAt: 1794563191075, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
