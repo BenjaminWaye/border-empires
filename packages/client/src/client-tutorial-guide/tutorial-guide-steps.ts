@@ -47,6 +47,11 @@ export type GuideInput = {
   hudV2: boolean;
   /** Manifests the player has commissioned (state.techIds, excluding the tree root). */
   manifestCount: number;
+  /**
+   * The next Manifest's Coin price (the catalog's, so it matches the Manifests screen) and the player's Coin.
+   * Absent before the catalog arrives: the commission step then doesn't wait.
+   */
+  manifestPrice?: { cost: number; coin: number };
   /** The Industrial Tooling Module has been commissioned (it may still be on its way to the AFC). */
   manufactoryResearched: boolean;
   /** The Industrial Tooling Module is installed on an active AFC, so a Manufactory can be built (hideTechLockedTileAction). */
@@ -85,7 +90,9 @@ export type GuideStepDef = {
   /** Not yet possible (a prerequisite elsewhere in the game). Defaults to always available. */
   isAvailable?: (input: GuideInput) => boolean;
   /** Shown instead of the title while the step is not available yet. */
-  waitingNote?: string;
+  waitingNote?: string | ((input: GuideInput) => string);
+  /** While this step waits, Finish isn't offered: the wait ends by itself (e.g. saving up Coin), unlike meeting a rival. */
+  waitBlocksFinish?: boolean;
   highlight?: (input: GuideInput) => ReadonlyArray<{ x: number; y: number }>;
   anchor?: GuideAnchorId;
   /** Resource icons the card shows as "Look for", so the player knows what the target looks like on the map. */
@@ -261,6 +268,11 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     // steps (otherManifestChosen) rather than waiting for a module that was never commissioned.
     // A Waystation can grant the module itself (not counted in manifestCount): nothing left to commission then.
     isDone: (i) => i.manifestCount > 0 || i.manufactoryResearched || i.ownsBuiltStructure,
+    // A Waystation's free Manifest raises the next price (10 -> 40 coin), so a new player may not
+    // afford it yet: wait with the price instead of asking for what they can't pay.
+    isAvailable: (i) => !i.manifestPrice || i.manifestPrice.coin >= i.manifestPrice.cost,
+    waitingNote: (i) => `Save up ${i.manifestPrice?.cost ?? 0} coin for your next Manifest`,
+    waitBlocksFinish: true,
     anchor: "manifest"
   },
   {
@@ -386,7 +398,8 @@ export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>)
   // waiting on something the player may never meet (no Planetary Defense or
   // rival House nearby), so the guide can always be finished.
   const isAvailable = (s: GuideStepDef): boolean => s.isAvailable?.(input) ?? true;
-  const available = remaining.find((s) => isAvailable(s) && (!s.acknowledge || remaining.every((r) => r === s || !isAvailable(r))));
+  const finishable = remaining.every((r) => isAvailable(r) || !r.waitBlocksFinish);
+  const available = remaining.find((s) => isAvailable(s) && (!s.acknowledge || (finishable && remaining.every((r) => r === s || !isAvailable(r)))));
   const step = available ?? remaining[0]!;
   const waiting = !available;
   const stepIndex = GUIDE_STEPS.indexOf(step);
@@ -396,7 +409,7 @@ export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>)
   return {
     kind: "step",
     step,
-    title: waiting ? (step.waitingNote ?? step.title(input)) : step.title(input),
+    title: !waiting ? step.title(input) : typeof step.waitingNote === "function" ? step.waitingNote(input) : (step.waitingNote ?? step.title(input)),
     why: typeof step.why === "string" ? step.why : step.why(input),
     chapterTitle: GUIDE_CHAPTER_TITLES[step.chapter],
     chapterIndex: CHAPTER_ORDER.indexOf(step.chapter),
