@@ -5,15 +5,16 @@ import { describe, expect, it } from "vitest";
 
 const renderSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "../client-map-render/client-map-render.ts"), "utf8");
+  return readFileSync(resolve(here, "../client-map-render/client-map-road-2d.ts"), "utf8");
 };
 
 describe("road style regression guard", () => {
-  it("draws roads as a single stroke without a dark edge outline", () => {
+  it("draws 2D town links as an elevated monorail, not the old dirt-tan stroke", () => {
     const source = renderSource();
 
-    expect(source).toContain('ctx.strokeStyle = "rgba(210, 180, 120, 0.92)"');
-    expect(source).not.toContain('ctx.strokeStyle = "rgba(88, 62, 34, 0.42)"');
-    expect(source).not.toContain("const innerWidth = Math.max(1, roadWidth * 0.58);");
+    expect(source).toContain('const RAIL_STEEL = "rgba(43, 48, 56, 0.96)"');
+    expect(source).toContain('const RAIL_POWER = "rgba(95, 227, 255, 0.92)"');
+    expect(source).toContain('const RAIL_SHADOW = "rgba(5, 8, 11, 0.28)"');
+    expect(source).not.toContain("rgba(210, 180, 120, 0.92)");
   });
 });

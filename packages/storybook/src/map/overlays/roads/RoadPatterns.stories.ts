@@ -79,7 +79,7 @@ const meta: Meta<Args> = {
   argTypes: {
     pattern: { control: "inline-radio", options: ["horizontal", "vertical", "crossroads", "star", "ring", "tee"] },
     cameraDistance: { control: { type: "range", min: 3, max: 20, step: 1 } },
-    style: { control: "inline-radio", options: ["dirt", "brick"] }
+    style: { control: "inline-radio", options: ["dirt", "brick", "shadow"] }
   },
   args: { pattern: "crossroads", cameraDistance: 8, style: "dirt" },
   render
