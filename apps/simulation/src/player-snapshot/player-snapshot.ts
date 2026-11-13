@@ -285,7 +285,6 @@ export const buildPlayerSubscriptionSnapshot = (
               regen: [{ label: "Base minimum", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
             },
             incomePerMinute,
-            imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
             autoSettle: autoSettlePrefsForOutput(livePlayer.autoSettle),
             wonderLastFreeRushBuyAt: livePlayer.wonderLastFreeRushBuyAt ?? 0,
             relicMapHints: livePlayer.relicMapHints ?? [],

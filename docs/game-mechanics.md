@@ -384,7 +384,8 @@ Server code: `galaxy-duke-engine/`, `galaxy-duke-service/`, `galaxy-duke-routes/
 
 ### Not live
 
-- **Defense Campaign seasons and Imperial Ward endorsements.** The code exists (`galaxy-endorsement-auto-start.ts`, `recordTransfer`), and holdings and Sector numbering honour transfers. But `startImperialWardAutoStartTimer` is never started, so the contested queue is never consumed, no ownership ever transfers, and endorsements are stored but never applied.
+- **Defense Campaign seasons.** The code exists (`galaxy-defense-campaign-auto-start.ts`, `recordTransfer`), and holdings and Sector numbering honour transfers. But `startDefenseCampaignAutoStartTimer` is never started (seasons only start by vote), so the contested queue is never consumed and no ownership ever transfers.
+- **Imperial Ward / Emperor's Endorsement** was removed in November 2026; the season winner no longer endorses anyone.
 - **Legacy fleets.** `galaxy-fleet-*` and `POST /hq/galaxy/fleets/send` / `garrison/invest` are still wired and spend the unfunded Production wallet. Their client panel (`client-fleet-panel`) is not mounted. Space View still polls their fleet lists for overlay markers.
 - **Unused helper.** `daysToComplete` in `galaxy-production-queue.ts` is used only by its test.
 - **Never built:** Wonders, Alliance Blocs, Senate actions other than Embargo, an elective throne, Outposts as build systems, developments moving with a transferred system, Stipends for seasons nobody won.

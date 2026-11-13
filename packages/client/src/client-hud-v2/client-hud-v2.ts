@@ -7,7 +7,6 @@
 import { latestOwnFight } from "../client-detached-attacks/client-detached-attacks.js";
 import { musterFlagCap } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import { activateImperialWard, imperialWardButtonHtml } from "../client-imperial-ward/client-imperial-ward.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
 import { busyDevelopmentProcessCount } from "../client-development-queue/client-development-queue.js";
@@ -49,7 +48,7 @@ const TRACKER_EVERY_TICKS = 4;
 
 const shellHtml = `
   <div class="hud-v2-top"><div id="hud-v2-bar" class="hud-v2-bar"></div><div id="hud-v2-nav" class="hud-v2-nav"></div></div>
-  <div class="hud-v2-right"><button type="button" id="hud-v2-season" class="hud-v2-season" data-hud-v2-open="ranks" title="Ranks" aria-label="Victory race: open Ranks"></button><div id="hud-v2-ward" class="hud-v2-ward-slot"></div><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
+  <div class="hud-v2-right"><button type="button" id="hud-v2-season" class="hud-v2-season" data-hud-v2-open="ranks" title="Ranks" aria-label="Victory race: open Ranks"></button><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
   <aside id="hud-v2-tracker" class="hud-v2-tracker" aria-label="Tracker"></aside>
   <section id="hud-v2-tile" class="hud-v2-tile" hidden aria-label="Selected tile"></section>
   <section id="hud-v2-build" class="v2t-right hud-v2-build-side" hidden aria-label="Build"></section>
@@ -58,7 +57,7 @@ const shellHtml = `
   <div id="hud-v2-orb-slot" class="hud-v2-orb-slot"></div>
   <div class="hud-v2-dim" data-hud-v2-dim aria-hidden="true"></div>`;
 
-type Region = "bar" | "nav" | "season" | "ward" | "rivals" | "tracker" | "orb-slot" | "overlays";
+type Region = "bar" | "nav" | "season" | "rivals" | "tracker" | "orb-slot" | "overlays";
 
 const written = new Map<Region, string>();
 
@@ -125,10 +124,6 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   if (target.closest("[data-hud-v2-dim]")) {
     deps.state.activePanel = null;
     deps.renderHud();
-    return;
-  }
-  if (target.closest("[data-imperial-ward-activate]")) {
-    activateImperialWard(deps.sendGameMessage);
     return;
   }
   if (target.closest(`#${SCREEN_HOST_ID}`) && screenClick(deps, target)) return;
@@ -259,7 +254,6 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     active: screen.id === "profile" && state.activePlayerProfileId === state.me ? "self" : screen.id ? NAV_ACTIVE[screen.id] : undefined
   }));
   writeRegion("season", seasonClockHtml(state.seasonVictory, state.seasonWinner, state.me, (id) => state.playerNames.get(id) ?? ""));
-  writeRegion("ward", imperialWardButtonHtml(state, nowMs));
   writeRegion("rivals", rivalsHtml({
     me: state.me,
     metPlayerIds: state.metPlayerIds,

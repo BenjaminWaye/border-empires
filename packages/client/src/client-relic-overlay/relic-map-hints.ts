@@ -5,13 +5,11 @@ export interface RelicHintClientState {
   tilesRevision: number;
   relicMapHintsRevision: number;
   chosenTrickleResource: ChosenTrickleResource | undefined;
-  imperialWardCharges: number | undefined;
   wonderLastFreeRushBuyAt: number | undefined;
 }
 /** The small shared progression fields have one typed wire boundary. */
 export function applyRelicAndProgressionUpdate(state: RelicHintClientState, message: Record<string, unknown>): void {
   if (isChosenTrickleResource(message.chosenTrickleResource)) state.chosenTrickleResource = message.chosenTrickleResource;
-  if (typeof message.imperialWardCharges === "number") state.imperialWardCharges = message.imperialWardCharges;
   if (typeof message.wonderLastFreeRushBuyAt === "number") state.wonderLastFreeRushBuyAt = message.wonderLastFreeRushBuyAt;
   if (!("relicMapHints" in message)) return;
   const next = new Map(parseRelicMapHints(message.relicMapHints).map(hint => [`${hint.x},${hint.y}`, hint]));

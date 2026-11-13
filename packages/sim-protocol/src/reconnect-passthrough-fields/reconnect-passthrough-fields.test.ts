@@ -71,11 +71,10 @@ describe("reconnectPassthroughFields", () => {
     expect(reconnectPassthroughFields(basePlayer({ autoSettle: prefs })).autoSettle).toEqual(prefs);
   });
 
-  it("carries imperialWardCharges and wonderLastFreeRushBuyAt through", () => {
+  it("carries wonderLastFreeRushBuyAt through", () => {
     const result = reconnectPassthroughFields(
-      basePlayer({ imperialWardCharges: 1, wonderLastFreeRushBuyAt: 123 })
+      basePlayer({ wonderLastFreeRushBuyAt: 123 })
     );
-    expect(result.imperialWardCharges).toBe(1);
     expect(result.wonderLastFreeRushBuyAt).toBe(123);
   });
 

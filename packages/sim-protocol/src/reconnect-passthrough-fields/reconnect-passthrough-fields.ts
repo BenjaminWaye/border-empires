@@ -7,7 +7,7 @@
 // spreads, one crammed onto a single line (devQueue/waypointQueue, added as
 // a drive-by fix for PR #1640 without ever joining a real allowlist type),
 // and init-payload-reconnect-fields.ts's own separate allowlist (eventLog/
-// logisticsThroughputPerMinute/imperialWardCharges/wonderLastFreeRushBuyAt).
+// logisticsThroughputPerMinute/wonderLastFreeRushBuyAt).
 // None of those three were tied to PlayerStateSnapshot's field list by the
 // compiler -- exactly the drift shape that caused every incident this file
 // and subscription-snapshot-merge.ts exist to prevent (see
@@ -90,7 +90,6 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   waypointQueue: presentField("waypointQueue"),
   eventLog: presentField("eventLog"),
   logisticsThroughputPerMinute: numberField("logisticsThroughputPerMinute"),
-  imperialWardCharges: numberField("imperialWardCharges"),
   wonderLastFreeRushBuyAt: numberField("wonderLastFreeRushBuyAt"),
   relicMapHints: presentField("relicMapHints"),
   // Confirmed missing from init-payload.ts entirely until this fix (see

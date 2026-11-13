@@ -33,7 +33,7 @@ export type GalaxyCycleSchedulerDeps = {
 // any newly-active empire discovered via resolveGalaxyHoldingsByOwner),
 // advances however many whole Cycles have elapsed since lastCycleAt and
 // persists the result. Mirrors the shape of
-// galaxy-endorsement-auto-start.ts's setInterval + inFlight-guard timer and
+// galaxy-defense-campaign-auto-start.ts's setInterval + inFlight-guard timer and
 // gateway-app/recurring-task.ts's startRecurringTask — this repo's existing
 // pattern for wall-clock-driven server-side scheduling — rather than
 // inventing a new scheduling primitive.
