@@ -566,6 +566,15 @@ road an enemy has cut, yields only what a garrison can scrape by hand. A town
 that commits to an ore gives up more of its working ground to smelters,
 distilleries or cutting halls.
 
+A House's connected towns are linked by elevated maglev freight lines, not
+paved roads: twin graphite guideway beams on forked pylons, ending at a freight
+gantry on each town's edge. Unmanned haulers carry sealed containers, pressure
+tanks and charged energy canisters between the towns, in the House's livery.
+The cyan lights along the beams are induction coils and signal lamps, the same
+ordinary powered infrastructure as a harbour's status strips, not aether-work.
+A line runs only over the House's own settled land, so losing the ground it
+crosses breaks the link between those towns.
+
 Specialised warrants and charters commission the crews, processing standards
 and commercial rights needed to exploit these sites. A discovered deposit is
 an opportunity before it is a working supply industry. Losing a concession
