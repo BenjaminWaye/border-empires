@@ -29,7 +29,7 @@ import { resolvePendingSettlement as resolvePendingSettlementImpl, type Settleme
 import { startSettlementProcess as startSettlementProcessImpl, type SettlementStartInput } from "./runtime-settlement-start.js";
 import { PendingSpawnBonuses } from "./runtime-pending-spawn-bonuses.js";
 import { handleCancelSettleCommand as handleCancelSettleCommandImpl, type RuntimeCancelSettleContext } from "./runtime-cancel-settle.js";
-import { createIslandNamesTicker } from "../island-names/island-names-ticker.js";
+import { createRuntimeSideTickers } from "../side-tickers/runtime-side-tickers.js";
 import { EventEmitter } from "node:events";
 import type { CommandEnvelope, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
@@ -644,8 +644,8 @@ export class SimulationRuntime {
   // shrinks this map by itself; it only changes what's available to defend
   // a tile the next time a rival anchor contests it.
   private reachBorder: Map<string, string> = new Map();
-  // ISLAND_NAMES push (island-names/island-names-ticker.ts); derived, never snapshotted.
-  private readonly islandNamesTicker = createIslandNamesTicker({
+  // ISLAND_NAMES push + House Charges upkeep (side-tickers/runtime-side-tickers.ts).
+  private readonly sideTickers = createRuntimeSideTickers({
     tiles: () => this.state.tiles, players: () => this.state.players,
     isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
   });
@@ -1143,14 +1143,14 @@ export class SimulationRuntime {
     sendAfcHijacks(this.hijackDeps(), [playerId], this.now(), undefined, true);
   }
 
-  /** Throttled inside; see island-names/island-names-ticker.ts. */
-  tickIslandNames(nowMs: number = this.now()): void {
-    this.islandNamesTicker.tick(nowMs);
+  /** Throttled inside; see side-tickers/runtime-side-tickers.ts. */
+  tickSideTickers(nowMs: number = this.now()): void {
+    this.sideTickers.tick(nowMs);
   }
 
-  /** Live-subscribe push of the ISLAND_NAMES label list (simulation-service/live-subscribe-reach-push.ts). */
-  resendIslandNamesForPlayer(playerId: string): void {
-    this.islandNamesTicker.sendTo(playerId, this.now());
+  /** Live-subscribe push of the side tickers' lists, e.g. ISLAND_NAMES (simulation-service/live-subscribe-reach-push.ts). */
+  resendSideTickersForPlayer(playerId: string): void {
+    this.sideTickers.sendTo(playerId, this.now());
   }
 
   async tickTerritoryAutomation(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {

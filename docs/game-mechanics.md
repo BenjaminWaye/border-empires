@@ -304,6 +304,17 @@ retain their earlier behavior. The implementation contracts are in
 `packages/shared/src/relics/`, `apps/simulation/src/runtime-relics.ts` and
 `packages/game-domain/src/server-worldgen-natural-wonders.ts`.
 
+## House Charges (server side; no player UI yet)
+
+Secret, map-named objectives from [the House Charges plan](house-charges-plan.md). Phase 1 server rules are live; players cannot see or choose charges until the client panel ships.
+
+- **Dealing.** Every House except Planetary Defense is dealt charges on the first pass after it owns an AFC (`landingSitesByPlayer`, one it landed preferred). The pass runs every 15 s from the simulation service's 1 s ticker (`side-tickers/runtime-side-tickers.ts`); dealing, which scans tiles for landing sites, runs at most once a minute. One candidate per kind is drawn near the landing site, up to three are offered (a relic always when available) and the first two are kept. A landing with no qualifying target gets an empty deal so it is not retried. Deals are seeded from the world seed and player id (`house-charge-dealing.ts`).
+- **Kinds and bands** (wrapped Manhattan distance from the landing site, constants in `packages/shared/src/house-charges/house-charges.ts`): Charter of Passage, two open towns on the landing site's island 8–50 tiles away and 12–35 apart; Founding of a Seat, an open Settlement or Town 6–45 away; Survey Claim, an island of 25–600 LAND tiles within 35; Garrison the Desert / Tundra, a named biome region (4-connected `SAND`/`COASTAL_SAND` or `TUNDRA` LAND tiles, 30–400 tiles, `biome-region-registry.ts`) within 35; Reawakening, an undepleted relic within 45. "Open" means unowned, Planetary Defense or the House itself. At most 5 Houses are offered the same town and 3 the same island, region or relic.
+- **Held** (`house-charge-held.ts`; garrisoned = SETTLED LAND): Charter, both towns garrisoned at Town tier or above and joined by the House's garrisoned land (4-neighbour); Seat, the town garrisoned at City tier or above; Survey, the House's name is the island's current chart name (island naming rules); Desert/Tundra, at least 75% of the region's LAND garrisoned; Reawakening, the relic tile garrisoned.
+- **State.** `DomainPlayer.houseCharges` holds the offer, kept ids, when each kept charge last became complete (`completeSince`) and its size, and is snapshotted with the player. Region and island geometry is derived per tile map (`house-charges-world.ts`).
+- **Crowning.** `captureSeasonWinnerAtCrowning` records every House's kept charges on the season (`houseCharges`: held, whole hours held, size, rarity, Renown), carried into the season summary (`seasonHouseCharges`) and archive row (`houseCharges`). Nothing pays out yet.
+- **Not yet built:** choosing which charges to keep, the Charges panel and map highlights, cross-water Charters on island maps, AI pursuit, the season-end reveal, cards and rewards.
+
 ## Season records
 
 - **Longest Road** records the owning empire, length in tiles, and the names and coordinates of both endpoint towns/cities. Only settled land belonging to the same empire connects the road; the endpoints must be towns of at least Town tier. The final-map road network supplies the record when the season ends.

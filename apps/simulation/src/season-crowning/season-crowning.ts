@@ -4,6 +4,7 @@ import type { SimulationRuntime } from "../runtime/runtime.js";
 import { computeSeasonWinnerStats } from "../season-winner-stats.js";
 import { computeLongestRoad, findMostDeadlyTile } from "../season-stats/season-stats.js";
 import { galaxyTiersAtCrowning } from "../season-galaxy-tiers/season-galaxy-tiers.js";
+import { houseChargesAtCrowning } from "../house-charges/house-charges-crowning.js";
 import type { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
@@ -55,6 +56,7 @@ export const captureSeasonWinnerAtCrowning = ({
         : {}),
       ...(scoreHistory && scoreHistory.length > 0 ? { scoreHistory } : {})
     },
+    houseCharges: houseChargesAtCrowning(runtimeState.players, winner.crownedAt),
     galaxyTiers: galaxyTiersAtCrowning({
       objectives,
       crownedWinner: winner,

@@ -1,6 +1,6 @@
 # House Charges: secret objectives held to game end
 
-Status: active proposal
+Status: active proposal (Phase 1 in progress: server-side dealing, held state and crowning results are live; see the [gameplay reference](game-mechanics.md#house-charges-server-side-no-player-ui-yet))
 Owner: game design (repository owner) decides scope and reward weights before implementation
 Last verified: 2026-11-13
 Replaces: none (on delivery, the rules move into [`game-mechanics.md`](game-mechanics.md) and the fiction into the [world bible](lore/galactic-lore.md))
@@ -144,10 +144,10 @@ Charges pay out only after the season, so rewards are things that outlast it.
    (for example "Cartographer" for five Survey cards), never gameplay power.
    Cards are designed as **collectible trading cards** (see [Card design](#card-design)).
 3. **Galaxy reward**: +1 **Domain Weight** per fulfilled charge for empires
-   that hold a Planet or Outpost (see the [Galactic Campaign design](galactic-campaign-design.md),
-   Domain Weight → Senate vote weight). Domain Weight is only computed for
-   territory holders, so other players instead receive a **larger Stipend**
-   of Influence and Production. +1 is a third of an Outpost, so about ten
+   that hold a Planet or Outpost (see the [galactic layer](game-mechanics.md#galactic-layer)).
+   Domain Weight is only computed for territory holders, so other players
+   instead receive a **larger Stipend** (Stipends now pay Influence only,
+   at most 10). +1 is a third of an Outpost, so about ten
    seasons of charges match one Planet. If that accumulates too fast, count
    only recent seasons.
 4. **Renown** (later phase): a final-score bonus that can move leaderboard
@@ -162,9 +162,8 @@ end), gameplay advantages in the next season (snowballing, and House
 equipment does not carry between worlds in the lore), or penalties for
 failure.
 
-**Dependency:** the Stipend payout is being checked separately because it
-may not currently credit balances. The galaxy reward builds on a working
-Stipend.
+**Dependency:** Stipends are now paid into the galaxy balance once per
+account and season (fixed separately), which the galaxy reward builds on.
 
 ### Card design
 
@@ -371,5 +370,5 @@ These are design expectations, not measurements.
 - Renderer regression tests for 2D and true-3D overlays.
 - On delivery, update [`game-mechanics.md`](game-mechanics.md), the
   [world bible](lore/galactic-lore.md) (charges, charts of biome regions,
-  Renown source), the [Galactic Campaign design](galactic-campaign-design.md)
-  reward tables, and add a client changelog entry.
+  Renown source), the [galactic layer](game-mechanics.md#galactic-layer)
+  reward rules, and add a client changelog entry.
