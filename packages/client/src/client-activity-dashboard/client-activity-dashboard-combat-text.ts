@@ -28,11 +28,13 @@ const durationLabel = (ms: number): string => {
 };
 
 // Manpower is always the attacking side's loss (defenders pay nothing per
-// assault), so it reads as "−N manpower" on your attacks and "cost them N"
-// on theirs. Omitted when there was no cost to report.
+// assault), so only your own attacks show it ("−N manpower", the HUD gauge's
+// own word). On rows about attacks on you it was "cost them N manpower": the
+// enemy's spending, which returning players read as jargon about their own
+// losses. Those rows say who attacked and what you lost instead.
 const manpowerPart = (manpowerLoss: number, iAttacked: boolean): string | undefined => {
-  if (!(manpowerLoss > 0)) return undefined;
-  return iAttacked ? `−${roundedAmount(manpowerLoss)} manpower` : `cost them ${roundedAmount(manpowerLoss)} manpower`;
+  if (!iAttacked || !(manpowerLoss > 0)) return undefined;
+  return `−${roundedAmount(manpowerLoss)} manpower`;
 };
 
 const goldParts = (iAttacked: boolean, pillagedGold: number, defenderGoldLoss: number): string[] => {
@@ -98,27 +100,26 @@ export const combatGroupCardText = (card: CombatGroupCard, playerNames: PlayerNa
   return joinParts([outcome, ...goldParts(iAttacked, card.pillagedGold, card.defenderGoldLoss), manpowerPart(card.manpowerLoss, iAttacked)]);
 };
 
-/** "Your Fort fell to Hugo after a 5h siege" / "Your Palisade is holding". */
-export const siegeHeadline = (card: SiegeCard, playerNames: PlayerNameLookup): string => {
-  const defense = card.defenseVariant ? `Your ${defenseLabel(card.defenseVariant)}` : "Your tile";
-  if (card.outcome !== "FELL") return `${defense} is holding`;
-  const capturer = card.capturedBy ? ` to ${nameOf(card.capturedBy, playerNames)}` : "";
-  // The headline names the fortification; the note lists anything else lost with the tile.
-  return `${defense} fell${capturer} after a ${durationLabel(card.occurredAt - card.startedAt)} siege${featuresNote(card.capturedFeatures, "your", "with", card.defenseVariant)}`;
-};
-
 /**
- * Holding: "Repelled 7 assaults from Kael and Vess · cost them 412 manpower".
- * Fallen: "Held off 7 assaults before it fell · Kael and Vess spent 412
- * manpower attacking it" -- "attacking", not "taking": the tile can fall to
- * a capture none of the besiegers' own assaults made.
+ * Plain words for repeated attacks on one of your tiles (no "siege",
+ * "assault" or the attackers' manpower):
+ * "Maren took your Palisade after 4 attacks over 1h (with your Dock)",
+ * "Your Palisade held: repelled 7 attacks from Kael and Vess".
  */
-export const siegeDetail = (card: SiegeCard, playerNames: PlayerNameLookup): string => {
-  const attackers = listNames(card.attackerIds.map((id) => nameOf(id, playerNames)));
-  const seized = card.originsSeized > 0 ? ` · seized ${card.originsSeized} of their tiles${featuresNote(card.seizedOriginFeatures, "their", "incl.")}` : "";
-  const manpower = roundedAmount(card.manpowerSpentAgainst);
-  if (card.outcome === "FELL") return `Held off ${plural(card.assaultsRepelled, "assault")} before it fell${seized} · ${attackers} spent ${manpower} manpower attacking it`;
-  return `Repelled ${plural(card.assaultsRepelled, "assault")} from ${attackers}${seized} · cost them ${manpower} manpower`;
+export const siegeHeadline = (card: SiegeCard, playerNames: PlayerNameLookup): string => {
+  const target = card.defenseVariant ? `your ${defenseLabel(card.defenseVariant)}` : "your tile";
+  if (card.outcome !== "FELL") {
+    const attackers = listNames(card.attackerIds.map((id) => nameOf(id, playerNames)));
+    return `${target.charAt(0).toUpperCase()}${target.slice(1)} held: repelled ${plural(card.assaultsRepelled, "attack")} from ${attackers}`;
+  }
+  const taker = card.capturedBy ? nameOf(card.capturedBy, playerNames) : undefined;
+  const over = `after ${plural(card.assaultsRepelled + 1, "attack")} over ${durationLabel(card.occurredAt - card.startedAt)}`;
+  const lostWith = featuresNote(card.capturedFeatures, "your", "with", card.defenseVariant);
+  return taker ? `${taker} took ${target} ${over}${lostWith}` : `Lost ${target} ${over}${lostWith}`;
 };
 
-export const siegeCardText = (card: SiegeCard, playerNames: PlayerNameLookup): string => `${siegeHeadline(card, playerNames)} · ${siegeDetail(card, playerNames)}`;
+/** What you took back while they attacked: "seized 1 of their tiles (incl. their Dock)". */
+export const siegeDetail = (card: SiegeCard): string | undefined =>
+  card.originsSeized > 0 ? `seized ${card.originsSeized} of their tiles${featuresNote(card.seizedOriginFeatures, "their", "incl.")}` : undefined;
+
+export const siegeCardText = (card: SiegeCard, playerNames: PlayerNameLookup): string => joinParts([siegeHeadline(card, playerNames), siegeDetail(card)]);

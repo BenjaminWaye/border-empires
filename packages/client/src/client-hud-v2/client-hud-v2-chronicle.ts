@@ -90,18 +90,32 @@ const rowHtml = (card: PersonalActivityCard, input: ChronicleInput): string => {
 const crest = (name: string, color: string | undefined): string =>
   `<span class="v2c-crest" style="background:${esc(color ?? "#5a4828")}" aria-hidden="true">${esc((name.trim()[0] ?? "?").toUpperCase())}</span>`;
 
+/** One rival's head-to-head line in words: "took 11 of your tiles · you held off 2 attacks". */
+export const rivalTallyText = (r: NonNullable<PersonalActivityTimeline["rivals"]>[number]): string => {
+  const tiles = (n: number): string => `${n} tile${n === 1 ? "" : "s"}`;
+  const attacks = (n: number): string => `${n} attack${n === 1 ? "" : "s"}`;
+  const parts: string[] = [];
+  if (r.tilesLost > 0) parts.push(`took ${r.tilesLost === 1 ? "1 of your tiles" : `${r.tilesLost} of your tiles`}`);
+  if (r.tilesTaken > 0) parts.push(`you took ${tiles(r.tilesTaken)}`);
+  if (r.attacksRepelled > 0) parts.push(`you held off ${attacks(r.attacksRepelled)}`);
+  if (r.attacksFailed > 0) parts.push(`${attacks(r.attacksFailed)} of yours failed`);
+  return parts.length > 0 ? parts.join(" · ") : "no ground changed hands";
+};
+
 const summaryHtml = (timeline: PersonalActivityTimeline, input: ChronicleInput): string => {
   const s = timeline.summary;
   const chip = (value: string, label: string, tone: string): string => `<span class="v2c-chip"><b class="v2c-${tone}">${value}</b><span>${label}</span></span>`;
   const chips = [
     chip(`+${s.tilesClaimed}`, "claimed", "gain"),
     chip(`−${s.tilesLost}`, "lost", "loss"),
-    s.townsLost > 0 || s.townsCaptured > 0 ? chip(`${s.townsCaptured - s.townsLost >= 0 ? "+" : "−"}${Math.abs(s.townsCaptured - s.townsLost)}`, "towns", s.townsCaptured >= s.townsLost ? "gain" : "loss") : chip("0", "towns", "neutral"),
+    // Towns taken and lost each get their own count: a net "+1 towns" read as how many towns you hold.
+    ...(s.townsCaptured > 0 ? [chip(`+${s.townsCaptured}`, s.townsCaptured === 1 ? "town taken" : "towns taken", "gain")] : []),
+    chip(s.townsLost > 0 ? `−${s.townsLost}` : "0", s.townsLost === 1 ? "town lost" : "towns lost", s.townsLost > 0 ? "loss" : "neutral"),
     chip(String(s.buildingsCompleted), "built", "neutral")
   ].join("");
   const rivals = (timeline.rivals ?? []).slice(0, 2).map((r) => {
     const name = input.nameOf(r.playerId) ?? "Empire";
-    return `<span class="v2c-rival">${crest(name, input.colorOf(r.playerId))}<b>${esc(name)}</b><span>+${r.tilesTaken} · −${r.tilesLost} · repelled ${r.attacksRepelled} · ${r.attacksFailed} failed</span></span>`;
+    return `<span class="v2c-rival">${crest(name, input.colorOf(r.playerId))}<b>${esc(name)}</b><span>${esc(rivalTallyText(r))}</span></span>`;
   }).join("");
   return `<div class="v2c-summary"><span class="v2c-summary-h">Last 24 hours</span><div class="v2c-chips">${chips}</div>${rivals}</div>`;
 };
