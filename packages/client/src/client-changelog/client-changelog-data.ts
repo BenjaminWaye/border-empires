@@ -1,12 +1,13 @@
 import { NATIVE_SOCIAL_SIGN_IN_ENTRY } from "./client-changelog-nov-10.js";
 import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-names.js";
 import { RELIC_REVEAL_ENTRY } from "./client-changelog-relic-reveal.js";
-import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
+import { AFC_TILE_BAR_ENTRY } from "./client-changelog-afc-tile-bar.js";
 import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_116 } from "./client-changelog-data-earlier-116.js";
 import { IMPERIAL_WARD_REMOVED_ENTRY } from "./client-changelog-imperial-ward-removed.js";
+import { EXPLORE_SCOUT_DRONES_ENTRY } from "./client-changelog-explore-scout-drones.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { NEXT_CONTEST_STARTING_ENTRY } from "./client-changelog-next-contest.js";
@@ -198,7 +199,7 @@ export type ClientChangelogEntry = {
 // Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_REPLACEMENT_CHANGELOG,
-  { ...AFC_RELIC_BUILD_ENTRY, createdAt: 1794343264230, },
+  { ...AFC_TILE_BAR_ENTRY, createdAt: 1794679282177, },
   ...TOWN_ECONOMY_CHANGELOG,
   ...RESOURCE_NETWORKS_CHANGELOG,
   ...AFC_SPECIALIZATIONS_CHANGELOG,
@@ -494,6 +495,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_115,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_116,
   { ...IMPERIAL_WARD_REMOVED_ENTRY, createdAt: 1794590558028, },
+  { ...EXPLORE_SCOUT_DRONES_ENTRY, createdAt: 1794656611441, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

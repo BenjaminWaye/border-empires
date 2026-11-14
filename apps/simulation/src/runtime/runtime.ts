@@ -154,8 +154,6 @@ import {
   incrementalAdd,
   incrementalRemove,
   plannerPlayerTileKeys as plannerPlayerTileKeysImpl,
-  mirrorCandidateKeysIntoCache,
-  resetCandidateKeysFromSummary,
   type PlannerPlayerTileKeysContext,
   type PlannerPlayerTileKeysResult,
   type PlannerTileKeysCacheEntry
@@ -352,6 +350,8 @@ import { createAetherShieldTicker, type AetherShieldTicker } from "../aether-shi
 import { handleSyncAllianceCommand as handleSyncAllianceCommandImpl } from "../runtime-alliance-sync-command.js";
 import { type RuntimeMapCommandContext } from "../runtime-map-command-handlers.js";
 import { buildMapCommandDispatchHandlers } from "./runtime-map-command-dispatch-handlers.js";
+import { createPlannerCandidateWiring } from "./runtime-planner-candidate-wiring.js";
+import { createScoutDroneRuntime } from "../scout-drone/scout-drone-runtime.js";
 import { buildMapCommandContext } from "./runtime-map-command-context.js";
 import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
@@ -382,10 +382,7 @@ import { tickPopulationGrowth as tickPopulationGrowthImpl } from "../runtime-pop
 import { tickOrphanedLockSweep as tickOrphanedLockSweepImpl } from "../runtime-maintenance-ticks.js";
 import {
   isNeutralBeaconTile as isNeutralBeaconTileImpl,
-  rebuildPlannerCandidateIndexesForPlayer as rebuildPlannerCandidateIndexesForPlayerImpl,
   refreshNeutralBeaconIndexForTile as refreshNeutralBeaconIndexForTileImpl,
-  refreshPlannerCandidateIndexesAroundTileChange as refreshPlannerCandidateIndexesAroundTileChangeImpl,
-  refreshPlayerCandidateIndexAnchorForTile as refreshPlayerCandidateIndexAnchorForTileImpl,
   registerFortSupportAnchor as registerFortSupportAnchorImpl
 } from "../runtime-tile-index-maintenance.js";
 import { RuntimeOwnerTileIndexes } from "../runtime-owner-tile-indexes/runtime-owner-tile-indexes.js";
@@ -648,6 +645,10 @@ export class SimulationRuntime {
     tiles: () => this.state.tiles, players: () => this.state.players,
     isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
   });
+  // Explore scout drones (scout-drone/scout-drone-runtime.ts): in memory only, a restart docks any drone in the air.
+  private readonly scoutDrones = createScoutDroneRuntime({ now: () => this.now(), worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, tiles: () => this.state.tiles, players: () => this.state.players,
+    afcTileKeys: (playerId) => this.summaryForPlayer(playerId).ownedAfcTileKeys, visibilityCoverage: () => this.state.visibilityCoverage, visionTransitionCallbacks: () => this.visionTransitions.callbacks,
+    emitEvent: (event) => this.emitEvent(event), emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event) });
   // Change-driven REACH_UPDATE push bookkeeping — see runtime-reach-update.ts.
   private readonly reachUpdateState: ReachUpdateState = createReachUpdateState(Date.now()); private readonly reachContestedDirtyState: ReachChangedTilesDirtyState = createReachChangedTilesDirtyState(); // changed-reach-tile TILE_DELTA_BATCH dirty set, see runtime-reach-contested-tiles.ts
   private frontierAutoHealQueue: FrontierAutoHealQueue = createFrontierAutoHealQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted -- see runtime-frontier-auto-heal.ts
@@ -941,7 +942,7 @@ export class SimulationRuntime {
     this.manpowerCapBootstrapRestampedCount += settleBootstrapManpower(this.state.players.values(), player => this.applyManpowerRegen(player));
     this.manpowerReady = true;
     for (const playerId of this.state.players.keys()) {
-      this.rebuildPlannerCandidateIndexesForPlayer(playerId);
+      this.plannerCandidates.rebuildForPlayer(playerId);
     }
     scheduleRecoveredPendingSettlementsImpl(
       {
@@ -1114,6 +1115,7 @@ export class SimulationRuntime {
 
   tickWatchtowerReveals(nowMs: number = this.now()): void {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
+    this.scoutDrones.tick(nowMs); // moves each scout drone's reveal along its flight; lands finished ones
   }
 
   /** Throttled inside; see aether-shield/aether-shield-tick.ts. */
@@ -1145,6 +1147,11 @@ export class SimulationRuntime {
   /** Throttled inside; see island-names/island-names-ticker.ts. */
   tickIslandNames(nowMs: number = this.now()): void {
     this.islandNamesTicker.tick(nowMs);
+  }
+
+  /** Live-subscribe push of the player's scout drone (simulation-service/live-subscribe-reach-push.ts). */
+  resendScoutDroneForPlayer(playerId: string): void {
+    this.scoutDrones.sendTo(playerId);
   }
 
   /** Live-subscribe push of the ISLAND_NAMES label list (simulation-service/live-subscribe-reach-push.ts). */
@@ -1731,8 +1738,8 @@ export class SimulationRuntime {
       });
     }
     if (tile.ownerId) restoreSameOwnerSummaryOrder(this.summaryForPlayer(tile.ownerId), previousOwnerTileOrder, previousOwnerTownOrder);
-    this.refreshPlannerCandidateIndexesAroundTileChange(tileKey, previous, tile);
-    this.refreshPlayerCandidateIndexAnchorForTile(tileKey, previous, tile);
+    this.plannerCandidates.refreshAroundTileChange(tileKey, previous, tile);
+    this.plannerCandidates.refreshAnchorForTile(tileKey, previous, tile);
     this.ownerIndexes.refreshForTileChange(tileKey, previous, tile);
     this.maintainAutoSettleEligibilityForTileChange(tileKey, previous, tile);
     if (refreshNeutralBeaconIndexForTileImpl({ tileKey, previous, next: tile, neutralBeaconTileKeys: this.neutralBeaconTileKeys })) {
@@ -1780,52 +1787,9 @@ export class SimulationRuntime {
     this.superTileSync.record(previous, tile, commandId); // last: mirrored across an AFC/relic super tile once the outermost write ends
   }
 
-  private rebuildPlannerCandidateIndexesForPlayer(playerId: string): void {
-    rebuildPlannerCandidateIndexesForPlayerImpl({
-      playerId,
-      tiles: this.state.tiles,
-      summary: this.summaryForPlayer(playerId),
-      markPlannerPlayerTileCollectionDirty: (id) => this.markPlannerPlayerTileCollectionDirty(id),
-      onCandidateRebuildComplete: (id, summary) => {
-        const entry = this.plannerPlayerTileKeyCacheByPlayer.get(id);
-        if (entry) resetCandidateKeysFromSummary(entry, summary);
-      }
-    });
-  }
-
-  private refreshPlannerCandidateIndexesAroundTileChange(
-    tileKey: string,
-    previous?: DomainTileState,
-    next?: DomainTileState
-  ): void {
-    refreshPlannerCandidateIndexesAroundTileChangeImpl({
-      tileKey,
-      previous,
-      next,
-      tiles: this.state.tiles,
-      playerCandidateIndex: this.playerCandidateIndex,
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId),
-      onCandidateKeysUpdated: (playerId, affectedKeys, summary) => {
-        const entry = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
-        if (entry) mirrorCandidateKeysIntoCache(entry, affectedKeys, summary);
-      }
-    });
-  }
-
-  private refreshPlayerCandidateIndexAnchorForTile(
-    tileKey: string,
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    refreshPlayerCandidateIndexAnchorForTileImpl({
-      playerCandidateIndex: this.playerCandidateIndex,
-      tiles: this.state.tiles,
-      tileKey,
-      previous,
-      next
-    });
-  }
+  // Planner candidate-index hooks for player rebuilds and tile writes (runtime-planner-candidate-wiring.ts).
+  private readonly plannerCandidates = createPlannerCandidateWiring({ tiles: () => this.state.tiles, playerCandidateIndex: this.playerCandidateIndex, plannerTileKeyCacheByPlayer: this.plannerPlayerTileKeyCacheByPlayer,
+    summaryForPlayer: (id) => this.summaryForPlayer(id), markPlannerPlayerTileCollectionDirty: (id) => this.markPlannerPlayerTileCollectionDirty(id) });
 
   private addPendingSettlement(record: PendingSettlementRecord): void {
     this.pendingSettlementsByTile.set(record.tileKey, record);
@@ -3244,6 +3208,7 @@ export class SimulationRuntime {
       handlePurgeSiphonCommand: (command) => handlePurgeSiphonCommandImpl(this.abilityCommandContext(), command),
       handleCancelSiphonCommand: (command) => handleCancelSiphonCommandImpl(this.abilityCommandContext(), command),
       ...buildMapCommandDispatchHandlers(() => this.mapCommandContext()),
+      handleExploreCommand: (command) => this.scoutDrones.handleExplore(command),
       handleUpgradeTownTierCommand: (command) => handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
       handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),

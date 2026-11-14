@@ -7,18 +7,18 @@ const noopLog = { error: () => {} };
 const liveOptions = { trigger: "gateway_live_subscribe", subscriptionKey: "key-1" };
 
 describe("registerSubscribeAndMaybePushReach", () => {
-  it("registers the subscription before pushing reach, Aether shields and island names, so the socket is attached", () => {
+  it("registers the subscription before pushing reach, Aether shields, island names and the scout drone, so the socket is attached", () => {
     const order: string[] = [];
 
     registerSubscribeAndMaybePushReach(
       { subscribe: () => order.push("subscribe") },
-      { resendReachForPlayer: () => order.push("reach"), resendIslandNamesForPlayer: () => order.push("islands"), resendAetherShieldsForPlayer: () => order.push("aether") },
+      { resendReachForPlayer: () => order.push("reach"), resendIslandNamesForPlayer: () => order.push("islands"), resendAetherShieldsForPlayer: () => order.push("aether"), resendScoutDroneForPlayer: () => order.push("scout") },
       "player-1",
       liveOptions,
       noopLog
     );
 
-    expect(order).toEqual(["subscribe", "reach", "aether", "islands"]);
+    expect(order).toEqual(["subscribe", "reach", "aether", "islands", "scout"]);
   });
 
   it("passes the subscription key through to the registry", () => {
@@ -26,7 +26,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     registerSubscribeAndMaybePushReach(
       { subscribe: (playerId, key) => seen.push([playerId, key]) },
-      { resendReachForPlayer: () => {}, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => {} },
+      { resendReachForPlayer: () => {}, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => {}, resendScoutDroneForPlayer: () => {} },
       "player-1",
       liveOptions,
       noopLog
@@ -43,7 +43,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
     expect(() =>
       registerSubscribeAndMaybePushReach(
         { subscribe: () => { subscribed = true; } },
-        { resendReachForPlayer: () => { throw new Error("boom"); }, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => { shieldsPushed = true; } },
+        { resendReachForPlayer: () => { throw new Error("boom"); }, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => { shieldsPushed = true; }, resendScoutDroneForPlayer: () => {} },
         "player-1",
         { trigger: "gateway_live_subscribe" },
         { error: (payload) => errors.push(payload) }
@@ -60,7 +60,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
     expect(() =>
       registerSubscribeAndMaybePushReach(
         { subscribe: () => {} },
-        { resendReachForPlayer: () => {}, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => { throw new Error("boom"); } },
+        { resendReachForPlayer: () => {}, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => { throw new Error("boom"); }, resendScoutDroneForPlayer: () => {} },
         "player-1",
         { trigger: "gateway_live_subscribe" },
         { error: (payload) => errors.push(payload) }
@@ -149,7 +149,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
       { resendReachForPlayer: (playerId) => {
         markReachForResend(state, playerId);
         flushReachUpdates(state, context, "cmd-live-subscribe");
-      }, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => {} },
+      }, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => {}, resendScoutDroneForPlayer: () => {} },
       "player-1",
       liveOptions,
       noopLog

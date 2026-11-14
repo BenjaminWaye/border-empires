@@ -74,6 +74,7 @@ export type LiveSubscribeReachRuntime = {
   resendReachForPlayer: (playerId: string) => void;
   resendAetherShieldsForPlayer: (playerId: string) => void;
   resendIslandNamesForPlayer: (playerId: string) => void;
+  resendScoutDroneForPlayer: (playerId: string) => void;
 };
 
 export type LiveSubscribeReachLog = {
@@ -127,5 +128,11 @@ export const registerSubscribeAndMaybePushReach = (
     runtime.resendIslandNamesForPlayer(playerId);
   } catch (error) {
     log.error({ err: error, playerId }, "live subscribe island names push failed");
+  }
+  // SCOUT_DRONE (scout-drone/scout-drone-runtime.ts): a reconnect mid-flight redraws the drone.
+  try {
+    runtime.resendScoutDroneForPlayer(playerId);
+  } catch (error) {
+    log.error({ err: error, playerId }, "live subscribe scout drone push failed");
   }
 };

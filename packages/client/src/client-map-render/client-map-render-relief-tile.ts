@@ -62,8 +62,5 @@ export const drawReliefTerrainTile = (
     ctx.fillRect(options.px, options.py + topHeight - 1, options.size, 1);
     if (options.terrain === "LAND") drawRiverEdges(ctx, options.wx, options.wy, options.px, options.py, options.size, topHeight);
   }
-
-  ctx.strokeStyle = "rgba(128, 128, 128, 0.32)";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(options.px + 0.5, options.py + 0.5, options.size - 1, options.size - 1);
+  // No per-tile grid outline: the map draws no ground grid (matches true-3D).
 };

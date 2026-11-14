@@ -664,6 +664,17 @@ AFC's crown. Nothing is fabricated in orbit or dropped from it. The drones are
 presentation of that supply chain, not a separately modelled unit or
 logistics system.
 
+The same drones fly the House's reconnaissance. A **scout drone** is a
+courier drone sent out with a sensor package in place of a crate pod: it
+leaves the AFC's crown, flies low over the House's land and out past it,
+looks over the ground beneath it and returns to dock. Because it flies, sea
+and open country do not stop it. It carries no crew, takes nothing and holds
+nothing. What stops it is a rival House's local control field (§10): the
+drone's link is jammed at that House's border, so it turns back there, and
+the rival's own sensors register the intrusion. The planet's remnant
+defenses have no such field, so a drone can pass over them, and they stir
+while it watches. How far and how often a drone flies is a gameplay rule.
+
 ### Replacement supply and withdrawal
 
 Losing the last AFC leaves a House without the industrial seed needed to

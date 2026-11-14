@@ -61,6 +61,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "CHOOSE_DOMAIN":
     case "SET_AUTO_SETTLE_PREFS":
     case "NAME_ISLAND":
+    case "EXPLORE":
     case "UPGRADE_TOWN_TIER":
     case "WATCH_MUSTER":
     case "UNWATCH_MUSTER":
