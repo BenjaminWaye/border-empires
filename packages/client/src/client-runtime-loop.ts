@@ -58,7 +58,7 @@ import { drawTileGround2D } from "./client-map-render-2d-tile-ground/client-map-
 import { drawLandingGroundAndSupply2D } from "./client-dock-landing-ground/client-dock-landing-ground-2d.js";
 import { dockEndpointKeySet } from "./client-harbour-slipways/client-harbour-slipways.js";
 import { drawAetherTowerSprite2D } from "./client-aether-tower-sprite-2d/client-aether-tower-sprite-2d.js";
-import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js";
+import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js"; import { drawScoutDrone2D } from "./client-map-render-2d-scout-drone/client-map-render-2d-scout-drone.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -744,7 +744,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const roadOverlayMs = phaseMs();
     if (!isTrue3DRendererActive()) districtCanvas.draw(size, halfW, halfH);
 
-    for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile); if (!isTrue3DRendererActive() && state.arrowGesture) drawArrowGesture2D(deps.ctx, state.arrowGesture, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size); // F4: 2D arrow-gesture visual (F1/F2 parity)
+    for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile); if (!isTrue3DRendererActive() && state.arrowGesture) drawArrowGesture2D(deps.ctx, state.arrowGesture, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size); /* F4: 2D arrow-gesture visual (F1/F2 parity) */ if (!isTrue3DRendererActive()) drawScoutDrone2D(deps.ctx, state.scoutDroneFlight, Date.now(), { width: WORLD_WIDTH, height: WORLD_HEIGHT }, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size); // Explore: scout drone (client-map-render-2d-scout-drone/)
     mapScreenOverlays.render(overlayTiles, { size, project: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH) });
     if (!isTrue3DRendererActive()) mapNameLabels.render((x, y) => deps.worldToScreen(x, y, size, halfW, halfH), nowMs);
     const tileOverlayMs = phaseMs();

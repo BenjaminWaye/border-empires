@@ -6,6 +6,7 @@ import { combatCardText, combatGroupCardText, siegeCardText } from "./client-act
 import { featuresPart } from "./client-activity-dashboard-features.js";
 import { diplomacyCardText } from "./client-activity-dashboard-diplomacy-text.js";
 import { nameOf, roundedAmount, type PlayerNameLookup } from "./client-activity-dashboard-names.js";
+import { scoutFindingsText } from "../client-scout-drone/client-scout-drone-state.js";
 
 export type { PlayerNameLookup };
 
@@ -79,6 +80,13 @@ const buildingCardText = (card: Extract<PersonalActivityCard, { kind: "BUILDING_
   return parts.join(" · ");
 };
 
+// A scout drone's flight (docs/explore-scout-plan.md): what it saw on the way.
+const scoutReportCardText = (card: Extract<PersonalActivityCard, { kind: "SCOUT_REPORT" }>, playerNames: PlayerNameLookup): string => {
+  const found = scoutFindingsText(card, (id) => nameOf(id, playerNames));
+  const turned = card.blockedByPlayerId ? ` · turned back at ${nameOf(card.blockedByPlayerId, playerNames)}'s border` : "";
+  return `Scout drone ${found ? `found ${found}` : "found nothing new"}${turned}`;
+};
+
 /** One timeline row's display text, given the viewing player's id and a way to resolve names. */
 export const activityCardText = (card: PersonalActivityCard, playerId: string, playerNames: PlayerNameLookup, techName: TechNameLookup = () => undefined): string => {
   if (card.kind === "COMBAT") return combatCardText(card, playerId, playerNames);
@@ -89,6 +97,7 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
   if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return townCardText(card, playerNames);
   if (card.kind === "DOCK_CAPTURED" || card.kind === "DOCK_LOST") return dockCardText(card, playerNames);
   if (card.kind === "BUILDING_COMPLETED") return buildingCardText(card);
+  if (card.kind === "SCOUT_REPORT") return scoutReportCardText(card, playerNames);
   if (card.kind === "DIPLOMACY") return diplomacyCardText(card, playerId, playerNames);
   if (card.kind === "TRUNCATION_NOTE") return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
   // A card kind from a newer server than this client: say something true

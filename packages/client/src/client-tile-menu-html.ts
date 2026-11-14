@@ -160,6 +160,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   const refinery = refineryActionIcon(id);
   if (refinery) return refinery;
   if (id === "expand_here") return "⚐";
+  if (id === "explore_scout") return "⌖";
   if (id.startsWith("march_attack_") || id === "march_to_pick_origin") return "⚑";
   if (id === "clear_waypoint_and_expand_here") return "↺⚐";
   if (id === "cancel_waypoint") return "✕";

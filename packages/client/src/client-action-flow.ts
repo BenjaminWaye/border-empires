@@ -1421,7 +1421,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     // Shared with the "visible" neutral-adjacent click path below: a mouse click
     // claims an adjacent-reachable tile immediately instead of opening a menu
     // (a touch tap only inspects -- tapClaimsAdjacentTile). Lifted
-    // out so fogged/unexplored tiles adjacent to owned territory can also
+    // out so fogged tiles adjacent to owned territory can also
     // start a frontier expand directly, rather than only ever showing a
     // description popup (or, for unexplored tiles, nothing at all) just
     // because their true terrain/ownership isn't confirmed yet -- the queue
@@ -1448,14 +1448,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
     };
     if (vis === "unexplored") {
-      const frontierOrigin = tapClaimsAdjacentTile(tapInput) ? pickOriginForTarget(wx, wy, false) : undefined;
-      if (frontierOrigin) {
-        state.selected = { x: wx, y: wy };
-        resetAttackPreviewState(state);
-        queueAdjacentExpandClaim(wx, wy);
-        return;
-      }
-      openUnexploredTileActionMenu(state, wx, wy, clientX, clientY, { keyFor, pickOriginForTarget, renderTileActionMenu, resetAttackPreviewState });
+      // Unexplored ground, even next to the player's land, offers Explore, never a direct claim (docs/explore-scout-plan.md).
+      openUnexploredTileActionMenu(state, wx, wy, clientX, clientY, { keyFor, renderTileActionMenu, resetAttackPreviewState });
       renderHud();
       return;
     }
