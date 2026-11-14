@@ -1,4 +1,4 @@
-import { AFC_TILE_BAR_ENTRY } from "./client-changelog-afc-tile-bar.js";
+import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
@@ -196,7 +196,7 @@ export type ClientChangelogEntry = {
 // Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_REPLACEMENT_CHANGELOG,
-  { ...AFC_TILE_BAR_ENTRY, createdAt: 1794679282177, },
+  ...NOV_14_CHANGELOG,
   ...TOWN_ECONOMY_CHANGELOG,
   ...RESOURCE_NETWORKS_CHANGELOG,
   ...AFC_SPECIALIZATIONS_CHANGELOG,
