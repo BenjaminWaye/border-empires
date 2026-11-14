@@ -54,7 +54,9 @@ export const createPersistentAlertsFrame = (
       });
       if (announcement) showCaptureAlert(state, announcement.title, announcement.detail, announcement.tone, undefined, announcement.focus);
     }
-    // Photo mode captures the bare map: no "!" pins over it (both renderers draw them here).
+    // Photo mode captures the bare map: no "!" pins over it (both renderers draw them here). The pins'
+    // tap areas go too, or a tap meant for the map hits an invisible pin and jumps the camera.
     if (!isPhotoModeOn()) drawPersistentAlertLocators(state, { ...drawDeps, nowMs, precomputedAlerts: cache });
+    else state.persistentAlertLocators = [];
   };
 };

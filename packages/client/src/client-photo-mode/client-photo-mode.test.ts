@@ -218,5 +218,18 @@ describe("photo mode keeps chrome out of the shot", () => {
     window.dispatchEvent(new Event("pointerdown"));
     expect(exit.classList.contains(PHOTO_MODE_EXIT_IDLE_CLASS)).toBe(false);
   });
-});
 
+  // Review of #2786: Cmd+Shift+4 / Win+Shift+S send their modifiers to the page first, which woke the
+  // button right as the region capture was taken.
+  it("stays faded when only a modifier key is pressed", () => {
+    vi.useFakeTimers();
+    togglePhotoMode(state(), () => undefined);
+    const exit = document.getElementById(PHOTO_MODE_EXIT_CONTROL_ID)!;
+    vi.advanceTimersByTime(PHOTO_MODE_EXIT_IDLE_MS);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Meta" }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift" }));
+    expect(exit.classList.contains(PHOTO_MODE_EXIT_IDLE_CLASS)).toBe(true);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
+    expect(exit.classList.contains(PHOTO_MODE_EXIT_IDLE_CLASS)).toBe(false);
+  });
+});

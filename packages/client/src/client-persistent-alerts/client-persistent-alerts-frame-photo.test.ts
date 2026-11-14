@@ -29,4 +29,14 @@ describe("persistent alert pins in photo mode", () => {
     frame(2, deps);
     expect(draw).toHaveBeenCalledTimes(1);
   });
+
+  // Review of #2786: skipping the draw left last frame's tap areas, so a tap hit an invisible pin.
+  it("clears the pins' tap areas while photo mode is on", () => {
+    const state = createInitialState();
+    state.persistentAlertLocators = [{ x: 0, y: 0 } as unknown as (typeof state.persistentAlertLocators)[number]];
+    const frame = createPersistentAlertsFrame(state);
+    document.body.classList.add(PHOTO_MODE_BODY_CLASS);
+    frame(1, deps);
+    expect(state.persistentAlertLocators).toEqual([]);
+  });
 });

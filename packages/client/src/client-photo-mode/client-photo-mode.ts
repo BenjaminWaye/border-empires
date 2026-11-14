@@ -94,6 +94,7 @@ let removeExitControl: (() => void) | undefined;
 export const PHOTO_MODE_EXIT_IDLE_MS = 2_500;
 export const PHOTO_MODE_EXIT_IDLE_CLASS = "is-idle";
 const EXIT_WAKE_EVENTS = ["pointermove", "pointerdown", "keydown", "touchstart"] as const;
+const MODIFIER_KEYS = new Set(["Meta", "Shift", "Control", "Alt", "OS"]);
 
 const showExitControl = (onExit: () => void): void => {
   removeExitControl?.();
@@ -111,7 +112,9 @@ const showExitControl = (onExit: () => void): void => {
   };
   // Hidden (and not clickable) while idle; any input brings it back, so the first tap never exits by accident.
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
-  const wake = (): void => {
+  const wake = (event?: Event): void => {
+    // A modifier alone (Cmd+Shift+4, Win+Shift+S) is a screenshot shortcut starting, not a request for the button.
+    if (event instanceof KeyboardEvent && MODIFIER_KEYS.has(event.key)) return;
     button.classList.remove(PHOTO_MODE_EXIT_IDLE_CLASS);
     if (idleTimer !== undefined) clearTimeout(idleTimer);
     idleTimer = setTimeout(() => button.classList.add(PHOTO_MODE_EXIT_IDLE_CLASS), PHOTO_MODE_EXIT_IDLE_MS);
