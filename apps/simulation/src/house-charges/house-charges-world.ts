@@ -8,6 +8,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, getWorldSeed } from "@border-empires/shared"
 import type { IslandRegistry } from "../island-names/island-registry.js";
 import { islandNamesWorldFor, type IslandNamesWorld } from "../island-names/island-names-world.js";
 import { buildBiomeRegionRegistry, type BiomeRegionRegistry, type BiomeRegionRecord } from "./biome-region-registry.js";
+import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "../dock-network/dock-network.js";
 
 export type ChargeTownSite = { readonly key: string; readonly x: number; readonly y: number; readonly islandId: string | undefined };
 export type ChargeRelicSite = { readonly key: string; readonly x: number; readonly y: number };
@@ -22,18 +23,30 @@ export type HouseChargesWorld = {
   readonly relics: readonly ChargeRelicSite[];
   /** Islands with at least one dock: a Charter may join towns on two of them by sea (house-charge-held.ts). */
   readonly dockedIslandIds: ReadonlySet<string>;
+  /** Dock tile key -> the dock tile keys it links to (worldgen dock routes); empty until docks are supplied. */
+  dockLinks: ReadonlyMap<string, readonly string[]>;
   readonly regionName: (region: BiomeRegionRecord) => string;
 };
 
 const worldsByTiles = new WeakMap<ReadonlyMap<string, DomainTileState>, HouseChargesWorld>();
 
+const dockLinksSourceByWorld = new WeakMap<HouseChargesWorld, readonly DockRouteDefinition[]>();
+
 export const houseChargesWorldFor = (
   tiles: ReadonlyMap<string, DomainTileState>,
+  docks?: readonly DockRouteDefinition[],
   width = WORLD_WIDTH,
   height = WORLD_HEIGHT
 ): HouseChargesWorld => {
   const cached = worldsByTiles.get(tiles);
-  if (cached) return cached;
+  if (cached) {
+    // Dock routes are fixed at worldgen; rebuild the links only if a different list is supplied.
+    if (docks && dockLinksSourceByWorld.get(cached) !== docks) {
+      cached.dockLinks = buildDockLinksByDockTileKey(docks);
+      dockLinksSourceByWorld.set(cached, docks);
+    }
+    return cached;
+  }
   const islandNames = islandNamesWorldFor(tiles);
   const towns: ChargeTownSite[] = [];
   const relics: ChargeRelicSite[] = [];
@@ -59,6 +72,7 @@ export const houseChargesWorldFor = (
     towns,
     relics,
     dockedIslandIds,
+    dockLinks: docks ? buildDockLinksByDockTileKey(docks) : new Map(),
     regionName: (region) => {
       let name = regionNames.get(region.id);
       if (name === undefined) {
@@ -69,6 +83,7 @@ export const houseChargesWorldFor = (
     }
   };
   worldsByTiles.set(tiles, world);
+  if (docks) dockLinksSourceByWorld.set(world, docks);
   return world;
 };
 

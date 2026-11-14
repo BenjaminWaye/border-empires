@@ -2,7 +2,7 @@
 // fulfilled charge becomes a collectible trading card. Data comes from the
 // public GET /hq/house-charges/cards/by-player/:playerId route; the art is the
 // real shape the House held (shared house-charge-art.ts), drawn as an SVG grid.
-import { RELIC_DEFINITIONS, decodeChargeArt, type HouseChargeKind, type HouseChargeRarity, type NaturalWonderType } from "@border-empires/shared";
+import { HOUSE_CHARGE_KINDS, RELIC_DEFINITIONS, decodeChargeArt, type HouseChargeKind, type HouseChargeRarity, type NaturalWonderType } from "@border-empires/shared";
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 import { HOUSE_CHARGE_KIND_LABEL } from "./client-house-charges-labels.js";
 
@@ -110,12 +110,46 @@ export const houseChargeCollectionHtml = (cards: HouseChargeCardView[] | "loadin
   return `<div class="hc-collection">${cards.map(houseChargeCardHtml).join("")}</div>`;
 };
 
+const RARITIES: readonly HouseChargeRarity[] = ["COMMON", "RARE", "MYTHIC"];
+const finite = (value: unknown, fallback = 0): number => (typeof value === "number" && Number.isFinite(value) ? value : fallback);
+
+/** A card from the server, or undefined when it is malformed or of a kind this client does not know (a newer server). */
+export const parseHouseChargeCard = (value: unknown): HouseChargeCardView | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  const kind = HOUSE_CHARGE_KINDS.find((entry) => entry === raw.kind);
+  const rarity = RARITIES.find((entry) => entry === raw.rarity);
+  if (!kind || !rarity || typeof raw.id !== "string" || typeof raw.title !== "string" || typeof raw.seasonId !== "string" || typeof raw.playerId !== "string") return undefined;
+  const places = Array.isArray(raw.places) ? raw.places.filter((place): place is string => typeof place === "string") : undefined;
+  return {
+    id: raw.id,
+    kind,
+    title: raw.title,
+    rarity,
+    renown: finite(raw.renown, 1),
+    held: raw.held === true,
+    hoursHeld: finite(raw.hoursHeld),
+    size: finite(raw.size),
+    ...(places ? { places } : {}),
+    ...(typeof raw.art === "string" ? { art: raw.art } : {}),
+    ...(typeof raw.relicType === "string" ? { relicType: raw.relicType } : {}),
+    seasonId: raw.seasonId,
+    seasonSequence: finite(raw.seasonSequence),
+    endedAt: typeof raw.endedAt === "number" ? raw.endedAt : null,
+    playerId: raw.playerId,
+    playerName: typeof raw.playerName === "string" ? raw.playerName : raw.playerId,
+    collectorNumber: finite(raw.collectorNumber),
+    collectorTotal: finite(raw.collectorTotal),
+    foil: raw.foil === true
+  };
+};
+
 export const fetchHouseChargeCards = async (playerId: string, wsUrl: string): Promise<HouseChargeCardView[] | undefined> => {
   try {
     const response = await fetch(`${rallyApiOrigin(wsUrl)}/hq/house-charges/cards/by-player/${encodeURIComponent(playerId)}`, { headers: { Accept: "application/json" } });
     if (!response.ok) return undefined;
     const body = (await response.json().catch(() => undefined)) as { cards?: unknown } | undefined;
-    return Array.isArray(body?.cards) ? (body.cards as HouseChargeCardView[]).slice(0, 500) : undefined;
+    return Array.isArray(body?.cards) ? body.cards.slice(0, 500).map(parseHouseChargeCard).filter((card): card is HouseChargeCardView => Boolean(card)) : undefined;
   } catch {
     return undefined;
   }

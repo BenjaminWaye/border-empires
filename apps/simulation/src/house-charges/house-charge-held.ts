@@ -29,57 +29,26 @@ const targetTileKey = (targetKey: string): string => targetKey.slice(targetKey.i
 /** Shortest road length (tiles) between two garrisoned towns through the House's garrisoned land, or undefined. */
 export const charterRoadLength = (
   tiles: ReadonlyMap<string, DomainTileState>,
-  world: Pick<HouseChargesWorld, "width" | "height">,
+  world: Pick<HouseChargesWorld, "width" | "height"> & Partial<Pick<HouseChargesWorld, "dockLinks">>,
   playerId: string,
   fromKey: string,
   toKey: string
 ): number | undefined => charterRoad(tiles, world, playerId, fromKey, toKey)?.length;
 
 type Point = { x: number; y: number };
-
-/** Shortest path through the House's garrisoned land from `fromKey` to the first tile passing `isGoal`, or undefined. */
-const garrisonedPath = (
-  tiles: ReadonlyMap<string, DomainTileState>,
-  world: Pick<HouseChargesWorld, "width" | "height">,
-  playerId: string,
-  fromKey: string,
-  isGoal: (key: string, tile: DomainTileState) => boolean
-): Point[] | undefined => {
-  // BFS bounded by the House's own garrisoned component.
-  const previousByKey = new Map<string, string | undefined>([[fromKey, undefined]]);
-  const queue: string[] = [fromKey];
-  for (let index = 0; index < queue.length; index += 1) {
-    const key = queue[index]!;
-    const tile = tiles.get(key)!;
-    if (isGoal(key, tile)) {
-      const path: Point[] = [];
-      for (let step: string | undefined = key; step !== undefined; step = previousByKey.get(step)) {
-        const stepTile = tiles.get(step)!;
-        path.push({ x: stepTile.x, y: stepTile.y });
-      }
-      return path.reverse();
-    }
-    for (const [dx, dy] of STEPS) {
-      const nx = (((tile.x + dx) % world.width) + world.width) % world.width;
-      const ny = (((tile.y + dy) % world.height) + world.height) % world.height;
-      const nextKey = `${nx},${ny}`;
-      if (previousByKey.has(nextKey) || !isGarrisonedBy(tiles.get(nextKey), playerId)) continue;
-      previousByKey.set(nextKey, key);
-      queue.push(nextKey);
-    }
-  }
-  return undefined;
-};
+type RoadWorld = Pick<HouseChargesWorld, "width" | "height"> & Partial<Pick<HouseChargesWorld, "dockLinks">>;
 
 /**
  * The shortest road between two garrisoned towns, as its tiles from one town
  * to the other, or undefined. The road runs over the House's garrisoned land
- * and may cross the sea once, between two docks the House garrisons (dock
- * links join every docked landmass, so any two such docks connect).
+ * (4-neighbour) and may cross the sea along dock routes: from a dock the
+ * House garrisons to a dock it links to (worldgen dock links), when the House
+ * garrisons that dock too. Chains of such crossings count, as they would for
+ * a House sailing between its own harbours.
  */
 export const charterRoad = (
   tiles: ReadonlyMap<string, DomainTileState>,
-  world: Pick<HouseChargesWorld, "width" | "height">,
+  world: RoadWorld,
   playerId: string,
   fromKey: string,
   toKey: string
@@ -89,17 +58,44 @@ export const charterRoad = (
   for (const end of [from, to]) {
     if (!isGarrisonedBy(end, playerId) || !end.town || !ROAD_TOWN_TIERS.has(end.town.populationTier)) return undefined;
   }
-  const overland = garrisonedPath(tiles, world, playerId, fromKey, (key) => key === toKey);
-  if (overland) return overland;
-  const isDock = (_key: string, tile: DomainTileState): boolean => Boolean(tile.dockId);
-  const toFromDock = garrisonedPath(tiles, world, playerId, fromKey, isDock);
-  const toToDock = garrisonedPath(tiles, world, playerId, toKey, isDock);
-  if (!toFromDock || !toToDock) return undefined;
-  return [...toFromDock, ...toToDock.reverse()];
+  // BFS bounded by the House's own garrisoned component plus its linked docks.
+  const previousByKey = new Map<string, string | undefined>([[fromKey, undefined]]);
+  const queue: string[] = [fromKey];
+  const visit = (nextKey: string, key: string): void => {
+    if (previousByKey.has(nextKey) || !isGarrisonedBy(tiles.get(nextKey), playerId)) return;
+    previousByKey.set(nextKey, key);
+    queue.push(nextKey);
+  };
+  for (let index = 0; index < queue.length; index += 1) {
+    const key = queue[index]!;
+    if (key === toKey) {
+      const path: Point[] = [];
+      for (let step: string | undefined = key; step !== undefined; step = previousByKey.get(step)) {
+        const stepTile = tiles.get(step)!;
+        path.push({ x: stepTile.x, y: stepTile.y });
+      }
+      return path.reverse();
+    }
+    const tile = tiles.get(key)!;
+    for (const [dx, dy] of STEPS) {
+      const nx = (((tile.x + dx) % world.width) + world.width) % world.width;
+      const ny = (((tile.y + dy) % world.height) + world.height) % world.height;
+      visit(`${nx},${ny}`, key);
+    }
+    if (tile.dockId) for (const linkedKey of world.dockLinks?.get(key) ?? []) visit(linkedKey, key);
+  }
+  return undefined;
 };
 
-const cellPoints = (cells: Int32Array, width: number): Array<{ x: number; y: number }> =>
-  Array.from(cells, (cell) => ({ x: cell % width, y: Math.floor(cell / width) }));
+/** The area's tiles the House actually garrisons: the card art shows what was held, not the whole region. */
+const garrisonedPoints = (cells: Int32Array, width: number, tiles: ReadonlyMap<string, DomainTileState>, playerId: string): Point[] => {
+  const points: Point[] = [];
+  for (const cell of cells) {
+    const point = { x: cell % width, y: Math.floor(cell / width) };
+    if (isGarrisonedBy(tiles.get(`${point.x},${point.y}`), playerId)) points.push(point);
+  }
+  return points;
+};
 
 export const houseChargeStanding = (
   charge: HouseCharge,
@@ -131,7 +127,7 @@ export const houseChargeStanding = (
       const standing = islandStandingFor(island, tiles, playerId, world.islands.width);
       const claim = currentIslandClaims(context.players).get(island.id);
       const complete = claim?.playerId === playerId;
-      return { complete, size: standing.namerGarrisoned, ...(complete ? { shape: cellPoints(island.cells, world.islands.width) } : {}) };
+      return { complete, size: standing.namerGarrisoned, ...(complete ? { shape: garrisonedPoints(island.cells, world.islands.width, tiles, playerId) } : {}) };
     }
     case "DESERT":
     case "TUNDRA": {
@@ -146,7 +142,7 @@ export const houseChargeStanding = (
         if (isGarrisonedBy(tile, playerId)) garrisoned += 1;
       }
       const complete = land > 0 && garrisoned / land >= HOUSE_CHARGE_REGION_GARRISON_SHARE;
-      return { complete, size: garrisoned, ...(complete ? { shape: cellPoints(region.cells, world.regions.width) } : {}) };
+      return { complete, size: garrisoned, ...(complete ? { shape: garrisonedPoints(region.cells, world.regions.width, tiles, playerId) } : {}) };
     }
     case "RELIC": {
       const owned = isGarrisonedBy(tiles.get(targetTileKey(first.key)), playerId);

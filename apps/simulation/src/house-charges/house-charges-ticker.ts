@@ -12,10 +12,11 @@
 // deal, plus each kept charge's evaluation (bounded by the target's size or
 // the House's own garrisoned land for a Charter).
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { encodeChargeArt, getWorldSeed, keptHouseCharges, type HouseChargePoint } from "@border-empires/shared";
+import { HOUSE_CHARGES_KEPT, encodeChargeArt, getWorldSeed, keptHouseCharges, type HouseCharge, type HouseChargePoint } from "@border-empires/shared";
 import { dealHouseCharges, offeredTargetKeys } from "./house-charge-dealing.js";
 import { houseChargeStanding } from "./house-charge-held.js";
 import { houseChargesWorldFor } from "./house-charges-world.js";
+import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 
 export const HOUSE_CHARGES_TICK_MIN_INTERVAL_MS = 15_000;
 /** Dealing needs a full tile scan for landing sites, so it runs at most this often. */
@@ -25,6 +26,8 @@ const BARBARIAN_PLAYER_ID = "barbarian-1";
 export type HouseChargesTickerDeps = {
   readonly tiles: () => ReadonlyMap<string, DomainTileState>;
   readonly players: () => ReadonlyMap<string, DomainPlayer>;
+  /** Worldgen dock routes: a Charter road may cross the sea along them (house-charge-held.ts). */
+  readonly docks?: () => readonly DockRouteDefinition[];
   /** Runs after every pass, with the players whose charges were dealt, completed or lost on it. */
   readonly onPassComplete?: (changedPlayerIds: readonly string[], nowMs: number) => void;
 };
@@ -54,9 +57,9 @@ export const runHouseChargesPass = (
   tiles: ReadonlyMap<string, DomainTileState>,
   players: ReadonlyMap<string, DomainPlayer>,
   nowMs: number,
-  options: { readonly deal: boolean } = { deal: true }
+  options: { readonly deal: boolean; readonly docks?: readonly DockRouteDefinition[] } = { deal: true }
 ): string[] => {
-  const world = houseChargesWorldFor(tiles);
+  const world = houseChargesWorldFor(tiles, options.docks);
   const changed = new Set<string>();
   const waiting = [...players.values()].filter((player) => player.id !== BARBARIAN_PLAYER_ID && !player.houseCharges);
   if (options.deal && waiting.length > 0) {
@@ -73,6 +76,8 @@ export const runHouseChargesPass = (
       const rivalLandingSites = [...sites].filter(([playerId]) => playerId !== player.id).map(([, site]) => site);
       const dealt = dealHouseCharges({ world, tiles, playerId: player.id, home, worldSeed, holders: (key) => holderCount.get(key) ?? 0, now: nowMs, rivalLandingSites }) ??
         { dealtAt: nowMs, offered: [], keptIds: [] };
+      // AI Houses never name islands (NAME_ISLAND), so they keep charges they can complete over a Survey Claim.
+      if (player.isAi) dealt.keptIds = aiKeptIds(dealt.offered);
       player.houseCharges = dealt;
       for (const key of offeredTargetKeys(dealt)) holderCount.set(key, (holderCount.get(key) ?? 0) + 1);
       changed.add(player.id);
@@ -83,6 +88,11 @@ export const runHouseChargesPass = (
   }
   return [...changed];
 };
+
+const aiKeptIds = (offered: readonly HouseCharge[]): string[] =>
+  [...offered.filter((charge) => charge.kind !== "SURVEY"), ...offered.filter((charge) => charge.kind === "SURVEY")]
+    .slice(0, HOUSE_CHARGES_KEPT)
+    .map((charge) => charge.id);
 
 /** Re-evaluates one House's kept charges. Returns whether any charge became complete or stopped being complete. */
 export const refreshPlayerHouseCharges = (
@@ -131,7 +141,8 @@ export const createHouseChargesTicker = (deps: HouseChargesTickerDeps): HouseCha
     lastRunAt = nowMs;
     const deal = nowMs - lastDealAt >= HOUSE_CHARGES_DEAL_MIN_INTERVAL_MS;
     if (deal) lastDealAt = nowMs;
-    const changed = runHouseChargesPass(deps.tiles(), deps.players(), nowMs, { deal });
+    const docks = deps.docks?.();
+    const changed = runHouseChargesPass(deps.tiles(), deps.players(), nowMs, { deal, ...(docks ? { docks } : {}) });
     deps.onPassComplete?.(changed, nowMs);
   };
   return {

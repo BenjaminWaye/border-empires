@@ -11,16 +11,19 @@ import type { HouseChargesPayload, IslandNamesPayload } from "@border-empires/sh
 import { createHouseChargesTicker } from "../house-charges/house-charges-ticker.js";
 import { createIslandNamesTicker } from "../island-names/island-names-ticker.js";
 import { houseChargesPayloadFor } from "../house-charges/house-charges-view.js";
+import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 
 export type RuntimeSideTickersDeps = {
   readonly tiles: () => ReadonlyMap<string, DomainTileState>;
   readonly players: () => ReadonlyMap<string, DomainPlayer>;
+  readonly docks?: () => readonly DockRouteDefinition[];
   readonly isPlayerSubscribed: (playerId: string) => boolean;
   readonly emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: IslandNamesPayload | HouseChargesPayload) => void;
 };
 
 export type RuntimeSideTickers = {
-  readonly tick: (nowMs: number) => void;
+  /** `force` runs House Charges now regardless of its throttle (the crowning reads its held state). */
+  readonly tick: (nowMs: number, force?: boolean) => void;
   /** Live-subscribe push of what each ticker sends a player on connect. */
   readonly sendTo: (playerId: string, nowMs: number) => void;
 };
@@ -33,7 +36,8 @@ export const createRuntimeSideTickers = (deps: RuntimeSideTickersDeps): RuntimeS
     const player = deps.players().get(playerId);
     const payload = player && !player.isAi ? houseChargesPayloadFor(player, deps.tiles()) : undefined;
     if (!payload) return;
-    const signature = JSON.stringify(payload);
+    // areaTileKeys never change for a charge, so leave them out of the comparison.
+    const signature = JSON.stringify(payload.charges.map(({ areaTileKeys: _area, ...charge }) => charge));
     if (onlyIfChanged && sentChargesSignature.get(playerId) === signature) return;
     sentChargesSignature.set(playerId, signature);
     deps.emitPlayerMessage({ commandId: `house-charges:${playerId}`, playerId }, payload);
@@ -41,6 +45,7 @@ export const createRuntimeSideTickers = (deps: RuntimeSideTickersDeps): RuntimeS
   // Progress, completion and a newly detected relic beacon all change the view, so compare views rather than events.
   const houseCharges = createHouseChargesTicker({
     tiles: deps.tiles,
+    ...(deps.docks ? { docks: deps.docks } : {}),
     players: deps.players,
     onPassComplete: () => {
       const online = new Set<string>();
@@ -53,9 +58,10 @@ export const createRuntimeSideTickers = (deps: RuntimeSideTickersDeps): RuntimeS
     }
   });
   return {
-    tick: (nowMs) => {
+    tick: (nowMs, force = false) => {
       islandNames.tick(nowMs);
-      houseCharges.tick(nowMs);
+      if (force) houseCharges.runNow(nowMs);
+      else houseCharges.tick(nowMs);
     },
     sendTo: (playerId, nowMs) => {
       islandNames.sendTo(playerId, nowMs);

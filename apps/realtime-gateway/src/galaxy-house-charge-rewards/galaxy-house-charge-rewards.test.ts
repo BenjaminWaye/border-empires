@@ -14,19 +14,20 @@ describe("House Charges galaxy reward", () => {
     expect(stipendPayoutAmounts({ influence: 6.4 }, 2)).toEqual({ influence: 6 + 2 * HOUSE_CHARGE_STIPEND_INFLUENCE });
   });
 
-  it("sums held charges per bound account across crowned seasons, skipping unbound players", async () => {
+  it("sums held charges per bound account across crowned seasons, skipping unbound players and Stipend seasons", async () => {
     const archives = [
-      { seasonId: "s1", houseCharges: houses([["p1", [true, false]], ["ai-1", [true, true]]]) },
+      { seasonId: "s1", houseCharges: houses([["p1", [true, false]], ["ai-1", [true, true]], ["p3", [true, true]]]), galaxyTiers: [{ playerId: "p3", playerName: "p3", tier: "STIPEND", influence: 4 }] },
       { seasonId: "s2", houseCharges: houses([["p1", [true, true]], ["p2", [false, false]]]) },
       { seasonId: "s0" }
     ] as unknown as SeasonArchiveRow[];
     const current = { seasonId: "s3", status: "ended", seasonHouseCharges: houses([["p2", [true]]]) } as unknown as CurrentSeasonSummary;
-    const uidByPlayer: Record<string, string> = { p1: "uid-1", p2: "uid-2" };
+    const uidByPlayer: Record<string, string> = { p1: "uid-1", p2: "uid-2", p3: "uid-3" };
     const counts = await heldChargeCountsByAuthUid({
       listSeasonArchives: async () => archives,
       getCurrentSeasonSummary: async () => current,
       authBindingStore: { getByPlayerId: async (playerId: string) => (uidByPlayer[playerId] ? { uid: uidByPlayer[playerId] } : undefined) } as never
     });
+    // p3's charges in s1 already paid out as Stipend Influence, so they add no Domain Weight.
     expect([...counts]).toEqual([["uid-1", 3], ["uid-2", 1]]);
   });
 

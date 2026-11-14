@@ -111,7 +111,8 @@ describe("held state", () => {
     garrisonKeys(tiles, "p1", desert.slice(29, 30));
     const held = houseChargeStanding(charge, context(tiles));
     expect(held).toMatchObject({ complete: true, size: 30 });
-    expect(held.shape).toHaveLength(40);
+    // The card art is what was held (30 garrisoned tiles), not the whole 40-tile region.
+    expect(held.shape).toHaveLength(30);
   });
 
   it("completes a Seat once the town is a garrisoned City", () => {
@@ -245,7 +246,10 @@ describe("cross-water Charters", () => {
     tiles.set("39,12", { ...tiles.get("39,12")!, dockId: "dock-main" });
     tiles.set("44,12", { ...tiles.get("44,12")!, dockId: "dock-isle" });
     tiles.set("48,12", { ...tiles.get("48,12")!, town: { type: "MARKET", populationTier: "TOWN", name: "Corvanne" } });
-    const world = houseChargesWorldFor(tiles);
+    const world = houseChargesWorldFor(tiles, [
+      { dockId: "dock-main", tileKey: "39,12", pairedDockId: "dock-isle" },
+      { dockId: "dock-isle", tileKey: "44,12", pairedDockId: "dock-main" }
+    ]);
     expect([...world.dockedIslandIds]).toHaveLength(2);
     // Harrowmere (30,20) east to the main dock, and the island dock east to Corvanne.
     const mainLand = [...Array.from({ length: 10 }, (_, i) => `${30 + i},20`), ...Array.from({ length: 8 }, (_, i) => `39,${12 + i}`)];
@@ -261,5 +265,42 @@ describe("cross-water Charters", () => {
     // Losing the island dock breaks the crossing.
     tiles.set("44,12", { ...tiles.get("44,12")!, ownerId: "rival" });
     expect(charterRoad(tiles, world, "p1", HARROWMERE, "48,12")).toBeUndefined();
+  });
+});
+
+describe("review regressions", () => {
+  it("does not let two garrisoned docks that are not linked to each other carry a road", async () => {
+    const { charterRoad } = await import("./house-charge-held.js");
+    const tiles = buildChargeWorld();
+    tiles.set("39,12", { ...tiles.get("39,12")!, dockId: "dock-main" });
+    tiles.set("44,12", { ...tiles.get("44,12")!, dockId: "dock-isle" });
+    tiles.set("48,12", { ...tiles.get("48,12")!, town: { type: "MARKET", populationTier: "TOWN", name: "Corvanne" } });
+    // Each dock links elsewhere (to docks the House does not hold), not to the other.
+    const world = houseChargesWorldFor(tiles, [
+      { dockId: "dock-main", tileKey: "39,12", pairedDockId: "dock-x" },
+      { dockId: "dock-isle", tileKey: "44,12", pairedDockId: "dock-y" }
+    ]);
+    const mainLand = [...Array.from({ length: 10 }, (_, i) => `${30 + i},20`), ...Array.from({ length: 8 }, (_, i) => `39,${12 + i}`)];
+    garrisonKeys(tiles, "p1", [...mainLand, HARROWMERE, ...Array.from({ length: 5 }, (_, i) => `${44 + i},12`)]);
+    expect(charterRoad(tiles, world, "p1", HARROWMERE, "48,12")).toBeUndefined();
+  });
+
+  it("never puts a relic's position in its charge id", () => {
+    const state = deal()!;
+    const relicCharge = state.offered.find((charge) => charge.kind === "RELIC")!;
+    expect(relicCharge.id).not.toContain(RELIC);
+    expect(relicCharge.id).not.toMatch(/\d+,\d+/);
+    expect(state.offered.every((charge) => !/\d+,\d+/.test(charge.id))).toBe(true);
+  });
+
+  it("has AI Houses keep a Survey Claim last, since they never name islands", () => {
+    const tiles = buildChargeWorld();
+    const players = new Map([["p1", makeChargePlayer("p1", { isAi: true })]]);
+    runHouseChargesPass(tiles, players, 1_000);
+    const state = players.get("p1")!.houseCharges!;
+    const kept = keptHouseCharges(state);
+    if (state.offered.some((charge) => charge.kind !== "SURVEY" && !kept.includes(charge))) {
+      expect(kept.some((charge) => charge.kind === "SURVEY")).toBe(false);
+    }
   });
 });

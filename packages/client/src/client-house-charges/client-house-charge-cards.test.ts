@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { encodeChargeArt } from "@border-empires/shared";
-import { houseChargeCardHtml, houseChargeCollectionHtml, houseChargeCardRule, type HouseChargeCardView } from "./client-house-charge-cards.js";
+import { houseChargeCardHtml, houseChargeCollectionHtml, houseChargeCardRule, parseHouseChargeCard, type HouseChargeCardView } from "./client-house-charge-cards.js";
 import { houseChargeRevealHtml } from "./client-house-charge-reveal.js";
 
 const card = (overrides: Partial<HouseChargeCardView> = {}): HouseChargeCardView => ({
@@ -80,5 +80,14 @@ describe("season-end reveal", () => {
   it("shows loading and empty states", () => {
     expect(houseChargeRevealHtml({ key: "k", view: "loading" }, badge, undefined)).toContain("Unsealing");
     expect(houseChargeRevealHtml({ key: "k", view: "missing" }, badge, undefined)).toContain("No House Charges were recorded");
+  });
+});
+
+describe("card parsing", () => {
+  it("drops cards of an unknown kind or malformed shape instead of crashing the profile", () => {
+    expect(parseHouseChargeCard(card())).toEqual(card());
+    expect(parseHouseChargeCard({ ...card(), kind: "WONDER_RACE" })).toBeUndefined();
+    expect(parseHouseChargeCard({ ...card(), id: 7 })).toBeUndefined();
+    expect(parseHouseChargeCard({ ...card(), hoursHeld: "<img>" })).toMatchObject({ hoursHeld: 0 });
   });
 });

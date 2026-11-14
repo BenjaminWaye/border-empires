@@ -23,6 +23,15 @@ type WorldStatus = ReturnType<typeof buildWorldStatusSnapshot>;
  * on "ended" doesn't re-scan tiles on every subsequent recompute) — this
  * function itself does not re-check that guard.
  */
+/**
+ * A final House Charges pass at the crowning, so held state is current rather
+ * than up to one ticker interval old, then the players it updated.
+ */
+const freshHouseChargePlayers = (runtime: SimulationRuntime, crownedAt: number): RuntimeState["players"] => {
+  runtime.tickSideTickers(crownedAt, true);
+  return runtime.getPlayersForLeaderboard();
+};
+
 export const captureSeasonWinnerAtCrowning = ({
   seasonState,
   winner,
@@ -56,7 +65,7 @@ export const captureSeasonWinnerAtCrowning = ({
         : {}),
       ...(scoreHistory && scoreHistory.length > 0 ? { scoreHistory } : {})
     },
-    houseCharges: houseChargesAtCrowning(runtimeState.players, winner.crownedAt),
+    houseCharges: houseChargesAtCrowning(freshHouseChargePlayers(runtime, winner.crownedAt), winner.crownedAt),
     galaxyTiers: galaxyTiersAtCrowning({
       objectives,
       crownedWinner: winner,

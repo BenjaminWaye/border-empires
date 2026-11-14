@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { HOUSE_CHARGES_CHOICE_WINDOW_MS } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { buildChargeWorld } from "./house-charges.test-helpers.js";
+import type { DomainTileState } from "@border-empires/game-domain";
+import { buildChargeWorld, garrisonKeys } from "./house-charges.test-helpers.js";
 
 // End-to-end through the real runtime: the side ticker deals charges to a
 // landed House, and they survive a snapshot -> cold boot round trip.
@@ -67,5 +68,26 @@ describe("House Charges in the runtime", () => {
     choose("choose-3", [offered[0]!.id, offered[1]!.id]);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(seen.filter((event) => event.eventType === "COMMAND_REJECTED")).toHaveLength(2);
+  });
+
+  it("scores the crowning from a fresh pass, not a held state up to one tick old", () => {
+    let now = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([["p1", humanPlayer("p1")]]),
+      seedTiles: new Map(),
+      initialState: { tiles: [...buildChargeWorld().values()], activeLocks: [] }
+    });
+    runtime.tickSideTickers(now);
+    const charges = () => runtime.getPlayersForLeaderboard().find((player) => player.id === "p1")!.houseCharges!;
+    expect(Object.keys(charges().completeSince ?? {})).toHaveLength(0);
+    // The House garrisons the whole map just before the crowning, inside the ticker's throttle.
+    const tiles = (runtime as unknown as { state: { tiles: Map<string, DomainTileState> } }).state.tiles;
+    garrisonKeys(tiles, "p1", [...tiles.keys()]);
+    now = 2_000;
+    runtime.tickSideTickers(now);
+    expect(Object.keys(charges().completeSince ?? {})).toHaveLength(0);
+    runtime.tickSideTickers(now, true);
+    expect(Object.keys(charges().completeSince ?? {}).length).toBeGreaterThan(0);
   });
 });

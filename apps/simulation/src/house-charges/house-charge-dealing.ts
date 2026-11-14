@@ -2,8 +2,11 @@
 // charges"): one candidate per charge kind near the landing site, inside the
 // plan's distance bands and per-target holder caps, then up to
 // HOUSE_CHARGES_OFFERED of them, a rare relic charge always included when one
-// is available. Deterministic for a given world seed, player and holder
-// counts, so a deal lost to a crash between snapshots is dealt again the same.
+// is available. Seeded by world seed and player, so the same inputs give the
+// same deal; a redeal after a crash can still differ if holders or town
+// ownership changed in between (charges are snapshot state, like island names).
+// Charge ids are opaque (chargeIdFor): they reach the client, and a relic's
+// id must not carry its position before the beacon is found.
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
   HOUSE_CHARGES_KEPT,
@@ -68,6 +71,10 @@ const seededRandom = (seed: number): (() => number) => {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 };
+
+/** An opaque, stable charge id: the kind plus a hash of the player and target keys, never a position. */
+export const chargeIdFor = (playerId: string, kind: HouseCharge["kind"], targets: ReadonlyArray<{ key: string }>): string =>
+  `${kind}:${hashString(`${playerId}|${targets.map((target) => target.key).join("|")}`).toString(36)}`;
 
 const pick = <T>(random: () => number, items: readonly T[]): T | undefined => items[Math.floor(random() * items.length)];
 
@@ -147,7 +154,7 @@ const charterCandidate = (input: DealHouseChargesInput, random: () => number): H
   const targets = [townTarget(a, tiles), townTarget(b, tiles)];
   const midpoint = { x: Math.round((a.x + b.x) / 2), y: Math.round((a.y + b.y) / 2) };
   return {
-    id: `CHARTER:${targets[0]!.key}|${targets[1]!.key}`,
+    id: chargeIdFor(input.playerId, "CHARTER", targets),
     kind: "CHARTER",
     targets,
     searchCircle: searchCircleAround(random, midpoint, Math.max(HOUSE_CHARGE_SEARCH_RADIUS, Math.ceil(pairDistance / 2) + 3), input.world),
@@ -170,7 +177,7 @@ const seatCandidate = (input: DealHouseChargesInput, random: () => number): Hous
   const renown = (startTier === "SETTLEMENT" ? 2 : 1) + (chargeDistance(world, home, town) > 30 ? 1 : 0);
   const target = townTarget(town, tiles);
   return {
-    id: `SEAT:${target.key}`,
+    id: chargeIdFor(input.playerId, "SEAT", [target]),
     kind: "SEAT",
     targets: [target],
     searchCircle: searchCircleAround(random, town, HOUSE_CHARGE_SEARCH_RADIUS, world),
@@ -192,7 +199,7 @@ const surveyCandidate = (input: DealHouseChargesInput, random: () => number): Ho
     const renown = island.landTilesAtBuild <= 150 ? 1 : island.landTilesAtBuild <= 350 ? 2 : 3;
     const centre = { x: Math.round(island.geometry.x), y: Math.round(island.geometry.y) };
     options.push({
-      id: `SURVEY:${key}`,
+      id: chargeIdFor(input.playerId, "SURVEY", [{ key }]),
       kind: "SURVEY",
       targets: [{ key, name: world.islandNames.defaultNameFor(island), ...centre }],
       searchCircle: { x: centre.x, y: centre.y, radius: Math.max(HOUSE_CHARGE_SEARCH_RADIUS, Math.ceil(island.geometry.span / 2) + 2) },
@@ -214,7 +221,7 @@ const regionCandidate = (input: DealHouseChargesInput, random: () => number, kin
     if (nearestCell(world, region.cells, home).distance > HOUSE_CHARGE_REGION_MAX_DISTANCE * reach(input)) continue;
     const renown = kind === "TUNDRA" ? 3 : region.cells.length <= 120 ? 1 : region.cells.length <= 250 ? 2 : 3;
     options.push({
-      id: `${kind}:${key}`,
+      id: chargeIdFor(input.playerId, kind, [{ key }]),
       kind,
       targets: [{ key, name: world.regionName(region), ...region.centre }],
       searchCircle: searchCircleAround(random, region.centre, HOUSE_CHARGE_SEARCH_RADIUS + 2, world),
@@ -237,7 +244,7 @@ const relicCandidate = (input: DealHouseChargesInput, random: () => number): Hou
   if (!site) return undefined;
   const key = `relic:${site.key}`;
   return {
-    id: `RELIC:${key}`,
+    id: chargeIdFor(input.playerId, "RELIC", [{ key }]),
     kind: "RELIC",
     targets: [{ key, name: "A Concordance installation", x: site.x, y: site.y }],
     searchCircle: searchCircleAround(random, site, HOUSE_CHARGE_SEARCH_RADIUS, world),
