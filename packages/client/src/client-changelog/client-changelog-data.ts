@@ -1,15 +1,12 @@
-import { NATIVE_SOCIAL_SIGN_IN_ENTRY } from "./client-changelog-nov-10.js";
-import { READABLE_REALM_NAMES_ENTRY } from "./client-changelog-readable-realm-names.js";
-import { RELIC_REVEAL_ENTRY } from "./client-changelog-relic-reveal.js";
 import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
 import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_116 } from "./client-changelog-data-earlier-116.js";
-import { IMPERIAL_WARD_REMOVED_ENTRY } from "./client-changelog-imperial-ward-removed.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_117 } from "./client-changelog-data-earlier-117.js";
+import { SHOW_EMPIRE_ON_MAP_ENTRY } from "./client-changelog-show-empire-on-map.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
-import { NEXT_CONTEST_STARTING_ENTRY } from "./client-changelog-next-contest.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
@@ -84,7 +81,6 @@ import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
 import { MAP_LENS_CHANGELOG, MINIMAP_WORLD_EDGE_ENTRY, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
-import { OWNER_COLOURS_COLOUR_BLIND_ENTRY } from "./client-changelog-owner-colours-colour-blind.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
@@ -186,7 +182,6 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-earlier-106.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_112 } from "./client-changelog-data-earlier-112.js";
-import { MUSTER_DOCK_TRANSPORT_ENTRY } from "./client-changelog-muster-dock-transport.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -480,18 +475,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
   { ...RESOURCE_LENS_ENTRY, createdAt: 1794383695242, },
   { ...WAYSTATION_FORT_MODULE_ENTRY, createdAt: 1794394297385, },
-  { ...READABLE_REALM_NAMES_ENTRY, createdAt: 1794410558462, },
-  { ...RELIC_REVEAL_ENTRY, createdAt: 1794422720232, },
   { ...MINIMAP_WORLD_EDGE_ENTRY, createdAt: 1794411491316, },
-  { ...NEXT_CONTEST_STARTING_ENTRY, createdAt: 1794380743713, },
-  { ...NATIVE_SOCIAL_SIGN_IN_ENTRY, createdAt: 1794288128417, },
-  { ...MUSTER_DOCK_TRANSPORT_ENTRY, createdAt: 1794353510194, },
-  { ...OWNER_COLOURS_COLOUR_BLIND_ENTRY, createdAt: 1794561750842, },
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_113,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_114,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_115,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_116,
-  { ...IMPERIAL_WARD_REMOVED_ENTRY, createdAt: 1794590558028, },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_117,
+  { ...SHOW_EMPIRE_ON_MAP_ENTRY, createdAt: 1794656750720, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

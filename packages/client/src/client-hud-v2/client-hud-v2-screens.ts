@@ -24,6 +24,8 @@ import {
 } from "./client-hud-v2-context.js";
 import { dealFactsText, dealSkeletonHtml, diplomacyListHtml, diplomacyResponseMessage, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
+import { hasSeenEmpireTile, nearestSeenEmpireTile } from "../client-empire-map-focus/client-empire-map-focus.js";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { crestClosesProfile, profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { pendingTechCommissionId } from "../client-tech-commission/client-tech-commission.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
@@ -266,6 +268,7 @@ const renderProfile = (deps: HudV2Deps): void => {
     truceBreaks: self ? state.truceBreaksThisSeason : social === "loading" || social === undefined ? social : social.truceBreaksThisSeason,
     nameOf: (other) => nameOf(deps, other) || undefined,
     nowMs: Date.now(),
+    ...(self ? {} : { mapFocus: hasSeenEmpireTile({ tiles: state.tiles, discoveredTiles: state.discoveredTiles, ownerId: id, revision: state.tilesRevision }) ? "seen" : "unseen" }),
     ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] } } : {})
   }));
 };
@@ -314,6 +317,17 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
   const diplomacyWith = target.closest<HTMLElement>("[data-v2-profile-diplomacy]")?.dataset.v2ProfileDiplomacy;
   if (diplomacyWith) {
     openScreen(deps, "diplomacy", { diplomacyTarget: diplomacyWith });
+    return true;
+  }
+  const showOnMap = target.closest<HTMLElement>("[data-v2-profile-show-map]")?.dataset.v2ProfileShowMap;
+  if (showOnMap) {
+    const { state } = deps;
+    const tile = nearestSeenEmpireTile({ tiles: state.tiles, discoveredTiles: state.discoveredTiles, ownerId: showOnMap, from: { x: state.camX, y: state.camY }, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+    if (tile) {
+      closeScreen(deps, { toMap: true });
+      focusCamera(deps, tile.x, tile.y);
+      deps.renderHud();
+    }
     return true;
   }
   const lane = target.closest<HTMLElement>("[data-v2-manifest-lane]");
