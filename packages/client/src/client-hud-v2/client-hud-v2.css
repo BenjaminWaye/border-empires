@@ -214,6 +214,9 @@ body.hud-v2 #mini-map-wrap:has(.hud-v2-lens-menu) { z-index: 40; }
   position: absolute; left: calc(100% + 8px); top: 18px; display: grid; gap: 2px;
   min-width: 150px; padding: 6px; background: var(--v2-ink); border: 1px solid var(--v2-edge-strong);
 }
+.hud-v2-photo-btn { min-height: 32px; padding: 4px 10px; border: 1px solid var(--v2-line); background: transparent; color: var(--v2-soft); font: inherit; font-size: 12px; cursor: pointer; }
+.hud-v2-lens-menu .hud-v2-photo-btn { margin-top: 4px; text-align: left; }
+.v2c-map-head .hud-v2-photo-btn { flex: none; min-height: var(--v2c-touch, 44px); margin-left: auto; margin-right: 8px; color: var(--v2-gold); border-color: var(--v2-edge-strong); }
 .hud-v2-lens-item {
   display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 10px; border: 0; border-left: 2px solid transparent;
   background: transparent; color: var(--v2-soft); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
