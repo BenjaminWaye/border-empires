@@ -13,6 +13,7 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
       "Show on map takes you to a charge and marks it on the map: target towns and relics get guide rings, and a landmass, desert or tundra is outlined in gold, green where you garrison it and hatched where you still need to.",
       "When the winner is crowned, every House's charges are unsealed in a new House Charges tab of the season-end screen.",
       "Each charge you hold to the end becomes a collectible card, drawn from the shape you actually held. Your cards show in your profile under Charge Cards; the season winner's are foil.",
+      "Fulfilled charges also count in the galaxy: +1 Domain Weight each while you hold a Planet or Outpost, or +3 Influence on that Sector Contest's Stipend.",
       "If you lose a charge you were holding, you get a private alert with Show on map, even if it happened while you were away. Nobody else is told.",
       "Until you have explored a charge's target, rings mark the area to search instead. A relic charge only marks an area until you find the installation's beacon."
     ]

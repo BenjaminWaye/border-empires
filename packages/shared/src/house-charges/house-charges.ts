@@ -185,3 +185,18 @@ export const houseChargeChoiceError = (
   if (!keptIds.every((id) => state.offered.some((charge) => charge.id === id))) return "keep only charges you were offered";
   return undefined;
 };
+
+/** Galaxy reward (docs/house-charges-plan.md, "Rewards"): Domain Weight per fulfilled charge, for empires that hold territory. */
+export const HOUSE_CHARGE_DOMAIN_WEIGHT = 1;
+/** Extra Stipend Influence per charge held at the crowning, for players paid a Stipend (no territory). */
+export const HOUSE_CHARGE_STIPEND_INFLUENCE = 3;
+
+/** How many charges each House held at the crowning. */
+export const heldHouseChargeCounts = (houses: readonly SeasonHouseChargesSnapshot[] | undefined): Record<string, number> => {
+  const counts: Record<string, number> = {};
+  for (const house of houses ?? []) {
+    const held = house.charges.filter((charge) => charge.held).length;
+    if (held > 0) counts[house.playerId] = held;
+  }
+  return counts;
+};
