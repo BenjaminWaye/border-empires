@@ -65,3 +65,27 @@ describe("town capture card on a short phone", () => {
     expect(document.getElementById("town-capture-overlay")).not.toBeNull();
   });
 });
+
+// 2026-11-14 playtest: the Town Captured card popped up mid-deal and the draft was lost.
+describe("town capture card during a deal", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  it("waits for an open deal to close, then shows the latest capture", () => {
+    vi.useFakeTimers();
+    const deal = document.createElement("div");
+    deal.className = "diplomacy-trade-overlay";
+    document.body.appendChild(deal);
+    showTownCaptureOverlay(info({ townName: "First" }));
+    showTownCaptureOverlay(info({ townName: "Second" }));
+    vi.advanceTimersByTime(3_000);
+    expect(document.getElementById("town-capture-overlay")).toBeNull();
+    expect(deal.isConnected).toBe(true);
+    deal.remove();
+    vi.advanceTimersByTime(1_000);
+    expect(document.getElementById("town-capture-name")?.textContent).toBe("Second");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
