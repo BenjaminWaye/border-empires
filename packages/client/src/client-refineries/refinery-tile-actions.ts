@@ -27,8 +27,8 @@ export type RefineryActionDeps = {
   availability: (type: BuildableStructureType, eligible: boolean, reason: string, cost: string) => [boolean, string, string];
   /** The town a build here serves (the tile itself, or the town whose ring it is on); undefined off any ring. */
   townBuildSource?: Tile | undefined;
-  /** The tile already holds a structure, so a support building cannot go on it. */
-  supportPlacementBlocked?: boolean;
+  /** Why a support building cannot go here (a structure already on the tile, or no open plot by the town); undefined when it can. */
+  supportPlacementBlockedReason?: string | undefined;
   townHasSupportStructure?: (town: Tile | undefined, type: SupportTownStructureKey) => boolean;
 };
 
@@ -66,11 +66,11 @@ export const refineryBuildRows = (state: ActionState, deps: RefineryActionDeps):
     const options = refineryFieldOptions(state.tiles, state.me, type, townKey);
     const eligible = options.filter((option) => option.status === "eligible");
     const tech = techReason(state, type);
-    const reason = deps.supportPlacementBlocked ? "Tile already has structure"
+    const reason = deps.supportPlacementBlockedReason ? deps.supportPlacementBlockedReason
       : tech ?? (eligible.length === 0
         ? options.length > 0 ? `No free ${resource} field linked: ${options[0]!.reason ?? "all taken"}` : `No ${resource} field within ${REFINERY_REACH_LAND_TILES} land tiles of this town`
         : missingResourceSlotReason(state, type));
-    const available = !deps.supportPlacementBlocked && !tech && eligible.length > 0 && hasFreeResourceSlots(state, type);
+    const available = !deps.supportPlacementBlockedReason && !tech && eligible.length > 0 && hasFreeResourceSlots(state, type);
     const best = eligible.reduce((max, option) => Math.max(max, option.slotGain), 0);
     const effect = eligible.length > 0 ? `best field +${best} slots (+${eligible[0]!.perTileSlots} per garrisoned tile)` : `+${refineryPerTileSlots(false)} slots per garrisoned field tile`;
     rows.push(row(ACTION_ID_BY_TYPE[type], `Build ${structureDisplayName(type)}`,
@@ -81,9 +81,9 @@ export const refineryBuildRows = (state: ActionState, deps: RefineryActionDeps):
     const resource = BOOSTER_RESOURCE_NAME[type];
     const has = deps.townHasSupportStructure?.(town, type) ?? false;
     const tech = techReason(state, type);
-    const reason = deps.supportPlacementBlocked ? "Tile already has structure"
+    const reason = deps.supportPlacementBlockedReason ? deps.supportPlacementBlockedReason
       : has ? `This town already has a ${structureDisplayName(type)}` : tech ?? missingResourceSlotReason(state, type);
-    const available = !deps.supportPlacementBlocked && !has && !tech && hasFreeResourceSlots(state, type);
+    const available = !deps.supportPlacementBlockedReason && !has && !tech && hasFreeResourceSlots(state, type);
     rows.push(row(ACTION_ID_BY_TYPE[type], `Build ${structureDisplayName(type)}`,
       `One per town. Each tile this town's ${resource} refineries process gives +${refineryPerTileSlots(true)} slots instead of +${refineryPerTileSlots(false)}.`,
       deps.availability(type, available, reason ?? "Unavailable", costLine(state, deps, type, "+1 slot per processed tile"))));
