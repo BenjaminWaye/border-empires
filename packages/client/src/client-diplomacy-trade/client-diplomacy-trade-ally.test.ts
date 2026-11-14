@@ -25,4 +25,16 @@ describe("trade screen for an empire you're allied with", () => {
     expect(overlay().querySelector("[data-trade-allied]")).toBeNull();
     expect(overlay().querySelector("[data-trade-kind='alliance:0']")).not.toBeNull();
   });
+
+  // Review of #2777: countering an ally's truce offer must stay a truce
+  // counter, not silently become a coin gift with no treaty.
+  it("keeps the treaty when countering an ally's offer", () => {
+    const deps = diplomacyTradeDepsFor({ gold: 40, allies: ["ai-7"] }, vi.fn().mockReturnValue(true));
+    openDiplomacyTradeScreen(
+      { targetName: "Solveig", targetPlayerId: "ai-7", kind: "truce", durationHours: 24, counters: { kind: "truce", requestId: "r-1" } },
+      deps
+    );
+    expect(overlay().querySelector("[data-trade-allied]")).toBeNull();
+    expect(overlay().querySelector("[data-trade-deal]")?.textContent).toContain("Truce");
+  });
 });

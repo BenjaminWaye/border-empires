@@ -35,7 +35,8 @@ export const dealVerdictOverride = (treaty: DealTreaty, kind: TradeKind, terms: 
     return { tone: "neutral", text, canSend: false, sendLabel: "Send offer" };
   }
   if (!hasSupply(terms) && kind !== "gift") {
-    return { tone: "neutral", text: "Coin changes hands with a truce, an alliance or a resource supply. Add one to the deal.", canSend: false, sendLabel };
+    const text = allied ? "Coin changes hands with a resource supply. Add one to the deal." : "Coin changes hands with a truce, an alliance or a resource supply. Add one to the deal.";
+    return { tone: "neutral", text, canSend: false, sendLabel };
   }
   return undefined;
 };

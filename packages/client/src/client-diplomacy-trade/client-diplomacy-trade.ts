@@ -298,7 +298,8 @@ export const openDiplomacyTradeScreen = (
   const inTruce = running !== undefined && running.endsAt > now;
   const fits = (hours: 12 | 24): boolean => !inTruce || truceExtensionFits(running.startedAt, running.endsAt, hours, now);
   const durationHours: 12 | 24 = fits(input.durationHours) ? input.durationHours : 12;
-  const allied = deps.isAlly?.(input.targetPlayerId) ?? false;
+  // A counter keeps the offer's own treaty, so an ally's truce offer is never countered with a bare gift.
+  const allied = !input.counters && (deps.isAlly?.(input.targetPlayerId) ?? false);
   const requested: TradeSelection["kind"] = allied && (input.kind === "truce" || input.kind === "alliance") ? "trade" : input.kind === "truce" && !fits(durationHours) ? "alliance" : input.kind;
   const treaty: DealTreaty = requested === "truce" || requested === "alliance" ? requested : undefined;
   const capTitle = `A truce can last at most ${TRUCE_MAX_LIFETIME_MS / 3_600_000}h in total, extensions included.`;
