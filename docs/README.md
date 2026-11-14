@@ -40,6 +40,7 @@ remain authoritative for runtime behavior.
 | Rivers remake, river heads and river mountains (renderer + worldgen v11/v12) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
 | Tutorial guide for new accounts: research, chapters, renderer coverage | [`tutorial-guide-plan.md`](tutorial-guide-plan.md) |
 | HUD v2 on mobile: 4X UI research, phone layout and phased rollout (built; the default on phones) | [`hud-v2-mobile-plan.md`](hud-v2-mobile-plan.md) |
+| Explore: AFC scout drones replace Expand To on unexplored tiles (proposed) | [`explore-scout-plan.md`](explore-scout-plan.md) |
 | Stacking-building adjacency / industrial districts (proposed) | [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md) |
 | House Charges: secret map objectives held to game end, cards and galaxy rewards (proposed) | [`house-charges-plan.md`](house-charges-plan.md) |
 | Territory development: cut frontier materials, refineries in towns (proposed) | [`territory-development-plan.md`](territory-development-plan.md) |

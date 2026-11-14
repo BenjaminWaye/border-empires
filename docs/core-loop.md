@@ -148,6 +148,12 @@ gameplay changes.
   a 10-minute capture shock (see capture hold in `docs/game-mechanics.md`).
 - **Cost of content.** A new building type is cheap to add (models and art
   included). AI support for a new system is wanted but not required at launch.
+- **Pillar 1 dropped (2026-11-14).** "Territory is the unit, no unit pieces" is
+  no longer a pillar; muster flags already move across the map. The guardrail
+  kept from it: anything that moves runs on its own once ordered and needs no
+  babysitting between visits. First use: scout drones
+  (`docs/explore-scout-plan.md`, proposed). Pillar 1's text above stays until
+  that ships.
 - **Live seasons.** There are no active players at the moment, so removing
   content mid-season needs no migration plan for now.
 
