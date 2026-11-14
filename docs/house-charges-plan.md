@@ -1,6 +1,6 @@
 # House Charges: secret objectives held to game end
 
-Status: active proposal (Phases 1 and 2 built: dealing, the Charges panel and keep choice, map highlights, loss warnings, the season-end reveal, charge cards, the galaxy reward, AI pursuit and cross-water Charters; see the [gameplay reference](game-mechanics.md#house-charges). Phase 3 open: Renown in the final score, public titles and a Writ variant need owner decisions)
+Status: active proposal (Phases 1 and 2 built: dealing, the Charges panel and keep choice, map highlights, loss warnings, the season-end reveal, charge cards, the galaxy reward, AI pursuit and cross-water Charters; see the [gameplay reference](game-mechanics.md#house-charges). Phase 3 decided against for now: no Renown, no public titles, no Writ variant; see Decisions)
 Owner: game design (repository owner) decides scope and reward weights before implementation
 Last verified: 2026-11-13
 Replaces: none (on delivery, the rules move into [`game-mechanics.md`](game-mechanics.md) and the fiction into the [world bible](lore/galactic-lore.md))
@@ -324,17 +324,24 @@ These are design expectations, not measurements.
 - Charges introduce hidden information into a game that currently shows all
   standings. This is a deliberate change of principle.
 
+## Decisions (owner, 2026-11-14)
+
+- **No Renown in the final score.** Cards and the galaxy reward (Domain
+  Weight or a larger Stipend) are the reward; ranks and ratings are unchanged.
+- **No public titles** (live Longest Road, Royal Cartographer).
+- **No Writ variant for now.** Interesting, but it depends on the open canon
+  question about Writs (world bible §14) and belongs with a Court/revolt
+  feature rather than House Charges.
+- **Card art** is stored as a small per-card shape bitmap at crowning
+  (`house-charge-art.ts`), since the archive keeps no final map.
+- **Desert and tundra** charges use the proposed 75% garrison threshold.
+
 ## Open questions
 
-1. Impossible charges: void, or replaced with a new one?
-2. Garrison threshold for desert and tundra regions (75% proposed).
-3. Card art pipeline: the proposal draws cards in the client from archived
-   map data. Confirm the season archive keeps enough of the final map
-   (routes, outlines, biome regions) to do that, or store a small per-card
-   shape at crowning.
-4. Whether public titles carry an in-season perk.
-5. Renown weights, after measuring past seasons' score spread.
-6. Whether charges should be shown to allies automatically or only by choice.
+1. Impossible charges: void, or replaced with a new one? (Today a charge
+   whose target can no longer be completed simply cannot be held.)
+2. Whether charges should be shown to allies automatically or only by choice
+   (today: never shown to anyone before the crowning).
 
 ## Phasing
 
