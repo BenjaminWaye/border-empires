@@ -29,6 +29,8 @@ export type ProfileInput = {
   nowMs: number;
   /** Your own Attack/Defense sources; only set on your own profile, so rivals' strength never shows. */
   combat?: ProfileCombat;
+  /** Rivals only: whether you've ever seen one of their tiles, so "Show on map" has somewhere to go. */
+  mapFocus?: "seen" | "unseen";
 };
 
 const esc = (text: string): string =>
@@ -59,6 +61,11 @@ const heroHtml = (input: ProfileInput): string => {
   const diplomacy = input.relation.kind === "self" || input.id.startsWith("barbarian")
     ? ""
     : `<button type="button" class="v2p-action" data-v2-profile-diplomacy="${esc(input.id)}">Diplomacy ▸</button>`;
+  const showOnMap = input.mapFocus === "seen"
+    ? `<button type="button" class="v2p-action" data-v2-profile-show-map="${esc(input.id)}">Show on map</button>`
+    : input.mapFocus === "unseen"
+      ? `<button type="button" class="v2p-action" disabled>Not discovered yet</button>`
+      : "";
   return `<aside class="v2p-hero">
     <span class="v2p-crest" style="background:${esc(input.color)}" aria-hidden="true">${esc((input.name.trim()[0] ?? "?").toUpperCase())}</span>
     <h2 class="v2p-name">${esc(input.name)}</h2>
@@ -66,6 +73,7 @@ const heroHtml = (input: ProfileInput): string => {
     ${rank}
     ${badges ? `<div class="v2p-badges">${badges}</div>` : ""}
     ${diplomacy}
+    ${showOnMap}
   </aside>`;
 };
 
