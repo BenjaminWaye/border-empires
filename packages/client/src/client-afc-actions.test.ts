@@ -73,3 +73,21 @@ describe("paid AFC recovery after losing the last one", () => {
     expect(isValidAfcLandingTile(state, frontier)).toBe(false);
   });
 });
+
+describe("Build AFC on an owned AFC", () => {
+  const richState = (tiles: Tile[]): ClientState => ({ me: "me", gold: 10_000, tiles: new Map(tiles.map((tile) => [`${tile.x},${tile.y}`, tile])) }) as unknown as ClientState;
+  const withModules = (count: number): Tile => afcTile({ modules: ["a", "b", "c", "d", "e", "f", "g", "h"].slice(0, count) });
+
+  // Owner request 2026-11-14: Build AFC showed on every AFC, even an empty one; it is only offered from 6 docked modules.
+  it("is hidden until the AFC has 6 modules docked", () => {
+    const five = withModules(5);
+    expect(buildAfcActionForTile(richState([five]), five, availability)).toBeUndefined();
+    const six = withModules(6);
+    expect(buildAfcActionForTile(richState([six]), six, availability)).toMatchObject({ id: "build_afc", label: "Build AFC", disabled: false });
+  });
+
+  it("does not count modules still in transit", () => {
+    const tile = afcTile({ modules: ["a", "b", "c", "d", "e"], incomingModules: [{ techId: "f", arrivesAt: 1 }] });
+    expect(buildAfcActionForTile(richState([tile]), tile, availability)).toBeUndefined();
+  });
+});

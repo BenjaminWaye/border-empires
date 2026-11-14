@@ -1,4 +1,4 @@
-import { AFC_MODULE_CALL_DOWN_MS, AFC_MODULE_SLOTS, afcBuildCost, afcReplacementCost, isAfcFootprintClear } from "@border-empires/shared";
+import { AFC_BUILD_MIN_MODULES, AFC_MODULE_CALL_DOWN_MS, AFC_MODULE_SLOTS, afcBuildCost, afcReplacementCost, isAfcFootprintClear } from "@border-empires/shared";
 import { afcIsFull } from "./client-afc-slot-notices/client-afc-slot-notices.js";
 import { formatCooldownShort } from "./client-app-runtime-utils.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -24,7 +24,7 @@ export const afcModuleActionsForTile = (state: ClientState, tile: Tile, availabi
 export const ownedAfcCount = (state: Pick<ClientState, "tiles" | "me">): number =>
   [...state.tiles.values()].filter((candidate) => candidate.ownerId === state.me && candidate.afc?.ownerId === state.me).length;
 
-/** Replacing a lost AFC uses the campaign-wide supply quote. */
+/** Replacing a lost AFC uses the campaign-wide supply quote; another AFC needs AFC_BUILD_MIN_MODULES docked on this one. */
 export const buildAfcActionForTile = (state: ClientState, tile: Tile, availability: Availability): TileActionDef | undefined => {
   if (tile.ownerId !== state.me) return undefined;
   const owned = ownedAfcCount(state);
@@ -34,6 +34,8 @@ export const buildAfcActionForTile = (state: ClientState, tile: Tile, availabili
     return { id: "build_afc", label: pending ? "AFC inbound" : "Call down replacement AFC", ...availability(!pending && state.gold >= cost, pending ? "AFC delivery in progress" : state.gold < cost ? `Need ${cost} gold` : "", `${cost} gold · 60-second landing`) };
   }
   if (tile.afc?.status !== "active") return undefined;
+  // A new AFC is for more module space, so it is offered once this one is nearly full.
+  if ((tile.afc.modules?.length ?? 0) < AFC_BUILD_MIN_MODULES) return undefined;
   const cost = afcBuildCost(owned);
   return { id: "build_afc", label: "Build AFC", ...availability(state.gold >= cost, state.gold >= cost ? "" : `Need ${cost} coin`, `${cost} Coin`) };
 };

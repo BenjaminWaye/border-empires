@@ -317,8 +317,13 @@ building another AFC is also how a player gets more module slots.
    `docs/manifest-afc-module-delivery-animation-plan.md`, "AFC drop")
    plays on that tile.
 
-No availability gate: the button is offered any time the player owns at
-least one AFC and can afford it. It is not tied to modules docked.
+Module gate (client, 2026-11-14): the button is offered only on an AFC with
+at least `AFC_BUILD_MIN_MODULES` (6) modules docked; modules still in transit
+don't count. A new AFC is for more module space, so it appears once the one
+you have is nearly full. The server does not check this. Below 6 modules the
+AFC's tile bar leads with **AFC upgrades** and **Modules ▸** instead
+(`packages/client/src/client-hud-v2/client-hud-v2-action-bar.ts`). The free
+or paid replacement after losing every AFC is not gated.
 
 #### Valid landing tile
 
