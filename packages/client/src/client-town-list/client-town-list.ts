@@ -51,8 +51,9 @@ const finiteOrZero = (value: number | undefined): number => (typeof value === "n
 // and it is only cleared by a tile update, not by the town summary that carries the new income. That left
 // every town at 0.0 here while its own screen showed +21/day (playtest day 1). Docks keep the server's rate:
 // only it knows their link bonuses.
+// A partial town summary without goldPerMinute derives nothing; keep the last known rate then instead of 0.
 const townCoinPerMinute = (tile: Tile): number =>
-  finiteOrZero(tile.dockId && tile.yieldRate ? tile.yieldRate.goldPerMinute : deriveTileYieldRate(tile)?.goldPerMinute ?? 0);
+  finiteOrZero(tile.dockId && tile.yieldRate ? tile.yieldRate.goldPerMinute : deriveTileYieldRate(tile)?.goldPerMinute ?? tile.yieldRate?.goldPerMinute);
 
 /** Shared by both HUDs' town lists, so the order carries over between them. */
 export const toggleTownListSort = (key: TownListSortKey): void => {

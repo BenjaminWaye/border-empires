@@ -87,7 +87,7 @@ describe("town list", () => {
     expect(html).not.toContain("Enemy Keep");
   });
 
-  it("shows the same gold as the map label, including sabotage and docks", () => {
+  it("applies sabotage and keeps the server's dock rate", () => {
     const sabotaged = townTile(1, "Ashford", 2, 4000, { sabotage: { ownerId: "rival", endsAt: Date.now() + 60_000, outputMultiplier: 0.5 } });
     expect(rowsOf(mapOf([sabotaged]))[0]?.goldPerMinute).toBe(1);
     const dock = townTile(2, "Brimvale", 2, 4000, { dockId: "d1", yieldRate: { goldPerMinute: 3 } });
@@ -101,6 +101,12 @@ describe("town list", () => {
     const stale = townTile(1, "Ashford", 21 / 1440, 4000, { yieldRate: { goldPerMinute: 0 } });
     expect(rowsOf(mapOf([stale]))[0]?.goldPerMinute).toBeCloseTo(21 / 1440, 4);
     expect(townListCardHtml(mapOf([stale]), "me")).toContain(">21.0<");
+  });
+
+  it("keeps the last known rate while a partial town summary lacks goldPerMinute", () => {
+    const partial = townTile(1, "Ashford", 0, 4000, { yieldRate: { goldPerMinute: 2 } });
+    delete (partial.town as { goldPerMinute?: number }).goldPerMinute;
+    expect(rowsOf(mapOf([partial]))[0]?.goldPerMinute).toBe(2);
   });
 
   it("reads missing economy fields as zero and fed instead of NaN and unfed", () => {
