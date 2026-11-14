@@ -25,16 +25,29 @@ const swallow = (event: Event): void => {
   event.stopImmediatePropagation();
 };
 
-const onPointerDown = (event: Event): void => {
-  const pointer = event as PointerEvent;
+// Only the map (a canvas: 2D or 3D renderer) is guarded; HUD buttons under or near the old card keep working.
+const onMap = (event: Event): boolean => typeof HTMLCanvasElement !== "undefined" && event.target instanceof HTMLCanvasElement;
+
+const startsGhostGesture = (event: Event, x: number, y: number): void => {
   const now = Date.now();
-  if (!isCaptureCardGhostTap(pointer.clientX, pointer.clientY, now)) return;
+  if (!onMap(event) || !isCaptureCardGhostTap(x, y, now)) return;
   gestureSwallowUntil = now + CAPTURE_CARD_GHOST_TAP_MS;
   swallow(event);
 };
 
+const onPointerDown = (event: Event): void => {
+  const pointer = event as PointerEvent;
+  startsGhostGesture(event, pointer.clientX, pointer.clientY);
+};
+
+// Phones: the map selects on touchstart/touchend, not on pointer events, so the touch itself must be swallowed.
+const onTouchStart = (event: Event): void => {
+  const touch = (event as TouchEvent).changedTouches?.[0];
+  if (touch) startsGhostGesture(event, touch.clientX, touch.clientY);
+};
+
 const onGestureRest = (event: Event): void => {
-  if (Date.now() <= gestureSwallowUntil) swallow(event);
+  if (onMap(event) && Date.now() <= gestureSwallowUntil) swallow(event);
 };
 
 const install = (doc: Document): void => {
@@ -42,8 +55,16 @@ const install = (doc: Document): void => {
   installedOn = doc;
   // Capture phase on the document runs before the map's own listeners.
   doc.addEventListener("pointerdown", onPointerDown, true);
+  doc.addEventListener("touchstart", onTouchStart, { capture: true, passive: false });
   doc.addEventListener("pointerup", onGestureRest, true);
+  doc.addEventListener("touchend", onGestureRest, { capture: true, passive: false });
   doc.addEventListener("click", onGestureRest, true);
+};
+
+/** Call when the card shows again: a new card's own buttons must never be guarded. */
+export const clearCaptureCardGhostTap = (): void => {
+  hidden = undefined;
+  gestureSwallowUntil = 0;
 };
 
 /** Call when the card closes on its own (not on its ✕), with the area it covered. */
@@ -53,7 +74,4 @@ export const noteCaptureCardAutoHidden = (rect: Rect, nowMs: number, doc: Docume
   if (doc) install(doc);
 };
 
-export const resetCaptureCardGhostTapForTests = (): void => {
-  hidden = undefined;
-  gestureSwallowUntil = 0;
-};
+export const resetCaptureCardGhostTapForTests = clearCaptureCardGhostTap;
