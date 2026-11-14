@@ -1,6 +1,6 @@
 # House Charges: secret objectives held to game end
 
-Status: active proposal (Phase 1 in progress: dealing, held state, crowning results and the Charges panel are live; see the [gameplay reference](game-mechanics.md#house-charges))
+Status: active proposal (Phases 1 and 2 built: dealing, the Charges panel and keep choice, map highlights, loss warnings, the season-end reveal, charge cards, the galaxy reward, AI pursuit and cross-water Charters; see the [gameplay reference](game-mechanics.md#house-charges). Phase 3 open: Renown in the final score, public titles and a Writ variant need owner decisions)
 Owner: game design (repository owner) decides scope and reward weights before implementation
 Last verified: 2026-11-13
 Replaces: none (on delivery, the rules move into [`game-mechanics.md`](game-mechanics.md) and the fiction into the [world bible](lore/galactic-lore.md))

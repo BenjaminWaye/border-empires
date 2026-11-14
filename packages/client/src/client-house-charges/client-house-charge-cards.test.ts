@@ -29,10 +29,11 @@ describe("House Charge cards", () => {
   it("renders a trading card with name, real-shape art, type line, rule, stats and footer", () => {
     const html = houseChargeCardHtml(card());
     expect(html).toContain("Road of Vell and Harrowmere");
-    expect(html).toContain("House Charge — Charter of Passage");
+    expect(html).toContain("Charter of Passage</span>");
+    expect(html).toContain("✦ 12");
     expect(html).toContain("Connected Vell and Harrowmere with an unbroken road");
     expect(html).toContain("22 / 61");
-    expect(html).toContain("14/212 · Contest 12 · House Alden");
+    expect(html).toContain("14/212 · House Alden");
     expect(html.match(/<rect /g)?.length).toBeGreaterThan(3);
     expect(html).not.toContain("is-foil");
   });

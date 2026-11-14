@@ -93,9 +93,9 @@ export const houseChargeCardHtml = (card: HouseChargeCardView): string => {
     <div class="hc-frame">
       <div class="hc-bar"><span class="hc-name">${esc(card.title)}</span><span class="hc-pips" aria-label="Renown ${card.renown}">${pips}</span></div>
       <div class="hc-art">${houseChargeCardArtSvg(card)}</div>
-      <div class="hc-bar hc-type"><span>House Charge — ${HOUSE_CHARGE_KIND_LABEL[card.kind]}</span><span class="hc-set" title="${card.rarity.toLowerCase()}">✦</span></div>
+      <div class="hc-bar hc-type"><span>${HOUSE_CHARGE_KIND_LABEL[card.kind]}</span><span class="hc-set" title="Contest ${card.seasonSequence} · ${card.rarity.toLowerCase()}">✦ ${card.seasonSequence}</span></div>
       <div class="hc-text"><p>${esc(houseChargeCardRule(card))}</p><p class="hc-flavour">"${esc(flavourFor(card))}"</p></div>
-      <div class="hc-footer">${card.collectorNumber}/${card.collectorTotal} · Contest ${card.seasonSequence} · ${esc(card.playerName)}</div>
+      <div class="hc-footer">${card.collectorNumber}/${card.collectorTotal} · ${esc(card.playerName)}</div>
     </div>
     <div class="hc-stats" title="Size / hours held">${esc(size)} / ${card.hoursHeld}</div>
   </article>`;
