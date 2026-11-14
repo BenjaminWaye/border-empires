@@ -29,6 +29,7 @@ import { ensureClientCommandEnvelope } from "./client-command-envelope/client-co
 import { clearMusterTransitForAttack } from "./client-muster-transit/client-muster-transit.js";
 import { handleMarchPickClick } from "./client-march-origin-picking/client-march-origin-picking.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
+import { dispatchSimpleTileCommand } from "./client-abandon-territory-confirm/client-abandon-territory-confirm.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
@@ -1252,9 +1253,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
     }
     dispatchMusterTileAction(actionId, selected, { state, sendGameMessage, pushFeed, renderHud });
-    if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
-    if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
-    if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
+    dispatchSimpleTileCommand(actionId, selected, sendGameMessage);
     if (actionId === "diplomacy" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
       openDiplomacyForPlayer(state, selected.ownerId);
       renderHud();
