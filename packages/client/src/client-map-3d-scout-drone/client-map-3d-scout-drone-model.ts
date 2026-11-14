@@ -1,122 +1,158 @@
 import {
   AdditiveBlending,
-  BoxGeometry,
-  CylinderGeometry,
+  Color,
   DoubleSide,
   Group,
   Mesh,
   MeshBasicMaterial,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   SphereGeometry,
-  TorusGeometry,
+  Sprite,
+  SpriteMaterial,
   type BufferGeometry,
-  type Material
+  type Material,
+  type Texture
 } from "three";
+import { applyBuildingEnvMap } from "../client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import {
+  SCOUT_ANTENNA_TIP,
+  SCOUT_BELLY_LIGHT,
+  SCOUT_DUCT_INNER,
+  SCOUT_GIMBAL,
+  SCOUT_TAIL_LIGHT,
+  buildScoutAirframe,
+  buildScoutGimbal,
+  buildScoutRotorBlades,
+  buildScoutRotorDisc,
+  scoutRotorCentres
+} from "./client-map-3d-scout-drone-geometry.js";
+import { makeGlowTexture, makeRotorBlurTexture } from "./client-map-3d-scout-drone-textures.js";
 
-// The scout drone's body (docs/explore-scout-plan.md): one of the AFC's courier drones
-// (client-map-3d-construction/client-map-3d-construction-drone-draw.ts) refitted with sensors
-// instead of a winch. Same family look -- a blackened-steel hull on four aged-brass arms ending in
-// ducted fans, a cyan belly light, white and red nav lights -- but a longer, slimmer hull with a
-// glowing sensor lens under the nose and a short antenna mast. Built drone-local with the nose
-// toward +Z and the hull centre at the origin; the overlay (client-map-3d-scout-drone-overlay.ts)
-// scales, places, yaws and leans it every frame.
+// The scout drone (docs/explore-scout-plan.md): one of the AFC's courier drones refitted for
+// reconnaissance. Same family as the courier (client-map-3d-construction/): blackened steel,
+// aged bronze, cyan lights -- but a sculpted, lathe-turned fuselage with a glass sensor bay and
+// smoked nose dome, ring-wing ducts with rounded intake lips, tapered struts, motor pods, a V-tail
+// and a sensor gimbal under the nose. Metal uses the map's building environment map, as the
+// buildings do, so it picks up the same reflections. The overlay
+// (client-map-3d-scout-drone-overlay.ts) poses it every frame through the handles returned here.
 
-export const SCOUT_DRONE_ROTORS = 4;
-const ROTOR_REACH = 0.19;
-const DUCT_RADIUS = 0.075;
-const HULL = { width: 0.12, height: 0.06, length: 0.3 } as const;
+const STEEL = "#20252c";
+const BRONZE = "#b48a4c";
+const CYAN = new Color("#4fd8ff");
+const NAV_RED = new Color("#ff3b26");
+const NAV_GREEN = new Color("#3dff8a");
+const STROBE = new Color("#fff4e0");
 
-const BRASS = "#a8844a";
-const STEEL = "#2a3038";
-const SENSOR_CYAN = "#4fd8ff";
+export type ScoutLight = { readonly glow: Sprite; readonly material: SpriteMaterial; readonly base: Color; readonly size: number };
 
 export type ScoutDroneModel = {
   readonly root: Group;
-  /** The four fan rotors, spun by the overlay (neighbours counter-rotate). */
-  readonly rotors: readonly Group[];
-  /** Belly light and sensor lens materials, pulsed by the overlay. */
-  readonly sensorGlow: MeshBasicMaterial;
-  /** The blinking red tail light. */
-  readonly tailLight: Mesh;
+  /** Each rotor: its blade group (spun) and the blur disc's material (faded in with speed). */
+  readonly rotors: ReadonlyArray<{ readonly blades: Mesh; readonly disc: MeshBasicMaterial }>;
+  /** Yaws to pan the sensor; its child `gimbalTilt` pitches it toward the ground. */
+  readonly gimbalPan: Group;
+  readonly gimbalTilt: Group;
+  readonly lens: MeshStandardMaterial;
+  readonly lights: { readonly lens: ScoutLight; readonly belly: ScoutLight; readonly navLeft: ScoutLight; readonly navRight: ScoutLight; readonly strobe: ScoutLight; readonly antenna: ScoutLight };
+  /** Drone-local positions of the two nav lights, for the light trails. */
+  readonly navLeftLocal: { x: number; y: number; z: number };
+  readonly navRightLocal: { x: number; y: number; z: number };
   readonly dispose: () => void;
 };
 
-export const createScoutDroneModel = (): ScoutDroneModel => {
+export const createScoutDroneModel = (envMap?: Texture): ScoutDroneModel => {
   const geometries: BufferGeometry[] = [];
   const materials: Material[] = [];
-  const geo = <T extends BufferGeometry>(g: T): T => {
-    geometries.push(g);
-    return g;
-  };
-  const mat = <T extends Material>(m: T): T => {
+  const keep = <T extends Material>(m: T): T => {
     materials.push(m);
     return m;
   };
-  const hullMaterial = mat(new MeshStandardMaterial({ color: STEEL, roughness: 0.45, metalness: 0.7, flatShading: true }));
-  const brassMaterial = mat(new MeshStandardMaterial({ color: BRASS, roughness: 0.4, metalness: 0.75, flatShading: true, side: DoubleSide }));
-  const sensorGlow = mat(new MeshBasicMaterial({ toneMapped: false, color: SENSOR_CYAN }));
-  const bladeMaterial = mat(new MeshBasicMaterial({ toneMapped: false, color: "#9fe9ff", transparent: true, opacity: 0.35, blending: AdditiveBlending, depthWrite: false }));
-  const navWhite = mat(new MeshBasicMaterial({ toneMapped: false, color: "#fff3d9" }));
-  const navRed = mat(new MeshBasicMaterial({ toneMapped: false, color: "#ff3a24" }));
+  const steel = keep(new MeshPhysicalMaterial({ color: STEEL, metalness: 0.82, roughness: 0.34, clearcoat: 0.55, clearcoatRoughness: 0.22 }));
+  const bronze = keep(new MeshStandardMaterial({ color: BRONZE, metalness: 0.92, roughness: 0.3 }));
+  const glass = keep(new MeshPhysicalMaterial({ color: "#09161d", metalness: 0.15, roughness: 0.06, clearcoat: 1, clearcoatRoughness: 0.04, emissive: "#0c3a48", emissiveIntensity: 0.55 }));
+  const bladeMaterial = keep(new MeshStandardMaterial({ color: "#14181d", metalness: 0.5, roughness: 0.45, side: DoubleSide }));
+  const lens = keep(new MeshStandardMaterial({ color: "#041a22", emissive: CYAN, emissiveIntensity: 2.6, metalness: 0.2, roughness: 0.2 }));
+  for (const m of [steel, bronze, glass, bladeMaterial]) applyBuildingEnvMap(m, envMap);
 
   const root = new Group();
   root.name = "scout-drone";
-  const add = (mesh: Mesh, x: number, y: number, z: number): Mesh => {
+  const airframe = buildScoutAirframe();
+  geometries.push(airframe.steel, airframe.bronze, airframe.glass);
+  root.add(new Mesh(airframe.steel, steel), new Mesh(airframe.bronze, bronze), new Mesh(airframe.glass, glass));
+
+  // Rotors: blades for low speed (spin-up on launch, spin-down on landing), a blur disc at speed.
+  const glowTexture = makeGlowTexture();
+  const blurTexture = makeRotorBlurTexture();
+  const bladeGeometry = buildScoutRotorBlades();
+  const discGeometry = buildScoutRotorDisc();
+  geometries.push(bladeGeometry, discGeometry);
+  const centres = scoutRotorCentres();
+  const rotors = centres.map(({ x, z }) => {
+    const blades = new Mesh(bladeGeometry, bladeMaterial);
+    blades.position.set(x, 0.016, z);
+    const discMaterial = keep(new MeshBasicMaterial({ toneMapped: false, color: "#8fa6b4", map: blurTexture, transparent: true, opacity: 0, depthWrite: false, side: DoubleSide }));
+    const disc = new Mesh(discGeometry, discMaterial);
+    disc.position.set(x, 0.018, z);
+    disc.renderOrder = 1;
+    root.add(blades, disc);
+    return { blades, disc: discMaterial };
+  });
+
+  // The sensor gimbal under the nose.
+  const gimbal = buildScoutGimbal();
+  geometries.push(gimbal.yoke, gimbal.ball, gimbal.lens);
+  const gimbalPan = new Group();
+  gimbalPan.position.set(0, SCOUT_GIMBAL.y, SCOUT_GIMBAL.z);
+  gimbalPan.add(new Mesh(gimbal.yoke, bronze));
+  const gimbalTilt = new Group();
+  gimbalTilt.add(new Mesh(gimbal.ball, steel), new Mesh(gimbal.lens, lens));
+  gimbalPan.add(gimbalTilt);
+  root.add(gimbalPan);
+
+  // Lights: a small emissive bead each, plus an additive glow sprite that blooms around it.
+  const bead = new SphereGeometry(1, 10, 8);
+  geometries.push(bead);
+  const light = (x: number, y: number, z: number, color: Color, size: number, beadSize: number, parent: Group = root): ScoutLight => {
+    const beadMaterial = keep(new MeshStandardMaterial({ color: "#000000", emissive: color, emissiveIntensity: 3 }));
+    const mesh = new Mesh(bead, beadMaterial);
     mesh.position.set(x, y, z);
-    root.add(mesh);
-    return mesh;
+    mesh.scale.setScalar(beadSize);
+    const material = keep(new SpriteMaterial({ toneMapped: false, map: glowTexture, color: color.clone(), transparent: true, blending: AdditiveBlending, depthWrite: false }));
+    const glow = new Sprite(material);
+    glow.position.set(x, y, z);
+    glow.scale.setScalar(size);
+    parent.add(mesh, glow);
+    return { glow, material, base: color, size };
   };
-
-  // Hull: a long box with a tapered nose cone and a dorsal spine.
-  add(new Mesh(geo(new BoxGeometry(HULL.width, HULL.height, HULL.length)), hullMaterial), 0, 0, 0);
-  const nose = add(new Mesh(geo(new CylinderGeometry(0.012, HULL.width * 0.5, 0.09, 6)), hullMaterial), 0, 0, HULL.length / 2 + 0.045);
-  nose.rotation.x = Math.PI / 2;
-  add(new Mesh(geo(new BoxGeometry(0.035, 0.022, HULL.length * 0.7)), brassMaterial), 0, HULL.height / 2 + 0.011, -0.02);
-  // Antenna mast with a white tip.
-  add(new Mesh(geo(new CylinderGeometry(0.004, 0.004, 0.09, 4)), brassMaterial), 0, HULL.height / 2 + 0.065, -HULL.length * 0.32);
-  add(new Mesh(geo(new SphereGeometry(0.009, 6, 4)), navWhite), 0, HULL.height / 2 + 0.11, -HULL.length * 0.32);
-  // Sensor turret under the nose: a brass collar around a glowing cyan lens.
-  add(new Mesh(geo(new CylinderGeometry(0.03, 0.034, 0.025, 8)), brassMaterial), 0, -HULL.height / 2 - 0.012, HULL.length * 0.28);
-  add(new Mesh(geo(new SphereGeometry(0.024, 10, 6)), sensorGlow), 0, -HULL.height / 2 - 0.028, HULL.length * 0.28);
-  // Belly light and nav lights.
-  add(new Mesh(geo(new SphereGeometry(0.014, 6, 4)), sensorGlow), 0, -HULL.height / 2 - 0.004, -0.04);
-  add(new Mesh(geo(new SphereGeometry(0.01, 6, 4)), navWhite), 0, 0, HULL.length / 2 + 0.092);
-  const tailLight = add(new Mesh(geo(new SphereGeometry(0.012, 6, 4)), navRed), 0, 0.012, -HULL.length / 2 - 0.006);
-
-  // Four brass arms to four ducted fans.
-  const armGeometry = geo(new BoxGeometry(0.022, 0.016, ROTOR_REACH));
-  const ductGeometry = geo(new TorusGeometry(DUCT_RADIUS, 0.012, 6, 18));
-  const hubGeometry = geo(new CylinderGeometry(0.014, 0.014, 0.03, 6));
-  const bladeGeometry = geo(new BoxGeometry(DUCT_RADIUS * 1.75, 0.004, 0.018));
-  const rotors: Group[] = [];
-  for (let k = 0; k < SCOUT_DRONE_ROTORS; k += 1) {
-    const angle = Math.PI / 4 + (k * Math.PI) / 2;
-    const ax = Math.sin(angle) * ROTOR_REACH;
-    const az = Math.cos(angle) * ROTOR_REACH;
-    const arm = add(new Mesh(armGeometry, brassMaterial), ax / 2, 0.006, az / 2);
-    arm.rotation.y = angle;
-    const duct = add(new Mesh(ductGeometry, brassMaterial), ax, 0.014, az);
-    duct.rotation.x = Math.PI / 2;
-    add(new Mesh(hubGeometry, hullMaterial), ax, 0.01, az);
-    const rotor = new Group();
-    rotor.position.set(ax, 0.022, az);
-    for (let b = 0; b < 2; b += 1) {
-      const blade = new Mesh(bladeGeometry, bladeMaterial);
-      blade.rotation.y = (b * Math.PI) / 2;
-      rotor.add(blade);
-    }
-    root.add(rotor);
-    rotors.push(rotor);
-  }
+  const tipOffset = SCOUT_DUCT_INNER + 0.02;
+  const frontLeft = centres[1]!;
+  const frontRight = centres[0]!;
+  const navLeftLocal = { x: frontLeft.x + Math.sin(frontLeft.angle) * tipOffset, y: 0.02, z: frontLeft.z + Math.cos(frontLeft.angle) * tipOffset };
+  const navRightLocal = { x: frontRight.x + Math.sin(frontRight.angle) * tipOffset, y: 0.02, z: frontRight.z + Math.cos(frontRight.angle) * tipOffset };
+  const lights = {
+    lens: light(0, 0, 0.024, CYAN, 0.07, 0.004, gimbalTilt),
+    belly: light(0, SCOUT_BELLY_LIGHT.y, SCOUT_BELLY_LIGHT.z, CYAN, 0.09, 0.008),
+    navLeft: light(navLeftLocal.x, navLeftLocal.y, navLeftLocal.z, NAV_RED, 0.07, 0.006),
+    navRight: light(navRightLocal.x, navRightLocal.y, navRightLocal.z, NAV_GREEN, 0.07, 0.006),
+    strobe: light(0, SCOUT_TAIL_LIGHT.y, SCOUT_TAIL_LIGHT.z, STROBE, 0.12, 0.006),
+    antenna: light(0, SCOUT_ANTENNA_TIP.y, SCOUT_ANTENNA_TIP.z, NAV_RED, 0.05, 0.004)
+  };
 
   return {
     root,
     rotors,
-    sensorGlow,
-    tailLight,
+    gimbalPan,
+    gimbalTilt,
+    lens,
+    lights,
+    navLeftLocal,
+    navRightLocal,
     dispose: () => {
       for (const g of geometries) g.dispose();
       for (const m of materials) m.dispose();
+      glowTexture?.dispose();
+      blurTexture?.dispose();
     }
   };
 };

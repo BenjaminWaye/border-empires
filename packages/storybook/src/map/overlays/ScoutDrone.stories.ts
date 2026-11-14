@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, type Material } from "three";
+import { ACESFilmicToneMapping, Mesh, MeshBasicMaterial, MeshStandardMaterial, PMREMGenerator, PlaneGeometry, type Material } from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { planScoutDroneFlight, scoutDroneStepIndexAt, SCOUT_DRONE_VISION_RADIUS, type ScoutDroneFlight } from "@border-empires/shared";
-import { createScoutDroneOverlay, syncScoutDroneOverlayFrame } from "@client/client-map-3d-scout-drone/client-map-3d-scout-drone-overlay.js";
+import { createScoutDroneOverlay, type ScoutDroneScenePoint } from "@client/client-map-3d-scout-drone/client-map-3d-scout-drone-overlay.js";
+import { createScoutDronePose, scoutDronePoseAt } from "@client/client-map-3d-scout-drone/client-map-3d-scout-drone-pose.js";
 import { createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
 import { addStoryAfc } from "../../fixtures/construction-afc.js";
 
@@ -12,7 +14,7 @@ import { addStoryAfc } from "../../fixtures/construction-afc.js";
 // drone, its scan cone, vision ring and dashed route are the real overlay
 // (client-map-3d-scout-drone/). `progress` scrubs the flight; `play` runs it 20x faster than the
 // game.
-type Args = { progress: number; play: boolean; follow: boolean; cameraDistance: number; cameraTilt: number };
+type Args = { progress: number; atSeconds: number; play: boolean; follow: boolean; cameraDistance: number; cameraTilt: number; cameraSide: number };
 
 const GRID_W = 30;
 const GRID_H = 16;
@@ -36,6 +38,11 @@ const storyFlight = (): ScoutDroneFlight =>
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: args.cameraTilt, background: "#0d1218", bloom: true, width: 1280, height: 720 });
+  // The game's look: filmic tone mapping and a room environment for the metal to reflect.
+  stage.renderer.toneMapping = ACESFilmicToneMapping;
+  stage.renderer.toneMappingExposure = 1.2;
+  const pmrem = new PMREMGenerator(stage.renderer);
+  const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   const flight = storyFlight();
   const duration = flight.landsAt - flight.launchedAt;
 
@@ -85,8 +92,13 @@ const render = (args: Args): HTMLElement => {
   };
 
   const afc = addStoryAfc(stage.scene, { x: sceneX(AFC_TILE.x), z: sceneZ(AFC_TILE.y) });
-  const overlay = createScoutDroneOverlay(stage.scene);
-  const sceneFor = (x: number, y: number) => ({ sceneX: sceneX(x), sceneZ: sceneZ(y), surfaceY: 0 });
+  const sceneFor = (x: number, y: number, out: ScoutDroneScenePoint): void => {
+    out.sceneX = sceneX(x);
+    out.sceneZ = sceneZ(y);
+    out.surfaceY = 0;
+  };
+  const overlay = createScoutDroneOverlay(stage.scene, { world: WORLD, sceneFor, envMap, camera: stage.camera });
+  const pose = createScoutDronePose();
 
   const label = document.createElement("div");
   label.style.cssText = "position:absolute;top:12px;left:12px;z-index:10;color:#d8f4ff;font:700 13px system-ui,sans-serif;text-shadow:0 1px 2px #000;";
@@ -95,17 +107,17 @@ const render = (args: Args): HTMLElement => {
   const tick = (): void => {
     const now = performance.now();
     afc.update(now);
-    const flightMs = args.play ? ((now - clockStart) * SPEED_UP) % duration : args.progress * duration;
+    const flightMs = args.play ? ((now - clockStart) * SPEED_UP) % duration : args.atSeconds >= 0 ? args.atSeconds * 1000 : args.progress * duration;
     const t = flight.launchedAt + flightMs;
     paint(t);
     // The overlay animates rotors and lights from its clock argument; give it real time plus the scrub.
-    syncScoutDroneOverlayFrame(overlay, { ...flight, ...shiftFlight(flight, now - t) }, now, WORLD, sceneFor);
-    if (args.follow) {
-      const step = flight.steps[Math.max(0, scoutDroneStepIndexAt(flight, t))]!;
+    overlay.sync({ ...flight, ...shiftFlight(flight, now - t) }, now);
+    if (args.follow && scoutDronePoseAt(flight, t, WORLD.width, WORLD.height, pose)) {
       const horizontal = Math.sin(args.cameraTilt) * args.cameraDistance;
       const vertical = Math.cos(args.cameraTilt) * args.cameraDistance;
-      stage.camera.position.set(sceneX(step.x), vertical, sceneZ(step.y) + horizontal);
-      stage.camera.lookAt(sceneX(step.x), 0.6, sceneZ(step.y));
+      const cx = sceneX(pose.x) + args.cameraSide;
+      stage.camera.position.set(cx, vertical + 1.2, sceneZ(pose.y) + horizontal);
+      stage.camera.lookAt(sceneX(pose.x), 1.3 + pose.lift * 0.6, sceneZ(pose.y));
     }
     const index = scoutDroneStepIndexAt(flight, t);
     label.textContent = `Scout drone · ${index >= flight.turnIndex ? "returning home" : "outbound"} · ${Math.round(flightMs / 1000)}s of ${Math.round(duration / 1000)}s · turned back by a rival border`;
@@ -118,6 +130,7 @@ const render = (args: Args): HTMLElement => {
     overlay.dispose,
     afc.dispose,
     () => geometry.dispose(),
+    () => { envMap.dispose(); pmrem.dispose(); },
     () => Object.values(materials).forEach((m: Material) => m.dispose())
   ]);
   root.appendChild(label);
@@ -138,7 +151,7 @@ const meta: Meta<Args> = {
     cameraDistance: { control: { type: "range", min: 3, max: 40, step: 0.5 } },
     cameraTilt: { control: { type: "range", min: 0.1, max: 1.4, step: 0.05 } }
   },
-  args: { progress: 0.4, play: false, follow: false, cameraDistance: 24, cameraTilt: 0.75 },
+  args: { progress: 0.4, atSeconds: -1, play: false, follow: false, cameraDistance: 24, cameraTilt: 0.75, cameraSide: 0 },
   render
 };
 
@@ -147,7 +160,9 @@ type Story = StoryObj<Args>;
 /** The whole board: AFC, the player's land, the fog lifting along the route, the rival border ahead. */
 export const Overview: Story = {};
 /** Close behind the drone as it scans unexplored ground. */
-export const CloseUp: Story = { args: { progress: 0.33, follow: true, cameraDistance: 6.5, cameraTilt: 0.95 } };
+export const CloseUp: Story = { args: { progress: 0.33, follow: true, cameraDistance: 3.2, cameraTilt: 1.05, cameraSide: 1.2 } };
+/** Lifting out of the AFC's crown a second after launch. */
+export const Launch: Story = { args: { atSeconds: 0.75, follow: true, cameraDistance: 5, cameraTilt: 0.95, cameraSide: 1 } };
 /** Turned back at the rival's border and heading home. */
 export const Returning: Story = { args: { progress: 0.62 } };
 /** Plays the flight at 20x speed. */

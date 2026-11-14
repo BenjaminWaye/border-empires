@@ -1,212 +1,182 @@
-import {
-  AdditiveBlending,
-  CircleGeometry,
-  ConeGeometry,
-  Group,
-  InstancedMesh,
-  Matrix4,
-  Mesh,
-  MeshBasicMaterial,
-  RingGeometry,
-  Scene
-} from "three";
-import { SCOUT_DRONE_VISION_RADIUS, scoutDronePositionAt, scoutDroneStepIndexAt, type ScoutDroneFlight } from "@border-empires/shared";
+import { Vector3, type Camera, type Scene, type Texture } from "three";
+import type { ScoutDroneFlight } from "@border-empires/shared";
+import { createUnitMotionGate, type UnitMotionGate } from "../client-map-3d-unit-motion-gate/client-map-3d-unit-motion-gate.js";
+import { POD_AFC_CAP_Y } from "../client-map-3d-construction/client-map-3d-construction-pod-flight.js";
 import { createScoutDroneModel } from "./client-map-3d-scout-drone-model.js";
+import { createScoutDronePose, scoutDronePoseAt, smoothstep01 } from "./client-map-3d-scout-drone-pose.js";
+import { createScoutGroundFx } from "./client-map-3d-scout-drone-ground-fx.js";
+import { createScoutTrails } from "./client-map-3d-scout-drone-trails.js";
 
-// The true-3D view of the player's scout drone (docs/explore-scout-plan.md): the drone itself
-// cruising above the terrain along its flight, a cyan scan cone from its sensor lens to the
-// ground, a soft cyan ring on the ground marking its vision footprint (radius
-// SCOUT_DRONE_VISION_RADIUS), a ground shadow, and a dotted trail of glowing beads along the rest of its route
-// (out to the turnaround tile, or home once it has turned). The 2D renderer draws the same
-// pieces flat (client-map-render-2d-scout-drone.ts). Follows the clear/set/commit/dispose shape
-// of client-map-3d-arrow-overlay.ts; client-map-3d/client-map-3d.ts calls
-// syncScoutDroneOverlayFrame once per frame with toroid-wrapped scene positions.
+// The true-3D view of the player's scout drone (docs/explore-scout-plan.md). The drone
+// (client-map-3d-scout-drone-model.ts) lifts out of its AFC's crown, climbs to cruise height and
+// flies its route banking into turns and pitching nose-down with speed, its sensor gimbal panning
+// over the ground below, then settles back into the crown. Under it: the vision footprint with a
+// radar sweep, a blob shadow and the route ahead (client-map-3d-scout-drone-ground-fx.ts); behind
+// it, short nav-light trails (client-map-3d-scout-drone-trails.ts). The 2D renderer draws the same
+// story flat (client-map-render-2d-scout-drone/).
+//
+// client-map-3d/client-map-3d.ts creates this once and calls sync() every frame. Nothing is
+// allocated per frame. On Reduce Motion or a slow device (client-map-3d-unit-motion-gate.ts)
+// the rotors, sweep, bob, strobe and trails hold still; the drone still moves along its route,
+// since that is information, not decoration.
 
 export type ScoutDroneScenePoint = { sceneX: number; sceneZ: number; surfaceY: number };
 
-export type ScoutDroneSceneFrame = {
-  drone: ScoutDroneScenePoint;
-  /** Unit direction of travel in scene X/Z. */
-  dirX: number;
-  dirZ: number;
-  /** The route still ahead: the drone's own point first. */
-  path: ScoutDroneScenePoint[];
+export type ScoutDroneOverlayDeps = {
+  readonly world: { readonly width: number; readonly height: number };
+  /** Writes the scene position (toroid-wrapped around the camera) of a possibly fractional tile into `out`. */
+  readonly sceneFor: (x: number, y: number, out: ScoutDroneScenePoint) => void;
+  readonly envMap?: Texture | undefined;
+  readonly camera?: Camera | undefined;
+  readonly motionGate?: UnitMotionGate;
 };
 
 export type ScoutDroneOverlay = {
-  readonly set: (frame: ScoutDroneSceneFrame | undefined, nowMs: number) => void;
+  /** Poses everything for `flight` at `nowMs` (local clock), or hides it when nothing is in the air. */
+  readonly sync: (flight: ScoutDroneFlight | undefined, nowMs: number) => void;
   readonly dispose: () => void;
 };
 
-/** Model scale: the courier drone is sized for a building site; the scout has to read at map zoom. */
-export const SCOUT_DRONE_SCALE = 2.8;
-export const SCOUT_DRONE_CRUISE_HEIGHT = 1.15;
-const VISION_RING_RADIUS = SCOUT_DRONE_VISION_RADIUS + 0.5;
-const GROUND_RISE = 0.05;
-const PATH_RISE = 0.08;
-const MAX_PATH_POINTS = 256;
-const DOT_SPACING = 0.45;
-const MAX_DOTS = 480;
-const CYAN = "#4fd8ff";
+export const SCOUT_DRONE_SCALE = 1.9;
+/** Above the ground under it: docked on the AFC's crown, and at cruise. */
+export const SCOUT_DRONE_DOCK_HEIGHT = POD_AFC_CAP_Y + 0.32; // clear of the crown spike
+export const SCOUT_DRONE_CRUISE_HEIGHT = 1.95;
+const MAX_BANK = 0.55;
+const SWEEP_PER_MS = 0.0016;
+const ROTOR_PER_MS = 0.06;
 
-export const createScoutDroneOverlay = (scene: Scene): ScoutDroneOverlay => {
-  const model = createScoutDroneModel();
+const wrapNear = (delta: number, size: number): number => (delta > size / 2 ? delta - size : delta < -size / 2 ? delta + size : delta);
+
+export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDeps): ScoutDroneOverlay => {
+  const model = createScoutDroneModel(deps.envMap);
   model.root.scale.setScalar(SCOUT_DRONE_SCALE);
+  model.root.visible = false;
+  scene.add(model.root);
+  const ground = createScoutGroundFx(scene);
+  ground.setVisible(false);
+  const trails = createScoutTrails(scene, model.lights.navLeft.base, model.lights.navRight.base);
+  trails.setVisible(false);
+  const gate = deps.motionGate ?? createUnitMotionGate();
 
-  const glow = (opacity: number): MeshBasicMaterial =>
-    new MeshBasicMaterial({ toneMapped: false, color: CYAN, transparent: true, opacity, blending: AdditiveBlending, depthWrite: false });
-  const ringMaterial = glow(0.55);
-  const fillMaterial = glow(0.035);
-  const coneMaterial = glow(0.03);
-  const shadowMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#000000", transparent: true, opacity: 0.32, depthWrite: false });
-  const ringGeometry = new RingGeometry(VISION_RING_RADIUS - 0.09, VISION_RING_RADIUS, 64);
-  const fillGeometry = new CircleGeometry(VISION_RING_RADIUS, 64);
-  const shadowGeometry = new CircleGeometry(0.42, 24);
-  // An open cone, apex up at the sensor lens, base on the ground (its height is set per frame).
-  const coneGeometry = new ConeGeometry(1, 1, 32, 1, true);
-  coneGeometry.translate(0, -0.5, 0);
+  const pose = createScoutDronePose();
+  const at: ScoutDroneScenePoint = { sceneX: 0, sceneZ: 0, surfaceY: 0 };
+  const step: ScoutDroneScenePoint = { sceneX: 0, sceneZ: 0, surfaceY: 0 };
+  const navLeft = new Vector3();
+  const navRight = new Vector3();
+  let visible = false;
+  let lastMs = 0;
+  let groundY = 0;
+  let yaw = 0;
+  let bank = 0;
+  let pitch = 0;
+  let rotorAngle = 0;
+  let sweepAngle = 0;
 
-  const ground = new Group(); // laid flat on the terrain under the drone
-  const ring = new Mesh(ringGeometry, ringMaterial);
-  const fill = new Mesh(fillGeometry, fillMaterial);
-  const shadow = new Mesh(shadowGeometry, shadowMaterial);
-  for (const disc of [fill, ring, shadow]) {
-    disc.rotation.x = -Math.PI / 2;
-    ground.add(disc);
-  }
-  shadow.position.y = 0.004;
-  const cone = new Mesh(coneGeometry, coneMaterial);
+  const hide = (): void => {
+    if (!visible) return;
+    visible = false;
+    model.root.visible = false;
+    ground.setVisible(false);
+    trails.setVisible(false);
+    trails.reset();
+  };
 
-  // The route ahead as evenly spaced glowing beads: a 1px WebGL line vanishes against the vision disc.
-  const dotGeometry = new CircleGeometry(0.075, 12);
-  dotGeometry.rotateX(-Math.PI / 2);
-  const pathMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#bff4ff", transparent: true, opacity: 0.9, depthWrite: false });
-  const path = new InstancedMesh(dotGeometry, pathMaterial, MAX_DOTS);
-  path.frustumCulled = false;
-  const dotMatrix = new Matrix4();
-  const endMarker = new Mesh(new RingGeometry(0.22, 0.32, 24), glow(0.8));
-  endMarker.rotation.x = -Math.PI / 2;
-
-  const group = new Group();
-  group.name = "scout-drone-overlay";
-  group.add(ground, cone, path, endMarker, model.root);
-  group.renderOrder = 24;
-  group.visible = false;
-  scene.add(group);
-
-  let yaw: number | undefined;
-  let groundY: number | undefined;
-  let lastMs: number | undefined;
-
-  const set = (frame: ScoutDroneSceneFrame | undefined, nowMs: number): void => {
-    if (!frame) {
-      group.visible = false;
-      yaw = undefined;
-      groundY = undefined;
+  const sync: ScoutDroneOverlay["sync"] = (flight, nowMs) => {
+    gate.recordFrame(nowMs);
+    if (!scoutDronePoseAt(flight, nowMs, deps.world.width, deps.world.height, pose) || !flight) {
+      hide();
       return;
     }
-    const dt = lastMs === undefined ? 16 : Math.min(100, Math.max(0, nowMs - lastMs));
+    const animate = gate.shouldAnimate();
+    const firstFrame = !visible;
+    const dt = firstFrame ? 16 : Math.min(100, Math.max(0, nowMs - lastMs));
     lastMs = nowMs;
-    const { drone } = frame;
-    // Ease the cruise altitude over terrain steps, and swing round smoothly at the turnaround.
-    groundY = groundY === undefined ? drone.surfaceY : groundY + (drone.surfaceY - groundY) * Math.min(1, dt / 400);
-    const targetYaw = Math.atan2(frame.dirX, frame.dirZ);
-    if (yaw === undefined) yaw = targetYaw;
-    else {
-      const delta = Math.atan2(Math.sin(targetYaw - yaw), Math.cos(targetYaw - yaw));
-      yaw += delta * Math.min(1, dt / 350);
-    }
-    const bob = 0.04 * Math.sin(nowMs * 0.0021);
-    const altitude = groundY + SCOUT_DRONE_CRUISE_HEIGHT + bob;
-    model.root.position.set(drone.sceneX, altitude, drone.sceneZ);
-    model.root.rotation.set(0.12, yaw, 0.03 * Math.sin(nowMs * 0.0013), "YXZ"); // nose tipped down: flying forward
-    model.rotors.forEach((rotor, k) => {
-      rotor.rotation.y = (k % 2 === 0 ? 1 : -1) * nowMs * 0.047 + k;
-    });
-    model.tailLight.visible = nowMs % 720 < 130;
-    const pulse = 0.5 + 0.5 * Math.sin(nowMs * 0.004);
-    model.sensorGlow.color.set(CYAN).multiplyScalar(0.75 + 0.25 * pulse);
+    deps.sceneFor(pose.x, pose.y, at);
 
-    ground.position.set(drone.sceneX, drone.surfaceY + GROUND_RISE, drone.sceneZ);
-    ringMaterial.opacity = 0.4 + 0.25 * pulse;
-    // The scan cone: from the lens down to the vision ring.
-    const lensY = altitude - 0.07 * SCOUT_DRONE_SCALE;
-    const coneHeight = Math.max(0.1, lensY - (drone.surfaceY + GROUND_RISE));
-    cone.position.set(drone.sceneX, lensY, drone.sceneZ);
-    cone.scale.set(VISION_RING_RADIUS * 0.92, coneHeight, VISION_RING_RADIUS * 0.92);
-    coneMaterial.opacity = 0.07 + 0.05 * pulse;
+    // Altitude: eased over terrain steps, docked on the crown at either end of the flight.
+    groundY = firstFrame ? at.surfaceY : groundY + (at.surfaceY - groundY) * Math.min(1, dt / 350);
+    const bob = animate ? 0.05 * Math.sin(nowMs * 0.0021) * pose.lift : 0;
+    const altitude = groundY + SCOUT_DRONE_DOCK_HEIGHT + (SCOUT_DRONE_CRUISE_HEIGHT - SCOUT_DRONE_DOCK_HEIGHT) * pose.lift + bob;
 
-    const points = frame.path.slice(0, MAX_PATH_POINTS);
-    let dots = 0;
-    let carry = DOT_SPACING * 0.6; // leave a gap under the drone itself
-    for (let i = 1; i < points.length && dots < MAX_DOTS; i += 1) {
-      const a = points[i - 1]!;
-      const b = points[i]!;
-      const length = Math.hypot(b.sceneX - a.sceneX, b.sceneZ - a.sceneZ);
-      let along = carry;
-      for (; along <= length && dots < MAX_DOTS; along += DOT_SPACING) {
-        const t = length > 0 ? along / length : 0;
-        dotMatrix.makeTranslation(a.sceneX + (b.sceneX - a.sceneX) * t, a.surfaceY + (b.surfaceY - a.surfaceY) * t + PATH_RISE, a.sceneZ + (b.sceneZ - a.sceneZ) * t);
-        path.setMatrixAt(dots, dotMatrix);
-        dots += 1;
-      }
-      carry = along - length;
+    // Heading, bank into turns, nose down with speed.
+    let yawRate = 0;
+    if (pose.dirX !== 0 || pose.dirY !== 0) {
+      const target = Math.atan2(pose.dirX, pose.dirY);
+      if (firstFrame) yaw = target;
+      const delta = Math.atan2(Math.sin(target - yaw), Math.cos(target - yaw)) * Math.min(1, dt / 420);
+      yaw += delta;
+      yawRate = dt > 0 ? delta / dt : 0;
     }
-    path.count = dots;
-    path.instanceMatrix.needsUpdate = true;
-    path.visible = dots > 0;
-    const end = points[points.length - 1];
-    endMarker.visible = Boolean(end) && points.length >= 2;
-    if (end) endMarker.position.set(end.sceneX, end.surfaceY + PATH_RISE, end.sceneZ);
-    group.visible = true;
+    const easeK = Math.min(1, dt / 250);
+    bank += (Math.max(-MAX_BANK, Math.min(MAX_BANK, -yawRate * 260)) * pose.lift - bank) * easeK;
+    const speedNorm = Math.min(1, pose.speed / 0.6);
+    pitch += ((0.07 + 0.2 * speedNorm) * smoothstep01(pose.lift * 1.4 - 0.4) - pitch) * easeK;
+    model.root.position.set(at.sceneX, altitude, at.sceneZ);
+    model.root.rotation.set(pitch, yaw, bank, "YXZ");
+    model.root.visible = true;
+
+    // Rotors: blades while spooling, a motion-blur disc at speed.
+    if (animate) rotorAngle += dt * ROTOR_PER_MS * pose.rotor;
+    const blur = animate ? smoothstep01((pose.rotor - 0.35) / 0.5) : 0;
+    for (let k = 0; k < model.rotors.length; k += 1) {
+      const rotor = model.rotors[k]!;
+      rotor.blades.rotation.y = (k % 2 === 0 ? 1 : -1) * rotorAngle + k;
+      rotor.blades.visible = blur < 0.85;
+      rotor.disc.opacity = 0.42 * blur;
+    }
+
+    // The sensor gimbal looks down at the ground just ahead and pans across it with the sweep.
+    const height = altitude - groundY;
+    model.gimbalPan.rotation.y = animate ? 0.6 * Math.sin(nowMs * 0.0008) : 0;
+    model.gimbalTilt.rotation.x = Math.atan2(height, 1.1) - pitch;
+
+    // Lights: steady nav lights, a pulsing lens and belly light, a tail strobe.
+    const pulse = animate ? 0.5 + 0.5 * Math.sin(nowMs * 0.004) : 0.75;
+    model.lens.emissiveIntensity = 2 + 1.2 * pulse;
+    model.lights.lens.material.color.copy(model.lights.lens.base).multiplyScalar(0.7 + 0.3 * pulse);
+    model.lights.belly.material.color.copy(model.lights.belly.base).multiplyScalar(0.55 + 0.35 * pulse);
+    const strobeOn = animate ? nowMs % 1_150 < 90 : false;
+    model.lights.strobe.material.color.copy(model.lights.strobe.base).multiplyScalar(strobeOn ? 1 : 0.12);
+    model.lights.strobe.glow.scale.setScalar(model.lights.strobe.size * (strobeOn ? 1.6 : 0.6));
+    const antennaOn = animate ? nowMs % 1_600 < 700 : true;
+    model.lights.antenna.material.color.copy(model.lights.antenna.base).multiplyScalar(antennaOn ? 0.9 : 0.2);
+
+    // Wingtip trails, in the same scene space as the drone.
+    model.root.updateMatrixWorld();
+    navLeft.set(model.navLeftLocal.x, model.navLeftLocal.y, model.navLeftLocal.z).applyMatrix4(model.root.matrixWorld);
+    navRight.set(model.navRightLocal.x, model.navRightLocal.y, model.navRightLocal.z).applyMatrix4(model.root.matrixWorld);
+    if (firstFrame) trails.reset();
+    trails.setVisible(animate);
+    // Trails only read while the drone is really moving; a hovering or slow drone would stack them into blobs.
+    if (animate) trails.update(nowMs, navLeft, navRight, at.sceneX - pose.x, at.sceneZ - pose.y, deps.camera, pose.lift * (0.15 + 0.85 * speedNorm));
+
+    // Ground: footprint, sweep and shadow under the drone, then the route still ahead.
+    if (animate) sweepAngle = (sweepAngle + dt * SWEEP_PER_MS) % (Math.PI * 2);
+    ground.place(at.sceneX, groundY, at.sceneZ, altitude, pose.lift, sweepAngle, pulse);
+    ground.beginRoute();
+    ground.routePoint(at.sceneX, at.surfaceY, at.sceneZ);
+    let prevX = at.sceneX;
+    let prevZ = at.sceneZ;
+    const lastIndex = pose.returning ? flight.steps.length - 1 : flight.turnIndex;
+    for (let i = pose.stepIndex + 1; i <= lastIndex; i += 1) {
+      const s = flight.steps[i]!;
+      deps.sceneFor(s.x, s.y, step);
+      prevX += wrapNear(step.sceneX - prevX, deps.world.width);
+      prevZ += wrapNear(step.sceneZ - prevZ, deps.world.height);
+      ground.routePoint(prevX, step.surfaceY, prevZ);
+    }
+    ground.endRoute();
+    ground.setVisible(true);
+    visible = true;
   };
 
-  const dispose = (): void => {
-    scene.remove(group);
-    model.dispose();
-    for (const g of [ringGeometry, fillGeometry, shadowGeometry, coneGeometry, dotGeometry, endMarker.geometry]) g.dispose();
-    for (const m of [ringMaterial, fillMaterial, coneMaterial, shadowMaterial, pathMaterial, endMarker.material as MeshBasicMaterial]) m.dispose();
+  return {
+    sync,
+    dispose: () => {
+      scene.remove(model.root);
+      model.dispose();
+      ground.dispose();
+      trails.dispose();
+    }
   };
-
-  return { set, dispose };
-};
-
-/**
- * Per-frame sync, so client-map-3d/client-map-3d.ts (well over the line cap) needs one call:
- * places the drone from the flight at `nowMs` (local clock), or hides it once it has landed.
- * `sceneFor` maps a (possibly fractional) world tile position to toroid-wrapped scene space.
- */
-export const syncScoutDroneOverlayFrame = (
-  overlay: ScoutDroneOverlay,
-  flight: ScoutDroneFlight | undefined,
-  nowMs: number,
-  world: { width: number; height: number },
-  sceneFor: (x: number, y: number) => ScoutDroneScenePoint
-): void => {
-  const at = flight ? scoutDronePositionAt(flight, nowMs, world.width, world.height) : undefined;
-  if (!flight || !at) {
-    overlay.set(undefined, nowMs);
-    return;
-  }
-  const drone = sceneFor(at.x, at.y);
-  const index = Math.max(0, scoutDroneStepIndexAt(flight, nowMs));
-  // The rest of the route: to the turnaround while outbound, home after it.
-  const lastIndex = at.returning ? flight.steps.length - 1 : flight.turnIndex;
-  const path: ScoutDroneScenePoint[] = [drone];
-  for (let i = index + 1; i <= lastIndex; i += 1) {
-    const step = flight.steps[i]!;
-    const point = sceneFor(step.x, step.y);
-    const prev = path[path.length - 1]!;
-    // Keep the line continuous across the map's wrap seam: pick the copy nearest the previous point.
-    point.sceneX = prev.sceneX + wrapNear(point.sceneX - prev.sceneX, world.width);
-    point.sceneZ = prev.sceneZ + wrapNear(point.sceneZ - prev.sceneZ, world.height);
-    path.push(point);
-  }
-  overlay.set({ drone, dirX: Math.cos(at.heading), dirZ: Math.sin(at.heading), path }, nowMs);
-};
-
-const wrapNear = (delta: number, size: number): number => {
-  if (delta > size / 2) return delta - size;
-  if (delta < -size / 2) return delta + size;
-  return delta;
 };
