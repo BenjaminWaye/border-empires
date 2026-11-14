@@ -18,6 +18,7 @@ export type BarPanel = "aether" | "build" | "details" | "progress";
 export type BarButton =
   | { kind: "action"; action: TileActionDef; primary: boolean }
   | { kind: "afc"; primary: boolean }
+  | { kind: "tab"; tab: TileMenuView["tabs"][number]; label: string }
   | { kind: "panel"; panel: BarPanel; label: string };
 
 type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs"> & Partial<Pick<TileMenuView, "overviewLines" | "afcUpgradesReady" | "progress">>;
@@ -102,12 +103,19 @@ const blockedPrimaryAction = (view: BarView): TileActionDef | undefined => {
     ?? [...view.actions, ...view.buildings].find(isExpandingBeacon);
 };
 
+/** afcUpgradesReady is only set when the selected tile is the viewer's own AFC (client-hud-v2-tile-dock.ts). */
+const isOwnAfc = (view: Pick<BarView, "afcUpgradesReady">): boolean => view.afcUpgradesReady !== undefined;
+
 export const selectBarButtons = (view: BarView): BarButton[] => {
   const buttons: BarButton[] = [];
   const afcReady = (view.afcUpgradesReady ?? 0) > 0;
-  if (afcReady) buttons.push({ kind: "afc", primary: true });
   const primary = afcReady ? undefined : primaryAction(view);
+  // On your own AFC, AFC upgrades and Modules lead the bar: gold unless an urgent action
+  // (e.g. hunting attackers) applies, instead of hiding in the minor row under Build ▸.
+  if (afcReady || (isOwnAfc(view) && !primary)) buttons.push({ kind: "afc", primary: true });
   if (primary) buttons.push({ kind: "action", action: primary, primary: true });
+  if (isOwnAfc(view) && primary) buttons.push({ kind: "afc", primary: false });
+  if (isOwnAfc(view) && view.tabs.includes("modules")) buttons.push({ kind: "tab", tab: "modules", label: "Modules ▸" });
   let secondary = 0;
   for (const id of SECONDARY_ORDER) {
     if (secondary >= MAX_SECONDARY) break;
@@ -157,9 +165,9 @@ const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[], panel?:
     const title = a.disabled ? a.disabledReason ?? a.label : [a.cost, a.detail].filter(Boolean).join(" · ") || a.label;
     return `<button type="button" class="hud-v2-minor${a.disabled ? " hud-v2-minor-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targets(a)}${a.disabled ? " disabled" : ""} title="${esc(title)}">${esc(a.label)}</button>`;
   });
-  if (view.afcUpgradesReady === 0) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-open="afc">AFC upgrades ▸</button>`);
+  if (view.afcUpgradesReady === 0 && !buttons.some((b) => b.kind === "afc")) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-open="afc">AFC upgrades ▸</button>`);
   if (view.progress) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-panel="progress" aria-expanded="${panel === "progress"}">Progress ${panel === "progress" ? "▾" : "▸"}</button>`);
-  const legacyTab = view.tabs.find((t) => LEGACY_ONLY_TABS.includes(t));
+  const legacyTab = view.tabs.find((t) => LEGACY_ONLY_TABS.includes(t) && !buttons.some((b) => b.kind === "tab" && b.tab === t));
   if (legacyTab) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-tab="${legacyTab}">${legacyTab === "modules" ? "Modules" : "Reports"} ▸</button>`);
   return minor.length > 0 ? `<div class="hud-v2-minor-row">${minor.join("")}</div>` : "";
 };
@@ -190,7 +198,8 @@ export const actionBarHtml = (fullView: TileMenuView, panel?: BarPanel, facts: r
   const head = `<div class="hud-v2-tile-head"><span class="hud-v2-tile-text"><span class="hud-v2-tile-title">${esc(view.title)}</span><span class="hud-v2-tile-sub">${ownerTagHtml}${view.subtitleHtml ?? esc(view.subtitle)}</span></span>${status}<button type="button" class="hud-v2-tile-close" data-hud-v2-close aria-label="Close">✕</button></div>`;
   const row = buttons.map((b) => (b.kind === "action"
     ? actionButtonHtml(b)
-    : b.kind === "afc" ? `<button type="button" class="hud-v2-act hud-v2-act-primary" data-hud-v2-open="afc">AFC upgrades · ${view.afcUpgradesReady} ready</button>`
+    : b.kind === "afc" ? `<button type="button" class="hud-v2-act${b.primary ? " hud-v2-act-primary" : ""}" data-hud-v2-open="afc">${(view.afcUpgradesReady ?? 0) > 0 ? `AFC upgrades · ${view.afcUpgradesReady} ready` : "AFC upgrades"}</button>`
+    : b.kind === "tab" ? `<button type="button" class="hud-v2-act hud-v2-act-tab" data-hud-v2-tab="${b.tab}">${esc(b.label)}</button>`
     : `<button type="button" class="hud-v2-act hud-v2-act-${b.panel}${b.panel === panel ? " hud-v2-act-open" : ""}" data-hud-v2-panel="${b.panel}" aria-expanded="${b.panel === panel}">${esc(b.label)}</button>`)).join("");
   const primary = buttons.find((b): b is Extract<BarButton, { kind: "action" }> => b.kind === "action" && b.primary);
   const autoSettle = primary?.action.autoSettleOption;
