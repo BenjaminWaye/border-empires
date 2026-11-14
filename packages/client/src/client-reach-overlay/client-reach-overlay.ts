@@ -163,7 +163,7 @@ const DORMANT_FRONTIER_STROKE = "rgba(214, 178, 110, 0.6)";
  * player's own reach set: a wide stroke in the player's colour with a thin
  * white core on top, so "my border" reads as mine at a glance and never
  * matches the solid ownership border (client-tile-borders.ts) or the gold
- * fog edge. Only the viewer's own reach is drawn in 2D.
+ * fog edge. Rival reach edges are drawn per tile in client-reach-rival-line-2d.ts.
  */
 export const drawReachBoundaryLine = (
   ctx: CanvasRenderingContext2D,

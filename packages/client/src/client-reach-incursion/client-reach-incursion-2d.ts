@@ -99,10 +99,12 @@ export const drawReachTileTreatments2D = (
   deps: ReachTileTreatmentDeps
 ): void => {
   if (tile.ownerId === deps.me && isDormantFrontierTile(tile)) drawDormantFrontierTreatment(ctx, px, py, size);
+  const pocket = reachPocketAt(tile, deps.keyFor(wx, wy), deps.me, myReach, deps.tiles);
+  if (pocket) {
+    const pusherColor = deps.ownerColor(pocket.pusher);
+    drawIncursionTile(ctx, incursionHatchColors(pusherColor, deps.ownerColor(pocket.defender)), incursionMarkColor(pusherColor), px, py, size, incursionPocketEdges(wx, wy, pocket.pusher, deps));
+  }
+  // After the hatch, so the hatch and pocket edges don't bury the rival's reach line.
   const rival = rivalReachEdges(tile, wx, wy, deps.me, deps);
   if (rival) drawRivalReachLine2D(ctx, rival.edges, deps.ownerColor(rival.ownerId), px, py, size);
-  const pocket = reachPocketAt(tile, deps.keyFor(wx, wy), deps.me, myReach, deps.tiles);
-  if (!pocket) return;
-  const pusherColor = deps.ownerColor(pocket.pusher);
-  drawIncursionTile(ctx, incursionHatchColors(pusherColor, deps.ownerColor(pocket.defender)), incursionMarkColor(pusherColor), px, py, size, incursionPocketEdges(wx, wy, pocket.pusher, deps));
 };
