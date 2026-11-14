@@ -169,8 +169,11 @@ export const clearRendererCrashStreak = (): void => {
 };
 
 let attemptTimer: ReturnType<typeof setTimeout> | undefined;
-/** True from this session's beginRendererAttempt until it survives or is handled: the window a page unload must not count as a crash. */
-let attemptInDangerWindow = false;
+/** Set from this session's beginRendererAttempt until it survives or is handled: the window a page unload must not count as a crash. */
+let attemptStartedAtMs: number | undefined;
+// Only an unload this soon after the attempt began is handed back. A startup that stalls (never crashes, never
+// finishes) and is reloaded after a real wait must still count, or such a device loops on loading and never gets 2D.
+const FORGIVE_UNLOAD_WITHIN_MS = 20_000;
 
 /**
  * Records that a 3D renderer attempt is starting, *before* any allocation.
@@ -178,7 +181,7 @@ let attemptInDangerWindow = false;
  * that it is already on disk if the tab dies mid-construction.
  */
 export const beginRendererAttempt = (tileBudget: number): void => {
-  attemptInDangerWindow = true;
+  attemptStartedAtMs = Date.now();
   writeBreadcrumb({
     atMs: Date.now(),
     phase: "init-started",
@@ -204,7 +207,7 @@ export const markRendererInitCompleted = (tileBudget: number): void => {
   // doesn't strand a working device in 2D forever.
   if (attemptTimer !== undefined) clearTimeout(attemptTimer);
   attemptTimer = setTimeout(() => {
-    attemptInDangerWindow = false;
+    attemptStartedAtMs = undefined;
     writeBreadcrumb({
       atMs: Date.now(),
       phase: "survived",
@@ -238,7 +241,7 @@ export const markRendererFirstRenderCompleted = (): void => {
 
 /** Records that 3D was abandoned through a handled path, not a crash. */
 export const markRendererAttemptHandled = (): void => {
-  attemptInDangerWindow = false;
+  attemptStartedAtMs = undefined;
   if (attemptTimer !== undefined) clearTimeout(attemptTimer);
   attemptTimer = undefined;
   const current = readBreadcrumb();
@@ -311,14 +314,16 @@ export const previousSessionEndedUncleanly = (): boolean => {
 // module load rather than only while 3D is active, since a shutdown while 2D
 // is showing (post-fallback) is still worth recording as clean.
 if (typeof window !== "undefined") {
-  window.addEventListener("pagehide", () => {
+  window.addEventListener("pagehide", (event: PageTransitionEvent) => {
     const current = readBreadcrumb();
     if (!current) return;
     // Leaving mid-attempt (a reload or navigation inside the danger window) runs this, a crash doesn't:
     // hand back the attempt beginRendererAttempt counted. Reloading through a server outage used to stack
     // those up until the brake put a healthy device on 2D saying 3D had crashed it (playtest day 1).
-    const forgive = attemptInDangerWindow && current.phase !== "survived";
-    attemptInDangerWindow = false;
-    writeBreadcrumb({ ...current, cleanShutdownAtMs: Date.now(), ...(forgive ? { failedAttempts: Math.max(0, current.failedAttempts - 1) } : {}) });
+    // Not when the page goes into the back/forward cache: it can come back with the same attempt still running.
+    const now = Date.now();
+    const forgive = attemptStartedAtMs !== undefined && !event.persisted && now - attemptStartedAtMs <= FORGIVE_UNLOAD_WITHIN_MS && current.phase !== "survived";
+    if (!event.persisted) attemptStartedAtMs = undefined;
+    writeBreadcrumb({ ...current, cleanShutdownAtMs: now, ...(forgive ? { failedAttempts: Math.max(0, current.failedAttempts - 1) } : {}) });
   });
 }

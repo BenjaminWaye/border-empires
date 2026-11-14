@@ -234,6 +234,23 @@ describe("renderer crash breadcrumb", () => {
     expect(stored().failedAttempts).toBe(0);
   });
 
+  it("still counts a stalled startup the player reloads after a real wait", async () => {
+    const session = await loadSession();
+    session.beginRendererAttempt(14000);
+    vi.advanceTimersByTime(30_000);
+    window.dispatchEvent(new Event("pagehide"));
+    expect(stored().failedAttempts).toBe(1);
+  });
+
+  it("does not hand the attempt back when the page only goes into the back/forward cache", async () => {
+    const session = await loadSession();
+    session.beginRendererAttempt(14000);
+    const event = new Event("pagehide");
+    Object.defineProperty(event, "persisted", { value: true });
+    window.dispatchEvent(event);
+    expect(stored().failedAttempts).toBe(1);
+  });
+
   it("still counts an attempt the page never left cleanly", async () => {
     seed({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 1 });
     const session = await loadSession();
