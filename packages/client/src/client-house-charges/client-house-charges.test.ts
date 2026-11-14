@@ -62,6 +62,23 @@ describe("House Charges panel", () => {
     expect(closed).toContain("Not kept");
   });
 
+  it("follows the tick boxes while choosing: a newly ticked charge is undimmed and marked, and the hint explains the button", () => {
+    const charges = [charge({}), { ...relic, kept: true }, desert];
+    const swapped = houseChargesPanelHtml(panelState(charges, 10_000, [relic.id, desert.id]), 5_000);
+    const desertCard = swapped.slice(swapped.indexOf("The Ashen Reach") - 400, swapped.indexOf("The Ashen Reach"));
+    expect(desertCard).not.toContain("is-unkept");
+    expect(swapped).toContain("Will be kept");
+    expect(swapped).toContain("Will be dropped");
+    expect(swapped).toContain("Press Keep these 2 to confirm your new choice.");
+
+    const three = houseChargesPanelHtml(panelState(charges, 10_000, [charge({}).id, relic.id, desert.id]), 5_000);
+    expect(three).toContain("You have 3 ticked. Untick one: you can keep only 2.");
+    expect(three).toMatch(/data-house-charges-save disabled/);
+
+    const one = houseChargesPanelHtml(panelState(charges, 10_000, [relic.id]), 5_000);
+    expect(one).toContain("Tick 1 more to keep 2.");
+  });
+
   it("shows held charges and an undiscovered relic without naming its place", () => {
     const html = houseChargesPanelHtml(panelState([charge({ held: true, size: 28, completeSince: 2_000 }), { ...relic, kept: true }], 0), 5_000);
     expect(html).toContain("Road complete: 28 tiles");

@@ -31,7 +31,11 @@ export const houseChargeFocusPoint = (charge: HouseChargeView): { x: number; y: 
 
 const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: boolean): string => {
   const progress = houseChargeProgress(charge);
-  const status = !charge.kept && !choosing
+  // While choosing, the card follows the tick boxes so a swap reads at a glance before it is saved.
+  const pending = choosing && ticked !== charge.kept;
+  const status = pending
+    ? `<span class="house-charge-status is-pending">${ticked ? "Will be kept" : "Will be dropped"}</span>`
+    : !charge.kept && !choosing
     ? '<span class="house-charge-status is-dropped">Not kept</span>'
     : charge.held
       ? `<span class="house-charge-status is-held">Held${charge.completeSince ? ` since ${escapeHtml(formatWhen(charge.completeSince))}` : ""}</span>`
@@ -40,13 +44,26 @@ const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: bool
   const keep = choosing
     ? `<label class="house-charge-keep"><input type="checkbox" data-house-charge-keep="${escapeHtml(charge.id)}"${ticked ? " checked" : ""}> Keep</label>`
     : "";
-  return `<article class="house-charge-card kind-${charge.kind.toLowerCase()} rarity-${charge.rarity.toLowerCase()}${charge.kept ? "" : " is-unkept"}">
+  const dimmed = choosing ? !ticked : !charge.kept;
+  return `<article class="house-charge-card kind-${charge.kind.toLowerCase()} rarity-${charge.rarity.toLowerCase()}${dimmed ? " is-unkept" : ""}">
     <header class="house-charge-head"><strong class="house-charge-title">${escapeHtml(charge.title)}</strong>${pips}</header>
     <div class="house-charge-type">${HOUSE_CHARGE_KIND_LABEL[charge.kind]} · ${HOUSE_CHARGE_RARITY_LABEL[charge.rarity]}</div>
     <p class="house-charge-objective">${escapeHtml(houseChargeObjective(charge))}</p>
     ${progress ? `<p class="house-charge-progress">${escapeHtml(progress)}</p>` : ""}
     <footer class="house-charge-foot">${status}${keep}<button class="panel-btn" type="button" data-house-charge-jump="${escapeHtml(charge.id)}">Show on map</button></footer>
   </article>`;
+};
+
+/** Why "Keep these" is (or is not) ready, so a greyed button never goes unexplained. */
+const choiceHintHtml = (ticked: number, wanted: number, changed: boolean): string => {
+  const text = ticked > wanted
+    ? `You have ${ticked} ticked. Untick one: you can keep only ${wanted}.`
+    : ticked < wanted
+      ? `Tick ${wanted - ticked} more to keep ${wanted}.`
+      : changed
+        ? `Press Keep these ${wanted} to confirm your new choice.`
+        : "";
+  return `<p class="house-charges-hint${ticked === wanted ? "" : " is-warning"}" role="status">${text}</p>`;
 };
 
 export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string => {
@@ -65,6 +82,7 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   const choice = choosing
     ? `<div class="house-charges-choice">
         <p>Keep ${wanted} of these ${payload.charges.length}. You can change your choice until ${escapeHtml(formatWhen(payload.choiceClosesAt))}.</p>
+        ${choiceHintHtml(draft.length, wanted, changed)}
         <button class="panel-btn" type="button" data-house-charges-save${changed && draft.length === wanted ? "" : " disabled"}>Keep these ${wanted}</button>
       </div>`
     : "";
