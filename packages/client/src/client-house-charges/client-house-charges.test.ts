@@ -86,6 +86,12 @@ describe("House Charges panel", () => {
     expect(html).toContain("Find the Concordance installation");
   });
 
+  it("turns Show on map into Hide on map for the highlighted charge", () => {
+    const html = houseChargesPanelHtml({ ...panelState([charge({}), { ...relic, kept: true }], 0), houseChargeFocusId: relic.id }, 5_000);
+    expect(html).toContain('aria-pressed="true">Hide on map');
+    expect(html).toContain('aria-pressed="false">Show on map');
+  });
+
   it("points Show on map at the target once known, otherwise at the search circle", () => {
     expect(houseChargeFocusPoint(charge({}))).toEqual(expect.objectContaining({ x: 8, y: 15 }));
     expect(houseChargeFocusPoint(relic)).toEqual({ x: 22, y: 24, radius: 9 });

@@ -148,6 +148,8 @@ export type HouseChargeView = {
   startTier?: string;
   relicType?: string;
   areaTiles?: number;
+  /** SURVEY/DESERT/TUNDRA: the target area's tile keys ("x,y"), for the map highlight; the client shows only explored ones. */
+  areaTileKeys?: string[];
 };
 
 /** Pushed to a House when its charges are dealt or change, and on connect. */

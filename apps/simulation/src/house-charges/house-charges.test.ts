@@ -179,3 +179,19 @@ describe("HOUSE_CHARGES view", () => {
     expect(relicView().relicType).toBe("FOUNDRY_HEART");
   });
 });
+
+describe("HOUSE_CHARGES area tiles", () => {
+  it("lists a desert region's tiles so the client can shade it", async () => {
+    const { houseChargesPayloadFor } = await import("./house-charges-view.js");
+    const tiles = buildChargeWorld();
+    const players = new Map([["p1", makeChargePlayer("p1")]]);
+    runHouseChargesPass(tiles, players, 1_000);
+    const player = players.get("p1")!;
+    const desert = chargeOfKind("DESERT", tiles);
+    player.houseCharges = { ...player.houseCharges!, offered: [...player.houseCharges!.offered.filter((charge) => charge.kind !== "DESERT"), desert] };
+    const view = houseChargesPayloadFor(player, tiles)!.charges.find((charge) => charge.kind === "DESERT")!;
+    expect(view.areaTileKeys).toHaveLength(40);
+    expect(view.areaTileKeys).toContain("25,2");
+    expect(houseChargesPayloadFor(player, tiles)!.charges.find((charge) => charge.kind === "RELIC")!.areaTileKeys).toBeUndefined();
+  });
+});

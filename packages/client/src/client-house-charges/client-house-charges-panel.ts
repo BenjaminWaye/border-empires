@@ -18,7 +18,7 @@ export type HouseChargesPanelDeps = {
   readonly now: () => number;
 };
 
-type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep">;
+type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep"> & Partial<Pick<ClientState, "houseChargeFocusId">>;
 
 const escapeHtml = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -29,7 +29,7 @@ const formatWhen = (epochMs: number): string =>
 /** Where "Show on map" goes: the target once known, otherwise the search circle. */
 export const houseChargeFocusPoint = (charge: HouseChargeView): { x: number; y: number } => charge.targets[0] ?? charge.searchCircle;
 
-const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: boolean): string => {
+const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: boolean, focused: boolean): string => {
   const progress = houseChargeProgress(charge);
   // While choosing, the card follows the tick boxes so a swap reads at a glance before it is saved.
   const pending = choosing && ticked !== charge.kept;
@@ -50,7 +50,7 @@ const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: bool
     <div class="house-charge-type">${HOUSE_CHARGE_KIND_LABEL[charge.kind]} · ${HOUSE_CHARGE_RARITY_LABEL[charge.rarity]}</div>
     <p class="house-charge-objective">${escapeHtml(houseChargeObjective(charge))}</p>
     ${progress ? `<p class="house-charge-progress">${escapeHtml(progress)}</p>` : ""}
-    <footer class="house-charge-foot">${status}${keep}<button class="panel-btn" type="button" data-house-charge-jump="${escapeHtml(charge.id)}">Show on map</button></footer>
+    <footer class="house-charge-foot">${status}${keep}<button class="panel-btn${focused ? " is-active" : ""}" type="button" data-house-charge-jump="${escapeHtml(charge.id)}" aria-pressed="${focused}">${focused ? "Hide on map" : "Show on map"}</button></footer>
   </article>`;
 };
 
@@ -90,12 +90,12 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   return `<section class="card house-charges-card">
     <p class="house-charges-intro">Sealed charges from your House. A charge counts only if you still hold it when this Sector Contest's winner is crowned. Nobody else can see them until then.</p>
     ${choice}
-    <div class="house-charges-list">${ordered.map((charge) => chargeCardHtml(charge, choosing, draft.includes(charge.id))).join("")}</div>
+    <div class="house-charges-list">${ordered.map((charge) => chargeCardHtml(charge, choosing, draft.includes(charge.id), state.houseChargeFocusId === charge.id)).join("")}</div>
   </section>`;
 };
 
 export const renderHouseChargesPanel = (
-  state: PanelState & Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "selected">,
+  state: PanelState & Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "houseChargeFocusId">,
   deps: HouseChargesPanelDeps
 ): void => {
   if (state.activePanel !== "charges") {
@@ -126,6 +126,14 @@ export const renderHouseChargesPanel = (
     button.onclick = () => {
       const charge = payload.charges.find((entry) => entry.id === button.dataset.houseChargeJump);
       if (!charge) return;
+      // A second press hides the highlight again; the map overlays read houseChargeFocusId every frame.
+      if (state.houseChargeFocusId === charge.id) {
+        state.houseChargeFocusId = undefined;
+        deps.requestViewRefresh(2, true);
+        deps.rerender();
+        return;
+      }
+      state.houseChargeFocusId = charge.id;
       const point = houseChargeFocusPoint(charge);
       focusCameraOnTile(state, point.x, point.y, { wrapX: deps.wrapX, wrapY: deps.wrapY, requestViewRefresh: () => deps.requestViewRefresh(2, true) });
       deps.rerender();

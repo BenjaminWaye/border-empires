@@ -37,7 +37,7 @@ import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-t
 import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { drawReachBoundaryLine } from "./client-reach-overlay/client-reach-overlay.js";
 import { drawReachTileTreatments2D } from "./client-reach-incursion/client-reach-incursion-2d.js";
-import { createPersistentAlertsFrame } from "./client-persistent-alerts/client-persistent-alerts-frame.js"; import { showCaptureTimeoutAlert } from "./client-alerts/client-alerts.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
+import { createPersistentAlertsFrame } from "./client-persistent-alerts/client-persistent-alerts-frame.js"; import { showCaptureTimeoutAlert } from "./client-alerts/client-alerts.js"; import { drawMapGuideOverlays } from "./client-house-charges/client-map-guide-overlays-2d.js";
 import { drawTileFeatureOverlays2D } from "./client-map-2d-tile-feature-overlays.js";
 import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
 import { createDistrictCanvas } from "./client-town-district/district-canvas.js";
@@ -885,7 +885,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       size,
       halfW,
       halfH
-    }); if (!isTrue3DRendererActive()) drawOnboardingChecklistHighlights(state.onboardingHighlightTiles, { ctx: deps.ctx, worldToScreen: deps.worldToScreen, size, halfW, halfH, nowMs });
+    }); if (!isTrue3DRendererActive()) drawMapGuideOverlays(state, { ctx: deps.ctx, worldToScreen: deps.worldToScreen, size, halfW, halfH, nowMs });
     const minimapAlertsMs = phaseMs();
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
     const tileDetailMs = phaseMs();

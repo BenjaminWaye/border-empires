@@ -40,6 +40,21 @@ export const detectsRelicBeacon = (
   return false;
 };
 
+const targetTileKey = (targetKey: string): string => targetKey.slice(targetKey.indexOf(":") + 1);
+
+/** The tiles of a landmass or biome region target, as "x,y" keys; undefined for point targets. */
+const areaTileKeysFor = (charge: HouseCharge, world: HouseChargesWorld): string[] | undefined => {
+  const target = charge.targets[0];
+  if (!target) return undefined;
+  const area = charge.kind === "SURVEY"
+    ? world.islands.byId.get(targetTileKey(target.key))
+    : charge.kind === "DESERT" || charge.kind === "TUNDRA"
+      ? world.regions.byId.get(targetTileKey(target.key))
+      : undefined;
+  if (!area) return undefined;
+  return Array.from(area.cells, (cell) => `${cell % world.width},${Math.floor(cell / world.width)}`);
+};
+
 const chargeView = (
   charge: HouseCharge,
   player: DomainPlayer,
@@ -63,7 +78,10 @@ const chargeView = (
     ...(charge.startTier ? { startTier: charge.startTier } : {}),
     ...(charge.areaTiles !== undefined ? { areaTiles: charge.areaTiles } : {})
   };
-  if (charge.kind !== "RELIC") return { ...base, targets: charge.targets.map((target) => ({ ...target })) };
+  if (charge.kind !== "RELIC") {
+    const areaTileKeys = areaTileKeysFor(charge, world);
+    return { ...base, targets: charge.targets.map((target) => ({ ...target })), ...(areaTileKeys ? { areaTileKeys } : {}) };
+  }
   const site = charge.targets[0];
   if (!site) return { ...base, targets: [] };
   const siteKey = `${site.x},${site.y}`;

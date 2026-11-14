@@ -16,7 +16,9 @@ export const createInitialHouseChargesState = () => ({
   /** `undefined` until the first HOUSE_CHARGES arrives (the House has not been dealt yet). */
   houseCharges: undefined as HouseChargesPayload | undefined,
   /** Charges ticked in the panel's keep choice but not yet saved. */
-  houseChargesDraftKeep: undefined as string[] | undefined
+  houseChargesDraftKeep: undefined as string[] | undefined,
+  /** The charge whose target Show on map is highlighting (client-house-charges-map.ts); undefined when none. */
+  houseChargeFocusId: undefined as string | undefined
 });
 
 type HouseChargesState = ReturnType<typeof createInitialHouseChargesState>;
@@ -52,7 +54,8 @@ const parseCharge = (value: unknown): HouseChargeView | undefined => {
     targets,
     ...(typeof value.startTier === "string" ? { startTier: value.startTier } : {}),
     ...(typeof value.relicType === "string" ? { relicType: value.relicType } : {}),
-    ...(isFiniteNumber(value.areaTiles) ? { areaTiles: value.areaTiles } : {})
+    ...(isFiniteNumber(value.areaTiles) ? { areaTiles: value.areaTiles } : {}),
+    ...(Array.isArray(value.areaTileKeys) ? { areaTileKeys: value.areaTileKeys.filter((key): key is string => typeof key === "string").slice(0, 2_000) } : {})
   };
 };
 
