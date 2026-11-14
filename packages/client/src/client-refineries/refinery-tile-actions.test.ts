@@ -20,7 +20,7 @@ const deps = (town?: Tile, blocked = false, has: (type: string) => boolean = () 
   structureCostText: () => "80 manpower",
   availability: (_type, eligible, reason, cost) => [eligible, reason, cost],
   townBuildSource: town,
-  supportPlacementBlocked: blocked,
+  supportPlacementBlockedReason: blocked ? "Tile already has structure" : undefined,
   townHasSupportStructure: (_town, type) => has(type)
 });
 
