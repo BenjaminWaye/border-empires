@@ -5,11 +5,13 @@
 import { escapeHtml as esc } from "../client-duke-panel/client-duke-escape.js";
 import { formatOpenSlots, type TownListRow, type TownListSort, type TownListSortKey } from "../client-town-list/client-town-list.js";
 
-const COLUMNS: Array<{ key: TownListSortKey; label: string }> = [
-  { key: "gold", label: "Coin/day" },
-  { key: "population", label: "Population" },
-  { key: "growth", label: "Growth/min" },
-  { key: "slots", label: "Slots" }
+const COLUMNS: Array<{ key: TownListSortKey; label: string; title: string }> = [
+  { key: "gold", label: "Coin/day", title: "Coin per day" },
+  // Short labels: at 375px the five columns are ~58px each, and "Population" / "Growth/min" ran into
+  // each other (playtest day 1). The full meaning is in each header's title.
+  { key: "population", label: "Pop", title: "Population / target" },
+  { key: "growth", label: "Growth", title: "Population growth per minute" },
+  { key: "slots", label: "Slots", title: "Open build slots" }
 ];
 
 const count = (value: number): string => Math.round(value).toLocaleString("en-US");
@@ -24,16 +26,16 @@ export const townsBannerHtml = (rows: readonly TownListRow[]): string =>
 
 export const townsBodyHtml = (rows: readonly TownListRow[], sort: TownListSort): string => {
   if (rows.length === 0) return `<div class="v2s-empty">No towns yet</div>`;
-  const head = COLUMNS.map(({ key, label }) => {
+  const head = COLUMNS.map(({ key, label, title }) => {
     const active = sort.key === key;
     const arrow = active ? (sort.descending ? " ▼" : " ▲") : "";
-    return `<button type="button" class="v2l-sort${active ? " v2l-sort-on" : ""}" data-v2-towns-sort="${key}" aria-pressed="${active}">${label}${arrow}</button>`;
+    return `<button type="button" class="v2l-sort${active ? " v2l-sort-on" : ""}" data-v2-towns-sort="${key}" title="${title}" aria-pressed="${active}">${label}${arrow}</button>`;
   }).join("");
   const body = rows.map((row) => `<button type="button" class="v2l-row${row.isFed ? "" : " v2l-unfed"}" data-v2-towns-open="${row.x},${row.y}">
       <span class="v2l-name"><span class="v2l-label">${esc(row.name)}</span><small>${esc(row.tierLabel)}${row.isFed ? "" : " · Unfed"}</small></span>
       <span class="v2l-num">${(row.goldPerMinute * 1440).toFixed(1)}</span>
       <span class="v2l-num">${count(row.population)}<small>/ ${count(row.maxPopulation)}</small></span>
-      <span class="v2l-num">${growth(row.growthPerMinute)}</span>
+      <span class="v2l-num">${growth(row.growthPerMinute)}<small>/min</small></span>
       <span class="v2l-num" title="Open build slots">${formatOpenSlots(row.openSlots)}</span>
     </button>`).join("");
   return `<section class="v2l-table" data-v2-scroll="towns"><div class="v2l-head"><span>Town</span>${head}</div>${body}</section>`;
