@@ -1,4 +1,4 @@
-import { AFC_MODULE_CALL_DOWN_MS, AFC_MODULE_SLOTS, afcBuildCost, afcReplacementCost, isAfcFootprintClear } from "@border-empires/shared";
+import { AFC_BUILD_MIN_MODULES, AFC_MODULE_CALL_DOWN_MS, AFC_MODULE_SLOTS, afcBuildCost, afcReplacementCost, isAfcFootprintClear } from "@border-empires/shared";
 import { afcIsFull } from "./client-afc-slot-notices/client-afc-slot-notices.js";
 import { formatCooldownShort } from "./client-app-runtime-utils.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -24,7 +24,12 @@ export const afcModuleActionsForTile = (state: ClientState, tile: Tile, availabi
 export const ownedAfcCount = (state: Pick<ClientState, "tiles" | "me">): number =>
   [...state.tiles.values()].filter((candidate) => candidate.ownerId === state.me && candidate.afc?.ownerId === state.me).length;
 
-/** Replacing a lost AFC uses the campaign-wide supply quote. */
+/** True when one of your active AFCs has AFC_BUILD_MIN_MODULES docked (modules in transit don't count). */
+export const hasAfcReadyToExpand = (state: Pick<ClientState, "tiles" | "me">): boolean =>
+  [...state.tiles.values()].some((candidate) =>
+    candidate.ownerId === state.me && candidate.afc?.ownerId === state.me && candidate.afc.status === "active" && (candidate.afc.modules?.length ?? 0) >= AFC_BUILD_MIN_MODULES);
+
+/** Replacing a lost AFC uses the campaign-wide supply quote; another AFC is built from an empty tile (hasAfcReadyToExpand). */
 export const buildAfcActionForTile = (state: ClientState, tile: Tile, availability: Availability): TileActionDef | undefined => {
   if (tile.ownerId !== state.me) return undefined;
   const owned = ownedAfcCount(state);
@@ -33,7 +38,9 @@ export const buildAfcActionForTile = (state: ClientState, tile: Tile, availabili
     const cost = afcReplacementCost(state.afcRecovery?.globalLosses ?? 0);
     return { id: "build_afc", label: pending ? "AFC inbound" : "Call down replacement AFC", ...availability(!pending && state.gold >= cost, pending ? "AFC delivery in progress" : state.gold < cost ? `Need ${cost} gold` : "", `${cost} gold · 60-second landing`) };
   }
-  if (tile.afc?.status !== "active") return undefined;
+  // Offered on the empty tile the new AFC would land on, never on an AFC, and only once one of
+  // your AFCs has AFC_BUILD_MIN_MODULES docked: a new AFC is for more module space.
+  if (!hasAfcReadyToExpand(state) || !isValidAfcLandingTile(state, tile, false)) return undefined;
   const cost = afcBuildCost(owned);
   return { id: "build_afc", label: "Build AFC", ...availability(state.gold >= cost, state.gold >= cost ? "" : `Need ${cost} coin`, `${cost} Coin`) };
 };

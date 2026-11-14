@@ -26,6 +26,9 @@
   font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
 }
 .v2p-action:hover { border-color: var(--v2-gold); color: var(--v2-gold-hi); }
+.v2p-action + .v2p-action { margin-top: 8px; }
+.v2p-action:disabled { cursor: default; color: var(--v2-muted); border-color: var(--v2-line); }
+.v2p-action:disabled:hover { border-color: var(--v2-line); color: var(--v2-muted); }
 .v2p-main { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
 .v2p-h, .v2p-panel h3 { margin: 0; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--v2-gold); }
 /* One strip with dividers rather than a framed box per number. */
