@@ -60,7 +60,10 @@ export type ScoutDroneGauge = { activeFlights: number; alertCooldownEntries: num
 export type ScoutDroneRuntime = {
   readonly handleExplore: (command: CommandEnvelope) => void;
   readonly tick: (nowMs: number) => void;
-  /** Push the player their drone's current state (live subscribe / reconnect). */
+  /**
+   * Push the player their drone in the air (live subscribe / reconnect). Nothing is
+   * sent while it is docked: the client treats a flight past its landsAt as docked.
+   */
   readonly sendTo: (playerId: string) => void;
   readonly flightFor: (playerId: string) => ScoutDroneFlight | undefined;
   readonly gauge: () => ScoutDroneGauge;
@@ -202,7 +205,10 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       for (const active of [...flights.values()]) advance(active, nowMs);
       for (const [key, at] of lastAlertAt) if (nowMs - at >= SCOUT_SIGHTED_ALERT_COOLDOWN_MS) lastAlertAt.delete(key);
     },
-    sendTo: (playerId) => send(playerId, `scout-drone:${playerId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: flights.get(playerId)?.flight ?? null }),
+    sendTo: (playerId) => {
+      const flight = flights.get(playerId)?.flight;
+      if (flight) send(playerId, `scout-drone:${playerId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
+    },
     flightFor: (playerId) => flights.get(playerId)?.flight,
     gauge: () => ({ activeFlights: flights.size, alertCooldownEntries: lastAlertAt.size, capRefusals, cooldownEvictions })
   };

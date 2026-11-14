@@ -141,10 +141,10 @@ describe("scout drone runtime", () => {
     expect(h.messages.some((m) => m.playerId === "friend")).toBe(false);
   });
 
-  it("sends the current flight, or none, on subscribe", () => {
+  it("sends the flight in the air on subscribe, and nothing while docked", () => {
     const h = harness(homeRow());
     h.runtime.sendTo("me");
-    expect(lastPayload(h).flight).toBeNull();
+    expect(h.messages).toHaveLength(0);
     h.explore(9, 10);
     h.runtime.sendTo("me");
     expect(lastPayload(h).flight?.targetX).toBe(9);
