@@ -462,6 +462,11 @@ its garrisoned heartland, but only over ground held in depth, not over a
 thin line of outposts. The exact thresholds belong in the
 [gameplay reference](../game-mechanics.md).
 
+The same charts name the notable wastes and ice fields inside an island:
+stretches of desert and tundra large enough to matter to a House, but small
+enough to be held. These names belong to the chart too and are never
+renamed.
+
 ## 11. Houses and the planetary economy
 
 ### Knowledge, landings and seasons
@@ -478,6 +483,36 @@ that planet. On another seasonal world, the House retains its knowledge but
 must commission the equipment and personnel needed there. The relationship
 between campaign resets and permanent ducal holdings remains a canon
 question in §14.
+
+### House Charges
+
+Before a landing, each House gives its campaign leader a few **sealed
+charges**: the House's own ambitions for this world, separate from the
+Court's terms of victory. Its trading families may want a secure road
+between two named market towns; its elders a town grown great enough to seat
+a cadet line; its surveyors a landmass, waste or ice field entered in the
+charts under its name; its scholars a particular Concordance installation
+woken. The charges are private. The House learns which goals were sent, the
+watching Core does not, and rivals can only guess from what the House chooses
+to fight for.
+
+The charges are drawn from the House's own landing reports, so they point at
+places near where it came down. A House may set one charge aside in its first
+day on the ground. The surveyors' bearings come from the Court's slow,
+incomplete charts, so a charge first marks only an area; the House finds the
+exact place by scouting it. An installation is known only by its maintenance
+beacon until the House garrisons it.
+
+A charge is fulfilled only if the House still holds it when the campaign is
+decided: a road cut, a town lost or a chart name struck in the last hours
+counts for nothing. When the campaign is decided the seals are broken in
+public, and the Core learns at last what every House was really after. A
+fulfilled charter goes into its House's archive, a record of what the House
+set out to take and held; the archive is the collection of charge cards a
+House's profile shows. What a fulfilled charge earns the House is a gameplay
+decision recorded in the
+[gameplay reference](../game-mechanics.md) and the
+[House Charges plan](../house-charges-plan.md).
 
 ### Coastal assault carriers
 

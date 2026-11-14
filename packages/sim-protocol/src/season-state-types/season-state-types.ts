@@ -148,6 +148,8 @@ export type SimulationSeasonState = {
    *  docs/galactic-campaign-design.md). Absent before crowning and on seasons
    *  archived before this field existed. */
   galaxyTiers?: SeasonGalaxyTierSnapshot[];
+  /** House Charges outcome per House, recorded at crowning (docs/house-charges-plan.md); absent for older seasons. */
+  houseCharges?: import("@border-empires/shared").SeasonHouseChargesSnapshot[];
   victoryTrackers: SeasonVictoryTrackerSnapshot[];
   /** Player ids that have explicitly joined this season (via JoinSeason),
    *  distinct from ids merely known to the runtime (e.g. AI/barbarian seed

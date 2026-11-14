@@ -13,7 +13,8 @@ export default defineConfig({
   test: {
     include: [
       "**/season-seed-world-ring-interiors.test.ts",
-      "**/season-seed-world-dock-coverage.test.ts"
+      "**/season-seed-world-dock-coverage.test.ts",
+      "**/house-charges-seeded-world.test.ts"
     ],
     fileParallelism: false,
     server: {

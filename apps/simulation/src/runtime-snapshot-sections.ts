@@ -104,6 +104,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
           ...(typeof player.lifetimeGarrisons === "number" && player.lifetimeGarrisons > 0 ? { lifetimeGarrisons: player.lifetimeGarrisons } : {}),
           ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
+          ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),
           autoSettle: { ...player.autoSettle },
           ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
           ...(typeof player.waystationManpowerOverflow === "number" && player.waystationManpowerOverflow > 0 ? { waystationManpowerOverflow: player.waystationManpowerOverflow } : {}),

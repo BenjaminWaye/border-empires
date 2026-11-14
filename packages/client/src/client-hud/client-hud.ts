@@ -10,7 +10,8 @@ import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-
 import { fetchActivePlayerProfileData, wirePlayerNameLinks } from "../client-player-profile/client-player-profile.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { renderDefensibilityPanels } from "./client-hud-defensibility-panel.js";
-import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
+import { bindWeakDefensibilityToggle } from "./client-hud-weak-defensibility-toggle.js";
+import { renderHouseChargesPanel } from "../client-house-charges/client-house-charges-panel.js";
 import type { initClientDom } from "../client-dom.js";
 import { bindHudEconomyPanelControls, hudEconomyPanelHtml } from "./client-hud-economy-panel.js";
 import { renderHudTownsPanel } from "./client-hud-towns-panel.js";
@@ -448,34 +449,9 @@ export const renderClientHud = (deps: HudDeps): void => {
   );
   dom.alliancePlayerInspectEl.innerHTML = socialInspectCardHtml;
 
-  dom.missionsEl.innerHTML = "";
+  renderHouseChargesPanel(state, { root: dom.hud, panelEl: dom.panelChargesEl, rerender: () => renderClientHud(deps), requestViewRefresh, sendGameMessage, wrapX, wrapY, now: Date.now });
   renderDefensibilityPanels(state, dom, { keyFor, wrapX, wrapY, terrainAt, safeValue, fallbackCard });
-  const weakDefButtons = dom.hud.querySelectorAll("[data-toggle-weak-def]") as NodeListOf<HTMLButtonElement>;
-  weakDefButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      state.showWeakDefensibility = !state.showWeakDefensibility;
-      const weakTileCount = [...state.tiles.values()].filter((tile) => {
-        if (!isOwnedSettledLandTile(tile, state.me)) return false;
-        return exposedSidesForTile(tile, {
-          tiles: state.tiles,
-          me: state.me,
-          keyFor,
-          wrapX,
-          wrapY,
-          terrainAt
-        }).length >= 2;
-      }).length;
-      pushFeed(
-        state.showWeakDefensibility
-          ? `Showing weak tiles (${weakTileCount} highlighted).`
-          : "Weak tiles hidden.",
-        "info",
-        "info"
-      );
-      requestViewRefresh();
-      renderClientHud(deps);
-    };
-  });
+  bindWeakDefensibilityToggle(dom.hud, state, { keyFor, wrapX, wrapY, terrainAt, pushFeed, requestViewRefresh, rerender: () => renderClientHud(deps) });
 
   const economyPanelHtml = safeValue("renderEconomyPanelHtml", fallbackCard("Economy"), () =>
     hudEconomyPanelHtml(state, { prettyToken, resourceIconHtml, rateToneClass, resourceLabel, economicStructureName, hasRevealedResourceCategory })

@@ -2264,7 +2264,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         if (currentSeasonState.status === "ended") return;
         runtime.tickWatchtowerReveals(Date.now());
         runtime.tickAetherShields(Date.now()); // bounded per-tick work inside -- aether-shield/aether-shield-tick.ts
-        runtime.tickIslandNames(Date.now()); // throttled to ~2s inside -- island-names/island-names-ticker.ts
+        runtime.tickSideTickers(Date.now()); // island names + House Charges, throttled inside -- side-tickers/runtime-side-tickers.ts
       }, 1_000);
       let passiveIncomeRunning = false;
       passiveIncomeTicker = setInterval(() => {

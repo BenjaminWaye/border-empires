@@ -261,17 +261,18 @@ const renderProfile = (deps: HudV2Deps): void => {
     relation: profileRelation(state, id),
     entry: state.leaderboard.overall.find((e) => e.id === id),
     career: state.careerStatsByPlayerId.get(id),
+    chargeCards: state.houseChargeCardsByPlayerId.get(id),
     holdings: state.galaxyHoldingsByPlayerId.get(id),
     pacts: self ? { allies: state.allies, activeTruces: state.activeTruces } : social,
     truceBreaks: self ? state.truceBreaksThisSeason : social === "loading" || social === undefined ? social : social.truceBreaksThisSeason,
     nameOf: (other) => nameOf(deps, other) || undefined,
     nowMs: Date.now(),
-    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] } } : {})
+    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] }, houseCharges: state.houseCharges ?? null } : {})
   }));
 };
 
 /** Panels opened from the always-visible bar or orb, which sit above an open screen instead of being closed by it. */
-const SCREEN_SAFE_PANELS: ReadonlySet<string> = new Set(["settings", "manpower", "economy", "defensibility"]);
+const SCREEN_SAFE_PANELS: ReadonlySet<string> = new Set(["settings", "manpower", "economy", "defensibility", "charges"]);
 
 /** Renders the open screen; called on the HUD's timer and after clicks. */
 export const renderScreen = (deps: HudV2Deps): void => {
@@ -309,6 +310,11 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
   if (screen.id === "battle" && battleClick(deps, target)) return true;
   if (target.closest("[data-v2-close]")) {
     closeScreen(deps);
+    return true;
+  }
+  if (target.closest("[data-v2-open-charges]")) {
+    if (deps.state.activePanel !== "charges") deps.setActivePanel("charges");
+    deps.renderHud();
     return true;
   }
   const diplomacyWith = target.closest<HTMLElement>("[data-v2-profile-diplomacy]")?.dataset.v2ProfileDiplomacy;

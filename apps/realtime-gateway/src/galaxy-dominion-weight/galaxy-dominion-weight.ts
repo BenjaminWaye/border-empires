@@ -4,6 +4,8 @@ import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import { resolveGalaxyHoldingsByOwner } from "../galaxy-holdings/galaxy-holdings.js";
 import { computeDominionVoteWeight } from "../galaxy-senate-tick/galaxy-senate-tick.js";
+import { HOUSE_CHARGE_DOMAIN_WEIGHT } from "@border-empires/shared";
+import { heldChargeCountsByAuthUid } from "../galaxy-house-charge-rewards/galaxy-house-charge-rewards.js";
 
 export type ResolveGalaxyDominionWeightsDeps = {
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
@@ -27,6 +29,12 @@ export const resolveGalaxyDominionWeights = async (
     ...(deps.getCurrentSeasonSummary ? { getCurrentSeasonSummary: deps.getCurrentSeasonSummary } : {}),
     authBindingStore: deps.authBindingStore
   });
+  // Each House Charge held at a crowning adds HOUSE_CHARGE_DOMAIN_WEIGHT for an empire that holds territory.
+  const heldCharges = await heldChargeCountsByAuthUid({
+    listSeasonArchives: deps.listSeasonArchives,
+    ...(deps.getCurrentSeasonSummary ? { getCurrentSeasonSummary: deps.getCurrentSeasonSummary } : {}),
+    authBindingStore: deps.authBindingStore
+  });
   const weightByAuthUid = new Map<string, number>();
   for (const [authUid, territories] of holdingsByOwner) {
     let planets = 0;
@@ -38,7 +46,7 @@ export const resolveGalaxyDominionWeights = async (
       const stability = await deps.galaxyEconomyStore.ensureStability({ authUid, seasonId: territory.seasonId, tier: territory.tier });
       totalStability += stability.stability;
     }
-    weightByAuthUid.set(authUid, computeDominionVoteWeight({ planets, outposts, totalStability }));
+    weightByAuthUid.set(authUid, computeDominionVoteWeight({ planets, outposts, totalStability }) + (heldCharges.get(authUid) ?? 0) * HOUSE_CHARGE_DOMAIN_WEIGHT);
   }
   return weightByAuthUid;
 };

@@ -204,7 +204,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
         } else if (tier.tier === "STIPEND") {
           // Same whole-number amount the payout uses; one that rounds to 0
           // pays nothing, so it isn't listed either.
-          const amounts = stipendPayoutAmounts(tier);
+          const amounts = stipendPayoutAmounts(tier, season.heldChargesByPlayerId?.[tier.playerId] ?? 0);
           if (amounts.influence === 0) continue;
           stipends.push({
             seasonId: season.seasonId,

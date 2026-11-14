@@ -1,4 +1,5 @@
 import { nextManpowerBatchAmount } from "./runtime-manpower.js";
+import { houseChargeExpansionObjective } from "./house-charges/house-charge-ai-objective.js";
 import { afcPlayerExportFields } from "./afc-specializations/afc-player-export.js";
 import { activeAfcModuleTechIds } from "./ai/ai-build-unlocks.js";
 import type { AiTacticalView } from "./ai/ai-tactical-view.js";
@@ -140,6 +141,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         relicDevelopmentBonus: player.relicDevelopmentBonus ?? 0,
         ...(typeof player.lifetimeGarrisons === "number" && player.lifetimeGarrisons > 0 ? { lifetimeGarrisons: player.lifetimeGarrisons } : {}),
         ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
+        ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),
         autoSettle: autoSettlePrefsForOutput(player.autoSettle),
         ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
@@ -330,6 +332,8 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         objective: expansionObjective
       });
     }
+    // No ordinary objective: an AI House steers toward its first unfinished House Charge instead.
+    if (!expansionObjective && player.isAi) expansionObjective = houseChargeExpansionObjective(player, input.tiles);
 
     const ownedTileCount = tileKeys.territoryTileKeys.length;
     const frontierTileCount = tileKeys.frontierTileKeys.length;
