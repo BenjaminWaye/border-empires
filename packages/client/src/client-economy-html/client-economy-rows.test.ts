@@ -8,7 +8,7 @@ const slot = (supply: number, demand: number, sources: EconomyRowsInput["slots"]
 const input = (over: Partial<EconomyRowsInput> = {}): EconomyRowsInput => ({
   focus: "ALL",
   gold: 13.4,
-  coin: { netPerMinute: 58 / 1440, sources: [{ label: "Town", amountPerMinute: 40 / 1440, count: 3 }], sinks: [{ label: "Umbrite Works", amountPerMinute: 2 / 1440, count: 1, resourceKey: "UMBRITE" }] },
+  coin: { earned: [{ label: "Town", amountPerMinute: 40 / 1440, count: 3, kind: "source" }], upkeep: [{ label: "Umbrite Works", amountPerMinute: 2 / 1440, count: 1, resourceKey: "UMBRITE" }], grossPerMinute: 40 / 1440, upkeepPerMinute: 0, netPerMinute: 40 / 1440, integrityPerMinute: 0 },
   slots: {
     FOOD: slot(10, 9, [{ label: "Farm", amountPerMinute: 4, count: 4 }], [{ label: "Town support", amountPerMinute: 9, count: 3 }]),
     TITANIUM: slot(2, 0),

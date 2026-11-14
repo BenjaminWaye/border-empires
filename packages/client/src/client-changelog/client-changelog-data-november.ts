@@ -7,6 +7,7 @@ import { AFC_V3_CHANGELOG } from "./client-changelog-afc-v3.js";
 import { AI_STACKED_INDUSTRY_CHANGELOG } from "./client-changelog-ai-stacked-industry.js";
 import { HUD_V2_MOBILE_CHANGELOG } from "./client-changelog-hud-v2-mobile.js";
 import { FLAG_STALL_LABEL_CHANGELOG } from "./client-changelog-flag-stall-label.js";
+import { INCOME_TRUTH_CHANGELOG } from "./client-changelog-income-truth.js";
 import { HUD_V2_ONLY_CHANGELOG } from "./client-changelog-hud-v2-only.js";
 import { AI_JUNIOR_ALLIANCES_CHANGELOG } from "./client-changelog-ai-junior-alliances.js";
 import { PHONE_MAP_OVERVIEW_CHANGELOG } from "./client-changelog-phone-map-overview.js";
@@ -58,6 +59,7 @@ export const NOVEMBER_CHANGELOG: ClientChangelogEntry[] = [
   ...OWNERSHIP_HELP_CHANGELOG,
   ...TOWN_GROWTH_PERSIST_CHANGELOG,
   ...TRUCE_MINUTES_CHANGELOG,
+  ...INCOME_TRUTH_CHANGELOG,
   ...HILL_FISHING_FARM_BUILDINGS_CHANGELOG,
   ...AI_TRUCE_REASONING_CHANGELOG,
   ...TRUCE_OFFERS_WAIT_CHANGELOG,

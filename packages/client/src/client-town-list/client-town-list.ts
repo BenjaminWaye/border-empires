@@ -1,11 +1,11 @@
 // Sortable list of the viewer's towns for the Towns panel, so a player can
 // spot the towns producing the least/most coin or holding the most people
 // without clicking through every town tile.
+import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import { displayTownPopulationTierLabel, townPopulationTarget } from "../client-town-growth/client-town-growth.js";
 import type { Tile } from "../client-types.js";
 import { openBuildSlotsForTown } from "./client-town-list-slots.js";
-import { deriveTileYieldRate } from "../yield-derivation/yield-derivation.js";
 
 export type TownListSortKey = "gold" | "population" | "growth" | "slots";
 export type TownListSort = { key: TownListSortKey; descending: boolean };
@@ -46,14 +46,6 @@ export const nextTownListSort = (sort: TownListSort, key: TownListSortKey): Town
 // summaries), so anything absent reads as 0 rather than NaN.
 const finiteOrZero = (value: number | undefined): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 
-// The town screen's figure (town.goldPerMinute) with sabotage, dock income and the settlement fallback applied,
-// derived fresh: a cached yieldRate can be the 0 a tile-detail reply sent before the town was garrisoned or fed,
-// and it is only cleared by a tile update, not by the town summary that carries the new income. That left
-// every town at 0.0 here while its own screen showed +21/day (playtest day 1). Docks keep the server's rate:
-// only it knows their link bonuses.
-// A partial town summary without goldPerMinute derives nothing; keep the last known rate then instead of 0.
-const townCoinPerMinute = (tile: Tile): number =>
-  finiteOrZero(tile.dockId && tile.yieldRate ? tile.yieldRate.goldPerMinute : deriveTileYieldRate(tile)?.goldPerMinute ?? tile.yieldRate?.goldPerMinute);
 
 /** Shared by both HUDs' town lists, so the order carries over between them. */
 export const toggleTownListSort = (key: TownListSortKey): void => {
@@ -71,7 +63,7 @@ export const deriveTownListRows = (towns: Iterable<Tile>, me: string, tiles: Rea
       y: tile.y,
       name: town.name ?? tile.townName ?? `Town ${tile.x}, ${tile.y}`,
       tierLabel: displayTownPopulationTierLabel(town.populationTier),
-      goldPerMinute: townCoinPerMinute(tile),
+      goldPerMinute: tileCoinPerMinute(tile),
       population: finiteOrZero(town.population),
       maxPopulation: finiteOrZero(townPopulationTarget(town)),
       growthPerMinute: finiteOrZero(town.populationGrowthPerMinute),

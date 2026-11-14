@@ -83,6 +83,7 @@ export * from "./structure-registry-index.js";
 export { TECH_REQUIREMENTS_BY_STRUCTURE } from "./structure-registry-economic.js";
 export * from "./monument-tech-unlocks.js";
 export * from "./empire-integrity.js";
+export * from "./coin-income/coin-income.js";
 export * from "./waypoint-planner/waypoint-planner.js";
 export * from "./init-transfer/init-transfer.js";
 export * from "./season-rollover-close/season-rollover-close.js";

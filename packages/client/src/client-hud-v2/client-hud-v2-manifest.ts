@@ -11,6 +11,7 @@ import { relatedStrategicResourcesForTech } from "../client-resource-discovery-i
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import { relatedStructureTypesForTech } from "../client-tech-detail-ui/client-tech-structure-unlocks.js";
 import type { TechInfo } from "../client-types.js";
+import { techGoldCostForResearchedCount } from "@border-empires/shared";
 
 export type ManifestNodeState = "owned" | "available" | "locked";
 
@@ -196,6 +197,13 @@ export type ManifestInput = {
 export const nextManifestCost = (techs: readonly TechInfo[], owned: ReadonlySet<string>): number | undefined =>
   techs.find((t) => !owned.has(t.id))?.requirements.gold;
 
+/**
+ * What every remaining Manifest will cost once this one is commissioned: each
+ * commission raises the shared price (techGoldCostForResearchedCount, the same
+ * table the server charges from), so players see 40 → 70 coming.
+ */
+export const manifestCostAfterCommission = (owned: ReadonlySet<string>): number => techGoldCostForResearchedCount(owned.size + 1);
+
 export const manifestHeadRightHtml = (input: Pick<ManifestInput, "techs" | "owned">): string => {
   const cost = nextManifestCost(input.techs, input.owned);
   const count = input.techs.filter((t) => input.owned.has(t.id)).length;
@@ -282,7 +290,7 @@ export const manifestDetailHtml = (input: ManifestInput): string => {
         ? `<button type="button" class="v2s-btn v2s-btn-primary" data-v2-manifest-commission="${esc(tech.id)}"${affordable ? "" : " disabled"} title="${affordable ? "" : `Need ${cost.toLocaleString("en-US")} Coin`}">Commission · ${cost.toLocaleString("en-US")} Coin</button>`
         : `<button type="button" class="v2s-btn" disabled>Locked</button>`;
   return `<div class="v2m-detail-name"><span class="v2m-detail-title">${esc(tech.name)}</span><span class="v2m-detail-meta">${meta}</span></div>
-    <div class="v2m-detail-mid"><div class="v2m-chips">${chips}</div><span class="v2m-req${missing || tech.lockedReason ? " v2m-req-missing" : ""}">${req}</span></div>
+    <div class="v2m-detail-mid"><div class="v2m-chips">${chips}</div><span class="v2m-req${missing || tech.lockedReason ? " v2m-req-missing" : ""}">${req}</span>${state === "available" ? `<span class="v2m-req v2m-next-cost">Next after this: ${manifestCostAfterCommission(input.owned).toLocaleString("en-US")} Coin</span>` : ""}</div>
     ${button}`;
 };
 

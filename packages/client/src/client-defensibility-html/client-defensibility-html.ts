@@ -1,4 +1,4 @@
-import { INTEGRITY_GRACE_FLOOR, INTEGRITY_GRACE_TILES, defensibilityScore, fullDefensibilityExposureForTiles, idealExposureForTiles, integrityEconomyMult, integrityGrowthMult } from "@border-empires/shared";
+import { formatCoinPerDay, INTEGRITY_GRACE_FLOOR, INTEGRITY_GRACE_TILES, defensibilityScore, fullDefensibilityExposureForTiles, idealExposureForTiles, integrityEconomyMult, integrityGrowthMult } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 
@@ -18,6 +18,8 @@ type DefensibilityArgs = {
   settledE: number;
   showWeakDefensibility: boolean;
   empireIntegrityEnabled: boolean;
+  /** The Empire Integrity line of the shared coin breakdown (what accrual actually pays). */
+  integrityCoinPerMinute?: number;
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
@@ -159,7 +161,7 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
         <strong>Income &amp; growth effect</strong>
         <p class="defense-copy">Compact empires earn a bonus; sprawling empires take a penalty. At 100% that's ${sign(maxEconPct)} income and ${sign(maxGrowthPct)} growth — at 0% it flips to ${sign(minEconPct)} and ${sign(minGrowthPct)}.</p>
         <div class="defense-stat-grid">
-          <div class="defense-stat"><span>Income effect</span><strong class="${cls(econPct)}">${sign(econPct)}</strong></div>
+          <div class="defense-stat"><span>Income effect</span><strong class="${cls(econPct)}">${sign(econPct)}${args.integrityCoinPerMinute ? ` · ${formatCoinPerDay(args.integrityCoinPerMinute)}` : ""}</strong></div>
           <div class="defense-stat"><span>Growth effect</span><strong class="${cls(growthPct)}">${sign(growthPct)}</strong></div>
         </div>
       </article>`;

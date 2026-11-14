@@ -4,6 +4,7 @@
 // through the existing handlers; the destination screens live in
 // client-hud-v2-screens.ts, the town and battle screens in their runtimes.
 
+import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
 import { latestOwnFight } from "../client-detached-attacks/client-detached-attacks.js";
 import { musterFlagCap } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
@@ -238,7 +239,7 @@ const NAV_ACTIVE: Partial<Record<HudV2ScreenId, string>> = { manifest: "manifest
 const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], nowMs: number): void => {
   writeRegion("bar", resourceBarHtml({
     gold: state.gold,
-    netPerMinute: state.incomePerMinute - state.upkeepPerMinute.gold,
+    netPerMinute: empireCoinIncome(state).netPerMinute,
     slotSupply: state.resourceSlots.supply,
     slotDemand: state.resourceSlots.demand,
     integrityPct: state.defensibilityPct,
