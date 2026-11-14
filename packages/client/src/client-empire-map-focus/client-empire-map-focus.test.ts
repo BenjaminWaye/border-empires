@@ -55,4 +55,13 @@ describe("hasSeenEmpireTile", () => {
     expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p2", revision: 2 })).toBe(true);
     expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p9", revision: 2 })).toBe(false);
   });
+
+  it("notices a chunk load that adds a seen tile without bumping the revision", () => {
+    const tiles = tilesOf([{ x: 3, y: 3, ownerId: "p4" }]);
+    const discovered = new Set<string>(["3,3"]);
+    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p5", revision: 7 })).toBe(false);
+    tiles.set("8,8", { x: 8, y: 8, ownerId: "p5" });
+    discovered.add("8,8");
+    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p5", revision: 7 })).toBe(true);
+  });
 });
