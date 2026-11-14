@@ -42,6 +42,20 @@ describe("short phone layout", () => {
     expect(rulesFor(overlays, "body.hud-v2-compact #v2t-bar .v2t-minor")).toContain("order: -1");
   });
 
+  // Review of #2781: with the links on top, a 118px cap that also held the safe-area padding left ~24px
+  // for Garrison/Raise flag on a home-indicator iPhone. The panels above already reserve town bar + safe area.
+  it("sizes the town bar to its reserve plus the safe area, so the action buttons stay in view", () => {
+    expect(rulesFor(screens, "body.hud-v2-compact #v2t-bar.v2t-bar")).toContain("max-height: calc(var(--v2c-town-bar, 118px) + var(--v2c-safe-bottom))");
+  });
+
+  // Review of #2781: in landscape the docked guide left Manifest and Diplomacy ~125px of body.
+  it("docks the guide in portrait only", () => {
+    const dock = overlays.indexOf("--v2c-guide-dock: 88px");
+    const portrait = overlays.lastIndexOf("@media (orientation: portrait)", dock);
+    expect(portrait).toBeGreaterThanOrEqual(0);
+    expect(overlays.slice(portrait, dock)).not.toContain("}");
+  });
+
   it("shows the town's stat cards two to a row so their labels and notes fit at 375px", () => {
     expect(rulesFor(screens, "body.hud-v2-compact .v2t-stats")).toContain("repeat(2, minmax(0, 1fr))");
     expect(rulesFor(screens, "body.hud-v2-compact .v2t-stat")).toContain("min-width: 0");

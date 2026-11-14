@@ -30,25 +30,28 @@ body.hud-v2-compact #discovery-tip-overlay {
    On the Manifest and Diplomacy screens and over the Manpower panel the guide stays up (the step sent the
    player there). Under the resource bar it covered the screen's heading, its first row and the item the
    step points at, so it docks at the foot and the screen or panel ends above it. */
-body.hud-v2-compact { --v2c-guide-dock: 88px; }
-body.hud-v2-compact #tutorial-guide-root.tg-raised {
-  top: auto; left: calc(var(--v2c-safe-left) + 6px); right: calc(var(--v2c-safe-right) + 6px); bottom: calc(var(--v2c-bottom) + 4px) !important;
-}
-body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-card {
-  position: relative; box-sizing: border-box; width: 100%; height: calc(var(--v2c-guide-dock) - 8px); padding: 8px 10px; overflow: hidden;
-}
-body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-head { position: absolute; top: 4px; right: 6px; margin: 0; }
-body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-collapse { min-width: 32px; min-height: 32px; }
-body.hud-v2-compact #tutorial-guide-root.tg-raised :is(.tg-chapter, .tg-why, .tg-lookfor, .tg-later, .tg-progress-row) { display: none; }
-body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-title {
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; padding-right: 34px;
-}
-body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-actions { margin-top: 6px; }
-body.hud-v2-compact:is(.hud-v2-screen-manifest, .hud-v2-screen-diplomacy):has(#tutorial-guide-root.tg-raised .tg-card:not([hidden])) .v2s-body {
-  bottom: calc(var(--v2c-bottom) + var(--v2c-guide-dock) + 4px);
-}
-body.hud-v2-compact:has(#tutorial-guide-root.tg-raised.tg-over-manpower .tg-card:not([hidden])) #side-panel {
-  bottom: calc(var(--v2c-bottom) + var(--v2c-guide-dock)) !important;
+/* Portrait only: in landscape the dock would leave Manifest and Diplomacy ~125px of body. */
+@media (orientation: portrait) {
+  body.hud-v2-compact { --v2c-guide-dock: 88px; }
+  body.hud-v2-compact #tutorial-guide-root.tg-raised {
+    top: auto; left: calc(var(--v2c-safe-left) + 6px); right: calc(var(--v2c-safe-right) + 6px); bottom: calc(var(--v2c-bottom) + 4px) !important;
+  }
+  body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-card {
+    position: relative; box-sizing: border-box; width: 100%; height: calc(var(--v2c-guide-dock) - 8px); padding: 8px 10px; overflow: hidden;
+  }
+  body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-head { position: absolute; top: 4px; right: 6px; margin: 0; }
+  body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-collapse { min-width: 32px; min-height: 32px; }
+  body.hud-v2-compact #tutorial-guide-root.tg-raised :is(.tg-chapter, .tg-why, .tg-lookfor, .tg-later, .tg-progress-row) { display: none; }
+  body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-title {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; padding-right: 34px;
+  }
+  body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-actions { margin-top: 6px; }
+  body.hud-v2-compact:is(.hud-v2-screen-manifest, .hud-v2-screen-diplomacy):has(#tutorial-guide-root.tg-raised .tg-card:not([hidden])) .v2s-body {
+    bottom: calc(var(--v2c-bottom) + var(--v2c-guide-dock) + 4px);
+  }
+  body.hud-v2-compact:has(#tutorial-guide-root.tg-raised.tg-over-manpower .tg-card:not([hidden])) #side-panel {
+    bottom: calc(var(--v2c-bottom) + var(--v2c-guide-dock)) !important;
+  }
 }
 
 /* ---- Destructive links stay off the bottom row ----
