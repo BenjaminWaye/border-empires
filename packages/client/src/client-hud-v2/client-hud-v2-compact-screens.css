@@ -58,6 +58,7 @@ body.hud-v2-compact .v2p-grid { grid-template-columns: minmax(0, 1fr); }
 body.hud-v2-compact .v2l-table { width: 100%; padding: 8px 10px; }
 body.hud-v2-compact .v2l-head, body.hud-v2-compact .v2l-row { grid-template-columns: minmax(0, 1.5fr) repeat(4, minmax(0, 1fr)); gap: 8px; }
 body.hud-v2-compact .v2l-row { min-height: var(--v2c-touch); padding: 6px 6px; }
+body.hud-v2-compact .v2l-sort { white-space: normal; text-align: right; line-height: 1.2; }
 
 /* The orb and lens would sit on the Chronicle sheet and the town screen's panels. */
 body.hud-v2-compact.hud-v2-screen-chronicle .hud-v2-orb-slot,
