@@ -1,7 +1,8 @@
-// "Your First Dock" card: the first time a tile-delta batch shows the player
-// holding a dock, explain what a dock crossing can do. Shown once per account
-// through the discovery-tip queue (dismissal persisted per account, same TTL
-// as every discovery tip). Only ever about the player's own dock: it never
+// "Your First Dock" card: when a tile-delta batch shows the player holding a
+// dock, explain what a dock crossing can do. Offered at most once per session
+// through the discovery-tip queue; a dismissal is persisted per account with
+// the same 30-day/season window as every discovery tip, so it can come back
+// after that window. Only ever about the player's own dock: it never
 // points at another dock or anything the player hasn't seen.
 
 import type { Tile } from "../client-types.js";

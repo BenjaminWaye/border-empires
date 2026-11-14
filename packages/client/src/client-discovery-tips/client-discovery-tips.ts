@@ -105,7 +105,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
     id: "FIRST_DOCK",
     title: "Your First Dock",
     // Mechanics: packages/shared/src/dock-landing/dock-landing.ts (landing ground = linked dock + coast within 1).
-    body: "A sea lane links this dock to a dock on another island. From here you can expand or attack across to that dock and the beach around it. Select the dock to see its lanes."
+    body: "This dock has sea lanes to docks on other islands. From here you can expand or attack across to those docks and the beaches around them. Select the dock to see its lanes."
   },
   WAYSTATION: {
     id: "WAYSTATION",
