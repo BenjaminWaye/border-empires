@@ -4,6 +4,7 @@ import { GUIDE_PLAYTEST_FIXES_ENTRY } from "./client-changelog-guide-playtest-fi
 import { GUIDE_MANIFEST_PRICE_ENTRY } from "./client-changelog-guide-manifest-price.js";
 import { TOWN_RING_GARRISON_ENTRY } from "./client-changelog-town-ring-garrison.js";
 import { COPY_POINTERS_ENTRY } from "./client-changelog-copy-pointers.js";
+import { CHRONICLE_DIPLOMACY_ROWS_ENTRY } from "./client-changelog-chronicle-diplomacy-rows.js";
 import { TOWNS_TABLE_HEADERS_ENTRY } from "./client-changelog-towns-table-headers.js";
 import { SETUP_SCREEN_ENTRY } from "./client-changelog-setup-screen.js";
 import { THREE_D_RELOAD_STREAK_ENTRY } from "./client-changelog-3d-reload-streak.js";
@@ -21,6 +22,7 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_116: ClientChangelogEntry[] = [
   { ...TOWN_RING_GARRISON_ENTRY, createdAt: 1794590298990, },
   { ...COPY_POINTERS_ENTRY, createdAt: 1794635778800, },
   { ...TOWNS_TABLE_HEADERS_ENTRY, createdAt: 1794635875376, },
+  { ...CHRONICLE_DIPLOMACY_ROWS_ENTRY, createdAt: 1794696575032, },
   { ...SETUP_SCREEN_ENTRY, createdAt: 1794635712070, },
   { ...THREE_D_RELOAD_STREAK_ENTRY, createdAt: 1794635625342, },
   { ...OVERLAY_TAPS_ENTRY, createdAt: 1794635528675, },
