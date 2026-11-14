@@ -144,7 +144,7 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   }
   // Tracker "Queued expansions": stop every queued Expand To, here and on the server.
   if (target.closest("[data-hud-v2-cancel-waypoints]")) {
-    if (clearAllWaypoints({ state: deps.state, sendGameMessage: deps.sendGameMessage })) showCaptureAlert(deps.state, "Expansions cancelled", "Queued expansions stopped. No more manpower is spent on them.", "success");
+    if (clearAllWaypoints({ state: deps.state, sendGameMessage: deps.sendGameMessage })) showCaptureAlert(deps.state, "Expansions cancelled", "Queued expansions stopped.", "success");
     deps.renderHud();
     return;
   }
