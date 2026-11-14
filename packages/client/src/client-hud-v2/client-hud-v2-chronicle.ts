@@ -38,6 +38,7 @@ export const cardCounterparties = (card: PersonalActivityCard, me: string): stri
     case "DOCK_LOST":
       return card.counterpartyPlayerId ? [card.counterpartyPlayerId] : [];
     case "DIPLOMACY":
+    case "SUPPLY_ENDED":
       return [card.counterpartyPlayerId];
     default:
       return [];

@@ -26,6 +26,8 @@ export interface RuntimeResourceSupplyContext {
   changed: ResourceSupplyLedgerContext["changed"];
   capacityRejected?: () => void;
   publish?: (participantIds: readonly string[]) => void;
+  /** A deal ended for real: cancelled by a House in it, by an attack between them, or run out. */
+  ended?: (agreement: ResourceSupplyAgreement, reason: "CANCELLED" | "ATTACK" | "EXPIRED", byPlayerId?: string) => void;
 }
 
 /** Supply rights are continuing commitments. Domestic output, never imports,
@@ -34,7 +36,10 @@ export class RuntimeResourceSupply {
   readonly ledger: ResourceSupplyLedger;
   constructor(private readonly ctx: RuntimeResourceSupplyContext, restored: readonly ResourceSupplyAgreement[] = []) {
     // Salvage is never exported: zero capacity suspends any legacy salvage deal.
-    this.ledger = new ResourceSupplyLedger({ ...ctx, capacityFor: (id, phase, flows) =>
+    this.ledger = new ResourceSupplyLedger({ ...ctx, changed: (action, agreement) => {
+      ctx.changed(action, agreement);
+      if (action === "expired") ctx.ended?.(agreement, "EXPIRED");
+    }, capacityFor: (id, phase, flows) =>
       phase === "upkeep" ? ctx.physicalUpkeep(id) : { ...this.physicalNetwork(id, flows), PRECURSOR_SALVAGE: 0 } }, restored);
   }
   private physicalNetwork(id: string, flows: ReadonlyMap<string, ResourceSupplyFlow>): NetworkSiteCounts {
@@ -155,7 +160,8 @@ export class RuntimeResourceSupply {
   cancel(id: string, actorId: string): SupplyLedgerResult {
     const row = this.ledger.rows().find(row => row.id === id);
     if (row && row.proposerId !== actorId && row.targetId !== actorId) return {ok:false,message:"Only a House in this agreement can end its supply."};
-    this.ledger.remove(id,this.ctx.now()); return {ok:true};
+    if (row && this.ledger.remove(id, this.ctx.now())) this.ctx.ended?.(row, "CANCELLED", actorId);
+    return {ok:true};
   }
   /** Ends every agreement between two Houses, in both directions, through the
    * ordinary cancel path (settle both at the old rates, then drop the supply).
@@ -163,11 +169,14 @@ export class RuntimeResourceSupply {
   cancelBetween(playerAId: string, playerBId: string): number {
     // Hot path (every accepted ATTACK): most worlds hold no agreements at all.
     if (playerAId === playerBId || this.ledger.size === 0) return 0;
-    const ids = this.ledger.rows().filter(row =>
+    const rows = this.ledger.rows().filter(row =>
       (row.proposerId === playerAId && row.targetId === playerBId) ||
-      (row.proposerId === playerBId && row.targetId === playerAId)).map(row => row.id);
+      (row.proposerId === playerBId && row.targetId === playerAId));
     let ended = 0;
-    for (const id of ids) if (this.ledger.remove(id, this.ctx.now())) ended += 1;
+    for (const row of rows) if (this.ledger.remove(row.id, this.ctx.now())) {
+      ended += 1;
+      this.ctx.ended?.(row, "ATTACK", playerAId);
+    }
     return ended;
   }
   cancelRefunded(id: string, proposerId: string, targetId: string): void {

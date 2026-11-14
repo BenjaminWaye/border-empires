@@ -4,6 +4,8 @@ import type { ResourceSupplyAgreement } from "@border-empires/shared";
 import { RuntimeResourceSupply } from "./runtime-resource-supply.js";
 import { cachedResourceSlots, ownedResourceTiles, physicalResourceSlots, type RuntimeResourceSlotsContext } from "./runtime-resource-slots.js";
 import type { ResourceSupplyLedgerContext } from "./resource-supply-ledger.js";
+import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
+import { supplyEndedImpacts } from "./supply-ended-impacts.js";
 
 export interface ResourceSupplyBridgeContext {
   slots(): RuntimeResourceSlotsContext;
@@ -11,6 +13,8 @@ export interface ResourceSupplyBridgeContext {
   beforeChange: ResourceSupplyLedgerContext["beforeChange"];
   changed: ResourceSupplyLedgerContext["changed"];
   publish?: (id: string) => void;
+  /** Chronicle cards when a deal ends (supply-ended-impacts.ts). */
+  recordPersonalImpact?: (event: PersonalImpactEvent) => void;
 }
 export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, restored: readonly ResourceSupplyAgreement[] = []): RuntimeResourceSupply {
   const supply = new RuntimeResourceSupply({ now: ctx.now, player: id => ctx.slots().players.get(id),
@@ -36,6 +40,9 @@ export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, re
     changed: (action, agreement) => {
       ctx.changed(action, agreement);
       runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size, action }, "resource_supply_agreements");
+    },
+    ended: (agreement, reason, byPlayerId) => {
+      for (const impact of supplyEndedImpacts(agreement, reason, byPlayerId, ctx.now())) ctx.recordPersonalImpact?.(impact);
     },
     invalidate: ids => {
       const caches = ctx.slots().caches;
