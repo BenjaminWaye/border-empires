@@ -169,6 +169,8 @@ export const clearRendererCrashStreak = (): void => {
 };
 
 let attemptTimer: ReturnType<typeof setTimeout> | undefined;
+/** True from this session's beginRendererAttempt until it survives or is handled: the window a page unload must not count as a crash. */
+let attemptInDangerWindow = false;
 
 /**
  * Records that a 3D renderer attempt is starting, *before* any allocation.
@@ -176,6 +178,7 @@ let attemptTimer: ReturnType<typeof setTimeout> | undefined;
  * that it is already on disk if the tab dies mid-construction.
  */
 export const beginRendererAttempt = (tileBudget: number): void => {
+  attemptInDangerWindow = true;
   writeBreadcrumb({
     atMs: Date.now(),
     phase: "init-started",
@@ -201,6 +204,7 @@ export const markRendererInitCompleted = (tileBudget: number): void => {
   // doesn't strand a working device in 2D forever.
   if (attemptTimer !== undefined) clearTimeout(attemptTimer);
   attemptTimer = setTimeout(() => {
+    attemptInDangerWindow = false;
     writeBreadcrumb({
       atMs: Date.now(),
       phase: "survived",
@@ -234,6 +238,7 @@ export const markRendererFirstRenderCompleted = (): void => {
 
 /** Records that 3D was abandoned through a handled path, not a crash. */
 export const markRendererAttemptHandled = (): void => {
+  attemptInDangerWindow = false;
   if (attemptTimer !== undefined) clearTimeout(attemptTimer);
   attemptTimer = undefined;
   const current = readBreadcrumb();
@@ -309,6 +314,11 @@ if (typeof window !== "undefined") {
   window.addEventListener("pagehide", () => {
     const current = readBreadcrumb();
     if (!current) return;
-    writeBreadcrumb({ ...current, cleanShutdownAtMs: Date.now() });
+    // Leaving mid-attempt (a reload or navigation inside the danger window) runs this, a crash doesn't:
+    // hand back the attempt beginRendererAttempt counted. Reloading through a server outage used to stack
+    // those up until the brake put a healthy device on 2D saying 3D had crashed it (playtest day 1).
+    const forgive = attemptInDangerWindow && current.phase !== "survived";
+    attemptInDangerWindow = false;
+    writeBreadcrumb({ ...current, cleanShutdownAtMs: Date.now(), ...(forgive ? { failedAttempts: Math.max(0, current.failedAttempts - 1) } : {}) });
   });
 }
