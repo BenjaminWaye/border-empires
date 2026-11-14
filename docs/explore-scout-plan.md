@@ -266,6 +266,14 @@ What shipped, and where it differs from the sections above:
   The client offers only Explore on unexplored tiles.
 - **Rival alert**: a `SCOUT_SIGHTED` player message plus a "scouts sighted"
   Activity card, so an offline rival still sees it.
+- **Client**: every unexplored tile, including one next to the player's
+  land, offers only Explore. The drone is drawn in both renderers
+  (`client-map-3d-scout-drone/`, `client-map-render-2d-scout-drone/`) and the
+  report and rival alert reach the feed and the Activity dashboard. Storybook:
+  `packages/storybook/src/map/overlays/ScoutDrone*.stories.ts`.
 - **Not built yet**: AI empires don't launch drones (§6.4), there is no
-  queueing (§9), and allied vision sharing of the drone was not added.
+  queueing (§9), and allied vision sharing of the drone was not added. The
+  client doesn't check for an AFC before offering Explore; the server answers
+  `SCOUT_NO_AFC`. The old unexplored-tile March To pick-origin code
+  (`client-march-origin-picking/`) is now unreachable and can be removed.
 
