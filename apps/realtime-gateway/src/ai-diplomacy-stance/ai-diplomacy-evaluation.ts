@@ -84,7 +84,7 @@ export const warReason = (aiName: string, opinion: AiOpinion, outlook: AiWarOutl
   // (playtest 2026-11-13: 11 tiles and a Dock overnight). Say what it did
   // first; the fading tally is the one the war tally shows.
   const took = opinion.war.tilesTakenByAi;
-  if (took >= 1) return `${aiName} took ${took} of your ${took === 1 ? "tile" : "tiles"} recently. ${fallback}`;
+  if (took >= 1) return `${aiName} took ${took} of your tiles recently. ${fallback}`;
   return fallback;
 };
 

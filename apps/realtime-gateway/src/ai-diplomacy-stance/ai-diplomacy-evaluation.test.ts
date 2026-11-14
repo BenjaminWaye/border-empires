@@ -17,7 +17,7 @@ const opinion = (war: Partial<AiWarState>): AiOpinion => ({
 describe("warReason after the at-war window", () => {
   it("says what the AI took from you before its stance", () => {
     expect(warReason("Rowan", opinion({ tilesTakenByAi: 7 }), { kind: "STEADY" }, SPENT)).toBe(`Rowan took 7 of your tiles recently. ${SPENT}`);
-    expect(warReason("Rowan", opinion({ tilesTakenByAi: 1 }), { kind: "STEADY" }, SPENT)).toBe(`Rowan took 1 of your tile recently. ${SPENT}`);
+    expect(warReason("Rowan", opinion({ tilesTakenByAi: 1 }), { kind: "STEADY" }, SPENT)).toBe(`Rowan took 1 of your tiles recently. ${SPENT}`);
   });
 
   it("keeps the plain stance when it took nothing", () => {
