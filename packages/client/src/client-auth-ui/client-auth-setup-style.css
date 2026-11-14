@@ -1,0 +1,9 @@
+/* Nation setup ("Found your first standard"): the sign-in heading, its emblem
+   and the backend route line belong to the sign-in step. Above the setup form
+   they read as a stray second screen, and on a 375x667 phone they pushed
+   "Enter the map" below the fold (2026-11-13 playtest). */
+.auth-panel[data-mode="setup"] .auth-panel-head,
+.auth-panel[data-mode="setup"] .auth-panel-emblem,
+.auth-panel[data-mode="setup"] #auth-debug-route {
+  display: none;
+}
