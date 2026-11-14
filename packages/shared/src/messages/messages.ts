@@ -460,7 +460,13 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     name: z.string().max(64)
   }),
   // Which offered House Charges to keep (shared house-charges.ts); the sim checks the choice window and ids.
-  z.object({ type: z.literal("CHOOSE_HOUSE_CHARGES"), keptIds: z.array(z.string().max(160)).max(3) })
+  z.object({ type: z.literal("CHOOSE_HOUSE_CHARGES"), keptIds: z.array(z.string().max(160)).max(3) }),
+  // Explore: launch the scout drone toward (x, y) (shared scout-drone.ts).
+  z.object({
+    type: z.literal("EXPLORE"),
+    x: z.number().int(),
+    y: z.number().int()
+  })
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;

@@ -54,7 +54,7 @@ export const aggregatePersonalActivity = (
   const territoryCards = groupTerritoryFlipsForPlayer(playerId, unclaimedFlips.filter((flip) => !sieges.consumedFlips.has(flip)));
   const combatCards = combatCardsWithGroups(playerId, relevantCombat.filter((loss) => !sieges.consumed.has(loss)), matches.originSeized, matches.tileFeatures);
   const impactCards = personalImpactCardsForPlayer(playerId, relevantImpacts);
-  const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards, ...sieges.cards, ...impactCards.waystations, ...impactCards.towns, ...impactCards.docks, ...impactCards.buildings];
+  const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards, ...sieges.cards, ...impactCards.waystations, ...impactCards.towns, ...impactCards.docks, ...impactCards.buildings, ...impactCards.scouting];
   const cards = capPersonalActivityCards(allCards, PERSONAL_ACTIVITY_TIMELINE_CARD_CAP);
 
   const claimedFlips = relevantFlips.filter((flip) => flip.toOwner === playerId && flip.fromOwner !== playerId);

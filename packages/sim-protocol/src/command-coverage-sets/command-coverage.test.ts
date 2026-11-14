@@ -32,8 +32,9 @@ const phase4NonDurable = [
 // sqlite snapshot) -- durable across a disconnect/reconnect but not across a
 // cold process restart. DEV_QUEUE_*/WAYPOINT_* commands used to share this
 // exclusion but are now snapshotted (see the exclusion comment in
-// command-coverage-sets.ts), so only CLAIM_CONTINUATION_SET remains here.
-const notRestartDurable = ["CLAIM_CONTINUATION_SET"];
+// command-coverage-sets.ts). EXPLORE's scout drone flight lives only in
+// memory (a restart docks it), so it is excluded too.
+const notRestartDurable = ["CLAIM_CONTINUATION_SET", "EXPLORE"];
 
 describe("phase-4 command coverage rails", () => {
   const durable = sortedUnique(DurableCommandTypeSchema.options);

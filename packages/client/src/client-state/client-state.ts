@@ -19,6 +19,7 @@ import { createInitialAetherShieldState } from "../client-aether-tower-protectio
 import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js";
 import { createInitialHouseChargesState } from "../client-house-charges/client-house-charges-state.js";
 import { createInitialHouseChargeRevealState } from "../client-house-charges/client-house-charge-reveal.js";
+import { createInitialScoutDroneState } from "../client-scout-drone/client-scout-drone-state.js";
 import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialMapFxQueueState } from "./client-state-map-fx-queue-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenStructureTier, type FrontierCombatSideBreakdown } from "@border-empires/shared";
@@ -284,6 +285,7 @@ export const createInitialState = () => ({
   ...createInitialAetherShieldState(), ...createInitialIslandNamesState(), // ISLAND_NAMES push, see client-map-name-labels/
   ...createInitialHouseChargesState(), // HOUSE_CHARGES push, see client-house-charges/
   ...createInitialHouseChargeRevealState(), // season-end reveal, see client-house-charges/client-house-charge-reveal.ts
+  ...createInitialScoutDroneState(), // SCOUT_DRONE push, see client-scout-drone/
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
