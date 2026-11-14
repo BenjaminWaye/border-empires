@@ -79,6 +79,8 @@ body.hud-v2-compact .v2u-row { min-height: var(--v2c-touch); }
 @media (orientation: portrait) and (max-height: 760px) {
   body.hud-v2-compact .v2c-drawer { top: var(--v2c-top); height: auto; }
   body.hud-v2-compact .v2c-chips { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* The Manifest detail card took 42% of a 580px screen and left the tree a thin strip. */
+  body.hud-v2-compact .v2m-detail { max-height: 30dvh; }
 }
 
 /* ---- Town: full screen, stats over the build list, actions pinned at the foot ---- */
@@ -89,8 +91,9 @@ body.hud-v2-compact .v2t-name-row { padding: 8px 10px 2px; }
 body.hud-v2-compact .v2t-step { width: var(--v2c-touch); height: var(--v2c-touch); }
 body.hud-v2-compact .v2t-title { max-width: 60vw; font-size: 19px; }
 body.hud-v2-compact .v2t-growth { padding: 6px 12px; }
-body.hud-v2-compact .v2t-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 4px 12px; }
-body.hud-v2-compact .v2t-stat { padding: 6px 8px; }
+/* Two columns: four cards at 375px cut their labels ("MANPOWER CAP") and notes ("0 built · 4 to …") off. */
+body.hud-v2-compact .v2t-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 4px 12px; }
+body.hud-v2-compact .v2t-stat { min-width: 0; padding: 6px 8px; overflow-wrap: anywhere; }
 body.hud-v2-compact .v2t-stat-v { font-size: 14px; }
 body.hud-v2-compact .v2t-h { padding: 8px 12px 4px; }
 body.hud-v2-compact .v2t-built-list { flex: none; overflow: visible; }

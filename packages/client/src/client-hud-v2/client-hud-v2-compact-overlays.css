@@ -1,0 +1,60 @@
+/* Compact (phone) layout contract for overlays that are not HUD v2's own panels: the placement bar,
+   discovery tips and the tutorial guide. Playtest 2026-11-13/14 at 375x580 and 375x667.
+
+   The tab bar (.hud-v2-nav, drawn inside .hud-v2-top at z-index 50 in #hud) is fixed to the foot and is
+   var(--v2c-bottom) tall, safe area included.
+   Anything docked to the bottom of the screen while the tab bar shows must either
+     - end above it: bottom: calc(var(--v2c-bottom) + …), or
+     - replace it: bottom: 0, with the tab bar hidden (or a z-index over 50) and padding for the safe area.
+   Older overlays used a fixed `bottom: 12–24px` from the desktop layout and drew under the tab bar,
+   hiding their buttons (Relay Beacon placement's Cancel/Confirm). client-hud-v2-compact-bottom-
+   reserve.test.ts fails for any new fixed, bottom-docked rule that does neither. */
+
+/* ---- Building placement (Relay Beacon, Hydroworks, AFC landing): replaces the tab bar ---- */
+body.hud-v2-compact #placement-overlay {
+  box-sizing: border-box; left: 0; right: 0; bottom: 0; transform: none; width: auto; max-width: none; min-height: var(--v2c-bottom); z-index: 51;
+  padding: 10px calc(var(--v2c-safe-right) + 10px) calc(var(--v2c-safe-bottom) + 10px) calc(var(--v2c-safe-left) + 10px);
+  flex-wrap: wrap; justify-content: center; gap: 8px; border-width: 1px 0 0; border-radius: 14px 14px 0 0;
+}
+body.hud-v2-compact #placement-label { flex: 1 1 100%; white-space: normal; text-align: center; }
+body.hud-v2-compact #placement-overlay .placement-btn { flex: 1 1 0; min-height: var(--v2c-touch); }
+/* Its inline style is "display:none" while closed. The tab bar, orb and lens step aside like they do for the tile sheet. */
+body.hud-v2-compact:has(#placement-overlay:not([style*="none"])) :is(.hud-v2-nav, .hud-v2-orb-slot, #mini-map-wrap, .onb-root) { display: none !important; }
+
+/* ---- Discovery tips: body-level, so they paint over all of #hud; at bottom: 10px that was on the tabs ---- */
+body.hud-v2-compact #discovery-tip-overlay {
+  left: calc(var(--v2c-safe-left) + 8px); right: calc(var(--v2c-safe-right) + 8px); bottom: calc(var(--v2c-bottom) + 8px); width: auto;
+}
+
+/* ---- Tutorial guide over a screen or panel: a short strip above the tab bar ----
+   On the Manifest and Diplomacy screens and over the Manpower panel the guide stays up (the step sent the
+   player there). Under the resource bar it covered the screen's heading, its first row and the item the
+   step points at, so it docks at the foot and the screen or panel ends above it. */
+body.hud-v2-compact { --v2c-guide-dock: 88px; }
+body.hud-v2-compact #tutorial-guide-root.tg-raised {
+  top: auto; left: calc(var(--v2c-safe-left) + 6px); right: calc(var(--v2c-safe-right) + 6px); bottom: calc(var(--v2c-bottom) + 4px) !important;
+}
+body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-card {
+  position: relative; box-sizing: border-box; width: 100%; height: calc(var(--v2c-guide-dock) - 8px); padding: 8px 10px; overflow: hidden;
+}
+body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-head { position: absolute; top: 4px; right: 6px; margin: 0; }
+body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-collapse { min-width: 32px; min-height: 32px; }
+body.hud-v2-compact #tutorial-guide-root.tg-raised :is(.tg-chapter, .tg-why, .tg-lookfor, .tg-later, .tg-progress-row) { display: none; }
+body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-title {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; padding-right: 34px;
+}
+body.hud-v2-compact #tutorial-guide-root.tg-raised .tg-actions { margin-top: 6px; }
+body.hud-v2-compact:is(.hud-v2-screen-manifest, .hud-v2-screen-diplomacy):has(#tutorial-guide-root.tg-raised .tg-card:not([hidden])) .v2s-body {
+  bottom: calc(var(--v2c-bottom) + var(--v2c-guide-dock) + 4px);
+}
+body.hud-v2-compact:has(#tutorial-guide-root.tg-raised.tg-over-manpower .tg-card:not([hidden])) #side-panel {
+  bottom: calc(var(--v2c-bottom) + var(--v2c-guide-dock)) !important;
+}
+
+/* ---- Destructive links stay off the bottom row ----
+   The tile sheet and the town bar replace the tab bar. Their small text links (Abandon Territory among them)
+   were their last row, right where the tabs sit, so a tap meant for a tab hit Abandon. The big action
+   buttons and ◁ Map take the bottom row; the links sit above them. */
+body.hud-v2-compact .hud-v2-tile > .hud-v2-act-row { order: 1; }
+body.hud-v2-compact .hud-v2-tile > .tile-auto-settle-option { order: 2; }
+body.hud-v2-compact #v2t-bar .v2t-minor { order: -1; }
