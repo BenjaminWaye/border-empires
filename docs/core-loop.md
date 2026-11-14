@@ -41,7 +41,7 @@ A core loop doc normally covers these parts, and each one maps to a section:
 Everything below is the systems view. This section is what a player should be
 able to say back after an hour of play. It's modelled on Civilization's
 "Explore, Build, Research, Expand" around "one more turn". Border Empires has
-no units, so its military is **manpower and borders**.
+no fighting units, so its military is **manpower and borders**.
 
 ```mermaid
 flowchart LR
@@ -59,7 +59,7 @@ flowchart LR
 
 | Verb | What the player does | Main systems (sections below) |
 |---|---|---|
-| **Scout** | Push back the fog and find the next prize: a waystation, town, dock or resource cluster | Vision, watchtowers, waystations (§7.1) |
+| **Scout** | Push back the fog and find the next prize: a waystation, town, dock or resource cluster | Explore (scout drone, §3), vision, watchtowers, waystations (§7.1) |
 | **Push reach** | Move the border: build a beacon on a settled edge tile, or cross a gap to a town or dock | Reach, Relay Beacons, Expand To (§2, §4.1) |
 | **Develop** | Turn ground into power: settle, fill slots, build, grow and upgrade towns | Settling, slots, structures, towns, roads (§2, §5) |
 | **Research** | Choose what the empire gets better at | Tech, domains (§3) |
@@ -90,9 +90,12 @@ hold one of five victory conditions for a full day.*
 Pillars, inferred from code comments and design docs (each one is enforced
 somewhere in code):
 
-1. **Territory is the unit.** There are no unit pieces. Every action is a
-   change of who owns a tile (`docs/game-mechanics.md` §4). Where your border
-   sits, and what shape it has, *is* your army.
+1. **No babysitting.** Anything that moves on the map runs on its own once
+   ordered: muster flags march, scout drones fly out and back. Nothing needs
+   attention between visits. Fights are still changes of who owns a tile
+   (`docs/game-mechanics.md` §4), so where your border sits, and what shape it
+   has, is your army. This replaced "Territory is the unit, no unit pieces" on
+   2026-11-14 (§1.1).
 2. **Manpower is the real currency.** Expanding, settling, building and
    attacking all cost manpower. Gold was deliberately cut down to a support
    currency (`GOLD_RESCALE_DIVISOR = 288`, `server-game-constants.ts`) that
@@ -148,12 +151,10 @@ gameplay changes.
   a 10-minute capture shock (see capture hold in `docs/game-mechanics.md`).
 - **Cost of content.** A new building type is cheap to add (models and art
   included). AI support for a new system is wanted but not required at launch.
-- **Pillar 1 dropped (2026-11-14).** "Territory is the unit, no unit pieces" is
-  no longer a pillar; muster flags already move across the map. The guardrail
-  kept from it: anything that moves runs on its own once ordered and needs no
-  babysitting between visits. First use: scout drones
-  (`docs/explore-scout-plan.md`, proposed). Pillar 1's text above stays until
-  that ships.
+- **Pillar 1 replaced (2026-11-14).** "Territory is the unit, no unit pieces"
+  is no longer a pillar; muster flags already move across the map. The
+  guardrail kept from it is the new pillar 1, no babysitting. First use:
+  scout drones (`docs/explore-scout-plan.md`).
 - **Live seasons.** There are no active players at the moment, so removing
   content mid-season needs no migration plan for now.
 
@@ -278,7 +279,8 @@ growing your economy *means* taking the land around you.
 | Verb | What it does | Primary cost | Where |
 |---|---|---|---|
 | **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | First five owned: 50 MP, instant, no food slots; later: 100 MP, 100s, one food slot | `relayBeaconManpowerCost`, `relayBeaconBuildDurationMs`, `OUTPOST_REACH_RADIUS` |
-| **Expand To** | Claim an adjacent neutral tile. Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP below 100 frontier tiles, rising to 50 at 1,000 and 100 at 2,000; 7.5s (×1.5 forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
+| **Explore** | Send the scout drone from your AFC toward an unexplored tile: it reveals radius 3 around itself, flies up to 15 tiles past your land and back, claims nothing, and files a scout report. A rival's border turns it back | Free; one drone in the air; 7.5s per tile past your land, 1s over it | `planScoutDroneFlight`, `apps/simulation/src/scout-drone/` |
+| **Expand To** | Claim an adjacent neutral tile. Not offered on unexplored tiles (Explore is). Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP below 100 frontier tiles, rising to 50 at 1,000 and 100 at 2,000; 7.5s (×1.5 forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
 | **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles, per the player's opt-in (see below) | 20 MP, same time as an EXPAND on that tile (first 10 lifetime garrisons instant), uses a development slot | `SETTLE_MANPOWER_COST`, `garrisonBaseDurationMsAt`, `INSTANT_GARRISON_COUNT` |
 | **Build** | Place one structure on a settled tile | MP (e.g. Hydrogarden 80, Fort/Bank 300) plus a resource slot, 1–10 min | `structure-registry*.ts`, `structure-slots.ts` |
 | **Upgrade town** | Raise a town's tier once its population passes the threshold | 20/40/80/160 gold plus 1 FOOD slot | `TOWN_TIER_UPGRADE_GOLD_COST` |

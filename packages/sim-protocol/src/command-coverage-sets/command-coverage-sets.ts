@@ -59,7 +59,8 @@ const DURABLE_COMMAND_TYPES = [
   "WAYPOINT_CANCEL_ALL",
   "CLAIM_CONTINUATION_SET",
   "SET_AUTO_SETTLE_PREFS",
-  "NAME_ISLAND"
+  "NAME_ISLAND",
+  "EXPLORE"
 ] as const;
 
 // DEV_QUEUE_*/WAYPOINT_* commands mutate PlayerRuntimeSummary.devQueue/
@@ -78,7 +79,10 @@ const DURABLE_COMMAND_TYPES = [
 // from DurableCommandTypeSchema itself: it still needs normal gateway
 // durable-command handling (persist, ack, replay-on-reconnect) for that
 // disconnect/reconnect case, just not restart-parity coverage.
-const NOT_RESTART_DURABLE_COMMAND_TYPES = ["CLAIM_CONTINUATION_SET"] as const;
+//
+// EXPLORE is excluded for the same reason: a scout drone's flight lives only
+// in memory (it lasts a few minutes), so a restart docks it early.
+const NOT_RESTART_DURABLE_COMMAND_TYPES = ["CLAIM_CONTINUATION_SET", "EXPLORE"] as const;
 
 const PHASE4_NON_DURABLE_COMMAND_TYPES = [
   "ATTACK_PREVIEW",
