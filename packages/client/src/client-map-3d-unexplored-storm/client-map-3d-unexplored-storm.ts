@@ -37,8 +37,8 @@ export { UNEXPLORED_REVEAL_MS } from "./client-map-3d-unexplored-storm-reveal.js
 // the terrain window) restricts the storm to unexplored tiles: tiles in
 // sight are never drawn over. The first ring of unexplored tiles is the fog's
 // "coast": a glimpse of its ground shows up to a rounded brass survey edge and the storm's edge
-// running through its outer part. Faint tile-edge lines show through the
-// cloud so the hidden grid is still hinted. Look and layering:
+// running through its outer part. No tile grid is drawn on the cloud (this
+// sheet floats above the ground, so its lines would not match the tiles). Look and layering:
 // client-map-3d-unexplored-storm-shader.ts.
 // 2D counterpart: client-unexplored-storm-2d.ts.
 // Just above the highest flat land (tundra 0.2 + jitter and rolling wave,

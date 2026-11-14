@@ -139,25 +139,23 @@ describe("client action flow regressions", () => {
     // opening the tile menu. Reverted: every click site here passes `false`
     // explicitly, so only a click on the dock's landing ground (handled by
     // pickDockOriginForTarget, unaffected by this flag) instant-expands.
-    expect(source).toContain("const frontierOrigin = tapClaimsAdjacentTile(tapInput) ? pickOriginForTarget(wx, wy, false) : undefined;");
     expect(source).toContain("const frontierOrigin = pickOriginForTarget(to.x, to.y, false);");
     expect(source).toContain("const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false);");
   });
 
-  it("routes an unexplored tile adjacent to owned territory into a direct frontier-expand claim instead of the waypoint-only menu", () => {
+  it("opens the Explore menu for every unexplored tile, even one touching owned territory -- never a direct claim", () => {
     const source = actionFlowSource();
 
-    // Previously an unexplored tile always went through
-    // openUnexploredTileActionMenu, whose only possible action is a
-    // multi-hop waypoint — and that helper explicitly declines to offer
-    // even a waypoint when the tile is adjacent-reachable, so an
-    // unexplored tile touching the player's territory offered nothing.
+    // docs/explore-scout-plan.md: pressing unexplored ground launches the
+    // scout drone (Explore); Expand To no longer works on unexplored tiles,
+    // so the old adjacent-tile quick claim must not come back here.
     expect(source).toContain("openUnexploredTileActionMenu(state, wx, wy, clientX, clientY,");
     const unexploredBranch = source.slice(
-      0,
+      source.indexOf('if (vis === "unexplored") {\n      // Unexplored ground'),
       source.indexOf("openUnexploredTileActionMenu(state, wx, wy, clientX, clientY,")
     );
-    expect(unexploredBranch.slice(-600)).toContain("queueAdjacentExpandClaim(wx, wy);");
+    expect(unexploredBranch.length).toBeGreaterThan(0);
+    expect(unexploredBranch).not.toContain("queueAdjacentExpandClaim");
   });
 
   it("auto-claims an adjacent unowned tile with a single mouse click, regardless of reach -- no menu detour", () => {

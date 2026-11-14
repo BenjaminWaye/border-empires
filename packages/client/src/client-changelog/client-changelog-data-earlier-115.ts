@@ -9,6 +9,7 @@ import { CONSISTENT_NUMBERS_ENTRY } from "./client-changelog-consistent-numbers.
 import { TAP_TO_INSPECT_ENTRY } from "./client-changelog-tap-to-inspect.js";
 import { COMBAT_LEGIBILITY_ENTRY } from "./client-changelog-combat-legibility.js";
 import { DIPLOMACY_OFFER_FLOW_ENTRY } from "./client-changelog-diplomacy-offer-flow.js";
+import { FOG_GRID_REMOVED_ENTRY } from "./client-changelog-fog-grid-removed.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_115: ClientChangelogEntry[] = [
@@ -22,4 +23,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_115: ClientChangelogEntry[] = [
   { ...TAP_TO_INSPECT_ENTRY, createdAt: 1794561745534, },
   { ...COMBAT_LEGIBILITY_ENTRY, createdAt: 1794561912110, },
   { ...DIPLOMACY_OFFER_FLOW_ENTRY, createdAt: 1794561892577, },
+  { ...FOG_GRID_REMOVED_ENTRY, createdAt: 1794598194278, },
 ];

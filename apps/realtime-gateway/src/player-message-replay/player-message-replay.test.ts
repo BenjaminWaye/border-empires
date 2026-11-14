@@ -71,6 +71,23 @@ describe("createPlayerMessageReplay", () => {
     expect(sent).toEqual([{ socket: joining, payload: { type: "ISLAND_NAMES", islands: [{ id: "1,1", name: "New" }] } }]);
   });
 
+  it("replays the scout drone in the air to a socket that joined after its launch", () => {
+    const { replay, sent, send } = createHarness();
+    const existing = { id: "tab-1" };
+    const joining = { id: "tab-2" };
+    const flight = { launchedAt: 1, landsAt: 9, targetX: 5, targetY: 5, steps: [], turnIndex: 0, endReason: "TARGET" };
+    replay.observe("p1", { type: "SCOUT_DRONE", flight }, [existing]);
+    expect(replay.replayTo("p1", joining, send)).toBe(true);
+    expect(sent).toEqual([{ socket: joining, payload: { type: "SCOUT_DRONE", flight } }]);
+  });
+
+  it("replays a landed scout drone as docked, without repeating its report", () => {
+    const { replay, sent, send } = createHarness();
+    replay.observe("p1", { type: "SCOUT_DRONE", flight: null, report: { towns: 1, targetX: 5, targetY: 5 } }, [{ id: "tab-1" }]);
+    replay.replayTo("p1", { id: "tab-2" }, send);
+    expect(sent.map((entry) => entry.payload)).toEqual([{ type: "SCOUT_DRONE", flight: null }]);
+  });
+
   it("ignores payloads of other types and malformed replayed ones", () => {
     const { replay } = createHarness();
     replay.observe("p1", { type: "PLAYER_UPDATE", gold: 5 }, []);

@@ -458,6 +458,12 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     name: z.string().max(64)
+  }),
+  // Explore: launch the scout drone toward (x, y) (shared scout-drone.ts).
+  z.object({
+    type: z.literal("EXPLORE"),
+    x: z.number().int(),
+    y: z.number().int()
   })
 ]);
 
