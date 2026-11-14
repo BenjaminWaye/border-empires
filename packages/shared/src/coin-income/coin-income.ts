@@ -14,8 +14,8 @@
 export const EMPIRE_INTEGRITY_INCOME_LABEL = "Empire Integrity";
 /** Label of the reconciling row shown when the itemised lines don't add up to the total. */
 export const UNITEMISED_COIN_INCOME_LABEL = "Other";
-/** Rows below this (coin/minute) are rounding noise, not a real source. */
-export const COIN_INCOME_EPSILON_PER_MINUTE = 1e-4;
+/** Gaps below this (coin/minute, ~0.04/day — under the 0.05/day display rounding) are rounding noise. */
+export const COIN_INCOME_EPSILON_PER_MINUTE = 3e-5;
 export const MINUTES_PER_DAY = 1440;
 
 export type CoinIncomeBucket = {
