@@ -505,7 +505,11 @@ beacon until the House garrisons it.
 
 A charge is fulfilled only if the House still holds it when the campaign is
 decided: a road cut, a town lost or a chart name struck in the last hours
-counts for nothing. What a fulfilled charge earns the House is a gameplay
+counts for nothing. When the campaign is decided the seals are broken in
+public, and the Core learns at last what every House was really after. A
+fulfilled charter goes into its House's archive, a record of what the House
+set out to take and held; the archive is the collection of charge cards a
+House's profile shows. What a fulfilled charge earns the House is a gameplay
 decision recorded in the
 [gameplay reference](../game-mechanics.md) and the
 [House Charges plan](../house-charges-plan.md).

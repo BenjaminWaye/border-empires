@@ -261,6 +261,7 @@ const renderProfile = (deps: HudV2Deps): void => {
     relation: profileRelation(state, id),
     entry: state.leaderboard.overall.find((e) => e.id === id),
     career: state.careerStatsByPlayerId.get(id),
+    chargeCards: state.houseChargeCardsByPlayerId.get(id),
     holdings: state.galaxyHoldingsByPlayerId.get(id),
     pacts: self ? { allies: state.allies, activeTruces: state.activeTruces } : social,
     truceBreaks: self ? state.truceBreaksThisSeason : social === "loading" || social === undefined ? social : social.truceBreaksThisSeason,

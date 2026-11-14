@@ -1,0 +1,187 @@
+/* House Charge trading cards (client-house-charge-cards.ts) and the
+   season-end reveal tab (client-house-charge-reveal.ts). Frame colours by
+   charge kind and rarity colours follow docs/house-charges-plan.md. */
+.hc-collection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.hc-card {
+  --hc-frame: #8a5a2b;
+  --hc-frame-hi: #c99158;
+  --hc-frame-lo: #4a2d14;
+  --hc-set: #a7adb3;
+  position: relative;
+  aspect-ratio: 63 / 88;
+  max-width: 260px;
+  width: 100%;
+  border-radius: 12px;
+  padding: 8px;
+  background: #0f0d0a;
+  box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.3);
+  container-type: inline-size;
+  isolation: isolate;
+  color: #2a2116;
+  font-family: var(--v2-body, "Spectral", Georgia, serif);
+}
+
+.hc-card.kind-seat { --hc-frame: #a8812f; --hc-frame-hi: #e0bd6a; --hc-frame-lo: #5c4314; }
+.hc-card.kind-survey { --hc-frame: #2f6481; --hc-frame-hi: #5e9cbc; --hc-frame-lo: #173447; }
+.hc-card.kind-desert { --hc-frame: #b8925a; --hc-frame-hi: #e3c48d; --hc-frame-lo: #6e5126; }
+.hc-card.kind-tundra { --hc-frame: #9fb3ba; --hc-frame-hi: #eef3f5; --hc-frame-lo: #5a6b72; }
+.hc-card.kind-relic { --hc-frame: #5d3b8c; --hc-frame-hi: #9a74d1; --hc-frame-lo: #2b1846; }
+.hc-card.rarity-rare { --hc-set: #d9b25c; }
+.hc-card.rarity-mythic { --hc-set: #e0753a; }
+
+.hc-frame {
+  height: 100%;
+  box-sizing: border-box;
+  border-radius: 7px;
+  padding: 5px;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 4px;
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 7px),
+    linear-gradient(160deg, var(--hc-frame-hi), var(--hc-frame) 45%, var(--hc-frame-lo));
+}
+
+.hc-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #f6eedb, #ddcfae);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+
+.hc-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--v2-display, "Cinzel", Georgia, serif);
+  font-weight: 700;
+  font-size: clamp(10px, 6.4cqi, 14px);
+}
+
+.hc-pips { flex: none; color: #b48a33; font-size: clamp(8px, 4.4cqi, 11px); letter-spacing: 1px; }
+
+.hc-art {
+  aspect-ratio: 16 / 11;
+  border-radius: 3px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at 50% 40%, #31402b, #1b241a 75%);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6), 0 0 0 3px rgba(255, 255, 255, 0.15);
+}
+
+.hc-art-svg { width: 92%; height: 92%; }
+.hc-art-cells { fill: var(--hc-frame-hi); stroke: var(--hc-frame-lo); stroke-width: 0.06; }
+.hc-art-beam { fill: rgba(200, 165, 255, 0.7); }
+.hc-art-gate { fill: #1b241a; }
+
+.hc-type { font-family: var(--v2-display, "Cinzel", Georgia, serif); font-weight: 600; font-size: clamp(7px, 4.4cqi, 10px); }
+.hc-set { color: var(--hc-set); text-shadow: 0 0 1px #000, 0 0 1px #000; font-size: 1.2em; }
+
+.hc-text {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 5px 7px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #efe4cc, #e2d3b1);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+  font-size: clamp(8px, 5cqi, 11.5px);
+  line-height: 1.3;
+}
+
+.hc-text p { margin: 0; }
+.hc-flavour { font-style: italic; color: #5b4a33; border-top: 1px solid rgba(90, 70, 40, 0.25); padding-top: 3px; }
+
+.hc-footer {
+  padding: 0 3px;
+  padding-right: 34%;
+  min-height: 16px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--v2-mono, "Space Mono", monospace);
+  font-size: clamp(6px, 3.4cqi, 8.5px);
+  color: rgba(255, 245, 225, 0.85);
+}
+
+.hc-stats {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-family: var(--v2-display, "Cinzel", Georgia, serif);
+  font-weight: 700;
+  font-size: clamp(9px, 5.6cqi, 13px);
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, #f6eedb, #d8c79f);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 0 3px var(--hc-frame);
+}
+
+.hc-card.is-foil::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 20%, rgba(255, 120, 200, 0.18) 32%, rgba(120, 220, 255, 0.22) 42%, rgba(255, 240, 140, 0.2) 52%, transparent 64%);
+  background-size: 250% 250%;
+  mix-blend-mode: screen;
+  animation: hc-sheen 6s ease-in-out infinite;
+}
+
+@keyframes hc-sheen { 0%, 100% { background-position: 100% 0; } 50% { background-position: 0 100%; } }
+@media (prefers-reduced-motion: reduce) { .hc-card.is-foil::after { animation: none; background-position: 45% 55%; } }
+
+.hc-foil-tag {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  font: 9px/1.6 var(--v2-mono, "Space Mono", monospace);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #f0cf82;
+  background: #0f0d0a;
+  box-shadow: 0 0 0 1px #d9b25c;
+}
+
+/* Season-end reveal */
+.hcr { display: grid; gap: 10px; }
+.hcr-note { margin: 0; font-size: 13px; opacity: 0.85; }
+.hcr-houses { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.hcr-house { padding: 8px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); }
+.hcr-house.is-self { box-shadow: inset 0 0 0 1px rgba(217, 178, 92, 0.6); }
+.hcr-house-name { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.hcr-count { font-variant-numeric: tabular-nums; opacity: 0.8; }
+.hcr-charges { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.hcr-charge { display: grid; grid-template-columns: minmax(0, 9em) minmax(0, 1fr) auto; gap: 8px; font-size: 13px; opacity: 0.65; }
+.hcr-charge.is-held { opacity: 1; }
+.hcr-kind { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.75; }
+.hcr-title { min-width: 0; overflow-wrap: anywhere; }
+.hcr-result { white-space: nowrap; }
+.hcr-charge.is-held .hcr-result { color: #8fd18a; }
+
+@media (max-width: 480px) {
+  .hcr-charge { grid-template-columns: minmax(0, 1fr) auto; }
+  .hcr-kind { display: none; }
+}

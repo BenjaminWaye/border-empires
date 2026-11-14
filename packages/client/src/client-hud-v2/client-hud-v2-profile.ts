@@ -11,6 +11,7 @@ import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js"
 import { COMBAT_FOOTNOTE_HTML, combatPanelsHtml, combatStatCardsHtml, type ProfileCombat } from "./client-hud-v2-profile-combat.js";
 import type { HouseChargesPayload } from "@border-empires/shared";
 import { houseChargesProfileSectionHtml } from "../client-house-charges/client-house-charges-profile.js";
+import { houseChargeCollectionHtml, type HouseChargeCardView } from "../client-house-charges/client-house-charge-cards.js";
 
 type Loadable<T> = T | "loading" | undefined;
 
@@ -33,6 +34,8 @@ export type ProfileInput = {
   combat?: ProfileCombat;
   /** Your own House Charges (null before they are dealt); only set on your own profile, since charges are secret. */
   houseCharges?: HouseChargesPayload | null;
+  /** Fulfilled charges from past Sector Contests, as trading cards; public on any profile. */
+  chargeCards?: HouseChargeCardView[] | "loading" | undefined;
 };
 
 const esc = (text: string): string =>
@@ -157,6 +160,8 @@ export const profileHtml = (input: ProfileInput): string =>
     ${statsHtml(input.entry, input.combat)}
     ${input.combat ? `<div class="v2p-grid">${combatPanelsHtml(input.combat)}</div>${COMBAT_FOOTNOTE_HTML}` : ""}
     <div class="v2p-grid">${input.houseCharges !== undefined ? houseChargesProfileSectionHtml(input.houseCharges, input.nowMs) : ""}${careerHtml(input.career)}${trophiesHtml(input.holdings)}${holdingsHtml(input.holdings)}${pactsHtml(input)}${breaksHtml(input.truceBreaks)}</div>
+    <h3 class="v2p-h">Charge Cards</h3>
+    ${houseChargeCollectionHtml(input.chargeCards, input.relation.kind === "self")}
   </div></div>`;
 
 /** Which way the profile screen should move this frame: open for a newly picked player, close once it was dismissed. */
