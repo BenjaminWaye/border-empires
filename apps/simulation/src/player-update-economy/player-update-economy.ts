@@ -58,6 +58,8 @@ export type PlayerUpdateEconomySnapshot = {
   resourceTradeProjection?: import("../resource-supply-trades/resource-supply-projection-cache.js").ResourceSupplyProjectionCache;
   networkSupply?: import("@border-empires/shared").NetworkSupplyStatus | undefined;
   incomePerMinute: number;
+  /** The Empire Integrity multiplier this snapshot was built with (1 = none). */
+  integrityEconMult: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
   upkeepPerMinute: UpkeepPerMinute;
   upkeepLastTick: UpkeepLastTick;
@@ -415,6 +417,7 @@ export const buildPlayerUpdateEconomySnapshot = (
 
   return {
     incomePerMinute,
+    integrityEconMult,
     networkSupply: networkSupplyStatus(sites, summary.ownedTownTierByTile.values()),
     strategicProductionPerMinute: {
       FOOD: Number((strategicProductionPerMinute.FOOD * integrityEconMult).toFixed(6)),
