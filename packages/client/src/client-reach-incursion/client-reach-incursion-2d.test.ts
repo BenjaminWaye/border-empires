@@ -14,6 +14,10 @@ const fakeCtx = () => {
     save: () => undefined,
     restore: () => undefined,
     fillRect: () => undefined,
+    beginPath: () => undefined,
+    moveTo: () => undefined,
+    lineTo: () => undefined,
+    stroke: () => undefined,
     drawImage: (image: unknown, ...bounds: number[]) => void stamps.push({ alpha: ctx.globalAlpha, image, bounds })
   };
   return { ctx: ctx as unknown as CanvasRenderingContext2D, stamps };

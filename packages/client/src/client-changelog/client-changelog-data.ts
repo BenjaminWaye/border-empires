@@ -20,6 +20,7 @@ import { CONNECTED_DISTRICTS_CHANGELOG } from "./client-changelog-connected-dist
 import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
 import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
 import { SEASON_REVEAL_LOADING_CHANGELOG } from "./client-changelog-season-reveal-loading.js";
+import { CLIENT_CHANGELOG_ENTRIES_RIVAL_REACH_LINE } from "./client-changelog-data-rival-reach-line.js";
 import { BATTLE_VARIETY_ENTRY } from "./client-changelog-battle-variety.js";
 import { GUIDE_AND_RECOVERY_CHANGELOG } from "./client-changelog-nov-03-04-guide-recovery.js";
 import { AFC_REPLACEMENT_CHANGELOG } from "./client-changelog-afc-replacement.js";
@@ -445,17 +446,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MANIFEST_WORDING_CHANGELOG,
   ...TOWN_RING_IMPROVEMENTS_CHANGELOG,
   ...AI_PRICING_TEMPERAMENTS_CHANGELOG,
-  {
-    createdAt: 1794089657552, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.08",
-    title: "Launch several attacks at once",
-    why: "Only one attack could be under way at a time, even with several muster flags and plenty of manpower.",
-    changes: [
-      "Attacks no longer wait for each other: launch as many as your flags have manpower for",
-      "One flag can send several companies, as long as it holds enough manpower for each",
-      "The Capturing Territory banner and timer are gone; each attack shows its progress on the map"
-    ]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_RIVAL_REACH_LINE,
   ...VICTORY_HOLD_TIME_CHANGELOG,
   ...RANKS_TRACK_PROFILES_CHANGELOG,
   { ...BATTLE_VARIETY_ENTRY, createdAt: 1794073665467, },
