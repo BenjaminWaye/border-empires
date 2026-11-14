@@ -94,6 +94,7 @@ export const townPlotsStatHtml = (plots: readonly TownPlot[] | undefined, fresh:
   const locked = count(plots, "locked");
   const pips = plots.map((p) => `<span class="v2t-plot v2t-plot-${p.state}${fresh.has(p.key) ? " v2t-plot-new" : ""}" title="${PLOT_TITLES[p.state]}"></span>`).join("");
   const note = [`${built} built`, building > 0 ? `${building} in progress` : "", locked > 0 ? `${locked} to garrison` : ""].filter(Boolean).join(" · ");
-  const value = open > 0 ? `${open} open` : plots.length > 0 ? "Full" : "None";
+  // "Full" only once nothing is left to garrison: with plots still to garrison it read as "can never build here".
+  const value = open > 0 ? `${open} open` : locked > 0 ? "0 open" : plots.length > 0 ? "Full" : "None";
   return `<div class="v2t-stat v2t-plots${fresh.size > 0 ? " v2t-plots-changed" : ""}"><span class="v2t-stat-k">BUILD PLOTS</span><span class="v2t-stat-v${open > 0 ? " v2t-gold" : ""}">${value}</span><span class="v2t-plot-row" aria-label="${open} of ${plots.length} plots open">${pips}</span><span class="v2t-stat-n">${note}</span></div>`;
 };

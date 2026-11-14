@@ -222,6 +222,47 @@ describe("renderer crash breadcrumb", () => {
     expect(stored().cleanShutdownAtMs).toBeTypeOf("number");
   });
 
+  // Playtest day 1: reloading through a 3-minute server outage stacked "crashes" until the brake put a
+  // healthy browser on 2D with "3D crashed this browser". A reload runs pagehide; a real crash does not.
+  it("does not count leaving the page mid-attempt as a crash", async () => {
+    for (let reload = 0; reload < 4; reload += 1) {
+      const session = await loadSession();
+      expect(session.shouldSkipThreeDAfterCrashes()).toBe(false);
+      session.beginRendererAttempt(14000);
+      window.dispatchEvent(new Event("pagehide"));
+    }
+    expect(stored().failedAttempts).toBe(0);
+  });
+
+  it("still counts a stalled startup the player reloads after a real wait", async () => {
+    const session = await loadSession();
+    session.beginRendererAttempt(14000);
+    vi.advanceTimersByTime(30_000);
+    window.dispatchEvent(new Event("pagehide"));
+    expect(stored().failedAttempts).toBe(1);
+  });
+
+  it("does not hand the attempt back when the page only goes into the back/forward cache", async () => {
+    const session = await loadSession();
+    session.beginRendererAttempt(14000);
+    const event = new Event("pagehide");
+    Object.defineProperty(event, "persisted", { value: true });
+    window.dispatchEvent(event);
+    expect(stored().failedAttempts).toBe(1);
+  });
+
+  it("still counts an attempt the page never left cleanly", async () => {
+    seed({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 1 });
+    const session = await loadSession();
+    session.beginRendererAttempt(14000);
+    expect(stored().failedAttempts).toBe(2);
+    // Survived, then the player leaves: the streak is already reset, nothing to hand back.
+    session.markRendererInitCompleted(14000);
+    vi.advanceTimersByTime(9_000);
+    window.dispatchEvent(new Event("pagehide"));
+    expect(stored()).toMatchObject({ phase: "survived", failedAttempts: 0 });
+  });
+
   it("survives corrupted storage rather than blocking startup", async () => {
     window.localStorage.setItem(STORAGE_KEY, "{not json");
 
