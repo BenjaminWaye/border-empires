@@ -1,5 +1,6 @@
 import type { Texture, WebGLProgramParametersWithUniforms } from "three";
 import { SNOW_MASK_GLSL } from "./client-map-3d-snow-mask.js";
+import { TERRAIN_TILE_BLEND_GLSL, TERRAIN_TILE_SAMPLES_GLSL } from "./client-map-3d-terrain-tile-blend-glsl.js";
 import { BEACH_NOISE_GLSL, BEACH_WET_ROUGHNESS_GLSL, BEACH_WET_SAND_GLSL } from "./client-map-3d-beach-shading-glsl.js";
 
 // The main heightfield material's onBeforeCompile patch, split out from
@@ -63,14 +64,14 @@ varying float vTerrainWorldY;
 varying float vForestZone;
 varying float vTundraZone;
 varying float vRockZone;
-${BEACH_NOISE_GLSL}`
+${BEACH_NOISE_GLSL}
+${TERRAIN_TILE_BLEND_GLSL}`
     );
     // Replace three.js's built-in <map_fragment> with a biome-aware
-    // two-texture blend that also adds per-tile variation. The painted
-    // grass/sand textures tile every 8 world units, but each individual
-    // world tile hashes its coord into a 90° rotation + random offset so it
-    // samples a different region of the texture — the eye stops noticing
-    // repetition. Soft-narrow biome cut keeps the grass/sand boundary
+    // two-texture blend that also adds per-tile variation: each world tile
+    // samples a different rotated region of the painted textures, cross-faded
+    // into its neighbours' at the edges so no tile seam shows
+    // (client-map-3d-terrain-tile-blend-glsl.ts). Soft-narrow biome cut keeps the grass/sand boundary
     // anti-aliased without the mid-blend zone that read as a darker green
     // band before. The waterline gets a damp band -- see
     // client-map-3d-beach-shading-glsl.ts.
@@ -79,24 +80,7 @@ ${BEACH_NOISE_GLSL}`
       `
     float beachWetMask = 0.0;
     #ifdef USE_MAP
-      // ---- Per-tile UV variation ----
-      vec2 tileId = floor(vTerrainWorldUv);
-      float h1 = fract(sin(dot(tileId, vec2(12.9898, 78.233))) * 43758.5453);
-      float h2 = fract(sin(dot(tileId, vec2(63.7264, 10.873))) * 43758.5453);
-      float angle = floor(h1 * 4.0) * 1.5707963267948966;
-      float ca = cos(angle);
-      float sa = sin(angle);
-      mat2 R = mat2(ca, -sa, sa, ca);
-      vec2 inTile = vTerrainWorldUv - tileId;
-      vec2 rotated = R * (inTile - 0.5) + 0.5;
-      vec2 offset = vec2(h2 * 8.0, fract(h2 * 7.31) * 8.0);
-      // Multiply by 1/tilesPerRepeat (8) to put back into texture-local UV;
-      // the texture has RepeatWrapping so any value samples cleanly.
-      vec2 sampleUv = (tileId + rotated + offset) * 0.125;
-
-      vec4 grassSample = texture2D( map, sampleUv );
-      vec4 sandSample = texture2D( sandColorMap, sampleUv );
-      vec4 tundraSample = texture2D( tundraColorMap, sampleUv );
+${TERRAIN_TILE_SAMPLES_GLSL}
       float greenBias = vColor.g - 0.5 * (vColor.r + vColor.b);
       // Soft-narrow biome cut: 0.03-wide blend zone, just enough to
       // antialias the seam without a visible mid-blend band of

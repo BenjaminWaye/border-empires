@@ -3,8 +3,9 @@ import { InstancedMesh, BoxGeometry, DataTexture, Mesh, MeshBasicMaterial, MeshL
 import { createTreeMaterial } from "../client-map-3d-trees/client-map-3d-tree-material.js";
 import { markUnexploredStormClip } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 import { FOGGED_MIST_Y, createFoggedMistLayer } from "./client-map-3d-fogged-mist.js";
-import { FOGGED_MIST_HAZE_FRAGMENT_BLEND, FOGGED_MIST_HAZE_FRAGMENT_MULTIPLY, applyFoggedMistHaze, applyFoggedMistHazeToScene, takesFoggedMistHaze } from "./client-map-3d-fogged-mist-haze.js";
-import { createFogOverlays } from "./client-map-3d-fog-overlays.js";
+import { OWNERSHIP_RISE_ABOVE_HEIGHTFIELD } from "../client-map-3d-ownership-shore.js";
+import { FOGGED_MIST_HAZE_FRAGMENT_BLEND, applyFoggedMistHaze, foggedMistHazeFragment, applyFoggedMistHazeToScene, takesFoggedMistHaze } from "./client-map-3d-fogged-mist-haze.js";
+import { FOG_HILL_OVERLAY_LIFT, createFogOverlays } from "./client-map-3d-fog-overlays.js";
 import { FOGGED_EDGE_COVER_GLSL } from "./client-map-3d-fogged-edge-clip.js";
 import { FOGGED_MIST_FRAGMENT_SHADER, FOGGED_MIST_SHADE_GLSL } from "./client-map-3d-fogged-mist-shader.js";
 
@@ -102,16 +103,43 @@ describe("fogged mist haze on features rising out of the mist (3D)", () => {
       expect(FOGGED_EDGE_COVER_GLSL.trim().startsWith("#ifndef FOGGED_EDGE_COVER\n#define FOGGED_EDGE_COVER")).toBe(true);
       return shader.fragmentShader;
     };
-    for (const mesh of [fogDarkenOverlay.settledHillMesh, fogDarkenOverlay.frontierHillMesh, fogDarkenOverlay.settledMesh]) {
+    for (const [mesh, lift] of [[fogDarkenOverlay.settledHillMesh, FOG_HILL_OVERLAY_LIFT], [fogDarkenOverlay.frontierHillMesh, FOG_HILL_OVERLAY_LIFT], [fogDarkenOverlay.settledMesh, OWNERSHIP_RISE_ABOVE_HEIGHTFIELD]] as const) {
       const fragment = compile(mesh.material as Material);
-      expect(fragment).toContain(FOGGED_MIST_HAZE_FRAGMENT_BLEND.trim());
+      expect(fragment).toContain(foggedMistHazeFragment("normal", lift).trim());
       // Mixes the colour only: the wash keeps its alpha, so (wash over hazed dome) hazed == mist over (wash over dome).
       expect(FOGGED_MIST_HAZE_FRAGMENT_BLEND).not.toContain("gl_FragColor.a");
     }
     for (const mesh of [fogOwnershipOverlay.settledHillMesh, fogOwnershipOverlay.frontierHillMesh]) {
       const fragment = compile(mesh.material as Material);
-      expect(fragment).toContain(FOGGED_MIST_HAZE_FRAGMENT_MULTIPLY.trim()); // multiply tint fades to white, not to mist colour
-      expect(fragment).not.toContain(FOGGED_MIST_HAZE_FRAGMENT_BLEND.trim());
+      expect(fragment).toContain(foggedMistHazeFragment("multiply", FOG_HILL_OVERLAY_LIFT).trim()); // multiply tint fades to white, not to mist colour
+      expect(fragment).not.toContain("linearToOutputTexel(vec4(fogMist.rgb");
     }
+  });
+
+  it("gates the fog overlays' haze on the ground under them, so no ring round a remembered hill is hazed twice", () => {
+    // Regression: the slate wash rides OWNERSHIP_RISE_ABOVE_HEIGHTFIELD over the hill dome. Gated on its own height,
+    // it took the in-shader haze wherever it cleared the sheet -- including the thin ring where the dome under it was
+    // still below the sheet, which the sheet then hazed again: a pale outline round every remembered hill.
+    const scene = new Scene();
+    const mist = createFoggedMistLayer(scene, () => 0);
+    const { fogDarkenOverlay, fogOwnershipOverlay } = createFogOverlays(scene, 4, mist.edgeUniforms, mist.hazeUniforms);
+    for (const [mesh, lift] of [[fogDarkenOverlay.settledHillMesh, FOG_HILL_OVERLAY_LIFT], [fogOwnershipOverlay.settledHillMesh, FOG_HILL_OVERLAY_LIFT], [fogDarkenOverlay.settledMesh, OWNERSHIP_RISE_ABOVE_HEIGHTFIELD]] as const) {
+      const shader = { vertexShader: ShaderLib.basic.vertexShader, fragmentShader: ShaderLib.basic.fragmentShader, uniforms: {} as Record<string, unknown> };
+      (mesh.material as Material).onBeforeCompile(shader as never, undefined as never);
+      expect(shader.fragmentShader).toContain(`vFogMistScene.y - ${lift.toFixed(4)} > uFogMistPlaneY`);
+    }
+    // The hill drape rides its clearance over the dome on top of the overlay's rise.
+    expect(FOG_HILL_OVERLAY_LIFT).toBeGreaterThan(OWNERSHIP_RISE_ABOVE_HEIGHTFIELD);
+    // Natural features stand on the ground itself: no lift.
+    expect(FOGGED_MIST_HAZE_FRAGMENT_BLEND).toContain("vFogMistScene.y > uFogMistPlaneY");
+  });
+
+  it("offsets the sheet back by depth units only, so it covers every bit of ground below it", () => {
+    // Regression: a slope factor pushed the sheet back by up to a pixel's depth change, so it skipped a view-dependent
+    // band of hill ground just below it -- which the in-shader haze (above the sheet only) never reached either.
+    const mist = createFoggedMistLayer(new Scene(), () => 0);
+    expect(mist.material.polygonOffset).toBe(true);
+    expect(mist.material.polygonOffsetFactor).toBe(0);
+    expect(mist.material.polygonOffsetUnits).toBeGreaterThan(0);
   });
 });

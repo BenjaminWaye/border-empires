@@ -6,6 +6,17 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 // -- see the maintenance note atop client-changelog-data.ts.
 export const CLIENT_CHANGELOG_ENTRIES_TERRAIN: ClientChangelogEntry[] = [
   {
+    createdAt: 1794700406894, // Date.now() frozen for this entry
+    introducedIn: "2026.11.14",
+    title: "Smoother ground and cleaner fog on the 3D map",
+    why: "The 3D ground showed straight lines along every tile edge: on beaches, along rows of sandy hills, and where sand met tundra. Hills beside woods stood out as bright squares, and hills in the fog had pale outlines.",
+    changes: [
+      "The ground texture now flows across tile edges, so beaches, sand and tundra no longer show a grid of straight lines",
+      "Hills beside forests now share the darker forest-floor tone of the ground around them",
+      "Hills in the fog no longer have pale outlines where they rise out of the mist"
+    ]
+  },
+  {
     createdAt: 1791819900184, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.12.1",
     title: "River mountains on the 2D map, and matching snow",

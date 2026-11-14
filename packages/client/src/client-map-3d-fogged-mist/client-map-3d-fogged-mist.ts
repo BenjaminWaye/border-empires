@@ -32,6 +32,8 @@ import { FOGGED_MIST_FRAGMENT_SHADER, FOGGED_MIST_VERTEX_SHADER } from "./client
 // Just above the unexplored storm's plane (0.27, over the highest flat land),
 // so bumpy remembered ground never pokes through it in patches.
 export const FOGGED_MIST_Y = 0.29;
+export const FOGGED_MIST_POLYGON_OFFSET_FACTOR = 0;
+export const FOGGED_MIST_POLYGON_OFFSET_UNITS = 4;
 // Same reach as the storm sheet: past the farthest ground the camera sees.
 const MIST_PLANE_SIZE = 3600;
 const MIST_TIME_WRAP_SECONDS = 3600;
@@ -106,9 +108,14 @@ export const createFoggedMistLayer = (scene: Scene, nowMs: () => number = () => 
     depthWrite: false,
     // Loses near-ties against ground just above the sheet (mountain tiles
     // stand at ~0.3), so it never shimmers through them at a distance.
+    // Units only: a slope factor pushes the sheet back by up to a pixel's
+    // depth change, a view-dependent band of ground just *below* the sheet
+    // that it then skips -- while the in-shader haze
+    // (client-map-3d-fogged-mist-haze.ts) only starts above it, so every
+    // remembered hill dome got an unhazed ring where it crosses the sheet.
     polygonOffset: true,
-    polygonOffsetFactor: 1,
-    polygonOffsetUnits: 4,
+    polygonOffsetFactor: FOGGED_MIST_POLYGON_OFFSET_FACTOR,
+    polygonOffsetUnits: FOGGED_MIST_POLYGON_OFFSET_UNITS,
     uniforms: {
       uTime: { value: 0 },
       uWorldOrigin: { value: new Vector2(0, 0) },
