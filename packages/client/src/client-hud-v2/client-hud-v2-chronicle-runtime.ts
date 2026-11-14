@@ -40,7 +40,8 @@ export const renderChronicle = (deps: HudV2Deps): void => {
       nameOf: (id) => state.playerNames.get(id),
       colorOf: (id) => deps.ownerColor(id),
       techName: (id) => state.techCatalog.find((t) => t.id === id)?.name,
-      nowMs: Date.now()
+      nowMs: Date.now(),
+      awaySince: screen.chronicleAwaySince
     }, tabs));
     if (dash.timeline) acknowledgeActivitySeen(state, state.bridgeDebugSeasonId, deps);
     return;
