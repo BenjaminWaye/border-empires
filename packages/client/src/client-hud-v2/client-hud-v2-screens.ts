@@ -22,6 +22,7 @@ import {
   type HudV2Deps,
   type HudV2ScreenId
 } from "./client-hud-v2-context.js";
+import { dealPactClick, dealPactHtml } from "./client-hud-v2-diplomacy-pact.js";
 import { dealFactsText, dealSkeletonHtml, diplomacyListHtml, diplomacyResponseMessage, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
 import { crestClosesProfile, profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
@@ -35,6 +36,8 @@ const TITLES: Partial<Record<HudV2ScreenId, string>> = { manifest: "Manifest", a
 
 /** Which body is in the frame now, so the diplomacy deal (hosting foreign DOM) is never rewritten under itself. */
 let bodyMode = "";
+/** Where the Diplomacy list was scrolled when a deal opened, restored on the way back (playtest: it jumped to the top after every deal). */
+let diplomacyListScrollTop = 0;
 
 const nameOf = (deps: HudV2Deps, id: string): string => deps.state.playerNames.get(id) ?? "";
 
@@ -163,6 +166,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
   const target = screen.diplomacyTargetId;
   writeHtml("v2s-head-right", "");
   if (!target) {
+    const fromDeal = bodyMode.startsWith("deal:");
     bodyMode = "list";
     writeHtml("v2s-body", diplomacyListHtml({
       me: state.me,
@@ -180,13 +184,22 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
       colorOf: (id) => deps.ownerColor(id),
       nowMs: Date.now()
     }));
+    const list = fromDeal ? document.querySelector<HTMLElement>("[data-v2-scroll='diplomacy']") : null;
+    if (list) list.scrollTop = diplomacyListScrollTop;
     return;
   }
   if (bodyMode !== `deal:${target}`) {
     writeHtml("v2s-body", dealSkeletonHtml(nameOf(deps, target) || "Empire", dealFacts(deps, target)));
     bodyMode = `deal:${target}`;
+    forgetWritten("v2d-pact");
     hostTradeView(deps, target);
   }
+  writeHtml("v2d-pact", dealPactHtml({ targetId: target, allies: state.allies, activeTruces: state.activeTruces, activeAllianceBreaks: state.activeAllianceBreaks, nowMs: Date.now() }));
+};
+
+const rememberDiplomacyListScroll = (): void => {
+  const list = document.querySelector<HTMLElement>("[data-v2-scroll='diplomacy']");
+  if (list) diplomacyListScrollTop = list.scrollTop;
 };
 
 /** The relation and both tile counts, for the deal's top line (the trade view shows goods, not standing). */
@@ -343,8 +356,10 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     deps.actionFlow.chooseTech(commission.dataset.v2ManifestCommission);
     return true;
   }
+  if (dealPactClick(deps, target, () => closeScreen(deps, { toMap: true }))) return true;
   const open = target.closest<HTMLElement>("[data-v2-dip-open]");
   if (open) {
+    rememberDiplomacyListScroll();
     screen.diplomacyTargetId = open.dataset.v2DipOpen;
     renderScreen(deps);
     return true;
@@ -370,9 +385,11 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
       state: deps.state
     });
     if (!input) return true;
+    rememberDiplomacyListScroll();
     screen.diplomacyTargetId = input.targetPlayerId;
     writeHtml("v2s-body", dealSkeletonHtml(input.targetName, input.targetPlayerId ? dealFacts(deps, input.targetPlayerId) : ""));
     bodyMode = `deal:${input.targetPlayerId}`;
+    forgetWritten("v2d-pact");
     hostTradeView(deps, input.targetPlayerId, input);
     renderScreen(deps);
     return true;

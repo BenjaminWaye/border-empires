@@ -28,10 +28,11 @@ export const dealKind = (treaty: DealTreaty, terms: DiplomacyTerms, targetIsAi: 
   treaty ?? (hasSupply(terms) || asksAnything(terms) || !targetIsAi ? "trade" : "gift");
 
 /** Treaty-less trade/gift verdicts that the shared verdict words for a different screen. */
-export const dealVerdictOverride = (treaty: DealTreaty, kind: TradeKind, terms: DiplomacyTerms, sendLabel: string): TradeVerdict | undefined => {
+export const dealVerdictOverride = (treaty: DealTreaty, kind: TradeKind, terms: DiplomacyTerms, sendLabel: string, allied = false): TradeVerdict | undefined => {
   if (treaty) return undefined;
   if (diplomacyTermsAreEmpty(terms)) {
-    return { tone: "neutral", text: "Pick a truce or alliance, or add goods from either side.", canSend: false, sendLabel: "Send offer" };
+    const text = allied ? "Add goods from either side to trade with your ally." : "Pick a truce or alliance, or add goods from either side.";
+    return { tone: "neutral", text, canSend: false, sendLabel: "Send offer" };
   }
   if (!hasSupply(terms) && kind !== "gift") {
     return { tone: "neutral", text: "Coin changes hands with a truce, an alliance or a resource supply. Add one to the deal.", canSend: false, sendLabel };
