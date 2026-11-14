@@ -210,6 +210,13 @@ body.hud-v2 #mini-map-wrap:has(.hud-v2-lens-menu) { z-index: 40; }
 .hud-v2-lens-btn:hover, .hud-v2-lens-btn[aria-expanded="true"] { border-color: var(--v2-gold); }
 .hud-v2-lens-on { background: #2a2216; border-color: var(--v2-gold-hi); }
 .hud-v2-lens-icon { width: 20px; height: 20px; pointer-events: none; }
+.hud-v2-lens-legend { position: absolute; left: calc(100% + 8px); top: 18px; display: grid; gap: 3px; min-width: 130px; padding: 6px 8px; background: var(--v2-ink); border: 1px solid var(--v2-edge-strong); font-size: 11px; color: var(--v2-soft); pointer-events: none; }
+.hud-v2-lens-key { display: flex; align-items: center; gap: 6px; }
+.hud-v2-lens-key i { width: 10px; height: 10px; border: 1px solid rgba(0, 0, 0, 0.5); }
+.hud-v2-lens-legend small { color: var(--v2-muted); }
+.v2c-map-lenses .hud-v2-lens-legend { position: static; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); min-width: 0; }
+/* On a phone the key lives in the map overview, where the lens is picked; floating over the map it would cover play. */
+body.hud-v2-compact .hud-v2-lens-btn + .hud-v2-lens-legend { display: none; }
 .hud-v2-lens-menu {
   position: absolute; left: calc(100% + 8px); top: 18px; display: grid; gap: 2px;
   min-width: 150px; padding: 6px; background: var(--v2-ink); border: 1px solid var(--v2-edge-strong);
@@ -242,6 +249,7 @@ body.hud-v2 #mini-map-wrap:has(.hud-v2-lens-menu) { z-index: 40; }
 .hud-v2-tile-sub [data-player-name-id] { color: var(--v2-text); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .hud-v2-tile-status { font-family: var(--v2-mono); font-size: 11px; padding: 3px 8px; border: 1px solid var(--v2-line); color: var(--v2-soft); }
 .hud-v2-tile-status-warning { color: var(--v2-amber); border-color: var(--v2-amber); }
+.hud-v2-tile-status-help { background: transparent; cursor: pointer; }
 .hud-v2-tile-close { width: 28px; height: 28px; border: 1px solid var(--v2-line); background: var(--v2-well); color: var(--v2-soft); }
 .hud-v2-tile-close:hover { color: var(--v2-text); border-color: var(--v2-edge-strong); }
 .hud-v2-act-row { display: flex; flex-wrap: wrap; gap: 8px; }

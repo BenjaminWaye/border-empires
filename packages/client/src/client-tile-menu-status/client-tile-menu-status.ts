@@ -1,4 +1,4 @@
-import { isCaptureHoldActive } from "@border-empires/shared";
+import { OUTPOST_REACH_RADIUS, TOWN_REACH_RADIUS, isCaptureHoldActive } from "@border-empires/shared";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import type { Tile } from "../client-types.js";
 
@@ -19,8 +19,11 @@ export type TileMenuHeaderStatus = {
 };
 
 const INSIDE_REACH_HELP_TEXT = "Can't garrison inside another empire's reach.";
+// Says what reach is and how far it goes, not only what it blocks: players couldn't find where theirs ended (2026-11-14 playtest).
 const BEYOND_REACH_HELP_TEXT =
-  "Can't garrison or build buildings on tiles outside your reach. Extend your reach using Relay Beacons.";
+  `Your reach is the land within ${TOWN_REACH_RADIUS} tiles of your towns and ${OUTPOST_REACH_RADIUS} tiles of your Relay Beacons. ` +
+  "Outside it you can claim tiles but not garrison or build on them, and they are lost if their supply route is cut. " +
+  "Build a Relay Beacon nearby to extend it.";
 
 const disabledUntilForTileStructure = (tile: Tile): number | undefined => tile.economicStructure?.disabledUntil ?? tile.fort?.disabledUntil;
 

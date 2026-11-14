@@ -352,6 +352,14 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     deps.renderHud();
     return true;
   }
+  // A Manifest's Reveal chip: back to the map with the Resources lens on, where revealed deposits glow.
+  if (target.closest("[data-v2-manifest-lens]")) {
+    deps.state.showResourceOverlay = true;
+    deps.state.showDiplomacyOverlay = false;
+    closeScreen(deps, { toMap: true });
+    deps.requestViewRefresh();
+    return true;
+  }
   const commission = target.closest<HTMLButtonElement>("[data-v2-manifest-commission]");
   if (commission && !commission.disabled) {
     deps.actionFlow.chooseTech(commission.dataset.v2ManifestCommission);

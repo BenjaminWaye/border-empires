@@ -1,7 +1,7 @@
 // Fort/siege/defense-family modifier entries — split out from the economic
 // catalog to keep each file under the repo's 500-line cap.
 import {
-  DREAD_TOWER_ATTACK_MULT, OBSERVATORY_VISION_BONUS, OBSERVATORY_RANGE, RELAY_BEACON_VISION_BONUS,
+  DREAD_TOWER_ATTACK_MULT, OBSERVATORY_VISION_BONUS, OBSERVATORY_RANGE, OUTPOST_REACH_RADIUS, RELAY_BEACON_VISION_BONUS,
   SIEGE_BATTERY_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, PALISADE_DEFENSE_MULT,
   WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING, WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
   TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING, TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
@@ -16,6 +16,8 @@ export const militaryStructureModifiers = (type: ModifierStructureType): Structu
   if (type === "PALISADE") return [{ statLabel: "Defense", valueText: multiplierPercentLabel(PALISADE_DEFENSE_MULT), tone: "positive", isTownWide: false }];
   if (type === "RELAY_BEACON") {
     return [
+      // Reach is what a beacon is built for (garrison and build within it); the card used to list only vision (2026-11-14 playtest).
+      { statLabel: "Reach", valueText: `${OUTPOST_REACH_RADIUS} tiles`, tone: "positive", isTownWide: false },
       { statLabel: "Local vision", valueText: `+${RELAY_BEACON_VISION_BONUS}`, tone: "positive", isTownWide: false }
     ];
   }

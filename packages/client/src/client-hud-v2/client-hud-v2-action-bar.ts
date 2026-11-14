@@ -186,12 +186,23 @@ const factsHtml = (facts: readonly TileFact[]): string =>
     ? `<div class="hud-v2-tile-facts">${facts.map((f) => `<span class="hud-v2-fact${f.tone ? ` hud-v2-fact-${f.tone}` : ""}"><span class="hud-v2-fact-label">${esc(f.label)}</span>${esc(f.value)}</span>`).join("")}</div>`
     : "";
 
+/** The status explainer as Details' first line (escaped: the line's html is trusted markup). */
+const statusHelpLines = (view: Pick<TileMenuView, "statusText" | "statusHelpText">): TileMenuView["overviewLines"] =>
+  view.statusText && view.statusHelpText ? [{ html: `<strong>${esc(plainText(view.statusText))}:</strong> ${esc(view.statusHelpText)}` }] : [];
+
 /** ownerTagHtml: trusted markup shown before the owner's name (the stance tag). */
 export const actionBarHtml = (fullView: TileMenuView, panel?: BarPanel, facts: readonly TileFact[] = [], ownerTagHtml = ""): string => {
   // Details never repeats the fact strip; with nothing else to say it has no button.
-  const view = { ...fullView, overviewLines: detailLinesBeyondFacts(fullView.overviewLines, facts) };
+  // A status with an explainer ("Beyond your reach") leads Details with it, and the status itself opens Details:
+  // the explainer used to exist only in the legacy menu, so tapping the badge did nothing (2026-11-14 playtest).
+  const help = statusHelpLines(fullView);
+  const view = { ...fullView, overviewLines: [...help, ...detailLinesBeyondFacts(fullView.overviewLines, facts)] };
   const buttons = selectBarButtons(view);
-  const status = view.statusText ? `<span class="hud-v2-tile-status hud-v2-tile-status-${view.statusTone ?? "neutral"}">${esc(view.statusText)}</span>` : "";
+  const statusCls = `hud-v2-tile-status hud-v2-tile-status-${view.statusTone ?? "neutral"}`;
+  const status = !view.statusText ? ""
+    : help.length > 0
+      ? `<button type="button" class="${statusCls} hud-v2-tile-status-help" data-hud-v2-panel="details" aria-expanded="${panel === "details"}" title="What does this mean?">${esc(view.statusText)} ⓘ</button>`
+      : `<span class="${statusCls}">${esc(view.statusText)}</span>`;
   const head = `<div class="hud-v2-tile-head"><span class="hud-v2-tile-text"><span class="hud-v2-tile-title">${esc(view.title)}</span><span class="hud-v2-tile-sub">${ownerTagHtml}${view.subtitleHtml ?? esc(view.subtitle)}</span></span>${status}<button type="button" class="hud-v2-tile-close" data-hud-v2-close aria-label="Close">✕</button></div>`;
   const row = buttons.map((b) => (b.kind === "action"
     ? actionButtonHtml(b)
