@@ -1,5 +1,6 @@
 import { appendPlayerEventLogEntry, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import { PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
+import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
 
 type TownPopulationTier = NonNullable<NonNullable<DomainTileState["town"]>["populationTier"]>;
 
@@ -87,15 +88,51 @@ export const appendTownLostEventLogIfApplicable = (
   appendPlayerEventLogEntry(loser, { type: "TOWN_LOST", text, occurredAt: now, x: sample.x, y: sample.y });
 };
 
-/** Reports a tile write's ownership change: the onOwnershipChange hook plus the loser's TOWN_LOST log entry. */
+/**
+ * A town that left its owner's empire without anyone taking it (abandoned,
+ * cut off, decayed, released when broke) as a Chronicle "Yours" card. A
+ * capture already records its own TOWN_LOST card with the captor
+ * (runtime-winning-capture.ts); this covers every other way out, which used
+ * to leave no Chronicle entry at all: playtesters saw a town drop out of
+ * their empire with the 24h summary still reading "0 towns lost".
+ */
+export const townLeftEmpireImpact = (
+  sample: OwnershipChangeSample,
+  previousTown: DomainTileState["town"] | undefined,
+  players: ReadonlyMap<string, DomainPlayer>,
+  now: number
+): PersonalImpactEvent | undefined => {
+  const ownerId = sample.previousOwnerId;
+  if (!ownerId || sample.nextOwnerId || !sample.hadTown || !previousTown || !players.has(ownerId)) return undefined;
+  const population = previousTown.population ?? 0;
+  return {
+    id: `town-left:${sample.commandId}:${sample.tileKey}`,
+    kind: "TOWN_LOST",
+    playerId: ownerId,
+    occurredAt: now,
+    x: sample.x,
+    y: sample.y,
+    ...(previousTown.name ? { townName: previousTown.name } : {}),
+    townTier: previousTown.populationTier ?? "SETTLEMENT",
+    townSurvived: !sample.townLost,
+    populationBefore: population,
+    populationAfter: sample.townLost ? 0 : population,
+    capturedStructureTypes: []
+  };
+};
+
+/** Reports a tile write's ownership change: the onOwnershipChange hook, the loser's TOWN_LOST log entry and, when nobody took the town, its Chronicle card. */
 export const publishOwnershipChange = (
   write: { tileKey: string; tile: DomainTileState; previous: DomainTileState | undefined; commandId: string },
   onOwnershipChange: ((sample: OwnershipChangeSample) => void) | undefined,
   players: ReadonlyMap<string, DomainPlayer>,
-  now: number
+  now: number,
+  recordPersonalImpact?: (event: PersonalImpactEvent) => void
 ): void => {
   const sample = buildOwnershipChangeSample(write.tileKey, write.tile, write.previous, write.commandId);
   if (!sample) return;
   onOwnershipChange?.(sample);
   appendTownLostEventLogIfApplicable(sample, write.previous?.town, players, now);
+  const townLeft = recordPersonalImpact ? townLeftEmpireImpact(sample, write.previous?.town, players, now) : undefined;
+  if (townLeft) recordPersonalImpact?.(townLeft);
 };

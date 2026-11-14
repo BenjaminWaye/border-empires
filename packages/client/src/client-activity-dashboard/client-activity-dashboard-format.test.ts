@@ -77,7 +77,9 @@ describe("activityCardText / activityCardCoordinates", () => {
     const names = namesFrom({ kara: "Kara" });
     expect(activityCardText({ ...base, kind: "TOWN_LOST", counterpartyPlayerId: "kara" } as any, "me", names)).toBe("Lost Aurienspire Ring to Kara · 25354 population remaining");
     expect(activityCardText({ ...base, kind: "TOWN_CAPTURED", counterpartyPlayerId: "kara" } as any, "me", names)).toBe("Captured Aurienspire Ring from Kara · 25354 population remaining");
-    expect(activityCardText({ ...base, kind: "TOWN_LOST" } as any, "me", names)).toBe("Lost Aurienspire Ring · 25354 population remaining");
+    // No captor: the town left the empire some other way (abandoned, cut off) and stands unclaimed.
+    expect(activityCardText({ ...base, kind: "TOWN_LOST" } as any, "me", names)).toBe("Lost Aurienspire Ring · no one took it, it stands unclaimed");
+    expect(activityCardText({ ...base, kind: "TOWN_LOST", townSurvived: false } as any, "me", names)).toBe("Lost Aurienspire Ring · settlement razed");
   });
 
   it("gives a lost or captured dock its own note naming the other player", () => {
