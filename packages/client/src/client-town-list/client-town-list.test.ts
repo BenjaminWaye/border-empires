@@ -87,9 +87,26 @@ describe("town list", () => {
     expect(html).not.toContain("Enemy Keep");
   });
 
-  it("shows the same gold as the map label, including sabotage and docks", () => {
-    const sabotaged = townTile(1, "Ashford", 2, 4000, { yieldRate: { goldPerMinute: 1 } });
+  it("applies sabotage and keeps the server's dock rate", () => {
+    const sabotaged = townTile(1, "Ashford", 2, 4000, { sabotage: { ownerId: "rival", endsAt: Date.now() + 60_000, outputMultiplier: 0.5 } });
     expect(rowsOf(mapOf([sabotaged]))[0]?.goldPerMinute).toBe(1);
+    const dock = townTile(2, "Brimvale", 2, 4000, { dockId: "d1", yieldRate: { goldPerMinute: 3 } });
+    expect(rowsOf(mapOf([dock]))[0]?.goldPerMinute).toBe(3);
+  });
+
+  // Playtest day 1: every town read 0.0 coin/day here while its own screen showed +21/day. A tile-detail
+  // reply had cached yieldRate 0 from before the town was garrisoned, and the later town summary that
+  // raised town.goldPerMinute did not clear it.
+  it("matches the town screen when a cached yield rate is stale", () => {
+    const stale = townTile(1, "Ashford", 21 / 1440, 4000, { yieldRate: { goldPerMinute: 0 } });
+    expect(rowsOf(mapOf([stale]))[0]?.goldPerMinute).toBeCloseTo(21 / 1440, 4);
+    expect(townListCardHtml(mapOf([stale]), "me")).toContain(">21.0<");
+  });
+
+  it("keeps the last known rate while a partial town summary lacks goldPerMinute", () => {
+    const partial = townTile(1, "Ashford", 0, 4000, { yieldRate: { goldPerMinute: 2 } });
+    delete (partial.town as { goldPerMinute?: number }).goldPerMinute;
+    expect(rowsOf(mapOf([partial]))[0]?.goldPerMinute).toBe(2);
   });
 
   it("reads missing economy fields as zero and fed instead of NaN and unfed", () => {
