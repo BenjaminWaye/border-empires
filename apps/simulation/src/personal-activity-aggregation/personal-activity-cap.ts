@@ -13,6 +13,8 @@ const impactOf = (card: PersonalActivityCard): number => {
   if (card.kind === "WAYSTATION_ACTIVATED") return 100;
   if (card.kind === "DOCK_CAPTURED" || card.kind === "DOCK_LOST") return 100;
   if (card.kind === "BUILDING_COMPLETED") return 10;
+  if (card.kind === "SCOUT_REPORT") return 20 + 10 * (card.towns + card.docks + card.waystations);
+  if (card.kind === "SCOUT_SIGHTED") return 50;
   return 0;
 };
 

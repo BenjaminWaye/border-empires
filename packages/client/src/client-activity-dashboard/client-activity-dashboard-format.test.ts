@@ -1,3 +1,4 @@
+import type { PersonalActivityCard } from "@border-empires/game-domain";
 import { PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText, activityPlayerNameLookup } from "./client-activity-dashboard-format.js";
@@ -94,6 +95,17 @@ describe("activityCardText / activityCardCoordinates", () => {
     expect(activityCardText(tradeNexus as any, "me", noNames)).toBe("Trade Nexus completed");
     expect(activityCardText(incubationEngine as any, "me", noNames)).toBe("Incubation Engine completed");
     expect(activityCardText(unknown as any, "me", noNames)).toBe("Some future hall completed");
+  });
+
+  it("summarises a scout drone's report with its target tile", () => {
+    const report: PersonalActivityCard = {
+      kind: "SCOUT_REPORT", id: "scout-1", occurredAt: 0, x: 40, y: 12,
+      towns: 1, docks: 1, waystations: 0, watchtowers: 0, resourceTiles: 3, planetaryDefenseTiles: 0, empiresSighted: [], blockedByPlayerId: "kara"
+    };
+    expect(activityCardText(report, "me", namesFrom({ kara: "Kara" }))).toBe("Scout drone found 1 town, 1 dock, 3 resource tiles · turned back at Kara's border");
+    expect(activityCardCoordinatesLabel(report)).toBe("(40, 12)");
+    const empty: PersonalActivityCard = { kind: "SCOUT_REPORT", id: "scout-2", occurredAt: 0, x: 1, y: 1, towns: 0, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [] };
+    expect(activityCardText(empty, "me", noNames)).toBe("Scout drone found nothing new");
   });
 });
 

@@ -112,6 +112,7 @@ export type TileActionDef = {
     | "expand_here"
     | "march_attack_flag" | "march_attack_flag_2" | "march_attack_flag_3" | "march_attack_new_flag"
     | "march_to_pick_origin"
+    | "explore_scout"
     | `redeploy_afc_module:${string}`;
   label: string;
   cost?: string;
