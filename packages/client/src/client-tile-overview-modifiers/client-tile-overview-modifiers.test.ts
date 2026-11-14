@@ -345,7 +345,7 @@ describe("tileOverviewModifiersForTile", () => {
     expect(modifiers).toContainEqual({ reason: "Titanium Weapons Factory — Empire defense", effect: "+3% per copy", tone: "positive" });
   });
 
-  it("shows the vision modifier for a Relay Beacon (it no longer grants an offense bonus)", () => {
+  it("shows the reach and vision modifiers for a Relay Beacon (it no longer grants an offense bonus)", () => {
     const modifiers = tileOverviewModifiersForTile({
       x: 10,
       y: 12,
@@ -354,9 +354,10 @@ describe("tileOverviewModifiersForTile", () => {
       ownershipState: "SETTLED",
       economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
     } satisfies Tile);
-    // A single modifier is shown by its plain stat label, without the
-    // structure-name prefix used to disambiguate multi-modifier structures.
-    expect(modifiers).toContainEqual({ reason: "Local vision", effect: "+5", tone: "positive" });
+    // Two modifiers, so each carries the structure-name prefix. Reach is listed: playtesters
+    // read only "Local vision +5" and couldn't tell a beacon extends reach (2026-11-14).
+    expect(modifiers).toContainEqual({ reason: "Relay Beacon — Reach", effect: "5 tiles", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Relay Beacon — Local vision", effect: "+5", tone: "positive" });
     expect(modifiers.some((m) => m.reason === "Relay Beacon — Offense")).toBe(false);
   });
 
@@ -479,7 +480,7 @@ describe("tileOverviewModifiersForTile", () => {
       ownershipState: "SETTLED",
       economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "Local vision", effect: "+5", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Relay Beacon — Local vision", effect: "+5", tone: "positive" });
     expect(modifiers).toContainEqual({ reason: "Hills", effect: "vision +1", tone: "positive" });
     expect(modifiers.some((m) => m.reason === "Vision")).toBe(false);
     expect(modifiers).toContainEqual({ reason: "Hills", effect: "defense +20% when garrisoned", tone: "positive" });
