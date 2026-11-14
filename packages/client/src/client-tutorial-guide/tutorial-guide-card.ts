@@ -15,6 +15,8 @@ import { ONBOARDING_CORNER_BOTTOM_PX } from "../client-onboarding-checklist/clie
 
 const ROOT_ID = "tutorial-guide-root";
 const RAISED_CLASS = "tg-raised";
+/** Set while any panel or screen is open: the minimised "?" launcher then stays off it (see styles). */
+const OVER_UI_CLASS = "tg-over-ui";
 
 export type GuideCardHandlers = {
   onShowMe: () => void;
@@ -128,11 +130,12 @@ export const guideCardCoversScreenCentre = (): boolean => {
  * the new HUD's screens (it is shown on its Manifest and Diplomacy screens), so the step that sent the player there stays in view
  * while they do it. Called every frame; a class toggle is cheap.
  */
-export const syncGuideCardLayer = (raised: boolean, overManpower = false): void => {
+export const syncGuideCardLayer = (raised: boolean, overManpower = false, overUi = raised): void => {
   if (typeof document === "undefined") return;
   const root = document.getElementById(ROOT_ID);
   root?.classList.toggle(RAISED_CLASS, raised);
   root?.classList.toggle("tg-over-manpower", overManpower);
+  root?.classList.toggle(OVER_UI_CLASS, overUi);
 };
 
 /** Re-renders the card (cheap; callers only call it when the view's signature changes). */
@@ -180,6 +183,8 @@ const styles = `
 body.hud-v2-screen-manifest #${ROOT_ID}, body.hud-v2-screen-diplomacy #${ROOT_ID} { display: block !important; }
 body.hud-v2-compact #${ROOT_ID}.tg-over-manpower { display: block !important; }
 #${ROOT_ID} [hidden] { display: none !important; }
+/* Minimised, the guide is just its "?" launcher; over a panel or screen that sat on their Back buttons and headings (playtest day 1). The map brings it back. */
+#${ROOT_ID}.${OVER_UI_CLASS} .tg-launcher { display: none !important; }
 .tg-card {
   width: min(270px, calc(100vw - 32px)); padding: 10px 12px; border-radius: 12px;
   border: 1px solid rgba(126, 224, 138, 0.32); background: rgba(14, 10, 6, 0.94);

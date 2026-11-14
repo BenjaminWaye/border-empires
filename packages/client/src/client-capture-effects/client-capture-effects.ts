@@ -4,6 +4,7 @@ import { victoryHoldAlertDetail, victoryHoldAlertTitle } from "../client-victory
 import type { ClientState } from "../client-state/client-state.js";
 import { setTextWithResourceIcons } from "../client-resource-icons/client-resource-icons.js";
 import { frontierAttackIsUndefended } from "../client-capture-hold/client-capture-hold.js";
+import { noteCaptureCardAutoHidden } from "./client-capture-ghost-tap.js";
 
 export const renderCaptureProgress = (
   state: Pick<
@@ -64,6 +65,8 @@ export const renderCaptureProgress = (
     return;
   }
   delete deps.captureCardEl.dataset.state;
+  // Closed on its own (the ✕ clears captureAlert first): guard the spot it covered against a late tap.
+  if (state.captureAlert && deps.captureCardEl.style.display !== "none") noteCaptureCardAutoHidden(deps.captureCardEl.getBoundingClientRect(), Date.now());
   state.captureAlert = undefined;
 
   deps.captureGotoBtn.style.display = "none";
