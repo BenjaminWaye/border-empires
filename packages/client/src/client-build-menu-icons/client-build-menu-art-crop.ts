@@ -16,6 +16,7 @@ export const BUILD_MENU_ART_CROP: Readonly<Record<string, ArtCropBox>> = {
   ...NETWORK_ICON_CROPS,
   ...monumentMenuCrops(),
   ...infrastructureMenuCrops(),
+  "/icons/simple/afc.svg": [0.094, 0.015, 0.813, 0.923],
   "/overlays/high-yield-aether-condenser-overlay.svg": [0.078, 0.289, 0.789, 0.5],
   "/overlays/high-yield-titanium-works-overlay.svg": [0.078, 0.23, 0.789, 0.594],
   "/overlays/high-yield-umbrite-works-overlay.svg": [0.078, 0.199, 0.785, 0.648],
