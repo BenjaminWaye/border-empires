@@ -3,12 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu.js";
 import type { ScoutDroneFlight } from "@border-empires/shared";
-import type { TileMenuView } from "../client-types.js";
+import type { Tile, TileMenuView } from "../client-types.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
 const baseDeps = () => ({
   keyFor,
+  pickOriginForTarget: vi.fn((): Tile | undefined => ({ x: 5, y: 6, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" })),
   renderTileActionMenu: vi.fn(),
   resetAttackPreviewState: vi.fn()
 });
@@ -66,6 +67,17 @@ describe("openUnexploredTileActionMenu", () => {
     state.me = "me";
     const view = openAt(state, 200, 200);
     expect(view.actions.map((action) => action.id)).toEqual(["explore_scout"]);
+  });
+
+  // A House that lost its last AFC has no drone, so Expand To comes back and Explore says why it can't fly.
+  it("falls back to Expand To, with Explore disabled, when the player has no AFC", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.afcRecovery = { globalLosses: 1, requiredSince: 1 };
+    state.tiles.set(keyFor(5, 6), { x: 5, y: 6, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" });
+    const view = openAt(state, 5, 7);
+    expect(view.actions.map((action) => action.label)).toEqual(["Expand To", "Explore"]);
+    expect(view.actions[1]).toMatchObject({ disabled: true, disabledReason: "Scout drones launch from an AFC, and you have none right now" });
   });
 
   it("disables Explore with the time left while the scout drone is out", () => {

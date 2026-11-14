@@ -27,6 +27,9 @@
  * (packages/client/src/client-reach-authoritative/client-reach-authoritative.ts),
  * and AETHER_SHIELDS / ISLAND_NAMES are full replacement lists
  * (ISLAND_NAMES: apps/simulation/src/island-names/island-names-ticker.ts).
+ * SCOUT_DRONE carries the whole flight (or null once docked); its landing
+ * report is stripped before storing so a new tab doesn't repeat the feed line
+ * (apps/simulation/src/scout-drone/scout-drone-runtime.ts).
  *
  * Bounds (docs/agents/state-and-persistence-discipline.md): one entry per
  * player (holding at most one payload per replayed type), dropped by `forget`
@@ -36,7 +39,7 @@
  * gateway's gauge and eviction counter.
  */
 
-export type ReplayedPlayerMessageType = "REACH_UPDATE" | "AETHER_SHIELDS" | "AFC_HIJACKS" | "ISLAND_NAMES";
+export type ReplayedPlayerMessageType = "REACH_UPDATE" | "AETHER_SHIELDS" | "AFC_HIJACKS" | "ISLAND_NAMES" | "SCOUT_DRONE";
 export type ReplayedPlayerMessage = Record<string, unknown> & { type: ReplayedPlayerMessageType };
 
 export type PlayerMessageReplayOptions = {
@@ -63,7 +66,12 @@ type ReplayEntry<TSocket extends object> = {
 /** Only well-formed payloads of the replayed types are kept. */
 export const isReplayedPlayerMessage = (payload: Record<string, unknown>): payload is ReplayedPlayerMessage =>
   (payload.type === "REACH_UPDATE" && Array.isArray(payload.tileKeys)) || (payload.type === "AETHER_SHIELDS" && Array.isArray(payload.towers)) ||
-  (payload.type === "AFC_HIJACKS" && Array.isArray(payload.hijacks)) || (payload.type === "ISLAND_NAMES" && Array.isArray(payload.islands));
+  (payload.type === "AFC_HIJACKS" && Array.isArray(payload.hijacks)) || (payload.type === "ISLAND_NAMES" && Array.isArray(payload.islands)) ||
+  (payload.type === "SCOUT_DRONE" && (payload.flight === null || (typeof payload.flight === "object" && payload.flight !== undefined)));
+
+/** What is kept for replay: SCOUT_DRONE without its one-off landing report. */
+const replayCopy = (payload: ReplayedPlayerMessage): ReplayedPlayerMessage =>
+  payload.type === "SCOUT_DRONE" ? { type: payload.type, flight: payload.flight } : payload;
 
 export const createPlayerMessageReplay = <TSocket extends object>(options: PlayerMessageReplayOptions): PlayerMessageReplay<TSocket> => {
   const maxEntries = Math.max(1, Math.floor(options.maxEntries));
@@ -77,7 +85,7 @@ export const createPlayerMessageReplay = <TSocket extends object>(options: Playe
       // Latest arrival of each type wins (the gateway relays the simulation's
       // stream in order). Delete-then-set keeps Map order = least-recently-updated first.
       const byType = entries.get(playerId) ?? new Map<ReplayedPlayerMessageType, ReplayEntry<TSocket>>();
-      byType.set(payload.type, { payload, deliveredTo });
+      byType.set(payload.type, { payload: replayCopy(payload), deliveredTo });
       entries.delete(playerId);
       entries.set(playerId, byType);
       while (entries.size > maxEntries) {

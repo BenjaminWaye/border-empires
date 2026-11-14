@@ -5,6 +5,7 @@ import {
   SCOUT_DRONE_HOME_STEP_MS,
   SCOUT_DRONE_STEP_MS,
   SCOUT_DRONE_VISION_RADIUS,
+  SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS,
   SCOUT_SIGHTED_ALERT_COOLDOWN_MS,
   type ScoutDronePayload
 } from "@border-empires/shared";
@@ -60,7 +61,8 @@ const harness = (tileList: DomainTileState[], players: DomainPlayer[] = [player(
 };
 
 // Own land x 0..4 on row 10 (AFC at 2,10), a town at (10,10), Planetary Defense at (12,10).
-const homeRow = (): DomainTileState[] => [0, 1, 2, 3, 4].map((x) => land(x, 10, { ownerId: "me" }));
+const homeRow = (afcStatus: "active" | "inactive" = "active"): DomainTileState[] =>
+  [0, 1, 2, 3, 4].map((x) => land(x, 10, { ownerId: "me", ...(x === 2 ? { afc: { ownerId: "me", status: afcStatus } } : {}) }));
 const lastPayload = (h: Harness, playerId = "me"): ScoutDronePayload =>
   h.messages.filter((m) => m.playerId === playerId).at(-1)!.payload as unknown as ScoutDronePayload;
 
@@ -149,5 +151,53 @@ describe("scout drone runtime", () => {
     h.runtime.sendTo("me");
     expect(lastPayload(h).flight?.targetX).toBe(9);
     expect(h.runtime.gauge()).toMatchObject({ activeFlights: 1, capRefusals: 0 });
+  });
+
+  it("refuses a target on the player's own land and a launch from an inactive AFC", () => {
+    const h = harness(homeRow());
+    h.explore(3, 10, "me", "home");
+    expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", code: "SCOUT_TARGET_HOME" });
+    const idle = harness(homeRow("inactive"));
+    idle.explore(9, 10, "me", "idle");
+    expect(idle.events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", code: "SCOUT_NO_AFC" });
+  });
+
+  it("turns back early when a rival claims a tile on its path mid-flight, alerting that rival", () => {
+    const h = harness(homeRow());
+    h.explore(12, 10, "me", "c1");
+    const planned = h.runtime.flightFor("me")!;
+    expect(planned.endReason).toBe("TARGET");
+    // The rival claims (8, 10) while the drone is still over its own land.
+    h.tiles.set("8,10", land(8, 10, { ownerId: "rival" }));
+    h.advanceTo(planned.steps.find((step) => step.x === 8)!.at);
+    const turned = h.runtime.flightFor("me")!;
+    expect(turned).toMatchObject({ endReason: "BLOCKED", blockedByPlayerId: "rival", blockedAtX: 8 });
+    expect(turned.steps[turned.turnIndex]!.x).toBe(7);
+    expect(turned.landsAt).toBeLessThan(planned.landsAt);
+    expect(lastPayload(h).flight?.endReason).toBe("BLOCKED");
+    expect(lastPayload(h, "rival")).toMatchObject({ type: "SCOUT_SIGHTED", scoutPlayerId: "me", x: 8 });
+    h.advanceTo(turned.landsAt);
+    expect(h.runtime.flightFor("me")).toBeUndefined();
+    expect(lastPayload(h).report).toMatchObject({ blockedByPlayerId: "rival" });
+  });
+
+  it("logs empty or back-to-back reports to the shared Activity log at most once per interval", () => {
+    const h = harness([...homeRow(), land(7, 10, { resource: "FARM" } as Partial<DomainTileState>)]);
+    const fly = (x: number, id: string): void => {
+      h.explore(x, 10, "me", id);
+      h.advanceTo(h.runtime.flightFor("me")!.landsAt);
+    };
+    fly(6, "a");
+    fly(6, "b");
+    fly(6, "c");
+    expect(h.impacts.filter((impact) => impact.kind === "SCOUT_REPORT")).toHaveLength(1);
+    expect(h.messages.filter((m) => (m.payload as unknown as ScoutDronePayload).report)).toHaveLength(3);
+    h.advanceTo(h.now() + SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS);
+    fly(6, "d");
+    expect(h.impacts.filter((impact) => impact.kind === "SCOUT_REPORT")).toHaveLength(2);
+    const empty = harness(homeRow());
+    empty.explore(6, 10, "me", "e");
+    empty.advanceTo(empty.runtime.flightFor("me")!.landsAt);
+    expect(empty.impacts).toHaveLength(0);
   });
 });

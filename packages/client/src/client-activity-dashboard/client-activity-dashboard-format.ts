@@ -98,6 +98,7 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
   if (card.kind === "DOCK_CAPTURED" || card.kind === "DOCK_LOST") return dockCardText(card, playerNames);
   if (card.kind === "BUILDING_COMPLETED") return buildingCardText(card);
   if (card.kind === "SCOUT_REPORT") return scoutReportCardText(card, playerNames);
+  if (card.kind === "SCOUT_SIGHTED") return `Foreign scouts sighted at your border: ${nameOf(card.scoutPlayerId, playerNames)}`;
   if (card.kind === "DIPLOMACY") return diplomacyCardText(card, playerId, playerNames);
   if (card.kind === "TRUNCATION_NOTE") return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
   // A card kind from a newer server than this client: say something true

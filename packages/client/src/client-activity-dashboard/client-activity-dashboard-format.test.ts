@@ -107,6 +107,12 @@ describe("activityCardText / activityCardCoordinates", () => {
     const empty: PersonalActivityCard = { kind: "SCOUT_REPORT", id: "scout-2", occurredAt: 0, x: 1, y: 1, towns: 0, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [] };
     expect(activityCardText(empty, "me", noNames)).toBe("Scout drone found nothing new");
   });
+
+  it("names the empire whose scout drone was turned back at the viewer's border", () => {
+    const sighted: PersonalActivityCard = { kind: "SCOUT_SIGHTED", id: "seen-1", occurredAt: 0, x: 8, y: 10, scoutPlayerId: "kara" };
+    expect(activityCardText(sighted, "me", namesFrom({ kara: "Kara" }))).toBe("Foreign scouts sighted at your border: Kara");
+    expect(activityCardCoordinatesLabel(sighted)).toBe("(8, 10)");
+  });
 });
 
 describe("activityPlayerNameLookup", () => {

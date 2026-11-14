@@ -1,10 +1,12 @@
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 import { buildExploreAction } from "../client-scout-drone/client-scout-drone-explore-action.js";
+import { expandToAction } from "../client-tile-action-logic/client-tile-action-neutral.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { Tile, TileMenuView } from "../client-types.js";
+import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 
 export type UnexploredTileMenuDeps = {
   keyFor: (x: number, y: number) => string;
+  pickOriginForTarget: (tx: number, ty: number, allowAdjacentToDock?: boolean, allowOptimisticExpandOrigin?: boolean) => Tile | undefined;
   renderTileActionMenu: (view: TileMenuView, clientX: number, clientY: number) => void;
   resetAttackPreviewState: (state: ClientState) => void;
 };
@@ -18,6 +20,18 @@ export type UnexploredTileMenuDeps = {
 // not offered here; once the drone has shown the ground, those work on the
 // now-seen tiles as usual. injectWaypointActions afterward adds Cancel
 // Waypoint when this exact tile is already an older waypoint target.
+//
+// A House with no AFC (lost, awaiting a replacement: afcRecovery.requiredSince)
+// has no drone to send, so Explore is shown disabled and Expand To comes back
+// as the way into the unknown until an AFC lands again.
+const unexploredActions = (state: ClientState, placeholder: Tile, deps: UnexploredTileMenuDeps): TileActionDef[] => {
+  const explore = buildExploreAction(state.scoutDroneFlight);
+  if (state.afcRecovery?.requiredSince === undefined) return [explore];
+  const expand = expandToAction(state, placeholder, { keyFor: deps.keyFor, pickOriginForTarget: deps.pickOriginForTarget });
+  const noDrone: TileActionDef = { ...explore, disabled: true, disabledReason: "Scout drones launch from an AFC, and you have none right now" };
+  return expand ? [expand, noDrone] : [noDrone];
+};
+
 export const openUnexploredTileActionMenu = (
   state: ClientState,
   wx: number,
@@ -35,7 +49,7 @@ export const openUnexploredTileActionMenu = (
   // muster handlers need a Tile from state.tiles, which an unexplored tile
   // never has, so the button would silently do nothing. Cancel it from the
   // flag's own tile instead.
-  const actions = [buildExploreAction(state.scoutDroneFlight)];
+  const actions = unexploredActions(state, placeholder, deps);
   const view: TileMenuView = {
     title: "Unexplored",
     subtitle: `(${wx}, ${wy})`,

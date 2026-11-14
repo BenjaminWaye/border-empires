@@ -4,9 +4,11 @@ import {
   SCOUT_DRONE_MAX_RANGE_TILES,
   SCOUT_DRONE_STEP_MS,
   planScoutDroneFlight,
+  scoutDroneBlockAt,
   scoutDroneLine,
   scoutDronePositionAt,
   scoutDroneStepIndexAt,
+  turnScoutDroneFlightBack,
   type ScoutDroneWorld
 } from "./scout-drone.js";
 
@@ -91,3 +93,24 @@ describe("drone position", () => {
     expect(scoutDronePositionAt(flight, flight.landsAt, W, H)).toBeUndefined();
   });
 });
+
+describe("rival borders the drone cannot slip through", () => {
+  // Rival tiles at (1, 0) and (0, 1) close the corner between (0, 0) and (1, 1).
+  const corner = world({ classify: (x, y) => ((x === 1 && y === 0) || (x === 0 && y === 1) ? { kind: "BLOCKED", ownerId: "rival" } : { kind: "OPEN" }) });
+
+  it("treats a diagonal step between two rival tiles as blocked", () => {
+    expect(scoutDroneBlockAt({ x: 0, y: 0 }, { x: 1, y: 1 }, corner)).toMatchObject({ ownerId: "rival" });
+    expect(scoutDroneBlockAt({ x: 2, y: 2 }, { x: 3, y: 3 }, corner)).toBeUndefined();
+    expect(planScoutDroneFlight({ x: 0, y: 0 }, { x: 2, y: 2 }, 0, corner)).toBeUndefined();
+  });
+
+  it("turns a flight back early, keeping each leg's length", () => {
+    const flight = planScoutDroneFlight({ x: 0, y: 0 }, { x: 10, y: 0 }, 0, world())!;
+    const now = flight.steps[6]!.at + 500;
+    const turned = turnScoutDroneFlightBack(flight, 6, now, { ownerId: "rival", x: 7, y: 0 });
+    expect(turned).toMatchObject({ endReason: "BLOCKED", blockedByPlayerId: "rival", blockedAtX: 7, turnIndex: 6 });
+    expect(turned.steps.at(-1)).toMatchObject({ x: 0, y: 0 });
+    expect(turned.landsAt - now).toBe(flight.steps[6]!.at - flight.steps[0]!.at);
+  });
+});
+

@@ -22,8 +22,9 @@ export const createInitialScoutDroneState = () => ({
 
 type ScoutDroneState = ReturnType<typeof createInitialScoutDroneState> & { playerNames: Map<string, string> };
 
-type ScoutReport = ScoutReportFindings & { targetX: number; targetY: number };
+type ScoutReport = ScoutReportFindings & { targetX: number; targetY: number; blockedByPlayerId?: string };
 
+const SCOUT_LAUNCH_FEED_WINDOW_MS = 10_000;
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const END_REASONS: readonly ScoutDroneEndReason[] = ["TARGET", "RANGE", "BLOCKED"];
 
@@ -71,7 +72,8 @@ const parseScoutReport = (value: unknown): ScoutReport | undefined => {
     watchtowers: count(raw.watchtowers),
     resourceTiles: count(raw.resourceTiles),
     planetaryDefenseTiles: count(raw.planetaryDefenseTiles),
-    empiresSighted: Array.isArray(raw.empiresSighted) ? raw.empiresSighted.filter((id): id is string => typeof id === "string") : []
+    empiresSighted: Array.isArray(raw.empiresSighted) ? raw.empiresSighted.filter((id): id is string => typeof id === "string") : [],
+    ...(typeof raw.blockedByPlayerId === "string" ? { blockedByPlayerId: raw.blockedByPlayerId } : {})
   };
 };
 
@@ -109,14 +111,23 @@ export const handleScoutDroneMessage = (
   state: ScoutDroneState,
   pushFeed: PushFeed,
   renderHud: () => void,
-  toLocal: (serverTime: number) => number = serverClock.toLocal
+  toLocal: (serverTime: number) => number = serverClock.toLocal,
+  nowMs: number = Date.now()
 ): boolean => {
   const nameOf = (playerId: string): string => state.playerNames.get(playerId) ?? "another empire";
   if (msg.type === SCOUT_DRONE_MESSAGE_TYPE) {
     const previous = state.scoutDroneFlight;
-    state.scoutDroneFlight = msg.flight === null || msg.flight === undefined ? undefined : parseScoutDroneFlight(msg.flight, toLocal);
+    const next = msg.flight === null || msg.flight === undefined ? undefined : parseScoutDroneFlight(msg.flight, toLocal);
+    state.scoutDroneFlight = next;
+    // Confirmed by the server, so a refused launch never shows as launched. A replay to a
+    // late-joining tab carries an older launchedAt and stays quiet.
+    if (next && previous?.launchedAt !== next.launchedAt && nowMs - next.launchedAt < SCOUT_LAUNCH_FEED_WINDOW_MS) {
+      pushFeed(`Scout drone launched toward (${next.targetX}, ${next.targetY}).`, "info", "info");
+    } else if (next?.blockedByPlayerId && previous?.launchedAt === next.launchedAt && !previous.blockedByPlayerId) {
+      pushFeed(`Scout drone turned back at ${nameOf(next.blockedByPlayerId)}'s border.`, "info", "warn");
+    }
     const report = parseScoutReport(msg.report);
-    if (report) pushFeed(scoutReportFeedText(report, nameOf, previous?.blockedByPlayerId), "info", "success");
+    if (report) pushFeed(scoutReportFeedText(report, nameOf, report.blockedByPlayerId ?? previous?.blockedByPlayerId), "info", "success");
     renderHud();
     return true;
   }

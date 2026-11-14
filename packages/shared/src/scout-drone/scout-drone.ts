@@ -22,6 +22,8 @@ export const SCOUT_DRONE_MAX_HOME_TILES = 80;
 export const SCOUT_DRONE_STEP_MS = FRONTIER_CLAIM_MS;
 /** Time per tile over the player's own or allied land, which it already sees. */
 export const SCOUT_DRONE_HOME_STEP_MS = 1_000;
+/** A player's scout reports reach the shared Activity log at most this often (the feed still gets every one). */
+export const SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS = 10 * 60_000;
 /** A rival is alerted at most once per scouting empire per this window. */
 export const SCOUT_SIGHTED_ALERT_COOLDOWN_MS = 60 * 60_000;
 
@@ -72,7 +74,7 @@ export type ScoutDronePayload = {
   /** The drone in the air, or null when it is docked. */
   flight: ScoutDroneFlight | null;
   /** Set on the landing message: what the finished flight found. */
-  report?: ScoutReportFindings & { targetX: number; targetY: number };
+  report?: ScoutReportFindings & { targetX: number; targetY: number; blockedByPlayerId?: string };
 };
 
 export type ScoutSightedPayload = {
@@ -113,6 +115,25 @@ export const scoutDroneLine = (
 };
 
 /**
+ * The rival border that stops a step from `from` to the neighbouring `to`:
+ * `to` itself, or, on a diagonal step, a corner squeezed shut by rival land
+ * on both sides (a drone can't slip between two touching border tiles).
+ */
+export const scoutDroneBlockAt = (
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  world: ScoutDroneWorld
+): { ownerId?: string | undefined; x: number; y: number } | undefined => {
+  const direct = world.classify(to.x, to.y);
+  if (direct.kind === "BLOCKED") return { ownerId: direct.ownerId, x: to.x, y: to.y };
+  if (from.x === to.x || from.y === to.y) return undefined;
+  const a = world.classify(to.x, from.y);
+  const b = world.classify(from.x, to.y);
+  if (a.kind === "BLOCKED" && b.kind === "BLOCKED") return { ownerId: a.ownerId, x: to.x, y: from.y };
+  return undefined;
+};
+
+/**
  * Plans a flight from the launch tile toward the target: outbound until the
  * target, the range limit, the home-land limit or a blocking border, then
  * straight back along the same tiles. Returns undefined when the drone could
@@ -130,11 +151,14 @@ export const planScoutDroneFlight = (
   let home = 0;
   let endReason: ScoutDroneEndReason = "TARGET";
   let blocked: { ownerId?: string | undefined; x: number; y: number } | undefined;
+  let prev = launch;
   for (const tile of line.slice(1)) {
     const cls = world.classify(tile.x, tile.y);
-    if (cls.kind === "BLOCKED") {
+    const wall = scoutDroneBlockAt(prev, tile, world);
+    prev = tile;
+    if (wall) {
       endReason = "BLOCKED";
-      blocked = { ownerId: cls.ownerId, x: tile.x, y: tile.y };
+      blocked = wall;
       break;
     }
     if (cls.kind === "HOME") {
@@ -174,6 +198,36 @@ export const planScoutDroneFlight = (
     landsAt: at,
     endReason,
     ...(blocked?.ownerId ? { blockedByPlayerId: blocked.ownerId, blockedAtX: blocked.x, blockedAtY: blocked.y } : {})
+  };
+};
+
+/**
+ * The same flight turned back early: it stops over outbound step `turnIndex`
+ * (because the next tile became a rival's border mid-flight) and flies the
+ * tiles before it home, leaving no earlier than `nowMs`, each leg as long as
+ * it was outbound.
+ */
+export const turnScoutDroneFlightBack = (
+  flight: ScoutDroneFlight,
+  turnIndex: number,
+  nowMs: number,
+  blocked: { ownerId?: string | undefined; x: number; y: number }
+): ScoutDroneFlight => {
+  const outbound = flight.steps.slice(0, Math.max(0, Math.min(turnIndex, flight.turnIndex)) + 1);
+  const steps: ScoutDroneStep[] = outbound.map((step) => ({ ...step }));
+  let at = Math.max(nowMs, outbound.at(-1)!.at);
+  for (let i = outbound.length - 2; i >= 0; i -= 1) {
+    at += outbound[i + 1]!.at - outbound[i]!.at;
+    steps.push({ x: outbound[i]!.x, y: outbound[i]!.y, at });
+  }
+  const { blockedByPlayerId: _id, blockedAtX: _x, blockedAtY: _y, ...rest } = flight;
+  return {
+    ...rest,
+    steps,
+    turnIndex: outbound.length - 1,
+    landsAt: at,
+    endReason: "BLOCKED",
+    ...(blocked.ownerId ? { blockedByPlayerId: blocked.ownerId, blockedAtX: blocked.x, blockedAtY: blocked.y } : {})
   };
 };
 

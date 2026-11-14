@@ -3,13 +3,18 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import {
   SCOUT_DRONE_MESSAGE_TYPE,
   SCOUT_DRONE_VISION_RADIUS,
+  SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS,
   SCOUT_SIGHTED_ALERT_COOLDOWN_MS,
   SCOUT_SIGHTED_MESSAGE_TYPE,
   planScoutDroneFlight,
+  scoutDroneBlockAt,
   scoutDroneStepIndexAt,
+  turnScoutDroneFlightBack,
   type ScoutDroneFlight,
   type ScoutDronePayload,
   type ScoutDroneTileClass,
+  type ScoutReportFindings,
+  type ScoutDroneWorld,
   type ScoutSightedPayload
 } from "@border-empires/shared";
 import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
@@ -31,7 +36,8 @@ export const SCOUT_SIGHTED_MAX_COOLDOWN_ENTRIES = 20_000;
 type ActiveFlight = {
   readonly playerId: string;
   readonly commandId: string;
-  readonly flight: ScoutDroneFlight;
+  /** Replaced when a border appears on the path mid-flight and the drone turns back early. */
+  flight: ScoutDroneFlight;
   /** Last step index applied to vision and findings; -1 before launch. */
   lastStepIndex: number;
   /** The tile currently holding this drone's temporary reveal. */
@@ -85,24 +91,32 @@ const parseTarget = (payloadJson: string): { x: number; y: number } | undefined 
 export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDroneRuntime => {
   const flights = new Map<string, ActiveFlight>();
   const lastAlertAt = new Map<string, number>();
+  // When each player's last scout report went into the shared Activity log, so free
+  // back-to-back flights can't crowd out everyone's other cards. Same bound as lastAlertAt.
+  const lastReportActivityAt = new Map<string, number>();
   let capRefusals = 0;
   let cooldownEvictions = 0;
 
   const reject = (command: CommandEnvelope, code: string, message: string): void =>
     deps.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code, message });
 
-  const classifyFor = (actor: DomainPlayer) => (x: number, y: number): { kind: ScoutDroneTileClass; ownerId?: string } => {
-    const ownerId = deps.tiles().get(keyOf(x, y))?.ownerId;
-    if (!ownerId || isPlanetaryDefenseId(ownerId)) return { kind: "OPEN" };
-    if (ownerId === actor.id || actor.allies.has(ownerId)) return { kind: "HOME" };
-    return { kind: "BLOCKED", ownerId };
-  };
+  // Read live each time, so a border that appears or an alliance that ends mid-flight counts.
+  const worldFor = (actorId: string): ScoutDroneWorld => ({
+    width: deps.worldWidth,
+    height: deps.worldHeight,
+    classify: (x: number, y: number): { kind: ScoutDroneTileClass; ownerId?: string } => {
+      const ownerId = deps.tiles().get(keyOf(wrap(x, deps.worldWidth), wrap(y, deps.worldHeight)))?.ownerId;
+      if (!ownerId || isPlanetaryDefenseId(ownerId)) return { kind: "OPEN" };
+      if (ownerId === actorId || deps.players().get(actorId)?.allies.has(ownerId)) return { kind: "HOME" };
+      return { kind: "BLOCKED", ownerId };
+    }
+  });
 
   const nearestAfc = (playerId: string, target: { x: number; y: number }): { x: number; y: number } | undefined => {
     let best: { x: number; y: number; d: number } | undefined;
     for (const key of deps.afcTileKeys(playerId)) {
       const tile = deps.tiles().get(key);
-      if (!tile) continue;
+      if (!tile || tile.afc?.status !== "active") continue;
       const dx = Math.abs(wrap(target.x - tile.x + deps.worldWidth / 2, deps.worldWidth) - deps.worldWidth / 2);
       const dy = Math.abs(wrap(target.y - tile.y + deps.worldHeight / 2, deps.worldHeight) - deps.worldHeight / 2);
       const d = Math.max(dx, dy);
@@ -145,6 +159,27 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     flights.delete(active.playerId);
     const report = scoutFindingsReport(active.findings);
     const { targetX, targetY, blockedByPlayerId } = active.flight;
+    const foundSomething = report.towns + report.docks + report.waystations + report.watchtowers + report.resourceTiles + report.planetaryDefenseTiles + report.empiresSighted.length > 0;
+    const lastLogged = lastReportActivityAt.get(active.playerId);
+    if ((foundSomething || blockedByPlayerId) && (lastLogged === undefined || nowMs - lastLogged >= SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS)) {
+      if (!lastReportActivityAt.has(active.playerId) && lastReportActivityAt.size >= SCOUT_SIGHTED_MAX_COOLDOWN_ENTRIES) {
+        const oldest = lastReportActivityAt.keys().next().value;
+        if (oldest !== undefined) lastReportActivityAt.delete(oldest);
+        cooldownEvictions += 1;
+      }
+      lastReportActivityAt.delete(active.playerId);
+      lastReportActivityAt.set(active.playerId, nowMs);
+      recordReport(active, nowMs, report);
+    }
+    send(active.playerId, `scout-drone-landed:${active.commandId}`, {
+      type: SCOUT_DRONE_MESSAGE_TYPE,
+      flight: null,
+      report: { ...report, targetX, targetY, ...(blockedByPlayerId ? { blockedByPlayerId } : {}) }
+    });
+  };
+
+  const recordReport = (active: ActiveFlight, nowMs: number, report: ScoutReportFindings): void => {
+    const { targetX, targetY, blockedByPlayerId } = active.flight;
     deps.recordPersonalImpact({
       kind: "SCOUT_REPORT",
       id: `scout-report:${active.commandId}`,
@@ -155,7 +190,19 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       ...report,
       ...(blockedByPlayerId ? { blockedByPlayerId } : {})
     });
-    send(active.playerId, `scout-drone-landed:${active.commandId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: null, report: { ...report, targetX, targetY } });
+  };
+
+  /** A rival border on the next outbound tile (claimed, or an alliance ended, mid-flight): turn back now. Returns true when it did. */
+  const turnBackIfBlocked = (active: ActiveFlight, stepIndex: number, nowMs: number): boolean => {
+    if (stepIndex <= 0) return false;
+    const { steps } = active.flight;
+    const wall = scoutDroneBlockAt(steps[stepIndex - 1]!, steps[stepIndex]!, worldFor(active.playerId));
+    if (!wall) return false;
+    active.flight = turnScoutDroneFlightBack(active.flight, stepIndex - 1, nowMs, wall);
+    active.lastStepIndex = stepIndex - 1;
+    alertRival(active, nowMs);
+    send(active.playerId, `scout-drone-turned:${active.commandId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight });
+    return true;
   };
 
   const advance = (active: ActiveFlight, nowMs: number): void => {
@@ -165,6 +212,11 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       const owner = deps.players().get(active.playerId);
       // Outbound steps passed since the last tick all count toward the report, even when a slow tick skipped them.
       for (let i = Math.max(0, active.lastStepIndex + 1); i <= Math.min(index, flight.turnIndex); i += 1) {
+        if (turnBackIfBlocked(active, i, nowMs)) {
+          const turn = active.flight.steps[active.flight.turnIndex]!;
+          moveReveal(active, { x: turn.x, y: turn.y });
+          return;
+        }
         const step = flight.steps[i]!;
         if (owner) active.findings.observe(step.x, step.y, owner);
       }
@@ -190,11 +242,13 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
         return reject(command, "SCOUT_DRONE_BUSY", "no scout drones can launch right now");
       }
       const normalized = { x: wrap(target.x, deps.worldWidth), y: wrap(target.y, deps.worldHeight) };
+      const world = worldFor(actor.id);
+      if (world.classify(normalized.x, normalized.y).kind === "HOME") return reject(command, "SCOUT_TARGET_HOME", "explore past your own land");
       const launch = nearestAfc(actor.id, normalized);
-      if (!launch) return reject(command, "SCOUT_NO_AFC", "scout drones launch from your AFC");
+      if (!launch) return reject(command, "SCOUT_NO_AFC", "scout drones launch from an active AFC");
       const now = deps.now();
-      const flight = planScoutDroneFlight(launch, normalized, now, { width: deps.worldWidth, height: deps.worldHeight, classify: classifyFor(actor) });
-      if (!flight) return reject(command, "SCOUT_NO_PATH", "a rival's border blocks the way out");
+      const flight = planScoutDroneFlight(launch, normalized, now, world);
+      if (!flight) return reject(command, "SCOUT_NO_PATH", "no clear way out from your AFC toward that tile");
       const active: ActiveFlight = { playerId: actor.id, commandId: command.commandId, flight, lastStepIndex: -1, revealAt: undefined, findings: createScoutFindings(deps.tiles, deps.worldWidth, deps.worldHeight), alerted: false };
       flights.set(actor.id, active);
       advance(active, now);
@@ -204,6 +258,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     tick: (nowMs) => {
       for (const active of [...flights.values()]) advance(active, nowMs);
       for (const [key, at] of lastAlertAt) if (nowMs - at >= SCOUT_SIGHTED_ALERT_COOLDOWN_MS) lastAlertAt.delete(key);
+      for (const [key, at] of lastReportActivityAt) if (nowMs - at >= SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS) lastReportActivityAt.delete(key);
     },
     sendTo: (playerId) => {
       const flight = flights.get(playerId)?.flight;

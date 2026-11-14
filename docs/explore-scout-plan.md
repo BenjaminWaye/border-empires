@@ -265,7 +265,13 @@ What shipped, and where it differs from the sections above:
   cannot refuse Expand To or a march toward unexplored ground on that basis.
   The client offers only Explore on unexplored tiles.
 - **Rival alert**: a `SCOUT_SIGHTED` player message plus a "scouts sighted"
-  Activity card, so an offline rival still sees it.
+  Activity card, so an offline rival still sees it. A border claimed on the
+  path mid-flight also turns the drone back and alerts its owner.
+- **Activity log**: a player's scout reports reach the shared Activity log at
+  most once every 10 minutes, and only when the flight found something or was
+  turned back; the feed still shows every report.
+- **No AFC**: a House without an active AFC can't launch drones, so its
+  unexplored tiles offer Expand To again until a replacement lands.
 - **Client**: every unexplored tile, including one next to the player's
   land, offers only Explore. The drone is drawn in both renderers
   (`client-map-3d-scout-drone/`, `client-map-render-2d-scout-drone/`) and the

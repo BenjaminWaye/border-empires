@@ -59,6 +59,31 @@ describe("handleScoutDroneMessage", () => {
     );
   });
 
+  it("announces a launch only once the server confirms it, and not for a stale replay", () => {
+    const pushFeed = vi.fn();
+    const open = { ...wireFlight, endReason: "TARGET", blockedByPlayerId: undefined };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: open }, stateWith(), pushFeed, vi.fn(), shiftBack, 600);
+    expect(pushFeed).toHaveBeenCalledWith("Scout drone launched toward (12, 4).", "info", "info");
+    const replayFeed = vi.fn();
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: open }, stateWith(), replayFeed, vi.fn(), shiftBack, 60_000);
+    expect(replayFeed).not.toHaveBeenCalled();
+  });
+
+  it("says when a border on its path turns the drone back mid-flight", () => {
+    const state = stateWith();
+    const pushFeed = vi.fn();
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: { ...wireFlight, endReason: "TARGET", blockedByPlayerId: undefined } }, state, pushFeed, vi.fn(), shiftBack, 60_000);
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: wireFlight }, state, pushFeed, vi.fn(), shiftBack, 60_000);
+    expect(pushFeed).toHaveBeenCalledWith("Scout drone turned back at House Vey's border.", "info", "warn");
+  });
+
+  it("names the border that turned the drone back from the report, even after a reload", () => {
+    const pushFeed = vi.fn();
+    const report = { targetX: 12, targetY: 4, towns: 0, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [], blockedByPlayerId: "rival" };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null, report }, stateWith(), pushFeed, vi.fn(), shiftBack, 60_000);
+    expect(pushFeed).toHaveBeenCalledWith("Scout drone returned from (12, 4): found nothing new. It was turned back at House Vey's border.", "info", "success");
+  });
+
   it("alerts the player when a rival's scouts reach their border", () => {
     const pushFeed = vi.fn();
     expect(handleScoutDroneMessage({ type: "SCOUT_SIGHTED", scoutPlayerId: "rival", x: 3, y: 8 }, stateWith(), pushFeed, vi.fn())).toBe(true);

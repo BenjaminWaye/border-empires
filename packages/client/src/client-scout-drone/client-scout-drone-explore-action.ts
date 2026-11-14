@@ -45,8 +45,7 @@ export const dispatchExploreAction = (
     deps.pushFeed(`Scout drone is out, back in ${formatCooldownShort(active.landsAt - nowMs)}.`, "info", "warn");
     return true;
   }
-  if (deps.sendGameMessage({ type: "EXPLORE", x: selected.x, y: selected.y })) {
-    deps.pushFeed(`Scout drone launched toward (${selected.x}, ${selected.y}).`, "info", "info");
-  }
+  // The "launched" feed line waits for the server's SCOUT_DRONE (client-scout-drone-state.ts), so a refusal never reads as a launch.
+  deps.sendGameMessage({ type: "EXPLORE", x: selected.x, y: selected.y });
   return true;
 };

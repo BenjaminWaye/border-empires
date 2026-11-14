@@ -1449,7 +1449,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     };
     if (vis === "unexplored") {
       // Unexplored ground, even next to the player's land, offers Explore, never a direct claim (docs/explore-scout-plan.md).
-      openUnexploredTileActionMenu(state, wx, wy, clientX, clientY, { keyFor, renderTileActionMenu, resetAttackPreviewState });
+      openUnexploredTileActionMenu(state, wx, wy, clientX, clientY, { keyFor, pickOriginForTarget, renderTileActionMenu, resetAttackPreviewState });
       renderHud();
       return;
     }
