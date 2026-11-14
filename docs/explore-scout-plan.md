@@ -1,11 +1,10 @@
 # Explore: Scout Drones — Design Proposal
 
-Status: proposed (not implemented)
+Status: implemented (2026-11-14); see §12 for what differs from this design
 
-> **Status:** Design proposal agreed with the owner on 2026-11-14. Nothing
-> here is in the code yet. Current rules are in `docs/game-mechanics.md`;
-> this document says what would change. Numbers marked *(tunable)* are
-> starting values for a playtest, not settled balance.
+> **Status:** Design agreed with the owner on 2026-11-14 and built the same
+> day. The live rules are in `docs/game-mechanics.md` (Explore, §1). Numbers
+> marked *(tunable)* are starting values for a playtest, not settled balance.
 
 ## 1. Summary
 
@@ -243,3 +242,30 @@ mission state, and `docs/agents/implementation-rules.md` before source work.
 - Time from first login to first town claimed. It should fall.
 - How many launches end at a rival border, and how often the alert leads to a
   response (fort, flag) from the scouted player.
+
+## 12. As built
+
+What shipped, and where it differs from the sections above:
+
+- **Shared rules**: `packages/shared/src/scout-drone/scout-drone.ts` holds the
+  constants, the flight planner (`planScoutDroneFlight`) and the payloads, so
+  the client draws exactly the flight the server runs.
+- **Server**: `apps/simulation/src/scout-drone/`. The drone launches from the
+  AFC **nearest the target**. Own and allied land is crossed at 1s per tile
+  (up to 80 tiles) so a large empire's drone doesn't spend minutes reaching
+  its border; only tiles past that land count toward the 15-tile range and
+  take Expand To's 7.5s. Its vision is a temporary reveal moved tile by tile,
+  so fog and Planetary Defense wake-up needed no new rule.
+- **Restarts dock the drone.** Flights live only in simulation memory, not in
+  snapshots (§10 had planned a saved mission record). A flight lasts minutes
+  and costs nothing, so a restart loses at most one trip. Its report is lost
+  with it; reports already filed are kept with the Activity log.
+- **"Unexplored" is a client rule.** The server keeps no per-player record of
+  which tiles a player has ever seen, so it accepts EXPLORE toward any tile and
+  cannot refuse Expand To or a march toward unexplored ground on that basis.
+  The client offers only Explore on unexplored tiles.
+- **Rival alert**: a `SCOUT_SIGHTED` player message plus a "scouts sighted"
+  Activity card, so an offline rival still sees it.
+- **Not built yet**: AI empires don't launch drones (§6.4), there is no
+  queueing (§9), and allied vision sharing of the drone was not added.
+

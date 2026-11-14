@@ -664,6 +664,17 @@ AFC's crown. Nothing is fabricated in orbit or dropped from it. The drones are
 presentation of that supply chain, not a separately modelled unit or
 logistics system.
 
+The same drones fly the House's reconnaissance. A **scout drone** is a
+courier drone sent out with a sensor package in place of a crate pod: it
+leaves the AFC's crown, flies low over the House's land and out past it,
+looks over the ground beneath it and returns to dock. Because it flies, sea
+and open country do not stop it. It carries no crew, takes nothing and holds
+nothing. What stops it is a rival House's local control field (§10): the
+drone's link is jammed at that House's border, so it turns back there, and
+the rival's own sensors register the intrusion. The planet's remnant
+defenses have no such field, so a drone can pass over them, and they stir
+while it watches. How far and how often a drone flies is a gameplay rule.
+
 ### Replacement supply and withdrawal
 
 Losing the last AFC leaves a House without the industrial seed needed to
@@ -763,7 +774,6 @@ not infer new gameplay rules from them while implementing unrelated work.
 | Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |
 | Writs and the revolt | §7 says accepting a Writ restores the Court's grip; §8 says a Writ does not weaken the revolt. Clarify the relationship before assigning metagame effects. |
 | Houses held in ward | §2 says a world won by a House with no sworn heir is held in ward and does not loosen the Court's grip. Decide whether such a House can ever swear an heir and become a full Duke, and what happens to the ward if a sworn Duke takes the world. |
-| Scout drones (proposal) | [`explore-scout-plan.md`](../explore-scout-plan.md) proposes AFC courier drones (§12) flying sensor sweeps, turned back by a rival's control field (§10). Accept or revise this when the feature is built; it is not established canon yet. |
 | Relic reactivation costs and risks | Installation families, common surface access structures and the low-power locator transponder are established in §4. Repair costs, activation encounters and random breakdowns remain future design ideas; they are not established mechanics. Current quantities and effects belong in the [relic reference](../relics.md). |
 
 ### Proposed Umbrite forest appearance

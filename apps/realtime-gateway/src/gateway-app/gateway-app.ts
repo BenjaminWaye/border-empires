@@ -2546,7 +2546,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("AEGIS_LOCK", { fromX: message.fromX, fromY: message.fromY }, true);
           } else if (message.type === "ASTRAL_DOCK_LAUNCH") {
             await dispatchDurableCommand("ASTRAL_DOCK_LAUNCH", { fromX: message.fromX, fromY: message.fromY }, true);
-          } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "NAME_ISLAND") {
+          } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "NAME_ISLAND" || message.type === "EXPLORE") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y, ...(message.type === "NAME_ISLAND" ? { name: message.name } : {}) }, true);
           } else if (message.type === "SET_AUTO_SETTLE_PREFS") {
             await dispatchDurableCommand("SET_AUTO_SETTLE_PREFS", autoSettlePrefsCommandPayload(message));

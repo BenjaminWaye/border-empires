@@ -217,6 +217,36 @@ export type PersonalActivityBuildingCard = {
   populationBurst?: number;
 };
 
+// A scout drone's flight landed (docs/explore-scout-plan.md): what it saw.
+// x/y is the tile it was sent toward. Counts are of things not owned by the
+// viewer; empiresSighted lists the other empires whose land it saw.
+export type PersonalActivityScoutReportCard = {
+  kind: "SCOUT_REPORT";
+  id: string;
+  occurredAt: number;
+  x: number;
+  y: number;
+  towns: number;
+  docks: number;
+  waystations: number;
+  watchtowers: number;
+  resourceTiles: number;
+  planetaryDefenseTiles: number;
+  empiresSighted: string[];
+  // Set when a rival's border turned the drone back.
+  blockedByPlayerId?: string;
+};
+
+// A rival's scout drone was turned back at the viewer's border.
+export type PersonalActivityScoutSightedCard = {
+  kind: "SCOUT_SIGHTED";
+  id: string;
+  occurredAt: number;
+  x: number;
+  y: number;
+  scoutPlayerId: string;
+};
+
 // Synthetic card the aggregator inserts when it drops lower-impact cards to
 // stay under PERSONAL_ACTIVITY_TIMELINE_CARD_CAP -- truthful about what was
 // hidden rather than silently dropping it.
@@ -257,6 +287,8 @@ export type PersonalActivityCard =
   | PersonalActivityTownCard
   | PersonalActivityDockCard
   | PersonalActivityBuildingCard
+  | PersonalActivityScoutReportCard
+  | PersonalActivityScoutSightedCard
   | PersonalActivityDiplomacyCard
   | PersonalActivityTruncationNoteCard;
 

@@ -75,6 +75,7 @@ export * from "./auto-settle-prefs/auto-settle-prefs.js";
 export * from "./auto-settle-prefs/auto-improve-prefs.js";
 export * from "./place-name-policy/place-name-policy.js";
 export * from "./island-names/island-names.js";
+export * from "./scout-drone/scout-drone.js";
 export * from "./town-growth/town-growth.js";
 export * from "./town-growth/town-support-ring.js";
 export * from "./structure-registry/structure-registry.js";
