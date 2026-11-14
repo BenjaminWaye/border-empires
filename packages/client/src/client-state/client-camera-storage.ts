@@ -219,3 +219,43 @@ export const cameraLocationInitialState = (): {
     cameraRestoredPlayerId: stored?.playerId
   };
 };
+
+// How far (tiles, either axis) a restored camera may sit from the nearest
+// tile the player owns before it counts as pointing at nothing.
+export const RESTORED_CAMERA_MAX_DISTANCE_FROM_OWN_LAND = 24;
+
+/**
+ * Drops a restored last-viewed camera that now looks at nothing the player
+ * owns -- typically land lost while they were away -- and centres on their
+ * land instead: the owned tile nearest home (home itself while they hold it).
+ * Playtest: a returning player who had lost that stretch of border (and their
+ * town) opened onto an empty grey map, read it as "my whole empire is gone"
+ * and nearly quit, until the overview map took them back. A ?x=&y= deep link
+ * (cameraRestoredPlayerId null) is kept. Returns true when it moved the camera.
+ */
+export const recentreStaleRestoredCamera = (
+  state: {
+    camX: number; camY: number; camSubX: number; camSubY: number;
+    me: string; cameraRestoredFromStorage: boolean; cameraRestoredPlayerId: string | null | undefined;
+    tiles: ReadonlyMap<string, { x: number; y: number; ownerId?: string | undefined }>;
+  },
+  homeTile: { x: number; y: number } | undefined
+): boolean => {
+  if (!state.cameraRestoredFromStorage || state.cameraRestoredPlayerId === null || !state.me) return false;
+  const distance = (tile: { x: number; y: number }, x: number, y: number): number => Math.max(Math.abs(tile.x - x), Math.abs(tile.y - y));
+  const anchor = homeTile ?? { x: state.camX, y: state.camY };
+  let nearestToHome: { x: number; y: number } | undefined;
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId !== state.me) continue;
+    if (distance(tile, state.camX, state.camY) <= RESTORED_CAMERA_MAX_DISTANCE_FROM_OWN_LAND) return false;
+    if (!nearestToHome || distance(tile, anchor.x, anchor.y) < distance(nearestToHome, anchor.x, anchor.y)) nearestToHome = tile;
+  }
+  // Owned tiles not loaded yet: leave it to the CHUNK handler's own fallback.
+  if (!nearestToHome) return false;
+  state.camX = nearestToHome.x;
+  state.camY = nearestToHome.y;
+  state.camSubX = 0;
+  state.camSubY = 0;
+  state.cameraRestoredFromStorage = false;
+  return true;
+};

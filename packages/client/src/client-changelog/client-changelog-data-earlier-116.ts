@@ -5,6 +5,7 @@ import { GUIDE_MANIFEST_PRICE_ENTRY } from "./client-changelog-guide-manifest-pr
 import { TOWN_RING_GARRISON_ENTRY } from "./client-changelog-town-ring-garrison.js";
 import { COPY_POINTERS_ENTRY } from "./client-changelog-copy-pointers.js";
 import { TOWNS_TABLE_HEADERS_ENTRY } from "./client-changelog-towns-table-headers.js";
+import { RESTORED_CAMERA_LOST_LAND_ENTRY } from "./client-changelog-restored-camera-lost-land.js";
 import { SETUP_SCREEN_ENTRY } from "./client-changelog-setup-screen.js";
 import { THREE_D_RELOAD_STREAK_ENTRY } from "./client-changelog-3d-reload-streak.js";
 import { OVERLAY_TAPS_ENTRY } from "./client-changelog-overlay-taps.js";
@@ -22,6 +23,7 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_116: ClientChangelogEntry[] = [
   { ...COPY_POINTERS_ENTRY, createdAt: 1794635778800, },
   { ...TOWNS_TABLE_HEADERS_ENTRY, createdAt: 1794635875376, },
   { ...SETUP_SCREEN_ENTRY, createdAt: 1794635712070, },
+  { ...RESTORED_CAMERA_LOST_LAND_ENTRY, createdAt: 1794696791908, },
   { ...THREE_D_RELOAD_STREAK_ENTRY, createdAt: 1794635625342, },
   { ...OVERLAY_TAPS_ENTRY, createdAt: 1794635528675, },
   { ...TOWNS_LIST_COIN_ENTRY, createdAt: 1794635260068, },

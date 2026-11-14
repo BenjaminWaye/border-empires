@@ -88,6 +88,47 @@ const sendInit = (ws: FakeWebSocket): void => {
   });
 };
 
+describe("INIT camera restore over land lost while away", () => {
+  // Playtest: a returning player who had lost the border their camera was
+  // saved on opened onto an empty grey map and thought the empire was gone.
+  const sendInitWithTiles = (ws: FakeWebSocket, tiles: Array<{ x: number; y: number; ownerId?: string }>): void => {
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0, homeTile: { x: 40, y: 40 } },
+        config: {},
+        initialState: { tiles: tiles.map((tile) => ({ terrain: "LAND", ownershipState: "SETTLED", ...tile })) },
+        recovery: { nextClientSeq: 1, pendingCommands: [] }
+      })
+    });
+  };
+  const restoredAt = (x: number, y: number) => {
+    const state = createState();
+    state.camX = x;
+    state.camY = y;
+    state.cameraRestoredFromStorage = true;
+    state.cameraRestoredPlayerId = "player-1";
+    return state;
+  };
+
+  it("centres on the player's land when the saved spot is far from anything they still own", () => {
+    const state = restoredAt(500, -300);
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+    sendInitWithTiles(ws, [{ x: 40, y: 40, ownerId: "player-1" }, { x: 41, y: 40, ownerId: "player-1" }, { x: 499, y: -300, ownerId: "player-2" }]);
+    expect([state.camX, state.camY]).toEqual([40, 40]);
+    expect(state.cameraRestoredFromStorage).toBe(false);
+  });
+
+  it("keeps the saved spot while the player still owns land in view of it", () => {
+    const state = restoredAt(60, 50);
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+    sendInitWithTiles(ws, [{ x: 40, y: 40, ownerId: "player-1" }, { x: 58, y: 49, ownerId: "player-1" }]);
+    expect([state.camX, state.camY]).toEqual([60, 50]);
+  });
+});
+
 describe("INIT camera-restore regression", () => {
   it("does not stomp a restored last-viewed camera location with the home tile", () => {
     const state = createState();
