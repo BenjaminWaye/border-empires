@@ -6,7 +6,7 @@ export const CLARITY_HINTS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   why: "Playtesters couldn't find where to build a Hydrogarden, saw nothing after Reveal Titanium, couldn't tell what \"Beyond your reach\" meant, and had a fed town earning nothing with no reason given.",
   changes: [
     "A Manifest's detail says where each building it unlocks is built, such as a Hydrogarden on a garrisoned grain tile",
-    "Reveal chips in the Manifest say they mark deposits in land you have explored, and open the Resources lens",
+    "Reveal chips in the Manifest say they mark deposits on tiles in sight, and open the Resources lens",
     "The Resources lens shows a key of resource colours",
     "With no tiles of Titanium, Crystal or Umbrite, Economy says to garrison a deposit, with Find on map",
     "Tapping \"Beyond your reach\" on a tile opens Details, which explains reach and how far towns and Relay Beacons extend it",

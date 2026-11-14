@@ -2,7 +2,7 @@
 // commissioned Hyperfeed Seedstock for its Hydrogarden and then searched every
 // town build menu for it: a Hydrogarden is built on a grain tile, not in a
 // town (2026-11-14 playtest). And "Reveal Titanium" showed nothing, because it
-// only marks deposits in land you have explored.
+// only marks deposits on tiles in sight.
 import { structurePlacementMetadata, type StructurePlacementMetadata, type StructurePlacementType } from "@border-empires/shared";
 import { resourceLabel, STRUCTURE_DISPLAY_NAMES } from "../client-map-display.js";
 
@@ -19,9 +19,11 @@ export const structureBuildWhere = (type: string): string | undefined => {
   if (meta.resourceTypes && meta.resourceTypes.length > 0 && showOn.length === 1) return `${name}: build on a garrisoned ${resourceNames(meta.resourceTypes)} tile`;
   if (showOn.length === 1 && showOn[0] === "dock") return `${name}: build on a dock you hold`;
   if ((showOn.includes("town") || showOn.includes("support")) && !showOn.includes("settled")) return `${name}: build from a town's Build tab`;
+  // Siege outposts go up on frontier tiles too, not only garrisoned ones.
+  if (showOn.includes("frontier")) return `${name}: build on a tile you hold`;
   return `${name}: build on a garrisoned tile`;
 };
 
 /** The reveal line: what Reveal does and where to look. */
 export const revealWhere = (resource: string): string =>
-  `Reveal ${resource.charAt(0)}${resource.slice(1).toLowerCase()}: marks deposits in land you have explored, in the Resources lens`;
+  `Reveal ${resource.charAt(0)}${resource.slice(1).toLowerCase()}: marks deposits on tiles in sight, in the Resources lens`;

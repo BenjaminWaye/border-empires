@@ -27,9 +27,14 @@ describe("Manifest detail says where its unlocks are used", () => {
     expect(detail(tech("hyperfeed", { unlockHydrogarden: true }))).toContain("Hydrogarden: build on a garrisoned grain tile");
   });
 
+  // Review of #2782: siege outposts can go up on frontier tiles, so "garrisoned tile" was wrong for them.
+  it("does not ask for a garrisoned tile for siege outposts", () => {
+    expect(structureBuildWhere("SIEGE_BATTERY")).toBe("Siege Battery: build on a tile you hold");
+  });
+
   it("explains Reveal and opens the Resources lens from its chip", () => {
     const html = detail(tech("titanium-forge", { revealResource: "titanium" }));
-    expect(html).toContain("Reveal Titanium: marks deposits in land you have explored, in the Resources lens");
+    expect(html).toContain("Reveal Titanium: marks deposits on tiles in sight, in the Resources lens");
     document.body.innerHTML = `<div id="hud-v2-screen">${html}</div>`;
     const state = createInitialState();
     state.showDiplomacyOverlay = true;
