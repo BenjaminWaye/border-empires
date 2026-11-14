@@ -27,6 +27,8 @@ const ART_STRUCTURE_FOR_ACTION: Partial<Record<TileActionDef["id"], string>> = {
 // Undefined when the action builds nothing or the building has no art yet;
 // the caller then keeps the glyph.
 export const buildActionArtUrl = (actionId: TileActionDef["id"]): string | undefined => {
+  // The AFC is a 3D model with no map overlay; its simple icon stands in.
+  if (actionId === "build_afc") return "/icons/simple/afc.svg";
   const structureType = ART_STRUCTURE_FOR_ACTION[actionId] ?? structureTypeForTileAction(actionId);
   return structureType ? buildMenuArtUrl(structureType) : undefined;
 };
