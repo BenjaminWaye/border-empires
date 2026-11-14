@@ -83,6 +83,16 @@ describe("occupation survey presentation", () => {
     expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
   });
 
+  // Playtest day 1 (optimiser): the popup sent players to "Activity → Yours", but that screen is the Chronicle.
+  it("points to the Chronicle tab the clue is saved in", () => {
+    occupationSurveyController.record(entry());
+    sync(true);
+    const hint = document.querySelector(".occupation-survey-hint")?.textContent ?? "";
+    expect(hint).toContain("Chronicle → Yours");
+    expect(hint).not.toContain("Activity");
+    document.querySelector<HTMLButtonElement>("[data-survey-dismiss]")?.click();
+  });
+
   it("keeps important information visible until Got it is clicked, even after a minute", () => {
     vi.useFakeTimers();
     occupationSurveyController.record(entry());
