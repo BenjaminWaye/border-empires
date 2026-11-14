@@ -21,11 +21,14 @@ describe("nation setup screen", () => {
     expect(shown(".auth-panel-head")).toBe(false);
     expect(shown(".auth-panel-emblem")).toBe(false);
     expect(shown("#auth-debug-route")).toBe(false);
+    expect(shown("#auth-copy")).toBe(false);
   });
 
   it("keeps the sign-in heading on the sign-in step", () => {
     document.querySelector<HTMLElement>(".auth-panel")!.dataset.mode = "login";
     expect(shown(".auth-panel-head")).toBe(true);
+    expect(shown(".auth-panel-emblem")).toBe(true);
+    expect(shown("#auth-copy")).toBe(true);
     expect(shown(".auth-onboarding-state")).toBe(false);
   });
 
