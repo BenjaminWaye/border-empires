@@ -101,6 +101,15 @@ export const refreshPlayerHouseCharges = (
     if (standing.complete) completeSince[charge.id] = state.completeSince?.[charge.id] ?? nowMs;
   }
   const changed = JSON.stringify(state.completeSince ?? {}) !== JSON.stringify(completeSince);
+  // A kept charge that was complete and no longer is: remember when, for the House's private loss warning.
+  const lostAt: Record<string, number> = {};
+  for (const charge of keptHouseCharges(state)) {
+    if (completeSince[charge.id] !== undefined) continue;
+    const since = state.completeSince?.[charge.id] !== undefined ? nowMs : state.lostAt?.[charge.id];
+    if (since !== undefined) lostAt[charge.id] = since;
+  }
+  if (Object.keys(lostAt).length > 0) state.lostAt = lostAt;
+  else delete state.lostAt;
   if (Object.keys(completeSince).length > 0) state.completeSince = completeSince;
   else delete state.completeSince;
   state.sizes = sizes;

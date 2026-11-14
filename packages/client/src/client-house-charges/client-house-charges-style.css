@@ -135,3 +135,7 @@
   color: #f0cf82;
   font-style: italic;
 }
+
+.house-charge-status.is-lost {
+  color: #f08a6c;
+}

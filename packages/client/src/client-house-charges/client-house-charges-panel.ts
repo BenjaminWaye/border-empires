@@ -39,7 +39,11 @@ const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: bool
     ? '<span class="house-charge-status is-dropped">Not kept</span>'
     : charge.held
       ? `<span class="house-charge-status is-held">Held${charge.completeSince ? ` since ${escapeHtml(formatWhen(charge.completeSince))}` : ""}</span>`
-      : charge.kept ? '<span class="house-charge-status">Not held</span>' : "";
+      : charge.kept
+        ? charge.lostAt !== undefined
+          ? `<span class="house-charge-status is-lost">Lost ${escapeHtml(formatWhen(charge.lostAt))}</span>`
+          : '<span class="house-charge-status">Not held</span>'
+        : "";
   const pips = `<span class="house-charge-pips" aria-label="Renown ${charge.renown}">${"◆".repeat(Math.max(1, Math.min(4, charge.renown)))}</span>`;
   const keep = choosing
     ? `<label class="house-charge-keep"><input type="checkbox" data-house-charge-keep="${escapeHtml(charge.id)}"${ticked ? " checked" : ""}> Keep</label>`

@@ -79,6 +79,8 @@ export type HouseChargesState = {
   completeSince?: Record<string, number>;
   /** Kept charge id -> kind-specific size at the last evaluation (see HouseChargeResult.size). */
   sizes?: Record<string, number>;
+  /** Kept charge id -> epoch ms it stopped being complete; cleared once it is complete again. Drives the private loss warning. */
+  lostAt?: Record<string, number>;
 };
 
 /** One kept charge's outcome, recorded when the winner is crowned. */
@@ -143,6 +145,8 @@ export type HouseChargeView = {
   completeSince?: number;
   /** Kind-specific size now (see HouseChargeResult.size). */
   size: number;
+  /** While not held: epoch ms the House lost it (it had been complete before). */
+  lostAt?: number;
   searchCircle: HouseCharge["searchCircle"];
   targets: HouseChargeTarget[];
   startTier?: string;

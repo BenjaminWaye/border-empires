@@ -144,10 +144,17 @@ describe("ticker pass and crowning", () => {
     expect(relicResult).toMatchObject({ held: true, hoursHeld: 5, size: 1, title: "A Concordance installation", rarity: "MYTHIC" });
     expect(results[0]!.charges.filter((charge) => charge.id !== relic.id).every((charge) => !charge.held && charge.hoursHeld === 0)).toBe(true);
 
-    // Losing it clears completeSince.
+    // Losing it clears completeSince and records when, for the private loss warning.
     tiles.set(RELIC, { ...tiles.get(RELIC)!, ownerId: "rival" });
     runHouseChargesPass(tiles, players, 4_000);
     expect(p1.houseCharges!.completeSince).toBeUndefined();
+    expect(p1.houseCharges!.lostAt).toEqual({ [relic.id]: 4_000 });
+    runHouseChargesPass(tiles, players, 5_000);
+    expect(p1.houseCharges!.lostAt).toEqual({ [relic.id]: 4_000 });
+    // Retaking it clears the loss.
+    garrisonKeys(tiles, "p1", [RELIC]);
+    runHouseChargesPass(tiles, players, 6_000);
+    expect(p1.houseCharges!.lostAt).toBeUndefined();
   });
 
   it("gives a landing with no qualifying target an empty deal so it is not retried", () => {

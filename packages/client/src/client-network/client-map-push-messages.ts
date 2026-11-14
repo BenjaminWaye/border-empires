@@ -1,6 +1,7 @@
 import { applyAetherShieldsMessage } from "../client-aether-tower-protection/client-aether-shield-state.js";
 import { applyIslandNamesMessage } from "../client-map-name-labels/client-island-names-state.js";
 import { applyHouseChargesMessage } from "../client-house-charges/client-house-charges-state.js";
+import { announceHouseChargeLosses } from "../client-house-charges/client-house-charges-alerts.js";
 import { applyServerReachUpdate } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
 
@@ -25,7 +26,10 @@ export const applyMapPushMessage = (state: ClientState, msg: Record<string, unkn
   }
   // This House's charges (client-house-charges/); the Charges panel reads it on the next HUD render.
   if (msg.type === "HOUSE_CHARGES") {
-    if (applyHouseChargesMessage(state, msg)) renderHud();
+    if (applyHouseChargesMessage(state, msg)) {
+      announceHouseChargeLosses(state, state.houseCharges);
+      renderHud();
+    }
     return true;
   }
   return false;

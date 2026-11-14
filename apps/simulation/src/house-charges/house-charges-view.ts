@@ -74,6 +74,7 @@ const chargeView = (
     held: completeSince !== undefined,
     ...(completeSince !== undefined ? { completeSince } : {}),
     size: kept ? state.sizes?.[charge.id] ?? 0 : 0,
+    ...(kept && completeSince === undefined && state.lostAt?.[charge.id] !== undefined ? { lostAt: state.lostAt[charge.id] } : {}),
     searchCircle: { ...charge.searchCircle },
     ...(charge.startTier ? { startTier: charge.startTier } : {}),
     ...(charge.areaTiles !== undefined ? { areaTiles: charge.areaTiles } : {})
