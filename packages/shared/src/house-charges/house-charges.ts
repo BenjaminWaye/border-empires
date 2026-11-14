@@ -81,6 +81,8 @@ export type HouseChargesState = {
   sizes?: Record<string, number>;
   /** Kept charge id -> epoch ms it stopped being complete; cleared once it is complete again. Drives the private loss warning. */
   lostAt?: Record<string, number>;
+  /** Kept charge id -> card art (house-charge-art.ts) of what was last held complete: the road, or the area. */
+  art?: Record<string, string>;
 };
 
 /** One kept charge's outcome, recorded when the winner is crowned. */
@@ -95,6 +97,12 @@ export type HouseChargeResult = {
   hoursHeld: number;
   /** Kind-specific size: road length, town tier index, tiles garrisoned, or 1 for a relic. */
   size: number;
+  /** Place names the charge pointed at (towns, region or landmass); absent for an unrevealed relic. */
+  places?: string[];
+  /** Card art bitmap (house-charge-art.ts) of the held road or area, when held. */
+  art?: string;
+  /** RELIC: installation family, recorded once the House held it. */
+  relicType?: string;
 };
 
 /** Every House's kept charges and their outcome, recorded on the season at crowning. */

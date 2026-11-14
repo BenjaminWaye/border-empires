@@ -30,7 +30,10 @@ export const houseChargesAtCrowning = (players: Iterable<CrowningChargePlayer>, 
         renown: charge.renown,
         held,
         hoursHeld: held ? Math.max(0, Math.floor((crownedAt - since) / HOUR_MS)) : 0,
-        size: state.sizes?.[charge.id] ?? 0
+        size: state.sizes?.[charge.id] ?? 0,
+        ...(charge.kind === "RELIC" ? {} : { places: charge.targets.map((target) => target.name) }),
+        ...(held && state.art?.[charge.id] ? { art: state.art[charge.id] } : {}),
+        ...(held && charge.relicType ? { relicType: charge.relicType } : {})
       };
     });
     if (charges.length === 0) continue;

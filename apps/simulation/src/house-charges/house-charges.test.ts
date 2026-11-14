@@ -89,7 +89,10 @@ describe("held state", () => {
     garrisonKeys(tiles, "p1", charterRoadKeys());
     const charge = chargeOfKind("CHARTER", tiles);
     expect(charterRoadLength(tiles, houseChargesWorldFor(tiles), "p1", VELL, HARROWMERE)).toBe(28);
-    expect(houseChargeStanding(charge, context(tiles))).toEqual({ complete: true, size: 28 });
+    const road = houseChargeStanding(charge, context(tiles));
+    expect(road).toMatchObject({ complete: true, size: 28 });
+    expect(road.shape?.[0]).toEqual({ x: 8, y: 15 });
+    expect(road.shape?.at(-1)).toEqual({ x: 30, y: 20 });
     tiles.set("20,15", { ...tiles.get("20,15")!, ownerId: "rival" });
     expect(houseChargeStanding(charge, context(tiles)).complete).toBe(false);
   });
@@ -101,7 +104,9 @@ describe("held state", () => {
     garrisonKeys(tiles, "p1", desert.slice(0, 29));
     expect(houseChargeStanding(charge, context(tiles))).toEqual({ complete: false, size: 29 });
     garrisonKeys(tiles, "p1", desert.slice(29, 30));
-    expect(houseChargeStanding(charge, context(tiles))).toEqual({ complete: true, size: 30 });
+    const held = houseChargeStanding(charge, context(tiles));
+    expect(held).toMatchObject({ complete: true, size: 30 });
+    expect(held.shape).toHaveLength(40);
   });
 
   it("completes a Seat once the town is a garrisoned City", () => {
@@ -141,7 +146,9 @@ describe("ticker pass and crowning", () => {
     expect(results).toHaveLength(1);
     expect(results[0]!.playerName).toBe("House Alden");
     const relicResult = results[0]!.charges.find((charge) => charge.id === relic.id)!;
-    expect(relicResult).toMatchObject({ held: true, hoursHeld: 5, size: 1, title: "A Concordance installation", rarity: "MYTHIC" });
+    expect(relicResult).toMatchObject({ held: true, hoursHeld: 5, size: 1, title: "A Concordance installation", rarity: "MYTHIC", relicType: "FOUNDRY_HEART" });
+    expect(relicResult.places).toBeUndefined();
+    expect(results[0]!.charges.filter((charge) => charge.id !== relic.id).every((charge) => (charge.places?.length ?? 0) > 0 && !charge.art)).toBe(true);
     expect(results[0]!.charges.filter((charge) => charge.id !== relic.id).every((charge) => !charge.held && charge.hoursHeld === 0)).toBe(true);
 
     // Losing it clears completeSince and records when, for the private loss warning.
@@ -200,5 +207,28 @@ describe("HOUSE_CHARGES area tiles", () => {
     expect(view.areaTileKeys).toHaveLength(40);
     expect(view.areaTileKeys).toContain("25,2");
     expect(houseChargesPayloadFor(player, tiles)!.charges.find((charge) => charge.kind === "RELIC")!.areaTileKeys).toBeUndefined();
+  });
+});
+
+describe("card art", () => {
+  it("records the held road's shape and round-trips it as a bitmap", async () => {
+    const { decodeChargeArt, CHARGE_ART_WIDTH, CHARGE_ART_HEIGHT } = await import("@border-empires/shared");
+    const tiles = buildChargeWorld();
+    garrisonKeys(tiles, "p1", charterRoadKeys());
+    const players = new Map([["p1", makeChargePlayer("p1")]]);
+    runHouseChargesPass(tiles, players, 1_000);
+    const state = players.get("p1")!.houseCharges!;
+    const charter = chargeOfKind("CHARTER", tiles);
+    state.offered = [charter, ...state.offered.filter((charge) => charge.kind !== "CHARTER")];
+    state.keptIds = [charter.id];
+    garrisonKeys(tiles, "p1", [VELL, HARROWMERE]);
+    runHouseChargesPass(tiles, players, 2_000);
+    const art = decodeChargeArt(state.art?.[charter.id]);
+    expect(art).toMatchObject({ width: CHARGE_ART_WIDTH, height: CHARGE_ART_HEIGHT });
+    // An L-shaped road: the top-left and bottom-right corners are set, the bottom-left is not.
+    expect(art!.cells.filter(Boolean).length).toBeGreaterThan(20);
+    expect(art!.cells[(CHARGE_ART_HEIGHT - 1) * CHARGE_ART_WIDTH]).toBe(false);
+    const [result] = houseChargesAtCrowning([{ id: "p1", houseCharges: state }], 3_000);
+    expect(result!.charges[0]).toMatchObject({ held: true, places: ["Vell", "Harrowmere"], art: state.art![charter.id] });
   });
 });

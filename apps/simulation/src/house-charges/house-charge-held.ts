@@ -6,7 +6,12 @@ import { HOUSE_CHARGE_REGION_GARRISON_SHARE, type HouseCharge } from "@border-em
 import { currentIslandClaims, islandStandingFor } from "../island-names/island-names-world.js";
 import type { HouseChargesWorld } from "./house-charges-world.js";
 
-export type HouseChargeStanding = { complete: boolean; size: number };
+export type HouseChargeStanding = {
+  complete: boolean;
+  size: number;
+  /** While complete: the tiles that make up the card art (a Charter's road, or the whole area). */
+  shape?: Array<{ x: number; y: number }>;
+};
 
 /** Town tiers that count as a road endpoint (same as the Longest Road record). */
 const ROAD_TOWN_TIERS = new Set(["TOWN", "CITY", "GREAT_CITY", "METROPOLIS"]);
@@ -28,30 +33,49 @@ export const charterRoadLength = (
   playerId: string,
   fromKey: string,
   toKey: string
-): number | undefined => {
+): number | undefined => charterRoad(tiles, world, playerId, fromKey, toKey)?.length;
+
+/** The shortest garrisoned road between two towns, as its tiles from one town to the other, or undefined. */
+export const charterRoad = (
+  tiles: ReadonlyMap<string, DomainTileState>,
+  world: Pick<HouseChargesWorld, "width" | "height">,
+  playerId: string,
+  fromKey: string,
+  toKey: string
+): Array<{ x: number; y: number }> | undefined => {
   const from = tiles.get(fromKey);
   const to = tiles.get(toKey);
   for (const end of [from, to]) {
     if (!isGarrisonedBy(end, playerId) || !end.town || !ROAD_TOWN_TIERS.has(end.town.populationTier)) return undefined;
   }
   // BFS bounded by the House's own garrisoned component.
-  const distanceByKey = new Map<string, number>([[fromKey, 0]]);
+  const previousByKey = new Map<string, string | undefined>([[fromKey, undefined]]);
   const queue: string[] = [fromKey];
   for (let index = 0; index < queue.length; index += 1) {
     const key = queue[index]!;
-    if (key === toKey) return distanceByKey.get(key)! + 1;
+    if (key === toKey) {
+      const path: Array<{ x: number; y: number }> = [];
+      for (let step: string | undefined = key; step !== undefined; step = previousByKey.get(step)) {
+        const tile = tiles.get(step)!;
+        path.push({ x: tile.x, y: tile.y });
+      }
+      return path.reverse();
+    }
     const tile = tiles.get(key)!;
     for (const [dx, dy] of STEPS) {
       const nx = (((tile.x + dx) % world.width) + world.width) % world.width;
       const ny = (((tile.y + dy) % world.height) + world.height) % world.height;
       const nextKey = `${nx},${ny}`;
-      if (distanceByKey.has(nextKey) || !isGarrisonedBy(tiles.get(nextKey), playerId)) continue;
-      distanceByKey.set(nextKey, distanceByKey.get(key)! + 1);
+      if (previousByKey.has(nextKey) || !isGarrisonedBy(tiles.get(nextKey), playerId)) continue;
+      previousByKey.set(nextKey, key);
       queue.push(nextKey);
     }
   }
   return undefined;
 };
+
+const cellPoints = (cells: Int32Array, width: number): Array<{ x: number; y: number }> =>
+  Array.from(cells, (cell) => ({ x: cell % width, y: Math.floor(cell / width) }));
 
 export const houseChargeStanding = (
   charge: HouseCharge,
@@ -68,8 +92,8 @@ export const houseChargeStanding = (
   switch (charge.kind) {
     case "CHARTER": {
       if (!second) return { complete: false, size: 0 };
-      const length = charterRoadLength(tiles, world, playerId, targetTileKey(first.key), targetTileKey(second.key));
-      return { complete: length !== undefined, size: length ?? 0 };
+      const road = charterRoad(tiles, world, playerId, targetTileKey(first.key), targetTileKey(second.key));
+      return road ? { complete: true, size: road.length, shape: road } : { complete: false, size: 0 };
     }
     case "SEAT": {
       const tile = tiles.get(targetTileKey(first.key));
@@ -82,7 +106,8 @@ export const houseChargeStanding = (
       if (!island) return { complete: false, size: 0 };
       const standing = islandStandingFor(island, tiles, playerId, world.islands.width);
       const claim = currentIslandClaims(context.players).get(island.id);
-      return { complete: claim?.playerId === playerId, size: standing.namerGarrisoned };
+      const complete = claim?.playerId === playerId;
+      return { complete, size: standing.namerGarrisoned, ...(complete ? { shape: cellPoints(island.cells, world.islands.width) } : {}) };
     }
     case "DESERT":
     case "TUNDRA": {
@@ -96,7 +121,8 @@ export const houseChargeStanding = (
         land += 1;
         if (isGarrisonedBy(tile, playerId)) garrisoned += 1;
       }
-      return { complete: land > 0 && garrisoned / land >= HOUSE_CHARGE_REGION_GARRISON_SHARE, size: garrisoned };
+      const complete = land > 0 && garrisoned / land >= HOUSE_CHARGE_REGION_GARRISON_SHARE;
+      return { complete, size: garrisoned, ...(complete ? { shape: cellPoints(region.cells, world.regions.width) } : {}) };
     }
     case "RELIC": {
       const owned = isGarrisonedBy(tiles.get(targetTileKey(first.key)), playerId);

@@ -12,7 +12,7 @@
 // deal, plus each kept charge's evaluation (bounded by the target's size or
 // the House's own garrisoned land for a Charter).
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { getWorldSeed, keptHouseCharges, type HouseChargePoint } from "@border-empires/shared";
+import { encodeChargeArt, getWorldSeed, keptHouseCharges, type HouseChargePoint } from "@border-empires/shared";
 import { dealHouseCharges, offeredTargetKeys } from "./house-charge-dealing.js";
 import { houseChargeStanding } from "./house-charge-held.js";
 import { houseChargesWorldFor } from "./house-charges-world.js";
@@ -99,6 +99,13 @@ export const refreshPlayerHouseCharges = (
     const standing = houseChargeStanding(charge, { world, tiles, players, playerId: player.id });
     sizes[charge.id] = standing.size;
     if (standing.complete) completeSince[charge.id] = state.completeSince?.[charge.id] ?? nowMs;
+    // Art follows what was last held complete, so a card shows the road or area the House actually held.
+    const art = standing.complete && standing.shape ? encodeChargeArt(standing.shape, world.width, world.height) : undefined;
+    if (art) state.art = { ...state.art, [charge.id]: art };
+  }
+  if (state.art) {
+    for (const id of Object.keys(state.art)) if (!state.keptIds.includes(id)) delete state.art[id];
+    if (Object.keys(state.art).length === 0) delete state.art;
   }
   const changed = JSON.stringify(state.completeSince ?? {}) !== JSON.stringify(completeSince);
   // A kept charge that was complete and no longer is: remember when, for the House's private loss warning.
