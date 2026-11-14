@@ -50,6 +50,8 @@ describe("short phone layout", () => {
   it("gives the Manifest tree more of a short screen than its detail card", () => {
     const short = screens.match(/@media \(orientation: portrait\) and \(max-height: 760px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
     expect(rulesFor(short, "body.hud-v2-compact .v2m-detail")).toContain("max-height: 30dvh");
+    expect(rulesFor(short, "body.hud-v2-compact .v2m-scroll")).toContain("min-height: max(96px, 34%)");
+    expect(rulesFor(short, "body.hud-v2-compact .v2m-detail > .v2s-btn")).toContain("position: sticky");
   });
 
   it("spans Diplomacy's empty note across the grid and wraps long empire names inside their card", () => {

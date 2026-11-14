@@ -79,8 +79,11 @@ body.hud-v2-compact .v2u-row { min-height: var(--v2c-touch); }
 @media (orientation: portrait) and (max-height: 760px) {
   body.hud-v2-compact .v2c-drawer { top: var(--v2c-top); height: auto; }
   body.hud-v2-compact .v2c-chips { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  /* The Manifest detail card took 42% of a 580px screen and left the tree a thin strip. */
-  body.hud-v2-compact .v2m-detail { max-height: 30dvh; }
+  /* The Manifest detail card took 42% of a 580px screen and left the tree a thin strip (no rows at all with the
+     guide docked): the tree keeps a floor and the card shrinks and scrolls. */
+  body.hud-v2-compact .v2m-scroll { flex: 1 1 0; min-height: max(96px, 34%); }
+  body.hud-v2-compact .v2m-detail { flex: 0 1 auto; min-height: 0; max-height: 30dvh; }
+  body.hud-v2-compact .v2m-detail > .v2s-btn { position: sticky; bottom: 0; box-shadow: 0 10px 0 rgb(15, 13, 10); }
 }
 
 /* ---- Town: full screen, stats over the build list, actions pinned at the foot ---- */
