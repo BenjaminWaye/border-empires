@@ -92,6 +92,16 @@ describe("unexplored storm layer (3D)", () => {
     expect(STORM_FRAGMENT_SHADER).toContain("smoothstep(0.97, 0.995, soft)");
   });
 
+  it("draws no tile grid in the fog", () => {
+    // The fog sheet floats above the ground (UNEXPLORED_STORM_Y), so grid
+    // lines painted on it sit parallax-shifted from the real tiles: a
+    // selected fog tile's ground-level square straddled them.
+    expect(STORM_FRAGMENT_SHADER).not.toMatch(/float grid\b|lines\(w\.[xy]/);
+    // Per-tile brightness steps (floor(w)) on the raised sheet show the same
+    // parallax-shifted cell edges as grid lines do.
+    expect(STORM_FRAGMENT_SHADER).not.toContain("floor(w)");
+  });
+
   it("has no parchment wash or hatching over the ring", () => {
     expect(STORM_FRAGMENT_SHADER).not.toMatch(/uParchment|parchHatch|parchAlpha/);
   });
