@@ -6,7 +6,6 @@ import { NEXT_CONTEST_STARTING_ENTRY } from "./client-changelog-next-contest.js"
 import { MUSTER_DOCK_TRANSPORT_ENTRY } from "./client-changelog-muster-dock-transport.js";
 import { OWNER_COLOURS_COLOUR_BLIND_ENTRY } from "./client-changelog-owner-colours-colour-blind.js";
 import { IMPERIAL_WARD_REMOVED_ENTRY } from "./client-changelog-imperial-ward-removed.js";
-import { SHOW_EMPIRE_ON_MAP_ENTRY } from "./client-changelog-show-empire-on-map.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_117: ClientChangelogEntry[] = [
@@ -17,5 +16,4 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_117: ClientChangelogEntry[] = [
   { ...MUSTER_DOCK_TRANSPORT_ENTRY, createdAt: 1794353510194, },
   { ...OWNER_COLOURS_COLOUR_BLIND_ENTRY, createdAt: 1794561750842, },
   { ...IMPERIAL_WARD_REMOVED_ENTRY, createdAt: 1794590558028, },
-  { ...SHOW_EMPIRE_ON_MAP_ENTRY, createdAt: 1794656750720, },
 ];
