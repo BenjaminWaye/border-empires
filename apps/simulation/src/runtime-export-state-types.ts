@@ -61,7 +61,6 @@ export type RuntimeExportState = {
     afcEnvoyIncomePerMinute?: number;
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
-    imperialWardCharges?: number;
     lifetimeGarrisons?: number;
     islandNames?: IslandNameClaim[];
     houseCharges?: import("@border-empires/shared").HouseChargesState;

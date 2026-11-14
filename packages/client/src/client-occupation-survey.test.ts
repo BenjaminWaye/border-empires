@@ -83,6 +83,19 @@ describe("occupation survey presentation", () => {
     expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
   });
 
+  // Playtest day 1 (optimiser): the popup sent players to "Activity → Yours", a screen that no longer exists.
+  // The clue is not in the Chronicle either: the resource's Manifest card is where it shows again
+  // (client-manifest-fit.ts, "A town you garrisoned turned up signs of ...").
+  it("points to the Manifest card that keeps the clue", () => {
+    occupationSurveyController.record(entry());
+    sync(true);
+    const hint = document.querySelector(".occupation-survey-hint")?.textContent ?? "";
+    expect(hint).toContain("Manifest's card keeps this clue");
+    expect(hint).not.toContain("Activity");
+    expect(hint).not.toContain("Chronicle");
+    document.querySelector<HTMLButtonElement>("[data-survey-dismiss]")?.click();
+  });
+
   it("keeps important information visible until Got it is clicked, even after a minute", () => {
     vi.useFakeTimers();
     occupationSurveyController.record(entry());

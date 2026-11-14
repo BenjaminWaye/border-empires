@@ -85,7 +85,6 @@ export const createPlayersFromRecoveredState = (
           ...(player.chosenTrickleResource && isChosenTrickleResource(player.chosenTrickleResource)
             ? { chosenTrickleResource: player.chosenTrickleResource }
             : {}),
-          ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
           ...(typeof player.lifetimeGarrisons === "number" && player.lifetimeGarrisons > 0 ? { lifetimeGarrisons: player.lifetimeGarrisons } : {}),
           ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
           ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),

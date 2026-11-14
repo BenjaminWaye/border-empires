@@ -922,7 +922,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   setInterval(() => {
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;
-    if (state.autoSettleTargets.size > 0) deps.processAutoSettleTargets();
+    if (state.autoSettleTargets.size > 0 || state.townRingGarrisons.size > 0) deps.processAutoSettleTargets();
     if (state.autoBuildTargets.size > 0) deps.processAutoBuildTargets();
     const recoveredExpiredFrontier = sweepExpiredFrontierRecovery(state, {
       clearOptimisticTileState: deps.clearOptimisticTileState,

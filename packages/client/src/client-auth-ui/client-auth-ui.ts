@@ -135,7 +135,7 @@ export const syncAuthOverlay = (
   } catch {
     resolvedFlyApp = "unknown";
   }
-  deps.authDebugRouteEl.textContent = `Backend ${state.activeBackend} • WS ${resolvedWsUrl} • Fly app ${resolvedFlyApp}`;
+  deps.authDebugRouteEl.textContent = `Backend ${state.activeBackend} • WS ${resolvedWsUrl} • Host ${resolvedFlyApp}`;
 
   // After INIT the overlay stays up through the staged 3D map build.
   const mapPrepView = state.mapPrep && !state.authError ? describeMapPrep(state.mapPrep, Date.now()) : null;

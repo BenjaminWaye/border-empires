@@ -1,4 +1,3 @@
-import type { SectorBoardView } from "../client-sector-board/client-sector-board.js";
 import { createInitialManpowerState } from "./client-state-manpower-defaults.js";
 import { NEXT_CONTEST_DEFAULT_THRESHOLD } from "../client-next-contest/client-next-contest.js";
 import { createInitialResourceEconomyState } from "./client-state-resource-slots.js";
@@ -289,7 +288,6 @@ export const createInitialState = () => ({
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
   needsSeasonJoin: false, joinSeasonOverlayOpen: false, joinSeasonId: "" as string, joinSeasonPending: false, seasonPending: false, seasonPendingScheduledStartAt: 0, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [] as { playerId: string; name: string }[], // join-season overlay + SEASON_PENDING countdown + lobby roster: see client-join-season-overlay.ts / client-season-lobby-panel.ts
-  sectorBoard: undefined as SectorBoardView | undefined, // join screen Sector board (client-sector-board.ts), loaded from GET /sector/board
   lastSeenRespawnNoticeId: "",
   structureInfoKey: "" as string, crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
@@ -452,6 +450,7 @@ export const createInitialState = () => ({
   discoveredTiles: new Set<string>(),
   discoveryTipQueue: [] as import("../client-discovery-tips/client-discovery-tips.js").DiscoveryTipId[], // see client-discovery-tips.ts
   autoSettleTargets: new Set<string>(),
+  townRingGarrisons: new Map<string, import("../client-town-ring-garrison/client-town-ring-garrison.js").TownRingGarrison>(), // bounded there
   autoBuildTargets: new Map<string, BuildableStructureType>(),
   frontierSyncWaitUntilByTarget: new Map<string, number>(),
   // How many times processActionQueue has deferred a target while waiting for

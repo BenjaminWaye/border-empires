@@ -146,9 +146,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   await deps.onStage?.("terrain");
   const heightfield = createHeightfield();
   scene.add(heightfield.mesh);
-  scene.add(heightfield.skirtMesh);
-  scene.add(heightfield.gridlines);
-  heightfield.setGridlinesVisible(true);
+  scene.add(heightfield.skirtMesh); // no ground gridlines: territory borders and tile markers carry the tile reading
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES, { isMountainAt: (x, y) => terrainForWorldTile(x, y) === "MOUNTAIN", isColdAt: (x, y) => { const k = heightfieldKindAt(x, y); return k === "TUNDRA" || k === "SNOW"; }, wrapX: deps.wrapX, wrapY: deps.wrapY }); // lambdas: both lookups are declared further down
   const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
   const { waterSurface, riverOverlay } = createMapWater(scene, MAX_VISIBLE_TILES, { heightfield, mountainLookup: mountainMassifs.lookup, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: (x, y) => terrainForWorldTile(x, y), // server tile first: season worldgen's carved 1-tile channels are SEA only there

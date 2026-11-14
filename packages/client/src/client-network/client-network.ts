@@ -9,7 +9,6 @@ import { applyPlayerUpdateManpowerFields } from "../client-player-update-manpowe
 import { COMBAT_LOCK_MS, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
-import { ABILITY_RESULT_MESSAGE_TYPES, applyAbilityResultMessage } from "../client-ability-result-messages/client-ability-result-messages.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
 import { parseServerMessage } from "../client-server-clock/client-server-clock.js";
@@ -2099,7 +2098,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           );
         }
       }
-      if (errorCode === "SEASON_PENDING") { state.joinSeasonPending = false; state.seasonPending = true; state.seasonPendingScheduledStartAt = typeof msg.scheduledStartAt === "number" ? msg.scheduledStartAt : Date.now(); state.needsSeasonJoin = true; state.joinSeasonOverlayOpen = true; renderHud(); return; } if (errorCode === "SEASON_FULL") { state.joinSeasonPending = false; applySeasonFullError(state, errorMessage); setAuthStatus(""); syncAuthOverlay(); return; } if (errorCode === "AUTH_FAIL" || (errorCode === "NO_AUTH" && state.connection === "initialized") || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
+      if (errorCode === "SEASON_PENDING") { state.joinSeasonPending = false; state.seasonPending = true; state.seasonPendingScheduledStartAt = typeof msg.scheduledStartAt === "number" ? msg.scheduledStartAt : Date.now(); state.needsSeasonJoin = true; state.joinSeasonOverlayOpen = true; renderHud(); return; } if (errorCode === "SEASON_FULL") { state.joinSeasonPending = false; applySeasonFullError(state, errorMessage); setAuthStatus(""); syncAuthOverlay(); renderHud(); return; } if (errorCode === "AUTH_FAIL" || (errorCode === "NO_AUTH" && state.connection === "initialized") || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
         state.authSessionReady = false;
         if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") && firebaseAuth?.currentUser) {
           state.connection = ws.readyState === ws.OPEN ? "connected" : "disconnected";
@@ -2406,11 +2405,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       requestViewRefresh(1, true);
       renderHud();
       return;
-    }
-
-    if (typeof msg.type === "string" && ABILITY_RESULT_MESSAGE_TYPES.has(msg.type)) {
-      applyAbilityResultMessage(state, msg);
-      renderHud();
     }
     } catch (error) {
       console.error("[client-network] unhandled message processing error", error, { msgType: msg?.type });

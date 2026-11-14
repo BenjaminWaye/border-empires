@@ -6,8 +6,7 @@ import { SimulationRuntime } from "./runtime.js";
 // Galactic meta-layer v0 (docs/galactic-campaign-design.md §5, §12): a
 // one-time Wonder-style starting bonus for the most recent season's Planet
 // winner, granted via pendingGalacticWonderBonus and consumed the first time
-// that player spawns territory. Coverage lives in a dedicated file, mirroring
-// runtime-imperial-ward.test.ts's convention, rather than the already
+// that player spawns territory. Coverage lives in a dedicated file rather than the already
 // oversized runtime.test.ts (see AGENTS.md file-line discipline).
 describe("simulation runtime — galactic Wonder starting bonus (v0)", () => {
   it("grants the manpower-regen and vision-radius bonus once, the first time the winning player spawns territory, then clears the grant", () => {

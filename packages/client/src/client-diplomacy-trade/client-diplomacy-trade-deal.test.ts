@@ -108,7 +108,7 @@ describe("diplomacy deal table", () => {
     expect(overlay.querySelector("[data-deal-treaty]")?.textContent).toContain("Alliance");
     overlay.querySelector<HTMLButtonElement>("[data-deal-remove='treaty']")!.click();
     expect(overlay.querySelector("[data-deal-treaty]")).toBeNull();
-    expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toBe("Pick a truce or alliance on the left, or add goods from either side.");
+    expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toBe("Pick a truce or alliance, or add goods from either side.");
     expect(overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.disabled).toBe(true);
 
     // Asking for coin alone, with no treaty or supply, is not a deal the server takes.

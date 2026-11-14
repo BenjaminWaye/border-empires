@@ -230,7 +230,6 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   applyAfcStateMessage(state, player);
   const initialTrickle = (player as { chosenTrickleResource?: unknown }).chosenTrickleResource;
   state.chosenTrickleResource = isChosenTrickleResource(initialTrickle) ? initialTrickle : undefined;
-  state.imperialWardCharges = (player as { imperialWardCharges?: number }).imperialWardCharges;
   state.wonderLastFreeRushBuyAt = (player as { wonderLastFreeRushBuyAt?: number }).wonderLastFreeRushBuyAt;
   state.relicMapHints.clear();
   applyRelicAndProgressionUpdate(state, player);

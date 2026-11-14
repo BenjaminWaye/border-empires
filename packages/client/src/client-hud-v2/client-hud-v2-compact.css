@@ -124,8 +124,6 @@ body.hud-v2-compact .hud-v2-bubble-badge { top: -3px; right: 1px; }
 /* ---- Under the bar: folded tracker left, season pill right; rivals live in Diplomacy ---- */
 body.hud-v2-compact .hud-v2-right { top: var(--v2c-top); right: calc(var(--v2c-safe-right) + var(--v2c-gutter)); max-width: 44vw; gap: 0; }
 body.hud-v2-compact .hud-v2-rivals { display: none; }
-body.hud-v2-compact .hud-v2-ward-slot:not(:empty) { margin-top: 6px; }
-body.hud-v2-compact .hud-v2-ward { min-height: 32px; padding: 4px 10px; font-size: 12px; white-space: nowrap; }
 body.hud-v2-compact .hud-v2-season { gap: 1px; min-height: 36px; padding: 4px 10px; }
 body.hud-v2-compact .hud-v2-season-title { font-size: 10px; }
 body.hud-v2-compact .hud-v2-season-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }

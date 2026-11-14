@@ -11,7 +11,6 @@ const baseInput = {
   isAdjacent: true,
   isDockCrossing: false,
   isBridgeCrossing: false,
-  targetShielded: false,
   crossingBlockedByAetherWall: false,
   defenderIsAlliedOrTruced: false,
   originMuster: 100

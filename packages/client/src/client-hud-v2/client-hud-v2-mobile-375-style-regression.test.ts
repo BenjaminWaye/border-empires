@@ -16,6 +16,10 @@ const rulesFor = (css: string, selector: string): string =>
     .join("\n");
 
 describe("phone layout at 375x667", () => {
+  it("lets the Towns table headers wrap instead of running into each other", () => {
+    expect(rulesFor(screens, "body.hud-v2-compact .v2l-sort")).toContain("white-space: normal");
+  });
+
   it("ends hosted panels (Manpower, Economy, …) at the tab bar so their last rows can scroll into view", () => {
     const rules = rulesFor(compact, "body.hud-v2-compact #side-panel");
     expect(rules).toContain("bottom: var(--v2c-bottom) !important");

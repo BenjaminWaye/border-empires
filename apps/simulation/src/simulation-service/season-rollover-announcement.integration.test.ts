@@ -13,7 +13,7 @@ const silentLog = { info: () => undefined, error: () => undefined, warn: () => u
 
 type ProtoEvent = { event_type?: string; player_id?: string; payload_json?: string };
 type RawClient = {
-  StartNextSeason: (request: { force: boolean; imperial_ward_json: string }, callback: (error: Error | null) => void) => void;
+  StartNextSeason: (request: { force: boolean }, callback: (error: Error | null) => void) => void;
   StreamEvents: (request: { at: number }) => { on: (name: string, listener: (value: never) => void) => void; cancel: () => void };
 };
 
@@ -58,7 +58,7 @@ describe("season rollover announcement", () => {
       }) as (value: never) => void);
       stream.on("error", reject as (value: never) => void);
     });
-    await new Promise<void>((resolve, reject) => client.StartNextSeason({ force: true, imperial_ward_json: "" }, (error) => (error ? reject(error) : resolve())));
+    await new Promise<void>((resolve, reject) => client.StartNextSeason({ force: true }, (error) => (error ? reject(error) : resolve())));
 
     const event = await announcement;
     stream.cancel();

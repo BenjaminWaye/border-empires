@@ -9,7 +9,8 @@
 //      edge), with lantern light glowing in the storm
 //      behind it.
 //   3. The storm beyond: drifting cloud masses under straight engraved
-//      rain streaks, with the hidden tile grid faintly showing through.
+//      rain streaks (no tile grid: the sheet floats above the ground, so
+//      lines on it would sit parallax-shifted from the real tiles).
 // When tiles become explored the clouds roll back off them: the mask's
 // exploredness eases per tile (client-map-3d-unexplored-storm-reveal.ts), so
 // the contour recedes smoothly, with a lantern flash (B) as it parts.
@@ -85,9 +86,6 @@ void main() {
   vec3 storm = mix(uLight, uDark, density);
   float bright = smoothstep(0.62, 0.85, body) * (1.0 - density);
   storm = mix(storm, uLight * 1.12, bright * 0.6);
-  storm *= 0.97 + stormHash(floor(w)) * 0.06;
-  float grid = max(lines(w.x, 0.012), lines(w.y, 0.012));
-  storm = mix(storm, uInk, grid * (0.32 - density * 0.14));
   // Rain: fine straight streaks, ~3 per tile, sliding slowly. Kept faint
   // and thin -- heavier, wider strokes read as diagonal hatching stripes
   // across the whole fog at normal play zoom.

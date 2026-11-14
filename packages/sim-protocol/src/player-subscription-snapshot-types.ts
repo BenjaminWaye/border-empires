@@ -117,11 +117,6 @@ export type PlayerSubscriptionSnapshot = {
     // Per-category auto-settle opt-in (shared auto-settle-prefs.ts). Legacy/AI
     // players always report answered:true with everything on.
     autoSettle?: AutoSettlePrefs;
-    // Emperor-endorsement bonus (galaxy meta-layer Phase 1): remaining
-    // Imperial Ward activations. The active 10-minute invulnerability window
-    // itself is communicated via a one-off IMPERIAL_WARD_ACTIVATED player
-    // message, not this snapshot field (same convention as Aegis Lock).
-    imperialWardCharges?: number;
     // Quickforge wonder: ms timestamp of this player's last discounted
     // rush-buy (0/absent = never used this UTC day). Sent purely so the
     // client's rush-buy price preview can replicate the server's exact

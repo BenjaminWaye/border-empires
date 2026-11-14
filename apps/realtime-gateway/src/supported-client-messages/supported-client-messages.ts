@@ -61,7 +61,6 @@ export const supportedClientMessageTypes = [
   "TITANIUM_LEVY_MUSTER",
   "AEGIS_LOCK",
   "ASTRAL_DOCK_LAUNCH",
-  "ACTIVATE_IMPERIAL_WARD",
   "UPGRADE_TOWN_TIER",
   "SET_TILE_COLOR",
   "SET_COUNTRY_FLAG",
