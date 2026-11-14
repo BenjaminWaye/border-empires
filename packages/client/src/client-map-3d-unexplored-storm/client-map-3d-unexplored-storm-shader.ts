@@ -86,7 +86,6 @@ void main() {
   vec3 storm = mix(uLight, uDark, density);
   float bright = smoothstep(0.62, 0.85, body) * (1.0 - density);
   storm = mix(storm, uLight * 1.12, bright * 0.6);
-  storm *= 0.97 + stormHash(floor(w)) * 0.06;
   // Rain: fine straight streaks, ~3 per tile, sliding slowly. Kept faint
   // and thin -- heavier, wider strokes read as diagonal hatching stripes
   // across the whole fog at normal play zoom.
