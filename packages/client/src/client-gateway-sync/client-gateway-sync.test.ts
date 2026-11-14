@@ -531,13 +531,13 @@ describe("client gateway sync", () => {
       { x: 2, y: 2, townJson: settlementTownJson }
     ]);
 
-    // Own tile: settlement fallback gold = (2/288) × 1.25 × 1.0 ≈ 0.0087 (§6.1 gold rescope, §24.6)
+    // Own tile: settlement fallback gold = (2/288) × 1.25 × 1.0 ≈ 0.008681 (§6.1 gold rescope, §24.6)
     const ownTile = deps.state.tiles.get("1,1");
-    expect(ownTile?.yieldRate?.goldPerMinute).toBe(0.0087);
+    expect(ownTile?.yieldRate?.goldPerMinute).toBe(0.008681);
 
-    // Enemy tile: income multiplier gated to 1.0 — settlement fallback = (2/288) × 1.0 × 1.0 ≈ 0.0069
+    // Enemy tile: income multiplier gated to 1.0 — settlement fallback = (2/288) × 1.0 × 1.0 ≈ 0.006944
     const enemyTile = deps.state.tiles.get("2,2");
-    expect(enemyTile?.yieldRate?.goldPerMinute).toBe(0.0069);
+    expect(enemyTile?.yieldRate?.goldPerMinute).toBe(0.006944);
   });
 
   it("does not discover or reveal a never-seen tile from a broadcast-only ownership-clear delta", () => {
