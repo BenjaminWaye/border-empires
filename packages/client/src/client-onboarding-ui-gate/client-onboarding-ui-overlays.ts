@@ -19,7 +19,7 @@ export type OnboardingChecklistUiState = OnboardingUiGateState & GuideInputState
 export const GUIDE_TAUGHT_DISCOVERY_TIPS: ReadonlySet<DiscoveryTipId> = new Set<DiscoveryTipId>(["TOWN", "FOOD"]);
 
 /** Feedback on something that just happened (land that can be cut off, first contact, a first flag): never held. */
-const URGENT_DISCOVERY_TIPS: ReadonlySet<DiscoveryTipId> = new Set<DiscoveryTipId>(["OUT_OF_REACH_EXPAND", "ENEMY_EMPIRE", "FIRST_MUSTER"]);
+const URGENT_DISCOVERY_TIPS: ReadonlySet<DiscoveryTipId> = new Set<DiscoveryTipId>(["OUT_OF_REACH_EXPAND", "ENEMY_EMPIRE", "FIRST_MUSTER", "FIRST_DOCK"]);
 
 /**
  * While the tutorial guide's card is up on a step the player can do now, the

@@ -10,7 +10,7 @@ import type { Tile } from "../client-types.js";
 import { isDiscoveryTipSeen, isDiscoveryTipsMuted, markDiscoveryTipSeen, muteDiscoveryTips } from "./client-discovery-tips-storage.js";
 
 type RelicDiscoveryTipId = `RELIC_${NaturalWonderType}`;
-export type DiscoveryTipId = "TOWN" | "TOWN_TERRAIN_PROFILE" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | "OUT_OF_REACH_EXPAND" | "WAYSTATION" | NaturalWonderType | RelicDiscoveryTipId | "DEPLETED_RELIC";
+export type DiscoveryTipId = "TOWN" | "TOWN_TERRAIN_PROFILE" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | "OUT_OF_REACH_EXPAND" | "FIRST_DOCK" | "WAYSTATION" | NaturalWonderType | RelicDiscoveryTipId | "DEPLETED_RELIC";
 
 export type DiscoveryTipDef = { id: DiscoveryTipId; title: string; body: string };
 
@@ -100,6 +100,12 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
     id: "OUT_OF_REACH_EXPAND",
     title: "Beyond Your Reach",
     body: "Frontier outside your reach is lost if its supply route is cut. Towns, Docks and captured buildings can still be garrisoned here. Garrison an anchor or build a Relay Beacon to extend your reach."
+  },
+  FIRST_DOCK: {
+    id: "FIRST_DOCK",
+    title: "Your First Dock",
+    // Mechanics: packages/shared/src/dock-landing/dock-landing.ts (landing ground = linked dock + coast within 1).
+    body: "A sea lane links this dock to a dock on another island. From here you can expand or attack across to that dock and the beach around it. Select the dock to see its lanes."
   },
   WAYSTATION: {
     id: "WAYSTATION",
