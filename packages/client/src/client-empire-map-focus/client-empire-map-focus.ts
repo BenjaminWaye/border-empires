@@ -39,28 +39,49 @@ export const nearestSeenEmpireTile = (input: EmpireMapFocusInput): { x: number; 
 
 type DiscoveredSet = EmpireMapFocusInput["discoveredTiles"] & { size: number };
 
-// A single entry (the open profile), keyed by tiles revision plus both sizes:
-// chunk loads write tiles without bumping tilesRevision but do grow the maps.
-let seenCache: { ownerId: string; revision: number; tileCount: number; discoveredCount: number; seen: boolean } | undefined;
+// A single entry (the open profile). A "seen" answer keeps the key of the tile
+// that proved it and is re-checked against that tile on every call, so losing
+// it (capture, or a chunk overwriting it in place) rescans. An "unseen" answer
+// is reused only while nothing could have added a tile: same tiles revision,
+// same map sizes and same chunk count -- chunk loads write tiles (including in
+// place over an existing key) without bumping tilesRevision.
+let seenCache:
+  | { ownerId: string; proofKey: string | undefined; revision: number; tileCount: number; discoveredCount: number; chunkCount: number }
+  | undefined;
+
+/** Drops the cached answer, e.g. when "Show on map" found nowhere to go. */
+export const forgetSeenEmpireTile = (): void => {
+  seenCache = undefined;
+};
 
 /** Whether any tile of `ownerId` was ever seen; cached since the profile re-renders on the HUD timer. */
-export const hasSeenEmpireTile = (input: Omit<EmpireMapFocusInput, "from" | "worldWidth" | "worldHeight" | "discoveredTiles"> & { discoveredTiles: DiscoveredSet; revision: number }): boolean => {
+export const hasSeenEmpireTile = (
+  input: Omit<EmpireMapFocusInput, "from" | "worldWidth" | "worldHeight" | "discoveredTiles"> & {
+    discoveredTiles: DiscoveredSet;
+    revision: number;
+    chunkCount: number;
+  }
+): boolean => {
   const tileCount = input.tiles.size;
   const discoveredCount = input.discoveredTiles.size;
-  if (
-    seenCache &&
-    seenCache.ownerId === input.ownerId &&
-    seenCache.revision === input.revision &&
-    seenCache.tileCount === tileCount &&
-    seenCache.discoveredCount === discoveredCount
-  ) return seenCache.seen;
-  let seen = false;
+  if (seenCache && seenCache.ownerId === input.ownerId) {
+    const proofKey = seenCache.proofKey;
+    if (proofKey !== undefined) {
+      if (input.tiles.get(proofKey)?.ownerId === input.ownerId && input.discoveredTiles.has(proofKey)) return true;
+    } else if (
+      seenCache.revision === input.revision &&
+      seenCache.tileCount === tileCount &&
+      seenCache.discoveredCount === discoveredCount &&
+      seenCache.chunkCount === input.chunkCount
+    ) return false;
+  }
+  let proofKey: string | undefined;
   for (const [key, tile] of input.tiles) {
     if (tile.ownerId === input.ownerId && input.discoveredTiles.has(key)) {
-      seen = true;
+      proofKey = key;
       break;
     }
   }
-  seenCache = { ownerId: input.ownerId, revision: input.revision, tileCount, discoveredCount, seen };
-  return seen;
+  seenCache = { ownerId: input.ownerId, proofKey, revision: input.revision, tileCount, discoveredCount, chunkCount: input.chunkCount };
+  return proofKey !== undefined;
 };

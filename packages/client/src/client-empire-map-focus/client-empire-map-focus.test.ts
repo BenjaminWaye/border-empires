@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasSeenEmpireTile, nearestSeenEmpireTile } from "./client-empire-map-focus.js";
+import { forgetSeenEmpireTile, hasSeenEmpireTile, nearestSeenEmpireTile } from "./client-empire-map-focus.js";
 
 const tilesOf = (list: Array<{ x: number; y: number; ownerId?: string }>) =>
   new Map(list.map((t) => [`${t.x},${t.y}`, t]));
@@ -50,18 +50,36 @@ describe("hasSeenEmpireTile", () => {
   it("is false until a tile of the empire is discovered, and recomputes when the revision moves", () => {
     const tiles = tilesOf([{ x: 3, y: 3, ownerId: "p2" }]);
     const discovered = new Set<string>();
-    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p2", revision: 1 })).toBe(false);
+    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p2", revision: 1, chunkCount: 0 })).toBe(false);
     discovered.add("3,3");
-    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p2", revision: 2 })).toBe(true);
-    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p9", revision: 2 })).toBe(false);
+    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p2", revision: 2, chunkCount: 0 })).toBe(true);
+    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p9", revision: 2, chunkCount: 0 })).toBe(false);
   });
 
   it("notices a chunk load that adds a seen tile without bumping the revision", () => {
     const tiles = tilesOf([{ x: 3, y: 3, ownerId: "p4" }]);
     const discovered = new Set<string>(["3,3"]);
-    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p5", revision: 7 })).toBe(false);
+    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p5", revision: 7, chunkCount: 0 })).toBe(false);
     tiles.set("8,8", { x: 8, y: 8, ownerId: "p5" });
     discovered.add("8,8");
-    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p5", revision: 7 })).toBe(true);
+    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p5", revision: 7, chunkCount: 0 })).toBe(true);
+  });
+
+  it("notices a chunk overwriting a tile in place with a new owner (no revision bump, no size change)", () => {
+    forgetSeenEmpireTile();
+    const tiles = tilesOf([{ x: 3, y: 3 }]);
+    const discovered = new Set<string>(["3,3"]);
+    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p5", revision: 7, chunkCount: 1 })).toBe(false);
+    tiles.set("3,3", { x: 3, y: 3, ownerId: "p5" });
+    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p5", revision: 7, chunkCount: 2 })).toBe(true);
+  });
+
+  it("flips back to unseen when the tile that proved it is overwritten in place", () => {
+    forgetSeenEmpireTile();
+    const tiles = tilesOf([{ x: 3, y: 3, ownerId: "p5" }]);
+    const discovered = new Set<string>(["3,3"]);
+    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p5", revision: 7, chunkCount: 1 })).toBe(true);
+    tiles.set("3,3", { x: 3, y: 3, ownerId: "p6" });
+    expect(hasSeenEmpireTile({ tiles, discoveredTiles: discovered, ownerId: "p5", revision: 7, chunkCount: 1 })).toBe(false);
   });
 });

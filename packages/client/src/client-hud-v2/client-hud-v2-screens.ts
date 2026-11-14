@@ -24,7 +24,7 @@ import {
 } from "./client-hud-v2-context.js";
 import { dealFactsText, dealSkeletonHtml, diplomacyListHtml, diplomacyResponseMessage, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
-import { hasSeenEmpireTile, nearestSeenEmpireTile } from "../client-empire-map-focus/client-empire-map-focus.js";
+import { forgetSeenEmpireTile, hasSeenEmpireTile, nearestSeenEmpireTile } from "../client-empire-map-focus/client-empire-map-focus.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { crestClosesProfile, profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { pendingTechCommissionId } from "../client-tech-commission/client-tech-commission.js";
@@ -268,7 +268,7 @@ const renderProfile = (deps: HudV2Deps): void => {
     truceBreaks: self ? state.truceBreaksThisSeason : social === "loading" || social === undefined ? social : social.truceBreaksThisSeason,
     nameOf: (other) => nameOf(deps, other) || undefined,
     nowMs: Date.now(),
-    ...(self ? {} : { mapFocus: hasSeenEmpireTile({ tiles: state.tiles, discoveredTiles: state.discoveredTiles, ownerId: id, revision: state.tilesRevision }) ? "seen" : "unseen" }),
+    ...(self ? {} : { mapFocus: hasSeenEmpireTile({ tiles: state.tiles, discoveredTiles: state.discoveredTiles, ownerId: id, revision: state.tilesRevision, chunkCount: state.chunkFullCount }) ? "seen" : "unseen" }),
     ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] } } : {})
   }));
 };
@@ -326,8 +326,8 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     if (tile) {
       closeScreen(deps, { toMap: true });
       focusCamera(deps, tile.x, tile.y);
-      deps.renderHud();
-    }
+    } else forgetSeenEmpireTile(); // stale "seen" label: rescan so the re-render shows "Not discovered yet"
+    deps.renderHud();
     return true;
   }
   const lane = target.closest<HTMLElement>("[data-v2-manifest-lane]");
