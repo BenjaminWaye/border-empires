@@ -4,6 +4,7 @@ import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-
 import type { ClientState } from "../client-state/client-state.js";
 import { pushFeedEntry } from "../client-alerts/client-alerts.js";
 import { surveySweepFeedEntry } from "./client-network-survey-sweep-feed.js";
+import { handleScoutDroneMessage } from "../client-scout-drone/client-scout-drone-state.js";
 import type { FeedType, FeedSeverity } from "../client-types.js";
 
 export function handleIntelResult(msg: Record<string, unknown>, state: ClientState, pushFeed: (text: string, type?: FeedType, severity?: FeedSeverity) => void, renderHud: () => void): boolean {
@@ -26,6 +27,8 @@ export function handleIntelResult(msg: Record<string, unknown>, state: ClientSta
       renderHud();
       return true;
     }
+    // SCOUT_DRONE / SCOUT_SIGHTED: the player's scout drone and rival scouts at the border (client-scout-drone/).
+    if (handleScoutDroneMessage(msg, state, pushFeed, renderHud)) return true;
 
   return false;
 }

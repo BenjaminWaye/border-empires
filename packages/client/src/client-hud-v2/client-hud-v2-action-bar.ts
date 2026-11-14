@@ -29,6 +29,8 @@ const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   "march_attack_flag",
   "expand_here",
   "march_to_pick_origin",
+  // An unexplored tile: launch the scout drone (client-scout-drone/).
+  "explore_scout",
   // Only offered on your own Reclamation Works; gold while there is salvage to ship.
   "ship_salvage_to_court"
 ];

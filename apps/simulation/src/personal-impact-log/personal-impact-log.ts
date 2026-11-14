@@ -1,4 +1,4 @@
-import type { WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
+import type { ScoutReportFindings, WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
 
 // Durable, bounded 24-hour source for the personal Activity dashboard's
 // high-signal milestones. Unlike DomainPlayer.eventLog this is not snapshot
@@ -61,11 +61,25 @@ export type PersonalImpactBuildingCompleted = PersonalImpactBase & {
   populationBurst?: number;
 };
 
+// A scout drone landed (scout-drone/scout-drone-runtime.ts): what it saw.
+export type PersonalImpactScoutReport = PersonalImpactBase & ScoutReportFindings & {
+  kind: "SCOUT_REPORT";
+  blockedByPlayerId?: string;
+};
+
+// A rival's scout drone was turned back at this player's border.
+export type PersonalImpactScoutSighted = PersonalImpactBase & {
+  kind: "SCOUT_SIGHTED";
+  scoutPlayerId: string;
+};
+
 export type PersonalImpactEvent =
   | PersonalImpactWaystationActivated
   | PersonalImpactTown
   | PersonalImpactDock
-  | PersonalImpactBuildingCompleted;
+  | PersonalImpactBuildingCompleted
+  | PersonalImpactScoutReport
+  | PersonalImpactScoutSighted;
 
 export type PersonalImpactLogGauge = {
   entryCount: number;
