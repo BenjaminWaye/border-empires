@@ -1,13 +1,13 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 import { AETHER_TOWER_SHOTS_CHANGELOG } from "./client-changelog-aether-tower-shots.js";
 import { LEGAL_PAGES_CHANGELOG } from "./client-changelog-legal-pages.js";
+import { INCOME_TRUTH_CHANGELOG } from "./client-changelog-income-truth.js";
 import { CAPTURE_AFTERMATH_CHANGELOG } from "./client-changelog-capture-aftermath.js";
 import { SHARDS_REMOVED_CHANGELOG } from "./client-changelog-shards-removed.js";
 import { AFC_V3_CHANGELOG } from "./client-changelog-afc-v3.js";
 import { AI_STACKED_INDUSTRY_CHANGELOG } from "./client-changelog-ai-stacked-industry.js";
 import { HUD_V2_MOBILE_CHANGELOG } from "./client-changelog-hud-v2-mobile.js";
 import { FLAG_STALL_LABEL_CHANGELOG } from "./client-changelog-flag-stall-label.js";
-import { INCOME_TRUTH_CHANGELOG } from "./client-changelog-income-truth.js";
 import { HUD_V2_ONLY_CHANGELOG } from "./client-changelog-hud-v2-only.js";
 import { AI_JUNIOR_ALLIANCES_CHANGELOG } from "./client-changelog-ai-junior-alliances.js";
 import { PHONE_MAP_OVERVIEW_CHANGELOG } from "./client-changelog-phone-map-overview.js";
