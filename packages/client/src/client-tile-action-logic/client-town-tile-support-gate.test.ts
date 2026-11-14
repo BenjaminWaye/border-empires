@@ -86,6 +86,16 @@ describe("support buildings ordered from the town tile", () => {
     expect(manufactory?.disabledReason).toBe(TOWN_PLOTS_TAKEN_REASON);
   });
 
+  it("are disabled when every open plot already has a queued build", () => {
+    const { state, town } = setup("SETTLED");
+    for (const tile of state.tiles.values()) {
+      if (tile === town) continue;
+      state.developmentQueue.push({ kind: "SETTLE", x: tile.x, y: tile.y, tileKey: keyOf(tile), label: "queued" });
+    }
+    const manufactory = findAction(menuActionsForSingleTile(state, town, baseDeps as never), "build_manufactory");
+    expect(manufactory?.disabledReason).toBe(TOWN_PLOTS_TAKEN_REASON);
+  });
+
   it("stay available once a support plot is open", () => {
     const { state, town } = setup("SETTLED");
     const manufactory = findAction(menuActionsForSingleTile(state, town, baseDeps as never), "build_manufactory");

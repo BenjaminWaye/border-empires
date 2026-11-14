@@ -14,16 +14,20 @@ import { townBuildPlots } from "../client-hud-v2/client-hud-v2-town-plots.js";
 export const TOWN_PLOT_NEEDS_GARRISON_REASON = "Garrison a tile next to this town first";
 export const TOWN_PLOTS_TAKEN_REASON = "No open build plot next to this town";
 
+type GateState = Pick<ClientState, "tiles" | "me" | "developmentQueue" | "settleProgressByTile" | "autoSettleTargets">;
+
 /** The town tile's reason when none of its support plots can take a building, or undefined when one can. */
-export const townTileOpenPlotReason = (state: Pick<ClientState, "tiles" | "me">, town: Tile): string | undefined => {
-  const plots = townBuildPlots(state.tiles, town, state.me, new Set());
+export const townTileOpenPlotReason = (state: GateState, town: Tile): string | undefined => {
+  // Same in-progress set as the Build plots card: a queued build or garrison already holds its plot.
+  const inProgress = new Set([...state.developmentQueue.map((entry) => entry.tileKey), ...state.settleProgressByTile.keys(), ...state.autoSettleTargets]);
+  const plots = townBuildPlots(state.tiles, town, state.me, inProgress);
   // No known ground around the town (not loaded yet): leave it to the server rather than guess.
   if (!plots || plots.length === 0 || plots.some((plot) => plot.state === "open")) return undefined;
   return plots.some((plot) => plot.state === "locked") ? TOWN_PLOT_NEEDS_GARRISON_REASON : TOWN_PLOTS_TAKEN_REASON;
 };
 
 export const supportPlacementBlockedReason = (
-  state: Pick<ClientState, "tiles" | "me">,
+  state: GateState,
   tile: Tile,
   townBuildSource: Tile | undefined,
   hasBlockingStructure: boolean
