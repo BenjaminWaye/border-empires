@@ -11,16 +11,17 @@ the date above.
 
 ## Problem
 
-The 2026-11-12/13 persona playtest (`docs/playtest/runs/day1-findings.md` on
-the `agent/playtest-personas` branch, items 22 and 25; diaries `pt-diplomat`
-and `pt-strategist`) found that diplomacy reads as "a price calculator, not
+The 2026-11-12/13 persona playtest (Day 1 findings items 22 and 25; diaries
+`pt-diplomat` and `pt-strategist`; the run notes were on the unmerged
+`agent/playtest-personas` branch when this was written) found that diplomacy reads as "a price calculator, not
 people":
 
 1. **Free truces are always accepted, instantly**, even by Warlike or Annoyed
    AIs with contested borders. The strategist signed 7 of 8; the one decline
    came straight back as a counter-offer.
 2. **Envoy Accreditation** (+10% Coin per active truce or alliance, max +50%)
-   turns those free signatures into about 40% of early income: the dominant
+   turns those free signatures into roughly a third of early income (the
+   +40-50% bonus on base income; at most 0.5/1.5 of the total): the dominant
    opener.
 3. **Re-signing is a daily chore**: every truce lapses within 48h and the
    +50% has to be re-tapped back together.
@@ -33,9 +34,9 @@ people":
    indicator**: three alliance offers went to real players with no way to add
    a word or know whether they would ever be seen.
 
-Already fixed separately (bug PRs, not this proposal): Break Truce reachable
-from the Diplomacy screen, ally deals no longer offer a truce, and AI reason
-lines now name tiles the AI recently took from you.
+Fixed separately (bug PRs, not this proposal): Break Truce reachable from the
+Diplomacy screen and ally deals no longer offer a truce (#2777), and AI reason
+lines name tiles the AI recently took from you (#2778).
 
 ## Why it happens (today)
 
@@ -48,11 +49,15 @@ Read before choosing an option; each cause points at the code an option touches.
   (`ATTITUDE_PRICE_MULTIPLIER`, 1.5 for Annoyed) are **multipliers**, so they
   scale zero to zero.
 - **"Desperate" AIs give truces away**: a `SEEKING_PEACE` stance applies
-  `DESPERATE_DISCOUNT = 0` to the base price for *every* requester, not just
-  the rival it is fighting. `SEEKING_PEACE` fires when free + mustered
-  manpower is at or below 20% of cap (`ai-war-exhaustion.ts`), which is common
-  because manpower arrives in one payout every 4h. This is why Linnea
-  (Warlike, Annoyed, contested border) extended for nothing.
+  `DESPERATE_DISCOUNT = 0` to the base price. The stance is worked out per
+  requester: `warExhaustion(ai, requester, bordersTouch)` in
+  `ai-war-exhaustion.ts` counts the AI as exhausted at or below 20% of cap
+  only when no refill lands within the hour (`REFILL_SOON`), the requester
+  isn't also spent or weaker (`RIVAL_ALSO_SPENT`), and the shared border isn't
+  the AI's only room to grow (`BOXED_IN`). A starving AI (food deficit) is
+  `SEEKING_PEACE` toward everyone, whatever its manpower. Linnea (Warlike,
+  contested border) still extended for nothing, so one of these paths fires
+  more often than intended; find which before changing the discount.
 - **Envoy Accreditation counts any partner**: `afcEnvoyIncomeShare` in
   `apps/simulation/src/afc-specializations/afc-coalition.ts` counts every
   distinct House with an active truce or alliance, capped at
