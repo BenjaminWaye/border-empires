@@ -6,6 +6,8 @@
 
 import { latestOwnFight } from "../client-detached-attacks/client-detached-attacks.js";
 import { musterFlagCap } from "@border-empires/shared";
+import { showCaptureAlert } from "../client-alerts/client-alerts.js";
+import { clearAllWaypoints } from "../client-waypoint-action-handlers.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
@@ -138,6 +140,12 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const open = target.closest<HTMLElement>("[data-hud-v2-open]");
   if (open?.dataset.hudV2Open) {
     openTarget(deps, open.dataset.hudV2Open);
+    return;
+  }
+  // Tracker "Queued expansions": stop every queued Expand To, here and on the server.
+  if (target.closest("[data-hud-v2-cancel-waypoints]")) {
+    if (clearAllWaypoints({ state: deps.state, sendGameMessage: deps.sendGameMessage })) showCaptureAlert(deps.state, "Expansions cancelled", "Queued expansions stopped. No more manpower is spent on them.", "success");
+    deps.renderHud();
     return;
   }
   // Dev slots fold open in the tracker, next to the pips, instead of sending you to a side panel.
@@ -311,6 +319,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     slotsOpen: slotsFold.open,
     slotsPulse: slotPulse(trackerScan.buildSlots.busy, trackerScan.queue.length, nowMs),
     capture,
+    waypoints: state.waypoint.map((w) => ({ x: w.target.x, y: w.target.y, paused: Boolean(w.pausedForManpower) })),
     nowMs
   };
   writeRegion("tracker", document.body.classList.contains("hud-v2-compact") ? compactTrackerHtml(input) : trackerHtml(input));

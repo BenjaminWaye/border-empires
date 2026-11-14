@@ -91,10 +91,13 @@ const isExpandingBeacon = (a: TileActionDef): boolean => a.id === "build_relay_b
  * With no Garrison or Expand To the player can do, the tile's main action stays on the bar greyed with its
  * reason, instead of moving to the minor row or the Build list where players couldn't find it. Interior
  * settled tiles also offer a beacon; a blocked one there is not their main action, so it isn't kept.
+ * An unexplored tile's Explore, greyed while the drone is out, likewise keeps its "back in …" reason on
+ * the bar: in the minor row the reason was only a tooltip, which a phone never shows (2026-11-14 playtest).
  */
 const blockedPrimaryAction = (view: BarView): TileActionDef | undefined => {
   if (view.actions.some((a) => a.id === "settle_land" && !a.disabled)) return undefined;
   return view.actions.find((a) => isGarrison(a) && a.recommended)
+    ?? view.actions.find((a) => a.id === "explore_scout")
     ?? view.actions.find((a) => (a.id === "settle_land" && !isGarrison(a)) || a.id === "expand_here")
     ?? [...view.actions, ...view.buildings].find(isExpandingBeacon);
 };
