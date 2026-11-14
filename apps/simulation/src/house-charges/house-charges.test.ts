@@ -73,11 +73,16 @@ describe("dealing", () => {
     expect(state.offered.some((charge) => charge.kind === "RELIC")).toBe(false);
   });
 
-  it("offers nothing a rival already owns as a town", () => {
+  it("falls back to rival-held towns when no open town qualifies, but never beside a rival's landing site", () => {
     const tiles = buildChargeWorld();
     garrisonKeys(tiles, "rival", [VELL, HARROWMERE]);
-    const state = deal(tiles)!;
-    expect(state.offered.some((charge) => charge.kind === "CHARTER" || charge.kind === "SEAT")).toBe(false);
+    const fallback = deal(tiles)!;
+    expect(fallback.offered.some((charge) => charge.kind === "CHARTER" || charge.kind === "SEAT")).toBe(true);
+    const guarded = dealHouseCharges({
+      world: houseChargesWorldFor(tiles), tiles, playerId: "p1", home: HOME, worldSeed: 42, holders: () => 0, now: 1_000,
+      rivalLandingSites: [{ x: 9, y: 15 }, { x: 30, y: 19 }]
+    })!;
+    expect(guarded.offered.some((charge) => charge.kind === "CHARTER" || charge.kind === "SEAT")).toBe(false);
   });
 });
 
@@ -230,5 +235,31 @@ describe("card art", () => {
     expect(art!.cells[(CHARGE_ART_HEIGHT - 1) * CHARGE_ART_WIDTH]).toBe(false);
     const [result] = houseChargesAtCrowning([{ id: "p1", houseCharges: state }], 3_000);
     expect(result!.charges[0]).toMatchObject({ held: true, places: ["Vell", "Harrowmere"], art: state.art![charter.id] });
+  });
+});
+
+describe("cross-water Charters", () => {
+  it("joins towns on two landmasses through two docks the House garrisons", async () => {
+    const { charterRoad } = await import("./house-charge-held.js");
+    const tiles = buildChargeWorld();
+    tiles.set("39,12", { ...tiles.get("39,12")!, dockId: "dock-main" });
+    tiles.set("44,12", { ...tiles.get("44,12")!, dockId: "dock-isle" });
+    tiles.set("48,12", { ...tiles.get("48,12")!, town: { type: "MARKET", populationTier: "TOWN", name: "Corvanne" } });
+    const world = houseChargesWorldFor(tiles);
+    expect([...world.dockedIslandIds]).toHaveLength(2);
+    // Harrowmere (30,20) east to the main dock, and the island dock east to Corvanne.
+    const mainLand = [...Array.from({ length: 10 }, (_, i) => `${30 + i},20`), ...Array.from({ length: 8 }, (_, i) => `39,${12 + i}`)];
+    const isleLand = Array.from({ length: 5 }, (_, i) => `${44 + i},12`);
+    garrisonKeys(tiles, "p1", [...mainLand, HARROWMERE]);
+    expect(charterRoad(tiles, world, "p1", HARROWMERE, "48,12")).toBeUndefined();
+    garrisonKeys(tiles, "p1", isleLand);
+    const road = charterRoad(tiles, world, "p1", HARROWMERE, "48,12")!;
+    expect(road[0]).toEqual({ x: 30, y: 20 });
+    expect(road.at(-1)).toEqual({ x: 48, y: 12 });
+    expect(road).toContainEqual({ x: 39, y: 12 });
+    expect(road).toContainEqual({ x: 44, y: 12 });
+    // Losing the island dock breaks the crossing.
+    tiles.set("44,12", { ...tiles.get("44,12")!, ownerId: "rival" });
+    expect(charterRoad(tiles, world, "p1", HARROWMERE, "48,12")).toBeUndefined();
   });
 });

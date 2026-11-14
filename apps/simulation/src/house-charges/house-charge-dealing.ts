@@ -37,7 +37,18 @@ export type DealHouseChargesInput = {
   /** How many Houses already hold (were offered) the target with this key. */
   readonly holders: (targetKey: string) => number;
   readonly now: number;
+  /** Other Houses' landing sites; towns right beside them (a House's seat of power) are never targets. */
+  readonly rivalLandingSites?: readonly HouseChargePoint[];
+  /** Multiplies every maximum distance band; dealHouseCharges widens it when too little qualifies nearby. */
+  readonly reachScale?: number;
 };
+
+/** Wider searches tried, in order, while fewer than HOUSE_CHARGES_KEPT charges qualify (crowded maps). */
+const REACH_SCALES = [1, 1.6, 2.2, 3] as const;
+const reach = (input: DealHouseChargesInput): number => input.reachScale ?? 1;
+
+/** Towns within this distance of a rival's landing site are never charge targets. */
+const RIVAL_SEAT_EXCLUSION = 4;
 
 const hashString = (value: string): number => {
   let hash = 2166136261;
@@ -84,23 +95,51 @@ const isOpenTown = (town: ChargeTownSite, tiles: ReadonlyMap<string, DomainTileS
   return !ownerId || ownerId === playerId || ownerId === "barbarian-1";
 };
 
+/**
+ * Towns passing `eligible`, open ones first: a charge only asks a House to
+ * take a rival's town when no open town qualifies (crowded maps, where rivals
+ * already hold most towns near a landing). Never a town beside a rival's
+ * landing site, so no House is charged with taking another's seat.
+ */
+const townTiers = (input: DealHouseChargesInput, eligible: (town: ChargeTownSite) => boolean): [ChargeTownSite[], ChargeTownSite[]] => {
+  const rivalSites = input.rivalLandingSites ?? [];
+  const open: ChargeTownSite[] = [];
+  const all: ChargeTownSite[] = [];
+  for (const town of input.world.towns) {
+    if (!eligible(town) || input.holders(`town:${town.key}`) >= HOUSE_CHARGE_TOWN_CAP) continue;
+    if (rivalSites.some((site) => chargeDistance(input.world, site, town) <= RIVAL_SEAT_EXCLUSION)) continue;
+    all.push(town);
+    if (isOpenTown(town, input.tiles, input.playerId)) open.push(town);
+  }
+  return [open, all];
+};
+
 const charterCandidate = (input: DealHouseChargesInput, random: () => number): HouseCharge | undefined => {
   const { world, tiles, home } = input;
   const homeIsland = world.islands.islandAt(home.x, home.y)?.id;
   if (!homeIsland) return undefined;
-  const near = world.towns.filter((town) => {
+  // Towns on the home landmass, or on any docked landmass when the home one has a dock: a road may cross the sea.
+  const reachable = (islandId: string | undefined): boolean =>
+    islandId === homeIsland || (islandId !== undefined && world.dockedIslandIds.has(homeIsland) && world.dockedIslandIds.has(islandId));
+  const tiers = townTiers(input, (town) => {
     const distance = chargeDistance(world, home, town);
-    return town.islandId === homeIsland && distance >= HOUSE_CHARGE_CHARTER_TOWN_MIN_DISTANCE && distance <= HOUSE_CHARGE_CHARTER_TOWN_MAX_DISTANCE &&
-      isOpenTown(town, tiles, input.playerId) && input.holders(`town:${town.key}`) < HOUSE_CHARGE_TOWN_CAP;
+    return reachable(town.islandId) && distance >= HOUSE_CHARGE_CHARTER_TOWN_MIN_DISTANCE && distance <= HOUSE_CHARGE_CHARTER_TOWN_MAX_DISTANCE * reach(input);
   });
-  const pairs: Array<[ChargeTownSite, ChargeTownSite, number]> = [];
-  for (let i = 0; i < near.length; i += 1) {
-    for (let j = i + 1; j < near.length; j += 1) {
-      const distance = chargeDistance(world, near[i]!, near[j]!);
-      if (distance >= HOUSE_CHARGE_CHARTER_PAIR_MIN_DISTANCE && distance <= HOUSE_CHARGE_CHARTER_PAIR_MAX_DISTANCE) pairs.push([near[i]!, near[j]!, distance]);
+  const pairsOf = (near: readonly ChargeTownSite[]): Array<[ChargeTownSite, ChargeTownSite, number]> => {
+    const pairs: Array<[ChargeTownSite, ChargeTownSite, number]> = [];
+    for (let i = 0; i < near.length; i += 1) {
+      for (let j = i + 1; j < near.length; j += 1) {
+        const distance = chargeDistance(world, near[i]!, near[j]!);
+        // Same-landmass pairs, or pairs on two docked landmasses (joined by sea).
+        const crossesWater = near[i]!.islandId !== near[j]!.islandId;
+        if (crossesWater && !(world.dockedIslandIds.has(near[i]!.islandId ?? "") && world.dockedIslandIds.has(near[j]!.islandId ?? ""))) continue;
+        if (distance >= HOUSE_CHARGE_CHARTER_PAIR_MIN_DISTANCE && distance <= HOUSE_CHARGE_CHARTER_PAIR_MAX_DISTANCE) pairs.push([near[i]!, near[j]!, distance]);
+      }
     }
-  }
-  const chosen = pick(random, pairs);
+    return pairs;
+  };
+  const openPairs = pairsOf(tiers[0]);
+  const chosen = pick(random, openPairs.length > 0 ? openPairs : pairsOf(tiers[1]));
   if (!chosen) return undefined;
   const [a, b, pairDistance] = chosen;
   const route = pairDistance + Math.min(chargeDistance(world, home, a), chargeDistance(world, home, b));
@@ -113,19 +152,19 @@ const charterCandidate = (input: DealHouseChargesInput, random: () => number): H
     targets,
     searchCircle: searchCircleAround(random, midpoint, Math.max(HOUSE_CHARGE_SEARCH_RADIUS, Math.ceil(pairDistance / 2) + 3), input.world),
     rarity: renown >= 3 ? "RARE" : "COMMON",
-    renown
+    renown,
+    ...(a.islandId !== b.islandId ? { crossWater: true } : {})
   };
 };
 
 const seatCandidate = (input: DealHouseChargesInput, random: () => number): HouseCharge | undefined => {
   const { world, tiles, home } = input;
-  const seats = world.towns.filter((town) => {
+  const [openSeats, allSeats] = townTiers(input, (town) => {
     const distance = chargeDistance(world, home, town);
     const tier = tiles.get(town.key)?.town?.populationTier;
-    return (tier === "SETTLEMENT" || tier === "TOWN") && distance >= HOUSE_CHARGE_SEAT_MIN_DISTANCE && distance <= HOUSE_CHARGE_SEAT_MAX_DISTANCE &&
-      isOpenTown(town, tiles, input.playerId) && input.holders(`town:${town.key}`) < HOUSE_CHARGE_TOWN_CAP;
+    return (tier === "SETTLEMENT" || tier === "TOWN") && distance >= HOUSE_CHARGE_SEAT_MIN_DISTANCE && distance <= HOUSE_CHARGE_SEAT_MAX_DISTANCE * reach(input);
   });
-  const town = pick(random, seats);
+  const town = pick(random, openSeats.length > 0 ? openSeats : allSeats);
   if (!town) return undefined;
   const startTier = tiles.get(town.key)?.town?.populationTier ?? "TOWN";
   const renown = (startTier === "SETTLEMENT" ? 2 : 1) + (chargeDistance(world, home, town) > 30 ? 1 : 0);
@@ -149,7 +188,7 @@ const surveyCandidate = (input: DealHouseChargesInput, random: () => number): Ho
     const key = `island:${island.id}`;
     if (input.holders(key) >= HOUSE_CHARGE_TARGET_CAP) continue;
     const nearest = nearestCell(world, island.cells, home);
-    if (nearest.distance > HOUSE_CHARGE_REGION_MAX_DISTANCE) continue;
+    if (nearest.distance > HOUSE_CHARGE_REGION_MAX_DISTANCE * reach(input)) continue;
     const renown = island.landTilesAtBuild <= 150 ? 1 : island.landTilesAtBuild <= 350 ? 2 : 3;
     const centre = { x: Math.round(island.geometry.x), y: Math.round(island.geometry.y) };
     options.push({
@@ -172,7 +211,7 @@ const regionCandidate = (input: DealHouseChargesInput, random: () => number, kin
     if (region.kind !== kind) continue;
     const key = `region:${region.id}`;
     if (input.holders(key) >= HOUSE_CHARGE_TARGET_CAP) continue;
-    if (nearestCell(world, region.cells, home).distance > HOUSE_CHARGE_REGION_MAX_DISTANCE) continue;
+    if (nearestCell(world, region.cells, home).distance > HOUSE_CHARGE_REGION_MAX_DISTANCE * reach(input)) continue;
     const renown = kind === "TUNDRA" ? 3 : region.cells.length <= 120 ? 1 : region.cells.length <= 250 ? 2 : 3;
     options.push({
       id: `${kind}:${key}`,
@@ -192,7 +231,7 @@ const relicCandidate = (input: DealHouseChargesInput, random: () => number): Hou
   const sites = world.relics.filter((site) => {
     const wonder = tiles.get(site.key)?.naturalWonder;
     if (!wonder || wonder.remainingUses === 0) return false;
-    return chargeDistance(world, home, site) <= HOUSE_CHARGE_RELIC_MAX_DISTANCE && input.holders(`relic:${site.key}`) < HOUSE_CHARGE_TARGET_CAP;
+    return chargeDistance(world, home, site) <= HOUSE_CHARGE_RELIC_MAX_DISTANCE * reach(input) && input.holders(`relic:${site.key}`) < HOUSE_CHARGE_TARGET_CAP;
   });
   const site = pick(random, sites);
   if (!site) return undefined;
@@ -208,13 +247,31 @@ const relicCandidate = (input: DealHouseChargesInput, random: () => number): Hou
   };
 };
 
-/** Deals a House its charges, or undefined when no target near its landing site qualifies. */
+/**
+ * Deals a House its charges, or undefined when no target qualifies. On a
+ * crowded map where fewer than two qualify within the plan's bands, the
+ * search widens (REACH_SCALES) before giving up.
+ */
 export const dealHouseCharges = (input: DealHouseChargesInput): HouseChargesState | undefined => {
+  let best: HouseChargesState | undefined;
+  for (const reachScale of REACH_SCALES) {
+    const dealt = dealWithinReach({ ...input, reachScale });
+    if (dealt && dealt.offered.length >= (best?.offered.length ?? 0)) best = dealt;
+    if (best && best.keptIds.length >= HOUSE_CHARGES_KEPT) break;
+  }
+  return best;
+};
+
+const dealWithinReach = (input: DealHouseChargesInput): HouseChargesState | undefined => {
   const random = seededRandom(hashString(`house-charges:${input.worldSeed}:${input.playerId}`));
   const relic = relicCandidate(input, random);
+  const charter = charterCandidate(input, random);
+  // A Seat must not reuse one of this deal's Charter towns past the holder cap: count them as already held.
+  const charterKeys = new Set(charter?.targets.map((target) => target.key) ?? []);
+  const seatInput = { ...input, holders: (key: string) => input.holders(key) + (charterKeys.has(key) ? 1 : 0) };
   const others = [
-    charterCandidate(input, random),
-    seatCandidate(input, random),
+    charter,
+    seatCandidate(seatInput, random),
     surveyCandidate(input, random),
     regionCandidate(input, random, "DESERT"),
     regionCandidate(input, random, "TUNDRA")

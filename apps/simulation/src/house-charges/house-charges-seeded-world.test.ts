@@ -22,10 +22,12 @@ const landEveryEmpire = (tiles: Map<string, DomainTileState>): void => {
   }
 };
 
-describe("House Charges on seeded continent worlds", () => {
-  for (const seed of [4242, 9001]) {
-    it(`deals two charges to at least 95% of 100 empires (seed ${seed})`, () => {
-      const world = createSeasonSeedWorld(seed, noopPlayer, { humanPlayerCount: 0, aiPlayerCount: 100, style: "continents" });
+describe("House Charges on seeded worlds", () => {
+  // Island maps with 100 empires are crowded (most towns are someone's starting town), so they rely on
+  // cross-water Charters, rival-held towns as a fallback, and the widening search in house-charge-dealing.ts.
+  for (const [style, seed] of [["continents", 4242], ["continents", 9001], ["islands", 4242], ["islands", 9001]] as const) {
+    it(`deals two charges to at least 95% of 100 empires (${style}, seed ${seed})`, () => {
+      const world = createSeasonSeedWorld(seed, noopPlayer, { humanPlayerCount: 0, aiPlayerCount: 100, style });
       const tiles = world.tiles as Map<string, DomainTileState>;
       landEveryEmpire(tiles);
       const players = new Map([...world.players].filter(([id]) => id !== "barbarian-1"));

@@ -35,33 +35,30 @@ export const charterRoadLength = (
   toKey: string
 ): number | undefined => charterRoad(tiles, world, playerId, fromKey, toKey)?.length;
 
-/** The shortest garrisoned road between two towns, as its tiles from one town to the other, or undefined. */
-export const charterRoad = (
+type Point = { x: number; y: number };
+
+/** Shortest path through the House's garrisoned land from `fromKey` to the first tile passing `isGoal`, or undefined. */
+const garrisonedPath = (
   tiles: ReadonlyMap<string, DomainTileState>,
   world: Pick<HouseChargesWorld, "width" | "height">,
   playerId: string,
   fromKey: string,
-  toKey: string
-): Array<{ x: number; y: number }> | undefined => {
-  const from = tiles.get(fromKey);
-  const to = tiles.get(toKey);
-  for (const end of [from, to]) {
-    if (!isGarrisonedBy(end, playerId) || !end.town || !ROAD_TOWN_TIERS.has(end.town.populationTier)) return undefined;
-  }
+  isGoal: (key: string, tile: DomainTileState) => boolean
+): Point[] | undefined => {
   // BFS bounded by the House's own garrisoned component.
   const previousByKey = new Map<string, string | undefined>([[fromKey, undefined]]);
   const queue: string[] = [fromKey];
   for (let index = 0; index < queue.length; index += 1) {
     const key = queue[index]!;
-    if (key === toKey) {
-      const path: Array<{ x: number; y: number }> = [];
+    const tile = tiles.get(key)!;
+    if (isGoal(key, tile)) {
+      const path: Point[] = [];
       for (let step: string | undefined = key; step !== undefined; step = previousByKey.get(step)) {
-        const tile = tiles.get(step)!;
-        path.push({ x: tile.x, y: tile.y });
+        const stepTile = tiles.get(step)!;
+        path.push({ x: stepTile.x, y: stepTile.y });
       }
       return path.reverse();
     }
-    const tile = tiles.get(key)!;
     for (const [dx, dy] of STEPS) {
       const nx = (((tile.x + dx) % world.width) + world.width) % world.width;
       const ny = (((tile.y + dy) % world.height) + world.height) % world.height;
@@ -72,6 +69,33 @@ export const charterRoad = (
     }
   }
   return undefined;
+};
+
+/**
+ * The shortest road between two garrisoned towns, as its tiles from one town
+ * to the other, or undefined. The road runs over the House's garrisoned land
+ * and may cross the sea once, between two docks the House garrisons (dock
+ * links join every docked landmass, so any two such docks connect).
+ */
+export const charterRoad = (
+  tiles: ReadonlyMap<string, DomainTileState>,
+  world: Pick<HouseChargesWorld, "width" | "height">,
+  playerId: string,
+  fromKey: string,
+  toKey: string
+): Point[] | undefined => {
+  const from = tiles.get(fromKey);
+  const to = tiles.get(toKey);
+  for (const end of [from, to]) {
+    if (!isGarrisonedBy(end, playerId) || !end.town || !ROAD_TOWN_TIERS.has(end.town.populationTier)) return undefined;
+  }
+  const overland = garrisonedPath(tiles, world, playerId, fromKey, (key) => key === toKey);
+  if (overland) return overland;
+  const isDock = (_key: string, tile: DomainTileState): boolean => Boolean(tile.dockId);
+  const toFromDock = garrisonedPath(tiles, world, playerId, fromKey, isDock);
+  const toToDock = garrisonedPath(tiles, world, playerId, toKey, isDock);
+  if (!toFromDock || !toToDock) return undefined;
+  return [...toFromDock, ...toToDock.reverse()];
 };
 
 const cellPoints = (cells: Int32Array, width: number): Array<{ x: number; y: number }> =>

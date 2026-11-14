@@ -77,7 +77,8 @@ const chargeView = (
     ...(kept && completeSince === undefined && state.lostAt?.[charge.id] !== undefined ? { lostAt: state.lostAt[charge.id] } : {}),
     searchCircle: { ...charge.searchCircle },
     ...(charge.startTier ? { startTier: charge.startTier } : {}),
-    ...(charge.areaTiles !== undefined ? { areaTiles: charge.areaTiles } : {})
+    ...(charge.areaTiles !== undefined ? { areaTiles: charge.areaTiles } : {}),
+    ...(charge.crossWater ? { crossWater: true } : {})
   };
   if (charge.kind !== "RELIC") {
     const areaTileKeys = areaTileKeysFor(charge, world);

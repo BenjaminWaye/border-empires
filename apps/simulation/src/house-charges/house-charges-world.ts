@@ -20,6 +20,8 @@ export type HouseChargesWorld = {
   readonly regions: BiomeRegionRegistry;
   readonly towns: readonly ChargeTownSite[];
   readonly relics: readonly ChargeRelicSite[];
+  /** Islands with at least one dock: a Charter may join towns on two of them by sea (house-charge-held.ts). */
+  readonly dockedIslandIds: ReadonlySet<string>;
   readonly regionName: (region: BiomeRegionRecord) => string;
 };
 
@@ -35,7 +37,12 @@ export const houseChargesWorldFor = (
   const islandNames = islandNamesWorldFor(tiles);
   const towns: ChargeTownSite[] = [];
   const relics: ChargeRelicSite[] = [];
+  const dockedIslandIds = new Set<string>();
   for (const [key, tile] of tiles) {
+    if (tile.dockId) {
+      const islandId = islandNames.registry.islandAt(tile.x, tile.y)?.id;
+      if (islandId) dockedIslandIds.add(islandId);
+    }
     if (tile.town) towns.push({ key, x: tile.x, y: tile.y, islandId: islandNames.registry.islandAt(tile.x, tile.y)?.id });
     if (tile.naturalWonder) relics.push({ key, x: tile.x, y: tile.y });
   }
@@ -51,6 +58,7 @@ export const houseChargesWorldFor = (
     regions: buildBiomeRegionRegistry(tiles, width, height),
     towns,
     relics,
+    dockedIslandIds,
     regionName: (region) => {
       let name = regionNames.get(region.id);
       if (name === undefined) {

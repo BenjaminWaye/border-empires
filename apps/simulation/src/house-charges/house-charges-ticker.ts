@@ -70,7 +70,8 @@ export const runHouseChargesPass = (
       const home = sites.get(player.id);
       if (!home) continue;
       // A landing with no qualifying target gets an empty deal, so it is not retried every pass.
-      const dealt = dealHouseCharges({ world, tiles, playerId: player.id, home, worldSeed, holders: (key) => holderCount.get(key) ?? 0, now: nowMs }) ??
+      const rivalLandingSites = [...sites].filter(([playerId]) => playerId !== player.id).map(([, site]) => site);
+      const dealt = dealHouseCharges({ world, tiles, playerId: player.id, home, worldSeed, holders: (key) => holderCount.get(key) ?? 0, now: nowMs, rivalLandingSites }) ??
         { dealtAt: nowMs, offered: [], keptIds: [] };
       player.houseCharges = dealt;
       for (const key of offeredTargetKeys(dealt)) holderCount.set(key, (holderCount.get(key) ?? 0) + 1);

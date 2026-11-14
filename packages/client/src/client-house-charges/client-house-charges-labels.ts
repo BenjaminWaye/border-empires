@@ -31,7 +31,7 @@ export const houseChargeObjective = (charge: HouseChargeView): string => {
   const [first, second] = charge.targets;
   switch (charge.kind) {
     case "CHARTER":
-      return `Join ${first?.name ?? "the first town"} and ${second?.name ?? "the second town"} with an unbroken road of garrisoned land, both towns at Town tier or above.`;
+      return `Join ${first?.name ?? "the first town"} and ${second?.name ?? "the second town"} with an unbroken road of garrisoned land, both towns at Town tier or above.${charge.crossWater ? " They are on different landmasses: the road crosses the sea through a dock you garrison on each side." : ""}`;
     case "SEAT":
       return `Hold ${first?.name ?? "the town"} and grow it to a City.`;
     case "SURVEY":

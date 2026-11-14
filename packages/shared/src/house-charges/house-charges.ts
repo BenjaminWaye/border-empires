@@ -66,6 +66,8 @@ export type HouseCharge = {
   relicType?: string;
   /** DESERT/TUNDRA/SURVEY: LAND tiles in the target when dealt. */
   areaTiles?: number;
+  /** CHARTER: the two towns are on different landmasses, joined by sea through two of the House's docks. */
+  crossWater?: boolean;
 };
 
 /** A House's charges, stored on its player record. */
@@ -162,6 +164,8 @@ export type HouseChargeView = {
   areaTiles?: number;
   /** SURVEY/DESERT/TUNDRA: the target area's tile keys ("x,y"), for the map highlight; the client shows only explored ones. */
   areaTileKeys?: string[];
+  /** CHARTER on two landmasses: the road crosses the sea through two of the House's docks. */
+  crossWater?: boolean;
 };
 
 /** Pushed to a House when its charges are dealt or change, and on connect. */

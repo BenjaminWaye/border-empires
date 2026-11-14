@@ -51,6 +51,7 @@ const parseCharge = (value: unknown): HouseChargeView | undefined => {
     ...(isFiniteNumber(value.completeSince) ? { completeSince: value.completeSince } : {}),
     size: isFiniteNumber(value.size) ? value.size : 0,
     ...(isFiniteNumber(value.lostAt) ? { lostAt: value.lostAt } : {}),
+    ...(value.crossWater === true ? { crossWater: true } : {}),
     searchCircle: { x: circle.x, y: circle.y, radius: circle.radius },
     targets,
     ...(typeof value.startTier === "string" ? { startTier: value.startTier } : {}),
