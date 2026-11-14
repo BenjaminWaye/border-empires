@@ -97,8 +97,13 @@ describe("unexplored storm layer (3D)", () => {
     // and some mobile GPU compilers round a shared lattice corner differently
     // in the two cells that use it, so the fog broke into offset cell-sized
     // rectangles. An integer hash gives every corner one exact value.
-    const hash = STORM_FIELD_GLSL.slice(STORM_FIELD_GLSL.indexOf("float stormHash("), STORM_FIELD_GLSL.indexOf("float stormNoise("));
-    expect(hash).toContain("uvec2 q = uvec2(ivec2(p));");
+    const start = STORM_FIELD_GLSL.indexOf("float stormHash(");
+    const end = STORM_FIELD_GLSL.indexOf("float stormNoise(");
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const hash = STORM_FIELD_GLSL.slice(start, end);
+    expect(hash).toContain("highp uvec2 q = uvec2(ivec2(p));");
+    expect(hash).toContain("highp uint h");
     expect(hash).not.toMatch(/sin\(/);
     expect(STORM_FIELD_GLSL).not.toContain("43758");
   });

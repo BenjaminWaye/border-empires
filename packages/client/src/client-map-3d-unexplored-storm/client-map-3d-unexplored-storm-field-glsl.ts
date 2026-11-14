@@ -12,8 +12,8 @@ export const STORM_FIELD_GLSL = `
 // disagree on their shared corner, and the clouds break into offset
 // cell-sized rectangles. p is a lattice point (floor()ed, exact in float).
 float stormHash(vec2 p) {
-  uvec2 q = uvec2(ivec2(p));
-  uint h = q.x * 1597334677u ^ q.y * 3812015801u;
+  highp uvec2 q = uvec2(ivec2(p)); // highp: the hash needs full 32-bit uint
+  highp uint h = q.x * 1597334677u ^ q.y * 3812015801u;
   h ^= h >> 16u;
   h *= 0x7feb352du;
   h ^= h >> 15u;
