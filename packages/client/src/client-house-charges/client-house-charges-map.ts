@@ -55,3 +55,18 @@ export const houseChargeTintTiles = (state: ChargeMapState): ChargeTintTile[] =>
   }
   return tiles;
 };
+
+export type ChargeAreaEdge = ChargeMapPoint & { side: "N" | "E" | "S" | "W" };
+
+/** Tile sides on the outline of the shaded area: sides whose neighbour is not shaded. */
+export const houseChargeAreaEdges = (tiles: readonly ChargeTintTile[], worldWidth: number, worldHeight: number): ChargeAreaEdge[] => {
+  const shaded = new Set(tiles.map((tile) => `${tile.x},${tile.y}`));
+  const edges: ChargeAreaEdge[] = [];
+  const sides = [["N", 0, -1], ["E", 1, 0], ["S", 0, 1], ["W", -1, 0]] as const;
+  for (const tile of tiles) {
+    for (const [side, dx, dy] of sides) {
+      if (!shaded.has(`${wrap(tile.x + dx, worldWidth)},${wrap(tile.y + dy, worldHeight)}`)) edges.push({ x: tile.x, y: tile.y, side });
+    }
+  }
+  return edges;
+};

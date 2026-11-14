@@ -21,7 +21,8 @@ const desert: HouseChargeView = {
   areaTileKeys: ["25,2", "26,2", "27,2"],
   areaTiles: 3
 };
-const seat: HouseChargeView = { ...desert, id: "SEAT:town:8,15", kind: "SEAT", title: "Seat of Vell", targets: [{ key: "town:8,15", name: "Vell", x: 8, y: 15 }], areaTileKeys: undefined } as HouseChargeView;
+const { areaTileKeys: _desertArea, areaTiles: _desertTiles, ...pointCharge } = desert;
+const seat: HouseChargeView = { ...pointCharge, id: "SEAT:town:8,15", kind: "SEAT", title: "Seat of Vell", targets: [{ key: "town:8,15", name: "Vell", x: 8, y: 15 }] };
 
 const mapState = (tiles: Array<[string, Tile]>, charge: HouseChargeView | undefined = desert) => ({
   onboardingHighlightTiles: [] as Array<{ x: number; y: number }>,
@@ -63,20 +64,31 @@ describe("renderer parity", () => {
     const fills: Array<{ style: string; args: number[] }> = [];
     const context = {
       save: vi.fn(), restore: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), stroke: vi.fn(), fill: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), closePath: vi.fn(),
-      globalAlpha: 1, strokeStyle: "", fillStyle: "", lineWidth: 1,
+      globalAlpha: 1, strokeStyle: "", fillStyle: "", lineWidth: 1, rect: vi.fn(), clip: vi.fn(),
       fillRect(...args: number[]) { fills.push({ style: this.fillStyle, args }); }
     };
     drawMapGuideOverlays(state, { ctx: context as unknown as CanvasRenderingContext2D, worldToScreen: (x, y) => ({ sx: x * 10, sy: y * 10 }), size: 10, halfW: 0, halfH: 0, nowMs: 0 });
     expect(fills).toEqual([{ style: CHARGE_TINT_GARRISONED, args: [245, 15, 10, 10] }, { style: CHARGE_TINT_OPEN, args: [255, 15, 10, 10] }]);
+    // Only the tile still to take is hatched (clipped to its own square).
+    expect(context.rect).toHaveBeenCalledTimes(1);
+    expect(context.rect).toHaveBeenCalledWith(255, 15, 10, 10);
 
     const scene = new Scene();
     const overlay = createMapGuideOverlay(scene);
     overlay.sync(state, (x, y) => ({ sceneX: x, sceneZ: y, surfaceY: 0.2 }), 0);
-    const tint = scene.children.find((child): child is InstancedMesh => child instanceof InstancedMesh && child.name === "house-charge-area-tint")!;
-    expect(tint.count).toBe(2);
+    const meshNamed = (name: string) => scene.children.find((child): child is InstancedMesh => child instanceof InstancedMesh && child.name === name)!;
+    const garrisoned = meshNamed("house-charge-area-garrisoned");
+    const open = meshNamed("house-charge-area-open");
+    expect([garrisoned.count, open.count]).toEqual([1, 1]);
     const matrix = new Matrix4();
-    tint.getMatrixAt(1, matrix);
+    open.getMatrixAt(0, matrix);
     expect([matrix.elements[12], matrix.elements[14]]).toEqual([26, 2]);
+    garrisoned.getMatrixAt(0, matrix);
+    expect([matrix.elements[12], matrix.elements[14]]).toEqual([25, 2]);
+    // Outline: the two shaded tiles side by side have 6 outer sides (2 vertices each).
+    const outlineMesh = scene.children.find((child) => child.name === "house-charge-area-outline") as unknown as { geometry: { drawRange: { count: number } }; visible: boolean };
+    expect(outlineMesh.visible).toBe(true);
+    expect(outlineMesh.geometry.drawRange.count).toBe(12);
 
     // Unexplored: both renderers ring the search circle instead.
     const unexplored = mapState([]);
@@ -84,7 +96,8 @@ describe("renderer parity", () => {
     drawMapGuideOverlays(unexplored, { ctx: context as unknown as CanvasRenderingContext2D, worldToScreen: (x, y) => ({ sx: x, sy: y }), size: 10, halfW: 0, halfH: 0, nowMs: 0 });
     expect(context.arc).toHaveBeenCalledTimes(24); // halo + ring per marker
     overlay.sync(unexplored, (x, y) => ({ sceneX: x, sceneZ: y, surfaceY: 0.2 }), 0);
-    expect(tint.count).toBe(0);
+    expect([garrisoned.count, open.count]).toEqual([0, 0]);
+    expect(scene.children.find((child) => child.name === "house-charge-area-outline")!.visible).toBe(false);
     const rings = scene.children.find((child) => child.name === "onboarding-checklist-highlight-overlay")!;
     expect((rings.children[0] as InstancedMesh).count).toBe(12);
     overlay.dispose();
