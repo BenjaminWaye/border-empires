@@ -20,6 +20,7 @@ import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.
 import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
 import { SEASON_REVEAL_LOADING_CHANGELOG } from "./client-changelog-season-reveal-loading.js";
 import { BATTLE_VARIETY_ENTRY } from "./client-changelog-battle-variety.js";
+import { FIRST_DOCK_CARD_ENTRY } from "./client-changelog-first-dock-card.js";
 import { GUIDE_AND_RECOVERY_CHANGELOG } from "./client-changelog-nov-03-04-guide-recovery.js";
 import { AFC_REPLACEMENT_CHANGELOG } from "./client-changelog-afc-replacement.js";
 import { AI_FREE_TRUCE_CHANGELOG } from "./client-changelog-ai-free-truce.js";
@@ -475,6 +476,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...ZOOMED_OUT_PAN_PERF_CHANGELOG, createdAt: 1794216988849, },
   { ...WAR_TREE_HIVE_MIND_HUB_ENTRY, createdAt: 1794292926456, },
   { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, },
+  { ...FIRST_DOCK_CARD_ENTRY, createdAt: 1794657014221, },
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_110,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_111,
   { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
