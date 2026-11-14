@@ -46,6 +46,8 @@ export const showTownCaptureOverlay = (info: TownCaptureInfo): void => {
     presentTownCaptureOverlay(info);
     return;
   }
+  // Keep the occupation survey popup off the deal too, as the card itself would (it ends with the card).
+  occupationSurveyController.beginCapture();
   if (waiting) {
     waiting.info = info;
     return;

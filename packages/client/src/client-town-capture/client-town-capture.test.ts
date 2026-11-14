@@ -88,4 +88,19 @@ describe("town capture card during a deal", () => {
     expect(document.getElementById("town-capture-name")?.textContent).toBe("Second");
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  // Review of #2785: the held card no longer called beginCapture, so the occupation survey popup
+  // (a body-level modal that takes focus) could open over the deal being drafted.
+  it("keeps the occupation survey popup suppressed while the card waits", () => {
+    vi.useFakeTimers();
+    const begin = vi.spyOn(occupationSurveyController, "beginCapture");
+    const deal = document.createElement("div");
+    deal.className = "diplomacy-trade-overlay";
+    document.body.appendChild(deal);
+    showTownCaptureOverlay(info());
+    expect(begin).toHaveBeenCalled();
+    deal.remove();
+    vi.advanceTimersByTime(1_000);
+    begin.mockRestore();
+  });
 });
