@@ -14,6 +14,7 @@ import { recentClientChangelogEntries } from "./client-changelog-recent.js";
 import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
 import { COMMAND_NAVIGATION_ENTRY, NAVIGATION_LABELS_ENTRY } from "./client-changelog-command-navigation.js";
 import { CONNECTED_DISTRICTS_CHANGELOG } from "./client-changelog-connected-districts.js";
+import { CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_SCREEN } from "./client-changelog-data-diplomacy-screen.js";
 import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
 import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
 import { SEASON_REVEAL_LOADING_CHANGELOG } from "./client-changelog-season-reveal-loading.js";
@@ -310,13 +311,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CONNECTED_DISTRICTS_CHANGELOG,
   ...WAR_INDUSTRY_SQUADS_CHANGELOG,
   ...FORT_WALL_OPENINGS_CHANGELOG,
-  {
-    createdAt: 1793219423974, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.28.3",
-    title: "AI empires push reach across their own borderlands",
-    why: "AI empires holding a wide band of unsettled land outside their reach stopped growing, and they never built beacons toward plain unclaimed land.",
-    changes: ["AI empires now build relay beacons that carry reach across their own unsettled borderlands, and toward wide stretches of plain unclaimed land."]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_SCREEN,
   ...HILL_GARRISON_FILL_CHANGELOG,
   ...NAME_DECAL_HILLS_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_112,
