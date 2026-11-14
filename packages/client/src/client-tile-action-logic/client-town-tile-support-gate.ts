@@ -17,7 +17,8 @@ export const TOWN_PLOTS_TAKEN_REASON = "No open build plot next to this town";
 /** The town tile's reason when none of its support plots can take a building, or undefined when one can. */
 export const townTileOpenPlotReason = (state: Pick<ClientState, "tiles" | "me">, town: Tile): string | undefined => {
   const plots = townBuildPlots(state.tiles, town, state.me, new Set());
-  if (!plots || plots.some((plot) => plot.state === "open")) return undefined;
+  // No known ground around the town (not loaded yet): leave it to the server rather than guess.
+  if (!plots || plots.length === 0 || plots.some((plot) => plot.state === "open")) return undefined;
   return plots.some((plot) => plot.state === "locked") ? TOWN_PLOT_NEEDS_GARRISON_REASON : TOWN_PLOTS_TAKEN_REASON;
 };
 
