@@ -45,8 +45,10 @@ describe("HUD v2 towns screen", () => {
     host.innerHTML = townsBodyHtml([row(1, "A", 1)], { key: "gold", descending: true });
     const headers = Array.from(host.querySelectorAll<HTMLElement>("[data-v2-towns-sort]"));
     expect(headers.map((h) => h.textContent)).toEqual(["Coin/day ▼", "Pop", "Growth", "Slots"]);
-    for (const h of headers) expect((h.textContent ?? "").replace(" ▼", "").length).toBeLessThanOrEqual(8);
+    for (const h of headers) expect((h.textContent ?? "").replace(/\s[▼▲]$/u, "").length).toBeLessThanOrEqual(8);
     expect(headers.every((h) => (h.title ?? "").length > 0)).toBe(true);
+    // The short "Growth" header keeps its unit visible in the cell.
+    expect(host.querySelectorAll(".v2l-row .v2l-num")[2]?.textContent).toMatch(/\/min$/);
   });
 
   it("flags unfed towns and escapes names", () => {

@@ -9,7 +9,7 @@ const COLUMNS: Array<{ key: TownListSortKey; label: string; title: string }> = [
   { key: "gold", label: "Coin/day", title: "Coin per day" },
   // Short labels: at 375px the five columns are ~58px each, and "Population" / "Growth/min" ran into
   // each other (playtest day 1). The full meaning is in each header's title.
-  { key: "population", label: "Pop", title: "Population / next tier" },
+  { key: "population", label: "Pop", title: "Population / target" },
   { key: "growth", label: "Growth", title: "Population growth per minute" },
   { key: "slots", label: "Slots", title: "Open build slots" }
 ];
@@ -35,7 +35,7 @@ export const townsBodyHtml = (rows: readonly TownListRow[], sort: TownListSort):
       <span class="v2l-name"><span class="v2l-label">${esc(row.name)}</span><small>${esc(row.tierLabel)}${row.isFed ? "" : " · Unfed"}</small></span>
       <span class="v2l-num">${(row.goldPerMinute * 1440).toFixed(1)}</span>
       <span class="v2l-num">${count(row.population)}<small>/ ${count(row.maxPopulation)}</small></span>
-      <span class="v2l-num">${growth(row.growthPerMinute)}</span>
+      <span class="v2l-num">${growth(row.growthPerMinute)}<small>/min</small></span>
       <span class="v2l-num" title="Open build slots">${formatOpenSlots(row.openSlots)}</span>
     </button>`).join("");
   return `<section class="v2l-table" data-v2-scroll="towns"><div class="v2l-head"><span>Town</span>${head}</div>${body}</section>`;
