@@ -16,6 +16,12 @@ const WORLD = { width: 64, height: 32 };
 
 const isOwn = (x: number, y: number): boolean => Math.max(Math.abs(x - AFC_TILE.x), Math.abs(y - AFC_TILE.y)) <= OWN_RADIUS;
 
+const homeSource = (() => {
+  const tiles = new Map<string, { ownerId?: string }>();
+  for (let y = 0; y < GRID_H; y += 1) for (let x = 0; x < GRID_W; x += 1) if (isOwn(x, y)) tiles.set(`${x},${y}`, { ownerId: "me" });
+  return { me: "me", allies: [] as string[], tiles };
+})();
+
 const flight = planScoutDroneFlight(AFC_TILE, { x: 27, y: 5 }, 0, {
   ...WORLD,
   classify: (x, y) => (isOwn(x, y) ? { kind: "HOME" } : x >= RIVAL_FROM_X ? { kind: "BLOCKED", ownerId: "rival" } : { kind: "OPEN" })
@@ -51,7 +57,7 @@ const render = (args: Args): HTMLElement => {
       }
     }
     const shifted: ScoutDroneFlight = { ...flight, launchedAt: flight.launchedAt + shift, landsAt: flight.landsAt + shift, steps: flight.steps.map((s) => ({ ...s, at: s.at + shift })) };
-    drawScoutDrone2D(ctx, shifted, real, WORLD, (wx, wy) => ({ sx: (wx + 0.5) * size, sy: (wy + 0.5) * size }), size);
+    drawScoutDrone2D(ctx, shifted, real, WORLD, (wx, wy) => ({ sx: (wx + 0.5) * size, sy: (wy + 0.5) * size }), size, homeSource);
     if (performance.now() - start < 600_000) raf = requestAnimationFrame(frame);
   };
   frame();
@@ -80,3 +86,5 @@ export default meta;
 type Story = StoryObj<Args>;
 export const Outbound: Story = {};
 export const Returning: Story = { args: { progress: 0.62 } };
+/** Still over the player's land: nav lights on. */
+export const OverHome: Story = { args: { progress: 0.016 } };

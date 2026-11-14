@@ -30,6 +30,18 @@ const isRival = (x: number): boolean => x >= RIVAL_FROM_X;
 const sceneX = (x: number): number => x - GRID_W / 2 + 0.5;
 const sceneZ = (y: number): number => y - GRID_H / 2 + 0.5;
 
+// The board's ownership as the client sees it, so the drone runs dark once it leaves the player's land.
+const homeSource = (() => {
+  const tiles = new Map<string, { ownerId?: string }>();
+  for (let y = 0; y < GRID_H; y += 1) {
+    for (let x = 0; x < GRID_W; x += 1) {
+      if (isOwn(x, y)) tiles.set(`${x},${y}`, { ownerId: "me" });
+      else if (isRival(x)) tiles.set(`${x},${y}`, { ownerId: "rival" });
+    }
+  }
+  return { me: "me", allies: [] as string[], tiles };
+})();
+
 const storyFlight = (): ScoutDroneFlight =>
   planScoutDroneFlight(AFC_TILE, TARGET, 0, {
     ...WORLD,
@@ -97,7 +109,7 @@ const render = (args: Args): HTMLElement => {
     out.sceneZ = sceneZ(y);
     out.surfaceY = 0;
   };
-  const overlay = createScoutDroneOverlay(stage.scene, { world: WORLD, sceneFor, envMap, camera: stage.camera });
+  const overlay = createScoutDroneOverlay(stage.scene, { world: WORLD, sceneFor, envMap, camera: stage.camera, homeSource });
   const pose = createScoutDronePose();
 
   const label = document.createElement("div");
@@ -160,7 +172,14 @@ type Story = StoryObj<Args>;
 /** The whole board: AFC, the player's land, the fog lifting along the route, the rival border ahead. */
 export const Overview: Story = {};
 /** Close behind the drone as it scans unexplored ground. */
-export const CloseUp: Story = { args: { progress: 0.33, follow: true, cameraDistance: 3.2, cameraTilt: 1.05, cameraSide: 1.2 } };
+/** Over the player's own land: nav lights, tail strobe and antenna light on. */
+export const CloseUpHome: Story = { args: { atSeconds: 3.6, follow: true, cameraDistance: 3.2, cameraTilt: 1.05, cameraSide: 1.2 } };
+/** Past the border, running dark: only the dim cyan sensor glow. */
+export const CloseUpDark: Story = { args: { progress: 0.33, follow: true, cameraDistance: 3.2, cameraTilt: 1.05, cameraSide: 1.2 } };
+/** A low hero angle over home land, looking up at the underside: belly pod, gimbal, ducts. */
+export const LowHero: Story = { args: { atSeconds: 3.2, follow: true, cameraDistance: 3.4, cameraTilt: 1.5, cameraSide: 1.6 } };
+/** The game's default zoom (DEFAULT_ZOOM 22: camera 37.8 out at a 0.6 tilt), past the border. */
+export const GameplayZoom: Story = { args: { progress: 0.38, follow: true, cameraDistance: 37.8, cameraTilt: 0.6, cameraSide: 0 } };
 /** Lifting out of the AFC's crown a second after launch. */
 export const Launch: Story = { args: { atSeconds: 0.75, follow: true, cameraDistance: 5, cameraTilt: 0.95, cameraSide: 1 } };
 /** Turned back at the rival's border and heading home. */

@@ -6,6 +6,10 @@ import { createScoutDroneModel } from "./client-map-3d-scout-drone-model.js";
 import { createScoutDronePose, scoutDronePoseAt, smoothstep01 } from "./client-map-3d-scout-drone-pose.js";
 import { createScoutGroundFx } from "./client-map-3d-scout-drone-ground-fx.js";
 import { createScoutTrails } from "./client-map-3d-scout-drone-trails.js";
+import { applyScoutDroneLights } from "./client-map-3d-scout-drone-lights.js";
+import { createScoutRunningLights, resetScoutRunningLights, updateScoutRunningLights, type ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights.js";
+
+export type { ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights.js";
 
 // The true-3D view of the player's scout drone (docs/explore-scout-plan.md). The drone
 // (client-map-3d-scout-drone-model.ts) lifts out of its AFC's crown, climbs to cruise height and
@@ -29,6 +33,12 @@ export type ScoutDroneOverlayDeps = {
   readonly envMap?: Texture | undefined;
   readonly camera?: Camera | undefined;
   readonly motionGate?: UnitMotionGate;
+  /**
+   * The client's tile ownership (ClientState satisfies it). Over the player's own or allied land
+   * the drone shows its nav lights; past the border it runs dark (client-map-3d-scout-drone-running-lights.ts).
+   * Absent (stories, tests): lights stay on.
+   */
+  readonly homeSource?: ScoutHomeSource | undefined;
 };
 
 export type ScoutDroneOverlay = {
@@ -37,7 +47,7 @@ export type ScoutDroneOverlay = {
   readonly dispose: () => void;
 };
 
-export const SCOUT_DRONE_SCALE = 1.9;
+export const SCOUT_DRONE_SCALE = 2.2;
 /** Above the ground under it: docked on the AFC's crown, and at cruise. */
 export const SCOUT_DRONE_DOCK_HEIGHT = POD_AFC_CAP_Y + 0.32; // clear of the crown spike
 export const SCOUT_DRONE_CRUISE_HEIGHT = 1.95;
@@ -59,6 +69,7 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
   const gate = deps.motionGate ?? createUnitMotionGate();
 
   const pose = createScoutDronePose();
+  const runningLights = createScoutRunningLights();
   const at: ScoutDroneScenePoint = { sceneX: 0, sceneZ: 0, surfaceY: 0 };
   const step: ScoutDroneScenePoint = { sceneX: 0, sceneZ: 0, surfaceY: 0 };
   const navLeft = new Vector3();
@@ -79,6 +90,7 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     ground.setVisible(false);
     trails.setVisible(false);
     trails.reset();
+    resetScoutRunningLights(runningLights);
   };
 
   const sync: ScoutDroneOverlay["sync"] = (flight, nowMs) => {
@@ -118,37 +130,40 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     // Rotors: blades while spooling, a motion-blur disc at speed.
     if (animate) rotorAngle += dt * ROTOR_PER_MS * pose.rotor;
     const blur = animate ? smoothstep01((pose.rotor - 0.35) / 0.5) : 0;
+    // The blades fade out as the blur fades in, so the hand-over at speed is seamless.
+    model.bladeMaterial.opacity = 1 - 0.92 * blur;
     for (let k = 0; k < model.rotors.length; k += 1) {
       const rotor = model.rotors[k]!;
       rotor.blades.rotation.y = (k % 2 === 0 ? 1 : -1) * rotorAngle + k;
-      rotor.blades.visible = blur < 0.85;
+      rotor.blades.visible = blur < 0.97;
       rotor.disc.opacity = 0.42 * blur;
     }
+    // Skids: down while docked, folded up against the hull once it climbs away.
+    const fold = smoothstep01((pose.lift - 0.3) / 0.45);
+    model.skids.left.rotation.z = -1.3 * fold;
+    model.skids.right.rotation.z = 1.3 * fold;
 
     // The sensor gimbal looks down at the ground just ahead and pans across it with the sweep.
     const height = altitude - groundY;
     model.gimbalPan.rotation.y = animate ? 0.6 * Math.sin(nowMs * 0.0008) : 0;
     model.gimbalTilt.rotation.x = Math.atan2(height, 1.1) - pitch;
 
-    // Lights: steady nav lights, a pulsing lens and belly light, a tail strobe.
+    // Lights: nav lights, strobe and antenna over home land; past the border it runs dark, with
+    // only a dim cyan sensor glow left.
     const pulse = animate ? 0.5 + 0.5 * Math.sin(nowMs * 0.004) : 0.75;
-    model.lens.emissiveIntensity = 2 + 1.2 * pulse;
-    model.lights.lens.material.color.copy(model.lights.lens.base).multiplyScalar(0.7 + 0.3 * pulse);
-    model.lights.belly.material.color.copy(model.lights.belly.base).multiplyScalar(0.55 + 0.35 * pulse);
-    const strobeOn = animate ? nowMs % 1_150 < 90 : false;
-    model.lights.strobe.material.color.copy(model.lights.strobe.base).multiplyScalar(strobeOn ? 1 : 0.12);
-    model.lights.strobe.glow.scale.setScalar(model.lights.strobe.size * (strobeOn ? 1.6 : 0.6));
-    const antennaOn = animate ? nowMs % 1_600 < 700 : true;
-    model.lights.antenna.material.color.copy(model.lights.antenna.base).multiplyScalar(antennaOn ? 0.9 : 0.2);
+    const level = updateScoutRunningLights(runningLights, pose.x, pose.y, deps.world, nowMs, deps.homeSource);
+    applyScoutDroneLights(model, level, pulse, animate, nowMs);
+    // Exhaust wash under the ducts: with the rotors, fading out when running dark.
+    model.exhaust.opacity = 0.14 * pose.rotor * (0.85 + 0.15 * pulse) * level;
 
     // Wingtip trails, in the same scene space as the drone.
     model.root.updateMatrixWorld();
     navLeft.set(model.navLeftLocal.x, model.navLeftLocal.y, model.navLeftLocal.z).applyMatrix4(model.root.matrixWorld);
     navRight.set(model.navRightLocal.x, model.navRightLocal.y, model.navRightLocal.z).applyMatrix4(model.root.matrixWorld);
     if (firstFrame) trails.reset();
-    trails.setVisible(animate);
+    trails.setVisible(animate && level > 0.005);
     // Trails only read while the drone is really moving; a hovering or slow drone would stack them into blobs.
-    if (animate) trails.update(nowMs, navLeft, navRight, at.sceneX - pose.x, at.sceneZ - pose.y, deps.camera, pose.lift * (0.15 + 0.85 * speedNorm));
+    if (animate) trails.update(nowMs, navLeft, navRight, at.sceneX - pose.x, at.sceneZ - pose.y, deps.camera, pose.lift * level * (0.15 + 0.85 * speedNorm));
 
     // Ground: footprint, sweep and shadow under the drone, then the route still ahead.
     if (animate) sweepAngle = (sweepAngle + dt * SWEEP_PER_MS) % (Math.PI * 2);

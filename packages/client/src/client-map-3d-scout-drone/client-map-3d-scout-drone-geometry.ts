@@ -1,193 +1,139 @@
-import {
-  BoxGeometry,
-  BufferGeometry,
-  CapsuleGeometry,
-  CircleGeometry,
-  CylinderGeometry,
-  ExtrudeGeometry,
-  LatheGeometry,
-  Matrix4,
-  Quaternion,
-  Shape,
-  SphereGeometry,
-  TorusGeometry,
-  Vector2,
-  Vector3
-} from "three";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { BoxGeometry, BufferGeometry, CylinderGeometry, ExtrudeGeometry, Quaternion, Shape, SphereGeometry, Vector3 } from "three";
+import { bar, flatNormals, hullEdgeLines, loftFaceted, type HullStation } from "./client-map-3d-scout-drone-loft.js";
+import { mergeParts, placed } from "./client-map-3d-scout-drone-propulsion.js";
+import { applyBoxUvs } from "./client-map-3d-scout-drone-surface.js";
 
-// Geometry for the scout drone (client-map-3d-scout-drone-model.ts), in drone-local units: nose
-// toward +Z, up +Y, the fuselage centred on the origin, about 0.55 wide across the ducts. The
-// static airframe is merged into one geometry per material so the whole craft is a handful of
-// draw calls. Everything here runs once, when the overlay is created.
+// The scout drone's airframe (client-map-3d-scout-drone-model.ts), drone-local: nose toward +Z,
+// up +Y. A hard-surface arrowhead hull lofted from flat facets (two-tone, panelled through
+// box-projected UVs), a faceted sensor canopy and belly sensor pod, bronze trim on the ridge and
+// chines studded with bolt heads, cyan emissive seams just under the chines, chevron House
+// markings on the fins, and greebles: an intake on each chine, dorsal vents, sensor blisters, an
+// armoured antenna base and a raised hatch. Static parts are merged per material. Built once.
 
-export const SCOUT_ROTOR_COUNT = 4;
-export const SCOUT_ROTOR_REACH = 0.215; // hull centre to duct centre, along each diagonal
-export const SCOUT_DUCT_INNER = 0.079;
-export const SCOUT_NOSE_Z = 0.2;
-export const SCOUT_GIMBAL = { y: -0.05, z: 0.125 } as const;
-export const SCOUT_TAIL_LIGHT = { y: 0.012, z: -0.235 } as const;
-export const SCOUT_BELLY_LIGHT = { y: -0.047, z: -0.03 } as const;
-export const SCOUT_ANTENNA_TIP = { y: 0.142, z: -0.1 } as const;
-export const SCOUT_FLATTEN = 0.68; // the fuselage's height-to-width ratio
+export const SCOUT_GIMBAL = { y: -0.074, z: 0.16 } as const;
+export const SCOUT_TAIL_LIGHT = { y: 0.012, z: -0.25 } as const;
+export const SCOUT_BELLY_LIGHT = { y: -0.052, z: -0.06 } as const;
+export const SCOUT_ANTENNA_TIP = { y: 0.16, z: -0.11 } as const;
+/** Where each skid's hinge sits on the hull side (X is mirrored). */
+export const SCOUT_SKID_HINGE = { x: 0.05, y: -0.034 } as const;
 
-/** Duct centres in drone-local X/Z (front-right, front-left, rear-left, rear-right). */
-export const scoutRotorCentres = (): Array<{ x: number; z: number; angle: number }> => {
-  const centres: Array<{ x: number; z: number; angle: number }> = [];
-  for (let k = 0; k < SCOUT_ROTOR_COUNT; k += 1) {
-    const angle = Math.PI / 4 + (k * Math.PI) / 2;
-    centres.push({ x: Math.sin(angle) * SCOUT_ROTOR_REACH, z: Math.cos(angle) * SCOUT_ROTOR_REACH, angle });
-  }
-  return centres;
-};
+/** The arrowhead hull, tail to nose. */
+const HULL: readonly HullStation[] = [
+  { z: -0.245, halfWidth: 0.034, top: 0.026, chine: 0.002, keel: -0.022 },
+  { z: -0.17, halfWidth: 0.058, top: 0.042, chine: 0.002, keel: -0.038 },
+  { z: -0.03, halfWidth: 0.088, top: 0.054, chine: 0.0, keel: -0.048 },
+  { z: 0.08, halfWidth: 0.074, top: 0.05, chine: -0.004, keel: -0.044 },
+  { z: 0.18, halfWidth: 0.042, top: 0.032, chine: -0.01, keel: -0.03 },
+  { z: 0.27, halfWidth: 0.004, top: 0.004, chine: -0.014, keel: -0.016 }
+];
 
-const scratch = new Matrix4();
-const q = new Quaternion();
+const CANOPY: readonly HullStation[] = [
+  { z: -0.05, halfWidth: 0.022, top: 0.058, chine: 0.048, keel: 0.042 },
+  { z: 0.02, halfWidth: 0.034, top: 0.08, chine: 0.056, keel: 0.044 },
+  { z: 0.1, halfWidth: 0.026, top: 0.064, chine: 0.052, keel: 0.042 },
+  { z: 0.15, halfWidth: 0.006, top: 0.05, chine: 0.046, keel: 0.04 }
+];
 
-/** Bakes position/rotation/scale into a non-indexed clone, ready to merge. */
-const placed = (geometry: BufferGeometry, pos: Vector3, rot: Quaternion = q.identity(), scale = new Vector3(1, 1, 1)): BufferGeometry => {
-  const clone = (geometry.index ? geometry.toNonIndexed() : geometry.clone()).applyMatrix4(scratch.compose(pos, rot, scale));
-  clone.deleteAttribute("uv");
-  return clone;
-};
+/** The sensor pod slung under the nose, carrying the gimbal. */
+const BELLY_POD: readonly HullStation[] = [
+  { z: 0.02, halfWidth: 0.018, top: -0.03, chine: -0.044, keel: -0.05 },
+  { z: 0.08, halfWidth: 0.032, top: -0.028, chine: -0.048, keel: -0.064 },
+  { z: 0.15, halfWidth: 0.028, top: -0.022, chine: -0.044, keel: -0.06 },
+  { z: 0.19, halfWidth: 0.012, top: -0.018, chine: -0.036, keel: -0.044 }
+];
 
-const merge = (parts: BufferGeometry[]): BufferGeometry => {
-  const merged = mergeGeometries(parts, false);
-  for (const part of parts) part.dispose();
-  if (!merged) throw new Error("scout drone: geometry merge failed");
-  merged.computeBoundingSphere();
-  return merged;
-};
-
-// A tapered, slightly flattened fuselage turned on a lathe: rounded tail, widest just aft of the
-// middle, narrowing to the nose ring the sensor dome sits in.
-const fuselage = (): BufferGeometry => {
-  const profile = [
-    [0, -0.24], [0.02, -0.235], [0.036, -0.21], [0.054, -0.15], [0.069, -0.07], [0.076, 0.0],
-    [0.074, 0.07], [0.064, 0.13], [0.05, 0.175], [0.04, SCOUT_NOSE_Z]
-  ].map(([r, y]) => new Vector2(r!, y!));
-  const lathe = new LatheGeometry(profile, 28);
-  lathe.rotateX(Math.PI / 2);
-  lathe.scale(1, SCOUT_FLATTEN, 1);
-  return lathe;
-};
-
-// The ring wing around each fan: a rounded intake lip on top flaring inward, a thick shoulder and
-// a thin trailing edge underneath, turned on a lathe about the duct's vertical axis.
-const duct = (): BufferGeometry =>
-  new LatheGeometry(
-    [
-      [SCOUT_DUCT_INNER + 0.0015, -0.015], [SCOUT_DUCT_INNER, -0.003], [SCOUT_DUCT_INNER + 0.0008, 0.009],
-      [SCOUT_DUCT_INNER + 0.004, 0.0155], [SCOUT_DUCT_INNER + 0.0085, 0.017], [SCOUT_DUCT_INNER + 0.0115, 0.012],
-      [SCOUT_DUCT_INNER + 0.011, 0.0], [SCOUT_DUCT_INNER + 0.008, -0.011], [SCOUT_DUCT_INNER + 0.004, -0.0165],
-      [SCOUT_DUCT_INNER + 0.0015, -0.015]
-    ].map(([r, y]) => new Vector2(r!, y!)),
-    36
-  );
-
-// A swept tail fin, extruded with a small bevel; laid along -Z, thickness along X.
-const fin = (): BufferGeometry => {
+// A swept, angular fin with a raked tip and a single chamfer, in its own frame (length along -Z,
+// thickness along X), and the two-chevron House marking on both of its faces.
+const finShape = (): Shape => {
   const shape = new Shape();
   shape.moveTo(0, 0);
-  shape.lineTo(0.075, 0);
-  shape.lineTo(0.1, 0.062);
-  shape.lineTo(0.072, 0.064);
+  shape.lineTo(0.085, 0);
+  shape.lineTo(0.112, 0.07);
+  shape.lineTo(0.088, 0.07);
+  shape.lineTo(0.03, 0.012);
   shape.closePath();
-  const geometry = new ExtrudeGeometry(shape, { depth: 0.004, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: 0.0025, bevelSegments: 2 });
-  geometry.translate(0, 0, -0.002);
+  return shape;
+};
+const chevron = (x: number): Shape => {
+  const shape = new Shape();
+  shape.moveTo(x, 0.018);
+  shape.lineTo(x + 0.012, 0.03);
+  shape.lineTo(x, 0.042);
+  shape.lineTo(x + 0.006, 0.042);
+  shape.lineTo(x + 0.018, 0.03);
+  shape.lineTo(x + 0.006, 0.018);
+  shape.closePath();
+  return shape;
+};
+const inFinFrame = (geometry: BufferGeometry): BufferGeometry => {
   geometry.rotateY(Math.PI / 2);
   return geometry;
 };
+const fin = (): BufferGeometry =>
+  inFinFrame(new ExtrudeGeometry(finShape(), { depth: 0.004, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: 0.002, bevelSegments: 1 }).translate(0, 0, -0.002));
+const finMarking = (): BufferGeometry => {
+  const faces: BufferGeometry[] = [];
+  for (const face of [1, -1]) {
+    const marks = new ExtrudeGeometry([chevron(0.048), chevron(0.066)], { depth: 0.0008, bevelEnabled: false });
+    faces.push(flatNormals(marks.translate(0, 0, face > 0 ? 0.0036 : -0.0044)));
+  }
+  return inFinFrame(mergeParts(faces));
+};
 
 export type ScoutAirframeGeometry = {
+  /** The hull plates: two-tone vertex colours and panel UVs, for the panelled hull material. */
+  readonly hull: BufferGeometry;
   readonly steel: BufferGeometry;
   readonly bronze: BufferGeometry;
   readonly glass: BufferGeometry;
+  /** Matte black: intake mouths and vent slats. */
+  readonly dark: BufferGeometry;
+  /** Cyan emissive seams along the chines. */
+  readonly seams: BufferGeometry;
 };
 
 export const buildScoutAirframe = (): ScoutAirframeGeometry => {
-  const origin = new Vector3();
-  const up = new Vector3(0, 1, 0);
-  const steel: BufferGeometry[] = [placed(fuselage(), origin)];
-  const bronze: BufferGeometry[] = [];
-  const glass: BufferGeometry[] = [];
-
-  // Dorsal sensor bay (glass blister) and the smoked nose dome.
-  const blister = new SphereGeometry(0.042, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-  glass.push(placed(blister, new Vector3(0, 0.044, 0.035), q.identity(), new Vector3(0.78, 0.55, 1.55)));
-  const dome = new SphereGeometry(0.041, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-  glass.push(placed(dome, new Vector3(0, 0, SCOUT_NOSE_Z - 0.002), q.setFromAxisAngle(new Vector3(1, 0, 0), Math.PI / 2), new Vector3(1, 1, SCOUT_FLATTEN)));
-  // Bronze trim: nose ring, a dorsal spine, a belly keel.
-  bronze.push(placed(new TorusGeometry(0.04, 0.0045, 8, 28), new Vector3(0, 0, SCOUT_NOSE_Z), q.identity(), new Vector3(1, SCOUT_FLATTEN, 1)));
-  bronze.push(placed(new BoxGeometry(0.01, 0.007, 0.2), new Vector3(0, 0.052, -0.09)));
-  bronze.push(placed(new BoxGeometry(0.008, 0.008, 0.2), new Vector3(0, -0.051, -0.02)));
-  // V-tail fins.
-  for (const side of [-1, 1]) {
-    const rot = new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), side * -0.5);
-    steel.push(placed(fin(), new Vector3(side * 0.01, 0.032, -0.15), rot));
-  }
-  // Antenna mast, tapered.
-  bronze.push(placed(new CylinderGeometry(0.0018, 0.004, 0.1, 6), new Vector3(0, 0.092, -0.1)));
-
-  const ductGeometry = duct();
-  const lipGeometry = new TorusGeometry(SCOUT_DUCT_INNER + 0.0055, 0.0032, 6, 36);
-  lipGeometry.rotateX(Math.PI / 2);
-  const strutGeometry = new CylinderGeometry(0.008, 0.013, 1, 8);
-  const podGeometry = new CapsuleGeometry(0.014, 0.034, 4, 12);
-  const spokeGeometry = new BoxGeometry(SCOUT_DUCT_INNER - 0.012, 0.004, 0.006);
-  for (const { x, z, angle } of scoutRotorCentres()) {
-    const centre = new Vector3(x, 0.012, z);
-    steel.push(placed(ductGeometry, centre));
-    bronze.push(placed(lipGeometry, new Vector3(x, 0.012 + 0.0165, z)));
-    // A strut from the hull side out to the duct, tapering toward the duct, with a slight dihedral.
-    const from = new Vector3(Math.sin(angle) * 0.045, 0.0, Math.cos(angle) * 0.045);
-    const to = new Vector3(x * (1 - SCOUT_DUCT_INNER / SCOUT_ROTOR_REACH), 0.01, z * (1 - SCOUT_DUCT_INNER / SCOUT_ROTOR_REACH));
-    const dir = to.clone().sub(from);
-    const length = dir.length();
-    bronze.push(placed(strutGeometry, from.clone().add(to).multiplyScalar(0.5), new Quaternion().setFromUnitVectors(up, dir.normalize()), new Vector3(1, length, 1)));
-    // Motor pod on three spokes.
-    steel.push(placed(podGeometry, new Vector3(x, 0.006, z)));
-    for (let s = 0; s < 3; s += 1) {
-      const spokeAngle = angle + (s * Math.PI * 2) / 3;
-      const mid = (SCOUT_DUCT_INNER + 0.012) / 2;
-      steel.push(placed(spokeGeometry, new Vector3(x + Math.cos(spokeAngle) * mid, -0.004, z - Math.sin(spokeAngle) * mid), new Quaternion().setFromAxisAngle(up, spokeAngle)));
+  const hull = applyBoxUvs(loftFaceted(HULL), 3.2);
+  const steel: BufferGeometry[] = [loftFaceted(BELLY_POD)];
+  const glass: BufferGeometry[] = [loftFaceted(CANOPY)];
+  const dark: BufferGeometry[] = [];
+  const seams: BufferGeometry[] = [];
+  // Bronze trim on the hull's hard edges, with a row of bolt heads along each chine.
+  const bronze: BufferGeometry[] = hullEdgeLines(HULL).map(([from, to]) => bar(from, to, 0.0058));
+  bronze.push(bar(new Vector3(0, -0.049, -0.14), new Vector3(0, -0.047, 0.1), 0.007)); // keel strake
+  const bolt = new CylinderGeometry(0.0032, 0.0032, 0.003, 6);
+  for (const [from, to] of hullEdgeLines(HULL)) {
+    if (from.x === 0) continue; // chines only, not the ridge
+    const side = Math.sign(from.x + to.x);
+    for (let t = 0.2; t < 1; t += 0.3) {
+      const p = from.clone().lerp(to, t);
+      bronze.push(placed(bolt, new Vector3(p.x + side * 0.003, p.y + 0.004, p.z), new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), side * -0.9)));
     }
+    // Cyan seam just under the chine, inset a touch.
+    const seamFrom = new Vector3(from.x * 0.97, from.y - 0.007, from.z);
+    const seamTo = new Vector3(to.x * 0.97, to.y - 0.007, to.z);
+    if (Math.abs(from.z) < 0.24 && Math.abs(to.z) < 0.24) seams.push(bar(seamFrom, seamTo, 0.0028));
   }
-  for (const g of [blister, dome, ductGeometry, lipGeometry, strutGeometry, podGeometry, spokeGeometry]) g.dispose();
-  return { steel: merge(steel), bronze: merge(bronze), glass: merge(glass) };
-};
-
-/** One rotor's three twisted blades, around the origin in the XZ plane. */
-export const buildScoutRotorBlades = (): BufferGeometry => {
-  const blade = new BoxGeometry(SCOUT_DUCT_INNER - 0.012, 0.0028, 0.016);
-  const parts: BufferGeometry[] = [];
-  for (let b = 0; b < 3; b += 1) {
-    const angle = (b * Math.PI * 2) / 3;
-    const twist = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), angle).multiply(new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), 0.32));
-    const radius = (SCOUT_DUCT_INNER - 0.012) / 2 + 0.012;
-    parts.push(placed(blade, new Vector3(Math.cos(angle) * radius, 0, -Math.sin(angle) * radius), twist));
+  bolt.dispose();
+  // Fins with their House marking, canted as a V-tail.
+  for (const side of [-1, 1]) {
+    const at = new Vector3(side * 0.012, 0.034, -0.15);
+    const rot = new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), side * -0.5);
+    steel.push(placed(fin(), at, rot));
+    bronze.push(placed(finMarking(), at, rot));
   }
-  blade.dispose();
-  return merge(parts);
-};
-
-/** The motion-blur disc that replaces the blades at speed. */
-export const buildScoutRotorDisc = (): BufferGeometry => {
-  const disc = new CircleGeometry(SCOUT_DUCT_INNER - 0.002, 36);
-  disc.rotateX(-Math.PI / 2);
-  return disc;
-};
-
-export type ScoutGimbalGeometry = { readonly yoke: BufferGeometry; readonly ball: BufferGeometry; readonly lens: BufferGeometry };
-
-/** The sensor gimbal: a bronze yoke (pans), a steel ball (tilts) and its lens facing +Z. */
-export const buildScoutGimbal = (): ScoutGimbalGeometry => {
-  const yoke = new TorusGeometry(0.024, 0.0045, 8, 20, Math.PI);
-  yoke.rotateZ(Math.PI);
-  yoke.rotateY(Math.PI / 2);
-  const ball = new SphereGeometry(0.02, 20, 14);
-  const lens = new CylinderGeometry(0.0115, 0.0125, 0.012, 20);
-  lens.rotateX(Math.PI / 2);
-  lens.translate(0, 0, 0.017);
-  return { yoke, ball, lens };
+  // Greebles. An intake on each chine just aft of the canopy, a dark mouth inside a steel cowl.
+  for (const side of [-1, 1]) {
+    steel.push(placed(new BoxGeometry(0.016, 0.02, 0.06), new Vector3(side * 0.084, 0.006, 0.0)));
+    dark.push(placed(new BoxGeometry(0.012, 0.014, 0.004), new Vector3(side * 0.084, 0.006, 0.031)));
+    // Sensor blisters on the flanks near the nose.
+    steel.push(placed(new SphereGeometry(0.009, 5, 3), new Vector3(side * 0.05, 0.012, 0.15)));
+    // Dorsal vents: a raised block with three dark slats.
+    steel.push(placed(new BoxGeometry(0.026, 0.006, 0.05), new Vector3(side * 0.022, 0.048, -0.1)));
+    for (let s = 0; s < 3; s += 1) dark.push(placed(new BoxGeometry(0.02, 0.002, 0.006), new Vector3(side * 0.022, 0.0515, -0.118 + s * 0.018)));
+  }
+  steel.push(placed(new CylinderGeometry(0.009, 0.012, 0.016, 6), new Vector3(0, 0.054, SCOUT_ANTENNA_TIP.z))); // antenna base
+  bronze.push(placed(new CylinderGeometry(0.0018, 0.004, 0.1, 4), new Vector3(0, 0.11, SCOUT_ANTENNA_TIP.z))); // antenna mast
+  steel.push(placed(new BoxGeometry(0.03, 0.003, 0.032), new Vector3(0, 0.057, -0.17), new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -0.17))); // dorsal hatch
+  return { hull, steel: mergeParts(steel), bronze: mergeParts(bronze), glass: mergeParts(glass), dark: mergeParts(dark), seams: mergeParts(seams) };
 };
