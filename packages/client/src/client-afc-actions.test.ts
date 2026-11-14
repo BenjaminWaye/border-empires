@@ -74,20 +74,30 @@ describe("paid AFC recovery after losing the last one", () => {
   });
 });
 
-describe("Build AFC on an owned AFC", () => {
-  const richState = (tiles: Tile[]): ClientState => ({ me: "me", gold: 10_000, tiles: new Map(tiles.map((tile) => [`${tile.x},${tile.y}`, tile])) }) as unknown as ClientState;
+describe("Build AFC on empty land", () => {
+  const plain = (x: number): Tile => ({ x, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" }) as Tile;
   const withModules = (count: number): Tile => afcTile({ modules: ["a", "b", "c", "d", "e", "f", "g", "h"].slice(0, count) });
+  const richState = (tiles: Tile[]): ClientState => ({ me: "me", gold: 10_000, tiles: new Map(tiles.map((tile) => [`${tile.x},${tile.y}`, tile])) }) as unknown as ClientState;
 
-  // Owner request 2026-11-14: Build AFC showed on every AFC, even an empty one; it is only offered from 6 docked modules.
-  it("is hidden until the AFC has 6 modules docked", () => {
-    const five = withModules(5);
-    expect(buildAfcActionForTile(richState([five]), five, availability)).toBeUndefined();
-    const six = withModules(6);
-    expect(buildAfcActionForTile(richState([six]), six, availability)).toMatchObject({ id: "build_afc", label: "Build AFC", disabled: false });
+  // Owner request 2026-11-14: Build AFC sat on the AFC itself, from the first module. It belongs on the
+  // empty tile the new AFC lands on, once one of your AFCs has 6 modules docked.
+  it("is offered on an empty tile once an AFC has 6 modules, never on the AFC itself", () => {
+    const afc = withModules(6);
+    const empty = plain(10);
+    const state = richState([afc, empty]);
+    expect(buildAfcActionForTile(state, empty, availability)).toMatchObject({ id: "build_afc", label: "Build AFC", disabled: false });
+    expect(buildAfcActionForTile(state, afc, availability)).toBeUndefined();
   });
 
-  it("does not count modules still in transit", () => {
-    const tile = afcTile({ modules: ["a", "b", "c", "d", "e"], incomingModules: [{ techId: "f", arrivesAt: 1 }] });
-    expect(buildAfcActionForTile(richState([tile]), tile, availability)).toBeUndefined();
+  it("is hidden while every AFC has fewer than 6 modules docked, counting none in transit", () => {
+    const empty = plain(10);
+    expect(buildAfcActionForTile(richState([withModules(5), empty]), empty, availability)).toBeUndefined();
+    const arriving = afcTile({ modules: ["a", "b", "c", "d", "e"], incomingModules: [{ techId: "f", arrivesAt: 1 }] });
+    expect(buildAfcActionForTile(richState([arriving, empty]), empty, availability)).toBeUndefined();
+  });
+
+  it("is hidden on a tile that can't take an AFC", () => {
+    const frontier = { ...plain(10), ownershipState: "FRONTIER" } as Tile;
+    expect(buildAfcActionForTile(richState([withModules(6), frontier]), frontier, availability)).toBeUndefined();
   });
 });

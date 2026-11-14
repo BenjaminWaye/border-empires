@@ -304,10 +304,10 @@ building another AFC is also how a player gets more module slots.
 
 #### Player flow
 
-1. The player taps one of their AFCs and presses **Build AFC — {cost} Coin**.
-   The same button also sits in the AFC's Modules tab, which replaced its
-   Overview tab (`packages/client/src/client-afc-module-tab/`).
-2. The map enters a landing-site picking mode with the feed line "Select where
+1. The player taps empty garrisoned land where the new AFC can land and
+   presses **Build AFC — {cost} Coin** in that tile's Build list. Since
+   2026-11-14 the button is not on the AFC itself.
+2. The map enters a landing-site picking mode on that tile with the feed line "Select where
    your new AFC should land." Valid tiles are highlighted in **both**
    renderers (AGENTS.md renderer parity). Clicking an invalid tile, the
    AFC's own tile, or unexplored ground cancels with a feed line. Nothing
@@ -317,12 +317,14 @@ building another AFC is also how a player gets more module slots.
    `docs/manifest-afc-module-delivery-animation-plan.md`, "AFC drop")
    plays on that tile.
 
-Module gate (client, 2026-11-14): the button is offered only on an AFC with
-at least `AFC_BUILD_MIN_MODULES` (6) modules docked; modules still in transit
-don't count. A new AFC is for more module space, so it appears once the one
-you have is nearly full. The server does not check this. Below 6 modules the
-AFC's tile bar leads with **AFC upgrades** and **Modules ▸** instead
-(`packages/client/src/client-hud-v2/client-hud-v2-action-bar.ts`). The free
+Module gate (client, 2026-11-14): the button is offered only once one of the
+player's active AFCs has at least `AFC_BUILD_MIN_MODULES` (6) modules docked;
+modules still in transit don't count. A new AFC is for more module space, so
+it appears once the one you have is nearly full. It is offered only on a tile
+that passes `isValidAfcLandingTile`, never on an AFC
+(`packages/client/src/client-afc-actions.ts`). The server does not check the
+module gate. The AFC's own tile bar leads with **AFC upgrades** and
+**Modules ▸** (`packages/client/src/client-hud-v2/client-hud-v2-action-bar.ts`). The free
 or paid replacement after losing every AFC is not gated.
 
 #### Valid landing tile
