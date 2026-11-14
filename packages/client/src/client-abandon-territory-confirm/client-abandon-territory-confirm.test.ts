@@ -25,6 +25,16 @@ describe("Abandon Territory", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("warns that Relay Beacons, Siege Batteries and unfinished builds are lost", () => {
+    expect(abandonTerritoryConsequences({}).join(" ")).toMatch(/Relay Beacons.*unfinished builds are lost/);
+  });
+
+  it("titles an unnamed town without a blank", () => {
+    let sheet: BreakPactSheetOptions | undefined;
+    dispatchSimpleTileCommand("abandon_territory", { x: 1, y: 1, town: { name: "" } as NonNullable<Tile["town"]> }, () => true, (options) => { sheet = options; return true; });
+    expect(sheet?.title).toBe("Abandon this town?");
+  });
+
   it("says a town is lost with it", () => {
     expect(abandonTerritoryConsequences(town)[0]).toContain("Arccrown Battery");
     expect(abandonTerritoryConsequences({}).join(" ")).not.toContain("town");

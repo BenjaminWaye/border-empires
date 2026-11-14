@@ -12,8 +12,9 @@ export const abandonTerritoryConsequences = (tile: Pick<Tile, "town">): string[]
   ...(tile.town
     ? [`You lose the town${tile.town.name ? ` ${tile.town.name}` : ""}: its coin, manpower cap and build plots.`]
     : []),
-  "The tile goes neutral. Anyone can claim it, and buildings on it go to whoever does.",
-  "This can't be undone. You would have to claim the tile again."
+  "The tile goes neutral. Finished buildings go to whoever claims it next; Siege Batteries, Relay Beacons and unfinished builds are lost.",
+  "Ground cut off from your empire by this can be lost with it.",
+  "This can't be undone."
 ];
 
 /** Asks before sending UNCAPTURE_TILE. Sends nothing when no sheet can be shown: giving land away must never happen unasked. */
@@ -24,7 +25,7 @@ export const confirmAbandonTerritory = (input: {
 }): boolean => {
   const { tile } = input;
   return (input.show ?? showBreakPactSheet)({
-    title: tile.town ? `Abandon ${tile.town.name ?? "this town"}?` : "Abandon this tile?",
+    title: tile.town ? `Abandon ${tile.town.name || "this town"}?` : "Abandon this tile?",
     subtitle: `Gives up (${tile.x}, ${tile.y}).`,
     consequences: abandonTerritoryConsequences(tile),
     confirmLabel: "Abandon",
