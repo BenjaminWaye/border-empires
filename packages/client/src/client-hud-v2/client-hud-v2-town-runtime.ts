@@ -1,4 +1,6 @@
 import { townBuildTarget } from "./client-hud-v2-town-build-target.js";
+import { pushFeed } from "../client-alerts/client-alerts.js";
+import { TOWN_PLOTS_TAKEN_REASON, townTileOpenPlotReason } from "../client-tile-action-logic/client-town-tile-support-gate.js";
 import { structureRequiresTownOrSupportTile } from "@border-empires/shared";
 import { dormantResourcesForTile, structureTypeForTileAction } from "../client-tile-action-support/client-tile-action-support.js";
 // Runtime for the town screen: decides when a selected tile opens it (your
@@ -200,7 +202,12 @@ export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], 
     const town = deps.state.tiles.get(saved.townKey);
     if (town && (!targetKey || targetKey === saved.townKey)) {
       const target = townBuildTarget(deps, town, actionId);
-      if (!target) return;
+      if (!target) {
+        // Never a silent Place: say why no plot could take this building.
+        pushFeed(deps.state, townTileOpenPlotReason(deps.state, town) ?? TOWN_PLOTS_TAKEN_REASON, "error", "warn");
+        deps.renderHud();
+        return;
+      }
       targetKey = keyOf(target);
     }
   }

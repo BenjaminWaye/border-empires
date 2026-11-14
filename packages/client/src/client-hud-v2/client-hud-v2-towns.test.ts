@@ -39,6 +39,18 @@ describe("HUD v2 towns screen", () => {
     expect(html).toContain(">Slots<");
   });
 
+  // Playtest day 1 (four personas at 375px): the headers ran together as "Coin/day ▼PopulationGrowth/min".
+  it("keeps column headers short enough for a phone, with the full meaning in their titles", () => {
+    const host = document.createElement("div");
+    host.innerHTML = townsBodyHtml([row(1, "A", 1)], { key: "gold", descending: true });
+    const headers = Array.from(host.querySelectorAll<HTMLElement>("[data-v2-towns-sort]"));
+    expect(headers.map((h) => h.textContent)).toEqual(["Coin/day ▼", "Pop", "Growth", "Slots"]);
+    for (const h of headers) expect((h.textContent ?? "").replace(/\s[▼▲]$/u, "").length).toBeLessThanOrEqual(8);
+    expect(headers.every((h) => (h.title ?? "").length > 0)).toBe(true);
+    // The short "Growth" header keeps its unit visible in the cell.
+    expect(host.querySelectorAll(".v2l-row .v2l-num")[2]?.textContent).toMatch(/\/min$/);
+  });
+
   it("flags unfed towns and escapes names", () => {
     const html = townsBodyHtml([row(1, "<b>x</b>", 1, false)], { key: "gold", descending: true });
     expect(html).toContain("v2l-unfed");

@@ -1,6 +1,7 @@
 import { tileActionAvailability } from "./client-tile-action-availability.js";
 import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor, manpowerPerBatch, ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY } from "@border-empires/shared";
 import { resourceBuildActions } from "./client-resource-build-actions.js";
+import { supportPlacementBlockedReason } from "./client-town-tile-support-gate.js";
 import { structureCommandActions } from "../client-structure-command-actions.js";
 export { canPlaceAetherWallFromOrigin, validAetherWallDirectionsForTile, aetherWallDirectionTargetTiles } from "./client-aether-wall-placement.js";
 import { afcTowerSuppressionAction } from "../client-afc-upgrades/client-afc-tower-action.js";
@@ -131,20 +132,7 @@ export { lineStepsBetween } from "./client-line-steps.js";
 
 export { tileActionAvailability } from "./client-tile-action-availability.js";
 
-export const isOwnedBorderTile = (
-  state: ClientState,
-  x: number,
-  y: number,
-  deps: Pick<TileActionLogicDeps, "keyFor" | "wrapX" | "wrapY">
-): boolean => {
-  const neighbors = [
-    state.tiles.get(deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1))),
-    state.tiles.get(deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y))),
-    state.tiles.get(deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1))),
-    state.tiles.get(deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y)))
-  ];
-  return neighbors.some((tile) => !tile || tile.ownerId !== state.me);
-};
+export { isOwnedBorderTile } from "./client-owned-border-tile.js";
 
 export const chainedBuildAvailabilityFromModule = (
   deps: TileActionLogicDeps,
@@ -434,7 +422,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     const supportedDocks = deps.supportedOwnedDocksForTile(tile);
     const townBuildSource =
       tile.town && tile.town.populationTier !== "SETTLEMENT" && tile.ownershipState === "SETTLED" ? tile : supportedTown;
-    const supportPlacementBlocked = Boolean(hasBlockingStructure && townBuildSource && townBuildSource !== tile);
+    const supportBlockedReason = supportPlacementBlockedReason(state, tile, townBuildSource, hasBlockingStructure);
     // Fixed-border reach: EXPAND itself is no longer reach-gated, but SETTLE
     // and outpost-family builds (siege batteries/relay beacon, which skip the
     // SETTLED requirement server-side) still are -- see runtime-structure-
@@ -1074,7 +1062,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     if (siegeCamp) out.push(siegeCamp);
     out.push(...resourceBuildActions(state, tile, hasBlockingStructure, frontierBuildDetailSuffix(tile), {
       structureCostText: deps.structureCostText, buildDetailTextForAction: deps.buildDetailTextForAction,
-      availability: chainedBuildAvailability, townBuildSource, supportPlacementBlocked, townHasSupportStructure: deps.townHasSupportStructure
+      availability: chainedBuildAvailability, townBuildSource, supportPlacementBlockedReason: supportBlockedReason, townHasSupportStructure: deps.townHasSupportStructure
     }));
     if (townBuildSource) {
       // Manufactory moved to same-tile/uncapped placement in the tech-tree
@@ -1103,9 +1091,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "MANUFACTORY",
-            !supportPlacementBlocked && state.techIds.includes("trade") && hasFreeResourceSlots(state, "MANUFACTORY"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
+            !supportBlockedReason && state.techIds.includes("trade") && hasFreeResourceSlots(state, "MANUFACTORY"),
+            supportBlockedReason
+              ? supportBlockedReason
               : !state.techIds.includes("trade")
                 ? "Requires Industrial Tooling Module"
                 : missingResourceSlotReason(state, "MANUFACTORY") ?? "Unavailable",
@@ -1120,9 +1108,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "INCUBATION_ENGINE",
-            !supportPlacementBlocked && !townHasIncubationEngine && state.techIds.includes("pottery") && hasFreeResourceSlots(state, "INCUBATION_ENGINE"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
+            !supportBlockedReason && !townHasIncubationEngine && state.techIds.includes("pottery") && hasFreeResourceSlots(state, "INCUBATION_ENGINE"),
+            supportBlockedReason
+              ? supportBlockedReason
               : townHasIncubationEngine
                 ? `Nearby town already has an ${economicStructureName("INCUBATION_ENGINE")}`
                 : !state.techIds.includes("pottery")
@@ -1139,9 +1127,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "CENSUS_HALL",
-            !supportPlacementBlocked && !townHasCensusHall && state.techIds.includes("census-records") && hasFreeResourceSlots(state, "CENSUS_HALL"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
+            !supportBlockedReason && !townHasCensusHall && state.techIds.includes("census-records") && hasFreeResourceSlots(state, "CENSUS_HALL"),
+            supportBlockedReason
+              ? supportBlockedReason
               : townHasCensusHall
                 ? "Nearby town already has Census Hall"
                 : !state.techIds.includes("census-records")
@@ -1158,9 +1146,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "CLEARING_HOUSE",
-            !supportPlacementBlocked && !townHasClearingHouse && state.techIds.includes("coinage") && hasFreeResourceSlots(state, "CLEARING_HOUSE"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
+            !supportBlockedReason && !townHasClearingHouse && state.techIds.includes("coinage") && hasFreeResourceSlots(state, "CLEARING_HOUSE"),
+            supportBlockedReason
+              ? supportBlockedReason
               : townHasClearingHouse
                 ? "Nearby town already has Clearing House"
                 : !state.techIds.includes("coinage")
@@ -1177,9 +1165,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "TRADE_NEXUS",
-            !supportPlacementBlocked && !townHasTradeNexus && state.techIds.includes("ledger-keeping") && hasFreeResourceSlots(state, "TRADE_NEXUS"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
+            !supportBlockedReason && !townHasTradeNexus && state.techIds.includes("ledger-keeping") && hasFreeResourceSlots(state, "TRADE_NEXUS"),
+            supportBlockedReason
+              ? supportBlockedReason
               : townHasTradeNexus
                 ? "Nearby town already has Trade Nexus"
                 : !state.techIds.includes("ledger-keeping")
@@ -1196,9 +1184,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "UMBRITE_WORKS",
-            !supportPlacementBlocked && !townHasUmbriteSynth && state.techIds.includes("workshops"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
+            !supportBlockedReason && !townHasUmbriteSynth && state.techIds.includes("workshops"),
+            supportBlockedReason
+              ? supportBlockedReason
               : townHasUmbriteSynth
                 ? "Nearby town already has Umbrite Works"
                 : !state.techIds.includes("workshops")
@@ -1215,9 +1203,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "TITANIUM_WORKS",
-            !supportPlacementBlocked && !townHasTitaniumWorks && state.techIds.includes("alchemy"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
+            !supportBlockedReason && !townHasTitaniumWorks && state.techIds.includes("alchemy"),
+            supportBlockedReason
+              ? supportBlockedReason
               : townHasTitaniumWorks
                 ? "Nearby town already has Titanium Works"
                 : !state.techIds.includes("alchemy")
@@ -1237,9 +1225,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             // Unlike the town-support types above, Aether Condensers stack
             // server-side (STACKING_TOWN_SUPPORT_STRUCTURE_TYPES) -- no
             // townHasCrystalSynth gate here, or Build falsely disables.
-            !supportPlacementBlocked && state.techIds.includes("crystal-lattices"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
+            !supportBlockedReason && state.techIds.includes("crystal-lattices"),
+            supportBlockedReason
+              ? supportBlockedReason
               : !state.techIds.includes("crystal-lattices")
                 ? "Requires Aether Resonance Core"
                 : "Unavailable",
@@ -1254,12 +1242,12 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "NEURAL_WORKS",
-            !supportPlacementBlocked &&
+            !supportBlockedReason &&
               !townHasNeuralWorks &&
               state.techIds.includes("global-trade-networks") &&
               hasFreeResourceSlots(state, "NEURAL_WORKS"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
+            supportBlockedReason
+              ? supportBlockedReason
               : townHasNeuralWorks
                 ? "Nearby town already has Neural Works"
                 : !state.techIds.includes("global-trade-networks")
@@ -1281,14 +1269,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               def.structureType,
-              !supportPlacementBlocked &&
+              !supportBlockedReason &&
                 !alreadyOwnsThisPart &&
                 !townHasAnyMonumentPart &&
                 isGreatCity &&
                 state.techIds.includes(def.techId) &&
                 hasFreeResourceSlots(state, def.structureType),
-              supportPlacementBlocked
-                ? "Tile already has structure"
+              supportBlockedReason
+                ? supportBlockedReason
                 : alreadyOwnsThisPart
                   ? "Part already built in nearby town"
                   : townHasAnyMonumentPart
@@ -1310,12 +1298,12 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "RESERVE_LATTICE",
-            !supportPlacementBlocked &&
+            !supportBlockedReason &&
               !townHasReserveLattice &&
               state.techIds.includes("conveyor-networks") &&
               hasFreeResourceSlots(state, "RESERVE_LATTICE"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
+            supportBlockedReason
+              ? supportBlockedReason
               : townHasReserveLattice
                 ? "Nearby town already has Reserve Lattice"
                 : !state.techIds.includes("conveyor-networks")
@@ -1332,12 +1320,12 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "ANCILLARY_FACTORY",
-            !supportPlacementBlocked &&
+            !supportBlockedReason &&
               !townHasAncillaryFactory &&
               state.techIds.includes("remade-concordat") &&
               hasFreeResourceSlots(state, "ANCILLARY_FACTORY"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
+            supportBlockedReason
+              ? supportBlockedReason
               : townHasAncillaryFactory
                 ? "Town already has Ancillary Factory"
                 : !state.techIds.includes("remade-concordat")
