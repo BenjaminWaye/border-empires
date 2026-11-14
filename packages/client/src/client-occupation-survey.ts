@@ -98,7 +98,7 @@ const showPopup = (report: OccupationSurveyReport): void => {
     <span class="occupation-survey-kicker">Town survey completed</span>
     <h2 id="occupation-survey-title">Signs of ${RESOURCE_LABEL[report.resource]} nearby</h2>
     <p id="occupation-survey-detail">${escapeHtml(SIGNATURE_LABEL[report.signature])} ${escapeHtml(report.bearing.toLowerCase())} of this town indicates likely ${RESOURCE_LABEL[report.resource]}-bearing territory.</p>
-    <p class="occupation-survey-hint">Research the resource's Manifest to reveal deposits. This clue is saved in Chronicle → Yours.</p>
+    <p class="occupation-survey-hint">Research the resource's Manifest to reveal deposits. The Manifest's card keeps this clue.</p>
     <div class="occupation-survey-actions"><button type="button" data-survey-view>View survey</button><button type="button" data-survey-dismiss>Got it</button></div>
   </section>`;
   overlay.querySelector<HTMLButtonElement>("[data-survey-view]")?.addEventListener("click", () => {
