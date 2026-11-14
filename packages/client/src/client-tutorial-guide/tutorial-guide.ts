@@ -181,7 +181,7 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
   const buildAnchor = manufactoryStep && input.manufactoryUnlocked ? "manufactory" : undefined;
   syncGuideAnchorOutline(expanded ? buildAnchor ?? view.anchor : undefined);
   // Not over Settings: on the new HUD its modal dim shares the raised layer.
-  syncGuideCardLayer((input.openPanel !== null && input.openPanel !== "settings") || bodyHasScreenOpen(), input.openPanel === "manpower");
+  syncGuideCardLayer((input.openPanel !== null && input.openPanel !== "settings") || bodyHasScreenOpen(), input.openPanel === "manpower", input.openPanel !== null || bodyHasScreenOpen());
   syncGuideManifestPick(!view.waiting && guideRecommendsManifest(view.step.id) ? RECOMMENDED_FIRST_MANIFEST_ID : undefined);
   setGuideManufactoryTargets(manufactoryStep && !view.waiting ? view.highlightTiles : undefined);
   syncGuideAfcPick(!view.waiting && guideRecommendsAfcUpgrade(view.step.id) ? RECOMMENDED_FIRST_AFC_UPGRADE_ID : undefined);
