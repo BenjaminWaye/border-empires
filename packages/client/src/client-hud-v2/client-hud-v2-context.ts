@@ -42,6 +42,8 @@ export type HudV2ScreenState = {
   /** The release note opened on Updates (its updateKey); undefined opens the newest unread, null closes all. */
   chronicleOpenUpdate: string | null | undefined;
   chronicleSelectedId: string | undefined;
+  /** Activity read watermark when the Chronicle opened, so its "while you were away" losses stay put once marked read. */
+  chronicleAwaySince: number | undefined;
   townBuildSelection: string | undefined;
   townCategory: BuildingCategory | undefined;
 };
@@ -56,6 +58,7 @@ export const screen: HudV2ScreenState = {
   chronicleUpdatesBaseline: undefined,
   chronicleOpenUpdate: undefined,
   chronicleSelectedId: undefined,
+  chronicleAwaySince: undefined,
   townBuildSelection: undefined,
   townCategory: undefined
 };

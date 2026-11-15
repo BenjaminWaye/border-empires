@@ -1,6 +1,7 @@
 import { wireStepsForPlan, type WaypointBlockReason } from "@border-empires/shared";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import {
+  showCaptureAlert,
   notifyInsufficientManpowerForFrontierClaim,
   notifyWaypointQueueFullForFrontierClaim,
   waypointQueueFullMessage
@@ -89,7 +90,19 @@ export const enqueueAdjacentExpandWaypoint = (
   sendGameMessage(waypointEnqueueWirePayload({ x, y }, undefined, { planId, plannedAt, steps: wireStepsForPlan(plan.steps) }));
   processActionQueue();
   if (state.capture && state.capture.target.x === x && state.capture.target.y === y) state.capture.silent = false;
+  else announceQueuedBehindEarlierWaypoints(state, x, y);
   return undefined;
+};
+
+/**
+ * A click whose claim waits behind earlier queued expansions used to look like nothing happened while
+ * manpower kept draining on the older ones (2026-11-14 playtest: "tapping a tile silently set a waypoint").
+ * Says where it sits in the queue and where to cancel it.
+ */
+export const announceQueuedBehindEarlierWaypoints = (state: Pick<ClientState, "waypoint" | "captureAlert">, x: number, y: number): void => {
+  const position = state.waypoint.findIndex((w) => w.target.x === x && w.target.y === y);
+  if (position <= 0) return;
+  showCaptureAlert(state, "Expansion queued", `(${x}, ${y}) is #${position + 1} in your queue, after ${position} earlier ${position === 1 ? "expansion" : "expansions"}. Cancel from the tracker.`, "warn", undefined, { x, y });
 };
 
 export type RelayBeaconFrontierBlockReason = "UNREACHABLE" | "QUEUE_FULL";

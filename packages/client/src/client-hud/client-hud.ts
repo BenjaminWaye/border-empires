@@ -546,7 +546,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   bindAccountSettingsControls(dom.hud, firebaseAuth, state, wsUrl, () => renderClientHud(deps));
   renderProfileEditOverlay({ state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud: () => renderClientHud(deps) });
   bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindRendererSettingsControls(dom.hud); bindEmailNotificationsSettingsControls(dom.hud); bindPhotoModeSettingsControls(dom.hud, state, () => renderClientHud(deps)); bindAdminSettingsControls(dom.hud, { state, sendGameMessage, requestViewRefresh, rerender: () => renderClientHud(deps), openPanel: setActivePanel });
-  bindHudEconomyPanelControls(dom.hud, state, () => renderClientHud(deps));
+  bindHudEconomyPanelControls(dom.hud, state, () => renderClientHud(deps), () => requestViewRefresh());
   renderHudTownsPanel(state, {
     root: dom.hud, panelEl: dom.panelTownsEl, rerender: () => renderClientHud(deps),
     requestViewRefresh, wrapX, wrapY, safeHtml: safeValue, fallbackHtml: fallbackCard("Towns")
