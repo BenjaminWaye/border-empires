@@ -5,7 +5,8 @@
 // these up doesn't add to that file's line count -- see check-file-line-limits.mjs.
 // CLAIM_CONTINUATION_SET rides this same generic strip-the-type-tag path
 // even though it isn't itself a dev/waypoint-queue command -- its payload
-// shape (durable-command payload plus a `type` tag) is identical.
+// shape (durable-command payload plus a `type` tag) is identical. So does
+// CHOOSE_HOUSE_CHARGES (`{ keptIds }`, simulation house-charges/).
 export const DEV_QUEUE_WAYPOINT_MESSAGE_TYPES = [
   "DEV_QUEUE_ENQUEUE",
   "DEV_QUEUE_CANCEL",
@@ -13,7 +14,8 @@ export const DEV_QUEUE_WAYPOINT_MESSAGE_TYPES = [
   "WAYPOINT_ENQUEUE",
   "WAYPOINT_CANCEL",
   "WAYPOINT_CANCEL_ALL",
-  "CLAIM_CONTINUATION_SET"
+  "CLAIM_CONTINUATION_SET",
+  "CHOOSE_HOUSE_CHARGES"
 ] as const;
 
 export type DevQueueWaypointMessageType = (typeof DEV_QUEUE_WAYPOINT_MESSAGE_TYPES)[number];

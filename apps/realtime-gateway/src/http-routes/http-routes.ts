@@ -15,6 +15,7 @@ import { registerRallyLinkRoutes } from "./register-rally-link-routes.js";
 import { registerAdminWorldRoute } from "./register-admin-world-route.js";
 import { registerAdminTileVisibilityRoute, type TileVisibilityQuery } from "./register-admin-tile-visibility-route.js";
 import { registerCareerRoutes } from "../career-routes/career-routes.js";
+import { registerHouseChargeRoutes } from "../house-charge-routes/house-charge-routes.js";
 import { registerSocialRoutes, type PublicSocialView } from "../social-routes/social-routes.js";
 import { registerSovereignSiegeEngineStrikeRoutes } from "../sovereign-siege-engine-strike-routes/sovereign-siege-engine-strike-routes.js";
 import { registerActivityApiRoute, type RegisterActivityApiRouteDeps } from "../activity-api/activity-api-route.js";
@@ -417,6 +418,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
 
   registerGalaxyHttpRoutes(app, deps);
   registerCareerRoutes(app, { ...(deps.getSeasonParticipationForPlayer ? { getSeasonParticipationForPlayer: deps.getSeasonParticipationForPlayer } : {}) });
+  registerHouseChargeRoutes(app, { getCurrentSeasonSummary: deps.getCurrentSeasonSummary, listSeasonArchives: deps.listSeasonArchives });
   registerSocialRoutes(app, { ...(deps.getSocialSnapshotForPlayer ? { getSocialSnapshotForPlayer: deps.getSocialSnapshotForPlayer } : {}) });
 
   registerSovereignSiegeEngineStrikeRoutes(app, {

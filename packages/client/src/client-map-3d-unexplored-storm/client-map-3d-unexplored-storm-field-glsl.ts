@@ -5,7 +5,22 @@
 // field read from the mask's G channel.
 
 export const STORM_FIELD_GLSL = `
-float stormHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+// Integer lattice hash: exact bit arithmetic, so every GPU gives a lattice
+// corner the same value from either side. The usual sine-based hash
+// amplifies rounding ~40000x, and some mobile compilers round
+// dot(i + 1, k) differently from the next cell's dot(i, k): the two cells then
+// disagree on their shared corner, and the clouds break into offset
+// cell-sized rectangles. p is a lattice point (floor()ed, exact in float).
+float stormHash(vec2 p) {
+  highp uvec2 q = uvec2(ivec2(p)); // highp: the hash needs full 32-bit uint
+  highp uint h = q.x * 1597334677u ^ q.y * 3812015801u;
+  h ^= h >> 16u;
+  h *= 0x7feb352du;
+  h ^= h >> 15u;
+  h *= 0x846ca68bu;
+  h ^= h >> 16u;
+  return float(h >> 8u) * (1.0 / 16777216.0);
+}
 float stormNoise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = fract(p);

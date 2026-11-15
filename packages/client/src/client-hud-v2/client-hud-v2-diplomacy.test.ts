@@ -65,3 +65,23 @@ describe("phone Diplomacy list: empires you haven't met", () => {
     expect(html.match(/data-v2-dip-open="ai-1"/g)).toHaveLength(1);
   });
 });
+
+// Playtest 2026-11-13 (pt-diplomat): once a Sent list appeared, the met and
+// unmet sections each scrolled on their own and were squeezed into overlapping
+// slivers, and the list jumped back to the top after every deal.
+describe("phone Diplomacy list: layout", () => {
+  it("is one scroll container that keeps its place across repaints", () => {
+    const truce: TruceRequest = { id: "t1", fromPlayerId: "me", toPlayerId: "ai-2", createdAt: 0, expiresAt: 3_600_000, durationHours: 24 };
+    const html = diplomacyListHtml(input({ outgoingTruce: [truce], metPlayerIds: new Set(["p-3"]) }));
+    expect(html.startsWith('<div class="v2d-list" data-v2-scroll="diplomacy">')).toBe(true);
+    expect(html.match(/data-v2-scroll=/g)).toHaveLength(1);
+  });
+
+  it("links to the Alliances panel", () => {
+    expect(diplomacyListHtml(input())).toContain('data-v2-dip-alliances=""');
+  });
+
+  it("keeps the empty note out of the narrow grid", () => {
+    expect(diplomacyListHtml(input())).not.toMatch(/<div class="v2d-grid"><div class="v2s-empty">/);
+  });
+});
