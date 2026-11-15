@@ -38,6 +38,7 @@ export type RecoveredPlayerState = {
   // Lifetime garrisons started (DomainPlayer.lifetimeGarrisons); SETTLEMENT_STARTED replays bump it.
   lifetimeGarrisons?: number;
   islandNames?: IslandNameClaim[];
+  houseCharges?: import("@border-empires/shared").HouseChargesState;
   autoSettle?: AutoSettlePrefs;
   // Waystation activation's pooled resource-slot bump -- see
   // runtime-waystation-activation.ts. Must round-trip here or a restart
@@ -86,5 +87,6 @@ export const cloneRecoveredPlayerState = (player: RecoveredPlayerState): Recover
     ? { waypointQueue: player.waypointQueue.map((entry) => ({ ...entry, target: { ...entry.target } })) }
     : {}),
   ...(player.devQueue ? { devQueue: player.devQueue.map((entry) => ({ ...entry })) } : {}),
-  ...(player.islandNames ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {})
+  ...(player.islandNames ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
+  ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {})
 });
