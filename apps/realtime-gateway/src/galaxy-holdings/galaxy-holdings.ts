@@ -6,7 +6,7 @@ import type {
   SeasonWinnerSnapshot
 } from "@border-empires/sim-protocol";
 import { specializationForVictoryPath } from "@border-empires/sim-protocol";
-import { aiNameFromStored, isSeasonalAiPlayerId } from "@border-empires/shared";
+import { aiNameFromStored, heldHouseChargeCounts, isSeasonalAiPlayerId } from "@border-empires/shared";
 
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
@@ -29,6 +29,8 @@ export type TieredSeason = {
   seasonSequence: number;
   endedAt: number;
   galaxyTiers: SeasonGalaxyTierSnapshot[];
+  /** House Charges held at this season's crowning, per playerId (absent before charges existed). */
+  heldChargesByPlayerId?: Record<string, number>;
   // Undefined when this season awarded Stipends without anyone winning
   // outright -- no territory was ever created for it to label.
   sectorLabel: SectorLabel | undefined;
@@ -107,6 +109,7 @@ export const resolveEndedSeasons = async (
         seasonSequence: archive.seasonSequence,
         endedAt: archive.endedAt,
         galaxyTiers: archive.galaxyTiers,
+        ...(archive.houseCharges ? { heldChargesByPlayerId: heldHouseChargeCounts(archive.houseCharges) } : {}),
         sectorLabel: sectorLabels.get(archive.seasonId)
       });
     }
@@ -125,6 +128,7 @@ export const resolveEndedSeasons = async (
         seasonSequence: currentEnded.seasonSequence,
         endedAt: currentEnded.endedAt ?? currentEnded.updatedAt,
         galaxyTiers: currentEnded.seasonGalaxyTiers,
+        ...(currentEnded.seasonHouseCharges ? { heldChargesByPlayerId: heldHouseChargeCounts(currentEnded.seasonHouseCharges) } : {}),
         sectorLabel: sectorLabels.get(currentEnded.seasonId)
       });
     }

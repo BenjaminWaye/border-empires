@@ -1,3 +1,4 @@
+import type { Terrain } from "@border-empires/shared";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 
 // "Incursion" tiles: rival-owned land sitting INSIDE the viewer's own reach.
@@ -9,7 +10,7 @@ import { normalizeColorForThree } from "../client-three-color/client-three-color
 // mistaken for the viewer's own ground. Pure logic shared by the 3D overlay
 // (client-map-3d-incursion-overlay.ts) and the 2D canvas path.
 
-export type IncursionTile = { readonly ownerId?: string | undefined; readonly terrain?: string | undefined; readonly reachOwnerId?: string | undefined };
+export type IncursionTile = { readonly ownerId?: string | undefined; readonly terrain?: Terrain | undefined; readonly reachOwnerId?: string | undefined };
 
 export type IncursionDeps = {
   readonly tiles: ReadonlyMap<string, IncursionTile>;

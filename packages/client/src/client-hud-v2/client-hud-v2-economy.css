@@ -20,4 +20,5 @@
 .v2e-item b { font-family: var(--v2-mono); font-weight: 400; color: var(--v2-text); }
 .v2e-item.v2e-warn, .v2e-item.v2e-warn b { color: var(--v2-amber); }
 .v2e-none, .v2e-more { color: var(--v2-muted); }
+.v2e-lens { margin-left: 6px; min-height: 28px; padding: 2px 8px; border: 1px solid var(--v2-gold); border-radius: 6px; background: transparent; font: inherit; color: var(--v2-gold); cursor: pointer; }
 .v2e-note { font-size: 12px; }

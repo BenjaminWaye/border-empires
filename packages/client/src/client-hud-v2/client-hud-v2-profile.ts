@@ -9,6 +9,9 @@ import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakV
 import { sectorOrSeasonLabel, specializationLabel, trophyIconHtml } from "../client-player-profile/client-player-profile-galaxy.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { COMBAT_FOOTNOTE_HTML, combatPanelsHtml, combatStatCardsHtml, type ProfileCombat } from "./client-hud-v2-profile-combat.js";
+import type { HouseChargesPayload } from "@border-empires/shared";
+import { houseChargesProfileSectionHtml } from "../client-house-charges/client-house-charges-profile.js";
+import { houseChargeCollectionHtml, type HouseChargeCardView } from "../client-house-charges/client-house-charge-cards.js";
 
 type Loadable<T> = T | "loading" | undefined;
 
@@ -29,6 +32,12 @@ export type ProfileInput = {
   nowMs: number;
   /** Your own Attack/Defense sources; only set on your own profile, so rivals' strength never shows. */
   combat?: ProfileCombat;
+  /** Your own House Charges (null before they are dealt); only set on your own profile, since charges are secret. */
+  houseCharges?: HouseChargesPayload | null;
+  /** Fulfilled charges from past Sector Contests, as trading cards; public on any profile. */
+  chargeCards?: HouseChargeCardView[] | "loading" | undefined;
+  /** Rivals only: whether you've ever seen one of their tiles, so "Show on map" has somewhere to go. */
+  mapFocus?: "seen" | "unseen";
 };
 
 const esc = (text: string): string =>
@@ -59,6 +68,11 @@ const heroHtml = (input: ProfileInput): string => {
   const diplomacy = input.relation.kind === "self" || input.id.startsWith("barbarian")
     ? ""
     : `<button type="button" class="v2p-action" data-v2-profile-diplomacy="${esc(input.id)}">Diplomacy ▸</button>`;
+  const showOnMap = input.mapFocus === "seen"
+    ? `<button type="button" class="v2p-action" data-v2-profile-show-map="${esc(input.id)}">Show on map</button>`
+    : input.mapFocus === "unseen"
+      ? `<button type="button" class="v2p-action" disabled>Not discovered yet</button>`
+      : "";
   return `<aside class="v2p-hero">
     <span class="v2p-crest" style="background:${esc(input.color)}" aria-hidden="true">${esc((input.name.trim()[0] ?? "?").toUpperCase())}</span>
     <h2 class="v2p-name">${esc(input.name)}</h2>
@@ -66,6 +80,7 @@ const heroHtml = (input: ProfileInput): string => {
     ${rank}
     ${badges ? `<div class="v2p-badges">${badges}</div>` : ""}
     ${diplomacy}
+    ${showOnMap}
   </aside>`;
 };
 
@@ -152,7 +167,9 @@ export const profileHtml = (input: ProfileInput): string =>
     <h3 class="v2p-h">This Sector Contest</h3>
     ${statsHtml(input.entry, input.combat)}
     ${input.combat ? `<div class="v2p-grid">${combatPanelsHtml(input.combat)}</div>${COMBAT_FOOTNOTE_HTML}` : ""}
-    <div class="v2p-grid">${careerHtml(input.career)}${trophiesHtml(input.holdings)}${holdingsHtml(input.holdings)}${pactsHtml(input)}${breaksHtml(input.truceBreaks)}</div>
+    <div class="v2p-grid">${input.houseCharges !== undefined ? houseChargesProfileSectionHtml(input.houseCharges, input.nowMs) : ""}${careerHtml(input.career)}${trophiesHtml(input.holdings)}${holdingsHtml(input.holdings)}${pactsHtml(input)}${breaksHtml(input.truceBreaks)}</div>
+    <h3 class="v2p-h">Charge Cards</h3>
+    ${houseChargeCollectionHtml(input.chargeCards, input.relation.kind === "self")}
   </div></div>`;
 
 /** Which way the profile screen should move this frame: open for a newly picked player, close once it was dismissed. */
