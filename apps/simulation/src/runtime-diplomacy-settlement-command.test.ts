@@ -95,7 +95,7 @@ describe("resource-backed settlement", () => {
     const enhanced: RuntimeDiplomacySettlementContext = { ...context, now: () => 100, resourceSupply: {
       create: agreement => {
         expect(agreement).toMatchObject({ id: "diplomacy-settle:1", proposerGives: { FOOD: 2 }, startedAt: 100 });
-        expect(agreement.expiresAt).toBeUndefined();
+        expect(agreement.expiresAt).toBe(100 + 7 * 86_400_000);
         expect([a.points, b.points]).toEqual([10, 20]);
         return { ok: true };
       }, cancelRefunded: () => { throw new Error("not a refund"); }

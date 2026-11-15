@@ -59,7 +59,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_27 } from "./client-changelog-oct-27.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31.js";
 import { CLIENT_CHANGELOG_ENTRIES_NOV_01_03 } from "./client-changelog-nov-01-03.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
-import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
+import { RESOURCE_NETWORKS_CHANGELOG, TIMED_RESOURCE_TRADES_ENTRY } from "./client-changelog-resource-networks.js";
 import { FRONTIER_RESOURCES_REWORK_CHANGELOG } from "./client-changelog-frontier-resources.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
@@ -491,6 +491,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Scout reports name deposits you have the technology to identify. Find on map jumps to the nearest known deposit of that resource."
     ]
   },
+  { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

@@ -7,7 +7,7 @@ import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
 
 const start = lastManpowerRefillAtMs("buyer", 100 * MANPOWER_REFILL_WINDOW_MS);
-function fixture(allResources = false, buyerFarms = 12) {
+function fixture(allResources = false, buyerFarms = 12, isAi = false) {
   let now = start;
   const land = (x: number, y: number, id: string): DomainTileState => ({ x,y,terrain:"LAND",ownerId:id,ownershipState:"SETTLED" });
   const tiles: DomainTileState[] = [];
@@ -24,9 +24,9 @@ function fixture(allResources = false, buyerFarms = 12) {
   tiles.find(t=>t.x===39&&t.y===39)!.economicStructure={ ownerId:"buyer",type:"ANCILLARY_FACTORY",status:"active" };
   tiles.find(tile => tile.x === 41 && tile.y === 40)!.economicStructure = { ownerId: "buyer", type: "ANCILLARY_DEPOT", status: "active" };
   const runtime = new SimulationRuntime({ now:()=>now,seedTiles:new Map(),initialState:{ tiles,activeLocks:[] },
-    initialPlayers:new Map(["seller","buyer"].map(id=>[id,buildPlayer(id,{ points:100,manpower:0,manpowerUpdatedAt:start,
+    initialPlayers:new Map(["seller","buyer"].map(id=>[id,buildPlayer(id,{ points:100,isAi,manpower:0,manpowerUpdatedAt:start,
       manpowerCapSnapshot:10000,landingReserveGranted:true,techIds:new Set(allResources ? NETWORK_RESOURCES.map(resource=>RESOURCE_NETWORKS[resource].tech) : ["frontier-concessions"]) })])) });
-  const pay = (id = "trade", resources: ResourceSupplyOffer = {LUXURY_BIOTA:1}) => runtime.submitCommand({ commandId:id,playerId:"seller",type:"SETTLE_DIPLOMACY_TERMS",sessionId:"gateway",clientSeq:id === "trade" ? 1 : 2,issuedAt:now,payloadJson:JSON.stringify({ proposerId:"seller",targetId:"buyer",proposerPays:{gold:0,resources},targetPays:{gold:3},supplyDurationHours:12 }) });
+  const pay = (id = "trade", resources: ResourceSupplyOffer = {LUXURY_BIOTA:1}, coinPerHour?: number) => runtime.submitCommand({ commandId:id,playerId:"seller",type:"SETTLE_DIPLOMACY_TERMS",sessionId:"gateway",clientSeq:id === "trade" ? 1 : 2,issuedAt:now,payloadJson:JSON.stringify({ proposerId:"seller",targetId:"buyer",proposerPays:{gold:0,resources},targetPays:{gold:3,coinPerHour},supplyDurationHours:12 }) });
   return { runtime,pay,setNow:(at:number)=>{now=at;}, player:(id:string)=>runtime.exportState().players.find(p=>p.id===id)! };
 }
 describe("resource trades in the production runtime",()=>{
@@ -42,6 +42,52 @@ describe("resource trades in the production runtime",()=>{
     await f.pay("duplicate-supply");
     expect(events.some(e=>e.eventType==="COMMAND_REJECTED"&&e.commandId==="duplicate-supply")).toBe(true);
     expect(f.player("seller").points).toBeCloseTo(103);
+  });
+  it("diverts earned Coin symmetrically, up to the promised rate, and stops at expiry", async () => {
+    const paid = fixture(false, 12, true);
+    const baseline = fixture(false, 12, true);
+    for (const f of [paid, baseline]) f.runtime.applyPassiveIncome(start, Infinity);
+    await paid.pay("trade", { FOOD: 2 }, 1);
+    await baseline.pay("trade", { FOOD: 2 });
+    expect(paid.player("seller").resourceTradeAgreements?.[0]?.targetCoinPerHour).toBe(1);
+
+    const at = start + 3_600_000;
+    for (const f of [paid, baseline]) {
+      f.setNow(at);
+      f.runtime.applyPassiveIncome(at, Infinity);
+    }
+    const buyerEarned = baseline.player("buyer").points - 97;
+    const transferred = Math.min(1, buyerEarned);
+    expect(transferred).toBeGreaterThan(0);
+    expect(paid.player("buyer").points).toBeCloseTo(baseline.player("buyer").points - transferred);
+    expect(paid.player("seller").points).toBeCloseTo(baseline.player("seller").points + transferred);
+
+    const expiresAt = start + 7 * 86_400_000;
+    paid.setNow(expiresAt);
+    paid.runtime.applyPassiveIncome(expiresAt, Infinity);
+    expect(paid.player("seller").resourceTradeAgreements).toEqual([]);
+    const before = paid.player("seller");
+    paid.setNow(expiresAt + 3_600_000);
+    paid.runtime.applyPassiveIncome(expiresAt + 3_600_000, Infinity);
+    const after = paid.player("seller");
+    expect(after.points - before.points).toBeCloseTo(Math.min(before.incomePerMinute * 60, Math.max(0, (before.storageCap?.GOLD ?? Infinity) - before.points)));
+  });
+  it("pauses recurring Coin when pledged supply is lost", async () => {
+    const paid = fixture(false, 12, true);
+    const baseline = fixture(false, 12, true);
+    await paid.pay("trade", { LUXURY_BIOTA: 1 }, 100);
+    await baseline.pay();
+    for (const f of [paid, baseline]) {
+      await f.runtime.submitCommand({
+        commandId: "lose-site", sessionId: "s", playerId: "seller", clientSeq: 3, issuedAt: start,
+        type: "UNCAPTURE_TILE", payloadJson: JSON.stringify({ x: 20, y: 20 })
+      });
+      expect(f.player("buyer").resourceTradeAgreements?.[0]?.fulfilled).toBe(false);
+      f.setNow(start + 3_600_000);
+      f.runtime.applyPassiveIncome(start + 3_600_000, Infinity);
+    }
+    expect(paid.player("buyer").points).toBeCloseTo(baseline.player("buyer").points);
+    expect(paid.player("seller").points).toBeCloseTo(baseline.player("seller").points);
   });
   it("keeps imported and committed source rows equal to actual supply, including reconnect snapshots", async () => {
     const f = fixture();
@@ -63,23 +109,25 @@ describe("resource trades in the production runtime",()=>{
       expect(slots.sources!.FOOD.reduce((sum, row) => sum + row.slots, 0)).toBe(slots.supply.FOOD);
     }
   });
-  it("continues supplying beyond twelve hours until cancelled",async()=>{
+  it("supplies through the seventh day and releases the slots at the deadline",async()=>{
     const f=fixture(); await f.pay();
     expect(f.player("buyer").resourceTradeAgreements?.[0]?.fulfilled).toBe(true);
-    f.setNow(start+12*3_600_000);
-    expect(f.player("seller").resourceTradeHoldings?.LUXURY_BIOTA).toBeUndefined();
+    f.setNow(start + 7 * 86_400_000 - 1);
     expect(f.player("buyer").resourceTradeAgreements?.[0]?.fulfilled).toBe(true);
+    f.setNow(start + 7 * 86_400_000);
+    expect(f.player("buyer").resourceTradeAgreements).toEqual([]);
+    expect(f.player("seller").resourceTradeHoldings?.LUXURY_BIOTA).toBe(1);
   });
-  it("preserves supply in durable checkpoints, event replay and the actual reconnect snapshot",async()=>{
+  it("preserves trade terms in durable checkpoints, event replay and the actual reconnect snapshot",async()=>{
     const f=fixture(), before=f.runtime.exportSnapshotSections().initialState, events=collectEvents(f.runtime);
-    await f.pay();
+    await f.pay("trade", { LUXURY_BIOTA: 1 }, 50);
     const initialState=f.runtime.exportSnapshotSections().initialState;
     expect(initialState.resourceSupplyAgreements).toHaveLength(1);
     const replayed=applySimulationEventsToRecoveredState(before,events);
     expect(replayed.resourceSupplyAgreements).toEqual(initialState.resourceSupplyAgreements);
     const restored=new SimulationRuntime({ now:()=>start,seedTiles:new Map(),initialState,mergeSeedTilesWithInitialState:false });
     const own=buildPlayerSubscriptionSnapshot("buyer",restored.exportVisibleStateForPlayer("buyer"), { tilesAlreadyVisible:true }).player!;
-    expect(own.resourceTradeAgreements?.[0]?.fulfilled).toBe(true);
+    expect(own.resourceTradeAgreements?.[0]).toMatchObject({ fulfilled: true, targetCoinPerHour: 50, expiresAt: start + 7 * 86_400_000 });
     expect(own.resourceSlots?.bonusSupply?.supply.LUXURY_BIOTA).toBe(1);
     expect(own.manpowerRegenPerMinute).toBeCloseTo(f.player("buyer").manpowerRegenPerMinute!);
   });
@@ -106,7 +154,7 @@ describe("resource trades in the production runtime",()=>{
     expect(payload.resourceTradeAgreements?.[0]?.fulfilled).toBe(false);
     expect(payload.resourceSlots?.bonusSupply?.supply.LUXURY_BIOTA ?? 0).toBe(0);
   });
-  it("preserves open-ended contracts when restoring after a long offline interval",async()=>{
+  it("preserves unexpired contracts when restoring after a long offline interval",async()=>{
     const f=fixture(); await f.pay();
     const initialState=f.runtime.exportSnapshotSections().initialState;
     const restartAt=start+13*3_600_000;

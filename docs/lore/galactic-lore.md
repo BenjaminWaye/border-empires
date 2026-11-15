@@ -531,7 +531,8 @@ cross open water on foot.
 **Coin is offworld purchasing credit backed by planetary output.** It is a
 recognised claim on the food, freight, ore, manufacturing, tolls and future
 exports controlled by the House. The House factor accepts that claim
-because the House controls the output behind it.
+because the House controls the output behind it. Houses can pledge a share of
+newly earned Coin to another House in exchange for contracted industrial output.
 
 Coin is paid offworld through the factor for machines fabricated elsewhere,
 transported crews and instruments, Imperial market access and project

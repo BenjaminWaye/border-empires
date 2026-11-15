@@ -20,6 +20,7 @@ export class ResourceSupplyLedger {
   private cached: ResourceSupplyAllocation | undefined;
   private cachedAt: number | undefined;
   private cachedUntil = Infinity;
+  private nextExpiryAt = Infinity;
   private advancing = false;
   private valuationTime: number | undefined;
 
@@ -29,6 +30,7 @@ export class ResourceSupplyLedger {
       const row = ResourceSupplyAgreementSchema.parse(raw);
       if (this.agreements.has(row.id) || !this.hasCapacity(row)) throw new Error("Invalid saved resource agreement capacity or identity");
       this.agreements.set(row.id, row);
+      this.nextExpiryAt = Math.min(this.nextExpiryAt, row.expiresAt ?? Infinity);
     }
   }
   get size(): number { return this.agreements.size; }
@@ -68,25 +70,39 @@ export class ResourceSupplyLedger {
   private notifyInvalidation(ids: readonly string[]): void {
     this.invalidate(); this.context.invalidate(ids); this.context.publish?.(ids);
   }
+  private refreshNextExpiry(): void {
+    this.nextExpiryAt = Math.min(Infinity, ...[...this.agreements.values()].map(row => row.expiresAt ?? Infinity));
+  }
   advanceTo(now: number): void {
-    if (this.advancing || this.valuationTime !== undefined) return;
+    if (!Number.isFinite(this.nextExpiryAt) || now < this.nextExpiryAt || this.advancing || this.valuationTime !== undefined) return;
     this.advancing = true;
+    const affected = new Set<string>();
     try {
-      // Each pass removes at least one agreement; bounded by the global cap.
-      for (let pass = 0; pass < MAX_RESOURCE_SUPPLY_AGREEMENTS; pass += 1) {
-        const next = this.rows().filter(row => row.expiresAt !== undefined && row.expiresAt <= now)
-          .sort((a, b) => a.expiresAt! - b.expiresAt!)[0];
-        if (!next?.expiresAt) break;
-        const deadline = next.expiresAt, ids = this.affectedParticipantIds(this.rows().filter(row => row.expiresAt !== undefined && row.expiresAt <= next.expiresAt!).flatMap(row => [row.proposerId, row.targetId]));
+      while (Number.isFinite(this.nextExpiryAt) && this.nextExpiryAt <= now) {
+        const deadline = this.nextExpiryAt;
+        const expiring = [...this.agreements.values()].filter(row => row.expiresAt === deadline);
+        const ids = this.affectedParticipantIds(expiring.flatMap(row => [row.proposerId, row.targetId]));
         // The preceding interval uses the agreement until its exact deadline.
-        this.valuationTime = deadline - 1; this.invalidate();
+        this.valuationTime = deadline - 1;
+        this.invalidate();
         this.context.beforeChange(deadline, ids);
-        for (const row of this.rows()) if (row.expiresAt !== undefined && row.expiresAt <= deadline) {
-          this.agreements.delete(row.id); this.context.changed("expired", row);
+        for (const row of expiring) {
+          this.agreements.delete(row.id);
+          this.context.changed("expired", row);
         }
-        this.valuationTime = undefined; this.notifyInvalidation(ids);
+        this.refreshNextExpiry();
+        this.valuationTime = undefined;
+        this.invalidate();
+        this.context.invalidate(ids);
+        for (const id of ids) affected.add(id);
       }
-    } finally { this.advancing = false; this.valuationTime = undefined; }
+    } finally {
+      this.advancing = false;
+      this.valuationTime = undefined;
+    }
+    // A publish can rebuild the economy at wall-clock time. Wait until every
+    // due deadline is settled so that rebuild cannot change an earlier rate.
+    this.context.publish?.([...affected]);
   }
   allocation(now: number): ResourceSupplyAllocation {
     this.advanceTo(this.valuationTime ?? now);
@@ -97,6 +113,22 @@ export class ResourceSupplyLedger {
       this.cachedUntil = Math.min(Infinity, ...this.rows().flatMap(row => [row.startedAt, row.expiresAt ?? Infinity]).filter(deadline => deadline > at));
     }
     return this.cached;
+  }
+  coinTransfers(playerId: string, at: number): { to: string; perHour: number }[] {
+    if (!this.size) return [];
+    const { flows, fulfilled } = this.allocation(at);
+    if (!flows.has(playerId)) return [];
+    const transfers: { to: string; perHour: number }[] = [];
+    for (const row of this.agreements.values()) {
+      if (!fulfilled.has(row.id)) continue;
+      if (row.proposerId === playerId && row.proposerCoinPerHour) {
+        transfers.push({ to: row.targetId, perHour: row.proposerCoinPerHour });
+      }
+      if (row.targetId === playerId && row.targetCoinPerHour) {
+        transfers.push({ to: row.proposerId, perHour: row.targetCoinPerHour });
+      }
+    }
+    return transfers;
   }
   preview(row: ResourceSupplyAgreement, now: number): ResourceSupplyAllocation {
     this.advanceTo(now);
@@ -114,7 +146,9 @@ export class ResourceSupplyLedger {
       return { ok: false, message: "The promised resource supply is no longer available." };
     const ids = this.affectedParticipantIds([row.proposerId, row.targetId]);
     this.settleBeforeChange(now, ids);
-    this.agreements.set(row.id, row); this.context.changed("created", row); this.notifyInvalidation(ids);
+    this.agreements.set(row.id, row);
+    this.nextExpiryAt = Math.min(this.nextExpiryAt, row.expiresAt ?? Infinity);
+    this.context.changed("created", row); this.notifyInvalidation(ids);
     return { ok: true };
   }
   /** Caller authorises ordinary cancellation or a trusted settlement rollback. */
@@ -124,7 +158,9 @@ export class ResourceSupplyLedger {
     if (!row) return false;
     const ids = this.affectedParticipantIds([row.proposerId, row.targetId]);
     this.settleBeforeChange(now, ids);
-    this.agreements.delete(id); this.context.changed("cancelled", row); this.notifyInvalidation(ids);
+    this.agreements.delete(id);
+    if (row.expiresAt === this.nextExpiryAt) this.refreshNextExpiry();
+    this.context.changed("cancelled", row); this.notifyInvalidation(ids);
     return true;
   }
 }

@@ -1,5 +1,5 @@
 import { DiplomacySettlementPayloadSchema, type DiplomacySettlementPayload } from "@border-empires/sim-protocol";
-import { hasResourceSupplyOffer, type DiplomacyGoods, type ResourceSupplyAgreement } from "@border-empires/shared";
+import { RESOURCE_SUPPLY_TRADE_DURATION_MS, hasResourceSupplyOffer, type DiplomacyGoods, type ResourceSupplyAgreement } from "@border-empires/shared";
 import type { SupplyLedgerResult } from "./resource-supply-trades/resource-supply-ledger.js";
 import type { DomainPlayer } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
@@ -53,6 +53,9 @@ export function handleDiplomacySettlementCommand(context: RuntimeDiplomacySettle
   const at = context.now?.() ?? Date.now();
   context.settleEconomy?.(at, [proposer.id, target.id]);
   const supplies = hasResourceSupplyOffer(payload.proposerPays.resources) || hasResourceSupplyOffer(payload.targetPays.resources);
+  if (!supplies && (payload.proposerPays.coinPerHour || payload.targetPays.coinPerHour)) {
+    return reject("DIPLOMACY_SETTLEMENT_RESOURCE_SUPPLY", "Recurring Coin requires a resource slot in the deal.");
+  }
   if (supplies && !context.resourceSupply) return reject("RESOURCE_TRADING_UNAVAILABLE", "Resource trading is unavailable in this world.");
   // A failed gateway agreement must release its original supply promise, even
   // if an already-spent currency payment requires separate recovery.
@@ -65,7 +68,9 @@ export function handleDiplomacySettlementCommand(context: RuntimeDiplomacySettle
     const result = context.resourceSupply!.create({
       id: command.commandId, proposerId: proposer.id, targetId: target.id,
       proposerGives: payload.proposerPays.resources ?? {}, targetGives: payload.targetPays.resources ?? {},
-      startedAt: at
+      ...(payload.proposerPays.coinPerHour ? { proposerCoinPerHour: payload.proposerPays.coinPerHour } : {}),
+      ...(payload.targetPays.coinPerHour ? { targetCoinPerHour: payload.targetPays.coinPerHour } : {}),
+      startedAt: at, expiresAt: at + RESOURCE_SUPPLY_TRADE_DURATION_MS
     });
     if (!result.ok) return reject("DIPLOMACY_SETTLEMENT_RESOURCE_SUPPLY", result.message);
   }

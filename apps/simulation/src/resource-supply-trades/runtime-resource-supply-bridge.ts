@@ -4,6 +4,7 @@ import type { ResourceSupplyAgreement } from "@border-empires/shared";
 import { RuntimeResourceSupply } from "./runtime-resource-supply.js";
 import { cachedResourceSlots, ownedResourceTiles, physicalResourceSlots, type RuntimeResourceSlotsContext } from "./runtime-resource-slots.js";
 import type { ResourceSupplyLedgerContext } from "./resource-supply-ledger.js";
+import type { RuntimePassiveIncomeContext } from "../runtime-passive-income.js";
 import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
 import { supplyEndedImpacts } from "./supply-ended-impacts.js";
 
@@ -42,7 +43,7 @@ export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, re
       runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size, action }, "resource_supply_agreements");
     },
     ended: (agreement, reason, byPlayerId) => {
-      for (const impact of supplyEndedImpacts(agreement, reason, byPlayerId, ctx.now())) ctx.recordPersonalImpact?.(impact);
+      for (const impact of supplyEndedImpacts(agreement, reason, byPlayerId, reason === "EXPIRED" ? agreement.expiresAt ?? ctx.now() : ctx.now())) ctx.recordPersonalImpact?.(impact);
     },
     invalidate: ids => {
       const caches = ctx.slots().caches;
@@ -64,3 +65,10 @@ export const tradedSupplyHooks = (supply: RuntimeResourceSupply | undefined, now
     tradedSupply: (id) => supply.upkeep(id),
     advanceTrades: () => supply.ledger.advanceTo(now())
   } : {};
+
+export const passiveIncomeSupply = (
+  players: RuntimePassiveIncomeContext["players"], supply: RuntimeResourceSupply | undefined
+): Pick<RuntimePassiveIncomeContext, "players" | "activeCoinTransfers"> => ({
+  players,
+  ...(supply ? { activeCoinTransfers: (id, at) => supply.ledger.coinTransfers(id, at) } : {})
+});

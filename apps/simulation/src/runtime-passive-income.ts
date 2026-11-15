@@ -11,6 +11,7 @@ export type RuntimePassiveIncomeContext = {
   players: ReadonlyMap<string, RuntimePlayer>;
   lastActiveAtMsByPlayer: ReadonlyMap<string, number>;
   lastIncomeTickAtMsByPlayer: Map<string, number>;
+  activeCoinTransfers?: (id: string, at: number) => readonly { to: string; perHour: number }[];
   cachedEconomySnapshot: (player: RuntimePlayer) => PlayerUpdateEconomySnapshot;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   addStrategicResource: (player: RuntimePlayer, resource: StrategicResourceKey, amount: number) => void;
@@ -70,17 +71,36 @@ export const applyPassiveIncomeForPlayer = (
     return;
   }
 
-  const elapsedMs = nowMs - lastTickAt;
+  if (nowMs <= lastTickAt) return;
+  const economy = ctx.cachedEconomySnapshot(player);
+  // Rebuilding the economy can expire a supply deal and settle income up to
+  // that deadline at the previous rate. Only credit the remaining interval.
+  const elapsedMs = nowMs - (ctx.lastIncomeTickAtMsByPlayer.get(player.id) ?? lastTickAt);
   if (elapsedMs <= 0) return;
   const elapsedMinutes = elapsedMs / 60_000;
-
-  const economy = ctx.cachedEconomySnapshot(player);
   const goldPerMinute = economy.incomePerMinute;
   const summary = ctx.summaryForPlayer(player.id);
   const storageCap = computeEmpireStorageCap(summary, economy.strategicProductionPerMinute);
 
   let anyCredited = false;
-  const goldEarned = goldPerMinute * elapsedMinutes;
+  const earned = goldPerMinute * elapsedMinutes;
+  const transfers = earned > 0 ? ctx.activeCoinTransfers?.(player.id, nowMs) ?? [] : [];
+  const scheduled = transfers.reduce((sum, transfer) => sum + transfer.perHour, 0) * elapsedMs / 3_600_000;
+  const delivered = Math.min(earned, scheduled);
+  const paidIds = new Set<string>();
+  let paid = 0;
+  if (delivered > 0) {
+    const scale = delivered / scheduled;
+    for (const transfer of transfers) {
+      const recipient = ctx.players.get(transfer.to);
+      if (!recipient) continue;
+      const amount = transfer.perHour * elapsedMs / 3_600_000 * scale;
+      recipient.points += amount;
+      paid += amount;
+      paidIds.add(recipient.id);
+    }
+  }
+  const goldEarned = earned - paid;
   if (goldEarned > 0) {
     const availableGoldCap = Math.max(0, storageCap.GOLD - player.points);
     const creditedGold = Math.min(goldEarned, availableGoldCap);
@@ -107,6 +127,9 @@ export const applyPassiveIncomeForPlayer = (
 
   ctx.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
 
+  for (const playerId of paidIds) {
+    if (emitUpdate) ctx.emitPlayerStateUpdate({ commandId: `income-tick:trade:${player.id}:${playerId}:${nowMs}`, playerId });
+  }
   if (anyCredited && emitUpdate) {
     ctx.emitPlayerStateUpdate({ commandId: `income-tick:${player.id}:${nowMs}`, playerId: player.id });
   }

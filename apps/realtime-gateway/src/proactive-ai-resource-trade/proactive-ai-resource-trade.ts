@@ -11,10 +11,8 @@
 // no FOOD headroom and no offer already pending, it asks a House with spare
 // FOOD for a few slots, paying with a spare upkeep resource
 // (TITANIUM/CRYSTAL/UMBRITE) of equal daily value, or a day's value in coin.
-// Supply agreements never expire on their own (the simulation ignores
-// supplyDurationHours), so the AI ends each FOOD purchase it made once the day
-// it paid for has passed. That keeps deals from piling up against the
-// per-House agreement cap; the AI asks again if it still needs FOOD. Other AIs answer at once; up to two
+// New supply agreements expire after seven days. AI cleanup still ends legacy
+// FOOD purchases without a deadline after the first day. Other AIs answer at once; up to two
 // human neighbours are also asked each tick, with a short-lived offer.
 // Attacking a House ends every supply trade between the two (simulation
 // runtime-frontier-command.ts), so an AI that attacks its FOOD supplier loses
@@ -108,7 +106,7 @@ export const foodTradeTerms = (food: number, buyer: TradePlayerState | undefined
 
 /** A FOOD purchase this AI proposed that has run for the day it paid for. */
 export const expiredFoodPurchase = (aiId: string, player: TradePlayerState | undefined, nowMs: number): string | undefined =>
-  player?.resourceTradeAgreements?.find(row => row.proposerId === aiId && (row.targetGives.FOOD ?? 0) > 0 &&
+  player?.resourceTradeAgreements?.find(row => row.expiresAt === undefined && row.proposerId === aiId && (row.targetGives.FOOD ?? 0) > 0 &&
     nowMs - row.startedAt >= AI_FOOD_TRADE_DURATION_HOURS * 3_600_000)?.id;
 
 export function createProactiveAiResourceTrade(deps: ProactiveAiResourceTradeDeps): { tick(): Promise<void> } {

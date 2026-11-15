@@ -3,7 +3,7 @@ import { createAfcRecoveryTicker } from "../afc-owned-site/afc-recovery-ticker.j
 import { createVisibleStateContext } from "./runtime-visible-state-context.js";
 import { createAfcTileObserver, preserveAfclessReserves } from "../afc-owned-site/afc-loss.js";
 import { defaultScheduleAfter } from "./runtime-default-schedule-after.js";
-import { createRuntimeResourceSupply, tradedSupplyHooks } from "../resource-supply-trades/runtime-resource-supply-bridge.js";
+import { createRuntimeResourceSupply, passiveIncomeSupply, tradedSupplyHooks } from "../resource-supply-trades/runtime-resource-supply-bridge.js";
 import { dormantContributorTiles, cachedResourceSlots, cachedResourceDemand, cachedResourceDormancy, type RuntimeResourceSlotsContext } from "../resource-supply-trades/runtime-resource-slots.js";
 import { RuntimeResourceSupply } from "../resource-supply-trades/runtime-resource-supply.js";
 import { RelicMapHintIndex } from "../runtime-relic-map-hints.js";
@@ -1031,7 +1031,7 @@ export class SimulationRuntime {
 
   private passiveIncomeContext(): RuntimePassiveIncomeContext {
     return {
-      players: this.state.players,
+      ...passiveIncomeSupply(this.state.players, this.resourceSupply),
       lastActiveAtMsByPlayer: this.lastActiveAtMsByPlayer,
       lastIncomeTickAtMsByPlayer: this.lastIncomeTickAtMsByPlayer,
       cachedEconomySnapshot: (player) => this.cachedEconomySnapshot(player),

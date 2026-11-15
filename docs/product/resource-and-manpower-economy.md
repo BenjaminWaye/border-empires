@@ -308,7 +308,11 @@ Sources: `packages/shared/src/resource-networks/`,
 
 All four upkeep resources and luxury biota (not precursor salvage) can be negotiated in independent Resource trade offers or alongside a
 truce/alliance. These are exclusive renewable slots or developed sites, not a
-new inventory of mined stockpiles. Coin remains a one-time transfer. For upkeep
+new inventory of mined stockpiles. Upfront Coin transfers at acceptance. Houses
+can also offer Coin per hour from future earnings when a deal includes slots.
+Recurring payments pause with resource delivery and draw only from earned Coin.
+If earnings fall short, ongoing dues share the available income proportionally.
+AI Houses negotiate upfront Coin. For upkeep
 resources only surplus beyond current domestic use and existing export
 commitments may be newly promised; any developed biota site may be pledged, and
 the supplier loses that site's 2 biota slots while the receiver gains them.
@@ -316,14 +320,14 @@ Offers containing salvage are refused, and agreements saved with salvage are
 suspended. Received slots cannot back another export. Accepted exports
 take priority over later domestic building demand.
 
-Supply continues until either participating House ends the agreement. Both
+New supply agreements run for seven days from acceptance and can be ended early by either House. Both
 resource deliveries pause when either supplier loses required output and resume
 when output recovers. Ending supply releases both directions immediately after
 old-rate income/manpower settlement. One-time Coin payments are not
 refunded for a later shortage or cancellation. Supply contracts survive the
 accompanying treaty ending. Active agreements persist through recovery; new
-agreements have no expiry. Historical saved agreements may still contain an expiry
-and retain deadline settlement during recovery.
+agreements settle at their deadline during recovery. Older agreements keep their
+original expiry or remain active until ended if they had none.
 
 Independent offers can be accepted, declined or withdrawn without creating a
 truce or alliance. Unaccepted offers expire after 24 hours. A payment already
