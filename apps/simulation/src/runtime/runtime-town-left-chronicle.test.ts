@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
 import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
+import { townLeftEmpireImpact, type OwnershipChangeSample } from "./runtime-ownership-change-sample.js";
 
 /**
  * Regression (persona playtest, achiever): a town dropped out of the empire
@@ -48,5 +49,30 @@ describe("a town that leaves your empire without a captor", () => {
     }));
     const lost = timeline.cards.find((card) => card.kind === "TOWN_LOST");
     expect(lost && "counterpartyPlayerId" in lost ? lost.counterpartyPlayerId : undefined).toBeUndefined();
+  });
+});
+
+// Review of #2787: AI and barbarian towns walking off filled the shared 5,000-entry impact log that
+// players' Chronicles read from, and a second loss of the same town reused the first card's id.
+describe("townLeftEmpireImpact", () => {
+  const sample = (ownerId: string): OwnershipChangeSample => ({
+    tileKey: "5,5", x: 5, y: 5, previousOwnerId: ownerId, nextOwnerId: undefined, commandId: "tile-owner-change:5,5",
+    hadTown: true, townLost: false, hadOwnershipState: "SETTLED", previousTownPopulationTier: "TOWN"
+  });
+  const town = { name: "Voltspire", type: "FARMING", populationTier: "TOWN", population: 10 } as const;
+  const players = new Map([
+    ["player-1", buildPlayer("player-1")],
+    ["ai-1", buildPlayer("ai-1", { isAi: true })],
+    ["barbarian-1", buildPlayer("barbarian-1", { isAi: false })]
+  ]);
+
+  it("writes no card for AI or barbarian Houses", () => {
+    expect(townLeftEmpireImpact(sample("ai-1"), town, players, 1)).toBeUndefined();
+    expect(townLeftEmpireImpact(sample("barbarian-1"), town, players, 1)).toBeUndefined();
+    expect(townLeftEmpireImpact(sample("player-1"), town, players, 1)).toBeDefined();
+  });
+
+  it("gives a second loss of the same town its own id", () => {
+    expect(townLeftEmpireImpact(sample("player-1"), town, players, 1)?.id).not.toBe(townLeftEmpireImpact(sample("player-1"), town, players, 2)?.id);
   });
 });

@@ -1,6 +1,7 @@
 import { appendPlayerEventLogEntry, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import { PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
 import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
+import { isAiControlledActor } from "../runtime-player-factory.js";
 
 type TownPopulationTier = NonNullable<NonNullable<DomainTileState["town"]>["populationTier"]>;
 
@@ -103,10 +104,14 @@ export const townLeftEmpireImpact = (
   now: number
 ): PersonalImpactEvent | undefined => {
   const ownerId = sample.previousOwnerId;
-  if (!ownerId || sample.nextOwnerId || !sample.hadTown || !previousTown || !players.has(ownerId)) return undefined;
+  if (!ownerId || sample.nextOwnerId || !sample.hadTown || !previousTown) return undefined;
+  // AI and barbarian Houses have no Chronicle; their towns walking off would crowd players' cards out of the shared log.
+  const owner = players.get(ownerId);
+  if (!owner || isAiControlledActor(ownerId, owner.isAi)) return undefined;
   const population = previousTown.population ?? 0;
   return {
-    id: `town-left:${sample.commandId}:${sample.tileKey}`,
+    // The default commandId is per tile, so the time keeps a second loss of the same town a separate card.
+    id: `town-left:${sample.commandId}:${sample.tileKey}:${now}`,
     kind: "TOWN_LOST",
     playerId: ownerId,
     occurredAt: now,
@@ -127,12 +132,12 @@ export const publishOwnershipChange = (
   onOwnershipChange: ((sample: OwnershipChangeSample) => void) | undefined,
   players: ReadonlyMap<string, DomainPlayer>,
   now: number,
-  recordPersonalImpact?: (event: PersonalImpactEvent) => void
+  impactLog?: { recordPersonalImpact(event: PersonalImpactEvent): void }
 ): void => {
   const sample = buildOwnershipChangeSample(write.tileKey, write.tile, write.previous, write.commandId);
   if (!sample) return;
   onOwnershipChange?.(sample);
   appendTownLostEventLogIfApplicable(sample, write.previous?.town, players, now);
-  const townLeft = recordPersonalImpact ? townLeftEmpireImpact(sample, write.previous?.town, players, now) : undefined;
-  if (townLeft) recordPersonalImpact?.(townLeft);
+  const townLeft = impactLog && sample.hadTown ? townLeftEmpireImpact(sample, write.previous?.town, players, now) : undefined;
+  if (townLeft) impactLog?.recordPersonalImpact(townLeft);
 };
