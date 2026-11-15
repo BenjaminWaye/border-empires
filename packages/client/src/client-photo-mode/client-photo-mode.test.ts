@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import {
   applyPhotoModeCamera,
@@ -7,7 +7,10 @@ import {
   exitPhotoMode,
   PHOTO_MODE_BODY_CLASS,
   PHOTO_MODE_EXIT_CONTROL_ID,
+  PHOTO_MODE_EXIT_IDLE_CLASS,
+  PHOTO_MODE_EXIT_IDLE_MS,
   parsePhotoModeParams,
+  togglePhotoMode,
   type PhotoModeSettingsState
 } from "./client-photo-mode.js";
 
@@ -176,5 +179,57 @@ describe("bindPhotoModeSettingsControls (Settings > Gameplay toggle + Ctrl+P)", 
 
     expect(document.body.classList.contains(PHOTO_MODE_BODY_CLASS)).toBe(false);
     expect(state.photoModeActive).toBe(false);
+  });
+});
+
+// 2026-11-14 playtest: every photo-mode shot still had the selection square and the Exit button in it.
+describe("photo mode keeps chrome out of the shot", () => {
+  afterEach(() => {
+    exitPhotoMode();
+    document.body.innerHTML = "";
+    document.body.className = "";
+    vi.useRealTimers();
+  });
+
+  const state = (): PhotoModeSettingsState => ({ camX: 0, camY: 0, camSubX: 0, camSubY: 0, zoom: 22, photoModeActive: false, selected: { x: 3, y: 4 } });
+
+  it("clears the selected tile while on and restores it after", () => {
+    const s = state();
+    togglePhotoMode(s, () => undefined);
+    expect(s.selected).toBeUndefined();
+    togglePhotoMode(s, () => undefined);
+    expect(s.selected).toEqual({ x: 3, y: 4 });
+  });
+
+  it("restores the selection when left through the on-screen Exit button too", () => {
+    const s = state();
+    togglePhotoMode(s, () => undefined);
+    document.getElementById(PHOTO_MODE_EXIT_CONTROL_ID)!.click();
+    expect(s.selected).toEqual({ x: 3, y: 4 });
+  });
+
+  it("fades the Exit button out when idle and brings it back on any input", () => {
+    vi.useFakeTimers();
+    togglePhotoMode(state(), () => undefined);
+    const exit = document.getElementById(PHOTO_MODE_EXIT_CONTROL_ID)!;
+    expect(exit.classList.contains(PHOTO_MODE_EXIT_IDLE_CLASS)).toBe(false);
+    vi.advanceTimersByTime(PHOTO_MODE_EXIT_IDLE_MS);
+    expect(exit.classList.contains(PHOTO_MODE_EXIT_IDLE_CLASS)).toBe(true);
+    window.dispatchEvent(new Event("pointerdown"));
+    expect(exit.classList.contains(PHOTO_MODE_EXIT_IDLE_CLASS)).toBe(false);
+  });
+
+  // Review of #2786: Cmd+Shift+4 / Win+Shift+S send their modifiers to the page first, which woke the
+  // button right as the region capture was taken.
+  it("stays faded when only a modifier key is pressed", () => {
+    vi.useFakeTimers();
+    togglePhotoMode(state(), () => undefined);
+    const exit = document.getElementById(PHOTO_MODE_EXIT_CONTROL_ID)!;
+    vi.advanceTimersByTime(PHOTO_MODE_EXIT_IDLE_MS);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Meta" }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift" }));
+    expect(exit.classList.contains(PHOTO_MODE_EXIT_IDLE_CLASS)).toBe(true);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
+    expect(exit.classList.contains(PHOTO_MODE_EXIT_IDLE_CLASS)).toBe(false);
   });
 });

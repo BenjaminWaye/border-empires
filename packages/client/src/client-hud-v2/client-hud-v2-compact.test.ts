@@ -7,7 +7,7 @@ import { applyResourceChip, type ResourcePanelState } from "./client-hud-v2-reso
 import type { TrackerInput } from "./client-hud-v2-tracker.js";
 
 const tracker = (over: Partial<TrackerInput> = {}): TrackerInput => ({
-  buildSlots: { busy: 2, limit: 3 }, afcReady: 0, flags: [], flagCap: 0, manpowerCap: 1000, building: [], queue: [], slotsOpen: true, nowMs: 0, ...over
+  buildSlots: { busy: 2, limit: 3 }, afcReady: 0, flags: [], flagCap: 0, manpowerCap: 1000, building: [], queue: [], waypoints: [], slotsOpen: true, nowMs: 0, ...over
 });
 
 // Like a browser, back() fires popstate (asynchronously there; synchronously here).
@@ -41,6 +41,11 @@ describe("compact tracker", () => {
     expect(html).toContain("Dev 2/3");
     expect(html).toContain("Battle 42s");
     expect(html).toContain("data-v2c-tracker-toggle");
+  });
+
+  it("counts queued expansions on the folded line, since each one keeps spending manpower", () => {
+    expect(trackerSummaryHtml(tracker({ waypoints: [{ x: 1, y: 1, paused: false }, { x: 2, y: 2, paused: false }] }))).toContain("→ 2 queued");
+    expect(trackerSummaryHtml(tracker())).not.toContain("queued");
   });
 
   it("unfolds into the full tracker behind a fold button", () => {

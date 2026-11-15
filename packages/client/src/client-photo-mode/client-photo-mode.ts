@@ -90,12 +90,18 @@ export const PHOTO_MODE_EXIT_CONTROL_ID = "photo-mode-exit-control";
 
 let removeExitControl: (() => void) | undefined;
 
+/** The exit control fades out after this long without input, so screenshots don't capture it (2026-11-14 playtest). */
+export const PHOTO_MODE_EXIT_IDLE_MS = 2_500;
+export const PHOTO_MODE_EXIT_IDLE_CLASS = "is-idle";
+const EXIT_WAKE_EVENTS = ["pointermove", "pointerdown", "keydown", "touchstart"] as const;
+const MODIFIER_KEYS = new Set(["Meta", "Shift", "Control", "Alt", "OS"]);
+
 const showExitControl = (onExit: () => void): void => {
   removeExitControl?.();
   const button = document.createElement("button");
   button.id = PHOTO_MODE_EXIT_CONTROL_ID;
   button.type = "button";
-  button.textContent = "Exit Photo Mode (Esc / Ctrl+P)";
+  button.textContent = "Exit Photo Mode";
   const handleExit = (): void => {
     exitPhotoMode();
     onExit();
@@ -104,10 +110,23 @@ const showExitControl = (onExit: () => void): void => {
   const handleEscape = (event: KeyboardEvent): void => {
     if (event.key === "Escape") handleExit();
   };
+  // Hidden (and not clickable) while idle; any input brings it back, so the first tap never exits by accident.
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  const wake = (event?: Event): void => {
+    // A modifier alone (Cmd+Shift+4, Win+Shift+S) is a screenshot shortcut starting, not a request for the button.
+    if (event instanceof KeyboardEvent && MODIFIER_KEYS.has(event.key)) return;
+    button.classList.remove(PHOTO_MODE_EXIT_IDLE_CLASS);
+    if (idleTimer !== undefined) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => button.classList.add(PHOTO_MODE_EXIT_IDLE_CLASS), PHOTO_MODE_EXIT_IDLE_MS);
+  };
   window.addEventListener("keydown", handleEscape, true);
+  for (const type of EXIT_WAKE_EVENTS) window.addEventListener(type, wake, { capture: true, passive: true });
   document.body.append(button);
+  wake();
   removeExitControl = () => {
     window.removeEventListener("keydown", handleEscape, true);
+    for (const type of EXIT_WAKE_EVENTS) window.removeEventListener(type, wake, true);
+    if (idleTimer !== undefined) clearTimeout(idleTimer);
     button.remove();
     removeExitControl = undefined;
   };
@@ -137,21 +156,33 @@ export type PhotoModeConsoleApi = {
 
 export type PhotoModeSettingsState = PhotoModeCameraState & {
   photoModeActive: boolean;
+  /** The selected tile: its outline is drawn by both map renderers, so it is cleared for the shot and restored after. */
+  selected?: { x: number; y: number } | undefined;
 };
+
+let selectionBeforePhoto: { x: number; y: number } | undefined;
 
 // Shared by the Settings > Gameplay button and the Ctrl+P shortcut. Checks the
 // body class rather than only `photoModeActive` so Ctrl+P also backs out of a
 // URL/console-started session, which never set the app-state flag.
 export const togglePhotoMode = (state: PhotoModeSettingsState, renderHud: () => void): void => {
+  const restoreSelection = (): void => {
+    if (state.selected === undefined && selectionBeforePhoto) state.selected = selectionBeforePhoto;
+    selectionBeforePhoto = undefined;
+  };
   if (state.photoModeActive || document.body.classList.contains(PHOTO_MODE_BODY_CLASS)) {
     exitPhotoMode();
     state.photoModeActive = false;
+    restoreSelection();
   } else {
     state.photoModeActive = true;
+    selectionBeforePhoto = state.selected;
+    state.selected = undefined;
     // No x/y/zoom to give from a settings click or shortcut -- just hide the
     // HUD from wherever the camera already is, so no camera pin is applied.
     enterPhotoMode(state, {}, () => {
       state.photoModeActive = false;
+      restoreSelection();
       renderHud();
     });
   }
