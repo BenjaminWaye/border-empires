@@ -14,6 +14,7 @@ export interface RuntimeResourceSupplyContext {
   cachedPlayerState?: (id:string) => import("@border-empires/shared").ResourceSupplyPlayerState | undefined;
   cachePlayerState?: (id:string,state:import("@border-empires/shared").ResourceSupplyPlayerState) => void;
   now(): number;
+  coinAccountingStartsAt?: number;
   resourceSlotSources?: (id: string) => import("@border-empires/shared").ResourceSlotSources | undefined;
   player(id: string): RuntimePlayer | undefined;
   ownedTiles(id: string): DomainTileState[];
@@ -36,8 +37,9 @@ export class RuntimeResourceSupply {
   readonly ledger: ResourceSupplyLedger;
   constructor(private readonly ctx: RuntimeResourceSupplyContext, restored: readonly ResourceSupplyAgreement[] = []) {
     // Salvage is never exported: zero capacity suspends any legacy salvage deal.
-    this.ledger = new ResourceSupplyLedger({ ...ctx, changed: (action, agreement) => {
-      ctx.changed(action, agreement);
+    this.ledger = new ResourceSupplyLedger({ ...ctx, changed: (...args) => {
+      const [action, agreement] = args;
+      ctx.changed(...args);
       if (action === "expired") ctx.ended?.(agreement, "EXPIRED");
     }, capacityFor: (id, phase, flows) =>
       phase === "upkeep" ? ctx.physicalUpkeep(id) : { ...this.physicalNetwork(id, flows), PRECURSOR_SALVAGE: 0 } }, restored);
@@ -80,7 +82,7 @@ export class RuntimeResourceSupply {
     }
     return result;
   }
-  create(row: ResourceSupplyAgreement): SupplyLedgerResult {
+  create(row: ResourceSupplyAgreement, targetCoinDelta?: number): SupplyLedgerResult {
     if (offerIncludesNonTradableSupply(row.proposerGives) || offerIncludesNonTradableSupply(row.targetGives))
       return { ok: false, message: "Precursor salvage can't be traded." };
     for (const [id, offer] of [[row.proposerId, row.proposerGives], [row.targetId, row.targetGives]] as const) {
@@ -88,7 +90,7 @@ export class RuntimeResourceSupply {
       if (TRADABLE_SUPPLY_RESOURCES.some(resource => (offer[resource] ?? 0) > (available[resource] ?? 0)))
         return { ok: false, message: "The promised resource slots are already in use or committed to another deal." };
     }
-    return this.ledger.add(row, this.ctx.now());
+    return this.ledger.add(row, this.ctx.now(), targetCoinDelta);
   }
   playerState(id: string): import("@border-empires/shared").ResourceSupplyPlayerState {
     const allocation = this.ledger.allocation(this.ctx.now());
@@ -191,8 +193,9 @@ export class RuntimeResourceSupply {
     }
     return ended;
   }
-  cancelRefunded(id: string, proposerId: string, targetId: string): void {
+  cancelRefunded(id: string, proposerId: string, targetId: string, targetCoinDelta?: number): boolean {
     const row = this.ledger.rows().find(row => row.id === id);
-    if (row && row.proposerId === proposerId && row.targetId === targetId) this.ledger.remove(id, this.ctx.now());
+    if (!row || row.proposerId !== proposerId || row.targetId !== targetId) return false;
+    return this.ledger.remove(id, this.ctx.now(), targetCoinDelta);
   }
 }

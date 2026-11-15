@@ -312,7 +312,8 @@ new inventory of mined stockpiles. Upfront Coin transfers at acceptance. Houses
 can also offer Coin per hour from future earnings when a deal includes slots.
 Recurring payments pause with resource delivery and draw only from earned Coin.
 Inactivity pauses payments when it pauses income. Resuming play starts a fresh
-income interval. If earnings fall short, dues share available income proportionally.
+income interval. After a restart, recurring payments resume from the new runtime's
+start. If earnings fall short, dues share available income proportionally.
 AI Houses negotiate upfront Coin. For upkeep
 resources only surplus beyond current domestic use and existing export
 commitments may be newly promised; any developed biota site may be pledged, and

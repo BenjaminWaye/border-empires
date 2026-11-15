@@ -11,7 +11,9 @@ export type ResourceSupplyLedgerContext = {
   /** Settle every affected participant at the old rates before changing supply. */
   readonly beforeChange: (at: number, participantIds: readonly string[]) => void;
   readonly invalidate: (participantIds: readonly string[]) => void;
-  readonly changed: (action: "created" | "cancelled" | "expired", agreement: ResourceSupplyAgreement) => void;
+  readonly changed: (action: "created" | "cancelled" | "expired", agreement: ResourceSupplyAgreement, targetCoinDelta?: number) => void;
+  /** The recovered ledger does not reconstruct past delivery or income windows. */
+  readonly coinAccountingStartsAt?: number;
 };
 
 /** Active state only: bounded globally and per player, with expiry-aware allocation. */
@@ -121,11 +123,12 @@ export class ResourceSupplyLedger {
     const transfers: { to: string; perHour: number; startedAt: number }[] = [];
     for (const row of this.agreements.values()) {
       if (!fulfilled.has(row.id)) continue;
+      const startedAt = Math.max(row.startedAt, this.context.coinAccountingStartsAt ?? row.startedAt);
       if (row.proposerId === playerId && row.proposerCoinPerHour) {
-        transfers.push({ to: row.targetId, perHour: row.proposerCoinPerHour, startedAt: row.startedAt });
+        transfers.push({ to: row.targetId, perHour: row.proposerCoinPerHour, startedAt });
       }
       if (row.targetId === playerId && row.targetCoinPerHour) {
-        transfers.push({ to: row.proposerId, perHour: row.targetCoinPerHour, startedAt: row.startedAt });
+        transfers.push({ to: row.proposerId, perHour: row.targetCoinPerHour, startedAt });
       }
     }
     return transfers;
@@ -134,7 +137,7 @@ export class ResourceSupplyLedger {
     this.advanceTo(now);
     return allocateResourceSupplyAgreements([...this.rows(), row], now, this.context.capacityFor);
   }
-  add(raw: ResourceSupplyAgreement, now: number): SupplyLedgerResult {
+  add(raw: ResourceSupplyAgreement, now: number, targetCoinDelta?: number): SupplyLedgerResult {
     this.advanceTo(now);
     const parsed = ResourceSupplyAgreementSchema.safeParse(raw);
     if (!parsed.success) return { ok: false, message: "Invalid resource supply agreement." };
@@ -148,11 +151,11 @@ export class ResourceSupplyLedger {
     this.settleBeforeChange(now, ids);
     this.agreements.set(row.id, row);
     this.nextExpiryAt = Math.min(this.nextExpiryAt, row.expiresAt ?? Infinity);
-    this.context.changed("created", row); this.notifyInvalidation(ids);
+    this.context.changed("created", row, targetCoinDelta); this.notifyInvalidation(ids);
     return { ok: true };
   }
   /** Caller authorises ordinary cancellation or a trusted settlement rollback. */
-  remove(id: string, now: number): boolean {
+  remove(id: string, now: number, targetCoinDelta?: number): boolean {
     this.advanceTo(now);
     const row = this.agreements.get(id);
     if (!row) return false;
@@ -160,7 +163,8 @@ export class ResourceSupplyLedger {
     this.settleBeforeChange(now, ids);
     this.agreements.delete(id);
     if (row.expiresAt === this.nextExpiryAt) this.refreshNextExpiry();
-    this.context.changed("cancelled", row); this.notifyInvalidation(ids);
+    if (targetCoinDelta) this.context.changed("cancelled", row, targetCoinDelta);
+    else this.context.changed("cancelled", row); this.notifyInvalidation(ids);
     return true;
   }
 }

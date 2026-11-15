@@ -272,19 +272,38 @@ const shouldTileDeltaRemovePendingSettlement = (
   return false;
 };
 
+const applyRecoveredTradeCoin = (
+  accumulator: RecoveredSimulationAccumulator, proposerId: string, targetId: string, targetCoinDelta: number | undefined
+): void => {
+  if (typeof targetCoinDelta !== "number" || !Number.isSafeInteger(targetCoinDelta) || targetCoinDelta === 0) return;
+  const proposer = accumulator.players.find(player => player.id === proposerId);
+  const target = accumulator.players.find(player => player.id === targetId);
+  if (typeof proposer?.points !== "number" || typeof target?.points !== "number") return;
+  proposer.points -= targetCoinDelta;
+  target.points += targetCoinDelta;
+};
+
 export const applySimulationEventsToRecoveredAccumulator = (
   accumulator: RecoveredSimulationAccumulator,
   events: SimulationEvent[]
 ): void => {
   for (const event of events) {
     if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "RESOURCE_SUPPLY_CHANGED") {
-      const payload = JSON.parse(event.payloadJson) as { action?: string; agreement?: ResourceSupplyAgreement };
+      const payload = JSON.parse(event.payloadJson) as { action?: string; agreement?: ResourceSupplyAgreement; targetCoinDelta?: number };
       const row = ResourceSupplyAgreementSchema.parse(payload.agreement);
-      accumulator.resourceSupplyAgreements = accumulator.resourceSupplyAgreements.filter(entry => entry.id !== row.id);
-      if (payload.action === "created") {
+      const existing = accumulator.resourceSupplyAgreements.some(entry => entry.id === row.id);
+      if (payload.action === "created" && !existing) {
         if (accumulator.resourceSupplyAgreements.length >= MAX_RESOURCE_SUPPLY_AGREEMENTS) throw new RangeError("Resource agreement recovery capacity exceeded");
         accumulator.resourceSupplyAgreements.push(row);
+        applyRecoveredTradeCoin(accumulator, row.proposerId, row.targetId, payload.targetCoinDelta);
+      } else if (payload.action !== "created" && existing) {
+        accumulator.resourceSupplyAgreements = accumulator.resourceSupplyAgreements.filter(entry => entry.id !== row.id);
+        applyRecoveredTradeCoin(accumulator, row.proposerId, row.targetId, payload.targetCoinDelta);
       }
+    }
+    if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "RESOURCE_SUPPLY_COIN_REFUNDED") {
+      const { proposerId, targetId, targetCoinDelta } = JSON.parse(event.payloadJson) as { proposerId: string; targetId: string; targetCoinDelta?: number };
+      applyRecoveredTradeCoin(accumulator, proposerId, targetId, targetCoinDelta);
     }
     if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "SOCIAL_STATE_SYNCED") {
       applyRecoveredDiplomacy(accumulator.players, event.playerId, event.payloadJson);

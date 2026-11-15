@@ -156,6 +156,9 @@ describe("resource trades in the production runtime",()=>{
     expect(initialState.resourceSupplyAgreements).toHaveLength(1);
     const replayed=applySimulationEventsToRecoveredState(before,events);
     expect(replayed.resourceSupplyAgreements).toEqual(initialState.resourceSupplyAgreements);
+    for (const id of ["buyer", "seller"]) {
+      expect(replayed.players?.find(player => player.id === id)?.points).toBe(f.player(id).points);
+    }
     const restored=new SimulationRuntime({ now:()=>start,seedTiles:new Map(),initialState,mergeSeedTilesWithInitialState:false });
     const own=buildPlayerSubscriptionSnapshot("buyer",restored.exportVisibleStateForPlayer("buyer"), { tilesAlreadyVisible:true }).player!;
     expect(own.resourceTradeAgreements?.[0]).toMatchObject({ fulfilled: true, targetCoinPerHour: 50, expiresAt: start + 7 * 86_400_000 });
@@ -169,6 +172,53 @@ describe("resource trades in the production runtime",()=>{
     await queue.whenIdle();
     const afterCheckpoint = (await eventStore.loadEventsAfter(checkpointEventId)).map(event => event.eventPayload);
     expect(applySimulationEventsToRecoveredState(initialState, afterCheckpoint).resourceSupplyAgreements).toEqual([]);
+  });
+  it.each([false, true])("recovers the Coin refund with an already ended agreement (%s)", async alreadyEnded => {
+    const f = fixture();
+    const eventStore = new InMemorySimulationEventStore();
+    const queue = createSimulationPersistenceQueue({ commandStore: new InMemorySimulationCommandStore(), eventStore });
+    f.runtime.onEvent(event => queue.enqueueEvent(event, start));
+    await f.pay();
+    if (alreadyEnded) {
+      await f.runtime.submitCommand({
+        commandId: "cancel-before-refund", sessionId: "system-runtime:social", playerId: "buyer", clientSeq: 0,
+        issuedAt: start, type: "CANCEL_RESOURCE_SUPPLY", payloadJson: JSON.stringify({ agreementId: "trade" })
+      });
+    }
+    await queue.whenIdle();
+    const checkpoint = f.runtime.exportSnapshotSections().initialState;
+    const eventId = await eventStore.loadLatestEventId();
+    await f.runtime.submitCommand({
+      commandId: "refund-trade", sessionId: "gateway", playerId: "seller", clientSeq: 2,
+      issuedAt: start, type: "SETTLE_DIPLOMACY_TERMS", payloadJson: JSON.stringify({
+        proposerId: "seller", targetId: "buyer", proposerPays: { gold: 3 },
+        targetPays: { gold: 0, resources: { LUXURY_BIOTA: 1 } }, refundOf: "trade"
+      })
+    });
+    await queue.whenIdle();
+    const events = (await eventStore.loadEventsAfter(eventId)).map(event => event.eventPayload);
+    const recovered = applySimulationEventsToRecoveredState(checkpoint, events);
+    expect(recovered.resourceSupplyAgreements).toEqual([]);
+    expect(recovered.players?.find(player => player.id === "seller")?.points).toBe(100);
+    expect(recovered.players?.find(player => player.id === "buyer")?.points).toBe(100);
+  });
+  it("does not collect recurring Coin for income from before a runtime restart", async () => {
+    const f = fixture();
+    const hour = 3_600_000;
+    f.runtime.updatePlayerLastActive("buyer", start);
+    f.runtime.applyPassiveIncome(start, 24 * hour);
+    await f.pay("trade", { FOOD: 2 }, 10);
+    const checkpoint = f.runtime.exportSnapshotSections().initialState;
+    let now = start + 10 * hour;
+    const restored = new SimulationRuntime({ now: () => now, seedTiles: new Map(), initialState: checkpoint });
+    const sellerPoints = () => restored.exportState().players.find(player => player.id === "seller")!.points;
+    const before = sellerPoints();
+    restored.updatePlayerLastActive("buyer", now);
+    restored.applyPassiveIncome(now, 24 * hour);
+    expect(sellerPoints()).toBe(before);
+    now += hour;
+    restored.applyPassiveIncome(now, 24 * hour);
+    expect(sellerPoints()).toBeGreaterThan(before);
   });
   it("suspends deliveries when the supplier loses its extraction site",async()=>{
     const f=fixture(); await f.pay();

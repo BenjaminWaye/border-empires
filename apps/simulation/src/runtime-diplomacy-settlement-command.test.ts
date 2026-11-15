@@ -107,7 +107,7 @@ describe("resource-backed settlement", () => {
   it("keeps both balances unchanged when the promised supply is no longer free", () => {
     const a = player("p1", 10), b = player("p2", 20), { context, events } = setup(a, b);
     const enhanced: RuntimeDiplomacySettlementContext = { ...context, resourceSupply: {
-      create: () => ({ ok: false, message: "No free FOOD supply." }), cancelRefunded: () => undefined
+      create: () => ({ ok: false, message: "No free FOOD supply." }), cancelRefunded: () => false
     } };
     handleDiplomacySettlementCommand(enhanced, command(terms));
     expect([a.points, b.points]).toEqual([10, 20]);
@@ -118,7 +118,7 @@ describe("resource-backed settlement", () => {
     const cancelled: string[] = [];
     const enhanced: RuntimeDiplomacySettlementContext = { ...context, resourceSupply: {
       create: () => { throw new Error("refund cannot create a new agreement"); },
-      cancelRefunded: id => { cancelled.push(id); }
+      cancelRefunded: id => { cancelled.push(id); return true; }
     } };
     handleDiplomacySettlementCommand(enhanced, command({ ...terms, refundOf: "original", proposerPays: terms.targetPays, targetPays: terms.proposerPays }));
     expect(cancelled).toEqual(["original"]);

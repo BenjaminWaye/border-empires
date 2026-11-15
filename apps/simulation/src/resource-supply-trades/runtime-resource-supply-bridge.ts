@@ -18,7 +18,7 @@ export interface ResourceSupplyBridgeContext {
   recordPersonalImpact?: (event: PersonalImpactEvent) => void;
 }
 export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, restored: readonly ResourceSupplyAgreement[] = []): RuntimeResourceSupply {
-  const supply = new RuntimeResourceSupply({ now: ctx.now, player: id => ctx.slots().players.get(id),
+  const supply = new RuntimeResourceSupply({ now: ctx.now, coinAccountingStartsAt: ctx.now(), player: id => ctx.slots().players.get(id),
     ownedTiles: id => ownedResourceTiles(ctx.slots(), id), physicalUpkeep: id => physicalResourceSlots(ctx.slots(), id),
     resourceSlotSources: id => {
       const slots = ctx.slots();
@@ -38,8 +38,9 @@ export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, re
     },
     beforeChange: ctx.beforeChange, publish: ids => { for (const id of ids) ctx.publish?.(id); },
     capacityRejected: () => runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size }, "resource_supply_capacity_rejected"),
-    changed: (action, agreement) => {
-      ctx.changed(action, agreement);
+    changed: (...args) => {
+      ctx.changed(...args);
+      const [action] = args;
       runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size, action }, "resource_supply_agreements");
     },
     ended: (agreement, reason, byPlayerId) => {
