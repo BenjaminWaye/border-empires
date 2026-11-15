@@ -121,10 +121,12 @@ export const createGarrisonManyFlow = (state: ClientState, deps: GarrisonManyDep
     state.musterMarchTargeting.active = false;
     state.buildingPlacement.active = false;
     state.garrisonMany.active = true;
+    // The tile Garrison Many was opened from may not qualify (e.g. outside your reach): say why instead of starting at 0 selected silently.
+    const startReason = garrisonTileReason(state, tile);
     add(deps.keyFor(tile.x, tile.y));
     owner = state.me;
     season = state.cameraRestoredSeasonId;
-    note = "";
+    note = startReason ? `(${tile.x}, ${tile.y}): ${startReason}` : "";
     previousHtml = "";
     sheet = document.createElement("section");
     sheet.className = "garrison-many-sheet";

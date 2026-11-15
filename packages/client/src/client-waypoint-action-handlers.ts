@@ -1,3 +1,4 @@
+import { announceQueuedBehindEarlierWaypoints } from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";
 import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
 import { authoritativeIsInReach } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { settleIgnoresReach, wireStepsForPlan } from "@border-empires/shared";
@@ -93,6 +94,8 @@ const setWaypointForSelected = (
   pushFeed(`${feedPrefix ?? ""}Waypoint set at (${selected.x}, ${selected.y}) — ${summary}.${queueLabel}`, "info", "info");
   hideTileActionMenu();
   processActionQueue();
+  // The feed line above is admin-only; behind earlier expansions the player also gets the on-screen notice.
+  announceQueuedBehindEarlierWaypoints(state, selected.x, selected.y);
   renderHud();
   return true;
 };
@@ -102,7 +105,7 @@ const setWaypointForSelected = (
 // empty). Does not push its own feed line -- callers either fold the
 // prefix into a following message (clear_waypoint_and_expand_here) or
 // push it standalone (cancel_all_waypoints).
-const clearAllWaypoints = (params: {
+export const clearAllWaypoints = (params: {
   state: ClientState;
   sendGameMessage?: (payload: unknown) => boolean;
 }): string => {

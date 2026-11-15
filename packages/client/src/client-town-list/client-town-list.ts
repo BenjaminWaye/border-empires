@@ -2,6 +2,7 @@
 // spot the towns producing the least/most coin or holding the most people
 // without clicking through every town tile.
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
+import { townPlotIncomeNote } from "../client-town-plot-income/client-town-plot-income.js";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import { displayTownPopulationTierLabel, townPopulationTarget } from "../client-town-growth/client-town-growth.js";
 import type { Tile } from "../client-types.js";
@@ -21,6 +22,8 @@ export type TownListRow = {
   maxPopulation: number;
   growthPerMinute: number;
   isFed: boolean;
+  /** "0/4 plots garrisoned" while a fed town earns less for ungarrisoned plots (client-town-plot-income.ts). */
+  plotsNote?: string;
   /** Support-ring tiles open for a new building; undefined for Settlements, which have no ring yet. */
   openSlots: number | undefined;
 };
@@ -58,6 +61,7 @@ export const deriveTownListRows = (towns: Iterable<Tile>, me: string, tiles: Rea
   for (const tile of towns) {
     const town = tile.town;
     if (!town || tile.ownerId !== me || tile.fogged) continue;
+    const plotsNote = townPlotIncomeNote(town);
     rows.push({
       x: tile.x,
       y: tile.y,
@@ -69,6 +73,7 @@ export const deriveTownListRows = (towns: Iterable<Tile>, me: string, tiles: Rea
       growthPerMinute: finiteOrZero(town.populationGrowthPerMinute),
       // Only flag a town unfed when the server says so, not when the field is missing.
       isFed: town.isFed !== false,
+      ...(plotsNote ? { plotsNote } : {}),
       openSlots: openBuildSlotsForTown(tiles, tile, me)
     });
   }

@@ -5,7 +5,7 @@ const profileState = () => ({
   activePlayerProfileId: "p1" as string | undefined,
   galaxyHoldingsByPlayerId: new Map(),
   careerStatsByPlayerId: new Map(),
-  socialViewByPlayerId: new Map()
+  socialViewByPlayerId: new Map(), houseChargeCardsByPlayerId: new Map()
 });
 
 describe("fetchActivePlayerProfileData", () => {
@@ -18,14 +18,14 @@ describe("fetchActivePlayerProfileData", () => {
     expect(state.galaxyHoldingsByPlayerId.get("p1")).toBe("loading");
 
     await new Promise((resolve) => setTimeout(resolve, 0));
-    // One fetch each for galactic holdings, career stats, and social view.
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    // One fetch each for galactic holdings, career stats, charge cards, and social view.
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(state.galaxyHoldingsByPlayerId.get("p1")).toEqual({ planets: [], outposts: [], trophyCase: [] });
 
     // Re-rendering the same profile must not re-fetch.
     fetchActivePlayerProfileData(state, "ws://localhost:3101/ws", () => {});
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("caches a failed fetch as empty holdings instead of retrying on every subsequent render", async () => {
@@ -35,14 +35,15 @@ describe("fetchActivePlayerProfileData", () => {
 
     fetchActivePlayerProfileData(state, "ws://localhost:3101/ws", () => {});
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(state.galaxyHoldingsByPlayerId.get("p1")).toEqual({ planets: [], outposts: [], trophyCase: [] });
+    expect(state.houseChargeCardsByPlayerId.get("p1")).toEqual([]);
 
     // The HUD re-renders on many unrelated state changes while the profile
     // stays open; a failed fetch must not turn into a retry storm.
     for (let i = 0; i < 5; i += 1) fetchActivePlayerProfileData(state, "ws://localhost:3101/ws", () => {});
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("does nothing while no profile is open", () => {

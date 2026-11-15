@@ -48,6 +48,14 @@ describe("Economy rows (new HUD)", () => {
     expect(host.querySelector("[data-v2e-row='CRYSTAL']")).not.toBeNull();
   });
 
+  // 2026-11-14 playtest: Titanium said "No tiles yet" for three sessions with no hint where to find any.
+  it("tells you how to get a strategic resource with no tiles, with a way to the Resources lens", () => {
+    const titanium = render(input()).querySelector<HTMLElement>("[data-v2e-row='TITANIUM']")!;
+    expect(titanium.textContent).toContain("Garrison a titanium deposit");
+    expect(titanium.querySelector('[data-economy-lens="resources"]')?.textContent).toBe("Find on map");
+    expect(render(input({ slots: { ...input().slots, FOOD: slot(0, 0) } })).querySelector("[data-v2e-row='FOOD']")?.textContent).toContain("No tiles yet");
+  });
+
   it("gives used / supply, where supply comes from and what uses it", () => {
     const food = render(input()).querySelector("[data-v2e-row='FOOD']")!;
     expect(food.textContent).toContain("9 / 10");

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import hudStyles from "../style.css?raw";
 import { closeDiplomacyTradeScreen, openDiplomacyTradeScreen, receiveDiplomacyStance } from "./client-diplomacy-trade.js";
-import { dealKind } from "./client-diplomacy-trade-deal.js";
+import { dealKind, dealVerdictOverride } from "./client-diplomacy-trade-deal.js";
 import type { DiplomacyStanceReply } from "./client-diplomacy-trade-view.js";
 
 const empty = { gold: 0 };
@@ -168,5 +168,15 @@ describe("diplomacy deal table", () => {
     expect(overlay.querySelector<HTMLElement>("[data-trade-row='ask-CRYSTAL']")!.hidden).toBe(true);
     expect(overlay.querySelector("[data-trade-have='ask-gold']")?.textContent).toBe("Has 40");
     expect(overlay.querySelector<HTMLInputElement>("[data-trade-ask-TITANIUM]")!.max).toBe("3");
+  });
+});
+
+// Review of #2777: an ally's goods-only deal must not point at the truce and
+// alliance buttons that the ally screen no longer shows.
+describe("dealVerdictOverride for an ally", () => {
+  it("asks for a supply, not a treaty, when only coin changes hands", () => {
+    const terms = { give: { gold: 0 }, ask: { gold: 10 } };
+    const verdict = dealVerdictOverride(undefined, "trade", terms, "Send offer", true);
+    expect(verdict?.text).toBe("Coin changes hands with a resource supply. Add one to the deal.");
   });
 });

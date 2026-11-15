@@ -6,6 +6,7 @@
 // at the bottom. All actions reuse the tile menu's own definitions.
 
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
+import { townCoinNote, townPlotIncomeNote } from "../client-town-plot-income/client-town-plot-income.js";
 import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
 import type { ClientAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { townCharacterLabelForProfile, townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
@@ -75,7 +76,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   const growth = townGrowth(town);
   // A town still being garrisoned (or a partial summary) has no economy fields yet: show a dash, never NaN.
   const known = (v: number | undefined): v is number => typeof v === "number" && Number.isFinite(v);
-  const fed = typeof town.isFed === "boolean" ? (town.isFed ? "Fed" : "Unfed") : "";
+  const fed = townCoinNote(town);
   // Match the town overview's base contribution; optional manpowerCap is
   // not the town's tier-and-terrain contribution. Building bonuses stay below.
   const { terrainProfile, coastal } = townTerrainForTile(input.town, town);
@@ -88,7 +89,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   ).join("");
   const manpower = terrainAdjustedTownManpower(town.populationTier, terrainProfile, coastal);
   const stats = [
-    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(tileCoinPerMinute(input.town) * 1440)}/day` : "—", n: fed, tone: town.isFed === false ? " v2t-warn" : "" },
+    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(tileCoinPerMinute(input.town) * 1440)}/day` : "—", n: fed, tone: town.isFed === false || townPlotIncomeNote(town) ? " v2t-warn" : "" },
     { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: `Base town · +${fmt(manpowerPerBatch(manpower.regenPerMinute))} per batch regen`, tone: " v2t-gold" },
     { k: "FOOD UPKEEP", v: `${townFoodSlotDemandForTier(town.populationTier)} slots`, n: "", tone: "" }
   ];
