@@ -1,7 +1,7 @@
 // Map lenses, Civ-style: a round button notched into the top edge of the
 // minimap opens a short list of views (Terrain, Diplomacy, Resources). The button shows the
-// lens that is on. There is no legend: the colours speak for themselves, and a
-// tile's owner carries a stance tag in the tile panel (client-hud-v2-stance-tag.ts).
+// lens that is on. Diplomacy has no legend: a tile's owner carries a stance tag in the tile panel
+// (client-hud-v2-stance-tag.ts). Resources shows a key while on (client-hud-v2-resource-legend.ts).
 // The host lives inside #mini-map-wrap so it moves with the minimap.
 //
 // On a phone (compact layout) the minimap is folded away behind that same round button: tapping it opens the
@@ -10,6 +10,7 @@
 
 import type { HudV2Deps } from "./client-hud-v2-context.js";
 import { togglePhotoMode } from "../client-photo-mode/client-photo-mode.js";
+import { resourceLensLegendHtml } from "./client-hud-v2-resource-legend.js";
 
 export type MapLens = "terrain" | "diplomacy" | "resources";
 
@@ -91,7 +92,7 @@ export const activeLens = (diplomacyOn: boolean, resourcesOn = false): MapLens =
 const mapOverviewHtml = (active: MapLens): string => {
   const items = LENSES.map((l) => `<button type="button" role="radio" class="hud-v2-lens-item${l.id === active ? " hud-v2-lens-item-on" : ""}" data-hud-v2-lens="${l.id}" aria-checked="${l.id === active}">${lensIcon(`/icons/simple/lens-${l.id}.svg`)}${l.label}</button>`).join("");
   return `<div class="v2c-map-head"><div><h2 class="v2c-map-title">Map</h2><p class="v2c-map-hint">Tap a place to go there</p><span class="v2c-map-key">your view</span></div>${PHOTO_BUTTON}<button type="button" class="v2c-map-close" data-v2c-map-close aria-label="Close the map">✕</button></div>
-    <div class="v2c-map-lenses"><span class="v2c-map-lens-label" id="v2c-map-lens-label">Lens</span><div class="v2c-map-segments" role="radiogroup" aria-labelledby="v2c-map-lens-label">${items}</div></div>`;
+    <div class="v2c-map-lenses"><span class="v2c-map-lens-label" id="v2c-map-lens-label">Lens</span><div class="v2c-map-segments" role="radiogroup" aria-labelledby="v2c-map-lens-label">${items}</div>${active === "resources" ? resourceLensLegendHtml() : ""}</div>`;
 };
 
 /**
@@ -106,7 +107,7 @@ export const overlaysHtml = (lens: MapLens | boolean, menuOpen: boolean, overvie
   if (overviewOpen) return mapOverviewHtml(active);
   const label = active === "terrain" ? "Map lens" : `Map lens: ${LENSES.find((l) => l.id === active)?.label}`;
   const button = `<button type="button" class="hud-v2-lens-btn${active !== "terrain" ? " hud-v2-lens-on" : ""}" data-hud-v2-lens-toggle aria-haspopup="menu" aria-expanded="${menuOpen}" aria-label="${label}" title="${label}">${lensIcon(active === "terrain" ? "/icons/simple/lens.svg" : `/icons/simple/lens-${active}.svg`)}</button>`;
-  if (!menuOpen) return button;
+  if (!menuOpen) return active === "resources" ? button + resourceLensLegendHtml() : button;
   // One lens is always on, so the items are radio menu items; the list follows the button in tab order.
   const items = LENSES.map((l) => `<button type="button" role="menuitemradio" class="hud-v2-lens-item${l.id === active ? " hud-v2-lens-item-on" : ""}" data-hud-v2-lens="${l.id}" aria-checked="${l.id === active}">${lensIcon(`/icons/simple/lens-${l.id}.svg`)}${l.label}</button>`).join("");
   return `${button}<div class="hud-v2-lens-menu" role="menu" aria-label="Map lens">${items}${PHOTO_BUTTON}</div>`;

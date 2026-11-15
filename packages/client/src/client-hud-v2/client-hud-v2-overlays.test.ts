@@ -36,6 +36,16 @@ describe("map lens button", () => {
     expect(host(overlaysHtml(false, false)).querySelector("[data-hud-v2-photo]")).toBeNull();
   });
 
+  // 2026-11-14 playtest: the Resources lens painted tiles in colours nobody could name.
+  it("shows a key while the Resources lens is on, on the map and in the phone overview", () => {
+    const key = host(overlaysHtml("resources", false)).querySelector(".hud-v2-lens-legend");
+    expect(key?.textContent).toContain("Titanium");
+    expect(key?.textContent).toContain("Grain");
+    expect(key?.textContent).toContain("Tiles in sight only");
+    expect(host(overlaysHtml("resources", false, true)).querySelector(".v2c-map-lenses .hud-v2-lens-legend")).not.toBeNull();
+    expect(host(overlaysHtml("diplomacy", false)).querySelector(".hud-v2-lens-legend")).toBeNull();
+  });
+
   it("shows the active lens on the button", () => {
     const on = host(overlaysHtml(true, false));
     expect(on.querySelector("img")?.getAttribute("src")).toBe("/icons/simple/lens-diplomacy.svg");
