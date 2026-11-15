@@ -25,6 +25,7 @@ import {
 import { dealPactClick, dealPactHtml } from "./client-hud-v2-diplomacy-pact.js";
 import { dealFactsText, dealSkeletonHtml, diplomacyListHtml, diplomacyResponseMessage, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
+import { manifestClick } from "./client-hud-v2-manifest-click.js";
 import { forgetSeenEmpireTile, hasSeenEmpireTile, nearestSeenEmpireTile } from "../client-empire-map-focus/client-empire-map-focus.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { crestClosesProfile, profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
@@ -349,33 +350,7 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     deps.renderHud();
     return true;
   }
-  const lane = target.closest<HTMLElement>("[data-v2-manifest-lane]");
-  if (lane) {
-    const id = lane.dataset.v2ManifestLane ?? "";
-    if (screen.manifestClosedLanes.has(id)) screen.manifestClosedLanes.delete(id);
-    else screen.manifestClosedLanes.add(id);
-    renderScreen(deps);
-    return true;
-  }
-  const pick = target.closest<HTMLElement>("[data-v2-manifest-select]");
-  if (pick) {
-    screen.manifestSelectedId = pick.dataset.v2ManifestSelect ?? "";
-    renderScreen(deps);
-    return true;
-  }
-  // Building and ability chips open the same info card the old tech panel did (it draws above screens).
-  const info = target.closest<HTMLElement>("[data-v2-info-structure], [data-v2-info-ability]");
-  if (info) {
-    deps.state.structureInfoKey = info.dataset.v2InfoStructure ?? "";
-    deps.state.crystalAbilityInfoKey = info.dataset.v2InfoAbility ?? "";
-    deps.renderHud();
-    return true;
-  }
-  const commission = target.closest<HTMLButtonElement>("[data-v2-manifest-commission]");
-  if (commission && !commission.disabled) {
-    deps.actionFlow.chooseTech(commission.dataset.v2ManifestCommission);
-    return true;
-  }
+  if (manifestClick(deps, target, () => renderScreen(deps), () => closeScreen(deps, { toMap: true }))) return true;
   if (dealPactClick(deps, target, () => closeScreen(deps, { toMap: true }))) return true;
   const open = target.closest<HTMLElement>("[data-v2-dip-open]");
   if (open) {

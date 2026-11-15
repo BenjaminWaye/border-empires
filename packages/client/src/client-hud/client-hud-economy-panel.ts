@@ -51,8 +51,17 @@ export const hudEconomyPanelHtml = (state: ClientState, deps: HudEconomyPanelDep
   });
 };
 
-/** Wires the Economy panel's resource focus cards. */
-export const bindHudEconomyPanelControls = (root: ParentNode, state: ClientState, rerender: () => void): void => {
+/** Wires the Economy panel's resource focus cards, and "Find on map", which closes it onto the Resources lens. */
+export const bindHudEconomyPanelControls = (root: ParentNode, state: ClientState, rerender: () => void, requestViewRefresh: () => void = () => {}): void => {
+  root.querySelectorAll<HTMLButtonElement>("[data-economy-lens]").forEach((btn) => {
+    btn.onclick = () => {
+      state.showResourceOverlay = true;
+      state.showDiplomacyOverlay = false;
+      state.activePanel = null;
+      requestViewRefresh();
+      rerender();
+    };
+  });
   root.querySelectorAll<HTMLButtonElement>("[data-economy-focus]").forEach((btn) => {
     btn.onclick = () => {
       const focus = btn.dataset.economyFocus as EconomyFocusKey | undefined;
