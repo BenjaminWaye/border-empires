@@ -854,9 +854,9 @@ export class SimulationRuntime {
     this.resourceSupply = createRuntimeResourceSupply({ slots: () => this.resourceSlotsContext(), now: () => this.now(),
       beforeChange: (at, ids) => { for (const id of ids) { const p = this.state.players.get(id); if (p) { applyPassiveIncomeForPlayerImpl(this.passiveIncomeContext(), p, at, PASSIVE_INCOME_INACTIVITY_CAP_MS, false); this.applyManpowerRegen(p, at); } } },
       publish: id => { if (this.manpowerReady) this.emitPlayerStateUpdate({ commandId: `resource-supply:refresh:${this.now()}:${id}`, playerId: id }); },
-      changed: (action, agreement, targetCoinDelta) => this.emitEvent({ eventType: "PLAYER_MESSAGE", messageType: "RESOURCE_SUPPLY_CHANGED", playerId: agreement.proposerId, commandId: `resource-supply:${action}:${agreement.id}`, payloadJson: JSON.stringify({ action, agreement, targetCoinDelta }) }),
+      changed: (journalSequence, action, agreement, targetCoinDelta) => this.emitEvent({ eventType: "PLAYER_MESSAGE", messageType: "RESOURCE_SUPPLY_CHANGED", playerId: agreement.proposerId, commandId: `resource-supply:${action}:${agreement.id}`, payloadJson: JSON.stringify({ action, agreement, targetCoinDelta, journalSequence }) }),
       recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
-    }, options.initialState?.resourceSupplyAgreements);
+    }, options.initialState?.resourceSupplyAgreements, options.initialState?.resourceSupplyJournalSequence);
     for (const entry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) this.lastIncomeTickAtMsByPlayer.set(entry.playerId, entry.collectedAt);
     // Indexed once: a linear find() per player would be O(players^2) at boot.
     const recoveredPlayersById = new Map((options.initialState?.players ?? []).map((player) => [player.id, player]));
@@ -1910,7 +1910,7 @@ export class SimulationRuntime {
       tiles: this.state.tiles,
       locksByCommandId: this.locksByCommandId,
       players: this.state.players,
-      resourceSupplyAgreements: this.resourceSupply?.ledger.rows(),
+      resourceSupplyState: () => this.resourceSupply?.snapshotState() ?? {},
       supplyStateForPlayer: id => this.resourceSupply?.playerState(id) ?? {},
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,

@@ -35,7 +35,9 @@ export interface RuntimeResourceSupplyContext {
  * backs exports. All allocation state is bounded by the ledger's agreement cap. */
 export class RuntimeResourceSupply {
   readonly ledger: ResourceSupplyLedger;
-  constructor(private readonly ctx: RuntimeResourceSupplyContext, restored: readonly ResourceSupplyAgreement[] = []) {
+  private journalSequence: number;
+  constructor(private readonly ctx: RuntimeResourceSupplyContext, restored: readonly ResourceSupplyAgreement[] = [], journalSequence = 0) {
+    this.journalSequence = journalSequence;
     // Salvage is never exported: zero capacity suspends any legacy salvage deal.
     this.ledger = new ResourceSupplyLedger({ ...ctx, changed: (...args) => {
       const [action, agreement] = args;
@@ -81,6 +83,18 @@ export class RuntimeResourceSupply {
       if (spare) result[resource] = spare;
     }
     return result;
+  }
+  nextJournalSequence(): number {
+    this.journalSequence += 1;
+    return this.journalSequence;
+  }
+
+  snapshotState(): { resourceSupplyAgreements?: readonly ResourceSupplyAgreement[]; resourceSupplyJournalSequence?: number } {
+    const agreements = this.ledger.rows();
+    return {
+      ...(agreements.length ? { resourceSupplyAgreements: agreements } : {}),
+      ...(this.journalSequence ? { resourceSupplyJournalSequence: this.journalSequence } : {})
+    };
   }
   create(row: ResourceSupplyAgreement, targetCoinDelta?: number): SupplyLedgerResult {
     if (offerIncludesNonTradableSupply(row.proposerGives) || offerIncludesNonTradableSupply(row.targetGives))

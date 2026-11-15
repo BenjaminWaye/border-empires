@@ -12,12 +12,14 @@ export interface ResourceSupplyBridgeContext {
   slots(): RuntimeResourceSlotsContext;
   now(): number;
   beforeChange: ResourceSupplyLedgerContext["beforeChange"];
-  changed: ResourceSupplyLedgerContext["changed"];
+  changed: (journalSequence: number, ...change: Parameters<ResourceSupplyLedgerContext["changed"]>) => void;
   publish?: (id: string) => void;
   /** Chronicle cards when a deal ends (supply-ended-impacts.ts). */
   recordPersonalImpact?: (event: PersonalImpactEvent) => void;
 }
-export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, restored: readonly ResourceSupplyAgreement[] = []): RuntimeResourceSupply {
+export function createRuntimeResourceSupply(
+  ctx: ResourceSupplyBridgeContext, restored: readonly ResourceSupplyAgreement[] = [], journalSequence = 0
+): RuntimeResourceSupply {
   const supply = new RuntimeResourceSupply({ now: ctx.now, coinAccountingStartsAt: ctx.now(), player: id => ctx.slots().players.get(id),
     ownedTiles: id => ownedResourceTiles(ctx.slots(), id), physicalUpkeep: id => physicalResourceSlots(ctx.slots(), id),
     resourceSlotSources: id => {
@@ -39,7 +41,7 @@ export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, re
     beforeChange: ctx.beforeChange, publish: ids => { for (const id of ids) ctx.publish?.(id); },
     capacityRejected: () => runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size }, "resource_supply_capacity_rejected"),
     changed: (...args) => {
-      ctx.changed(...args);
+      ctx.changed(supply.nextJournalSequence(), ...args);
       const [action] = args;
       runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size, action }, "resource_supply_agreements");
     },
@@ -54,7 +56,7 @@ export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, re
         caches.manpowerStructureBonusCacheByPlayer.delete(id); caches.upkeepAccrualCacheByPlayer.delete(id);
       }
     }
-  }, restored);
+  }, restored, journalSequence);
   runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size }, "resource_supply_restored");
   return supply;
 }

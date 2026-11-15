@@ -1,6 +1,7 @@
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { InMemorySimulationCommandStore } from "../command-store/command-store.js";
 import { InMemorySimulationEventStore } from "../event-store/event-store.js";
+import { compactSnapshotForStorage, expandSnapshotFromStorage } from "../snapshot-compaction/snapshot-compaction.js";
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { applySimulationEventsToRecoveredState } from "../event-recovery/event-recovery.js";
 import { describe, expect, it } from "vitest";
@@ -159,7 +160,10 @@ describe("resource trades in the production runtime",()=>{
     for (const id of ["buyer", "seller"]) {
       expect(replayed.players?.find(player => player.id === id)?.points).toBe(f.player(id).points);
     }
-    const restored=new SimulationRuntime({ now:()=>start,seedTiles:new Map(),initialState,mergeSeedTilesWithInitialState:false });
+    const compact = await compactSnapshotForStorage(f.runtime.exportSnapshotSections(), new Map());
+    const stored = expandSnapshotFromStorage(compact, []).initialState;
+    expect(stored.resourceSupplyAgreements).toEqual(initialState.resourceSupplyAgreements);
+    const restored=new SimulationRuntime({ now:()=>start,seedTiles:new Map(),initialState:stored,mergeSeedTilesWithInitialState:false });
     const own=buildPlayerSubscriptionSnapshot("buyer",restored.exportVisibleStateForPlayer("buyer"), { tilesAlreadyVisible:true }).player!;
     expect(own.resourceTradeAgreements?.[0]).toMatchObject({ fulfilled: true, targetCoinPerHour: 50, expiresAt: start + 7 * 86_400_000 });
     expect(own.resourceSlots?.bonusSupply?.supply.LUXURY_BIOTA).toBe(1);
@@ -172,6 +176,11 @@ describe("resource trades in the production runtime",()=>{
     await queue.whenIdle();
     const afterCheckpoint = (await eventStore.loadEventsAfter(checkpointEventId)).map(event => event.eventPayload);
     expect(applySimulationEventsToRecoveredState(initialState, afterCheckpoint).resourceSupplyAgreements).toEqual([]);
+    const current = f.runtime.exportSnapshotSections().initialState;
+    const overlapping = applySimulationEventsToRecoveredState(current, [...events, ...afterCheckpoint]);
+    expect(overlapping.resourceSupplyAgreements).toEqual([]);
+    expect(overlapping.players?.find(player => player.id === "seller")?.points).toBe(f.player("seller").points);
+    expect(overlapping.players?.find(player => player.id === "buyer")?.points).toBe(f.player("buyer").points);
   });
   it.each([false, true])("recovers the Coin refund with an already ended agreement (%s)", async alreadyEnded => {
     const f = fixture();
@@ -201,6 +210,11 @@ describe("resource trades in the production runtime",()=>{
     expect(recovered.resourceSupplyAgreements).toEqual([]);
     expect(recovered.players?.find(player => player.id === "seller")?.points).toBe(100);
     expect(recovered.players?.find(player => player.id === "buyer")?.points).toBe(100);
+    const compact = await compactSnapshotForStorage(f.runtime.exportSnapshotSections(), new Map());
+    const stored = expandSnapshotFromStorage(compact, []).initialState;
+    const overlapping = applySimulationEventsToRecoveredState(stored, events);
+    expect(overlapping.players?.find(player => player.id === "seller")?.points).toBe(100);
+    expect(overlapping.players?.find(player => player.id === "buyer")?.points).toBe(100);
   });
   it("does not collect recurring Coin for income from before a runtime restart", async () => {
     const f = fixture();

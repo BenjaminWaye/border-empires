@@ -1,4 +1,5 @@
-import { ResourceSupplyAgreementSchema, MAX_RESOURCE_SUPPLY_AGREEMENTS, type ResourceSupplyAgreement } from "@border-empires/shared";
+import type { ResourceSupplyAgreement } from "@border-empires/shared";
+import { applyRecoveredResourceTrade } from "./event-recovery-resource-trades.js";
 import { applyRecoveredDiplomacy } from "./event-recovery-diplomacy.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
@@ -67,6 +68,7 @@ export type RecoveredSimulationState = {
   season?: SimulationSeasonState;
   players?: RecoveredPlayerState[];
   resourceSupplyAgreements?: readonly ResourceSupplyAgreement[];
+  resourceSupplyJournalSequence?: number;
   pendingSettlements?: PendingSettlementRecord[];
   playerYieldCollectionEpochByPlayer?: Array<{ playerId: string; collectedAt: number }>;
   /** Persisted reach border (reach-border-snapshot.ts). Absent on snapshots written before it was saved. */
@@ -81,6 +83,7 @@ type RecoveredSimulationAccumulator = {
   season?: SimulationSeasonState;
   players: NonNullable<RecoveredSimulationState["players"]>;
   resourceSupplyAgreements: ResourceSupplyAgreement[];
+  resourceSupplyJournalSequence: number;
   pendingSettlements: NonNullable<RecoveredSimulationState["pendingSettlements"]>;
   playerYieldCollectionEpochByPlayer: Map<string, number>;
   /**
@@ -136,6 +139,7 @@ export const createRecoveredSimulationAccumulator = (
     ...(baseState.season ? { season: { ...baseState.season, ...(baseState.season.winner ? { winner: { ...baseState.season.winner } } : {}), victoryTrackers: baseState.season.victoryTrackers.map((tracker: SimulationSeasonState["victoryTrackers"][number]) => ({ ...tracker })) } } : {}),
     players: baseState.players ? baseState.players.map(cloneRecoveredPlayerState) : [],
     resourceSupplyAgreements: [...(baseState.resourceSupplyAgreements ?? [])],
+    resourceSupplyJournalSequence: baseState.resourceSupplyJournalSequence ?? 0,
     pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
     playerYieldCollectionEpochByPlayer: new Map(
       (baseState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt])
@@ -272,38 +276,15 @@ const shouldTileDeltaRemovePendingSettlement = (
   return false;
 };
 
-const applyRecoveredTradeCoin = (
-  accumulator: RecoveredSimulationAccumulator, proposerId: string, targetId: string, targetCoinDelta: number | undefined
-): void => {
-  if (typeof targetCoinDelta !== "number" || !Number.isSafeInteger(targetCoinDelta) || targetCoinDelta === 0) return;
-  const proposer = accumulator.players.find(player => player.id === proposerId);
-  const target = accumulator.players.find(player => player.id === targetId);
-  if (typeof proposer?.points !== "number" || typeof target?.points !== "number") return;
-  proposer.points -= targetCoinDelta;
-  target.points += targetCoinDelta;
-};
-
 export const applySimulationEventsToRecoveredAccumulator = (
   accumulator: RecoveredSimulationAccumulator,
   events: SimulationEvent[]
 ): void => {
   for (const event of events) {
-    if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "RESOURCE_SUPPLY_CHANGED") {
-      const payload = JSON.parse(event.payloadJson) as { action?: string; agreement?: ResourceSupplyAgreement; targetCoinDelta?: number };
-      const row = ResourceSupplyAgreementSchema.parse(payload.agreement);
-      const existing = accumulator.resourceSupplyAgreements.some(entry => entry.id === row.id);
-      if (payload.action === "created" && !existing) {
-        if (accumulator.resourceSupplyAgreements.length >= MAX_RESOURCE_SUPPLY_AGREEMENTS) throw new RangeError("Resource agreement recovery capacity exceeded");
-        accumulator.resourceSupplyAgreements.push(row);
-        applyRecoveredTradeCoin(accumulator, row.proposerId, row.targetId, payload.targetCoinDelta);
-      } else if (payload.action !== "created" && existing) {
-        accumulator.resourceSupplyAgreements = accumulator.resourceSupplyAgreements.filter(entry => entry.id !== row.id);
-        applyRecoveredTradeCoin(accumulator, row.proposerId, row.targetId, payload.targetCoinDelta);
-      }
-    }
-    if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "RESOURCE_SUPPLY_COIN_REFUNDED") {
-      const { proposerId, targetId, targetCoinDelta } = JSON.parse(event.payloadJson) as { proposerId: string; targetId: string; targetCoinDelta?: number };
-      applyRecoveredTradeCoin(accumulator, proposerId, targetId, targetCoinDelta);
+    if (event.eventType === "PLAYER_MESSAGE" &&
+      (event.messageType === "RESOURCE_SUPPLY_CHANGED" || event.messageType === "RESOURCE_SUPPLY_COIN_REFUNDED")) {
+      applyRecoveredResourceTrade(accumulator, event.messageType, event.payloadJson);
+      continue;
     }
     if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "SOCIAL_STATE_SYNCED") {
       applyRecoveredDiplomacy(accumulator.players, event.playerId, event.payloadJson);
@@ -454,6 +435,7 @@ export const finalizeRecoveredSimulationAccumulator = (
   afcGlobalLosses: accumulator.afcGlobalLosses ?? 0,
   players: [...accumulator.players],
   resourceSupplyAgreements: [...accumulator.resourceSupplyAgreements],
+  ...(accumulator.resourceSupplyJournalSequence ? { resourceSupplyJournalSequence: accumulator.resourceSupplyJournalSequence } : {}),
   pendingSettlements: [...accumulator.pendingSettlements],
   playerYieldCollectionEpochByPlayer: [...accumulator.playerYieldCollectionEpochByPlayer.entries()]
     .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))

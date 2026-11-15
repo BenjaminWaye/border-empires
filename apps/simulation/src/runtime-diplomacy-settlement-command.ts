@@ -15,6 +15,7 @@ export type RuntimeDiplomacySettlementContext = {
   emitEconomyUpdate?: (command: CommandEnvelope, playerId: string) => void;
   settleEconomy?: (at: number, playerIds: readonly string[]) => void;
   resourceSupply?: {
+    readonly nextJournalSequence: () => number;
     readonly create: (agreement: ResourceSupplyAgreement, targetCoinDelta?: number) => SupplyLedgerResult;
     readonly cancel?: (id:string, actorId:string) => SupplyLedgerResult;
     readonly cancelRefunded: (id: string, proposerId: string, targetId: string, targetCoinDelta?: number) => boolean;
@@ -80,7 +81,7 @@ export function handleDiplomacySettlementCommand(context: RuntimeDiplomacySettle
   if (payload.refundOf && supplies && !refundedSupply && targetCoinDelta) {
     context.emitEvent({
       eventType: "PLAYER_MESSAGE", messageType: "RESOURCE_SUPPLY_COIN_REFUNDED", commandId: command.commandId, playerId: proposer.id,
-      payloadJson: JSON.stringify({ proposerId: proposer.id, targetId: target.id, targetCoinDelta })
+      payloadJson: JSON.stringify({ proposerId: proposer.id, targetId: target.id, targetCoinDelta, journalSequence: context.resourceSupply!.nextJournalSequence() })
     });
   }
   for (const player of [proposer, target]) {
