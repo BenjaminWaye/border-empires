@@ -301,7 +301,7 @@ export const createSocialState = (options: {
       if (request.settlementPhase || settlingRequestIds.has(requestId)) return settlingError;
       allianceRequests.delete(requestId);
       sink?.deleteAllianceRequest(requestId);
-      diplomacyHistory.recordPair(playerId, request.fromPlayerId, "ALLIANCE_DECLINED", now(), { byPlayerId: playerId });
+      if (options?.recordDecline !== false) diplomacyHistory.recordPair(playerId, request.fromPlayerId, "ALLIANCE_DECLINED", now(), { byPlayerId: playerId });
       if (options?.startCooldown !== false) startOfferCooldown("alliance", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
       const notifyPlayerIds = [playerId, request.fromPlayerId];
       return { ok: true, notifyPlayerIds, payloadsByPlayerId: updatePayloadsFor(notifyPlayerIds, undefined, declinedOfferAnnouncements(request, playersById.get(playerId)?.name ?? playerId, options?.announcementByPlayerId)) };
@@ -409,7 +409,9 @@ export const createSocialState = (options: {
       else { sink?.saveActiveTruce(truce); sink?.deleteTruceRequest(requestId); }
       truceRequests.delete(requestId);
       trucesByPair.set(pairKey(actor.id, from.id), truce);
-      diplomacyHistory.recordPair(actor.id, from.id, running ? "TRUCE_EXTENDED" : "TRUCE_STARTED", running ? now() : truce.startedAt, { durationHours: request.durationHours });
+      // An extension logs the hours it actually added: extendTruce caps the total length.
+      const addedHours = running ? Math.round((truce.endsAt - running.endsAt) / 3_600_000) : request.durationHours;
+      if (addedHours > 0) diplomacyHistory.recordPair(actor.id, from.id, running ? "TRUCE_EXTENDED" : "TRUCE_STARTED", running ? now() : truce.startedAt, { durationHours: addedHours });
       const announcement = running
         ? `${actor.name} and ${from.name} extended their truce by ${request.durationHours}h.`
         : `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`;

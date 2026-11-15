@@ -45,4 +45,13 @@ describe("Chronicle diplomacy rows", () => {
       expect(rows).toContainEqual(expect.objectContaining({ event: "ALLIANCE_DECLINED", by: "player-2" }));
     }
   });
+
+  // Review of #2783: a counter-offer (or an AI's failed payment) rejects the offer without a "no".
+  it("logs no decline when the offer is set aside without a refusal", () => {
+    const { social, events } = setup();
+    expect(social.requestAlliance("player-1", "Linnea").ok).toBe(true);
+    const requestId = social.snapshotForPlayer("player-2").incomingAllianceRequests[0]!.id;
+    expect(social.rejectAlliance("player-2", requestId, { startCooldown: false, recordDecline: false }).ok).toBe(true);
+    expect(events("player-1").map((row) => row.event)).not.toContain("ALLIANCE_DECLINED");
+  });
 });
