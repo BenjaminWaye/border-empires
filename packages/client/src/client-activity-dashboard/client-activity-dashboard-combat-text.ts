@@ -69,7 +69,7 @@ export const combatCardText = (card: CombatCard, playerId: string, playerNames: 
 };
 
 // "Your assault on Maren: 3 attacks, all repelled · −150 manpower"
-// "Repelled 3 attacks from Kara and seized 1 of their tiles · cost them 150 manpower"
+// "Repelled 3 attacks from Kara · seized 1 of their tiles"
 export const combatGroupCardText = (card: CombatGroupCard, playerNames: PlayerNameLookup): string => {
   const other = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : undefined;
   const failed = card.attempts - card.captures;
@@ -103,7 +103,7 @@ export const combatGroupCardText = (card: CombatGroupCard, playerNames: PlayerNa
 /**
  * Plain words for repeated attacks on one of your tiles (no "siege",
  * "assault" or the attackers' manpower):
- * "Maren took your Palisade after 4 attacks over 1h (with your Dock)",
+ * "Maren took your Palisade after 1h of attacks (with your Dock) · 3 repelled",
  * "Your Palisade held: repelled 7 attacks from Kael and Vess".
  */
 export const siegeHeadline = (card: SiegeCard, playerNames: PlayerNameLookup): string => {
@@ -113,9 +113,11 @@ export const siegeHeadline = (card: SiegeCard, playerNames: PlayerNameLookup): s
     return `${target.charAt(0).toUpperCase()}${target.slice(1)} held: repelled ${plural(card.assaultsRepelled, "attack")} from ${attackers}`;
   }
   const taker = card.capturedBy ? nameOf(card.capturedBy, playerNames) : undefined;
-  const over = `after ${plural(card.assaultsRepelled + 1, "attack")} over ${durationLabel(card.occurredAt - card.startedAt)}`;
+  // Only the repelled count is known: the tile can fall to a capture none of the logged assaults made.
+  const repelled = card.assaultsRepelled > 0 ? ` · ${card.assaultsRepelled} repelled` : "";
+  const over = `after ${durationLabel(card.occurredAt - card.startedAt)} of attacks`;
   const lostWith = featuresNote(card.capturedFeatures, "your", "with", card.defenseVariant);
-  return taker ? `${taker} took ${target} ${over}${lostWith}` : `Lost ${target} ${over}${lostWith}`;
+  return taker ? `${taker} took ${target} ${over}${lostWith}${repelled}` : `Lost ${target} ${over}${lostWith}${repelled}`;
 };
 
 /** What you took back while they attacked: "seized 1 of their tiles (incl. their Dock)". */

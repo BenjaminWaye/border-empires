@@ -91,8 +91,15 @@ describe("attacks on you, in plain words", () => {
 
   it("names who took the tile, without 'siege' or the attackers' manpower", () => {
     const text = siegeCardText(siege(), names);
-    expect(text).toBe("Kara took your tile after 1 attack over 1m");
+    expect(text).toBe("Kara took your tile after 1m of attacks");
     expect(text).not.toMatch(/siege|manpower|assault/i);
+  });
+
+  // Review of #2774: a siege also closes as FELL when the tile goes to a capture none of the logged
+  // assaults made (a barbarian take, say), so "after N+1 attacks" over-counted and credited the taker.
+  it("counts only the repelled attacks it knows about", () => {
+    expect(siegeCardText(siege({ assaultsRepelled: 3, capturedBy: "barbarian-1" }), names)).not.toContain("4 attacks");
+    expect(siegeCardText(siege({ assaultsRepelled: 3 }), names)).toBe("Kara took your tile after 1m of attacks · 3 repelled");
   });
 
   it("says a tile held, and who attacked it", () => {

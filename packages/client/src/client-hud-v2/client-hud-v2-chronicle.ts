@@ -95,7 +95,7 @@ export const rivalTallyText = (r: NonNullable<PersonalActivityTimeline["rivals"]
   const tiles = (n: number): string => `${n} tile${n === 1 ? "" : "s"}`;
   const attacks = (n: number): string => `${n} attack${n === 1 ? "" : "s"}`;
   const parts: string[] = [];
-  if (r.tilesLost > 0) parts.push(`took ${r.tilesLost === 1 ? "1 of your tiles" : `${r.tilesLost} of your tiles`}`);
+  if (r.tilesLost > 0) parts.push(`took ${r.tilesLost} of your tiles`);
   if (r.tilesTaken > 0) parts.push(`you took ${tiles(r.tilesTaken)}`);
   if (r.attacksRepelled > 0) parts.push(`you held off ${attacks(r.attacksRepelled)}`);
   if (r.attacksFailed > 0) parts.push(`${attacks(r.attacksFailed)} of yours failed`);

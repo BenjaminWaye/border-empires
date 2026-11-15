@@ -66,9 +66,9 @@ describe("cards and summary name what fell with the tiles", () => {
       kind: "SIEGE", id: "s", occurredAt: 60 * 60_000, startedAt: 0, x: 211, y: 186, outcome: "FELL", assaultsRepelled: 3, originsSeized: 0,
       attackerIds: ["maren"], manpowerSpentAgainst: 240, defenseVariant: "PALISADE", capturedBy: "maren", capturedFeatures: [palisade]
     };
-    expect(siegeCardText(siege, names)).toBe("Maren took your Palisade after 4 attacks over 1h");
+    expect(siegeCardText(siege, names)).toBe("Maren took your Palisade after 1h of attacks · 3 repelled");
     expect(siegeCardText({ ...siege, capturedFeatures: [palisade, dock], originsSeized: 1, seizedOriginFeatures: [wonder] }, names))
-      .toBe("Maren took your Palisade after 4 attacks over 1h (with your Dock) · seized 1 of their tiles (incl. their Foundry Heart wonder)");
+      .toBe("Maren took your Palisade after 1h of attacks (with your Dock) · 3 repelled · seized 1 of their tiles (incl. their Foundry Heart wonder)");
   });
 });
 
