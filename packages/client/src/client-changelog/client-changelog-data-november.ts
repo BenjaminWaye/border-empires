@@ -7,6 +7,7 @@ import { AFC_V3_CHANGELOG } from "./client-changelog-afc-v3.js";
 import { AI_STACKED_INDUSTRY_CHANGELOG } from "./client-changelog-ai-stacked-industry.js";
 import { HUD_V2_MOBILE_CHANGELOG } from "./client-changelog-hud-v2-mobile.js";
 import { FLAG_STALL_LABEL_CHANGELOG } from "./client-changelog-flag-stall-label.js";
+import { HOUSE_CHARGES_CHANGELOG } from "./client-changelog-house-charges.js";
 import { HUD_V2_ONLY_CHANGELOG } from "./client-changelog-hud-v2-only.js";
 import { AI_JUNIOR_ALLIANCES_CHANGELOG } from "./client-changelog-ai-junior-alliances.js";
 import { PHONE_MAP_OVERVIEW_CHANGELOG } from "./client-changelog-phone-map-overview.js";
@@ -66,5 +67,6 @@ export const NOVEMBER_CHANGELOG: ClientChangelogEntry[] = [
   ...SHARPER_MINIMAP_CHANGELOG,
   ...TUTORIAL_GUIDE_TOWN_FIRST_CHANGELOG,
   ...PROSPECT_MANIFEST_LINK_CHANGELOG,
-  ...FLAG_STALL_LABEL_CHANGELOG
+  ...FLAG_STALL_LABEL_CHANGELOG,
+  ...HOUSE_CHARGES_CHANGELOG
 ];

@@ -49,7 +49,9 @@ export const SERVER_GENERATED_COMMAND_ID_PREFIXES = [
   "reach-update:",
   // ISLAND_NAMES pushes (island-names/island-names-ticker.ts): a full label
   // list per viewer, never client-resubmitted.
-  "island-names:"
+  "island-names:",
+  // HOUSE_CHARGES pushes (side-tickers/runtime-side-tickers.ts), likewise.
+  "house-charges:"
 ] as const;
 
 /**
