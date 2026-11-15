@@ -220,7 +220,7 @@ export const hudMarkup = `
       <button id="panel-close">Close</button>
     </div>
     <div id="side-panel-body">
-      <section id="panel-missions" class="panel-body" hidden></section>
+      <section id="panel-charges" class="panel-body"></section>
       <section id="panel-tech" class="panel-body" data-manifest-tab="available">
         <div class="tech-section-tabs manifest-tabs" role="tablist">
           <button class="panel-btn manifest-tab active" type="button" role="tab" aria-selected="true" data-manifest-tab-btn="available">Available</button>

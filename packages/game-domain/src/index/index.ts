@@ -129,6 +129,8 @@ export type DomainPlayer = {
   // Islands this player renamed (shared island-names.ts). Persisted with the
   // player; the sim drops a claim when its fade runs out or a rival renames.
   islandNames?: IslandNameClaim[];
+  // House Charges dealt at landing (shared house-charges.ts); persisted with the player.
+  houseCharges?: import("@border-empires/shared").HouseChargesState;
   // Pooled resource-slot supply bump granted by activated Waystations (see
   // WAYSTATION_RESOURCE_SLOT_BONUS / runtime-waystation-activation.ts) --
   // one flat +1-per-resource entry per activation, merged into

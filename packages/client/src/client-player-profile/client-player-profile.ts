@@ -7,6 +7,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { fetchGalaxyHoldings } from "./client-player-profile-galaxy.js";
 import { fetchCareerStats } from "./client-player-profile-career.js";
 import { fetchPlayerSocialView } from "./client-player-profile-social.js";
+import { fetchHouseChargeCards } from "../client-house-charges/client-house-charge-cards.js";
 
 const MAX_CACHED_GALAXY_HOLDINGS = 50;
 
@@ -37,7 +38,7 @@ const fetchAndCacheOnce = <T>(
 
 /** Loads what the profile screen reads for whichever player's profile is open. */
 export const fetchActivePlayerProfileData = (
-  state: Pick<ClientState, "activePlayerProfileId" | "galaxyHoldingsByPlayerId" | "careerStatsByPlayerId" | "socialViewByPlayerId">,
+  state: Pick<ClientState, "activePlayerProfileId" | "galaxyHoldingsByPlayerId" | "careerStatsByPlayerId" | "socialViewByPlayerId" | "houseChargeCardsByPlayerId">,
   wsUrl: string,
   rerender: () => void
 ): void => {
@@ -46,6 +47,7 @@ export const fetchActivePlayerProfileData = (
   const activeId = () => state.activePlayerProfileId;
   fetchAndCacheOnce(state.galaxyHoldingsByPlayerId, profileId, () => fetchGalaxyHoldings(profileId, wsUrl), { planets: [], outposts: [], trophyCase: [] }, activeId, rerender);
   fetchAndCacheOnce(state.careerStatsByPlayerId, profileId, () => fetchCareerStats(profileId, wsUrl), { seasonsPlayed: 0, bestRank: null, peakScore: null, peakTiles: null, rating: null, lastRatingDelta: null, peakRating: null }, activeId, rerender);
+  fetchAndCacheOnce(state.houseChargeCardsByPlayerId, profileId, () => fetchHouseChargeCards(profileId, wsUrl), [], activeId, rerender);
   fetchAndCacheOnce(state.socialViewByPlayerId, profileId, () => fetchPlayerSocialView(profileId, wsUrl), { allies: [], activeTruces: [], truceBreaksThisSeason: [] }, activeId, rerender);
 };
 
