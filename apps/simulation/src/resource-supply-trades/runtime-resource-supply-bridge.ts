@@ -56,3 +56,11 @@ export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, re
   runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size }, "resource_supply_restored");
   return supply;
 }
+
+/** The slot context's traded-supply hooks, absent until the supply ledger exists (runtime boot order). */
+export const tradedSupplyHooks = (supply: RuntimeResourceSupply | undefined, now: () => number): Pick<RuntimeResourceSlotsContext, "tradedSupplyBuild" | "tradedSupply" | "advanceTrades"> =>
+  supply ? {
+    tradedSupplyBuild: (id, physical) => supply.upkeepWithSources(id, physical),
+    tradedSupply: (id) => supply.upkeep(id),
+    advanceTrades: () => supply.ledger.advanceTo(now())
+  } : {};
