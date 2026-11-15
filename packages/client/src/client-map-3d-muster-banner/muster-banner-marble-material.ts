@@ -11,6 +11,7 @@
 // The veining is in the piece's own frame, offset per instance by where it
 // stands, so neighbouring banners aren't cut from the same slab.
 import type { MeshStandardMaterial, WebGLProgramParametersWithUniforms } from "three";
+import { LATTICE_HASH_GLSL } from "../client-map-3d-lattice-hash/client-map-3d-lattice-hash-glsl.js";
 
 const glslFloat = (value: number): string => value.toFixed(5);
 
@@ -35,9 +36,8 @@ const fragmentDeclarations = (ledges: readonly number[]): string => /* glsl */ `
 varying vec3 vMarblePos;
 varying vec3 vMarbleLocal;
 varying vec3 vMarbleNormal;
-float marbleHash(vec3 p) {
-  return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
-}
+${LATTICE_HASH_GLSL}
+float marbleHash(vec3 p) { return latticeHash3(p); }
 float marbleNoise(vec3 p) {
   vec3 i = floor(p);
   vec3 f = fract(p);
