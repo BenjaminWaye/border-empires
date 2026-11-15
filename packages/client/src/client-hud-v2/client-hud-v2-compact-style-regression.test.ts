@@ -42,4 +42,13 @@ describe("compact HUD styles", () => {
     expect(layout).toContain("--v2c-bar-h: calc(var(--v2c-touch) + 2px)");
     expect(layout).toMatch(/--v2c-top:.*var\(--v2c-bar-h\)/);
   });
+
+  it("keeps the building placement Confirm bar above the tab bar", () => {
+    const rules = declarationsFor("body.hud-v2-compact #placement-overlay").join("\n");
+    expect(rules).toMatch(/bottom: calc\(var\(--v2c-bottom\) \+ \d+px\)/);
+    const zIndex = Number(rules.match(/z-index: (\d+)/)?.[1]);
+    const navZ = Number(declarationsFor("body.hud-v2-compact .hud-v2-nav").join("\n").match(/z-index: (\d+)/)?.[1]);
+    expect(zIndex).toBeGreaterThan(navZ);
+    expect(declarationsFor("body.hud-v2-compact #placement-label").join("\n")).toContain("white-space: normal");
+  });
 });
