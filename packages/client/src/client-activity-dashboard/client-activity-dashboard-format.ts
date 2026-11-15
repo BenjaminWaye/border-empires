@@ -63,6 +63,9 @@ const waystationCardText = (card: Extract<PersonalActivityCard, { kind: "WAYSTAT
 const townCardText = (card: Extract<PersonalActivityCard, { kind: "TOWN_CAPTURED" | "TOWN_LOST" }>, playerNames: PlayerNameLookup): string => {
   const town = card.townName ?? card.townTier.toLowerCase();
   const counterparty = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : undefined;
+  if (card.kind === "TOWN_LOST" && card.lostToStrike && counterparty) {
+    return `Lost ${town} in a strike by ${counterparty} · ${card.townSurvived ? "left unclaimed" : "settlement razed"}`;
+  }
   const outcome = card.kind === "TOWN_CAPTURED"
     ? `Captured ${town}${counterparty ? ` from ${counterparty}` : ""}`
     : `Lost ${town}${counterparty ? ` to ${counterparty}` : ""}`;

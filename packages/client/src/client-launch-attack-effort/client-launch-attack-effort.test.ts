@@ -108,6 +108,7 @@ describe("region attack effort sheet odds", () => {
     launchAttacksWithEffort(state, { targetKeys: ["1,0", "2,0"], scope: "region", selected: state.tiles.get("1,0") }, deps);
     const info = (): string => document.querySelector("[data-effort-info]")?.textContent ?? "";
     expect(info()).toContain("Win chance 22% at (1, 0)");
+    expect(document.querySelector(".effort-confirm-subtitle")?.textContent).toContain("Extra commits 50% more manpower per target.");
     click('[data-effort-preset="double"]');
     expect(info()).toContain("Win chance 36% at (1, 0)");
   });

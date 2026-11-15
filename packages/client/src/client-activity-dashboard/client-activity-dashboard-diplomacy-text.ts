@@ -7,6 +7,8 @@ import type { PlayerNameLookup } from "./client-activity-dashboard-names.js";
 export const diplomacyCardText = (card: PersonalActivityDiplomacyCard, playerId: string, playerNames: PlayerNameLookup): string => {
   const other = playerNames(card.counterpartyPlayerId) ?? card.counterpartyName;
   switch (card.event) {
+    case "TRUCE_OFFERED":
+      return `${other} offered you a truce${card.durationHours ? ` · ${card.durationHours}h` : ""}`;
     case "TRUCE_STARTED":
       if (card.court) return `Court armistice with ${other} began${card.durationHours ? ` · ${card.durationHours}h` : ""}`;
       return `Truce with ${other} began${card.durationHours ? ` · ${card.durationHours}h` : ""}`;

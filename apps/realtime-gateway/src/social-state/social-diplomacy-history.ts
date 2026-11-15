@@ -37,6 +37,7 @@ export type DiplomacyHistory = {
    * counterparty. Names are looked up when recorded, so a row keeps the name
    * the player had at the time.
    */
+  recordIncomingTruceOffer: (recipientId: string, senderId: string, occurredAt: number, durationHours: number) => void;
   recordPair: (
     aId: string,
     bId: string,
@@ -93,6 +94,16 @@ export const createDiplomacyHistory = (
   };
 
   return {
+    recordIncomingTruceOffer(recipientId, senderId, occurredAt, durationHours) {
+      record(recipientId, {
+        event: "TRUCE_OFFERED",
+        counterpartyPlayerId: senderId,
+        counterpartyName: options.nameOf?.(senderId) ?? senderId,
+        occurredAt,
+        durationHours,
+        byPlayerId: senderId
+      });
+    },
     recordPair(aId, bId, event, occurredAt, extra = {}) {
       const nameOf = (playerId: string): string => options.nameOf?.(playerId) ?? playerId;
       record(aId, { event, occurredAt, counterpartyPlayerId: bId, counterpartyName: nameOf(bId), ...extra });

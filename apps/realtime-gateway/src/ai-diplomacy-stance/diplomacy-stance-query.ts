@@ -10,7 +10,7 @@ import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "./ai-diploma
 import type { AiAttitude, AiOpinionModifier } from "./ai-diplomacy-opinion.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
 
-export type DiplomacyStancePayload =
+export type DiplomacyStancePayload = { truceLockoutReason?: string } & (
   | { type: "DIPLOMACY_STANCE"; targetPlayerName: string; found: false }
   | { type: "DIPLOMACY_STANCE"; targetPlayerName: string; found: true; targetPlayerId: string; ai: false }
   | {
@@ -32,12 +32,14 @@ export type DiplomacyStancePayload =
       gift?: AiGiftView;
       /** The AI's fixed personality, for the trade screen. */
       temperament?: { label: string; traits: string };
-    };
+    }
+);
 
 export type DiplomacyStanceQueryDeps = {
   resolvePlayerByName: (playerName: string) => { id: string; name: string } | undefined;
   /** Preferred when the client sends the target's id: a display name can be shared by a human and an AI. */
   resolvePlayerById?: (playerId: string) => { id: string; name: string } | undefined;
+  isTruceLockedOut?: (playerId: string) => boolean;
   isAutoRespondingAi: (playerId: string) => boolean;
   fetchAiSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
   requesterSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
@@ -52,7 +54,13 @@ export const answerDiplomacyStanceQuery = async (
 ): Promise<DiplomacyStancePayload> => {
   const target = (targetPlayerId ? deps.resolvePlayerById?.(targetPlayerId) : undefined) ?? deps.resolvePlayerByName(targetPlayerName);
   if (!target || target.id === requesterId) return { type: "DIPLOMACY_STANCE", targetPlayerName, found: false };
-  const base = { type: "DIPLOMACY_STANCE" as const, targetPlayerName: target.name, found: true as const, targetPlayerId: target.id };
+  const truceLockoutReason = deps.isTruceLockedOut?.(requesterId)
+    ? "You recently broke a truce. You can make and accept new truces 24 hours after breaking it."
+    : deps.isTruceLockedOut?.(target.id) ? `${target.name} recently broke a truce and cannot accept a new one yet.` : undefined;
+  const base = {
+    type: "DIPLOMACY_STANCE" as const, targetPlayerName: target.name, found: true as const, targetPlayerId: target.id,
+    ...(truceLockoutReason ? { truceLockoutReason } : {})
+  };
   if (!deps.isAutoRespondingAi(target.id)) return { ...base, ai: false };
   const [aiSnapshot, requesterSnapshot] = await Promise.all([
     deps.fetchAiSnapshot(target.id),

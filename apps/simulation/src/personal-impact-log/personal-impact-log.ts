@@ -40,7 +40,8 @@ type PersonalImpactTownBase = PersonalImpactBase & {
   populationBefore: number;
   populationAfter: number;
   capturedStructureTypes: string[];
-  /** Captor on TOWN_LOST, previous owner on TOWN_CAPTURED. */
+  lostToStrike?: boolean;
+  /** Captor or attacker on TOWN_LOST, previous owner on TOWN_CAPTURED. */
   counterpartyPlayerId?: string;
 };
 

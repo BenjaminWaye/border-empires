@@ -1694,11 +1694,11 @@ export class SimulationRuntime {
     this.markPlannerPlayerTileCollectionDirty(tile.ownerId);
   }
 
-  private replaceTileState(tileKey: string, nextTile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void { this.superTileSync.write(() => this.writeTileState(tileKey, nextTile, commandId)); }
-  private writeTileState(tileKey: string, nextTile: DomainTileState, commandId: string): void {
+  private replaceTileState(tileKey: string, nextTile: DomainTileState, commandId = `tile-owner-change:${tileKey}`, strikeByPlayerId?: string): void { this.superTileSync.write(() => this.writeTileState(tileKey, nextTile, commandId, strikeByPlayerId)); }
+  private writeTileState(tileKey: string, nextTile: DomainTileState, commandId: string, strikeByPlayerId?: string): void {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.state.tiles.get(tileKey);
-    this.resourceSupply?.sourceWillChange(previous, nextTile);
+    const fulfilledSupplyBefore = this.resourceSupply?.sourceWillChange(previous, nextTile);
     let tile = withAfcFortFacts(withoutClearedRazedWreck(withoutFadedWarScars(withoutStaleCaptureHold(previous, nextTile, this.now()), this.now()), this.now()), this.state.players);
     tile = prepareRelicTileWrite(previous, tile, { players: this.state.players, now: this.now(), resourceSlotSupplyForPlayer: id => this.resourceSlotSupplyForPlayer(id), resourceSlotDemandForPlayer: id => this.resourceSlotDemandForPlayer(id), playerManpowerCap: player => this.playerManpowerCap(player), commandId, emitEvent: event => this.emitEvent(event) });
     if (this.manpowerReady) settleResourceNetworkOwnersBeforeTileChange(this.manpowerEconomyContext(), previous, tile);
@@ -1715,7 +1715,7 @@ export class SimulationRuntime {
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).ownedTownTierByTile.keys()]
         : undefined;
-    publishOwnershipChange({ tileKey, tile, previous, commandId }, this.onOwnershipChange, this.state.players, this.now(), this.activityLogs);
+    publishOwnershipChange({ tileKey, tile, previous, commandId, strikeByPlayerId }, this.onOwnershipChange, this.state.players, this.now(), this.activityLogs);
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.state.tiles.set(tileKey, tile);
     this.relicMapHintIndex.refresh(tileKey, tile);
@@ -1783,7 +1783,7 @@ export class SimulationRuntime {
     for (const anchor of this.newlyDeactivatedReachAnchors(previous, tile)) {
       this.applyReachAnchorDeactivation(anchor, commandId);
     }
-    this.resourceSupply?.sourceChangesPublished(previous, tile);
+    this.resourceSupply?.sourceChangesPublished(previous, tile, fulfilledSupplyBefore);
     this.siphonModeLifecycle.onTileReplaced(tileKey, previous, tile, commandId); // may write other tiles
     this.superTileSync.record(previous, tile, commandId); // last: mirrored across an AFC/relic super tile once the outermost write ends
   }
@@ -2732,7 +2732,7 @@ export class SimulationRuntime {
       filterTileDeltasForPlayer: (tileDeltas, playerId) => this.filterTileDeltasForPlayer(tileDeltas, playerId),
       isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY), isTileShieldedByEnemyObservatory: (actorId, targetX, targetY) => this.observatoryShots.isTileShieldedByEnemy(actorId, targetX, targetY),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
-      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      replaceTileState: (tileKey, tile, commandId, strikeByPlayerId) => this.replaceTileState(tileKey, tile, commandId, strikeByPlayerId),
       applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
       isCoastalLand: (x, y) => this.isCoastalLand(x, y),
       closestAetherBridgeOrigin: (playerId, targetX, targetY) =>
@@ -2759,7 +2759,7 @@ export class SimulationRuntime {
       ownedLandWithinRange: (playerId, x, y, range) => this.ownedLandWithinRange(playerId, x, y, range),
       pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) => this.observatoryShots.pickForTarget(playerId, targetX, targetY, now),
       spendObservatoryShot: (tileKey, now, commandId, playerId) => this.observatoryShots.spend(tileKey, now, commandId, playerId),
-      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      replaceTileState: (tileKey, tile, commandId, strikeByPlayerId) => this.replaceTileState(tileKey, tile, commandId, strikeByPlayerId),
       applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },

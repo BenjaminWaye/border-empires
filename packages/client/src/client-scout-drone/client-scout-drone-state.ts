@@ -12,6 +12,7 @@ import {
   type ScoutDroneStep,
   type ScoutReportFindings
 } from "@border-empires/shared";
+import { resourceLabel } from "../client-map-display.js";
 import { formatCooldownShort } from "../client-app-runtime-utils.js";
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import type { FeedEntry } from "../client-types.js";
@@ -60,6 +61,15 @@ export const parseScoutDroneFlight = (value: unknown, toLocal: (serverTime: numb
 
 const count = (value: unknown): number => (isFiniteNumber(value) && value > 0 ? Math.floor(value) : 0);
 
+const readScoutResourceCounts = (value: unknown): NonNullable<ScoutReportFindings["resourcesSighted"]> => {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || typeof entry.resource !== "string") return [];
+    const amount = count(entry.count);
+    return amount > 0 ? [{ resource: entry.resource, count: amount }] : [];
+  });
+};
+
 const parseScoutReport = (value: unknown): ScoutReport | undefined => {
   if (!value || typeof value !== "object") return undefined;
   const raw = value as Record<string, unknown>;
@@ -72,6 +82,7 @@ const parseScoutReport = (value: unknown): ScoutReport | undefined => {
     waystations: count(raw.waystations),
     watchtowers: count(raw.watchtowers),
     resourceTiles: count(raw.resourceTiles),
+    resourcesSighted: readScoutResourceCounts(raw.resourcesSighted),
     planetaryDefenseTiles: count(raw.planetaryDefenseTiles),
     empiresSighted: Array.isArray(raw.empiresSighted) ? raw.empiresSighted.filter((id): id is string => typeof id === "string") : [],
     ...(typeof raw.blockedByPlayerId === "string" ? { blockedByPlayerId: raw.blockedByPlayerId } : {})
@@ -87,7 +98,11 @@ export const scoutFindingsText = (findings: ScoutReportFindings, nameOf: (player
   if (findings.docks > 0) parts.push(plural(findings.docks, "dock"));
   if (findings.waystations > 0) parts.push(plural(findings.waystations, "waystation"));
   if (findings.watchtowers > 0) parts.push(plural(findings.watchtowers, "watchtower"));
-  if (findings.resourceTiles > 0) parts.push(plural(findings.resourceTiles, "resource tile"));
+  if (findings.resourcesSighted?.length) {
+    parts.push(...findings.resourcesSighted.map(({ resource, count }) => `${resourceLabel(resource)} (${plural(count, "tile")})`));
+  } else if (findings.resourceTiles > 0) {
+    parts.push(plural(findings.resourceTiles, "resource tile"));
+  }
   if (findings.planetaryDefenseTiles > 0) parts.push(`Planetary Defense (${plural(findings.planetaryDefenseTiles, "tile")})`);
   if (findings.empiresSighted.length > 0) parts.push(`the borders of ${findings.empiresSighted.map(nameOf).join(", ")}`);
   return parts.join(", ");

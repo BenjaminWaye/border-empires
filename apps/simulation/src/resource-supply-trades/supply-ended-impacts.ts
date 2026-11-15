@@ -19,7 +19,7 @@ export const supplyEndedImpacts = (
     { playerId: agreement.proposerId, counterpartyPlayerId: agreement.targetId, youGave: agreement.proposerGives, youGot: agreement.targetGives },
     { playerId: agreement.targetId, counterpartyPlayerId: agreement.proposerId, youGave: agreement.targetGives, youGot: agreement.proposerGives }
   ].map((side) => ({
-    id: `supply-ended:${agreement.id}:${side.playerId}`,
+    id: reason === "SUSPENDED" ? `supply-suspended:${agreement.id}:${side.playerId}:${occurredAt}` : `supply-ended:${agreement.id}:${side.playerId}`,
     kind: "SUPPLY_ENDED",
     occurredAt,
     reason,

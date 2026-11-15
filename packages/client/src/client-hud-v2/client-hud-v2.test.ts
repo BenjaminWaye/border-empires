@@ -190,7 +190,7 @@ describe("rivals strip", () => {
   // Regression: meeting one empire showed "+1" instead of its name and colour.
   it("shows a single met empire by name, not as an overflow count", () => {
     const { shown, hidden } = rivalTokens({ me: "me", metPlayerIds: new Set(["me", "p2"]), allies: [], activeTruces: [], nameOf: () => "Vasker", colorOf: () => "#c33", nowMs: 0 });
-    expect(shown).toEqual([{ id: "p2", name: "Vasker", initial: "V", color: "#c33", stance: "met", label: "MET" }]);
+    expect(shown).toEqual([{ id: "p2", name: "Vasker", initial: "V", color: "#c33", stance: "met", label: "NO PACT" }]);
     expect(hidden).toBe(0);
   });
 

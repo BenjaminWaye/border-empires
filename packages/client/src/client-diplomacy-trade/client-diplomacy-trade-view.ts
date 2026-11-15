@@ -23,7 +23,7 @@ import { giftVerdict, suggestedGift } from "./client-diplomacy-gift-view.js";
 export type DiplomacyStanceKind = "DISTRUSTFUL" | "SEEKING_PEACE" | "OUTMATCHED" | "WINNING" | "INDIFFERENT" | "WARY";
 
 /** The gateway's DIPLOMACY_STANCE reply (apps/realtime-gateway diplomacy-stance-query.ts). */
-export type DiplomacyStanceReply =
+export type DiplomacyStanceReply = { truceLockoutReason?: string } & (
   | { found: false; targetPlayerName: string }
   | { found: true; targetPlayerName: string; targetPlayerId: string; ai: false }
   | {
@@ -42,7 +42,8 @@ export type DiplomacyStanceReply =
       gift?: AiGiftView;
       /** Absent from a gateway older than temperaments. */
       temperament?: { label: string; traits: string };
-    };
+    }
+);
 
 export type DiplomacyAttitude = "FURIOUS" | "ANNOYED" | "CAUTIOUS" | "PLEASED" | "FRIENDLY";
 
@@ -129,6 +130,9 @@ export const tradeVerdict = (input: {
   if (kind === "gift") return giftVerdict(input);
   const sendLabel =
     kind === "trade" ? "Offer resource trade" : kind === "alliance" ? "Propose alliance" : extendsTruce(selection) ? `Offer ${selection.durationHours}h extension` : `Offer ${selection.durationHours}h truce`;
+  if (kind === "truce" && reply?.truceLockoutReason) {
+    return { tone: "bad", text: reply.truceLockoutReason, canSend: false, sendLabel };
+  }
   if (input.cooldownRemainingMs > 0) {
     return { tone: "bad", text: `You recently made ${targetName} this kind of offer.`, canSend: false, sendLabel: `Can offer again in ${formatOfferCooldown(input.cooldownRemainingMs)}` };
   }

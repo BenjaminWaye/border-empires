@@ -52,12 +52,12 @@ describe("handleScoutDroneMessage", () => {
     const state = stateWith();
     const pushFeed = vi.fn();
     handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: wireFlight }, state, pushFeed, vi.fn(), shiftBack);
-    const report = { targetX: 12, targetY: 4, towns: 1, docks: 0, waystations: 2, watchtowers: 0, resourceTiles: 4, planetaryDefenseTiles: 6, empiresSighted: ["rival"] };
+    const report = { targetX: 12, targetY: 4, towns: 1, docks: 0, waystations: 2, watchtowers: 0, resourceTiles: 4, resourcesSighted: [{ resource: "TITANIUM", count: 4 }], planetaryDefenseTiles: 6, empiresSighted: ["rival"] };
     handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null, report }, state, pushFeed, vi.fn(), shiftBack);
     expect(state.scoutDroneFlight).toBeUndefined();
     expect(pushFeed).toHaveBeenCalledWith(expect.objectContaining({
       title: "Scout report",
-      text: "Scout drone returned from (12, 4): 1 town, 2 waystations, 4 resource tiles, Planetary Defense (6 tiles), the borders of House Vey. It was turned back at House Vey's border.",
+      text: "Scout drone returned from (12, 4): 1 town, 2 waystations, TITANIUM (4 tiles), Planetary Defense (6 tiles), the borders of House Vey. It was turned back at House Vey's border.",
       severity: "success",
       alert: true,
       focusX: 12,

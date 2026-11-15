@@ -53,6 +53,12 @@ describe("temperament line", () => {
 });
 
 describe("tradeVerdict", () => {
+  it("blocks truce sending during a lockout even when the AI would accept the price", () => {
+    const truceLockoutReason = "You recently broke a truce.";
+    expect(verdict({ reply: { ...aiReply, truceLockoutReason }, selection: selection(40) }))
+      .toMatchObject({ canSend: false, text: truceLockoutReason });
+  });
+
   it("previews an AI's answer with the shared pricing rules", () => {
     expect(verdict({ selection: selection(40) })).toEqual(expect.objectContaining({ tone: "good", text: "Milo would accept a 12h truce on these terms." }));
     expect(verdict({})).toEqual(expect.objectContaining({ tone: "bad", text: "Milo would refuse: wants about 40 more coin." }));

@@ -14,3 +14,13 @@ describe("INSUFFICIENT_MUSTER explanation", () => {
     expect(explainActionFailureFromServer("INSUFFICIENT_MUSTER", "")).toBe("Attack blocked: not enough manpower mustered on a flag within 10 tiles.");
   });
 });
+
+it("explains muster limits using the actual flag cap", () => {
+  expect(explainActionFailureFromServer("MUSTER_LIMIT", "max 2 muster tiles per player"))
+    .toContain("up to 2 muster flags");
+});
+
+it("explains the truce lockout in player terms", () => {
+  expect(explainActionFailureFromServer("TRUCE_LOCKED_OUT", ""))
+    .toContain("24 hours after a break");
+});

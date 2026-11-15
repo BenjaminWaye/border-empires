@@ -188,6 +188,7 @@ export type SocialPendingOffer =
   | { kind: "alliance"; request: SocialAllianceRequest };
 
 export type SocialState = {
+  isTruceLockedOut: (playerId: string) => boolean;
   resourceTradeOffers: ResourceTradeOfferStore;
   resetAfcCampaign: () => void;
   forceTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;

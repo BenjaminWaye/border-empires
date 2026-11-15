@@ -352,6 +352,7 @@ export const createSocialState = (options: {
       };
       truceRequests.set(request.id, request);
       sink?.saveTruceRequest(request);
+      diplomacyHistory.recordIncomingTruceOffer(target.id, actor.id, request.createdAt, request.durationHours);
       const payloads = updatePayloadsFor([actor.id, target.id]);
       payloads.get(actor.id)?.push({ type: "TRUCE_REQUESTED", request, targetName: target.name });
       payloads.get(target.id)?.push({ type: "TRUCE_REQUEST_INCOMING", request, fromName: actor.name });
@@ -465,6 +466,7 @@ export const createSocialState = (options: {
     ...createSocialOfferSettlementState({ allianceRequests, truceRequests, settlingRequestIds, now, sweepExpired, sink, updates: ids => ok(ids),
       validateTruceOffer: request => truceOfferIsStale(request, activeTruceBetween(request.fromPlayerId, request.toPlayerId, trucesByPair, now())) ? STALE_TRUCE_OFFER : undefined }),
     playerNameOf: (playerId) => playersById.get(playerId)?.name ?? playerId,
+    isTruceLockedOut: (playerId) => playerIsTruceLockedOut(playerId, truceLockoutUntilByPlayerId, now()),
     resolvePlayerByName: (playerName) => {
       const player = resolveByName(playerName);
       return player ? { id: player.id, name: player.name } : undefined;

@@ -92,3 +92,13 @@ describe("monument-unlock tech lockout once the monument is already built", () =
     expect(entry?.lockedReason).toBeUndefined();
   });
 });
+
+it("quotes and charges the same discounted Manifest price", () => {
+  const player = buildPlayer(["ledger-keeping"]);
+  const regular = buildTechUpdatePayload(player, []).techCatalog.find(tech => tech.id === "coinage")!;
+  const discounted = { ...player, wonderTechGoldDiscount: 0.1, points: Math.ceil(regular.requirements.gold * 0.9) };
+  const quote = buildTechUpdatePayload(discounted, []).techCatalog.find(tech => tech.id === "coinage")!;
+  expect(quote.requirements).toMatchObject({ gold: discounted.points, canResearch: true });
+  expect(chooseTechForPlayer(discounted, "coinage", [])).toEqual({ ok: true });
+  expect(discounted.points).toBe(0);
+});

@@ -16,6 +16,7 @@ export const supplyAmountsText = (offer: ResourceSupplyOffer): string | undefine
 };
 
 const reasonText = (card: PersonalActivitySupplyEndedCard, playerId: string, other: string): string => {
+  if (card.reason === "SUSPENDED") return "the promised supply is unavailable. The deal can resume when supply returns";
   if (card.reason === "EXPIRED") return "its time ran out";
   const byMe = card.byPlayerId === playerId;
   if (card.reason === "ATTACK") return byMe ? `you attacked ${other}` : `${other} attacked you`;

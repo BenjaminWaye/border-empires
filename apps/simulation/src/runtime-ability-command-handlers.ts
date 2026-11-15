@@ -70,7 +70,7 @@ export type RuntimeAbilityCommandContext = {
   // specific observatory tile directly rather than going through a picker, so
   // it needs its own dormancy gate.
   isStructureDormant: (playerId: string, tileKey: string, field: "observatory" | "economicStructure") => boolean;
-  replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
+  replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string, strikeByPlayerId?: string) => void;
   // Re-checks the owner's frontier connectivity after a tile of theirs was purged (AETHER_LANCE).
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
   isCoastalLand: (x: number, y: number) => boolean;

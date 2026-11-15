@@ -46,7 +46,7 @@ export const rivalTokens = (input: RivalInput): { shown: RivalToken[]; hidden: n
   for (const id of input.metPlayerIds) {
     if (id === input.me || seen.has(id)) continue;
     seen.add(id);
-    tokens.push(token(input, id, "met", "MET"));
+    tokens.push(token(input, id, "met", "NO PACT"));
   }
   return { shown: tokens.slice(0, RIVAL_STRIP_CAP), hidden: Math.max(0, tokens.length - RIVAL_STRIP_CAP) };
 };

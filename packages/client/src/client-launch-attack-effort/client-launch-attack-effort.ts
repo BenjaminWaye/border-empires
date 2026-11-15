@@ -62,7 +62,7 @@ export const promptAttackEffortForTarget = (
   const floor = attackEffortFloorForTarget(tile, state);
   const handle = showEffortConfirmSheet({
     title: options.title,
-    subtitle: `${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} — committing more manpower improves your odds.`,
+    subtitle: `${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} · More manpower improves your odds. You spend the full commitment whether you win or lose.`,
     floor,
     cap: Math.max(floor, state.manpowerCap),
     mode: "slider",
@@ -130,7 +130,7 @@ const promptBulkEffort = (
     eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile, state)), 0);
   const handle = showEffortConfirmSheet({
     title,
-    subtitle: `${eligible.length} defended target${eligible.length === 1 ? "" : "s"} — effort applies to each of them.`,
+    subtitle: `${eligible.length} defended target${eligible.length === 1 ? "" : "s"} · Extra commits 50% more manpower per target. Double commits twice as much. Both improve your odds, and you spend the full commitment either way.`,
     floor: minFloor,
     cap: Math.max(minFloor, state.manpowerCap),
     mode: "presets",

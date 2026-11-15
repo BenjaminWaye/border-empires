@@ -79,6 +79,8 @@ describe("activityCardText / activityCardCoordinates", () => {
     expect(activityCardText({ ...base, kind: "TOWN_CAPTURED", counterpartyPlayerId: "kara" } as any, "me", names)).toBe("Captured Aurienspire Ring from Kara · 25354 population remaining");
     // No captor: the town left the empire some other way (abandoned, cut off) and stands unclaimed.
     expect(activityCardText({ ...base, kind: "TOWN_LOST" } as any, "me", names)).toBe("Lost Aurienspire Ring · left unclaimed");
+    expect(activityCardText({ ...base, id: "strike", occurredAt: 1_000, kind: "TOWN_LOST", counterpartyPlayerId: "kara", lostToStrike: true, x: 1, y: 2 } as PersonalActivityCard, "me", names))
+      .toBe("Lost Aurienspire Ring in a strike by Kara · left unclaimed");
     expect(activityCardText({ ...base, kind: "TOWN_LOST", townSurvived: false } as any, "me", names)).toBe("Lost Aurienspire Ring · settlement razed");
   });
 
