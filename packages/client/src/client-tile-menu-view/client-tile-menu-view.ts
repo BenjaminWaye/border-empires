@@ -1,3 +1,4 @@
+import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { gateTileConstructionActions } from "../client-afc-recovery/client-afc-recovery-actions.js";
 import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
 import { townBiotaLineHtml } from "../client-town-biota/client-town-biota-line.js";
@@ -208,10 +209,9 @@ export const menuOverviewForTile = (
       const growthRatePending = ownTownGrowthRatePending(tile.town);
       const { terrainProfile, coastal } = townTerrainForTile(tile, tile.town);
       const tierManpower = terrainAdjustedTownManpower(tile.town.populationTier, terrainProfile, coastal);
-      // Matches tileProductionHtml's own gold math exactly (same
-      // tile.yieldRate.goldPerMinute * 1440 source) so this card's number
-      // never disagrees with any other gold/day figure shown elsewhere.
-      const goldPerDay = (tile.yieldRate?.goldPerMinute ?? 0) * 1440;
+      // tileCoinPerMinute is every surface's per-tile coin source, so this
+      // card never disagrees with the Towns list or the town screen.
+      const goldPerDay = tileCoinPerMinute(tile) * 1440;
       const nextTierPopulation = nextTownGrowthUpgrade(tile.town.populationTier, tile.town.population)?.requiredPopulation;
       lines.push({
         kind: "statgrid",

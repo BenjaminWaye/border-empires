@@ -1,3 +1,4 @@
+import { tileCoinPerMinute } from "./client-coin-income/client-coin-income.js";
 import { escapeHtml } from "./client-duke-panel/client-duke-escape.js";
 import { OUTPOST_REACH_RADIUS, RESOURCE_NETWORKS, isNetworkResource, networkResourceForBuilding } from "@border-empires/shared";
 import { converterInfoEffects } from "./client-structure-info-catalog/converter-info.js";
@@ -279,6 +280,6 @@ export const strategicResourceKeyForTile = (tile: Tile): "FOOD" | "TITANIUM" | "
 // Tiles only produce gold directly; strategic resources are slot-based
 // (structure-slots.ts), not a per-tile daily yield.
 export const tileProductionHtml = (tile: Tile): string => {
-  const gpd = (tile.yieldRate?.goldPerMinute ?? 0) * 1440;
+  const gpd = tileCoinPerMinute(tile) * 1440;
   return tile.town || gpd > 0 ? `${resourceIconHtml("GOLD")} ${gpd.toFixed(1)}/day` : "";
 };

@@ -5,7 +5,7 @@ import { networkSupplyHtml } from "../client-resource-networks/network-supply-ht
 // uses it. Integrity has its own panel, so it is not here. The numbers come from the helpers in
 // client-economy-html.ts, which hands them in to avoid an import cycle.
 
-import type { NetworkSupplyStatus, SlotResource } from "@border-empires/shared";
+import { formatCoinPerDay, type CoinIncomeBreakdown, type CoinIncomeBucket, type CoinIncomeLine, type NetworkSupplyStatus, type SlotResource } from "@border-empires/shared";
 import type { EconomyBucket, EconomyFocusKey } from "../client-economy-model.js";
 import type { EconomyPanelArgs } from "./client-economy-html.js";
 
@@ -18,8 +18,8 @@ export type EconomyRowsInput = {
   focus: EconomyFocusKey;
   bonusSupply?: NetworkSupplyStatus;
   gold: number;
-  /** Coin per minute after upkeep, with where it is earned and spent. */
-  coin: { netPerMinute: number; sources: EconomyBucket[]; sinks: EconomyBucket[] };
+  /** The shared coin breakdown: its earned and upkeep lines sum to its net headline. */
+  coin: CoinIncomeBreakdown;
   slots: Record<SlotResource, { supply: number; demand: number; sources: EconomyBucket[]; occupants: EconomyBucket[] }>;
   isRevealed: (resource: SlotResource) => boolean;
   /** Food coverage 0-1 from the last tick; below 1 some towns go unfed. */
@@ -29,13 +29,13 @@ export type EconomyRowsInput = {
 
 const NAMES: Readonly<Record<RowResource, string>> = { GOLD: "Coin", FOOD: "Food", TITANIUM: "Titanium", CRYSTAL: "Crystal", UMBRITE: "Umbrite" };
 
-const perDay = (perMinute: number): string => `${perMinute >= 0 ? "+" : "−"}${Math.abs(perMinute * 1440).toFixed(1)}/day`;
+const perDay = formatCoinPerDay;
 
-const named = (b: EconomyBucket): string => `${b.label}${b.count > 1 ? ` ×${b.count}` : ""}`;
+const named = (b: Pick<EconomyBucket, "label" | "count">): string => `${b.label}${b.count > 1 ? ` ×${b.count}` : ""}`;
 
-const listHtml = (label: string, items: string[], empty: string): string => {
+const listHtml = (label: string, items: string[], empty: string, moreHtml = (hidden: number): string => `<span class="v2e-more">+${hidden} more</span>`): string => {
   const shown = items.slice(0, MAX_ITEMS);
-  const more = items.length > MAX_ITEMS ? `<span class="v2e-more">+${items.length - MAX_ITEMS} more</span>` : "";
+  const more = items.length > MAX_ITEMS ? moreHtml(items.length - MAX_ITEMS) : "";
   return `<div class="v2e-list"><span class="v2e-list-h">${label}</span>${shown.length > 0 ? shown.join("") + more : `<span class="v2e-none">${empty}</span>`}</div>`;
 };
 
@@ -43,15 +43,30 @@ const item = (text: string, amount: string, warn = false): string =>
   `<span class="v2e-item${warn ? " v2e-warn" : ""}"><span>${text}</span><b>${amount}</b></span>`;
 
 /** Upkeep on the Coin row is mostly coin; a cost paid in another resource names it. */
-const upkeepAmount = (b: EconomyBucket): string =>
-  b.resourceKey && b.resourceKey !== "GOLD" ? `${perDay(-b.amountPerMinute)} ${NAMES[b.resourceKey]}` : perDay(-b.amountPerMinute);
+const upkeepAmount = (b: CoinIncomeBucket): string =>
+  b.resourceKey && b.resourceKey !== "GOLD" ? `${perDay(-b.amountPerMinute)} ${NAMES[b.resourceKey as RowResource] ?? b.resourceKey}` : perDay(-b.amountPerMinute);
+
+// Every coin line stays accountable: lines past MAX_ITEMS fold into a "+N more"
+// line that carries their total, so the visible amounts always add up to the headline.
+const coinListHtml = (label: string, rows: readonly CoinIncomeBucket[], empty: string, amount: (b: CoinIncomeBucket) => string, signed: (perMinute: number) => string): string =>
+  listHtml(label, rows.map((b) => item(named(b), amount(b))), empty, (hidden) =>
+    item(`+${hidden} more`, signed(rows.slice(MAX_ITEMS).reduce((total, b) => total + b.amountPerMinute, 0))));
+
+// The Integrity line is the one players check against the Integrity panel: it never folds into "+N more".
+const pinIntegrityLine = (rows: readonly CoinIncomeLine[]): readonly CoinIncomeLine[] => {
+  const index = rows.findIndex((row) => row.kind === "bonus");
+  if (rows.length <= MAX_ITEMS || index < MAX_ITEMS - 1) return rows;
+  const pinned = rows.filter((_, i) => i !== index);
+  pinned.splice(MAX_ITEMS - 1, 0, rows[index]!);
+  return pinned;
+};
 
 const coinRowHtml = (input: EconomyRowsInput): string => {
   const { coin } = input;
   return `<section class="v2e-row${input.focus === "GOLD" ? " v2e-focus" : ""}" data-v2e-row="GOLD">
     <div class="v2e-head">${input.resourceIconHtml("GOLD")}<span class="v2e-name">Coin</span><b class="v2e-amount">${input.gold.toFixed(1)}</b><span class="v2e-status ${coin.netPerMinute >= 0 ? "v2e-good" : "v2e-bad"}">${perDay(coin.netPerMinute)}</span></div>
-    ${listHtml("Earned", coin.sources.map((b) => item(named(b), perDay(b.amountPerMinute))), "No income yet")}
-    ${listHtml("Upkeep", coin.sinks.map((b) => item(named(b), upkeepAmount(b))), "None")}
+    ${coinListHtml("Earned", pinIntegrityLine(coin.earned), "No income yet", (b) => perDay(b.amountPerMinute), perDay)}
+    ${coinListHtml("Upkeep", coin.upkeep, "None", upkeepAmount, (perMinute) => perDay(-perMinute))}
   </section>`;
 };
 
@@ -83,7 +98,7 @@ const slotRowHtml = (input: EconomyRowsInput, resource: SlotResource): string =>
   return `<section class="v2e-row${demand > supply ? " v2e-short" : ""}${focus}" data-v2e-row="${resource}">
     ${head(`${demand} / ${supply}`, status.text, status.tone)}
     ${listHtml("From", sources.map((b) => item(named(b), slotSupplyAmountLabel(b.amountPerMinute))), noSourcesHtml(resource))}
-    ${listHtml("Used by", occupants.map((b) => item(`${named(b)}${b.dormantCount ? ` · ${b.dormantCount} dormant` : ""}`, String(b.amountPerMinute), Boolean(b.dormantCount))), "Nothing yet")}
+    ${listHtml("Used by", occupants.map((b) => item(`${named(b)}${b.dormantCount ? ` · ${b.dormantCount} dormant` : ""}`, b.amountPerMinute < 0 ? `−${-b.amountPerMinute}` : String(b.amountPerMinute), Boolean(b.dormantCount))), "Nothing yet")}
     ${fed}
   </section>`;
 };
@@ -101,14 +116,13 @@ export const renderEconomyRowsHtml = (input: EconomyRowsInput): string =>
 export type EconomyRowsHelpers = {
   slotSources: (args: EconomyPanelArgs, resource: SlotResource) => EconomyBucket[];
   slotOccupants: (args: EconomyPanelArgs, resource: SlotResource) => EconomyBucket[];
-  coinDetail: (args: EconomyPanelArgs, resource: "GOLD") => { sources: EconomyBucket[]; sinks: EconomyBucket[] };
+  coinIncome: (args: EconomyPanelArgs) => CoinIncomeBreakdown;
 };
 
 const SLOT_ROWS: readonly SlotResource[] = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"];
 
 /** Builds the rows from the Economy panel arguments. */
 export const economyRowsFromPanelArgs = (args: EconomyPanelArgs, helpers: EconomyRowsHelpers): string => {
-  const coin = helpers.coinDetail(args, "GOLD");
   const slots = Object.fromEntries(SLOT_ROWS.map((r) => [r, {
     supply: args.resourceSlots.supply[r],
     demand: args.resourceSlots.demand[r],
@@ -119,7 +133,7 @@ export const economyRowsFromPanelArgs = (args: EconomyPanelArgs, helpers: Econom
     focus: args.focus,
     ...(args.resourceSlots.bonusSupply ? { bonusSupply: args.resourceSlots.bonusSupply } : {}),
     gold: args.gold,
-    coin: { netPerMinute: args.incomePerMinute - args.upkeepPerMinute.gold, sources: coin.sources, sinks: coin.sinks },
+    coin: helpers.coinIncome(args),
     slots,
     isRevealed: (r) => !args.isRevealed || args.isRevealed(r),
     foodCoverage: args.upkeepLastTick.foodCoverage ?? 1,

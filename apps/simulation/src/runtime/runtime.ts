@@ -12,7 +12,7 @@ import { prepareRelicTileWrite } from "../runtime-relic-tile-write.js";
 import { createLandmarkSuperTileSync, superTileActionTarget } from "../landmark-super-tile/landmark-super-tile.js";
 import { superTileSettlementStart } from "../landmark-super-tile/landmark-super-tile-settle.js";
 import { settleResourceNetworkOwnersBeforeTileChange } from "./runtime-manpower-economy.js";
-import { afcEnvoyIncomeInSnapshot } from "../afc-specializations/afc-coalition.js";
+import { coinIncomeAdjustmentsInSnapshot } from "../coin-income-adjustments/coin-income-adjustments.js";
 import { settleBootstrapManpower } from "./runtime-bootstrap-manpower.js";
 import { afcCampaignGuardCounters, afcCampaignStateGauges, afcRecoverySearchCount } from "../afc-specializations/afc-diagnostics.js";
 import { buildPlayerCombatSummary } from "../afc-specializations/afc-player-combat-facts.js";
@@ -1925,7 +1925,7 @@ export class SimulationRuntime {
       playerLogisticsThroughputPerMinute: this.playerLogisticsThroughputPerMinute.bind(this),
       playerManpowerBreakdown: this.playerManpowerBreakdown.bind(this),
       incomePerMinuteForPlayer: this.incomePerMinuteForPlayer.bind(this),
-      envoyIncomePerMinuteForPlayer: player => afcEnvoyIncomeInSnapshot(this.cachedEconomySnapshot(player)),
+      coinIncomeAdjustmentsForPlayer: player => coinIncomeAdjustmentsInSnapshot(this.cachedEconomySnapshot(player)),
       summaryForPlayer: this.summaryForPlayer.bind(this),
       growthStalledNoFoodCounter: this.growthStalledNoFoodCounter,
       recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,

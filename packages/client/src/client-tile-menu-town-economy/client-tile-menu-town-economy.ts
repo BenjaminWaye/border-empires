@@ -1,3 +1,4 @@
+import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { strategicResourceKeyForTile } from "../client-map-display.js";
 import type { Tile } from "../client-types.js";
 
@@ -5,7 +6,7 @@ export const tileProductionRequirementLabel = (tile: Tile, prettyToken: (value: 
   if (tile.town) return "coin";
   const strategicKey = strategicResourceKeyForTile(tile);
   if (strategicKey) return prettyToken(strategicKey).toLowerCase();
-  const gpm = tile.yieldRate?.goldPerMinute ?? 0;
+  const gpm = tileCoinPerMinute(tile);
   if (gpm > 0.01) return "coin";
   return undefined;
 };

@@ -5,6 +5,7 @@
 // picked building's Build on button docks at its foot), Raise flag / Overclock
 // at the bottom. All actions reuse the tile menu's own definitions.
 
+import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { townCoinNote, townPlotIncomeNote } from "../client-town-plot-income/client-town-plot-income.js";
 import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
 import type { ClientAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
@@ -88,7 +89,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   ).join("");
   const manpower = terrainAdjustedTownManpower(town.populationTier, terrainProfile, coastal);
   const stats = [
-    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(town.goldPerMinute * 1440)}/day` : "—", n: fed, tone: town.isFed === false || townPlotIncomeNote(town) ? " v2t-warn" : "" },
+    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(tileCoinPerMinute(input.town) * 1440)}/day` : "—", n: fed, tone: town.isFed === false || townPlotIncomeNote(town) ? " v2t-warn" : "" },
     { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: `Base town · +${fmt(manpowerPerBatch(manpower.regenPerMinute))} per batch regen`, tone: " v2t-gold" },
     { k: "FOOD UPKEEP", v: `${townFoodSlotDemandForTier(town.populationTier)} slots`, n: "", tone: "" }
   ];

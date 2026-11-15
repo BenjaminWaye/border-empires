@@ -12,7 +12,7 @@ import {
   townFoodUpkeepPerMinute,
   townPopulationMultiplier
 } from "@border-empires/game-domain";
-import { converterModeOf, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers } from "@border-empires/shared";
+import { EMPIRE_INTEGRITY_INCOME_LABEL, converterModeOf, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers } from "@border-empires/shared";
 import { converterOutputPerMinute, structureUpkeepPerMinute } from "./player-update-economy-converters.js";
 import {
   buildConnectedTownNetworkForPlayer,
@@ -414,6 +414,11 @@ export const buildPlayerUpdateEconomySnapshot = (
 
   // Apply integrity multiplier after the food-gate so intermediate food logic is undisturbed.
   const incomePerMinute = Number((rawIncomePerMinute * integrityEconMult).toFixed(6));
+  // Itemise the Integrity effect as its own (possibly negative) row, last, so
+  // the GOLD sources always sum to the incomePerMinute accrual credits.
+  const goldSourceRows = sortedBuckets(goldSources);
+  const integrityGoldPerMinute = Number((incomePerMinute - rawIncomePerMinute).toFixed(6));
+  if (integrityGoldPerMinute !== 0) goldSourceRows.push({ label: EMPIRE_INTEGRITY_INCOME_LABEL, amountPerMinute: integrityGoldPerMinute, count: 1 });
 
   return {
     incomePerMinute,
@@ -435,7 +440,7 @@ export const buildPlayerUpdateEconomySnapshot = (
       umbrite: { contributors: sortedBuckets(umbriteSinks) }
     },
     economyBreakdown: {
-      GOLD: { sources: sortedBuckets(goldSources), sinks: sortedBuckets(goldSinks) },
+      GOLD: { sources: goldSourceRows, sinks: sortedBuckets(goldSinks) },
       FOOD: { sources: sortedBuckets(foodSources), sinks: sortedBuckets(foodSinks) },
       TITANIUM: { sources: sortedBuckets(titaniumSources), sinks: sortedBuckets(titaniumSinks) },
       CRYSTAL: { sources: sortedBuckets(crystalSources), sinks: sortedBuckets(crystalSinks) },

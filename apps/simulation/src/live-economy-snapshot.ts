@@ -1,6 +1,7 @@
 import { developedNetworkSites } from "./resource-networks/resource-networks.js";
 import { networkSupplyStatus } from "./resource-networks/resource-network-status.js";
 import { afcAgreementCount, applyAfcEnvoyIncome } from "./afc-specializations/afc-coalition.js";
+import { applyIntegrityIncomeLine } from "./coin-income-adjustments/coin-income-adjustments.js";
 import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "@border-empires/game-domain";
 import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
 import { buildConnectedTownNetworkForPlayer, dockBaseGoldPerMinuteForPlayer } from "./economy-network/economy-network.js";
@@ -165,6 +166,7 @@ export const buildLivePlayerEconomySnapshot = (
     umbriteSources, umbriteSinks,
     fedTownKeys, fedTownKeysByPlayer
   });
+  applyIntegrityIncomeLine(result, player?.integrityIncomePerMinute ?? 0);
   const envoyIncome = player?.afcEnvoyIncomePerMinute ?? 0;
   if (!player || envoyIncome <= 0) return result;
   const agreements = afcAgreementCount({ id: player.id, allies: new Set(player.allies), truces: new Set(player.truces ?? []) },

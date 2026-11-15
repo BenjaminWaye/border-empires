@@ -1,6 +1,7 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 import { AETHER_TOWER_SHOTS_CHANGELOG } from "./client-changelog-aether-tower-shots.js";
 import { LEGAL_PAGES_CHANGELOG } from "./client-changelog-legal-pages.js";
+import { INCOME_TRUTH_CHANGELOG } from "./client-changelog-income-truth.js";
 import { CAPTURE_AFTERMATH_CHANGELOG } from "./client-changelog-capture-aftermath.js";
 import { SHARDS_REMOVED_CHANGELOG } from "./client-changelog-shards-removed.js";
 import { AFC_V3_CHANGELOG } from "./client-changelog-afc-v3.js";
@@ -60,6 +61,7 @@ export const NOVEMBER_CHANGELOG: ClientChangelogEntry[] = [
   ...OWNERSHIP_HELP_CHANGELOG,
   ...TOWN_GROWTH_PERSIST_CHANGELOG,
   ...TRUCE_MINUTES_CHANGELOG,
+  ...INCOME_TRUTH_CHANGELOG,
   ...HILL_FISHING_FARM_BUILDINGS_CHANGELOG,
   ...AI_TRUCE_REASONING_CHANGELOG,
   ...TRUCE_OFFERS_WAIT_CHANGELOG,

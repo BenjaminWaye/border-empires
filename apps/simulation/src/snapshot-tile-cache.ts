@@ -47,6 +47,7 @@ export type RuntimeState = {
     townCount?: number;
     incomePerMinute?: number;
     afcEnvoyIncomePerMinute?: number;
+    integrityIncomePerMinute?: number;
     incomeMultiplier?: number;
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;

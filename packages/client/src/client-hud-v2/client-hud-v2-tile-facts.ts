@@ -3,6 +3,7 @@
 // coin, a fight's odds). Everything else stays one click away under
 // Details ▾, which shows the full overview inside the panel.
 
+import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { structureModifiersFor } from "@border-empires/game-domain";
 import { isRedesignedRelic, NATURAL_WONDER_LABELS, relicOperationalState, RELIC_DEFINITIONS, structureDisplayName } from "@border-empires/shared";
 import { resourceSlotProductionHtml } from "../client-tile-menu-view/client-tile-resource-slot-production.js";
@@ -131,7 +132,7 @@ const townFacts = (tile: Tile, mine: boolean, nowMs: number): TileFact[] => {
   if (!town) return [];
   const facts: TileFact[] = [{ label: "Town", value: displayTownPopulationTierLabel(town.populationTier) }];
   // Only your own towns carry their yield; a rival's would read 0.0/day.
-  if (mine && tile.ownershipState === "SETTLED") facts.push({ label: "Coin", value: coinPerDay(tile.yieldRate?.goldPerMinute ?? 0) });
+  if (mine && tile.ownershipState === "SETTLED") facts.push({ label: "Coin", value: coinPerDay(tileCoinPerMinute(tile)) });
   if (typeof town.isFed === "boolean") facts.push(town.isFed ? { label: "Food", value: "Fed", tone: "good" } : { label: "Food", value: "Unfed", tone: "warn" });
   const growth = mine && tile.ownershipState === "SETTLED" ? townGrowth(town, nowMs) : undefined;
   if (growth) facts.push(growth.paused ? { label: "Growth", value: "Paused", tone: "warn" } : { label: "Growth", value: growth.rate });
