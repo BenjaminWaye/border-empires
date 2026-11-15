@@ -61,6 +61,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* An offer from an empire that just attacked you says so (client-offer-dock-attacker-note.ts). */
+.offer-dock-attacker {
+  margin-top: 2px;
+  color: #ff9a7a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .offer-dock-terms {
   margin-top: 2px;
   color: #cdbd9c;

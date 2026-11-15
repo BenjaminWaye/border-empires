@@ -1,6 +1,7 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 import { PHONE_LAYOUT_FIXES_ENTRY } from "./client-changelog-phone-layout-fixes.js";
 import { GUIDE_PLAYTEST_FIXES_ENTRY } from "./client-changelog-guide-playtest-fixes.js";
+import { RETURN_LOSSES_FIRST_ENTRY } from "./client-changelog-return-losses-first.js";
 import { GUIDE_MANIFEST_PRICE_ENTRY } from "./client-changelog-guide-manifest-price.js";
 import { PLAIN_LOSS_REPORTS_ENTRY } from "./client-changelog-plain-loss-reports.js";
 import { TOWN_RING_GARRISON_ENTRY } from "./client-changelog-town-ring-garrison.js";
@@ -19,6 +20,7 @@ import { SHORT_PHONE_LAYOUT_ENTRY } from "./client-changelog-short-phone-layout.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_116: ClientChangelogEntry[] = [
   { ...PHONE_LAYOUT_FIXES_ENTRY, createdAt: 1794563191075, },
   { ...GUIDE_PLAYTEST_FIXES_ENTRY, createdAt: 1794561799617, },
+  { ...RETURN_LOSSES_FIRST_ENTRY, createdAt: 1794695349785, },
   { ...GUIDE_MANIFEST_PRICE_ENTRY, createdAt: 1794580736251, },
   { ...TOWN_RING_GARRISON_ENTRY, createdAt: 1794590298990, },
   { ...PLAIN_LOSS_REPORTS_ENTRY, createdAt: 1794695985103, },

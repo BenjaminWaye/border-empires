@@ -17,6 +17,8 @@ export type ChronicleInput = {
   colorOf: (playerId: string) => string | undefined;
   techName: (techId: string) => string | undefined;
   nowMs: number;
+  /** The read watermark when the Chronicle opened: losses after it are pinned to the top. */
+  awaySince?: number | undefined;
 };
 
 const esc = (text: string): string =>
@@ -56,10 +58,25 @@ export const dayHeading = (at: number, nowMs: number): string => {
   return new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase();
 };
 
-export const chronicleGroups = (cards: readonly PersonalActivityCard[], me: string, rivalFilter: string, nowMs: number): Array<{ heading: string; cards: PersonalActivityCard[] }> => {
+export const AWAY_LOSSES_HEADING = "LOST WHILE YOU WERE AWAY";
+
+/**
+ * Day groups, newest first. With `awaySince`, losses after it (what the player
+ * has not read yet) come first under their own heading, so a returning player
+ * sees what they lost before anything else; they are not repeated below.
+ */
+export const chronicleGroups = (cards: readonly PersonalActivityCard[], me: string, rivalFilter: string, nowMs: number, awaySince?: number): Array<{ heading: string; cards: PersonalActivityCard[] }> => {
   const groups: Array<{ heading: string; cards: PersonalActivityCard[] }> = [];
-  for (const card of [...cards].sort((a, b) => b.occurredAt - a.occurredAt)) {
-    if (rivalFilter && !cardCounterparties(card, me).includes(rivalFilter)) continue;
+  const sorted = [...cards].sort((a, b) => b.occurredAt - a.occurredAt).filter((card) => !rivalFilter || cardCounterparties(card, me).includes(rivalFilter));
+  // Your own failed attacks read as losses too, but nothing was taken from you while away.
+  const ownAttack = (card: PersonalActivityCard): boolean =>
+    (card.kind === "COMBAT" && card.attackerId === me) || (card.kind === "COMBAT_GROUP" && card.role === "ATTACKER");
+  const isAwayLoss = (card: PersonalActivityCard): boolean =>
+    awaySince !== undefined && card.occurredAt > awaySince && activityCardTone(card, me) === "loss" && !ownAttack(card);
+  const awayLosses = sorted.filter(isAwayLoss);
+  if (awayLosses.length > 0) groups.push({ heading: AWAY_LOSSES_HEADING, cards: awayLosses });
+  for (const card of sorted) {
+    if (isAwayLoss(card)) continue;
     const heading = dayHeading(card.occurredAt, nowMs);
     const last = groups[groups.length - 1];
     if (last && last.heading === heading) last.cards.push(card);
@@ -139,9 +156,9 @@ export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
     const msg = input.error ?? (input.loading ? "Loading…" : "No activity yet");
     return `${head}<div class="v2s-empty">${esc(msg)}</div>`;
   }
-  const groups = chronicleGroups(timeline.cards, input.me, input.rivalFilter, input.nowMs);
+  const groups = chronicleGroups(timeline.cards, input.me, input.rivalFilter, input.nowMs, input.awaySince);
   const list = groups.length > 0
-    ? groups.map((g) => `<div class="v2c-day">${g.heading}</div>${g.cards.map((c) => rowHtml(c, input)).join("")}`).join("")
+    ? groups.map((g) => `<div class="v2c-day${g.heading === AWAY_LOSSES_HEADING ? " v2c-day-away" : ""}">${g.heading}</div>${g.cards.map((c) => rowHtml(c, input)).join("")}`).join("")
     : `<div class="v2s-empty">No activity in the last 24 hours</div>`;
   return `${head}${summaryHtml(timeline, input)}${filtersHtml(timeline, input)}<div class="v2c-list" data-v2-scroll="chronicle">${list}</div>`;
 };
