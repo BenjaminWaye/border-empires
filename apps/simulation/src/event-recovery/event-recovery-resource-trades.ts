@@ -1,8 +1,10 @@
 import { MAX_RESOURCE_SUPPLY_AGREEMENTS, ResourceSupplyAgreementSchema, type ResourceSupplyAgreement } from "@border-empires/shared";
+import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 import type { RecoveredPlayerState } from "./event-recovery-player-state.js";
 
 type ResourceTradeRecovery = {
   players: RecoveredPlayerState[];
+  season?: SimulationSeasonState;
   resourceSupplyAgreements: ResourceSupplyAgreement[];
   resourceSupplyJournalSequence: number;
 };
@@ -28,7 +30,9 @@ export const applyRecoveredResourceTrade = (
     targetId?: string;
     targetCoinDelta?: number;
     journalSequence?: number;
+    journalSeasonId?: string;
   };
+  if (payload.journalSeasonId && state.season && payload.journalSeasonId !== state.season.seasonId) return;
   const sequence = payload.journalSequence;
   // The checkpoint may already include this mutation even if its event was
   // persisted after the checkpoint's general event watermark.

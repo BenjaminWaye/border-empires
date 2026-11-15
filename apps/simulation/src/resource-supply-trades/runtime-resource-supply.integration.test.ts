@@ -1,3 +1,4 @@
+import { createInitialSeasonState } from "../season-lifecycle.js";
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { InMemorySimulationCommandStore } from "../command-store/command-store.js";
 import { InMemorySimulationEventStore } from "../event-store/event-store.js";
@@ -182,6 +183,35 @@ describe("resource trades in the production runtime",()=>{
     expect(overlapping.players?.find(player => player.id === "seller")?.points).toBe(f.player("seller").points);
     expect(overlapping.players?.find(player => player.id === "buyer")?.points).toBe(f.player("buyer").points);
   });
+  it("ignores a delayed trade refund from the previous season", () => {
+    const f = fixture();
+    const season = createInitialSeasonState({ seasonSequence: 2, rulesetId: "standard", worldSeed: 42, startedAt: start });
+    const checkpoint = { ...f.runtime.exportSnapshotSections().initialState, season };
+    const recovered = applySimulationEventsToRecoveredState(checkpoint, [
+      {
+        eventType: "PLAYER_MESSAGE", messageType: "RESOURCE_SUPPLY_COIN_REFUNDED", commandId: "late-refund", playerId: "seller",
+        payloadJson: JSON.stringify({
+          proposerId: "seller", targetId: "buyer", targetCoinDelta: 50,
+          journalSequence: 100, journalSeasonId: "previous-season"
+        })
+      },
+      {
+        eventType: "PLAYER_MESSAGE", messageType: "RESOURCE_SUPPLY_CHANGED", commandId: "new-trade", playerId: "seller",
+        payloadJson: JSON.stringify({
+          action: "created", journalSequence: 1, journalSeasonId: season.seasonId, targetCoinDelta: -3,
+          agreement: {
+            id: "new-trade", proposerId: "seller", targetId: "buyer", proposerGives: { FOOD: 1 },
+            targetGives: {}, startedAt: start, expiresAt: start + 7 * 86_400_000
+          }
+        })
+      }
+    ]);
+    expect(recovered.resourceSupplyJournalSequence).toBe(1);
+    expect(recovered.resourceSupplyAgreements?.map(row => row.id)).toEqual(["new-trade"]);
+    expect(recovered.players?.find(player => player.id === "seller")?.points).toBe(103);
+    expect(recovered.players?.find(player => player.id === "buyer")?.points).toBe(97);
+  });
+
   it.each([false, true])("recovers the Coin refund with an already ended agreement (%s)", async alreadyEnded => {
     const f = fixture();
     const eventStore = new InMemorySimulationEventStore();

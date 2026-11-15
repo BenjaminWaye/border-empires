@@ -1,7 +1,7 @@
 import { siphonedResourceTilesForPlayer } from "../siphon-mode/siphon-slot-transfer.js";
 import { runtimeLogInfo } from "../runtime-log/runtime-log.js";
 import type { ResourceSupplyAgreement } from "@border-empires/shared";
-import { RuntimeResourceSupply } from "./runtime-resource-supply.js";
+import { RuntimeResourceSupply, type ResourceTradeJournalCursor } from "./runtime-resource-supply.js";
 import { cachedResourceSlots, ownedResourceTiles, physicalResourceSlots, type RuntimeResourceSlotsContext } from "./runtime-resource-slots.js";
 import type { ResourceSupplyLedgerContext } from "./resource-supply-ledger.js";
 import type { RuntimePassiveIncomeContext } from "../runtime-passive-income.js";
@@ -11,8 +11,9 @@ import { supplyEndedImpacts } from "./supply-ended-impacts.js";
 export interface ResourceSupplyBridgeContext {
   slots(): RuntimeResourceSlotsContext;
   now(): number;
+  journalSeasonId?: string | undefined;
   beforeChange: ResourceSupplyLedgerContext["beforeChange"];
-  changed: (journalSequence: number, ...change: Parameters<ResourceSupplyLedgerContext["changed"]>) => void;
+  changed: (journalCursor: ResourceTradeJournalCursor, ...change: Parameters<ResourceSupplyLedgerContext["changed"]>) => void;
   publish?: (id: string) => void;
   /** Chronicle cards when a deal ends (supply-ended-impacts.ts). */
   recordPersonalImpact?: (event: PersonalImpactEvent) => void;
@@ -20,7 +21,7 @@ export interface ResourceSupplyBridgeContext {
 export function createRuntimeResourceSupply(
   ctx: ResourceSupplyBridgeContext, restored: readonly ResourceSupplyAgreement[] = [], journalSequence = 0
 ): RuntimeResourceSupply {
-  const supply = new RuntimeResourceSupply({ now: ctx.now, coinAccountingStartsAt: ctx.now(), player: id => ctx.slots().players.get(id),
+  const supply = new RuntimeResourceSupply({ now: ctx.now, coinAccountingStartsAt: ctx.now(), journalSeasonId: ctx.journalSeasonId, player: id => ctx.slots().players.get(id),
     ownedTiles: id => ownedResourceTiles(ctx.slots(), id), physicalUpkeep: id => physicalResourceSlots(ctx.slots(), id),
     resourceSlotSources: id => {
       const slots = ctx.slots();
@@ -41,7 +42,7 @@ export function createRuntimeResourceSupply(
     beforeChange: ctx.beforeChange, publish: ids => { for (const id of ids) ctx.publish?.(id); },
     capacityRejected: () => runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size }, "resource_supply_capacity_rejected"),
     changed: (...args) => {
-      ctx.changed(supply.nextJournalSequence(), ...args);
+      ctx.changed(supply.nextJournalCursor(), ...args);
       const [action] = args;
       runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size, action }, "resource_supply_agreements");
     },

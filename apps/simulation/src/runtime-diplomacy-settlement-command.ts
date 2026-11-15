@@ -1,5 +1,6 @@
 import { DiplomacySettlementPayloadSchema, type DiplomacySettlementPayload } from "@border-empires/sim-protocol";
 import { RESOURCE_SUPPLY_TRADE_DURATION_MS, hasResourceSupplyOffer, type DiplomacyGoods, type ResourceSupplyAgreement } from "@border-empires/shared";
+import type { ResourceTradeJournalCursor } from "./resource-supply-trades/runtime-resource-supply.js";
 import type { SupplyLedgerResult } from "./resource-supply-trades/resource-supply-ledger.js";
 import type { DomainPlayer } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
@@ -15,7 +16,7 @@ export type RuntimeDiplomacySettlementContext = {
   emitEconomyUpdate?: (command: CommandEnvelope, playerId: string) => void;
   settleEconomy?: (at: number, playerIds: readonly string[]) => void;
   resourceSupply?: {
-    readonly nextJournalSequence: () => number;
+    readonly nextJournalCursor: () => ResourceTradeJournalCursor;
     readonly create: (agreement: ResourceSupplyAgreement, targetCoinDelta?: number) => SupplyLedgerResult;
     readonly cancel?: (id:string, actorId:string) => SupplyLedgerResult;
     readonly cancelRefunded: (id: string, proposerId: string, targetId: string, targetCoinDelta?: number) => boolean;
@@ -81,7 +82,7 @@ export function handleDiplomacySettlementCommand(context: RuntimeDiplomacySettle
   if (payload.refundOf && supplies && !refundedSupply && targetCoinDelta) {
     context.emitEvent({
       eventType: "PLAYER_MESSAGE", messageType: "RESOURCE_SUPPLY_COIN_REFUNDED", commandId: command.commandId, playerId: proposer.id,
-      payloadJson: JSON.stringify({ proposerId: proposer.id, targetId: target.id, targetCoinDelta, journalSequence: context.resourceSupply!.nextJournalSequence() })
+      payloadJson: JSON.stringify({ proposerId: proposer.id, targetId: target.id, targetCoinDelta, ...context.resourceSupply!.nextJournalCursor() })
     });
   }
   for (const player of [proposer, target]) {

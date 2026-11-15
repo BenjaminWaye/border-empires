@@ -15,6 +15,7 @@ export interface RuntimeResourceSupplyContext {
   cachePlayerState?: (id:string,state:import("@border-empires/shared").ResourceSupplyPlayerState) => void;
   now(): number;
   coinAccountingStartsAt?: number;
+  journalSeasonId?: string | undefined;
   resourceSlotSources?: (id: string) => import("@border-empires/shared").ResourceSlotSources | undefined;
   player(id: string): RuntimePlayer | undefined;
   ownedTiles(id: string): DomainTileState[];
@@ -33,6 +34,8 @@ export interface RuntimeResourceSupplyContext {
 
 /** Supply rights are continuing commitments. Domestic output, never imports,
  * backs exports. All allocation state is bounded by the ledger's agreement cap. */
+export type ResourceTradeJournalCursor = { journalSequence: number; journalSeasonId?: string };
+
 export class RuntimeResourceSupply {
   readonly ledger: ResourceSupplyLedger;
   private journalSequence: number;
@@ -84,9 +87,12 @@ export class RuntimeResourceSupply {
     }
     return result;
   }
-  nextJournalSequence(): number {
+  nextJournalCursor(): ResourceTradeJournalCursor {
     this.journalSequence += 1;
-    return this.journalSequence;
+    return {
+      journalSequence: this.journalSequence,
+      ...(this.ctx.journalSeasonId ? { journalSeasonId: this.ctx.journalSeasonId } : {})
+    };
   }
 
   snapshotState(): { resourceSupplyAgreements?: readonly ResourceSupplyAgreement[]; resourceSupplyJournalSequence?: number } {
