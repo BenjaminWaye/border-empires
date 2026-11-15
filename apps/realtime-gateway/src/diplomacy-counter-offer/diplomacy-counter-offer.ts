@@ -25,6 +25,6 @@ export const rejectCounteredOffer = (deps: DiplomacyCounterOfferDeps, message: C
   if (!message.counters) return;
   const { kind, requestId } = message.counters;
   const reject = kind === "truce" ? deps.rejectTruce : deps.rejectAlliance;
-  const result = reject(playerId, requestId, { startCooldown: false });
+  const result = reject(playerId, requestId, { startCooldown: false, recordDecline: false });
   if (result.ok) deps.fanoutPlayerPayloads(result.payloadsByPlayerId);
 };

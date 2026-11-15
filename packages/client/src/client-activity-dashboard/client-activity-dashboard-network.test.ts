@@ -265,3 +265,44 @@ describe("handleActivityDashboardMessage", () => {
     expect(handleActivityDashboardMessage({ type: "TILE_DELTA" }, state, { sendGameMessage: vi.fn(), renderHud: vi.fn() })).toBe(false);
   });
 });
+
+describe("a returning player with unread events and unread release notes", () => {
+  const returningState = () => {
+    const state = makeState();
+    state.changelog.seenAt = 1; // release notes they have not read
+    state.activitySeen.lastActivitySeenAt = 500;
+    return state;
+  };
+  const raided = () => timelineWith({ cards: [{ kind: "TERRITORY_FLIP_GROUP", direction: "LOST", occurredAt: 900 }] });
+  const deps = () => ({ sendGameMessage: vi.fn(), renderHud: vi.fn() });
+
+  it("opens on Yours, not on Updates", () => {
+    const state = returningState();
+    applyPersonalActivityTimelineMessage({ timeline: raided() }, state, deps());
+    expect(state.activityDashboard.open).toBe(true);
+    expect(state.activityDashboard.activeView).toBe("YOURS");
+  });
+
+  it("a second timeline response before the HUD shows the briefing keeps it on Yours", () => {
+    const state = returningState();
+    applyPersonalActivityTimelineMessage({ timeline: raided() }, state, deps());
+    applyPersonalActivityTimelineMessage({ timeline: raided() }, state, deps());
+    expect(state.activityDashboard.activeView).toBe("YOURS");
+  });
+
+  it("does not open Updates while events in the timeline are still unread", () => {
+    const state = returningState();
+    state.activityDashboard.autoOpenedThisSession = true; // the Yours briefing was already used this session
+    applyPersonalActivityTimelineMessage({ timeline: raided() }, state, deps());
+    expect(state.activityDashboard.open).toBe(false);
+    expect(state.activityDashboard.updatesAutoOpenedThisSession).toBe(false);
+  });
+
+  it("still opens Updates once everything in the timeline has been read", () => {
+    const state = returningState();
+    state.activitySeen.lastActivitySeenAt = 950;
+    applyPersonalActivityTimelineMessage({ timeline: raided() }, state, deps());
+    expect(state.activityDashboard.open).toBe(true);
+    expect(state.activityDashboard.activeView).toBe("UPDATES");
+  });
+});

@@ -156,6 +156,15 @@ describe("resource trades in the production runtime",()=>{
     expect(f.player("buyer").points).toBeCloseTo(before.points);
   });
 
+  it("writes a Chronicle card for both Houses when a supply ends, naming who ended it",async()=>{
+    const f=fixture();await f.pay();
+    f.runtime.submitCommand({commandId:"end-supply-chronicle",sessionId:"system-runtime:social",playerId:"seller",clientSeq:0,issuedAt:start,type:"CANCEL_RESOURCE_SUPPLY",payloadJson:JSON.stringify({agreementId:"trade"})});
+    await Promise.resolve();
+    const card=(id:string)=>f.runtime.getPersonalActivityTimeline(id,0,start+1).cards.find(card=>card.kind==="SUPPLY_ENDED");
+    expect(card("buyer")).toMatchObject({kind:"SUPPLY_ENDED",counterpartyPlayerId:"seller",reason:"CANCELLED",byPlayerId:"seller",youGot:{LUXURY_BIOTA:1}});
+    expect(card("seller")).toMatchObject({kind:"SUPPLY_ENDED",counterpartyPlayerId:"buyer",youGave:{LUXURY_BIOTA:1}});
+  });
+
   it("ends consecutive agreements without consuming sequence zero, including after checkpoint recovery",async()=>{
     const f=fixture();await f.pay("first");
     const end=(runtime:SimulationRuntime,id:string,agreementId:string)=>runtime.submitCommand({commandId:id,sessionId:"system-runtime:social",playerId:"buyer",clientSeq:0,issuedAt:start,type:"CANCEL_RESOURCE_SUPPLY",payloadJson:JSON.stringify({agreementId})});

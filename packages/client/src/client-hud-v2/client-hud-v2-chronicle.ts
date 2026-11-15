@@ -17,6 +17,8 @@ export type ChronicleInput = {
   colorOf: (playerId: string) => string | undefined;
   techName: (techId: string) => string | undefined;
   nowMs: number;
+  /** The read watermark when the Chronicle opened: losses after it are pinned to the top. */
+  awaySince?: number | undefined;
 };
 
 const esc = (text: string): string =>
@@ -38,6 +40,7 @@ export const cardCounterparties = (card: PersonalActivityCard, me: string): stri
     case "DOCK_LOST":
       return card.counterpartyPlayerId ? [card.counterpartyPlayerId] : [];
     case "DIPLOMACY":
+    case "SUPPLY_ENDED":
       return [card.counterpartyPlayerId];
     default:
       return [];
@@ -56,10 +59,25 @@ export const dayHeading = (at: number, nowMs: number): string => {
   return new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase();
 };
 
-export const chronicleGroups = (cards: readonly PersonalActivityCard[], me: string, rivalFilter: string, nowMs: number): Array<{ heading: string; cards: PersonalActivityCard[] }> => {
+export const AWAY_LOSSES_HEADING = "LOST WHILE YOU WERE AWAY";
+
+/**
+ * Day groups, newest first. With `awaySince`, losses after it (what the player
+ * has not read yet) come first under their own heading, so a returning player
+ * sees what they lost before anything else; they are not repeated below.
+ */
+export const chronicleGroups = (cards: readonly PersonalActivityCard[], me: string, rivalFilter: string, nowMs: number, awaySince?: number): Array<{ heading: string; cards: PersonalActivityCard[] }> => {
   const groups: Array<{ heading: string; cards: PersonalActivityCard[] }> = [];
-  for (const card of [...cards].sort((a, b) => b.occurredAt - a.occurredAt)) {
-    if (rivalFilter && !cardCounterparties(card, me).includes(rivalFilter)) continue;
+  const sorted = [...cards].sort((a, b) => b.occurredAt - a.occurredAt).filter((card) => !rivalFilter || cardCounterparties(card, me).includes(rivalFilter));
+  // Your own failed attacks read as losses too, but nothing was taken from you while away.
+  const ownAttack = (card: PersonalActivityCard): boolean =>
+    (card.kind === "COMBAT" && card.attackerId === me) || (card.kind === "COMBAT_GROUP" && card.role === "ATTACKER");
+  const isAwayLoss = (card: PersonalActivityCard): boolean =>
+    awaySince !== undefined && card.occurredAt > awaySince && activityCardTone(card, me) === "loss" && !ownAttack(card);
+  const awayLosses = sorted.filter(isAwayLoss);
+  if (awayLosses.length > 0) groups.push({ heading: AWAY_LOSSES_HEADING, cards: awayLosses });
+  for (const card of sorted) {
+    if (isAwayLoss(card)) continue;
     const heading = dayHeading(card.occurredAt, nowMs);
     const last = groups[groups.length - 1];
     if (last && last.heading === heading) last.cards.push(card);
@@ -90,18 +108,32 @@ const rowHtml = (card: PersonalActivityCard, input: ChronicleInput): string => {
 const crest = (name: string, color: string | undefined): string =>
   `<span class="v2c-crest" style="background:${esc(color ?? "#5a4828")}" aria-hidden="true">${esc((name.trim()[0] ?? "?").toUpperCase())}</span>`;
 
+/** One rival's head-to-head line in words: "took 11 of your tiles · you held off 2 attacks". */
+export const rivalTallyText = (r: NonNullable<PersonalActivityTimeline["rivals"]>[number]): string => {
+  const tiles = (n: number): string => `${n} tile${n === 1 ? "" : "s"}`;
+  const attacks = (n: number): string => `${n} attack${n === 1 ? "" : "s"}`;
+  const parts: string[] = [];
+  if (r.tilesLost > 0) parts.push(`took ${r.tilesLost} of your tiles`);
+  if (r.tilesTaken > 0) parts.push(`you took ${tiles(r.tilesTaken)}`);
+  if (r.attacksRepelled > 0) parts.push(`you held off ${attacks(r.attacksRepelled)}`);
+  if (r.attacksFailed > 0) parts.push(`${attacks(r.attacksFailed)} of yours failed`);
+  return parts.length > 0 ? parts.join(" · ") : "no ground changed hands";
+};
+
 const summaryHtml = (timeline: PersonalActivityTimeline, input: ChronicleInput): string => {
   const s = timeline.summary;
   const chip = (value: string, label: string, tone: string): string => `<span class="v2c-chip"><b class="v2c-${tone}">${value}</b><span>${label}</span></span>`;
   const chips = [
     chip(`+${s.tilesClaimed}`, "claimed", "gain"),
     chip(`−${s.tilesLost}`, "lost", "loss"),
-    s.townsLost > 0 || s.townsCaptured > 0 ? chip(`${s.townsCaptured - s.townsLost >= 0 ? "+" : "−"}${Math.abs(s.townsCaptured - s.townsLost)}`, "towns", s.townsCaptured >= s.townsLost ? "gain" : "loss") : chip("0", "towns", "neutral"),
+    // Towns taken and lost each get their own count: a net "+1 towns" read as how many towns you hold.
+    ...(s.townsCaptured > 0 ? [chip(`+${s.townsCaptured}`, s.townsCaptured === 1 ? "town taken" : "towns taken", "gain")] : []),
+    chip(s.townsLost > 0 ? `−${s.townsLost}` : "0", s.townsLost === 1 ? "town lost" : "towns lost", s.townsLost > 0 ? "loss" : "neutral"),
     chip(String(s.buildingsCompleted), "built", "neutral")
   ].join("");
   const rivals = (timeline.rivals ?? []).slice(0, 2).map((r) => {
     const name = input.nameOf(r.playerId) ?? "Empire";
-    return `<span class="v2c-rival">${crest(name, input.colorOf(r.playerId))}<b>${esc(name)}</b><span>+${r.tilesTaken} · −${r.tilesLost} · repelled ${r.attacksRepelled} · ${r.attacksFailed} failed</span></span>`;
+    return `<span class="v2c-rival">${crest(name, input.colorOf(r.playerId))}<b>${esc(name)}</b><span>${esc(rivalTallyText(r))}</span></span>`;
   }).join("");
   return `<div class="v2c-summary"><span class="v2c-summary-h">Last 24 hours</span><div class="v2c-chips">${chips}</div>${rivals}</div>`;
 };
@@ -125,9 +157,9 @@ export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
     const msg = input.error ?? (input.loading ? "Loading…" : "No activity yet");
     return `${head}<div class="v2s-empty">${esc(msg)}</div>`;
   }
-  const groups = chronicleGroups(timeline.cards, input.me, input.rivalFilter, input.nowMs);
+  const groups = chronicleGroups(timeline.cards, input.me, input.rivalFilter, input.nowMs, input.awaySince);
   const list = groups.length > 0
-    ? groups.map((g) => `<div class="v2c-day">${g.heading}</div>${g.cards.map((c) => rowHtml(c, input)).join("")}`).join("")
+    ? groups.map((g) => `<div class="v2c-day${g.heading === AWAY_LOSSES_HEADING ? " v2c-day-away" : ""}">${g.heading}</div>${g.cards.map((c) => rowHtml(c, input)).join("")}`).join("")
     : `<div class="v2s-empty">No activity in the last 24 hours</div>`;
   return `${head}${summaryHtml(timeline, input)}${filtersHtml(timeline, input)}<div class="v2c-list" data-v2-scroll="chronicle">${list}</div>`;
 };

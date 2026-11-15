@@ -1,8 +1,10 @@
+import type { PersonalActivityTimeline } from "@border-empires/game-domain";
 import { describeDiplomacyTermsForRecipient, hasResourceSupplyOffer } from "@border-empires/shared";
 
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { AllianceRequest, TruceRequest } from "../client-types.js";
+import { attackerNoteText, recentAttacksOnMe } from "./client-offer-dock-attacker-note.js";
 import "./client-diplomacy-offer-dock.css";
 
 // Incoming truce/alliance offers as a small dock you answer in place, instead
@@ -10,7 +12,10 @@ import "./client-diplomacy-offer-dock.css";
 // after 12s while the offer was still open. Offers stay here until accepted,
 // declined or expired; outcomes go to the Activity feed and the Chronicle.
 
-type OfferDockState = Pick<ClientState, "me" | "incomingTruceRequests" | "incomingAllianceRequests">;
+type OfferDockState = Pick<ClientState, "me" | "incomingTruceRequests" | "incomingAllianceRequests"> & {
+  /** The Chronicle's 24h timeline, read to flag offers from empires that just attacked you. */
+  activityDashboard?: { timeline?: PersonalActivityTimeline | undefined };
+};
 
 export const OFFER_DOCK_MAX_ROWS = 3;
 const TICK_MS = 500;
@@ -31,6 +36,8 @@ export type OfferDockEntry = {
   pending: boolean;
   /** Accepting moves your own coin or commits your resource supply, so Accept asks for a second tap. */
   costsYou: boolean;
+  /** Set when the sender attacked you in the last day: what they did, said on the offer itself. */
+  attackerNote?: string;
 };
 
 /** Time left on the server's clock, once the client has a server timestamp to align with. */
@@ -81,7 +88,12 @@ export const offerDockEntries = (
   nowMs: number,
   serverRemaining: ServerRemaining = serverClockRemaining
 ): OfferDockEntry[] => {
-  const truces = state.incomingTruceRequests.map((request: TruceRequest): OfferDockEntry => ({
+  const attacks = recentAttacksOnMe(state.activityDashboard?.timeline, state.me);
+  const withNote = (entry: OfferDockEntry, fromPlayerId: string): OfferDockEntry => {
+    const note = attackerNoteText(attacks.get(fromPlayerId));
+    return note ? { ...entry, attackerNote: note } : entry;
+  };
+  const truces = state.incomingTruceRequests.map((request: TruceRequest): OfferDockEntry => withNote({
     kind: "truce",
     id: request.id,
     fromName: senderName(request),
@@ -90,8 +102,8 @@ export const offerDockEntries = (
     remainingMs: remainingFor(request, firstSeenAtById, nowMs, serverRemaining),
     pending: pendingIds.has(request.id),
     costsYou: costsRecipient(request)
-  }));
-  const alliances = state.incomingAllianceRequests.map((request: AllianceRequest): OfferDockEntry => ({
+  }, request.fromPlayerId));
+  const alliances = state.incomingAllianceRequests.map((request: AllianceRequest): OfferDockEntry => withNote({
     kind: "alliance",
     id: request.id,
     fromName: senderName(request),
@@ -100,7 +112,7 @@ export const offerDockEntries = (
     remainingMs: remainingFor(request, firstSeenAtById, nowMs, serverRemaining),
     pending: pendingIds.has(request.id),
     costsYou: costsRecipient(request)
-  }));
+  }, request.fromPlayerId));
   const liveIds = new Set([...truces, ...alliances].map((entry) => entry.id));
   for (const id of firstSeenAtById.keys()) if (!liveIds.has(id)) firstSeenAtById.delete(id);
   // An offer about to run out comes first; offers without an expiry keep their order after them.
@@ -137,6 +149,7 @@ const rowHtml = (entry: OfferDockEntry, confirmingId: string | undefined): strin
     <span class="offer-dock-icon" aria-hidden="true">${ICON[entry.kind]}</span>
     <div class="offer-dock-text">
       <div class="offer-dock-headline"><strong>${esc(entry.fromName)}</strong> ${esc(entry.headline)}${countdown}</div>
+      ${entry.attackerNote ? `<div class="offer-dock-attacker">${esc(entry.attackerNote)}</div>` : ""}
       ${entry.terms ? `<div class="offer-dock-terms">${esc(entry.terms)}</div>` : ""}
     </div>
     <div class="offer-dock-actions">
@@ -179,8 +192,12 @@ export const offerDockMessage = (
 export const installDiplomacyOfferDock = (deps: {
   state: OfferDockState;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
-  /** True while the map-loading overlay is up; the dock (z-index above it) stays hidden meanwhile. */
-  isMapLoading?: () => boolean;
+  /**
+   * True while the dock must wait: the map is still loading (the dock sits above that overlay), or the
+   * return briefing (the Chronicle, with what you lost) is pending or open. An offer is answered after
+   * the player has seen what happened, never instead of it.
+   */
+  isHeld?: () => boolean;
 }): void => {
   if (typeof document === "undefined") return;
   const dockEl = document.createElement("div");
@@ -205,7 +222,7 @@ export const installDiplomacyOfferDock = (deps: {
     for (const id of hiddenIds) if (!liveIds.has(id)) hiddenIds.delete(id);
     if (confirming && (!liveIds.has(confirming.id) || nowMs > confirming.until)) confirming = undefined;
     const entries = offerDockEntries(deps.state, firstSeenAtById, new Set(pendingSince.keys()), nowMs).filter((entry) => !hiddenIds.has(entry.id));
-    const key = deps.state.me && !deps.isMapLoading?.() ? `${confirming?.id ?? ""}#${entries.map((entry) => `${entry.id}:${entry.pending ? 1 : 0}`).join("|")}` : "";
+    const key = deps.state.me && !deps.isHeld?.() ? `${confirming?.id ?? ""}#${entries.map((entry) => `${entry.id}:${entry.pending ? 1 : 0}:${entry.attackerNote ?? ""}`).join("|")}` : "";
     if (key !== renderedKey) {
       renderedKey = key;
       dockEl.innerHTML = entries.length > 0 && key ? offerDockHtml(entries, confirming?.id) : "";
