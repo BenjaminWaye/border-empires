@@ -54,3 +54,5 @@ import "./client-auth-ui/client-auth-setup-style.css";
 import "./client-guest-save-style.css";
 import "./client-auto-settle-prompt/client-auto-settle-tile-option-style.css";
 import "./client-town-list/client-town-list-style.css";
+import "./client-house-charges/client-house-charges-style.css";
+import "./client-house-charges/client-house-charge-cards.css";

@@ -17,6 +17,8 @@ import { createInitialLastContestRecapState } from "../client-last-contest-recap
 import { createInitialTileActionMenuState } from "./client-tile-action-menu-state-defaults.js";
 import { createInitialAetherShieldState } from "../client-aether-tower-protection/client-aether-shield-state.js";
 import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js";
+import { createInitialHouseChargesState } from "../client-house-charges/client-house-charges-state.js";
+import { createInitialHouseChargeRevealState } from "../client-house-charges/client-house-charge-reveal.js";
 import { createInitialScoutDroneState } from "../client-scout-drone/client-scout-drone-state.js";
 import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialMapFxQueueState } from "./client-state-map-fx-queue-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -276,11 +278,13 @@ export const createInitialState = () => ({
   seasonStats: undefined as SeasonStatsView | undefined, seasonScoreHistory: [] as ScoreHistorySeriesView[],
   seasonStartVoteCount: 0, seasonStartVoted: false, seasonStartVoteThreshold: NEXT_CONTEST_DEFAULT_THRESHOLD, // Houses committed to the next Sector Contest: client-next-contest.ts
   missions: [] as MissionState[],
-  activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "settings" | null,
+  activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "charges" | "settings" | null,
   ...createInitialSpaceViewState(),
   showWeakDefensibility: false,
   ...createInitialReachState(),
   ...createInitialAetherShieldState(), ...createInitialIslandNamesState(), // ISLAND_NAMES push, see client-map-name-labels/
+  ...createInitialHouseChargesState(), // HOUSE_CHARGES push, see client-house-charges/
+  ...createInitialHouseChargeRevealState(), // season-end reveal, see client-house-charges/client-house-charge-reveal.ts
   ...createInitialScoutDroneState(), // SCOUT_DRONE push, see client-scout-drone/
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,

@@ -106,13 +106,17 @@ export const diplomacyListHtml = (input: DiplomacyListInput): string => {
         <span class="v2d-emp-stance">Not met</span><span class="v2d-emp-tiles">${e.tiles.toLocaleString("en-US")} tiles</span>
       </button>`).join("")}</div></section>`
     : "";
+  // The empty note sits outside the grid: as a grid cell it was one 104px column wide (playtest 2026-11-12).
   const grid = empires.length > 0
-    ? empires.map((e) => `<button type="button" class="v2d-emp v2d-emp-${e.stance.kind}" data-v2-dip-open="${esc(e.id)}">
+    ? `<div class="v2d-grid">${empires.map((e) => `<button type="button" class="v2d-emp v2d-emp-${e.stance.kind}" data-v2-dip-open="${esc(e.id)}">
         ${crest(e.name, input.colorOf(e.id), " v2d-crest-lg")}<span class="v2d-emp-name">${esc(e.name)}</span>
         <span class="v2d-emp-stance">${esc(e.stance.label)}</span><span class="v2d-emp-tiles">${e.tiles !== undefined ? `${e.tiles.toLocaleString("en-US")} tiles` : ""}</span>
-      </button>`).join("")
+      </button>`).join("")}</div>`
     : `<div class="v2s-empty">No empires met yet${unmet.length > 0 ? ". You can still offer a deal to any empire below." : ""}</div>`;
-  return `${reqHtml}${sentHtml}<section class="v2d-grid-wrap"><h2 class="v2s-h2">Empires you've met · ${empires.length}</h2><div class="v2d-grid">${grid}</div></section>${unmetHtml}`;
+  // One scrolling column (data-v2-scroll keeps its place across repaints). Playtest 2026-11-13: each
+  // section scrolled on its own, so a Sent list squeezed the met and unmet grids into overlapping slivers.
+  const links = `<div class="v2d-list-links"><button type="button" class="v2s-btn v2s-btn-sm v2s-btn-ghost" data-v2-dip-alliances="">Alliances &amp; supply ▸</button></div>`;
+  return `<div class="v2d-list" data-v2-scroll="diplomacy">${links}${reqHtml}${sentHtml}<section class="v2d-grid-wrap"><h2 class="v2s-h2">Empires you've met · ${empires.length}</h2>${grid}</section>${unmetHtml}</div>`;
 };
 
 /**
@@ -127,6 +131,7 @@ export const dealFactsText = (stanceLabel: string, theirs: number | undefined, m
 /** `facts`: the relation and tile counts the trade view itself doesn't show (dealFactsText). */
 export const dealSkeletonHtml = (targetName: string, facts = ""): string =>
   `<div class="v2d-deal-nav"><button type="button" class="v2s-link" data-v2-dip-back>◁ All empires</button><span class="v2d-deal-with">${esc(targetName)}</span>${facts ? `<span class="v2d-deal-facts">${esc(facts)}</span>` : ""}</div>
+   <div id="v2d-pact"></div>
    <div class="v2d-deal">
      <section class="v2d-terms" id="v2s-dip-host" aria-label="Deal"></section>
    </div>`;

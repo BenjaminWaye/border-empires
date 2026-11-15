@@ -69,6 +69,7 @@ export const diplomacyTradeStyles = `
   }
   .diplomacy-trade-subhead:first-of-type { margin-top: 0; }
   .diplomacy-trade-kinds { display: grid; gap: 6px; }
+  .diplomacy-trade-allied-note { margin: 0; font-size: 13px; color: var(--sp-parchment-muted, #bda880); }
   .diplomacy-trade-kinds button, .diplomacy-trade-actions button, .diplomacy-trade-suggest {
     min-height: 40px; padding: 8px 12px;
     border: 1px solid var(--sp-brass-700, #8a611f); border-radius: 6px;

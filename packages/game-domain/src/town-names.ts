@@ -182,3 +182,18 @@ export const generatedIslandName = (worldSeed: number, islandKey: string, landTi
   const form = ISLAND_FORMS.find((entry) => landTiles <= entry.maxLandTiles) ?? ISLAND_FORMS[ISLAND_FORMS.length - 1]!;
   return pick(form.patterns, mixSeed(seed, 13))(stem, pick(culture.landmarks, mixSeed(seed, 17)));
 };
+
+// Desert and tundra regions named on the Court's charts (House Charges,
+// docs/house-charges-plan.md), from the same name cultures as islands.
+const BIOME_REGION_FORMS: Readonly<Record<"DESERT" | "TUNDRA", readonly ((stem: string) => string)[]>> = {
+  DESERT: [(stem) => `The ${stem} Reach`, (stem) => `${stem} Waste`, (stem) => `The ${stem} Sands`, (stem) => `${stem} Barrens`],
+  TUNDRA: [(stem) => `The ${stem} Ice`, (stem) => `${stem} Frostland`, (stem) => `The ${stem} Rime`, (stem) => `${stem} Whiteshelf`]
+};
+
+/** Deterministic chart name for a desert or tundra region, keyed by its anchor tile key. */
+export const generatedBiomeRegionName = (worldSeed: number, regionKey: string, biome: "DESERT" | "TUNDRA"): string => {
+  const seed = mixSeed(worldSeed, hashString(`region:${biome}:${regionKey}`));
+  const culture = pick(NAME_CULTURES, seed);
+  const stem = buildCompoundName(culture, mixSeed(seed, 5), normalizeModulo(mixSeed(seed, 7), 3) === 0);
+  return pick(BIOME_REGION_FORMS[biome], mixSeed(seed, 13))(stem);
+};
