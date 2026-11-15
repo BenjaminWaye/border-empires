@@ -22,6 +22,12 @@ export type TrackerInput = {
   slotsOpen: boolean;
   /** A build or garrison just took a slot or joined the queue: Dev slots pulses (see createSlotPulse). */
   slotsPulse?: boolean;
+  /**
+   * Queued Expand To targets (state.waypoint, held by the server across sessions). Each one keeps spending
+   * manpower as it claims its way there, so they're listed with a Cancel all: the 2026-11-14 playtest found
+   * marches queued hours earlier still draining manpower with nothing on the HUD.
+   */
+  waypoints: Array<{ x: number; y: number; paused: boolean }>;
   /** battle: an attack (opens the battle screen); otherwise a frontier expansion still landing. */
   capture?: { x: number; y: number; resolvesAt: number; battle: boolean } | undefined;
   nowMs: number;
@@ -126,6 +132,13 @@ const capped = <T>(items: T[], render: (item: T) => string): string => {
   return rest > 0 ? `${shown}<div class="hud-v2-tracker-more">+${rest} more</div>` : shown;
 };
 
+/** Queued Expand To targets: each row centres its target; Cancel all clears the queue (and the server's copy). */
+export const waypointsHtml = (waypoints: TrackerInput["waypoints"]): string => {
+  const head = `<div class="hud-v2-tracker-head"><span>Queued expansions · ${waypoints.length}</span><button type="button" class="hud-v2-tracker-cancel" data-hud-v2-cancel-waypoints>Cancel all</button></div>`;
+  return head + capped(waypoints, (w) =>
+    `<button type="button" class="hud-v2-tracker-row"${focusAttrs(w.x, w.y)}><span class="hud-v2-tracker-title">→ (${w.x}, ${w.y})</span><span class="hud-v2-tracker-sub">${w.paused ? "Paused · needs manpower" : "Spends manpower per tile"}</span></button>`);
+};
+
 export const trackerHtml = (input: TrackerInput): string => {
   const needs = trackerNeeds(input);
   const parts: string[] = [];
@@ -148,6 +161,7 @@ export const trackerHtml = (input: TrackerInput): string => {
       return `<button type="button" class="hud-v2-tracker-row"${focusAttrs(f.x, f.y)}><span class="hud-v2-tracker-title">⚑ (${f.x}, ${f.y}) · <b>${MODE_LABEL[f.mode]}</b><span class="hud-v2-tracker-amt">${esc(musterFillText({ amount: f.amount, cap }))}</span></span><span class="hud-v2-tracker-bar"><span style="width:${pct}%"></span></span><span class="hud-v2-tracker-sub">${esc(musterStatusText(f, input.nowMs))}</span></button>`;
     }));
   }
+  if (input.waypoints.length > 0) parts.push(waypointsHtml(input.waypoints));
   // Builds and garrisons are listed under Dev slots; this group is the attack or expansion still landing.
   const timed: Array<{ label: string; ms: number; x: number; y: number; open?: string }> = [];
   if (input.capture) {
