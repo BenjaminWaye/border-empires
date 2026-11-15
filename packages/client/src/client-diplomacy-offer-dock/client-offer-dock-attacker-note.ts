@@ -26,15 +26,21 @@ export const recentAttacksOnMe = (timeline: PersonalActivityTimeline | undefined
     return entry;
   };
   const flipTiles = new Map<string, number>();
+  const addFlip = (id: string, count: number): void => void flipTiles.set(id, (flipTiles.get(id) ?? 0) + count);
   for (const card of timeline.cards as readonly PersonalActivityCard[]) {
     switch (card.kind) {
       case "COMBAT":
-        if (card.defenderId === me) tally(card.attackerId)!.attacked = true;
+        if (card.defenderId === me) {
+          const entry = tally(card.attackerId);
+          if (entry) entry.attacked = true;
+          if (entry && card.attackerWon) addFlip(card.attackerId, 1);
+        }
         break;
       case "COMBAT_GROUP":
         if (card.role === "DEFENDER") {
           const entry = tally(card.counterpartyPlayerId);
           if (entry) entry.attacked = true;
+          if (entry && card.captures > 0) addFlip(card.counterpartyPlayerId, card.captures);
         }
         break;
       case "SIEGE":
@@ -42,10 +48,11 @@ export const recentAttacksOnMe = (timeline: PersonalActivityTimeline | undefined
           const entry = tally(id);
           if (entry) entry.attacked = true;
         }
+        if (card.outcome === "FELL" && card.capturedBy && tally(card.capturedBy)) addFlip(card.capturedBy, 1);
         break;
       case "TERRITORY_FLIP_GROUP":
         if (card.direction === "LOST" && card.counterpartyPlayerId && tally(card.counterpartyPlayerId)) {
-          flipTiles.set(card.counterpartyPlayerId, (flipTiles.get(card.counterpartyPlayerId) ?? 0) + card.tileCount);
+          addFlip(card.counterpartyPlayerId, card.tileCount);
         }
         break;
       case "TOWN_LOST": {
@@ -62,8 +69,9 @@ export const recentAttacksOnMe = (timeline: PersonalActivityTimeline | undefined
         break;
     }
   }
-  // The rival tally counts distinct tiles; the flip cards are the fallback for
-  // an empire past the rival cap (or an older simulation without rivals).
+  // The rival tally counts distinct tiles; the cards are the fallback for an empire past the rival cap
+  // (or an older simulation without rivals). Flip cards only carry flips no combat explains, so combat
+  // and siege captures are added too, or a raid would read "you held your ground".
   const rivalTiles = new Map((timeline.rivals ?? []).map((rival) => [rival.playerId, rival.tilesLost]));
   for (const [id, entry] of byAttacker) entry.tilesLost = rivalTiles.get(id) ?? flipTiles.get(id) ?? 0;
   for (const [id, entry] of byAttacker) {

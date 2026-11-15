@@ -68,7 +68,11 @@ export const AWAY_LOSSES_HEADING = "LOST WHILE YOU WERE AWAY";
 export const chronicleGroups = (cards: readonly PersonalActivityCard[], me: string, rivalFilter: string, nowMs: number, awaySince?: number): Array<{ heading: string; cards: PersonalActivityCard[] }> => {
   const groups: Array<{ heading: string; cards: PersonalActivityCard[] }> = [];
   const sorted = [...cards].sort((a, b) => b.occurredAt - a.occurredAt).filter((card) => !rivalFilter || cardCounterparties(card, me).includes(rivalFilter));
-  const isAwayLoss = (card: PersonalActivityCard): boolean => awaySince !== undefined && card.occurredAt > awaySince && activityCardTone(card, me) === "loss";
+  // Your own failed attacks read as losses too, but nothing was taken from you while away.
+  const ownAttack = (card: PersonalActivityCard): boolean =>
+    (card.kind === "COMBAT" && card.attackerId === me) || (card.kind === "COMBAT_GROUP" && card.role === "ATTACKER");
+  const isAwayLoss = (card: PersonalActivityCard): boolean =>
+    awaySince !== undefined && card.occurredAt > awaySince && activityCardTone(card, me) === "loss" && !ownAttack(card);
   const awayLosses = sorted.filter(isAwayLoss);
   if (awayLosses.length > 0) groups.push({ heading: AWAY_LOSSES_HEADING, cards: awayLosses });
   for (const card of sorted) {

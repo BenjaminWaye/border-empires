@@ -112,6 +112,12 @@ describe("chronicle", () => {
     // Losses the player had already read stay in their day.
     expect(chronicleGroups([...cards, raid], "me", "", now, now - 3_600_000).map((g) => g.heading)).toEqual(["TODAY", "YESTERDAY"]);
   });
+
+  // Review of #2771: your own failed attacks are "loss"-toned but nothing was taken from you.
+  it("leaves your own failed attacks out of the losses since you last looked", () => {
+    const failed: PersonalActivityCard = { kind: "COMBAT", id: "f", occurredAt: now - 2 * 3_600_000, attackerId: "me", defenderId: "hugo", attackerWon: false, manpowerLoss: 5, x: 5, y: 5, pillagedGold: 0, defenderGoldLoss: 0, targetWasSettled: false };
+    expect(chronicleGroups([...cards, failed], "me", "", now, now - 5 * 3_600_000).map((g) => g.heading)).toEqual(["TODAY", "YESTERDAY"]);
+  });
 });
 
 describe("diplomacy list", () => {

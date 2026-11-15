@@ -52,6 +52,16 @@ describe("offers from an empire that just attacked you", () => {
     expect(attackerNoteText(town.get("astrid"))).toBe("Attacked you in the last day · took Voltspire");
   });
 
+  // Review of #2771: an attacker past the rival cap took tiles by combat, which the flip cards leave out,
+  // and the note said "you held your ground". A COMBAT card with no attacker id threw.
+  it("counts combat captures for an attacker missing from the rival tally", () => {
+    const tally = recentAttacksOnMe(timeline([
+      { kind: "COMBAT_GROUP", id: "g", occurredAt: 50, role: "DEFENDER", counterpartyPlayerId: "vess", attempts: 12, captures: 11, originsSeized: 0, manpowerLoss: 0, pillagedGold: 0, defenderGoldLoss: 0, x: 1, y: 1 },
+      { kind: "COMBAT", id: "c", occurredAt: 40, attackerId: "", defenderId: "me", attackerWon: true, manpowerLoss: 5, x: 3, y: 3, pillagedGold: 0, defenderGoldLoss: 0, targetWasSettled: false }
+    ]), "me");
+    expect(attackerNoteText(tally.get("vess"))).toBe("Attacked you in the last day · took 11 tiles");
+  });
+
   it("puts the warning on the attacker's truce offer and not on anyone else's", () => {
     const state = { me: "me", incomingTruceRequests: [truce("t1", "rowan"), truce("t2", "hugo")], incomingAllianceRequests: [], activityDashboard: { timeline: raid } };
     const entries = offerDockEntries(state, new Map(), new Set(), 0, () => undefined);
