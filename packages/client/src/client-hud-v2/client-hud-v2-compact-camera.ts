@@ -8,7 +8,10 @@
 export const COMPACT_MIN_BOTTOM_COVER = 0.4;
 
 const BOTTOM_COVERS = ["#hud-v2-tile:not([hidden])", ".v2c-drawer", ".hud-v2-sheet", ".hud-v2-nav"];
-const TOP_COVERS = [".hud-v2-top .hud-v2-bar"];
+/** The resource bar, and the folded tracker line and season pill under it: together a band across the top. */
+const TOP_COVERS = [".hud-v2-top .hud-v2-bar", ".hud-v2-tracker", ".hud-v2-right"];
+/** An unfolded tracker reaches down the screen: it is a panel the player opened, not part of the top band. */
+const TOP_COVER_MAX_SHARE = 0.25;
 
 /** Rows to move the camera down so a tile at the camera's target shows centred in the visible band. */
 export const compactFocusRowOffset = (input: { viewportHeight: number; topCoverPx: number; bottomCoverPx: number; zoom: number }): number => {
@@ -29,12 +32,12 @@ const coverFromBottom = (doc: Document, viewportHeight: number): number => {
   return cover;
 };
 
-const coverFromTop = (doc: Document): number => {
+export const coverFromTop = (doc: Document, viewportHeight: number): number => {
   let cover = 0;
   for (const selector of TOP_COVERS) {
     const el = doc.querySelector<HTMLElement>(selector);
     const rect = el?.getBoundingClientRect();
-    if (rect && rect.height > 0) cover = Math.max(cover, rect.bottom);
+    if (rect && rect.height > 0 && rect.height <= viewportHeight * TOP_COVER_MAX_SHARE) cover = Math.max(cover, rect.bottom);
   }
   return cover;
 };
@@ -44,5 +47,5 @@ export const measuredCompactFocusRowOffset = (zoom: number, doc: Document | unde
   if (!doc?.body?.classList.contains("hud-v2-compact")) return 0;
   // Landscape docks the panels to the right edge (client-hud-v2-compact-screens.css), leaving the map's height free.
   if (typeof window !== "undefined" && window.innerWidth > window.innerHeight) return 0;
-  return compactFocusRowOffset({ viewportHeight, topCoverPx: coverFromTop(doc), bottomCoverPx: coverFromBottom(doc, viewportHeight), zoom });
+  return compactFocusRowOffset({ viewportHeight, topCoverPx: coverFromTop(doc, viewportHeight), bottomCoverPx: coverFromBottom(doc, viewportHeight), zoom });
 };
