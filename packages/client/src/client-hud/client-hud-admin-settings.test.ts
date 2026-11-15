@@ -8,6 +8,8 @@ describe("Settings > Admin", () => {
   it("is only listed on the hub for fog-admin accounts", () => {
     expect(settingsHubHtml(hubState)).not.toContain('data-settings-nav="admin"');
     expect(settingsHubHtml({ ...hubState, mapRevealEligible: true })).toContain('data-settings-nav="admin"');
+    // 2026-11-14 playtest: photo mode was only under Settings > Gameplay, where players never found it.
+    expect(settingsHubHtml(hubState)).toContain("data-photo-mode-toggle");
   });
 
   it("shows map reveal and the lighting tuner to admins (photo mode moved to Gameplay)", () => {

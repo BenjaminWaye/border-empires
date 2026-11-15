@@ -29,6 +29,13 @@ describe("map lens button", () => {
     expect(open.firstElementChild?.hasAttribute("data-hud-v2-lens-toggle")).toBe(true);
   });
 
+  // 2026-11-14 playtest: nobody found photo mode three taps deep in Settings > Gameplay.
+  it("offers Photo mode from the open lens list and the phone map overview", () => {
+    expect(host(overlaysHtml(false, true)).querySelector("[data-hud-v2-photo]")?.textContent).toBe("Photo mode");
+    expect(host(overlaysHtml(false, false, true)).querySelector(".v2c-map-head [data-hud-v2-photo]")).not.toBeNull();
+    expect(host(overlaysHtml(false, false)).querySelector("[data-hud-v2-photo]")).toBeNull();
+  });
+
   // 2026-11-14 playtest: the Resources lens painted tiles in colours nobody could name.
   it("shows a key while the Resources lens is on, on the map and in the phone overview", () => {
     const key = host(overlaysHtml("resources", false)).querySelector(".hud-v2-lens-legend");

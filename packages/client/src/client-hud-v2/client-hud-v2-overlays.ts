@@ -9,6 +9,7 @@
 // there and closes the overview; ✕, Esc and the back gesture close it too.
 
 import type { HudV2Deps } from "./client-hud-v2-context.js";
+import { togglePhotoMode } from "../client-photo-mode/client-photo-mode.js";
 import { resourceLensLegendHtml } from "./client-hud-v2-resource-legend.js";
 
 export type MapLens = "terrain" | "diplomacy" | "resources";
@@ -90,9 +91,15 @@ export const activeLens = (diplomacyOn: boolean, resourcesOn = false): MapLens =
 /** The overview's header and lens row; the minimap canvas itself sits between them (CSS order). */
 const mapOverviewHtml = (active: MapLens): string => {
   const items = LENSES.map((l) => `<button type="button" role="radio" class="hud-v2-lens-item${l.id === active ? " hud-v2-lens-item-on" : ""}" data-hud-v2-lens="${l.id}" aria-checked="${l.id === active}">${lensIcon(`/icons/simple/lens-${l.id}.svg`)}${l.label}</button>`).join("");
-  return `<div class="v2c-map-head"><div><h2 class="v2c-map-title">Map</h2><p class="v2c-map-hint">Tap a place to go there</p><span class="v2c-map-key">your view</span></div><button type="button" class="v2c-map-close" data-v2c-map-close aria-label="Close the map">✕</button></div>
+  return `<div class="v2c-map-head"><div><h2 class="v2c-map-title">Map</h2><p class="v2c-map-hint">Tap a place to go there</p><span class="v2c-map-key">your view</span></div>${PHOTO_BUTTON}<button type="button" class="v2c-map-close" data-v2c-map-close aria-label="Close the map">✕</button></div>
     <div class="v2c-map-lenses"><span class="v2c-map-lens-label" id="v2c-map-lens-label">Lens</span><div class="v2c-map-segments" role="radiogroup" aria-labelledby="v2c-map-lens-label">${items}</div>${active === "resources" ? resourceLensLegendHtml() : ""}</div>`;
 };
+
+/**
+ * Photo mode from the map menu: players looked for it here and never found it three taps deep in
+ * Settings > Gameplay (2026-11-14 playtest). It is a plain button, not a lens radio item.
+ */
+const PHOTO_BUTTON = `<button type="button" class="hud-v2-photo-btn" data-hud-v2-photo>Photo mode</button>`;
 
 /** `lens` is the active lens, or (older callers) whether the Diplomacy lens is on. */
 export const overlaysHtml = (lens: MapLens | boolean, menuOpen: boolean, overviewOpen = false): string => {
@@ -103,7 +110,7 @@ export const overlaysHtml = (lens: MapLens | boolean, menuOpen: boolean, overvie
   if (!menuOpen) return active === "resources" ? button + resourceLensLegendHtml() : button;
   // One lens is always on, so the items are radio menu items; the list follows the button in tab order.
   const items = LENSES.map((l) => `<button type="button" role="menuitemradio" class="hud-v2-lens-item${l.id === active ? " hud-v2-lens-item-on" : ""}" data-hud-v2-lens="${l.id}" aria-checked="${l.id === active}">${lensIcon(`/icons/simple/lens-${l.id}.svg`)}${l.label}</button>`).join("");
-  return `${button}<div class="hud-v2-lens-menu" role="menu" aria-label="Map lens">${items}</div>`;
+  return `${button}<div class="hud-v2-lens-menu" role="menu" aria-label="Map lens">${items}${PHOTO_BUTTON}</div>`;
 };
 
 /**
@@ -140,6 +147,12 @@ export const installLens = (deps: HudV2Deps, rerender: () => void): void => {
   host.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
+    if (target.closest("[data-hud-v2-photo]")) {
+      setMapOverview(false);
+      togglePhotoMode(deps.state, deps.renderHud);
+      rerender();
+      return;
+    }
     const { handled, viewChanged } = lensClick(deps.state, target, document.body.classList.contains("hud-v2-compact"));
     if (!handled) return;
     if (viewChanged) deps.requestViewRefresh();
