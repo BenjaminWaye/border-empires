@@ -5,6 +5,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { combatCardText, combatGroupCardText, siegeCardText } from "./client-activity-dashboard-combat-text.js";
 import { featuresPart } from "./client-activity-dashboard-features.js";
 import { diplomacyCardText } from "./client-activity-dashboard-diplomacy-text.js";
+import { supplyEndedCardText } from "./client-activity-dashboard-supply-text.js";
 import { nameOf, roundedAmount, type PlayerNameLookup } from "./client-activity-dashboard-names.js";
 import { scoutFindingsText } from "../client-scout-drone/client-scout-drone-state.js";
 
@@ -38,10 +39,12 @@ export const activityPlayerNameLookup = (state: Pick<ClientState, "playerNames" 
 export type TechNameLookup = (techId: string) => string | undefined;
 
 const territoryCardText = (card: Extract<PersonalActivityCard, { kind: "TERRITORY_FLIP_GROUP" }>, playerNames: PlayerNameLookup): string => {
-  const counterparty = card.counterpartyPlayerId ? ` (${nameOf(card.counterpartyPlayerId, playerNames)})` : "";
+  const tiles = `${card.tileCount} tile${card.tileCount === 1 ? "" : "s"}`;
+  const other = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : undefined;
+  // A loss names who took the land, in a sentence: "Lost 12 tiles to Konrad".
   const text = card.direction === "GAINED"
-    ? `+${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} claimed${counterparty}`
-    : `−${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} lost${counterparty}`;
+    ? `+${tiles} claimed${other ? ` (${other})` : ""}`
+    : `Lost ${tiles}${other ? ` to ${other}` : ""}`;
   const owner = card.direction === "LOST" ? "your" : card.counterpartyPlayerId ? "their" : undefined;
   const lostWith = featuresPart(card.features, owner);
   return lostWith ? `${text} · ${lostWith}` : text;
@@ -102,6 +105,7 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
   if (card.kind === "SCOUT_REPORT") return scoutReportCardText(card, playerNames);
   if (card.kind === "SCOUT_SIGHTED") return `Foreign scouts sighted at your border: ${nameOf(card.scoutPlayerId, playerNames)}`;
   if (card.kind === "DIPLOMACY") return diplomacyCardText(card, playerId, playerNames);
+  if (card.kind === "SUPPLY_ENDED") return supplyEndedCardText(card, playerId, playerNames);
   if (card.kind === "TRUNCATION_NOTE") return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
   // A card kind from a newer server than this client: say something true
   // rather than misreading it as a truncation note.
@@ -110,9 +114,9 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
 
 export const activityCardTimeLabel = (card: PersonalActivityCard): string => timeLabel(card.occurredAt);
 
-/** Map events carry a location; the truncation note and diplomacy rows (between empires, not on a tile) never do. */
+/** Map events carry a location; the truncation note, diplomacy and supply rows (between empires, not on a tile) never do. */
 export const activityCardCoordinates = (card: PersonalActivityCard): { x: number; y: number } | undefined =>
-  card.kind === "TRUNCATION_NOTE" || card.kind === "DIPLOMACY" ? undefined : { x: card.x, y: card.y };
+  card.kind === "TRUNCATION_NOTE" || card.kind === "DIPLOMACY" || card.kind === "SUPPLY_ENDED" ? undefined : { x: card.x, y: card.y };
 
 /** The "(x, y)" tile label shown on a timeline row, matching the feed's coordinate format. */
 export const activityCardCoordinatesLabel = (card: PersonalActivityCard): string | undefined => {

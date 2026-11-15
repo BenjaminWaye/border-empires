@@ -3,7 +3,7 @@ import { createAfcRecoveryTicker } from "../afc-owned-site/afc-recovery-ticker.j
 import { createVisibleStateContext } from "./runtime-visible-state-context.js";
 import { createAfcTileObserver, preserveAfclessReserves } from "../afc-owned-site/afc-loss.js";
 import { defaultScheduleAfter } from "./runtime-default-schedule-after.js";
-import { createRuntimeResourceSupply } from "../resource-supply-trades/runtime-resource-supply-bridge.js";
+import { createRuntimeResourceSupply, tradedSupplyHooks } from "../resource-supply-trades/runtime-resource-supply-bridge.js";
 import { dormantContributorTiles, cachedResourceSlots, cachedResourceDemand, cachedResourceDormancy, type RuntimeResourceSlotsContext } from "../resource-supply-trades/runtime-resource-slots.js";
 import { RuntimeResourceSupply } from "../resource-supply-trades/runtime-resource-supply.js";
 import { RelicMapHintIndex } from "../runtime-relic-map-hints.js";
@@ -854,7 +854,8 @@ export class SimulationRuntime {
     this.resourceSupply = createRuntimeResourceSupply({ slots: () => this.resourceSlotsContext(), now: () => this.now(),
       beforeChange: (at, ids) => { for (const id of ids) { const p = this.state.players.get(id); if (p) { applyPassiveIncomeForPlayerImpl(this.passiveIncomeContext(), p, at, PASSIVE_INCOME_INACTIVITY_CAP_MS, false); this.applyManpowerRegen(p, at); } } },
       publish: id => { if (this.manpowerReady) this.emitPlayerStateUpdate({ commandId: `resource-supply:refresh:${this.now()}:${id}`, playerId: id }); },
-      changed: (action, agreement) => this.emitEvent({ eventType: "PLAYER_MESSAGE", messageType: "RESOURCE_SUPPLY_CHANGED", playerId: agreement.proposerId, commandId: `resource-supply:${action}:${agreement.id}`, payloadJson: JSON.stringify({ action, agreement }) })
+      changed: (action, agreement) => this.emitEvent({ eventType: "PLAYER_MESSAGE", messageType: "RESOURCE_SUPPLY_CHANGED", playerId: agreement.proposerId, commandId: `resource-supply:${action}:${agreement.id}`, payloadJson: JSON.stringify({ action, agreement }) }),
+      recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
     }, options.initialState?.resourceSupplyAgreements);
     for (const entry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) this.lastIncomeTickAtMsByPlayer.set(entry.playerId, entry.collectedAt);
     // Indexed once: a linear find() per player would be O(players^2) at boot.
@@ -2263,11 +2264,7 @@ export class SimulationRuntime {
       summaryForPlayer: id => this.summaryForPlayer(id), settledTilesForPlayer: id => this.settledTilesForPlayer(id),
       activeObservatoryKeysForPlayer: id => this.ownerIndexes.activeObservatoriesByOwner.get(id) ?? [],
       activeObservatoryOwners: () => this.ownerIndexes.activeObservatoriesByOwner.keys(),
-      ...(this.resourceSupply ? {
-        tradedSupplyBuild: (id, physical) => this.resourceSupply!.upkeepWithSources(id, physical),
-        tradedSupply: id => this.resourceSupply!.upkeep(id),
-        advanceTrades: () => this.resourceSupply!.ledger.advanceTo(this.now())
-      } : {})
+      ...tradedSupplyHooks(this.resourceSupply, () => this.now())
     };
   }
   private resourceSlotSupplyForPlayer(id: string, fresh = false): ResourceSlotTotals {

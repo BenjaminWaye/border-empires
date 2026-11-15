@@ -142,7 +142,8 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
           "Alden Vale declined your 24h truce offer. Alden Vale is wary of you and won't lower their guard on a contested border. Alden Vale wants about 2150 coin more than you can offer.",
         [AI_ID]: "You declined Human's 24h truce offer."
       },
-      startCooldown: true
+      startCooldown: true,
+      recordDecline: true
     });
   });
 
@@ -154,7 +155,8 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce(baseRequest);
 
-    expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, expect.objectContaining({ startCooldown: true }));
+    // Review of #2783: a counter isn't a "no", so the Chronicle logs no decline.
+    expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, expect.objectContaining({ startCooldown: true, recordDecline: false }));
     // From the AI's side: it gives nothing and asks the requester for 2160 coin.
     expect(requestTruce).toHaveBeenCalledWith(AI_ID, "Human", 24, {
       targetPlayerId: HUMAN_ID,
@@ -193,7 +195,9 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
       announcementByPlayerId: expect.objectContaining({
         [HUMAN_ID]: "Alden Vale declined your 24h truce offer. The deal fell through: Human no longer has 2160 coin."
       }),
-      startCooldown: false
+      startCooldown: false,
+      // Review of #2783: a failed payment isn't the AI saying no, so the Chronicle logs no decline.
+      recordDecline: false
     });
   });
 

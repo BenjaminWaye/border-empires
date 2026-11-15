@@ -1,3 +1,4 @@
+import { PHOTO_MODE_BODY_CLASS } from "../client-photo-mode/client-photo-mode.js";
 import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { createHostileMusterAnnouncer, type HostileMusterNearBorder } from "../client-hostile-muster-alerts/client-hostile-muster-alerts.js";
 import { createPopupBlockedCheck } from "../client-map-unobstructed/client-popup-gate.js";
@@ -25,6 +26,8 @@ export type PersistentAlertsFrameDrawDeps = Omit<Parameters<typeof drawPersisten
  * way): recompute the alert list on its cadence, toast when an enemy muster
  * flag newly appears near the border, and draw the off-screen locators.
  */
+const isPhotoModeOn = (): boolean => typeof document !== "undefined" && document.body.classList.contains(PHOTO_MODE_BODY_CLASS);
+
 export const createPersistentAlertsFrame = (
   state: ClientState
 ): ((nowMs: number, drawDeps: PersistentAlertsFrameDrawDeps) => void) => {
@@ -51,6 +54,9 @@ export const createPersistentAlertsFrame = (
       });
       if (announcement) showCaptureAlert(state, announcement.title, announcement.detail, announcement.tone, undefined, announcement.focus);
     }
-    drawPersistentAlertLocators(state, { ...drawDeps, nowMs, precomputedAlerts: cache });
+    // Photo mode captures the bare map: no "!" pins over it (both renderers draw them here). The pins'
+    // tap areas go too, or a tap meant for the map hits an invisible pin and jumps the camera.
+    if (!isPhotoModeOn()) drawPersistentAlertLocators(state, { ...drawDeps, nowMs, precomputedAlerts: cache });
+    else state.persistentAlertLocators = [];
   };
 };

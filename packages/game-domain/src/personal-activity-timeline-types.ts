@@ -1,4 +1,4 @@
-import type { FortVariant, NaturalWonderType, WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
+import type { FortVariant, NaturalWonderType, ResourceSupplyOffer, WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
 
 // Shared response types for the personal Activity dashboard's 24h "Yours"
 // timeline (docs/activity-dashboard-plan.md), mirroring
@@ -261,7 +261,17 @@ export type PersonalActivityTruncationNoteCard = {
 // owns diplomacy), not the simulation aggregator, and merged into the same
 // timeline response. Diplomacy happens between empires, not on a tile, so
 // these cards carry no coordinates.
-export type PersonalActivityDiplomacyEvent = "TRUCE_STARTED" | "TRUCE_ENDED" | "TRUCE_BROKEN" | "ALLIANCE_FORMED" | "ALLIANCE_BROKEN";
+// TRUCE_EXTENDED is a running truce made longer; ALLIANCE_OFFERED / ALLIANCE_DECLINED
+// carry byPlayerId (who offered / who declined) so each side reads its own sentence.
+export type PersonalActivityDiplomacyEvent =
+  | "TRUCE_STARTED"
+  | "TRUCE_EXTENDED"
+  | "TRUCE_ENDED"
+  | "TRUCE_BROKEN"
+  | "ALLIANCE_OFFERED"
+  | "ALLIANCE_DECLINED"
+  | "ALLIANCE_FORMED"
+  | "ALLIANCE_BROKEN";
 
 export type PersonalActivityDiplomacyCard = {
   kind: "DIPLOMACY";
@@ -270,15 +280,33 @@ export type PersonalActivityDiplomacyCard = {
   event: PersonalActivityDiplomacyEvent;
   counterpartyPlayerId: string;
   counterpartyName: string;
-  /** TRUCE_STARTED: the truce length. */
+  /** TRUCE_STARTED: the truce length. TRUCE_EXTENDED: the hours added. */
   durationHours?: number;
-  /** TRUCE_BROKEN: who broke it. */
+  /** TRUCE_BROKEN: who broke it. ALLIANCE_OFFERED: who offered. ALLIANCE_DECLINED: who declined. */
   byPlayerId?: string;
   /** TRUCE_STARTED: a Court armistice rather than a negotiated truce. */
   court?: boolean;
 };
 
+// A resource supply deal with another House ended: cancelled by either side,
+// ended because one attacked the other, or run out. Between empires, not on a
+// tile, so no coordinates. youGave / youGot are the viewer's side of the deal.
+export type PersonalActivitySupplyEndedReason = "CANCELLED" | "ATTACK" | "EXPIRED";
+
+export type PersonalActivitySupplyEndedCard = {
+  kind: "SUPPLY_ENDED";
+  id: string;
+  occurredAt: number;
+  counterpartyPlayerId: string;
+  reason: PersonalActivitySupplyEndedReason;
+  /** CANCELLED: who ended it. ATTACK: who attacked. */
+  byPlayerId?: string;
+  youGave: ResourceSupplyOffer;
+  youGot: ResourceSupplyOffer;
+};
+
 export type PersonalActivityCard =
+  | PersonalActivitySupplyEndedCard
   | PersonalActivityTerritoryCard
   | PersonalActivityCombatCard
   | PersonalActivityCombatGroupCard

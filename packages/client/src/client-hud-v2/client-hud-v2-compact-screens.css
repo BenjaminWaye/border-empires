@@ -78,7 +78,8 @@ body.hud-v2-compact .v2u-row { min-height: var(--v2c-touch); }
 /* Short phones (667px): a half sheet left the list ~2 rows tall under the summary; open to the ribbon instead. */
 @media (orientation: portrait) and (max-height: 760px) {
   body.hud-v2-compact .v2c-drawer { top: var(--v2c-top); height: auto; }
-  body.hud-v2-compact .v2c-chips { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* One row whatever the count: "towns taken" only shows when there is one, so 4 or 5 chips. */
+  body.hud-v2-compact .v2c-chips { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
   /* The Manifest detail card took 42% of a 580px screen and left the tree a thin strip (no rows at all with the
      guide docked): the tree keeps a floor and the card shrinks and scrolls. */
   body.hud-v2-compact .v2m-scroll { flex: 1 1 0; min-height: max(96px, 34%); }

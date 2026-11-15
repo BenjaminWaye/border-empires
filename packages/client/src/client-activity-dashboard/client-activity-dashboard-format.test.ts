@@ -37,7 +37,7 @@ describe("activityCardText / activityCardCoordinates", () => {
     const gained = { kind: "TERRITORY_FLIP_GROUP" as const, direction: "GAINED", tileCount: 4, x: 1, y: 1 };
     const lost = { kind: "TERRITORY_FLIP_GROUP" as const, direction: "LOST", tileCount: 2, x: 1, y: 1 };
     expect(activityCardText(gained as any, "me", noNames)).toBe("+4 tiles claimed");
-    expect(activityCardText(lost as any, "me", noNames)).toBe("−2 tiles lost");
+    expect(activityCardText(lost as any, "me", noNames)).toBe("Lost 2 tiles");
   });
 
   it("has no Center coordinates for a truncation-note card", () => {
