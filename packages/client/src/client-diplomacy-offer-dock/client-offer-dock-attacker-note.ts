@@ -38,9 +38,10 @@ export const recentAttacksOnMe = (timeline: PersonalActivityTimeline | undefined
         break;
       case "COMBAT_GROUP":
         if (card.role === "DEFENDER") {
-          const entry = tally(card.counterpartyPlayerId);
+          const attackerId = card.counterpartyPlayerId;
+          const entry = tally(attackerId);
           if (entry) entry.attacked = true;
-          if (entry && card.captures > 0) addFlip(card.counterpartyPlayerId, card.captures);
+          if (entry && attackerId && card.captures > 0) addFlip(attackerId, card.captures);
         }
         break;
       case "SIEGE":
