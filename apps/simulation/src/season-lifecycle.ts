@@ -63,6 +63,7 @@ export const cloneSeasonState = (seasonState: SimulationSeasonState): Simulation
   ...seasonState,
   ...(seasonState.winner ? { winner: { ...seasonState.winner } } : {}),
   ...(seasonState.galaxyTiers ? { galaxyTiers: seasonState.galaxyTiers.map((tier) => ({ ...tier })) } : {}),
+  ...(seasonState.houseCharges ? { houseCharges: structuredClone(seasonState.houseCharges) } : {}),
   victoryTrackers: seasonState.victoryTrackers.map((tracker) => ({ ...tracker })),
   ...(seasonState.joinedPlayerIds ? { joinedPlayerIds: [...seasonState.joinedPlayerIds] } : {}),
   ...(seasonState.guestPlayerIds ? { guestPlayerIds: [...seasonState.guestPlayerIds] } : {})

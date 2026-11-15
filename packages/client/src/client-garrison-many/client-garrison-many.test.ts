@@ -72,6 +72,24 @@ describe("Garrison Many selection and real development queue", () => {
     expect(sendGameMessage).not.toHaveBeenCalled();
     expect(state.manpower).toBe(2000);
   });
+  // 2026-11-14 playtest: opened from an out-of-reach tile, the sheet sat at "0 selected" and every tap on
+  // another out-of-reach tile did nothing, because "Select frontier tiles" always hid the refusal reason.
+  it("says why the starting tile and a tapped tile were refused", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.authSessionReady = true;
+    state.serverReach = new Set();
+    for (let x = 0; x < 2; x++) state.tiles.set(`${x},0`, tile(x));
+    flow = createGarrisonManyFlow(state, {
+      keyFor: (x, y) => `${x},${y}`, hideTileActionMenu: vi.fn(), renderHud: vi.fn(),
+      requestSettlement: vi.fn(() => true), processDevelopmentQueue: vi.fn(), pushFeed: vi.fn()
+    });
+    flow.begin(state.tiles.get("0,0")!);
+    const message = (): string => document.querySelector(".garrison-many-message")?.textContent ?? "";
+    expect(message()).toBe("(0, 0): Outside your reach");
+    flow.select(1, 0);
+    expect(message()).toBe("Outside your reach");
+  });
   it("disables confirmation when every tile has been deselected", () => {
     const { state, request } = setup();
     flow.select(0, 0);

@@ -76,6 +76,7 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "CLAIM_CONTINUATION_SET",
   "SET_AUTO_SETTLE_PREFS",
   "NAME_ISLAND",
+  "CHOOSE_HOUSE_CHARGES",
   "EXPLORE"
 ];
 

@@ -62,6 +62,15 @@ const slotStatus = (supply: number, demand: number): { text: string; tone: strin
   return { text: `${supply - demand} free`, tone: "v2e-good" };
 };
 
+/**
+ * With no tiles yet, a strategic resource says how to get some and links to the Resources lens: "No tiles yet"
+ * alone left a playtester three sessions unable to find titanium (2026-11-14). Food keeps the short line.
+ */
+const noSourcesHtml = (resource: SlotResource): string =>
+  resource === "FOOD"
+    ? "No tiles yet"
+    : `Garrison a ${NAMES[resource].toLowerCase()} deposit <button type="button" class="v2e-lens" data-economy-lens="resources">Find on map</button>`;
+
 const slotRowHtml = (input: EconomyRowsInput, resource: SlotResource): string => {
   const focus = input.focus === resource ? " v2e-focus" : "";
   const head = (amount: string, status: string, tone: string): string =>
@@ -73,7 +82,7 @@ const slotRowHtml = (input: EconomyRowsInput, resource: SlotResource): string =>
     : "";
   return `<section class="v2e-row${demand > supply ? " v2e-short" : ""}${focus}" data-v2e-row="${resource}">
     ${head(`${demand} / ${supply}`, status.text, status.tone)}
-    ${listHtml("From", sources.map((b) => item(named(b), slotSupplyAmountLabel(b.amountPerMinute))), "No tiles yet")}
+    ${listHtml("From", sources.map((b) => item(named(b), slotSupplyAmountLabel(b.amountPerMinute))), noSourcesHtml(resource))}
     ${listHtml("Used by", occupants.map((b) => item(`${named(b)}${b.dormantCount ? ` · ${b.dormantCount} dormant` : ""}`, String(b.amountPerMinute), Boolean(b.dormantCount))), "Nothing yet")}
     ${fed}
   </section>`;
