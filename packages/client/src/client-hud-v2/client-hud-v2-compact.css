@@ -254,3 +254,13 @@ body.hud-v2-compact .v2c-treasury-rows .hud-v2-gear::after { content: " Settings
 
 /* Folded tracker line while Dev slots just took a build (createSlotPulse). */
 .v2c-track-line.v2c-track-pulse { background: color-mix(in srgb, var(--v2-gold) 22%, transparent); box-shadow: inset 3px 0 0 var(--v2-gold-hi); color: var(--v2-gold-hi); }
+
+/* ---- Building placement bar (Relay Beacon / Hydroworks / AFC): Cancel + Confirm ----
+   Lifted clear of the tab bar (z-index 45) and the manpower orb above it; under the tab bar the
+   Confirm button was unreachable, so a placement could never be committed on a phone. */
+body.hud-v2-compact #placement-overlay {
+  bottom: calc(var(--v2c-bottom) + 100px); z-index: 48; box-sizing: border-box;
+  width: calc(100vw - var(--v2c-safe-left) - var(--v2c-safe-right) - 24px);
+}
+body.hud-v2-compact #placement-label { white-space: normal; text-align: center; flex: 1 1 100%; }
+body.hud-v2-compact #placement-overlay .placement-btn { flex: 1 1 0; min-height: var(--v2c-touch); }

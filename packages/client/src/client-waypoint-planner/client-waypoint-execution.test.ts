@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { EXPAND_MANPOWER_COST } from "@border-empires/shared";
 
 import { topUpFromWaypoint } from "../client-queue-logic/client-queue-logic.js";
+import { WATER_DEAD_END_DOCK_HINT } from "./client-waypoint-planner.js";
 import { createInitialState } from "../client-state/client-state.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
@@ -188,6 +189,24 @@ describe("topUpFromWaypoint", () => {
     expect(messages[0]?.message).toMatch(/impassable/i);
     expect(sent).toEqual([{ type: "WAYPOINT_CANCEL", x: 5, y: 3 }]);
     expect(messages[0]?.severity).toBe("warn");
+    // A mountain is not a water dead end: no dock reminder.
+    expect(messages[0]?.message).not.toContain(WATER_DEAD_END_DOCK_HINT);
+  });
+
+  it("adds the dock rule reminder, with no location, when the waypoint dead-ends at water", () => {
+    const state = stateWithTiles([
+      reachAnchorTile(3, 3),
+      tile(4, 3),
+      tile(5, 3, { terrain: "SEA" })
+    ]);
+    state.waypoint = [{
+      target: { x: 5, y: 3 },
+      plan: { target: { x: 5, y: 3 }, steps: [], totalGold: 0, totalManpower: 0, totalDurationMs: 0, expandCount: 0, attackCount: 0, reachable: true }
+    }];
+    const messages: string[] = [];
+    topUpFromWaypoint(state, keyFor, (message) => { messages.push(message); }, () => true);
+    expect(state.waypoint).toHaveLength(0);
+    expect(messages[0]).toBe("Waypoint cancelled at (5, 3) — turned out to be impassable. Got as close as possible. Every island has a dock with a sea lane to another island.");
   });
 
   it("blocks allied waypoint targets without enqueueing an attack step", () => {

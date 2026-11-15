@@ -12,7 +12,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     registerSubscribeAndMaybePushReach(
       { subscribe: () => order.push("subscribe") },
-      { resendReachForPlayer: () => order.push("reach"), resendIslandNamesForPlayer: () => order.push("islands"), resendAetherShieldsForPlayer: () => order.push("aether"), resendScoutDroneForPlayer: () => order.push("scout") },
+      { resendReachForPlayer: () => order.push("reach"), resendSideTickersForPlayer: () => order.push("islands"), resendAetherShieldsForPlayer: () => order.push("aether"), resendScoutDroneForPlayer: () => order.push("scout") },
       "player-1",
       liveOptions,
       noopLog
@@ -26,7 +26,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     registerSubscribeAndMaybePushReach(
       { subscribe: (playerId, key) => seen.push([playerId, key]) },
-      { resendReachForPlayer: () => {}, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => {}, resendScoutDroneForPlayer: () => {} },
+      { resendReachForPlayer: () => {}, resendSideTickersForPlayer: () => {}, resendAetherShieldsForPlayer: () => {}, resendScoutDroneForPlayer: () => {} },
       "player-1",
       liveOptions,
       noopLog
@@ -43,7 +43,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
     expect(() =>
       registerSubscribeAndMaybePushReach(
         { subscribe: () => { subscribed = true; } },
-        { resendReachForPlayer: () => { throw new Error("boom"); }, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => { shieldsPushed = true; }, resendScoutDroneForPlayer: () => {} },
+        { resendReachForPlayer: () => { throw new Error("boom"); }, resendSideTickersForPlayer: () => {}, resendAetherShieldsForPlayer: () => { shieldsPushed = true; }, resendScoutDroneForPlayer: () => {} },
         "player-1",
         { trigger: "gateway_live_subscribe" },
         { error: (payload) => errors.push(payload) }
@@ -60,7 +60,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
     expect(() =>
       registerSubscribeAndMaybePushReach(
         { subscribe: () => {} },
-        { resendReachForPlayer: () => {}, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => { throw new Error("boom"); }, resendScoutDroneForPlayer: () => {} },
+        { resendReachForPlayer: () => {}, resendSideTickersForPlayer: () => {}, resendAetherShieldsForPlayer: () => { throw new Error("boom"); }, resendScoutDroneForPlayer: () => {} },
         "player-1",
         { trigger: "gateway_live_subscribe" },
         { error: (payload) => errors.push(payload) }
@@ -74,7 +74,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     registerSubscribeAndMaybePushReach(
       { subscribe: () => calls.push("subscribe") },
-      { resendReachForPlayer: () => calls.push("reach"), resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => calls.push("aether") },
+      { resendReachForPlayer: () => calls.push("reach"), resendSideTickersForPlayer: () => {}, resendAetherShieldsForPlayer: () => calls.push("aether") },
       "player-1",
       { mode: "bootstrap-only", trigger: "gateway_live_subscribe" },
       noopLog
@@ -96,7 +96,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     registerSubscribeAndMaybePushReach(
       { subscribe: () => calls.push("subscribe") },
-      { resendReachForPlayer: () => calls.push("reach"), resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => calls.push("aether") },
+      { resendReachForPlayer: () => calls.push("reach"), resendSideTickersForPlayer: () => {}, resendAetherShieldsForPlayer: () => calls.push("aether") },
       "player-1",
       { trigger: "gateway_fog_refresh", subscriptionKey: "key-2" },
       noopLog
@@ -149,7 +149,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
       { resendReachForPlayer: (playerId) => {
         markReachForResend(state, playerId);
         flushReachUpdates(state, context, "cmd-live-subscribe");
-      }, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => {}, resendScoutDroneForPlayer: () => {} },
+      }, resendSideTickersForPlayer: () => {}, resendAetherShieldsForPlayer: () => {}, resendScoutDroneForPlayer: () => {} },
       "player-1",
       liveOptions,
       noopLog
