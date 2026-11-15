@@ -68,6 +68,19 @@ describe("Economy panel coin row reads the one shared breakdown", () => {
     expect(coin.textContent).toContain("+2 more");
     expect(listAmounts(coin, "Earned").reduce((a, b) => a + b, 0)).toBeCloseTo(21, 1);
   });
+
+  // Review of #2788: the Integrity line always sorts last, so with five or more sources it folded into
+  // "+N more" and the bonus the changelog promises as its own line never showed.
+  it("keeps the Empire Integrity line visible when sources fold into '+N more'", () => {
+    const breakdown = emptyEconomyBreakdown();
+    breakdown.GOLD.sources = [
+      ...[1, 2, 3, 4, 5].map((n) => ({ label: `Source ${n}`, amountPerMinute: perMin(n), count: 1 })),
+      { label: EMPIRE_INTEGRITY_INCOME_LABEL, amountPerMinute: perMin(2), count: 1 }
+    ];
+    const coin = render(args({ incomePerMinute: perMin(17), economyBreakdown: breakdown })).querySelector("[data-v2e-row='GOLD']")!;
+    expect(coin.textContent).toContain(EMPIRE_INTEGRITY_INCOME_LABEL);
+    expect(listAmounts(coin, "Earned").reduce((a, b) => a + b, 0)).toBeCloseTo(17, 1);
+  });
 });
 
 describe("Economy panel Food row", () => {

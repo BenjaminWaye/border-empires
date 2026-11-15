@@ -5,7 +5,7 @@ import { networkSupplyHtml } from "../client-resource-networks/network-supply-ht
 // uses it. Integrity has its own panel, so it is not here. The numbers come from the helpers in
 // client-economy-html.ts, which hands them in to avoid an import cycle.
 
-import { formatCoinPerDay, type CoinIncomeBreakdown, type CoinIncomeBucket, type NetworkSupplyStatus, type SlotResource } from "@border-empires/shared";
+import { formatCoinPerDay, type CoinIncomeBreakdown, type CoinIncomeBucket, type CoinIncomeLine, type NetworkSupplyStatus, type SlotResource } from "@border-empires/shared";
 import type { EconomyBucket, EconomyFocusKey } from "../client-economy-model.js";
 import type { EconomyPanelArgs } from "./client-economy-html.js";
 
@@ -52,11 +52,20 @@ const coinListHtml = (label: string, rows: readonly CoinIncomeBucket[], empty: s
   listHtml(label, rows.map((b) => item(named(b), amount(b))), empty, (hidden) =>
     item(`+${hidden} more`, signed(rows.slice(MAX_ITEMS).reduce((total, b) => total + b.amountPerMinute, 0))));
 
+// The Integrity line is the one players check against the Integrity panel: it never folds into "+N more".
+const pinIntegrityLine = (rows: readonly CoinIncomeLine[]): readonly CoinIncomeLine[] => {
+  const index = rows.findIndex((row) => row.kind === "bonus");
+  if (rows.length <= MAX_ITEMS || index < MAX_ITEMS - 1) return rows;
+  const pinned = rows.filter((_, i) => i !== index);
+  pinned.splice(MAX_ITEMS - 1, 0, rows[index]!);
+  return pinned;
+};
+
 const coinRowHtml = (input: EconomyRowsInput): string => {
   const { coin } = input;
   return `<section class="v2e-row${input.focus === "GOLD" ? " v2e-focus" : ""}" data-v2e-row="GOLD">
     <div class="v2e-head">${input.resourceIconHtml("GOLD")}<span class="v2e-name">Coin</span><b class="v2e-amount">${input.gold.toFixed(1)}</b><span class="v2e-status ${coin.netPerMinute >= 0 ? "v2e-good" : "v2e-bad"}">${perDay(coin.netPerMinute)}</span></div>
-    ${coinListHtml("Earned", coin.earned, "No income yet", (b) => perDay(b.amountPerMinute), perDay)}
+    ${coinListHtml("Earned", pinIntegrityLine(coin.earned), "No income yet", (b) => perDay(b.amountPerMinute), perDay)}
     ${coinListHtml("Upkeep", coin.upkeep, "None", upkeepAmount, (perMinute) => perDay(-perMinute))}
   </section>`;
 };
