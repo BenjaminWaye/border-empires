@@ -55,7 +55,7 @@ describe("resource bar", () => {
 });
 
 describe("tracker", () => {
-  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, manpowerCap: 1000, building: [], queue: [], slotsOpen: true, nowMs: 0 };
+  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, manpowerCap: 1000, building: [], queue: [], waypoints: [], slotsOpen: true, nowMs: 0 };
 
   it("lists free build slots, AFC upgrades and stalled flags as needs", () => {
     const needs = trackerNeeds({
@@ -124,6 +124,17 @@ describe("tracker", () => {
     const folded = trackerHtml({ ...base, buildSlots: { busy: 1, limit: 3 }, building, slotsOpen: false });
     expect(folded).toContain('aria-expanded="false"');
     expect(folded).not.toContain("hud-v2-slot-list");
+  });
+
+  // 2026-11-14 playtest: Expand To marches queued hours earlier kept spending manpower with nothing on the HUD.
+  it("lists queued expansions with a Cancel all, and says when one is waiting on manpower", () => {
+    expect(trackerHtml(base)).not.toContain("Queued expansions");
+    const html = trackerHtml({ ...base, waypoints: [{ x: 4, y: 9, paused: false }, { x: 7, y: 2, paused: true }] });
+    expect(html).toContain("Queued expansions · 2");
+    expect(html).toContain("data-hud-v2-cancel-waypoints");
+    expect(html).toContain('data-hud-v2-focus-x="4" data-hud-v2-focus-y="9"');
+    expect(html).toContain("Spends manpower per tile");
+    expect(html).toContain("Paused · needs manpower");
   });
 
   it("always shows development slots, calling out free ones", () => {

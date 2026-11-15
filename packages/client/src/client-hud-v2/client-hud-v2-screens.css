@@ -227,7 +227,11 @@ body.hud-v2-screen-afc #side-panel {
 .v2d-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .v2d-emp { display: grid; justify-items: center; gap: 4px; padding: 14px 8px; background: var(--v2-well); border: 1px solid var(--v2-line); }
 .v2d-emp:hover { border-color: var(--v2-gold); }
-.v2d-emp-name { font-family: var(--v2-display); font-size: 14px; font-weight: 700; }
+/* min-width/max-width: a long name ("KonradsDelikatessKörv") ran off its card and pushed the crest aside. */
+.v2d-emp { min-width: 0; }
+.v2d-emp-name { max-width: 100%; overflow-wrap: anywhere; text-align: center; font-family: var(--v2-display); font-size: 14px; font-weight: 700; }
+/* The "No empires met yet" note sits in the card grid: span every column, not one 104px cell. */
+.v2d-grid > .v2s-empty { grid-column: 1 / -1; }
 .v2d-emp-stance { font-family: var(--v2-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--v2-soft); text-transform: uppercase; }
 .v2d-emp-ally .v2d-emp-stance { color: var(--v2-green); }
 .v2d-emp-truce .v2d-emp-stance { color: var(--v2-amber); }

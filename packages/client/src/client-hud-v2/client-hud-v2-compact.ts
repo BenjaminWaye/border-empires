@@ -68,6 +68,7 @@ export const trackerSummaryHtml = (input: TrackerInput): string => {
     needs > 0 ? `<b class="v2c-track-needs">${needs} need${needs === 1 ? "s" : ""} you</b>` : "",
     `Dev ${busy}/${limit}`,
     input.flags.length > 0 ? `⚑ ${input.flags.length}` : "",
+    input.waypoints.length > 0 ? `→ ${input.waypoints.length} queued` : "",
     input.capture ? `${input.capture.battle ? "Battle" : "Expanding"} ${formatRemaining(input.capture.resolvesAt - input.nowMs)}` : ""
   ].filter(Boolean);
   return `<button type="button" class="v2c-track-line${input.slotsPulse ? " v2c-track-pulse" : ""}" data-v2c-tracker-toggle aria-expanded="false" aria-label="Tracker: ${parts.length} items, tap to unfold"><span class="v2c-track-caret" aria-hidden="true">▸</span>${parts.join(" · ")}</button>`;

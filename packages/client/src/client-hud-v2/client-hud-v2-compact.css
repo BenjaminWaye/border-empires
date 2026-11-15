@@ -218,7 +218,6 @@ body.hud-v2-compact #side-panel {
 }
 /* Structure info is a modal: above the tab bar (z 50) and orb (z 40), or they cover its foot and ✕ column. */
 body.hud-v2-compact #structure-info-overlay { z-index: 71; }
-body.hud-v2-compact #side-panel.settings-panel-active { top: calc(var(--v2c-safe-top) + 8px) !important; }
 body.hud-v2-compact #side-panel button,
 body.hud-v2-compact #side-panel .panel-btn { min-height: 40px; }
 
