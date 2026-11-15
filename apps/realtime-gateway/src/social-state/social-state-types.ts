@@ -173,6 +173,8 @@ export type SocialRejectOptions = {
   announcementByPlayerId?: Partial<Record<string, string>>;
   /** Defaults to true; false when the decline wasn't the target's real answer (e.g. an AI that couldn't be evaluated). */
   startCooldown?: boolean;
+  /** Defaults to true; false when it isn't a "no" (a counter-offer, a failed payment), so the Chronicle logs no decline. */
+  recordDecline?: boolean;
 };
 
 export type SocialOfferOptions = {
