@@ -84,7 +84,7 @@ const slotStatus = (supply: number, demand: number): { text: string; tone: strin
 const noSourcesHtml = (resource: SlotResource): string =>
   resource === "FOOD"
     ? "No tiles yet"
-    : `Garrison a ${NAMES[resource].toLowerCase()} deposit <button type="button" class="v2e-lens" data-economy-lens="resources">Find on map</button>`;
+    : `Garrison a ${NAMES[resource].toLowerCase()} deposit <button type="button" class="v2e-lens" data-economy-lens="${resource}">Find on map</button>`;
 
 const slotRowHtml = (input: EconomyRowsInput, resource: SlotResource): string => {
   const focus = input.focus === resource ? " v2e-focus" : "";

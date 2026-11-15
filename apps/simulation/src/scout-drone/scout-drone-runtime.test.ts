@@ -15,7 +15,7 @@ import { createScoutDroneRuntime } from "./scout-drone-runtime.js";
 const W = 100;
 const H = 60;
 
-const player = (id: string, allies: string[] = []): DomainPlayer => ({ id, allies: new Set(allies) }) as unknown as DomainPlayer;
+const player = (id: string, allies: string[] = []): DomainPlayer => ({ id, allies: new Set(allies), techIds: new Set<string>() }) as unknown as DomainPlayer;
 const land = (x: number, y: number, extra: Partial<DomainTileState> = {}): DomainTileState => ({ x, y, terrain: "LAND", ...extra }) as DomainTileState;
 
 type Harness = ReturnType<typeof harness>;
@@ -103,6 +103,18 @@ describe("scout drone runtime", () => {
     expect(landed.flight).toBeNull();
     expect(landed.report).toMatchObject({ towns: 1, planetaryDefenseTiles: 1, targetX: 9, targetY: 10, empiresSighted: [] });
     expect(h.impacts.at(-1)).toMatchObject({ kind: "SCOUT_REPORT", playerId: "me", towns: 1, x: 9, y: 10 });
+  });
+
+  it("names visible deposits in the report and respects the viewer's research", () => {
+    for (const techIds of [new Set<string>(), new Set(["masonry"])]) {
+      const h = harness([...homeRow(), land(8, 10, { resource: "FARM" }), land(9, 10, { resource: "TITANIUM" })], [{ ...player("me"), techIds }]);
+      h.explore(9, 10);
+      h.advanceTo(h.runtime.flightFor("me")!.landsAt);
+      const resourcesSighted = [{ resource: "FARM", count: 1 }];
+      if (techIds.size) resourcesSighted.push({ resource: "TITANIUM", count: 1 });
+      expect(lastPayload(h).report).toMatchObject({ resourcesSighted, resourceTiles: resourcesSighted.length });
+      expect(h.impacts.at(-1)).toMatchObject({ resourcesSighted });
+    }
   });
 
   it("flies at Expand To pace past the border and fast over home land", () => {

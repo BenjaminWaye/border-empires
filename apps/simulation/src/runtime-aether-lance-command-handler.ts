@@ -77,7 +77,7 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     // accumulated manpower is lost, not refunded.
     muster: undefined
   };
-  context.replaceTileState(targetKey, updatedTile, command.commandId);
+  context.replaceTileState(targetKey, updatedTile, command.commandId, actor.id);
   context.emitEvent({
     eventType: "TILE_DELTA_BATCH",
     commandId: command.commandId,

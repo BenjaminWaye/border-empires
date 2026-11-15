@@ -1,7 +1,7 @@
 import { tradedSlotSources } from "./traded-slot-sources.js";
 import type { ResourceSlotSupplyBuild } from "../runtime-economy-caches/runtime-economy-caches.js";
 import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resource-reveal.js";
-import type { DomainTileState } from "@border-empires/game-domain";
+import type { DomainTileState, PersonalActivitySupplyEndedReason } from "@border-empires/game-domain";
 import { emptyNetworkSiteCounts, isSiphonModeSabotage, NETWORK_RESOURCES, OFFERABLE_SUPPLY_RESOURCES, UPKEEP_TRADE_RESOURCES,
   TRADABLE_SUPPLY_RESOURCES, offerIncludesNonTradableSupply, type NetworkSiteCounts, type ResourceSupplyAgreement, type ResourceSupplyFlow, type ResourceSupplyOffer } from "@border-empires/shared";
 import { networkSupplyWithSiphon } from "./network-supply-with-siphon.js";
@@ -27,7 +27,7 @@ export interface RuntimeResourceSupplyContext {
   capacityRejected?: () => void;
   publish?: (participantIds: readonly string[]) => void;
   /** A deal ended for real: cancelled by a House in it, by an attack between them, or run out. */
-  ended?: (agreement: ResourceSupplyAgreement, reason: "CANCELLED" | "ATTACK" | "EXPIRED", byPlayerId?: string) => void;
+  ended?: (agreement: ResourceSupplyAgreement, reason: PersonalActivitySupplyEndedReason, byPlayerId?: string) => void;
 }
 
 /** Supply rights are continuing commitments. Domestic output, never imports,
@@ -139,22 +139,34 @@ export class RuntimeResourceSupply {
     return participants.some(id => affected.includes(id)) || directCasters.length > 0 ||
       affected.some(id => Boolean(this.ctx.siphonedTiles?.(id).length));
   }
-  sourceWillChange(previous: DomainTileState | undefined, next: DomainTileState): void {
-    if (this.affectsSupply(previous, next)) {
-      this.ledger.advanceTo(this.ctx.now());
-      this.ctx.beforeChange(this.ctx.now(), this.affectedTileParticipants(previous, next));
-    }
+  sourceWillChange(previous: DomainTileState | undefined, next: DomainTileState): ReadonlySet<string> | undefined {
+    if (!this.affectsSupply(previous, next)) return undefined;
+    const now = this.ctx.now();
+    this.ledger.advanceTo(now);
+    this.ctx.beforeChange(now, this.affectedTileParticipants(previous, next));
+    return this.ctx.ended && this.ledger.size ? this.ledger.allocation(now).fulfilled : undefined;
   }
   sourceDidChange(previous: DomainTileState | undefined, next: DomainTileState): void {
     if (this.affectsSupply(previous, next)) {
       this.ledger.invalidate(); this.ctx.invalidate(this.affectedTileParticipants(previous, next));
     }
   }
-  sourceChangesPublished(previous: DomainTileState | undefined, next: DomainTileState): void {
+  sourceChangesPublished(previous: DomainTileState | undefined, next: DomainTileState, fulfilledBefore?: ReadonlySet<string>): void {
     if (this.affectsSupply(previous, next)) {
       // Structure/siphon indices are now current; refresh allocations rebuilt
       // by intermediate tile-yield reads before publishing either player's view.
-      this.ledger.invalidate(); this.ctx.invalidate(this.affectedTileParticipants(previous, next)); this.ctx.publish?.(this.affectedTileParticipants(previous, next));
+      const ids = this.affectedTileParticipants(previous, next);
+      this.ledger.invalidate();
+      this.ctx.invalidate(ids);
+      if (fulfilledBefore?.size) {
+        const { suspended } = this.ledger.allocation(this.ctx.now());
+        if (suspended.size) {
+          for (const row of this.ledger.rows()) {
+            if (fulfilledBefore.has(row.id) && suspended.has(row.id)) this.ctx.ended?.(row, "SUSPENDED");
+          }
+        }
+      }
+      this.ctx.publish?.(ids);
     }
   }
   cancel(id: string, actorId: string): SupplyLedgerResult {

@@ -1,4 +1,4 @@
-import { OUTPOST_REACH_RADIUS, TOWN_REACH_RADIUS, isCaptureHoldActive } from "@border-empires/shared";
+import { OUTPOST_REACH_RADIUS, TOWN_REACH_RADIUS, isCaptureHoldActive, settleIgnoresReach } from "@border-empires/shared";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import type { Tile } from "../client-types.js";
 
@@ -109,11 +109,14 @@ export const tileMenuHeaderStatusForTile = (
   // stand on this freshly captured FRONTIER tile, so it fights back instead
   // of being a free retake -- and the clock is how long that lasts.
   if (isCaptureHoldActive(tile, nowMs)) {
+    const garrisonNote = !settleIgnoresReach(tile) && isOwnedTileInReach && !isOwnedTileInReach(tile)
+      ? "Extend your reach here before you can garrison it."
+      : "Garrison it to keep it defended.";
     return {
       text: `Holding captured ground ${formatHeaderCountdown(tile.captureHoldUntil! - nowMs)}`,
       tone: "neutral",
       helpText: viewerOwnsTile
-        ? "Your troops are holding this tile after taking it, so it defends like ordinary ground until the timer ends. Garrison it to keep it defended."
+        ? `Your troops defend this tile until the timer ends. ${garrisonNote}`
         : "Its new owner's troops are holding this tile after taking it, so attacking it is a real fight until the timer ends."
     };
   }

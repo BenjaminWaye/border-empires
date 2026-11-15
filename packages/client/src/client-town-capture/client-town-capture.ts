@@ -173,7 +173,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
         <div id="town-capture-owner">${
           info.destroyed
             ? `Destroyed by <strong>${escapeHtml(info.empireName)}</strong>'s attack`
-            : `Now belongs to <strong>${escapeHtml(info.empireName)}</strong>`
+            : "You captured this town."
         }</div>
         ${statsHtml}
         ${surveyHtml}

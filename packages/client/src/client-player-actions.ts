@@ -216,6 +216,11 @@ export const explainActionFailureFromServer = (
   }
   const refinery = refineryRejectionMessage(code, message);
   if (refinery) return refinery;
+  if (code === "MUSTER_LIMIT") {
+    const cap = /max (\d+) muster tiles/.exec(message)?.[1];
+    return cap ? `You can have up to ${cap} muster flags. Move or remove an existing flag first.` : "You have reached your muster flag limit.";
+  }
+  if (code === "TRUCE_LOCKED_OUT") return "A House in this deal recently broke a truce. New truces are locked for 24 hours after a break.";
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot garrison: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;

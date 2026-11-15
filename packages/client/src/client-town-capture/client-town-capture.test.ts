@@ -30,6 +30,7 @@ describe("town capture card on a short phone", () => {
 
   it("keeps the ✕ and Jump to Town outside the scrolling body", () => {
     showTownCaptureOverlay(info());
+    expect(document.getElementById("town-capture-owner")?.textContent?.trim()).toBe("You captured this town.");
     const body = document.getElementById("town-capture-body");
     const footer = document.getElementById("town-capture-footer");
     expect(body?.querySelector("#town-capture-survey")).not.toBeNull();

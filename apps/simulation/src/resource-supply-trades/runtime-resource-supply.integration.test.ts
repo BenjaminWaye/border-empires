@@ -92,6 +92,12 @@ describe("resource trades in the production runtime",()=>{
     const buyer=f.player("buyer");
     expect(buyer.resourceTradeAgreements?.[0]?.fulfilled).toBe(false);
     expect(buyer.effectiveNetworkSupply?.LUXURY_BIOTA).toBe(0);
+    for (const [id, other] of [["buyer", "seller"], ["seller", "buyer"]] as const) {
+      const cards = f.runtime.getPersonalActivityTimeline(id, 0, start + 60_000).cards;
+      expect(cards.filter(card => card.kind === "SUPPLY_ENDED")).toEqual([
+        expect.objectContaining({ reason: "SUSPENDED", counterpartyPlayerId: other })
+      ]);
+    }
     const updates=events.filter(event=>event.eventType==="PLAYER_MESSAGE"&&event.playerId==="buyer"&&event.messageType==="PLAYER_UPDATE");
     expect(updates.length).toBeGreaterThan(0);
     const lastUpdate=updates.at(-1);

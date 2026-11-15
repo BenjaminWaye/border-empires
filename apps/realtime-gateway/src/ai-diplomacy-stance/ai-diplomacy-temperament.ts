@@ -33,7 +33,7 @@ export const AI_TEMPERAMENTS: Record<AiTemperamentKind, AiTemperament> = {
   MEASURED: { ...neutral, kind: "MEASURED", label: "Measured", traits: "No strong leanings" },
   MERCHANT: { ...neutral, kind: "MERCHANT", label: "Merchant", traits: "Cheaper truces, gifts go further", trucePrice: 0.75, giftValue: 1.5 },
   WARLIKE: { ...neutral, kind: "WARLIKE", label: "Warlike", traits: "Dearer truces, slow to seek peace", trucePrice: 1.25, opinionBaseline: -5, peacePayment: 0.5, asksPeaceWhenOutmatched: false },
-  PEACEABLE: { ...neutral, kind: "PEACEABLE", label: "Peaceable", traits: "Warmer start, forgives lost land", tileGrudge: 0.75, opinionBaseline: 5 },
+  PEACEABLE: { ...neutral, kind: "PEACEABLE", label: "Conciliatory diplomat", traits: "Warmer starting opinion, smaller penalties for lost land", tileGrudge: 0.75, opinionBaseline: 5 },
   VENGEFUL: { ...neutral, kind: "VENGEFUL", label: "Vengeful", traits: "Resents lost land, gifts count less", tileGrudge: 1.5, giftValue: 0.75 }
 };
 

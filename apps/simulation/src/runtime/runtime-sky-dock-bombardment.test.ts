@@ -3,7 +3,7 @@ import { afcModuleFixtureTile } from "./runtime.test-helpers.js";
 // 500-line cap further (it was already well over before this split).
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
-import { buildAiOpponent, buildPlayer } from "./runtime.test-helpers.js";
+import { buildPlayer } from "./runtime.test-helpers.js";
 
 describe("simulation runtime", () => {
   it("resolves sky dock bombardment through rewrite tile deltas", async () => {
@@ -13,7 +13,7 @@ describe("simulation runtime", () => {
       now: () => 1_000,
       initialPlayers: new Map([
         ["player-1", buildPlayer("player-1", { points: 20_000, manpower: 10_000, strategicResources: { CRYSTAL: 200 } })],
-        ["player-2", buildAiOpponent()]
+        ["player-2", buildPlayer("player-2")]
       ]),
       initialState: {
         tiles: [{ ...afcModuleFixtureTile("player-2"), x: 200, y: 200 },
@@ -85,6 +85,9 @@ describe("simulation runtime", () => {
 
     await Promise.resolve();
     randSpy.mockRestore();
+    expect(runtime.getPersonalActivityTimeline("player-2", 0, 1_000).cards).toContainEqual(
+      expect.objectContaining({ kind: "TOWN_LOST", counterpartyPlayerId: "player-1", lostToStrike: true, x: 2, y: 20 })
+    );
 
     // Bombing out (2,2)'s town clears its ownership mid-command, which
     // synchronously deactivates player-2's TOWN reach anchor there (same

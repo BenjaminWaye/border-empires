@@ -19,6 +19,13 @@ const setup = () => {
 };
 
 describe("Chronicle diplomacy rows", () => {
+  it("logs an incoming offer before the recipient answers", () => {
+    const { social, clock, events } = setup();
+    expect(social.requestTruce("player-1", "Linnea", 12).ok).toBe(true);
+    expect(events("player-2")).toEqual([{ event: "TRUCE_OFFERED", by: "player-1", hours: 12, at: clock.now }]);
+    expect(events("player-1")).toEqual([]);
+  });
+
   it("logs a truce extension for both sides, at the time it was agreed", () => {
     const { social, clock, events } = setup();
     expect(social.requestTruce("player-1", "Linnea", 12).ok).toBe(true);

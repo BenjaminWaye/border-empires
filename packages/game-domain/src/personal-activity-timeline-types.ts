@@ -182,6 +182,8 @@ type PersonalActivityTownCardBase = {
   populationBefore: number;
   populationAfter: number;
   capturedStructureTypes: string[];
+  /** A strike removed ownership, leaving the tile unclaimed. */
+  lostToStrike?: boolean;
   // The other side of the capture: who took the town on a TOWN_LOST card,
   // whom it was taken from on a TOWN_CAPTURED card. Absent on events
   // recorded before this field existed.
@@ -264,6 +266,7 @@ export type PersonalActivityTruncationNoteCard = {
 // TRUCE_EXTENDED is a running truce made longer; ALLIANCE_OFFERED / ALLIANCE_DECLINED
 // carry byPlayerId (who offered / who declined) so each side reads its own sentence.
 export type PersonalActivityDiplomacyEvent =
+  | "TRUCE_OFFERED"
   | "TRUCE_STARTED"
   | "TRUCE_EXTENDED"
   | "TRUCE_ENDED"
@@ -291,7 +294,7 @@ export type PersonalActivityDiplomacyCard = {
 // A resource supply deal with another House ended: cancelled by either side,
 // ended because one attacked the other, or run out. Between empires, not on a
 // tile, so no coordinates. youGave / youGot are the viewer's side of the deal.
-export type PersonalActivitySupplyEndedReason = "CANCELLED" | "ATTACK" | "EXPIRED";
+export type PersonalActivitySupplyEndedReason = "CANCELLED" | "ATTACK" | "EXPIRED" | "SUSPENDED";
 
 export type PersonalActivitySupplyEndedCard = {
   kind: "SUPPLY_ENDED";

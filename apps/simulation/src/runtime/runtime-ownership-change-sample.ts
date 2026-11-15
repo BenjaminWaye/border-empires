@@ -12,6 +12,7 @@ export type OwnershipChangeSample = {
   previousOwnerId: string | undefined;
   nextOwnerId: string | undefined;
   commandId: string;
+  strikeByPlayerId?: string;
   hadTown: boolean;
   townLost: boolean;
   hadOwnershipState: string | undefined;
@@ -27,7 +28,8 @@ export const buildOwnershipChangeSample = (
   tileKey: string,
   tile: DomainTileState,
   previous: DomainTileState | undefined,
-  commandId: string
+  commandId: string,
+  strikeByPlayerId?: string
 ): OwnershipChangeSample | undefined => {
   if (!previous) return undefined;
   const townLost = Boolean(previous.town) && !tile.town;
@@ -39,6 +41,7 @@ export const buildOwnershipChangeSample = (
     previousOwnerId: previous.ownerId,
     nextOwnerId: tile.ownerId,
     commandId,
+    ...(strikeByPlayerId ? { strikeByPlayerId } : {}),
     hadTown: Boolean(previous.town),
     townLost,
     hadOwnershipState: previous.ownershipState,
@@ -84,7 +87,9 @@ export const appendTownLostEventLogIfApplicable = (
   const townName = previousTown?.name ?? `Town at ${sample.tileKey}`;
   const text = sample.nextOwnerId
     ? `${townName} was captured by ${displayNameForOwnershipChange(sample.nextOwnerId, players)}.`
-    : `${townName} was lost.`;
+    : sample.strikeByPlayerId
+      ? `${displayNameForOwnershipChange(sample.strikeByPlayerId, players)} struck ${townName}, leaving it unclaimed.`
+      : `${townName} was lost.`;
   loser.eventLog = (loser.eventLog ?? []).filter((entry) => !(entry.type === "OCCUPATION_SURVEY" && entry.x === sample.x && entry.y === sample.y));
   appendPlayerEventLogEntry(loser, { type: "TOWN_LOST", text, occurredAt: now, x: sample.x, y: sample.y });
 };
@@ -122,19 +127,20 @@ export const townLeftEmpireImpact = (
     townSurvived: !sample.townLost,
     populationBefore: population,
     populationAfter: sample.townLost ? 0 : population,
-    capturedStructureTypes: []
+    capturedStructureTypes: [],
+    ...(sample.strikeByPlayerId ? { counterpartyPlayerId: sample.strikeByPlayerId, lostToStrike: true } : {})
   };
 };
 
 /** Reports a tile write's ownership change: the onOwnershipChange hook, the loser's TOWN_LOST log entry and, when nobody took the town, its Chronicle card. */
 export const publishOwnershipChange = (
-  write: { tileKey: string; tile: DomainTileState; previous: DomainTileState | undefined; commandId: string },
+  write: { tileKey: string; tile: DomainTileState; previous: DomainTileState | undefined; commandId: string; strikeByPlayerId?: string | undefined },
   onOwnershipChange: ((sample: OwnershipChangeSample) => void) | undefined,
   players: ReadonlyMap<string, DomainPlayer>,
   now: number,
   impactLog?: { recordPersonalImpact(event: PersonalImpactEvent): void }
 ): void => {
-  const sample = buildOwnershipChangeSample(write.tileKey, write.tile, write.previous, write.commandId);
+  const sample = buildOwnershipChangeSample(write.tileKey, write.tile, write.previous, write.commandId, write.strikeByPlayerId);
   if (!sample) return;
   onOwnershipChange?.(sample);
   appendTownLostEventLogIfApplicable(sample, write.previous?.town, players, now);

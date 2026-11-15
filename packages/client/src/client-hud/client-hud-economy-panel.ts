@@ -1,9 +1,12 @@
-import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor } from "@border-empires/shared";
+import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor, wrappedChebyshevDistance } from "@border-empires/shared";
 // Builds the classic Economy panel from client state. Split out of
 // client-hud.ts, which is over the file-line cap.
 
+import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
+import { strategicResourceKeyForTile } from "../client-map-display.js";
 import { renderEconomyPanelHtml } from "../client-economy-html/client-economy-html.js";
 import type { EconomyFocusKey } from "../client-economy-model.js";
+import type { Tile } from "../client-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 export type HudEconomyPanelDeps = {
@@ -51,15 +54,39 @@ export const hudEconomyPanelHtml = (state: ClientState, deps: HudEconomyPanelDep
   });
 };
 
-/** Wires the Economy panel's resource focus cards, and "Find on map", which closes it onto the Resources lens. */
-export const bindHudEconomyPanelControls = (root: ParentNode, state: ClientState, rerender: () => void, requestViewRefresh: () => void = () => {}): void => {
+const nearestKnownDeposit = (state: ClientState, resource: string | undefined): Tile | undefined => {
+  let best: Tile | undefined;
+  let bestDistance = Infinity;
+  for (const [key, tile] of state.tiles) {
+    if (!state.discoveredTiles.has(key) || strategicResourceKeyForTile(tile) !== resource) continue;
+    const distance = wrappedChebyshevDistance(state.camX, state.camY, tile.x, tile.y);
+    if (distance < bestDistance) {
+      best = tile;
+      bestDistance = distance;
+    }
+  }
+  return best;
+};
+
+type EconomyMapControls = Parameters<typeof focusCameraOnTile>[3] & {
+  rerender: () => void;
+  noDepositFound: (resource: string) => void;
+};
+
+export const bindHudEconomyPanelControls = (root: ParentNode, state: ClientState, deps: EconomyMapControls): void => {
   root.querySelectorAll<HTMLButtonElement>("[data-economy-lens]").forEach((btn) => {
     btn.onclick = () => {
       state.showResourceOverlay = true;
       state.showDiplomacyOverlay = false;
       state.activePanel = null;
-      requestViewRefresh();
-      rerender();
+      const resource = btn.dataset.economyLens;
+      const deposit = resource ? nearestKnownDeposit(state, resource) : undefined;
+      if (deposit) focusCameraOnTile(state, deposit.x, deposit.y, deps);
+      else {
+        if (resource) deps.noDepositFound(resource);
+        deps.requestViewRefresh();
+      }
+      deps.rerender();
     };
   });
   root.querySelectorAll<HTMLButtonElement>("[data-economy-focus]").forEach((btn) => {
@@ -67,7 +94,7 @@ export const bindHudEconomyPanelControls = (root: ParentNode, state: ClientState
       const focus = btn.dataset.economyFocus as EconomyFocusKey | undefined;
       if (!focus) return;
       state.economyFocus = focus;
-      rerender();
+      deps.rerender();
     };
   });
 };

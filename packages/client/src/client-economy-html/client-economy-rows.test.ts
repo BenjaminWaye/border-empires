@@ -52,7 +52,7 @@ describe("Economy rows (new HUD)", () => {
   it("tells you how to get a strategic resource with no tiles, with a way to the Resources lens", () => {
     const titanium = render(input()).querySelector<HTMLElement>("[data-v2e-row='TITANIUM']")!;
     expect(titanium.textContent).toContain("Garrison a titanium deposit");
-    expect(titanium.querySelector('[data-economy-lens="resources"]')?.textContent).toBe("Find on map");
+    expect(titanium.querySelector('[data-economy-lens="TITANIUM"]')?.textContent).toBe("Find on map");
     expect(render(input({ slots: { ...input().slots, FOOD: slot(0, 0) } })).querySelector("[data-v2e-row='FOOD']")?.textContent).toContain("No tiles yet");
   });
 

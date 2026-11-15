@@ -13,6 +13,7 @@ const names = (id: string): string | undefined => (id === "hugo" ? "Hugo" : unde
 
 describe("supply deal ended rows", () => {
   it("says what stopped, from whom, and why", () => {
+    expect(activityCardText(card({ reason: "SUSPENDED" }), "me", names)).toContain("The deal can resume when supply returns");
     expect(activityCardText(card(), "me", names)).toBe("Hugo's supply of 2 food to you stopped · Hugo ended it");
     expect(activityCardText(card({ byPlayerId: "me" }), "me", names)).toBe("Hugo's supply of 2 food to you stopped · you ended it");
     expect(activityCardText(card({ reason: "EXPIRED", youGot: {}, youGave: { FOOD: 3 } }), "me", names)).toBe("Your supply of 3 food to Hugo stopped · its time ran out");

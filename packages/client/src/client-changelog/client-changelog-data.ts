@@ -470,6 +470,25 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...CAPTURE_DURING_DEAL_ENTRY, createdAt: 1794696963679, },
   { ...CLARITY_HINTS_ENTRY, createdAt: 1794696879817, },
   { ...ACTION_FEEDBACK_ENTRY, createdAt: 1794695682854, },
+  {
+    createdAt: 1794771007813, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.15",
+    title: "Clearer captures and truce terms",
+    why: "Town captures, rival status and peace offers should be easy to read.",
+    changes: [
+      "The capture card tells you when you captured a town.",
+      "The rival strip shows when you have no pact with a House.",
+      "Distant AI Houses charge Coin for truces, even when their manpower runs low.",
+      "Envoy Accreditation grants one 10% Coin bonus as long as you have an active truce or mutual alliance.",
+      "Incoming truce offers appear in your Chronicle, and town losses to strikes name the attacker.",
+      "Truce previews show active lockouts. Muster flag limits and truce lockouts have plain-language error messages. Pending attacks account for flags still being placed.",
+      "The Chronicle reports supply interruptions caused by changes at resource sites.",
+      "The capture hold timer explains when reach prevents garrisoning.",
+      "Attack effort explains the extra manpower and how it affects your odds.",
+      "AI diplomacy labels describe how each House negotiates.",
+      "Scout reports name deposits you have the technology to identify. Find on map jumps to the nearest known deposit of that resource."
+    ]
+  },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

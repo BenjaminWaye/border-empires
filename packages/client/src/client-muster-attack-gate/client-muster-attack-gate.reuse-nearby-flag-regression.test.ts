@@ -9,6 +9,7 @@ vi.hoisted(() => {
 
 import { MUSTER_ATTACK_COST } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
+import { parkOrReuseMusterFlagForAttack } from "./client-muster-attack-gate.js";
 import { processActionQueue } from "../client-queue-logic/client-queue-logic.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { Tile } from "../client-types.js";
@@ -72,6 +73,20 @@ describe("parkOrReuseMusterFlagForAttack (via processActionQueue)", () => {
     expect(state.pendingMusterAttacks).toHaveLength(1);
     expect(state.pendingMusterAttacks[0]).toMatchObject({ targetX: 21, targetY: 0, musterTileKey: "17,0" });
     expect(state.pendingMusterAttacks[0]?.musterRequestedAt).toBeUndefined();
+  });
+
+  it("reserves the flag slot while placement is pending and reuses the same request", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.musterFlagLimit = 1;
+    const deps = { keyFor: (x: number, y: number) => `${x},${y}`, sendSetMuster: vi.fn(), pushFeed: vi.fn(), renderHud: vi.fn() };
+    const from = makeTile({ x: 20, ownerId: "me" });
+    parkOrReuseMusterFlagForAttack(state, { from, to: makeTile({ x: 21 }), closest: undefined }, deps);
+    parkOrReuseMusterFlagForAttack(state, { from, to: makeTile({ x: 19 }), closest: undefined }, deps);
+    parkOrReuseMusterFlagForAttack(state, { from: makeTile({ x: 50 }), to: makeTile({ x: 51 }), closest: undefined }, deps);
+    expect(deps.sendSetMuster.mock.calls).toEqual([[20, 0, "HOLD"]]);
+    expect(state.pendingMusterAttacks.map(entry => entry.musterTileKey)).toEqual(["20,0", "20,0"]);
+    expect(deps.pushFeed).toHaveBeenCalledWith(expect.stringContaining("Muster flags full"), "combat", "error");
   });
 
   it("cancels the attack up front (no SET_MUSTER) when at the muster-flag cap with nothing nearby to reuse", () => {

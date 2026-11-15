@@ -161,6 +161,12 @@ describe("tileMenuHeaderStatusForTile capture hold", () => {
     expect(status?.tone).toBe("neutral");
   });
 
+  it("explains the reach requirement before suggesting a garrison", () => {
+    const held = makeFrontierTile({ captureHoldUntil: 43_000 });
+    expect(tileMenuHeaderStatusForTile(held, 1_000, () => false)?.helpText).toContain("Extend your reach");
+    expect(tileMenuHeaderStatusForTile(held, 1_000, () => true)?.helpText).toContain("Garrison it to keep it defended.");
+  });
+
   it("drops the line once the hold has ended or the tile is garrisoned", () => {
     const nowMs = 1_000;
     expect(tileMenuHeaderStatusForTile(makeFrontierTile({ captureHoldUntil: nowMs - 1 }), nowMs)).toBeUndefined();
