@@ -38,7 +38,8 @@ describe("phone layout at 375x667", () => {
   it("opens the Chronicle to the ribbon on short phones so its list isn't two rows tall", () => {
     const short = screens.match(/@media \(orientation: portrait\) and \(max-height: 760px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
     expect(rulesFor(short, "body.hud-v2-compact .v2c-drawer")).toMatch(/top:\s*var\(--v2c-top\);\s*height:\s*auto/);
-    expect(rulesFor(short, "body.hud-v2-compact .v2c-chips")).toContain("repeat(4, minmax(0, 1fr))");
+    // One row of chips (4, or 5 with "towns taken"), not the default two-column grid.
+    expect(rulesFor(short, "body.hud-v2-compact .v2c-chips")).toContain("grid-auto-flow: column");
   });
 
   it("scrolls the town's build panel as one column with Place pinned, above a bar that fits its reserved height", () => {

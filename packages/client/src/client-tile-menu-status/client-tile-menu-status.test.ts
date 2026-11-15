@@ -101,7 +101,7 @@ describe("tileMenuHeaderStatusForTile — reach lines", () => {
     // can't do there and how to extend reach instead of a countdown.
     const status = tileMenuHeaderStatusForTile(makeFrontierTile(), 1_000, () => false, () => []);
     expect(status?.text).toBe("Beyond your reach");
-    expect(status?.helpText).toBe("Can't garrison or build buildings on tiles outside your reach. Extend your reach using Relay Beacons.");
+    expect(status?.helpText).toBe("Your reach is the land within 3 tiles of your towns (more with Dominion) and 5 tiles of your Relay Beacons. Outside it you can claim tiles but not garrison or build on them, and they are lost if their supply route is cut. Build a Relay Beacon nearby to extend it.");
   });
 
   it("ignores a legacy OUT_OF_REACH timer instead of counting it down", () => {

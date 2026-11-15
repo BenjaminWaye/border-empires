@@ -15,8 +15,11 @@ import {
 
 const DIPLOMACY_EVENTS: ReadonlySet<string> = new Set<PersonalActivityDiplomacyEvent>([
   "TRUCE_STARTED",
+  "TRUCE_EXTENDED",
   "TRUCE_ENDED",
   "TRUCE_BROKEN",
+  "ALLIANCE_OFFERED",
+  "ALLIANCE_DECLINED",
   "ALLIANCE_FORMED",
   "ALLIANCE_BROKEN"
 ]);

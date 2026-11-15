@@ -225,6 +225,17 @@ describe("action bar", () => {
     expect(html).not.toContain("⋯");
   });
 
+  // 2026-11-14 playtest: "Beyond your reach" was a dead badge; its explainer only existed in the legacy menu.
+  it("makes a status with an explainer open Details, which leads with the explainer", () => {
+    const v = view({ statusText: "Beyond your reach", statusTone: "warning", statusHelpText: "Your reach is the land within 3 tiles of your towns." });
+    const closed = actionBarHtml(v);
+    expect(closed).toMatch(/<button[^>]*class="hud-v2-tile-status[^"]*"[^>]*data-hud-v2-panel="details"[^>]*>Beyond your reach ⓘ<\/button>/);
+    expect(closed).toContain('data-hud-v2-panel="details" aria-expanded="false">Details ▾');
+    const open = actionBarHtml(v, "details");
+    expect(open).toContain("<strong>Beyond your reach:</strong> Your reach is the land within 3 tiles of your towns.");
+    expect(actionBarHtml(view({ statusText: "Recently captured 2m", statusTone: "warning" }))).toContain('<span class="hud-v2-tile-status hud-v2-tile-status-warning">Recently captured 2m</span>');
+  });
+
   it("makes garrison the main action only when the tile is worth it", () => {
     const plain = selectBarButtons(view({ actions: [act("settle_land", { label: "Garrison" })] }));
     expect(plain).toEqual([]);

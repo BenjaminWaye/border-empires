@@ -89,10 +89,10 @@ describe("installed offer dock", () => {
     expect(button("accept", "t1")).toBe(accept);
   });
 
-  it("stays hidden while the map-loading overlay is up, then shows the offer", () => {
+  it("stays hidden while held (map loading, return briefing), then shows the offer", () => {
     let loading = true;
     const state = { me: "me", incomingTruceRequests: [truce("t1")], incomingAllianceRequests: [] };
-    installDiplomacyOfferDock({ state, sendGameMessage: vi.fn(() => true), isMapLoading: () => loading });
+    installDiplomacyOfferDock({ state, sendGameMessage: vi.fn(() => true), isHeld: () => loading });
     const dock = document.getElementById("diplomacy-offer-dock")!;
     expect(dock.style.display).toBe("none");
     loading = false;

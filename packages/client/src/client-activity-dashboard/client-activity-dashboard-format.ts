@@ -39,10 +39,12 @@ export const activityPlayerNameLookup = (state: Pick<ClientState, "playerNames" 
 export type TechNameLookup = (techId: string) => string | undefined;
 
 const territoryCardText = (card: Extract<PersonalActivityCard, { kind: "TERRITORY_FLIP_GROUP" }>, playerNames: PlayerNameLookup): string => {
-  const counterparty = card.counterpartyPlayerId ? ` (${nameOf(card.counterpartyPlayerId, playerNames)})` : "";
+  const tiles = `${card.tileCount} tile${card.tileCount === 1 ? "" : "s"}`;
+  const other = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : undefined;
+  // A loss names who took the land, in a sentence: "Lost 12 tiles to Konrad".
   const text = card.direction === "GAINED"
-    ? `+${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} claimed${counterparty}`
-    : `−${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} lost${counterparty}`;
+    ? `+${tiles} claimed${other ? ` (${other})` : ""}`
+    : `Lost ${tiles}${other ? ` to ${other}` : ""}`;
   const owner = card.direction === "LOST" ? "your" : card.counterpartyPlayerId ? "their" : undefined;
   const lostWith = featuresPart(card.features, owner);
   return lostWith ? `${text} · ${lostWith}` : text;

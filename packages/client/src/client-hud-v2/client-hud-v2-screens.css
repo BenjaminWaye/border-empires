@@ -156,6 +156,7 @@ body.hud-v2-screen-afc #side-panel {
 .v2m-chip-info:hover { border-color: var(--v2-gold); color: var(--v2-gold-hi); }
 .v2m-req { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-soft); }
 .v2m-req-missing { color: var(--v2-amber); }
+.v2m-where { display: block; font-size: 12px; color: var(--v2-soft); }
 
 /* ---- Ranks ---- */
 .v2r-banner { font-family: var(--v2-body); font-size: 14px; color: var(--v2-soft); }
@@ -255,7 +256,8 @@ body.hud-v2-screen-afc #side-panel {
 .v2c-close { height: 30px; padding: 0 10px; background: var(--v2-well); border: 1px solid var(--v2-edge-strong); color: var(--v2-soft); font-family: var(--v2-mono); font-size: 11px; }
 .v2c-summary { display: grid; gap: 8px; margin: 0 14px; padding: 10px 12px; background: var(--v2-chip); border: 1px solid var(--v2-edge); }
 .v2c-summary-h { font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
-.v2c-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+/* One row whatever the count: "towns taken" only shows when there is one, so 4 or 5 chips. */
+.v2c-chips { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 5px; }
 .v2c-chip { display: grid; padding: 6px; background: var(--v2-well); }
 .v2c-chip b { font-family: var(--v2-mono); font-size: 14px; }
 .v2c-chip span { font-size: 10.5px; color: var(--v2-muted); }
@@ -270,6 +272,7 @@ body.hud-v2-screen-afc #side-panel {
 .v2c-filter-on { background: #2a2216; border-color: var(--v2-gold); color: var(--v2-gold-hi); }
 .v2c-list { flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid var(--v2-line); }
 .v2c-day { padding: 8px 14px 4px; font-family: var(--v2-mono); font-size: 10px; letter-spacing: 0.12em; color: var(--v2-muted); }
+.v2c-day-away { color: var(--v2-red-hi); font-weight: 600; }
 .v2c-row { display: grid; grid-template-columns: 40px 22px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 7px 14px; border-left: 3px solid transparent; }
 .v2c-row-sel { background: #221c13; border-left-color: var(--v2-gold); }
 .v2c-time { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
