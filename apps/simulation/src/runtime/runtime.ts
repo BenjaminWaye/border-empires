@@ -401,7 +401,7 @@ import {
   applyPassiveIncomeForPlayer as applyPassiveIncomeForPlayerImpl,
   applyPassiveIncome as applyPassiveIncomeImpl,
   applyPassiveIncomeAsync as applyPassiveIncomeAsyncImpl,
-  welcomeBackSummaryForPlayer,
+  resumePassiveIncome, welcomeBackSummaryForPlayer,
   type RuntimePassiveIncomeContext
 } from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
@@ -1026,14 +1026,13 @@ export class SimulationRuntime {
   } // docs/replenishment-update-plan.md D1/D11 "Manpower full" email (bounded O(players) sweep, not a per-spend deadline queue -- see runtime-manpower-full-alert.ts's header comment) follows on the same line below to hold this file's net line count:
   tickManpowerFullAlerts(nowMs: number = this.now()): number { return tickManpowerFullAlertsImpl({ nowMs, players: this.state.players, playerManpowerCap: (player) => this.playerManpowerCap(player), playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player), effectiveManpowerAt: (player, at) => this.effectiveManpowerAt(player, at), isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, emitEvent: (event) => this.emitEvent(event), alertedPlayerIds: this.alertedManpowerFullPlayerIds }); }
   updatePlayerLastActive(playerId: string, nowMs: number): void {
+    resumePassiveIncome(this.state.players.get(playerId), this.lastActiveAtMsByPlayer.get(playerId), this.lastIncomeTickAtMsByPlayer, playerId, nowMs);
     this.lastActiveAtMsByPlayer.set(playerId, nowMs);
   }
 
   private passiveIncomeContext(): RuntimePassiveIncomeContext {
     return {
-      ...passiveIncomeSupply(this.state.players, this.resourceSupply),
-      lastActiveAtMsByPlayer: this.lastActiveAtMsByPlayer,
-      lastIncomeTickAtMsByPlayer: this.lastIncomeTickAtMsByPlayer,
+      ...passiveIncomeSupply(this.state.players, this.lastActiveAtMsByPlayer, this.lastIncomeTickAtMsByPlayer, this.resourceSupply),
       cachedEconomySnapshot: (player) => this.cachedEconomySnapshot(player),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),

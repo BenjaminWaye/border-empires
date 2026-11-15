@@ -1,3 +1,4 @@
+import { PASSIVE_INCOME_INACTIVITY_CAP_MS } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { computeEmpireStorageCap } from "./runtime-empire-storage.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
@@ -11,7 +12,7 @@ export type RuntimePassiveIncomeContext = {
   players: ReadonlyMap<string, RuntimePlayer>;
   lastActiveAtMsByPlayer: ReadonlyMap<string, number>;
   lastIncomeTickAtMsByPlayer: Map<string, number>;
-  activeCoinTransfers?: (id: string, at: number) => readonly { to: string; perHour: number }[];
+  activeCoinTransfers?: (id: string, at: number) => readonly { to: string; perHour: number; startedAt: number }[];
   cachedEconomySnapshot: (player: RuntimePlayer) => PlayerUpdateEconomySnapshot;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   addStrategicResource: (player: RuntimePlayer, resource: StrategicResourceKey, amount: number) => void;
@@ -34,6 +35,22 @@ export const isPassiveIncomePaused = (
   nowMs: number,
   inactivityCapMs: number
 ): boolean => !player.isAi && nowMs - (lastActiveAtMs ?? 0) > inactivityCapMs;
+
+/** Reset the collection cursor when activity resumes after an inactive interval. */
+export const resumePassiveIncome = (
+  player: Pick<RuntimePlayer, "isAi"> | undefined,
+  lastActiveAt: number | undefined,
+  lastIncomeTickAtByPlayer: Map<string, number>,
+  playerId: string,
+  nowMs: number
+): void => {
+  if (!player || player.isAi) return;
+  const collectedAt = lastIncomeTickAtByPlayer.get(playerId);
+  if (collectedAt !== undefined && nowMs > collectedAt &&
+    isPassiveIncomePaused(player, lastActiveAt ?? collectedAt, nowMs, PASSIVE_INCOME_INACTIVITY_CAP_MS)) {
+    lastIncomeTickAtByPlayer.set(playerId, nowMs);
+  }
+};
 
 /**
  * Credits passive gold + strategic resource income for a single player since
@@ -75,7 +92,8 @@ export const applyPassiveIncomeForPlayer = (
   const economy = ctx.cachedEconomySnapshot(player);
   // Rebuilding the economy can expire a supply deal and settle income up to
   // that deadline at the previous rate. Only credit the remaining interval.
-  const elapsedMs = nowMs - (ctx.lastIncomeTickAtMsByPlayer.get(player.id) ?? lastTickAt);
+  const collectedThrough = ctx.lastIncomeTickAtMsByPlayer.get(player.id) ?? lastTickAt;
+  const elapsedMs = nowMs - collectedThrough;
   if (elapsedMs <= 0) return;
   const elapsedMinutes = elapsedMs / 60_000;
   const goldPerMinute = economy.incomePerMinute;
@@ -85,16 +103,21 @@ export const applyPassiveIncomeForPlayer = (
   let anyCredited = false;
   const earned = goldPerMinute * elapsedMinutes;
   const transfers = earned > 0 ? ctx.activeCoinTransfers?.(player.id, nowMs) ?? [] : [];
-  const scheduled = transfers.reduce((sum, transfer) => sum + transfer.perHour, 0) * elapsedMs / 3_600_000;
-  const delivered = Math.min(earned, scheduled);
+  const dues = transfers.map(transfer => {
+    const durationMs = Math.max(0, nowMs - Math.max(collectedThrough, transfer.startedAt));
+    return { to: transfer.to, durationMs, amount: transfer.perHour * durationMs / 3_600_000 };
+  });
+  const scheduled = dues.reduce((sum, due) => sum + due.amount, 0);
+  const paymentWindowMs = Math.max(0, ...dues.map(due => due.durationMs));
+  const delivered = Math.min(goldPerMinute * paymentWindowMs / 60_000, scheduled);
   const paidIds = new Set<string>();
   let paid = 0;
   if (delivered > 0) {
     const scale = delivered / scheduled;
-    for (const transfer of transfers) {
-      const recipient = ctx.players.get(transfer.to);
-      if (!recipient) continue;
-      const amount = transfer.perHour * elapsedMs / 3_600_000 * scale;
+    for (const due of dues) {
+      const recipient = ctx.players.get(due.to);
+      if (!recipient || due.amount <= 0) continue;
+      const amount = due.amount * scale;
       recipient.points += amount;
       paid += amount;
       paidIds.add(recipient.id);
@@ -171,7 +194,7 @@ export const applyPassiveIncomeAsync = async (
  * regardless, so we also skip the economy lookup entirely in that case.
  */
 export const welcomeBackSummaryForPlayer = (
-  ctx: Pick<RuntimePassiveIncomeContext, "players" | "lastIncomeTickAtMsByPlayer" | "cachedEconomySnapshot">,
+  ctx: Pick<RuntimePassiveIncomeContext, "players" | "lastActiveAtMsByPlayer" | "lastIncomeTickAtMsByPlayer" | "cachedEconomySnapshot">,
   playerId: string,
   nowMs: number,
   goldPerMinuteOverride?: number
@@ -180,11 +203,12 @@ export const welcomeBackSummaryForPlayer = (
   if (lastTickAt === undefined) return { goldEarned: 0, elapsedMs: 0 };
   const elapsedMs = Math.max(0, nowMs - lastTickAt);
   if (elapsedMs <= 60_000) return { goldEarned: 0, elapsedMs };
-  const goldPerMinute =
-    goldPerMinuteOverride ?? (() => {
-      const player = ctx.players.get(playerId);
-      return player ? ctx.cachedEconomySnapshot(player).incomePerMinute : 0;
-    })();
+  const player = ctx.players.get(playerId);
+  const lastActiveAt = ctx.lastActiveAtMsByPlayer.get(playerId) ?? lastTickAt;
+  if (!player || isPassiveIncomePaused(player, lastActiveAt, nowMs, PASSIVE_INCOME_INACTIVITY_CAP_MS)) {
+    return { goldEarned: 0, elapsedMs };
+  }
+  const goldPerMinute = goldPerMinuteOverride ?? ctx.cachedEconomySnapshot(player).incomePerMinute;
   const goldEarned = goldPerMinute * (elapsedMs / 60_000);
   return { goldEarned: Math.floor(goldEarned), elapsedMs };
 };

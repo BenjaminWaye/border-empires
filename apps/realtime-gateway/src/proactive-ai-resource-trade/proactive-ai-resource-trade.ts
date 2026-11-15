@@ -83,7 +83,7 @@ export const foodSlotsWanted = (player: TradePlayerState | undefined): number =>
 };
 
 /**
- * Terms asking `food` FOOD slots (kept for a day, see AI_FOOD_TRADE_DURATION_HOURS), paid with the AI's cheapest spare
+ * Terms asking `food` FOOD slots (kept for the standard seven-day term), paid with the AI's cheapest spare
  * upkeep resource covering the daily value or, failing that, coin worth that
  * day — exactly what an AI seller needs to accept (evaluateResourceTradeOffer
  * values supply at 24h, netValueToAi). Undefined when it can't pay.

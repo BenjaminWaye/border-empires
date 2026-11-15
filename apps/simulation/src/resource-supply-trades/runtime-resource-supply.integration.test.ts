@@ -1,4 +1,7 @@
 import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
+import { InMemorySimulationCommandStore } from "../command-store/command-store.js";
+import { InMemorySimulationEventStore } from "../event-store/event-store.js";
+import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { applySimulationEventsToRecoveredState } from "../event-recovery/event-recovery.js";
 import { describe, expect, it } from "vitest";
 import { MANPOWER_REFILL_WINDOW_MS, lastManpowerRefillAtMs, NETWORK_RESOURCES, RESOURCE_NETWORKS, type ResourceSupplyOffer } from "@border-empires/shared";
@@ -72,6 +75,28 @@ describe("resource trades in the production runtime",()=>{
     const after = paid.player("seller");
     expect(after.points - before.points).toBeCloseTo(Math.min(before.incomePerMinute * 60, Math.max(0, (before.storageCap?.GOLD ?? Infinity) - before.points)));
   });
+  it("starts paying from a human's return without drawing on inactive or pre-deal time", async () => {
+    const f = fixture();
+    const hour = 3_600_000;
+    const resumeAt = start + 73 * hour;
+    f.runtime.updatePlayerLastActive("buyer", start);
+    f.runtime.applyPassiveIncome(start, 24 * hour);
+    f.setNow(start + 48 * hour);
+    await f.pay("trade", { FOOD: 2 }, 1);
+
+    f.setNow(resumeAt);
+    const before = f.player("seller").points;
+    expect(f.runtime.welcomeBackSummary("buyer", resumeAt).goldEarned).toBe(0);
+    f.runtime.updatePlayerLastActive("buyer", resumeAt);
+    f.runtime.applyPassiveIncome(resumeAt, 24 * hour);
+    expect(f.player("seller").points).toBeCloseTo(before);
+
+    f.setNow(resumeAt + hour);
+    f.runtime.applyPassiveIncome(resumeAt + hour, 24 * hour);
+    const paid = f.player("seller").points - before;
+    expect(paid).toBeGreaterThan(0);
+    expect(paid).toBeLessThanOrEqual(1);
+  });
   it("pauses recurring Coin when pledged supply is lost", async () => {
     const paid = fixture(false, 12, true);
     const baseline = fixture(false, 12, true);
@@ -119,8 +144,14 @@ describe("resource trades in the production runtime",()=>{
     expect(f.player("seller").resourceTradeHoldings?.LUXURY_BIOTA).toBe(1);
   });
   it("preserves trade terms in durable checkpoints, event replay and the actual reconnect snapshot",async()=>{
-    const f=fixture(), before=f.runtime.exportSnapshotSections().initialState, events=collectEvents(f.runtime);
+    const f = fixture();
+    const before = f.runtime.exportSnapshotSections().initialState;
+    const eventStore = new InMemorySimulationEventStore();
+    const queue = createSimulationPersistenceQueue({ commandStore: new InMemorySimulationCommandStore(), eventStore });
+    f.runtime.onEvent(event => queue.enqueueEvent(event, start));
     await f.pay("trade", { LUXURY_BIOTA: 1 }, 50);
+    await queue.whenIdle();
+    const events = (await eventStore.loadAllEvents()).map(event => event.eventPayload);
     const initialState=f.runtime.exportSnapshotSections().initialState;
     expect(initialState.resourceSupplyAgreements).toHaveLength(1);
     const replayed=applySimulationEventsToRecoveredState(before,events);
@@ -130,6 +161,14 @@ describe("resource trades in the production runtime",()=>{
     expect(own.resourceTradeAgreements?.[0]).toMatchObject({ fulfilled: true, targetCoinPerHour: 50, expiresAt: start + 7 * 86_400_000 });
     expect(own.resourceSlots?.bonusSupply?.supply.LUXURY_BIOTA).toBe(1);
     expect(own.manpowerRegenPerMinute).toBeCloseTo(f.player("buyer").manpowerRegenPerMinute!);
+    const checkpointEventId = await eventStore.loadLatestEventId();
+    await f.runtime.submitCommand({
+      commandId: "cancel-trade", sessionId: "system-runtime:social", playerId: "buyer", clientSeq: 0,
+      issuedAt: start, type: "CANCEL_RESOURCE_SUPPLY", payloadJson: JSON.stringify({ agreementId: "trade" })
+    });
+    await queue.whenIdle();
+    const afterCheckpoint = (await eventStore.loadEventsAfter(checkpointEventId)).map(event => event.eventPayload);
+    expect(applySimulationEventsToRecoveredState(initialState, afterCheckpoint).resourceSupplyAgreements).toEqual([]);
   });
   it("suspends deliveries when the supplier loses its extraction site",async()=>{
     const f=fixture(); await f.pay();

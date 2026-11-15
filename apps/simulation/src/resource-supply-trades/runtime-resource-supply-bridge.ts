@@ -67,8 +67,13 @@ export const tradedSupplyHooks = (supply: RuntimeResourceSupply | undefined, now
   } : {};
 
 export const passiveIncomeSupply = (
-  players: RuntimePassiveIncomeContext["players"], supply: RuntimeResourceSupply | undefined
-): Pick<RuntimePassiveIncomeContext, "players" | "activeCoinTransfers"> => ({
+  players: RuntimePassiveIncomeContext["players"],
+  lastActiveAtMsByPlayer: RuntimePassiveIncomeContext["lastActiveAtMsByPlayer"],
+  lastIncomeTickAtMsByPlayer: RuntimePassiveIncomeContext["lastIncomeTickAtMsByPlayer"],
+  supply: RuntimeResourceSupply | undefined
+): Pick<RuntimePassiveIncomeContext, "players" | "lastActiveAtMsByPlayer" | "lastIncomeTickAtMsByPlayer" | "activeCoinTransfers"> => ({
   players,
+  lastActiveAtMsByPlayer,
+  lastIncomeTickAtMsByPlayer,
   ...(supply ? { activeCoinTransfers: (id, at) => supply.ledger.coinTransfers(id, at) } : {})
 });

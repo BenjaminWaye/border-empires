@@ -114,18 +114,18 @@ export class ResourceSupplyLedger {
     }
     return this.cached;
   }
-  coinTransfers(playerId: string, at: number): { to: string; perHour: number }[] {
+  coinTransfers(playerId: string, at: number): { to: string; perHour: number; startedAt: number }[] {
     if (!this.size) return [];
     const { flows, fulfilled } = this.allocation(at);
     if (!flows.has(playerId)) return [];
-    const transfers: { to: string; perHour: number }[] = [];
+    const transfers: { to: string; perHour: number; startedAt: number }[] = [];
     for (const row of this.agreements.values()) {
       if (!fulfilled.has(row.id)) continue;
       if (row.proposerId === playerId && row.proposerCoinPerHour) {
-        transfers.push({ to: row.targetId, perHour: row.proposerCoinPerHour });
+        transfers.push({ to: row.targetId, perHour: row.proposerCoinPerHour, startedAt: row.startedAt });
       }
       if (row.targetId === playerId && row.targetCoinPerHour) {
-        transfers.push({ to: row.proposerId, perHour: row.targetCoinPerHour });
+        transfers.push({ to: row.proposerId, perHour: row.targetCoinPerHour, startedAt: row.startedAt });
       }
     }
     return transfers;
