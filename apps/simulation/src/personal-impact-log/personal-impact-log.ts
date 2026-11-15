@@ -1,3 +1,4 @@
+import type { PersonalActivitySupplyEndedCard } from "@border-empires/game-domain";
 import type { ScoutReportFindings, WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
 
 // Durable, bounded 24-hour source for the personal Activity dashboard's
@@ -73,7 +74,12 @@ export type PersonalImpactScoutSighted = PersonalImpactBase & {
   scoutPlayerId: string;
 };
 
+// A resource supply deal ended (resource-supply-trades/supply-ended-impacts.ts).
+// No tile: x/y are not part of it.
+export type PersonalImpactSupplyEnded = Omit<PersonalImpactBase, "x" | "y"> & Omit<PersonalActivitySupplyEndedCard, "id" | "occurredAt">;
+
 export type PersonalImpactEvent =
+  | PersonalImpactSupplyEnded
   | PersonalImpactWaystationActivated
   | PersonalImpactTown
   | PersonalImpactDock

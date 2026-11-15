@@ -3,6 +3,7 @@ import type {
   PersonalActivityDockCard,
   PersonalActivityScoutReportCard,
   PersonalActivityScoutSightedCard,
+  PersonalActivitySupplyEndedCard,
   PersonalActivityTownCard,
   PersonalActivityWaystationCard
 } from "@border-empires/game-domain";
@@ -15,10 +16,11 @@ export type PersonalImpactCards = {
   docks: PersonalActivityDockCard[];
   buildings: PersonalActivityBuildingCard[];
   scouting: Array<PersonalActivityScoutReportCard | PersonalActivityScoutSightedCard>;
+  supplies: PersonalActivitySupplyEndedCard[];
 };
 
 export const personalImpactCardsForPlayer = (playerId: string, events: readonly PersonalImpactEvent[]): PersonalImpactCards => {
-  const cards: PersonalImpactCards = { waystations: [], towns: [], docks: [], buildings: [], scouting: [] };
+  const cards: PersonalImpactCards = { waystations: [], towns: [], docks: [], buildings: [], scouting: [], supplies: [] };
   for (const event of events) {
     if (event.playerId !== playerId) continue;
     if (event.kind === "WAYSTATION_ACTIVATED") {
@@ -33,6 +35,8 @@ export const personalImpactCardsForPlayer = (playerId: string, events: readonly 
       cards.scouting.push({ ...event, empiresSighted: [...event.empiresSighted] });
     } else if (event.kind === "SCOUT_SIGHTED") {
       cards.scouting.push({ ...event });
+    } else if (event.kind === "SUPPLY_ENDED") {
+      cards.supplies.push({ ...event, youGave: { ...event.youGave }, youGot: { ...event.youGot } });
     }
   }
   return cards;
