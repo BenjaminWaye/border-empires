@@ -14,6 +14,7 @@ export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): stri
   if (panel === "manpower") return "Manpower";
   if (panel === "development") return "Development";
   if (panel === "towns") return "Towns";
+  if (panel === "charges") return "House Charges";
   if (panel === "defensibility") return "Empire Integrity";
   if (panel === "leaderboard") return "Leaderboard";
   if (panel === "feed") return "Alerts";

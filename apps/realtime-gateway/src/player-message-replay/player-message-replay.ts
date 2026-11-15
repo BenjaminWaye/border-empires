@@ -25,7 +25,7 @@
  * socket whichever it did not already receive. Re-sending is safe: the client
  * drops any REACH_UPDATE revision at or below the one it already applied
  * (packages/client/src/client-reach-authoritative/client-reach-authoritative.ts),
- * and AETHER_SHIELDS / ISLAND_NAMES are full replacement lists
+ * and AETHER_SHIELDS / ISLAND_NAMES / HOUSE_CHARGES are full replacement lists
  * (ISLAND_NAMES: apps/simulation/src/island-names/island-names-ticker.ts).
  * SCOUT_DRONE carries the whole flight (or null once docked); its landing
  * report is stripped before storing so a new tab doesn't repeat the feed line
@@ -39,7 +39,7 @@
  * gateway's gauge and eviction counter.
  */
 
-export type ReplayedPlayerMessageType = "REACH_UPDATE" | "AETHER_SHIELDS" | "AFC_HIJACKS" | "ISLAND_NAMES" | "SCOUT_DRONE";
+export type ReplayedPlayerMessageType = "REACH_UPDATE" | "AETHER_SHIELDS" | "AFC_HIJACKS" | "ISLAND_NAMES" | "HOUSE_CHARGES" | "SCOUT_DRONE";
 export type ReplayedPlayerMessage = Record<string, unknown> & { type: ReplayedPlayerMessageType };
 
 export type PlayerMessageReplayOptions = {
@@ -67,6 +67,7 @@ type ReplayEntry<TSocket extends object> = {
 export const isReplayedPlayerMessage = (payload: Record<string, unknown>): payload is ReplayedPlayerMessage =>
   (payload.type === "REACH_UPDATE" && Array.isArray(payload.tileKeys)) || (payload.type === "AETHER_SHIELDS" && Array.isArray(payload.towers)) ||
   (payload.type === "AFC_HIJACKS" && Array.isArray(payload.hijacks)) || (payload.type === "ISLAND_NAMES" && Array.isArray(payload.islands)) ||
+  (payload.type === "HOUSE_CHARGES" && Array.isArray(payload.charges)) ||
   (payload.type === "SCOUT_DRONE" && (payload.flight === null || (typeof payload.flight === "object" && payload.flight !== undefined)));
 
 /** What is kept for replay: SCOUT_DRONE without its one-off landing report. */
