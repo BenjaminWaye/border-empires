@@ -13,7 +13,8 @@ describe("defensibility panel weak-tile toggle regression guard", () => {
     const source = clientHudSource();
     // Both panels' markup is injected by renderDefensibilityPanels (client-hud-defensibility-panel.ts).
     const panelsInsertAt = source.indexOf("renderDefensibilityPanels(state, dom,");
-    const weakToggleBindAt = source.indexOf('const weakDefButtons = dom.hud.querySelectorAll("[data-toggle-weak-def]") as NodeListOf<HTMLButtonElement>;');
+    // The binding itself lives in client-hud-weak-defensibility-toggle.ts; the call must still follow the markup.
+    const weakToggleBindAt = source.indexOf("bindWeakDefensibilityToggle(dom.hud, state,");
 
     expect(panelsInsertAt).toBeGreaterThan(-1);
     expect(weakToggleBindAt).toBeGreaterThan(panelsInsertAt);

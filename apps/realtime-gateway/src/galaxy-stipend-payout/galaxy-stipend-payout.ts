@@ -1,4 +1,5 @@
 import type { SeasonGalaxyTierSnapshot } from "@border-empires/sim-protocol";
+import { HOUSE_CHARGE_STIPEND_INFLUENCE } from "@border-empires/shared";
 
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
@@ -11,8 +12,10 @@ import type { TieredSeason } from "../galaxy-holdings/galaxy-holdings.js";
 // simulation stores `10 × progress` to two decimals; the ledger works in whole
 // units, so it is rounded here once and both the credit and the
 // /hq/galaxy/me view use this function -- what HQ shows is what was paid.
-export const stipendPayoutAmounts = (tier: Pick<SeasonGalaxyTierSnapshot, "influence">): { influence: number } => ({
-  influence: Math.max(0, Math.round(tier.influence ?? 0))
+// Each House Charge held at that season's crowning adds
+// HOUSE_CHARGE_STIPEND_INFLUENCE (galaxy-house-charge-rewards.ts).
+export const stipendPayoutAmounts = (tier: Pick<SeasonGalaxyTierSnapshot, "influence">, heldCharges = 0): { influence: number } => ({
+  influence: Math.max(0, Math.round(tier.influence ?? 0)) + Math.max(0, heldCharges) * HOUSE_CHARGE_STIPEND_INFLUENCE
 });
 
 // Pays every outstanding Stipend (a one-time Influence payout, no territory) into
@@ -40,7 +43,7 @@ export const payOutstandingStipends = async ({
   for (const season of tiered) {
     for (const tier of season.galaxyTiers) {
       if (tier.tier !== "STIPEND") continue;
-      const amounts = stipendPayoutAmounts(tier);
+      const amounts = stipendPayoutAmounts(tier, season.heldChargesByPlayerId?.[tier.playerId] ?? 0);
       if (amounts.influence === 0) continue;
       const binding = await authBindingStore.getByPlayerId(tier.playerId);
       if (!binding?.uid) continue;
