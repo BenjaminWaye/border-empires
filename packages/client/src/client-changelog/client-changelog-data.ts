@@ -16,6 +16,7 @@ import { COMMAND_NAVIGATION_ENTRY, NAVIGATION_LABELS_ENTRY } from "./client-chan
 import { CONNECTED_DISTRICTS_CHANGELOG } from "./client-changelog-connected-districts.js";
 import { CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_SCREEN } from "./client-changelog-data-diplomacy-screen.js";
 import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
+import { CLIENT_CHANGELOG_ENTRIES_AI_RAID_REASON } from "./client-changelog-data-ai-raid-reason.js";
 import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
 import { SEASON_REVEAL_LOADING_CHANGELOG } from "./client-changelog-season-reveal-loading.js";
 import { BATTLE_VARIETY_ENTRY } from "./client-changelog-battle-variety.js";
@@ -386,18 +387,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Each frame now only updates objects that are on show"]
   },
   ...AI_RIVALS_CHANGELOG,
-  {
-    createdAt: 1793544875839, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.01",
-    title: "Towns panel",
-    why: "There was no way to compare towns without opening each one.",
-    changes: [
-      "A new Towns button lists your towns with gold per day, population and growth",
-      "Sort by any column, highest or lowest first",
-      "Press a town to jump to it on the map",
-      "The All view's Food slot list no longer comes out empty"
-    ]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_AI_RAID_REASON,
   {
     createdAt: 1793524472421, // Date.now() captured when this entry was written.
     introducedIn: "2026.11.01",
