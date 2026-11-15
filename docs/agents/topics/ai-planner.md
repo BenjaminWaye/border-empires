@@ -387,3 +387,13 @@ consolidation, planning cadence), not deletion.
     view would be needed to score suppliers lower.
   Each beacon past the first five costs a FOOD slot, so FOOD supply is the
   real ceiling on AI expansion.
+
+- **House Charges are a fallback objective, not a decision class.** An AI
+  House with no ordinary `expansionObjective` (`selectExpansionObjective`)
+  steers toward its first unfinished kept charge's target through that same
+  field (`house-charges/house-charge-ai-objective.ts`, wired in
+  `runtime-state-export.ts`). Point charges cost O(kept charges); an area charge
+  scans only that area's cells (a few hundred at most) for an unheld LAND tile.
+  It never overrides a real objective, and AIs keep non-Survey charges first
+  (they never send NAME_ISLAND). Regression coverage:
+  `house-charge-ai-objective.test.ts`.

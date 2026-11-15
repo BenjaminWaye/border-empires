@@ -12,6 +12,7 @@ import {
   closeLastContestRecap, installLastContestRecapTriggers, lastContestRecapOverlayState, lastContestRecapStatusHtml
 } from "./client-last-contest-recap/client-last-contest-recap.js";
 import { miscPanel } from "./client-season-end-overlay/client-season-end-misc-panel.js";
+import { ensureHouseChargeReveal, houseChargeRevealHtml } from "./client-house-charges/client-house-charge-reveal.js";
 import { scoreGraphPanel } from "./client-season-end-score-graph.js";
 import { nextContestButtonLabel, nextContestFineprint } from "./client-next-contest/client-next-contest.js";
 
@@ -41,7 +42,7 @@ type SeasonEndViewState = Pick<
     | "needsSeasonJoin"
     | "playerColors"
     | "mapRevealEligible"
-  >;
+  > & Partial<Pick<ClientState, "houseChargeReveal">>;
 
 type SeasonEndOverlayDeps = {
   state: SeasonEndViewState & Pick<ClientState, "lastContestRecap">;
@@ -129,6 +130,7 @@ const renderSignature = (state: SeasonEndViewState, leaderboard: SeasonEndLeader
     guest: state.authIsGuest,
     compact: state.needsSeasonJoin,
     admin: state.mapRevealEligible,
+    charges: state.houseChargeReveal ? [state.houseChargeReveal.key, typeof state.houseChargeReveal.view === "string" ? state.houseChargeReveal.view : "ready"] : null,
     self: [leaderboard.selfOverall?.id, leaderboard.selfOverall?.name],
     overall: leaderboard.overall.map((e) => [e.id, e.name, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
     victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.leaderName, o.progressLabel, o.conditionMet]),
@@ -277,6 +279,8 @@ const renderSeasonEndPlate = (deps: SeasonEndPlateDeps): void => {
   }
 
   const leaderboard: SeasonEndLeaderboard = state.leaderboard;
+  // The live screen unseals every House's charges (client-house-charge-reveal.ts); the archived recap does not.
+  if (!recap) ensureHouseChargeReveal(state, `${state.seasonWinner.playerId}:${state.seasonWinner.crownedAt}`, deps.wsUrl, renderHud);
   const signature = renderSignature(state, leaderboard, Boolean(recap));
   if (overlayEl.dataset.seSignature === signature) return;
   overlayEl.dataset.seSignature = signature;
@@ -342,6 +346,7 @@ const renderSeasonEndPlate = (deps: SeasonEndPlateDeps): void => {
             ${hasVictory ? `<button class="se-tab${activeTab === "victory" ? " is-active" : ""}" role="tab" data-tab="victory">Victory Paths</button>` : ""}
             <button class="se-tab${activeTab === "misc" ? " is-active" : ""}" role="tab" data-tab="misc">Statistics</button>
             <button class="se-tab${activeTab === "score-graph" ? " is-active" : ""}" role="tab" data-tab="score-graph">Score Graph</button>
+            ${recap ? "" : `<button class="se-tab${activeTab === "charges" ? " is-active" : ""}" role="tab" data-tab="charges">House Charges</button>`}
           </nav>
           <div class="se-tab-panels">
             <div class="se-tab-panel${activeTab === "standings" ? " is-active" : ""}" data-tab="standings" role="tabpanel">
@@ -356,6 +361,9 @@ const renderSeasonEndPlate = (deps: SeasonEndPlateDeps): void => {
             <div class="se-tab-panel${activeTab === "score-graph" ? " is-active" : ""}" data-tab="score-graph" role="tabpanel">
               ${scoreGraphHtml}
             </div>
+            ${recap ? "" : `<div class="se-tab-panel${activeTab === "charges" ? " is-active" : ""}" data-tab="charges" role="tabpanel">
+              ${houseChargeRevealHtml(state.houseChargeReveal, (id, name) => playerBadge(id, currentPlayerName(leaderboard, id, name), colors), selfId)}
+            </div>`}
           </div>`}
         </div>
         <div class="se-scroll-footer">

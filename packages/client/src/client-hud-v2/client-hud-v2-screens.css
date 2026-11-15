@@ -211,7 +211,11 @@ body.hud-v2-screen-afc #side-panel {
 
 /* ---- Diplomacy ---- */
 .v2d-reqs, .v2d-grid-wrap { padding: 14px 18px; margin-bottom: 14px; background: rgba(15, 13, 10, 0.94); border: 1px solid var(--v2-edge); }
-.v2d-grid-wrap { flex: 1; min-height: 0; overflow: auto; }
+.v2d-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
+.v2d-list-links { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.v2d-pact { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+.v2d-pact-state { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-amber); text-transform: uppercase; letter-spacing: 0.08em; }
+.v2d-pact-note { font-size: 12px; color: var(--v2-muted); }
 .v2d-req { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
 .v2d-req-text { flex: 1; display: grid; font-size: 14px; }
 .v2d-req-text span { font-size: 12px; color: var(--v2-muted); }
