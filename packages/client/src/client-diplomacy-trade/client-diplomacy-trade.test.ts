@@ -54,9 +54,10 @@ describe("temperament line", () => {
 
 describe("tradeVerdict", () => {
   it("blocks truce sending during a lockout even when the AI would accept the price", () => {
-    const truceLockoutReason = "You recently broke a truce.";
-    expect(verdict({ reply: { ...aiReply, truceLockoutReason }, selection: selection(40) }))
-      .toMatchObject({ canSend: false, text: truceLockoutReason });
+    const reason = "You recently broke a truce.";
+    const reply = { ...aiReply, truceLockout: { until: 2_000, reason } };
+    expect(verdict({ reply, selection: selection(40), nowMs: 1_999 })).toMatchObject({ canSend: false, text: reason });
+    expect(verdict({ reply, selection: selection(40), nowMs: 2_000 })).toMatchObject({ canSend: true });
   });
 
   it("previews an AI's answer with the shared pricing rules", () => {
@@ -319,6 +320,22 @@ describe("diplomacy trade screen", () => {
     const sendButton = overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!;
     expect(sendButton.disabled).toBe(true);
     expect(sendButton.textContent).toBe("Can offer again in 10m");
+  });
+
+  it("re-enables truce offers when the lockout expires with the sheet still open", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    try {
+      const { overlay } = openScreen();
+      receiveDiplomacyStance({ ...aiReply, truceLockout: { until: 2_000, reason: "You recently broke a truce." } });
+      const button = overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!;
+      expect(button.disabled).toBe(true);
+      vi.advanceTimersByTime(TRADE_HOLDINGS_CHECK_MS);
+      expect(button.disabled).toBe(false);
+    } finally {
+      closeDiplomacyTradeScreen();
+      vi.useRealTimers();
+    }
   });
 
   // Coin keeps arriving (or being spent elsewhere) while the screen is open.

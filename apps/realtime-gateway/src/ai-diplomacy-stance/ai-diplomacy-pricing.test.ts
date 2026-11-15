@@ -375,8 +375,8 @@ describe("answerDiplomacyStanceQuery", () => {
   };
 
   it("includes the current social lockout in an otherwise valid AI preview", async () => {
-    const reply = await answerDiplomacyStanceQuery({ ...deps, isTruceLockedOut: id => id === "p1" }, "p1", "Milo");
-    expect(reply.truceLockoutReason).toContain("You recently broke a truce");
+    const reply = await answerDiplomacyStanceQuery({ ...deps, truceLockoutUntil: id => id === "p1" ? 100_000 : 0 }, "p1", "Milo");
+    expect(reply.truceLockout).toEqual({ until: 100_000, reason: expect.stringContaining("You recently broke a truce") });
   });
 
   it("returns an AI's stance, attitude with modifiers, and prices", async () => {

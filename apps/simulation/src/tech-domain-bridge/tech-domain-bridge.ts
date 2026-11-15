@@ -1,6 +1,6 @@
 import { afcInstallationPreviews } from "../afc-specializations/afc-installation-previews.js";
 import { afcPlayerStatePayload, afcInstallAllowed } from "../afc-specializations/afc-player-state.js";
-import { usesAfcSpecializations, TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
+import { usesAfcSpecializations, TRICKLE_RESOURCE_KEYS, techGoldCostForResearchedCount, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { techCatalogIdentityMetadata } from "./tech-catalog-identity-metadata.js";
 import { VISION_RADIUS, type ResourceSlotGrant, type SlotResource } from "@border-empires/shared";
@@ -292,7 +292,7 @@ export const chooseTechForPlayer = (
   if (!choices.includes(techId)) return { ok: false, reason: "requirements not met" };
   const available = player.strategicResources ?? {};
   const required = toResources(tech.cost);
-  const goldCost = goldCostForTechResearch(player);
+  const goldCost = goldCostForTechResearch(player, tech);
   if (player.points < goldCost || !hasResources(required, available)) { return { ok: false, reason: "requirements not met" }; }
   player.points = Math.max(0, player.points - goldCost);
   spendStrategicResources(player, required);
@@ -401,7 +401,7 @@ export const buildTechUpdatePayload = (
   const domainChoices = openDomainChoices(domainIds, player);
   const reachableDomainChoiceSet = new Set(reachableDomainChoices(techIds, domainIds, player));
   const available = player.strategicResources ?? {};
-  const goldCost = goldCostForTechResearch(player);
+  const goldCost = techGoldCostForResearchedCount(player.techIds.size);
   const strategicResources = {
     FOOD: available.FOOD ?? 0,
     TITANIUM: available.TITANIUM ?? 0,

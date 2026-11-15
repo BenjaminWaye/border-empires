@@ -222,7 +222,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     answerDiplomacyStanceQuery(
       {
         resolvePlayerByName: socialState.resolvePlayerByName,
-        isTruceLockedOut: socialState.isTruceLockedOut,
+        truceLockoutUntil: socialState.truceLockoutUntil,
         resolvePlayerById: socialState.resolvePlayerById,
         isAutoRespondingAi,
         fetchAiSnapshot,

@@ -18,12 +18,13 @@ import {
   type DiplomacyTerms
 } from "@border-empires/shared";
 
+import { serverClock } from "../client-server-clock/client-server-clock.js";
 import { giftVerdict, suggestedGift } from "./client-diplomacy-gift-view.js";
 
 export type DiplomacyStanceKind = "DISTRUSTFUL" | "SEEKING_PEACE" | "OUTMATCHED" | "WINNING" | "INDIFFERENT" | "WARY";
 
 /** The gateway's DIPLOMACY_STANCE reply (apps/realtime-gateway diplomacy-stance-query.ts). */
-export type DiplomacyStanceReply = { truceLockoutReason?: string } & (
+export type DiplomacyStanceReply = { truceLockout?: { until: number; reason: string } } & (
   | { found: false; targetPlayerName: string }
   | { found: true; targetPlayerName: string; targetPlayerId: string; ai: false }
   | {
@@ -118,21 +119,26 @@ export const allianceTributeNote = (reply: DiplomacyStanceReply | undefined, sel
 
 export const formatOfferCooldown = (remainingMs: number): string => `${Math.max(1, Math.ceil(remainingMs / 60_000))}m`;
 
+export const activeTruceLockoutReason = (reply: DiplomacyStanceReply | undefined, nowMs = Date.now()): string | undefined => {
+  const lockout = reply?.truceLockout;
+  return lockout && serverClock.toLocal(lockout.until) > nowMs ? lockout.reason : undefined;
+};
+
 export const tradeVerdict = (input: {
   targetName: string;
   reply: DiplomacyStanceReply | undefined;
   selection: TradeSelection;
   own: DiplomacyGoods;
   cooldownRemainingMs: number;
+  nowMs?: number;
 }): TradeVerdict => {
   const { targetName, reply, selection, own } = input;
   const kind = selection.kind;
   if (kind === "gift") return giftVerdict(input);
   const sendLabel =
     kind === "trade" ? "Offer resource trade" : kind === "alliance" ? "Propose alliance" : extendsTruce(selection) ? `Offer ${selection.durationHours}h extension` : `Offer ${selection.durationHours}h truce`;
-  if (kind === "truce" && reply?.truceLockoutReason) {
-    return { tone: "bad", text: reply.truceLockoutReason, canSend: false, sendLabel };
-  }
+  const lockoutReason = kind === "truce" ? activeTruceLockoutReason(reply, input.nowMs) : undefined;
+  if (lockoutReason) return { tone: "bad", text: lockoutReason, canSend: false, sendLabel };
   if (input.cooldownRemainingMs > 0) {
     return { tone: "bad", text: `You recently made ${targetName} this kind of offer.`, canSend: false, sendLabel: `Can offer again in ${formatOfferCooldown(input.cooldownRemainingMs)}` };
   }

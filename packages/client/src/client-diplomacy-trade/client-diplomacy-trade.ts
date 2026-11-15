@@ -39,6 +39,7 @@ import {
 import { balancingAmount, suggestedTradeDeal } from "./client-diplomacy-trade-balance.js";
 import { dealKind, dealSummaryHtml, dealVerdictOverride, type DealTreaty } from "./client-diplomacy-trade-deal.js";
 import {
+  activeTruceLockoutReason,
   attitudeSummary,
   temperamentLine,
   tradeVerdict,
@@ -74,6 +75,7 @@ type OpenScreen = {
   /** The holdings last rendered, and the watch that re-renders when they change. */
   shownHoldings: DiplomacyGoods;
   shownSupplySignature: string;
+  shownTruceLockoutReason: string | undefined;
   holdingsWatch: ReturnType<typeof setInterval> | undefined;
   /** A gift's outcome (or "sending…"), shown in place of the verdict until the player edits the deal. */
   notice: Pick<TradeVerdict, "tone" | "text"> | undefined;
@@ -146,6 +148,7 @@ const render = (screen: OpenScreen): void => {
   const active = screen.deps.activeSupply?.(), agreementsEl = overlay.querySelector<HTMLElement>("[data-resource-agreements]");
   if (agreementsEl && active) agreementsEl.innerHTML = resourceOfferCardsHtml(active.offers ?? [], active.ownId, reply?.found ? reply.targetPlayerId : screen.targetPlayerId) + activeResourceDealsHtml(active.agreements, active.ownId, reply?.found ? reply.targetPlayerId : screen.targetPlayerId);
   screen.shownHoldings = own;
+  screen.shownTruceLockoutReason = activeTruceLockoutReason(reply);
   screen.shownSupplySignature = JSON.stringify(active ?? null) + Math.floor(Date.now() / 60_000);
   const stanceEl = overlay.querySelector<HTMLElement>("[data-trade-stance]");
   if (stanceEl) {
@@ -353,6 +356,7 @@ export const openDiplomacyTradeScreen = (
     previousFocus: document.activeElement instanceof HTMLElement ? document.activeElement : undefined,
     shownHoldings: deps.ownHoldings(),
     shownSupplySignature: "",
+    shownTruceLockoutReason: undefined,
     holdingsWatch: undefined,
     notice: undefined,
     giftPending: undefined
@@ -362,7 +366,7 @@ export const openDiplomacyTradeScreen = (
   screen.holdingsWatch = setInterval(() => {
     const own = deps.ownHoldings();
     const supplySignature = JSON.stringify(screen.deps.activeSupply?.() ?? null) + Math.floor(Date.now() / 60_000);
-    if (supplySignature !== screen.shownSupplySignature || own.gold !== screen.shownHoldings.gold || JSON.stringify(own.resources) !== JSON.stringify(screen.shownHoldings.resources)) render(screen);
+    if (activeTruceLockoutReason(screen.reply) !== screen.shownTruceLockoutReason || supplySignature !== screen.shownSupplySignature || own.gold !== screen.shownHoldings.gold || JSON.stringify(own.resources) !== JSON.stringify(screen.shownHoldings.resources)) render(screen);
   }, TRADE_HOLDINGS_CHECK_MS);
   // Picking a treaty replaces the one in the deal. Pressing it again does nothing: only the deal's ✕
   // takes it out, so a double-tap never turns a paid truce into a gift.

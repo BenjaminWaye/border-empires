@@ -466,7 +466,7 @@ export const createSocialState = (options: {
     ...createSocialOfferSettlementState({ allianceRequests, truceRequests, settlingRequestIds, now, sweepExpired, sink, updates: ids => ok(ids),
       validateTruceOffer: request => truceOfferIsStale(request, activeTruceBetween(request.fromPlayerId, request.toPlayerId, trucesByPair, now())) ? STALE_TRUCE_OFFER : undefined }),
     playerNameOf: (playerId) => playersById.get(playerId)?.name ?? playerId,
-    isTruceLockedOut: (playerId) => playerIsTruceLockedOut(playerId, truceLockoutUntilByPlayerId, now()),
+    truceLockoutUntil: (playerId) => playerIsTruceLockedOut(playerId, truceLockoutUntilByPlayerId, now()) ? (truceLockoutUntilByPlayerId.get(playerId) ?? 0) : 0,
     resolvePlayerByName: (playerName) => {
       const player = resolveByName(playerName);
       return player ? { id: player.id, name: player.name } : undefined;
