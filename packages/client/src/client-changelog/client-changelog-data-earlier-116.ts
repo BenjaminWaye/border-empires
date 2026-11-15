@@ -5,6 +5,7 @@ import { RETURN_LOSSES_FIRST_ENTRY } from "./client-changelog-return-losses-firs
 import { GUIDE_MANIFEST_PRICE_ENTRY } from "./client-changelog-guide-manifest-price.js";
 import { PLAIN_LOSS_REPORTS_ENTRY } from "./client-changelog-plain-loss-reports.js";
 import { TOWN_RING_GARRISON_ENTRY } from "./client-changelog-town-ring-garrison.js";
+import { TOWN_LEFT_CHRONICLE_ENTRY } from "./client-changelog-town-left-chronicle.js";
 import { COPY_POINTERS_ENTRY } from "./client-changelog-copy-pointers.js";
 import { CHRONICLE_DIPLOMACY_ROWS_ENTRY } from "./client-changelog-chronicle-diplomacy-rows.js";
 import { TOWNS_TABLE_HEADERS_ENTRY } from "./client-changelog-towns-table-headers.js";
@@ -27,6 +28,7 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_116: ClientChangelogEntry[] = [
   { ...TOWN_RING_GARRISON_ENTRY, createdAt: 1794590298990, },
   { ...PLAIN_LOSS_REPORTS_ENTRY, createdAt: 1794695985103, },
   { ...COPY_POINTERS_ENTRY, createdAt: 1794635778800, },
+  { ...TOWN_LEFT_CHRONICLE_ENTRY, createdAt: 1794696277821, },
   { ...TOWNS_TABLE_HEADERS_ENTRY, createdAt: 1794635875376, },
   { ...CHRONICLE_DIPLOMACY_ROWS_ENTRY, createdAt: 1794696575032, },
   { ...SETUP_SCREEN_ENTRY, createdAt: 1794635712070, },

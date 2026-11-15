@@ -1715,7 +1715,7 @@ export class SimulationRuntime {
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).ownedTownTierByTile.keys()]
         : undefined;
-    publishOwnershipChange({ tileKey, tile, previous, commandId }, this.onOwnershipChange, this.state.players, this.now());
+    publishOwnershipChange({ tileKey, tile, previous, commandId }, this.onOwnershipChange, this.state.players, this.now(), this.activityLogs);
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.state.tiles.set(tileKey, tile);
     this.relicMapHintIndex.refresh(tileKey, tile);

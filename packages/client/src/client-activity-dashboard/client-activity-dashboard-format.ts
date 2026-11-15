@@ -66,6 +66,8 @@ const townCardText = (card: Extract<PersonalActivityCard, { kind: "TOWN_CAPTURED
   const outcome = card.kind === "TOWN_CAPTURED"
     ? `Captured ${town}${counterparty ? ` from ${counterparty}` : ""}`
     : `Lost ${town}${counterparty ? ` to ${counterparty}` : ""}`;
+  // No captor (abandoned, cut off, struck down): it was left unclaimed. Say so as it was then, not as it is now.
+  if (card.kind === "TOWN_LOST" && !counterparty && card.townSurvived) return `Lost ${town} · left unclaimed`;
   const aftermath = card.townSurvived ? `${roundedAmount(card.populationAfter)} population remaining` : "settlement razed";
   return `${outcome} · ${aftermath}`;
 };
