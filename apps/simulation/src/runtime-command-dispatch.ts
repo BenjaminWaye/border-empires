@@ -48,6 +48,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleTitaniumLevyMusterCommand: (command: CommandEnvelope) => void;
   handleSetAutoSettlePrefsCommand: (command: CommandEnvelope) => void;
   handleNameIslandCommand: (command: CommandEnvelope) => void;
+  handleChooseHouseChargesCommand: (command: CommandEnvelope) => void;
   handleExploreCommand: (command: CommandEnvelope) => void;
   handleUpgradeTownTierCommand: (command: CommandEnvelope) => void;
   handleSyncAllianceCommand: (command: CommandEnvelope) => void;
@@ -124,6 +125,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "TITANIUM_LEVY_MUSTER") return handlers.handleTitaniumLevyMusterCommand(command);
   if (command.type === "SET_AUTO_SETTLE_PREFS") return handlers.handleSetAutoSettlePrefsCommand(command);
   if (command.type === "NAME_ISLAND") return handlers.handleNameIslandCommand(command);
+  if (command.type === "CHOOSE_HOUSE_CHARGES") return handlers.handleChooseHouseChargesCommand(command);
   if (command.type === "EXPLORE") return handlers.handleExploreCommand(command);
   if (command.type === "UPGRADE_TOWN_TIER") return handlers.handleUpgradeTownTierCommand(command);
   if (command.type === "SYNC_ALLIANCE") return handlers.handleSyncAllianceCommand(command);
@@ -204,6 +206,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "TITANIUM_LEVY_MUSTER" ||
   command.type === "SET_AUTO_SETTLE_PREFS" ||
   command.type === "NAME_ISLAND" ||
+  command.type === "CHOOSE_HOUSE_CHARGES" ||
   command.type === "EXPLORE" ||
   command.type === "UPGRADE_TOWN_TIER" ||
   command.type === "SYNC_ALLIANCE" ||

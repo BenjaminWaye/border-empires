@@ -28,7 +28,7 @@ export function handleIntelResult(msg: Record<string, unknown>, state: ClientSta
       return true;
     }
     // SCOUT_DRONE / SCOUT_SIGHTED: the player's scout drone and rival scouts at the border (client-scout-drone/).
-    if (handleScoutDroneMessage(msg, state, pushFeed, renderHud)) return true;
+    if (handleScoutDroneMessage(msg, state, (entry) => pushFeedEntry(state, entry), renderHud)) return true;
 
   return false;
 }

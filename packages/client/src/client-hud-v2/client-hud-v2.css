@@ -158,6 +158,8 @@ body.hud-v2.hud-v2-waiting #tile-action-menu { display: none !important; }
 .hud-v2-tracker:empty { display: none; }
 .hud-v2-tracker-head { padding: 10px 14px 4px; font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); }
 .hud-v2-tracker-head-needs { color: var(--v2-amber); }
+.hud-v2-tracker-head:has(.hud-v2-tracker-cancel) { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hud-v2-tracker-cancel { min-height: 28px; padding: 2px 10px; border: 1px solid var(--v2-amber); border-radius: 6px; background: transparent; font: inherit; font-size: 11px; letter-spacing: 0.04em; color: var(--v2-amber); cursor: pointer; }
 .hud-v2-slots { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px 2px; border: 0; background: transparent; font: inherit; font-size: 12px; color: var(--v2-soft); text-align: left; cursor: pointer; }
 .hud-v2-slots:hover .hud-v2-slots-label { color: var(--v2-gold-hi); }
 .hud-v2-slots-label { font-family: var(--v2-display); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--v2-gold); }
