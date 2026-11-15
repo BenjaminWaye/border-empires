@@ -1621,8 +1621,8 @@ export class SimulationRuntime {
 
   /**
    * Returns a cached PlayerUpdateEconomySnapshot for the player, rebuilding it
-   * only when the cache has been invalidated (i.e., a tile affecting this
-   * player's income changed via replaceTileState). See cachedEconomySnapshot
+   * when invalidated or when the Integrity multiplier changed (i.e., a tile
+   * affecting this player's income changed). See cachedEconomySnapshot
    * in runtime-economy.ts for the full rebuild logic and caching rationale.
    */
   private cachedEconomySnapshot(player: RuntimePlayer): PlayerUpdateEconomySnapshot {

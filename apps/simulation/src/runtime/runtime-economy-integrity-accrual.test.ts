@@ -85,4 +85,14 @@ describe("cachedEconomySnapshot applies the Empire Integrity income multiplier o
     const first = cachedEconomySnapshot(ctx, player);
     expect(cachedEconomySnapshot(ctx, player)).toBe(first);
   });
+
+  // Review of #2789: barbarian-1 (isAi false) would rebuild defensibility on every state export for a
+  // multiplier on income nobody reads; it stays at 1x and leaves the defensibility cache alone.
+  it("keeps barbarians at 1x without building defensibility", () => {
+    const ctx = makeCtx();
+    const barbarian = { ...player, id: "barbarian-1" } as RuntimePlayer;
+    ctx.players.set(barbarian.id, barbarian);
+    expect(cachedEconomySnapshot(ctx, barbarian).integrityEconMult).toBe(1);
+    expect(ctx.defensibilityMetricsCacheByPlayer.has(barbarian.id)).toBe(false);
+  });
 });

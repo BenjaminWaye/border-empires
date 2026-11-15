@@ -66,7 +66,8 @@ export interface RuntimeEconomyCacheContext {
  * the Integrity panel advertised.
  */
 function integrityEconMultForPlayer(ctx: RuntimeEconomyCacheContext, player: RuntimePlayer): number {
-  if (!EMPIRE_INTEGRITY_ENABLED) return 1;
+  // Barbarians earn nothing anyone reads, and with isAi false they would rebuild defensibility on every export.
+  if (!EMPIRE_INTEGRITY_ENABLED || player.id.startsWith("barbarian-")) return 1;
   const metrics = cachedDefensibilityMetrics(ctx, player.id, ctx.summaryForPlayer(player.id));
   return integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
 }
@@ -79,7 +80,8 @@ function integrityEconMultForPlayer(ctx: RuntimeEconomyCacheContext, player: Run
  *
  * The snapshot is built with full dock context so both the accrual path and
  * the emit path share a single entry; its incomePerMinute is what accrual
- * credits and its GOLD sources itemise exactly that amount.
+ * credits. Its GOLD sources are the unmultiplied buckets: they only add up
+ * to incomePerMinute once an Integrity line is itemised alongside them.
  *
  * Cache miss cost: O(settled tiles). Cache hit cost: O(1).
  */
