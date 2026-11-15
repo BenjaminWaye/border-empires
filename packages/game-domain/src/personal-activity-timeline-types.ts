@@ -1,4 +1,4 @@
-import type { FortVariant, NaturalWonderType, WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
+import type { FortVariant, NaturalWonderType, ResourceSupplyOffer, WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
 
 // Shared response types for the personal Activity dashboard's 24h "Yours"
 // timeline (docs/activity-dashboard-plan.md), mirroring
@@ -288,7 +288,25 @@ export type PersonalActivityDiplomacyCard = {
   court?: boolean;
 };
 
+// A resource supply deal with another House ended: cancelled by either side,
+// ended because one attacked the other, or run out. Between empires, not on a
+// tile, so no coordinates. youGave / youGot are the viewer's side of the deal.
+export type PersonalActivitySupplyEndedReason = "CANCELLED" | "ATTACK" | "EXPIRED";
+
+export type PersonalActivitySupplyEndedCard = {
+  kind: "SUPPLY_ENDED";
+  id: string;
+  occurredAt: number;
+  counterpartyPlayerId: string;
+  reason: PersonalActivitySupplyEndedReason;
+  /** CANCELLED: who ended it. ATTACK: who attacked. */
+  byPlayerId?: string;
+  youGave: ResourceSupplyOffer;
+  youGot: ResourceSupplyOffer;
+};
+
 export type PersonalActivityCard =
+  | PersonalActivitySupplyEndedCard
   | PersonalActivityTerritoryCard
   | PersonalActivityCombatCard
   | PersonalActivityCombatGroupCard
