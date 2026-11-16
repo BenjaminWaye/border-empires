@@ -97,7 +97,7 @@ export const spaceViewStyle = `
   .sv-actions{display:flex;gap:8px;flex-wrap:wrap}
   .sv-btn{border:1px solid rgba(214,150,68,.4);background:linear-gradient(180deg,rgba(45,32,18,.85),rgba(24,17,10,.85));color:#f0e0c8;border-radius:6px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}
   .sv-btn:hover{border-color:rgba(255,214,148,.65);background:linear-gradient(180deg,rgba(65,46,26,.9),rgba(34,24,14,.9));box-shadow:0 0 10px rgba(214,150,68,.2)}
-  .sv-settings-panel{position:absolute;top:56px;right:16px;z-index:3;width:min(360px,calc(100vw - 32px));max-height:calc(100vh - 96px);overflow:auto;background:linear-gradient(180deg,rgba(22,15,9,.97),rgba(12,8,5,.97));border:1px solid rgba(214,150,68,.3);border-radius:10px;padding:16px;box-shadow:0 18px 48px rgba(0,0,0,.5)}
+  .sv-settings-panel{position:absolute;top:56px;right:16px;z-index:35;width:min(360px,calc(100vw - 32px));max-height:calc(100vh - 96px);overflow:auto;background:linear-gradient(180deg,rgba(22,15,9,.97),rgba(12,8,5,.97));border:1px solid rgba(214,150,68,.3);border-radius:10px;padding:16px;box-shadow:0 18px 48px rgba(0,0,0,.5)}
   .sv-settings-panel[hidden]{display:none}
   .sv-btn[data-alert]{position:relative}
   .sv-btn[data-alert]::after{content:"";position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:#ff6b58}
@@ -107,7 +107,7 @@ export const spaceViewStyle = `
   .sv-strategic-exit{position:absolute;z-index:2;left:50%;bottom:18px;transform:translateX(-50%)}
   .sv-strategic-exit[hidden]{display:none}
   /* Close button for whichever panel is open (client-space-view-panels.ts places it beside the panel). */
-  .sv-panel-close{position:absolute;z-index:6;width:32px;height:32px;padding:0;border-radius:50%;border:1px solid rgba(214,150,68,.6);background:rgba(20,14,8,.95);color:#ffd68f;font-size:20px;line-height:1;cursor:pointer;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+  .sv-panel-close{position:absolute;z-index:36;width:32px;height:32px;padding:0;border-radius:50%;border:1px solid rgba(214,150,68,.6);background:rgba(20,14,8,.95);color:#ffd68f;font-size:20px;line-height:1;cursor:pointer;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.5)}
   .sv-panel-close[hidden]{display:none}
   .sv-panel-close:hover{background:rgba(60,42,24,.98)}
   .sv-canvas{flex:1;display:block;width:100%;height:100%;touch-action:none}

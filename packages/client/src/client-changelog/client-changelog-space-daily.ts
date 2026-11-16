@@ -13,5 +13,15 @@ export const SPACE_DAILY_CHANGELOG: ClientChangelogEntry[] = [
       "Space View shows your choices as action cards: decrees in the galaxy view, orders in each system's view. After you play one, the view moves on to the next system with an order ready, then back to the galaxy. Answering the Court or a Writ is free",
       "The cards follow the new HUD's look on desktop and phones. Add ?space=legacy to the address to go back to the old panels"
     ]
+  },
+  {
+    createdAt: 1794806276278, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.16",
+    title: "Space: the briefing no longer hides behind the decree cards",
+    why: "The decree cards drew on top of the Voyager's Briefing, the welcome letter and the Settings, Senate and Court panels.",
+    changes: [
+      "The Voyager's Briefing and the Court's welcome letter now sit above the decree cards until you close them",
+      "Settings, Senate and Court panels open above the decree cards instead of underneath them"
+    ]
   }
 ];
