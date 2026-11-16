@@ -316,7 +316,9 @@ body.hud-v2 #tile-action-menu.hud-v2-docked:not(.hud-v2-expanded) { display: non
 body.hud-v2 #tile-action-menu.hud-v2-docked.hud-v2-expanded {
   left: auto !important; right: 16px; top: 128px !important; bottom: 236px; width: 348px !important; overflow-y: auto; z-index: 55;
 }
-body.hud-v2 #side-panel { top: 128px; bottom: 236px; }
+/* Hosted panels (Integrity, Economy, Manpower) clear the orb when the window is tall enough; on a short window
+   that left ~1/3 of the screen (Integrity read as cut off halfway down), so keep >= 520px and draw over the orb instead. */
+body.hud-v2 #side-panel { top: 128px; bottom: max(16px, min(236px, calc(100dvh - 648px))); z-index: 41; }
 /* Settings is a centred dialog over the dimmed map, not a side panel. */
 .hud-v2-dim { display: none; position: fixed; inset: 0; z-index: 48; background: rgba(8, 6, 3, 0.62); pointer-events: auto; }
 /* Keyed off the panel's own class, set in the same render that opens it, so Settings never shows at the side first. */
