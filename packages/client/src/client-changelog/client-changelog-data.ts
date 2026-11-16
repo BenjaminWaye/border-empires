@@ -11,6 +11,7 @@ import { CAPTURE_DURING_DEAL_ENTRY } from "./client-changelog-capture-during-dea
 import { CLARITY_HINTS_ENTRY } from "./client-changelog-clarity-hints.js";
 import { ACTION_FEEDBACK_ENTRY } from "./client-changelog-action-feedback.js";
 import { AUTO_GARRISON_ASK_ENTRY } from "./client-changelog-auto-garrison-ask.js";
+import { MANPOWER_BUILD_TEXT_ENTRY } from "./client-changelog-manpower-build-text.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -494,6 +495,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
+  { ...MANPOWER_BUILD_TEXT_ENTRY, createdAt: 1794806234122, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

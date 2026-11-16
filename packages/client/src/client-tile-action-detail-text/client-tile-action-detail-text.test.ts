@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { buildDetailTextForAction } from "./client-tile-action-detail-text.js";
 import type { Tile } from "../client-types.js";
@@ -45,5 +47,34 @@ describe("buildDetailTextForAction — build_hydrogarden (Hydrogarden)", () => {
 describe("manpower building detail", () => {
   it("shows Neural Works output per batch", () => {
     expect(buildDetailTextForAction("build_neural_works", baseTile)).toContain("+24 manpower per batch");
+  });
+});
+
+describe("buildDetailTextForAction — manpower structures", () => {
+  it("describes the Ancillary Factory instead of returning undefined", () => {
+    const text = buildDetailTextForAction("build_ancillary_factory", baseTile);
+    expect(text).toBeDefined();
+    expect(text).toContain("+12 manpower per batch empire-wide");
+    expect(text).toContain("Neural Works");
+  });
+
+  it("describes the Reserve Lattice instead of returning undefined", () => {
+    const text = buildDetailTextForAction("build_reserve_lattice", baseTile);
+    expect(text).toBeDefined();
+    expect(text).toContain("Ancillary Depot");
+    expect(text).toContain("+35%");
+  });
+
+  it("has detail copy for every action the tile menu asks it to describe", () => {
+    // The tile menu concatenates this text with a suffix, so a missing entry
+    // renders the literal word "undefined" in the build list.
+    const sourceDir = fileURLToPath(new URL("../client-tile-action-logic/", import.meta.url));
+    const ids = new Set<string>();
+    for (const file of readdirSync(sourceDir).filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"))) {
+      for (const match of readFileSync(`${sourceDir}${file}`, "utf8").matchAll(/buildDetailTextForAction\("([a-z0-9_]+)"/g)) ids.add(match[1]!);
+    }
+    expect(ids.size).toBeGreaterThan(20);
+    const missing = [...ids].filter((id) => buildDetailTextForAction(id, baseTile, baseTile) === undefined && id !== "remove_structure");
+    expect(missing).toEqual([]);
   });
 });
