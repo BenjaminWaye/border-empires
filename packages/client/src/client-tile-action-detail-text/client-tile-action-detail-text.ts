@@ -1,4 +1,4 @@
-import { ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, manpowerPerBatch, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY } from "@border-empires/shared";
+import { ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, manpowerPerBatch, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY, RESOURCE_NETWORKS, networkResourceForAction } from "@border-empires/shared";
 // Extracted from client-tile-menu-view.ts (file-line-cap task) — the giant
 // action-id -> detail-copy if-chain has no state/dependency overlap with the
 // rest of that file's tile-menu-view building, so it lives on its own here.
@@ -96,9 +96,11 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") return observatoryToggleDetailText(actionId);
   if (actionId === "abandon_territory")
     return "Give this tile up. The land goes neutral; anything built on it (fort, Aether Tower, economic structure) stays standing and is picked up by whoever claims the tile next. Siege Batteries and Relay Beacons are razed, and any mustered manpower is returned to your pool.";
-  if (actionId === "build_ancillary_depot") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if a Reserve Lattice is in this town's connected network.";
-  if (actionId === "build_ancillary_factory") return `Manpower works. Adds +${manpowerPerBatch(ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE)} manpower per batch empire-wide, plus +${manpowerPerBatch(NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY)} more if a Neural Works is in this town's connected network. One per town.`;
-  if (actionId === "build_reserve_lattice") return "Reserve store for the connected network. Each Ancillary Depot in this town's connected network adds +300 more manpower cap, and +35% of its town's terrain-adjusted base capacity instead of +10%. One per connected-town network.";
+  if (actionId === "build_ancillary_depot") return "Manpower depot. Adds +150 manpower cap plus 10% of this town's terrain-adjusted base capacity, or 35% if a Reserve Lattice is in this town's connected network.";
+  if (actionId === "build_ancillary_factory") return `Raises manpower regeneration across your whole empire: +${manpowerPerBatch(ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE)} manpower per batch, plus +${manpowerPerBatch(NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY)} more if a Neural Works is in this town's connected network. One per town.`;
+  if (actionId === "build_reserve_lattice") return "Network amplifier. Each Ancillary Depot in this town's connected network adds 35% of its town's terrain-adjusted base capacity to your manpower cap, instead of 10%. One per connected-town network.";
+  const networkResource = networkResourceForAction(actionId);
+  if (networkResource) return `Build on this ${RESOURCE_NETWORKS[networkResource].name.toLowerCase()} deposit. ${RESOURCE_NETWORKS[networkResource].description}`;
   if (actionId === "build_harbor_exchange") return "Build on a garrisoned dock tile. Adds +5 coin / day per connected owned dock.";
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";
   if (actionId === "build_neural_works") return `Build on a town support tile. Mustering hub: boosts outpost muster speed within 50 tiles, and adds +${manpowerPerBatch(NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY)} manpower per batch empire-wide for every connected Ancillary Factory.`;
