@@ -8,7 +8,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { autoSettlePrefsCommandPayload, isChosenTrickleResource } from "@border-empires/shared";
+import { autoSettlePrefsCommandPayload, COMMAND_RATE_LIMIT_CAPACITY, COMMAND_RATE_LIMIT_REFILL_PER_SECOND, isChosenTrickleResource } from "@border-empires/shared";
 import { ClientMessageSchema, upgradeLegacyStructureNames } from "@border-empires/shared";
 import type { DurableCommandType } from "@border-empires/client-protocol";
 import { preSerializeBroadcast, sendJsonToSocket } from "../broadcast-payload/broadcast-payload.js";
@@ -781,7 +781,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   // Bounds the flood a single connection can push at the simulation: idempotency/dedup
   // only catches *repeated* commandId/clientSeq, not a fast-incrementing stream of new
   // ones, so nothing else stops SETTLE/BUILD_*/CANCEL_* spam without this.
-  const commandRateLimiter = new CommandRateLimiter({ capacity: 20, refillPerSecond: 5 });
+  const commandRateLimiter = new CommandRateLimiter({ capacity: COMMAND_RATE_LIMIT_CAPACITY, refillPerSecond: COMMAND_RATE_LIMIT_REFILL_PER_SECOND });
   // Fog-disabled sessions need a full-world snapshot resubscribe whenever the
   // world changes, but doing that synchronously inside the per-batch event
   // handler blocks the gateway loop for hundreds of ms × N batches per second
@@ -2452,7 +2452,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
           };
           const dispatchDurableCommand = (type: DurableCommandType, payload: Record<string, unknown>, withMetadata = false): Promise<void> => {
-            if (rejectIfCommandRateLimited({ limiter: commandRateLimiter, playerId: authedSession.playerId, commandType: type, nowMs: Date.now(), socket, sendJson, recordGatewayEvent })) return Promise.resolve();
+            if (rejectIfCommandRateLimited({ limiter: commandRateLimiter, playerId: authedSession.playerId, commandType: type, rejectedMessage: message, nowMs: Date.now(), socket, sendJson, recordGatewayEvent })) return Promise.resolve();
             return trackSubmitLatency(() => submitDurableCommand(authedSession, { type, payload, ...(withMetadata ? optionalCommandMetadata(message) : {}) }, submitDeps));
           };
           if (message.type === "SETTLE") {
