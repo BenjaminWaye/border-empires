@@ -131,7 +131,6 @@ import {
 } from "../runtime-manpower-structure-bonus.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
-import { effectiveVisionRadiusForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import { developmentProcessLimitForPlayer } from "../development-process-limit.js";
 import {
   type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
@@ -145,7 +144,8 @@ import {
 import { refreshResourceSlotCachesForPlayer as refreshResourceSlotCachesForPlayerImpl } from "../resource-slot-view/resource-slot-cache-refresh.js";
 import { foodDormantEconomicStructureKeysFromDormancy } from "../snapshot-economy-helpers.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
-import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
+import { createRuntimeVisibilityCoverage } from "./runtime-visibility-coverage-factory.js";
+import { ExploredTilesStore } from "../explored-tiles/explored-tiles-store.js";
 import { createVisionFootprintTableForRuntime } from "../vision-footprint-table.js";
 import { VisionTransitionAccumulator } from "../runtime-vision-transition.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
@@ -534,6 +534,7 @@ export class SimulationRuntime {
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   private readonly visionFootprintTable = createVisionFootprintTableForRuntime(WORLD_WIDTH, WORLD_HEIGHT, () => this.state.tiles, () => this.terrainEpoch); // see vision-footprint-table.ts
   private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
+  private readonly exploredTiles = new ExploredTilesStore(WORLD_WIDTH, WORLD_HEIGHT); // per-player fog memory, saved in snapshots; see explored-tiles-store.ts
   // Watchtower "flicker" reveals in flight — see runtime-watchtower-reveal-tick.ts. Self-draining, bounded, never persisted.
   private readonly pendingWatchtowerReveals: PendingWatchtowerReveal[] = [];
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
@@ -778,19 +779,7 @@ export class SimulationRuntime {
       dockLinksByDockTileKey: initDockLinksByDockTileKey,
       dockNetworkComponentByTileKey: buildDockNetworkComponentByTileKey(initDockLinksByDockTileKey),
       locksByTile: createLocksFromInitialState(options.initialState),
-      // O(radius²)-per-change coverage for the TILE_DELTA_BATCH hot path (see visibility-coverage-cache.ts).
-      visibilityCoverage: new VisibilityCoverageTracker(WORLD_WIDTH, WORLD_HEIGHT, {
-        visionRadiusForPlayer: (id) => { const p = this.state.players.get(id); return p ? effectiveVisionRadiusForPlayer(p) : 1; },
-        getPlayer: (id) => this.state.players.get(id),
-        settledTileKeysForPlayer: (id) => {
-          const summary = this.summaryForPlayer(id);
-          if (summary.frontierTileKeys.size === 0) return summary.territoryTileKeys;
-          const settled = new Set<string>();
-          for (const key of summary.territoryTileKeys) if (!summary.frontierTileKeys.has(key)) settled.add(key);
-          return settled;
-        },
-        frontierTileKeysForPlayer: (id) => this.summaryForPlayer(id).frontierTileKeys
-      }, this.visionFootprintTable)
+      visibilityCoverage: createRuntimeVisibilityCoverage({ players: () => this.state.players, summaryForPlayer: (id) => this.summaryForPlayer(id), footprintTable: this.visionFootprintTable, onFirstSeen: (viewerId, key) => this.exploredTiles.markKey(viewerId, key) })
     });
     if (this.afcUpgradeRuleset) for (const player of this.state.players.values()) player.afcUpgradeRuleset = this.afcUpgradeRuleset;
     this.siphonModeLifecycle = new SiphonModeLifecycle({ tiles: this.state.tiles, now: () => this.now(), replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
@@ -923,6 +912,7 @@ export class SimulationRuntime {
     } for (const tile of this.state.tiles.values()) wonderEffects.syncWatchtowerObservatory(tile); for (const playerId of this.state.players.keys()) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.state.players);
     // Restore the persisted reach border, then reconcile it with the loaded anchors
     // (indexes above are now fully populated) -- see runtime-reach-border-restore.ts.
+    this.exploredTiles.restore(options.initialState?.exploredTiles);
     restoreReachBorder({ persisted: options.initialState?.reachBorder, tiles: this.state.tiles, gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery, setReachBorder: (border) => { this.reachBorder = border; }, reachBorder: () => this.reachBorder, syncReachVision: (oldBorder, newBorder, changedKeys) => this.reachAnchorLifecycleDeps().syncReachVision(oldBorder, newBorder, changedKeys), applyReachAnchorActivation: (a, cid, o) => this.applyReachAnchorActivation(a, cid, o), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m) });
     this.clearPersistedOutOfReachDecayTimers();
     this.frontierAutoHealQueue = rebuildFrontierAutoHealQueue(this.state.tiles);
@@ -1924,6 +1914,7 @@ export class SimulationRuntime {
       growthStalledNoFoodCounter: this.growthStalledNoFoodCounter,
       recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
       reachBorder: () => this.reachBorder,
+      exploredTiles: () => { this.exploredTiles.retainOnly((id) => this.state.players.has(id)); return this.exploredTiles.exportSnapshot(); },
       prebuiltTiles: this.snapshotTileCache,
       plannerGatingLockPlayerIds: () => plannerGatingLockPlayerIdsImpl(this.state.locksByTile),
       refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
@@ -1948,6 +1939,7 @@ export class SimulationRuntime {
     };
   }
 
+  exploredTilesFor(playerId: string): ReturnType<ExploredTilesStore["encodedFor"]> { return this.exploredTiles.encodedFor(playerId); } // sent on subscribe (simulation-service.ts)
   exportSnapshotSections(): SimulationSnapshotSections {
     return snapshotSectionsForRuntime(this.exportContext());
   }

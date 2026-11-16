@@ -15,6 +15,7 @@ import { cloneRecoveredPlayerState, type RecoveredPlayerState } from "./event-re
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { PendingSettlementRecord } from "../player-runtime-summary.js";
 import { applyReachBorderChanges, decodeReachBorder, encodeReachBorder, type ReachBorderSnapshot } from "../reach-border-snapshot/reach-border-snapshot.js";
+import type { ExploredTilesSnapshotEntry } from "../explored-tiles/explored-tiles-store.js";
 
 type RecoveredTileState = {
   x: number;
@@ -73,6 +74,8 @@ export type RecoveredSimulationState = {
   playerYieldCollectionEpochByPlayer?: Array<{ playerId: string; collectedAt: number }>;
   /** Persisted reach border (reach-border-snapshot.ts). Absent on snapshots written before it was saved. */
   reachBorder?: ReachBorderSnapshot;
+  /** Per-player explored-tile memory (explored-tiles-store.ts); carried through recovery unchanged. Absent on older snapshots. */
+  exploredTiles?: ExploredTilesSnapshotEntry[];
 };
 
 type RecoveredSimulationAccumulator = {
@@ -93,6 +96,7 @@ type RecoveredSimulationAccumulator = {
    * border from tile ownership + anchors.
    */
   reachBorder?: Map<string, string>;
+  exploredTiles?: ExploredTilesSnapshotEntry[];
 };
 
 type TileDelta = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
@@ -144,7 +148,8 @@ export const createRecoveredSimulationAccumulator = (
     playerYieldCollectionEpochByPlayer: new Map(
       (baseState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt])
     ),
-    ...(baseState.reachBorder ? { reachBorder: decodeReachBorder(baseState.reachBorder) } : {})
+    ...(baseState.reachBorder ? { reachBorder: decodeReachBorder(baseState.reachBorder) } : {}),
+    ...(baseState.exploredTiles ? { exploredTiles: baseState.exploredTiles } : {})
   };
 };
 
@@ -440,7 +445,8 @@ export const finalizeRecoveredSimulationAccumulator = (
   playerYieldCollectionEpochByPlayer: [...accumulator.playerYieldCollectionEpochByPlayer.entries()]
     .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
     .sort((left, right) => left.playerId.localeCompare(right.playerId)),
-  ...(accumulator.reachBorder ? { reachBorder: encodeReachBorder(accumulator.reachBorder) } : {})
+  ...(accumulator.reachBorder ? { reachBorder: encodeReachBorder(accumulator.reachBorder) } : {}),
+  ...(accumulator.exploredTiles ? { exploredTiles: accumulator.exploredTiles } : {})
 });
 
 export const recoverSimulationStateFromEvents = (

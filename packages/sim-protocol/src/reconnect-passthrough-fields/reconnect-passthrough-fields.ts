@@ -106,7 +106,9 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   weaponsFactoryCounts: presentField("weaponsFactoryCounts"),
   resourceTradeHoldings: presentField("resourceTradeHoldings"),
   resourceTradeAgreements: presentField("resourceTradeAgreements"),
-  autoSettle: presentField("autoSettle")
+  autoSettle: presentField("autoSettle"),
+  // Server-held fog memory (explored-tiles-runs.ts); the client unions it into discoveredTiles on INIT.
+  exploredTiles: presentField("exploredTiles")
 } as const satisfies Record<keyof PlayerStateSnapshot, PassthroughEntry>;
 
 export type ReconnectPassthroughFields = Partial<PlayerStateSnapshot>;
