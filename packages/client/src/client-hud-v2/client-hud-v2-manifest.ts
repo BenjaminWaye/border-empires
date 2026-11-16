@@ -11,7 +11,7 @@ import { relatedStrategicResourcesForTech } from "../client-resource-discovery-i
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import { relatedStructureTypesForTech } from "../client-tech-detail-ui/client-tech-structure-unlocks.js";
 import type { TechInfo } from "../client-types.js";
-import { techGoldCostForResearchedCount } from "@border-empires/shared";
+import { manifestGoldCost, NATURAL_WONDER_LABELS } from "@border-empires/shared";
 import { revealWhere, structureBuildWhere } from "./client-hud-v2-manifest-where.js";
 
 export type ManifestNodeState = "owned" | "available" | "locked";
@@ -200,15 +200,26 @@ export const nextManifestCost = (techs: readonly TechInfo[], owned: ReadonlySet<
 
 /**
  * What every remaining Manifest will cost once this one is commissioned: each
- * commission raises the shared price (techGoldCostForResearchedCount, the same
- * table the server charges from), so players see 40 → 70 coming.
+ * commission raises the shared price (manifestGoldCost, the same function the
+ * server charges with, less the House's Calculating Engine discount), so
+ * players see 40 → 70 coming.
  */
-export const manifestCostAfterCommission = (owned: ReadonlySet<string>): number => techGoldCostForResearchedCount(owned.size + 1);
+export const manifestCostAfterCommission = (owned: ReadonlySet<string>, discountFraction = 0): number => manifestGoldCost(owned.size + 1, discountFraction);
+
+/** "70 − 10% Calculating Engine": why a Manifest costs less than the shared price, or undefined at full price. */
+export const manifestDiscountNote = (tech: Pick<TechInfo, "requirements">): string | undefined => {
+  const { goldBeforeDiscount: base, goldDiscountFraction: fraction } = tech.requirements;
+  if (typeof base !== "number" || typeof fraction !== "number" || fraction <= 0) return undefined;
+  const source = NATURAL_WONDER_LABELS.CALCULATING_ENGINE.name.replace(/^the /, "");
+  return `${base.toLocaleString("en-US")} − ${Math.round(fraction * 100)}% ${source}`;
+};
 
 export const manifestHeadRightHtml = (input: Pick<ManifestInput, "techs" | "owned">): string => {
+  const next = input.techs.find((t) => !input.owned.has(t.id));
   const cost = nextManifestCost(input.techs, input.owned);
+  const note = next ? manifestDiscountNote(next) : undefined;
   const count = input.techs.filter((t) => input.owned.has(t.id)).length;
-  return `<span class="v2s-meta">${cost !== undefined ? `Next <b>${cost.toLocaleString("en-US")} Coin</b> · ` : ""}${count} / ${input.techs.length}</span>`;
+  return `<span class="v2s-meta">${cost !== undefined ? `Next <b>${cost.toLocaleString("en-US")} Coin</b>${note ? ` (${esc(note)})` : ""} · ` : ""}${count} / ${input.techs.length}</span>`;
 };
 
 const nodeHtml = (tech: TechInfo, pos: { x: number; y: number }, input: ManifestInput): string => {
@@ -287,6 +298,7 @@ export const manifestDetailHtml = (input: ManifestInput): string => {
       ? `Requires ${prereqs.map((id) => `${esc(shortName(byId.get(id)?.name ?? id))}${input.owned.has(id) ? " ✓" : ""}`).join(" · ")}`
       : "No requirements";
   const cost = tech.requirements.gold;
+  const discountNote = manifestDiscountNote(tech);
   const affordable = manifestAffordable(tech, input.gold);
   const button = state === "owned"
     ? `<button type="button" class="v2s-btn" disabled>Commissioned</button>`
@@ -296,7 +308,7 @@ export const manifestDetailHtml = (input: ManifestInput): string => {
         ? `<button type="button" class="v2s-btn v2s-btn-primary" data-v2-manifest-commission="${esc(tech.id)}"${affordable ? "" : " disabled"} title="${affordable ? "" : `Need ${cost.toLocaleString("en-US")} Coin`}">Commission · ${cost.toLocaleString("en-US")} Coin</button>`
         : `<button type="button" class="v2s-btn" disabled>Locked</button>`;
   return `<div class="v2m-detail-name"><span class="v2m-detail-title">${esc(tech.name)}</span><span class="v2m-detail-meta">${meta}</span></div>
-    <div class="v2m-detail-mid"><div class="v2m-chips">${chips}</div>${where}<span class="v2m-req${missing || tech.lockedReason ? " v2m-req-missing" : ""}">${req}</span>${state === "available" ? `<span class="v2m-req v2m-next-cost">Next after this: ${manifestCostAfterCommission(input.owned).toLocaleString("en-US")} Coin</span>` : ""}</div>
+    <div class="v2m-detail-mid"><div class="v2m-chips">${chips}</div>${where}<span class="v2m-req${missing || tech.lockedReason ? " v2m-req-missing" : ""}">${req}</span>${state === "available" && discountNote ? `<span class="v2m-req v2m-next-cost">Price ${cost.toLocaleString("en-US")} Coin (${esc(discountNote)})</span>` : ""}${state === "available" ? `<span class="v2m-req v2m-next-cost">Next after this: ${manifestCostAfterCommission(input.owned, tech.requirements.goldDiscountFraction ?? 0).toLocaleString("en-US")} Coin</span>` : ""}</div>
     ${button}`;
 };
 

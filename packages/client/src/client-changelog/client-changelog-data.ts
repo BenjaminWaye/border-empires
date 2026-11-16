@@ -7,6 +7,12 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_117 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_118 } from "./client-changelog-data-earlier-118.js";
 import { AUTO_GARRISON_ASK_ENTRY } from "./client-changelog-auto-garrison-ask.js";
 import { MANPOWER_BUILD_TEXT_ENTRY } from "./client-changelog-manpower-build-text.js";
+import { RESTORED_CAMERA_FOG_ENTRY } from "./client-changelog-restored-camera-fog.js";
+import { OFFER_DOCK_COUNTER_ENTRY } from "./client-changelog-offer-dock-counter.js";
+import { WINS_AND_COSTS_EXPLAINED_ENTRY } from "./client-changelog-wins-and-costs-explained.js";
+import { PLAYTEST_MAP_READABILITY_ENTRY } from "./client-changelog-playtest-map-readability.js";
+import { INCOME_WAR_CARDS_ENTRY } from "./client-changelog-income-war-cards.js";
+import { CLEARER_CAPTURES_ENTRY } from "./client-changelog-clearer-captures.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -465,27 +471,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_117,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_118,
   { ...AUTO_GARRISON_ASK_ENTRY, createdAt: 1794806556716, },
-  {
-    createdAt: 1794771007813, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.15",
-    title: "Clearer captures and truce terms",
-    why: "Town captures, rival status and peace offers should be easy to read.",
-    changes: [
-      "The capture card tells you when you captured a town.",
-      "The rival strip shows when you have no pact with a House.",
-      "Distant AI Houses charge Coin for truces, even when their manpower runs low.",
-      "Envoy Accreditation grants one 10% Coin bonus as long as you have an active truce or mutual alliance.",
-      "Incoming truce offers appear in your Chronicle, and town losses to strikes name the attacker.",
-      "Truce previews show active lockouts. Muster flag limits and truce lockouts have plain-language error messages. Pending attacks account for flags still being placed.",
-      "The Chronicle reports supply interruptions caused by changes at resource sites.",
-      "The capture hold timer explains when reach prevents garrisoning.",
-      "Attack effort explains the extra manpower and how it affects your odds.",
-      "AI diplomacy labels describe how each House negotiates.",
-      "Scout reports name deposits you have the technology to identify. Find on map jumps to the nearest known deposit of that resource."
-    ]
-  },
+  { ...CLEARER_CAPTURES_ENTRY, createdAt: 1794771007813, },
   { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
   { ...MANPOWER_BUILD_TEXT_ENTRY, createdAt: 1794806234122, },
+  { ...OFFER_DOCK_COUNTER_ENTRY, createdAt: 1794817332101, },
+  { ...RESTORED_CAMERA_FOG_ENTRY, createdAt: 1794818244321, },
+  { ...PLAYTEST_MAP_READABILITY_ENTRY, createdAt: 1794817797219, },
+  { ...WINS_AND_COSTS_EXPLAINED_ENTRY, createdAt: 1794818581757, },
+  { ...INCOME_WAR_CARDS_ENTRY, createdAt: 1794819359958, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

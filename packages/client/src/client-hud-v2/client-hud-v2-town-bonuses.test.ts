@@ -22,6 +22,23 @@ describe("HUD v2 town screen bonuses", () => {
     expect(left).toContain("Coin +50% (Trade Nexus in Avalon)");
   });
 
+  // Playtest 2026-11-16: FOOD UPKEEP showed the tier's base 4 slots while an upgrade waived one.
+  it("shows the simulation's waived FOOD upkeep and names the waiver", () => {
+    const town = (foodSlotDemand?: number) => ({
+      x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED",
+      town: {
+        name: "Bryn", type: "MARKET", baseGoldPerMinute: 2, supportCurrent: 4, supportMax: 4, goldPerMinute: 5, cap: 0,
+        isFed: true, population: 20_000, maxPopulation: 50_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0,
+        hasManufactory: false, manufactoryActive: false, hasIncubationEngine: false, incubationEngineActive: false,
+        ...(foodSlotDemand === undefined ? {} : { foodSlotDemand })
+      }
+    }) as unknown as Tile;
+    const left = (tile: Tile) => townScreenRegions({ town: tile, focus: tile, townView: view, focusView: view, townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined }).left;
+    const upkeep = (html: string) => html.match(/FOOD UPKEEP<\/span><span class="v2t-stat-v">([^<]*)<\/span>(?:<span class="v2t-stat-n">([^<]*)<\/span>)?/)?.slice(1);
+    expect(upkeep(left(town(3)))).toEqual(["3 slots", "4 base · 1 waived by upgrades"]);
+    expect(upkeep(left(town()))).toEqual(["4 slots", undefined]);
+  });
+
   // Regression: every effect was prefixed with "Coin ", giving "Coin coin production stopped".
   it("does not double the Coin prefix on worded effects", () => {
     const tile = {

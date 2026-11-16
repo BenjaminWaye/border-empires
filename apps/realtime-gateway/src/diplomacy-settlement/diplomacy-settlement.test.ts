@@ -52,6 +52,15 @@ describe("createDiplomacySettlement", () => {
     await expect(result).resolves.toEqual({ ok: false, message: "The deal fell through: Beejac no longer has 50 coin." });
   });
 
+  // Playtest 2026-11-16: a reason that already ends in a full stop was shown as "deal..".
+  it("does not double the full stop of a reason that has one", async () => {
+    const { settlement, submitted } = setupSettlement();
+    const result = settlement.settle({ proposerId: "p1", targetId: "p2", terms });
+    await Promise.resolve();
+    settlement.observe({ eventType: "COMMAND_REJECTED", commandId: submitted[0]!.commandId, message: "Too many active resource agreements." });
+    await expect(result).resolves.toEqual({ ok: false, message: "The deal fell through: Too many active resource agreements." });
+  });
+
   // The verdict can beat the submit ack back to the gateway.
   it("handles a verdict that arrives before the submit ack", async () => {
     let observe: ((commandId: string) => void) | undefined;

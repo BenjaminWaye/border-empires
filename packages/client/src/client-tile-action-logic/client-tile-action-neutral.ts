@@ -150,7 +150,7 @@ export const neutralTileActions = (
       ...tileActionAvailability(
         exploreEnabled,
         state.manpower < totalExploreManpower
-          ? `Need ${totalExploreManpower} manpower`
+          ? `Need ${totalExploreManpower} manpower (${state.expandManpowerCost} expand + ${state.settleManpowerCost} garrison + ${relayBeaconManpowerCostForState(state)} build)`
           : !canAffordCost(state.gold, totalExploreGold)
             ? `Need ${totalExploreGold} coin`
             : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),

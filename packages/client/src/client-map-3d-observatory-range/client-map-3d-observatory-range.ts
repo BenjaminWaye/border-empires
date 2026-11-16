@@ -13,6 +13,9 @@ export type ObservatoryRangeBorderGeometryInputs = {
   readonly wrapY: (y: number) => number;
   readonly cornerYAt: (cornerX: number, cornerZ: number) => number;
   readonly riseAboveSurface: number;
+  // Fill only: when given, only tiles (wrapped coords) it accepts are filled,
+  // e.g. the reach highlight clipping to visible land.
+  readonly includeTile?: (wrappedX: number, wrappedY: number) => boolean;
 };
 
 export const observatoryRangeBorderSegmentCount = (radius: number): number => Math.max(0, Math.floor(radius) * 2 + 1) * 4;
@@ -115,11 +118,16 @@ export const writeObservatoryRangeFillGeometry = (
     writeCorner(x + 1, z + 1);
   };
 
+  let written = 0;
   for (let z = top; z < bottom; z += 1) {
-    for (let x = left; x < right; x += 1) writeTile(x, z);
+    for (let x = left; x < right; x += 1) {
+      if (inputs.includeTile && !inputs.includeTile(inputs.wrapX(x), inputs.wrapY(z))) continue;
+      writeTile(x, z);
+      written += 6;
+    }
   }
 
   positionAttr.needsUpdate = true;
-  geometry.setDrawRange(0, expectedVertices);
-  return expectedVertices;
+  geometry.setDrawRange(0, written);
+  return written;
 };

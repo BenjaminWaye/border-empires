@@ -150,7 +150,7 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
       }
       if (event.eventType === "COMMAND_RESOLVED") finish(event.commandId, { ok: true });
       if (event.eventType === "COMMAND_REJECTED") {
-        finish(event.commandId, { ok: false, ...(pending.get(event.commandId)?.durable ? {rejected:true as const} : {}), message: event.message ? `The deal fell through: ${event.message}.` : "The deal fell through." });
+        finish(event.commandId, { ok: false, ...(pending.get(event.commandId)?.durable ? {rejected:true as const} : {}), message: event.message ? `The deal fell through: ${event.message.replace(/\.+$/, "")}.` : "The deal fell through." });
       }
     },
     pendingCount: () => pending.size,

@@ -294,3 +294,11 @@ export const declinedOfferAnnouncements = (
   given: Partial<Record<string, string>> | undefined
 ): Partial<Record<string, string>> =>
   given ?? { [request.fromPlayerId]: `${declinerName} declined your ${request.durationHours ? `${request.durationHours}h truce` : "alliance"} offer.` };
+
+/** Both Houses hear about a new alliance; before, a human's accept told the proposer nothing (playtest 2026-11-16). */
+export const acceptedAllianceAnnouncements = (
+  proposer: { id: string; name: string },
+  accepter: { id: string; name: string },
+  given: Partial<Record<string, string>> | undefined
+): Partial<Record<string, string>> =>
+  given ?? { [proposer.id]: `${accepter.name} accepted your alliance offer.`, [accepter.id]: `You accepted ${proposer.name}'s alliance offer.` };

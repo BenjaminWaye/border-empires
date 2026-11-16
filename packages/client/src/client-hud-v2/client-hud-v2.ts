@@ -5,6 +5,7 @@
 // client-hud-v2-screens.ts, the town and battle screens in their runtimes.
 
 import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
+import { warOpponentIds } from "../client-alliance/client-war-status.js";
 import { latestOwnFight } from "../client-detached-attacks/client-detached-attacks.js";
 import { musterFlagCap } from "@border-empires/shared";
 import { showCaptureAlert } from "../client-alerts/client-alerts.js";
@@ -269,6 +270,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     metPlayerIds: state.metPlayerIds,
     allies: state.allies,
     activeTruces: state.activeTruces,
+    warPlayerIds: warOpponentIds(state, nowMs),
     nameOf: (id) => state.playerNames.get(id) ?? "",
     colorOf: ownerColor,
     nowMs

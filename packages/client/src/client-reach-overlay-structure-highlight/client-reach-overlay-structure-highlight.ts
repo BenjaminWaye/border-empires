@@ -32,6 +32,39 @@ export type StructureReachHighlightDeps = {
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
 };
 
+/**
+ * The tiles a selected reach anchor's highlight may tint: its land-gated
+ * reach disk (the server's rule, see reach.ts) cut down to known LAND the
+ * player can currently see. The whole geometric square used to be tinted, so
+ * after building a Relay Beacon or taking a town (which leaves that tile
+ * selected) the tint spread across the sea and the fog. Shared by the 2D tint
+ * and the true-3D fill so both renderers clip identically.
+ */
+export const selectedStructureReachHighlightTiles = (
+  tiles: ReadonlyMap<string, Tile>,
+  anchor: LocalAnchor,
+  keyFor: (x: number, y: number) => string,
+  isVisible: (x: number, y: number, tile: Tile) => boolean
+): Array<{ x: number; y: number }> => {
+  // Unknown tiles count as land for connectivity only, like the reach preview
+  // in client-reach-overlay.ts; they are never tinted themselves.
+  const isLand = (x: number, y: number): boolean => {
+    const tile = tiles.get(keyFor(x, y));
+    return tile ? tile.terrain === "LAND" : true;
+  };
+  const out: Array<{ x: number; y: number }> = [];
+  for (const key of tileKeysAroundAnchor(anchor, isLand)) {
+    const [xRaw, yRaw] = key.split(",");
+    const x = Number(xRaw);
+    const y = Number(yRaw);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    const tile = tiles.get(keyFor(x, y));
+    if (!tile || tile.terrain !== "LAND" || !isVisible(x, y, tile)) continue;
+    out.push({ x, y });
+  }
+  return out;
+};
+
 export const renderSelectedStructureReachHighlight = (
   state: ClientState,
   deps: StructureReachHighlightDeps,
@@ -47,11 +80,8 @@ export const renderSelectedStructureReachHighlight = (
   const kind = reachAnchorKindForTile(tile);
   if (!kind) return;
   const anchor: LocalAnchor = { x: selected.x, y: selected.y, kind };
-  for (const key of tileKeysAroundAnchor(anchor)) {
-    const [xRaw, yRaw] = key.split(",");
-    const x = Number(xRaw);
-    const y = Number(yRaw);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+  const isVisible = (x: number, y: number, t: Tile): boolean => deps.tileVisibilityStateAt(x, y, t) === "visible";
+  for (const { x, y } of selectedStructureReachHighlightTiles(state.tiles, anchor, deps.keyFor, isVisible)) {
     const { sx, sy } = deps.worldToScreen(x, y, size, halfW, halfH);
     deps.ctx.save();
     deps.ctx.fillStyle = HIGHLIGHT_FILL_STYLE;

@@ -31,6 +31,7 @@ import {
   emptyResourceSlotDormancy,
   resourceSlotDormantContributorsForPlayer,
   resourceSlotSupplyForPlayer,
+  townFoodSlotDemandByTileKey,
   type ResourceSlotDormancy
 } from "./resource-slot-view/resource-slot-view.js";
 import { radiusStructureKeysForSettledTiles } from "./tile-yield-view/tile-yield-view.js";
@@ -265,6 +266,14 @@ const parsedSlotTiles = (
     ownedByOwner.set(tile.ownerId, owned);
   }
   return { settledByOwner, ownedByOwner };
+};
+
+/** One player's per-town FOOD slot demand after waivers on the login snapshot: the live path's townFoodSlotDemandByTileKey. */
+export const townFoodSlotDemandForSnapshotPlayer = (runtimeState: RuntimeState, playerId: string): Map<string, number> => {
+  const player = runtimeState.players.find((entry) => entry.id === playerId);
+  if (!player) return new Map();
+  const waivers = slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds), ...(player.afcCoreTownKeys ? { afcCoreTownKeys: player.afcCoreTownKeys } : {}) });
+  return townFoodSlotDemandByTileKey(parsedSlotTiles(runtimeState).ownedByOwner.get(playerId) ?? [], playerId, waivers);
 };
 
 // §5.4: per-player resource-slot dormancy for the reconnect/cold-snapshot

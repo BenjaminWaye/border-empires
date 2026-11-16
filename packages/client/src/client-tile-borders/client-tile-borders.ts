@@ -112,9 +112,59 @@ export const drawTileOwnershipAndBreachBorder = (
     deps.ctx.setLineDash([]);
     deps.ctx.lineDashOffset = 0;
     deps.ctx.lineWidth = 1;
+  } else if (!deps.is3D && tile && vis === "visible" && isOutlinedFrontierTile(tile)) {
+    drawFrontierTerritoryEdge(deps.ctx, tile, px, py, size, deps);
   }
 
   if (breached && breachSides) {
     drawBreachTornBorder(deps.ctx, tile!, px, py, size, breachSides);
   }
+};
+
+const isOutlinedFrontierTile = (tile: Tile): boolean =>
+  tile.ownershipState === "FRONTIER" && !!tile.ownerId && !tile.ownerId.startsWith("barbarian");
+
+/** Sides where a frontier tile meets land that isn't the same owner's (any ownership state), or unknown/fogged ground. */
+export const frontierTerritoryEdgeSides = (tile: Tile, deps: BorderSideDeps): ExposedBorderSides => {
+  const otherOwner = (dx: number, dy: number): boolean => {
+    const neighbor = deps.tiles.get(deps.keyFor(deps.wrapX(tile.x + dx), deps.wrapY(tile.y + dy)));
+    return !neighbor || !!neighbor.fogged || neighbor.ownerId !== tile.ownerId;
+  };
+  return { top: otherOwner(0, -1), right: otherOwner(1, 0), bottom: otherOwner(0, 1), left: otherOwner(-1, 0) };
+};
+
+// Ungarrisoned (FRONTIER) land had no outline at all on the 2D map -- only a
+// faint owner-hue fill -- so owned and unclaimed land were hard to tell apart
+// without colour vision (playtest). Outline the territory's outer edge with a
+// dark underlay and a light dash on top: the contrast is in luminance and
+// pattern, not hue, and it stays thinner than the solid garrisoned border.
+const drawFrontierTerritoryEdge = (ctx: CanvasRenderingContext2D, tile: Tile, px: number, py: number, size: number, deps: BorderSideDeps): void => {
+  const sides = frontierTerritoryEdgeSides(tile, deps);
+  if (!sides.top && !sides.right && !sides.bottom && !sides.left) return;
+  const width = clampOwnershipBorderWidth(1.5, size);
+  const dash = Math.max(2, size * 0.18);
+  const x1 = px + 1;
+  const y1 = py + 1;
+  const x2 = px + size - 2;
+  const y2 = py + size - 2;
+  const tracePath = (): void => {
+    ctx.beginPath();
+    if (sides.top) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y1); }
+    if (sides.right) { ctx.moveTo(x2, y1); ctx.lineTo(x2, y2); }
+    if (sides.bottom) { ctx.moveTo(x2, y2); ctx.lineTo(x1, y2); }
+    if (sides.left) { ctx.moveTo(x1, y2); ctx.lineTo(x1, y1); }
+  };
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.lineWidth = width + 1;
+  ctx.strokeStyle = "rgba(8, 12, 20, 0.55)";
+  tracePath();
+  ctx.stroke();
+  ctx.setLineDash([dash, dash]);
+  ctx.lineDashOffset = 0;
+  ctx.lineWidth = width;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+  tracePath();
+  ctx.stroke();
+  ctx.restore();
 };

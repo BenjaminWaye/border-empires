@@ -1,0 +1,28 @@
+/* Empire Integrity panel: the weak-tile list shown while Show weak tiles is on. */
+.defense-weak-tile-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.defense-weak-tile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 3px solid #ffb35c;
+  color: rgba(228, 238, 248, 0.84);
+  font-size: 12px;
+}
+
+.defense-weak-tile.is-critical {
+  border-left-color: #ff6b6b;
+}
+
+.defense-weak-tile-go {
+  flex: 0 0 auto;
+}

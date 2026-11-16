@@ -2,8 +2,10 @@
 // resources as used / total on desktop or free capacity on phones, and Integrity plus Settings.
 // Manpower lives in the orb, not here.
 
-import type { SlotResource } from "@border-empires/shared";
+import { formatCoinPerDay, type SlotResource } from "@border-empires/shared";
 import { resourceSimpleIconUrl } from "../client-resource-icons/client-resource-icons.js";
+
+export const NET_COIN_TITLE = "Net coin per day: income less coin upkeep";
 
 export type ResourceBarInput = {
   gold: number;
@@ -41,14 +43,13 @@ const chip = (key: string, label: string, valueHtml: string, iconUrl?: string): 
 };
 
 export const resourceBarHtml = (input: ResourceBarInput): string => {
-  // Per day, like Economy and the tile panel.
-  const ratePerDay = input.netPerMinute * 1440;
-  const rateSign = ratePerDay >= 0 ? "+" : "−";
-  const rateTone = ratePerDay < 0 ? " hud-v2-chip-rate-loss" : "";
+  // The one coin-rate format (shared formatCoinPerDay), so the chip reads exactly what Economy's
+  // headline reads: it rounded to whole coin and showed 24 beside Economy's 23.6.
+  const rateTone = input.netPerMinute < 0 ? " hud-v2-chip-rate-loss" : "";
   const coin = chip(
     "coin",
     "Coin",
-    `<span class="hud-v2-chip-value">${chipNumberHtml(input.gold)}</span><span class="hud-v2-chip-rate${rateTone}">${rateSign}${fmt(Math.abs(ratePerDay))}/day</span>`,
+    `<span class="hud-v2-chip-value">${chipNumberHtml(input.gold)}</span><span class="hud-v2-chip-rate${rateTone}" title="${NET_COIN_TITLE}">${formatCoinPerDay(input.netPerMinute)}</span>`,
     resourceSimpleIconUrl("GOLD")
   );
   const shown = (key: SlotResource): boolean =>

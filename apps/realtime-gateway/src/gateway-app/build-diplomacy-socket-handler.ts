@@ -12,6 +12,7 @@ import type { CommandEnvelope, CurrentSeasonSummary, PlayerSubscriptionSnapshot 
 import type { WebSocket } from "ws";
 
 import { combatFromSimulationEvent, createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
+import { createDiplomacyMemoryWriter, type DiplomacyMemoryPersistence } from "../ai-diplomacy-memory/ai-diplomacy-memory-writer.js";
 import { dominanceSizingFor, type SeasonSizes } from "../ai-diplomacy-stance/ai-alliance-bloc.js";
 import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-review.js";
 import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
@@ -30,8 +31,12 @@ import { createSeededAiDiplomacyResponder, memoizeWithTtl } from "../seeded-ai-d
 import type { SocialState } from "../social-state/social-state.js";
 import { handleTruceSocketMessage, type TruceSocketMessageDeps } from "../truce-socket-messages/truce-socket-messages.js";
 
+/** Every 10 minutes the memory's size and eviction/prune totals are logged (state-and-persistence-discipline.md). */
+const AI_MEMORY_STATS_INTERVAL_MS = 10 * 60_000;
+
 export type DiplomacySocketHandlerDeps = {
   socialState: SocialState;
+  aiDiplomacyMemory: DiplomacyMemoryPersistence;
   seededAiPlayerIds: ReadonlySet<string>;
   /** Live sim snapshot for a player, subscribing if needed (playerSubscriptions.ensureSubscribed). */
   ensureSubscribed: (playerId: string) => Promise<PlayerSubscriptionSnapshot>;
@@ -71,6 +76,10 @@ export type DiplomacySocketHandler = {
    * offer that expired or was dropped since the last run.
    */
   runAllianceMaintenance: () => void;
+  /** A new season: AIs forget every player (the store has cleared its rows). */
+  resetAiDiplomacyMemory: () => void;
+  /** Writes pending AI memory changes now (shutdown). */
+  flushAiDiplomacyMemory: () => void;
   /** Routes deal-settlement verdicts and combat (for AI memory) from the simulation event stream. */
   observeSimulationEvent: (event: Parameters<DiplomacySettlement["observe"]>[0] & AttackPairEvent) => void;
 };
@@ -88,7 +97,19 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     recordGatewayEvent: deps.recordGatewayEvent
   });
   const isAi = (playerId: string): boolean => deps.seededAiPlayerIds.has(playerId);
-  const memory = createAiDiplomacyMemory({ now: () => Date.now(), isAi });
+  const memoryWriter = createDiplomacyMemoryWriter({
+    write: deps.aiDiplomacyMemory.write,
+    onError: (error, pairs) => deps.recordGatewayEvent("error", "gateway_ai_diplomacy_memory_write_failed", { pairs, error: String(error) })
+  });
+  const memory = createAiDiplomacyMemory({ now: () => Date.now(), isAi, initial: deps.aiDiplomacyMemory.initial, sink: memoryWriter.sink });
+  let memoryStatsAt = 0;
+  const maintainMemory = (): void => {
+    memory.prune();
+    const now = Date.now();
+    if (now - memoryStatsAt < AI_MEMORY_STATS_INTERVAL_MS) return;
+    memoryStatsAt = now;
+    deps.recordGatewayEvent("info", "gateway_ai_diplomacy_memory_stats", { ...memory.stats(), pendingWrites: memoryWriter.pendingCount() });
+  };
   const acceptance = createDiplomacyOfferAcceptance({
     socialState,
     settlement,
@@ -329,9 +350,12 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     runAllianceMaintenance: () => {
       void finalizeExpiredAllianceBreaks();
       void reviewAiAlliances();
+      maintainMemory();
       const staleOffers = socialState.takeStaleOfferSync();
       if (staleOffers) deps.fanoutPlayerPayloads(staleOffers.payloadsByPlayerId);
     },
+    resetAiDiplomacyMemory: () => { memoryWriter.discard(); memory.reset(); },
+    flushAiDiplomacyMemory: memoryWriter.flush,
     observeSimulationEvent: (event) => {
       settlement.observe(event);
       const attack = attackPairFromSimulationEvent(event);

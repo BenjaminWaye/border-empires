@@ -11,7 +11,7 @@ import { RELIC_RULES, relicCastRadius, OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORL
 import { SKY_DOCK_BOMBARD_RADIUS } from "../client-constants.js";
 import { HYDROWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
-import { reachAnchorKindForTile } from "../client-reach-overlay-structure-highlight/client-reach-overlay-structure-highlight.js";
+import { reachAnchorKindForTile, selectedStructureReachHighlightTiles } from "../client-reach-overlay-structure-highlight/client-reach-overlay-structure-highlight.js";
 import {
   createObservatoryRangeBorderGeometry,
   createObservatoryRangeFillGeometry,
@@ -111,9 +111,11 @@ export const createSelectionRangeOverlays = (scene: Scene): SelectionRangeOverla
     ring: { border: LineSegments; fill: Mesh },
     deps: SelectionRangeOverlaysDeps,
     selectedTile: Tile,
-    radius: number
+    radius: number,
+    includeTile?: (wrappedX: number, wrappedY: number) => boolean
   ): void => {
     const rangeGeometryInputs: ObservatoryRangeBorderGeometryInputs = {
+      ...(includeTile ? { includeTile } : {}),
       selectedX: selectedTile.x,
       selectedY: selectedTile.y,
       camX: deps.sceneOrigin.camX,
@@ -184,7 +186,15 @@ export const createSelectionRangeOverlays = (scene: Scene): SelectionRangeOverla
     if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
     const kind: ReachAnchorKind | undefined = reachAnchorKindForTile(selectedTile);
     if (!kind) return;
-    writeRingGeometry(reachRing, deps, selectedTile, reachRadiusForKind(kind));
+    // Fill only the visible land the reach covers (shared with the 2D tint),
+    // not the whole square over sea and fog.
+    const isVisible = (x: number, y: number, tile: Tile): boolean => deps.tileVisibilityStateAt(x, y, tile) === "visible";
+    const tinted = new Set(
+      selectedStructureReachHighlightTiles(deps.state.tiles, { x: selectedTile.x, y: selectedTile.y, kind }, deps.keyFor, isVisible).map(({ x, y }) => deps.keyFor(x, y))
+    );
+    writeRingGeometry(reachRing, deps, selectedTile, reachRadiusForKind(kind), (x, y) => tinted.has(deps.keyFor(x, y)));
+    // Fill only, like the 2D highlight: the square outline would still cross sea and fog.
+    reachRing.border.visible = false;
   };
 
   const sync = (deps: SelectionRangeOverlaysDeps): void => {
