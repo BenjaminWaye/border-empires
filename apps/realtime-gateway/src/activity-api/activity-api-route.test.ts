@@ -94,7 +94,7 @@ describe("GET /api/activity", () => {
     expect(body.dailyStory[0]).toEqual({
       type: "ALLIANCE_BROKEN",
       headline: "Alliance Broken",
-      text: "Alice and p5's alliance was broken by Alice.",
+      text: "Alice has broken their alliance with p5.",
       significance: 80,
       players: ["Alice", "p5"]
     });

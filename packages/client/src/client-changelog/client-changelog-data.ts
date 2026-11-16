@@ -5,13 +5,9 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_116 } from "./client-changelog-data-earlier-116.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_117 } from "./client-changelog-data-earlier-117.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_118 } from "./client-changelog-data-earlier-118.js";
-import { AUTO_GARRISON_ASK_ENTRY } from "./client-changelog-auto-garrison-ask.js";
-import { TOWN_COIN_BLANK_ENTRY } from "./client-changelog-town-coin-blank.js";
-import { MANPOWER_BUILD_TEXT_ENTRY } from "./client-changelog-manpower-build-text.js";
-import { RESTORED_CAMERA_FOG_ENTRY } from "./client-changelog-restored-camera-fog.js";
-import { OFFER_DOCK_COUNTER_ENTRY } from "./client-changelog-offer-dock-counter.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_119 } from "./client-changelog-data-earlier-119.js";
+import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
 import { WINS_AND_COSTS_EXPLAINED_ENTRY } from "./client-changelog-wins-and-costs-explained.js";
-import { PLAYTEST_MAP_READABILITY_ENTRY } from "./client-changelog-playtest-map-readability.js";
 import { INCOME_WAR_CARDS_ENTRY } from "./client-changelog-income-war-cards.js";
 import { SALVAGE_TRIBUTE_BALANCE_ENTRY } from "./client-changelog-salvage-tribute-balance.js";
 import { SERVER_EXPLORED_MAP_ENTRY } from "./client-changelog-server-explored-map.js";
@@ -478,14 +474,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_116,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_117,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_118,
-  { ...AUTO_GARRISON_ASK_ENTRY, createdAt: 1794806556716, },
-  { ...TOWN_COIN_BLANK_ENTRY, createdAt: 1794807224989, },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_119,
   { ...CLEARER_CAPTURES_ENTRY, createdAt: 1794771007813, },
   { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
-  { ...MANPOWER_BUILD_TEXT_ENTRY, createdAt: 1794806234122, },
-  { ...OFFER_DOCK_COUNTER_ENTRY, createdAt: 1794817332101, },
-  { ...RESTORED_CAMERA_FOG_ENTRY, createdAt: 1794818244321, },
-  { ...PLAYTEST_MAP_READABILITY_ENTRY, createdAt: 1794817797219, },
   { ...WINS_AND_COSTS_EXPLAINED_ENTRY, createdAt: 1794818581757, },
   { ...INCOME_WAR_CARDS_ENTRY, createdAt: 1794819359958, },
   { ...SALVAGE_TRIBUTE_BALANCE_ENTRY, createdAt: 1794828701450, },
@@ -495,6 +486,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...ENCIRCLEMENT_POCKET_ENTRY, createdAt: 1794826569677, },
   { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
   { ...PLACE_ANOTHER_ENTRY, createdAt: 1794861771175, },
+  { ...CHRONICLE_WORLD_HEADLINES_ENTRY, createdAt: 1794866044993, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

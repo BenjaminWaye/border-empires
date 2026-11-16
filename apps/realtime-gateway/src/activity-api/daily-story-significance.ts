@@ -37,9 +37,12 @@ export const SIGNIFICANCE_SCALE = {
   /**
    * FIERCEST_ATTACKER (manpowerSpent), TOUGHEST_TARGET (manpowerSpentAgainst)
    * -- summed across every attack against/by one player in 24h, so naturally
-   * larger-scale than a single battle.
+   * larger-scale than a single battle. Raised from 1,000 after staging on
+   * 2026-11-16 saw 18,730 and 11,755: at 1,000 these two scored 1,873 and
+   * 1,175 and buried a 475-tile defeat (316) every busy day. Manpower spent
+   * is the cause; tiles changing hands is the news.
    */
-  aggregateManpower: 1000,
+  aggregateManpower: 5000,
   /** ECONOMY_BOOM -- gold/day gained. Observed range 5-300. */
   goldPerDay: 300,
   /** MANPOWER_SURGE -- manpower cap points gained. Observed range 300-4800. */
