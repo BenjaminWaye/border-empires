@@ -1,5 +1,6 @@
 import { resourceOfferCardsHtml } from "./client-resource-offer-cards.js";
 import { activeResourceDealsHtml } from "./client-active-resource-deals.js";
+import { confirmResourceEnd } from "./client-resource-end-confirm.js";
 // The diplomacy trade screen, laid out as a deal table: your goods and the
 // truce/alliance treaties on the left, theirs on the right, and only what is in
 // the deal in the middle. Pressing a good opens a slider to set the amount.
@@ -417,6 +418,7 @@ export const openDiplomacyTradeScreen = (
     const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("[data-resource-end], [data-resource-offer-accept], [data-resource-offer-reject]") : null;
     if (!target) return;
     const agreementId = target.dataset.resourceEnd, accept = target.dataset.resourceOfferAccept, reject = target.dataset.resourceOfferReject;
+    if (agreementId && !confirmResourceEnd(target, Date.now())) return;
     const payload = agreementId ? {type:"RESOURCE_TRADE_END",agreementId} : {type:accept?"RESOURCE_TRADE_ACCEPT":"RESOURCE_TRADE_REJECT",offerId:accept ?? reject};
     if (deps.send(payload,"Finish sign-in before trading resources.")) target.disabled = true;
   });
