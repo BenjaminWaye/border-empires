@@ -160,7 +160,6 @@ export const chainedBuildAvailabilityFromModule = (
         : state.gold < totalGold
           ? `Need ${totalGold} coin`
           : state.manpower < totalManpower
-            // Name the garrison step: "Need 70 manpower" here and "50 manpower" on settled ground read as an unexplained price change.
             ? `Need ${totalManpower} manpower (${state.settleManpowerCost} garrison + ${manpowerCost} build)`
             : "",
       `${totalGold > 0 ? `${totalGold} coin, ` : ""}${totalManpower} m.p. (${state.settleManpowerCost} garrison + ${manpowerCost} build) • ${buildTimeLabel(settleDurationMsForState(state, tile) + buildDurationMsForState(state, structureType))} total`
