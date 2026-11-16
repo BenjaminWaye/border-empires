@@ -53,8 +53,10 @@ describe("House Charges panel", () => {
   it("offers the keep choice while the window is open, and only enables saving a changed choice of two", () => {
     const charges = [charge({}), { ...relic, kept: true }, desert];
     const open = houseChargesPanelHtml(panelState(charges), 5_000);
-    expect(open).toContain("Keep 2 of these 3");
-    expect(open).toMatch(/data-house-charges-save disabled/);
+    // Nothing to save (possibly the default pair): say what is kept and how to swap, with no false "saved" tick.
+    expect(open).toContain("Keeping the 2 ticked of these 3. Tick another to swap");
+    expect(open).not.toContain("✓");
+    expect(open).not.toContain("data-house-charges-save");
     const changed = houseChargesPanelHtml(panelState(charges, 10_000, [charge({}).id, desert.id]), 5_000);
     expect(changed).not.toMatch(/data-house-charges-save disabled/);
     const closed = houseChargesPanelHtml(panelState(charges), 20_000);
@@ -86,6 +88,23 @@ describe("House Charges panel", () => {
     expect(html).toContain("Find the Concordance installation");
   });
 
+  it("shows the difficulty pips as difficulty and says what a held charge earns", () => {
+    const html = houseChargesPanelHtml(panelState([charge({ renown: 3 })], 0), 5_000);
+    expect(html).toContain('aria-label="Difficulty 3 of 4"');
+    expect(html).not.toContain("Renown");
+    expect(html).toContain("earn its charge card and a galaxy reward");
+  });
+
+  it("gives a rough bearing to a Charter town that has not been scouted yet", () => {
+    const tiles = new Map([["8,15", { x: 8, y: 15, terrain: "LAND" as const }]]);
+    const html = houseChargesPanelHtml({ ...panelState([charge({})], 0), tiles }, 5_000);
+    expect(html).toContain("Harrowmere: not scouted yet, about 25 tiles east of Vell.");
+    const both = new Map([...tiles, ["30,20", { x: 30, y: 20, terrain: "LAND" as const }]]);
+    expect(houseChargesPanelHtml({ ...panelState([charge({})], 0), tiles: both }, 5_000)).not.toContain("not scouted yet");
+    // Unkept charges get the bearing too: that is when the player is choosing which to keep.
+    expect(houseChargesPanelHtml({ ...panelState([charge({ kept: false })], 0), tiles }, 5_000)).toContain("not scouted yet");
+  });
+
   it("turns Show on map into Hide on map for the highlighted charge", () => {
     const html = houseChargesPanelHtml({ ...panelState([charge({}), { ...relic, kept: true }], 0), houseChargeFocusId: relic.id }, 5_000);
     expect(html).toContain('aria-pressed="true">Hide on map');
@@ -95,6 +114,12 @@ describe("House Charges panel", () => {
   it("points Show on map at the target once known, otherwise at the search circle", () => {
     expect(houseChargeFocusPoint(charge({}))).toEqual(expect.objectContaining({ x: 8, y: 15 }));
     expect(houseChargeFocusPoint(relic)).toEqual({ x: 22, y: 24, radius: 9 });
+  });
+
+  it("never centres Show on map on an unscouted Charter town: the seen town, else the search circle", () => {
+    const road = charge({ targets: [{ key: "town:30,20", name: "Harrowmere", x: 30, y: 20 }, { key: "town:8,15", name: "Vell", x: 8, y: 15 }] });
+    expect(houseChargeFocusPoint(road, (x, y) => x === 8 && y === 15)).toMatchObject({ x: 8, y: 15 });
+    expect(houseChargeFocusPoint(road, () => false)).toEqual({ x: 19, y: 17, radius: 14 });
   });
 
 });

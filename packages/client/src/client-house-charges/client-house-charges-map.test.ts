@@ -40,6 +40,16 @@ describe("what Show on map highlights", () => {
     expect(houseChargeTintTiles(mapState([]))).toEqual([]);
   });
 
+  it("keeps the search circle for a Charter whose second town is unscouted, and drops it once both are seen", () => {
+    const road: HouseChargeView = { ...pointCharge, id: "CHARTER:a|b", kind: "CHARTER", title: "Road", searchCircle: { x: 19, y: 17, radius: 14 }, targets: [{ key: "town:8,15", name: "Vell", x: 8, y: 15 }, { key: "town:30,20", name: "Harrowmere", x: 30, y: 20 }] };
+    const state = { ...mapState([["8,15", { x: 8, y: 15, terrain: "LAND" }]], road), houseCharges: { type: "HOUSE_CHARGES" as const, dealtAt: 0, choiceClosesAt: 0, charges: [road] } };
+    const markers = houseChargeMarkerTiles(state, 640, 320);
+    expect(markers).toHaveLength(13);
+    expect(markers[0]).toEqual({ x: 8, y: 15 });
+    state.tiles.set("30,20", { x: 30, y: 20, terrain: "LAND" });
+    expect(houseChargeMarkerTiles(state, 640, 320)).toEqual([{ x: 8, y: 15 }, { x: 30, y: 20 }]);
+  });
+
   it("shades the explored part of a region instead, garrisoned tiles apart from open ones", () => {
     const state = mapState([
       ["25,2", { x: 25, y: 2, terrain: "LAND", ownerId: "p1", ownershipState: "SETTLED" }],
