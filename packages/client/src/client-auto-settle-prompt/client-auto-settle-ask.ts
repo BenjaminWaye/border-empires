@@ -8,7 +8,9 @@ import { AUTO_SETTLE_CATEGORIES, type AutoSettleCategory } from "@border-empires
 const ASKED_STORAGE_KEY = "border-empires.autoGarrisonAsked";
 
 let askedCache: Set<AutoSettleCategory> | undefined;
-let declinedHighlight: { category: AutoSettleCategory; tileKey: string } | undefined;
+/** How long the checkbox stays highlighted after "No": long enough to notice, then it goes back to normal. */
+export const DECLINED_HIGHLIGHT_MS = 20_000;
+let declinedHighlight: { category: AutoSettleCategory; until: number } | undefined;
 
 const readAsked = (): Set<AutoSettleCategory> => {
   if (askedCache) return askedCache;
@@ -35,20 +37,14 @@ export const markAutoSettleAsked = (category: AutoSettleCategory): void => {
   }
 };
 
-/** After "No": highlight that category's checkbox while the player is still looking at the same tile. */
-export const highlightDeclinedAutoSettle = (category: AutoSettleCategory, tileKey: string): void => {
-  declinedHighlight = { category, tileKey };
+/** After "No": highlight that category's checkbox (on every panel showing it) for DECLINED_HIGHLIGHT_MS. */
+export const highlightDeclinedAutoSettle = (category: AutoSettleCategory, now = Date.now()): void => {
+  declinedHighlight = { category, until: now + DECLINED_HIGHLIGHT_MS };
 };
 
-/** True while the menu shows the tile the player just said "No" on; any other tile clears it. */
-export const consumeDeclinedHighlight = (category: AutoSettleCategory, tileKey: string): boolean => {
-  if (!declinedHighlight) return false;
-  if (declinedHighlight.tileKey !== tileKey) {
-    declinedHighlight = undefined;
-    return false;
-  }
-  return declinedHighlight.category === category;
-};
+/** Pure read: rendering never changes it, so panels showing different tiles agree regardless of render order. */
+export const isDeclinedHighlightActive = (category: AutoSettleCategory, now = Date.now()): boolean =>
+  declinedHighlight?.category === category && now < declinedHighlight.until;
 
 /** Test hook: forget the in-memory cache so a test can start from a fresh localStorage. */
 export const resetAutoSettleAskStateForTests = (): void => {

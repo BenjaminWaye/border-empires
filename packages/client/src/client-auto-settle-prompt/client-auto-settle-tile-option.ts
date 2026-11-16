@@ -7,7 +7,7 @@ import { AUTO_SETTLE_CATEGORIES, autoSettleCategoryForTile, townFoodSlotDemandFo
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { autoSettleCategoryLabel } from "./client-auto-settle-labels.js";
-import { consumeDeclinedHighlight, hasAskedAutoSettle, highlightDeclinedAutoSettle, markAutoSettleAsked } from "./client-auto-settle-ask.js";
+import { hasAskedAutoSettle, isDeclinedHighlightActive, highlightDeclinedAutoSettle, markAutoSettleAsked } from "./client-auto-settle-ask.js";
 import { loadedAutoSettleState } from "./client-auto-settle-prefs.js";
 
 /** checked is the value when the view was built; the HTML re-reads live prefs (cached views repaint stale copies). */
@@ -63,7 +63,7 @@ const liveChecked = (option: AutoSettleOption): boolean =>
   liveState?.autoSettle.status === "loaded" ? liveState.autoSettle.prefs[option.category] : option.checked;
 
 const askHtml = (option: AutoSettleOption): string =>
-  `<div class="tile-auto-settle-ask" data-tile-auto-settle-ask="${option.category}" data-tile-key="${option.tileKey}">` +
+  `<div class="tile-auto-settle-ask" role="group" aria-label="Automatic garrison" data-tile-auto-settle-ask="${option.category}" data-tile-key="${option.tileKey}">` +
   `<span class="tile-auto-settle-ask-question">${option.label}?</span>` +
   `<span class="tile-auto-settle-ask-buttons">` +
   `<button type="button" class="tile-auto-settle-ask-btn is-yes" data-tile-auto-settle-answer="yes">Yes</button>` +
@@ -73,11 +73,11 @@ const askHtml = (option: AutoSettleOption): string =>
 const checkboxHtml = (option: AutoSettleOption, checked: boolean, highlighted: boolean): string =>
   `<label class="tile-auto-settle-option${highlighted ? " is-highlighted" : ""}"><input type="checkbox" data-tile-auto-settle="${option.category}" ${checked ? "checked" : ""} /> ${option.label}${highlighted ? `<span class="tile-auto-settle-hint">Change anytime</span>` : ""}</label>`;
 
-/** Off and never answered: a Yes/No question. Otherwise the checkbox, highlighted while still on the tile where "No" was picked. */
+/** Off and never answered: a Yes/No question. Otherwise the checkbox, highlighted for a short while after a "No". */
 export const autoSettleOptionHtml = (option: AutoSettleOption): string => {
   const checked = liveChecked(option);
   if (!checked && !hasAskedAutoSettle(option.category)) return askHtml(option);
-  return checkboxHtml(option, checked, consumeDeclinedHighlight(option.category, option.tileKey));
+  return checkboxHtml(option, checked, isDeclinedHighlightActive(option.category));
 };
 
 /** Sends all categories with only `category` changed; false (and no state change) when it could not be sent. */
@@ -99,9 +99,16 @@ const answerQuestion = (state: ClientState, send: (payload: unknown) => boolean,
   const yes = button.dataset.tileAutoSettleAnswer === "yes";
   if (yes && !sendCategoryPref(state, send, category, true)) return; // not signed in yet: keep asking
   markAutoSettleAsked(category);
-  if (!yes) highlightDeclinedAutoSettle(category, tileKey);
-  // Swap in place so the answer shows at once; the menu's next render produces the same markup.
-  ask.outerHTML = checkboxHtml({ category, checked: yes, label, tileKey }, yes, !yes);
+  if (!yes) highlightDeclinedAutoSettle(category);
+  // Swap in place so the answer shows at once; the menu's next render produces the same markup. The box shows the
+  // live pref, not the answer: Yes in another panel may already have turned this category on.
+  const option = { category, checked: yes, label, tileKey };
+  const holder = document.createElement("div");
+  holder.innerHTML = checkboxHtml(option, liveChecked(option), !yes);
+  const replacement = holder.firstElementChild;
+  if (!replacement) return;
+  ask.replaceWith(replacement);
+  replacement.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true }); // keyboard users keep their place
 };
 
 /** One document-level listener (the tile menu re-renders its HTML constantly, so no per-render binding). Idempotent per document. */
