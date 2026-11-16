@@ -1,3 +1,4 @@
+import { townFoodSlotDemand } from "../client-town-food-demand/client-town-food-demand.js";
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { gateTileConstructionActions } from "../client-afc-recovery/client-afc-recovery-actions.js";
 import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
@@ -10,7 +11,6 @@ import {
   isFortDefending,
   nextTownGrowthUpgrade,
   terrainAdjustedTownManpower,
-  townFoodSlotDemandForTier,
   type SlotResource
 } from "@border-empires/shared";
 import { dormantStructureLineHtml, type DormancyField } from "./client-tile-menu-dormancy-line.js";
@@ -199,11 +199,9 @@ export const menuOverviewForTile = (
       // FOOD slot demand is what actually gates a town's isFed state (see
       // resource-slot-view.ts's per-town FOOD contributor) — allocation is
       // all-or-nothing per town, so "satisfied" is either the full demand
-      // (fed) or 0 (unfed), never a partial count. This is the pre-waiver
-      // base demand — a nearby Ministry Hall can reduce it further, but
-      // that isn't visible client-side, so a fed Ministry-Hall town may
-      // show a demand slightly higher than what it's actually clearing.
-      const foodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
+      // (fed) or 0 (unfed), never a partial count. The simulation stamps it
+      // after upgrade waivers and the Ministry Hall reduction.
+      const foodDemand = townFoodSlotDemand(tile.town);
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       const effectiveFed = Boolean(townForGrowth.isFed);
       const growthRatePending = ownTownGrowthRatePending(tile.town);

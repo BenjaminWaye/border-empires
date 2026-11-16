@@ -78,6 +78,8 @@ export type RuntimeExportState = {
     // exact UTC-day gate quickforgeAdjustedRushPrice enforces server-side —
     // the server remains authoritative on the actual charged price.
     wonderLastFreeRushBuyAt?: number;
+    // Calculating Engine Manifest discount fraction (runtime-natural-wonders.ts); derived, not restored.
+    wonderTechGoldDiscount?: number;
     // WARPRESS wonder's +1 muster-flag slot -- see runtime-natural-wonders.ts
     // and player-snapshot.ts's musterFlagLimit.
     wonderMusterExtraFlag?: number;

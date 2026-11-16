@@ -218,6 +218,7 @@ export type DomainTileState = {
             | "hasIncubationEngine"
             | "incubationEngineActive"
             | "foodUpkeepPerMinute"
+            | "foodSlotDemand"
             | "captureShockUntil"
             | "populationBeforeCapture"
             | "forcedAncillarificationCooldownUntil"

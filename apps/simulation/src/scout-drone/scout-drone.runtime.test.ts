@@ -74,4 +74,42 @@ describe("Explore in the runtime", () => {
     expect(payload?.flight).toBeNull();
     expect(payload?.report).toMatchObject({ targetX: 40, targetY: 20 });
   });
+
+  // Regression (playtest): land the drone revealed went back to fog within
+  // seconds. Moving the reveal emitted no TILE_DELTA_BATCH, so the service's
+  // fanout (which drains vision edges only on a batch) never shipped the
+  // revealed tiles in step with the drone. Mirror that fanout here.
+  it("ships the drone's vision edges to the player as it moves, then fogs them (remembered) after landing", async () => {
+    let now = 1_000;
+    const entered = new Set<string>();
+    const left = new Set<string>();
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([["player-1", humanPlayer("player-1")]]),
+      seedTiles: new Map(),
+      initialState: { tiles: worldTiles(), activeLocks: [] }
+    });
+    const flights: ScoutDronePayload[] = [];
+    const visionBatchIds = new Set<string>();
+    runtime.onEvent((event) => {
+      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "SCOUT_DRONE") flights.push(JSON.parse(event.payloadJson) as ScoutDronePayload);
+      if (event.eventType !== "TILE_DELTA_BATCH") return;
+      if (event.commandId.startsWith("scout-drone-vision:")) visionBatchIds.add(event.commandId);
+      const taken = runtime.takeVisionTransitions();
+      for (const key of taken.entered.get("player-1") ?? []) entered.add(key);
+      for (const key of taken.left.get("player-1") ?? []) left.add(key);
+    });
+    runtime.submitCommand({ commandId: "explore-2", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: now, type: "EXPLORE", payloadJson: JSON.stringify({ x: 40, y: 20 }) });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const flight = flights[0]!.flight!;
+    now = flight.steps.find((step) => step.x === 28)!.at;
+    runtime.tickWatchtowerReveals(now);
+    expect(entered.has("30,20")).toBe(true);
+    now = flight.landsAt;
+    runtime.tickWatchtowerReveals(now);
+    expect(left.has("30,20")).toBe(true);
+    // One id per flight, not per step: the gateway dedupes, looks up and
+    // persists by commandId, so a fresh id per step flooded its dedupe set.
+    expect(visionBatchIds).toEqual(new Set(["scout-drone-vision:explore-2"]));
+  });
 });

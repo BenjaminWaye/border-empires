@@ -287,6 +287,7 @@ export const buildPlayerSubscriptionSnapshot = (
             incomePerMinute,
             autoSettle: autoSettlePrefsForOutput(livePlayer.autoSettle),
             wonderLastFreeRushBuyAt: livePlayer.wonderLastFreeRushBuyAt ?? 0,
+            manifestGoldDiscount: livePlayer.wonderTechGoldDiscount ?? 0,
             relicMapHints: livePlayer.relicMapHints ?? [],
             eventLog: livePlayer.eventLog ?? [],
             strategicResources: {

@@ -9,13 +9,14 @@ import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakV
 import { sectorOrSeasonLabel, specializationLabel, trophyIconHtml } from "../client-player-profile/client-player-profile-galaxy.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { COMBAT_FOOTNOTE_HTML, combatPanelsHtml, combatStatCardsHtml, type ProfileCombat } from "./client-hud-v2-profile-combat.js";
-import type { HouseChargesPayload } from "@border-empires/shared";
+import { coinPerDay, type HouseChargesPayload } from "@border-empires/shared";
+import { NET_COIN_TITLE } from "./client-hud-v2-resource-bar.js";
 import { houseChargesProfileSectionHtml } from "../client-house-charges/client-house-charges-profile.js";
 import { houseChargeCollectionHtml, type HouseChargeCardView } from "../client-house-charges/client-house-charge-cards.js";
 
 type Loadable<T> = T | "loading" | undefined;
 
-export type ProfileRelation = { kind: "self" } | { kind: "ally" } | { kind: "truce"; endsAt: number } | { kind: "none" };
+export type ProfileRelation = { kind: "self" } | { kind: "ally" } | { kind: "truce"; endsAt: number } | { kind: "war" } | { kind: "none" };
 
 export type ProfileInput = {
   id: string;
@@ -32,6 +33,8 @@ export type ProfileInput = {
   nowMs: number;
   /** Your own Attack/Defense sources; only set on your own profile, so rivals' strength never shows. */
   combat?: ProfileCombat;
+  /** Your own live net coin per minute (empireCoinIncome); only set on your own profile, which then matches the coin chip and Economy. */
+  ownNetCoinPerMinute?: number;
   /** Your own House Charges (null before they are dealt); only set on your own profile, since charges are secret. */
   houseCharges?: HouseChargesPayload | null;
   /** Fulfilled charges from past Sector Contests, as trading cards; public on any profile. */
@@ -50,6 +53,7 @@ const relationHtml = (relation: ProfileRelation, nowMs: number): string => {
     case "self": return `<span class="v2p-rel v2p-rel-self">Your empire</span>`;
     case "ally": return `<span class="v2p-rel v2p-rel-ally">Ally</span>`;
     case "truce": return `<span class="v2p-rel v2p-rel-truce">Truce · ${socialRemainingLabel(relation.endsAt, nowMs)} left</span>`;
+    case "war": return `<span class="v2p-rel v2p-rel-war">At war</span>`;
     default: return `<span class="v2p-rel">No pact</span>`;
   }
 };
@@ -84,13 +88,18 @@ const heroHtml = (input: ProfileInput): string => {
   </aside>`;
 };
 
-const statsHtml = (entry: LeaderboardOverallEntry | undefined, combat: ProfileCombat | undefined): string => {
-  const card = (label: string, value: string): string => `<div class="v2p-stat"><span>${label}</span><b>${value}</b></div>`;
+const statsHtml = (entry: LeaderboardOverallEntry | undefined, combat: ProfileCombat | undefined, ownNet: number | undefined): string => {
+  const card = (label: string, value: string, title = ""): string => `<div class="v2p-stat"${title ? ` title="${title}"` : ""}><span>${label}</span><b>${value}</b></div>`;
   const v = (fn: (e: LeaderboardOverallEntry) => string): string => (entry ? fn(entry) : "—");
+  // Yours is the live net figure the coin chip and Economy show (the leaderboard's is a
+  // periodic gross snapshot, which read 38 beside their 23.6); a rival's is that gross figure, labelled so.
+  const coin = ownNet !== undefined
+    ? card("Net coin / day", coinPerDay(ownNet).toFixed(1), NET_COIN_TITLE)
+    : card("Gross coin / day", v((e) => coinPerDay(e.incomePerMinute).toFixed(1)), "Coin income per day before upkeep");
   return `<div class="v2p-stats${combat ? " v2p-stats-combat" : ""}">
     ${card("Score", v((e) => int(e.score)))}
     ${card("Garrisoned tiles", v((e) => int(e.tiles)))}
-    ${card("Coin / day", v((e) => (e.incomePerMinute * 1440).toFixed(1)))}
+    ${coin}
     ${card("Manifests", v((e) => int(e.techs)))}
     ${card("Manpower cap", v((e) => int(e.manpowerCap)))}
     ${combat ? combatStatCardsHtml(combat) : ""}
@@ -167,7 +176,7 @@ const breaksHtml = (breaks: Loadable<TruceBreakView[]>): string => {
 export const profileHtml = (input: ProfileInput): string =>
   `<div class="v2p" data-v2-scroll="profile-page">${heroHtml(input)}<div class="v2p-main" data-v2-scroll="profile">
     <h3 class="v2p-h">This Sector Contest</h3>
-    ${statsHtml(input.entry, input.combat)}
+    ${statsHtml(input.entry, input.combat, input.ownNetCoinPerMinute)}
     ${input.combat ? `<div class="v2p-grid">${combatPanelsHtml(input.combat)}</div>${COMBAT_FOOTNOTE_HTML}` : ""}
     <div class="v2p-grid">${input.houseCharges !== undefined ? houseChargesProfileSectionHtml(input.houseCharges, input.nowMs) : ""}${careerHtml(input.career)}${trophiesHtml(input.holdings)}${holdingsHtml(input.holdings)}${pactsHtml(input)}${breaksHtml(input.truceBreaks)}</div>
     <h3 class="v2p-h">Charge Cards</h3>

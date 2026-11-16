@@ -14,6 +14,7 @@ import { createLandmassNamePrompt } from "../client-map-name-labels/client-landm
 import { installHudV2 } from "../client-hud-v2/client-hud-v2.js";
 import type { HudV2ActionFlow } from "../client-hud-v2/client-hud-v2-context.js";
 import { installDiplomacyOfferDock } from "../client-diplomacy-offer-dock/client-diplomacy-offer-dock.js";
+import { openCounterOfferScreen } from "../client-alliance/client-alliance-counter-offer.js";
 import { installMarchInteraction } from "../client-march-interaction/client-march-interaction.js";
 import { installSalvageTributeSheet } from "../client-salvage-tribute/client-salvage-tribute-sheet.js";
 import { installRefineryPickers } from "../client-refineries/refinery-picker-flow.js";
@@ -35,7 +36,8 @@ export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, s
   // Incoming truce/alliance offers, answered in place -- held while the map loads and while the return
   // briefing (the Chronicle with what you lost) is pending or open, so losses are seen before any offer.
   const offerDockHeld = createOfferDockHold();
-  installDiplomacyOfferDock({ state, sendGameMessage, isHeld: () => offerDockHeld(state) });
+  installDiplomacyOfferDock({ state, sendGameMessage, isHeld: () => offerDockHeld(state),
+    openCounter: (kind, requestId) => { openCounterOfferScreen(kind, requestId, { state, sendGameMessage, playerNameForOwner: (id) => (id ? state.playerNames.get(id) : undefined) }); } });
   // March To banner + pointer arrow, and dragging a march's destination (read by client-map-input.ts).
   installMarchInteraction({ state, renderHud, sendGameMessage: (payload) => sendGameMessage(payload, "Finish sign-in before changing a march.") });
   installSalvageTributeSheet(state, sendGameMessage); // lets the map's salvage toasts open the ship-salvage popup

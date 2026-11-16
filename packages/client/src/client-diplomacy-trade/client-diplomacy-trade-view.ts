@@ -81,6 +81,34 @@ export const warTally = (reply: DiplomacyStanceReply | undefined): { youTook: nu
   return { youTook: tilesTakenFromAi, theyTook: tilesTakenByAi };
 };
 
+/** This empire's head-to-head row in your Chronicle (PersonalActivityRival): distinct tiles over the last 24 hours. */
+export type ChronicleWarCounts = { tilesTaken: number; tilesLost: number };
+
+const tilesWord = (count: number): string => (count === 1 ? "tile" : "tiles");
+
+const escapeText = (value: string): string =>
+  value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
+
+/**
+ * The war tally block. With a Chronicle row for this empire, the tile counts
+ * are the Chronicle's own (the same territory flip log, last 24 hours), so the
+ * two screens cannot disagree, and the AI's fading weighting is a separate,
+ * labelled line. Without one it shows the AI's weighting, labelled as such.
+ * "" when not at war with an AI.
+ */
+export const warTallyHtml = (reply: DiplomacyStanceReply | undefined, targetName: string, chronicle: ChronicleWarCounts | undefined): string => {
+  const tally = warTally(reply);
+  if (!tally) return "";
+  const name = escapeText(targetName);
+  const rows = (youTook: number, theyTook: number): string =>
+    `<ul><li><span>${youTook}</span> ${tilesWord(youTook)} you took from ${name}</li><li><span>${theyTook}</span> ${tilesWord(theyTook)} ${name} took from you</li></ul>`;
+  if (!chronicle) {
+    return `<span class="diplomacy-trade-war-head">War tally · as ${name} weighs it, recent captures count most</span>${rows(tally.youTook, tally.theyTook)}`;
+  }
+  return `<span class="diplomacy-trade-war-head">War tally · last 24 hours, as in your Chronicle</span>${rows(chronicle.tilesTaken, chronicle.tilesLost)}
+    <p class="diplomacy-trade-war-weight">${name} weighs recent captures most: ${tally.youTook} taken by you, ${tally.theyTook} by them.</p>`;
+};
+
 /** "gift": coin for goodwill alone (client-diplomacy-gift-view.ts). "trade": an independent resource supply trade.
  * extendsTruce: a truce with this empire is running, so a truce offer extends it. */
 export type TradeKind = DiplomacyOfferKind | "trade" | "gift";
@@ -124,6 +152,16 @@ export const activeTruceLockoutReason = (reply: DiplomacyStanceReply | undefined
   return lockout && serverClock.toLocal(lockout.until) > nowMs ? lockout.reason : undefined;
 };
 
+/**
+ * Why you can't pay `give` from `own` right now, or undefined. Shared by the
+ * deal screen's verdict and the offer dock's Accept (paying an offer's ask).
+ */
+export const ownGoodsShortfall = (give: DiplomacyGoods, own: DiplomacyGoods): string | undefined => {
+  if (give.gold > own.gold) return `You only have ${own.gold} coin.`;
+  const missing = TRADABLE_SUPPLY_RESOURCES.find(resource => (give.resources?.[resource] ?? 0) > (own.resources?.[resource] ?? 0));
+  return missing ? `You only have ${own.resources?.[missing] ?? 0} spare ${supplyResourceLabel(missing)} slots.` : undefined;
+};
+
 export const tradeVerdict = (input: {
   targetName: string;
   reply: DiplomacyStanceReply | undefined;
@@ -142,11 +180,8 @@ export const tradeVerdict = (input: {
   if (input.cooldownRemainingMs > 0) {
     return { tone: "bad", text: `You recently made ${targetName} this kind of offer.`, canSend: false, sendLabel: `Can offer again in ${formatOfferCooldown(input.cooldownRemainingMs)}` };
   }
-  if (selection.terms.give.gold > own.gold) {
-    return { tone: "bad", text: `You only have ${own.gold} coin.`, canSend: false, sendLabel };
-  }
-  const missingResource = TRADABLE_SUPPLY_RESOURCES.find(resource => (selection.terms.give.resources?.[resource] ?? 0) > (own.resources?.[resource] ?? 0));
-  if (missingResource) return { tone: "bad", text: `You only have ${own.resources?.[missingResource] ?? 0} spare ${supplyResourceLabel(missingResource)} slots.`, canSend: false, sendLabel };
+  const shortfall = ownGoodsShortfall(selection.terms.give, own);
+  if (shortfall) return { tone: "bad", text: shortfall, canSend: false, sendLabel };
   const hasSupply = hasResourceSupplyOffer(selection.terms.give.resources) || hasResourceSupplyOffer(selection.terms.ask.resources);
   if (hasRecurringCoin(selection.terms)) {
     if (!hasSupply) return { tone: "neutral", text: "Add a resource slot to trade Coin income.", canSend: false, sendLabel };

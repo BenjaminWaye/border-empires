@@ -1,6 +1,6 @@
+import { townFoodSlotDemand } from "../client-town-food-demand/client-town-food-demand.js";
 import { economyCommitmentsHtml, type EconomyCommitments } from "./client-economy-commitments.js";
 import {
-  townFoodSlotDemandForTier,
   structureSlotRequirements,
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   isSlotSourceConverter,
@@ -103,7 +103,7 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
   for (const tile of args.tiles) {
     if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     if (tile.fogged) continue;
-    if (tile.town && resource === "FOOD") add("Town support", townFoodSlotDemandForTier(tile.town.populationTier));
+    if (tile.town && resource === "FOOD") add("Town support", townFoodSlotDemand(tile.town));
     if (tile.fort && tile.fort.status !== "removing") {
       const variant = tile.fort.variant ?? "FORT";
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;

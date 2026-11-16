@@ -36,6 +36,7 @@ import { applyInitNextContest } from "../client-next-contest/client-next-contest
 import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { applySeasonChangeOnInit } from "../client-season-rollover/client-season-rollover.js";
 import { prepareCameraForIncomingPlayer } from "../client-state/client-camera-storage.js";
+import { recentreRestoredCameraOverFog } from "../client-restored-camera-fog/client-restored-camera-fog.js";
 import { resetServerReachForNewConnection } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
 import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
@@ -383,6 +384,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.firstChunkAt = Date.now();
     state.chunkFullCount = Math.max(state.chunkFullCount, 1);
     state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
+    if (isFirstInitThisSession) recentreRestoredCameraOverFog(state); // a saved view over land lost while away is all grey fog
     if (state.hasOwnedTileInCache) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; }
     state.bridgeDebugBootstrap = "rewrite-init";
   } else {

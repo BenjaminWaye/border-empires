@@ -28,6 +28,8 @@ import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manife
 import { manifestClick } from "./client-hud-v2-manifest-click.js";
 import { forgetSeenEmpireTile, hasSeenEmpireTile, nearestSeenEmpireTile } from "../client-empire-map-focus/client-empire-map-focus.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
+import { warOpponentIds } from "../client-alliance/client-war-status.js";
 import { crestClosesProfile, profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { pendingTechCommissionId } from "../client-tech-commission/client-tech-commission.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
@@ -184,6 +186,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
       outgoingAlliance: state.outgoingAllianceRequests,
       outgoingTruce: state.outgoingTruceRequests,
       leaderboard: state.leaderboard.overall,
+      warPlayerIds: warOpponentIds(state, Date.now()),
       nameOf: (id) => nameOf(deps, id),
       colorOf: (id) => deps.ownerColor(id),
       nowMs: Date.now()
@@ -211,7 +214,7 @@ const dealFacts = (deps: HudV2Deps, target: string): string => {
   const { state } = deps;
   const tilesOf = (id: string): number | undefined =>
     (state.leaderboard.overall.find((e) => e.id === id) ?? (id === state.me ? state.leaderboard.selfOverall : undefined))?.tiles;
-  const stance = empireStance(target, { allies: state.allies, activeTruces: state.activeTruces, nowMs: Date.now() });
+  const stance = empireStance(target, { allies: state.allies, activeTruces: state.activeTruces, nowMs: Date.now(), warPlayerIds: warOpponentIds(state, Date.now()) });
   const theirs = tilesOf(target), mine = tilesOf(state.me);
   return dealFactsText(stance.kind === "met" ? "" : stance.label, theirs, mine);
 };
@@ -257,7 +260,8 @@ const profileRelation = (state: HudV2Deps["state"], id: string): ProfileRelation
   if (id === state.me) return { kind: "self" };
   if (state.allies.includes(id)) return { kind: "ally" };
   const truce = state.activeTruces.find((t) => t.otherPlayerId === id && t.endsAt > Date.now());
-  return truce ? { kind: "truce", endsAt: truce.endsAt } : { kind: "none" };
+  if (truce) return { kind: "truce", endsAt: truce.endsAt };
+  return warOpponentIds(state, Date.now()).has(id) ? { kind: "war" } : { kind: "none" };
 };
 
 const renderProfile = (deps: HudV2Deps): void => {
@@ -285,7 +289,7 @@ const renderProfile = (deps: HudV2Deps): void => {
     nameOf: (other) => nameOf(deps, other) || undefined,
     nowMs: Date.now(),
     ...(self ? {} : { mapFocus: hasSeenEmpireTile({ tiles: state.tiles, discoveredTiles: state.discoveredTiles, ownerId: id, revision: state.tilesRevision, chunkCount: state.chunkFullCount }) ? "seen" : "unseen" }),
-    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] }, houseCharges: state.houseCharges ?? null } : {})
+    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] }, houseCharges: state.houseCharges ?? null, ownNetCoinPerMinute: empireCoinIncome(state).netPerMinute } : {})
   }));
 };
 

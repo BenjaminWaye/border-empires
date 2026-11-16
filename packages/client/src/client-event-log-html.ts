@@ -39,6 +39,7 @@ export type ClientEventLogEntry = {
 // How each server event-log type should read in the Activity Feed.
 const FEED_MAPPING_BY_EVENT_TYPE: Record<string, { type: FeedType; severity: FeedSeverity }> = {
   TOWN_LOST: { type: "combat", severity: "error" },
+  AFC_LOST: { type: "combat", severity: "error" },
   IMPERIAL_EXCHANGE_LEVY_HIT: { type: "combat", severity: "warn" },
   IMPERIAL_EXCHANGE_LEVY_CAST: { type: "combat", severity: "info" },
   MONUMENT_CLAIMED: { type: "tech", severity: "success" },

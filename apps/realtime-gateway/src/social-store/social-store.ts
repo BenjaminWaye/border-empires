@@ -15,6 +15,12 @@ import {
   type DiplomacyHistoryEntry,
   type StoredDiplomacyHistoryEntry
 } from "../social-state/social-diplomacy-history.js";
+import {
+  diplomacyMemoryPairKey,
+  MAX_DIPLOMACY_MEMORY_PAIRS,
+  type StoredDiplomacyMemoryPair
+} from "../ai-diplomacy-memory/ai-diplomacy-memory-record.js";
+import type { DiplomacyMemoryRemoval } from "../ai-diplomacy-memory/ai-diplomacy-memory-writer.js";
 
 export type SocialStoreSnapshot = {
   players: Array<{ id: string; name: string; allies: string[] }>;
@@ -30,6 +36,8 @@ export type SocialStoreSnapshot = {
   offerCooldowns: SocialOfferCooldown[];
   forcedTruceCooldowns: Array<{ playerId: string; cooldownUntil: number }>;
   diplomacyHistory: StoredDiplomacyHistoryEntry[];
+  /** What each AI remembers about each player (ai-diplomacy-memory.ts), least recently touched first; absent from older fixtures. */
+  aiDiplomacyMemory?: StoredDiplomacyMemoryPair[];
 };
 
 export type GatewaySocialStore = {
@@ -55,6 +63,8 @@ export type GatewaySocialStore = {
   saveTruceBreak(playerId: string, record: SocialTruceBreakRecord): void;
   saveOfferCooldown(cooldown: SocialOfferCooldown): void;
   saveDiplomacyHistory(playerId: string, entry: DiplomacyHistoryEntry): void;
+  /** Upserts changed AI memory pairs and deletes evicted/pruned ones together (ai-diplomacy-memory-writer.ts). */
+  writeAiDiplomacyMemory(upserts: readonly StoredDiplomacyMemoryPair[], removals: readonly DiplomacyMemoryRemoval[]): void;
   pruneExpired(now: number): void;
   clearSeasonData(): void;
 };
@@ -81,6 +91,8 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
   private readonly offerCooldowns = new Map<string, SocialOfferCooldown>();
   // Bounded like the SQLite table: per player on write, to the 24h window by pruneExpired.
   private diplomacyHistory: StoredDiplomacyHistoryEntry[] = [];
+  // Bounded like the SQLite table: faded pairs by pruneExpired, then the pair cap.
+  private readonly aiDiplomacyMemory = new Map<string, StoredDiplomacyMemoryPair>();
 
   constructor(private readonly now: () => number = () => Date.now()) {}
 
@@ -108,7 +120,8 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
       truceBreaks: this.truceBreaks.map((record) => ({ ...record })),
       offerCooldowns: [...this.offerCooldowns.values()].map((entry) => ({ ...entry })),
       forcedTruceCooldowns: [...this.forcedTruceCooldowns.entries()].map(([playerId, cooldownUntil]) => ({ playerId, cooldownUntil })),
-      diplomacyHistory: this.diplomacyHistory.map((entry) => ({ ...entry }))
+      diplomacyHistory: this.diplomacyHistory.map((entry) => ({ ...entry })),
+      aiDiplomacyMemory: [...this.aiDiplomacyMemory.values()].sort((left, right) => left.touchedAt - right.touchedAt).map((pair) => ({ ...pair }))
     };
   }
 
@@ -202,7 +215,17 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
     if (dropped.size > 0) this.diplomacyHistory = this.diplomacyHistory.filter((stored) => !dropped.has(stored));
   }
 
+  writeAiDiplomacyMemory(upserts: readonly StoredDiplomacyMemoryPair[], removals: readonly DiplomacyMemoryRemoval[]): void {
+    for (const { aiPlayerId, playerId } of removals) this.aiDiplomacyMemory.delete(diplomacyMemoryPairKey(aiPlayerId, playerId));
+    for (const pair of upserts) this.aiDiplomacyMemory.set(diplomacyMemoryPairKey(pair.aiPlayerId, pair.playerId), { ...pair });
+  }
+
   pruneExpired(now: number): void {
+    for (const [key, pair] of this.aiDiplomacyMemory) if (pair.expiresAt <= now) this.aiDiplomacyMemory.delete(key);
+    if (this.aiDiplomacyMemory.size > MAX_DIPLOMACY_MEMORY_PAIRS) {
+      const overCap = [...this.aiDiplomacyMemory].sort(([, left], [, right]) => right.touchedAt - left.touchedAt).slice(MAX_DIPLOMACY_MEMORY_PAIRS);
+      for (const [key] of overCap) this.aiDiplomacyMemory.delete(key);
+    }
     this.diplomacyHistory = this.diplomacyHistory.filter((entry) => entry.occurredAt >= now - DIPLOMACY_HISTORY_TTL_MS);
     for (const [id, until] of this.forcedTruceCooldowns) if (until <= now) this.forcedTruceCooldowns.delete(id);
     for (const [key, entry] of this.offerCooldowns) {
@@ -235,6 +258,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
     this.truceBreaks.length = 0;
     this.offerCooldowns.clear();
     this.diplomacyHistory = [];
+    this.aiDiplomacyMemory.clear();
   }
 }
 

@@ -20,6 +20,9 @@ export type TechInfo = {
   effects?: Record<string, unknown>;
   requirements: {
     gold: number;
+    // Manifests only, when the Calculating Engine discounts them (shared manifestGoldRequirement).
+    goldBeforeDiscount?: number;
+    goldDiscountFraction?: number;
     resources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
     checklist?: Array<{ label: string; met: boolean }>;
     canResearch?: boolean;

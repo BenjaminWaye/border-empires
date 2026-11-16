@@ -74,7 +74,7 @@ export const renderRespawnOverlay = (deps: RespawnOverlayDeps): void => {
             The reason for the redeployment is written above. If it still looks wrong, download one recovery report with the written reason, the recent client and server event stream, and the debug log bundled together.
           </p>
           <div class="respawn-actions">
-            <button id="respawn-center" class="panel-btn" type="button">Center on new capital</button>
+            <button id="respawn-center" class="panel-btn" type="button">Center on your new AFC</button>
             <button id="respawn-download-report" class="panel-btn guide-secondary-btn" type="button">Download respawn report</button>
           </div>
         </section>
@@ -97,7 +97,7 @@ export const renderRespawnOverlay = (deps: RespawnOverlayDeps): void => {
   if (centerBtn) {
     centerBtn.onclick = () => {
       centerOnOwnedTile();
-      pushFeed("Centered on your new capital.", "info", "success");
+      pushFeed("Centered on your new AFC.", "info", "success");
     };
   }
   if (downloadReportBtn) {

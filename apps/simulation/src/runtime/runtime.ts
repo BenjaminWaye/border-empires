@@ -1754,7 +1754,7 @@ export class SimulationRuntime {
     this.refreshOwnedStructureCountIndexForTile(previous, tile);
     this.observeAfcTileChange(previous, tile, commandId);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
-    wonderEffects.refreshWonderOwners(tile, previous, id => this.settledTilesForPlayer(id), this.wonderCacheByPlayer, this.state.players, this.now());
+    wonderEffects.refreshWonderOwners(tile, previous, id => this.settledTilesForPlayer(id), this.wonderCacheByPlayer, this.state.players, this.now(), id => wonderEffects.emitManifestPriceUpdate(this.progressionCommandContext(), id, commandId));
     flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.state.tiles, dockLinksByDockTileKey: this.state.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
     reconcileTownVisionBonus({ players: this.state.players, coverage: this.state.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
     reconcileOutpostVisionBonus(this.structureVision.outpostVisionDeps(), previous, tile);

@@ -79,7 +79,7 @@ import { buildInitMessage, INIT_RECOVERY_TIMEOUT_MS } from "../reconnect-recover
 import { createSimulationClient, type SimulationClientEvent } from "../sim-client/sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
 import { createGatewaySocialStore } from "../social-store-factory.js";
-import { buildGatewaySocialState } from "./build-social-state-sink.js";
+import { buildAiDiplomacyMemoryPersistence, buildGatewaySocialState } from "./build-social-state-sink.js";
 import { applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscription-snapshot-sync.js";
 import { mergeTileDetailIntoSnapshot } from "../tile-detail-merge/tile-detail-merge.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
@@ -900,7 +900,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const seasonLobby = createSeasonLobbyGatewayIntegration({ preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), profileOverrides, profileStore, invalidateProfileCache, fallbackName: (playerId) => socialRegistrationNameFor(playerId, playerId) }); const getWorldPulseActivity = createWorldPulseActivitySource({ getActivityDashboard: () => simulationClient.getActivityDashboard(), getSeasonPowerScore: async () => { const season = await simulationClient.getCurrentSeasonSummary(); return { seasonId: season.seasonId, powerScore: (await hydrateCurrentSeasonSummaryDisplayNames(season, profileStore)).overall }; }, getSocialSnapshot: () => socialStore.loadSnapshot(), growthBaselineStore });
   const nextContest = createGatewayNextContest({
     simulationClient, store: sectorWaitlistStore, recordGatewayEvent: (level, event, payload) => recordGatewayEvent(level, event, payload),
-    onSeasonStarted: (seasonId, force) => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); seasonLobby.roster.reset(); slackAlerter?.alertSeasonStarted(seasonId, force); notifySeasonStarted(); },
+    onSeasonStarted: (seasonId, force) => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); diplomacySocket.resetAiDiplomacyMemory(); seasonLobby.roster.reset(); slackAlerter?.alertSeasonStarted(seasonId, force); notifySeasonStarted(); },
     broadcast: (payload) => { const updatePayload = preSerializeBroadcast(payload); for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, updatePayload); }
   });
 
@@ -936,7 +936,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       admin: { apiToken: options.adminApiToken, email: options.adminEmail },
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); nextContest.reset(); } } : {}),
-      onSeasonStarted: () => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); nextContest.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
+      onSeasonStarted: () => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); diplomacySocket.resetAiDiplomacyMemory(); nextContest.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
       snapshotForPlayer: socialState.snapshotForPlayer,
       playerFunnel: { store: playerFunnelStore, tracker: playerFunnel }
     })
@@ -978,7 +978,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     onStrandedRegionCheck: (outcome) => gatewayMetrics.incrementStrandedRegionCheck(outcome)
   });
   const diplomacySocket = buildDiplomacySocketHandler({
-    socialState, seededAiPlayerIds, sendJson, fanoutPlayerPayloads, syncTruceToSimulation, syncAllianceToSimulation, recordGatewayEvent, sendGameplayEmailAlert, gatewayMetrics,
+    socialState, seededAiPlayerIds, sendJson, fanoutPlayerPayloads, syncTruceToSimulation, syncAllianceToSimulation, recordGatewayEvent, sendGameplayEmailAlert, gatewayMetrics, aiDiplomacyMemory: buildAiDiplomacyMemoryPersistence(socialStore, persistedSocialSnapshot),
     ensureSubscribed: (playerId) => playerSubscriptions.ensureSubscribed(playerId),
     cachedSnapshotForPlayer: (playerId) => playerSubscriptions.snapshotForPlayer(playerId),
     hasLiveSocket: (playerId) => playerSubscriptions.socketsForPlayer(playerId).size > 0,
@@ -1649,7 +1649,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
-    aiDiplomacyTimer.stop(); diplomacySocket.stopProactive();
+    aiDiplomacyTimer.stop(); diplomacySocket.stopProactive(); diplomacySocket.flushAiDiplomacyMemory();
     allianceBreakFinalize.stop(); truceExpirySync.stop(); pendingSeasonNotifyTimer.stop(); nextContestTimer.stop(); stopGalaxyCycleScheduler(); stopGalaxySenateScheduler(); stopGalaxyFleetScheduler(); stopGalaxyDukeScheduler();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);

@@ -160,7 +160,7 @@ export const chainedBuildAvailabilityFromModule = (
         : state.gold < totalGold
           ? `Need ${totalGold} coin`
           : state.manpower < totalManpower
-            ? `Need ${totalManpower} manpower`
+            ? `Need ${totalManpower} manpower (${state.settleManpowerCost} garrison + ${manpowerCost} build)`
             : "",
       `${totalGold > 0 ? `${totalGold} coin, ` : ""}${totalManpower} m.p. (${state.settleManpowerCost} garrison + ${manpowerCost} build) • ${buildTimeLabel(settleDurationMsForState(state, tile) + buildDurationMsForState(state, structureType))} total`
     ];

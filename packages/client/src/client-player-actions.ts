@@ -220,6 +220,9 @@ export const explainActionFailureFromServer = (
     const cap = /max (\d+) muster tiles/.exec(message)?.[1];
     return cap ? `You can have up to ${cap} muster flags. Move or remove an existing flag first.` : "You have reached your muster flag limit.";
   }
+  // The gateway already words these for players; "Error DIPLOMACY_SETTLEMENT_FAILED: …" was shown raw.
+  if (code === "DIPLOMACY_SETTLEMENT_FAILED") return `Couldn't accept the offer. ${message || "The deal fell through."}`;
+  if (code === "DIPLOMACY_OFFER_WITHDRAWN" || code === "RESOURCE_TERMS_CONFIRMATION_REQUIRED" || code === "OFFER_SETTLING") return message;
   if (code === "TRUCE_LOCKED_OUT") return "A House in this deal recently broke a truce. New truces are locked for 24 hours after a break.";
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot garrison: ${message}.`;

@@ -8,6 +8,8 @@ import type { WaystationGoldTier, WaystationGrantedEffect } from "@border-empire
 
 export type PlayerEventLogEntryType =
   | "TOWN_LOST"
+  // The owner lost an AFC (captured or destroyed); named apart from towns.
+  | "AFC_LOST"
   | "IMPERIAL_EXCHANGE_LEVY_HIT"
   | "IMPERIAL_EXCHANGE_LEVY_CAST"
   | "MONUMENT_CLAIMED"

@@ -42,6 +42,18 @@ describe("createAiDiplomacyMemory", () => {
     expect(memory.view("ai-1", "p1")).toEqual(expect.objectContaining({ tilesTakenFromAi: 0, lastPlayerAttackAt: 1_000 }));
   });
 
+  // Playtest: the Chronicle counted these tiles (the flip log records the lost
+  // origin) while the war tally said 0.
+  it("counts the origin tile a failed attack loses, from both sides", () => {
+    const { memory } = setup();
+    memory.observeCombat({ attackerId: "p1", defenderId: "ai-1", attackerWon: false, tilesCaptured: 0, tilesCapturedByDefender: 1 });
+    memory.observeCombat({ attackerId: "ai-1", defenderId: "p1", attackerWon: false, tilesCaptured: 0, tilesCapturedByDefender: 1 });
+    memory.observeCombat({ attackerId: "ai-1", defenderId: "p1", attackerWon: false, tilesCaptured: 0, tilesCapturedByDefender: 1 });
+    expect(memory.view("ai-1", "p1")).toEqual(
+      expect.objectContaining({ tilesTakenByAi: 1, tilesTakenFromAi: 2, recentTilesTakenByAi: 1, recentTilesTakenFromAi: 2 })
+    );
+  });
+
   it("ignores human-only fights", () => {
     const { memory } = setup();
     memory.observeCombat({ attackerId: "p1", defenderId: "p2", attackerWon: true, tilesCaptured: 3 });
@@ -90,9 +102,23 @@ describe("combatFromSimulationEvent", () => {
         eventType: "COMBAT_RESOLVED",
         playerId: "p1",
         attackerWon: true,
-        combatResult: { defenderOwnerId: "ai-1", changes: [{ ownerId: "p1" }, { ownerId: "p1" }, { ownerId: "ai-1" }] }
+        combatResult: { defenderOwnerId: "ai-1", changes: [{ ownerId: "p1" }, { ownerId: "p1" }] }
       })
     ).toEqual({ attackerId: "p1", defenderId: "ai-1", attackerWon: true, tilesCaptured: 2 });
+  });
+
+  // Playtest: the war tally said 0 tiles taken while the Chronicle said 2. A
+  // failed attack hands its origin tile to the defender; the Chronicle's flip
+  // log counts it, the tally dropped it.
+  it("reads the origin tile a failed attack loses to the defender", () => {
+    expect(
+      combatFromSimulationEvent({
+        eventType: "COMBAT_RESOLVED",
+        playerId: "p1",
+        attackerWon: false,
+        combatResult: { defenderOwnerId: "ai-1", changes: [{ ownerId: "ai-1" }] }
+      })
+    ).toEqual({ attackerId: "p1", defenderId: "ai-1", attackerWon: false, tilesCaptured: 0, tilesCapturedByDefender: 1 });
   });
 
   it("skips barbarians, neutral tiles and other events", () => {

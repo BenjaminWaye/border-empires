@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 
+import { clearAiDiplomacyMemory, pruneAiDiplomacyMemory } from "./social-store-ai-diplomacy-memory.js";
 import { pruneDiplomacyHistory } from "./social-store-diplomacy-history.js";
 
 // Expiry and season-reset SQL for SqliteGatewaySocialStore, extracted out of
@@ -9,6 +10,7 @@ import { pruneDiplomacyHistory } from "./social-store-diplomacy-history.js";
 /** Deletes rows whose own expiry has passed (startup, and whenever the social state sweeps). */
 export function pruneExpiredSocialRows(db: DatabaseSync, now: number): void {
   pruneDiplomacyHistory(db, now);
+  pruneAiDiplomacyMemory(db, now);
   db.prepare("DELETE FROM social_forced_truce_cooldowns WHERE cooldown_until <= ?").run(now);
   db.prepare(`DELETE FROM social_offer_cooldowns WHERE until <= ?`).run(now);
   db.prepare(`DELETE FROM social_truce_requests WHERE expires_at <= ? AND settlement_phase IS NULL`).run(now);
@@ -30,4 +32,5 @@ export function clearSeasonSocialTables(db: DatabaseSync): void {
   db.exec(`DELETE FROM social_truce_breaks`);
   db.exec(`DELETE FROM social_offer_cooldowns`);
   db.exec(`DELETE FROM social_diplomacy_history`);
+  clearAiDiplomacyMemory(db);
 }

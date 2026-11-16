@@ -14,6 +14,7 @@ export type TownCaptureInfo = {
   coastal: boolean;
   population: number;
   maxPopulation: number;
+  /** The viewer's own House. The card only ever shows the viewer's own capture, so it addresses them as "you", never by this name. */
   empireName: string;
   /** Count of the player's other already-settled towns, used to estimate manpower regen weight. */
   ownedTownCount: number;
@@ -164,7 +165,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
     <div id="town-capture-modal">
       <div id="town-capture-hero">${artSvg}
         <div id="town-capture-hero-fade"></div>
-        <div id="town-capture-eyebrow">${info.destroyed ? "Settlement Destroyed" : "Town Captured"}</div>
+        <div id="town-capture-eyebrow">${info.destroyed ? "Settlement Razed by You" : "Town Captured"}</div>
         <div id="town-capture-name">${escapeHtml(townName)}</div>
         <div id="town-capture-meta">${escapeHtml(tier)} &middot; (${info.x}, ${info.y})</div>
       </div>
@@ -172,7 +173,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
       <div id="town-capture-body">
         <div id="town-capture-owner">${
           info.destroyed
-            ? `Destroyed by <strong>${escapeHtml(info.empireName)}</strong>'s attack`
+            ? "You captured this tile. Your attack leveled the settlement."
             : "You captured this town."
         }</div>
         ${statsHtml}
