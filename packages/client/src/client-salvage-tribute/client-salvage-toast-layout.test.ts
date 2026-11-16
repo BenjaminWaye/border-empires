@@ -21,6 +21,18 @@ describe("salvage toast layout", () => {
     expect(salvageToastText(groups[0]!, "label")).toBe("Salvage 3");
   });
 
+  it("never leaves two markers close enough to overlap, whatever the tile order", () => {
+    // x=0 and x=70 start apart; x=35 joining the first used to pull it within reach of the second.
+    const groups = groupSalvageToasts([0, 70, 35].map((x, i) => ({ toast: toast(i, 0), x, y: 100 })), "label");
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({ fields: 3, loads: 9 });
+  });
+
+  it("merges labels two tiles apart, since a label is wider than that", () => {
+    const groups = groupSalvageToasts([{ toast: toast(1, 1), x: 100, y: 50 }, { toast: toast(3, 1), x: 176, y: 50 }], "label");
+    expect(groups).toHaveLength(1);
+  });
+
   it("shrinks to a pip when zoomed out", () => {
     expect(salvageToastModeFor(16)).toBe("pip");
     expect(salvageToastModeFor(48)).toBe("label");

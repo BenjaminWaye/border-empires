@@ -3,8 +3,9 @@ import type { SalvageToast } from "./client-salvage-ready-toasts.js";
 /** Below this on-screen tile size (CSS px) a toast shrinks to a small count pip. */
 export const SALVAGE_PIP_TILE_PX = 32;
 
-/** Half-extents (CSS px) within which two toasts would overlap, per mode. */
-const OVERLAP = { pip: { x: 22, y: 22 }, label: { x: 64, y: 26 } } as const;
+/** Centre-to-centre distance (CSS px) under which two markers would overlap, per mode: about one
+ * marker width/height ("Salvage 10" at 11px is ~78px wide), plus a little breathing room. */
+const OVERLAP = { pip: { x: 24, y: 24 }, label: { x: 88, y: 26 } } as const;
 
 export type SalvageToastMode = keyof typeof OVERLAP;
 
@@ -27,13 +28,24 @@ export const salvageToastModeFor = (tilePx: number): SalvageToastMode => tilePx 
 /** Merges toasts that would overlap on screen into one, so a deposit of Works shows a single marker. */
 export function groupSalvageToasts(placed: readonly PlacedSalvageToast[], mode: SalvageToastMode): SalvageToastGroup[] {
   const { x: reachX, y: reachY } = OVERLAP[mode];
-  const clusters: { members: PlacedSalvageToast[]; x: number; y: number }[] = [];
-  for (const entry of placed) {
-    const near = clusters.find(c => Math.abs(c.x - entry.x) < reachX && Math.abs(c.y - entry.y) < reachY);
-    if (!near) { clusters.push({ members: [entry], x: entry.x, y: entry.y }); continue; }
-    near.members.push(entry);
-    near.x = near.members.reduce((sum, m) => sum + m.x, 0) / near.members.length;
-    near.y = Math.min(near.y, entry.y);
+  type Cluster = { members: PlacedSalvageToast[]; x: number; y: number };
+  const clusters: Cluster[] = placed.map(entry => ({ members: [entry], x: entry.x, y: entry.y }));
+  // Merge until no two markers overlap: a moved centre can come within reach of another cluster.
+  for (let merged = true; merged;) {
+    merged = false;
+    for (let i = 0; i < clusters.length && !merged; i++) {
+      for (let j = i + 1; j < clusters.length; j++) {
+        const a = clusters[i]!, b = clusters[j]!;
+        if (Math.abs(a.x - b.x) >= reachX || Math.abs(a.y - b.y) >= reachY) continue;
+        const n = a.members.length + b.members.length;
+        a.x = (a.x * a.members.length + b.x * b.members.length) / n;
+        a.y = Math.min(a.y, b.y);
+        a.members.push(...b.members);
+        clusters.splice(j, 1);
+        merged = true;
+        break;
+      }
+    }
   }
   return clusters.map(({ members, x, y }) => {
     const ready = members.some(m => m.toast.ready);

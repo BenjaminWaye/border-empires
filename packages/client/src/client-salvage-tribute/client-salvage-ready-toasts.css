@@ -27,7 +27,7 @@
 .salvage-toast::before {
   content: "";
   position: absolute;
-  inset: -8px;
+  inset: -4px;
 }
 .salvage-toast::after {
   content: "";

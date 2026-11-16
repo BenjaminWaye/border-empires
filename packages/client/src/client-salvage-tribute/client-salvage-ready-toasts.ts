@@ -37,23 +37,19 @@ export function createSalvageReadyToasts(canvas: HTMLCanvasElement, state: Toast
       const scaleX = bounds.width / Math.max(1, canvas.width), scaleY = bounds.height / Math.max(1, canvas.height);
       const three = isTrue3DRendererActive();
       const placed: PlacedSalvageToast[] = [];
-      let tilePx = size * scaleX;
+      // Both renderers hand us the flat worldToScreen projection, so one tile is `size` canvas px.
+      const mode = salvageToastModeFor(size * scaleX);
       for (const { wx, wy, wk, px, py, vis, t } of state.authSessionReady && !state.profileSetupRequired ? tiles : []) {
         if (vis !== "visible" || placed.length >= MAX_TOASTS) continue;
         const toast = salvageToastFor(state, wk, t);
         if (!toast) continue;
         const at = three ? project(wx, wy) : { sx: px + size / 2, sy: py + size / 2 };
-        if (three && placed.length === 0) {
-          const next = project(wx + 1, wy);
-          tilePx = Math.hypot(next.sx - at.sx, next.sy - at.sy) * scaleX;
-        }
-        // Same lift as the AFC upgrade badge: clear of the Works model in 3D, above the tile in 2D.
-        const lift = three ? Math.max(20, size * 1.4) : Math.max(20, size * 0.45 + 6);
+        // Clear of the Works model in 3D; in 2D a label sits above the tile, a tail-less pip on its top edge.
+        const lift = three ? Math.max(20, size * 1.4) : mode === "pip" ? size * 0.5 : Math.max(20, size * 0.45 + 6);
         const x = at.sx * scaleX, y = (at.sy - lift) * scaleY;
         if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > bounds.width || y > bounds.height) continue;
         placed.push({ toast, x, y });
       }
-      const mode = salvageToastModeFor(tilePx);
       const shown = new Set<string>();
       for (const group of groupSalvageToasts(placed, mode)) {
         shown.add(group.key);
