@@ -10,7 +10,7 @@ import { dormantResourcesForTile, structureTypeForTileAction } from "../client-t
 import type { Terrain } from "@border-empires/shared";
 import { supportPlotAnchorTown } from "../client-town-support-plot-lookup.js";
 import { townPlotsCardHtml } from "./client-hud-v2-town-plots-card.js";
-import { BUILD_PLACED_FLASH_MS, buildPlacedPresses, type BuildPlacedOutcome } from "../client-queue-logic/client-build-placed-feedback.js";
+import { BUILD_PLACED_FLASH_MS, buildPlacedPresses, nextPlaceFlash, placeButtonState, type PlaceFlash } from "../client-queue-logic/client-build-placed-feedback.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
@@ -84,8 +84,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     autoSettle: deps.state.autoSettle,
     dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field),
     plotsHtml: townPlotsCardHtml(deps.state, town),
-    placed: placeFlash && Date.now() < placeFlash.until ? placeFlash.outcome : undefined,
-    placedBefore: Boolean(placeFlash && placeFlash.selection === screen.townBuildSelection)
+    ...placeButtonState(placeFlash, screen.townBuildSelection, Date.now())
   });
   writeHtml("v2t-left", regions.left);
   writeHtml("v2t-build", regions.build);
@@ -180,9 +179,8 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
   return true;
 };
 
-/** The town screen's own Place press confirmation: set only by a press on this screen that went through (runTileActionOn). */
-/** The latest Place press's confirmation; kept after it fades so the button can read "Place another" for that building. */
-let placeFlash: { outcome: BuildPlacedOutcome; until: number; selection: string | undefined } | undefined;
+/** The town screen's latest Place press that went through (runTileActionOn); kept after its "✓" fades for "Place another". */
+let placeFlash: PlaceFlash | undefined;
 let placeFlashTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const closeTownScreen = (keepPosition = false): void => {
@@ -249,9 +247,10 @@ export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], 
   if (type) {
     // This press's own confirmation: a press rejected locally clears an earlier "✓ Placed" rather than inherit it.
     const presses = buildPlacedPresses();
-    placeFlash = presses.count !== pressesBefore && presses.outcome ? { outcome: presses.outcome, until: Date.now() + BUILD_PLACED_FLASH_MS, selection: screen.townBuildSelection } : undefined;
+    const went = presses.count !== pressesBefore;
+    placeFlash = nextPlaceFlash(placeFlash, { went, outcome: presses.outcome }, actionId, Date.now());
     if (placeFlashTimer) clearTimeout(placeFlashTimer);
-    placeFlashTimer = placeFlash ? setTimeout(() => renderTownScreen(deps), BUILD_PLACED_FLASH_MS + 50) : undefined;
+    placeFlashTimer = went && placeFlash ? setTimeout(() => renderTownScreen(deps), BUILD_PLACED_FLASH_MS + 50) : undefined;
     renderTownScreen(deps);
   }
 };
