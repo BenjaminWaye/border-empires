@@ -8,17 +8,18 @@ import { constructionSiteForRebuild } from "../client-construction-afc-offset/cl
 import { hillFootprintTopY } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield-terrain.js";
 import { hillBumpsWithCorridorAt, hillNeighborFlagsAt, hillShapeHeight, type RoadCutDirections } from "../client-map-3d-hill-shape.js";
-import { DISTRICT_RADIUS, isDistrictBuilding, isDistrictProject } from "./district-catalog.js";
-
-// Fort walls' inner faces sit at 0.38 and the corner towers start at 0.30 from the tile centre
-// (client-map-3d-fort-overlay.ts), so a centred building with half-extent DISTRICT_RADIUS * this
-// (0.296) stands clear of both.
-export const FORT_INTERIOR_SCALE = 0.78;
+import { DISTRICT_RADIUS, isDistrictBuilding, isDistrictProject, type DistrictVisualKind } from "./district-catalog.js";
+import { FORT_CONSTRUCTION_LAYOUT } from "../client-map-3d-construction/client-map-3d-construction-layout.js";
 import { buildDistrictNetwork, districtOperational, districtRecord, type DistrictPoint } from "./district-network.js";
 import { createDistrictOverlay } from "./district-overlay.js";
 import { createDistrictLinks3D } from "./district-links-3d.js";
 import { refinerySceneAround, type RefineryScene } from "../client-refineries/refinery-scene.js";
 import { createRefineryGoods3D } from "../client-refineries/refinery-goods-3d.js";
+
+// Inside a fort's walls: every district building already clears the walls and corner towers at
+// full size; the wider Great Project models are trimmed slightly to do the same
+// (geometry checked against the fort bounds in district-map-3d-fort.test.ts).
+export const fortInteriorScale = (kind: DistrictVisualKind): number => isDistrictProject(kind) ? 0.95 : 1;
 
 // farmLift: raise onto a farm plot's crops (FarmlandOverlay.standLiftAt); surfaceY already includes it.
 export type DistrictSite = { readonly x: number; readonly z: number; readonly surfaceY: number; readonly wx: number; readonly wy: number; readonly farmLift?: number };
@@ -100,15 +101,16 @@ export const createDistrictMap3D = (scene: Scene, maxTiles: number, deps: Distri
       const combined = Boolean(tile.fort || hasTown || tile.observatory);
       if (combined && !hasTown && economic && !tile.observatory) models.add({ x: site.x, y, z: site.z, foundation: true, operational: !remembered });
       // A town or Aether Tower shares the tile, so the building is compacted into a corner.
-      // A fort alone leaves its walled interior free: centre the building at the largest size
-      // that still clears the corner towers.
+      // A fort alone leaves its walled interior free: the building stands centred inside it.
       const sharesTile = hasTown || Boolean(tile.observatory);
       const add = (kind: Parameters<typeof models.add>[0]["kind"], offset: number): void => {
         if (!kind) return;
         const construction = remembered ? undefined : constructionSiteForRebuild(deps.state, tile, "economicStructure", rebuildAt);
+        const fortOnly = combined && !sharesTile;
         models.add({
           kind, x: site.x + (sharesTile ? offset : 0), y, z: site.z + (sharesTile ? 0.18 : 0),
-          foundation: !combined || Boolean(tile.observatory), scale: sharesTile ? 0.5 : combined ? FORT_INTERIOR_SCALE : 1,
+          foundation: !combined || Boolean(tile.observatory), scale: sharesTile ? 0.5 : fortOnly ? fortInteriorScale(kind) : 1,
+          ...(fortOnly ? { constructionLayout: FORT_CONSTRUCTION_LAYOUT } : {}),
           operational: !remembered && record?.status === "active" && !dormant.has(`${tile.x},${tile.y}:economicStructure`) && districtOperational(tile),
           ...(construction ? { site: construction } : {})
         });
