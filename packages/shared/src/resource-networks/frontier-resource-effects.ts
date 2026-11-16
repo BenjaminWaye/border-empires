@@ -56,6 +56,15 @@ export const SALVAGE_TRIBUTE_COURT_STRENGTH = 1;
 export const salvageLoadsRemaining = (works: { readonly salvageLoadsShipped?: number | undefined }): number =>
   Math.max(0, SALVAGE_LOADS_PER_SITE - Math.max(0, Math.floor(works.salvageLoadsShipped ?? 0)));
 
+/**
+ * A Reclamation Works whose field has shipped its last load: the deposit is
+ * gone, the Works stays as a depleted yard. It gives no arms bonus, holds no
+ * loads and counts as no salvage site; the owner may dismantle it.
+ */
+export const isDepletedReclamationWorks = (tile: {
+  readonly resource?: string | undefined; readonly economicStructure?: { readonly type?: string } | null | undefined;
+}): boolean => tile.economicStructure?.type === "RECLAMATION_WORKS" && tile.resource !== "PRECURSOR_SALVAGE";
+
 /** Attack and defense multiplier from developed salvage sites that still hold loads. */
 export const salvageArmsMultiplier = (sites: number): number =>
   1 + Math.min(SALVAGE_ARMS_BONUS_MAX, Math.max(0, Math.floor(sites)) * SALVAGE_ARMS_BONUS_PER_SITE);

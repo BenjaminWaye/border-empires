@@ -44,12 +44,17 @@ describe("shipping precursor salvage to the Court", () => {
     expect(f.player().manpower).toBeCloseTo(Math.min(cap, 1000));
     expect(JSON.parse(f.site().economicStructureJson!)).toMatchObject({ type: "RECLAMATION_WORKS", salvageLoadsShipped: 1 });
   });
-  it("empties the field with its last load", async () => {
+  it("empties the field with its last load and leaves a depleted Works", async () => {
     const f = fixture(0, 2);
+    const salvageSites = () => (f.runtime as unknown as { ownedStructureCountsForPlayer: (id: string) => Record<string, number> })
+      .ownedStructureCountsForPlayer("p").RECLAMATION_WORKS ?? 0;
+    expect(salvageSites()).toBe(1);
     await f.ship("load-3");
     expect(f.events.filter(event => event.eventType === "COMMAND_REJECTED")).toEqual([]);
     expect(f.site().resource).toBeUndefined();
-    expect(f.site().economicStructureJson).toBeUndefined();
+    // Regression: the Works used to vanish; it now stays as a depleted yard that is no salvage site (no arms bonus).
+    expect(JSON.parse(f.site().economicStructureJson!)).toMatchObject({ type: "RECLAMATION_WORKS", salvageLoadsShipped: 3 });
+    expect(salvageSites()).toBe(0);
     // The emptied field must reach clients as an explicit clear ("" on the wire), not an omission.
     const lastDelta = f.events.filter(event => event.eventType === "TILE_DELTA_BATCH" && event.commandId === "load-3").at(-1)!;
     const wireTile = toProtoEvent(lastDelta).tile_deltas.find(tile => tile.x === 20 && tile.y === 20);
@@ -58,6 +63,20 @@ describe("shipping precursor salvage to the Court", () => {
     expect(replayedSiteResource(f.events)).toBeUndefined();
     await f.ship("load-4");
     expect(f.events.some(event => event.eventType === "COMMAND_REJECTED" && event.commandId === "load-4")).toBe(true);
+  });
+  it("lets the owner dismantle a depleted Works", async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fixture(0, 2);
+      await f.ship("load-3");
+      await f.runtime.submitCommand({ commandId: "remove", sessionId: "s", playerId: "p", clientSeq: 99, issuedAt: now, type: "REMOVE_STRUCTURE", payloadJson: JSON.stringify({ x: 20, y: 20 }) });
+      expect((JSON.parse(f.site().economicStructureJson ?? "{}") as { status?: string }).status).toBe("removing");
+      await vi.advanceTimersByTimeAsync(7 * 24 * 60 * 60_000);
+      expect(f.site().economicStructureJson).toBeUndefined();
+      expect(f.site().resource).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it("never delivers above the cap and refuses when manpower is full", async () => {
     const f = fixture(0);

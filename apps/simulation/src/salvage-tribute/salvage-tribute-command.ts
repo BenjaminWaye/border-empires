@@ -8,7 +8,8 @@ import { withResourceCleared } from "./salvage-field-clear.js";
  * Ship one load of precursor salvage from a working Reclamation Works to the
  * Court. The Court sends an Imperial delivery worth a flat
  * SALVAGE_TRIBUTE_MANPOWER (never above the cap). The last load empties the field: the
- * deposit and its Works are gone, so its arms bonus ends too.
+ * deposit is gone and the Works stays as a depleted yard (isDepletedReclamationWorks),
+ * so its arms bonus ends too.
  *
  * Court Strength in the space layer is not adjusted here: it lives in the
  * realtime gateway's galaxy service, which has no per-match hook yet.
@@ -40,7 +41,7 @@ export function handleShipSalvageToCourt(context: AfcActiveCommandContext, comma
   const shipped = (works.salvageLoadsShipped ?? 0) + 1;
   const updated = remaining - 1 > 0
     ? { ...tile, economicStructure: { ...works, salvageLoadsShipped: shipped } }
-    : { ...tile, resource: undefined, economicStructure: undefined };
+    : { ...tile, resource: undefined, economicStructure: { ...works, salvageLoadsShipped: shipped } };
   abilities.replaceTileState(key, updated, command.commandId);
   const delta = abilities.tileDeltaFromState(updated);
   abilities.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: actor.id,

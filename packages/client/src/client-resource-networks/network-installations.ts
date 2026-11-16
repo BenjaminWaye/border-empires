@@ -41,10 +41,10 @@ const cultivationEstate = (t: TownBuilders): void => {
   }
 };
 
-export const buildNetworkInstallation = (t: TownBuilders, resource: NetworkResource): void => {
+export const buildNetworkInstallation = (t: TownBuilders, resource: NetworkResource, depleted = false): void => {
   foundation(t);
   switch (resource) {
     case "LUXURY_BIOTA": cultivationEstate(t); break;
-    case "PRECURSOR_SALVAGE": buildReclamationWorks(t); break;
+    case "PRECURSOR_SALVAGE": buildReclamationWorks(t, depleted); break;
   }
 };

@@ -274,7 +274,10 @@ spends one load: the Court sends an Imperial delivery of a flat 1000 manpower
 no more per load), never above the cap, and is refused when manpower is full.
 AI Houses ship one load at a time when their manpower is below 35% of the cap
 (`apps/simulation/src/ai/salvage-tribute-planner.ts`). The
-last load removes the deposit and its Works, ending that site's arms bonus.
+last load removes the deposit and leaves a depleted Works
+(`isDepletedReclamationWorks`): it ends that site's arms bonus, is no longer
+counted as a salvage site, and is drawn as an empty yard on both the 2D and
+3D maps. The owner can dismantle it to free the tile.
 Dismantling a Works that has shipped any load also removes the deposit, so a
 rebuild cannot restore loads. A captured Works keeps its remaining loads.
 Salvage cannot be traded or siphoned. Court Strength in the space layer is not
