@@ -1,4 +1,5 @@
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
+import { FORT_BUILDING_SIZE_ENTRY } from "./client-changelog-fort-building-size.js";
 import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
@@ -6,8 +7,6 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_116 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_117 } from "./client-changelog-data-earlier-117.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_118 } from "./client-changelog-data-earlier-118.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_119 } from "./client-changelog-data-earlier-119.js";
-import { FORT_BUILDING_SIZE_ENTRY } from "./client-changelog-fort-building-size.js";
-import { RESTORED_CAMERA_FOG_ENTRY } from "./client-changelog-restored-camera-fog.js";
 import { WINS_AND_COSTS_EXPLAINED_ENTRY } from "./client-changelog-wins-and-costs-explained.js";
 import { PLAYTEST_MAP_READABILITY_ENTRY } from "./client-changelog-playtest-map-readability.js";
 import { INCOME_WAR_CARDS_ENTRY } from "./client-changelog-income-war-cards.js";
@@ -16,6 +15,7 @@ import { SERVER_EXPLORED_MAP_ENTRY } from "./client-changelog-server-explored-ma
 import { RECONNECT_RAZED_STRUCTURES_ENTRY } from "./client-changelog-reconnect-razed-structures.js";
 import { MUSTER_PANEL_SIZE_ENTRY } from "./client-changelog-muster-panel-size.js";
 import { ENCIRCLEMENT_POCKET_ENTRY } from "./client-changelog-encirclement-pocket.js";
+import { FASTER_LOGIN_MAP_ENTRY } from "./client-changelog-faster-login-map.js";
 import { PLACE_ANOTHER_ENTRY } from "./client-changelog-place-another.js";
 import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
@@ -66,7 +66,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_27 } from "./client-changelog-oct-27.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31.js";
 import { CLIENT_CHANGELOG_ENTRIES_NOV_01_03 } from "./client-changelog-nov-01-03.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
-import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
+import { RESOURCE_NETWORKS_CHANGELOG, TIMED_RESOURCE_TRADES_ENTRY } from "./client-changelog-resource-networks.js";
 import { FRONTIER_RESOURCES_REWORK_CHANGELOG } from "./client-changelog-frontier-resources.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
@@ -476,7 +476,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_117,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_118,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_119,
-  { ...RESTORED_CAMERA_FOG_ENTRY, createdAt: 1794818244321, },
+  { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
   { ...PLAYTEST_MAP_READABILITY_ENTRY, createdAt: 1794817797219, },
   { ...WINS_AND_COSTS_EXPLAINED_ENTRY, createdAt: 1794818581757, },
   { ...INCOME_WAR_CARDS_ENTRY, createdAt: 1794819359958, },
@@ -485,6 +485,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...RECONNECT_RAZED_STRUCTURES_ENTRY, createdAt: 1794830646310, },
   { ...MUSTER_PANEL_SIZE_ENTRY, createdAt: 1794826419518, },
   { ...ENCIRCLEMENT_POCKET_ENTRY, createdAt: 1794826569677, },
+  { ...FASTER_LOGIN_MAP_ENTRY, createdAt: 1794856144245, },
   { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
   { ...PLACE_ANOTHER_ENTRY, createdAt: 1794861771175, },
   { ...FORT_BUILDING_SIZE_ENTRY, createdAt: 1794863141663, },
