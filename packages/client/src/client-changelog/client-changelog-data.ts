@@ -12,8 +12,6 @@ import { NO_RATE_LIMIT_ERRORS_ENTRY } from "./client-changelog-no-rate-limit-err
 import { SALVAGE_TOAST_DECLUTTER_ENTRY, SALVAGE_TRIBUTE_BALANCE_ENTRY } from "./client-changelog-salvage-tribute-balance.js";
 import { SERVER_EXPLORED_MAP_ENTRY } from "./client-changelog-server-explored-map.js";
 import { RECONNECT_RAZED_STRUCTURES_ENTRY } from "./client-changelog-reconnect-razed-structures.js";
-import { MUSTER_PANEL_SIZE_ENTRY } from "./client-changelog-muster-panel-size.js";
-import { ENCIRCLEMENT_POCKET_ENTRY } from "./client-changelog-encirclement-pocket.js";
 import { FASTER_LOGIN_MAP_ENTRY } from "./client-changelog-faster-login-map.js";
 import { PLACE_ANOTHER_ENTRY } from "./client-changelog-place-another.js";
 import { TOWNS_LIST_COIN_PENDING_ENTRY } from "./client-changelog-towns-list-coin-pending.js";
@@ -485,13 +483,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...SALVAGE_TRIBUTE_BALANCE_ENTRY, createdAt: 1794828701450, },
   { ...SERVER_EXPLORED_MAP_ENTRY, createdAt: 1794827574814, },
   { ...RECONNECT_RAZED_STRUCTURES_ENTRY, createdAt: 1794830646310, },
-  { ...MUSTER_PANEL_SIZE_ENTRY, createdAt: 1794826419518, },
-  { ...ENCIRCLEMENT_POCKET_ENTRY, createdAt: 1794826569677, },
   { ...FASTER_LOGIN_MAP_ENTRY, createdAt: 1794856144245, },
   { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
   { ...SALVAGE_TOAST_DECLUTTER_ENTRY, createdAt: 1794863171668, },
   { ...PLACE_ANOTHER_ENTRY, createdAt: 1794861771175, },
-  { ...FORT_ANY_BUILDING_ENTRY, createdAt: 1794864350262 },
+  { ...FORT_ANY_BUILDING_ENTRY, createdAt: 1794864350262, },
   { ...RESOURCE_TRADE_SAFETY_ENTRY, createdAt: 1794863712943, },
   { ...TOWNS_LIST_COIN_PENDING_ENTRY, createdAt: 1794864521632, },
   { ...NO_RATE_LIMIT_ERRORS_ENTRY, createdAt: 1794864645451, },
