@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTO_SETTLE_CATEGORIES, NO_AUTO_IMPROVE, type AutoSettleCategory, type AutoImprovePrefs } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+import { DECLINED_HIGHLIGHT_MS, isDeclinedHighlightActive, markAutoSettleAsked, resetAutoSettleAskStateForTests } from "./client-auto-settle-ask.js";
+import { installAutoSettleSettingsBinding } from "./client-auto-settle-settings-ui.js";
 import { loadedAutoSettleState } from "./client-auto-settle-prefs.js";
 import {
   autoSettleOptionForTile,
@@ -39,10 +41,17 @@ describe("settleOutcomeText", () => {
   });
 });
 
+const resetDom = (): void => {
+  document.body.innerHTML = "";
+  (document as { __autoSettleTileOptionBound?: boolean }).__autoSettleTileOptionBound = false;
+  localStorage.clear();
+  resetAutoSettleAskStateForTests();
+};
+
 describe("auto-settle checkbox", () => {
   beforeEach(() => {
-    document.body.innerHTML = "";
-    (document as { __autoSettleTileOptionBound?: boolean }).__autoSettleTileOptionBound = false;
+    resetDom();
+    AUTO_SETTLE_CATEGORIES.forEach(markAutoSettleAsked); // already answered: the plain checkbox shows
   });
 
   it("is hidden until prefs load, then reflects the tile's own resource", () => {
@@ -94,5 +103,114 @@ describe("auto-settle checkbox", () => {
     box.click();
     expect(box.checked).toBe(false);
     expect(state.autoSettle).toEqual(loadedAutoSettleState({ answered: true, ...only() }));
+  });
+});
+
+describe("auto-settle question (category off, never asked)", () => {
+  beforeEach(resetDom);
+
+  const render = (state: ReturnType<typeof createInitialState>, at: Tile): void => {
+    document.body.innerHTML = autoSettleOptionHtml(autoSettleOptionForTile(state, at)!);
+  };
+  const answer = (which: "yes" | "no"): void => document.querySelector<HTMLButtonElement>(`[data-tile-auto-settle-answer="${which}"]`)!.click();
+
+  it("asks Yes/No instead of showing the easy-to-miss checkbox", () => {
+    const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ answered: false, ...only() });
+    installAutoSettleTileOptionBinding(state, () => true);
+    render(state, tile({ resource: "FARM" }));
+    expect(document.querySelector("[data-tile-auto-settle-ask=FARM]")?.textContent).toContain("Garrison farm tiles automatically from now on?");
+    expect(document.querySelector("[data-tile-auto-settle]")).toBeNull();
+  });
+
+  it("doesn't ask when that category is already on", () => {
+    const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ answered: true, ...only("FARM") });
+    installAutoSettleTileOptionBinding(state, () => true);
+    render(state, tile({ resource: "FARM" }));
+    expect(document.querySelector("[data-tile-auto-settle-ask]")).toBeNull();
+    expect(document.querySelector<HTMLInputElement>("[data-tile-auto-settle=FARM]")?.checked).toBe(true);
+  });
+
+  it("Yes turns that category on and shows the ticked checkbox; never asks again", () => {
+    const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ answered: false, ...only() });
+    const send = vi.fn(() => true);
+    installAutoSettleTileOptionBinding(state, send);
+    render(state, tile({ resource: "FARM" }));
+    answer("yes");
+    expect(send).toHaveBeenCalledWith({ type: "SET_AUTO_SETTLE_PREFS", ...switches("FARM") });
+    expect(state.autoSettle).toEqual(loadedAutoSettleState({ answered: true, ...only("FARM") }));
+    expect(document.querySelector<HTMLInputElement>("[data-tile-auto-settle=FARM]")?.checked).toBe(true);
+    expect(document.querySelector(".is-highlighted")).toBeNull();
+    resetAutoSettleAskStateForTests(); // a reload: the answer survives in localStorage
+    state.autoSettle = loadedAutoSettleState({ answered: true, ...only() });
+    render(state, tile({ resource: "FARM" }));
+    expect(document.querySelector("[data-tile-auto-settle-ask]")).toBeNull();
+  });
+
+  it("No sends nothing and shows the unticked checkbox highlighted for a while, on any panel showing that kind", () => {
+    const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ answered: false, ...only() });
+    const send = vi.fn(() => true);
+    installAutoSettleTileOptionBinding(state, send);
+    render(state, tile({ resource: "FARM" }));
+    answer("no");
+    expect(send).not.toHaveBeenCalled();
+    const box = document.querySelector<HTMLInputElement>("[data-tile-auto-settle=FARM]");
+    expect(box?.checked).toBe(false);
+    expect(box?.closest(".tile-auto-settle-option")?.classList.contains("is-highlighted")).toBe(true);
+    expect(document.body.textContent).toContain("Change anytime");
+    render(state, tile({ resource: "FARM" })); // a repaint of the same tile keeps the highlight
+    expect(document.querySelector(".tile-auto-settle-option.is-highlighted")).not.toBeNull();
+    render(state, tile({ x: 9, resource: "FARM" })); // another panel/tile of the same kind: rendering never clears it
+    expect(document.querySelector(".tile-auto-settle-option.is-highlighted")).not.toBeNull();
+    expect(document.querySelector("[data-tile-auto-settle-ask]")).toBeNull();
+    render(state, tile({ resource: "FISH" })); // a different kind is still asked, unhighlighted
+    expect(document.querySelector("[data-tile-auto-settle-ask=FISH]")).not.toBeNull();
+    expect(isDeclinedHighlightActive("FARM", Date.now() + DECLINED_HIGHLIGHT_MS + 1)).toBe(false);
+  });
+
+  it("No in one panel after Yes in another shows the live (ticked) pref, not the answer", () => {
+    const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ answered: false, ...only() });
+    installAutoSettleTileOptionBinding(state, () => true);
+    const option = autoSettleOptionForTile(state, tile({ resource: "FARM" }))!;
+    document.body.innerHTML = `<div id="a">${autoSettleOptionHtml(option)}</div><div id="b">${autoSettleOptionHtml(option)}</div>`;
+    document.querySelector<HTMLButtonElement>('#a [data-tile-auto-settle-answer="yes"]')!.click();
+    document.querySelector<HTMLButtonElement>('#b [data-tile-auto-settle-answer="no"]')!.click();
+    expect(document.querySelector<HTMLInputElement>("#b [data-tile-auto-settle=FARM]")?.checked).toBe(true);
+  });
+
+  it("a choice in Settings counts as an answer", () => {
+    const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ answered: true, ...only() });
+    installAutoSettleTileOptionBinding(state, () => true);
+    (document as { __autoSettleSettingsBound?: boolean }).__autoSettleSettingsBound = false;
+    installAutoSettleSettingsBinding(() => true);
+    document.body.innerHTML = `<input type="checkbox" data-settings-auto-settle="GEMS" />`;
+    document.querySelector<HTMLInputElement>("[data-settings-auto-settle]")!.click();
+    render(state, tile({ resource: "GEMS" }));
+    expect(document.querySelector("[data-tile-auto-settle-ask]")).toBeNull();
+    expect(document.querySelector("[data-tile-auto-settle=GEMS]")).not.toBeNull();
+  });
+
+  it("keeps asking when the answer could not be sent (not signed in yet)", () => {
+    const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ answered: false, ...only() });
+    installAutoSettleTileOptionBinding(state, () => false);
+    render(state, tile({ resource: "FARM" }));
+    answer("yes");
+    expect(document.querySelector("[data-tile-auto-settle-ask=FARM]")).not.toBeNull();
+  });
+
+  it("markup built from a stale view still shows the live answer", () => {
+    const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ answered: false, ...only() });
+    installAutoSettleTileOptionBinding(state, () => true);
+    const stale = autoSettleOptionForTile(state, tile({ resource: "FARM" }))!;
+    document.body.innerHTML = autoSettleOptionHtml(stale);
+    answer("yes");
+    expect(autoSettleOptionHtml(stale)).toMatch(/data-tile-auto-settle="FARM" checked/);
   });
 });

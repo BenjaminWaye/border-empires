@@ -1,23 +1,27 @@
 import { siphonedResourceTilesForPlayer } from "../siphon-mode/siphon-slot-transfer.js";
 import { runtimeLogInfo } from "../runtime-log/runtime-log.js";
 import type { ResourceSupplyAgreement } from "@border-empires/shared";
-import { RuntimeResourceSupply } from "./runtime-resource-supply.js";
+import { RuntimeResourceSupply, type ResourceTradeJournalCursor } from "./runtime-resource-supply.js";
 import { cachedResourceSlots, ownedResourceTiles, physicalResourceSlots, type RuntimeResourceSlotsContext } from "./runtime-resource-slots.js";
 import type { ResourceSupplyLedgerContext } from "./resource-supply-ledger.js";
+import type { RuntimePassiveIncomeContext } from "../runtime-passive-income.js";
 import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
 import { supplyEndedImpacts } from "./supply-ended-impacts.js";
 
 export interface ResourceSupplyBridgeContext {
   slots(): RuntimeResourceSlotsContext;
   now(): number;
+  journalSeasonId?: string | undefined;
   beforeChange: ResourceSupplyLedgerContext["beforeChange"];
-  changed: ResourceSupplyLedgerContext["changed"];
+  changed: (journalCursor: ResourceTradeJournalCursor, ...change: Parameters<ResourceSupplyLedgerContext["changed"]>) => void;
   publish?: (id: string) => void;
   /** Chronicle cards when a deal ends (supply-ended-impacts.ts). */
   recordPersonalImpact?: (event: PersonalImpactEvent) => void;
 }
-export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, restored: readonly ResourceSupplyAgreement[] = []): RuntimeResourceSupply {
-  const supply = new RuntimeResourceSupply({ now: ctx.now, player: id => ctx.slots().players.get(id),
+export function createRuntimeResourceSupply(
+  ctx: ResourceSupplyBridgeContext, restored: readonly ResourceSupplyAgreement[] = [], journalSequence = 0
+): RuntimeResourceSupply {
+  const supply = new RuntimeResourceSupply({ now: ctx.now, coinAccountingStartsAt: ctx.now(), journalSeasonId: ctx.journalSeasonId, player: id => ctx.slots().players.get(id),
     ownedTiles: id => ownedResourceTiles(ctx.slots(), id), physicalUpkeep: id => physicalResourceSlots(ctx.slots(), id),
     resourceSlotSources: id => {
       const slots = ctx.slots();
@@ -37,12 +41,13 @@ export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, re
     },
     beforeChange: ctx.beforeChange, publish: ids => { for (const id of ids) ctx.publish?.(id); },
     capacityRejected: () => runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size }, "resource_supply_capacity_rejected"),
-    changed: (action, agreement) => {
-      ctx.changed(action, agreement);
+    changed: (...args) => {
+      ctx.changed(supply.nextJournalCursor(), ...args);
+      const [action] = args;
       runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size, action }, "resource_supply_agreements");
     },
     ended: (agreement, reason, byPlayerId) => {
-      for (const impact of supplyEndedImpacts(agreement, reason, byPlayerId, ctx.now())) ctx.recordPersonalImpact?.(impact);
+      for (const impact of supplyEndedImpacts(agreement, reason, byPlayerId, reason === "EXPIRED" ? agreement.expiresAt ?? ctx.now() : ctx.now())) ctx.recordPersonalImpact?.(impact);
     },
     invalidate: ids => {
       const caches = ctx.slots().caches;
@@ -52,7 +57,7 @@ export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, re
         caches.manpowerStructureBonusCacheByPlayer.delete(id); caches.upkeepAccrualCacheByPlayer.delete(id);
       }
     }
-  }, restored);
+  }, restored, journalSequence);
   runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size }, "resource_supply_restored");
   return supply;
 }
@@ -64,3 +69,15 @@ export const tradedSupplyHooks = (supply: RuntimeResourceSupply | undefined, now
     tradedSupply: (id) => supply.upkeep(id),
     advanceTrades: () => supply.ledger.advanceTo(now())
   } : {};
+
+export const passiveIncomeSupply = (
+  players: RuntimePassiveIncomeContext["players"],
+  lastActiveAtMsByPlayer: RuntimePassiveIncomeContext["lastActiveAtMsByPlayer"],
+  lastIncomeTickAtMsByPlayer: RuntimePassiveIncomeContext["lastIncomeTickAtMsByPlayer"],
+  supply: RuntimeResourceSupply | undefined
+): Pick<RuntimePassiveIncomeContext, "players" | "lastActiveAtMsByPlayer" | "lastIncomeTickAtMsByPlayer" | "activeCoinTransfers"> => ({
+  players,
+  lastActiveAtMsByPlayer,
+  lastIncomeTickAtMsByPlayer,
+  ...(supply ? { activeCoinTransfers: (id, at) => supply.ledger.coinTransfers(id, at) } : {})
+});

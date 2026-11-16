@@ -148,6 +148,8 @@ const paintBar = (): void => {
   const view = dock.lastView;
   // Aether ▸ disappears from the bar when the tile loses its abilities; its sidebar goes with it.
   if (dock.panel === "aether" && view.crystal.length === 0) dock.panel = undefined;
+  // Likewise the status explainer, so a later status with help on this tile doesn't pop open untapped.
+  if (dock.panel === "status" && !(view.statusText && view.statusHelpText)) dock.panel = undefined;
   const tile = dock.state.tiles.get(dock.state.tileActionMenu.currentTileKey);
   const state = dock.state;
   const facts = tileFactsFor(tile, view, state.me, Date.now(), (t, field) => dormantResourcesForTile(state, t, field));

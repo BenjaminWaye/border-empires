@@ -79,7 +79,8 @@ const remainingFor = (
 
 // Coin, or an ongoing resource supply from your slots.
 const costsRecipient = (request: AllianceRequest | TruceRequest): boolean =>
-  (request.terms?.ask.gold ?? 0) > 0 || hasResourceSupplyOffer(request.terms?.ask.resources);
+  (request.terms?.ask.gold ?? 0) > 0 || (request.terms?.ask.coinPerHour ?? 0) > 0 ||
+  hasResourceSupplyOffer(request.terms?.ask.resources);
 
 export const offerDockEntries = (
   state: OfferDockState,

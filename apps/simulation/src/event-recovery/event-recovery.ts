@@ -1,4 +1,5 @@
-import { ResourceSupplyAgreementSchema, MAX_RESOURCE_SUPPLY_AGREEMENTS, type ResourceSupplyAgreement } from "@border-empires/shared";
+import type { ResourceSupplyAgreement } from "@border-empires/shared";
+import { applyRecoveredResourceTrade } from "./event-recovery-resource-trades.js";
 import { applyRecoveredDiplomacy } from "./event-recovery-diplomacy.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
@@ -67,6 +68,7 @@ export type RecoveredSimulationState = {
   season?: SimulationSeasonState;
   players?: RecoveredPlayerState[];
   resourceSupplyAgreements?: readonly ResourceSupplyAgreement[];
+  resourceSupplyJournalSequence?: number;
   pendingSettlements?: PendingSettlementRecord[];
   playerYieldCollectionEpochByPlayer?: Array<{ playerId: string; collectedAt: number }>;
   /** Persisted reach border (reach-border-snapshot.ts). Absent on snapshots written before it was saved. */
@@ -81,6 +83,7 @@ type RecoveredSimulationAccumulator = {
   season?: SimulationSeasonState;
   players: NonNullable<RecoveredSimulationState["players"]>;
   resourceSupplyAgreements: ResourceSupplyAgreement[];
+  resourceSupplyJournalSequence: number;
   pendingSettlements: NonNullable<RecoveredSimulationState["pendingSettlements"]>;
   playerYieldCollectionEpochByPlayer: Map<string, number>;
   /**
@@ -136,6 +139,7 @@ export const createRecoveredSimulationAccumulator = (
     ...(baseState.season ? { season: { ...baseState.season, ...(baseState.season.winner ? { winner: { ...baseState.season.winner } } : {}), victoryTrackers: baseState.season.victoryTrackers.map((tracker: SimulationSeasonState["victoryTrackers"][number]) => ({ ...tracker })) } } : {}),
     players: baseState.players ? baseState.players.map(cloneRecoveredPlayerState) : [],
     resourceSupplyAgreements: [...(baseState.resourceSupplyAgreements ?? [])],
+    resourceSupplyJournalSequence: baseState.resourceSupplyJournalSequence ?? 0,
     pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
     playerYieldCollectionEpochByPlayer: new Map(
       (baseState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt])
@@ -277,14 +281,10 @@ export const applySimulationEventsToRecoveredAccumulator = (
   events: SimulationEvent[]
 ): void => {
   for (const event of events) {
-    if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "RESOURCE_SUPPLY_CHANGED") {
-      const payload = JSON.parse(event.payloadJson) as { action?: string; agreement?: ResourceSupplyAgreement };
-      const row = ResourceSupplyAgreementSchema.parse(payload.agreement);
-      accumulator.resourceSupplyAgreements = accumulator.resourceSupplyAgreements.filter(entry => entry.id !== row.id);
-      if (payload.action === "created") {
-        if (accumulator.resourceSupplyAgreements.length >= MAX_RESOURCE_SUPPLY_AGREEMENTS) throw new RangeError("Resource agreement recovery capacity exceeded");
-        accumulator.resourceSupplyAgreements.push(row);
-      }
+    if (event.eventType === "PLAYER_MESSAGE" &&
+      (event.messageType === "RESOURCE_SUPPLY_CHANGED" || event.messageType === "RESOURCE_SUPPLY_COIN_REFUNDED")) {
+      applyRecoveredResourceTrade(accumulator, event.messageType, event.payloadJson);
+      continue;
     }
     if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "SOCIAL_STATE_SYNCED") {
       applyRecoveredDiplomacy(accumulator.players, event.playerId, event.payloadJson);
@@ -435,6 +435,7 @@ export const finalizeRecoveredSimulationAccumulator = (
   afcGlobalLosses: accumulator.afcGlobalLosses ?? 0,
   players: [...accumulator.players],
   resourceSupplyAgreements: [...accumulator.resourceSupplyAgreements],
+  ...(accumulator.resourceSupplyJournalSequence ? { resourceSupplyJournalSequence: accumulator.resourceSupplyJournalSequence } : {}),
   pendingSettlements: [...accumulator.pendingSettlements],
   playerYieldCollectionEpochByPlayer: [...accumulator.playerYieldCollectionEpochByPlayer.entries()]
     .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))

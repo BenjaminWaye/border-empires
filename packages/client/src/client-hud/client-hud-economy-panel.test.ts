@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
-import { bindHudEconomyPanelControls } from "./client-hud-economy-panel.js";
+import { bindHudEconomyPanelControls, hudEconomyPanelHtml } from "./client-hud-economy-panel.js";
 
 it("finds the nearest discovered deposit and skips undiscovered deposits", () => {
   const state = createInitialState();
@@ -23,4 +23,39 @@ it("finds the nearest discovered deposit and skips undiscovered deposits", () =>
   expect(state.showResourceOverlay).toBe(true);
   expect(deps.requestViewRefresh).toHaveBeenCalledOnce();
   expect(deps.noDepositFound).not.toHaveBeenCalled();
+});
+
+const deps = {
+  prettyToken: (token: string) => token,
+  resourceIconHtml: () => "",
+  rateToneClass: () => "",
+  resourceLabel: (resource: string) => resource,
+  economicStructureName: (type: string) => type,
+  hasRevealedResourceCategory: () => true
+};
+
+it("shows a live import, its deadline and the shortage it would leave", () => {
+  const state = createInitialState();
+  const now = Date.now();
+  const expiresAt = now + 3 * 86_400_000;
+  state.me = "me";
+  state.playerNames.set("partner", "Mira");
+  state.resourceSlots.supply.TITANIUM = 5;
+  state.resourceSlots.demand.TITANIUM = 4;
+  const agreement = {
+    id: "live", proposerId: "partner", targetId: "me", proposerGives: { TITANIUM: 2 },
+    targetGives: { FOOD: 1 }, targetCoinPerHour: 50, startedAt: now - 1000, expiresAt, fulfilled: true
+  };
+  state.resourceTradeAgreements = [agreement, { ...agreement, id: "expired", expiresAt: now - 1 }];
+  const host = document.createElement("div");
+  host.innerHTML = hudEconomyPanelHtml(state, deps);
+  const commitments = host.querySelector('[aria-label="Trade commitments"]');
+  expect(commitments?.querySelectorAll("article")).toHaveLength(1);
+  expect(commitments?.querySelector("time")?.dateTime).toBe(new Date(expiresAt).toISOString());
+  expect(commitments?.querySelector("button")?.dataset.proposePlayerId).toBe("partner");
+  expect(commitments?.textContent).toContain("Mira");
+  expect(commitments?.textContent).toContain("+2 Titanium");
+  expect(commitments?.textContent).toContain("1 slot short when this deal ends");
+  expect(commitments?.textContent).toContain("−1 FOOD");
+  expect(commitments?.textContent).toContain("Up to −50 Coin/hour");
 });

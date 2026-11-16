@@ -1,3 +1,4 @@
+import { resourceDeadlineHtml, resourceTradeServerNow } from "./client-resource-deadline.js";
 import { describeDiplomacyTermsForProposer, describeDiplomacyTermsForRecipient, type ResourceTradeOffer } from "@border-empires/shared";
 const esc=(text:string)=>text.replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]??char);
 export function resourceOfferCardsHtml(rows:readonly ResourceTradeOffer[],ownId:string,otherId:string|undefined):string {
@@ -18,5 +19,6 @@ export function resourceTradeOverviewHtml(rows:readonly ResourceTradeOffer[],own
   }).join("");
 }
 export function resourceAgreementOverviewHtml(rows:readonly import("@border-empires/shared").ResourceSupplyAgreementStatus[],ownId:string,nameOf:(id:string)=>string|undefined):string {
-  return rows.map(row=>{const id=row.proposerId===ownId?row.targetId:row.proposerId;return `<article class="card alliance-reference-card"><strong>${esc(nameOf(id)??id)}</strong><p>Resource supply · ${row.fulfilled?"Delivering":"Paused"} · until cancelled</p><button type="button" class="panel-btn propose-resource-trade" data-propose-player-id="${esc(id)}" data-propose-player-name="${esc(nameOf(id)??id)}">Review supply</button></article>`;}).join("");
+  const now = resourceTradeServerNow();
+  return rows.filter(row => row.expiresAt === undefined || row.expiresAt > now).map(row=>{const id=row.proposerId===ownId?row.targetId:row.proposerId;return `<article class="card alliance-reference-card"><strong>${esc(nameOf(id)??id)}</strong><p>Resource supply · ${row.fulfilled?"Delivering":"Paused"} · ${resourceDeadlineHtml(row.expiresAt, now)}</p><button type="button" class="panel-btn propose-resource-trade" data-propose-player-id="${esc(id)}" data-propose-player-name="${esc(nameOf(id)??id)}">Review supply</button></article>`;}).join("");
 }

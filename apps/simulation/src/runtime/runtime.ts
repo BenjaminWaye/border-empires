@@ -3,7 +3,7 @@ import { createAfcRecoveryTicker } from "../afc-owned-site/afc-recovery-ticker.j
 import { createVisibleStateContext } from "./runtime-visible-state-context.js";
 import { createAfcTileObserver, preserveAfclessReserves } from "../afc-owned-site/afc-loss.js";
 import { defaultScheduleAfter } from "./runtime-default-schedule-after.js";
-import { createRuntimeResourceSupply, tradedSupplyHooks } from "../resource-supply-trades/runtime-resource-supply-bridge.js";
+import { createRuntimeResourceSupply, passiveIncomeSupply, tradedSupplyHooks } from "../resource-supply-trades/runtime-resource-supply-bridge.js";
 import { dormantContributorTiles, cachedResourceSlots, cachedResourceDemand, cachedResourceDormancy, type RuntimeResourceSlotsContext } from "../resource-supply-trades/runtime-resource-slots.js";
 import { RuntimeResourceSupply } from "../resource-supply-trades/runtime-resource-supply.js";
 import { RelicMapHintIndex } from "../runtime-relic-map-hints.js";
@@ -401,7 +401,7 @@ import {
   applyPassiveIncomeForPlayer as applyPassiveIncomeForPlayerImpl,
   applyPassiveIncome as applyPassiveIncomeImpl,
   applyPassiveIncomeAsync as applyPassiveIncomeAsyncImpl,
-  welcomeBackSummaryForPlayer,
+  resumePassiveIncome, welcomeBackSummaryForPlayer,
   type RuntimePassiveIncomeContext
 } from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
@@ -851,12 +851,12 @@ export class SimulationRuntime {
     this.economyCaches.clearTownNetworks();
     // Populate the commandId index from the just-created locksByTile map.
     for (const lock of this.state.locksByTile.values()) this.locksByCommandId.set(lock.commandId, lock);
-    this.resourceSupply = createRuntimeResourceSupply({ slots: () => this.resourceSlotsContext(), now: () => this.now(),
+    this.resourceSupply = createRuntimeResourceSupply({ slots: () => this.resourceSlotsContext(), now: () => this.now(), journalSeasonId: options.initialState?.season?.seasonId,
       beforeChange: (at, ids) => { for (const id of ids) { const p = this.state.players.get(id); if (p) { applyPassiveIncomeForPlayerImpl(this.passiveIncomeContext(), p, at, PASSIVE_INCOME_INACTIVITY_CAP_MS, false); this.applyManpowerRegen(p, at); } } },
       publish: id => { if (this.manpowerReady) this.emitPlayerStateUpdate({ commandId: `resource-supply:refresh:${this.now()}:${id}`, playerId: id }); },
-      changed: (action, agreement) => this.emitEvent({ eventType: "PLAYER_MESSAGE", messageType: "RESOURCE_SUPPLY_CHANGED", playerId: agreement.proposerId, commandId: `resource-supply:${action}:${agreement.id}`, payloadJson: JSON.stringify({ action, agreement }) }),
+      changed: (journalCursor, action, agreement, targetCoinDelta) => this.emitEvent({ eventType: "PLAYER_MESSAGE", messageType: "RESOURCE_SUPPLY_CHANGED", playerId: agreement.proposerId, commandId: `resource-supply:${action}:${agreement.id}`, payloadJson: JSON.stringify({ action, agreement, targetCoinDelta, ...journalCursor }) }),
       recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
-    }, options.initialState?.resourceSupplyAgreements);
+    }, options.initialState?.resourceSupplyAgreements, options.initialState?.resourceSupplyJournalSequence);
     for (const entry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) this.lastIncomeTickAtMsByPlayer.set(entry.playerId, entry.collectedAt);
     // Indexed once: a linear find() per player would be O(players^2) at boot.
     const recoveredPlayersById = new Map((options.initialState?.players ?? []).map((player) => [player.id, player]));
@@ -1026,14 +1026,13 @@ export class SimulationRuntime {
   } // docs/replenishment-update-plan.md D1/D11 "Manpower full" email (bounded O(players) sweep, not a per-spend deadline queue -- see runtime-manpower-full-alert.ts's header comment) follows on the same line below to hold this file's net line count:
   tickManpowerFullAlerts(nowMs: number = this.now()): number { return tickManpowerFullAlertsImpl({ nowMs, players: this.state.players, playerManpowerCap: (player) => this.playerManpowerCap(player), playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player), effectiveManpowerAt: (player, at) => this.effectiveManpowerAt(player, at), isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, emitEvent: (event) => this.emitEvent(event), alertedPlayerIds: this.alertedManpowerFullPlayerIds }); }
   updatePlayerLastActive(playerId: string, nowMs: number): void {
+    resumePassiveIncome(this.state.players.get(playerId), this.lastActiveAtMsByPlayer.get(playerId), this.lastIncomeTickAtMsByPlayer, playerId, nowMs);
     this.lastActiveAtMsByPlayer.set(playerId, nowMs);
   }
 
   private passiveIncomeContext(): RuntimePassiveIncomeContext {
     return {
-      players: this.state.players,
-      lastActiveAtMsByPlayer: this.lastActiveAtMsByPlayer,
-      lastIncomeTickAtMsByPlayer: this.lastIncomeTickAtMsByPlayer,
+      ...passiveIncomeSupply(this.state.players, this.lastActiveAtMsByPlayer, this.lastIncomeTickAtMsByPlayer, this.resourceSupply),
       cachedEconomySnapshot: (player) => this.cachedEconomySnapshot(player),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
@@ -1911,7 +1910,7 @@ export class SimulationRuntime {
       tiles: this.state.tiles,
       locksByCommandId: this.locksByCommandId,
       players: this.state.players,
-      resourceSupplyAgreements: this.resourceSupply?.ledger.rows(),
+      resourceSupplyState: () => this.resourceSupply?.snapshotState() ?? {},
       supplyStateForPlayer: id => this.resourceSupply?.playerState(id) ?? {},
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,

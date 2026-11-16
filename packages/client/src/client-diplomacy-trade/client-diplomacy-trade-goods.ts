@@ -4,13 +4,13 @@
 // a slider under it from 0 to what that side holds, with an exact-amount box
 // beside it for amounts the slider can't reach. Only one slider is open at a
 // time; each row always shows the amount in the deal.
-import { MAX_RESOURCE_TRADE_SLOTS, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, type DiplomacyGoods, type DiplomacyTerms, type ResourceSupplyOffer, type TradableSupplyResource } from "@border-empires/shared";
+import { MAX_TRADE_COIN_PER_HOUR, RESOURCE_SUPPLY_TRADE_DAYS, MAX_RESOURCE_TRADE_SLOTS, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, type DiplomacyGoods, type DiplomacyTerms, type ResourceSupplyOffer, type TradableSupplyResource } from "@border-empires/shared";
 
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import type { DiplomacyStanceReply } from "./client-diplomacy-trade-view.js";
 
 export type TradeSide = "give" | "ask";
-export type TradeGood = "gold" | TradableSupplyResource;
+export type TradeGood = "gold" | "coinPerHour" | TradableSupplyResource;
 export type TradeGoodKey = `${TradeSide}-${TradeGood}`;
 
 export type TradeGoodSpec = { key: TradeGoodKey; side: TradeSide; good: TradeGood; label: string; icon: string; aria: string; supply: boolean };
@@ -22,6 +22,7 @@ const sideSpecs = (side: TradeSide): TradeGoodSpec[] => {
   const whose = side === "give" ? "you give" : "you ask for";
   return [
     { key: `${side}-gold`, side, good: "gold", label: "Coin", icon: "GOLD", aria: `Coin ${whose}`, supply: false },
+    { key: `${side}-coinPerHour`, side, good: "coinPerHour", label: "Coin per hour", icon: "GOLD", aria: `Coin per hour ${whose}`, supply: false },
     ...TRADABLE_SUPPLY_RESOURCES.map((resource): TradeGoodSpec => ({
       key: `${side}-${resource}`,
       side,
@@ -50,14 +51,16 @@ export type TradeGoodsLimits = Record<TradeGoodKey, number>;
 /** The amount of one good in `terms`. */
 export const tradeAmount = (terms: DiplomacyTerms, spec: TradeGoodSpec): number => {
   const side = terms[spec.side];
-  return spec.good === "gold" ? side.gold : (side.resources?.[spec.good] ?? 0);
+  if (spec.good === "gold") return side.gold;
+  if (spec.good === "coinPerHour") return side.coinPerHour ?? 0;
+  return side.resources?.[spec.good] ?? 0;
 };
 
 const specFor = (key: TradeGoodKey): TradeGoodSpec => TRADE_GOODS.find((spec) => spec.key === key) ?? TRADE_GOODS[0]!;
 
 /** What that side holds of a good, if known. */
 const heldAmount = (holdings: DiplomacyGoods, spec: TradeGoodSpec): number =>
-  spec.good === "gold" ? holdings.gold : (holdings.resources?.[spec.good] ?? 0);
+  spec.good === "gold" ? holdings.gold : spec.good === "coinPerHour" ? 0 : holdings.resources?.[spec.good] ?? 0;
 
 /** The AI's holdings when its reply carries them; undefined for a human or an unread AI. */
 export const theirHoldings = (reply: DiplomacyStanceReply | undefined): DiplomacyGoods | undefined =>
@@ -74,6 +77,10 @@ export const tradeGoodsLimits = (own: DiplomacyGoods, reply: DiplomacyStanceRepl
   const theirs = theirHoldings(reply);
   const limits = {} as TradeGoodsLimits;
   for (const spec of TRADE_GOODS) {
+    if (spec.good === "coinPerHour") {
+      limits[spec.key] = Math.max(100, tradeAmount(reach, spec));
+      continue;
+    }
     const held =
       spec.side === "give"
         ? heldAmount(own, spec)
@@ -97,6 +104,10 @@ export const asTradeGoodKey = (value: string | undefined): TradeGoodKey | undefi
 export const withTradeAmount = (terms: DiplomacyTerms, key: TradeGoodKey, amount: number): DiplomacyTerms => {
   const { side, good } = specFor(key);
   if (good === "gold") return { ...terms, [side]: { ...terms[side], gold: amount } };
+  if (good === "coinPerHour") {
+    const { coinPerHour: _previous, ...rest } = terms[side];
+    return { ...terms, [side]: amount > 0 ? { ...rest, coinPerHour: Math.min(amount, MAX_TRADE_COIN_PER_HOUR) } : rest };
+  }
   amount = Math.min(MAX_RESOURCE_TRADE_SLOTS, amount);
   const resources: ResourceSupplyOffer = { ...terms[side].resources };
   if (amount > 0) resources[good] = amount;
@@ -134,9 +145,9 @@ const goodRowHtml = (spec: TradeGoodSpec): string => `<div class="diplomacy-trad
 export const tradeGoodsHtml = (side: TradeSide, withSupply: boolean): string => {
   const specs = TRADE_GOODS.filter((spec) => spec.side === side);
   const supply = withSupply
-    ? `<h4 class="diplomacy-trade-subhead" data-trade-supply-head="${side}">Resource supply slots</h4>${specs.filter((s) => s.supply).map(goodRowHtml).join("")}`
+    ? `<h4 class="diplomacy-trade-subhead" data-trade-supply-head="${side}">Resource supply slots · ${RESOURCE_SUPPLY_TRADE_DAYS} days from acceptance</h4>${specs.filter((s) => s.supply).map(goodRowHtml).join("")}`
     : "";
-  return `<div class="diplomacy-trade-goods" data-trade-goods="${side}">${specs.filter((s) => !s.supply).map(goodRowHtml).join("")}${supply}</div>`;
+  return `<div class="diplomacy-trade-goods" data-trade-goods="${side}">${specs.filter((s) => !s.supply && (withSupply || s.good === "gold")).map(goodRowHtml).join("")}${supply}</div>`;
 };
 
 const readAmount = (input: HTMLInputElement | null): number => {
