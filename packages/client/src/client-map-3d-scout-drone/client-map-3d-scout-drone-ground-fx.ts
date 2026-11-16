@@ -99,6 +99,9 @@ export const createScoutGroundFx = (scene: Scene, droneScale: number): ScoutGrou
   const washMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", transparent: true, blending: AdditiveBlending, depthWrite: false });
   const washRings = new InstancedMesh(washGeometry, washMaterial, WASH_MAX);
   washRings.frustumCulled = false;
+  // Create the per-instance colour buffer now: three.js would otherwise allocate it, and
+  // recompile the material, on the first setColorAt -- mid-launch on a phone.
+  washRings.setColorAt(0, new Color(0, 0, 0));
   washRings.count = 0;
 
   const group = new Group();
@@ -207,6 +210,9 @@ export const createScoutGroundFx = (scene: Scene, droneScale: number): ScoutGrou
     },
     dispose: () => {
       scene.remove(group);
+      // InstancedMesh.dispose() releases the instance buffers the renderer holds for each mesh.
+      beads.dispose();
+      washRings.dispose();
       for (const g of [plane, disc, beadGeometry, targetGeometry, washGeometry]) g.dispose();
       for (const m of [visionMaterial, sweepMaterial, shadowSharpMaterial, shadowSoftMaterial, beadMaterial, targetMaterial, washMaterial]) m.dispose();
       for (const t of [visionTexture, sweepTexture, shadowSharpTexture, shadowSoftTexture, glowTexture]) t?.dispose();

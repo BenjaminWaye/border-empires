@@ -5,7 +5,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_116 } from "./client-changelog-data-earlier-116.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_117 } from "./client-changelog-data-earlier-117.js";
 import { SHOW_EMPIRE_ON_MAP_ENTRY } from "./client-changelog-show-empire-on-map.js";
-import { EXPLORE_SCOUT_DRONES_CHANGELOG } from "./client-changelog-explore-scout-drones.js";
+import { EXPLORE_SCOUT_DRONES_ENTRY, SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -482,7 +482,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_115,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_116,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_117,
-  ...EXPLORE_SCOUT_DRONES_CHANGELOG,
+  { ...EXPLORE_SCOUT_DRONES_ENTRY, createdAt: 1794656611441, },
+  { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
   { ...SHOW_EMPIRE_ON_MAP_ENTRY, createdAt: 1794656750720, },
 ];
 

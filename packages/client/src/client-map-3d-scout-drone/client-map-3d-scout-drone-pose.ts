@@ -56,21 +56,25 @@ const wrapDelta = (from: number, to: number, size: number): number => {
 export const scoutDronePoseAt = (flight: ScoutDroneFlight | undefined, nowMs: number, width: number, height: number, out: ScoutDronePose): boolean => {
   if (!flight || flight.steps.length === 0 || nowMs >= flight.landsAt) return false;
   const first = flight.steps[0]!;
-  const index = Math.max(0, scoutDroneStepIndexAt(flight, nowMs));
+  const sinceLaunch = nowMs - flight.launchedAt;
+  // The drone sits on the crown while its rotors spool up, but the server's route clock
+  // keeps running. Rather than hold and then sprint to catch up, the drawn route clock
+  // starts SCOUT_SPOOL_MS behind and closes that gap smoothly over the launch, so the
+  // drone lifts almost straight up and never moves faster than about 1.5x route speed.
+  const routeLag = SCOUT_SPOOL_MS * (1 - smoothstep01(clamp01(sinceLaunch / SCOUT_LAUNCH_MS)));
+  const routeNow = Math.max(flight.launchedAt, nowMs - routeLag);
+  const index = Math.max(0, scoutDroneStepIndexAt(flight, routeNow));
   const from = flight.steps[index]!;
   const to = flight.steps[Math.min(index + 1, flight.steps.length - 1)]!;
   const span = to.at - from.at;
-  const t = span > 0 ? clamp01((nowMs - from.at) / span) : 0;
+  const t = span > 0 ? clamp01((routeNow - from.at) / span) : 0;
   const dx = wrapDelta(from.x, to.x, width);
   const dy = wrapDelta(from.y, to.y, height);
   const length = Math.hypot(dx, dy);
-  const sinceLaunch = nowMs - flight.launchedAt;
   const launchT = clamp01((sinceLaunch - SCOUT_SPOOL_MS) / (SCOUT_LAUNCH_MS - SCOUT_SPOOL_MS));
   const launch = smoothstep01(launchT);
-  // Leave the crown almost straight up, then slide onto the route as it climbs.
-  const glide = launch * launch * launch;
-  out.x = first.x + (wrapDelta(first.x, from.x, width) + dx * t) * glide;
-  out.y = first.y + (wrapDelta(first.y, from.y, height) + dy * t) * glide;
+  out.x = first.x + wrapDelta(first.x, from.x, width) + dx * t;
+  out.y = first.y + wrapDelta(first.y, from.y, height) + dy * t;
   out.dirX = length > 0 ? dx / length : 0;
   out.dirY = length > 0 ? dy / length : 0;
   out.speed = span > 0 && length > 0 ? (1000 * length) / span : 0;

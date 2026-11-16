@@ -7,6 +7,7 @@
 // same running-lights rule: nav lights over home land, dark past the border.
 // Called from client-runtime-loop.ts only while the true-3D renderer is off. No per-frame
 // allocation; on Reduce Motion the sweep and rotor streaks hold still.
+import { scoutStrobeOn } from "../client-map-3d-scout-drone/client-map-3d-scout-drone-lights.js";
 import { SCOUT_DRONE_VISION_RADIUS, type ScoutDroneFlight } from "@border-empires/shared";
 import { createScoutDronePose, scoutDronePoseAt } from "../client-map-3d-scout-drone/client-map-3d-scout-drone-pose.js";
 import {
@@ -150,6 +151,6 @@ export const drawScoutDrone2D = (
   ctx.translate(cx, cy);
   ctx.rotate(pose.dirX !== 0 || pose.dirY !== 0 ? Math.atan2(pose.dirY, pose.dirX) : 0);
   const rec = !pose.returning && (still || nowMs % 1_000 < 500) ? lights : 0;
-  drawScoutCraft2D(ctx, s, still ? 0 : nowMs * 0.03, pulse, lights, scoutSensorLevel(lights), rec);
+  drawScoutCraft2D(ctx, s, still ? 0 : nowMs * 0.03, pulse, lights, scoutSensorLevel(lights), rec, !still && scoutStrobeOn(nowMs));
   ctx.restore();
 };

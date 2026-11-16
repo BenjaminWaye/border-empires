@@ -3,10 +3,11 @@
 // streaks each, four short dark arms out to chunky oval pods, a dark grey sphere with darker seam
 // lines and a soft highlight, and the big cyan eye at its front edge. The pod LEDs are the running
 // lights: red on the front-left pod, green on the front-right, cyan on the rear pods. `lights` is
-// the running-lights level (1 at home, 0 running dark): the pod LEDs, REC and heading wedge follow
-// it; the eye only dims (`sensor`). No allocation.
+// the running-lights level (1 at home, 0 running dark): the pod LEDs, strobe and REC follow it;
+// the eye and the heading wedge only dim (`sensor`). No allocation.
 
 const CYAN = "#4fd8ff";
+const STROBE_WHITE = "#ffffff";
 const PAINT = "#4a4f55";
 const SEAM = "#24282d";
 const RED = "#ff3b26";
@@ -14,9 +15,10 @@ const GREEN = "#3dff8a";
 const BODY = 0.2; // sphere radius, in glyph units
 const REACH = 0.5; // body centre to pod centre
 const ROTOR = 0.27;
+const POD_COLOURS = [RED, GREEN, CYAN, CYAN] as const; // per POD_ANGLES entry
 const POD_ANGLES = [-0.96, 0.96, -2.18, 2.18] as const; // front-left, front-right, rear-left, rear-right (from the nose, +y to the right)
 
-export const drawScoutCraft2D = (ctx: CanvasRenderingContext2D, s: number, rotorPhase: number, pulse: number, lights: number, sensor: number, rec: number): void => {
+export const drawScoutCraft2D = (ctx: CanvasRenderingContext2D, s: number, rotorPhase: number, pulse: number, lights: number, sensor: number, rec: number, strobe: boolean): void => {
   // Heading wedge ahead of the eye: full at home, a faint hint when running dark.
   ctx.globalAlpha = 0.25 * sensor;
   ctx.fillStyle = CYAN;
@@ -126,11 +128,12 @@ export const drawScoutCraft2D = (ctx: CanvasRenderingContext2D, s: number, rotor
   if (lights > 0.005) {
     ctx.globalAlpha = lights;
     ctx.shadowBlur = 6 * lights;
-    const colours = [RED, GREEN, CYAN, CYAN] as const;
     for (let k = 0; k < POD_ANGLES.length; k += 1) {
       const a = POD_ANGLES[k]!;
-      ctx.fillStyle = colours[k]!;
-      ctx.shadowColor = colours[k]!;
+      // The rear-left pod's LED is the white strobe's double flash, as in 3D.
+      const colour = k === 2 && strobe ? STROBE_WHITE : POD_COLOURS[k]!;
+      ctx.fillStyle = colour;
+      ctx.shadowColor = colour;
       ctx.beginPath();
       ctx.arc(Math.cos(a) * (REACH + 0.13) * s, Math.sin(a) * (REACH + 0.13) * s, s * 0.03, 0, Math.PI * 2);
       ctx.fill();

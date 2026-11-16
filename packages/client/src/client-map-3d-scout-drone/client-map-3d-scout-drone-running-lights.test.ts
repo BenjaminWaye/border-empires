@@ -13,6 +13,7 @@ import {
 } from "./client-map-3d-scout-drone-running-lights.js";
 import { createScoutDroneOverlay, type ScoutDroneScenePoint } from "./client-map-3d-scout-drone-overlay.js";
 import { drawScoutDrone2D } from "../client-map-render-2d-scout-drone/client-map-render-2d-scout-drone.js";
+import { drawScoutCraft2D } from "../client-map-render-2d-scout-drone/client-map-render-2d-scout-drone-craft.js";
 
 const world = { width: 100, height: 60 };
 // The player owns x <= 4 on row 5, an ally owns (5, 5); everything else is unknown.
@@ -107,6 +108,7 @@ describe("running dark in both renderers", () => {
     expect(visible).toHaveLength(1); // the eye, dimmed
     expect(scene.getObjectByName("scout-drone-trails")!.visible).toBe(false);
     overlay.dispose();
+    expect(scene.children).toHaveLength(0);
   });
 
   it("2D: drops the nav lights past the border", () => {
@@ -126,5 +128,25 @@ describe("running dark in both renderers", () => {
     expect(shadowColors(overHome)).toContain("#ff3b26");
     shadowColors(pastBorder);
     expect(shadowColors(pastBorder + SCOUT_LIGHTS_FADE_MS + 50)).not.toContain("#ff3b26");
+  });
+
+  // Parity with the 3D double-flash strobe on the rear-left pod.
+  it("2D: flashes the white strobe while lit, and never when running dark", () => {
+    const strobeShown = (lights: number, strobe: boolean): boolean => {
+      const colors: string[] = [];
+      const ctx = new Proxy({} as Record<string, unknown>, {
+        get: (target, key) => (key in target ? target[key as string] : () => undefined),
+        set: (target, key, value) => {
+          if (key === "shadowColor") colors.push(String(value));
+          target[key as string] = value;
+          return true;
+        }
+      }) as unknown as CanvasRenderingContext2D;
+      drawScoutCraft2D(ctx, 20, 0, 0, lights, 1, 0, strobe);
+      return colors.includes("#ffffff");
+    };
+    expect(strobeShown(1, true)).toBe(true);
+    expect(strobeShown(1, false)).toBe(false);
+    expect(strobeShown(0, true)).toBe(false);
   });
 });
