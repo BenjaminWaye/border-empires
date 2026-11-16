@@ -2,9 +2,10 @@
 // the House's sealed charges, whether each is held now, the keep-two choice
 // while it is open, and "Show on map". Opened from the House Charges section of
 // your own profile (client-house-charges-profile.ts).
-import { HOUSE_CHARGES_KEPT, type HouseChargeView } from "@border-empires/shared";
+import { HOUSE_CHARGES_KEPT, WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
 import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { houseChargeUnscoutedHint } from "./client-house-charges-map.js";
 import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL, houseChargeObjective, houseChargeProgress } from "./client-house-charges-labels.js";
 
 export type HouseChargesPanelDeps = {
@@ -18,7 +19,7 @@ export type HouseChargesPanelDeps = {
   readonly now: () => number;
 };
 
-type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep"> & Partial<Pick<ClientState, "houseChargeFocusId">>;
+type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep"> & Partial<Pick<ClientState, "houseChargeFocusId" | "tiles">>;
 
 const escapeHtml = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -29,7 +30,7 @@ const formatWhen = (epochMs: number): string =>
 /** Where "Show on map" goes: the target once known, otherwise the search circle. */
 export const houseChargeFocusPoint = (charge: HouseChargeView): { x: number; y: number } => charge.targets[0] ?? charge.searchCircle;
 
-const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: boolean, focused: boolean): string => {
+const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: boolean, focused: boolean, scoutHint: string | undefined): string => {
   const progress = houseChargeProgress(charge);
   // While choosing, the card follows the tick boxes so a swap reads at a glance before it is saved.
   const pending = choosing && ticked !== charge.kept;
@@ -44,7 +45,9 @@ const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: bool
           ? `<span class="house-charge-status is-lost">Lost ${escapeHtml(formatWhen(charge.lostAt))}</span>`
           : '<span class="house-charge-status">Not held</span>'
         : "";
-  const pips = `<span class="house-charge-pips" aria-label="Renown ${charge.renown}">${"◆".repeat(Math.max(1, Math.min(4, charge.renown)))}</span>`;
+  // `renown` is set from the charge's difficulty when it is dealt (distance, size, tier); shown as difficulty.
+  const difficulty = Math.max(1, Math.min(4, charge.renown));
+  const pips = `<span class="house-charge-pips" title="Difficulty ${difficulty} of 4" aria-label="Difficulty ${difficulty} of 4">${"◆".repeat(difficulty)}</span>`;
   const keep = choosing
     ? `<label class="house-charge-keep"><input type="checkbox" data-house-charge-keep="${escapeHtml(charge.id)}"${ticked ? " checked" : ""}> Keep</label>`
     : "";
@@ -54,6 +57,7 @@ const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: bool
     <div class="house-charge-type">${HOUSE_CHARGE_KIND_LABEL[charge.kind]} · ${HOUSE_CHARGE_RARITY_LABEL[charge.rarity]}</div>
     <p class="house-charge-objective">${escapeHtml(houseChargeObjective(charge))}</p>
     ${progress ? `<p class="house-charge-progress">${escapeHtml(progress)}</p>` : ""}
+    ${scoutHint ? `<p class="house-charge-progress is-scout">${escapeHtml(scoutHint)}</p>` : ""}
     <footer class="house-charge-foot">${status}${keep}<button class="panel-btn${focused ? " is-active" : ""}" type="button" data-house-charge-jump="${escapeHtml(charge.id)}" aria-pressed="${focused}">${focused ? "Hide on map" : "Show on map"}</button></footer>
   </article>`;
 };
@@ -83,18 +87,27 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   const kept = payload.charges.filter((charge) => charge.kept).map((charge) => charge.id);
   const draft = state.houseChargesDraftKeep ?? kept;
   const changed = [...draft].sort().join("|") !== [...kept].sort().join("|");
-  const choice = choosing
-    ? `<div class="house-charges-choice">
-        <p>Keep ${wanted} of these ${payload.charges.length}. You can change your choice until ${escapeHtml(formatWhen(payload.choiceClosesAt))}.</p>
+  const until = escapeHtml(formatWhen(payload.choiceClosesAt));
+  // Once saved (the draft matches what the server kept), say so instead of showing a button that looks unpressed.
+  const choice = !choosing
+    ? ""
+    : changed
+      ? `<div class="house-charges-choice">
+        <p>Keep ${wanted} of these ${payload.charges.length}. You can change your choice until ${until}.</p>
         ${choiceHintHtml(draft.length, wanted, changed)}
-        <button class="panel-btn" type="button" data-house-charges-save${changed && draft.length === wanted ? "" : " disabled"}>Keep these ${wanted}</button>
+        <button class="panel-btn" type="button" data-house-charges-save${draft.length === wanted ? "" : " disabled"}>Keep these ${wanted}</button>
       </div>`
-    : "";
+      : `<div class="house-charges-choice is-saved">
+        <p class="house-charges-saved" role="status">✓ Keeping these ${wanted}. You can swap until ${until}.</p>
+      </div>`;
+  const tiles = state.tiles;
+  const scoutHintFor = (charge: HouseChargeView): string | undefined =>
+    charge.kept && !charge.held && tiles ? houseChargeUnscoutedHint(charge, (x, y) => tiles.has(`${x},${y}`), WORLD_WIDTH, WORLD_HEIGHT) : undefined;
   const ordered = [...payload.charges].sort((a, b) => Number(b.kept) - Number(a.kept));
   return `<section class="card house-charges-card">
-    <p class="house-charges-intro">Sealed charges from your House. A charge counts only if you still hold it when this Sector Contest's winner is crowned. Nobody else can see them until then.</p>
+    <p class="house-charges-intro">Sealed charges from your House. Hold a kept charge when this Sector Contest's winner is crowned to earn its charge card and +1 Domain Weight, or a larger Stipend. ◆ is difficulty. Nobody else can see your charges until then.</p>
     ${choice}
-    <div class="house-charges-list">${ordered.map((charge) => chargeCardHtml(charge, choosing, draft.includes(charge.id), state.houseChargeFocusId === charge.id)).join("")}</div>
+    <div class="house-charges-list">${ordered.map((charge) => chargeCardHtml(charge, choosing, draft.includes(charge.id), state.houseChargeFocusId === charge.id, scoutHintFor(charge))).join("")}</div>
   </section>`;
 };
 

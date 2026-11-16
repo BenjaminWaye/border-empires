@@ -53,8 +53,9 @@ describe("House Charges panel", () => {
   it("offers the keep choice while the window is open, and only enables saving a changed choice of two", () => {
     const charges = [charge({}), { ...relic, kept: true }, desert];
     const open = houseChargesPanelHtml(panelState(charges), 5_000);
-    expect(open).toContain("Keep 2 of these 3");
-    expect(open).toMatch(/data-house-charges-save disabled/);
+    // Nothing changed since the last save: confirm the kept pair instead of a button that looks unpressed.
+    expect(open).toContain("✓ Keeping these 2");
+    expect(open).not.toContain("data-house-charges-save");
     const changed = houseChargesPanelHtml(panelState(charges, 10_000, [charge({}).id, desert.id]), 5_000);
     expect(changed).not.toMatch(/data-house-charges-save disabled/);
     const closed = houseChargesPanelHtml(panelState(charges), 20_000);
@@ -84,6 +85,21 @@ describe("House Charges panel", () => {
     expect(html).toContain("Road complete: 28 tiles");
     expect(html).toContain("Beacon not found yet");
     expect(html).toContain("Find the Concordance installation");
+  });
+
+  it("shows the difficulty pips as difficulty and says what a held charge earns", () => {
+    const html = houseChargesPanelHtml(panelState([charge({ renown: 3 })], 0), 5_000);
+    expect(html).toContain('aria-label="Difficulty 3 of 4"');
+    expect(html).not.toContain("Renown");
+    expect(html).toContain("+1 Domain Weight");
+  });
+
+  it("gives a rough bearing to a Charter town that has not been scouted yet", () => {
+    const tiles = new Map([["8,15", { x: 8, y: 15, terrain: "LAND" as const }]]);
+    const html = houseChargesPanelHtml({ ...panelState([charge({})], 0), tiles }, 5_000);
+    expect(html).toContain("Harrowmere: not scouted yet, about 25 tiles east of Vell.");
+    const both = new Map([...tiles, ["30,20", { x: 30, y: 20, terrain: "LAND" as const }]]);
+    expect(houseChargesPanelHtml({ ...panelState([charge({})], 0), tiles: both }, 5_000)).not.toContain("not scouted yet");
   });
 
   it("turns Show on map into Hide on map for the highlighted charge", () => {

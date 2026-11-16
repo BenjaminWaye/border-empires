@@ -1,7 +1,7 @@
 import { applyAetherShieldsMessage } from "../client-aether-tower-protection/client-aether-shield-state.js";
 import { applyIslandNamesMessage } from "../client-map-name-labels/client-island-names-state.js";
 import { applyHouseChargesMessage } from "../client-house-charges/client-house-charges-state.js";
-import { announceHouseChargeLosses } from "../client-house-charges/client-house-charges-alerts.js";
+import { announceHouseChargeChoice, announceHouseChargeLosses } from "../client-house-charges/client-house-charges-alerts.js";
 import { applyServerReachUpdate } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
 
@@ -28,6 +28,7 @@ export const applyMapPushMessage = (state: ClientState, msg: Record<string, unkn
   if (msg.type === "HOUSE_CHARGES") {
     if (applyHouseChargesMessage(state, msg)) {
       announceHouseChargeLosses(state, state.houseCharges);
+      announceHouseChargeChoice(state, state.houseCharges, Date.now());
       renderHud();
     }
     return true;

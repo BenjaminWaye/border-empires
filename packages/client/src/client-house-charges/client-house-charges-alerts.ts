@@ -3,7 +3,7 @@
 // The simulation records when it was lost (`lostAt`), so a House that was
 // offline still hears about it on its next connect. Warnings already shown are
 // remembered per deal in localStorage, so a reconnect does not repeat them.
-import type { HouseChargesPayload } from "@border-empires/shared";
+import { HOUSE_CHARGES_KEPT, type HouseChargesPayload } from "@border-empires/shared";
 import { pushFeedEntry, type FeedMutableState } from "../client-alerts/client-alerts.js";
 import { houseChargeFocusPoint } from "./client-house-charges-panel.js";
 
@@ -55,4 +55,44 @@ export const announceHouseChargeLosses = (state: FeedMutableState, payload: Hous
   }
   if (announced > 0) writeSeen(payload.dealtAt, seen);
   return announced;
+};
+
+const CHOICE_STORAGE_KEY = "be.houseCharges.choiceAnnounced";
+
+const choiceAnnounced = (dealtAt: number): boolean => {
+  try {
+    return window.localStorage.getItem(CHOICE_STORAGE_KEY) === String(dealtAt);
+  } catch {
+    return false;
+  }
+};
+
+const markChoiceAnnounced = (dealtAt: number): void => {
+  try {
+    window.localStorage.setItem(CHOICE_STORAGE_KEY, String(dealtAt));
+  } catch {
+    // Storage blocked: the reminder may repeat on reconnect, which is harmless.
+  }
+};
+
+const formatWhen = (epochMs: number): string =>
+  new Date(epochMs).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+
+/**
+ * Once per deal, while the keep choice is still open, tells the House its
+ * charges have arrived and how to choose. Two are kept by default, so without
+ * this a player can miss that there was a choice at all. Returns true when shown.
+ */
+export const announceHouseChargeChoice = (state: FeedMutableState, payload: HouseChargesPayload | undefined, nowMs: number): boolean => {
+  if (!payload || nowMs >= payload.choiceClosesAt || payload.charges.length <= HOUSE_CHARGES_KEPT) return false;
+  if (choiceAnnounced(payload.dealtAt)) return false;
+  markChoiceAnnounced(payload.dealtAt);
+  pushFeedEntry(state, {
+    title: "House charges arrived",
+    text: `Keep ${HOUSE_CHARGES_KEPT} of ${payload.charges.length} by ${formatWhen(payload.choiceClosesAt)}. Tap your crest → Manage charges.`,
+    type: "mission",
+    severity: "warn",
+    at: nowMs
+  });
+  return true;
 };

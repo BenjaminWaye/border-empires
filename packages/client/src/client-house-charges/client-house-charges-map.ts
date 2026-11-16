@@ -38,8 +38,40 @@ export const houseChargeMarkerTiles = (state: ChargeMapState, worldWidth: number
   const areaSeen = charge.areaTileKeys?.some((key) => state.tiles.has(key)) ?? false;
   if (areaSeen) return [];
   const seenTargets = charge.areaTileKeys ? [] : charge.targets.filter((target) => explored(state, target.x, target.y));
-  if (seenTargets.length > 0) return seenTargets.map(({ x, y }) => ({ x, y }));
-  return searchCircleMarkers(charge, worldWidth, worldHeight);
+  if (seenTargets.length === 0) return searchCircleMarkers(charge, worldWidth, worldHeight);
+  const marked = seenTargets.map(({ x, y }) => ({ x, y }));
+  // A Charter whose second town is still unscouted: keep the search circle so the player knows where to look.
+  return seenTargets.length < charge.targets.length ? [...marked, ...searchCircleMarkers(charge, worldWidth, worldHeight)] : marked;
+};
+
+const COMPASS = ["east", "southeast", "south", "southwest", "west", "northwest", "north", "northeast"] as const;
+
+const wrappedDelta = (from: number, to: number, size: number): number => {
+  const delta = wrap(to - from, size);
+  return delta > size / 2 ? delta - size : delta;
+};
+
+/**
+ * For a charge with one target seen and another still unscouted, a rough
+ * bearing from the seen one ("Bromurvault: not scouted yet, about 20 tiles
+ * northeast of Auriyrcrown"). Distance is rounded to 5 tiles: a surveyor's
+ * bearing, not the exact spot.
+ */
+export const houseChargeUnscoutedHint = (
+  charge: HouseChargeView,
+  isExplored: (x: number, y: number) => boolean,
+  worldWidth: number,
+  worldHeight: number
+): string | undefined => {
+  if (charge.areaTileKeys || charge.targets.length < 2) return undefined;
+  const seen = charge.targets.find((target) => isExplored(target.x, target.y));
+  const unseen = charge.targets.find((target) => !isExplored(target.x, target.y));
+  if (!seen || !unseen) return undefined;
+  const dx = wrappedDelta(seen.x, unseen.x, worldWidth);
+  const dy = wrappedDelta(seen.y, unseen.y, worldHeight);
+  const distance = Math.max(5, Math.round(Math.hypot(dx, dy) / 5) * 5);
+  const octant = ((Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) % 8) + 8) % 8;
+  return `${unseen.name}: not scouted yet, about ${distance} tiles ${COMPASS[octant]} of ${seen.name}.`;
 };
 
 /** Shaded tiles for a focused landmass, desert or tundra charge: explored tiles only, marked garrisoned when the player holds them. */

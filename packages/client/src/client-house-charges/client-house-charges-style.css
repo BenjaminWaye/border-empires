@@ -139,3 +139,12 @@
 .house-charge-status.is-lost {
   color: #f08a6c;
 }
+
+.house-charges-choice p.house-charges-saved {
+  color: #8fd18a;
+}
+
+.house-charge-progress.is-scout {
+  color: #f0cf82;
+  font-style: italic;
+}

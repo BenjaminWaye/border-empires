@@ -18,4 +18,18 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
       "Until you have explored a charge's target, rings mark the area to search instead. A relic charge only marks an area until you find the installation's beacon."
     ]
   }
+,
+  {
+    createdAt: 1794807272244, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.16",
+    title: "House Charges: clearer choices and directions",
+    why: "Playtesters could not tell whether their pick was saved, what the diamonds meant, or where a Charter's second town was.",
+    changes: [
+      "When your charges arrive you get an alert telling you to pick two, with the deadline.",
+      "After you save, the Charges panel says which two you are keeping instead of showing the Keep button again.",
+      "The diamonds on a charge show its difficulty, and the panel says what a held charge earns.",
+      "If one of a Charter's towns is still unscouted, the card gives a rough bearing to it and Show on map keeps the search rings up.",
+      "Your career panel shows how your rating compares with the 1,200 starting rating."
+    ]
+  }
 ];
