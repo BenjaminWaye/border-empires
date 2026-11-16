@@ -10,6 +10,7 @@ import { PHOTO_MODE_FINDABLE_ENTRY } from "./client-changelog-photo-mode-findabl
 import { CAPTURE_DURING_DEAL_ENTRY } from "./client-changelog-capture-during-deal.js";
 import { CLARITY_HINTS_ENTRY } from "./client-changelog-clarity-hints.js";
 import { ACTION_FEEDBACK_ENTRY } from "./client-changelog-action-feedback.js";
+import { AUTO_GARRISON_ASK_ENTRY } from "./client-changelog-auto-garrison-ask.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -470,6 +471,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...CAPTURE_DURING_DEAL_ENTRY, createdAt: 1794696963679, },
   { ...CLARITY_HINTS_ENTRY, createdAt: 1794696879817, },
   { ...ACTION_FEEDBACK_ENTRY, createdAt: 1794695682854, },
+  { ...AUTO_GARRISON_ASK_ENTRY, createdAt: 1794806556716 },
   {
     createdAt: 1794771007813, // Date.now() captured once for this entry.
     introducedIn: "2026.11.15",
