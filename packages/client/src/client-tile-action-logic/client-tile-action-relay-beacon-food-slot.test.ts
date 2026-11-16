@@ -130,6 +130,17 @@ describe("Relay Beacon FOOD-slot gate — build_relay_beacon_frontier (unclaimed
     expect(action?.disabledReason).toBe("Need a free FOOD slot");
   });
 
+  // Playtest 2026-11-16: a bare "Need 80 manpower" hid that the total includes the expand and garrison steps.
+  it("names the expand, garrison and build parts of a manpower shortfall on neutral ground", () => {
+    const state = richState();
+    state.manpower = 1;
+    const unexplored: Tile = { x: 3, y: 3, terrain: "LAND" } as Tile;
+    state.tiles.set(keyFor(3, 3), unexplored);
+    const action = findAction(menuActionsForSingleTile(state, unexplored, baseDeps as never), "build_relay_beacon_frontier" as TileActionDef["id"]);
+    const total = state.expandManpowerCost + state.settleManpowerCost + 50;
+    expect(action?.disabledReason).toBe(`Need ${total} manpower (${state.expandManpowerCost} expand + ${state.settleManpowerCost} garrison + 50 build)`);
+  });
+
   it(`re-enables once a free FOOD slot is available for the ${RELAY_BEACON_FREE_FOOD_SLOT_COUNT + 1}th outpost`, () => {
     const state = richState();
     addOwnedRelayBeacons(state, RELAY_BEACON_FREE_FOOD_SLOT_COUNT);
