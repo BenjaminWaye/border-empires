@@ -338,56 +338,9 @@ export const topUpFromWaypoint = (
   return enqueued;
 };
 
-export const buildFrontierQueue = (
-  state: ClientState,
-  candidates: string[],
-  deps: {
-    keyFor: (x: number, y: number) => string;
-    parseKey: (key: string) => { x: number; y: number };
-    wrapX: (x: number) => number;
-    wrapY: (y: number) => number;
-    enqueue: (x: number, y: number) => boolean;
-  }
-): { queued: number; skipped: number; queuedKeys: string[] } => {
-  if (candidates.length === 0) return { queued: 0, skipped: 0, queuedKeys: [] };
-  const owned = new Set<string>();
-  for (const tile of state.tiles.values()) {
-    if (tile.ownerId === state.me) owned.add(deps.keyFor(tile.x, tile.y));
-  }
-  const planned = new Set<string>();
-  const remaining = new Set<string>(candidates);
-  let queued = 0;
-
-  while (remaining.size > 0) {
-    const frontier: string[] = [];
-    for (const targetKey of remaining) {
-      const { x, y } = deps.parseKey(targetKey);
-      const neighbors = [
-        deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1)),
-        deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y)),
-        deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1)),
-        deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y)),
-        deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y - 1)),
-        deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y - 1)),
-        deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y + 1)),
-        deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y + 1))
-      ];
-      if (neighbors.some((neighborKey) => owned.has(neighborKey) || planned.has(neighborKey))) frontier.push(targetKey);
-    }
-    if (frontier.length === 0) break;
-    frontier.sort();
-    for (const frontierKey of frontier) {
-      const { x, y } = deps.parseKey(frontierKey);
-      remaining.delete(frontierKey);
-      if (deps.enqueue(x, y)) {
-        planned.add(frontierKey);
-        queued += 1;
-      }
-    }
-  }
-
-  return { queued, skipped: remaining.size, queuedKeys: [...planned] };
-};
+// buildFrontierQueue lives in client-queue-build-frontier.ts (split out to
+// keep this oversized file from growing); re-exported for existing importers.
+export { buildFrontierQueue } from "./client-queue-build-frontier.js";
 
 export const applyPendingSettlementsFromServer = (
   state: ClientState,
