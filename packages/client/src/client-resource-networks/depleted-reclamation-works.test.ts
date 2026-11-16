@@ -6,6 +6,7 @@ import { depletedReclamationWorksOverlayImage, structureOverlayImages } from "..
 import { salvageTributeActions } from "../client-salvage-tribute/client-salvage-tribute.js";
 import type { Tile } from "../client-types.js";
 import { networkIconExports } from "./network-icon-svg.js";
+import { createNetworkGeometry } from "./network-models.js";
 
 const works = (resource: Tile["resource"]): Tile => ({
   x: 4, y: 7, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", ...(resource ? { resource } : {}),
@@ -27,6 +28,17 @@ describe("depleted Reclamation Works", () => {
     const depleted = icons.find(row => row.filename === "reclamation-works-depleted-overlay.svg")!.svg;
     expect(depleted).toContain("<title>Depleted Reclamation Works</title>");
     expect(depleted).not.toBe(live);
+  });
+
+  it("is visibly darker than a working Works, with its lights out", () => {
+    const brightness = (depleted: boolean): number => {
+      const colors = createNetworkGeometry("PRECURSOR_SALVAGE", true, 0, depleted).layers.body!.getAttribute("color")!;
+      let sum = 0;
+      for (let i = 0; i < colors.count; i += 1) sum += colors.getX(i) + colors.getY(i) + colors.getZ(i);
+      return sum / colors.count;
+    };
+    expect(brightness(true)).toBeLessThan(brightness(false) * 0.75);
+    expect(createNetworkGeometry("PRECURSOR_SALVAGE", true, 0, true).layers.glow?.getAttribute("position")?.count ?? 0).toBe(0);
   });
 
   it("offers no shipment from a depleted Works", () => {
