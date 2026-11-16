@@ -6,6 +6,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_116 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_117 } from "./client-changelog-data-earlier-117.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_118 } from "./client-changelog-data-earlier-118.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_119 } from "./client-changelog-data-earlier-119.js";
+import { NO_RATE_LIMIT_ERRORS_ENTRY } from "./client-changelog-no-rate-limit-errors.js";
 import { WINS_AND_COSTS_EXPLAINED_ENTRY } from "./client-changelog-wins-and-costs-explained.js";
 import { PLAYTEST_MAP_READABILITY_ENTRY } from "./client-changelog-playtest-map-readability.js";
 import { INCOME_WAR_CARDS_ENTRY } from "./client-changelog-income-war-cards.js";
@@ -492,6 +493,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...PLACE_ANOTHER_ENTRY, createdAt: 1794861771175, },
   { ...RESOURCE_TRADE_SAFETY_ENTRY, createdAt: 1794863712943, },
   { ...TOWNS_LIST_COIN_PENDING_ENTRY, createdAt: 1794864521632, },
+  { ...NO_RATE_LIMIT_ERRORS_ENTRY, createdAt: 1794864645451, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
