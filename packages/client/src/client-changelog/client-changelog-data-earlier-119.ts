@@ -1,4 +1,5 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { BEACON_CLAIMS_REACH_ENTRY } from "./client-changelog-beacon-claims-reach.js";
 import { AUTO_GARRISON_ASK_ENTRY } from "./client-changelog-auto-garrison-ask.js";
 import { TOWN_COIN_BLANK_ENTRY } from "./client-changelog-town-coin-blank.js";
 import { CLEARER_CAPTURES_ENTRY } from "./client-changelog-clearer-captures.js";
@@ -14,4 +15,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_119: ClientChangelogEntry[] = [
   { ...MANPOWER_BUILD_TEXT_ENTRY, createdAt: 1794806234122, },
   { ...OFFER_DOCK_COUNTER_ENTRY, createdAt: 1794817332101, },
   { ...RESTORED_CAMERA_FOG_ENTRY, createdAt: 1794818244321, },
+  { ...BEACON_CLAIMS_REACH_ENTRY, createdAt: 1794864280133, },
 ];
