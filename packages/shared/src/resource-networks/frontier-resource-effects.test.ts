@@ -39,8 +39,8 @@ describe("precursor salvage", () => {
     expect(salvageArmsMultiplier(4)).toBeCloseTo(1.04);
     expect(salvageArmsMultiplier(25)).toBeCloseTo(1.1);
   });
-  it("delivers a quarter of the manpower cap per load, never above the cap", () => {
-    expect(salvageTributeManpower(0, 1000)).toBe(250);
+  it("delivers 15% of the manpower cap per load, never above the cap", () => {
+    expect(salvageTributeManpower(0, 1000)).toBe(150);
     expect(salvageTributeManpower(900, 1000)).toBe(100);
     expect(salvageTributeManpower(1000, 1000)).toBe(0);
   });

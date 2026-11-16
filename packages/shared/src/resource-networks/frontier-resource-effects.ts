@@ -45,7 +45,7 @@ export const SALVAGE_LOADS_PER_SITE = 3;
 export const SALVAGE_ARMS_BONUS_PER_SITE = 0.01;
 export const SALVAGE_ARMS_BONUS_MAX = 0.1;
 /** Share of the manpower cap an Imperial delivery for one salvage load brings (never above the cap). */
-export const SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE = 0.25;
+export const SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE = 0.15;
 /** Court Strength the Court regains per load shipped (a Writ gives 3). */
 export const SALVAGE_TRIBUTE_COURT_STRENGTH = 1;
 

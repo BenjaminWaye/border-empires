@@ -6,7 +6,7 @@ import { withResourceCleared } from "./salvage-field-clear.js";
 
 /**
  * Ship one load of precursor salvage from a working Reclamation Works to the
- * Court. The Court sends an Imperial delivery of ancillaries worth a quarter of
+ * Court. The Court sends an Imperial delivery of ancillaries worth 15% of
  * the manpower cap (never above it). The last load empties the field: the
  * deposit and its Works are gone, so its arms bonus ends too.
  *

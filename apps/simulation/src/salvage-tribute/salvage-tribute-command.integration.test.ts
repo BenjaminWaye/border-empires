@@ -35,16 +35,16 @@ const fixture = (manpower: number) => {
 };
 
 describe("shipping precursor salvage to the Court", () => {
-  it("delivers a quarter of the manpower cap per load and empties the field after three loads", async () => {
+  it("delivers 15% of the manpower cap per load and empties the field after three loads", async () => {
     const f = fixture(0);
     const cap = f.player().manpowerCap!;
     await f.ship("load-1");
     expect(f.events.filter(event => event.eventType === "COMMAND_REJECTED")).toEqual([]);
-    expect(f.player().manpower).toBeCloseTo(cap * 0.25);
+    expect(f.player().manpower).toBeCloseTo(cap * 0.15);
     expect(JSON.parse(f.site().economicStructureJson!)).toMatchObject({ type: "RECLAMATION_WORKS", salvageLoadsShipped: 1 });
     await f.ship("load-2");
     await f.ship("load-3");
-    expect(f.player().manpower).toBeCloseTo(cap * 0.75);
+    expect(f.player().manpower).toBeCloseTo(cap * 0.45);
     expect(f.site().resource).toBeUndefined();
     expect(f.site().economicStructureJson).toBeUndefined();
     // The emptied field must reach clients as an explicit clear ("" on the wire), not an omission.
