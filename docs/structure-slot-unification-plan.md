@@ -9,7 +9,8 @@ Status: active plan. Supersedes Phase 4 of
 It collapsed `fort` / `observatory` / `siegeBattery` / `economicStructure`
 into a single `tile.structure` slot, and its migrator kept "whichever legacy
 field is populated". Since then the game deliberately stacks structures:
-Fort + Relay Beacon and Fort + Harbor Exchange (HARBOR_EXCHANGE) share a tile
+a fortification shares a tile with any building -- every economic structure
+and an Aether Tower, in either build order; only a siege engine excludes it
 (`runtime-structure-command-handlers.ts`, `economicConflict`). A single slot
 cannot represent that, and its migration would silently delete one structure
 on every stacked tile. Its stale worktree (`.claude/worktrees/build-pipeline-phase4`,

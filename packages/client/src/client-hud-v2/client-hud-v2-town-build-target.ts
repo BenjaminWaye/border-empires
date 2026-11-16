@@ -9,7 +9,7 @@ export const townBuildTarget = (deps: Pick<HudV2Deps, "state" | "actionFlow">, t
   const radius = supportRingRadiusForTier(town.town?.populationTier);
   return supportRingCandidates(state.tiles, town.x, town.y, radius).map(({ tile }) => tile).find((tile) => {
     if (tile.ownerId !== state.me || tile.ownershipState !== "SETTLED" || tile.optimisticPending ||
-        tile.town || tile.afc || tile.fort || tile.observatory || tile.siegeBattery || tile.economicStructure) return false;
+        tile.town || tile.afc || tile.observatory || tile.siegeBattery || tile.economicStructure) return false;
     if (state.developmentQueue.some((entry) => entry.tileKey === `${tile.x},${tile.y}`)) return false;
     const assigned = assignedTownForSupportTile(state.tiles, tile, state.me);
     if (!assigned || assigned.x !== town.x || assigned.y !== town.y) return false;

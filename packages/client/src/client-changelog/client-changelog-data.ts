@@ -16,7 +16,7 @@ import { FASTER_LOGIN_MAP_ENTRY } from "./client-changelog-faster-login-map.js";
 import { PLACE_ANOTHER_ENTRY } from "./client-changelog-place-another.js";
 import { TOWNS_LIST_COIN_PENDING_ENTRY } from "./client-changelog-towns-list-coin-pending.js";
 import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
-import { SUPPLY_AGREEMENT_LIMIT_ENTRY } from "./client-changelog-supply-agreement-limit.js";
+import { FORT_ANY_BUILDING_ENTRY } from "./client-changelog-fort-any-building.js";
 import { RESOURCE_TRADE_SAFETY_ENTRY } from "./client-changelog-resource-trade-safety.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
@@ -99,6 +99,7 @@ import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
 import { MAP_LENS_CHANGELOG, MINIMAP_WORLD_EDGE_ENTRY, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
+import { FORT_BUILDING_SIZE_ENTRY } from "./client-changelog-fort-building-size.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
@@ -469,6 +470,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...RESOURCE_LENS_ENTRY, createdAt: 1794383695242, },
   { ...WAYSTATION_FORT_MODULE_ENTRY, createdAt: 1794394297385, },
   { ...MINIMAP_WORLD_EDGE_ENTRY, createdAt: 1794411491316, },
+  { ...FORT_BUILDING_SIZE_ENTRY, createdAt: 1794863141663, },
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_113,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_114,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_115,
@@ -486,9 +488,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
   { ...SALVAGE_TOAST_DECLUTTER_ENTRY, createdAt: 1794863171668, },
   { ...PLACE_ANOTHER_ENTRY, createdAt: 1794861771175, },
+  { ...FORT_ANY_BUILDING_ENTRY, createdAt: 1794864350262 },
   { ...RESOURCE_TRADE_SAFETY_ENTRY, createdAt: 1794863712943, },
   { ...TOWNS_LIST_COIN_PENDING_ENTRY, createdAt: 1794864521632, },
-  { ...SUPPLY_AGREEMENT_LIMIT_ENTRY, createdAt: 1794864414517, },
   { ...NO_RATE_LIMIT_ERRORS_ENTRY, createdAt: 1794864645451, },
 ];
 
