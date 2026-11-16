@@ -43,6 +43,10 @@ const TOWER_SIDE = 0.16;
 const TOWER_HEIGHT = 0.58;
 const TOWER_OFFSET = TILE_HALF - TOWER_SIDE * 0.5;
 const TOWER_Y = TOWER_HEIGHT * 0.5;
+// What a building standing inside the walls must stay clear of: the walls' inner faces, and the
+// corner towers' inner edges (a tower only blocks where both axes pass this bound).
+export const FORT_WALL_INNER = WALL_OFFSET - WALL_THICKNESS * 0.5;
+export const FORT_TOWER_INNER = TOWER_OFFSET - TOWER_SIDE * 0.5;
 
 const BREACH_DIMENSIONS: BreachDimensions = {
   wallLength: WALL_LENGTH, wallHeight: WALL_HEIGHT, wallThickness: WALL_THICKNESS, wallOffset: WALL_OFFSET,

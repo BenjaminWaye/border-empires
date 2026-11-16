@@ -3,6 +3,7 @@ import { InstancedBufferAttribute, InstancedMesh, Matrix4, Quaternion, Vector3, 
 import { tickTownTime } from "../client-map-3d-town-overlay/town-animation-shaders.js";
 import { createLazyConstructionPresentation } from "../client-map-3d-construction/client-map-3d-construction-presentation.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
+import type { ConstructionLayout } from "../client-map-3d-construction/client-map-3d-construction-layout.js";
 import { DISTRICT_BASE_LIFT, isDistrictProject, type DistrictVisualKind } from "./district-catalog.js";
 import { createDistrictGeometry, DISTRICT_LAYERS, type DistrictGeometry } from "./district-geometry.js";
 import { createDistrictMaterials } from "./district-materials.js";
@@ -12,6 +13,8 @@ type Placement = {
   readonly operational: boolean; readonly foundation: boolean; readonly site?: ConstructionSite;
   /** Full assembly height above placement.y, including any companion meshes. */
   readonly constructionHeight?: number;
+  /** Where the build site's parts stack and crew go; defaults to the open-tile layout. */
+  readonly constructionLayout?: ConstructionLayout;
 };
 type Slot = { readonly meshes: readonly InstancedMesh[]; readonly geometry: DistrictGeometry; readonly states: InstancedBufferAttribute; readonly capacity: number };
 
@@ -104,7 +107,7 @@ export const createDistrictOverlay = (scene: Scene, maxTiles: number, envMap?: T
           scale.setScalar(placement.scale ?? 1);
           matrix.compose(position, rotation, scale);
           for (const mesh of slot.meshes) mesh.setMatrixAt(index, matrix);
-          if (site) presentation.addSite(placement.x, placement.z, placement.y, site, placement.constructionHeight ?? slot.geometry.height * (placement.scale ?? 1));
+          if (site) presentation.addSite(placement.x, placement.z, placement.y, site, placement.constructionHeight ?? slot.geometry.height * (placement.scale ?? 1), placement.constructionLayout);
         }
         slot.states.needsUpdate = true;
         for (const mesh of slot.meshes) {
