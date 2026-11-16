@@ -1,4 +1,4 @@
-import { prospectSignatureResource, isRedesignedRelic, relicOperationalState, relicReserveLabel, RELIC_DEFINITIONS } from "@border-empires/shared";
+import { DEPLETED_RECLAMATION_WORKS_NAME, isDepletedReclamationWorks, prospectSignatureResource, isRedesignedRelic, relicOperationalState, relicReserveLabel, RELIC_DEFINITIONS } from "@border-empires/shared";
 import { HILLS_DEFENSE_MULT, HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, defendingFortVariant, FORT_VARIANT_LABELS, isFortDefending, type EconomicStructureType } from "@border-empires/shared";
 import { prospectClueOverviewLine, prospectClueResourceLabel, retiredProspectClues } from "../client-prospect-clue/client-prospect-clue.js";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
@@ -339,7 +339,8 @@ export const tileFeatureLeadLines = (
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
   const structureKeys = structureKeysForTile(tile);
-  if (structureKeys.length > 0) lines.push({ html: `Built: ${structureKeys.map((key) => deps.structureInfoButtonHtml(key)).join(", ")}` });
+  const depleted = isDepletedReclamationWorks(tile);
+  if (structureKeys.length > 0) lines.push({ html: `Built: ${structureKeys.map((key) => deps.structureInfoButtonHtml(key, depleted && key === "RECLAMATION_WORKS" ? DEPLETED_RECLAMATION_WORKS_NAME : undefined)).join(", ")}` });
   lines.push(...waystationOverviewLines(tile, {
     ...deps,
     techName: (techId) => deps.techCatalog.find((tech) => tech.id === techId)?.name

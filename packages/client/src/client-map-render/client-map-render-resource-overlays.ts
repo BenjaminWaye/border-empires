@@ -1,11 +1,11 @@
-import { isNetworkResource } from "@border-empires/shared";
+import { isDepletedReclamationWorks, isNetworkResource } from "@border-empires/shared";
 import { networkVariantForTile, networkDepositFilename, NETWORK_VARIANTS } from "../client-resource-networks/network-variants.js";
 // Resource / built-structure overlay sprite selection for the 2D canvas
 // renderer. Extracted from client-map-render.ts (which is already over the
 // 500-line cap) so adding new resource overlays doesn't grow that file — see
 // AGENTS.md's file-size discipline. Re-exported from client-map-render so
 // existing importers keep working unchanged.
-import { createOverlayVariantSet, structureOverlayImages } from "./client-map-overlay-images.js";
+import { createOverlayVariantSet, depletedReclamationWorksOverlayImage, structureOverlayImages } from "./client-map-overlay-images.js";
 import type { Tile } from "../client-types.js";
 import { refinedDepositAt } from "../client-refineries/refinery-scene.js";
 
@@ -57,6 +57,7 @@ export const refinedDepositOverlayForTile = (tile: Tile): HTMLImageElement | und
 export const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
   const refined = refinedDepositOverlayForTile(tile);
   if (refined) return refined;
+  if (isDepletedReclamationWorks(tile)) return depletedReclamationWorksOverlayImage;
   if (tile.economicStructure && ["CULTIVATION_ESTATE", "RECLAMATION_WORKS"].includes(tile.economicStructure.type)) return structureOverlayImages[tile.economicStructure.type as keyof typeof structureOverlayImages];
   if (tile.economicStructure?.type === "HYDROWORKS") return structureOverlayImages.HYDROWORKS;
   if (!tile.resource || !tile.economicStructure) return undefined;

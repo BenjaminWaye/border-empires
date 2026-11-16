@@ -586,8 +586,8 @@ long since stalled (§2), and this machinery is one of the few things it cannot
 make for itself. A Reclamation Works can fit recovered components to the
 House's weapons and armour, or ship them offworld to the Court, which repays
 each load with an Imperial delivery of ready-made Ancillaries. Salvage is
-finite: a field holds a few loads, and once the last is shipped the field and
-its Works are gone. Dismantling a Works after a field has been partly stripped
+finite: a field holds a few loads, and once the last is shipped the field is
+gone and its Works stands idle, a dark and empty yard. Dismantling a Works after a field has been partly stripped
 ruins what is left. Salvage is never pledged to another House. The Industrial
 Tooling Module authorises both Manufactories and Reclamation Works. Salvage
 fields are industrial remains, distinct from the great Monuments; no claim that
