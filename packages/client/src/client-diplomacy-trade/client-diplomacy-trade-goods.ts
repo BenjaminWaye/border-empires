@@ -163,6 +163,8 @@ export type TradeGoodsView = {
   haveText: (spec: TradeGoodSpec) => string;
   /** A supply row whose side has none spare (and none in the deal) is hidden rather than greyed out. */
   hideEmptySupply: Record<TradeSide, boolean>;
+  /** An AI target never accepts Coin per hour, so its rows are hidden unless the deal already holds some. */
+  hideCoinPerHour?: boolean;
 };
 
 /**
@@ -178,7 +180,7 @@ export const renderTradeGoods = (overlay: HTMLElement, view: TradeGoodsView): Tr
     const max = limits[spec.key];
     const row = overlay.querySelector<HTMLElement>(`[data-trade-row="${spec.key}"]`);
     if (!row) continue;
-    row.hidden = spec.supply && view.hideEmptySupply[spec.side] && max === 0 && amount === 0;
+    row.hidden = amount === 0 && ((spec.supply && view.hideEmptySupply[spec.side] && max === 0) || (spec.good === "coinPerHour" && Boolean(view.hideCoinPerHour)));
     const tile = row.querySelector<HTMLButtonElement>("[data-trade-good]");
     if (tile) {
       tile.setAttribute("aria-expanded", String(open === spec.key));

@@ -184,8 +184,9 @@ export const tradeVerdict = (input: {
   if (shortfall) return { tone: "bad", text: shortfall, canSend: false, sendLabel };
   const hasSupply = hasResourceSupplyOffer(selection.terms.give.resources) || hasResourceSupplyOffer(selection.terms.ask.resources);
   if (hasRecurringCoin(selection.terms)) {
+    // An AI never takes a Coin-income pledge, slot or not: say so before pointing at a slot that wouldn't help.
+    if (reply?.found && reply.ai) return { tone: "bad", text: "AI Houses only take Coin upfront. Remove Coin per hour and offer Coin instead.", canSend: false, sendLabel };
     if (!hasSupply) return { tone: "neutral", text: "Add a resource slot to trade Coin income.", canSend: false, sendLabel };
-    if (reply?.found && reply.ai) return { tone: "bad", text: "AI Houses require Coin payments upfront.", canSend: false, sendLabel };
   }
   if (hasSupply && !own.resources) return {tone:"bad",text:"Reconnect before negotiating resource supply.",canSend:false,sendLabel};
   if (kind === "trade") {
