@@ -1,4 +1,4 @@
-import { TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer } from "@border-empires/shared";
+import { RESOURCE_SUPPLY_TRADE_DAYS, hasRecurringCoin, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer } from "@border-empires/shared";
 // Pure view logic for the diplomacy trade screen: what the verdict line says
 // and whether the offer can be sent. Uses the same shared pricing rules the
 // gateway decides with, so "would accept" here means the AI really accepts.
@@ -148,6 +148,10 @@ export const tradeVerdict = (input: {
   const missingResource = TRADABLE_SUPPLY_RESOURCES.find(resource => (selection.terms.give.resources?.[resource] ?? 0) > (own.resources?.[resource] ?? 0));
   if (missingResource) return { tone: "bad", text: `You only have ${own.resources?.[missingResource] ?? 0} spare ${supplyResourceLabel(missingResource)} slots.`, canSend: false, sendLabel };
   const hasSupply = hasResourceSupplyOffer(selection.terms.give.resources) || hasResourceSupplyOffer(selection.terms.ask.resources);
+  if (hasRecurringCoin(selection.terms)) {
+    if (!hasSupply) return { tone: "neutral", text: "Add a resource slot to trade Coin income.", canSend: false, sendLabel };
+    if (reply?.found && reply.ai) return { tone: "bad", text: "AI Houses require Coin payments upfront.", canSend: false, sendLabel };
+  }
   if (hasSupply && !own.resources) return {tone:"bad",text:"Reconnect before negotiating resource supply.",canSend:false,sendLabel};
   if (kind === "trade") {
     if (!hasSupply) return {tone:"neutral",text:"Add a resource supply slot to make an independent trade offer.",canSend:false,sendLabel};
@@ -159,7 +163,7 @@ export const tradeVerdict = (input: {
         : answer.reason === "aiCannotPay" ? "doesn't have that much spare to give." : "won't take these resource terms.";
       return {tone:"bad",text:`${targetName} would decline: ${why}`,canSend:true,sendLabel};
     }
-    return {tone:"neutral",text:`Supply continues until either House cancels. ${targetName} will decide on the offer.`,canSend:true,sendLabel};
+    return {tone:"neutral",text:`Supply lasts ${RESOURCE_SUPPLY_TRADE_DAYS} days from acceptance unless ended early. ${targetName} will decide on the offer.`,canSend:true,sendLabel};
   }
   if (reply && !reply.found) return { tone: "bad", text: `No empire named ${targetName}.`, canSend: false, sendLabel };
   if (!reply) return { tone: "neutral", text: `Reading ${targetName}'s mood…`, canSend: true, sendLabel };

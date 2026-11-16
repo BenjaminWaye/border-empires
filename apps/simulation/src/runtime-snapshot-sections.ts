@@ -17,7 +17,7 @@ export type SnapshotExportInput = {
   tiles: ReadonlyMap<string, DomainTileState>;
   locksByCommandId: ReadonlyMap<string, LockRecord>;
   players: ReadonlyMap<string, DomainPlayer>;
-  resourceSupplyAgreements?: readonly import("@border-empires/shared").ResourceSupplyAgreement[] | undefined;
+  resourceSupplyState?: () => Pick<SimulationSnapshotSections["initialState"], "resourceSupplyAgreements" | "resourceSupplyJournalSequence">;
   pendingSettlementsByTile: ReadonlyMap<string, PendingSettlementRecord>;
   playerYieldCollectionEpochByPlayer: ReadonlyMap<string, number>;
   // Runtime.tileSettledAtByKey; only town stamps are saved (recovered-town-state.ts).
@@ -60,11 +60,16 @@ export const mapTile = (tile: DomainTileState): SnapshotTile => ({
 });
 
 function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): SimulationSnapshotSections {
+  // Income lookup can settle expired trades. Do it before sampling their
+  // journal sequence and the balances it covers, with no intervening yield.
+  const players = [...input.players.values()].map(player => ({
+    player, incomePerMinute: input.incomePerMinuteForPlayer(player.id)
+  }));
   return {
     initialState: {
       afcGlobalLosses: input.afcGlobalLosses?.() ?? 0,
       tiles,
-      ...(input.resourceSupplyAgreements?.length ? { resourceSupplyAgreements: input.resourceSupplyAgreements } : {}),
+      ...input.resourceSupplyState?.(),
       activeLocks: [...input.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
@@ -80,8 +85,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
         }))
         .sort((a, b) => a.commandId.localeCompare(b.commandId)),
-      players: [...input.players.values()]
-        .map((player) => {
+      players: players.map(({ player, incomePerMinute }) => {
           const summary = input.summaryForPlayer(player.id);
           const townSettledAt = townSettledAtForSnapshot(summary.ownedTownTierByTile.keys(), input.tileSettledAtByKey);
           return {
@@ -123,7 +127,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           vision: player.mods?.vision ?? 1,
           visionRadiusBonus: visionRadiusBonusForPlayer(player),
           incomeMultiplier: player.mods?.income ?? 1,
-          incomePerMinute: input.incomePerMinuteForPlayer(player.id),
+          incomePerMinute,
           ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
           ...(townSettledAt.length ? { townSettledAt } : {}),
           // Restart-durable: DEV_QUEUE_*/WAYPOINT_* commands only ever mutate

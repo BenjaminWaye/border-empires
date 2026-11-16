@@ -10,6 +10,7 @@ import { PHOTO_MODE_FINDABLE_ENTRY } from "./client-changelog-photo-mode-findabl
 import { CAPTURE_DURING_DEAL_ENTRY } from "./client-changelog-capture-during-deal.js";
 import { CLARITY_HINTS_ENTRY } from "./client-changelog-clarity-hints.js";
 import { ACTION_FEEDBACK_ENTRY } from "./client-changelog-action-feedback.js";
+import { AUTO_GARRISON_ASK_ENTRY } from "./client-changelog-auto-garrison-ask.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -58,7 +59,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_27 } from "./client-changelog-oct-27.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31.js";
 import { CLIENT_CHANGELOG_ENTRIES_NOV_01_03 } from "./client-changelog-nov-01-03.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
-import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
+import { RESOURCE_NETWORKS_CHANGELOG, TIMED_RESOURCE_TRADES_ENTRY } from "./client-changelog-resource-networks.js";
 import { FRONTIER_RESOURCES_REWORK_CHANGELOG } from "./client-changelog-frontier-resources.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
@@ -472,6 +473,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...CAPTURE_DURING_DEAL_ENTRY, createdAt: 1794696963679, },
   { ...CLARITY_HINTS_ENTRY, createdAt: 1794696879817, },
   { ...ACTION_FEEDBACK_ENTRY, createdAt: 1794695682854, },
+  { ...AUTO_GARRISON_ASK_ENTRY, createdAt: 1794806556716, },
   {
     createdAt: 1794771007813, // Date.now() captured once for this entry.
     introducedIn: "2026.11.15",
@@ -491,6 +493,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Scout reports name deposits you have the technology to identify. Find on map jumps to the nearest known deposit of that resource."
     ]
   },
+  { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

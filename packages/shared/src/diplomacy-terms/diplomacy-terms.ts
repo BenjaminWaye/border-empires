@@ -3,10 +3,10 @@ import { resourceSupplyCoinValue, missingResourceSupply, clampedResourceSupply, 
 // to price them. Shared so the client's live "would they accept?" preview
 // and the gateway's real decision run the exact same arithmetic.
 //
-// Coin settles once; optional resource amounts are continuing supply
+// Upfront Coin settles once; optional resource and income terms are continuing
 // commitments, backed by actual production instead of stockpile deductions.
 import { z } from "zod";
-import { ResourceSupplyOfferSchema, hasResourceSupplyOffer, supplyResourceLabel, TRADABLE_SUPPLY_RESOURCES } from "../resource-supply-trades/resource-supply-trades.js";
+import { RESOURCE_SUPPLY_TRADE_DAYS, TradeCoinPerHourSchema, ResourceSupplyOfferSchema, hasResourceSupplyOffer, supplyResourceLabel, TRADABLE_SUPPLY_RESOURCES } from "../resource-supply-trades/resource-supply-trades.js";
 
 export type DiplomacyOfferKind = "truce" | "alliance";
 export type DiplomacyGoods = z.infer<typeof DiplomacyGoodsSchema>;
@@ -19,13 +19,16 @@ export const MAX_DIPLOMACY_TERM_AMOUNT = 1_000_000;
 
 export const DiplomacyGoodsSchema = z.object({
   gold: z.number().int().min(0).max(MAX_DIPLOMACY_TERM_AMOUNT),
-  resources: ResourceSupplyOfferSchema.optional()
+  resources: ResourceSupplyOfferSchema.optional(),
+  coinPerHour: TradeCoinPerHourSchema.optional()
 });
 export const DiplomacyTermsSchema = z.object({
   give: DiplomacyGoodsSchema, ask: DiplomacyGoodsSchema,
-  // Accepted for older callers; new supply commitments continue until cancelled.
+  // Accepted for older callers; new supply commitments have a fixed seven-day term.
   supplyDurationHours: z.union([z.literal(12), z.literal(24)]).optional()
-});
+}).refine(terms => (!terms.give.coinPerHour && !terms.ask.coinPerHour) ||
+  hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources),
+{ message: "Recurring Coin requires a resource slot in the deal." });
 
 /**
  * Marks a truce/alliance request as a counter to an offer the sender received:
@@ -51,8 +54,10 @@ export const diplomacyTermsCarryRetiredShards = (raw: unknown): boolean => {
 export const EMPTY_DIPLOMACY_GOODS: DiplomacyGoods = { gold: 0 };
 export const emptyDiplomacyTerms = (): DiplomacyTerms => ({ give: { ...EMPTY_DIPLOMACY_GOODS }, ask: { ...EMPTY_DIPLOMACY_GOODS } });
 
+export const hasRecurringCoin = (terms: DiplomacyTerms): boolean => Boolean(terms.give.coinPerHour || terms.ask.coinPerHour);
+
 export const diplomacyTermsAreEmpty = (terms: DiplomacyTerms | undefined): boolean =>
-  !terms || (terms.give.gold === 0 && terms.ask.gold === 0 &&
+  !terms || (terms.give.gold === 0 && terms.ask.gold === 0 && !hasRecurringCoin(terms) &&
     !hasResourceSupplyOffer(terms.give.resources) && !hasResourceSupplyOffer(terms.ask.resources));
 
 /** The same deal seen from the other side. */
@@ -65,6 +70,7 @@ export const swapDiplomacyTerms = (terms: DiplomacyTerms): DiplomacyTerms => ({
 const goodsLabel = (goods: DiplomacyGoods): string => {
   const parts: string[] = [];
   if (goods.gold > 0) parts.push(`${goods.gold} coin`);
+  if (goods.coinPerHour) parts.push(`up to ${goods.coinPerHour} coin/hour from income`);
   for (const resource of TRADABLE_SUPPLY_RESOURCES) {
     const count = goods.resources?.[resource] ?? 0;
     if (count > 0) parts.push(`${count} ${supplyResourceLabel(resource)} supply ${count === 1 ? "slot" : "slots"}`);
@@ -82,7 +88,7 @@ export const describeDiplomacyTermsForRecipient = (terms: DiplomacyTerms | undef
   if (youPay) parts.push(`you pay ${youPay}`);
   const text = parts.join("; ");
   return hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)
-    ? `${text}; resource supply until cancelled` : text;
+    ? `${text}. Supply lasts ${RESOURCE_SUPPLY_TRADE_DAYS} days from acceptance.` : text;
 };
 
 /** "you pay 50 coin; Milo pays 20 coin" -- from the proposer's point of view. */
@@ -95,7 +101,7 @@ export const describeDiplomacyTermsForProposer = (terms: DiplomacyTerms | undefi
   if (theyPay) parts.push(`${targetName} pays ${theyPay}`);
   const text = parts.join("; ");
   return hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)
-    ? `${text}; resource supply until cancelled` : text;
+    ? `${text}. Supply lasts ${RESOURCE_SUPPLY_TRADE_DAYS} days from acceptance.` : text;
 };
 
 // --- AI pricing -----------------------------------------------------------
@@ -138,7 +144,7 @@ export const evaluateAiOffer = (
   terms: DiplomacyTerms
 ): AiOfferVerdict => {
   const required = requiredForOffer(pricing, kind, durationHours);
-  if (required === null) return { accepts: false, reason: "refuses" };
+  if (required === null || hasRecurringCoin(terms)) return { accepts: false, reason: "refuses" };
   if (kind === "alliance" && asksAnything(terms)) return { accepts: false, reason: "aiWontPay" };
   const missing: DiplomacyGoods = {
     gold: Math.max(0, terms.ask.gold - pricing.aiHoldings.gold)
@@ -170,7 +176,7 @@ export const aiCounterOffer = (
   requesterHoldings: DiplomacyGoods
 ): AiCounterOffer => {
   const required = requiredForOffer(pricing, kind, durationHours);
-  if (required === null) return { kind: "refuses" };
+  if (required === null || hasRecurringCoin(terms)) return { kind: "refuses" };
   const next: DiplomacyTerms = {
     give: { ...terms.give, ...(terms.give.resources ? { resources: { ...terms.give.resources } } : {}) },
     // Never counter by asking the AI to pay more than it holds, nor anything at all for an alliance.

@@ -1,3 +1,4 @@
+import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 import type { WorldStyle } from "@border-empires/shared";
 import { createInitialSeasonState } from "../season-lifecycle.js";
 import { seedProfileWorldgen, type SimulationSeedProfile } from "../seed-state/seed-state.js";
@@ -8,3 +9,7 @@ export function recoveredSeasonFallback(input: { rulesetId: string | undefined; 
   delete season.afcUpgradeRuleset;
   return season;
 }
+
+export const resolveRecoveredSeason = (
+  recovered: SimulationSeasonState | undefined, fallback: Parameters<typeof recoveredSeasonFallback>[0]
+): SimulationSeasonState => recovered ?? recoveredSeasonFallback(fallback);

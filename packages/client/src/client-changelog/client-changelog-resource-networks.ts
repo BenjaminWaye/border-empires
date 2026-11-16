@@ -122,3 +122,14 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
   }
 
 ];
+
+export const TIMED_RESOURCE_TRADES_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.15",
+  title: "Seven-day resource trades",
+  why: "See how long your House can count on traded resource slots.",
+  changes: [
+    "New resource agreements run for seven days from acceptance.",
+    "Trade and Economy show active commitments and their expiry.",
+    "Offer a recurring Coin payment from future earnings in a slot deal with another player."
+  ]
+};

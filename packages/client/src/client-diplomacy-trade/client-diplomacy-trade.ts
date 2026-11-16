@@ -136,6 +136,7 @@ const setDeal = (screen: OpenScreen, treaty: DealTreaty, terms: DiplomacyTerms):
 };
 
 const haveText = (own: DiplomacyGoods, theirs: DiplomacyGoods | undefined, spec: TradeGoodSpec): string => {
+  if (spec.good === "coinPerHour") return "From future income";
   const holdings = spec.side === "give" ? own : theirs;
   if (!holdings || (spec.supply && !holdings.resources)) return "";
   const amount = spec.good === "gold" ? holdings.gold : (holdings.resources?.[spec.good] ?? 0);
