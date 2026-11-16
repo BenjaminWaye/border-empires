@@ -15,6 +15,17 @@ import { huntAttackersAction, huntOrderMessage, sendHuntAttackersOrder } from ".
 import { confirmFirstMusterStage } from "./client-muster-stage-confirm/client-muster-stage-confirm.js";
 import type { BreakPactSheetOptions } from "./client-break-pact-sheet/client-break-pact-sheet.js";
 
+type MusterSizeState = Pick<ClientState, "me" | "manpowerCap" | "manpower" | "musterAmountRateByTile">;
+
+/** A flag's staged manpower (predicted between server syncs) and its cap; undefined when the tile has no flag. */
+export const musterStagedAndCap = (tile: Tile, state: MusterSizeState): { staged: number; cap: number } | undefined => {
+  const muster = tile.muster;
+  if (!muster) return undefined;
+  const cap = Math.floor(musterFlagCap(state.manpowerCap, muster.capLevel));
+  const staged = Math.floor(predictedMusterAmount(state.musterAmountRateByTile, `${tile.x},${tile.y}`, tile, state.me, cap, state.manpower));
+  return { staged, cap };
+};
+
 // Inline to avoid circular dependency with client-tile-action-logic.ts
 // (which imports buildMusterActions from here).
 const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
@@ -56,10 +67,7 @@ export const buildMusterActions = (
       ...avail()
     });
   } else {
-    const cap = Math.floor(musterFlagCap(state.manpowerCap, muster.capLevel));
-    const staged = Math.floor(
-      predictedMusterAmount(state.musterAmountRateByTile, `${tile.x},${tile.y}`, tile, state.me, cap, state.manpower)
-    );
+    const { staged, cap } = musterStagedAndCap(tile, state) ?? { staged: 0, cap: 0 };
     const nextCap = Math.floor(musterFlagCap(state.manpowerCap, (muster.capLevel ?? 0) + 1));
     // Live auto-fire status (traveling/fighting/cooldown), synced from the
     // server — see musterStatusText's doc comment for what each mode+status

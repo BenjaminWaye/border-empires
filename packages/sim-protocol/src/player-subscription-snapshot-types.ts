@@ -1,7 +1,7 @@
 // Extracted from index.ts (500-line source budget, see AGENTS.md) to make
 // room for new tile-overlay wire fields without growing that file further.
 
-import type { AutoSettlePrefs, ChosenStructureTier, ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, ResourceSlotSources, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
+import type { AutoSettlePrefs, ChosenStructureTier, ExploredTilesRuns, ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, ResourceSlotSources, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
 import type { ManpowerBreakdown, SimulationSeasonState, WorldStatusSnapshot } from "./index.js";
 import type { TileOverlayJsonFields } from "./tile-overlay-fields/tile-overlay-fields.js";
 
@@ -101,6 +101,9 @@ export type PlayerSubscriptionSnapshot = {
     afcUpgradeRuleset?: "afc-v1";
     afcUpgradeInstallAllowed?: boolean;
     afcInstallationPreviews?: Record<string, string>;
+    // Fraction off every Manifest's Coin price (the Calculating Engine: 0.1);
+    // prices the gateway's init catalog with the simulation's own discount.
+    manifestGoldDiscount?: number;
     // Empire-wide Titanium/Umbrite Weapons Factory counts, sourced from the
     // runtime's authoritative ownedStructureCountByPlayerByType index (see
     // runtime-owned-structure-index.ts) — the same vision-independent count
@@ -117,6 +120,13 @@ export type PlayerSubscriptionSnapshot = {
     // Per-category auto-settle opt-in (shared auto-settle-prefs.ts). Legacy/AI
     // players always report answered:true with everything on.
     autoSettle?: AutoSettlePrefs;
+    /**
+     * Every tile this player has ever had in vision this season (run-length
+     * bitset, explored-tiles-runs.ts). Stamped fresh by the simulation on each
+     * SubscribePlayer reply -- never stored in or merged into a cached
+     * snapshot -- so a reconnect can restore fog memory the browser lost.
+     */
+    exploredTiles?: ExploredTilesRuns;
     // Quickforge wonder: ms timestamp of this player's last discounted
     // rush-buy (0/absent = never used this UTC day). Sent purely so the
     // client's rush-buy price preview can replicate the server's exact

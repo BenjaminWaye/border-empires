@@ -12,13 +12,13 @@ import type { TileActionDef, TileMenuView } from "../client-types.js";
 import { plainText, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { tileProgressHtml } from "./client-hud-v2-tile-progress.js";
 import { detailLinesBeyondFacts } from "./client-hud-v2-tile-details.js";
+import { TILE_VIEW_PANELS, TILE_VIEW_TITLE, type TileViewPanel } from "./client-hud-v2-tile-views.js";
 
-export type BarPanel = "aether" | "build" | "details" | "progress";
+export type BarPanel = "aether" | "build" | "details" | "progress" | "status" | TileViewPanel;
 
 export type BarButton =
   | { kind: "action"; action: TileActionDef; primary: boolean }
   | { kind: "afc"; primary: boolean }
-  | { kind: "tab"; tab: TileMenuView["tabs"][number]; label: string }
   | { kind: "panel"; panel: BarPanel; label: string };
 
 type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs"> & Partial<Pick<TileMenuView, "overviewLines" | "afcUpgradesReady" | "progress">>;
@@ -50,8 +50,6 @@ const SECONDARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
 
 const MAX_SECONDARY = 2;
 
-/** Legacy tabs with no new-style view yet (AFC modules, muster commit/reports) stay reachable from ⋯. */
-const LEGACY_ONLY_TABS: ReadonlyArray<TileMenuView["tabs"][number]> = ["modules", "commit", "reports"];
 
 /**
  * settle_land is both "Expand To" on neutral land (client-tile-action-neutral.ts) and "Garrison" on your
@@ -92,10 +90,13 @@ const isExpandingBeacon = (a: TileActionDef): boolean => a.id === "build_relay_b
  * With no Garrison or Expand To the player can do, the tile's main action stays on the bar greyed with its
  * reason, instead of moving to the minor row or the Build list where players couldn't find it. Interior
  * settled tiles also offer a beacon; a blocked one there is not their main action, so it isn't kept.
+ * An unexplored tile's Explore, greyed while the drone is out, likewise keeps its "back in …" reason on
+ * the bar: in the minor row the reason was only a tooltip, which a phone never shows (2026-11-14 playtest).
  */
 const blockedPrimaryAction = (view: BarView): TileActionDef | undefined => {
   if (view.actions.some((a) => a.id === "settle_land" && !a.disabled)) return undefined;
   return view.actions.find((a) => isGarrison(a) && a.recommended)
+    ?? view.actions.find((a) => a.id === "explore_scout")
     ?? view.actions.find((a) => (a.id === "settle_land" && !isGarrison(a)) || a.id === "expand_here")
     ?? [...view.actions, ...view.buildings].find(isExpandingBeacon);
 };
@@ -112,7 +113,7 @@ export const selectBarButtons = (view: BarView): BarButton[] => {
   if (afcReady || (isOwnAfc(view) && !primary)) buttons.push({ kind: "afc", primary: true });
   if (primary) buttons.push({ kind: "action", action: primary, primary: true });
   if (isOwnAfc(view) && primary) buttons.push({ kind: "afc", primary: false });
-  if (isOwnAfc(view) && view.tabs.includes("modules")) buttons.push({ kind: "tab", tab: "modules", label: "Modules ▸" });
+  if (isOwnAfc(view) && view.tabs.includes("modules")) buttons.push({ kind: "panel", panel: "modules", label: "Modules ▸" });
   let secondary = 0;
   for (const id of SECONDARY_ORDER) {
     if (secondary >= MAX_SECONDARY) break;
@@ -156,7 +157,7 @@ const actionButtonHtml = (b: Extract<BarButton, { kind: "action" }>): string => 
   return `<button type="button" class="${cls}" data-hud-v2-action="${esc(a.id)}"${targets(a)}${a.disabled ? " disabled" : ""} title="${esc(title)}"><span class="hud-v2-act-label">${esc(a.label)}</span>${note ? `<span class="hud-v2-act-cost">${esc(note)}</span>` : ""}</button>`;
 };
 
-/** The minor row: small text buttons for everything else, plus a link to legacy-only views (modules, reports). */
+/** The minor row: small text buttons for everything else, plus links to the sidebar tile views (modules, commitment, reports). */
 const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[], panel?: BarPanel): string => {
   const minor = moreActions(view, buttons).map((a) => {
     const title = a.disabled ? a.disabledReason ?? a.label : [a.cost, a.detail].filter(Boolean).join(" · ") || a.label;
@@ -164,8 +165,12 @@ const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[], panel?:
   });
   if (view.afcUpgradesReady === 0 && !buttons.some((b) => b.kind === "afc")) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-open="afc">AFC upgrades ▸</button>`);
   if (view.progress) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-panel="progress" aria-expanded="${panel === "progress"}">Progress ${panel === "progress" ? "▾" : "▸"}</button>`);
-  const legacyTab = view.tabs.find((t) => LEGACY_ONLY_TABS.includes(t) && !buttons.some((b) => b.kind === "tab" && b.tab === t));
-  if (legacyTab) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-tab="${legacyTab}">${legacyTab === "modules" ? "Modules" : "Reports"} ▸</button>`);
+  // One link per sidebar view, each named for what it opens: a muster flag carries both Attack commitment
+  // and Combat reports, and a single link labelled "Reports" used to open the commitment tab (2026-11-16 playtest).
+  for (const tab of TILE_VIEW_PANELS) {
+    if (!view.tabs.includes(tab) || buttons.some((b) => b.kind === "panel" && b.panel === tab)) continue;
+    minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-panel="${tab}" aria-expanded="${panel === tab}">${TILE_VIEW_TITLE[tab]} ▸</button>`);
+  }
   return minor.length > 0 ? `<div class="hud-v2-minor-row">${minor.join("")}</div>` : "";
 };
 
@@ -186,21 +191,31 @@ const factsHtml = (facts: readonly TileFact[]): string =>
     ? `<div class="hud-v2-tile-facts">${facts.map((f) => `<span class="hud-v2-fact${f.tone ? ` hud-v2-fact-${f.tone}` : ""}"><span class="hud-v2-fact-label">${esc(f.label)}</span>${esc(f.value)}</span>`).join("")}</div>`
     : "";
 
+/** The status explainer on its own: tapping the status chip shows only this, not the whole Details list. */
+const statusHelpHtml = (view: Pick<TileMenuView, "statusText" | "statusHelpText">): string =>
+  `<div class="hud-v2-pop hud-v2-details hud-v2-status-help" role="region" aria-label="Status"><div class="hud-v2-detail-line tile-overview-line"><strong>${esc(plainText(view.statusText ?? ""))}:</strong> ${esc(view.statusHelpText ?? "")}</div></div>`;
+
 /** ownerTagHtml: trusted markup shown before the owner's name (the stance tag). */
 export const actionBarHtml = (fullView: TileMenuView, panel?: BarPanel, facts: readonly TileFact[] = [], ownerTagHtml = ""): string => {
   // Details never repeats the fact strip; with nothing else to say it has no button.
+  // A status with an explainer ("Beyond your reach") opens just that explainer: it used to open the whole
+  // Details list, so tapping "Inside X Reach" also showed unrelated tile modifiers (2026-11-16 playtest).
+  const hasHelp = Boolean(fullView.statusText && fullView.statusHelpText);
   const view = { ...fullView, overviewLines: detailLinesBeyondFacts(fullView.overviewLines, facts) };
   const buttons = selectBarButtons(view);
-  const status = view.statusText ? `<span class="hud-v2-tile-status hud-v2-tile-status-${view.statusTone ?? "neutral"}">${esc(view.statusText)}</span>` : "";
+  const statusCls = `hud-v2-tile-status hud-v2-tile-status-${view.statusTone ?? "neutral"}`;
+  const status = !view.statusText ? ""
+    : hasHelp
+      ? `<button type="button" class="${statusCls} hud-v2-tile-status-help" data-hud-v2-panel="status" aria-expanded="${panel === "status"}" title="What does this mean?">${esc(view.statusText)} ⓘ</button>`
+      : `<span class="${statusCls}">${esc(view.statusText)}</span>`;
   const head = `<div class="hud-v2-tile-head"><span class="hud-v2-tile-text"><span class="hud-v2-tile-title">${esc(view.title)}</span><span class="hud-v2-tile-sub">${ownerTagHtml}${view.subtitleHtml ?? esc(view.subtitle)}</span></span>${status}<button type="button" class="hud-v2-tile-close" data-hud-v2-close aria-label="Close">✕</button></div>`;
   const row = buttons.map((b) => (b.kind === "action"
     ? actionButtonHtml(b)
     : b.kind === "afc" ? `<button type="button" class="hud-v2-act${b.primary ? " hud-v2-act-primary" : ""}" data-hud-v2-open="afc">${(view.afcUpgradesReady ?? 0) > 0 ? `AFC upgrades · ${view.afcUpgradesReady} ready` : "AFC upgrades"}</button>`
-    : b.kind === "tab" ? `<button type="button" class="hud-v2-act hud-v2-act-tab" data-hud-v2-tab="${b.tab}">${esc(b.label)}</button>`
     : `<button type="button" class="hud-v2-act hud-v2-act-${b.panel}${b.panel === panel ? " hud-v2-act-open" : ""}" data-hud-v2-panel="${b.panel}" aria-expanded="${b.panel === panel}">${esc(b.label)}</button>`)).join("");
   const primary = buttons.find((b): b is Extract<BarButton, { kind: "action" }> => b.kind === "action" && b.primary);
   const autoSettle = primary?.action.autoSettleOption;
   // A Garrison checkbox belongs with whichever Garrison button is showing (main or minor row).
   const garrisonOption = autoSettle ?? moreActions(view, buttons).find((a) => a.autoSettleOption)?.autoSettleOption;
-  return `${head}${factsHtml(facts)}${panel === "details" ? detailsHtml(view) : panel === "progress" ? tileProgressHtml(view.progress) : ""}${row ? `<div class="hud-v2-act-row">${row}</div>` : ""}${minorRowHtml(view, buttons, panel)}${garrisonOption ? autoSettleOptionHtml(garrisonOption) : ""}`;
+  return `${head}${factsHtml(facts)}${panel === "details" ? detailsHtml(view) : panel === "status" && hasHelp ? statusHelpHtml(view) : panel === "progress" ? tileProgressHtml(view.progress) : ""}${row ? `<div class="hud-v2-act-row">${row}</div>` : ""}${minorRowHtml(view, buttons, panel)}${garrisonOption ? autoSettleOptionHtml(garrisonOption) : ""}`;
 };

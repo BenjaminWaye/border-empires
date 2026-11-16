@@ -462,6 +462,11 @@ its garrisoned heartland, but only over ground held in depth, not over a
 thin line of outposts. The exact thresholds belong in the
 [gameplay reference](../game-mechanics.md).
 
+The same charts name the notable wastes and ice fields inside an island:
+stretches of desert and tundra large enough to matter to a House, but small
+enough to be held. These names belong to the chart too and are never
+renamed.
+
 ## 11. Houses and the planetary economy
 
 ### Knowledge, landings and seasons
@@ -478,6 +483,36 @@ that planet. On another seasonal world, the House retains its knowledge but
 must commission the equipment and personnel needed there. The relationship
 between campaign resets and permanent ducal holdings remains a canon
 question in §14.
+
+### House Charges
+
+Before a landing, each House gives its campaign leader a few **sealed
+charges**: the House's own ambitions for this world, separate from the
+Court's terms of victory. Its trading families may want a secure road
+between two named market towns; its elders a town grown great enough to seat
+a cadet line; its surveyors a landmass, waste or ice field entered in the
+charts under its name; its scholars a particular Concordance installation
+woken. The charges are private. The House learns which goals were sent, the
+watching Core does not, and rivals can only guess from what the House chooses
+to fight for.
+
+The charges are drawn from the House's own landing reports, so they point at
+places near where it came down. A House may set one charge aside in its first
+day on the ground. The surveyors' bearings come from the Court's slow,
+incomplete charts, so a charge first marks only an area; the House finds the
+exact place by scouting it. An installation is known only by its maintenance
+beacon until the House garrisons it.
+
+A charge is fulfilled only if the House still holds it when the campaign is
+decided: a road cut, a town lost or a chart name struck in the last hours
+counts for nothing. When the campaign is decided the seals are broken in
+public, and the Core learns at last what every House was really after. A
+fulfilled charter goes into its House's archive, a record of what the House
+set out to take and held; the archive is the collection of charge cards a
+House's profile shows. What a fulfilled charge earns the House is a gameplay
+decision recorded in the
+[gameplay reference](../game-mechanics.md) and the
+[House Charges plan](../house-charges-plan.md).
 
 ### Coastal assault carriers
 
@@ -496,7 +531,8 @@ cross open water on foot.
 **Coin is offworld purchasing credit backed by planetary output.** It is a
 recognised claim on the food, freight, ore, manufacturing, tolls and future
 exports controlled by the House. The House factor accepts that claim
-because the House controls the output behind it.
+because the House controls the output behind it. Houses can pledge a share of
+newly earned Coin to another House in exchange for contracted industrial output.
 
 Coin is paid offworld through the factor for machines fabricated elsewhere,
 transported crews and instruments, Imperial market access and project
@@ -550,8 +586,8 @@ long since stalled (§2), and this machinery is one of the few things it cannot
 make for itself. A Reclamation Works can fit recovered components to the
 House's weapons and armour, or ship them offworld to the Court, which repays
 each load with an Imperial delivery of ready-made Ancillaries. Salvage is
-finite: a field holds a few loads, and once the last is shipped the field and
-its Works are gone. Dismantling a Works after a field has been partly stripped
+finite: a field holds a few loads, and once the last is shipped the field is
+gone and its Works stands idle, a dark and empty yard. Dismantling a Works after a field has been partly stripped
 ruins what is left. Salvage is never pledged to another House. The Industrial
 Tooling Module authorises both Manufactories and Reclamation Works. Salvage
 fields are industrial remains, distinct from the great Monuments; no claim that

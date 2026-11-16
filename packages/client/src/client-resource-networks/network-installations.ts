@@ -4,6 +4,7 @@ import { housing } from "../client-town-district/support-model-detail.js";
 import { luxuryPlant } from "./network-sites.js";
 
 import { buildReclamationWorks } from "./network-reclamation-model.js";
+import { depletedTownBuilders } from "./network-depleted-palette.js";
 
 const foundation = (t: TownBuilders): void => {
   octagonPlate(t, 0.39, false);
@@ -41,10 +42,11 @@ const cultivationEstate = (t: TownBuilders): void => {
   }
 };
 
-export const buildNetworkInstallation = (t: TownBuilders, resource: NetworkResource): void => {
+export const buildNetworkInstallation = (live: TownBuilders, resource: NetworkResource, depleted = false): void => {
+  const t = depleted ? depletedTownBuilders(live) : live;
   foundation(t);
   switch (resource) {
     case "LUXURY_BIOTA": cultivationEstate(t); break;
-    case "PRECURSOR_SALVAGE": buildReclamationWorks(t); break;
+    case "PRECURSOR_SALVAGE": buildReclamationWorks(t, depleted); break;
   }
 };

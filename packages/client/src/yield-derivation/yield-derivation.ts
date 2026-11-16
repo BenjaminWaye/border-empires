@@ -82,7 +82,8 @@ export const deriveTileYieldRate = (
   const goldPerMinute = (townGoldPerMinute + dockGoldPerMinute) * outputMultiplier;
 
   if (goldPerMinute < 0.0001) return undefined;
-  return { goldPerMinute: roundPositive(goldPerMinute, 4) };
+  // 6dp like the sim: coin rates are ~288x smaller since the rescale, so 4dp moved a town by up to ±0.07/day.
+  return { goldPerMinute: roundPositive(goldPerMinute, 6) };
 };
 
 /** Derive and attach yieldRate to a tile object if missing. */

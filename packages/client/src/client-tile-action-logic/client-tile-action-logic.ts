@@ -160,7 +160,7 @@ export const chainedBuildAvailabilityFromModule = (
         : state.gold < totalGold
           ? `Need ${totalGold} coin`
           : state.manpower < totalManpower
-            ? `Need ${totalManpower} manpower`
+            ? `Need ${totalManpower} manpower (${state.settleManpowerCost} garrison + ${manpowerCost} build)`
             : "",
       `${totalGold > 0 ? `${totalGold} coin, ` : ""}${totalManpower} m.p. (${state.settleManpowerCost} garrison + ${manpowerCost} build) • ${buildTimeLabel(settleDurationMsForState(state, tile) + buildDurationMsForState(state, structureType))} total`
     ];
@@ -653,7 +653,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_fortification",
         label: tile.fort ? "Upgrade fortification" : "Fortify",
-        detail: deps.buildDetailTextForAction("build_fortification", tile) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_fortification", tile) ?? "") + frontierBuildDetailSuffix(tile),
         cost: `Choose a tier: ${fortifyOptions.map((entry) => entry.label).join(" · ")}`,
         ...tierRowAvailability(fortifyOptions),
         tierOptions: fortifyOptions
@@ -665,7 +665,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_observatory",
         label: "Build Aether Tower",
-        detail: deps.buildDetailTextForAction("build_observatory", tile) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_observatory", tile) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "OBSERVATORY",
@@ -708,7 +708,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_sky_dock",
           label: "Build Sky Dock",
-          detail: deps.buildDetailTextForAction("build_sky_dock", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_sky_dock", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "SKY_DOCK",
@@ -727,7 +727,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_ambaric_transformer",
           label: "Build Ambaric Transformer",
-          detail: deps.buildDetailTextForAction("build_ambaric_transformer", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_ambaric_transformer", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "AMBARIC_TRANSFORMER",
@@ -746,7 +746,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_resonance_grid",
           label: "Build Resonance Grid",
-          detail: deps.buildDetailTextForAction("build_resonance_grid", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_resonance_grid", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "RESONANCE_GRID",
@@ -765,7 +765,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_imperial_exchange",
           label: "Build Imperial Exchange",
-          detail: deps.buildDetailTextForAction("build_imperial_exchange", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_imperial_exchange", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "IMPERIAL_EXCHANGE",
@@ -794,7 +794,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_sovereign_siege_engine",
           label: "Build Sovereign Siege Engine",
-          detail: deps.buildDetailTextForAction("build_sovereign_siege_engine", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_sovereign_siege_engine", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "SOVEREIGN_SIEGE_ENGINE",
@@ -823,7 +823,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_aegis_dome",
           label: "Build Aegis Dome",
-          detail: deps.buildDetailTextForAction("build_aegis_dome", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_aegis_dome", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "AEGIS_DOME",
@@ -852,7 +852,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_astral_dock",
           label: "Build Astral Dock",
-          detail: deps.buildDetailTextForAction("build_astral_dock", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_astral_dock", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "ASTRAL_DOCK",
@@ -881,7 +881,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_census_directorate",
           label: "Build Census Directorate",
-          detail: deps.buildDetailTextForAction("build_census_directorate", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_census_directorate", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "CENSUS_DIRECTORATE",
@@ -910,7 +910,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_titanium_levy",
           label: "Build The Titanium Levy",
-          detail: deps.buildDetailTextForAction("build_titanium_levy", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_titanium_levy", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "TITANIUM_LEVY",
@@ -939,7 +939,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_ministry_hall",
           label: "Build Ministry Hall",
-          detail: deps.buildDetailTextForAction("build_ministry_hall", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_ministry_hall", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "MINISTRY_HALL",
@@ -960,7 +960,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_hydroworks",
           label: "Build Hydroworks",
-          detail: deps.buildDetailTextForAction("build_hydroworks", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_hydroworks", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "HYDROWORKS",
@@ -979,7 +979,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_ancillary_depot",
           label: "Build Ancillary Depot",
-          detail: deps.buildDetailTextForAction("build_ancillary_depot", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_ancillary_depot", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "ANCILLARY_DEPOT",
@@ -1002,7 +1002,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_titanium_weapons_factory",
           label: "Build Titanium Weapons Factory",
-          detail: deps.buildDetailTextForAction("build_titanium_weapons_factory", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_titanium_weapons_factory", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "TITANIUM_WEAPONS_FACTORY",
@@ -1021,7 +1021,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "build_umbrite_weapons_factory",
           label: "Build Umbrite Weapons Factory",
-          detail: deps.buildDetailTextForAction("build_umbrite_weapons_factory", tile) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction("build_umbrite_weapons_factory", tile) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               "UMBRITE_WEAPONS_FACTORY",
@@ -1047,7 +1047,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_relay_beacon" as TileActionDef["id"],
         label: "Build Relay Beacon",
-        detail: deps.buildDetailTextForAction("build_relay_beacon", tile) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_relay_beacon", tile) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...withReachGate(chainedBuildAvailability(
             "RELAY_BEACON",
@@ -1087,7 +1087,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_manufactory",
         label: "Build Manufactory",
-        detail: deps.buildDetailTextForAction("build_manufactory", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_manufactory", tile, townBuildSource) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "MANUFACTORY",
@@ -1104,7 +1104,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_incubation_engine",
         label: `Build ${economicStructureName("INCUBATION_ENGINE")}`,
-        detail: deps.buildDetailTextForAction("build_incubation_engine", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_incubation_engine", tile, townBuildSource) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "INCUBATION_ENGINE",
@@ -1123,7 +1123,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_census_hall",
         label: "Build Census Hall",
-        detail: deps.buildDetailTextForAction("build_census_hall", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_census_hall", tile, townBuildSource) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "CENSUS_HALL",
@@ -1142,7 +1142,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_clearing_house",
         label: "Build Clearing House",
-        detail: deps.buildDetailTextForAction("build_clearing_house", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_clearing_house", tile, townBuildSource) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "CLEARING_HOUSE",
@@ -1161,7 +1161,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_trade_nexus",
         label: "Build Trade Nexus",
-        detail: deps.buildDetailTextForAction("build_trade_nexus", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_trade_nexus", tile, townBuildSource) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "TRADE_NEXUS",
@@ -1180,7 +1180,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_umbrite_works",
         label: "Build Umbrite Works",
-        detail: deps.buildDetailTextForAction("build_umbrite_works", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_umbrite_works", tile, townBuildSource) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "UMBRITE_WORKS",
@@ -1199,7 +1199,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_titanium_works",
         label: "Build Titanium Works",
-        detail: deps.buildDetailTextForAction("build_titanium_works", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_titanium_works", tile, townBuildSource) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "TITANIUM_WORKS",
@@ -1218,7 +1218,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_aether_condenser",
         label: "Build Aether Condenser",
-        detail: deps.buildDetailTextForAction("build_aether_condenser", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_aether_condenser", tile, townBuildSource) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "AETHER_CONDENSER",
@@ -1238,7 +1238,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_neural_works",
         label: "Build Neural Works",
-        detail: deps.buildDetailTextForAction("build_neural_works", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_neural_works", tile, townBuildSource) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "NEURAL_WORKS",
@@ -1265,7 +1265,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: def.actionId,
           label: def.actionLabel,
-          detail: deps.buildDetailTextForAction(def.actionId, tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+          detail: (deps.buildDetailTextForAction(def.actionId, tile, townBuildSource) ?? "") + frontierBuildDetailSuffix(tile),
           ...tileActionAvailability(
             ...chainedBuildAvailability(
               def.structureType,
@@ -1294,7 +1294,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_reserve_lattice",
         label: "Build Reserve Lattice",
-        detail: deps.buildDetailTextForAction("build_reserve_lattice", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_reserve_lattice", tile, townBuildSource) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "RESERVE_LATTICE",
@@ -1309,14 +1309,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : !state.techIds.includes("conveyor-networks")
                   ? "Requires Reserve Lattice Module"
                   : (missingResourceSlotReason(state, "RESERVE_LATTICE") ?? "Unavailable"),
-            `${deps.structureCostText("RESERVE_LATTICE")} • ${buildTimeLabel(economicBuildMsForState(state, "RESERVE_LATTICE"))} • changes connected Ancillary Factories to +150 cap and +35% of local terrain-adjusted base capacity • one per connected-town network${upkeepSuffixFor("RESERVE_LATTICE")}`
+            `${deps.structureCostText("RESERVE_LATTICE")} • ${buildTimeLabel(economicBuildMsForState(state, "RESERVE_LATTICE"))} • changes connected Ancillary Depots to +150 cap and +35% of local terrain-adjusted base capacity • one per connected-town network${upkeepSuffixFor("RESERVE_LATTICE")}`
           )
         )
       });
       out.push({
         id: "build_ancillary_factory",
         label: "Build Ancillary Factory",
-        detail: deps.buildDetailTextForAction("build_ancillary_factory", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_ancillary_factory", tile, townBuildSource) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "ANCILLARY_FACTORY",
@@ -1340,7 +1340,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       out.push({
         id: "build_harbor_exchange",
         label: "Build Harbor Exchange",
-        detail: deps.buildDetailTextForAction("build_harbor_exchange", tile) + frontierBuildDetailSuffix(tile),
+        detail: (deps.buildDetailTextForAction("build_harbor_exchange", tile) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
           ...chainedBuildAvailability(
             "HARBOR_EXCHANGE",

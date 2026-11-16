@@ -56,7 +56,7 @@ describe.each(stores)("diplomacy history in the %s social store", (_name, makeSt
 
     // And again: the expiry recorded on the last boot is not lost or doubled.
     const again = boot(store, now);
-    expect(again.diplomacyActivityCards("player-2", 0, clock.now).map((card) => card.event)).toEqual(["TRUCE_ENDED", "TRUCE_STARTED"]);
+    expect(again.diplomacyActivityCards("player-2", 0, clock.now).map((card) => card.event)).toEqual(["TRUCE_ENDED", "TRUCE_OFFERED", "TRUCE_STARTED"]);
   });
 
   it("keeps who broke a truce and court armistices across a restart", () => {

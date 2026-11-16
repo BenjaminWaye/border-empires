@@ -10,7 +10,10 @@ import type { PersonalActivityDiplomacyCard, PersonalActivityDiplomacyEvent } fr
 // gateway restart keeps the last day's rows. Bounded per player (count + the
 // timeline's 24h window), in memory and in the store alike, and by the number
 // of players, which the social state already bounds.
-export const DIPLOMACY_HISTORY_PER_PLAYER_CAP = 20;
+// 40, not 20, since alliance offers and truce extensions are logged too: a
+// busy diplomat's day (8+ truces, offers, endings) must not push out the
+// morning's rows.
+export const DIPLOMACY_HISTORY_PER_PLAYER_CAP = 40;
 export const DIPLOMACY_HISTORY_TTL_MS = 24 * 60 * 60_000;
 
 export const diplomacyHistoryDiagnostics = { entries: 0, evictions: 0 };
@@ -34,6 +37,7 @@ export type DiplomacyHistory = {
    * counterparty. Names are looked up when recorded, so a row keeps the name
    * the player had at the time.
    */
+  recordIncomingTruceOffer: (recipientId: string, senderId: string, occurredAt: number, durationHours: number) => void;
   recordPair: (
     aId: string,
     bId: string,
@@ -90,6 +94,16 @@ export const createDiplomacyHistory = (
   };
 
   return {
+    recordIncomingTruceOffer(recipientId, senderId, occurredAt, durationHours) {
+      record(recipientId, {
+        event: "TRUCE_OFFERED",
+        counterpartyPlayerId: senderId,
+        counterpartyName: options.nameOf?.(senderId) ?? senderId,
+        occurredAt,
+        durationHours,
+        byPlayerId: senderId
+      });
+    },
     recordPair(aId, bId, event, occurredAt, extra = {}) {
       const nameOf = (playerId: string): string => options.nameOf?.(playerId) ?? playerId;
       record(aId, { event, occurredAt, counterpartyPlayerId: bId, counterpartyName: nameOf(bId), ...extra });

@@ -4,8 +4,12 @@
 // through the existing handlers; the destination screens live in
 // client-hud-v2-screens.ts, the town and battle screens in their runtimes.
 
+import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
+import { warOpponentIds } from "../client-alliance/client-war-status.js";
 import { latestOwnFight } from "../client-detached-attacks/client-detached-attacks.js";
 import { musterFlagCap } from "@border-empires/shared";
+import { showCaptureAlert } from "../client-alerts/client-alerts.js";
+import { clearAllWaypoints } from "../client-waypoint-action-handlers.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
@@ -38,6 +42,7 @@ import "./client-hud-v2-profile.css";
 import "./client-hud-v2-economy.css";
 import "./client-hud-v2-compact.css";
 import "./client-hud-v2-compact-screens.css";
+import "./client-hud-v2-compact-overlays.css";
 import "./client-hud-v2-map-overview.css";
 
 export type { HudV2Deps } from "./client-hud-v2-context.js";
@@ -140,6 +145,12 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
     openTarget(deps, open.dataset.hudV2Open);
     return;
   }
+  // Tracker "Queued expansions": stop every queued Expand To, here and on the server.
+  if (target.closest("[data-hud-v2-cancel-waypoints]")) {
+    if (clearAllWaypoints({ state: deps.state, sendGameMessage: deps.sendGameMessage })) showCaptureAlert(deps.state, "Expansions cancelled", "Queued expansions stopped.", "success");
+    deps.renderHud();
+    return;
+  }
   // Dev slots fold open in the tracker, next to the pips, instead of sending you to a side panel.
   if (handleSlotsToggle(target, slotsFold, () => renderTracker(deps.state, Date.now()))) return;
   const chip = target.closest<HTMLElement>("[data-hud-v2-chip]");
@@ -238,7 +249,7 @@ const NAV_ACTIVE: Partial<Record<HudV2ScreenId, string>> = { manifest: "manifest
 const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], nowMs: number): void => {
   writeRegion("bar", resourceBarHtml({
     gold: state.gold,
-    netPerMinute: state.incomePerMinute - state.upkeepPerMinute.gold,
+    netPerMinute: empireCoinIncome(state).netPerMinute,
     slotSupply: state.resourceSlots.supply,
     slotDemand: state.resourceSlots.demand,
     integrityPct: state.defensibilityPct,
@@ -259,6 +270,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     metPlayerIds: state.metPlayerIds,
     allies: state.allies,
     activeTruces: state.activeTruces,
+    warPlayerIds: warOpponentIds(state, nowMs),
     nameOf: (id) => state.playerNames.get(id) ?? "",
     colorOf: ownerColor,
     nowMs
@@ -311,6 +323,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     slotsOpen: slotsFold.open,
     slotsPulse: slotPulse(trackerScan.buildSlots.busy, trackerScan.queue.length, nowMs),
     capture,
+    waypoints: state.waypoint.map((w) => ({ x: w.target.x, y: w.target.y, paused: Boolean(w.pausedForManpower) })),
     nowMs
   };
   writeRegion("tracker", document.body.classList.contains("hud-v2-compact") ? compactTrackerHtml(input) : trackerHtml(input));

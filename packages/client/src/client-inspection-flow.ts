@@ -1,3 +1,4 @@
+import { tileCoinPerMinute } from "./client-coin-income/client-coin-income.js";
 import { combatResolutionAlert as combatResolutionAlertFromModule } from "./client-alerts/client-alerts.js";
 import { tileHistoryLines as tileHistoryLinesFromModule } from "./client-tile-history/client-tile-history.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -26,7 +27,7 @@ export const createClientInspectionFlow = (deps: InspectionFlowDeps) => {
 
   const tileHistoryLines = (tile: Tile): string[] => tileHistoryLinesFromModule(tile, { me: state.me, playerNameForOwner });
 
-  const displayTownGoldPerMinute = (tile: Tile): number => (tile.town ? tile.town.goldPerMinute : 0);
+  const displayTownGoldPerMinute = (tile: Tile): number => (tile.town ? tileCoinPerMinute(tile) : 0);
 
   const growthModifierPercentLabel = (label: "Recently captured" | "Nearby war" | "Long time peace"): string =>
     label === "Long time peace" ? "+100% pop growth" : "-100% pop growth";

@@ -36,6 +36,9 @@ export const aggregatePersonalActivity = (
   const knownCaptureByKey = new Map<string, KnownCapture>();
   for (const event of relevantImpacts) {
     if (event.kind !== "TOWN_LOST" && event.kind !== "DOCK_LOST") continue;
+    // A town that left with no captor (abandoned, cut off) proves no attack won:
+    // with no attacker it would match anyone's repelled assault on that tile.
+    if (!event.counterpartyPlayerId || (event.kind === "TOWN_LOST" && event.lostToStrike)) continue;
     const key = `${event.x},${event.y}:${event.occurredAt}:${event.playerId}`;
     if (!knownCaptureByKey.has(key)) {
       knownCaptureByKey.set(key, { x: event.x, y: event.y, at: event.occurredAt, defenderId: event.playerId, ...(event.counterpartyPlayerId ? { attackerId: event.counterpartyPlayerId } : {}) });
@@ -54,7 +57,7 @@ export const aggregatePersonalActivity = (
   const territoryCards = groupTerritoryFlipsForPlayer(playerId, unclaimedFlips.filter((flip) => !sieges.consumedFlips.has(flip)));
   const combatCards = combatCardsWithGroups(playerId, relevantCombat.filter((loss) => !sieges.consumed.has(loss)), matches.originSeized, matches.tileFeatures);
   const impactCards = personalImpactCardsForPlayer(playerId, relevantImpacts);
-  const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards, ...sieges.cards, ...impactCards.waystations, ...impactCards.towns, ...impactCards.docks, ...impactCards.buildings, ...impactCards.scouting];
+  const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards, ...sieges.cards, ...impactCards.waystations, ...impactCards.towns, ...impactCards.docks, ...impactCards.buildings, ...impactCards.scouting, ...impactCards.supplies];
   const cards = capPersonalActivityCards(allCards, PERSONAL_ACTIVITY_TIMELINE_CARD_CAP);
 
   const claimedFlips = relevantFlips.filter((flip) => flip.toOwner === playerId && flip.fromOwner !== playerId);

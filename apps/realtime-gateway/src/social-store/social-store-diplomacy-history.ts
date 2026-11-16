@@ -14,9 +14,13 @@ import {
 // 24h window by pruneExpired, like the in-memory history.
 
 const DIPLOMACY_EVENTS: ReadonlySet<string> = new Set<PersonalActivityDiplomacyEvent>([
+  "TRUCE_OFFERED",
   "TRUCE_STARTED",
+  "TRUCE_EXTENDED",
   "TRUCE_ENDED",
   "TRUCE_BROKEN",
+  "ALLIANCE_OFFERED",
+  "ALLIANCE_DECLINED",
   "ALLIANCE_FORMED",
   "ALLIANCE_BROKEN"
 ]);

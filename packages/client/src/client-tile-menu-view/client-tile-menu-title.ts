@@ -1,3 +1,4 @@
+import { DEPLETED_RECLAMATION_WORKS_NAME, isDepletedReclamationWorks } from "@border-empires/shared";
 import { resourceLabel } from "../client-map-display.js";
 import { townCharacterLabelForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
@@ -23,5 +24,6 @@ export const tileMenuTitleForTile = (
   if (tile.afc) return { titleLabel: "Automated Fabrication Complex" };
   if (tile.dockId) return { titleLabel: "Dock" };
   if (tile.resource) return { titleLabel: prettyToken(resourceLabel(tile.resource)) };
+  if (isDepletedReclamationWorks(tile)) return { titleLabel: DEPLETED_RECLAMATION_WORKS_NAME };
   return { titleLabel: terrainLabel(tile.x, tile.y, tile.terrain) };
 };

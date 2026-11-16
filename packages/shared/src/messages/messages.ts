@@ -84,7 +84,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type:z.literal("RESOURCE_TRADE_SYNC") }),
   z.object({ type: z.literal("DIPLOMACY_STANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional() }),
   // Trade screen: coin given to an AI for its goodwill alone (raises its opinion of you; diplomacy-gift.ts). No resource supply: a gift is paid once.
-  z.object({ type: z.literal("DIPLOMACY_GIFT"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), gift: DiplomacyGoodsSchema.omit({ resources: true }) }),
+  z.object({ type: z.literal("DIPLOMACY_GIFT"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), gift: DiplomacyGoodsSchema.omit({ resources: true, coinPerHour: true }) }),
   z.object({ type: z.literal("TRUCE_ACCEPT"), requestId: z.string().min(1), confirmedResourceSupply: z.boolean().optional() }),
   z.object({ type: z.literal("TRUCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_CANCEL"), requestId: z.string().min(1) }),
@@ -459,6 +459,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     y: z.number().int(),
     name: z.string().max(64)
   }),
+  // Which offered House Charges to keep (shared house-charges.ts); the sim checks the choice window and ids.
+  z.object({ type: z.literal("CHOOSE_HOUSE_CHARGES"), keptIds: z.array(z.string().max(160)).max(3) }),
   // Explore: launch the scout drone toward (x, y) (shared scout-drone.ts).
   z.object({
     type: z.literal("EXPLORE"),

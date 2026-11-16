@@ -1,5 +1,6 @@
 import { createFullVisibilitySource } from "./full-visibility-source.js";
-import { recoveredSeasonFallback } from "./recovered-season-fallback.js";
+import { resolveRecoveredSeason } from "./recovered-season-fallback.js";
+import { logDebugSubscribePlayer, withExploredTiles } from "./subscribe-player-reply.js";
 import { fileURLToPath } from "node:url";
 import { PerformanceObserver } from "node:perf_hooks";
 import crypto from "node:crypto";
@@ -541,10 +542,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     Boolean(legacySnapshotBootstrap) ||
     effectiveStartupRecovery.recoveredCommandCount > 0 ||
     effectiveStartupRecovery.recoveredEventCount > 0;
-  let currentSeasonState =
-    effectiveStartupRecovery.initialState.season ??
-    bootstrappedSeasonState ??
-    recoveredSeasonFallback({ rulesetId, mapStyle, seedProfile: options.seedProfile, now: Date.now() });
+  let currentSeasonState = resolveRecoveredSeason(effectiveStartupRecovery.initialState.season ?? bootstrappedSeasonState, {
+    rulesetId, mapStyle, seedProfile: options.seedProfile, now: Date.now()
+  });
   // Seasons persisted before mapStyle existed have no field — they were always
   // generated as "continents" (the historical hardcoded default), so that must
   // be the fallback here, never the live env's mapStyle. Otherwise a container
@@ -566,7 +566,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ...(options.runtimeOptions ?? {}),
     ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
     backgroundBatchSize: runtimeBackgroundBatchSize,
-    initialState: effectiveStartupRecovery.initialState,
+    initialState: { ...effectiveStartupRecovery.initialState, season: currentSeasonState },
     initialCommandHistory: effectiveStartupRecovery.initialCommandHistory,
     seasonStartedAt: seasonStartedAtClock(() => currentSeasonState, currentSeasonState.seasonId),
     ...(dockRouteBackfillReader ? { dockRouteBackfillReader } : {}),
@@ -1892,22 +1892,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         async (snapshotPayload) => {
           try {
             const [playerJson, worldStatusJson, seasonJson] = await Promise.all([
-              snapshotPayload.player ? stringifySnapshot(snapshotPayload.player) : undefined,
+              snapshotPayload.player ? stringifySnapshot(withExploredTiles(snapshotPayload.player, runtime.exploredTilesFor(snapshotPayload.playerId))) : undefined,
               snapshotPayload.worldStatus ? stringifySnapshot(snapshotPayload.worldStatus) : undefined,
               snapshotPayload.season ? stringifySnapshot(snapshotPayload.season) : undefined,
             ]);
 
-            if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
-              log.info(
-                JSON.stringify({
-                  type: "debug_subscribe_player",
-                  playerId: call.request.player_id,
-                  runtimeTiles: snapshotPayload.tiles.length,
-                  snapshotTiles: snapshotPayload.tiles.length,
-                  snapshotLength: JSON.stringify(snapshotPayload).length
-                })
-              );
-            }
+            logDebugSubscribePlayer(log, call.request.player_id, snapshotPayload);
             callback(null, {
               ok: true,
               player_id: snapshotPayload.playerId,
@@ -2264,7 +2254,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         if (currentSeasonState.status === "ended") return;
         runtime.tickWatchtowerReveals(Date.now());
         runtime.tickAetherShields(Date.now()); // bounded per-tick work inside -- aether-shield/aether-shield-tick.ts
-        runtime.tickIslandNames(Date.now()); // throttled to ~2s inside -- island-names/island-names-ticker.ts
+        runtime.tickSideTickers(Date.now()); // island names + House Charges, throttled inside -- side-tickers/runtime-side-tickers.ts
       }, 1_000);
       let passiveIncomeRunning = false;
       passiveIncomeTicker = setInterval(() => {

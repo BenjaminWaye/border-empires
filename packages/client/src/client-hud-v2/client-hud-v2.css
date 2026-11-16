@@ -145,6 +145,7 @@ body.hud-v2.hud-v2-waiting #tile-action-menu { display: none !important; }
 .hud-v2-rival-stance { font-family: var(--v2-mono); font-size: 9px; color: var(--v2-soft); text-shadow: 0 1px 2px #000; }
 .hud-v2-rival-truce .hud-v2-rival-stance { color: var(--v2-amber); }
 .hud-v2-rival-ally .hud-v2-rival-stance { color: var(--v2-green); }
+.hud-v2-rival-war .hud-v2-rival-stance { color: var(--v2-red); }
 .hud-v2-rival-more {
   width: 40px; height: 40px; border-radius: 8px; background: var(--v2-ink); border: 1px solid var(--v2-edge-strong);
   color: var(--v2-gold); font-family: var(--v2-mono); font-size: 12px;
@@ -158,6 +159,8 @@ body.hud-v2.hud-v2-waiting #tile-action-menu { display: none !important; }
 .hud-v2-tracker:empty { display: none; }
 .hud-v2-tracker-head { padding: 10px 14px 4px; font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); }
 .hud-v2-tracker-head-needs { color: var(--v2-amber); }
+.hud-v2-tracker-head:has(.hud-v2-tracker-cancel) { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hud-v2-tracker-cancel { min-height: 28px; padding: 2px 10px; border: 1px solid var(--v2-amber); border-radius: 6px; background: transparent; font: inherit; font-size: 11px; letter-spacing: 0.04em; color: var(--v2-amber); cursor: pointer; }
 .hud-v2-slots { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px 2px; border: 0; background: transparent; font: inherit; font-size: 12px; color: var(--v2-soft); text-align: left; cursor: pointer; }
 .hud-v2-slots:hover .hud-v2-slots-label { color: var(--v2-gold-hi); }
 .hud-v2-slots-label { font-family: var(--v2-display); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--v2-gold); }
@@ -210,10 +213,20 @@ body.hud-v2 #mini-map-wrap:has(.hud-v2-lens-menu) { z-index: 40; }
 .hud-v2-lens-btn:hover, .hud-v2-lens-btn[aria-expanded="true"] { border-color: var(--v2-gold); }
 .hud-v2-lens-on { background: #2a2216; border-color: var(--v2-gold-hi); }
 .hud-v2-lens-icon { width: 20px; height: 20px; pointer-events: none; }
+.hud-v2-lens-legend { position: absolute; left: calc(100% + 8px); top: 18px; display: grid; gap: 3px; min-width: 130px; padding: 6px 8px; background: var(--v2-ink); border: 1px solid var(--v2-edge-strong); font-size: 11px; color: var(--v2-soft); pointer-events: none; }
+.hud-v2-lens-key { display: flex; align-items: center; gap: 6px; }
+.hud-v2-lens-key i { width: 10px; height: 10px; border: 1px solid rgba(0, 0, 0, 0.5); }
+.hud-v2-lens-legend small { color: var(--v2-muted); }
+.v2c-map-lenses .hud-v2-lens-legend { position: static; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); min-width: 0; }
+/* On a phone the key lives in the map overview, where the lens is picked; floating over the map it would cover play. */
+body.hud-v2-compact .hud-v2-lens-btn + .hud-v2-lens-legend { display: none; }
 .hud-v2-lens-menu {
   position: absolute; left: calc(100% + 8px); top: 18px; display: grid; gap: 2px;
   min-width: 150px; padding: 6px; background: var(--v2-ink); border: 1px solid var(--v2-edge-strong);
 }
+.hud-v2-photo-btn { min-height: 32px; padding: 4px 10px; border: 1px solid var(--v2-line); background: transparent; color: var(--v2-soft); font: inherit; font-size: 12px; cursor: pointer; }
+.hud-v2-lens-menu .hud-v2-photo-btn { margin-top: 4px; text-align: left; }
+.v2c-map-head .hud-v2-photo-btn { flex: none; min-height: var(--v2c-touch, 44px); margin-left: auto; margin-right: 8px; color: var(--v2-gold); border-color: var(--v2-edge-strong); }
 .hud-v2-lens-item {
   display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 10px; border: 0; border-left: 2px solid transparent;
   background: transparent; color: var(--v2-soft); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
@@ -242,6 +255,7 @@ body.hud-v2 #mini-map-wrap:has(.hud-v2-lens-menu) { z-index: 40; }
 .hud-v2-tile-sub [data-player-name-id] { color: var(--v2-text); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .hud-v2-tile-status { font-family: var(--v2-mono); font-size: 11px; padding: 3px 8px; border: 1px solid var(--v2-line); color: var(--v2-soft); }
 .hud-v2-tile-status-warning { color: var(--v2-amber); border-color: var(--v2-amber); }
+.hud-v2-tile-status-help { background: transparent; cursor: pointer; }
 .hud-v2-tile-close { width: 28px; height: 28px; border: 1px solid var(--v2-line); background: var(--v2-well); color: var(--v2-soft); }
 .hud-v2-tile-close:hover { color: var(--v2-text); border-color: var(--v2-edge-strong); }
 .hud-v2-act-row { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -295,13 +309,16 @@ body.hud-v2-building .hud-v2-right { display: none; }
 /* A side panel (Economy, Integrity) opens over the right edge; the rival portraits would sit on its header. */
 body.hud-v2:has(#hud.desktop-side-panel-open) .hud-v2-rivals { display: none; }
 .hud-v2-tile .tile-auto-settle-option { font-size: 12px; color: var(--v2-muted); }
+.hud-v2-tile .tile-auto-settle-option.is-highlighted { font-size: 13px; color: var(--v2-soft); }
+.hud-v2-tile .tile-auto-settle-ask { font-size: 14px; color: var(--v2-text); }
 
-/* The floating menu is hidden while docked; Build / Aether / ⋯ expand it as a right-hand sidebar. */
-body.hud-v2 #tile-action-menu.hud-v2-docked:not(.hud-v2-expanded) { display: none !important; }
-body.hud-v2 #tile-action-menu.hud-v2-docked.hud-v2-expanded {
-  left: auto !important; right: 16px; top: 128px !important; bottom: 236px; width: 348px !important; overflow-y: auto; z-index: 55;
-}
-body.hud-v2 #side-panel { top: 128px; bottom: 236px; }
+/* The floating menu is never shown in the new HUD: the bar and its sidebar (Build, Aether, tile views) replace it. */
+body.hud-v2 #tile-action-menu.hud-v2-docked { display: none !important; }
+/* Tile views (Modules, Attack commitment, Combat reports) in the sidebar: their legacy cards, padded like the list. */
+.hud-v2-tile-view { display: grid; align-content: start; gap: 10px; padding: 4px 2px 8px; }
+/* Hosted panels (Integrity, Economy, Manpower) clear the orb when the window is tall enough; on a short window
+   that left ~1/3 of the screen (Integrity read as cut off halfway down), so keep >= 520px and draw over the orb instead. */
+body.hud-v2 #side-panel { top: 128px; bottom: max(16px, min(236px, calc(100dvh - 648px))); z-index: 41; }
 /* Settings is a centred dialog over the dimmed map, not a side panel. */
 .hud-v2-dim { display: none; position: fixed; inset: 0; z-index: 48; background: rgba(8, 6, 3, 0.62); pointer-events: auto; }
 /* Keyed off the panel's own class, set in the same render that opens it, so Settings never shows at the side first. */

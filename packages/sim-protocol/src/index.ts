@@ -147,6 +147,7 @@ export type CurrentSeasonSummary = {
   rulesetId: string;
   seasonWinner?: SeasonWinnerSnapshot;
   seasonGalaxyTiers?: SeasonGalaxyTierSnapshot[];
+  seasonHouseCharges?: import("@border-empires/shared").SeasonHouseChargesSnapshot[];
   leaderboard: WorldStatusSnapshot["leaderboard"];
   overall: LeaderboardOverallEntry[];
   byTiles: LeaderboardMetricEntry[];
@@ -181,6 +182,7 @@ export type SeasonArchiveRow = {
   updatedAt: number;
   winner?: SeasonWinnerSnapshot;
   galaxyTiers?: SeasonGalaxyTierSnapshot[];
+  houseCharges?: import("@border-empires/shared").SeasonHouseChargesSnapshot[];
   mostTerritory: Array<{ playerId: string; playerName: string; value: number }>;
   mostPoints: Array<{ playerId: string; playerName: string; value: number }>;
   longestSurvivalMs: Array<{ playerId: string; playerName: string; value: number }>;

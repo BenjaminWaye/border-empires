@@ -37,7 +37,18 @@ describe("activityCardText / activityCardCoordinates", () => {
     const gained = { kind: "TERRITORY_FLIP_GROUP" as const, direction: "GAINED", tileCount: 4, x: 1, y: 1 };
     const lost = { kind: "TERRITORY_FLIP_GROUP" as const, direction: "LOST", tileCount: 2, x: 1, y: 1 };
     expect(activityCardText(gained as any, "me", noNames)).toBe("+4 tiles claimed");
-    expect(activityCardText(lost as any, "me", noNames)).toBe("−2 tiles lost");
+    expect(activityCardText(lost as any, "me", noNames)).toBe("Lost 2 tiles");
+  });
+
+  // Playtest 2026-11-16: "Lost 3 tiles to Konrad · incl. your Automated Fabrication Complex" read as "lost my only town".
+  it("leads a territory-loss row with the lost AFC, named as not a town", () => {
+    const lost = {
+      kind: "TERRITORY_FLIP_GROUP" as const, direction: "LOST", tileCount: 3, counterpartyPlayerId: "k", x: 1, y: 1,
+      features: [{ kind: "AFC", count: 1 }, { kind: "DOCK", count: 1 }]
+    };
+    expect(activityCardText(lost as any, "me", namesFrom({ k: "Konrad" }))).toBe("Lost your AFC (Automated Fabrication Complex, not a town) to Konrad · 3 tiles · incl. your Dock");
+    const captured = { ...lost, direction: "GAINED" };
+    expect(activityCardText(captured as any, "me", namesFrom({ k: "Konrad" }))).toBe("+3 tiles claimed (Konrad) · incl. their Automated Fabrication Complex and Dock");
   });
 
   it("has no Center coordinates for a truncation-note card", () => {
@@ -77,7 +88,11 @@ describe("activityCardText / activityCardCoordinates", () => {
     const names = namesFrom({ kara: "Kara" });
     expect(activityCardText({ ...base, kind: "TOWN_LOST", counterpartyPlayerId: "kara" } as any, "me", names)).toBe("Lost Aurienspire Ring to Kara · 25354 population remaining");
     expect(activityCardText({ ...base, kind: "TOWN_CAPTURED", counterpartyPlayerId: "kara" } as any, "me", names)).toBe("Captured Aurienspire Ring from Kara · 25354 population remaining");
-    expect(activityCardText({ ...base, kind: "TOWN_LOST" } as any, "me", names)).toBe("Lost Aurienspire Ring · 25354 population remaining");
+    // No captor: the town left the empire some other way (abandoned, cut off) and stands unclaimed.
+    expect(activityCardText({ ...base, kind: "TOWN_LOST" } as any, "me", names)).toBe("Lost Aurienspire Ring · left unclaimed");
+    expect(activityCardText({ ...base, id: "strike", occurredAt: 1_000, kind: "TOWN_LOST", counterpartyPlayerId: "kara", lostToStrike: true, x: 1, y: 2 } as PersonalActivityCard, "me", names))
+      .toBe("Lost Aurienspire Ring in a strike by Kara · left unclaimed");
+    expect(activityCardText({ ...base, kind: "TOWN_LOST", townSurvived: false } as any, "me", names)).toBe("Lost Aurienspire Ring · settlement razed");
   });
 
   it("gives a lost or captured dock its own note naming the other player", () => {

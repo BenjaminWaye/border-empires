@@ -29,7 +29,7 @@ describe("muster flag fill", () => {
     });
     const tracker = trackerHtml({
       buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags, flagCap: musterFlagCap(MANPOWER_CAP, 0), manpowerCap: MANPOWER_CAP,
-      building: [], queue: [], slotsOpen: false, nowMs: 0
+      building: [], queue: [], waypoints: [], slotsOpen: false, nowMs: 0
     });
     expect(panel).toContain("69 / 350");
     expect(panel).not.toContain("69.732");

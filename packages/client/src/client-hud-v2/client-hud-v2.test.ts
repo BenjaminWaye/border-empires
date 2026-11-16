@@ -25,10 +25,10 @@ describe("resource bar", () => {
     expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-over">−1<span class="hud-v2-chip-description"> slots short</span>');
     expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-zero">0<span class="hud-v2-chip-description"> free slots</span>');
     // Regression: the coin chip said /h while Economy and the tile panel say /day.
-    expect(html).toContain("+2,880/day");
+    expect(html).toContain("+2880.0/day");
     // Review: the chip showed gross income; it is net of coin upkeep, like Economy, and a loss reads red.
     const loss = resourceBarHtml({ gold: 0, netPerMinute: -0.5, slotSupply: slots, slotDemand: slots, integrityPct: undefined });
-    expect(loss).toContain('hud-v2-chip-rate hud-v2-chip-rate-loss">−720/day');
+    expect(loss).toContain('hud-v2-chip-rate hud-v2-chip-rate-loss" title="Net coin per day: income less coin upkeep">−720.0/day');
     expect(html).toContain('data-hud-v2-open="settings"');
   });
 
@@ -55,7 +55,7 @@ describe("resource bar", () => {
 });
 
 describe("tracker", () => {
-  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, manpowerCap: 1000, building: [], queue: [], slotsOpen: true, nowMs: 0 };
+  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, manpowerCap: 1000, building: [], queue: [], waypoints: [], slotsOpen: true, nowMs: 0 };
 
   it("lists free build slots, AFC upgrades and stalled flags as needs", () => {
     const needs = trackerNeeds({
@@ -126,6 +126,17 @@ describe("tracker", () => {
     expect(folded).not.toContain("hud-v2-slot-list");
   });
 
+  // 2026-11-14 playtest: Expand To marches queued hours earlier kept spending manpower with nothing on the HUD.
+  it("lists queued expansions with a Cancel all, and says when one is waiting on manpower", () => {
+    expect(trackerHtml(base)).not.toContain("Queued expansions");
+    const html = trackerHtml({ ...base, waypoints: [{ x: 4, y: 9, paused: false }, { x: 7, y: 2, paused: true }] });
+    expect(html).toContain("Queued expansions · 2");
+    expect(html).toContain("data-hud-v2-cancel-waypoints");
+    expect(html).toContain('data-hud-v2-focus-x="4" data-hud-v2-focus-y="9"');
+    expect(html).toContain("Spends manpower per tile");
+    expect(html).toContain("Paused · needs manpower");
+  });
+
   it("always shows development slots, calling out free ones", () => {
     const html = trackerHtml({ ...base, buildSlots: { busy: 2, limit: 3 } });
     expect(html.match(/hud-v2-slot-busy/g)).toHaveLength(2);
@@ -179,7 +190,7 @@ describe("rivals strip", () => {
   // Regression: meeting one empire showed "+1" instead of its name and colour.
   it("shows a single met empire by name, not as an overflow count", () => {
     const { shown, hidden } = rivalTokens({ me: "me", metPlayerIds: new Set(["me", "p2"]), allies: [], activeTruces: [], nameOf: () => "Vasker", colorOf: () => "#c33", nowMs: 0 });
-    expect(shown).toEqual([{ id: "p2", name: "Vasker", initial: "V", color: "#c33", stance: "met", label: "MET" }]);
+    expect(shown).toEqual([{ id: "p2", name: "Vasker", initial: "V", color: "#c33", stance: "met", label: "NO PACT" }]);
     expect(hidden).toBe(0);
   });
 
@@ -212,6 +223,26 @@ describe("action bar", () => {
     const html = actionBarHtml(v);
     expect(html).toContain('class="hud-v2-minor-row"');
     expect(html).not.toContain("⋯");
+  });
+
+  // 2026-11-14 playtest: "Beyond your reach" was a dead badge; its explainer only existed in the legacy menu.
+  // 2026-11-16 playtest: the badge opened all of Details, so "Inside X Reach" also showed unrelated hill modifiers.
+  it("makes a status with an explainer open only that explainer, not Details", () => {
+    const v = view({
+      statusText: "Beyond your reach", statusTone: "warning", statusHelpText: "Your reach is the land within 3 tiles of your towns.",
+      overviewLines: [{ html: "Modifiers", kind: "section" }, { html: "Hills: vision +1", kind: "effect" }]
+    });
+    const closed = actionBarHtml(v);
+    expect(closed).toMatch(/<button[^>]*class="hud-v2-tile-status[^"]*"[^>]*data-hud-v2-panel="status"[^>]*>Beyond your reach ⓘ<\/button>/);
+    expect(closed).toContain('data-hud-v2-panel="details" aria-expanded="false">Details ▾');
+    const open = actionBarHtml(v, "status");
+    expect(open).toContain("<strong>Beyond your reach:</strong> Your reach is the land within 3 tiles of your towns.");
+    expect(open).not.toContain("Hills: vision +1");
+    expect(open).not.toContain('aria-label="Tile details"');
+    const details = actionBarHtml(v, "details");
+    expect(details).toContain("Hills: vision +1");
+    expect(details).not.toContain("<strong>Beyond your reach:</strong>");
+    expect(actionBarHtml(view({ statusText: "Recently captured 2m", statusTone: "warning" }))).toContain('<span class="hud-v2-tile-status hud-v2-tile-status-warning">Recently captured 2m</span>');
   });
 
   it("makes garrison the main action only when the tile is worth it", () => {

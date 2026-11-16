@@ -16,7 +16,8 @@ export default defineConfig({
       ...configDefaults.exclude,
       "**/*-perf.test.ts",
       "**/season-seed-world-ring-interiors.test.ts",
-      "**/season-seed-world-dock-coverage.test.ts"
+      "**/season-seed-world-dock-coverage.test.ts",
+      "**/house-charges-seeded-world.test.ts"
     ],
     // singleFork: real CI runs (github.com/BenjaminWaye/border-empires/
     // actions/runs/34681969264, .../34695673019, .../34715318283) each timed

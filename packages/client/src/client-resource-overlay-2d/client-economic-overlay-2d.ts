@@ -1,3 +1,4 @@
+import { isDepletedReclamationWorks } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { isStructureHandledBy3D } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
@@ -15,14 +16,19 @@ export function drawEconomicStructureOverlay2D(deps: EconomicOverlay2DDeps, tile
   px: number, py: number, size: number, skipRelay: boolean): void {
   const structure = tile.economicStructure;
   if (!structure) return;
-  const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(tile));
-  if (hasBuiltResourceOverlay || (skipRelay && structure.type === "RELAY_BEACON") ||
+  const builtOverlay = deps.builtResourceOverlayForTile(tile);
+  const hasBuiltResourceOverlay = Boolean(builtOverlay);
+  // The resource pass draws installations on resource tiles. A depleted
+  // Reclamation Works has no resource left, so its art is drawn here.
+  if ((hasBuiltResourceOverlay && !isDepletedReclamationWorks(tile)) || (skipRelay && structure.type === "RELAY_BEACON") ||
       (isTrue3DRendererActive() && isStructureHandledBy3D(structure.type))) return;
   const markerSize = Math.max(3, Math.floor(size * 0.2));
   const active = structure.status === "active";
   const overlay = deps.structureOverlayImages[structure.type];
-  if (overlay && overlay.complete && overlay.naturalWidth) {
-    deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
+  // A depleted Reclamation Works swaps in its own art (builtResourceOverlayForTile).
+  const art = builtOverlay ?? overlay;
+  if (art && art.complete && art.naturalWidth) {
+    deps.drawCenteredOverlay(art, px, py, size, 1.02);
   } else if (structure.type === "HYDROGARDEN" && !hasBuiltResourceOverlay) {
     deps.ctx.fillStyle = deps.structureAccentColor(
       tile.ownerId ?? "",

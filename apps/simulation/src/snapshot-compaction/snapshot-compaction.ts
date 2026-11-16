@@ -103,8 +103,11 @@ export type V1SnapshotPayload = {
   season?: RecoveredSimulationState["season"];
   players?: RecoveredSimulationState["players"];
   pendingSettlements?: RecoveredSimulationState["pendingSettlements"];
+  resourceSupplyAgreements?: RecoveredSimulationState["resourceSupplyAgreements"];
+  resourceSupplyJournalSequence?: number;
   playerYieldCollectionEpochByPlayer?: RecoveredSimulationState["playerYieldCollectionEpochByPlayer"];
   reachBorder?: RecoveredSimulationState["reachBorder"];
+  exploredTiles?: RecoveredSimulationState["exploredTiles"];
   commandEvents: StoredSnapshotCommandEvents[];
 };
 
@@ -295,11 +298,14 @@ export const compactSnapshotForStorage = async (
     activeLocks: initialState.activeLocks,
     ...(initialState.season ? { season: initialState.season } : {}),
     ...(initialState.players ? { players: initialState.players } : {}),
+    ...(initialState.resourceSupplyAgreements ? { resourceSupplyAgreements: initialState.resourceSupplyAgreements } : {}),
+    ...(initialState.resourceSupplyJournalSequence ? { resourceSupplyJournalSequence: initialState.resourceSupplyJournalSequence } : {}),
     ...(initialState.pendingSettlements ? { pendingSettlements: initialState.pendingSettlements } : {}),
     ...(initialState.playerYieldCollectionEpochByPlayer
       ? { playerYieldCollectionEpochByPlayer: initialState.playerYieldCollectionEpochByPlayer }
       : {}),
     ...(initialState.reachBorder ? { reachBorder: initialState.reachBorder } : {}),
+    ...(initialState.exploredTiles ? { exploredTiles: initialState.exploredTiles } : {}),
     commandEvents
   };
 };
@@ -361,9 +367,12 @@ export const expandSnapshotFromStorage = (
       activeLocks: v1.activeLocks,
       ...(v1.season ? { season: v1.season } : {}),
       ...(v1.players ? { players: v1.players } : {}),
+      ...(v1.resourceSupplyAgreements ? { resourceSupplyAgreements: v1.resourceSupplyAgreements } : {}),
+      ...(v1.resourceSupplyJournalSequence ? { resourceSupplyJournalSequence: v1.resourceSupplyJournalSequence } : {}),
       ...(v1.pendingSettlements ? { pendingSettlements: v1.pendingSettlements } : {}),
       ...(v1.playerYieldCollectionEpochByPlayer ? { playerYieldCollectionEpochByPlayer: v1.playerYieldCollectionEpochByPlayer } : {}),
-      ...(v1.reachBorder ? { reachBorder: v1.reachBorder } : {})
+      ...(v1.reachBorder ? { reachBorder: v1.reachBorder } : {}),
+      ...(v1.exploredTiles ? { exploredTiles: v1.exploredTiles } : {})
     },
     commandEvents: v1.commandEvents
   };

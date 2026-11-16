@@ -15,6 +15,8 @@ const impactOf = (card: PersonalActivityCard): number => {
   if (card.kind === "BUILDING_COMPLETED") return 10;
   if (card.kind === "SCOUT_REPORT") return 20 + 10 * (card.towns + card.docks + card.waystations);
   if (card.kind === "SCOUT_SIGHTED") return 50;
+  // A supply that stopped can leave a town unfed: keep it like a lost Dock.
+  if (card.kind === "SUPPLY_ENDED") return 100;
   return 0;
 };
 

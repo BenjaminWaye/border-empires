@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { createInitialScoutDroneState, handleScoutDroneMessage, parseScoutDroneFlight, scoutReportFeedText } from "./client-scout-drone-state.js";
-import { dispatchExploreAction } from "./client-scout-drone-explore-action.js";
+import { buildExploreAction, dispatchExploreAction } from "./client-scout-drone-explore-action.js";
+import { pushFeedEntry, type FeedMutableState } from "../client-alerts/client-alerts.js";
+import { selectBarButtons } from "../client-hud-v2/client-hud-v2-action-bar.js";
+import type { FeedEntry } from "../client-types.js";
 
 const wireFlight = {
   launchedAt: 1_000,
@@ -49,21 +52,24 @@ describe("handleScoutDroneMessage", () => {
     const state = stateWith();
     const pushFeed = vi.fn();
     handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: wireFlight }, state, pushFeed, vi.fn(), shiftBack);
-    const report = { targetX: 12, targetY: 4, towns: 1, docks: 0, waystations: 2, watchtowers: 0, resourceTiles: 4, planetaryDefenseTiles: 6, empiresSighted: ["rival"] };
+    const report = { targetX: 12, targetY: 4, towns: 1, docks: 0, waystations: 2, watchtowers: 0, resourceTiles: 4, resourcesSighted: [{ resource: "TITANIUM", count: 4 }], planetaryDefenseTiles: 6, empiresSighted: ["rival"] };
     handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null, report }, state, pushFeed, vi.fn(), shiftBack);
     expect(state.scoutDroneFlight).toBeUndefined();
-    expect(pushFeed).toHaveBeenCalledWith(
-      "Scout drone returned from (12, 4): 1 town, 2 waystations, 4 resource tiles, Planetary Defense (6 tiles), the borders of House Vey. It was turned back at House Vey's border.",
-      "info",
-      "success"
-    );
+    expect(pushFeed).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Scout report",
+      text: "Scout drone returned from (12, 4): 1 town, 2 waystations, TITANIUM (4 tiles), Planetary Defense (6 tiles), the borders of House Vey. It was turned back at House Vey's border.",
+      severity: "success",
+      alert: true,
+      focusX: 12,
+      focusY: 4
+    }));
   });
 
   it("announces a launch only once the server confirms it, and not for a stale replay", () => {
     const pushFeed = vi.fn();
     const open = { ...wireFlight, endReason: "TARGET", blockedByPlayerId: undefined };
     handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: open }, stateWith(), pushFeed, vi.fn(), shiftBack, 600);
-    expect(pushFeed).toHaveBeenCalledWith("Scout drone launched toward (12, 4).", "info", "info");
+    expect(pushFeed).toHaveBeenCalledWith(expect.objectContaining({ title: "Scout drone launched", text: "Flying toward (12, 4). Report in 8s.", alert: true, focusX: 12, focusY: 4 }));
     const replayFeed = vi.fn();
     handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: open }, stateWith(), replayFeed, vi.fn(), shiftBack, 60_000);
     expect(replayFeed).not.toHaveBeenCalled();
@@ -74,24 +80,47 @@ describe("handleScoutDroneMessage", () => {
     const pushFeed = vi.fn();
     handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: { ...wireFlight, endReason: "TARGET", blockedByPlayerId: undefined } }, state, pushFeed, vi.fn(), shiftBack, 60_000);
     handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: wireFlight }, state, pushFeed, vi.fn(), shiftBack, 60_000);
-    expect(pushFeed).toHaveBeenCalledWith("Scout drone turned back at House Vey's border.", "info", "warn");
+    expect(pushFeed).toHaveBeenCalledWith(expect.objectContaining({ title: "Scout drone turned back", text: "Turned back at House Vey's border.", severity: "warn" }));
   });
 
   it("names the border that turned the drone back from the report, even after a reload", () => {
     const pushFeed = vi.fn();
     const report = { targetX: 12, targetY: 4, towns: 0, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [], blockedByPlayerId: "rival" };
     handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null, report }, stateWith(), pushFeed, vi.fn(), shiftBack, 60_000);
-    expect(pushFeed).toHaveBeenCalledWith("Scout drone returned from (12, 4): found nothing new. It was turned back at House Vey's border.", "info", "success");
+    expect(pushFeed).toHaveBeenCalledWith(expect.objectContaining({ text: "Scout drone returned from (12, 4): found nothing new. It was turned back at House Vey's border.", severity: "success" }));
   });
 
   it("alerts the player when a rival's scouts reach their border", () => {
     const pushFeed = vi.fn();
     expect(handleScoutDroneMessage({ type: "SCOUT_SIGHTED", scoutPlayerId: "rival", x: 3, y: 8 }, stateWith(), pushFeed, vi.fn())).toBe(true);
-    expect(pushFeed).toHaveBeenCalledWith("Foreign scouts sighted near (3, 8): House Vey.", "combat", "warn");
+    expect(pushFeed).toHaveBeenCalledWith(expect.objectContaining({ text: "Foreign scouts sighted near (3, 8): House Vey.", type: "combat", severity: "warn" }));
+  });
+
+  // 2026-11-14 playtest: the launch and report went only to the admin-only Alerts feed, so a player
+  // who pressed Explore saw no message at all. They must reach the on-screen alert card.
+  it("shows the launch and the report on the alert card, not only in the admin feed", () => {
+    const state: ReturnType<typeof stateWith> & FeedMutableState = { ...stateWith(), feed: [], captureAlert: undefined };
+    const push = (entry: FeedEntry): void => pushFeedEntry(state, entry);
+    const open = { ...wireFlight, endReason: "TARGET", blockedByPlayerId: undefined };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: open }, state, push, vi.fn(), shiftBack, 600);
+    expect(state.captureAlert).toMatchObject({ title: "Scout drone launched" });
+    const report = { targetX: 12, targetY: 4, towns: 1, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [] };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null, report }, state, push, vi.fn(), shiftBack, 9_000);
+    expect(state.captureAlert).toMatchObject({ title: "Scout report", detail: "Scout drone returned from (12, 4): 1 town." });
   });
 
   it("ignores other messages", () => {
     expect(handleScoutDroneMessage({ type: "ISLAND_NAMES" }, stateWith(), vi.fn(), vi.fn())).toBe(false);
+  });
+});
+
+describe("Explore while the drone is out", () => {
+  // 2026-11-14 playtest: a greyed Explore fell to the minor row, where its reason is only a tooltip.
+  it("stays the main bar action with its reason, so a phone shows why it is greyed", () => {
+    const flight = parseScoutDroneFlight({ ...wireFlight, landsAt: 70_000 }, (t) => t)!;
+    const explore = buildExploreAction(flight, 10_000);
+    const [main] = selectBarButtons({ actions: [explore], buildings: [], crystal: [], tabs: ["actions"] });
+    expect(main).toMatchObject({ kind: "action", primary: true, action: { id: "explore_scout", disabled: true, disabledReason: "Scout drone is out, back in 1m" } });
   });
 });
 

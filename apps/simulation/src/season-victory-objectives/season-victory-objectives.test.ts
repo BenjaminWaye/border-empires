@@ -37,7 +37,7 @@ describe("computeSeasonVictory", () => {
     expect(economicHegemony?.leaderPlayerId).toBe("player-1");
 
     const runnerUpLabels = selfProgressLabelsByPlayerId.get("player-2");
-    expect(runnerUpLabels?.get("ECONOMIC_HEGEMONY")).toBe("5760.0 coin/day");
+    expect(runnerUpLabels?.get("ECONOMIC_HEGEMONY")).toBe("5760.0 gross coin/day");
 
     // The objective's leader never gets their own comparison line — the client
     // already renders "Leader: You" for that case.
@@ -225,13 +225,13 @@ describe("buildEconomicHegemonyObjective", () => {
     const fromFullScan = objectives.find((objective) => objective.id === "ECONOMIC_HEGEMONY");
 
     expect(live).toEqual(fromFullScan);
-    expect(live.progressLabel).toBe("381600.0 coin/day vs 144000.0");
+    expect(live.progressLabel).toBe("381600.0 gross coin/day vs 144000.0");
     expect(live.leaderPlayerId).toBe("player-1");
   });
 
   it("self-progress label always matches the same format as the objective's progressLabel", () => {
-    expect(economicHegemonySelfProgressLabel(100)).toBe("144000.0 coin/day");
-    expect(economicHegemonySelfProgressLabel(0)).toBe("0.0 coin/day");
+    expect(economicHegemonySelfProgressLabel(100)).toBe("144000.0 gross coin/day");
+    expect(economicHegemonySelfProgressLabel(0)).toBe("0.0 gross coin/day");
   });
 });
 
@@ -275,8 +275,8 @@ describe("seasonVictoryForBroadcast", () => {
     const result = seasonVictoryForBroadcast(cachedObjectives, undefined, liveEconomicHegemony, "player-2", 100);
 
     const economic = result.find((o) => o.id === "ECONOMIC_HEGEMONY");
-    expect(economic?.progressLabel).toBe("381600.0 coin/day vs 144000.0");
-    expect(economic?.selfProgressLabel).toBe("144000.0 coin/day");
+    expect(economic?.progressLabel).toBe("381600.0 gross coin/day vs 144000.0");
+    expect(economic?.selfProgressLabel).toBe("144000.0 gross coin/day");
     expect(result.find((o) => o.id === "TOWN_CONTROL")).toEqual(cachedObjectives[1]);
   });
 

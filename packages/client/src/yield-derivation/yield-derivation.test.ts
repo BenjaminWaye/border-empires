@@ -37,7 +37,7 @@ describe("deriveTileYieldRate — income multiplier (PR #440, Issue 1)", () => {
       { town: { populationTier: "SETTLEMENT" } },
       1.0
     );
-    expect(rate!.goldPerMinute).toBe(0.0069);
+    expect(rate!.goldPerMinute).toBe(0.006944);
   });
 
   it("applies incomeMultiplier to settlement fallback gold for own tiles", () => {
@@ -46,7 +46,7 @@ describe("deriveTileYieldRate — income multiplier (PR #440, Issue 1)", () => {
       { town: { populationTier: "SETTLEMENT" } },
       1.25
     );
-    expect(rate!.goldPerMinute).toBe(0.0087);
+    expect(rate!.goldPerMinute).toBe(0.008681);
   });
 
   it("applies incomeMultiplier to dock gold for own tiles", () => {
@@ -55,7 +55,7 @@ describe("deriveTileYieldRate — income multiplier (PR #440, Issue 1)", () => {
       { dockId: "dock-abc" },
       1.25
     );
-    expect(rate!.goldPerMinute).toBe(0.0022);
+    expect(rate!.goldPerMinute).toBe(0.00217);
   });
 
   it("combines settlement fallback and dock gold with income multiplier", () => {
@@ -66,7 +66,7 @@ describe("deriveTileYieldRate — income multiplier (PR #440, Issue 1)", () => {
       { town: { populationTier: "SETTLEMENT" }, dockId: "dock-abc" },
       1.25
     );
-    expect(rate!.goldPerMinute).toBe(0.0109);
+    expect(rate!.goldPerMinute).toBe(0.010851);
   });
 
   it("does not apply incomeMultiplier to persisted town.goldPerMinute", () => {

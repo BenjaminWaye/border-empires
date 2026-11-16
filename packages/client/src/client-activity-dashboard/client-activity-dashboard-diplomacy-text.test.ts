@@ -28,7 +28,16 @@ describe("diplomacy timeline rows", () => {
     expect(activityCardText(card({ event: "ALLIANCE_BROKEN" }), "me", noNames)).toBe("Alliance with Tove ended");
   });
 
-  it("prefers the live roster name over the name stored on the card", () => {
+  it("reads truce extensions and alliance offers from the viewer's side", () => {
+    expect(activityCardText(card({ event: "TRUCE_EXTENDED", durationHours: 24 }), "me", noNames)).toBe("Truce with Tove extended by 24h");
+    expect(activityCardText(card({ event: "ALLIANCE_OFFERED", byPlayerId: "me" }), "me", noNames)).toBe("You offered Tove an alliance");
+    expect(activityCardText(card({ event: "ALLIANCE_OFFERED", byPlayerId: "p2" }), "me", noNames)).toBe("Tove offered you an alliance");
+    expect(activityCardText(card({ event: "ALLIANCE_DECLINED", byPlayerId: "p2" }), "me", noNames)).toBe("Tove declined your alliance offer");
+    expect(activityCardText(card({ event: "ALLIANCE_DECLINED", byPlayerId: "me" }), "me", noNames)).toBe("You declined Tove's alliance offer");
+    expect(activityCardTone(card({ event: "TRUCE_EXTENDED" }), "me")).toBe("hold");
+  });
+
+    it("prefers the live roster name over the name stored on the card", () => {
     expect(activityCardText(card({}), "me", (id) => (id === "p2" ? "Tove the Bold" : undefined))).toBe("Truce with Tove the Bold ended");
   });
 

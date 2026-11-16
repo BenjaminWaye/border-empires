@@ -1,3 +1,5 @@
+import { LATTICE_HASH_GLSL } from "./client-map-3d-lattice-hash/client-map-3d-lattice-hash-glsl.js";
+
 // GLSL for the beach layer in client-map-3d-heightfield-shader.ts: a thin
 // damp band at the waterline. Kept apart so the patch file stays about
 // *where* things splice into three.js's shader, and this one about *what*
@@ -26,14 +28,11 @@ const glslFloat = (n: number): string => (Number.isInteger(n) ? n.toFixed(1) : S
 
 // Declared at fragment scope (after #include <common>).
 export const BEACH_NOISE_GLSL = `
-float beachHash(vec2 p) {
-  // Wrapped first: on world coords scaled up for fine noise (x ~640 * 15)
-  // p * 456.21 runs past float precision and the hash collapses into
-  // coarse, patterned steps toward the east of the map.
-  p = fract(mod(p, 289.0) * vec2(123.34, 456.21));
-  p += dot(p, p + 45.32);
-  return fract(p.x * p.y);
-}
+${LATTICE_HASH_GLSL}
+// Exact integer lattice hash: no float precision to run out of far east on
+// the map (the old float fract cascade had to wrap with mod(p, 289.0)),
+// and no corner mismatch between cells on mobile GPUs.
+float beachHash(vec2 p) { return latticeHash2(p); }
 float beachValueNoise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = fract(p);

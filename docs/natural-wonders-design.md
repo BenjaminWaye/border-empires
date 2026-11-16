@@ -109,8 +109,10 @@ energy particles flowing through the pipes.
 
 ### 2.6 — The Calculating Engine
 
-**Effect:** All technology research gold costs reduced by 10% (rounding down).
-Shard costs (tiers 5+) unaffected.
+**Effect:** All Manifest commission Coin costs reduced by 10% (rounding up).
+The charge and every displayed Manifest price use `manifestGoldCost`
+(packages/shared tech-economy.ts); the catalog is re-sent when the wonder's
+garrison changes hands. Shard costs (tiers 5+) unaffected.
 
 **Spawn:** Any region, GRASS biome with LIGHT shade (open grassland).
 

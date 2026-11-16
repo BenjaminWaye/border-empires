@@ -10,6 +10,8 @@ import { TAP_TO_INSPECT_ENTRY } from "./client-changelog-tap-to-inspect.js";
 import { COMBAT_LEGIBILITY_ENTRY } from "./client-changelog-combat-legibility.js";
 import { DIPLOMACY_OFFER_FLOW_ENTRY } from "./client-changelog-diplomacy-offer-flow.js";
 import { FOG_GRID_REMOVED_ENTRY } from "./client-changelog-fog-grid-removed.js";
+import { FOG_CLOUD_BLOCKS_ENTRY } from "./client-changelog-fog-cloud-blocks.js";
+import { SHADER_NOISE_SEAMS_ENTRY } from "./client-changelog-shader-noise-seams.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_115: ClientChangelogEntry[] = [
@@ -24,4 +26,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_115: ClientChangelogEntry[] = [
   { ...COMBAT_LEGIBILITY_ENTRY, createdAt: 1794561912110, },
   { ...DIPLOMACY_OFFER_FLOW_ENTRY, createdAt: 1794561892577, },
   { ...FOG_GRID_REMOVED_ENTRY, createdAt: 1794598194278, },
+  { ...FOG_CLOUD_BLOCKS_ENTRY, createdAt: 1794696083783, },
+  { ...SHADER_NOISE_SEAMS_ENTRY, createdAt: 1794701202193, },
 ];

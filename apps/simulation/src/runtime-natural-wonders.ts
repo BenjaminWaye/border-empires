@@ -3,6 +3,8 @@ import { RELIC_DEFINITIONS, isRedesignedRelic, quickforgeAdjustedRushPrice as sh
 import type { RuntimePlayer } from "./runtime-types.js";
 import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { naturalWonderClaimEventText } from "./natural-wonder-claim-text.js";
+import { buildTechUpdatePayload } from "./tech-domain-bridge/tech-domain-bridge.js";
+import type { RuntimeProgressionCommandContext } from "./runtime-progression-command-handlers.js";
 
 export type WonderCacheByPlayer = Map<string, Set<string>>;
 
@@ -124,11 +126,20 @@ export const syncWatchtowerObservatory = (tile: DomainTileState): void => {
     : undefined;
 };
 
-/** Refresh owner-derived fields when control, garrison or installation kind changes. */
-export function refreshWonderOwners(tile: DomainTileState, previous: DomainTileState | undefined, settledTiles: (id: string) => Iterable<DomainTileState>, cache: WonderCacheByPlayer, players: Map<string, RuntimePlayer>, now: number): void {
+/**
+ * Refresh owner-derived fields when control, garrison or installation kind changes.
+ * `onManifestDiscountChange` runs for each House whose Manifest discount (Calculating Engine) changed,
+ * so its open Manifest prices are re-sent at once rather than after its next commission.
+ */
+export function refreshWonderOwners(tile: DomainTileState, previous: DomainTileState | undefined, settledTiles: (id: string) => Iterable<DomainTileState>, cache: WonderCacheByPlayer, players: Map<string, RuntimePlayer>, now: number, onManifestDiscountChange?: (playerId: string) => void): void {
   if (!tile.naturalWonder && !previous?.naturalWonder) return;
   if (tile.ownerId === previous?.ownerId && tile.ownershipState === previous?.ownershipState && tile.naturalWonder?.type === previous?.naturalWonder?.type && tile.naturalWonder?.relicVersion === previous?.naturalWonder?.relicVersion) return;
-  for (const id of new Set([previous?.ownerId, tile.ownerId])) if (id) refreshPlayerWonders(id, settledTiles(id), cache, players);
+  for (const id of new Set([previous?.ownerId, tile.ownerId])) {
+    if (!id) continue;
+    const discountBefore = players.get(id)?.wonderTechGoldDiscount ?? 0;
+    refreshPlayerWonders(id, settledTiles(id), cache, players);
+    if ((players.get(id)?.wonderTechGoldDiscount ?? 0) !== discountBefore) onManifestDiscountChange?.(id);
+  }
   if (tile.ownerId !== previous?.ownerId) announceNaturalWonderClaim(tile, players, now);
 }
 
@@ -138,4 +149,16 @@ export function prepareWonderTileWrite(tile: DomainTileState, previous: DomainTi
   if (!changed) return;
   syncWatchtowerObservatory(tile);
   if (tile.ownerId !== previous?.ownerId) applyConscriptionEngineFirstClaim(tile, players, now);
+}
+
+/**
+ * Re-sends a House's Manifest catalog (TECH_UPDATE) so its prices follow a Calculating Engine capture or loss.
+ * Sent under its own system commandId: the gateway resolves a TECH_UPDATE's command, so reusing the
+ * tile write's id would resolve that EXPAND/ATTACK early (and for the other House too).
+ */
+export function emitManifestPriceUpdate(context: Pick<RuntimeProgressionCommandContext, "players" | "tiles" | "emitEvent" | "incomePerMinuteForPlayer">, playerId: string, commandId: string): void {
+  const player = context.players.get(playerId);
+  if (!player) return;
+  const payload = buildTechUpdatePayload(player, context.tiles.values(), { incomePerMinute: context.incomePerMinuteForPlayer(playerId) });
+  context.emitEvent({ eventType: "TECH_UPDATE", commandId: `system-runtime:manifest-price:${playerId}:${commandId}`, playerId, payloadJson: JSON.stringify(payload) });
 }

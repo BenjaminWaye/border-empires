@@ -4,6 +4,8 @@ import { createSocialState } from "../social-state/social-state.js";
 // and may not grow further -- see AGENTS.md's file-and-type-discipline rule).
 import type { GatewaySocialStore } from "../social-store/social-store.js";
 import type { SocialStateSink } from "../social-state/social-state.js";
+import type { SocialStoreSnapshot } from "../social-store/social-store.js";
+import type { DiplomacyMemoryPersistence } from "../ai-diplomacy-memory/ai-diplomacy-memory-writer.js";
 
 export const buildSocialStateSink = (socialStore: GatewaySocialStore): SocialStateSink => ({
   ...(socialStore.commitAcceptedAlliance ? { commitAcceptedAlliance: socialStore.commitAcceptedAlliance.bind(socialStore) } : {}),
@@ -33,4 +35,10 @@ export const buildGatewaySocialState = (store: GatewaySocialStore, initial: impo
   players: Array<{id:string;name:string}>, now?:()=>number): ReturnType<typeof createSocialState> => createSocialState({
   players, initial, sink: buildSocialStateSink(store), ...(now ? {now} : {}),
   ...(store.resourceTrades ? {resourceTradeOffers:store.resourceTrades} : {})
+});
+
+/** The AI diplomacy memory's slice of the store: the pairs loaded at boot and the batched writer's target. */
+export const buildAiDiplomacyMemoryPersistence = (store: GatewaySocialStore, initial: SocialStoreSnapshot): DiplomacyMemoryPersistence => ({
+  initial: initial.aiDiplomacyMemory ?? [],
+  write: (upserts, removals) => store.writeAiDiplomacyMemory(upserts, removals)
 });

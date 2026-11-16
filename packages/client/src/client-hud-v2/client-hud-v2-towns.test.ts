@@ -58,6 +58,11 @@ describe("HUD v2 towns screen", () => {
     expect(html).toContain("&lt;b&gt;x&lt;/b&gt;");
   });
 
+  it("says when a fed town is short of garrisoned plots, which is why it earns little or nothing", () => {
+    const html = townsBodyHtml([{ ...row(1, "Voltspire", 0), plotsNote: "0/4 plots garrisoned" }], { key: "gold", descending: true });
+    expect(html).toContain("Town · 0/4 plots garrisoned");
+  });
+
   it("shows an empty state and the town count", () => {
     expect(townsBodyHtml([], { key: "gold", descending: true })).toContain("No towns yet");
     expect(townsBannerHtml([row(1, "A", 1), row(2, "B", 1)])).toContain("<b>2</b> towns");

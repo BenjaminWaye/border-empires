@@ -83,4 +83,12 @@ describe("buildGatewayInitPayload reconnect fields", () => {
     expect(init.player.galacticWonderManpowerRegenBonusPerMinute).toBe(5);
     expect(init.player.galacticWonderVisionRadiusBonus).toBe(2);
   });
+
+  it("carries the server-held exploredTiles fog memory through to the INIT payload's player object", () => {
+    const exploredTiles = { width: 640, height: 320, runs: [10, 3] };
+
+    const init = buildGatewayInitPayload({ playerId: "player-1", playerName: "Nauticus" }, baseInitialState({ exploredTiles }), "default");
+
+    expect(init.player.exploredTiles).toEqual(exploredTiles);
+  });
 });

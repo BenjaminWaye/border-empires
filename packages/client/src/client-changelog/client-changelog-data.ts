@@ -1,11 +1,25 @@
-import { AFC_TILE_BAR_ENTRY } from "./client-changelog-afc-tile-bar.js";
+import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_116 } from "./client-changelog-data-earlier-116.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_117 } from "./client-changelog-data-earlier-117.js";
-import { SHOW_EMPIRE_ON_MAP_ENTRY } from "./client-changelog-show-empire-on-map.js";
-import { EXPLORE_SCOUT_DRONES_ENTRY, SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_118 } from "./client-changelog-data-earlier-118.js";
+import { AUTO_GARRISON_ASK_ENTRY } from "./client-changelog-auto-garrison-ask.js";
+import { TOWN_COIN_BLANK_ENTRY } from "./client-changelog-town-coin-blank.js";
+import { MANPOWER_BUILD_TEXT_ENTRY } from "./client-changelog-manpower-build-text.js";
+import { RESTORED_CAMERA_FOG_ENTRY } from "./client-changelog-restored-camera-fog.js";
+import { OFFER_DOCK_COUNTER_ENTRY } from "./client-changelog-offer-dock-counter.js";
+import { WINS_AND_COSTS_EXPLAINED_ENTRY } from "./client-changelog-wins-and-costs-explained.js";
+import { PLAYTEST_MAP_READABILITY_ENTRY } from "./client-changelog-playtest-map-readability.js";
+import { INCOME_WAR_CARDS_ENTRY } from "./client-changelog-income-war-cards.js";
+import { SALVAGE_TRIBUTE_BALANCE_ENTRY } from "./client-changelog-salvage-tribute-balance.js";
+import { SERVER_EXPLORED_MAP_ENTRY } from "./client-changelog-server-explored-map.js";
+import { RECONNECT_RAZED_STRUCTURES_ENTRY } from "./client-changelog-reconnect-razed-structures.js";
+import { MUSTER_PANEL_SIZE_ENTRY } from "./client-changelog-muster-panel-size.js";
+import { ENCIRCLEMENT_POCKET_ENTRY } from "./client-changelog-encirclement-pocket.js";
+import { CLEARER_CAPTURES_ENTRY } from "./client-changelog-clearer-captures.js";
+import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -14,10 +28,14 @@ import { recentClientChangelogEntries } from "./client-changelog-recent.js";
 import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
 import { COMMAND_NAVIGATION_ENTRY, NAVIGATION_LABELS_ENTRY } from "./client-changelog-command-navigation.js";
 import { CONNECTED_DISTRICTS_CHANGELOG } from "./client-changelog-connected-districts.js";
+import { CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_SCREEN } from "./client-changelog-data-diplomacy-screen.js";
 import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
+import { CLIENT_CHANGELOG_ENTRIES_AI_RAID_REASON } from "./client-changelog-data-ai-raid-reason.js";
 import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
 import { SEASON_REVEAL_LOADING_CHANGELOG } from "./client-changelog-season-reveal-loading.js";
+import { CLIENT_CHANGELOG_ENTRIES_RIVAL_REACH_LINE } from "./client-changelog-data-rival-reach-line.js";
 import { BATTLE_VARIETY_ENTRY } from "./client-changelog-battle-variety.js";
+import { FIRST_DOCK_CARD_ENTRY } from "./client-changelog-first-dock-card.js";
 import { GUIDE_AND_RECOVERY_CHANGELOG } from "./client-changelog-nov-03-04-guide-recovery.js";
 import { AFC_REPLACEMENT_CHANGELOG } from "./client-changelog-afc-replacement.js";
 import { AI_FREE_TRUCE_CHANGELOG } from "./client-changelog-ai-free-truce.js";
@@ -50,7 +68,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_27 } from "./client-changelog-oct-27.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31.js";
 import { CLIENT_CHANGELOG_ENTRIES_NOV_01_03 } from "./client-changelog-nov-01-03.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
-import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
+import { RESOURCE_NETWORKS_CHANGELOG, TIMED_RESOURCE_TRADES_ENTRY } from "./client-changelog-resource-networks.js";
 import { FRONTIER_RESOURCES_REWORK_CHANGELOG } from "./client-changelog-frontier-resources.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
@@ -76,6 +94,7 @@ import { SIEGE_REPORTS_CHANGELOG } from "./client-changelog-siege-reports.js";
 import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
 import { SIEGE_FX_GATE_CHANGELOG } from "./client-changelog-siege-fx-gate.js";
 import { INCURSION_HATCH_HILLS_CHANGELOG } from "./client-changelog-incursion-hatch-hills.js";
+import { REACH_HELP_HILLS_CHANGELOG } from "./client-changelog-reach-help-hills.js";
 import { AI_DOCK_CROSSING_CHANGELOG } from "./client-changelog-ai-dock-crossing.js";
 import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
@@ -193,7 +212,7 @@ export type ClientChangelogEntry = {
 // Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_REPLACEMENT_CHANGELOG,
-  { ...AFC_TILE_BAR_ENTRY, createdAt: 1794679282177, },
+  ...NOV_14_CHANGELOG,
   ...TOWN_ECONOMY_CHANGELOG,
   ...RESOURCE_NETWORKS_CHANGELOG,
   ...AFC_SPECIALIZATIONS_CHANGELOG,
@@ -259,6 +278,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RICHER_FORESTS_CHANGELOG,
   ...SIEGE_FX_GATE_CHANGELOG,
   ...INCURSION_HATCH_HILLS_CHANGELOG,
+  ...REACH_HELP_HILLS_CHANGELOG,
   ...STORM_EDGE_BANDING_CHANGELOG,
   ...MARCH_ACROSS_WATER_CHANGELOG,
   ...DOCK_SAIL_PACING_CHANGELOG,
@@ -309,13 +329,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CONNECTED_DISTRICTS_CHANGELOG,
   ...WAR_INDUSTRY_SQUADS_CHANGELOG,
   ...FORT_WALL_OPENINGS_CHANGELOG,
-  {
-    createdAt: 1793219423974, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.28.3",
-    title: "AI empires push reach across their own borderlands",
-    why: "AI empires holding a wide band of unsettled land outside their reach stopped growing, and they never built beacons toward plain unclaimed land.",
-    changes: ["AI empires now build relay beacons that carry reach across their own unsettled borderlands, and toward wide stretches of plain unclaimed land."]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_SCREEN,
   ...HILL_GARRISON_FILL_CHANGELOG,
   ...NAME_DECAL_HILLS_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_112,
@@ -390,18 +404,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Each frame now only updates objects that are on show"]
   },
   ...AI_RIVALS_CHANGELOG,
-  {
-    createdAt: 1793544875839, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.01",
-    title: "Towns panel",
-    why: "There was no way to compare towns without opening each one.",
-    changes: [
-      "A new Towns button lists your towns with gold per day, population and growth",
-      "Sort by any column, highest or lowest first",
-      "Press a town to jump to it on the map",
-      "The All view's Food slot list no longer comes out empty"
-    ]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_AI_RAID_REASON,
   {
     createdAt: 1793524472421, // Date.now() captured when this entry was written.
     introducedIn: "2026.11.01",
@@ -440,17 +443,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MANIFEST_WORDING_CHANGELOG,
   ...TOWN_RING_IMPROVEMENTS_CHANGELOG,
   ...AI_PRICING_TEMPERAMENTS_CHANGELOG,
-  {
-    createdAt: 1794089657552, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.08",
-    title: "Launch several attacks at once",
-    why: "Only one attack could be under way at a time, even with several muster flags and plenty of manpower.",
-    changes: [
-      "Attacks no longer wait for each other: launch as many as your flags have manpower for",
-      "One flag can send several companies, as long as it holds enough manpower for each",
-      "The Capturing Territory banner and timer are gone; each attack shows its progress on the map"
-    ]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_RIVAL_REACH_LINE,
   ...VICTORY_HOLD_TIME_CHANGELOG,
   ...RANKS_TRACK_PROFILES_CHANGELOG,
   { ...BATTLE_VARIETY_ENTRY, createdAt: 1794073665467, },
@@ -471,6 +464,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...ZOOMED_OUT_PAN_PERF_CHANGELOG, createdAt: 1794216988849, },
   { ...WAR_TREE_HIVE_MIND_HUB_ENTRY, createdAt: 1794292926456, },
   { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, },
+  { ...FIRST_DOCK_CARD_ENTRY, createdAt: 1794657014221, },
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_110,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_111,
   { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
@@ -482,9 +476,23 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_115,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_116,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_117,
-  { ...EXPLORE_SCOUT_DRONES_ENTRY, createdAt: 1794656611441, },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_118,
+  { ...AUTO_GARRISON_ASK_ENTRY, createdAt: 1794806556716, },
+  { ...TOWN_COIN_BLANK_ENTRY, createdAt: 1794807224989, },
+  { ...CLEARER_CAPTURES_ENTRY, createdAt: 1794771007813, },
+  { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
+  { ...MANPOWER_BUILD_TEXT_ENTRY, createdAt: 1794806234122, },
+  { ...OFFER_DOCK_COUNTER_ENTRY, createdAt: 1794817332101, },
+  { ...RESTORED_CAMERA_FOG_ENTRY, createdAt: 1794818244321, },
+  { ...PLAYTEST_MAP_READABILITY_ENTRY, createdAt: 1794817797219, },
+  { ...WINS_AND_COSTS_EXPLAINED_ENTRY, createdAt: 1794818581757, },
+  { ...INCOME_WAR_CARDS_ENTRY, createdAt: 1794819359958, },
+  { ...SALVAGE_TRIBUTE_BALANCE_ENTRY, createdAt: 1794828701450, },
+  { ...SERVER_EXPLORED_MAP_ENTRY, createdAt: 1794827574814, },
+  { ...RECONNECT_RAZED_STRUCTURES_ENTRY, createdAt: 1794830646310, },
+  { ...MUSTER_PANEL_SIZE_ENTRY, createdAt: 1794826419518, },
+  { ...ENCIRCLEMENT_POCKET_ENTRY, createdAt: 1794826569677, },
   { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
-  { ...SHOW_EMPIRE_ON_MAP_ENTRY, createdAt: 1794656750720, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

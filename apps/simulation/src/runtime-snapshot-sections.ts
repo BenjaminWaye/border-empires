@@ -9,6 +9,7 @@ import { shouldYieldAt } from "./event-loop-yield.js";
 import { overlaySubstructuresFrom } from "./tile-overlay-fields/tile-overlay-fields.js";
 import { townSettledAtForSnapshot } from "./recovered-town-state/recovered-town-state.js";
 import { encodeReachBorder } from "./reach-border-snapshot/reach-border-snapshot.js";
+import type { ExploredTilesSnapshotEntry } from "./explored-tiles/explored-tiles-store.js";
 
 export type SnapshotTile = SimulationSnapshotSections["initialState"]["tiles"][number];
 
@@ -17,7 +18,7 @@ export type SnapshotExportInput = {
   tiles: ReadonlyMap<string, DomainTileState>;
   locksByCommandId: ReadonlyMap<string, LockRecord>;
   players: ReadonlyMap<string, DomainPlayer>;
-  resourceSupplyAgreements?: readonly import("@border-empires/shared").ResourceSupplyAgreement[] | undefined;
+  resourceSupplyState?: () => Pick<SimulationSnapshotSections["initialState"], "resourceSupplyAgreements" | "resourceSupplyJournalSequence">;
   pendingSettlementsByTile: ReadonlyMap<string, PendingSettlementRecord>;
   playerYieldCollectionEpochByPlayer: ReadonlyMap<string, number>;
   // Runtime.tileSettledAtByKey; only town stamps are saved (recovered-town-state.ts).
@@ -27,6 +28,8 @@ export type SnapshotExportInput = {
   // tile copy's yields) so it matches players/locks rather than the border as
   // it stood when the export started.
   reachBorder: () => ReadonlyMap<string, string>;
+  // Per-player explored-tile memory (explored-tiles-store.ts); optional so tests can omit it.
+  exploredTiles?: () => ExploredTilesSnapshotEntry[];
   recordedEventsByCommandId: ReadonlyMap<string, SimulationEvent[]>;
   incomePerMinuteForPlayer: (playerId: string) => number;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -60,11 +63,16 @@ export const mapTile = (tile: DomainTileState): SnapshotTile => ({
 });
 
 function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): SimulationSnapshotSections {
+  // Income lookup can settle expired trades. Do it before sampling their
+  // journal sequence and the balances it covers, with no intervening yield.
+  const players = [...input.players.values()].map(player => ({
+    player, incomePerMinute: input.incomePerMinuteForPlayer(player.id)
+  }));
   return {
     initialState: {
       afcGlobalLosses: input.afcGlobalLosses?.() ?? 0,
       tiles,
-      ...(input.resourceSupplyAgreements?.length ? { resourceSupplyAgreements: input.resourceSupplyAgreements } : {}),
+      ...input.resourceSupplyState?.(),
       activeLocks: [...input.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,
@@ -80,8 +88,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           ...(lock.combatResolution ? { combatResolutionJson: JSON.stringify(lock.combatResolution) } : {})
         }))
         .sort((a, b) => a.commandId.localeCompare(b.commandId)),
-      players: [...input.players.values()]
-        .map((player) => {
+      players: players.map(({ player, incomePerMinute }) => {
           const summary = input.summaryForPlayer(player.id);
           const townSettledAt = townSettledAtForSnapshot(summary.ownedTownTierByTile.keys(), input.tileSettledAtByKey);
           return {
@@ -104,6 +111,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
           ...(typeof player.lifetimeGarrisons === "number" && player.lifetimeGarrisons > 0 ? { lifetimeGarrisons: player.lifetimeGarrisons } : {}),
           ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
+          ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),
           autoSettle: { ...player.autoSettle },
           ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
           ...(typeof player.waystationManpowerOverflow === "number" && player.waystationManpowerOverflow > 0 ? { waystationManpowerOverflow: player.waystationManpowerOverflow } : {}),
@@ -122,7 +130,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           vision: player.mods?.vision ?? 1,
           visionRadiusBonus: visionRadiusBonusForPlayer(player),
           incomeMultiplier: player.mods?.income ?? 1,
-          incomePerMinute: input.incomePerMinuteForPlayer(player.id),
+          incomePerMinute,
           ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
           ...(townSettledAt.length ? { townSettledAt } : {}),
           // Restart-durable: DEV_QUEUE_*/WAYPOINT_* commands only ever mutate
@@ -146,6 +154,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
         .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
         .sort((a, b) => a.playerId.localeCompare(b.playerId)),
       reachBorder: encodeReachBorder(input.reachBorder()),
+      ...(input.exploredTiles ? { exploredTiles: input.exploredTiles() } : {}),
       ...(input.docks.length
         ? {
             docks: input.docks.map((dock) => ({
