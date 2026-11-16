@@ -45,6 +45,8 @@ export type TownScreenInput = {
   plotsHtml?: string;
   /** A Place press's outcome while its confirmation shows on the button (set per press in runTileActionOn). */
   placed?: BuildPlacedOutcome | undefined;
+  /** The picked building was already placed from this screen: once the confirmation fades, Place reads "Place another". */
+  placedBefore?: boolean;
 };
 
 const esc = (text: string): string =>
@@ -123,7 +125,7 @@ const builtCardHtml = (facts: readonly TileFact[]): string =>
 
 const buildPanelHtml = (input: TownScreenInput): string => {
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
-  const placeLabel = supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place";
+  const placeLabel = supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : input.placedBefore ? "Place another" : "Place";
   const work = input.focusView.work ?? [];
   // The selected tile (a support tile, or the town itself, e.g. a Fort on the town) can already hold a
   // building; show what it is and does, including when it's dormant and giving nothing.
