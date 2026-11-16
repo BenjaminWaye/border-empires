@@ -25,6 +25,7 @@ const click = (selector: string): void => {
 
 describe("tile views in the sidebar", () => {
   const sent: unknown[] = [];
+  let online = true;
   const fired: string[] = [];
   const state = createInitialState();
   const deps: TileDockDeps = {
@@ -32,7 +33,7 @@ describe("tile views in the sidebar", () => {
     handleTileAction: (id) => { fired.push(id); },
     hideTileActionMenu: () => undefined,
     renderHud: () => undefined,
-    sendGameMessage: (payload) => { sent.push(payload); return true; }
+    sendGameMessage: (payload) => { sent.push(payload); return online; }
   };
   const render = (over?: Partial<TileMenuView>): void => dockTileActionMenuForHudV2(state, view(over), deps, () => undefined);
 
@@ -45,6 +46,7 @@ describe("tile views in the sidebar", () => {
 
   beforeEach(() => {
     sent.length = 0;
+    online = true;
     fired.length = 0;
     // A fresh tile each test resets the dock's open panel.
     state.tileActionMenu.currentTileKey = `${Math.random()}`;
@@ -60,7 +62,6 @@ describe("tile views in the sidebar", () => {
     expect(side().getAttribute("aria-label")).toBe("Combat reports");
     expect(side().textContent).toContain("Took (5, 7)");
     expect(side().querySelector("[data-muster-commit-slider]")).toBeNull();
-    expect(menu().classList.contains("hud-v2-expanded")).toBe(false);
     expect(state.tileActionMenu.activeTab).not.toBe("reports");
   });
 
@@ -71,7 +72,7 @@ describe("tile views in the sidebar", () => {
     expect(side().querySelector("[data-muster-commit-value]")?.textContent).toBe("120");
     click("[data-muster-commit-save]");
     expect(sent).toEqual([{ type: "SET_MUSTER", x: 4, y: 7, mode: "HOLD", commitManpower: 120 }]);
-    expect(menu().classList.contains("hud-v2-expanded")).toBe(false);
+    expect(state.tileActionMenu.activeTab).not.toBe("commit");
   });
 
   it("keeps an unsaved pick when a tick repaints the view", () => {
@@ -106,6 +107,33 @@ describe("tile views in the sidebar", () => {
     expect(side().querySelector<HTMLElement>(".afc-slot-picker")?.hidden).toBe(false);
     click('.afc-slot-picker [data-action="afc_call_down_x"]');
     expect(fired).toEqual(["afc_call_down_x"]);
-    expect(menu().classList.contains("hud-v2-expanded")).toBe(false);
+    expect(state.tileActionMenu.activeTab).not.toBe("modules");
+  });
+
+  it("keeps the list's scroll when a tick repaints the view", () => {
+    click('[data-hud-v2-panel="reports"]');
+    const list = side().querySelector<HTMLElement>(".hud-v2-tile-view")!;
+    list.scrollTop = 140;
+    render({ musterReports: { flagKey: "4,7", reports: [report, { ...report, id: "r2", title: "Took (6, 7)" }], unread: 2 } });
+    expect(side().querySelector<HTMLElement>(".hud-v2-tile-view")).not.toBe(list);
+    expect(side().querySelector<HTMLElement>(".hud-v2-tile-view")?.scrollTop).toBe(140);
+  });
+
+  it("keeps an unsaved pick when Save could not send", () => {
+    online = false;
+    click('[data-hud-v2-panel="commit"]');
+    click('[data-muster-commit-preset="120"]');
+    click("[data-muster-commit-save]");
+    render({ commit: { ...commit, cap: 310 } });
+    expect(side().querySelector<HTMLInputElement>("[data-muster-commit-slider]")?.value).toBe("120");
+  });
+
+  it("drops an unsaved pick the new range no longer allows", () => {
+    click('[data-hud-v2-panel="commit"]');
+    click('[data-muster-commit-preset="120"]');
+    render({ commit: { ...commit, floor: 150, commitManpower: 150 } });
+    const slider = side().querySelector<HTMLInputElement>("[data-muster-commit-slider]")!;
+    expect(slider.value).toBe("150");
+    expect(slider.dataset.musterCommitDirty).toBeUndefined();
   });
 });

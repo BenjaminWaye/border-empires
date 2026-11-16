@@ -73,7 +73,9 @@ export const wireMusterCommitCard = (root: ParentNode, wiring: MusterCommitWirin
     updatePreview();
   };
   slider.oninput = () => pick(slider.value);
-  if (wiring.restoreValue !== undefined) pick(wiring.restoreValue);
+  // A floor or cap that moved past the pick would clamp it to a value the player never chose: drop it then.
+  const restore = Number(wiring.restoreValue);
+  if (wiring.restoreValue !== undefined && restore >= Number(slider.min) && restore <= Number(slider.max)) pick(wiring.restoreValue);
   root.querySelectorAll<HTMLButtonElement>("button[data-muster-commit-preset]").forEach((btn) => {
     btn.onclick = () => {
       const amount = Number(btn.dataset.musterCommitPreset);
@@ -86,7 +88,7 @@ export const wireMusterCommitCard = (root: ParentNode, wiring: MusterCommitWirin
     const { state } = wiring;
     const tile = state.tileActionMenu.currentTileKey ? state.tiles.get(state.tileActionMenu.currentTileKey) : undefined;
     if (!tile?.muster) return;
-    wiring.sendGameMessage({
+    const sent = wiring.sendGameMessage({
       type: "SET_MUSTER",
       x: tile.x,
       y: tile.y,
@@ -98,6 +100,7 @@ export const wireMusterCommitCard = (root: ParentNode, wiring: MusterCommitWirin
       ...(tile.muster.hunt ? { hunt: true } : {}),
       commitManpower: Number(slider.value)
     });
-    delete slider.dataset.musterCommitDirty;
+    // Not sent (offline): the pick stays unsaved, so a repaint keeps it for another try.
+    if (sent) delete slider.dataset.musterCommitDirty;
   };
 };

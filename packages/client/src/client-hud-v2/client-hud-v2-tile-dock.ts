@@ -20,7 +20,7 @@ import { aetherListHtml } from "./client-hud-v2-aether-list.js";
 import { buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { MAX_FACTS, tileFactsFor, wonderName } from "./client-hud-v2-tile-facts.js";
-import { musterFactsFor } from "./client-hud-v2-muster-facts.js";
+import { leadWithMusterFacts, musterFactsFor } from "./client-hud-v2-muster-facts.js";
 import { syncTileProgress } from "./client-hud-v2-tile-progress-live.js";
 import { isTileViewPanel, keepTileView, TILE_VIEW_TITLE, tileViewPanelHtml, wireTileView } from "./client-hud-v2-tile-views.js";
 
@@ -158,7 +158,7 @@ const paintBar = (): void => {
   const tile = dock.state.tiles.get(dock.state.tileActionMenu.currentTileKey);
   const state = dock.state;
   // Your muster flag's size leads: it is why you tapped the flag.
-  const facts = [...musterFactsFor(tile, state), ...tileFactsFor(tile, view, state.me, Date.now(), (t, field) => dormantResourcesForTile(state, t, field))].slice(0, MAX_FACTS);
+  const facts = leadWithMusterFacts(musterFactsFor(tile, state), tileFactsFor(tile, view, state.me, Date.now(), (t, field) => dormantResourcesForTile(state, t, field)), MAX_FACTS);
   // A wonder's tile only knows its terrain ("Sand"); name the wonder instead.
   const wonder = wonderName(tile);
   // Tagged wherever the panel names a foreign owner (any non-sea tile); your own tiles have no stance.
@@ -260,7 +260,7 @@ const onBarClick = (event: MouseEvent): void => {
     return;
   }
   // An AFC's module choices (the Modules view) are the legacy menu's own action buttons.
-  const moduleAction = target.closest<HTMLButtonElement>("button[data-action]");
+  const moduleAction = target.closest<HTMLButtonElement>(".afc-slot-picker button[data-action]");
   if (moduleAction && !moduleAction.disabled && moduleAction.dataset.action) {
     deps.handleTileAction(moduleAction.dataset.action as TileActionDef["id"], moduleAction.dataset.targetKey, moduleAction.dataset.originKey);
     return;

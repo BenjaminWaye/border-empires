@@ -41,12 +41,15 @@ export type TileViewKeep = {
   commitValue: string | undefined;
   openReports: string[];
   picker: ReturnType<typeof afcModulePickerState>;
+  /** The list's scroll: an incoming module's countdown repaints the sheet every tick, and reports grow. */
+  scrollTop: number;
 };
 
 export const keepTileView = (side: HTMLElement): TileViewKeep => ({
   commitValue: unsavedMusterCommitValue(side),
   openReports: openMusterReportIds(side),
-  picker: afcModulePickerState(side)
+  picker: afcModulePickerState(side),
+  scrollTop: side.querySelector<HTMLElement>(".hud-v2-tile-view")?.scrollTop ?? 0
 });
 
 export type TileViewWiring = {
@@ -66,4 +69,6 @@ export const wireTileView = (side: HTMLElement, panel: TileViewPanel, view: Tile
     bindAfcModulePicker(side, keep?.picker);
     fitAfcModulePicker(side);
   }
+  const list = side.querySelector<HTMLElement>(".hud-v2-tile-view");
+  if (list && keep?.scrollTop) list.scrollTop = keep.scrollTop;
 };

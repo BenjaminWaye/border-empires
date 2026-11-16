@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MUSTER_FLAG_BASE_CAP_FLOOR } from "@border-empires/shared";
 import type { Tile, TileMenuView } from "../client-types.js";
 import { actionBarHtml } from "./client-hud-v2-action-bar.js";
-import { musterFactsFor } from "./client-hud-v2-muster-facts.js";
+import { leadWithMusterFacts, musterFactsFor } from "./client-hud-v2-muster-facts.js";
 
 // 2026-11-16 playtest: tapping a muster flag showed no staged/cap anywhere on a
 // phone, and the "Reports ▸" link opened the legacy Attack commitment tab.
@@ -43,5 +43,22 @@ describe("muster flag in the new tile panel", () => {
   it("adds nothing without your own flag", () => {
     expect(musterFactsFor({ x: 1, y: 1, terrain: "LAND", ownerId: "me" }, state)).toEqual([]);
     expect(musterFactsFor({ ...flagTile("HOLD"), ownerId: "rival" }, state)).toEqual([]);
+  });
+
+  it("goes by the flag's owner, not the tile's", () => {
+    const tile = flagTile("HOLD");
+    expect(musterFactsFor({ ...tile, muster: { ...tile.muster!, ownerId: "rival" } }, state)).toEqual([]);
+  });
+
+  it("never pushes the tile's warnings off the strip", () => {
+    const muster = musterFactsFor(flagTile("HOLD"), state);
+    const town = [
+      { label: "Town", value: "Town" },
+      { label: "Coin", value: "3.0/day" },
+      { label: "Food", value: "Unfed", tone: "warn" as const },
+      { label: "Growth", value: "Paused", tone: "warn" as const }
+    ];
+    expect(leadWithMusterFacts(muster, town, 4).map((f) => f.label)).toEqual(["Muster", "Order", "Food", "Growth"]);
+    expect(leadWithMusterFacts(muster, town.slice(0, 2), 4).map((f) => f.label)).toEqual(["Muster", "Order", "Town", "Coin"]);
   });
 });
