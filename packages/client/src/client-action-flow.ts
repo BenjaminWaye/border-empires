@@ -26,6 +26,7 @@ import {
 } from "./client-player-actions.js";
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { ensureClientCommandEnvelope } from "./client-command-envelope/client-command-envelope.js";
+import { pacedSocketSend } from "./client-command-pacer/client-command-pacer.js";
 import { clearMusterTransitForAttack } from "./client-muster-transit/client-muster-transit.js";
 import { handleMarchPickClick } from "./client-march-origin-picking/client-march-origin-picking.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
@@ -311,8 +312,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         eligible: state.mapRevealEligible
       });
     }
-    ws.send(JSON.stringify(payload));
-    return true;
+    return pacedSocketSend(ws, payload, () => ws.readyState === ws.OPEN && state.authSessionReady && state.connection === "initialized");
   };
 
   const requestTileDetailIfNeeded = (tile: Tile | undefined, options: TileDetailRequestOptions = {}): void => {
