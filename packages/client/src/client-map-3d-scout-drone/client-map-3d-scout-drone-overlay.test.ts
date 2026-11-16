@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Scene } from "three";
+import { Scene, type BufferGeometry, type Mesh, type MeshBasicMaterial } from "three";
 import { planScoutDroneFlight, type ScoutDroneFlight } from "@border-empires/shared";
 import {
   SCOUT_DRONE_CRUISE_HEIGHT,
@@ -7,7 +7,7 @@ import {
   createScoutDroneOverlay,
   type ScoutDroneScenePoint
 } from "./client-map-3d-scout-drone-overlay.js";
-import { SCOUT_LAUNCH_MS, createScoutDronePose, scoutDronePoseAt } from "./client-map-3d-scout-drone-pose.js";
+import { SCOUT_LAND_MS, SCOUT_LAUNCH_MS, SCOUT_SPOOL_MS, createScoutDronePose, scoutDronePoseAt } from "./client-map-3d-scout-drone-pose.js";
 import { drawScoutDrone2D } from "../client-map-render-2d-scout-drone/client-map-render-2d-scout-drone.js";
 import type { UnitMotionGate } from "../client-map-3d-unit-motion-gate/client-map-3d-unit-motion-gate.js";
 
@@ -42,9 +42,24 @@ describe("scoutDronePoseAt", () => {
     expect(pose.speed).toBeCloseTo(1000 / 7500);
   });
 
-  it("is half way up during the launch, and turns for home after the turnaround", () => {
-    scoutDronePoseAt(flight, flight.launchedAt + SCOUT_LAUNCH_MS / 2, world.width, world.height, pose);
+  it("spools its props up on the crown before it lifts", () => {
+    scoutDronePoseAt(flight, flight.launchedAt + SCOUT_SPOOL_MS * 0.25, world.width, world.height, pose);
+    const early = pose.rotor;
+    expect(early).toBeGreaterThan(0);
+    expect(early).toBeLessThan(0.5);
+    expect(pose.lift).toBe(0);
+    scoutDronePoseAt(flight, flight.launchedAt + SCOUT_SPOOL_MS * 0.75, world.width, world.height, pose);
+    expect(pose.rotor).toBeGreaterThan(early * 2);
+    expect(pose.lift).toBe(0);
+    scoutDronePoseAt(flight, flight.launchedAt + SCOUT_SPOOL_MS, world.width, world.height, pose);
+    expect(pose.rotor).toBe(1);
+    expect(pose.lift).toBe(0);
+  });
+
+  it("is half way up during the climb, and turns for home after the turnaround", () => {
+    scoutDronePoseAt(flight, flight.launchedAt + (SCOUT_SPOOL_MS + SCOUT_LAUNCH_MS) / 2, world.width, world.height, pose);
     expect(pose.lift).toBeCloseTo(0.5);
+    expect(pose.launchT).toBeCloseTo(0.5);
     scoutDronePoseAt(flight, flight.steps[flight.turnIndex + 1]!.at + 1, world.width, world.height, pose);
     expect(pose.returning).toBe(true);
     expect(pose.dirX).toBeCloseTo(-1);
@@ -71,6 +86,36 @@ describe("createScoutDroneOverlay", () => {
     overlay.sync(flight, flight.landsAt);
     expect(drone.visible).toBe(false);
     expect(scene.getObjectByName("scout-drone-ground-fx")!.visible).toBe(false);
+  });
+
+  it("casts its silhouette shadow, turned with its heading, crisp on the crown and soft at altitude", () => {
+    const scene = new Scene();
+    const overlay = createScoutDroneOverlay(scene, { world, sceneFor, motionGate: gate(true) });
+    const shadow = scene.getObjectByName("scout-drone-shadow")!;
+    const opacities = (): [number, number] => {
+      const [sharp, soft] = shadow.children as Mesh<BufferGeometry, MeshBasicMaterial>[];
+      return [sharp!.material.opacity, soft!.material.opacity];
+    };
+    overlay.sync(flight, flight.launchedAt);
+    const [sharpLow, softLow] = opacities();
+    expect(sharpLow).toBeGreaterThan(softLow);
+    overlay.sync(flight, midFlight);
+    const [sharpHigh, softHigh] = opacities();
+    expect(softHigh).toBeGreaterThan(sharpHigh);
+    expect(sharpHigh + softHigh).toBeLessThan(sharpLow + softLow); // fainter with altitude
+    expect(shadow.rotation.y).toBeCloseTo(scene.getObjectByName("scout-drone")!.rotation.y);
+    overlay.dispose();
+  });
+
+  it("leans forward before moving off and flares nose-up before landing", () => {
+    const scene = new Scene();
+    const overlay = createScoutDroneOverlay(scene, { world, sceneFor, motionGate: gate(true) });
+    const drone = scene.getObjectByName("scout-drone")!;
+    overlay.sync(flight, flight.launchedAt + SCOUT_SPOOL_MS + (SCOUT_LAUNCH_MS - SCOUT_SPOOL_MS) * 0.47);
+    expect(drone.rotation.x).toBeGreaterThan(0.1); // nose down
+    overlay.sync(flight, flight.landsAt - SCOUT_LAND_MS * 0.6);
+    expect(drone.rotation.x).toBeLessThan(-0.08); // nose up
+    overlay.dispose();
   });
 
   it("holds the decorative motion still when the motion gate says so", () => {

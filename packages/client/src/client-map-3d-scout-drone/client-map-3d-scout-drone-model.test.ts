@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Mesh } from "three";
 import { createScoutDroneModel } from "./client-map-3d-scout-drone-model.js";
-import { scoutStrobeOn } from "./client-map-3d-scout-drone-lights.js";
+import { applyScoutDroneLights, scoutStrobeOn } from "./client-map-3d-scout-drone-lights.js";
 
 describe("Survey Quad model", () => {
   // Only one scout drone is ever drawn (the player's own), so it is budgeted as a single-instance
@@ -36,5 +36,30 @@ describe("scoutStrobeOn", () => {
   it("double-flashes: two short pulses, then a pause", () => {
     const on = [0, 50, 100, 170, 260, 900].map(scoutStrobeOn);
     expect(on).toEqual([true, true, false, true, false, false]);
+  });
+});
+
+describe("the strobe", () => {
+  it("is a tiny sharp point while it flashes, and fully dark between flashes", () => {
+    const model = createScoutDroneModel();
+    const strobe = model.lights.strobe;
+    applyScoutDroneLights(model, 1, 0.5, true, 20, true);
+    expect(strobe.glow.visible).toBe(true);
+    expect(strobe.glow.scale.x).toBeLessThanOrEqual(0.03);
+    applyScoutDroneLights(model, 1, 0.5, true, 600, true);
+    expect(strobe.glow.visible).toBe(false);
+    expect(strobe.bead.emissiveIntensity).toBe(0);
+    model.dispose();
+  });
+
+  it("grows only the camera-lens halo with distance, not the other lights", () => {
+    const model = createScoutDroneModel();
+    applyScoutDroneLights(model, 1, 0.5, true, 600, true, 0);
+    const near = model.lights.lens.glow.scale.x;
+    const nav = model.lights.navLeft.glow.scale.x;
+    applyScoutDroneLights(model, 1, 0.5, true, 600, true, 1);
+    expect(model.lights.lens.glow.scale.x).toBeGreaterThan(near * 2);
+    expect(model.lights.navLeft.glow.scale.x).toBe(nav);
+    model.dispose();
   });
 });

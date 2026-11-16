@@ -48,6 +48,12 @@ const storyFlight = (): ScoutDroneFlight =>
     classify: (x, y) => (isOwn(x, y) ? { kind: "HOME" } : isRival(x) ? { kind: "BLOCKED", ownerId: "rival" } : { kind: "OPEN" })
   }) as ScoutDroneFlight;
 
+/** A second before touch-down, mid-flare. */
+const LANDING_FLARE_AT = (() => {
+  const flight = storyFlight();
+  return (flight.landsAt - flight.launchedAt) / 1000 - 1.05;
+})();
+
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: args.cameraTilt, background: "#0d1218", bloom: true, width: 1280, height: 720 });
   // The game's look: filmic tone mapping and a room environment for the metal to reflect.
@@ -186,8 +192,14 @@ export const GimbalCloseUp: Story = { args: { atSeconds: 3.4, follow: true, came
 export const FrontView: Story = { args: { atSeconds: 3.4, follow: true, cameraDistance: 0.001, cameraTilt: Math.PI / 2, cameraSide: 1.7, cameraRise: 1.95 } };
 /** The game's default zoom (DEFAULT_ZOOM 22: camera 37.8 out at a 0.6 tilt), past the border. */
 export const GameplayZoom: Story = { args: { progress: 0.38, follow: true, cameraDistance: 37.8, cameraTilt: 0.6, cameraSide: 0 } };
-/** Lifting out of the AFC's crown a second after launch. */
-export const Launch: Story = { args: { atSeconds: 0.75, follow: true, cameraDistance: 5, cameraTilt: 0.95, cameraSide: 1 } };
+/** Launch, 1 of 3: props spooling up on the AFC's crown, still blades accelerating into a blur. */
+export const Launch: Story = { args: { atSeconds: 0.4, follow: true, cameraDistance: 3.4, cameraTilt: 1.1, cameraSide: 1.3 } };
+/** Launch, 2 of 3: lifting straight up out of the crown. */
+export const LaunchLift: Story = { args: { atSeconds: 1.15, follow: true, cameraDistance: 3.4, cameraTilt: 1.1, cameraSide: 1.3 } };
+/** Launch, 3 of 3: the forward lean just before it slides off along its route. */
+export const LaunchLeanOff: Story = { args: { atSeconds: 1.5, follow: true, cameraDistance: 3.4, cameraTilt: 1.1, cameraSide: 1.3 } };
+/** Coming home: the nose-up flare as it slows over the AFC to land. */
+export const LandingFlare: Story = { args: { atSeconds: LANDING_FLARE_AT, follow: true, cameraDistance: 3.4, cameraTilt: 1.15, cameraSide: 1.4 } };
 /** Turned back at the rival's border and heading home. */
 export const Returning: Story = { args: { progress: 0.62 } };
 /** Plays the flight at 20x speed. */

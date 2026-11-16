@@ -4,13 +4,16 @@ import { scoutDroneStepIndexAt, type ScoutDroneFlight } from "@border-empires/sh
 // (packages/shared/src/scout-drone/scout-drone.ts). Shared by the 3D overlay and the 2D glyph.
 // Written into a caller-owned object so the per-frame path allocates nothing.
 //
-// On top of the server's tile-by-tile timeline it adds the presentation beats: the drone lifts
-// out of the AFC's crown over SCOUT_LAUNCH_MS after launch, its rotors spin up first, and it
-// settles back into the crown over SCOUT_LAND_MS before it lands.
+// On top of the server's tile-by-tile timeline it adds the presentation beats: on launch the
+// props spool up on the crown first (still blades accelerating into a blur over SCOUT_SPOOL_MS),
+// then the drone lifts out of the AFC's crown by SCOUT_LAUNCH_MS after launch; it settles back
+// into the crown over SCOUT_LAND_MS before it lands, its props spinning down at the very end.
 
-export const SCOUT_LAUNCH_MS = 1_800;
+/** Launch to cruise, spool-up included. */
+export const SCOUT_LAUNCH_MS = 2_400;
+/** Props spooling up on the crown before the drone lifts. */
+export const SCOUT_SPOOL_MS = 700;
 export const SCOUT_LAND_MS = 1_800;
-const ROTOR_SPIN_UP_MS = 500;
 const ROTOR_SPIN_DOWN_MS = 450;
 
 export type ScoutDronePose = {
@@ -26,12 +29,16 @@ export type ScoutDronePose = {
   lift: number;
   /** 0 stopped .. 1 full speed. */
   rotor: number;
+  /** Linear progress through the climb after spool-up: 0 on the crown .. 1 at cruise. */
+  launchT: number;
+  /** Linear progress through the descent: 0 before it begins .. 1 at touch-down. */
+  landT: number;
   returning: boolean;
   /** Index of the step the drone last passed. */
   stepIndex: number;
 };
 
-export const createScoutDronePose = (): ScoutDronePose => ({ x: 0, y: 0, dirX: 0, dirY: 0, speed: 0, lift: 0, rotor: 0, returning: false, stepIndex: 0 });
+export const createScoutDronePose = (): ScoutDronePose => ({ x: 0, y: 0, dirX: 0, dirY: 0, speed: 0, lift: 0, rotor: 0, launchT: 0, landT: 0, returning: false, stepIndex: 0 });
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 export const smoothstep01 = (v: number): number => {
@@ -57,7 +64,9 @@ export const scoutDronePoseAt = (flight: ScoutDroneFlight | undefined, nowMs: nu
   const dx = wrapDelta(from.x, to.x, width);
   const dy = wrapDelta(from.y, to.y, height);
   const length = Math.hypot(dx, dy);
-  const launch = smoothstep01((nowMs - flight.launchedAt) / SCOUT_LAUNCH_MS);
+  const sinceLaunch = nowMs - flight.launchedAt;
+  const launchT = clamp01((sinceLaunch - SCOUT_SPOOL_MS) / (SCOUT_LAUNCH_MS - SCOUT_SPOOL_MS));
+  const launch = smoothstep01(launchT);
   // Leave the crown almost straight up, then slide onto the route as it climbs.
   const glide = launch * launch * launch;
   out.x = first.x + (wrapDelta(first.x, from.x, width) + dx * t) * glide;
@@ -66,7 +75,11 @@ export const scoutDronePoseAt = (flight: ScoutDroneFlight | undefined, nowMs: nu
   out.dirY = length > 0 ? dy / length : 0;
   out.speed = span > 0 && length > 0 ? (1000 * length) / span : 0;
   out.lift = Math.min(launch, smoothstep01((flight.landsAt - nowMs) / SCOUT_LAND_MS));
-  out.rotor = Math.min(clamp01((nowMs - flight.launchedAt) / ROTOR_SPIN_UP_MS), clamp01((flight.landsAt - nowMs) / ROTOR_SPIN_DOWN_MS));
+  // Spool-up eases in (slow first turns, then accelerating), so the blades read before the blur.
+  const spool = clamp01(sinceLaunch / SCOUT_SPOOL_MS);
+  out.rotor = Math.min(spool * spool * (2 - spool), clamp01((flight.landsAt - nowMs) / ROTOR_SPIN_DOWN_MS));
+  out.launchT = launchT;
+  out.landT = clamp01(1 - (flight.landsAt - nowMs) / SCOUT_LAND_MS);
   out.returning = index >= flight.turnIndex;
   out.stepIndex = index;
   return true;

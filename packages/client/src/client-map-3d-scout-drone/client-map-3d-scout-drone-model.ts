@@ -15,9 +15,10 @@ import { SCOUT_CYAN, createScoutDroneMaterials } from "./client-map-3d-scout-dro
 // The scout drone (docs/explore-scout-plan.md), the "Survey Quad": a realistic, high-end mapping
 // drone the AFC builds and launches. A satin graphite domed shell with one hatch seam and twin
 // obstacle-sensor lenses on the nose, over a rounded battery pack (brass latch, charge LEDs),
-// carbon arms rising to brushed aluminium motors with brass caps, aerofoil props behind thin
-// guards, a 3-axis camera gimbal hanging under the nose with a REC light, and two long landing
-// legs that fold up in flight. Geometry: -geometry.ts and -parts.ts; materials: -materials.ts.
+// a thin polished trim along the shell's rim, carbon arms tapering out to compact brushed
+// aluminium motors with brass caps, aerofoil props behind thin guards, a 3-axis camera gimbal
+// under the nose (layered lens, REC light), and landing gear -- struts with rounded knees and a
+// foot bar with rubber caps -- that folds up in flight. Geometry: -geometry.ts and -parts.ts; materials: -materials.ts.
 // The overlay (client-map-3d-scout-drone-overlay.ts) poses it every frame through these handles.
 
 const NAV_RED = new Color("#ff3b26");
@@ -71,6 +72,7 @@ export const createScoutDroneModel = (envMap?: Texture): ScoutDroneModel => {
     new Mesh(geo(a.arms), m.carbon),
     new Mesh(geo(a.bells), m.aluminium),
     new Mesh(geo(a.frame), m.frame),
+    new Mesh(geo(a.trim), m.trim),
     new Mesh(geo(a.brass), m.brass),
     new Mesh(geo(a.glass), m.glass),
     new Mesh(geo(a.leds), m.leds)
@@ -92,11 +94,12 @@ export const createScoutDroneModel = (envMap?: Texture): ScoutDroneModel => {
     return { blades, disc: discMaterial };
   });
 
-  // Landing legs, hinged on the chassis sides.
+  // Landing gear, hinged on the chassis sides.
   const leg = (side: 1 | -1): Group => {
     const group = new Group();
     group.position.set(side * SCOUT_LEG_HINGE.x, SCOUT_LEG_HINGE.y, 0);
-    group.add(new Mesh(geo(buildScoutLeg(side)), m.frame));
+    const parts = buildScoutLeg(side);
+    group.add(new Mesh(geo(parts.strut), m.frame), new Mesh(geo(parts.rubber), m.rubber));
     root.add(group);
     return group;
   };
@@ -109,18 +112,26 @@ export const createScoutDroneModel = (envMap?: Texture): ScoutDroneModel => {
   gimbalPan.add(new Mesh(geo(gimbal.yoke), m.frame));
   const gimbalTilt = new Group();
   gimbalTilt.position.y = SCOUT_GIMBAL_TILT_Y;
-  gimbalTilt.add(new Mesh(geo(gimbal.camera), m.chassis), new Mesh(geo(gimbal.barrel), m.aluminium), new Mesh(geo(gimbal.glass), m.glass), new Mesh(geo(gimbal.iris), m.lens));
+  const outerGlass = new Mesh(geo(gimbal.glass), m.lensGlass);
+  outerGlass.renderOrder = 2; // over the iris ring and element it lets through
+  gimbalTilt.add(
+    new Mesh(geo(gimbal.camera), m.chassis),
+    new Mesh(geo(gimbal.barrel), m.aluminium),
+    new Mesh(geo(gimbal.irisRing), m.frame),
+    new Mesh(geo(gimbal.iris), m.lens),
+    outerGlass
+  );
   gimbalPan.add(gimbalTilt);
   root.add(gimbalPan);
 
   // Lights: a crisp emissive LED each, plus a small soft halo sprite.
   const bead = geo(new SphereGeometry(1, 6, 4));
-  const light = (x: number, y: number, z: number, color: Color, size: number, beadSize: number, parent: Group = root): ScoutLight => {
+  const light = (x: number, y: number, z: number, color: Color, size: number, beadSize: number, parent: Group = root, map = m.glowTexture): ScoutLight => {
     const beadMaterial = m.keep(new MeshStandardMaterial({ color: "#000000", emissive: color, emissiveIntensity: 3 }));
     const mesh = new Mesh(bead, beadMaterial);
     mesh.position.set(x, y, z);
     mesh.scale.setScalar(beadSize);
-    const material = m.keep(new SpriteMaterial({ toneMapped: false, map: m.glowTexture, color: color.clone(), transparent: true, blending: AdditiveBlending, depthWrite: false }));
+    const material = m.keep(new SpriteMaterial({ toneMapped: false, map, color: color.clone(), transparent: true, blending: AdditiveBlending, depthWrite: false }));
     const glow = new Sprite(material);
     glow.position.set(x, y, z);
     glow.scale.setScalar(size);
@@ -130,16 +141,17 @@ export const createScoutDroneModel = (envMap?: Texture): ScoutDroneModel => {
   // Nav lights on the outer ends of the front arms, at the motor bases.
   const frontLeft = centres[1]!;
   const frontRight = centres[0]!;
-  const out = 0.028; // just outside the motor bell
+  const out = 0.024; // just outside the motor bell
   const navY = SCOUT_MOTOR_Y + 0.004;
   const navLeftLocal = { x: frontLeft.x + Math.sin(frontLeft.angle) * out, y: navY, z: frontLeft.z + Math.cos(frontLeft.angle) * out };
   const navRightLocal = { x: frontRight.x + Math.sin(frontRight.angle) * out, y: navY, z: frontRight.z + Math.cos(frontRight.angle) * out };
   const lights = {
-    lens: light(0, 0, SCOUT_LENS_Z + 0.001, SCOUT_CYAN, 0.03, 0.002, gimbalTilt),
-    status: light(0.024, SCOUT_STATUS_LIGHT.y, SCOUT_STATUS_LIGHT.z, SCOUT_CYAN, 0.022, 0.0025),
+    lens: light(0, 0, SCOUT_LENS_Z - 0.004, SCOUT_CYAN, 0.03, 0.002, gimbalTilt),
+    status: light(0.024, SCOUT_STATUS_LIGHT.y, SCOUT_STATUS_LIGHT.z, SCOUT_CYAN, 0.012, 0.0016, root, m.pointGlowTexture), // a small status LED, never a lamp
     navLeft: light(navLeftLocal.x, navLeftLocal.y, navLeftLocal.z, NAV_RED, 0.036, 0.0035),
     navRight: light(navRightLocal.x, navRightLocal.y, navRightLocal.z, NAV_GREEN, 0.036, 0.0035),
-    strobe: light(0, SCOUT_STROBE.y, SCOUT_STROBE.z, STROBE, 0.06, 0.0035),
+    // The strobe: a tiny, sharp point with a tight halo (dark between flashes).
+    strobe: light(0, SCOUT_STROBE.y, SCOUT_STROBE.z, STROBE, 0.01, 0.0016, root, m.pointGlowTexture),
     rec: light(SCOUT_REC_LIGHT.x, SCOUT_REC_LIGHT.y, SCOUT_REC_LIGHT.z, REC_RED, 0.016, 0.0018, gimbalTilt)
   };
 

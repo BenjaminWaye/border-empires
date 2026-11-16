@@ -31,16 +31,31 @@ export const makeGlowTexture = (): CanvasTexture | null =>
     ctx.fillRect(0, 0, size, size);
   });
 
+/** A small, sharp point of light: a hard bright core with a short, tight halo. For the strobe. */
+export const makePointGlowTexture = (): CanvasTexture | null =>
+  canvasTexture(64, (ctx, size) => {
+    const half = size / 2;
+    const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+    grad.addColorStop(0, "rgba(255,255,255,1)");
+    grad.addColorStop(0.08, "rgba(255,255,255,1)");
+    grad.addColorStop(0.2, "rgba(255,255,255,0.35)");
+    grad.addColorStop(0.5, "rgba(255,255,255,0.06)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+  });
+
 /**
- * A prop seen at speed: a soft radial gradient, denser near the hub and translucent toward the
+ * A prop seen at speed: a soft radial gradient, clear over the hub (never a hot core), fullest mid-blade and translucent toward the
  * tips, with a faint tip-path ring where the blade tips trace their circle.
  */
 export const makeRotorBlurTexture = (): CanvasTexture | null =>
   canvasTexture(128, (ctx, size) => {
     const half = size / 2;
     const grad = ctx.createRadialGradient(half, half, size * 0.05, half, half, half);
-    grad.addColorStop(0, "rgba(255,255,255,0.55)");
-    grad.addColorStop(0.35, "rgba(255,255,255,0.3)");
+    grad.addColorStop(0, "rgba(255,255,255,0)");
+    grad.addColorStop(0.2, "rgba(255,255,255,0.2)");
+    grad.addColorStop(0.5, "rgba(255,255,255,0.22)");
     grad.addColorStop(0.85, "rgba(255,255,255,0.1)");
     grad.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = grad;
@@ -124,14 +139,43 @@ export const makeVisionRingTexture = (): CanvasTexture | null =>
     }
   });
 
-/** A soft dark blob for the ground shadow. */
-export const makeShadowTexture = (): CanvasTexture | null =>
-  canvasTexture(64, (ctx, size) => {
+/** Half the width of the drone's shadow silhouette texture, in drone-local units (props included). */
+export const SCOUT_SHADOW_HALF_EXTENT = 0.27;
+
+/**
+ * The drone's contact shadow seen from straight above: the body, the X of the arms, the motors and
+ * the faint discs of the props, blurred by `blur` (a fraction of the texture). Drawn in drone-local
+ * units, nose toward the bottom of the texture, so the ground plane only has to turn with the yaw.
+ */
+export const makeSilhouetteShadowTexture = (blur: number): CanvasTexture | null =>
+  canvasTexture(128, (ctx, size) => {
     const half = size / 2;
-    const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
-    grad.addColorStop(0, "rgba(255,255,255,1)");
-    grad.addColorStop(0.5, "rgba(255,255,255,0.55)");
-    grad.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, size, size);
+    const px = half / SCOUT_SHADOW_HALF_EXTENT;
+    ctx.filter = `blur(${Math.max(0.5, blur * size)}px)`;
+    ctx.translate(half, half);
+    const reach = 0.2 * Math.SQRT1_2 * px;
+    ctx.fillStyle = "rgba(255,255,255,0.32)";
+    for (const [x, y] of [[reach, reach], [-reach, reach], [reach, -reach], [-reach, -reach]] as const) {
+      ctx.beginPath();
+      ctx.arc(x, y, 0.085 * px, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = "rgba(255,255,255,1)";
+    ctx.lineCap = "round";
+    ctx.lineWidth = 0.02 * px;
+    ctx.beginPath();
+    ctx.moveTo(-reach, -reach);
+    ctx.lineTo(reach, reach);
+    ctx.moveTo(reach, -reach);
+    ctx.lineTo(-reach, reach);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,1)";
+    for (const [x, y] of [[reach, reach], [-reach, reach], [reach, -reach], [-reach, -reach]] as const) {
+      ctx.beginPath();
+      ctx.arc(x, y, 0.02 * px, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 0.066 * px, 0.122 * px, 0, 0, Math.PI * 2);
+    ctx.fill();
   });

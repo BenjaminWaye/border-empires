@@ -1,10 +1,10 @@
-import { BufferGeometry, CircleGeometry, CylinderGeometry, ExtrudeGeometry, Quaternion, RingGeometry, Shape, Vector3 } from "three";
+import { BufferGeometry, CapsuleGeometry, CircleGeometry, CylinderGeometry, ExtrudeGeometry, Quaternion, RingGeometry, Shape, SphereGeometry, Vector3 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { SCOUT_PROP_RADIUS, merge, placed, rod } from "./client-map-3d-scout-drone-geometry.js";
 
 // The Survey Quad's moving parts (client-map-3d-scout-drone-model.ts), each around its own pivot:
 // the props (aerofoil blades and the blur disc they become at speed), the 3-axis camera gimbal and
-// the landing legs. Built once.
+// the landing gear. Built once.
 
 // A thin aerofoil section (rounded leading edge, sharp trailing edge), chord along X, thickness Y.
 const aerofoil = (chord: number): Shape => {
@@ -56,10 +56,12 @@ export type ScoutGimbalGeometry = {
   readonly camera: BufferGeometry;
   /** The lens barrel (aluminium). */
   readonly barrel: BufferGeometry;
-  /** The front glass. */
+  /** The outer front glass (clear, with a soft reflection). */
   readonly glass: BufferGeometry;
-  /** The inner iris ring (cyan). */
+  /** The inner element seen through the glass (emissive cyan). */
   readonly iris: BufferGeometry;
+  /** The dark iris ring around the inner element, recessed in the barrel. */
+  readonly irisRing: BufferGeometry;
 };
 
 /** A believable 3-axis gimbal: motor housings at the pan and tilt joints and a rounded camera with a lens barrel. */
@@ -79,24 +81,39 @@ export const buildScoutGimbal = (): ScoutGimbalGeometry => {
   const barrelGeometry = new CylinderGeometry(0.011, 0.0125, 0.016, 16, 1, true);
   const barrel = placed(barrelGeometry, new Vector3(0, 0, 0.0235), along(new Vector3(0, 0, 1)));
   barrelGeometry.dispose();
-  const glassGeometry = new CircleGeometry(0.0105, 16);
+  // The lens in three layers: outer glass at the barrel's mouth; behind it, recessed, a dark iris
+  // ring around a small cyan inner element.
+  const glassGeometry = new CircleGeometry(0.0108, 20);
   const glass = placed(glassGeometry, new Vector3(0, 0, SCOUT_LENS_Z));
   glassGeometry.dispose();
-  const irisGeometry = new RingGeometry(0.0028, 0.0055, 16);
-  const iris = placed(irisGeometry, new Vector3(0, 0, SCOUT_LENS_Z + 0.0003));
-  irisGeometry.dispose();
-  return { yoke, camera, barrel, glass, iris };
+  const elementGeometry = new CircleGeometry(0.0042, 16);
+  const iris = placed(elementGeometry, new Vector3(0, 0, SCOUT_LENS_Z - 0.0055));
+  elementGeometry.dispose();
+  const ringGeometry = new RingGeometry(0.0042, 0.0112, 20);
+  const irisRing = placed(ringGeometry, new Vector3(0, 0, SCOUT_LENS_Z - 0.0056));
+  ringGeometry.dispose();
+  return { yoke, camera, barrel, glass, iris, irisRing };
 };
 
 /**
- * One landing leg, in its own frame: the hinge runs along Z at the origin; two struts drop to a
- * foot bar running fore and aft. The model rotates it about Z to fold it up after launch.
+ * One landing leg, in its own frame: the hinge runs along Z at the origin. Two struts drop, kink
+ * outward at a rounded knee, and meet a foot bar running fore and aft; the bar ends in small
+ * rubber caps. The model folds it up after launch.
  */
-export const buildScoutLeg = (side: 1 | -1): BufferGeometry => {
-  const foot = new Vector3(side * 0.036, -0.12, 0);
-  return merge([
-    rod(new Vector3(0, 0, 0.03), foot.clone().setZ(0.03), 0.004, 0.0035, 6),
-    rod(new Vector3(0, 0, -0.03), foot.clone().setZ(-0.03), 0.004, 0.0035, 6),
-    rod(foot.clone().setZ(-0.085), foot.clone().setZ(0.085), 0.0045, 0.0045, 8)
-  ]);
+export const buildScoutLeg = (side: 1 | -1): { readonly strut: BufferGeometry; readonly rubber: BufferGeometry } => {
+  const knee = new Vector3(side * 0.03, -0.05, 0);
+  const foot = new Vector3(side * 0.04, -0.118, 0);
+  const kneeBall = new SphereGeometry(0.0062, 10, 6);
+  const parts: BufferGeometry[] = [];
+  for (const z of [-0.03, 0.03]) {
+    parts.push(rod(new Vector3(0, 0, z), knee.clone().setZ(z), 0.0055, 0.0052, 8));
+    parts.push(placed(kneeBall, knee.clone().setZ(z)));
+    parts.push(rod(knee.clone().setZ(z), foot.clone().setZ(z), 0.0052, 0.0046, 8));
+  }
+  parts.push(rod(foot.clone().setZ(-0.078), foot.clone().setZ(0.078), 0.0052, 0.0052, 8));
+  // Rubber end caps: short rounded sleeves over each end of the foot bar.
+  const sleeve = new CapsuleGeometry(0.0068, 0.012, 2, 8);
+  const alongZ = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), new Vector3(0, 0, 1));
+  const rubber = merge([placed(sleeve, foot.clone().setZ(0.082), alongZ), placed(sleeve, foot.clone().setZ(-0.082), alongZ)], [sleeve]);
+  return { strut: merge(parts, [kneeBall]), rubber };
 };

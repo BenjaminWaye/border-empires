@@ -99,7 +99,7 @@ export const makeChassisTextures = (): ScoutTextureSet | null => {
   return set({ roughnessMap: toTexture(rough.canvas, false, true) });
 };
 
-/** Carbon fibre: a 2x2 twill weave in the normal and roughness maps, only visible up close. */
+/** Carbon fibre: a 2x2 twill weave, kept to a faint sheen variation in the normal and roughness maps. */
 export const makeCarbonTextures = (): ScoutTextureSet | null => {
   const S = 64;
   const rough = canvas2d(S);
@@ -109,9 +109,9 @@ export const makeCarbonTextures = (): ScoutTextureSet | null => {
   for (let y = 0; y < S; y += cell) {
     for (let x = 0; x < S; x += cell) {
       const along = ((x + y) / cell) % 4 < 2; // twill: tows step diagonally
-      rough.ctx.fillStyle = along ? "rgb(90,90,90)" : "rgb(130,130,130)";
+      rough.ctx.fillStyle = along ? "rgb(104,104,104)" : "rgb(114,114,114)";
       rough.ctx.fillRect(x, y, cell, cell);
-      normal.ctx.fillStyle = along ? "rgb(150,128,240)" : "rgb(128,150,240)";
+      normal.ctx.fillStyle = along ? "rgb(134,128,250)" : "rgb(128,134,250)";
       normal.ctx.fillRect(x, y, cell, cell);
     }
   }

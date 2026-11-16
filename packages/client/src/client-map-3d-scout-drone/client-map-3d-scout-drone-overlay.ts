@@ -12,17 +12,19 @@ import { createScoutRunningLights, resetScoutRunningLights, updateScoutRunningLi
 export type { ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights.js";
 
 // The true-3D view of the player's scout drone (docs/explore-scout-plan.md). The drone
-// (client-map-3d-scout-drone-model.ts) lifts out of its AFC's crown, climbs to cruise height and
-// flies its route banking into turns and pitching nose-down with speed, its camera gimbal panning
-// over the ground below, then settles back into the crown. Under it: the vision footprint with a
-// radar sweep, a blob shadow and the route ahead (client-map-3d-scout-drone-ground-fx.ts); behind
+// (client-map-3d-scout-drone-model.ts) spools its props up on its AFC's crown, lifts out, leans
+// forward a beat before it moves off, climbs to cruise height and flies its route banking into
+// turns and pitching nose-down with speed, its camera gimbal panning over the ground below; it
+// flares nose-up as it comes in and settles gently back into the crown. Under it: the vision
+// footprint with a radar sweep, its silhouette shadow and the route ahead
+// (client-map-3d-scout-drone-ground-fx.ts); behind
 // it, short nav-light trails (client-map-3d-scout-drone-trails.ts). The 2D renderer draws the same
 // story flat (client-map-render-2d-scout-drone/).
 //
 // client-map-3d/client-map-3d.ts creates this once and calls sync() every frame. Nothing is
 // allocated per frame. On Reduce Motion or a slow device (client-map-3d-unit-motion-gate.ts)
-// the rotors, sweep, bob, strobe and trails hold still; the drone still moves along its route,
-// since that is information, not decoration.
+// the rotors, sweep, bob, strobe, trails, lean, flare and settle hold still; the drone still moves
+// along its route, since that is information, not decoration.
 
 export type ScoutDroneScenePoint = { sceneX: number; sceneZ: number; surfaceY: number };
 
@@ -54,6 +56,14 @@ export const SCOUT_DRONE_CRUISE_HEIGHT = 1.95;
 const MAX_BANK = 0.55;
 const SWEEP_PER_MS = 0.0016;
 const ROTOR_PER_MS = 0.06;
+/** Forward lean before moving off, nose-up flare coming in to land (radians), and the touch-down settle (scene units). */
+const LAUNCH_LEAN = 0.14;
+const LANDING_FLARE = 0.17;
+const TOUCHDOWN_SETTLE = 0.045;
+/** Camera distance over which the far-view readability boost fades in (gameplay zoom is ~38). */
+const FAR_FROM = 9;
+const FAR_SPAN = 16;
+const bump = (t: number): number => (t <= 0 || t >= 1 ? 0 : Math.sin(Math.PI * t));
 
 const wrapNear = (delta: number, size: number): number => (delta > size / 2 ? delta - size : delta < -size / 2 ? delta + size : delta);
 
@@ -62,7 +72,7 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
   model.root.scale.setScalar(SCOUT_DRONE_SCALE);
   model.root.visible = false;
   scene.add(model.root);
-  const ground = createScoutGroundFx(scene);
+  const ground = createScoutGroundFx(scene, SCOUT_DRONE_SCALE);
   ground.setVisible(false);
   const trails = createScoutTrails(scene, model.lights.navLeft.base, model.lights.navRight.base);
   trails.setVisible(false);
@@ -83,6 +93,7 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
   // Each prop spins at a slightly different rate, as real ones do while trimming.
   const rotorAngles = new Float32Array(model.rotors.length);
   const washPoint = new Vector3();
+  const viewDir = new Vector3();
   let sweepAngle = 0;
 
   const hide = (): void => {
@@ -110,7 +121,9 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     // Altitude: eased over terrain steps, docked on the crown at either end of the flight.
     groundY = firstFrame ? at.surfaceY : groundY + (at.surfaceY - groundY) * Math.min(1, dt / 350);
     const bob = animate ? 0.05 * Math.sin(nowMs * 0.0021) * pose.lift : 0;
-    const altitude = groundY + SCOUT_DRONE_DOCK_HEIGHT + (SCOUT_DRONE_CRUISE_HEIGHT - SCOUT_DRONE_DOCK_HEIGHT) * pose.lift + bob;
+    // A gentle settle on touch-down: the gear takes the weight, dips a little and comes back.
+    const settle = animate ? TOUCHDOWN_SETTLE * bump((pose.landT - 0.8) / 0.2) : 0;
+    const altitude = groundY + SCOUT_DRONE_DOCK_HEIGHT + (SCOUT_DRONE_CRUISE_HEIGHT - SCOUT_DRONE_DOCK_HEIGHT) * pose.lift + bob - settle;
 
     // Heading, bank into turns, nose down with speed.
     let yawRate = 0;
@@ -129,7 +142,22 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     // Hover micro-motion: tiny attitude corrections (well under a degree) on top of the banking.
     const jitterPitch = animate ? 0.009 * Math.sin(nowMs * 0.0031) + 0.005 * Math.sin(nowMs * 0.0077 + 1.3) : 0;
     const jitterRoll = animate ? 0.009 * Math.sin(nowMs * 0.0027 + 0.7) + 0.005 * Math.sin(nowMs * 0.0069) : 0;
-    model.root.rotation.set(pitch + jitterPitch * pose.lift, yaw, bank + jitterRoll * pose.lift, "YXZ");
+    // Anticipation and flare: a short nose-down lean just before it slides off the crown, and a
+    // nose-up flare as it slows to land.
+    const lean = animate ? LAUNCH_LEAN * bump((pose.launchT - 0.25) / 0.45) - LANDING_FLARE * bump((pose.landT - 0.1) / 0.62) : 0;
+    model.root.rotation.set(pitch + lean + jitterPitch * pose.lift, yaw, bank + jitterRoll * pose.lift, "YXZ");
+    // From the gameplay camera distance the X has to read: slightly denser prop discs, a larger lens halo.
+    const far = deps.camera ? smoothstep01((deps.camera.position.distanceTo(model.root.position) - FAR_FROM) / FAR_SPAN) : 0;
+    // Seen edge-on, a blur disc would stack into a bright streak (and bloom into a blob): fade the
+    // discs out as the camera comes level with the prop plane.
+    let discFacing = 1;
+    if (deps.camera) {
+      model.root.updateMatrixWorld();
+      const e = model.root.matrixWorld.elements;
+      viewDir.subVectors(deps.camera.position, model.root.position).normalize();
+      const upLength = Math.hypot(e[4]!, e[5]!, e[6]!) || 1;
+      discFacing = smoothstep01((Math.abs(viewDir.x * e[4]! + viewDir.y * e[5]! + viewDir.z * e[6]!) / upLength - 0.08) / 0.3);
+    }
     model.root.visible = true;
 
     // Rotors: blades while spooling, a motion-blur disc at speed.
@@ -141,7 +169,7 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
       if (animate) rotorAngles[k] = (rotorAngles[k]! + dt * ROTOR_PER_MS * pose.rotor * (1 + 0.035 * Math.sin(k * 1.9 + nowMs * 0.0004))) % (Math.PI * 2);
       rotor.blades.rotation.y = (k % 2 === 0 ? 1 : -1) * rotorAngles[k]! + k;
       rotor.blades.visible = blur < 0.97;
-      rotor.disc.opacity = 0.42 * blur;
+      rotor.disc.opacity = 0.42 * blur * (1 + 0.55 * far) * discFacing;
     }
     // Landing legs: down while docked; once it climbs away they retract into short stubs under
     // the chassis (telescoping, tucked a little outward) so nothing trails under the arms.
@@ -161,7 +189,7 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     // dim cyan lens and status light left.
     const pulse = animate ? 0.5 + 0.5 * Math.sin(nowMs * 0.004) : 0.75;
     const level = updateScoutRunningLights(runningLights, pose.x, pose.y, deps.world, nowMs, deps.homeSource);
-    applyScoutDroneLights(model, level, pulse, animate, nowMs, !pose.returning);
+    applyScoutDroneLights(model, level, pulse, animate, nowMs, !pose.returning, far);
 
     // Nav-light trails, in the same scene space as the drone.
     model.root.updateMatrixWorld();
@@ -174,7 +202,7 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
 
     // Ground: footprint, sweep and shadow under the drone, then the route still ahead.
     if (animate) sweepAngle = (sweepAngle + dt * SWEEP_PER_MS) % (Math.PI * 2);
-    ground.place(at.sceneX, groundY, at.sceneZ, altitude, pose.lift, sweepAngle, pulse);
+    ground.place(at.sceneX, groundY, at.sceneZ, altitude, yaw, pose.lift, sweepAngle, pulse);
     // Rotor wash: faint ripples on the ground under each prop while it is low (launch and landing).
     const wash = animate ? pose.rotor * (1 - smoothstep01((pose.lift - 0.15) / 0.6)) : 0;
     ground.beginWash(wash, nowMs);

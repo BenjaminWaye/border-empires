@@ -1,11 +1,12 @@
-import { BufferGeometry, Float32BufferAttribute } from "three";
+import { BufferGeometry, Float32BufferAttribute, Vector3 } from "three";
 
 // The Survey Quad's upper shell (client-map-3d-scout-drone-geometry.ts): a smooth dome lofted from
 // a few cross-sections along the body, each the upper half of a superellipse -- flat-ish sides
 // rounding over into a soft ridge. The stations rise toward the rear and middle and slope down to
 // the nose, so the side silhouette has a clear front. Smooth normals across the dome; the flat
 // underside (where the shell meets the waist seam) and the end caps are separate faces, so the
-// only crisp edge is the shell's lower rim. Built once.
+// only crisp edge is the shell's lower rim, which shellRimOutline traces for its fine trim line.
+// Built once.
 
 /** One cross-section: z along the body, half-width, the ridge height and the rim height. */
 export type ShellStation = { z: number; halfWidth: number; top: number; rim: number };
@@ -109,4 +110,32 @@ export const buildShell = (keys: readonly ShellStation[]): BufferGeometry => {
   smooth.dispose();
   caps.dispose();
   return merged;
+};
+
+/** The shell's lower rim as a closed loop (right side tail to nose, then left side back), `drop` below it. */
+export const shellRimOutline = (keys: readonly ShellStation[], drop = 0): Vector3[] => {
+  const stations = densify(keys);
+  const right = stations.map((s) => new Vector3(s.halfWidth, s.rim - drop, s.z));
+  const left = stations.map((s) => new Vector3(-s.halfWidth, s.rim - drop, s.z)).reverse();
+  return [...right, ...left.slice(1, -1)];
+};
+
+/**
+ * A narrow vertical band just inside the shell's lower rim (half-widths scaled by `inset`), from
+ * the rim down by `depth`: the dark seam lip where the shell meets the battery, facing outward.
+ */
+export const buildRimBand = (keys: readonly ShellStation[], inset: number, depth: number): BufferGeometry => {
+  const loop = shellRimOutline(keys.map((k) => ({ ...k, halfWidth: k.halfWidth * inset })));
+  const positions: number[] = [];
+  for (let i = 0; i < loop.length; i += 1) {
+    const a = loop[i]!;
+    const b = loop[(i + 1) % loop.length]!;
+    // The loop runs tail to nose on the right (+X) side, so this winding faces outward.
+    positions.push(a.x, a.y, a.z, b.x, b.y, b.z, b.x, b.y - depth, b.z);
+    positions.push(a.x, a.y, a.z, b.x, b.y - depth, b.z, a.x, a.y - depth, a.z);
+  }
+  const band = new BufferGeometry();
+  band.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  band.computeVertexNormals();
+  return band;
 };

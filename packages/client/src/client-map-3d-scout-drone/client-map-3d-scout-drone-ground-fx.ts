@@ -12,11 +12,12 @@ import {
   type Scene
 } from "three";
 import { SCOUT_DRONE_VISION_RADIUS } from "@border-empires/shared";
-import { makeGlowTexture, makeShadowTexture, makeSweepTexture, makeVisionRingTexture } from "./client-map-3d-scout-drone-textures.js";
+import { SCOUT_SHADOW_HALF_EXTENT, makeGlowTexture, makeSilhouetteShadowTexture, makeSweepTexture, makeVisionRingTexture } from "./client-map-3d-scout-drone-textures.js";
 
 // What the scout drone puts on the ground (client-map-3d-scout-drone-overlay.ts): its vision
 // footprint as an instrument ring (soft fill falling off to a crisp rim with tick marks), a radar
-// sweep rotating inside it, a soft blob shadow that spreads and fades with altitude, and the
+// sweep rotating inside it, a contact shadow in the drone's own X silhouette (turned with its
+// heading; a crisp and a soft copy cross-fade so it blurs, spreads and fades with altitude), and the
 // route still ahead as a trail of glowing beads ending in a target ring, and the rotor wash -- faint
 // expanding ripples on the ground under each prop while the drone is low. Everything is built
 // once; the per-frame calls only move and tint what exists.
@@ -31,8 +32,8 @@ const WASH_RIPPLES_PER_ROTOR = 2;
 const WASH_MAX = 4 * WASH_RIPPLES_PER_ROTOR;
 
 export type ScoutGroundFx = {
-  /** Places the footprint and shadow under the drone. `strength` fades the footprint in with lift. */
-  readonly place: (sceneX: number, groundY: number, sceneZ: number, altitude: number, strength: number, sweepAngle: number, pulse: number) => void;
+  /** Places the footprint and shadow under the drone (heading `yaw`). `strength` fades the footprint in with lift. */
+  readonly place: (sceneX: number, groundY: number, sceneZ: number, altitude: number, yaw: number, strength: number, sweepAngle: number, pulse: number) => void;
   /** Starts a new route; then add points in order with `routePoint`, and `endRoute`. */
   readonly beginRoute: () => void;
   readonly routePoint: (sceneX: number, groundY: number, sceneZ: number) => void;
@@ -45,16 +46,19 @@ export type ScoutGroundFx = {
   readonly dispose: () => void;
 };
 
-export const createScoutGroundFx = (scene: Scene): ScoutGroundFx => {
+/** `droneScale`: the drone model's scale in the scene, which sizes its silhouette shadow. */
+export const createScoutGroundFx = (scene: Scene, droneScale: number): ScoutGroundFx => {
   const visionTexture = makeVisionRingTexture();
   const sweepTexture = makeSweepTexture();
-  const shadowTexture = makeShadowTexture();
+  const shadowSharpTexture = makeSilhouetteShadowTexture(0.012);
+  const shadowSoftTexture = makeSilhouetteShadowTexture(0.06);
   const glowTexture = makeGlowTexture();
   const additive = (opacity: number, map: typeof visionTexture): MeshBasicMaterial =>
     new MeshBasicMaterial({ toneMapped: false, color: CYAN, map, transparent: true, opacity, blending: AdditiveBlending, depthWrite: false });
   const visionMaterial = additive(0.9, visionTexture);
   const sweepMaterial = additive(0.75, sweepTexture);
-  const shadowMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#000000", map: shadowTexture, transparent: true, opacity: 0.5, depthWrite: false });
+  const shadowSharpMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#000000", map: shadowSharpTexture, transparent: true, opacity: 0.5, depthWrite: false });
+  const shadowSoftMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#000000", map: shadowSoftTexture, transparent: true, opacity: 0, depthWrite: false });
   const beadMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#bff4ff", map: glowTexture, transparent: true, opacity: 0.95, blending: AdditiveBlending, depthWrite: false });
   const targetMaterial = additive(0.85, null);
 
@@ -69,8 +73,15 @@ export const createScoutGroundFx = (scene: Scene): ScoutGroundFx => {
   const sweep = new Mesh(sweepTexture ? plane : disc, sweepMaterial);
   sweep.scale.set(VISION_RADIUS * 2, 1, VISION_RADIUS * 2);
   sweep.position.y = 0.003;
-  const shadow = new Mesh(shadowTexture ? plane : disc, shadowMaterial);
+  // The silhouette shadow: crisp near the ground, soft and spread out at altitude.
+  const shadow = new Group();
+  shadow.name = "scout-drone-shadow";
   shadow.position.y = 0.006;
+  const shadowSharp = new Mesh(shadowSharpTexture ? plane : disc, shadowSharpMaterial);
+  const shadowSoft = new Mesh(shadowSoftTexture ? plane : disc, shadowSoftMaterial);
+  shadowSoft.position.y = 0.001;
+  shadow.add(shadowSharp, shadowSoft);
+  const shadowSpan = 2 * SCOUT_SHADOW_HALF_EXTENT * droneScale;
   const footprint = new Group();
   footprint.add(vision, sweep, shadow);
 
@@ -105,15 +116,22 @@ export const createScoutGroundFx = (scene: Scene): ScoutGroundFx => {
   let prevY = 0;
   let prevZ = 0;
 
-  const place: ScoutGroundFx["place"] = (sceneX, groundY, sceneZ, altitude, strength, sweepAngle, pulse) => {
+  const place: ScoutGroundFx["place"] = (sceneX, groundY, sceneZ, altitude, yaw, strength, sweepAngle, pulse) => {
     footprint.position.set(sceneX, groundY + GROUND_RISE, sceneZ);
     visionMaterial.opacity = strength * (0.75 + 0.2 * pulse);
     sweepMaterial.opacity = strength * 0.8;
     sweep.rotation.y = -sweepAngle;
+    // Softer, larger and fainter as it climbs from the crown (strength 0) to cruise (1), plus a
+    // little more over low ground far below.
     const height = Math.max(0, altitude - groundY);
-    const spread = 0.55 + height * 0.35;
-    shadow.scale.set(spread, 1, spread * 0.85);
-    shadowMaterial.opacity = Math.max(0.12, 0.55 - height * 0.17);
+    const climb = Math.min(1, strength + Math.max(0, height - 2.2) * 0.3);
+    const spread = shadowSpan * (1 + 0.45 * climb);
+    shadow.scale.set(spread, 1, spread);
+    shadow.rotation.y = yaw;
+    const soft = climb;
+    const darkness = 0.55 - 0.3 * climb;
+    shadowSharpMaterial.opacity = darkness * (1 - soft);
+    shadowSoftMaterial.opacity = darkness * soft;
     targetMaterial.color.copy(tint).multiplyScalar(0.7 + 0.3 * pulse);
   };
 
@@ -190,8 +208,8 @@ export const createScoutGroundFx = (scene: Scene): ScoutGroundFx => {
     dispose: () => {
       scene.remove(group);
       for (const g of [plane, disc, beadGeometry, targetGeometry, washGeometry]) g.dispose();
-      for (const m of [visionMaterial, sweepMaterial, shadowMaterial, beadMaterial, targetMaterial, washMaterial]) m.dispose();
-      for (const t of [visionTexture, sweepTexture, shadowTexture, glowTexture]) t?.dispose();
+      for (const m of [visionMaterial, sweepMaterial, shadowSharpMaterial, shadowSoftMaterial, beadMaterial, targetMaterial, washMaterial]) m.dispose();
+      for (const t of [visionTexture, sweepTexture, shadowSharpTexture, shadowSoftTexture, glowTexture]) t?.dispose();
     }
   };
 };
