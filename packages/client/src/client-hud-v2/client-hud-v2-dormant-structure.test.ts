@@ -35,16 +35,18 @@ describe("dormant structures in the HUD", () => {
     expect(build).toContain("No Defense bonus");
   });
 
-  // Review: a Fort can share its tile with a Relay Beacon or Harbor Exchange; the economic structure used to
-  // win, hiding the dormant Fort entirely.
+  // Review: a Fort can share its tile with any building; the economic structure used to win, hiding the
+  // dormant Fort entirely.
   it("shows a dormant Fort sharing its tile with a Relay Beacon", () => {
     const shared = { ...fortTown, economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" } } as Tile;
     const { build } = townScreenRegions({ town: shared, focus: shared, townView: view(), focusView: view(), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined, dormantResourcesFor: titaniumShort });
     expect(build).toContain('<span class="v2t-structure-v">Fort</span>');
     expect(build).toContain("Dormant · no Titanium slot");
-    // Not dormant: the economic structure still leads, as before.
+    // Not dormant: both structures are still described, the economic structure first.
     const healthy = townScreenRegions({ town: shared, focus: shared, townView: view(), focusView: view(), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined, dormantResourcesFor: () => undefined }).build;
-    expect(healthy).not.toContain('<span class="v2t-structure-v">Fort</span>');
+    expect(healthy).toContain('<span class="v2t-structure-v">Fort</span>');
+    expect(healthy.indexOf("Relay Beacon")).toBeLessThan(healthy.indexOf('<span class="v2t-structure-v">Fort</span>'));
+    expect(healthy).not.toContain("Dormant");
   });
 
   it("keeps a more pressing state over Dormant, but still says the bonus is gone", () => {
