@@ -68,6 +68,7 @@ export * from "./frontier-combat/frontier-combat-win-chance-paint.js";
 export * from "./outpost-aura/outpost-aura.js";
 export * from "./reach/reach.js";
 export * from "./reach/reach-settle-exemption.js";
+export * from "./explored-tiles/explored-tiles-runs.js";
 export * from "./player-display-name.js";
 export * from "./seasonal-ai-names/seasonal-ai-names.js";
 export * from "./dev-queue/dev-queue.js";

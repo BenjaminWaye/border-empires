@@ -9,6 +9,7 @@ import { shouldYieldAt } from "./event-loop-yield.js";
 import { overlaySubstructuresFrom } from "./tile-overlay-fields/tile-overlay-fields.js";
 import { townSettledAtForSnapshot } from "./recovered-town-state/recovered-town-state.js";
 import { encodeReachBorder } from "./reach-border-snapshot/reach-border-snapshot.js";
+import type { ExploredTilesSnapshotEntry } from "./explored-tiles/explored-tiles-store.js";
 
 export type SnapshotTile = SimulationSnapshotSections["initialState"]["tiles"][number];
 
@@ -27,6 +28,8 @@ export type SnapshotExportInput = {
   // tile copy's yields) so it matches players/locks rather than the border as
   // it stood when the export started.
   reachBorder: () => ReadonlyMap<string, string>;
+  // Per-player explored-tile memory (explored-tiles-store.ts); optional so tests can omit it.
+  exploredTiles?: () => ExploredTilesSnapshotEntry[];
   recordedEventsByCommandId: ReadonlyMap<string, SimulationEvent[]>;
   incomePerMinuteForPlayer: (playerId: string) => number;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -151,6 +154,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
         .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
         .sort((a, b) => a.playerId.localeCompare(b.playerId)),
       reachBorder: encodeReachBorder(input.reachBorder()),
+      ...(input.exploredTiles ? { exploredTiles: input.exploredTiles() } : {}),
       ...(input.docks.length
         ? {
             docks: input.docks.map((dock) => ({

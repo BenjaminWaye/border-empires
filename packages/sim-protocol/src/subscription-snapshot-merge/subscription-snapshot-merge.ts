@@ -119,6 +119,8 @@ const PLAYER_MERGE_RULES = {
   // that starts carrying one of these needs a single-line change here, not
   // a rediscovery of this whole class of bug.
   autoSettle: (p) => (parseAutoSettleCategoryPrefs(p.autoSettle) ? { autoSettle: autoSettlePrefsForOutput(p.autoSettle) } : undefined),
+  // Stamped fresh on every SubscribePlayer reply; never live-patched onto a cached snapshot.
+  exploredTiles: () => undefined,
   wonderLastFreeRushBuyAt: () => undefined,
   relicMapHints: p => "relicMapHints" in p ? { relicMapHints: parseRelicMapHints(p.relicMapHints) } : undefined,
   galacticWonderManpowerRegenBonusPerMinute: () => undefined,
