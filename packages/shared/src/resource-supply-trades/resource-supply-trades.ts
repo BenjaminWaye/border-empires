@@ -17,6 +17,10 @@ export const offerIncludesNonTradableSupply = (offer: { readonly [K in TradableS
   NON_TRADABLE_SUPPLY_RESOURCES.some(resource => (offer?.[resource] ?? 0) > 0);
 export type ResourceSupplyOffer = z.infer<typeof ResourceSupplyOfferSchema>;
 export type ResourceSupplyAmounts = Record<TradableSupplyResource, number>;
+export const RESOURCE_SUPPLY_TRADE_DAYS = 7;
+export const MAX_TRADE_COIN_PER_HOUR = 1_000_000;
+export const TradeCoinPerHourSchema = z.number().int().min(0).max(MAX_TRADE_COIN_PER_HOUR);
+export const RESOURCE_SUPPLY_TRADE_DURATION_MS = RESOURCE_SUPPLY_TRADE_DAYS * 86_400_000;
 export const MAX_RESOURCE_TRADE_SLOTS = 10_000;
 export const MAX_RESOURCE_SUPPLY_AGREEMENTS = 256;
 export const MAX_RESOURCE_SUPPLY_AGREEMENTS_PER_PLAYER = 16;
@@ -28,8 +32,10 @@ export const ResourceSupplyOfferSchema = z.object({
 export const ResourceSupplyAgreementSchema = z.object({
   id: z.string().min(1).max(160), proposerId: z.string().min(1).max(128), targetId: z.string().min(1).max(128),
   proposerGives: ResourceSupplyOfferSchema, targetGives: ResourceSupplyOfferSchema,
+  proposerCoinPerHour: TradeCoinPerHourSchema.optional(), targetCoinPerHour: TradeCoinPerHourSchema.optional(),
   startedAt: z.number().int().nonnegative(), expiresAt: z.number().int().nonnegative().optional()
 }).refine(row => row.proposerId !== row.targetId && (row.expiresAt === undefined || row.expiresAt > row.startedAt) &&
+  (!row.proposerCoinPerHour && !row.targetCoinPerHour || row.expiresAt !== undefined) &&
   TRADABLE_SUPPLY_RESOURCES.some(resource => (row.proposerGives[resource] ?? 0) + (row.targetGives[resource] ?? 0) > 0));
 export type ResourceSupplyAgreement = z.infer<typeof ResourceSupplyAgreementSchema>;
 

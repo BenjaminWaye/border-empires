@@ -1,3 +1,4 @@
+import { economyCommitmentsHtml, type EconomyCommitments } from "./client-economy-commitments.js";
 import {
   townFoodSlotDemandForTier,
   structureSlotRequirements,
@@ -43,6 +44,7 @@ export type EconomyPanelArgs = {
   };
   activeRevealTargetsCount: number;
   tiles: Iterable<Tile>;
+  commitments?: EconomyCommitments;
   economyBreakdown: EconomyBreakdown | undefined;
   prettyToken: (value: string) => string;
   resourceIconHtml: (resource: string) => string;
@@ -156,4 +158,4 @@ const reconcileOccupants = (rows: EconomyBucket[], demand: number): EconomyBucke
 };
 
 export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string =>
-  economyRowsFromPanelArgs(args, { slotSources: slotSourcesForResource, slotOccupants: slotOccupantsForResource, coinIncome: empireCoinIncome });
+  economyRowsFromPanelArgs(args, { slotSources: slotSourcesForResource, slotOccupants: slotOccupantsForResource, coinIncome: empireCoinIncome }) + economyCommitmentsHtml(args);

@@ -59,5 +59,6 @@ body.hud-v2-compact #discovery-tip-overlay {
    were their last row, right where the tabs sit, so a tap meant for a tab hit Abandon. The big action
    buttons and ◁ Map take the bottom row; the links sit above them. */
 body.hud-v2-compact .hud-v2-tile > .hud-v2-act-row { order: 1; }
-body.hud-v2-compact .hud-v2-tile > .tile-auto-settle-option { order: 2; }
+body.hud-v2-compact .hud-v2-tile > .tile-auto-settle-option,
+body.hud-v2-compact .hud-v2-tile > .tile-auto-settle-ask { order: 2; }
 body.hud-v2-compact #v2t-bar .v2t-minor { order: -1; }
