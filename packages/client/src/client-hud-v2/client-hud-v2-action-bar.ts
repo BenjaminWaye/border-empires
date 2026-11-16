@@ -12,13 +12,13 @@ import type { TileActionDef, TileMenuView } from "../client-types.js";
 import { plainText, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { tileProgressHtml } from "./client-hud-v2-tile-progress.js";
 import { detailLinesBeyondFacts } from "./client-hud-v2-tile-details.js";
+import { TILE_VIEW_PANELS, TILE_VIEW_TITLE, type TileViewPanel } from "./client-hud-v2-tile-views.js";
 
-export type BarPanel = "aether" | "build" | "details" | "progress" | "status";
+export type BarPanel = "aether" | "build" | "details" | "progress" | "status" | TileViewPanel;
 
 export type BarButton =
   | { kind: "action"; action: TileActionDef; primary: boolean }
   | { kind: "afc"; primary: boolean }
-  | { kind: "tab"; tab: TileMenuView["tabs"][number]; label: string }
   | { kind: "panel"; panel: BarPanel; label: string };
 
 type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs"> & Partial<Pick<TileMenuView, "overviewLines" | "afcUpgradesReady" | "progress">>;
@@ -50,14 +50,6 @@ const SECONDARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
 
 const MAX_SECONDARY = 2;
 
-/** Legacy tabs with no new-style view yet (AFC modules, muster commit/reports) stay reachable from ⋯. */
-const LEGACY_ONLY_TABS: ReadonlyArray<TileMenuView["tabs"][number]> = ["modules", "commit", "reports"];
-
-const LEGACY_TAB_LINK_LABEL: Partial<Record<TileMenuView["tabs"][number], string>> = {
-  modules: "Modules",
-  commit: "Attack commitment",
-  reports: "Combat reports"
-};
 
 /**
  * settle_land is both "Expand To" on neutral land (client-tile-action-neutral.ts) and "Garrison" on your
@@ -121,7 +113,7 @@ export const selectBarButtons = (view: BarView): BarButton[] => {
   if (afcReady || (isOwnAfc(view) && !primary)) buttons.push({ kind: "afc", primary: true });
   if (primary) buttons.push({ kind: "action", action: primary, primary: true });
   if (isOwnAfc(view) && primary) buttons.push({ kind: "afc", primary: false });
-  if (isOwnAfc(view) && view.tabs.includes("modules")) buttons.push({ kind: "tab", tab: "modules", label: "Modules ▸" });
+  if (isOwnAfc(view) && view.tabs.includes("modules")) buttons.push({ kind: "panel", panel: "modules", label: "Modules ▸" });
   let secondary = 0;
   for (const id of SECONDARY_ORDER) {
     if (secondary >= MAX_SECONDARY) break;
@@ -165,7 +157,7 @@ const actionButtonHtml = (b: Extract<BarButton, { kind: "action" }>): string => 
   return `<button type="button" class="${cls}" data-hud-v2-action="${esc(a.id)}"${targets(a)}${a.disabled ? " disabled" : ""} title="${esc(title)}"><span class="hud-v2-act-label">${esc(a.label)}</span>${note ? `<span class="hud-v2-act-cost">${esc(note)}</span>` : ""}</button>`;
 };
 
-/** The minor row: small text buttons for everything else, plus a link to legacy-only views (modules, reports). */
+/** The minor row: small text buttons for everything else, plus links to the sidebar tile views (modules, commitment, reports). */
 const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[], panel?: BarPanel): string => {
   const minor = moreActions(view, buttons).map((a) => {
     const title = a.disabled ? a.disabledReason ?? a.label : [a.cost, a.detail].filter(Boolean).join(" · ") || a.label;
@@ -173,11 +165,11 @@ const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[], panel?:
   });
   if (view.afcUpgradesReady === 0 && !buttons.some((b) => b.kind === "afc")) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-open="afc">AFC upgrades ▸</button>`);
   if (view.progress) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-panel="progress" aria-expanded="${panel === "progress"}">Progress ${panel === "progress" ? "▾" : "▸"}</button>`);
-  // One link per legacy tab, each named for what it opens: a muster flag carries both the Attack commitment
-  // tab and Combat reports, and a single link labelled "Reports" used to open the commitment tab (2026-11-16 playtest).
-  for (const tab of view.tabs) {
-    if (!LEGACY_ONLY_TABS.includes(tab) || buttons.some((b) => b.kind === "tab" && b.tab === tab)) continue;
-    minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-tab="${tab}">${LEGACY_TAB_LINK_LABEL[tab] ?? tab} ▸</button>`);
+  // One link per sidebar view, each named for what it opens: a muster flag carries both Attack commitment
+  // and Combat reports, and a single link labelled "Reports" used to open the commitment tab (2026-11-16 playtest).
+  for (const tab of TILE_VIEW_PANELS) {
+    if (!view.tabs.includes(tab) || buttons.some((b) => b.kind === "panel" && b.panel === tab)) continue;
+    minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-panel="${tab}" aria-expanded="${panel === tab}">${TILE_VIEW_TITLE[tab]} ▸</button>`);
   }
   return minor.length > 0 ? `<div class="hud-v2-minor-row">${minor.join("")}</div>` : "";
 };
@@ -220,7 +212,6 @@ export const actionBarHtml = (fullView: TileMenuView, panel?: BarPanel, facts: r
   const row = buttons.map((b) => (b.kind === "action"
     ? actionButtonHtml(b)
     : b.kind === "afc" ? `<button type="button" class="hud-v2-act${b.primary ? " hud-v2-act-primary" : ""}" data-hud-v2-open="afc">${(view.afcUpgradesReady ?? 0) > 0 ? `AFC upgrades · ${view.afcUpgradesReady} ready` : "AFC upgrades"}</button>`
-    : b.kind === "tab" ? `<button type="button" class="hud-v2-act hud-v2-act-tab" data-hud-v2-tab="${b.tab}">${esc(b.label)}</button>`
     : `<button type="button" class="hud-v2-act hud-v2-act-${b.panel}${b.panel === panel ? " hud-v2-act-open" : ""}" data-hud-v2-panel="${b.panel}" aria-expanded="${b.panel === panel}">${esc(b.label)}</button>`)).join("");
   const primary = buttons.find((b): b is Extract<BarButton, { kind: "action" }> => b.kind === "action" && b.primary);
   const autoSettle = primary?.action.autoSettleOption;

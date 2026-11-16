@@ -17,11 +17,12 @@ const flagTile = (mode: "HOLD" | "ADVANCE" | "MARCH", extra: Partial<NonNullable
 });
 
 describe("muster flag in the new tile panel", () => {
-  it("names each legacy tab link for what it opens", () => {
+  it("names each tile-view link for what it opens", () => {
     const html = actionBarHtml(view());
-    expect(html).toContain('data-hud-v2-tab="commit">Attack commitment ▸</button>');
-    expect(html).toContain('data-hud-v2-tab="reports">Combat reports ▸</button>');
-    expect(html).not.toContain('data-hud-v2-tab="commit">Reports');
+    expect(html).toContain('data-hud-v2-panel="commit" aria-expanded="false">Attack commitment ▸</button>');
+    expect(html).toContain('data-hud-v2-panel="reports" aria-expanded="false">Combat reports ▸</button>');
+    expect(html).not.toContain(">Reports ▸");
+    expect(html).not.toContain("data-hud-v2-tab");
   });
 
   it("shows the flag's staged manpower and cap as a fact", () => {

@@ -1,9 +1,9 @@
 import { captureMusterScrollAnchor, restoreMusterScrollAnchor } from "../client-muster-combat-reports/client-muster-combat-scroll.js";
 import { locationThemeForTile } from "./client-location-theme.js";
 import { wireMusterReports, openMusterReportIds, restoreOpenMusterReports } from "../client-muster-combat-reports/client-muster-combat-reports-ui.js";
-import { FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, applyOddsScale, commitOddsMultiplier, wrapCoord } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapCoord } from "@border-empires/shared";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
-import { advanceCommitOddsText } from "../client-muster-commit-tab/client-muster-commit-tab.js";
+import { wireMusterCommitCard } from "../client-muster-commit-tab/client-muster-commit-card.js";
 import { playLocationTheme } from "../client-audio/client-audio.js";
 import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/client-tile-menu-render-signature.js";
 import { rememberTileMenuScrollTop, restoreTileMenuScrollTop } from "../client-tile-menu-scroll/client-tile-menu-scroll.js";
@@ -227,59 +227,8 @@ export const renderTileActionMenu = (
         deps.hideTileActionMenu();
       };
     });
-    // docs/replenishment-update-plan.md D6: the commit-choice tab (muster
-    // flag's own tile menu). Slider drag and preset clicks only patch the
-    // value/odds text in place -- no full tile-menu re-render per tick, per
-    // tileMenuRenderSignature's reuse guard above. Only "Save" writes
-    // anything server-side (SET_MUSTER), which then re-renders naturally via
-    // the resulting tile delta.
-    const commitSlider = deps.tileActionMenuEl.querySelector<HTMLInputElement>("[data-muster-commit-slider]");
-    if (commitSlider) {
-      const valueEl = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-muster-commit-value]");
-      const oddsEl = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-muster-commit-odds]");
-      const floor = Number(commitSlider.dataset.musterCommitFloor ?? commitSlider.min);
-      const baseOddsRaw = commitSlider.dataset.musterCommitBaseOdds;
-      const baseOddsPercent = baseOddsRaw ? Number(baseOddsRaw) : undefined;
-      const updateCommitPreview = (): void => {
-        const value = Number(commitSlider.value);
-        if (valueEl) valueEl.textContent = String(value);
-        if (oddsEl && baseOddsPercent != null && floor > 0) {
-          const pct = Math.max(0, Math.min(100, Math.round(applyOddsScale(baseOddsPercent / 100, commitOddsMultiplier(value, floor)) * 100)));
-          oddsEl.textContent = `${pct}% win chance`;
-        } else if (oddsEl && commitSlider.hasAttribute("data-muster-commit-advance") && floor > 0) {
-          oddsEl.textContent = advanceCommitOddsText(value, floor);
-        }
-      };
-      commitSlider.oninput = updateCommitPreview;
-      deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-muster-commit-preset]").forEach((btn) => {
-        btn.onclick = () => {
-          const amount = Number(btn.dataset.musterCommitPreset);
-          if (!Number.isFinite(amount)) return;
-          commitSlider.value = String(amount);
-          updateCommitPreview();
-        };
-      });
-      const saveBtn = deps.tileActionMenuEl.querySelector<HTMLButtonElement>("[data-muster-commit-save]");
-      if (saveBtn) {
-        saveBtn.onclick = () => {
-          const tile = state.tileActionMenu.currentTileKey ? state.tiles.get(state.tileActionMenu.currentTileKey) : undefined;
-          if (!tile?.muster) return;
-          deps.sendGameMessage({
-            type: "SET_MUSTER",
-            x: tile.x,
-            y: tile.y,
-            mode: tile.muster.mode,
-            ...(tile.muster.targetX != null ? { targetX: tile.muster.targetX } : {}),
-            ...(tile.muster.targetY != null ? { targetY: tile.muster.targetY } : {}),
-            // A SET_MUSTER without hunt ends a Planetary Defense hunt, so a
-            // commitment change must resend it or the flag turns into a plain
-            // ADVANCE that attacks any rival in range.
-            ...(tile.muster.hunt ? { hunt: true } : {}),
-            commitManpower: Number(commitSlider.value)
-          });
-        };
-      }
-    }
+    // The commit-choice tab: see client-muster-commit-card.ts.
+    wireMusterCommitCard(deps.tileActionMenuEl, { state, sendGameMessage: deps.sendGameMessage });
     const debugButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-tile-debug-download]");
     debugButtons.forEach((btn) => {
       btn.onclick = () => {
