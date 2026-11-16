@@ -1,5 +1,5 @@
 import type { ReachAnchor } from "@border-empires/shared";
-import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, type OnBorderMutated, type ReachAnchorActivationResult, type ReachBorderApplyContext } from "./runtime-reach-border-apply.js";
+import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, type OnBorderMutated, type ReachAnchorActivationOptions, type ReachAnchorActivationResult, type ReachBorderApplyContext } from "./runtime-reach-border-apply.js";
 import type { ReachUpdateState } from "./runtime-reach-update.js";
 import { diffReachBorder, type ReachBorderChange } from "../reach-border-snapshot/reach-border-snapshot.js";
 export { syncReachVision } from "../reach-border-vision.js";
@@ -32,7 +32,7 @@ export const applyReachAnchorActivationEffects = (
   deps: ReachAnchorLifecycleDeps,
   anchor: ReachAnchor,
   causeCommandId: string,
-  options?: { skipNeutralAutoClaim?: boolean }
+  options?: ReachAnchorActivationOptions
 ): ReachAnchorActivationResult =>
   applyReachAnchorActivationToBorder(deps.reachBorder, anchor, deps.reachUpdateState, deps.reachBorderApplyContext, causeCommandId, options, recordBorderEffects(deps, anchor, causeCommandId));
 

@@ -254,3 +254,27 @@ describe("applyReachAutoClaim", () => {
     expect(order).toEqual(["emit", "claimed:1,1:player-1:reach-auto-claim:cmd-1"]);
   });
 });
+
+describe("applyReachAnchorActivationToBorder — claimNeutralAlreadyInReach (Relay Beacon build)", () => {
+  const beacon: ReachAnchor = { x: 10, y: 10, ownerId: "player-1", activatedAt: 5, kind: "OUTPOST" };
+  const alreadyInReachKey = "11,10";
+  const rivalOwnedKey = "12,10";
+
+  const run = (options?: { claimNeutralAlreadyInReach?: boolean }) => {
+    const { context, autoClaim } = contextFor({ [rivalOwnedKey]: { ownerId: "player-2", ownershipState: "FRONTIER" } }, [beacon]);
+    const border = new Map([[alreadyInReachKey, "player-1"], [rivalOwnedKey, "player-1"]]);
+    applyReachAnchorActivationToBorder(border, beacon, createReachUpdateState(), context, "cmd-1", options);
+    return (autoClaim.mock.calls[0]?.[0] ?? []) as string[];
+  };
+
+  it("only claims ground that newly entered the border by default", () => {
+    expect(run()).not.toContain(alreadyInReachKey);
+  });
+
+  it("also claims neutral ground already in the owner's border, but never an owned tile", () => {
+    const claimed = run({ claimNeutralAlreadyInReach: true });
+    expect(claimed).toContain(alreadyInReachKey);
+    expect(claimed).toContain("15,10");
+    expect(claimed).not.toContain(rivalOwnedKey);
+  });
+});

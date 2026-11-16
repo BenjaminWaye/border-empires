@@ -247,8 +247,12 @@ a development slot. It buys three things:
 - Towns (radius 3), docks (radius 1) and Relay Beacons (radius 5) are *reach
   anchors*. When one activates, every neutral land tile in its radius becomes
   your FRONTIER **instantly and free** (`autoClaimFrontier` in
-  `runtime-reach-border-apply.ts`). The ground inside your reach is therefore
-  already yours as FRONTIER. There is nothing left there to Expand To.
+  `runtime-reach-border-apply.ts`). A Relay Beacon goes further: every time
+  one is built it claims every neutral land tile in its whole radius that your
+  border holds, including ground that was already in your reach but still
+  neutral (`claimNeutralAlreadyInReach`). Land a rival's live reach holds is
+  never taken this way. The ground inside your reach is therefore normally
+  already yours as FRONTIER, and a beacon sweeps up any that isn't.
 - Only some of that FRONTIER settles on its own: town and dock tiles, resource
   tiles you've revealed, and plain tiles inside a town's support ring (radius
   1, or 2 at Great City and up) (`isAutoSettlementEligibleTarget` in

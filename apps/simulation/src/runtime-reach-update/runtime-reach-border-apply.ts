@@ -85,6 +85,13 @@ export const createReachBorderApplyContext = (deps: {
   ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {})
 });
 
+export type ReachAnchorActivationOptions = {
+  /** World-init/boot replay: never auto-claim (see applyReachAnchorActivationToBorder). */
+  skipNeutralAutoClaim?: boolean;
+  /** Relay Beacon build: also claim neutral ground already in the owner's border. */
+  claimNeutralAlreadyInReach?: boolean;
+};
+
 export type ReachAnchorActivationResult = {
   border: Map<string, string>;
   autoClaimedTileKeys: string[];
@@ -162,6 +169,14 @@ const settleOvertaken = (
  *
  * `skipNeutralAutoClaim` is the part the seeding pass genuinely does need:
  * see the auto-claim block below.
+ *
+ * `claimNeutralAlreadyInReach` widens the auto-claim from "ground that just
+ * entered the border" to "every neutral tile in this anchor's disk that the
+ * owner's border holds" -- a Relay Beacon covers its whole disk with FRONTIER
+ * every time it is built, including neutral ground that was already inside
+ * the owner's reach (from a town, another beacon, or land given up while
+ * still in reach). Without it, that ground could only be claimed by a manual
+ * EXPAND, one tile at a time.
  */
 export const applyReachAnchorActivationToBorder = (
   border: Map<string, string>,
@@ -169,7 +184,7 @@ export const applyReachAnchorActivationToBorder = (
   reachUpdateState: ReachUpdateState,
   context: ReachBorderApplyContext,
   causeCommandId: string,
-  options?: { skipNeutralAutoClaim?: boolean },
+  options?: ReachAnchorActivationOptions,
   onBorderMutated?: OnBorderMutated
 ): ReachAnchorActivationResult => {
   const defenderLiveReach = liveReachLookup(context.gatherReachAnchors(), context.isLandTile);
@@ -196,7 +211,8 @@ export const applyReachAnchorActivationToBorder = (
   // claim/event, not one per tile.
   const autoClaimKeys: string[] = [];
   for (const key of diskKeys) {
-    if (border.get(key) === anchor.ownerId && before.get(key) !== anchor.ownerId) {
+    const enteredBorder = before.get(key) !== anchor.ownerId;
+    if (border.get(key) === anchor.ownerId && (enteredBorder || options?.claimNeutralAlreadyInReach === true)) {
       // Reach just grew onto ground nobody owns at all (a plain grant onto
       // empty ground, or the settled-on-unclaimed contest above resolving in
       // anchor.ownerId's favor over truly neutral ground) -- auto-claim it
