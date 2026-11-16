@@ -17,10 +17,10 @@ const replayedSiteResource = (events: readonly SimulationEvent[]): string | unde
 
 const now = lastManpowerRefillAtMs("p", 100 * MANPOWER_REFILL_WINDOW_MS);
 const land = (x: number, y: number): DomainTileState => ({ x, y, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED" });
-const fixture = (manpower: number) => {
+const fixture = (manpower: number, salvageLoadsShipped = 0) => {
   const tiles: DomainTileState[] = [{ ...land(10, 10), town: { name: "Heartland", type: "MARKET", populationTier: "TOWN", population: 50_000, maxPopulation: 100_000 } }];
   for (let i = 0; i < 12; i += 1) tiles.push({ ...land(40 + i, 40), resource: "FARM" });
-  tiles.push({ ...land(20, 20), resource: "PRECURSOR_SALVAGE", economicStructure: { ownerId: "p", type: "RECLAMATION_WORKS", status: "active" } });
+  tiles.push({ ...land(20, 20), resource: "PRECURSOR_SALVAGE", economicStructure: { ownerId: "p", type: "RECLAMATION_WORKS", status: "active", ...(salvageLoadsShipped ? { salvageLoadsShipped } : {}) } });
   const runtime = new SimulationRuntime({ now: () => now, seedTiles: new Map(), initialState: { tiles, activeLocks: [] },
     initialPlayers: new Map([["p", buildPlayer("p", { points: 100, manpower, manpowerUpdatedAt: now, landingReserveGranted: true, techIds: new Set([RESOURCE_NETWORKS.PRECURSOR_SALVAGE.tech]) })]]) });
   const events = collectEvents(runtime);
@@ -35,18 +35,26 @@ const fixture = (manpower: number) => {
 };
 
 describe("shipping precursor salvage to the Court", () => {
-  it("delivers a quarter of the manpower cap per load and empties the field after three loads", async () => {
+  it("delivers one load of manpower, never above the cap", async () => {
     const f = fixture(0);
     const cap = f.player().manpowerCap!;
     await f.ship("load-1");
     expect(f.events.filter(event => event.eventType === "COMMAND_REJECTED")).toEqual([]);
-    expect(f.player().manpower).toBeCloseTo(cap * 0.25);
+    // A flat 1000 (frontier-resource-effects.ts), clamped to this small empire's cap.
+    expect(f.player().manpower).toBeCloseTo(Math.min(cap, 1000));
     expect(JSON.parse(f.site().economicStructureJson!)).toMatchObject({ type: "RECLAMATION_WORKS", salvageLoadsShipped: 1 });
-    await f.ship("load-2");
+  });
+  it("empties the field with its last load and leaves a depleted Works", async () => {
+    const f = fixture(0, 2);
+    const salvageSites = () => (f.runtime as unknown as { ownedStructureCountsForPlayer: (id: string) => Record<string, number> })
+      .ownedStructureCountsForPlayer("p").RECLAMATION_WORKS ?? 0;
+    expect(salvageSites()).toBe(1);
     await f.ship("load-3");
-    expect(f.player().manpower).toBeCloseTo(cap * 0.75);
+    expect(f.events.filter(event => event.eventType === "COMMAND_REJECTED")).toEqual([]);
     expect(f.site().resource).toBeUndefined();
-    expect(f.site().economicStructureJson).toBeUndefined();
+    // Regression: the Works used to vanish; it now stays as a depleted yard that is no salvage site (no arms bonus).
+    expect(JSON.parse(f.site().economicStructureJson!)).toMatchObject({ type: "RECLAMATION_WORKS", salvageLoadsShipped: 3 });
+    expect(salvageSites()).toBe(0);
     // The emptied field must reach clients as an explicit clear ("" on the wire), not an omission.
     const lastDelta = f.events.filter(event => event.eventType === "TILE_DELTA_BATCH" && event.commandId === "load-3").at(-1)!;
     const wireTile = toProtoEvent(lastDelta).tile_deltas.find(tile => tile.x === 20 && tile.y === 20);
@@ -54,7 +62,22 @@ describe("shipping precursor salvage to the Court", () => {
     // Regression: the clear must survive the JSON event log, or a restart resurrects the field.
     expect(replayedSiteResource(f.events)).toBeUndefined();
     await f.ship("load-4");
-    expect(f.events.some(event => event.eventType === "COMMAND_REJECTED" && event.commandId === "load-4")).toBe(true);
+    // A depleted Works says the field is empty, not that it is missing.
+    expect(f.events.find(event => event.eventType === "COMMAND_REJECTED" && event.commandId === "load-4")).toMatchObject({ message: "this salvage field is empty" });
+  });
+  it("lets the owner dismantle a depleted Works", async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fixture(0, 2);
+      await f.ship("load-3");
+      await f.runtime.submitCommand({ commandId: "remove", sessionId: "s", playerId: "p", clientSeq: 99, issuedAt: now, type: "REMOVE_STRUCTURE", payloadJson: JSON.stringify({ x: 20, y: 20 }) });
+      expect((JSON.parse(f.site().economicStructureJson ?? "{}") as { status?: string }).status).toBe("removing");
+      await vi.advanceTimersByTimeAsync(7 * 24 * 60 * 60_000);
+      expect(f.site().economicStructureJson).toBeUndefined();
+      expect(f.site().resource).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it("never delivers above the cap and refuses when manpower is full", async () => {
     const f = fixture(0);

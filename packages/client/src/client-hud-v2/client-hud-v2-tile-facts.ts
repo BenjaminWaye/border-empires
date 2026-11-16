@@ -5,7 +5,7 @@
 
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { structureModifiersFor } from "@border-empires/game-domain";
-import { isRedesignedRelic, NATURAL_WONDER_LABELS, relicOperationalState, RELIC_DEFINITIONS, structureDisplayName } from "@border-empires/shared";
+import { DEPLETED_RECLAMATION_WORKS_NAME, isDepletedReclamationWorks, isRedesignedRelic, NATURAL_WONDER_LABELS, relicOperationalState, RELIC_DEFINITIONS, structureDisplayName } from "@border-empires/shared";
 import { resourceSlotProductionHtml } from "../client-tile-menu-view/client-tile-resource-slot-production.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { displayTownPopulationTierLabel, isTownGrowthPaused, populationPerMinuteLabel, townNextGrowthEtaLabel } from "../client-town-growth/client-town-growth.js";
@@ -47,13 +47,15 @@ type StructureSlot = {
   /** Aether Tower only: a Resonance Hijack takeover in progress, and Counterphase suppression. */
   hijackEndsAt?: number;
   suppressedUntil?: number;
+  /** A Reclamation Works whose field shipped its last load (isDepletedReclamationWorks). */
+  depleted?: true;
 };
 
 /** Every building on a tile, economic structures first since they carry the tile's purpose. */
 const structuresOn = (tile: Tile): StructureSlot[] => {
   const slots: StructureSlot[] = [];
   const s = tile.economicStructure;
-  if (s) slots.push({ key: s.type, field: "economicStructure", status: s.status, ...(s.inactiveReason ? { inactiveReason: s.inactiveReason } : {}), ...(s.disabledUntil ? { disabledUntil: s.disabledUntil } : {}) });
+  if (s) slots.push({ key: s.type, field: "economicStructure", status: s.status, ...(isDepletedReclamationWorks(tile) ? { depleted: true as const } : {}), ...(s.inactiveReason ? { inactiveReason: s.inactiveReason } : {}), ...(s.disabledUntil ? { disabledUntil: s.disabledUntil } : {}) });
   if (tile.fort) slots.push({ key: tile.fort.variant ?? "FORT", field: "fort", status: tile.fort.status, ...(tile.fort.disabledUntil ? { disabledUntil: tile.fort.disabledUntil } : {}) });
   if (tile.siegeBattery) slots.push({ key: tile.siegeBattery.variant ?? "SIEGE_BATTERY", field: "siegeBattery", status: tile.siegeBattery.status });
   if (tile.observatory) slots.push({ key: "OBSERVATORY", field: "observatory", status: tile.observatory.status, ...(tile.observatory.hijack ? { hijackEndsAt: tile.observatory.hijack.endsAt } : {}), ...(tile.observatory.suppressedUntil ? { suppressedUntil: tile.observatory.suppressedUntil } : {}) });
@@ -85,6 +87,8 @@ const stateFact = (s: StructureSlot, nowMs: number): TileFact => {
 const capitalized = (text: string): string => `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
 
 const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number, dormant: readonly SlotResource[] = []): TileFact[] => {
+  // A depleted Works gives nothing and costs nothing; the same for its owner and anyone else.
+  if (s.depleted) return [{ label: "Building", value: DEPLETED_RECLAMATION_WORKS_NAME }, s.status === "removing" ? stateFact(s, nowMs) : { label: "State", value: "Depleted · no salvage left", tone: "warn" }];
   const facts: TileFact[] = [];
   const name = structureDisplayName(s.key);
   if (name && plainText(name) !== "") facts.push({ label: "Building", value: name });

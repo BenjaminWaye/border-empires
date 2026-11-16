@@ -16,7 +16,7 @@ const barView = (actions: TileActionDef[]) => ({ actions, buildings: [], crystal
 describe("ship salvage button", () => {
   it("is the gold primary action while there is salvage to ship", () => {
     const [action] = salvageTributeActions(player(), works());
-    expect(action).toMatchObject({ id: "ship_salvage_to_court", disabled: false, recommended: true, cost: "1 of 3 loads → +250 manpower" });
+    expect(action).toMatchObject({ id: "ship_salvage_to_court", disabled: false, recommended: true, cost: "1 of 3 loads → +1000 manpower" });
     const [primary] = selectBarButtons(barView([action!]));
     expect(primary).toMatchObject({ kind: "action", primary: true, action: { id: "ship_salvage_to_court" } });
   });
@@ -58,7 +58,7 @@ describe("ship salvage popup", () => {
     const { send, shown } = open(0, works(2));
     expect(shown).toBe(true);
     expect(send).not.toHaveBeenCalled();
-    expect(document.querySelector("[data-salvage-delivered]")?.textContent).toBe("+250 manpower");
+    expect(document.querySelector("[data-salvage-delivered]")?.textContent).toBe("+1000 manpower");
     expect(document.querySelector("[data-salvage-note]")?.textContent).toContain("last load");
     document.querySelector<HTMLButtonElement>(".salvage-sheet-go")!.click();
     expect(send).toHaveBeenCalledWith({ type: "SHIP_SALVAGE_TO_COURT", x: 20, y: 20 }, expect.any(String));
