@@ -163,4 +163,8 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   // change must be flushed explicitly here or it sits dirty until some other
   // command happens to trigger a flush.
   context.flushReachUpdates(`reach-update:${commandId}`);
+  // Fort perimeter (fort-perimeter.ts) only defends garrisoned ground, so a
+  // finished fort queues garrisons for the frontier tiles it now covers.
+  const fortVariant = spec.kind === "FORT" ? completedTile.fort?.variant : undefined;
+  if (fortVariant) context.queueFortPerimeterGarrisons?.(ownerId, completedTile.x, completedTile.y, fortVariant);
 }

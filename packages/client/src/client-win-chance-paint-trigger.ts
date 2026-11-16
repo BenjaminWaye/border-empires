@@ -1,4 +1,4 @@
-import { findKnownShieldAmount, hillsDefenseModifiersAt, isCommitOddsEligibleTarget, winChanceForTile, type FrontierCombatPreviewTile } from "@border-empires/shared";
+import { findKnownShieldAmount, fortPerimeterSourceVariant, hillsDefenseModifiersAt, isCommitOddsEligibleTarget, winChanceForTile, type FrontierCombatPreviewTile } from "@border-empires/shared";
 import { collectKnownShieldFlags } from "./client-known-shield-flags.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
@@ -22,12 +22,16 @@ import type { Tile } from "./client-types.js";
 const WIN_CHANCE_PAINT_DURATION_MS = 6000;
 const MAX_WIN_CHANCE_LABELS = 20;
 
-const previewTileFor = (tile: Tile | undefined): FrontierCombatPreviewTile => ({
+const previewTileFor = (tile: Tile | undefined, state?: Pick<ClientState, "tiles">): FrontierCombatPreviewTile => ({
   terrain: tile?.terrain,
   ownershipState: tile?.ownershipState ?? undefined,
   dockId: tile?.dockId,
   townType: tile?.townType,
   fortVariant: tile?.fort?.status === "active" ? tile.fort.variant : undefined,
+  fortPerimeterVariant:
+    tile?.ownerId && tile.ownershipState === "SETTLED" && state
+      ? fortPerimeterSourceVariant(tile.ownerId, tile.x, tile.y, (x, y) => state.tiles.get(`${x},${y}`), Date.now())
+      : undefined,
   // A freshly captured FRONTIER tile still holding ground defends (capture-hold).
   captureHoldUntil: tile?.captureHoldUntil
 });
@@ -68,7 +72,7 @@ export const estimateTileWinChance = (
   commit: { committedManpower: number; baseMusterCost: number },
   serverBaseWinChance?: number
 ): number =>
-  winChanceForTile(previewTileFor(tile), {
+  winChanceForTile(previewTileFor(tile, state), {
     knownShieldAmount: tile.ownerId ? findKnownShieldAmount(tile.x, tile.y, tile.ownerId, collectKnownShieldFlags(state.tiles.values())) : 0,
     modifiers: { nowMs: Date.now(), ...hillsDefenseModifiersAt(tile.x, tile.y) },
     committedManpower: commit.committedManpower,
@@ -107,7 +111,7 @@ export const winChanceEntriesAlongLine = (
     const tile = state.tiles.get(keyFor(x, y));
     if (!tile?.ownerId || tile.ownerId === state.me) continue; // only enemy-owned tiles the arrow crosses
     const knownShieldAmount = findKnownShieldAmount(x, y, tile.ownerId, knownShieldFlags);
-    const { winChance, color } = winChanceForTile(previewTileFor(tile), {
+    const { winChance, color } = winChanceForTile(previewTileFor(tile, state), {
       knownShieldAmount,
       modifiers: { nowMs: Date.now(), ...hillsDefenseModifiersAt(x, y) },
       ...(commit ? { committedManpower: commit.committedManpower, baseMusterCost: commit.baseMusterCost } : {}),

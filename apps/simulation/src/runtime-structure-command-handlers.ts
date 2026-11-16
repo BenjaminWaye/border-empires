@@ -15,6 +15,7 @@ import {
   structureShowsOnTile,
   type BuildableStructureType,
   type EconomicStructureType,
+  type FortVariant,
   type SiegeTierInfo,
   type SlotStructureType
 } from "@border-empires/shared";
@@ -90,6 +91,8 @@ export type RuntimeStructureCommandContext = {
   bumpTerrainEpoch: () => void;
   completeStructureBuild: (targetKey: string, ownerId: string, structureType: string, commandId: string) => void;
   completeStructureRemoval: (targetKey: string, ownerId: string, commandId: string) => void;
+  /** Fort perimeter: queue garrisons for the owner's FRONTIER tiles a just-completed fort covers (runtime-fort-perimeter-garrison.ts). */
+  queueFortPerimeterGarrisons?: (ownerId: string, x: number, y: number, variant: FortVariant) => void;
   // Timer completions (scheduleAfter) skip queueCommandForProcessing's flush, so
   // completion handlers must flush reach updates themselves (Relay Beacon border lag).
   flushReachUpdates: (causeCommandId: string) => void;

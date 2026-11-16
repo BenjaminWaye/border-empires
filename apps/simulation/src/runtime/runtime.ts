@@ -23,7 +23,7 @@ import { expandTileDeltasWithLinkedDocks } from "../runtime-linked-dock-deltas.j
 import { planDirectFrontierCommand } from "../ai/direct-frontier-planner.js";
 import { buildAiTacticalView, type AiTacticalView } from "../ai/ai-tactical-view.js";
 import { resolvePendingSettlement as resolvePendingSettlementImpl, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
-import { startSettlementProcess as startSettlementProcessImpl, type SettlementStartInput } from "./runtime-settlement-start.js";
+import { startSettlementProcess as startSettlementProcessImpl, type SettlementStartInput } from "./runtime-settlement-start.js"; import { queueFortPerimeterGarrisons as queueFortPerimeterGarrisonsImpl } from "../runtime-fort-perimeter-garrison/runtime-fort-perimeter-garrison.js";
 import { PendingSpawnBonuses } from "./runtime-pending-spawn-bonuses.js";
 import { handleCancelSettleCommand as handleCancelSettleCommandImpl, type RuntimeCancelSettleContext } from "./runtime-cancel-settle.js";
 import { createIslandNamesTicker } from "../island-names/island-names-ticker.js";
@@ -3061,7 +3061,7 @@ export class SimulationRuntime {
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
       completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId),
-      flushReachUpdates: (causeCommandId) => this.flushReachUpdatesForCommand(causeCommandId), appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
+      flushReachUpdates: (causeCommandId) => this.flushReachUpdatesForCommand(causeCommandId), appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event), queueFortPerimeterGarrisons: (ownerId, x, y, variant) => { queueFortPerimeterGarrisonsImpl({ ...this.devQueueCommandContext(), tiles: this.state.tiles, isTileBlocked: (key) => this.state.locksByTile.has(key) || this.pendingSettlementsByTile.has(key), isPlayerTileInReach: (playerId, tx, ty) => this.isPlayerTileInReach(playerId, tx, ty) }, ownerId, x, y, variant); }
     });
   }
 
