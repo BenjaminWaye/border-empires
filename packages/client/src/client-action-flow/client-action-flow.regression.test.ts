@@ -35,14 +35,14 @@ describe("client action flow regressions", () => {
     const source = actionFlowSource();
 
     expect(source).toContain(
-      "showVisibleActionWarning({ pushFeed, showCaptureAlert }, FRONTIER_CLAIM_BLOCKED_TITLE, frontierClaimBlockedMessage(state, neutralTargets))"
+      "reportBulkFrontierClaim(state, out, neutralTargets, { pushFeed, showCaptureAlert })"
     );
     // Frontier claims cost no coin; the warning must never blame coin.
     expect(source).not.toContain("you need enough coin");
   });
 
   it("lets the frontier queue accept any target pickOriginForTarget can reach (e.g. bordering a still-pending claim)", () => {
-    expect(actionFlowSource()).toContain("hasOrigin: (x, y) => Boolean(pickOriginForTarget(x, y))");
+    expect(actionFlowSource()).toContain("hasOrigin: (x, y) => Boolean(pickOriginForTarget(x, y, false))");
   });
 
   it("keeps the generic build handler blocking a second build on a tile with a settle-then-build queued", () => {

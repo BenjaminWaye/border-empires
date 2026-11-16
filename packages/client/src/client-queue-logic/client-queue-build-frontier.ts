@@ -15,6 +15,8 @@ export const buildFrontierQueue = (
     // Optional reachability check beyond "touches an owned/planned tile":
     // lets a target bordering a still-pending EXPAND (or reachable via a
     // linked dock / aether bridge) qualify, matching pickOriginForTarget.
+    // It can be costly (dock lookups scan every tile), so it is only asked
+    // once adjacency runs dry, and at most once per candidate.
     hasOrigin?: (x: number, y: number) => boolean;
   }
 ): { queued: number; skipped: number; queuedKeys: string[] } => {
@@ -25,6 +27,7 @@ export const buildFrontierQueue = (
   }
   const planned = new Set<string>();
   const remaining = new Set<string>(candidates);
+  const originChecked = new Set<string>();
   let queued = 0;
 
   while (remaining.size > 0) {
@@ -41,7 +44,15 @@ export const buildFrontierQueue = (
         deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y + 1)),
         deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y + 1))
       ];
-      if (neighbors.some((neighborKey) => owned.has(neighborKey) || planned.has(neighborKey)) || deps.hasOrigin?.(x, y)) frontier.push(targetKey);
+      if (neighbors.some((neighborKey) => owned.has(neighborKey) || planned.has(neighborKey))) frontier.push(targetKey);
+    }
+    if (frontier.length === 0 && deps.hasOrigin) {
+      for (const targetKey of remaining) {
+        if (originChecked.has(targetKey)) continue;
+        originChecked.add(targetKey);
+        const { x, y } = deps.parseKey(targetKey);
+        if (deps.hasOrigin(x, y)) frontier.push(targetKey);
+      }
     }
     if (frontier.length === 0) break;
     frontier.sort();
