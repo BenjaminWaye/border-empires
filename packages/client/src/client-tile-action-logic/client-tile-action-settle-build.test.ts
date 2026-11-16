@@ -11,7 +11,7 @@
  *
  * Covers a representative sample: HYDROGARDEN (resource-gated, no slot),
  * MANUFACTORY (town-support), RELAY_BEACON (previously only ever built directly on
- * a settled tile via a bespoke path), and ORE_REFINERY (placement-overlay type).
+ * a settled tile via a bespoke path), and HYDROWORKS (placement-overlay type).
  */
 import { describe, expect, it } from "vitest";
 import { SETTLE_COST, SETTLE_MANPOWER_COST, structureBuildDurationMs, structureBuildManpowerCost } from "@border-empires/shared";
@@ -89,7 +89,7 @@ const frontierCostLabel = (state: ReturnType<typeof createInitialState>, tile: T
   const totalGold = SETTLE_COST + 500;
   const totalManpower = SETTLE_MANPOWER_COST + structureBuildManpowerCost(type);
   const totalMs = settleDurationMsForState(state, tile) + structureBuildDurationMs(type);
-  return `${totalGold} coin, ${totalManpower} m.p. • garrison + build • ${buildTimeLabel(totalMs)} total`;
+  return `${totalGold} coin, ${totalManpower} m.p. (${SETTLE_MANPOWER_COST} garrison + ${structureBuildManpowerCost(type)} build) • ${buildTimeLabel(totalMs)} total`;
 };
 
 describe("settle + build — resource-gated building (HYDROGARDEN)", () => {
@@ -104,7 +104,7 @@ describe("settle + build — resource-gated building (HYDROGARDEN)", () => {
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe("");
-    expect(action?.cost).not.toContain("garrison + build");
+    expect(action?.cost).not.toContain("garrison");
     expect(action?.cost).toContain("FOOD slot");
   });
 
@@ -185,7 +185,20 @@ describe("settle + build — Relay Beacon on an owned FRONTIER tile", () => {
     // the chain total is settle + 50 MP and the settle time alone -- matching what the
     // server charges, not the flat 100 MP / stale 1m build time this used to show.
     const settleLabel = buildTimeLabel(settleDurationMsForState(state, frontier));
-    expect(action?.cost).toBe(`${SETTLE_COST + 500} coin, ${SETTLE_MANPOWER_COST + 50} m.p. • garrison + build • ${settleLabel} total`);
+    // Playtest 2026-11-12: "70 m.p." on the button vs "50 manpower" in the build list; the split is now spelled out.
+    expect(action?.cost).toBe(`${SETTLE_COST + 500} coin, ${SETTLE_MANPOWER_COST + 50} m.p. (${SETTLE_MANPOWER_COST} garrison + 50 build) • ${settleLabel} total`);
+  });
+
+  // Playtest 2026-11-16: "Need 70 manpower" on a frontier tile vs "50 manpower" on settled ground read as an
+  // unexplained price change; the shortfall reason now names the garrison step too.
+  it("explains a manpower shortfall on a FRONTIER tile as garrison + build", () => {
+    const state = richState();
+    state.manpower = SETTLE_MANPOWER_COST + 49;
+    const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
+    state.tiles.set(keyFor(3, 3), frontier);
+    const action = findAction(menuActionsForSingleTile(state, frontier, baseDeps as never), "build_relay_beacon");
+    expect(action?.disabled).toBe(true);
+    expect(action?.disabledReason).toBe(`Need ${SETTLE_MANPOWER_COST + 50} manpower (${SETTLE_MANPOWER_COST} garrison + 50 build)`);
   });
 
   it("shows build_relay_beacon in both the Actions and Buildings tabs on a FRONTIER tile, but Buildings only on a SETTLED tile", () => {
@@ -204,21 +217,19 @@ describe("settle + build — Relay Beacon on an owned FRONTIER tile", () => {
   });
 });
 
-describe("settle + build — placement-overlay building (ORE_REFINERY)", () => {
-  it("shows build_ore_refinery on a FRONTIER owned TITANIUM tile with a garrison + build total", () => {
+describe("settle + build — placement-overlay building (HYDROWORKS)", () => {
+  it("shows build_hydroworks on a FRONTIER owned TITANIUM tile with a garrison + build total", () => {
     const state = richState();
-    state.techIds = ["industrial-extraction"];
-    state.resourceSlots.supply.FOOD = 1;
-    state.resourceSlots.supply.CRYSTAL = 1;
+    state.techIds = ["irrigation"];
     const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "TITANIUM" } as Tile;
     state.tiles.set(keyFor(3, 3), frontier);
 
     const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
-    const action = findAction(actions, "build_ore_refinery");
+    const action = findAction(actions, "build_hydroworks");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe(" • garrisons this tile first");
-    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "ORE_REFINERY"));
+    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "HYDROWORKS"));
   });
 });
 

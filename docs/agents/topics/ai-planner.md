@@ -52,7 +52,7 @@ wall-clock inflation** on the oversubscribed vCPU, not planner code cost.
 
 Emitters: `EXPAND`, `ATTACK`, `SET_MUSTER`/`ADVANCE`, `CHOOSE_TECH`,
 `CHOOSE_DOMAIN`, `BUILD_FORT`, `BUILD_ECONOMIC_STRUCTURE`,
-`BUILD_SIEGE_BATTERY`, `SETTLE`; barbarian planner:
+`BUILD_SIEGE_BATTERY`, `SETTLE`, `ASSIGN_REFINERY_FIELD`; barbarian planner:
 `EXPAND`, `ATTACK`, `UNCAPTURE_TILE`.
 
 The bounded tactical interrupt (`ai-aether-planner.ts`) also emits
@@ -77,6 +77,19 @@ The gateway owns proactive diplomacy (`proactive-ai-diplomacy.ts`): one AI per
 15-second evaluation, at most one offer, existing durable SocialState and responder.
 No diplomacy request store is added to the simulation. See
 [AI progression review and implementation](../../ai-progression-improvements-plan.md).
+
+Town refineries (territory-development-plan.md Phase 2): `build/refinery-build-planner.ts`
+adds refinery and booster candidates to `chooseBestEconomicBuild` (a refinery
+build carries `fieldX`/`fieldY`, re-checked with the shared
+`chooseRefineryField`), and `refinery-reassign-planner.ts` runs beside the
+aether interrupt to emit `ASSIGN_REFINERY_FIELD` for an idle refinery. Both
+read only the AI's towns (town-economy keys or build-candidate towns, at most
+64) and their support rings, never the whole territory; the reassign pass is
+skipped when the cached structure counts show no refinery. Planner tiles carry
+the record's `refineryField` (`toPlannerTileView`, `parseEconomicStructure`).
+A refinery is never built if its new slots would lift free slots to
+`SURPLUS_PRODUCER_MIN_HEADROOM`, the point where FOOD relief switches
+refineries off again. Scores: `docs/game-mechanics.md` §11.
 
 `evaluateSettlementCandidate` still classifies frontier tiles; it remains live.
 
@@ -345,7 +358,7 @@ consolidation, planning cadence), not deletion.
   - *FOOD relief order*: relief switched off a land-holding beacon first, even
     at exactly-full FOOD, and the freed slot went to the next economic build
     (185 AI beacons off, 253 Manufactories on). Free tiers (surplus
-    MINE/UMBRITE_RIG, beacons fully covered by other anchors, FOOD-dormant
+    MINE/UMBRITE_RIG, now town refineries, beacons fully covered by other anchors, FOOD-dormant
     consumers) always run; costly tiers (working building, then land-holding
     beacon, then town) only in a real deficit or when a beacon site exists
     with one more FOOD slot (`beaconWaitingOnFood`, a lazy second beacon
@@ -374,3 +387,13 @@ consolidation, planning cadence), not deletion.
     view would be needed to score suppliers lower.
   Each beacon past the first five costs a FOOD slot, so FOOD supply is the
   real ceiling on AI expansion.
+
+- **House Charges are a fallback objective, not a decision class.** An AI
+  House with no ordinary `expansionObjective` (`selectExpansionObjective`)
+  steers toward its first unfinished kept charge's target through that same
+  field (`house-charges/house-charge-ai-objective.ts`, wired in
+  `runtime-state-export.ts`). Point charges cost O(kept charges); an area charge
+  scans only that area's cells (a few hundred at most) for an unheld LAND tile.
+  It never overrides a real objective, and AIs keep non-Survey charges first
+  (they never send NAME_ISLAND). Regression coverage:
+  `house-charge-ai-objective.test.ts`.

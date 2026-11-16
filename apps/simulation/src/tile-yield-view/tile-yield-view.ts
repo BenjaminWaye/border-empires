@@ -26,25 +26,21 @@ export const tileYieldNeedsServerAuthority = (tile: Pick<DomainTileState, "dockI
 
 /**
  * Scans a player's settled tiles once and returns the "x,y" tile keys of
- * their active HYDROWORKS and ORE_REFINERY structures — the radius-source
- * lookups the Hydrogarden/Mine slot boosts need (resource-slot-view.ts).
- * Shared by the live runtime and the snapshot economy builders so every
- * path computes the exact same sets from the exact same predicate.
+ * their active HYDROWORKS — the radius-source lookup the Hydrogarden slot
+ * boost needs (resource-slot-view.ts). Shared by the live runtime and the
+ * snapshot economy builders so every path computes the exact same set from
+ * the exact same predicate.
  */
 export const radiusStructureKeysForSettledTiles = (
   settledTiles: Iterable<Pick<DomainTileState, "x" | "y" | "economicStructure">>
-): { hydroworksKeys: Set<string>; oreRefineryKeys: Set<string> } => {
+): { hydroworksKeys: Set<string> } => {
   const hydroworksKeys = new Set<string>();
-  const oreRefineryKeys = new Set<string>();
   for (const tile of settledTiles) {
-    if (tile.economicStructure?.status !== "active") continue;
-    if (tile.economicStructure.type === "HYDROWORKS") {
+    if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "HYDROWORKS") {
       hydroworksKeys.add(`${tile.x},${tile.y}`);
-    } else if (tile.economicStructure.type === "ORE_REFINERY") {
-      oreRefineryKeys.add(`${tile.x},${tile.y}`);
     }
   }
-  return { hydroworksKeys, oreRefineryKeys };
+  return { hydroworksKeys };
 };
 
 const roundPositive = (value: number, digits: number): number => {

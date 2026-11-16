@@ -5,13 +5,26 @@ import { advanceSupplyTradeNote } from "./client-supply-trade-attack-warning/cli
 import { advanceSupplyTradeWarning, confirmSupplyTradeEnd, type SupplyTradeSheet } from "./client-flag-supply-trade-confirm/client-flag-supply-trade-confirm.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
-import { musterStatusText } from "./client-side-panel-html/client-side-panel-html.js";
+import { musterFightIsClaim, musterStatusText } from "./client-side-panel-html/client-side-panel-html.js";
 import { armMusterMarchTargeting, cancelMarchAction, MARCH_CANCEL_ACTION_IDS, type MarchCancelActionId } from "./client-muster-march-targeting.js";
 import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import { predictedMusterAmount } from "./client-muster-prediction/client-muster-prediction.js";
 import { musterSiegeReason, ownTileSiegeAt } from "./client-muster-siege/client-muster-siege.js";
 import { promptMusterAdvanceEffort } from "./client-muster-advance-effort/client-muster-advance-effort.js";
 import { huntAttackersAction, huntOrderMessage, sendHuntAttackersOrder } from "./client-muster-hunt/client-muster-hunt.js";
+import { confirmFirstMusterStage } from "./client-muster-stage-confirm/client-muster-stage-confirm.js";
+import type { BreakPactSheetOptions } from "./client-break-pact-sheet/client-break-pact-sheet.js";
+
+type MusterSizeState = Pick<ClientState, "me" | "manpowerCap" | "manpower" | "musterAmountRateByTile">;
+
+/** A flag's staged manpower (predicted between server syncs) and its cap; undefined when the tile has no flag. */
+export const musterStagedAndCap = (tile: Tile, state: MusterSizeState): { staged: number; cap: number } | undefined => {
+  const muster = tile.muster;
+  if (!muster) return undefined;
+  const cap = Math.floor(musterFlagCap(state.manpowerCap, muster.capLevel));
+  const staged = Math.floor(predictedMusterAmount(state.musterAmountRateByTile, `${tile.x},${tile.y}`, tile, state.me, cap, state.manpower));
+  return { staged, cap };
+};
 
 // Inline to avoid circular dependency with client-tile-action-logic.ts
 // (which imports buildMusterActions from here).
@@ -54,10 +67,7 @@ export const buildMusterActions = (
       ...avail()
     });
   } else {
-    const cap = Math.floor(musterFlagCap(state.manpowerCap, muster.capLevel));
-    const staged = Math.floor(
-      predictedMusterAmount(state.musterAmountRateByTile, `${tile.x},${tile.y}`, tile, state.me, cap, state.manpower)
-    );
+    const { staged, cap } = musterStagedAndCap(tile, state) ?? { staged: 0, cap: 0 };
     const nextCap = Math.floor(musterFlagCap(state.manpowerCap, (muster.capLevel ?? 0) + 1));
     // Live auto-fire status (traveling/fighting/cooldown), synced from the
     // server — see musterStatusText's doc comment for what each mode+status
@@ -74,6 +84,7 @@ export const buildMusterActions = (
       nextActionAt: muster.nextActionAt,
       fightX: muster.fightX,
       fightY: muster.fightY,
+      fightClaim: musterFightIsClaim(muster, state.me, (x, y) => state.tiles.get(`${x},${y}`)),
       noTargetInRange: muster.noTargetInRange,
       insufficientManpower: muster.insufficientManpower,
       unfundableTarget: muster.unfundableTarget,
@@ -191,6 +202,8 @@ export type MusterTileActionDeps = {
   renderHud: () => void;
   /** Test seam for the supply-trade confirm; defaults to the break-pact sheet. */
   showSupplyTradeSheet?: SupplyTradeSheet;
+  /** Test seam for the first-time Stage Muster confirm; defaults to the break-pact sheet. */
+  showStageMusterSheet?: (options: BreakPactSheetOptions) => boolean;
 };
 
 /**
@@ -213,8 +226,14 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
     if (deps.state.discoveryTipQueue) announceDiscoveryTipForState(deps.state, "FIRST_MUSTER", deps.renderHud, { x, y });
   };
   if (actionId === "muster_hold") {
-    deps.sendGameMessage({ type: "SET_MUSTER", x, y, mode: "HOLD" });
-    announceFirstMuster();
+    const stage = (): void => {
+      deps.sendGameMessage({ type: "SET_MUSTER", x, y, mode: "HOLD" });
+      announceFirstMuster();
+    };
+    // "Set Hold" on an existing flag shares this id and stays instant; only
+    // raising a new flag gets the first-time explainer.
+    if (tile.muster) stage();
+    else confirmFirstMusterStage({ authEmail: deps.state.authEmail, flagCap: Math.floor(musterFlagCap(deps.state.manpowerCap, 0)), x, y, proceed: stage, ...(deps.showStageMusterSheet ? { show: deps.showStageMusterSheet } : {}) });
     return true;
   }
   if (actionId === "muster_advance") {

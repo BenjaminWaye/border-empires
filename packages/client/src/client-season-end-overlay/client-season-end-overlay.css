@@ -403,3 +403,8 @@
 .se-btn.is-holding .se-btn-hold-fill { transform: scaleX(1); transition: transform var(--se-hold-ms, 1500ms) linear; }
 .se-btn[data-se-force-hold] > :not(.se-btn-hold-fill) { position: relative; z-index: 1; }
 .se-start-error { text-align: center; margin: 10px 0 0; font-size: 12px; font-weight: 700; color: #ffb4a2; }
+
+/* Loading / empty / error card for the reopened Last Contest Recap. */
+.se-plate.se-recap-status { max-width: 420px; }
+.se-recap-status .se-scroll-body { text-align: center; }
+.last-contest-recap-card .last-contest-recap-btn { margin-top: 8px; width: 100%; }

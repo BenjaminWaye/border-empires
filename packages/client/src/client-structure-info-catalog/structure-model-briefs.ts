@@ -6,9 +6,6 @@ import { isDistrictBuilding, type DistrictBuildingKind } from "../client-town-di
 import type { StructureInfoKey } from "../client-map-display.js";
 
 const NETWORK_LANDMARKS = {
-  NEURAL_RESIN: "Tapped native trees, brass trunk collars and pipes, a collection vessel and pump.",
-  CONDUCTIVE_MINERALS: "Precision assembly hall with an open press gantry, glowing work cells and ore hopper.",
-  CATALYTIC_DEPOSIT: "Tall banded distillation columns with transfer pipes, access ladder and control hut.",
   LUXURY_BIOTA: "Twin brass-framed conservatory bays, flowering rows and a packing lodge.",
   PRECURSOR_SALVAGE: "Broken machine ribs beneath a travelling crane, sorting beds and salvage workshop."
 } as const;
@@ -26,8 +23,6 @@ const OTHER: Readonly<Record<Exclude<StructureInfoKey, DistrictBuildingKind | Ne
   SIEGE_TOWER: brief("Upgraded Siege Battery for stronger attacks from its tile.", "Tall braced siege engine carrying a large aiming lens and lance assembly."),
   DREAD_TOWER: brief("Final siege-ladder upgrade for assaults against heavily fortified targets.", "Braced reactor pylon, a large violet core and four precessing brass rings."),
   HYDROGARDEN: brief("Hydroponic cultivation installation that adds FOOD slots on grain-resource tiles; it does not improve fish tiles.", "Glass growing dome, visible crops and hydroponic service equipment."),
-  MINE: brief("Excavation installation that adds a slot of the tile's Titanium or Crystal resource.", "Mechanised extraction gantry, recessed drilling mouth, separation plant and material tray matching the actual mineral."),
-  UMBRITE_RIG: brief("Umbrite extraction installation that adds an Umbrite slot on its resource tile.", "Original Umbrite drilling machinery and containment equipment, seated on a matching marble platform."),
   HARBOR_EXCHANGE: brief("Quayside freight and trade installation that adds Coin income for connected owned docks.", "Quayside customs hall, bonded freight, watch drum, loading gantry and mooring bollards."),
   IMPERIAL_EXCHANGE: brief(`Unique completed Great Project that can levy a chosen rival's Coin every ${IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS / 3_600_000} hours; requires Ambaric power.`, "Financial rotunda with a ribbed gold roof, ledger-vault wings, counting court and sovereign seal."),
   SOVEREIGN_SIEGE_ENGINE: brief(`Unique completed Great Project that fires Worldbreaker strikes every ${SOVEREIGN_SIEGE_ENGINE_STRIKE_COOLDOWN_MS / 60_000} minutes, destroying a target structure and reducing its town's population; requires Ambaric power.`, "Massive elevated cannon with an open accelerator bore, armoured containment collars, monumental trunnions, recoil pistons and an armoured coaxial breech containing the Fracture Core."),

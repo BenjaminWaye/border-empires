@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -42,7 +44,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check file line limits
-        run: pnpm check:file-lines
+        env:
+          FILE_LINE_LIMIT_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -z "$FILE_LINE_LIMIT_BASE_REF" || "$FILE_LINE_LIMIT_BASE_REF" =~ ^0+$ ]]; then
+            export FILE_LINE_LIMIT_BASE_REF="$(git rev-parse HEAD^1)"
+          fi
+          pnpm check:file-lines
 
       - name: Check documentation contracts
         run: pnpm check:docs

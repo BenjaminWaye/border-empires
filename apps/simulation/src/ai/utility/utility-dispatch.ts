@@ -247,7 +247,9 @@ const executeClass = <TTile extends AutomationPlannerTile>(
         return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
           x: state.economicBuild.tile.x,
           y: state.economicBuild.tile.y,
-          structureType: state.economicBuild.structureType
+          structureType: state.economicBuild.structureType,
+          // A refinery names its deposit field (refinery-build-planner.ts).
+          ...(state.economicBuild.field ? { fieldX: state.economicBuild.field.x, fieldY: state.economicBuild.field.y } : {})
         });
       }
       return undefined;

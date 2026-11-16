@@ -84,7 +84,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type:z.literal("RESOURCE_TRADE_SYNC") }),
   z.object({ type: z.literal("DIPLOMACY_STANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional() }),
   // Trade screen: coin given to an AI for its goodwill alone (raises its opinion of you; diplomacy-gift.ts). No resource supply: a gift is paid once.
-  z.object({ type: z.literal("DIPLOMACY_GIFT"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), gift: DiplomacyGoodsSchema.omit({ resources: true }) }),
+  z.object({ type: z.literal("DIPLOMACY_GIFT"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), gift: DiplomacyGoodsSchema.omit({ resources: true, coinPerHour: true }) }),
   z.object({ type: z.literal("TRUCE_ACCEPT"), requestId: z.string().min(1), confirmedResourceSupply: z.boolean().optional() }),
   z.object({ type: z.literal("TRUCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_CANCEL"), requestId: z.string().min(1) }),
@@ -146,15 +146,16 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     structureType: z.enum([
-      "RESIN_EXTRACTOR",
-      "IMPLANT_FOUNDRY",
-      "CATALYST_REFINERY",
       "CULTIVATION_ESTATE",
       "RECLAMATION_WORKS",
       "HYDROGARDEN",
       "HYDROWORKS",
-      "UMBRITE_RIG",
-      "MINE",
+      "TITANIUM_REFINERY",
+      "UMBRITE_REFINERY",
+      "CRYSTAL_REFINERY",
+      "TITANIUM_SMELTER",
+      "UMBRITE_DISTILLERY",
+      "CRYSTAL_CUTTER",
       "MANUFACTORY",
       "INCUBATION_ENGINE",
       "CENSUS_HALL",
@@ -170,7 +171,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "AETHER_CONDENSER",
       "HIGH_YIELD_AETHER_CONDENSER",
       "TRADE_NEXUS",
-      "ORE_REFINERY",
       "ANCILLARY_DEPOT",
       "HARBOR_EXCHANGE",
       "NEURAL_WORKS",
@@ -204,8 +204,13 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "ASTRAL_DOCK",
       "CENSUS_DIRECTORATE",
       "TITANIUM_LEVY"
-    ])
+    ]),
+    // Refineries only: any tile of the deposit field to process; omitted = nearest eligible field.
+    fieldX: z.number().int().optional(),
+    fieldY: z.number().int().optional()
   }),
+  // Reassign the refinery at (x, y) to the field containing (fieldX, fieldY).
+  z.object({ type: z.literal("ASSIGN_REFINERY_FIELD"), x: z.number().int(), y: z.number().int(), fieldX: z.number().int(), fieldY: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("CANCEL_FORT_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("CANCEL_STRUCTURE_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("RUSH_BUY"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
@@ -319,10 +324,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // an instant one-time army at the anchor tile, then freezes empire-wide
   // manpower regen for 2 hours.
   z.object({ type: z.literal("TITANIUM_LEVY_MUSTER"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
-  // Emperor-endorsement bonus: burns one Imperial Ward charge, granting the
-  // player 10 minutes of total invulnerability on all owned tiles. No anchor
-  // tile — a pure per-player toggle, unlike AEGIS_LOCK.
-  z.object({ type: z.literal("ACTIVATE_IMPERIAL_WARD"), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("SUPPRESS_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("HIJACK_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("FORCED_ANCILLARIFICATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
@@ -348,7 +349,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     tileKey: z.string().min(1),
     kind: z.enum(["SETTLE", "BUILD"]),
     structureType: z.string().optional(),
-    tier: ChosenStructureTierSchema.optional()
+    tier: ChosenStructureTierSchema.optional(),
+    // A queued refinery build's chosen deposit field (BUILD_ECONOMIC_STRUCTURE fieldX/fieldY).
+    fieldX: z.number().int().optional(),
+    fieldY: z.number().int().optional()
   }),
   z.object({ type: z.literal("DEV_QUEUE_CANCEL"), tileKey: z.string().min(1) }),
   z.object({ type: z.literal("DEV_QUEUE_MOVE_TO_FRONT"), tileKey: z.string().min(1) }),
@@ -454,6 +458,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     name: z.string().max(64)
+  }),
+  // Which offered House Charges to keep (shared house-charges.ts); the sim checks the choice window and ids.
+  z.object({ type: z.literal("CHOOSE_HOUSE_CHARGES"), keptIds: z.array(z.string().max(160)).max(3) }),
+  // Explore: launch the scout drone toward (x, y) (shared scout-drone.ts).
+  z.object({
+    type: z.literal("EXPLORE"),
+    x: z.number().int(),
+    y: z.number().int()
   })
 ]);
 

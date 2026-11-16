@@ -14,7 +14,7 @@ export type RuntimeTruceSyncCommandContext = {
   players: Map<string, DomainPlayer>;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
-  // Envoy Accreditation pays per active truce: settle income at the old rate first, then refresh the HUD.
+  // Envoy Accreditation depends on whether a pact is active: settle income at the old rate first, then refresh the HUD.
   settleEconomy?: (at: number, playerIds: readonly string[]) => void;
   emitEconomyUpdate?: (command: CommandEnvelope, playerId: string) => void;
   now?: () => number;

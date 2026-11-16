@@ -15,8 +15,8 @@ try {
   } });
   const { structureReviewSvg, structureReviewInfrastructureExports } = await import(pathToFileURL(join(temporary, "icons.mjs")).href);
   const crops = [];
-  for (const { kind, resource, filename } of structureReviewInfrastructureExports) {
-    const svg = structureReviewSvg(kind, resource);
+  for (const { kind, filename } of structureReviewInfrastructureExports) {
+    const svg = structureReviewSvg(kind);
     await writeFile(join(root, "packages/client/public/overlays", filename), svg);
     const points = [...svg.matchAll(/ d="([^"]+)"/g)].flatMap(match => {
       const values = match[1].match(/-?\d+(?:\.\d+)?/g).map(Number);

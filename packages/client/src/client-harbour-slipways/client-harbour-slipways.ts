@@ -35,7 +35,8 @@ export const dockEndpointKeySet = (dockPairs: readonly DockPair[], keyFor: (x: n
 };
 
 // Checked in this order when a tile faces water on more than one side.
-const CARDINALS: readonly Facing[] = [{ dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: -1, dy: 0 }];
+/** The four facings a harbour can take, in the order the 2D dock sprites are numbered (south, east, north, west). */
+export const HARBOUR_FACINGS: readonly Facing[] = [{ dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: -1, dy: 0 }];
 
 const isWater = (terrain: string | undefined): boolean => terrain === "SEA" || terrain === "COASTAL_SEA";
 
@@ -48,7 +49,7 @@ export const harbourFacingAt = (terrainAt: LandingTerrainAt, x: number, y: numbe
   const waterOn = (facing: Facing): boolean =>
     isWater(terrainAt((x + facing.dx + WORLD_WIDTH) % WORLD_WIDTH, (y + facing.dy + WORLD_HEIGHT) % WORLD_HEIGHT));
   if (preferred && waterOn(preferred)) return preferred;
-  return CARDINALS.find(waterOn) ?? CARDINALS[0]!;
+  return HARBOUR_FACINGS.find(waterOn) ?? HARBOUR_FACINGS[0]!;
 };
 
 /**

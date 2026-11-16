@@ -37,7 +37,7 @@ import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-t
 import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { drawReachBoundaryLine } from "./client-reach-overlay/client-reach-overlay.js";
 import { drawReachTileTreatments2D } from "./client-reach-incursion/client-reach-incursion-2d.js";
-import { createPersistentAlertsFrame } from "./client-persistent-alerts/client-persistent-alerts-frame.js"; import { showCaptureTimeoutAlert } from "./client-alerts/client-alerts.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
+import { createPersistentAlertsFrame } from "./client-persistent-alerts/client-persistent-alerts-frame.js"; import { showCaptureTimeoutAlert } from "./client-alerts/client-alerts.js"; import { drawMapGuideOverlays } from "./client-house-charges/client-map-guide-overlays-2d.js";
 import { drawTileFeatureOverlays2D } from "./client-map-2d-tile-feature-overlays.js";
 import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
 import { createDistrictCanvas } from "./client-town-district/district-canvas.js";
@@ -58,7 +58,7 @@ import { drawTileGround2D } from "./client-map-render-2d-tile-ground/client-map-
 import { drawLandingGroundAndSupply2D } from "./client-dock-landing-ground/client-dock-landing-ground-2d.js";
 import { dockEndpointKeySet } from "./client-harbour-slipways/client-harbour-slipways.js";
 import { drawAetherTowerSprite2D } from "./client-aether-tower-sprite-2d/client-aether-tower-sprite-2d.js";
-import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js";
+import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js"; import { drawRouteOverlays2D } from "./client-map-render-2d-route-overlays/client-map-render-2d-route-overlays.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -252,7 +252,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       afcJoinDrop: state.afcJoinDrop,
       resourceInstallations: deps
     };
-    const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt, remembered: rememberedStructureDeps2D, townTierUpgradeFxByKey: state.townTierUpgradeFxByKey }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
+    const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt, remembered: rememberedStructureDeps2D, townTierUpgradeFxByKey: state.townTierUpgradeFxByKey, tiles: state.tiles }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
@@ -306,7 +306,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     };
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
       // A remembered (fogged) dock stays on the map.
-      if (dockEndpointKeys.has(wk) && ((!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged")) drawDockEndpoint2D(deps, wx, wy, px, py, size);
+      if (dockEndpointKeys.has(wk) && ((!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged")) drawDockEndpoint2D(deps, wx, wy, px, py, size, state.tiles);
 
       const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);
       const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
@@ -571,7 +571,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
         if (roadNetworkBuiltAt >= 0) continue;
 
-        if (dockEndpointKeys.has(wk) && ((!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged")) drawDockEndpoint2D(deps, wx, wy, px, py, size);
+        if (dockEndpointKeys.has(wk) && ((!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged")) drawDockEndpoint2D(deps, wx, wy, px, py, size, state.tiles);
 
         const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);
         const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
@@ -744,7 +744,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const roadOverlayMs = phaseMs();
     if (!isTrue3DRendererActive()) districtCanvas.draw(size, halfW, halfH);
 
-    for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile); if (!isTrue3DRendererActive() && state.arrowGesture) drawArrowGesture2D(deps.ctx, state.arrowGesture, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size); // F4: 2D arrow-gesture visual (F1/F2 parity)
+    for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile); drawRouteOverlays2D(deps.ctx, state, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size, Date.now()); // 2D-only: March To arrow (F4) and scout drone
     mapScreenOverlays.render(overlayTiles, { size, project: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH) });
     if (!isTrue3DRendererActive()) mapNameLabels.render((x, y) => deps.worldToScreen(x, y, size, halfW, halfH), nowMs);
     const tileOverlayMs = phaseMs();
@@ -885,7 +885,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       size,
       halfW,
       halfH
-    }); if (!isTrue3DRendererActive()) drawOnboardingChecklistHighlights(state.onboardingHighlightTiles, { ctx: deps.ctx, worldToScreen: deps.worldToScreen, size, halfW, halfH, nowMs });
+    }); if (!isTrue3DRendererActive()) drawMapGuideOverlays(state, { ctx: deps.ctx, worldToScreen: deps.worldToScreen, size, halfW, halfH, nowMs });
     const minimapAlertsMs = phaseMs();
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
     const tileDetailMs = phaseMs();
@@ -922,7 +922,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   setInterval(() => {
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;
-    if (state.autoSettleTargets.size > 0) deps.processAutoSettleTargets();
+    if (state.autoSettleTargets.size > 0 || state.townRingGarrisons.size > 0) deps.processAutoSettleTargets();
     if (state.autoBuildTargets.size > 0) deps.processAutoBuildTargets();
     const recoveredExpiredFrontier = sweepExpiredFrontierRecovery(state, {
       clearOptimisticTileState: deps.clearOptimisticTileState,
@@ -1081,7 +1081,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           ? "Frontier result delayed; keeping optimistic tile while continuing queue."
           : "Combat result delayed locally; continuing queue.",
         "combat",
-        "warn"
+        "info"
       );
       if (keepOptimisticExpand) {
         state.frontierSyncWaitUntilByTarget.set(timedOutCurrentKey, Date.now() + 12_000);
@@ -1107,7 +1107,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     updateMusicForGameState(computeWarMusicSignals(state));
   }, 500);
   startMusterStatusTicker(state, deps.renderHud);
-  startTruceRequestExpiryTicker(state, deps.renderHud);
+  startTruceRequestExpiryTicker(state, deps.renderHud, undefined, (message) => deps.pushFeed(message, "alliance", "warn"));
   setInterval(() => {
     if (state.connection !== "initialized") return;
     if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;

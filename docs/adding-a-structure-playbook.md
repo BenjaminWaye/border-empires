@@ -63,7 +63,8 @@ add it to `packages/game-domain/data/tech-tree.json` too (see step 12).
 
 **`placementMode` is the entire per-town cap mechanism**:
 - `"same_tile"` — one per tile, unlimited tiles per town (uncapped). Use
-  this for anything meant to be built repeatedly (Fort, Camp, Mine, and —
+  this for anything meant to be built repeatedly (Fort, Camp, the town
+  refineries, and —
   per an explicit design decision — Weapons Workshop, Manufactory, Ancillary
   Factory).
 - `"town_support"` — capped at exactly one per connected-town network,
@@ -163,7 +164,7 @@ The structure-info key type derives from the canonical shared display-name keys.
   connects that string to the info modal's Upkeep card. Every new
   `build_<type>` action's cost string must call the shared
   `upkeepSuffixFor()` from the same module (` • Upkeep: ...` appended to the
-  template literal) — copy an existing entry (e.g. `MINE` or `RELAY_BEACON`)
+  template literal) — copy an existing entry (e.g. `HYDROGARDEN` or `RELAY_BEACON`)
   rather than writing the string from scratch. Real precedent: the build
   menu shipped Sky Dock with a completely fabricated "36 crystal/day upkeep"
   line (no such drain exists anywhere in the simulation — Sky Dock's real

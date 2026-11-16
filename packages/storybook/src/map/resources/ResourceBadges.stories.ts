@@ -46,7 +46,7 @@ function gallery(entries: readonly (typeof resources)[number][] = resources): HT
       ctx.scale(2, 2);
       const paint = (): void => {
         ctx.clearRect(0, 0, extent, extent);
-        ctx.fillStyle = resource === "FISH" ? "#355e78" : resource === "CATALYTIC_DEPOSIT" ? "#9b8655" : "#455b3b";
+        ctx.fillStyle = resource === "FISH" ? "#355e78" : "#455b3b";
         ctx.fillRect(4, 4, size, size);
         ctx.strokeStyle = "#ffffff18";
         ctx.strokeRect(4.5, 4.5, size - 1, size - 1);

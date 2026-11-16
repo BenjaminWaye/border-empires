@@ -63,7 +63,7 @@ describe("dispatchPactGatedAction", () => {
     expect(dispatchPactGatedAction("break_truce", tile, state, deps, NOW)).toBe(true);
     expect(sheets).toEqual([]);
     expect(deps.breakTruce).not.toHaveBeenCalled();
-    expect(deps.pushFeed).toHaveBeenCalledWith("No active truce with Rival.", "alliance", "info");
+    expect(deps.pushFeed).toHaveBeenCalledWith("No active truce with Rival.", "alliance", "warn");
   });
 
   it("blocks attacks under a Court armistice without offering a break", () => {
@@ -89,6 +89,6 @@ describe("dispatchPactGatedAction", () => {
     expect(dispatchPactGatedAction("launch_attack", tile, state, deps, NOW)).toBe(true);
     expect(sheets).toEqual([]);
     expect(deps.breakAlliance).not.toHaveBeenCalled();
-    expect(deps.pushFeed).toHaveBeenCalledWith("Your alliance with Rival is already breaking. You can attack them in 3h.", "alliance", "info");
+    expect(deps.pushFeed).toHaveBeenCalledWith("Your alliance with Rival is already breaking. You can attack them in 3h.", "alliance", "warn");
   });
 });

@@ -1,4 +1,4 @@
-import { HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS, NEURAL_WORKS_MUSTER_RADIUS } from "@border-empires/shared";
+import { HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS, NEURAL_WORKS_MUSTER_RADIUS, REFINERY_BOOSTER_SLOTS_PER_TILE, REFINERY_SLOTS_PER_TILE } from "@border-empires/shared";
 import { AMBARIC_TRANSFORMER_RADIUS } from "@border-empires/game-domain";
 import { populationStructureDescription } from "../client-population-structure-info/client-population-structure-info.js";
 import type { DistrictBuildingKind } from "./district-catalog.js";
@@ -27,7 +27,12 @@ export const DISTRICT_MODEL_BRIEFS: Readonly<Record<DistrictBuildingKind, Distri
   TITANIUM_WEAPONS_FACTORY: brief("Forges Titanium armour plating; emphasizes empire-wide defense with an attack benefit.", "Open rectangular forging press, armour dies and plate output."),
   UMBRITE_WEAPONS_FACTORY: brief("Outfits Umbrite-equipped raiders; emphasizes empire-wide attack with a defense benefit.", "Forked containment crucible and charged blade racks."),
   HYDROWORKS: brief(`Irrigation infrastructure that supplies +${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS} FOOD slots to nearby active Hydrogardens.`, "Open water basin, pumping manifold and distribution channels."),
-  ORE_REFINERY: brief("Improves nearby active Mines' resource-slot output.", "Twin separation towers, intake chute and raw-ore feed."),
+  TITANIUM_REFINERY: brief(`Town refinery: processes one linked Titanium field, +${REFINERY_SLOTS_PER_TILE} slots per garrisoned field tile.`, "Blast furnace with a diagonal skip incline and an ore intake."),
+  UMBRITE_REFINERY: brief(`Town refinery: processes one linked Umbrite field, +${REFINERY_SLOTS_PER_TILE} slots per garrisoned field tile.`, "Distillation column with catwalks, flanked by sealed vats."),
+  CRYSTAL_REFINERY: brief(`Town refinery: processes one linked Gems field, +${REFINERY_SLOTS_PER_TILE} Crystal slots per garrisoned field tile.`, "Glazed octagonal lapidary rotunda over a glowing crystal cluster."),
+  TITANIUM_SMELTER: brief(`Adds +${REFINERY_BOOSTER_SLOTS_PER_TILE} slot to every tile this town's Titanium refineries process.`, "Squat arc-furnace pot with three electrodes."),
+  UMBRITE_DISTILLERY: brief(`Adds +${REFINERY_BOOSTER_SLOTS_PER_TILE} slot to every tile this town's Umbrite refineries process.`, "Waisted cooling tower with a steam plume and pump house."),
+  CRYSTAL_CUTTER: brief(`Adds +${REFINERY_BOOSTER_SLOTS_PER_TILE} slot to every tile this town's Crystal refineries process.`, "Cutting bench with a large upright wheel and sorted stones."),
   MINISTRY_HALL: brief("Reduces nearby towns' FOOD-slot demand through provincial provisioning.", "Administrative wings around a provisioning and distribution court."),
   RESONANCE_GRID: brief("Blocks hostile aerial bombardment and reveals its origin; requires Ambaric power.", "Broad counterphase tuning frame and horizontal resonator."),
   SKY_DOCK: brief("Launches aerial bombardment that strips hostile ownership in an area; requires Ambaric power.", "Armed aircraft berth, launch rails and visible ordnance servicing."),

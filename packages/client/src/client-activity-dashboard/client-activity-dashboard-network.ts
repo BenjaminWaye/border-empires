@@ -66,9 +66,18 @@ export const applyPersonalActivityTimelineMessage = (msg: Record<string, unknown
     state.activityDashboard.activeView = "YOURS";
     state.activityDashboard.open = true;
     requestWorldPulse(state, deps);
-  } else if (!state.activityDashboard.updatesAutoOpenedThisSession && shouldShowClientChangelog(state)) {
+  } else if (
+    !hasUnseenPersonalActivity &&
+    !(state.activityDashboard.open && state.activityDashboard.activeView === "YOURS") &&
+    !state.activityDashboard.updatesAutoOpenedThisSession &&
+    shouldShowClientChangelog(state)
+  ) {
     // Release notes are second to a genuine personal briefing. They share the
-    // dashboard, so no competing changelog modal can cover the timeline.
+    // dashboard, so no competing changelog modal can cover the timeline. A
+    // player coming back to unread events (raids, lost land) lands on Yours,
+    // never on patch notes: Updates waits while anything in the timeline is
+    // unread, and a later timeline response (every Chronicle open refetches)
+    // must not turn a Yours briefing that has not been shown yet into Updates.
     state.activityDashboard.updatesAutoOpenedThisSession = true;
     state.activityDashboard.activeView = "UPDATES";
     state.activityDashboard.open = true;

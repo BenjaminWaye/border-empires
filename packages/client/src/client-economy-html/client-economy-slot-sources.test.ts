@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { EMPIRE_STORAGE_FLOOR, emptyResourceSlotSources, type ResourceSlotSources } from "@border-empires/shared";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
-import { slotSourcesForResource } from "./client-economy-slot-sources.js";
+import { slotSourceLabel, slotSourcesForResource } from "./client-economy-slot-sources.js";
 
 type PanelArgs = Parameters<typeof renderEconomyPanelHtml>[0];
 
@@ -50,14 +50,25 @@ describe("Economy Slot Sources", () => {
   it("names structure boosts, upgrades and techs", () => {
     const sources = titaniumSources(
       { kind: "TILE", id: "TITANIUM", slots: 1, count: 1 },
-      { kind: "STRUCTURE_BOOST", id: "MINE", slots: 1, count: 1 },
-      { kind: "STRUCTURE_BOOST", id: "ORE_REFINERY", slots: 2, count: 1 },
+      { kind: "STRUCTURE_BOOST", id: "TITANIUM_SMELTER", slots: 1, count: 1 },
+      { kind: "STRUCTURE_BOOST", id: "TITANIUM_REFINERY", slots: 2, count: 1 },
       { kind: "UPGRADE", id: "afc-exchequer-2", slots: 1, count: 1 },
       { kind: "TECH", id: "agriculture", slots: 1, count: 1 }
     );
     expect(slotSourcesForResource(titaniumArgs(6, sources), "TITANIUM").map((b) => b.label)).toEqual(
-      ["Ore Refinery", "Agrarian Works", "Exchequer II", "Mine", "Titanium site"]
+      ["Titanium Refinery", "Agrarian Works", "Exchequer II", "Titanium site", "Titanium Smelter"]
     );
+  });
+
+  // Town refineries (territory-development-plan.md Phase 2): the sim emits one STRUCTURE_BOOST row per
+  // refinery / booster type; each must read as the building's name, never its raw id.
+  it("names every refinery and booster row", () => {
+    for (const [id, name] of [
+      ["TITANIUM_REFINERY", "Titanium Refinery"], ["UMBRITE_REFINERY", "Umbrite Refinery"], ["CRYSTAL_REFINERY", "Crystal Refinery"],
+      ["TITANIUM_SMELTER", "Titanium Smelter"], ["UMBRITE_DISTILLERY", "Umbrite Distillery"], ["CRYSTAL_CUTTER", "Crystal Cutter"]
+    ] as const) {
+      expect(slotSourceLabel({ kind: "STRUCTURE_BOOST", id, slots: 4, count: 2 })).toBe(name);
+    }
   });
 
   it("ignores loaded tiles; the rows are the whole story", () => {

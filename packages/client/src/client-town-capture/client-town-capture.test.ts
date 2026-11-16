@@ -1,0 +1,117 @@
+// @vitest-environment happy-dom
+// Playtest 2026-11-12: at 375x667 the capture card was taller than the screen, centred so its ✕ sat above
+// the top edge and "Jump to Town" below the bottom, with no scroll and no Esc: the game soft-locked twice.
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { occupationSurveyController, type OccupationSurveyReport } from "../client-occupation-survey.js";
+import { showTownCaptureOverlay, type TownCaptureInfo } from "./client-town-capture.js";
+
+const report = (id: string, text: string): OccupationSurveyReport =>
+  ({ id, x: 0, y: 0, bearing: "S", distanceBand: "NEAR", confidence: "LOW", text }) as unknown as OccupationSurveyReport;
+
+const info = (extra: Partial<TownCaptureInfo> = {}): TownCaptureInfo => ({
+  x: 289, y: 203, townName: "Tumblerun Green", populationTier: "TOWN", terrainProfile: "GRASS", coastal: true,
+  population: 16_792, maxPopulation: 100_000, empireName: "Nordmark", ownedTownCount: 1, destroyed: false,
+  surveyReports: [report("a", "Ferrous dust south of this town."), report("b", "Blackwood canopy west of the walls.")],
+  onJumpToTown: () => undefined,
+  ...extra
+});
+
+const styles = (): string => Array.from(document.head.querySelectorAll("style")).map((s) => s.textContent ?? "").join("\n");
+const rule = (selector: string): string => {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\#]/g, "\\$&");
+  return styles().match(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+};
+
+describe("town capture card on a short phone", () => {
+  afterEach(() => {
+    document.getElementById("town-capture-overlay")?.remove();
+    vi.restoreAllMocks();
+  });
+
+  it("keeps the ✕ and Jump to Town outside the scrolling body", () => {
+    showTownCaptureOverlay(info());
+    expect(document.getElementById("town-capture-owner")?.textContent?.trim()).toBe("You captured this town.");
+    const body = document.getElementById("town-capture-body");
+    const footer = document.getElementById("town-capture-footer");
+    expect(body?.querySelector("#town-capture-survey")).not.toBeNull();
+    expect(body?.contains(document.getElementById("town-capture-jump"))).toBe(false);
+    expect(footer?.contains(document.getElementById("town-capture-jump"))).toBe(true);
+    expect(body?.contains(document.getElementById("town-capture-close"))).toBe(false);
+  });
+
+  // Playtest 2026-11-16: a razed settlement read "Settlement Destroyed — Destroyed by House Ashhaven's
+  // attack", the player's own House, so she read her win as a loss. The card only shows her own capture.
+  it("addresses the viewer as you, not by their House name, when their attack razed the settlement", () => {
+    showTownCaptureOverlay(info({ empireName: "House Ashhaven", destroyed: true, populationTier: "SETTLEMENT" }));
+    const overlay = document.getElementById("town-capture-overlay")?.textContent ?? "";
+    expect(overlay).not.toContain("Ashhaven");
+    expect(document.getElementById("town-capture-owner")?.textContent?.trim()).toBe("You captured this tile. Your attack leveled the settlement.");
+    expect(document.getElementById("town-capture-eyebrow")?.textContent).toBe("Settlement Razed by You");
+  });
+
+  // happy-dom has no layout: guard the rules that cap the card to the screen and scroll its middle.
+  it("caps the card to the overlay and scrolls only the body", () => {
+    showTownCaptureOverlay(info());
+    const modal = rule("#town-capture-modal");
+    expect(modal).toMatch(/max-height:\s*100%/);
+    expect(modal).toMatch(/grid-template-rows:\s*auto minmax\(0, 1fr\) auto/);
+    expect(modal).toMatch(/width:\s*min\(520px, 100%\)/);
+    const body = rule("#town-capture-body");
+    expect(body).toMatch(/overflow-y:\s*auto/);
+    expect(body).toMatch(/min-height:\s*0/);
+  });
+
+  it("closes on Escape, once, and stops listening", () => {
+    const end = vi.spyOn(occupationSurveyController, "endCapture");
+    showTownCaptureOverlay(info());
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(document.getElementById("town-capture-overlay")).toBeNull();
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(end).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores other keys", () => {
+    showTownCaptureOverlay(info());
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(document.getElementById("town-capture-overlay")).not.toBeNull();
+  });
+});
+
+// 2026-11-14 playtest: the Town Captured card popped up mid-deal and the draft was lost.
+describe("town capture card during a deal", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  it("waits for an open deal to close, then shows the latest capture", () => {
+    vi.useFakeTimers();
+    const deal = document.createElement("div");
+    deal.className = "diplomacy-trade-overlay";
+    document.body.appendChild(deal);
+    showTownCaptureOverlay(info({ townName: "First" }));
+    showTownCaptureOverlay(info({ townName: "Second" }));
+    vi.advanceTimersByTime(3_000);
+    expect(document.getElementById("town-capture-overlay")).toBeNull();
+    expect(deal.isConnected).toBe(true);
+    deal.remove();
+    vi.advanceTimersByTime(1_000);
+    expect(document.getElementById("town-capture-name")?.textContent).toBe("Second");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  // Review of #2785: the held card no longer called beginCapture, so the occupation survey popup
+  // (a body-level modal that takes focus) could open over the deal being drafted.
+  it("keeps the occupation survey popup suppressed while the card waits", () => {
+    vi.useFakeTimers();
+    const begin = vi.spyOn(occupationSurveyController, "beginCapture");
+    const deal = document.createElement("div");
+    deal.className = "diplomacy-trade-overlay";
+    document.body.appendChild(deal);
+    showTownCaptureOverlay(info());
+    expect(begin).toHaveBeenCalled();
+    deal.remove();
+    vi.advanceTimersByTime(1_000);
+    begin.mockRestore();
+  });
+});

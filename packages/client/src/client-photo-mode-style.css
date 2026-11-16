@@ -9,6 +9,18 @@ body.photo-mode > *:not(#game-surface):not(script):not(#photo-mode-exit-control)
   display: none !important;
 }
 
+/* Map-surface layers that are HUD, not map: town plates, ready badges and
+   toasts live inside #game-surface (over either renderer), so they need their
+   own rule. The off-screen alert pins are skipped in the draw itself
+   (client-persistent-alerts-frame.ts). */
+body.photo-mode .town-plate-layer,
+body.photo-mode .refinery-toast-layer,
+body.photo-mode .afc-upgrade-ready-layer,
+body.photo-mode .afc-signal-layer,
+body.photo-mode .salvage-toast-layer {
+  display: none !important;
+}
+
 #photo-mode-exit-control {
   position: fixed;
   left: 16px;
@@ -19,6 +31,13 @@ body.photo-mode > *:not(#game-surface):not(script):not(#photo-mode-exit-control)
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.6);
   color: #fff;
-  font: 13px sans-serif;
+  font: 600 13px "Cinzel", Georgia, serif;
+  letter-spacing: 0.04em;
   cursor: pointer;
+  transition: opacity 0.4s ease;
+}
+
+#photo-mode-exit-control.is-idle {
+  opacity: 0;
+  pointer-events: none;
 }

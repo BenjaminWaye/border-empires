@@ -23,7 +23,7 @@ const storySite = (): ConstructionSite => ({
   afcOffset: undefined,
   direction: "build",
   field: "economicStructure",
-  structureType: "ORE_REFINERY",
+  structureType: "TITANIUM_WORKS",
   ownerId: "me",
   fraction: 0.25,
   visibleBands: 2,

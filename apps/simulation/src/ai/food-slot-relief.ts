@@ -21,7 +21,7 @@
 // foodSlotReliefFromPlannerInput):
 // Free tiers, allowed at exactly-full FOOD too, each giving up nothing that
 // is producing:
-//   1. a MINE/UMBRITE_RIG whose resource is in surplus
+//   1. a town refinery whose resource is in surplus
 //      (food-slot-relief-surplus.ts);
 //   2. a RELAY_BEACON whose whole reach other anchors already cover
 //      (chooseLowValueBeaconToDisable with redundantOnly);

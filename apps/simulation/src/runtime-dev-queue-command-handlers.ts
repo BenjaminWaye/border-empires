@@ -9,6 +9,7 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import {
   devQueueCancel,
   devQueueEnqueue,
+  devQueueFieldOf,
   devQueueEntryForTileKey,
   devQueueMoveToFront,
   parseDevQueueEnqueuePayload,
@@ -215,7 +216,7 @@ export const tryDrainDevQueue = (context: RuntimeDevQueueCommandContext, playerI
     type: entry.kind === "SETTLE" ? "SETTLE" : isRemoval ? "REMOVE_STRUCTURE" : "BUILD_STRUCTURE",
     payloadJson: JSON.stringify(
       entry.kind === "BUILD" && entry.structureType && !isRemoval
-        ? { x: entry.x, y: entry.y, structureType: entry.structureType, ...(entry.tier ? { tier: entry.tier } : {}) }
+        ? { x: entry.x, y: entry.y, structureType: entry.structureType, ...(entry.tier ? { tier: entry.tier } : {}), ...devQueueFieldOf(entry) }
         : { x: entry.x, y: entry.y }
     )
   } as unknown as CommandEnvelope;

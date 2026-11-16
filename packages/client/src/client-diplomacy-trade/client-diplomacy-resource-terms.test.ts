@@ -7,27 +7,29 @@ import { ClientMessageSchema } from "@border-empires/shared";
 const empty={gold:0};
 afterEach(()=>{closeDiplomacyTradeScreen();vi.useRealTimers();});
 describe("resource supply negotiation",()=>{
-  it("sends the exact resource quantities and term from the actual diplomacy controls",()=>{
+  it("sends the exact resource quantities and recurring Coin from the actual diplomacy controls",()=>{
     const send=vi.fn((_payload: unknown, _message: string)=>true);
     openDiplomacyTradeScreen({targetName:"Milo",targetPlayerId:"other",kind:"trade",durationHours:12}, {
-      send, ownHoldings:()=>({gold:50,resources:{NEURAL_RESIN:2}})
+      send, ownHoldings:()=>({gold:50,resources:{LUXURY_BIOTA:2}})
     });
     receiveDiplomacyStance({found:true,targetPlayerName:"Milo",targetPlayerId:"other",ai:false});
     const overlay=document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
     expect(overlay.querySelector('[data-trade-kind][aria-pressed="true"]')).toBeNull();
     const edit=(selector:string,value:string)=>{ const field=overlay.querySelector<HTMLInputElement|HTMLSelectElement>(selector)!; field.value=value; field.dispatchEvent(new Event("input")); };
     edit('[data-trade-exact="give-gold"]', "7");
-    edit('[data-trade-exact="give-NEURAL_RESIN"]',"2"); edit('[data-trade-exact="ask-FOOD"]',"3");
+    edit('[data-trade-exact="give-LUXURY_BIOTA"]',"2"); edit('[data-trade-exact="ask-FOOD"]',"3");
+    edit('[data-trade-exact="ask-coinPerHour"]', "50");
+    expect(overlay.querySelector('[data-trade-deal]')?.textContent).toContain("8400 Coin over the term");
     overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.click();
     const payload=send.mock.calls.at(-1)![0];
-    expect(payload).toMatchObject({ type:"RESOURCE_TRADE_REQUEST",terms:{give:{gold:7,resources:{NEURAL_RESIN:2}},ask:{gold:0,resources:{FOOD:3}}} });
+    expect(payload).toMatchObject({ type:"RESOURCE_TRADE_REQUEST",terms:{give:{gold:7,resources:{LUXURY_BIOTA:2}},ask:{gold:0,coinPerHour:50,resources:{FOOD:3}}} });
     expect(ClientMessageSchema.safeParse(payload).success).toBe(true);
   });
   it("prevents giving used slots and preserves resource terms when countering",()=>{
     const send=vi.fn((_payload: unknown, _message: string)=>true),terms={give:{...empty,resources:{PRECURSOR_SALVAGE:2}},ask:empty,supplyDurationHours:24 as const};
     openDiplomacyTradeScreen({targetName:"Milo",kind:"alliance",durationHours:12,terms}, {send,ownHoldings:()=>({...empty,resources:{PRECURSOR_SALVAGE:1}})});
     expect(document.querySelector<HTMLInputElement>('[data-trade-exact="give-PRECURSOR_SALVAGE"]')?.value).toBe("2");
-    expect(document.querySelector('[data-trade-deal]')?.textContent).toContain("Supply runs until either House cancels");
+    expect(document.querySelector('[data-trade-deal]')?.textContent).toContain("Supply lasts 7 days from acceptance");
     expect(document.querySelector<HTMLButtonElement>('[data-trade-send]')?.disabled).toBe(true);
     expect(document.querySelector('[data-trade-verdict]')?.textContent).toContain("1 spare Precursor salvage");
   });
@@ -35,9 +37,9 @@ describe("resource supply negotiation",()=>{
     openDiplomacyTradeScreen({targetName:"Milo",kind:"truce",durationHours:12},diplomacyTradeDepsFor({gold:5},()=>true));
     expect(document.querySelector('[data-trade-row="give-FOOD"]')).toBeNull();
     const state=createInitialResourceTradeState();
-    applyResourceTradeState(state,{resourceTradeHoldings:{NEURAL_RESIN:1}});
-    expect(state.resourceTradeHoldings).toEqual({NEURAL_RESIN:1});
-    applyResourceTradeState(state,{resourceTradeHoldings:{NEURAL_RESIN:-2}});
+    applyResourceTradeState(state,{resourceTradeHoldings:{LUXURY_BIOTA:1}});
+    expect(state.resourceTradeHoldings).toEqual({LUXURY_BIOTA:1});
+    applyResourceTradeState(state,{resourceTradeHoldings:{LUXURY_BIOTA:-2}});
     expect(state.resourceTradeHoldings).toBeUndefined();
   });
   it("refreshes delivery status while an open screen's Coin and spare inventory stay unchanged",()=>{
@@ -56,9 +58,9 @@ describe("resource supply negotiation",()=>{
 
   it("reviews an independent incoming offer and lets either participant end active supply",()=>{
     const send=vi.fn((_payload:unknown,_message:string)=>true),state=createInitialResourceTradeState();
-    const active={id:"contract",proposerId:"other",targetId:"self",proposerGives:{FOOD:2},targetGives:{NEURAL_RESIN:1},startedAt:1,fulfilled:true};
-    applyResourceTradeState(state,{resourceTradeHoldings:{NEURAL_RESIN:1},resourceTradeAgreements:[active]});
-    applyResourceTradeMessage(state,{type:"RESOURCE_TRADE_UPDATE",offers:[{id:"offer",fromPlayerId:"other",toPlayerId:"self",fromPlayerName:"Milo",toPlayerName:"You",terms:{give:{...empty,resources:{FOOD:2}},ask:{...empty,resources:{NEURAL_RESIN:1}}},createdAt:1,expiresAt:Date.now()+3600000,status:"pending"}]});
+    const active={id:"contract",proposerId:"other",targetId:"self",proposerGives:{FOOD:2},targetGives:{LUXURY_BIOTA:1},startedAt:1,fulfilled:true};
+    applyResourceTradeState(state,{resourceTradeHoldings:{LUXURY_BIOTA:1},resourceTradeAgreements:[active]});
+    applyResourceTradeMessage(state,{type:"RESOURCE_TRADE_UPDATE",offers:[{id:"offer",fromPlayerId:"other",toPlayerId:"self",fromPlayerName:"Milo",toPlayerName:"You",terms:{give:{...empty,resources:{FOOD:2}},ask:{...empty,resources:{LUXURY_BIOTA:1}}},createdAt:1,expiresAt:Date.now()+3600000,status:"pending"}]});
     openDiplomacyTradeScreen({targetName:"Milo",targetPlayerId:"other",kind:"trade",durationHours:12},{
       send,ownHoldings:()=>({...empty,resources:state.resourceTradeHoldings}),activeSupply:()=>({ownId:"self",agreements:state.resourceTradeAgreements,offers:state.resourceTradeOffers})});
     document.querySelector<HTMLButtonElement>('[data-resource-offer-accept="offer"]')!.click();

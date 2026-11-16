@@ -14,6 +14,7 @@ import {
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { WonderOverlay } from "./client-map-3d-wonder-overlay-types.js";
 import { createContouredGroundGeometry, sampleContouredGroundHeights, type TerrainCornerSampler } from "./client-map-3d-wonder-ground-contour.js";
+import { LATTICE_HASH_GLSL } from "../client-map-3d-lattice-hash/client-map-3d-lattice-hash-glsl.js";
 
 /**
  * Quickforge natural wonder: a rapid-action forge with animated pneumatic
@@ -58,7 +59,8 @@ const groundMaterial = (): ShaderMaterial =>
       uniform float uTime;
       uniform vec3 uRedHot, uDark, uEmber;
       varying vec3 vWorldPos;
-      float hash(vec2 p) { p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
+      ${LATTICE_HASH_GLSL}
+      float hash(vec2 p) { return latticeHash2(p); }
       float noise(vec2 p) {
         vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
         return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);

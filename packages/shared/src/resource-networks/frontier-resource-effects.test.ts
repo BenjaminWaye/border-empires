@@ -1,23 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  allocateBiotaSlots, biotaManpowerTier, biotaSlotsNeededForTier, frontierMaterialManpowerPerWindow,
-  frontierMaterialManpowerRegenPerMinute, frontierSiteCaptureValue, materialManpowerPerWindow,
-  materialMarginalManpowerPerWindow, salvageArmsMultiplier, salvageLoadsRemaining, salvageTributeManpower
+  allocateBiotaSlots, biotaManpowerTier, biotaSlotsNeededForTier, frontierSiteCaptureValue,
+  salvageArmsMultiplier, salvageLoadsRemaining, salvageTributeManpower
 } from "./frontier-resource-effects.js";
-import { emptyNetworkSiteCounts } from "./resource-networks.js";
-
-describe("resin, conductive and catalyst manpower", () => {
-  it("pays 120 for the first site of a type and 30 for each extra one", () => {
-    expect([0, 1, 2, 10].map(materialManpowerPerWindow)).toEqual([0, 120, 150, 390]);
-    expect(materialMarginalManpowerPerWindow(0)).toBe(120);
-    expect(materialMarginalManpowerPerWindow(9)).toBe(30);
-  });
-  it("adds the three material types together and ignores biota and salvage", () => {
-    const counts = { ...emptyNetworkSiteCounts(), NEURAL_RESIN: 10, CONDUCTIVE_MINERALS: 5, CATALYTIC_DEPOSIT: 6, LUXURY_BIOTA: 9, PRECURSOR_SALVAGE: 9 };
-    expect(frontierMaterialManpowerPerWindow(counts)).toBe(900);
-    expect(frontierMaterialManpowerRegenPerMinute(counts)).toBeCloseTo(900 / 240);
-  });
-});
 
 describe("luxury biota", () => {
   it("needs one slot per tier above Town", () => {
@@ -60,8 +45,6 @@ describe("precursor salvage", () => {
     expect(salvageTributeManpower(1000, 1000)).toBe(0);
   });
   it("describes what capturing one more site adds", () => {
-    expect(frontierSiteCaptureValue("CATALYTIC_DEPOSIT", 0)).toBe("+120 manpower per refill");
-    expect(frontierSiteCaptureValue("NEURAL_RESIN", 4)).toBe("+30 manpower per refill");
     expect(frontierSiteCaptureValue("LUXURY_BIOTA", 2)).toBe("+2 biota slots");
     expect(frontierSiteCaptureValue("PRECURSOR_SALVAGE", 10)).toBe("+0% (arms bonus at its +10% limit)");
   });

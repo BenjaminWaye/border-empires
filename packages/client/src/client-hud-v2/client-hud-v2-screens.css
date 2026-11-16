@@ -107,10 +107,11 @@ body.hud-v2-screen-afc #side-panel {
 .v2m-own { color: var(--v2-green-hi); }
 .v2m-avail { color: #9fc1ea; }
 .v2m-pips { display: flex; gap: 3px; }
-.v2m-pips i, .v2m-legend i { display: inline-block; width: 9px; height: 9px; }
-.v2m-pip-owned { background: #2f5a33; border: 1px solid var(--v2-green); }
-.v2m-pip-available { background: #2c4a6b; border: 1px solid var(--v2-blue); }
-.v2m-pip-locked { background: #2a241b; border: 1px solid var(--v2-edge); }
+.v2m-pips i, .v2m-legend i { display: inline-grid; place-items: center; width: 11px; height: 11px; box-sizing: border-box; font-style: normal; font-size: 9px; line-height: 1; }
+/* Shape per state, not only colour: tick / hollow / hatched (manifestPipHtml). */
+.v2m-pip-owned { background: #2f5a33; border: 1px solid var(--v2-green); color: #e8f5e4; font-weight: 700; }
+.v2m-pip-available { background: transparent; border: 2px solid var(--v2-blue); border-radius: 50%; }
+.v2m-pip-locked { background: repeating-linear-gradient(45deg, #2a241b 0 2px, #6b5e49 2px 3px); border: 1px solid var(--v2-edge); }
 .v2m-seg { position: absolute; background: #4a3f2c; }
 .v2m-seg-path { background: var(--v2-gold); }
 .v2m-seg-owned { background: var(--v2-green); }
@@ -155,6 +156,7 @@ body.hud-v2-screen-afc #side-panel {
 .v2m-chip-info:hover { border-color: var(--v2-gold); color: var(--v2-gold-hi); }
 .v2m-req { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-soft); }
 .v2m-req-missing { color: var(--v2-amber); }
+.v2m-where { display: block; font-size: 12px; color: var(--v2-soft); }
 
 /* ---- Ranks ---- */
 .v2r-banner { font-family: var(--v2-body); font-size: 14px; color: var(--v2-soft); }
@@ -197,6 +199,9 @@ body.hud-v2-screen-afc #side-panel {
 .v2r-stand { display: grid; grid-template-columns: 24px 30px minmax(0, 1fr) 70px 56px; gap: 8px; align-items: center; padding: 5px 4px; border: 0; background: none; text-align: left; }
 .v2r-stand:hover { background: #221c13; }
 .v2r-stand .v2r-crest { width: 24px; height: 24px; font-size: 11px; border-width: 1px; }
+/* Two-letter crest when empires share an initial (client-hud-v2-crest-letters.ts). */
+.v2r-crest.v2r-crest-2 { font-size: 12px; letter-spacing: -0.02em; }
+.v2r-stand .v2r-crest-2, .v2r-rival.v2r-crest-2 { font-size: 9.5px; }
 .v2r-stand-you .v2r-stand-name { color: var(--v2-gold-hi); }
 .v2r-rank { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-muted); }
 .v2r-stand-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; }
@@ -206,7 +211,11 @@ body.hud-v2-screen-afc #side-panel {
 
 /* ---- Diplomacy ---- */
 .v2d-reqs, .v2d-grid-wrap { padding: 14px 18px; margin-bottom: 14px; background: rgba(15, 13, 10, 0.94); border: 1px solid var(--v2-edge); }
-.v2d-grid-wrap { flex: 1; min-height: 0; overflow: auto; }
+.v2d-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
+.v2d-list-links { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.v2d-pact { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+.v2d-pact-state { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-amber); text-transform: uppercase; letter-spacing: 0.08em; }
+.v2d-pact-note { font-size: 12px; color: var(--v2-muted); }
 .v2d-req { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
 .v2d-req-text { flex: 1; display: grid; font-size: 14px; }
 .v2d-req-text span { font-size: 12px; color: var(--v2-muted); }
@@ -218,10 +227,15 @@ body.hud-v2-screen-afc #side-panel {
 .v2d-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .v2d-emp { display: grid; justify-items: center; gap: 4px; padding: 14px 8px; background: var(--v2-well); border: 1px solid var(--v2-line); }
 .v2d-emp:hover { border-color: var(--v2-gold); }
-.v2d-emp-name { font-family: var(--v2-display); font-size: 14px; font-weight: 700; }
+/* min-width/max-width: a long name ("KonradsDelikatessKörv") ran off its card and pushed the crest aside. */
+.v2d-emp { min-width: 0; }
+.v2d-emp-name { max-width: 100%; overflow-wrap: anywhere; text-align: center; font-family: var(--v2-display); font-size: 14px; font-weight: 700; }
+/* The "No empires met yet" note sits in the card grid: span every column, not one 104px cell. */
+.v2d-grid > .v2s-empty { grid-column: 1 / -1; }
 .v2d-emp-stance { font-family: var(--v2-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--v2-soft); text-transform: uppercase; }
 .v2d-emp-ally .v2d-emp-stance { color: var(--v2-green); }
 .v2d-emp-truce .v2d-emp-stance { color: var(--v2-amber); }
+.v2d-emp-war .v2d-emp-stance { color: var(--v2-red); }
 .v2d-emp-truce .v2d-crest { border-style: dashed; }
 .v2d-emp-tiles { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
 .v2d-deal-nav { display: flex; align-items: baseline; gap: 14px; margin-bottom: 12px; }
@@ -243,7 +257,8 @@ body.hud-v2-screen-afc #side-panel {
 .v2c-close { height: 30px; padding: 0 10px; background: var(--v2-well); border: 1px solid var(--v2-edge-strong); color: var(--v2-soft); font-family: var(--v2-mono); font-size: 11px; }
 .v2c-summary { display: grid; gap: 8px; margin: 0 14px; padding: 10px 12px; background: var(--v2-chip); border: 1px solid var(--v2-edge); }
 .v2c-summary-h { font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
-.v2c-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+/* One row whatever the count: "towns taken" only shows when there is one, so 4 or 5 chips. */
+.v2c-chips { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 5px; }
 .v2c-chip { display: grid; padding: 6px; background: var(--v2-well); }
 .v2c-chip b { font-family: var(--v2-mono); font-size: 14px; }
 .v2c-chip span { font-size: 10.5px; color: var(--v2-muted); }
@@ -258,6 +273,7 @@ body.hud-v2-screen-afc #side-panel {
 .v2c-filter-on { background: #2a2216; border-color: var(--v2-gold); color: var(--v2-gold-hi); }
 .v2c-list { flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid var(--v2-line); }
 .v2c-day { padding: 8px 14px 4px; font-family: var(--v2-mono); font-size: 10px; letter-spacing: 0.12em; color: var(--v2-muted); }
+.v2c-day-away { color: var(--v2-red-hi); font-weight: 600; }
 .v2c-row { display: grid; grid-template-columns: 40px 22px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 7px 14px; border-left: 3px solid transparent; }
 .v2c-row-sel { background: #221c13; border-left-color: var(--v2-gold); }
 .v2c-time { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }

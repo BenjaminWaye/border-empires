@@ -4,6 +4,7 @@ import type { TileMenuView } from "./client-types.js";
 import type { OptimisticStructureKind, Tile, TileActionDef } from "./client-types.js";
 import { structureTypeForTileAction, unmappedBuildActionWarning } from "./client-tile-action-support/client-tile-action-support.js";
 import { showStructureTierSheet } from "./client-structure-tier-sheet/client-structure-tier-sheet.js";
+import { handleRefineryTileAction } from "./client-refineries/refinery-action-handler.js";
 
 export const handleGenericBuildAction = (input: {
   actionId: string;
@@ -18,6 +19,10 @@ export const handleGenericBuildAction = (input: {
   hideMenu: () => void;
 }): boolean => {
   const actionId = input.actionId as TileActionDef["id"];
+  // Refinery rows open a field / town picker first (client-refineries/refinery-action-handler.ts).
+  const view = input.viewForTile?.(input.selected);
+  const row = view ? [...(view.buildings ?? []), ...(view.actions ?? [])].find((candidate) => candidate.id === actionId) : undefined;
+  if (handleRefineryTileAction({ actionId, selected: input.selected, row, hideMenu: input.hideMenu })) return true;
   const type = structureTypeForTileAction(actionId);
   // Fortify / Siege rows open the tier picker; the chosen tier rides the normal build path.
   const tierRow = input.viewForTile?.(input.selected).buildings.find((candidate) => candidate.id === input.actionId);

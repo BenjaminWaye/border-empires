@@ -54,13 +54,13 @@
       "tier": 1,
       "branch": "war",
       "name": "Umbrite Rigging Module",
-      "description": "AFC module: tension frames, cable looms, and umbrite-working tools. Reveals Umbrite and unlocks the Umbrite Rig (+1 UMBRITE slot on an Umbrite deposit), Siege Battery, and the Umbrite Weapons Factory.",
+      "description": "AFC module: tension frames, cable looms, and umbrite-working tools. Reveals Umbrite and unlocks the Umbrite Refinery (a town support building that processes a linked Umbrite field), Siege Battery, and the Umbrite Weapons Factory.",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 3600,
       "effects": {
-        "unlockUmbriteRig": true,
+        "unlockUmbriteRefinery": true,
         "unlockSiegeBatteries": true,
         "unlockUmbriteWeaponsFactory": true,
         "revealResource": "umbrite"
@@ -72,14 +72,13 @@
       "tier": 1,
       "branch": "manpower",
       "name": "Reserve Custody Cadre",
-      "description": "Imported custody specialists who process subdued bodies into the House's manpower reserve. Unlocks the Ancillary Depot (+150 Manpower cap). Also unlocks Implant Foundries, which refine conductive minerals into Ancillary implants, adding manpower to your whole reserve.",
+      "description": "Imported custody specialists who process subdued bodies into the House's manpower reserve. Unlocks the Ancillary Depot (+150 Manpower cap).",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockAncillaryDepot": true,
-        "unlockImplantFoundry": true
+        "unlockAncillaryDepot": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
@@ -106,7 +105,7 @@
       "tier": 2,
       "branch": "economy",
       "name": "Prospector Crew",
-      "description": "Imported survey-and-drilling specialists configured for this planet's crust and deposit depths. Unlocks Mines.",
+      "description": "Imported survey-and-drilling specialists configured for this planet's crust and deposit depths. Unlocks the Titanium Refinery and Crystal Refinery, town support buildings that process a linked Titanium or Gems field.",
       "prereqIds": [
         "agriculture"
       ],
@@ -115,7 +114,8 @@
       },
       "researchTimeSeconds": 7200,
       "effects": {
-        "unlockMine": true
+        "unlockTitaniumRefinery": true,
+        "unlockCrystalRefinery": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
@@ -287,7 +287,7 @@
       "tier": 3,
       "branch": "economy",
       "name": "Tuned Separation Process",
-      "description": "An offworld industrial process adapted to this planet's ore. Unlocks the Ore Refinery, which improves nearby Mine output.",
+      "description": "An offworld industrial process adapted to this planet's ore. Unlocks the Titanium Smelter, Umbrite Distillery and Crystal Cutter, which raise every field tile their town's refineries process by one more slot.",
       "prereqIds": [
         "mining"
       ],
@@ -296,7 +296,9 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockOreRefinery": true
+        "unlockTitaniumSmelter": true,
+        "unlockUmbriteDistillery": true,
+        "unlockCrystalCutter": true
       },
       "manifestCategory": "CHARTER_WARRANT"
     },
@@ -748,29 +750,11 @@
       "manifestCategory": "AFC_MODULE"
     },
     {
-      "id": "neural-resin-processing",
-      "tier": 3,
-      "branch": "manpower",
-      "name": "Neural Resin Processing Warrant",
-      "description": "Refines native resin that stabilises newly remade Ancillaries, adding manpower to your whole reserve.",
-      "prereqIds": [
-        "remade-concordat"
-      ],
-      "cost": {
-        "gold": 10
-      },
-      "researchTimeSeconds": 7200,
-      "effects": {
-        "unlockResinExtractor": true
-      },
-      "manifestCategory": "CHARTER_WARRANT"
-    },
-    {
       "id": "frontier-concessions",
       "tier": 3,
       "branch": "economy",
       "name": "Frontier Export Charter",
-      "description": "Commissions the crews and rights to work catalyst and luxury-biota concessions: catalysts feed Ancillary remaking, biota keeps large towns giving their full manpower.",
+      "description": "Commissions the crews and rights to work luxury-biota concessions, which keep large towns giving their full manpower.",
       "prereqIds": [
         "ledger-keeping"
       ],
@@ -779,7 +763,6 @@
       },
       "researchTimeSeconds": 7200,
       "effects": {
-        "unlockCatalystRefinery": true,
         "unlockCultivationEstate": true
       },
       "manifestCategory": "CHARTER_WARRANT"

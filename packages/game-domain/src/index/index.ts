@@ -15,6 +15,7 @@ export * from "../starter-site-quality.js";
 export * from "../server-worldgen-island-connectivity.js";
 export * from "../server-worldgen-natural-wonders.js";
 export * from "../server-worldgen-terrain.js";
+export * from "../server-worldgen-strategic-reach.js";
 export * from "../server-worldgen-towns.js";
 export * from "../server-worldgen-watchtowers.js";
 export * from "../server-worldgen-waystations.js";
@@ -121,13 +122,6 @@ export type DomainPlayer = {
   // Narrowed to the trickle subset (TITANIUM / UMBRITE / CRYSTAL) — FOOD is
   // intentionally excluded because no trickle domain offers them.
   chosenTrickleResource?: ChosenTrickleResource | undefined;
-  // Emperor-endorsement bonus (galaxy meta-layer Phase 1): remaining Imperial
-  // Ward activations. Granted once when an endorsed player first spawns
-  // territory in the season they were endorsed for; undefined/0 means none
-  // remaining. The *active* 10-minute invulnerability window itself is
-  // ephemeral runtime state (Runtime.abilityCooldowns), not persisted here —
-  // same convention as Aegis Lock.
-  imperialWardCharges?: number;
   // Garrisons (SETTLE) this player has ever started; the first
   // INSTANT_GARRISON_COUNT are instant (shared garrison-duration.ts).
   // Persisted with the player and never reset on respawn; missing = 0.
@@ -135,6 +129,8 @@ export type DomainPlayer = {
   // Islands this player renamed (shared island-names.ts). Persisted with the
   // player; the sim drops a claim when its fade runs out or a rival renames.
   islandNames?: IslandNameClaim[];
+  // House Charges dealt at landing (shared house-charges.ts); persisted with the player.
+  houseCharges?: import("@border-empires/shared").HouseChargesState;
   // Pooled resource-slot supply bump granted by activated Waystations (see
   // WAYSTATION_RESOURCE_SLOT_BONUS / runtime-waystation-activation.ts) --
   // one flat +1-per-resource entry per activation, merged into
@@ -222,6 +218,7 @@ export type DomainTileState = {
             | "hasIncubationEngine"
             | "incubationEngineActive"
             | "foodUpkeepPerMinute"
+            | "foodSlotDemand"
             | "captureShockUntil"
             | "populationBeforeCapture"
             | "forcedAncillarificationCooldownUntil"
@@ -268,7 +265,6 @@ export type ValidateFrontierCommandInput = {
   isAdjacent: boolean;
   isDockCrossing: boolean;
   isBridgeCrossing: boolean;
-  targetShielded: boolean;
   crossingBlockedByAetherWall: boolean;
   defenderIsAlliedOrTruced: boolean;
   /**
@@ -444,9 +440,6 @@ export const validateFrontierCommand = (
   }
   if (input.crossingBlockedByAetherWall) {
     return { ok: false, code: "AETHER_WALL_BLOCKED", message: "that border is sealed by an Aether Wall" };
-  }
-  if (input.targetShielded) {
-    return { ok: false, code: "SHIELDED", message: "target shielded" };
   }
   return {
     ok: true,

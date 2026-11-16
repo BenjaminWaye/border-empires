@@ -5,10 +5,13 @@ import type { TechInfo } from "../client-types.js";
 
 describe("tech detail structure mapping", () => {
 
-  // Regression: the catalog's key is unlockUmbriteRig, but this mapper only
-  // knew the retired unlockCamp, so Rigging Works never listed its rig.
-  it("maps the Umbrite Rig unlock key to the Umbrite Rig", () => {
-    expect(relatedStructureTypesForTech({ effects: { unlockUmbriteRig: true } })).toEqual(["UMBRITE_RIG"]);
+  // Regression (first seen with the Umbrite Rig's key): every unlock key the
+  // catalog uses must map, so the tech card lists its structures.
+  it("maps the refinery and booster unlock keys to their structures", () => {
+    expect(relatedStructureTypesForTech({ effects: { unlockUmbriteRefinery: true } })).toEqual(["UMBRITE_REFINERY"]);
+    expect(relatedStructureTypesForTech({ effects: { unlockTitaniumRefinery: true, unlockCrystalRefinery: true } })).toEqual(["TITANIUM_REFINERY", "CRYSTAL_REFINERY"]);
+    expect(relatedStructureTypesForTech({ effects: { unlockTitaniumSmelter: true, unlockUmbriteDistillery: true, unlockCrystalCutter: true } }))
+      .toEqual(["TITANIUM_SMELTER", "UMBRITE_DISTILLERY", "CRYSTAL_CUTTER"]);
   });
 
   it("maps irrigation to Hydroworks only", () => {

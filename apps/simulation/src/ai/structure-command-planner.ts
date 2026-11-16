@@ -28,10 +28,10 @@ import {
   townSupportStructureShowsOnTile
 } from "../town-support-lookup.js";
 import { structureManpowerCostForPlayer } from "../structure-manpower-cost/structure-manpower-cost.js";
-import { economyWeak } from "./ai-economic-heuristics.js";
 import { ECONOMIC_STRUCTURE_CATALOG, economicCatalogScore } from "./build/economic-structure-catalog.js";
 import { averageManufactoriesPerTown, pendingAmplifierTypes } from "./build/economic-synergy-scoring.js";
 import { townSupportCandidates } from "./build/town-support-candidates.js";
+import { chooseRefineryBuild } from "./build/refinery-build-planner.js";
 import type { NeedVector } from "./build/build-need-vector.js";
 import type { TownEconomyEntry } from "./build/town-economy-view.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
@@ -73,13 +73,16 @@ export type StructurePlannerTile = LandmarkTile & {
   fort?: { ownerId?: string | undefined; status?: string | undefined } | null | undefined;
   observatory?: { ownerId?: string | undefined; status?: string | undefined } | null | undefined;
   siegeBattery?: { ownerId?: string | undefined; status?: string | undefined } | null | undefined;
-  economicStructure?: { ownerId?: string | undefined; type?: EconomicStructureType | undefined; status?: string | undefined; inactiveReason?: string | undefined } | null | undefined;
+  economicStructure?: {
+    ownerId?: string | undefined; type?: EconomicStructureType | undefined; status?: string | undefined; inactiveReason?: string | undefined;
+    refineryField?: { x: number; y: number; assignedAt: number } | undefined;
+  } | null | undefined;
 };
 
 export type TileLookup = ReadonlyMap<string, StructurePlannerTile>;
 
-/** chooseBestEconomicBuild's pick; `score` feeds /admin/debug/ai/decisions. */
-export type EconomicBuildChoice = { tile: StructurePlannerTile; structureType: EconomicStructureType; score: number };
+/** chooseBestEconomicBuild's pick; `score` feeds /admin/debug/ai/decisions. `field`: a refinery's explicit deposit field (fieldX/fieldY). */
+export type EconomicBuildChoice = { tile: StructurePlannerTile; structureType: EconomicStructureType; score: number; field?: { x: number; y: number } };
 
 const resourceStock = (
   player: StructurePlannerPlayer,
@@ -259,11 +262,6 @@ export const chooseBestEconomicBuild = (
   // Lazy: only scanned once a Hydroworks site is actually being weighed.
   let uncoveredGardens: ReturnType<typeof uncoveredHydrogardens> | undefined;
   const foodLow = foodCoverageLow(player);
-  // §24.5: consolidated onto the shared ai-economic-heuristics.ts
-  // implementation instead of this file's own hand-written duplicate (which
-  // had drifted to a different signature but the same stale gold-income
-  // logic) — see that file for the manpower-based rationale.
-  const econWeak = economyWeak(player.manpower ?? 0, player.settledTileCount ?? 0);
   const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
   const techSet = playerTechSet(player);
   // Synergy scoring inputs (docs/ai-economic-synergy-plan.md), built once per
@@ -273,6 +271,12 @@ export const chooseBestEconomicBuild = (
     needVector,
     averageManufactoriesPerTown: averageManufactoriesPerTown(player.townEconomy ?? []),
     pendingAmplifiers: pendingAmplifierTypes(player.townEconomy ?? [])
+  };
+  // A town's best other support building (affordable, not a duplicate), for the refinery ring-scarcity rule.
+  const competingTownSupportScore = (townKey: string, options: ReadonlyArray<{ type: EconomicStructureType; score: number }>): number => {
+    const existing = economicStructureTypesForSupportedTown(tilesByKey, player.id, townKey);
+    return Math.max(0, ...options.filter((option) => (structureStacksPerTown(option.type) || !existing.has(option.type)) &&
+      canAffordStructure(player, techSet, option.type, plannedOwnedStructureCount(player, counts, option.type))).map((option) => option.score));
   };
   for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
@@ -301,10 +305,6 @@ export const chooseBestEconomicBuild = (
       // FISH candidate here would always fail structureVisibleOnTile below
       // and just waste the affordability check on every tick.
       candidates.push({ type: "HYDROGARDEN", score: foodLow ? 190 : 70 });
-    } else if (tile.resource === "UMBRITE") {
-      candidates.push({ type: "UMBRITE_RIG", score: econWeak ? 58 : 42 });
-    } else if (tile.resource === "TITANIUM" || tile.resource === "GEMS") {
-      candidates.push({ type: "MINE", score: econWeak ? 62 : 46 });
     } else if (tile.town && tile.town.populationTier !== "SETTLEMENT" &&
         (typeof tile.town.supportCurrent !== "number" || typeof tile.town.supportMax !== "number" || tile.town.supportCurrent < tile.town.supportMax)) {
       openSupportNeighbors = openTownSupportNeighborTiles(tilesByKey, player.id, townKey);
@@ -366,7 +366,15 @@ export const chooseBestEconomicBuild = (
       if (!best || next.score > best.score) best = next;
     }
   }
-  return best;
+  // Strategic deposits take no on-tile building since Phase 2: town
+  // refineries process the field (build/refinery-build-planner.ts).
+  const refinery = chooseRefineryBuild({
+    playerId: player.id, tilesByKey, candidateTiles, townKeys: player.townEconomy?.map((entry) => entry.townKey),
+    slotSupply: player.slotSupplyByResource, slotDemand: player.slotDemandByResource, blockedActionKeys: player.blockedActionKeys,
+    affordable: (type) => canAffordStructure(player, techSet, type, plannedOwnedStructureCount(player, counts, type)),
+    competingSupportScore: (townKey) => competingTownSupportScore(townKey, townSupportCandidates({ foodLow, needVector, town: townEconomyByKey?.get(townKey), synergy }))
+  });
+  return refinery && (!best || refinery.score > best.score) ? refinery : best;
 };
 
 export const chooseBestFortBuild = (

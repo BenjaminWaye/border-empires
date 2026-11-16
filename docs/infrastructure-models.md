@@ -1,5 +1,9 @@
 # Frontier infrastructure models
 
+> Mine and Umbrite Rig were removed from play with town refineries
+> (territory-development-plan.md Phase 2). Their models and art remain in the
+> client for the refined-deposit overlay follow-up; they are no longer built.
+
 Status: implementation reference
 
 The production 3D models and **Map / Structures / Infrastructure / Identity
@@ -48,3 +52,35 @@ Regression coverage includes resource identity, exact SVG agreement, menu crops,
 construction gates, disabled-state animation, bounded draw calls, triangle and
 upload budgets, disposal and the Umbrite platform. Keep both 2D canvas assets
 and true-3D models in agreement whenever any of these models changes.
+
+## Harbour (dock quay and landing slipways)
+
+The dock tile's quay and the slipways on its landing ground are not a built
+structure, but they are drawn in the same palette as the models above
+(`TOWN_COLORS`): a black-and-gold marble quay on a charcoal course with a
+brass inlay (the marble finish shared with town plinths), lamp posts along
+the sea edge, a glazed control office with a sensor mast, an iron-plated
+pier, a powered gantry crane with cyan status strips and its cell bank,
+sealed containers and an armoured troop carrier. The models are written with a
+small builder (`client-map-3d-harbour/harbour-model-builder.ts`: boxes,
+cylinders, domes, bands and rods in the piece's frame) in
+`harbour-quay-model.ts`, `harbour-slipway-model.ts` and `harbour-props.ts`,
+then merged once into one geometry per material for each piece (quay, full
+slipway, shrunk slipway). A placed piece is one instance on each of its
+material meshes, so added detail costs triangles, never per-tile instance
+memory. The capture fire (`client-wreck-models/dock-fire-model.ts`) burns on
+the same layout.
+
+The 2D sprites `dock-overlay-{south,east,north,west}.svg` are flat
+projections of the production quay turned to each facing
+(`client-map-3d-harbour/harbour-overlay-svg.ts`, shared projector
+`client-structure-info-catalog/mesh-projection-svg.ts`), all at one scale with
+the tile centre at the sprite centre (`dock-sprite-frame.ts`). The 2D map
+picks the sprite with the same `harbourFacingAt` rule that turns the 3D quay,
+and the 2D capture fire places its flames by projecting the 3D fire's anchors
+onto that sprite (`client-capture-aftermath/dock-fire-2d-layout.ts`). Faces
+below a quarter of a square sprite unit are dropped to keep the files small.
+Regenerate with `node scripts/generate-dock-overlay-icons.mjs` after changing
+the models and bump `overlayAssetVersion`; regression tests fail while the
+sprites disagree with the model or the scale no longer fits.
+The 2D slipway glyph (`client-harbour-slipways-2d.ts`) uses the same colours.

@@ -13,7 +13,10 @@ export const setManpowerInfoOpen = (open: boolean): void => {
   manpowerInfoOpen = open;
 };
 
-/** Big "+N in 0h 19m" callout; degrades to "Manpower full" / "Regen paused". Empty before the player id is known. */
+/**
+ * Big "+N in 0h 19m" callout; degrades to "Over cap" / "Manpower full" / "Regen paused". Empty before the player id is known.
+ * Over the cap is legitimate: the landing reserve and Waystation grants are paid above it, and no batch lands until the pool drops below.
+ */
 export const manpowerNextBatchHtml = (args: {
   manpower: number;
   manpowerCap: number;
@@ -24,6 +27,7 @@ export const manpowerNextBatchHtml = (args: {
 }): string => {
   const callout = (label: string, value: string, tone: string): string =>
     `<div class="manpower-next-batch manpower-next-batch-${tone}"><span class="manpower-next-batch-label">${label}</span><strong class="manpower-next-batch-value">${value}</strong></div>`;
+  if (args.manpower > args.manpowerCap) return callout("Over cap · no regen", `+${Math.floor(args.manpower - args.manpowerCap).toLocaleString("en-US")}`, "full");
   if (args.manpower >= args.manpowerCap) return callout("Manpower", "Full", "full");
   if (!(args.manpowerRegenPerMinute > 0) && !(args.nextBatchAmount && args.nextBatchAmount > 0)) return callout("Regeneration", "Paused", "paused");
   if (args.nextRefillAtMs === undefined) return "";
@@ -34,6 +38,6 @@ export const manpowerNextBatchHtml = (args: {
 export const manpowerInfoHtml = (): string => `
   <details class="manpower-info" data-manpower-info${manpowerInfoOpen ? " open" : ""}>
     <summary class="manpower-info-toggle"><span class="manpower-info-icon" aria-hidden="true">?</span>How manpower works</summary>
-    <div class="economy-footnote manpower-info-body">Manpower gates attacks. Regeneration is paid out as one batch every ${MANPOWER_REFILL_WINDOW_MS / 3_600_000} hours rather than ticking up. Fed towns raise cap and regeneration. Recently captured towns contribute less until they stabilize.</div>
+    <div class="economy-footnote manpower-info-body">Manpower gates attacks. Regeneration is paid out as one batch every ${MANPOWER_REFILL_WINDOW_MS / 3_600_000} hours rather than ticking up. Fed towns raise cap and regeneration. Recently captured towns contribute less until they stabilize. Your landing reserve and Waystation grants can take you over the cap; no batch is paid until you spend below it.</div>
   </details>
 `;

@@ -70,8 +70,6 @@ export const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
 // which already got this treatment). Retired to 0 rather than deleted, same
 // "leave plumbing, starve input" pattern.
 export const HYDROGARDEN_GOLD_UPKEEP = 0;
-export const UMBRITE_RIG_GOLD_UPKEEP = 0;
-export const MINE_GOLD_UPKEEP = 0;
 export const INCUBATION_ENGINE_GOLD_UPKEEP = 0;
 /**
  * Pure town population-growth multiplier from Incubation Engine — the single shared
@@ -125,7 +123,7 @@ export const SETTLEMENT_BASE_GOLD_PER_MIN = 2 / GOLD_RESCALE_DIVISOR; // §24.6:
 // directly in gold/day per §6.4's implementation rule, converted through
 // the single UPKEEP_MINUTES_PER_DAY divisor rather than each call site
 // re-deriving its own "divide by N" — the exact bug class (Advanced Umbrite
-// Synthesizer silently reusing UMBRITE_RIG_GOLD_UPKEEP) that rule exists to
+// Synthesizer silently reusing the old Umbrite Rig gold upkeep) that rule exists to
 // prevent.
 export const UPKEEP_MINUTES_PER_DAY = 1440;
 export const UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY = 30;
@@ -221,7 +219,6 @@ export const HARBOR_EXCHANGE_GOLD_UPKEEP = 0;
 export const ANCILLARY_DEPOT_GOLD_UPKEEP = 0;
 export const MINISTRY_HALL_GOLD_UPKEEP = 0;
 export const RESONANCE_GRID_GOLD_UPKEEP = 0;
-export const ORE_REFINERY_GOLD_UPKEEP = 0;
 export const UMBRITE_WORKS_UMBRITE_PER_DAY = 18;
 export const HIGH_YIELD_UMBRITE_WORKS_UMBRITE_PER_DAY = 21.6;
 export const TITANIUM_WORKS_TITANIUM_PER_DAY = 18;
@@ -246,8 +243,6 @@ export const AMBARIC_TRANSFORMER_RADIUS = 30;
 export const SKY_DOCK_BOMBARD_MIN_FIELD_TILES = 2;
 export const SKY_DOCK_BOMBARD_MAX_FIELD_TILES = 4;
 export const STRUCTURE_OUTPUT_MULT = 1.5;
-export const ORE_REFINERY_RADIUS = 5;
-export const ORE_REFINERY_OUTPUT_MULT = 2;
 export const HYDROWORKS_RADIUS = 10;
 export const HYDROWORKS_OUTPUT_MULT = 2;
 export const MINISTRY_HALL_RADIUS = 10;
@@ -265,10 +260,6 @@ export const AEGIS_LOCK_DURATION_MS = 15 * 60_000;
 export const ASTRAL_DOCK_LAUNCH_COOLDOWN_MS = 24 * 60 * 60_000;
 export const ASTRAL_DOCK_LAUNCH_DURATION_MS = 24 * 60 * 60_000;
 export const ASTRAL_DOCK_LAUNCH_GOLD_COST = 1_000;
-// Emperor-endorsement bonus (galaxy meta-layer Phase 1). Manually activated,
-// no cooldown between charges — a player can burn all 3 back-to-back.
-export const IMPERIAL_WARD_DURATION_MS = 10 * 60_000;
-export const IMPERIAL_WARD_CHARGES_GRANTED = 3;
 export const REVEAL_EMPIRE_ACTIVATION_COST = 0; // §17: free
 export const REVEAL_EMPIRE_UPKEEP_PER_MIN = 0; // §17: free, no ongoing upkeep either
 export const SURVEY_SWEEP_CRYSTAL_COST = 0; // §17: free
@@ -383,9 +374,10 @@ export const GALAXY_OUTPOST_PROGRESS_THRESHOLD = 0.5;
 // floor (and who didn't qualify for an Outpost) gets a Stipend; a player at
 // exactly 0 (never engaged with any objective) gets no galactic record.
 export const GALAXY_STIPEND_MIN_PROGRESS = 0;
-// Stipend payout formula (§13): (10 × progress) Inf + (40 × progress) Prod.
+// Stipend payout: (10 × progress) Influence, paid once into the galaxy
+// Influence bank. No Production: galactic Production is a per-territory daily
+// build rate, and a Stipend comes with no territory.
 export const GALAXY_STIPEND_INFLUENCE_PER_PROGRESS = 10;
-export const GALAXY_STIPEND_PRODUCTION_PER_PROGRESS = 40;
 export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   {
     id: "TOWN_CONTROL",

@@ -36,7 +36,7 @@ describe("resource tile building flow", () => {
     fired.length = 0;
   });
 
-  it.each(["build_hydrogarden", "build_mine", "build_umbrite_rig"] as const)("makes %s primary and keeps it in Resource when Build is clicked", (id) => {
+  it.each(["build_hydrogarden", "build_reclamation_works", "build_cultivation_estate"] as const)("makes %s primary and keeps it in Resource when Build is clicked", (id) => {
     const improvement = act(id, { targetKey: "4,7" });
     const v = view([act("build_fortification"), act("build_relay_beacon"), improvement]);
     render(v);
@@ -51,18 +51,18 @@ describe("resource tile building flow", () => {
     expect(fired).toEqual([[id, "4,7"], [id, "4,7"]]);
   });
 
-  it.each(["Requires Prospector Crew", "Tile already has structure", "Need a free FOOD slot"])("does not promote a blocked improvement: %s", (disabledReason) => {
-    render(view([act("build_mine", { disabled: true, disabledReason }), act("build_relay_beacon")]));
+  it.each(["Requires Hyperfeed Seedstock Consignment", "Tile already has structure", "Need a free FOOD slot"])("does not promote a blocked improvement: %s", (disabledReason) => {
+    render(view([act("build_hydrogarden", { disabled: true, disabledReason }), act("build_relay_beacon")]));
     expect(primary()?.dataset.hudV2Action).toBe("build_relay_beacon");
   });
 
   it("keeps Garrison ahead of improvements on frontier resources", () => {
-    render(view([act("build_mine"), act("build_relay_beacon")], [act("settle_land", { label: "Garrison", recommended: true })]));
+    render(view([act("build_hydrogarden"), act("build_relay_beacon")], [act("settle_land", { label: "Garrison", recommended: true })]));
     expect(primary()?.dataset.hudV2Action).toBe("settle_land");
   });
 
   it("preserves a chosen category until another tile is selected", () => {
-    const v = view([act("build_mine"), act("build_fortification")]);
+    const v = view([act("build_hydrogarden"), act("build_fortification")]);
     render(v);
     click('[data-hud-v2-panel="build"]');
     click('[data-v2-build-category="military"]');
@@ -76,7 +76,7 @@ describe("resource tile building flow", () => {
 
   it("also opens Resource first in the floating build menu", () => {
     const root = document.createElement("div");
-    root.innerHTML = tileActionMenuHtml(view([act("build_fortification"), act("build_mine"), act("build_manufactory"), act("build_relay_beacon"), act("build_hydroworks"), act("build_sky_dock"), act("build_observatory")]), "buildings");
+    root.innerHTML = tileActionMenuHtml(view([act("build_fortification"), act("build_hydrogarden"), act("build_manufactory"), act("build_relay_beacon"), act("build_hydroworks"), act("build_sky_dock"), act("build_observatory")]), "buildings");
     expect(root.querySelector<HTMLInputElement>(".tile-building-category-radio[checked]")?.classList.contains("cat-resource")).toBe(true);
   });
 });

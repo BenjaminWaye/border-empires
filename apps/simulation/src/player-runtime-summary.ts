@@ -47,6 +47,9 @@ export type ServerDevQueueEntry = {
   structureType?: string;
   /** The Fortify / Siege picker's explicit tier for a fort/siege BUILD; absent = best tier the tech allows. */
   tier?: ChosenStructureTier;
+  /** A queued refinery BUILD's chosen deposit field (BUILD_ECONOMIC_STRUCTURE fieldX/fieldY); absent = auto-pick. Optional so older saved entries stay valid. */
+  fieldX?: number;
+  fieldY?: number;
   queuedAt: number;
   /** § queued-buildings-mp-reimbursement: manpower reserved from the player at enqueue time for a BUILD entry (never set for SETTLE/REMOVE_STRUCTURE), refunded on cancel or before the entry drains -- see runtime-dev-queue-build-reservation.ts. */
   reservedManpower?: number;

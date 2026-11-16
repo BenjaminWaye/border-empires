@@ -36,7 +36,7 @@ export const dispatchGenericBuild = (structureType: BuildableStructureType, tile
 };
 
 // Fires a build for a structure type, opening the placement overlay for
-// ORE_REFINERY/HYDROWORKS/RELAY_BEACON (user confirms the exact tile) and
+// HYDROWORKS/RELAY_BEACON (user confirms the exact tile) and
 // dispatching the build directly for every other type. Relay Beacons build
 // instantly, so committing on the first click made siting trial-and-error
 // (playtest: beacons cancelled and re-placed, or dropped inside existing
@@ -48,7 +48,7 @@ export const triggerBuildForStructureType = (
   deps: BuildDispatchDeps & { renderPlacementOverlay: () => void; renderHud: () => void },
   tier?: ChosenStructureTier
 ): void => {
-  if (structureType === "ORE_REFINERY" || structureType === "HYDROWORKS" || structureType === "RELAY_BEACON") {
+  if (structureType === "HYDROWORKS" || structureType === "RELAY_BEACON") {
     state.buildingPlacement = { active: true, structureType, x: tile.x, y: tile.y };
     deps.renderPlacementOverlay();
     deps.renderHud();

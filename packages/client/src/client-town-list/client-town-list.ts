@@ -1,8 +1,10 @@
 // Sortable list of the viewer's towns for the Towns panel, so a player can
-// spot the towns producing the least/most gold or holding the most people
+// spot the towns producing the least/most coin or holding the most people
 // without clicking through every town tile.
+import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
+import { townPlotIncomeNote } from "../client-town-plot-income/client-town-plot-income.js";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
-import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
+import { displayTownPopulationTierLabel, townPopulationTarget } from "../client-town-growth/client-town-growth.js";
 import type { Tile } from "../client-types.js";
 import { openBuildSlotsForTown } from "./client-town-list-slots.js";
 
@@ -16,15 +18,18 @@ export type TownListRow = {
   tierLabel: string;
   goldPerMinute: number;
   population: number;
+  /** The next tier's population, matching the town screen's growth bar (not the hard cap). */
   maxPopulation: number;
   growthPerMinute: number;
   isFed: boolean;
+  /** "0/4 plots garrisoned" while a fed town earns less for ungarrisoned plots (client-town-plot-income.ts). */
+  plotsNote?: string;
   /** Support-ring tiles open for a new building; undefined for Settlements, which have no ring yet. */
   openSlots: number | undefined;
 };
 
 const SORT_COLUMNS: Array<{ key: TownListSortKey; label: string }> = [
-  { key: "gold", label: "Gold/day" },
+  { key: "gold", label: "Coin/day" },
   { key: "population", label: "Pop" },
   { key: "growth", label: "Growth" },
   { key: "slots", label: "Slots" }
@@ -44,6 +49,7 @@ export const nextTownListSort = (sort: TownListSort, key: TownListSortKey): Town
 // summaries), so anything absent reads as 0 rather than NaN.
 const finiteOrZero = (value: number | undefined): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 
+
 /** Shared by both HUDs' town lists, so the order carries over between them. */
 export const toggleTownListSort = (key: TownListSortKey): void => {
   currentSort = nextTownListSort(currentSort, key);
@@ -55,19 +61,19 @@ export const deriveTownListRows = (towns: Iterable<Tile>, me: string, tiles: Rea
   for (const tile of towns) {
     const town = tile.town;
     if (!town || tile.ownerId !== me || tile.fogged) continue;
+    const plotsNote = townPlotIncomeNote(town);
     rows.push({
       x: tile.x,
       y: tile.y,
       name: town.name ?? tile.townName ?? `Town ${tile.x}, ${tile.y}`,
       tierLabel: displayTownPopulationTierLabel(town.populationTier),
-      // Same figure as the map's tile label: yieldRate already applies
-      // sabotage, dock income and the pre-first-tick settlement fallback.
-      goldPerMinute: finiteOrZero(tile.yieldRate?.goldPerMinute ?? town.goldPerMinute),
+      goldPerMinute: tileCoinPerMinute(tile),
       population: finiteOrZero(town.population),
-      maxPopulation: finiteOrZero(town.maxPopulation),
+      maxPopulation: finiteOrZero(townPopulationTarget(town)),
       growthPerMinute: finiteOrZero(town.populationGrowthPerMinute),
       // Only flag a town unfed when the server says so, not when the field is missing.
       isFed: town.isFed !== false,
+      ...(plotsNote ? { plotsNote } : {}),
       openSlots: openBuildSlotsForTown(tiles, tile, me)
     });
   }

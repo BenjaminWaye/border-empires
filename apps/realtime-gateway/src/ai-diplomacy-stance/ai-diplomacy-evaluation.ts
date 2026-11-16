@@ -61,7 +61,7 @@ const holdingsOf = (snapshot: AiDiplomacySnapshot | undefined): DiplomacyGoods =
   gold: Math.max(0, Math.floor(snapshot?.player?.gold ?? 0))
 });
 
-const warReason = (aiName: string, opinion: AiOpinion, outlook: AiWarOutlook, fallback: string): string => {
+export const warReason = (aiName: string, opinion: AiOpinion, outlook: AiWarOutlook, fallback: string): string => {
   if (opinion.war.atWar && outlook.kind === "HOLD_FOR_REFILL") {
     const minutes = Math.max(1, Math.ceil(outlook.refillInMs / 60_000));
     return `${aiName} expects to win its land back when its armies reload in ${minutes} min.`;
@@ -79,6 +79,12 @@ const warReason = (aiName: string, opinion: AiOpinion, outlook: AiWarOutlook, fa
   }
   if (opinion.war.aiWinning) return `${aiName} feels they're winning this war.`;
   if (opinion.war.atWar) return `${aiName} is at war with you.`;
+  // Past the at-war window the strength stance alone read "looking for peace:
+  // their armies are spent" for an AI that had just taken the viewer's land
+  // (playtest 2026-11-13: 11 tiles and a Dock overnight). Say what it did
+  // first; the fading tally is the one the war tally shows.
+  const took = opinion.war.tilesTakenByAi;
+  if (took >= 1) return `${aiName} took ${took} of your tiles recently. ${fallback}`;
   return fallback;
 };
 

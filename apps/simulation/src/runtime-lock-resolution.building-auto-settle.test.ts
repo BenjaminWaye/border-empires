@@ -133,7 +133,7 @@ describe("resolveLock — auto-settle for captured forts and economic structures
   it("auto-settles a captured active economic structure when the player can afford it", () => {
     const tiles = new Map<string, DomainTileState>([
       [ORIGIN_KEY, originTile()],
-      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", economicStructure: { type: "MINE", ownerId: DEFENDER_ID, status: "active", activatedAt: 0 } }]
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", economicStructure: { type: "TITANIUM_REFINERY", ownerId: DEFENDER_ID, status: "active", activatedAt: 0 } }]
     ]);
     const { context, autoSettleCapturedAnchor } = createContext(tiles, { canAutoSettle: true });
     const lock = makeWonAttackLock();

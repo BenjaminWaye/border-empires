@@ -30,7 +30,7 @@ export type ArrowGestureConfirmDeps = {
  * / state.arrowGesture on "Go" or cancel.
  */
 export const handleArrowGestureConfirm = (
-  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey"> & SupplyWarningState,
+  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey" | "captureAlert"> & SupplyWarningState,
   origin: ArrowGesturePoint,
   target: ArrowGesturePoint,
   deps: ArrowGestureConfirmDeps,
@@ -39,10 +39,11 @@ export const handleArrowGestureConfirm = (
   options: { newFlag?: boolean } = {}
 ): void => {
   // Over the march cap: advise raising a flag closer instead of opening a
-  // sheet whose "Go" the server would refuse. Plain advice, not an error.
+  // sheet whose "Go" the server would refuse. Warn tone so it reaches the
+  // alert card (the feed alone is admin-only); it is advice, not an error.
   const tooFarAdvice = musterMarchTooFarAdvice(musterMarchDistanceTiles(origin.x, origin.y, target.x, target.y));
   if (tooFarAdvice) {
-    deps.pushFeed(tooFarAdvice, "combat", "info");
+    deps.pushFeed(tooFarAdvice, "combat", "warn");
     return;
   }
   // The march ends in an ATTACK on the target's owner: a trade partner gets
@@ -53,6 +54,7 @@ export const handleArrowGestureConfirm = (
     state.arrowGesture = { origin, target };
     showArrowGestureConfirmSheet(state, origin, target, deps.keyFor, {
       sendGameMessage: deps.sendGameMessage,
+      pushFeed: deps.pushFeed,
       renderHud: deps.renderHud
     });
   }, deps.showSupplyTradeSheet);

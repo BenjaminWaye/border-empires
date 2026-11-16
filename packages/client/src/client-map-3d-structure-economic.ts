@@ -37,7 +37,7 @@ export type EconomicStructureLayout = (
 ) => void;
 
 // Shared visual assets that other family files (industrial.ts) reuse so
-// ORE_REFINERY/HIGH_YIELD_TITANIUM_WORKS render with the same forge palette as
+// HIGH_YIELD_TITANIUM_WORKS renders with the same forge palette as
 // TITANIUM_WORKS, and the aether condensers reuse the OBSERVATORY/MINE
 // blue power-crystal material. Sharing keeps "this is the same
 // material" readable at a glance and shrinks GPU resource count.
@@ -46,7 +46,6 @@ export type EconomicSharedAssets = {
   readonly forgeStoneMaterial: MeshStandardMaterial;
   readonly forgeChimneyMaterial: MeshStandardMaterial;
   readonly forgeGlowMaterial: MeshStandardMaterial;
-  readonly barnRoofMaterial: MeshStandardMaterial;
   readonly blueCrystalGeo: OctahedronGeometry;
   readonly blueCrystalMaterial: MeshStandardMaterial;
 };
@@ -68,9 +67,7 @@ export const registerEconomicStructures = (
 
   // ─── Materials ──────────────────────────────────────────────────────
   // The Hydrogarden art (a hydroponic glass dome) lives in its own module
-  // (client-map-3d-structure-hydrogarden.ts). barnRoofMaterial is kept here only
-  // because industrial.ts reuses it for the ORE_REFINERY roof.
-  const barnRoofMaterial = new MeshStandardMaterial({ color: "#3a261c", roughness: 0.92, metalness: 0, flatShading: true });
+  // (client-map-3d-structure-hydrogarden.ts).
   const stoneMaterial = new MeshStandardMaterial({ color: "#8a857a", roughness: 0.92, metalness: 0, flatShading: true });
   const stoneRoofMaterial = new MeshStandardMaterial({ color: "#5d574e", roughness: 0.88, metalness: 0, flatShading: true });
   const waterWheelMaterial = new MeshStandardMaterial({ color: "#6a4a32", roughness: 0.88, metalness: 0, flatShading: true });
@@ -84,7 +81,7 @@ export const registerEconomicStructures = (
   // Titanium Works-family palette. Titanium Works is a synthesizer in border-empires
   // (matches UMBRITE/AETHER_CONDENSER's chamber+glow+tubes idiom rather than
   // the medieval forge-with-anvil). Same palette is reused by industrial.ts
-  // for ORE_REFINERY + HIGH_YIELD_TITANIUM_WORKS via the EconomicSharedAssets export.
+  // for HIGH_YIELD_TITANIUM_WORKS via the EconomicSharedAssets export.
   const forgeBaseMaterial = new MeshStandardMaterial({ color: "#3e3a36", roughness: 0.7, metalness: 0.35, flatShading: true });
   const forgeStoneMaterial = new MeshStandardMaterial({ color: "#7c726a", roughness: 0.6, metalness: 0.45, flatShading: true });
   const forgeChimneyMaterial = new MeshStandardMaterial({ color: "#3a302a", roughness: 0.7, metalness: 0.5, flatShading: true });
@@ -150,7 +147,8 @@ export const registerEconomicStructures = (
   builder.makeSlot("wwRoof", wwRoofGeo, stoneRoofMaterial, C);
   builder.makeSlot("wwWheel", wwWheelGeo, waterWheelMaterial, C);
   builder.makeSlot("wwTrough", wwTroughGeo, waterMaterial, C);
-  // Mine
+  // Mine: no longer buildable; it is the refined-deposit look on a field tile a
+  // town refinery processes (client-map-3d-raw-resource-dispatch.ts).
   builder.makeSlot("mineHill", mineHillGeo, mineHillMaterial, C);
   builder.makeSlot("mineEntrance", mineEntranceGeo, mineDarkMaterial, C);
   builder.makeSlot("mineBeam", mineBeamGeo, mineBeamMaterial, C);
@@ -159,7 +157,7 @@ export const registerEconomicStructures = (
   builder.makeSlot("mineCartWheel", mineCartWheelGeo, mineCartWheelMaterial, C * 2);
   builder.makeSlot("ore", oreGeo, oreMaterial, C * 3);
   // Titanium Works (synthesizer-style — same forge palette is reused by
-  // industrial.ts's ORE_REFINERY + HIGH_YIELD_TITANIUM_WORKS).
+  // industrial.ts's HIGH_YIELD_TITANIUM_WORKS).
   builder.makeSlot("titaniumBase", titaniumBaseGeo, forgeBaseMaterial, C);
   builder.makeSlot("titaniumChamber", titaniumChamberGeo, forgeStoneMaterial, C);
   builder.makeSlot("titaniumChamberCap", titaniumChamberCapGeo, forgeStoneMaterial, C);
@@ -259,7 +257,6 @@ export const registerEconomicStructures = (
       forgeStoneMaterial,
       forgeChimneyMaterial,
       forgeGlowMaterial,
-      barnRoofMaterial,
       blueCrystalGeo,
       blueCrystalMaterial
     },

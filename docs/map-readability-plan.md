@@ -123,6 +123,9 @@ reach.**
   `spawn_map_nearly_full` is logged and the AFC still holds its 3x3.
 - A new player sees at least 4 tiles around their AFC.
 - No two active players' colors fall under the perceptual threshold.
+  Seeded AI colours meet this for red-green colour-blind viewers too
+  (`apps/realtime-gateway/src/player-color-allocation/ai-color-assignment.ts`,
+  2026-11-13); human picks are still only checked for exact duplicates.
 - On the 3D map, a player can tell, without opening any dialog: their own
   land, a rival's land, and unowned ground inside a rival's reach.
 - Tapping unowned ground inside a rival's reach states whose reach it is.

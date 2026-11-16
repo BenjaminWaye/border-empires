@@ -7,8 +7,13 @@
 // already-running season keeps reproducing whatever version it was generated
 // under, instead of silently picking up "latest" and drifting mid-game --
 // see the terrain-variation-blob writeup in the PR that added this.
+// v13: every strategic deposit field (TITANIUM/UMBRITE/GEMS) is re-placed
+// after town placement if needed so it sits within refinery reach of a town
+// and off every town tile, dock and support ring
+// (game-domain server-worldgen-strategic-reach.ts). Existing worlds keep their
+// saved deposits; this only changes newly generated maps.
+export const CURRENT_WORLDGEN_VERSION = 13;
 // v12 adds habitat-based frontier deposits in separated groups of 1–3 tiles.
-export const CURRENT_WORLDGEN_VERSION = 12;
 // v11: v10 + edge rivers start at headwater corners beside a mountain where
 // they can (worldgen-rivers-edge.ts), so the client draws them flowing out of
 // it. Its own version because staging already runs v10 seasons.

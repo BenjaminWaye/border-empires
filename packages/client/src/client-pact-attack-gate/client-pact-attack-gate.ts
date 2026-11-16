@@ -112,7 +112,7 @@ export const dispatchPactGatedAction = (
     const name = deps.playerNameForOwner(ownerId);
     const pending = pendingAllianceBreak(state, ownerId, nowMs);
     if (pending) {
-      deps.pushFeed(`Your alliance with ${name} is already breaking. You can attack them in ${hoursLeft(pending.endsAt, nowMs)}.`, "alliance", "info");
+      deps.pushFeed(`Your alliance with ${name} is already breaking. You can attack them in ${hoursLeft(pending.endsAt, nowMs)}.`, "alliance", "warn");
       return true;
     }
     showSheet({
@@ -128,7 +128,7 @@ export const dispatchPactGatedAction = (
   const truce = deps.activeTruceWithPlayer(ownerId);
   if (!truce) {
     // Never break without the confirmation; the menu may be stale (truce just ended).
-    if (!isAttack) deps.pushFeed(`No active truce with ${deps.playerNameForOwner(ownerId)}.`, "alliance", "info");
+    if (!isAttack) deps.pushFeed(`No active truce with ${deps.playerNameForOwner(ownerId)}.`, "alliance", "warn");
     return !isAttack;
   }
   deps.hideTileActionMenu();

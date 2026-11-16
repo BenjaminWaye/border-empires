@@ -1,4 +1,5 @@
 import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonParticipationRow } from "@border-empires/sim-protocol";
+import { withBackfilledLatestStandings } from "./season-summary/season-archive-standings.js";
 
 import type { PersistedActivityLogs } from "./activity-dashboard/activity-log-persistence.js";
 import { cloneDeadliestTile, type DeadliestTileEntry } from "./deadliest-tiles/deadliest-tiles.js";
@@ -88,7 +89,9 @@ export class InMemorySeasonSummaryStore implements SeasonSummaryStore {
   }
 
   async listArchives(limit = SEASON_ARCHIVE_LIST_LIMIT): Promise<SeasonArchiveRow[]> {
-    return this.archives.slice(0, limit).map((archive) => JSON.parse(JSON.stringify(archive)) as SeasonArchiveRow);
+    const archives = this.archives.slice(0, limit).map((archive) => JSON.parse(JSON.stringify(archive)) as SeasonArchiveRow);
+    return withBackfilledLatestStandings(archives, async (seasonId) =>
+      [...this.participationByPlayerId.values()].flatMap((rows) => rows.filter((row) => row.seasonId === seasonId)).map((row) => ({ ...row })));
   }
 
   async archiveSeason(summary: SeasonArchiveRow): Promise<void> {

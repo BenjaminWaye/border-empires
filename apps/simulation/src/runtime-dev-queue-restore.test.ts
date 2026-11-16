@@ -88,3 +88,15 @@ describe("dev-queue reservation survives a snapshot round-trip", () => {
     expect(toPersistedDevQueueEntries(summaryWithQueue().devQueue)[0]).toMatchObject({ structureType: "FORT", tier: "TITANIUM_BASTION" });
   });
 });
+
+describe("dev-queue refinery field persistence", () => {
+  it("persists a queued refinery build's fieldX/fieldY and restores it; older entries without them stay valid", () => {
+    const entries = [
+      { tileKey: "3,3", x: 3, y: 3, kind: "BUILD" as const, structureType: "TITANIUM_REFINERY", fieldX: 7, fieldY: 8, queuedAt: 1000 },
+      { tileKey: "4,4", x: 4, y: 4, kind: "BUILD" as const, structureType: "TITANIUM_REFINERY", queuedAt: 1001 }
+    ];
+    const persisted = toPersistedDevQueueEntries(entries);
+    expect(persisted).toEqual(entries);
+    expect(createPlayerRuntimeSummaryFromRecovered({ devQueue: JSON.parse(JSON.stringify(persisted)) }).devQueue).toEqual(entries);
+  });
+});

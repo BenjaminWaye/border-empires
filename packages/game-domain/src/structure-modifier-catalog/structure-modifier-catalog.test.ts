@@ -34,7 +34,8 @@ describe("structureModifiersFor", () => {
     expect(structureModifiersFor("MANUFACTORY").every((m) => m.isTownWide === true)).toBe(true);
     expect(structureModifiersFor("FORT").every((m) => m.isTownWide === false)).toBe(true);
     expect(structureModifiersFor("OBSERVATORY").every((m) => m.isTownWide === false)).toBe(true);
-    expect(structureModifiersFor("UMBRITE_RIG").every((m) => m.isTownWide === false)).toBe(true);
+    expect(structureModifiersFor("TITANIUM_REFINERY").every((m) => m.isTownWide === false)).toBe(true);
+    expect(structureModifiersFor("CRYSTAL_CUTTER").every((m) => m.isTownWide === true)).toBe(true);
   });
 
   it("only carries rawValue on flat, additive-per-copy numbers", () => {
@@ -69,10 +70,12 @@ describe("structureModifiersFor", () => {
     expect(stacked?.alreadyAggregated).toBe(true);
   });
 
-  // Relay Beacon is vision-only (no attack bonus); confirms the catalog
-  // surfaces its vision bonus (RELAY_BEACON_VISION_BONUS) and nothing else.
-  it("includes vision, and no offense, for Relay Beacon", () => {
+  // Relay Beacon has no attack bonus; the catalog surfaces its reach radius
+  // (OUTPOST_REACH_RADIUS: playtesters saw only "Local vision +5" and couldn't
+  // tell it extends reach) and its vision bonus (RELAY_BEACON_VISION_BONUS).
+  it("includes reach and vision, and no offense, for Relay Beacon", () => {
     const modifiers = structureModifiersFor("RELAY_BEACON");
+    expect(modifiers[0]).toEqual({ statLabel: "Reach", valueText: "5 tiles", tone: "positive", isTownWide: false });
     expect(modifiers).toContainEqual({ statLabel: "Local vision", valueText: "+5", tone: "positive", isTownWide: false });
     expect(modifiers.some((m) => m.statLabel === "Offense")).toBe(false);
   });

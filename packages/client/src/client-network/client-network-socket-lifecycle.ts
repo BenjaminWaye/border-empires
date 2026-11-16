@@ -19,7 +19,7 @@ interface SocketLifecycleDeps {
   resetAuthReconnectAttempt: () => void;
   clearDeferredBootstrapRefreshTimer: () => void;
   clearOptimisticTileState: (key: string, revert: boolean) => void;
-  pushFeed: (message: string, type: "error", severity: "warn") => void;
+  pushFeed: (message: string, type: "error", severity: "info") => void;
   applyLoginPhase: (title: string, detail: string) => void;
   authenticateSocket: () => Promise<void>;
   renderHud: () => void;
@@ -73,7 +73,7 @@ export const bindClientSocketLifecycle = (deps: SocketLifecycleDeps): SocketLife
     state.actionCurrent = undefined;
     state.lastChunkSnapshotGeneration = 0;
     if (actionKey) deps.clearOptimisticTileState(actionKey, true);
-    deps.pushFeed(feedMessage, "error", "warn");
+    deps.pushFeed(feedMessage, "error", "info"); // the disconnect overlay is the visible UI
     if (state.authReady && !state.authSessionReady) {
       deps.applyLoginPhase("Connection interrupted", interruptedDetail);
       state.authRetrying = false;

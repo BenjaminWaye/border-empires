@@ -248,8 +248,8 @@ describe("client gateway sync regression", () => {
     expect(state.incomingAllianceRequests).toEqual([expect.objectContaining({ id: "alliance-1", fromName: "Valka" })]);
     expect(state.incomingTruceRequests).toEqual([expect.objectContaining({ id: "truce-1", fromName: "Beejac" })]);
     expect(state.captureAlert).toBeUndefined(); // diplomacy no longer takes over the map: offers wait in the offer dock, news goes to the feed
-    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request.", "alliance", "warn");
-    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 12h truce.", "alliance", "warn");
+    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request.", "alliance", "info");
+    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 12h truce.", "alliance", "info");
     expect(renderHud).toHaveBeenCalled();
 
     const feedCallCount = pushFeed.mock.calls.length;
@@ -286,7 +286,7 @@ describe("client gateway sync regression", () => {
     });
 
     expect(state.captureAlert).toBeUndefined(); // diplomacy no longer takes over the map: offers wait in the offer dock, news goes to the feed
-    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request.", "alliance", "warn");
+    expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request.", "alliance", "info");
 
     ws.emit("message", {
       data: JSON.stringify({
@@ -304,7 +304,7 @@ describe("client gateway sync regression", () => {
     });
 
     expect(state.captureAlert).toBeUndefined(); // diplomacy no longer takes over the map: offers wait in the offer dock, news goes to the feed
-    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 24h truce.", "alliance", "warn");
+    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 24h truce.", "alliance", "info");
   });
 
   it("feeds alliance break notices without a popup and keeps the active ally visible", () => {

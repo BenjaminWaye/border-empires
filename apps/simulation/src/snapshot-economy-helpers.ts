@@ -21,6 +21,7 @@ import {
   keyFor,
   parseTown,
   parseStructure,
+  getDomainTilesByKey,
   strategicProductionByPlayerCache,
   fedTownKeysByPlayerCache,
   resourceSlotDormancyByPlayerCache
@@ -30,9 +31,11 @@ import {
   emptyResourceSlotDormancy,
   resourceSlotDormantContributorsForPlayer,
   resourceSlotSupplyForPlayer,
+  townFoodSlotDemandByTileKey,
   type ResourceSlotDormancy
 } from "./resource-slot-view/resource-slot-view.js";
 import { radiusStructureKeysForSettledTiles } from "./tile-yield-view/tile-yield-view.js";
+import { refinerySlotBonusesForParsedTiles } from "./refineries/refinery-slot-supply.js";
 import { slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
 import { domainGrantedResourceSlots } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { techGrantedFishFoodSlotBonus } from "./tech-domain-bridge/fish-food-slot-bonus.js";
@@ -265,6 +268,14 @@ const parsedSlotTiles = (
   return { settledByOwner, ownedByOwner };
 };
 
+/** One player's per-town FOOD slot demand after waivers on the login snapshot: the live path's townFoodSlotDemandByTileKey. */
+export const townFoodSlotDemandForSnapshotPlayer = (runtimeState: RuntimeState, playerId: string): Map<string, number> => {
+  const player = runtimeState.players.find((entry) => entry.id === playerId);
+  if (!player) return new Map();
+  const waivers = slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds), ...(player.afcCoreTownKeys ? { afcCoreTownKeys: player.afcCoreTownKeys } : {}) });
+  return townFoodSlotDemandByTileKey(parsedSlotTiles(runtimeState).ownedByOwner.get(playerId) ?? [], playerId, waivers);
+};
+
 // §5.4: per-player resource-slot dormancy for the reconnect/cold-snapshot
 // path — the same pure resourceSlot*ForPlayer functions the live runtime
 // uses for BUILD_STRUCTURE/UPGRADE_TOWN_TIER gating and dormancy, so the
@@ -281,9 +292,10 @@ export const buildResourceSlotDormancyByPlayer = (runtimeState: RuntimeState): M
       result.set(player.id, emptyResourceSlotDormancy());
       continue;
     }
-    const { hydroworksKeys, oreRefineryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+    const { hydroworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+    const refineryBonuses = refinerySlotBonusesForParsedTiles(settledTiles, () => getDomainTilesByKey(runtimeState));
     const domainGranted = domainGrantedResourceSlots({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource, ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}) });
-    const supply = player.effectiveResourceSupply ?? resourceSlotSupplyForPlayer(settledTiles, hydroworksKeys, oreRefineryKeys, domainGranted, techGrantedFishFoodSlotBonus(player));
+    const supply = player.effectiveResourceSupply ?? resourceSlotSupplyForPlayer(settledTiles, hydroworksKeys, refineryBonuses, domainGranted, techGrantedFishFoodSlotBonus(player));
     // §23.2: apply the same slot waivers the live runtime does, or a
     // reconnect could show a structure dormant that the live path considers
     // waived (Dwarf Kingdom/Fortress Realm/Supply State/Treasury State/

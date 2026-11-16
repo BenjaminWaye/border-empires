@@ -163,7 +163,9 @@ Relics are fixed remnants of the Concordance's planetary megastructures.
 Their shared ziggurat-shaped surface buildings are access and control
 structures; different installations survive below them and provide different
 capabilities. The ground around the access structure is part of the installation
-and is kept clear of new buildings. The installations remain part of the planet
+and is kept clear of new buildings; whoever holds the access structure holds
+that ground with it, and the site is taken or lost as one. An AFC's landing
+pad is held the same way. The installations remain part of the planet
 after a war game.
 Their physical survival does not establish continued House ownership or
 bonuses between campaigns.
@@ -410,17 +412,21 @@ a rival who takes that harbour strands everything put ashore from it.
 
 ### What a harbour looks like
 
-A frontier harbour is ordinary machinery, like everything else a town will
-run: coal, steam, timber and iron, with no aether-work in it. The quay is
-dressed stone with an iron-capped edge and a timber pier on piles. A toll and
-harbourmaster's house keeps the freight and the tolls that back a House's Coin
-(§11), a coal-fired steam derrick swings cargo off the pier, a lamp burns at
-the pier head for the sea lane, and a paddle-steamer ferry lies alongside.
+A harbour is a House port, built to the same standard as a House's other
+works. The quay is polished black stone veined with gold, laid on a
+charcoal course with a brass inlay and an iron-capped sea edge, with lamp
+posts along it and an iron-plated pier on blackened piles. A grey stone
+control office, glazed and crowned with a sensor mast, keeps the freight
+and the tolls that back a House's Coin (§11). A powered gantry crane, fed
+by a cell bank charged from the town's ordinary generation and marked out by
+cyan status strips (signal lamps, not aether-work), lifts sealed cargo
+containers off the pier, a beacon burns at the pier head for the sea lane,
+and one of the House's armoured troop carriers (§11) lies alongside.
 
 The beaches beside the quay are part of the harbour. Each carries a slipway:
-a timber ramp with iron rails running down into the water, a flat-bottomed
-landing barge hauled up it, a winch, a lantern and stacked supplies brought
-in by sea. They are where the harbour's landings come ashore, which is why a
+an iron-plated ramp with brass rails running down into the water, an
+armoured landing barge hauled up it, a winch, a lamp post and containers
+brought in by sea. They are where the harbour's landings come ashore, which is why a
 defender watches the whole stretch and not only the quay. A harbour is a
 transport hub, not a fortification: it carries no guns and no walls, and a
 Palisade is what defends it.
@@ -456,6 +462,11 @@ its garrisoned heartland, but only over ground held in depth, not over a
 thin line of outposts. The exact thresholds belong in the
 [gameplay reference](../game-mechanics.md).
 
+The same charts name the notable wastes and ice fields inside an island:
+stretches of desert and tundra large enough to matter to a House, but small
+enough to be held. These names belong to the chart too and are never
+renamed.
+
 ## 11. Houses and the planetary economy
 
 ### Knowledge, landings and seasons
@@ -472,6 +483,36 @@ that planet. On another seasonal world, the House retains its knowledge but
 must commission the equipment and personnel needed there. The relationship
 between campaign resets and permanent ducal holdings remains a canon
 question in §14.
+
+### House Charges
+
+Before a landing, each House gives its campaign leader a few **sealed
+charges**: the House's own ambitions for this world, separate from the
+Court's terms of victory. Its trading families may want a secure road
+between two named market towns; its elders a town grown great enough to seat
+a cadet line; its surveyors a landmass, waste or ice field entered in the
+charts under its name; its scholars a particular Concordance installation
+woken. The charges are private. The House learns which goals were sent, the
+watching Core does not, and rivals can only guess from what the House chooses
+to fight for.
+
+The charges are drawn from the House's own landing reports, so they point at
+places near where it came down. A House may set one charge aside in its first
+day on the ground. The surveyors' bearings come from the Court's slow,
+incomplete charts, so a charge first marks only an area; the House finds the
+exact place by scouting it. An installation is known only by its maintenance
+beacon until the House garrisons it.
+
+A charge is fulfilled only if the House still holds it when the campaign is
+decided: a road cut, a town lost or a chart name struck in the last hours
+counts for nothing. When the campaign is decided the seals are broken in
+public, and the Core learns at last what every House was really after. A
+fulfilled charter goes into its House's archive, a record of what the House
+set out to take and held; the archive is the collection of charge cards a
+House's profile shows. What a fulfilled charge earns the House is a gameplay
+decision recorded in the
+[gameplay reference](../game-mechanics.md) and the
+[House Charges plan](../house-charges-plan.md).
 
 ### Coastal assault carriers
 
@@ -490,7 +531,8 @@ cross open water on foot.
 **Coin is offworld purchasing credit backed by planetary output.** It is a
 recognised claim on the food, freight, ore, manufacturing, tolls and future
 exports controlled by the House. The House factor accepts that claim
-because the House controls the output behind it.
+because the House controls the output behind it. Houses can pledge a share of
+newly earned Coin to another House in exchange for contracted industrial output.
 
 Coin is paid offworld through the factor for machines fabricated elsewhere,
 transported crews and instruments, Imperial market access and project
@@ -511,35 +553,21 @@ They do not mint the offworld credit itself. The historical building name
 Mintworks has been replaced by Manufactory; exact income, stacking and
 Clearing House effects are maintained in the economy reference.
 
-### Frontier concessions and ancillary supply
+### Frontier concessions
 
-Making an Ancillary takes three frontier inputs. Resin Extractors refine native
-compounds that stabilise the neural controls of newly remade bodies. Implant
-Foundries turn conductive ore into implants, command circuitry and replacement
-components. Catalyst Refineries recover rare catalysts that drive the chemistry
-of remaking itself, the same compounds offworld chemical and fabrication
-industries pay for. Each working site feeds the House's whole Ancillary reserve
-rather than one building. Towns still provide the bodies: these industries
-improve remaking throughput, not the supply of people. Depots still determine
-storage capacity and custody for the reserve. The Reserve Custody Cadre
-authorises both Depots and Implant Foundries.
-
-Resin-bearing broadleaf groves grow in forested grassland, with amber seams
-beneath their bark; ordinary trees are not automatically resin deposits.
-Conductive seams lie in hills, beside mountains and in cold ground. Catalysts
-favour inland sand, never beaches. Each grows only where its terrain allows,
-so a House rarely finds all three inside its first borders.
+Remaking runs on town industry: the bodies come from towns, and the reserve is
+held in Depots and processed in Ancillary Factories. No frontier input is
+needed to make an Ancillary. Houses no longer commission resin groves,
+conductive seams or catalyst concessions; earlier campaigns that worked them
+abandoned those concessions.
 
 Frontier deposits sit beyond a town's immediate support ring, giving a House
 reason to develop and defend the surrounding countryside.
 
 A working site provides continuing contracted output, not ore units spent down
-to zero. A House's first site of a kind transforms its remaking lines; further
-sites of the same kind add less, which is why Houses trade surplus sites with
-neighbours who lack that kind. A Siphon can divert a working site's output to
-the caster, without duplicating its supply. Its crews and extraction systems
-must still be authorised at the source; draining an undeveloped deposit creates
-no industry.
+to zero. A Siphon can divert a working site's output to the caster, without
+duplicating its supply. Its crews and extraction systems must still be
+authorised at the source; draining an undeveloped deposit creates no industry.
 
 Cultivation Estates grow native luxury biota in warm, wet grassland and marsh.
 Its fragrances and pigments sell in the Core, but on a Sector world its
@@ -565,6 +593,23 @@ Tooling Module authorises both Manufactories and Reclamation Works. Salvage
 fields are industrial remains, distinct from the great Monuments; no claim that
 a field is itself an active Concordance construct is implied by the term
 precursor.
+
+Strategic ore is not worked at the pit. Titanium, Umbrite and Crystal-bearing
+Gems are refined in a House's towns: a refinery on a town's support ground
+hauls raw ore from one linked field, over the House's own roads and land, and
+turns it into usable supply. A deposit with no town to serve it, or whose haul
+road an enemy has cut, yields only what a garrison can scrape by hand. A town
+that commits to an ore gives up more of its working ground to smelters,
+distilleries or cutting halls.
+
+A House's connected towns are linked by elevated maglev freight lines, not
+paved roads: twin graphite guideway beams on forked pylons, ending at a freight
+gantry on each town's edge. Unmanned haulers carry sealed containers, pressure
+tanks and charged energy canisters between the towns, in the House's livery.
+The cyan lights along the beams are induction coils and signal lamps, the same
+ordinary powered infrastructure as a harbour's status strips, not aether-work.
+A line runs only over the House's own settled land, so losing the ground it
+crosses breaks the link between those towns.
 
 Specialised warrants and charters commission the crews, processing standards
 and commercial rights needed to exploit these sites. A discovered deposit is
@@ -654,6 +699,17 @@ the House's land, winches the pod down at the site and returns to dock in the
 AFC's crown. Nothing is fabricated in orbit or dropped from it. The drones are
 presentation of that supply chain, not a separately modelled unit or
 logistics system.
+
+The same drones fly the House's reconnaissance. A **scout drone** is a
+courier drone sent out with a sensor package in place of a crate pod: it
+leaves the AFC's crown, flies low over the House's land and out past it,
+looks over the ground beneath it and returns to dock. Because it flies, sea
+and open country do not stop it. It carries no crew, takes nothing and holds
+nothing. What stops it is a rival House's local control field (§10): the
+drone's link is jammed at that House's border, so it turns back there, and
+the rival's own sensors register the intrusion. The planet's remnant
+defenses have no such field, so a drone can pass over them, and they stir
+while it watches. How far and how often a drone flies is a gameplay rule.
 
 ### Replacement supply and withdrawal
 

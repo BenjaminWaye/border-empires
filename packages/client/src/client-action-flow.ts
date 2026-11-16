@@ -29,6 +29,7 @@ import { ensureClientCommandEnvelope } from "./client-command-envelope/client-co
 import { clearMusterTransitForAttack } from "./client-muster-transit/client-muster-transit.js";
 import { handleMarchPickClick } from "./client-march-origin-picking/client-march-origin-picking.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
+import { dispatchSimpleTileCommand } from "./client-abandon-territory-confirm/client-abandon-territory-confirm.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
@@ -60,7 +61,6 @@ import {
   queuedSettleAwaitsManpower,
   processPendingMusterAttacks as processPendingMusterAttacksFromModule,
   queueDevelopmentAction as queueDevelopmentActionFromModule,
-  queuedDevelopmentActionExists,
   queueSpecificTargets as queueSpecificTargetsFromModule,
   queuedDevelopmentEntryForTile as queuedDevelopmentEntryForTileFromModule,
   queuedSettlementIndexForTile as queuedSettlementIndexForTileFromModule,
@@ -75,6 +75,8 @@ import {
   type DevelopmentSlotSummary
 } from "./client-queue-logic/client-queue-logic.js";
 import { cancelQueuedAutoSettle as cancelQueuedAutoSettleFromModule } from "./client-queue-logic/client-cancel-queued-auto-settle.js";
+import { requestGarrisonWithTownRing } from "./client-town-ring-garrison/client-town-ring-garrison.js";
+import { processAutoSettleTargetsForState } from "./client-auto-settle-targets/client-process-auto-settle-targets.js";
 import { structureDisplayLabel as structureDisplayLabelFromModule } from "./client-structure-display-label/client-structure-display-label.js";
 import { queueSettleForExpandingTile as queueSettleForExpandingTileFromModule } from "./client-settle-land-queue/client-settle-land-queue.js";
 import {
@@ -147,7 +149,7 @@ import {
   queuedExpandProgressForTile as queuedExpandProgressForTileFromModule,
   queuedAutoSettleNextForTile as queuedAutoSettleNextForTileFromModule
 } from "./client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
-import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
+import { neutralTileClickOutcome, tapClaimsAdjacentTile, type TileTapInput } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
 import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
@@ -495,39 +497,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const processAutoBuildTargets = (): void => processAutoBuilds(state, triggerBuildForStructureType);
 
-  // Runtime loop's periodic tick: once a waypoint target is owned, settle it if queued.
-  const processAutoSettleTargets = (): void => {
-    if (state.autoSettleTargets.size === 0) return;
-    const reach = resolveMyReachCached(state);
-    for (const targetKey of [...state.autoSettleTargets]) {
-      const tile = state.tiles.get(targetKey);
-      if (!tile) continue;
-      // A settle already dispatched (or waiting in the development queue) for
-      // this tile keeps it FRONTIER until the server confirms, and the optimistic
-      // marker can be cleared by an intervening tile update. Firing again here
-      // sends a second SETTLE and the server rejects it with
-      // "tile is already settling" -- drop the auto-settle entry instead, the
-      // matching autoBuildTargets entry still runs once the tile lands SETTLED.
-      if (state.settleProgressByTile.has(targetKey) || queuedDevelopmentActionExists(state, targetKey, "SETTLE")) {
-        state.autoSettleTargets.delete(targetKey);
-        continue;
-      }
-      if (tile.ownerId === state.me && tile.ownershipState === "FRONTIER" && !tile.optimisticPending) {
-        // The tile can drift out of reach between the click that queued this
-        // (e.g. a Relay Beacon chain, or a build queued ahead of ownership
-        // landing) and the tick where ownership actually arrives -- the server
-        // would reject the SETTLE as OUT_OF_REACH anyway, so drop the queued
-        // settle (and any dependent build) instead of sending a doomed command.
-        if (!reach.has(targetKey)) {
-          state.autoSettleTargets.delete(targetKey);
-          state.autoBuildTargets.delete(targetKey);
-          continue;
-        }
-        state.autoSettleTargets.delete(targetKey);
-        requestSettlement(tile.x, tile.y);
-      }
-    }
-  };
+  // Runtime loop's periodic tick: auto-settle targets and town ring garrisons (client-process-auto-settle-targets.ts).
+  const processAutoSettleTargets = (): void => processAutoSettleTargetsForState(state, requestSettlement);
 
   const processDevelopmentQueue = (): boolean =>
     processDevelopmentQueueFromModule(state, {
@@ -627,7 +598,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           deps.wasPredictedCombatAlreadyShown(state.revealedPredictedCombatByKey, resultTargetKey, resultAlert.title, resultAlert.detail))
     );
     if (!predictedAlreadyShown) {
-      pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : "warn");
+      pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : state.capture?.fromMusterAdvance ? "info" : "warn");
       if (!state.capture?.fromMusterAdvance) showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss);
     }
     if (resultTargetKey) {
@@ -700,7 +671,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     });
 
   const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
-  const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement });
+  // A town's Garrison also garrisons the tiles around it once the town lands (client-town-ring-garrison.ts).
+  const requestGarrison = (x: number, y: number): boolean => {
+    const tile = state.tiles.get(keyFor(x, y));
+    return tile ? requestGarrisonWithTownRing(state, tile, (tx, ty) => requestSettlement(tx, ty), Date.now()) : requestSettlement(x, y);
+  };
+  const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement: requestGarrison });
   const buildSiegeBatteryOnSelected = (): void => buildSiegeBatteryOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const cancelOngoingCapture = (): void => cancelOngoingCaptureFromModule(state, sendGameMessage, (message) => pushFeed(message, "combat", "info"));
@@ -1210,7 +1186,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             return;
           }
         } else if (selected.ownerId === state.me && selected.ownershipState === "FRONTIER") {
-          requestSettlement(selected.x, selected.y);
+          requestGarrison(selected.x, selected.y);
         }
         state.autoSettleTargets.delete(k);
       }
@@ -1277,9 +1253,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
     }
     dispatchMusterTileAction(actionId, selected, { state, sendGameMessage, pushFeed, renderHud });
-    if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
-    if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
-    if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
+    dispatchSimpleTileCommand(actionId, selected, sendGameMessage);
     if (actionId === "diplomacy" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
       openDiplomacyForPlayer(state, selected.ownerId);
       renderHud();
@@ -1349,7 +1323,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     suppressNextClick: false
   };
 
-  const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: number): void => {
+  const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: number, tapInput: TileTapInput = "mouse"): void => {
     if (mapInteractionFlags.suppressNextClick) {
       mapInteractionFlags.suppressNextClick = false;
       return;
@@ -1444,9 +1418,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     // ever appears inside that menu -- actually has a chance to be seen.
     const isTargetInLocalReach = (x: number, y: number): boolean =>
       resolveMyReachCached(state).has(keyFor(x, y));
-    // Shared with the "visible" neutral-adjacent click path below: claims an
-    // adjacent-reachable tile immediately instead of opening a menu. Lifted
-    // out so fogged/unexplored tiles adjacent to owned territory can also
+    // Shared with the "visible" neutral-adjacent click path below: a mouse click
+    // claims an adjacent-reachable tile immediately instead of opening a menu
+    // (a touch tap only inspects -- tapClaimsAdjacentTile). Lifted
+    // out so fogged tiles adjacent to owned territory can also
     // start a frontier expand directly, rather than only ever showing a
     // description popup (or, for unexplored tiles, nothing at all) just
     // because their true terrain/ownership isn't confirmed yet -- the queue
@@ -1473,13 +1448,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
     };
     if (vis === "unexplored") {
-      const frontierOrigin = pickOriginForTarget(wx, wy, false);
-      if (frontierOrigin) {
-        state.selected = { x: wx, y: wy };
-        resetAttackPreviewState(state);
-        queueAdjacentExpandClaim(wx, wy);
-        return;
-      }
+      // Unexplored ground, even next to the player's land, offers Explore, never a direct claim (docs/explore-scout-plan.md).
       openUnexploredTileActionMenu(state, wx, wy, clientX, clientY, { keyFor, pickOriginForTarget, renderTileActionMenu, resetAttackPreviewState });
       renderHud();
       return;
@@ -1489,7 +1458,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       resetAttackPreviewState(state);
       const isLand = clicked?.terrain === "LAND";
       const isNeutral = !clicked?.ownerId;
-      const frontierOrigin = isLand && isNeutral ? pickOriginForTarget(wx, wy, false) : undefined;
+      const frontierOrigin = isLand && isNeutral && tapClaimsAdjacentTile(tapInput) ? pickOriginForTarget(wx, wy, false) : undefined;
       if (frontierOrigin) {
         queueAdjacentExpandClaim(wx, wy);
         return;
@@ -1518,7 +1487,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       isLand: to.terrain === "LAND",
       isFogged: Boolean(to.fogged),
       hasFrontierOrigin: Boolean(frontierOrigin),
-      isNeutral: !to.ownerId
+      isNeutral: !to.ownerId,
+      tapInput
     });
     // Enable via localStorage.setItem("tile-sync-debug", "1") in the
     // browser console, then click a tile -- prints what the click decided.
@@ -1544,12 +1514,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       // already-queued target, which would otherwise leave the click with
       // no menu and no feedback. (queueAdjacentExpandClaim handles this.)
       queueAdjacentExpandClaim(to.x, to.y);
-      return;
-    }
-    if (to.terrain === "LAND" && !to.fogged) {
-      openSingleTileActionMenu(to, clientX, clientY);
-      requestAttackPreviewForHover();
-      renderHud();
       return;
     }
     openSingleTileActionMenu(to, clientX, clientY);

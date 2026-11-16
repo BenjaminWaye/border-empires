@@ -38,17 +38,17 @@ describe("three authored resource deposit variants",()=>{
   it("keeps tile selection unchanged at world seams and through camera-relative placement",()=>{
     expect(networkVariantForTile(-1,-1)).toBe(networkVariantForTile(WORLD_WIDTH-1,WORLD_HEIGHT-1));
     const scene=new Scene(),overlay=createResourceOverlay(scene,4);
-    const resource="CONDUCTIVE_MINERALS",variant=networkVariantForTile(7,9);
+    const resource="LUXURY_BIOTA",variant=networkVariantForTile(7,9);
     const active=()=>scene.children.filter(child=>child instanceof InstancedMesh&&child.count>0&&child.name.includes(resource)).map(child=>child.name).sort();
     overlay.addInstance(7,9,0,resource,7,9);overlay.commit();const first=active();
     expect(first.length).toBeGreaterThan(0);expect(first.every(name=>name.includes(`${resource}:${variant}`))).toBe(true);
     overlay.clear();overlay.addInstance(7-WORLD_WIDTH,9-WORLD_HEIGHT,0,resource,7,9);overlay.commit();
     expect(active()).toEqual(first);overlay.dispose();
   });
-  it("allocates only the fifteen finite raw models and releases all instance buffers",()=>{
-    const scene=new Scene(),overlay=createNetworkOverlay(scene,15,false);
+  it("allocates only the six finite raw models and releases all instance buffers",()=>{
+    const scene=new Scene(),overlay=createNetworkOverlay(scene,6,false);
     for(const resource of NETWORK_RESOURCES)for(const variant of NETWORK_VARIANTS)overlay.add({x:variant,y:0,z:0,kind:resource,variant,operational:true,foundation:false});
-    overlay.commit();expect(overlay.diagnostics.instances).toBe(15);expect(overlay.diagnostics.slots).toBe(15);expect(overlay.diagnostics.overflow).toBe(0);
+    overlay.commit();expect(overlay.diagnostics.instances).toBe(6);expect(overlay.diagnostics.slots).toBe(6);expect(overlay.diagnostics.overflow).toBe(0);
     overlay.dispose();expect(scene.children).toHaveLength(0);
   });
 });

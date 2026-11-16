@@ -25,7 +25,7 @@ describe("structureBuildGoldCost", () => {
     expect(structureBuildGoldCost("MANUFACTORY", 0)).toBe(0);
     expect(structureBuildGoldCost("MANUFACTORY", 4)).toBe(0);
     expect(structureBuildGoldCost("TRADE_NEXUS", 3)).toBe(0);
-    expect(structureBuildGoldCost("ORE_REFINERY", 2)).toBe(0);
+    expect(structureBuildGoldCost("TITANIUM_SMELTER", 2)).toBe(0);
   });
 });
 

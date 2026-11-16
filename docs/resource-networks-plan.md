@@ -1,6 +1,6 @@
 # Frontier resource networks
 
-Status: implemented and locally validated on `agent/resource-networks`; awaiting release gates
+Status: partly superseded. Neural resin, conductive minerals and catalyst were cut on 2026-11-12 (`docs/territory-development-plan.md`, Phase 1); luxury biota and precursor salvage remain as described here.
 Owner: Border Empires game design / this task
 Last reviewed: 2026-10-27
 

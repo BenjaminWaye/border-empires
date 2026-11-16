@@ -285,9 +285,9 @@ export const buildPlayerSubscriptionSnapshot = (
               regen: [{ label: "Base minimum", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
             },
             incomePerMinute,
-            imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
             autoSettle: autoSettlePrefsForOutput(livePlayer.autoSettle),
             wonderLastFreeRushBuyAt: livePlayer.wonderLastFreeRushBuyAt ?? 0,
+            manifestGoldDiscount: livePlayer.wonderTechGoldDiscount ?? 0,
             relicMapHints: livePlayer.relicMapHints ?? [],
             eventLog: livePlayer.eventLog ?? [],
             strategicResources: {
@@ -347,6 +347,7 @@ export const buildPlayerSubscriptionSnapshot = (
                     kind: entry.kind,
                     ...(entry.structureType ? { structureType: entry.structureType } : {}),
                     ...(entry.tier ? { tier: entry.tier } : {}),
+                    ...(entry.fieldX !== undefined && entry.fieldY !== undefined ? { fieldX: entry.fieldX, fieldY: entry.fieldY } : {}),
                     queuedAt: entry.queuedAt,
                     // Same reservation flags PLAYER_UPDATE carries (runtime-player-state-update.ts).
                     ...(entry.reservedManpower ? { manpowerReserved: true } : {}),

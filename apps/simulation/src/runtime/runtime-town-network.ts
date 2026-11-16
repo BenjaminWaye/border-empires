@@ -31,6 +31,8 @@ import { createTownConnectivityState, type TownConnectivityState } from "../econ
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import type { RuntimePlayer, RuntimeTileYieldEconomyContext } from "../runtime-types.js";
 import type { MainThreadTaskTracker } from "../main-thread-task-tracker/main-thread-task-tracker.js";
+import { townFoodSlotDemandByTileKey } from "../resource-slot-view/resource-slot-view.js";
+import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
 
 export interface RuntimeTownNetworkContext {
   networkSitesForPlayer?: (id: string) => import("@border-empires/shared").NetworkSiteCounts | undefined;
@@ -156,7 +158,8 @@ export function tileYieldEconomyContextForPlayer(ctx: RuntimeTownNetworkContext,
       firstThreeTownKeys: firstThreeTownsGoldOutputMultiplierForPlayer(player) !== 1
         ? firstThreeTownKeysForPlayer(player.id, orderedTownTilesForPlayer(ctx, player.id).map(t => [`${t.x},${t.y}`, t.town?.populationTier] as const), player)
         : new Set<string>(),
-      dormantEconomicStructureKeys: ctx.dormantEconomicStructureKeysForPlayer(player.id)
+      dormantEconomicStructureKeys: ctx.dormantEconomicStructureKeysForPlayer(player.id),
+      townFoodSlotDemandByKey: townFoodSlotDemandByTileKey(settledTiles, player.id, slotWaiversForPlayer(player))
     };
     ctx.tileYieldContextCacheByPlayer.set(player.id, context);
     return context;
@@ -186,7 +189,8 @@ export function enrichTileWithTownContext(
         context.fedTownKeys,
         context.firstThreeTownKeys,
         context.townNetwork?.get(tileKey)?.connectedClearingHouseKeys,
-        context.dormantEconomicStructureKeys
+        context.dormantEconomicStructureKeys,
+        context.townFoodSlotDemandByKey?.get(tileKey)
       )
     : networkTown;
   return { ...tile, town: refreshedTown };

@@ -1,4 +1,5 @@
 import { DoubleSide, MeshStandardMaterial } from "three";
+import { LATTICE_HASH_GLSL } from "../client-map-3d-lattice-hash/client-map-3d-lattice-hash-glsl.js";
 
 /** Object-space wear stays fixed when instanced or viewed from another angle. */
 export const createRelicAgedMaterial = (color: string, metalness: number): MeshStandardMaterial => {
@@ -10,9 +11,8 @@ export const createRelicAgedMaterial = (color: string, metalness: number): MeshS
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvRelicPosition = position;");
     shader.fragmentShader = `
       varying vec3 vRelicPosition;
-      float relicHash(vec3 p) {
-        return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
-      }
+      ${LATTICE_HASH_GLSL}
+      float relicHash(vec3 p) { return latticeHash3(p); }
       float relicNoise(vec3 p) {
         vec3 i = floor(p);
         vec3 f = fract(p);

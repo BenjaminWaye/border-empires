@@ -8,8 +8,8 @@ const meta: Meta = { title:"UI/Diplomacy/Resource Supply", parameters:{layout:"f
   const button=document.createElement("button"); button.textContent="Open resource negotiation";
   const show=()=>{
     openDiplomacyTradeScreen({targetName:"House Veyr",targetPlayerId:"veyr",kind:"trade",durationHours:12,
-      terms:{give:{gold:0,resources:{NEURAL_RESIN:1}},ask:{gold:2}}}, {
-      ownHoldings:()=>({gold:42,resources:{FOOD:4,TITANIUM:2,NEURAL_RESIN:2,CONDUCTIVE_MINERALS:1,LUXURY_BIOTA:1}}),
+      terms:{give:{gold:0,resources:{LUXURY_BIOTA:1}},ask:{gold:2}}}, {
+      ownHoldings:()=>({gold:42,resources:{FOOD:4,TITANIUM:2,LUXURY_BIOTA:2}}),
       activeSupply:()=>({ownId:"self",agreements:[{id:"existing",proposerId:"self",targetId:"veyr",proposerGives:{LUXURY_BIOTA:1},targetGives:{FOOD:2},startedAt:Date.now()-3_600_000,fulfilled:true}]}),
       send:(payload)=>{output.textContent=JSON.stringify(payload,null,2);return true;}
     });

@@ -136,10 +136,9 @@ message SeasonParticipationResponse {
 
 message StartNextSeasonRequest {
   bool force = 1;
-  // Optional JSON: { "playerId": string, "charges": number }. When present,
-  // the named player is granted N Imperial Ward charges the first time they
-  // spawn territory in the newly-started season (Emperor endorsement bonus).
-  string imperial_ward_json = 2;
+  // Was imperial_ward_json (Emperor endorsement, removed).
+  reserved 2;
+  reserved "imperial_ward_json";
   // Optional: the seasonId of a prior galaxy territory this new season
   // should be a Defense Campaign for (docs/galactic-campaign-design.md
   // §7/§11). Pure passthrough -- the simulation attaches no behavior to

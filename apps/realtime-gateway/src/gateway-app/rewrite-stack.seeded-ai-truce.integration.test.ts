@@ -141,7 +141,7 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
     );
   }, 20_000);
 
-  it("lets seeded AI players accept longer truce offers once their manpower runs low, before they have a live socket", async () => {
+  it("declines a free long truce with a distant, exhausted AI before it has a live socket", async () => {
     // The AI fetches its live state straight from the simulation (a mocked
     // subscribePlayer here) rather than relying on a real battle to deplete
     // its manpower.
@@ -191,14 +191,15 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
     expect(
       await nextMatchingMessage(
         playerOne,
-        "ai truce accepted",
-        (message) => message.type === "TRUCE_UPDATE" && Array.isArray(message.activeTruces) && message.activeTruces.length > 0
+        "ai truce declined",
+        (message) => message.type === "TRUCE_UPDATE" && typeof message.announcement === "string" && message.announcement.startsWith("Alden declined")
       )
     ).toEqual(
       expect.objectContaining({
         type: "TRUCE_UPDATE",
-        activeTruces: [expect.objectContaining({ otherPlayerId: "ai-1", otherPlayerName: "Alden" })],
-        announcement: "Alden accepted your 24h truce. Alden is looking for peace: their armies are spent."
+        activeTruces: [],
+        outgoingTruceRequests: [],
+        announcement: expect.stringMatching(/^Alden declined your 24h truce offer\..* wants about 1 coin more than you can offer\.$/)
       })
     );
   });

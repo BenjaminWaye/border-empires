@@ -9,17 +9,17 @@ const labels = (facts: TileFact[]): string[] => facts.map((f) => f.label);
 
 describe("tile fact strip", () => {
   it("says what your building is, whether it runs, what it gives and costs", () => {
-    const facts = tileFactsFor(tile({ ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "MINE", status: "active" } }), noView, "me");
-    expect(facts[0]).toEqual({ label: "Building", value: "Mine" });
+    const facts = tileFactsFor(tile({ ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "active" } }), noView, "me");
+    expect(facts[0]).toEqual({ label: "Building", value: "Manufactory" });
     expect(facts[1]).toEqual({ label: "State", value: "Active", tone: "good" });
     expect(labels(facts)).toContain("Gives");
     expect(labels(facts)).toContain("Upkeep");
   });
 
   it("flags a building shut down by upkeep and hides upkeep on someone else's", () => {
-    const off = tileFactsFor(tile({ ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "MINE", status: "inactive", inactiveReason: "upkeep" } }), noView, "me");
+    const off = tileFactsFor(tile({ ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "inactive", inactiveReason: "upkeep" } }), noView, "me");
     expect(off[1]).toEqual({ label: "State", value: "Off · no upkeep", tone: "warn" });
-    const theirs = tileFactsFor(tile({ ownerId: "them", ownershipState: "SETTLED", economicStructure: { ownerId: "them", type: "MINE", status: "active" } }), noView, "me");
+    const theirs = tileFactsFor(tile({ ownerId: "them", ownershipState: "SETTLED", economicStructure: { ownerId: "them", type: "MANUFACTORY", status: "active" } }), noView, "me");
     expect(labels(theirs)).not.toContain("Upkeep");
   });
 

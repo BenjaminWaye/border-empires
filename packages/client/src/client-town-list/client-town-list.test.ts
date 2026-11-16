@@ -48,6 +48,19 @@ const rowsOf = (map: Map<string, Tile>) => deriveTownListRows(map.values(), "me"
 const plain = (x: number, y: number, overrides: Partial<Tile> = {}): Tile => ({ x, y, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", ...overrides });
 
 describe("town list", () => {
+  // Playtest 2026-11-12: Towns said 17,135 / 10,000,000 (the hard cap) while
+  // the town's own screen said 17,135 / 100,000 (growth to City).
+  it("shows the next tier's population, like the town screen, not the hard cap", () => {
+    const map = mapOf([townTile(1, "Durndelve", 1, 17_135, { town: { ...townTile(1, "Durndelve", 1, 17_135).town!, maxPopulation: 10_000_000 } })]);
+    expect(rowsOf(map)[0]?.maxPopulation).toBe(100_000);
+    expect(townListCardHtml(map, "me")).toContain("17,135<small>/ 100,000</small>");
+  });
+
+  it("labels the income column Coin/day, like every other screen", () => {
+    expect(townListCardHtml(tiles, "me")).toContain("Coin/day");
+    expect(townListCardHtml(tiles, "me")).not.toContain("Gold");
+  });
+
   it("lists only the viewer's visible towns", () => {
     expect(rowsOf(tiles).map((row) => row.name)).toEqual(["Ashford", "Brimvale", "Cogsworth"]);
   });
@@ -74,9 +87,26 @@ describe("town list", () => {
     expect(html).not.toContain("Enemy Keep");
   });
 
-  it("shows the same gold as the map label, including sabotage and docks", () => {
-    const sabotaged = townTile(1, "Ashford", 2, 4000, { yieldRate: { goldPerMinute: 1 } });
+  it("applies sabotage and keeps the server's dock rate", () => {
+    const sabotaged = townTile(1, "Ashford", 2, 4000, { sabotage: { ownerId: "rival", endsAt: Date.now() + 60_000, outputMultiplier: 0.5 } });
     expect(rowsOf(mapOf([sabotaged]))[0]?.goldPerMinute).toBe(1);
+    const dock = townTile(2, "Brimvale", 2, 4000, { dockId: "d1", yieldRate: { goldPerMinute: 3 } });
+    expect(rowsOf(mapOf([dock]))[0]?.goldPerMinute).toBe(3);
+  });
+
+  // Playtest day 1: every town read 0.0 coin/day here while its own screen showed +21/day. A tile-detail
+  // reply had cached yieldRate 0 from before the town was garrisoned, and the later town summary that
+  // raised town.goldPerMinute did not clear it.
+  it("matches the town screen when a cached yield rate is stale", () => {
+    const stale = townTile(1, "Ashford", 21 / 1440, 4000, { yieldRate: { goldPerMinute: 0 } });
+    expect(rowsOf(mapOf([stale]))[0]?.goldPerMinute).toBeCloseTo(21 / 1440, 4);
+    expect(townListCardHtml(mapOf([stale]), "me")).toContain(">21.0<");
+  });
+
+  it("keeps the last known rate while a partial town summary lacks goldPerMinute", () => {
+    const partial = townTile(1, "Ashford", 0, 4000, { yieldRate: { goldPerMinute: 2 } });
+    delete (partial.town as { goldPerMinute?: number }).goldPerMinute;
+    expect(rowsOf(mapOf([partial]))[0]?.goldPerMinute).toBe(2);
   });
 
   it("reads missing economy fields as zero and fed instead of NaN and unfed", () => {

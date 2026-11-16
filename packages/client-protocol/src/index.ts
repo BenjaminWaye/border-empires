@@ -20,6 +20,7 @@ export const DurableCommandTypeSchema = z.enum([
   "CHOOSE_DOMAIN",
   "SET_CONVERTER_STRUCTURE_ENABLED",
   "SET_CONVERTER_STRUCTURE_MODE",
+  "ASSIGN_REFINERY_FIELD",
   "SET_OBSERVATORY_ENABLED",
   "REVEAL_EMPIRE",
   "REVEAL_EMPIRE_STATS",
@@ -48,7 +49,6 @@ export const DurableCommandTypeSchema = z.enum([
   "AEGIS_LOCK",
   "ASTRAL_DOCK_LAUNCH",
   "TITANIUM_LEVY_MUSTER",
-  "ACTIVATE_IMPERIAL_WARD",
   "UPGRADE_TOWN_TIER",
   "SET_MUSTER",
   "CLEAR_MUSTER",
@@ -61,7 +61,9 @@ export const DurableCommandTypeSchema = z.enum([
   "WAYPOINT_CANCEL_ALL",
   "CLAIM_CONTINUATION_SET",
   "SET_AUTO_SETTLE_PREFS",
-  "NAME_ISLAND"
+  "NAME_ISLAND",
+  "CHOOSE_HOUSE_CHARGES",
+  "EXPLORE"
 ]);
 
 export type DurableCommandType = z.infer<typeof DurableCommandTypeSchema>;

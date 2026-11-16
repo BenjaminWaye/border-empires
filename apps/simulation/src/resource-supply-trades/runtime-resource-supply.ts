@@ -1,10 +1,11 @@
 import { tradedSlotSources } from "./traded-slot-sources.js";
 import type { ResourceSlotSupplyBuild } from "../runtime-economy-caches/runtime-economy-caches.js";
 import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resource-reveal.js";
-import type { DomainTileState } from "@border-empires/game-domain";
+import type { DomainTileState, PersonalActivitySupplyEndedReason } from "@border-empires/game-domain";
 import { emptyNetworkSiteCounts, isSiphonModeSabotage, NETWORK_RESOURCES, OFFERABLE_SUPPLY_RESOURCES, UPKEEP_TRADE_RESOURCES,
-  TRADABLE_SUPPLY_RESOURCES, offerIncludesNonTradableSupply, type NetworkSiteCounts, type ResourceSupplyAgreement, type ResourceSupplyFlow, type ResourceSupplyOffer } from "@border-empires/shared";
+  offerIncludesNonTradableSupply, type NetworkSiteCounts, type ResourceSupplyAgreement, type ResourceSupplyFlow, type ResourceSupplyOffer } from "@border-empires/shared";
 import { networkSupplyWithSiphon } from "./network-supply-with-siphon.js";
+import { supplyShortfallMessage } from "./supply-shortfall-message.js";
 import { resourceSlotDemandForPlayer, type ResourceSlotTotals } from "../resource-slot-view/resource-slot-view.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
 import type { RuntimePlayer } from "../runtime-types.js";
@@ -14,6 +15,8 @@ export interface RuntimeResourceSupplyContext {
   cachedPlayerState?: (id:string) => import("@border-empires/shared").ResourceSupplyPlayerState | undefined;
   cachePlayerState?: (id:string,state:import("@border-empires/shared").ResourceSupplyPlayerState) => void;
   now(): number;
+  coinAccountingStartsAt?: number;
+  journalSeasonId?: string | undefined;
   resourceSlotSources?: (id: string) => import("@border-empires/shared").ResourceSlotSources | undefined;
   player(id: string): RuntimePlayer | undefined;
   ownedTiles(id: string): DomainTileState[];
@@ -26,15 +29,25 @@ export interface RuntimeResourceSupplyContext {
   changed: ResourceSupplyLedgerContext["changed"];
   capacityRejected?: () => void;
   publish?: (participantIds: readonly string[]) => void;
+  /** A deal ended for real: cancelled by a House in it, by an attack between them, or run out. */
+  ended?: (agreement: ResourceSupplyAgreement, reason: PersonalActivitySupplyEndedReason, byPlayerId?: string) => void;
 }
 
 /** Supply rights are continuing commitments. Domestic output, never imports,
  * backs exports. All allocation state is bounded by the ledger's agreement cap. */
+export type ResourceTradeJournalCursor = { journalSequence: number; journalSeasonId?: string };
+
 export class RuntimeResourceSupply {
   readonly ledger: ResourceSupplyLedger;
-  constructor(private readonly ctx: RuntimeResourceSupplyContext, restored: readonly ResourceSupplyAgreement[] = []) {
+  private journalSequence: number;
+  constructor(private readonly ctx: RuntimeResourceSupplyContext, restored: readonly ResourceSupplyAgreement[] = [], journalSequence = 0) {
+    this.journalSequence = journalSequence;
     // Salvage is never exported: zero capacity suspends any legacy salvage deal.
-    this.ledger = new ResourceSupplyLedger({ ...ctx, capacityFor: (id, phase, flows) =>
+    this.ledger = new ResourceSupplyLedger({ ...ctx, changed: (...args) => {
+      const [action, agreement] = args;
+      ctx.changed(...args);
+      if (action === "expired") ctx.ended?.(agreement, "EXPIRED");
+    }, capacityFor: (id, phase, flows) =>
       phase === "upkeep" ? ctx.physicalUpkeep(id) : { ...this.physicalNetwork(id, flows), PRECURSOR_SALVAGE: 0 } }, restored);
   }
   private physicalNetwork(id: string, flows: ReadonlyMap<string, ResourceSupplyFlow>): NetworkSiteCounts {
@@ -75,15 +88,29 @@ export class RuntimeResourceSupply {
     }
     return result;
   }
-  create(row: ResourceSupplyAgreement): SupplyLedgerResult {
+  nextJournalCursor(): ResourceTradeJournalCursor {
+    this.journalSequence += 1;
+    return {
+      journalSequence: this.journalSequence,
+      ...(this.ctx.journalSeasonId ? { journalSeasonId: this.ctx.journalSeasonId } : {})
+    };
+  }
+
+  snapshotState(): { resourceSupplyAgreements?: readonly ResourceSupplyAgreement[]; resourceSupplyJournalSequence?: number } {
+    const agreements = this.ledger.rows();
+    return {
+      ...(agreements.length ? { resourceSupplyAgreements: agreements } : {}),
+      ...(this.journalSequence ? { resourceSupplyJournalSequence: this.journalSequence } : {})
+    };
+  }
+  create(row: ResourceSupplyAgreement, targetCoinDelta?: number): SupplyLedgerResult {
     if (offerIncludesNonTradableSupply(row.proposerGives) || offerIncludesNonTradableSupply(row.targetGives))
       return { ok: false, message: "Precursor salvage can't be traded." };
     for (const [id, offer] of [[row.proposerId, row.proposerGives], [row.targetId, row.targetGives]] as const) {
-      const available = this.available(id);
-      if (TRADABLE_SUPPLY_RESOURCES.some(resource => (offer[resource] ?? 0) > (available[resource] ?? 0)))
-        return { ok: false, message: "The promised resource slots are already in use or committed to another deal." };
+      const shortfall = supplyShortfallMessage(this.ctx.player(id)?.name ?? id, offer, this.available(id));
+      if (shortfall) return { ok: false, message: shortfall };
     }
-    return this.ledger.add(row, this.ctx.now());
+    return this.ledger.add(row, this.ctx.now(), targetCoinDelta);
   }
   playerState(id: string): import("@border-empires/shared").ResourceSupplyPlayerState {
     const allocation = this.ledger.allocation(this.ctx.now());
@@ -134,28 +161,41 @@ export class RuntimeResourceSupply {
     return participants.some(id => affected.includes(id)) || directCasters.length > 0 ||
       affected.some(id => Boolean(this.ctx.siphonedTiles?.(id).length));
   }
-  sourceWillChange(previous: DomainTileState | undefined, next: DomainTileState): void {
-    if (this.affectsSupply(previous, next)) {
-      this.ledger.advanceTo(this.ctx.now());
-      this.ctx.beforeChange(this.ctx.now(), this.affectedTileParticipants(previous, next));
-    }
+  sourceWillChange(previous: DomainTileState | undefined, next: DomainTileState): ReadonlySet<string> | undefined {
+    if (!this.affectsSupply(previous, next)) return undefined;
+    const now = this.ctx.now();
+    this.ledger.advanceTo(now);
+    this.ctx.beforeChange(now, this.affectedTileParticipants(previous, next));
+    return this.ctx.ended && this.ledger.size ? this.ledger.allocation(now).fulfilled : undefined;
   }
   sourceDidChange(previous: DomainTileState | undefined, next: DomainTileState): void {
     if (this.affectsSupply(previous, next)) {
       this.ledger.invalidate(); this.ctx.invalidate(this.affectedTileParticipants(previous, next));
     }
   }
-  sourceChangesPublished(previous: DomainTileState | undefined, next: DomainTileState): void {
+  sourceChangesPublished(previous: DomainTileState | undefined, next: DomainTileState, fulfilledBefore?: ReadonlySet<string>): void {
     if (this.affectsSupply(previous, next)) {
       // Structure/siphon indices are now current; refresh allocations rebuilt
       // by intermediate tile-yield reads before publishing either player's view.
-      this.ledger.invalidate(); this.ctx.invalidate(this.affectedTileParticipants(previous, next)); this.ctx.publish?.(this.affectedTileParticipants(previous, next));
+      const ids = this.affectedTileParticipants(previous, next);
+      this.ledger.invalidate();
+      this.ctx.invalidate(ids);
+      if (fulfilledBefore?.size) {
+        const { suspended } = this.ledger.allocation(this.ctx.now());
+        if (suspended.size) {
+          for (const row of this.ledger.rows()) {
+            if (fulfilledBefore.has(row.id) && suspended.has(row.id)) this.ctx.ended?.(row, "SUSPENDED");
+          }
+        }
+      }
+      this.ctx.publish?.(ids);
     }
   }
   cancel(id: string, actorId: string): SupplyLedgerResult {
     const row = this.ledger.rows().find(row => row.id === id);
     if (row && row.proposerId !== actorId && row.targetId !== actorId) return {ok:false,message:"Only a House in this agreement can end its supply."};
-    this.ledger.remove(id,this.ctx.now()); return {ok:true};
+    if (row && this.ledger.remove(id, this.ctx.now())) this.ctx.ended?.(row, "CANCELLED", actorId);
+    return {ok:true};
   }
   /** Ends every agreement between two Houses, in both directions, through the
    * ordinary cancel path (settle both at the old rates, then drop the supply).
@@ -163,15 +203,19 @@ export class RuntimeResourceSupply {
   cancelBetween(playerAId: string, playerBId: string): number {
     // Hot path (every accepted ATTACK): most worlds hold no agreements at all.
     if (playerAId === playerBId || this.ledger.size === 0) return 0;
-    const ids = this.ledger.rows().filter(row =>
+    const rows = this.ledger.rows().filter(row =>
       (row.proposerId === playerAId && row.targetId === playerBId) ||
-      (row.proposerId === playerBId && row.targetId === playerAId)).map(row => row.id);
+      (row.proposerId === playerBId && row.targetId === playerAId));
     let ended = 0;
-    for (const id of ids) if (this.ledger.remove(id, this.ctx.now())) ended += 1;
+    for (const row of rows) if (this.ledger.remove(row.id, this.ctx.now())) {
+      ended += 1;
+      this.ctx.ended?.(row, "ATTACK", playerAId);
+    }
     return ended;
   }
-  cancelRefunded(id: string, proposerId: string, targetId: string): void {
+  cancelRefunded(id: string, proposerId: string, targetId: string, targetCoinDelta?: number): boolean {
     const row = this.ledger.rows().find(row => row.id === id);
-    if (row && row.proposerId === proposerId && row.targetId === targetId) this.ledger.remove(id, this.ctx.now());
+    if (!row || row.proposerId !== proposerId || row.targetId !== targetId) return false;
+    return this.ledger.remove(id, this.ctx.now(), targetCoinDelta);
   }
 }

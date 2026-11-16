@@ -8,7 +8,7 @@ import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-
 import type { Tile, TileActionDef } from "../client-types.js";
 
 const state = {
-  techIds: ["navigation", "trade", "coinage", "industrial-extraction", "masonry", "crystal-lattices", "leatherworking"],
+  techIds: ["navigation", "trade", "coinage", "industrial-extraction", "civil-service", "masonry", "crystal-lattices", "leatherworking"],
   localhostDevAetherWall: false
 };
 
@@ -90,8 +90,8 @@ describe("splitTileActionsIntoTabs", () => {
   it("keeps a disabled-only Buildings tab visible", () => {
     const disabledBuildings: TileActionDef[] = [
       {
-        id: "build_ore_refinery",
-        label: "Build Ore Refinery",
+        id: "build_ministry_hall",
+        label: "Build Ministry Hall",
         disabled: true,
         disabledReason: "Need 4500 gold",
         cost: "Need 4500 gold"
@@ -150,8 +150,8 @@ describe("splitTileActionsIntoTabs", () => {
   it("sorts support-only buildings before general settled buildings", () => {
     const rows: TileActionDef[] = [
       {
-        id: "build_ore_refinery",
-        label: "Build Ore Refinery",
+        id: "build_ministry_hall",
+        label: "Build Ministry Hall",
         disabled: false
       },
       {
@@ -169,7 +169,7 @@ describe("splitTileActionsIntoTabs", () => {
     expect(splitTileActionsIntoTabs(rows, state).buildings.map((row) => row.id)).toEqual([
       "build_manufactory",
       "build_clearing_house",
-      "build_ore_refinery"
+      "build_ministry_hall"
     ]);
   });
 
@@ -181,8 +181,8 @@ describe("splitTileActionsIntoTabs", () => {
         disabled: false
       },
       {
-        id: "build_ore_refinery",
-        label: "Build Ore Refinery",
+        id: "build_ministry_hall",
+        label: "Build Ministry Hall",
         disabled: false
       },
       {
@@ -204,7 +204,7 @@ describe("splitTileActionsIntoTabs", () => {
 
     expect(splitTileActionsIntoTabs(rows, state).buildings.map((row) => row.id)).toEqual([
       "build_manufactory",
-      "build_ore_refinery",
+      "build_ministry_hall",
       "build_fortification",
       "build_observatory",
       "build_relay_beacon"
@@ -275,8 +275,8 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
   it("keeps same-tile structures optimistic on town tiles", () => {
     // Manufactory moved to same-tile/uncapped placement in the tech-tree redesign
     // (per-town cap removed), so it's optimistic on the town tile now too,
-    // same as Ore Refinery.
-    expect(shouldOptimisticallyBuildOnSelectedTile("build_ore_refinery", townTile)).toBe(true);
+    // same as Ministry Hall.
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_ministry_hall", townTile)).toBe(true);
     expect(shouldOptimisticallyBuildOnSelectedTile("build_manufactory", townTile)).toBe(true);
   });
 });

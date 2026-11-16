@@ -14,20 +14,19 @@ const improveOnly = (...on: AutoImproveResource[]): AutoSettlePrefs => ({
   improve: { ...NO_AUTO_IMPROVE, ...Object.fromEntries(on.map((resource) => [resource, true])) }
 });
 
-const TITANIUM_KEY = "20,20";
+const FARM_KEY = "20,20";
 const SALVAGE_KEY = "20,21";
+const TITANIUM_KEY = "22,20";
 
-const buildRuntime = (autoSettle: AutoSettlePrefs, techIds: string[] = ["mining", "trade"], withFood = true, extraFirst: Tile[] = []) => {
-  const allTiles: Tile[] = [
+const buildRuntime = (autoSettle: AutoSettlePrefs, techIds: string[] = ["agriculture", "mining", "trade"], extraFirst: Tile[] = []) => {
+  const tiles: Tile[] = [
     ...extraFirst,
     afcModuleFixtureTile("player-1"),
-    { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
+    { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
     { x: 20, y: 21, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "PRECURSOR_SALVAGE" },
-    // A Mine takes a FOOD slot.
-    { x: 21, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-    { x: 21, y: 21, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
+    // Strategic deposits take no on-tile improvement since town refineries (Phase 2).
+    { x: 22, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
   ];
-  const tiles = withFood ? allTiles : allTiles.filter((tile) => tile.resource !== "FARM");
   const runtime = new SimulationRuntime({
     now: () => 1_000,
     initialPlayers: new Map([
@@ -48,10 +47,10 @@ const structureOn = (runtime: SimulationRuntime, key: string): string | undefine
 const rejections = (seen: SimulationEvent[]) => seen.filter((event) => event.eventType === "COMMAND_REJECTED");
 
 describe("auto-improve", () => {
-  it("builds a Mine on a garrisoned titanium tile when only titanium is on", async () => {
-    const { runtime, seen } = buildRuntime(improveOnly("TITANIUM"));
+  it("builds a Hydrogarden on a garrisoned farm tile when only farm is on", async () => {
+    const { runtime, seen } = buildRuntime(improveOnly("FARM"));
     await runtime.tickTerritoryAutomation(1_000);
-    expect(structureOn(runtime, TITANIUM_KEY)).toBe("MINE");
+    expect(structureOn(runtime, FARM_KEY)).toBe("HYDROGARDEN");
     expect(structureOn(runtime, SALVAGE_KEY)).toBeUndefined();
     expect(rejections(seen)).toEqual([]);
   });
@@ -60,55 +59,45 @@ describe("auto-improve", () => {
     const { runtime } = buildRuntime(improveOnly("PRECURSOR_SALVAGE"));
     await runtime.tickTerritoryAutomation(1_000);
     expect(structureOn(runtime, SALVAGE_KEY)).toBe("RECLAMATION_WORKS");
-    expect(structureOn(runtime, TITANIUM_KEY)).toBeUndefined();
+    expect(structureOn(runtime, FARM_KEY)).toBeUndefined();
   });
 
   it("builds nothing with every switch off", async () => {
     const { runtime } = buildRuntime(improveOnly());
     await runtime.tickTerritoryAutomation(1_000);
-    expect(structureOn(runtime, TITANIUM_KEY)).toBeUndefined();
+    expect(structureOn(runtime, FARM_KEY)).toBeUndefined();
     expect(structureOn(runtime, SALVAGE_KEY)).toBeUndefined();
   });
 
-  it("waits quietly for a free FOOD slot instead of sending a build that gets rejected", async () => {
-    const { runtime, seen } = buildRuntime(improveOnly("TITANIUM"), ["mining"], false);
+  it("never builds on a strategic deposit, even with every switch on", async () => {
+    const { runtime, seen } = buildRuntime(improveOnly("FARM", "PRECURSOR_SALVAGE", "LUXURY_BIOTA"));
     await runtime.tickTerritoryAutomation(1_000);
     expect(structureOn(runtime, TITANIUM_KEY)).toBeUndefined();
     expect(rejections(seen)).toEqual([]);
   });
 
   it("waits quietly for the tech instead of sending builds that get rejected", async () => {
-    const { runtime, seen } = buildRuntime(improveOnly("TITANIUM"), []);
+    const { runtime, seen } = buildRuntime(improveOnly("FARM"), []);
     await runtime.tickTerritoryAutomation(1_000);
-    expect(structureOn(runtime, TITANIUM_KEY)).toBeUndefined();
+    expect(structureOn(runtime, FARM_KEY)).toBeUndefined();
     expect(rejections(seen)).toEqual([]);
   });
 
-  it("a titanium tile it can't build on (an AFC footprint) doesn't hold back the other titanium tiles", async () => {
-    const inAfcFootprint: Tile = { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" };
-    const { runtime, seen } = buildRuntime(improveOnly("TITANIUM"), ["mining"], true, [inAfcFootprint]);
+  it("a farm tile it can't build on (an AFC footprint) doesn't hold back the other farm tiles", async () => {
+    const inAfcFootprint: Tile = { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" };
+    const { runtime, seen } = buildRuntime(improveOnly("FARM"), ["agriculture"], [inAfcFootprint]);
     await runtime.tickTerritoryAutomation(1_000);
     expect(structureOn(runtime, "1,2")).toBeUndefined();
-    expect(structureOn(runtime, TITANIUM_KEY)).toBe("MINE");
-    expect(rejections(seen)).toEqual([]);
-  });
-
-  it("leaves the resource slots the player's own queued builds hold alone", async () => {
-    const { runtime, seen } = buildRuntime(improveOnly("TITANIUM"), ["mining"]);
-    const summary = (runtime as unknown as { summaryForPlayer: (id: string) => { devQueue: unknown[] } }).summaryForPlayer("player-1");
-    // Another Mine already queued (but not yet started) holds both FOOD slots.
-    summary.devQueue = [{ x: 30, y: 30, tileKey: "30,30", kind: "BUILD", structureType: "MINE", queuedAt: 1_000, reservedSlotRequirements: [{ resource: "FOOD", count: 2 }] }];
-    await runtime.tickTerritoryAutomation(1_000);
-    expect(structureOn(runtime, TITANIUM_KEY)).toBeUndefined();
+    expect(structureOn(runtime, FARM_KEY)).toBe("HYDROGARDEN");
     expect(rejections(seen)).toEqual([]);
   });
 
   it("leaves a town tile's resource to the town build rules", async () => {
-    const townTile: Tile = { x: 25, y: 25, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM", town: { name: "Ore", type: "MARKET", populationTier: "SETTLEMENT" } };
-    const { runtime, seen } = buildRuntime(improveOnly("TITANIUM"), ["mining"], true, [townTile]);
+    const townTile: Tile = { x: 25, y: 25, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM", town: { name: "Ore", type: "MARKET", populationTier: "SETTLEMENT" } };
+    const { runtime, seen } = buildRuntime(improveOnly("FARM"), ["agriculture"], [townTile]);
     await runtime.tickTerritoryAutomation(1_000);
     expect(structureOn(runtime, "25,25")).toBeUndefined();
-    expect(structureOn(runtime, TITANIUM_KEY)).toBe("MINE");
+    expect(structureOn(runtime, FARM_KEY)).toBe("HYDROGARDEN");
     expect(rejections(seen)).toEqual([]);
   });
 
@@ -118,16 +107,16 @@ describe("auto-improve", () => {
     const send = (commandId: string, payload: unknown) =>
       runtime.submitCommand({ commandId, sessionId: "s", playerId: "player-1", clientSeq: ++seq, issuedAt: 1_000, type: "SET_AUTO_SETTLE_PREFS", payloadJson: JSON.stringify(payload) });
     const categories = { towns: false, food: false, strategic: false, luxury: false };
-    send("prefs-1", { ...categories, improve: { TITANIUM: true } });
+    send("prefs-1", { ...categories, improve: { FARM: true } });
     await Promise.resolve();
     send("prefs-2", { ...categories, towns: true });
     await Promise.resolve();
-    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle?.improve).toEqual({ ...NO_AUTO_IMPROVE, TITANIUM: true });
+    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle?.improve).toEqual({ ...NO_AUTO_IMPROVE, FARM: true });
     // A partial improve object changes only the switches it names.
-    send("prefs-3", { ...categories, improve: { GEMS: true } });
+    send("prefs-3", { ...categories, improve: { PRECURSOR_SALVAGE: true } });
     await Promise.resolve();
-    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle?.improve).toEqual({ ...NO_AUTO_IMPROVE, TITANIUM: true, GEMS: true });
+    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle?.improve).toEqual({ ...NO_AUTO_IMPROVE, FARM: true, PRECURSOR_SALVAGE: true });
     await runtime.tickTerritoryAutomation(1_000);
-    expect(structureOn(runtime, TITANIUM_KEY)).toBe("MINE");
+    expect(structureOn(runtime, FARM_KEY)).toBe("HYDROGARDEN");
   });
 });

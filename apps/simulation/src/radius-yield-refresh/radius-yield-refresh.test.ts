@@ -22,19 +22,19 @@ const settledTilesForPlayerFrom = (tiles: readonly DomainTileState[]) => (player
   tiles.filter((tile) => tile.ownerId === playerId);
 
 describe("radiusYieldRefreshBeneficiaryTiles", () => {
-  // Regression: Hydroworks/Ore Refinery radius boosts only fed the retired
-  // per-tile strategic yield, so their beneficiaries carry no server-computed
-  // value — re-emitting them on every source toggle was wasted broadcast.
-  it("does not re-emit HYDROGARDEN or MINE tiles when a HYDROWORKS or ORE_REFINERY changes", () => {
+  // Regression: Hydroworks radius boosts only fed the retired per-tile
+  // strategic yield, so their beneficiaries carry no server-computed value —
+  // re-emitting them on every source toggle was wasted broadcast. Town
+  // refineries likewise change slot supply, not per-tile yield.
+  it("does not re-emit HYDROGARDEN or deposit tiles when a HYDROWORKS or refinery changes", () => {
     const hydrogarden = settledTile(5, 5, {
       resource: "FARM",
       economicStructure: { type: "HYDROGARDEN", status: "active", ownerId: PLAYER_ID }
     });
     const mine = settledTile(8, 5, {
       resource: "TITANIUM",
-      economicStructure: { type: "MINE", status: "active", ownerId: PLAYER_ID }
     });
-    for (const type of ["HYDROWORKS", "ORE_REFINERY"] as const) {
+    for (const type of ["HYDROWORKS", "TITANIUM_REFINERY"] as const) {
       const previous = settledTile(6, 5, { economicStructure: { type, status: "under_construction", ownerId: PLAYER_ID } });
       const next = settledTile(6, 5, { economicStructure: { type, status: "active", ownerId: PLAYER_ID } });
       const tiles = new Map<string, DomainTileState>([

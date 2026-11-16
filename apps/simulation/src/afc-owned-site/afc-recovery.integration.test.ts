@@ -14,7 +14,7 @@ const fixture = (options: { gold?: number; losses?: number; ai?: boolean; afc?: 
   const tiles: DomainTileState[] = [];
   for (let x = 5; x <= 35; x++) for (let y = 5; y <= 30; y++) tiles.push({ x, y, terrain: "LAND", ...(x >= 10 && x <= 18 && y >= 10 && y <= 18 ? { ownerId: "p", ownershipState: "SETTLED" as const } : {}) });
   if (options.afc) tiles.find(t => t.x === 10 && t.y === 10)!.afc = { ownerId: "p", status: "active", activatedAt: 0 };
-  const enemy = tiles.find(t => t.x === 9 && t.y === 10)!;
+  const enemy = tiles.find(t => t.x === 8 && t.y === 10)!; // outside p's AFC footprint (landmark-super-tile)
   enemy.ownerId = "e"; enemy.ownershipState = "SETTLED";
   enemy.muster = { ownerId: "e", amount: 10_000, mode: "HOLD", updatedAt: 0 };
   tiles.find(t => t.x === 6 && t.y === 10)!.afc = { ownerId: "e", status: "active", activatedAt: 0 };
@@ -133,7 +133,7 @@ describe("AFC replacement delivery", () => {
   it("counts an actual captured AFC once globally and opens recovery for its former owner", async () => {
     const f = fixture({ afc: true, losses: 0 });
     const before = f.runtime.exportSnapshotSections().initialState;
-    const id = await f.submit("ATTACK", { fromX: 9, fromY: 10, toX: 10, toY: 10 }, "e");
+    const id = await f.submit("ATTACK", { fromX: 8, fromY: 10, toX: 9, toY: 10 }, "e"); // aimed at a footprint tile, lands on the AFC
     const lock = f.runtime.exportSnapshotSections().initialState.activeLocks.find(l => l.commandId === id);
     expect(f.events.filter(e => e.eventType === "COMMAND_REJECTED")).toEqual([]);
     expect(lock).toBeDefined();

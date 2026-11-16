@@ -6,6 +6,7 @@ const REWRITE_MESSAGE_LABELS: Record<string, string> = {
   ALLIANCE_BREAK: "Alliance changes",
   ALLIANCE_REQUEST: "Alliance requests",
   BUILD_ECONOMIC_STRUCTURE: "Economic structures",
+  ASSIGN_REFINERY_FIELD: "Refinery field changes",
   BUILD_FORT: "Fort building",
   BUILD_OBSERVATORY: "Aether Tower building",
   BUILD_SIEGE_BATTERY: "Siege Battery building",

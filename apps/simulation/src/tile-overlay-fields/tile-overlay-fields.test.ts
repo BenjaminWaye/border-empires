@@ -45,7 +45,7 @@ const fullyLoadedTile: DomainTileState = {
   fort: { ownerId: "p1", status: "active" },
   observatory: { ownerId: "p1", status: "active" },
   siegeBattery: { ownerId: "p1", status: "active" },
-  economicStructure: { ownerId: "p1", type: "ORE_REFINERY", status: "active" },
+  economicStructure: { ownerId: "p1", type: "TITANIUM_SMELTER", status: "active" },
   sabotage: { ownerId: "p2", endsAt: 1000, outputMultiplier: 0.5 },
   watchtower: { activated: true, activatedByPlayerId: "p1" },
   waystation: { activated: false },

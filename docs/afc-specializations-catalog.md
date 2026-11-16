@@ -61,7 +61,7 @@ both renderers through the shared AFC effects layer.
 | Tier / ID | Name | Mechanical promise | Explanation |
 | --- | --- | --- | --- |
 | I `afc-exchequer-1` | **Founding Concession** | First three towns ×1.5 Coin; each uses two fewer FOOD slots. | Favorable starter export contracts and coordinated provisioning. |
-| II `afc-exchequer-2` | **Scarcity Consignment** | One-time delivery of boosters to every eligible deposit of the scarcest known resource; fallback +1 FOOD slot. | Finished extraction equipment bought offworld. |
+| II `afc-exchequer-2` | **Scarcity Consignment** | One-time delivery for the scarcest known resource: a Hydrogarden on every eligible FOOD deposit, or for Titanium/Crystal/Umbrite one finished town refinery, assigned to the best linked, unclaimed field (most garrisoned tiles, then nearest), on a free support-ring tile that passes the normal placement checks; fallback +1 FOOD slot. | Finished extraction equipment bought offworld. |
 | III `afc-exchequer-3` | **Clearing Privilege** | Clearing House uplift doubled: +60% town Coin per linked Manufactory. | Preferential clearing terms. |
 | IV `afc-exchequer-4` | **Orbital Recruitment Contract** | Buy 5 MP for 1 Coin, uncapped, retaining paid overflow; +50% pool-to-flag throughput. | Ancillary contingents bought from offworld suppliers. |
 | V `afc-exchequer-5` | **Metropolitan Concession** | Core towns ×2 Coin (×3 with tier I, 🔗 Founding Concession); one-time +50% population below Metropolis; Economic Hegemony needs a 20% income lead instead of 33% for this House. | The Court recognizes preferred export centers and their House's commercial standing. |
@@ -90,10 +90,10 @@ renderers through the shared AFC effects layer.
 
 | Tier / ID | Name | Mechanical promise | Explanation |
 | --- | --- | --- | --- |
-| I `afc-chancery-1` | **Envoy Accreditation** | +10% of the House's own Coin income per active truce or mutual alliance (Court armistices included), capped at +50%. Each partner counts once. | Accredited envoys turn standing agreements into trade credit. |
+| I `afc-chancery-1` | **Envoy Accreditation** | +10% of the House's own Coin income while at least one truce or mutual alliance is active. Court armistices qualify. | Accredited envoys turn standing agreements into trade credit. |
 | II `afc-chancery-2` | **Diplomatic Corps** | AI empires judge the House +15 opinion warmer; truces bought from them cost 50% less. | A permanent diplomatic staff. |
 | III `afc-chancery-3` | **Allied Levies** | +15% manpower cap and regeneration per mutual ally, counting at most three (+45%). Scales the House's own numbers, never reads an ally's. | Allied Houses send ancillary contingents. |
-| IV `afc-chancery-4` | **Court Armistice Mandate** | Impose a binding 12h truce; 48h cooldown. With Envoy Accreditation it pays like any other truce (🔗). | The Court enforces the armistice. |
+| IV `afc-chancery-4` | **Court Armistice Mandate** | Impose a binding 12h truce; 48h cooldown. With Envoy Accreditation it qualifies for the Coin bonus (🔗). | The Court enforces the armistice. |
 | V `afc-chancery-5` | **Suzerainty Recognition** | Own territory counts ×2 toward the bloc's Diplomatic Dominance metric; actual territory still decides the largest member and winner. | Court recognition of the guarantor House's claims. |
 
 Truce changes settle both Houses' income at the old rate before the Envoy rate moves.

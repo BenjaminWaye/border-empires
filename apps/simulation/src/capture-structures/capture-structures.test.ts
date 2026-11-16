@@ -3,6 +3,7 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { DEFAULT_AUTO_SETTLE_PREFS, COMBAT_LOCK_MS, RAZED_WRECK_DURATION_MS } from "@border-empires/shared";
 import { CONVERTER_MODE_FLIP_COOLDOWN_MS } from "@border-empires/game-domain";
 import { SimulationRuntime } from "../runtime/runtime.js";
+import { capturedStructureFields } from "./capture-structures.js";
 
 type SimulationRuntimeEventShape = SimulationEvent;
 
@@ -416,6 +417,17 @@ describe("capture structure survival", () => {
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
+    }
+  });
+
+  it("clears a captured refinery's field assignment so it cannot take the field from the new owner's refinery", () => {
+    for (const status of ["active", "inactive", "removing"] as const) {
+      const captured = capturedStructureFields({
+        x: 1, y: 1, terrain: "LAND", ownerId: "p1", ownershipState: "SETTLED",
+        economicStructure: { ownerId: "p1", type: "TITANIUM_REFINERY", status, refineryField: { x: 4, y: 1, assignedAt: 1 } }
+      }, "p2", 50).economicStructure;
+      expect(captured).toMatchObject({ ownerId: "p2", type: "TITANIUM_REFINERY" });
+      expect(captured?.refineryField).toBeUndefined();
     }
   });
 });

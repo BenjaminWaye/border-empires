@@ -6,18 +6,20 @@ import { createAfcMapOverlays } from "../client-afc-upgrades/client-afc-map-over
 import type { ClientState } from "../client-state/client-state.js";
 import { createSalvageReadyToasts } from "../client-salvage-tribute/client-salvage-ready-toasts.js";
 import { createTownNameplates } from "../client-town-nameplates/client-town-nameplates.js";
+import { createRefineryFieldToasts } from "../client-refineries/refinery-field-toasts.js";
 
 type AfcMapOverlays = ReturnType<typeof createAfcMapOverlays>;
 type MapOverlayTiles = Parameters<AfcMapOverlays["render"]>[0];
 type MapOverlayProjection = Parameters<AfcMapOverlays["render"]>[1];
 
-/** Screen overlays for visible tiles: 2D battle markers, town plates, AFC signals and salvage toasts. */
+/** Screen overlays for visible tiles: 2D battle markers, town plates, AFC signals, salvage and refinery toasts. */
 export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: ClientState, openAfcUpgrades: () => void): {
   render: (tiles: MapOverlayTiles, projection: MapOverlayProjection) => void;
 } {
   const townNameplates = createTownNameplates(canvas, state);
   const afcMapOverlays = createAfcMapOverlays(canvas, state, openAfcUpgrades);
   const salvageToasts = createSalvageReadyToasts(canvas, state);
+  const refineryToasts = createRefineryFieldToasts(canvas, state);
   return {
     render(tiles, projection) {
       if (!isTrue3DRendererActive()) {
@@ -38,6 +40,7 @@ export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: Client
       townNameplates.render(tiles, projection);
       afcMapOverlays.render(tiles, projection);
       salvageToasts.render(tiles, projection);
+      refineryToasts.render(tiles, projection);
     }
   };
 }

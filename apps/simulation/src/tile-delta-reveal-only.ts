@@ -28,7 +28,7 @@ export const tileDeltaRevealOnly = (
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...overlayJsonFieldsFrom(cached),
     ...(waystationRewardHiddenFromViewer(tile.waystation, viewer?.id) ? { waystationJson: undefined } : {}),
-    ...(district ? districtOverlayProjection(district.tiles, tile, district.canSee) : {}),
+    ...(district ? districtOverlayProjection(district.tiles, tile, district.canSee, viewer?.id) : {}),
     // Explicit `undefined` vs `...({})` is load-bearing: subscribers diff by
     // own-property existence to detect clears (uncapture, structure removal).
     // This path also fires for a tile's first-ever exposure to a given

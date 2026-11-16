@@ -7,9 +7,6 @@ import { districtArtUrl } from "../client-town-district/district-art.js";
 // so they all share one table.
 
 const STRUCTURE_INFO_ART: Readonly<Record<string, string>> = {
-  RESIN_EXTRACTOR: "/overlays/resin-extractor-overlay.svg",
-  IMPLANT_FOUNDRY: "/overlays/implant-foundry-overlay.svg",
-  CATALYST_REFINERY: "/overlays/catalyst-refinery-overlay.svg",
   CULTIVATION_ESTATE: "/overlays/cultivation-estate-overlay.svg",
   RECLAMATION_WORKS: "/overlays/reclamation-works-overlay.svg",
   MANUFACTORY: "/overlays/manufactory-overlay.svg",
@@ -22,7 +19,6 @@ const STRUCTURE_INFO_ART: Readonly<Record<string, string>> = {
   HIGH_YIELD_TITANIUM_WORKS: "/overlays/high-yield-titanium-works-overlay.svg",
   AETHER_CONDENSER: "/overlays/aether-condenser-overlay.svg",
   HIGH_YIELD_AETHER_CONDENSER: "/overlays/high-yield-aether-condenser-overlay.svg",
-  ORE_REFINERY: "/overlays/ore-refinery-overlay.svg",
   CLEARING_HOUSE: "/overlays/clearing-house-overlay.svg",
   MINISTRY_HALL: "/overlays/ministry-hall-overlay.svg",
   // ANCILLARY_DEPOT ("Ancillary Depot") has its own storage-drum art;

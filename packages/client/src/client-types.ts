@@ -16,8 +16,12 @@ export type OptimisticStructureKind =
   | import("@border-empires/shared").NetworkBuilding
   | "HYDROGARDEN"
   | "HYDROWORKS"
-  | "UMBRITE_RIG"
-  | "MINE"
+  | "TITANIUM_REFINERY"
+  | "UMBRITE_REFINERY"
+  | "CRYSTAL_REFINERY"
+  | "TITANIUM_SMELTER"
+  | "UMBRITE_DISTILLERY"
+  | "CRYSTAL_CUTTER"
   | "MANUFACTORY"
   | "INCUBATION_ENGINE"
   | "CENSUS_HALL"
@@ -33,7 +37,6 @@ export type OptimisticStructureKind =
   | "AETHER_CONDENSER"
   | "HIGH_YIELD_AETHER_CONDENSER"
   | "TRADE_NEXUS"
-  | "ORE_REFINERY"
   | "ANCILLARY_DEPOT"
   | "HARBOR_EXCHANGE"
   | "NEURAL_WORKS"
@@ -133,8 +136,12 @@ export type Tile = {
       | import("@border-empires/shared").NetworkBuilding
       | "HYDROGARDEN"
       | "HYDROWORKS"
-      | "UMBRITE_RIG"
-      | "MINE"
+      | "TITANIUM_REFINERY"
+      | "UMBRITE_REFINERY"
+      | "CRYSTAL_REFINERY"
+      | "TITANIUM_SMELTER"
+      | "UMBRITE_DISTILLERY"
+      | "CRYSTAL_CUTTER"
       | "MANUFACTORY"
       | "INCUBATION_ENGINE"
       | "CENSUS_HALL"
@@ -149,7 +156,6 @@ export type Tile = {
       | "AETHER_CONDENSER"
       | "HIGH_YIELD_AETHER_CONDENSER"
       | "TRADE_NEXUS"
-      | "ORE_REFINERY"
       | "ANCILLARY_DEPOT"
       | "HARBOR_EXCHANGE"
       | "NEURAL_WORKS"
@@ -167,8 +173,12 @@ export type Tile = {
       | import("@border-empires/shared").NetworkBuilding
       | "HYDROGARDEN"
       | "HYDROWORKS"
-      | "UMBRITE_RIG"
-      | "MINE"
+      | "TITANIUM_REFINERY"
+      | "UMBRITE_REFINERY"
+      | "CRYSTAL_REFINERY"
+      | "TITANIUM_SMELTER"
+      | "UMBRITE_DISTILLERY"
+      | "CRYSTAL_CUTTER"
       | "MANUFACTORY"
       | "INCUBATION_ENGINE"
       | "CENSUS_HALL"
@@ -183,7 +193,6 @@ export type Tile = {
       | "AETHER_CONDENSER"
       | "HIGH_YIELD_AETHER_CONDENSER"
       | "TRADE_NEXUS"
-      | "ORE_REFINERY"
       | "ANCILLARY_DEPOT"
       | "HARBOR_EXCHANGE"
       | "NEURAL_WORKS"
@@ -349,8 +358,12 @@ export type StrategicReplayEvent = {
     | "OBSERVATORY"
     | import("@border-empires/shared").NetworkBuilding
     | "HYDROGARDEN"
-    | "UMBRITE_RIG"
-    | "MINE"
+    | "TITANIUM_REFINERY"
+    | "UMBRITE_REFINERY"
+    | "CRYSTAL_REFINERY"
+    | "TITANIUM_SMELTER"
+    | "UMBRITE_DISTILLERY"
+    | "CRYSTAL_CUTTER"
     | "MANUFACTORY"
     | "INCUBATION_ENGINE"
     | "SKY_DOCK"
@@ -358,7 +371,6 @@ export type StrategicReplayEvent = {
     | "TITANIUM_WORKS"
     | "AETHER_CONDENSER"
     | "TRADE_NEXUS"
-    | "ORE_REFINERY"
     | "ANCILLARY_DEPOT"
     | "HARBOR_EXCHANGE"
     | "MINISTRY_HALL"
@@ -392,6 +404,10 @@ export type FeedEntry = {
   focusY?: number;
   actionLabel?: string;
   unread?: boolean;
+  /** Never mirror onto the alert card: a background notice with its own UI (client-feed-alert-surface.ts). */
+  feedOnly?: boolean;
+  /** Mirror onto the alert card even when info/success: a background result the player has no other way to see. */
+  alert?: boolean;
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number; route?: Array<{ x: number; y: number }> };

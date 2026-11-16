@@ -179,7 +179,7 @@ export const createStructureOverlay = (
     createStructurePieceBuilder(scene, maxTiles, buildingEnvironmentTexture);
 
   // Economic registers first so its `shared` assets (forge palette +
-  // blue crystal) are available to industrial (ORE_REFINERY/ADV_TITANIUM_WORKS
+  // blue crystal) are available to industrial (HIGH_YIELD_TITANIUM_WORKS
   // reuse the forge palette; the aether condensers reuse the blue
   // crystal material).
   const network = createNetworkOverlay(scene, maxTiles, true, buildingEnvironmentTexture);

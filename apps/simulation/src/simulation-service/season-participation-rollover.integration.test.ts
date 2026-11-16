@@ -12,7 +12,7 @@ import { InMemorySimulationCommandStore } from "../command-store/command-store.j
 const silentLog = { info: () => undefined, error: () => undefined, warn: () => undefined };
 
 type RawClient = {
-  StartNextSeason?: (request: { force: boolean; imperial_ward_json: string }, callback: (error: Error | null, response: { ok: boolean }) => void) => void;
+  StartNextSeason?: (request: { force: boolean }, callback: (error: Error | null, response: { ok: boolean }) => void) => void;
   GetSeasonParticipationForPlayer?: (request: { player_id: string }, callback: (error: Error | null, response: { ok: boolean; participation_json?: string }) => void) => void;
 };
 
@@ -28,7 +28,7 @@ const createClient = (address: string): RawClient => new proto.border_empires.si
 const startNextSeason = (client: RawClient): Promise<{ ok: boolean }> =>
   new Promise((resolve, reject) => {
     if (!client.StartNextSeason) return reject(new Error("StartNextSeason unavailable"));
-    client.StartNextSeason({ force: true, imperial_ward_json: "" }, (error, response) => (error ? reject(error) : resolve({ ok: response.ok })));
+    client.StartNextSeason({ force: true }, (error, response) => (error ? reject(error) : resolve({ ok: response.ok })));
   });
 
 const getSeasonParticipation = (client: RawClient, playerId: string): Promise<{ ok: boolean; participation_json?: string }> =>

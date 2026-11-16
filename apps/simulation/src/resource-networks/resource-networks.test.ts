@@ -9,23 +9,23 @@ export const testBiome = (tile: DomainTileState): NetworkBiomeContext => ({
   forest: tile.y % 3 === 0, hills: tile.y % 3 === 1, tropical: tile.y % 3 === 2, nearMountains: false
 });
 const site = (overrides: Partial<DomainTileState> = {}): DomainTileState => ({
-  x: 2, y: 3, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED", resource: "NEURAL_RESIN",
-  economicStructure: { ownerId: "p", type: "RESIN_EXTRACTOR", status: "active" }, ...overrides
+  x: 2, y: 3, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED", resource: "LUXURY_BIOTA",
+  economicStructure: { ownerId: "p", type: "CULTIVATION_ESTATE", status: "active" }, ...overrides
 });
 describe("developed resource eligibility", () => {
   it("counts each developed tile once, Implant Foundries included", () => {
-    const foundry = site({ resource: "CONDUCTIVE_MINERALS", economicStructure: { ownerId: "p", type: "IMPLANT_FOUNDRY", status: "active" } });
-    expect(developedNetworkSites([foundry], "p", new Set(), new Set(["organized-supply"])).CONDUCTIVE_MINERALS).toBe(1);
+    const works = site({ resource: "PRECURSOR_SALVAGE", economicStructure: { ownerId: "p", type: "RECLAMATION_WORKS", status: "active" } });
+    expect(developedNetworkSites([works], "p", new Set(), new Set(["trade"])).PRECURSOR_SALVAGE).toBe(1);
   });
   it("needs settlement, matching active extraction, ownership, slots and the owner's technology", () => {
-    const tech = new Set(["neural-resin-processing"]);
-    expect(developedNetworkSites([site()], "p", new Set(), tech).NEURAL_RESIN).toBe(1);
-    const invalid = [site({ ownerId: "other" }), site({ ownershipState: "FRONTIER" }), site({ economicStructure: undefined }), site({ economicStructure: { ownerId:"other",type:"RESIN_EXTRACTOR",status:"active" } }),
-      site({ economicStructure: { ownerId: "p", type: "RESIN_EXTRACTOR", status: "under_construction" } }),
-      site({ economicStructure: { ownerId: "p", type: "MINE", status: "active" } })];
+    const tech = new Set(["frontier-concessions"]);
+    expect(developedNetworkSites([site()], "p", new Set(), tech).LUXURY_BIOTA).toBe(1);
+    const invalid = [site({ ownerId: "other" }), site({ ownershipState: "FRONTIER" }), site({ economicStructure: undefined }), site({ economicStructure: { ownerId:"other",type:"CULTIVATION_ESTATE",status:"active" } }),
+      site({ economicStructure: { ownerId: "p", type: "CULTIVATION_ESTATE", status: "under_construction" } }),
+      site({ economicStructure: { ownerId: "p", type: "TITANIUM_REFINERY", status: "active" } })];
     expect(developedNetworkSites(invalid, "p", new Set(), tech)).toEqual(emptyNetworkSiteCounts());
-    expect(developedNetworkSites([site()], "p", new Set(["2,3"]), tech).NEURAL_RESIN).toBe(0);
-    expect(developedNetworkSites([site()], "p", new Set(), new Set()).NEURAL_RESIN).toBe(0);
+    expect(developedNetworkSites([site()], "p", new Set(["2,3"]), tech).LUXURY_BIOTA).toBe(0);
+    expect(developedNetworkSites([site()], "p", new Set(), new Set()).LUXURY_BIOTA).toBe(0);
   });
 });
 describe("economic resource map generation", () => {

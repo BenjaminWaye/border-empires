@@ -61,7 +61,7 @@ describe("manifestFit", () => {
   // because nearly every unlock can be built as soon as you take it.
   it("is not a Good pick just because its structure can be built right away", () => {
     const plenty = slots({ FOOD: 9, TITANIUM: 9, CRYSTAL: 9, UMBRITE: 9 });
-    for (const effects of [{ unlockMine: true }, { unlockAmbaricTransformer: true }, { unlockForts: true }]) {
+    for (const effects of [{ unlockTitaniumRefinery: true }, { unlockAmbaricTransformer: true }, { unlockForts: true }]) {
       const fit = manifestFit(tech(effects), input({ manpower: 100_000, resourceSlots: { supply: plenty, demand: slots() } }));
       expect(fit.goodPickReasons).toEqual([]);
     }

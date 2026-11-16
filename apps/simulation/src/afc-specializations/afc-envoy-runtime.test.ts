@@ -35,7 +35,7 @@ function fixture(upgrades: readonly string[], production = false, relation: "all
 }
 
 describe("Envoy Accreditation and Allied Levies through accrual and reconnect", () => {
-  it("adds 10% of the House's own Coin per active truce, without touching the partner", async () => {
+  it("adds 10% of the House's own Coin while a truce is active, without touching the partner", async () => {
     const base = fixture([], false, "truce"), envoy = fixture(["afc-chancery-1"], false, "truce");
     const before = base.runtime.exportState().players;
     const after = envoy.runtime.exportState();

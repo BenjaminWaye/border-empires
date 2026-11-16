@@ -152,7 +152,7 @@ describe("claim continuation while the player is online", () => {
     );
   });
 
-  // A placement-overlay structure (ORE_REFINERY/HYDROWORKS) is dispatched by the
+  // A placement-overlay structure (HYDROWORKS) is dispatched by the
   // client once the player picks the exact tile, which may not be the tile
   // that was settled. Queueing a build tail for it while they're online would
   // leave an entry keyed to the settled tile that drains on logout and puts up
@@ -189,7 +189,7 @@ describe("claim continuation while the player is online", () => {
         clientSeq: 1,
         issuedAt: 1_000,
         type: "CLAIM_CONTINUATION_SET",
-        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "ORE_REFINERY" })
+        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "HYDROWORKS" })
       });
       runtime.submitCommand({
         commandId: `settle-ore-refinery-${online}`,

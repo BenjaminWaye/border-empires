@@ -30,7 +30,10 @@ export type SupportTownStructureKey =
   | "TITANIUM_LEVY_PART_2"
   | "TITANIUM_LEVY_PART_3"
   | "RESERVE_LATTICE"
-  | "ANCILLARY_FACTORY";
+  | "ANCILLARY_FACTORY"
+  | "TITANIUM_SMELTER"
+  | "UMBRITE_DISTILLERY"
+  | "CRYSTAL_CUTTER";
 
 const SUPPORT_STRUCTURE_TYPES: Record<SupportTownStructureKey, ReadonlyArray<NonNullable<Tile["economicStructure"]>["type"]>> = {
   MANUFACTORY: ["MANUFACTORY"],
@@ -61,7 +64,10 @@ const SUPPORT_STRUCTURE_TYPES: Record<SupportTownStructureKey, ReadonlyArray<Non
   TITANIUM_LEVY_PART_2: ["TITANIUM_LEVY_PART_2"],
   TITANIUM_LEVY_PART_3: ["TITANIUM_LEVY_PART_3"],
   RESERVE_LATTICE: ["RESERVE_LATTICE"],
-  ANCILLARY_FACTORY: ["ANCILLARY_FACTORY"]
+  ANCILLARY_FACTORY: ["ANCILLARY_FACTORY"],
+  TITANIUM_SMELTER: ["TITANIUM_SMELTER"],
+  UMBRITE_DISTILLERY: ["UMBRITE_DISTILLERY"],
+  CRYSTAL_CUTTER: ["CRYSTAL_CUTTER"]
 };
 
 // Scans outward from `supportTile` (bounded to the widest possible ring,

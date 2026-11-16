@@ -35,7 +35,7 @@ describe("drawSlipways2D", () => {
     const { ctx, fills } = recordingCtx();
     drawSlipways2D(ctx as unknown as CanvasRenderingContext2D, { dockPairs, tiles }, deps(() => true));
     // Two beaches x (ramp, hull, cabin).
-    expect(fills).toEqual(["#7c5a39", "#5a2f26", "#b9a98a", "#7c5a39", "#5a2f26", "#b9a98a"]);
+    expect(fills).toEqual(["#4a4d53", "#2f3238", "#5d6066", "#4a4d53", "#2f3238", "#5d6066"]);
   });
 
   it("runs the ramp out to sea, east of the beach", () => {

@@ -3,6 +3,7 @@ import { condenser, crate, manufactory } from "./support-model-core.js";
 import { band, gantry, housing, loadingDoor, processLine, ribs, vessel } from "./support-model-detail.js";
 import { buildCivic } from "./support-model-civic.js";
 import { buildManpower } from "./support-model-manpower.js";
+import { buildRefinery } from "./support-model-refinery.js";
 
 const titaniumWorks = (t: TownBuilders, upgraded: boolean): void => {
   // Open rolling mill: low horizontal mass, three sawtooth roof bays.
@@ -83,7 +84,7 @@ const weapons = (t: TownBuilders, kind: string): void => {
 };
 
 export const buildIndustry = (t: TownBuilders, kind: string): boolean => {
-  if (buildCivic(t, kind) || buildManpower(t, kind)) return true;
+  if (buildCivic(t, kind) || buildManpower(t, kind) || buildRefinery(t, kind)) return true;
   switch (kind) {
     case "MANUFACTORY": manufactory(t); return true;
     case "TITANIUM_WORKS": case "HIGH_YIELD_TITANIUM_WORKS": titaniumWorks(t, kind.startsWith("HIGH_YIELD")); return true;

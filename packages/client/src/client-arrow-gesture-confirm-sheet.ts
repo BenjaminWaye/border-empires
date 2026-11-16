@@ -5,8 +5,10 @@ import { buildArrowGestureSetMusterPayload } from "./client-arrow-gesture-confir
 import { showEffortConfirmSheet, type EffortConfirmSheetHandle } from "./client-effort-confirm-sheet/client-effort-confirm-sheet.js";
 import type { ArrowGesturePoint } from "./client-arrow-gesture-confirm-payload.js";
 import type { ClientState } from "./client-state/client-state.js";
+import type { FeedSeverity, FeedType } from "./client-types.js";
 import { describeMarchWinChance, triggerWinChancePaintOnMarchArm } from "./client-win-chance-paint-trigger.js";
 import { createMarchWinChancePreviewPoller, marchPreviewBaseWinChance } from "./client-march-win-chance-preview/client-march-win-chance-preview.js";
+import { showCaptureAlert } from "./client-alerts/client-alerts.js";
 
 // F-revision (docs/replenishment-update-plan.md, "the hold-drag gesture is
 // replaced by click-to-target"): the confirm sheet shown after a March-To
@@ -26,6 +28,7 @@ import { createMarchWinChancePreviewPoller, marchPreviewBaseWinChance } from "./
 
 export type ArrowGestureConfirmSheetDeps = {
   sendGameMessage: (payload: unknown) => boolean;
+  pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
   renderHud: () => void;
 };
 
@@ -36,6 +39,16 @@ const floorForTarget = (state: Pick<ClientState, "tiles"> & Partial<Pick<ClientS
     ? attackFloorForPlayer(state, targetTile)
     : MUSTER_ATTACK_COST;
 };
+
+/**
+ * A march claims neutral land on its way, and each claim is charged to the
+ * pool (not the flag) at the current expand cost, which rises with frontier
+ * size (runtime-frontier-command.ts) -- on top of what the flag stages. The
+ * sheet only spoke of the commitment, so a long march looked like it drained
+ * the pool for nothing (2026-11-12 playtest: 943 -> 97 on a 295 commit).
+ */
+export const claimCostNote = (expandManpowerCost: number | undefined): string =>
+  expandManpowerCost && expandManpowerCost > 0 ? ` · each tile claimed on the way costs ${Math.ceil(expandManpowerCost)} more manpower` : "";
 
 let activeHandle: EffortConfirmSheetHandle | undefined;
 
@@ -52,7 +65,8 @@ export const hideArrowGestureConfirmSheet = (): void => {
  * "Go" and cancel/dismiss -- there is at most one pending confirm at a time.
  */
 export const showArrowGestureConfirmSheet = (
-  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey"> &
+  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey" | "captureAlert"> &
+    Partial<Pick<ClientState, "expandManpowerCost">> &
     SupplyWarningState & Partial<Pick<ClientState, "domainIds">>,
   origin: ArrowGesturePoint,
   target: ArrowGesturePoint,
@@ -90,11 +104,18 @@ export const showArrowGestureConfirmSheet = (
       // repaint the arrow labels once they land, not only on slider moves.
       preview.poll();
       paint(commitManpower);
-      return describeMarchWinChance(state, target, keyFor, { committedManpower: commitManpower, baseMusterCost: floor }, serverWinChance());
+      return `${describeMarchWinChance(state, target, keyFor, { committedManpower: commitManpower, baseMusterCost: floor }, serverWinChance())}${claimCostNote(state.expandManpowerCost)}`;
     },
     onChange: paint,
     onConfirm: (commitManpower) => {
-      deps.sendGameMessage(buildArrowGestureSetMusterPayload(origin, target, commitManpower));
+      const sent = deps.sendGameMessage(buildArrowGestureSetMusterPayload(origin, target, commitManpower));
+      // Playtest 2026-11-12 (pt-snacker): after Go nothing on screen said the
+      // march had left; only the manpower pool falling later did.
+      if (sent) {
+        const detail = `${commitManpower} manpower from (${origin.x}, ${origin.y}) to (${target.x}, ${target.y})`;
+        showCaptureAlert(state, "March sent", detail, "success", undefined, { x: target.x, y: target.y });
+        deps.pushFeed(`March sent: ${detail}`, "combat", "info");
+      }
       clearPending();
       deps.renderHud();
     },

@@ -41,7 +41,7 @@ A core loop doc normally covers these parts, and each one maps to a section:
 Everything below is the systems view. This section is what a player should be
 able to say back after an hour of play. It's modelled on Civilization's
 "Explore, Build, Research, Expand" around "one more turn". Border Empires has
-no units, so its military is **manpower and borders**.
+no fighting units, so its military is **manpower and borders**.
 
 ```mermaid
 flowchart LR
@@ -59,7 +59,7 @@ flowchart LR
 
 | Verb | What the player does | Main systems (sections below) |
 |---|---|---|
-| **Scout** | Push back the fog and find the next prize: a waystation, town, dock or resource cluster | Vision, watchtowers, waystations (§7.1) |
+| **Scout** | Push back the fog and find the next prize: a waystation, town, dock or resource cluster | Explore (scout drone, §3), vision, watchtowers, waystations (§7.1) |
 | **Push reach** | Move the border: build a beacon on a settled edge tile, or cross a gap to a town or dock | Reach, Relay Beacons, Expand To (§2, §4.1) |
 | **Develop** | Turn ground into power: settle, fill slots, build, grow and upgrade towns | Settling, slots, structures, towns, roads (§2, §5) |
 | **Research** | Choose what the empire gets better at | Tech, domains (§3) |
@@ -90,9 +90,12 @@ hold one of five victory conditions for a full day.*
 Pillars, inferred from code comments and design docs (each one is enforced
 somewhere in code):
 
-1. **Territory is the unit.** There are no unit pieces. Every action is a
-   change of who owns a tile (`docs/game-mechanics.md` §4). Where your border
-   sits, and what shape it has, *is* your army.
+1. **No babysitting.** Anything that moves on the map runs on its own once
+   ordered: muster flags march, scout drones fly out and back. Nothing needs
+   attention between visits. Fights are still changes of who owns a tile
+   (`docs/game-mechanics.md` §4), so where your border sits, and what shape it
+   has, is your army. This replaced "Territory is the unit, no unit pieces" on
+   2026-11-14 (§1.1).
 2. **Manpower is the real currency.** Expanding, settling, building and
    attacking all cost manpower. Gold was deliberately cut down to a support
    currency (`GOLD_RESCALE_DIVISOR = 288`, `server-game-constants.ts`) that
@@ -113,6 +116,47 @@ somewhere in code):
 5. **Several ways to win.** Five concurrent victory paths let an empire win
    through towns, gold, resources, sea control or diplomacy, not only by
    conquering.
+
+### 1.1 Owner design intent (confirmed 2026-11-12)
+
+The pillars above were inferred from code. These answers come from the owner
+and take precedence when a proposal has to choose. Read them before proposing
+gameplay changes.
+
+- **Rhythm.** Manpower is paid in a refill every 4 hours
+  (`MANPOWER_REFILL_WINDOW_MS`), so a day is about four "turns", or one big
+  turn for a player who visits once. A visit lasts 15–30 minutes, or about an
+  hour for a single daily visit.
+- **Scale.** A map has about 400 towns for about 100 players. Mid-season,
+  when roughly 20 active empires hold half the towns, a typical empire holds
+  5–10 towns, while a leader may hold 40–50. Per-town decisions must work for
+  5 towns and stay manageable at 50.
+- **Optimising is the fun.** Players should be able to spend their visit
+  improving their territory while fighting runs in the background, checked
+  every now and then. Development is a main activity, not a side job of war.
+- **Players should control town growth** more directly than they do today.
+- **FOOD is only a requirement today, and that isn't great.** Towns must be
+  fed to work and to grow (§4.3), but players don't steer growth with it.
+  Making it a separate growth lever as well would be too complicated. If FOOD
+  changes, it moves to growth instead of being a requirement, not both.
+- **Strategic slots.** The owner's view of the main uses: Titanium feeds
+  Weapons Factories and forts, Umbrite feeds Weapons Factories and siege,
+  Crystal feeds Aether Towers. (The full list is longer; for example Crystal
+  also feeds Aether Condensers, Sky Docks and Great Projects; see
+  `STRUCTURE_SLOT_REQUIREMENTS`.) Players try to build away every surplus
+  slot, because using them gives a large advantage.
+- **Development is captured, not raided.** Developed land can't be damaged by
+  raids; it changes hands only by capture. After capture a site is held for
+  `CAPTURE_HOLD_MS` (60 s) and works again once garrisoned; towns also take
+  a 10-minute capture shock (see capture hold in `docs/game-mechanics.md`).
+- **Cost of content.** A new building type is cheap to add (models and art
+  included). AI support for a new system is wanted but not required at launch.
+- **Pillar 1 replaced (2026-11-14).** "Territory is the unit, no unit pieces"
+  is no longer a pillar; muster flags already move across the map. The
+  guardrail kept from it is the new pillar 1, no babysitting. First use:
+  scout drones (`docs/explore-scout-plan.md`).
+- **Live seasons.** There are no active players at the moment, so removing
+  content mid-season needs no migration plan for now.
 
 ## 2. The loop at a glance
 
@@ -235,7 +279,8 @@ growing your economy *means* taking the land around you.
 | Verb | What it does | Primary cost | Where |
 |---|---|---|---|
 | **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | First five owned: 50 MP, instant, no food slots; later: 100 MP, 100s, one food slot | `relayBeaconManpowerCost`, `relayBeaconBuildDurationMs`, `OUTPOST_REACH_RADIUS` |
-| **Expand To** | Claim an adjacent neutral tile. Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP below 100 frontier tiles, rising to 50 at 1,000 and 100 at 2,000; 7.5s (×1.5 forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
+| **Explore** | Send the scout drone from your AFC toward an unexplored tile: it reveals radius 3 around itself, flies up to 15 tiles past your land and back, claims nothing, and files a scout report. A rival's border turns it back | Free; one drone in the air; 7.5s per tile past your land, 1s over it | `planScoutDroneFlight`, `apps/simulation/src/scout-drone/` |
+| **Expand To** | Claim an adjacent neutral tile. Not offered on unexplored tiles (Explore is). Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP below 100 frontier tiles, rising to 50 at 1,000 and 100 at 2,000; 7.5s (×1.5 forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
 | **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles, per the player's opt-in (see below) | 20 MP, same time as an EXPAND on that tile (first 10 lifetime garrisons instant), uses a development slot | `SETTLE_MANPOWER_COST`, `garrisonBaseDurationMsAt`, `INSTANT_GARRISON_COUNT` |
 | **Build** | Place one structure on a settled tile | MP (e.g. Hydrogarden 80, Fort/Bank 300) plus a resource slot, 1–10 min | `structure-registry*.ts`, `structure-slots.ts` |
 | **Upgrade town** | Raise a town's tier once its population passes the threshold | 20/40/80/160 gold plus 1 FOOD slot | `TOWN_TIER_UPGRADE_GOLD_COST` |
@@ -286,7 +331,7 @@ one, and resource tiles lighting up.
 (`DEVELOPMENT_PROCESS_LIMIT`, up to +4 from domains). Beacons, settles and
 builds all share those slots. And reach itself (§6.2).
 
-### 4.2 Session loop (a 5–20 minute check-in): "spend the pool, set up the next half-day"
+### 4.2 Session loop (a 15–30 minute check-in, or one ~1h daily visit): "spend the refill, set up the next one"
 
 1. **Arrive.** The Activity dashboard opens with "since you were away":
    combat, captures, waystation activations (`docs/activity-dashboard-plan.md`).
@@ -354,15 +399,15 @@ hidden standings.
 ### 4.5 Meta loop (across seasons)
 
 Territory and progression reset each season. These carry over: account,
-cosmetics, history, and the **galactic layer** (`docs/galactic-campaign-design.md`).
+cosmetics, history, and the **galactic layer** ([game-mechanics.md, Galactic layer](game-mechanics.md#galactic-layer)).
 A season winner gets a durable, nameable Planet and a "Duke" title, plus
 one-time starting bonuses in the next season (`GALACTIC_WONDER_*`). Planet
-holders get the Space View economy (Influence/Production, Senate, Fleets).
+holders get Space View: an Influence bank, a daily Production build rate, the Duke panel and the Senate.
 New seasons need a player vote to start.
 
-**Known gap:** that doc's §20 says the meta layer gives nothing to do to an
-empire that *isn't* winning seasons. In practice, the meta loop today rewards
-winners only.
+**Known gap:** the meta layer gives little to an empire that *isn't* winning
+seasons: Outposts give Influence and Senate weight only, and Stipends are a
+small one-time Influence payout.
 
 ## 5. Economy: sources, sinks, and the gate
 
@@ -412,7 +457,8 @@ to expansion and war.
 - **Slot dormancy.** Building past your land's slot supply does nothing.
 - **Exposure-based defense.** Wide, stringy borders are weak, and FRONTIER
   tiles have zero defense.
-- **Encirclement.** Losing a key tile can cut off nearby frontier.
+- **Encirclement.** Losing a key tile can cut off nearby frontier; when an
+  enemy capture made the cut, the cut-off frontier becomes theirs.
 - **Leader pile-on.** The 24h hold and live standings let everyone see and
   target the leader.
 - **Barbarians.** 80 seeded camps wake up when you border them and can
@@ -589,7 +635,7 @@ deliberately no decay for simply being offline.
    Moving expansion to manpower cost partly addresses the cost issue.
    Repetition and sufficiency are still open.
 2. **The meta loop only rewards winners**
-   (`docs/galactic-campaign-design.md` §20).
+   ([game-mechanics.md, Galactic layer](game-mechanics.md#galactic-layer)).
 3. **Empire integrity** is live but inert in practice, because its input
    metric parks near 50% for almost everyone (expansion brief §7). New
    empires get a grace period: integrity stays at 90%+ until 50 settled tiles,
@@ -670,5 +716,5 @@ one `resources` switch; `parseAutoSettleCategoryPrefs` applies it to both.
   auto-settle regardless. A category left off keeps its candidates in the
   bounded eligible queue, and switching it on (`SET_AUTO_SETTLE_PREFS`, also in
   Settings > Gameplay) drains them immediately.
-- Persistence is snapshot-only (like `imperialWardCharges`), so a crash between
+- Persistence is snapshot-only, so a crash between
   checkpoints can re-ask a player who had just answered.

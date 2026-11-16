@@ -1,3 +1,5 @@
+import { townFoodSlotDemand } from "../client-town-food-demand/client-town-food-demand.js";
+import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { gateTileConstructionActions } from "../client-afc-recovery/client-afc-recovery-actions.js";
 import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
 import { townBiotaLineHtml } from "../client-town-biota/client-town-biota-line.js";
@@ -9,7 +11,6 @@ import {
   isFortDefending,
   nextTownGrowthUpgrade,
   terrainAdjustedTownManpower,
-  townFoodSlotDemandForTier,
   type SlotResource
 } from "@border-empires/shared";
 import { dormantStructureLineHtml, type DormancyField } from "./client-tile-menu-dormancy-line.js";
@@ -61,7 +62,7 @@ export { constructionProgressForTile } from "../client-tile-menu-construction-pr
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
-    state: { me: string; domainIds?: readonly string[]; domainCatalog?: readonly DomainInfo[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[]; resourceSlots?: { bonusSupply?: import("@border-empires/shared").NetworkSupplyStatus }; manpowerBreakdown?: { biotaTowns?: import("@border-empires/sim-protocol").BiotaTownStatus[] } } & Partial<DockLandingState>;
+    state: { me: string; tilesRevision?: number; domainIds?: readonly string[]; domainCatalog?: readonly DomainInfo[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[]; resourceSlots?: { bonusSupply?: import("@border-empires/shared").NetworkSupplyStatus }; manpowerBreakdown?: { biotaTowns?: import("@border-empires/sim-protocol").BiotaTownStatus[] } } & Partial<DockLandingState>;
     prettyToken: (value: string) => string;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;
@@ -143,7 +144,7 @@ export const menuOverviewForTile = (
     hasTown: Boolean(tile.town),
     ownershipState: tile.ownershipState
   }).forEach(pushLine);
-  lines.push(...resourceTileOverviewLines(tile, { me: deps.state.me, held: deps.state.resourceSlots?.bonusSupply?.supply }));
+  lines.push(...resourceTileOverviewLines(tile, { me: deps.state.me, held: deps.state.resourceSlots?.bonusSupply?.supply, tiles: deps.state.tiles, tilesRevision: deps.state.tilesRevision }));
   if (!isLand) return lines;
   const { dockPairs, tiles } = deps.state;
   const landingLine = dockPairs && tiles ? landingGroundMenuLine({ dockPairs, tiles, me: deps.state.me }, tile.x, tile.y) : undefined;
@@ -198,20 +199,17 @@ export const menuOverviewForTile = (
       // FOOD slot demand is what actually gates a town's isFed state (see
       // resource-slot-view.ts's per-town FOOD contributor) — allocation is
       // all-or-nothing per town, so "satisfied" is either the full demand
-      // (fed) or 0 (unfed), never a partial count. This is the pre-waiver
-      // base demand — a nearby Ministry Hall can reduce it further, but
-      // that isn't visible client-side, so a fed Ministry-Hall town may
-      // show a demand slightly higher than what it's actually clearing.
-      const foodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
+      // (fed) or 0 (unfed), never a partial count. The simulation stamps it
+      // after upgrade waivers and the Ministry Hall reduction.
+      const foodDemand = townFoodSlotDemand(tile.town);
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       const effectiveFed = Boolean(townForGrowth.isFed);
       const growthRatePending = ownTownGrowthRatePending(tile.town);
       const { terrainProfile, coastal } = townTerrainForTile(tile, tile.town);
       const tierManpower = terrainAdjustedTownManpower(tile.town.populationTier, terrainProfile, coastal);
-      // Matches tileProductionHtml's own gold math exactly (same
-      // tile.yieldRate.goldPerMinute * 1440 source) so this card's number
-      // never disagrees with any other gold/day figure shown elsewhere.
-      const goldPerDay = (tile.yieldRate?.goldPerMinute ?? 0) * 1440;
+      // tileCoinPerMinute is every surface's per-tile coin source, so this
+      // card never disagrees with the Towns list or the town screen.
+      const goldPerDay = tileCoinPerMinute(tile) * 1440;
       const nextTierPopulation = nextTownGrowthUpgrade(tile.town.populationTier, tile.town.population)?.requiredPopulation;
       lines.push({
         kind: "statgrid",

@@ -688,24 +688,22 @@ describe("menuOverviewForTile", () => {
         terrain: "LAND",
         ownerId: "me",
         ownershipState: "SETTLED",
-        resource: "TITANIUM",
+        resource: "FARM",
         economicStructure: {
           ownerId: "me",
-          type: "MINE",
+          type: "HYDROGARDEN",
           status: "active"
         }
       },
       {
         ...deps,
-        areaEffectModifiersForTile: () => [{ reason: "Ore Refinery", effect: "+100% titanium production", tone: "positive" }]
+        areaEffectModifiersForTile: () => [{ reason: "Hydroworks", effect: "+2 FOOD slots", tone: "positive" }]
       }
     );
 
     expect(lines.some((line) => line.kind === "section" && line.html === "Modifiers")).toBe(true);
-    expect(lines.some((line) => line.html.includes("Mine:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+1") && line.html.includes("TITANIUM slot"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("Ore Refinery:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+100% titanium production"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Hydroworks:"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("+2 FOOD slots"))).toBe(true);
   });
 
   it("shows town and dock modifiers in a dedicated modifiers section", () => {
@@ -1173,7 +1171,7 @@ describe("menuOverviewForTile", () => {
       ...deps,
       menuActionsForSingleTile: (tile) => {
         seenActionTile = tile;
-        return tile.ownerId === "me" ? [{ id: "build_mine" as const, label: "Build Mine" }] : [];
+        return tile.ownerId === "me" ? [{ id: "build_hydrogarden" as const, label: "Build Hydrogarden" }] : [];
       },
       splitTileActionsIntoTabs: (actions) => ({ actions: [], buildings: actions, crystal: [] }),
       settlementProgressForTile: () => undefined,

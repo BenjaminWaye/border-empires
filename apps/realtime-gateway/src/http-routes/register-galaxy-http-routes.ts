@@ -1,5 +1,5 @@
-// The galaxy-layer route registrations (territory, Senate, Emperor
-// endorsement), split out of http-routes.ts -- already over the file-line
+// The galaxy-layer route registrations (territory, Senate, fleets,
+// exploration, Duke), split out of http-routes.ts -- already over the file-line
 // cap and not allowed to grow -- so wiring a new galaxy route module (like
 // Senate) doesn't need to add lines there. Takes the same deps object
 // registerGatewayHttpRoutes already has in scope; this is purely an
@@ -7,7 +7,6 @@
 import type { FastifyInstance } from "fastify";
 import { registerGalaxyRoutes } from "../galaxy-routes/galaxy-routes.js";
 import { registerGalaxySenateRoutes } from "../galaxy-senate-routes/galaxy-senate-routes.js";
-import { registerGalaxyEndorsementRoutes } from "../galaxy-endorsement-routes/galaxy-endorsement-routes.js";
 import { registerGalaxyFleetRoutes } from "../galaxy-fleet-routes/galaxy-fleet-routes.js";
 import { registerGalaxyExplorationRoutes } from "../galaxy-exploration-routes/galaxy-exploration-routes.js";
 import { registerGalaxyDukeRoutes } from "../galaxy-duke-routes/galaxy-duke-routes.js";
@@ -27,13 +26,6 @@ export const registerGalaxyHttpRoutes = (app: FastifyInstance, deps: RegisterGat
     listSeasonArchives: deps.listSeasonArchives, getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
     ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}), ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {}),
     ...(deps.galaxyEconomyStore ? { galaxyEconomyStore: deps.galaxyEconomyStore } : {}), ...(deps.galaxySenateStore ? { galaxySenateStore: deps.galaxySenateStore } : {})
-  });
-
-  registerGalaxyEndorsementRoutes(app, {
-    getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
-    ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}),
-    ...(deps.galaxyEndorsementStore ? { endorsementStore: deps.galaxyEndorsementStore } : {}),
-    ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {})
   });
 
   registerGalaxyFleetRoutes(app, {

@@ -1,3 +1,4 @@
+import type { PersonalActivityCard } from "@border-empires/game-domain";
 import { PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText, activityPlayerNameLookup } from "./client-activity-dashboard-format.js";
@@ -36,7 +37,18 @@ describe("activityCardText / activityCardCoordinates", () => {
     const gained = { kind: "TERRITORY_FLIP_GROUP" as const, direction: "GAINED", tileCount: 4, x: 1, y: 1 };
     const lost = { kind: "TERRITORY_FLIP_GROUP" as const, direction: "LOST", tileCount: 2, x: 1, y: 1 };
     expect(activityCardText(gained as any, "me", noNames)).toBe("+4 tiles claimed");
-    expect(activityCardText(lost as any, "me", noNames)).toBe("−2 tiles lost");
+    expect(activityCardText(lost as any, "me", noNames)).toBe("Lost 2 tiles");
+  });
+
+  // Playtest 2026-11-16: "Lost 3 tiles to Konrad · incl. your Automated Fabrication Complex" read as "lost my only town".
+  it("leads a territory-loss row with the lost AFC, named as not a town", () => {
+    const lost = {
+      kind: "TERRITORY_FLIP_GROUP" as const, direction: "LOST", tileCount: 3, counterpartyPlayerId: "k", x: 1, y: 1,
+      features: [{ kind: "AFC", count: 1 }, { kind: "DOCK", count: 1 }]
+    };
+    expect(activityCardText(lost as any, "me", namesFrom({ k: "Konrad" }))).toBe("Lost your AFC (Automated Fabrication Complex, not a town) to Konrad · 3 tiles · incl. your Dock");
+    const captured = { ...lost, direction: "GAINED" };
+    expect(activityCardText(captured as any, "me", namesFrom({ k: "Konrad" }))).toBe("+3 tiles claimed (Konrad) · incl. their Automated Fabrication Complex and Dock");
   });
 
   it("has no Center coordinates for a truncation-note card", () => {
@@ -76,7 +88,11 @@ describe("activityCardText / activityCardCoordinates", () => {
     const names = namesFrom({ kara: "Kara" });
     expect(activityCardText({ ...base, kind: "TOWN_LOST", counterpartyPlayerId: "kara" } as any, "me", names)).toBe("Lost Aurienspire Ring to Kara · 25354 population remaining");
     expect(activityCardText({ ...base, kind: "TOWN_CAPTURED", counterpartyPlayerId: "kara" } as any, "me", names)).toBe("Captured Aurienspire Ring from Kara · 25354 population remaining");
-    expect(activityCardText({ ...base, kind: "TOWN_LOST" } as any, "me", names)).toBe("Lost Aurienspire Ring · 25354 population remaining");
+    // No captor: the town left the empire some other way (abandoned, cut off) and stands unclaimed.
+    expect(activityCardText({ ...base, kind: "TOWN_LOST" } as any, "me", names)).toBe("Lost Aurienspire Ring · left unclaimed");
+    expect(activityCardText({ ...base, id: "strike", occurredAt: 1_000, kind: "TOWN_LOST", counterpartyPlayerId: "kara", lostToStrike: true, x: 1, y: 2 } as PersonalActivityCard, "me", names))
+      .toBe("Lost Aurienspire Ring in a strike by Kara · left unclaimed");
+    expect(activityCardText({ ...base, kind: "TOWN_LOST", townSurvived: false } as any, "me", names)).toBe("Lost Aurienspire Ring · settlement razed");
   });
 
   it("gives a lost or captured dock its own note naming the other player", () => {
@@ -94,6 +110,23 @@ describe("activityCardText / activityCardCoordinates", () => {
     expect(activityCardText(tradeNexus as any, "me", noNames)).toBe("Trade Nexus completed");
     expect(activityCardText(incubationEngine as any, "me", noNames)).toBe("Incubation Engine completed");
     expect(activityCardText(unknown as any, "me", noNames)).toBe("Some future hall completed");
+  });
+
+  it("summarises a scout drone's report with its target tile", () => {
+    const report: PersonalActivityCard = {
+      kind: "SCOUT_REPORT", id: "scout-1", occurredAt: 0, x: 40, y: 12,
+      towns: 1, docks: 1, waystations: 0, watchtowers: 0, resourceTiles: 3, planetaryDefenseTiles: 0, empiresSighted: [], blockedByPlayerId: "kara"
+    };
+    expect(activityCardText(report, "me", namesFrom({ kara: "Kara" }))).toBe("Scout drone found 1 town, 1 dock, 3 resource tiles · turned back at Kara's border");
+    expect(activityCardCoordinatesLabel(report)).toBe("(40, 12)");
+    const empty: PersonalActivityCard = { kind: "SCOUT_REPORT", id: "scout-2", occurredAt: 0, x: 1, y: 1, towns: 0, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [] };
+    expect(activityCardText(empty, "me", noNames)).toBe("Scout drone found nothing new");
+  });
+
+  it("names the empire whose scout drone was turned back at the viewer's border", () => {
+    const sighted: PersonalActivityCard = { kind: "SCOUT_SIGHTED", id: "seen-1", occurredAt: 0, x: 8, y: 10, scoutPlayerId: "kara" };
+    expect(activityCardText(sighted, "me", namesFrom({ kara: "Kara" }))).toBe("Foreign scouts sighted at your border: Kara");
+    expect(activityCardCoordinatesLabel(sighted)).toBe("(8, 10)");
   });
 });
 

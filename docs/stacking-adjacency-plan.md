@@ -1,8 +1,10 @@
 # Stacking-building adjacency (industrial districts) — plan
 
-Status: proposed (2026-10-20). Owner decision: **replace** today's per-ring
-copy counting with explicit adjacency for the stacking building families.
-Nothing here is implemented yet. Numbers marked "starting value" are for the
+Status: proposed (2026-10-20), not reviewed by the owner. The plan records an
+owner decision to **replace** today's per-ring copy counting with explicit
+adjacency for the stacking building families, but on 2026-11-12 the owner did
+not recognise this plan, so treat that decision as unconfirmed. Nothing here
+is implemented yet. Numbers marked "starting value" are for the
 Phase 0 balance pass, not final.
 
 ## Goal

@@ -12,7 +12,7 @@
 // when an admin force-starts it. Starting rolls the simulation over and then
 // joins every committed account, online or not, before announcing the new
 // season, so they all share the same start. Guests can't commit (no account to keep the slot), but a guest who
-// is online at the start is sent in by the client's guest auto-join.
+// is online at the start is sent in by the client's auto-join.
 import type { SectorWaitlistStore } from "../sector-waitlist-store/sector-waitlist-store.js";
 
 export const NEXT_CONTEST_MIN_COMMITTED = 10;

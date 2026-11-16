@@ -7,13 +7,21 @@ import type { PlayerNameLookup } from "./client-activity-dashboard-names.js";
 export const diplomacyCardText = (card: PersonalActivityDiplomacyCard, playerId: string, playerNames: PlayerNameLookup): string => {
   const other = playerNames(card.counterpartyPlayerId) ?? card.counterpartyName;
   switch (card.event) {
+    case "TRUCE_OFFERED":
+      return `${other} offered you a truce${card.durationHours ? ` · ${card.durationHours}h` : ""}`;
     case "TRUCE_STARTED":
       if (card.court) return `Court armistice with ${other} began${card.durationHours ? ` · ${card.durationHours}h` : ""}`;
       return `Truce with ${other} began${card.durationHours ? ` · ${card.durationHours}h` : ""}`;
+    case "TRUCE_EXTENDED":
+      return `Truce with ${other} extended${card.durationHours ? ` by ${card.durationHours}h` : ""}`;
     case "TRUCE_ENDED":
       return `Truce with ${other} ended`;
     case "TRUCE_BROKEN":
       return card.byPlayerId === playerId ? `You broke the truce with ${other}` : `${other} broke your truce`;
+    case "ALLIANCE_OFFERED":
+      return card.byPlayerId === playerId ? `You offered ${other} an alliance` : `${other} offered you an alliance`;
+    case "ALLIANCE_DECLINED":
+      return card.byPlayerId === playerId ? `You declined ${other}'s alliance offer` : `${other} declined your alliance offer`;
     case "ALLIANCE_FORMED":
       return `Alliance with ${other} formed`;
     case "ALLIANCE_BROKEN":

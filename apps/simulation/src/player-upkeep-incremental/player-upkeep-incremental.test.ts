@@ -153,10 +153,10 @@ describe("tileUpkeepContribution", () => {
     expect(contrib.food).toBe(0);
   });
 
-  it("charges no UMBRITE_RIG gold upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
+  it("charges no UMBRITE_REFINERY gold upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
-      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "UMBRITE_RIG" }
+      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "UMBRITE_REFINERY" }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
     expect(contrib.gold).toBe(0);
@@ -165,7 +165,7 @@ describe("tileUpkeepContribution", () => {
   it("ignores structure owned by someone else", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
-      economicStructure: { ownerId: "other", status: "active", type: "UMBRITE_RIG" }
+      economicStructure: { ownerId: "other", status: "active", type: "UMBRITE_REFINERY" }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
     expect(contrib.gold).toBe(0);
@@ -174,7 +174,7 @@ describe("tileUpkeepContribution", () => {
   it("ignores inactive structure", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
-      economicStructure: { ownerId: PLAYER_ID, status: "building", type: "UMBRITE_RIG" }
+      economicStructure: { ownerId: PLAYER_ID, status: "building", type: "UMBRITE_REFINERY" }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
     expect(contrib.gold).toBe(0);
@@ -199,7 +199,7 @@ describe("addTileUpkeepToCache / removeTileUpkeepFromCache", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
       fort: { ownerId: PLAYER_ID, status: "active" },
-      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "UMBRITE_RIG" }
+      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "UMBRITE_REFINERY" }
     });
     const cache = emptyUpkeepAccrualSnapshot();
     addTileUpkeepToCache(cache, tile, PLAYER_ID, player);
@@ -277,10 +277,10 @@ const makeRng = (seed: number) => {
 type SimpleTile = DomainTileState;
 
 const STRUCTURE_TYPES = [
-  "HYDROGARDEN", "UMBRITE_RIG", "MINE", "MANUFACTORY", "INCUBATION_ENGINE", "CLEARING_HOUSE",
+  "HYDROGARDEN", "UMBRITE_REFINERY", "TITANIUM_REFINERY", "MANUFACTORY", "INCUBATION_ENGINE", "CLEARING_HOUSE",
   "PALISADE", "RELAY_BEACON", "TRADE_NEXUS",
   "UMBRITE_WORKS", "TITANIUM_WORKS", "AETHER_CONDENSER",
-  "ORE_REFINERY", "HARBOR_EXCHANGE", "ANCILLARY_DEPOT", "MINISTRY_HALL",
+  "TITANIUM_SMELTER", "HARBOR_EXCHANGE", "ANCILLARY_DEPOT", "MINISTRY_HALL",
   "RESONANCE_GRID", "SKY_DOCK"
 ] as const;
 

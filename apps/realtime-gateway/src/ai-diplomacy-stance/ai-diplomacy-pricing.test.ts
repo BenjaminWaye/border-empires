@@ -75,8 +75,11 @@ const price = (options: {
 };
 
 describe("AI truce pricing", () => {
-  it("charges nothing between empires whose borders don't meet and who aren't fighting", () => {
-    expect(price({ bordersTouch: false }).pricing.required.truce12).toBe(0);
+  it("charges distant empires even when desperate or earning very little", () => {
+    const options = { bordersTouch: false };
+    expect(price(options).pricing.required).toMatchObject({ truce12: 120, truce24: 180 });
+    expect(price({ ...options, stanceKind: "SEEKING_PEACE" }).pricing.required.truce12).toBeGreaterThan(0);
+    expect(price({ ...options, aiIncome: 0 }).pricing.required.truce12).toBe(1);
   });
 
   it("charges neighbours at peace 12h of income, 1.5x for a 24h truce", () => {
@@ -328,7 +331,7 @@ describe("AI temperaments", () => {
     expect(modifier(VENGEFUL)).toBe(-12);
     expect(modifier(PEACEABLE)).toBe(-6);
     const peacefulBorders = { bordersTouch: false, memory: took };
-    expect(price({ ...peacefulBorders, temperament: VENGEFUL }).pricing.required.truce12).toBe(3 * 60);
+    expect(price({ ...peacefulBorders, temperament: VENGEFUL }).pricing.required.truce12).toBe((2 + 3) * 60);
   });
 
   it("has a Warlike AI pay half as much to end a war it is losing", () => {
@@ -371,6 +374,11 @@ describe("answerDiplomacyStanceQuery", () => {
     diplomacyContext: () => ({ requesterBrokeTruceWithAi: false, requesterTruceBreaksWithOthers: 0, requesterBrokeAllianceWithAi: false, memory: memory(), now: NOW, alliesOf: () => [] })
   };
 
+  it("includes the current social lockout in an otherwise valid AI preview", async () => {
+    const reply = await answerDiplomacyStanceQuery({ ...deps, truceLockoutUntil: id => id === "p1" ? 100_000 : 0 }, "p1", "Milo");
+    expect(reply.truceLockout).toEqual({ until: 100_000, reason: expect.stringContaining("You recently broke a truce") });
+  });
+
   it("returns an AI's stance, attitude with modifiers, and prices", async () => {
     expect(await answerDiplomacyStanceQuery(deps, "p1", "Milo")).toEqual({
       type: "DIPLOMACY_STANCE",
@@ -381,7 +389,7 @@ describe("answerDiplomacyStanceQuery", () => {
       stance: { kind: "INDIFFERENT", reason: "Milo has no quarrel with you: your borders don't meet." },
       attitude: { level: "CAUTIOUS", score: 5, modifiers: [{ label: "Our borders don't meet", value: 5 }] },
       war: { atWar: false, aiWinning: false, aiLosing: false, tilesTakenFromAi: 0, tilesTakenByAi: 0 },
-      pricing: { required: { truce12: 0, truce24: 0, alliance: 92 + 24 * 60 * 2 }, aiHoldings: { gold: 40 } },
+      pricing: { required: { truce12: 240, truce24: 360, alliance: 92 + 24 * 60 * 2 }, aiHoldings: { gold: 40 } },
       gift: { coinPerPoint: 20, goodwillPoints: 0, maxPoints: 25 },
       temperament: { label: "Measured", traits: "No strong leanings" }
     });

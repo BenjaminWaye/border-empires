@@ -1,5 +1,6 @@
 import { createFullVisibilitySource } from "./full-visibility-source.js";
-import { recoveredSeasonFallback } from "./recovered-season-fallback.js";
+import { resolveRecoveredSeason } from "./recovered-season-fallback.js";
+import { logDebugSubscribePlayer, withExploredTiles } from "./subscribe-player-reply.js";
 import { fileURLToPath } from "node:url";
 import { PerformanceObserver } from "node:perf_hooks";
 import crypto from "node:crypto";
@@ -66,7 +67,6 @@ import { handleGetSeasonParticipationForPlayer, type ProtoSeasonArchivesResponse
 import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
 import { handleGetPersonalActivityTimeline, type ProtoPersonalActivityTimelineRequest, type ProtoPersonalActivityTimelineResponse } from "../personal-activity-aggregation/personal-activity-timeline-rpc-handler.js";
 import { handleGetCurrentSeasonSummary, handleListSeasonArchives } from "../season-summary-rpc-handlers.js";
-import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
@@ -150,7 +150,7 @@ type ProtoGetAiDecisionDiagnosticsResponse = {
   ok: boolean;
   diagnostics_json?: string;
 };
-type ProtoStartNextSeasonRequest = { force?: boolean; imperial_ward_json?: string; defense_campaign_target_season_id?: string };
+type ProtoStartNextSeasonRequest = { force?: boolean; defense_campaign_target_season_id?: string };
 type ProtoStartNextSeasonResponse = {
   ok: boolean;
   season_id: string;
@@ -542,10 +542,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     Boolean(legacySnapshotBootstrap) ||
     effectiveStartupRecovery.recoveredCommandCount > 0 ||
     effectiveStartupRecovery.recoveredEventCount > 0;
-  let currentSeasonState =
-    effectiveStartupRecovery.initialState.season ??
-    bootstrappedSeasonState ??
-    recoveredSeasonFallback({ rulesetId, mapStyle, seedProfile: options.seedProfile, now: Date.now() });
+  let currentSeasonState = resolveRecoveredSeason(effectiveStartupRecovery.initialState.season ?? bootstrappedSeasonState, {
+    rulesetId, mapStyle, seedProfile: options.seedProfile, now: Date.now()
+  });
   // Seasons persisted before mapStyle existed have no field — they were always
   // generated as "continents" (the historical hardcoded default), so that must
   // be the fallback here, never the live env's mapStyle. Otherwise a container
@@ -567,7 +566,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ...(options.runtimeOptions ?? {}),
     ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
     backgroundBatchSize: runtimeBackgroundBatchSize,
-    initialState: effectiveStartupRecovery.initialState,
+    initialState: { ...effectiveStartupRecovery.initialState, season: currentSeasonState },
     initialCommandHistory: effectiveStartupRecovery.initialCommandHistory,
     seasonStartedAt: seasonStartedAtClock(() => currentSeasonState, currentSeasonState.seasonId),
     ...(dockRouteBackfillReader ? { dockRouteBackfillReader } : {}),
@@ -1592,7 +1591,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   await restoreSeasonActivityState(seasonSummaryStore, currentSeasonState.seasonId, runtime);
   await restoreScoreHistory(seasonSummaryStore, currentSeasonState.seasonId, scoreHistorySampler);
   await recomputeAndPersistCurrentSummary({ forcePersist: true });
-  const startNextSeason = async (force = false, pendingImperialWard?: { playerId: string; charges: number }, defenseCampaignTargetSeasonId?: string): Promise<{ seasonId: string }> => {
+  const startNextSeason = async (force = false, defenseCampaignTargetSeasonId?: string): Promise<{ seasonId: string }> => {
     if (seasonRolloverInFlight) throw new Error("season rollover already in progress");
     if (currentSeasonState.status !== "ended" && !force) {
       throw new Error("cannot start next season before current season has ended");
@@ -1636,7 +1635,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         onVisibilityAudit: handleVisibilityAudit,
         trackSyncMainThreadTask: trackSyncMainThreadTaskWithMetrics,
         onCaptureRevealBuilt: captureRevealBuildSample, isPlayerSubscribed: (playerId) => subscriptionRegistry.isSubscribed(playerId),
-        ...(pendingImperialWard ? { pendingImperialWard } : {}), ...(currentSeasonState.winner ? { pendingGalacticWonderBonus: { playerId: currentSeasonState.winner.playerId } } : {}), // v0 Wonder-style starting bonus (§5, §12)
+        ...(currentSeasonState.winner ? { pendingGalacticWonderBonus: { playerId: currentSeasonState.winner.playerId } } : {}), // v0 Wonder-style starting bonus (§5, §12)
         shouldPauseBackground: () => {
           if (loginExportsInFlight > 0) {
             simulationMetrics.incrementSimLoginExportPausedDrain();
@@ -1893,22 +1892,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         async (snapshotPayload) => {
           try {
             const [playerJson, worldStatusJson, seasonJson] = await Promise.all([
-              snapshotPayload.player ? stringifySnapshot(snapshotPayload.player) : undefined,
+              snapshotPayload.player ? stringifySnapshot(withExploredTiles(snapshotPayload.player, runtime.exploredTilesFor(snapshotPayload.playerId))) : undefined,
               snapshotPayload.worldStatus ? stringifySnapshot(snapshotPayload.worldStatus) : undefined,
               snapshotPayload.season ? stringifySnapshot(snapshotPayload.season) : undefined,
             ]);
 
-            if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
-              log.info(
-                JSON.stringify({
-                  type: "debug_subscribe_player",
-                  playerId: call.request.player_id,
-                  runtimeTiles: snapshotPayload.tiles.length,
-                  snapshotTiles: snapshotPayload.tiles.length,
-                  snapshotLength: JSON.stringify(snapshotPayload).length
-                })
-              );
-            }
+            logDebugSubscribePlayer(log, call.request.player_id, snapshotPayload);
             callback(null, {
               ok: true,
               player_id: snapshotPayload.playerId,
@@ -2123,7 +2112,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       call: { request: ProtoStartNextSeasonRequest },
       callback: (error: Error | null, response: ProtoStartNextSeasonResponse) => void
     ) {
-      void startNextSeason(call.request.force === true, parsePendingImperialWard(call.request.imperial_ward_json), call.request.defense_campaign_target_season_id || undefined)
+      void startNextSeason(call.request.force === true, call.request.defense_campaign_target_season_id || undefined)
         .then((result) => callback(null, { ok: true, season_id: result.seasonId }))
         .catch((error) =>
           callback(error instanceof Error ? error : new Error("failed to start next season"), {
@@ -2265,7 +2254,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         if (currentSeasonState.status === "ended") return;
         runtime.tickWatchtowerReveals(Date.now());
         runtime.tickAetherShields(Date.now()); // bounded per-tick work inside -- aether-shield/aether-shield-tick.ts
-        runtime.tickIslandNames(Date.now()); // throttled to ~2s inside -- island-names/island-names-ticker.ts
+        runtime.tickSideTickers(Date.now()); // island names + House Charges, throttled inside -- side-tickers/runtime-side-tickers.ts
       }, 1_000);
       let passiveIncomeRunning = false;
       passiveIncomeTicker = setInterval(() => {

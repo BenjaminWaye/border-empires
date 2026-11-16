@@ -57,24 +57,41 @@ export interface RuntimeEconomyCacheContext {
 }
 
 /**
+ * The Empire Integrity income multiplier for `player` right now. Warms the
+ * defensibility cache when it is cold (O(owned tiles), the same rebuild
+ * emitPlayerStateUpdate already pays) — reading the raw cache instead, as this
+ * used to, built and cached the economy snapshot at 1x whenever passive income
+ * or a login snapshot got there first (after every restart, and on any tick
+ * that beat the next player update), so accrual silently dropped the bonus
+ * the Integrity panel advertised.
+ */
+function integrityEconMultForPlayer(ctx: RuntimeEconomyCacheContext, player: RuntimePlayer): number {
+  // Barbarians earn nothing anyone reads, and with isAi false they would rebuild defensibility on every export.
+  if (!EMPIRE_INTEGRITY_ENABLED || player.id.startsWith("barbarian-")) return 1;
+  const metrics = cachedDefensibilityMetrics(ctx, player.id, ctx.summaryForPlayer(player.id));
+  return integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
+}
+
+/**
  * Returns a cached PlayerUpdateEconomySnapshot for the player, rebuilding it
- * only when the cache has been invalidated (i.e., a tile affecting this
- * player's income changed via replaceTileState).
+ * when the cache has been invalidated (a tile affecting this player's income
+ * changed via replaceTileState) or was built with a different Integrity
+ * multiplier than the current one.
  *
  * The snapshot is built with full dock context so both the accrual path and
- * the emit path share a single entry. The dock context affects only
- * `incomePerMinute` (display), not the upkeep rates consumed by accrual math,
- * so this is safe for all callers.
+ * the emit path share a single entry; its incomePerMinute is what accrual
+ * credits. Its GOLD sources are the unmultiplied buckets: they only add up
+ * to incomePerMinute once an Integrity line is itemised alongside them.
  *
  * Cache miss cost: O(settled tiles). Cache hit cost: O(1).
- * Invalidated on every replaceTileState — O(1) per mutation.
  */
 function cachedBaseEconomySnapshot(
   ctx: RuntimeEconomyCacheContext,
   player: RuntimePlayer
 ): PlayerUpdateEconomySnapshot {
+  const econMult = integrityEconMultForPlayer(ctx, player);
   const cached = ctx.economySnapshotCacheByPlayer.get(player.id);
-  if (cached) {
+  if (cached && cached.integrityEconMult === econMult) {
     const dirty = ctx.economySnapshotDirtyPlayerIds.has(player.id);
     if (!dirty) return cached;
     if (player.isAi) {
@@ -84,19 +101,6 @@ function cachedBaseEconomySnapshot(
   }
   const rebuild = (): PlayerUpdateEconomySnapshot => {
     const summary = ctx.summaryForPlayer(player.id);
-    let econMult = 1;
-    if (EMPIRE_INTEGRITY_ENABLED) {
-      // Read from the defensibility cache without triggering a rebuild here —
-      // emitPlayerStateUpdate always calls cachedDefensibilityMetrics() before
-      // cachedEconomySnapshot(), so the cache is warm on the normal command path.
-      // Callers outside emitPlayerStateUpdate (login snapshot, passive income)
-      // get econMult=1 when the cache is cold, which is acceptable because
-      // emitPlayerStateUpdate will emit the corrected value in the same tick.
-      const metrics = ctx.defensibilityMetricsCacheByPlayer.get(player.id);
-      if (metrics) {
-        econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
-      }
-    }
     const settledTiles = ctx.settledTilesForPlayer(player.id);
     const townNetwork = ctx.cachedTownNetworkForPlayer(player, settledTiles, 0);
     const snapshot = buildPlayerUpdateEconomySnapshot(

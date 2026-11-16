@@ -1,4 +1,5 @@
 import { clearOwnAttackTracking } from "../client-detached-attacks/client-detached-attacks.js";
+import { createInitialLastContestRecapState } from "../client-last-contest-recap/client-last-contest-recap.js";
 import { createInitialAfcState } from "../client-afc-upgrades/client-afc-state.js";
 import { resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { resetMetPlayers } from "../client-alliance/client-met-players.js";
@@ -22,6 +23,7 @@ type RolloverState = Pick<
   | "seasonStats"
   | "seasonScoreHistory"
   | "seasonEndDismissed"
+  | "lastContestRecap"
   | "seasonEndStarting"
   | "seasonStartError"
   | "seasonStartVoteCount"
@@ -66,6 +68,8 @@ export const resetClientForNewSeason = (state: RolloverState): void => {
   state.seasonScoreHistory = [];
   resetVictoryHoldAlertForNewSeason(state);
   state.seasonEndDismissed = false;
+  // The archive just gained a newer contest: drop the cached (now previous-but-one) recap.
+  state.lastContestRecap = createInitialLastContestRecapState();
   state.seasonEndStarting = false;
   state.seasonStartError = undefined;
   state.seasonStartVoteCount = 0;

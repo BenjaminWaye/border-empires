@@ -54,8 +54,8 @@ describe("2D visible terrain prospect layering", () => {
 
 
 it("uses the resource plot in place of overlapping decorative forest in 2D", () => {
-  expect(render("owner", "NEURAL_RESIN")).toEqual(["hills", "ownership"]);
-  expect(render("owner", "CONDUCTIVE_MINERALS")).toEqual(["hills", "ownership"]);
+  expect(render("owner", "LUXURY_BIOTA")).toEqual(["hills", "ownership"]);
+  expect(render("owner", "PRECURSOR_SALVAGE")).toEqual(["hills", "ownership"]);
 });
 
 describe("2D visible terrain on the Resources lens", () => {

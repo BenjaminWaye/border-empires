@@ -11,8 +11,8 @@ import { NEW_PLAYER_AUTO_SETTLE_PREFS, NO_AUTO_IMPROVE } from "@border-empires/s
 
 type ClientQueueEntry = ReturnType<typeof createInitialState>["developmentQueue"][number];
 
-const view: TileMenuView = { title: "", subtitle: "", tabs: [], overviewLines: [], actions: [], buildings: [{ id: "build_mine", label: "Mine" }], crystal: [] };
-const tile = (x: number, extra: Partial<Tile> = {}): Tile => ({ x, y: 2, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "TITANIUM", ...extra });
+const view: TileMenuView = { title: "", subtitle: "", tabs: [], overviewLines: [], actions: [], buildings: [{ id: "build_hydrogarden", label: "Hydrogarden" }], crystal: [] };
+const tile = (x: number, extra: Partial<Tile> = {}): Tile => ({ x, y: 2, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM", ...extra });
 
 describe("resource Place auto-improve toggle", () => {
   it("paces single support builds through the development queue", () => {
@@ -31,12 +31,13 @@ describe("resource Place auto-improve toggle", () => {
   it("shows the tile's auto-improve switch under a resource improvement's Place button, and nowhere else", () => {
     const state = createInitialState();
     expect(autoImproveOptionForTile(state.autoSettle, tile(1))).toBeUndefined(); // prefs not loaded yet
-    state.autoSettle = loadedAutoSettleState({ ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true, improve: { ...NO_AUTO_IMPROVE, TITANIUM: true } });
+    state.autoSettle = loadedAutoSettleState({ ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true, improve: { ...NO_AUTO_IMPROVE, FARM: true } });
     const option = autoImproveOptionForTile(state.autoSettle, tile(1));
-    expect(option).toEqual({ resource: "TITANIUM", checked: true, label: "Build this on every garrisoned titanium tile automatically" });
+    expect(option).toMatchObject({ resource: "FARM", checked: true });
+    expect(autoImproveOptionForTile(state.autoSettle, tile(1, { resource: "TITANIUM" }))).toBeUndefined(); // no on-tile build since refineries
     expect(autoImproveOptionForTile(state.autoSettle, tile(1, { resource: "FISH" }))).toBeUndefined();
     const host = document.createElement("div");
-    host.innerHTML = buildPlaceHtml({ buildings: view.buildings, selection: "build_mine", targetKey: "1,2", placeLabel: "Place", autoImprove: option });
+    host.innerHTML = buildPlaceHtml({ buildings: view.buildings, selection: "build_hydrogarden", targetKey: "1,2", placeLabel: "Place", autoImprove: option });
     const button = host.querySelector("button")!;
     const checkbox = host.querySelector<HTMLInputElement>("input[data-auto-improve]")!;
     expect(button.compareDocumentPosition(checkbox) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -50,9 +51,9 @@ describe("resource Place auto-improve toggle", () => {
     state.autoSettle = loadedAutoSettleState({ ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true, towns: true });
     const send = vi.fn(() => true);
     installAutoImproveOptionBinding(state, send);
-    document.body.innerHTML = buildPlaceHtml({ buildings: view.buildings, selection: "build_mine", targetKey: "1,2", placeLabel: "Place", autoImprove: autoImproveOptionForTile(state.autoSettle, tile(1)) });
+    document.body.innerHTML = buildPlaceHtml({ buildings: view.buildings, selection: "build_hydrogarden", targetKey: "1,2", placeLabel: "Place", autoImprove: autoImproveOptionForTile(state.autoSettle, tile(1)) });
     document.querySelector<HTMLInputElement>("[data-auto-improve]")!.click();
-    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "SET_AUTO_SETTLE_PREFS", towns: true, TITANIUM: false, improve: { ...NO_AUTO_IMPROVE, TITANIUM: true } }));
-    expect(state.autoSettle.status === "loaded" && state.autoSettle.prefs.improve.TITANIUM).toBe(true);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "SET_AUTO_SETTLE_PREFS", towns: true, FARM: false, improve: { ...NO_AUTO_IMPROVE, FARM: true } }));
+    expect(state.autoSettle.status === "loaded" && state.autoSettle.prefs.improve.FARM).toBe(true);
   });
 });

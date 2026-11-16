@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SeasonVictoryObjectiveView, TechInfo, Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { parseWinPct } from "./client-hud-v2-battle.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
-import { cardCounterparties, chronicleGroups, dayHeading } from "./client-hud-v2-chronicle.js";
+import { AWAY_LOSSES_HEADING, cardCounterparties, chronicleGroups, dayHeading } from "./client-hud-v2-chronicle.js";
 import { diplomacyEmpires, empireStance } from "./client-hud-v2-diplomacy.js";
 import { manifestLayout, manifestNodeState, nextManifestCost } from "./client-hud-v2-manifest.js";
 import { closestPath, leaderShare, selfShare } from "./client-hud-v2-ranks.js";
@@ -102,6 +102,22 @@ describe("chronicle", () => {
     expect(chronicleGroups(cards, "me", "kara", now).flatMap((g) => g.cards.map((c) => c.id))).toEqual(["b"]);
     expect(dayHeading(now - 3 * 86_400_000, now)).toMatch(/^[A-Z]{3} \d+$/);
   });
+
+  it("puts losses since the player last looked first, without repeating them below", () => {
+    const raid: PersonalActivityCard = { kind: "TERRITORY_FLIP_GROUP", id: "r", occurredAt: now - 2 * 3_600_000, direction: "LOST", counterpartyPlayerId: "kara", tileCount: 11, x: 4, y: 4 };
+    const groups = chronicleGroups([...cards, raid], "me", "", now, now - 5 * 3_600_000);
+    expect(groups.map((g) => g.heading)).toEqual([AWAY_LOSSES_HEADING, "TODAY", "YESTERDAY"]);
+    expect(groups[0]?.cards.map((c) => c.id)).toEqual(["r"]);
+    expect(groups[1]?.cards.map((c) => c.id)).toEqual(["c", "a"]);
+    // Losses the player had already read stay in their day.
+    expect(chronicleGroups([...cards, raid], "me", "", now, now - 3_600_000).map((g) => g.heading)).toEqual(["TODAY", "YESTERDAY"]);
+  });
+
+  // Review of #2771: your own failed attacks are "loss"-toned but nothing was taken from you.
+  it("leaves your own failed attacks out of the losses since you last looked", () => {
+    const failed: PersonalActivityCard = { kind: "COMBAT", id: "f", occurredAt: now - 2 * 3_600_000, attackerId: "me", defenderId: "hugo", attackerWon: false, manpowerLoss: 5, x: 5, y: 5, pillagedGold: 0, defenderGoldLoss: 0, targetWasSettled: false };
+    expect(chronicleGroups([...cards, failed], "me", "", now, now - 5 * 3_600_000).map((g) => g.heading)).toEqual(["TODAY", "YESTERDAY"]);
+  });
 });
 
 describe("diplomacy list", () => {
@@ -192,19 +208,19 @@ describe("town screen", () => {
 
   // Regression: pressing a support tile with a building on it said nothing about that building.
   it("shows the building standing on the selected support tile", () => {
-    const built: Tile = { ...support, economicStructure: { ownerId: "me", type: "MINE", status: "active" } };
+    const built: Tile = { ...support, economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "active" } };
     const regions = (focus: Tile, focusView = view({})) => townScreenRegions({ town, focus, townView: view({}), focusView, townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined }).build;
     const html = regions(built);
     expect(html).toContain("On this tile");
     expect(html).toContain("Built here");
-    expect(html).toContain('<span class="v2t-structure-k">Building</span><span class="v2t-structure-v">Mine</span>');
+    expect(html).toContain('<span class="v2t-structure-k">Building</span><span class="v2t-structure-v">Manufactory</span>');
     expect(html).toContain('<span class="v2t-structure-v v2t-structure-good">Active</span>');
     expect(html).not.toContain("Nothing to build");
     // An empty support tile, or the town itself, gets no card; a build still going up is left to the work cards.
     expect(regions(support)).not.toContain("Built here");
-    expect(regions({ ...built, economicStructure: { ownerId: "me", type: "MINE", status: "under_construction" } })).not.toContain("Built here");
+    expect(regions({ ...built, economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "under_construction" } })).not.toContain("Built here");
     // A building being removed already has its own work card.
-    expect(regions({ ...built, economicStructure: { ownerId: "me", type: "MINE", status: "removing" } })).not.toContain("Built here");
+    expect(regions({ ...built, economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "removing" } })).not.toContain("Built here");
     // Queued work leads, so it isn't read as part of the building under the "Built here" heading.
     const withWork = regions(built, view({ work: [{ title: "Hydrogarden queued", detail: "", remainingLabel: "", progress: 0, note: "", queueState: "queued" }] }));
     expect(withWork.indexOf("v2t-work")).toBeGreaterThan(-1);

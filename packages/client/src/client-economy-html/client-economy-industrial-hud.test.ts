@@ -16,14 +16,14 @@ it("shows industrial supply, occupied slots and bonuses in the Economy panel", (
       FOOD: [{ kind: "TILE", id: "FARM", slots: 5, count: 5 }, { kind: "TRADE_IMPORT", id: "", slots: 3, count: 1 }, { kind: "TRADE_EXPORT", id: "", slots: -2, count: 1 }],
       TITANIUM: [], CRYSTAL: [], UMBRITE: []
     }, bonusSupply: {
-      supply: { ...emptyNetworkSiteCounts(), NEURAL_RESIN: 2, PRECURSOR_SALVAGE: 1 },
-      used: { ...emptyNetworkSiteCounts(), NEURAL_RESIN: 1, PRECURSOR_SALVAGE: 1 }
+      supply: { ...emptyNetworkSiteCounts(), LUXURY_BIOTA: 2, PRECURSOR_SALVAGE: 1 },
+      used: { ...emptyNetworkSiteCounts(), LUXURY_BIOTA: 1, PRECURSOR_SALVAGE: 1 }
     } }
   };
   const html = renderEconomyPanelHtml(args);
   expect(html).toContain('class="v2e"');
-  expect(html).toContain("Neural resin");
-  expect(html).toContain("+150 manpower per refill");
+  expect(html).toContain("Luxury biota");
+  expect(html).toContain("4 biota slots");
   expect(html).toContain("+1% attack and defense");
   for (const markup of [html, renderEconomyPanelHtml({ ...args, focus: "FOOD" })]) {
     expect(markup).toContain("Trade imports");

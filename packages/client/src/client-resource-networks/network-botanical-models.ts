@@ -1,22 +1,5 @@
 import { BufferAttribute, BufferGeometry, Color } from "three";
-import { createLeafGeometry } from "../client-map-3d-trees/client-map-3d-tree-models.js";
 import type { TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
-
-/** The map's broadleaf asset, including its baked facet colours and soft normals. */
-export const resinTree = (t: TownBuilders, x: number, z: number, height: number): void => {
-  const scale = height / 0.53;
-  const tree = createLeafGeometry();
-  tree.scale(scale, scale, scale).translate(x, 0, z);
-  t.body.authored(tree);
-  tree.dispose();
-  // Amber sits in narrow bark wounds; it is sap, not fruit hanging off branches.
-  for (const [dx, y, length] of [[0.012, 0.12, 0.055], [-0.009, 0.21, 0.033]] as const) {
-    t.body.pipe(x + dx * scale, y * scale, z + 0.027 * scale,
-      x + (dx + 0.005) * scale, (y + length) * scale, z + 0.023 * scale, 0.004 * scale, "brassDark");
-    t.body.pipe(x + dx * scale, y * scale, z + 0.03 * scale,
-      x + dx * scale, (y + length * 0.72) * scale, z + 0.027 * scale, 0.0025 * scale, "lampWarm");
-  }
-};
 
 /** Folded, tapering ribbon leaves: an organic silhouette instead of spheres. */
 const leaf = (t: TownBuilders, x: number, z: number, size: number, angle: number, rise: number, tint: string): void => {

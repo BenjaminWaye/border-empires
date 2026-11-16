@@ -1,7 +1,7 @@
 // Server-side auto-improve: each territory-automation tick, for a player whose
 // auto-improve switch is on for a resource (shared auto-improve-prefs.ts),
 // builds that resource's improvement on their garrisoned tiles of it -- e.g.
-// a Mine on every titanium tile. It removes the click, not any rule: the
+// a Hydrogarden on every farm tile. It removes the click, not any rule: the
 // build goes through the ordinary BUILD_STRUCTURE handler with the same
 // coin/manpower cost, tech, resource slot and development slot checks.
 //

@@ -45,16 +45,28 @@ describe("planner recovery state", () => {
     const withAfc = mergePlannerTileDelta(initial, {
       x: 0, y: 0, afcJson: JSON.stringify({ ownerId: "ai-1", status: "active" }),
       townJson: JSON.stringify({ populationTier: "TOWN", population: 900 }),
-      economicStructureJson: JSON.stringify({ ownerId: "ai-1", type: "MINE", status: "inactive", inactiveReason: "manual" })
+      economicStructureJson: JSON.stringify({ ownerId: "ai-1", type: "TITANIUM_REFINERY", status: "inactive", inactiveReason: "manual" })
     });
     expect(withAfc).toMatchObject({
       afc: { ownerId: "ai-1" }, town: { population: 900 }, economicStructure: { inactiveReason: "manual" }
     });
     const cleared = mergePlannerTileDelta(withAfc, {
-      x: 0, y: 0, afcJson: "", economicStructureJson: JSON.stringify({ ownerId: "ai-1", type: "MINE", status: "active" })
+      x: 0, y: 0, afcJson: "", economicStructureJson: JSON.stringify({ ownerId: "ai-1", type: "TITANIUM_REFINERY", status: "active" })
     });
     expect(cleared).not.toHaveProperty("afc");
     expect(cleared?.economicStructure).not.toHaveProperty("inactiveReason");
+  });
+
+  it("keeps a refinery's field anchor through the worker transfer and tile deltas", () => {
+    const refinery: DomainTileState = { ...town(0), economicStructure: { ownerId: "ai-1", type: "TITANIUM_REFINERY", status: "active", refineryField: { x: 4, y: 0, assignedAt: 9 } } };
+    delete refinery.town;
+    expect(toPlannerTileView(refinery).economicStructure?.refineryField).toEqual({ x: 4, y: 0, assignedAt: 9 });
+    const moved = mergePlannerTileDelta(toPlannerTileView(refinery), {
+      x: 0, y: 0, economicStructureJson: JSON.stringify({ ownerId: "ai-1", type: "TITANIUM_REFINERY", status: "active", refineryField: { x: 6, y: 1, assignedAt: 12 } })
+    });
+    expect(moved?.economicStructure?.refineryField).toEqual({ x: 6, y: 1, assignedAt: 12 });
+    const unassigned = mergePlannerTileDelta(moved, { x: 0, y: 0, economicStructureJson: JSON.stringify({ ownerId: "ai-1", type: "TITANIUM_REFINERY", status: "active" }) });
+    expect(unassigned?.economicStructure).not.toHaveProperty("refineryField");
   });
 
   it("can actually upgrade a mature town after the worker transfer", () => {
@@ -92,7 +104,7 @@ describe("planner recovery state", () => {
     };
     const consumer: DomainTileState = {
       x: 3, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "ai-1", type: "MINE", status: "active" }
+      economicStructure: { ownerId: "ai-1", type: "TITANIUM_REFINERY", status: "active" }
     };
     const tiles = [beacon, consumer];
     expect(foodSlotReliefFromPlannerInput(tiles, "ai-1", undefined,

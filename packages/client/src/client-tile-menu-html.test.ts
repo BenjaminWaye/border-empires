@@ -156,7 +156,7 @@ describe("recommended actions", () => {
       tabs: ["actions"],
       actions: [
         { id: "build_relay_beacon", label: "Relay Beacon" },
-        { id: "settle_land", label: "Garrison", recommended: true, autoSettleOption: { category: "FARM", checked: false, label: "Garrison farm tiles automatically from now on" } }
+        { id: "settle_land", label: "Garrison", recommended: true, autoSettleOption: { category: "FARM", checked: false, label: "Garrison farm tiles automatically from now on", tileKey: "1,1" } }
       ]
     };
     const html = tileActionMenuHtml(view, "actions");

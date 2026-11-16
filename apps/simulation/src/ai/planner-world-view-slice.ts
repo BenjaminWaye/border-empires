@@ -64,7 +64,8 @@ export const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
           type: tile.economicStructure.type,
           status: tile.economicStructure.status,
           ...(tile.economicStructure.disabledUntil !== undefined ? { disabledUntil: tile.economicStructure.disabledUntil } : {}),
-          ...(tile.economicStructure.inactiveReason ? { inactiveReason: tile.economicStructure.inactiveReason } : {})
+          ...(tile.economicStructure.inactiveReason ? { inactiveReason: tile.economicStructure.inactiveReason } : {}),
+          ...(tile.economicStructure.refineryField ? { refineryField: { ...tile.economicStructure.refineryField } } : {})
         }
       }
     : {})

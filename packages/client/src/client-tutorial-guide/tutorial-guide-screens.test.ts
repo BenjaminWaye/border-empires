@@ -80,6 +80,30 @@ beforeEach(() => {
 });
 
 describe("tutorial guide over panels and screens", () => {
+  // Playtest day 1 (oldphone, optimiser, achiever): the minimised "?" launcher sat on Settings' Back button,
+  // the Diplomacy and Manpower headings and the Manifest price line.
+  it("keeps the minimised launcher off every open panel and screen, and brings it back on the map", () => {
+    const state = footholdDoneState();
+    startAt(state, 2);
+    click("toggle");
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(card()?.querySelector(".tg-launcher")?.hasAttribute("hidden")).toBe(false);
+    expect(card()?.classList.contains("tg-over-ui")).toBe(false);
+    expect(styles()).toContain("#tutorial-guide-root.tg-over-ui .tg-launcher { display: none !important; }");
+    for (const panel of ["settings", "manpower"] as const) {
+      state.activePanel = panel;
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      expect(card()?.classList.contains("tg-over-ui")).toBe(true);
+    }
+    state.activePanel = null;
+    document.body.classList.add("hud-v2-screen-open", "hud-v2-screen-diplomacy");
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(card()?.classList.contains("tg-over-ui")).toBe(true);
+    document.body.classList.remove("hud-v2-screen-open", "hud-v2-screen-diplomacy");
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(card()?.classList.contains("tg-over-ui")).toBe(false);
+  });
+
   it("lifts the card above an open side panel, such as Manpower, and drops it back once closed", () => {
     const state = footholdDoneState();
     startAt(state, 2); // zoom, relay beacon -> manpower

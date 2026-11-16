@@ -136,11 +136,11 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component:
-          "The harbour on the true-3D map. A dock tile carries the quay: stone quay and timber pier, toll and harbourmaster's " +
-          "house, a coal-fired steam derrick, a harbour lamp and a paddle-steamer ferry. Each beach a sea crossing can land on " +
+          "The harbour on the true-3D map. A dock tile carries the quay: marble quay and iron-plated pier, a control office " +
+          "with a sensor mast, a powered gantry crane and cell bank, a pier-head beacon and an armoured troop carrier. Each beach a sea crossing can land on " +
           "(the dock's landing ground) carries a landing slipway: a ramp into the water with a landing barge hauled up it, a " +
           "winch, a lantern and supplies landed by sea. Where a beach already holds something, the slipway shrinks to the " +
-          "waterline; a town, natural wonder or AFC hides it. Frontier machinery is steam and iron, no aether (world bible §4)."
+          "waterline; a town, natural wonder or AFC hides it. A transport hub: no guns, no walls (world bible §10)."
       }
     }
   },

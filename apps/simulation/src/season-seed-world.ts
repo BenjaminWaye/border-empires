@@ -50,7 +50,8 @@ import { finalizeSeasonWorldDocks } from "./dock-network/dock-sea-routes.js";
 import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-seed.js"; import { createSeasonNaturalWondersRuntime } from "./season-seed-natural-wonders.js";
 import { buildSeasonSeedTile } from "./season-seed-world-tile-assembly.js";
 import { createSeasonSeedPlayerSpawner } from "./season-seed-world-player-spawn.js";
-import { computeFairSpawnSitesForWorldgen, FAIR_SPAWN_SITE_WORLDGEN_MINIMUM } from "./season-seed-world-fair-spawn-check.js"; import { fillMountainRingInteriors } from "./season-seed-world-ring-interiors.js";
+import { computeFairSpawnSitesForWorldgen, FAIR_SPAWN_SITE_WORLDGEN_MINIMUM } from "./season-seed-world-fair-spawn-check.js"; 
+import { settleRingInteriorsAndStrategicReach } from "./season-seed-world-strategic-reach.js";
 import { worldLooksBland } from "./season-seed-world-bland-check.js";
 export { worldLooksBland } from "./season-seed-world-bland-check.js";
 
@@ -250,7 +251,7 @@ export const createSeasonSeedWorld = (
   const waystationsRuntime = createServerWorldgenWaystations({
     seeded01: terrainRuntime.seeded01, waystationsByTile, WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key,
     docksByTile: docksByTile as Map<TileKey, never>, clusterByTile, townsByTile, watchtowersByTile });
-  const naturalWondersRuntime = createSeasonNaturalWondersRuntime(terrainRuntime, naturalWondersByTile, docksByTile, clusterByTile, clustersById, townsByTile);
+  const naturalWondersRuntime = createSeasonNaturalWondersRuntime(terrainRuntime, naturalWondersByTile, docksByTile, clusterByTile, clustersById, townsByTile, { watchtowersByTile, waystationsByTile });
   let worldSeed = seed; let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
   let acceptedFairSpawnSites: FairSpawnSite[] | undefined;
   for (let iteration = 0; iteration < 16; iteration += 1) {
@@ -263,7 +264,8 @@ export const createSeasonSeedWorld = (
     townsRuntime.ensureBaselineEconomyCoverage(worldSeed);
     townsRuntime.ensureInterestCoverage(worldSeed);
     townsRuntime.normalizeTownPlacements();
-    fillMountainRingInteriors(worldSeed, style, { WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, townsByTile, clusterByTile, docksByTile: docksByTile as Map<TileKey, unknown>, townsRuntime, POPULATION_MAX });
+    settleRingInteriorsAndStrategicReach(worldSeed, style, { WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, townsByTile, clusterByTile, docksByTile: docksByTile as Map<TileKey, unknown>, townsRuntime, POPULATION_MAX },
+      { clusterByTile, clustersById, townsByTile, docksByTile, habitat: terrainRuntime });
     townsRuntime.assignMissingTownNamesForWorld();
     watchtowersRuntime.generateWatchtowers(worldSeed); waystationsRuntime.generateWaystations(worldSeed);
     islandSummary = islandSizeSummary(terrainRuntime.terrainAtRuntime, significantIslandTileThreshold);

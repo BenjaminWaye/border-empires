@@ -176,6 +176,9 @@ export interface ServerWorldgenNaturalWondersDeps {
   clusterByTile: Map<TileKey, string>;
   clustersById: Map<string, ClusterDefinition>;
   townsByTile: Map<TileKey, TownDefinition>;
+  /** Seed-placed landmarks a relic footprint must not cover. */
+  watchtowersByTile?: ReadonlyMap<TileKey, unknown>;
+  waystationsByTile?: ReadonlyMap<TileKey, unknown>;
 }
 
 export interface ServerWorldgenNaturalWondersRuntime {

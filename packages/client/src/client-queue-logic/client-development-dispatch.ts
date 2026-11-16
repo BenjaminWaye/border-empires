@@ -16,6 +16,7 @@ import { resetAttackPreviewState } from "./client-attack-preview-logic.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind } from "../client-types.js";
+import { refineryFieldOf } from "../client-refineries/refinery-commands.js";
 
 export type DevelopmentSlotSummary = {
   busy: number;
@@ -29,7 +30,7 @@ type GatewayBuildWirePayload =
   | { type: "BUILD_FORT"; x: number; y: number; tier?: ChosenStructureTier }
   | { type: "BUILD_OBSERVATORY"; x: number; y: number }
   | { type: "BUILD_SIEGE_BATTERY"; x: number; y: number; tier?: ChosenStructureTier }
-  | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: string }
+  | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: string; fieldX?: number; fieldY?: number }
   | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
 
@@ -44,7 +45,7 @@ export const gatewayBuildWirePayload = (payload: QueuedBuildPayload): GatewayBui
   if (payload.structureType === "FORT") return { type: "BUILD_FORT", x: payload.x, y: payload.y, ...tier };
   if (payload.structureType === "OBSERVATORY") return { type: "BUILD_OBSERVATORY", x: payload.x, y: payload.y };
   if (payload.structureType === "SIEGE_BATTERY") return { type: "BUILD_SIEGE_BATTERY", x: payload.x, y: payload.y, ...tier };
-  return { type: "BUILD_ECONOMIC_STRUCTURE", x: payload.x, y: payload.y, structureType: payload.structureType };
+  return { type: "BUILD_ECONOMIC_STRUCTURE", x: payload.x, y: payload.y, structureType: payload.structureType, ...refineryFieldOf(payload) };
 };
 
 export const settlementSpeedMultiplierForState = (

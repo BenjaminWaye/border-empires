@@ -11,10 +11,18 @@
 //   3. Otherwise (nothing in vision): build a Relay Beacon on the checklist's
 //      recommended site to push reach and vision outward.
 //
+// Garrison is reach-gated (client-tile-action-settle-visibility.ts, mirroring
+// the sim): a food tile outside reach shows "Outside your reach" and can never
+// be garrisoned, even after Expand To claims it. So a food tile only counts as
+// a target while it is inside reach; with none, the step asks for a Relay
+// Beacon, which is what brings such a tile into reach. Towns are exempt
+// (settleIgnoresReach), so a town outside reach still counts.
+//
 // SETTLEMENT-tier towns are skipped: only a player's own free spawn has that
 // tier, and it never counts as the town goal (client-onboarding-checklist.ts).
 
 import type { Tile } from "../client-types.js";
+import { settleIgnoresReach } from "@border-empires/shared";
 import { townIdentityForTile } from "../client-town-identity.js";
 
 export type GuideTargetSet = {
@@ -44,12 +52,15 @@ const isFoodTarget = (tile: Tile): boolean => Boolean(tile.resource && FOOD_RESO
 export const scanGuideFootholdTargets = (
   tiles: Iterable<Tile>,
   me: string,
-  byDistance: (t: { x: number; y: number }) => number
+  byDistance: (t: { x: number; y: number }) => number,
+  inReach: (x: number, y: number) => boolean
 ): GuideFootholdTargets => {
   const result: GuideFootholdTargets = { town: { pending: [], garrison: [], expand: [] }, food: { pending: [], garrison: [], expand: [] } };
   for (const tile of tiles) {
     const kind = isTownTarget(tile) ? result.town : isFoodTarget(tile) ? result.food : undefined;
     if (!kind) continue;
+    // Out of reach, Garrison is refused, so neither Garrison nor Expand To would finish the food step.
+    if (kind === result.food && !settleIgnoresReach(tile) && !inReach(tile.x, tile.y)) continue;
     // Expand To marks its target as our pending FRONTIER and garrisons it once the
     // claim lands; asking for a Garrison then would be asking for what is already happening.
     if (tile.ownerId === me && tile.optimisticPending) kind.pending.push({ x: tile.x, y: tile.y });

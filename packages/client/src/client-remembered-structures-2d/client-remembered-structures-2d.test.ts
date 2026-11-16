@@ -87,7 +87,7 @@ describe("remembered buildings on fogged 2D tiles", () => {
     const image = { complete: true, naturalWidth: 64 } as HTMLImageElement;
     const drawCenteredOverlayWithAlpha = vi.fn();
     const installations = { ...noInstallations, builtResourceOverlayForTile: () => image, drawCenteredOverlayWithAlpha, economicStructureOverlayAlpha: () => 0.9 };
-    const tile: Tile = { x: 1, y: 1, terrain: "LAND", resource: "IRON", economicStructure: { type: "MINE", status: "active", ownerId: "p2" } as NonNullable<Tile["economicStructure"]> };
+    const tile: Tile = { x: 1, y: 1, terrain: "LAND", resource: "IRON", economicStructure: { type: "HYDROGARDEN", status: "active", ownerId: "p2" } as NonNullable<Tile["economicStructure"]> };
     drawRememberedStructures2D(ctx, deps(vi.fn(), installations), tile, 0, 0, 32);
     expect(drawCenteredOverlayWithAlpha).toHaveBeenCalledWith(image, 0, 0, 32, 1, 0.9);
   });

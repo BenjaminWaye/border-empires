@@ -1,4 +1,4 @@
-import { isRedesignedRelic, relicRemainingUses } from "@border-empires/shared";
+import { isRedesignedRelic } from "@border-empires/shared";
 import { drawRelicHint2D } from "./client-relic-overlay/relic-map-hints.js";
 // The per-tile 2D feature overlays both of client-runtime-loop.ts's tile draw
 // loops ran identically (watchtower, waystation, AFC, natural wonder, and the
@@ -8,6 +8,8 @@ import { drawRelicHint2D } from "./client-relic-overlay/relic-map-hints.js";
 import type { AfcJoinDropState } from "./client-afc-join-drop/client-afc-join-drop-state.js";
 import { drawAfcTile2D } from "./client-afc-join-drop/client-map-2d-afc-join-drop.js";
 import { drawCaptureAftermath2D } from "./client-map-2d-capture-aftermath.js";
+import { clientTerrainAt } from "./client-dock-landing-ground/client-dock-landing-ground.js";
+import { harbourFacingAt } from "./client-harbour-slipways/client-harbour-slipways.js";
 import { drawCaptureHoldGarrison2D } from "./client-map-2d-capture-hold-overlay.js";
 import { drawWarScars2D } from "./client-capture-aftermath/client-map-2d-war-scars.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
@@ -31,6 +33,8 @@ export type TileFeatureOverlayDeps2D = {
   remembered: RememberedStructures2DDeps;
   /** Town tier-upgrade celebrations by tile key (client-town-tier-upgrade-fx/). */
   townTierUpgradeFxByKey: ReadonlyMap<string, TownTierUpgradeFxEntry>;
+  /** Known tiles: which way a burning dock faces its water. */
+  tiles?: ReadonlyMap<string, Tile>;
 };
 
 /** Draws a tile's 2D feature overlays (a fogged tile's remembered buildings too); a no-op in the 3D renderer, which has its own. */
@@ -44,7 +48,7 @@ export const drawTileFeatureOverlays2D = (
   size: number,
   nowMs: number
 ): void => {
-  if (!isTrue3DRendererActive() && !(t?.naturalWonder && relicRemainingUses(t.naturalWonder) === 0)) drawRelicHint2D(deps.ctx, deps.relicMapHints?.get(tileKey), px, py, size);
+  if (!isTrue3DRendererActive()) drawRelicHint2D(deps.ctx, deps.relicMapHints?.get(tileKey), t, px, py, size);
   if (!isTrue3DRendererActive() && vis === "fogged" && t?.naturalWonder && isRedesignedRelic(t.naturalWonder)) {
     deps.ctx.save(); deps.ctx.globalAlpha *= 0.7;
     drawNaturalWonderOverlay2D(deps.ctx, undefined, t.ownerId ?? "", px, py, size, deps.structureAccentColor, t.naturalWonder, false);
@@ -61,7 +65,7 @@ export const drawTileFeatureOverlays2D = (
   // Capture-hold garrison: 2D counterpart of the 3D standing squad. Checks
   // the deadline, not just the field, so a long-expired hold costs nothing.
   // Rubble/smoke the capture left (client-capture-aftermath.ts) sits under the garrison.
-  if (t.terrain === "LAND") drawCaptureAftermath2D(deps.ctx, t, px, py, size, Date.now());
+  if (t.terrain === "LAND") drawCaptureAftermath2D(deps.ctx, t, px, py, size, Date.now(), t.dockId && deps.tiles ? harbourFacingAt(clientTerrainAt(deps.tiles), t.x, t.y) : undefined);
   if (t.ownerId && t.captureHoldUntil !== undefined) {
     const nowEpochMs = Date.now();
     if (t.captureHoldUntil > nowEpochMs) drawCaptureHoldGarrison2D(deps.ctx, t, deps.effectiveOverlayColor(t.ownerId), px, py, size, nowEpochMs);

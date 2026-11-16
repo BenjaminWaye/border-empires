@@ -79,7 +79,7 @@ export const notifyIncomingAllianceRequest = (
   deps: DiplomacyNotificationDeps
 ): void => {
   if (!request?.id || !markUnseenRequest(state, "alliance", request.id)) return;
-  deps.pushFeed(allianceDetail(request), "alliance", "warn");
+  deps.pushFeed(allianceDetail(request), "alliance", "info");
 };
 
 export const notifyIncomingTruceRequest = (
@@ -88,7 +88,7 @@ export const notifyIncomingTruceRequest = (
   deps: DiplomacyNotificationDeps
 ): void => {
   if (!request?.id || !markUnseenRequest(state, "truce", request.id)) return;
-  deps.pushFeed(truceDetail(request), "alliance", "warn");
+  deps.pushFeed(truceDetail(request), "alliance", "info");
 };
 
 type TruceUpdateNotificationState = Pick<
@@ -110,6 +110,7 @@ export const applyTruceUpdateMessage = (
   state.activeTruces = (msg.activeTruces as any[]) ?? state.activeTruces;
   state.truceBreaksThisSeason = (msg.truceBreaksThisSeason as any[]) ?? state.truceBreaksThisSeason;
   state.incomingTruceRequests = (msg.incomingTruceRequests as any[]) ?? state.incomingTruceRequests;
+  const answeredOutgoing = answeredOutgoingOffer(state.outgoingTruceRequests, msg.outgoingTruceRequests);
   state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[]) ?? state.outgoingTruceRequests;
   const announcement = msg.announcement as string | undefined;
   if (!announcement) {
@@ -129,6 +130,19 @@ export const applyTruceUpdateMessage = (
   // (Compared by the newest break, not the count: the server caps that list.)
   const iBrokeIt = latestBreakAt(state.truceBreaksThisSeason) > previousLatestBreakAt;
   if (broken && !iBrokeIt) deps.showCaptureAlert("Truce broken", announcement, "warn");
+  else if (answeredOutgoing) deps.showCaptureAlert(declined ? "Truce declined" : "Truce agreed", announcement, declined ? "warn" : "success");
+};
+
+/**
+ * True when an update drops one of your own pending offers: the other House
+ * answered it (or you withdrew it, which carries no announcement). The answer
+ * is a popup, not just an Activity-feed line, since the deal screen promised
+ * one ("Waiting for …") and the feed is off-screen on a phone.
+ */
+const answeredOutgoingOffer = (before: ReadonlyArray<{ id: string }>, after: unknown): boolean => {
+  if (!Array.isArray(after)) return false;
+  const remaining = new Set(after.map((request: { id?: string }) => request?.id));
+  return before.some((request) => !remaining.has(request.id));
 };
 
 // Tolerates a state or message without the list (an older gateway, a partial test state).
@@ -169,11 +183,13 @@ export const applyAllianceUpdateMessage = (
   state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? state.activeAllianceBreaks;
   state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? state.recentAllianceBreaks;
   state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
+  const answeredOutgoing = answeredOutgoingOffer(state.outgoingAllianceRequests, msg.outgoingAllianceRequests);
   state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
   const announcement = msg.announcement as string | undefined;
   if (!announcement) return;
-  const { tone } = allianceAnnouncementTitle(announcement);
+  const { title, tone } = allianceAnnouncementTitle(announcement);
   deps.pushFeed(announcement, "alliance", tone === "success" ? "success" : tone);
+  if (answeredOutgoing) deps.showCaptureAlert(title, announcement, tone);
 };
 
 export const notifyIncomingDiplomacyRequestsOnInit = (
@@ -184,8 +200,8 @@ export const notifyIncomingDiplomacyRequestsOnInit = (
 ): void => {
   const unseenAllianceRequests = allianceRequests.filter((request) => request.id && markUnseenRequest(state, "alliance", request.id));
   const unseenTruceRequests = truceRequests.filter((request) => request.id && markUnseenRequest(state, "truce", request.id));
-  for (const request of unseenAllianceRequests) deps.pushFeed(allianceDetail(request), "alliance", "warn");
-  for (const request of unseenTruceRequests) deps.pushFeed(truceDetail(request), "alliance", "warn");
+  for (const request of unseenAllianceRequests) deps.pushFeed(allianceDetail(request), "alliance", "info");
+  for (const request of unseenTruceRequests) deps.pushFeed(truceDetail(request), "alliance", "info");
 };
 
 export const notifyActiveAllianceBreaksOnInit = (

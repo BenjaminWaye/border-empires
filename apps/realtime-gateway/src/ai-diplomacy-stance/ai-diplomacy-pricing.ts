@@ -1,11 +1,11 @@
 // What an AI wants for a truce or alliance with one player, Civ-style. Prices
 // are hours of the AI's own income: a poor AI asks little whoever is buying,
 // so a strong economy can buy off weak neighbours cheaply. A truce costs:
-//   - nothing between empires whose borders don't meet and who aren't fighting
+//   - 2h between empires whose borders don't meet and who aren't fighting
 //   - 12h between neighbours at peace, 24h at war, 48h if the AI is winning
 //   - plus 1h per tile the player recently took from the AI (reparations)
 //   - scaled by attitude, and up 50% for every truce the player bought recently
-//   - minus the base price entirely when the AI is desperate (armies spent, starving)
+//   - minus the base price when the AI is desperate and the requester is a neighbour or at war
 //   - up 50% within 30 min of the player attacking (fresh aggression). In that
 //     window the AI only refuses outright when it has a counter-attack ready
 //     and the border is worth it (ai-retaliation-readiness.ts), and it never
@@ -36,12 +36,12 @@ import { AI_TEMPERAMENTS, type AiTemperament } from "./ai-diplomacy-temperament.
 import type { AiRetaliationReadiness } from "./ai-retaliation-readiness.js";
 import type { AiWarOutlook } from "./ai-war-outlook.js";
 
-export const TRUCE_HOURS = { apartAtPeace: 0, neighboursAtPeace: 12, atWar: 24, aiWinning: 48 } as const;
+export const TRUCE_HOURS = { apartAtPeace: 2, neighboursAtPeace: 12, atWar: 24, aiWinning: 48 } as const;
 export const REPARATION_HOURS_PER_TILE = 1;
 export const REPEAT_TRUCE_SURCHARGE = 0.5;
 export const LONG_TRUCE_MULTIPLIER = 1.5;
 export const ATTITUDE_PRICE_MULTIPLIER: Record<AiAttitude, number> = { FURIOUS: 2, ANNOYED: 1.5, CAUTIOUS: 1, PLEASED: 0.75, FRIENDLY: 0.5 };
-/** A desperate AI (armies spent, food running out) takes peace for free; only reparations remain. */
+/** A desperate AI waives the base price for neighbours and opponents; reparations remain. */
 export const DESPERATE_DISCOUNT = 0;
 /** Most a losing AI pays for peace: hours of its own income, and share of its coin. */
 export const AI_PEACE_PAYMENT_HOURS = 6;
@@ -156,13 +156,14 @@ export const aiDiplomacyPricing = (input: {
         ? war.aiWinning ? TRUCE_HOURS.aiWinning : TRUCE_HOURS.atWar
         : input.bordersTouch ? TRUCE_HOURS.neighboursAtPeace : TRUCE_HOURS.apartAtPeace;
       const reparationHours = memory.tilesTakenFromAi * REPARATION_HOURS_PER_TILE * temperament.tileGrudge;
-      const desperation = input.stanceKind === "SEEKING_PEACE" ? DESPERATE_DISCOUNT : 1;
+      const desperation = input.stanceKind === "SEEKING_PEACE" && (input.bordersTouch || war.atWar) ? DESPERATE_DISCOUNT : 1;
       const repeat = 1 + REPEAT_TRUCE_SURCHARGE * memory.truceDeals;
       const fresh = freshAttack ? 1 + FRESH_ATTACK_SURCHARGE : 1;
       const hours = (baseHours * temperament.trucePrice * ATTITUDE_PRICE_MULTIPLIER[opinion.attitude] * desperation + reparationHours) * repeat * fresh;
       const corps = input.requesterTruceCostMult ?? 1;
-      truce12 = hoursToCoin(hours * corps, aiIncome);
-      truce24 = hoursToCoin(hours * LONG_TRUCE_MULTIPLIER * corps, aiIncome);
+      const minimumCoin = desperation === DESPERATE_DISCOUNT && reparationHours === 0 ? 0 : 1;
+      truce12 = Math.max(minimumCoin, hoursToCoin(hours * corps, aiIncome));
+      truce24 = Math.max(minimumCoin, hoursToCoin(hours * LONG_TRUCE_MULTIPLIER * corps, aiIncome));
     }
   }
 

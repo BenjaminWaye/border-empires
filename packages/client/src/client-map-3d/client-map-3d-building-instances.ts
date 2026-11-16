@@ -53,10 +53,7 @@ export const addBuildingInstancesForTile = (
   const structure = tile.economicStructure;
   if (structure && !handled?.economic) {
     const frozen = remembered || buildingAnimationFrozen(structure.status);
-    if (structure.type === "UMBRITE_RIG") {
-      overlays.umbriteExtractionRigOverlay.addInstance(x, z, surfaceY, wx, wy);
-      shadow();
-    } else if (structure.type === "UMBRITE_WEAPONS_FACTORY") {
+    if (structure.type === "UMBRITE_WEAPONS_FACTORY") {
       overlays.umbriteWeaponsFactoryOverlay.addInstance(x, z, surfaceY, wx, wy, frozen);
       shadow();
     } else if (structure.type === "TRADE_NEXUS") {

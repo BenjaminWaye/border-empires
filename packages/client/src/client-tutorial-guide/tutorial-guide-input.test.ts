@@ -125,7 +125,7 @@ describe("scanGuideFootholdTargets", () => {
       { x: 6, y: 6, resource: "TITANIUM" },
       { x: 7, y: 7, ownerId: ME, ownershipState: "FRONTIER", resource: "FARM", optimisticPending: "expand" }
     ]);
-    expect(scanGuideFootholdTargets(tiles.values(), ME, () => 0)).toEqual({
+    expect(scanGuideFootholdTargets(tiles.values(), ME, () => 0, () => true)).toEqual({
       town: { pending: [], garrison: [{ x: 2, y: 0 }], expand: [{ x: 9, y: 0 }] },
       food: { pending: [{ x: 7, y: 7 }], garrison: [{ x: 1, y: 1 }], expand: [{ x: 3, y: 3 }] }
     });

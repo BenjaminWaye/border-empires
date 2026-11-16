@@ -51,7 +51,7 @@ describe("isRelayBeaconSiteCandidate", () => {
     expect(candidate(land(0, 0, { terrain: "SEA" }))).toBe(false);
     expect(candidate(owned(0, 0, { ownershipState: "FRONTIER", optimisticPending: "settle" }))).toBe(false);
     expect(candidate(owned(0, 0, { ownershipState: "FRONTIER", observatory: { ownerId: ME, status: "active" } }))).toBe(false);
-    expect(candidate(land(0, 0, { economicStructure: { ownerId: "old", type: "MINE", status: "inactive" } }))).toBe(false);
+    expect(candidate(land(0, 0, { economicStructure: { ownerId: "old", type: "MANUFACTORY", status: "inactive" } }))).toBe(false);
   });
 
   it("never recommends a town or dock the player hasn't garrisoned: taking it extends reach without a beacon", () => {

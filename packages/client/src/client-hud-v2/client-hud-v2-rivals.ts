@@ -1,5 +1,5 @@
 // Top-right of the new HUD: the season clock line and the rivals strip.
-// Rivals show truces first, then allies, then everyone else you've met, capped,
+// Rivals show wars first, then truces, then allies, then everyone else you've met, capped,
 // with an overflow count that opens Diplomacy. Stance is an icon plus text, never colour alone.
 
 import type { ActiveTruceView, SeasonVictoryObjectiveView, SeasonWinnerView } from "../client-types.js";
@@ -11,12 +11,14 @@ export type RivalInput = {
   metPlayerIds: ReadonlySet<string>;
   allies: readonly string[];
   activeTruces: readonly ActiveTruceView[];
+  /** Who is at war with you now (warOpponentIds); they read WAR, not NO PACT. */
+  warPlayerIds?: ReadonlySet<string>;
   nameOf: (playerId: string) => string;
   colorOf: (playerId: string) => string | undefined;
   nowMs: number;
 };
 
-export type RivalToken = { id: string; name: string; initial: string; color: string; stance: "truce" | "ally" | "met"; label: string };
+export type RivalToken = { id: string; name: string; initial: string; color: string; stance: "war" | "truce" | "ally" | "met"; label: string };
 
 export const RIVAL_STRIP_CAP = 5;
 
@@ -28,10 +30,16 @@ const hoursLeft = (endsAt: number, nowMs: number): string => {
   return h >= 1 ? `${h}h` : "<1h";
 };
 
-/** Truces first (soonest to end), then allies, then the rest you've met; past the cap is the overflow count. */
+/** Wars first, then truces (soonest to end), then allies, then the rest you've met; past the cap is the overflow count. */
 export const rivalTokens = (input: RivalInput): { shown: RivalToken[]; hidden: number } => {
   const tokens: RivalToken[] = [];
   const seen = new Set<string>();
+  const friendly = new Set([...input.allies, ...input.activeTruces.map((t) => t.otherPlayerId)]);
+  for (const id of input.warPlayerIds ?? []) {
+    if (id === input.me || seen.has(id) || friendly.has(id)) continue;
+    seen.add(id);
+    tokens.push(token(input, id, "war", "WAR"));
+  }
   const truces = [...input.activeTruces].filter((t) => t.otherPlayerId !== input.me).sort((a, b) => a.endsAt - b.endsAt);
   for (const t of truces) {
     if (seen.has(t.otherPlayerId)) continue;
@@ -46,7 +54,7 @@ export const rivalTokens = (input: RivalInput): { shown: RivalToken[]; hidden: n
   for (const id of input.metPlayerIds) {
     if (id === input.me || seen.has(id)) continue;
     seen.add(id);
-    tokens.push(token(input, id, "met", "MET"));
+    tokens.push(token(input, id, "met", "NO PACT"));
   }
   return { shown: tokens.slice(0, RIVAL_STRIP_CAP), hidden: Math.max(0, tokens.length - RIVAL_STRIP_CAP) };
 };

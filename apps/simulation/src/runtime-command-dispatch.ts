@@ -46,9 +46,10 @@ export type RuntimeCommandDispatchHandlers = {
   handleAegisLockCommand: (command: CommandEnvelope) => void;
   handleAstralDockLaunchCommand: (command: CommandEnvelope) => void;
   handleTitaniumLevyMusterCommand: (command: CommandEnvelope) => void;
-  handleActivateImperialWardCommand: (command: CommandEnvelope) => void;
   handleSetAutoSettlePrefsCommand: (command: CommandEnvelope) => void;
   handleNameIslandCommand: (command: CommandEnvelope) => void;
+  handleChooseHouseChargesCommand: (command: CommandEnvelope) => void;
+  handleExploreCommand: (command: CommandEnvelope) => void;
   handleUpgradeTownTierCommand: (command: CommandEnvelope) => void;
   handleSyncAllianceCommand: (command: CommandEnvelope) => void;
   handleSyncTruceCommand: (command: CommandEnvelope) => void;
@@ -115,16 +116,17 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CREATE_MOUNTAIN") return handlers.handleCreateMountainCommand(command);
   if (command.type === "REMOVE_MOUNTAIN") return handlers.handleRemoveMountainCommand(command);
   if (command.type === "RETORT_RECAST") return handlers.handleRetortRecastCommand(command);
-  if (command.type === "REDEPLOY_AFC_MODULE" || command.type === "BUILD_AFC") return handlers.handleBuildStructureCommand(command);
+  if (command.type === "REDEPLOY_AFC_MODULE" || command.type === "BUILD_AFC" || command.type === "ASSIGN_REFINERY_FIELD") return handlers.handleBuildStructureCommand(command);
   if (command.type === "SKY_DOCK_BOMBARD") return handlers.handleSkyDockBombardCommand(command);
   if (command.type === "IMPERIAL_EXCHANGE_LEVY") return handlers.handleImperialExchangeLevyCommand(command);
   if (command.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE") return handlers.handleSovereignSiegeEngineStrikeCommand(command);
   if (command.type === "AEGIS_LOCK") return handlers.handleAegisLockCommand(command);
   if (command.type === "ASTRAL_DOCK_LAUNCH") return handlers.handleAstralDockLaunchCommand(command);
   if (command.type === "TITANIUM_LEVY_MUSTER") return handlers.handleTitaniumLevyMusterCommand(command);
-  if (command.type === "ACTIVATE_IMPERIAL_WARD") return handlers.handleActivateImperialWardCommand(command);
   if (command.type === "SET_AUTO_SETTLE_PREFS") return handlers.handleSetAutoSettlePrefsCommand(command);
   if (command.type === "NAME_ISLAND") return handlers.handleNameIslandCommand(command);
+  if (command.type === "CHOOSE_HOUSE_CHARGES") return handlers.handleChooseHouseChargesCommand(command);
+  if (command.type === "EXPLORE") return handlers.handleExploreCommand(command);
   if (command.type === "UPGRADE_TOWN_TIER") return handlers.handleUpgradeTownTierCommand(command);
   if (command.type === "SYNC_ALLIANCE") return handlers.handleSyncAllianceCommand(command);
   if (command.type === "SYNC_TRUCE") return handlers.handleSyncTruceCommand(command);
@@ -173,6 +175,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "CHOOSE_DOMAIN" ||
   command.type === "SET_CONVERTER_STRUCTURE_ENABLED" ||
   command.type === "SET_CONVERTER_STRUCTURE_MODE" ||
+  command.type === "ASSIGN_REFINERY_FIELD" ||
   command.type === "SET_OBSERVATORY_ENABLED" ||
   command.type === "REVEAL_EMPIRE" ||
   command.type === "REVEAL_EMPIRE_STATS" ||
@@ -201,9 +204,10 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "AEGIS_LOCK" ||
   command.type === "ASTRAL_DOCK_LAUNCH" ||
   command.type === "TITANIUM_LEVY_MUSTER" ||
-  command.type === "ACTIVATE_IMPERIAL_WARD" ||
   command.type === "SET_AUTO_SETTLE_PREFS" ||
   command.type === "NAME_ISLAND" ||
+  command.type === "CHOOSE_HOUSE_CHARGES" ||
+  command.type === "EXPLORE" ||
   command.type === "UPGRADE_TOWN_TIER" ||
   command.type === "SYNC_ALLIANCE" ||
   command.type === "SYNC_TRUCE" ||

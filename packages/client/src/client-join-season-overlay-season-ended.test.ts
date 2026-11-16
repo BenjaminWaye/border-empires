@@ -35,7 +35,8 @@ describe("join-season overlay after the season has ended", () => {
     try {
       const overlayEl = document.createElement("div");
       const state = makeState({ joinSeasonPending: true }) as any;
-      const renderHud = vi.fn(() => renderJoinSeasonOverlay({ state, overlayEl, renderHud, joinSeason: () => true }));
+      // joinSeason fails on the re-render so the automatic retry cannot re-arm the spinner.
+      const renderHud = vi.fn(() => renderJoinSeasonOverlay({ state, overlayEl, renderHud, joinSeason: () => false }));
       renderJoinSeasonOverlay({ state, overlayEl, renderHud, joinSeason: () => true });
       expect(overlayEl.querySelector("#join-season-confirm")?.classList.contains("is-joining")).toBe(true);
       // An ERROR handler clears the flag but never asks the HUD to redraw.

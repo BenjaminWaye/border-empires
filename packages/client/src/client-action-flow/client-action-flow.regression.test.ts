@@ -116,8 +116,10 @@ describe("client action flow regressions", () => {
     // even when it touched the player's own territory.
     expect(source).toContain('const isLand = clicked?.terrain === "LAND";');
     expect(source).toContain('const isNeutral = !clicked?.ownerId;');
+    // Mouse clicks only: a touch tap opens the sheet (tap-to-inspect, see
+    // client-tile-interaction.ts).
     expect(source).toContain(
-      'const frontierOrigin = isLand && isNeutral ? pickOriginForTarget(wx, wy, false) : undefined;'
+      'const frontierOrigin = isLand && isNeutral && tapClaimsAdjacentTile(tapInput) ? pickOriginForTarget(wx, wy, false) : undefined;'
     );
   });
 
@@ -137,28 +139,26 @@ describe("client action flow regressions", () => {
     // opening the tile menu. Reverted: every click site here passes `false`
     // explicitly, so only a click on the dock's landing ground (handled by
     // pickDockOriginForTarget, unaffected by this flag) instant-expands.
-    expect(source).toContain("const frontierOrigin = pickOriginForTarget(wx, wy, false);");
     expect(source).toContain("const frontierOrigin = pickOriginForTarget(to.x, to.y, false);");
     expect(source).toContain("const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false);");
   });
 
-  it("routes an unexplored tile adjacent to owned territory into a direct frontier-expand claim instead of the waypoint-only menu", () => {
+  it("opens the Explore menu for every unexplored tile, even one touching owned territory -- never a direct claim", () => {
     const source = actionFlowSource();
 
-    // Previously an unexplored tile always went through
-    // openUnexploredTileActionMenu, whose only possible action is a
-    // multi-hop waypoint — and that helper explicitly declines to offer
-    // even a waypoint when the tile is adjacent-reachable, so an
-    // unexplored tile touching the player's territory offered nothing.
+    // docs/explore-scout-plan.md: pressing unexplored ground launches the
+    // scout drone (Explore); Expand To no longer works on unexplored tiles,
+    // so the old adjacent-tile quick claim must not come back here.
     expect(source).toContain("openUnexploredTileActionMenu(state, wx, wy, clientX, clientY,");
     const unexploredBranch = source.slice(
-      0,
+      source.indexOf('if (vis === "unexplored") {\n      // Unexplored ground'),
       source.indexOf("openUnexploredTileActionMenu(state, wx, wy, clientX, clientY,")
     );
-    expect(unexploredBranch.slice(-600)).toContain("queueAdjacentExpandClaim(wx, wy);");
+    expect(unexploredBranch.length).toBeGreaterThan(0);
+    expect(unexploredBranch).not.toContain("queueAdjacentExpandClaim");
   });
 
-  it("always auto-claims an adjacent unowned tile with a single click, regardless of reach -- no menu detour", () => {
+  it("auto-claims an adjacent unowned tile with a single mouse click, regardless of reach -- no menu detour", () => {
     const source = actionFlowSource();
 
     // An earlier version of this file gated the quick-claim shortcuts on
@@ -169,13 +169,14 @@ describe("client action flow regressions", () => {
     // Adjacent-tile clicks (fogged, unexplored, and visible) go straight to
     // queueAdjacentExpandClaim again; reach only affects what's *visible*
     // once a menu is actually opened some other way (e.g. re-clicking an
-    // already-queued tile), never whether the quick-claim fires.
+    // already-queued tile), never whether the quick-claim fires. Touch taps
+    // are the exception: they inspect first (tapInput, 2026-11-12 playtest).
     expect(source).not.toContain("targetInReach: clickTargetInReach");
     expect(source).not.toContain("if (frontierOrigin && isTargetInLocalReach(wx, wy)) {");
     const visibleBranchStart = source.indexOf("const to = clicked;");
     const visibleBranch = source.slice(visibleBranchStart, visibleBranchStart + 600);
     expect(visibleBranch).toContain(
-      "const clickOutcome = neutralTileClickOutcome({\n      isLand: to.terrain === \"LAND\",\n      isFogged: Boolean(to.fogged),\n      hasFrontierOrigin: Boolean(frontierOrigin),\n      isNeutral: !to.ownerId\n    });"
+      "const clickOutcome = neutralTileClickOutcome({\n      isLand: to.terrain === \"LAND\",\n      isFogged: Boolean(to.fogged),\n      hasFrontierOrigin: Boolean(frontierOrigin),\n      isNeutral: !to.ownerId,\n      tapInput\n    });"
     );
   });
 
@@ -189,7 +190,7 @@ describe("client action flow regressions", () => {
     // tryDrainClaimContinuationBuildTail). Whichever command lost the race
     // got rejected with BUILD_INVALID "tile already has structure", even
     // though the structure was actually built successfully by the winner.
-    // The placement-overlay structures (ORE_REFINERY/HYDROWORKS) are the one
+    // The placement-overlay structure (HYDROWORKS) is the one
     // exception -- those need the player to pick an exact adjacent tile via
     // the placement overlay, so they still trigger locally. That exception is
     // keyed off the shared structureRequiresClientPlacement predicate, which
@@ -199,17 +200,17 @@ describe("client action flow regressions", () => {
     expect(source).toContain("processAutoBuilds(state, triggerBuildForStructureType)");
     const state = createInitialState();
     state.me = "me";
-    for (const [x, type] of [[1, "HYDROGARDEN"], [2, "ORE_REFINERY"], [3, "HYDROWORKS"]] as const) {
+    for (const [x, type] of [[1, "HYDROGARDEN"], [2, "HYDROWORKS"], [3, "MANUFACTORY"]] as const) {
       const key = `${x},0`;
       state.tiles.set(key, { x, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" });
       state.autoBuildTargets.set(key, type);
     }
     const trigger = vi.fn<(type: string) => void>();
     processAutoBuilds(state, trigger);
-    expect(trigger.mock.calls.map(([type]) => type)).toEqual(["ORE_REFINERY", "HYDROWORKS"]);
+    expect(trigger.mock.calls.map(([type]) => type)).toEqual(["HYDROWORKS"]);
     expect(state.autoBuildTargets.size).toBe(0);
     processAutoBuilds(state, trigger);
-    expect(trigger).toHaveBeenCalledTimes(2);
+    expect(trigger).toHaveBeenCalledTimes(1);
   });
 
   it("delegates settle_land on a non-adjacent-but-in-reach neutral tile into the waypoint machinery instead of a doomed direct claim", () => {

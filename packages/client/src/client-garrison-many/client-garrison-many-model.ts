@@ -50,7 +50,7 @@ export const buildGarrisonManyPlan = (state: ClientState): GarrisonManyPlan => {
   const reservedManpower = queuedSettlements * state.settleManpowerCost;
   let blocked = "";
   if (!state.authSessionReady) blocked = "Waiting for connection";
-  else if (!state.garrisonMany.keys.length) blocked = "Select frontier tiles";
+  else if (!state.garrisonMany.keys.length) blocked = "Tap your frontier tiles inside your reach";
   else if (excluded.length) blocked = `${excluded.length === 1 ? "A selected tile is" : `${excluded.length} selected tiles are`} no longer available. Deselect the orange ${excluded.length === 1 ? "tile" : "tiles"}.`;
   else if (tiles.length + state.developmentQueue.length > DEV_QUEUE_TOTAL_CAP) blocked = `Queue has room for ${Math.max(0, DEV_QUEUE_TOTAL_CAP - state.developmentQueue.length)} more tiles`;
   else if (state.manpower < manpower + reservedManpower) blocked = `Need ${manpower + reservedManpower} manpower including existing queued garrisons; ${Math.floor(state.manpower)} available`;

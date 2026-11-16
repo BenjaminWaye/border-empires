@@ -53,7 +53,7 @@ describe("3d resource-dormancy badge regression guard", () => {
     // §21.1: generalized from a single food-only overlay to one overlay per
     // resource icon (FOOD/TITANIUM/CRYSTAL/UMBRITE), driven off the shared
     // dormantStructures wire field. Unfed towns moved to the town nameplate.
-    expect(source).toContain("createResourceBadgeOverlay");
+    expect(source).toContain("createSlotResourceBadgeOverlays");
     expect(source).toContain("resourceBadgeOverlays");
     expect(source).toContain("resourceBadgeOverlays[dormantStructureResource].addInstance");
     // Every resource badge overlay shares one clear/commit/tick/dispose loop.

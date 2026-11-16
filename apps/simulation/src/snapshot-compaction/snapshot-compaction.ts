@@ -103,8 +103,11 @@ export type V1SnapshotPayload = {
   season?: RecoveredSimulationState["season"];
   players?: RecoveredSimulationState["players"];
   pendingSettlements?: RecoveredSimulationState["pendingSettlements"];
+  resourceSupplyAgreements?: RecoveredSimulationState["resourceSupplyAgreements"];
+  resourceSupplyJournalSequence?: number;
   playerYieldCollectionEpochByPlayer?: RecoveredSimulationState["playerYieldCollectionEpochByPlayer"];
   reachBorder?: RecoveredSimulationState["reachBorder"];
+  exploredTiles?: RecoveredSimulationState["exploredTiles"];
   commandEvents: StoredSnapshotCommandEvents[];
 };
 
@@ -295,11 +298,14 @@ export const compactSnapshotForStorage = async (
     activeLocks: initialState.activeLocks,
     ...(initialState.season ? { season: initialState.season } : {}),
     ...(initialState.players ? { players: initialState.players } : {}),
+    ...(initialState.resourceSupplyAgreements ? { resourceSupplyAgreements: initialState.resourceSupplyAgreements } : {}),
+    ...(initialState.resourceSupplyJournalSequence ? { resourceSupplyJournalSequence: initialState.resourceSupplyJournalSequence } : {}),
     ...(initialState.pendingSettlements ? { pendingSettlements: initialState.pendingSettlements } : {}),
     ...(initialState.playerYieldCollectionEpochByPlayer
       ? { playerYieldCollectionEpochByPlayer: initialState.playerYieldCollectionEpochByPlayer }
       : {}),
     ...(initialState.reachBorder ? { reachBorder: initialState.reachBorder } : {}),
+    ...(initialState.exploredTiles ? { exploredTiles: initialState.exploredTiles } : {}),
     commandEvents
   };
 };
@@ -338,9 +344,22 @@ export const expandSnapshotFromStorage = (
   const overlayByKey = new Map<string, V1OverlayTile>();
   for (const overlay of v1.tileOverlay) overlayByKey.set(tileKey(overlay.x, overlay.y), overlay);
   const tiles: RecoveredTile[] = baselineTiles.map((baseline) => {
-    const overlay = overlayByKey.get(tileKey(baseline.x, baseline.y));
-    return overlay ? applyOverlayToBaseline(baseline, overlay) : baseline;
+    const key = tileKey(baseline.x, baseline.y);
+    const overlay = overlayByKey.get(key);
+    if (!overlay) return baseline;
+    overlayByKey.delete(key);
+    return applyOverlayToBaseline(baseline, overlay);
   });
+  // Overlay rows with no baseline tile are full tiles, not diffs: the save
+  // side emits every runtime tile it can't match (all of them when the
+  // resolver returns [] — e.g. `seed:*` rulesets). Dropping them here loaded
+  // an empty world, so recovery fell back to the seed world and wiped every
+  // empire on restart. Terrain is always present on such rows (baseline-less
+  // diff includes every defined mutable field).
+  for (const overlay of overlayByKey.values()) {
+    if (overlay.terrain === undefined || overlay.terrain === null) continue;
+    tiles.push(applyOverlayToBaseline({ x: overlay.x, y: overlay.y, terrain: overlay.terrain }, overlay));
+  }
   return {
     initialState: {
       tiles,
@@ -348,9 +367,12 @@ export const expandSnapshotFromStorage = (
       activeLocks: v1.activeLocks,
       ...(v1.season ? { season: v1.season } : {}),
       ...(v1.players ? { players: v1.players } : {}),
+      ...(v1.resourceSupplyAgreements ? { resourceSupplyAgreements: v1.resourceSupplyAgreements } : {}),
+      ...(v1.resourceSupplyJournalSequence ? { resourceSupplyJournalSequence: v1.resourceSupplyJournalSequence } : {}),
       ...(v1.pendingSettlements ? { pendingSettlements: v1.pendingSettlements } : {}),
       ...(v1.playerYieldCollectionEpochByPlayer ? { playerYieldCollectionEpochByPlayer: v1.playerYieldCollectionEpochByPlayer } : {}),
-      ...(v1.reachBorder ? { reachBorder: v1.reachBorder } : {})
+      ...(v1.reachBorder ? { reachBorder: v1.reachBorder } : {}),
+      ...(v1.exploredTiles ? { exploredTiles: v1.exploredTiles } : {})
     },
     commandEvents: v1.commandEvents
   };

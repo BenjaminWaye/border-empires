@@ -1,6 +1,7 @@
-import { fullDefensibilityExposureForTiles, idealExposureForTiles, integrityEconomyMult, integrityGrowthMult } from "@border-empires/shared";
+import { formatCoinPerDay, INTEGRITY_GRACE_FLOOR, INTEGRITY_GRACE_TILES, defensibilityScore, fullDefensibilityExposureForTiles, idealExposureForTiles, integrityEconomyMult, integrityGrowthMult } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
+import { weakDefensibilityEntries, type WeakDefensibilityEntry } from "../client-defensibility-weak-tiles/client-defensibility-weak-tiles.js";
 
 type DefensibilityBreakdown = {
   exposedEdges: number;
@@ -18,6 +19,8 @@ type DefensibilityArgs = {
   settledE: number;
   showWeakDefensibility: boolean;
   empireIntegrityEnabled: boolean;
+  /** The Empire Integrity line of the shared coin breakdown (what accrual actually pays). */
+  integrityCoinPerMinute?: number;
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
@@ -30,8 +33,22 @@ const settledOwnedTiles = (args: Pick<DefensibilityArgs, "tiles" | "me">): Tile[
 const settledTileExposureEntries = (args: Pick<DefensibilityArgs, "tiles" | "me" | "keyFor" | "wrapX" | "wrapY" | "terrainAt">) =>
   settledOwnedTiles(args).map((tile) => ({ tile, exposedSides: exposedSidesForTile(tile, args) }));
 
-const weakDefensibilityTiles = (args: Pick<DefensibilityArgs, "tiles" | "me" | "keyFor" | "wrapX" | "wrapY" | "terrainAt">) =>
-  settledTileExposureEntries(args).filter((entry) => entry.exposedSides.length >= 2);
+const WEAK_TILE_LIST_LIMIT = 8;
+
+// Shown under the toggle while weak tiles are highlighted: where each one is
+// and why it is weak, with a button that pans the camera to it.
+const weakTileListHtml = (entries: readonly WeakDefensibilityEntry[]): string => {
+  if (entries.length === 0) return "";
+  const rows = entries
+    .slice(0, WEAK_TILE_LIST_LIMIT)
+    .map(
+      (entry) =>
+        `<li class="defense-weak-tile is-${entry.severity}"><button class="panel-btn defense-weak-tile-go" type="button" data-weak-def-focus="${entry.x},${entry.y}">(${entry.x}, ${entry.y})</button><span>${entry.reason}</span></li>`
+    )
+    .join("");
+  const more = entries.length > WEAK_TILE_LIST_LIMIT ? `<p class="defense-copy">+${entries.length - WEAK_TILE_LIST_LIMIT} more highlighted on the map.</p>` : "";
+  return `<ul class="defense-weak-tile-list">${rows}</ul>${more}`;
+};
 
 const formatDefenseNumber = (value: number): string => (Number.isInteger(value) ? `${value}` : value.toFixed(1));
 
@@ -88,20 +105,28 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
   };
   const summary = defensibilityBreakdown(sharedArgs);
   const rounded = Math.round(args.defensibilityPct);
-  const weakCount = weakDefensibilityTiles(sharedArgs).length;
+  const weakEntries = weakDefensibilityEntries(sharedArgs);
+  const weakCount = weakEntries.length;
   const authoritativeSettledTiles = Math.max(0, Number.isFinite(args.settledT) ? args.settledT : 0);
   const authoritativeWeightedExposure = Math.max(0, Number.isFinite(args.settledE) ? args.settledE : 0);
   const compactFrontierTarget = authoritativeSettledTiles > 0 ? idealExposureForTiles(authoritativeSettledTiles) : 0;
   const fullScoreCutoff = authoritativeSettledTiles > 0 ? fullDefensibilityExposureForTiles(authoritativeSettledTiles) : 0;
   const weightedExposureClass = authoritativeWeightedExposure <= fullScoreCutoff ? "is-positive" : "is-negative";
   const goodShape = rounded >= 100;
+  // The score is relative to empire size: a single garrisoned tile with 4
+  // open sides is already as compact as one tile can be. Say that, rather
+  // than calling it a "tight blob" (playtest 2026-11-12).
+  const tileWord = authoritativeSettledTiles === 1 ? "tile" : "tiles";
   const shapeClause = goodShape
-    ? "Great shape! Your kingdom is squished into a tight blob, so very few sides face open ground for enemies to attack."
+    ? `Great shape! For ${authoritativeSettledTiles} garrisoned ${tileWord}, you have no more open sides than the most compact empire your size, so enemies have few places to attack.`
     : "Your kingdom has too many sides facing open ground where enemies can attack. Try to grow into one fat blob instead of long thin shapes.";
+  // New-empire grace (empire-integrity.ts) holds the score up while the shape alone would score lower.
+  const graceHolds = authoritativeSettledTiles > 0 && Math.round(defensibilityScore(authoritativeSettledTiles, authoritativeWeightedExposure) * 100) < rounded;
+  const graceClause = graceHolds ? ` New empires keep at least ${Math.round(INTEGRITY_GRACE_FLOOR * 100)}% until ${INTEGRITY_GRACE_TILES} garrisoned tiles.` : "";
   const economicClause = args.empireIntegrityEnabled
     ? (goodShape ? " You're earning the full income and growth bonus." : " Your income and growth bonus scales with this score.")
     : "";
-  const scoreCopy = shapeClause + economicClause;
+  const scoreCopy = shapeClause + graceClause + economicClause;
   return `<div class="defense-panel">
     <article class="card defense-hero-card">
       <div class="defense-hero-head">
@@ -112,6 +137,7 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
       </div>
       <p class="defense-copy">${scoreCopy}</p>
       <button class="panel-btn defense-toggle-btn" type="button" data-toggle-weak-def="true">${args.showWeakDefensibility ? "Hide weak tiles" : "Show weak tiles"}${weakCount > 0 ? ` (${weakCount})` : ""}</button>
+      ${args.showWeakDefensibility ? weakTileListHtml(weakEntries) : ""}
     </article>
     <article class="card defense-breakdown-card">
       <strong>What is an "open side"?</strong>
@@ -152,7 +178,7 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
         <strong>Income &amp; growth effect</strong>
         <p class="defense-copy">Compact empires earn a bonus; sprawling empires take a penalty. At 100% that's ${sign(maxEconPct)} income and ${sign(maxGrowthPct)} growth — at 0% it flips to ${sign(minEconPct)} and ${sign(minGrowthPct)}.</p>
         <div class="defense-stat-grid">
-          <div class="defense-stat"><span>Income effect</span><strong class="${cls(econPct)}">${sign(econPct)}</strong></div>
+          <div class="defense-stat"><span>Income effect</span><strong class="${cls(econPct)}">${sign(econPct)}${args.integrityCoinPerMinute ? ` · ${formatCoinPerDay(args.integrityCoinPerMinute)}` : ""}</strong></div>
           <div class="defense-stat"><span>Growth effect</span><strong class="${cls(growthPct)}">${sign(growthPct)}</strong></div>
         </div>
       </article>`;

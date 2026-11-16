@@ -497,7 +497,7 @@ export const buildGatewayInitPayload = (
       }
     },
     techChoices,
-    techCatalog: buildInitTechCatalog(techTree.techs, { researchedCount: techIds.length, techChoices, availableGold, availableStrategic }),
+    techCatalog: buildInitTechCatalog(techTree.techs, { researchedCount: techIds.length, techChoices, availableGold, availableStrategic, manifestGoldDiscount: liveSnapshotPlayer?.manifestGoldDiscount ?? 0 }),
     domainChoices,
     domainCatalog: buildInitDomainCatalog(domainCatalogForPlayer(progression), { reachableDomainChoiceSet, availableGold, availableStrategic }),
     leaderboard: {

@@ -19,10 +19,8 @@ import {
   type TileKey
 } from "@border-empires/shared";
 import {
-  createServerWorldgenClusters,
   createServerWorldgenNaturalWonders,
   key as tileKeyOf,
-  parseKey,
   type ClusterDefinition,
   type NaturalWonderSiteState,
   type TownDefinition
@@ -30,7 +28,7 @@ import {
 import { computeSpawnSiteIndices, FAIR_SPAWN_SITE_TARGET } from "./worker-spawn-sites.js";
 import { biomeCodeFor } from "./worker-biome-code.js";
 import { placeDocks } from "./worker-docks.js";
-import { buildLabTerrainRuntime } from "./worker-terrain-runtime.js";
+import { applyLabStrategicReach, countResources, placeResourceClusters } from "./worker-clusters.js";
 import { createStageTracker, type StageTiming } from "./worker-progress.js";
 
 export type MapStyle = "continents" | "islands";
@@ -156,56 +154,6 @@ const isWorldValid = (style: WorldStyle, terrain: Uint8Array): boolean =>
   style === "islands"
     ? countIslands(terrain, SIGNIFICANT_ISLAND_TILES).significant >= ISLANDS_MIN_SIGNIFICANT
     : countIslands(terrain, CONTINENT_LANDMASS_MIN_TILES).significant >= CONTINENT_MIN_LANDMASSES;
-
-type ResourceCounts = { fish: number; titanium: number; gems: number; farm: number; umbrite: number; layer: Uint8Array };
-
-// Runs the real production cluster placement (server-worldgen-clusters.ts /
-// server-worldgen-terrain.ts) against the world state setWorldSeed() just
-// established, rather than re-deriving a biome-eligibility heatmap here —
-// so cluster sizes, counts, and the hills-sparse UMBRITE/GEMS pass all show up
-// exactly as they would in a real game. Most of ServerWorldgenTerrainDeps
-// is unrelated to cluster placement (frontier claims, dock/fort/observatory
-// economy) and is stubbed out the same way apps/simulation's
-// season-seed-world.ts stubs it for its own test/lab worlds.
-const placeResourceClusters = (seed: number, clusterByTile: Map<TileKey, string>): ResourceCounts => {
-  const clustersById = new Map<string, ClusterDefinition>();
-  const terrainRuntime = buildLabTerrainRuntime(seed, clusterByTile, clustersById);
-
-  const clustersRuntime = createServerWorldgenClusters({
-    clusterByTile,
-    clustersById,
-    clusterTypeDefs: terrainRuntime.clusterTypeDefs,
-    seeded01: terrainRuntime.seeded01,
-    WORLD_WIDTH,
-    WORLD_HEIGHT,
-    clusterRuleMatch: (x, y, resource) => terrainRuntime.resourcePlacementAllowed(x, y, resource, false),
-    clusterRuleMatchRelaxed: (x, y, resource) => terrainRuntime.resourcePlacementAllowed(x, y, resource, true),
-    clusterTileCountForResource: terrainRuntime.clusterTileCountForResource,
-    collectClusterTiles: terrainRuntime.collectClusterTiles,
-    collectClusterTilesRelaxed: terrainRuntime.collectClusterTilesRelaxed,
-    clusterRadiusForResource: terrainRuntime.clusterRadiusForResource,
-    key: tileKeyOf,
-    clusterResourceType: terrainRuntime.clusterResourceType
-  });
-  clustersRuntime.generateClusters(seed);
-
-  let fish = 0, titanium = 0, gems = 0, farm = 0, umbrite = 0;
-  const layer = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
-  for (const [tileKey, clusterId] of clusterByTile) {
-    const resourceType = clustersById.get(clusterId)?.resourceType;
-    if (!resourceType) continue;
-    const [x, y] = parseKey(tileKey);
-    // Display priority: FISH > TITANIUM > GEMS > FARM > UMBRITE
-    const code = resourceType === "FISH" ? 5 : resourceType === "TITANIUM" ? 4 : resourceType === "GEMS" ? 3 : resourceType === "FARM" ? 2 : resourceType === "UMBRITE" ? 1 : 0;
-    layer[y * WORLD_WIDTH + x] = code;
-    if (resourceType === "FISH") fish++;
-    else if (resourceType === "TITANIUM") titanium++;
-    else if (resourceType === "GEMS") gems++;
-    else if (resourceType === "FARM") farm++;
-    else if (resourceType === "UMBRITE") umbrite++;
-  }
-  return { fish, titanium, gems, farm, umbrite, layer };
-};
 
 // Replicates all three town-placement passes from game-domain.
 // Dock/cluster tiles are not tracked here (lab approximation), so count may be slightly high.
@@ -408,7 +356,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
   // dock/mainland detection) and resources (the real cluster placement).
   const clusterByTile = new Map<TileKey, string>();
   tracker.start("clusters");
-  const resources = placeResourceClusters(currentSeed, clusterByTile);
+  const clusters = placeResourceClusters(currentSeed, clusterByTile);
   tracker.finish("clusters");
 
   tracker.start("docks");
@@ -417,6 +365,10 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
 
   tracker.start("towns");
   const { count: townCount, indices: townIndices } = estimateTownCount(terrain, currentSeed);
+  // Refinery-reach guarantee (production runs it once towns are final);
+  // resources are counted afterwards so the layer shows the final deposits.
+  applyLabStrategicReach(currentSeed, clusters, townIndices, dockSiteIndices);
+  const resources = countResources(clusters);
   tracker.finish("towns");
 
   tracker.start("wonders");

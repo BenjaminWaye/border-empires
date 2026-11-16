@@ -95,16 +95,20 @@ describe("normalizeAutoSettlePrefs", () => {
 
 describe("auto-improve prefs", () => {
   it("maps each improvable resource to its improvement, and fish to none", () => {
-    expect(autoImproveStructureForResource("TITANIUM")).toBe("MINE");
-    expect(autoImproveStructureForResource("GEMS")).toBe("MINE");
+    // Strategic deposits take no on-tile improvement (a town refinery processes the field).
+    expect(autoImproveStructureForResource("TITANIUM")).toBeUndefined();
+    expect(autoImproveStructureForResource("UMBRITE")).toBeUndefined();
+    expect(autoImproveStructureForResource("GEMS")).toBeUndefined();
     expect(autoImproveStructureForResource("FARM")).toBe("HYDROGARDEN");
     expect(autoImproveStructureForResource("PRECURSOR_SALVAGE")).toBe("RECLAMATION_WORKS");
     expect(autoImproveStructureForResource("FISH")).toBeUndefined();
   });
   it("is off for stored prefs that predate it, and reads the switches when present", () => {
     expect(normalizeAutoSettlePrefs({ answered: true, ...only("towns") }).improve).toEqual(NO_AUTO_IMPROVE);
-    expect(normalizeAutoSettlePrefs({ answered: true, ...only("towns"), improve: { TITANIUM: true } }).improve).toEqual({ ...NO_AUTO_IMPROVE, TITANIUM: true });
-    expect(parseAutoImprovePrefs({ TITANIUM: "yes" })).toBeUndefined();
+    expect(normalizeAutoSettlePrefs({ answered: true, ...only("towns"), improve: { FARM: true } }).improve).toEqual({ ...NO_AUTO_IMPROVE, FARM: true });
+    expect(parseAutoImprovePrefs({ FARM: "yes" })).toBeUndefined();
+    // A saved switch for a strategic deposit (Mine/Umbrite Rig era) is dropped.
+    expect(normalizeAutoSettlePrefs({ answered: true, ...only("towns"), improve: { TITANIUM: true } }).improve).toEqual(NO_AUTO_IMPROVE);
   });
 });
 
@@ -130,7 +134,7 @@ describe("autoSettlePrefsCommandPayload", () => {
     expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", ...only("TITANIUM") })).toEqual(only("TITANIUM"));
     expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", towns: true, food: false, resources: true })).toEqual({ towns: true, food: false, resources: true });
     // Forwarded as sent, so the sim changes only the named switches.
-    expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", ...only(), improve: { TITANIUM: true } })).toEqual({ ...only(), improve: { TITANIUM: true } });
+    expect(autoSettlePrefsCommandPayload({ type: "SET_AUTO_SETTLE_PREFS", ...only(), improve: { FARM: true } })).toEqual({ ...only(), improve: { FARM: true } });
   });
 });
 

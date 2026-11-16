@@ -140,18 +140,18 @@ it("spends five nano subsidies on successful rushes, then charges normally", asy
 });
 
 it("freezes the final suit and field bonuses in an accepted runtime battle", async () => {
-  const suit = relicTile("WARPRESS"), field = { ...relicTile("BASTION_FRAME", 12), ownerId: "q" };
+  const suit = relicTile("WARPRESS"), field = { ...relicTile("BASTION_FRAME", 16), ownerId: "q" }; // origin and target sit outside both relics' 3×3 super tiles (landmark-super-tile)
   suit.naturalWonder = { ...suit.naturalWonder!, remainingUses: 1 }; field.naturalWonder = { ...field.naturalWonder!, remainingUses: 1 };
   const runtime = new SimulationRuntime({ now: () => 1000, scheduleAfter: () => {}, initialPlayers: new Map([["p", buildPlayer("p", { manpower: 1000 })], ["q", buildPlayer("q", { manpower: 1000 })]]), initialState: { tiles: [
     suit, field,
-    { x: 10, y: 11, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED", muster: { ownerId: "p", amount: 300, mode: "HOLD", updatedAt: 0 } },
-    { x: 11, y: 11, terrain: "LAND", ownerId: "q", ownershipState: "SETTLED" }
+    { x: 12, y: 11, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED", muster: { ownerId: "p", amount: 300, mode: "HOLD", updatedAt: 0 } },
+    { x: 13, y: 11, terrain: "LAND", ownerId: "q", ownershipState: "SETTLED" }
   ], activeLocks: [] } });
-  const target = { x: 11, y: 11 };
+  const target = { x: 13, y: 11 };
   expect(runtime.getPlayerCombatSummary("p", target)?.relicCombatFacts?.attackMultiplier).toBe(1.5);
   expect(runtime.getPlayerCombatSummary("q", target)?.relicCombatFacts?.defenseMultiplier).toBe(1.5);
   const events = collectEvents(runtime);
-  runtime.submitCommand({ type: "ATTACK", commandId: "relic-battle", sessionId: "s", playerId: "p", clientSeq: 1, issuedAt: 1000, payloadJson: JSON.stringify({ fromX: 10, fromY: 11, toX: 11, toY: 11 }) }); await Promise.resolve();
+  runtime.submitCommand({ type: "ATTACK", commandId: "relic-battle", sessionId: "s", playerId: "p", clientSeq: 1, issuedAt: 1000, payloadJson: JSON.stringify({ fromX: 12, fromY: 11, toX: 13, toY: 11 }) }); await Promise.resolve();
   expect(events.filter(e => e.eventType === "COMMAND_REJECTED")).toEqual([]);
   const lock = runtime.exportState().activeLocks[0];
   const frozen: { result: { atkEff: number; defEff: number } } = JSON.parse(lock!.combatResolutionJson!);

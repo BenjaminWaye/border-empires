@@ -60,7 +60,6 @@ const buildMinimalCtx = (
   rallyLinkStore: {} as BuildGatewayHttpRoutesDepsContext["rallyLinkStore"],
   galaxyPlanetStore: {} as BuildGatewayHttpRoutesDepsContext["galaxyPlanetStore"],
   galaxyEconomyStore: {} as BuildGatewayHttpRoutesDepsContext["galaxyEconomyStore"],
-  galaxyEndorsementStore: {} as BuildGatewayHttpRoutesDepsContext["galaxyEndorsementStore"],
   authBindingStore: {} as BuildGatewayHttpRoutesDepsContext["authBindingStore"],
   sovereignSiegeEngineStrikeStore: {} as BuildGatewayHttpRoutesDepsContext["sovereignSiegeEngineStrikeStore"],
   ...overrides

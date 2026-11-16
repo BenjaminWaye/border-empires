@@ -108,6 +108,7 @@ const PLAYER_MERGE_RULES = {
   afcUpgradeInstallAllowed: p => typeof p.afcUpgradeInstallAllowed === "boolean" ? { afcUpgradeInstallAllowed: p.afcUpgradeInstallAllowed } : undefined,
   afcInstallationPreviews: p => p.afcInstallationPreviews && typeof p.afcInstallationPreviews === "object" ? { afcInstallationPreviews: p.afcInstallationPreviews as Record<string, string> } : undefined,
   domainIds: (p) => (Array.isArray(p.domainIds) ? { domainIds: p.domainIds as string[] } : undefined),
+  manifestGoldDiscount: (p) => (typeof p.manifestGoldDiscount === "number" && Number.isFinite(p.manifestGoldDiscount) ? { manifestGoldDiscount: p.manifestGoldDiscount } : undefined),
   chosenTrickleResource: (p) => (isChosenTrickleResource(p.chosenTrickleResource) ? { chosenTrickleResource: p.chosenTrickleResource } : undefined),
   mods: (p) => (isRecord(p.mods) ? { mods: p.mods as NonNullable<PlayerStateSnapshot["mods"]> } : undefined),
   modBreakdown: (p) => (isRecord(p.modBreakdown) ? { modBreakdown: p.modBreakdown as NonNullable<PlayerStateSnapshot["modBreakdown"]> } : undefined),
@@ -118,7 +119,8 @@ const PLAYER_MERGE_RULES = {
   // that starts carrying one of these needs a single-line change here, not
   // a rediscovery of this whole class of bug.
   autoSettle: (p) => (parseAutoSettleCategoryPrefs(p.autoSettle) ? { autoSettle: autoSettlePrefsForOutput(p.autoSettle) } : undefined),
-  imperialWardCharges: () => undefined,
+  // Stamped fresh on every SubscribePlayer reply; never live-patched onto a cached snapshot.
+  exploredTiles: () => undefined,
   wonderLastFreeRushBuyAt: () => undefined,
   relicMapHints: p => "relicMapHints" in p ? { relicMapHints: parseRelicMapHints(p.relicMapHints) } : undefined,
   galacticWonderManpowerRegenBonusPerMinute: () => undefined,
@@ -131,7 +133,7 @@ const PLAYER_MERGE_RULES = {
 // Fields PLAYER_MERGE_RULES also covers, but which TECH_UPDATE/DOMAIN_UPDATE
 // carries only this small subset of -- everything else in the table (queues,
 // manpower, resource slots, ...) doesn't change when a tech/domain is chosen.
-const TECH_OR_DOMAIN_UPDATE_KEYS = ["gold", "strategicResources", "incomePerMinute", "techIds", "domainIds", "afcRecovery", "afcUpgradeRuleset", "afcUpgradeInstallAllowed", "afcInstallationPreviews", "mods", "modBreakdown", "chosenTrickleResource"] as const satisfies ReadonlyArray<keyof typeof PLAYER_MERGE_RULES>;
+const TECH_OR_DOMAIN_UPDATE_KEYS = ["gold", "strategicResources", "incomePerMinute", "techIds", "domainIds", "afcRecovery", "afcUpgradeRuleset", "afcUpgradeInstallAllowed", "afcInstallationPreviews", "mods", "modBreakdown", "chosenTrickleResource", "manifestGoldDiscount"] as const satisfies ReadonlyArray<keyof typeof PLAYER_MERGE_RULES>;
 
 const mergePlayerFields = (
   current: PlayerStateSnapshot,

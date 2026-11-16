@@ -10,7 +10,7 @@ import type { Tile } from "../client-types.js";
 import { isDiscoveryTipSeen, isDiscoveryTipsMuted, markDiscoveryTipSeen, muteDiscoveryTips } from "./client-discovery-tips-storage.js";
 
 type RelicDiscoveryTipId = `RELIC_${NaturalWonderType}`;
-export type DiscoveryTipId = "TOWN" | "TOWN_TERRAIN_PROFILE" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | "OUT_OF_REACH_EXPAND" | "WAYSTATION" | NaturalWonderType | RelicDiscoveryTipId | "DEPLETED_RELIC";
+export type DiscoveryTipId = "TOWN" | "TOWN_TERRAIN_PROFILE" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | "OUT_OF_REACH_EXPAND" | "FIRST_DOCK" | "WAYSTATION" | NaturalWonderType | RelicDiscoveryTipId | "DEPLETED_RELIC";
 
 export type DiscoveryTipDef = { id: DiscoveryTipId; title: string; body: string };
 
@@ -93,12 +93,19 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   ENEMY_EMPIRE: {
     id: "ENEMY_EMPIRE",
     title: "First Contact!",
-    body: "You've found an enemy! Mustering is now unlocked — place a Muster Flag on your border to gather manpower and attack rival empires or Planetary Defense outposts."
+    // Fires on the first sighting of anyone's land, a House you may want as a friend included: no "enemy".
+    body: "You've spotted land held by another power. Rival Houses can be offered a truce or alliance in Diplomacy. Mustering is now unlocked too: a Muster Flag on your border gathers manpower to attack."
   },
   OUT_OF_REACH_EXPAND: {
     id: "OUT_OF_REACH_EXPAND",
     title: "Beyond Your Reach",
     body: "Frontier outside your reach is lost if its supply route is cut. Towns, Docks and captured buildings can still be garrisoned here. Garrison an anchor or build a Relay Beacon to extend your reach."
+  },
+  FIRST_DOCK: {
+    id: "FIRST_DOCK",
+    title: "Your First Dock",
+    // Mechanics: packages/shared/src/dock-landing/dock-landing.ts (landing ground = linked dock + coast within 1).
+    body: "This dock has sea lanes to docks on other islands. From here you can expand or attack across to those docks and the beaches around them. Select the dock to see its lanes."
   },
   WAYSTATION: {
     id: "WAYSTATION",

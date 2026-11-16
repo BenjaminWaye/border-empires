@@ -111,7 +111,6 @@ const REDUNDANT_STATIC_STAT_LABELS_BY_TYPE: Partial<Record<string, string>> = {
 };
 
 const economicStructureModifiersForTile = (tile: NonNullable<Tile["economicStructure"]>): TileOverviewModifier[] => {
-  if (tile.type === "MINE") return [];
   const label = FARM_RESOURCE_LABEL_OVERRIDES[tile.type] ?? economicStructureName(tile.type as EconomicStructureType);
   const redundantLabel = REDUNDANT_STATIC_STAT_LABELS_BY_TYPE[tile.type];
   const modifiers = structureModifiersFor(tile.type as ModifierStructureType, { tile: { converterMode: converterModeOf(tile) } }).filter((m) => m.statLabel !== redundantLabel);
@@ -244,9 +243,6 @@ export const tileOverviewModifiersForTile = (tile: Tile, options: { omitTownCoin
   if (tile.observatory?.status === "active") {
     modifiers.push(...toTileOverviewModifiers("Aether Tower", structureModifiersFor("OBSERVATORY")));
   }
-  if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "MINE") {
-    modifiers.push(...toTileOverviewModifiers("Mine", structureModifiersFor("MINE", { tile: { resource: tile.resource } })));
-  }
   if (tile.economicStructure?.status === "active") {
     modifiers.push(...economicStructureModifiersForTile(tile.economicStructure));
   }
@@ -254,22 +250,13 @@ export const tileOverviewModifiersForTile = (tile: Tile, options: { omitTownCoin
   // Hills-ness is a permanent, purely procedural property of the coordinate
   // (isHillsTileAt, mirrored server-side in vision-footprint-table.ts) —
   // not gated on ownership or a built structure, so it's shown for any land
-  // tile the same way the natural-wonder line is. Computed last so it can
-  // tell whether the tile already has another modifier: with one (e.g. a
-  // Relay Beacon's own vision line already showing), "Hills" is named as
-  // the source to disambiguate; alone, there's nothing to disambiguate
-  // from, so it's shown as a plain "Vision" line instead.
+  // tile the same way the natural-wonder line is. Always named "Hills": a bare
+  // "Vision: +1" line didn't say where the bonus came from (2026-11-16 playtest).
   if (tile.terrain === "LAND" && isHillsTileAt(tile.x, tile.y)) {
-    const named = modifiers.length > 0;
-    const defense = `+${Math.round((HILLS_DEFENSE_MULT - 1) * 100)}% when garrisoned`;
-    // High ground also defends (terrain-combat.ts), labelled the same way.
+    // High ground also defends (terrain-combat.ts).
     modifiers.push(
-      named
-        ? { reason: "Hills", effect: `vision +${HILLS_VISION_BONUS}`, tone: "positive" }
-        : { reason: "Vision", effect: `+${HILLS_VISION_BONUS}`, tone: "positive" },
-      named
-        ? { reason: "Hills", effect: `defense ${defense}`, tone: "positive" }
-        : { reason: "Defense", effect: defense, tone: "positive" }
+      { reason: "Hills", effect: `vision +${HILLS_VISION_BONUS}`, tone: "positive" },
+      { reason: "Hills", effect: `defense +${Math.round((HILLS_DEFENSE_MULT - 1) * 100)}% when garrisoned`, tone: "positive" }
     );
   }
 

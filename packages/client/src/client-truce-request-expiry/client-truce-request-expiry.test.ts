@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { ClientState } from "../client-state/client-state.js";
 import type { TruceRequest } from "../client-types.js";
 import { createTruceRequestExpiry, startTruceRequestExpiryTicker } from "./client-truce-request-expiry.js";
 
@@ -61,7 +62,7 @@ describe("startTruceRequestExpiryTicker", () => {
   it("re-renders the HUD and the counter-offer screen once, when the offer expires", () => {
     vi.useFakeTimers();
     vi.setSystemTime(10_000);
-    const state = { incomingTruceRequests: [request("offer")], outgoingTruceRequests: [] };
+    const state = { incomingTruceRequests: [request("offer")], outgoingTruceRequests: [], captureAlert: undefined };
     const renderHud = vi.fn();
     const refreshTradeScreen = vi.fn();
     startTruceRequestExpiryTicker(state, renderHud, refreshTradeScreen);
@@ -73,6 +74,28 @@ describe("startTruceRequestExpiryTicker", () => {
     expect(state.incomingTruceRequests).toEqual([]);
     vi.advanceTimersByTime(5_000);
     expect(renderHud).toHaveBeenCalledTimes(1);
+    vi.clearAllTimers();
+  });
+});
+
+// Playtest 2026-11-12: an offer you sent that ran out just vanished, with no word to you.
+describe("your own truce offer expiring", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("tells you, in the feed and a popup; an incoming offer expiring does not", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(10_000);
+    const state = {
+      incomingTruceRequests: [request("in")],
+      outgoingTruceRequests: [{ ...request("out"), toName: "Tom" }],
+      captureAlert: undefined as ClientState["captureAlert"]
+    };
+    const pushFeed = vi.fn();
+    startTruceRequestExpiryTicker(state, vi.fn(), vi.fn(), pushFeed);
+    vi.advanceTimersByTime(TTL_MS + 1_000);
+    expect(pushFeed).toHaveBeenCalledTimes(1);
+    expect(pushFeed).toHaveBeenCalledWith("Your 12h truce offer to Tom expired unanswered.");
+    expect(state.captureAlert).toEqual(expect.objectContaining({ title: "Truce offer expired", detail: "Your 12h truce offer to Tom expired unanswered." }));
     vi.clearAllTimers();
   });
 });

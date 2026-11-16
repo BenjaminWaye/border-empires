@@ -1,4 +1,5 @@
 import { formatHoldCountdown } from "../client-victory-alert/client-victory-alert.js";
+import { lastContestRecapButtonHtml } from "../client-last-contest-recap/client-last-contest-recap.js";
 import { diplomacyTermsLineHtml } from "../client-diplomacy-trade/client-diplomacy-terms-html.js";
 import { foundingEngineerNameHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import { dukeNameHtml } from "../client-duke-title/client-duke-title.js";
@@ -442,6 +443,10 @@ export const leaderboardHtml = (
     <article class="card">
       <strong>Most Manifests</strong>
       ${metricRows(leaderboard.byTechs, leaderboard.selfByTechs)}
+    </article>
+    <article class="card last-contest-recap-card">
+      <strong>${seasonWinner ? "Contest Recap" : "Last Sector Contest"}</strong>
+      ${lastContestRecapButtonHtml(seasonWinner ? "View Contest Recap" : "Last Contest Recap")}
     </article>
   `;
 };

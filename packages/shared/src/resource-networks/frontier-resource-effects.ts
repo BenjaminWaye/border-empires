@@ -1,29 +1,5 @@
-import { MANPOWER_REFILL_WINDOW_MS } from "../manpower-refill.js";
 import type { PopulationTier } from "../types.js";
-import { ANCILLARY_MATERIAL_RESOURCES, type NetworkResource, type NetworkSiteCounts } from "./resource-networks.js";
-
-// --- Resin, conductive, catalyst: manpower per refill window -----------------
-
-/** Manpower per refill window from your first developed site of a material type. */
-export const FRONTIER_FIRST_SITE_MANPOWER_PER_WINDOW = 120;
-/** Manpower per refill window from every further site of the same type. */
-export const FRONTIER_EXTRA_SITE_MANPOWER_PER_WINDOW = 30;
-
-/** Manpower per refill window that `sites` developed tiles of one material type give. */
-export const materialManpowerPerWindow = (sites: number): number => {
-  const n = Math.max(0, Math.floor(sites));
-  return n === 0 ? 0 : FRONTIER_FIRST_SITE_MANPOWER_PER_WINDOW + (n - 1) * FRONTIER_EXTRA_SITE_MANPOWER_PER_WINDOW;
-};
-
-/** Value of one more site of a material type when you already hold `held`. */
-export const materialMarginalManpowerPerWindow = (held: number): number =>
-  held <= 0 ? FRONTIER_FIRST_SITE_MANPOWER_PER_WINDOW : FRONTIER_EXTRA_SITE_MANPOWER_PER_WINDOW;
-
-export const frontierMaterialManpowerPerWindow = (counts: NetworkSiteCounts): number =>
-  ANCILLARY_MATERIAL_RESOURCES.reduce((sum, resource) => sum + materialManpowerPerWindow(counts[resource]), 0);
-
-export const frontierMaterialManpowerRegenPerMinute = (counts: NetworkSiteCounts): number =>
-  frontierMaterialManpowerPerWindow(counts) / (MANPOWER_REFILL_WINDOW_MS / 60_000);
+import type { NetworkResource } from "./resource-networks.js";
 
 // --- Luxury biota: big towns' manpower -----------------------------------------
 
@@ -88,6 +64,5 @@ export const salvageTributeManpower = (manpower: number, cap: number): number =>
 /** Plain-language value of capturing one more site of `resource` (UI). */
 export const frontierSiteCaptureValue = (resource: NetworkResource, held: number): string => {
   if (resource === "LUXURY_BIOTA") return `+${BIOTA_SLOTS_PER_SITE} biota slots`;
-  if (resource === "PRECURSOR_SALVAGE") return held >= SALVAGE_ARMS_BONUS_MAX / SALVAGE_ARMS_BONUS_PER_SITE ? "+0% (arms bonus at its +10% limit)" : `+${Math.round(SALVAGE_ARMS_BONUS_PER_SITE * 100)}% attack and defense`;
-  return `+${materialMarginalManpowerPerWindow(held)} manpower per refill`;
+  return held >= SALVAGE_ARMS_BONUS_MAX / SALVAGE_ARMS_BONUS_PER_SITE ? "+0% (arms bonus at its +10% limit)" : `+${Math.round(SALVAGE_ARMS_BONUS_PER_SITE * 100)}% attack and defense`;
 };

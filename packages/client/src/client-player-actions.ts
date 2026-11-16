@@ -1,4 +1,5 @@
 import { DEVELOPMENT_PROCESS_LIMIT, TRICKLE_RESOURCE_KEYS } from "@border-empires/shared";
+import { refineryRejectionMessage } from "./client-refineries/refinery-commands.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import { promptForTrickleResource, type TrickleOption } from "./client-trickle-pick-modal.js";
@@ -213,6 +214,16 @@ export const explainActionFailureFromServer = (
     const lockText = explainCombatLockRejection(state, { code, message, targetX: target?.x, targetY: target?.y, nowMs: Date.now() }, wrap);
     if (lockText) return lockText;
   }
+  const refinery = refineryRejectionMessage(code, message);
+  if (refinery) return refinery;
+  if (code === "MUSTER_LIMIT") {
+    const cap = /max (\d+) muster tiles/.exec(message)?.[1];
+    return cap ? `You can have up to ${cap} muster flags. Move or remove an existing flag first.` : "You have reached your muster flag limit.";
+  }
+  // The gateway already words these for players; "Error DIPLOMACY_SETTLEMENT_FAILED: …" was shown raw.
+  if (code === "DIPLOMACY_SETTLEMENT_FAILED") return `Couldn't accept the offer. ${message || "The deal fell through."}`;
+  if (code === "DIPLOMACY_OFFER_WITHDRAWN" || code === "RESOURCE_TERMS_CONFIRMATION_REQUIRED" || code === "OFFER_SETTLING") return message;
+  if (code === "TRUCE_LOCKED_OUT") return "A House in this deal recently broke a truce. New truces are locked for 24 hours after a break.";
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot garrison: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
@@ -246,7 +257,14 @@ export const explainActionFailureFromServer = (
     return `Action blocked: that dock crossing endpoint is still on cooldown for ${remainingLabel}.`;
   }
   if (code === "INSUFFICIENT_MANPOWER") return `Action blocked: ${message}.`;
-  if (code === "INSUFFICIENT_MUSTER") return "Attack blocked: stage manpower on this tile first. Tap the tile → Stage Muster, then wait for it to fill.";
+  // Any of your flags within 10 tiles of the launch tile funds an attack
+  // (resolveMusterSource), so "on this tile" sent players hunting for a
+  // flag on the wrong tile. The server's message carries the amount needed
+  // (the floor, or the chosen Extra/Double effort).
+  if (code === "INSUFFICIENT_MUSTER") {
+    const needed = /need (\d+)/.exec(message)?.[1];
+    return `Attack blocked: ${needed ? `needs ${needed}` : "not enough"} manpower mustered on a flag within 10 tiles.`;
+  }
   if (code === "MUSTER_DISABLED") return "Mustering is not enabled on this server.";
   if (code === "MUSTER_MARCH_TOO_FAR") return message;
   if (code === "MUSTER_INVALID") return "Action blocked: you can only stage muster on your own land tiles.";

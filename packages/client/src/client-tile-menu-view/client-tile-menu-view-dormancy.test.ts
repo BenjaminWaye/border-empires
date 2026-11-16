@@ -67,7 +67,7 @@ describe("menuOverviewForTile — §14.2 dormant structure indicator", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "ORE_REFINERY", status: "active" }
+      economicStructure: { ownerId: "me", type: "NEURAL_WORKS", status: "active" }
     };
     const lines = menuOverviewForTile(dormantTile, {
       ...baseDeps,

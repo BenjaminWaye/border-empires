@@ -68,4 +68,5 @@ export type DomainEconomicStructureState = {
   converterMode?: NonNullable<Tile["economicStructure"]>["converterMode"];
   modeLockedUntil?: NonNullable<Tile["economicStructure"]>["modeLockedUntil"];
   salvageLoadsShipped?: number | undefined;
+  refineryField?: NonNullable<Tile["economicStructure"]>["refineryField"];
 };

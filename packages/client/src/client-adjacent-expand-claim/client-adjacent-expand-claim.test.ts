@@ -24,6 +24,21 @@ const baseState = (overrides: Partial<ClientState> = {}): ClientState =>
   }) as unknown as ClientState;
 
 describe("enqueueAdjacentExpandWaypoint", () => {
+  // 2026-11-14 playtest: a click queued behind older waypoints looked like it did nothing.
+  it("says the claim is queued, and its place, when earlier expansions are still ahead of it", () => {
+    const earlier = { target: { x: 9, y: 9 }, plan: { reachable: true, steps: [] }, planId: "old", plannedAt: 0 };
+    const state = baseState({ waypoint: [earlier] as never });
+    enqueueAdjacentExpandWaypoint(state, 6, 5, keyFor, () => true, () => false);
+    expect(state.captureAlert).toMatchObject({ title: "Expansion queued", tone: "warn", focusX: 6, focusY: 5 });
+    expect(state.captureAlert?.detail).toContain("#2 in your queue");
+  });
+
+  it("stays quiet when the claim is the only one queued", () => {
+    const state = baseState();
+    enqueueAdjacentExpandWaypoint(state, 6, 5, keyFor, () => true, () => false);
+    expect(state.captureAlert).toBeUndefined();
+  });
+
   it("pushes a durable single-step waypoint entry and mirrors it to the server via WAYPOINT_ENQUEUE, instead of only queueing in memory", () => {
     const state = baseState();
     const sent: unknown[] = [];
