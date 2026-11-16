@@ -78,6 +78,18 @@ describe("installed offer dock: unaffordable offers and Counter", () => {
     expect(button("accept")?.disabled).toBe(false);
   });
 
+  // Review: the render key held the live coin amount, so every coin tick while
+  // blocked rebuilt the dock and swapped its buttons out from under a tap.
+  it("keeps the same buttons while blocked and updates the reason in place as coin changes", () => {
+    const { state, dock, button } = mount(10, vi.fn());
+    const counter = button("counter");
+    state.gold = 12;
+    vi.advanceTimersByTime(1_000);
+    expect(button("counter")).toBe(counter);
+    expect(button("accept")?.title).toBe("You only have 12 coin.");
+    expect(dock.querySelector("[data-offer-blocked]")?.textContent).toBe("Can't accept: You only have 12 coin. Counter or decline instead.");
+  });
+
   it("opens the counter-offer screen for that offer from Counter", () => {
     const openCounter = vi.fn();
     const { sendGameMessage, button } = mount(10, openCounter);

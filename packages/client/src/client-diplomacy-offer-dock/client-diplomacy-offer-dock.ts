@@ -104,6 +104,7 @@ const acceptBlockedReason = (request: AllianceRequest | TruceRequest, state: Off
 };
 
 const withBlocked = (entry: OfferDockEntry, reason: string | undefined): OfferDockEntry => (reason ? { ...entry, blockedReason: reason } : entry);
+const blockedText = (reason: string, canCounter: boolean): string => `Can't accept: ${reason}${canCounter ? " Counter or decline instead." : ""}`;
 
 export const offerDockEntries = (
   state: OfferDockState,
@@ -181,7 +182,7 @@ const rowHtml = (entry: OfferDockEntry, confirmingId: string | undefined, canCou
       <div class="offer-dock-headline"><strong>${esc(entry.fromName)}</strong> ${esc(entry.headline)}${countdown}</div>
       ${entry.attackerNote ? `<div class="offer-dock-attacker">${esc(entry.attackerNote)}</div>` : ""}
       ${entry.terms ? `<div class="offer-dock-terms">${esc(entry.terms)}</div>` : ""}
-      ${entry.blockedReason ? `<div class="offer-dock-blocked" data-offer-blocked>Can't accept: ${esc(entry.blockedReason)}${canCounter ? " Counter or decline instead." : ""}</div>` : ""}
+      ${entry.blockedReason ? `<div class="offer-dock-blocked" data-offer-blocked="${esc(entry.id)}">${esc(blockedText(entry.blockedReason, canCounter))}</div>` : ""}
     </div>
     <div class="offer-dock-actions">
       ${blockedAccept ?? `<button type="button" class="offer-dock-btn offer-dock-accept${confirming ? " offer-dock-confirming" : ""}" data-offer-action="accept" data-offer-kind="${entry.kind}" data-offer-id="${esc(entry.id)}"${confirming ? ` title="Tap again to accept: ${esc(entry.terms)}"` : ""}${disabled}>${entry.pending ? "Sending…" : confirming ? "Confirm" : "Accept"}</button>`}
@@ -257,7 +258,7 @@ export const installDiplomacyOfferDock = (deps: {
     for (const id of hiddenIds) if (!liveIds.has(id)) hiddenIds.delete(id);
     if (confirming && (!liveIds.has(confirming.id) || nowMs > confirming.until)) confirming = undefined;
     const entries = offerDockEntries(deps.state, firstSeenAtById, new Set(pendingSince.keys()), nowMs).filter((entry) => !hiddenIds.has(entry.id));
-    const key = deps.state.me && !deps.isHeld?.() ? `${confirming?.id ?? ""}#${entries.map((entry) => `${entry.id}:${entry.pending ? 1 : 0}:${entry.attackerNote ?? ""}:${entry.blockedReason ?? ""}`).join("|")}` : "";
+    const key = deps.state.me && !deps.isHeld?.() ? `${confirming?.id ?? ""}#${entries.map((entry) => `${entry.id}:${entry.pending ? 1 : 0}:${entry.attackerNote ?? ""}:${entry.blockedReason ? 1 : 0}`).join("|")}` : "";
     if (key !== renderedKey) {
       renderedKey = key;
       dockEl.innerHTML = entries.length > 0 && key ? offerDockHtml(entries, confirming?.id, deps.openCounter !== undefined) : "";
@@ -265,6 +266,12 @@ export const installDiplomacyOfferDock = (deps: {
       return;
     }
     for (const entry of entries) {
+      // The blocked reason carries live coin, so it is patched in place: a rebuild would swap the buttons mid-tap.
+      if (entry.blockedReason) {
+        const reasonEl = dockEl.querySelector<HTMLElement>(`[data-offer-blocked="${CSS.escape(entry.id)}"]`);
+        if (reasonEl) reasonEl.textContent = blockedText(entry.blockedReason, deps.openCounter !== undefined);
+        dockEl.querySelector<HTMLElement>(`[data-offer-action="accept"][data-offer-id="${CSS.escape(entry.id)}"]`)?.setAttribute("title", entry.blockedReason);
+      }
       if (entry.remainingMs === undefined) continue;
       const timerEl = dockEl.querySelector<HTMLElement>(`[data-offer-timer="${CSS.escape(entry.id)}"]`);
       if (timerEl) timerEl.textContent = formatOfferCountdown(entry.remainingMs);
