@@ -66,8 +66,10 @@ export const spaceViewIntroHtml = (): string => `
   </div>
 `;
 
+// Above the action-card layer (.sc-root, z-index 30 in space-cards-style.ts):
+// both live in .sv-screen's stacking context, and the briefing is modal.
 export const spaceViewIntroStyle = `
-  .sv-intro-backdrop{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(5,3,2,.8);backdrop-filter:blur(2px)}
+  .sv-intro-backdrop{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(5,3,2,.8);backdrop-filter:blur(2px)}
   .sv-intro-card{width:min(560px,100%);max-height:calc(100vh - 96px);overflow:auto;background:linear-gradient(180deg,rgba(24,17,10,.98),rgba(14,10,6,.98));border:1px solid rgba(230,178,106,.32);border-radius:16px;padding:24px;box-shadow:0 24px 64px rgba(0,0,0,.5),0 0 48px rgba(214,150,68,.14)}
   .sv-intro-heading{margin:0 0 16px;color:#ffd68f;font-size:17px;letter-spacing:-.01em}
   .sv-intro-sections{display:flex;flex-direction:column;gap:14px;margin-bottom:20px}
