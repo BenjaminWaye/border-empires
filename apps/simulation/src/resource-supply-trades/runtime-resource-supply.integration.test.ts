@@ -183,7 +183,7 @@ describe("resource trades in the production runtime",()=>{
     expect(overlapping.players?.find(player => player.id === "seller")?.points).toBe(f.player("seller").points);
     expect(overlapping.players?.find(player => player.id === "buyer")?.points).toBe(f.player("buyer").points);
   });
-  it("ignores a delayed trade refund from the previous season", () => {
+  it.each(["previous-season", undefined])("ignores a delayed trade refund outside the current season (%s)", journalSeasonId => {
     const f = fixture();
     const season = createInitialSeasonState({ seasonSequence: 2, rulesetId: "standard", worldSeed: 42, startedAt: start });
     const checkpoint = { ...f.runtime.exportSnapshotSections().initialState, season };
@@ -192,7 +192,7 @@ describe("resource trades in the production runtime",()=>{
         eventType: "PLAYER_MESSAGE", messageType: "RESOURCE_SUPPLY_COIN_REFUNDED", commandId: "late-refund", playerId: "seller",
         payloadJson: JSON.stringify({
           proposerId: "seller", targetId: "buyer", targetCoinDelta: 50,
-          journalSequence: 100, journalSeasonId: "previous-season"
+          journalSequence: 100, journalSeasonId
         })
       },
       {

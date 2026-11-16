@@ -32,8 +32,8 @@ export const applyRecoveredResourceTrade = (
     journalSequence?: number;
     journalSeasonId?: string;
   };
-  if (payload.journalSeasonId && state.season && payload.journalSeasonId !== state.season.seasonId) return;
   const sequence = payload.journalSequence;
+  if (sequence !== undefined && state.season && payload.journalSeasonId !== state.season.seasonId) return;
   // The checkpoint may already include this mutation even if its event was
   // persisted after the checkpoint's general event watermark.
   if (sequence !== undefined) {
