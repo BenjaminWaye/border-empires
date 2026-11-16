@@ -10,7 +10,7 @@ import { dormantResourcesForTile, structureTypeForTileAction } from "../client-t
 import type { Terrain } from "@border-empires/shared";
 import { supportPlotAnchorTown } from "../client-town-support-plot-lookup.js";
 import { townPlotsCardHtml } from "./client-hud-v2-town-plots-card.js";
-import { BUILD_PLACED_FLASH_MS, buildPlacedPresses, type BuildPlacedOutcome } from "../client-queue-logic/client-build-placed-feedback.js";
+import { BUILD_PLACED_FLASH_MS, buildPlacedPresses, nextPlaceFlash, placeButtonState, type PlaceFlash } from "../client-queue-logic/client-build-placed-feedback.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
@@ -84,7 +84,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     autoSettle: deps.state.autoSettle,
     dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field),
     plotsHtml: townPlotsCardHtml(deps.state, town),
-    placed: placeFlash && Date.now() < placeFlash.until ? placeFlash.outcome : undefined
+    ...placeButtonState(placeFlash, screen.townBuildSelection, Date.now())
   });
   writeHtml("v2t-left", regions.left);
   writeHtml("v2t-build", regions.build);
@@ -159,7 +159,10 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
     if (screen.id === "town") closeTownScreen(true);
     return false;
   }
-  if (current?.townKey !== keyOf(town)) screen.townBuildSelection = undefined;
+  if (current?.townKey !== keyOf(town)) {
+    screen.townBuildSelection = undefined;
+    placeFlash = undefined;
+  }
   if (screen.id !== "town" || current?.focusKey !== tileKey) screen.townCategory = undefined;
   // Close in on the town when the screen opens or moves to another town; picking support tiles doesn't move the camera.
   if (screen.id !== "town" || current?.townKey !== keyOf(town)) closeUpOn(deps, town.x, town.y, TOWN_ZOOM);
@@ -176,8 +179,8 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
   return true;
 };
 
-/** The town screen's own Place press confirmation: set only by a press on this screen that went through (runTileActionOn). */
-let placeFlash: { outcome: BuildPlacedOutcome; until: number } | undefined;
+/** The town screen's latest Place press that went through (runTileActionOn); kept after its "✓" fades for "Place another". */
+let placeFlash: PlaceFlash | undefined;
 let placeFlashTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const closeTownScreen = (keepPosition = false): void => {
@@ -244,9 +247,10 @@ export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], 
   if (type) {
     // This press's own confirmation: a press rejected locally clears an earlier "✓ Placed" rather than inherit it.
     const presses = buildPlacedPresses();
-    placeFlash = presses.count !== pressesBefore && presses.outcome ? { outcome: presses.outcome, until: Date.now() + BUILD_PLACED_FLASH_MS } : undefined;
+    const went = presses.count !== pressesBefore;
+    placeFlash = nextPlaceFlash(placeFlash, { went, outcome: presses.outcome }, actionId, Date.now());
     if (placeFlashTimer) clearTimeout(placeFlashTimer);
-    placeFlashTimer = placeFlash ? setTimeout(() => renderTownScreen(deps), BUILD_PLACED_FLASH_MS + 50) : undefined;
+    placeFlashTimer = went && placeFlash ? setTimeout(() => renderTownScreen(deps), BUILD_PLACED_FLASH_MS + 50) : undefined;
     renderTownScreen(deps);
   }
 };
