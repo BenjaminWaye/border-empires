@@ -136,10 +136,11 @@ describe("town list", () => {
       plain(11, 10, { ownerId: "rival" }),
       plain(9, 11, { fort: { ownerId: "me", status: "active" } as NonNullable<Tile["fort"]> })
     ]);
-    expect(openBuildSlotsForTown(map, town, "me")).toBe(2);
+    // The fortified plot (9,11) is still open: a fort shares its tile with any building.
+    expect(openBuildSlotsForTown(map, town, "me")).toBe(3);
     const row = rowsOf(map).find((entry) => entry.name === "Hub");
-    expect(row?.openSlots).toBe(2);
-    expect(townListCardHtml(map, "me")).toContain('title="Open build slots">2<');
+    expect(row?.openSlots).toBe(3);
+    expect(townListCardHtml(map, "me")).toContain('title="Open build slots">3<');
   });
 
   it("shows no slots for settlements and sorts by open slots", () => {

@@ -24,7 +24,7 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
   },
   PALISADE: {
     glyph: "⫼",
-    placement: "Build on a garrisoned tile you own. Like a Fort, it can share its tile with a Relay Beacon or Harbor Exchange."
+    placement: "Build on a garrisoned tile you own. Like a Fort, it can share its tile with any building except a siege engine."
   },
   HYDROGARDEN: {
     glyph: "▥",

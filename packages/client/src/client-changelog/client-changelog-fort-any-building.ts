@@ -6,6 +6,8 @@ export const FORT_ANY_BUILDING_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = 
   why: "A Palisade or fort could only be added to a tile with a Relay Beacon or Harbor Exchange, so a town support tile with a Manufactory, refinery or other building had no Fortify option. The town screen also listed the town's own \"Remove Fort\" while a support tile was selected, which made it look like that tile already had a fort.",
   changes: [
     "Fortify now shows on tiles with any building or an Aether Tower, and the fort stands alongside the building. Siege engines and forts still can't share a tile.",
+    "A fort doesn't use up a town build plot: a fortified plot still counts as open, and buildings placed from the town can go on it.",
+    "The town screen's \"Built here\" card lists both the fort and the building on a shared tile. To remove the building, remove the fort first.",
     "With a support tile selected, the town screen's town-tile actions are marked \"(town)\", e.g. \"Remove Fort (town)\"."
   ]
 };
