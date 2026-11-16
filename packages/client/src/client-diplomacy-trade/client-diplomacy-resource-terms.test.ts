@@ -65,6 +65,11 @@ describe("resource supply negotiation",()=>{
       send,ownHoldings:()=>({...empty,resources:state.resourceTradeHoldings}),activeSupply:()=>({ownId:"self",agreements:state.resourceTradeAgreements,offers:state.resourceTradeOffers})});
     document.querySelector<HTMLButtonElement>('[data-resource-offer-accept="offer"]')!.click();
     expect(send.mock.calls.at(-1)?.[0]).toEqual({type:"RESOURCE_TRADE_ACCEPT",offerId:"offer"});
+    // Ending takes a separate confirming tap (client-resource-end-confirm.ts).
+    vi.useFakeTimers();
+    document.querySelector<HTMLButtonElement>('[data-resource-end="contract"]')!.click();
+    expect(send.mock.calls.at(-1)?.[0]).toEqual({type:"RESOURCE_TRADE_ACCEPT",offerId:"offer"});
+    vi.advanceTimersByTime(1_000);
     document.querySelector<HTMLButtonElement>('[data-resource-end="contract"]')!.click();
     expect(send.mock.calls.at(-1)?.[0]).toEqual({type:"RESOURCE_TRADE_END",agreementId:"contract"});
     applyResourceTradeState(state,{},true);
