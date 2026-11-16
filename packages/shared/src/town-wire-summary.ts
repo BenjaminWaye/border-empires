@@ -57,6 +57,10 @@ export type TownWireSummary = {
   hasIncubationEngine: boolean;
   incubationEngineActive: boolean;
   foodUpkeepPerMinute?: number;
+  // FOOD slots this town draws after upgrade waivers (Founding Concession,
+  // Treasury State, Enduring Realm, Ministry Hall...): the simulation's own
+  // per-town demand. Owner-only; absent on foreign towns and old payloads.
+  foodSlotDemand?: number;
   captureShockUntil?: number;
   populationBeforeCapture?: number;
   forcedAncillarificationCooldownUntil?: number;

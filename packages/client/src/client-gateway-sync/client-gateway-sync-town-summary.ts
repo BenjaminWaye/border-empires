@@ -88,6 +88,7 @@ export const isRenderableTownSummary = (town: PartialTownSummary | undefined): t
       isOptionalBoolean(town.incubationEngineActive) &&
       isOptionalBoolean(town.hasClearingHouse) && isOptionalBoolean(town.clearingHouseActive) && (town.clearingHouseTownNames === undefined || hasStringArray(town.clearingHouseTownNames)) &&
       isFiniteOptionalNumber(town.foodUpkeepPerMinute) &&
+      isFiniteOptionalNumber(town.foodSlotDemand) &&
       (town.growthModifiers === undefined || isGrowthModifierArray(town.growthModifiers)) &&
       (town.nextPopulationTierUpgrade === undefined || isNextPopulationTierUpgrade(town.nextPopulationTierUpgrade))
   );
