@@ -45,6 +45,28 @@ describe("gatewayTownSummary — coin figure across growth ticks", () => {
     expect(town?.goldPerMinute).toBeUndefined();
   });
 
+  it("does not carry a TOWN-tier figure into a CITY", () => {
+    const { town } = gatewayTownSummary({ x: 10, y: 20, townJson: growthTickTownJson({ populationTier: "CITY" }) }, existingTile());
+    expect(town?.goldPerMinute).toBeUndefined();
+  });
+
+  it("does not carry the figure when reported support changed", () => {
+    const tile = existingTile({ supportCurrent: 6, supportMax: 6 });
+    const { town } = gatewayTownSummary({ x: 10, y: 20, townJson: growthTickTownJson({ supportCurrent: 3, supportMax: 6 }) }, tile);
+    expect(town?.goldPerMinute).toBeUndefined();
+  });
+
+  it("carries the figure when reported support is unchanged", () => {
+    const tile = existingTile({ supportCurrent: 6, supportMax: 6 });
+    const { town } = gatewayTownSummary({ x: 10, y: 20, townJson: growthTickTownJson({ supportCurrent: 6, supportMax: 6 }) }, tile);
+    expect(town?.goldPerMinute).toBe(2.4);
+  });
+
+  it("does not carry the figure when the tile leaves SETTLED", () => {
+    const { town } = gatewayTownSummary({ x: 10, y: 20, ownershipState: "FRONTIER", townJson: growthTickTownJson() }, existingTile());
+    expect(town?.goldPerMinute).toBeUndefined();
+  });
+
   it("does not carry the figure across an owner change", () => {
     const { town } = gatewayTownSummary({ x: 10, y: 20, ownerId: "ai-3", townJson: growthTickTownJson() }, existingTile());
     expect(town?.goldPerMinute).toBeUndefined();

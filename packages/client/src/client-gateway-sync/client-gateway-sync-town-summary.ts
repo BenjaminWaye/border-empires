@@ -144,18 +144,46 @@ export type GatewayTownSummaryResult = {
 // carries isFed and the growth rate but often not goldPerMinute (that is only
 // stamped by the full town summary). Replacing the town wholesale dropped the
 // coin figure and the town panel's Coin cell went blank. Keep the previous
-// figure while the owner and fed state are unchanged — those are what move
-// it to/from zero; anything else waits for the tile-detail refresh.
+// figure only while nothing that drives coin has changed: owner, settled
+// state, fed state, tier, and any other coin input the incoming record does
+// report. Otherwise drop it, so ownTownDetailRecoveryNeeded re-requests tile
+// detail (whose response always carries goldPerMinute) instead of showing a
+// stale number.
+const COIN_INPUT_FIELDS = [
+  "populationTier",
+  "supportCurrent",
+  "supportMax",
+  "connectedTownCount",
+  "connectedTownBonus",
+  "firstThreeTownGoldMult",
+  "hasManufactory",
+  "manufactoryActive",
+  "hasClearingHouse",
+  "clearingHouseActive"
+] as const satisfies ReadonlyArray<keyof TownSummary>;
+
+const updatedField = <K extends "ownerId" | "ownershipState">(update: GatewayTileUpdate, existing: Tile | undefined, key: K) => {
+  if (!(key in update)) return existing?.[key];
+  const value = update[key];
+  // Same normalization as normalizeGatewayTileUpdate in client-gateway-sync.ts.
+  return typeof value === "string" ? value : undefined;
+};
+
 const carriedGoldPerMinute = (
   parsedTown: PartialTownSummary,
   update: GatewayTileUpdate,
   existing: Tile | undefined
 ): Pick<PartialTownSummary, "goldPerMinute"> => {
-  const previous = existing?.town?.goldPerMinute;
-  if (parsedTown.goldPerMinute !== undefined || !isFiniteNumber(previous)) return {};
-  const ownerId = "ownerId" in update ? update.ownerId ?? undefined : existing?.ownerId;
-  if (ownerId !== existing?.ownerId) return {};
-  if (parsedTown.isFed !== existing?.town?.isFed) return {};
+  const previousTown = existing?.town;
+  const previous = previousTown?.goldPerMinute;
+  if (!previousTown || parsedTown.goldPerMinute !== undefined || !isFiniteNumber(previous)) return {};
+  if (updatedField(update, existing, "ownerId") !== existing?.ownerId) return {};
+  if (updatedField(update, existing, "ownershipState") !== existing?.ownershipState) return {};
+  if (parsedTown.isFed !== previousTown.isFed) return {};
+  const coinInputChanged = COIN_INPUT_FIELDS.some(
+    (field) => parsedTown[field] !== undefined && parsedTown[field] !== previousTown[field]
+  );
+  if (coinInputChanged) return {};
   return { goldPerMinute: previous };
 };
 
