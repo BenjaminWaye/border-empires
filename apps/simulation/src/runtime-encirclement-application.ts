@@ -28,6 +28,8 @@ export type RuntimeEncirclementApplicationContext = {
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
   /** Registers the auto-heal deadline for a tile just cut off to neutral -- see runtime-frontier-auto-heal.ts. */
   registerFrontierAutoHeal: (tileKey: string, deadlineAt: number) => void;
+  /** True while a lock holds the tile; see encirclement-pocket-capture.ts. */
+  hasTileLock?: (tileKey: string) => boolean;
 };
 
 export function activeAetherBridgeNeighborKeysForPlayer(
@@ -221,9 +223,12 @@ export function applyEncirclement(
 
   const claimantId = options?.claimantId;
   const pocket = canClaimEncirclementPocket(context.tiles, claimantId, playerId, changedKeys)
-    ? captureEncirclementPocket(context, cutOff, claimantId, commandId, nowMs)
-    : { tileDeltas: [], releaseKeys: cutOff };
+    ? captureEncirclementPocket(context, cutOff, claimantId, changedKeys, commandId, nowMs)
+    : { tileDeltas: [], broadcastMusterClears: [], releaseKeys: cutOff };
   const tileDeltas = [...pocket.tileDeltas, ...clearCutOffFrontierTiles(context, pocket.releaseKeys, commandId, nowMs)];
+  if (pocket.broadcastMusterClears.length > 0) {
+    context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `${commandId}:bc`, playerId: "__broadcast__", tileDeltas: pocket.broadcastMusterClears });
+  }
   if (cutOff.size > 0) incrementEncirclementCounter("tilesCutOff", cutOff.size);
   if (!options?.skipCutOff) {
     tileDeltas.push(...releaseStrandedSeaLaneLandings(context, changedKeys, playerId, supplyNeighbors, commandId, nowMs));

@@ -26,7 +26,11 @@ export function applyCombatEncirclement(
       // Frontier cut off by this fight goes to the side that made the cut:
       // the attacker when the defender lost the target, the defender when
       // the attacker lost their origin (see encirclement-pocket-capture.ts).
-      const claimantId = pid === lock.playerId ? previousOwnerId : lock.playerId;
+      // The side that gained a tile has nothing cut off by it: no claimant.
+      const claimantId =
+        attackerWon && pid === previousOwnerId ? lock.playerId
+        : originLost && pid === lock.playerId ? previousOwnerId
+        : undefined;
       context.applyEncirclement(encirclementChangedKeys, pid, lock.commandId, {
         bfsCap: 2000,
         ...(claimantId ? { claimantId } : {})
