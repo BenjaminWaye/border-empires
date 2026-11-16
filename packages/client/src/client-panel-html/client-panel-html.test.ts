@@ -222,7 +222,7 @@ describe("leaderboardHtml", () => {
 
 describe("socialRemainingLabel", () => {
   const MIN = 60_000;
-  it("shows hours and leftover minutes from an hour out, never rounding the hour up", () => {
+  it("shows hours and leftover minutes from an hour out, not rounding up to the next hour", () => {
     expect(socialRemainingLabel(24 * 60 * MIN, 0)).toBe("24h");
     expect(socialRemainingLabel(61 * MIN, 0)).toBe("1h 1m");
     expect(socialRemainingLabel(83 * MIN, 0)).toBe("1h 23m");
