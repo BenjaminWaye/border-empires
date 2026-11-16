@@ -139,13 +139,14 @@ export const makeVisionRingTexture = (): CanvasTexture | null =>
     }
   });
 
-/** Half the width of the drone's shadow silhouette texture, in drone-local units (props included). */
-export const SCOUT_SHADOW_HALF_EXTENT = 0.27;
+/** Half the width of the drone's shadow silhouette texture, in drone-local units (rotors included). */
+export const SCOUT_SHADOW_HALF_EXTENT = 0.34;
 
 /**
- * The drone's contact shadow seen from straight above: the body, the X of the arms, the motors and
- * the faint discs of the props, blurred by `blur` (a fraction of the texture). Drawn in drone-local
- * units, nose toward the bottom of the texture, so the ground plane only has to turn with the yaw.
+ * The drone's contact shadow seen from straight above: the sphere, the four short arms, the oval
+ * pods and the faint discs of the large rotors, blurred by `blur` (a fraction of the texture).
+ * Drawn in drone-local units; the layout is symmetric fore-and-aft and side to side, so the ground
+ * plane only has to turn with the yaw.
  */
 export const makeSilhouetteShadowTexture = (blur: number): CanvasTexture | null =>
   canvasTexture(128, (ctx, size) => {
@@ -153,29 +154,28 @@ export const makeSilhouetteShadowTexture = (blur: number): CanvasTexture | null 
     const px = half / SCOUT_SHADOW_HALF_EXTENT;
     ctx.filter = `blur(${Math.max(0.5, blur * size)}px)`;
     ctx.translate(half, half);
-    const reach = 0.2 * Math.SQRT1_2 * px;
-    ctx.fillStyle = "rgba(255,255,255,0.32)";
-    for (const [x, y] of [[reach, reach], [-reach, reach], [reach, -reach], [-reach, -reach]] as const) {
+    const pods = [0.96, -0.96, 2.18, -2.18].map((a) => [Math.sin(a) * 0.215 * px, Math.cos(a) * 0.215 * px, a] as const);
+    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    for (const [x, y] of pods) {
       ctx.beginPath();
-      ctx.arc(x, y, 0.085 * px, 0, Math.PI * 2);
+      ctx.arc(x, y, 0.1125 * px, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.strokeStyle = "rgba(255,255,255,1)";
-    ctx.lineCap = "round";
-    ctx.lineWidth = 0.02 * px;
+    ctx.lineWidth = 0.014 * px;
     ctx.beginPath();
-    ctx.moveTo(-reach, -reach);
-    ctx.lineTo(reach, reach);
-    ctx.moveTo(reach, -reach);
-    ctx.lineTo(-reach, reach);
+    for (const [x, y] of pods) {
+      ctx.moveTo(0, 0);
+      ctx.lineTo(x * 0.7, y * 0.7);
+    }
     ctx.stroke();
     ctx.fillStyle = "rgba(255,255,255,1)";
-    for (const [x, y] of [[reach, reach], [-reach, reach], [reach, -reach], [-reach, -reach]] as const) {
+    for (const [x, y, a] of pods) {
       ctx.beginPath();
-      ctx.arc(x, y, 0.02 * px, 0, Math.PI * 2);
+      ctx.ellipse(x, y, 0.026 * px, 0.075 * px, -a, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.beginPath();
-    ctx.ellipse(0, 0, 0.066 * px, 0.122 * px, 0, 0, Math.PI * 2);
+    ctx.arc(0, 0, 0.085 * px, 0, Math.PI * 2);
     ctx.fill();
   });

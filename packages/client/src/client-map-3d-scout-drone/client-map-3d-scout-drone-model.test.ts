@@ -3,7 +3,7 @@ import { Mesh } from "three";
 import { createScoutDroneModel } from "./client-map-3d-scout-drone-model.js";
 import { applyScoutDroneLights, scoutStrobeOn } from "./client-map-3d-scout-drone-lights.js";
 
-describe("Survey Quad model", () => {
+describe("Sentinel model", () => {
   // Only one scout drone is ever drawn (the player's own), so it is budgeted as a single-instance
   // hero asset: dense enough to stay smooth in close-ups, still a small share of the frame.
   it("stays within its triangle and draw-call budget", () => {
@@ -22,12 +22,12 @@ describe("Survey Quad model", () => {
     model.dispose();
   });
 
-  it("exposes four props, the gimbal stages, the legs and every light", () => {
+  it("exposes four rotors, the tracking eye and every light", () => {
     const model = createScoutDroneModel();
     expect(model.rotors).toHaveLength(4);
     expect(model.rotorLocal).toHaveLength(4);
-    expect(model.gimbalTilt.parent).toBe(model.gimbalPan);
-    expect(Object.keys(model.lights).sort()).toEqual(["lens", "navLeft", "navRight", "rec", "status", "strobe"]);
+    expect(model.eye.parent).toBe(model.root);
+    expect(Object.keys(model.lights).sort()).toEqual(["eye", "navLeft", "navRight", "rec", "strobe"]);
     model.dispose();
   });
 });
@@ -52,13 +52,13 @@ describe("the strobe", () => {
     model.dispose();
   });
 
-  it("grows only the camera-lens halo with distance, not the other lights", () => {
+  it("grows only the eye's halo with distance, not the other lights", () => {
     const model = createScoutDroneModel();
     applyScoutDroneLights(model, 1, 0.5, true, 600, true, 0);
-    const near = model.lights.lens.glow.scale.x;
+    const near = model.lights.eye.glow.scale.x;
     const nav = model.lights.navLeft.glow.scale.x;
     applyScoutDroneLights(model, 1, 0.5, true, 600, true, 1);
-    expect(model.lights.lens.glow.scale.x).toBeGreaterThan(near * 2);
+    expect(model.lights.eye.glow.scale.x).toBeGreaterThan(near * 2);
     expect(model.lights.navLeft.glow.scale.x).toBe(nav);
     model.dispose();
   });

@@ -83,7 +83,7 @@ const overHome = flight.steps[2]!.at; // x = 4
 const pastBorder = flight.steps[6]!.at; // x = 8
 
 describe("running dark in both renderers", () => {
-  it("3D: hides the nav lights, strobe and trails past the border and keeps the lens and status light dim", () => {
+  it("3D: hides the nav lights, strobe and trails past the border and keeps the eye dim", () => {
     const scene = new Scene();
     const sceneFor = (x: number, y: number, out: ScoutDroneScenePoint): void => {
       out.sceneX = x;
@@ -104,7 +104,7 @@ describe("running dark in both renderers", () => {
     overlay.sync(flight, pastBorder);
     overlay.sync(flight, pastBorder + SCOUT_LIGHTS_FADE_MS + 50);
     const visible = glows().filter((glow) => glow.visible);
-    expect(visible).toHaveLength(2); // the camera lens and the status light, both dimmed
+    expect(visible).toHaveLength(1); // the eye, dimmed
     expect(scene.getObjectByName("scout-drone-trails")!.visible).toBe(false);
     overlay.dispose();
   });

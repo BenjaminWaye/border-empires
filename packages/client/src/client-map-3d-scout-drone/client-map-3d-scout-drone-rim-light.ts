@@ -1,6 +1,6 @@
 import type { Color, MeshStandardMaterial } from "three";
 
-// A faint cool rim light for the scout drone's shell and battery (client-map-3d-scout-drone-materials.ts):
+// A faint cool rim light for the scout drone's painted panels (client-map-3d-scout-drone-materials.ts):
 // a fresnel term added to the emissive output, strongest on edges seen side-on and on surfaces
 // facing up the screen, so the drone's upper silhouette separates from a dark background without
 // any extra light in the scene. Low intensity, so it reads as a sky bounce, never as chrome.

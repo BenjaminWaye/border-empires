@@ -20,12 +20,12 @@ export const EXPLORE_SCOUT_DRONES_CHANGELOG: ClientChangelogEntry[] = [
   {
     createdAt: 1794695503609, // Date.now() captured once for this entry.
     introducedIn: "2026.11.14",
-    title: "Scout drone redesign: a real survey drone, and it runs dark",
+    title: "Scout drone redesign: the Sentinel, and it runs dark",
     why: "The scout drone looked like a rounded courier rather than a reconnaissance craft, and flew lit up even over rival ground.",
     changes: [
-      "The scout drone is now a realistic survey quadcopter: a graphite body, carbon arms, open propellers with guards, twin sensor lenses and a camera gimbal that tracks the ground and blinks while it records",
-      "Its landing legs fold away after take-off, and it kicks up a faint ripple from the ground as it lifts off and lands",
-      "Over your own and allied land it flies with its nav lights and strobe on. Past your border it runs dark, keeping only a faint cyan sensor glow",
+      "The scout drone is now the Sentinel: a dark grey panelled sphere with one big glowing camera eye that glances down at the ground, two antennas, and four short arms out to rotor pods with large three-blade rotors",
+      "Its rotors spool up on the AFC before it lifts off, it leans forward as it sets out and flares as it comes in to land, and it kicks up a faint ripple from the ground on the way",
+      "Over your own and allied land its pod lights and strobe are on. Past your border it runs dark, keeping only a dimmed eye",
       "Both the 3D map and the 2D map show the new look"
     ]
   }

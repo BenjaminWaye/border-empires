@@ -13,8 +13,8 @@ import { addStoryAfc } from "../../fixtures/construction-afc.js";
 // (gold), the rival's (red), ground the drone has seen (grass) and unexplored ground (dark). The
 // drone, its scan cone, vision ring and dashed route are the real overlay
 // (client-map-3d-scout-drone/). `progress` scrubs the flight; `play` runs it 20x faster than the
-// game.
-type Args = { progress: number; atSeconds: number; play: boolean; follow: boolean; cameraDistance: number; cameraTilt: number; cameraSide: number; cameraRise: number };
+// game. `studio` drops the board onto a neutral grey backdrop, for judging the model itself.
+type Args = { progress: number; atSeconds: number; play: boolean; follow: boolean; cameraDistance: number; cameraTilt: number; cameraSide: number; cameraRise: number; studio: boolean };
 
 const GRID_W = 30;
 const GRID_H = 16;
@@ -55,7 +55,7 @@ const LANDING_FLARE_AT = (() => {
 })();
 
 const render = (args: Args): HTMLElement => {
-  const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: args.cameraTilt, background: "#0d1218", bloom: true, width: 1280, height: 720 });
+  const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: args.cameraTilt, background: args.studio ? "#67686b" : "#0d1218", bloom: true, width: 1280, height: 720 });
   // The game's look: filmic tone mapping and a room environment for the metal to reflect.
   stage.renderer.toneMapping = ACESFilmicToneMapping;
   stage.renderer.toneMappingExposure = 1.2;
@@ -79,7 +79,7 @@ const render = (args: Args): HTMLElement => {
       const mesh = new Mesh(geometry, materials.fog);
       mesh.rotation.x = -Math.PI / 2;
       mesh.position.set(sceneX(x), -0.01, sceneZ(y));
-      stage.scene.add(mesh);
+      if (!args.studio) stage.scene.add(mesh);
       tiles.push({ x, y, mesh });
     }
   }
@@ -130,6 +130,9 @@ const render = (args: Args): HTMLElement => {
     paint(t);
     // The overlay animates rotors and lights from its clock argument; give it real time plus the scrub.
     overlay.sync({ ...flight, ...shiftFlight(flight, now - t) }, now);
+    // The studio frame holds the drone level (no bank or pitch), to compare it with the design reference.
+    const drone = args.studio ? stage.scene.getObjectByName("scout-drone") : undefined;
+    if (drone) drone.rotation.set(0, drone.rotation.y, 0, "YXZ");
     if (args.follow && scoutDronePoseAt(flight, t, WORLD.width, WORLD.height, pose)) {
       const horizontal = Math.sin(args.cameraTilt) * args.cameraDistance;
       const vertical = Math.cos(args.cameraTilt) * args.cameraDistance;
@@ -169,7 +172,7 @@ const meta: Meta<Args> = {
     cameraDistance: { control: { type: "range", min: 3, max: 40, step: 0.5 } },
     cameraTilt: { control: { type: "range", min: 0.1, max: 1.4, step: 0.05 } }
   },
-  args: { progress: 0.4, atSeconds: -1, play: false, follow: false, cameraDistance: 24, cameraTilt: 0.75, cameraSide: 0, cameraRise: 1.2 },
+  args: { progress: 0.4, atSeconds: -1, play: false, follow: false, cameraDistance: 24, cameraTilt: 0.75, cameraSide: 0, cameraRise: 1.2, studio: false },
   render
 };
 
@@ -178,16 +181,18 @@ type Story = StoryObj<Args>;
 /** The whole board: AFC, the player's land, the fog lifting along the route, the rival border ahead. */
 export const Overview: Story = {};
 /** Close behind the drone as it scans unexplored ground. */
-/** Over the player's own land: nav lights, tail strobe and antenna light on. */
+/** Over the player's own land: the pod nav lights and the strobe on. */
 export const CloseUpHome: Story = { args: { atSeconds: 3.6, follow: true, cameraDistance: 3.2, cameraTilt: 1.05, cameraSide: 1.2 } };
-/** Past the border, running dark: only the dim cyan sensor glow. */
+/** Past the border, running dark: only the dimmed eye and lower-front LED slots. */
 export const CloseUpDark: Story = { args: { progress: 0.33, follow: true, cameraDistance: 3.2, cameraTilt: 1.05, cameraSide: 1.2 } };
-/** A three-quarter hero angle over home land: the X frame, props, gimbal and legs folded. */
+/** A three-quarter hero angle over home land: the panelled sphere, the eye, the pods and their big rotors. */
 export const Hero: Story = { args: { atSeconds: 3.4, follow: true, cameraDistance: 2.6, cameraTilt: 1.15, cameraSide: 1.7 } };
+/** Framed like the design reference: level, three-quarter from the front, slightly above, on a neutral grey backdrop. */
+export const Reference: Story = { args: { atSeconds: 3.4, follow: true, cameraDistance: 0.85, cameraTilt: Math.PI / 2, cameraSide: 1.5, cameraRise: 2.35, studio: true } };
 /** Pure side view at the drone's height, to judge its volume and profile (nose to the right). */
 export const SideView: Story = { args: { atSeconds: 3.4, follow: true, cameraDistance: 1.7, cameraTilt: Math.PI / 2, cameraSide: 0, cameraRise: 2.08 } };
-/** Close on the nose and camera gimbal, from just ahead and below. */
-export const GimbalCloseUp: Story = { args: { atSeconds: 3.4, follow: true, cameraDistance: 0.55, cameraTilt: 1.45, cameraSide: 0.75, cameraRise: 1.82 } };
+/** Close on the eye, from just ahead and below. */
+export const EyeCloseUp: Story = { args: { atSeconds: 3.4, follow: true, cameraDistance: 0.55, cameraTilt: 1.45, cameraSide: 0.75, cameraRise: 1.82 } };
 /** Front view at the drone's height, looking back at the nose. */
 export const FrontView: Story = { args: { atSeconds: 3.4, follow: true, cameraDistance: 0.001, cameraTilt: Math.PI / 2, cameraSide: 1.7, cameraRise: 1.95 } };
 /** The game's default zoom (DEFAULT_ZOOM 22: camera 37.8 out at a 0.6 tilt), past the border. */

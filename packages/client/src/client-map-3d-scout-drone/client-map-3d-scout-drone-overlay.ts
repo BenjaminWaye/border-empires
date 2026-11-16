@@ -14,7 +14,7 @@ export type { ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights
 // The true-3D view of the player's scout drone (docs/explore-scout-plan.md). The drone
 // (client-map-3d-scout-drone-model.ts) spools its props up on its AFC's crown, lifts out, leans
 // forward a beat before it moves off, climbs to cruise height and flies its route banking into
-// turns and pitching nose-down with speed, its camera gimbal panning over the ground below; it
+// turns and pitching nose-down with speed, its camera eye glancing down and across the ground; it
 // flares nose-up as it comes in and settles gently back into the crown. Under it: the vision
 // footprint with a radar sweep, its silhouette shadow and the route ahead
 // (client-map-3d-scout-drone-ground-fx.ts); behind
@@ -51,7 +51,7 @@ export type ScoutDroneOverlay = {
 
 export const SCOUT_DRONE_SCALE = 2.2;
 /** Above the ground under it: docked on the AFC's crown, and at cruise. */
-export const SCOUT_DRONE_DOCK_HEIGHT = POD_AFC_CAP_Y + 0.38; // legs down, feet clear of the crown spike
+export const SCOUT_DRONE_DOCK_HEIGHT = POD_AFC_CAP_Y + 0.26; // the sphere resting just over the crown spike's tip
 export const SCOUT_DRONE_CRUISE_HEIGHT = 1.95;
 const MAX_BANK = 0.55;
 const SWEEP_PER_MS = 0.0016;
@@ -63,6 +63,9 @@ const TOUCHDOWN_SETTLE = 0.045;
 /** Camera distance over which the far-view readability boost fades in (gameplay zoom is ~38). */
 const FAR_FROM = 9;
 const FAR_SPAN = 16;
+/** How far the eye's inner rings may turn inside the bezel (radians). */
+const EYE_MAX_TILT = 0.24;
+const EYE_PAN = 0.18;
 const bump = (t: number): number => (t <= 0 || t >= 1 ? 0 : Math.sin(Math.PI * t));
 
 const wrapNear = (delta: number, size: number): number => (delta > size / 2 ? delta - size : delta < -size / 2 ? delta + size : delta);
@@ -146,7 +149,7 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     // nose-up flare as it slows to land.
     const lean = animate ? LAUNCH_LEAN * bump((pose.launchT - 0.25) / 0.45) - LANDING_FLARE * bump((pose.landT - 0.1) / 0.62) : 0;
     model.root.rotation.set(pitch + lean + jitterPitch * pose.lift, yaw, bank + jitterRoll * pose.lift, "YXZ");
-    // From the gameplay camera distance the X has to read: slightly denser prop discs, a larger lens halo.
+    // From the gameplay camera distance the X has to read: slightly denser prop discs, a larger eye halo.
     const far = deps.camera ? smoothstep01((deps.camera.position.distanceTo(model.root.position) - FAR_FROM) / FAR_SPAN) : 0;
     // Seen edge-on, a blur disc would stack into a bright streak (and bloom into a blob): fade the
     // discs out as the camera comes level with the prop plane.
@@ -160,33 +163,24 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     }
     model.root.visible = true;
 
-    // Rotors: blades while spooling, a motion-blur disc at speed.
+    // Rotors: blades while spooling, then blades over a faint motion-blur disc at speed.
     const blur = animate ? smoothstep01((pose.rotor - 0.35) / 0.5) : 0;
-    // The blades fade out as the blur fades in, so the hand-over at speed is seamless.
-    model.bladeMaterial.opacity = 1 - 0.92 * blur;
+    // The blades thin out as the blur fades in, but never vanish: the big blades are the feature.
+    model.bladeMaterial.opacity = 1 - 0.4 * blur;
     for (let k = 0; k < model.rotors.length; k += 1) {
       const rotor = model.rotors[k]!;
       if (animate) rotorAngles[k] = (rotorAngles[k]! + dt * ROTOR_PER_MS * pose.rotor * (1 + 0.035 * Math.sin(k * 1.9 + nowMs * 0.0004))) % (Math.PI * 2);
       rotor.blades.rotation.y = (k % 2 === 0 ? 1 : -1) * rotorAngles[k]! + k;
-      rotor.blades.visible = blur < 0.97;
-      rotor.disc.opacity = 0.42 * blur * (1 + 0.55 * far) * discFacing;
+      rotor.disc.opacity = 0.26 * blur * (1 + 0.9 * far) * discFacing;
     }
-    // Landing legs: down while docked; once it climbs away they retract into short stubs under
-    // the chassis (telescoping, tucked a little outward) so nothing trails under the arms.
-    const fold = smoothstep01((pose.lift - 0.3) / 0.45);
-    const legScale = 1 - 0.72 * fold;
-    model.legs.left.scale.y = legScale;
-    model.legs.right.scale.y = legScale;
-    model.legs.left.rotation.z = -0.2 * fold;
-    model.legs.right.rotation.z = 0.2 * fold;
-
-    // The camera gimbal looks down at the ground just ahead and pans across it with the sweep.
+    // The eye's inner rings glance down at the ground just ahead and pan slowly across it, within
+    // what the bezel allows.
     const height = altitude - groundY;
-    model.gimbalPan.rotation.y = animate ? 0.6 * Math.sin(nowMs * 0.0008) : 0;
-    model.gimbalTilt.rotation.x = Math.atan2(height, 1.1) - pitch;
+    model.eye.rotation.x = Math.min(EYE_MAX_TILT, Math.max(0, 0.3 * (Math.atan2(height, 1.1) - pitch))) * pose.lift;
+    model.eye.rotation.y = animate ? EYE_PAN * Math.sin(nowMs * 0.0008) * pose.lift : 0;
 
-    // Lights: nav lights and strobe over home land; past the border it runs dark, with only the
-    // dim cyan lens and status light left.
+    // Lights: the pod LEDs and strobe over home land; past the border it runs dark, with only the
+    // dimmed eye and lower-front LED slots left.
     const pulse = animate ? 0.5 + 0.5 * Math.sin(nowMs * 0.004) : 0.75;
     const level = updateScoutRunningLights(runningLights, pose.x, pose.y, deps.world, nowMs, deps.homeSource);
     applyScoutDroneLights(model, level, pulse, animate, nowMs, !pose.returning, far);
