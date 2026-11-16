@@ -2,7 +2,7 @@ import { tradedSlotSources } from "./traded-slot-sources.js";
 import type { ResourceSlotSupplyBuild } from "../runtime-economy-caches/runtime-economy-caches.js";
 import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resource-reveal.js";
 import type { DomainTileState, PersonalActivitySupplyEndedReason } from "@border-empires/game-domain";
-import { emptyNetworkSiteCounts, isSiphonModeSabotage, NETWORK_RESOURCES, OFFERABLE_SUPPLY_RESOURCES, UPKEEP_TRADE_RESOURCES,
+import { BINDING_DEAL_MESSAGE, emptyNetworkSiteCounts, isSiphonModeSabotage, NETWORK_RESOURCES, OFFERABLE_SUPPLY_RESOURCES, UPKEEP_TRADE_RESOURCES,
   offerIncludesNonTradableSupply, type NetworkSiteCounts, type ResourceSupplyAgreement, type ResourceSupplyFlow, type ResourceSupplyOffer } from "@border-empires/shared";
 import { networkSupplyWithSiphon } from "./network-supply-with-siphon.js";
 import { supplyShortfallMessage } from "./supply-shortfall-message.js";
@@ -194,6 +194,9 @@ export class RuntimeResourceSupply {
   cancel(id: string, actorId: string): SupplyLedgerResult {
     const row = this.ledger.rows().find(row => row.id === id);
     if (row && row.proposerId !== actorId && row.targetId !== actorId) return {ok:false,message:"Only a House in this agreement can end its supply."};
+    // Deals are binding for their term, as in Civ: only expiry or war (cancelBetween) ends one early.
+    // Open-ended agreements saved before terms existed have nothing to honour and may still be ended.
+    if (row?.expiresAt !== undefined) return {ok:false,message:BINDING_DEAL_MESSAGE};
     if (row && this.ledger.remove(id, this.ctx.now())) this.ctx.ended?.(row, "CANCELLED", actorId);
     return {ok:true};
   }

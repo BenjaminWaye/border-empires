@@ -26,9 +26,16 @@ export const DiplomacyTermsSchema = z.object({
   give: DiplomacyGoodsSchema, ask: DiplomacyGoodsSchema,
   // Accepted for older callers; new supply commitments have a fixed seven-day term.
   supplyDurationHours: z.union([z.literal(12), z.literal(24)]).optional()
-}).refine(terms => (!terms.give.coinPerHour && !terms.ask.coinPerHour) ||
-  hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources),
-{ message: "Recurring Coin requires a resource slot in the deal." });
+});
+
+/**
+ * Outside a truce, Coin per hour rides on a resource supply contract, so it
+ * needs a slot in the deal. ALLIANCE_REQUEST and RESOURCE_TRADE_REQUEST
+ * refine their terms with this; a truce may pledge Coin per hour alone.
+ */
+export const recurringCoinHasSlot = (terms: DiplomacyTerms): boolean =>
+  !hasRecurringCoin(terms) || hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources);
+export const RECURRING_COIN_NEEDS_SLOT_MESSAGE = "Recurring Coin requires a resource slot in the deal.";
 
 /**
  * Marks a truce/alliance request as a counter to an offer the sender received:
@@ -55,6 +62,16 @@ export const EMPTY_DIPLOMACY_GOODS: DiplomacyGoods = { gold: 0 };
 export const emptyDiplomacyTerms = (): DiplomacyTerms => ({ give: { ...EMPTY_DIPLOMACY_GOODS }, ask: { ...EMPTY_DIPLOMACY_GOODS } });
 
 export const hasRecurringCoin = (terms: DiplomacyTerms): boolean => Boolean(terms.give.coinPerHour || terms.ask.coinPerHour);
+
+/**
+ * How many hours Coin per hour is paid for: the seven-day supply term when the
+ * deal carries resource slots, otherwise the truce's own length (a 12h
+ * extension pays for 12h from acceptance). null when the deal can't carry it.
+ */
+export const recurringCoinTermHours = (kind: DiplomacyOfferKind | "trade", durationHours: 12 | 24, terms: DiplomacyTerms): number | null =>
+  hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)
+    ? RESOURCE_SUPPLY_TRADE_DAYS * 24
+    : kind === "truce" ? durationHours : null;
 
 export const diplomacyTermsAreEmpty = (terms: DiplomacyTerms | undefined): boolean =>
   !terms || (terms.give.gold === 0 && terms.ask.gold === 0 && !hasRecurringCoin(terms) &&
@@ -124,10 +141,28 @@ export const requiredForOffer = (pricing: AiDiplomacyPricing, kind: DiplomacyOff
 
 const asksAnything = (terms: DiplomacyTerms): boolean => terms.ask.gold > 0 || hasResourceSupplyOffer(terms.ask.resources);
 
-/** Net coin-equivalent flowing to the AI target under these terms. */
-export const netValueToAi = (terms: DiplomacyTerms): number =>
+/**
+ * What an AI counts Coin per hour for, against the same Coin paid upfront:
+ * payments can pause or shrink with the payer's income, so it is worth less.
+ */
+export const AI_RECURRING_COIN_VALUE_SHARE = 0.5;
+
+/**
+ * Net coin-equivalent flowing to the AI target under these terms.
+ * `coinHours`: how long any Coin per hour is paid for (0 ignores it).
+ */
+export const netValueToAi = (terms: DiplomacyTerms, coinHours = 0): number =>
   terms.give.gold - terms.ask.gold +
-  resourceSupplyCoinValue(terms.give.resources, 24) - resourceSupplyCoinValue(terms.ask.resources, 24);
+  resourceSupplyCoinValue(terms.give.resources, 24) - resourceSupplyCoinValue(terms.ask.resources, 24) +
+  ((terms.give.coinPerHour ?? 0) - (terms.ask.coinPerHour ?? 0)) * coinHours * AI_RECURRING_COIN_VALUE_SHARE;
+
+/** An AI takes Coin per hour only from the requester, and only for a truce; it never pledges its own income. */
+const aiTakesRecurringCoin = (kind: DiplomacyOfferKind, terms: DiplomacyTerms): boolean =>
+  !terms.ask.coinPerHour && (!terms.give.coinPerHour || kind === "truce");
+
+/** Hours the AI values the requester's Coin per hour over (see recurringCoinTermHours). */
+export const aiCoinHours = (kind: DiplomacyOfferKind, durationHours: 12 | 24, terms: DiplomacyTerms): number =>
+  recurringCoinTermHours(kind, durationHours, terms) ?? 0;
 
 export type AiOfferVerdict =
   | { accepts: true }
@@ -144,7 +179,7 @@ export const evaluateAiOffer = (
   terms: DiplomacyTerms
 ): AiOfferVerdict => {
   const required = requiredForOffer(pricing, kind, durationHours);
-  if (required === null || hasRecurringCoin(terms)) return { accepts: false, reason: "refuses" };
+  if (required === null || !aiTakesRecurringCoin(kind, terms)) return { accepts: false, reason: "refuses" };
   if (kind === "alliance" && asksAnything(terms)) return { accepts: false, reason: "aiWontPay" };
   const missing: DiplomacyGoods = {
     gold: Math.max(0, terms.ask.gold - pricing.aiHoldings.gold)
@@ -152,7 +187,7 @@ export const evaluateAiOffer = (
   const missingSupply = missingResourceSupply(terms.ask.resources, pricing.aiHoldings.resources);
   if (hasResourceSupplyOffer(missingSupply)) missing.resources = missingSupply;
   if (missing.gold > 0 || hasResourceSupplyOffer(missingSupply)) return { accepts: false, reason: "aiCannotPay", missing };
-  const shortfall = required - netValueToAi(terms);
+  const shortfall = required - netValueToAi(terms, aiCoinHours(kind, durationHours, terms));
   return shortfall > 0 ? { accepts: false, reason: "shortfall", shortfall: Math.ceil(shortfall) } : { accepts: true };
 };
 
@@ -176,7 +211,7 @@ export const aiCounterOffer = (
   requesterHoldings: DiplomacyGoods
 ): AiCounterOffer => {
   const required = requiredForOffer(pricing, kind, durationHours);
-  if (required === null || hasRecurringCoin(terms)) return { kind: "refuses" };
+  if (required === null || !aiTakesRecurringCoin(kind, terms)) return { kind: "refuses" };
   const next: DiplomacyTerms = {
     give: { ...terms.give, ...(terms.give.resources ? { resources: { ...terms.give.resources } } : {}) },
     // Never counter by asking the AI to pay more than it holds, nor anything at all for an alliance.
@@ -190,7 +225,7 @@ export const aiCounterOffer = (
     const resources = clampedResourceSupply(terms.ask.resources, pricing.aiHoldings.resources);
     if (hasResourceSupplyOffer(resources)) next.ask.resources = resources;
   }
-  let deficit = required - netValueToAi(next);
+  let deficit = required - netValueToAi(next, aiCoinHours(kind, durationHours, next));
   if (deficit <= 0) return { kind: "counter", terms: next };
 
   const dropAskGold = Math.min(next.ask.gold, Math.ceil(deficit));

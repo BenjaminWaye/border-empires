@@ -3,6 +3,7 @@ import { settleResourceTreaty } from "./resource-treaty-settlement.js";
 // (its standing counter-offer may be stale), have the simulation move any
 // coin, then record the agreement.
 import { diplomacyTermsAreEmpty, swapDiplomacyTerms, hasResourceSupplyOffer } from "@border-empires/shared";
+import { termsCreateAgreement } from "./diplomacy-settlement.js";
 
 import type { SocialActionResult, SocialPendingOffer, SocialState } from "../social-state/social-state-types.js";
 import type { DiplomacySettlement } from "./diplomacy-settlement.js";
@@ -60,8 +61,10 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
       if (recordedFree.ok) deps.onAccepted?.(kind, request);
       return recordedFree;
     }
-    if (hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)) {
-      return settleResourceTreaty(deps, kind, request, terms, record);
+    if (termsCreateAgreement(terms)) {
+      // A truce's Coin per hour without slots is paid for the truce's own length.
+      const coinTermHours = kind === "truce" && "durationHours" in request ? request.durationHours : undefined;
+      return settleResourceTreaty(deps, kind, request, terms, record, coinTermHours);
     }
     const paid = await deps.settlement.settle({ proposerId: request.fromPlayerId, targetId: request.toPlayerId, terms });
     if (!paid.ok) {

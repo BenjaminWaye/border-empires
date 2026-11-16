@@ -20,6 +20,8 @@ export type ResourceSupplyAmounts = Record<TradableSupplyResource, number>;
 export const RESOURCE_SUPPLY_TRADE_DAYS = 7;
 export const MAX_TRADE_COIN_PER_HOUR = 1_000_000;
 export const TradeCoinPerHourSchema = z.number().int().min(0).max(MAX_TRADE_COIN_PER_HOUR);
+/** Deals run their full term; only war between the two Houses ends one early. */
+export const BINDING_DEAL_MESSAGE = "Deals are binding: this one runs until it ends, unless war breaks out between you.";
 export const RESOURCE_SUPPLY_TRADE_DURATION_MS = RESOURCE_SUPPLY_TRADE_DAYS * 86_400_000;
 export const MAX_RESOURCE_TRADE_SLOTS = 10_000;
 export const MAX_RESOURCE_SUPPLY_AGREEMENTS = 256;
@@ -36,7 +38,9 @@ export const ResourceSupplyAgreementSchema = z.object({
   startedAt: z.number().int().nonnegative(), expiresAt: z.number().int().nonnegative().optional()
 }).refine(row => row.proposerId !== row.targetId && (row.expiresAt === undefined || row.expiresAt > row.startedAt) &&
   (!row.proposerCoinPerHour && !row.targetCoinPerHour || row.expiresAt !== undefined) &&
-  TRADABLE_SUPPLY_RESOURCES.some(resource => (row.proposerGives[resource] ?? 0) + (row.targetGives[resource] ?? 0) > 0));
+  // A truce's Coin-per-hour pledge is an agreement with no slots: Coin alone.
+  (Boolean(row.proposerCoinPerHour || row.targetCoinPerHour) ||
+    TRADABLE_SUPPLY_RESOURCES.some(resource => (row.proposerGives[resource] ?? 0) + (row.targetGives[resource] ?? 0) > 0)));
 export type ResourceSupplyAgreement = z.infer<typeof ResourceSupplyAgreementSchema>;
 
 export const emptyResourceSupplyAmounts = (): ResourceSupplyAmounts => ({

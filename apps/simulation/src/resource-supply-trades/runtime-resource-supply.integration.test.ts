@@ -6,13 +6,17 @@ import { compactSnapshotForStorage, expandSnapshotFromStorage } from "../snapsho
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { applySimulationEventsToRecoveredState } from "../event-recovery/event-recovery.js";
 import { describe, expect, it } from "vitest";
-import { MANPOWER_REFILL_WINDOW_MS, lastManpowerRefillAtMs, NETWORK_RESOURCES, RESOURCE_NETWORKS, supplyResourceLabel, type ResourceSupplyOffer } from "@border-empires/shared";
+import { BINDING_DEAL_MESSAGE, MANPOWER_REFILL_WINDOW_MS, lastManpowerRefillAtMs, NETWORK_RESOURCES, RESOURCE_NETWORKS, supplyResourceLabel, type ResourceSupplyOffer } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
 
 const start = lastManpowerRefillAtMs("buyer", 100 * MANPOWER_REFILL_WINDOW_MS);
-function fixture(allResources = false, buyerFarms = 12, isAi = false) {
+/**
+ * `openEnded`: agreements saved before deals had terms (no expiresAt). Deals
+ * are binding for their term, so only these can still be ended by hand.
+ */
+function fixture(allResources = false, buyerFarms = 12, isAi = false, openEnded: Record<string, ResourceSupplyOffer> = {}) {
   let now = start;
   const land = (x: number, y: number, id: string): DomainTileState => ({ x,y,terrain:"LAND",ownerId:id,ownershipState:"SETTLED" });
   const tiles: DomainTileState[] = [];
@@ -28,7 +32,8 @@ function fixture(allResources = false, buyerFarms = 12, isAi = false) {
     tiles.find(t=>t.x===39&&t.y===y)!.economicStructure={ownerId:"buyer",type,status:"active"};
   tiles.find(t=>t.x===39&&t.y===39)!.economicStructure={ ownerId:"buyer",type:"ANCILLARY_FACTORY",status:"active" };
   tiles.find(tile => tile.x === 41 && tile.y === 40)!.economicStructure = { ownerId: "buyer", type: "ANCILLARY_DEPOT", status: "active" };
-  const runtime = new SimulationRuntime({ now:()=>now,seedTiles:new Map(),initialState:{ tiles,activeLocks:[] },
+  const resourceSupplyAgreements = Object.entries(openEnded).map(([id, proposerGives]) => ({ id, proposerId: "seller", targetId: "buyer", proposerGives, targetGives: {}, startedAt: start - 1 }));
+  const runtime = new SimulationRuntime({ now:()=>now,seedTiles:new Map(),initialState:{ tiles,activeLocks:[],...(resourceSupplyAgreements.length ? { resourceSupplyAgreements } : {}) },
     initialPlayers:new Map(["seller","buyer"].map(id=>[id,buildPlayer(id,{ points:100,isAi,manpower:0,manpowerUpdatedAt:start,
       manpowerCapSnapshot:10000,landingReserveGranted:true,techIds:new Set(allResources ? NETWORK_RESOURCES.map(resource=>RESOURCE_NETWORKS[resource].tech) : ["frontier-concessions"]) })])) });
   const pay = (id = "trade", resources: ResourceSupplyOffer = {LUXURY_BIOTA:1}, coinPerHour?: number) => runtime.submitCommand({ commandId:id,playerId:"seller",type:"SETTLE_DIPLOMACY_TERMS",sessionId:"gateway",clientSeq:id === "trade" ? 1 : 2,issuedAt:now,payloadJson:JSON.stringify({ proposerId:"seller",targetId:"buyer",proposerPays:{gold:0,resources},targetPays:{gold:3,coinPerHour},supplyDurationHours:12 }) });
@@ -129,8 +134,7 @@ describe("resource trades in the production runtime",()=>{
     expect(paid.player("seller").points).toBeCloseTo(baseline.player("seller").points);
   });
   it("keeps imported and committed source rows equal to actual supply, including reconnect snapshots", async () => {
-    const f = fixture();
-    await f.pay("trade", { FOOD: 2 });
+    const f = fixture(false, 12, false, { trade: { FOOD: 2 } });
     for (const id of ["seller", "buyer"]) {
       const player = buildPlayerSubscriptionSnapshot(id, f.runtime.exportVisibleStateForPlayer(id), { tilesAlreadyVisible: true }).player!;
       const slots = player.resourceSlots!;
@@ -182,10 +186,9 @@ describe("resource trades in the production runtime",()=>{
     expect(own.resourceSlots?.bonusSupply?.supply.LUXURY_BIOTA).toBe(1);
     expect(own.manpowerRegenPerMinute).toBeCloseTo(f.player("buyer").manpowerRegenPerMinute!);
     const checkpointEventId = await eventStore.loadLatestEventId();
-    await f.runtime.submitCommand({
-      commandId: "cancel-trade", sessionId: "system-runtime:social", playerId: "buyer", clientSeq: 0,
-      issuedAt: start, type: "CANCEL_RESOURCE_SUPPLY", payloadJson: JSON.stringify({ agreementId: "trade" })
-    });
+    // The deal is binding: it ends at its deadline.
+    f.setNow(start + 7 * 86_400_000);
+    f.runtime.applyPassiveIncome(start + 7 * 86_400_000, Infinity);
     await queue.whenIdle();
     const afterCheckpoint = (await eventStore.loadEventsAfter(checkpointEventId)).map(event => event.eventPayload);
     expect(applySimulationEventsToRecoveredState(initialState, afterCheckpoint).resourceSupplyAgreements).toEqual([]);
@@ -230,12 +233,8 @@ describe("resource trades in the production runtime",()=>{
     const queue = createSimulationPersistenceQueue({ commandStore: new InMemorySimulationCommandStore(), eventStore });
     f.runtime.onEvent(event => queue.enqueueEvent(event, start));
     await f.pay();
-    if (alreadyEnded) {
-      await f.runtime.submitCommand({
-        commandId: "cancel-before-refund", sessionId: "system-runtime:social", playerId: "buyer", clientSeq: 0,
-        issuedAt: start, type: "CANCEL_RESOURCE_SUPPLY", payloadJson: JSON.stringify({ agreementId: "trade" })
-      });
-    }
+    // Deals are binding, so war (an accepted ATTACK's cancelBetween) is what ends one before the refund lands.
+    if (alreadyEnded) (f.runtime as unknown as { resourceSupply: { cancelBetween(a: string, b: string): number } }).resourceSupply.cancelBetween("buyer", "seller");
     await queue.whenIdle();
     const checkpoint = f.runtime.exportSnapshotSections().initialState;
     const eventId = await eventStore.loadLatestEventId();
@@ -342,8 +341,18 @@ describe("resource trades in the production runtime",()=>{
     expect(ownAfter.resourceSlots?.supply.FOOD).toBe(6);
   });
 
-  it.each(["seller","buyer"])("lets %s end the same agreement and releases both players' supply",async(actorId)=>{
+  // Deals are binding, as in Civ: neither House can end one before its term; only war or expiry does.
+  it.each(["seller","buyer"])("refuses to let %s end a binding agreement early",async(actorId)=>{
     const f=fixture();await f.pay();
+    const events=collectEvents(f.runtime);
+    f.runtime.submitCommand({commandId:"end-binding",sessionId:"system-runtime:social",playerId:actorId,clientSeq:0,issuedAt:start,type:"CANCEL_RESOURCE_SUPPLY",payloadJson:JSON.stringify({agreementId:"trade"})});
+    await Promise.resolve();
+    expect(events).toContainEqual(expect.objectContaining({eventType:"COMMAND_REJECTED",commandId:"end-binding",message:BINDING_DEAL_MESSAGE}));
+    expect(f.player("buyer").resourceTradeAgreements?.map(row=>row.id)).toEqual(["trade"]);
+  });
+
+  it.each(["seller","buyer"])("lets %s end an open-ended agreement and releases both players' supply",async(actorId)=>{
+    const f=fixture(false,12,false,{trade:{LUXURY_BIOTA:1}});
     const before=f.player("buyer"),events=collectEvents(f.runtime);
     f.runtime.submitCommand({commandId:"end-supply",sessionId:"system-runtime:social",playerId:actorId,clientSeq:0,issuedAt:start,type:"CANCEL_RESOURCE_SUPPLY",payloadJson:JSON.stringify({agreementId:"trade"})});
     await Promise.resolve();
@@ -355,8 +364,21 @@ describe("resource trades in the production runtime",()=>{
     expect(f.player("buyer").points).toBeCloseTo(before.points);
   });
 
+  // A truce's Coin per hour without slots: an agreement of Coin alone, for the truce's hours.
+  it("records a slot-free truce Coin pledge for the truce's length, and refuses one with no term", async () => {
+    const f = fixture();
+    const events = collectEvents(f.runtime);
+    const settle = (commandId: string, coinTermHours?: 12) => f.runtime.submitCommand({ commandId, playerId: "buyer", type: "SETTLE_DIPLOMACY_TERMS", sessionId: "gateway", clientSeq: 0, issuedAt: start,
+      payloadJson: JSON.stringify({ proposerId: "buyer", targetId: "seller", proposerPays: { gold: 0, coinPerHour: 20 }, targetPays: { gold: 0 }, ...(coinTermHours ? { coinTermHours } : {}) }) });
+    await settle("no-term");
+    expect(events).toContainEqual(expect.objectContaining({ eventType: "COMMAND_REJECTED", commandId: "no-term" }));
+    await settle("truce-coin", 12);
+    expect(events).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "truce-coin" }));
+    expect(f.player("buyer").resourceTradeAgreements).toEqual([expect.objectContaining({ id: "truce-coin", proposerCoinPerHour: 20, expiresAt: start + 12 * 3_600_000 })]);
+  });
+
   it("writes a Chronicle card for both Houses when a supply ends, naming who ended it",async()=>{
-    const f=fixture();await f.pay();
+    const f=fixture(false,12,false,{trade:{LUXURY_BIOTA:1}});
     f.runtime.submitCommand({commandId:"end-supply-chronicle",sessionId:"system-runtime:social",playerId:"seller",clientSeq:0,issuedAt:start,type:"CANCEL_RESOURCE_SUPPLY",payloadJson:JSON.stringify({agreementId:"trade"})});
     await Promise.resolve();
     const card=(id:string)=>f.runtime.getPersonalActivityTimeline(id,0,start+1).cards.find(card=>card.kind==="SUPPLY_ENDED");
@@ -365,13 +387,11 @@ describe("resource trades in the production runtime",()=>{
   });
 
   it("ends consecutive agreements without consuming sequence zero, including after checkpoint recovery",async()=>{
-    const f=fixture();await f.pay("first");
+    const f=fixture(false,12,false,{first:{LUXURY_BIOTA:1},second:{FOOD:1},third:{FOOD:1}});
     const end=(runtime:SimulationRuntime,id:string,agreementId:string)=>runtime.submitCommand({commandId:id,sessionId:"system-runtime:social",playerId:"buyer",clientSeq:0,issuedAt:start,type:"CANCEL_RESOURCE_SUPPLY",payloadJson:JSON.stringify({agreementId})});
     await end(f.runtime,"cancel-first","first");
-    await f.pay("second");
     await end(f.runtime,"cancel-second","second");
-    expect(f.player("buyer").resourceTradeAgreements).toEqual([]);
-    await f.pay("third");
+    expect(f.player("buyer").resourceTradeAgreements?.map(row=>row.id)).toEqual(["third"]);
     const sections=f.runtime.exportSnapshotSections();
     const restored=new SimulationRuntime({now:()=>start,seedTiles:new Map(),initialState:sections.initialState,mergeSeedTilesWithInitialState:false,
       initialCommandHistory:{commands:[{commandId:"cancel-second",sessionId:"system-runtime:social",playerId:"buyer",clientSeq:0,type:"CANCEL_RESOURCE_SUPPLY",payloadJson:'{"agreementId":"second"}',queuedAt:start,status:"RESOLVED"}],

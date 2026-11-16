@@ -188,7 +188,7 @@ const render = (screen: OpenScreen): void => {
     expanded: screen.expanded,
     haveText: (spec) => haveText(own, theirs, spec),
     hideEmptySupply: { give: true, ask: Boolean(theirs?.resources) },
-    hideCoinPerHour: Boolean(reply?.found && reply.ai)
+    hideCoinPerHour: reply?.found && reply.ai ? { give: screen.treaty !== "truce", ask: true } : {}
   });
   const dealEl = overlay.querySelector<HTMLElement>("[data-trade-deal]");
   if (dealEl) dealEl.innerHTML = dealSummaryHtml({ selection, treaty: screen.treaty, targetName, locked: screen.counters !== undefined });

@@ -11,6 +11,8 @@ import {
   extensionPricing,
   requiredForOffer,
   netValueToAi,
+  aiCoinHours,
+  recurringCoinTermHours,
   type AiDiplomacyPricing,
   type AiGiftView,
   type DiplomacyGoods,
@@ -184,9 +186,11 @@ export const tradeVerdict = (input: {
   if (shortfall) return { tone: "bad", text: shortfall, canSend: false, sendLabel };
   const hasSupply = hasResourceSupplyOffer(selection.terms.give.resources) || hasResourceSupplyOffer(selection.terms.ask.resources);
   if (hasRecurringCoin(selection.terms)) {
-    // An AI never takes a Coin-income pledge, slot or not: say so before pointing at a slot that wouldn't help.
-    if (reply?.found && reply.ai) return { tone: "bad", text: "AI Houses only take Coin upfront. Remove Coin per hour and offer Coin instead.", canSend: false, sendLabel };
-    if (!hasSupply) return { tone: "neutral", text: "Add a resource slot to trade Coin income.", canSend: false, sendLabel };
+    // An AI takes Coin per hour only from you, and only for a truce: say so before pointing at a slot that wouldn't help.
+    if (reply?.found && reply.ai && (selection.terms.ask.coinPerHour || kind !== "truce"))
+      return { tone: "bad", text: "AI Houses accept Coin per hour only from you, and only for a truce.", canSend: false, sendLabel };
+    if (recurringCoinTermHours(kind, selection.durationHours, selection.terms) === null)
+      return { tone: "neutral", text: "Add a resource slot to pledge Coin per hour outside a truce.", canSend: false, sendLabel };
   }
   if (hasSupply && !own.resources) return {tone:"bad",text:"Reconnect before negotiating resource supply.",canSend:false,sendLabel};
   if (kind === "trade") {
@@ -199,7 +203,7 @@ export const tradeVerdict = (input: {
         : answer.reason === "aiCannotPay" ? "doesn't have that much spare to give." : "won't take these resource terms.";
       return {tone:"bad",text:`${targetName} would decline: ${why}`,canSend:true,sendLabel};
     }
-    return {tone:"neutral",text:`Supply lasts ${RESOURCE_SUPPLY_TRADE_DAYS} days from acceptance unless ended early. ${targetName} will decide on the offer.`,canSend:true,sendLabel};
+    return {tone:"neutral",text:`Supply lasts ${RESOURCE_SUPPLY_TRADE_DAYS} days from acceptance and is binding: only war between you ends it early. ${targetName} will decide on the offer.`,canSend:true,sendLabel};
   }
   if (reply && !reply.found) return { tone: "bad", text: `No empire named ${targetName}.`, canSend: false, sendLabel };
   if (!reply) return { tone: "neutral", text: `Reading ${targetName}'s mood…`, canSend: true, sendLabel };
@@ -221,7 +225,7 @@ export const tradeVerdict = (input: {
   if (extendsTruce(selection) && required === 0) return { tone: "bad", text: `${targetName} won't pay anything to extend a truce.`, canSend: true, sendLabel };
   const spareCoin = Math.max(0, own.gold - selection.terms.give.gold);
   const affordable = spareCoin >= verdict.shortfall;
-  const offered = netValueToAi(selection.terms);
+  const offered = netValueToAi(selection.terms, aiCoinHours(kind, selection.durationHours, selection.terms));
   return {
     tone: "bad",
     text: (affordable
