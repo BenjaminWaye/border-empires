@@ -2,42 +2,33 @@
 // goodwill that fade over time rather than a snapshot of the moment. Fed by
 // combat results from the simulation event stream and by settled deals.
 //
-// In memory only and bounded: a restart forgets recent fights, which at worst
-// makes an AI briefly more forgiving. Season-long grudges (broken truces)
-// live in the persisted social store, not here.
+// Bounded (MAX_DIPLOMACY_MEMORY_PAIRS, least recently touched forgotten first)
+// and persisted per pair in the gateway social store through `sink`
+// (social-store-ai-diplomacy-memory.ts), so a restart keeps the war tally,
+// pricing and "already paid for peace". Values are stored raw and keep fading
+// from their own timestamps; a pair whose values have all faded is pruned
+// (`prune`). Scoped to the season: the store and `reset` clear it at a new one.
 
-/** Tiles and fights fade by half every 12 hours. */
-export const WAR_MEMORY_HALF_LIFE_MS = 12 * 60 * 60_000;
-/**
- * The war's pace: the same tile counts fading by half every hour, so they hold
- * roughly the last hour and a half of fighting (ai-war-outlook.ts).
- */
-export const WAR_PACE_HALF_LIFE_MS = 60 * 60_000;
-/** Goodwill from payments and the "you keep buying truces" count fade by half daily. */
-export const DEAL_MEMORY_HALF_LIFE_MS = 24 * 60 * 60_000;
-/** Pairs remembered at once (state discipline); the least recently touched is forgotten first. */
-export const MAX_DIPLOMACY_MEMORY_PAIRS = 20_000;
+import {
+  DEAL_MEMORY_HALF_LIFE_MS,
+  diplomacyMemoryExpiresAt,
+  diplomacyMemoryPairKey,
+  MAX_DIPLOMACY_MEMORY_PAIRS,
+  WAR_MEMORY_HALF_LIFE_MS,
+  WAR_PACE_HALF_LIFE_MS,
+  type Decaying,
+  type StoredDiplomacyMemoryPair
+} from "./ai-diplomacy-memory-record.js";
 
-type Decaying = { value: number; at: number };
+export { DEAL_MEMORY_HALF_LIFE_MS, MAX_DIPLOMACY_MEMORY_PAIRS, WAR_MEMORY_HALF_LIFE_MS, WAR_PACE_HALF_LIFE_MS } from "./ai-diplomacy-memory-record.js";
+export type { StoredDiplomacyMemoryPair } from "./ai-diplomacy-memory-record.js";
 
-type PairMemory = {
-  /** Tiles the player took from the AI. */
-  tilesTakenFromAi: Decaying;
-  /** Tiles the AI took from the player. */
-  tilesTakenByAi: Decaying;
-  /** The same, fading by the hour: how fast ground is changing hands now. */
-  recentTilesTakenFromAi: Decaying;
-  recentTilesTakenByAi: Decaying;
-  /** Battles between them, either direction. */
-  battles: Decaying;
-  /** Truces the player has bought or agreed with this AI. */
-  truceDeals: Decaying;
-  /** Coin-equivalent the player has paid this AI in deals. */
-  goodwillCoin: Decaying;
-  lastPlayerAttackAt: number | undefined;
-  lastCombatAt: number | undefined;
-  /** When the AI last paid this player for peace; it won't again until they fight anew. */
-  aiPaidForPeaceAt: number | undefined;
+type PairMemory = StoredDiplomacyMemoryPair;
+
+/** Where changed pairs go: upsert on every change, remove on eviction or prune. */
+export type DiplomacyMemorySink = {
+  save: (pair: StoredDiplomacyMemoryPair) => void;
+  remove: (aiPlayerId: string, playerId: string) => void;
 };
 
 export type DiplomacyMemoryView = {
@@ -65,7 +56,11 @@ const bump = (entry: Decaying, amount: number, now: number, halfLifeMs: number):
   at: now
 });
 
-const empty = (now: number): PairMemory => ({
+const empty = (aiPlayerId: string, playerId: string, now: number): PairMemory => ({
+  aiPlayerId,
+  playerId,
+  touchedAt: now,
+  expiresAt: now,
   tilesTakenFromAi: { value: 0, at: now },
   tilesTakenByAi: { value: 0, at: now },
   recentTilesTakenFromAi: { value: 0, at: now },
@@ -98,30 +93,72 @@ export type AiDiplomacyMemory = {
   /** Coin-equivalent the player paid the AI (positive) or the AI paid the player (negative). */
   recordPayment: (aiPlayerId: string, playerId: string, coinToAi: number) => void;
   view: (aiPlayerId: string, playerId: string) => DiplomacyMemoryView;
+  /** Forgets pairs whose values have all faded (expiresAt passed); returns how many. */
+  prune: () => number;
+  /** Forgets everything without touching the sink (a new season; the store clears its own rows). */
+  reset: () => void;
   size: () => number;
+  /** Gauge and counters for the state-discipline bound: pairs held, evicted at the cap, pruned. */
+  stats: () => { pairs: number; evictedTotal: number; prunedTotal: number };
 };
 
-export const createAiDiplomacyMemory = (deps: { now: () => number; isAi: (playerId: string) => boolean }): AiDiplomacyMemory => {
+export const createAiDiplomacyMemory = (deps: {
+  now: () => number;
+  isAi: (playerId: string) => boolean;
+  /** Pairs restored from the social store at boot. */
+  initial?: readonly StoredDiplomacyMemoryPair[];
+  sink?: DiplomacyMemorySink;
+}): AiDiplomacyMemory => {
   const pairs = new Map<string, PairMemory>();
-  const keyOf = (aiPlayerId: string, playerId: string): string => `${aiPlayerId}|${playerId}`;
+  let evictedTotal = 0;
+  let prunedTotal = 0;
+  const forget = (key: string): void => {
+    const entry = pairs.get(key);
+    if (!entry) return;
+    pairs.delete(key);
+    deps.sink?.remove(entry.aiPlayerId, entry.playerId);
+  };
+  const evictToFit = (): void => {
+    while (pairs.size >= MAX_DIPLOMACY_MEMORY_PAIRS) {
+      const oldestKey = pairs.keys().next().value;
+      if (oldestKey === undefined) return;
+      forget(oldestKey);
+      evictedTotal += 1;
+    }
+  };
   // LRU by Map insertion order: a touched pair is moved to the end, so the
   // first key is always the least recently touched (O(1) eviction).
   const touch = (aiPlayerId: string, playerId: string): PairMemory => {
     const now = deps.now();
-    const key = keyOf(aiPlayerId, playerId);
+    const key = diplomacyMemoryPairKey(aiPlayerId, playerId);
     let entry = pairs.get(key);
     if (entry) {
       pairs.delete(key);
     } else {
-      if (pairs.size >= MAX_DIPLOMACY_MEMORY_PAIRS) {
-        const oldestKey = pairs.keys().next().value;
-        if (oldestKey !== undefined) pairs.delete(oldestKey);
-      }
-      entry = empty(now);
+      evictToFit();
+      entry = empty(aiPlayerId, playerId, now);
     }
+    entry.touchedAt = now;
     pairs.set(key, entry);
     return entry;
   };
+  /** Called after every change to a touched pair: refreshes its fade-out time and hands it to the store. */
+  const commit = (entry: PairMemory): void => {
+    entry.expiresAt = diplomacyMemoryExpiresAt(entry);
+    deps.sink?.save({ ...entry });
+  };
+  const loadNow = deps.now();
+  for (const stored of [...(deps.initial ?? [])].sort((left, right) => left.touchedAt - right.touchedAt)) {
+    if (stored.expiresAt <= loadNow) {
+      deps.sink?.remove(stored.aiPlayerId, stored.playerId);
+      prunedTotal += 1;
+      continue;
+    }
+    const key = diplomacyMemoryPairKey(stored.aiPlayerId, stored.playerId);
+    if (pairs.has(key)) pairs.delete(key);
+    else evictToFit();
+    pairs.set(key, { ...stored });
+  }
 
   return {
     observeCombat: ({ attackerId, defenderId, attackerWon, tilesCaptured, tilesCapturedByDefender }) => {
@@ -141,6 +178,7 @@ export const createAiDiplomacyMemory = (deps: { now: () => number; isAi: (player
         entry.battles = bump(entry.battles, 1, now, WAR_MEMORY_HALF_LIFE_MS);
         entry.lastPlayerAttackAt = now;
         entry.lastCombatAt = now;
+        commit(entry);
       }
       if (deps.isAi(attackerId)) {
         const entry = touch(attackerId, defenderId);
@@ -152,20 +190,23 @@ export const createAiDiplomacyMemory = (deps: { now: () => number; isAi: (player
         }
         entry.battles = bump(entry.battles, 1, now, WAR_MEMORY_HALF_LIFE_MS);
         entry.lastCombatAt = now;
+        commit(entry);
       }
     },
     recordTruceDeal: (aiPlayerId, playerId) => {
       const entry = touch(aiPlayerId, playerId);
       entry.truceDeals = bump(entry.truceDeals, 1, deps.now(), DEAL_MEMORY_HALF_LIFE_MS);
+      commit(entry);
     },
     recordPayment: (aiPlayerId, playerId, coinToAi) => {
       const entry = touch(aiPlayerId, playerId);
       const now = deps.now();
       if (coinToAi > 0) entry.goodwillCoin = bump(entry.goodwillCoin, coinToAi, now, DEAL_MEMORY_HALF_LIFE_MS);
       if (coinToAi < 0) entry.aiPaidForPeaceAt = now;
+      commit(entry);
     },
     view: (aiPlayerId, playerId) => {
-      const entry = pairs.get(keyOf(aiPlayerId, playerId));
+      const entry = pairs.get(diplomacyMemoryPairKey(aiPlayerId, playerId));
       const now = deps.now();
       if (!entry) {
         return {
@@ -195,7 +236,20 @@ export const createAiDiplomacyMemory = (deps: { now: () => number; isAi: (player
         ...(entry.aiPaidForPeaceAt !== undefined ? { aiPaidForPeaceAt: entry.aiPaidForPeaceAt } : {})
       };
     },
-    size: () => pairs.size
+    prune: () => {
+      const now = deps.now();
+      let pruned = 0;
+      for (const [key, entry] of pairs) {
+        if (entry.expiresAt > now) continue;
+        forget(key);
+        pruned += 1;
+      }
+      prunedTotal += pruned;
+      return pruned;
+    },
+    reset: () => pairs.clear(),
+    size: () => pairs.size,
+    stats: () => ({ pairs: pairs.size, evictedTotal, prunedTotal })
   };
 };
 
