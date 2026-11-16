@@ -5,7 +5,6 @@ import { PHOTO_MODE_FINDABLE_ENTRY } from "./client-changelog-photo-mode-findabl
 import { CAPTURE_DURING_DEAL_ENTRY } from "./client-changelog-capture-during-deal.js";
 import { CLARITY_HINTS_ENTRY } from "./client-changelog-clarity-hints.js";
 import { ACTION_FEEDBACK_ENTRY } from "./client-changelog-action-feedback.js";
-import { AUTO_GARRISON_ASK_ENTRY } from "./client-changelog-auto-garrison-ask.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_118: ClientChangelogEntry[] = [
@@ -15,5 +14,4 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_118: ClientChangelogEntry[] = [
   { ...CAPTURE_DURING_DEAL_ENTRY, createdAt: 1794696963679, },
   { ...CLARITY_HINTS_ENTRY, createdAt: 1794696879817, },
   { ...ACTION_FEEDBACK_ENTRY, createdAt: 1794695682854, },
-  { ...AUTO_GARRISON_ASK_ENTRY, createdAt: 1794806556716, },
 ];
