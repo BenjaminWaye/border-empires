@@ -9,6 +9,7 @@ import { RESTORED_CAMERA_FOG_ENTRY } from "./client-changelog-restored-camera-fo
 import { OFFER_DOCK_COUNTER_ENTRY } from "./client-changelog-offer-dock-counter.js";
 import { WINS_AND_COSTS_EXPLAINED_ENTRY } from "./client-changelog-wins-and-costs-explained.js";
 import { PLAYTEST_MAP_READABILITY_ENTRY } from "./client-changelog-playtest-map-readability.js";
+import { INCOME_WAR_CARDS_ENTRY } from "./client-changelog-income-war-cards.js";
 import { CLEARER_CAPTURES_ENTRY } from "./client-changelog-clearer-captures.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
@@ -473,6 +474,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...RESTORED_CAMERA_FOG_ENTRY, createdAt: 1794818244321, },
   { ...PLAYTEST_MAP_READABILITY_ENTRY, createdAt: 1794817797219, },
   { ...WINS_AND_COSTS_EXPLAINED_ENTRY, createdAt: 1794818581757, },
+  { ...INCOME_WAR_CARDS_ENTRY, createdAt: 1794819359958, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

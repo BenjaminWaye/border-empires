@@ -145,6 +145,7 @@ body.hud-v2.hud-v2-waiting #tile-action-menu { display: none !important; }
 .hud-v2-rival-stance { font-family: var(--v2-mono); font-size: 9px; color: var(--v2-soft); text-shadow: 0 1px 2px #000; }
 .hud-v2-rival-truce .hud-v2-rival-stance { color: var(--v2-amber); }
 .hud-v2-rival-ally .hud-v2-rival-stance { color: var(--v2-green); }
+.hud-v2-rival-war .hud-v2-rival-stance { color: var(--v2-red); }
 .hud-v2-rival-more {
   width: 40px; height: 40px; border-radius: 8px; background: var(--v2-ink); border: 1px solid var(--v2-edge-strong);
   color: var(--v2-gold); font-family: var(--v2-mono); font-size: 12px;

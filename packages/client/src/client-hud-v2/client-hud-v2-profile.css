@@ -14,6 +14,7 @@
 .v2p-rel-self { border-color: var(--v2-edge-strong); color: var(--v2-gold); }
 .v2p-rel-ally { border-color: var(--v2-green); color: var(--v2-green-hi); }
 .v2p-rel-truce { border-color: var(--v2-aether); color: var(--v2-aether); }
+.v2p-rel-war { border-color: var(--v2-red); color: var(--v2-red); }
 .v2p-rank { display: grid; justify-items: center; margin-top: 8px; padding: 12px 28px; border-top: 1px solid var(--v2-line); border-bottom: 1px solid var(--v2-line); }
 .v2p-rank b { font-family: var(--v2-display); font-size: 40px; line-height: 1; color: var(--v2-text); }
 .v2p-rank span { margin-top: 4px; font-family: var(--v2-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--v2-muted); }
