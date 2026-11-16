@@ -31,11 +31,23 @@ export const ownTownEconomyFieldsPartial = (tile: Tile, viewerId: string): boole
 export const ownTownGrowthRatePending = (town: NonNullable<Tile["town"]>): boolean =>
   typeof town.populationGrowthPerMinute !== "number" || !Number.isFinite(town.populationGrowthPerMinute);
 
+// Same independence for goldPerMinute: the growth-tick record carries isFed
+// without it, and the town panel's Coin cell has nothing to show until the
+// tile-detail response (whose full town summary always stamps it) lands.
+export const ownTownCoinPending = (town: NonNullable<Tile["town"]>): boolean =>
+  typeof town.goldPerMinute !== "number" || !Number.isFinite(town.goldPerMinute);
+
 // Recovery trigger for the tile-detail request: any owned, settled town
-// whose owner-economy or growth-rate fields haven't arrived yet.
+// whose owner-economy, growth-rate or coin fields haven't arrived yet.
 export const ownTownDetailRecoveryNeeded = (tile: Tile, viewerId: string): boolean =>
   ownTownEconomyFieldsPartial(tile, viewerId) ||
-  Boolean(tile.ownerId === viewerId && tile.ownershipState === "SETTLED" && tile.town && typeof tile.town.isFed === "boolean" && ownTownGrowthRatePending(tile.town));
+  Boolean(
+    tile.ownerId === viewerId &&
+      tile.ownershipState === "SETTLED" &&
+      tile.town &&
+      typeof tile.town.isFed === "boolean" &&
+      (ownTownGrowthRatePending(tile.town) || ownTownCoinPending(tile.town))
+  );
 
 export const tileTownPartialLoadingRowHtml = (tileKey: string, label: string, loadingSinceMs: number): string =>
   `<div class="tile-town-loading tile-town-loading-row" role="status" aria-live="polite">` +

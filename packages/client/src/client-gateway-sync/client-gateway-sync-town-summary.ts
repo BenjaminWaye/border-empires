@@ -140,6 +140,25 @@ export type GatewayTownSummaryResult = {
   partial: boolean;
 };
 
+// The sim's population-growth tick re-sends its stored town record, which
+// carries isFed and the growth rate but often not goldPerMinute (that is only
+// stamped by the full town summary). Replacing the town wholesale dropped the
+// coin figure and the town panel's Coin cell went blank. Keep the previous
+// figure while the owner and fed state are unchanged — those are what move
+// it to/from zero; anything else waits for the tile-detail refresh.
+const carriedGoldPerMinute = (
+  parsedTown: PartialTownSummary,
+  update: GatewayTileUpdate,
+  existing: Tile | undefined
+): Pick<PartialTownSummary, "goldPerMinute"> => {
+  const previous = existing?.town?.goldPerMinute;
+  if (parsedTown.goldPerMinute !== undefined || !isFiniteNumber(previous)) return {};
+  const ownerId = "ownerId" in update ? update.ownerId ?? undefined : existing?.ownerId;
+  if (ownerId !== existing?.ownerId) return {};
+  if (parsedTown.isFed !== existing?.town?.isFed) return {};
+  return { goldPerMinute: previous };
+};
+
 export const gatewayTownSummary = (
   update: GatewayTileUpdate,
   existing: Tile | undefined
@@ -150,6 +169,7 @@ export const gatewayTownSummary = (
   if (parsedTown) {
     const authoritativeTown: PartialTownSummary = {
       ...parsedTown,
+      ...carriedGoldPerMinute(parsedTown, update, existing),
       ...(update.townName ? { name: update.townName } : {}),
       ...(update.townType ? { type: update.townType } : {}),
       ...(update.townPopulationTier ? { populationTier: update.townPopulationTier } : {})
