@@ -85,6 +85,7 @@ import { SIEGE_REPORTS_CHANGELOG } from "./client-changelog-siege-reports.js";
 import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
 import { SIEGE_FX_GATE_CHANGELOG } from "./client-changelog-siege-fx-gate.js";
 import { INCURSION_HATCH_HILLS_CHANGELOG } from "./client-changelog-incursion-hatch-hills.js";
+import { REACH_HELP_HILLS_CHANGELOG } from "./client-changelog-reach-help-hills.js";
 import { AI_DOCK_CROSSING_CHANGELOG } from "./client-changelog-ai-dock-crossing.js";
 import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
@@ -268,6 +269,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RICHER_FORESTS_CHANGELOG,
   ...SIEGE_FX_GATE_CHANGELOG,
   ...INCURSION_HATCH_HILLS_CHANGELOG,
+  ...REACH_HELP_HILLS_CHANGELOG,
   ...STORM_EDGE_BANDING_CHANGELOG,
   ...MARCH_ACROSS_WATER_CHANGELOG,
   ...DOCK_SAIL_PACING_CHANGELOG,
