@@ -18,7 +18,10 @@ export const SPACE_DAILY_CHANGELOG: ClientChangelogEntry[] = [
     createdAt: 1794806276278, // Date.now() captured once for this entry.
     introducedIn: "2026.11.16",
     title: "Space: the briefing no longer hides behind the decree cards",
-    why: "On a first visit to the galaxy, the decree cards drew on top of the Voyager's Briefing.",
-    changes: ["The Voyager's Briefing and the Court's welcome letter now sit above the decree cards until you close them"]
+    why: "The decree cards drew on top of the Voyager's Briefing, the welcome letter and the Settings, Senate and Court panels.",
+    changes: [
+      "The Voyager's Briefing and the Court's welcome letter now sit above the decree cards until you close them",
+      "Settings, Senate and Court panels open above the decree cards instead of underneath them"
+    ]
   }
 ];
