@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { isTruceEndingSoon, notifyTrucesEndingSoon, truceTimeLeftLabel, trucesEndingSoon } from "./client-truce-ending.js";
 
 const H = 3_600_000;
-const truce = (id: string, endsAt: number) => ({ otherPlayerId: id, otherPlayerName: id.toUpperCase(), startedAt: 0, endsAt });
+const truce = (id: string, endsAt: number) => ({ otherPlayerId: id, otherPlayerName: id.toUpperCase(), startedAt: 0, endsAt, createdByPlayerId: "me" });
 
 describe("truce ending soon", () => {
   it("is the last two hours of a running truce", () => {

@@ -119,7 +119,7 @@ describe("a running truce entering its last two hours", () => {
   it("warns once in the feed and a popup, and again only after an extension moves the end", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
-    const truce = { otherPlayerId: "ai-3", otherPlayerName: "Milo", startedAt: 0, endsAt: 3 * 3_600_000 };
+    const truce = { otherPlayerId: "ai-3", otherPlayerName: "Milo", startedAt: 0, endsAt: 3 * 3_600_000, createdByPlayerId: "me" };
     const state = { incomingTruceRequests: [], outgoingTruceRequests: [], captureAlert: undefined as ClientState["captureAlert"], ...noTruces(), activeTruces: [truce] };
     const pushFeed = vi.fn();
     const renderHud = vi.fn();

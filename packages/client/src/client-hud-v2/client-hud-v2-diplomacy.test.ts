@@ -88,7 +88,7 @@ describe("phone Diplomacy list: layout", () => {
 
 // Playtest run 2: truces ran out with no warning, and Extend was two screens away.
 describe("phone Diplomacy list: truces ending", () => {
-  const truce = (id: string, endsAt: number) => ({ otherPlayerId: id, otherPlayerName: names[id] ?? id, startedAt: 0, endsAt });
+  const truce = (id: string, endsAt: number) => ({ otherPlayerId: id, otherPlayerName: names[id] ?? id, startedAt: 0, endsAt, createdByPlayerId: "me" });
 
   it("pins a truce in its last two hours with the time left and an Extend button that opens the deal", () => {
     const html = diplomacyListHtml(input({ activeTruces: [truce("ai-1", 90 * 60_000), truce("p-3", 9 * 3_600_000)] }));
