@@ -1,4 +1,8 @@
 import {
+  defendingFortVariant,
+  FORT_PERIMETER_BY_VARIANT,
+  FORT_TIER_LADDER,
+  fortPerimeterDefenseMult,
   isFortDefending,
   SETTLED_DEFENSE_NEAR_FORT_RADIUS,
   wrappedChebyshevDistance,
@@ -248,6 +252,25 @@ export const tileIsPlacementBeneficiary = (tile: Tile, structureType: PlacementS
   return structure.type === placementBeneficiaryStructureType(structureType);
 };
 
+// Strongest fort perimeter (packages/shared fort-perimeter.ts) covering this
+// garrisoned tile, before fort tech; 1 when none, or when the tile's own fort
+// is at least as strong (combat then uses the fort, not the perimeter).
+const fortPerimeterMultForTile = (tiles: Iterable<Tile>, target: Tile, ownerId: string): number => {
+  const nowMs = Date.now();
+  const ownVariant = target.fort?.ownerId === ownerId ? defendingFortVariant(target.fort) : undefined;
+  let best = 1;
+  for (const candidate of tiles) {
+    const fort = candidate.fort;
+    if (!fort || candidate.ownerId !== ownerId || fort.ownerId !== ownerId || (fort.disabledUntil ?? 0) > nowMs) continue;
+    const variant = defendingFortVariant(fort);
+    if (!variant) continue;
+    const distance = wrappedChebyshevDistance(candidate.x, candidate.y, target.x, target.y);
+    if (distance === 0 || distance > FORT_PERIMETER_BY_VARIANT[variant].radius) continue;
+    best = Math.max(best, fortPerimeterDefenseMult(variant));
+  }
+  return ownVariant && FORT_TIER_LADDER[ownVariant].defenseMult >= best ? 1 : best;
+};
+
 export const tileAreaEffectModifiersForTile = (
   tile: Tile,
   tiles: Iterable<Tile>,
@@ -282,6 +305,11 @@ export const tileAreaEffectModifiersForTile = (
     });
   }
 
+
+  const perimeterMult = tile.ownershipState === "SETTLED" ? fortPerimeterMultForTile(tilesForScan, tile, tile.ownerId) : 1;
+  if (perimeterMult > 1) {
+    modifiers.push({ reason: "Fort perimeter", effect: `+${Math.round((perimeterMult - 1) * 100)}% defense`, tone: "positive" });
+  }
 
   if (
     tile.ownershipState === "SETTLED" &&
