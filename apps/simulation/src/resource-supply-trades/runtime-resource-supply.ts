@@ -3,8 +3,9 @@ import type { ResourceSlotSupplyBuild } from "../runtime-economy-caches/runtime-
 import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resource-reveal.js";
 import type { DomainTileState, PersonalActivitySupplyEndedReason } from "@border-empires/game-domain";
 import { emptyNetworkSiteCounts, isSiphonModeSabotage, NETWORK_RESOURCES, OFFERABLE_SUPPLY_RESOURCES, UPKEEP_TRADE_RESOURCES,
-  TRADABLE_SUPPLY_RESOURCES, offerIncludesNonTradableSupply, type NetworkSiteCounts, type ResourceSupplyAgreement, type ResourceSupplyFlow, type ResourceSupplyOffer } from "@border-empires/shared";
+  offerIncludesNonTradableSupply, type NetworkSiteCounts, type ResourceSupplyAgreement, type ResourceSupplyFlow, type ResourceSupplyOffer } from "@border-empires/shared";
 import { networkSupplyWithSiphon } from "./network-supply-with-siphon.js";
+import { supplyShortfallMessage } from "./supply-shortfall-message.js";
 import { resourceSlotDemandForPlayer, type ResourceSlotTotals } from "../resource-slot-view/resource-slot-view.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
 import type { RuntimePlayer } from "../runtime-types.js";
@@ -106,9 +107,9 @@ export class RuntimeResourceSupply {
     if (offerIncludesNonTradableSupply(row.proposerGives) || offerIncludesNonTradableSupply(row.targetGives))
       return { ok: false, message: "Precursor salvage can't be traded." };
     for (const [id, offer] of [[row.proposerId, row.proposerGives], [row.targetId, row.targetGives]] as const) {
-      const available = this.available(id);
-      if (TRADABLE_SUPPLY_RESOURCES.some(resource => (offer[resource] ?? 0) > (available[resource] ?? 0)))
-        return { ok: false, message: "The promised resource slots are already in use or committed to another deal." };
+      const shortfall = supplyShortfallMessage(this.ctx.player(id)?.name ?? id, offer, this.available(id),
+        this.ledger.allocation(this.ctx.now()).flows.get(id)?.outgoing);
+      if (shortfall) return { ok: false, message: shortfall };
     }
     return this.ledger.add(row, this.ctx.now(), targetCoinDelta);
   }

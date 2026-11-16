@@ -124,6 +124,16 @@ export const activeTruceLockoutReason = (reply: DiplomacyStanceReply | undefined
   return lockout && serverClock.toLocal(lockout.until) > nowMs ? lockout.reason : undefined;
 };
 
+/**
+ * Why you can't pay `give` from `own` right now, or undefined. Shared by the
+ * deal screen's verdict and the offer dock's Accept (paying an offer's ask).
+ */
+export const ownGoodsShortfall = (give: DiplomacyGoods, own: DiplomacyGoods): string | undefined => {
+  if (give.gold > own.gold) return `You only have ${own.gold} coin.`;
+  const missing = TRADABLE_SUPPLY_RESOURCES.find(resource => (give.resources?.[resource] ?? 0) > (own.resources?.[resource] ?? 0));
+  return missing ? `You only have ${own.resources?.[missing] ?? 0} spare ${supplyResourceLabel(missing)} slots.` : undefined;
+};
+
 export const tradeVerdict = (input: {
   targetName: string;
   reply: DiplomacyStanceReply | undefined;
@@ -142,11 +152,8 @@ export const tradeVerdict = (input: {
   if (input.cooldownRemainingMs > 0) {
     return { tone: "bad", text: `You recently made ${targetName} this kind of offer.`, canSend: false, sendLabel: `Can offer again in ${formatOfferCooldown(input.cooldownRemainingMs)}` };
   }
-  if (selection.terms.give.gold > own.gold) {
-    return { tone: "bad", text: `You only have ${own.gold} coin.`, canSend: false, sendLabel };
-  }
-  const missingResource = TRADABLE_SUPPLY_RESOURCES.find(resource => (selection.terms.give.resources?.[resource] ?? 0) > (own.resources?.[resource] ?? 0));
-  if (missingResource) return { tone: "bad", text: `You only have ${own.resources?.[missingResource] ?? 0} spare ${supplyResourceLabel(missingResource)} slots.`, canSend: false, sendLabel };
+  const shortfall = ownGoodsShortfall(selection.terms.give, own);
+  if (shortfall) return { tone: "bad", text: shortfall, canSend: false, sendLabel };
   const hasSupply = hasResourceSupplyOffer(selection.terms.give.resources) || hasResourceSupplyOffer(selection.terms.ask.resources);
   if (hasRecurringCoin(selection.terms)) {
     if (!hasSupply) return { tone: "neutral", text: "Add a resource slot to trade Coin income.", canSend: false, sendLabel };

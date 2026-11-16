@@ -102,9 +102,27 @@
   color: #f4ead6;
 }
 
+/* Counter opens the deal screen with this offer filled in. */
+.offer-dock-counter {
+  border: 1px solid rgba(255, 210, 122, 0.55);
+  background: rgba(0, 0, 0, 0.3);
+  color: #ffd27a;
+}
+
 .offer-dock-btn:disabled {
   opacity: 0.5;
   cursor: progress;
+}
+
+/* Accept is off because you can't pay what the offer asks: no progress cursor, the reason is shown. */
+.offer-dock-accept[title]:disabled {
+  cursor: not-allowed;
+}
+
+.offer-dock-blocked {
+  margin-top: 2px;
+  color: #ff9a7a;
+  font-size: 12px;
 }
 
 .offer-dock-more {
