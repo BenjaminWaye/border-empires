@@ -1,4 +1,4 @@
-import { SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE, salvageLoadsRemaining, salvageTributeManpower } from "@border-empires/shared";
+import { SALVAGE_TRIBUTE_MANPOWER, salvageLoadsRemaining, salvageTributeManpower } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 
@@ -34,7 +34,7 @@ export function salvageTributeActions(state: SalvageTributeState, tile: Tile): T
   const lastLoad = loads === 1 ? ` ${SALVAGE_LAST_LOAD_NOTE}` : "";
   return [{
     id: "ship_salvage_to_court", label: "Ship salvage to the Court",
-    detail: `The Court sends an Imperial delivery of ancillaries worth ${Math.round(SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE * 100)}% of your manpower cap, never above it.${lastLoad}`,
+    detail: `The Court sends an Imperial delivery of ${SALVAGE_TRIBUTE_MANPOWER} manpower in ancillaries, never above your manpower cap.${lastLoad}`,
     cost: `1 of ${loads} loads → +${delivered} manpower`,
     // Ready to ship: the gold primary button (HUD bar) / highlighted row (tile menu).
     ...(reason ? { disabled: true, disabledReason: reason } : { disabled: false, recommended: true })

@@ -1,25 +1,23 @@
 // Salvage tribute (docs/product/resource-and-manpower-economy.md, "Precursor
 // salvage"): an AI that owns an active Reclamation Works ships one load to
 // the Court when its manpower runs low, for an Imperial delivery of
-// SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE of the cap.
+// SALVAGE_TRIBUTE_MANPOWER (a flat amount, never above the cap).
 //
 // Runs ahead of the utility policy like the refinery interrupt: it costs no
 // manpower, gold or development slot. Shipping ends a site's arms bonus once
 // its last load goes, so the AI only ships when short of manpower, never to
 // top up. Gated on the cached structure count and the low-manpower check
 // before any tile scan, so a healthy empire never walks its territory here.
-import { SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE } from "@border-empires/shared";
 import { createAutomationCommand } from "./automation-command-factory.js";
 import { createAutomationNoopDiagnostic } from "./automation-command-planner-types.js";
 import type { AutomationPlannerInput, AutomationPlannerResult, AutomationPlannerTile } from "./automation-command-planner-types.js";
 import { actionAdmissionKey } from "./ai-rejection-cooldown.js";
 
-/** Ship a load only below this share of the manpower cap, so the whole delivery lands. */
+/** Ship a load only below this share of the manpower cap, so little of the delivery is lost to the cap. */
 export const AI_SALVAGE_TRIBUTE_MANPOWER_SHARE = 0.35;
 
 export const aiShouldShipSalvage = (manpower: number, cap: number | undefined): boolean =>
-  typeof cap === "number" && cap > 0 && manpower + cap * SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE <= cap &&
-  manpower < cap * AI_SALVAGE_TRIBUTE_MANPOWER_SHARE;
+  typeof cap === "number" && cap > 0 && manpower < cap * AI_SALVAGE_TRIBUTE_MANPOWER_SHARE;
 
 const isShippableWorks = (playerId: string, tile: AutomationPlannerTile): boolean =>
   tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.resource === "PRECURSOR_SALVAGE" &&

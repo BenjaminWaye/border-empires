@@ -17,10 +17,10 @@ const replayedSiteResource = (events: readonly SimulationEvent[]): string | unde
 
 const now = lastManpowerRefillAtMs("p", 100 * MANPOWER_REFILL_WINDOW_MS);
 const land = (x: number, y: number): DomainTileState => ({ x, y, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED" });
-const fixture = (manpower: number) => {
+const fixture = (manpower: number, salvageLoadsShipped = 0) => {
   const tiles: DomainTileState[] = [{ ...land(10, 10), town: { name: "Heartland", type: "MARKET", populationTier: "TOWN", population: 50_000, maxPopulation: 100_000 } }];
   for (let i = 0; i < 12; i += 1) tiles.push({ ...land(40 + i, 40), resource: "FARM" });
-  tiles.push({ ...land(20, 20), resource: "PRECURSOR_SALVAGE", economicStructure: { ownerId: "p", type: "RECLAMATION_WORKS", status: "active" } });
+  tiles.push({ ...land(20, 20), resource: "PRECURSOR_SALVAGE", economicStructure: { ownerId: "p", type: "RECLAMATION_WORKS", status: "active", ...(salvageLoadsShipped ? { salvageLoadsShipped } : {}) } });
   const runtime = new SimulationRuntime({ now: () => now, seedTiles: new Map(), initialState: { tiles, activeLocks: [] },
     initialPlayers: new Map([["p", buildPlayer("p", { points: 100, manpower, manpowerUpdatedAt: now, landingReserveGranted: true, techIds: new Set([RESOURCE_NETWORKS.PRECURSOR_SALVAGE.tech]) })]]) });
   const events = collectEvents(runtime);
@@ -35,16 +35,19 @@ const fixture = (manpower: number) => {
 };
 
 describe("shipping precursor salvage to the Court", () => {
-  it("delivers 15% of the manpower cap per load and empties the field after three loads", async () => {
+  it("delivers one load of manpower, never above the cap", async () => {
     const f = fixture(0);
     const cap = f.player().manpowerCap!;
     await f.ship("load-1");
     expect(f.events.filter(event => event.eventType === "COMMAND_REJECTED")).toEqual([]);
-    expect(f.player().manpower).toBeCloseTo(cap * 0.15);
+    // A flat 500 (frontier-resource-effects.ts), clamped to this small empire's cap.
+    expect(f.player().manpower).toBeCloseTo(Math.min(cap, 500));
     expect(JSON.parse(f.site().economicStructureJson!)).toMatchObject({ type: "RECLAMATION_WORKS", salvageLoadsShipped: 1 });
-    await f.ship("load-2");
+  });
+  it("empties the field with its last load", async () => {
+    const f = fixture(0, 2);
     await f.ship("load-3");
-    expect(f.player().manpower).toBeCloseTo(cap * 0.45);
+    expect(f.events.filter(event => event.eventType === "COMMAND_REJECTED")).toEqual([]);
     expect(f.site().resource).toBeUndefined();
     expect(f.site().economicStructureJson).toBeUndefined();
     // The emptied field must reach clients as an explicit clear ("" on the wire), not an omission.

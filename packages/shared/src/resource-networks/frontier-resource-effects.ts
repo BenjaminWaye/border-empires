@@ -44,8 +44,11 @@ export const allocateBiotaSlots = (towns: Iterable<BiotaTown>, slots: number): M
 export const SALVAGE_LOADS_PER_SITE = 3;
 export const SALVAGE_ARMS_BONUS_PER_SITE = 0.01;
 export const SALVAGE_ARMS_BONUS_MAX = 0.1;
-/** Share of the manpower cap an Imperial delivery for one salvage load brings (never above the cap). */
-export const SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE = 0.15;
+/**
+ * Manpower an Imperial delivery for one salvage load brings, never above the
+ * cap. A flat amount: scaling with the cap paid larger empires more per load.
+ */
+export const SALVAGE_TRIBUTE_MANPOWER = 500;
 /** Court Strength the Court regains per load shipped (a Writ gives 3). */
 export const SALVAGE_TRIBUTE_COURT_STRENGTH = 1;
 
@@ -59,7 +62,7 @@ export const salvageArmsMultiplier = (sites: number): number =>
 
 /** Manpower an Imperial delivery for one load adds, never above the cap. */
 export const salvageTributeManpower = (manpower: number, cap: number): number =>
-  Math.max(0, Math.min(cap - manpower, cap * SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE));
+  Math.max(0, Math.min(cap - manpower, SALVAGE_TRIBUTE_MANPOWER));
 
 /** Plain-language value of capturing one more site of `resource` (UI). */
 export const frontierSiteCaptureValue = (resource: NetworkResource, held: number): string => {

@@ -269,8 +269,9 @@ both the 2D and 3D maps), ranked just below unfed.
 its Reclamation Works (`salvageLoadsShipped`). While a Works stands, it gives
 +1% attack and +1% defense to all the owner's troops, up to +10% (combat
 breakdown label "Precursor salvage"). The `SHIP_SALVAGE_TO_COURT` command
-spends one load: the Court sends an Imperial delivery of ancillaries worth 15%
-of the manpower cap, never above it, and is refused when manpower is full.
+spends one load: the Court sends an Imperial delivery of a flat 500 manpower
+(`SALVAGE_TRIBUTE_MANPOWER`; the same for every empire, so a larger cap earns
+no more per load), never above the cap, and is refused when manpower is full.
 AI Houses ship one load at a time when their manpower is below 35% of the cap
 (`apps/simulation/src/ai/salvage-tribute-planner.ts`). The
 last load removes the deposit and its Works, ending that site's arms bonus.
