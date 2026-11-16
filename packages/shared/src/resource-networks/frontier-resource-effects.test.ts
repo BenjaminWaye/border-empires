@@ -39,10 +39,11 @@ describe("precursor salvage", () => {
     expect(salvageArmsMultiplier(4)).toBeCloseTo(1.04);
     expect(salvageArmsMultiplier(25)).toBeCloseTo(1.1);
   });
-  it("delivers a flat 500 manpower per load whatever the cap, never above the cap", () => {
+  it("delivers a flat 1000 manpower per load whatever the cap, never above the cap", () => {
     // Regression: the delivery scaled with the cap, so larger empires got more per load.
-    expect(salvageTributeManpower(0, 1000)).toBe(500);
-    expect(salvageTributeManpower(0, 5000)).toBe(500);
+    expect(salvageTributeManpower(0, 2000)).toBe(1000);
+    expect(salvageTributeManpower(0, 5000)).toBe(1000);
+    expect(salvageTributeManpower(0, 600)).toBe(600);
     expect(salvageTributeManpower(900, 1000)).toBe(100);
     expect(salvageTributeManpower(1000, 1000)).toBe(0);
   });

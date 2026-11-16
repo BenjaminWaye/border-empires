@@ -48,7 +48,7 @@ export const SALVAGE_ARMS_BONUS_MAX = 0.1;
  * Manpower an Imperial delivery for one salvage load brings, never above the
  * cap. A flat amount: scaling with the cap paid larger empires more per load.
  */
-export const SALVAGE_TRIBUTE_MANPOWER = 500;
+export const SALVAGE_TRIBUTE_MANPOWER = 1000;
 /** Court Strength the Court regains per load shipped (a Writ gives 3). */
 export const SALVAGE_TRIBUTE_COURT_STRENGTH = 1;
 

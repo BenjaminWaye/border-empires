@@ -40,8 +40,8 @@ describe("shipping precursor salvage to the Court", () => {
     const cap = f.player().manpowerCap!;
     await f.ship("load-1");
     expect(f.events.filter(event => event.eventType === "COMMAND_REJECTED")).toEqual([]);
-    // A flat 500 (frontier-resource-effects.ts), clamped to this small empire's cap.
-    expect(f.player().manpower).toBeCloseTo(Math.min(cap, 500));
+    // A flat 1000 (frontier-resource-effects.ts), clamped to this small empire's cap.
+    expect(f.player().manpower).toBeCloseTo(Math.min(cap, 1000));
     expect(JSON.parse(f.site().economicStructureJson!)).toMatchObject({ type: "RECLAMATION_WORKS", salvageLoadsShipped: 1 });
   });
   it("empties the field with its last load", async () => {
