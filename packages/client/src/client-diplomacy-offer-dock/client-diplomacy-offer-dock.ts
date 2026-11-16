@@ -1,11 +1,12 @@
 import type { PersonalActivityTimeline } from "@border-empires/game-domain";
-import { describeDiplomacyTermsForRecipient, hasResourceSupplyOffer, type DiplomacyGoods, type ResourceSupplyOffer } from "@border-empires/shared";
+import { describeDiplomacyTermsForRecipient, hasResourceSupplyOffer, type DiplomacyGoods, type ResourceSupplyAgreementStatus, type ResourceSupplyOffer } from "@border-empires/shared";
 
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { AllianceRequest, TruceRequest } from "../client-types.js";
 import { attackerNoteText, recentAttacksOnMe } from "./client-offer-dock-attacker-note.js";
 import { ownGoodsShortfall } from "../client-diplomacy-trade/client-diplomacy-trade-view.js";
+import { ownSupplyAgreementCount, ownSupplyLimitReason } from "../client-diplomacy-trade/client-supply-agreement-limit.js";
 import "./client-diplomacy-offer-dock.css";
 
 // Incoming truce/alliance offers as a small dock you answer in place, instead
@@ -19,6 +20,8 @@ type OfferDockState = Pick<ClientState, "me" | "incomingTruceRequests" | "incomi
   /** Your coin and spare supply slots; unknown (undefined) never blocks an accept. */
   gold?: number;
   resourceTradeHoldings?: ResourceSupplyOffer | undefined;
+  /** Your supply agreements; at the limit, an offer that adds resource supply can't be accepted. */
+  resourceTradeAgreements?: readonly ResourceSupplyAgreementStatus[] | undefined;
 };
 
 export const OFFER_DOCK_MAX_ROWS = 3;
@@ -94,6 +97,9 @@ const costsRecipient = (request: AllianceRequest | TruceRequest): boolean =>
  * accept a counter-offer she couldn't pay, and the server then refused it.
  */
 const acceptBlockedReason = (request: AllianceRequest | TruceRequest, state: OfferDockState): string | undefined => {
+  const addsSupply = hasResourceSupplyOffer(request.terms?.give.resources) || hasResourceSupplyOffer(request.terms?.ask.resources);
+  const limit = addsSupply ? ownSupplyLimitReason(ownSupplyAgreementCount(state.resourceTradeAgreements, state.me)) : undefined;
+  if (limit) return limit;
   const ask = request.terms?.ask;
   if (!ask || typeof state.gold !== "number") return undefined;
   const holdings = state.resourceTradeHoldings;
