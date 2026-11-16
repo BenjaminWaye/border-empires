@@ -369,25 +369,29 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   return previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType;
 };
 
-const RECONNECT_NULLABLE_STATE_FIELDS = [
-  "ownerId", "ownershipState", "reachOwnerId", "frontierDecayAt", "frontierDecayKind",
-  "captureHoldUntil", "warScarLevel", "warScarUntil", "razedWreck", "razedWreckUntil"
-] as const satisfies ReadonlyArray<keyof GatewayTileUpdate>;
+const RECONNECT_STUB_KEYS = new Set(["x", "y", "terrain", "visibilityState"]);
 
 /**
- * A reconnect INIT keeps the cached tiles and merges the snapshot over them, but
- * a snapshot tile is the tile's complete state and simply omits what isn't
- * there. Merged as-is, that absence read as "unchanged", so a structure razed
- * while the socket was down (a captured Relay Beacon) stayed drawn. Turning each
- * omitted state field into an explicit clear lets the ordinary delta clears run,
- * with the cached tile still in place for the optimistic and town merges.
+ * A reconnect INIT keeps the cached tiles and merges the snapshot over them.
+ * The login projection (runtime-visible-state.ts visibleTileProjection) sends
+ * every overlay a tile has and omits the rest, so merged as-is an omitted
+ * overlay read as "unchanged" and a structure razed while the socket was down
+ * (a captured Relay Beacon) stayed drawn. Each omitted overlay becomes an
+ * explicit clear, as does the town when the tile carries no town identity at
+ * all. Deliberately narrow, because not every snapshot field is authoritative:
+ * the projection never sends capture-hold / war-scar / wreck fields, the
+ * ended-season overview sends townType without townJson, and a lock-target
+ * enemy tile arrives as a terrain-only stub -- those all keep the cached value.
+ * (A terrain-only tile only counts as a stub over a cached owned tile; over an
+ * unowned one it is a genuinely empty tile, e.g. one neutralised by a purge.)
  */
-export const withReconnectSnapshotClears = (tile: GatewayTileUpdate): GatewayTileUpdate => {
-  if (tile.ownershipClearOnly === true) return tile;
+export const withReconnectSnapshotClears = (tile: GatewayTileUpdate, cached: Tile | undefined): GatewayTileUpdate => {
+  const redactedStub = Boolean(cached?.ownerId) && Object.keys(tile).every((key) => RECONNECT_STUB_KEYS.has(key));
+  if (tile.ownershipClearOnly === true || redactedStub) return tile;
   const cleared: GatewayTileUpdate = { ...tile };
   for (const field of GATEWAY_OVERLAY_JSON_FIELDS) if (!(field in tile)) cleared[field] = "";
-  if (!("townJson" in tile)) cleared.townJson = "";
-  for (const field of RECONNECT_NULLABLE_STATE_FIELDS) if (!(field in tile)) cleared[field] = null;
+  const hasTownIdentity = "townJson" in tile || "townType" in tile || "townName" in tile || "townPopulationTier" in tile;
+  if (!hasTownIdentity) cleared.townJson = "";
   return cleared;
 };
 
@@ -429,7 +433,7 @@ export const applyGatewayInitialState = (
   // once unlocked instead of re-reading storage for every remaining tile.
   let musterUnlockPending = !isMusterUnlocked(deps.state.authEmail, deps.state.bridgeDebugSeasonId);
   for (const tile of tiles) {
-    const snapshotTile = preserveExistingDiscoveredTiles ? withReconnectSnapshotClears(tile) : tile;
+    const snapshotTile = preserveExistingDiscoveredTiles ? withReconnectSnapshotClears(tile, deps.state.tiles.get(deps.keyFor(tile.x, tile.y))) : tile;
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, snapshotTile, true) || invalidatedTerrainCache;
     if (musterUnlockPending) {
       const seenTile = deps.state.tiles.get(deps.keyFor(tile.x, tile.y));
