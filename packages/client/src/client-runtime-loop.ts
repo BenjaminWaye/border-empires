@@ -44,7 +44,7 @@ import { createDistrictCanvas } from "./client-town-district/district-canvas.js"
 import { fireDueMusterTransits } from "./client-muster-transit/client-muster-transit.js";
 import { drawMusterOverlays2D } from "./client-muster-supply-lines-2d.js";
 import { createConstructionCountdownOverlay2D } from "./client-construction-countdown/client-construction-countdown-overlay-2d.js";
-import { aetherProtectionField, drawAetherProtectionTile2D, isAetherProtectionFieldShown } from "./client-aether-tower-protection/client-aether-tower-protection.js";
+import { aetherProtectionField, drawAetherProtectionTile2D, isAetherProtectionFieldShown } from "./client-aether-tower-protection/client-aether-tower-protection.js"; import { drawFortPerimeterWall2D, fortPerimeterCoverage } from "./client-fort-perimeter/client-fort-perimeter.js";
 import { isSeasonLobbyFullscreenActive } from "./client-season-lobby-fullscreen.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileMenuView, TileVisibilityState, TileTimedProgress } from "./client-types.js";
@@ -272,7 +272,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const townSupportPlots = districtCanvas.plots(isTrue3DRendererActive());
     ({ roads: roadNetwork, builtAt: roadNetworkBuiltAt } = syncRoadNetwork(nowMs, size, isTrue3DRendererActive(), state.tilesRevision));
     const overlayTiles: VisibleRenderTile[] = []; if (!isTrue3DRendererActive() && state.winChancePaint && performance.now() > state.winChancePaint.expiresAt && !state.pendingArrowGestureConfirm) state.winChancePaint = undefined; const knownShieldFlags2D = !isTrue3DRendererActive() ? collectKnownShieldFlags(state.tiles.values()) : []; // F4: 2D counterparts of F0's expiry sweep + F3's per-frame known-flag scan (client-map-3d.ts)
-    const aetherProtection2D = !isTrue3DRendererActive() && isAetherProtectionFieldShown(state, deps.keyFor) ? aetherProtectionField(state, Date.now()) : undefined; // Aether Tower protection field, 2D parity of client-map-3d-aether-protection-overlay.ts
+    const aetherProtection2D = !isTrue3DRendererActive() && isAetherProtectionFieldShown(state, deps.keyFor) ? aetherProtectionField(state, Date.now()) : undefined; const fortPerimeter2D = isTrue3DRendererActive() ? undefined : fortPerimeterCoverage(state); // Aether Tower protection field + fort perimeter wall, 2D parity of the 3D overlays
     const syntheticOverlayTileAt = (wx: number, wy: number, tile: Tile | undefined): Tile | undefined => syntheticOverlayTileFor3DPopulation(wx, wy, tile, isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
     const drawAetherWallEdge = (
       baseX: number,
@@ -319,7 +319,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
       drawTileFeatureOverlays2D(tileFeatureDeps2D, t, wk, vis, px, py, size, nowMs);
       if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!); if (!isTrue3DRendererActive() && vis === "visible") { const shieldCoverage2D = tileShieldCoverage(wx, wy, knownShieldFlags2D); if (shieldCoverage2D) drawShieldAreaTile2D(deps.ctx, deps.effectiveOverlayColor(shieldCoverage2D.ownerId), px, py, size); const winChanceLabel2D = winChancePaintColorForTile2D(state.winChancePaint, wx, wy); if (winChanceLabel2D) drawWinChanceLabel2D(deps.ctx, winChanceLabel2D, px, py, size); } // F4: 2D win-chance paint (F0) + shield-area (F3) parity
-      if (!isTrue3DRendererActive() && vis === "visible") drawAetherProtectionTile2D(deps.ctx, t, aetherProtection2D, state.tiles, deps.keyFor, px, py, size);
+      if (!isTrue3DRendererActive() && vis === "visible") { drawAetherProtectionTile2D(deps.ctx, t, aetherProtection2D, state.tiles, deps.keyFor, px, py, size); if (t?.terrain === "LAND") drawFortPerimeterWall2D(deps.ctx, t, fortPerimeter2D, px, py, size); }
 
       if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") {
         drawTileFortificationOverlays2D(deps.ctx, t, px, py, size,

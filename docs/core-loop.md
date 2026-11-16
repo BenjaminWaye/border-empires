@@ -448,7 +448,11 @@ to expansion and war.
    as much as building it*. There is a 15s combat lock (2s/tile march for
    muster auto-attacks). Win chance = atk² / (atk² + def²)
    (`frontier-combat.ts`). Siege buildings multiply attack (×1.6 / 1.8 / 2.0)
-   and forts multiply defense (×1.35 / 2.5 / 4 / 8).
+   and forts multiply defense (×1.35 / 2.5 / 4 / 8). A fort's perimeter
+   lends its owner's garrisoned tiles around it a share of that bonus
+   (radius 1 at 1/3 for Palisade/Fort, radius 2 at 1/4 for the Bastions;
+   `fort-perimeter.ts`), and a finished fort queues garrisons for the
+   frontier tiles inside it.
 5. **Resolve:** the winner takes the tile, including any town, dock or
    resource record on it. **A captured tile lands as FRONTIER, not SETTLED**
    (`runtime-lock-resolution.ts`). Captured buildings (forts, observatories,

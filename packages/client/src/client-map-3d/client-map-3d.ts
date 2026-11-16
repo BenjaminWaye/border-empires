@@ -29,7 +29,7 @@ import { EMPTY_MAP_3D_REBUILD_TRIGGERS, captureMap3DRebuildTriggers, map3DRebuil
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 import { createSelectionRangeOverlays } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
 import { createOwnershipDebugEmitter } from "../client-map-3d-ownership-debug/client-map-3d-ownership-debug.js";
-import { createAetherProtectionOverlay3D } from "../client-map-3d-aether-protection-overlay.js";
+import { createAetherProtectionOverlay3D } from "../client-map-3d-aether-protection-overlay.js"; import { createFortPerimeterWallOverlay3D } from "../client-map-3d-fort-perimeter-wall.js";
 import { createFrontierClaimPlatePool, disposeFrontierClaimPlatePool } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
 
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
@@ -199,7 +199,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const allBadgeOverlays = Object.values(resourceBadgeOverlays); // shares the clear/commit/tick/dispose loops below
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const musterOverlay = createMusterOverlay(scene, atmosphere.buildingEnvironmentTexture, () => musterBadgeLookup(deps.state, deps.keyFor)); const winChancePaintOverlay = createWinChancePaintOverlay(scene); const arrowOverlay = createArrowOverlay(scene); const shieldAreaOverlay = createShieldAreaOverlay(scene); // F1: right-click-drag arrow gesture visual; F3: known-shield coverage-area overlay (client-known-shield-flags.ts)
-  const aetherProtectionOverlay = createAetherProtectionOverlay3D(scene, MAX_VISIBLE_TILES); // Aether Tower protection field wash (client-aether-tower-protection.ts)
+  const aetherProtectionOverlay = createAetherProtectionOverlay3D(scene, MAX_VISIBLE_TILES); const fortPerimeterWallOverlay = createFortPerimeterWallOverlay3D(scene, MAX_VISIBLE_TILES); // fort perimeter wall (client-fort-perimeter.ts) // Aether Tower protection field wash (client-aether-tower-protection.ts)
   const battleOverlayFx = createPopupMarineOverlayFx(scene, atmosphere.buildingEnvironmentTexture);
   const musterTransitOverlay = createMusterTransitOverlay(scene, atmosphere.buildingEnvironmentTexture);
   const frontierSupplyOverlay = createFrontierSupplyOverlay(scene);
@@ -664,7 +664,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     for (const overlay of allBadgeOverlays) overlay.clear();
     observatoryCooldownBadgeOverlay.clear();
     musterOverlay.clear(); winChancePaintOverlay.clear(); if (deps.state.winChancePaint && performance.now() > deps.state.winChancePaint.expiresAt && !deps.state.pendingArrowGestureConfirm) deps.state.winChancePaint = undefined; shieldAreaOverlay.clear(); const knownShieldFlags = collectKnownShieldFlags(deps.state.tiles.values()); // F3: recomputed once per frame; cheap (bounded by live muster-flag count, not tile count)
-    aetherProtectionOverlay.begin(deps.state, deps.keyFor);
+    aetherProtectionOverlay.begin(deps.state, deps.keyFor); fortPerimeterWallOverlay.begin(deps.state);
     dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
@@ -892,7 +892,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           const advance = tile.muster.mode === "ADVANCE";
           musterOverlay.addMuster(x, z, surfaceY + farmlandOverlay.standLiftAt(wx, wy), fillRatio, ownerColor, advance, wx, wy, tile.muster.ownerId === deps.state.me ? incomingAttack?.resolvesAt ?? 0 : 0);
         } /* F0/F3, client-win-chance-paint-trigger.ts + client-known-shield-flags.ts: */ { const winChancePaintEntry = deps.state.winChancePaint?.entries.find((e) => e.x === wx && e.y === wy); if (winChancePaintEntry) winChancePaintOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, color: winChancePaintEntry.color, winChance: winChancePaintEntry.winChance }); const shieldCoverage = isShieldCoverageShownOn(deps.state.arrowGesture, tile?.ownerId, deps.state.me) ? tileShieldCoverage(wx, wy, knownShieldFlags) : undefined; /* only while dragging the attack arrow, and only on enemy-owned tiles */ if (shieldCoverage) shieldAreaOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, ownerColor: deps.effectiveOverlayColor(shieldCoverage.ownerId) }); }
-        aetherProtectionOverlay.addTile(tile, x, z, flatOverlayY);
+        aetherProtectionOverlay.addTile(tile, x, z, flatOverlayY); if (terrain === "LAND") fortPerimeterWallOverlay.addTile(tile, x, z, surfaceY);
         const demoStructureEntry = structureDemoEntryFor(wx, wy, window.camX, window.camY);
         if (demoStructureEntry && terrain === "LAND") {
           if (demoStructureEntry.kind === "UMBRITE_RIG") {
@@ -983,7 +983,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     observatoryCooldownBadgeOverlay.commit();
     musterOverlay.commit(); winChancePaintOverlay.commit(); shieldAreaOverlay.commit();
     nameDecal.sync({ camX: window.camX, camY: window.camY, halfW, halfH, nowMs: performance.now(), terrainRevision: deps.state.tilesRevision });
-    aetherProtectionOverlay.commit();
+    aetherProtectionOverlay.commit(); fortPerimeterWallOverlay.commit();
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
@@ -1271,7 +1271,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     for (const overlay of allBadgeOverlays) overlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
     musterOverlay.dispose(); winChancePaintOverlay.dispose(); arrowOverlay.dispose(); shieldAreaOverlay.dispose(); nameDecal.dispose();
-    aetherProtectionOverlay.dispose();
+    aetherProtectionOverlay.dispose(); fortPerimeterWallOverlay.dispose();
     battleOverlayFx.dispose();
     musterTransitOverlay.dispose();
     aetherBridgePylonOverlay.dispose(); aetherWallPylonOverlay.dispose(); aetherWallArcOverlay.dispose();
