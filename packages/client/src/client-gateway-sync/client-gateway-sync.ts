@@ -7,6 +7,7 @@ import { debugTileLog, debugTileLoggingEnabled, debugTileSnapshot, tileMatchesDe
 import { enqueueDiscoveryTipForNewlySeenTile } from "../client-discovery-tips/client-discovery-tips.js"; import { unlockMusterOnEnemyContact } from "../client-muster-unlock/client-muster-unlock.js";
 import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
 import { clearResolvedIncomingAttack } from "../client-siege-tracking/client-siege-tracking.js";
+import { reconnectSnapshotBaseTile } from "./client-gateway-reconnect-base-tile.js";
 import {
   gatewayTownIdentity,
   gatewayTownSummary,
@@ -407,6 +408,9 @@ export const applyGatewayInitialState = (
   // once unlocked instead of re-reading storage for every remaining tile.
   let musterUnlockPending = !isMusterUnlocked(deps.state.authEmail, deps.state.bridgeDebugSeasonId);
   for (const tile of tiles) {
+    // Reconnect: a re-sent tile is authoritative, so absent fields are cleared, not kept (client-gateway-reconnect-base-tile.ts).
+    const cached = preserveExistingDiscoveredTiles ? deps.state.tiles.get(deps.keyFor(tile.x, tile.y)) : undefined;
+    if (cached) deps.state.tiles.set(deps.keyFor(tile.x, tile.y), reconnectSnapshotBaseTile(cached));
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, tile, true) || invalidatedTerrainCache;
     if (musterUnlockPending) {
       const seenTile = deps.state.tiles.get(deps.keyFor(tile.x, tile.y));
