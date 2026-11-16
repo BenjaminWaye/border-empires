@@ -60,9 +60,21 @@ describe("reconnect INIT snapshot vs cached razed structures", () => {
     expect(tile?.fogged).toBe(false);
   });
 
-  it("drops a beacon from a tile that came back empty and unowned", () => {
-    const tile = reconnectWith({ x: 4, y: 4, terrain: "LAND", fogged: false, economicStructure: beacon }, { x: 4, y: 4, terrain: "LAND" });
+  it("drops a razed beacon from a rival tile the snapshot sends in full (more than the stub keys)", () => {
+    const tile = reconnectWith(
+      { x: 4, y: 4, terrain: "LAND", ownerId: "rival", ownershipState: "SETTLED", fogged: false, economicStructure: beacon },
+      { x: 4, y: 4, terrain: "LAND", ownerId: "rival2", ownershipState: "FRONTIER", reachOwnerId: "rival2" }
+    );
     expect(tile?.economicStructure).toBeUndefined();
+  });
+
+  it("drops a razed beacon from an ally's bare tile (own and allied tiles are never redacted)", () => {
+    const deps = createDeps();
+    (deps.state as { allies?: string[] }).allies = ["ally"];
+    deps.state.tiles.set("4,5", { x: 4, y: 5, terrain: "LAND", ownerId: "rival", ownershipState: "SETTLED", fogged: false, economicStructure: beacon });
+    deps.state.discoveredTiles.add("4,5");
+    applyGatewayInitialState(deps, { tiles: [{ x: 4, y: 5, terrain: "LAND", ownerId: "ally", ownershipState: "FRONTIER" }] }, { preserveExistingDiscoveredTiles: true });
+    expect(deps.state.tiles.get("4,5")?.economicStructure).toBeUndefined();
   });
 
   it("keeps structures and towns the snapshot still sends", () => {
@@ -83,10 +95,13 @@ describe("reconnect INIT snapshot vs cached razed structures", () => {
     expect(tile?.economicStructure).toBeUndefined();
   });
 
-  it("keeps a cached enemy tile behind a terrain-only lock-target stub", () => {
+  it.each([
+    ["terrain-only (login projection)", { x: 9, y: 9, terrain: "LAND" as const }],
+    ["with ownership (gateway cache after a live lock delta)", { x: 9, y: 9, terrain: "LAND" as const, ownerId: "rival", ownershipState: "SETTLED" as const }]
+  ])("keeps a cached rival tile's structures behind a lock-target stub, %s", (_label, stub) => {
     const tile = reconnectWith(
       { x: 9, y: 9, terrain: "LAND", ownerId: "rival", ownershipState: "SETTLED", fogged: false, detailLevel: "full", economicStructure: beacon, town },
-      { x: 9, y: 9, terrain: "LAND" }
+      stub
     );
     expect(tile).toEqual(expect.objectContaining({ economicStructure: beacon, town }));
   });
