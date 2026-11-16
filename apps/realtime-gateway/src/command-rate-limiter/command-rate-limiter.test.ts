@@ -62,16 +62,16 @@ describe("CommandRateLimiter", () => {
 });
 
 describe("rejectIfCommandRateLimited", () => {
-  it("echoes the rejected commandId so the client can re-send it instead of losing it", () => {
+  it("echoes the rejected message so the client can re-send it instead of losing it", () => {
     const limiter = new CommandRateLimiter({ capacity: 1, refillPerSecond: 1 });
     const sent: unknown[] = [];
     const args = {
-      limiter, playerId: "p1", commandType: "SETTLE", commandId: "cmd-7", nowMs: 1_000,
+      limiter, playerId: "p1", commandType: "DEV_QUEUE_ENQUEUE", rejectedMessage: { type: "DEV_QUEUE_ENQUEUE", kind: "SETTLE", x: 1, y: 2 }, nowMs: 1_000,
       socket: {} as import("ws").WebSocket, sendJson: (_socket: unknown, payload: unknown) => { sent.push(payload); }, recordGatewayEvent: () => {}
     };
     expect(rejectIfCommandRateLimited(args)).toBe(false);
     expect(rejectIfCommandRateLimited(args)).toBe(true);
-    expect(sent[0]).toMatchObject({ type: "ERROR", code: "COMMAND_RATE_LIMITED", commandId: "cmd-7" });
+    expect(sent[0]).toMatchObject({ type: "ERROR", code: "COMMAND_RATE_LIMITED", rejected: { type: "DEV_QUEUE_ENQUEUE", kind: "SETTLE", x: 1, y: 2 } });
   });
 });
 

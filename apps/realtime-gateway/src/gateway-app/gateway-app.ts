@@ -2452,7 +2452,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
           };
           const dispatchDurableCommand = (type: DurableCommandType, payload: Record<string, unknown>, withMetadata = false): Promise<void> => {
-            if (rejectIfCommandRateLimited({ limiter: commandRateLimiter, playerId: authedSession.playerId, commandType: type, commandId: optionalCommandMetadata(message).commandId, nowMs: Date.now(), socket, sendJson, recordGatewayEvent })) return Promise.resolve();
+            if (rejectIfCommandRateLimited({ limiter: commandRateLimiter, playerId: authedSession.playerId, commandType: type, rejectedMessage: message, nowMs: Date.now(), socket, sendJson, recordGatewayEvent })) return Promise.resolve();
             return trackSubmitLatency(() => submitDurableCommand(authedSession, { type, payload, ...(withMetadata ? optionalCommandMetadata(message) : {}) }, submitDeps));
           };
           if (message.type === "SETTLE") {
