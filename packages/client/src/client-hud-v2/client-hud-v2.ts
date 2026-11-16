@@ -42,6 +42,7 @@ import "./client-hud-v2-profile.css";
 import "./client-hud-v2-economy.css";
 import "./client-hud-v2-compact.css";
 import "./client-hud-v2-compact-screens.css";
+import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 import "./client-hud-v2-compact-overlays.css";
 import "./client-hud-v2-map-overview.css";
 
@@ -267,7 +268,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
   writeRegion("season", seasonClockHtml(state.seasonVictory, state.seasonWinner, state.me, (id) => state.playerNames.get(id) ?? ""));
   writeRegion("rivals", rivalsHtml({
     me: state.me,
-    metPlayerIds: state.metPlayerIds,
+    metPlayerIds: refreshMetPlayerIds(state),
     allies: state.allies,
     activeTruces: state.activeTruces,
     warPlayerIds: warOpponentIds(state, nowMs),
