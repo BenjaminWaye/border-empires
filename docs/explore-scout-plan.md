@@ -161,20 +161,20 @@ wanted but not required for launch (`docs/core-loop.md` §1.1). Read
 
 ## 7. Fiction
 
-The AFC already sends **courier drones** from its crown to carry parts to
-building sites (`docs/lore/galactic-lore.md` §12, "AFCs as industrial seeds").
-A scout drone is one of those drones sent out with sensors instead of a crate
-pod. That explains why it launches from the AFC, why it can cross the sea, and
-why it costs nothing extra in the first version: the House already has the
-drones.
+The AFC already fabricates and docks **courier drones** in its crown
+(`docs/lore/galactic-lore.md` §12, "AFCs as industrial seeds"). The scout drone
+is a sibling craft from the same complex: the Sentinel, a small armoured
+sensor sphere with one large eye on four rotors, which runs dark past the
+House's border. That explains why it launches from the AFC, why it can cross
+the sea, and why it costs nothing extra: the House already has it. (The first
+draft of this plan had it as a courier drone with a sensor pod; the owner chose
+the Sentinel design in PR #2770, and canon in §12 was updated to match.)
 
 Turning back at a rival's border fits the existing description of reach as a
 House's local control field (§10). A rival's field would jam the drone's link.
 Planetary Defense has no such field, so drones can fly over it.
 
-This is a proposal. The world bible gets its canon text when the feature is
-built, in the same branch (`docs/lore/README.md`). §14 there records the open
-question meanwhile.
+Canon text lives in the world bible §12.
 
 ## 8. Pillar change
 

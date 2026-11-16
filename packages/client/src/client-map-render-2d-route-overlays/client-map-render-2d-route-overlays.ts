@@ -10,12 +10,12 @@ import type { ClientState } from "../client-state/client-state.js";
 // parity with client-map-3d-scout-drone/). True-3D draws its own.
 export const drawRouteOverlays2D = (
   ctx: CanvasRenderingContext2D,
-  state: Pick<ClientState, "arrowGesture" | "scoutDroneFlight">,
+  state: Pick<ClientState, "arrowGesture" | "scoutDroneFlight" | "me" | "allies" | "tiles">,
   tileCenterOnScreen: (wx: number, wy: number) => { sx: number; sy: number },
   size: number,
   nowMs: number
 ): void => {
   if (isTrue3DRendererActive()) return;
   if (state.arrowGesture) drawArrowGesture2D(ctx, state.arrowGesture, tileCenterOnScreen, size);
-  drawScoutDrone2D(ctx, state.scoutDroneFlight, nowMs, { width: WORLD_WIDTH, height: WORLD_HEIGHT }, tileCenterOnScreen, size);
+  drawScoutDrone2D(ctx, state.scoutDroneFlight, nowMs, { width: WORLD_WIDTH, height: WORLD_HEIGHT }, tileCenterOnScreen, size, state);
 };
