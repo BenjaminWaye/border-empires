@@ -37,3 +37,28 @@ export const announceBuildPlaced = (
   const detail = outcome === "started" ? `${label} — construction started.` : `${label} — starts when a development slot frees up.`;
   deps.pushFeed(`${title}: ${detail}`, "info", "success");
 };
+
+/** The town screen's latest successful Place press: which action it placed, and until when its "✓" shows. */
+export type PlaceFlash = { outcome: BuildPlacedOutcome; until: number; actionId: string };
+
+/**
+ * The flash after a press of `actionId`: a press that went through replaces it; a press rejected locally ends
+ * the "✓" at once (it must not inherit an earlier press's) but keeps the earlier success for "Place another".
+ */
+export const nextPlaceFlash = (
+  prev: PlaceFlash | undefined,
+  press: { went: boolean; outcome: BuildPlacedOutcome | undefined },
+  actionId: string,
+  now: number
+): PlaceFlash | undefined =>
+  press.went && press.outcome ? { outcome: press.outcome, until: now + BUILD_PLACED_FLASH_MS, actionId } : prev && { ...prev, until: 0 };
+
+/** The Place button's state for the picked building: "✓" while fresh, then "Place another" -- only for the action placed. */
+export const placeButtonState = (
+  flash: PlaceFlash | undefined,
+  selection: string | undefined,
+  now: number
+): { placed: BuildPlacedOutcome | undefined; placedBefore: boolean } => {
+  const mine = Boolean(flash && selection && flash.actionId === selection);
+  return { placed: mine && flash && now < flash.until ? flash.outcome : undefined, placedBefore: mine };
+};
