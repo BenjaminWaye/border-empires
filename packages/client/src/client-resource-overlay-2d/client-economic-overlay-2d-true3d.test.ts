@@ -11,7 +11,7 @@ const image = { complete: true, naturalWidth: 128 } as HTMLImageElement;
 // by the true-3D district kit, but the 2D canvas pass still stamped their flat
 // building art over the 3D model because isStructureHandledBy3D missed them.
 describe("2D economic structure art in true-3D", () => {
-  it.each(DISTRICT_BUILDING_KINDS.filter(kind => kind !== "OBSERVATORY"))("leaves %s to the 3D district model", kind => {
+  it.each(DISTRICT_BUILDING_KINDS)("leaves %s to the 3D district model", kind => {
     const drawCenteredOverlay = vi.fn();
     const deps: EconomicOverlay2DDeps = {
       ctx: { strokeRect: vi.fn(), fillRect: vi.fn() } as unknown as CanvasRenderingContext2D,
