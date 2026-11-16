@@ -5,6 +5,7 @@ import type { AiDiplomacyPricing } from "@border-empires/shared";
 
 import {
   closeDiplomacyTradeScreen,
+  diplomacyTradeDepsFor,
   openDiplomacyTradeScreen,
   receiveDiplomacyStance,
   setDiplomacyOfferCooldowns,
@@ -196,6 +197,23 @@ describe("diplomacy trade screen", () => {
     // The alliance is refused outright, so there is no deal to suggest.
     overlay.querySelector<HTMLButtonElement>("[data-trade-kind='alliance:0']")!.click();
     expect(suggest.disabled).toBe(true);
+  });
+
+  // Playtest: the war tally said 0 tiles taken while the Chronicle said 2 for
+  // the same war. With a Chronicle row for this empire the tally now shows the
+  // Chronicle's own counts, and the AI's fading weighting on its own line.
+  it("shows the Chronicle's tile counts in the war tally, with the AI's weighting apart", () => {
+    const state = { gold: 100, activityDashboard: { timeline: { rivals: [{ playerId: "ai-1", tilesTaken: 2, tilesLost: 1, netTiles: 1, attacksRepelled: 0, attacksFailed: 0 }] } } };
+    openDiplomacyTradeScreen({ targetName: "Milo", kind: "truce", durationHours: 12 }, diplomacyTradeDepsFor(state, vi.fn().mockReturnValue(true)));
+    const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
+    receiveDiplomacyStance({ ...aiReply, war: { atWar: true, aiWinning: false, aiLosing: false, tilesTakenFromAi: 0, tilesTakenByAi: 0 } });
+    const war = overlay.querySelector<HTMLElement>("[data-trade-war]")!;
+    expect(Array.from(war.querySelectorAll("li")).map((item) => item.textContent)).toEqual([
+      "2 tiles you took from Milo",
+      "1 tile Milo took from you"
+    ]);
+    expect(war.textContent).toContain("as in your Chronicle");
+    expect(war.textContent).toContain("Milo weighs recent captures most: 0 taken by you, 0 by them.");
   });
 
   it("says 1 tile, not 1 tiles, in the war tally", () => {

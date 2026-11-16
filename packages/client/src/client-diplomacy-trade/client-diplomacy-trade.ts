@@ -43,7 +43,7 @@ import {
   attitudeSummary,
   temperamentLine,
   tradeVerdict,
-  warTally,
+  warTallyHtml,
   type DiplomacyStanceReply,
   type TradeSelection,
   type TradeVerdict
@@ -123,7 +123,6 @@ const cooldownRemainingMs = (screen: OpenScreen): number => {
   return entry ? Math.max(0, entry.until - Date.now()) : 0;
 };
 
-const tilesWord = (count: number): string => (count === 1 ? "tile" : "tiles");
 
 /** Until the stance reply says otherwise, assume an AI: the gift path is the one only an AI's reply can confirm. */
 const targetIsAi = (reply: DiplomacyStanceReply | undefined): boolean => !reply?.found || reply.ai;
@@ -172,15 +171,11 @@ const render = (screen: OpenScreen): void => {
       .map((modifier) => `<li data-tone="${modifier.value >= 0 ? "good" : "bad"}"><span>${modifier.value > 0 ? "+" : ""}${modifier.value}</span> ${escapeHtml(modifier.label)}</li>`)
       .join("");
   }
-  // The war as the AI counts it, so "they're losing" can be checked against the tiles.
+  // The war's tiles: as the Chronicle counts them when it has this empire, and as the AI weighs them.
   const warEl = overlay.querySelector<HTMLElement>("[data-trade-war]");
   if (warEl) {
-    const tally = warTally(reply);
-    warEl.hidden = !tally;
-    warEl.innerHTML = tally
-      ? `<span class="diplomacy-trade-war-head">War tally · recent captures count most</span>
-        <ul><li><span>${tally.youTook}</span> ${tilesWord(tally.youTook)} you took from ${escapeHtml(targetName)}</li><li><span>${tally.theyTook}</span> ${tilesWord(tally.theyTook)} ${escapeHtml(targetName)} took from you</li></ul>`
-      : "";
+    warEl.innerHTML = warTallyHtml(reply, targetName, reply?.found ? screen.deps.chronicleRival?.(reply.targetPlayerId) : undefined);
+    warEl.hidden = !warEl.innerHTML;
   }
   for (const button of Array.from(overlay.querySelectorAll<HTMLButtonElement>("[data-trade-kind]"))) {
     const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");

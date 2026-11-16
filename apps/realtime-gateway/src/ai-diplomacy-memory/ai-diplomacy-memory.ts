@@ -84,6 +84,12 @@ export type CombatObservation = {
   attackerWon: boolean;
   /** Tiles that changed hands to the attacker in this fight. */
   tilesCaptured: number;
+  /**
+   * Tiles that changed hands to the defender: a failed attack loses its origin
+   * tile to them (runtime-lock-resolution-lost-origin.ts). The Chronicle's
+   * flip log counts that tile, so the war tally must too.
+   */
+  tilesCapturedByDefender?: number;
 };
 
 export type AiDiplomacyMemory = {
@@ -118,15 +124,20 @@ export const createAiDiplomacyMemory = (deps: { now: () => number; isAi: (player
   };
 
   return {
-    observeCombat: ({ attackerId, defenderId, attackerWon, tilesCaptured }) => {
+    observeCombat: ({ attackerId, defenderId, attackerWon, tilesCaptured, tilesCapturedByDefender }) => {
       if (!attackerId || !defenderId || attackerId === defenderId) return;
       const now = deps.now();
       const captured = attackerWon ? Math.max(0, tilesCaptured) : 0;
+      const recaptured = attackerWon ? 0 : Math.max(0, tilesCapturedByDefender ?? 0);
       // Remember from each AI's point of view; human-vs-human fights need no AI memory.
       if (deps.isAi(defenderId)) {
         const entry = touch(defenderId, attackerId);
         entry.tilesTakenFromAi = bump(entry.tilesTakenFromAi, captured, now, WAR_MEMORY_HALF_LIFE_MS);
         entry.recentTilesTakenFromAi = bump(entry.recentTilesTakenFromAi, captured, now, WAR_PACE_HALF_LIFE_MS);
+        if (recaptured > 0) {
+          entry.tilesTakenByAi = bump(entry.tilesTakenByAi, recaptured, now, WAR_MEMORY_HALF_LIFE_MS);
+          entry.recentTilesTakenByAi = bump(entry.recentTilesTakenByAi, recaptured, now, WAR_PACE_HALF_LIFE_MS);
+        }
         entry.battles = bump(entry.battles, 1, now, WAR_MEMORY_HALF_LIFE_MS);
         entry.lastPlayerAttackAt = now;
         entry.lastCombatAt = now;
@@ -135,6 +146,10 @@ export const createAiDiplomacyMemory = (deps: { now: () => number; isAi: (player
         const entry = touch(attackerId, defenderId);
         entry.tilesTakenByAi = bump(entry.tilesTakenByAi, captured, now, WAR_MEMORY_HALF_LIFE_MS);
         entry.recentTilesTakenByAi = bump(entry.recentTilesTakenByAi, captured, now, WAR_PACE_HALF_LIFE_MS);
+        if (recaptured > 0) {
+          entry.tilesTakenFromAi = bump(entry.tilesTakenFromAi, recaptured, now, WAR_MEMORY_HALF_LIFE_MS);
+          entry.recentTilesTakenFromAi = bump(entry.recentTilesTakenFromAi, recaptured, now, WAR_PACE_HALF_LIFE_MS);
+        }
         entry.battles = bump(entry.battles, 1, now, WAR_MEMORY_HALF_LIFE_MS);
         entry.lastCombatAt = now;
       }
@@ -195,10 +210,13 @@ export const combatFromSimulationEvent = (event: {
   const defenderId = event.combatResult?.defenderOwnerId;
   if (!defenderId || defenderId.startsWith("barbarian")) return undefined;
   const attackerId = event.playerId;
+  const changes = event.combatResult?.changes ?? [];
+  const tilesCapturedByDefender = changes.filter((change) => change.ownerId === defenderId).length;
   return {
     attackerId,
     defenderId,
     attackerWon: event.attackerWon === true,
-    tilesCaptured: (event.combatResult?.changes ?? []).filter((change) => change.ownerId === attackerId).length
+    tilesCaptured: changes.filter((change) => change.ownerId === attackerId).length,
+    ...(tilesCapturedByDefender > 0 ? { tilesCapturedByDefender } : {})
   };
 };

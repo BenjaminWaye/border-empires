@@ -1,6 +1,7 @@
 // What the diplomacy trade screen needs from the client, and the treaty
 // buttons it shows. Split out of client-diplomacy-trade.ts (line cap).
 import type { DiplomacyGoods, ResourceSupplyAgreementStatus, ResourceSupplyOffer, ResourceTradeOffer } from "@border-empires/shared";
+import type { ChronicleWarCounts } from "./client-diplomacy-trade-view.js";
 
 export type DiplomacyTradeDeps = {
   /** Sends a client message; false when not signed in yet. */
@@ -11,6 +12,8 @@ export type DiplomacyTradeDeps = {
   /** True when you are already allied with this empire: the screen then offers goods only, no truce or alliance. */
   isAlly?: (targetPlayerId: string | undefined) => boolean;
   activeSupply?: () => { ownId: string; agreements: readonly ResourceSupplyAgreementStatus[]; offers?: readonly ResourceTradeOffer[] };
+  /** This empire's row in your last-fetched Chronicle, so the war tally shows the Chronicle's own tile counts. */
+  chronicleRival?: (targetPlayerId: string) => ChronicleWarCounts | undefined;
 };
 
 type TradeDepsState = {
@@ -21,6 +24,7 @@ type TradeDepsState = {
   resourceTradeHoldings?: ResourceSupplyOffer | undefined;
   activeTruces?: ReadonlyArray<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number }>;
   allies?: readonly string[];
+  activityDashboard?: { timeline?: { rivals?: ReadonlyArray<ChronicleWarCounts & { playerId: string }> } | undefined };
 };
 
 /**
@@ -30,6 +34,7 @@ type TradeDepsState = {
  */
 export const diplomacyTradeDepsFor = (state: TradeDepsState, send: DiplomacyTradeDeps["send"]): DiplomacyTradeDeps => ({
   send,
+  chronicleRival: (targetPlayerId) => state.activityDashboard?.timeline?.rivals?.find((rival) => rival.playerId === targetPlayerId),
   runningTruce: (targetPlayerId, targetName) =>
     state.activeTruces?.find((t) => (targetPlayerId ? t.otherPlayerId === targetPlayerId : t.otherPlayerName.toLocaleLowerCase() === targetName.toLocaleLowerCase())),
   isAlly: (targetPlayerId) => targetPlayerId !== undefined && (state.allies ?? []).includes(targetPlayerId),
