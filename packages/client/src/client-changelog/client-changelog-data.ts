@@ -5,11 +5,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_116 } from "./client-changelog-data-earlier-116.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_117 } from "./client-changelog-data-earlier-117.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_118 } from "./client-changelog-data-earlier-118.js";
-import { AUTO_GARRISON_ASK_ENTRY } from "./client-changelog-auto-garrison-ask.js";
-import { TOWN_COIN_BLANK_ENTRY } from "./client-changelog-town-coin-blank.js";
-import { MANPOWER_BUILD_TEXT_ENTRY } from "./client-changelog-manpower-build-text.js";
-import { RESTORED_CAMERA_FOG_ENTRY } from "./client-changelog-restored-camera-fog.js";
-import { OFFER_DOCK_COUNTER_ENTRY } from "./client-changelog-offer-dock-counter.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_119 } from "./client-changelog-data-earlier-119.js";
 import { WINS_AND_COSTS_EXPLAINED_ENTRY } from "./client-changelog-wins-and-costs-explained.js";
 import { PLAYTEST_MAP_READABILITY_ENTRY } from "./client-changelog-playtest-map-readability.js";
 import { INCOME_WAR_CARDS_ENTRY } from "./client-changelog-income-war-cards.js";
@@ -18,8 +14,8 @@ import { SERVER_EXPLORED_MAP_ENTRY } from "./client-changelog-server-explored-ma
 import { RECONNECT_RAZED_STRUCTURES_ENTRY } from "./client-changelog-reconnect-razed-structures.js";
 import { MUSTER_PANEL_SIZE_ENTRY } from "./client-changelog-muster-panel-size.js";
 import { ENCIRCLEMENT_POCKET_ENTRY } from "./client-changelog-encirclement-pocket.js";
+import { FASTER_LOGIN_MAP_ENTRY } from "./client-changelog-faster-login-map.js";
 import { PLACE_ANOTHER_ENTRY } from "./client-changelog-place-another.js";
-import { CLEARER_CAPTURES_ENTRY } from "./client-changelog-clearer-captures.js";
 import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
@@ -478,13 +474,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_116,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_117,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_118,
-  { ...AUTO_GARRISON_ASK_ENTRY, createdAt: 1794806556716, },
-  { ...TOWN_COIN_BLANK_ENTRY, createdAt: 1794807224989, },
-  { ...CLEARER_CAPTURES_ENTRY, createdAt: 1794771007813, },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_119,
   { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
-  { ...MANPOWER_BUILD_TEXT_ENTRY, createdAt: 1794806234122, },
-  { ...OFFER_DOCK_COUNTER_ENTRY, createdAt: 1794817332101, },
-  { ...RESTORED_CAMERA_FOG_ENTRY, createdAt: 1794818244321, },
   { ...PLAYTEST_MAP_READABILITY_ENTRY, createdAt: 1794817797219, },
   { ...WINS_AND_COSTS_EXPLAINED_ENTRY, createdAt: 1794818581757, },
   { ...INCOME_WAR_CARDS_ENTRY, createdAt: 1794819359958, },
@@ -493,6 +484,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...RECONNECT_RAZED_STRUCTURES_ENTRY, createdAt: 1794830646310, },
   { ...MUSTER_PANEL_SIZE_ENTRY, createdAt: 1794826419518, },
   { ...ENCIRCLEMENT_POCKET_ENTRY, createdAt: 1794826569677, },
+  { ...FASTER_LOGIN_MAP_ENTRY, createdAt: 1794856144245, },
   { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
   { ...PLACE_ANOTHER_ENTRY, createdAt: 1794861771175, },
 ];
