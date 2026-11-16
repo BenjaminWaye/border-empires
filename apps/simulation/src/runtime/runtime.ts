@@ -366,7 +366,7 @@ import {
   ownedStructureCountForPlayer as ownedStructureCountForPlayerImpl,
   ownedStructureCountsForPlayer as ownedStructureCountsForPlayerImpl,
   refreshOwnedStructureCountIndexForTile as refreshOwnedStructureCountIndexForTileImpl,
-  weaponsBreakdownCountsForPlayer, weaponsFactoryCountsFromIndex
+  weaponsBreakdownCountsForPlayer, weaponsFactoryCountsFromIndex, indexedEconomicStructureType
 } from "../runtime-owned-structure-index.js";
 import { RuntimeEconomyCaches } from "../runtime-economy-caches/runtime-economy-caches.js";
 import { createPlayerUpdateEmitter, type PlayerUpdateEmitter } from "../runtime-player-update-emitter/runtime-player-update-emitter.js";
@@ -889,13 +889,8 @@ export class SimulationRuntime {
       if (tile.fort?.ownerId) this.adjustOwnedStructureCount(tile.fort.ownerId, "FORT", 1);
       if (tile.observatory?.ownerId) this.adjustOwnedStructureCount(tile.observatory.ownerId, "OBSERVATORY", 1);
       if (tile.siegeBattery?.ownerId) this.adjustOwnedStructureCount(tile.siegeBattery.ownerId, "SIEGE_BATTERY", 1);
-      if (tile.economicStructure?.ownerId) {
-        this.adjustOwnedStructureCount(
-          tile.economicStructure.ownerId,
-          tile.economicStructure.type as BuildableStructureType,
-          1
-        );
-      }
+      const indexedEcoType = indexedEconomicStructureType(tile);
+      if (tile.economicStructure?.ownerId && indexedEcoType) this.adjustOwnedStructureCount(tile.economicStructure.ownerId, indexedEcoType, 1);
     }
     // Second pass: register PlayerCandidateIndex anchors now that this.state.tiles is
     // fully traversed.  Each anchor is stored at the MAX possible radius for its
