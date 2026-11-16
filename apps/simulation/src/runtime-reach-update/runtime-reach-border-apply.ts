@@ -60,6 +60,13 @@ export type ReachBorderApplyContext = {
    * runtime wiring always supplies it.
    */
   isLandTile?: LandConnectivityQuery;
+  /**
+   * True when an EXPAND/ATTACK lock already targets the tile. A Relay Beacon's
+   * sweep of ground already in reach skips such tiles: the lock resolves and
+   * charges its claim cost regardless, so claiming the tile out from under it
+   * would bill the player for a tile they already own.
+   */
+  hasClaimInFlight?: (tileKey: string) => boolean;
 };
 
 /**
@@ -75,6 +82,7 @@ export const createReachBorderApplyContext = (deps: {
   autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => string[];
   contestedDirtyState: ReachChangedTilesDirtyState;
   isLandTile?: LandConnectivityQuery;
+  hasClaimInFlight?: (tileKey: string) => boolean;
 }): ReachBorderApplyContext => ({
   gatherReachAnchors: deps.gatherReachAnchors,
   rivalOwnerIds: () => [...deps.playerSummaryIds()].filter((id) => !id.startsWith("barbarian-")).sort(),
@@ -82,7 +90,8 @@ export const createReachBorderApplyContext = (deps: {
   downgradeToFrontier: deps.downgradeToFrontier,
   autoClaimFrontier: deps.autoClaimFrontier,
   contestedDirtyState: deps.contestedDirtyState,
-  ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {})
+  ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {}),
+  ...(deps.hasClaimInFlight ? { hasClaimInFlight: deps.hasClaimInFlight } : {})
 });
 
 export type ReachAnchorActivationOptions = {
@@ -232,7 +241,8 @@ export const applyReachAnchorActivationToBorder = (
       if (
         options?.skipNeutralAutoClaim !== true &&
         !anchor.ownerId.startsWith("barbarian-") &&
-        !context.tileOwnership(key)?.ownerId
+        !context.tileOwnership(key)?.ownerId &&
+        (enteredBorder || context.hasClaimInFlight?.(key) !== true)
       ) {
         autoClaimKeys.push(key);
       }

@@ -59,7 +59,7 @@ import {
   newlyDeactivatedReachAnchors as newlyDeactivatedReachAnchorsImpl,
   isPlayerTileInReach as isPlayerTileInReachImpl,
   reachTileCountForPlayer as reachTileCountForPlayerImpl,
-  reachTileKeysForPlayer as reachTileKeysForPlayerImpl
+  reachTileKeysForPlayer as reachTileKeysForPlayerImpl, isRelayBeaconBuildCompletion
 } from "./runtime-reach-anchors.js";
 import {
   appendPlayerEventLogEntry,
@@ -1759,7 +1759,7 @@ export class SimulationRuntime {
     // unsettle transition only fires here, on the *overtaking* side of a
     // border contest.
     for (const anchor of this.newlyActivatedReachAnchors(previous, tile)) {
-      this.applyReachAnchorActivation(anchor, commandId, anchor.kind === "OUTPOST" ? { claimNeutralAlreadyInReach: true } : undefined); // a Relay Beacon claims its whole disk, even ground already in reach
+      this.applyReachAnchorActivation(anchor, commandId, anchor.kind === "OUTPOST" && isRelayBeaconBuildCompletion(previous, tile) ? { claimNeutralAlreadyInReach: true } : undefined); // a freshly built Relay Beacon claims its whole disk, even ground already in reach
     }
     // Deactivation side: normally a no-op (sticky), but closes the gap where
     // a rival's reach already covers ground this anchor stops defending —
@@ -2169,7 +2169,7 @@ export class SimulationRuntime {
   // the world lookups and routes the unsettle downgrade back through replaceTileState.
   private reachBorderApplyContext(): ReachBorderApplyContext {
     return createReachBorderApplyContext({
-      gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), isLandTile: this.isLandTileQuery, contestedDirtyState: this.reachContestedDirtyState, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }),
+      gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), hasClaimInFlight: (k) => this.state.locksByTile.targetLockAt(k) !== undefined, isLandTile: this.isLandTileQuery, contestedDirtyState: this.reachContestedDirtyState, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }),
       autoClaimFrontier: (tileKeys, ownerId, cid0) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), onTileClaimed: (k, o, cid) => this.activateReachClaimedTile(k, o, cid) })
     });
   }

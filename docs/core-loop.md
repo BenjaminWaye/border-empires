@@ -248,7 +248,7 @@ a development slot. It buys three things:
   anchors*. When one activates, every neutral land tile in its radius becomes
   your FRONTIER **instantly and free** (`autoClaimFrontier` in
   `runtime-reach-border-apply.ts`). A Relay Beacon goes further: every time
-  one is built it claims every neutral land tile in its whole radius that your
+  one finishes building it claims every neutral land tile in its whole radius that your
   border holds, including ground that was already in your reach but still
   neutral (`claimNeutralAlreadyInReach`). Land a rival's live reach holds is
   never taken this way. The ground inside your reach is therefore normally

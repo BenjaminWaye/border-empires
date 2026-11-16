@@ -277,4 +277,22 @@ describe("applyReachAnchorActivationToBorder — claimNeutralAlreadyInReach (Rel
     expect(claimed).toContain("15,10");
     expect(claimed).not.toContain(rivalOwnedKey);
   });
+
+  it("skips ground already in reach that an EXPAND/ATTACK lock is already claiming", () => {
+    const { context, autoClaim } = contextFor({}, [beacon]);
+    const border = new Map([[alreadyInReachKey, "player-1"]]);
+    applyReachAnchorActivationToBorder(border, beacon, createReachUpdateState(), { ...context, hasClaimInFlight: (k) => k === alreadyInReachKey }, "cmd-1", { claimNeutralAlreadyInReach: true });
+    const claimed = (autoClaim.mock.calls[0]?.[0] ?? []) as string[];
+    expect(claimed).not.toContain(alreadyInReachKey);
+    expect(claimed).toContain("15,10");
+  });
+
+  it("never claims neutral ground a rival's live reach still holds", () => {
+    const rivalTown: ReachAnchor = { x: 16, y: 10, ownerId: "player-2", activatedAt: 1, kind: "TOWN" };
+    const { context, autoClaim } = contextFor({}, [beacon, rivalTown]);
+    const border = new Map([["14,10", "player-2"]]);
+    applyReachAnchorActivationToBorder(border, beacon, createReachUpdateState(), context, "cmd-1", { claimNeutralAlreadyInReach: true });
+    expect(border.get("14,10")).toBe("player-2");
+    expect((autoClaim.mock.calls[0]?.[0] ?? []) as string[]).not.toContain("14,10");
+  });
 });
