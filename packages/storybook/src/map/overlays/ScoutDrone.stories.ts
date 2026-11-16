@@ -14,7 +14,7 @@ import { addStoryAfc } from "../../fixtures/construction-afc.js";
 // drone, its scan cone, vision ring and dashed route are the real overlay
 // (client-map-3d-scout-drone/). `progress` scrubs the flight; `play` runs it 20x faster than the
 // game.
-type Args = { progress: number; atSeconds: number; play: boolean; follow: boolean; cameraDistance: number; cameraTilt: number; cameraSide: number };
+type Args = { progress: number; atSeconds: number; play: boolean; follow: boolean; cameraDistance: number; cameraTilt: number; cameraSide: number; cameraRise: number };
 
 const GRID_W = 30;
 const GRID_H = 16;
@@ -128,7 +128,7 @@ const render = (args: Args): HTMLElement => {
       const horizontal = Math.sin(args.cameraTilt) * args.cameraDistance;
       const vertical = Math.cos(args.cameraTilt) * args.cameraDistance;
       const cx = sceneX(pose.x) + args.cameraSide;
-      stage.camera.position.set(cx, vertical + 1.2, sceneZ(pose.y) + horizontal);
+      stage.camera.position.set(cx, vertical + args.cameraRise, sceneZ(pose.y) + horizontal);
       stage.camera.lookAt(sceneX(pose.x), 1.3 + pose.lift * 0.6, sceneZ(pose.y));
     }
     const index = scoutDroneStepIndexAt(flight, t);
@@ -163,7 +163,7 @@ const meta: Meta<Args> = {
     cameraDistance: { control: { type: "range", min: 3, max: 40, step: 0.5 } },
     cameraTilt: { control: { type: "range", min: 0.1, max: 1.4, step: 0.05 } }
   },
-  args: { progress: 0.4, atSeconds: -1, play: false, follow: false, cameraDistance: 24, cameraTilt: 0.75, cameraSide: 0 },
+  args: { progress: 0.4, atSeconds: -1, play: false, follow: false, cameraDistance: 24, cameraTilt: 0.75, cameraSide: 0, cameraRise: 1.2 },
   render
 };
 
@@ -176,8 +176,14 @@ export const Overview: Story = {};
 export const CloseUpHome: Story = { args: { atSeconds: 3.6, follow: true, cameraDistance: 3.2, cameraTilt: 1.05, cameraSide: 1.2 } };
 /** Past the border, running dark: only the dim cyan sensor glow. */
 export const CloseUpDark: Story = { args: { progress: 0.33, follow: true, cameraDistance: 3.2, cameraTilt: 1.05, cameraSide: 1.2 } };
-/** A low hero angle over home land, looking up at the underside: belly pod, gimbal, ducts. */
-export const LowHero: Story = { args: { atSeconds: 3.2, follow: true, cameraDistance: 3.4, cameraTilt: 1.5, cameraSide: 1.6 } };
+/** A three-quarter hero angle over home land: the X frame, props, gimbal and legs folded. */
+export const Hero: Story = { args: { atSeconds: 3.4, follow: true, cameraDistance: 2.6, cameraTilt: 1.15, cameraSide: 1.7 } };
+/** Pure side view at the drone's height, to judge its volume and profile (nose to the right). */
+export const SideView: Story = { args: { atSeconds: 3.4, follow: true, cameraDistance: 1.7, cameraTilt: Math.PI / 2, cameraSide: 0, cameraRise: 2.08 } };
+/** Close on the nose and camera gimbal, from just ahead and below. */
+export const GimbalCloseUp: Story = { args: { atSeconds: 3.4, follow: true, cameraDistance: 0.55, cameraTilt: 1.45, cameraSide: 0.75, cameraRise: 1.82 } };
+/** Front view at the drone's height, looking back at the nose. */
+export const FrontView: Story = { args: { atSeconds: 3.4, follow: true, cameraDistance: 0.001, cameraTilt: Math.PI / 2, cameraSide: 1.7, cameraRise: 1.95 } };
 /** The game's default zoom (DEFAULT_ZOOM 22: camera 37.8 out at a 0.6 tilt), past the border. */
 export const GameplayZoom: Story = { args: { progress: 0.38, follow: true, cameraDistance: 37.8, cameraTilt: 0.6, cameraSide: 0 } };
 /** Lifting out of the AFC's crown a second after launch. */

@@ -111,7 +111,8 @@ describe("drawScoutDrone2D", () => {
     drawScoutDrone2D(ctx, flight, midFlight, world, toScreen, 10);
     expect(calls.some((c) => c.startsWith("ellipse"))).toBe(true);
     expect(calls.filter((c) => c.startsWith("arc")).length).toBeGreaterThan(10);
-    expect(calls.filter((c) => c.startsWith("closePath")).length).toBeGreaterThan(8); // faceted hull and octagonal ducts
+    expect(calls.filter((c) => c.startsWith("arcTo")).length).toBeGreaterThanOrEqual(8); // the rounded body
+    expect(calls.filter((c) => c.startsWith("arc:")).length).toBeGreaterThanOrEqual(12); // props, guards, caps, footprint
   });
 
   it("draws nothing once the drone has landed", () => {

@@ -1,7 +1,7 @@
 // The 2D canvas view of the player's scout drone (docs/explore-scout-plan.md), the flat
 // counterpart of client-map-3d-scout-drone/. Same pieces, drawn cheaply: an instrument ring for
 // the vision footprint (faint fill, crisp rim, dashed inner ring, tick marks) with a radar sweep
-// turning inside it, the dashed route still ahead, a soft shadow, and the faceted top-down craft
+// turning inside it, the dashed route still ahead, a soft shadow, and the top-down Survey Quad
 // (client-map-render-2d-scout-drone-craft.ts). It uses the same pose as the 3D drone
 // (client-map-3d-scout-drone-pose.ts), so it also lifts off and settles back at the AFC, and the
 // same running-lights rule: nav lights over home land, dark past the border.
@@ -149,6 +149,7 @@ export const drawScoutDrone2D = (
   ctx.fill();
   ctx.translate(cx, cy);
   ctx.rotate(pose.dirX !== 0 || pose.dirY !== 0 ? Math.atan2(pose.dirY, pose.dirX) : 0);
-  drawScoutCraft2D(ctx, s, still ? 0 : nowMs * 0.03, pulse, lights, scoutSensorLevel(lights));
+  const rec = !pose.returning && (still || nowMs % 1_000 < 500) ? lights : 0;
+  drawScoutCraft2D(ctx, s, still ? 0 : nowMs * 0.03, pulse, lights, scoutSensorLevel(lights), rec);
   ctx.restore();
 };

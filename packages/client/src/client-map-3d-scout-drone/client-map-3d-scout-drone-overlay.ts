@@ -13,7 +13,7 @@ export type { ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights
 
 // The true-3D view of the player's scout drone (docs/explore-scout-plan.md). The drone
 // (client-map-3d-scout-drone-model.ts) lifts out of its AFC's crown, climbs to cruise height and
-// flies its route banking into turns and pitching nose-down with speed, its sensor gimbal panning
+// flies its route banking into turns and pitching nose-down with speed, its camera gimbal panning
 // over the ground below, then settles back into the crown. Under it: the vision footprint with a
 // radar sweep, a blob shadow and the route ahead (client-map-3d-scout-drone-ground-fx.ts); behind
 // it, short nav-light trails (client-map-3d-scout-drone-trails.ts). The 2D renderer draws the same
@@ -49,7 +49,7 @@ export type ScoutDroneOverlay = {
 
 export const SCOUT_DRONE_SCALE = 2.2;
 /** Above the ground under it: docked on the AFC's crown, and at cruise. */
-export const SCOUT_DRONE_DOCK_HEIGHT = POD_AFC_CAP_Y + 0.32; // clear of the crown spike
+export const SCOUT_DRONE_DOCK_HEIGHT = POD_AFC_CAP_Y + 0.38; // legs down, feet clear of the crown spike
 export const SCOUT_DRONE_CRUISE_HEIGHT = 1.95;
 const MAX_BANK = 0.55;
 const SWEEP_PER_MS = 0.0016;
@@ -80,7 +80,9 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
   let yaw = 0;
   let bank = 0;
   let pitch = 0;
-  let rotorAngle = 0;
+  // Each prop spins at a slightly different rate, as real ones do while trimming.
+  const rotorAngles = new Float32Array(model.rotors.length);
+  const washPoint = new Vector3();
   let sweepAngle = 0;
 
   const hide = (): void => {
@@ -124,39 +126,44 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     const speedNorm = Math.min(1, pose.speed / 0.6);
     pitch += ((0.07 + 0.2 * speedNorm) * smoothstep01(pose.lift * 1.4 - 0.4) - pitch) * easeK;
     model.root.position.set(at.sceneX, altitude, at.sceneZ);
-    model.root.rotation.set(pitch, yaw, bank, "YXZ");
+    // Hover micro-motion: tiny attitude corrections (well under a degree) on top of the banking.
+    const jitterPitch = animate ? 0.009 * Math.sin(nowMs * 0.0031) + 0.005 * Math.sin(nowMs * 0.0077 + 1.3) : 0;
+    const jitterRoll = animate ? 0.009 * Math.sin(nowMs * 0.0027 + 0.7) + 0.005 * Math.sin(nowMs * 0.0069) : 0;
+    model.root.rotation.set(pitch + jitterPitch * pose.lift, yaw, bank + jitterRoll * pose.lift, "YXZ");
     model.root.visible = true;
 
     // Rotors: blades while spooling, a motion-blur disc at speed.
-    if (animate) rotorAngle += dt * ROTOR_PER_MS * pose.rotor;
     const blur = animate ? smoothstep01((pose.rotor - 0.35) / 0.5) : 0;
     // The blades fade out as the blur fades in, so the hand-over at speed is seamless.
     model.bladeMaterial.opacity = 1 - 0.92 * blur;
     for (let k = 0; k < model.rotors.length; k += 1) {
       const rotor = model.rotors[k]!;
-      rotor.blades.rotation.y = (k % 2 === 0 ? 1 : -1) * rotorAngle + k;
+      if (animate) rotorAngles[k] = (rotorAngles[k]! + dt * ROTOR_PER_MS * pose.rotor * (1 + 0.035 * Math.sin(k * 1.9 + nowMs * 0.0004))) % (Math.PI * 2);
+      rotor.blades.rotation.y = (k % 2 === 0 ? 1 : -1) * rotorAngles[k]! + k;
       rotor.blades.visible = blur < 0.97;
       rotor.disc.opacity = 0.42 * blur;
     }
-    // Skids: down while docked, folded up against the hull once it climbs away.
+    // Landing legs: down while docked; once it climbs away they retract into short stubs under
+    // the chassis (telescoping, tucked a little outward) so nothing trails under the arms.
     const fold = smoothstep01((pose.lift - 0.3) / 0.45);
-    model.skids.left.rotation.z = -1.3 * fold;
-    model.skids.right.rotation.z = 1.3 * fold;
+    const legScale = 1 - 0.72 * fold;
+    model.legs.left.scale.y = legScale;
+    model.legs.right.scale.y = legScale;
+    model.legs.left.rotation.z = -0.2 * fold;
+    model.legs.right.rotation.z = 0.2 * fold;
 
-    // The sensor gimbal looks down at the ground just ahead and pans across it with the sweep.
+    // The camera gimbal looks down at the ground just ahead and pans across it with the sweep.
     const height = altitude - groundY;
     model.gimbalPan.rotation.y = animate ? 0.6 * Math.sin(nowMs * 0.0008) : 0;
     model.gimbalTilt.rotation.x = Math.atan2(height, 1.1) - pitch;
 
-    // Lights: nav lights, strobe and antenna over home land; past the border it runs dark, with
-    // only a dim cyan sensor glow left.
+    // Lights: nav lights and strobe over home land; past the border it runs dark, with only the
+    // dim cyan lens and status light left.
     const pulse = animate ? 0.5 + 0.5 * Math.sin(nowMs * 0.004) : 0.75;
     const level = updateScoutRunningLights(runningLights, pose.x, pose.y, deps.world, nowMs, deps.homeSource);
-    applyScoutDroneLights(model, level, pulse, animate, nowMs);
-    // Exhaust wash under the ducts: with the rotors, fading out when running dark.
-    model.exhaust.opacity = 0.14 * pose.rotor * (0.85 + 0.15 * pulse) * level;
+    applyScoutDroneLights(model, level, pulse, animate, nowMs, !pose.returning);
 
-    // Wingtip trails, in the same scene space as the drone.
+    // Nav-light trails, in the same scene space as the drone.
     model.root.updateMatrixWorld();
     navLeft.set(model.navLeftLocal.x, model.navLeftLocal.y, model.navLeftLocal.z).applyMatrix4(model.root.matrixWorld);
     navRight.set(model.navRightLocal.x, model.navRightLocal.y, model.navRightLocal.z).applyMatrix4(model.root.matrixWorld);
@@ -168,6 +175,16 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     // Ground: footprint, sweep and shadow under the drone, then the route still ahead.
     if (animate) sweepAngle = (sweepAngle + dt * SWEEP_PER_MS) % (Math.PI * 2);
     ground.place(at.sceneX, groundY, at.sceneZ, altitude, pose.lift, sweepAngle, pulse);
+    // Rotor wash: faint ripples on the ground under each prop while it is low (launch and landing).
+    const wash = animate ? pose.rotor * (1 - smoothstep01((pose.lift - 0.15) / 0.6)) : 0;
+    ground.beginWash(wash, nowMs);
+    if (wash > 0.01) {
+      for (const local of model.rotorLocal) {
+        washPoint.set(local.x, local.y, local.z).applyMatrix4(model.root.matrixWorld);
+        ground.washPoint(washPoint.x, groundY, washPoint.z);
+      }
+    }
+    ground.endWash();
     ground.beginRoute();
     ground.routePoint(at.sceneX, at.surfaceY, at.sceneZ);
     let prevX = at.sceneX;

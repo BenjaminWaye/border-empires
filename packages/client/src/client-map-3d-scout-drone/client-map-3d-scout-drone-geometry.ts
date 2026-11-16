@@ -1,139 +1,174 @@
-import { BoxGeometry, BufferGeometry, CylinderGeometry, ExtrudeGeometry, Quaternion, Shape, SphereGeometry, Vector3 } from "three";
-import { bar, flatNormals, hullEdgeLines, loftFaceted, type HullStation } from "./client-map-3d-scout-drone-loft.js";
-import { mergeParts, placed } from "./client-map-3d-scout-drone-propulsion.js";
-import { applyBoxUvs } from "./client-map-3d-scout-drone-surface.js";
+import { BoxGeometry, BufferGeometry, CircleGeometry, CylinderGeometry, Matrix4, Quaternion, TorusGeometry, Vector3 } from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+import { buildShell, type ShellStation } from "./client-map-3d-scout-drone-shell.js";
+import { applyTopDownUvs, bakeOcclusion, smoothstep } from "./client-map-3d-scout-drone-surface.js";
 
-// The scout drone's airframe (client-map-3d-scout-drone-model.ts), drone-local: nose toward +Z,
-// up +Y. A hard-surface arrowhead hull lofted from flat facets (two-tone, panelled through
-// box-projected UVs), a faceted sensor canopy and belly sensor pod, bronze trim on the ridge and
-// chines studded with bolt heads, cyan emissive seams just under the chines, chevron House
-// markings on the fins, and greebles: an intake on each chine, dorsal vents, sensor blisters, an
-// armoured antenna base and a raised hatch. Static parts are merged per material. Built once.
+// Geometry for the scout drone, the "Survey Quad" (client-map-3d-scout-drone-model.ts): a
+// realistic, high-end mapping drone in drone-local units -- nose toward +Z, up +Y, about 0.6
+// across the props. A sculpted body: a smooth domed shell, higher at the rear and middle and
+// sloping to a pair of round obstacle-sensor lenses on the nose, a fine dark seam following the
+// shell's outline, and a rounded battery pack tucked up into the shell (a small brass latch and
+// four charge LEDs on its back). Four carbon arms, each one clean tapered
+// tube rising from the shoulders with a little dihedral, end in short, wide brushed-aluminium
+// outrunner motors with brass caps; thin guard arcs follow the props. Ambient occlusion is baked
+// into vertex colours (the shell's lower rim, the chassis under the shell, the arm roots). Static
+// parts are merged per material. A single-instance hero asset: the shell is densely tessellated
+// so the dome stays smooth up close. Props, gimbal and legs: -parts.ts. Built once.
 
-export const SCOUT_GIMBAL = { y: -0.074, z: 0.16 } as const;
-export const SCOUT_TAIL_LIGHT = { y: 0.012, z: -0.25 } as const;
-export const SCOUT_BELLY_LIGHT = { y: -0.052, z: -0.06 } as const;
-export const SCOUT_ANTENNA_TIP = { y: 0.16, z: -0.11 } as const;
-/** Where each skid's hinge sits on the hull side (X is mirrored). */
-export const SCOUT_SKID_HINGE = { x: 0.05, y: -0.034 } as const;
+export const SCOUT_ROTOR_COUNT = 4;
+/** Body centre to motor centre, along each diagonal. */
+export const SCOUT_ARM_REACH = 0.2;
+export const SCOUT_PROP_RADIUS = 0.085;
+/** Height of the props' plane above the body centre. */
+export const SCOUT_PROP_Y = 0.086;
+/** Height of the arm tips (the motor bells' bases), set by the arms' dihedral. */
+export const SCOUT_MOTOR_Y = 0.05;
+export const SCOUT_GIMBAL = { y: -0.074, z: 0.09 } as const;
+export const SCOUT_STROBE = { y: 0.03, z: -0.124 } as const;
+export const SCOUT_STATUS_LIGHT = { y: 0.068, z: -0.075 } as const;
+/** Where each leg's hinge sits on the chassis side (X is mirrored). */
+export const SCOUT_LEG_HINGE = { x: 0.046, y: -0.03 } as const;
+/** The four charge LEDs on the chassis's back face: x positions, and their shared y/z. */
+export const SCOUT_CHARGE_LEDS = { xs: [-0.012, -0.004, 0.004, 0.012], y: -0.011, z: -0.0907 } as const;
 
-/** The arrowhead hull, tail to nose. */
-const HULL: readonly HullStation[] = [
-  { z: -0.245, halfWidth: 0.034, top: 0.026, chine: 0.002, keel: -0.022 },
-  { z: -0.17, halfWidth: 0.058, top: 0.042, chine: 0.002, keel: -0.038 },
-  { z: -0.03, halfWidth: 0.088, top: 0.054, chine: 0.0, keel: -0.048 },
-  { z: 0.08, halfWidth: 0.074, top: 0.05, chine: -0.004, keel: -0.044 },
-  { z: 0.18, halfWidth: 0.042, top: 0.032, chine: -0.01, keel: -0.03 },
-  { z: 0.27, halfWidth: 0.004, top: 0.004, chine: -0.014, keel: -0.016 }
+const SHELL_Z = { min: -0.125, max: 0.125 } as const;
+/** The upper shell: a dome rising toward the rear and middle, sloping down to the nose, where the rim drops into a chin over the battery. */
+const SHELL: readonly ShellStation[] = [
+  { z: -0.118, halfWidth: 0.05, top: 0.05, rim: 0.0 },
+  { z: -0.085, halfWidth: 0.064, top: 0.064, rim: 0.0 },
+  { z: -0.02, halfWidth: 0.068, top: 0.068, rim: 0.0 },
+  { z: 0.045, halfWidth: 0.064, top: 0.058, rim: -0.006 },
+  { z: 0.09, halfWidth: 0.053, top: 0.04, rim: -0.02 },
+  { z: 0.112, halfWidth: 0.04, top: 0.028, rim: -0.018 },
+  { z: 0.127, halfWidth: 0.008, top: 0.002, rim: -0.008 }
 ];
 
-const CANOPY: readonly HullStation[] = [
-  { z: -0.05, halfWidth: 0.022, top: 0.058, chine: 0.048, keel: 0.042 },
-  { z: 0.02, halfWidth: 0.034, top: 0.08, chine: 0.056, keel: 0.044 },
-  { z: 0.1, halfWidth: 0.026, top: 0.064, chine: 0.052, keel: 0.042 },
-  { z: 0.15, halfWidth: 0.006, top: 0.05, chine: 0.046, keel: 0.04 }
-];
-
-/** The sensor pod slung under the nose, carrying the gimbal. */
-const BELLY_POD: readonly HullStation[] = [
-  { z: 0.02, halfWidth: 0.018, top: -0.03, chine: -0.044, keel: -0.05 },
-  { z: 0.08, halfWidth: 0.032, top: -0.028, chine: -0.048, keel: -0.064 },
-  { z: 0.15, halfWidth: 0.028, top: -0.022, chine: -0.044, keel: -0.06 },
-  { z: 0.19, halfWidth: 0.012, top: -0.018, chine: -0.036, keel: -0.044 }
-];
-
-// A swept, angular fin with a raked tip and a single chamfer, in its own frame (length along -Z,
-// thickness along X), and the two-chevron House marking on both of its faces.
-const finShape = (): Shape => {
-  const shape = new Shape();
-  shape.moveTo(0, 0);
-  shape.lineTo(0.085, 0);
-  shape.lineTo(0.112, 0.07);
-  shape.lineTo(0.088, 0.07);
-  shape.lineTo(0.03, 0.012);
-  shape.closePath();
-  return shape;
-};
-const chevron = (x: number): Shape => {
-  const shape = new Shape();
-  shape.moveTo(x, 0.018);
-  shape.lineTo(x + 0.012, 0.03);
-  shape.lineTo(x, 0.042);
-  shape.lineTo(x + 0.006, 0.042);
-  shape.lineTo(x + 0.018, 0.03);
-  shape.lineTo(x + 0.006, 0.018);
-  shape.closePath();
-  return shape;
-};
-const inFinFrame = (geometry: BufferGeometry): BufferGeometry => {
-  geometry.rotateY(Math.PI / 2);
-  return geometry;
-};
-const fin = (): BufferGeometry =>
-  inFinFrame(new ExtrudeGeometry(finShape(), { depth: 0.004, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: 0.002, bevelSegments: 1 }).translate(0, 0, -0.002));
-const finMarking = (): BufferGeometry => {
-  const faces: BufferGeometry[] = [];
-  for (const face of [1, -1]) {
-    const marks = new ExtrudeGeometry([chevron(0.048), chevron(0.066)], { depth: 0.0008, bevelEnabled: false });
-    faces.push(flatNormals(marks.translate(0, 0, face > 0 ? 0.0036 : -0.0044)));
+/** Motor centres in drone-local X/Z (front-right, front-left, rear-left, rear-right). */
+export const scoutRotorCentres = (): Array<{ x: number; z: number; angle: number }> => {
+  const centres: Array<{ x: number; z: number; angle: number }> = [];
+  for (let k = 0; k < SCOUT_ROTOR_COUNT; k += 1) {
+    const angle = Math.PI / 4 + (k * Math.PI) / 2;
+    centres.push({ x: Math.sin(angle) * SCOUT_ARM_REACH, z: Math.cos(angle) * SCOUT_ARM_REACH, angle });
   }
-  return inFinFrame(mergeParts(faces));
+  return centres;
 };
+
+const scratch = new Matrix4();
+const unit = new Vector3(1, 1, 1);
+export const up = new Vector3(0, 1, 0);
+
+/** A non-indexed copy placed at `pos` with `rot`, ready to merge; drops UVs unless `keepUv`. */
+export const placed = (geometry: BufferGeometry, pos: Vector3, rot: Quaternion = new Quaternion(), keepUv = false): BufferGeometry => {
+  const clone = (geometry.index ? geometry.toNonIndexed() : geometry.clone()).applyMatrix4(scratch.compose(pos, rot, unit));
+  if (!keepUv && clone.getAttribute("uv")) clone.deleteAttribute("uv");
+  return clone;
+};
+
+/** Merges parts (all with the same attributes) and disposes them and any `sources`. */
+export const merge = (parts: BufferGeometry[], sources: BufferGeometry[] = []): BufferGeometry => {
+  const merged = mergeGeometries(parts, false);
+  for (const part of [...parts, ...sources]) part.dispose();
+  if (!merged) throw new Error("scout drone: geometry merge failed");
+  merged.computeBoundingSphere();
+  return merged;
+};
+
+/** A rod from `from` to `to`, `radius` at `from` tapering to `tipRadius` at `to`. */
+export const rod = (from: Vector3, to: Vector3, radius: number, tipRadius = radius, segments = 8, keepUv = false): BufferGeometry => {
+  const dir = to.clone().sub(from);
+  const cylinder = new CylinderGeometry(tipRadius, radius, dir.length(), segments);
+  const part = placed(cylinder, from.clone().add(to).multiplyScalar(0.5), new Quaternion().setFromUnitVectors(up, dir.normalize()), keepUv);
+  cylinder.dispose();
+  return part;
+};
+
+// The battery pack: a rounded pack, narrower and shorter than the shell, tucked up into it.
+const BATTERY = { width: 0.08, height: 0.034, length: 0.135, radius: 0.016, y: -0.013, z: -0.0225 } as const;
+const BATTERY_REAR_Z = BATTERY.z - BATTERY.length / 2;
 
 export type ScoutAirframeGeometry = {
-  /** The hull plates: two-tone vertex colours and panel UVs, for the panelled hull material. */
-  readonly hull: BufferGeometry;
-  readonly steel: BufferGeometry;
-  readonly bronze: BufferGeometry;
+  /** Satin graphite shell and GPS puck: top-down UVs (grain, hatch seam) and baked occlusion. */
+  readonly shell: BufferGeometry;
+  /** Matte battery pack: UVs (grain) and baked occlusion where it tucks into the shell. */
+  readonly chassis: BufferGeometry;
+  /** Carbon arms: cylinder UVs (weave) and occlusion at the roots. */
+  readonly arms: BufferGeometry;
+  /** Machined aluminium motor bells: cylinder UVs (brushing, cooling slots). */
+  readonly bells: BufferGeometry;
+  /** Satin black: the shell-to-battery seam, rear vent slats, sensor bezels and prop guards. */
+  readonly frame: BufferGeometry;
+  /** Brass: motor caps and the battery latch. */
+  readonly brass: BufferGeometry;
+  /** Dark glass: the two obstacle-sensor lenses on the nose. */
   readonly glass: BufferGeometry;
-  /** Matte black: intake mouths and vent slats. */
-  readonly dark: BufferGeometry;
-  /** Cyan emissive seams along the chines. */
-  readonly seams: BufferGeometry;
+  /** The four charge LEDs. */
+  readonly leds: BufferGeometry;
 };
 
 export const buildScoutAirframe = (): ScoutAirframeGeometry => {
-  const hull = applyBoxUvs(loftFaceted(HULL), 3.2);
-  const steel: BufferGeometry[] = [loftFaceted(BELLY_POD)];
-  const glass: BufferGeometry[] = [loftFaceted(CANOPY)];
-  const dark: BufferGeometry[] = [];
-  const seams: BufferGeometry[] = [];
-  // Bronze trim on the hull's hard edges, with a row of bolt heads along each chine.
-  const bronze: BufferGeometry[] = hullEdgeLines(HULL).map(([from, to]) => bar(from, to, 0.0058));
-  bronze.push(bar(new Vector3(0, -0.049, -0.14), new Vector3(0, -0.047, 0.1), 0.007)); // keel strake
-  const bolt = new CylinderGeometry(0.0032, 0.0032, 0.003, 6);
-  for (const [from, to] of hullEdgeLines(HULL)) {
-    if (from.x === 0) continue; // chines only, not the ridge
-    const side = Math.sign(from.x + to.x);
-    for (let t = 0.2; t < 1; t += 0.3) {
-      const p = from.clone().lerp(to, t);
-      bronze.push(placed(bolt, new Vector3(p.x + side * 0.003, p.y + 0.004, p.z), new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), side * -0.9)));
+  // Shell and puck: grain/hatch UVs, and occlusion darkening toward the shell's lower rim.
+  const shellAo = (_x: number, y: number): number => 0.55 + 0.45 * smoothstep(0, 0.03, y);
+  const shellParts = [buildShell(SHELL), placed(new CylinderGeometry(0.016, 0.018, 0.008, 16), new Vector3(0, 0.069, -0.045))];
+  const shell = merge(shellParts.map((g) => bakeOcclusion(applyTopDownUvs(g, 0.07, SHELL_Z.min, SHELL_Z.max), shellAo)));
+  // Battery pack: occluded where it tucks up into the shell.
+  const pack = new RoundedBoxGeometry(BATTERY.width, BATTERY.height, BATTERY.length, 4, BATTERY.radius);
+  const chassis = bakeOcclusion(placed(pack, new Vector3(0, BATTERY.y, BATTERY.z), undefined, true), (_x, y) => 0.5 + 0.5 * smoothstep(-0.004, -0.02, y));
+  pack.dispose();
+  // The seam: a thin dark lip just inside the shell's outline, where shell meets battery.
+  const frame: BufferGeometry[] = [buildShell(SHELL.map((s) => ({ ...s, halfWidth: s.halfWidth * 0.965, top: 0.0005, rim: -0.004 })))];
+  const slat = new BoxGeometry(0.046, 0.0035, 0.006);
+  for (let v = 0; v < 3; v += 1) frame.push(placed(slat, new Vector3(0, 0.012 + v * 0.011, -0.12)));
+  const brass: BufferGeometry[] = [placed(new BoxGeometry(0.014, 0.005, 0.003), new Vector3(0, -0.021, BATTERY_REAR_Z - 0.0012))]; // battery latch
+  const ledBox = new BoxGeometry(0.0045, 0.0028, 0.0016);
+  const leds = merge(SCOUT_CHARGE_LEDS.xs.map((x) => placed(ledBox, new Vector3(x, SCOUT_CHARGE_LEDS.y, SCOUT_CHARGE_LEDS.z))), [ledBox]);
+  // Two round obstacle-sensor lenses side by side on the nose slope, each in a thin dark bezel.
+  const slope = new Vector3(0, 0.86, 0.51).normalize();
+  const facing = new Quaternion().setFromUnitVectors(up, slope);
+  const bezel = new CylinderGeometry(0.0088, 0.0088, 0.004, 20);
+  const lensDisc = new CircleGeometry(0.0066, 20);
+  lensDisc.rotateX(-Math.PI / 2); // face +Y, then turn with the bezel onto the slope
+  const lenses: BufferGeometry[] = [];
+  for (const x of [-0.016, 0.016]) {
+    const at = new Vector3(x, 0.0315, 0.1035);
+    frame.push(placed(bezel, at, facing));
+    lenses.push(placed(lensDisc, at.clone().addScaledVector(slope, 0.0021), facing));
+  }
+  const glass = merge(lenses, [bezel, lensDisc]);
+  // Arms: a short downward bend at the root, then up with about 10 degrees of dihedral.
+  const arms: BufferGeometry[] = [];
+  const bells: BufferGeometry[] = [];
+  // Outrunner motors: short, wide bells.
+  const bell = new CylinderGeometry(0.0205, 0.022, 0.026, 28, 1, true);
+  const cap = new CylinderGeometry(0.012, 0.0185, 0.006, 24);
+  const guard = new TorusGeometry(SCOUT_PROP_RADIUS + 0.012, 0.0028, 3, 16, Math.PI * 0.85);
+  guard.rotateX(Math.PI / 2);
+  const armAo = (x: number, _y: number, z: number): number => 0.55 + 0.45 * smoothstep(0.05, 0.11, Math.hypot(x, z));
+  for (const { x, z, angle } of scoutRotorCentres()) {
+    const dir = (r: number, y: number): Vector3 => new Vector3(Math.sin(angle) * r, y, Math.cos(angle) * r);
+    // One clean tapered tube from the shell's shoulder up to the motor (about 10 degrees of dihedral).
+    arms.push(rod(dir(0.05, 0.028), dir(SCOUT_ARM_REACH, SCOUT_MOTOR_Y), 0.0125, 0.0078, 14, true));
+    bells.push(placed(bell, new Vector3(x, SCOUT_MOTOR_Y + 0.013, z), undefined, true));
+    brass.push(placed(cap, new Vector3(x, SCOUT_MOTOR_Y + 0.029, z)));
+    // The guard arc around the prop's outer side, on two struts from the motor base. The torus
+    // arc starts at +X and sweeps toward +Z; turn it so it is centred on the outward direction.
+    const outward = Math.atan2(x, z);
+    const guardY = SCOUT_PROP_Y - 0.004;
+    frame.push(placed(guard, new Vector3(x, guardY, z), new Quaternion().setFromAxisAngle(up, Math.PI * 0.425 - Math.atan2(z, x))));
+    for (const spread of [-0.9, 0.9]) {
+      const a = outward + spread;
+      const ring = new Vector3(x + Math.sin(a) * (SCOUT_PROP_RADIUS + 0.012), guardY, z + Math.cos(a) * (SCOUT_PROP_RADIUS + 0.012));
+      frame.push(rod(new Vector3(x, SCOUT_MOTOR_Y, z), ring, 0.0022, 0.0018, 4));
     }
-    // Cyan seam just under the chine, inset a touch.
-    const seamFrom = new Vector3(from.x * 0.97, from.y - 0.007, from.z);
-    const seamTo = new Vector3(to.x * 0.97, to.y - 0.007, to.z);
-    if (Math.abs(from.z) < 0.24 && Math.abs(to.z) < 0.24) seams.push(bar(seamFrom, seamTo, 0.0028));
   }
-  bolt.dispose();
-  // Fins with their House marking, canted as a V-tail.
-  for (const side of [-1, 1]) {
-    const at = new Vector3(side * 0.012, 0.034, -0.15);
-    const rot = new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), side * -0.5);
-    steel.push(placed(fin(), at, rot));
-    bronze.push(placed(finMarking(), at, rot));
-  }
-  // Greebles. An intake on each chine just aft of the canopy, a dark mouth inside a steel cowl.
-  for (const side of [-1, 1]) {
-    steel.push(placed(new BoxGeometry(0.016, 0.02, 0.06), new Vector3(side * 0.084, 0.006, 0.0)));
-    dark.push(placed(new BoxGeometry(0.012, 0.014, 0.004), new Vector3(side * 0.084, 0.006, 0.031)));
-    // Sensor blisters on the flanks near the nose.
-    steel.push(placed(new SphereGeometry(0.009, 5, 3), new Vector3(side * 0.05, 0.012, 0.15)));
-    // Dorsal vents: a raised block with three dark slats.
-    steel.push(placed(new BoxGeometry(0.026, 0.006, 0.05), new Vector3(side * 0.022, 0.048, -0.1)));
-    for (let s = 0; s < 3; s += 1) dark.push(placed(new BoxGeometry(0.02, 0.002, 0.006), new Vector3(side * 0.022, 0.0515, -0.118 + s * 0.018)));
-  }
-  steel.push(placed(new CylinderGeometry(0.009, 0.012, 0.016, 6), new Vector3(0, 0.054, SCOUT_ANTENNA_TIP.z))); // antenna base
-  bronze.push(placed(new CylinderGeometry(0.0018, 0.004, 0.1, 4), new Vector3(0, 0.11, SCOUT_ANTENNA_TIP.z))); // antenna mast
-  steel.push(placed(new BoxGeometry(0.03, 0.003, 0.032), new Vector3(0, 0.057, -0.17), new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -0.17))); // dorsal hatch
-  return { hull, steel: mergeParts(steel), bronze: mergeParts(bronze), glass: mergeParts(glass), dark: mergeParts(dark), seams: mergeParts(seams) };
+  return {
+    shell,
+    chassis,
+    arms: bakeOcclusion(merge(arms), armAo),
+    bells: merge(bells, [bell]),
+    frame: merge(frame, [slat, guard]),
+    brass: merge(brass, [cap]),
+    glass,
+    leds
+  };
 };

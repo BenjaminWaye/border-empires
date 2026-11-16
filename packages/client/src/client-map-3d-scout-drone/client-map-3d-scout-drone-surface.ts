@@ -1,14 +1,11 @@
-import { BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, NoColorSpace, RepeatWrapping, SRGBColorSpace, Vector3, type MeshStandardMaterial } from "three";
+import { BufferGeometry, CanvasTexture, Float32BufferAttribute, NoColorSpace, RepeatWrapping, SRGBColorSpace } from "three";
 
-// Surface treatment for the scout drone's hard-surface hull (client-map-3d-scout-drone-model.ts):
-// procedural panel maps drawn once on a canvas (albedo with panel seams, hatches and rivet rows; a
-// matching normal map that cuts the seams in as grooves; a roughness map), a bronze edge-wear map,
-// box-projected UVs so the panels sit flat on every facet, and a fresnel rim term patched into the
-// metal shaders so the silhouette separates from dark terrain. All built once; nothing per frame.
+// Surface finish for the Survey Quad (client-map-3d-scout-drone-materials.ts), drawn once on small
+// canvases: fine noise so the satin shell and matte chassis don't read as plastic, the shell's one
+// hatch seam, a carbon-fibre weave for the arms, and brushed aluminium with a hairline vent band for the motor bells.
+// Plus vertex-colour ambient occlusion and UV helpers for the geometry. All built once; textures
+// are null where there is no canvas (tests), and materials then fall back to flat colour.
 
-const PANEL_SIZE = 512;
-
-// A small deterministic generator, so every client draws the same panel layout.
 const seeded = (seed: number): (() => number) => {
   let state = seed >>> 0;
   return () => {
@@ -26,172 +23,160 @@ const canvas2d = (size: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderi
   return ctx ? { canvas, ctx } : null;
 };
 
-const texture = (canvas: HTMLCanvasElement, srgb: boolean): CanvasTexture => {
+const toTexture = (canvas: HTMLCanvasElement, srgb: boolean, repeat = false): CanvasTexture => {
   const t = new CanvasTexture(canvas);
   t.colorSpace = srgb ? SRGBColorSpace : NoColorSpace;
-  t.wrapS = RepeatWrapping;
-  t.wrapT = RepeatWrapping;
+  if (repeat) {
+    t.wrapS = RepeatWrapping;
+    t.wrapT = RepeatWrapping;
+  }
   t.anisotropy = 4;
   return t;
 };
 
-export type ScoutPanelMaps = { readonly map: CanvasTexture; readonly normalMap: CanvasTexture; readonly roughnessMap: CanvasTexture; readonly dispose: () => void };
+// Fine speckle around a mid value: the "not plastic" micro-variation.
+const speckle = (ctx: CanvasRenderingContext2D, size: number, base: number, spread: number, seed: number): void => {
+  const rand = seeded(seed);
+  const image = ctx.createImageData(size, size);
+  for (let i = 0; i < size * size; i += 1) {
+    const v = Math.max(0, Math.min(255, base + (rand() - 0.5) * spread));
+    image.data[i * 4] = v;
+    image.data[i * 4 + 1] = v;
+    image.data[i * 4 + 2] = v;
+    image.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(image, 0, 0);
+};
+
+export type ScoutTextureSet = { readonly map?: CanvasTexture; readonly roughnessMap: CanvasTexture; readonly normalMap?: CanvasTexture; readonly dispose: () => void };
+const set = (maps: { map?: CanvasTexture; roughnessMap: CanvasTexture; normalMap?: CanvasTexture }): ScoutTextureSet => ({
+  ...maps,
+  dispose: () => {
+    maps.map?.dispose();
+    maps.roughnessMap.dispose();
+    maps.normalMap?.dispose();
+  }
+});
+
+// The hatch on the shell's top, in the shell's top-down UV space (u = across, v = nose to tail).
+const HATCH = { u0: 0.3, u1: 0.7, v0: 0.58, v1: 0.82 } as const;
+
+/** Shell: faint speckle in albedo and roughness, and the one hatch seam as a dark groove. */
+export const makeShellTextures = (): ScoutTextureSet | null => {
+  const S = 256;
+  const albedo = canvas2d(S);
+  const rough = canvas2d(S);
+  const normal = canvas2d(S);
+  if (!albedo || !rough || !normal) return null;
+  speckle(albedo.ctx, S, 236, 14, 11);
+  speckle(rough.ctx, S, 118, 26, 12);
+  normal.ctx.fillStyle = "rgb(128,128,255)";
+  normal.ctx.fillRect(0, 0, S, S);
+  const x0 = HATCH.u0 * S;
+  const y0 = HATCH.v0 * S;
+  const w = (HATCH.u1 - HATCH.u0) * S;
+  const h = (HATCH.v1 - HATCH.v0) * S;
+  albedo.ctx.strokeStyle = "rgba(20,22,26,0.85)";
+  albedo.ctx.lineWidth = 1.6;
+  albedo.ctx.strokeRect(x0, y0, w, h);
+  rough.ctx.strokeStyle = "rgb(200,200,200)";
+  rough.ctx.lineWidth = 2;
+  rough.ctx.strokeRect(x0, y0, w, h);
+  // The groove's two walls: lit on one side, shaded on the other.
+  normal.ctx.lineWidth = 1.2;
+  normal.ctx.strokeStyle = "rgb(90,128,230)";
+  normal.ctx.strokeRect(x0 - 1, y0 - 1, w + 2, h + 2);
+  normal.ctx.strokeStyle = "rgb(166,128,230)";
+  normal.ctx.strokeRect(x0 + 1, y0 + 1, w - 2, h - 2);
+  return set({ map: toTexture(albedo.canvas, true), roughnessMap: toTexture(rough.canvas, false), normalMap: toTexture(normal.canvas, false) });
+};
+
+/** Battery chassis: a fine, matte grain. */
+export const makeChassisTextures = (): ScoutTextureSet | null => {
+  const rough = canvas2d(128);
+  if (!rough) return null;
+  speckle(rough.ctx, 128, 200, 50, 21);
+  return set({ roughnessMap: toTexture(rough.canvas, false, true) });
+};
+
+/** Carbon fibre: a 2x2 twill weave in the normal and roughness maps, only visible up close. */
+export const makeCarbonTextures = (): ScoutTextureSet | null => {
+  const S = 64;
+  const rough = canvas2d(S);
+  const normal = canvas2d(S);
+  if (!rough || !normal) return null;
+  const cell = 8;
+  for (let y = 0; y < S; y += cell) {
+    for (let x = 0; x < S; x += cell) {
+      const along = ((x + y) / cell) % 4 < 2; // twill: tows step diagonally
+      rough.ctx.fillStyle = along ? "rgb(90,90,90)" : "rgb(130,130,130)";
+      rough.ctx.fillRect(x, y, cell, cell);
+      normal.ctx.fillStyle = along ? "rgb(150,128,240)" : "rgb(128,150,240)";
+      normal.ctx.fillRect(x, y, cell, cell);
+    }
+  }
+  return set({ roughnessMap: toTexture(rough.canvas, false, true), normalMap: toTexture(normal.canvas, false, true) });
+};
 
 /**
- * Hull panelling: plates of slightly varied tone separated by thin seams, a few inset hatches and
- * rivet rows beside some seams. The height field (seams low) becomes the normal map, and seams
- * and rivets read rougher than the plates.
+ * Motor bells, in cylinder UV space (u around, v up): fine vertical brushing that fakes the
+ * anisotropic streak of machined aluminium, over a soft gradient (a touch darker at the base),
+ * with a very fine vent band that only shows up close.
  */
-export const makeScoutPanelMaps = (): ScoutPanelMaps | null => {
-  const albedo = canvas2d(PANEL_SIZE);
-  const height = canvas2d(PANEL_SIZE);
-  const rough = canvas2d(PANEL_SIZE);
-  if (!albedo || !height || !rough) return null;
-  const rand = seeded(7_331);
-  const S = PANEL_SIZE;
-  albedo.ctx.fillStyle = "#d4d4d4";
+export const makeBellTextures = (): ScoutTextureSet | null => {
+  const S = 128;
+  const albedo = canvas2d(S);
+  const rough = canvas2d(S);
+  if (!albedo || !rough) return null;
+  const rand = seeded(31);
+  const gradient = albedo.ctx.createLinearGradient(0, 0, 0, S);
+  gradient.addColorStop(0, "#d8dce0");
+  gradient.addColorStop(1, "#a4a9ae");
+  albedo.ctx.fillStyle = gradient;
   albedo.ctx.fillRect(0, 0, S, S);
-  height.ctx.fillStyle = "#808080";
-  height.ctx.fillRect(0, 0, S, S);
-  rough.ctx.fillStyle = "#5a5a5a";
+  rough.ctx.fillStyle = "rgb(80,80,80)";
   rough.ctx.fillRect(0, 0, S, S);
-  // Plates: an irregular grid, each plate a slightly different tone.
-  const cols = [0, 70, 150, 205, 290, 360, 430, S];
-  const rows = [0, 96, 180, 300, 390, S];
-  for (let i = 0; i + 1 < cols.length; i += 1) {
-    for (let j = 0; j + 1 < rows.length; j += 1) {
-      const tone = 190 + Math.floor(rand() * 50);
-      albedo.ctx.fillStyle = `rgb(${tone},${tone},${tone + 4})`;
-      albedo.ctx.fillRect(cols[i]!, rows[j]!, cols[i + 1]! - cols[i]!, rows[j + 1]! - rows[j]!);
-      const r = 70 + Math.floor(rand() * 40);
-      rough.ctx.fillStyle = `rgb(${r},${r},${r})`;
-      rough.ctx.fillRect(cols[i]!, rows[j]!, cols[i + 1]! - cols[i]!, rows[j + 1]! - rows[j]!);
-    }
+  for (let x = 0; x < S; x += 1) {
+    const r = 70 + Math.floor(rand() * 30);
+    rough.ctx.fillStyle = `rgb(${r},${r},${r})`;
+    rough.ctx.fillRect(x, 0, 1, S);
   }
-  const seam = (x0: number, y0: number, x1: number, y1: number, width: number): void => {
-    for (const [ctx, color] of [[albedo.ctx, "#3c3c40"], [height.ctx, "#2a2a2a"], [rough.ctx, "#b0b0b0"]] as const) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = width;
-      ctx.beginPath();
-      ctx.moveTo(x0, y0);
-      ctx.lineTo(x1, y1);
-      ctx.stroke();
-    }
-  };
-  for (const x of cols) seam(x, 0, x, S, 3);
-  for (const y of rows) seam(0, y, S, y, 3);
-  // Inset hatches with a raised rim.
-  for (const [x, y, w, h] of [[88, 112, 48, 52], [312, 208, 34, 70], [218, 404, 58, 30]] as const) {
-    height.ctx.strokeStyle = "#b8b8b8";
-    height.ctx.lineWidth = 4;
-    height.ctx.strokeRect(x, y, w, h);
-    albedo.ctx.strokeStyle = "#4a4a50";
-    albedo.ctx.lineWidth = 2;
-    albedo.ctx.strokeRect(x, y, w, h);
+  // A very fine vent band: hairline marks, only visible at close range.
+  for (let slot = 0; slot < 32; slot += 1) {
+    const x = (slot + 0.5) * (S / 32);
+    albedo.ctx.fillStyle = "rgba(90,94,100,0.22)";
+    albedo.ctx.fillRect(x, S * 0.24, 1, S * 0.04);
   }
-  // Rivet rows beside some seams.
-  const rivet = (x: number, y: number): void => {
-    height.ctx.fillStyle = "#c8c8c8";
-    height.ctx.beginPath();
-    height.ctx.arc(x, y, 2.4, 0, Math.PI * 2);
-    height.ctx.fill();
-    albedo.ctx.fillStyle = "#5c5c62";
-    albedo.ctx.beginPath();
-    albedo.ctx.arc(x, y, 1.6, 0, Math.PI * 2);
-    albedo.ctx.fill();
-  };
-  for (const y of [rows[1]!, rows[3]!]) for (let x = 8; x < S; x += 16) rivet(x, y + 8);
-  for (const x of [cols[2]!, cols[5]!]) for (let y = 8; y < S; y += 16) rivet(x + 8, y);
-
-  // Height to normal: a central difference on the height canvas.
-  const src = height.ctx.getImageData(0, 0, S, S).data;
-  const out = height.ctx.createImageData(S, S);
-  const at = (x: number, y: number): number => src[(((y + S) % S) * S + ((x + S) % S)) * 4]! / 255;
-  const v = new Vector3();
-  for (let y = 0; y < S; y += 1) {
-    for (let x = 0; x < S; x += 1) {
-      v.set((at(x - 1, y) - at(x + 1, y)) * 3, (at(x, y + 1) - at(x, y - 1)) * 3, 1).normalize();
-      const o = (y * S + x) * 4;
-      out.data[o] = (v.x * 0.5 + 0.5) * 255;
-      out.data[o + 1] = (v.y * 0.5 + 0.5) * 255;
-      out.data[o + 2] = (v.z * 0.5 + 0.5) * 255;
-      out.data[o + 3] = 255;
-    }
-  }
-  height.ctx.putImageData(out, 0, 0);
-  const maps = { map: texture(albedo.canvas, true), normalMap: texture(height.canvas, false), roughnessMap: texture(rough.canvas, false) };
-  return { ...maps, dispose: () => Object.values(maps).forEach((t) => t.dispose()) };
+  return set({ map: toTexture(albedo.canvas, true), roughnessMap: toTexture(rough.canvas, false) });
 };
 
-/** Bronze edge wear: a mid-grey base with bright scuffs and scratches where the trim is handled. */
-export const makeScoutWearMap = (): CanvasTexture | null => {
-  const surface = canvas2d(256);
-  if (!surface) return null;
-  const { canvas, ctx } = surface;
-  const rand = seeded(424_242);
-  ctx.fillStyle = "#b4b4b4";
-  ctx.fillRect(0, 0, 256, 256);
-  for (let i = 0; i < 140; i += 1) {
-    const x = rand() * 256;
-    const y = rand() * 256;
-    const length = 4 + rand() * 18;
-    const angle = rand() * Math.PI;
-    const lum = 215 + Math.floor(rand() * 40);
-    ctx.strokeStyle = `rgba(${lum},${lum},${lum},${0.4 + rand() * 0.5})`;
-    ctx.lineWidth = 0.6 + rand() * 1.4;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + Math.cos(angle) * length, y + Math.sin(angle) * length);
-    ctx.stroke();
-  }
-  return texture(canvas, true);
-};
-
-const n = new Vector3();
-const e1 = new Vector3();
-const e2 = new Vector3();
-
-/**
- * Box-projected UVs on a non-indexed geometry: each triangle takes the projection of its dominant
- * axis, so panel lines run straight on every facet. `scale` is texture repeats per unit.
- */
-export const applyBoxUvs = (geometry: BufferGeometry, scale: number): BufferGeometry => {
+/** Top-down UVs (u across X, v along Z) over the given extent: for the shell's hatch and grain. */
+export const applyTopDownUvs = (geometry: BufferGeometry, halfWidth: number, zMin: number, zMax: number): BufferGeometry => {
   const pos = geometry.getAttribute("position");
   const uv = new Float32Array(pos.count * 2);
-  for (let i = 0; i + 2 < pos.count; i += 3) {
-    e1.set(pos.getX(i + 1) - pos.getX(i), pos.getY(i + 1) - pos.getY(i), pos.getZ(i + 1) - pos.getZ(i));
-    e2.set(pos.getX(i + 2) - pos.getX(i), pos.getY(i + 2) - pos.getY(i), pos.getZ(i + 2) - pos.getZ(i));
-    n.crossVectors(e1, e2);
-    const ax = Math.abs(n.x);
-    const ay = Math.abs(n.y);
-    const az = Math.abs(n.z);
-    for (let k = 0; k < 3; k += 1) {
-      const x = pos.getX(i + k);
-      const y = pos.getY(i + k);
-      const z = pos.getZ(i + k);
-      const [u, w] = ay >= ax && ay >= az ? [z, x] : ax >= az ? [z, y] : [x, y];
-      uv[(i + k) * 2] = u * scale;
-      uv[(i + k) * 2 + 1] = w * scale;
-    }
+  for (let i = 0; i < pos.count; i += 1) {
+    uv[i * 2] = (pos.getX(i) + halfWidth) / (2 * halfWidth);
+    uv[i * 2 + 1] = (pos.getZ(i) - zMin) / (zMax - zMin);
   }
   geometry.setAttribute("uv", new Float32BufferAttribute(uv, 2));
   return geometry;
 };
 
-/**
- * Adds a fresnel rim to a lit material: grazing facets pick up a cool edge glow, so the dark
- * craft separates from dark terrain. Patched into the emissive stage of the standard shader.
- */
-export const addScoutRimLight = (material: MeshStandardMaterial, color: Color, strength: number): void => {
-  const uniforms = { scoutRimColor: { value: color }, scoutRimStrength: { value: strength } };
-  material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms);
-    shader.fragmentShader = shader.fragmentShader
-      .replace("#include <common>", "#include <common>\nuniform vec3 scoutRimColor;\nuniform float scoutRimStrength;")
-      .replace(
-        "#include <emissivemap_fragment>",
-        "#include <emissivemap_fragment>\n{ vec3 rimView = normalize( vViewPosition ); float rim = pow( 1.0 - saturate( abs( dot( normal, rimView ) ) ), 3.0 ); totalEmissiveRadiance += scoutRimColor * rim * scoutRimStrength; }"
-      );
-  };
-  material.customProgramCacheKey = () => `scout-rim-${strength}`;
+/** Bakes ambient occlusion into vertex colours from a shade function of each vertex's position. */
+export const bakeOcclusion = (geometry: BufferGeometry, shade: (x: number, y: number, z: number) => number): BufferGeometry => {
+  const pos = geometry.getAttribute("position");
+  const colors = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i += 1) {
+    const s = Math.max(0, Math.min(1, shade(pos.getX(i), pos.getY(i), pos.getZ(i))));
+    colors[i * 3] = s;
+    colors[i * 3 + 1] = s;
+    colors[i * 3 + 2] = s;
+  }
+  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
+  return geometry;
+};
+
+export const smoothstep = (edge0: number, edge1: number, x: number): number => {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
 };

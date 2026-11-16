@@ -31,38 +31,27 @@ export const makeGlowTexture = (): CanvasTexture | null =>
     ctx.fillRect(0, 0, size, size);
   });
 
-/** A rotor seen at speed: a translucent disc with faint blade streaks and a darker hub. */
+/**
+ * A prop seen at speed: a soft radial gradient, denser near the hub and translucent toward the
+ * tips, with a faint tip-path ring where the blade tips trace their circle.
+ */
 export const makeRotorBlurTexture = (): CanvasTexture | null =>
   canvasTexture(128, (ctx, size) => {
     const half = size / 2;
-    const grad = ctx.createRadialGradient(half, half, size * 0.06, half, half, half);
-    grad.addColorStop(0, "rgba(255,255,255,0.05)");
-    grad.addColorStop(0.55, "rgba(255,255,255,0.32)");
-    grad.addColorStop(0.92, "rgba(255,255,255,0.42)");
+    const grad = ctx.createRadialGradient(half, half, size * 0.05, half, half, half);
+    grad.addColorStop(0, "rgba(255,255,255,0.55)");
+    grad.addColorStop(0.35, "rgba(255,255,255,0.3)");
+    grad.addColorStop(0.85, "rgba(255,255,255,0.1)");
     grad.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(half, half, half, 0, Math.PI * 2);
     ctx.fill();
-    // Three soft streaks where the blades are most often seen.
-    ctx.globalCompositeOperation = "lighter";
-    for (let b = 0; b < 3; b += 1) {
-      const angle = (b * Math.PI * 2) / 3;
-      ctx.save();
-      ctx.translate(half, half);
-      ctx.rotate(angle);
-      const streak = ctx.createLinearGradient(0, 0, half, 0);
-      streak.addColorStop(0, "rgba(255,255,255,0)");
-      streak.addColorStop(0.7, "rgba(255,255,255,0.18)");
-      streak.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = streak;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, half, -0.32, 0.32);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.lineWidth = size * 0.012;
+    ctx.beginPath();
+    ctx.arc(half, half, half * 0.95, 0, Math.PI * 2);
+    ctx.stroke();
   });
 
 /**
