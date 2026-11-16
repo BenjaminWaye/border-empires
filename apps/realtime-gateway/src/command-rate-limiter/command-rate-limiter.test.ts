@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { CommandRateLimiter } from "./command-rate-limiter.js";
+import { CommandRateLimiter, rejectIfCommandRateLimited } from "./command-rate-limiter.js";
+import { DurableCommandTypeSchema } from "@border-empires/client-protocol";
+import { RATE_LIMITED_COMMAND_TYPES } from "@border-empires/shared";
 
 describe("CommandRateLimiter", () => {
   it("allows a burst up to capacity, then throttles the next command", () => {
@@ -56,5 +58,26 @@ describe("CommandRateLimiter", () => {
     let consumed = 1;
     while (limiter.tryConsume("p1", t0 + 999_000_000).allowed) consumed++;
     expect(consumed).toBe(5);
+  });
+});
+
+describe("rejectIfCommandRateLimited", () => {
+  it("echoes the rejected message so the client can re-send it instead of losing it", () => {
+    const limiter = new CommandRateLimiter({ capacity: 1, refillPerSecond: 1 });
+    const sent: unknown[] = [];
+    const args = {
+      limiter, playerId: "p1", commandType: "DEV_QUEUE_ENQUEUE", rejectedMessage: { type: "DEV_QUEUE_ENQUEUE", kind: "SETTLE", x: 1, y: 2 }, nowMs: 1_000,
+      socket: {} as import("ws").WebSocket, sendJson: (_socket: unknown, payload: unknown) => { sent.push(payload); }, recordGatewayEvent: () => {}
+    };
+    expect(rejectIfCommandRateLimited(args)).toBe(false);
+    expect(rejectIfCommandRateLimited(args)).toBe(true);
+    expect(sent[0]).toMatchObject({ type: "ERROR", code: "COMMAND_RATE_LIMITED", rejected: { type: "DEV_QUEUE_ENQUEUE", kind: "SETTLE", x: 1, y: 2 } });
+  });
+});
+
+describe("shared rate-limit contract the client paces against", () => {
+  it("lists exactly the durable commands this limiter counts (all but ATTACK/EXPAND)", () => {
+    const expected = DurableCommandTypeSchema.options.filter((type) => type !== "ATTACK" && type !== "EXPAND");
+    expect([...RATE_LIMITED_COMMAND_TYPES].sort()).toEqual([...expected].sort());
   });
 });
