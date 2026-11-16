@@ -140,6 +140,8 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
         relicDevelopmentBonus: player.relicDevelopmentBonus ?? 0,
+        // Derived from owned wonders (recomputed at boot); exported so the player snapshot prices Manifests as charged.
+        ...(player.wonderTechGoldDiscount ? { wonderTechGoldDiscount: player.wonderTechGoldDiscount } : {}),
         ...(typeof player.lifetimeGarrisons === "number" && player.lifetimeGarrisons > 0 ? { lifetimeGarrisons: player.lifetimeGarrisons } : {}),
         ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
         ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),

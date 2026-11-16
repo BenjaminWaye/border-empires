@@ -91,6 +91,7 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   eventLog: presentField("eventLog"),
   logisticsThroughputPerMinute: numberField("logisticsThroughputPerMinute"),
   wonderLastFreeRushBuyAt: numberField("wonderLastFreeRushBuyAt"),
+  manifestGoldDiscount: numberField("manifestGoldDiscount"),
   relicMapHints: presentField("relicMapHints"),
   // Confirmed missing from init-payload.ts entirely until this fix (see
   // docs/player-wire-refactor-plan-phase3.md): real, durable player state

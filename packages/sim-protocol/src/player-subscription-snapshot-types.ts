@@ -101,6 +101,9 @@ export type PlayerSubscriptionSnapshot = {
     afcUpgradeRuleset?: "afc-v1";
     afcUpgradeInstallAllowed?: boolean;
     afcInstallationPreviews?: Record<string, string>;
+    // Fraction off every Manifest's Coin price (the Calculating Engine: 0.1);
+    // prices the gateway's init catalog with the simulation's own discount.
+    manifestGoldDiscount?: number;
     // Empire-wide Titanium/Umbrite Weapons Factory counts, sourced from the
     // runtime's authoritative ownedStructureCountByPlayerByType index (see
     // runtime-owned-structure-index.ts) — the same vision-independent count

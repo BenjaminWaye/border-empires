@@ -1,4 +1,4 @@
-import { techGoldCostForResearchedCount } from "@border-empires/shared";
+import { manifestGoldRequirement } from "@border-empires/shared";
 import type { DomainCatalogEntry, TechCatalogEntry } from "../../../simulation/src/tech-domain-bridge/tech-domain-bridge.js";
 
 type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
@@ -51,11 +51,11 @@ const hasResources = (required: StrategicAmounts, available: StrategicAmounts): 
 
 export const buildInitTechCatalog = (
   techs: readonly TechCatalogEntry[],
-  input: CatalogAffordability & { researchedCount: number; techChoices: readonly string[] }
+  input: CatalogAffordability & { researchedCount: number; techChoices: readonly string[]; manifestGoldDiscount?: number }
 ): InitTechCatalogEntry[] =>
   techs.map((tech) => {
     const resources = toResources(tech.cost);
-    const goldCost = techGoldCostForResearchedCount(input.researchedCount);
+    const goldRequirement = manifestGoldRequirement(input.researchedCount, input.manifestGoldDiscount ?? 0);
     return {
       id: tech.id,
       tier: tech.tier,
@@ -69,9 +69,9 @@ export const buildInitTechCatalog = (
       ...(tech.effects ? { effects: tech.effects } : {}),
       mods: tech.mods ?? {},
       requirements: {
-        gold: goldCost,
+        ...goldRequirement,
         resources,
-        canResearch: input.techChoices.includes(tech.id) && input.availableGold >= goldCost && hasResources(resources, input.availableStrategic)
+        canResearch: input.techChoices.includes(tech.id) && input.availableGold >= goldRequirement.gold && hasResources(resources, input.availableStrategic)
       },
       ...(tech.grantsPowerup ? { grantsPowerup: tech.grantsPowerup } : {})
     };
