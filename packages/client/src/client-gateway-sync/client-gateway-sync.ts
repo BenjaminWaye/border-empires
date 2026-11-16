@@ -7,7 +7,6 @@ import { debugTileLog, debugTileLoggingEnabled, debugTileSnapshot, tileMatchesDe
 import { enqueueDiscoveryTipForNewlySeenTile } from "../client-discovery-tips/client-discovery-tips.js"; import { unlockMusterOnEnemyContact } from "../client-muster-unlock/client-muster-unlock.js";
 import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
 import { clearResolvedIncomingAttack } from "../client-siege-tracking/client-siege-tracking.js";
-import { reconnectSnapshotBaseTile } from "./client-gateway-reconnect-base-tile.js";
 import {
   gatewayTownIdentity,
   gatewayTownSummary,
@@ -370,6 +369,28 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   return previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType;
 };
 
+const RECONNECT_NULLABLE_STATE_FIELDS = [
+  "ownerId", "ownershipState", "reachOwnerId", "frontierDecayAt", "frontierDecayKind",
+  "captureHoldUntil", "warScarLevel", "warScarUntil", "razedWreck", "razedWreckUntil"
+] as const satisfies ReadonlyArray<keyof GatewayTileUpdate>;
+
+/**
+ * A reconnect INIT keeps the cached tiles and merges the snapshot over them, but
+ * a snapshot tile is the tile's complete state and simply omits what isn't
+ * there. Merged as-is, that absence read as "unchanged", so a structure razed
+ * while the socket was down (a captured Relay Beacon) stayed drawn. Turning each
+ * omitted state field into an explicit clear lets the ordinary delta clears run,
+ * with the cached tile still in place for the optimistic and town merges.
+ */
+export const withReconnectSnapshotClears = (tile: GatewayTileUpdate): GatewayTileUpdate => {
+  if (tile.ownershipClearOnly === true) return tile;
+  const cleared: GatewayTileUpdate = { ...tile };
+  for (const field of GATEWAY_OVERLAY_JSON_FIELDS) if (!(field in tile)) cleared[field] = "";
+  if (!("townJson" in tile)) cleared.townJson = "";
+  for (const field of RECONNECT_NULLABLE_STATE_FIELDS) if (!(field in tile)) cleared[field] = null;
+  return cleared;
+};
+
 export const applyGatewayInitialState = (
   deps: GatewayTileSyncDeps,
   initialState?: { tiles?: GatewayTileUpdate[] },
@@ -408,10 +429,8 @@ export const applyGatewayInitialState = (
   // once unlocked instead of re-reading storage for every remaining tile.
   let musterUnlockPending = !isMusterUnlocked(deps.state.authEmail, deps.state.bridgeDebugSeasonId);
   for (const tile of tiles) {
-    // Reconnect: a re-sent tile is authoritative, so absent fields are cleared, not kept (client-gateway-reconnect-base-tile.ts).
-    const cached = preserveExistingDiscoveredTiles ? deps.state.tiles.get(deps.keyFor(tile.x, tile.y)) : undefined;
-    if (cached) deps.state.tiles.set(deps.keyFor(tile.x, tile.y), reconnectSnapshotBaseTile(cached));
-    invalidatedTerrainCache = applyGatewayTileUpdate(deps, tile, true) || invalidatedTerrainCache;
+    const snapshotTile = preserveExistingDiscoveredTiles ? withReconnectSnapshotClears(tile) : tile;
+    invalidatedTerrainCache = applyGatewayTileUpdate(deps, snapshotTile, true) || invalidatedTerrainCache;
     if (musterUnlockPending) {
       const seenTile = deps.state.tiles.get(deps.keyFor(tile.x, tile.y));
       unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue, deps.state.bridgeDebugSeasonId);

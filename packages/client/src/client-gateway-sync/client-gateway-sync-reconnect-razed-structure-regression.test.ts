@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyGatewayInitialState } from "./client-gateway-sync.js";
+import { applyGatewayInitialState, withReconnectSnapshotClears } from "./client-gateway-sync.js";
 import { createClientOptimisticStateController } from "../client-optimistic-state/client-optimistic-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -42,9 +42,9 @@ describe("reconnect INIT snapshot vs cached razed structures", () => {
       ownershipState: "SETTLED",
       fogged: false,
       detailLevel: "full",
-      economicStructure: { ownerId: "rival", type: "RELAY_BEACON", status: "active" } as Tile["economicStructure"],
-      siegeBattery: { ownerId: "rival", status: "active" } as Tile["siegeBattery"],
-      history: { captureCount: 0 } as unknown as Tile["history"]
+      economicStructure: { ownerId: "rival", type: "RELAY_BEACON", status: "active" } as NonNullable<Tile["economicStructure"]>,
+      siegeBattery: { ownerId: "rival", status: "active" } as NonNullable<Tile["siegeBattery"]>,
+      captureHoldUntil: 123
     });
     deps.state.discoveredTiles.add("5,5");
 
@@ -59,14 +59,48 @@ describe("reconnect INIT snapshot vs cached razed structures", () => {
     expect(tile?.economicStructure).toBeUndefined();
     expect(tile?.siegeBattery).toBeUndefined();
     expect(tile?.razedWreck).toBe("RELAY_BEACON");
+    expect(tile?.captureHoldUntil).toBeUndefined();
     expect(tile?.fogged).toBe(false);
-    // Full-detail fields the snapshot doesn't carry still survive, as on a live delta.
-    expect(tile?.history).toEqual({ captureCount: 0 });
+  });
+
+  it("keeps structures and towns the snapshot still sends", () => {
+    const deps = createDeps();
+    const fort = { ownerId: "me", status: "active" } as NonNullable<Tile["fort"]>;
+    deps.state.tiles.set("6,6", { x: 6, y: 6, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", fogged: false, fort });
+    deps.state.discoveredTiles.add("6,6");
+
+    applyGatewayInitialState(
+      deps,
+      { tiles: [{ x: 6, y: 6, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", fortJson: JSON.stringify(fort) }] },
+      { preserveExistingDiscoveredTiles: true }
+    );
+
+    expect(deps.state.tiles.get("6,6")).toEqual(expect.objectContaining({ ownerId: "me", ownershipState: "SETTLED", fort }));
+  });
+
+  it("only clears ownership for a clear-only tile, keeping the rest of the cached tile", () => {
+    const deps = createDeps();
+    const town = { type: "MARKET", name: "Old Keep", populationTier: "TOWN" } as NonNullable<Tile["town"]>;
+    deps.state.tiles.set("7,7", { x: 7, y: 7, terrain: "LAND", ownerId: "barbarian", ownershipState: "BARBARIAN", resource: "FARM", town, fogged: false });
+    deps.state.discoveredTiles.add("7,7");
+
+    applyGatewayInitialState(deps, { tiles: [{ x: 7, y: 7, ownershipClearOnly: true }] }, { preserveExistingDiscoveredTiles: true });
+
+    const tile = deps.state.tiles.get("7,7");
+    expect(tile?.ownerId).toBeUndefined();
+    expect(tile).toEqual(expect.objectContaining({ resource: "FARM", town, fogged: true }));
+  });
+
+  it("leaves a fresh (non-reconnect) INIT tile exactly as sent", () => {
+    expect(withReconnectSnapshotClears({ x: 1, y: 1, ownershipClearOnly: true })).toEqual({ x: 1, y: 1, ownershipClearOnly: true });
+    const deps = createDeps();
+    applyGatewayInitialState(deps, { tiles: [{ x: 2, y: 2, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" }] });
+    expect(deps.state.tiles.get("2,2")).toEqual(expect.objectContaining({ ownerId: "me", ownershipState: "SETTLED" }));
   });
 
   it("leaves tiles the snapshot doesn't re-send as fogged cache, structures intact", () => {
     const deps = createDeps();
-    const beacon = { ownerId: "rival", type: "RELAY_BEACON", status: "active" } as Tile["economicStructure"];
+    const beacon = { ownerId: "rival", type: "RELAY_BEACON", status: "active" } as NonNullable<Tile["economicStructure"]>;
     deps.state.tiles.set("8,8", { x: 8, y: 8, terrain: "LAND", ownerId: "rival", ownershipState: "SETTLED", fogged: false, economicStructure: beacon });
     deps.state.discoveredTiles.add("8,8");
 
