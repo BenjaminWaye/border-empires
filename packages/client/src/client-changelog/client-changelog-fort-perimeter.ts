@@ -9,6 +9,6 @@ export const FORT_PERIMETER_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
     "Titanium and Thunder Bastions cover two tiles out with a quarter of their bonus",
     "Perimeters don't stack: a tile uses the strongest one, or its own fort if that is stronger",
     "When a fort finishes, frontier tiles inside its perimeter are queued for garrisoning at the normal cost",
-    "A low stone wall marks the edge of each protected area, and the attack odds show a Fort perimeter row"
+    "A wall matching the fort marks the edge of each protected area (wooden fence, stone, titanium or dark metal), and the attack odds show a Fort perimeter row"
   ]
 };

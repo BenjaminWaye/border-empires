@@ -32,8 +32,8 @@ describe("computeFortPerimeterCoverage", () => {
 describe("fortPerimeterWallEdges", () => {
   it("walls only the outer sides of the covered area", () => {
     const coverage = computeFortPerimeterCoverage(tilesOf(fortTile(10, 10), tile(11, 10)), NOW);
-    expect(fortPerimeterWallEdges({ x: 10, y: 10 }, coverage)).toEqual({ north: true, east: false, south: true, west: true });
-    expect(fortPerimeterWallEdges({ x: 11, y: 10 }, coverage)).toEqual({ north: true, east: true, south: true, west: false });
+    expect(fortPerimeterWallEdges({ x: 10, y: 10 }, coverage)).toEqual({ north: true, east: false, south: true, west: true, variant: "FORT" });
+    expect(fortPerimeterWallEdges({ x: 11, y: 10 }, coverage)).toEqual({ north: true, east: true, south: true, west: false, variant: "FORT" });
     expect(fortPerimeterWallEdges({ x: 12, y: 10 }, coverage)).toBeUndefined();
   });
 
@@ -41,5 +41,13 @@ describe("fortPerimeterWallEdges", () => {
     const around = [-1, 0, 1].flatMap((dy) => [-1, 0, 1].map((dx) => tile(10 + dx, 10 + dy)));
     const coverage = computeFortPerimeterCoverage(tilesOf(...around, fortTile(10, 10)), NOW);
     expect(fortPerimeterWallEdges({ x: 10, y: 10 }, coverage)).toBeUndefined();
+  });
+
+  it("styles a shared wall by the strongest tier covering each tile", () => {
+    const tiles = tilesOf(tile(10, 10, { fort: { ownerId: "me", status: "active", variant: "PALISADE" } }), tile(11, 10), fortTile(13, 10, "TITANIUM_BASTION"));
+    const coverage = computeFortPerimeterCoverage(tiles, NOW);
+    expect(coverage.get("10,10")?.variant).toBe("PALISADE");
+    expect(coverage.get("11,10")?.variant).toBe("TITANIUM_BASTION");
+    expect(fortPerimeterWallEdges({ x: 11, y: 10 }, coverage)?.variant).toBe("TITANIUM_BASTION");
   });
 });
