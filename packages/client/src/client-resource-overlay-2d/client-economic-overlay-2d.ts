@@ -23,9 +23,11 @@ export function drawEconomicStructureOverlay2D(deps: EconomicOverlay2DDeps, tile
       (isTrue3DRendererActive() && isStructureHandledBy3D(structure.type))) return;
   const markerSize = Math.max(3, Math.floor(size * 0.2));
   const active = structure.status === "active";
-  const overlay = builtOverlay ?? deps.structureOverlayImages[structure.type];
-  if (overlay && overlay.complete && overlay.naturalWidth) {
-    deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
+  const overlay = deps.structureOverlayImages[structure.type];
+  // A depleted Reclamation Works swaps in its own art (builtResourceOverlayForTile).
+  const art = builtOverlay ?? overlay;
+  if (art && art.complete && art.naturalWidth) {
+    deps.drawCenteredOverlay(art, px, py, size, 1.02);
   } else if (structure.type === "HYDROGARDEN" && !hasBuiltResourceOverlay) {
     deps.ctx.fillStyle = deps.structureAccentColor(
       tile.ownerId ?? "",
