@@ -39,6 +39,16 @@ describe("town capture card on a short phone", () => {
     expect(body?.contains(document.getElementById("town-capture-close"))).toBe(false);
   });
 
+  // Playtest 2026-11-16: a razed settlement read "Settlement Destroyed — Destroyed by House Ashhaven's
+  // attack", the player's own House, so she read her win as a loss. The card only shows her own capture.
+  it("addresses the viewer as you, not by their House name, when their attack razed the settlement", () => {
+    showTownCaptureOverlay(info({ empireName: "House Ashhaven", destroyed: true, populationTier: "SETTLEMENT" }));
+    const overlay = document.getElementById("town-capture-overlay")?.textContent ?? "";
+    expect(overlay).not.toContain("Ashhaven");
+    expect(document.getElementById("town-capture-owner")?.textContent?.trim()).toBe("You captured this tile. Your attack leveled the settlement.");
+    expect(document.getElementById("town-capture-eyebrow")?.textContent).toBe("Settlement Razed by You");
+  });
+
   // happy-dom has no layout: guard the rules that cap the card to the screen and scroll its middle.
   it("caps the card to the overlay and scrolls only the body", () => {
     showTownCaptureOverlay(info());

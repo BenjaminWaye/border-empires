@@ -40,6 +40,17 @@ describe("activityCardText / activityCardCoordinates", () => {
     expect(activityCardText(lost as any, "me", noNames)).toBe("Lost 2 tiles");
   });
 
+  // Playtest 2026-11-16: "Lost 3 tiles to Konrad · incl. your Automated Fabrication Complex" read as "lost my only town".
+  it("leads a territory-loss row with the lost AFC, named as not a town", () => {
+    const lost = {
+      kind: "TERRITORY_FLIP_GROUP" as const, direction: "LOST", tileCount: 3, counterpartyPlayerId: "k", x: 1, y: 1,
+      features: [{ kind: "AFC", count: 1 }, { kind: "DOCK", count: 1 }]
+    };
+    expect(activityCardText(lost as any, "me", namesFrom({ k: "Konrad" }))).toBe("Lost your AFC (Automated Fabrication Complex, not a town) to Konrad · 3 tiles · incl. your Dock");
+    const captured = { ...lost, direction: "GAINED" };
+    expect(activityCardText(captured as any, "me", namesFrom({ k: "Konrad" }))).toBe("+3 tiles claimed (Konrad) · incl. their Automated Fabrication Complex and Dock");
+  });
+
   it("has no Center coordinates for a truncation-note card", () => {
     const note = { kind: "TRUNCATION_NOTE" as const, hiddenCount: 6 };
     expect(activityCardCoordinates(note as any)).toBeUndefined();

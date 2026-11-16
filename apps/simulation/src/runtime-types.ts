@@ -20,6 +20,8 @@ export type RuntimeTileYieldEconomyContext = {
   // dormant Manufactory/Bank/Trade Nexus/Clearing House stops granting its gold
   // bonus. Threaded into refreshTownEconomyFields via enrichTileWithTownContext.
   dormantEconomicStructureKeys: ReadonlySet<string>;
+  // Each own town's FOOD slot demand after waivers (townFoodSlotDemandByTileKey), stamped as town.foodSlotDemand.
+  townFoodSlotDemandByKey?: ReadonlyMap<string, number>;
 };
 
 export type UpkeepNeed = { gold: number } & Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;

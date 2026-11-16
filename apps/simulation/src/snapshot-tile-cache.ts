@@ -36,6 +36,7 @@ export type RuntimeState = {
     lifetimeGarrisons?: number;
     autoSettle?: AutoSettlePrefs;
     wonderLastFreeRushBuyAt?: number;
+    wonderTechGoldDiscount?: number;
     eventLog?: PlayerEventLogEntry[];
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];

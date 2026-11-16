@@ -6,7 +6,7 @@ import { compactSnapshotForStorage, expandSnapshotFromStorage } from "../snapsho
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { applySimulationEventsToRecoveredState } from "../event-recovery/event-recovery.js";
 import { describe, expect, it } from "vitest";
-import { MANPOWER_REFILL_WINDOW_MS, lastManpowerRefillAtMs, NETWORK_RESOURCES, RESOURCE_NETWORKS, type ResourceSupplyOffer } from "@border-empires/shared";
+import { MANPOWER_REFILL_WINDOW_MS, lastManpowerRefillAtMs, NETWORK_RESOURCES, RESOURCE_NETWORKS, supplyResourceLabel, type ResourceSupplyOffer } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
@@ -47,6 +47,18 @@ describe("resource trades in the production runtime",()=>{
     await f.pay("duplicate-supply");
     expect(events.some(e=>e.eventType==="COMMAND_REJECTED"&&e.commandId==="duplicate-supply")).toBe(true);
     expect(f.player("seller").points).toBeCloseTo(103);
+  });
+  // Playtest 2026-11-16 (Lena): accepting a counter-offer that asked for slots she never had
+  // was rejected as "slots are already in use or committed to another deal".
+  it("names the House and resource short of slots without revealing its inventory or other deals",async()=>{
+    const f=fixture(), events=collectEvents(f.runtime);
+    const rejected=(id:string)=>events.find(e=>e.eventType==="COMMAND_REJECTED"&&e.commandId===id) as { message?: string } | undefined;
+    await f.runtime.submitCommand({ commandId:"buyer-short",playerId:"seller",type:"SETTLE_DIPLOMACY_TERMS",sessionId:"gateway",clientSeq:3,issuedAt:start,
+      payloadJson:JSON.stringify({ proposerId:"seller",targetId:"buyer",proposerPays:{gold:0},targetPays:{gold:0,resources:{LUXURY_BIOTA:2}} }) });
+    expect(rejected("buyer-short")?.message).toBe(`${f.player("buyer").name ?? "buyer"} doesn't have 2 spare ${supplyResourceLabel("LUXURY_BIOTA")} supply slots for this deal`);
+    await f.pay();
+    await f.pay("duplicate-supply");
+    expect(rejected("duplicate-supply")?.message).toBe(`${f.player("seller").name ?? "seller"} doesn't have 1 spare ${supplyResourceLabel("LUXURY_BIOTA")} supply slot for this deal`);
   });
   it("diverts earned Coin symmetrically, up to the promised rate, and stops at expiry", async () => {
     const paid = fixture(false, 12, true);

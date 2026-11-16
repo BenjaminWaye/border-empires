@@ -8,6 +8,7 @@
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { townCoinNote, townPlotIncomeNote } from "../client-town-plot-income/client-town-plot-income.js";
 import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
+import { townFoodSlotDemand } from "../client-town-food-demand/client-town-food-demand.js";
 import type { ClientAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { townCharacterLabelForProfile, townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
@@ -88,11 +89,14 @@ const leftPanelHtml = (input: TownScreenInput): string => {
     `<div class="v2t-built"><span><span class="v2t-built-name">${esc(b.label)}</span><span class="v2t-built-mods"><span class="v2t-mod-${b.tone}">${/^[+−]/.test(b.effect) ? "Coin " : ""}${esc(b.effect)}</span></span></span></div>`
   ).join("");
   const manpower = terrainAdjustedTownManpower(town.populationTier, terrainProfile, coastal);
+  // The simulation's per-town demand after waivers; the tier base only explains a waiver.
+  const foodDemand = townFoodSlotDemand(town);
+  const foodBase = townFoodSlotDemandForTier(town.populationTier);
   const stats = [
     // A town with its fed state but no coin figure is mid-refresh (the tile-detail request is in flight), not coinless.
     { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(tileCoinPerMinute(input.town) * 1440)}/day` : typeof town.isFed === "boolean" ? "…" : "—", n: fed, tone: town.isFed === false || townPlotIncomeNote(town) ? " v2t-warn" : "" },
     { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: `Base town · +${fmt(manpowerPerBatch(manpower.regenPerMinute))} per batch regen`, tone: " v2t-gold" },
-    { k: "FOOD UPKEEP", v: `${townFoodSlotDemandForTier(town.populationTier)} slots`, n: "", tone: "" }
+    { k: "FOOD UPKEEP", v: `${foodDemand} slots`, n: foodDemand < foodBase ? `${foodBase} base · ${foodBase - foodDemand} waived by upgrades` : "", tone: "" }
   ];
   const built = (town.townModifierTotals ?? []).map((g) => `<div class="v2t-built"><span class="v2t-built-ico" aria-hidden="true"></span><span><span class="v2t-built-name">${esc(g.heading)}</span><span class="v2t-built-mods">${g.modifiers.map((m) => `<span class="v2t-mod-${m.tone}">${esc(m.statLabel)} ${esc(m.valueText)}</span>`).join(" · ")}</span></span></div>`).join("");
   const grow = [...input.townView.actions, ...input.townView.buildings].find((a) => GROW_IDS.has(a.id));

@@ -25,10 +25,10 @@ describe("resource bar", () => {
     expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-over">−1<span class="hud-v2-chip-description"> slots short</span>');
     expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-zero">0<span class="hud-v2-chip-description"> free slots</span>');
     // Regression: the coin chip said /h while Economy and the tile panel say /day.
-    expect(html).toContain("+2,880/day");
+    expect(html).toContain("+2880.0/day");
     // Review: the chip showed gross income; it is net of coin upkeep, like Economy, and a loss reads red.
     const loss = resourceBarHtml({ gold: 0, netPerMinute: -0.5, slotSupply: slots, slotDemand: slots, integrityPct: undefined });
-    expect(loss).toContain('hud-v2-chip-rate hud-v2-chip-rate-loss">−720/day');
+    expect(loss).toContain('hud-v2-chip-rate hud-v2-chip-rate-loss" title="Net coin per day: income less coin upkeep">−720.0/day');
     expect(html).toContain('data-hud-v2-open="settings"');
   });
 

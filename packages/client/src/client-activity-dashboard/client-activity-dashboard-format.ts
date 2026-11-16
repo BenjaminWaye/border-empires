@@ -46,8 +46,12 @@ const territoryCardText = (card: Extract<PersonalActivityCard, { kind: "TERRITOR
     ? `+${tiles} claimed${other ? ` (${other})` : ""}`
     : `Lost ${tiles}${other ? ` to ${other}` : ""}`;
   const owner = card.direction === "LOST" ? "your" : card.counterpartyPlayerId ? "their" : undefined;
-  const lostWith = featuresPart(card.features, owner);
-  return lostWith ? `${text} · ${lostWith}` : text;
+  // A lost AFC leads the row: as a trailing "incl." feature playtesters missed it and read the loss as a town's.
+  const lostAfcs = card.direction === "LOST" ? (card.features ?? []).reduce((sum, feature) => sum + (feature.kind === "AFC" ? feature.count : 0), 0) : 0;
+  const features = lostAfcs > 0 ? card.features?.filter((feature) => feature.kind !== "AFC") : card.features;
+  const lead = lostAfcs > 0 ? `Lost your AFC${lostAfcs > 1 ? ` ×${lostAfcs}` : ""} (Automated Fabrication Complex, not a town)${other ? ` to ${other}` : ""} · ${tiles}` : text;
+  const lostWith = featuresPart(features, owner);
+  return lostWith ? `${lead} · ${lostWith}` : lead;
 };
 
 const waystationCardText = (card: Extract<PersonalActivityCard, { kind: "WAYSTATION_ACTIVATED" }>, techName: TechNameLookup): string => {

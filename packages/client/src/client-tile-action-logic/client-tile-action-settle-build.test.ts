@@ -189,6 +189,18 @@ describe("settle + build — Relay Beacon on an owned FRONTIER tile", () => {
     expect(action?.cost).toBe(`${SETTLE_COST + 500} coin, ${SETTLE_MANPOWER_COST + 50} m.p. (${SETTLE_MANPOWER_COST} garrison + 50 build) • ${settleLabel} total`);
   });
 
+  // Playtest 2026-11-16: "Need 70 manpower" on a frontier tile vs "50 manpower" on settled ground read as an
+  // unexplained price change; the shortfall reason now names the garrison step too.
+  it("explains a manpower shortfall on a FRONTIER tile as garrison + build", () => {
+    const state = richState();
+    state.manpower = SETTLE_MANPOWER_COST + 49;
+    const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
+    state.tiles.set(keyFor(3, 3), frontier);
+    const action = findAction(menuActionsForSingleTile(state, frontier, baseDeps as never), "build_relay_beacon");
+    expect(action?.disabled).toBe(true);
+    expect(action?.disabledReason).toBe(`Need ${SETTLE_MANPOWER_COST + 50} manpower (${SETTLE_MANPOWER_COST} garrison + 50 build)`);
+  });
+
   it("shows build_relay_beacon in both the Actions and Buildings tabs on a FRONTIER tile, but Buildings only on a SETTLED tile", () => {
     const state = richState();
     const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;

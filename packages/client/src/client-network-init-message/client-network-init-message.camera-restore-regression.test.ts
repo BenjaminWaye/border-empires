@@ -88,6 +88,63 @@ const sendInit = (ws: FakeWebSocket): void => {
   });
 };
 
+// Playtest (snacker): the player lost a stretch of border overnight. Their map reopened on that spot,
+// where nothing was visible any more, so after closing the login Chronicle ("Lost 12 tiles to Konrad")
+// the whole screen was grey fog. Their land was still ~20 tiles away: off-screen when zoomed in.
+// No window in tests: the fog check measures the view on a 1280x800 fallback viewport.
+describe("INIT camera restore over a view with nothing visible", () => {
+  const sendInitWithTiles = (ws: FakeWebSocket, tiles: Array<{ x: number; y: number; ownerId?: string; visibilityState?: "FOG" | "VISIBLE" }>): void => {
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0, homeTile: { x: 40, y: 40 } },
+        config: {},
+        initialState: { tiles: tiles.map((tile) => ({ terrain: "LAND", ownershipState: "SETTLED", ...tile })) },
+        recovery: { nextClientSeq: 1, pendingCommands: [] }
+      })
+    });
+  };
+  const restoredAt = (x: number, y: number, playerId: string | null = "player-1") => {
+    const state = createState();
+    state.camX = x;
+    state.camY = y;
+    state.zoom = 64; // zoomed in on a phone: about 10 rows either side of the centre
+    state.cameraRestoredFromStorage = true;
+    state.cameraRestoredPlayerId = playerId;
+    return state;
+  };
+
+  it("opens on the player's nearest land when the restored view shows only fog", () => {
+    const state = restoredAt(100, 100);
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+    sendInitWithTiles(ws, [
+      { x: 100, y: 99, ownerId: "konrad", visibilityState: "FOG" },
+      { x: 40, y: 40, ownerId: "player-1" },
+      { x: 100, y: 120, ownerId: "player-1" },
+      { x: 101, y: 120, ownerId: "player-1" }
+    ]);
+    expect([state.camX, state.camY]).toEqual([100, 120]);
+    expect(state.cameraRestoredFromStorage).toBe(false);
+  });
+
+  it("keeps the restored view while anything in it is still visible, such as a rival's front", () => {
+    const state = restoredAt(100, 100);
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+    sendInitWithTiles(ws, [{ x: 104, y: 103, ownerId: "konrad" }, { x: 40, y: 40, ownerId: "player-1" }]);
+    expect([state.camX, state.camY]).toEqual([100, 100]);
+  });
+
+  it("keeps a ?x=&y= deep link even when it shows only fog", () => {
+    const state = restoredAt(100, 100, null);
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+    sendInitWithTiles(ws, [{ x: 40, y: 40, ownerId: "player-1" }]);
+    expect([state.camX, state.camY]).toEqual([100, 100]);
+  });
+});
+
 describe("INIT camera-restore regression", () => {
   it("does not stomp a restored last-viewed camera location with the home tile", () => {
     const state = createState();

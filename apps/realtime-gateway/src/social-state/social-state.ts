@@ -4,6 +4,7 @@ import { createForcedTruces } from "./social-forced-truce.js";
 import crypto from "node:crypto";
 import { TRUCE_BREAK_LOCKOUT_MS, TRUCE_REQUEST_TTL_MS } from "@border-empires/game-domain";
 import {
+  acceptedAllianceAnnouncements,
   activeTruceBetween,
   declinedOfferAnnouncements,
   findAllianceRequestBetweenPlayers,
@@ -292,7 +293,7 @@ export const createSocialState = (options: {
       completedAllianceBreaks.delete(pairKey(actor.id, from.id));
       settlingRequestIds.delete(requestId);
       const notifyPlayerIds = [actor.id, from.id];
-      return { ok: true, notifyPlayerIds, payloadsByPlayerId: updatePayloadsFor(notifyPlayerIds, undefined, announcementByPlayerId) };
+      return { ok: true, notifyPlayerIds, payloadsByPlayerId: updatePayloadsFor(notifyPlayerIds, undefined, acceptedAllianceAnnouncements(from, actor, announcementByPlayerId)) };
     },
     rejectAlliance(playerId, requestId, options) {
       sweepExpired();

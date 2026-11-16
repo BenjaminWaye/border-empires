@@ -82,6 +82,7 @@ describe("player profile screen", () => {
     const text = render(base).textContent ?? "";
     expect(text).toContain("1,264 (−12)");
     expect(text).toContain("1,290");
+    expect(text).toContain("Vs. starting 1,200+64");
     const unrated = render({ ...base, career: { seasonsPlayed: 3, bestRank: 1, peakScore: 820, peakTiles: 140, rating: null, lastRatingDelta: null, peakRating: null } });
     expect(unrated.querySelector(".v2p-rows")?.textContent).toContain("Rating—");
   });

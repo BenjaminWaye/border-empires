@@ -41,6 +41,7 @@ export const diplomacyTradeStyles = `
     font: 600 11px/1.4 var(--sp-font-mono, "Space Mono", monospace); letter-spacing: .06em; text-transform: uppercase;
   }
   .diplomacy-trade-war ul { margin: 0; padding: 0; list-style: none; }
+  .diplomacy-trade-war-weight { margin: 4px 0 0; font-size: 12px; }
   .diplomacy-trade-war li span {
     display: inline-block; min-width: 32px; color: var(--sp-parchment-100, #f2e8d3);
     font: 600 12px/1.6 var(--sp-font-mono, "Space Mono", monospace);
