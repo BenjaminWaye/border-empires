@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { Tile } from "../client-types.js";
 import { openBuildSlotsForTown } from "./client-town-list-slots.js";
-import { deriveTownListRows, nextTownListSort, sortTownListRows, townListCardHtml } from "./client-town-list.js";
+import { shouldSendTileDetailRequest } from "../client-tile-interaction/client-tile-detail-request-rules.js";
+import { deriveTownListRows, nextTownListSort, sortTownListRows, townCoinPending, townListCardHtml } from "./client-town-list.js";
 
 const townTile = (x: number, name: string, goldPerMinute: number, population: number, overrides: Partial<Tile> = {}): Tile => ({
   x,
@@ -85,6 +86,22 @@ describe("town list", () => {
       { ...settlement, town: { ...settlementTown, populationTier: "SETTLEMENT" } as NonNullable<Tile["town"]> }
     ]);
     expect(rowsOf(map).map((row) => row.coinPending)).toEqual([false, false]);
+  });
+
+  // Review of #2817: a "…" the detail request would never fetch stays "…" forever.
+  it("only marks a town pending when its tile detail will be fetched", () => {
+    const base = townTile(1, "Auriyrcrown", 0, 73_195);
+    const { goldPerMinute: _missing, ...withoutCoin } = base.town!;
+    const { isFed: _unknown, ...fedUnknown } = withoutCoin;
+    const variants: Tile[] = [
+      { ...base, detailLevel: "full", town: withoutCoin as NonNullable<Tile["town"]> },
+      { ...base, detailLevel: "full", ownershipState: "FRONTIER", town: withoutCoin as NonNullable<Tile["town"]> },
+      { ...base, detailLevel: "full", town: fedUnknown as NonNullable<Tile["town"]> }
+    ];
+    expect(variants.map((tile) => townCoinPending(tile, tile.town!))).toEqual([true, false, false]);
+    for (const tile of variants) {
+      if (townCoinPending(tile, tile.town!)) expect(shouldSendTileDetailRequest(tile, "me")).toBe(true);
+    }
   });
 
   it("lists only the viewer's visible towns", () => {

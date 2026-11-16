@@ -55,11 +55,13 @@ export const nextTownListSort = (sort: TownListSort, key: TownListSortKey): Town
 // summaries), so anything absent reads as 0 rather than NaN.
 const finiteOrZero = (value: number | undefined): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 
-// Same test the town screen's Coin cell uses ("…" while goldPerMinute is missing on a fed town). Settlements
-// and unfed towns have a known figure without it, and a dock town reads the server's yieldRate instead.
-const townCoinPending = (tile: Tile, town: NonNullable<Tile["town"]>): boolean =>
+// A fed, settled town missing goldPerMinute: what the town screen's Coin cell shows "…" for, narrowed to the
+// towns ownTownDetailRecoveryNeeded will actually fetch, so a "…" here always resolves. Settlements, unsettled and
+// unfed towns keep their known figure, and a dock town reads the server's yieldRate instead.
+export const townCoinPending = (tile: Tile, town: NonNullable<Tile["town"]>): boolean =>
+  tile.ownershipState === "SETTLED" &&
   !(tile.dockId && tile.yieldRate) &&
-  town.isFed !== false && Boolean(town.populationTier) && town.populationTier !== "SETTLEMENT" && ownTownCoinPending(town);
+  town.isFed === true && Boolean(town.populationTier) && town.populationTier !== "SETTLEMENT" && ownTownCoinPending(town);
 
 /** Coin/day cell text: "…" while the town's coin figure is still loading. */
 export const formatTownCoinPerDay = (row: Pick<TownListRow, "goldPerMinute" | "coinPending">): string =>
