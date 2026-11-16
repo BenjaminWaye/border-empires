@@ -107,8 +107,7 @@ export class RuntimeResourceSupply {
     if (offerIncludesNonTradableSupply(row.proposerGives) || offerIncludesNonTradableSupply(row.targetGives))
       return { ok: false, message: "Precursor salvage can't be traded." };
     for (const [id, offer] of [[row.proposerId, row.proposerGives], [row.targetId, row.targetGives]] as const) {
-      const shortfall = supplyShortfallMessage(this.ctx.player(id)?.name ?? id, offer, this.available(id),
-        this.ledger.allocation(this.ctx.now()).flows.get(id)?.outgoing);
+      const shortfall = supplyShortfallMessage(this.ctx.player(id)?.name ?? id, offer, this.available(id));
       if (shortfall) return { ok: false, message: shortfall };
     }
     return this.ledger.add(row, this.ctx.now(), targetCoinDelta);
