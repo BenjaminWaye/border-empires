@@ -1,7 +1,8 @@
 import { renderAfcRecovery } from "../client-afc-recovery/client-afc-recovery.js";
 import { bindRequestActionButtons } from "./client-hud-request-actions.js";
 import { renderAfcUpgradePanels } from "../client-afc-upgrades/client-afc-upgrades.js";
-import { updateManifestDetail } from "../client-manifest-detail/client-manifest-detail-dom.js"; import { updateStructureInfoOverlay } from "../client-structure-info-overlay/client-structure-info-overlay-dom.js";
+import { updateManifestDetail } from "../client-manifest-detail/client-manifest-detail-dom.js";
+import { syncInfoOverlay } from "../client-structure-info-overlay/client-structure-info-overlay-dom.js";
 import type { Auth } from "firebase/auth";
 import { bindAccountSettingsControls } from "./client-account-settings-controls.js";
 import { type ChosenTrickleResource } from "@border-empires/shared";
@@ -343,9 +344,10 @@ export const renderClientHud = (deps: HudDeps): void => {
     fallbackCard("Manifest details"),
     () => deps.renderTechDetailCard()
   ));
-  updateStructureInfoOverlay(dom.structureInfoOverlayEl, state.structureInfoKey ? `structure:${state.structureInfoKey}` : state.crystalAbilityInfoKey ? `crystal:${state.crystalAbilityInfoKey}` : "", state.structureInfoKey
-    ? deps.renderStructureInfoOverlay() : state.crystalAbilityInfoKey ? renderCrystalAbilityInfoOverlay(state.crystalAbilityInfoKey, { formatCooldownShort }) : "");
-  dom.structureInfoOverlayEl.style.display = state.structureInfoKey || state.crystalAbilityInfoKey ? "grid" : "none";
+  syncInfoOverlay(dom.structureInfoOverlayEl, state, {
+    structure: deps.renderStructureInfoOverlay,
+    crystal: (key) => renderCrystalAbilityInfoOverlay(key, { formatCooldownShort })
+  });
   dom.intelOverlayEl.innerHTML = state.activeRevealEmpireStatsPopup ? revealEmpireStatsDossierHtml(state.activeRevealEmpireStatsPopup) : "";
   dom.intelOverlayEl.style.display = state.activeRevealEmpireStatsPopup ? "grid" : "none";
   fetchActivePlayerProfileData(state, wsUrl, () => renderClientHud(deps));
