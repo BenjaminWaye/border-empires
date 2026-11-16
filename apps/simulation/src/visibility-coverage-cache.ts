@@ -24,17 +24,9 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { VisionFootprintTable } from "./vision-footprint-table.js";
 import { SourceBonusRadiusTracker } from "./visibility-source-bonus-tracker.js";
 import { addReasonCount, removeReasonCount, type VisibilityReasonCounts } from "./visibility-reason-counts.js";
+import { parseVisibilityTileKey as parseTileKey } from "./visibility-tile-key.js";
 
 const EMPTY_REASONS: ReadonlySet<string> = new Set();
-
-const parseTileKey = (tileKey: string): { x: number; y: number } | undefined => {
-  const separator = tileKey.indexOf(",");
-  if (separator < 0) return undefined;
-  const x = Number(tileKey.slice(0, separator));
-  const y = Number(tileKey.slice(separator + 1));
-  if (!Number.isInteger(x) || !Number.isInteger(y)) return undefined;
-  return { x, y };
-};
 
 export class VisibilityCoverageCache {
   private readonly coverage = new Map<string, Map<string, number>>();
@@ -51,11 +43,14 @@ export class VisibilityCoverageCache {
   private readonly worldWidth: number;
   private readonly worldHeight: number;
   private readonly footprintTable: VisionFootprintTable | undefined;
+  // Fires on every 0→1 edge whether or not the call passed `onEnter` (seeding and restore omit it): feeds explored-tile memory.
+  private readonly onFirstSeen: ((viewerId: string, tileKey: string) => void) | undefined;
 
-  constructor(worldWidth: number, worldHeight: number, footprintTable?: VisionFootprintTable) {
+  constructor(worldWidth: number, worldHeight: number, footprintTable?: VisionFootprintTable, onFirstSeen?: (viewerId: string, tileKey: string) => void) {
     this.worldWidth = worldWidth;
     this.worldHeight = worldHeight;
     this.footprintTable = footprintTable;
+    this.onFirstSeen = onFirstSeen;
   }
 
   isVisible(viewerId: string, tileKey: string): boolean {
@@ -112,7 +107,9 @@ export class VisibilityCoverageCache {
       const next = (map.get(key) ?? 0) + 1;
       map.set(key, next);
       if (reason) addReasonCount(this.reasons, viewerId, key, reason);
-      if (next === 1 && onEnter) onEnter(viewerId, key);
+      if (next !== 1) return;
+      this.onFirstSeen?.(viewerId, key);
+      onEnter?.(viewerId, key);
     });
   }
 
@@ -243,6 +240,8 @@ export interface VisibilityCoverageTrackerDeps {
   // tileOwnershipChanged already grants the source itself and its allies
   // going forward.
   readonly frontierTileKeysForPlayer: (playerId: string) => ReadonlySet<string>;
+  /** See VisibilityCoverageCache.onFirstSeen (explored-tiles-store.ts). */
+  readonly onFirstSeen?: (viewerId: string, tileKey: string) => void;
 }
 
 /**
@@ -275,7 +274,7 @@ export class VisibilityCoverageTracker {
   private readonly observatoryBonusTracker: SourceBonusRadiusTracker;
 
   constructor(worldWidth: number, worldHeight: number, deps: VisibilityCoverageTrackerDeps, footprintTable?: VisionFootprintTable) {
-    this.cache = new VisibilityCoverageCache(worldWidth, worldHeight, footprintTable);
+    this.cache = new VisibilityCoverageCache(worldWidth, worldHeight, footprintTable, deps.onFirstSeen);
     this.deps = deps;
     const isBarbarian = (id: string) => this.isBarbarian(id);
     const viewersForSource = (id: string) => this.viewersForSource(id);

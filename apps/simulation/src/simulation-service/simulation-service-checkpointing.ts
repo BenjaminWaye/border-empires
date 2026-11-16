@@ -1,6 +1,7 @@
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 
 import { yieldToEventLoop } from "../event-loop-yield.js";
+import { exploredTilesStats } from "../explored-tiles/explored-tiles-store.js";
 import type { SimulationEventStore } from "../event-store/event-store.js";
 import type { SimulationMetrics } from "../metrics/metrics.js";
 import type { SimulationRuntime } from "../runtime/runtime.js";
@@ -36,6 +37,8 @@ export const createSimulationCheckpointManager = (deps: SimulationCheckpointingD
     snapshotStore: deps.snapshotStore,
     exportSnapshotSections: async () => {
       const snapshotSections = await deps.runtime().exportSnapshotSectionsAsync(yieldToEventLoop);
+      // Size gauge for per-player fog memory (explored-tiles-store.ts), which grows with players and exploration.
+      log.info({ exploredTiles: exploredTilesStats(snapshotSections.initialState.exploredTiles) }, "simulation checkpoint explored tiles");
       return {
         ...snapshotSections,
         initialState: {

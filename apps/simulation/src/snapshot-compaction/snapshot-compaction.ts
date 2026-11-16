@@ -107,6 +107,7 @@ export type V1SnapshotPayload = {
   resourceSupplyJournalSequence?: number;
   playerYieldCollectionEpochByPlayer?: RecoveredSimulationState["playerYieldCollectionEpochByPlayer"];
   reachBorder?: RecoveredSimulationState["reachBorder"];
+  exploredTiles?: RecoveredSimulationState["exploredTiles"];
   commandEvents: StoredSnapshotCommandEvents[];
 };
 
@@ -304,6 +305,7 @@ export const compactSnapshotForStorage = async (
       ? { playerYieldCollectionEpochByPlayer: initialState.playerYieldCollectionEpochByPlayer }
       : {}),
     ...(initialState.reachBorder ? { reachBorder: initialState.reachBorder } : {}),
+    ...(initialState.exploredTiles ? { exploredTiles: initialState.exploredTiles } : {}),
     commandEvents
   };
 };
@@ -369,7 +371,8 @@ export const expandSnapshotFromStorage = (
       ...(v1.resourceSupplyJournalSequence ? { resourceSupplyJournalSequence: v1.resourceSupplyJournalSequence } : {}),
       ...(v1.pendingSettlements ? { pendingSettlements: v1.pendingSettlements } : {}),
       ...(v1.playerYieldCollectionEpochByPlayer ? { playerYieldCollectionEpochByPlayer: v1.playerYieldCollectionEpochByPlayer } : {}),
-      ...(v1.reachBorder ? { reachBorder: v1.reachBorder } : {})
+      ...(v1.reachBorder ? { reachBorder: v1.reachBorder } : {}),
+      ...(v1.exploredTiles ? { exploredTiles: v1.exploredTiles } : {})
     },
     commandEvents: v1.commandEvents
   };
