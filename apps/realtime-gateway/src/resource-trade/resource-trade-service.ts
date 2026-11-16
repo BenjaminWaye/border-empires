@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { RESOURCE_TRADE_OFFER_TTL_MS, ResourceTradeOfferSchema, hasResourceSupplyOffer, evaluateResourceTradeOffer,
+import { RESOURCE_TRADE_OFFER_TTL_MS, ResourceTradeOfferSchema, hasResourceSupplyOffer, evaluateResourceTradeOffer, supplyAgreementLimitMessage, supplyAgreementsFull,
   type ClientMessage, type DiplomacyGoods, type DiplomacyTerms, type ResourceTradeOffer } from "@border-empires/shared";
 import type { WebSocket } from "ws";
 import type { SocialState } from "../social-state/social-state-types.js";
@@ -10,6 +10,8 @@ export interface ResourceTradeServiceDeps {
   now():number;
   isAutoRespondingAi(id:string):boolean;
   aiHoldings(id:string):Promise<DiplomacyGoods|undefined>;
+  /** Active supply agreements this House is in, or undefined when unknown (the simulation still enforces the limit). */
+  supplyAgreementCount?(id:string):Promise<number|undefined>;
   send(socket:WebSocket,payload:unknown):void;
   fanout(payloads:Map<string,unknown[]>):void;
   record(level:"info"|"warn"|"error",event:string,payload?:Record<string,unknown>):void;
@@ -33,6 +35,18 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
     ctx.fanout(new Map(ids.map(id=>[id,[{type:"RESOURCE_TRADE_UPDATE",offers:offersFor(id)}]])));
     ctx.record("info","gateway_resource_trade_offers",{count:store.rows(ctx.now()).length});
   };
+  /** Refuses up front when either House is at its supply agreement limit; `viewerId` reads "You". */
+  const limitRefusal=async(viewerId:string,houses:readonly {id:string;name:string}[]):Promise<string|undefined>=>{
+    for(const house of houses){
+      let count:number|undefined;
+      try{count=await ctx.supplyAgreementCount?.(house.id);}catch{count=undefined;}
+      if(count!==undefined&&supplyAgreementsFull(count)){
+        ctx.record("info","gateway_resource_trade_agreement_limit",{playerId:house.id,count});
+        return supplyAgreementLimitMessage(house.id===viewerId?undefined:house.name);
+      }
+    }
+    return undefined;
+  };
   const accept=async(row:ResourceTradeOffer):Promise<string|undefined>=>{
     if(!store.settling(row.id))return "This resource offer is no longer available.";
     publish([row.fromPlayerId,row.toPlayerId]);
@@ -49,6 +63,7 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
     const now=ctx.now(),parsed=ResourceTradeOfferSchema.safeParse({id:crypto.randomUUID(),fromPlayerId:from.id,toPlayerId:to.id,
       fromPlayerName:from.name,toPlayerName:to.name,terms,createdAt:now,expiresAt:now+Math.min(options.ttlMs??RESOURCE_TRADE_OFFER_TTL_MS,RESOURCE_TRADE_OFFER_TTL_MS),status:"pending"});
     if(!parsed.success)return {ok:false,message:"Invalid resource trade terms."};
+    const full=ctx.supplyAgreementCount?await limitRefusal(from.id,[from,to]):undefined;if(full)return {ok:false,message:full};
     if(!store.insert(parsed.data)){ctx.record("warn","gateway_resource_trade_capacity",{count:store.rows(now).length});return {ok:false,message:"Too many resource offers are pending. Resolve an existing offer first."};}
     publish([from.id,to.id]);
     if(ctx.isAutoRespondingAi(to.id)){
@@ -95,6 +110,9 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
         store.remove(row.id);publish([row.fromPlayerId,row.toPlayerId]);return true;
       }
       if(row.toPlayerId!==actorId&&row.status!=="settling"){error("Only the receiving House can accept this offer.");return true;}
+      // A settling payment resumes as before; only a fresh accept is refused at the limit.
+      const full=row.status==="pending"&&ctx.supplyAgreementCount?await limitRefusal(actorId,[{id:row.toPlayerId,name:row.toPlayerName},{id:row.fromPlayerId,name:row.fromPlayerName}]):undefined;
+      if(full){error(full);return true;}
       const failure=await accept(row);if(failure)error(failure);return true;
     }
     return true;

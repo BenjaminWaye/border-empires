@@ -111,3 +111,4 @@ export * from "./resource-supply-trades/resource-supply-trades.js";
 export type { ResourceSupplyPlayerState, ResourceSupplyAgreementStatus } from "./resource-supply-trades/resource-supply-player-state.js";
 export * from "./resource-supply-trades/resource-trade-offers.js";
 export { resourceSupplyCoinValue } from "./resource-supply-trades/resource-supply-valuation.js";
+export * from "./resource-supply-trades/resource-supply-capacity.js";

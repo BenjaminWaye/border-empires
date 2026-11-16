@@ -18,6 +18,7 @@ import { FASTER_LOGIN_MAP_ENTRY } from "./client-changelog-faster-login-map.js";
 import { PLACE_ANOTHER_ENTRY } from "./client-changelog-place-another.js";
 import { TOWNS_LIST_COIN_PENDING_ENTRY } from "./client-changelog-towns-list-coin-pending.js";
 import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
+import { SUPPLY_AGREEMENT_LIMIT_ENTRY } from "./client-changelog-supply-agreement-limit.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -489,6 +490,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
   { ...PLACE_ANOTHER_ENTRY, createdAt: 1794861771175, },
   { ...TOWNS_LIST_COIN_PENDING_ENTRY, createdAt: 1794864521632, },
+  { ...SUPPLY_AGREEMENT_LIMIT_ENTRY, createdAt: 1794864414517, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

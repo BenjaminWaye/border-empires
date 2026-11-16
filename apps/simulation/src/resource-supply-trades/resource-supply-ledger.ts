@@ -1,12 +1,15 @@
 import {
   allocateResourceSupplyAgreements, MAX_RESOURCE_SUPPLY_AGREEMENTS, MAX_RESOURCE_SUPPLY_AGREEMENTS_PER_PLAYER,
-  ResourceSupplyAgreementSchema, type ResourceSupplyAgreement, type ResourceSupplyAllocation, type ResourceSupplyCapacity
+  ResourceSupplyAgreementSchema, supplyAgreementLimitMessage, worldSupplyAgreementLimitMessage,
+  type ResourceSupplyAgreement, type ResourceSupplyAllocation, type ResourceSupplyCapacity
 } from "@border-empires/shared";
 
 export type SupplyLedgerResult = { readonly ok: true } | { readonly ok: false; readonly message: string };
 export type ResourceSupplyLedgerContext = {
   readonly publish?: (participantIds: readonly string[]) => void;
   readonly capacityRejected?: () => void;
+  /** Display name for refusals ("X already has 16/16 ..."); falls back to the id. */
+  readonly nameOf?: (playerId: string) => string | undefined;
   readonly capacityFor: ResourceSupplyCapacity;
   /** Settle every affected participant at the old rates before changing supply. */
   readonly beforeChange: (at: number, participantIds: readonly string[]) => void;
@@ -55,14 +58,16 @@ export class ResourceSupplyLedger {
     return [...affected];
   }
   invalidate(): void { this.cached = undefined; this.cachedAt = undefined; this.cachedUntil = Infinity; }
-  private hasCapacity(row: ResourceSupplyAgreement): boolean {
-    if (this.size >= MAX_RESOURCE_SUPPLY_AGREEMENTS) return false;
+  private hasCapacity(row: ResourceSupplyAgreement): boolean { return this.capacityRefusal(row) === undefined; }
+  /** Why `row` can't be added, naming the House whose limit is reached. */
+  private capacityRefusal(row: ResourceSupplyAgreement): string | undefined {
+    if (this.size >= MAX_RESOURCE_SUPPLY_AGREEMENTS) return worldSupplyAgreementLimitMessage();
     for (const id of [row.proposerId, row.targetId]) {
       let count = 0;
       for (const entry of this.agreements.values()) if (entry.proposerId === id || entry.targetId === id) count += 1;
-      if (count >= MAX_RESOURCE_SUPPLY_AGREEMENTS_PER_PLAYER) return false;
+      if (count >= MAX_RESOURCE_SUPPLY_AGREEMENTS_PER_PLAYER) return supplyAgreementLimitMessage(this.context.nameOf?.(id) ?? id);
     }
-    return true;
+    return undefined;
   }
   private settleBeforeChange(at: number, ids: readonly string[]): void {
     const previous = this.valuationTime;
@@ -143,7 +148,8 @@ export class ResourceSupplyLedger {
     if (!parsed.success) return { ok: false, message: "Invalid resource supply agreement." };
     const row = parsed.data;
     if (this.agreements.has(row.id)) return { ok: false, message: "This resource agreement already exists." };
-    if (!this.hasCapacity(row)) { this.context.capacityRejected?.(); return { ok: false, message: "Too many active resource agreements." }; }
+    const full = this.capacityRefusal(row);
+    if (full) { this.context.capacityRejected?.(); return { ok: false, message: full }; }
     const before = this.allocation(now), after = this.preview(row, now);
     if (!after.fulfilled.has(row.id) || [...before.fulfilled].some(id => !after.fulfilled.has(id)))
       return { ok: false, message: "The promised resource supply is no longer available." };

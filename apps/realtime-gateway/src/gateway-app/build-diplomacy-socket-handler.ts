@@ -7,7 +7,7 @@ import { createProactiveAiResourceTrade } from "../proactive-ai-resource-trade/p
 // query, deal settlement, and the seeded-AI diplomacy responder, extracted out of gateway-app.ts (well over the repo's
 // 500-line file-size gate and may not grow further -- see AGENTS.md's
 // file-and-type-discipline rule).
-import { netValueToAi, type ClientMessage } from "@border-empires/shared";
+import { activeSupplyAgreementCount, netValueToAi, type ClientMessage } from "@border-empires/shared";
 import type { CommandEnvelope, CurrentSeasonSummary, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { WebSocket } from "ws";
 
@@ -227,6 +227,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const resourceTrades = createResourceTradeService({ social:socialState,settlement,now:()=>Date.now(),
     isAutoRespondingAi:id=>isAi(id)&&!deps.hasLiveSocket(id),
     aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?{gold:Math.floor(player.gold),...(player.resourceTradeHoldings?{resources:player.resourceTradeHoldings}:{})}:undefined;},
+    supplyAgreementCount:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?activeSupplyAgreementCount(player.resourceTradeAgreements,id,Date.now()):undefined;},
     send:deps.sendJson,fanout:deps.fanoutPlayerPayloads,record:deps.recordGatewayEvent });
   const aiFoodTrades = createProactiveAiResourceTrade({ aiPlayerIds: deps.seededAiPlayerIds, hasLiveSocket: deps.hasLiveSocket,
     fetchAiSnapshot: requesterSnapshot, playerState: async id => (await deps.ensureSubscribed(id)).player,

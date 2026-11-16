@@ -20,6 +20,7 @@ import {
 
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import { giftVerdict, suggestedGift } from "./client-diplomacy-gift-view.js";
+import { ownSupplyLimitReason } from "./client-supply-agreement-limit.js";
 
 export type DiplomacyStanceKind = "DISTRUSTFUL" | "SEEKING_PEACE" | "OUTMATCHED" | "WINNING" | "INDIFFERENT" | "WARY";
 
@@ -169,6 +170,8 @@ export const tradeVerdict = (input: {
   own: DiplomacyGoods;
   cooldownRemainingMs: number;
   nowMs?: number;
+  /** Your active supply agreements; at the limit, a deal with resource supply can't be sent. */
+  ownSupplyAgreements?: number;
 }): TradeVerdict => {
   const { targetName, reply, selection, own } = input;
   const kind = selection.kind;
@@ -183,6 +186,8 @@ export const tradeVerdict = (input: {
   const shortfall = ownGoodsShortfall(selection.terms.give, own);
   if (shortfall) return { tone: "bad", text: shortfall, canSend: false, sendLabel };
   const hasSupply = hasResourceSupplyOffer(selection.terms.give.resources) || hasResourceSupplyOffer(selection.terms.ask.resources);
+  const limitReason = hasSupply && input.ownSupplyAgreements !== undefined ? ownSupplyLimitReason(input.ownSupplyAgreements) : undefined;
+  if (limitReason) return { tone: "bad", text: limitReason, canSend: false, sendLabel };
   if (hasRecurringCoin(selection.terms)) {
     if (!hasSupply) return { tone: "neutral", text: "Add a resource slot to trade Coin income.", canSend: false, sendLabel };
     if (reply?.found && reply.ai) return { tone: "bad", text: "AI Houses require Coin payments upfront.", canSend: false, sendLabel };

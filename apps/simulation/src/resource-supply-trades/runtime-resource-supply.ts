@@ -43,7 +43,7 @@ export class RuntimeResourceSupply {
   constructor(private readonly ctx: RuntimeResourceSupplyContext, restored: readonly ResourceSupplyAgreement[] = [], journalSequence = 0) {
     this.journalSequence = journalSequence;
     // Salvage is never exported: zero capacity suspends any legacy salvage deal.
-    this.ledger = new ResourceSupplyLedger({ ...ctx, changed: (...args) => {
+    this.ledger = new ResourceSupplyLedger({ ...ctx, nameOf: id => ctx.player(id)?.name, changed: (...args) => {
       const [action, agreement] = args;
       ctx.changed(...args);
       if (action === "expired") ctx.ended?.(agreement, "EXPIRED");

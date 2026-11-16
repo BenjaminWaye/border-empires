@@ -1,5 +1,6 @@
 import { resourceOfferCardsHtml } from "./client-resource-offer-cards.js";
 import { activeResourceDealsHtml } from "./client-active-resource-deals.js";
+import { ownSupplyAgreementCount, ownSupplyLimitReason, supplyAgreementUsageHtml } from "./client-supply-agreement-limit.js";
 // The diplomacy trade screen, laid out as a deal table: your goods and the
 // truce/alliance treaties on the left, theirs on the right, and only what is in
 // the deal in the middle. Pressing a good opens a slider to set the amount.
@@ -146,7 +147,9 @@ const render = (screen: OpenScreen): void => {
   const { overlay, selection, reply, targetName } = screen;
   const own = screen.deps.ownHoldings();
   const active = screen.deps.activeSupply?.(), agreementsEl = overlay.querySelector<HTMLElement>("[data-resource-agreements]");
-  if (agreementsEl && active) agreementsEl.innerHTML = resourceOfferCardsHtml(active.offers ?? [], active.ownId, reply?.found ? reply.targetPlayerId : screen.targetPlayerId) + activeResourceDealsHtml(active.agreements, active.ownId, reply?.found ? reply.targetPlayerId : screen.targetPlayerId);
+  const otherId = reply?.found ? reply.targetPlayerId : screen.targetPlayerId;
+  const ownSupplyAgreements = active ? ownSupplyAgreementCount(active.agreements, active.ownId) : undefined;
+  if (agreementsEl && active) agreementsEl.innerHTML = supplyAgreementUsageHtml(ownSupplyAgreements ?? 0) + resourceOfferCardsHtml(active.offers ?? [], active.ownId, otherId, ownSupplyLimitReason(ownSupplyAgreements ?? 0)) + activeResourceDealsHtml(active.agreements, active.ownId, otherId);
   screen.shownHoldings = own;
   screen.shownTruceLockoutReason = activeTruceLockoutReason(reply);
   screen.shownSupplySignature = JSON.stringify(active ?? null) + Math.floor(Date.now() / 60_000);
@@ -191,7 +194,7 @@ const render = (screen: OpenScreen): void => {
   });
   const dealEl = overlay.querySelector<HTMLElement>("[data-trade-deal]");
   if (dealEl) dealEl.innerHTML = dealSummaryHtml({ selection, treaty: screen.treaty, targetName, locked: screen.counters !== undefined });
-  const shared = tradeVerdict({ targetName, reply, selection, own, cooldownRemainingMs: cooldownRemainingMs(screen) });
+  const shared = tradeVerdict({ targetName, reply, selection, own, cooldownRemainingMs: cooldownRemainingMs(screen), ...(ownSupplyAgreements === undefined ? {} : { ownSupplyAgreements }) });
   const verdict = dealVerdictOverride(screen.treaty, selection.kind, selection.terms, shared.sendLabel, screen.allied) ?? shared;
   const shown = screen.notice ?? verdict;
   const verdictEl = overlay.querySelector<HTMLElement>("[data-trade-verdict]");
