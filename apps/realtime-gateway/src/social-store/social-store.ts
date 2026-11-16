@@ -222,8 +222,10 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
 
   pruneExpired(now: number): void {
     for (const [key, pair] of this.aiDiplomacyMemory) if (pair.expiresAt <= now) this.aiDiplomacyMemory.delete(key);
-    const overCap = [...this.aiDiplomacyMemory].sort(([, left], [, right]) => right.touchedAt - left.touchedAt).slice(MAX_DIPLOMACY_MEMORY_PAIRS);
-    for (const [key] of overCap) this.aiDiplomacyMemory.delete(key);
+    if (this.aiDiplomacyMemory.size > MAX_DIPLOMACY_MEMORY_PAIRS) {
+      const overCap = [...this.aiDiplomacyMemory].sort(([, left], [, right]) => right.touchedAt - left.touchedAt).slice(MAX_DIPLOMACY_MEMORY_PAIRS);
+      for (const [key] of overCap) this.aiDiplomacyMemory.delete(key);
+    }
     this.diplomacyHistory = this.diplomacyHistory.filter((entry) => entry.occurredAt >= now - DIPLOMACY_HISTORY_TTL_MS);
     for (const [id, until] of this.forcedTruceCooldowns) if (until <= now) this.forcedTruceCooldowns.delete(id);
     for (const [key, entry] of this.offerCooldowns) {
