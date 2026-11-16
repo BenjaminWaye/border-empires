@@ -83,9 +83,10 @@ const isRoundLakeExtremitiesInland = (
 // into the coast even when its center reads as solidly inland.
 // Only ever called with a candidate resolveLakeCandidates already validated
 // (its extremities are inland), so this is pure geometry: re-running that
-// check per query tile repeated the identical, uncacheable continent-score
-// work (fractional/off-map points miss the per-tile cache) for every tile in
-// the 3x3 cell block and froze the client's first terrain query for ~25s.
+// check per query tile repeated the same continent-score work for every tile
+// in the 3x3 cell block (extremity points are mostly fractional, so they miss
+// the per-tile cache and recompute the full plate/noise score each time) and
+// froze the client's first terrain query for ~25s.
 const isInRoundLake = (x: number, y: number, cx: number, cy: number, gx: number, gy: number, seed: number): boolean => {
   const r = 4 + Math.floor(seeded01(gx, gy, seed + 74) * 8);
   const dx = x - cx;
