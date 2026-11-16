@@ -6,6 +6,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_116 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_117 } from "./client-changelog-data-earlier-117.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_118 } from "./client-changelog-data-earlier-118.js";
 import { AUTO_GARRISON_ASK_ENTRY } from "./client-changelog-auto-garrison-ask.js";
+import { TOWN_COIN_BLANK_ENTRY } from "./client-changelog-town-coin-blank.js";
 import { MANPOWER_BUILD_TEXT_ENTRY } from "./client-changelog-manpower-build-text.js";
 import { RESTORED_CAMERA_FOG_ENTRY } from "./client-changelog-restored-camera-fog.js";
 import { OFFER_DOCK_COUNTER_ENTRY } from "./client-changelog-offer-dock-counter.js";
@@ -471,6 +472,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_117,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_118,
   { ...AUTO_GARRISON_ASK_ENTRY, createdAt: 1794806556716, },
+  { ...TOWN_COIN_BLANK_ENTRY, createdAt: 1794807224989, },
   { ...CLEARER_CAPTURES_ENTRY, createdAt: 1794771007813, },
   { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
   { ...MANPOWER_BUILD_TEXT_ENTRY, createdAt: 1794806234122, },
