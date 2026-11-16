@@ -72,6 +72,7 @@ export * from "./explored-tiles/explored-tiles-runs.js";
 export * from "./player-display-name.js";
 export * from "./seasonal-ai-names/seasonal-ai-names.js";
 export * from "./dev-queue/dev-queue.js";
+export * from "./command-rate-limit/command-rate-limit.js";
 export * from "./auto-settle-prefs/auto-settle-prefs.js";
 export * from "./auto-settle-prefs/auto-improve-prefs.js";
 export * from "./place-name-policy/place-name-policy.js";
