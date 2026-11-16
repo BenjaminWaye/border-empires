@@ -193,6 +193,8 @@ export const createSelectionRangeOverlays = (scene: Scene): SelectionRangeOverla
       selectedStructureReachHighlightTiles(deps.state.tiles, { x: selectedTile.x, y: selectedTile.y, kind }, deps.keyFor, isVisible).map(({ x, y }) => deps.keyFor(x, y))
     );
     writeRingGeometry(reachRing, deps, selectedTile, reachRadiusForKind(kind), (x, y) => tinted.has(deps.keyFor(x, y)));
+    // Fill only, like the 2D highlight: the square outline would still cross sea and fog.
+    reachRing.border.visible = false;
   };
 
   const sync = (deps: SelectionRangeOverlaysDeps): void => {
