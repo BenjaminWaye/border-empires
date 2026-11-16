@@ -9,6 +9,7 @@ import { explainCombatLockRejection } from "./client-muster-siege/client-muster-
 import { showCaptureAlert } from "./client-alerts/client-alerts.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { markTechCommissionPending, pendingTechCommissionId } from "./client-tech-commission/client-tech-commission.js";
+import { pacedSocketSend } from "./client-command-pacer/client-command-pacer.js";
 
 /** State the LOCKED / MUSTER_UNDER_SIEGE explanation reads to name the blocked tile and its countdown. */
 export type CombatLockExplainContext = {
@@ -93,7 +94,7 @@ export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActi
   deps.state.techUiSelectedId = techId;
   markTechCommissionPending(deps.state, techId, Date.now());
   console.info("[tech] sending CHOOSE_TECH", { techId });
-  deps.ws.send(JSON.stringify({ type: "CHOOSE_TECH", techId }));
+  pacedSocketSend(deps.ws, { type: "CHOOSE_TECH", techId });
   deps.renderHud();
 };
 
@@ -109,7 +110,7 @@ const sendDomainCommand = (
     domainId: domain.id
   };
   if (chosenTrickleResource) payload.chosenTrickleResource = chosenTrickleResource;
-  deps.ws.send(JSON.stringify(payload));
+  pacedSocketSend(deps.ws, payload);
   const trickleSuffix = chosenTrickleResource ? ` (${chosenTrickleResource} trickle)` : "";
   deps.pushFeed(`Choosing domain: ${domain.name}${trickleSuffix}.`, "tech", "info");
   deps.renderHud();
@@ -224,6 +225,8 @@ export const explainActionFailureFromServer = (
   if (code === "DIPLOMACY_SETTLEMENT_FAILED") return `Couldn't accept the offer. ${message || "The deal fell through."}`;
   if (code === "DIPLOMACY_OFFER_WITHDRAWN" || code === "RESOURCE_TERMS_CONFIRMATION_REQUIRED" || code === "OFFER_SETTLING") return message;
   if (code === "TRUCE_LOCKED_OUT") return "A House in this deal recently broke a truce. New truces are locked for 24 hours after a break.";
+  // Only reached once a throttled command was re-sent and refused repeatedly (client-command-pacer).
+  if (code === "COMMAND_RATE_LIMITED") return "Too many orders at once. That one didn't go through; try it again in a moment.";
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot garrison: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
