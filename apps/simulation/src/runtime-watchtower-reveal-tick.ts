@@ -39,9 +39,14 @@ export const activateWatchtowerAt = (
   const revealUntil = input.now() + WATCHTOWER_REVEAL_TTL_MS;
   const updated: DomainTileState = { ...tile, watchtower: { activated: true, activatedByPlayerId: playerId, revealUntil } };
   input.replaceTileState(targetKey, updated, commandId);
-  input.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [input.tileDeltaFromState(updated)] });
+  // Reveal BEFORE emitting: outside a buffered command (reach auto-claim,
+  // frontier auto-heal, dormant sweep) emitEvent fans out synchronously and
+  // takes the vision edges right then. Emitting first left the revealed
+  // tiles' enter edges for some later batch -- so they arrived late, and if
+  // the expiry batch came first its leave edges cancelled them outright.
   input.visibilityCoverage.addTemporaryReveal(playerId, x, y, WATCHTOWER_REVEAL_RADIUS, input.visionTransitionCallbacks);
   input.pendingWatchtowerReveals.push({ tileKey: targetKey, x, y, playerId, expiresAt: revealUntil });
+  input.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [input.tileDeltaFromState(updated)] });
 };
 
 /** Expires any watchtower reveal pulses whose 10s window has elapsed. */
