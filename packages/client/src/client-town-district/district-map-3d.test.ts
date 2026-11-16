@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { InstancedMesh, Matrix4, Scene, Vector3 } from "three";
 import type { ClientState } from "../client-state/client-state.js";
-import { createDistrictMap3D } from "./district-map-3d.js";
+import { createDistrictMap3D, FORT_INTERIOR_SCALE } from "./district-map-3d.js";
+import { DISTRICT_RADIUS } from "./district-catalog.js";
 import { districtFixture } from "./district-fixtures.js";
 
 const setup = () => {
@@ -86,6 +87,24 @@ describe("live 3D district adapter", () => {
       expect(scale.x).toBeCloseTo(0.5);
     }
     fixture.map.dispose();
+  });
+  it("keeps a district building inside a fort centred and near full size instead of halving it", () => {
+    const fixture = setup();
+    fixture.building.fort = { ownerId: "p1", status: "active" } as NonNullable<typeof fixture.building.fort>;
+    fixture.rebuild();
+    const body = fixture.scene.children.find((child): child is InstancedMesh =>
+      child instanceof InstancedMesh && child.name.endsWith("-body") && !child.name.includes("undefined") && child.count > 0);
+    expect(body).toBeDefined();
+    const matrix = new Matrix4(), position = new Vector3(), scale = new Vector3();
+    body!.getMatrixAt(0, matrix); scale.setFromMatrixScale(matrix); position.setFromMatrixPosition(matrix);
+    expect(scale.x).toBeCloseTo(FORT_INTERIOR_SCALE);
+    expect(DISTRICT_RADIUS * scale.x).toBeLessThan(0.30);
+    const unfortified = setup(); unfortified.rebuild();
+    const plain = unfortified.scene.children.find((child): child is InstancedMesh => child instanceof InstancedMesh && child.name.endsWith("-body"))!;
+    const plainPosition = new Vector3(); plain.getMatrixAt(0, matrix); plainPosition.setFromMatrixPosition(matrix);
+    expect(position.x).toBeCloseTo(plainPosition.x);
+    expect(position.z).toBeCloseTo(plainPosition.z);
+    fixture.map.dispose(); unfortified.map.dispose();
   });
 });
 
