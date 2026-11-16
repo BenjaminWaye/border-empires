@@ -640,12 +640,10 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       ? townGrowthActionForUpgrade(state, nextTownGrowthUpgrade(tile.town.populationTier, tile.town.population))
       : undefined;
     if (townGrowthAction) out.push(townGrowthAction);
-    const hasRelayBeacon = tile.economicStructure?.type === "RELAY_BEACON";
     // One Fortify row (Palisade and every fort tier) that opens the tier picker
-    // (client-structure-tier-options.ts); a fortification may share a tile with a
-    // Relay Beacon or a Harbor Exchange, never with any other structure.
-    const fortifyTileFree = !tile.siegeBattery && !tile.observatory &&
-      (Boolean(tile.fort) || !tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "HARBOR_EXCHANGE");
+    // (client-structure-tier-options.ts); a fortification may share a tile with
+    // any building (economic structure or Aether Tower), never a siege engine.
+    const fortifyTileFree = !tile.siegeBattery;
     const fortifyOptions = fortifyTileFree && (tile.fort || buildShowsOnTile("PALISADE", tile, supportedTowns.length, supportedDocks.length))
       ? fortTierOptionsForTile(state, tile)
       : [];
@@ -1058,7 +1056,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         )
       });
     }
-    const siegeCamp = siegeCampAction(state, tile, deps, hasRelayBeacon);
+    const siegeCamp = siegeCampAction(state, tile, deps, tile.economicStructure?.type === "RELAY_BEACON");
     if (siegeCamp) out.push(siegeCamp);
     out.push(...resourceBuildActions(state, tile, hasBlockingStructure, frontierBuildDetailSuffix(tile), {
       structureCostText: deps.structureCostText, buildDetailTextForAction: deps.buildDetailTextForAction,
