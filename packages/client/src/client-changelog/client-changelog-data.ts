@@ -4,13 +4,9 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_116 } from "./client-changelog-data-earlier-116.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_117 } from "./client-changelog-data-earlier-117.js";
-import { SHOW_EMPIRE_ON_MAP_ENTRY } from "./client-changelog-show-empire-on-map.js";
-import { EXPLORE_SCOUT_DRONES_ENTRY } from "./client-changelog-explore-scout-drones.js";
-import { PHOTO_MODE_FINDABLE_ENTRY } from "./client-changelog-photo-mode-findable.js";
-import { CAPTURE_DURING_DEAL_ENTRY } from "./client-changelog-capture-during-deal.js";
-import { CLARITY_HINTS_ENTRY } from "./client-changelog-clarity-hints.js";
-import { ACTION_FEEDBACK_ENTRY } from "./client-changelog-action-feedback.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_118 } from "./client-changelog-data-earlier-118.js";
 import { AUTO_GARRISON_ASK_ENTRY } from "./client-changelog-auto-garrison-ask.js";
+import { MANPOWER_BUILD_TEXT_ENTRY } from "./client-changelog-manpower-build-text.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -467,12 +463,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_115,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_116,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_117,
-  { ...EXPLORE_SCOUT_DRONES_ENTRY, createdAt: 1794656611441, },
-  { ...SHOW_EMPIRE_ON_MAP_ENTRY, createdAt: 1794656750720, },
-  { ...PHOTO_MODE_FINDABLE_ENTRY, createdAt: 1794697190181, },
-  { ...CAPTURE_DURING_DEAL_ENTRY, createdAt: 1794696963679, },
-  { ...CLARITY_HINTS_ENTRY, createdAt: 1794696879817, },
-  { ...ACTION_FEEDBACK_ENTRY, createdAt: 1794695682854, },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_118,
   { ...AUTO_GARRISON_ASK_ENTRY, createdAt: 1794806556716, },
   {
     createdAt: 1794771007813, // Date.now() captured once for this entry.
@@ -494,6 +485,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
+  { ...MANPOWER_BUILD_TEXT_ENTRY, createdAt: 1794806234122, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
