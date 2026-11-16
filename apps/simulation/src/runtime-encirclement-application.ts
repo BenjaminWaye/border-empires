@@ -3,6 +3,7 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { FRONTIER_AUTO_HEAL_MS, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { abandonedStructureFields } from "./capture-structures/capture-structures.js";
 import { computeEncirclementDeltas } from "./encirclement/encirclement.js";
+import { canClaimEncirclementPocket, captureEncirclementPocket } from "./encirclement-pocket-capture/encirclement-pocket-capture.js";
 import { incrementEncirclementCounter } from "./encirclement/encirclement-metrics.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { findStrandedFrontier } from "./stranded-frontier/stranded-frontier-finder.js";
@@ -189,12 +190,17 @@ export function applyEncirclementForExpand(
   }
 }
 
+/**
+ * `claimantId`: the player whose capture changed `changedKeys` (combat only).
+ * Frontier of `playerId` cut off by that capture goes to the claimant
+ * instead of neutral -- see encirclement-pocket-capture.ts.
+ */
 export function applyEncirclement(
   context: RuntimeEncirclementApplicationContext,
   changedKeys: string[],
   playerId: string,
   commandId: string,
-  options?: { bfsCap?: number; skipCutOff?: boolean }
+  options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string }
 ): void {
   const getTile = (key: string) => context.tiles.get(key);
   const nowMs = context.now();
@@ -213,7 +219,11 @@ export function applyEncirclement(
     }
   });
 
-  const tileDeltas = clearCutOffFrontierTiles(context, cutOff, commandId, nowMs);
+  const claimantId = options?.claimantId;
+  const pocket = canClaimEncirclementPocket(context.tiles, claimantId, playerId, changedKeys)
+    ? captureEncirclementPocket(context, cutOff, claimantId, commandId, nowMs)
+    : { tileDeltas: [], releaseKeys: cutOff };
+  const tileDeltas = [...pocket.tileDeltas, ...clearCutOffFrontierTiles(context, pocket.releaseKeys, commandId, nowMs)];
   if (cutOff.size > 0) incrementEncirclementCounter("tilesCutOff", cutOff.size);
   if (!options?.skipCutOff) {
     tileDeltas.push(...releaseStrandedSeaLaneLandings(context, changedKeys, playerId, supplyNeighbors, commandId, nowMs));

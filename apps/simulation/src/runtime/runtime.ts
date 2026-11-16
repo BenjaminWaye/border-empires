@@ -3040,7 +3040,7 @@ export class SimulationRuntime {
     changedKeys: string[],
     playerId: string,
     commandId: string,
-    options?: { bfsCap?: number; skipCutOff?: boolean }
+    options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string }
   ): void {
     applyEncirclementImpl(this.encirclementApplicationContext(), changedKeys, playerId, commandId, options);
   }
