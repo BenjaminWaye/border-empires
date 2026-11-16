@@ -25,6 +25,22 @@ describe("resource supply ledger", () => {
     expect(observed).toEqual([100, 1]);
     expect(ctx.changed).toHaveBeenCalledWith("expired", expect.objectContaining({ id: "deal" }));
   });
+  it("settles missed deadlines in order before publishing the new terms", () => {
+    const now = 300;
+    let ledger: ResourceSupplyLedger;
+    const observed: unknown[] = [];
+    const ctx: ResourceSupplyLedgerContext = {
+      ...context(),
+      beforeChange: at => observed.push([at, ledger.coinTransfers("b", now).map(row => row.perHour)]),
+      publish: ids => observed.push(ids)
+    };
+    ledger = new ResourceSupplyLedger(ctx, [
+      { ...row("early"), targetCoinPerHour: 5 },
+      { ...row("late"), expiresAt: 200, targetCoinPerHour: 10 }
+    ]);
+    ledger.advanceTo(now);
+    expect(observed).toEqual([[100, [5, 10]], [200, [10]], ["a", "b"]]);
+  });
   it("cancels a settled agreement without creating an inverse contract", () => {
     const ctx = context(), ledger = new ResourceSupplyLedger(ctx, [row()]);
     expect(ledger.remove("deal", 50)).toBe(true);

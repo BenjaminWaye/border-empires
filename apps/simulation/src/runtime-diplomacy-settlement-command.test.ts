@@ -93,9 +93,10 @@ describe("resource-backed settlement", () => {
   it("registers the renewable commitment for the chosen term, then moves currency", () => {
     const a = player("p1", 10), b = player("p2", 20), { context, events } = setup(a, b);
     const enhanced: RuntimeDiplomacySettlementContext = { ...context, now: () => 100, resourceSupply: {
+      nextJournalCursor: () => ({ journalSequence: 1 }),
       create: agreement => {
         expect(agreement).toMatchObject({ id: "diplomacy-settle:1", proposerGives: { FOOD: 2 }, startedAt: 100 });
-        expect(agreement.expiresAt).toBeUndefined();
+        expect(agreement.expiresAt).toBe(100 + 7 * 86_400_000);
         expect([a.points, b.points]).toEqual([10, 20]);
         return { ok: true };
       }, cancelRefunded: () => { throw new Error("not a refund"); }
@@ -107,7 +108,8 @@ describe("resource-backed settlement", () => {
   it("keeps both balances unchanged when the promised supply is no longer free", () => {
     const a = player("p1", 10), b = player("p2", 20), { context, events } = setup(a, b);
     const enhanced: RuntimeDiplomacySettlementContext = { ...context, resourceSupply: {
-      create: () => ({ ok: false, message: "No free FOOD supply." }), cancelRefunded: () => undefined
+      nextJournalCursor: () => ({ journalSequence: 1 }),
+      create: () => ({ ok: false, message: "No free FOOD supply." }), cancelRefunded: () => false
     } };
     handleDiplomacySettlementCommand(enhanced, command(terms));
     expect([a.points, b.points]).toEqual([10, 20]);
@@ -117,8 +119,9 @@ describe("resource-backed settlement", () => {
     const a = player("p1", 10), b = player("p2", 20), { context } = setup(a, b);
     const cancelled: string[] = [];
     const enhanced: RuntimeDiplomacySettlementContext = { ...context, resourceSupply: {
+      nextJournalCursor: () => ({ journalSequence: 1 }),
       create: () => { throw new Error("refund cannot create a new agreement"); },
-      cancelRefunded: id => { cancelled.push(id); }
+      cancelRefunded: id => { cancelled.push(id); return true; }
     } };
     handleDiplomacySettlementCommand(enhanced, command({ ...terms, refundOf: "original", proposerPays: terms.targetPays, targetPays: terms.proposerPays }));
     expect(cancelled).toEqual(["original"]);

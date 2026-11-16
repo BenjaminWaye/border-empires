@@ -33,6 +33,7 @@ export const hudEconomyPanelHtml = (state: ClientState, deps: HudEconomyPanelDep
     storageCap: state.storageCap,
     strategicProductionPerMinute: state.strategicProductionPerMinute,
     resourceSlots: state.resourceSlots,
+    commitments: { rows: state.resourceTradeAgreements, ownId: state.me, playerName: (id) => state.playerNames.get(id) },
     dormantStructures: state.dormantStructures,
     slotSourceNames: {
       domainName: (id) => state.domainCatalog.find((domain) => domain.id === id)?.name,
