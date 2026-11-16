@@ -72,9 +72,13 @@ export class ExploredTilesStore {
 
   /** Unions a persisted snapshot into memory (order-independent with live marks). */
   restore(entries: readonly ExploredTilesSnapshotEntry[] | undefined): void {
-    for (const entry of entries ?? []) {
-      if (typeof entry?.playerId !== "string" || entry.playerId.length === 0) continue;
-      forEachExploredTile(entry, this.width, this.height, (x, y) => this.mark(entry.playerId, x, y));
+    // Persisted data: a malformed field must start with empty memory, never crash the runtime constructor.
+    if (!Array.isArray(entries)) return;
+    for (const entry of entries as readonly unknown[]) {
+      if (!entry || typeof entry !== "object") continue;
+      const { playerId } = entry as Partial<ExploredTilesSnapshotEntry>;
+      if (typeof playerId !== "string" || playerId.length === 0) continue;
+      forEachExploredTile(entry, this.width, this.height, (x, y) => this.mark(playerId, x, y));
     }
   }
 

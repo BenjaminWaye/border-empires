@@ -43,4 +43,23 @@ describe("explored tile runs", () => {
     expect(forEachExploredTile({ width: 10, height: 5, runs: [3, -1] }, 10, 5, () => undefined)).toBe(false);
     expect(forEachExploredTile(undefined, 10, 5, () => undefined)).toBe(false);
   });
+
+  it("matches a per-cell reference encoding on random bitsets, including a partial last byte", () => {
+    let seed = 7;
+    const random = (): number => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    for (const [width, height] of [[13, 7], [64, 32], [37, 11]] as const) {
+      for (let trial = 0; trial < 20; trial += 1) {
+        const cells: Array<[number, number]> = [];
+        // Mix of dense blocks and scattered cells, so full 0x00/0xFF bytes and mixed bytes both occur.
+        const x0 = Math.floor(random() * width);
+        for (let y = 0; y < height; y += 1) for (let x = x0; x < Math.min(width, x0 + 9); x += 1) cells.push([x, y]);
+        for (let i = 0; i < 10; i += 1) cells.push([Math.floor(random() * width), Math.floor(random() * height)]);
+        const expected = [...new Set(cells.map(([x, y]) => `${x},${y}`))].sort();
+        expect(decode(encodeExploredTilesRuns(bitsetFor(width, height, cells), width, height), width, height)).toEqual(expected);
+      }
+    }
+  });
 });

@@ -49,4 +49,12 @@ describe("ExploredTilesStore", () => {
     expect(snapshot.map((entry) => entry.playerId)).toEqual(["p1"]);
     expect(exploredTilesStats(snapshot)).toEqual({ players: 1, runNumbers: 2 });
   });
+
+  it("ignores a malformed persisted field instead of throwing", () => {
+    const store = new ExploredTilesStore(20, 10);
+    for (const bad of [{ playerId: "p1" }, "oops", 42, [null, "x", { playerId: 5 }, { playerId: "p1", width: 20, height: 10, runs: "nope" }]]) {
+      expect(() => store.restore(bad as never)).not.toThrow();
+    }
+    expect(store.encodedFor("p1")).toBeUndefined();
+  });
 });

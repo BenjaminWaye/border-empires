@@ -24,6 +24,14 @@ export const encodeExploredTilesRuns = (bits: Uint8Array, width: number, height:
   let current = 0; // 0 = counting unexplored, 1 = counting explored
   let length = 0;
   for (let cell = 0; cell < cellCount; cell += 1) {
+    // Fast path: a whole byte that continues the current run (all 0s or all 1s).
+    // Explored memory is mostly empty space, so this keeps a checkpoint's
+    // per-player encode near O(bytes) instead of O(cells).
+    if ((cell & 7) === 0 && cell + 8 <= cellCount && (bits[cell >> 3] ?? 0) === (current === 1 ? 0xff : 0)) {
+      length += 8;
+      cell += 7;
+      continue;
+    }
     const bit = ((bits[cell >> 3] ?? 0) >> (cell & 7)) & 1;
     if (bit === current) {
       length += 1;
