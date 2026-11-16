@@ -36,9 +36,11 @@ export type BuildListInput = {
 const esc = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-/** The ✕ in a Build ▸ / Aether ▸ sheet's head; the dock's click handler shuts that panel. */
-export const buildPanelCloseHtml = (panel: "build" | "aether"): string =>
-  `<button type="button" class="v2t-build-close" data-hud-v2-panel-close="${panel}" aria-label="Close ${panel === "aether" ? "Aether" : "Build"}">✕</button>`;
+const PANEL_NAME = { build: "Build", aether: "Aether", modules: "Modules", commit: "Attack commitment", reports: "Combat reports" } as const;
+
+/** The ✕ in a sidebar sheet's head (Build ▸, Aether ▸, a tile view); the dock's click handler shuts that panel. */
+export const buildPanelCloseHtml = (panel: keyof typeof PANEL_NAME): string =>
+  `<button type="button" class="v2t-build-close" data-hud-v2-panel-close="${panel}" aria-label="Close ${PANEL_NAME[panel]}">✕</button>`;
 
 /** Categories that have something to build here, in the build menu's order. */
 export const buildCategories = (buildings: readonly TileActionDef[]): Array<{ category: BuildingCategory; count: number }> =>

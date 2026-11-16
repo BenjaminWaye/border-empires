@@ -90,8 +90,11 @@ export type AfcModulePickerState = {
   focusClose: boolean;
 };
 
-export const afcModulePickerStateForTitle = (root: HTMLElement, title: string): AfcModulePickerState | undefined => {
-  if (root.querySelector(".tile-action-title")?.textContent !== title) return undefined;
+export const afcModulePickerStateForTitle = (root: HTMLElement, title: string): AfcModulePickerState | undefined =>
+  root.querySelector(".tile-action-title")?.textContent === title ? afcModulePickerState(root) : undefined;
+
+/** The open socket picker in `root` (slot, scroll, focus), to reopen after a repaint; the caller checks it is the same AFC. */
+export const afcModulePickerState = (root: HTMLElement): AfcModulePickerState | undefined => {
   const trigger = root.querySelector<HTMLButtonElement>('button[data-afc-call-down][aria-expanded="true"]');
   const picker = root.querySelector<HTMLElement>(".afc-slot-picker");
   if (!trigger?.dataset.afcCallDown || !picker || picker.hidden) return undefined;
@@ -110,7 +113,8 @@ export const fitAfcModulePicker = (root: HTMLElement): void => {
 
 export const bindAfcModulePicker = (root: HTMLElement, restore?: AfcModulePickerState): void => {
   const picker = root.querySelector<HTMLElement>(".afc-slot-picker");
-  const card = root.querySelector<HTMLElement>(".tile-action-card");
+  // The legacy menu's card, or the panel itself in the new HUD's Modules sidebar.
+  const card = root.querySelector<HTMLElement>(".tile-action-card") ?? root.querySelector<HTMLElement>(".afc-module-panel");
   if (!picker || !card) return;
   let activeButton: HTMLButtonElement | undefined;
   const close = (restoreFocus: boolean): void => {

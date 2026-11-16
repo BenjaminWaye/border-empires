@@ -312,11 +312,10 @@ body.hud-v2:has(#hud.desktop-side-panel-open) .hud-v2-rivals { display: none; }
 .hud-v2-tile .tile-auto-settle-option.is-highlighted { font-size: 13px; color: var(--v2-soft); }
 .hud-v2-tile .tile-auto-settle-ask { font-size: 14px; color: var(--v2-text); }
 
-/* The floating menu is hidden while docked; Build / Aether / ⋯ expand it as a right-hand sidebar. */
-body.hud-v2 #tile-action-menu.hud-v2-docked:not(.hud-v2-expanded) { display: none !important; }
-body.hud-v2 #tile-action-menu.hud-v2-docked.hud-v2-expanded {
-  left: auto !important; right: 16px; top: 128px !important; bottom: 236px; width: 348px !important; overflow-y: auto; z-index: 55;
-}
+/* The floating menu is never shown in the new HUD: the bar and its sidebar (Build, Aether, tile views) replace it. */
+body.hud-v2 #tile-action-menu.hud-v2-docked { display: none !important; }
+/* Tile views (Modules, Attack commitment, Combat reports) in the sidebar: their legacy cards, padded like the list. */
+.hud-v2-tile-view { display: grid; align-content: start; gap: 10px; padding: 4px 2px 8px; }
 /* Hosted panels (Integrity, Economy, Manpower) clear the orb when the window is tall enough; on a short window
    that left ~1/3 of the screen (Integrity read as cut off halfway down), so keep >= 520px and draw over the orb instead. */
 body.hud-v2 #side-panel { top: 128px; bottom: max(16px, min(236px, calc(100dvh - 648px))); z-index: 41; }

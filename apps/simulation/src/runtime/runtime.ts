@@ -1330,7 +1330,7 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitEvent: (event) => this.emitEvent(event),
       runtimeLogInfo: (payload, message) => runtimeLogInfo(payload, message),
-      registerFrontierAutoHeal: (tileKey, deadlineAt) => this.registerFrontierAutoHeal(tileKey, deadlineAt)
+      registerFrontierAutoHeal: (tileKey, deadlineAt) => this.registerFrontierAutoHeal(tileKey, deadlineAt), hasTileLock: (tileKey) => this.state.locksByTile.has(tileKey)
     };
   }
 
@@ -3035,7 +3035,7 @@ export class SimulationRuntime {
     changedKeys: string[],
     playerId: string,
     commandId: string,
-    options?: { bfsCap?: number; skipCutOff?: boolean }
+    options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string }
   ): void {
     applyEncirclementImpl(this.encirclementApplicationContext(), changedKeys, playerId, commandId, options);
   }

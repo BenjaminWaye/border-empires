@@ -22,7 +22,7 @@ export type DormantResourcesFor = (tile: Tile, field: DormancyField) => readonly
 
 const SLOT_RESOURCE_NAME: Record<SlotResource, string> = { FOOD: "Food", TITANIUM: "Titanium", CRYSTAL: "Crystal", UMBRITE: "Umbrite" };
 
-const MAX_FACTS = 4;
+export const MAX_FACTS = 4;
 const MAX_GIVES = 2;
 
 export const plainText = (html: string): string =>
