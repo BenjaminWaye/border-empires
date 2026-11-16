@@ -18,7 +18,7 @@ const LABELS: Record<FortVariant, string> = {
   PALISADE: "Palisade\nradius 1 · ring 1.12x",
   FORT: "Fort\nradius 1 · ring 1.5x",
   TITANIUM_BASTION: "Titanium Bastion\nradius 2 · ring 1.75x",
-  THUNDER_BASTION: "Thunder Bastion\nradius 2 · ring 2.375x"
+  THUNDER_BASTION: "Thunder Bastion\nradius 2 · ring 2.1x"
 };
 
 // World tiles sit at an offset so the coverage scan never wraps; scene

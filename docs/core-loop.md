@@ -496,7 +496,7 @@ to expansion and war.
    (`frontier-combat.ts`). Siege buildings multiply attack (×1.6 / 1.8 / 2.0)
    and forts multiply defense (×1.35 / 2.5 / 4 / 8). A fort's perimeter
    lends its owner's garrisoned tiles around it a share of that bonus
-   (radius 1 at 1/3 for Palisade/Fort, radius 2 at 1/4 for the Bastions;
+   (radius 1 at 1/3 for Palisade/Fort, radius 2 at 1/4 for Titanium and 1/5 for Thunder Bastion;
    `fort-perimeter.ts`), and a finished fort queues garrisons for the
    frontier tiles inside it.
 5. **Resolve:** the winner takes the tile, including any town, dock or

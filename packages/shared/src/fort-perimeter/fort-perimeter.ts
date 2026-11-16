@@ -6,7 +6,9 @@ import type { FortVariant } from "../types.js";
  * Fort perimeter: a standing fortification also shields the owner's own
  * garrisoned (SETTLED) tiles around it with a share of its own defense bonus.
  * Palisade and Fort cover radius 1 (the 8 neighbours) with a third of their
- * bonus; Titanium and Thunder Bastion cover radius 2 with a quarter of it.
+ * bonus; Titanium Bastion covers radius 2 with a quarter of it and Thunder
+ * Bastion radius 2 with a fifth (a quarter made every Thunder ring tile as
+ * hard to take as a Fort's own tile, for the cheap plain-tile attack cost).
  * "Bonus" is the part above 1x, so a Fort (2.5x) gives its ring
  * 1 + 1.5 / 3 = 1.5x. Perimeters never stack: a tile takes the strongest one
  * covering it, and a tile with its own fort keeps whichever is stronger.
@@ -17,7 +19,7 @@ export const FORT_PERIMETER_BY_VARIANT: Record<FortVariant, FortPerimeterSpec> =
   PALISADE: { radius: 1, bonusShare: 1 / 3 },
   FORT: { radius: 1, bonusShare: 1 / 3 },
   TITANIUM_BASTION: { radius: 2, bonusShare: 1 / 4 },
-  THUNDER_BASTION: { radius: 2, bonusShare: 1 / 4 }
+  THUNDER_BASTION: { radius: 2, bonusShare: 1 / 5 }
 };
 
 export const FORT_PERIMETER_MAX_RADIUS = 2;

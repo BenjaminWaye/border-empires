@@ -13,11 +13,11 @@ const fortAt = (variant: FortVariant, ownerId = "p1", extra: Partial<NonNullable
 const lookupFrom = (tiles: Record<string, FortPerimeterTileFacts>) => (x: number, y: number) => tiles[`${x},${y}`];
 
 describe("fortPerimeterDefenseMult", () => {
-  it("gives a third of the bonus for Palisade/Fort and a quarter for the Bastions", () => {
+  it("gives a third of the bonus for Palisade/Fort and a quarter for Titanium and a fifth for Thunder", () => {
     expect(fortPerimeterDefenseMult("PALISADE")).toBeCloseTo(1 + 0.35 / 3);
     expect(fortPerimeterDefenseMult("FORT")).toBeCloseTo(1.5);
     expect(fortPerimeterDefenseMult("TITANIUM_BASTION")).toBeCloseTo(1.75);
-    expect(fortPerimeterDefenseMult("THUNDER_BASTION")).toBeCloseTo(2.375);
+    expect(fortPerimeterDefenseMult("THUNDER_BASTION")).toBeCloseTo(2.1);
   });
 
   it("scales with the defender's fort tech multiplier", () => {
