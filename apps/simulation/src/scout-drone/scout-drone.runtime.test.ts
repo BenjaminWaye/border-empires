@@ -90,9 +90,11 @@ describe("Explore in the runtime", () => {
       initialState: { tiles: worldTiles(), activeLocks: [] }
     });
     const flights: ScoutDronePayload[] = [];
+    const visionBatchIds = new Set<string>();
     runtime.onEvent((event) => {
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "SCOUT_DRONE") flights.push(JSON.parse(event.payloadJson) as ScoutDronePayload);
       if (event.eventType !== "TILE_DELTA_BATCH") return;
+      if (event.commandId.startsWith("scout-drone-vision:")) visionBatchIds.add(event.commandId);
       const taken = runtime.takeVisionTransitions();
       for (const key of taken.entered.get("player-1") ?? []) entered.add(key);
       for (const key of taken.left.get("player-1") ?? []) left.add(key);
@@ -106,5 +108,8 @@ describe("Explore in the runtime", () => {
     now = flight.landsAt;
     runtime.tickWatchtowerReveals(now);
     expect(left.has("30,20")).toBe(true);
+    // One id per flight, not per step: the gateway dedupes, looks up and
+    // persists by commandId, so a fresh id per step flooded its dedupe set.
+    expect(visionBatchIds).toEqual(new Set(["scout-drone-vision:explore-2"]));
   });
 });
