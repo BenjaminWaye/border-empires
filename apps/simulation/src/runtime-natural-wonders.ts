@@ -151,10 +151,14 @@ export function prepareWonderTileWrite(tile: DomainTileState, previous: DomainTi
   if (tile.ownerId !== previous?.ownerId) applyConscriptionEngineFirstClaim(tile, players, now);
 }
 
-/** Re-sends a House's Manifest catalog (TECH_UPDATE) so its prices follow a Calculating Engine capture or loss. */
+/**
+ * Re-sends a House's Manifest catalog (TECH_UPDATE) so its prices follow a Calculating Engine capture or loss.
+ * Sent under its own system commandId: the gateway resolves a TECH_UPDATE's command, so reusing the
+ * tile write's id would resolve that EXPAND/ATTACK early (and for the other House too).
+ */
 export function emitManifestPriceUpdate(context: Pick<RuntimeProgressionCommandContext, "players" | "tiles" | "emitEvent" | "incomePerMinuteForPlayer">, playerId: string, commandId: string): void {
   const player = context.players.get(playerId);
   if (!player) return;
   const payload = buildTechUpdatePayload(player, context.tiles.values(), { incomePerMinute: context.incomePerMinuteForPlayer(playerId) });
-  context.emitEvent({ eventType: "TECH_UPDATE", commandId, playerId, payloadJson: JSON.stringify(payload) });
+  context.emitEvent({ eventType: "TECH_UPDATE", commandId: `system-runtime:manifest-price:${playerId}:${commandId}`, playerId, payloadJson: JSON.stringify(payload) });
 }

@@ -53,5 +53,10 @@ describe("Calculating Engine Manifest discount", () => {
     expect(latest.manifestGoldDiscount).toBe(0.1);
     expect(latest.techCatalog[0]?.requirements.gold).toBe(manifestGoldCost(0, 0.1));
     expect(runtime.exportState().players.find((player) => player.id === "player-1")?.wonderTechGoldDiscount).toBe(0.1);
+    // The price update is a system event: reusing the tile write's commandId let
+    // the gateway mark that EXPAND/ATTACK resolved before its own result.
+    const priceUpdate = techUpdates.at(-1) as { commandId: string };
+    expect(priceUpdate.commandId).not.toBe("settle-wonder");
+    expect(priceUpdate.commandId.startsWith("system-runtime:manifest-price:player-1:")).toBe(true);
   });
 });
