@@ -26,4 +26,9 @@ describe("a depleted Reclamation Works in the tile panels", () => {
     expect(overview.some(line => line.startsWith("Depleted:"))).toBe(true);
     expect(overview.some(line => line.includes("Dismantle"))).toBe(owner === "me");
   });
+  it("still shows a depleted Works being dismantled as Removing", () => {
+    const tile = { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED",
+      economicStructure: { ownerId: "me", type: "RECLAMATION_WORKS", status: "removing", salvageLoadsShipped: 3 } } as Tile;
+    expect(tileFactsFor(tile, { combatBreakdown: undefined, overviewLines: [] } as never, "me")[1]).toMatchObject({ label: "State", value: "Removing" });
+  });
 });

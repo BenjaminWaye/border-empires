@@ -266,13 +266,14 @@ its nameplate shows the biota icon struck through (the DOM plate layer drawn ove
 both the 2D and 3D maps), ranked just below unfed.
 
 **Precursor salvage (finite).** Each salvage tile holds 3 loads, recorded on
-its Reclamation Works (`salvageLoadsShipped`). While a Works stands, it gives
+its Reclamation Works (`salvageLoadsShipped`). While a Works holds loads, it gives
 +1% attack and +1% defense to all the owner's troops, up to +10% (combat
 breakdown label "Precursor salvage"). The `SHIP_SALVAGE_TO_COURT` command
 spends one load: the Court sends an Imperial delivery of a flat 1000 manpower
 (`SALVAGE_TRIBUTE_MANPOWER`; the same for every empire, so a larger cap earns
 no more per load), never above the cap, and is refused when manpower is full.
-AI Houses ship one load at a time when their manpower is below 35% of the cap
+AI Houses ship one load at a time when their manpower is below both 35% of the
+cap and the 1000 a load brings, so each dip spends one load
 (`apps/simulation/src/ai/salvage-tribute-planner.ts`). The
 last load removes the deposit and leaves a depleted Works
 (`isDepletedReclamationWorks`): it ends that site's arms bonus, is no longer

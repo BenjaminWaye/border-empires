@@ -1,5 +1,5 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import { salvageLoadsRemaining, salvageTributeManpower } from "@border-empires/shared";
+import { isDepletedReclamationWorks, salvageLoadsRemaining, salvageTributeManpower } from "@border-empires/shared";
 import type { AfcActiveCommandContext } from "../afc-specializations/afc-active-commands.js";
 import { parseTilePayload } from "../runtime-command-parsers.js";
 import { withResourceCleared } from "./salvage-field-clear.js";
@@ -25,6 +25,7 @@ export function handleShipSalvageToCourt(context: AfcActiveCommandContext, comma
   const key = `${payload.x},${payload.y}`;
   const tile = abilities.tiles.get(key);
   const works = tile?.economicStructure;
+  if (tile && tile.ownerId === actor.id && isDepletedReclamationWorks(tile)) return reject("this salvage field is empty");
   if (!tile || tile.ownerId !== actor.id || tile.ownershipState !== "SETTLED" || tile.resource !== "PRECURSOR_SALVAGE" ||
       works?.ownerId !== actor.id || works.type !== "RECLAMATION_WORKS" || works.status !== "active") {
     return reject("select an active Reclamation Works you own");

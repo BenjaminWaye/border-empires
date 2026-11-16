@@ -88,7 +88,7 @@ const capitalized = (text: string): string => `${text.charAt(0).toUpperCase()}${
 
 const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number, dormant: readonly SlotResource[] = []): TileFact[] => {
   // A depleted Works gives nothing and costs nothing; the same for its owner and anyone else.
-  if (s.depleted) return [{ label: "Building", value: DEPLETED_RECLAMATION_WORKS_NAME }, { label: "State", value: "Depleted · no salvage left", tone: "warn" }];
+  if (s.depleted) return [{ label: "Building", value: DEPLETED_RECLAMATION_WORKS_NAME }, s.status === "removing" ? stateFact(s, nowMs) : { label: "State", value: "Depleted · no salvage left", tone: "warn" }];
   const facts: TileFact[] = [];
   const name = structureDisplayName(s.key);
   if (name && plainText(name) !== "") facts.push({ label: "Building", value: name });

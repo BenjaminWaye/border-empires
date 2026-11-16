@@ -24,8 +24,12 @@ const input = (tiles: Map<string, StructurePlannerTile>, extra: Partial<Automati
 }) as unknown as AutomationPlannerInput<AutomationPlannerTile>;
 
 describe("aiShouldShipSalvage", () => {
-  it("ships only when low enough that the whole delivery lands", () => {
+  it("ships only when short: below 35% of the cap and below one delivery", () => {
     expect(aiShouldShipSalvage(100, CAP)).toBe(true);
+    // Regression: a large empire shipped load after load while under 35% and stripped the field.
+    expect(aiShouldShipSalvage(999, 20_000)).toBe(true);
+    expect(aiShouldShipSalvage(1_000, 20_000)).toBe(false);
+    expect(aiShouldShipSalvage(2_000, 20_000)).toBe(false);
     expect(aiShouldShipSalvage(349, CAP)).toBe(true);
     expect(aiShouldShipSalvage(350, CAP)).toBe(false);
     expect(aiShouldShipSalvage(900, CAP)).toBe(false);

@@ -1,3 +1,4 @@
+import { isDepletedReclamationWorks } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { isStructureHandledBy3D } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
@@ -19,7 +20,7 @@ export function drawEconomicStructureOverlay2D(deps: EconomicOverlay2DDeps, tile
   const hasBuiltResourceOverlay = Boolean(builtOverlay);
   // The resource pass draws installations on resource tiles. A depleted
   // Reclamation Works has no resource left, so its art is drawn here.
-  if ((hasBuiltResourceOverlay && tile.resource) || (skipRelay && structure.type === "RELAY_BEACON") ||
+  if ((hasBuiltResourceOverlay && !isDepletedReclamationWorks(tile)) || (skipRelay && structure.type === "RELAY_BEACON") ||
       (isTrue3DRendererActive() && isStructureHandledBy3D(structure.type))) return;
   const markerSize = Math.max(3, Math.floor(size * 0.2));
   const active = structure.status === "active";

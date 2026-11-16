@@ -8,16 +8,22 @@
 // its last load goes, so the AI only ships when short of manpower, never to
 // top up. Gated on the cached structure count and the low-manpower check
 // before any tile scan, so a healthy empire never walks its territory here.
+import { SALVAGE_TRIBUTE_MANPOWER } from "@border-empires/shared";
 import { createAutomationCommand } from "./automation-command-factory.js";
 import { createAutomationNoopDiagnostic } from "./automation-command-planner-types.js";
 import type { AutomationPlannerInput, AutomationPlannerResult, AutomationPlannerTile } from "./automation-command-planner-types.js";
 import { actionAdmissionKey } from "./ai-rejection-cooldown.js";
 
-/** Ship a load only below this share of the manpower cap, so little of the delivery is lost to the cap. */
+/** Ship a load only below this share of the manpower cap: the AI must actually be short. */
 export const AI_SALVAGE_TRIBUTE_MANPOWER_SHARE = 0.35;
 
+/**
+ * Short of manpower: below 35% of the cap AND below one delivery. The second
+ * bound makes each dip spend one load, so a large empire does not strip a
+ * field (and lose its arms bonus for good) in back-to-back ticks.
+ */
 export const aiShouldShipSalvage = (manpower: number, cap: number | undefined): boolean =>
-  typeof cap === "number" && cap > 0 && manpower < cap * AI_SALVAGE_TRIBUTE_MANPOWER_SHARE;
+  typeof cap === "number" && cap > 0 && manpower < cap * AI_SALVAGE_TRIBUTE_MANPOWER_SHARE && manpower < SALVAGE_TRIBUTE_MANPOWER;
 
 const isShippableWorks = (playerId: string, tile: AutomationPlannerTile): boolean =>
   tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.resource === "PRECURSOR_SALVAGE" &&

@@ -62,7 +62,8 @@ describe("shipping precursor salvage to the Court", () => {
     // Regression: the clear must survive the JSON event log, or a restart resurrects the field.
     expect(replayedSiteResource(f.events)).toBeUndefined();
     await f.ship("load-4");
-    expect(f.events.some(event => event.eventType === "COMMAND_REJECTED" && event.commandId === "load-4")).toBe(true);
+    // A depleted Works says the field is empty, not that it is missing.
+    expect(f.events.find(event => event.eventType === "COMMAND_REJECTED" && event.commandId === "load-4")).toMatchObject({ message: "this salvage field is empty" });
   });
   it("lets the owner dismantle a depleted Works", async () => {
     vi.useFakeTimers();
