@@ -57,7 +57,17 @@ describe("House Charge keep-choice reminder", () => {
     expect(state.feed[0]).toMatchObject({ title: "House charges arrived", severity: "warn" });
     expect(state.feed[0]!.text).toContain("Keep 2 of 3");
     expect(announceHouseChargeChoice(state as never, three, 1_600)).toBe(false);
+    delete (state as { captureAlert?: unknown }).captureAlert;
     expect(announceHouseChargeChoice(state as never, { ...three, dealtAt: 5_000, choiceClosesAt: 9_000 }, 6_000)).toBe(true);
+  });
+
+  it("waits for a clear alert card instead of being marked shown under another alert", () => {
+    const state = { ...feedState(), captureAlert: { title: "Captured", detail: "", until: 9_000, tone: "success" as const } };
+    expect(announceHouseChargeChoice(state as never, three, 1_500)).toBe(false);
+    expect(state.feed).toHaveLength(0);
+    expect(announceHouseChargeChoice(state as never, three, 1_700)).toBe(false);
+    state.captureAlert.until = 1_000;
+    expect(announceHouseChargeChoice(state as never, three, 1_800)).toBe(true);
   });
 
   it("stays quiet once the choice has closed or there is nothing to choose", () => {

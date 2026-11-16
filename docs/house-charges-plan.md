@@ -177,7 +177,7 @@ game's card design.
 
 | Part | Content | Example |
 |---|---|---|
-| **Name bar** | The charge's target, plus its **Renown value** shown as pips on the right (where other games put a cost) | "Road of Vell and Harrowmere" ●●● |
+| **Name bar** | The charge's target, plus its difficulty shown as pips on the right (where other games put a cost); stored as `renown`, but labelled difficulty in the client because Renown is not scored | "Road of Vell and Harrowmere" ●●● |
 | **Art box** | Art drawn from the real final map: the road traced between its two towns, the charted island outline, the desert's shape, or the relic family's ziggurat | The 22-tile road across the Vell lowlands |
 | **Type line** | "House Charge — {type}", with the **Sector set symbol** on the right, coloured by rarity | "House Charge — Charter of Passage" |
 | **Text box** | One line saying what was achieved, then italic **flavour text** from lore templates | "Connected Vell and Harrowmere and held the road to the end of the contest." *"The merchant families of House Alden paid for every milestone."* |

@@ -86,6 +86,10 @@ const formatWhen = (epochMs: number): string =>
 export const announceHouseChargeChoice = (state: FeedMutableState, payload: HouseChargesPayload | undefined, nowMs: number): boolean => {
   if (!payload || nowMs >= payload.choiceClosesAt || payload.charges.length <= HOUSE_CHARGES_KEPT) return false;
   if (choiceAnnounced(payload.dealtAt)) return false;
+  // The feed is admin-only, so this reaches players only on the alert card, which never replaces an alert
+  // already showing (client-feed-alert-surface.ts). Wait for a clear card rather than marking it shown unseen;
+  // a later HOUSE_CHARGES push retries.
+  if (state.captureAlert && state.captureAlert.until > nowMs) return false;
   markChoiceAnnounced(payload.dealtAt);
   pushFeedEntry(state, {
     title: "House charges arrived",

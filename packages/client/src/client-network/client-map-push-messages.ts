@@ -27,8 +27,8 @@ export const applyMapPushMessage = (state: ClientState, msg: Record<string, unkn
   // This House's charges (client-house-charges/); the Charges panel reads it on the next HUD render.
   if (msg.type === "HOUSE_CHARGES") {
     if (applyHouseChargesMessage(state, msg)) {
-      announceHouseChargeLosses(state, state.houseCharges);
-      announceHouseChargeChoice(state, state.houseCharges, Date.now());
+      // A loss warning takes the alert card first; the choice reminder waits for a later push.
+      if (announceHouseChargeLosses(state, state.houseCharges) === 0) announceHouseChargeChoice(state, state.houseCharges, Date.now());
       renderHud();
     }
     return true;

@@ -91,7 +91,7 @@ export const houseChargeCardHtml = (card: HouseChargeCardView): string => {
   return `<article class="hc-card kind-${card.kind.toLowerCase()} rarity-${card.rarity.toLowerCase()}${card.foil ? " is-foil" : ""}" aria-label="${esc(card.title)} card">
     ${card.foil ? '<span class="hc-foil-tag">Foil · season winner</span>' : ""}
     <div class="hc-frame">
-      <div class="hc-bar"><span class="hc-name">${esc(card.title)}</span><span class="hc-pips" aria-label="Renown ${card.renown}">${pips}</span></div>
+      <div class="hc-bar"><span class="hc-name">${esc(card.title)}</span><span class="hc-pips" aria-label="Difficulty ${Math.max(1, Math.min(4, card.renown))} of 4">${pips}</span></div>
       <div class="hc-art">${houseChargeCardArtSvg(card)}</div>
       <div class="hc-bar hc-type"><span>${HOUSE_CHARGE_KIND_LABEL[card.kind]}</span><span class="hc-set" title="Contest ${card.seasonSequence} · ${card.rarity.toLowerCase()}">✦ ${card.seasonSequence}</span></div>
       <div class="hc-text"><p>${esc(houseChargeCardRule(card))}</p><p class="hc-flavour">"${esc(flavourFor(card))}"</p></div>

@@ -27,8 +27,16 @@ const escapeHtml = (text: string): string =>
 const formatWhen = (epochMs: number): string =>
   new Date(epochMs).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" });
 
-/** Where "Show on map" goes: the target once known, otherwise the search circle. */
-export const houseChargeFocusPoint = (charge: HouseChargeView): { x: number; y: number } => charge.targets[0] ?? charge.searchCircle;
+/**
+ * Where "Show on map" goes: a target the player has explored, otherwise the
+ * search circle, so the camera never lands on an unscouted Charter town the
+ * card only gives a rough bearing to. Area charges centre on their region.
+ * Without `isExplored` (no tile knowledge) the first target is used.
+ */
+export const houseChargeFocusPoint = (charge: HouseChargeView, isExplored?: (x: number, y: number) => boolean): { x: number; y: number } => {
+  if (charge.areaTileKeys || !isExplored) return charge.targets[0] ?? charge.searchCircle;
+  return charge.targets.find((target) => isExplored(target.x, target.y)) ?? charge.searchCircle;
+};
 
 const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: boolean, focused: boolean, scoutHint: string | undefined): string => {
   const progress = houseChargeProgress(charge);
@@ -63,14 +71,12 @@ const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: bool
 };
 
 /** Why "Keep these" is (or is not) ready, so a greyed button never goes unexplained. */
-const choiceHintHtml = (ticked: number, wanted: number, changed: boolean): string => {
+const choiceHintHtml = (ticked: number, wanted: number): string => {
   const text = ticked > wanted
     ? `You have ${ticked} ticked. Untick one: you can keep only ${wanted}.`
     : ticked < wanted
       ? `Tick ${wanted - ticked} more to keep ${wanted}.`
-      : changed
-        ? `Press Keep these ${wanted} to confirm your new choice.`
-        : "";
+      : `Press Keep these ${wanted} to confirm your new choice.`;
   return `<p class="house-charges-hint${ticked === wanted ? "" : " is-warning"}" role="status">${text}</p>`;
 };
 
@@ -88,24 +94,26 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   const draft = state.houseChargesDraftKeep ?? kept;
   const changed = [...draft].sort().join("|") !== [...kept].sort().join("|");
   const until = escapeHtml(formatWhen(payload.choiceClosesAt));
-  // Once saved (the draft matches what the server kept), say so instead of showing a button that looks unpressed.
+  // With nothing to save (the ticks match what the server keeps, which may be the default pair), say what is
+  // kept and how to swap instead of a disabled button that reads as an unsaved choice. Deliberately no "saved"
+  // tick: the default pair is kept without the player ever choosing.
   const choice = !choosing
     ? ""
     : changed
       ? `<div class="house-charges-choice">
         <p>Keep ${wanted} of these ${payload.charges.length}. You can change your choice until ${until}.</p>
-        ${choiceHintHtml(draft.length, wanted, changed)}
+        ${choiceHintHtml(draft.length, wanted)}
         <button class="panel-btn" type="button" data-house-charges-save${draft.length === wanted ? "" : " disabled"}>Keep these ${wanted}</button>
       </div>`
       : `<div class="house-charges-choice is-saved">
-        <p class="house-charges-saved" role="status">✓ Keeping these ${wanted}. You can swap until ${until}.</p>
+        <p class="house-charges-saved" role="status">Keeping the ${wanted} ticked of these ${payload.charges.length}. Tick another to swap, until ${until}.</p>
       </div>`;
   const tiles = state.tiles;
   const scoutHintFor = (charge: HouseChargeView): string | undefined =>
-    charge.kept && !charge.held && tiles ? houseChargeUnscoutedHint(charge, (x, y) => tiles.has(`${x},${y}`), WORLD_WIDTH, WORLD_HEIGHT) : undefined;
+    !charge.held && tiles ? houseChargeUnscoutedHint(charge, (x, y) => tiles.has(`${x},${y}`), WORLD_WIDTH, WORLD_HEIGHT) : undefined;
   const ordered = [...payload.charges].sort((a, b) => Number(b.kept) - Number(a.kept));
   return `<section class="card house-charges-card">
-    <p class="house-charges-intro">Sealed charges from your House. Hold a kept charge when this Sector Contest's winner is crowned to earn its charge card and +1 Domain Weight, or a larger Stipend. ◆ is difficulty. Nobody else can see your charges until then.</p>
+    <p class="house-charges-intro">Sealed charges from your House. Hold a kept charge when this Sector Contest's winner is crowned to earn its charge card and a galaxy reward. ◆ is difficulty. Nobody else can see your charges until then.</p>
     ${choice}
     <div class="house-charges-list">${ordered.map((charge) => chargeCardHtml(charge, choosing, draft.includes(charge.id), state.houseChargeFocusId === charge.id, scoutHintFor(charge))).join("")}</div>
   </section>`;
@@ -151,7 +159,8 @@ export const renderHouseChargesPanel = (
         return;
       }
       state.houseChargeFocusId = charge.id;
-      const point = houseChargeFocusPoint(charge);
+      const tiles = state.tiles;
+      const point = houseChargeFocusPoint(charge, tiles ? (x, y) => tiles.has(`${x},${y}`) : undefined);
       focusCameraOnTile(state, point.x, point.y, { wrapX: deps.wrapX, wrapY: deps.wrapY, requestViewRefresh: () => deps.requestViewRefresh(2, true) });
       deps.rerender();
     };
