@@ -7,6 +7,7 @@ export const SUPPLY_AGREEMENT_LIMIT_ENTRY: Omit<ClientChangelogEntry, "createdAt
   changes: [
     "The trade screen and Alliances panel show how many supply agreements you have, out of 16, and highlight it when you're nearly or completely full.",
     "At 16/16, Accept and Send are disabled for deals that add resource supply, and say why. End one of your agreements to make room.",
-    "Offers to or from a House that is already full are refused when they are made, naming that House. AI Houses no longer offer deals to anyone who is full, or while they are full themselves."
+    "A resource trade offer to or from a House that is already full is refused when it is made, naming that House. AI Houses no longer start resource trades with anyone who is full, or while they are full themselves.",
+    "If a deal still fails because someone filled up in the meantime, the message now says whose limit was reached."
   ]
 };

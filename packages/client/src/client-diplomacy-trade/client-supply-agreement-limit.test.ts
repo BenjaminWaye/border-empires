@@ -36,6 +36,8 @@ describe("supply agreement limit in the client", () => {
     const selection: TradeSelection = { kind: "trade", durationHours: 12, terms: { give: { gold: 0, resources: { FOOD: 1 } }, ask: { gold: 5 } } };
     const verdict = tradeVerdict({ targetName: "Beejac", reply: undefined, selection, own: { gold: 0, resources: { FOOD: 5 } }, cooldownRemainingMs: 0, ownSupplyAgreements: 16 });
     expect(verdict).toMatchObject({ tone: "bad", text: FULL, canSend: false });
+    // Shown even when also short of goods: more goods wouldn't help.
+    expect(tradeVerdict({ targetName: "Beejac", reply: undefined, selection, own: { gold: 0, resources: {} }, cooldownRemainingMs: 0, ownSupplyAgreements: 16 }).text).toBe(FULL);
   });
   it("blocks accepting a truce that adds resource supply in the offer dock", () => {
     const truce = { id: "t1", fromPlayerId: "them", toPlayerId: "me", createdAt: 0, expiresAt: 300_000, durationHours: 12 as const, fromName: "Beejac", terms: supplyTerms };

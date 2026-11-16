@@ -29,17 +29,6 @@ describe("supply agreement limit on resource trades", () => {
     const f = setup({ a: 16, b: 0 });
     await expect(f.service.request("a", "b", terms)).resolves.toEqual({ ok: false, message: "You already have 16/16 active supply agreements. End one to make room." });
   });
-  it("refuses a fresh accept once the accepting House filled up, without paying", async () => {
-    const counts: Record<string, number> = { a: 0, b: 0 };
-    const f = setup(counts);
-    const made = await f.service.request("a", "b", terms);
-    expect(made.ok).toBe(true);
-    counts.b = 16;
-    await f.service.handle({ type: "RESOURCE_TRADE_ACCEPT", offerId: made.ok ? made.offerId : "" }, "b", f.socket, false);
-    expect(f.settle).not.toHaveBeenCalled();
-    expect(f.send).toHaveBeenCalledWith(f.socket, { type: "ERROR", code: "RESOURCE_TRADE_FAILED", message: "You already have 16/16 active supply agreements. End one to make room." });
-    expect(f.social.resourceTradeOffers.rows(1)).toHaveLength(1);
-  });
   it("leaves the simulation to decide when the count is unknown", async () => {
     const f = setup({});
     expect((await f.service.request("a", "b", terms)).ok).toBe(true);

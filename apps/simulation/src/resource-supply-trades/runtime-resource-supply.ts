@@ -106,6 +106,9 @@ export class RuntimeResourceSupply {
   create(row: ResourceSupplyAgreement, targetCoinDelta?: number): SupplyLedgerResult {
     if (offerIncludesNonTradableSupply(row.proposerGives) || offerIncludesNonTradableSupply(row.targetGives))
       return { ok: false, message: "Precursor salvage can't be traded." };
+    // The agreement limit is reported before a slot shortfall: it can't be fixed by finding spare slots.
+    const full = this.ledger.capacityRefusal(row);
+    if (full) { this.ctx.capacityRejected?.(); return { ok: false, message: full }; }
     for (const [id, offer] of [[row.proposerId, row.proposerGives], [row.targetId, row.targetGives]] as const) {
       const shortfall = supplyShortfallMessage(this.ctx.player(id)?.name ?? id, offer, this.available(id));
       if (shortfall) return { ok: false, message: shortfall };

@@ -35,7 +35,8 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
     ctx.fanout(new Map(ids.map(id=>[id,[{type:"RESOURCE_TRADE_UPDATE",offers:offersFor(id)}]])));
     ctx.record("info","gateway_resource_trade_offers",{count:store.rows(ctx.now()).length});
   };
-  /** Refuses up front when either House is at its supply agreement limit; `viewerId` reads "You". */
+  /** Refuses a new offer when either House is at its supply agreement limit; `viewerId` reads "You". Accepts are
+   * left to the simulation (which names the full House): a just-ended agreement may not be in a cached count yet. */
   const limitRefusal=async(viewerId:string,houses:readonly {id:string;name:string}[]):Promise<string|undefined>=>{
     for(const house of houses){
       let count:number|undefined;
@@ -110,9 +111,6 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
         store.remove(row.id);publish([row.fromPlayerId,row.toPlayerId]);return true;
       }
       if(row.toPlayerId!==actorId&&row.status!=="settling"){error("Only the receiving House can accept this offer.");return true;}
-      // A settling payment resumes as before; only a fresh accept is refused at the limit.
-      const full=row.status==="pending"&&ctx.supplyAgreementCount?await limitRefusal(actorId,[{id:row.toPlayerId,name:row.toPlayerName},{id:row.fromPlayerId,name:row.fromPlayerName}]):undefined;
-      if(full){error(full);return true;}
       const failure=await accept(row);if(failure)error(failure);return true;
     }
     return true;

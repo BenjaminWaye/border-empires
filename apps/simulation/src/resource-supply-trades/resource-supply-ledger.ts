@@ -60,7 +60,7 @@ export class ResourceSupplyLedger {
   invalidate(): void { this.cached = undefined; this.cachedAt = undefined; this.cachedUntil = Infinity; }
   private hasCapacity(row: ResourceSupplyAgreement): boolean { return this.capacityRefusal(row) === undefined; }
   /** Why `row` can't be added, naming the House whose limit is reached. */
-  private capacityRefusal(row: ResourceSupplyAgreement): string | undefined {
+  capacityRefusal(row: ResourceSupplyAgreement): string | undefined {
     if (this.size >= MAX_RESOURCE_SUPPLY_AGREEMENTS) return worldSupplyAgreementLimitMessage();
     for (const id of [row.proposerId, row.targetId]) {
       let count = 0;

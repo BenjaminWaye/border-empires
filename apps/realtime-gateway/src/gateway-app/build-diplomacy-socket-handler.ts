@@ -227,7 +227,9 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const resourceTrades = createResourceTradeService({ social:socialState,settlement,now:()=>Date.now(),
     isAutoRespondingAi:id=>isAi(id)&&!deps.hasLiveSocket(id),
     aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?{gold:Math.floor(player.gold),...(player.resourceTradeHoldings?{resources:player.resourceTradeHoldings}:{})}:undefined;},
-    supplyAgreementCount:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?activeSupplyAgreementCount(player.resourceTradeAgreements,id,Date.now()):undefined;},
+    // Live snapshots only (an AI's is memoized): an offline human's is unknown and never fetched, so a
+    // refused request can't make the gateway pay for a full simulation snapshot. The simulation still enforces the limit.
+    supplyAgreementCount:async id=>{const player=(deps.cachedSnapshotForPlayer(id)??(isAi(id)?await fetchAiSnapshot(id):undefined))?.player;return player?activeSupplyAgreementCount(player.resourceTradeAgreements,id,Date.now()):undefined;},
     send:deps.sendJson,fanout:deps.fanoutPlayerPayloads,record:deps.recordGatewayEvent });
   const aiFoodTrades = createProactiveAiResourceTrade({ aiPlayerIds: deps.seededAiPlayerIds, hasLiveSocket: deps.hasLiveSocket,
     fetchAiSnapshot: requesterSnapshot, playerState: async id => (await deps.ensureSubscribed(id)).player,
