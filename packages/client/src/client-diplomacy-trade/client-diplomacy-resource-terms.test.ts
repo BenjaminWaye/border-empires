@@ -66,9 +66,10 @@ describe("resource supply negotiation",()=>{
     document.querySelector<HTMLButtonElement>('[data-resource-offer-accept="offer"]')!.click();
     expect(send.mock.calls.at(-1)?.[0]).toEqual({type:"RESOURCE_TRADE_ACCEPT",offerId:"offer"});
     // Ending takes a separate confirming tap (client-resource-end-confirm.ts).
-    const endNow=Date.now();vi.spyOn(Date,"now").mockReturnValueOnce(endNow).mockReturnValueOnce(endNow+1_000);
+    vi.useFakeTimers();
     document.querySelector<HTMLButtonElement>('[data-resource-end="contract"]')!.click();
     expect(send.mock.calls.at(-1)?.[0]).toEqual({type:"RESOURCE_TRADE_ACCEPT",offerId:"offer"});
+    vi.advanceTimersByTime(1_000);
     document.querySelector<HTMLButtonElement>('[data-resource-end="contract"]')!.click();
     expect(send.mock.calls.at(-1)?.[0]).toEqual({type:"RESOURCE_TRADE_END",agreementId:"contract"});
     applyResourceTradeState(state,{},true);

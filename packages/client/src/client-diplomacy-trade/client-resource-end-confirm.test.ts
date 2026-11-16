@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResourceSupplyAgreementStatus } from "@border-empires/shared";
 
 import { closeDiplomacyTradeScreen, openDiplomacyTradeScreen } from "./client-diplomacy-trade.js";
-import { RESOURCE_END_CONFIRM_MIN_MS, RESOURCE_END_CONFIRM_RESET_MS } from "./client-resource-end-confirm.js";
+import { RESOURCE_END_ARMED_LABEL, RESOURCE_END_CONFIRM_MIN_MS, RESOURCE_END_CONFIRM_RESET_MS } from "./client-resource-end-confirm.js";
 
 const agreement: ResourceSupplyAgreementStatus = {
   id: "diplomacy-settle:resource-trade:offer-1", proposerId: "ai-1", targetId: "me",
@@ -13,13 +13,14 @@ const agreement: ResourceSupplyAgreementStatus = {
 
 const openWithAgreement = () => {
   const send = vi.fn().mockReturnValue(true);
+  let gold = 100;
   openDiplomacyTradeScreen(
     { targetName: "Milo", targetPlayerId: "ai-1", kind: "trade", durationHours: 12 },
-    { send, ownHoldings: () => ({ gold: 100 }), activeSupply: () => ({ ownId: "me", agreements: [agreement] }) }
+    { send, ownHoldings: () => ({ gold }), activeSupply: () => ({ ownId: "me", agreements: [agreement] }) }
   );
   const end = () => document.querySelector<HTMLButtonElement>("[data-resource-end]")!;
   const endCalls = () => send.mock.calls.filter(([payload]) => (payload as { type: string }).type === "RESOURCE_TRADE_END");
-  return { end, endCalls };
+  return { end, endCalls, earn: () => { gold += 1; } };
 };
 
 describe("ending a resource supply", () => {
@@ -36,10 +37,24 @@ describe("ending a resource supply", () => {
     end().click();
     end().click();
     expect(endCalls()).toHaveLength(0);
-    expect(end().textContent).toBe("Tap again to end supply");
+    expect(end().textContent).toBe(RESOURCE_END_ARMED_LABEL);
     vi.advanceTimersByTime(RESOURCE_END_CONFIRM_MIN_MS);
     end().click();
     expect(endCalls()).toEqual([[{ type: "RESOURCE_TRADE_END", agreementId: agreement.id }, expect.any(String)]]);
+  });
+
+  // The screen rebuilds its cards each second while coin ticks in; that must not disarm End.
+  it("stays armed across the screen's re-renders", () => {
+    vi.useFakeTimers();
+    const { end, endCalls, earn } = openWithAgreement();
+    const first = end();
+    first.click();
+    earn();
+    vi.advanceTimersByTime(1_000);
+    expect(end()).not.toBe(first);
+    expect(end().textContent).toBe(RESOURCE_END_ARMED_LABEL);
+    end().click();
+    expect(endCalls()).toHaveLength(1);
   });
 
   it("disarms when the confirming tap never comes", () => {
