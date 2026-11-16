@@ -226,13 +226,22 @@ describe("action bar", () => {
   });
 
   // 2026-11-14 playtest: "Beyond your reach" was a dead badge; its explainer only existed in the legacy menu.
-  it("makes a status with an explainer open Details, which leads with the explainer", () => {
-    const v = view({ statusText: "Beyond your reach", statusTone: "warning", statusHelpText: "Your reach is the land within 3 tiles of your towns." });
+  // 2026-11-16 playtest: the badge opened all of Details, so "Inside X Reach" also showed unrelated hill modifiers.
+  it("makes a status with an explainer open only that explainer, not Details", () => {
+    const v = view({
+      statusText: "Beyond your reach", statusTone: "warning", statusHelpText: "Your reach is the land within 3 tiles of your towns.",
+      overviewLines: [{ html: "Modifiers", kind: "section" }, { html: "Hills: vision +1", kind: "effect" }]
+    });
     const closed = actionBarHtml(v);
-    expect(closed).toMatch(/<button[^>]*class="hud-v2-tile-status[^"]*"[^>]*data-hud-v2-panel="details"[^>]*>Beyond your reach ⓘ<\/button>/);
+    expect(closed).toMatch(/<button[^>]*class="hud-v2-tile-status[^"]*"[^>]*data-hud-v2-panel="status"[^>]*>Beyond your reach ⓘ<\/button>/);
     expect(closed).toContain('data-hud-v2-panel="details" aria-expanded="false">Details ▾');
-    const open = actionBarHtml(v, "details");
+    const open = actionBarHtml(v, "status");
     expect(open).toContain("<strong>Beyond your reach:</strong> Your reach is the land within 3 tiles of your towns.");
+    expect(open).not.toContain("Hills: vision +1");
+    expect(open).not.toContain('aria-label="Tile details"');
+    const details = actionBarHtml(v, "details");
+    expect(details).toContain("Hills: vision +1");
+    expect(details).not.toContain("<strong>Beyond your reach:</strong>");
     expect(actionBarHtml(view({ statusText: "Recently captured 2m", statusTone: "warning" }))).toContain('<span class="hud-v2-tile-status hud-v2-tile-status-warning">Recently captured 2m</span>');
   });
 

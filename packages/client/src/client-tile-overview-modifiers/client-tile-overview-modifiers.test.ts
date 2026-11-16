@@ -323,7 +323,9 @@ describe("tileOverviewModifiersForTile", () => {
     vi.useRealTimers();
   });
 
-  it("shows a plain 'Vision' modifier for a real hills tile with no other modifier to disambiguate from", () => {
+  // Regression (2026-11-16 playtest): a bare hills tile showed "Vision: +1" and
+  // "Defense: +20%" with no hint the bonus came from the hill.
+  it("names 'Hills' as the source on a bare hills tile", () => {
     setWorldSeed(1);
     const modifiers = tileOverviewModifiersForTile({
       x: KNOWN_HILLS_TILE.x,
@@ -332,16 +334,12 @@ describe("tileOverviewModifiersForTile", () => {
       ownerId: "me",
       ownershipState: "FRONTIER"
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "Vision", effect: "+1", tone: "positive" });
-    expect(modifiers).toContainEqual({ reason: "Defense", effect: "+20% when garrisoned", tone: "positive" });
-    expect(modifiers.some((m) => m.reason === "Hills")).toBe(false);
+    expect(modifiers).toContainEqual({ reason: "Hills", effect: "vision +1", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Hills", effect: "defense +20% when garrisoned", tone: "positive" });
+    expect(modifiers.some((m) => m.reason === "Vision" || m.reason === "Defense")).toBe(false);
   });
 
-  // Regression: a bare hills tile shows an unlabeled "Vision: +1" line
-  // (nothing else to disambiguate from), but once the tile already has
-  // another modifier — e.g. a Relay Beacon's own vision line — the hills
-  // contribution is named "Hills:" so the two vision lines aren't confused
-  // for each other.
+  // With another vision source (a Relay Beacon) the two lines stay distinct.
   it("names 'Hills' as the source when the tile already has another modifier", () => {
     setWorldSeed(1);
     const modifiers = tileOverviewModifiersForTile({
