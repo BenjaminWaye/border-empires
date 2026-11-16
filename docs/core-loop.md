@@ -457,7 +457,8 @@ to expansion and war.
 - **Slot dormancy.** Building past your land's slot supply does nothing.
 - **Exposure-based defense.** Wide, stringy borders are weak, and FRONTIER
   tiles have zero defense.
-- **Encirclement.** Losing a key tile can cut off nearby frontier.
+- **Encirclement.** Losing a key tile can cut off nearby frontier; when an
+  enemy capture made the cut, the cut-off frontier becomes theirs.
 - **Leader pile-on.** The 24h hold and live standings let everyone see and
   target the leader.
 - **Barbarians.** 80 seeded camps wake up when you border them and can
