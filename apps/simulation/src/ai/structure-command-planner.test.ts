@@ -364,7 +364,7 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
     const occupiedNeighbor = tile(1, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
-      fort: { ownerId: "ai-1", status: "active" }
+      observatory: { ownerId: "ai-1", status: "active" }
     });
     const frontierNeighbors = [
       [-1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1], [1, 1]
@@ -381,5 +381,29 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
       tilesByKey
     );
     expect(result).toBeUndefined();
+  });
+
+  // A fort shares its tile with any building, so a fortified but otherwise empty plot is still open.
+  it("proposes a town-support structure on a fortified empty neighbor", () => {
+    const fortifiedNeighbor = tile(1, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      fort: { ownerId: "ai-1", status: "active" }
+    });
+    const frontierNeighbors = [
+      [-1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1], [1, 1]
+    ].map(([dx, dy]) => tile(dx, dy, { ownerId: "ai-1", ownershipState: "FRONTIER" }));
+    const tilesByKey = new Map<string, StructurePlannerTile>([
+      ["0,0", town],
+      ["1,0", fortifiedNeighbor],
+      ...frontierNeighbors.map((n) => [`${n.x},${n.y}`, n] as const)
+    ]);
+
+    const result = chooseBestEconomicBuild(
+      ECONOMIC_BUILD_PLAYER,
+      [town, fortifiedNeighbor, ...frontierNeighbors],
+      tilesByKey
+    );
+    expect(result?.structureType).toBe("MANUFACTORY");
   });
 });

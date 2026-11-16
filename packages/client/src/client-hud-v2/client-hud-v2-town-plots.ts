@@ -14,7 +14,8 @@ export type TownPlotState = "built" | "building" | "open" | "locked";
 export type TownPlot = { key: string; state: TownPlotState };
 
 const structureStatus = (tile: Tile): string | undefined => {
-  const structure = tile.fort ?? tile.observatory ?? tile.siegeBattery ?? tile.economicStructure;
+  // A fort shares its tile with any building, so it never takes up a build plot.
+  const structure = tile.observatory ?? tile.siegeBattery ?? tile.economicStructure;
   return structure ? (structure as { status?: string }).status ?? "active" : undefined;
 };
 
