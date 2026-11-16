@@ -10,3 +10,13 @@ export const SALVAGE_TRIBUTE_BALANCE_ENTRY: Omit<ClientChangelogEntry, "createdA
     "Shipping the last load no longer removes the Reclamation Works: it stays on the map as a depleted, empty yard with no attack or defense bonus, which you can dismantle to free the tile. Its tile panel reads \"Depleted Reclamation Works\" for you and for other players."
   ]
 };
+
+export const SALVAGE_TOAST_DECLUTTER_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.16",
+  title: "Salvage markers no longer cover the map",
+  why: "Every Reclamation Works with loads got its own large \"Salvage ×3\" banner, so a deposit of adjacent Works stacked several banners on top of each other and hid the map, especially when zoomed out.",
+  changes: [
+    "Works close together on screen now share one marker showing their total loads; tapping it opens the field that can ship now.",
+    "When zoomed out the marker shrinks to a small number pip; zoomed in it is a smaller \"Salvage 3\" tag."
+  ]
+};

@@ -1,5 +1,6 @@
 import { TRADABLE_SUPPLY_RESOURCES, hasResourceSupplyOffer, supplyResourceLabel, type ResourceSupplyOffer, type ResourceSupplyAgreementStatus } from "@border-empires/shared";
 import { resourceDeadlineHtml, resourceTradeServerNow } from "./client-resource-deadline.js";
+import { RESOURCE_END_ARMED_LABEL, resourceEndIsArmed } from "./client-resource-end-confirm.js";
 
 const quantities = (offer: ResourceSupplyOffer): string => TRADABLE_SUPPLY_RESOURCES.flatMap(resource => {
   const quantity = offer[resource] ?? 0;
@@ -16,7 +17,7 @@ export function activeResourceDealsHtml(rows: readonly ResourceSupplyAgreementSt
     const coin = `${outgoing ? `<br>You pay up to ${outgoing} Coin/hour` : ""}${incoming ? `<br>You receive up to ${incoming} Coin/hour` : ""}`;
     // Deals are binding for their term; only open-ended agreements saved before terms existed can still be ended.
     const end = row.expiresAt === undefined
-      ? `<button type="button" class="resource-trade-action" data-resource-end="${esc(row.id)}">End supply</button>`
+      ? `<button type="button" class="resource-trade-action" data-resource-end="${esc(row.id)}">${resourceEndIsArmed(row.id, Date.now()) ? RESOURCE_END_ARMED_LABEL : "End supply"}</button>`
       : `<small>Binding: only war between you ends it early.</small>`;
     const slots = hasResourceSupplyOffer(row.proposerGives) || hasResourceSupplyOffer(row.targetGives)
       ? `<br>You supply: ${quantities(ownProposes ? row.proposerGives : row.targetGives)}<br>You receive: ${quantities(ownProposes ? row.targetGives : row.proposerGives)}` : "";

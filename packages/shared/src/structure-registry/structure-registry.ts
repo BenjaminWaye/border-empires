@@ -113,18 +113,16 @@ export const tileIsLand: PlacementCheck = (ctx) => {
 export const noConflictingStructure: PlacementCheck = (ctx) => {
   if (ctx.isUpgrade) return null;
 
-  // A Fort and a Relay Beacon are allowed to share a tile.
-  const existingIsRelayBeacon = (ctx.tile.economicStructure as { type?: string } | undefined)?.type === "RELAY_BEACON";
+  // A fortification may share a tile with any building (every economic
+  // structure and an Aether Tower), in either build order; only a siege
+  // engine excludes it.
+  const buildingFort = ctx.tileField === "fort";
 
   const conflicting: string[] = [];
   if (ctx.tileField === "siegeBattery" && ctx.tile.fort) conflicting.push("fort");
-  if (ctx.tileField !== "observatory" && ctx.tile.observatory) conflicting.push("aether tower");
+  if (ctx.tileField !== "observatory" && !buildingFort && ctx.tile.observatory) conflicting.push("aether tower");
   if (ctx.tileField !== "siegeBattery" && ctx.tile.siegeBattery) conflicting.push("siege battery");
-  if (
-    ctx.tileField !== "economicStructure" &&
-    ctx.tile.economicStructure &&
-    !(ctx.tileField === "fort" && existingIsRelayBeacon)
-  ) conflicting.push("structure");
+  if (ctx.tileField !== "economicStructure" && !buildingFort && ctx.tile.economicStructure) conflicting.push("structure");
   if (conflicting.length > 0) return `tile already has ${conflicting.join(", ")}`;
   return null;
 };

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
 import { createFreshPlotTracker, townBuildPlots, townPlotsStatHtml } from "./client-hud-v2-town-plots.js";
+import { openBuildSlotsForTown } from "../client-town-list/client-town-list-slots.js";
 
 const town: Tile = {
   x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED",
@@ -33,6 +34,16 @@ describe("town build plots", () => {
     const s = states(tiles, ["9,10"]);
     expect(s).toMatchObject({ "9,9": "built", "10,9": "building", "11,9": "locked", "9,10": "building", "11,10": "open" });
     expect(Object.values(s).filter((v) => v === "open")).toHaveLength(4);
+  });
+
+  // Regression: a fort shares its tile with any building, so it never fills a plot.
+  it("counts a fortified empty plot as open, in the plots card and the town list", () => {
+    const fort = { ownerId: "me", variant: "FORT", status: "active" } as NonNullable<Tile["fort"]>;
+    const tiles = ring({ "11,10": { fort }, "9,9": { fort, economicStructure: structure("active") } });
+    const s = states(tiles);
+    expect(s["11,10"]).toBe("open");
+    expect(s["9,9"]).toBe("built");
+    expect(openBuildSlotsForTown(tiles, town, "me")).toBe(7);
   });
 
   // Review regression: sea, mountains and rivals' tiles were counted as "needs garrison", which the player can never act on.

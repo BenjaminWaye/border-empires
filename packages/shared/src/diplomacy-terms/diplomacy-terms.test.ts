@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   aiCounterOffer,
   AI_RECURRING_COIN_VALUE_SHARE,
+  describeDiplomacyTermsForProposer,
   describeDiplomacyTermsForRecipient,
   netValueToAi,
   recurringCoinHasSlot,
@@ -90,6 +91,13 @@ describe("terms helpers", () => {
     expect(swapDiplomacyTerms(offer)).toEqual(terms(20, 50));
     expect(describeDiplomacyTermsForRecipient(offer, "Beejac")).toBe("Beejac pays 50 coin; you pay 20 coin");
     expect(describeDiplomacyTermsForRecipient(emptyDiplomacyTerms(), "Beejac")).toBe("");
+  });
+
+  // An AI food sale read "you pay 4 coin" next to a supply line, which looked like 4 coin per hour.
+  it("labels upfront coin as a lump sum when the deal also has continuing supply", () => {
+    const sale = { give: { gold: 0, resources: { FOOD: 1 } }, ask: { gold: 4 } };
+    expect(describeDiplomacyTermsForRecipient(sale, "Milo")).toBe("Milo pays 1 FOOD supply slot; you pay 4 coin lump sum. Supply lasts 7 days from acceptance.");
+    expect(describeDiplomacyTermsForProposer(sale, "Ana")).toContain("Ana pays 4 coin lump sum");
   });
 
   it("rejects negative, fractional and absurd amounts on the wire", () => {
