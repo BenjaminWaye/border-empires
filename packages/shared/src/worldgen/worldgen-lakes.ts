@@ -81,17 +81,12 @@ const isRoundLakeExtremitiesInland = (
 // Checks a handful of points on the shape's own perimeter (not just its
 // center) against isInland -- a big round/elongated lake can still poke
 // into the coast even when its center reads as solidly inland.
-const isInRoundLake = (
-  x: number,
-  y: number,
-  cx: number,
-  cy: number,
-  gx: number,
-  gy: number,
-  seed: number,
-  isInland: (px: number, py: number) => boolean
-): boolean => {
-  if (!isRoundLakeExtremitiesInland(cx, cy, gx, gy, seed, isInland)) return false;
+// Only ever called with a candidate resolveLakeCandidates already validated
+// (its extremities are inland), so this is pure geometry: re-running that
+// check per query tile repeated the identical, uncacheable continent-score
+// work (fractional/off-map points miss the per-tile cache) for every tile in
+// the 3x3 cell block and froze the client's first terrain query for ~25s.
+const isInRoundLake = (x: number, y: number, cx: number, cy: number, gx: number, gy: number, seed: number): boolean => {
   const r = 4 + Math.floor(seeded01(gx, gy, seed + 74) * 8);
   const dx = x - cx;
   const dy = y - cy;
@@ -125,17 +120,8 @@ const isElongatedLakeExtremitiesInland = (
   );
 };
 
-const isInElongatedLake = (
-  x: number,
-  y: number,
-  cx: number,
-  cy: number,
-  gx: number,
-  gy: number,
-  seed: number,
-  isInland: (px: number, py: number) => boolean
-): boolean => {
-  if (!isElongatedLakeExtremitiesInland(cx, cy, gx, gy, seed, isInland)) return false;
+// Pre-validated candidate only -- see isInRoundLake.
+const isInElongatedLake = (x: number, y: number, cx: number, cy: number, gx: number, gy: number, seed: number): boolean => {
   const angle = seeded01(gx, gy, seed + 76) * Math.PI;
   const semiMajor = 11 + seeded01(gx, gy, seed + 77) * 12;
   const semiMinor = 4 + seeded01(gx, gy, seed + 78) * 5;
@@ -179,25 +165,16 @@ const isWanderingLakeStepsInland = (
 
 // A short chain of overlapping circles walked in a jittered direction --
 // reads as a bendy, organic lake rather than a stamped ellipse. Each step's
-// center must itself pass the inland check (via isStepInland) or the walk
-// stops there, so the chain can't wander out to the coast even though its
-// direction is randomized.
-const isInWanderingLake = (
-  x: number,
-  y: number,
-  cx: number,
-  cy: number,
-  gx: number,
-  gy: number,
-  seed: number,
-  isStepInland: (px: number, py: number) => boolean
-): boolean => {
+// center is inland -- isWanderingLakeStepsInland verified the whole chain
+// once per cell before the candidate was cached, so the walk can't wander out
+// to the coast even though its direction is randomized (pre-validated
+// candidate only -- see isInRoundLake).
+const isInWanderingLake = (x: number, y: number, cx: number, cy: number, gx: number, gy: number, seed: number): boolean => {
   let px = cx;
   let py = cy;
   let heading = seeded01(gx, gy, seed + 79) * Math.PI * 2;
   const steps = 4 + Math.floor(seeded01(gx, gy, seed + 80) * 2); // 4..5
   for (let i = 0; i < steps; i++) {
-    if (!isStepInland(px, py)) return false;
     const r = 3 + seeded01(gx, gy, seed + 81 + i * 3) * 4; // 3..7
     const dx = x - px;
     const dy = y - py;
@@ -289,9 +266,9 @@ export const isLakeAt = (
       const gx = gx0 + dgx;
       const gy = gy0 + dgy;
       for (const { cx, cy, shape } of resolveLakeCandidates(gx, gy, seed, isInland)) {
-        if (shape === "ROUND" && isInRoundLake(x, y, cx, cy, gx, gy, seed, isInland)) return true;
-        if (shape === "ELONGATED" && isInElongatedLake(x, y, cx, cy, gx, gy, seed, isInland)) return true;
-        if (shape === "WANDERING" && isInWanderingLake(x, y, cx, cy, gx, gy, seed, isInland)) return true;
+        if (shape === "ROUND" && isInRoundLake(x, y, cx, cy, gx, gy, seed)) return true;
+        if (shape === "ELONGATED" && isInElongatedLake(x, y, cx, cy, gx, gy, seed)) return true;
+        if (shape === "WANDERING" && isInWanderingLake(x, y, cx, cy, gx, gy, seed)) return true;
       }
     }
   }
