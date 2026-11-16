@@ -6,18 +6,18 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_116 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_117 } from "./client-changelog-data-earlier-117.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_118 } from "./client-changelog-data-earlier-118.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_119 } from "./client-changelog-data-earlier-119.js";
-import { WINS_AND_COSTS_EXPLAINED_ENTRY } from "./client-changelog-wins-and-costs-explained.js";
-import { PLAYTEST_MAP_READABILITY_ENTRY } from "./client-changelog-playtest-map-readability.js";
-import { INCOME_WAR_CARDS_ENTRY } from "./client-changelog-income-war-cards.js";
-import { SALVAGE_TRIBUTE_BALANCE_ENTRY } from "./client-changelog-salvage-tribute-balance.js";
-import { SERVER_EXPLORED_MAP_ENTRY } from "./client-changelog-server-explored-map.js";
+import { NO_RATE_LIMIT_ERRORS_ENTRY } from "./client-changelog-no-rate-limit-errors.js";
+import { SALVAGE_TOAST_DECLUTTER_ENTRY } from "./client-changelog-salvage-tribute-balance.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_120 } from "./client-changelog-data-earlier-120.js";
 import { RECONNECT_RAZED_STRUCTURES_ENTRY } from "./client-changelog-reconnect-razed-structures.js";
 import { MUSTER_PANEL_SIZE_ENTRY } from "./client-changelog-muster-panel-size.js";
 import { ENCIRCLEMENT_POCKET_ENTRY } from "./client-changelog-encirclement-pocket.js";
 import { FASTER_LOGIN_MAP_ENTRY } from "./client-changelog-faster-login-map.js";
 import { PLACE_ANOTHER_ENTRY } from "./client-changelog-place-another.js";
 import { MET_EMPIRES_REMEMBERED_ENTRY } from "./client-changelog-met-empires-remembered.js";
+import { TOWNS_LIST_COIN_PENDING_ENTRY } from "./client-changelog-towns-list-coin-pending.js";
 import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
+import { RESOURCE_TRADE_SAFETY_ENTRY } from "./client-changelog-resource-trade-safety.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -66,7 +66,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_27 } from "./client-changelog-oct-27.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31.js";
 import { CLIENT_CHANGELOG_ENTRIES_NOV_01_03 } from "./client-changelog-nov-01-03.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
-import { RESOURCE_NETWORKS_CHANGELOG, TIMED_RESOURCE_TRADES_ENTRY } from "./client-changelog-resource-networks.js";
+import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
 import { FRONTIER_RESOURCES_REWORK_CHANGELOG } from "./client-changelog-frontier-resources.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
@@ -476,19 +476,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_117,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_118,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_119,
-  { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
-  { ...PLAYTEST_MAP_READABILITY_ENTRY, createdAt: 1794817797219, },
-  { ...WINS_AND_COSTS_EXPLAINED_ENTRY, createdAt: 1794818581757, },
-  { ...INCOME_WAR_CARDS_ENTRY, createdAt: 1794819359958, },
-  { ...SALVAGE_TRIBUTE_BALANCE_ENTRY, createdAt: 1794828701450, },
-  { ...SERVER_EXPLORED_MAP_ENTRY, createdAt: 1794827574814, },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_120,
   { ...RECONNECT_RAZED_STRUCTURES_ENTRY, createdAt: 1794830646310, },
   { ...MUSTER_PANEL_SIZE_ENTRY, createdAt: 1794826419518, },
   { ...ENCIRCLEMENT_POCKET_ENTRY, createdAt: 1794826569677, },
   { ...FASTER_LOGIN_MAP_ENTRY, createdAt: 1794856144245, },
   { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
+  { ...SALVAGE_TOAST_DECLUTTER_ENTRY, createdAt: 1794863171668, },
   { ...PLACE_ANOTHER_ENTRY, createdAt: 1794861771175, },
   { ...MET_EMPIRES_REMEMBERED_ENTRY, createdAt: 1794866661803, },
+  { ...RESOURCE_TRADE_SAFETY_ENTRY, createdAt: 1794863712943, },
+  { ...TOWNS_LIST_COIN_PENDING_ENTRY, createdAt: 1794864521632, },
+  { ...NO_RATE_LIMIT_ERRORS_ENTRY, createdAt: 1794864645451, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

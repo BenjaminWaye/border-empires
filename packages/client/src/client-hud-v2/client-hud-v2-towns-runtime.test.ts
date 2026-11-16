@@ -73,6 +73,21 @@ describe("HUD v2 Towns screen", () => {
     expect(document.querySelector('[data-v2-towns-open="5,5"]')).toBeNull();
   });
 
+  // Playtest 2026-11-16: a fed town without its coin figure read 0.0 until you opened it.
+  it("shows … for a town whose coin figure is missing and asks the server for it", () => {
+    document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
+    const { deps, state } = setup();
+    const { goldPerMinute: _missing, ...withoutCoin } = town(30, "Auriyrcrown", 0).town!;
+    state.tiles.set("30,5", { ...town(30, "Auriyrcrown", 0), town: withoutCoin as NonNullable<Tile["town"]> });
+    closeScreen(deps, { toMap: true });
+    forgetMyTowns();
+    openScreen(deps, "towns");
+    const cell = document.querySelector('[data-v2-towns-open="30,5"] .v2l-name + .v2l-num');
+    expect(cell?.textContent).toBe("…");
+    expect(deps.actionFlow.requestTileDetailIfNeeded).toHaveBeenCalledWith(state.tiles.get("30,5"));
+    expect(deps.actionFlow.requestTileDetailIfNeeded).not.toHaveBeenCalledWith(state.tiles.get("5,5"));
+  });
+
   it("re-sorts on a header press and keeps the list's scroll position", () => {
     const { deps } = setup();
     const before = townListSort();

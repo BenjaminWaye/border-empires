@@ -67,9 +67,12 @@ export const swapDiplomacyTerms = (terms: DiplomacyTerms): DiplomacyTerms => ({
   ...(terms.supplyDurationHours ? { supplyDurationHours: terms.supplyDurationHours } : {})
 });
 
-const goodsLabel = (goods: DiplomacyGoods): string => {
+/** Deals with continuing terms label upfront Coin "lump sum" so it can't be read as Coin per hour. */
+const hasContinuingTerms = (terms: DiplomacyTerms): boolean =>
+  hasRecurringCoin(terms) || hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources);
+const goodsLabel = (goods: DiplomacyGoods, lumpSum = false): string => {
   const parts: string[] = [];
-  if (goods.gold > 0) parts.push(`${goods.gold} coin`);
+  if (goods.gold > 0) parts.push(`${goods.gold} coin${lumpSum ? " lump sum" : ""}`);
   if (goods.coinPerHour) parts.push(`up to ${goods.coinPerHour} coin/hour from income`);
   for (const resource of TRADABLE_SUPPLY_RESOURCES) {
     const count = goods.resources?.[resource] ?? 0;
@@ -82,8 +85,9 @@ const goodsLabel = (goods: DiplomacyGoods): string => {
 export const describeDiplomacyTermsForRecipient = (terms: DiplomacyTerms | undefined, proposerName: string): string => {
   if (diplomacyTermsAreEmpty(terms) || !terms) return "";
   const parts: string[] = [];
-  const theyPay = goodsLabel(terms.give);
-  const youPay = goodsLabel(terms.ask);
+  const lumpSum = hasContinuingTerms(terms);
+  const theyPay = goodsLabel(terms.give, lumpSum);
+  const youPay = goodsLabel(terms.ask, lumpSum);
   if (theyPay) parts.push(`${proposerName} pays ${theyPay}`);
   if (youPay) parts.push(`you pay ${youPay}`);
   const text = parts.join("; ");
@@ -95,8 +99,9 @@ export const describeDiplomacyTermsForRecipient = (terms: DiplomacyTerms | undef
 export const describeDiplomacyTermsForProposer = (terms: DiplomacyTerms | undefined, targetName: string): string => {
   if (diplomacyTermsAreEmpty(terms) || !terms) return "";
   const parts: string[] = [];
-  const youPay = goodsLabel(terms.give);
-  const theyPay = goodsLabel(terms.ask);
+  const lumpSum = hasContinuingTerms(terms);
+  const youPay = goodsLabel(terms.give, lumpSum);
+  const theyPay = goodsLabel(terms.ask, lumpSum);
   if (youPay) parts.push(`you pay ${youPay}`);
   if (theyPay) parts.push(`${targetName} pays ${theyPay}`);
   const text = parts.join("; ");

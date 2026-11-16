@@ -60,6 +60,7 @@ import { applyInitMessage } from "../client-network-init-message/client-network-
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js"; import { applyNextContestUpdate } from "../client-next-contest/client-next-contest.js";
 import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
 import { clearTechCommissionOnError } from "../client-tech-commission/client-tech-commission.js";
+import { handleSilentServerError } from "../client-command-pacer/client-command-pacer.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -1964,9 +1965,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
-      // Harmless: dev/waypoint-queue mirroring re-sends an enqueue the server
-      // already has (dedup); a real full queue is already prevented client-side.
-      if (errorCode === "DEV_QUEUE_FULL" || errorCode === "WAYPOINT_QUEUE_FULL") return;
+      // Queue-mirror dedup and rate-limit backoff: handled silently, never a popup.
+      if (handleSilentServerError(ws, errorCode, msg as Record<string, unknown>)) return;
       if (errorCode === "DISPLAY_NAME_LIMIT") {
         state.pendingDisplayNameChange = "";
         pushFeed(errorMessage, "error", "warn");
