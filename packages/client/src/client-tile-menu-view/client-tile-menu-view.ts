@@ -4,7 +4,7 @@ import { gateTileConstructionActions } from "../client-afc-recovery/client-afc-r
 import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
 import { townBiotaLineHtml } from "../client-town-biota/client-town-biota-line.js";
 import { manpowerPerBatch, isNetworkResource, isDepletedReclamationWorks } from "@border-empires/shared";
-import { DEPLETED_RECLAMATION_WORKS_LINE } from "../client-salvage-tribute/client-salvage-tribute.js";
+import { depletedReclamationWorksLine } from "../client-salvage-tribute/client-salvage-tribute.js";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
@@ -344,7 +344,7 @@ export const menuOverviewForTile = (
     if (tile.economicStructure.status === "removing") {
       pushLine("Removal is underway. Income, upkeep, and structure effects are currently disabled.");
     }
-    if (isDepletedReclamationWorks(tile)) pushLine(DEPLETED_RECLAMATION_WORKS_LINE);
+    if (isDepletedReclamationWorks(tile)) pushLine(depletedReclamationWorksLine(tile.ownerId === deps.state.me));
     if (isConverterStructureType(tile.economicStructure.type)) {
       if (tile.economicStructure.status === "active") {
         // No status/lock line here — see converter-mode-flip plan: the

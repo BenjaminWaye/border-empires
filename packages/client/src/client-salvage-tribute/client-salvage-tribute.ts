@@ -25,7 +25,9 @@ export function salvageTributeStatus(state: SalvageTributeState, tile: Tile | un
 }
 
 export const SALVAGE_LAST_LOAD_NOTE = "This is the last load: the field will be depleted, and its Works will no longer give +1% attack and defense.";
-export const DEPLETED_RECLAMATION_WORKS_LINE = "Depleted: this salvage field has shipped all its loads. The Works gives no attack or defense bonus; dismantle it to free the tile.";
+/** The tile overview's note on a depleted Reclamation Works; only its owner is told how to clear it. */
+export const depletedReclamationWorksLine = (mine: boolean): string =>
+  `Depleted: this salvage field has shipped all its loads and gives no attack or defense bonus.${mine ? " Dismantle the Works to free the tile." : ""}`;
 
 /** "Ship salvage to the Court" on your own working Reclamation Works. DOM action shared by the canvas and true-3D maps. */
 export function salvageTributeActions(state: SalvageTributeState, tile: Tile): TileActionDef[] {

@@ -65,6 +65,8 @@ export const isDepletedReclamationWorks = (tile: {
   readonly resource?: string | undefined; readonly economicStructure?: { readonly type?: string } | null | undefined;
 }): boolean => tile.economicStructure?.type === "RECLAMATION_WORKS" && tile.resource !== "PRECURSOR_SALVAGE";
 
+export const DEPLETED_RECLAMATION_WORKS_NAME = "Depleted Reclamation Works";
+
 /** Attack and defense multiplier from developed salvage sites that still hold loads. */
 export const salvageArmsMultiplier = (sites: number): number =>
   1 + Math.min(SALVAGE_ARMS_BONUS_MAX, Math.max(0, Math.floor(sites)) * SALVAGE_ARMS_BONUS_PER_SITE);
