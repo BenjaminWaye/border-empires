@@ -471,7 +471,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...CAPTURE_DURING_DEAL_ENTRY, createdAt: 1794696963679, },
   { ...CLARITY_HINTS_ENTRY, createdAt: 1794696879817, },
   { ...ACTION_FEEDBACK_ENTRY, createdAt: 1794695682854, },
-  { ...AUTO_GARRISON_ASK_ENTRY, createdAt: 1794806556716 },
+  { ...AUTO_GARRISON_ASK_ENTRY, createdAt: 1794806556716, },
   {
     createdAt: 1794771007813, // Date.now() captured once for this entry.
     introducedIn: "2026.11.15",
