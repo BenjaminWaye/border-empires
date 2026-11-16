@@ -8,6 +8,7 @@
 // could be reached (pt-strategist, pt-diplomat).
 import { breakAllianceConsequences, breakTruceConsequences, showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
+import { isTruceEndingSoon, truceTimeLeftLabel } from "../client-truce-ending/client-truce-ending.js";
 import { openDiplomacyForPlayer } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 import type { ActiveAllianceBreakView, ActiveTruceView } from "../client-types.js";
 import type { HudV2Deps } from "./client-hud-v2-context.js";
@@ -37,11 +38,13 @@ export const dealPactHtml = (input: DealPactInput): string => {
   }
   const truce = input.activeTruces.find((t) => t.otherPlayerId === input.targetId && t.endsAt > input.nowMs);
   if (!truce) return "";
-  const left = `Truce · ${esc(socialRemainingLabel(truce.endsAt, input.nowMs))} left`;
+  // Last two hours: the minutes and a warning colour; the deal's Extend 12h / 24h buttons sit just below.
+  const ending = isTruceEndingSoon(truce, input.nowMs);
+  const left = ending ? `Truce ends in ${esc(truceTimeLeftLabel(truce.endsAt, input.nowMs))}` : `Truce · ${esc(socialRemainingLabel(truce.endsAt, input.nowMs))} left`;
   const control = truce.origin === "court"
     ? `<span class="v2d-pact-note">Court armistice · binding</span>`
     : `<button type="button" class="v2s-btn v2s-btn-sm" data-v2-dip-break="truce" data-player-id="${id}" title="Breaking a truce locks you out of new truces for 24h">Break Truce</button>`;
-  return `<div class="v2d-pact"><span class="v2d-pact-state">${left}</span>${control}${alliancesLink(id)}</div>`;
+  return `<div class="v2d-pact${ending ? " v2d-pact-ending" : ""}"><span class="v2d-pact-state">${left}</span>${control}${alliancesLink(id)}</div>`;
 };
 
 /** The confirmation sheet for a Break button on the pact line. */
