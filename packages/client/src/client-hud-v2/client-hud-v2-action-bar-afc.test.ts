@@ -8,7 +8,7 @@ const ownAfc = (over: Partial<TileMenuView> = {}): TileMenuView => ({
   overviewLines: [], actions: [], buildings: [], crystal: [], afcUpgradesReady: 0, ...over
 });
 const kinds = (view: TileMenuView): string[] =>
-  selectBarButtons(view).map((b) => (b.kind === "action" ? b.action.id : b.kind === "panel" ? b.panel : b.kind === "tab" ? b.tab : b.kind));
+  selectBarButtons(view).map((b) => (b.kind === "action" ? b.action.id : b.kind === "panel" ? b.panel : b.kind));
 
 describe("action bar on your own AFC", () => {
   // Playtest 2026-11-14: tapping the AFC showed one wide Build ▸ (holding only Build AFC) while
@@ -19,10 +19,10 @@ describe("action bar on your own AFC", () => {
     expect(kinds(v)).toEqual(["afc", "modules"]);
     const html = actionBarHtml(v);
     expect(html).toContain('class="hud-v2-act hud-v2-act-primary" data-hud-v2-open="afc">AFC upgrades</button>');
-    expect(html).toContain('data-hud-v2-tab="modules">Modules ▸</button>');
+    expect(html).toContain('data-hud-v2-panel="modules" aria-expanded="false">Modules ▸</button>');
     // Not repeated in the minor row.
     expect(html).not.toContain("AFC upgrades ▸");
-    expect(html).not.toContain('hud-v2-minor-link" data-hud-v2-tab="modules"');
+    expect(html).not.toContain('hud-v2-minor-link" data-hud-v2-panel="modules"');
   });
 
   it("still says how many upgrades are ready", () => {

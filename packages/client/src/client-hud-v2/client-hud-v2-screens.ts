@@ -33,7 +33,7 @@ import { warOpponentIds } from "../client-alliance/client-war-status.js";
 import { crestClosesProfile, profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { pendingTechCommissionId } from "../client-tech-commission/client-tech-commission.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
-import { expandDockedMenu, suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
+import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, renderTownScreen, runTileActionOn, runTownWork, stepTown } from "./client-hud-v2-town-runtime.js";
 import { renderTownsScreen, townsClick } from "./client-hud-v2-towns-runtime.js";
 
@@ -451,10 +451,6 @@ const townClick = (deps: HudV2Deps, target: Element): boolean => {
   const action = target.closest<HTMLButtonElement>("[data-hud-v2-action]");
   if (action && !action.disabled) {
     runTileActionOn(deps, action.dataset.hudV2Action as TileActionDef["id"], action.dataset.targetKey, action.dataset.originKey);
-    return true;
-  }
-  if (target.closest("[data-hud-v2-tab]")) {
-    expandDockedMenu("actions");
     return true;
   }
   return false;

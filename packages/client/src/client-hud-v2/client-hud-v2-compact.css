@@ -202,9 +202,8 @@ body.hud-v2-compact .hud-v2-minor-row { gap: 0 16px; }
 body.hud-v2-compact .hud-v2-minor { min-height: 40px; font-size: 14px; }
 body.hud-v2-compact .hud-v2-details { max-height: none; }
 
-/* Build ▸ / Aether ▸ and the expanded tile menu: a full-height sheet under the bar. */
-body.hud-v2-compact .hud-v2-build-side,
-body.hud-v2-compact #tile-action-menu.hud-v2-docked.hud-v2-expanded {
+/* Build ▸ / Aether ▸ and the tile views: a full-height sheet under the bar. */
+body.hud-v2-compact .hud-v2-build-side {
   left: 0 !important; right: 0 !important; top: var(--v2c-top) !important; bottom: 0 !important; width: auto !important; max-width: none !important;
   padding-bottom: var(--v2c-safe-bottom); border-radius: 14px 14px 0 0; z-index: 56;
 }
