@@ -247,6 +247,16 @@ describe("town screen", () => {
     expect(regions.bar).toContain("Raise flag on town");
   });
 
+  // Regression: with a support tile selected, the town tile's "Remove Fort" read as the selected
+  // tile's, so a fortless support tile looked like it already had a fort.
+  it("marks every town-tile action \"(town)\" while a support tile is selected", () => {
+    const input = { townView: view({ actions: [act("remove_structure", { label: "Remove Fort" })] }), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined };
+    const bar = townScreenRegions({ ...input, town, focus: support }).bar;
+    expect(bar).toContain("Remove Fort (town)");
+    expect(bar).toContain('data-hud-v2-action="remove_structure" data-target-key="5,5"');
+    expect(townScreenRegions({ ...input, town, focus: town }).bar).not.toContain("(town)");
+  });
+
   it("shows the real terrain and coastal modifiers instead of the Market label", () => {
     const coastalTown: Tile = { ...town, town: { ...town.town!, terrainProfile: "DESERT", coastal: true } };
     const { left } = townScreenRegions({ town: coastalTown, focus: coastalTown, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });

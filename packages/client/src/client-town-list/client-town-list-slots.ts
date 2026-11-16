@@ -14,7 +14,7 @@ export const openBuildSlotsForTown = (tiles: ReadonlyMap<string, Tile>, town: Ti
   let open = 0;
   for (const { tile } of supportRingCandidates(tiles, town.x, town.y, supportRingRadiusForTier(tier))) {
     if (tile.ownerId !== me || tile.ownershipState !== "SETTLED") continue;
-    if (tile.town || tile.fort || tile.observatory || tile.siegeBattery || tile.economicStructure) continue;
+    if (tile.town || tile.observatory || tile.siegeBattery || tile.economicStructure) continue;
     if (landmarkConstructionBlocker(tiles, tile.x, tile.y)) continue;
     const assigned = assignedTownForSupportTile(tiles, tile, me);
     if (assigned?.x === town.x && assigned.y === town.y) open += 1;

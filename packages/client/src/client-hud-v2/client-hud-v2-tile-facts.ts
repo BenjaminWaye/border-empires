@@ -65,7 +65,7 @@ const structuresOn = (tile: Tile): StructureSlot[] => {
 type ShownStructure = { slot: StructureSlot; dormant: readonly SlotResource[] };
 
 /**
- * The building the fact strip describes. A Fort may share its tile with a Relay Beacon or Harbor Exchange
+ * The building the fact strip describes. A Fort may share its tile with any building
  * (runtime-structure-command-handlers.ts), so a dormant one wins over the economic structure: it's the one
  * giving nothing, and the map's shortage badge points at it.
  */
@@ -114,11 +114,11 @@ const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number, dormant:
  * selected support tile. A building going up or being removed is left to the screen's work cards, which
  * already show it with its progress.
  */
-export const builtStructureFacts = (tile: Tile, mine: boolean, nowMs: number = Date.now(), dormantResourcesFor?: DormantResourcesFor): TileFact[] => {
-  const shown = structureToShow(tile, dormantResourcesFor);
-  if (!shown || shown.slot.status === "under_construction" || shown.slot.status === "removing") return [];
-  return structureFacts(shown.slot, mine, nowMs, shown.dormant);
-};
+export const builtStructureFacts = (tile: Tile, mine: boolean, nowMs: number = Date.now(), dormantResourcesFor?: DormantResourcesFor): TileFact[] =>
+  // A fort shares its tile with any building, so describe every standing structure, not just one.
+  structuresOn(tile)
+    .filter((slot) => slot.status !== "under_construction" && slot.status !== "removing")
+    .flatMap((slot) => structureFacts(slot, mine, nowMs, dormantResourcesFor?.(tile, slot.field) ?? []));
 
 const coinPerDay = (goldPerMinute: number): string => `${(goldPerMinute * 1440).toFixed(1)}/day`;
 

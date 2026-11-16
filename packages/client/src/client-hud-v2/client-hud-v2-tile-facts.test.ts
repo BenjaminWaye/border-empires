@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Tile, TileMenuView } from "../client-types.js";
 import { actionBarHtml, hasDetails } from "./client-hud-v2-action-bar.js";
-import { tileFactsFor, townGrowth, wonderName, type TileFact } from "./client-hud-v2-tile-facts.js";
+import { builtStructureFacts, tileFactsFor, townGrowth, wonderName, type TileFact } from "./client-hud-v2-tile-facts.js";
 
 const tile = (patch: Partial<Tile>): Tile => ({ x: 3, y: 4, terrain: "LAND", ...patch }) as Tile;
 const noView: Pick<TileMenuView, "combatBreakdown" | "overviewLines"> = { overviewLines: [] };
@@ -21,6 +21,14 @@ describe("tile fact strip", () => {
     expect(off[1]).toEqual({ label: "State", value: "Off · no upkeep", tone: "warn" });
     const theirs = tileFactsFor(tile({ ownerId: "them", ownershipState: "SETTLED", economicStructure: { ownerId: "them", type: "MANUFACTORY", status: "active" } }), noView, "me");
     expect(labels(theirs)).not.toContain("Upkeep");
+  });
+
+  // Regression: a fort shares its tile with any building; the town screen's "Built here" card showed only
+  // the building, so a fort just placed on a Manufactory plot was invisible there.
+  it("describes both the fort and the building on a shared tile", () => {
+    const shared = tile({ ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "active" }, fort: { ownerId: "me", variant: "FORT", status: "active" } });
+    const names = builtStructureFacts(shared, true).filter((f) => f.label === "Building").map((f) => f.value);
+    expect(names).toEqual(["Manufactory", "Fort"]);
   });
 
   it("gives a dock's coin and links", () => {
