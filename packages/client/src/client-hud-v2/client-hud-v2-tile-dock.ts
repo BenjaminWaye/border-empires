@@ -18,7 +18,8 @@ import { ownerStanceTagHtml } from "./client-hud-v2-stance-tag.js";
 import { aetherListHtml } from "./client-hud-v2-aether-list.js";
 import { buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
-import { tileFactsFor, wonderName } from "./client-hud-v2-tile-facts.js";
+import { MAX_FACTS, tileFactsFor, wonderName } from "./client-hud-v2-tile-facts.js";
+import { musterFactsFor } from "./client-hud-v2-muster-facts.js";
 import { syncTileProgress } from "./client-hud-v2-tile-progress-live.js";
 
 export type TileDockDeps = {
@@ -152,7 +153,8 @@ const paintBar = (): void => {
   if (dock.panel === "status" && !(view.statusText && view.statusHelpText)) dock.panel = undefined;
   const tile = dock.state.tiles.get(dock.state.tileActionMenu.currentTileKey);
   const state = dock.state;
-  const facts = tileFactsFor(tile, view, state.me, Date.now(), (t, field) => dormantResourcesForTile(state, t, field));
+  // Your muster flag's size leads: it is why you tapped the flag.
+  const facts = [...musterFactsFor(tile, state), ...tileFactsFor(tile, view, state.me, Date.now(), (t, field) => dormantResourcesForTile(state, t, field))].slice(0, MAX_FACTS);
   // A wonder's tile only knows its terrain ("Sand"); name the wonder instead.
   const wonder = wonderName(tile);
   // Tagged wherever the panel names a foreign owner (any non-sea tile); your own tiles have no stance.

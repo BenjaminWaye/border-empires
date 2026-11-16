@@ -53,6 +53,12 @@ const MAX_SECONDARY = 2;
 /** Legacy tabs with no new-style view yet (AFC modules, muster commit/reports) stay reachable from ⋯. */
 const LEGACY_ONLY_TABS: ReadonlyArray<TileMenuView["tabs"][number]> = ["modules", "commit", "reports"];
 
+const LEGACY_TAB_LINK_LABEL: Partial<Record<TileMenuView["tabs"][number], string>> = {
+  modules: "Modules",
+  commit: "Attack commitment",
+  reports: "Combat reports"
+};
+
 /**
  * settle_land is both "Expand To" on neutral land (client-tile-action-neutral.ts) and "Garrison" on your
  * frontier (client-tile-action-settle-visibility.ts); only the label tells them apart in the view.
@@ -167,8 +173,12 @@ const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[], panel?:
   });
   if (view.afcUpgradesReady === 0 && !buttons.some((b) => b.kind === "afc")) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-open="afc">AFC upgrades ▸</button>`);
   if (view.progress) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-panel="progress" aria-expanded="${panel === "progress"}">Progress ${panel === "progress" ? "▾" : "▸"}</button>`);
-  const legacyTab = view.tabs.find((t) => LEGACY_ONLY_TABS.includes(t) && !buttons.some((b) => b.kind === "tab" && b.tab === t));
-  if (legacyTab) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-tab="${legacyTab}">${legacyTab === "modules" ? "Modules" : "Reports"} ▸</button>`);
+  // One link per legacy tab, each named for what it opens: a muster flag carries both the Attack commitment
+  // tab and Combat reports, and a single link labelled "Reports" used to open the commitment tab (2026-11-16 playtest).
+  for (const tab of view.tabs) {
+    if (!LEGACY_ONLY_TABS.includes(tab) || buttons.some((b) => b.kind === "tab" && b.tab === tab)) continue;
+    minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-tab="${tab}">${LEGACY_TAB_LINK_LABEL[tab] ?? tab} ▸</button>`);
+  }
   return minor.length > 0 ? `<div class="hud-v2-minor-row">${minor.join("")}</div>` : "";
 };
 

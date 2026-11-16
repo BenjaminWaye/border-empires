@@ -15,6 +15,7 @@ import { PLAYTEST_MAP_READABILITY_ENTRY } from "./client-changelog-playtest-map-
 import { INCOME_WAR_CARDS_ENTRY } from "./client-changelog-income-war-cards.js";
 import { SERVER_EXPLORED_MAP_ENTRY } from "./client-changelog-server-explored-map.js";
 import { RECONNECT_RAZED_STRUCTURES_ENTRY } from "./client-changelog-reconnect-razed-structures.js";
+import { MUSTER_PANEL_SIZE_ENTRY } from "./client-changelog-muster-panel-size.js";
 import { CLEARER_CAPTURES_ENTRY } from "./client-changelog-clearer-captures.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
@@ -485,6 +486,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...INCOME_WAR_CARDS_ENTRY, createdAt: 1794819359958, },
   { ...SERVER_EXPLORED_MAP_ENTRY, createdAt: 1794827574814, },
   { ...RECONNECT_RAZED_STRUCTURES_ENTRY, createdAt: 1794830646310, },
+  { ...MUSTER_PANEL_SIZE_ENTRY, createdAt: 1794826419518, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
