@@ -308,6 +308,8 @@ body.hud-v2-building .hud-v2-right { display: none; }
 /* A side panel (Economy, Integrity) opens over the right edge; the rival portraits would sit on its header. */
 body.hud-v2:has(#hud.desktop-side-panel-open) .hud-v2-rivals { display: none; }
 .hud-v2-tile .tile-auto-settle-option { font-size: 12px; color: var(--v2-muted); }
+.hud-v2-tile .tile-auto-settle-option.is-highlighted { font-size: 13px; color: var(--v2-soft); }
+.hud-v2-tile .tile-auto-settle-ask { font-size: 14px; color: var(--v2-text); }
 
 /* The floating menu is hidden while docked; Build / Aether / ⋯ expand it as a right-hand sidebar. */
 body.hud-v2 #tile-action-menu.hud-v2-docked:not(.hud-v2-expanded) { display: none !important; }
