@@ -11,12 +11,7 @@ import { scoutFindingsText } from "../client-scout-drone/client-scout-drone-stat
 
 export type { PlayerNameLookup };
 
-const timeLabel = (occurredAt: number): string => {
-  const date = new Date(occurredAt);
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mm = String(date.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
-};
+import { relativeDayTimeLabel } from "./client-activity-dashboard-time.js";
 
 // An AI player's ClientState.playerNames entry is its diplomacy name (see
 // client-owner-name.ts), so AI display names come from the leaderboard's live
@@ -100,7 +95,7 @@ const scoutReportCardText = (card: Extract<PersonalActivityCard, { kind: "SCOUT_
 };
 
 /** One timeline row's display text, given the viewing player's id and a way to resolve names. */
-export const activityCardText = (card: PersonalActivityCard, playerId: string, playerNames: PlayerNameLookup, techName: TechNameLookup = () => undefined): string => {
+export const activityCardText = (card: PersonalActivityCard, playerId: string, playerNames: PlayerNameLookup, techName: TechNameLookup = () => undefined, nowMs: number = Date.now()): string => {
   if (card.kind === "COMBAT") return combatCardText(card, playerId, playerNames);
   if (card.kind === "COMBAT_GROUP") return combatGroupCardText(card, playerNames);
   if (card.kind === "SIEGE") return siegeCardText(card, playerNames);
@@ -111,7 +106,7 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
   if (card.kind === "BUILDING_COMPLETED") return buildingCardText(card);
   if (card.kind === "SCOUT_REPORT") return scoutReportCardText(card, playerNames);
   if (card.kind === "SCOUT_SIGHTED") return `Foreign scouts sighted at your border: ${nameOf(card.scoutPlayerId, playerNames)}`;
-  if (card.kind === "DIPLOMACY") return diplomacyCardText(card, playerId, playerNames);
+  if (card.kind === "DIPLOMACY") return diplomacyCardText(card, playerId, playerNames, nowMs);
   if (card.kind === "SUPPLY_ENDED") return supplyEndedCardText(card, playerId, playerNames);
   if (card.kind === "TRUNCATION_NOTE") return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
   // A card kind from a newer server than this client: say something true
@@ -119,7 +114,8 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
   return "Activity on your territory";
 };
 
-export const activityCardTimeLabel = (card: PersonalActivityCard): string => timeLabel(card.occurredAt);
+/** "00:45" today; a row from another day names it ("yesterday 00:45", "Sun 00:45"). */
+export const activityCardTimeLabel = (card: PersonalActivityCard, nowMs: number = Date.now()): string => relativeDayTimeLabel(card.occurredAt, nowMs);
 
 /** Map events carry a location; the truncation note, diplomacy and supply rows (between empires, not on a tile) never do. */
 export const activityCardCoordinates = (card: PersonalActivityCard): { x: number; y: number } | undefined =>

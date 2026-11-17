@@ -1,5 +1,4 @@
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
-import { WAYSTATION_FORT_MODULE_ENTRY } from "./client-changelog-waystation-fort-module.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_116 } from "./client-changelog-data-earlier-116.js";
@@ -14,6 +13,7 @@ import { SERVER_EXPLORED_MAP_ENTRY } from "./client-changelog-server-explored-ma
 import { RECONNECT_RAZED_STRUCTURES_ENTRY } from "./client-changelog-reconnect-razed-structures.js";
 import { FASTER_LOGIN_MAP_ENTRY } from "./client-changelog-faster-login-map.js";
 import { PLACE_ANOTHER_ENTRY } from "./client-changelog-place-another.js";
+import { TRUCE_ENDING_WARNING_ENTRY } from "./client-changelog-truce-ending-warning.js";
 import { MET_EMPIRES_REMEMBERED_ENTRY } from "./client-changelog-met-empires-remembered.js";
 import { TOWNS_LIST_COIN_PENDING_ENTRY } from "./client-changelog-towns-list-coin-pending.js";
 import { AI_COIN_INCOME_ENTRY } from "./client-changelog-ai-coin-income.js";
@@ -25,6 +25,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_121 } from "./client-changelog-data-earlier-121.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_122 } from "./client-changelog-data-earlier-122.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
 import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
 import { COMMAND_NAVIGATION_ENTRY } from "./client-changelog-command-navigation.js";
@@ -99,7 +100,7 @@ import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
-import { MAP_LENS_CHANGELOG, MINIMAP_WORLD_EDGE_ENTRY, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
+import { MAP_LENS_CHANGELOG } from "./client-changelog-map-lens.js";
 import { FORT_BUILDING_SIZE_ENTRY } from "./client-changelog-fort-building-size.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
@@ -195,7 +196,7 @@ import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-
 import { MOBILE_RESOURCE_RIBBON_ENTRY } from "./client-changelog-mobile-resource-ribbon.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
-import { AFC_LANDING_DEPLOYMENT_ENTRY, CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
+import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
@@ -462,12 +463,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1794165080849, // Date.now() captured once.
   },
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_121,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_122,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_110,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_111,
-  { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
-  { ...RESOURCE_LENS_ENTRY, createdAt: 1794383695242, },
-  { ...WAYSTATION_FORT_MODULE_ENTRY, createdAt: 1794394297385, },
-  { ...MINIMAP_WORLD_EDGE_ENTRY, createdAt: 1794411491316, },
   { ...FORT_BUILDING_SIZE_ENTRY, createdAt: 1794863141663, },
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_113,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_114,
@@ -486,6 +484,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...DISTRICT_FLAT_ART_OVER_3D_ENTRY, createdAt: 1794863250098, },
   { ...SALVAGE_TOAST_DECLUTTER_ENTRY, createdAt: 1794863171668, },
   { ...PLACE_ANOTHER_ENTRY, createdAt: 1794861771175, },
+  { ...TRUCE_ENDING_WARNING_ENTRY, createdAt: 1794866457428, },
   { ...FORT_ANY_BUILDING_ENTRY, createdAt: 1794864350262, },
   { ...RESOURCE_TRADE_SAFETY_ENTRY, createdAt: 1794863712943, },
   { ...TOWNS_LIST_COIN_PENDING_ENTRY, createdAt: 1794864521632, },

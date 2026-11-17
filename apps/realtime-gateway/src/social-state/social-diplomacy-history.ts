@@ -24,6 +24,8 @@ export type DiplomacyHistoryEntry = {
   counterpartyPlayerId: string;
   counterpartyName: string;
   durationHours?: number;
+  /** TRUCE_STARTED / TRUCE_EXTENDED: the truce's end as of this row. */
+  endsAt?: number;
   byPlayerId?: string;
   court?: boolean;
 };
@@ -43,7 +45,7 @@ export type DiplomacyHistory = {
     bId: string,
     event: PersonalActivityDiplomacyEvent,
     occurredAt: number,
-    extra?: Pick<DiplomacyHistoryEntry, "durationHours" | "byPlayerId" | "court">
+    extra?: Pick<DiplomacyHistoryEntry, "durationHours" | "endsAt" | "byPlayerId" | "court">
   ) => void;
   cardsFor: (playerId: string, from: number, to: number) => PersonalActivityDiplomacyCard[];
   /** Forgets every row (a new season; the store clears its own table). */

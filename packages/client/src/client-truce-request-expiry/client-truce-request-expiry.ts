@@ -1,9 +1,12 @@
 import type { ClientState } from "../client-state/client-state.js";
 import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { refreshDiplomacyTradeScreen } from "../client-diplomacy-trade/client-diplomacy-trade.js";
+import { markUnseenRequest } from "../client-diplomacy-notifications/client-diplomacy-notifications.js";
+import { notifyTrucesEndingSoon } from "../client-truce-ending/client-truce-ending.js";
 import type { TruceRequest } from "../client-types.js";
 
 type TruceRequestState = Pick<ClientState, "incomingTruceRequests" | "outgoingTruceRequests">;
+type TruceEndingState = Pick<ClientState, "activeTruces" | "me" | "notifiedIncomingDiplomacyRequestIds" | "notifiedDiplomacyIdsLoadedFor">;
 
 /**
  * Truce offers expire after TRUCE_REQUEST_TTL_MS (a week; fighting withdraws them sooner). The gateway tells
@@ -58,10 +61,11 @@ export const outgoingTruceExpiredText = (request: TruceRequest): string =>
  * Checks once a second. When an offer expires it re-renders the HUD and the
  * counter-offer screen (as a TRUCE_UPDATE would), so neither keeps showing it.
  * One of your own offers running out is told to you, as a refusal is: the
- * offer otherwise just vanished from the Sent list.
+ * offer otherwise just vanished from the Sent list. The same tick warns once
+ * about each running truce entering its last two hours (client-truce-ending.ts).
  */
 export const startTruceRequestExpiryTicker = (
-  state: TruceRequestState & Pick<ClientState, "captureAlert">,
+  state: TruceRequestState & TruceEndingState & Pick<ClientState, "captureAlert">,
   renderHud: () => void,
   refreshTradeScreen: () => void = refreshDiplomacyTradeScreen,
   pushFeed?: (message: string) => void
@@ -71,8 +75,15 @@ export const startTruceRequestExpiryTicker = (
     pushFeed?.(text);
     showCaptureAlert(state, "Truce offer expired", text, "warn");
   });
+  const endingNoticeDeps = {
+    markUnseen: (key: string) => markUnseenRequest(state, "truce-ending", key),
+    pushFeed: (message: string) => pushFeed?.(message),
+    showAlert: (title: string, detail: string) => showCaptureAlert(state, title, detail, "warn")
+  };
   setInterval(() => {
-    if (!dropExpired(state, Date.now())) return;
+    const now = Date.now();
+    if (notifyTrucesEndingSoon(state.activeTruces, now, endingNoticeDeps)) renderHud();
+    if (!dropExpired(state, now)) return;
     refreshTradeScreen();
     renderHud();
   }, 1_000);
