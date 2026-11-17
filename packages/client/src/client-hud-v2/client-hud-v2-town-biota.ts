@@ -27,16 +27,18 @@ const { building, buildingName } = RESOURCE_NETWORKS.LUXURY_BIOTA;
 const estateLink = `<button type="button" class="inline-info-link" data-v2-info-structure="${building}" title="About ${esc(buildingName)}">${esc(buildingName)}</button>`;
 const gotoLink = (x: number, y: number): string => `<button type="button" class="inline-info-link" data-v2-town-goto="${x},${y}" title="Show on map">(${x}, ${y})</button>`;
 
-const HABITAT = "grows in grassland, jungle and marsh";
+// Matches networkBiomePriority (resource-network-biomes.ts): grass-family biomes, jungle and marsh preferred.
+const HABITAT = "grows in grassland, plains, jungle and marsh";
 
 /** One line per next step; links open the tech, the Estate's info card, or the site on the map. */
 const stepHtml = (step: BiotaStep): string => {
   switch (step.kind) {
     case "research": return `Research <button type="button" class="inline-info-link" data-view-tech="${esc(step.techId)}">${esc(step.techName)}</button>`;
-    case "taken": return `Your ${step.slots} slots go to towns held longer`;
+    case "taken": return `${step.slots} ${step.slots === 1 ? "slot goes" : "slots go"} to towns held longer`;
     case "build": return `Build a ${estateLink} (+${BIOTA_SLOTS_PER_SITE} slots) on your biota at ${gotoLink(step.x, step.y)}`;
     case "owned": return `Your biota at ${gotoLink(step.x, step.y)}`;
     case "garrison": return `Garrison your biota at ${gotoLink(step.x, step.y)}`;
+    case "inactive": return `${estateLink} inactive at ${gotoLink(step.x, step.y)}`;
     case "building": return `${estateLink} going up at ${gotoLink(step.x, step.y)}`;
     case "capture": return `Nearest biota ${gotoLink(step.x, step.y)}`;
     case "search": return `No biota seen yet · ${HABITAT}`;

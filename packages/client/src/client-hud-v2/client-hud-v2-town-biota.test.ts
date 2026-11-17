@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { terrainAdjustedTownManpower } from "@border-empires/shared";
 import type { Tile, TileMenuView } from "../client-types.js";
 import { townScreenRegions } from "./client-hud-v2-town.js";
@@ -28,6 +28,11 @@ const cap = (tier: "TOWN" | "CITY") => `+${Math.round(terrainAdjustedTownManpowe
 // Playtest 2026-11-17: an unruly City's town screen never mentioned biota and
 // showed the City's full manpower cap while it was giving a Town's.
 describe("HUD v2 town screen luxury biota", () => {
+  afterEach(() => {
+    screen.id = null;
+    document.body.innerHTML = "";
+  });
+
   it("shows an unruly town's biota shortfall and the manpower it actually gives", () => {
     const html = left(unruly);
     expect(html).toContain("Unruly · luxury biota");
@@ -48,10 +53,10 @@ describe("HUD v2 town screen luxury biota", () => {
   it("lists the next steps: the charter, where biota is, and what to build", () => {
     expect(left(unruly, [{ kind: "research", techId: "frontier-concessions", techName: "Frontier Export Charter" }, { kind: "search" }]))
       .toContain('Research <button type="button" class="inline-info-link" data-view-tech="frontier-concessions">Frontier Export Charter</button>');
-    expect(left(unruly, [{ kind: "search" }])).toContain("No biota seen yet · grows in grassland, jungle and marsh");
+    expect(left(unruly, [{ kind: "search" }])).toContain("No biota seen yet · grows in grassland, plains, jungle and marsh");
     expect(left(unruly, [{ kind: "capture", x: 30, y: 12 }])).toContain('Nearest biota <button type="button" class="inline-info-link" data-v2-town-goto="30,12"');
     expect(left(unruly, [{ kind: "build", x: 5, y: 6 }])).toContain(">Cultivation Estate</button> (+2 slots) on your biota at ");
-    expect(left(unruly, [{ kind: "taken", slots: 2 }])).toContain("Your 2 slots go to towns held longer");
+    expect(left(unruly, [{ kind: "taken", slots: 2 }])).toContain("2 slots go to towns held longer");
   });
 
   it("opens the Cultivation Estate info card from the town screen", () => {
@@ -65,8 +70,6 @@ describe("HUD v2 town screen luxury biota", () => {
     expect(screenClick(deps, link as Element)).toBe(true);
     expect(state.structureInfoKey).toBe("CULTIVATION_ESTATE");
     expect(rendered).toBe(1);
-    screen.id = null;
-    document.body.innerHTML = "";
   });
 
   it("leaves biota out for a town that needs none", () => {
@@ -81,7 +84,5 @@ describe("HUD v2 town screen luxury biota", () => {
     expect(screenClick(deps, document.querySelector("[data-view-tech]") as Element)).toBe(true);
     expect(state.techUiSelectedId).toBe("frontier-concessions");
     expect(state.techDetailOpen).toBe(true);
-    screen.id = null;
-    document.body.innerHTML = "";
   });
 });
