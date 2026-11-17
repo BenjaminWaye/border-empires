@@ -17,10 +17,9 @@ describe("resource bar", () => {
     expect(slotChipState(3, 2)).toBe("over");
   });
 
-  it("renders the used count in amber only when over", () => {
+  it("shows a shortfall in amber with a minus only when over", () => {
     const slots = { FOOD: 2, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 };
     const html = resourceBarHtml({ gold: 1200, netPerMinute: 2, slotSupply: slots, slotDemand: { ...slots, TITANIUM: 3 }, integrityPct: 62 });
-    expect(html).toContain('<b class="hud-v2-over">3</b><span class="hud-v2-chip-of">/2</span>');
     // Playtest 2026-11-12: the phone chip showed "4" for both a shortfall (orange) and free slots (green); a shortfall now reads "−1".
     expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-over">−1<span class="hud-v2-chip-description"> slots short</span>');
     expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-zero">0<span class="hud-v2-chip-description"> free slots</span>');
@@ -32,10 +31,12 @@ describe("resource bar", () => {
     expect(html).toContain('data-hud-v2-open="settings"');
   });
 
-  it("summarizes available slots for phones and preserves the exact desktop counts", () => {
+  it("shows free slots, not used / total, on every screen", () => {
     const slots = { FOOD: 437, TITANIUM: 1_250_000, CRYSTAL: 0, UMBRITE: 0 };
     const html = resourceBarHtml({ gold: 12_981_234, netPerMinute: 0, slotSupply: slots, slotDemand: { ...slots, FOOD: 378, TITANIUM: 0 }, integrityPct: 100 });
-    expect(html).toContain('<span class="hud-v2-chip-slot"><span class="hud-v2-chip-value">378</span><span class="hud-v2-chip-of">/437</span>');
+    // Owner 2026-11-17: desktop showed used / total; players only care what they can still use.
+    expect(html).not.toContain("hud-v2-chip-slot");
+    expect(html).not.toContain("/437");
     expect(html).not.toContain('class="hud-v2-chip-status"');
     expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-available">59<span class="hud-v2-chip-description"> free slots</span>');
     expect(html).toContain('<span class="hud-v2-chip-exact">1,250,000</span><span class="hud-v2-chip-short" aria-hidden="true">1.25M</span>');

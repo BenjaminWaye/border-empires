@@ -1,5 +1,5 @@
 // Top resource bar for the new HUD: Coin with its net daily rate, the four slot
-// resources as used / total on desktop or free capacity on phones, and Integrity plus Settings.
+// resources as free capacity (a minus shortfall when over), and Integrity plus Settings.
 // Manpower lives in the orb, not here.
 
 import { formatCoinPerDay, spendableCoin, type SlotResource } from "@border-empires/shared";
@@ -65,15 +65,13 @@ export const resourceBarHtml = (input: ResourceBarInput): string => {
     const used = Math.max(0, input.slotDemand[key] ?? 0);
     const total = Math.max(0, input.slotSupply[key] ?? 0);
     const over = slotChipState(used, total) === "over";
-    const usedHtml = over ? `<b class="hud-v2-over">${fmt(used)}</b>` : `<span class="hud-v2-chip-value">${fmt(used)}</span>`;
-    const desktop = `<span class="hud-v2-chip-slot">${usedHtml}<span class="hud-v2-chip-of">/${fmt(total)}</span></span>`;
     const remaining = total - used;
     // A shortfall carries a minus sign so it can't be read as free slots by colour alone.
     const amount = `${over ? "−" : ""}${chipNumberHtml(Math.abs(remaining))}`;
     const description = over ? " slots short" : " free slots";
     const tone = over ? "hud-v2-over" : remaining > 0 ? "hud-v2-chip-available" : "hud-v2-chip-zero";
     const summary = `<span class="hud-v2-chip-summary ${tone}">${amount}<span class="hud-v2-chip-description">${description}</span></span>`;
-    return chip(key.toLowerCase(), label, desktop + summary, resourceSimpleIconUrl(key));
+    return chip(key.toLowerCase(), label, summary, resourceSimpleIconUrl(key));
   }).join("");
   const integrity = input.integrityPct === undefined
     ? ""
