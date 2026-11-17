@@ -43,3 +43,18 @@ export type AetherHijackAlertInput = {
   casterY: number;
   endsAt: number;
 };
+
+export type TruceEndingAlertInput = {
+  recipientPlayerId: string;
+  /** The other side of the truce. */
+  otherPartyName: string;
+  endsAt: number;
+};
+
+export type EmpireFellAlertInput = {
+  recipientPlayerId: string;
+  /** Who took the most of the fallen empire's land, when known. */
+  captorName?: string;
+  x: number;
+  y: number;
+};

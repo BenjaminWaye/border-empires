@@ -12,11 +12,13 @@ const CATEGORY_LABELS: Array<{ id: EmailNotificationCategory; title: string; des
   { id: "allianceRequest", title: "Alliance Requests", desc: "Someone offers your empire an alliance" },
   { id: "allianceBreak", title: "Alliance Breaks", desc: "An ally starts breaking their alliance with you" },
   { id: "truceOffer", title: "Truce Offers", desc: "Someone offers your empire a truce" },
+  { id: "truceEnding", title: "Truce Ending", desc: "One of your truces has about an hour left" },
   { id: "attackAlert", title: "Attacks", desc: "Your empire is attacked" },
   { id: "aetherPurgeAlert", title: "Aether Purges", desc: "Your empire is hit with an Aether Purge" },
   { id: "aetherHijackAlert", title: "Tower Hijacks", desc: "Someone starts taking over one of your Aether Towers" },
   { id: "seasonStart", title: "New Sector Contest", desc: "A new Sector Contest begins" },
-  { id: "manpowerFull", title: "Manpower Full", desc: "Your manpower reaches its cap while you're away" }
+  { id: "manpowerFull", title: "Manpower Full", desc: "Your manpower reaches its cap while you're away" },
+  { id: "empireFell", title: "Empire Fell", desc: "Your empire loses its last territory and gets a new start" }
 ];
 
 export const emailNotificationsSettingsPageHtml = (): string => {

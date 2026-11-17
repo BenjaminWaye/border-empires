@@ -328,6 +328,10 @@ export interface PlayerRespawnNotice {
   wasOnline?: boolean;
   previousHomeTileKey?: TileKey;
   spawnTileKey?: TileKey;
+  /** Elimination only: who took the most of the fallen empire's land in the last 24h. */
+  fellToPlayerId?: PlayerId;
+  /** Elimination by the player's own AFC withdrawal, not by conquest. */
+  withdrawn?: boolean;
 }
 
 export interface Player {

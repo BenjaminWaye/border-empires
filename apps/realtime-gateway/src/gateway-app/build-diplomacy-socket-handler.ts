@@ -30,6 +30,8 @@ import { lockedForGuests } from "../guest-diplomacy-lock/guest-diplomacy-lock.js
 import { createSeededAiDiplomacyResponder, memoizeWithTtl } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 import type { SocialState } from "../social-state/social-state.js";
 import { handleTruceSocketMessage, type TruceSocketMessageDeps } from "../truce-socket-messages/truce-socket-messages.js";
+import { createTruceEndingEmailNotifier, type TruceEndingEmailNotifierDeps } from "../truce-ending-email/truce-ending-email.js";
+import type { SendGameplayEmailAlert } from "../gameplay-email-alert/gameplay-email-alert.js";
 
 /** Every 10 minutes the memory's size and eviction/prune totals are logged (state-and-persistence-discipline.md). */
 const AI_MEMORY_STATS_INTERVAL_MS = 10 * 60_000;
@@ -47,10 +49,11 @@ export type DiplomacySocketHandlerDeps = {
   syncTruceToSimulation: TruceSocketMessageDeps["syncTruceToSimulation"];
   syncAllianceToSimulation: AllianceSocketMessageDeps["syncAllianceToSimulation"];
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload?: Record<string, unknown>) => void;
-  sendGameplayEmailAlert: AllianceSocketMessageDeps["sendGameplayEmailAlert"] & TruceSocketMessageDeps["sendGameplayEmailAlert"];
+  sendGameplayEmailAlert: SendGameplayEmailAlert;
   sendAllianceRequestAlert: AllianceSocketMessageDeps["sendAllianceRequestAlert"];
   sendAllianceBreakAlert: AllianceSocketMessageDeps["sendAllianceBreakAlert"];
   sendTruceRequestAlert: TruceSocketMessageDeps["sendTruceRequestAlert"];
+  sendTruceEndingAlert: TruceEndingEmailNotifierDeps["sendTruceEndingAlert"];
   onDiplomacyInteraction: (playerId: string, targetPlayerId: string | undefined, kind: "truce" | "alliance") => void;
   gatewayMetrics: { incrementGuestDiplomacyBlockedTotal: () => void };
   /** Already wrapped in the gateway's submit timeout. */
@@ -73,7 +76,8 @@ export type DiplomacySocketHandler = {
    * Recurring alliance upkeep (call every minute): finalizes break notices
    * whose 24h ran out, has AIs leave alliances they no longer lead
    * (self-throttled to every 5 minutes), and tells both sides of any truce
-   * offer that expired or was dropped since the last run.
+   * offer that expired or was dropped since the last run, and emails both
+   * sides of any truce entering its last hour (truce-ending-email.ts).
    */
   runAllianceMaintenance: () => void;
   /** A new season: AIs forget every player (the store has cleared its rows). */
@@ -97,6 +101,14 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     recordGatewayEvent: deps.recordGatewayEvent
   });
   const isAi = (playerId: string): boolean => deps.seededAiPlayerIds.has(playerId);
+  const truceEndingEmails = createTruceEndingEmailNotifier({
+    activeTruces: () => socialState.activeTruces(),
+    nameOf: (playerId) => socialState.playerNameOf(playerId),
+    isAiPlayer: isAi,
+    sendTruceEndingAlert: deps.sendTruceEndingAlert,
+    sendGameplayEmailAlert: deps.sendGameplayEmailAlert,
+    onBootSkipped: (count) => deps.recordGatewayEvent("info", "gateway_truce_ending_email_boot_skipped", { count })
+  });
   const memoryWriter = createDiplomacyMemoryWriter({
     write: deps.aiDiplomacyMemory.write,
     onError: (error, pairs) => deps.recordGatewayEvent("error", "gateway_ai_diplomacy_memory_write_failed", { pairs, error: String(error) })
@@ -361,6 +373,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       maintainMemory();
       const staleOffers = socialState.takeStaleOfferSync();
       if (staleOffers) deps.fanoutPlayerPayloads(staleOffers.payloadsByPlayerId);
+      truceEndingEmails.tick(Date.now());
     },
     resetAiDiplomacyMemory: () => { memoryWriter.discard(); memory.reset(); },
     flushAiDiplomacyMemory: memoryWriter.flush,

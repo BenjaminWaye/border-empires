@@ -135,7 +135,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       attackAlert: z.boolean().optional(),
       aetherPurgeAlert: z.boolean().optional(),
       aetherHijackAlert: z.boolean().optional(),
-      seasonStart: z.boolean().optional()
+      seasonStart: z.boolean().optional(),
+      manpowerFull: z.boolean().optional(),
+      truceEnding: z.boolean().optional(),
+      empireFell: z.boolean().optional()
     })
   }),
   z.object({

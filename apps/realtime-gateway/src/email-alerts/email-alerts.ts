@@ -3,7 +3,7 @@ import type { EmailNotificationCategory, GatewayPlayerProfileStore } from "../pl
 import { sendPlayerReportEmail } from "./bug-report-email-alert.js";
 import { formatBrandedEmail, type EmailMessage, type EmailRecipient } from "./email-branded-template.js";
 import { createEmailUnsubscribeSigner, resolveEmailUnsubscribeSecret } from "../email-unsubscribe/email-unsubscribe-token.js";
-import type { AetherHijackAlertInput, AetherPurgeAlertInput, AttackAlertInput, ManpowerFullAlertInput, SeasonStartAlertInput, SocialRequestAlertInput, TruceRequestAlertInput } from "./email-alert-inputs.js";
+import type { AetherHijackAlertInput, AetherPurgeAlertInput, AttackAlertInput, EmpireFellAlertInput, ManpowerFullAlertInput, SeasonStartAlertInput, SocialRequestAlertInput, TruceEndingAlertInput, TruceRequestAlertInput } from "./email-alert-inputs.js";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 export {
   readAetherHijackAlert,
@@ -36,6 +36,8 @@ export type EmailAlertService = {
   sendAetherHijackAlert: (input: AetherHijackAlertInput) => Promise<EmailAlertOutcome>;
   sendSeasonStartAlert: (input: SeasonStartAlertInput) => Promise<EmailAlertOutcome>;
   sendManpowerFullAlert: (input: ManpowerFullAlertInput) => Promise<EmailAlertOutcome>;
+  sendTruceEndingAlert: (input: TruceEndingAlertInput) => Promise<EmailAlertOutcome>;
+  sendEmpireFellAlert: (input: EmpireFellAlertInput) => Promise<EmailAlertOutcome>;
   sendBugReportAlert: (report: BugReportInput) => void;
   sendSuggestionAlert: (report: BugReportInput) => void;
 };
@@ -351,6 +353,42 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
           linkLabel: "Open Border Empires"
         })
       );
+    },
+    sendTruceEndingAlert(input) {
+      // Time-critical like truce offers: the truce lapses within the hour, so
+      // it skips the hourly throttle (the caller sends once per truce end).
+      const endsAtUtc = new Date(input.endsAt).toISOString().slice(11, 16);
+      const minutesLeft = Math.max(1, Math.round((input.endsAt - now()) / 60_000));
+      return send(input.recipientPlayerId, "truceEnding", (recipient) =>
+        formatBrandedEmail(appUrl, {
+          ...recipient,
+          subject: `Your truce with ${input.otherPartyName} ends in about ${minutesLeft} minutes`,
+          eyebrow: "Border Empires — Truce Ending",
+          headline: "Your Truce Is About to End",
+          body: [
+            `Your truce with ${input.otherPartyName} ends at ${endsAtUtc} UTC, in about ${minutesLeft} minutes.`,
+            "After that, either side can attack. Extend the truce or ready your border."
+          ],
+          highlight: { label: "Truce Ends", value: `${endsAtUtc} UTC` },
+          linkLabel: "Open Border Empires"
+        }), { bypassRateLimit: true });
+    },
+    sendEmpireFellAlert(input) {
+      // Rare and decisive, so it skips the hourly throttle like truce offers.
+      return send(input.recipientPlayerId, "empireFell", (recipient) =>
+        formatBrandedEmail(appUrl, {
+          ...recipient,
+          subject: "Your empire fell in Border Empires",
+          eyebrow: "Border Empires — Empire Fell",
+          headline: "Your Empire Fell",
+          body: [
+            input.captorName ? `Your empire fell to ${input.captorName}.` : "Your empire lost its last territory.",
+            `You've been given a new start at ${input.x}, ${input.y}.`
+          ],
+          highlight: { label: "New Start", value: `${input.x}, ${input.y}` },
+          linkUrl: `${appUrl}/?x=${input.x}&y=${input.y}`,
+          linkLabel: "Go to New Start"
+        }), { bypassRateLimit: true });
     },
     sendSeasonStartAlert(input) {
       const isPreviousWinner = input.isPreviousWinner === true;

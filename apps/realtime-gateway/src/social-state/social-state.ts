@@ -486,6 +486,7 @@ export const createSocialState = (options: {
     diplomacyActivityCards: (playerId, from, to) => (sweepExpired(), diplomacyActivityCards(diplomacyHistory.cardsFor(playerId, from, to), completedAllianceBreaks.values(), playerId, playersById, from, to)),
     withdrawTruceOffersOnCombat: createCombatOfferWithdrawal({ truceRequests, settlingRequestIds, sink, playersById, ok }),
     activeTruceEndsAt: (playerAId, playerBId) => activeTruceBetween(playerAId, playerBId, trucesByPair, now())?.endsAt,
-    activeTrucePairs: () => (sweepExpired(), [...trucesByPair.values()].map((truce): [string, string] => [truce.playerAId, truce.playerBId]))
+    activeTrucePairs: () => (sweepExpired(), [...trucesByPair.values()].map((truce): [string, string] => [truce.playerAId, truce.playerBId])),
+    activeTruces: () => (sweepExpired(), [...trucesByPair.values()].map((truce) => ({ ...truce })))
   };
 };

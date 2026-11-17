@@ -478,7 +478,7 @@ import {
 } from "../runtime-live-barbarians.js"; import { humanPlayerCountOf, isHostileTileOwner } from "../runtime-player-factory.js";
 import {
   ensurePlayerHasSpawnTerritory as ensurePlayerHasSpawnTerritoryImpl, ensurePlayerHasAfc as ensurePlayerHasAfcImpl,
-  consumeRespawnNotice as consumeRespawnNoticeImpl, preparePlayerRespawnNotice as preparePlayerRespawnNoticeImpl,
+  preparePlayerRespawnNotice as preparePlayerRespawnNoticeImpl,
   respawnIfEliminated as respawnIfEliminatedImpl,
   respawnPlayerOnUnownedLand as respawnPlayerOnUnownedLandImpl,
   type RallySpawnOutcome, type RuntimeRespawnContext
@@ -1242,6 +1242,7 @@ export class SimulationRuntime {
       respawnMinimumGold: RESPAWN_MINIMUM_GOLD,
       playerManpowerCap: (player) => this.playerManpowerCap(player),
       grantLandingReserve: (player) => grantRespawnLandingReserveImpl(this.manpowerEconomyContext(), player),
+      topCaptorOf: (playerId) => this.activityLogs.topCaptorOf(playerId),
       incrementAuthRecoveryRespawn: () => this.onAuthRecoveryRespawn?.(),
       incrementAuthRecoveryRespawnGuarded: () => this.onAuthRecoveryRespawnGuarded?.(),
       // reachBorder is reassigned on every anchor activation, so it is read lazily per lookup.
@@ -1418,10 +1419,6 @@ export class SimulationRuntime {
 
   peekRespawnNoticeForPlayer(playerId: string): PlayerRespawnNotice | undefined {
     return this.lastRespawnNoticeByPlayerId.get(playerId);
-  }
-
-  consumeRespawnNoticeForPlayer(playerId: string): PlayerRespawnNotice | undefined {
-    return consumeRespawnNoticeImpl(this.lastRespawnNoticeByPlayerId, playerId);
   }
 
   hasPlayer(playerId: string): boolean { return this.state.players.has(playerId); } humanPlayerCount(): number { return humanPlayerCountOf(this.state.players); } ensurePlayerHasAfc(playerId: string): boolean { return ensurePlayerHasAfcImpl(this.respawnContext(), playerId); } // join-capacity gate; ensurePlayerHasAfc: migration grant for pre-AFC empires
