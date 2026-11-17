@@ -41,7 +41,8 @@ export const renderChronicle = (deps: HudV2Deps): void => {
       colorOf: (id) => deps.ownerColor(id),
       techName: (id) => state.techCatalog.find((t) => t.id === id)?.name,
       nowMs: Date.now(),
-      awaySince: screen.chronicleAwaySince
+      awaySince: screen.chronicleAwaySince,
+      respawn: state.respawnNotice
     }, tabs));
     if (dash.timeline) acknowledgeActivitySeen(state, state.bridgeDebugSeasonId, deps);
     return;

@@ -1,6 +1,7 @@
 import type { ProspectSignature } from "@border-empires/shared";
 import { readSurveyDismissals, rememberSurveyDismissal } from "./client-occupation-survey/client-occupation-survey-dismissals.js";
 import { occupationSurveyStyles } from "./client-occupation-survey-style.js";
+import { activeFullscreenCard, queuedFullscreenCardCount, tryClaimFullscreenCard } from "./client-fullscreen-card-queue/client-fullscreen-card-queue.js";
 
 export type OccupationSurveyResource = "TITANIUM" | "UMBRITE" | "GEMS";
 export type OccupationSurveyReport = {
@@ -48,6 +49,8 @@ const seenReportIds: Partial<Record<OccupationSurveyResource, string>> = {};
 let active: OccupationSurveyReport | undefined;
 const queue: OccupationSurveyReport[] = [];
 let popupElement: HTMLElement | undefined;
+// The shared full-screen card slot this popup holds while on screen (client-fullscreen-card-queue.ts).
+let releaseCardSlot: (() => void) | undefined;
 let previousFocus: HTMLElement | undefined;
 let viewHandler: ((report: OccupationSurveyReport) => void) | undefined;
 let capturePanelOpen = false;
@@ -76,6 +79,9 @@ const removePopup = (): void => {
   popupElement = undefined;
   if (restoreFocus && previousFocus?.isConnected) previousFocus.focus();
   previousFocus = undefined;
+  const release = releaseCardSlot;
+  releaseCardSlot = undefined;
+  release?.();
 };
 const dismissPopup = (): void => {
   removePopup();
@@ -89,9 +95,14 @@ const acknowledgePopup = (): void => {
 const showPopup = (report: OccupationSurveyReport): void => {
   if (typeof document === "undefined" || popupElement?.dataset.reportId === report.id) return;
   removePopup();
+  // Another full-screen card (town capture, waystation) is up or waiting: this one waits its turn (sync retries every frame).
+  if (activeFullscreenCard() !== undefined || queuedFullscreenCardCount() > 0) return;
+  const overlay = document.createElement("div");
+  const release = tryClaimFullscreenCard("occupation-survey", overlay);
+  if (!release) return;
+  releaseCardSlot = release;
   ensureStyles();
   previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
-  const overlay = document.createElement("div");
   overlay.className = "occupation-survey-overlay";
   overlay.dataset.reportId = report.id;
   overlay.innerHTML = `<section class="occupation-survey-popup" role="dialog" aria-modal="true" aria-labelledby="occupation-survey-title" aria-describedby="occupation-survey-detail">
@@ -141,9 +152,20 @@ export const occupationSurveyController = {
     capturePanelOpen = true;
     removePopup();
   },
-  endCapture(reportsForCapture: OccupationSurveyReport[]): void {
+  /**
+   * The town capture card closed. The clues it listed were read there, so they
+   * are acknowledged rather than popping up again one by one afterwards
+   * (playtest: dismissed survey cards were re-shown). Clues it did not list
+   * still present as usual.
+   */
+  endCapture(shownInCard: readonly OccupationSurveyReport[]): void {
     capturePanelOpen = false;
-    presentReports(reportsForCapture.filter((report) => seenReportIds[report.resource] !== report.id));
+    for (const report of shownInCard) {
+      if (reportScope !== undefined) rememberSurveyDismissal(reportScope, report.resource, report.id);
+      const queued = queue.findIndex((candidate) => candidate.id === report.id);
+      if (queued >= 0) queue.splice(queued, 1);
+      if (active?.id === report.id) active = queue.shift();
+    }
   },
   sync(state: SurveyState, _worldToScreen: WorldToScreen, _size: number, _halfW: number, _halfH: number): void {
     if (state.techIds) filterRevealedReports(state.techIds);

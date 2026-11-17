@@ -1,5 +1,7 @@
 import { WAYSTATION_MANPOWER_GRANT, WAYSTATION_POP_BURST, type WaystationGoldTier, type WaystationGrantedEffect } from "@border-empires/shared";
 
+import { enqueueFullscreenCard } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
+
 export type { WaystationGrantedEffect };
 
 export type WaystationActivationInfo = {
@@ -111,10 +113,20 @@ const modifierForEffect = (info: WaystationActivationInfo): string | undefined =
   return undefined;
 };
 
+/**
+ * Queues the card behind any other full-screen card (town capture, survey): one card at a time.
+ * A card with nothing to show is dropped here, before queueing, so it cannot replace a real
+ * waystation card already waiting for its turn.
+ */
 export const showWaystationActivationOverlay = (info: WaystationActivationInfo): void => {
+  if (!narrativeForEffect(info) || !modifierForEffect(info)) return; // TECH-no-op fallback: nothing was actually granted.
+  enqueueFullscreenCard({ key: "waystation-activation", show: (close) => mountWaystationActivationOverlay(info, close) });
+};
+
+const mountWaystationActivationOverlay = (info: WaystationActivationInfo, close: () => void): HTMLElement | undefined => {
   const narrative = narrativeForEffect(info);
   const modifier = modifierForEffect(info);
-  if (!narrative || !modifier) return; // TECH-no-op fallback: nothing was actually granted, so no popup.
+  if (!narrative || !modifier) return undefined; // TECH-no-op fallback: nothing was actually granted, so no popup.
 
   const existing = document.getElementById("waystation-activation-overlay");
   if (existing) existing.remove();
@@ -127,7 +139,11 @@ export const showWaystationActivationOverlay = (info: WaystationActivationInfo):
   document.body.appendChild(overlay);
   overlay.style.display = "grid";
 
-  const dismiss = (): void => { overlay.remove(); };
+  const dismiss = (): void => {
+    if (!overlay.isConnected) return;
+    overlay.remove();
+    close();
+  };
 
   overlay.querySelector("#waystation-activation-close")?.addEventListener("click", dismiss);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) dismiss(); });
@@ -142,6 +158,7 @@ export const showWaystationActivationOverlay = (info: WaystationActivationInfo):
       dismiss();
     });
   }
+  return overlay;
 };
 
 /**
