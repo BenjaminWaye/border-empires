@@ -223,7 +223,8 @@ export const explainActionFailureFromServer = (
   }
   // The gateway already words these for players; "Error DIPLOMACY_SETTLEMENT_FAILED: …" was shown raw.
   if (code === "DIPLOMACY_SETTLEMENT_FAILED") return `Couldn't accept the offer. ${message || "The deal fell through."}`;
-  if (code === "DIPLOMACY_OFFER_WITHDRAWN" || code === "RESOURCE_TERMS_CONFIRMATION_REQUIRED" || code === "OFFER_SETTLING") return message;
+  // Resource trade refusals are worded by the gateway too ("Astrid already has 16/16 active supply agreements…").
+  if (code === "DIPLOMACY_OFFER_WITHDRAWN" || code === "RESOURCE_TERMS_CONFIRMATION_REQUIRED" || code === "OFFER_SETTLING" || code === "RESOURCE_TRADE_FAILED") return message || "The resource trade didn't go through.";
   if (code === "TRUCE_LOCKED_OUT") return "A House in this deal recently broke a truce. New truces are locked for 24 hours after a break.";
   // Only reached once a throttled command was re-sent and refused repeatedly (client-command-pacer).
   if (code === "COMMAND_RATE_LIMITED") return "Too many orders at once. That one didn't go through; try it again in a moment.";

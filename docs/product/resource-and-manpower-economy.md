@@ -356,6 +356,7 @@ refused when made if either House is full, naming that House
 snapshots only, never fetching an offline House's). The proactive AI trade loop
 skips a House at its limit and makes no offer while full itself. The client
 disables Accept/Send at 16/16 for any deal adding supply, truce and alliance
-offers included. Accepts, and truce/alliance terms and AI counter-offers, are
+offers included; the trade screen's stance reply (`supplyAgreementsFull`) also
+disables Send when the other House is full, where its count is known. Accepts, and truce/alliance terms and AI counter-offers, are
 left to the simulation, whose refusal names the full House before any slot
 shortfall.

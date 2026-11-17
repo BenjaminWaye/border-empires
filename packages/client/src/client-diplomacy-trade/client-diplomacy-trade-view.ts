@@ -1,4 +1,4 @@
-import { RESOURCE_SUPPLY_TRADE_DAYS, hasRecurringCoin, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer } from "@border-empires/shared";
+import { RESOURCE_SUPPLY_TRADE_DAYS, hasRecurringCoin, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer, supplyAgreementLimitMessage } from "@border-empires/shared";
 // Pure view logic for the diplomacy trade screen: what the verdict line says
 // and whether the offer can be sent. Uses the same shared pricing rules the
 // gateway decides with, so "would accept" here means the AI really accepts.
@@ -25,7 +25,11 @@ import { ownSupplyLimitReason } from "./client-supply-agreement-limit.js";
 export type DiplomacyStanceKind = "DISTRUSTFUL" | "SEEKING_PEACE" | "OUTMATCHED" | "WINNING" | "INDIFFERENT" | "WARY";
 
 /** The gateway's DIPLOMACY_STANCE reply (apps/realtime-gateway diplomacy-stance-query.ts). */
-export type DiplomacyStanceReply = { truceLockout?: { until: number; reason: string } } & (
+export type DiplomacyStanceReply = {
+  truceLockout?: { until: number; reason: string };
+  /** The target is at its supply agreement limit (known only for live or AI targets). */
+  supplyAgreementsFull?: true;
+} & (
   | { found: false; targetPlayerName: string }
   | { found: true; targetPlayerName: string; targetPlayerId: string; ai: false }
   | {
@@ -185,7 +189,8 @@ export const tradeVerdict = (input: {
   }
   const hasSupply = hasResourceSupplyOffer(selection.terms.give.resources) || hasResourceSupplyOffer(selection.terms.ask.resources);
   // Before the shortfall: finding more goods won't help while you're at the agreement limit.
-  const limitReason = hasSupply && input.ownSupplyAgreements !== undefined ? ownSupplyLimitReason(input.ownSupplyAgreements) : undefined;
+  const ownLimit = hasSupply && input.ownSupplyAgreements !== undefined ? ownSupplyLimitReason(input.ownSupplyAgreements) : undefined;
+  const limitReason = ownLimit ?? (hasSupply && reply?.supplyAgreementsFull ? supplyAgreementLimitMessage(targetName) : undefined);
   if (limitReason) return { tone: "bad", text: limitReason, canSend: false, sendLabel };
   const shortfall = ownGoodsShortfall(selection.terms.give, own);
   if (shortfall) return { tone: "bad", text: shortfall, canSend: false, sendLabel };

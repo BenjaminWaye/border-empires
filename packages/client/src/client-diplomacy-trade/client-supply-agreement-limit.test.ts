@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ResourceSupplyAgreementStatus, ResourceTradeOffer } from "@border-empires/shared";
+import { explainActionFailureFromServer } from "../client-player-actions.js";
 import { offerDockEntries } from "../client-diplomacy-offer-dock/client-diplomacy-offer-dock.js";
 import { tradeVerdict, type TradeSelection } from "./client-diplomacy-trade-view.js";
 import { resourceOfferCardsHtml } from "./client-resource-offer-cards.js";
@@ -38,6 +39,17 @@ describe("supply agreement limit in the client", () => {
     expect(verdict).toMatchObject({ tone: "bad", text: FULL, canSend: false });
     // Shown even when also short of goods: more goods wouldn't help.
     expect(tradeVerdict({ targetName: "Beejac", reply: undefined, selection, own: { gold: 0, resources: {} }, cooldownRemainingMs: 0, ownSupplyAgreements: 16 }).text).toBe(FULL);
+  });
+  // Playtest 2026-11-17: the refusal showed as "Error RESOURCE_TRADE_FAILED: Astrid already has…", and only after Send.
+  it("blocks sending supply to a House the server reports as full, naming them", () => {
+    const selection: TradeSelection = { kind: "trade", durationHours: 12, terms: { give: { gold: 0, resources: { FOOD: 1 } }, ask: { gold: 5 } } };
+    const reply = { found: true as const, targetPlayerName: "Astrid", targetPlayerId: "p2", ai: false as const, supplyAgreementsFull: true as const };
+    expect(tradeVerdict({ targetName: "Astrid", reply, selection, own: { gold: 0, resources: { FOOD: 5 } }, cooldownRemainingMs: 0, ownSupplyAgreements: 3 }))
+      .toMatchObject({ tone: "bad", text: "Astrid already has 16/16 active supply agreements and can't take on another.", canSend: false });
+  });
+  it("shows a resource trade refusal without the raw error code", () => {
+    expect(explainActionFailureFromServer("RESOURCE_TRADE_FAILED", "Astrid already has 16/16 active supply agreements and can't take on another."))
+      .toBe("Astrid already has 16/16 active supply agreements and can't take on another.");
   });
   it("blocks accepting a truce that adds resource supply in the offer dock", () => {
     const truce = { id: "t1", fromPlayerId: "them", toPlayerId: "me", createdAt: 0, expiresAt: 300_000, durationHours: 12 as const, fromName: "Beejac", terms: supplyTerms };
