@@ -1,7 +1,7 @@
 import type { ProspectSignature } from "@border-empires/shared";
 import { readSurveyDismissals, rememberSurveyDismissal } from "./client-occupation-survey/client-occupation-survey-dismissals.js";
 import { occupationSurveyStyles } from "./client-occupation-survey-style.js";
-import { tryClaimFullscreenCard } from "./client-fullscreen-card-queue/client-fullscreen-card-queue.js";
+import { activeFullscreenCard, queuedFullscreenCardCount, tryClaimFullscreenCard } from "./client-fullscreen-card-queue/client-fullscreen-card-queue.js";
 
 export type OccupationSurveyResource = "TITANIUM" | "UMBRITE" | "GEMS";
 export type OccupationSurveyReport = {
@@ -95,8 +95,9 @@ const acknowledgePopup = (): void => {
 const showPopup = (report: OccupationSurveyReport): void => {
   if (typeof document === "undefined" || popupElement?.dataset.reportId === report.id) return;
   removePopup();
+  // Another full-screen card (town capture, waystation) is up or waiting: this one waits its turn (sync retries every frame).
+  if (activeFullscreenCard() !== undefined || queuedFullscreenCardCount() > 0) return;
   const overlay = document.createElement("div");
-  // Another full-screen card (town capture, waystation) is up or waiting: this one waits its turn (sync retries).
   const release = tryClaimFullscreenCard("occupation-survey", overlay);
   if (!release) return;
   releaseCardSlot = release;
