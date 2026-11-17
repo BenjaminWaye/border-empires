@@ -11,6 +11,7 @@ const row = (x: number, name: string, goldPerMinute: number, isFed = true): Town
   name,
   tierLabel: "Town",
   goldPerMinute,
+  coinPending: false,
   population: 4200,
   maxPopulation: 8000,
   growthPerMinute: 1.25,

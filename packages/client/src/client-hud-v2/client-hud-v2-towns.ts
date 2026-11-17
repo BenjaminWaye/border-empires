@@ -3,7 +3,7 @@
 // Rows and sort order come from the shared town list (client-town-list.ts).
 
 import { escapeHtml as esc } from "../client-duke-panel/client-duke-escape.js";
-import { formatOpenSlots, type TownListRow, type TownListSort, type TownListSortKey } from "../client-town-list/client-town-list.js";
+import { formatOpenSlots, formatTownCoinPerDay, type TownListRow, type TownListSort, type TownListSortKey } from "../client-town-list/client-town-list.js";
 
 const COLUMNS: Array<{ key: TownListSortKey; label: string; title: string }> = [
   { key: "gold", label: "Coin/day", title: "Coin per day" },
@@ -33,7 +33,7 @@ export const townsBodyHtml = (rows: readonly TownListRow[], sort: TownListSort):
   }).join("");
   const body = rows.map((row) => `<button type="button" class="v2l-row${row.isFed ? "" : " v2l-unfed"}" data-v2-towns-open="${row.x},${row.y}">
       <span class="v2l-name"><span class="v2l-label">${esc(row.name)}</span><small>${esc(row.tierLabel)}${row.isFed ? (row.plotsNote ? ` · ${esc(row.plotsNote)}` : "") : " · Unfed"}</small></span>
-      <span class="v2l-num">${(row.goldPerMinute * 1440).toFixed(1)}</span>
+      <span class="v2l-num">${formatTownCoinPerDay(row)}</span>
       <span class="v2l-num">${count(row.population)}<small>/ ${count(row.maxPopulation)}</small></span>
       <span class="v2l-num">${growth(row.growthPerMinute)}<small>/min</small></span>
       <span class="v2l-num" title="Open build slots">${formatOpenSlots(row.openSlots)}</span>

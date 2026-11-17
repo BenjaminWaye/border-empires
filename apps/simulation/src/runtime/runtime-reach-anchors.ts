@@ -151,6 +151,18 @@ export function newlyActivatedReachAnchors(previous: DomainTileState | undefined
   return anchors.length === 0 ? anchors : anchors.filter((anchor) => !isBarbarianOwner(anchor.ownerId));
 }
 
+// True only when a Relay Beacon on this tile just finished BUILDING (an
+// instant build or an under_construction -> active completion), not when an
+// existing beacon is re-enabled or its tile is re-settled. Gates the beacon's
+// sweep of neutral ground already in reach (claimNeutralAlreadyInReach), so
+// toggling a beacon off and on can't be used as a free, repeatable mass claim.
+export function isRelayBeaconBuildCompletion(previous: DomainTileState | undefined, tile: DomainTileState): boolean {
+  const beacon = tile.economicStructure;
+  if (tile.ownershipState !== "SETTLED" || beacon?.type !== "RELAY_BEACON" || beacon.status !== "active") return false;
+  const before = previous?.economicStructure;
+  return before?.type !== "RELAY_BEACON" || before.status === "under_construction";
+}
+
 // Mirror of newlyActivatedReachAnchors, inverted: detects any reach anchor
 // that just went INACTIVE on this tile as a result of `previous` -> `tile`
 // (town lost/downgraded, an outpost-family structure destroyed/captured

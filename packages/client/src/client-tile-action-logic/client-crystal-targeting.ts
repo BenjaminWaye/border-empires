@@ -10,6 +10,7 @@ import {
 import { hasAdjacentSeaEightWay, knownTerrainAt } from "../client-tile-action-support/client-tile-action-support.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { CrystalTargetingAbility, Tile } from "../client-types.js";
+import { pacedSocketSend } from "../client-command-pacer/client-command-pacer.js";
 
 export const crystalTargetingTitle = (ability: CrystalTargetingAbility): string =>
   ability === "aether_bridge"
@@ -284,28 +285,28 @@ export const executeCrystalTargeting = (
   if (!deps.requireAuthedSession()) return false;
   const ability = state.crystalTargeting.ability;
   if (ability === "aether_bridge") {
-    deps.ws.send(JSON.stringify({ type: "CAST_AETHER_BRIDGE", x: tile.x, y: tile.y }));
+    pacedSocketSend(deps.ws, { type: "CAST_AETHER_BRIDGE", x: tile.x, y: tile.y });
   } else if (ability === "aether_emp") {
-    deps.ws.send(JSON.stringify({ type: "AETHER_EMP", x: tile.x, y: tile.y }));
+    pacedSocketSend(deps.ws, { type: "AETHER_EMP", x: tile.x, y: tile.y });
   } else if (ability === "sovereign_siege_engine_strike") {
     const originKey = state.crystalTargeting.originByTarget.get(targetKey);
     if (!originKey) return false;
     const [fromX, fromY] = originKey.split(",").map((value) => Number(value));
-    deps.ws.send(JSON.stringify({ type: "SOVEREIGN_SIEGE_ENGINE_STRIKE", fromX, fromY, toX: tile.x, toY: tile.y }));
+    pacedSocketSend(deps.ws, { type: "SOVEREIGN_SIEGE_ENGINE_STRIKE", fromX, fromY, toX: tile.x, toY: tile.y });
     state.sovereignSiegeEngineStrikeFxQueue.push({ x: tile.x, y: tile.y, queuedAt: Date.now() });
   } else if (ability === "sky_dock_bombard") {
     const originKey = state.crystalTargeting.originByTarget.get(targetKey);
     if (!originKey) return false;
     const [fromX, fromY] = originKey.split(",").map((value) => Number(value));
-    deps.ws.send(JSON.stringify({ type: "SKY_DOCK_BOMBARD", fromX, fromY, toX: tile.x, toY: tile.y }));
+    pacedSocketSend(deps.ws, { type: "SKY_DOCK_BOMBARD", fromX, fromY, toX: tile.x, toY: tile.y });
   } else if (ability === "imperial_exchange_levy") {
     const originKey = state.crystalTargeting.originByTarget.get(targetKey);
     if (!originKey) return false;
     const [fromX, fromY] = originKey.split(",").map((value) => Number(value)) as [number, number];
-    deps.ws.send(JSON.stringify({ type: "IMPERIAL_EXCHANGE_LEVY", fromX, fromY, toX: tile.x, toY: tile.y }));
+    pacedSocketSend(deps.ws, { type: "IMPERIAL_EXCHANGE_LEVY", fromX, fromY, toX: tile.x, toY: tile.y });
     state.imperialExchangeLevyFxQueue.push({ x: fromX, y: fromY, queuedAt: Date.now() });
   } else {
-    deps.ws.send(JSON.stringify({ type: "SIPHON_TILE", x: tile.x, y: tile.y }));
+    pacedSocketSend(deps.ws, { type: "SIPHON_TILE", x: tile.x, y: tile.y });
     if (ability === "siphon") state.siphonFxQueue.push({ x: tile.x, y: tile.y, queuedAt: Date.now() });
   }
   clearCrystalTargeting(state);

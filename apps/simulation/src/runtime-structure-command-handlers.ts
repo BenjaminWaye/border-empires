@@ -316,14 +316,14 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   const sameFamilyUpgrade = (spec.kind === "FORT" && target.fort?.ownerId === command.playerId) ||
     (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeBattery?.ownerId === command.playerId);
   // A fortification (Palisade or any Fort tier, all in tile.fort) may share a
-  // tile with a Relay Beacon or a Harbor Exchange (HARBOR_EXCHANGE): a fort
-  // build ignores either one in economicStructure, and a Relay Beacon build
-  // ignores an existing fortification.
-  const economicConflict = !!target.economicStructure &&
-    !(buildingFort &&
-      (target.economicStructure.type === "RELAY_BEACON" || target.economicStructure.type === "HARBOR_EXCHANGE"));
+  // tile with any building -- every economic structure and an Aether Tower --
+  // in either build order; only a siege engine excludes it (a fort build
+  // ignores economicStructure/observatory, and those builds ignore tile.fort).
+  // A Relay Beacon is the one outpost that may share a fortified tile.
+  const economicConflict = !!target.economicStructure && !buildingFort;
+  const observatoryConflict = !!target.observatory && !buildingFort;
   const fortConflict = !!target.fort && spec.kind === "OUTPOST" && !buildingRelayBeacon;
-  if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeBattery || economicConflict || fortConflict)) {
+  if (!upgrading && !sameFamilyUpgrade && (observatoryConflict || target.siegeBattery || economicConflict || fortConflict)) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
     return;
   }

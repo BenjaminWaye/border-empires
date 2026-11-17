@@ -1,5 +1,7 @@
 import { resourceOfferCardsHtml } from "./client-resource-offer-cards.js";
 import { activeResourceDealsHtml } from "./client-active-resource-deals.js";
+import { ownSupplyAgreementCount, ownSupplyLimitReason, supplyAgreementUsageHtml } from "./client-supply-agreement-limit.js";
+import { pressResourceEnd, resetResourceEndConfirm, RESOURCE_END_CONFIRM_RESET_MS } from "./client-resource-end-confirm.js";
 // The diplomacy trade screen, laid out as a deal table: your goods and the
 // truce/alliance treaties on the left, theirs on the right, and only what is in
 // the deal in the middle. Pressing a good opens a slider to set the amount.
@@ -146,7 +148,9 @@ const render = (screen: OpenScreen): void => {
   const { overlay, selection, reply, targetName } = screen;
   const own = screen.deps.ownHoldings();
   const active = screen.deps.activeSupply?.(), agreementsEl = overlay.querySelector<HTMLElement>("[data-resource-agreements]");
-  if (agreementsEl && active) agreementsEl.innerHTML = resourceOfferCardsHtml(active.offers ?? [], active.ownId, reply?.found ? reply.targetPlayerId : screen.targetPlayerId) + activeResourceDealsHtml(active.agreements, active.ownId, reply?.found ? reply.targetPlayerId : screen.targetPlayerId);
+  const otherId = reply?.found ? reply.targetPlayerId : screen.targetPlayerId;
+  const ownSupplyAgreements = active ? ownSupplyAgreementCount(active.agreements, active.ownId) : undefined;
+  if (agreementsEl && active) agreementsEl.innerHTML = (ownSupplyAgreements ? supplyAgreementUsageHtml(ownSupplyAgreements) : "") + resourceOfferCardsHtml(active.offers ?? [], active.ownId, otherId, ownSupplyLimitReason(ownSupplyAgreements ?? 0)) + activeResourceDealsHtml(active.agreements, active.ownId, otherId);
   screen.shownHoldings = own;
   screen.shownTruceLockoutReason = activeTruceLockoutReason(reply);
   screen.shownSupplySignature = JSON.stringify(active ?? null) + Math.floor(Date.now() / 60_000);
@@ -191,7 +195,7 @@ const render = (screen: OpenScreen): void => {
   });
   const dealEl = overlay.querySelector<HTMLElement>("[data-trade-deal]");
   if (dealEl) dealEl.innerHTML = dealSummaryHtml({ selection, treaty: screen.treaty, targetName, locked: screen.counters !== undefined });
-  const shared = tradeVerdict({ targetName, reply, selection, own, cooldownRemainingMs: cooldownRemainingMs(screen) });
+  const shared = tradeVerdict({ targetName, reply, selection, own, cooldownRemainingMs: cooldownRemainingMs(screen), ...(ownSupplyAgreements === undefined ? {} : { ownSupplyAgreements }) });
   const verdict = dealVerdictOverride(screen.treaty, selection.kind, selection.terms, shared.sendLabel, screen.allied) ?? shared;
   const shown = screen.notice ?? verdict;
   const verdictEl = overlay.querySelector<HTMLElement>("[data-trade-verdict]");
@@ -223,6 +227,7 @@ export const closeDiplomacyTradeScreen = (): void => {
   if (!open) return;
   const { overlay, previousFocus, holdingsWatch, giftPending } = open;
   open = undefined;
+  resetResourceEndConfirm();
   if (holdingsWatch !== undefined) clearInterval(holdingsWatch);
   if (giftPending) clearTimeout(giftPending.timer);
   document.removeEventListener("keydown", onKey);
@@ -417,6 +422,9 @@ export const openDiplomacyTradeScreen = (
     const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("[data-resource-end], [data-resource-offer-accept], [data-resource-offer-reject]") : null;
     if (!target) return;
     const agreementId = target.dataset.resourceEnd, accept = target.dataset.resourceOfferAccept, reject = target.dataset.resourceOfferReject;
+    const endPress = agreementId ? pressResourceEnd(agreementId, Date.now()) : undefined;
+    if (endPress === "armed") { render(screen); setTimeout(() => { if (open === screen) render(screen); }, RESOURCE_END_CONFIRM_RESET_MS); }
+    if (endPress === "armed" || endPress === "ignored") return;
     const payload = agreementId ? {type:"RESOURCE_TRADE_END",agreementId} : {type:accept?"RESOURCE_TRADE_ACCEPT":"RESOURCE_TRADE_REJECT",offerId:accept ?? reject};
     if (deps.send(payload,"Finish sign-in before trading resources.")) target.disabled = true;
   });

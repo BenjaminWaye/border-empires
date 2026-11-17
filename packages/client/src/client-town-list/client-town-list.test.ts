@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { Tile } from "../client-types.js";
 import { openBuildSlotsForTown } from "./client-town-list-slots.js";
-import { deriveTownListRows, nextTownListSort, sortTownListRows, townListCardHtml } from "./client-town-list.js";
+import { shouldSendTileDetailRequest } from "../client-tile-interaction/client-tile-detail-request-rules.js";
+import { deriveTownListRows, nextTownListSort, sortTownListRows, townCoinPending, townListCardHtml } from "./client-town-list.js";
 
 const townTile = (x: number, name: string, goldPerMinute: number, population: number, overrides: Partial<Tile> = {}): Tile => ({
   x,
@@ -59,6 +60,48 @@ describe("town list", () => {
   it("labels the income column Coin/day, like every other screen", () => {
     expect(townListCardHtml(tiles, "me")).toContain("Coin/day");
     expect(townListCardHtml(tiles, "me")).not.toContain("Gold");
+  });
+
+  // Playtest 2026-11-16: two fed towns read 0.0 Coin/day in the list while their own screens said +7/day.
+  // The growth tick re-sends a town record without goldPerMinute; the list must say "…", not 0.0.
+  it("shows … rather than 0.0 for a fed town whose coin figure hasn't arrived", () => {
+    const base = townTile(1, "Auriyrcrown", 0, 73_195);
+    const { goldPerMinute: _missing, ...withoutCoin } = base.town!;
+    const map = mapOf([{ ...base, town: withoutCoin as NonNullable<Tile["town"]> }, townTile(2, "Paid", 0.005, 50_000)]);
+    const [pending, paid] = sortTownListRows(rowsOf(map), { key: "population", descending: true });
+    expect(pending?.coinPending).toBe(true);
+    expect(paid?.coinPending).toBe(false);
+    const html = townListCardHtml(map, "me");
+    expect(html).toContain("<strong>…</strong>");
+    expect(html).toContain("<strong>7.2</strong>");
+  });
+
+  it("keeps a known 0 for unfed towns and settlements' fallback income", () => {
+    const unfed = townTile(1, "Hungry", 0, 30_000);
+    const { goldPerMinute: _a, ...unfedTown } = unfed.town!;
+    const settlement = townTile(2, "Camp", 0, 600);
+    const { goldPerMinute: _b, ...settlementTown } = settlement.town!;
+    const map = mapOf([
+      { ...unfed, town: { ...unfedTown, isFed: false } as NonNullable<Tile["town"]> },
+      { ...settlement, town: { ...settlementTown, populationTier: "SETTLEMENT" } as NonNullable<Tile["town"]> }
+    ]);
+    expect(rowsOf(map).map((row) => row.coinPending)).toEqual([false, false]);
+  });
+
+  // Review of #2817: a "…" the detail request would never fetch stays "…" forever.
+  it("only marks a town pending when its tile detail will be fetched", () => {
+    const base = townTile(1, "Auriyrcrown", 0, 73_195);
+    const { goldPerMinute: _missing, ...withoutCoin } = base.town!;
+    const { isFed: _unknown, ...fedUnknown } = withoutCoin;
+    const variants: Tile[] = [
+      { ...base, detailLevel: "full", town: withoutCoin as NonNullable<Tile["town"]> },
+      { ...base, detailLevel: "full", ownershipState: "FRONTIER", town: withoutCoin as NonNullable<Tile["town"]> },
+      { ...base, detailLevel: "full", town: fedUnknown as NonNullable<Tile["town"]> }
+    ];
+    expect(variants.map((tile) => townCoinPending(tile, tile.town!))).toEqual([true, false, false]);
+    for (const tile of variants) {
+      if (townCoinPending(tile, tile.town!)) expect(shouldSendTileDetailRequest(tile, "me")).toBe(true);
+    }
   });
 
   it("lists only the viewer's visible towns", () => {
@@ -136,10 +179,11 @@ describe("town list", () => {
       plain(11, 10, { ownerId: "rival" }),
       plain(9, 11, { fort: { ownerId: "me", status: "active" } as NonNullable<Tile["fort"]> })
     ]);
-    expect(openBuildSlotsForTown(map, town, "me")).toBe(2);
+    // The fortified plot (9,11) is still open: a fort shares its tile with any building.
+    expect(openBuildSlotsForTown(map, town, "me")).toBe(3);
     const row = rowsOf(map).find((entry) => entry.name === "Hub");
-    expect(row?.openSlots).toBe(2);
-    expect(townListCardHtml(map, "me")).toContain('title="Open build slots">2<');
+    expect(row?.openSlots).toBe(3);
+    expect(townListCardHtml(map, "me")).toContain('title="Open build slots">3<');
   });
 
   it("shows no slots for settlements and sorts by open slots", () => {

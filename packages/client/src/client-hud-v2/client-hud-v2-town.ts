@@ -45,6 +45,8 @@ export type TownScreenInput = {
   plotsHtml?: string;
   /** A Place press's outcome while its confirmation shows on the button (set per press in runTileActionOn). */
   placed?: BuildPlacedOutcome | undefined;
+  /** The picked building was already placed from this screen: once the confirmation fades, Place reads "Place another". */
+  placedBefore?: boolean;
 };
 
 const esc = (text: string): string =>
@@ -123,7 +125,7 @@ const builtCardHtml = (facts: readonly TileFact[]): string =>
 
 const buildPanelHtml = (input: TownScreenInput): string => {
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
-  const placeLabel = supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place";
+  const placeLabel = supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : input.placedBefore ? "Place another" : "Place";
   const work = input.focusView.work ?? [];
   // The selected tile (a support tile, or the town itself, e.g. a Fort on the town) can already hold a
   // building; show what it is and does, including when it's dormant and giving nothing.
@@ -156,8 +158,8 @@ const barHtml = (input: TownScreenInput): string => {
       ? `<button type="button" class="v2t-act" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, keyOf(input.town))}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? "" : a.detail ?? "")}">${label}${a.cost ? `<small>${esc(a.cost)}</small>` : ""}</button>`
       : "";
   // Everything else the town tile offers, as small text buttons (no hidden ⋯ menu). Muster actions belong
-  // to the tile they act on: the selected support tile's come from the focus, and the town's own flag keeps
-  // its controls (marked "(town)") while a support tile is selected.
+  // to the tile they act on: the selected support tile's come from the focus. While a support tile is
+  // selected every town-tile action is marked "(town)", so "Remove Fort" can't read as the selected tile's.
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
   const isMuster = (a: TileActionDef): boolean => a.id.startsWith("muster_");
   // An ungarrisoned town's Garrison leads the bar as the gold main button; a text link was easy to miss.
@@ -184,7 +186,7 @@ const barHtml = (input: TownScreenInput): string => {
   const garrisonOption = option ? autoSettleOptionHtml({ ...option, label: "Garrison these automatically" }) : "";
   const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : []), ...(improvement ? [improvement.id] : [])]);
   const minorActions = [
-    ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus && isMuster(a) ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
+    ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
     ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isMuster(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
   ];
   const minor = minorActions.map(({ a, key }) =>

@@ -5,21 +5,20 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_116 } from "./client-changelog-data-earlier-116.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_117 } from "./client-changelog-data-earlier-117.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_118 } from "./client-changelog-data-earlier-118.js";
-import { AUTO_GARRISON_ASK_ENTRY } from "./client-changelog-auto-garrison-ask.js";
-import { TOWN_COIN_BLANK_ENTRY } from "./client-changelog-town-coin-blank.js";
-import { MANPOWER_BUILD_TEXT_ENTRY } from "./client-changelog-manpower-build-text.js";
-import { RESTORED_CAMERA_FOG_ENTRY } from "./client-changelog-restored-camera-fog.js";
-import { OFFER_DOCK_COUNTER_ENTRY } from "./client-changelog-offer-dock-counter.js";
-import { WINS_AND_COSTS_EXPLAINED_ENTRY } from "./client-changelog-wins-and-costs-explained.js";
-import { PLAYTEST_MAP_READABILITY_ENTRY } from "./client-changelog-playtest-map-readability.js";
-import { INCOME_WAR_CARDS_ENTRY } from "./client-changelog-income-war-cards.js";
-import { SALVAGE_TRIBUTE_BALANCE_ENTRY } from "./client-changelog-salvage-tribute-balance.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_119 } from "./client-changelog-data-earlier-119.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_120 } from "./client-changelog-data-earlier-120.js";
+import { FRONTIER_CLAIM_NEXT_TO_PENDING_ENTRY } from "./client-changelog-frontier-claim-next-to-pending.js";
+import { NO_RATE_LIMIT_ERRORS_ENTRY } from "./client-changelog-no-rate-limit-errors.js";
+import { SALVAGE_TOAST_DECLUTTER_ENTRY, SALVAGE_TRIBUTE_BALANCE_ENTRY } from "./client-changelog-salvage-tribute-balance.js";
 import { SERVER_EXPLORED_MAP_ENTRY } from "./client-changelog-server-explored-map.js";
 import { RECONNECT_RAZED_STRUCTURES_ENTRY } from "./client-changelog-reconnect-razed-structures.js";
-import { MUSTER_PANEL_SIZE_ENTRY } from "./client-changelog-muster-panel-size.js";
-import { ENCIRCLEMENT_POCKET_ENTRY } from "./client-changelog-encirclement-pocket.js";
-import { CLEARER_CAPTURES_ENTRY } from "./client-changelog-clearer-captures.js";
+import { FASTER_LOGIN_MAP_ENTRY } from "./client-changelog-faster-login-map.js";
+import { PLACE_ANOTHER_ENTRY } from "./client-changelog-place-another.js";
+import { TOWNS_LIST_COIN_PENDING_ENTRY } from "./client-changelog-towns-list-coin-pending.js";
 import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js"; import { FORT_PERIMETER_ENTRY } from "./client-changelog-fort-perimeter.js";
+import { DISTRICT_FLAT_ART_OVER_3D_ENTRY } from "./client-changelog-district-3d-art.js";
+import { FORT_ANY_BUILDING_ENTRY } from "./client-changelog-fort-any-building.js";
+import { RESOURCE_TRADE_SAFETY_ENTRY } from "./client-changelog-resource-trade-safety.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
@@ -101,6 +100,7 @@ import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
 import { MAP_LENS_CHANGELOG, MINIMAP_WORLD_EDGE_ENTRY, RESOURCE_LENS_ENTRY } from "./client-changelog-map-lens.js";
+import { FORT_BUILDING_SIZE_ENTRY } from "./client-changelog-fort-building-size.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
@@ -471,28 +471,29 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...RESOURCE_LENS_ENTRY, createdAt: 1794383695242, },
   { ...WAYSTATION_FORT_MODULE_ENTRY, createdAt: 1794394297385, },
   { ...MINIMAP_WORLD_EDGE_ENTRY, createdAt: 1794411491316, },
+  { ...FORT_BUILDING_SIZE_ENTRY, createdAt: 1794863141663, },
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_113,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_114,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_115,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_116,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_117,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_118,
-  { ...AUTO_GARRISON_ASK_ENTRY, createdAt: 1794806556716, },
-  { ...TOWN_COIN_BLANK_ENTRY, createdAt: 1794807224989, },
-  { ...CLEARER_CAPTURES_ENTRY, createdAt: 1794771007813, },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_119,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_120,
   { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
-  { ...MANPOWER_BUILD_TEXT_ENTRY, createdAt: 1794806234122, },
-  { ...OFFER_DOCK_COUNTER_ENTRY, createdAt: 1794817332101, },
-  { ...RESTORED_CAMERA_FOG_ENTRY, createdAt: 1794818244321, },
-  { ...PLAYTEST_MAP_READABILITY_ENTRY, createdAt: 1794817797219, },
-  { ...WINS_AND_COSTS_EXPLAINED_ENTRY, createdAt: 1794818581757, },
-  { ...INCOME_WAR_CARDS_ENTRY, createdAt: 1794819359958, },
   { ...SALVAGE_TRIBUTE_BALANCE_ENTRY, createdAt: 1794828701450, },
   { ...SERVER_EXPLORED_MAP_ENTRY, createdAt: 1794827574814, },
   { ...RECONNECT_RAZED_STRUCTURES_ENTRY, createdAt: 1794830646310, },
-  { ...MUSTER_PANEL_SIZE_ENTRY, createdAt: 1794826419518, },
-  { ...ENCIRCLEMENT_POCKET_ENTRY, createdAt: 1794826569677, },
-  { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, }, { ...FORT_PERIMETER_ENTRY, createdAt: 1794853579662 },
+  { ...FASTER_LOGIN_MAP_ENTRY, createdAt: 1794856144245, },
+  { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
+  { ...DISTRICT_FLAT_ART_OVER_3D_ENTRY, createdAt: 1794863250098, },
+  { ...SALVAGE_TOAST_DECLUTTER_ENTRY, createdAt: 1794863171668, },
+  { ...PLACE_ANOTHER_ENTRY, createdAt: 1794861771175, },
+  { ...FORT_ANY_BUILDING_ENTRY, createdAt: 1794864350262, },
+  { ...RESOURCE_TRADE_SAFETY_ENTRY, createdAt: 1794863712943, },
+  { ...TOWNS_LIST_COIN_PENDING_ENTRY, createdAt: 1794864521632, },
+  { ...NO_RATE_LIMIT_ERRORS_ENTRY, createdAt: 1794864645451, },
+  { ...FRONTIER_CLAIM_NEXT_TO_PENDING_ENTRY, createdAt: 1794865837776, }, { ...FORT_PERIMETER_ENTRY, createdAt: 1794853579662 },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
