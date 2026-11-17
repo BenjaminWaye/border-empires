@@ -160,8 +160,8 @@ describe("gateway fog capability regression guard", () => {
 
     expect(source).toContain("const authBindingCache = new Map<string, { value: ResolvedGatewayAuthBinding; expiresAt: number }>();");
     expect(source).toContain("const profileCache = new Map<string, { value: StoredPlayerProfile | undefined; expiresAt: number }>();");
-    expect(source).toContain("const sweepExpiredCacheEntries = (cache: Map<string, { expiresAt: number }>, nowMs: number): void => {");
-    expect(source).toContain("if (entry.expiresAt <= nowMs) cache.delete(key);");
+    // The sweep itself lives in sweep-expired-cache-entries.ts (covered by its own test).
+    expect(source).toContain('import { sweepExpiredCacheEntries } from "./sweep-expired-cache-entries.js";');
     expect(source).toContain("sweepExpiredCacheEntries(authBindingCache, Date.now());");
     expect(source).toContain("sweepExpiredCacheEntries(profileCache, Date.now());");
   });

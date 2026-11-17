@@ -11,6 +11,8 @@ export type PendingRespawnNoticeContext = {
   respawnPending: boolean;
   wasOnline?: boolean;
   previousHomeTileKey?: TileKey;
+  fellToPlayerId?: string;
+  withdrawn?: boolean;
 };
 
 const reasonCopy = (
@@ -59,6 +61,8 @@ export const buildRewritePlayerRespawnNotice = (args: {
     respawnPending: args.context.respawnPending,
     ...(typeof args.context.wasOnline === "boolean" ? { wasOnline: args.context.wasOnline } : {}),
     ...(args.context.previousHomeTileKey ? { previousHomeTileKey: args.context.previousHomeTileKey } : {}),
+    ...(args.context.fellToPlayerId ? { fellToPlayerId: args.context.fellToPlayerId } : {}),
+    ...(args.context.withdrawn ? { withdrawn: true } : {}),
     spawnTileKey: args.spawnTileKey,
     ...copy
   };

@@ -23,7 +23,9 @@ const CATEGORY_LABELS: Record<EmailNotificationCategory, string> = {
   aetherPurgeAlert: "Aether Purge",
   aetherHijackAlert: "Tower Hijack",
   seasonStart: "New Sector Contest",
-  manpowerFull: "Manpower Full"
+  manpowerFull: "Manpower Full",
+  truceEnding: "Truce Ending",
+  empireFell: "Empire Fell"
 };
 
 type UnsubscribeQuery = { p?: unknown; c?: unknown; t?: unknown };
