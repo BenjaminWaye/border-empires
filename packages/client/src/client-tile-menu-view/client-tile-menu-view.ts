@@ -6,7 +6,7 @@ import { townBiotaLineHtml } from "../client-town-biota/client-town-biota-line.j
 import { manpowerPerBatch, isNetworkResource, isDepletedReclamationWorks } from "@border-empires/shared";
 import { depletedReclamationWorksLine } from "../client-salvage-tribute/client-salvage-tribute.js";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
-import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
+import { fortCaptureMenuLines } from "./client-tile-menu-fort-capture-lines.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
 import {
   isFortDefending,
@@ -296,6 +296,7 @@ export const menuOverviewForTile = (
     // foreign-town public views, etc.).
     pushLine(`Production: ${productionHtml}`);
   }
+  lines.push(...fortCaptureMenuLines(deps.state, tile));
   if (ownTownEconomyPartial) {
     pushOwnTownLoadingRow("Upkeep");
   } else if (hasOwnedLandState && isSettled) {
@@ -325,13 +326,6 @@ export const menuOverviewForTile = (
     pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
   }
   for (const line of captureAftermathMenuLines(tile)) pushLine(line);
-  if (isFortDefending(tile.fort) && tile.ownerId && !structureRecentlyCaptured) {
-    // Same helper the client's own attack gate uses (findClosestMuster in
-    // client-muster-attack-gate.ts), so the number shown here always matches
-    // the muster the client will actually demand.
-    const required = attackFloorForPlayer(deps.state, tile);
-    pushLine(`Capturing requires ${required} mustered manpower.`);
-  }
   if (tile.fort?.status === "active") {
     const dormantLine = dormantStructureLineHtml(tile, "fort", deps.dormantResourcesForTile?.(tile, "fort"));
     if (dormantLine) pushLine(dormantLine);

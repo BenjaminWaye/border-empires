@@ -57,6 +57,28 @@ describe("menuOverviewForTile — fort capture cost line", () => {
     expect(line).toContain(`Capturing requires ${requiredMusterForFort("FORT")} mustered manpower.`);
   });
 
+  it("omits the line on the viewer's own fort, since only attackers need it", () => {
+    const line = captureLine({
+      x: 5,
+      y: 5,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      fort: { ownerId: "me", status: "active", variant: "FORT" }
+    });
+    expect(line).toBeUndefined();
+  });
+
+  it("puts the line under its own Defense heading, not under Upkeep", () => {
+    const lines = menuOverviewForTile(
+      { x: 5, y: 5, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED", fort: { ownerId: "enemy", status: "active", variant: "FORT" } },
+      baseDeps
+    );
+    const index = lines.findIndex((line) => line.html.includes("Capturing requires"));
+    const heading = lines.slice(0, index).reverse().find((line) => line.kind === "section");
+    expect(heading?.html).toBe("Defense");
+  });
+
   it("omits the line entirely while the fort is still under construction", () => {
     const line = captureLine({
       x: 5,

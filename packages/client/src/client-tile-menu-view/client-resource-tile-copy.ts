@@ -43,8 +43,10 @@ export function resourceTileStatsHtml(tile: Tile, view: FrontierSiteViewer = {})
     if (!slots) return "";
     const label = slots.slotResource === "CRYSTAL" ? "Crystal" : slots.slotResource === "FOOD" ? "FOOD" : slots.slotResource === "TITANIUM" ? "Titanium" : "Umbrite";
     // Strategic deposits also say whether a town refinery processes them (client-refineries/refinery-tile-copy.ts).
+    // The Requires card states a condition, so drop it once the viewer's own garrisoned tile already meets it.
+    const requirementMet = !siphoned && Boolean(view.me) && tile.ownerId === view.me && tile.ownershipState === "SETTLED";
     const refinery = view.tiles && view.me ? depositRefineryCardHtml({ tiles: view.tiles, tilesRevision: view.tilesRevision ?? 0, me: view.me }, tile) : "";
-    return `<div class="tile-stat-grid resource-stat-grid">${card("Base supply", `+${slots.baseSlots} ${label}`, "Renewable slots")}${card("Requires", "Garrison", siphoned ? "Siphoned" : "Owned tile")}${refinery}</div>`;
+    return `<div class="tile-stat-grid resource-stat-grid">${card("Base supply", `+${slots.baseSlots} ${label}`, "Renewable slots")}${requirementMet ? "" : card("Requires", "Garrison", siphoned ? "Siphoned" : "Owned tile")}${refinery}</div>`;
   }
   const spec = RESOURCE_NETWORKS[resource];
   const installation = `<button type="button" class="inline-info-link" data-structure-info="${escapeHtml(spec.building)}" aria-label="About ${escapeHtml(spec.buildingName)}">${escapeHtml(spec.buildingName)}</button>`;
