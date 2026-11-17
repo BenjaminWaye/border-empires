@@ -35,6 +35,7 @@ import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
 import { captureIsBattle, createSlotPulse, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { closeTreasury, compactLayerClick, compactTrackerHtml, syncBackEntry, syncTreasury, treasuryOpen } from "./client-hud-v2-compact.js";
+import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
@@ -267,7 +268,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
   writeRegion("season", seasonClockHtml(state.seasonVictory, state.seasonWinner, state.me, (id) => state.playerNames.get(id) ?? ""));
   writeRegion("rivals", rivalsHtml({
     me: state.me,
-    metPlayerIds: state.metPlayerIds,
+    metPlayerIds: refreshMetPlayerIds(state),
     allies: state.allies,
     activeTruces: state.activeTruces,
     warPlayerIds: warOpponentIds(state, nowMs),
