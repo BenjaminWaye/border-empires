@@ -4,8 +4,10 @@ import { CHRONICLE_LOADING_STUCK_ENTRY } from "./client-changelog-chronicle-load
 import { MANPOWER_COPY_ENTRY } from "./client-changelog-manpower-copy.js";
 import { CHRONICLE_HEADLINE_ENTRY } from "./client-changelog-chronicle-headline.js";
 import { HYDROWORKS_PLACEMENT_TEXT_ENTRY } from "./client-changelog-hydroworks-placement-text.js";
+import { WHOLE_COIN_BALANCE_ENTRY } from "./client-changelog-whole-coin.js";
 import { RESOURCE_COUNTER_ENTRY } from "./client-changelog-resource-counter.js";
 import { OWN_FORT_TILE_COPY_ENTRY } from "./client-changelog-own-fort-tile-copy.js";
+import { REFINERY_GIVES_ENTRY } from "./client-changelog-refinery-gives.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
@@ -479,8 +481,10 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...TRUCE_EMAIL_EMPIRE_FELL_ENTRY, createdAt: 1794931727558, },
   { ...CHRONICLE_HEADLINE_ENTRY, createdAt: 1794931506698, },
   { ...HYDROWORKS_PLACEMENT_TEXT_ENTRY, createdAt: 1794944287299, },
+  { ...WHOLE_COIN_BALANCE_ENTRY, createdAt: 1794944457814, },
   { ...RESOURCE_COUNTER_ENTRY, createdAt: 1794944628430, },
   { ...OWN_FORT_TILE_COPY_ENTRY, createdAt: 1794950425291, },
+  { ...REFINERY_GIVES_ENTRY, createdAt: 1794950469519, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

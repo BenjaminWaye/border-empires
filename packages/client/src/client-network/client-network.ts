@@ -6,10 +6,9 @@ import { applyMapPushMessage } from "./client-map-push-messages.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
 import { applyPlayerUpdateManpowerFields } from "../client-player-update-manpower/client-player-update-manpower.js";
-import { COMBAT_LOCK_MS, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, spendableCoin, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
-import { formatGoldAmount } from "../client-constants.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
 import { parseServerMessage } from "../client-server-clock/client-server-clock.js";
 import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js"; import { applySeasonErrorCodes } from "../client-join-season-errors/client-season-error-codes.js";
@@ -2172,7 +2171,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             state.lastDevelopmentAttempt = undefined;
           }
           state.queuedDevelopmentDispatchPending = false;
-          const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${formatGoldAmount(state.gold)} coin.`;
+          const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${spendableCoin(state.gold)} coin.`;
           showCaptureAlertSafely("Insufficient coin", goldDetail, "warn");
         }
       } else if (errorCode === "INSUFFICIENT_SLOT") {
