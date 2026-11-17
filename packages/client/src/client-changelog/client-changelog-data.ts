@@ -1,3 +1,4 @@
+import { TOWN_BAR_STRUCTURE_TOGGLE_ENTRY } from "./client-changelog-town-bar-structure-toggle.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { TRUCE_EMAIL_EMPIRE_FELL_ENTRY } from "./client-changelog-truce-email-empire-fell.js";
 import { CHRONICLE_LOADING_STUCK_ENTRY } from "./client-changelog-chronicle-loading-stuck.js";
@@ -485,6 +486,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...RESOURCE_COUNTER_ENTRY, createdAt: 1794944628430, },
   { ...DESKTOP_FREE_SLOTS_ENTRY, createdAt: 1794951821171, },
   { ...REFINERY_GIVES_ENTRY, createdAt: 1794950469519, },
+  { ...TOWN_BAR_STRUCTURE_TOGGLE_ENTRY, createdAt: 1794950483222, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
