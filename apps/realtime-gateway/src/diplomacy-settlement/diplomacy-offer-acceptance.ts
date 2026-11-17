@@ -2,7 +2,8 @@ import { settleResourceTreaty } from "./resource-treaty-settlement.js";
 // Accepting an offer: lock it, let the proposer re-check it if it is an AI
 // (its standing counter-offer may be stale), have the simulation move any
 // coin, then record the agreement.
-import { diplomacyTermsAreEmpty, swapDiplomacyTerms, hasResourceSupplyOffer } from "@border-empires/shared";
+import { diplomacyTermsAreEmpty, swapDiplomacyTerms } from "@border-empires/shared";
+import { termsCreateAgreement } from "./diplomacy-settlement.js";
 
 import type { SocialActionResult, SocialPendingOffer, SocialState } from "../social-state/social-state-types.js";
 import type { DiplomacySettlement } from "./diplomacy-settlement.js";
@@ -42,7 +43,8 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
     const begun = deps.socialState.beginSettlement(kind, playerId, requestId);
     if (!begun.ok) return begun;
     const { request } = begun.offer;
-    if (!confirmedResourceSupply && (hasResourceSupplyOffer(request.terms?.give.resources) || hasResourceSupplyOffer(request.terms?.ask.resources))) {
+    // A running commitment (resource slots or Coin per hour) needs the client's explicit review before it binds.
+    if (!confirmedResourceSupply && request.terms && termsCreateAgreement(request.terms)) {
       deps.socialState.endSettlement(requestId);
       return { ok: false, code: "RESOURCE_TERMS_CONFIRMATION_REQUIRED", message: "Refresh the game and review the resource supply terms before accepting this offer." };
     }
@@ -60,8 +62,10 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
       if (recordedFree.ok) deps.onAccepted?.(kind, request);
       return recordedFree;
     }
-    if (hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)) {
-      return settleResourceTreaty(deps, kind, request, terms, record);
+    if (termsCreateAgreement(terms)) {
+      // A truce's Coin per hour without slots is paid for the truce's own length.
+      const coinTermHours = kind === "truce" && "durationHours" in request ? request.durationHours : undefined;
+      return settleResourceTreaty(deps, kind, request, terms, record, coinTermHours);
     }
     const paid = await deps.settlement.settle({ proposerId: request.fromPlayerId, targetId: request.toPlayerId, terms });
     if (!paid.ok) {

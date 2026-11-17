@@ -144,6 +144,8 @@ body.hud-v2.hud-v2-waiting #tile-action-menu { display: none !important; }
 .hud-v2-rival-name { max-width: 58px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--v2-mono); font-size: 10px; text-shadow: 0 1px 2px #000; }
 .hud-v2-rival-stance { font-family: var(--v2-mono); font-size: 9px; color: var(--v2-soft); text-shadow: 0 1px 2px #000; }
 .hud-v2-rival-truce .hud-v2-rival-stance { color: var(--v2-amber); }
+.hud-v2-rival-stance { max-width: 58px; text-align: center; }
+.hud-v2-rival-time { white-space: nowrap; }
 .hud-v2-rival-ally .hud-v2-rival-stance { color: var(--v2-green); }
 .hud-v2-rival-war .hud-v2-rival-stance { color: var(--v2-red); }
 .hud-v2-rival-more {

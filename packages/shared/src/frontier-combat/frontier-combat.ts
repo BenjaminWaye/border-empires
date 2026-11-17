@@ -3,6 +3,7 @@ import { combatWinChance } from "../math/math.js";
 import { BREAKTHROUGH_DEBUFF_MULT, NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT } from "../config.js";
 import { attackManpowerLossRangeForFort } from "../structure-costs/structure-costs.js";
 import { CAPTURE_HOLD_DEFENSE_MULT, isCaptureHoldActive } from "../capture-hold/capture-hold.js";
+import { fortPerimeterDefenseMult } from "../fort-perimeter/fort-perimeter.js";
 
 export type FrontierCombatPreviewTile = {
   terrain?: string | undefined;
@@ -11,6 +12,9 @@ export type FrontierCombatPreviewTile = {
   townType?: string | undefined;
   // Fort variant if the target tile has an active (not under-construction) fort owned by the defender.
   fortVariant?: FortVariant | undefined;
+  // Strongest of the defender's forts whose perimeter covers this tile
+  // (fort-perimeter.ts fortPerimeterSourceVariant). Only counts while SETTLED.
+  fortPerimeterVariant?: FortVariant | undefined;
   // Breakthrough momentum: set when tile is freshly breached; debuffs defence.
   breachShockUntil?: number | undefined;
   // Post-capture hold window end (capture-hold.ts): a FRONTIER tile defends
@@ -234,12 +238,17 @@ const defenderBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
     mult *= foldMult(entries, "Ancient force field", modifiers.relicDefenseMult);
     mult *= foldMult(entries, "Garrisoned tile", target.ownershipState === "SETTLED" ? 1.3 : undefined);
     mult *= foldMult(entries, "Town", target.townType ? 1.2 : undefined);
-    if (target.fortVariant) {
-      const baseFortMult = baseFortDefenseMult(target.fortVariant);
-      const techMult = modifiers.fortDefenseMult ?? 1;
-      const combinedMult = baseFortMult * techMult;
-      entries.push({ label: `Fort (${target.fortVariant})`, mult: combinedMult });
-      mult *= combinedMult;
+    const techMult = modifiers.fortDefenseMult ?? 1;
+    const ownFortMult = target.fortVariant ? baseFortDefenseMult(target.fortVariant) * techMult : 1;
+    const perimeterMult =
+      target.fortPerimeterVariant && target.ownershipState === "SETTLED" ? fortPerimeterDefenseMult(target.fortPerimeterVariant, techMult) : 1;
+    // Perimeters never stack with each other or with the tile's own fort: the strongest wins.
+    if (target.fortVariant && ownFortMult >= perimeterMult) {
+      entries.push({ label: `Fort (${target.fortVariant})`, mult: ownFortMult });
+      mult *= ownFortMult;
+    } else if (target.fortPerimeterVariant && perimeterMult > 1) {
+      entries.push({ label: `Fort perimeter (${target.fortPerimeterVariant})`, mult: perimeterMult });
+      mult *= perimeterMult;
     }
   }
   // High ground holds for garrisons and capture-holders alike (undefended

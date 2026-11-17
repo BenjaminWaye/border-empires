@@ -8,6 +8,7 @@ import { describeDiplomacyTermsForProposer, describeDiplomacyTermsForRecipient }
 
 import type { ActiveTruceView, AllianceRequest, LeaderboardOverallEntry, TruceRequest } from "../client-types.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
+import { isTruceEndingSoon, truceCanExtend, truceTimeLeftLabel, trucesEndingSoon } from "../client-truce-ending/client-truce-ending.js";
 
 export type DiplomacyListInput = {
   resourceOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
@@ -28,7 +29,8 @@ export type DiplomacyListInput = {
   nowMs: number;
 };
 
-export type EmpireStance = { kind: "ally" | "truce" | "war" | "met"; label: string };
+/** `ending`: a truce in its last two hours (client-truce-ending.ts). */
+export type EmpireStance = { kind: "ally" | "truce" | "war" | "met"; label: string; ending?: boolean };
 
 const esc = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -37,6 +39,7 @@ const esc = (text: string): string =>
 export const empireStance = (id: string, input: Pick<DiplomacyListInput, "allies" | "activeTruces" | "nowMs" | "warPlayerIds">): EmpireStance => {
   if (input.allies.includes(id)) return { kind: "ally", label: "Ally" };
   const truce = input.activeTruces.find((t) => t.otherPlayerId === id);
+  if (truce && isTruceEndingSoon(truce, input.nowMs)) return { kind: "truce", label: `Truce ends ${truceTimeLeftLabel(truce.endsAt, input.nowMs)}`, ending: true };
   if (truce) return { kind: "truce", label: `Truce ${socialRemainingLabel(truce.endsAt, input.nowMs)}` };
   if (input.warPlayerIds?.has(id)) return { kind: "war", label: "War" };
   return { kind: "met", label: "Met" };
@@ -93,6 +96,15 @@ const sentRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest, 
   </div>`;
 };
 
+// A truce in its last two hours, pinned above the grid; Extend opens the deal, whose Extend 12h / 24h buttons send the offer.
+const endingRow = (truce: ActiveTruceView, input: DiplomacyListInput): string => {
+  const name = input.nameOf(truce.otherPlayerId) || truce.otherPlayerName || "Empire";
+  return `<div class="v2d-req v2d-ending">${crest(name, input.colorOf(truce.otherPlayerId))}
+    <span class="v2d-req-text"><b>${esc(name)}</b><span>Truce ends ${truceTimeLeftLabel(truce.endsAt, input.nowMs)}</span></span>
+    ${truceCanExtend(truce, input.nowMs) ? `<button type="button" class="v2s-btn v2s-btn-primary v2s-btn-sm" data-v2-dip-open="${esc(truce.otherPlayerId)}">Extend</button>` : `<button type="button" class="v2s-btn v2s-btn-sm" data-v2-dip-open="${esc(truce.otherPlayerId)}">Open</button>`}
+  </div>`;
+};
+
 /** Ranked empires you haven't met yet: an offer needs no contact, so they open the deal like any met empire. */
 export const unmetRankedEmpires = (input: DiplomacyListInput, listed: ReadonlySet<string>): Array<{ id: string; name: string; tiles: number }> =>
   input.leaderboard.filter((e) => e.id !== input.me && !e.id.startsWith("barbarian") && !listed.has(e.id)).map((e) => ({ id: e.id, name: input.nameOf(e.id) || e.name || "Empire", tiles: e.tiles }));
@@ -106,6 +118,8 @@ export const diplomacyListHtml = (input: DiplomacyListInput): string => {
     ...input.incomingTruce.map((r) => requestRow("truce", r, input)),
     ...input.incomingAlliance.map((r) => requestRow("alliance", r, input))
   ];
+  const ending = trucesEndingSoon(input.activeTruces, input.nowMs).map((truce) => endingRow(truce, input));
+  const endingHtml = ending.length > 0 ? `<section class="v2d-reqs v2d-endings"><h2 class="v2s-h2">Truces ending · ${ending.length}</h2>${ending.join("")}</section>` : "";
   const reqHtml = requests.length > 0 ? `<section class="v2d-reqs"><h2 class="v2s-h2">Requests · ${requests.length}</h2>${requests.join("")}</section>` : "";
   const sent = [...(input.outgoingTruce ?? []).map((r) => sentRow("truce", r, input)), ...(input.outgoingAlliance ?? []).map((r) => sentRow("alliance", r, input))];
   const sentHtml = sent.length > 0 ? `<section class="v2d-reqs"><h2 class="v2s-h2">Sent · ${sent.length}</h2>${sent.join("")}</section>` : "";
@@ -119,7 +133,7 @@ export const diplomacyListHtml = (input: DiplomacyListInput): string => {
     : "";
   // The empty note sits outside the grid: as a grid cell it was one 104px column wide (playtest 2026-11-12).
   const grid = empires.length > 0
-    ? `<div class="v2d-grid">${empires.map((e) => `<button type="button" class="v2d-emp v2d-emp-${e.stance.kind}" data-v2-dip-open="${esc(e.id)}">
+    ? `<div class="v2d-grid">${empires.map((e) => `<button type="button" class="v2d-emp v2d-emp-${e.stance.kind}${e.stance.ending ? " v2d-emp-ending" : ""}" data-v2-dip-open="${esc(e.id)}">
         ${crest(e.name, input.colorOf(e.id), " v2d-crest-lg")}<span class="v2d-emp-name">${esc(e.name)}</span>
         <span class="v2d-emp-stance">${esc(e.stance.label)}</span><span class="v2d-emp-tiles">${e.tiles !== undefined ? garrisonedTilesLabel(e.tiles) : ""}</span>
       </button>`).join("")}</div>`
@@ -127,7 +141,7 @@ export const diplomacyListHtml = (input: DiplomacyListInput): string => {
   // One scrolling column (data-v2-scroll keeps its place across repaints). Playtest 2026-11-13: each
   // section scrolled on its own, so a Sent list squeezed the met and unmet grids into overlapping slivers.
   const links = `<div class="v2d-list-links"><button type="button" class="v2s-btn v2s-btn-sm v2s-btn-ghost" data-v2-dip-alliances="">Alliances &amp; supply ▸</button></div>`;
-  return `<div class="v2d-list" data-v2-scroll="diplomacy">${links}${reqHtml}${sentHtml}<section class="v2d-grid-wrap"><h2 class="v2s-h2">Empires you've met · ${empires.length}</h2>${grid}</section>${unmetHtml}</div>`;
+  return `<div class="v2d-list" data-v2-scroll="diplomacy">${links}${endingHtml}${reqHtml}${sentHtml}<section class="v2d-grid-wrap"><h2 class="v2s-h2">Empires you've met · ${empires.length}</h2>${grid}</section>${unmetHtml}</div>`;
 };
 
 /**

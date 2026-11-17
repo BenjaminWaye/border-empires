@@ -77,6 +77,22 @@ describe.each(stores)("diplomacy history in the %s social store", (_name, makeSt
     expect(broken).not.toHaveProperty("court");
   });
 
+  it("keeps each truce row's end, an extension's new end included, across a restart", () => {
+    const clock = { now: 1_000 };
+    const now = (): number => clock.now;
+    const store = makeStore(now);
+    const before = boot(store, now);
+    expect(before.requestTruce("player-1", "Tove", 12).ok).toBe(true);
+    expect(before.acceptTruce("player-2", before.snapshotForPlayer("player-2").incomingTruceRequests[0]!.id).ok).toBe(true);
+    clock.now += 60_000;
+    expect(before.requestTruce("player-2", "Nauticus", 12).ok).toBe(true);
+    expect(before.acceptTruce("player-1", before.snapshotForPlayer("player-1").incomingTruceRequests[0]!.id).ok).toBe(true);
+
+    const cards = boot(store, now).diplomacyActivityCards("player-1", 0, clock.now);
+    expect(cards.find((card) => card.event === "TRUCE_STARTED")).toEqual(expect.objectContaining({ endsAt: 1_000 + 12 * 3_600_000 }));
+    expect(cards.find((card) => card.event === "TRUCE_EXTENDED")).toEqual(expect.objectContaining({ durationHours: 12, endsAt: 1_000 + 24 * 3_600_000 }));
+  });
+
   it("caps rows per player and drops rows older than a day", () => {
     const clock = { now: DIPLOMACY_HISTORY_TTL_MS * 2 };
     const now = (): number => clock.now;
@@ -112,5 +128,19 @@ describe("sqlite diplomacy history rows", () => {
     ).run();
     store.applySchema();
     expect(store.loadSnapshot().diplomacyHistory).toEqual([]);
+  });
+  it("adds the ends_at column to a table saved by an older gateway, keeping its rows", () => {
+    const db = new DatabaseSync(":memory:");
+    db.exec(`CREATE TABLE social_diplomacy_history (player_id TEXT NOT NULL, event TEXT NOT NULL, occurred_at INTEGER NOT NULL,
+      counterparty_player_id TEXT NOT NULL, counterparty_name TEXT NOT NULL, duration_hours INTEGER, by_player_id TEXT, court INTEGER)`);
+    db.prepare(
+      `INSERT INTO social_diplomacy_history (player_id, event, occurred_at, counterparty_player_id, counterparty_name, duration_hours) VALUES ('player-1', 'TRUCE_STARTED', 1000, 'player-2', 'Tove', 12)`
+    ).run();
+    const store = new SqliteGatewaySocialStore(db, () => 1_000);
+    store.applySchema();
+    expect(store.loadSnapshot().diplomacyHistory).toEqual([expect.objectContaining({ event: "TRUCE_STARTED", durationHours: 12 })]);
+    expect(store.loadSnapshot().diplomacyHistory[0]).not.toHaveProperty("endsAt");
+    store.saveDiplomacyHistory("player-1", { event: "TRUCE_EXTENDED", occurredAt: 2_000, counterpartyPlayerId: "player-2", counterpartyName: "Tove", durationHours: 12, endsAt: 99_000 });
+    expect(store.loadSnapshot().diplomacyHistory).toContainEqual(expect.objectContaining({ event: "TRUCE_EXTENDED", endsAt: 99_000 }));
   });
 });

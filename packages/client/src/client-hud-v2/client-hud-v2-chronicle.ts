@@ -5,6 +5,7 @@
 import type { PersonalActivityCard, PersonalActivityTimeline } from "@border-empires/game-domain";
 import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText, activityCardTimeLabel } from "../client-activity-dashboard/client-activity-dashboard-format.js";
 import { activityCardTone, ACTIVITY_TONE_GLYPH } from "../client-activity-dashboard/client-activity-dashboard-tone.js";
+import { localDayKey } from "../client-activity-dashboard/client-activity-dashboard-time.js";
 
 export type ChronicleInput = {
   me: string;
@@ -47,10 +48,7 @@ export const cardCounterparties = (card: PersonalActivityCard, me: string): stri
   }
 };
 
-const dayKey = (at: number): string => {
-  const d = new Date(at);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-};
+const dayKey = localDayKey;
 
 /** "TODAY", "YESTERDAY" or a short date, relative to now. */
 export const dayHeading = (at: number, nowMs: number): string => {
@@ -91,14 +89,14 @@ const TONE_CLASS = { gain: "gain", loss: "loss", hold: "hold", neutral: "neutral
 const rowHtml = (card: PersonalActivityCard, input: ChronicleInput): string => {
   const tone = activityCardTone(card, input.me);
   const where = activityCardCoordinatesLabel(card);
-  const text = activityCardText(card, input.me, input.nameOf, input.techName);
+  const text = activityCardText(card, input.me, input.nameOf, input.techName, input.nowMs);
   const selected = card.id === input.selectedId ? " v2c-row-sel" : "";
   const coords = activityCardCoordinates(card);
   const show = coords
     ? `<button type="button" class="v2c-show" data-v2-chronicle-show="${esc(card.id)}" data-x="${coords.x}" data-y="${coords.y}">Show</button>`
     : "";
   return `<div class="v2c-row v2c-tone-${TONE_CLASS[tone]}${selected}">
-    <span class="v2c-time">${activityCardTimeLabel(card)}</span>
+    <span class="v2c-time">${activityCardTimeLabel(card, input.nowMs)}</span>
     <span class="v2c-glyph" aria-hidden="true">${ACTIVITY_TONE_GLYPH[tone]}</span>
     <span class="v2c-text"><span class="v2c-what">${esc(text)}</span>${where ? `<span class="v2c-where">${esc(where)}</span>` : ""}</span>
     ${show}

@@ -67,11 +67,19 @@ const token = (input: RivalInput, id: string, stance: RivalToken["stance"], labe
 /** "TRUCE 22h" → "Truce 22h" for the hover title; the stance line under the name already says it. */
 const stanceTitle = (label: string): string => label.charAt(0) + label.slice(1).replace(/^[A-Z]+/, (w) => w.toLowerCase());
 
+// "TRUCE 1h 23m" no longer fits the 58px token on one line; keep the time
+// together so it wraps as "TRUCE" / "1h 23m" rather than "TRUCE 1h" / "23m".
+const stanceLabelHtml = (label: string): string => {
+  const space = label.indexOf(" ");
+  if (space < 0 || !label.startsWith("TRUCE ")) return esc(label);
+  return `${esc(label.slice(0, space))} <span class="hud-v2-rival-time">${esc(label.slice(space + 1))}</span>`;
+};
+
 export const rivalsHtml = (input: RivalInput): string => {
   const { shown, hidden } = rivalTokens(input);
   const items = shown.map((t) => `<button type="button" class="hud-v2-rival hud-v2-rival-${t.stance}" data-hud-v2-diplomacy="${esc(t.id)}" aria-label="${esc(t.name)}, ${esc(t.label.toLowerCase())}" title="${esc(t.name)} · ${esc(stanceTitle(t.label))}">
       <span class="hud-v2-rival-token" style="background:${esc(t.color)}">${esc(t.initial)}</span>
-      <span class="hud-v2-rival-name">${esc(t.name)}</span><span class="hud-v2-rival-stance">${esc(t.label)}</span>
+      <span class="hud-v2-rival-name">${esc(t.name)}</span><span class="hud-v2-rival-stance">${stanceLabelHtml(t.label)}</span>
     </button>`).join("");
   const more = hidden > 0 ? `<button type="button" class="hud-v2-rival-more" data-hud-v2-open="diplomacy" aria-label="All empires you've met">+${hidden}</button>` : "";
   return items + more;

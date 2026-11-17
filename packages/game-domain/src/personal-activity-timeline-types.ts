@@ -285,6 +285,8 @@ export type PersonalActivityDiplomacyCard = {
   counterpartyName: string;
   /** TRUCE_STARTED: the truce length. TRUCE_EXTENDED: the hours added. */
   durationHours?: number;
+  /** TRUCE_STARTED / TRUCE_EXTENDED: when the truce ends as of this row (an extension's new end). */
+  endsAt?: number;
   /** TRUCE_BROKEN: who broke it. ALLIANCE_OFFERED: who offered. ALLIANCE_DECLINED: who declined. */
   byPlayerId?: string;
   /** TRUCE_STARTED: a Court armistice rather than a negotiated truce. */
