@@ -91,4 +91,11 @@ describe("dispatchPactGatedAction", () => {
     expect(deps.breakAlliance).not.toHaveBeenCalled();
     expect(deps.pushFeed).toHaveBeenCalledWith("Your alliance with Rival is already breaking. You can attack them in 3h.", "alliance", "warn");
   });
+
+  // Regression: 1h 5m left read "2h" here while Diplomacy showed "1h 5m".
+  it("counts an alliance break down in hours and minutes, like Diplomacy", () => {
+    const { deps, state } = setup({ ally: true, allianceBreakEndsAt: NOW + 65 * 60_000 });
+    expect(dispatchPactGatedAction("launch_attack", tile, state, deps, NOW)).toBe(true);
+    expect(deps.pushFeed).toHaveBeenCalledWith("Your alliance with Rival is already breaking. You can attack them in 1h 5m.", "alliance", "warn");
+  });
 });
