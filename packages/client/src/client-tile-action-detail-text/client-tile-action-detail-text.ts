@@ -20,6 +20,7 @@ import { manufactoryGoldProductionMultiplier, MANUFACTORY_GOLD_PRODUCTION_BONUS,
 import { converterStructureDetailText } from "../client-converter-menu.js";
 import { observatoryToggleDetailText } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { economicStructureName } from "../client-map-display.js";
+import { HYDROWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import type { Tile } from "../client-types.js";
 
 const structureNameForTile = (tile: Tile): string | undefined => {
@@ -79,7 +80,10 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     return `Build on this support tile for ${supportedTownLabel}. Enables the road network itself — towns only share their connected-town income bonus with each other if at least one has a Trade Nexus built.`;
   }
   if (actionId === "build_hydroworks") {
-    return `Build on this support tile for ${supportedTownLabel}. Every Hydrogarden within 10 tiles gains +${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS} FOOD slots.`;
+    // Hydroworks is not support-ring-only (structure-placement-metadata.json), so
+    // the copy must not say "support tile". Effect first, and placement worded so
+    // it still reads right on frontier tiles (" • garrisons this tile first").
+    return `Each of your Hydrogardens within ${HYDROWORKS_RADIUS} tiles gains +${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS} FOOD slots. Can go on any empty land tile you hold — no town, support or resource tile needed.`;
   }
   if (actionId === "build_census_hall") {
     return `Build on this support tile for ${supportedTownLabel}. Grants +${CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_INCUBATION_ENGINE.toLocaleString()} population per connected Incubation Engine and cuts this town's tier-upgrade coin cost by ${Math.round((1 - CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT) * 100)}%.`;
