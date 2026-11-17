@@ -6,6 +6,7 @@ import type { PersonalActivityCard, PersonalActivityTimeline } from "@border-emp
 import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText, activityCardTimeLabel } from "../client-activity-dashboard/client-activity-dashboard-format.js";
 import { activityCardTone, ACTIVITY_TONE_GLYPH } from "../client-activity-dashboard/client-activity-dashboard-tone.js";
 import { localDayKey } from "../client-activity-dashboard/client-activity-dashboard-time.js";
+import { chronicleHeadlineHtml, type ChronicleRespawn } from "./client-hud-v2-chronicle-headline.js";
 
 export type ChronicleInput = {
   me: string;
@@ -20,6 +21,8 @@ export type ChronicleInput = {
   nowMs: number;
   /** The read watermark when the Chronicle opened: losses after it are pinned to the top. */
   awaySince?: number | undefined;
+  /** The latest respawn notice, so the headline can say the empire was wiped out and restarted. */
+  respawn?: ChronicleRespawn | undefined;
 };
 
 const esc = (text: string): string =>
@@ -159,5 +162,9 @@ export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
   const list = groups.length > 0
     ? groups.map((g) => `<div class="v2c-day${g.heading === AWAY_LOSSES_HEADING ? " v2c-day-away" : ""}">${g.heading}</div>${g.cards.map((c) => rowHtml(c, input)).join("")}`).join("")
     : `<div class="v2s-empty">No activity in the last 24 hours</div>`;
-  return `${head}${summaryHtml(timeline, input)}${filtersHtml(timeline, input)}<div class="v2c-list" data-v2-scroll="chronicle">${list}</div>`;
+  // A returning player gets a short "since you left" headline above everything else.
+  const headline = input.awaySince === undefined
+    ? ""
+    : chronicleHeadlineHtml({ me: input.me, timeline, awaySince: input.awaySince, respawn: input.respawn, nameOf: input.nameOf });
+  return `${head}${headline}${summaryHtml(timeline, input)}${filtersHtml(timeline, input)}<div class="v2c-list" data-v2-scroll="chronicle">${list}</div>`;
 };
