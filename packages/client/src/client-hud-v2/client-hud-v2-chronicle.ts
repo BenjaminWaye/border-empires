@@ -42,6 +42,8 @@ export const cardCounterparties = (card: PersonalActivityCard, me: string): stri
     case "TOWN_LOST":
     case "DOCK_CAPTURED":
     case "DOCK_LOST":
+    case "MUSTER_CAPTURED":
+    case "MUSTER_LOST":
       return card.counterpartyPlayerId ? [card.counterpartyPlayerId] : [];
     case "DIPLOMACY":
     case "SUPPLY_ENDED":
