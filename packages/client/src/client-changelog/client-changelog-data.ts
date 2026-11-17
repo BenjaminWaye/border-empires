@@ -14,6 +14,7 @@ import { SERVER_EXPLORED_MAP_ENTRY } from "./client-changelog-server-explored-ma
 import { RECONNECT_RAZED_STRUCTURES_ENTRY } from "./client-changelog-reconnect-razed-structures.js";
 import { FASTER_LOGIN_MAP_ENTRY } from "./client-changelog-faster-login-map.js";
 import { PLACE_ANOTHER_ENTRY } from "./client-changelog-place-another.js";
+import { MET_EMPIRES_REMEMBERED_ENTRY } from "./client-changelog-met-empires-remembered.js";
 import { TOWNS_LIST_COIN_PENDING_ENTRY } from "./client-changelog-towns-list-coin-pending.js";
 import { AI_COIN_INCOME_ENTRY } from "./client-changelog-ai-coin-income.js";
 import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
@@ -490,6 +491,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...TOWNS_LIST_COIN_PENDING_ENTRY, createdAt: 1794864521632, },
   { ...NO_RATE_LIMIT_ERRORS_ENTRY, createdAt: 1794864645451, },
   { ...FRONTIER_CLAIM_NEXT_TO_PENDING_ENTRY, createdAt: 1794865837776, },
+  { ...MET_EMPIRES_REMEMBERED_ENTRY, createdAt: 1794866661803, },
   { ...AI_COIN_INCOME_ENTRY, createdAt: 1794906344491, },
 ];
 
