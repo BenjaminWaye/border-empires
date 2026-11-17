@@ -2,6 +2,7 @@ import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { CHRONICLE_LOADING_STUCK_ENTRY } from "./client-changelog-chronicle-loading-stuck.js";
 import { CHRONICLE_HEADLINE_ENTRY } from "./client-changelog-chronicle-headline.js";
 import { HYDROWORKS_PLACEMENT_TEXT_ENTRY } from "./client-changelog-hydroworks-placement-text.js";
+import { RESOURCE_COUNTER_ENTRY } from "./client-changelog-resource-counter.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
@@ -471,6 +472,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...CHRONICLE_LOADING_STUCK_ENTRY, createdAt: 1794909056601, },
   { ...CHRONICLE_HEADLINE_ENTRY, createdAt: 1794931506698, },
   { ...HYDROWORKS_PLACEMENT_TEXT_ENTRY, createdAt: 1794944287299, },
+  { ...RESOURCE_COUNTER_ENTRY, createdAt: 1794944628430, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
