@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { handleRequestPersonalActivityMessage, handleAcknowledgeActivitySeenMessage, mergeDiplomacyCards } from "./handle-activity-timeline-messages.js";
+import { ACTIVITY_TIMELINE_RPC_TIMEOUT_MS, handleRequestPersonalActivityMessage, handleAcknowledgeActivitySeenMessage, mergeDiplomacyCards } from "./handle-activity-timeline-messages.js";
 import type { PersonalActivityTimeline } from "@border-empires/game-domain";
 
 const emptyTimeline = (from: number, to: number): PersonalActivityTimeline => ({
@@ -86,6 +86,24 @@ describe("handleRequestPersonalActivityMessage", () => {
       sendJson: (payload) => sent.push(payload)
     });
     expect(sent).toEqual([{ type: "ERROR", code: "ACTIVITY_TIMELINE_UNAVAILABLE", message: "sim unavailable" }]);
+  });
+
+  it("answers with ACTIVITY_TIMELINE_UNAVAILABLE when the sim RPC never responds, so the client never waits forever", async () => {
+    vi.useFakeTimers();
+    try {
+      const sent: unknown[] = [];
+      const pending = handleRequestPersonalActivityMessage({
+        playerId: "player-1",
+        now: () => 1_000,
+        getPersonalActivityTimeline: () => new Promise(() => undefined),
+        sendJson: (payload) => sent.push(payload)
+      });
+      await vi.advanceTimersByTimeAsync(ACTIVITY_TIMELINE_RPC_TIMEOUT_MS);
+      await pending;
+      expect(sent).toEqual([expect.objectContaining({ type: "ERROR", code: "ACTIVITY_TIMELINE_UNAVAILABLE" })]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

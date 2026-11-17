@@ -1,6 +1,11 @@
 import type { PersonalActivityDiplomacyCard, PersonalActivityTimeline } from "@border-empires/game-domain";
+import { withTimeout } from "../promise-timeout.js";
 
 const ACTIVITY_TIMELINE_WINDOW_MS = 24 * 60 * 60_000;
+// The sim RPC has no gRPC deadline. Without a bound, a stalled simulation never
+// answers and the client's Chronicle "Yours" tab waits on "Loading…" forever;
+// timing out turns that into the recoverable ACTIVITY_TIMELINE_UNAVAILABLE error.
+export const ACTIVITY_TIMELINE_RPC_TIMEOUT_MS = 10_000;
 
 // REQUEST_PERSONAL_ACTIVITY / ACKNOWLEDGE_ACTIVITY_SEEN handlers, extracted
 // from gateway-app.ts's dispatcher (already oversized and may not grow --
@@ -23,6 +28,7 @@ export type RequestPersonalActivityMessageDeps = {
   recordCardCount?: (count: number) => void;
   recordTruncated?: () => void;
   sendJson: (payload: unknown) => void;
+  timeoutMs?: number;
 };
 
 // Newest first, like the simulation's own list: the client reads cards[0] as
@@ -33,11 +39,11 @@ export const mergeDiplomacyCards = (timeline: PersonalActivityTimeline, diplomac
     : { ...timeline, cards: [...timeline.cards, ...diplomacyCards].sort((left, right) => right.occurredAt - left.occurredAt) };
 
 export const handleRequestPersonalActivityMessage = async (deps: RequestPersonalActivityMessageDeps): Promise<void> => {
-  const { playerId, now, getPersonalActivityTimeline, getDiplomacyCards, recordPayloadBytes, recordCardCount, recordTruncated, sendJson } = deps;
+  const { playerId, now, getPersonalActivityTimeline, getDiplomacyCards, recordPayloadBytes, recordCardCount, recordTruncated, sendJson, timeoutMs = ACTIVITY_TIMELINE_RPC_TIMEOUT_MS } = deps;
   const to = now();
   const from = to - ACTIVITY_TIMELINE_WINDOW_MS;
   try {
-    const timeline = mergeDiplomacyCards(await getPersonalActivityTimeline(playerId, from, to), getDiplomacyCards?.(playerId, from, to) ?? []);
+    const timeline = mergeDiplomacyCards(await withTimeout(getPersonalActivityTimeline(playerId, from, to), timeoutMs, "personal activity timeline"), getDiplomacyCards?.(playerId, from, to) ?? []);
     const response = { type: "PERSONAL_ACTIVITY_TIMELINE", timeline };
     recordPayloadBytes?.(Buffer.byteLength(JSON.stringify(response), "utf8"));
     recordCardCount?.(timeline.cards.length);
