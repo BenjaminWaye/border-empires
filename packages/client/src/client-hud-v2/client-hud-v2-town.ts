@@ -16,6 +16,7 @@ import { townGoldBonuses } from "../client-town-stat-bonuses/client-town-stat-bo
 import { initialBuildingCategory, type BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { autoSettleOptionForTile, autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { availableResourceImprovement, isGarrison } from "./client-hud-v2-action-bar.js";
+import { STRUCTURE_TOGGLE_ACTION_IDS } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
@@ -165,6 +166,8 @@ const barHtml = (input: TownScreenInput): string => {
   // selected every town-tile action is marked "(town)", so "Remove Fort" can't read as the selected tile's.
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
   const isMuster = (a: TileActionDef): boolean => a.id.startsWith("muster_");
+  // The selected building's on/off switch (e.g. to free FOOD slots) acts on that tile, like muster actions.
+  const isFocusOwned = (a: TileActionDef): boolean => isMuster(a) || STRUCTURE_TOGGLE_ACTION_IDS.has(a.id);
   // An ungarrisoned town's Garrison leads the bar as the gold main button; a text link was easy to miss.
   // With a support tile selected (the screen only opens on one once its town is garrisoned), that tile's
   // Garrison takes the slot instead. Touch has no tooltips, so a disabled one says why on the button.
@@ -190,7 +193,7 @@ const barHtml = (input: TownScreenInput): string => {
   const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : []), ...(improvement ? [improvement.id] : [])]);
   const minorActions = [
     ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
-    ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isMuster(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
+    ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isFocusOwned(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
   ];
   const minor = minorActions.map(({ a, key }) =>
     `<button type="button" class="hud-v2-minor${a.disabled ? " hud-v2-minor-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, key)}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? a.label : a.cost ?? a.detail ?? a.label)}">${esc(a.label)}</button>`).join("");
