@@ -1,6 +1,7 @@
 import type {
   PersonalActivityBuildingCard,
   PersonalActivityDockCard,
+  PersonalActivityMusterCard,
   PersonalActivityScoutReportCard,
   PersonalActivityScoutSightedCard,
   PersonalActivitySupplyEndedCard,
@@ -14,13 +15,14 @@ export type PersonalImpactCards = {
   waystations: PersonalActivityWaystationCard[];
   towns: PersonalActivityTownCard[];
   docks: PersonalActivityDockCard[];
+  musters: PersonalActivityMusterCard[];
   buildings: PersonalActivityBuildingCard[];
   scouting: Array<PersonalActivityScoutReportCard | PersonalActivityScoutSightedCard>;
   supplies: PersonalActivitySupplyEndedCard[];
 };
 
 export const personalImpactCardsForPlayer = (playerId: string, events: readonly PersonalImpactEvent[]): PersonalImpactCards => {
-  const cards: PersonalImpactCards = { waystations: [], towns: [], docks: [], buildings: [], scouting: [], supplies: [] };
+  const cards: PersonalImpactCards = { waystations: [], towns: [], docks: [], musters: [], buildings: [], scouting: [], supplies: [] };
   const supplyIds = new Set<string>();
   for (const event of events) {
     if (event.playerId !== playerId) continue;
@@ -30,6 +32,8 @@ export const personalImpactCardsForPlayer = (playerId: string, events: readonly 
       cards.towns.push({ ...event });
     } else if (event.kind === "DOCK_CAPTURED" || event.kind === "DOCK_LOST") {
       cards.docks.push({ ...event });
+    } else if (event.kind === "MUSTER_CAPTURED" || event.kind === "MUSTER_LOST") {
+      cards.musters.push({ ...event });
     } else if (event.kind === "BUILDING_COMPLETED") {
       cards.buildings.push({ ...event });
     } else if (event.kind === "SCOUT_REPORT") {

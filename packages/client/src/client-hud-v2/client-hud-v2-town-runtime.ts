@@ -1,7 +1,7 @@
 import { townBuildTarget } from "./client-hud-v2-town-build-target.js";
 import { pushFeed } from "../client-alerts/client-alerts.js";
 import { TOWN_PLOTS_TAKEN_REASON, townTileOpenPlotReason } from "../client-tile-action-logic/client-town-tile-support-gate.js";
-import { structureRequiresTownOrSupportTile } from "@border-empires/shared";
+import { RESOURCE_NETWORKS, structureRequiresTownOrSupportTile } from "@border-empires/shared";
 import { dormantResourcesForTile, structureTypeForTileAction } from "../client-tile-action-support/client-tile-action-support.js";
 import { refineryStatusFor } from "../client-refineries/refinery-client-status.js";
 // Runtime for the town screen: decides when a selected tile opens it (your
@@ -18,6 +18,7 @@ import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScre
 import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
 import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js";
+import { biotaSteps, type BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
 
 type TownContext = { townKey: string; focusKey: string; focusView: TileMenuView };
@@ -64,6 +65,30 @@ export const forgetMyTowns = (): void => {
   townListCache = undefined;
 };
 
+/**
+ * Next steps for an unruly town: the charter, your biota sites, the nearest deposit you've seen.
+ * Scans every known tile, so the result is kept until the tiles, techs, town or allocation change:
+ * the town screen re-renders on every view update, Place press and work action.
+ */
+let biotaStepsCache: { key: string; steps: BiotaStep[] } | undefined;
+const townBiotaSteps = (state: HudV2Deps["state"], town: Tile, townKey: string): BiotaStep[] => {
+  const techId = RESOURCE_NETWORKS.LUXURY_BIOTA.tech;
+  const otherTownsSlots = (state.manpowerBreakdown.biotaTowns ?? [])
+    .reduce((sum, entry) => sum + (entry.tileKey === townKey ? 0 : entry.received), 0);
+  const key = `${state.tilesRevision}|${state.tiles.size}|${state.techIds.join(",")}|${townKey}|${otherTownsSlots}`;
+  if (biotaStepsCache?.key === key) return biotaStepsCache.steps;
+  const steps = biotaSteps({
+    me: state.me,
+    tiles: state.tiles.values(),
+    techIds: state.techIds,
+    techName: state.techCatalog.find((tech) => tech.id === techId)?.name,
+    otherTownsSlots,
+    from: town
+  });
+  biotaStepsCache = { key, steps };
+  return steps;
+};
+
 export const renderTownScreen = (deps: HudV2Deps): void => {
   if (screen.id !== "town" || !current) return;
   const town = deps.state.tiles.get(current.townKey);
@@ -71,6 +96,8 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
   if (!town || !focus) return;
   const townView = current.townKey === current.focusKey ? current.focusView : deps.actionFlow.tileMenuViewForTile(town);
   const towns = myTowns(deps);
+  const townKey = current.townKey;
+  const biota = deps.state.manpowerBreakdown.biotaTowns?.find((entry) => entry.tileKey === townKey);
   const regions = townScreenRegions({
     town,
     focus,
@@ -86,6 +113,8 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field),
     refineryStatusOf: (tile) => refineryStatusFor(deps.state, tile),
     plotsHtml: townPlotsCardHtml(deps.state, town),
+    biota,
+    ...(biota && biota.received < biota.needed ? { biotaSteps: townBiotaSteps(deps.state, town, townKey) } : {}),
     ...placeButtonState(placeFlash, screen.townBuildSelection, Date.now())
   });
   writeHtml("v2t-left", regions.left);

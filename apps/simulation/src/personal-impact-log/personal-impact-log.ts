@@ -79,7 +79,19 @@ export type PersonalImpactScoutSighted = PersonalImpactBase & {
 // No tile: x/y are not part of it.
 export type PersonalImpactSupplyEnded = Omit<PersonalImpactBase, "x" | "y"> & Omit<PersonalActivitySupplyEndedCard, "id" | "occurredAt">;
 
+// A muster flag taken with the tile it stood on (muster-capture/muster-capture.ts).
+export type PersonalImpactMuster = PersonalImpactBase & {
+  kind: "MUSTER_CAPTURED" | "MUSTER_LOST";
+  /** Manpower staged on the flag. */
+  amount: number;
+  /** MUSTER_CAPTURED: what fit under the captor's manpower ceiling. */
+  gained?: number;
+  /** Previous owner on MUSTER_CAPTURED, captor on MUSTER_LOST. */
+  counterpartyPlayerId: string;
+};
+
 export type PersonalImpactEvent =
+  | PersonalImpactMuster
   | PersonalImpactSupplyEnded
   | PersonalImpactWaystationActivated
   | PersonalImpactTown

@@ -80,6 +80,14 @@ const dockCardText = (card: Extract<PersonalActivityCard, { kind: "DOCK_CAPTURED
   return `Lost your Dock${counterparty ? ` to ${counterparty}` : ""}`;
 };
 
+const musterCardText = (card: Extract<PersonalActivityCard, { kind: "MUSTER_CAPTURED" | "MUSTER_LOST" }>, playerNames: PlayerNameLookup): string => {
+  const counterparty = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : undefined;
+  if (card.kind === "MUSTER_LOST") return `Lost muster flag${counterparty ? ` to ${counterparty}` : ""} · −${roundedAmount(card.amount)} manpower`;
+  const gained = card.gained ?? card.amount;
+  const capped = gained < card.amount ? ` (${roundedAmount(card.amount)} on flag, at cap)` : "";
+  return `Captured muster flag${counterparty ? ` from ${counterparty}` : ""} · +${roundedAmount(gained)} manpower${capped}`;
+};
+
 const buildingCardText = (card: Extract<PersonalActivityCard, { kind: "BUILDING_COMPLETED" }>): string => {
   const parts = [`${structureDisplayName(card.structureType)} completed`];
   if (card.instantGold && card.instantGold > 0) parts.push(`+${roundedAmount(card.instantGold)} coin`);
@@ -103,6 +111,7 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
   if (card.kind === "WAYSTATION_ACTIVATED") return waystationCardText(card, techName);
   if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return townCardText(card, playerNames);
   if (card.kind === "DOCK_CAPTURED" || card.kind === "DOCK_LOST") return dockCardText(card, playerNames);
+  if (card.kind === "MUSTER_CAPTURED" || card.kind === "MUSTER_LOST") return musterCardText(card, playerNames);
   if (card.kind === "BUILDING_COMPLETED") return buildingCardText(card);
   if (card.kind === "SCOUT_REPORT") return scoutReportCardText(card, playerNames);
   if (card.kind === "SCOUT_SIGHTED") return `Foreign scouts sighted at your border: ${nameOf(card.scoutPlayerId, playerNames)}`;
