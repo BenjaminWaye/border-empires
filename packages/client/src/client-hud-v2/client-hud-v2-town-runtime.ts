@@ -71,6 +71,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
   if (!town || !focus) return;
   const townView = current.townKey === current.focusKey ? current.focusView : deps.actionFlow.tileMenuViewForTile(town);
   const towns = myTowns(deps);
+  const townKey = current.townKey;
   const regions = townScreenRegions({
     town,
     focus,
@@ -86,6 +87,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field),
     refineryStatusOf: (tile) => refineryStatusFor(deps.state, tile),
     plotsHtml: townPlotsCardHtml(deps.state, town),
+    biota: deps.state.manpowerBreakdown.biotaTowns?.find((entry) => entry.tileKey === townKey),
     ...placeButtonState(placeFlash, screen.townBuildSelection, Date.now())
   });
   writeHtml("v2t-left", regions.left);
