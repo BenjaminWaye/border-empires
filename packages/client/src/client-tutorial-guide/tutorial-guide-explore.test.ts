@@ -4,6 +4,8 @@ import type { ScoutDroneFlight } from "@border-empires/shared";
 import { GUIDE_EXPLORE_OVERSHOOT, GUIDE_EXPLORE_SEARCH_RADIUS, guideExploreTarget, guideScoutStatus } from "./tutorial-guide-explore-target.js";
 import { evaluateGuide, GUIDE_STEPS, type GuideInput } from "./tutorial-guide-steps.js";
 import { guideTargetAction, type GuideTargetSet } from "./tutorial-guide-foothold-targets.js";
+import { createInitialState } from "../client-state/client-state.js";
+import { buildGuideInput, resetGuideInputCacheForTests } from "./tutorial-guide-input.js";
 
 const HOME = { x: 50, y: 50 };
 
@@ -155,9 +157,8 @@ describe("guide steps with the scout drone", () => {
 });
 
 describe("guide input from client state", () => {
-  it("reads the drone and the explore target, and has no drone while the AFC is lost", async () => {
-    const { createInitialState } = await import("../client-state/client-state.js");
-    const { buildGuideInput, resetGuideInputCacheForTests } = await import("./tutorial-guide-input.js");
+  // Imported at the top, not inside the test: loading client state takes ~2.5s and timed out under load.
+  it("reads the drone and the explore target, and has no drone while the AFC is lost", () => {
     resetGuideInputCacheForTests();
     const state = createInitialState();
     state.me = "me";
