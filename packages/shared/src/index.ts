@@ -82,6 +82,7 @@ export * from "./island-names/island-names.js";
 export * from "./house-charges/house-charges.js";
 export * from "./house-charges/house-charge-art.js";
 export * from "./scout-drone/scout-drone.js";
+export * from "./muster-capture/muster-capture.js";
 export * from "./town-growth/town-growth.js";
 export * from "./town-growth/town-support-ring.js";
 export * from "./structure-registry/structure-registry.js";
