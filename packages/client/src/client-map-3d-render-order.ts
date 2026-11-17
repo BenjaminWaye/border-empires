@@ -38,10 +38,12 @@ export const RENDER_ORDER = {
   // Guide rings (client-map-3d-onboarding-checklist-highlight.ts): halo, ring,
   // then arrowheads. Over the storm and the fogged mist, since the guide points
   // at unexplored ground (Explore) and at towns a scout drone found that have
-  // gone back under fog; under the selection and hover markers.
-  guideMarkerHalo: 15,
-  guideMarkerRing: 15.1,
-  guideMarkerChevron: 15.2,
+  // gone back under fog; under the placement-preview and crystal-targeting
+  // markers (15, client-map-3d-placement-overlay.ts / crystal-targeting overlay)
+  // and the selection and hover markers.
+  guideMarkerHalo: 14.2,
+  guideMarkerRing: 14.3,
+  guideMarkerChevron: 14.4,
   // client-map-3d.ts: selectedMarker / hoverMarker.
   selectedMarker: 30,
   hoverMarker: 31

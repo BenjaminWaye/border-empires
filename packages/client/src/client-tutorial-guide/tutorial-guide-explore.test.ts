@@ -54,6 +54,7 @@ const input = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   scout: "ready",
   exploreTarget: () => ({ x: 70, y: 50 }),
   nothingToExplore: () => false,
+  scoutFlights: 0,
   ...overrides
 });
 
@@ -180,5 +181,47 @@ describe("guide input from client state", () => {
     state.scoutDroneFlight = undefined;
     state.afcRecovery = { requiredSince: 1 } as never;
     expect(buildGuideInput(state).scout).toBe("none");
+  });
+});
+
+describe("review fixes: no Explore loops, beacon step stays a beacon", () => {
+  it("keeps the Relay Beacon step on the beacon when no town is in sight (it used to turn into Explore)", () => {
+    const done = new Set(["look-pan", "look-zoom", "look-explore", "foothold-take-town", "foothold-take-food"]);
+    const view = evaluateGuide(input({ beaconSite: () => ({ x: 3, y: 3 }) }), done);
+    expect(view.kind === "step" && view.step.id).toBe("reach-beacon");
+    expect(view.kind === "step" && view.title).toBe("Tap the marked tile and build a Relay Beacon");
+    expect(view.kind === "step" && view.highlightTiles).toEqual([{ x: 3, y: 3 }]);
+  });
+
+  it("stops asking for Explore after a few flights, so a target the drone can't reach can't loop", () => {
+    const done = new Set(["look-pan", "look-zoom", "look-explore"]);
+    const early = evaluateGuide(input({ scoutFlights: 2 }), done);
+    expect(early.kind === "step" && early.title).toMatch(/Explore$/);
+    const capped = evaluateGuide(input({ scoutFlights: 3 }), done);
+    expect(capped.kind === "step" && capped.title).toMatch(/^No town in sight: build a Relay Beacon/);
+  });
+
+  it("keeps the target within drone range of home", () => {
+    // Seen out to radius 11: the nearest unexplored tile is 12 out; 12 + overshoot would be 20.
+    const target = guideExploreTarget(discoveredAround(11), HOME);
+    expect(Math.max(Math.abs(target!.x - HOME.x), Math.abs(target!.y - HOME.y))).toBe(GUIDE_EXPLORE_SEARCH_RADIUS);
+  });
+
+  it("counts distinct drone flights per player, capped", () => {
+    resetGuideInputCacheForTests();
+    const state = createInitialState();
+    state.me = "me";
+    state.homeTile = HOME;
+    expect(buildGuideInput(state).scoutFlights).toBe(0);
+    state.scoutDroneFlight = { ...flight(Date.now() + 60_000), launchedAt: 1 };
+    buildGuideInput(state);
+    expect(buildGuideInput(state).scoutFlights).toBe(1);
+    for (const launchedAt of [2, 3, 4, 5]) {
+      state.scoutDroneFlight = { ...flight(Date.now() + 60_000), launchedAt };
+      buildGuideInput(state);
+    }
+    expect(buildGuideInput(state).scoutFlights).toBe(3);
+    state.me = "someone-else";
+    expect(buildGuideInput(state).scoutFlights).toBe(1);
   });
 });

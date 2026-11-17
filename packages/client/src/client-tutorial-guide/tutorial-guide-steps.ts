@@ -24,7 +24,7 @@
 import { turnFinishTitle, turnFinishWhy } from "./tutorial-guide-turn-finish.js";
 import type { OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
 import { guideTargetAction, type GuideFootholdTargets, type GuideTargetAction } from "./tutorial-guide-foothold-targets.js";
-import type { GuideScoutStatus } from "./tutorial-guide-explore-target.js";
+import { GUIDE_EXPLORE_MAX_FLIGHTS, type GuideScoutStatus } from "./tutorial-guide-explore-target.js";
 
 export type GuideAnchorId = "manpower" | "manifest" | "afc" | "manufactory" | "activity" | "diplomacy";
 
@@ -91,6 +91,8 @@ export type GuideInput = {
   scout: GuideScoutStatus;
   /** Unexplored ground near home to send the drone toward; undefined when all of it has been seen. A function: computed only when a step asks. */
   exploreTarget: () => { x: number; y: number } | undefined;
+  /** Distinct drone flights this session (capped at GUIDE_EXPLORE_MAX_FLIGHTS). */
+  scoutFlights: number;
   /** Home is known and every tile within the search radius has been seen: nothing left for Explore to point at. */
   nothingToExplore: () => boolean;
 };
@@ -157,7 +159,9 @@ const FOOD_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
   beacon: { title: "No food in sight: build a Relay Beacon", why: "Its reach and vision push outward to more grain and fish." }
 };
 
-const canExplore = (input: GuideInput): boolean => input.scout === "ready" && input.exploreTarget() !== undefined;
+/** The town and food steps ask for Explore only for the first few flights: past that, a target the drone can't reach would loop, so they fall back to a beacon. */
+const canExplore = (input: GuideInput): boolean =>
+  input.scout === "ready" && input.scoutFlights < GUIDE_EXPLORE_MAX_FLIGHTS && input.exploreTarget() !== undefined;
 /** The beacon ask when grain or fish is known but only outside reach, where Garrison is refused. */
 const FOOD_OUT_OF_REACH = { title: "No food in your reach: build a Relay Beacon", why: "Garrison only works inside your reach. A beacon pushes it out to the grain and fish you've found." };
 
@@ -179,7 +183,9 @@ const exploreHighlight = (input: GuideInput): ReadonlyArray<{ x: number; y: numb
  * Relay Beacon step points at that town first. Once any town is held the step
  * asks for the beacon, so towns coming into view can't keep deferring it.
  */
-const townBeforeBeacon = (input: GuideInput): boolean => !input.checklist.townExpanded && townAction(input) !== "beacon";
+const TAKEABLE_TOWN_ACTIONS: ReadonlySet<GuideTargetAction> = new Set(["pending", "garrison", "expand"]);
+// Only a town the player can take now: "explore" / "scouting" would turn the beacon step into a drone loop.
+const townBeforeBeacon = (input: GuideInput): boolean => !input.checklist.townExpanded && TAKEABLE_TOWN_ACTIONS.has(townAction(input));
 
 const targetHighlights =
   (kind: "town" | "food") =>

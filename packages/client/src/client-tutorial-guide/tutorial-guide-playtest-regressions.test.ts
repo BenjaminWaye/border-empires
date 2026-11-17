@@ -47,6 +47,7 @@ const stepInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   scout: "none",
   exploreTarget: () => undefined,
   nothingToExplore: () => false,
+  scoutFlights: 0,
   ...overrides
 });
 
@@ -78,6 +79,12 @@ describe("food step only marks tiles a garrison can reach (Sam stuck on 'Beyond 
       town: { outOfReach: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [] },
       food: { outOfReach: 2, pending: [], garrison: [{ x: 9, y: 9 }], expand: [] }
     });
+  });
+
+  it("counts food outside reach toward the beacon ask only near home: a beacon can't reach far food", () => {
+    const tiles = [tile({ x: 5, y: 0, resource: "FARM" }), tile({ x: 30, y: 0, resource: "FISH" })];
+    const byDistance = (t: { x: number; y: number }) => t.x;
+    expect(scanGuideFootholdTargets(tiles, ME, byDistance, () => false).food.outOfReach).toBe(1);
   });
 
   it("reads the server's reach and rescans when a REACH_UPDATE changes it without a tile change", () => {

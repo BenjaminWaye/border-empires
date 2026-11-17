@@ -49,6 +49,12 @@ export type GuideFootholdTargets = { town: GuideTargetSet; food: GuideTargetSet 
 export type GuideTargetAction = "pending" | "garrison" | "expand" | "explore" | "scouting" | "beacon";
 
 const MAX_TARGETS = 3;
+/**
+ * Known food outside reach asks for a Relay Beacon only this close to home
+ * (Manhattan): a beacon reaches 5 tiles and goes near the edge of reach, so food
+ * further out is no reason to stop exploring for nearer food.
+ */
+export const GUIDE_BEACON_FOOD_DISTANCE = 12;
 const FOOD_RESOURCES: ReadonlySet<string> = new Set(["FARM", "FISH"]);
 
 const isTownTarget = (tile: Tile): boolean => {
@@ -71,7 +77,7 @@ export const scanGuideFootholdTargets = (
     if (!kind) continue;
     // Out of reach, Garrison is refused, so neither Garrison nor Expand To would finish the food step.
     if (kind === result.food && !settleIgnoresReach(tile) && !inReach(tile.x, tile.y)) {
-      if (!tile.ownerId || tile.ownerId === me) kind.outOfReach += 1;
+      if ((!tile.ownerId || tile.ownerId === me) && byDistance(tile) <= GUIDE_BEACON_FOOD_DISTANCE) kind.outOfReach += 1;
       continue;
     }
     // Expand To marks its target as our pending FRONTIER and garrisons it once the

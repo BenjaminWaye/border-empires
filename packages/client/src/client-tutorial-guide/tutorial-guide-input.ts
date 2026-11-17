@@ -20,7 +20,7 @@ import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-
 import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
 import { resolveMyReach, serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-beacon-site.js";
-import { guideExploreTarget, guideScoutStatus } from "./tutorial-guide-explore-target.js";
+import { GUIDE_EXPLORE_MAX_FLIGHTS, guideExploreTarget, guideScoutStatus } from "./tutorial-guide-explore-target.js";
 
 export type GuideInputState = Pick<
   ClientState,
@@ -171,6 +171,17 @@ const beaconSiteOf = (tiles: ReadonlyMap<string, Tile>, me: string, ownsRelayBea
 // without touching tiles, so it is cached on the set's size and home, not on the tiles revision.
 let exploreCache: { size: number; homeKey: string; value: { x: number; y: number } | undefined } | undefined;
 
+// Distinct drone flights seen this session (by launch time), per player, capped: after
+// GUIDE_EXPLORE_MAX_FLIGHTS the town and food steps stop asking for Explore.
+let flightsSeen: { me: string; launches: Set<number> } = { me: "", launches: new Set() };
+
+const scoutFlightsOf = (state: GuideInputState): number => {
+  if (flightsSeen.me !== state.me) flightsSeen = { me: state.me, launches: new Set() };
+  const flight = state.scoutDroneFlight;
+  if (flight && flightsSeen.launches.size < GUIDE_EXPLORE_MAX_FLIGHTS) flightsSeen.launches.add(flight.launchedAt);
+  return flightsSeen.launches.size;
+};
+
 const exploreTargetOf = (state: GuideInputState): { x: number; y: number } | undefined => {
   const homeKey = state.homeTile ? tileKey(state.homeTile.x, state.homeTile.y) : "";
   if (!exploreCache || exploreCache.size !== state.discoveredTiles.size || exploreCache.homeKey !== homeKey) {
@@ -270,6 +281,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     // No AFC (lost, awaiting a replacement): no drone to send, as in the unexplored tile menu.
     scout: guideScoutStatus(state.scoutDroneFlight, state.afcRecovery?.requiredSince === undefined, Date.now()),
     exploreTarget: () => exploreTargetOf(state),
+    scoutFlights: scoutFlightsOf(state),
     // Not before home is known: an unknown home also has no target, and the Explore step's completion is sticky.
     nothingToExplore: () => state.homeTile !== undefined && exploreTargetOf(state) === undefined
   };
@@ -285,4 +297,5 @@ const manifestPriceOf = (state: GuideInputState): Pick<GuideInput, "manifestPric
 export const resetGuideInputCacheForTests = (): void => {
   cached = undefined;
   exploreCache = undefined;
+  flightsSeen = { me: "", launches: new Set() };
 };

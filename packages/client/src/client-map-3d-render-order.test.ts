@@ -35,6 +35,8 @@ describe("surface overlay render order", () => {
     expect(RENDER_ORDER.guideMarkerHalo).toBeLessThan(RENDER_ORDER.guideMarkerRing);
     expect(RENDER_ORDER.guideMarkerRing).toBeLessThan(RENDER_ORDER.guideMarkerChevron);
     expect(RENDER_ORDER.guideMarkerChevron).toBeLessThan(RENDER_ORDER.selectedMarker);
+    // The placement preview's marker and crystal-targeting outlines sit at 15: a beacon step's ring must not cover them.
+    expect(RENDER_ORDER.guideMarkerChevron).toBeLessThan(15);
   });
 
   it("ownership overlays default to the ownership slots; fog overlays take their own", () => {

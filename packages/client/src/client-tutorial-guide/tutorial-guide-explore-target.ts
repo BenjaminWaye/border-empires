@@ -17,8 +17,15 @@ import type { ScoutDroneFlight } from "@border-empires/shared";
 /** "ready": the drone can launch. "out": it is in the air. "none": no AFC to launch from (lost, awaiting a replacement). */
 export type GuideScoutStatus = "ready" | "out" | "none";
 
-/** Rings searched around home for unexplored ground: past this the guide stops asking for Explore. */
-export const GUIDE_EXPLORE_SEARCH_RADIUS = 24;
+/**
+ * Rings searched around home for unexplored ground, and the farthest the target
+ * goes: a drone flies at most 15 tiles past the player's own land
+ * (SCOUT_DRONE_MAX_RANGE_TILES), so a target further out is never reached and
+ * would stay marked.
+ */
+export const GUIDE_EXPLORE_SEARCH_RADIUS = 16;
+/** Flights the guide asks for before its town and food steps fall back to a Relay Beacon, so a target the drone can't reach (a rival border, open sea) can't loop forever. */
+export const GUIDE_EXPLORE_MAX_FLIGHTS = 3;
 /** How far past the nearest unexplored tile the target sits, so one flight uncovers a useful strip. */
 export const GUIDE_EXPLORE_OVERSHOOT = 8;
 
@@ -53,7 +60,7 @@ export const guideExploreTarget = (discovered: ReadonlySet<string>, home: { x: n
   const nearest = nearestUnexplored(isDiscovered, home);
   if (!nearest) return undefined;
   const distance = Math.max(Math.abs(nearest.dx), Math.abs(nearest.dy));
-  const scale = (distance + GUIDE_EXPLORE_OVERSHOOT) / distance;
+  const scale = Math.min(distance + GUIDE_EXPLORE_OVERSHOOT, GUIDE_EXPLORE_SEARCH_RADIUS) / distance;
   const far = { x: wrap(home.x + Math.round(nearest.dx * scale), WORLD_WIDTH), y: wrap(home.y + Math.round(nearest.dy * scale), WORLD_HEIGHT) };
   if (!isDiscovered(far.x, far.y)) return far;
   return { x: wrap(home.x + nearest.dx, WORLD_WIDTH), y: wrap(home.y + nearest.dy, WORLD_HEIGHT) };
