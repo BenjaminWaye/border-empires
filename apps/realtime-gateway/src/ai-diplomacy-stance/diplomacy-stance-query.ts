@@ -3,14 +3,18 @@
 // its stance and prices, so the client can preview "would they accept?" as
 // the player edits the terms; for a human target there is nothing to
 // predict. Read-only: no offer is created.
-import type { AiDiplomacyPricing, AiGiftView } from "@border-empires/shared";
+import { supplyAgreementsFull, type AiDiplomacyPricing, type AiGiftView } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "./ai-diplomacy-evaluation.js";
 import type { AiAttitude, AiOpinionModifier } from "./ai-diplomacy-opinion.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
 
-export type DiplomacyStancePayload = { truceLockout?: { until: number; reason: string } } & (
+export type DiplomacyStancePayload = {
+  truceLockout?: { until: number; reason: string };
+  /** The target is at its supply agreement limit: a deal adding resource supply would be refused. */
+  supplyAgreementsFull?: true;
+} & (
   | { type: "DIPLOMACY_STANCE"; targetPlayerName: string; found: false }
   | { type: "DIPLOMACY_STANCE"; targetPlayerName: string; found: true; targetPlayerId: string; ai: false }
   | {
@@ -44,6 +48,8 @@ export type DiplomacyStanceQueryDeps = {
   fetchAiSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
   requesterSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
   diplomacyContext: AiDiplomacyContextSource;
+  /** The target's active supply agreements, when known without fetching an offline House's snapshot. */
+  supplyAgreementCount?: (playerId: string) => Promise<number | undefined>;
 };
 
 export const answerDiplomacyStanceQuery = async (
@@ -60,15 +66,18 @@ export const answerDiplomacyStanceQuery = async (
   const reason = requesterLockout >= targetLockout
     ? "You recently broke a truce. You can make and accept new truces 24 hours after breaking it."
     : `${target.name} recently broke a truce and cannot accept a new one yet.`;
-  const base = {
-    type: "DIPLOMACY_STANCE" as const, targetPlayerName: target.name, found: true as const, targetPlayerId: target.id,
-    ...(until > 0 ? { truceLockout: { until, reason } } : {})
-  };
-  if (!deps.isAutoRespondingAi(target.id)) return { ...base, ai: false };
-  const [aiSnapshot, requesterSnapshot] = await Promise.all([
+  // Started alongside the AI snapshot reads below; a failure only drops the flag.
+  const supplyCount = Promise.resolve().then(() => deps.supplyAgreementCount?.(target.id)).catch(() => undefined);
+  const fullFlag = (count: number | undefined) => (count !== undefined && supplyAgreementsFull(count) ? { supplyAgreementsFull: true as const } : {});
+  const lockout = until > 0 ? { truceLockout: { until, reason } } : {};
+  const ids = { type: "DIPLOMACY_STANCE" as const, targetPlayerName: target.name, found: true as const, targetPlayerId: target.id };
+  if (!deps.isAutoRespondingAi(target.id)) return { ...ids, ...lockout, ...fullFlag(await supplyCount), ai: false };
+  const [aiSnapshot, requesterSnapshot, targetSupplyAgreements] = await Promise.all([
     deps.fetchAiSnapshot(target.id),
-    deps.requesterSnapshot(requesterId).catch(() => undefined)
+    deps.requesterSnapshot(requesterId).catch(() => undefined),
+    supplyCount
   ]);
+  const base = { ...ids, ...lockout, ...fullFlag(targetSupplyAgreements) };
   const evaluation = evaluateAiDiplomacy({
     aiPlayerId: target.id,
     aiName: target.name,

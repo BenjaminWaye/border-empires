@@ -11,3 +11,13 @@ export const SUPPLY_AGREEMENT_LIMIT_ENTRY: Omit<ClientChangelogEntry, "createdAt
     "If a deal still fails because someone filled up in the meantime, the message now says whose limit was reached."
   ]
 };
+
+export const SUPPLY_AGREEMENT_LIMIT_OTHER_HOUSE_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.17",
+  title: "Know before you offer when the other House's supply agreements are full",
+  why: "An offer to a House with 16/16 supply agreements was only refused after pressing Send, as \"Error RESOURCE_TRADE_FAILED: …\".",
+  changes: [
+    "The trade screen now warns when the other House already has 16/16 supply agreements, before you send a deal that adds resource supply.",
+    "Resource trade refusals show as plain messages, without the error code."
+  ]
+};

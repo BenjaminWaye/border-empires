@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ResourceSupplyAgreementStatus, ResourceTradeOffer } from "@border-empires/shared";
+import { explainActionFailureFromServer } from "../client-player-actions.js";
 import { offerDockEntries } from "../client-diplomacy-offer-dock/client-diplomacy-offer-dock.js";
 import { tradeVerdict, type TradeSelection } from "./client-diplomacy-trade-view.js";
 import { resourceOfferCardsHtml } from "./client-resource-offer-cards.js";
@@ -38,6 +39,21 @@ describe("supply agreement limit in the client", () => {
     expect(verdict).toMatchObject({ tone: "bad", text: FULL, canSend: false });
     // Shown even when also short of goods: more goods wouldn't help.
     expect(tradeVerdict({ targetName: "Beejac", reply: undefined, selection, own: { gold: 0, resources: {} }, cooldownRemainingMs: 0, ownSupplyAgreements: 16 }).text).toBe(FULL);
+  });
+  // Playtest 2026-11-17: the refusal showed as "Error RESOURCE_TRADE_FAILED: Astrid already has…", and only after Send.
+  it("warns before sending supply to a House reported as full, naming them, without blocking", () => {
+    const selection: TradeSelection = { kind: "trade", durationHours: 12, terms: { give: { gold: 0, resources: { FOOD: 1 } }, ask: { gold: 5 } } };
+    const reply = { found: true as const, targetPlayerName: "Astrid", targetPlayerId: "p2", ai: false as const, supplyAgreementsFull: true as const };
+    const verdict = (s: TradeSelection) => tradeVerdict({ targetName: "Astrid", reply, selection: s, own: { gold: 10, resources: { FOOD: 5 } }, cooldownRemainingMs: 0, ownSupplyAgreements: 3 });
+    // The flag is from when the screen opened: warn, but let the server decide in case one of theirs ended since.
+    expect(verdict(selection)).toMatchObject({ tone: "bad", canSend: true,
+      text: "Astrid already has 16/16 active supply agreements and can't take on another. The offer will be refused unless one of theirs ends first." });
+    // A deal without resource supply is unaffected.
+    expect(verdict({ kind: "truce", durationHours: 12, terms: { give: { gold: 5 }, ask: { gold: 0 } } }).text).not.toContain("16/16");
+  });
+  it("shows a resource trade refusal without the raw error code", () => {
+    expect(explainActionFailureFromServer("RESOURCE_TRADE_FAILED", "Astrid already has 16/16 active supply agreements and can't take on another."))
+      .toBe("Astrid already has 16/16 active supply agreements and can't take on another.");
   });
   it("blocks accepting a truce that adds resource supply in the offer dock", () => {
     const truce = { id: "t1", fromPlayerId: "them", toPlayerId: "me", createdAt: 0, expiresAt: 300_000, durationHours: 12 as const, fromName: "Beejac", terms: supplyTerms };

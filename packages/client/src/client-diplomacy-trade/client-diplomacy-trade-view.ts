@@ -1,4 +1,4 @@
-import { RESOURCE_SUPPLY_TRADE_DAYS, hasRecurringCoin, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer } from "@border-empires/shared";
+import { RESOURCE_SUPPLY_TRADE_DAYS, hasRecurringCoin, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer, supplyAgreementLimitMessage } from "@border-empires/shared";
 // Pure view logic for the diplomacy trade screen: what the verdict line says
 // and whether the offer can be sent. Uses the same shared pricing rules the
 // gateway decides with, so "would accept" here means the AI really accepts.
@@ -27,7 +27,11 @@ import { ownSupplyLimitReason } from "./client-supply-agreement-limit.js";
 export type DiplomacyStanceKind = "DISTRUSTFUL" | "SEEKING_PEACE" | "OUTMATCHED" | "WINNING" | "INDIFFERENT" | "WARY";
 
 /** The gateway's DIPLOMACY_STANCE reply (apps/realtime-gateway diplomacy-stance-query.ts). */
-export type DiplomacyStanceReply = { truceLockout?: { until: number; reason: string } } & (
+export type DiplomacyStanceReply = {
+  truceLockout?: { until: number; reason: string };
+  /** The target is at its supply agreement limit (known only for live or AI targets). */
+  supplyAgreementsFull?: true;
+} & (
   | { found: false; targetPlayerName: string }
   | { found: true; targetPlayerName: string; targetPlayerId: string; ai: false }
   | {
@@ -191,6 +195,10 @@ export const tradeVerdict = (input: {
   if (limitReason) return { tone: "bad", text: limitReason, canSend: false, sendLabel };
   const shortfall = ownGoodsShortfall(selection.terms.give, own);
   if (shortfall) return { tone: "bad", text: shortfall, canSend: false, sendLabel };
+  // Advisory only: the flag is from when the screen opened, and one of theirs may end before you send.
+  if (hasSupply && reply?.supplyAgreementsFull) {
+    return { tone: "bad", text: `${supplyAgreementLimitMessage(targetName)} The offer will be refused unless one of theirs ends first.`, canSend: true, sendLabel };
+  }
   if (hasRecurringCoin(selection.terms)) {
     // An AI takes Coin per hour only from you, and only for a truce: say so before pointing at a slot that wouldn't help.
     if (reply?.found && reply.ai && (selection.terms.ask.coinPerHour || kind !== "truce"))
