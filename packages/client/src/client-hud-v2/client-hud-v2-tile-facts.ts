@@ -103,7 +103,7 @@ const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number, dormant:
     ? modifiers.length > 0 ? [`No ${[...new Set(modifiers.map((m) => capitalized(m.statLabel)))].join(" / ")} bonus`] : []
     : modifiers.map((m) => `${capitalized(m.statLabel)} ${m.valueText}`);
   // A refinery says what it yields now; the catalog only knows its per-tile rate.
-  const refineryGives = !isDormant && s.field === "economicStructure" ? refineryGivesFact(s.key, mine, refinery?.()) : undefined;
+  const refineryGives = !isDormant && s.field === "economicStructure" ? refineryGivesFact(s.key, mine, s.status, refinery?.()) : undefined;
   if (refineryGives) facts.push(refineryGives);
   else if (gives.length > 0) facts.push({ label: "Gives", value: gives.join(" · "), ...(isDormant ? { tone: "warn" as const } : {}) });
   if (mine && !COUNT_DEPENDENT_UPKEEP.has(s.key)) {

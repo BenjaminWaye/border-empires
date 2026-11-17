@@ -55,10 +55,10 @@ const BOOSTER_YIELD_NAME: Readonly<Record<RefineryBoosterType, string>> = { TITA
 const refineryModifiers = (type: string): StructureModifier[] => {
   if (isRefineryType(type)) {
     const name = REFINERY_YIELD_NAME[REFINERY_FIELD_RESOURCE_BY_TYPE[type]];
-    return [{ statLabel: `${name} per garrisoned field tile`, valueText: `+${REFINERY_SLOTS_PER_TILE}`, tone: "positive", isTownWide: false }];
+    return [{ statLabel: `${name} slots per garrisoned field tile`, valueText: `+${REFINERY_SLOTS_PER_TILE}`, tone: "positive", isTownWide: false }];
   }
   if (isRefineryBoosterType(type)) {
-    return [{ statLabel: `${BOOSTER_YIELD_NAME[type]} per refined field tile`, valueText: `+${REFINERY_BOOSTER_SLOTS_PER_TILE}`, tone: "positive", isTownWide: true }];
+    return [{ statLabel: `${BOOSTER_YIELD_NAME[type]} slots per processed field tile`, valueText: `+${REFINERY_BOOSTER_SLOTS_PER_TILE}`, tone: "positive", isTownWide: true }];
   }
   return [];
 };
