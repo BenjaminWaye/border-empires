@@ -16,6 +16,7 @@ import { townGoldBonuses } from "../client-town-stat-bonuses/client-town-stat-bo
 import { initialBuildingCategory, type BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { autoSettleOptionForTile, autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { availableResourceImprovement, isGarrison } from "./client-hud-v2-action-bar.js";
+import { STRUCTURE_TOGGLE_ACTION_IDS } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
@@ -155,8 +156,6 @@ const buildPanelHtml = (input: TownScreenInput): string => {
   return `${list}${place}`;
 };
 
-const STRUCTURE_TOGGLE_IDS = new Set<TileActionDef["id"]>(["disable_converter_structure", "enable_converter_structure", "disable_observatory", "enable_observatory"]);
-
 const barHtml = (input: TownScreenInput): string => {
   const btn = (a: TileActionDef | undefined, label: string): string =>
     a
@@ -168,7 +167,7 @@ const barHtml = (input: TownScreenInput): string => {
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
   const isMuster = (a: TileActionDef): boolean => a.id.startsWith("muster_");
   // The selected building's on/off switch (e.g. to free FOOD slots) acts on that tile, like muster actions.
-  const isFocusOwned = (a: TileActionDef): boolean => isMuster(a) || STRUCTURE_TOGGLE_IDS.has(a.id);
+  const isFocusOwned = (a: TileActionDef): boolean => isMuster(a) || STRUCTURE_TOGGLE_ACTION_IDS.has(a.id);
   // An ungarrisoned town's Garrison leads the bar as the gold main button; a text link was easy to miss.
   // With a support tile selected (the screen only opens on one once its town is garrisoned), that tile's
   // Garrison takes the slot instead. Touch has no tooltips, so a disabled one says why on the button.

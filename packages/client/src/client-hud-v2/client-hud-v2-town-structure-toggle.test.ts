@@ -31,6 +31,25 @@ describe("town screen structure on/off switch", () => {
     expect(html).toContain(">Disable Aether Tower<");
   });
 
+  it("shows the converter mode switch and Cancel siphon", () => {
+    const html = bar([
+      { id: "set_converter_structure_mode", label: "Switch to Sell Off mode" } as TileActionDef,
+      { id: "cancel_siphon", label: "Cancel siphon" } as TileActionDef
+    ]);
+    expect(html).toContain(">Switch to Sell Off mode<");
+    expect(html).toContain(">Cancel siphon<");
+  });
+
+  it("matches every switch the tile menu builds", async () => {
+    const { structureToggleMenuEntries, STRUCTURE_TOGGLE_ACTION_IDS } = await import("../client-observatory-toggle/client-observatory-toggle.js");
+    const deps = { buildDetailTextForAction: () => undefined, formatCooldownShort: () => "", tileActionAvailability: () => ({}) };
+    const converter = { ...support, economicStructure: { type: "TITANIUM_WORKS", status: "active", ownerId: "me" } } as unknown as Tile;
+    const tower = { ...support, observatory: { status: "active", siphon: { targetX: 3, targetY: 3 } } } as unknown as Tile;
+    const ids = [...structureToggleMenuEntries(converter, deps), ...structureToggleMenuEntries(tower, deps)].map((a) => a.id);
+    expect(ids.length).toBeGreaterThan(2);
+    for (const id of ids) expect(STRUCTURE_TOGGLE_ACTION_IDS.has(id)).toBe(true);
+  });
+
   it("still leaves out the selected tile's other actions", () => {
     expect(bar([{ id: "abandon_territory", label: "Abandon Territory" } as TileActionDef])).not.toContain("Abandon Territory");
   });
