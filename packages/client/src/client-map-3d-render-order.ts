@@ -35,6 +35,13 @@ export const RENDER_ORDER = {
   // Unexplored storm clouds, level with the land: over all ground-level
   // surfaces at the fog border (client-map-3d-unexplored-storm.ts).
   unexploredStorm: 14,
+  // Guide rings (client-map-3d-onboarding-checklist-highlight.ts): halo, ring,
+  // then arrowheads. Over the storm and the fogged mist, since the guide points
+  // at unexplored ground (Explore) and at towns a scout drone found that have
+  // gone back under fog; under the selection and hover markers.
+  guideMarkerHalo: 15,
+  guideMarkerRing: 15.1,
+  guideMarkerChevron: 15.2,
   // client-map-3d.ts: selectedMarker / hoverMarker.
   selectedMarker: 30,
   hoverMarker: 31
