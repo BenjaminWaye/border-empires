@@ -77,4 +77,17 @@ describe("client world terrain store", () => {
     storage.setItem(worldTerrainStorageKey("terrain"), "build-a|640x320:continents:12:7|***not base64***");
     expect(createLocalStorageWorldTerrainStore(storage, "build-a").load("terrain", "640x320:continents:12:7")).toBeUndefined();
   });
+
+  it("reports each load and save outcome so a cache that never hits is visible", () => {
+    const outcomes: string[] = [];
+    const storage = memoryStorage();
+    const store = createLocalStorageWorldTerrainStore(storage, "build-a", (layer, outcome) => outcomes.push(`${layer}:${outcome}`));
+    store.load("terrain", "640x320:continents:12:7");
+    store.save("terrain", "640x320:continents:12:7", sample());
+    store.load("terrain", "640x320:continents:12:7");
+    store.load("terrain", "640x320:continents:12:8");
+    storage.setItem(worldTerrainStorageKey("hills"), "build-a|640x320:continents:12:7|***");
+    store.load("hills", "640x320:continents:12:7");
+    expect(outcomes).toEqual(["terrain:miss", "terrain:saved", "terrain:hit", "terrain:stale", "hills:corrupt"]);
+  });
 });

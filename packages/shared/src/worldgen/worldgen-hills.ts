@@ -16,6 +16,7 @@ import {
   valueNoise,
   worldIndex,
   worldSeed,
+  worldSeedWasSet,
   worldStyle
 } from "./worldgen.js";
 import { isNaturalRangeFoothill } from "./worldgen-natural-ranges.js";
@@ -109,7 +110,7 @@ export const isHillsRegionAt = (x: number, y: number): boolean => {
     hillsCacheSeed = seed;
     hillsCacheVersion = version;
     hillsCacheStyle = style;
-    const restored = loadWorldBits("hills", worldTerrainCacheKey(seed, style, version, WORLD_WIDTH, WORLD_HEIGHT), WORLD_TILE_COUNT);
+    const restored = worldSeedWasSet() && loadWorldBits("hills", worldTerrainCacheKey(seed, style, version, WORLD_WIDTH, WORLD_HEIGHT), WORLD_TILE_COUNT);
     if (restored) {
       hillsCache.set(restored);
       hillsCacheReady.fill(1);
@@ -171,7 +172,7 @@ export const isHillsRegionAt = (x: number, y: number): boolean => {
   hillsCache[idx] = isHills ? 1 : 0;
   hillsCacheReady[idx] = 1;
   hillsComputedCount += 1;
-  if (hillsComputedCount === WORLD_TILE_COUNT && worldTerrainStore()) {
+  if (hillsComputedCount === WORLD_TILE_COUNT && worldSeedWasSet() && worldTerrainStore()) {
     saveWorldBits("hills", worldTerrainCacheKey(seed, style, version, WORLD_WIDTH, WORLD_HEIGHT), hillsCache);
   }
   return isHills;
@@ -182,7 +183,7 @@ export const isHillsRegionAt = (x: number, y: number): boolean => {
 // has checked every land tile, so the remaining tiles are the cheap non-land ones.
 // No-op when there is no store or the layer was restored rather than computed.
 export const persistHillsLayer = (): void => {
-  if (!worldTerrainStore()) return;
+  if (!worldTerrainStore() || !worldSeedWasSet()) return;
   isHillsRegionAt(0, 0); // syncs the cache to the current world first
   for (let i = 0; i < WORLD_TILE_COUNT; i += 1) {
     if (hillsCacheReady[i] !== 1) isHillsRegionAt(i % WORLD_WIDTH, Math.floor(i / WORLD_WIDTH));

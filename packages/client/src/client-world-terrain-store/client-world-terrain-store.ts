@@ -1,5 +1,6 @@
 import { setWorldTerrainStore, type WorldTerrainLayer, type WorldTerrainStore } from "@border-empires/shared";
 import { CLIENT_BUILD_VERSION } from "../client-build-version.js";
+import { markLoginTimeline } from "../client-init-transfer/client-login-timeline.js";
 
 // Keeps the last world's computed terrain layers in localStorage so a returning
 // login skips the whole-world terrain passes: raw terrain + coastal masks
@@ -24,23 +25,40 @@ export const base64ToBytes = (text: string): Uint8Array => {
   return bytes;
 };
 
-export const createLocalStorageWorldTerrainStore = (storage: Storage, build: string): WorldTerrainStore => {
+// "stale" = an entry for another build or world (evicted on the next save).
+export type WorldTerrainCacheOutcome = "hit" | "miss" | "stale" | "corrupt" | "saved" | "save-failed";
+export type WorldTerrainCacheReport = (layer: WorldTerrainLayer, outcome: WorldTerrainCacheOutcome) => void;
+
+// Lands in the [login-timeline] summary (and client diagnostics), so a cache that never
+// hits in the field is visible instead of silently costing the full world build.
+const reportToLoginTimeline: WorldTerrainCacheReport = (layer, outcome) =>
+  markLoginTimeline(`worldTerrain:${layer}:${outcome}`, { [`worldTerrain_${layer}`]: outcome });
+
+export const createLocalStorageWorldTerrainStore = (storage: Storage, build: string, report: WorldTerrainCacheReport = () => {}): WorldTerrainStore => {
   const prefixFor = (key: string): string => `${build}|${key}|`;
   return {
     load: (layer, key) => {
       const stored = storage.getItem(worldTerrainStorageKey(layer));
       const prefix = prefixFor(key);
-      if (!stored || !stored.startsWith(prefix)) return undefined;
+      if (!stored || !stored.startsWith(prefix)) {
+        report(layer, stored ? "stale" : "miss");
+        return undefined;
+      }
       try {
-        return base64ToBytes(stored.slice(prefix.length));
+        const bytes = base64ToBytes(stored.slice(prefix.length));
+        report(layer, "hit");
+        return bytes;
       } catch {
+        report(layer, "corrupt");
         return undefined;
       }
     },
     save: (layer, key, packed) => {
       try {
         storage.setItem(worldTerrainStorageKey(layer), prefixFor(key) + bytesToBase64(packed));
+        report(layer, "saved");
       } catch {
+        report(layer, "save-failed");
         // Quota or private mode: drop the stale entry so it is not re-read, and recompute next time.
         try {
           storage.removeItem(worldTerrainStorageKey(layer));
@@ -54,7 +72,7 @@ export const createLocalStorageWorldTerrainStore = (storage: Storage, build: str
 
 export const installWorldTerrainStore = (): void => {
   try {
-    setWorldTerrainStore(createLocalStorageWorldTerrainStore(window.localStorage, CLIENT_BUILD_VERSION));
+    setWorldTerrainStore(createLocalStorageWorldTerrainStore(window.localStorage, CLIENT_BUILD_VERSION, reportToLoginTimeline));
   } catch {
     // No localStorage (restricted context): terrain is computed every login as before.
   }
