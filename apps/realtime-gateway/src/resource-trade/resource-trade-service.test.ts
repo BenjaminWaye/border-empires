@@ -105,3 +105,23 @@ it("blocks ending treaty supply while its payment is still uncertain", async () 
   expect(f.cancel).not.toHaveBeenCalled();
   expect(f.send).toHaveBeenCalledWith(f.socket, expect.objectContaining({ type: "ERROR" }));
 });
+describe("resource trade counter-offers",()=>{
+  it("replaces the countered offer with the counter",async()=>{
+    const f=setup();await f.service.handle(request,"a",f.socket,false);
+    const original=f.social.resourceTradeOffers.rows(1)[0]!;
+    await f.service.handle({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:"A",targetPlayerId:"a",terms:{give:{gold:1},ask:{gold:0,resources:{LUXURY_BIOTA:1}}},countersOfferId:original.id},"b",f.socket,false);
+    const rows=f.social.resourceTradeOffers.rows(1);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({fromPlayerId:"b",toPlayerId:"a"});
+  });
+  it("keeps the original when the counter is refused or names someone else's offer",async()=>{
+    const f=setup();await f.service.handle(request,"a",f.socket,false);
+    const original=f.social.resourceTradeOffers.rows(1)[0]!;
+    // No supply slot: the counter is refused, so the offer it answered stays open.
+    await f.service.handle({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:"A",targetPlayerId:"a",terms:{give:{gold:1},ask:{gold:0}},countersOfferId:original.id},"b",f.socket,false);
+    expect(f.social.resourceTradeOffers.rows(1).map(row=>row.id)).toEqual([original.id]);
+    // C was never offered it, so C's offer to A cannot withdraw it.
+    await f.service.handle({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:"A",targetPlayerId:"a",terms,countersOfferId:original.id},"c",f.socket,false);
+    expect(f.social.resourceTradeOffers.rows(1).map(row=>row.id)).toContain(original.id);
+  });
+});

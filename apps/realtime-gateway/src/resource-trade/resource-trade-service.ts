@@ -100,7 +100,10 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
     if(message.type==="RESOURCE_TRADE_REQUEST"){
       const to=message.targetPlayerId?ctx.social.resolvePlayerById(message.targetPlayerId):ctx.social.resolvePlayerByName(message.targetPlayerName);
       const result=await request(actorId,to?.id??"",message.terms);
-      if(!result.ok)error(result.message);
+      if(!result.ok){error(result.message);return true;}
+      // A counter replaces the offer it answers, but only once the counter itself was made.
+      const countered=message.countersOfferId?store.rows(ctx.now()).find(row=>row.id===message.countersOfferId&&row.status==="pending"&&row.toPlayerId===actorId&&row.fromPlayerId===to?.id):undefined;
+      if(countered){store.remove(countered.id);publish([countered.fromPlayerId,countered.toPlayerId]);}
       return true;
     }
     if(message.type==="RESOURCE_TRADE_ACCEPT"||message.type==="RESOURCE_TRADE_REJECT"){

@@ -1,4 +1,4 @@
-import { resourceOfferCardsHtml } from "./client-resource-offer-cards.js";
+import { resourceCounterTerms, resourceOfferCardsHtml } from "./client-resource-offer-cards.js";
 import { activeResourceDealsHtml } from "./client-active-resource-deals.js";
 import { ownSupplyAgreementCount, ownSupplyLimitReason, supplyAgreementUsageHtml } from "./client-supply-agreement-limit.js";
 import { pressResourceEnd, resetResourceEndConfirm, RESOURCE_END_CONFIRM_RESET_MS } from "./client-resource-end-confirm.js";
@@ -61,6 +61,8 @@ type OpenScreen = {
   targetPlayerId: string | undefined;
   /** Set when this screen answers an offer the player received; sending replaces that offer. */
   counters: DiplomacyCounterRef | undefined;
+  /** The incoming resource offer this deal answers; the gateway withdraws it once the counter is made. */
+  resourceCounters: string | undefined;
   /** The truce or alliance in the deal, if any; selection.kind follows from it and the terms (dealKind). */
   treaty: DealTreaty;
   /** Already allied with the target: goods only (client-diplomacy-trade-deps.ts). */
@@ -275,7 +277,7 @@ const sendOffer = (screen: OpenScreen): void => {
     ...(screen.counters ? { counters: screen.counters } : {})
   };
   const sent = screen.selection.kind === "trade"
-    ? screen.deps.send({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:screen.targetName,...(screen.targetPlayerId?{targetPlayerId:screen.targetPlayerId}:{}),terms},"Finish sign-in before trading resources.")
+    ? screen.deps.send({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:screen.targetName,...(screen.targetPlayerId?{targetPlayerId:screen.targetPlayerId}:{}),terms,...(screen.resourceCounters?{countersOfferId:screen.resourceCounters}:{})},"Finish sign-in before trading resources.")
     : screen.selection.kind === "alliance"
       ? screen.deps.send({ type: "ALLIANCE_REQUEST", targetPlayerName: screen.targetName, ...termsField }, "Finish sign-in before sending alliance requests.")
       : screen.deps.send(
@@ -283,6 +285,18 @@ const sendOffer = (screen: OpenScreen): void => {
           "Finish sign-in before sending truce offers."
         );
   if (sent) closeDiplomacyTradeScreen();
+};
+
+/** Loads an incoming resource offer into the deal, from this side, to edit and send back in its place. */
+const counterResourceOffer = (screen: OpenScreen, offerId: string, terms: DiplomacyTerms): void => {
+  screen.counters = undefined;
+  screen.resourceCounters = offerId;
+  screen.reach = maxTradeTerms(screen.reach, terms);
+  setDeal(screen, undefined, terms);
+  const title = screen.overlay.querySelector<HTMLElement>("#diplomacy-trade-title");
+  if (title) title.textContent = `Counter ${screen.targetName}'s offer`;
+  render(screen);
+  title?.focus();
 };
 
 export const openDiplomacyTradeScreen = (
@@ -347,6 +361,7 @@ export const openDiplomacyTradeScreen = (
     targetName,
     targetPlayerId: input.targetPlayerId,
     counters: input.counters,
+    resourceCounters: undefined,
     treaty,
     allied,
     selection: { kind: dealKind(treaty, terms, true), durationHours, terms, ...(inTruce ? { extendsTruce: true } : {}) },
@@ -420,8 +435,10 @@ export const openDiplomacyTradeScreen = (
   overlay.querySelector<HTMLButtonElement>("[data-trade-send]")?.addEventListener("click", () => sendOffer(screen));
   overlay.querySelector<HTMLButtonElement>("[data-trade-cancel]")?.addEventListener("click", closeDiplomacyTradeScreen);
   overlay.addEventListener("click", (event) => {
-    const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("[data-resource-end], [data-resource-offer-accept], [data-resource-offer-reject]") : null;
+    const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("[data-resource-end], [data-resource-offer-accept], [data-resource-offer-reject], [data-resource-offer-counter]") : null;
     if (!target) return;
+    const counterId = target.dataset.resourceOfferCounter, counterTerms = counterId ? resourceCounterTerms(deps.activeSupply?.().offers ?? [], counterId, deps.activeSupply?.().ownId ?? "") : undefined;
+    if (counterId) { if (counterTerms) counterResourceOffer(screen, counterId, counterTerms); return; }
     const agreementId = target.dataset.resourceEnd, accept = target.dataset.resourceOfferAccept, reject = target.dataset.resourceOfferReject;
     const endPress = agreementId ? pressResourceEnd(agreementId, Date.now()) : undefined;
     if (endPress === "armed") { render(screen); setTimeout(() => { if (open === screen) render(screen); }, RESOURCE_END_CONFIRM_RESET_MS); }
