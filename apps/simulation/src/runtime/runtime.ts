@@ -1966,7 +1966,9 @@ export class SimulationRuntime {
   }
 
   /** GetPlayerTradeHoldings: coin and spare supply without a full subscribe (player-trade-holdings.ts). */
-  getPlayerTradeHoldings(playerId: string): PlayerTradeHoldings | undefined { return playerTradeHoldingsForRuntime(this.exportContext(), playerId); }
+  getPlayerTradeHoldings(playerId: string): PlayerTradeHoldings | undefined {
+    return playerTradeHoldingsForRuntime({ players: this.state.players, supplyStateForPlayer: (id) => this.resourceSupply?.playerState(id) ?? {}, now: () => this.now() }, playerId);
+  }
 
   // Single-player lookup for GetPlayerCombatSummary. techIds/domainIds are
   // O(1) — weaponsFactoryCounts reads the maintained per-owner structure

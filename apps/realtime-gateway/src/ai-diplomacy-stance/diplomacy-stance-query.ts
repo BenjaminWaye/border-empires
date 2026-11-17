@@ -61,14 +61,18 @@ export type DiplomacyStanceQueryDeps = {
   /** The target's active supply agreements, when known without fetching an offline House's snapshot. */
   supplyAgreementCount?: (playerId: string) => Promise<number | undefined>;
   /**
-   * A human target's tradeable goods, online or offline alike: whether they are
-   * present must never reveal whether that House is logged in.
+   * A human target's tradeable goods and active supply agreement count, from one
+   * source whether they are online or not: nothing in the reply (amounts, the
+   * agreements-full flag, timing) may reveal whether that House is logged in.
+   * When given, it replaces supplyAgreementCount for human targets.
    */
-  humanHoldings?: (playerId: string) => Promise<DiplomacyGoods | undefined>;
+  humanTradeState?: (playerId: string) => Promise<HumanTradeState | undefined>;
 };
 
-/** A slow simulation lookup only drops the amounts; it never holds up the reply. */
-export const HUMAN_HOLDINGS_TIMEOUT_MS = 1_500;
+export type HumanTradeState = { holdings: DiplomacyGoods; supplyAgreements: number };
+
+/** A slow simulation lookup only drops the amounts and the flag; it never holds up the reply. */
+export const HUMAN_TRADE_STATE_TIMEOUT_MS = 1_500;
 
 const withinTimeout = <T>(lookup: Promise<T | undefined>, ms: number): Promise<T | undefined> => {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -96,16 +100,19 @@ export const answerDiplomacyStanceQuery = async (
   const reason = requesterLockout >= targetLockout
     ? "You recently broke a truce. You can make and accept new truces 24 hours after breaking it."
     : `${target.name} recently broke a truce and cannot accept a new one yet.`;
-  // Started alongside the AI snapshot reads below; a failure only drops the flag.
-  const supplyCount = Promise.resolve().then(() => deps.supplyAgreementCount?.(target.id)).catch(() => undefined);
+  // Started alongside the other reads below; a failure only drops the flag.
+  const readSupplyCount = () => Promise.resolve().then(() => deps.supplyAgreementCount?.(target.id)).catch(() => undefined);
   const fullFlag = (count: number | undefined) => (count !== undefined && supplyAgreementsFull(count) ? { supplyAgreementsFull: true as const } : {});
   const lockout = until > 0 ? { truceLockout: { until, reason } } : {};
   const ids = { type: "DIPLOMACY_STANCE" as const, targetPlayerName: target.name, found: true as const, targetPlayerId: target.id };
   if (!deps.isAutoRespondingAi(target.id)) {
-    const lookup = Promise.resolve().then(() => deps.humanHoldings?.(target.id));
-    const [count, holdings] = await Promise.all([supplyCount, withinTimeout(lookup, HUMAN_HOLDINGS_TIMEOUT_MS)]);
-    return { ...ids, ...lockout, ...fullFlag(count), ai: false, ...(holdings ? { holdings } : {}) };
+    const human = { ...ids, ...lockout, ai: false as const };
+    const tradeState = deps.humanTradeState;
+    if (!tradeState) return { ...human, ...fullFlag(await readSupplyCount()) };
+    const state = await withinTimeout(Promise.resolve().then(() => tradeState(target.id)), HUMAN_TRADE_STATE_TIMEOUT_MS);
+    return state ? { ...human, ...fullFlag(state.supplyAgreements), holdings: state.holdings } : human;
   }
+  const supplyCount = readSupplyCount();
   const [aiSnapshot, requesterSnapshot, targetSupplyAgreements] = await Promise.all([
     deps.fetchAiSnapshot(target.id),
     deps.requesterSnapshot(requesterId).catch(() => undefined),

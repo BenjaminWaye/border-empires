@@ -83,6 +83,7 @@ message PlayerTradeHoldingsResponse {
   bool found = 2;
   double gold = 3;
   string resource_trade_holdings_json = 4;
+  int32 active_supply_agreements = 5;
 }
 
 message ActivityDashboardRequest {}

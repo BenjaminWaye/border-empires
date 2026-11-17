@@ -122,7 +122,6 @@ export class RuntimeOwnerTileIndexes {
     if (next.ownerId && isImprovableResourceTile(next) && !structureRemovedInPlace) addToOwnerIndex(this.improvableTilesByOwner, next.ownerId, tileKey);
   }
 
-  /** Boot, first pass over every tile: the frontier, yield-bearing and improvable-resource indexes. */
   /** Whether the owner has any active structure that grants vision (Relay Beacon, Siege Battery, Observatory). */
   hasActiveVisionOutposts(ownerId: string): boolean {
     return (this.activeRelayBeaconsByOwner.get(ownerId)?.size ?? 0) > 0 ||
@@ -130,6 +129,7 @@ export class RuntimeOwnerTileIndexes {
       (this.activeObservatoriesByOwner.get(ownerId)?.size ?? 0) > 0;
   }
 
+  /** Boot, first pass over every tile: the frontier, yield-bearing and improvable-resource indexes. */
   seedFromBootTile(tileKey: string, tile: DomainTileState): void {
     if (tile.ownershipState === "FRONTIER" && tile.ownerId && !tile.ownerId.startsWith("barbarian-")) {
       addToOwnerIndex(this.frontierTilesByOwner, tile.ownerId, tileKey);

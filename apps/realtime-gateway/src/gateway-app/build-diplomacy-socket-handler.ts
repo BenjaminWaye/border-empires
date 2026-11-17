@@ -20,6 +20,7 @@ import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { aiDiplomacyGrudges } from "../ai-diplomacy-stance/ai-diplomacy-grudges.js";
 import { answerDiplomacyStanceQuery, tradeHoldingsOf } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
+import { createHumanTradeState } from "../ai-diplomacy-stance/human-trade-state.js";
 import { createSeasonLeaderboardCache, seasonSizesFromSummary } from "../ai-diplomacy-stance/season-leaderboard-cache.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
@@ -64,7 +65,7 @@ export type DiplomacySocketHandlerDeps = {
   /** The simulation's season summary: leaderboard sizes and the world's land count, for the AI alliance-bloc check. */
   simulationReads: {
     getCurrentSeasonSummary: () => Promise<Pick<CurrentSeasonSummary, "overall" | "landTileCount" | "dominanceTilesByPlayerId" | "status">>;
-    /** An offline player's coin and spare supply for the deal screen (no full subscribe). */
+    /** A player's coin, spare supply and supply agreement count for the deal screen (no full subscribe). */
     getPlayerTradeHoldings: (playerId: string) => Promise<PlayerTradeHoldingsResult | undefined>;
   };
 };
@@ -263,6 +264,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     seasonEnded: async () => (await deps.simulationReads.getCurrentSeasonSummary()).status === "ended" });
   const isAutoRespondingAi = (targetId: string): boolean => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId);
   const giftsInFlight = new Set<string>();
+  const humanTradeState = createHumanTradeState((id) => deps.simulationReads.getPlayerTradeHoldings(id));
   const answerStance = (requesterId: string, targetPlayerName: string, targetPlayerId: string | undefined) =>
     answerDiplomacyStanceQuery(
       {
@@ -274,11 +276,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
         requesterSnapshot,
         diplomacyContext,
         supplyAgreementCount,
-        // Online from the live cache, offline from the simulation: the same answer either way, so it never says who is online.
-        humanHoldings: async (id) => {
-          const held = deps.cachedSnapshotForPlayer(id)?.player ?? (await deps.simulationReads.getPlayerTradeHoldings(id));
-          return held ? tradeHoldingsOf(held) : undefined;
-        }
+        humanTradeState
       },
       requesterId,
       targetPlayerName,
