@@ -50,4 +50,10 @@ describe("fortPerimeterWallEdges", () => {
     expect(coverage.get("11,10")?.variant).toBe("TITANIUM_BASTION");
     expect(fortPerimeterWallEdges({ x: 11, y: 10 }, coverage)?.variant).toBe("TITANIUM_BASTION");
   });
+
+  it("draws no wall around the player's own dormant fort", () => {
+    const tiles = tilesOf(fortTile(10, 10), tile(11, 10));
+    expect(computeFortPerimeterCoverage(tiles, NOW, new Set(["10,10:fort"])).size).toBe(0);
+    expect(computeFortPerimeterCoverage(tiles, NOW, new Set(["10,10:observatory"])).size).toBe(2);
+  });
 });

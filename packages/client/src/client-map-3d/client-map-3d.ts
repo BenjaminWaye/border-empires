@@ -29,7 +29,8 @@ import { EMPTY_MAP_3D_REBUILD_TRIGGERS, captureMap3DRebuildTriggers, map3DRebuil
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 import { createSelectionRangeOverlays } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
 import { createOwnershipDebugEmitter } from "../client-map-3d-ownership-debug/client-map-3d-ownership-debug.js";
-import { createAetherProtectionOverlay3D } from "../client-map-3d-aether-protection-overlay.js"; import { createFortPerimeterWallOverlay3D } from "../client-map-3d-fort-perimeter-wall.js";
+import { createAetherProtectionOverlay3D } from "../client-map-3d-aether-protection-overlay.js";
+import { createFortPerimeterWallOverlay3D } from "../client-map-3d-fort-perimeter-wall.js";
 import { createFrontierClaimPlatePool, disposeFrontierClaimPlatePool } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
 
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
@@ -194,7 +195,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const musterOverlay = createMusterOverlay(scene, atmosphere.buildingEnvironmentTexture, () => musterBadgeLookup(deps.state, deps.keyFor)); const winChancePaintOverlay = createWinChancePaintOverlay(scene); const arrowOverlay = createArrowOverlay(scene); const shieldAreaOverlay = createShieldAreaOverlay(scene); // F1: right-click-drag arrow gesture visual; F3: known-shield coverage-area overlay (client-known-shield-flags.ts)
   const scoutDroneOverlay = createScoutDroneOverlay(scene, { world: { width: WORLD_WIDTH, height: WORLD_HEIGHT }, envMap: atmosphere.buildingEnvironmentTexture, camera, homeSource: deps.state, sceneFor: (x, y, out) => { out.sceneX = toroidDelta(sceneOrigin.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET; out.sceneZ = toroidDelta(sceneOrigin.camY, y, WORLD_HEIGHT) + TILE_CENTER_OFFSET; out.surfaceY = aetherBridgeTileSurfaceY(Math.round(x), Math.round(y)); } }); // Explore: the scout drone, its vision ring and route (docs/explore-scout-plan.md)
-  const aetherProtectionOverlay = createAetherProtectionOverlay3D(scene, MAX_VISIBLE_TILES); const fortPerimeterWallOverlay = createFortPerimeterWallOverlay3D(scene, MAX_VISIBLE_TILES); // fort perimeter wall (client-fort-perimeter.ts) // Aether Tower protection field wash (client-aether-tower-protection.ts)
+  const aetherProtectionOverlay = createAetherProtectionOverlay3D(scene, MAX_VISIBLE_TILES); // Aether Tower protection field wash (client-aether-tower-protection.ts)
+  const fortPerimeterWallOverlay = createFortPerimeterWallOverlay3D(scene, MAX_VISIBLE_TILES); // fort perimeter wall, client-fort-perimeter.ts
   const battleOverlayFx = createPopupMarineOverlayFx(scene, atmosphere.buildingEnvironmentTexture);
   const musterTransitOverlay = createMusterTransitOverlay(scene, atmosphere.buildingEnvironmentTexture);
   const frontierSupplyOverlay = createFrontierSupplyOverlay(scene);
@@ -224,7 +226,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const ambaricTransformerOverlay = createDeferredBuildingOverlay(() => createAmbaricTransformerOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture));
   const tileIntel3D = createTileIntelOverlays3D(scene, MAX_VISIBLE_TILES, { keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt }); // weak defensibility + Diplomacy tint
 
-  const { isTownDemoTile, fortDemoSpec, structureDemoEntryFor } = createDemoTileSpecs();
+  const { isTownDemoTile, addDemoInstancesForTile } = createDemoTileSpecs();
 
   // Selection: saturated yellow (matches the 2D #ffd166 selection ring
   // so the two modes feel consistent and selection clearly differs from
@@ -659,7 +661,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     for (const overlay of allBadgeOverlays) overlay.clear();
     observatoryCooldownBadgeOverlay.clear();
     musterOverlay.clear(); winChancePaintOverlay.clear(); if (deps.state.winChancePaint && performance.now() > deps.state.winChancePaint.expiresAt && !deps.state.pendingArrowGestureConfirm) deps.state.winChancePaint = undefined; shieldAreaOverlay.clear(); const knownShieldFlags = collectKnownShieldFlags(deps.state.tiles.values()); // F3: recomputed once per frame; cheap (bounded by live muster-flag count, not tile count)
-    aetherProtectionOverlay.begin(deps.state, deps.keyFor); fortPerimeterWallOverlay.begin(deps.state);
+    aetherProtectionOverlay.begin(deps.state, deps.keyFor);
+    fortPerimeterWallOverlay.begin(deps.state);
     dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
@@ -887,17 +890,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           const advance = tile.muster.mode === "ADVANCE";
           musterOverlay.addMuster(x, z, surfaceY + farmlandOverlay.standLiftAt(wx, wy), fillRatio, ownerColor, advance, wx, wy, tile.muster.ownerId === deps.state.me ? incomingAttack?.resolvesAt ?? 0 : 0);
         } /* F0/F3, client-win-chance-paint-trigger.ts + client-known-shield-flags.ts: */ { const winChancePaintEntry = deps.state.winChancePaint?.entries.find((e) => e.x === wx && e.y === wy); if (winChancePaintEntry) winChancePaintOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, color: winChancePaintEntry.color, winChance: winChancePaintEntry.winChance }); const shieldCoverage = isShieldCoverageShownOn(deps.state.arrowGesture, tile?.ownerId, deps.state.me) ? tileShieldCoverage(wx, wy, knownShieldFlags) : undefined; /* only while dragging the attack arrow, and only on enemy-owned tiles */ if (shieldCoverage) shieldAreaOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, ownerColor: deps.effectiveOverlayColor(shieldCoverage.ownerId) }); }
-        aetherProtectionOverlay.addTile(tile, x, z, flatOverlayY); if (terrain === "LAND") fortPerimeterWallOverlay.addTile(tile, x, z, surfaceY);
-        const demoStructureEntry = structureDemoEntryFor(wx, wy, window.camX, window.camY);
-        if (demoStructureEntry && terrain === "LAND") {
-          if (demoStructureEntry.kind === "UMBRITE_RIG") {
-            umbriteExtractionRigOverlay.addInstance(x, z, surfaceY, wx, wy);
-          } else if (demoStructureEntry.kind === "UMBRITE_WEAPONS_FACTORY") {
-            umbriteWeaponsFactoryOverlay.addInstance(x, z, surfaceY, wx, wy);
-          } else {
-            structureOverlay.addInstance(x, z, surfaceY, demoStructureEntry.kind, demoStructureEntry.resource);
-          }
-        }
+        aetherProtectionOverlay.addTile(tile, x, z, flatOverlayY);
+        if (terrain === "LAND") fortPerimeterWallOverlay.addTile(tile, x, z, surfaceY);
+        if (terrain === "LAND") addDemoInstancesForTile({ structureOverlay, umbriteExtractionRigOverlay, umbriteWeaponsFactoryOverlay, relayBeaconOverlay, fortOverlay }, { x, z, surfaceY, wx, wy }, window.camX, window.camY);
         const settleProgress = deps.settlementProgressForTile(wx, wy);
         if (settleProgress && terrain === "LAND") {
           const settleColor = ownerId
@@ -920,14 +915,6 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           }
         }
         if (tile) addFortificationInstancesForTile(tile, { x, z, surfaceY: surfaceY + farmlandOverlay.standLiftAt(wx, wy), wx, wy }, fortificationInstanceOverlays, deps, rebuildStartAt);
-        const demoFort = fortDemoSpec(wx, wy, window.camX, window.camY);
-        if (demoFort && terrain === "LAND") {
-          if (demoFort.kind === "RELAY_BEACON") {
-            relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy);
-          } else {
-            fortOverlay.addInstance(x, z, surfaceY, demoFort.kind, demoFort.opening, wx, wy);
-          }
-        }
         // Owner colour, or the Resources lens's resource colour -- see client-map-3d-territory-paint.ts.
         const ownerColor = activeFrontierAttackClaimKeys.has(tileKey) ? undefined : paintTerritoryTile3D(territoryPaintDeps, { tile, tileKey, wx, wy, x, z, visibleLand: terrain === "LAND" && visibility === "visible", isOwnedLand });
         if (ownerColor && selectedCoord && wx === selectedCoord.x && wy === selectedCoord.y && selectedOwnershipDebug) {
@@ -978,7 +965,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     observatoryCooldownBadgeOverlay.commit();
     musterOverlay.commit(); winChancePaintOverlay.commit(); shieldAreaOverlay.commit();
     nameDecal.sync({ camX: window.camX, camY: window.camY, halfW, halfH, nowMs: performance.now(), terrainRevision: deps.state.tilesRevision });
-    aetherProtectionOverlay.commit(); fortPerimeterWallOverlay.commit();
+    aetherProtectionOverlay.commit();
+    fortPerimeterWallOverlay.commit();
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
@@ -1268,7 +1256,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     observatoryCooldownBadgeOverlay.dispose();
     musterOverlay.dispose(); winChancePaintOverlay.dispose(); arrowOverlay.dispose(); shieldAreaOverlay.dispose(); nameDecal.dispose();
     scoutDroneOverlay.dispose();
-    aetherProtectionOverlay.dispose(); fortPerimeterWallOverlay.dispose();
+    aetherProtectionOverlay.dispose();
+    fortPerimeterWallOverlay.dispose();
     battleOverlayFx.dispose();
     musterTransitOverlay.dispose();
     aetherBridgePylonOverlay.dispose(); aetherWallPylonOverlay.dispose(); aetherWallArcOverlay.dispose();

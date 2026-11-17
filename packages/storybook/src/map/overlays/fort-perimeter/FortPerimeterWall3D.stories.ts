@@ -60,7 +60,7 @@ const renderScene = (args: Args, placements: readonly Placement[]): HTMLElement 
   forts.commit();
 
   const walls = createFortPerimeterWallOverlay3D(stage.scene, 512);
-  walls.begin({ tiles, tilesRevision: 1, chunkFullCount: 0 });
+  walls.begin({ tiles, tilesRevision: 1, chunkFullCount: 0, dormantStructures: [] });
   for (const tile of tiles.values()) walls.addTile(tile, tile.x - ORIGIN, tile.y - ORIGIN, 0);
   walls.commit();
 

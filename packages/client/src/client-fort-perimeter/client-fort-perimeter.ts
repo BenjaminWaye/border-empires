@@ -19,13 +19,14 @@ export type FortPerimeterCoverage = ReadonlyMap<string, FortPerimeterCover>;
 
 const tierRank = (variant: FortVariant): number => FORT_TIER_LADDER[variant].defenseMult;
 
-type CoverageState = Pick<ClientState, "tiles" | "tilesRevision" | "chunkFullCount">;
+export type FortPerimeterCoverageState = Pick<ClientState, "tiles" | "tilesRevision" | "chunkFullCount" | "dormantStructures">;
 
 const wrapKey = (x: number, y: number): string =>
   `${((x % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH},${((y % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT}`;
 
 /** Pure scan of the known tiles; see fortPerimeterCoverage for the memoised entry point. */
-export const computeFortPerimeterCoverage = (tiles: ReadonlyMap<string, Tile>, nowMs: number): FortPerimeterCoverage => {
+/** `dormantKeys` holds the local player's dormant structures ("x,y:fort"): a dormant fort defends nothing, so it gets no wall. */
+export const computeFortPerimeterCoverage = (tiles: ReadonlyMap<string, Tile>, nowMs: number, dormantKeys: ReadonlySet<string> = new Set()): FortPerimeterCoverage => {
   const coverage = new Map<string, FortPerimeterCover>();
   const cover = (key: string, ownerId: string, variant: FortVariant): void => {
     const existing = coverage.get(key);
@@ -35,7 +36,7 @@ export const computeFortPerimeterCoverage = (tiles: ReadonlyMap<string, Tile>, n
     const fort = tile.fort;
     const ownerId = tile.ownerId;
     if (!fort || !ownerId || fort.ownerId !== ownerId || tile.fogged) continue;
-    if ((fort.disabledUntil ?? 0) > nowMs) continue;
+    if ((fort.disabledUntil ?? 0) > nowMs || dormantKeys.has(`${tile.x},${tile.y}:fort`)) continue;
     const variant = defendingFortVariant(fort);
     if (!variant) continue;
     cover(wrapKey(tile.x, tile.y), ownerId, variant);
@@ -54,13 +55,22 @@ export const computeFortPerimeterCoverage = (tiles: ReadonlyMap<string, Tile>, n
 // One-entry memo: both renderers ask once per frame / rebuild. chunkFullCount
 // is in the key because chunk loads write state.tiles without bumping
 // tilesRevision (same reason as client-aether-tower-protection.ts).
-let coverageMemo: { tiles: ReadonlyMap<string, Tile>; revision: number; chunkCount: number; coverage: FortPerimeterCoverage } | undefined;
+let coverageMemo: { tiles: ReadonlyMap<string, Tile>; revision: number; chunkCount: number; dormant: FortPerimeterCoverageState["dormantStructures"]; coverage: FortPerimeterCoverage } | undefined;
 
-export const fortPerimeterCoverage = (state: CoverageState): FortPerimeterCoverage => {
+export const fortPerimeterCoverage = (state: FortPerimeterCoverageState): FortPerimeterCoverage => {
   const memo = coverageMemo;
-  if (memo && memo.tiles === state.tiles && memo.revision === state.tilesRevision && memo.chunkCount === state.chunkFullCount) return memo.coverage;
-  const coverage = computeFortPerimeterCoverage(state.tiles, Date.now());
-  coverageMemo = { tiles: state.tiles, revision: state.tilesRevision, chunkCount: state.chunkFullCount, coverage };
+  if (
+    memo &&
+    memo.tiles === state.tiles &&
+    memo.revision === state.tilesRevision &&
+    memo.chunkCount === state.chunkFullCount &&
+    memo.dormant === state.dormantStructures
+  ) {
+    return memo.coverage;
+  }
+  const dormantKeys = new Set(state.dormantStructures.map((entry) => entry.key));
+  const coverage = computeFortPerimeterCoverage(state.tiles, Date.now(), dormantKeys);
+  coverageMemo = { tiles: state.tiles, revision: state.tilesRevision, chunkCount: state.chunkFullCount, dormant: state.dormantStructures, coverage };
   return coverage;
 };
 

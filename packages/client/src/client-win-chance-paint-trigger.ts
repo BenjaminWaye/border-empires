@@ -1,4 +1,4 @@
-import { findKnownShieldAmount, fortPerimeterSourceVariant, hillsDefenseModifiersAt, isCommitOddsEligibleTarget, winChanceForTile, type FrontierCombatPreviewTile } from "@border-empires/shared";
+import { findKnownShieldAmount, fortPerimeterSourceVariant, isCaptureHoldActive, hillsDefenseModifiersAt, isCommitOddsEligibleTarget, winChanceForTile, type FrontierCombatPreviewTile } from "@border-empires/shared";
 import { collectKnownShieldFlags } from "./client-known-shield-flags.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
@@ -30,7 +30,11 @@ const previewTileFor = (tile: Tile | undefined, state?: Pick<ClientState, "tiles
   fortVariant: tile?.fort?.status === "active" ? tile.fort.variant : undefined,
   fortPerimeterVariant:
     tile?.ownerId && tile.ownershipState === "SETTLED" && state
-      ? fortPerimeterSourceVariant(tile.ownerId, tile.x, tile.y, (x, y) => state.tiles.get(`${x},${y}`), Date.now())
+      ? fortPerimeterSourceVariant(tile.ownerId, tile.x, tile.y, (x, y) => state.tiles.get(`${x},${y}`), Date.now(), (x, y) => {
+          // Same as the sim: a fort seen only through fog, or held by its captors, projects nothing.
+          const fortTile = state.tiles.get(`${x},${y}`);
+          return Boolean(fortTile && !fortTile.fogged && !isCaptureHoldActive(fortTile, Date.now()));
+        })
       : undefined,
   // A freshly captured FRONTIER tile still holding ground defends (capture-hold).
   captureHoldUntil: tile?.captureHoldUntil

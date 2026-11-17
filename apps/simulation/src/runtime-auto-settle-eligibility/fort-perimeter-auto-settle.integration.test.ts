@@ -1,3 +1,4 @@
+import { NEW_PLAYER_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { afcModuleFixtureTile, buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
@@ -6,12 +7,15 @@ import { afcModuleFixtureTile, buildPlayer, collectEvents } from "../runtime/run
 // garrisoned tile (2,0); (3,0) and (2,1) are frontier inside its radius-1
 // perimeter, (4,0) is frontier just outside it.
 describe("fort perimeter auto-garrison (runtime)", () => {
-  it("garrisons the frontier tiles inside a finished Fort's perimeter and leaves the rest", async () => {
+  it.each([
+    ["with every auto-garrison switch on", undefined],
+    ["with the town auto-garrison switch off", NEW_PLAYER_AUTO_SETTLE_PREFS]
+  ] as const)("garrisons the frontier tiles inside a finished Fort's perimeter and leaves the rest, %s", async (_label, autoSettle) => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
-        initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set(["masonry"]) })]]),
+        initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set(["masonry"]), ...(autoSettle ? { autoSettle: { ...autoSettle } } : {}) })]]),
         initialState: {
           tiles: [
             { ...afcModuleFixtureTile("player-1"), x: 20, y: 20 },

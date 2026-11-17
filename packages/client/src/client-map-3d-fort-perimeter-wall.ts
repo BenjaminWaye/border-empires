@@ -4,9 +4,9 @@ import {
   FORT_PERIMETER_WALL_STYLES,
   fortPerimeterCoverage,
   fortPerimeterWallEdges,
-  type FortPerimeterCoverage
+  type FortPerimeterCoverage,
+  type FortPerimeterCoverageState
 } from "./client-fort-perimeter/client-fort-perimeter.js";
-import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
 
 // True-3D half of the fort perimeter wall (rule and 2D fallback:
@@ -22,7 +22,7 @@ const TOPPINGS_PER_SEGMENT = 4;
 
 export type FortPerimeterWallOverlay3D = {
   /** Called once per terrain rebuild, before the per-tile pass. */
-  readonly begin: (state: Pick<ClientState, "tiles" | "tilesRevision" | "chunkFullCount">) => void;
+  readonly begin: (state: FortPerimeterCoverageState) => void;
   /** (sceneX, sceneZ) is the tile centre, surfaceY the terrain height there. */
   readonly addTile: (tile: Tile | undefined, sceneX: number, sceneZ: number, surfaceY: number) => void;
   readonly commit: () => void;
