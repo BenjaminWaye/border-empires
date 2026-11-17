@@ -195,6 +195,7 @@ import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-cha
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-earlier-106.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
+import { RETURNING_LOGIN_ENTRY } from "./client-changelog-returning-login.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_112 } from "./client-changelog-data-earlier-112.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
@@ -471,6 +472,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
   ...NOV_16_CHANGELOG,
   { ...FORT_PERIMETER_ENTRY, createdAt: 1794853579662, },
+  { ...RETURNING_LOGIN_ENTRY, createdAt: 1794928114737, },
   { ...CHRONICLE_LOADING_STUCK_ENTRY, createdAt: 1794909056601, },
   { ...MANPOWER_COPY_ENTRY, createdAt: 1794931550726, },
   { ...TRUCE_EMAIL_EMPIRE_FELL_ENTRY, createdAt: 1794931727558, },
