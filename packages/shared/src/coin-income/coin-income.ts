@@ -104,8 +104,9 @@ export const formatCoinPerDay = (perMinute: number): string => {
 };
 
 /**
- * The whole coin you can actually spend. Coin accrues in fractions, but a balance is always shown
- * rounded down: rounding 11.6 up to "12" offered coin the player didn't have yet, and a 12-coin
- * trade then failed. The tiny epsilon keeps float dust (11.9999999) from hiding a coin you hold.
+ * The whole coin you can actually spend: the balance rounded down, exactly as the server's
+ * `points < cost` checks count it. Coin accrues in fractions; rounding 11.6 up to "12" offered
+ * coin the player didn't have yet, and a 12-coin trade then failed. No epsilon: 11.9999995 is
+ * still 11 to the server, so it must read 11 here too. A negative balance keeps its sign.
  */
-export const spendableCoin = (gold: number): number => Math.max(0, Math.floor(finite(gold) + 1e-6));
+export const spendableCoin = (gold: number): number => Math.floor(finite(gold));

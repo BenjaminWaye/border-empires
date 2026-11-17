@@ -88,7 +88,7 @@ describe("client network regression guards", () => {
       const captureArgs = showCaptureAlert.mock.calls[0] ?? [];
       expect(captureArgs[0]).toBe("Insufficient coin");
       expect(captureArgs[1]).toContain("Insufficient coin for manufactory");
-      expect(captureArgs[1]).toContain("1500.00");
+      expect(captureArgs[1]).toContain("You have 1500 coin.");
       expect(captureArgs[2]).toBe("warn");
       expect(clearOptimisticTileState).toHaveBeenCalledWith("14,299", true);
       expect(state.lastDevelopmentAttempt).toBeUndefined();

@@ -89,4 +89,12 @@ describe("coin income surfaces read one figure", () => {
     expect(chip).toBe("11");
     expect(text(hudEconomyPanelHtml(state, economyDeps), "[data-v2e-row='GOLD'] .v2e-amount")).toBe("11");
   });
+
+  it("never rounds the coin balance up, even just below a whole coin or in the phone's compact form", () => {
+    const chipFor = (gold: number) => resourceBarHtml({ gold, netPerMinute: 0, slotSupply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, slotDemand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, integrityPct: undefined });
+    // The server rejects a 12-coin payment from 11.9999995 coin.
+    expect(text(chipFor(11.9999995), ".hud-v2-chip-value")).toBe("11");
+    expect(text(chipFor(12_960.4), ".hud-v2-chip-short")).toBe("12.9K");
+    expect(text(chipFor(1_239), ".hud-v2-chip-short")).toBe("1.23K");
+  });
 });

@@ -73,8 +73,9 @@ describe("spendableCoin", () => {
   it("rounds a fractional balance down to whole coin", () => {
     expect(spendableCoin(11.6)).toBe(11);
     expect(spendableCoin(12)).toBe(12);
-    expect(spendableCoin(11.9999999999)).toBe(12);
-    expect(spendableCoin(-0.4)).toBe(0);
+    // The server rejects a 12-coin payment from 11.9999995, so it must not read 12.
+    expect(spendableCoin(11.9999995)).toBe(11);
+    expect(spendableCoin(-0.4)).toBe(-1);
     expect(spendableCoin(Number.NaN)).toBe(0);
   });
 });

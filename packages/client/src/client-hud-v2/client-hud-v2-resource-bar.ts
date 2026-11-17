@@ -28,10 +28,17 @@ const SLOT_ORDER: ReadonlyArray<[SlotResource, string]> = [
 const fmt = (value: number): string => Math.round(value).toLocaleString("en-US");
 const compactNumber = new Intl.NumberFormat("en-US", { notation: "compact", maximumSignificantDigits: 3 });
 
+/** Cut to 3 significant digits toward zero, so the compact form never rounds up (12,960 → 12.9K, not 13K). */
+const truncateToCompactDigits = (value: number): number => {
+  if (value === 0 || !Number.isFinite(value)) return value;
+  const step = 10 ** (Math.floor(Math.log10(Math.abs(value))) - 2);
+  return Math.trunc(value / step) * step;
+};
+
 const chipNumberHtml = (value: number): string => {
   const exact = fmt(value);
   if (Math.abs(Math.round(value)) < 1_000) return exact;
-  return `<span class="hud-v2-chip-exact">${exact}</span><span class="hud-v2-chip-short" aria-hidden="true">${compactNumber.format(value)}</span>`;
+  return `<span class="hud-v2-chip-exact">${exact}</span><span class="hud-v2-chip-short" aria-hidden="true">${compactNumber.format(truncateToCompactDigits(value))}</span>`;
 };
 
 /** Over capacity is the only warning state: full slots are normal. */
