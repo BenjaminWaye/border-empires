@@ -8,6 +8,7 @@ import { HYDROWORKS_PLACEMENT_TEXT_ENTRY } from "./client-changelog-hydroworks-p
 import { WHOLE_COIN_BALANCE_ENTRY } from "./client-changelog-whole-coin.js";
 import { RESOURCE_COUNTER_ENTRY } from "./client-changelog-resource-counter.js";
 import { REFINERY_GIVES_ENTRY } from "./client-changelog-refinery-gives.js";
+import { TOWN_SCREEN_BIOTA_ENTRY } from "./client-changelog-town-screen-biota.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
@@ -484,6 +485,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...WHOLE_COIN_BALANCE_ENTRY, createdAt: 1794944457814, },
   { ...RESOURCE_COUNTER_ENTRY, createdAt: 1794944628430, },
   { ...REFINERY_GIVES_ENTRY, createdAt: 1794950469519, },
+  { ...TOWN_SCREEN_BIOTA_ENTRY, createdAt: 1794950085487, },
   { ...TOWN_BAR_STRUCTURE_TOGGLE_ENTRY, createdAt: 1794950483222, },
 ];
 
