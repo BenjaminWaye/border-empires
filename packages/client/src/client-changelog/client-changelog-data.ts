@@ -202,6 +202,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
 import { RETURNING_LOGIN_ENTRY } from "./client-changelog-returning-login.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_112 } from "./client-changelog-data-earlier-112.js";
+import { DESKTOP_FREE_SLOTS_ENTRY } from "./client-changelog-desktop-free-slots.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -485,6 +486,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...HYDROWORKS_PLACEMENT_TEXT_ENTRY, createdAt: 1794944287299, },
   { ...WHOLE_COIN_BALANCE_ENTRY, createdAt: 1794944457814, },
   { ...RESOURCE_COUNTER_ENTRY, createdAt: 1794944628430, },
+  { ...DESKTOP_FREE_SLOTS_ENTRY, createdAt: 1794951821171, },
   { ...REFINERY_GIVES_ENTRY, createdAt: 1794950469519, },
   { ...MUSTER_CAPTURE_ENTRY, createdAt: 1794949929394, },
   { ...TOWN_SCREEN_BIOTA_ENTRY, createdAt: 1794950085487, },
