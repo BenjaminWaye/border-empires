@@ -22,6 +22,7 @@ import { townWorkHtml } from "./client-hud-v2-town-work.js";
 import { builtStructureFacts, townGrowth, type DormantResourcesFor, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
+import type { RefineryStatusOf } from "./client-hud-v2-refinery-gives.js";
 import type { BuildPlacedOutcome } from "../client-queue-logic/client-build-placed-feedback.js";
 
 export type TownScreenInput = {
@@ -41,6 +42,8 @@ export type TownScreenInput = {
   autoSettle?: ClientAutoSettleState;
   /** Dormancy lookup (state.dormantStructures), so a building without its upkeep slot reads Dormant, not Active. */
   dormantResourcesFor?: DormantResourcesFor;
+  /** The live status of a refinery standing on the selected tile, for its Gives line. */
+  refineryStatusOf?: RefineryStatusOf;
   /** The "Build plots" card (client-hud-v2-town-plots.ts); the card is left out when absent. */
   plotsHtml?: string;
   /** A Place press's outcome while its confirmation shows on the button (set per press in runTileActionOn). */
@@ -129,7 +132,7 @@ const buildPanelHtml = (input: TownScreenInput): string => {
   const work = input.focusView.work ?? [];
   // The selected tile (a support tile, or the town itself, e.g. a Fort on the town) can already hold a
   // building; show what it is and does, including when it's dormant and giving nothing.
-  const built = builtCardHtml(builtStructureFacts(input.focus, input.focus.ownerId === input.town.ownerId, Date.now(), input.dormantResourcesFor));
+  const built = builtCardHtml(builtStructureFacts(input.focus, input.focus.ownerId === input.town.ownerId, Date.now(), input.dormantResourcesFor, input.refineryStatusOf));
   const workHtml = work.length > 0 ? townWorkHtml(work, keyOf(input.focus), input.focusQueuePosition ?? 0, input.focusWorkLocked ?? false) : "";
   // Work first: under the "Built here" heading it would read as part of the building.
   const lead = `${workHtml}${built}`;

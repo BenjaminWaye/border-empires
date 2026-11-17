@@ -8,6 +8,7 @@
 // expands on the click, with no bar.
 
 import { dormantResourcesForTile } from "../client-tile-action-support/client-tile-action-support.js";
+import { refineryStatusFor } from "../client-refineries/refinery-client-status.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { isSeaTerrain } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
@@ -158,7 +159,7 @@ const paintBar = (): void => {
   const tile = dock.state.tiles.get(dock.state.tileActionMenu.currentTileKey);
   const state = dock.state;
   // Your muster flag's size leads: it is why you tapped the flag.
-  const facts = leadWithMusterFacts(musterFactsFor(tile, state), tileFactsFor(tile, view, state.me, Date.now(), (t, field) => dormantResourcesForTile(state, t, field)), MAX_FACTS);
+  const facts = leadWithMusterFacts(musterFactsFor(tile, state), tileFactsFor(tile, view, state.me, Date.now(), (t, field) => dormantResourcesForTile(state, t, field), (t) => refineryStatusFor(state, t)), MAX_FACTS);
   // A wonder's tile only knows its terrain ("Sand"); name the wonder instead.
   const wonder = wonderName(tile);
   // Tagged wherever the panel names a foreign owner (any non-sea tile); your own tiles have no stance.
