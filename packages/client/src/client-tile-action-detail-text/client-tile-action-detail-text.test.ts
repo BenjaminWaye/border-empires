@@ -111,3 +111,16 @@ describe("buildDetailTextForAction — manpower structures", () => {
     }
   });
 });
+
+describe("Hydroworks detail text", () => {
+  // Regression: the row said "Build on this support tile for supported town",
+  // but Hydroworks builds on any owned land tile, frontier tiles included.
+  it.each([
+    ["garrisoned", baseTile],
+    ["frontier", { ...baseTile, ownershipState: "FRONTIER" } as Tile]
+  ])("does not claim a support tile is needed on a %s tile", (_label, tile) => {
+    const detail = buildDetailTextForAction("build_hydroworks", tile) ?? "";
+    expect(detail).not.toMatch(/this support tile|supported town|settled tile/);
+    expect(detail).toContain("no town, support or resource tile needed");
+  });
+});

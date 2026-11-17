@@ -290,6 +290,8 @@ export type PlayerRespawnNotice = {
   wasOnline?: boolean;
   previousHomeTileKey?: string;
   spawnTileKey?: string;
+  fellToPlayerId?: string;
+  withdrawn?: boolean;
 };
 
 export type ActiveAetherBridgeView = {

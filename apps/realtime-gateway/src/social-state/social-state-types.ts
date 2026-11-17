@@ -233,6 +233,8 @@ export type SocialState = {
   activeTrucePairs: () => Array<[string, string]>; // non-expired pairs; sweeps first, used to sync natural expirations
   /** When the running truce between the pair ends, or undefined when there is none. */
   activeTruceEndsAt: (playerAId: string, playerBId: string) => number | undefined;
+  /** Copies of every running truce (sweeps first); drives the truce-ending email. */
+  activeTruces: () => SocialActiveTruce[];
   /** Withdraws pending truce offers between two players who just fought; undefined when there were none. */
   withdrawTruceOffersOnCombat: (playerAId: string, playerBId: string) => SocialSyncResult | undefined;
   /**
