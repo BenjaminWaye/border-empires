@@ -2,9 +2,9 @@
 // the requester before any offer is sent. For a seeded AI the answer carries
 // its stance and prices, so the client can preview "would they accept?" as
 // the player edits the terms; for a human target there is nothing to
-// predict, but the answer carries the human's coin and spare supply (when they
-// are online) so the deal screen can show what they could give, as it does for
-// an AI. Read-only: no offer is created.
+// predict, but the answer carries the human's coin and spare supply so the
+// deal screen can show what they could give, as it does for an AI. Read-only:
+// no offer is created.
 import { supplyAgreementsFull, type AiDiplomacyPricing, type AiGiftView, type DiplomacyGoods } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
@@ -24,7 +24,7 @@ export type DiplomacyStancePayload = {
       found: true;
       targetPlayerId: string;
       ai: false;
-      /** The human's coin and spare supply; absent when they are offline (their snapshot isn't cached). */
+      /** The human's coin and spare supply, online or not; absent only when the lookup fails or times out. */
       holdings?: DiplomacyGoods;
     }
   | {
@@ -60,8 +60,20 @@ export type DiplomacyStanceQueryDeps = {
   diplomacyContext: AiDiplomacyContextSource;
   /** The target's active supply agreements, when known without fetching an offline House's snapshot. */
   supplyAgreementCount?: (playerId: string) => Promise<number | undefined>;
-  /** A human target's tradeable goods from the gateway's live cache only: an offline House is never fetched. */
-  liveHoldings?: (playerId: string) => DiplomacyGoods | undefined;
+  /**
+   * A human target's tradeable goods, online or offline alike: whether they are
+   * present must never reveal whether that House is logged in.
+   */
+  humanHoldings?: (playerId: string) => Promise<DiplomacyGoods | undefined>;
+};
+
+/** A slow simulation lookup only drops the amounts; it never holds up the reply. */
+export const HUMAN_HOLDINGS_TIMEOUT_MS = 1_500;
+
+const withinTimeout = <T>(lookup: Promise<T | undefined>, ms: number): Promise<T | undefined> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<undefined>((resolve) => { timer = setTimeout(() => resolve(undefined), ms); });
+  return Promise.race([lookup.catch(() => undefined), timeout]).finally(() => clearTimeout(timer));
 };
 
 /** Coin (whole) and spare supply slots: what a player could hand over in a deal. */
@@ -90,8 +102,9 @@ export const answerDiplomacyStanceQuery = async (
   const lockout = until > 0 ? { truceLockout: { until, reason } } : {};
   const ids = { type: "DIPLOMACY_STANCE" as const, targetPlayerName: target.name, found: true as const, targetPlayerId: target.id };
   if (!deps.isAutoRespondingAi(target.id)) {
-    const holdings = deps.liveHoldings?.(target.id);
-    return { ...ids, ...lockout, ...fullFlag(await supplyCount), ai: false, ...(holdings ? { holdings } : {}) };
+    const lookup = Promise.resolve().then(() => deps.humanHoldings?.(target.id));
+    const [count, holdings] = await Promise.all([supplyCount, withinTimeout(lookup, HUMAN_HOLDINGS_TIMEOUT_MS)]);
+    return { ...ids, ...lockout, ...fullFlag(count), ai: false, ...(holdings ? { holdings } : {}) };
   }
   const [aiSnapshot, requesterSnapshot, targetSupplyAgreements] = await Promise.all([
     deps.fetchAiSnapshot(target.id),

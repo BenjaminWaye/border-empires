@@ -5,8 +5,7 @@ export const HUMAN_TRADE_HOLDINGS_ENTRY: Omit<ClientChangelogEntry, "createdAt">
   title: "See what other players can trade",
   why: "Trading with another player showed every good on their side with no amounts, so there was no way to tell what they could actually give.",
   changes: [
-    "The deal screen now shows an online player's coin and spare supply, just as it already did for AI Houses.",
-    "Resources they have no spare supply of are hidden, and you can't ask for more than they hold.",
-    "If the other player is offline, their side still shows no amounts."
+    "The deal screen now shows another player's coin and spare supply, just as it already did for AI Houses, whether they are online or not.",
+    "Resources they have no spare supply of are hidden, and you can't ask for more than they hold."
   ]
 };
