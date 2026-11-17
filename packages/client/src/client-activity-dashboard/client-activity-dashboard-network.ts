@@ -11,24 +11,78 @@ type NetworkDeps = {
 };
 
 /**
+ * How long a Chronicle fetch may stay in flight before the client gives up on
+ * it. The gateway already answers a stalled sim RPC with an error after 10s
+ * (handle-activity-timeline-messages.ts); this covers a request or answer the
+ * socket itself lost, which would otherwise leave "Loading…" up forever.
+ */
+export const ACTIVITY_REQUEST_TIMEOUT_MS = 15_000;
+export const ACTIVITY_LOAD_FAILED_MESSAGE = "Couldn't load your activity. Tap Yours to try again.";
+export const WORLD_PULSE_LOAD_FAILED_MESSAGE = "Couldn't load world news. Tap World to try again.";
+
+// One live request per feed: a timer from an older request never clears a newer one.
+let personalActivityRequestSeq = 0;
+let worldPulseRequestSeq = 0;
+
+/**
  * Fetches the trailing-24h personal timeline. The server always scopes it to
  * the session player and "now" (packages/shared/src/messages/messages.ts) --
  * REQUEST_PERSONAL_ACTIVITY takes no payload. In-flight guarded the same way
  * REQUEST_TILE_DETAIL is (client-action-flow.ts) so repeated opens/refreshes
- * don't pile up duplicate requests.
+ * don't pile up duplicate requests. The guard always ends: an unsent request,
+ * a dropped socket (releaseActivityRequestsOnDisconnect) or the timeout clear it.
  */
 export const requestPersonalActivity = (state: ActivityDashboardState, deps: NetworkDeps): void => {
   if (state.activityDashboard.loading) return;
   state.activityDashboard.loading = true;
   state.activityDashboard.error = undefined;
-  deps.sendGameMessage({ type: "REQUEST_PERSONAL_ACTIVITY" }, "Finish sign-in before viewing your activity.");
+  const seq = ++personalActivityRequestSeq;
+  if (!deps.sendGameMessage({ type: "REQUEST_PERSONAL_ACTIVITY" }, "Finish sign-in before viewing your activity.")) {
+    state.activityDashboard.loading = false;
+    state.activityDashboard.error = ACTIVITY_LOAD_FAILED_MESSAGE;
+    return;
+  }
+  setTimeout(() => {
+    if (seq !== personalActivityRequestSeq || !state.activityDashboard.loading) return;
+    state.activityDashboard.loading = false;
+    state.activityDashboard.error = ACTIVITY_LOAD_FAILED_MESSAGE;
+    deps.renderHud();
+  }, ACTIVITY_REQUEST_TIMEOUT_MS);
 };
 
 export const requestWorldPulse = (state: ActivityDashboardState, deps: NetworkDeps): void => {
   if (state.activityDashboard.worldPulseLoading) return;
   state.activityDashboard.worldPulseLoading = true;
   state.activityDashboard.worldPulseError = undefined;
-  deps.sendGameMessage({ type: "REQUEST_WORLD_PULSE" }, "Finish sign-in before viewing the world pulse.");
+  const seq = ++worldPulseRequestSeq;
+  if (!deps.sendGameMessage({ type: "REQUEST_WORLD_PULSE" }, "Finish sign-in before viewing the world pulse.")) {
+    state.activityDashboard.worldPulseLoading = false;
+    state.activityDashboard.worldPulseError = WORLD_PULSE_LOAD_FAILED_MESSAGE;
+    return;
+  }
+  setTimeout(() => {
+    if (seq !== worldPulseRequestSeq || !state.activityDashboard.worldPulseLoading) return;
+    state.activityDashboard.worldPulseLoading = false;
+    state.activityDashboard.worldPulseError = WORLD_PULSE_LOAD_FAILED_MESSAGE;
+    deps.renderHud();
+  }, ACTIVITY_REQUEST_TIMEOUT_MS);
+};
+
+/**
+ * A closed socket loses any Chronicle request still in flight: its answer can
+ * never arrive, and reconnects deliberately do not refetch. Release the
+ * in-flight guards so reopening the tab asks again instead of waiting forever.
+ */
+export const releaseActivityRequestsOnDisconnect = (state: Pick<ClientState, "activityDashboard">): void => {
+  const dash = state.activityDashboard;
+  if (dash.loading) {
+    dash.loading = false;
+    dash.error = ACTIVITY_LOAD_FAILED_MESSAGE;
+  }
+  if (dash.worldPulseLoading) {
+    dash.worldPulseLoading = false;
+    dash.worldPulseError = WORLD_PULSE_LOAD_FAILED_MESSAGE;
+  }
 };
 
 // capPersonalActivityCards (apps/simulation/.../personal-activity-cap.ts)

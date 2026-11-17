@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerHintStateSender } from "../client-discovery-tips/client-hint-server-sync.js";
 import {
+  ACTIVITY_REQUEST_TIMEOUT_MS,
   acknowledgeActivitySeen,
   applyActivitySeenAcknowledgedMessage,
   applyPersonalActivityTimelineMessage,
   handleActivityDashboardMessage,
-  requestPersonalActivity
+  releaseActivityRequestsOnDisconnect,
+  requestPersonalActivity,
+  requestWorldPulse
 } from "./client-activity-dashboard-network.js";
 
 // Server-bound hint-state writes (SET_HINT_STATE) the handler reports.
@@ -70,6 +73,84 @@ describe("requestPersonalActivity", () => {
     const sendGameMessage = vi.fn(() => true);
     requestPersonalActivity(state, { sendGameMessage, renderHud: vi.fn() });
     expect(sendGameMessage).not.toHaveBeenCalled();
+  });
+});
+
+// Regression: Chronicle "Yours" stuck on "Loading…" for the rest of the session
+// once one REQUEST_PERSONAL_ACTIVITY went unanswered -- the in-flight guard was
+// only ever cleared by a response, so every later open returned early.
+describe("a Chronicle request that is never answered", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("does not stay loading when the request could not be sent, and the next open asks again", () => {
+    const state = makeState();
+    const sendGameMessage = vi.fn(() => false);
+    requestPersonalActivity(state, { sendGameMessage, renderHud: vi.fn() });
+    expect(state.activityDashboard.loading).toBe(false);
+    expect(state.activityDashboard.error).toBeDefined();
+    sendGameMessage.mockReturnValue(true);
+    requestPersonalActivity(state, { sendGameMessage, renderHud: vi.fn() });
+    expect(sendGameMessage).toHaveBeenCalledTimes(2);
+    expect(state.activityDashboard.loading).toBe(true);
+  });
+
+  it("gives up after the timeout with a retryable error, so reopening Yours sends a fresh request", () => {
+    vi.useFakeTimers();
+    const state = makeState();
+    const sendGameMessage = vi.fn(() => true);
+    const renderHud = vi.fn();
+    requestPersonalActivity(state, { sendGameMessage, renderHud });
+    vi.advanceTimersByTime(ACTIVITY_REQUEST_TIMEOUT_MS);
+    expect(state.activityDashboard.loading).toBe(false);
+    expect(state.activityDashboard.error).toBeDefined();
+    expect(renderHud).toHaveBeenCalled();
+    requestPersonalActivity(state, { sendGameMessage, renderHud });
+    expect(sendGameMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it("an older request's timeout never cancels a newer one still in flight", () => {
+    vi.useFakeTimers();
+    const state = makeState();
+    const deps = { sendGameMessage: vi.fn(() => true), renderHud: vi.fn() };
+    requestPersonalActivity(state, deps);
+    vi.advanceTimersByTime(ACTIVITY_REQUEST_TIMEOUT_MS / 2);
+    handleActivityDashboardMessage({ type: "PERSONAL_ACTIVITY_TIMELINE", timeline: timelineWith() }, state, deps);
+    requestPersonalActivity(state, deps);
+    vi.advanceTimersByTime(ACTIVITY_REQUEST_TIMEOUT_MS / 2);
+    expect(state.activityDashboard.loading).toBe(true);
+    expect(state.activityDashboard.error).toBeUndefined();
+  });
+
+  it("a timeline that answers in time clears loading and no later error appears", () => {
+    vi.useFakeTimers();
+    const state = makeState();
+    const deps = { sendGameMessage: vi.fn(() => true), renderHud: vi.fn() };
+    requestPersonalActivity(state, deps);
+    handleActivityDashboardMessage({ type: "PERSONAL_ACTIVITY_TIMELINE", timeline: timelineWith() }, state, deps);
+    vi.advanceTimersByTime(ACTIVITY_REQUEST_TIMEOUT_MS);
+    expect(state.activityDashboard.error).toBeUndefined();
+  });
+
+  it("a socket drop releases both Chronicle feeds so the next open refetches", () => {
+    const state = makeState();
+    const sendGameMessage = vi.fn(() => true);
+    requestPersonalActivity(state, { sendGameMessage, renderHud: vi.fn() });
+    requestWorldPulse(state, { sendGameMessage, renderHud: vi.fn() });
+    releaseActivityRequestsOnDisconnect(state);
+    expect(state.activityDashboard.loading).toBe(false);
+    expect(state.activityDashboard.worldPulseLoading).toBe(false);
+    requestPersonalActivity(state, { sendGameMessage, renderHud: vi.fn() });
+    requestWorldPulse(state, { sendGameMessage, renderHud: vi.fn() });
+    expect(sendGameMessage).toHaveBeenCalledTimes(4);
+  });
+
+  it("World news also gives up after the timeout instead of loading forever", () => {
+    vi.useFakeTimers();
+    const state = makeState();
+    requestWorldPulse(state, { sendGameMessage: vi.fn(() => true), renderHud: vi.fn() });
+    vi.advanceTimersByTime(ACTIVITY_REQUEST_TIMEOUT_MS);
+    expect(state.activityDashboard.worldPulseLoading).toBe(false);
+    expect(state.activityDashboard.worldPulseError).toBeDefined();
   });
 });
 

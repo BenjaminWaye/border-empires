@@ -1,5 +1,6 @@
 import { SEASON_ROLLOVER_CLOSE_REASON } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import { releaseActivityRequestsOnDisconnect } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import { attackSyncLog, recordClientDebugEvent } from "../client-debug/client-debug.js";
 import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
@@ -64,6 +65,7 @@ export const bindClientSocketLifecycle = (deps: SocketLifecycleDeps): SocketLife
     if (wasHealthy || !state.disconnectedSince) state.disconnectedSince = Date.now();
     deps.clearAuthInFlight?.();
     state.connection = "disconnected";
+    releaseActivityRequestsOnDisconnect(state);
     state.actionInFlight = false;
     state.actionAcceptedAck = false;
     state.combatStartAck = false;

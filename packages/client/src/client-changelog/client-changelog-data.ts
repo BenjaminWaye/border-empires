@@ -17,6 +17,7 @@ import { TRUCE_ENDING_WARNING_ENTRY } from "./client-changelog-truce-ending-warn
 import { MET_EMPIRES_REMEMBERED_ENTRY } from "./client-changelog-met-empires-remembered.js";
 import { TOWNS_LIST_COIN_PENDING_ENTRY } from "./client-changelog-towns-list-coin-pending.js";
 import { AI_COIN_INCOME_ENTRY } from "./client-changelog-ai-coin-income.js";
+import { CHRONICLE_LOADING_STUCK_ENTRY } from "./client-changelog-chronicle-loading-stuck.js";
 import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
 import { DISTRICT_FLAT_ART_OVER_3D_ENTRY } from "./client-changelog-district-3d-art.js";
 import { FORT_ANY_BUILDING_ENTRY } from "./client-changelog-fort-any-building.js";
@@ -492,6 +493,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...FRONTIER_CLAIM_NEXT_TO_PENDING_ENTRY, createdAt: 1794865837776, },
   { ...MET_EMPIRES_REMEMBERED_ENTRY, createdAt: 1794866661803, },
   { ...AI_COIN_INCOME_ENTRY, createdAt: 1794906344491, },
+  { ...CHRONICLE_LOADING_STUCK_ENTRY, createdAt: 1794909056601, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
