@@ -25,6 +25,7 @@ import {
   type SettleAttemptContext
 } from "./runtime-auto-settle-eligibility.js";
 import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
+import { isInOwnFortPerimeter, isPlainFortPerimeterTile, newlyCoveredFortPerimeterKeys } from "./fort-perimeter-auto-settle.js";
 
 export interface AutoSettleEligibilityRuntimeDeps {
   readonly tiles: ReadonlyMap<string, DomainTileState>;
@@ -96,6 +97,10 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
   // A player handed in via initialPlayers may carry no prefs; treat that like any other player
   // with no stored value (everything on), as normalizeAutoSettlePrefs does on hydration.
   const prefsOf = (player: DomainPlayer): AutoSettlePrefs => player.autoSettle ?? DEFAULT_AUTO_SETTLE_PREFS;
+  // The player's per-category switch, except that a plain tile inside one of
+  // their fort perimeters always auto-garrisons (fort-perimeter-auto-settle.ts).
+  const isAllowedFor = (player: DomainPlayer, tile: DomainTileState): boolean =>
+    isAutoSettleAllowedForTile(prefsOf(player), tile) || isPlainFortPerimeterTile(deps.tiles, player.id, tile, deps.now());
 
   // Drops queued tiles that can never settle from where they stand (lost, garrisoned, encircled,
   // category switched off) so they stop holding one of the capped queue slots. Runs before any
@@ -114,7 +119,7 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
         target.ownershipState !== "FRONTIER" ||
         target.frontierDecayKind === "ENCIRCLEMENT" ||
         target.terrain !== "LAND" ||
-        !isAutoSettleAllowedForTile(prefsOf(player), target);
+        !isAllowedFor(player, target);
       if (stale) queued.delete(tileKey);
     }
   };
@@ -125,10 +130,12 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
       getTile: (tileKey) => deps.tiles.get(tileKey),
       isBlocked,
       isInReach: (tile) => deps.isPlayerTileInReach(playerId, tile.x, tile.y),
-      hasTownSupport: (tile) => hasGrownTownSupportRing(deps.grownTownSupportRingByOwner, playerId, simulationTileKey(tile.x, tile.y)),
+      hasTownSupport: (tile) =>
+        hasGrownTownSupportRing(deps.grownTownSupportRingByOwner, playerId, simulationTileKey(tile.x, tile.y)) ||
+        isInOwnFortPerimeter(deps.tiles, playerId, tile, deps.now()),
       isRevealedToPlayer: (tile) =>
         deps.isVisible(playerId, simulationTileKey(tile.x, tile.y)) && isAutoSettlementResourceTechRevealed(tile, player),
-      isAutoSettleAllowed: (tile) => player !== undefined && isAutoSettleAllowedForTile(prefsOf(player), tile)
+      isAutoSettleAllowed: (tile) => player !== undefined && isAllowedFor(player, tile)
     };
   };
 
@@ -143,7 +150,7 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
     hasAvailableDevelopmentSlot: (playerId) => deps.hasAvailableDevelopmentSlot(playerId),
     isAutoSettleAllowed: (playerId, tile) => {
       const player = deps.players.get(playerId);
-      return player !== undefined && isAutoSettleAllowedForTile(prefsOf(player), tile);
+      return player !== undefined && isAllowedFor(player, tile);
     },
     startSettlementProcess: (input) => deps.startSettlementProcess(input),
     nextCommandId: (playerId, tileKey) => deps.nextTerritoryAutomationCommandId("auto-settle", playerId, tileKey, deps.now()),
@@ -176,6 +183,17 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
       const settleCtx = settleAttemptContext();
       for (const ringTileKey of delta.newlyCoveredTileKeys) {
         if (ownerFrontier.has(ringTileKey)) evaluateAndAttemptSettle(deps.eligibleFrontierByOwner, delta.ownerId, ringTileKey, evalDeps, settleCtx);
+      }
+    }
+    // A fort finishing (or an upgrade widening its radius) likewise makes the
+    // owner's frontier inside the new perimeter eligible.
+    const perimeter = newlyCoveredFortPerimeterKeys(previous, next);
+    const perimeterFrontier = perimeter ? deps.frontierTilesByOwner.get(perimeter.ownerId) : undefined;
+    if (perimeter && perimeterFrontier) {
+      const evalDeps = depsForPlayer(perimeter.ownerId);
+      const settleCtx = settleAttemptContext();
+      for (const perimeterTileKey of perimeter.tileKeys) {
+        if (perimeterFrontier.has(perimeterTileKey)) evaluateAndAttemptSettle(deps.eligibleFrontierByOwner, perimeter.ownerId, perimeterTileKey, evalDeps, settleCtx);
       }
     }
   };
@@ -230,7 +248,7 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
         if (!target || target.ownerId !== ownerId || target.ownershipState !== "FRONTIER") continue;
         if (target.frontierDecayKind === "ENCIRCLEMENT" || target.terrain !== "LAND") continue;
         if (isBlocked(targetKey)) continue;
-        if (!isAutoSettleAllowedForTile(prefsOf(actor), target)) continue;
+        if (!isAllowedFor(actor, target)) continue;
         // Same OUT_OF_REACH gate (and town/dock exemption) as handleSettleCommand -- this path bypasses that handler.
         if (!(target.town || target.dockId) && !deps.isPlayerTileInReach(ownerId, target.x, target.y)) continue;
         const commandId = deps.nextTerritoryAutomationCommandId("auto-settle", ownerId, targetKey, nowMs);

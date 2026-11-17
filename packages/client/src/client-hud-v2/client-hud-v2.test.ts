@@ -4,7 +4,7 @@ import { actionBarHtml, moreActions, selectBarButtons } from "./client-hud-v2-ac
 import { waystationFacts } from "./client-hud-v2-tile-facts.js";
 import { orbFill, orbHtml } from "./client-hud-v2-orb.js";
 import { resourceBarHtml, slotChipState } from "./client-hud-v2-resource-bar.js";
-import { RIVAL_STRIP_CAP, rivalTokens } from "./client-hud-v2-rivals.js";
+import { RIVAL_STRIP_CAP, rivalTokens, rivalsHtml } from "./client-hud-v2-rivals.js";
 import { TRACKER_GROUP_CAP, trackerHtml, trackerNeeds } from "./client-hud-v2-tracker.js";
 
 const truce = (otherPlayerId: string, endsAt: number): ActiveTruceView => ({ otherPlayerId, otherPlayerName: otherPlayerId, startedAt: 0, endsAt, createdByPlayerId: "me" });
@@ -185,6 +185,13 @@ describe("rivals strip", () => {
       nowMs: 0
     });
     expect(shown[0]?.label).toBe("TRUCE 37m");
+  });
+
+  // Regression: "TRUCE 1h 23m" wrapped mid-time in the 58px token.
+  it("keeps a truce's hours and minutes together on one line", () => {
+    const html = rivalsHtml({ me: "me", metPlayerIds: new Set(["h"]), allies: [], activeTruces: [truce("h", 83 * 60_000)], nameOf: () => "Hugo", colorOf: () => "#123456", nowMs: 0 });
+    expect(html).toContain('<span class="hud-v2-rival-stance">TRUCE <span class="hud-v2-rival-time">1h 23m</span></span>');
+    expect(html).toContain('aria-label="Hugo, truce 1h 23m"');
   });
 
   // Regression: meeting one empire showed "+1" instead of its name and colour.

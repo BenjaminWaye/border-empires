@@ -10,14 +10,14 @@ import { tileActionAvailability } from "../client-tile-action-logic/client-tile-
 import { breakAllianceConsequences, breakTruceConsequences, showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { supplyTradeAttackWarningText } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
+import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import type { ActiveTruceView, FeedSeverity, FeedType, Tile, TileActionDef } from "../client-types.js";
 
 const ATTACK_ROW_IDS: ReadonlyArray<TileActionDef["id"]> = ["launch_attack", "attack_connected_region"];
 export const COURT_ARMISTICE_ATTACK_REASON = "Court armistice: no attacks until it ends";
 export const ALLY_NOT_BORDERING_REASON = "Ally doesn't border your territory or a linked dock";
-const HOUR_MS = 60 * 60_000;
-
-const hoursLeft = (endsAt: number, nowMs: number): string => `${Math.max(1, Math.ceil((endsAt - nowMs) / HOUR_MS))}h`;
+// Same "1h 23m" countdown as the Diplomacy and Alliances screens.
+const hoursLeft = socialRemainingLabel;
 
 const pendingAllianceBreak = (state: Pick<ClientState, "activeAllianceBreaks">, ownerId: string, nowMs: number) =>
   state.activeAllianceBreaks.find((notice) => notice.otherPlayerId === ownerId && notice.endsAt > nowMs);

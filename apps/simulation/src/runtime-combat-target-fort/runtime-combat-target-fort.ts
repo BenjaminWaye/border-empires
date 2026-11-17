@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { isCaptureHoldActive, isFortDefending } from "@border-empires/shared";
+import { fortPerimeterSourceVariant, isCaptureHoldActive, isFortDefending, type FortVariant } from "@border-empires/shared";
 
 // Narrow slice of RuntimeCombatSupportContext (runtime-combat-support.ts) the
 // fort check needs; kept structural so this module doesn't import back.
@@ -29,3 +29,26 @@ export const targetHasActiveFortFor = (
       defenderOwnerId &&
       !ctx.isStructureDormant(defenderOwnerId, targetKey, "fort")
   );
+
+// Fort perimeter (fort-perimeter.ts): the strongest of the defender's own
+// forts whose perimeter covers the target. Same usability rules as the
+// target's own fort above: not dormant, not rubble under a capture hold.
+export const targetFortPerimeterVariantFor = (
+  ctx: TargetFortContext & { tiles: ReadonlyMap<string, DomainTileState> },
+  previousTarget: DomainTileState | undefined,
+  defenderOwnerId: string | undefined
+): FortVariant | undefined => {
+  if (!previousTarget || !defenderOwnerId || previousTarget.ownershipState !== "SETTLED") return undefined;
+  const nowMs = ctx.now();
+  return fortPerimeterSourceVariant(
+    defenderOwnerId,
+    previousTarget.x,
+    previousTarget.y,
+    (x, y) => ctx.tiles.get(`${x},${y}`),
+    nowMs,
+    (x, y) => {
+      const fortTile = ctx.tiles.get(`${x},${y}`);
+      return Boolean(fortTile) && !isCaptureHoldActive(fortTile!, nowMs) && !ctx.isStructureDormant(defenderOwnerId, `${x},${y}`, "fort");
+    }
+  );
+};
