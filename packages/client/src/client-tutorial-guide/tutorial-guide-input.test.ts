@@ -2,7 +2,12 @@
 import { describe, expect, it } from "vitest";
 import { tileKey } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
-import { scanGuideTiles } from "./tutorial-guide-input.js";
+// Imported here, not inside each test: loading client state takes seconds and timed tests out under load.
+import { buildGuideInput, resetGuideInputCacheForTests, scanGuideTiles } from "./tutorial-guide-input.js";
+import { createInitialState } from "../client-state/client-state.js";
+import { markOnboardingChecklistCompleted } from "../client-onboarding-checklist/client-onboarding-checklist-storage.js";
+import { markGuideStepsCompleted, resetGuideStorageMemoryForTests } from "./tutorial-guide-storage.js";
+import { scanGuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
 
 const ME = "p1";
 const map = (tiles: Array<Partial<Tile> & { x: number; y: number }>): ReadonlyMap<string, Tile> =>
@@ -50,8 +55,6 @@ describe("scanGuideTiles", () => {
 
 describe("buildGuideInput", () => {
   it("rescans tiles after a chunk load, which writes tiles without bumping tilesRevision", async () => {
-    const { createInitialState } = await import("../client-state/client-state.js");
-    const { buildGuideInput, resetGuideInputCacheForTests } = await import("./tutorial-guide-input.js");
     resetGuideInputCacheForTests();
     const state = createInitialState();
     state.me = ME;
@@ -65,9 +68,6 @@ describe("buildGuideInput", () => {
   it("judges the foothold from live tiles, not the checklist's account-wide completed flag", async () => {
     // Regression: an account that once finished the New empire checklist (a past
     // season, or before Restart guide) had every foothold step ticked on load.
-    const { createInitialState } = await import("../client-state/client-state.js");
-    const { buildGuideInput, resetGuideInputCacheForTests } = await import("./tutorial-guide-input.js");
-    const { markOnboardingChecklistCompleted } = await import("../client-onboarding-checklist/client-onboarding-checklist-storage.js");
     resetGuideInputCacheForTests();
     const state = createInitialState();
     state.me = ME;
@@ -87,9 +87,6 @@ describe("buildGuideInput", () => {
   });
 
   it("stops scanning the foothold once the guide's own foothold steps are saved", async () => {
-    const { createInitialState } = await import("../client-state/client-state.js");
-    const { buildGuideInput, resetGuideInputCacheForTests } = await import("./tutorial-guide-input.js");
-    const { markGuideStepsCompleted, resetGuideStorageMemoryForTests } = await import("./tutorial-guide-storage.js");
     resetGuideInputCacheForTests();
     const state = createInitialState();
     state.me = ME;
@@ -109,7 +106,6 @@ describe("buildGuideInput", () => {
 
 describe("scanGuideFootholdTargets", () => {
   it("splits own frontier towns and food (Garrison) from neutral ones seen (Expand To), ignoring enemy, garrisoned and spawn-settlement tiles", async () => {
-    const { scanGuideFootholdTargets } = await import("./tutorial-guide-foothold-targets.js");
     const town = (populationTier: string) => ({ town: { type: "MARKET", populationTier } as never });
     const tiles = map([
       { x: 0, y: 0, ownerId: ME, ownershipState: "SETTLED", ...town("SETTLEMENT") },
@@ -135,8 +131,6 @@ describe("scanGuideFootholdTargets", () => {
 
 describe("rival House contact and diplomacy", () => {
   it("counts another House's land, not Planetary Defense, and marks diplomacy used once a truce is offered", async () => {
-    const { createInitialState } = await import("../client-state/client-state.js");
-    const { buildGuideInput, resetGuideInputCacheForTests } = await import("./tutorial-guide-input.js");
     resetGuideInputCacheForTests();
     const state = createInitialState();
     state.me = ME;
@@ -164,8 +158,6 @@ describe("Manufactory availability", () => {
 
 describe("rival House contact on chunk loads", () => {
   it("notices a rival revealed by a chunk load, which doesn't bump tilesRevision", async () => {
-    const { createInitialState } = await import("../client-state/client-state.js");
-    const { buildGuideInput, resetGuideInputCacheForTests } = await import("./tutorial-guide-input.js");
     resetGuideInputCacheForTests();
     const state = createInitialState();
     state.me = ME;

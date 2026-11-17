@@ -50,6 +50,12 @@ export const observatoryToggleMenuEntries = (tile: Tile, deps: ConverterMenuDeps
   ];
 };
 
+/** Every action id structureToggleMenuEntries can return; keep in sync with the builders above and in client-converter-menu.ts. */
+export const STRUCTURE_TOGGLE_ACTION_IDS: ReadonlySet<TileActionDef["id"]> = new Set<TileActionDef["id"]>([
+  "disable_converter_structure", "enable_converter_structure", "set_converter_structure_mode",
+  "disable_observatory", "enable_observatory", "cancel_siphon"
+]);
+
 /** Every structure on/off switch this tile offers — converter structures and Aether Towers. */
 export const structureToggleMenuEntries = (tile: Tile, deps: ConverterMenuDeps): TileActionDef[] => [
   ...(tile.economicStructure ? converterStructureMenuEntries(tile, deps) : []),
