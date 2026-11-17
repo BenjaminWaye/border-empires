@@ -2,8 +2,10 @@
 // the requester before any offer is sent. For a seeded AI the answer carries
 // its stance and prices, so the client can preview "would they accept?" as
 // the player edits the terms; for a human target there is nothing to
-// predict. Read-only: no offer is created.
-import { supplyAgreementsFull, type AiDiplomacyPricing, type AiGiftView } from "@border-empires/shared";
+// predict, but the answer carries the human's coin and spare supply (when they
+// are online) so the deal screen can show what they could give, as it does for
+// an AI. Read-only: no offer is created.
+import { supplyAgreementsFull, type AiDiplomacyPricing, type AiGiftView, type DiplomacyGoods } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "./ai-diplomacy-evaluation.js";
@@ -16,7 +18,15 @@ export type DiplomacyStancePayload = {
   supplyAgreementsFull?: true;
 } & (
   | { type: "DIPLOMACY_STANCE"; targetPlayerName: string; found: false }
-  | { type: "DIPLOMACY_STANCE"; targetPlayerName: string; found: true; targetPlayerId: string; ai: false }
+  | {
+      type: "DIPLOMACY_STANCE";
+      targetPlayerName: string;
+      found: true;
+      targetPlayerId: string;
+      ai: false;
+      /** The human's coin and spare supply; absent when they are offline (their snapshot isn't cached). */
+      holdings?: DiplomacyGoods;
+    }
   | {
       type: "DIPLOMACY_STANCE";
       targetPlayerName: string;
@@ -50,7 +60,15 @@ export type DiplomacyStanceQueryDeps = {
   diplomacyContext: AiDiplomacyContextSource;
   /** The target's active supply agreements, when known without fetching an offline House's snapshot. */
   supplyAgreementCount?: (playerId: string) => Promise<number | undefined>;
+  /** A human target's tradeable goods from the gateway's live cache only: an offline House is never fetched. */
+  liveHoldings?: (playerId: string) => DiplomacyGoods | undefined;
 };
+
+/** Coin (whole) and spare supply slots: what a player could hand over in a deal. */
+export const tradeHoldingsOf = (player: { gold: number; resourceTradeHoldings?: DiplomacyGoods["resources"] }): DiplomacyGoods => ({
+  gold: Math.max(0, Math.floor(player.gold)),
+  ...(player.resourceTradeHoldings ? { resources: player.resourceTradeHoldings } : {})
+});
 
 export const answerDiplomacyStanceQuery = async (
   deps: DiplomacyStanceQueryDeps,
@@ -71,7 +89,10 @@ export const answerDiplomacyStanceQuery = async (
   const fullFlag = (count: number | undefined) => (count !== undefined && supplyAgreementsFull(count) ? { supplyAgreementsFull: true as const } : {});
   const lockout = until > 0 ? { truceLockout: { until, reason } } : {};
   const ids = { type: "DIPLOMACY_STANCE" as const, targetPlayerName: target.name, found: true as const, targetPlayerId: target.id };
-  if (!deps.isAutoRespondingAi(target.id)) return { ...ids, ...lockout, ...fullFlag(await supplyCount), ai: false };
+  if (!deps.isAutoRespondingAi(target.id)) {
+    const holdings = deps.liveHoldings?.(target.id);
+    return { ...ids, ...lockout, ...fullFlag(await supplyCount), ai: false, ...(holdings ? { holdings } : {}) };
+  }
   const [aiSnapshot, requesterSnapshot, targetSupplyAgreements] = await Promise.all([
     deps.fetchAiSnapshot(target.id),
     deps.requesterSnapshot(requesterId).catch(() => undefined),

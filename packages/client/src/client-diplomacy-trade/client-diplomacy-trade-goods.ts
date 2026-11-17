@@ -62,9 +62,11 @@ const specFor = (key: TradeGoodKey): TradeGoodSpec => TRADE_GOODS.find((spec) =>
 const heldAmount = (holdings: DiplomacyGoods, spec: TradeGoodSpec): number =>
   spec.good === "gold" ? holdings.gold : spec.good === "coinPerHour" ? 0 : holdings.resources?.[spec.good] ?? 0;
 
-/** The AI's holdings when its reply carries them; undefined for a human or an unread AI. */
-export const theirHoldings = (reply: DiplomacyStanceReply | undefined): DiplomacyGoods | undefined =>
-  reply?.found && reply.ai && reply.pricing ? reply.pricing.aiHoldings : undefined;
+/** Their holdings when the reply carries them; undefined for an offline human or an unread AI. */
+export const theirHoldings = (reply: DiplomacyStanceReply | undefined): DiplomacyGoods | undefined => {
+  if (!reply?.found) return undefined;
+  return reply.ai ? reply.pricing?.aiHoldings : reply.holdings;
+};
 
 /**
  * Each slider's top end: your own holdings for what you give, the AI's

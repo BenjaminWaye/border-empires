@@ -18,7 +18,7 @@ import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-revie
 import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { aiDiplomacyGrudges } from "../ai-diplomacy-stance/ai-diplomacy-grudges.js";
-import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
+import { answerDiplomacyStanceQuery, tradeHoldingsOf } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
 import { createSeasonLeaderboardCache, seasonSizesFromSummary } from "../ai-diplomacy-stance/season-leaderboard-cache.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
@@ -244,7 +244,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   };
   const resourceTrades = createResourceTradeService({ social:socialState,settlement,now:()=>Date.now(),
     isAutoRespondingAi:id=>isAi(id)&&!deps.hasLiveSocket(id),
-    aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?{gold:Math.floor(player.gold),...(player.resourceTradeHoldings?{resources:player.resourceTradeHoldings}:{})}:undefined;},
+    aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?tradeHoldingsOf(player):undefined;},
     supplyAgreementCount,
     send:deps.sendJson,fanout:deps.fanoutPlayerPayloads,record:deps.recordGatewayEvent });
   const aiFoodTrades = createProactiveAiResourceTrade({ aiPlayerIds: deps.seededAiPlayerIds, hasLiveSocket: deps.hasLiveSocket,
@@ -268,7 +268,11 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
         fetchAiSnapshot,
         requesterSnapshot,
         diplomacyContext,
-        supplyAgreementCount
+        supplyAgreementCount,
+        liveHoldings: (id) => {
+          const player = deps.cachedSnapshotForPlayer(id)?.player;
+          return player ? tradeHoldingsOf(player) : undefined;
+        }
       },
       requesterId,
       targetPlayerName,
