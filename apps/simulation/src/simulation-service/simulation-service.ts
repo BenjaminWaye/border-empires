@@ -24,7 +24,8 @@ import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWir
 import { toCommandEnvelope, type ProtoCommandEnvelope } from "./proto-command-envelope.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
 import { createOwnershipChangeHandler } from "./ownership-change-alert.js";
-import { getAiDecisionDiagnostics, recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
+import { recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
+import { handleGetAiDecisionDiagnostics, type ProtoGetAiDecisionDiagnosticsRequest, type ProtoGetAiDecisionDiagnosticsResponse } from "../ai/ai-decision-diagnostics-rpc-handler.js";
 import { recordAiPlannerDecision } from "./record-ai-planner-decision.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -63,6 +64,7 @@ import { createVisibilityAuditHandler } from "./visibility-audit-log.js";
 import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot/admin-players-snapshot.js";
 import { handleGetRecentCommands, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsResponse } from "../recent-commands-snapshot/recent-commands-snapshot.js";
 import { handleGetPlayerCombatSummary, type ProtoPlayerCombatSummaryRequest, type ProtoPlayerCombatSummaryResponse } from "../player-combat-summary-snapshot.js";
+import { handleGetPlayerTradeHoldings, type ProtoPlayerTradeHoldingsRequest, type ProtoPlayerTradeHoldingsResponse } from "../player-trade-holdings/player-trade-holdings.js";
 import { handleGetSeasonParticipationForPlayer, type ProtoSeasonArchivesResponse, type ProtoSeasonParticipationRequest, type ProtoSeasonParticipationResponse, type ProtoSeasonSummaryRequest, type ProtoSeasonSummaryResponse } from "../season-participation-rpc-handler.js";
 import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
 import { handleGetPersonalActivityTimeline, type ProtoPersonalActivityTimelineRequest, type ProtoPersonalActivityTimelineResponse } from "../personal-activity-aggregation/personal-activity-timeline-rpc-handler.js";
@@ -143,13 +145,6 @@ export type SimulationHealthSnapshot = {
   };
 };
 
-type ProtoGetAiDecisionDiagnosticsRequest = {
-  player_id?: string;
-};
-type ProtoGetAiDecisionDiagnosticsResponse = {
-  ok: boolean;
-  diagnostics_json?: string;
-};
 type ProtoStartNextSeasonRequest = { force?: boolean; defense_campaign_target_season_id?: string };
 type ProtoStartNextSeasonResponse = {
   ok: boolean;
@@ -2093,21 +2088,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     GetPersonalActivityTimeline(call: { request: ProtoPersonalActivityTimelineRequest }, callback: (error: Error | null, response: ProtoPersonalActivityTimelineResponse) => void) { handleGetPersonalActivityTimeline(runtime, call, callback); },
     GetRecentCommands(call: { request: ProtoGetRecentCommandsRequest }, callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void) { handleGetRecentCommands(commandStore, call, callback); },
     GetPlayerCombatSummary(call: { request: ProtoPlayerCombatSummaryRequest }, callback: (error: Error | null, response: ProtoPlayerCombatSummaryResponse) => void) { handleGetPlayerCombatSummary(runtime, call, callback); },
-    GetAiDecisionDiagnostics(
-      call: { request: ProtoGetAiDecisionDiagnosticsRequest },
-      callback: (error: Error | null, response: ProtoGetAiDecisionDiagnosticsResponse) => void
-    ) {
-      try {
-        const playerId = call.request.player_id || undefined;
-        const diagnostics = getAiDecisionDiagnostics(playerId);
-        callback(null, { ok: true, diagnostics_json: JSON.stringify(diagnostics) });
-      } catch (error) {
-        callback(error instanceof Error ? error : new Error("failed to load diagnostics"), {
-          ok: false,
-          diagnostics_json: ""
-        });
-      }
-    },
+    GetPlayerTradeHoldings(call: { request: ProtoPlayerTradeHoldingsRequest }, callback: (error: Error | null, response: ProtoPlayerTradeHoldingsResponse) => void) { handleGetPlayerTradeHoldings(runtime, call, callback); },
+    GetAiDecisionDiagnostics(call: { request: ProtoGetAiDecisionDiagnosticsRequest }, callback: (error: Error | null, response: ProtoGetAiDecisionDiagnosticsResponse) => void) { handleGetAiDecisionDiagnostics(call, callback); },
     StartNextSeason(
       call: { request: ProtoStartNextSeasonRequest },
       callback: (error: Error | null, response: ProtoStartNextSeasonResponse) => void

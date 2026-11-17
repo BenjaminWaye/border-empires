@@ -16,6 +16,7 @@ import { coinIncomeAdjustmentsInSnapshot } from "../coin-income-adjustments/coin
 import { settleBootstrapManpower } from "./runtime-bootstrap-manpower.js";
 import { afcCampaignGuardCounters, afcCampaignStateGauges, afcRecoverySearchCount } from "../afc-specializations/afc-diagnostics.js";
 import { buildPlayerCombatSummary } from "../afc-specializations/afc-player-combat-facts.js";
+import { playerTradeHoldingsForRuntime, type PlayerTradeHoldings } from "../player-trade-holdings/player-trade-holdings.js";
 import type { PlayerCombatSummary } from "@border-empires/sim-protocol";
 import { withAfcFortFacts, refreshAfcFortFacts } from "../afc-specializations/afc-fort-facts.js";
 import { restoreSameOwnerSummaryOrder } from "../runtime-same-owner-summary-order.js";
@@ -1482,13 +1483,7 @@ export class SimulationRuntime {
   }
 
   private markOutpostVisionDormancyDirty(playerId: string | undefined): void {
-    this.outpostVisionDormancyTracker.markDirty(
-      playerId,
-      () =>
-        (this.ownerIndexes.activeRelayBeaconsByOwner.get(playerId!)?.size ?? 0) > 0 ||
-        (this.ownerIndexes.activeSiegeBatteriesByOwner.get(playerId!)?.size ?? 0) > 0 ||
-        (this.ownerIndexes.activeObservatoriesByOwner.get(playerId!)?.size ?? 0) > 0
-    );
+    this.outpostVisionDormancyTracker.markDirty(playerId, () => this.ownerIndexes.hasActiveVisionOutposts(playerId!));
   }
 
   private flushOutpostVisionDormancyResync(playerId: string | undefined): void {
@@ -1968,6 +1963,11 @@ export class SimulationRuntime {
 
   exportPlayerDebugSnapshot(): RuntimePlayerDebugSnapshot {
     return playerDebugSnapshotForRuntime(this.exportContext());
+  }
+
+  /** GetPlayerTradeHoldings: coin and spare supply without a full subscribe (player-trade-holdings.ts). */
+  getPlayerTradeHoldings(playerId: string): PlayerTradeHoldings | undefined {
+    return playerTradeHoldingsForRuntime({ players: this.state.players, supplyStateForPlayer: (id) => this.resourceSupply?.playerState(id) ?? {}, now: () => this.now() }, playerId);
   }
 
   // Single-player lookup for GetPlayerCombatSummary. techIds/domainIds are
