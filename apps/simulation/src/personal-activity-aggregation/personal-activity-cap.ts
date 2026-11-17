@@ -12,6 +12,8 @@ const impactOf = (card: PersonalActivityCard): number => {
   if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return card.populationBefore;
   if (card.kind === "WAYSTATION_ACTIVATED") return 100;
   if (card.kind === "DOCK_CAPTURED" || card.kind === "DOCK_LOST") return 100;
+  // Manpower changing hands, weighed like a combat card's manpower loss.
+  if (card.kind === "MUSTER_CAPTURED" || card.kind === "MUSTER_LOST") return card.amount;
   if (card.kind === "BUILDING_COMPLETED") return 10;
   if (card.kind === "SCOUT_REPORT") return 20 + 10 * (card.towns + card.docks + card.waystations);
   if (card.kind === "SCOUT_SIGHTED") return 50;

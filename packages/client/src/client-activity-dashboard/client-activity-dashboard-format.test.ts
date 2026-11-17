@@ -103,6 +103,19 @@ describe("activityCardText / activityCardCoordinates", () => {
     expect(activityCardTone({ kind: "DOCK_CAPTURED", x: 5, y: 9 } as any, "me")).toBe("gain");
   });
 
+  it("says how much manpower a captured or lost muster flag moved, and when the captor hit their cap", () => {
+    const names = namesFrom({ kara: "Kara" });
+    const base = { id: "m", occurredAt: 0, x: 5, y: 9, counterpartyPlayerId: "kara" };
+    const captured: PersonalActivityCard = { ...base, kind: "MUSTER_CAPTURED", amount: 240, gained: 240 };
+    const capped: PersonalActivityCard = { ...base, kind: "MUSTER_CAPTURED", amount: 240, gained: 90 };
+    const lost: PersonalActivityCard = { ...base, kind: "MUSTER_LOST", amount: 240 };
+    expect(activityCardText(captured, "me", names)).toBe("Captured muster flag from Kara · +240 manpower");
+    expect(activityCardText(capped, "me", names)).toBe("Captured muster flag from Kara · +90 manpower (240 on flag, at cap)");
+    expect(activityCardText(lost, "me", names)).toBe("Lost muster flag to Kara · −240 manpower");
+    expect(activityCardTone(captured, "me")).toBe("gain");
+    expect(activityCardTone(lost, "me")).toBe("loss");
+  });
+
   it("names completed buildings by their player-facing name, not the backend id", () => {
     const tradeNexus = { kind: "BUILDING_COMPLETED" as const, structureType: "TRADE_NEXUS", x: 4, y: 7 };
     const incubationEngine = { kind: "BUILDING_COMPLETED" as const, structureType: "INCUBATION_ENGINE", x: 4, y: 7 };
