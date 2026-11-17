@@ -66,17 +66,18 @@ export const answerDiplomacyStanceQuery = async (
   const reason = requesterLockout >= targetLockout
     ? "You recently broke a truce. You can make and accept new truces 24 hours after breaking it."
     : `${target.name} recently broke a truce and cannot accept a new one yet.`;
-  const targetSupplyAgreements = await deps.supplyAgreementCount?.(target.id).catch(() => undefined);
-  const base = {
-    type: "DIPLOMACY_STANCE" as const, targetPlayerName: target.name, found: true as const, targetPlayerId: target.id,
-    ...(until > 0 ? { truceLockout: { until, reason } } : {}),
-    ...(targetSupplyAgreements !== undefined && supplyAgreementsFull(targetSupplyAgreements) ? { supplyAgreementsFull: true as const } : {})
-  };
-  if (!deps.isAutoRespondingAi(target.id)) return { ...base, ai: false };
-  const [aiSnapshot, requesterSnapshot] = await Promise.all([
+  // Started alongside the AI snapshot reads below; a failure only drops the flag.
+  const supplyCount = Promise.resolve().then(() => deps.supplyAgreementCount?.(target.id)).catch(() => undefined);
+  const fullFlag = (count: number | undefined) => (count !== undefined && supplyAgreementsFull(count) ? { supplyAgreementsFull: true as const } : {});
+  const lockout = until > 0 ? { truceLockout: { until, reason } } : {};
+  const ids = { type: "DIPLOMACY_STANCE" as const, targetPlayerName: target.name, found: true as const, targetPlayerId: target.id };
+  if (!deps.isAutoRespondingAi(target.id)) return { ...ids, ...lockout, ...fullFlag(await supplyCount), ai: false };
+  const [aiSnapshot, requesterSnapshot, targetSupplyAgreements] = await Promise.all([
     deps.fetchAiSnapshot(target.id),
-    deps.requesterSnapshot(requesterId).catch(() => undefined)
+    deps.requesterSnapshot(requesterId).catch(() => undefined),
+    supplyCount
   ]);
+  const base = { ...ids, ...lockout, ...fullFlag(targetSupplyAgreements) };
   const evaluation = evaluateAiDiplomacy({
     aiPlayerId: target.id,
     aiName: target.name,

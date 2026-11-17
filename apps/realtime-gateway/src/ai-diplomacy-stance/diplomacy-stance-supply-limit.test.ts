@@ -20,4 +20,13 @@ describe("stance reply: other House's supply agreement limit", () => {
     expect(await answerDiplomacyStanceQuery(deps({ p2: 15 }), "p1", "Astrid")).not.toHaveProperty("supplyAgreementsFull");
     expect(await answerDiplomacyStanceQuery(deps({}), "p1", "Astrid")).not.toHaveProperty("supplyAgreementsFull");
   });
+  it("drops the flag, not the reply, when the count lookup fails", async () => {
+    const failing = { ...deps({}), supplyAgreementCount: () => { throw new Error("snapshot unavailable"); } };
+    expect(await answerDiplomacyStanceQuery(failing, "p1", "Astrid")).toMatchObject({ found: true, ai: false });
+  });
+  it("flags a full AI target even when its evaluation can't be read", async () => {
+    // No AI snapshot: the evaluation is skipped, but the reply still carries the flag.
+    const ai = { ...deps({ p2: 16 }), isAutoRespondingAi: () => true, diplomacyContext: () => ({}) as never };
+    await expect(answerDiplomacyStanceQuery(ai, "p1", "Astrid")).resolves.toMatchObject({ ai: true, supplyAgreementsFull: true });
+  });
 });

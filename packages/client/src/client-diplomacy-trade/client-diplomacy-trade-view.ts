@@ -189,11 +189,14 @@ export const tradeVerdict = (input: {
   }
   const hasSupply = hasResourceSupplyOffer(selection.terms.give.resources) || hasResourceSupplyOffer(selection.terms.ask.resources);
   // Before the shortfall: finding more goods won't help while you're at the agreement limit.
-  const ownLimit = hasSupply && input.ownSupplyAgreements !== undefined ? ownSupplyLimitReason(input.ownSupplyAgreements) : undefined;
-  const limitReason = ownLimit ?? (hasSupply && reply?.supplyAgreementsFull ? supplyAgreementLimitMessage(targetName) : undefined);
+  const limitReason = hasSupply && input.ownSupplyAgreements !== undefined ? ownSupplyLimitReason(input.ownSupplyAgreements) : undefined;
   if (limitReason) return { tone: "bad", text: limitReason, canSend: false, sendLabel };
   const shortfall = ownGoodsShortfall(selection.terms.give, own);
   if (shortfall) return { tone: "bad", text: shortfall, canSend: false, sendLabel };
+  // Advisory only: the flag is from when the screen opened, and one of theirs may end before you send.
+  if (hasSupply && reply?.supplyAgreementsFull) {
+    return { tone: "bad", text: `${supplyAgreementLimitMessage(targetName)} The offer will be refused unless one of theirs ends first.`, canSend: true, sendLabel };
+  }
   if (hasRecurringCoin(selection.terms)) {
     if (!hasSupply) return { tone: "neutral", text: "Add a resource slot to trade Coin income.", canSend: false, sendLabel };
     if (reply?.found && reply.ai) return { tone: "bad", text: "AI Houses require Coin payments upfront.", canSend: false, sendLabel };

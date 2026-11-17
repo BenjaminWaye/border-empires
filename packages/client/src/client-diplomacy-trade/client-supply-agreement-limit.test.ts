@@ -41,11 +41,15 @@ describe("supply agreement limit in the client", () => {
     expect(tradeVerdict({ targetName: "Beejac", reply: undefined, selection, own: { gold: 0, resources: {} }, cooldownRemainingMs: 0, ownSupplyAgreements: 16 }).text).toBe(FULL);
   });
   // Playtest 2026-11-17: the refusal showed as "Error RESOURCE_TRADE_FAILED: Astrid already has…", and only after Send.
-  it("blocks sending supply to a House the server reports as full, naming them", () => {
+  it("warns before sending supply to a House reported as full, naming them, without blocking", () => {
     const selection: TradeSelection = { kind: "trade", durationHours: 12, terms: { give: { gold: 0, resources: { FOOD: 1 } }, ask: { gold: 5 } } };
     const reply = { found: true as const, targetPlayerName: "Astrid", targetPlayerId: "p2", ai: false as const, supplyAgreementsFull: true as const };
-    expect(tradeVerdict({ targetName: "Astrid", reply, selection, own: { gold: 0, resources: { FOOD: 5 } }, cooldownRemainingMs: 0, ownSupplyAgreements: 3 }))
-      .toMatchObject({ tone: "bad", text: "Astrid already has 16/16 active supply agreements and can't take on another.", canSend: false });
+    const verdict = (s: TradeSelection) => tradeVerdict({ targetName: "Astrid", reply, selection: s, own: { gold: 10, resources: { FOOD: 5 } }, cooldownRemainingMs: 0, ownSupplyAgreements: 3 });
+    // The flag is from when the screen opened: warn, but let the server decide in case one of theirs ended since.
+    expect(verdict(selection)).toMatchObject({ tone: "bad", canSend: true,
+      text: "Astrid already has 16/16 active supply agreements and can't take on another. The offer will be refused unless one of theirs ends first." });
+    // A deal without resource supply is unaffected.
+    expect(verdict({ kind: "truce", durationHours: 12, terms: { give: { gold: 5 }, ask: { gold: 0 } } }).text).not.toContain("16/16");
   });
   it("shows a resource trade refusal without the raw error code", () => {
     expect(explainActionFailureFromServer("RESOURCE_TRADE_FAILED", "Astrid already has 16/16 active supply agreements and can't take on another."))
