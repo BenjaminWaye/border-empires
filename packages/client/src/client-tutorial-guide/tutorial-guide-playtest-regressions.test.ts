@@ -23,7 +23,7 @@ const tile = (t: Partial<Tile> & { x: number; y: number }): Tile => ({ terrain: 
 
 const stepInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   checklist: { step: "DONE", townFound: true, townExpanded: true, foodFound: true, foodExpanded: true, foodSlotsFound: 4, foodSlotsClaimed: 4, foodSlotsTarget: 4, highlightTiles: [] },
-  footholdTargets: { town: { pending: [], garrison: [], expand: [] }, food: { pending: [], garrison: [], expand: [] } },
+  footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } },
   manufactoryResearched: false,
   manufactoryUnlocked: false,
   afcUpgradeReady: false,
@@ -44,6 +44,8 @@ const stepInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   musterUnlocked: false,
   ownsMusterFlag: false,
   musterTargetTiles: [],
+  scout: "none",
+  exploreTarget: () => undefined,
   ...overrides
 });
 
@@ -72,8 +74,8 @@ describe("food step only marks tiles a garrison can reach (Sam stuck on 'Beyond 
     ];
     const inReach = (x: number, y: number) => x === 9 && y === 9;
     expect(scanGuideFootholdTargets(tiles, ME, () => 0, inReach)).toEqual({
-      town: { pending: [], garrison: [{ x: 3, y: 0 }], expand: [] },
-      food: { pending: [], garrison: [{ x: 9, y: 9 }], expand: [] }
+      town: { outOfReach: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [] },
+      food: { outOfReach: 2, pending: [], garrison: [{ x: 9, y: 9 }], expand: [] }
     });
   });
 
@@ -93,7 +95,7 @@ describe("food step only marks tiles a garrison can reach (Sam stuck on 'Beyond 
     const view = evaluateGuide(
       stepInput({
         checklist: { ...stepInput().checklist, townExpanded: false },
-        footholdTargets: { town: { pending: [], garrison: [{ x: 3, y: 0 }], expand: [] }, food: { pending: [], garrison: [], expand: [] } }
+        footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } }
       }),
       new Set(["look-pan", "look-zoom"])
     );
@@ -149,7 +151,7 @@ describe("build step without a town (Tom skipped the town step)", () => {
         manufactoryResearched: true,
         manufactoryUnlocked: true,
         buildTargetTiles: [],
-        footholdTargets: { town: { pending: [], garrison: [], expand: [{ x: 7, y: 2 }] }, food: { pending: [], garrison: [], expand: [] } }
+        footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [], expand: [{ x: 7, y: 2 }] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } }
       }),
       doneExcept(["build-first", "contest-muster", "diplomacy-truce", "turn-activity", "turn-finish"])
     );

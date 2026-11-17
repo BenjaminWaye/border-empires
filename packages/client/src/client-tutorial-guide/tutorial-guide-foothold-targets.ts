@@ -4,12 +4,19 @@
 //   1. A target that is already the player's FRONTIER (reach auto-claims every
 //      neutral tile inside it, so an in-reach target usually ends up here):
 //      "Garrison" it. Its tile menu offers Garrison, not Expand To.
-//   2. Otherwise, a neutral target in vision (not fogged) -- in practice one
+//   2. Otherwise, a neutral target the player has seen -- in vision, or
+//      remembered under fog after a scout drone flew over it -- in practice one
 //      outside reach: "Expand To" it. Expand To walks the border across to a
 //      non-adjacent target through a waypoint chain (expandToAction in
-//      client-tile-action-neutral.ts).
-//   3. Otherwise (nothing in vision): build a Relay Beacon on the checklist's
-//      recommended site to push reach and vision outward.
+//      client-tile-action-neutral.ts), and fogged tiles offer it too
+//      (foggedTileActions). A drone's reveal drops back to fog behind it, so
+//      counting only tiles in vision would forget what the drone just found.
+//   3. Otherwise (nothing known): send the scout drone (Explore). It is free
+//      and reports towns and food (tutorial-guide-explore-target.ts). While it
+//      is out, wait for its report.
+//   4. With no drone (no AFC) or nothing left unexplored nearby, or food known
+//      only outside reach: build a Relay Beacon on the checklist's recommended
+//      site to push reach outward.
 //
 // Garrison is reach-gated (client-tile-action-settle-visibility.ts, mirroring
 // the sim): a food tile outside reach shows "Outside your reach" and can never
@@ -24,19 +31,22 @@
 import type { Tile } from "../client-types.js";
 import { settleIgnoresReach } from "@border-empires/shared";
 import { townIdentityForTile } from "../client-town-identity.js";
+import type { GuideScoutStatus } from "./tutorial-guide-explore-target.js";
 
 export type GuideTargetSet = {
   /** Tiles of this kind with the player's claim or garrison already underway (optimisticPending): nothing to ask for, just wait. */
   pending: Array<{ x: number; y: number }>;
   /** The player's own FRONTIER tiles of this kind, with nothing underway on them. */
   garrison: Array<{ x: number; y: number }>;
-  /** Neutral tiles of this kind currently in vision. */
+  /** Neutral tiles of this kind the player has seen (in vision, or remembered under fog). */
   expand: Array<{ x: number; y: number }>;
+  /** Known tiles of this kind that only a Relay Beacon can help with: food outside reach (Garrison is reach-gated). */
+  outOfReach: number;
 };
 
 export type GuideFootholdTargets = { town: GuideTargetSet; food: GuideTargetSet };
 
-export type GuideTargetAction = "pending" | "garrison" | "expand" | "beacon";
+export type GuideTargetAction = "pending" | "garrison" | "expand" | "explore" | "scouting" | "beacon";
 
 const MAX_TARGETS = 3;
 const FOOD_RESOURCES: ReadonlySet<string> = new Set(["FARM", "FISH"]);
@@ -55,17 +65,20 @@ export const scanGuideFootholdTargets = (
   byDistance: (t: { x: number; y: number }) => number,
   inReach: (x: number, y: number) => boolean
 ): GuideFootholdTargets => {
-  const result: GuideFootholdTargets = { town: { pending: [], garrison: [], expand: [] }, food: { pending: [], garrison: [], expand: [] } };
+  const result: GuideFootholdTargets = { town: { pending: [], garrison: [], expand: [], outOfReach: 0 }, food: { pending: [], garrison: [], expand: [], outOfReach: 0 } };
   for (const tile of tiles) {
     const kind = isTownTarget(tile) ? result.town : isFoodTarget(tile) ? result.food : undefined;
     if (!kind) continue;
     // Out of reach, Garrison is refused, so neither Garrison nor Expand To would finish the food step.
-    if (kind === result.food && !settleIgnoresReach(tile) && !inReach(tile.x, tile.y)) continue;
+    if (kind === result.food && !settleIgnoresReach(tile) && !inReach(tile.x, tile.y)) {
+      if (!tile.ownerId || tile.ownerId === me) kind.outOfReach += 1;
+      continue;
+    }
     // Expand To marks its target as our pending FRONTIER and garrisons it once the
     // claim lands; asking for a Garrison then would be asking for what is already happening.
     if (tile.ownerId === me && tile.optimisticPending) kind.pending.push({ x: tile.x, y: tile.y });
     else if (tile.ownerId === me && tile.ownershipState === "FRONTIER") kind.garrison.push({ x: tile.x, y: tile.y });
-    else if (!tile.ownerId && !tile.fogged) kind.expand.push({ x: tile.x, y: tile.y });
+    else if (!tile.ownerId) kind.expand.push({ x: tile.x, y: tile.y });
   }
   const nearest = (list: Array<{ x: number; y: number }>) => list.sort((a, b) => byDistance(a) - byDistance(b)).slice(0, MAX_TARGETS);
   for (const set of [result.town, result.food]) {
@@ -76,5 +89,17 @@ export const scanGuideFootholdTargets = (
   return result;
 };
 
-export const guideTargetAction = (targets: GuideTargetSet): GuideTargetAction =>
-  targets.pending.length > 0 ? "pending" : targets.garrison.length > 0 ? "garrison" : targets.expand.length > 0 ? "expand" : "beacon";
+/**
+ * What to ask for. `scout` is the drone's status and `canExplore` whether any
+ * unexplored ground is near enough to point at. Known food outside reach goes
+ * straight to the beacon: exploring more can't bring it into reach.
+ */
+export const guideTargetAction = (targets: GuideTargetSet, scout: GuideScoutStatus = "none", canExplore = false): GuideTargetAction => {
+  if (targets.pending.length > 0) return "pending";
+  if (targets.garrison.length > 0) return "garrison";
+  if (targets.expand.length > 0) return "expand";
+  if (targets.outOfReach > 0) return "beacon";
+  if (scout === "out") return "scouting";
+  if (scout === "ready" && canExplore) return "explore";
+  return "beacon";
+};

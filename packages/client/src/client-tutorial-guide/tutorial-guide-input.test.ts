@@ -108,7 +108,7 @@ describe("buildGuideInput", () => {
 });
 
 describe("scanGuideFootholdTargets", () => {
-  it("splits own frontier towns and food (Garrison) from neutral ones in vision (Expand To), ignoring fogged, enemy, garrisoned and spawn-settlement tiles", async () => {
+  it("splits own frontier towns and food (Garrison) from neutral ones seen (Expand To), ignoring enemy, garrisoned and spawn-settlement tiles", async () => {
     const { scanGuideFootholdTargets } = await import("./tutorial-guide-foothold-targets.js");
     const town = (populationTier: string) => ({ town: { type: "MARKET", populationTier } as never });
     const tiles = map([
@@ -126,8 +126,9 @@ describe("scanGuideFootholdTargets", () => {
       { x: 7, y: 7, ownerId: ME, ownershipState: "FRONTIER", resource: "FARM", optimisticPending: "expand" }
     ]);
     expect(scanGuideFootholdTargets(tiles.values(), ME, () => 0, () => true)).toEqual({
-      town: { pending: [], garrison: [{ x: 2, y: 0 }], expand: [{ x: 9, y: 0 }] },
-      food: { pending: [{ x: 7, y: 7 }], garrison: [{ x: 1, y: 1 }], expand: [{ x: 3, y: 3 }] }
+      // Fogged neutral towns and food count: a scout drone's reveal drops back to fog behind it.
+      town: { outOfReach: 0, pending: [], garrison: [{ x: 2, y: 0 }], expand: [{ x: 9, y: 0 }, { x: 12, y: 0 }] },
+      food: { outOfReach: 0, pending: [{ x: 7, y: 7 }], garrison: [{ x: 1, y: 1 }], expand: [{ x: 3, y: 3 }, { x: 4, y: 4 }] }
     });
   });
 });
