@@ -56,10 +56,25 @@ export const tileLookupFromSnapshot = (snapshot: AiDiplomacySnapshot | undefined
   return tileLookupFor([...(leaderboard?.overall ?? []), ...(leaderboard?.selfOverall ? [leaderboard.selfOverall] : [])], aiPlayerId);
 };
 
+const requesterSpareField = (spare: number | undefined): { requesterSpareCoinPerHour?: number } =>
+  spare === undefined ? {} : { requesterSpareCoinPerHour: spare };
+
 const holdingsOf = (snapshot: AiDiplomacySnapshot | undefined): DiplomacyGoods => ({
   ...(snapshot?.player?.resourceTradeHoldings ? { resources: snapshot.player.resourceTradeHoldings } : {}),
   gold: Math.max(0, Math.floor(snapshot?.player?.gold ?? 0))
 });
+
+/**
+ * The requester's earned Coin per hour not already pledged to anyone: pledges
+ * share income proportionally, so the AI counts a new one only up to this.
+ */
+export const spareCoinPerHour = (snapshot: AiDiplomacySnapshot | undefined): number | undefined => {
+  const player = snapshot?.player;
+  if (!player || player.incomePerMinute === undefined) return undefined;
+  const pledged = (player.resourceTradeAgreements ?? []).reduce((sum, row) =>
+    sum + (row.proposerId === snapshot.playerId ? row.proposerCoinPerHour ?? 0 : row.targetId === snapshot.playerId ? row.targetCoinPerHour ?? 0 : 0), 0);
+  return Math.max(0, Math.floor(player.incomePerMinute * 60 - pledged));
+};
 
 export const warReason = (aiName: string, opinion: AiOpinion, outlook: AiWarOutlook, fallback: string): string => {
   if (opinion.war.atWar && outlook.kind === "HOLD_FOR_REFILL") {
@@ -167,7 +182,7 @@ export const evaluateAiDiplomacy = (input: {
   return {
     stance,
     opinion,
-    pricing: priced.pricing,
+    pricing: { ...priced.pricing, ...requesterSpareField(spareCoinPerHour(input.requesterSnapshot)) },
     reason: warReason(input.aiName, opinion, outlook, stance.reason),
     ...(priced.truceRefusal ? { truceRefusal: priced.truceRefusal } : {}),
     ...(priced.allianceRefusal ? { allianceRefusal: priced.allianceRefusal } : {}),

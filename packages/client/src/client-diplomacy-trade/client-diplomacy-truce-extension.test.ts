@@ -43,7 +43,7 @@ describe("extending a truce from the trade screen", () => {
   it("lets you pay an AI Coin per hour for a truce, valued over the truce's hours", () => {
     openDiplomacyTradeScreen({ targetName: "Elin", targetPlayerId: "ai-2", kind: "truce", durationHours: 12 }, { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 100, resources: { FOOD: 1 } }) });
     const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
-    const wary: DiplomacyStanceReply = { ...aiReply, pricing: { required: { truce12: 300, truce24: 600, alliance: 900 }, aiHoldings: { gold: 500 } } };
+    const wary: DiplomacyStanceReply = { ...aiReply, pricing: { required: { truce12: 300, truce24: 600, alliance: 900 }, aiHoldings: { gold: 500 }, requesterSpareCoinPerHour: 100 } };
     receiveDiplomacyStance(wary);
     // You can pledge your income; an AI never pledges its own.
     expect(overlay.querySelector<HTMLElement>('[data-trade-row="give-coinPerHour"]')?.hidden).toBe(false);

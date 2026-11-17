@@ -16,6 +16,7 @@ import {
   type DiplomacyTerms
 } from "./diplomacy-terms.js";
 import { ClientMessageSchema } from "../messages/messages.js";
+import { evaluateResourceTradeOffer } from "../resource-supply-trades/resource-trade-offers.js";
 
 const pricing = (truce12: number | null, alliance: number | null = null, aiHoldings = { gold: 100 }): AiDiplomacyPricing => ({
   required: { truce12, truce24: truce12 === null ? null : truce12 * 2, alliance },
@@ -111,16 +112,22 @@ describe("terms helpers", () => {
 // Regression: an AI refused any Coin per hour, so a truce couldn't be paid for from future income.
 describe("Coin per hour in AI deals", () => {
   const pledge = (coinPerHour: number): DiplomacyTerms => ({ give: { gold: 0, coinPerHour }, ask: { gold: 0 } });
+  const earning = (truce12: number, spare: number): AiDiplomacyPricing => ({ ...pricing(truce12), requesterSpareCoinPerHour: spare });
   it("values a truce pledge over the truce's hours at a discount", () => {
     expect(recurringCoinTermHours("truce", 12, pledge(10))).toBe(12);
     expect(netValueToAi(pledge(10), 12)).toBe(10 * 12 * AI_RECURRING_COIN_VALUE_SHARE);
-    expect(evaluateAiOffer(pricing(60), "truce", 12, pledge(10))).toEqual({ accepts: true });
-    expect(evaluateAiOffer(pricing(60), "truce", 12, pledge(5))).toEqual({ accepts: false, reason: "shortfall", shortfall: 30 });
+    expect(evaluateAiOffer(earning(60, 100), "truce", 12, pledge(10))).toEqual({ accepts: true });
+    expect(evaluateAiOffer(earning(60, 100), "truce", 12, pledge(5))).toEqual({ accepts: false, reason: "shortfall", shortfall: 30 });
+  });
+  // Review regression: a 1,000,000/h pledge from a House earning 20/h bought any truce for ~240 Coin of real payments.
+  it("counts a pledge only up to the requester's spare income, and none when unread", () => {
+    expect(evaluateAiOffer(earning(600, 20), "truce", 12, pledge(1_000_000))).toEqual({ accepts: false, reason: "shortfall", shortfall: 480 });
+    expect(evaluateAiOffer(pricing(60), "truce", 12, pledge(10))).toEqual({ accepts: false, reason: "shortfall", shortfall: 60 });
   });
   it("never pledges its own income, and takes a pledge only for a truce", () => {
     expect(evaluateAiOffer(pricing(-50), "truce", 12, { give: { gold: 0 }, ask: { gold: 0, coinPerHour: 1 } })).toEqual({ accepts: false, reason: "refuses" });
     expect(evaluateAiOffer(pricing(0, 0), "alliance", 12, pledge(10))).toEqual({ accepts: false, reason: "refuses" });
-    expect(aiCounterOffer(pricing(60), "truce", 12, pledge(5), { gold: 100 })).toEqual({ kind: "counter", terms: { give: { gold: 30, coinPerHour: 5 }, ask: { gold: 0 } } });
+    expect(aiCounterOffer(earning(60, 100), "truce", 12, pledge(5), { gold: 100 })).toEqual({ kind: "counter", terms: { give: { gold: 30, coinPerHour: 5 }, ask: { gold: 0 } } });
   });
   it("lets a truce carry Coin per hour without a slot, but not an alliance or trade", () => {
     expect(DiplomacyTermsSchema.safeParse(pledge(10)).success).toBe(true);
@@ -130,5 +137,7 @@ describe("Coin per hour in AI deals", () => {
       ClientMessageSchema.safeParse({ type, targetPlayerName: "Elin", durationHours: 12, terms: pledge(10) }).success;
     expect([request("TRUCE_REQUEST"), request("ALLIANCE_REQUEST"), request("RESOURCE_TRADE_REQUEST")]).toEqual([true, false, false]);
     expect(recurringCoinTermHours("trade", 12, { ...pledge(10), ask: { gold: 0, resources: { FOOD: 1 } } })).toBe(7 * 24);
+    // Review regression: an independent trade with an AI took Coin per hour (valued over 168h) despite the truce-only rule.
+    expect(evaluateResourceTradeOffer({ ...pledge(1000), ask: { gold: 0, resources: { FOOD: 1 } } }, { gold: 0, resources: { FOOD: 5 } })).toEqual({ accepts: false, reason: "refuses" });
   });
 });

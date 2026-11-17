@@ -136,6 +136,12 @@ export const describeDiplomacyTermsForProposer = (terms: DiplomacyTerms | undefi
 export type AiDiplomacyPricing = {
   required: { truce12: number | null; truce24: number | null; alliance: number | null };
   aiHoldings: DiplomacyGoods;
+  /**
+   * The requester's earned Coin per hour not already pledged elsewhere. Pledges
+   * share income proportionally, so an AI counts Coin per hour only up to this;
+   * absent (unread), it counts none.
+   */
+  requesterSpareCoinPerHour?: number;
 };
 
 // An AI never pays to join an alliance: its alliance price is never negative.
@@ -165,6 +171,13 @@ export const netValueToAi = (terms: DiplomacyTerms, coinHours = 0): number =>
 const aiTakesRecurringCoin = (kind: DiplomacyOfferKind, terms: DiplomacyTerms): boolean =>
   !terms.ask.coinPerHour && (!terms.give.coinPerHour || kind === "truce");
 
+/** The terms as an AI values them: the requester's Coin per hour capped at their spare income. */
+const pledgeAsCounted = (pricing: AiDiplomacyPricing, terms: DiplomacyTerms): DiplomacyTerms => {
+  if (!terms.give.coinPerHour) return terms;
+  const counted = Math.min(terms.give.coinPerHour, Math.max(0, Math.floor(pricing.requesterSpareCoinPerHour ?? 0)));
+  return { ...terms, give: { ...terms.give, coinPerHour: counted } };
+};
+
 /** Hours the AI values the requester's Coin per hour over (see recurringCoinTermHours). */
 export const aiCoinHours = (kind: DiplomacyOfferKind, durationHours: 12 | 24, terms: DiplomacyTerms): number =>
   recurringCoinTermHours(kind, durationHours, terms) ?? 0;
@@ -192,7 +205,7 @@ export const evaluateAiOffer = (
   const missingSupply = missingResourceSupply(terms.ask.resources, pricing.aiHoldings.resources);
   if (hasResourceSupplyOffer(missingSupply)) missing.resources = missingSupply;
   if (missing.gold > 0 || hasResourceSupplyOffer(missingSupply)) return { accepts: false, reason: "aiCannotPay", missing };
-  const shortfall = required - netValueToAi(terms, aiCoinHours(kind, durationHours, terms));
+  const shortfall = required - netValueToAi(pledgeAsCounted(pricing, terms), aiCoinHours(kind, durationHours, terms));
   return shortfall > 0 ? { accepts: false, reason: "shortfall", shortfall: Math.ceil(shortfall) } : { accepts: true };
 };
 
@@ -230,7 +243,7 @@ export const aiCounterOffer = (
     const resources = clampedResourceSupply(terms.ask.resources, pricing.aiHoldings.resources);
     if (hasResourceSupplyOffer(resources)) next.ask.resources = resources;
   }
-  let deficit = required - netValueToAi(next, aiCoinHours(kind, durationHours, next));
+  let deficit = required - netValueToAi(pledgeAsCounted(pricing, next), aiCoinHours(kind, durationHours, next));
   if (deficit <= 0) return { kind: "counter", terms: next };
 
   const dropAskGold = Math.min(next.ask.gold, Math.ceil(deficit));

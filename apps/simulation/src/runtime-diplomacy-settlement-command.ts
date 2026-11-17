@@ -20,6 +20,7 @@ export type RuntimeDiplomacySettlementContext = {
     readonly create: (agreement: ResourceSupplyAgreement, targetCoinDelta?: number) => SupplyLedgerResult;
     readonly cancel?: (id:string, actorId:string) => SupplyLedgerResult;
     readonly cancelRefunded: (id: string, proposerId: string, targetId: string, targetCoinDelta?: number) => boolean;
+    readonly endTrucePledgesBetween?: (playerAId: string, playerBId: string, actorId: string) => number;
   };
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;

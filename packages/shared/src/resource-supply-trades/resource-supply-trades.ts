@@ -20,6 +20,8 @@ export type ResourceSupplyAmounts = Record<TradableSupplyResource, number>;
 export const RESOURCE_SUPPLY_TRADE_DAYS = 7;
 export const MAX_TRADE_COIN_PER_HOUR = 1_000_000;
 export const TradeCoinPerHourSchema = z.number().int().min(0).max(MAX_TRADE_COIN_PER_HOUR);
+/** A truce's settlement id (the gateway's treatySettlementId("truce", …)): its Coin-only agreement carries it. */
+export const TRUCE_PLEDGE_ID_PREFIX = "diplomacy-settle:truce:";
 /** Deals run their full term; only war between the two Houses ends one early. */
 export const BINDING_DEAL_MESSAGE = "Deals are binding: this one runs until it ends, unless war breaks out between you.";
 export const RESOURCE_SUPPLY_TRADE_DURATION_MS = RESOURCE_SUPPLY_TRADE_DAYS * 86_400_000;

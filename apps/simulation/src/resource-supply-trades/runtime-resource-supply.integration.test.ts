@@ -6,7 +6,7 @@ import { compactSnapshotForStorage, expandSnapshotFromStorage } from "../snapsho
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { applySimulationEventsToRecoveredState } from "../event-recovery/event-recovery.js";
 import { describe, expect, it } from "vitest";
-import { BINDING_DEAL_MESSAGE, MANPOWER_REFILL_WINDOW_MS, lastManpowerRefillAtMs, NETWORK_RESOURCES, RESOURCE_NETWORKS, supplyResourceLabel, type ResourceSupplyOffer } from "@border-empires/shared";
+import { BINDING_DEAL_MESSAGE, TRUCE_PLEDGE_ID_PREFIX, MANPOWER_REFILL_WINDOW_MS, lastManpowerRefillAtMs, NETWORK_RESOURCES, RESOURCE_NETWORKS, supplyResourceLabel, type ResourceSupplyOffer } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
@@ -375,6 +375,24 @@ describe("resource trades in the production runtime",()=>{
     await settle("truce-coin", 12);
     expect(events).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "truce-coin" }));
     expect(f.player("buyer").resourceTradeAgreements).toEqual([expect.objectContaining({ id: "truce-coin", proposerCoinPerHour: 20, expiresAt: start + 12 * 3_600_000 })]);
+  });
+
+  // Review regression: the pledge is the truce's price, so it pays Coin while the truce holds and ends with it (a break included).
+  it("pays a slot-free truce pledge from earned Coin and ends it when the truce ends", async () => {
+    const paid = fixture(false, 12, true), baseline = fixture(false, 12, true);
+    for (const f of [paid, baseline]) f.runtime.applyPassiveIncome(start, Infinity);
+    const id = `${TRUCE_PLEDGE_ID_PREFIX}request-1`;
+    await paid.runtime.submitCommand({ commandId: id, playerId: "seller", type: "SETTLE_DIPLOMACY_TERMS", sessionId: "gateway", clientSeq: 0, issuedAt: start,
+      payloadJson: JSON.stringify({ proposerId: "buyer", targetId: "seller", proposerPays: { gold: 0, coinPerHour: 1 }, targetPays: { gold: 0 }, coinTermHours: 12 }) });
+    const at = start + 3_600_000;
+    for (const f of [paid, baseline]) { f.setNow(at); f.runtime.applyPassiveIncome(at, Infinity); }
+    const transferred = Math.min(1, baseline.player("buyer").points - 100);
+    expect(transferred).toBeGreaterThan(0);
+    expect(paid.player("buyer").points).toBeCloseTo(baseline.player("buyer").points - transferred);
+    expect(paid.player("seller").points).toBeCloseTo(baseline.player("seller").points + transferred);
+    await paid.runtime.submitCommand({ commandId: "truce-broken", playerId: "seller", type: "SYNC_TRUCE", sessionId: "system-runtime:social", clientSeq: 0, issuedAt: at,
+      payloadJson: JSON.stringify({ targetPlayerId: "buyer", truced: false }) });
+    expect(paid.player("buyer").resourceTradeAgreements).toEqual([]);
   });
 
   it("writes a Chronicle card for both Houses when a supply ends, naming who ended it",async()=>{

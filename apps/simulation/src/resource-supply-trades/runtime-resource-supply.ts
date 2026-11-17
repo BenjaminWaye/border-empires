@@ -2,7 +2,7 @@ import { tradedSlotSources } from "./traded-slot-sources.js";
 import type { ResourceSlotSupplyBuild } from "../runtime-economy-caches/runtime-economy-caches.js";
 import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resource-reveal.js";
 import type { DomainTileState, PersonalActivitySupplyEndedReason } from "@border-empires/game-domain";
-import { BINDING_DEAL_MESSAGE, emptyNetworkSiteCounts, isSiphonModeSabotage, NETWORK_RESOURCES, OFFERABLE_SUPPLY_RESOURCES, UPKEEP_TRADE_RESOURCES,
+import { BINDING_DEAL_MESSAGE, TRUCE_PLEDGE_ID_PREFIX, hasResourceSupplyOffer, emptyNetworkSiteCounts, isSiphonModeSabotage, NETWORK_RESOURCES, OFFERABLE_SUPPLY_RESOURCES, UPKEEP_TRADE_RESOURCES,
   offerIncludesNonTradableSupply, type NetworkSiteCounts, type ResourceSupplyAgreement, type ResourceSupplyFlow, type ResourceSupplyOffer } from "@border-empires/shared";
 import { networkSupplyWithSiphon } from "./network-supply-with-siphon.js";
 import { supplyShortfallMessage } from "./supply-shortfall-message.js";
@@ -213,6 +213,21 @@ export class RuntimeResourceSupply {
     for (const row of rows) if (this.ledger.remove(row.id, this.ctx.now())) {
       ended += 1;
       this.ctx.ended?.(row, "ATTACK", playerAId);
+    }
+    return ended;
+  }
+  /**
+   * A truce's slot-free Coin pledge is the price of that truce: when the truce
+   * ends early (broken, or ended any other way), its pledges between the two
+   * Houses end with it. Binding supply deals are untouched.
+   */
+  endTrucePledgesBetween(playerAId: string, playerBId: string, actorId: string): number {
+    if (playerAId === playerBId || this.ledger.size === 0) return 0;
+    let ended = 0;
+    for (const row of this.ledger.rows()) {
+      const between = (row.proposerId === playerAId && row.targetId === playerBId) || (row.proposerId === playerBId && row.targetId === playerAId);
+      if (!between || !row.id.startsWith(TRUCE_PLEDGE_ID_PREFIX) || hasResourceSupplyOffer(row.proposerGives) || hasResourceSupplyOffer(row.targetGives)) continue;
+      if (this.ledger.remove(row.id, this.ctx.now())) { ended += 1; this.ctx.ended?.(row, "CANCELLED", actorId); }
     }
     return ended;
   }

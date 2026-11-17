@@ -154,6 +154,9 @@ it("settles a truce's slot-free Coin per hour durably, for the truce's length", 
   const id = social.snapshotForPlayer("b").incomingTruceRequests[0]!.id;
   const settle = vi.fn(async (input: DiplomacySettlementInput): Promise<DiplomacySettlementResult> => ({ ok: true, settlementId: input.commandId }));
   const accept = createDiplomacyOfferAcceptance({ socialState: social, settlement: { settle }, recordGatewayEvent: () => undefined });
+  // Review regression: a pledge of the recipient's income skipped the confirmation that resource-slot deals need.
+  expect(await accept.acceptTruce("b", id, undefined, false)).toMatchObject({ ok: false, code: "RESOURCE_TERMS_CONFIRMATION_REQUIRED" });
+  expect(settle).not.toHaveBeenCalled();
   expect((await accept.acceptTruce("b", id)).ok).toBe(true);
   expect(settle).toHaveBeenCalledWith(expect.objectContaining({ coinTermHours: 12, commandId: `diplomacy-settle:truce:${id}`, terms: expect.objectContaining({ give: { gold: 0, coinPerHour: 64 } }) }));
 });

@@ -323,8 +323,10 @@ Inactivity pauses payments when it pauses income. Resuming play starts a fresh
 income interval. After a restart, recurring payments resume from the new runtime's
 start. If earnings fall short, dues share available income proportionally.
 AI Houses accept Coin per hour only from the requester and only for a truce,
-counting it at half the value of the same Coin upfront; they never pledge their
-own income. For upkeep
+counting it at half the value of the same Coin upfront and only up to the
+requester's spare income (earned Coin per hour not already pledged). They never
+pledge their own income. A truce's Coin pledge ends early if its truce ends
+early, for example when either House breaks it. For upkeep
 resources only surplus beyond current domestic use and existing export
 commitments may be newly promised; any developed biota site may be pledged, and
 the supplier loses that site's 2 biota slots while the receiver gains them.

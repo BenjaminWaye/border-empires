@@ -15,7 +15,7 @@ import { RECONNECT_RAZED_STRUCTURES_ENTRY } from "./client-changelog-reconnect-r
 import { FASTER_LOGIN_MAP_ENTRY } from "./client-changelog-faster-login-map.js";
 import { PLACE_ANOTHER_ENTRY } from "./client-changelog-place-another.js";
 import { TOWNS_LIST_COIN_PENDING_ENTRY } from "./client-changelog-towns-list-coin-pending.js";
-import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
+import { AI_COIN_INCOME_ENTRY } from "./client-changelog-ai-coin-income.js";
 import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
 import { FORT_ANY_BUILDING_ENTRY } from "./client-changelog-fort-any-building.js";
 import { RESOURCE_TRADE_SAFETY_ENTRY } from "./client-changelog-resource-trade-safety.js";
@@ -493,7 +493,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...TOWNS_LIST_COIN_PENDING_ENTRY, createdAt: 1794864521632, },
   { ...NO_RATE_LIMIT_ERRORS_ENTRY, createdAt: 1794864645451, },
   { ...FRONTIER_CLAIM_NEXT_TO_PENDING_ENTRY, createdAt: 1794865837776, },
-  ...NOV_16_CHANGELOG,
+  { ...AI_COIN_INCOME_ENTRY, createdAt: 1794906344491, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

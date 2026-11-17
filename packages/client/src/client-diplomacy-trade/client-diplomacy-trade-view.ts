@@ -212,7 +212,9 @@ export const tradeVerdict = (input: {
 
   const pricing = pricingFor(reply.pricing, selection);
   const verdict = evaluateAiOffer(pricing, kind, selection.durationHours, selection.terms);
-  const tribute = allianceTributeNote(reply, selection);
+  // An AI counts Coin per hour only up to your spare income (shared pledgeAsCounted); say so when the pledge is above it.
+  const pledged = selection.terms.give.coinPerHour ?? 0, spare = reply.pricing.requesterSpareCoinPerHour ?? 0;
+  const tribute = allianceTributeNote(reply, selection) + (pledged > spare ? ` It counts Coin per hour only up to your spare income (${spare}/h).` : "");
   if (verdict.accepts) return { tone: "good", text: `${targetName} would accept ${offerLabel(selection)} on these terms.${tribute}`, canSend: true, sendLabel };
   if (verdict.reason === "refuses") {
     const refusal = kind === "alliance" ? reply.allianceRefusal : reply.truceRefusal;
