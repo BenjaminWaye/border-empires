@@ -78,7 +78,7 @@ export type GuideInput = {
   musterUnlocked: boolean;
   ownsMusterFlag: boolean;
   musterTargetTiles: ReadonlyArray<{ x: number; y: number }>;
-  /** The player's manpower and cap: the last step tells a player over the cap to spend, not to wait. */
+  /** The player's manpower and cap: the last step tells a player at or over the cap to spend, not to wait. */
   manpower?: { current: number; cap: number };
 };
 
@@ -250,7 +250,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "manpower-open",
     chapter: "manpower",
     title: () => "Tap your manpower gauge",
-    why: "Manpower pays for every claim, garrison and attack. It refills every 4 hours.",
+    why: "Manpower pays for every claim, garrison, build and attack. It refills every 4 hours.",
     isDone: (i) => i.openPanel === "manpower",
     anchor: "manpower"
   },
