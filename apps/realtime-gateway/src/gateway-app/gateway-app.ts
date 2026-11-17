@@ -53,6 +53,8 @@ import { startNextContestTimer } from "../next-contest/next-contest.js"; import 
 import { notifySeasonStarted as notifySeasonStartedImpl } from "../season-start-notify/season-start-notify.js";
 import { relaySimulationBroadcastEvent } from "../broadcast-event-relay/broadcast-event-relay.js";
 import { createGameplayEmailAlertSender } from "../gameplay-email-alert/gameplay-email-alert.js";
+import { handlePlayerRespawned } from "../player-respawned-email/player-respawned-email.js";
+import { sweepExpiredCacheEntries } from "./sweep-expired-cache-entries.js";
 import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
@@ -598,11 +600,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const invalidateProfileCache = (playerId: string): void => {
     profileCache.delete(playerId);
   };
-  const sweepExpiredCacheEntries = (cache: Map<string, { expiresAt: number }>, nowMs: number): void => {
-    for (const [key, entry] of cache) {
-      if (entry.expiresAt <= nowMs) cache.delete(key);
-    }
-  };
   const { resolveIdentityForToken, resolveHttpBearerIdentity } = createAuthResolvers({
     options, bindings: authBindingStore, reconcile: cachedReconcileGatewayAuthBinding,
     getAuthIdentities: () => legacySnapshotBootstrap?.authIdentities,
@@ -982,7 +979,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     ensureSubscribed: (playerId) => playerSubscriptions.ensureSubscribed(playerId),
     cachedSnapshotForPlayer: (playerId) => playerSubscriptions.snapshotForPlayer(playerId),
     hasLiveSocket: (playerId) => playerSubscriptions.socketsForPlayer(playerId).size > 0,
-    sendAllianceRequestAlert: emailAlerts.sendAllianceRequestAlert, sendAllianceBreakAlert: emailAlerts.sendAllianceBreakAlert, sendTruceRequestAlert: emailAlerts.sendTruceRequestAlert,
+    sendAllianceRequestAlert: emailAlerts.sendAllianceRequestAlert, sendAllianceBreakAlert: emailAlerts.sendAllianceBreakAlert, sendTruceRequestAlert: emailAlerts.sendTruceRequestAlert, sendTruceEndingAlert: emailAlerts.sendTruceEndingAlert,
     onDiplomacyInteraction: (playerId, targetPlayerId, kind) => playerFunnel.onDiplomacyInteraction(playerId, targetPlayerId, kind),
     submitSimulationCommand: (command) => withTimeout(simulationClient.submitCommand(command), simulationSubmitTimeoutMs, "gateway diplomacy settlement"),
     isSimulationConnected: () => simulationHealth.connected,
@@ -1184,7 +1181,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           onHydrateError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate attack-alert-like caster live profile override")
         });
       }
-      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") { const reason = typeof event.payload.reason === "string" ? event.payload.reason : "unknown"; slackAlerter?.alertPlayerRespawned(event.playerId, reason); }
+      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") handlePlayerRespawned(event.playerId, event.payload, { ...(slackAlerter ? { alertPlayerRespawned: (id, reason) => slackAlerter.alertPlayerRespawned(id, reason) } : {}), nameOf: (id) => socialState.playerNameOf(id), sendEmpireFellAlert: emailAlerts.sendEmpireFellAlert, sendGameplayEmailAlert });
       // docs/replenishment-update-plan.md D1/D11: purely a server-to-server signal (runtime-manpower-full-alert.ts only fires it while the player is offline), so there's nothing for a live client to render -- return before the socket-relay logic below.
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "MANPOWER_FULL_ALERT") { sendGameplayEmailAlert("manpower_full", event.playerId, () => emailAlerts.sendManpowerFullAlert({ recipientPlayerId: event.playerId })); return; }
       if (relaySimulationBroadcastEvent(event, { allSockets: () => playerSubscriptions.allSockets(), socketGroups: () => playerSubscriptions.socketGroups(), sendToSocket: queueOrSendSessionPayload, preSerializeBroadcast, recordGatewayEvent, countSeasonRolloverResyncSockets: (count) => gatewayMetrics.incrementSeasonRolloverResyncSocketsTotal(count) })) return;

@@ -152,7 +152,7 @@ describe("email unsubscribe", () => {
     const response = await app.inject({ method: "POST", url: pathOf(url) });
     expect(response.statusCode).toBe(200);
     const prefs = (await profileStore.get("player-1"))?.emailNotificationPrefs ?? {};
-    expect(Object.values(prefs)).toHaveLength(8);
+    expect(Object.values(prefs)).toHaveLength(10);
     expect(Object.values(prefs).every((value) => value === false)).toBe(true);
   });
 });

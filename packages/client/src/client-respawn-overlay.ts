@@ -1,8 +1,11 @@
 import type { ClientState } from "./client-state/client-state.js";
 import type { FeedSeverity, FeedType, PlayerRespawnNotice } from "./client-types.js";
+import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
+import { empireFellMessage, isEmpireFellNotice } from "./client-respawn-notice/client-empire-fell-message.js";
+import { escapeHtml } from "./client-season-end-overlay/client-season-end-html.js";
 
 type RespawnOverlayDeps = {
-  state: Pick<ClientState, "respawnNotice" | "respawnOverlayOpen">;
+  state: Pick<ClientState, "respawnNotice" | "respawnOverlayOpen" | "me" | "meName" | "playerNames" | "leaderboard">;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
   centerOnOwnedTile: () => void;
@@ -30,6 +33,41 @@ const diagnosticsListHtml = (notice: PlayerRespawnNotice): string =>
     .map((line) => `<li>${line}</li>`)
     .join("");
 
+/** Elimination: one plain sentence and Show on map, not the recovery diagnostics. */
+const renderEmpireFellOverlay = (deps: RespawnOverlayDeps, notice: PlayerRespawnNotice): void => {
+  const { state, overlayEl, renderHud, centerOnOwnedTile } = deps;
+  const message = empireFellMessage(notice, (playerId) => playerDisplayNameForOwnerFromState(state, playerId));
+  overlayEl.innerHTML = `
+    <div class="respawn-backdrop" id="respawn-backdrop"></div>
+    <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="respawn-title">
+      <button id="respawn-close" class="guide-close-btn" type="button" aria-label="Close">×</button>
+      <div class="respawn-modal-scroll">
+        <h2 id="respawn-title" class="respawn-title">${notice.withdrawn ? "New start" : "Your empire fell"}</h2>
+        <p class="respawn-summary" id="respawn-empire-fell-message">${escapeHtml(message)}</p>
+        <div class="respawn-actions">
+          <button id="respawn-center" class="panel-btn" type="button">Show on map</button>
+        </div>
+      </div>
+    </div>
+  `;
+  const close = (): void => {
+    state.respawnOverlayOpen = false;
+    renderHud();
+  };
+  const closeBtn = overlayEl.querySelector("#respawn-close") as HTMLButtonElement | null;
+  const backdrop = overlayEl.querySelector("#respawn-backdrop") as HTMLDivElement | null;
+  const centerBtn = overlayEl.querySelector("#respawn-center") as HTMLButtonElement | null;
+  if (closeBtn) closeBtn.onclick = close;
+  if (backdrop) backdrop.onclick = close;
+  if (centerBtn) {
+    centerBtn.onclick = () => {
+      // The new AFC is the only owned tile right after a respawn.
+      centerOnOwnedTile();
+      close();
+    };
+  }
+};
+
 export const renderRespawnOverlay = (deps: RespawnOverlayDeps): void => {
   const { state, overlayEl, renderHud, centerOnOwnedTile, pushFeed, downloadRespawnBugReport } = deps;
   const notice = state.respawnNotice;
@@ -37,6 +75,10 @@ export const renderRespawnOverlay = (deps: RespawnOverlayDeps): void => {
   overlayEl.style.display = visible ? "grid" : "none";
   if (!visible || !notice) {
     if (overlayEl.innerHTML) overlayEl.innerHTML = "";
+    return;
+  }
+  if (isEmpireFellNotice(notice)) {
+    renderEmpireFellOverlay(deps, notice);
     return;
   }
 
