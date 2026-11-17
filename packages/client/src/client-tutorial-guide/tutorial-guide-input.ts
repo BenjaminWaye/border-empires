@@ -50,6 +50,8 @@ export type GuideInputState = Pick<
   | "pendingDomainUnlockId"
   | "serverReach"
   | "serverReachRevision"
+  | "manpower"
+  | "manpowerCap"
 >;
 
 const MAX_BUILD_TARGETS = 6;
@@ -247,7 +249,8 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     buildTargetTiles: cached.scan.buildTargetTiles,
     musterUnlocked: cached.musterUnlocked,
     ownsMusterFlag: cached.scan.ownsMusterFlag,
-    musterTargetTiles: cached.scan.musterTargetTiles
+    musterTargetTiles: cached.scan.musterTargetTiles,
+    manpower: { current: state.manpower, cap: state.manpowerCap }
   };
 };
 

@@ -168,6 +168,23 @@ describe("last step names the Chronicle on the new HUD", () => {
     expect(view.why).toContain("Chronicle");
     expect(view.why).not.toContain("Activity dashboard");
   });
+
+  it("tells a player over the cap to spend, using the manpower the client state holds", () => {
+    // Regression (2026-11 persona playtest): players quit on 2,712 / 1,170 after being told to come back.
+    resetGuideInputCacheForTests();
+    const state = createInitialState();
+    state.me = ME;
+    state.manpower = 2712;
+    state.manpowerCap = 1170;
+    const { manpower } = buildGuideInput(state);
+    expect(manpower).toEqual({ current: 2712, cap: 1170 });
+    if (!manpower) throw new Error("expected manpower in the guide input");
+    const view = evaluateGuide({ ...stepInput(), manpower }, doneExcept(["turn-finish"]));
+    if (view.kind !== "step") throw new Error("expected a step");
+    expect(view.step.id).toBe("turn-finish");
+    expect(view.title).toBe("That's the basics. Spend your 2,712 manpower.");
+    expect(view.why).not.toContain("Come back");
+  });
 });
 
 /** A just-landed player with a neutral town in sight, map clear of dialogs. */
