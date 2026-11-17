@@ -72,6 +72,20 @@ message PlayerCombatSummaryResponse {
   string relic_combat_facts_json = 8;
 }
 
+// GetPlayerTradeHoldings: coin and spare supply slots for the deal screen's
+// other side when that player has no live cached subscription snapshot.
+message PlayerTradeHoldingsRequest {
+  string player_id = 1;
+}
+
+message PlayerTradeHoldingsResponse {
+  bool ok = 1;
+  bool found = 2;
+  double gold = 3;
+  string resource_trade_holdings_json = 4;
+  int32 active_supply_agreements = 5;
+}
+
 message ActivityDashboardRequest {}
 
 // See apps/simulation/src/activity-dashboard/activity-dashboard-snapshot.ts
@@ -399,6 +413,7 @@ service SimulationService {
   rpc GetCurrentSeasonSummary(SeasonSummaryRequest) returns (SeasonSummaryResponse);
   rpc GetAdminPlayers(AdminPlayersRequest) returns (AdminPlayersResponse);
   rpc GetPlayerCombatSummary(PlayerCombatSummaryRequest) returns (PlayerCombatSummaryResponse);
+  rpc GetPlayerTradeHoldings(PlayerTradeHoldingsRequest) returns (PlayerTradeHoldingsResponse);
   rpc GetActivityDashboard(ActivityDashboardRequest) returns (ActivityDashboardResponse);
   rpc GetPersonalActivityTimeline(PersonalActivityTimelineRequest) returns (PersonalActivityTimelineResponse);
   rpc GetRecentCommands(GetRecentCommandsRequest) returns (GetRecentCommandsResponse);
