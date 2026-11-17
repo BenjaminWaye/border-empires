@@ -44,9 +44,10 @@ const chipNumberHtml = (value: number): string => {
 /** Over capacity is the only warning state: full slots are normal. */
 export const slotChipState = (used: number, total: number): "normal" | "over" => (used > total ? "over" : "normal");
 
-const chip = (key: string, label: string, valueHtml: string, iconUrl?: string): string => {
+const chip = (key: string, label: string, valueHtml: string, iconUrl?: string, title?: string): string => {
   const icon = iconUrl ? `<img class="hud-v2-chip-icon" src="${iconUrl}" alt="" draggable="false">` : "";
-  return `<button type="button" class="hud-v2-chip" data-hud-v2-chip="${key}"><span class="hud-v2-chip-label">${icon}<span class="hud-v2-chip-name">${label}</span></span>${valueHtml}</button>`;
+  const hover = title ? ` title="${title}"` : "";
+  return `<button type="button" class="hud-v2-chip" data-hud-v2-chip="${key}"${hover}><span class="hud-v2-chip-label">${icon}<span class="hud-v2-chip-name">${label}</span></span>${valueHtml}</button>`;
 };
 
 export const resourceBarHtml = (input: ResourceBarInput): string => {
@@ -71,7 +72,9 @@ export const resourceBarHtml = (input: ResourceBarInput): string => {
     const description = over ? " slots short" : " free slots";
     const tone = over ? "hud-v2-over" : remaining > 0 ? "hud-v2-chip-available" : "hud-v2-chip-zero";
     const summary = `<span class="hud-v2-chip-summary ${tone}">${amount}<span class="hud-v2-chip-description">${description}</span></span>`;
-    return chip(key.toLowerCase(), label, summary, resourceSimpleIconUrl(key));
+    // The bar shows only free slots; hover keeps the totals one step away (desktop has no icon cue).
+    const title = `${label}: ${fmt(Math.abs(remaining))}${description} (${fmt(used)} / ${fmt(total)} used)`;
+    return chip(key.toLowerCase(), label, summary, resourceSimpleIconUrl(key), title);
   }).join("");
   const integrity = input.integrityPct === undefined
     ? ""

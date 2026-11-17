@@ -36,7 +36,9 @@ describe("resource bar", () => {
     const html = resourceBarHtml({ gold: 12_981_234, netPerMinute: 0, slotSupply: slots, slotDemand: { ...slots, FOOD: 378, TITANIUM: 0 }, integrityPct: 100 });
     // Owner 2026-11-17: desktop showed used / total; players only care what they can still use.
     expect(html).not.toContain("hud-v2-chip-slot");
-    expect(html).not.toContain("/437");
+    expect(html).not.toContain("hud-v2-chip-of");
+    // Review: a bare green number didn't say what it counts; hover names it and keeps the totals.
+    expect(html).toContain('data-hud-v2-chip="food" title="Food: 59 free slots (378 / 437 used)"');
     expect(html).not.toContain('class="hud-v2-chip-status"');
     expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-available">59<span class="hud-v2-chip-description"> free slots</span>');
     expect(html).toContain('<span class="hud-v2-chip-exact">1,250,000</span><span class="hud-v2-chip-short" aria-hidden="true">1.25M</span>');
