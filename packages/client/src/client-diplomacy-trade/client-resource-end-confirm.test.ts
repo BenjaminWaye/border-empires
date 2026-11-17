@@ -6,9 +6,10 @@ import type { ResourceSupplyAgreementStatus } from "@border-empires/shared";
 import { closeDiplomacyTradeScreen, openDiplomacyTradeScreen } from "./client-diplomacy-trade.js";
 import { RESOURCE_END_ARMED_LABEL, RESOURCE_END_CONFIRM_MIN_MS, RESOURCE_END_CONFIRM_RESET_MS } from "./client-resource-end-confirm.js";
 
+// Deals with a term are binding and show no End supply button; only an open-ended agreement saved before terms can be ended.
 const agreement: ResourceSupplyAgreementStatus = {
   id: "diplomacy-settle:resource-trade:offer-1", proposerId: "ai-1", targetId: "me",
-  proposerGives: { FOOD: 1 }, targetGives: {}, startedAt: Date.now(), expiresAt: Date.now() + 7 * 86_400_000, fulfilled: true
+  proposerGives: { FOOD: 1 }, targetGives: {}, startedAt: Date.now(), fulfilled: true
 };
 
 const openWithAgreement = () => {

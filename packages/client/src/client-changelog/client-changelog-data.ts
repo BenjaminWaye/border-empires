@@ -15,6 +15,7 @@ import { RECONNECT_RAZED_STRUCTURES_ENTRY } from "./client-changelog-reconnect-r
 import { FASTER_LOGIN_MAP_ENTRY } from "./client-changelog-faster-login-map.js";
 import { PLACE_ANOTHER_ENTRY } from "./client-changelog-place-another.js";
 import { TOWNS_LIST_COIN_PENDING_ENTRY } from "./client-changelog-towns-list-coin-pending.js";
+import { AI_COIN_INCOME_ENTRY } from "./client-changelog-ai-coin-income.js";
 import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
 import { DISTRICT_FLAT_ART_OVER_3D_ENTRY } from "./client-changelog-district-3d-art.js";
 import { FORT_ANY_BUILDING_ENTRY } from "./client-changelog-fort-any-building.js";
@@ -22,10 +23,10 @@ import { RESOURCE_TRADE_SAFETY_ENTRY } from "./client-changelog-resource-trade-s
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-earlier-111.js";
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
-import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_121 } from "./client-changelog-data-earlier-121.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
 import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
-import { COMMAND_NAVIGATION_ENTRY, NAVIGATION_LABELS_ENTRY } from "./client-changelog-command-navigation.js";
+import { COMMAND_NAVIGATION_ENTRY } from "./client-changelog-command-navigation.js";
 import { CONNECTED_DISTRICTS_CHANGELOG } from "./client-changelog-connected-districts.js";
 import { CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_SCREEN } from "./client-changelog-data-diplomacy-screen.js";
 import { NOV_07_STANDINGS_CHANGELOG } from "./client-changelog-nov-07-standings.js";
@@ -34,7 +35,6 @@ import { TERRAIN_COMBAT_CHANGELOG } from "./client-changelog-terrain-combat.js";
 import { SEASON_REVEAL_LOADING_CHANGELOG } from "./client-changelog-season-reveal-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_RIVAL_REACH_LINE } from "./client-changelog-data-rival-reach-line.js";
 import { BATTLE_VARIETY_ENTRY } from "./client-changelog-battle-variety.js";
-import { FIRST_DOCK_CARD_ENTRY } from "./client-changelog-first-dock-card.js";
 import { GUIDE_AND_RECOVERY_CHANGELOG } from "./client-changelog-nov-03-04-guide-recovery.js";
 import { AFC_REPLACEMENT_CHANGELOG } from "./client-changelog-afc-replacement.js";
 import { AI_FREE_TRUCE_CHANGELOG } from "./client-changelog-ai-free-truce.js";
@@ -84,7 +84,6 @@ import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
 import { ADVANCE_VISIBLE_ONLY_CHANGELOG } from "./client-changelog-advance-visible-only.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_19_20 } from "./client-changelog-oct-19-20.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_13_16 } from "./client-changelog-oct-13-16.js";
-import { WAR_TREE_HIVE_MIND_HUB_ENTRY } from "./client-changelog-nov-09.js";
 import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-effort.js";
 import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
 import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js";
@@ -461,10 +460,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ...MAP_BROWSING_FIXES_CHANGELOG,
     createdAt: 1794165080849, // Date.now() captured once.
   },
-  { ...ZOOMED_OUT_PAN_PERF_CHANGELOG, createdAt: 1794216988849, },
-  { ...WAR_TREE_HIVE_MIND_HUB_ENTRY, createdAt: 1794292926456, },
-  { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, },
-  { ...FIRST_DOCK_CARD_ENTRY, createdAt: 1794657014221, },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_121,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_110,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_111,
   { ...AFC_LANDING_DEPLOYMENT_ENTRY, createdAt: 1794342682675, },
@@ -494,6 +490,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...TOWNS_LIST_COIN_PENDING_ENTRY, createdAt: 1794864521632, },
   { ...NO_RATE_LIMIT_ERRORS_ENTRY, createdAt: 1794864645451, },
   { ...FRONTIER_CLAIM_NEXT_TO_PENDING_ENTRY, createdAt: 1794865837776, },
+  { ...AI_COIN_INCOME_ENTRY, createdAt: 1794906344491, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
