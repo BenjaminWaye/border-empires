@@ -36,6 +36,7 @@ const baseInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   musterTargetTiles: [],
   scout: "none",
   exploreTarget: () => undefined,
+  nothingToExplore: () => false,
   ...overrides
 });
 

@@ -46,6 +46,7 @@ const stepInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   musterTargetTiles: [],
   scout: "none",
   exploreTarget: () => undefined,
+  nothingToExplore: () => false,
   ...overrides
 });
 
@@ -220,7 +221,7 @@ describe("Show me on a phone (Tom: target ended up under the card)", () => {
     vi.spyOn(window, "innerHeight", "get").mockReturnValue(667);
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ left: 10, right: 260, top: 300, bottom: 480, width: 250, height: 180, x: 10, y: 300, toJSON: () => ({}) } as DOMRect);
     setGuideStatus("active", EMAIL);
-    markGuideStepsCompleted(["look-pan", "look-zoom"], EMAIL);
+    markGuideStepsCompleted(["look-pan", "look-zoom", "look-explore"], EMAIL);
     const state = newPlayerState();
     refreshOnboardingChecklistHighlight(state);
     click('[data-guide-action="show-me"]');
@@ -236,7 +237,7 @@ describe("Show me on a phone (Tom: target ended up under the card)", () => {
     vi.spyOn(window, "innerHeight", "get").mockReturnValue(900);
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ left: 16, right: 286, top: 560, bottom: 710, width: 270, height: 150, x: 16, y: 560, toJSON: () => ({}) } as DOMRect);
     setGuideStatus("active", EMAIL);
-    markGuideStepsCompleted(["look-pan", "look-zoom"], EMAIL);
+    markGuideStepsCompleted(["look-pan", "look-zoom", "look-explore"], EMAIL);
     refreshOnboardingChecklistHighlight(newPlayerState());
     click('[data-guide-action="show-me"]');
     expect(card()?.querySelector(".tg-card")?.hasAttribute("hidden")).toBe(false);

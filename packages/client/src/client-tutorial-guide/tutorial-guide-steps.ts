@@ -91,6 +91,8 @@ export type GuideInput = {
   scout: GuideScoutStatus;
   /** Unexplored ground near home to send the drone toward; undefined when all of it has been seen. A function: computed only when a step asks. */
   exploreTarget: () => { x: number; y: number } | undefined;
+  /** Home is known and every tile within the search radius has been seen: nothing left for Explore to point at. */
+  nothingToExplore: () => boolean;
 };
 
 export type GuideChapterId = "look" | "foothold" | "reach" | "manpower" | "manifest" | "afc" | "build" | "contest" | "diplomacy" | "turn";
@@ -247,7 +249,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     title: (i) => (i.exploreTarget() ? "Tap the marked unexplored ground and Explore" : "Tap dark, unexplored ground and Explore"),
     why: "Your scout drone is free. It flies out and reports towns, food and rivals.",
     // A launch completes it (sticky), and so does having nothing left to explore near home.
-    isDone: (i) => i.scout === "out" || (i.scout === "ready" && i.exploreTarget() === undefined),
+    isDone: (i) => i.scout === "out" || (i.scout === "ready" && i.nothingToExplore()),
     isAvailable: (i) => i.scout !== "none",
     waitingNote: "Your scout drone launches from your AFC.",
     doneIfLaterStepDone: true,
@@ -255,8 +257,8 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   },
   // No separate "tap a tile" or "find a town / food" steps: tapping is taught by
   // the foothold steps' own objective ("Tap the marked town and ..."), and each
-  // foothold step already says what to do when nothing is in sight (build a Relay
-  // Beacon), which a bare "find" step could not.
+  // foothold step already says what to do when nothing is in sight (Explore, or
+  // build a Relay Beacon), which a bare "find" step could not.
   {
     id: "foothold-take-town",
     chapter: "foothold",

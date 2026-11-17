@@ -269,7 +269,9 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     manpower: { current: state.manpower, cap: state.manpowerCap },
     // No AFC (lost, awaiting a replacement): no drone to send, as in the unexplored tile menu.
     scout: guideScoutStatus(state.scoutDroneFlight, state.afcRecovery?.requiredSince === undefined, Date.now()),
-    exploreTarget: () => exploreTargetOf(state)
+    exploreTarget: () => exploreTargetOf(state),
+    // Not before home is known: an unknown home also has no target, and the Explore step's completion is sticky.
+    nothingToExplore: () => state.homeTile !== undefined && exploreTargetOf(state) === undefined
   };
 };
 

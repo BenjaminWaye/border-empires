@@ -98,6 +98,7 @@ describe("tutorial guide in the onboarding corner", () => {
     refreshOnboardingChecklistHighlight(state);
     click("skip");
     click("skip");
+    click("skip"); // explore
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(cardTitle()).toBe("Tap the marked town and Expand To it");
     expect(state.onboardingHighlightTiles).toEqual([{ x: 2, y: 0 }]);
@@ -111,6 +112,7 @@ describe("tutorial guide in the onboarding corner", () => {
     refreshOnboardingChecklistHighlight(state);
     click("skip");
     click("skip");
+    click("skip"); // explore
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(cardTitle()).toBe("Tap the marked town and Garrison it");
     expect(state.onboardingHighlightTiles).toEqual([{ x: 2, y: 0 }]);
@@ -132,11 +134,29 @@ describe("tutorial guide in the onboarding corner", () => {
     expect(card()?.querySelector(".tg-lookfor")?.textContent).toContain("Grain");
   });
 
-  it("with no town in sight, goes straight from Look around to building a Relay Beacon (no instruction-less 'Find a town' step)", () => {
+  it("with no town in sight, asks for a scout drone flight to find one (no instruction-less 'Find a town' step)", () => {
     setGuideStatus("active", EMAIL);
     const state = newPlayerState();
     state.tiles.delete("2,0"); // the only town
     state.tilesRevision += 1;
+    state.homeTile = { x: 0, y: 0 }; // nothing discovered yet: unexplored ground all around
+    noteGuideMapPanned();
+    refreshOnboardingChecklistHighlight(state);
+    click("skip"); // zoom
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toBe("Tap the marked unexplored ground and Explore");
+    click("skip"); // explore
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toBe("No town in sight: tap the marked unexplored ground and Explore");
+    expect(state.onboardingHighlightTiles).toHaveLength(1);
+  });
+
+  it("with no town in sight and no AFC to launch a drone, asks for a Relay Beacon", () => {
+    setGuideStatus("active", EMAIL);
+    const state = newPlayerState();
+    state.tiles.delete("2,0"); // the only town
+    state.tilesRevision += 1;
+    state.afcRecovery = { requiredSince: 1 } as never;
     noteGuideMapPanned();
     refreshOnboardingChecklistHighlight(state);
     click("skip"); // zoom
@@ -216,6 +236,7 @@ describe("tutorial guide in the onboarding corner", () => {
     refreshOnboardingChecklistHighlight(state);
     click("skip");
     click("skip");
+    click("skip"); // explore
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(state.onboardingHighlightTiles).toEqual([{ x: 2, y: 0 }]);
     click("hide");

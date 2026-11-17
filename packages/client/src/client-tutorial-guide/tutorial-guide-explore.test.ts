@@ -51,6 +51,7 @@ const input = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   musterTargetTiles: [],
   scout: "ready",
   exploreTarget: () => ({ x: 70, y: 50 }),
+  nothingToExplore: () => false,
   ...overrides
 });
 
@@ -100,9 +101,17 @@ describe("guide steps with the scout drone", () => {
     expect(view.highlightTiles).toEqual([{ x: 70, y: 50 }]);
   });
 
-  it("ticks Explore off once the drone is in the air", () => {
+  it("ticks Explore off once the drone is in the air, or once nothing near home is left unexplored", () => {
     const view = evaluateGuide(input({ scout: "out" }), new Set());
     expect(view.kind === "step" && view.newlyCompleted).toContain("look-explore");
+    const exhausted = evaluateGuide(input({ exploreTarget: () => undefined, nothingToExplore: () => true }), new Set());
+    expect(exhausted.kind === "step" && exhausted.newlyCompleted).toContain("look-explore");
+  });
+
+  it("does not tick Explore off before home is known (no target yet, but not exhausted): completion is sticky", () => {
+    const view = evaluateGuide(input({ exploreTarget: () => undefined, nothingToExplore: () => false }), new Set());
+    expect(view.kind === "step" && view.newlyCompleted).not.toContain("look-explore");
+    expect(view.kind === "step" && view.step.id).toBe("look-explore");
   });
 
   it("skips Explore for a House with no AFC, and counts it done for players already past it", () => {
@@ -121,7 +130,7 @@ describe("guide steps with the scout drone", () => {
     const scouting = evaluateGuide(input({ scout: "out" }), done);
     expect(scouting).toEqual(expect.objectContaining({ title: "Your scout drone is out: wait for its report", highlightTiles: [] }));
     // Nothing left to explore nearby: back to the beacon.
-    const beacon = evaluateGuide(input({ exploreTarget: () => undefined }), done);
+    const beacon = evaluateGuide(input({ exploreTarget: () => undefined, nothingToExplore: () => true }), done);
     expect(beacon.kind === "step" && beacon.title).toMatch(/^No town in sight: build a Relay Beacon/);
   });
 
@@ -157,9 +166,14 @@ describe("guide input from client state", () => {
     const ready = buildGuideInput(state);
     expect(ready.scout).toBe("ready");
     expect(ready.exploreTarget()).toBeDefined();
+    expect(ready.nothingToExplore()).toBe(false);
     // A drone flight grows the discovered set without a tiles change: the target follows it.
     state.discoveredTiles = discoveredAround(GUIDE_EXPLORE_SEARCH_RADIUS);
     expect(buildGuideInput(state).exploreTarget()).toBeUndefined();
+    expect(buildGuideInput(state).nothingToExplore()).toBe(true);
+    state.homeTile = undefined;
+    expect(buildGuideInput(state).nothingToExplore()).toBe(false);
+    state.homeTile = HOME;
     state.scoutDroneFlight = flight(Date.now() + 60_000);
     expect(buildGuideInput(state).scout).toBe("out");
     state.scoutDroneFlight = undefined;
