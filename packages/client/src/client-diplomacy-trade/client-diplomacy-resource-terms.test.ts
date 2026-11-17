@@ -19,7 +19,7 @@ describe("resource supply negotiation",()=>{
     edit('[data-trade-exact="give-gold"]', "7");
     edit('[data-trade-exact="give-LUXURY_BIOTA"]',"2"); edit('[data-trade-exact="ask-FOOD"]',"3");
     edit('[data-trade-exact="ask-coinPerHour"]', "50");
-    expect(overlay.querySelector('[data-trade-deal]')?.textContent).toContain("8400 Coin over the term");
+    expect(overlay.querySelector('[data-trade-deal]')?.textContent).toContain("8400 Coin over 168h");
     overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.click();
     const payload=send.mock.calls.at(-1)![0];
     expect(payload).toMatchObject({ type:"RESOURCE_TRADE_REQUEST",terms:{give:{gold:7,resources:{LUXURY_BIOTA:2}},ask:{gold:0,coinPerHour:50,resources:{FOOD:3}}} });

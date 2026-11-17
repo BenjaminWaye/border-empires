@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AiOpinion, AiWarState } from "./ai-diplomacy-opinion.js";
-import { warReason } from "./ai-diplomacy-evaluation.js";
+import { spareCoinPerHour, warReason } from "./ai-diplomacy-evaluation.js";
 
 const SPENT = "Rowan is looking for peace: their armies are spent.";
 const opinion = (war: Partial<AiWarState>): AiOpinion => ({
@@ -26,5 +26,21 @@ describe("warReason after the at-war window", () => {
 
   it("leaves at-war reasons as they were", () => {
     expect(warReason("Rowan", opinion({ atWar: true, tilesTakenByAi: 5, aiWinning: true }), { kind: "STEADY" }, SPENT)).toBe("Rowan feels they're winning this war.");
+  });
+});
+
+// Review regression: an AI counted any Coin-per-hour pledge in full, however little the requester earns.
+describe("spareCoinPerHour", () => {
+  it("is earned Coin per hour less what the requester already pledges, never negative, and unknown when unread", () => {
+    const snapshot = (incomePerMinute: number | undefined, pledged = 0) => ({
+      playerId: "me", tiles: [],
+      player: { manpower: 0, manpowerCap: 0, ...(incomePerMinute === undefined ? {} : { incomePerMinute }),
+        resourceTradeAgreements: pledged ? [{ id: "a", proposerId: "me", targetId: "x", proposerGives: {}, targetGives: {}, proposerCoinPerHour: pledged, startedAt: 0, expiresAt: 1, fulfilled: true }] : [] }
+    });
+    expect(spareCoinPerHour(snapshot(2))).toBe(120);
+    expect(spareCoinPerHour(snapshot(2, 100))).toBe(20);
+    expect(spareCoinPerHour(snapshot(1, 100))).toBe(0);
+    expect(spareCoinPerHour(snapshot(undefined))).toBeUndefined();
+    expect(spareCoinPerHour(undefined)).toBeUndefined();
   });
 });

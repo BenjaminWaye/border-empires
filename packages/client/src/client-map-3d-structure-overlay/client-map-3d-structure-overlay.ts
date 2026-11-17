@@ -1,4 +1,5 @@
 import { createDistrictOverlay } from "../client-town-district/district-overlay.js";
+import { isDistrictBuilding, isDistrictProject } from "../client-town-district/district-catalog.js";
 import { NETWORK_RESOURCES, RESOURCE_NETWORKS, isDepletedReclamationWorks, networkResourceForBuilding, type NetworkBuilding } from "@border-empires/shared";
 import { createNetworkOverlay } from "../client-resource-networks/network-models.js";
 import type { Scene, Texture } from "three";
@@ -121,7 +122,10 @@ const STRUCTURE_KINDS_WITH_DEDICATED_3D_BRANCH = new Set<string>([
 export function isStructureHandledBy3D(kind: string): boolean {
   return (
     STRUCTURE_KINDS_WITH_DEDICATED_3D_BRANCH.has(kind) ||
-    STRUCTURE_KINDS_HANDLED_BY_3D.has(kind as StructureKind)
+    STRUCTURE_KINDS_HANDLED_BY_3D.has(kind as StructureKind) ||
+    // The town-district kit (district-map-3d.ts addTile) models every district
+    // building and project, including kinds absent from the lists above.
+    isDistrictBuilding(kind) || isDistrictProject(kind)
   );
 }
 

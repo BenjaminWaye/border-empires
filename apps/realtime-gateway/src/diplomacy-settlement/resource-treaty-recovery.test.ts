@@ -145,3 +145,18 @@ it("publishes the persisted settlement phase before submitting a treaty payment"
   expect((await accept.acceptTruce("b", id)).ok).toBe(false);
   expect(onProgress).toHaveBeenCalledOnce();
 });
+
+// Regression: Coin per hour for a truce needed a resource slot. Without one it is now paid for the truce's own hours.
+it("settles a truce's slot-free Coin per hour durably, for the truce's length", async () => {
+  const store = new InMemoryGatewaySocialStore();
+  const social = buildGatewaySocialState(store, store.loadSnapshot(), players, () => 1_000);
+  social.requestTruce("a", "B", 12, { terms: { give: { gold: 0, coinPerHour: 64 }, ask: { gold: 0 } } });
+  const id = social.snapshotForPlayer("b").incomingTruceRequests[0]!.id;
+  const settle = vi.fn(async (input: DiplomacySettlementInput): Promise<DiplomacySettlementResult> => ({ ok: true, settlementId: input.commandId }));
+  const accept = createDiplomacyOfferAcceptance({ socialState: social, settlement: { settle }, recordGatewayEvent: () => undefined });
+  // Review regression: a pledge of the recipient's income skipped the confirmation that resource-slot deals need.
+  expect(await accept.acceptTruce("b", id, undefined, false)).toMatchObject({ ok: false, code: "RESOURCE_TERMS_CONFIRMATION_REQUIRED" });
+  expect(settle).not.toHaveBeenCalled();
+  expect((await accept.acceptTruce("b", id)).ok).toBe(true);
+  expect(settle).toHaveBeenCalledWith(expect.objectContaining({ coinTermHours: 12, commandId: `diplomacy-settle:truce:${id}`, terms: expect.objectContaining({ give: { gold: 0, coinPerHour: 64 } }) }));
+});
