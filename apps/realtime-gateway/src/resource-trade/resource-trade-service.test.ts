@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { WebSocket } from "ws";
-import type { ClientMessage } from "@border-empires/shared";
+import { MAX_PENDING_RESOURCE_TRADE_OFFERS_PER_PLAYER, type ClientMessage } from "@border-empires/shared";
 import { createSocialState } from "../social-state/social-state.js";
 import type { DiplomacySettlementInput, DiplomacySettlementResult } from "../diplomacy-settlement/diplomacy-settlement.js";
 import { createResourceTradeService, type ResourceTradeServiceDeps } from "./resource-trade-service.js";
@@ -106,22 +106,59 @@ it("blocks ending treaty supply while its payment is still uncertain", async () 
   expect(f.send).toHaveBeenCalledWith(f.socket, expect.objectContaining({ type: "ERROR" }));
 });
 describe("resource trade counter-offers",()=>{
+  const counterTerms={give:{gold:1},ask:{gold:0,resources:{LUXURY_BIOTA:1}}};
+  const counter=(offerId:string,to="a"):ClientMessage=>({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:to.toUpperCase(),targetPlayerId:to,terms:counterTerms,countersOfferId:offerId});
+  const ids=(f:ReturnType<typeof setup>)=>f.social.resourceTradeOffers.rows(1).map(row=>row.id);
   it("replaces the countered offer with the counter",async()=>{
     const f=setup();await f.service.handle(request,"a",f.socket,false);
     const original=f.social.resourceTradeOffers.rows(1)[0]!;
-    await f.service.handle({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:"A",targetPlayerId:"a",terms:{give:{gold:1},ask:{gold:0,resources:{LUXURY_BIOTA:1}}},countersOfferId:original.id},"b",f.socket,false);
+    await f.service.handle(counter(original.id),"b",f.socket,false);
     const rows=f.social.resourceTradeOffers.rows(1);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({fromPlayerId:"b",toPlayerId:"a"});
   });
-  it("keeps the original when the counter is refused or names someone else's offer",async()=>{
+  it("keeps the original when the counter is refused",async()=>{
     const f=setup();await f.service.handle(request,"a",f.socket,false);
     const original=f.social.resourceTradeOffers.rows(1)[0]!;
     // No supply slot: the counter is refused, so the offer it answered stays open.
-    await f.service.handle({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:"A",targetPlayerId:"a",terms:{give:{gold:1},ask:{gold:0}},countersOfferId:original.id},"b",f.socket,false);
-    expect(f.social.resourceTradeOffers.rows(1).map(row=>row.id)).toEqual([original.id]);
-    // C was never offered it, so C's offer to A cannot withdraw it.
-    await f.service.handle({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:"A",targetPlayerId:"a",terms,countersOfferId:original.id},"c",f.socket,false);
-    expect(f.social.resourceTradeOffers.rows(1).map(row=>row.id)).toContain(original.id);
+    await f.service.handle({...counter(original.id),terms:{give:{gold:1},ask:{gold:0}}},"b",f.socket,false);
+    expect(ids(f)).toEqual([original.id]);
+    expect(f.send).toHaveBeenCalledWith(f.socket,expect.objectContaining({type:"ERROR"}));
+  });
+  it("refuses a counter naming an offer the sender did not receive from that House",async()=>{
+    const f=setup();await f.service.handle(request,"a",f.socket,false);
+    const original=f.social.resourceTradeOffers.rows(1)[0]!;
+    // C was never offered it; B's offer goes to C, not to A who made it.
+    await f.service.handle(counter(original.id),"c",f.socket,false);
+    await f.service.handle(counter(original.id,"c"),"b",f.socket,false);
+    expect(ids(f)).toEqual([original.id]);
+  });
+  it("refuses a second counter once the original is gone",async()=>{
+    const f=setup();await f.service.handle(request,"a",f.socket,false);
+    const original=f.social.resourceTradeOffers.rows(1)[0]!;
+    await f.service.handle(counter(original.id),"b",f.socket,false);
+    await f.service.handle(counter(original.id),"b",f.socket,false);
+    expect(f.social.resourceTradeOffers.rows(1)).toHaveLength(1);
+    expect(f.send).toHaveBeenLastCalledWith(f.socket,expect.objectContaining({message:"The offer you countered is no longer available."}));
+  });
+  it("counters at the pending-offer cap, since the swap adds no offer",async()=>{
+    const f=setup();
+    for(let i=0;i<MAX_PENDING_RESOURCE_TRADE_OFFERS_PER_PLAYER;i++)await f.service.handle(request,"a",f.socket,false);
+    const original=f.social.resourceTradeOffers.rows(1)[0]!;
+    await f.service.handle(counter(original.id),"b",f.socket,false);
+    expect(ids(f)).not.toContain(original.id);
+    expect(f.social.resourceTradeOffers.rows(1).some(row=>row.fromPlayerId==="b")).toBe(true);
+  });
+  it("restores the original when an AI declines the counter, and drops it when the AI accepts",async()=>{
+    const f=setup(true);
+    // An AI's offer to the player: the AI is B here, so the player A counters it.
+    expect((await f.service.request("b","a",terms)).ok).toBe(true);
+    const original=f.social.resourceTradeOffers.rows(1)[0]!;
+    await f.service.handle({...counter(original.id,"b"),terms:{give:{gold:0},ask:{gold:0,resources:{FOOD:1}}}},"a",f.socket,false);
+    expect(ids(f)).toEqual([original.id]);
+    expect(f.settle).not.toHaveBeenCalled();
+    await f.service.handle({...counter(original.id,"b"),terms},"a",f.socket,false);
+    expect(f.settle).toHaveBeenCalledOnce();
+    expect(f.social.resourceTradeOffers.rows(1)).toEqual([]);
   });
 });
