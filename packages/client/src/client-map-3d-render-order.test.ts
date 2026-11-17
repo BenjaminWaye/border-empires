@@ -27,6 +27,18 @@ describe("surface overlay render order", () => {
     }
   });
 
+  it("draws the guide's rings over the unexplored storm and fogged mist, under selection and hover", () => {
+    // The guide's Explore step rings unexplored ground: at 0-2 the storm (14) painted over the ring.
+    for (const below of [RENDER_ORDER.foggedMist, RENDER_ORDER.unexploredStorm]) {
+      expect(RENDER_ORDER.guideMarkerHalo).toBeGreaterThan(below);
+    }
+    expect(RENDER_ORDER.guideMarkerHalo).toBeLessThan(RENDER_ORDER.guideMarkerRing);
+    expect(RENDER_ORDER.guideMarkerRing).toBeLessThan(RENDER_ORDER.guideMarkerChevron);
+    expect(RENDER_ORDER.guideMarkerChevron).toBeLessThan(RENDER_ORDER.selectedMarker);
+    // The placement preview's marker and crystal-targeting outlines sit at 15: a beacon step's ring must not cover them.
+    expect(RENDER_ORDER.guideMarkerChevron).toBeLessThan(15);
+  });
+
   it("ownership overlays default to the ownership slots; fog overlays take their own", () => {
     const orders = (scene: Scene): number[] =>
       scene.children.filter((c): c is Mesh => c instanceof Mesh).map((m) => m.renderOrder).sort((a, b) => a - b);

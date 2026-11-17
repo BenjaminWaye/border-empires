@@ -23,7 +23,7 @@ const tile = (t: Partial<Tile> & { x: number; y: number }): Tile => ({ terrain: 
 
 const stepInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   checklist: { step: "DONE", townFound: true, townExpanded: true, foodFound: true, foodExpanded: true, foodSlotsFound: 4, foodSlotsClaimed: 4, foodSlotsTarget: 4, highlightTiles: [] },
-  footholdTargets: { town: { pending: [], garrison: [], expand: [] }, food: { pending: [], garrison: [], expand: [] } },
+  footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } },
   manufactoryResearched: false,
   manufactoryUnlocked: false,
   afcUpgradeReady: false,
@@ -44,6 +44,10 @@ const stepInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   musterUnlocked: false,
   ownsMusterFlag: false,
   musterTargetTiles: [],
+  scout: "none",
+  exploreTarget: () => undefined,
+  nothingToExplore: () => false,
+  scoutFlights: 0,
   ...overrides
 });
 
@@ -72,9 +76,15 @@ describe("food step only marks tiles a garrison can reach (Sam stuck on 'Beyond 
     ];
     const inReach = (x: number, y: number) => x === 9 && y === 9;
     expect(scanGuideFootholdTargets(tiles, ME, () => 0, inReach)).toEqual({
-      town: { pending: [], garrison: [{ x: 3, y: 0 }], expand: [] },
-      food: { pending: [], garrison: [{ x: 9, y: 9 }], expand: [] }
+      town: { outOfReach: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [] },
+      food: { outOfReach: 2, pending: [], garrison: [{ x: 9, y: 9 }], expand: [] }
     });
+  });
+
+  it("counts food outside reach toward the beacon ask only near home: a beacon can't reach far food", () => {
+    const tiles = [tile({ x: 5, y: 0, resource: "FARM" }), tile({ x: 30, y: 0, resource: "FISH" })];
+    const byDistance = (t: { x: number; y: number }) => t.x;
+    expect(scanGuideFootholdTargets(tiles, ME, byDistance, () => false).food.outOfReach).toBe(1);
   });
 
   it("reads the server's reach and rescans when a REACH_UPDATE changes it without a tile change", () => {
@@ -93,7 +103,7 @@ describe("food step only marks tiles a garrison can reach (Sam stuck on 'Beyond 
     const view = evaluateGuide(
       stepInput({
         checklist: { ...stepInput().checklist, townExpanded: false },
-        footholdTargets: { town: { pending: [], garrison: [{ x: 3, y: 0 }], expand: [] }, food: { pending: [], garrison: [], expand: [] } }
+        footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } }
       }),
       new Set(["look-pan", "look-zoom"])
     );
@@ -149,7 +159,7 @@ describe("build step without a town (Tom skipped the town step)", () => {
         manufactoryResearched: true,
         manufactoryUnlocked: true,
         buildTargetTiles: [],
-        footholdTargets: { town: { pending: [], garrison: [], expand: [{ x: 7, y: 2 }] }, food: { pending: [], garrison: [], expand: [] } }
+        footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [], expand: [{ x: 7, y: 2 }] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } }
       }),
       doneExcept(["build-first", "contest-muster", "diplomacy-truce", "turn-activity", "turn-finish"])
     );
@@ -218,7 +228,7 @@ describe("Show me on a phone (Tom: target ended up under the card)", () => {
     vi.spyOn(window, "innerHeight", "get").mockReturnValue(667);
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ left: 10, right: 260, top: 300, bottom: 480, width: 250, height: 180, x: 10, y: 300, toJSON: () => ({}) } as DOMRect);
     setGuideStatus("active", EMAIL);
-    markGuideStepsCompleted(["look-pan", "look-zoom"], EMAIL);
+    markGuideStepsCompleted(["look-pan", "look-zoom", "look-explore"], EMAIL);
     const state = newPlayerState();
     refreshOnboardingChecklistHighlight(state);
     click('[data-guide-action="show-me"]');
@@ -234,7 +244,7 @@ describe("Show me on a phone (Tom: target ended up under the card)", () => {
     vi.spyOn(window, "innerHeight", "get").mockReturnValue(900);
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ left: 16, right: 286, top: 560, bottom: 710, width: 270, height: 150, x: 16, y: 560, toJSON: () => ({}) } as DOMRect);
     setGuideStatus("active", EMAIL);
-    markGuideStepsCompleted(["look-pan", "look-zoom"], EMAIL);
+    markGuideStepsCompleted(["look-pan", "look-zoom", "look-explore"], EMAIL);
     refreshOnboardingChecklistHighlight(newPlayerState());
     click('[data-guide-action="show-me"]');
     expect(card()?.querySelector(".tg-card")?.hasAttribute("hidden")).toBe(false);
