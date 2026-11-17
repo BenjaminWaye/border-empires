@@ -13,6 +13,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_111 } from "./client-changelog-data-ea
 import { MAP_BROWSING_FIXES_CHANGELOG } from "./client-changelog-map-browsing-fixes.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_121 } from "./client-changelog-data-earlier-121.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_122 } from "./client-changelog-data-earlier-122.js";
+import { FORT_PERIMETER_ENTRY } from "./client-changelog-fort-perimeter.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
 import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
 import { COMMAND_NAVIGATION_ENTRY } from "./client-changelog-command-navigation.js";
@@ -463,6 +464,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
   { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
   ...NOV_16_CHANGELOG,
+  { ...FORT_PERIMETER_ENTRY, createdAt: 1794853579662 },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
