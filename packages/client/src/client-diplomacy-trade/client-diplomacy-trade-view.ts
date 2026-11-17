@@ -1,4 +1,4 @@
-import { RESOURCE_SUPPLY_TRADE_DAYS, hasRecurringCoin, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer, supplyAgreementLimitMessage } from "@border-empires/shared";
+import { RESOURCE_SUPPLY_TRADE_DAYS, spendableCoin, hasRecurringCoin, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer, supplyAgreementLimitMessage } from "@border-empires/shared";
 // Pure view logic for the diplomacy trade screen: what the verdict line says
 // and whether the offer can be sent. Uses the same shared pricing rules the
 // gateway decides with, so "would accept" here means the AI really accepts.
@@ -164,7 +164,7 @@ export const activeTruceLockoutReason = (reply: DiplomacyStanceReply | undefined
  * deal screen's verdict and the offer dock's Accept (paying an offer's ask).
  */
 export const ownGoodsShortfall = (give: DiplomacyGoods, own: DiplomacyGoods): string | undefined => {
-  if (give.gold > own.gold) return `You only have ${own.gold} coin.`;
+  if (give.gold > own.gold) return `You only have ${spendableCoin(own.gold)} coin.`;
   const missing = TRADABLE_SUPPLY_RESOURCES.find(resource => (give.resources?.[resource] ?? 0) > (own.resources?.[resource] ?? 0));
   return missing ? `You only have ${own.resources?.[missing] ?? 0} spare ${supplyResourceLabel(missing)} slots.` : undefined;
 };

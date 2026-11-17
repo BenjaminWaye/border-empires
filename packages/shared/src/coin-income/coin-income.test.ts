@@ -3,6 +3,7 @@ import {
   EMPIRE_INTEGRITY_INCOME_LABEL,
   UNITEMISED_COIN_INCOME_LABEL,
   coinIncomeBreakdown,
+  spendableCoin,
   formatCoinPerDay
 } from "./coin-income.js";
 
@@ -65,5 +66,16 @@ describe("coinIncomeBreakdown", () => {
 
   it("formats a penalty with a minus sign", () => {
     expect(formatCoinPerDay(perMin(-2))).toBe("−2.0/day");
+  });
+});
+
+describe("spendableCoin", () => {
+  it("rounds a fractional balance down to whole coin", () => {
+    expect(spendableCoin(11.6)).toBe(11);
+    expect(spendableCoin(12)).toBe(12);
+    // The server rejects a 12-coin payment from 11.9999995, so it must not read 12.
+    expect(spendableCoin(11.9999995)).toBe(11);
+    expect(spendableCoin(-0.4)).toBe(-1);
+    expect(spendableCoin(Number.NaN)).toBe(0);
   });
 });

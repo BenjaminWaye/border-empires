@@ -39,7 +39,7 @@ describe("resource bar", () => {
     expect(html).not.toContain('class="hud-v2-chip-status"');
     expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-available">59<span class="hud-v2-chip-description"> free slots</span>');
     expect(html).toContain('<span class="hud-v2-chip-exact">1,250,000</span><span class="hud-v2-chip-short" aria-hidden="true">1.25M</span>');
-    expect(html).toContain('<span class="hud-v2-chip-exact">12,981,234</span><span class="hud-v2-chip-short" aria-hidden="true">13M</span>');
+    expect(html).toContain('<span class="hud-v2-chip-exact">12,981,234</span><span class="hud-v2-chip-short" aria-hidden="true">12.9M</span>');
   });
 
   // Regression: Crystal showed as 0/0 on the bar before it was researched.
