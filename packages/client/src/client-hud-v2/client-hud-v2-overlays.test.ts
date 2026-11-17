@@ -108,7 +108,7 @@ describe("tile owner stance tag", () => {
 
   it("tags allies, truces with time left, and everyone else (barbarians too) as hostile", () => {
     expect(ownerStanceTagHtml("a", state, 0)).toContain(">Ally<");
-    expect(ownerStanceTagHtml("t", state, 0)).toContain(">Truce 6h<");
+    expect(ownerStanceTagHtml("t", state, 0)).toContain(">Truce 5h 30m<");
     expect(ownerStanceTagHtml("x", state, 0)).toContain("hud-v2-stance-hostile");
     expect(ownerStanceTagHtml("barbarian-1", state, 0)).toContain(">Hostile<");
   });
