@@ -155,6 +155,8 @@ const buildPanelHtml = (input: TownScreenInput): string => {
   return `${list}${place}`;
 };
 
+const STRUCTURE_TOGGLE_IDS = new Set<TileActionDef["id"]>(["disable_converter_structure", "enable_converter_structure", "disable_observatory", "enable_observatory"]);
+
 const barHtml = (input: TownScreenInput): string => {
   const btn = (a: TileActionDef | undefined, label: string): string =>
     a
@@ -165,6 +167,8 @@ const barHtml = (input: TownScreenInput): string => {
   // selected every town-tile action is marked "(town)", so "Remove Fort" can't read as the selected tile's.
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
   const isMuster = (a: TileActionDef): boolean => a.id.startsWith("muster_");
+  // The selected building's on/off switch (e.g. to free FOOD slots) acts on that tile, like muster actions.
+  const isFocusOwned = (a: TileActionDef): boolean => isMuster(a) || STRUCTURE_TOGGLE_IDS.has(a.id);
   // An ungarrisoned town's Garrison leads the bar as the gold main button; a text link was easy to miss.
   // With a support tile selected (the screen only opens on one once its town is garrisoned), that tile's
   // Garrison takes the slot instead. Touch has no tooltips, so a disabled one says why on the button.
@@ -190,7 +194,7 @@ const barHtml = (input: TownScreenInput): string => {
   const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : []), ...(improvement ? [improvement.id] : [])]);
   const minorActions = [
     ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
-    ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isMuster(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
+    ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isFocusOwned(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
   ];
   const minor = minorActions.map(({ a, key }) =>
     `<button type="button" class="hud-v2-minor${a.disabled ? " hud-v2-minor-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, key)}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? a.label : a.cost ?? a.detail ?? a.label)}">${esc(a.label)}</button>`).join("");
