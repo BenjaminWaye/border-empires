@@ -23,6 +23,9 @@ export const createInitialSocialState = () => ({
   // players the Alliances tab lets you propose to. See client-met-players.ts.
   metPlayerIds: new Set<string>(),
   metPlayersScannedRevision: -1,
+  // "<me>|<seasonId>" whose saved met set is loaded, and the set size last saved (-1: not yet).
+  metPlayersLoadedFor: "",
+  metPlayersSavedCount: -1,
   // Set by a tile's Diplomacy action: the Alliances panel highlights and
   // scrolls to this player's card until `until`. See client-alliance-focus.ts.
   socialFocus: undefined as { playerId: string; until: number; scrollPending: boolean } | undefined,

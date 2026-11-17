@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ResourceSupplyAgreement } from "@border-empires/shared";
+import { BINDING_DEAL_MESSAGE, type ResourceSupplyAgreement } from "@border-empires/shared";
 
 import { buildPlayer } from "../runtime/runtime.test-helpers.js";
 import { aggregatePersonalActivity } from "../personal-activity-aggregation/personal-activity-aggregation.js";
@@ -12,17 +12,24 @@ import { supplyEndedImpacts } from "./supply-ended-impacts.js";
 // by comparing Economy numbers. Every real end of a deal is now a card for both Houses.
 const deal: ResourceSupplyAgreement = { id: "deal", proposerId: "lena", targetId: "hugo", proposerGives: {}, targetGives: { FOOD: 2 }, startedAt: 1, expiresAt: 100 };
 
-const supplyWith = (now: { at: number }, ended: ReturnType<typeof vi.fn>) => new RuntimeResourceSupply({
+const supplyWith = (now: { at: number }, ended: ReturnType<typeof vi.fn>, row: ResourceSupplyAgreement = deal) => new RuntimeResourceSupply({
   now: () => now.at, player: (id) => buildPlayer(id), ownedTiles: () => [],
   physicalUpkeep: () => ({ FOOD: 5, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }),
   tileSettledAtByKey: new Map<string, number>(), beforeChange: () => undefined, invalidate: () => undefined, changed: () => undefined, ended
-}, [deal]);
+}, [row]);
 
 describe("a resource supply deal ending", () => {
-  it("reports a cancellation with who cancelled it", () => {
+  it("reports a cancellation of an open-ended (pre-term) deal with who cancelled it", () => {
     const ended = vi.fn();
-    supplyWith({ at: 10 }, ended).cancel("deal", "hugo");
+    const { expiresAt: _term, ...openEnded } = deal;
+    supplyWith({ at: 10 }, ended, openEnded).cancel("deal", "hugo");
     expect(ended).toHaveBeenCalledWith(expect.objectContaining({ id: "deal" }), "CANCELLED", "hugo");
+  });
+
+  it("refuses to end a binding deal before its term", () => {
+    const ended = vi.fn();
+    expect(supplyWith({ at: 10 }, ended).cancel("deal", "hugo")).toEqual({ ok: false, message: BINDING_DEAL_MESSAGE });
+    expect(ended).not.toHaveBeenCalled();
   });
 
   it("reports an attack ending it, naming the attacker", () => {

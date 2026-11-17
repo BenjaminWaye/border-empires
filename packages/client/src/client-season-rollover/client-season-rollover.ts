@@ -17,6 +17,8 @@ type RolloverState = Pick<
   | "discoveredTiles"
   | "metPlayerIds"
   | "metPlayersScannedRevision"
+  | "metPlayersLoadedFor"
+  | "metPlayersSavedCount"
   | "leaderboard"
   | "seasonWinner"
   | "seasonVictory"

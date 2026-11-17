@@ -1,11 +1,13 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
-import { FASTER_LOGIN_MAP_ENTRY } from "./client-changelog-faster-login-map.js";
-import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
-import { DISTRICT_FLAT_ART_OVER_3D_ENTRY } from "./client-changelog-district-3d-art.js";
+import { ZOOMED_OUT_PAN_PERF_CHANGELOG } from "./client-changelog-zoomed-out-pan-perf.js";
+import { NAVIGATION_LABELS_ENTRY } from "./client-changelog-command-navigation.js";
+import { FIRST_DOCK_CARD_ENTRY } from "./client-changelog-first-dock-card.js";
+import { WAR_TREE_HIVE_MIND_HUB_ENTRY } from "./client-changelog-nov-09.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_121: ClientChangelogEntry[] = [
-  { ...FASTER_LOGIN_MAP_ENTRY, createdAt: 1794856144245, },
-  { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
-  { ...DISTRICT_FLAT_ART_OVER_3D_ENTRY, createdAt: 1794863250098, },
+  { ...ZOOMED_OUT_PAN_PERF_CHANGELOG, createdAt: 1794216988849, },
+  { ...WAR_TREE_HIVE_MIND_HUB_ENTRY, createdAt: 1794292926456, },
+  { ...NAVIGATION_LABELS_ENTRY, createdAt: 1794293586587, },
+  { ...FIRST_DOCK_CARD_ENTRY, createdAt: 1794657014221, },
 ];

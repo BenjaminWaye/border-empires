@@ -532,7 +532,8 @@ cross open water on foot.
 recognised claim on the food, freight, ore, manufacturing, tolls and future
 exports controlled by the House. The House factor accepts that claim
 because the House controls the output behind it. Houses can pledge a share of
-newly earned Coin to another House in exchange for contracted industrial output.
+newly earned Coin to another House in exchange for contracted industrial output,
+or for the term of a truce.
 
 Coin is paid offworld through the factor for machines fabricated elsewhere,
 transported crews and instruments, Imperial market access and project
@@ -620,8 +621,8 @@ holdings. Numerical yields and network limits belong in the economy reference.
 Houses may pledge resource output, other than salvage, to one another as
 continuing supply rights negotiated through diplomacy. The supplier retains the land and its
 installations; the recipient gains the exclusive use of the promised output for
-as long as both Houses maintain the arrangement. Either House may end the
-supply agreement; the land remains with its owner. An attack dissolves them: when
+the agreed term. Such agreements are binding: neither House may walk away before
+the term ends, and the land remains with its owner. An attack dissolves them: when
 one House attacks the other, every supply right between the two lapses at once. Such contracts can support another House's infrastructure or
 industry without transferring towns, bodies or knowledge. They are distinct from
 a one-time Coin payment. An interrupted concession

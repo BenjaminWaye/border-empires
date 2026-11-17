@@ -36,6 +36,7 @@ import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, renderTownScreen, runTileActionOn, runTownWork, stepTown } from "./client-hud-v2-town-runtime.js";
 import { renderTownsScreen, townsClick } from "./client-hud-v2-towns-runtime.js";
+import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 
 const TITLES: Partial<Record<HudV2ScreenId, string>> = { manifest: "Manifest", afc: "AFC Upgrades", diplomacy: "Diplomacy", ranks: "The Duke's Seat", towns: "Towns" };
 
@@ -178,7 +179,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
       me: state.me,
       resourceOffers: state.resourceTradeOffers,
       resourceAgreements: state.resourceTradeAgreements,
-      metPlayerIds: state.metPlayerIds,
+      metPlayerIds: refreshMetPlayerIds(state),
       allies: state.allies,
       activeTruces: state.activeTruces,
       incomingAlliance: state.incomingAllianceRequests,

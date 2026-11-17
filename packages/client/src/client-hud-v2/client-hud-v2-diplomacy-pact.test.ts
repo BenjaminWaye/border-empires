@@ -39,6 +39,14 @@ describe("Diplomacy deal pact line", () => {
     expect(html).toContain('data-v2-dip-alliances="ai-4"');
   });
 
+  // Playtest run 2: a truce ran out with no warning.
+  it("warns in the last two hours with the minutes left", () => {
+    const html = dealPactHtml(input({ activeTruces: [truce({ endsAt: HOUR + 40 * 60_000 })] }));
+    expect(html).toContain("Truce ends in 1h 40m");
+    expect(html).toContain("v2d-pact-ending");
+    expect(dealPactHtml(input({ activeTruces: [truce()] }))).not.toContain("v2d-pact-ending");
+  });
+
   it("says a Court armistice is binding instead of offering a break", () => {
     const html = dealPactHtml(input({ activeTruces: [truce({ origin: "court" })] }));
     expect(html).toContain("Court armistice · binding");

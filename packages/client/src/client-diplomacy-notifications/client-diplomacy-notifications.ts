@@ -56,7 +56,7 @@ const persistIds = (state: DiplomacyNotificationState): void => {
   storageSet(STORAGE_KEY(state.me), JSON.stringify(entries.length > MAX_STORED ? entries.slice(-MAX_STORED) : entries));
 };
 
-const markUnseenRequest = (state: DiplomacyNotificationState, kind: "alliance" | "truce" | "alliance-break", requestId: string): boolean => {
+export const markUnseenRequest = (state: DiplomacyNotificationState, kind: "alliance" | "truce" | "alliance-break" | "truce-ending", requestId: string): boolean => {
   ensureLoaded(state);
   const key = `${kind}:${requestId}`;
   if (state.notifiedIncomingDiplomacyRequestIds.has(key)) return false;

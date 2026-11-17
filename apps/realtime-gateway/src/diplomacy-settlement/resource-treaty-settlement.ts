@@ -9,7 +9,8 @@ export async function settleResourceTreaty(
   kind: "truce" | "alliance",
   request: SocialPendingOffer["request"],
   terms: DiplomacyTerms,
-  record: () => SocialActionResult
+  record: () => SocialActionResult,
+  coinTermHours?: 12 | 24
 ): Promise<SocialActionResult> {
   const commandId = treatySettlementId(kind, request.id);
   const closeOffer = (): void => {
@@ -39,7 +40,7 @@ export async function settleResourceTreaty(
     deps.onProgress?.(request);
     const paid = await deps.settlement.settle({
       proposerId: request.fromPlayerId, targetId: request.toPlayerId, terms,
-      commandId, issuedAt: request.createdAt, refundIfLate: false
+      commandId, issuedAt: request.createdAt, refundIfLate: false, ...(coinTermHours ? { coinTermHours } : {})
     });
     if (!paid.ok) {
       if (paid.rejected) closeOffer();

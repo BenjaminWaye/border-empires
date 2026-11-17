@@ -2,7 +2,7 @@ import type { PersonalActivityDiplomacyCard, PersonalActivityTimeline } from "@b
 import { describe, expect, it } from "vitest";
 
 import { chronicleHtml, cardCounterparties } from "../client-hud-v2/client-hud-v2-chronicle.js";
-import { activityCardCoordinates, activityCardText } from "./client-activity-dashboard-format.js";
+import { activityCardCoordinates, activityCardText, activityCardTimeLabel } from "./client-activity-dashboard-format.js";
 import { activityCardTone } from "./client-activity-dashboard-tone.js";
 
 const card = (overrides: Partial<PersonalActivityDiplomacyCard>): PersonalActivityDiplomacyCard => ({
@@ -35,6 +35,22 @@ describe("diplomacy timeline rows", () => {
     expect(activityCardText(card({ event: "ALLIANCE_DECLINED", byPlayerId: "p2" }), "me", noNames)).toBe("Tove declined your alliance offer");
     expect(activityCardText(card({ event: "ALLIANCE_DECLINED", byPlayerId: "me" }), "me", noNames)).toBe("You declined Tove's alliance offer");
     expect(activityCardTone(card({ event: "TRUCE_EXTENDED" }), "me")).toBe("hold");
+  });
+
+  it("shows a truce row's end, so an extension visibly moves it (playtest run 2)", () => {
+    const now = new Date(2026, 10, 16, 12, 0).getTime();
+    const tonight = new Date(2026, 10, 17, 0, 45).getTime();
+    const later = new Date(2026, 10, 17, 12, 45).getTime();
+    expect(activityCardText(card({ event: "TRUCE_STARTED", durationHours: 12, endsAt: tonight }), "me", noNames, undefined, now)).toBe("Truce with Tove began · 12h · ends tomorrow 00:45");
+    expect(activityCardText(card({ event: "TRUCE_EXTENDED", durationHours: 12, endsAt: later }), "me", noNames, undefined, now)).toBe("Truce with Tove extended by 12h · ends tomorrow 12:45");
+    // Rows saved before ends were recorded keep their old wording.
+    expect(activityCardText(card({ event: "TRUCE_EXTENDED", durationHours: 12 }), "me", noNames, undefined, now)).toBe("Truce with Tove extended by 12h");
+  });
+
+  it("dates a Chronicle row from another day instead of a bare clock", () => {
+    const now = new Date(2026, 10, 16, 12, 0).getTime();
+    expect(activityCardTimeLabel(card({ occurredAt: new Date(2026, 10, 15, 0, 45).getTime() }), now)).toBe("yesterday 00:45");
+    expect(activityCardTimeLabel(card({ occurredAt: new Date(2026, 10, 16, 0, 45).getTime() }), now)).toBe("00:45");
   });
 
     it("prefers the live roster name over the name stored on the card", () => {

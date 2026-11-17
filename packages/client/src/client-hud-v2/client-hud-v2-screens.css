@@ -237,6 +237,10 @@ body.hud-v2-screen-afc #side-panel {
 .v2d-emp-truce .v2d-emp-stance { color: var(--v2-amber); }
 .v2d-emp-war .v2d-emp-stance { color: var(--v2-red); }
 .v2d-emp-truce .v2d-crest { border-style: dashed; }
+/* A truce in its last two hours (client-truce-ending.ts). */
+.v2d-emp-ending { border-color: var(--v2-red); }
+.v2d-emp-ending .v2d-emp-stance, .v2d-ending .v2d-req-text span, .v2d-pact-ending .v2d-pact-state { color: var(--v2-red-hi); }
+.v2d-endings { border-color: var(--v2-red); }
 .v2d-emp-tiles { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
 .v2d-deal-nav { display: flex; align-items: baseline; gap: 14px; margin-bottom: 12px; }
 .v2d-deal-with { font-family: var(--v2-display); font-size: 18px; font-weight: 700; letter-spacing: 0.06em; }

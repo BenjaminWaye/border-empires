@@ -434,7 +434,10 @@ describe("answerDiplomacyStanceQuery", () => {
     };
     const unknown = await pricingFor(async () => undefined);
     expect(unknown?.required.alliance).toBeGreaterThan(0);
-    expect(await pricingFor(async () => richPlayer)).toEqual(unknown);
+    // Prices match; the pricing also carries the requester's spare income, which only caps how much Coin per hour counts.
+    const rich = await pricingFor(async () => richPlayer);
+    expect({ required: rich?.required, aiHoldings: rich?.aiHoldings }).toEqual({ required: unknown?.required, aiHoldings: unknown?.aiHoldings });
+    expect(rich?.requesterSpareCoinPerHour).toBe(3000);
   });
 
   // A display name can be shared (a human who kept an AI's name): the id the client sends wins.
