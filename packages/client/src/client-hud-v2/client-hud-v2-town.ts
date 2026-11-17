@@ -20,6 +20,9 @@ import { STRUCTURE_TOGGLE_ACTION_IDS } from "../client-observatory-toggle/client
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
+import { townBiota } from "./client-hud-v2-town-biota.js";
+import type { BiotaStep } from "./client-hud-v2-town-biota-steps.js";
+import type { BiotaTownStatus } from "@border-empires/sim-protocol";
 import { builtStructureFacts, townGrowth, type DormantResourcesFor, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
@@ -51,6 +54,10 @@ export type TownScreenInput = {
   placed?: BuildPlacedOutcome | undefined;
   /** The picked building was already placed from this screen: once the confirmation fades, Place reads "Place another". */
   placedBefore?: boolean;
+  /** This town's luxury biota supply (ManpowerBreakdown.biotaTowns); absent for a town that needs none. */
+  biota?: BiotaTownStatus | undefined;
+  /** What to do about a biota shortfall (client-hud-v2-town-biota-steps.ts). */
+  biotaSteps?: readonly BiotaStep[];
 };
 
 const esc = (text: string): string =>
@@ -94,14 +101,16 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   ).join("") + (typeof town.isFed === "boolean" ? townGoldBonuses(town, { includeBuildings: false }) : []).map((b) =>
     `<div class="v2t-built"><span><span class="v2t-built-name">${esc(b.label)}</span><span class="v2t-built-mods"><span class="v2t-mod-${b.tone}">${/^[+−]/.test(b.effect) ? "Coin " : ""}${esc(b.effect)}</span></span></span></div>`
   ).join("");
-  const manpower = terrainAdjustedTownManpower(town.populationTier, terrainProfile, coastal);
+  // A large town short of biota gives a smaller tier's manpower: show what it gives, and why.
+  const biota = townBiota(town.populationTier, input.biota, input.biotaSteps);
+  const manpower = terrainAdjustedTownManpower(biota.manpowerTier, terrainProfile, coastal);
   // The simulation's per-town demand after waivers; the tier base only explains a waiver.
   const foodDemand = townFoodSlotDemand(town);
   const foodBase = townFoodSlotDemandForTier(town.populationTier);
   const stats = [
     // A town with its fed state but no coin figure is mid-refresh (the tile-detail request is in flight), not coinless.
     { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(tileCoinPerMinute(input.town) * 1440)}/day` : typeof town.isFed === "boolean" ? "…" : "—", n: fed, tone: town.isFed === false || townPlotIncomeNote(town) ? " v2t-warn" : "" },
-    { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: `Base town · +${fmt(manpowerPerBatch(manpower.regenPerMinute))} per batch regen`, tone: " v2t-gold" },
+    { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: `${biota.unrulyNote ?? "Base town"} · +${fmt(manpowerPerBatch(manpower.regenPerMinute))} per batch regen`, tone: biota.unrulyNote ? " v2t-warn" : " v2t-gold" },
     { k: "FOOD UPKEEP", v: `${foodDemand} slots`, n: foodDemand < foodBase ? `${foodBase} base · ${foodBase - foodDemand} waived by upgrades` : "", tone: "" }
   ];
   const built = (town.townModifierTotals ?? []).map((g) => `<div class="v2t-built"><span class="v2t-built-ico" aria-hidden="true"></span><span><span class="v2t-built-name">${esc(g.heading)}</span><span class="v2t-built-mods">${g.modifiers.map((m) => `<span class="v2t-mod-${m.tone}">${esc(m.statLabel)} ${esc(m.valueText)}</span>`).join(" · ")}</span></span></div>`).join("");
@@ -116,7 +125,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
     </div>
     <div class="v2t-growth"><div class="v2t-growth-row"><span>${growthLabel}</span><span>${fmt(town.population)}${target ? ` / ${fmt(target)}` : ""}</span></div><div class="v2t-bar"><span style="width:${growthPct}%"></span></div>${growth ? `<div class="v2t-growth-row v2t-growth-rate${growth.paused ? " v2t-warn" : ""}"><span>${esc(growth.eta)}</span><span>${esc(growth.rate)}</span></div>` : ""}</div>
     <div class="v2t-stats">${stats.map((s) => `<div class="v2t-stat"><span class="v2t-stat-k">${s.k}</span><span class="v2t-stat-v${s.tone}">${s.v}</span>${s.n ? `<span class="v2t-stat-n">${s.n}</span>` : ""}</div>`).join("")}${input.plotsHtml ?? ""}</div>
-    <div class="v2t-h">Town bonuses</div>${modifiers}
+    <div class="v2t-h">Town bonuses</div>${biota.rowHtml}${modifiers}
     ${built ? `<div class="v2t-h">In this town</div><div class="v2t-built-list" data-v2-scroll="town-built">${built}</div>` : ""}
     <div class="v2t-grow-wrap">${growHtml}</div>`;
 };
