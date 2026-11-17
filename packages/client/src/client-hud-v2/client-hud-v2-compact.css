@@ -67,13 +67,10 @@ body.hud-v2-compact .hud-v2-bar .hud-v2-chip-label {
   color: var(--v2-soft);
 }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-icon { display: block; width: 15px; height: 15px; }
-body.hud-v2-compact .hud-v2-bar .hud-v2-chip-summary { display: block; font-weight: 700; }
-body.hud-v2-compact .hud-v2-bar .hud-v2-chip-available { color: var(--v2-green-hi); }
-body.hud-v2-compact .hud-v2-bar .hud-v2-chip-zero { color: var(--v2-muted); }
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-summary { display: block; }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-short { display: inline; font-size: 0.9em; }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-icon + .hud-v2-chip-name,
-body.hud-v2-compact .hud-v2-bar .hud-v2-chip-exact,
-body.hud-v2-compact .hud-v2-bar .hud-v2-chip-description {
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-exact {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -82,7 +79,6 @@ body.hud-v2-compact .hud-v2-bar .hud-v2-chip-description {
   white-space: nowrap;
 }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-rate,
-body.hud-v2-compact .hud-v2-bar .hud-v2-chip-slot,
 body.hud-v2-compact .hud-v2-bar .hud-v2-sep { display: none; }
 body.hud-v2-compact .hud-v2-bar .hud-v2-gear {
   box-sizing: border-box;
