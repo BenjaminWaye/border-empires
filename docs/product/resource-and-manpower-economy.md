@@ -316,12 +316,17 @@ Sources: `packages/shared/src/resource-networks/`,
 All four upkeep resources and luxury biota (not precursor salvage) can be negotiated in independent Resource trade offers or alongside a
 truce/alliance. These are exclusive renewable slots or developed sites, not a
 new inventory of mined stockpiles. Upfront Coin transfers at acceptance. Houses
-can also offer Coin per hour from future earnings when a deal includes slots.
+can also offer Coin per hour from future earnings when a deal includes slots, or
+alongside a truce with no slot, where it runs for the truce's hours.
 Recurring payments pause with resource delivery and draw only from earned Coin.
 Inactivity pauses payments when it pauses income. Resuming play starts a fresh
 income interval. After a restart, recurring payments resume from the new runtime's
 start. If earnings fall short, dues share available income proportionally.
-AI Houses negotiate upfront Coin. For upkeep
+AI Houses accept Coin per hour only from the requester and only for a truce,
+counting it at half the value of the same Coin upfront and only up to the
+requester's spare income (earned Coin per hour not already pledged). They never
+pledge their own income. A truce's Coin pledge ends early if its truce ends
+early, for example when either House breaks it. For upkeep
 resources only surplus beyond current domestic use and existing export
 commitments may be newly promised; any developed biota site may be pledged, and
 the supplier loses that site's 2 biota slots while the receiver gains them.
@@ -329,23 +334,34 @@ Offers containing salvage are refused, and agreements saved with salvage are
 suspended. Received slots cannot back another export. Accepted exports
 take priority over later domestic building demand.
 
-New supply agreements run for seven days from acceptance and can be ended early by either House. Both
+New supply agreements run for seven days from acceptance and are binding: neither
+House can end one early; only expiry or war between the two ends it. Both
 resource deliveries pause when either supplier loses required output and resume
 when output recovers. Ending supply releases both directions immediately after
 old-rate income/manpower settlement. One-time Coin payments are not
 refunded for a later shortage or cancellation. Supply contracts survive the
 accompanying treaty ending. Active agreements persist through recovery; new
 agreements settle at their deadline during recovery. Older agreements keep their
-original expiry or remain active until ended if they had none.
+original expiry, or remain active until either House ends them if they had none.
 
 Independent offers can be accepted, declined or withdrawn without creating a
 truce or alliance. Unaccepted offers expire after 24 hours. A payment already
 being resolved cannot be withdrawn: either party finishes/retries the same accepted
-payment identity before deciding whether to end its resulting supply agreement.
+payment identity.
 
 Starting AI negotiation values per slot or site are FOOD 4 Coin, Titanium 4,
 Crystal 6, Umbrite 4, and luxury biota 10. These are
 one-day-equivalent negotiation weights for an open-ended promise, not recurring
 charges, guaranteed market prices or playtest-proven balance. Human offers can
 use other prices. Limits: 16 active supply agreements per House, 256 per world;
-16 pending offers per House, 256 globally; 10,000 slots per resource per offer.
+16 pending offers per House, 256 globally; 10,000 slots per resource per offer. The
+per-House agreement limit is shown to players ("Supply agreements in use: N/16") and
+checked up front where the count is known: an independent resource trade offer is
+refused when made if either House is full, naming that House
+(`resource-supply-capacity.ts` in shared; the gateway reads live or memoized AI
+snapshots only, never fetching an offline House's). The proactive AI trade loop
+skips a House at its limit and makes no offer while full itself. The client
+disables Accept/Send at 16/16 for any deal adding supply, truce and alliance
+offers included. Accepts, and truce/alliance terms and AI counter-offers, are
+left to the simulation, whose refusal names the full House before any slot
+shortfall.

@@ -13,7 +13,7 @@ export type AiDiplomacySnapshot = {
   playerId: string;
   tiles: readonly SnapshotTile[];
   player?: Pick<SnapshotPlayer, "manpower" | "manpowerCap"> & Partial<Pick<SnapshotPlayer,
-    "manpowerRegenPerMinute" | "nextManpowerBatchAmount" | "resourceTradeHoldings" | "domainIds" | "gold" | "incomePerMinute" | "name" | "strategicResources" | "strategicProductionPerMinute" | "upkeepPerMinute" | "resourceSlots">>;
+    "manpowerRegenPerMinute" | "nextManpowerBatchAmount" | "resourceTradeHoldings" | "domainIds" | "gold" | "incomePerMinute" | "name" | "strategicResources" | "strategicProductionPerMinute" | "upkeepPerMinute" | "resourceSlots" | "resourceTradeAgreements">>;
   worldStatus?: { leaderboard: {
     overall?: readonly { id: string; tiles: number }[];
     selfOverall?: { id: string; tiles: number; score?: number } | undefined;

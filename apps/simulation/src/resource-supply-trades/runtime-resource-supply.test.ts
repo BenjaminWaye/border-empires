@@ -24,6 +24,17 @@ describe("resource trade inventory projection",()=>{
     expect(supply.cancel("contract","other").ok).toBe(true);
   });
 
+  // Playtest 2026-11-16: a full House with no spare slots got a slot shortfall,
+  // hiding that the agreement limit (which spare slots can't fix) blocked it.
+  it("reports a full House's agreement limit, by name, before a slot shortfall",()=>{
+    const full=Array.from({length:16},(_,i)=>({id:`deal-${i}`,proposerId:"alden",targetId:`p-${i}`,proposerGives:{},targetGives:{FOOD:1},startedAt:1}));
+    const supply=new RuntimeResourceSupply({now:()=>1,player:id=>({...buildPlayer(id),name:id==="alden"?"Alden":id}),ownedTiles:()=>[],
+      physicalUpkeep:()=>({FOOD:0,TITANIUM:0,CRYSTAL:0,UMBRITE:0}),
+      tileSettledAtByKey:new Map<string,number>(),beforeChange:()=>undefined,invalidate:()=>undefined,changed:()=>undefined},full);
+    expect(supply.create({id:"new",proposerId:"alden",targetId:"beejac",proposerGives:{FOOD:1},targetGives:{},startedAt:1})).toEqual(
+      {ok:false,message:"Alden already has 16/16 active supply agreements and can't take on another."});
+  });
+
   it("does not traverse territory to count physical network sites before extraction is unlocked",()=>{
     let reads=0;
     const player=buildPlayer("new");

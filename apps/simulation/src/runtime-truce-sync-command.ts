@@ -18,6 +18,8 @@ export type RuntimeTruceSyncCommandContext = {
   settleEconomy?: (at: number, playerIds: readonly string[]) => void;
   emitEconomyUpdate?: (command: CommandEnvelope, playerId: string) => void;
   now?: () => number;
+  /** Ends a truce's slot-free Coin pledges between two Houses when their truce ends. */
+  resourceSupply?: { endTrucePledgesBetween?: (playerAId: string, playerBId: string, actorId: string) => number };
 };
 
 // Truces don't grant shared vision (unlike alliances via
@@ -46,6 +48,8 @@ export function handleSyncTruceCommand(context: RuntimeTruceSyncCommandContext, 
   } else {
     actor.truces?.delete(target.id);
     target.truces?.delete(actor.id);
+    // The pledge paid for this truce; it doesn't outlive it.
+    context.resourceSupply?.endTrucePledgesBetween?.(actor.id, target.id, actor.id);
   }
   setTruceEndsAt(actor, target.id, payload.truced ? payload.endsAt : undefined);
   setTruceEndsAt(target, actor.id, payload.truced ? payload.endsAt : undefined);
