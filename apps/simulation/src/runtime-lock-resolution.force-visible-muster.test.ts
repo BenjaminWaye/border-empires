@@ -240,3 +240,74 @@ describe("resolveLock origin-overrun muster visibility", () => {
     );
   });
 });
+
+describe("resolveLock muster flag capture", () => {
+  const playerMessages = (events: SimulationEvent[]) =>
+    events.filter((event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> => event.eventType === "PLAYER_MESSAGE");
+
+  it("moves a captured flag's manpower into the attacker's pool and tells both sides", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", muster: { ownerId: DEFENDER_ID, amount: 30, mode: "HOLD", updatedAt: 0 } }]
+    ]);
+    const { context, events } = createContext(tiles);
+    context.playerManpowerCap = () => 1_000;
+    const impacts: Array<{ kind: string; playerId: string; amount?: number; gained?: number }> = [];
+    context.recordPersonalImpact = (event) => { impacts.push(event as (typeof impacts)[number]); };
+    context.players.get(ATTACKER_ID)!.manpower = 100;
+    const lock = makeWonAttackLock();
+    context.locksByTile.addLock(lock);
+    context.locksByCommandId.set(lock.commandId, lock);
+
+    resolveLock(context, lock);
+
+    // Before: the flag's 30 manpower vanished and the attacker stayed at 100.
+    expect(context.players.get(ATTACKER_ID)!.manpower).toBe(130);
+    expect(impacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "MUSTER_CAPTURED", playerId: ATTACKER_ID, amount: 30, gained: 30 }),
+      expect.objectContaining({ kind: "MUSTER_LOST", playerId: DEFENDER_ID, amount: 30 })
+    ]));
+    const messages = playerMessages(events);
+    expect(messages.map((m) => [m.playerId, m.messageType])).toEqual(expect.arrayContaining([[ATTACKER_ID, "MUSTER_CAPTURED"], [DEFENDER_ID, "MUSTER_LOST"]]));
+    expect(JSON.parse(messages.find((m) => m.messageType === "MUSTER_CAPTURED")!.payloadJson)).toMatchObject({ x: 6, y: 5, amount: 30, gained: 30, fromPlayerId: DEFENDER_ID });
+  });
+
+  it("caps the gain at the attacker's manpower ceiling and skips manpower reserved by the owner's own attacks", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", muster: { ownerId: DEFENDER_ID, amount: 80, mode: "HOLD", updatedAt: 0 } }]
+    ]);
+    const { context, events } = createContext(tiles);
+    context.playerManpowerCap = () => 120;
+    context.musterReservedByKey.set(TARGET_KEY, 20);
+    context.players.get(ATTACKER_ID)!.manpower = 100;
+    const lock = makeWonAttackLock();
+    context.locksByTile.addLock(lock);
+    context.locksByCommandId.set(lock.commandId, lock);
+
+    resolveLock(context, lock);
+
+    expect(context.players.get(ATTACKER_ID)!.manpower).toBe(120);
+    const captured = playerMessages(events).find((m) => m.messageType === "MUSTER_CAPTURED");
+    expect(JSON.parse(captured!.payloadJson)).toMatchObject({ amount: 60, gained: 20 });
+  });
+
+  it("gives the defender a failed attacker's origin flag", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED", muster: { ownerId: ATTACKER_ID, amount: 50, mode: "HOLD", updatedAt: 0 } }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED" }]
+    ]);
+    const { context, events } = createContext(tiles);
+    context.playerManpowerCap = () => 1_000;
+    context.players.get(DEFENDER_ID)!.manpower = 10;
+    const lock = makeLostAttackLock();
+    context.locksByTile.addLock(lock);
+    context.locksByCommandId.set(lock.commandId, lock);
+
+    resolveLock(context, lock);
+
+    expect(context.players.get(DEFENDER_ID)!.manpower).toBe(60);
+    expect(context.players.get(ATTACKER_ID)!.manpower).toBe(0);
+    expect(playerMessages(events).map((m) => [m.playerId, m.messageType])).toEqual(expect.arrayContaining([[DEFENDER_ID, "MUSTER_CAPTURED"], [ATTACKER_ID, "MUSTER_LOST"]]));
+  });
+});

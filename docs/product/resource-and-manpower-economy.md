@@ -73,6 +73,11 @@ defines what these systems mean in the fiction; follow the
 - The HUD shows manpower as a gauge (spendable now, manpower staged in muster
   flags, countdown to the next refill; ember below an ordinary attack, green at
   the cap; below 1440px wide the gauge is a strip along the chip's bottom edge) and the Development chip as one gear per slot (busy slots spin).
+- Capturing a tile that holds another player's muster flag credits the
+  captor with the flag's staged manpower (minus any amount reserved by the
+  owner's in-flight attacks), clamped to the captor's manpower ceiling; the
+  flag's owner gets nothing back and barbarian captors gain nothing
+  (`apps/simulation/src/muster-capture/`).
 - Town cap / regeneration by tier: Settlement 150 / 150÷720 per minute, Town
   300 / 300÷720, City 450 / 450÷720, Great City 750 / 750÷720, Metropolis
   1,350 / 1,350÷720. Terrain can adjust these values at runtime.

@@ -2,6 +2,7 @@ import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { TRUCE_EMAIL_EMPIRE_FELL_ENTRY } from "./client-changelog-truce-email-empire-fell.js";
 import { CHRONICLE_LOADING_STUCK_ENTRY } from "./client-changelog-chronicle-loading-stuck.js";
 import { MANPOWER_COPY_ENTRY } from "./client-changelog-manpower-copy.js";
+import { MUSTER_CAPTURE_ENTRY } from "./client-changelog-muster-capture.js";
 import { CHRONICLE_HEADLINE_ENTRY } from "./client-changelog-chronicle-headline.js";
 import { HYDROWORKS_PLACEMENT_TEXT_ENTRY } from "./client-changelog-hydroworks-placement-text.js";
 import { WHOLE_COIN_BALANCE_ENTRY } from "./client-changelog-whole-coin.js";
@@ -483,6 +484,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...WHOLE_COIN_BALANCE_ENTRY, createdAt: 1794944457814, },
   { ...RESOURCE_COUNTER_ENTRY, createdAt: 1794944628430, },
   { ...REFINERY_GIVES_ENTRY, createdAt: 1794950469519, },
+  { ...MUSTER_CAPTURE_ENTRY, createdAt: 1794949929394, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

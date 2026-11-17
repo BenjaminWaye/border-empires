@@ -26,6 +26,8 @@ import { townGrowthDustSeed } from "../client-town-tier-upgrade-fx/client-town-t
 import { expireTownTierUpgrades } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-detect.js";
 import type { TownTierUpgradeFxLayer } from "../client-town-tier-upgrade-fx/client-map-3d-town-tier-upgrade-fx.js";
 import type { AnchoredFxRoot } from "../client-map-3d-anchored-fx/client-map-3d-anchored-fx-root.js";
+import type { FloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
+import { liveMusterCaptureLabels } from "../client-muster-capture/client-muster-capture.js";
 
 const TILE_CENTER_OFFSET = 0.5;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
@@ -51,6 +53,8 @@ export type FxCastOverlayLayers = {
   afcModuleDeliveryFx: AfcModuleDeliveryFxLayer;
   afcDropFx: AfcDropFxLayer;
   townTierUpgradeFx: TownTierUpgradeFxLayer;
+  /** "+N / −N manpower" over a captured muster flag (client-muster-capture/; 2D draws its own). */
+  floatingText: FloatingTextLayer;
 };
 
 export type FxCastOverlayDeps = {
@@ -86,6 +90,7 @@ export type FxCastOverlaySyncs = {
   readonly syncAstralDockLaunchFxQueue: () => void;
   readonly syncAegisLockFxQueue: () => void;
   readonly syncTownTierUpgradeFxQueue: () => void;
+  readonly syncMusterCaptureLabels: (epochMs: number) => void;
 };
 
 export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlaySyncs => {
@@ -289,7 +294,19 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     expireTownTierUpgrades(state, Date.now());
   };
 
+  // Labels carry increasing ids: spawn each once, the floating-text layer animates it.
+  let lastSpawnedMusterLabelId = 0;
+  const syncMusterCaptureLabels = (epochMs: number): void => {
+    for (const label of liveMusterCaptureLabels(state, epochMs)) {
+      if (label.id <= lastSpawnedMusterLabelId) continue;
+      lastSpawnedMusterLabelId = label.id;
+      const { sceneX, sceneZ } = fxXZ(label.x, label.y);
+      layers.floatingText.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(label.x, label.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, label.text, label.color);
+    }
+  };
+
   return {
+    syncMusterCaptureLabels,
     syncTownTierUpgradeFxQueue,
     syncAetherLanceFxQueue,
     syncSurveySweepFxQueue,

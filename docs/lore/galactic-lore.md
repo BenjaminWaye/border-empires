@@ -636,6 +636,13 @@ remade bodies. It is the capacity committed to expansion, armies and
 construction. Its numerical pool, regeneration and relationship to town
 population are gameplay rules.
 
+A **muster flag** marks bodies gathered at one place, waiting to march. If
+another House takes the ground they stand on, it takes them too: the mustered
+bodies are seized and pressed into the captor's own service, adding to its
+manpower, rather than being scattered or sent home. Barbarians keep no such
+reserve, so a muster they overrun is simply lost. How much of a seized muster
+a House can absorb is a gameplay rule.
+
 An **Ancillary Factory** remakes local people into bodies under House control.
 **Forced Ancillarification** is a coercive emergency levy: residents are taken
 from the factory's supporting town and remade into an immediate manpower
