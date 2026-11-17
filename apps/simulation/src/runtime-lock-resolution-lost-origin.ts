@@ -51,8 +51,9 @@ export function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: L
   // The origin's muster flag (already stripped via `_discardMuster` above) is
   // taken by the player who reclaimed the tile: its unreserved manpower moves
   // to their pool (capped), never back to the attacker who lost it -- see
-  // muster-capture/muster-capture.ts. By now this lock's own cost has already
-  // been spent from the flag (consumeOriginMuster).
+  // muster-capture/muster-capture.ts. previousOrigin is read live, after this
+  // lock's own cost was spent from the flag (consumeOriginMuster); manpower
+  // still reserved by the attacker's other in-flight attacks is excluded.
   const hadMuster = Boolean(previousOrigin.muster);
   if (previousOrigin.muster) {
     const reserved = context.musterReservedByKey.get(lock.originKey) ?? 0;

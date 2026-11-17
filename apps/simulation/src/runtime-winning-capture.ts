@@ -67,20 +67,23 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
     };
     // Capturing a tile takes any muster flag staged on it. resolvedTarget never
     // carries `muster` forward (see the object literal above), so the flag
-    // itself is gone; its unreserved manpower moves to the captor's pool
-    // (capped) and is never refunded to the previous owner -- see
-    // muster-capture/muster-capture.ts. Manpower reserved by one of the
-    // owner's own attacks in flight is already committed to that fight.
+    // itself is gone; its manpower moves to the captor's pool (capped) and is
+    // never refunded to the previous owner -- see muster-capture/muster-capture.ts.
+    // Read the flag as it stands now, not `previousTarget`: a flag shielding
+    // its own tile was already spent by this fight (applyShieldConsumptionAndReveal).
+    // Manpower still reserved by the owner's other in-flight attacks or shields
+    // is excluded; those fights resolve without charging it once the flag is gone.
     const hadMuster = Boolean(previousTarget?.muster);
+    const liveMuster = context.tiles.get(lock.targetKey)?.muster;
     context.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
-    if (previousTarget?.muster) {
+    if (liveMuster) {
       const reserved = context.musterReservedByKey.get(lock.targetKey) ?? 0;
       applyMusterFlagCapture(context, {
         commandId: lock.commandId,
         captorId: lock.playerId,
         x: lock.targetX,
         y: lock.targetY,
-        muster: { ...previousTarget.muster, amount: Math.max(0, previousTarget.muster.amount - reserved) }
+        muster: { ...liveMuster, amount: Math.max(0, liveMuster.amount - reserved) }
       });
     }
     // A neutral town (no previous owner) is taken whole: no capture loss, and only the captor gets a card.

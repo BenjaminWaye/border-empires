@@ -1,6 +1,6 @@
 // 2D canvas half of the captured-muster-flag label (client-muster-capture.ts);
 // the true-3D map spawns the same label through its floating-text layer
-// (client-map-3d-muster-capture-labels.ts). Rises and fades over the tile.
+// (syncMusterCaptureLabels, client-map-3d/client-map-3d-fx-cast-overlays.ts). Rises and fades over the tile.
 import { liveMusterCaptureLabels, MUSTER_CAPTURE_LABEL_MS, type MusterCaptureLabelState } from "./client-muster-capture.js";
 
 const FADE_START = 0.55;

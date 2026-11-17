@@ -91,6 +91,8 @@ export type FxCastOverlaySyncs = {
   readonly syncAegisLockFxQueue: () => void;
   readonly syncTownTierUpgradeFxQueue: () => void;
   readonly syncMusterCaptureLabels: (epochMs: number) => void;
+  /** The per-frame drains that run before the anchored fx root follows the scene origin, in that order. */
+  readonly syncQueuesBeforeAnchorFollow: (nowMs: number) => void;
 };
 
 export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlaySyncs => {
@@ -305,7 +307,25 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     }
   };
 
+  const syncQueuesBeforeAnchorFollow = (nowMs: number): void => {
+    syncAetherLanceFxQueue();
+    syncSurveySweepFxQueue();
+    syncSurveySweepPings();
+    syncSiphonFxQueue();
+    syncRetortRecastFxQueue();
+    syncRevealEmpireFxQueue();
+    syncRevealEmpireStatsFxQueue();
+    syncBombardFxQueue();
+    syncSiegeBombardFxQueue();
+    syncSovereignSiegeEngineStrikeFxQueue();
+    syncSovereignSiegeEngineStrikeShakeQueue(nowMs);
+    syncImperialExchangeLevyFxQueue();
+    syncAstralDockLaunchFxQueue();
+    syncMusterCaptureLabels(Date.now()); // epoch ms, like the labels' startedAt
+  };
+
   return {
+    syncQueuesBeforeAnchorFollow,
     syncMusterCaptureLabels,
     syncTownTierUpgradeFxQueue,
     syncAetherLanceFxQueue,

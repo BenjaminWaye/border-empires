@@ -29,14 +29,22 @@ describe("applyMusterFlagCapture", () => {
     expect(impacts.map((i) => i.kind)).toEqual(["MUSTER_LOST"]);
   });
 
-  it("credits an AI captor but sends no player message to AI empires", () => {
+  it("credits an AI captor but sends AI empires no message or Chronicle entry", () => {
     const captor = player("ai-1", 0, true);
     const owner = player("ai-2", 0, true);
     const { context, messages, impacts } = harness([captor, owner]);
     applyMusterFlagCapture(context, { commandId: "c", captorId: "ai-1", x: 1, y: 2, muster: flag("ai-2", 25) });
     expect(captor.manpower).toBe(25);
     expect(messages).toEqual([]);
-    expect(impacts.map((i) => i.kind)).toEqual(["MUSTER_CAPTURED", "MUSTER_LOST"]);
+    expect(impacts).toEqual([]);
+  });
+
+  it("never pushes down a captor already above their ceiling", () => {
+    const captor = player("p1", 180);
+    const { context } = harness([captor, player("p2", 0)], 100);
+    const result = applyMusterFlagCapture(context, { commandId: "c", captorId: "p1", x: 0, y: 0, muster: flag("p2", 30) });
+    expect(captor.manpower).toBe(180);
+    expect(result?.gained).toBe(0);
   });
 
   it("ignores an empty flag and the captor's own flag", () => {
@@ -53,6 +61,7 @@ describe("applyMusterFlagCapture", () => {
     const { context } = harness([captor, player("p2", 0)], 100);
     const result = applyMusterFlagCapture(context, { commandId: "c", captorId: "p1", x: 0, y: 0, muster: flag("p2", 30) });
     expect(captor.manpower).toBe(150);
+    expect(captor.waystationManpowerOverflow).toBe(50);
     expect(result?.gained).toBe(0);
   });
 });

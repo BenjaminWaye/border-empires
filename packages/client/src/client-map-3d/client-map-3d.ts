@@ -505,19 +505,11 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const aetherBridgeTileSurfaceY = waypointFlagSurfaceY;
   const afcPadSurfaceY = createAfcPadSurfaceSampler(heightfield.cornerYAt, deps.wrapX, deps.wrapY, OVERLAY_RISE_ABOVE_HEIGHTFIELD);
   const {
-    syncAetherLanceFxQueue,
-    syncSurveySweepFxQueue,
-    syncSurveySweepPings,
-    syncSiphonFxQueue,
-    syncRetortRecastFxQueue,
-    syncRevealEmpireFxQueue,
-    syncRevealEmpireStatsFxQueue,
-    syncBombardFxQueue, syncSiegeBombardFxQueue,
-    syncSovereignSiegeEngineStrikeFxQueue,
-    syncSovereignSiegeEngineStrikeShakeQueue,
-    syncImperialExchangeLevyFxQueue,
-    syncUnsettleFxQueue, syncAfcModuleDeliveryFxQueue, syncAfcDropFxQueue, syncTownTierUpgradeFxQueue,
-    syncAstralDockLaunchFxQueue, syncMusterCaptureLabels,
+    syncQueuesBeforeAnchorFollow,
+    syncUnsettleFxQueue,
+    syncAfcModuleDeliveryFxQueue,
+    syncAfcDropFxQueue,
+    syncTownTierUpgradeFxQueue,
     syncAegisLockFxQueue
   } = createFxCastOverlaySyncs({
     state: deps.state,
@@ -1152,18 +1144,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       `${sceneOrigin.camX},${sceneOrigin.camY}`,
       deps.effectiveOverlayColor(deps.state.me), nowMs
     );
-    syncAetherLanceFxQueue();
-    syncSurveySweepFxQueue();
-    syncSurveySweepPings();
-    syncSiphonFxQueue();
-    syncRetortRecastFxQueue();
-    syncRevealEmpireFxQueue();
-    syncRevealEmpireStatsFxQueue();
-    syncBombardFxQueue(); syncSiegeBombardFxQueue();
-    syncSovereignSiegeEngineStrikeFxQueue();
-    syncSovereignSiegeEngineStrikeShakeQueue(nowMs);
-    syncImperialExchangeLevyFxQueue();
-    syncAstralDockLaunchFxQueue(); syncMusterCaptureLabels(Date.now()); // epoch ms, like the labels' startedAt
+    syncQueuesBeforeAnchorFollow(nowMs); // aether lance .. astral dock launch, muster capture labels (client-map-3d-fx-cast-overlays.ts)
     anchoredFx.root.follow(sceneOrigin); syncAegisLockFxQueue(); syncUnsettleFxQueue(); syncAfcModuleDeliveryFxQueue(); syncAfcDropFxQueue(); syncTownTierUpgradeFxQueue(); mapGuideOverlay.sync(deps.state, (x, y) => ({ sceneX: toroidDelta(sceneOrigin.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(x, y) + MARKER_RISE_ABOVE_HEIGHTFIELD }), nowMs); syncArrowOverlayFrame(arrowOverlay, deps.state.arrowGesture, (t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) })); // F1: driven every frame (not just on terrain rebuild) so the arrow tracks the mouse smoothly mid-drag
     scoutDroneOverlay.sync(deps.state.scoutDroneFlight, Date.now()); // client-map-3d-scout-drone/: allocation-free per frame
     crystalTargetingOverlay.sync({ ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected, keyFor: deps.keyFor, camX: sceneOrigin.camX, camY: sceneOrigin.camY, cornerYAt: heightfield.cornerYAt.bind(heightfield), toroidDelta });

@@ -244,13 +244,23 @@ describe("resolveLock origin-overrun muster visibility", () => {
 describe("resolveLock muster flag capture", () => {
   const playerMessages = (events: SimulationEvent[]) =>
     events.filter((event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> => event.eventType === "PLAYER_MESSAGE");
+  // Spends from the live flag like the real consumeOriginMuster, so the order of spend and capture is exercised.
+  const spendingContext = (tiles: Map<string, DomainTileState>) => {
+    const harness = createContext(tiles);
+    harness.context.consumeOriginMuster = (key, playerId, amount) => {
+      const tile = tiles.get(key);
+      if (!tile?.muster || tile.muster.ownerId !== playerId) return;
+      tiles.set(key, { ...tile, muster: { ...tile.muster, amount: Math.max(0, tile.muster.amount - amount) } });
+    };
+    return harness;
+  };
 
   it("moves a captured flag's manpower into the attacker's pool and tells both sides", () => {
     const tiles = new Map<string, DomainTileState>([
       [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
       [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", muster: { ownerId: DEFENDER_ID, amount: 30, mode: "HOLD", updatedAt: 0 } }]
     ]);
-    const { context, events } = createContext(tiles);
+    const { context, events } = spendingContext(tiles);
     context.playerManpowerCap = () => 1_000;
     const impacts: Array<{ kind: string; playerId: string; amount?: number; gained?: number }> = [];
     context.recordPersonalImpact = (event) => { impacts.push(event as (typeof impacts)[number]); };
@@ -277,7 +287,7 @@ describe("resolveLock muster flag capture", () => {
       [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
       [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", muster: { ownerId: DEFENDER_ID, amount: 80, mode: "HOLD", updatedAt: 0 } }]
     ]);
-    const { context, events } = createContext(tiles);
+    const { context, events } = spendingContext(tiles);
     context.playerManpowerCap = () => 120;
     context.musterReservedByKey.set(TARGET_KEY, 20);
     context.players.get(ATTACKER_ID)!.manpower = 100;
@@ -294,10 +304,10 @@ describe("resolveLock muster flag capture", () => {
 
   it("gives the defender a failed attacker's origin flag", () => {
     const tiles = new Map<string, DomainTileState>([
-      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED", muster: { ownerId: ATTACKER_ID, amount: 50, mode: "HOLD", updatedAt: 0 } }],
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED", muster: { ownerId: ATTACKER_ID, amount: 150, mode: "HOLD", updatedAt: 0 } }],
       [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED" }]
     ]);
-    const { context, events } = createContext(tiles);
+    const { context, events } = spendingContext(tiles);
     context.playerManpowerCap = () => 1_000;
     context.players.get(DEFENDER_ID)!.manpower = 10;
     const lock = makeLostAttackLock();
@@ -306,8 +316,30 @@ describe("resolveLock muster flag capture", () => {
 
     resolveLock(context, lock);
 
+    // The failed attack spent its 100 from the flag first; the defender takes the remaining 50.
     expect(context.players.get(DEFENDER_ID)!.manpower).toBe(60);
     expect(context.players.get(ATTACKER_ID)!.manpower).toBe(0);
     expect(playerMessages(events).map((m) => [m.playerId, m.messageType])).toEqual(expect.arrayContaining([[DEFENDER_ID, "MUSTER_CAPTURED"], [ATTACKER_ID, "MUSTER_LOST"]]));
+  });
+
+  it("credits only what a self-shielding flag has left after paying its match", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", muster: { ownerId: DEFENDER_ID, amount: 100, mode: "HOLD", updatedAt: 0 } }]
+    ]);
+    const { context, events } = spendingContext(tiles);
+    context.playerManpowerCap = () => 1_000;
+    context.players.get(ATTACKER_ID)!.manpower = 0;
+    const lock = makeWonAttackLock();
+    lock.combatResolution = { ...lock.combatResolution!, shield: { tileKey: TARGET_KEY, x: 6, y: 5, matched: 60 } };
+    context.locksByTile.addLock(lock);
+    context.locksByCommandId.set(lock.commandId, lock);
+
+    resolveLock(context, lock);
+
+    // Before the fix the captor was credited the pre-fight 100, minting the 60 the shield had just spent.
+    expect(context.players.get(ATTACKER_ID)!.manpower).toBe(40);
+    const lost = playerMessages(events).find((m) => m.messageType === "MUSTER_LOST");
+    expect(JSON.parse(lost!.payloadJson)).toMatchObject({ amount: 40 });
   });
 });

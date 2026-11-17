@@ -2,7 +2,7 @@
 // the captor gains its manpower, the owner loses it. Each side gets a feed
 // entry and a short-lived "+N" / "−N" label over the tile, drawn by both map
 // renderers from `musterCaptureLabels` (2D: client-map-2d-muster-capture-labels.ts,
-// 3D: client-map-3d-muster-capture-labels.ts).
+// 3D: syncMusterCaptureLabels in client-map-3d/client-map-3d-fx-cast-overlays.ts).
 import { MUSTER_CAPTURED_MESSAGE_TYPE, MUSTER_LOST_MESSAGE_TYPE } from "@border-empires/shared";
 import type { FeedEntry } from "../client-types.js";
 
