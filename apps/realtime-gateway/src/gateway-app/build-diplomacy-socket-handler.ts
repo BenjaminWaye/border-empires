@@ -9,6 +9,7 @@ import { createProactiveAiResourceTrade } from "../proactive-ai-resource-trade/p
 // file-and-type-discipline rule).
 import { activeSupplyAgreementCount, netValueToAi, type ClientMessage } from "@border-empires/shared";
 import type { CommandEnvelope, CurrentSeasonSummary, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import type { PlayerTradeHoldingsResult } from "../sim-client/sim-client-trade-holdings.js";
 import type { WebSocket } from "ws";
 
 import { combatFromSimulationEvent, createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
@@ -18,7 +19,8 @@ import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-revie
 import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { aiDiplomacyGrudges } from "../ai-diplomacy-stance/ai-diplomacy-grudges.js";
-import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
+import { answerDiplomacyStanceQuery, tradeHoldingsOf } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
+import { createHumanTradeState } from "../ai-diplomacy-stance/human-trade-state.js";
 import { createSeasonLeaderboardCache, seasonSizesFromSummary } from "../ai-diplomacy-stance/season-leaderboard-cache.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
@@ -61,7 +63,11 @@ export type DiplomacySocketHandlerDeps = {
   isSimulationConnected: () => boolean;
   /** Every competitive player's tile count, from the simulation's cached season summary. */
   /** The simulation's season summary: leaderboard sizes and the world's land count, for the AI alliance-bloc check. */
-  fetchSeasonSummary: () => Promise<Pick<CurrentSeasonSummary, "overall" | "landTileCount" | "dominanceTilesByPlayerId" | "status">>;
+  simulationReads: {
+    getCurrentSeasonSummary: () => Promise<Pick<CurrentSeasonSummary, "overall" | "landTileCount" | "dominanceTilesByPlayerId" | "status">>;
+    /** A player's coin, spare supply and supply agreement count for the deal screen (no full subscribe). */
+    getPlayerTradeHoldings: (playerId: string) => Promise<PlayerTradeHoldingsResult | undefined>;
+  };
 };
 
 export type DiplomacySocketHandler = {
@@ -167,7 +173,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const alliesOf = (playerId: string): readonly string[] => socialState.snapshotForPlayer(playerId).allies;
   // AI snapshots come from a live subscribe without world status, so the bloc
   // check's sizes come from the season leaderboard (cached, bounded wait).
-  const fetchSeasonSizes = async (): Promise<SeasonSizes> => seasonSizesFromSummary(await deps.fetchSeasonSummary());
+  const fetchSeasonSizes = async (): Promise<SeasonSizes> => seasonSizesFromSummary(await deps.simulationReads.getCurrentSeasonSummary());
   const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: fetchSeasonSizes, now: () => Date.now() });
   const diplomacyContext = async (requesterId: string, aiPlayerId: string): Promise<AiDiplomacyContext> => {
     const sizes = await seasonLeaderboard();
@@ -234,7 +240,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     fetchSnapshot: requesterSnapshot, hasLiveSocket: deps.hasLiveSocket, responder,
     fanout: deps.fanoutPlayerPayloads, recordEvent: deps.recordGatewayEvent,
     nameForPlayerId: async id => socialState.playerNameOf(id), diplomacyContext,
-    seasonEnded: async () => (await deps.fetchSeasonSummary()).status === "ended" });
+    seasonEnded: async () => (await deps.simulationReads.getCurrentSeasonSummary()).status === "ended" });
 
   // Live snapshots only (an AI's is memoized): an offline human's is unknown and never fetched, so a
   // refused request can't make the gateway pay for a full simulation snapshot. The simulation still enforces the limit.
@@ -244,7 +250,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   };
   const resourceTrades = createResourceTradeService({ social:socialState,settlement,now:()=>Date.now(),
     isAutoRespondingAi:id=>isAi(id)&&!deps.hasLiveSocket(id),
-    aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?{gold:Math.floor(player.gold),...(player.resourceTradeHoldings?{resources:player.resourceTradeHoldings}:{})}:undefined;},
+    aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?tradeHoldingsOf(player):undefined;},
     supplyAgreementCount,
     send:deps.sendJson,fanout:deps.fanoutPlayerPayloads,record:deps.recordGatewayEvent });
   const aiFoodTrades = createProactiveAiResourceTrade({ aiPlayerIds: deps.seededAiPlayerIds, hasLiveSocket: deps.hasLiveSocket,
@@ -255,9 +261,10 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       return at !== undefined && Date.now() - at < withinMs;
     },
     recordEvent: deps.recordGatewayEvent, now: () => Date.now(),
-    seasonEnded: async () => (await deps.fetchSeasonSummary()).status === "ended" });
+    seasonEnded: async () => (await deps.simulationReads.getCurrentSeasonSummary()).status === "ended" });
   const isAutoRespondingAi = (targetId: string): boolean => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId);
   const giftsInFlight = new Set<string>();
+  const humanTradeState = createHumanTradeState((id) => deps.simulationReads.getPlayerTradeHoldings(id));
   const answerStance = (requesterId: string, targetPlayerName: string, targetPlayerId: string | undefined) =>
     answerDiplomacyStanceQuery(
       {
@@ -268,7 +275,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
         fetchAiSnapshot,
         requesterSnapshot,
         diplomacyContext,
-        supplyAgreementCount
+        supplyAgreementCount,
+        humanTradeState
       },
       requesterId,
       targetPlayerName,

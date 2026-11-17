@@ -33,7 +33,8 @@ export type DiplomacyStanceReply = {
   supplyAgreementsFull?: true;
 } & (
   | { found: false; targetPlayerName: string }
-  | { found: true; targetPlayerName: string; targetPlayerId: string; ai: false }
+  /** holdings: the human's coin and spare supply, absent when they're offline or the gateway predates it. */
+  | { found: true; targetPlayerName: string; targetPlayerId: string; ai: false; holdings?: DiplomacyGoods }
   | {
       found: true;
       targetPlayerName: string;
