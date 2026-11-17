@@ -7,13 +7,16 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_117 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_118 } from "./client-changelog-data-earlier-118.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_119 } from "./client-changelog-data-earlier-119.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_120 } from "./client-changelog-data-earlier-120.js";
+import { FRONTIER_CLAIM_NEXT_TO_PENDING_ENTRY } from "./client-changelog-frontier-claim-next-to-pending.js";
 import { NO_RATE_LIMIT_ERRORS_ENTRY } from "./client-changelog-no-rate-limit-errors.js";
 import { SALVAGE_TOAST_DECLUTTER_ENTRY, SALVAGE_TRIBUTE_BALANCE_ENTRY } from "./client-changelog-salvage-tribute-balance.js";
-import { ENCIRCLEMENT_POCKET_ENTRY } from "./client-changelog-encirclement-pocket.js";
+import { SERVER_EXPLORED_MAP_ENTRY } from "./client-changelog-server-explored-map.js";
+import { RECONNECT_RAZED_STRUCTURES_ENTRY } from "./client-changelog-reconnect-razed-structures.js";
 import { FASTER_LOGIN_MAP_ENTRY } from "./client-changelog-faster-login-map.js";
 import { PLACE_ANOTHER_ENTRY } from "./client-changelog-place-another.js";
 import { TOWNS_LIST_COIN_PENDING_ENTRY } from "./client-changelog-towns-list-coin-pending.js";
 import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
+import { DISTRICT_FLAT_ART_OVER_3D_ENTRY } from "./client-changelog-district-3d-art.js";
 import { FORT_ANY_BUILDING_ENTRY } from "./client-changelog-fort-any-building.js";
 import { RESOURCE_TRADE_SAFETY_ENTRY } from "./client-changelog-resource-trade-safety.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
@@ -479,15 +482,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_120,
   { ...TIMED_RESOURCE_TRADES_ENTRY, createdAt: 1794762000000, },
   { ...SALVAGE_TRIBUTE_BALANCE_ENTRY, createdAt: 1794828701450, },
-  { ...ENCIRCLEMENT_POCKET_ENTRY, createdAt: 1794826569677, },
+  { ...SERVER_EXPLORED_MAP_ENTRY, createdAt: 1794827574814, },
+  { ...RECONNECT_RAZED_STRUCTURES_ENTRY, createdAt: 1794830646310, },
   { ...FASTER_LOGIN_MAP_ENTRY, createdAt: 1794856144245, },
   { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
+  { ...DISTRICT_FLAT_ART_OVER_3D_ENTRY, createdAt: 1794863250098, },
   { ...SALVAGE_TOAST_DECLUTTER_ENTRY, createdAt: 1794863171668, },
   { ...PLACE_ANOTHER_ENTRY, createdAt: 1794861771175, },
-  { ...FORT_ANY_BUILDING_ENTRY, createdAt: 1794864350262 },
+  { ...FORT_ANY_BUILDING_ENTRY, createdAt: 1794864350262, },
   { ...RESOURCE_TRADE_SAFETY_ENTRY, createdAt: 1794863712943, },
   { ...TOWNS_LIST_COIN_PENDING_ENTRY, createdAt: 1794864521632, },
   { ...NO_RATE_LIMIT_ERRORS_ENTRY, createdAt: 1794864645451, },
+  { ...FRONTIER_CLAIM_NEXT_TO_PENDING_ENTRY, createdAt: 1794865837776, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
