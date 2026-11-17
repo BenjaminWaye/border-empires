@@ -84,9 +84,13 @@ export const tryClaimFullscreenCard = (key: FullscreenCardKey, mounted: MountedF
   return () => release(token);
 };
 
-/** The key of the card on screen now, if any. */
+/**
+ * The key of the card on screen now, if any. Flushes first, so a card that
+ * left the page without its close hands the slot to the next waiting card
+ * instead of leaving it stuck until some unrelated card is enqueued.
+ */
 export const activeFullscreenCard = (): FullscreenCardKey | undefined => {
-  dropStaleActive();
+  flush();
   return active?.key;
 };
 

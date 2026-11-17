@@ -89,6 +89,18 @@ describe("full-screen card queue", () => {
     fakeCard("waystation-activation", shown);
     expect(onScreen()).toEqual(["waystation-activation"]);
   });
+
+  it("hands the slot to the waiting card when the card on screen left the page without closing", () => {
+    // Regression: the survey popup polls activeFullscreenCard(); a stale active card used to be
+    // forgotten there without flushing, so the queued card never showed and the survey was blocked.
+    const shown: Fake[] = [];
+    fakeCard("town-capture", shown);
+    fakeCard("waystation-activation", shown);
+    shown[0]?.element.remove();
+    expect(activeFullscreenCard()).toBe("waystation-activation");
+    expect(onScreen()).toEqual(["waystation-activation"]);
+    expect(queuedFullscreenCardCount()).toBe(0);
+  });
 });
 
 const captureInfo = (): TownCaptureInfo => ({
@@ -133,5 +145,16 @@ describe("post-capture cards", () => {
     document.querySelector<HTMLButtonElement>("[data-survey-dismiss]")?.click();
     expect(visibleCards()).toEqual(["town-capture-overlay"]);
     document.querySelector<HTMLButtonElement>("#town-capture-close")?.click();
+  });
+
+  it("does not let a waystation card with nothing to show replace a real one waiting its turn", () => {
+    showTownCaptureOverlay(captureInfo());
+    showWaystationActivationOverlay({ x: 5, y: 6, grantedEffect: "GOLD", revealedTown: false, grantedGold: 50, grantedGoldTier: "SMALL", onJumpToLocation: () => undefined });
+    // A TECH grant that resolved to nothing: no popup of its own.
+    showWaystationActivationOverlay({ x: 7, y: 8, grantedEffect: "TECH", revealedTown: false, onJumpToLocation: () => undefined });
+    expect(queuedFullscreenCardCount()).toBe(1);
+    document.querySelector<HTMLButtonElement>("#town-capture-close")?.click();
+    expect(visibleCards()).toEqual(["waystation-activation-overlay"]);
+    expect(document.getElementById("waystation-activation-overlay")?.textContent).toContain("+50 Coin");
   });
 });

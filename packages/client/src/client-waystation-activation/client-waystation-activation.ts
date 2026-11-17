@@ -113,9 +113,15 @@ const modifierForEffect = (info: WaystationActivationInfo): string | undefined =
   return undefined;
 };
 
-/** Queues the card behind any other full-screen card (town capture, survey): one card at a time. */
-export const showWaystationActivationOverlay = (info: WaystationActivationInfo): void =>
+/**
+ * Queues the card behind any other full-screen card (town capture, survey): one card at a time.
+ * A card with nothing to show is dropped here, before queueing, so it cannot replace a real
+ * waystation card already waiting for its turn.
+ */
+export const showWaystationActivationOverlay = (info: WaystationActivationInfo): void => {
+  if (!narrativeForEffect(info) || !modifierForEffect(info)) return; // TECH-no-op fallback: nothing was actually granted.
   enqueueFullscreenCard({ key: "waystation-activation", show: (close) => mountWaystationActivationOverlay(info, close) });
+};
 
 const mountWaystationActivationOverlay = (info: WaystationActivationInfo, close: () => void): HTMLElement | undefined => {
   const narrative = narrativeForEffect(info);
