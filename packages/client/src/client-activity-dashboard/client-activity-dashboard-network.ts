@@ -142,7 +142,9 @@ export const applyPersonalActivityTimelineMessage = (msg: Record<string, unknown
 
 export const applyActivityTimelineErrorMessage = (msg: Record<string, unknown>, state: ActivityDashboardState, deps: NetworkDeps): void => {
   state.activityDashboard.loading = false;
-  state.activityDashboard.error = typeof msg.message === "string" ? msg.message : "Couldn't load activity.";
+  // The server's message is engineering text (e.g. "personal activity timeline
+  // timed out after 10000ms"); the player gets the same retry hint as a client timeout.
+  state.activityDashboard.error = ACTIVITY_LOAD_FAILED_MESSAGE;
   deps.renderHud();
 };
 
@@ -154,7 +156,7 @@ export const applyWorldPulseMessage = (msg: Record<string, unknown>, state: Acti
 
 export const applyWorldPulseErrorMessage = (msg: Record<string, unknown>, state: ActivityDashboardState, deps: NetworkDeps): void => {
   state.activityDashboard.worldPulseLoading = false;
-  state.activityDashboard.worldPulseError = typeof msg.message === "string" ? msg.message : "Couldn't load the world pulse.";
+  state.activityDashboard.worldPulseError = WORLD_PULSE_LOAD_FAILED_MESSAGE;
   deps.renderHud();
 };
 

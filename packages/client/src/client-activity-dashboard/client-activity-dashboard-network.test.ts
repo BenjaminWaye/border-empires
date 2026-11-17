@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerHintStateSender } from "../client-discovery-tips/client-hint-server-sync.js";
 import {
+  ACTIVITY_LOAD_FAILED_MESSAGE,
   ACTIVITY_REQUEST_TIMEOUT_MS,
+  WORLD_PULSE_LOAD_FAILED_MESSAGE,
   acknowledgeActivitySeen,
   applyActivitySeenAcknowledgedMessage,
   applyPersonalActivityTimelineMessage,
@@ -319,17 +321,29 @@ describe("handleActivityDashboardMessage", () => {
     expect(handled).toBe(true);
   });
 
-  it("intercepts only its own ERROR code and clears loading", () => {
+  it("intercepts only its own ERROR code and clears loading, showing the retry hint rather than the server's text", () => {
     const state = makeState();
     state.activityDashboard.loading = true;
     const handled = handleActivityDashboardMessage(
-      { type: "ERROR", code: "ACTIVITY_TIMELINE_UNAVAILABLE", message: "nope" },
+      { type: "ERROR", code: "ACTIVITY_TIMELINE_UNAVAILABLE", message: "personal activity timeline timed out after 10000ms" },
       state,
       { sendGameMessage: vi.fn(), renderHud: vi.fn() }
     );
     expect(handled).toBe(true);
     expect(state.activityDashboard.loading).toBe(false);
-    expect(state.activityDashboard.error).toBe("nope");
+    expect(state.activityDashboard.error).toBe(ACTIVITY_LOAD_FAILED_MESSAGE);
+  });
+
+  it("shows World news failures as the retry hint, not the server's text", () => {
+    const state = makeState();
+    state.activityDashboard.worldPulseLoading = true;
+    handleActivityDashboardMessage(
+      { type: "ERROR", code: "WORLD_PULSE_UNAVAILABLE", message: "world pulse timed out after 10000ms" },
+      state,
+      { sendGameMessage: vi.fn(), renderHud: vi.fn() }
+    );
+    expect(state.activityDashboard.worldPulseLoading).toBe(false);
+    expect(state.activityDashboard.worldPulseError).toBe(WORLD_PULSE_LOAD_FAILED_MESSAGE);
   });
 
   it("leaves every other ERROR code unhandled, for the generic ERROR handler to process", () => {
