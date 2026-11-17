@@ -2,7 +2,7 @@
 // resources as used / total on desktop or free capacity on phones, and Integrity plus Settings.
 // Manpower lives in the orb, not here.
 
-import { formatCoinPerDay, type SlotResource } from "@border-empires/shared";
+import { formatCoinPerDay, spendableCoin, type SlotResource } from "@border-empires/shared";
 import { resourceSimpleIconUrl } from "../client-resource-icons/client-resource-icons.js";
 
 export const NET_COIN_TITLE = "Net coin per day: income less coin upkeep";
@@ -49,7 +49,7 @@ export const resourceBarHtml = (input: ResourceBarInput): string => {
   const coin = chip(
     "coin",
     "Coin",
-    `<span class="hud-v2-chip-value">${chipNumberHtml(input.gold)}</span><span class="hud-v2-chip-rate${rateTone}" title="${NET_COIN_TITLE}">${formatCoinPerDay(input.netPerMinute)}</span>`,
+    `<span class="hud-v2-chip-value">${chipNumberHtml(spendableCoin(input.gold))}</span><span class="hud-v2-chip-rate${rateTone}" title="${NET_COIN_TITLE}">${formatCoinPerDay(input.netPerMinute)}</span>`,
     resourceSimpleIconUrl("GOLD")
   );
   const shown = (key: SlotResource): boolean =>

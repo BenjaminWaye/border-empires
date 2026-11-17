@@ -102,3 +102,10 @@ export const formatCoinPerDay = (perMinute: number): string => {
   const perDay = coinPerDay(perMinute);
   return `${perDay >= 0 ? "+" : "−"}${Math.abs(perDay).toFixed(1)}/day`;
 };
+
+/**
+ * The whole coin you can actually spend. Coin accrues in fractions, but a balance is always shown
+ * rounded down: rounding 11.6 up to "12" offered coin the player didn't have yet, and a 12-coin
+ * trade then failed. The tiny epsilon keeps float dust (11.9999999) from hiding a coin you hold.
+ */
+export const spendableCoin = (gold: number): number => Math.max(0, Math.floor(finite(gold) + 1e-6));

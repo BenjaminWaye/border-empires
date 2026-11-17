@@ -73,4 +73,20 @@ describe("coin income surfaces read one figure", () => {
     expect(html).toContain("Gross coin / day");
     expect(html).toContain("38.0");
   });
+
+  // Playtest: the chip rounded 11.6 coin up to "12", and a 12-coin trade then failed.
+  it("shows the coin balance rounded down to what you can spend on the chip and in Economy", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 11.6;
+    const chip = text(resourceBarHtml({
+      gold: state.gold,
+      netPerMinute: 0,
+      slotSupply: state.resourceSlots.supply,
+      slotDemand: state.resourceSlots.demand,
+      integrityPct: undefined
+    }), ".hud-v2-chip-value");
+    expect(chip).toBe("11");
+    expect(text(hudEconomyPanelHtml(state, economyDeps), "[data-v2e-row='GOLD'] .v2e-amount")).toBe("11");
+  });
 });
