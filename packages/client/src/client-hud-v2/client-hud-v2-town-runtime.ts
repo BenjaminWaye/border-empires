@@ -3,6 +3,7 @@ import { pushFeed } from "../client-alerts/client-alerts.js";
 import { TOWN_PLOTS_TAKEN_REASON, townTileOpenPlotReason } from "../client-tile-action-logic/client-town-tile-support-gate.js";
 import { structureRequiresTownOrSupportTile } from "@border-empires/shared";
 import { dormantResourcesForTile, structureTypeForTileAction } from "../client-tile-action-support/client-tile-action-support.js";
+import { refineryStatusFor } from "../client-refineries/refinery-client-status.js";
 // Runtime for the town screen: decides when a selected tile opens it (your
 // town, or a tile in its support ring), renders it from the tile menu views,
 // and runs town actions on the town even while a support tile is selected.
@@ -83,6 +84,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? []),
     autoSettle: deps.state.autoSettle,
     dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field),
+    refineryStatusOf: (tile) => refineryStatusFor(deps.state, tile),
     plotsHtml: townPlotsCardHtml(deps.state, town),
     ...placeButtonState(placeFlash, screen.townBuildSelection, Date.now())
   });
