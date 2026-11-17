@@ -354,4 +354,14 @@ Crystal 6, Umbrite 4, and luxury biota 10. These are
 one-day-equivalent negotiation weights for an open-ended promise, not recurring
 charges, guaranteed market prices or playtest-proven balance. Human offers can
 use other prices. Limits: 16 active supply agreements per House, 256 per world;
-16 pending offers per House, 256 globally; 10,000 slots per resource per offer.
+16 pending offers per House, 256 globally; 10,000 slots per resource per offer. The
+per-House agreement limit is shown to players ("Supply agreements in use: N/16") and
+checked up front where the count is known: an independent resource trade offer is
+refused when made if either House is full, naming that House
+(`resource-supply-capacity.ts` in shared; the gateway reads live or memoized AI
+snapshots only, never fetching an offline House's). The proactive AI trade loop
+skips a House at its limit and makes no offer while full itself. The client
+disables Accept/Send at 16/16 for any deal adding supply, truce and alliance
+offers included. Accepts, and truce/alliance terms and AI counter-offers, are
+left to the simulation, whose refusal names the full House before any slot
+shortfall.

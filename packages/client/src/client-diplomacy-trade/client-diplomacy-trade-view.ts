@@ -22,6 +22,7 @@ import {
 
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import { giftVerdict, suggestedGift } from "./client-diplomacy-gift-view.js";
+import { ownSupplyLimitReason } from "./client-supply-agreement-limit.js";
 
 export type DiplomacyStanceKind = "DISTRUSTFUL" | "SEEKING_PEACE" | "OUTMATCHED" | "WINNING" | "INDIFFERENT" | "WARY";
 
@@ -171,6 +172,8 @@ export const tradeVerdict = (input: {
   own: DiplomacyGoods;
   cooldownRemainingMs: number;
   nowMs?: number;
+  /** Your active supply agreements; at the limit, a deal with resource supply can't be sent. */
+  ownSupplyAgreements?: number;
 }): TradeVerdict => {
   const { targetName, reply, selection, own } = input;
   const kind = selection.kind;
@@ -182,9 +185,12 @@ export const tradeVerdict = (input: {
   if (input.cooldownRemainingMs > 0) {
     return { tone: "bad", text: `You recently made ${targetName} this kind of offer.`, canSend: false, sendLabel: `Can offer again in ${formatOfferCooldown(input.cooldownRemainingMs)}` };
   }
+  const hasSupply = hasResourceSupplyOffer(selection.terms.give.resources) || hasResourceSupplyOffer(selection.terms.ask.resources);
+  // Before the shortfall: finding more goods won't help while you're at the agreement limit.
+  const limitReason = hasSupply && input.ownSupplyAgreements !== undefined ? ownSupplyLimitReason(input.ownSupplyAgreements) : undefined;
+  if (limitReason) return { tone: "bad", text: limitReason, canSend: false, sendLabel };
   const shortfall = ownGoodsShortfall(selection.terms.give, own);
   if (shortfall) return { tone: "bad", text: shortfall, canSend: false, sendLabel };
-  const hasSupply = hasResourceSupplyOffer(selection.terms.give.resources) || hasResourceSupplyOffer(selection.terms.ask.resources);
   if (hasRecurringCoin(selection.terms)) {
     // An AI takes Coin per hour only from you, and only for a truce: say so before pointing at a slot that wouldn't help.
     if (reply?.found && reply.ai && (selection.terms.ask.coinPerHour || kind !== "truce"))

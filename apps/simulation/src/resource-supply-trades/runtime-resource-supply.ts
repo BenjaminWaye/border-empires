@@ -43,7 +43,7 @@ export class RuntimeResourceSupply {
   constructor(private readonly ctx: RuntimeResourceSupplyContext, restored: readonly ResourceSupplyAgreement[] = [], journalSequence = 0) {
     this.journalSequence = journalSequence;
     // Salvage is never exported: zero capacity suspends any legacy salvage deal.
-    this.ledger = new ResourceSupplyLedger({ ...ctx, changed: (...args) => {
+    this.ledger = new ResourceSupplyLedger({ ...ctx, nameOf: id => ctx.player(id)?.name, changed: (...args) => {
       const [action, agreement] = args;
       ctx.changed(...args);
       if (action === "expired") ctx.ended?.(agreement, "EXPIRED");
@@ -106,6 +106,9 @@ export class RuntimeResourceSupply {
   create(row: ResourceSupplyAgreement, targetCoinDelta?: number): SupplyLedgerResult {
     if (offerIncludesNonTradableSupply(row.proposerGives) || offerIncludesNonTradableSupply(row.targetGives))
       return { ok: false, message: "Precursor salvage can't be traded." };
+    // The agreement limit is reported before a slot shortfall: it can't be fixed by finding spare slots.
+    const full = this.ledger.capacityRefusal(row);
+    if (full) { this.ctx.capacityRejected?.(); return { ok: false, message: full }; }
     for (const [id, offer] of [[row.proposerId, row.proposerGives], [row.targetId, row.targetGives]] as const) {
       const shortfall = supplyShortfallMessage(this.ctx.player(id)?.name ?? id, offer, this.available(id));
       if (shortfall) return { ok: false, message: shortfall };

@@ -17,6 +17,7 @@ import { PLACE_ANOTHER_ENTRY } from "./client-changelog-place-another.js";
 import { TOWNS_LIST_COIN_PENDING_ENTRY } from "./client-changelog-towns-list-coin-pending.js";
 import { AI_COIN_INCOME_ENTRY } from "./client-changelog-ai-coin-income.js";
 import { SCOUT_DRONE_REDESIGN_ENTRY } from "./client-changelog-explore-scout-drones.js";
+import { DISTRICT_FLAT_ART_OVER_3D_ENTRY } from "./client-changelog-district-3d-art.js";
 import { FORT_ANY_BUILDING_ENTRY } from "./client-changelog-fort-any-building.js";
 import { RESOURCE_TRADE_SAFETY_ENTRY } from "./client-changelog-resource-trade-safety.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_113 } from "./client-changelog-data-earlier-113.js";
@@ -486,6 +487,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...RECONNECT_RAZED_STRUCTURES_ENTRY, createdAt: 1794830646310, },
   { ...FASTER_LOGIN_MAP_ENTRY, createdAt: 1794856144245, },
   { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
+  { ...DISTRICT_FLAT_ART_OVER_3D_ENTRY, createdAt: 1794863250098, },
   { ...SALVAGE_TOAST_DECLUTTER_ENTRY, createdAt: 1794863171668, },
   { ...PLACE_ANOTHER_ENTRY, createdAt: 1794861771175, },
   { ...FORT_ANY_BUILDING_ENTRY, createdAt: 1794864350262, },
