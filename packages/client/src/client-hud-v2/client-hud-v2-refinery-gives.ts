@@ -11,7 +11,7 @@ import type { TileFact } from "./client-hud-v2-tile-facts.js";
 /** The refinery status of a tile's refinery as the viewer sees it (refineryStatusFor). */
 export type RefineryStatusOf = (tile: Tile) => RefineryClientStatus | undefined;
 
-/** The slot resource a refinery yields: a Gems field gives Crystal. */
+/** The slot resource a refinery yields (the GEMS tile resource is Crystal to players). */
 const YIELD_NAME: Readonly<Record<RefineryFieldResource, string>> = { TITANIUM: "Titanium", UMBRITE: "Umbrite", GEMS: "Crystal" };
 
 /** The Gives fact for a refinery of `type`; undefined for any other building. */

@@ -47,8 +47,8 @@ const manufactoryModifiers = (ctx: ModifierContext): StructureModifier[] => {
 
 // Refineries (refineries/, territory-development-plan.md Phase 2): each
 // processes one linked deposit field; boosters add to every processed tile of
-// their resource in the same town. Labels name the slot resource yielded (a
-// Gems field gives Crystal). The field's reach is a placement rule, shown in
+// their resource in the same town. Labels name the slot resource yielded (the
+// GEMS tile resource is Crystal). The field's reach is a placement rule, shown in
 // the field picker, not something the building gives.
 const REFINERY_YIELD_NAME: Readonly<Record<RefineryFieldResource, string>> = { TITANIUM: "Titanium", UMBRITE: "Umbrite", GEMS: "Crystal" };
 const BOOSTER_YIELD_NAME: Readonly<Record<RefineryBoosterType, string>> = { TITANIUM_SMELTER: "Titanium", UMBRITE_DISTILLERY: "Umbrite", CRYSTAL_CUTTER: "Crystal" };
