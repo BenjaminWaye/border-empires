@@ -15,6 +15,7 @@
 // uses canon terms from docs/lore/galactic-lore.md: Manifests are
 // *commissioned*, barbarians are *Planetary Defense*, empires are *Houses*.
 
+import { turnFinishTitle, turnFinishWhy } from "./tutorial-guide-turn-finish.js";
 import type { OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
 import { guideTargetAction, type GuideFootholdTargets, type GuideTargetAction } from "./tutorial-guide-foothold-targets.js";
 
@@ -77,6 +78,8 @@ export type GuideInput = {
   musterUnlocked: boolean;
   ownsMusterFlag: boolean;
   musterTargetTiles: ReadonlyArray<{ x: number; y: number }>;
+  /** The player's manpower and cap: the last step tells a player over the cap to spend, not to wait. */
+  manpower?: { current: number; cap: number };
 };
 
 export type GuideChapterId = "look" | "foothold" | "reach" | "manpower" | "manifest" | "afc" | "build" | "contest" | "diplomacy" | "turn";
@@ -343,9 +346,8 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "turn-finish",
     chapter: "turn",
-    title: () => "That's the basics. Your manpower refills every 4 hours.",
-    why: (i) =>
-      `Come back, spend it on expanding, building and attacking, and check the ${i.hudV2 ? "Chronicle" : "Activity dashboard"} for what happened while you were away.`,
+    title: (i) => turnFinishTitle(i.manpower),
+    why: (i) => turnFinishWhy(i.manpower, i.hudV2 ? "Chronicle" : "Activity dashboard"),
     isDone: () => false,
     acknowledge: true
   }

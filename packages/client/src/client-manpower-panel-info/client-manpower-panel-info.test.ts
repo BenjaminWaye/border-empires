@@ -10,7 +10,7 @@ describe("manpowerNextBatchHtml", () => {
 
   it("says how far over the cap the pool is, and that regen is paused", () => {
     const html = manpowerNextBatchHtml({ ...base, manpower: 2_800 });
-    expect(html).toContain("Over cap · no regen");
+    expect(html).toContain("Over cap · spend to refill");
     expect(html).toContain("+1,930");
     expect(html).not.toContain("Full");
   });
