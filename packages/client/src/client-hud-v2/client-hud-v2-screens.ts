@@ -26,6 +26,7 @@ import { dealPactClick, dealPactHtml } from "./client-hud-v2-diplomacy-pact.js";
 import { dealFactsText, dealSkeletonHtml, diplomacyListHtml, diplomacyResponseMessage, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
 import { manifestClick } from "./client-hud-v2-manifest-click.js";
+import { openTechDetailFromTileMenu } from "../client-tile-action-support/client-tech-locked-tile-action.js";
 import { forgetSeenEmpireTile, hasSeenEmpireTile, nearestSeenEmpireTile } from "../client-empire-map-focus/client-empire-map-focus.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
@@ -442,6 +443,20 @@ const townClick = (deps: HudV2Deps, target: Element): boolean => {
   if (build) {
     screen.townBuildSelection = build.dataset.v2BuildPick;
     renderTownScreen(deps);
+    return true;
+  }
+  // Biota next steps (client-hud-v2-town-biota.ts): a site's coordinates go to it on the map; the charter opens in the Manifest.
+  const goto = target.closest<HTMLElement>("[data-v2-town-goto]")?.dataset.v2TownGoto?.split(",").map(Number);
+  if (goto?.length === 2 && goto.every(Number.isFinite)) {
+    closeScreen(deps, { toMap: true });
+    focusCamera(deps, goto[0]!, goto[1]!);
+    deps.renderHud();
+    return true;
+  }
+  const tech = target.closest<HTMLElement>("[data-view-tech]")?.dataset.viewTech;
+  if (tech) {
+    openTechDetailFromTileMenu(deps.state, tech);
+    deps.renderHud();
     return true;
   }
   const work = target.closest<HTMLButtonElement>("[data-v2-work-action]");

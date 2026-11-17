@@ -20,6 +20,7 @@ import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
 import { townBiota } from "./client-hud-v2-town-biota.js";
+import type { BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import type { BiotaTownStatus } from "@border-empires/sim-protocol";
 import { builtStructureFacts, townGrowth, type DormantResourcesFor, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
@@ -54,6 +55,8 @@ export type TownScreenInput = {
   placedBefore?: boolean;
   /** This town's luxury biota supply (ManpowerBreakdown.biotaTowns); absent for a town that needs none. */
   biota?: BiotaTownStatus | undefined;
+  /** What to do about a biota shortfall (client-hud-v2-town-biota-steps.ts). */
+  biotaSteps?: readonly BiotaStep[];
 };
 
 const esc = (text: string): string =>
@@ -98,7 +101,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
     `<div class="v2t-built"><span><span class="v2t-built-name">${esc(b.label)}</span><span class="v2t-built-mods"><span class="v2t-mod-${b.tone}">${/^[+−]/.test(b.effect) ? "Coin " : ""}${esc(b.effect)}</span></span></span></div>`
   ).join("");
   // A large town short of biota gives a smaller tier's manpower: show what it gives, and why.
-  const biota = townBiota(town.populationTier, input.biota);
+  const biota = townBiota(town.populationTier, input.biota, input.biotaSteps);
   const manpower = terrainAdjustedTownManpower(biota.manpowerTier, terrainProfile, coastal);
   // The simulation's per-town demand after waivers; the tier base only explains a waiver.
   const foodDemand = townFoodSlotDemand(town);
