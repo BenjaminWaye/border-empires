@@ -3,6 +3,7 @@ import {
   terrainAt
 } from "@border-empires/shared";
 import { bootstrapClientApp } from "./client-bootstrap/client-bootstrap.js";
+import { installWorldTerrainStore } from "./client-world-terrain-store/client-world-terrain-store.js";
 import { createClientRuntimeDisplaySupport } from "./client-app-runtime-display-support/client-app-runtime-display-support.js";
 import {
   computeDragPreview as computeDragPreviewFromModule,
@@ -45,6 +46,7 @@ import { startPhotoMode } from "./client-photo-mode/client-photo-mode.js";
 import { domainOwnedHtml, hasRevealedResourceCategory, techCurrentModsHtml } from "./client-tech-html/client-tech-html.js";
 import { techOwnedHtml } from "./client-manifest-detail/client-manifest-owned-html.js";
 
+installWorldTerrainStore(); // before any terrain query: lets a returning login reuse its saved world terrain
 const state = createInitialState();
 // Consumes the ?x=&y= deep-link (already read into state.camX/camY/selected
 // above) so a later reload restores the last-viewed camera instead of

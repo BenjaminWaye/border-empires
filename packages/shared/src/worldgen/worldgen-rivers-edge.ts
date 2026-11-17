@@ -21,6 +21,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { wrapX, wrapY } from "../math/math.js";
 import { seeded01, terrainAt } from "./worldgen.js";
 import { isHillsTileAt } from "../hills-terrain/hills-terrain.js";
+import { persistHillsLayer } from "./worldgen-hills.js";
 import type { RiverPath, RiverPoint } from "./worldgen-rivers.js";
 import { headwaterMountainAt } from "./worldgen-river-headwater.js";
 import { worldgenVersion } from "./worldgen-version.js";
@@ -133,6 +134,7 @@ const buildClearCornerMask = (): Uint8Array => {
       if (t === "MOUNTAIN" || (t === "LAND" && isHillsTileAt(x, y))) blocked[y * WORLD_WIDTH + x] = 1;
     }
   }
+  persistHillsLayer(); // every land tile's hills value is now known: save it for the next login
   const clear = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     const y0 = wrapY(y - 1, WORLD_HEIGHT) * WORLD_WIDTH;

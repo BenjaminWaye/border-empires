@@ -46,6 +46,7 @@ export * from "./structure-placement.js";
 export * from "./trickle-resources.js";
 export * from "./worldgen/worldgen.js";
 export * from "./worldgen/worldgen-version.js";
+export { setWorldTerrainStore, type WorldTerrainLayer, type WorldTerrainStore } from "./worldgen/worldgen-terrain-persistence.js";
 export * from "./worldgen/worldgen-mountain-rings.js";
 export * from "./worldgen/worldgen-rivers.js";
 export { headwaterMountainAt, riverHeadsForCurrentSeed, type RiverHead } from "./worldgen/worldgen-river-heads.js";

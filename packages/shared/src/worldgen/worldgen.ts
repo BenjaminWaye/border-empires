@@ -10,6 +10,7 @@ import { grassShadeFor } from "./worldgen-meadow.js";
 import { isLakeAt } from "./worldgen-lakes.js";
 import { regionLatitudeBiasAt } from "./worldgen-latitude.js"; import { oasisFeatureAt } from "./worldgen-oasis.js";
 import { computeCoastalCleanupMasks, DEFAULT_CELLULAR_SMOOTHING, NOTCH_PRESERVING_CELLULAR_SMOOTHING } from "./worldgen-island-pruning.js";
+import { loadWorldTerrain, saveWorldTerrain, worldTerrainCacheKey, worldTerrainStore } from "./worldgen-terrain-persistence.js";
 import { isMicroMountainRange, isMountainRange, isOceanChannel } from "./worldgen-mountain-ranges.js";
 
 let CURRENT_WORLD_SEED = 42;
@@ -169,12 +170,23 @@ const coastalCleanupMasksFor = (): { tinyIslandMask: Uint8Array; coastalInfillMa
     cachedPruneMaskSeed = seed;
     cachedPruneMaskStyle = style;
     cachedPruneMaskVersion = version;
+    const storeKey = worldTerrainCacheKey(seed, style, version, WORLD_WIDTH, WORLD_HEIGHT);
+    const restored = loadWorldTerrain(storeKey, WORLD_TILE_COUNT);
+    if (restored) {
+      // Device-cached whole-world pass (client only): skips recomputing every tile's raw terrain.
+      rawTerrainCache.set(restored.rawTerrain);
+      rawTerrainCacheReady.fill(1);
+      cachedCoastalCleanupMasks = { tinyIslandMask: restored.tinyIslandMask, coastalInfillMask: restored.coastalInfillMask };
+      return cachedCoastalCleanupMasks;
+    }
     cachedCoastalCleanupMasks = computeCoastalCleanupMasks(
       WORLD_WIDTH,
       WORLD_HEIGHT,
       (x, y) => isLandLikeCode(rawBaseTerrainCodeAt(x, y)),
       continentSeparationActive() ? NOTCH_PRESERVING_CELLULAR_SMOOTHING : DEFAULT_CELLULAR_SMOOTHING
     );
+    // The mask pass above has just filled rawTerrainCache for every tile.
+    if (worldTerrainStore()) saveWorldTerrain(storeKey, { rawTerrain: rawTerrainCache, ...cachedCoastalCleanupMasks });
   }
   return cachedCoastalCleanupMasks;
 };
@@ -182,9 +194,11 @@ const coastalCleanupMasksFor = (): { tinyIslandMask: Uint8Array; coastalInfillMa
 const baseTerrainCodeAt = (x: number, y: number): number => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
+  // Masks first: building (or restoring) them fills the raw terrain of every
+  // tile, so this tile's raw code comes from that pass rather than ahead of it.
+  const { tinyIslandMask, coastalInfillMask } = coastalCleanupMasksFor();
   const raw = rawBaseTerrainCodeAt(wx, wy);
   const idx = worldIndex(wx, wy);
-  const { tinyIslandMask, coastalInfillMask } = coastalCleanupMasksFor();
   if (isLandLikeCode(raw) && tinyIslandMask[idx] === 1) return TERRAIN_SEA;
   if (raw === TERRAIN_SEA && coastalInfillMask[idx] === 1) return TERRAIN_LAND;
   return raw;
