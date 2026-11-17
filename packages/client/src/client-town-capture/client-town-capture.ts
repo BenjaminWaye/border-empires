@@ -2,6 +2,7 @@ import { manpowerPerBatch, manpowerRegenWeightForSettlementIndex, terrainAdjuste
 import { SETTLEMENT_BASE_GOLD_PER_MIN, TOWN_BASE_GOLD_PER_MIN, townPopulationMultiplier } from "@border-empires/game-domain";
 import { occupationSurveyController, type OccupationSurveyReport } from "../client-occupation-survey.js";
 import { townCharacterLabelForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
+import { enqueueFullscreenCard } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
 
 type TownPopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 
@@ -63,7 +64,11 @@ export const showTownCaptureOverlay = (info: TownCaptureInfo): void => {
   waiting = { info, timer };
 };
 
-const presentTownCaptureOverlay = (info: TownCaptureInfo): void => {
+// Behind any other full-screen card (waystation, survey) rather than over it: one card at a time.
+const presentTownCaptureOverlay = (info: TownCaptureInfo): void =>
+  enqueueFullscreenCard({ key: "town-capture", show: (close) => mountTownCaptureOverlay(info, close) });
+
+const mountTownCaptureOverlay = (info: TownCaptureInfo, close: () => void): HTMLElement => {
   const existing = document.getElementById("town-capture-overlay");
   if (existing) existing.remove();
 
@@ -86,8 +91,10 @@ const presentTownCaptureOverlay = (info: TownCaptureInfo): void => {
   const dismiss = (): void => {
     window.removeEventListener("keydown", onKeyDown, true);
     if (!overlay.isConnected) return;
-    occupationSurveyController.endCapture(info.surveyReports ?? []);
+    // The card listed these clues; closing it reads them, so their survey popups must not follow.
+    occupationSurveyController.endCapture(info.destroyed ? [] : info.surveyReports ?? []);
     overlay.remove();
+    close();
   };
   window.addEventListener("keydown", onKeyDown, true);
 
@@ -97,6 +104,7 @@ const presentTownCaptureOverlay = (info: TownCaptureInfo): void => {
     info.onJumpToTown();
     dismiss();
   });
+  return overlay;
 };
 
 const overlayHtml = (info: TownCaptureInfo): string => {
