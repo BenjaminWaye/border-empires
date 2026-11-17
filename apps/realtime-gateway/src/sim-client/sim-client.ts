@@ -30,7 +30,7 @@ import { listSeasonArchivesRpcCall, type ProtoSeasonArchivesAck } from "./sim-cl
 import { getSeasonParticipationRpcCall, type ProtoSeasonParticipationAck } from "./sim-client-season-participation.js";
 import { getActivityDashboardRpcCall, getRecentCommandsRpcCall, type ProtoActivityDashboardAck, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsAck } from "./sim-client-activity-and-commands.js";
 import { getCurrentSeasonSummaryRpcCall, getAdminPlayersRpcCall, type ProtoSeasonSummaryAck, type ProtoAdminPlayersAck } from "./sim-client-season-summary-and-admin.js";
-import { getPersonalActivityTimelineRpcCall, type ProtoPersonalActivityTimelineAck } from "./sim-client-personal-activity-timeline.js";
+import { getPersonalActivityTimelineRpcCall, type GetPersonalActivityTimelineRpc } from "./sim-client-personal-activity-timeline.js";
 import { normalizeProtoTile, type ProtoTileDelta, type SimClientTileDelta } from "./sim-client-tile-normalize.js";
 
 type ProtoAck = { ok: boolean };
@@ -155,7 +155,7 @@ type SimulationClientLike = {
   ) => void;
   GetPlayerCombatSummary?: (request: { player_id: string }, callback: (error: Error | null, response: ProtoPlayerCombatSummaryAck) => void) => void;
   GetActivityDashboard?: (request: Record<string, unknown>, callback: (error: Error | null, response: ProtoActivityDashboardAck) => void) => void;
-  GetPersonalActivityTimeline?: (request: { player_id: string; from_ms: number; to_ms: number }, callback: (error: Error | null, response: ProtoPersonalActivityTimelineAck) => void) => void;
+  GetPersonalActivityTimeline?: GetPersonalActivityTimelineRpc;
   GetRecentCommands?: (
     request: ProtoGetRecentCommandsRequest,
     callback: (error: Error | null, response: ProtoGetRecentCommandsAck) => void
