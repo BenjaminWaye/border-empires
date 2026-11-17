@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { isTruceEndingSoon, notifyTrucesEndingSoon, truceTimeLeftLabel, trucesEndingSoon } from "./client-truce-ending.js";
+import { isTruceEndingSoon, notifyTrucesEndingSoon, truceCanExtend, truceTimeLeftLabel, trucesEndingSoon } from "./client-truce-ending.js";
 
 const H = 3_600_000;
 const truce = (id: string, endsAt: number) => ({ otherPlayerId: id, otherPlayerName: id.toUpperCase(), startedAt: 0, endsAt, createdByPlayerId: "me" });
@@ -27,5 +27,13 @@ describe("truce ending soon", () => {
     expect(deps.pushFeed).toHaveBeenCalledTimes(1);
     expect(deps.pushFeed).toHaveBeenCalledWith("Truce with A ends in 1h.");
     expect(deps.showAlert).toHaveBeenCalledWith("Truce ending", "Truce with A ends in 1h.");
+  });
+
+  it("says when an ending truce is already at its total-length cap", () => {
+    const deps = { markUnseen: () => true, pushFeed: vi.fn(), showAlert: vi.fn() };
+    notifyTrucesEndingSoon([truce("a", 47 * H)], 46 * H, deps);
+    expect(deps.pushFeed).toHaveBeenCalledWith("Truce with A ends in 1h. It can't be extended further.");
+    expect(truceCanExtend(truce("a", 47 * H), 46 * H)).toBe(false);
+    expect(truceCanExtend(truce("a", H), 0)).toBe(true);
   });
 });

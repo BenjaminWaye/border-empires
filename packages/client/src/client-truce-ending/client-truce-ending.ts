@@ -4,6 +4,7 @@
 // button, its card and deal line say how long is left, and the Activity feed
 // plus a popup say so once per truce end (an extension moves the end, so a
 // truce that is extended and runs low again warns again).
+import { truceExtensionFits } from "@border-empires/shared";
 import type { ActiveTruceView } from "../client-types.js";
 
 export const TRUCE_ENDING_SOON_MS = 2 * 60 * 60_000;
@@ -15,6 +16,10 @@ export const isTruceEndingSoon = (truce: Pick<ActiveTruceView, "endsAt">, nowMs:
 /** Truces ending soon, soonest first. */
 export const trucesEndingSoon = <T extends Pick<ActiveTruceView, "endsAt">>(truces: readonly T[], nowMs: number): T[] =>
   truces.filter((truce) => isTruceEndingSoon(truce, nowMs)).sort((a, b) => a.endsAt - b.endsAt);
+
+/** False once even a 12h extension would pass the cap on a truce's total length, so no Extend prompt is offered. */
+export const truceCanExtend = (truce: Pick<ActiveTruceView, "startedAt" | "endsAt">, nowMs: number): boolean =>
+  truceExtensionFits(truce.startedAt, truce.endsAt, 12, nowMs);
 
 /** "1h 40m" / "40m": minutes matter in the last two hours, where "2h" hid them. */
 export const truceTimeLeftLabel = (endsAt: number, nowMs: number): string => {
@@ -40,7 +45,8 @@ export const notifyTrucesEndingSoon = (truces: readonly ActiveTruceView[], nowMs
   let told = false;
   for (const truce of trucesEndingSoon(truces, nowMs)) {
     if (!deps.markUnseen(truceEndingNoticeKey(truce))) continue;
-    const text = `Truce with ${truce.otherPlayerName} ends in ${truceTimeLeftLabel(truce.endsAt, nowMs)}.`;
+    const left = `Truce with ${truce.otherPlayerName} ends in ${truceTimeLeftLabel(truce.endsAt, nowMs)}.`;
+    const text = truceCanExtend(truce, nowMs) ? left : `${left} It can't be extended further.`;
     deps.pushFeed(text);
     deps.showAlert("Truce ending", text);
     told = true;

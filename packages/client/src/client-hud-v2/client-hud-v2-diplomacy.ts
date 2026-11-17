@@ -8,7 +8,7 @@ import { describeDiplomacyTermsForProposer, describeDiplomacyTermsForRecipient }
 
 import type { ActiveTruceView, AllianceRequest, LeaderboardOverallEntry, TruceRequest } from "../client-types.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
-import { isTruceEndingSoon, truceTimeLeftLabel, trucesEndingSoon } from "../client-truce-ending/client-truce-ending.js";
+import { isTruceEndingSoon, truceCanExtend, truceTimeLeftLabel, trucesEndingSoon } from "../client-truce-ending/client-truce-ending.js";
 
 export type DiplomacyListInput = {
   resourceOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
@@ -101,7 +101,7 @@ const endingRow = (truce: ActiveTruceView, input: DiplomacyListInput): string =>
   const name = input.nameOf(truce.otherPlayerId) || truce.otherPlayerName || "Empire";
   return `<div class="v2d-req v2d-ending">${crest(name, input.colorOf(truce.otherPlayerId))}
     <span class="v2d-req-text"><b>${esc(name)}</b><span>Truce ends ${truceTimeLeftLabel(truce.endsAt, input.nowMs)}</span></span>
-    <button type="button" class="v2s-btn v2s-btn-primary v2s-btn-sm" data-v2-dip-open="${esc(truce.otherPlayerId)}">Extend</button>
+    ${truceCanExtend(truce, input.nowMs) ? `<button type="button" class="v2s-btn v2s-btn-primary v2s-btn-sm" data-v2-dip-open="${esc(truce.otherPlayerId)}">Extend</button>` : `<button type="button" class="v2s-btn v2s-btn-sm" data-v2-dip-open="${esc(truce.otherPlayerId)}">Open</button>`}
   </div>`;
 };
 

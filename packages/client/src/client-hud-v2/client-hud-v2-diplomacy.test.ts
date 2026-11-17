@@ -99,6 +99,14 @@ describe("phone Diplomacy list: truces ending", () => {
     expect(html).toContain("Truce 9h");
   });
 
+  it("offers no Extend once the truce is at its total-length cap", () => {
+    const capped = { ...truce("ai-1", 47 * 3_600_000), startedAt: 0 };
+    const html = diplomacyListHtml(input({ activeTruces: [capped], nowMs: 46 * 3_600_000 }));
+    expect(html).toContain("Truces ending · 1");
+    expect(html).not.toContain(">Extend<");
+    expect(html).toContain('data-v2-dip-open="ai-1">Open<');
+  });
+
   it("shows no section when no truce is ending", () => {
     expect(diplomacyListHtml(input({ activeTruces: [truce("ai-1", 3 * 3_600_000)] }))).not.toContain("Truces ending");
   });
