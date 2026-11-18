@@ -28,7 +28,7 @@ describe("sealed charges bubble", () => {
 
   it("shows three illustrated cards and the House's note while the choice is open", () => {
     syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 2_000, false, () => {});
-    expect(root()?.querySelectorAll(".hcb-cards rect")).toHaveLength(3);
+    expect(root()?.querySelectorAll(".hcb-cards > g")).toHaveLength(3);
     expect(root()?.textContent).toContain("Your House has handed you 3 sealed charges. Keep 2.");
   });
 
