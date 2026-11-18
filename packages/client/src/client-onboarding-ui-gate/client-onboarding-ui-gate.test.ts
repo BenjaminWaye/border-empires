@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import type { AfcJoinDropPhase } from "../client-afc-join-drop/client-afc-join-drop-state.js";
-import { createOnboardingUiGateTicker, isOnboardingUiDeferred } from "./client-onboarding-ui-gate.js";
+import { createOnboardingUiGateTicker, isOnboardingUiDeferred, isTutorialGuideDeferred } from "./client-onboarding-ui-gate.js";
 
 const clearState = () => {
   const state = createInitialState();
@@ -28,6 +28,12 @@ describe("isOnboardingUiDeferred", () => {
     expect(isOnboardingUiDeferred(state)).toBe(true);
   });
 
+  it("is true while the 3D map is still being drawn after sign-in", () => {
+    const state = clearState();
+    state.mapPrep = { stage: "terrain", index: 1, startedAt: 1, stageStartedAt: 1 };
+    expect(isOnboardingUiDeferred(state)).toBe(true);
+  });
+
   it.each<[AfcJoinDropPhase, boolean]>([
     ["idle", false],
     ["waiting", true],
@@ -37,6 +43,18 @@ describe("isOnboardingUiDeferred", () => {
     const state = clearState();
     state.afcJoinDrop.phase = phase;
     expect(isOnboardingUiDeferred(state)).toBe(expected);
+  });
+});
+
+describe("isTutorialGuideDeferred", () => {
+  it("holds the guide while the 3D map is still being drawn after sign-in", () => {
+    // Playtest: "Tap your manpower gauge" showed over the "Drawing your map..." overlay.
+    const state = clearState();
+    state.firstChunkAt = 1;
+    state.mapPrep = { stage: "firstFrame", index: 4, startedAt: 1, stageStartedAt: 1 };
+    expect(isTutorialGuideDeferred(state)).toBe(true);
+    state.mapPrep = null;
+    expect(isTutorialGuideDeferred(state)).toBe(false);
   });
 });
 
