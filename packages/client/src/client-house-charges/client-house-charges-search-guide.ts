@@ -92,7 +92,9 @@ const guideFor = (charge: HouseChargeView, isExploredKey: (key: string) => boole
       ? EMPTY
       : { circles: [charge.searchCircle], ringDots: ringDots(charge.searchCircle, worldWidth, worldHeight), linkDots: [] };
   }
-  if (charge.targets.length === 0) {
+  // No exact point to circle: an undetected relic, a Correction (the server sends only its search circle's
+  // centre, never the rival's landing site) or Three Seats (the middle of the landmass's nearest towns).
+  if (charge.targets.length === 0 || charge.kind === "CORRECTION" || charge.kind === "METROPOLIS") {
     return { circles: [charge.searchCircle], ringDots: ringDots(charge.searchCircle, worldWidth, worldHeight), linkDots: [] };
   }
   const ends = charge.targets.map((target) =>
@@ -124,7 +126,8 @@ export const houseChargeGuideCentre = (
   worldWidth: number,
   worldHeight: number
 ): ChargeMapPoint | undefined => {
-  if (charge.areaTileKeys || charge.targets.length === 0 || charge.targets.some((target) => isExplored(target.x, target.y))) return undefined;
+  if (charge.areaTileKeys || charge.targets.length === 0 || charge.kind === "CORRECTION" || charge.kind === "METROPOLIS") return undefined;
+  if (charge.targets.some((target) => isExplored(target.x, target.y))) return undefined;
   const circles = charge.targets.map((target) => roughCircleFor(charge.id, target, worldWidth, worldHeight));
   const [first] = circles;
   if (!first) return undefined;

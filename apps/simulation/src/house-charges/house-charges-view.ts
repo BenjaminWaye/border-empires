@@ -78,8 +78,13 @@ const chargeView = (
     searchCircle: { ...charge.searchCircle },
     ...(charge.startTier ? { startTier: charge.startTier } : {}),
     ...(charge.areaTiles !== undefined ? { areaTiles: charge.areaTiles } : {}),
-    ...(charge.crossWater ? { crossWater: true } : {})
+    ...(charge.crossWater ? { crossWater: true } : {}),
+    ...(charge.areaTowns !== undefined ? { areaTowns: charge.areaTowns } : {})
   };
+  if (charge.kind === "CORRECTION") {
+    // Never the rival's exact landing site: the House gets its rough search circle and finds the AFC by scouting.
+    return { ...base, targets: charge.targets.map((target) => ({ ...target, x: charge.searchCircle.x, y: charge.searchCircle.y })) };
+  }
   if (charge.kind !== "RELIC") {
     const areaTileKeys = areaTileKeysFor(charge, world);
     return { ...base, targets: charge.targets.map((target) => ({ ...target })), ...(areaTileKeys ? { areaTileKeys } : {}) };
