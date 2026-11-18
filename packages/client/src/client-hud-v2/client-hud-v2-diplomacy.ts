@@ -152,13 +152,21 @@ export const dealFactsText = (stanceLabel: string, theirs: number | undefined, m
   return [stanceLabel, theirs === undefined ? "" : garrisonedTilesLabel(theirs), mine === undefined ? "" : `you have ${mine.toLocaleString("en-US")}`].filter(Boolean).join(" · ");
 };
 
-/** `facts`: the relation and tile counts the trade view itself doesn't show (dealFactsText). */
-export const dealSkeletonHtml = (targetName: string, facts = ""): string =>
-  `<div class="v2d-deal-nav"><button type="button" class="v2s-link" data-v2-dip-back>◁ All empires</button><span class="v2d-deal-with">${esc(targetName)}</span>${facts ? `<span class="v2d-deal-facts">${esc(facts)}</span>` : ""}</div>
+/**
+ * `facts`: the relation and tile counts the trade view itself doesn't show (dealFactsText). With `targetId`, the
+ * name and a "Profile ▸" link open that empire's profile (data-hud-v2-profile), which closes back to this deal.
+ */
+export const dealSkeletonHtml = (targetName: string, facts = "", targetId?: string): string => {
+  const name = targetId
+    ? `<button type="button" class="v2d-deal-with v2d-deal-profile" data-hud-v2-profile="${esc(targetId)}" title="View ${esc(targetName)}'s profile">${esc(targetName)}</button>`
+    : `<span class="v2d-deal-with">${esc(targetName)}</span>`;
+  const profileLink = targetId ? `<button type="button" class="v2s-btn v2s-btn-sm v2s-btn-ghost v2d-deal-profile-link" data-hud-v2-profile="${esc(targetId)}">Profile ▸</button>` : "";
+  return `<div class="v2d-deal-nav"><button type="button" class="v2s-link" data-v2-dip-back>◁ All empires</button>${name}${facts ? `<span class="v2d-deal-facts">${esc(facts)}</span>` : ""}${profileLink}</div>
    <div id="v2d-pact"></div>
    <div class="v2d-deal">
      <section class="v2d-terms" id="v2s-dip-host" aria-label="Deal"></section>
    </div>`;
+};
 
 /** Answer to an offer in the list: accept or decline one sent to you, or withdraw (CANCEL) one you sent. */
 export const diplomacyResponseMessage = (kind: "alliance" | "truce", verb: "ACCEPT" | "REJECT" | "CANCEL", requestId: string): Record<string, unknown> => ({
