@@ -1,16 +1,21 @@
-import { BufferAttribute, BufferGeometry, CanvasTexture, DynamicDrawUsage, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshBasicMaterial, PlaneGeometry, Scene } from "three";
+import { BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, DynamicDrawUsage, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshBasicMaterial, PlaneGeometry, Scene } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { houseChargeAreaEdges, houseChargeMarkerTiles, houseChargeTintTiles } from "./client-house-charges/client-house-charges-map.js";
+import { houseChargeAreaEdges, houseChargeMarkerTiles, houseChargeTintTiles, type ChargeMapPoint } from "./client-house-charges/client-house-charges-map.js";
+import { houseChargeSearchGuide } from "./client-house-charges/client-house-charges-search-guide.js";
+import { CHARGE_LINK_DOT_RADIUS, CHARGE_RING_DOT_RADIUS } from "./client-house-charges/client-map-guide-overlays-2d.js";
 import { createOnboardingChecklistHighlightOverlay, type OnboardingChecklistHighlightTile } from "./client-map-3d-onboarding-checklist-highlight.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 // True-3D map guidance, the counterpart of the 2D client-map-guide-overlays-2d.ts:
-// the onboarding guide's ring markers plus a focused House Charge's markers
+// the onboarding guide's ring markers plus a focused House Charge's markers,
+// its dotted rough circles and link (client-house-charges-search-guide.ts)
 // (one ring overlay, client-map-3d-onboarding-checklist-highlight.ts) and the
 // charge's shaded area, drawn as flat tiles on the ground at each tile's real
 // scene position (client-house-charges/client-house-charges-map.ts decides what).
 
 const MAX_TINT_TILES = 1_200;
+/** Dots per guide mesh: a few rough circles of ~75 dots, or one wide landmass circle, plus slack. */
+const MAX_GUIDE_DOTS = 1_024;
 const TINT_SIZE = 0.94;
 
 /**
@@ -48,6 +53,23 @@ const createTintMesh = (geometry: PlaneGeometry, material: MeshBasicMaterial, na
   return mesh;
 };
 
+const createDotMesh = (radius: number, color: string, name: string): InstancedMesh => {
+  const geometry = new CircleGeometry(radius, 10);
+  geometry.rotateX(-Math.PI * 0.5);
+  const mesh = new InstancedMesh(geometry, new MeshBasicMaterial({ toneMapped: false, color, transparent: true, opacity: 0.92, depthWrite: false }), MAX_GUIDE_DOTS);
+  mesh.name = name;
+  mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+  mesh.count = 0;
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 2;
+  return mesh;
+};
+
+const disposeDotMesh = (mesh: InstancedMesh): void => {
+  mesh.geometry.dispose();
+  (mesh.material as MeshBasicMaterial).dispose();
+};
+
 export type MapGuideScenePoint = OnboardingChecklistHighlightTile;
 export type MapGuideState = Pick<ClientState, "onboardingHighlightTiles" | "houseCharges" | "houseChargeFocusId" | "tiles" | "me">;
 
@@ -78,12 +100,31 @@ export const createMapGuideOverlay = (scene: Scene): MapGuideOverlay => {
   outline.name = "house-charge-area-outline";
   outline.frustumCulled = false;
   outline.renderOrder = 1;
-  scene.add(garrisoned, open, outline);
+  const ringDots = createDotMesh(CHARGE_RING_DOT_RADIUS, "#f0cf82", "house-charge-search-ring");
+  const linkDots = createDotMesh(CHARGE_LINK_DOT_RADIUS, "#fff4d6", "house-charge-search-link");
+  scene.add(garrisoned, open, outline, ringDots, linkDots);
   const matrix = new Matrix4();
+  /** Places dots at fractional tile positions: height from the nearest tile, x/z offset within it. */
+  const placeDots = (mesh: InstancedMesh, dots: readonly ChargeMapPoint[], toScene: (x: number, y: number) => MapGuideScenePoint): void => {
+    const count = Math.min(dots.length, MAX_GUIDE_DOTS);
+    for (let index = 0; index < count; index += 1) {
+      const dot = dots[index]!;
+      const tileX = Math.round(dot.x);
+      const tileY = Math.round(dot.y);
+      const point = toScene(((tileX % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH, ((tileY % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT);
+      matrix.makeTranslation(point.sceneX + dot.x - tileX, point.surfaceY + 0.02, point.sceneZ + dot.y - tileY);
+      mesh.setMatrixAt(index, matrix);
+    }
+    mesh.count = count;
+    if (count > 0) mesh.instanceMatrix.needsUpdate = true;
+  };
 
   return {
     sync: (state, toScene, nowMs) => {
-      const markers = houseChargeMarkerTiles(state, WORLD_WIDTH, WORLD_HEIGHT);
+      const guide = houseChargeSearchGuide(state, WORLD_WIDTH, WORLD_HEIGHT);
+      placeDots(ringDots, guide.ringDots, toScene);
+      placeDots(linkDots, guide.linkDots, toScene);
+      const markers = houseChargeMarkerTiles(state);
       const ringTiles = markers.length > 0 ? [...state.onboardingHighlightTiles, ...markers] : state.onboardingHighlightTiles;
       rings.sync(ringTiles.map((tile) => toScene(tile.x, tile.y)), nowMs);
       const counts = { garrisoned: 0, open: 0 };
@@ -117,7 +158,9 @@ export const createMapGuideOverlay = (scene: Scene): MapGuideOverlay => {
     },
     dispose: () => {
       rings.dispose();
-      scene.remove(garrisoned, open, outline);
+      scene.remove(garrisoned, open, outline, ringDots, linkDots);
+      disposeDotMesh(ringDots);
+      disposeDotMesh(linkDots);
       geometry.dispose();
       outlineGeometry.dispose();
       outlineMaterial.dispose();
