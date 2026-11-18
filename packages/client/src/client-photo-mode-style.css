@@ -23,8 +23,9 @@ body.photo-mode .salvage-toast-layer {
 
 #photo-mode-exit-control {
   position: fixed;
-  left: 16px;
-  bottom: 16px;
+  /* Clear of the iPhone home-indicator strip, where a tap starts the system swipe instead. */
+  left: calc(16px + env(safe-area-inset-left, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   z-index: 1000;
   padding: 8px 14px;
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -37,7 +38,9 @@ body.photo-mode .salvage-toast-layer {
   transition: opacity 0.4s ease;
 }
 
+/* Faded for clean screenshots but still tappable: phones have no Esc or Ctrl+P,
+   so a tap on the button is the only way out, and with pointer-events off that
+   tap fell through to the map instead (2026-11-18 report). */
 #photo-mode-exit-control.is-idle {
   opacity: 0;
-  pointer-events: none;
 }

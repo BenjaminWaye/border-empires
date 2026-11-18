@@ -17,6 +17,7 @@ import { TOWN_BAR_BUTTONS_ENTRY } from "./client-changelog-town-bar-buttons.js";
 import { GUIDE_AFTER_MAP_LOAD_ENTRY } from "./client-changelog-guide-after-map-load.js";
 import { QUIET_LOGIN_CARDS_ENTRY } from "./client-changelog-quiet-login-cards.js";
 import { LOW_RESOURCE_NEXT_STEPS_ENTRY } from "./client-changelog-low-resource-next-steps.js";
+import { PHOTO_MODE_EXIT_TAP_ENTRY } from "./client-changelog-photo-mode-exit-tap.js";
 
 export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   { ...HILL_FOG_SEAMS_ENTRY, createdAt: 1794989604778, },
@@ -36,4 +37,5 @@ export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   { ...GUIDE_AFTER_MAP_LOAD_ENTRY, createdAt: 1795033635525, },
   { ...QUIET_LOGIN_CARDS_ENTRY, createdAt: 1795033408340, },
   { ...LOW_RESOURCE_NEXT_STEPS_ENTRY, createdAt: 1795035489227, },
+  { ...PHOTO_MODE_EXIT_TAP_ENTRY, createdAt: 1795041297907, },
 ];

@@ -110,7 +110,7 @@ const showExitControl = (onExit: () => void): void => {
   const handleEscape = (event: KeyboardEvent): void => {
     if (event.key === "Escape") handleExit();
   };
-  // Hidden (and not clickable) while idle; any input brings it back, so the first tap never exits by accident.
+  // Faded while idle but still clickable (client-photo-mode-style.css): on a phone, a tap on it is the only way out.
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   const wake = (event?: Event): void => {
     // A modifier alone (Cmd+Shift+4, Win+Shift+S) is a screenshot shortcut starting, not a request for the button.
