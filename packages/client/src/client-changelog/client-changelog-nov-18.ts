@@ -30,9 +30,6 @@ export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   { ...LOGIN_LORE_QUOTES_ENTRY, createdAt: 1795004512423, },
   { ...CHARGE_SEARCH_CIRCLES_ENTRY, createdAt: 1794988683730, },
   { ...CORRECTION_CHARGES_ENTRY, createdAt: 1795020091328, },
-<<<<<<< HEAD
-  { ...LOADING_QUOTE_EVERYWHERE_ENTRY, createdAt: 1795035395774, },
-=======
   { ...GUIDE_AFTER_MAP_LOAD_ENTRY, createdAt: 1795033635525, },
->>>>>>> origin/develop
+  { ...LOADING_QUOTE_EVERYWHERE_ENTRY, createdAt: 1795035395774, },
 ];
