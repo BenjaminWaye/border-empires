@@ -123,8 +123,8 @@ describe("scanGuideFootholdTargets", () => {
     ]);
     expect(scanGuideFootholdTargets(tiles.values(), ME, () => 0, () => true)).toEqual({
       // Fogged neutral towns and food count: a scout drone's reveal drops back to fog behind it.
-      town: { outOfReach: 0, pending: [], garrison: [{ x: 2, y: 0 }], expand: [{ x: 9, y: 0 }, { x: 12, y: 0 }] },
-      food: { outOfReach: 0, pending: [{ x: 7, y: 7 }], garrison: [{ x: 1, y: 1 }], expand: [{ x: 3, y: 3 }, { x: 4, y: 4 }] }
+      town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [{ x: 2, y: 0 }], expand: [{ x: 9, y: 0 }, { x: 12, y: 0 }] },
+      food: { outOfReach: 0, unreachable: 0, pending: [{ x: 7, y: 7 }], garrison: [{ x: 1, y: 1 }], expand: [{ x: 3, y: 3 }, { x: 4, y: 4 }] }
     });
   });
 });

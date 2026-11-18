@@ -107,7 +107,8 @@ export const persistentAlertsForState = (
         id: `town_unfed:${tile.x},${tile.y}`,
         kind: "town_unfed",
         title: "Town unfed",
-        detail: `${townLabel(tile)} needs FOOD upkeep.`,
+        // Says the fix, not just the state: a playtester stayed Unfed with no idea how to feed the town (2026-11).
+        detail: `${townLabel(tile)}: garrison grain or fish in your reach.`,
         x: tile.x,
         y: tile.y,
         severity: "warn"

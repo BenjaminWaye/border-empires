@@ -1,4 +1,4 @@
-# Tutorial guide for new accounts
+# Tutorial guide
 
 Status: active; phases 1–3 implemented, phase 4 (telemetry and playtests) open
 Owner: client maintainers
@@ -33,21 +33,29 @@ building, mustering or the "every visit is a turn" rhythm (`core-loop.md` §0).
 
 ## Design
 
-**Who gets it.** New accounts only. The gateway marks an account that has not
-finished its first profile setup with `profileNeedsSetup` on INIT. An account
-with no stored guide status that is in that state, and has not completed the
-checklist, is enrolled once (`guideStatus: "active"`). Guest ("Play now")
-sessions are enrolled too: the gateway always reports `profileNeedsSetup:
-false` for guests, so the client treats a guest session as new. Each guest's
-local storage is scoped by its Firebase uid (`guest:<uid>`,
-`debugAuthIdentityKeyForEmail`), not one shared `anonymous` key, so a new
-guest doesn't inherit an earlier guest's progress on the same browser. Every older
-account has no status and a complete profile, so it keeps the New empire
-checklist unchanged.
+**Who gets it.** Every player, at the start of every season (owner decision
+after the 2026-11 playtest, where an account from an earlier season went
+straight to the map with no guide). Progress is per season: the gateway
+stores `guideSeasonId` with `guideStatus`/`guideSteps`, and on INIT the client
+starts a fresh guide whenever the stored progress belongs to another season,
+or there is none. Progress saved before it carried a season is adopted as the
+current season's (and stamped), so a player who already finished or skipped
+the guide this season isn't sent through it again. **Skip guide** ends it for
+the rest of the season. With no season known (no current season on INIT) the
+old rule applies: only a new account (`profileNeedsSetup`, or a guest
+session) is enrolled. Each guest's local storage is scoped by its Firebase
+uid (`guest:<uid>`, `debugAuthIdentityKeyForEmail`), not one shared
+`anonymous` key, so a new guest doesn't inherit an earlier guest's progress on
+the same browser.
 
 **What it looks like.** One small card in the bottom-left corner: the same slot
-the checklist bubble uses, measured to clear the Center/AFC button. The card
-shows:
+the checklist bubble uses, measured to clear the Center/AFC button. When that
+spot would cover the step's ringed tiles (projected by the active renderer,
+2D or true-3D) or a notification (salvage and refinery toasts on the map, the
+discovery-tip toast, the HUD v2 tracker and right-hand column), the card moves
+to the mirrored spot on the right edge (`tutorial-guide-placement.ts`). It only
+moves when its current spot covers something and the other covers less. The
+card shows:
 
 - the chapter's name (no "n/10" chapter number: steps complete out of order and
   waiting chapters are passed over, so the number jumped and read as skipped
@@ -59,13 +67,16 @@ shows:
 - a progress bar with a steps-done count;
 - **Show me** (centres the camera on the step's map target; repeated presses
   cycle through the targets; when the card covers the screen centre, as on a
-  phone, it folds to its launcher so the target isn't under it), **Skip** and,
-  on the last step, **Finish**;
-- a "Hide guide" link.
+  phone, it folds to its launcher so the target isn't under it), **Skip** (this step)
+  and, on the last step, **Finish**;
+- a compact **Skip guide** button in the same action row (no new HUD element,
+  and the card keeps its size on a 375px phone).
 
-**Finish** replaces the card with a short "Guide complete" card (steps done,
-and a note when Contest and Diplomacy were never reached) that closes itself
-after a few seconds. There is no in-game reward for finishing.
+**Finish** replaces the card with a short "Guide complete" card that closes
+itself after a few seconds. Its bar is always full: Finish is only offered once
+every step left waits on a first contact, and those steps are handed to the
+First Contact tip (the card says so). A "Guide complete" over a 14/16 bar
+contradicted itself. There is no in-game reward for finishing.
 
 The card minimises to a round launcher with a remaining-steps badge. The root
 element ignores pointer events; only the card and the launcher take clicks.
@@ -95,9 +106,12 @@ element ignores pointer events; only the card and the launcher take clicks.
 - **Off-screen targets** get no edge arrow. "Show me" pans the camera to them
   instead.
 
-**When it hides.** The guide uses the existing onboarding UI gate: it is hidden
-while a dialog covers the map or the AFC landing is still pending or playing,
-then returns.
+**When it hides.** The guide is hidden while a dialog covers the map, and while
+the AFC landing is about to play (its AFC on screen) or playing
+(`isTutorialGuideDeferred`). Unlike the other onboarding UI it doesn't wait for
+a landing whose AFC is off screen: that can wait up to 5 minutes for the player
+to look at it, and in the playtest the guide only appeared minutes in, at step
+3, with the pan and zoom steps ticked while it was hidden.
 
 **Discovery tips while it runs.** While the card is expanded on a step the
 player can do now, the discovery-tip toast stays quiet so there aren't two
@@ -167,9 +181,15 @@ the same rule.
   (`optimisticPending`, for example right after Expand To), the step says so
   instead of asking for a Garrison that is already queued.
 
-Known limits: "Expand To" is suggested for the nearest neutral target the
-player has seen without checking that a land route exists. A town across
-water may have no Expand To in its menu. A fogged target shows its owner as
+A neutral town counts as an Expand To target only with an overland route from
+the player's land (`tutorial-guide-town-route.ts`, a bounded client-only search
+mirroring the Expand To planner: LAND steps, unexplored ground passable, dock
+pairs). A town across water the player has seen has no Expand To in its menu,
+so the step asks for the scout drone instead ("No town you can reach: …"):
+crossing water is what the drone is for. Only the nearest 8 towns are checked.
+
+Known limits: food targets don't get the route check, and allied or truce
+borders are not modelled in the town route. A fogged target shows its owner as
 last seen, so a town a rival took since the drone flew over can still be
 suggested until the player sees it again.
 
@@ -194,10 +214,12 @@ payouts".
 | `…/tutorial-guide-card.ts`, `…/tutorial-guide-anchor.ts` | Card DOM and its layer over panels; HUD-button outline |
 | `…/tutorial-guide-manifest-pick.ts` | "Guide pick" mark on the recommended Manifest in both trees |
 | `…/tutorial-guide-storage.ts` | Enrollment, progress, server sync |
+| `…/tutorial-guide-placement.ts` | Moves the card off its ringed tiles and notifications |
+| `…/tutorial-guide-town-route.ts` | Overland route check for town targets |
 | `…/tutorial-guide-foothold-targets.ts` | Garrison / Expand To / Explore / beacon choice for the town and food steps |
 | `…/tutorial-guide-explore-target.ts` | Scout drone status and the unexplored tile the Explore steps ring |
 | `client-onboarding-ui-gate/client-onboarding-ui-overlays.ts` | Chooses guide versus checklist; per-frame tick |
-| `apps/realtime-gateway/src/gateway-app/handle-set-hint-state-message.ts`, `sqlite-player-profile-store.ts` | Server persistence (`guide_status`, `guide_steps` columns) |
+| `apps/realtime-gateway/src/gateway-app/handle-set-hint-state-message.ts`, `sqlite-player-profile-store.ts` | Server persistence (`guide_status`, `guide_steps`, `guide_season_id` columns) |
 
 ## Phases
 

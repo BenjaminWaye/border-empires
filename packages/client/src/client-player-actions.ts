@@ -1,4 +1,4 @@
-import { DEVELOPMENT_PROCESS_LIMIT, TRICKLE_RESOURCE_KEYS } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, OUT_OF_REACH_LABEL, TRICKLE_RESOURCE_KEYS } from "@border-empires/shared";
 import { refineryRejectionMessage } from "./client-refineries/refinery-commands.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
@@ -229,6 +229,7 @@ export const explainActionFailureFromServer = (
   if (code === "TRUCE_LOCKED_OUT") return "A House in this deal recently broke a truce. New truces are locked for 24 hours after a break.";
   // Only reached once a throttled command was re-sent and refused repeatedly (client-command-pacer).
   if (code === "COMMAND_RATE_LIMITED") return "Too many orders at once. That one didn't go through; try it again in a moment.";
+  if (code === "OUT_OF_REACH") return `${OUT_OF_REACH_LABEL}. A Relay Beacon extends it.`;
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot garrison: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
@@ -297,5 +298,7 @@ export const explainActionFailureFromServer = (
   if (message.includes("development slots are busy")) {
     return `Cannot start development: ${message}. You can run up to ${DEVELOPMENT_PROCESS_LIMIT} at once.`;
   }
-  return `Error ${code}: ${message}`;
+  // Never the raw code ("Error OUT_OF_REACH: ..." reached players, 2026-11 playtest): the sim's message, sentence-cased.
+  const plain = message.trim().replace(/[.。]\s*$/, "");
+  return plain && plain !== "unknown failure" ? `${plain.charAt(0).toUpperCase()}${plain.slice(1)}.` : "That didn't go through.";
 };

@@ -31,3 +31,13 @@ it("explains a failed diplomacy settlement without the raw code", () => {
   expect(text).toBe("Couldn't accept the offer. The deal fell through: Lena doesn't have 2 spare Biota supply slots for this deal.");
   expect(text).not.toContain("DIPLOMACY_SETTLEMENT_FAILED");
 });
+
+// Playtest 2026-11 (staging): a refused garrison showed the raw "Error OUT_OF_REACH: tile is outside your reach".
+it("explains OUT_OF_REACH in plain words, never the raw code", () => {
+  expect(explainActionFailureFromServer("OUT_OF_REACH", "tile is outside your reach")).toBe("Outside your reach. A Relay Beacon extends it.");
+});
+
+it("never shows a raw error code for an unmapped refusal", () => {
+  expect(explainActionFailureFromServer("SOME_NEW_CODE", "tile is busy")).toBe("Tile is busy.");
+  expect(explainActionFailureFromServer("SOME_NEW_CODE", "")).toBe("That didn't go through.");
+});

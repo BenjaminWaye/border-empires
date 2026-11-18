@@ -17,6 +17,7 @@ import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upg
 import { isMeetablePlayerId } from "../client-alliance/client-met-players.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
+import { createGuideTownRouteCheck } from "./tutorial-guide-town-route.js";
 import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
 import { resolveMyReach, serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-beacon-site.js";
@@ -56,6 +57,7 @@ export type GuideInputState = Pick<
   | "scoutDroneFlight"
   | "afcRecovery"
   | "discoveredTiles"
+  | "dockPairs"
 >;
 
 const MAX_BUILD_TARGETS = 6;
@@ -216,10 +218,11 @@ const foodSlotFreeFor = (state: GuideInputState): boolean => {
   return (state.resourceSlots?.supply.FOOD ?? 0) - (state.resourceSlots?.demand.FOOD ?? 0) >= needed;
 };
 
-/** Towns and food to point at; food only inside reach (the server's border once a REACH_UPDATE has arrived). */
+/** Towns and food to point at; food only inside reach (the server's border once a REACH_UPDATE has arrived), towns only with an overland route. */
 const footholdTargetsFor = (state: GuideInputState): GuideFootholdTargets => {
   const reach = resolveMyReach(state);
-  return scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile), (x, y) => reach.has(tileKey(x, y)));
+  const hasRoute = createGuideTownRouteCheck(state.tiles, state.me, state.dockPairs);
+  return scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile), (x, y) => reach.has(tileKey(x, y)), hasRoute);
 };
 
 export const buildGuideInput = (state: GuideInputState): GuideInput => {
