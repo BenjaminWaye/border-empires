@@ -59,6 +59,19 @@ describe("townEconomyViewForPlayer", () => {
     expect(ctx.townNetworkCacheByPlayer.has("ai-2")).toBe(false);
   });
 
+  it("rebuilds when the biota allocation changes, but a caller without one reuses the memo", () => {
+    const ctx = context("ai-3");
+    ctx.summaryForPlayer("ai-3").ownedTownTierByTile.set("4,4", "CITY");
+    ctx.tiles.get("4,4")!.town!.populationTier = "CITY";
+    let biota = new Map([["4,4", { received: 0, needed: 1, manpowerTier: "TOWN" as const }]]);
+    const short = townEconomyViewForPlayer(ctx, "ai-3", { biotaTownSupply: () => biota });
+    expect(short?.[0]?.biotaShortSlots).toBe(1);
+    expect(townEconomyViewForPlayer(ctx, "ai-3", { rebuildOnMiss: false })).toBe(short);
+    expect(townEconomyViewForPlayer(ctx, "ai-3", { biotaTownSupply: () => biota })).toBe(short);
+    biota = new Map([["4,4", { received: 1, needed: 1, manpowerTier: "CITY" as const }]]);
+    expect(townEconomyViewForPlayer(ctx, "ai-3", { biotaTownSupply: () => biota })?.[0]?.biotaShortSlots).toBe(0);
+  });
+
   it("returns undefined for an unknown player", () => {
     expect(townEconomyViewForPlayer(context(), "nobody")).toBeUndefined();
   });

@@ -48,6 +48,7 @@ const entry = (townKey: string, overrides: Partial<TownEconomyEntry> = {}): Town
   ancillaryFactoriesInReach: 0,
   depotTownsInReach: 0,
   amplifiersUnderConstruction: [],
+  biotaShortSlots: 0,
   ...overrides
 });
 
@@ -106,6 +107,15 @@ describe("chooseBestEconomicBuild — economic synergy", () => {
       { ...NEED, GOLD: 0, MANPOWER_THROUGHPUT: 1 }
     );
     expect(result?.structureType).toBe("NEURAL_WORKS");
+  });
+
+  it("builds a Vivarium in a town short of luxury biota once Census Office is researched", () => {
+    const tiles = townSite(10, 10, "METROPOLIS");
+    const short = [entry("10,10", { biotaShortSlots: 3 })];
+    expect(plan(player(short, ["census-records"]), tiles)?.structureType).toBe("VIVARIUM");
+    // Without the tech, or with the town fully supplied, the coin build wins as before.
+    expect(plan(player(short), tiles)?.structureType).toBe("MANUFACTORY");
+    expect(plan(player([entry("10,10")], ["census-records"]), tiles)?.structureType).toBe("MANUFACTORY");
   });
 
   it("puts the Manufactory in the richer town", () => {

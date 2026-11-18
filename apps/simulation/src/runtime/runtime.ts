@@ -557,7 +557,7 @@ export class SimulationRuntime {
       resourceSlotSupplyForPlayer: (playerId) => runtime.resourceSlotSupplyForPlayer(playerId),
       resourceSlotDemandForPlayer: (playerId) => runtime.resourceSlotDemandForPlayer(playerId),
       resourceSlotDormancyForPlayer: (playerId) => runtime.resourceSlotDormancyForPlayer(playerId),
-      townEconomyViewForPlayer: (playerId) => townEconomyViewForPlayer(runtime.townNetworkContext(), playerId),
+      townEconomyViewForPlayer: (playerId) => townEconomyViewForPlayer(runtime.townNetworkContext(), playerId, { biotaTownSupply: () => { const p = runtime.state.players.get(playerId); return p ? runtime.cachedManpowerStructureBonusForPlayer(p).biotaTownSupply : undefined; } }),
       playerManpowerCap: (player) => runtime.playerManpowerCap(player),
       playerManpowerRegenPerMinute: (player) => runtime.playerManpowerRegenPerMinute(player),
       tacticalViewForPlayer: (playerId, focusKeys) => runtime.tacticalViewForPlayer(playerId, focusKeys)
