@@ -9,7 +9,8 @@
 // All state lives on DomainPlayer.houseCharges and is snapshotted with the
 // player; the geometry is derived per tile map (house-charges-world.ts).
 // Cost per run: a tile scan only while some House is still waiting for a
-// deal, plus each kept charge's evaluation (bounded by the target's size or
+// deal, one more (shared by every House) when a kept Writ of Correction needs
+// the map's AFCs, plus each kept charge's evaluation (bounded by the target's size or
 // the House's own garrisoned land for a Charter).
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { HOUSE_CHARGES_KEPT, encodeChargeArt, getWorldSeed, keptHouseCharges, type HouseCharge, type HouseChargePoint } from "@border-empires/shared";
@@ -37,6 +38,18 @@ export type HouseChargesTicker = {
   readonly tick: (nowMs: number) => void;
   /** Runs now regardless of the throttle (tests, and a final pass before crowning). */
   readonly runNow: (nowMs: number) => void;
+};
+
+/** Every AFC tile, scanned on first use and then reused (one pass over the map at most). */
+export const afcTileScan = (tiles: ReadonlyMap<string, DomainTileState>): (() => readonly DomainTileState[]) => {
+  let scanned: DomainTileState[] | undefined;
+  return () => {
+    if (!scanned) {
+      scanned = [];
+      for (const tile of tiles.values()) if (tile.afc) scanned.push(tile);
+    }
+    return scanned;
+  };
 };
 
 /** Each landed House's landing site: its first AFC (one it landed preferred). */
@@ -73,8 +86,9 @@ export const runHouseChargesPass = (
       const home = sites.get(player.id);
       if (!home) continue;
       // A landing with no qualifying target gets an empty deal, so it is not retried every pass.
-      const rivalLandingSites = [...sites].filter(([playerId]) => playerId !== player.id).map(([, site]) => site);
-      const dealt = dealHouseCharges({ world, tiles, playerId: player.id, home, worldSeed, holders: (key) => holderCount.get(key) ?? 0, now: nowMs, rivalLandingSites }) ??
+      const rivalLandings = [...sites].filter(([playerId]) => playerId !== player.id).map(([playerId, site]) => ({ playerId, name: players.get(playerId)?.name ?? playerId, x: site.x, y: site.y }));
+      const rivalLandingSites = rivalLandings.map(({ x, y }) => ({ x, y }));
+      const dealt = dealHouseCharges({ world, tiles, playerId: player.id, home, worldSeed, holders: (key) => holderCount.get(key) ?? 0, now: nowMs, rivalLandingSites, rivalLandings }) ??
         { dealtAt: nowMs, offered: [], keptIds: [] };
       // AI Houses never name islands (NAME_ISLAND), so they keep charges they can complete over a Survey Claim.
       if (player.isAi) dealt.keptIds = aiKeptIds(dealt.offered);
@@ -83,8 +97,10 @@ export const runHouseChargesPass = (
       changed.add(player.id);
     }
   }
+  // One AFC scan per pass, and only when some kept Writ of Correction needs it.
+  const afcTiles = afcTileScan(tiles);
   for (const player of players.values()) {
-    if (refreshPlayerHouseCharges(player, tiles, players, nowMs)) changed.add(player.id);
+    if (refreshPlayerHouseCharges(player, tiles, players, nowMs, afcTiles)) changed.add(player.id);
   }
   return [...changed];
 };
@@ -99,7 +115,8 @@ export const refreshPlayerHouseCharges = (
   player: DomainPlayer,
   tiles: ReadonlyMap<string, DomainTileState>,
   players: ReadonlyMap<string, DomainPlayer>,
-  nowMs: number
+  nowMs: number,
+  afcTiles: () => readonly DomainTileState[] = afcTileScan(tiles)
 ): boolean => {
   const state = player.houseCharges;
   if (!state) return false;
@@ -107,7 +124,7 @@ export const refreshPlayerHouseCharges = (
   const completeSince: Record<string, number> = {};
   const sizes: Record<string, number> = {};
   for (const charge of keptHouseCharges(state)) {
-    const standing = houseChargeStanding(charge, { world, tiles, players, playerId: player.id });
+    const standing = houseChargeStanding(charge, { world, tiles, players, playerId: player.id, afcTiles });
     sizes[charge.id] = standing.size;
     if (standing.complete) completeSince[charge.id] = state.completeSince?.[charge.id] ?? nowMs;
     // Art follows what was last held complete, so a card shows the road or area the House actually held.

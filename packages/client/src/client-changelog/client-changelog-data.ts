@@ -1,3 +1,4 @@
+import { CORRECTION_CHARGES_ENTRY } from "./client-changelog-correction-charges.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
 import { GUIDE_EVERY_SEASON_ENTRY } from "./client-changelog-guide-every-season.js";
@@ -492,6 +493,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Occupied plots and enemy land no longer appear as empty building space."
     ]
   },
+  { ...CORRECTION_CHARGES_ENTRY, createdAt: 1795020091328, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

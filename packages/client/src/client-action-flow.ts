@@ -854,7 +854,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
     }
     return menuOverviewForTileFromModule(tile, {
-      state,
+      state, playerNameForOwner: (ownerId?: string | null) => playerDisplayNameForOwnerFromState(state, ownerId),
       prettyToken,
       terrainLabel,
       displayTownGoldPerMinute,

@@ -489,8 +489,8 @@ question in §14.
 Before a landing, each House gives its campaign leader a few **sealed
 charges**: the House's own ambitions for this world, separate from the
 Court's terms of victory. Its trading families may want a secure road
-between two named market towns; its elders a town grown great enough to seat
-a cadet line; its surveyors a landmass, waste or ice field entered in the
+between two named market towns; its elders three towns on one landmass grown
+into Metropolises, each great enough to seat a cadet line; its surveyors a landmass, waste or ice field entered in the
 charts under its name; its scholars a particular Concordance installation
 woken. The charges are private. The House learns which goals were sent, the
 watching Core does not, and rivals can only guess from what the House chooses
@@ -498,7 +498,15 @@ to fight for.
 
 The charges are drawn from the House's own landing reports, so they point at
 places near where it came down. A House may set one charge aside in its first
-day on the ground. The surveyors' bearings come from the Court's slow,
+day on the ground.
+
+Some charges are grievances. When a House's elders hold a wrong against a
+rival House from before the landing, they lodge it with the Court's heralds
+(§8) and seal it as a **Writ of Correction**: take an AFC the rival House
+founded and keep it until the campaign is decided, so the Core sees the wrong
+answered. The writ stays sealed with the other charges. The rival does not
+know it has been named until it is struck, and the Core learns the whole
+quarrel only when the seals are broken. The surveyors' bearings come from the Court's slow,
 incomplete charts, so a charge first marks only an area; the House finds the
 exact place by scouting it. An installation is known only by its maintenance
 beacon until the House garrisons it.
@@ -748,7 +756,9 @@ the current planet, not a new seasonal expedition.
 
 A commissioned House module is a physical asset assigned to an AFC. House
 copies can be redeployed among owned AFCs. Capturing an AFC transfers its
-installed machinery as captured copies; the captor does not acquire the
+installed machinery as captured copies, but never its founding: an AFC is
+known by the House that landed or built it for as long as it stands, whoever
+holds it now; the captor does not acquire the
 original House's redeployment rights. Losing an AFC does not erase the
 House's knowledge or every local building previously enabled by it.
 

@@ -6,7 +6,7 @@ import { HOUSE_CHARGES_KEPT, WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } f
 import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { houseChargeUnscoutedHint } from "./client-house-charges-map.js";
-import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL, houseChargeObjective, houseChargeProgress } from "./client-house-charges-labels.js";
+import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL, houseChargeLetter, houseChargeObjective, houseChargeProgress } from "./client-house-charges-labels.js";
 
 export type HouseChargesPanelDeps = {
   readonly root: ParentNode;
@@ -38,6 +38,11 @@ export const houseChargeFocusPoint = (charge: HouseChargeView, isExplored?: (x: 
   return charge.targets.find((target) => isExplored(target.x, target.y)) ?? charge.searchCircle;
 };
 
+const letterHtml = (charge: HouseChargeView): string => {
+  const letter = houseChargeLetter(charge);
+  return letter ? `<p class="house-charge-letter">${escapeHtml(letter)}</p>` : "";
+};
+
 const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: boolean, focused: boolean, scoutHint: string | undefined): string => {
   const progress = houseChargeProgress(charge);
   // While choosing, the card follows the tick boxes so a swap reads at a glance before it is saved.
@@ -64,6 +69,7 @@ const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: bool
     <header class="house-charge-head"><strong class="house-charge-title">${escapeHtml(charge.title)}</strong>${pips}</header>
     <div class="house-charge-type">${HOUSE_CHARGE_KIND_LABEL[charge.kind]} · ${HOUSE_CHARGE_RARITY_LABEL[charge.rarity]}</div>
     <p class="house-charge-objective">${escapeHtml(houseChargeObjective(charge))}</p>
+    ${letterHtml(charge)}
     ${progress ? `<p class="house-charge-progress">${escapeHtml(progress)}</p>` : ""}
     ${scoutHint ? `<p class="house-charge-progress is-scout">${escapeHtml(scoutHint)}</p>` : ""}
     <footer class="house-charge-foot">${status}${keep}<button class="panel-btn${focused ? " is-active" : ""}" type="button" data-house-charge-jump="${escapeHtml(charge.id)}" aria-pressed="${focused}">${focused ? "Hide on map" : "Show on map"}</button></footer>

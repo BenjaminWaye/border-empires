@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { HOUSE_CHARGE_TARGET_CAP, HOUSE_CHARGE_TOWN_CAP } from "@border-empires/shared";
+import { HOUSE_CHARGE_HOUSE_CAP, HOUSE_CHARGE_TARGET_CAP, HOUSE_CHARGE_TOWN_CAP } from "@border-empires/shared";
 import { createSeasonSeedWorld } from "../season-seed-world.js";
+import { metropolisHolderCap } from "./house-charge-dealing.js";
 import { runHouseChargesPass } from "./house-charges-ticker.js";
+import { houseChargesWorldFor } from "./house-charges-world.js";
 
 // Acceptance check from docs/house-charges-plan.md against the real season
 // worldgen: on continent maps with about 100 empires, at least 95% of Houses
@@ -42,7 +44,11 @@ describe("House Charges on seeded worlds", () => {
       for (const player of dealt) {
         for (const charge of player.houseCharges!.offered) for (const target of charge.targets) holders.set(target.key, (holders.get(target.key) ?? 0) + 1);
       }
-      for (const [key, count] of holders) expect(count).toBeLessThanOrEqual(key.startsWith("town:") ? HOUSE_CHARGE_TOWN_CAP : HOUSE_CHARGE_TARGET_CAP);
+      const townsByIsland = new Map<string, number>();
+      for (const town of houseChargesWorldFor(tiles).towns) if (town.islandId) townsByIsland.set(town.islandId, (townsByIsland.get(town.islandId) ?? 0) + 1);
+      const capFor = (key: string): number =>
+        key.startsWith("town:") ? HOUSE_CHARGE_TOWN_CAP : key.startsWith("house:") ? HOUSE_CHARGE_HOUSE_CAP : key.startsWith("metropolis:") ? metropolisHolderCap(townsByIsland.get(key.slice("metropolis:".length)) ?? 0) : HOUSE_CHARGE_TARGET_CAP;
+      for (const [key, count] of holders) expect(count, key).toBeLessThanOrEqual(capFor(key));
     }, 300_000);
   }
 });

@@ -4,12 +4,16 @@
 // simulation (authority: dealing, held state, crowning results), the gateway
 // and the client.
 
-export type HouseChargeKind = "CHARTER" | "SEAT" | "SURVEY" | "DESERT" | "TUNDRA" | "RELIC";
+/**
+ * SEAT (grow one town to City) is no longer dealt; it stays so charges already
+ * dealt this season keep their meaning until the season ends.
+ */
+export type HouseChargeKind = "CHARTER" | "SEAT" | "SURVEY" | "DESERT" | "TUNDRA" | "RELIC" | "CORRECTION" | "METROPOLIS";
 
 /** Card rarity (docs/house-charges-plan.md "Card design"). */
 export type HouseChargeRarity = "COMMON" | "RARE" | "MYTHIC";
 
-export const HOUSE_CHARGE_KINDS: readonly HouseChargeKind[] = ["CHARTER", "SEAT", "SURVEY", "DESERT", "TUNDRA", "RELIC"];
+export const HOUSE_CHARGE_KINDS: readonly HouseChargeKind[] = ["CHARTER", "SEAT", "SURVEY", "DESERT", "TUNDRA", "RELIC", "CORRECTION", "METROPOLIS"];
 
 /** Charges offered at landing, and how many of them the House keeps. */
 export const HOUSE_CHARGES_OFFERED = 3;
@@ -20,6 +24,8 @@ export const HOUSE_CHARGES_CHOICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 /** At most this many Houses may be dealt the same town; other targets allow HOUSE_CHARGE_TARGET_CAP. */
 export const HOUSE_CHARGE_TOWN_CAP = 5;
 export const HOUSE_CHARGE_TARGET_CAP = 3;
+/** At most this many Houses may be dealt a Writ of Correction against the same rival House (like a town). */
+export const HOUSE_CHARGE_HOUSE_CAP = 5;
 
 // Distance bands from the House's landing site, in tiles (wrapped Manhattan
 // distance). Validated by the 2026-11-12 simulation on real season worldgen.
@@ -30,6 +36,12 @@ export const HOUSE_CHARGE_CHARTER_PAIR_MAX_DISTANCE = 35;
 export const HOUSE_CHARGE_SEAT_MIN_DISTANCE = 6;
 export const HOUSE_CHARGE_SEAT_MAX_DISTANCE = 45;
 export const HOUSE_CHARGE_REGION_MAX_DISTANCE = 35;
+/** Writ of Correction: the named rival's landing site lies in this band. */
+export const HOUSE_CHARGE_CORRECTION_MIN_DISTANCE = 12;
+export const HOUSE_CHARGE_CORRECTION_MAX_DISTANCE = 45;
+/** Three Metropolises: how many Metropolises on the named landmass, and the landmass's nearest tile within this distance. */
+export const HOUSE_CHARGE_METROPOLIS_COUNT = 3;
+export const HOUSE_CHARGE_METROPOLIS_MAX_DISTANCE = 35;
 export const HOUSE_CHARGE_RELIC_MAX_DISTANCE = 45;
 
 /** Survey Claim: landmasses with this many LAND tiles are eligible. */
@@ -68,6 +80,8 @@ export type HouseCharge = {
   areaTiles?: number;
   /** CHARTER: the two towns are on different landmasses, joined by sea through two of the House's docks. */
   crossWater?: boolean;
+  /** METROPOLIS: towns on the landmass when dealt. */
+  areaTowns?: number;
 };
 
 /** A House's charges, stored on its player record. */
@@ -97,7 +111,7 @@ export type HouseChargeResult = {
   held: boolean;
   /** Whole hours the charge had been continuously complete at the crowning; 0 when not held. */
   hoursHeld: number;
-  /** Kind-specific size: road length, town tier index, tiles garrisoned, or 1 for a relic. */
+  /** Kind-specific size: road length, town tier index, tiles garrisoned, 1 for a relic, the rival's AFCs held (Correction) or Metropolises held (Metropolis). */
   size: number;
   /** Place names the charge pointed at (towns, region or landmass); absent for an unrevealed relic. */
   places?: string[];
@@ -114,6 +128,9 @@ export type SeasonHouseChargesSnapshot = {
   charges: HouseChargeResult[];
 };
 
+/** A House's name as its heralds write it: "Varn" becomes "House Varn"; a name already styled "House …" is kept. */
+export const houseStyledName = (name: string): string => (/^house\s/i.test(name) ? name : `House ${name}`);
+
 /** Human-readable title of a charge, e.g. "Road of Vell and Harrowmere". */
 export const houseChargeTitle = (charge: Pick<HouseCharge, "kind" | "targets">): string => {
   const [first, second] = charge.targets;
@@ -123,6 +140,10 @@ export const houseChargeTitle = (charge: Pick<HouseCharge, "kind" | "targets">):
       return `Road of ${name} and ${second?.name ?? "Unknown"}`;
     case "SEAT":
       return `Seat of ${name}`;
+    case "CORRECTION":
+      return `The Correction of ${houseStyledName(name)}`;
+    case "METROPOLIS":
+      return `Three Metropolises of ${name}`;
     case "RELIC":
       return "A Concordance installation";
     default:
@@ -166,6 +187,8 @@ export type HouseChargeView = {
   areaTileKeys?: string[];
   /** CHARTER on two landmasses: the road crosses the sea through two of the House's docks. */
   crossWater?: boolean;
+  /** METROPOLIS: towns on the landmass when dealt. */
+  areaTowns?: number;
 };
 
 /** Pushed to a House when its charges are dealt or change, and on connect. */
