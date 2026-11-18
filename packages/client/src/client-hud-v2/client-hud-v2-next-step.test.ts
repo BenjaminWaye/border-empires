@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
 import { hasRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
-import { coinShortText, formatEta, msUntilCoin, nextSteps, nextStepsHtml, type NextStepInput } from "./client-hud-v2-next-step.js";
+import { NEXT_STEP_CAP, coinShortText, formatEta, isCoinLow, msUntilCoin, nextSteps, nextStepsHtml, type NextStepInput } from "./client-hud-v2-next-step.js";
+import type { NextStepSources } from "./client-hud-v2-next-step-sources.js";
 import { trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { compactTracker, compactTrackerHtml, trackerSummaryHtml } from "./client-hud-v2-compact.js";
 
 const PER_DAY = 1 / 1440; // coin per minute that makes 1 coin per day
-const idle: NextStepInput = { devBusy: 0, queued: 0, manpower: 120, beaconCost: 50, beaconBuildable: true, nextBatchInMs: 75 * 60_000, gold: 10, netPerMinute: 24 * PER_DAY, nextManifestCost: 40 };
+const idle: NextStepInput = { devBusy: 0, queued: 0, manpower: 120, manpowerCap: 400, beaconCost: 50, beaconBuildable: true, nextBatchInMs: 75 * 60_000, gold: 10, netPerMinute: 24 * PER_DAY, nextManifestCost: 40 };
 
 // Playtest 2026-11-18: two testers ran out of coin, saw nothing to build and quit at 9 and 12 minutes.
 describe("tracker next step while the slots are idle", () => {
@@ -52,9 +53,11 @@ describe("tracker next step while the slots are idle", () => {
     expect(nextSteps({ ...idle, gold: 45 })[1]).toMatchObject({ title: "Manifest affordable", open: { kind: "open", key: "manifest" } });
   });
 
-  it("stays out of the way while anything builds or waits for a slot", () => {
-    expect(nextSteps({ ...idle, devBusy: 1 })).toEqual([]);
-    expect(nextSteps({ ...idle, queued: 2 })).toEqual([]);
+  it("stays out of the way while anything builds or waits for a slot and nothing is low", () => {
+    // Review of #2867: a few coin short of the next Manifest is the normal state, not "low".
+    const comfortable = { ...idle, gold: 35, sources: lowSources }; // 5 short at 24/day: 5h away
+    expect(nextSteps({ ...comfortable, devBusy: 1 })).toEqual([]);
+    expect(nextSteps({ ...comfortable, queued: 2 })).toEqual([]);
   });
 
   it("renders rows that open what they talk about", () => {
@@ -67,6 +70,62 @@ describe("tracker next step while the slots are idle", () => {
   // UX review: the beacon row looked tappable but did nothing.
   it("renders the beacon step as a button that starts placement", () => {
     expect(nextStepsHtml(nextSteps(idle))).toContain('<button type="button" class="hud-v2-tracker-row hud-v2-next-step" data-hud-v2-beacon="RELAY_BEACON"');
+  });
+});
+
+const lowSources: NextStepSources = {
+  salvage: { x: 3, y: 4, delivered: 1000, loads: 2 },
+  waystation: { x: 5, y: 6, owned: true },
+  neutralTown: { x: 7, y: 8, name: "Kettlenook" },
+  manufactoryTown: { x: 9, y: 9, name: "Ashford" }
+};
+
+// Owner feedback 2026-11-18: with MP low the tracker only said "Saving MP", though salvage, a waystation or
+// a neutral town would help; with coin low it never mentioned a Manufactory. Shown even while slots are busy.
+describe("tracker next step when manpower or coin runs low", () => {
+  it("names where more manpower comes from, each row focusing its tile", () => {
+    const steps = nextSteps({ ...idle, manpower: 19, gold: 45, sources: lowSources });
+    expect(steps.map((s) => s.title)).toEqual(["Saving MP", "Ship salvage to the Court", "Activate a waystation", "Take a neutral town", "Manifest affordable"]);
+    expect(steps[1]).toMatchObject({ sub: "+1,000 MP · 2 of 3 loads left", focus: { x: 3, y: 4 } });
+    expect(steps[2]).toMatchObject({ sub: "1 in 6 chance of +1,000 MP", focus: { x: 5, y: 6 } });
+    expect(steps[3]).toMatchObject({ sub: "Kettlenook · more manpower every batch", focus: { x: 7, y: 8 } });
+    expect(nextStepsHtml(steps)).toContain('data-hud-v2-focus-x="3" data-hud-v2-focus-y="4"');
+  });
+
+  it("asks to claim a waystation the player doesn't own yet", () => {
+    const steps = nextSteps({ ...idle, manpower: 19, sources: { waystation: { x: 1, y: 1, owned: false } } });
+    expect(steps.find((s) => s.title === "Claim a waystation")?.sub).toBe("Expand To it, then Activate · 1 in 6 chance of +1,000 MP");
+  });
+
+  it("counts manpower as low under a quarter of the cap even when a beacon is affordable", () => {
+    const steps = nextSteps({ ...idle, manpower: 99, gold: 45, sources: lowSources });
+    expect(steps[0]?.title).toBe("Build a Relay Beacon");
+    expect(steps.map((s) => s.title)).toContain("Ship salvage to the Court");
+    expect(nextSteps({ ...idle, manpower: 300, gold: 45, sources: lowSources }).map((s) => s.title)).not.toContain("Ship salvage to the Court");
+  });
+
+  it("counts coin as low only when the next Manifest is over 12h away or income has stopped", () => {
+    expect(isCoinLow({ ...idle, gold: 35 })).toBe(false); // 5h away
+    expect(isCoinLow(idle)).toBe(true); // 30h away
+    expect(isCoinLow({ ...idle, netPerMinute: 0 })).toBe(true);
+    expect(isCoinLow({ ...idle, gold: 0, netPerMinute: 1 / 60 })).toBe(true);
+    expect(isCoinLow({ ...idle, nextManifestCost: undefined })).toBe(false);
+  });
+
+  it("caps the rows so the tracker keeps its other groups in view", () => {
+    const steps = nextSteps({ ...idle, manpower: 19, netPerMinute: 0, sources: lowSources, manufactoryCost: 150 });
+    expect(steps).toHaveLength(NEXT_STEP_CAP);
+  });
+
+  it("suggests a Manufactory when coin is low", () => {
+    const steps = nextSteps({ ...idle, manpower: 300, netPerMinute: 0, sources: lowSources, manufactoryCost: 150 });
+    expect(steps.at(-1)).toMatchObject({ title: "Build a Manufactory", sub: "150 MP · more Coin from Ashford", focus: { x: 9, y: 9 } });
+  });
+
+  it("still shows while the slots are busy", () => {
+    const steps = nextSteps({ ...idle, devBusy: 2, manpower: 19, netPerMinute: 0, sources: lowSources, manufactoryCost: 150 });
+    expect(steps.map((s) => s.title)).toEqual(["Ship salvage to the Court", "Activate a waystation", "Take a neutral town", "Next Manifest 40 Coin", "Build a Manufactory"]);
+    expect(nextSteps({ ...idle, devBusy: 2, manpower: 19, gold: 35, sources: lowSources }).map((s) => s.title)).toEqual(["Ship salvage to the Court", "Activate a waystation", "Take a neutral town"]);
   });
 });
 
@@ -119,6 +178,13 @@ describe("tracker wiring", () => {
     expect(line).not.toContain("Dev 0/3");
     expect(trackerSummaryHtml({ ...input, nextSteps: [] })).toContain("Dev 0/3");
     expect(trackerSummaryHtml({ ...input, nextSteps: [] })).not.toContain("v2c-track-next");
+  });
+
+  // Review of #2867: busy slots keep their count on the folded phone line; "Next" follows it.
+  it("keeps Dev on the folded phone line while slots are busy", () => {
+    const line = trackerSummaryHtml({ ...input, buildSlots: { busy: 2, limit: 3 } });
+    expect(line).toContain("Dev 2/3");
+    expect(line).toContain("v2c-track-next");
   });
 
   it("lets a decision that needs you lead instead", () => {
