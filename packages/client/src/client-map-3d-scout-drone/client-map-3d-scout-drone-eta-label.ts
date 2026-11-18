@@ -5,13 +5,13 @@ import { drawScoutDroneEtaPill } from "../client-scout-drone/client-scout-drone-
 // the why and the 2D half): one camera-facing sprite floating over the drone. Its canvas texture
 // is repainted only when the text changes (about once a second), never per frame.
 
-const CANVAS_WIDTH = 256;
-const CANVAS_HEIGHT = 64;
-const FONT_PX = 30;
-/** World size of the sprite; keeps the canvas's 4:1 aspect. */
-const LABEL_WORLD_WIDTH = 1.7;
+const CANVAS_WIDTH = 512;
+const CANVAS_HEIGHT = 128;
+const FONT_PX = 60;
+/** World size of the sprite (the width of the map's floating text, client-map-3d-floating-text.ts); keeps the canvas's 4:1 aspect. */
+const LABEL_WORLD_WIDTH = 3.2;
 /** Above the drone's body, clear of its rotor discs. */
-export const SCOUT_ETA_LABEL_LIFT = 0.95;
+export const SCOUT_ETA_LABEL_LIFT = 1.25;
 
 export type ScoutDroneEtaLabel = {
   /** Shows `text` centred at the scene point, or hides the label when `text` is undefined. */
