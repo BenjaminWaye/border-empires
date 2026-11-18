@@ -538,7 +538,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   });
   renderSeasonEndOverlay({
     state, overlayEl: dom.seasonEndOverlayEl, renderHud: () => renderClientHud(deps),
-    ...seasonStartSenders(sendGameMessage), openGuestSave: () => openGuestSavePanel("next-contest"), wsUrl
+    ...seasonStartSenders(sendGameMessage), openGuestSave: () => openGuestSavePanel("next-contest"), wsUrl, firebaseAuth
   });
 
   syncAuthOverlay();

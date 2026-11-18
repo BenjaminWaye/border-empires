@@ -13,6 +13,7 @@ import {
 } from "./client-last-contest-recap/client-last-contest-recap.js";
 import { miscPanel } from "./client-season-end-overlay/client-season-end-misc-panel.js";
 import { ensureHouseChargeReveal, houseChargeRevealHtml } from "./client-house-charges/client-house-charge-reveal.js";
+import { renderChargeReward, type ChargeRewardDeps } from "./client-charge-reward/client-charge-reward.js";
 import { scoreGraphPanel } from "./client-season-end-score-graph.js";
 import { nextContestButtonLabel, nextContestFineprint } from "./client-next-contest/client-next-contest.js";
 
@@ -58,6 +59,8 @@ type SeasonEndOverlayDeps = {
   openGuestSave?: () => void;
   // Enables the reopenable Last Contest Recap (client-last-contest-recap).
   wsUrl?: string;
+  // Reads the House's banked Domain score for the charge reward (client-charge-reward).
+  firebaseAuth?: ChargeRewardDeps["firebaseAuth"];
 };
 
 // The plate renderer's inputs: the live season-end slice, or one rebuilt from
@@ -280,7 +283,11 @@ const renderSeasonEndPlate = (deps: SeasonEndPlateDeps): void => {
 
   const leaderboard: SeasonEndLeaderboard = state.leaderboard;
   // The live screen unseals every House's charges (client-house-charge-reveal.ts); the archived recap does not.
-  if (!recap) ensureHouseChargeReveal(state, `${state.seasonWinner.playerId}:${state.seasonWinner.crownedAt}`, deps.wsUrl, renderHud);
+  if (!recap) {
+    ensureHouseChargeReveal(state, `${state.seasonWinner.playerId}:${state.seasonWinner.crownedAt}`, deps.wsUrl, renderHud);
+    // Once the reveal lands, a House that held charges collects them (client-charge-reward.ts).
+    renderChargeReward({ state, wsUrl: deps.wsUrl, firebaseAuth: deps.firebaseAuth });
+  }
   const signature = renderSignature(state, leaderboard, Boolean(recap));
   if (overlayEl.dataset.seSignature === signature) return;
   overlayEl.dataset.seSignature = signature;

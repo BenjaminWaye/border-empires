@@ -92,7 +92,7 @@ describe("House Charges panel", () => {
     const html = houseChargesPanelHtml(panelState([charge({ renown: 3 })], 0), 5_000);
     expect(html).toContain('aria-label="Difficulty 3 of 4"');
     expect(html).not.toContain("Renown");
-    expect(html).toContain("earn its charge card and a galaxy reward");
+    expect(html).toContain("earn its charge card and Domain score for your House (Common +1, Rare +2, Mythic +4)");
   });
 
   it("gives a rough bearing to a Charter town that has not been scouted yet", () => {
