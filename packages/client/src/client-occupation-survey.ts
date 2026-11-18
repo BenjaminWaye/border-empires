@@ -135,13 +135,14 @@ const presentReports = (incoming: OccupationSurveyReport[]): void => {
 };
 
 export const occupationSurveyController = {
-  record(entry: SurveyEventEntry): void {
+  /** `present: false` keeps the clue (Manifest card, town capture card, Chronicles) without popping it. */
+  record(entry: SurveyEventEntry, present = true): void {
     const report = reportFromEntry(entry);
     if (!report || seenReportIds[report.resource] === report.id) return;
     seenReportIds[report.resource] = report.id;
     if (revealTechIds.includes(TECH_BY_RESOURCE[report.resource])) return;
     reports.set(report.resource, report);
-    if (reportScope !== undefined && readSurveyDismissals(reportScope)[report.resource] === report.id) return;
+    if (!present || (reportScope !== undefined && readSurveyDismissals(reportScope)[report.resource] === report.id)) return;
     presentReports([report]);
   },
   currentReports(techIds: readonly string[] = []): OccupationSurveyReport[] {
@@ -173,6 +174,12 @@ export const occupationSurveyController = {
     if (active && !capturePanelOpen) showPopup(active);
   },
   installViewHandler(handler: (report: OccupationSurveyReport) => void): void { viewHandler = handler; },
+  /**
+   * A call with `scope` is the login (INIT) backfill: its clues are recorded
+   * quietly, never popped, so logging back in does not bury the player in
+   * cards for things that happened while they were away. The clue stays on its
+   * Manifest card and in the Chronicles. Later calls (live updates) pop new clues.
+   */
   reconcile(entries: readonly SurveyEventEntry[], techIds?: readonly string[], scope?: string): void {
     if (scope !== undefined && scope !== reportScope) {
       this.beginCapture();
@@ -191,7 +198,8 @@ export const occupationSurveyController = {
     for (const [resource, report] of reports) if (!currentIds.has(report.id)) reports.delete(resource);
     queue.splice(0, queue.length, ...queue.filter((report) => currentIds.has(report.id)));
     if (active && !currentIds.has(active.id)) dismissPopup();
-    for (const entry of entries) this.record(entry);
+    const present = scope === undefined;
+    for (const entry of entries) this.record(entry, present);
   },
   dismiss: acknowledgePopup
 };

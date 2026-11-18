@@ -5,6 +5,7 @@
 import type { WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
 import { pushFeedEntry, type FeedMutableState } from "./client-alerts/client-alerts.js";
 import { occupationSurveyController } from "./client-occupation-survey.js";
+import { markWaystationActivationsSeenFromEventLog } from "./client-waystation-activation/client-waystation-activation-catchup.js";
 import type { FeedSeverity, FeedType } from "./client-types.js";
 
 export type ClientEventLogEntry = {
@@ -68,8 +69,9 @@ export type EventLogFeedEntry = {
 
 // Converts a server eventLog entry into the shape appendFeedEntry expects,
 // adding a "Go to tile" button whenever the server supplied coordinates.
-export const feedEntryForEventLogEntry = (entry: ClientEventLogEntry): EventLogFeedEntry => {
-  occupationSurveyController.record(entry);
+// `presentSurvey: false` (login backfill) keeps a survey clue without popping its card.
+export const feedEntryForEventLogEntry = (entry: ClientEventLogEntry, presentSurvey = true): EventLogFeedEntry => {
+  occupationSurveyController.record(entry, presentSurvey);
   const { type, severity } = feedMappingForEventType(entry.type);
   return {
     text: entry.text,
@@ -99,11 +101,13 @@ export const feedEntryForEventLogEntry = (entry: ClientEventLogEntry): EventLogF
 export const FEED_BACKFILL_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export const seedFeedFromEventLog = (
-  state: FeedMutableState,
+  state: FeedMutableState & { me?: string },
   incomingEventLog: ClientEventLogEntry[],
   nowMs: number = Date.now()
 ): void => {
+  // A first sync is a login backfill: its waystation cards stay quiet (the feed lines below say what happened).
+  if (state.me) markWaystationActivationsSeenFromEventLog(incomingEventLog, { me: state.me });
   const cutoff = nowMs - FEED_BACKFILL_WINDOW_MS;
   const toBackfill = incomingEventLog.filter((entry) => entry.occurredAt >= cutoff).sort((a, b) => a.occurredAt - b.occurredAt);
-  for (const entry of toBackfill) pushFeedEntry(state, feedEntryForEventLogEntry(entry));
+  for (const entry of toBackfill) pushFeedEntry(state, feedEntryForEventLogEntry(entry, false));
 };

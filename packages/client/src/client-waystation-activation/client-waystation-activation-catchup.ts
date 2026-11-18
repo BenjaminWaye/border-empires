@@ -3,6 +3,7 @@ import { buildWaystationActivationInfo } from "./client-waystation-activation-de
 import { showWaystationActivationOverlay, type WaystationActivationInfo } from "./client-waystation-activation.js";
 import { showWaystationActivationOverlayWhenClear, type WaystationPopupGateState } from "./client-waystation-activation-gate.js";
 import type { ClientEventLogEntry } from "../client-event-log-html.js";
+import { retireWaystationDiscoveryTip, type DiscoveryTipId } from "../client-discovery-tips/client-discovery-tips.js";
 
 // Waystation activation normally pops a hero overlay via the live
 // TILE_DELTA_BATCH path (client-waystation-activation-detect.ts), but that
@@ -141,6 +142,27 @@ export const notifyWaystationActivationsFromEventLog = (
   }
 ): void => {
   for (const entry of entries) notifyWaystationActivationEventLogEntry(entry, state, deps);
+};
+
+/**
+ * The login (INIT) backfill: marks every WAYSTATION_ACTIVATED entry as seen
+ * without showing its card. Logging back in must not stack cards for
+ * activations that happened while the player was away; the Chronicles entry
+ * already tells them what they got. Marking them seen also keeps a later live
+ * sync of the same entries from popping them.
+ */
+export const markWaystationActivationsSeenFromEventLog = (
+  entries: ReadonlyArray<ClientEventLogEntry>,
+  state: CatchupState & { discoveryTipQueue?: DiscoveryTipId[]; authEmail?: string | null }
+): void => {
+  if (!state.me) return;
+  const activations = entries.filter((entry) => entry.type === "WAYSTATION_ACTIVATED");
+  if (activations.length === 0) return;
+  const ids = shownIdsFor(state.me);
+  for (const entry of activations) ids.add(`${entry.x ?? 0},${entry.y ?? 0}`);
+  persist(state.me, ids);
+  // An activated waystation answers its Discovered tip, as the live card does.
+  retireWaystationDiscoveryTip(state.discoveryTipQueue, state.authEmail);
 };
 
 /** State fields the deps built by eventLogDepsFromClientState below need to read/mutate -- kept minimal (not a `ClientState` import) so this module stays cheap to test with a plain object literal. */

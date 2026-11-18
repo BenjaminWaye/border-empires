@@ -39,7 +39,7 @@ import { prepareCameraForIncomingPlayer } from "../client-state/client-camera-st
 import { recentreRestoredCameraOverFog } from "../client-restored-camera-fog/client-restored-camera-fog.js";
 import { resetServerReachForNewConnection } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { applyServerExploredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
-import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
+import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { markWaystationActivationsSeenFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
 // handler (that file is well over the repo's 500-line cap and may not grow),
@@ -394,7 +394,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   }
   requestViewRefresh(1, true);
   state.techChoices = (msg.techChoices as string[]) ?? [];
-  state.techCatalog = (msg.techCatalog as any[]) ?? []; notifyWaystationActivationsFromEventLog(state.eventLog, state, eventLogDepsFromClientState(state, requestViewRefresh, renderHud));
+  state.techCatalog = (msg.techCatalog as any[]) ?? []; markWaystationActivationsSeenFromEventLog(state.eventLog, state);
   logIncomingTechPayload("INIT", {
     techIds: player.techIds,
     techChoices: msg.techChoices,
