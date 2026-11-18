@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "./client-town-support-plot-lookup.js";
+import { supportPlotAnchorTown, townSupportPlotEntries, townSupportPlotMapFor2D, type TownSupportLookupDeps } from "./client-town-support-plot-lookup.js";
 import type { Tile } from "./client-types.js";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 
@@ -103,5 +103,22 @@ describe("supportPlotAnchorTown", () => {
     ]);
     const found = supportPlotAnchorTown(farSupportTile, depsFor(tiles));
     expect(found).toBeUndefined();
+  });
+});
+
+describe("empty plot eligibility in both renderers", () => {
+  it("excludes occupied or enemy plots but keeps a fortified empty plot", () => {
+    const town = townTile(10, 10, "CITY");
+    const occupied = landTile(9, 9, { economicStructure: { type: "MANUFACTORY" } as NonNullable<Tile["economicStructure"]> });
+    const enemy = landTile(10, 9, { ownerId: "them" });
+    const fortified = landTile(11, 9, { ownerId: "me", fort: { ownerId: "me" } as NonNullable<Tile["fort"]> });
+    const otherTown = townTile(9, 10, "TOWN");
+    const tiles = new Map([town, occupied, enemy, fortified, otherTown].map(t => [keyFor(t.x, t.y), t]));
+    const deps = depsFor(tiles);
+    const entries = townSupportPlotEntries(town, deps).map(t => keyFor(t.wx, t.wy));
+    expect(entries).not.toContain("9,9"); expect(entries).not.toContain("10,9"); expect(entries).not.toContain("9,10");
+    expect(entries).toContain("11,9");
+    expect([...townSupportPlotMapFor2D(town, deps).keys()]).toEqual(entries);
+    expect(townSupportPlotMapFor2D(undefined, deps).size).toBe(0);
   });
 });

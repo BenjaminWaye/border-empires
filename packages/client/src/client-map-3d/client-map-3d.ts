@@ -6,7 +6,6 @@ import { createCornerSurfaceSampler } from "../client-map-3d-heightfield/client-
 import { createDeferredBuildingOverlay } from "../client-town-district/deferred-building-overlay.js";
 import { addTownForTile } from "./client-map-3d-town-placement.js";
 import { createAfcPadSurfaceSampler } from "../client-map-3d-afc-hill-cut/client-map-3d-afc-hill-cut.js";
-import { createTownSupportMarkerSync } from "../client-town-district/town-support-marker-sync.js";
 import { createDistrictMap3D } from "../client-town-district/district-map-3d.js";
 import { singleTileSelectionForMap } from "../client-garrison-many/client-garrison-many-model.js";
 import { createGarrisonSelection3D } from "../client-garrison-many/client-garrison-many-3d.js";
@@ -239,12 +238,6 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     createBendingMarkerGeometry(),
     new LineBasicMaterial({ color: "#d5ecff", transparent: true, opacity: 0.8, depthTest: false, depthWrite: false })
   );
-  const townSupportMarkers = Array.from({ length: (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1 }, () => { // sized for a wide-ring anchor, matching townSupportTiles below
-    const material = new LineBasicMaterial({ color: "#f0f4ff", transparent: true, opacity: 0.56, depthTest: false, depthWrite: false });
-    const marker = new LineSegments(createBendingMarkerGeometry(), material);
-    marker.visible = false;
-    return { marker, material };
-  });
   const queuedActionMarkers = Array.from({ length: 64 }, () => {
     const material = new LineBasicMaterial({ color: "#a78bfa", transparent: true, opacity: 0.93, depthTest: false, depthWrite: false });
     const marker = new LineSegments(createBendingMarkerGeometry(), material);
@@ -292,14 +285,12 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const selectionRangeOverlays = createSelectionRangeOverlays(scene);
   selectedMarker.renderOrder = RENDER_ORDER.selectedMarker;
   hoverMarker.renderOrder = RENDER_ORDER.hoverMarker;
-  for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedBuildMarkers) marker.renderOrder = 29;
   for (const { marker } of waypointPathMarkers) marker.renderOrder = 29;
   selectedMarker.frustumCulled = false;
   hoverMarker.frustumCulled = false;
-  for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedActionMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedBuildMarkers) marker.frustumCulled = false;
@@ -311,7 +302,6 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   scene.add(
     selectedMarker,
     hoverMarker,
-    ...townSupportMarkers.map(({ marker }) => marker),
     ...queuedActionMarkers.map(({ marker }) => marker),
     ...queuedSettlementMarkers.map(({ marker }) => marker),
     ...queuedBuildMarkers.map(({ marker }) => marker),
@@ -376,14 +366,11 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const garrisonSelection = createGarrisonSelection3D(scene);
   // Shared with the 2D renderer -- see client-town-support-plot-lookup.ts.
   const townSupportLookupDeps: TownSupportLookupDeps = {
-    tiles: deps.state.tiles, wrapX: deps.wrapX, wrapY: deps.wrapY, keyFor: deps.keyFor, terrainAt: deps.terrainAt, me: deps.state.me
+    get tiles() { return deps.state.tiles; }, wrapX: deps.wrapX, wrapY: deps.wrapY, keyFor: deps.keyFor, terrainAt: deps.terrainAt, get me() { return deps.state.me; }
   };
-  const syncTownSupportMarkers = createTownSupportMarkerSync({ state: deps.state, markers: townSupportMarkers, lookup: townSupportLookupDeps,
-    keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, origin: sceneOrigin, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
-    cornerYAt: (x, y) => heightfield.cornerYAt(x, y), toroidDelta, rise: MARKER_RISE_ABOVE_HEIGHTFIELD });
-  let latestHillCutAt: (x: number, y: number) => RoadCutDirections | undefined = () => undefined; // set by each terrain rebuild; read by the per-frame hatch sync
+  let latestHillCutAt: (x: number, y: number) => RoadCutDirections | undefined = () => undefined; // set by each terrain rebuild; read by the per-frame corner-marker sync
   const syncTownSupportTiles = createTownSupportTileSync({
-    overlay: townSupportTiles, lookupDeps: townSupportLookupDeps, selected: () => deps.state.selected, sceneOrigin, toroidDelta, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
+    overlay: townSupportTiles, lookupDeps: townSupportLookupDeps, selected: () => deps.state.selected, hover: () => deps.state.hover, visibleAt: (x, y) => deps.tileVisibilityStateAt(x, y, deps.state.tiles.get(deps.keyFor(x, y))) === "visible", sceneOrigin, toroidDelta, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
     cornerYAt: (x, y) => heightfield.cornerYAt(x, y), isHillsAt: isHillsTile, hillCutAt: () => latestHillCutAt, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD
   });
   const district = createDistrictMap3D(scene, MAX_VISIBLE_TILES, { state: deps.state, origin: sceneOrigin,
@@ -1127,7 +1114,6 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     maybeRebuild(nowMs); (selectedMarker.material as LineBasicMaterial).color.set(deps.state.selected && !resolveMyReachCached(deps.state).has(deps.keyFor(deps.state.selected.x, deps.state.selected.y)) ? "#ff8a3d" : "#ffd166"); // fixed-border reach: warning-orange outside reach
     syncHighlightMarker(selectedMarker, singleTileSelectionForMap(deps.state), MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_RISE_ABOVE_HEIGHTFIELD);
-    syncTownSupportMarkers();
     syncTownSupportTiles();
     syncQueueMarkers();
     garrisonSelection.sync(deps.state.garrisonMany, tileHighlightDeps);
@@ -1207,10 +1193,6 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     garrisonSelection.dispose();
     crystalTargetingOverlay.dispose();
     frontierSupplyOverlay.dispose();
-    for (const { marker, material } of townSupportMarkers) {
-      marker.geometry.dispose();
-      material.dispose();
-    }
     for (const { marker, material } of queuedActionMarkers) {
       marker.geometry.dispose();
       material.dispose();
